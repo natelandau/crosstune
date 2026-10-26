@@ -442,30 +442,30 @@ private func link(_ provider: String, _ providerRef: String?, url: String = "htt
 
         @Test func givesTheWebViewToTheShownHostWhateverOrderTheyArrive() {
             let stage = EmbedStage()
-            let parked = NSView()
+            let offscreen = NSView()
             let shown = NSView()
             stage.attach(shown, embed: embed, prominence: .shown)
-            stage.attach(parked, embed: embed, prominence: .parked)
+            stage.attach(offscreen, embed: embed, prominence: .offscreen)
             #expect(webView(in: shown) != nil)
-            #expect(webView(in: parked) == nil)
+            #expect(webView(in: offscreen) == nil)
 
             let other = EmbedStage()
-            let parkedFirst = NSView()
+            let offscreenFirst = NSView()
             let shownSecond = NSView()
-            other.attach(parkedFirst, embed: embed, prominence: .parked)
+            other.attach(offscreenFirst, embed: embed, prominence: .offscreen)
             other.attach(shownSecond, embed: embed, prominence: .shown)
             #expect(webView(in: shownSecond) != nil)
         }
 
         @Test func movesTheSameWebViewBackWhenTheShownHostLeaves() throws {
             let stage = EmbedStage()
-            let parked = NSView()
+            let offscreen = NSView()
             let shown = NSView()
-            stage.attach(parked, embed: embed, prominence: .parked)
+            stage.attach(offscreen, embed: embed, prominence: .offscreen)
             stage.attach(shown, embed: embed, prominence: .shown)
             let playing = try #require(webView(in: shown))
             stage.detach(shown)
-            #expect(webView(in: parked) === playing)
+            #expect(webView(in: offscreen) === playing)
         }
 
         @Test func playsOnceAcrossWindowsInTheWindowInUse() throws {

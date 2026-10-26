@@ -45,7 +45,7 @@ describe('useEscapeCapture', () => {
     expect(onEscape).not.toHaveBeenCalled()
   })
 
-  it('stands down while disabled and once unmounted', () => {
+  it('does nothing while disabled and once unmounted', () => {
     const onEscape = vi.fn()
     const { rerender, unmount } = renderHook(
       ({ enabled }) => useEscapeCapture(onEscape, { enabled, when: () => true }),

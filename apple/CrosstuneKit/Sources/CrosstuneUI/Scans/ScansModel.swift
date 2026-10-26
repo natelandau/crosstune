@@ -236,7 +236,7 @@ public final class ScansModel {
         move(from: index, to: place.destination(from: index, count: scans.count))
     }
 
-    /// Moves the scan at `from` to where the scan at `to` stands, among the scans on screen.
+    /// Moves the scan at `from` to where the scan at `to` is, among the scans on screen.
     public func move(from: Int, to: Int) {
         let scans = scans
         guard let move = ListMove(ids: scans.map(\.id), from: from, to: to) else { return }

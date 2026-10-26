@@ -85,7 +85,7 @@ public struct AnalyticsClient: Sendable {
     }
 
     /// Turns sending on or off, as the musician's preference says. `rememberedUserID` is the user
-    /// the app remembers as signed in, which stands in for the session's user until it reports
+    /// the app remembers as signed in, which substitutes for the session's user until it reports
     /// one, so a person the SDK still holds is kept or forgotten correctly.
     public func setEnabled(_ enabled: Bool, rememberedUserID: String?) {
         sink.setEnabled(enabled, rememberedUserID: rememberedUserID)

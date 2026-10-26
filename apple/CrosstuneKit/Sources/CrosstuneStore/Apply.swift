@@ -67,7 +67,7 @@ extension StoreWriter {
 
     /// Decodes a server row for `table`, without saving it: a caller decides first whether a
     /// local write outranks it, then calls the returned closure to store it. An event row's
-    /// creation time stands in for `updated_at`, as it does on its queued insert.
+    /// creation time substitutes for `updated_at`, as it does on its queued insert.
     private func decodeWireRow(table: SyncTable, _ row: JSONObject) throws -> (
         id: String, updatedAt: Timestamp, save: () throws -> Void
     ) {

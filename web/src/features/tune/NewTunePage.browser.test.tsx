@@ -312,14 +312,14 @@ it('Undo while typing a new title creates nothing and keeps the page', async () 
 it.each([
   ['phone', { width: 390, height: 844 }],
   ['wide', { width: 1280, height: 800 }],
-] as const)('the band keeps its gutter as the tune is created (%s)', async (_, frame) => {
+] as const)('the header keeps its gutter as the tune is created (%s)', async (_, frame) => {
   const { db } = await setup(frame)
   await page.getByRole('button', { name: ADD_TUNE }).first().click()
   await expect.element(title()).toHaveFocus()
   const before = title().element().getBoundingClientRect().left
   await userEvent.keyboard('Soldier’s Joy{Enter}')
   await expect.poll(() => count(db)).toBe(2)
-  // The key tile leads the created page's band where the field led the new one's.
+  // The key tile leads the created page's header where the field led the new one's.
   await expect.element(keyTile()).toBeVisible()
   await expect.poll(() => keyTile().element().getBoundingClientRect().left).toBe(before)
 })

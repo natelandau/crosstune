@@ -106,13 +106,13 @@ import Testing
             #expect(!CatalogScreen.isEmptyCatalog(nil, query: ""))
         }
 
-        /// The search field's filters button stands down with nothing to filter, as it does while
+        /// The search field's filters button is disabled with nothing to filter, as it does while
         /// selecting, and stays up while the catalog loads so it never flickers.
-        @Test func filtersStandDownForAnEmptyCatalogOrASelection() {
-            #expect(!CatalogScreen.filtersStandDown(full, isSelecting: false))
-            #expect(CatalogScreen.filtersStandDown(full, isSelecting: true))
-            #expect(CatalogScreen.filtersStandDown(emptied(full), isSelecting: false))
-            #expect(!CatalogScreen.filtersStandDown(nil, isSelecting: false))
+        @Test func filtersAreDisabledForAnEmptyCatalogOrASelection() {
+            #expect(!CatalogScreen.filtersAreDisabled(full, isSelecting: false))
+            #expect(CatalogScreen.filtersAreDisabled(full, isSelecting: true))
+            #expect(CatalogScreen.filtersAreDisabled(emptied(full), isSelecting: false))
+            #expect(!CatalogScreen.filtersAreDisabled(nil, isSelecting: false))
         }
     #endif
 

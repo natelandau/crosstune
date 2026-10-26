@@ -2,7 +2,7 @@ import { cleanup } from '@testing-library/react'
 import '@testing-library/jest-dom/vitest'
 import { afterEach, vi } from 'vitest'
 import '../app.css'
-import { resetBackTrailForTest } from '../layout/backTrail'
+import { resetBackHistoryForTest } from '../layout/backHistory'
 import { resetDestinationsForTest } from '../layout/destinations'
 import { resetSelectingForTest } from '../features/selection/useScreenSelection'
 import { resetOverlayClaimsForTest } from '../ui/overlayClaim'
@@ -14,7 +14,7 @@ afterEach(() => {
   resetOverlayClaimsForTest()
   resetSelectingForTest()
   resetDestinationsForTest()
-  resetBackTrailForTest()
+  resetBackHistoryForTest()
   sessionStorage.clear()
   localStorage.clear()
 })

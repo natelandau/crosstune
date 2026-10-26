@@ -73,7 +73,7 @@ public enum LinkAudio: Equatable, Sendable {
 
 extension PlayerItem {
     /// A recording as the player names it: its label, then its tune's title, then when it was
-    /// made. The player stands apart from any heading, so the tune is never dropped.
+    /// made. The player sits apart from any heading, so the tune is never dropped.
     public static func recording(
         _ recording: Recording, tuneTitle: String?, locale: Locale = .current, timeZone: TimeZone = .current
     ) -> PlayerItem {
@@ -97,7 +97,7 @@ extension PlayerItem {
     }
 }
 
-/// Where a loaded recording's audio stands.
+/// The state of a loaded recording's audio.
 public enum RecordingAudio: Equatable, Sendable {
     /// Looking for the audio on this device, or fetching it from the server.
     case fetching

@@ -67,7 +67,7 @@ enum LoopSchedule {
         position >= loop.from && position < loop.to
     }
 
-    /// Where playback should stand once Repeat or the loop changes, or play starts: the loop
+    /// Where playback should be once Repeat or the loop changes, or play starts: the loop
     /// start for a repeating loop the position is outside, and the position otherwise.
     static func entry(position: TimeInterval, loop: PlaybackWindow?, repeat repeating: Bool) -> TimeInterval {
         guard repeating, let loop, !contains(loop, position) else { return position }
@@ -118,7 +118,7 @@ struct ScheduledRun: Equatable {
     let leadFrames: AVAudioFramePosition
     let loop: LoopRun?
 
-    /// Where playback stands after the node has played `playedFrames` of this run. Past the
+    /// Where playback is after the node has played `playedFrames` of this run. Past the
     /// lead, a repeating run folds back into the loop by whole passes, so the position never
     /// runs past the loop end however late a pass's completion arrives.
     func position(playedFrames: AVAudioFramePosition, sampleRate: Double, duration: TimeInterval) -> TimeInterval {
@@ -131,7 +131,7 @@ struct ScheduledRun: Equatable {
     }
 }
 
-/// Where playback stands on the trimmed timeline: where the scheduled segment starts, plus the
+/// Where playback is on the trimmed timeline: where the scheduled segment starts, plus the
 /// frames the player node has played of it, held within `duration`.
 func playbackPosition(
     segmentStart: TimeInterval, playedFrames: AVAudioFramePosition, sampleRate: Double, duration: TimeInterval

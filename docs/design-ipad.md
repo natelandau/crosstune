@@ -9,9 +9,9 @@ only `design-ios.md`. The Mac and iPhone never take a rule from here.
 ## Principles
 
 - iPhone's rows, zones, and tokens. The Mac's composition and tab order.
-- Two jobs, one tap apart: the library and the Stand (practice beside the
-  playing tune's scans and lyrics).
-- The Stand gets the boldest design. Everything else stays quiet.
+- Two jobs, one tap apart: the library and the practice screen (practice
+  beside the playing tune's scans and lyrics).
+- The practice screen gets the boldest design. Everything else stays quiet.
 
 ## Tokens
 
@@ -28,17 +28,17 @@ only `design-ios.md`. The Mac and iPhone never take a rule from here.
 - Settings is a tab at regular width, since the bar has the room the
   phone lacks.
 - iPadOS 27 and later: Record is the iPhone's prominent slot. iPadOS 26
-  has no prominent role, so Record sits in the foot there.
+  has no prominent role, so Record sits in the bottom bar there.
 - A form change keeps every destination's state.
 
-## The foot
+## Bottom bar
 
-- `PadFoot`: our own glass capsule, centered at the window foot in every
-  form.
+- `PadBottomBar`: our own glass capsule, centered at the window's bottom
+  edge in every form.
 - Holds the iPhone's player accessory while something is loaded, up to
-  `PadStyle.footMaxWidth`.
-- Columns leave `PadStyle.footClearance` under the last row only while the
-  capsule shows.
+  `PadStyle.bottomBarMaxWidth`.
+- Columns leave `PadStyle.bottomBarClearance` under the last row only
+  while the capsule shows.
 - Fixed height, so its text stops growing at the first accessibility size.
 
 ## Columns
@@ -58,10 +58,10 @@ only `design-ios.md`. The Mac and iPhone never take a rule from here.
 - Images decode at their drawn size.
 - A page fading out takes no taps.
 
-## The Stand
+## Practice screen
 
-- `Stand` wraps practice and `StandArrangement` picks the layout. Labels
-  and code call it practice.
+- `PadPracticeScreen` wraps practice and `PadPracticeLayout` picks the
+  layout. Labels call it practice.
 - One layout whose axis changes, so practice keeps its state across
   rotation and a hidden pane.
 - Whole controls beat a larger scan: reading gives way before practice's
@@ -70,13 +70,13 @@ only `design-ios.md`. The Mac and iPhone never take a rule from here.
 ## Sheets
 
 - Every `.shellSheet()` sheet is a centered `.form` sheet. Part-height
-  sheets keep their detents. Full-screen readers and the Stand stay full
-  screen.
+  sheets keep their detents. Full-screen readers and the practice screen
+  stay full screen.
 
 ## Motion
 
-- A reader opened from the Stand opens plainly, since its source is behind
-  the cover.
+- A reader opened from the practice screen opens plainly, since its source
+  is behind the cover.
 
 ## Accessibility
 
@@ -97,9 +97,9 @@ SwiftUI and iPadOS behavior that a new screen runs into.
   content column over the detail behind a scrim, and the tab view's
   sidebar is the one sidebar. Columns are a fixed pair splitting the width
   evenly, the content column never under `PadStyle.contentColumnMinWidth`.
-- Selecting: the column's bottom bar holds bulk actions as glyphs named in
+- Selecting: the column's bottom toolbar holds bulk actions as glyphs named in
   words. Never the top bar: a 360pt column has no room, and iPadOS then
   drops Done.
-- Nothing zooms out of the foot: a cover or sheet cannot grow from an
+- Nothing zooms out of the bottom bar: a cover or sheet cannot grow from an
   overlay capsule, and the system accessory, which can, crashes on iPadOS
   26.5.

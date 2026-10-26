@@ -21,9 +21,9 @@ describe('links', () => {
     expect(resolveSiteUrl('http://localhost:4321/')).toBe('http://localhost:4321')
   })
 
-  it('opens the carousel on the story slide, six slides in all', () => {
+  it('opens the carousel on the intro slide, six slides in all', () => {
     expect(WELCOME_SLIDES.map((slide) => slide.id)).toEqual([
-      'story',
+      'intro',
       'catalog',
       'record',
       'practice',

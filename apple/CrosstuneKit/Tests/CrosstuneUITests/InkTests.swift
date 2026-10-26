@@ -7,7 +7,7 @@
     @Suite struct InkTests {
         /// Lines whose hierarchical style is proven to hold where it draws, by file. Each entry
         /// covers one line, so a second line with the same text still fails. A new entry names the
-        /// ground it sits on and why `inkSecondary` cannot stand in.
+        /// ground it sits on and why `inkSecondary` cannot replace it.
         static let allowed: [String: [String]] = [
             // Drawn only on the jet practice ground, a dark ground where the system's
             // hierarchical styles resolve against the dark scheme and hold contrast.

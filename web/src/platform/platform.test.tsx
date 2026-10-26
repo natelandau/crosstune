@@ -4,7 +4,7 @@ import { useReducedMotion } from './motion'
 
 type Listener = (event: { matches: boolean }) => void
 
-/** A matchMedia stand-in that answers each query from a table and can flip an answer live. */
+/** A matchMedia fake that answers each query from a table and can flip an answer live. */
 function installMatchMedia(answers: Record<string, boolean>) {
   const listeners = new Map<string, Set<Listener>>()
   window.matchMedia = (query: string) =>

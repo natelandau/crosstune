@@ -69,7 +69,7 @@ export const MAPKIT_SCRIPT_URL = 'https://cdn.apple-mapkit.com/mk/5.81.60/mapkit
 /** The map, its pin and circle, and the points-of-interest search. */
 export const MAPKIT_LIBRARIES = ['map', 'annotations', 'overlays', 'services'] as const
 
-/** What loading MapKit touches, so a test can stand in for the script, the global, and the clock. */
+/** What loading MapKit touches, so a test can fake the script, the global, and the clock. */
 export interface MapKitEnv {
   /** Loads the script; an abort removes it, so a load that arrives late answers nothing. */
   loadScript(url: string, libraries: readonly string[], signal?: AbortSignal): Promise<void>

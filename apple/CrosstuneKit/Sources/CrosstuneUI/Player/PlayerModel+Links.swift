@@ -130,7 +130,7 @@ extension PlayerModel {
         }
     }
 
-    /// Whether the decision for link `id` still stands: not cancelled, and the link still loaded.
+    /// Whether the decision for link `id` still holds: not cancelled, and the link still loaded.
     func isDeciding(_ id: String) -> Bool {
         !Task.isCancelled && holds(.link, id: id) && linkAudio == .deciding
     }

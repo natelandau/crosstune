@@ -18,7 +18,7 @@ export interface TuneMatches {
 
 /**
  * The catalog narrowed by a picker's query, and what the search offers beyond the matches.
- * `enabled` false stands the catalog query down, for a picker behind a closed sheet.
+ * `enabled` false pauses the catalog query, for a picker behind a closed sheet.
  */
 export function useTuneMatches(query: string, enabled = true): TuneMatches {
   const entries = useCatalog(enabled)

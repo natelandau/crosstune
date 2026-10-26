@@ -121,14 +121,15 @@ public struct ScanViewer: View {
     #if os(macOS)
         static let macSize = MacSheetSize(minWidth: 640, idealWidth: 820, minHeight: 640, idealHeight: 900)
 
-        /// The mat the page lies on: the field gray in light, so a white page stands off it, and
-        /// the surface in dark, where the page is lighter than any mat.
-        static func matHex(_ scheme: ColorScheme) -> String {
+        /// The scan background the page lies on: the field gray in light, so a white page contrasts
+        /// with it, and the surface in dark, where the page is lighter than the background.
+        static func scanBackgroundHex(_ scheme: ColorScheme) -> String {
             Palette.hex(scheme == .dark ? .surface : .field, scheme)
         }
 
-        static var mat: Color {
-            Palette.dynamic(light: KeyColor.RGB(hex: matHex(.light)), dark: KeyColor.RGB(hex: matHex(.dark)))
+        static var scanBackground: Color {
+            Palette.dynamic(
+                light: KeyColor.RGB(hex: scanBackgroundHex(.light)), dark: KeyColor.RGB(hex: scanBackgroundHex(.dark)))
         }
     #endif
 
@@ -238,7 +239,7 @@ private struct ScanViewerBody: View {
                         onDelete: { deleting = scan }
                     )
                     #if os(macOS)
-                        // The page sits on the mat with room for its shadow and the edge buttons.
+                        // The page sits on the scan background with room for its shadow and the edge buttons.
                         .shadow(color: .black.opacity(0.18), radius: 8, y: 2)
                         .padding(.horizontal, 56)
                         .padding(.vertical, 20)
@@ -295,7 +296,7 @@ private struct ScanViewerBody: View {
     }
 
     #if os(macOS)
-        /// A neutral mat in both appearances, the tune's title over the count, and the controls
+        /// A neutral scan background in both appearances, the tune's title over the count, and the controls
         /// on the title's line, with Close last and Escape closing.
         private var content: some View {
             MacSheet(
@@ -311,7 +312,7 @@ private struct ScanViewerBody: View {
                     .padding(.leading, 4)
             } content: {
                 pager
-                    .background(ScanViewer.mat)
+                    .background(ScanViewer.scanBackground)
                     .overlay(alignment: .leading) {
                         edgeButton(ScanCopy.previousScan, systemImage: "chevron.left", key: .leftArrow, step: -1)
                             .disabled(shownIndex == 0)

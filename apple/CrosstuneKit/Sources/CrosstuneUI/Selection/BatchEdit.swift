@@ -259,7 +259,7 @@ public struct BulkEditForm: Equatable, Sendable {
         return ""
     }
 
-    /// Whether the row still stands for tunes that disagree.
+    /// Whether the row still represents tunes that disagree.
     public func isMixed(_ field: EditField) -> Bool {
         touched[field] == nil && summary(field) == .mixed
     }

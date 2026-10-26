@@ -13,7 +13,7 @@ import { SyncPage } from './pages/SyncPage'
 import { TunerPage } from './pages/TunerPage'
 import { TunesPage } from './pages/TunesPage'
 import type { SettingsPageSpec } from './settingsPages'
-import { useLandOnGroup } from './useLandOnGroup'
+import { useScrollToHashGroup } from './useScrollToHashGroup'
 
 const SETTINGS = destination('settings')
 
@@ -35,7 +35,7 @@ export function SettingsPage({ spec }: { spec: SettingsPageSpec }) {
   const Body = BODIES[spec.id]
   const { placeId } = useParams()
   const bodyRef = useRef<HTMLDivElement>(null)
-  useLandOnGroup(bodyRef)
+  useScrollToHashGroup(bodyRef)
   // A saved location has its own bar and title: its name, with Back to Recordings.
   if (spec.id === 'recordings' && placeId) return <SavedLocationDetail placeId={placeId} />
   return (

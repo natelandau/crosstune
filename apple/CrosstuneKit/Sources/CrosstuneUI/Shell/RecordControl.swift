@@ -9,7 +9,7 @@ public enum RecordControl {
     /// The short name, for menus and toolbars. It says the press starts recording at once.
     public static let title = "Start recording"
     /// The shortest name, for the Mac sidebar's capsule, the iPad's Record tab, and the
-    /// iPadOS 26 foot capsule, whose help tag or VoiceOver name gives the full one.
+    /// iPadOS 26 bottom bar, whose help tag or VoiceOver name gives the full one.
     public static let shortLabel = "Record"
     public static let systemImage = "record.circle"
 }
@@ -17,7 +17,7 @@ public enum RecordControl {
 #if os(iOS)
     extension RecordControl {
         /// Whether Record is a tab. iPadOS 26 has no prominent role, and the search role the
-        /// iPhone falls back to draws a search field in the iPad's bars, so the iPad foot keeps
+        /// iPhone falls back to draws a search field in the iPad's bars, so the iPad bottom bar keeps
         /// Record there.
         static var isTab: Bool {
             if #available(iOS 27, *) { true } else { false }
@@ -30,7 +30,7 @@ public enum RecordControl {
 
         /// The Record tab's dot. A bar redraws a template glyph in its own colors, so the dot is
         /// drawn red up front; it draws an original image the same whether or not its tab is
-        /// disabled, so a covered tab shows its standing down with a dimmed dot of its own.
+        /// disabled, so a covered tab shows it is disabled with a dimmed dot of its own.
         static func tabDot(enabled: Bool) -> UIImage {
             enabled ? enabledDot : coveredDot
         }

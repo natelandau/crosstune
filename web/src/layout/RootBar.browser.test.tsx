@@ -174,9 +174,9 @@ it('replaces the row with the selection controls and keeps search', async () => 
   await expect.element(account()).toBeVisible()
 })
 
-it('truncates a long title before the controls at the roomy size on a 320px phone', async () => {
+it('truncates a long title before the controls at the large size on a 320px phone', async () => {
   const html = document.documentElement
-  html.dataset.textSize = 'roomy'
+  html.dataset.textSize = 'large'
   onTestFinished(() => {
     delete html.dataset.textSize
   })

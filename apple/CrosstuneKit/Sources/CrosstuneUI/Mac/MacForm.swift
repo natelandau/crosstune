@@ -486,7 +486,7 @@
         enum Kind {
             case add
             /// A + that shows only while its row is under the pointer or focused, for a list
-            /// where every row adds, so a column of them never stands at rest.
+            /// where every row adds, so a column of them never shows at rest.
             case addOnHighlight
             case done
             case none

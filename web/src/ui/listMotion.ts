@@ -76,7 +76,7 @@ const sameOrder = (a: Snapshot, b: Snapshot): boolean => {
 /**
  * Animates the rows of `list` when the set or order of its rows changes after first paint: a
  * row that moves slides from its old place on the spring, a new row fades in, and a removed
- * row fades out where it stood while the rows below slide up over it. A change to the rows'
+ * row fades out where it was while the rows below slide up over it. A change to the rows'
  * size alone, such as a resize, moves nothing. Paused while a drag is under way or settling,
  * since the drag places the rows itself, and off under reduced motion.
  *
@@ -192,7 +192,7 @@ function fadeIn(row: HTMLElement): void {
 }
 
 /**
- * Shows the removed row's last frame where it stood, under the rows that slide up over it,
+ * Shows the removed row's last frame where it was, under the rows that slide up over it,
  * until it has faded. It is a picture: hidden from assistive technology, inert, and outside
  * the rows the list counts.
  */

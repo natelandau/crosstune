@@ -98,7 +98,7 @@ private func applyIfChanged<Value: Equatable>(
 }
 
 extension StoreWriter {
-    /// Write back each snapshot's fields onto the row as it stands now, so edits made to other
+    /// Write back each snapshot's fields onto the row as it is now, so edits made to other
     /// fields since the bulk write survive. A row deleted since is skipped.
     public func restoreFields(_ snapshots: [Snapshot], at time: Timestamp = .now) throws {
         for snapshot in snapshots {

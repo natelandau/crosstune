@@ -4,7 +4,7 @@ import SwiftUI
 /// The whole trimmed recording, every loop as a band beneath it, the playhead, and a box around
 /// the stretch the waveform shows. A tap moves the playhead there and a drag carries it along.
 /// Touch and pointer only: the waveform's own adjustable value is the way to the same places
-/// otherwise. Until the recording's length is known, a plain timeline bar stands in.
+/// otherwise. Until the recording's length is known, a plain timeline bar shows instead.
 struct OverviewStrip: View {
     let model: PracticeModel
     let peaks: ShownPeaks?
@@ -17,8 +17,8 @@ struct OverviewStrip: View {
     private static let bandHeight: CGFloat = 6
 
     var body: some View {
-        // A glide's playhead comes from the clock, so the strip follows it frame by frame.
-        TimelineView(.animation(paused: model.gliding == nil)) { _ in
+        // A momentum scroll's playhead comes from the clock, so the strip follows it frame by frame.
+        TimelineView(.animation(paused: model.momentumScroll == nil)) { _ in
             Canvas { context, size in
                 draw(in: &context, size: size)
             }
@@ -79,7 +79,7 @@ struct OverviewStrip: View {
         context.fillPlayhead(
             CGRect(x: min(max(0, playhead - 1), size.width - 2), y: 0, width: 2, height: Self.waveHeight),
             onGround: ground != nil)
-        if let view = model.laneView {
+        if let view = model.zoomedWaveformView {
             let box = CGRect(
                 x: x(view.startMs), y: 1, width: x(view.endMs) - x(view.startMs), height: Self.waveHeight - 2)
             #if os(macOS)

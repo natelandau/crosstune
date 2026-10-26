@@ -436,7 +436,7 @@ class Settings(BaseSettings):
         )
 
     def _apple_key_problem(self, key: dict[str, str]) -> str | None:
-        # The team ID is shared, so it may stand alone; each key needs it.
+        # The team ID is shared, so it may be set by itself; each key needs it.
         problem = _missing_member(key)
         if problem is None and any(key.values()) and not self.apple_team_id:
             return "CROSSTUNE_APPLE_TEAM_ID is unset"

@@ -51,8 +51,8 @@ public enum RecordingPlayerText {
     }
 }
 
-/// Play or pause for the loaded recording or the Apple Music link MusicKit plays, or what stands
-/// in for it while a recording's audio is fetched or missing.
+/// Play or pause for the loaded recording or the Apple Music link MusicKit plays, or what shows
+/// instead while a recording's audio is fetched or missing.
 struct RecordingPlayButton: View {
     let player: PlayerModel
     var font: Font = .platform(.title3)
@@ -63,11 +63,11 @@ struct RecordingPlayButton: View {
         if let transport = player.transport {
             TransportToggle(transport: transport, font: font)
         } else {
-            standIn
+            placeholder
         }
     }
 
-    @ViewBuilder private var standIn: some View {
+    @ViewBuilder private var placeholder: some View {
         switch player.recordingAudio {
         case .fetching:
             ProgressView()
@@ -79,7 +79,7 @@ struct RecordingPlayButton: View {
                 .font(font)
                 .foregroundStyle(.inkSecondary)
                 .frame(minWidth: minimumTapTarget, minHeight: minimumTapTarget)
-                // Stands where play would, so VoiceOver hears why there is none.
+                // Sits where play would, so VoiceOver hears why there is none.
                 .accessibilityLabel(
                     RecordingPlayerText.status(
                         player.recordingAudio, hasFailed: player.audio.hasFailed, offline: session?.isOffline == true)
@@ -224,7 +224,7 @@ private struct TimeStyle: ViewModifier {
     }
 }
 
-/// Where the recording player stands when it has no audio to scrub: fetching, offline, or
+/// The recording player's state when it has no audio to scrub: fetching, offline, or
 /// failed, with Retry when another try could help.
 struct RecordingPlayerStatus: View {
     let player: PlayerModel

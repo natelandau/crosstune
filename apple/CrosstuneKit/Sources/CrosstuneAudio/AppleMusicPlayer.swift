@@ -8,7 +8,7 @@ import os
 private let logger = Logger(subsystem: "app.crosstune.Crosstune", category: "apple-music")
 
 /// Plays Apple Music catalog songs in full for a subscriber. ``AppleMusicPlayer`` is the
-/// device's; a test stands in its own.
+/// device's; a test supplies its own.
 @MainActor
 public protocol MusicPlayback: PlaybackTransport {
     /// The current entry's title, nil with nothing queued.

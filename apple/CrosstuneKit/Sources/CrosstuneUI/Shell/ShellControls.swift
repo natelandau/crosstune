@@ -12,7 +12,7 @@ struct ShellControls: ViewModifier {
     let playback: ListPlayback?
     /// The window the shell lives in, where Go to recording opens the recording's screen.
     let window: UUID
-    /// False while a sheet or dialog covers the shell, which stands every command down.
+    /// False while a sheet or dialog covers the shell, which disables every command.
     let isActive: Bool
     let show: @MainActor (Destination) -> Void
 

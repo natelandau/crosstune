@@ -37,8 +37,8 @@ export interface RecordingRowData {
   /** A recording the plan does not play that has something to play: the row dims and its tap
    * opens the Plan sheet. */
   disabled: boolean
-  /** What a tap on the row does and the verb that names it; undefined when it does nothing. A
-   * disabled row's tap opens the Plan sheet, so it has no verb: its name must not promise a
+  /** What a tap on the row does and the action label that names it; undefined when it does nothing. A
+   * disabled row's tap opens the Plan sheet, so it has no action label: its name must not promise a
    * play it will not do. */
   open: { onOpen: () => void; openName: string | null } | undefined
   retry: 'upload' | 'transcode' | null
@@ -100,7 +100,7 @@ export function useRecordingRow(
     loaded,
     downloading: fetch === 'fetching' || file?.local_state === 'downloading',
   })
-  // A disabled row keeps the play glyph its tap stands for, and never offers a download. One
+  // A disabled row keeps the play glyph its tap means, and never offers a download. One
   // with nothing to play yet stays without a control.
   const control = free && shownControl !== 'none' ? 'play' : shownControl
   const offlineDownload = control === 'download' && !online

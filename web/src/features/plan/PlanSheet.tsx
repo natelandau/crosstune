@@ -51,7 +51,7 @@ type Sale =
   | { kind: 'offline' }
   /** Annual or Monthly, at the store's prices, and Subscribe. */
   | { kind: 'choice'; offers: StoreOffer[] }
-  /** A purchase went through before the plan turned Premium; its line stands in for the choice. */
+  /** A purchase went through before the plan turned Premium; its line replaces the choice. */
   | { kind: 'subscribed' }
 
 /** Sells only to an account that can subscribe, online, once the store has answered with a price. */

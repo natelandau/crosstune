@@ -5,7 +5,7 @@ import Foundation
 import Observation
 import SwiftUI
 
-/// Where the record sheet's take stands, read off its ``Recorder``.
+/// The state of the record sheet's take, read off its ``Recorder``.
 public enum RecordPhase: Equatable, Sendable {
     /// Waiting on microphone permission and the capture file.
     case starting

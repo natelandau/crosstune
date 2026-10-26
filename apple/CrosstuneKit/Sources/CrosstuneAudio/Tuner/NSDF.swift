@@ -201,7 +201,7 @@ final class PitchEstimator {
     /// band-limited interpolation of the autocorrelation, summed from the power spectrum, and m(τ)
     /// is linear between its neighbors. A parabola through three samples misplaces a peak that
     /// strong high partials make narrow, by over a cent at 16 kHz. Nil when a step leaves the
-    /// peak, so the parabola's answer stands.
+    /// peak, so the parabola's answer is kept.
     private func refineInSpectrum(from start: Double, power: UnsafeMutableBufferPointer<Double>)
         -> (lag: Double, value: Double)?
     {

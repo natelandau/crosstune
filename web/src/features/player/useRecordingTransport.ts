@@ -57,7 +57,7 @@ export interface RecordingTransport {
   pitchText: string | null
   /** The stored pitch cannot apply on this device. */
   pitchUnavailable: boolean
-  /** What stands in for the transport while there is no audio to play; null once there is. */
+  /** What shows in place of the transport while there is no audio to play; null once there is. */
   status: string | null
   /** A retry can help: a download failed and the device is online. */
   canRetry: boolean

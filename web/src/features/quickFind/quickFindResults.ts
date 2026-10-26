@@ -64,7 +64,7 @@ export type QuickFindItem =
 
 export interface QuickFindSection {
   id: QuickFindSectionId
-  /** Stands in for the section's heading, such as a second step's title. */
+  /** Replaces the section's heading, such as a second step's title. */
   title?: string
   items: QuickFindItem[]
 }

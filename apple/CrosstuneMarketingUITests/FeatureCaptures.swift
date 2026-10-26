@@ -75,7 +75,7 @@ final class FeatureCaptures: CaptureTestCase {
         let app = launchMarketing()
         let learned = button(app, startingWith: "Learned from, Joe at Clifftop")
         let more = openSailAway(app, scrolledTo: app.buttons["More details"])
-        // The facts card opens its Learned group, and the scene scrolls down to it.
+        // The attributes card opens its Learned group, and the scene scrolls down to it.
         let timeline = sceneStart()
         timeline.tap(more)
         shown(learned)

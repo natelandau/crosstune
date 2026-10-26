@@ -6,7 +6,7 @@ import Testing
 
 @testable import CrosstuneAnalytics
 
-/// Stands in for the PostHog SDK: records each call, and each capture with the distinct ID it
+/// Replaces the PostHog SDK: records each call, and each capture with the distinct ID it
 /// goes out as. Like the SDK, it captures the app's update when its lifecycle integration
 /// installs, at the first opt-in after setup.
 final class FakePostHog: PostHogBackend {

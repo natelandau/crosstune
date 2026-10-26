@@ -54,13 +54,13 @@ struct ScreenRows: Equatable, Sendable {
 }
 
 extension EnvironmentValues {
-    /// The appearance outside the recording screen whose practice ground the screen stands on,
+    /// The appearance outside the recording screen whose practice ground the screen is drawn on,
     /// or nil where it draws on the window's own background.
     @Entry var practiceGround: ColorScheme?
 }
 
 extension View {
-    /// Stands the recording screen on the practice ground for `scheme`, the appearance outside
+    /// Puts the recording screen on the practice ground for `scheme`, the appearance outside
     /// it, and draws everything on it in dark so it reads on the ground in every appearance.
     func practiceGround(_ scheme: ColorScheme) -> some View {
         environment(\.practiceGround, scheme)
@@ -87,7 +87,7 @@ extension View {
         #if os(iOS)
             containerBackground(color, for: .navigation)
         #else
-            // The Mac stands on the ground only to preview the phone's screen.
+            // The Mac uses the ground only to preview the phone's screen.
             background(color)
         #endif
     }
@@ -125,7 +125,7 @@ public struct RecordingScreen: View {
     public var body: some View {
         // Around the stack, so the header, a pushed trim screen, and the swipe that closes the
         // screen belong to practice alone, and the reading pane keeps the window's full height.
-        Stand(player: player) {
+        PadPracticeScreen(player: player) {
             practice
         }
         .screenView(.recording)
@@ -212,7 +212,7 @@ struct RecordingScreenContent: View {
     @Environment(RecordingTransferActions.self) private var transfers: RecordingTransferActions?
     @Environment(\.openURL) private var openURL
     @Environment(\.practiceGround) private var ground
-    @Environment(\.standHasReading) private var standHasReading
+    @Environment(\.readingPaneHasContent) private var readingPaneHasContent
     @Environment(\.plan) private var plan
     /// The mode last used on this device, kept here; the screen's model is what the panel reads.
     @AppStorage(PracticeMode.storageKey) private var mode: PracticeMode = .loops
@@ -234,11 +234,11 @@ struct RecordingScreenContent: View {
     @State private var practice: PracticeModel?
     /// The natural height of everything under the waveform, which the waveform leaves room for.
     @State private var controlsHeight: Double?
-    /// The waveform's and the controls region's laid-out heights, which tell the iPad's Stand
-    /// how short practice can go before its controls clip.
+    /// The waveform's and the controls region's laid-out heights, which tell the iPad's practice screen how
+    /// short practice can go before its controls clip.
     @State private var waveformHeight: CGFloat?
     @State private var controlsRegionHeight: CGFloat?
-    @Environment(\.standsWithReading) private var standsWithReading
+    @Environment(\.showsReadingPane) private var showsReadingPane
     @Environment(ListPlayback.self) private var playback: ListPlayback?
     @FocusState private var focus: PracticeFocus?
     @AccessibilityFocusState private var waveformFocused: Bool
@@ -281,9 +281,9 @@ struct RecordingScreenContent: View {
     }
 
     private var headerSubtitle: String? {
-        StandHeader.subtitle(
+        PadPracticeHeader.subtitle(
             recording: rows.recording, tuneTitle: rows.tuneTitle, lengthMs: rows.trimmedLengthMs,
-            place: rows.shownPlace, playback: playback, standsWithReading: standsWithReading)
+            place: rows.shownPlace, playback: playback, showsReadingPane: showsReadingPane)
     }
 
     var body: some View {
@@ -300,8 +300,8 @@ struct RecordingScreenContent: View {
             .navigationSubtitle(headerSubtitle ?? "")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                if standHasReading {
-                    ToolbarItem(placement: .primaryAction) { StandReadingToggle() }
+                if readingPaneHasContent {
+                    ToolbarItem(placement: .primaryAction) { ReadingPaneToggle() }
                 }
                 ToolbarItem(placement: .primaryAction) { locationControl }
                 ToolbarItem(placement: .primaryAction) { menu }
@@ -489,7 +489,7 @@ struct RecordingScreenContent: View {
             .padding(.top, MacStyle.headingGap)
         #else
             .padding(16)
-            .modifier(StandPracticeWidth())
+            .modifier(PadPracticeWidth())
         #endif
         // The keyboard covers the controls rather than squeezing the waveform, so opening a name
         // field leaves the waveform as it is.
@@ -504,13 +504,13 @@ struct RecordingScreenContent: View {
                 onClose: close)
         )
         .onChange(of: focus) { _, _ in practice.commitNudge() }
-        .preference(key: StandPracticeSlack.self, value: standsWithReading ? practiceSlack : nil)
+        .preference(key: PracticeSpareHeight.self, value: showsReadingPane ? practiceSpareHeight : nil)
     }
 
     /// The height practice could give up before the controls under the waveform clip, or how
     /// much more it needs when negative: the waveform's room above its floor, less what the
     /// controls region lacks of its natural height.
-    private var practiceSlack: CGFloat? {
+    private var practiceSpareHeight: CGFloat? {
         guard let waveformHeight, let controlsRegionHeight, let controlsHeight else { return nil }
         return waveformHeight - PracticeLayout.waveformFloor(isCompactHeight: isCompactHeight)
             + controlsRegionHeight - CGFloat(controlsHeight)

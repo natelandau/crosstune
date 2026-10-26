@@ -55,7 +55,7 @@ describe('useCatalog', () => {
     expect(result.current![0]!.tune.title).toBe("Soldier's Joy")
   })
 
-  it('stands the query down while disabled, and runs it once enabled', async () => {
+  it('pauses the query while disabled, and runs it once enabled', async () => {
     const reads = vi.spyOn(db.tunes, 'toArray')
     // An enabled twin mounts in the same commit, so once its read lands the disabled query has
     // had the same chance to run, and the single read is the twin's alone.

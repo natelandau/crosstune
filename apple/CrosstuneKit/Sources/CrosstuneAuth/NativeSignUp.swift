@@ -19,7 +19,7 @@ public enum NativeSignUpOutcome: Equatable, Sendable {
     case cancelled
 }
 
-/// The Clerk calls a native sign-up makes, so tests can stand in for Clerk.
+/// The Clerk calls a native sign-up makes, so tests can replace Clerk.
 protocol ClerkSignUpCalls: Sendable {
     func apple() async throws
     func google() async throws
@@ -80,7 +80,7 @@ private struct LiveClerkSignUpCalls: ClerkSignUpCalls {
     @MainActor var hasSession: Bool { Clerk.shared.session != nil }
 }
 
-/// Stands in for Clerk in previews and tests: each call fails with `error` when given one, and
+/// Replaces Clerk in previews and tests: each call fails with `error` when given one, and
 /// otherwise leaves `hasSession` as the flow would.
 struct StubClerkSignUpCalls: ClerkSignUpCalls {
     var error: (any Error)?

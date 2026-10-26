@@ -32,13 +32,13 @@
   --tint-hover: color-mix(in srgb, var(--accent) 22%, transparent);
   --tint-strong: color-mix(in srgb, var(--accent) 30%, transparent);
   --row-hover: color-mix(in srgb, var(--accent) 8%, transparent);
-  /* A filled control that is off: a neutral shape that still stands apart from the ground. */
+  /* A filled control that is off: a neutral shape that still contrasts with the ground. */
   --disabled-fill: #ddd9d3;
   --disabled-ink: #5f5b54;
   /* An off switch's track, dark enough to clear 3:1 on its row and the ground, and an on one's. */
   --switch-off: #8a857c;
   --switch-on: #1f5f9e;
-  --knob: #ffffff;
+  --switch-thumb: #ffffff;
   --coral: #ef8354;
   --jet: #2d3142;
   /* The dark scheme's jet, which is practice's ground in either appearance: the light jet is too

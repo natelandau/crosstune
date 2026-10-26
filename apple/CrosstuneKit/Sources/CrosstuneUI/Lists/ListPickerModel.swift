@@ -29,7 +29,7 @@ public struct ListAddition: Sendable {
     }
 
     /// Makes the pick again after its undo: makes the list anew, or puts the added items back.
-    /// Returns the pick as it now stands, for the next undo.
+    /// Returns the pick as it is now, for the next undo.
     public func redo(with commands: Commands) async throws -> ListAddition {
         guard created else {
             try await commands.restoreListItems(itemIDs)

@@ -50,7 +50,7 @@
             }
 
             /// The tab a stored name opens. Tunes holds what the instruments, new-tunes, and
-            /// music-services names stood for, and Recordings the saved locations; a name no tab
+            /// music-services names opened, and Recordings the saved locations; a name no tab
             /// has opens General.
             static func migrated(_ raw: String) -> Pane {
                 switch raw {

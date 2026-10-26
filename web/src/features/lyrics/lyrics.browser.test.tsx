@@ -155,7 +155,7 @@ it('holds a step at one size whatever the text size setting', async () => {
   await expect.poll(() => size()?.dataset.lyricsSize).toBe(String(DEFAULT_LYRICS_STEP))
   const at = fontSize()
   const html = document.documentElement
-  html.dataset.textSize = 'roomy'
+  html.dataset.textSize = 'large'
   onTestFinished(() => {
     delete html.dataset.textSize
   })

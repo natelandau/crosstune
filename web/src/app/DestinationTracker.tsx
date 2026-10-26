@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { Outlet, useLocation, useMatches } from 'react-router'
 import { useAnalytics } from '../usage/AnalyticsProvider'
 import { screenFor } from '../usage/screens'
-import { useBackTrail } from '../layout/backTrail'
+import { useBackHistory } from '../layout/backHistory'
 import { destinationOf, rememberLocation } from '../layout/destinations'
 import { isNotFound } from './notFound'
 
@@ -14,7 +14,7 @@ export function DestinationTracker() {
   const { pathname, search } = useLocation()
   const notFound = useMatches().some((match) => isNotFound(match.handle))
   const analytics = useAnalytics()
-  useBackTrail()
+  useBackHistory()
   // Pathname only, so a search or filter change is not a new screen view.
   useEffect(() => {
     const screen = screenFor(pathname, notFound)

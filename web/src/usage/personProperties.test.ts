@@ -92,7 +92,7 @@ describe('personProperties', () => {
     const person = await personProperties(db, {
       ...settings,
       instruments: ['guitar', 'theremin', 'violin'],
-      textSize: 'roomy',
+      textSize: 'large',
     })
     expect(person.setting_instruments).toEqual(['violin', 'guitar'])
     expect(person.setting_text_size).toBe(1)

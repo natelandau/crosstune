@@ -20,7 +20,7 @@ export interface LinkRowData {
   reportOpened: () => void
   /** True while this link is the player's loaded item. */
   loaded: boolean
-  /** What a tap on the row does and the verb that names it; undefined when it does nothing. */
+  /** What a tap on the row does and the action label that names it; undefined when it does nothing. */
   open: { onOpen: () => void; openName: string } | undefined
 }
 

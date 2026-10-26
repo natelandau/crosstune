@@ -364,13 +364,13 @@ private struct RecordTimer: View {
     let model: RecordSheetModel
 
     var body: some View {
-        RecordTimerFace(second: RecordingText.wholeSeconds(of: model.elapsedMilliseconds))
+        RecordTimerLabel(second: RecordingText.wholeSeconds(of: model.elapsedMilliseconds))
             .equatable()
     }
 }
 
 /// The timer's text, which redraws and rolls its digits only when the second it shows changes.
-private struct RecordTimerFace: View, Equatable {
+private struct RecordTimerLabel: View, Equatable {
     let second: Int64
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -427,7 +427,7 @@ private struct StopButton: View {
         .buttonStyle(.plain)
         .disabled(disabled)
         .keyboardShortcut(.defaultAction)
-        // The whole disc dims, so a Stop that cannot run never reads as ready.
+        // The whole button dims, so a Stop that cannot run never reads as ready.
         Group {
             #if os(macOS)
                 // Glass tinted red draws gray in a sheet, so the Mac's Stop is always solid.

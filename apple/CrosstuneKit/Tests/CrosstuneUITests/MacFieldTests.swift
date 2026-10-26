@@ -191,7 +191,7 @@
         }
 
         /// A field's text and prompt read on the fill it takes in each container, and the fill
-        /// stands off the container: on `surface` it is lighter, never the gray `field`.
+        /// contrasts with the container: on `surface` it is lighter, never the gray `field`.
         @Test(arguments: [ColorScheme.light, .dark])
         func fieldsReadOnEveryContainer(scheme: ColorScheme) {
             for container in MacContainer.allCases {

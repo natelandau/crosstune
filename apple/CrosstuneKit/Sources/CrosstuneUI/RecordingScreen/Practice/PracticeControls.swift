@@ -3,7 +3,7 @@ import SwiftUI
 
 /// What the play button shows: Pause while playing; Repeat and the loop's name, with the repeat
 /// symbol, while paused with a loop selected; Play otherwise.
-struct PlayFace: Equatable {
+struct PlayButtonLabel: Equatable {
     let label: String
     let systemImage: String
 
@@ -82,30 +82,30 @@ private struct Transport: View {
     }
 
     private var playButton: some View {
-        let face = PlayFace(isPlaying: player.audio.isPlaying, repeating: model.selected.map(model.name))
+        let playLabel = PlayButtonLabel(isPlaying: player.audio.isPlaying, repeating: model.selected.map(model.name))
         return Button {
             player.audio.toggle()
         } label: {
             #if os(macOS)
-                MacPlayFace(face: face)
+                MacPlayButtonLabel(playLabel: playLabel)
             #else
                 if let ground {
-                    GroundPlayFace(face: face, ground: ground)
+                    GroundPlayButtonLabel(playLabel: playLabel, ground: ground)
                 } else {
-                    standardPlayFace(face)
+                    standardPlayButtonLabel(playLabel)
                 }
             #endif
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(face.label)
-        .help(face.label)
+        .accessibilityLabel(playLabel.label)
+        .help(playLabel.label)
         // Capped at the default text size, so a long press shows it enlarged.
         .accessibilityShowsLargeContentViewer()
     }
 
     #if !os(macOS)
-        private func standardPlayFace(_ face: PlayFace) -> some View {
-            Image(systemName: face.systemImage)
+        private func standardPlayButtonLabel(_ playLabel: PlayButtonLabel) -> some View {
+            Image(systemName: playLabel.systemImage)
                 .font(.largeTitle)
                 .contentTransition(.symbolEffect(.replace))
                 .frame(minWidth: 64, minHeight: 64)
@@ -142,15 +142,15 @@ private struct Transport: View {
 
 /// Play on the practice ground: the glyph in the ground's color on a white disc, at a fixed size
 /// so the transport stays put as its labels scale.
-private struct GroundPlayFace: View {
-    let face: PlayFace
+private struct GroundPlayButtonLabel: View {
+    let playLabel: PlayButtonLabel
     /// The appearance whose ground the glyph takes.
     let ground: ColorScheme
 
     @Environment(\.isEnabled) private var isEnabled
 
     var body: some View {
-        Image(systemName: face.systemImage)
+        Image(systemName: playLabel.systemImage)
             .font(.system(size: 30, weight: .semibold))
             .contentTransition(.symbolEffect(.replace))
             .foregroundStyle(PhoneStyle.practiceGround(ground))
@@ -164,13 +164,13 @@ private struct GroundPlayFace: View {
 #if os(macOS)
     /// Play on the Mac: a white glyph on an accent fill disc, the practice view's one primary
     /// action. It keeps its fill in an inactive window.
-    private struct MacPlayFace: View {
-        let face: PlayFace
+    private struct MacPlayButtonLabel: View {
+        let playLabel: PlayButtonLabel
 
         @Environment(\.isEnabled) private var isEnabled
 
         var body: some View {
-            Image(systemName: face.systemImage)
+            Image(systemName: playLabel.systemImage)
                 .font(.system(size: 18, weight: .semibold))
                 .contentTransition(.symbolEffect(.replace))
                 .foregroundStyle(Palette.onAccentFill)

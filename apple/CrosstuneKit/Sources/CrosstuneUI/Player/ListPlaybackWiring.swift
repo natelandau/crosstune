@@ -13,7 +13,7 @@ struct ListPlaybackWiring: ViewModifier {
 
     @Environment(AccountSession.self) private var session: AccountSession?
 
-    /// Stands in for Apple Music when the player has none, so no tune resolves to a song.
+    /// Replaces Apple Music when the player has none, so no tune resolves to a song.
     private final class NoAppleMusic: AppleMusicAccess {
         func current() async -> AppleMusicAccessState { .declined }
         func request() async -> AppleMusicAccessState { .declined }

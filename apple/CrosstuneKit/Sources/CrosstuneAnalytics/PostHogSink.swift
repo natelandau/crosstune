@@ -207,7 +207,7 @@ final class PostHogSink: AnalyticsSink {
     }
 
     /// Whether the SDK's person must be forgotten before it sends: someone signed out or in
-    /// while it was not sharing. With no user reported yet, the remembered user stands in, so an
+    /// while it was not sharing. With no user reported yet, the remembered user is used, so an
     /// offline launch keeps its person while one that signed out or deleted the account does not.
     private func needsReset(_ state: State) -> Bool {
         guard let held = heldUser(state) else { return false }

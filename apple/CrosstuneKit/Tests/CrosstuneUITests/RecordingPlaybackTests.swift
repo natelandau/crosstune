@@ -8,7 +8,7 @@ import Testing
 
 @testable import CrosstuneUI
 
-/// Stands in for the device's player, noting what the model asked of it. Observable, as the
+/// Replaces the device's player, noting what the model asked of it. Observable, as the
 /// device's player is, so the player's activity log hears it start and stop.
 @MainActor
 @Observable
@@ -346,7 +346,7 @@ private func recording(_ id: String = "r1", label: String? = "Jam at Mike's") ->
         (.loaded, false, false, nil),
         (.loaded, true, false, "Couldn't play"),
     ])
-    func saysWhereTheAudioStands(audio: RecordingAudio, failed: Bool, offline: Bool, expected: String?) {
+    func saysTheAudioState(audio: RecordingAudio, failed: Bool, offline: Bool, expected: String?) {
         #expect(RecordingPlayerText.status(audio, hasFailed: failed, offline: offline) == expected)
     }
 

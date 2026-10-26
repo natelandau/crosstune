@@ -31,11 +31,11 @@ import {
   ABOUT_GROUP,
   ADDED_ON,
   DETAILS_GROUP,
-  factRowName,
-  FACTS_LABEL,
+  attributeRowName,
+  ATTRIBUTES_LABEL,
   LEARNED_GROUP,
   LISTS_GROUP,
-} from './factCopy'
+} from './attributeCopy'
 import { DETAIL_LABELS } from './detailFields'
 import { addedDay } from '../../text/format'
 import { DONE } from '../../ui/confirmCopy'
@@ -71,7 +71,7 @@ import { destination } from '../../layout/destinations'
 import { renderApp } from '../../test/renderApp'
 import { DELETE } from '../../ui/Confirm'
 import type { TuneFormLauncher } from './formLauncher'
-import { tuneTitleTransition } from './TuneBand'
+import { tuneTitleTransition } from './TuneHeader'
 
 // A passthrough a test can hold once; every other test reads its files for real.
 vi.mock('../scans/prepareImage', async (original) => {
@@ -87,7 +87,7 @@ vi.mock('../../commands/tunes', async (original) => {
 
 const PHONE = { width: 390, height: 844 }
 const WIDE = { width: 1280, height: 800 }
-/** Split, where the detail column is too narrow for the rail. */
+/** Split, where the detail column is too narrow for the attributes column. */
 const SPLIT = { width: 800, height: 800 }
 
 const CATALOG = destination('catalog')
@@ -134,12 +134,12 @@ it.each([
   const db = openTestDb()
   await seedTune(db, 't1', 'Cluck Old Hen')
   await renderApp({ path: '/catalog/t1', db, frame })
-  // It follows the frame, not the facts: split shows the card, yet More is on the title's row.
-  const facts =
+  // It follows the frame, not the attributes: split shows the card, yet More is on the title's row.
+  const attributes =
     frame === SPLIT
-      ? tunePage().getByRole('region', { name: FACTS_LABEL })
-      : tunePage().getByRole('complementary', { name: FACTS_LABEL })
-  await expect.element(facts).toBeVisible()
+      ? tunePage().getByRole('region', { name: ATTRIBUTES_LABEL })
+      : tunePage().getByRole('complementary', { name: ATTRIBUTES_LABEL })
+  await expect.element(attributes).toBeVisible()
   const more = tunePage().getByRole('button', { name: MORE_ACTIONS })
   await expect.element(more).toBeVisible()
   await expect.poll(barButtons).toEqual([])
@@ -155,20 +155,20 @@ it.each([
   )
 })
 
-it("the rail's first group lines up with Recordings and stays in view as the page scrolls", async () => {
+it("the attributes column's first group lines up with Recordings and stays in view as the page scrolls", async () => {
   const db = openTestDb()
   await seedTune(db, 't1', 'Cluck Old Hen')
   for (let n = 0; n < 24; n++) {
     await db.recording_links.put(linkRow(`l${n}`, 't1', { title: `Take ${n}`, position: n }))
   }
   await renderApp({ path: '/catalog/t1', db, frame: WIDE })
-  const rail = tunePage().getByRole('complementary', { name: FACTS_LABEL })
+  const column = tunePage().getByRole('complementary', { name: ATTRIBUTES_LABEL })
   const heading = tunePage().getByRole('heading', { name: RECORDINGS_SECTION, level: 2 })
-  await expect.element(rail).toBeVisible()
+  await expect.element(column).toBeVisible()
   // The header's text, not its box, which carries the padding that sets it level.
   const firstHeader = () => {
     const range = document.createRange()
-    range.selectNodeContents(rail.getByRole('heading').first().element())
+    range.selectNodeContents(column.getByRole('heading').first().element())
     return range
   }
   await expect
@@ -180,29 +180,29 @@ it("the rail's first group lines up with Recordings and stays in view as the pag
   await expect.poll(() => scroller.scrollTop).toBe(600)
   const bar = tunePage().element().querySelector('[data-pane-bar]')!
   await expect
-    .poll(() => rail.element().getBoundingClientRect().top)
+    .poll(() => column.element().getBoundingClientRect().top)
     .toBeGreaterThanOrEqual(bar.getBoundingClientRect().bottom)
   await expect
-    .poll(() => rail.element().getBoundingClientRect().top - bar.getBoundingClientRect().bottom)
+    .poll(() => column.element().getBoundingClientRect().top - bar.getBoundingClientRect().bottom)
     .toBeLessThan(40)
 })
 
-it('a rail taller than the pane scrolls on its own to the day added', async () => {
+it('an attributes column taller than the pane scrolls on its own to the day added', async () => {
   const db = openTestDb()
   await seedTune(db, 't1', 'Cluck Old Hen')
   for (let n = 0; n < 24; n++) {
     await db.recording_links.put(linkRow(`l${n}`, 't1', { title: `Take ${n}`, position: n }))
   }
   await renderApp({ path: '/catalog/t1', db, frame: { width: 1280, height: 480 } })
-  const rail = tunePage().getByRole('complementary', { name: FACTS_LABEL })
-  await expect.element(rail).toBeVisible()
+  const column = tunePage().getByRole('complementary', { name: ATTRIBUTES_LABEL })
+  await expect.element(column).toBeVisible()
   await expect
-    .poll(() => rail.element().scrollHeight - rail.element().clientHeight)
+    .poll(() => column.element().scrollHeight - column.element().clientHeight)
     .toBeGreaterThan(0)
   const scroller = tunePage().element().closest<HTMLElement>('[data-pane-scroller]')!
-  const added = rail.getByText(ADDED_ON(addedDay((await db.tunes.get('t1'))!.created_at)))
+  const added = column.getByText(ADDED_ON(addedDay((await db.tunes.get('t1'))!.created_at)))
   added.element().scrollIntoView({ block: 'nearest' })
-  await expect.poll(() => rail.element().scrollTop).toBeGreaterThan(0)
+  await expect.poll(() => column.element().scrollTop).toBeGreaterThan(0)
   await expect
     .poll(() => added.element().getBoundingClientRect().bottom)
     .toBeLessThanOrEqual(scroller.getBoundingClientRect().bottom + 1)
@@ -282,8 +282,8 @@ it('keeps Add to list reachable on a tune with nothing to play', async () => {
   const db = openTestDb()
   await seedTune(db, 't1', 'Cluck Old Hen')
   await renderApp({ path: '/catalog/t1', db, frame: WIDE })
-  const facts = tunePage().getByRole('complementary', { name: FACTS_LABEL })
-  await expect.element(facts.getByRole('button', { name: ADD_TO_LIST })).toBeVisible()
+  const attributes = tunePage().getByRole('complementary', { name: ATTRIBUTES_LABEL })
+  await expect.element(attributes.getByRole('button', { name: ADD_TO_LIST })).toBeVisible()
   await tunePage().getByRole('button', { name: MORE_ACTIONS }).click()
   await expect.element(page.getByRole('menuitem', { name: ADD_TO_LIST })).toBeVisible()
   await userEvent.keyboard('{Escape}')
@@ -368,7 +368,7 @@ it('orders the sections on the phone, ending with Lists and the day added', asyn
   const lists = tunePage().getByRole('region', { name: LISTS_GROUP })
   await expect.element(lists.getByRole('link')).toHaveTextContent('Tuesday jam')
   await expect.element(lists.getByRole('button', { name: ADD_TO_LIST })).toBeVisible()
-  const card = tunePage().getByRole('region', { name: FACTS_LABEL })
+  const card = tunePage().getByRole('region', { name: ATTRIBUTES_LABEL })
   expect(card.getByRole('link').query()).toBeNull()
   const added = tunePage().getByText(ADDED_ON(addedDay((await db.tunes.get('t1'))!.created_at)), {
     exact: true,
@@ -390,13 +390,13 @@ it('orders the sections on the phone, ending with Lists and the day added', asyn
   expect(tunePage().getByRole('button', { name: ADD_SCANS }).elements()).toHaveLength(0)
 })
 
-it('leaves Lists and the day added to the rail on wide', async () => {
+it('leaves Lists and the day added to the attributes column on wide', async () => {
   const db = openTestDb()
   await seedWithLyrics(db)
   await renderApp({ path: '/catalog/t1', db, frame: WIDE })
-  const rail = tunePage().getByRole('complementary', { name: FACTS_LABEL })
-  await expect.element(rail.getByRole('button', { name: ADD_TO_LIST })).toBeVisible()
-  // The rail's groups follow the content in the outline, as its peers, not under Notes.
+  const column = tunePage().getByRole('complementary', { name: ATTRIBUTES_LABEL })
+  await expect.element(column.getByRole('button', { name: ADD_TO_LIST })).toBeVisible()
+  // The attributes column's groups follow the content in the outline, as its peers, not under Notes.
   await expect
     .poll(headings)
     .toEqual([
@@ -410,7 +410,7 @@ it('leaves Lists and the day added to the rail on wide', async () => {
     ])
   const added = ADDED_ON(addedDay((await db.tunes.get('t1'))!.created_at))
   expect(tunePage().getByText(added, { exact: true }).elements()).toHaveLength(1)
-  await expect.element(rail.getByText(added, { exact: true })).toBeVisible()
+  await expect.element(column.getByText(added, { exact: true })).toBeVisible()
 })
 
 it('opens and closes the Lyrics section in place, starting closed', async () => {
@@ -581,28 +581,30 @@ it('notes typed while a save is held write only the latest text once it lands', 
 })
 
 it.each([
-  ['wide', WIDE, 'rail'],
+  ['wide', WIDE, 'column'],
   ['phone', PHONE, 'card'],
-] as const)('shows the facts as a %s layout', async (_, frame, layout) => {
+] as const)('shows the attributes as a %s layout', async (_, frame, layout) => {
   const db = openTestDb()
   await seedTune(db, 't1', 'Cluck Old Hen')
   await renderApp({ path: '/catalog/t1', db, frame })
   const recordings = tunePage().getByRole('region', { name: RECORDINGS_SECTION })
   await expect.element(recordings).toBeVisible()
-  if (layout === 'rail') {
-    const rail = tunePage().getByRole('complementary', { name: FACTS_LABEL })
-    await expect.element(rail).toBeVisible()
+  if (layout === 'column') {
+    const column = tunePage().getByRole('complementary', { name: ATTRIBUTES_LABEL })
+    await expect.element(column).toBeVisible()
     // Beside the content, on its trailing side, with their tops level.
     await expect
-      .poll(() => rail.element().getBoundingClientRect().left)
+      .poll(() => column.element().getBoundingClientRect().left)
       .toBeGreaterThanOrEqual(recordings.element().getBoundingClientRect().right)
     await expect
-      .poll(() => rail.element().getBoundingClientRect().top)
+      .poll(() => column.element().getBoundingClientRect().top)
       .toBeLessThanOrEqual(recordings.element().getBoundingClientRect().top)
   } else {
-    const card = tunePage().getByRole('region', { name: FACTS_LABEL })
+    const card = tunePage().getByRole('region', { name: ATTRIBUTES_LABEL })
     await expect.element(card).toBeVisible()
-    expect(tunePage().getByRole('complementary', { name: FACTS_LABEL }).elements()).toHaveLength(0)
+    expect(
+      tunePage().getByRole('complementary', { name: ATTRIBUTES_LABEL }).elements(),
+    ).toHaveLength(0)
     // Above the content.
     await expect
       .poll(() => card.element().getBoundingClientRect().bottom)
@@ -703,7 +705,7 @@ it("folds a free plan's recordings into one line that opens to dimmed rows", asy
     await expect.element(row).toHaveAttribute('data-dimmed')
   }
 
-  // A gated row's name drops the verb its tap will not do.
+  // A gated row's name drops the action label its tap will not do.
   const take = section.getByRole('row', { name: /^Take 1/ })
   await expect.element(take).toHaveAccessibleDescription(SUBSCRIBE_TO_PLAY)
   await take.click({ button: 'right' })
@@ -883,14 +885,14 @@ it.each([
   await expect.poll(() => Math.abs(left(verse.element()) - edge())).toBeLessThan(1)
 })
 
-it('saves a fact typed in an open editor when browser Back leaves the page', async () => {
+it('saves an attribute typed in an open editor when browser Back leaves the page', async () => {
   const db = openTestDb()
   await seedTune(db, 't1', 'Forked Deer')
   const { router } = await renderApp({ path: '/catalog', db, frame: WIDE })
   await page.getByRole('row', { name: /Forked Deer/ }).click()
   await expect.element(pageTitle()).toHaveTextContent('Forked Deer')
   await tunePage()
-    .getByRole('button', { name: factRowName(DETAIL_LABELS.composer) })
+    .getByRole('button', { name: attributeRowName(DETAIL_LABELS.composer) })
     .click()
   await page.getByRole('combobox', { name: DETAIL_LABELS.composer }).fill('Kenny Baker')
   await router.navigate(-1)
@@ -905,13 +907,13 @@ it.each([
     (db: CrosstuneDb) => db.user_tunes.update('u-t1', { deleted_at: '2026-02-01T00:00:00.000Z' }),
   ],
 ] as const)(
-  'closes an open fact editor with nothing written when the %s is deleted elsewhere',
+  'closes an open attribute editor with nothing written when the %s is deleted elsewhere',
   async (_, remove) => {
     const db = openTestDb()
     await seedTune(db, 't1', 'Forked Deer')
     const { router } = await renderApp({ path: '/catalog/t1', db, frame: WIDE })
     await tunePage()
-      .getByRole('button', { name: factRowName(DETAIL_LABELS.composer) })
+      .getByRole('button', { name: attributeRowName(DETAIL_LABELS.composer) })
       .click()
     const dialog = page.getByRole('dialog', { name: DETAIL_LABELS.composer })
     await page.getByRole('combobox', { name: DETAIL_LABELS.composer }).fill('Someone')

@@ -76,7 +76,7 @@ struct UsageDataTests {
         #expect(sink.calls == [.setEnabled(false, rememberedUserID: nil)])
     }
 
-    /// The session does not exist yet at launch, so the remembered user stands in for it.
+    /// The session does not exist yet at launch, so the remembered user replaces it.
     @Test func launchPassesTheRememberedUser() {
         RememberedUser(defaults: defaults()).userID = "user_a"
         defaults().set(true, forKey: UsageData.storageKey)

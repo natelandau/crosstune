@@ -7,14 +7,14 @@ import SwiftUI
 
 /// What the notices are judged from, read in one transaction so a seen notice dropped from this
 /// device's list is never read beside a row that does not carry it yet.
-struct NoticeFacts: Sendable, Equatable {
+struct NoticeInputs: Sendable, Equatable {
     var row: Entitlement?
     /// The notices dismissed on this device that the row does not carry yet.
     var seen: Set<PlanNotice>
     var holdsRecordings: Bool
 
-    static func fetch(_ db: Database) throws -> NoticeFacts {
-        NoticeFacts(
+    static func fetch(_ db: Database) throws -> NoticeInputs {
+        NoticeInputs(
             row: try Entitlement.current(db),
             seen: try StoreWriter.seenNotices(in: db),
             holdsRecordings: try Recording.filter(Recording.CodingKeys.deletedAt == nil).fetchCount(db) > 0)
@@ -64,11 +64,11 @@ final class NoticeModel {
     /// Whether the first read of the store has been judged.
     private(set) var isLoaded = false
 
-    /// The latest facts read from the store, nil before the first read.
-    var facts: NoticeFacts? { query.value ?? nil }
+    /// The latest inputs read from the store, nil before the first read.
+    var inputs: NoticeInputs? { query.value ?? nil }
     /// When the trial ends, for the notices that name the day.
     var trialEndsAt: Date? {
-        guard let row = facts?.row else { return nil }
+        guard let row = inputs?.row else { return nil }
         return (row.trialEndsAt ?? row.premiumExpiresAt)?.date
     }
 
@@ -76,7 +76,7 @@ final class NoticeModel {
     private let analytics: AnalyticsClient
     private let claim: NoticeClaim
     private let now: @MainActor () -> Date
-    private let query: LiveQuery<NoticeFacts??>
+    private let query: LiveQuery<NoticeInputs??>
     @ObservationIgnored private var covered = false
     @ObservationIgnored private var capturing = false
     /// False once the window has gone, so a model not yet released never takes the claim again.
@@ -93,7 +93,7 @@ final class NoticeModel {
         self.analytics = analytics
         self.claim = claim
         self.now = now
-        let query = LiveQuery<NoticeFacts??>(store, initial: nil) { db in .some(try NoticeFacts.fetch(db)) }
+        let query = LiveQuery<NoticeInputs??>(store, initial: nil) { db in .some(try NoticeInputs.fetch(db)) }
         self.query = query
         // The plan's judging instants are the ones a notice turns due at, so following them
         // replaces a timer of the notice's own. A claim let go may be this window's turn.
@@ -150,16 +150,16 @@ final class NoticeModel {
     }
 
     private func evaluate() {
-        guard let facts else { return }
+        guard let inputs else { return }
         isLoaded = true
         guard isActive else { return }
-        let seen = facts.row?.seeing(facts.seen.union(claim.dismissed), at: Timestamp(now()))
+        let seen = inputs.row?.seeing(inputs.seen.union(claim.dismissed), at: Timestamp(now()))
         // Dismissed in another window, or on another device, while it was up here.
         if let notice = showing, seen?.hasSeen(notice) == true { showing = nil }
         // A window keeps the claim while its own notice sheet leaves, so the next notice shows
         // here once it has gone rather than over it in another window.
         guard showing == nil, !covered, !capturing else { return }
-        guard let seen, let notice = PlanRules.dueNotice(seen, now: now(), holdsRecordings: facts.holdsRecordings)
+        guard let seen, let notice = PlanRules.dueNotice(seen, now: now(), holdsRecordings: inputs.holdsRecordings)
         else {
             claim.release(id)
             return

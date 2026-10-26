@@ -56,10 +56,10 @@ it('holds Catalog, Lists, Tuner, Recordings, then Record on the phone', async ()
   await expect.element(page.getByRole('navigation', { name: SIDEBAR })).not.toBeInTheDocument()
 })
 
-it.each(['regular', 'roomy'] as const)(
+it.each(['regular', 'large'] as const)(
   'keeps every tab label inside its tab on a 320px phone at the %s text size',
   async (textSize) => {
-    if (textSize === 'roomy') document.documentElement.dataset.textSize = textSize
+    if (textSize === 'large') document.documentElement.dataset.textSize = textSize
     onTestFinished(() => {
       delete document.documentElement.dataset.textSize
     })
@@ -228,11 +228,11 @@ it('names why Record is unavailable outside the recorder, and disables it', asyn
   await expect.element(record).toHaveAccessibleDescription(RECORD_UNAVAILABLE)
 })
 
-it('keeps the solid disc of a disabled Record disc', async () => {
-  renderWithProviders(<RecordControl shape="disc" />)
-  const disc = page.getByRole('button', { name: RECORD_LABEL })
-  await expect.element(disc).toBeDisabled()
-  expect(getComputedStyle(disc.element()).opacity).toBe('1')
+it('keeps a disabled round Record button solid', async () => {
+  renderWithProviders(<RecordControl shape="circle" />)
+  const record = page.getByRole('button', { name: RECORD_LABEL })
+  await expect.element(record).toBeDisabled()
+  expect(getComputedStyle(record.element()).opacity).toBe('1')
 })
 
 it('marks the Lists heading selected on the Lists root', async () => {
@@ -405,7 +405,7 @@ it('shows Offline when the engine is offline', async () => {
 it.each([
   ['phone', PHONE],
   ['wide', WIDE],
-])('stands the %s Record control down while a dialog is open', async (_name, frame) => {
+])('hides the %s Record control while a dialog is open', async (_name, frame) => {
   await renderApp({ path: '/kit', db: openTestDb(), frame })
   const record = page.getByTestId('record-control')
   await expect.element(record).not.toHaveAttribute('aria-hidden')
@@ -428,7 +428,7 @@ it.each([
   expect(navigation.element().querySelectorAll('[aria-current]')).toHaveLength(0)
 })
 
-it('recedes the whole shell behind a touch sheet', async () => {
+it('scales the whole shell back behind a touch sheet', async () => {
   const db = openTestDb()
   await seed(db)
   await renderApp({ path: '/catalog', db, frame: PHONE, density: 'touch' })

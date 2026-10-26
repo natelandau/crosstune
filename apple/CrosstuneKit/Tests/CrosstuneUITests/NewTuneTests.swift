@@ -265,14 +265,14 @@ import Testing
     @Test func theCreatedTuneTakesTheDraftsPlaceOnlyWhileTheDraftHoldsIt() {
         let draft = NewTuneDraft.id(source: .catalog)
         #expect(NewTuneDraft.placeAfterCreate(shown: draft, draft: draft, created: "t1") == "t1")
-        // Back, or another tune chosen, as the page went: that navigation stands.
+        // Back, or another tune chosen, as the page went: that navigation is kept.
         #expect(NewTuneDraft.placeAfterCreate(shown: nil, draft: draft, created: "t1") == nil)
         #expect(NewTuneDraft.placeAfterCreate(shown: "t2", draft: draft, created: "t1") == "t2")
     }
 
     @Test func theHeldDraftLastsOnlyWhileItsTuneShows() {
         let held = HeldDraft(
-            created: NewTuneDraft.Created(tuneID: "t1", title: "Angeline", byReturn: true), factsLayout: .rail)
+            created: NewTuneDraft.Created(tuneID: "t1", title: "Angeline", byReturn: true), attributesLayout: .column)
         #expect(TuneScreen.keptHeld(held, showing: "t1") == held)
         // Another tune, then the made tune again: it arrives as any page does.
         #expect(TuneScreen.keptHeld(held, showing: "t2") == nil)

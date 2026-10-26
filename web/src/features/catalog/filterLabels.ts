@@ -23,7 +23,7 @@ function facetValueLabel(facet: Facet, value: string): string {
   return facet === 'key' && value === NO_KEY ? UNKNOWN_KEY : value
 }
 
-/** A filter control's face: "Key: Any", "Type: reel". */
+/** A filter control's label: "Key: Any", "Type: reel". */
 export function facetControlLabel(facet: Facet, value: string): string {
   return `${FACET_LABELS[facet]}: ${value === 'all' ? ANY : facetValueLabel(facet, value)}`
 }

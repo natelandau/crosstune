@@ -17,7 +17,7 @@ export type TunerState =
   | { status: 'denied' }
   | { status: 'unavailable' }
 
-/** Stands in for any of the microphone's dependencies, such as a test's fake one. */
+/** Replaces any of the microphone's dependencies, such as a test's fake one. */
 export const TunerMicContext = createContext<Partial<TunerMicDeps> | undefined>(undefined)
 
 export function useTunerMicDeps(): Partial<TunerMicDeps> | undefined {

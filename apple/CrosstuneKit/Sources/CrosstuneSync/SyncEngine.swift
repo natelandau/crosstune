@@ -38,7 +38,7 @@ public final class SyncEngine {
     private let logger = Logger(subsystem: "app.crosstune.Crosstune", category: "sync")
 
     private let sleep: Sleeper
-    /// Stands in for the real upload and download passes in tests that only count runs.
+    /// Replaces the real upload and download passes in tests that only count runs.
     private let transferPass: (@MainActor () async throws -> Void)?
 
     @ObservationIgnored private var stopped = false

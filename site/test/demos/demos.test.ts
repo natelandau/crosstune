@@ -85,7 +85,7 @@ describe('every demo', () => {
         ([, on, label]) => (on ? `[${label}]` : label),
       )
     const bar = (markup: string) =>
-      markup.slice(markup.indexOf('class="ph-tabcap"'), markup.indexOf('class="ph-disc"'))
+      markup.slice(markup.indexOf('class="ph-tabcap"'), markup.indexOf('class="ph-record-button"'))
     expect(tabs(bar(DEMOS.record.markup()))).toEqual(['Catalog', 'Lists', 'Tuner', '[Recordings]'])
   })
 

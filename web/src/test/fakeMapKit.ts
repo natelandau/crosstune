@@ -28,7 +28,7 @@ interface Recorded {
   inits: number
 }
 
-/** A stand-in for the MapKit JS global that records what the code under test does with it. */
+/** A fake for the MapKit JS global that records what the code under test does with it. */
 export function fakeMapKit(options: FakeMapKitOptions = {}): {
   mapkit: MapKit
   seen: Recorded

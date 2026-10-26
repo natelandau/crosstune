@@ -108,7 +108,7 @@ describe('Create account button', () => {
     expect(contrast(check, color('var(--coral-wash)'))).toBeGreaterThanOrEqual(3)
   })
 
-  it('stands at least 44px tall', () => {
+  it('is at least 44px tall', () => {
     const heights = declared(createAccount, '.create', 'min-height').map(Number.parseFloat)
     expect(Math.min(...heights)).toBeGreaterThanOrEqual(44)
   })

@@ -5,7 +5,7 @@ import { quietLocationPermissionForTest } from './fakeLocationPermission'
 /** The chunk a fake recorder flushes on stop(), as a real one flushes what it still holds. */
 export const LAST_CHUNK = 'last'
 
-/** A MediaRecorder stand-in. Every instance lands in `instances`; reset that per test. */
+/** A MediaRecorder fake. Every instance lands in `instances`; reset that per test. */
 export class FakeRecorder extends EventTarget implements RecorderLike {
   static isTypeSupported = (m: string) => m === 'audio/mp4'
   static instances: FakeRecorder[] = []

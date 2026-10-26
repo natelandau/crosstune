@@ -52,7 +52,7 @@ export function TransportGlyph({
   )
 }
 
-/** Stands where a play control would be, for a tune with nothing to play. */
+/** Sits where a play control would be, for a tune with nothing to play. */
 export function NotPlayableGlyph() {
   return <CircleSlash aria-hidden="true" className="size-5 shrink-0 opacity-60" />
 }

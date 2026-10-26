@@ -1,7 +1,7 @@
 import Foundation
 import GRDB
 
-/// Where a recording's audio file stands on this device, mirroring the web's `recording_files`.
+/// Where a recording's audio file is on this device, mirroring the web's `recording_files`.
 public enum LocalFileState: String, Codable, Hashable, Sendable, CaseIterable, DatabaseValueConvertible {
     case capturing
     case captured

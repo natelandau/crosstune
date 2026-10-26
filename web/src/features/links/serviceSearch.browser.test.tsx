@@ -7,7 +7,7 @@ import { openServiceSearch, searchesInApp } from './serviceSearch'
 
 const spotifySearch = 'https://open.spotify.com/search/silver'
 
-/** A stand-in for the blank tab the search opens, with a document that navigates nowhere. */
+/** A fake for the blank tab the search opens, with a document that navigates nowhere. */
 function fakeTab() {
   return {
     opener: {} as unknown,

@@ -84,11 +84,11 @@ describe('useTuneScreen', () => {
     await waitFor(() => expect(result.current.tune).toBeDefined())
   })
 
-  it('assembles the facts and notes once read', async () => {
+  it('assembles the attributes and notes once read', async () => {
     const { result } = mount()
     await waitFor(() => expect(result.current.ready).toBe(true))
-    const { facts, notes } = result.current
-    expect(facts).toEqual({
+    const { attributes, notes } = result.current
+    expect(attributes).toEqual({
       title: "Soldier's Joy",
       alternateTitles: ['Joy'],
       key: 'D',
@@ -147,7 +147,7 @@ describe('useTuneScreen', () => {
         .find((item) => item.label === ARCHIVE)!
         .onPress()
     })
-    await waitFor(() => expect(result.current.facts?.archived).toBe(true))
+    await waitFor(() => expect(result.current.attributes?.archived).toBe(true))
     expect(labels()).toContain(UNARCHIVE)
   })
 
@@ -234,7 +234,7 @@ describe('useTuneScreen', () => {
     await waitFor(() => expect(result.current.error).toBe('Archive refused'))
     rerender({ id: other.tuneId })
     expect(result.current.error).toBeNull()
-    await waitFor(() => expect(result.current.facts?.title).toBe('Angeline'))
+    await waitFor(() => expect(result.current.attributes?.title).toBe('Angeline'))
   })
 
   it('drops a delete under way when another tune opens, and does not leave', async () => {
@@ -246,7 +246,7 @@ describe('useTuneScreen', () => {
     rerender({ id: other.tuneId })
     expect(result.current.deletingName).toBeNull()
     hold.open()
-    await waitFor(() => expect(result.current.facts?.title).toBe('Angeline'))
+    await waitFor(() => expect(result.current.attributes?.title).toBe('Angeline'))
     expect(leave).not.toHaveBeenCalled()
     expect(result.current.error).toBeNull()
   })
@@ -260,7 +260,7 @@ describe('useTuneScreen', () => {
     const { result, rerender, other } = await switching()
     await press(result, ARCHIVE)
     rerender({ id: other.tuneId })
-    await waitFor(() => expect(result.current.facts?.title).toBe('Angeline'))
+    await waitFor(() => expect(result.current.attributes?.title).toBe('Angeline'))
     expect(result.current.pending).toBe(true)
     hold.open()
     // The refusal lands after the switch; pending falling means the old action has settled.

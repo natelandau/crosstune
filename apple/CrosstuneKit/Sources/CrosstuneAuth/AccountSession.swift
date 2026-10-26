@@ -131,7 +131,7 @@ public final class AccountSession {
     )
 
     /// The API client ``client`` holds, which reports a created account to `analytics`.
-    /// `transport` stands in for URLSession in tests.
+    /// `transport` replaces URLSession in tests.
     static func makeClient(
         origin: URL,
         tokens: any TokenProvider,

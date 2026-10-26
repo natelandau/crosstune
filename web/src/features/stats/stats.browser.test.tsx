@@ -188,7 +188,7 @@ it('sits in the detail beside the settings on wide, and the stats block leaves a
   await expect.poll(at(router)).toBe(SETTINGS.root)
 })
 
-it('stands alone on the phone with Back to Settings', async () => {
+it('shows by itself on the phone with Back to Settings', async () => {
   const { router } = await mount(SETTINGS_STATS_PATH)
   const back = page.getByRole('main').getByRole('link', { name: SETTINGS.label })
   await expect.element(page.getByRole('heading', { level: 1, name: STATS_TITLE })).toBeVisible()

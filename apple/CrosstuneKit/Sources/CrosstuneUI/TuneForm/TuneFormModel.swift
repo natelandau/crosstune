@@ -17,7 +17,7 @@ import os
 public final class TuneFormModel {
     nonisolated public static let titleRequired = "A title is required"
 
-    /// Where the form stands with its tune.
+    /// The form's progress with its tune.
     public enum Phase: Equatable {
         /// Nothing read yet, which the sheet shows as silence.
         case loading

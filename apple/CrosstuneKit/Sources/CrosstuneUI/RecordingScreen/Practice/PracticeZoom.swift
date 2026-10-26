@@ -19,7 +19,7 @@ enum PracticeZoom {
     static let fitMargin = 0.1
 
     /// The time constant of the exponential decay a released drag coasts on.
-    static let glideTauMs: Double = 325
+    static let momentumScrollTauMs: Double = 325
 
     private static func clamp(_ value: Double, _ low: Double, _ high: Double) -> Double {
         min(max(value, low), high)
@@ -38,22 +38,23 @@ enum PracticeZoom {
     }
 
     /// The distance in ms a release at `velocity` points per second still travels.
-    static func glide(velocity: Double, pointsPerSecond: Double) -> Int64 {
-        Int64((-velocity * glideTauMs / pointsPerSecond).rounded())
+    static func momentumDistance(velocity: Double, pointsPerSecond: Double) -> Int64 {
+        Int64((-velocity * momentumScrollTauMs / pointsPerSecond).rounded())
     }
 
-    /// Where a glide from `from` to `to` that runs `runMs` has got to `elapsedMs` in: an
+    /// Where a momentum scroll from `from` to `to` that runs `runMs` has got to `elapsedMs` in: an
     /// exponential decay whose time constant is a third of the run, so the run covers 95% of
     /// the distance, stretched to land exactly on `to` as the run ends.
-    static func glidePosition(from: Int64, to: Int64, elapsedMs: Double, runMs: Double) -> Int64 {
+    static func momentumScrollPosition(from: Int64, to: Int64, elapsedMs: Double, runMs: Double) -> Int64 {
         guard elapsedMs < runMs else { return to }
         let share = (1 - exp(-max(0, elapsedMs) / (runMs / 3))) / (1 - exp(-3.0))
         return from + Int64((Double(to - from) * share).rounded())
     }
 
     /// A view centered on `centerMs`, never clamped, so the ends of the recording show blank.
-    static func view(pointsPerSecond: Double, centerMs: Int64, width: Double, trimStartMs: Int64) -> LaneView {
-        LaneView(
+    static func view(pointsPerSecond: Double, centerMs: Int64, width: Double, trimStartMs: Int64) -> ZoomedWaveformView
+    {
+        ZoomedWaveformView(
             startMs: Double(centerMs) - width / 2 / pointsPerSecond * 1000, pointsPerSecond: pointsPerSecond,
             width: width, trimStartMs: trimStartMs)
     }
@@ -84,7 +85,7 @@ enum PracticeZoom {
 }
 
 /// Where the zoomed view sits, for mapping between the source timeline and its points.
-struct LaneView: Equatable, Sendable {
+struct ZoomedWaveformView: Equatable, Sendable {
     /// The view's left edge, on the trimmed timeline.
     var startMs: Double
     var pointsPerSecond: Double

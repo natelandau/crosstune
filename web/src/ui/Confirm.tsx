@@ -23,7 +23,7 @@ export { CANCEL, DELETE } from './confirmCopy'
 export interface ConfirmOptions {
   title: string
   message: string
-  /** The confirming button's label, a bare verb: Delete, Remove. */
+  /** The confirming button's label, a bare action label: Delete, Remove. */
   action: string
   tone?: ActionTone
   /** Aborting withdraws the question, answering no, if it is still the one on screen. */

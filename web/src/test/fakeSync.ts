@@ -2,7 +2,7 @@ import { STUB_USER_NAME } from '../fixture/clerkStub'
 import type { AuthSession } from '../auth/AuthContext'
 import type { SyncEngine } from '../sync/types'
 
-// Free of Vitest, so a dev-only fixture page can mount the app with the same stand-ins.
+// Free of Vitest, so a dev-only fixture page can mount the app with the same fakes.
 
 export function fakeEngine(overrides: Partial<SyncEngine> = {}): SyncEngine {
   return {

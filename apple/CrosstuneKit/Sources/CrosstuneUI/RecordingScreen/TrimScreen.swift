@@ -115,7 +115,7 @@ struct TrimScreen: View {
         .focusEffectDisabled()
         .focused($keyboard, equals: .screen)
         .defaultFocus($keyboard, .screen)
-        // These stand down while text is typed, and a focused button keeps them.
+        // These are off while text is typed, and a focused button keeps them.
         .onKeyPress(.space, phases: .down) { _ in
             guard ready, !TextEntry.isActive else { return .ignored }
             toggle()
@@ -487,7 +487,7 @@ private struct TrimStrip: View {
     }
 }
 
-/// A trim handle: a line the height of the strip with a knob, at the top for the start and at
+/// A trim handle: a line the height of the strip with a thumb, at the top for the start and at
 /// the bottom for the end, so the two read apart where they meet.
 private struct HandleMark: View {
     let handle: TrimModel.Handle

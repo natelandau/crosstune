@@ -2,8 +2,8 @@ import CrosstuneAnalytics
 import CrosstuneAudio
 import Foundation
 
-/// The settings this device keeps in its own defaults, as the person property values they stand
-/// for. A setting never chosen reads as its default.
+/// The settings this device keeps in its own defaults, as the person property values they map
+/// to. A setting never chosen reads as its default.
 public enum DeviceSettings {
     public static func current(defaults: UserDefaults = .standard) -> [SettingChange] {
         let appearance = defaults.string(forKey: Appearance.storageKey).flatMap(Appearance.init(rawValue:)) ?? .system

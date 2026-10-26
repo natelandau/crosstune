@@ -1,7 +1,7 @@
 /* eslint-disable react-refresh/only-export-components -- it mirrors the package's exports */
 import { useEffect, type CSSProperties, type ReactNode } from 'react'
 
-// Stands in for `@clerk/react` in `just web::kit-shots`, which aliases the package to this
+// Replaces `@clerk/react` in `just web::kit-shots`, which aliases the package to this
 // module, and in browser tests that mock the package with it, so the sign-in and sign-up
 // screens render with no Clerk instance and no network. Clerk's own form cannot render here;
 // this one paints the same appearance variables the real form takes, so a capture still shows
@@ -134,7 +134,7 @@ function StubForm({
               borderRadius: v.borderRadius,
             }}
           >
-            Stand-in for Clerk&apos;s form
+            Placeholder for Clerk&apos;s form
           </div>
         </div>
       </div>

@@ -22,19 +22,19 @@ interface RenderAppOptions {
   density?: Density
   frame?: { width: number; height: number }
   sync?: Partial<SyncEngine>
-  /** Wraps the app, such as in a provider a test stands in for. */
+  /** Wraps the app, such as in a provider a test replaces. */
   wrap?: (app: ReactElement) => ReactElement
-  /** Stands in for the tune form. */
+  /** Replaces the tune form. */
   launcher?: TuneFormLauncher
-  /** Stands in for the player. */
+  /** Replaces the player. */
   player?: Player
-  /** Stands in for the playback engine. */
+  /** Replaces the playback engine. */
   playbackEngine?: PlaybackEngine
   /** Hears back as Android does, from `useAndroidBackForTest`. */
   android?: AndroidBackForTest
-  /** Stands in for the shortcut sheet. */
+  /** Replaces the shortcut sheet. */
   shortcutSheet?: ShortcutSheetLauncher
-  /** Stands in for the web store; null by default, so no test reaches RevenueCat. */
+  /** Replaces the web store; null by default, so no test reaches RevenueCat. */
   store?: Store | null
 }
 

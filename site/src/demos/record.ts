@@ -59,7 +59,7 @@ export const record: DemoDef = {
     const bars = $('[data-wave]', st)
     const time = $('[data-time]', st)
     await d.wait(700)
-    await d.tap($('[data-disc]', st))
+    await d.tap($('[data-record-button]', st))
     scrim.classList.add('on')
     rec.classList.add('open')
     await d.wait(500)

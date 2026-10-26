@@ -495,7 +495,7 @@ describe('ListPlayback', () => {
     expect(calls).not.toContain('play r-t1')
   })
 
-  it('is settled only while the player holds the tune the queue stands on', async () => {
+  it('is settled only while the player holds the tune the queue is on', async () => {
     mount()
     await api().start('l1', { shuffle: false })
     await playing('r-t1')

@@ -69,7 +69,7 @@ import CrosstuneAnalytics
                         .transition(.opacity)
                 } else {
                     // No room to show the player, so it plays on out of sight.
-                    Color.clear.frame(height: 0).modifier(EmbedParking(player: player, stage: stage))
+                    Color.clear.frame(height: 0).modifier(OffscreenEmbed(player: player, stage: stage))
                 }
             } else if let music = player.music {
                 let height = Self.embedHeight(columnHeight: columnHeight, wanted: MusicPlayerCard.height)
@@ -112,7 +112,7 @@ import CrosstuneAnalytics
             .frame(height: MacStyle.dockHeight)
         }
 
-        /// What stands where play would be while an embed's own controls play it.
+        /// What shows where play would be while an embed's own controls play it.
         static let nowPlayingSymbol = "waveform"
 
         private var isRecording: Bool { player.item?.kind == .recording }
@@ -207,7 +207,7 @@ import CrosstuneAnalytics
             .padding(.leading, 4)
         }
 
-        /// Where a playing list stands, an album's track, the artist, or a recording's tune.
+        /// Where a playing list is, an album's track, the artist, or a recording's tune.
         private var subtitle: String? {
             PlayerBar.playlistSubtitle(playback) ?? PlayerBar.subtitle(player) ?? player.music?.artistName
                 ?? player.item?.tuneTitle
@@ -224,7 +224,7 @@ import CrosstuneAnalytics
         }
     }
 
-    /// Play or pause as a filled disc, or what stands in for it while a recording's audio is
+    /// Play or pause as a filled disc, or what replaces it while a recording's audio is
     /// fetched or missing, each the disc's size.
     private struct DockPlayButton: View {
         let player: PlayerModel
@@ -318,7 +318,7 @@ import CrosstuneAnalytics
         var body: some View {
             GeometryReader { proxy in
                 let width = proxy.size.width
-                let knob: CGFloat = hovering || dragging ? 12 : 9
+                let thumb: CGFloat = hovering || dragging ? 12 : 9
                 let x = width * min(max(fraction, 0), 1)
                 ZStack(alignment: .leading) {
                     Capsule().fill(Palette.hairline)
@@ -327,8 +327,8 @@ import CrosstuneAnalytics
                         .frame(width: x, height: Self.lineHeight)
                     Circle()
                         .fill(MacStyle.coral)
-                        .frame(width: knob, height: knob)
-                        .offset(x: min(max(0, x - knob / 2), width - knob))
+                        .frame(width: thumb, height: thumb)
+                        .offset(x: min(max(0, x - thumb / 2), width - thumb))
                 }
                 .frame(maxHeight: .infinity)
                 .contentShape(.rect)

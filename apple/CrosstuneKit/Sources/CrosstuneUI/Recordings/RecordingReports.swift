@@ -5,7 +5,7 @@ import CrosstuneSync
 import Foundation
 
 extension FailureReason {
-    /// The reason an error stands for. Never carries the error's own text.
+    /// The reason an error maps to. Never carries the error's own text.
     init(_ error: any Error) {
         switch error {
         case is URLError: self = .network
@@ -17,7 +17,7 @@ extension FailureReason {
 }
 
 extension AnalyticsClient {
-    /// A recording put under `tuneID`, after the write lands. `recording` is how it stood before.
+    /// A recording put under `tuneID`, after the write lands. `recording` is how it was before.
     func recordingFiled(_ recording: Recording, under tuneID: String) {
         send(
             .recordingFiled(

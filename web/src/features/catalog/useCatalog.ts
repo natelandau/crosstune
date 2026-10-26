@@ -22,7 +22,7 @@ async function heardTuneIds(db: CrosstuneDb): Promise<Set<string>> {
 
 /**
  * Every tune with its user row, live. A screen that only needs the catalog some of the time,
- * such as one behind a closed sheet, passes false to stand the query down until it does.
+ * such as one behind a closed sheet, passes false to pause the query until it does.
  * `heard` is only read, and its tables only watched, when asked for; without it every entry
  * reads as unheard.
  */

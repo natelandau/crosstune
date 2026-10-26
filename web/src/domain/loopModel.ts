@@ -12,7 +12,7 @@ const NEW_LOOP_PAD_MS = 4000
 
 export type Span = { startMs: number; endMs: number }
 
-/** A loop row's span, in the lanes' own terms. */
+/** A loop row's span, in the zoomed waveform's own terms. */
 export function rowSpan(row: { start_ms: number; end_ms: number }): Span {
   return { startMs: row.start_ms, endMs: row.end_ms }
 }
@@ -29,7 +29,7 @@ export function spanFields(span: Span): { start_ms: number; end_ms: number } {
 export type Bounds = Span
 export type PlacedLoop = Span & { id: string; color: number }
 
-/** A loop row as the lanes place it. */
+/** A loop row as the zoomed waveform places it. */
 export function placedLoop(row: {
   id: string
   color: number

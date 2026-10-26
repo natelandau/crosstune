@@ -131,7 +131,7 @@ import Testing
     }
 }
 
-/// A microphone that writes a tone on demand, standing in for the device in tests.
+/// A microphone that writes a tone on demand, in place of the device in tests.
 @MainActor
 final class ToneInput: AudioInput {
     var permission = true
@@ -738,7 +738,7 @@ actor ReadCount {
 
 #if os(macOS)
     @Suite struct RecordSheetMacTests {
-        /// Glass tinted red draws gray in a sheet, so the Mac's Stop is a solid red disc.
+        /// Glass tinted red draws gray in a sheet, so the Mac's Stop is a solid red circle.
         @Test func stopIsAlwaysRecordingRedOnTheMac() throws {
             let file = SourceScan.sources.appending(path: "Recording/RecordSheet.swift")
             let mac = SourceScan.macCompiled(SourceScan.withoutComments(try SourceScan.text(at: file)))

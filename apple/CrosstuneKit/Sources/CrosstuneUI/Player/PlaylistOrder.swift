@@ -16,7 +16,7 @@ extension CrosstuneAnalytics.RepeatMode {
     }
 }
 
-/// The order a list's tunes play in, where playback stands in it, and how it moves on repeat
+/// The order a list's tunes play in, where playback is in it, and how it moves on repeat
 /// and shuffle. It holds tune IDs only, each at most once; what each tune plays is the
 /// caller's concern.
 struct PlaylistOrder {

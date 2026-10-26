@@ -27,7 +27,7 @@ final class NewTuneDraft {
     }
 
     /// The place once the draft's tune is made: the tune where the draft still shows, else
-    /// wherever the musician went as the page went, which stands.
+    /// wherever the musician went as the page went, which is kept.
     nonisolated static func placeAfterCreate(shown: String?, draft: String, created: String) -> String? {
         shown == draft ? created : shown
     }
@@ -195,13 +195,13 @@ extension EnvironmentValues {
 struct HeldDraft: Equatable {
     let created: NewTuneDraft.Created
     /// The column's layout as the draft read it.
-    let factsLayout: FactsLayout
+    let attributesLayout: AttributesLayout
 
     var tuneID: String { created.tuneID }
 }
 
-/// The page a new tune starts on: the tune page's band with a focused title field and nothing
-/// else, since a tune not made yet has no facts, action buttons, or content to act on. The catalog's Add
+/// The page a new tune starts on: the tune page's header with a focused title field and nothing
+/// else, since a tune not made yet has no attributes, action buttons, or content to act on. The catalog's Add
 /// button and the menu's New tune open it.
 struct NewTuneScreen: View {
     nonisolated static let title = "New tune"
@@ -232,7 +232,7 @@ private struct DraftPage: View {
         @Environment(\.scenePhase) private var scenePhase
     #endif
     @State private var draft: NewTuneDraft
-    @State private var factsLayout: FactsLayout?
+    @State private var attributesLayout: AttributesLayout?
     @FocusState private var focused: Bool
 
     init(source: ActionSource, addedTune: AddedTuneOffer, onCreated: @escaping @MainActor (HeldDraft) -> Void) {
@@ -245,16 +245,16 @@ private struct DraftPage: View {
     }
 
     var body: some View {
-        NewTunePageFrame(factsLayout: $factsLayout) {
+        NewTunePageFrame(attributesLayout: $attributesLayout) {
             // The heading the title becomes, unseen, gives the line its height and baseline, which
             // an empty field's placeholder would not, and the field lies over it.
             Text(draft.title.isEmpty ? " " : draft.title)
                 .contentMask()
-                .bandTitleType()
+                .headerTitleType()
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .hidden()
                 .overlay(alignment: .topLeading) {
-                    BandTitleField(text: $draft.title, focused: $focused, onCommit: submit, onCancel: {})
+                    HeaderTitleField(text: $draft.title, focused: $focused, onCommit: submit, onCancel: {})
                 }
         }
         .onAppear {
@@ -302,7 +302,7 @@ private struct DraftPage: View {
 
     /// What the draft does with its tune: where the draft still shows, the tune takes its place
     /// and the page that replaces it holds the title. Where the musician went elsewhere as the
-    /// page went, that stands.
+    /// page went, that is kept.
     private func handOver() -> @MainActor (NewTuneDraft.Created) -> Void {
         let onCreated = onCreated
         let page = self
@@ -322,7 +322,7 @@ private struct DraftPage: View {
                     == created.tuneID
             else { return }
             // Read as the tune lands, since the column may have changed width meanwhile.
-            onCreated(HeldDraft(created: created, factsLayout: page.factsLayout ?? .card))
+            onCreated(HeldDraft(created: created, attributesLayout: page.attributesLayout ?? .card))
             place.value = created.tuneID
         }
     }
@@ -333,31 +333,31 @@ struct HeldDraftPage: View {
     let held: HeldDraft
 
     // periphery:ignore - read through its binding
-    @State private var factsLayout: FactsLayout?
+    @State private var attributesLayout: AttributesLayout?
 
     init(held: HeldDraft) {
         self.held = held
-        _factsLayout = State(initialValue: held.factsLayout)
+        _attributesLayout = State(initialValue: held.attributesLayout)
     }
 
     var body: some View {
-        NewTunePageFrame(factsLayout: $factsLayout) {
+        NewTunePageFrame(attributesLayout: $attributesLayout) {
             Text(held.created.title)
                 .contentMask()
-                .bandTitleType()
+                .headerTitleType()
         }
     }
 }
 
-/// The draft's page: the band alone, laid out and placed as on the tune page, with the key
+/// The draft's page: the header alone, laid out and placed as on the tune page, with the key
 /// tile's room and the rename button's room empty, so the title sits where the page puts it.
 private struct NewTunePageFrame<Title: View>: View {
-    @Binding var factsLayout: FactsLayout?
+    @Binding var attributesLayout: AttributesLayout?
     @ViewBuilder let title: () -> Title
 
     var body: some View {
         ScrollView {
-            TuneBandRow { size in
+            TuneHeaderRow { size in
                 Color.clear
                     .frame(width: size, height: size)
             } title: {
@@ -367,22 +367,22 @@ private struct NewTunePageFrame<Title: View>: View {
                         .hidden()
                 }
             }
-            .tuneBandPlacement(factsLayout ?? .card)
+            .tuneHeaderPlacement(attributesLayout ?? .card)
             // Unseen until the column's width is read, so a wide column never shows the card's
             // placement first.
-            .opacity(factsLayout == nil ? 0 : 1)
+            .opacity(attributesLayout == nil ? 0 : 1)
         }
-        .readsFactsLayout(
+        .readsAttributesLayout(
             into: Binding {
-                factsLayout ?? .card
+                attributesLayout ?? .card
             } set: {
-                factsLayout = $0
+                attributesLayout = $0
             }
         )
         .paperGround()
         .navigationTitle(NewTuneScreen.title)
         #if os(macOS)
-            // An empty bar keeps its height, so the band starts where the tune page's does.
+            // An empty bar keeps its height, so the header starts where the tune page's does.
             .paneBar {}
         #else
             .barTitle("", shown: false)

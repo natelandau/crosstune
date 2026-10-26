@@ -64,7 +64,7 @@ function Tunes({
   onAction?: (key: Key) => void
   withActions?: boolean
   selectionMode?: 'multiple'
-  /** Receives the rows' setter, so a test can stand in for a sync. */
+  /** Receives the rows' setter, so a test can fake a sync. */
   onSync?: (sync: Sync) => void
   /** Shows a move this many ms after it is made, as a store write then a live read does. */
   showLater?: number

@@ -127,7 +127,7 @@ private struct RefreshFailed: Error {}
         #expect(sink.captures.first == event("purchase_started", ["period": "monthly", "from": "record"]))
     }
 
-    @Test func aCompletedPurchaseStandsWhenTheRefreshFails() async {
+    @Test func aCompletedPurchaseIsKeptWhenTheRefreshFails() async {
         calls.refreshError = RefreshFailed()
         let model = model()
         await model.buy(from: .planGroup)
@@ -242,7 +242,7 @@ private struct RefreshFailed: Error {}
         #expect(sink.captures == [event("purchase_restored", ["outcome": "error"])])
     }
 
-    @Test func aRestoreStandsWhenTheRefreshFails() async {
+    @Test func aRestoreIsKeptWhenTheRefreshFails() async {
         calls.refreshError = RefreshFailed()
         let model = model()
         await model.restore()

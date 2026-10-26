@@ -30,7 +30,7 @@ describe('matchShortcut', () => {
     expect(matchShortcut(press('r'), 'other')).toBe('record')
   })
 
-  it('stands down for a shifted letter', () => {
+  it('ignores a shifted letter', () => {
     expect(matchShortcut(press('N', { shift: true }), 'mac')).toBeNull()
   })
 
@@ -65,7 +65,7 @@ describe('matchShortcut', () => {
     expect(matchShortcut(press('R'), 'other')).toBe('record')
   })
 
-  it('stands down for a shifted letter whatever case Caps Lock gives it', () => {
+  it('ignores a shifted letter whatever case Caps Lock gives it', () => {
     expect(matchShortcut(press('n', { shift: true }), 'other')).toBeNull()
   })
 

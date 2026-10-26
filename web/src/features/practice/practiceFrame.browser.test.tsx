@@ -40,14 +40,14 @@ it.each([
   ['768x1024', 'regular', { width: 768, height: 1024 }],
   ['810x1080', 'regular', { width: 810, height: 1080 }],
   ['820x1180', 'regular', { width: 820, height: 1180 }],
-  ['768x1024', 'roomy', { width: 768, height: 1024 }],
-  ['810x1080', 'roomy', { width: 810, height: 1080 }],
-  ['820x1180', 'roomy', { width: 820, height: 1180 }],
+  ['768x1024', 'large', { width: 768, height: 1024 }],
+  ['810x1080', 'large', { width: 810, height: 1080 }],
+  ['820x1180', 'large', { width: 820, height: 1180 }],
 ] as const)(
   'shows every control on a %s touch tablet at the %s text size, unscrolled',
   async (_name, textSize, frame) => {
-    if (textSize === 'roomy') {
-      document.documentElement.dataset.textSize = 'roomy'
+    if (textSize === 'large') {
+      document.documentElement.dataset.textSize = 'large'
       onTestFinished(() => {
         delete document.documentElement.dataset.textSize
       })

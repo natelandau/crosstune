@@ -149,7 +149,7 @@ struct ScanStrip: View {
             }
         }
         .opacity(opens ? 1 : MediaRow.dimmedOpacity)
-        // A note under a narrow scan widens its column rather than standing one word to a line.
+        // A note under a narrow scan widens its column rather than wrapping one word to a line.
         .frame(width: status == nil ? width : max(width, 128), alignment: .leading)
     }
 }

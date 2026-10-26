@@ -20,12 +20,12 @@ import { useShortcutSheet } from './shortcutSheetLauncher'
 
 /**
  * The app's single-key shortcuts, on one window listener. They run at pointer density only, and
- * stand down while an overlay is open, while a text field holds the keystroke, and under any
+ * turn off while an overlay is open, while a text field holds the keystroke, and under any
  * modifier but Shift. A focused control keeps only Space for itself. `focusSearch` focuses the
  * showing screen's search and says whether one was there.
  *
  * Cmd-K or Ctrl-K opens Quick Find at every density, from a text field too, since a chord types
- * nothing. It stands down while another overlay is open, and puts focus back in Quick Find's
+ * nothing. It turns off while another overlay is open, and puts focus back in Quick Find's
  * field while Quick Find shows.
  *
  * Escape steps out of the newest screen state on the back stack, such as selection, at every
@@ -126,7 +126,7 @@ export function useShortcuts(focusSearch: () => boolean): void {
   }, [actionsRef])
 
   // Heard at window capture, ahead of a tooltip or row grid that takes Escape on the way down,
-  // so one press steps out whatever is showing. An open overlay's claim stands it down.
+  // so one press steps out whatever is showing. An open overlay's claim turns it off.
   useEffect(() => {
     const onEscape = (event: KeyboardEvent) => {
       if (event.defaultPrevented) return

@@ -26,7 +26,7 @@ public struct RecordingRowContent: Hashable, Sendable {
     /// The second line's parts joined with middle dots.
     public let meta: String
     /// What the row is doing or would do, spoken before its title: "Play", "Downloading".
-    public let verb: String?
+    public let actionLabel: String?
     /// What a tap does, or nil when the row is inert.
     public let tap: Tap?
     public let control: RecordingText.Control
@@ -46,7 +46,7 @@ public struct RecordingRowContent: Hashable, Sendable {
     /// never shown: Premium, for a recording the plan holds back.
     public let spokenNotice: String?
 
-    /// Whether a row offering `control` stands down while a take records: only a play does.
+    /// Whether a row offering `control` is disabled while a take records: only a play does.
     nonisolated static func blocksPlay(_ control: RecordingText.Control) -> Bool {
         control == .play
     }
@@ -80,33 +80,33 @@ public struct RecordingRowContent: Hashable, Sendable {
         isDimmed = offlineDownload || blockedPlay || !recordingsPlay
         notice = blockedPlay ? MediaText.stopRecordingToPlay : nil
         retry = RecordingText.retry(recording, file: file)
-        let retryVerb: String? =
+        let retryActionLabel: String? =
             switch retry {
             case .upload: Self.retryUploading
             case .transcode: MediaText.retry
             case nil: nil
             }
-        retryName = retryVerb.map { "\($0) \(title)" }
+        retryName = retryActionLabel.map { "\($0) \(title)" }
         // A failed download matters only while the row still offers one: audio fetched since,
         // by the download pass or a play, has answered it.
         error =
             (retry == .upload ? file?.error : nil)
             ?? (downloadFailed && control == .download ? RecordingText.downloadFailed : nil)
-        let shownVerb: String?
+        let shownActionLabel: String?
         let shown: Tap?
         switch control {
         // A row that opens the practice view opens it whether or not the player holds it.
         case .play where opensScreen, .close where opensScreen:
-            (glyph, shownVerb, shown) = (.play, MediaText.open, .open)
-        case .play: (glyph, shownVerb, shown) = (.play, MediaText.play, .play)
-        case .close: (glyph, shownVerb, shown) = (.stop, MediaText.closePlayer, .close)
-        case .download: (glyph, shownVerb, shown) = (.download, Self.download, .download)
-        case .downloading: (glyph, shownVerb, shown) = (.downloading, RecordingText.downloading, nil)
+            (glyph, shownActionLabel, shown) = (.play, MediaText.open, .open)
+        case .play: (glyph, shownActionLabel, shown) = (.play, MediaText.play, .play)
+        case .close: (glyph, shownActionLabel, shown) = (.stop, MediaText.closePlayer, .close)
+        case .download: (glyph, shownActionLabel, shown) = (.download, Self.download, .download)
+        case .downloading: (glyph, shownActionLabel, shown) = (.downloading, RecordingText.downloading, nil)
         case .none:
             if let retry {
-                (glyph, shownVerb, shown) = (.attention, retryVerb, .retry(retry))
+                (glyph, shownActionLabel, shown) = (.attention, retryActionLabel, .retry(retry))
             } else {
-                (glyph, shownVerb, shown) = (.waiting, nil, nil)
+                (glyph, shownActionLabel, shown) = (.waiting, nil, nil)
             }
         }
         let gated: Bool
@@ -116,7 +116,7 @@ public struct RecordingRowContent: Hashable, Sendable {
         }
         // A gated tap opens the Plan sheet, so the row offers a subscription rather than the play.
         tap = gated ? .premium : shown
-        verb = gated ? nil : shownVerb
+        actionLabel = gated ? nil : shownActionLabel
         spokenNotice = gated ? RecordingText.subscribeToPlay : nil
     }
 }

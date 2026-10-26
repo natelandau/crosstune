@@ -24,7 +24,7 @@ struct LoopNameTab: View {
             Button {
                 model.beginRename(loop.id)
             } label: {
-                face(name)
+                tabLabel(name)
                     .frame(minHeight: minimumTapTarget, alignment: .top)
                     .contentShape(.rect)
             }
@@ -32,13 +32,13 @@ struct LoopNameTab: View {
             .accessibilityLabel(name)
             .accessibilityHint(PracticeText.rename)
         } else {
-            face(name)
+            tabLabel(name)
                 .allowsHitTesting(false)
                 .accessibilityHidden(true)
         }
     }
 
-    private func face(_ name: String) -> some View {
+    private func tabLabel(_ name: String) -> some View {
         Text(name)
             .contentMask()
             .font(.platform(.footnote).weight(.semibold))
@@ -121,7 +121,7 @@ struct LoopSuggestions: View {
         let suggestions = id.map(model.suggestions(for:)) ?? []
         if let id, !suggestions.isEmpty {
             ScrollView(.horizontal) {
-                HStack(spacing: spacing.railGap) {
+                HStack(spacing: spacing.chipGap) {
                     ForEach(suggestions, id: \.self) { label in
                         ChoiceCapsule(chosen: false) {
                             model.commitRename(label, for: id)

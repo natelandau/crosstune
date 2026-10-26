@@ -38,7 +38,7 @@ export function PracticeOverview({
           lengthMs={timeline.lengthMs}
           trimStartMs={timeline.bounds.startMs}
           halfSpanMs={timeline.halfSpanMs}
-          loops={loops.laneLoops}
+          loops={loops.waveformLoops}
           playhead={timeline.playhead}
           selectedId={loops.playback.selectedId}
           onSeek={timeline.seek}
@@ -90,7 +90,7 @@ export function PracticeWaveformSlot({
           <div className="absolute inset-0">
             <PracticeWaveform
               shown={shown}
-              loops={loops.laneLoops}
+              loops={loops.waveformLoops}
               selected={loops.selected}
               pxPerS={timeline.pxPerS}
               widthPx={size.width}

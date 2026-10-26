@@ -22,7 +22,7 @@ public enum AppleMusicAccessState: Equatable, Sendable {
 }
 
 /// Reads and asks for this device's Apple Music access. ``DeviceAppleMusicAccess`` is the
-/// device's; a test stands in its own.
+/// device's; a test supplies its own.
 @MainActor
 public protocol AppleMusicAccess: AnyObject {
     func current() async -> AppleMusicAccessState

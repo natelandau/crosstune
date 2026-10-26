@@ -13,7 +13,7 @@ const SCAN_CONTENT_TYPE = 'image/jpeg'
 
 type UploadFields = Pick<ScanFile, 'origin' | 'error'>
 
-/** Leave the retry loop: clear the backoff and record where the file now stands. */
+/** Leave the retry loop: clear the backoff and record the file's current state. */
 async function settleUpload(db: CrosstuneDb, id: string, fields: Partial<UploadFields>) {
   await db.scan_files.update(id, {
     error: null,

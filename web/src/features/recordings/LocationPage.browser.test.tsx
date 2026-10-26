@@ -75,7 +75,7 @@ async function setup({
   recording?: ReturnType<typeof recordingRow>
   places?: LocalPlace[]
   others?: ReturnType<typeof recordingRow>[]
-  /** MapKit's stand-in; left out, MapKit never loads. */
+  /** MapKit's fake; left out, MapKit never loads. */
   mapkit?: FakeMapKitOptions
   searchPlaces?: (q: string) => Promise<PlaceSearchOutcome>
   initialPage?: 'location'

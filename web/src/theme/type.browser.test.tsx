@@ -44,7 +44,7 @@ describe.each(['touch', 'pointer'] as const)('on %s', (density) => {
 
 it.each([
   ['compact', '15px'],
-  ['roomy', '17px'],
+  ['large', '17px'],
 ] as const)('scales every role with the %s text size', async (textSize, px) => {
   document.documentElement.dataset.textSize = textSize
   try {

@@ -19,7 +19,7 @@ export function ShortcutSheetProvider({
   launcher,
   children,
 }: {
-  /** Stands in for the sheet, for a test that watches what opens it. */
+  /** Replaces the sheet, for a test that watches what opens it. */
   launcher?: ShortcutSheetLauncher
   children: ReactNode
 }) {

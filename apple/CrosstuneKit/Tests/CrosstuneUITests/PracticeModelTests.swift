@@ -143,7 +143,7 @@ private final class FakeLoops {
 
     /// Where `sourceMs` sits on the waveform now.
     private func x(_ model: PracticeModel, _ sourceMs: Int64) throws -> Double {
-        try #require(model.laneView).x(ofSourceMs: Double(sourceMs))
+        try #require(model.zoomedWaveformView).x(ofSourceMs: Double(sourceMs))
     }
 
     // MARK: Scrolling the audio
@@ -165,17 +165,17 @@ private final class FakeLoops {
         #expect(audio.isPlaying)
     }
 
-    @Test func aGlidePastEitherEndStopsThere() async throws {
+    @Test func aMomentumScrollPastEitherEndStopsThere() async throws {
         try await load()
         let model = practice()
-        model.glideRun = .milliseconds(30)
+        model.momentumScrollRun = .milliseconds(30)
         audio.elapsed = 50
         model.beginScrub()
         model.scrub(dx: -20)
         model.endScrub(predictedDx: -100_000)
         try await eventually { model.scrubbingMs == nil }
         #expect(audio.elapsed == 60)
-        // A glide to the end ends playback there rather than starting over.
+        // A momentum scroll to the end ends playback there rather than starting over.
         #expect(!audio.isPlaying)
 
         audio.play()
@@ -293,11 +293,11 @@ private final class FakeLoops {
         let capturing = RecordingFile(id: "r1", localState: .capturing)
         let model = practice(take(sourceDurationMs: nil), file: capturing)
         #expect(model.lengthMs == 0)
-        #expect(model.laneView == nil)
+        #expect(model.zoomedWaveformView == nil)
         #expect(model.newLoopState == .noRoom)
 
         model.follow(take(sourceDurationMs: 30_000), file: RecordingFile(id: "r1", localState: .downloaded))
-        #expect(model.laneView != nil)
+        #expect(model.zoomedWaveformView != nil)
     }
 
     // MARK: Selection and repeat
@@ -852,65 +852,65 @@ private final class FakeLoops {
         #expect(store.calls == ["add(11000-19000)"])
     }
 
-    @Test func newLoopDuringAGlideStopsItWhereItShows() async throws {
+    @Test func newLoopDuringAMomentumScrollStopsItWhereItShows() async throws {
         try await load()
         let now = Now()
         let model = PracticeModel(
             player: player, recording: take(), file: nil, writer: store.writer, clock: { now.instant })
         model.setWidth(300)
-        model.glideRun = .seconds(10)
+        model.momentumScrollRun = .seconds(10)
         audio.elapsed = 10
         model.beginScrub()
         model.scrub(dx: -50)
         model.endScrub(predictedDx: -400)
         now.instant += .milliseconds(2500)
         let shown = try #require(model.scrubbingMs)
-        #expect(shown == PracticeZoom.glidePosition(from: 15_000, to: 50_000, elapsedMs: 2500, runMs: 10_000))
+        #expect(shown == PracticeZoom.momentumScrollPosition(from: 15_000, to: 50_000, elapsedMs: 2500, runMs: 10_000))
         model.newLoop()
         #expect(model.scrubbingMs == nil)
-        #expect(model.glide == nil)
+        #expect(model.momentumTask == nil)
         #expect(audio.elapsed == Double(shown) / 1000)
         await model.settle()
         #expect(store.calls == ["add(\(shown - 4000)-\(shown + 4000))"])
     }
 
-    @Test func aGlideShowsWhereTheClockSaysItHasGot() async throws {
+    @Test func aMomentumScrollShowsWhereTheClockSaysItHasGot() async throws {
         try await load()
         let now = Now()
         let model = PracticeModel(
             player: player, recording: take(), file: nil, writer: store.writer, clock: { now.instant })
         model.setWidth(300)
-        model.glideRun = .seconds(10)
+        model.momentumScrollRun = .seconds(10)
         audio.elapsed = 10
         model.beginScrub()
         model.scrub(dx: -50)
         model.endScrub(predictedDx: -400)
-        #expect(model.gliding != nil)
+        #expect(model.momentumScroll != nil)
         #expect(model.scrubbingMs == 15_000)
 
         now.instant += .milliseconds(2500)
-        let expected = PracticeZoom.glidePosition(from: 15_000, to: 50_000, elapsedMs: 2500, runMs: 10_000)
+        let expected = PracticeZoom.momentumScrollPosition(from: 15_000, to: 50_000, elapsedMs: 2500, runMs: 10_000)
         #expect(expected > 15_000 && expected < 50_000)
         #expect(model.scrubbingMs == expected)
         #expect(model.centerMs == expected)
         #expect(model.shownCenterMs(at: now.instant) == Double(expected))
-        #expect(model.laneView?.startMs == Double(expected) - 15_000)
+        #expect(model.zoomedWaveformView?.startMs == Double(expected) - 15_000)
 
         now.instant += .seconds(10)
         #expect(model.scrubbingMs == 50_000)
-        model.settleGlide()
-        #expect(model.gliding == nil)
+        model.settleMomentumScroll()
+        #expect(model.momentumScroll == nil)
         #expect(model.scrubbingMs == nil)
         #expect(audio.elapsed == 50)
     }
 
-    @Test func aDragThatCatchesAGlideTakesOverWhereItHasGot() async throws {
+    @Test func aDragThatCatchesAMomentumScrollTakesOverWhereItHasGot() async throws {
         try await load()
         let now = Now()
         let model = PracticeModel(
             player: player, recording: take(), file: nil, writer: store.writer, clock: { now.instant })
         model.setWidth(300)
-        model.glideRun = .seconds(10)
+        model.momentumScrollRun = .seconds(10)
         audio.elapsed = 10
         model.beginScrub()
         model.scrub(dx: -50)
@@ -918,8 +918,8 @@ private final class FakeLoops {
         now.instant += .milliseconds(1000)
         let caught = try #require(model.scrubbingMs)
         model.beginScrub()
-        #expect(model.gliding == nil)
-        #expect(model.glide == nil)
+        #expect(model.momentumScroll == nil)
+        #expect(model.momentumTask == nil)
         now.instant += .seconds(5)
         #expect(model.scrubbingMs == caught)
         model.scrub(dx: 10)
@@ -929,19 +929,19 @@ private final class FakeLoops {
         #expect(audio.isPlaying)
     }
 
-    @Test func aSeekFromTheOverviewStopsAGlide() async throws {
+    @Test func aSeekFromTheOverviewStopsAMomentumScroll() async throws {
         try await load()
         let model = practice()
         let sleep = ManualSleep()
         model.sleep = sleep.sleep
-        model.glideRun = .seconds(10)
+        model.momentumScrollRun = .seconds(10)
         audio.elapsed = 10
         model.beginScrub()
         model.scrub(dx: -50)
         model.endScrub(predictedDx: -400)
-        #expect(model.glide != nil)
+        #expect(model.momentumTask != nil)
         model.seek(toMs: 30_000)
-        #expect(model.glide == nil)
+        #expect(model.momentumTask == nil)
         #expect(model.scrubbingMs == nil)
         #expect(audio.elapsed == 30)
         #expect(audio.isPlaying)

@@ -153,7 +153,7 @@ export function WelcomeCarousel({
           })}
         </div>
       </div>
-      {/* Below the breakpoint the dots stand alone, centered, and page by swipe; the arrows would
+      {/* Below the breakpoint the dots show by themselves, centered, and page by swipe; the arrows would
           not fit. Above it the row spans the stage, so the arrows end at its trailing edge. */}
       <div className="flex w-full items-center justify-center gap-2 @min-[416px]:justify-start">
         <div className="flex @min-[416px]:-ms-2">

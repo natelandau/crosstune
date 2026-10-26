@@ -17,7 +17,7 @@ function change(by: number): void {
   for (const listener of listeners) listener()
 }
 
-/** Whether a screen is selecting, so the shell swaps its tab bar out and stands Record down. */
+/** Whether a screen is selecting, so the shell swaps its tab bar out and hides Record. */
 export function useShellSelecting(): boolean {
   return useSyncExternalStore(subscribe, () => selecting > 0)
 }

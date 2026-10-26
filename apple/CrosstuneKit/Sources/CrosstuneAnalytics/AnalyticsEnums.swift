@@ -10,7 +10,7 @@ public enum Screen: String, CaseIterable, Sendable {
     case findRecordings = "find_recordings"
     case settings
     case stats
-    case stand
+    case padPractice = "pad_practice"
     case tuner
 }
 
@@ -86,7 +86,7 @@ public enum PlaybackKind: String, CaseIterable, Sendable {
     }
 }
 
-/// Whether a play stood alone or was one track of a list played through.
+/// Whether a play was on its own or was one track of a list played through.
 public enum PlaybackQueue: String, CaseIterable, Sendable {
     case single
     case playlist
@@ -309,7 +309,7 @@ public enum SignUpMethod: String, CaseIterable, Sendable {
 
 /// A slide of the welcome carousel.
 public enum WelcomeSlideName: String, CaseIterable, Sendable {
-    case story
+    case intro
     case catalog
     case record
     case practice

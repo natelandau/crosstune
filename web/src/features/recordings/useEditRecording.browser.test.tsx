@@ -741,7 +741,7 @@ describe('useEditRecording', () => {
       })
     })
 
-    it('reads replaced from the location as it stands now', async () => {
+    it('reads replaced from the location as it is now', async () => {
       await db.recordings.put(viewOf().recording)
       const { result, analytics } = setup(viewOf())
       await db.recordings.update('r1', { ...placeOf(GALAX) })

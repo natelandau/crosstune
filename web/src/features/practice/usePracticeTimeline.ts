@@ -36,12 +36,12 @@ export interface PracticeTimeline {
   playheadMs: () => number
   /** The waveform's scrub, for the commands to settle and read. */
   scrub: RefObject<WaveformScrub | null>
-  /** Stops a glide under way where it shows. */
+  /** Stops a momentum scroll under way where it shows. */
   settle: () => void
   /** The playhead now on the trimmed timeline, a scrub under way included, which a playing
    * engine has moved on from since the last frame. */
   shownPositionMs: () => number
-  /** Stops a glide and returns the shown playhead on the source timeline. */
+  /** Stops a momentum scroll and returns the shown playhead on the source timeline. */
   settledPlayheadMs: () => number
   /** The trimmed take on the source timeline. */
   bounds: Bounds
@@ -114,13 +114,14 @@ export function usePracticeTimeline({
   const audioReady = loaded && !failed
   const lengthMs = loaded ? engineLengthMs : (trimmedLengthMs(recording, file) ?? 0)
 
-  // Every command acts where the playhead shows, which a scrub or glide under way moves ahead
-  // of the engine, and stops a glide first so it cannot carry the playhead off afterward.
+  // Every command acts where the playhead shows, which a scrub or momentum scroll under way
+  // moves ahead of the engine, and stops a momentum scroll first so it cannot carry the
+  // playhead off afterward.
   const scrub = useRef<WaveformScrub | null>(null)
   // Held to the take: a scrub pulled past an end is drawn there by the waveform alone.
   const playheadMs = () => trimStartMs + (loaded ? clamp(playhead.ms, 0, lengthMs) : 0)
   const settle = () => {
-    scrub.current?.settleGlide()
+    scrub.current?.settleMomentumScroll()
   }
   const shownPositionMs = () => playhead.live()
   const bounds = useMemo(
@@ -162,7 +163,7 @@ export function usePracticeTimeline({
     stretchNow.current = next
     setDrawnStretch(next)
   }
-  // Held to the frame as it stands, so turning the phone keeps the scale wherever it still fits.
+  // Held to the current frame, so turning the phone keeps the scale wherever it still fits.
   const heldScale = scale === null ? null : clamp(scale, minScale, MAX_PX_PER_S)
   const pxPerS = heldScale === null ? null : heldScale * stretch
   const frameRef = useLatest({ widthPx, lengthMs })

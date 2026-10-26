@@ -279,7 +279,7 @@ private struct WelcomeContent: View {
                 .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: model.carousel.current)
                 HStack(spacing: 8) {
                     let current = model.carousel.current
-                    arrow(WelcomeCopy.previousSlide, symbol: "chevron.left", shows: current != .story) {
+                    arrow(WelcomeCopy.previousSlide, symbol: "chevron.left", shows: current != .intro) {
                         model.carousel.previous()
                     }
                     // The ring hugs the dots the arrow keys move, so a hidden end arrow never
@@ -601,7 +601,7 @@ private struct SlidePage: View {
 
     @ViewBuilder private func art(unit: CGFloat) -> some View {
         switch slide {
-        case .story: PaperEcho(unit: unit)
+        case .intro: WelcomeIllustration(unit: unit)
         case .catalog: CatalogSlideArt(unit: unit)
         case .record: RecordSlideArt(unit: unit)
         case .practice: PracticeSlideArt(unit: unit)

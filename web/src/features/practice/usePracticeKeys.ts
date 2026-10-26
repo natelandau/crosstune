@@ -19,12 +19,12 @@ const keepsTransportKey = (key: string, target: EventTarget | null) =>
 export interface PracticeKeyActions {
   /** True while practice is the topmost overlay, the only one the keys reach. */
   isTop: () => boolean
-  /** Why practice stands down, which turns every key off. */
+  /** Why practice is paused, which turns every key off. */
   blocked?: string
   /** False while the audio is not loaded, which turns N, L, `[`, and `]` off. */
   canEdit: boolean
   trimStartMs: number
-  /** Stops a glide under way where it shows, ahead of any key that acts at the playhead. */
+  /** Stops a momentum scroll under way where it shows, ahead of any key that acts at the playhead. */
   settle: () => void
   /** The playhead where it shows on the trimmed timeline, a scrub under way included. */
   shownPositionMs: () => number
@@ -34,9 +34,9 @@ export interface PracticeKeyActions {
   /** `atMs` is the playhead on the source timeline. */
   setEdge: (edge: 'start' | 'end', atMs: number) => void
   create: (atMs: number) => void
-  /** How many loops the lanes hold, which the digit keys pick from. */
+  /** How many loops the zoomed waveform holds, which the digit keys pick from. */
   loopCount: number
-  /** Selects the loop at `index` in lane order and returns its start on the source timeline. */
+  /** Selects the loop at `index` in waveform order and returns its start on the source timeline. */
   selectLoop: (index: number) => number
   removeSelected: () => void
   startRename: (id: string) => void

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   unstretchedMs,
   fitScale,
-  glideMs,
+  momentumScrollMs,
   MAX_PX_PER_S,
   minPxPerS,
   openingScale,
@@ -26,9 +26,9 @@ describe('scrubMs', () => {
   })
 })
 
-describe('glideMs', () => {
+describe('momentumScrollMs', () => {
   it('carries the drag on, opposite to the finger', () => {
-    expect(glideMs(1000, 100)).toBe(-3250)
+    expect(momentumScrollMs(1000, 100)).toBe(-3250)
   })
 })
 

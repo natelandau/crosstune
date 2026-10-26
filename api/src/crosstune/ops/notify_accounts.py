@@ -198,7 +198,7 @@ async def run(settings: Settings, args: argparse.Namespace) -> int:
                 try:
                     await release_notice_lock(lock_connection, args.key)
                 except SQLAlchemyError as exc:
-                    # The lock ends with its connection anyway, so the run's own outcome stands.
+                    # The lock ends with its connection anyway, so the run's own outcome is kept.
                     print(
                         f"could not release the lock on {args.key}: {exc.__class__.__name__}",
                         file=sys.stderr,

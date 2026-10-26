@@ -28,7 +28,7 @@ enum PlaceDistances {
 }
 
 extension SavedPlace {
-    /// The live saved location a pick stands for, so a repeat pick links rather than saves twice:
+    /// The live saved location a pick matches, so a repeat pick links rather than saves twice:
     /// the one with its Apple Maps id, else one of its name, trimmed and in any case, within 30 m.
     /// The name match also covers an id, since a place saved from a search with no id has none.
     /// The same rule as the web client's `savedPlaceFor`.
@@ -47,7 +47,7 @@ extension SavedPlace {
         }
     }
 
-    /// The live saved location `draft` stands for, by ``existing(name:lat:lon:applePlaceID:in:)``.
+    /// The live saved location `draft` matches, by ``existing(name:lat:lon:applePlaceID:in:)``.
     static func existing(for draft: SavedPlaceDraft, in places: [SavedPlace]) -> SavedPlace? {
         existing(name: draft.name, lat: draft.lat, lon: draft.lon, applePlaceID: draft.applePlaceID, in: places)
     }

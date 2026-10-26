@@ -2,8 +2,8 @@ import CrosstuneAnalytics
 import CrosstuneStore
 import SwiftUI
 
-/// One tune as a document: the band with its key, title, and action buttons across the top, then the
-/// content beside the facts rail, or under the facts card where the column is narrow.
+/// One tune as a document: the header with its key, title, and action buttons across the top, then
+/// the content beside the attributes column, or under the attributes card where the column is narrow.
 struct TunePage: View {
     let model: TuneModel
     let detail: TuneDetail
@@ -16,8 +16,8 @@ struct TunePage: View {
     @State private var risen = false
     @State private var titleShows = true
     /// Nil until the detail column's width is read, so a wide column never shows the card first.
-    @State private var factsLayout: FactsLayout?
-    /// The bar's height over the scroll view's top edge, where the rail pins.
+    @State private var attributesLayout: AttributesLayout?
+    /// The bar's height over the scroll view's top edge, where the attributes column pins.
     @State private var barInset: CGFloat = 0
     // periphery:ignore - read through its binding
     @State private var editing: RecordingView?
@@ -34,7 +34,7 @@ struct TunePage: View {
     /// - Parameter draftLayout: The layout the new-tune draft this page replaces read for the
     ///   column, so the page shows on its first frame.
     init(
-        model: TuneModel, detail: TuneDetail, draftLayout: FactsLayout? = nil, more: TuneMoreHandlers? = nil,
+        model: TuneModel, detail: TuneDetail, draftLayout: AttributesLayout? = nil, more: TuneMoreHandlers? = nil,
         onAddLyrics: @escaping () -> Void
     ) {
         self.model = model
@@ -42,27 +42,28 @@ struct TunePage: View {
         self.more = more
         self.onAddLyrics = onAddLyrics
         replacesDraft = draftLayout != nil
-        _factsLayout = State(initialValue: draftLayout)
+        _attributesLayout = State(initialValue: draftLayout)
     }
 
     var body: some View {
         ScrollView {
             TunePageColumn(
-                model: model, detail: detail, layout: factsLayout ?? .card, pinnedTop: barInset + Self.railPinGap,
+                model: model, detail: detail, layout: attributesLayout ?? .card,
+                pinnedTop: barInset + Self.columnPinGap,
                 editing: $editing, deleting: $deleting, addingScans: $addingScans, deletingScan: $deletingScan,
                 more: more, onAddLyrics: onAddLyrics,
                 // The title a draft became is already in its place.
                 titleRise: risen || reduceMotion || replacesDraft ? 0 : PageStyle.titleRise,
                 onTitleShows: { titleShows = $0 }
             )
-            .opacity(factsLayout == nil ? 0 : 1)
+            .opacity(attributesLayout == nil ? 0 : 1)
         }
         .onScrollGeometryChange(for: CGFloat.self, of: { $0.contentInsets.top }) { _, top in barInset = top }
-        .readsFactsLayout(
+        .readsAttributesLayout(
             into: Binding {
-                factsLayout ?? .card
+                attributesLayout ?? .card
             } set: {
-                factsLayout = $0
+                attributesLayout = $0
             }
         )
         .paperGround()
@@ -77,17 +78,17 @@ struct TunePage: View {
                 deletingScan: $deletingScan))
     }
 
-    /// Air between the bar and the pinned rail's first row.
-    private static let railPinGap: CGFloat = 8
+    /// Air between the bar and the pinned attributes column's first row.
+    private static let columnPinGap: CGFloat = 8
 }
 
-/// The page's band and column, laid out at full height so a snapshot can draw it without the
+/// The page's header and column, laid out at full height so a snapshot can draw it without the
 /// scroll view.
 struct TunePageColumn: View {
     let model: TuneModel
     let detail: TuneDetail
-    var layout: FactsLayout = .card
-    /// How far below the scroll view's top edge the facts rail pins.
+    var layout: AttributesLayout = .card
+    /// How far below the scroll view's top edge the attributes column pins.
     var pinnedTop: CGFloat = 0
     @Binding var editing: RecordingView?
     @Binding var deleting: RecordingView?
@@ -97,7 +98,7 @@ struct TunePageColumn: View {
     var more: TuneMoreHandlers?
     /// Opens the whole tune form on its lyrics field, where lyrics are written and edited.
     var onAddLyrics: () -> Void = {}
-    /// How far below its place the band sits, for the page's arrival.
+    /// How far below its place the header sits, for the page's arrival.
     var titleRise: CGFloat = 0
     /// Hears whether the title is on screen as the page scrolls.
     var onTitleShows: (Bool) -> Void = { _ in }
@@ -118,7 +119,7 @@ struct TunePageColumn: View {
     }
 
     /// Recordings and Notes always; Lyrics once the tune has lyrics; Scans and images once it
-    /// has a scan; the add line while it offers something; and Lists where the facts show as a
+    /// has a scan; the add line while it offers something; and Lists where the attributes show as a
     /// card, which leaves the lists out.
     nonisolated static func sections(
         _ detail: TuneDetail, scans: Int, addLine: [AddLineItem], listsAtEnd: Bool = false
@@ -155,25 +156,25 @@ struct TunePageColumn: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            TuneBand(
+            TuneHeader(
                 model: model, detail: detail, more: more, onReadLyrics: readLyrics, onTitleShows: onTitleShows
             )
             .offset(y: titleRise)
-            .tuneBandPlacement(layout)
+            .tuneHeaderPlacement(layout)
             switch layout {
-            case .rail:
+            case .column:
                 HStack(alignment: .top, spacing: 0) {
                     content
                         .padding([.horizontal, .bottom], PageStyle.pageMargin)
                         .frame(maxWidth: Self.columnMaxWidth, alignment: .leading)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                    facts
+                    attributes
                 }
-                // The rail fills the row's height, so its hairline and its pin reach the content's end.
+                // The attributes column fills the row's height, so its hairline and its pin reach the content's end.
                 .fixedSize(horizontal: false, vertical: true)
             case .card:
                 VStack(alignment: .leading, spacing: PageStyle.sectionGap) {
-                    facts
+                    attributes
                     content
                 }
                 .padding([.horizontal, .bottom], PageStyle.pageMargin)
@@ -187,8 +188,8 @@ struct TunePageColumn: View {
     /// The column's width with its margins.
     fileprivate static var columnMaxWidth: CGFloat { PageStyle.pageMaxWidth + 2 * PageStyle.pageMargin }
 
-    private var facts: some View {
-        TuneFacts(model: model, detail: detail, layout: layout, pinnedTop: pinnedTop, onAddToList: addToList)
+    private var attributes: some View {
+        TuneAttributes(model: model, detail: detail, layout: layout, pinnedTop: pinnedTop, onAddToList: addToList)
     }
 
     private var readLyrics: (() -> Void)? {
@@ -332,12 +333,12 @@ struct TunePageColumn: View {
         }
     }
 
-    /// The lists the tune is in and the day it was added, ending the page where the facts show
+    /// The lists the tune is in and the day it was added, ending the page where the attributes show
     /// as a card.
     private var lists: some View {
         VStack(alignment: .leading, spacing: PageStyle.sectionGap) {
             if !detail.lists.isEmpty || addToList != nil {
-                PageSection(FactCopy.listsGroup, maxWidth: PageStyle.sectionMaxWidth) {
+                PageSection(AttributeCopy.listsGroup, maxWidth: PageStyle.sectionMaxWidth) {
                     TuneListTokens(model: model, detail: detail, onAddToList: addToList)
                 }
             }
@@ -383,17 +384,17 @@ struct TunePageColumn: View {
 }
 
 extension View {
-    /// Places the band at the top of the page: within the page's margins, across the detail
-    /// column beside a rail, and in the content column's width over a card. The new-tune draft
-    /// places its band the same way.
-    func tuneBandPlacement(_ layout: FactsLayout) -> some View {
+    /// Places the header at the top of the page: within the page's margins, across the detail
+    /// column beside the attributes column, and in the content column's width over a card. The
+    /// new-tune draft places its header the same way.
+    func tuneHeaderPlacement(_ layout: AttributesLayout) -> some View {
         padding(.horizontal, PageStyle.pageMargin)
             #if !os(macOS)
                 .padding(.top, PageStyle.pageMargin)
             #endif
             .padding(.bottom, PageStyle.sectionGap)
-            .frame(maxWidth: layout == .rail ? .infinity : TunePageColumn.columnMaxWidth, alignment: .leading)
-            .frame(maxWidth: .infinity, alignment: layout == .rail ? .leading : .center)
+            .frame(maxWidth: layout == .column ? .infinity : TunePageColumn.columnMaxWidth, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: layout == .column ? .leading : .center)
     }
 }
 

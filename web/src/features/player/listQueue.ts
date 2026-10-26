@@ -5,7 +5,7 @@ export type RepeatMode = 'off' | 'list' | 'one'
 export const RESTART_AFTER_MS = 3000
 
 /**
- * The order a list's tunes play in and where playback stands in it. It holds tune ids only,
+ * The order a list's tunes play in and where playback is in it. It holds tune ids only,
  * each at most once; what each tune plays is the caller's concern. Every move returns a new
  * queue.
  */

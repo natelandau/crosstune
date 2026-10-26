@@ -15,7 +15,7 @@ import Testing
     }
 
     @Test func theSlidesRunInOrder() {
-        #expect(WelcomeSlide.allCases.map(\.name) == [.story, .catalog, .record, .practice, .listen, .tuner])
+        #expect(WelcomeSlide.allCases.map(\.name) == [.intro, .catalog, .record, .practice, .listen, .tuner])
         #expect(
             WelcomeSlide.allCases.dropFirst().map { $0.headline(for: .phone) } == [
                 WelcomeCopy.catalogHeadline, WelcomeCopy.recordHeadline, WelcomeCopy.practiceHeadline,
@@ -23,8 +23,8 @@ import Testing
             ])
     }
 
-    @Test func theStorySlideNamesTheDevice() {
-        #expect(WelcomeSlide.story.headline(for: .pad) == WelcomeCopy.headline(for: .pad))
+    @Test func theIntroSlideNamesTheDevice() {
+        #expect(WelcomeSlide.intro.headline(for: .pad) == WelcomeCopy.headline(for: .pad))
     }
 
     @Test func theReasonNamesTheOtherDevices() {
@@ -62,7 +62,7 @@ import Testing
     @Test func theCarouselStopsAtTheEndsAndRemembersTheFurthest() {
         var carousel = WelcomeCarousel()
         carousel.previous()
-        #expect(carousel.current == .story)
+        #expect(carousel.current == .intro)
         for _ in 1..<WelcomeSlide.allCases.count { carousel.next() }
         #expect(carousel.current == .tuner)
         carousel.next()
@@ -71,7 +71,7 @@ import Testing
         #expect(carousel.current == .catalog)
         #expect(carousel.furthest == .tuner)
         carousel.previous()
-        #expect(carousel.current == .story)
+        #expect(carousel.current == .intro)
         #expect(carousel.furthest == .tuner)
     }
 
@@ -132,7 +132,7 @@ import Testing
     #endif
 }
 
-/// Stands in for Clerk with an Apple flow that holds until `finish()`, as Apple's sheet stays up
+/// Replaces Clerk with an Apple flow that holds until `finish()`, as Apple's sheet stays up
 /// until the person acts.
 private final class SuspendingClerkCalls: ClerkSignUpCalls, @unchecked Sendable {
     private let lock = NSLock()
@@ -283,7 +283,7 @@ private final class SuspendingClerkCalls: ClerkSignUpCalls, @unchecked Sendable 
     }
 
     @Test func theCarouselNamesEachSlideAndDot() {
-        #expect(WelcomeCopy.slidePosition(.story) == "1 of 6")
+        #expect(WelcomeCopy.slidePosition(.intro) == "1 of 6")
         #expect(WelcomeCopy.slidePosition(.tuner) == "6 of 6")
         #expect(WelcomeCopy.dotLabel(.catalog) == "Slide 2 of 6")
     }

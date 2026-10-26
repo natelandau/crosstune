@@ -72,11 +72,14 @@ it('reveals the actions on a left swipe', async () => {
   await expect.poll(() => uncovered(edit.element())).toBe(true)
 })
 
-/** How many pixels of the row's action tray are left unclipped. */
+/** How many pixels of the row's revealed actions are left unclipped. */
 function paintedActionWidth(name: RegExp): number {
-  const tray = page.getByRole('row', { name }).element().querySelector('[data-swipe-actions]')!
-  const inset = /^inset\(([^)]*)\)$/.exec(getComputedStyle(tray).clipPath)
-  const width = tray.getBoundingClientRect().width
+  const revealedActions = page
+    .getByRole('row', { name })
+    .element()
+    .querySelector('[data-swipe-actions]')!
+  const inset = /^inset\(([^)]*)\)$/.exec(getComputedStyle(revealedActions).clipPath)
+  const width = revealedActions.getBoundingClientRect().width
   if (!inset) return width
   // A computed inset drops repeated sides, so `inset(0px)` is all four and the left side is
   // the fourth value, else the second, else the first.
@@ -519,7 +522,7 @@ it('never selects a row that also opens from a hold', async () => {
 })
 
 it('settles a swiped row without a spring under reduced motion', async () => {
-  // This one measures the motion itself, which instant animations would stand in for.
+  // This one measures the motion itself, which instant animations would replace.
   MotionGlobalConfig.instantAnimations = false
   renderWithProviders(
     <MotionConfig reducedMotion="always">

@@ -218,7 +218,7 @@ export function ListPlaybackProvider({
     detach()
   }
 
-  /** Heads for `queue` and plays the tune it stands on, as `moved` started it. */
+  /** Heads for `queue` and plays the tune it is on, as `moved` started it. */
   const move = (current: Run, queue: Queue, direction: ListStep, moved: Trigger) => {
     trigger.current = moved
     commit({ ...current, queue })
@@ -226,7 +226,7 @@ export function ListPlaybackProvider({
   }
 
   /**
-   * Plays the tune the run's queue stands on, or passes on from it while tunes cannot play:
+   * Plays the tune the run's queue is on, or passes on from it while tunes cannot play:
    * forward, where running out ends the list, or back, where running out restarts the tune that
    * was playing.
    */

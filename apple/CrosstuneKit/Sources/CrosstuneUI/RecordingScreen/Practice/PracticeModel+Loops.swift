@@ -41,7 +41,7 @@ extension PracticeModel {
     /// own status says why, and nothing is made.
     func newLoop() {
         guard isLoaded else { return }
-        settleGlide()
+        settleMomentumScroll()
         guard case .span(let span) = newLoopState else {
             if let newLoopReason { announce(newLoopReason) }
             return
@@ -94,7 +94,7 @@ extension PracticeModel {
     /// Previous or Next: selects the loop that way and brings its start under the playhead.
     func step(_ direction: LoopModel.Direction) {
         guard isLoaded else { return }
-        settleGlide()
+        settleMomentumScroll()
         guard let target = adjacent(direction) else { return }
         select(target.id)
         seek(toMs: target.span.startMs - trimStartMs)
@@ -106,7 +106,7 @@ extension PracticeModel {
     /// `[` or `]`: the selected loop's `edge` to the playhead, held to the room around it.
     func setEdge(_ edge: LoopModel.Edge) {
         guard isLoaded, let row = selected else { return }
-        settleGlide()
+        settleMomentumScroll()
         let span = Self.span(row)
         let next = LoopModel.resize(span, edge: edge, to: playheadMs, bounds: room(around: span, of: row.id))
         if next != span { write(row.id, next) }
@@ -162,7 +162,7 @@ extension PracticeModel {
     /// The handle's drag is now at `x` points from the waveform's left edge. Shown as a draft,
     /// and played while the playhead stays inside the loop; nothing is written until it ends.
     func dragHandle(toX x: Double, snapping: Bool) {
-        guard var drag = handleDrag, drag.pinch == pinches, let view = laneView else { return }
+        guard var drag = handleDrag, drag.pinch == pinches, let view = zoomedWaveformView else { return }
         drag.lastX = x
         drag.snapping = snapping
         drag.moved = true
@@ -183,7 +183,7 @@ extension PracticeModel {
     /// over, or one that never moved, writes nothing.
     func endHandleDrag(atX x: Double, snapping: Bool) {
         guard var drag = handleDrag else { return }
-        guard drag.moved, drag.pinch == pinches, let view = laneView else {
+        guard drag.moved, drag.pinch == pinches, let view = zoomedWaveformView else {
             cancelHandleDrag()
             return
         }
@@ -235,7 +235,7 @@ extension PracticeModel {
     /// The span `drag` makes with the pointer at `x`, and the time it snapped to, if any. The
     /// edge stops at the room's ends and snaps to them and, unless `snapping` is off, to the
     /// playhead.
-    private func resized(_ drag: HandleDrag, atX x: Double, in view: LaneView) -> (LoopSpan, Int64?) {
+    private func resized(_ drag: HandleDrag, atX x: Double, in view: ZoomedWaveformView) -> (LoopSpan, Int64?) {
         let pointer = Int64(view.sourceMs(atX: x).rounded())
         let targets = (drag.snapping ? [playheadMs] : []) + [drag.room.startMs, drag.room.endMs]
         let snapped = LoopModel.snap(pointer, to: targets, msPerPoint: 1000 / view.pointsPerSecond)

@@ -8,7 +8,7 @@ enum MacTypeRole {
 
 extension Font {
     /// `style` on iPhone and iPad, where type follows Dynamic Type; on the Mac, the fixed role
-    /// standing in for it, or `role` where the default does not fit the view.
+    /// that matches it, or `role` where the default does not fit the view.
     static func platform(_ style: Font.TextStyle, mac role: MacTypeRole? = nil) -> Font {
         #if os(macOS)
             (role ?? MacTypeRole(style)).font
@@ -20,7 +20,7 @@ extension Font {
 
 #if os(macOS)
     extension MacTypeRole {
-        /// The role a SwiftUI text style stands in for when a Mac view names no role.
+        /// The role a SwiftUI text style maps to when a Mac view names no role.
         init(_ style: Font.TextStyle) {
             switch style {
             case .largeTitle: self = .pageTitle

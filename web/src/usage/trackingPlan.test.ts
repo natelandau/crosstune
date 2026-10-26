@@ -321,8 +321,8 @@ describe('tracking plan', () => {
     }
   })
 
-  it("the screens equal the plan's screen enum minus stand", () => {
-    expect([...SCREENS]).toEqual(plan.enums.screen!.filter((s) => s !== 'stand'))
+  it("the screens equal the plan's screen enum minus the iPad practice screen", () => {
+    expect([...SCREENS]).toEqual(plan.enums.screen!.filter((s) => s !== 'pad_practice'))
   })
 
   it("every web setting is in the plan, and the plan's other settings are Apple-only", () => {

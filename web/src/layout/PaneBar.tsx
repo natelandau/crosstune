@@ -1,7 +1,7 @@
 import { ChevronLeft } from 'lucide-react'
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router'
-import { useLeaveTo } from './backTrail'
+import { useLeaveTo } from './backHistory'
 import { useFrame } from '../platform/frame'
 import { usePane, usePinnedBarClearance } from './pane'
 import { InBar } from '../ui/inBar'

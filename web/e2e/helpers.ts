@@ -77,7 +77,7 @@ function clerkSecretKey(): string {
 /**
  * Create a user this suite owns outright, so a deletion test never touches the shared fixture
  * account. The `+clerk_test` address keeps it inside Clerk's test mode, and skipping the
- * password requirement is what lets a bare email address stand up a user at all.
+ * password requirement is what lets a bare email address create a user at all.
  */
 export async function createThrowawayUser(): Promise<{ id: string; emailAddress: string }> {
   const emailAddress = `e2e-delete-${crypto.randomUUID()}+clerk_test@example.com`
@@ -149,7 +149,7 @@ export function endTrial(clerkUserId: string): void {
   })
 }
 
-/** The phone's bottom bar, which holds the four destinations and the Record disc. */
+/** The phone's bottom bar, which holds the four destinations and the round Record button. */
 const tabBar = (page: Page): Locator => page.getByRole('navigation', { name: TAB_BAR })
 
 /** The landmark that holds a tune's page. */
@@ -418,7 +418,7 @@ export async function expectSettled(target: Locator): Promise<void> {
 /** The label a new recording takes from the time it was made. */
 export const DEFAULT_LABEL = /\d{4}-\d{2}-\d{2} \d{2}:\d{2}/
 
-/** Record from the disc for at least `seconds`, landing on Recordings with the new row unfiled. */
+/** Record from the round Record button for at least `seconds`, landing on Recordings with the new row unfiled. */
 export async function recordUnfiled(page: Page, seconds: number): Promise<Locator> {
   await tabBar(page).getByRole('button', { name: RECORD_LABEL }).click()
   const sheet = page.getByRole('dialog', { name: NEW_RECORDING })

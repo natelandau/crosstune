@@ -304,7 +304,7 @@ private struct ListTunes: View {
         }
     }
 
-    /// What Play, Shuffle, and the line under them act on, or nil while they stand down: with no
+    /// What Play, Shuffle, and the line under them act on, or nil while they are disabled: with no
     /// tunes, while selecting, and until the access read.
     private func playOffer(_ rows: [ListEntry]) -> ListPlayOffer? {
         selection.isActive ? nil : offer(rows)

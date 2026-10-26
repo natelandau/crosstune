@@ -240,7 +240,7 @@ public final class CatalogModel {
 
     /// A stored change from elsewhere, such as another window, replaces what the screen shows.
     /// While this model's own writes are in flight the store may still hold an older value, so
-    /// the last write's result stands in for it instead.
+    /// the last write's result is used instead.
     private func storedFiltersChanged(_ value: CatalogFilters?) {
         guard writesInFlight == 0, let value else { return }
         filters = value
@@ -402,7 +402,7 @@ public final class CatalogModel {
         }
     }
 
-    /// Takes the query as it stands as the settled search, reporting the one settled before it
+    /// Takes the current query as the settled search, reporting the one settled before it
     /// when the text differs.
     private func settle() {
         settling?.cancel()

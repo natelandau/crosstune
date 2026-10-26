@@ -34,7 +34,7 @@ public enum Palette {
     /// Slate on light and white on dark, as the mark is drawn on every platform.
     public static let markInkLight = "#4F5D75"
     public static let markInkDark = "#FFFFFF"
-    /// An on switch's track. Dark mode takes a step deeper than the accent, so the white knob
+    /// An on switch's track. Dark mode takes a step deeper than the accent, so the white thumb
     /// holds 3:1 on the track and the track holds 3:1 on every ground a switch sits on.
     public static let switchOnLight = accentLight
     public static let switchOnDark = "#4A86C4"
@@ -44,7 +44,7 @@ public enum Palette {
     public static let listSelectionLight = accentLight
     public static let listSelectionDark = "#3A72AE"
     /// A grouped form's page and its cards: the layers swap in dark mode so a card still
-    /// stands off the page.
+    /// contrasts with the page.
     public static let groupedPageLight = surfaceLight
     public static let groupedPageDark = groundDark
     public static let groupedCardLight = groundLight

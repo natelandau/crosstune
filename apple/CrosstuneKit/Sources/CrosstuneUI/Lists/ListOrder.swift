@@ -8,7 +8,7 @@ struct ListMove: Equatable {
     let targetID: String
     let side: Side
 
-    /// Moves the row at `from` to where the row at `to` stands, in rows as they are shown. Nil
+    /// Moves the row at `from` to where the row at `to` is, in rows as they are shown. Nil
     /// when either index is out of range or they are the same. A hidden archived tune keeps its
     /// place, because the target is a visible neighbor.
     init?(ids: [String], from: Int, to: Int) {

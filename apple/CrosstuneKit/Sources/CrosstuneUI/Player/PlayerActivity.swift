@@ -188,8 +188,8 @@ final class PlayerActivity {
         if snapshot.lengthMs > 0 {
             plays.setLength(heardLengthMs(snapshot.lengthMs, speedPercent: snapshot.speedPercent))
         }
-        // MusicKit reports no end for a song played on its own, so stopping at the end stands in
-        // for one: a replay is then a play of its own.
+        // MusicKit reports no end for a song played on its own, so stopping at the end counts
+        // as one: a replay is then a play of its own.
         if plays.isTiming, !snapshot.playing, snapshot.atEnd, screenRecordingID == nil {
             plays.flush(.finished)
             return

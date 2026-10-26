@@ -239,7 +239,7 @@ private struct AddToTuneContent: View {
             }
             .interactiveDismissDisabled(model.isFiling)
             .onAppear { searchFocused = true }
-            // The screen under this sheet stands its Find down, so Command-F reaches this search.
+            // The screen under this sheet turns its Find off, so Command-F reaches this search.
             .focusedSceneValue(\.findAction, MenuAction { searchFocused = true })
         }
 
@@ -294,7 +294,7 @@ private struct AddToTuneContent: View {
             }
             .interactiveDismissDisabled(model.isFiling)
             .onAppear { searchFocused = true }
-            // The screen under this sheet stands its Find down, so Command-F reaches this search.
+            // The screen under this sheet turns its Find off, so Command-F reaches this search.
             .focusedSceneValue(\.findAction, MenuAction { searchFocused = true })
         }
     #endif

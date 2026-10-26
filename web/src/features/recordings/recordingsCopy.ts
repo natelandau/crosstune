@@ -55,6 +55,6 @@ export const LOCATION_NAME_LABEL = 'Location name'
 export const NAME_LOCATION_HELP = 'Recordings made here show this name.'
 /** Saves the typed name for the take's spot, once the edit is saved. */
 export const SAVE_LOCATION_NAME = 'Save'
-/** The name of a row that picks a location: the verb, then the row's lines. */
+/** The name of a row that picks a location: the action label, then the row's lines. */
 export const pickLocationName = (name: string, detail?: string | null) =>
   detail ? `Use ${name}, ${detail}` : `Use ${name}`

@@ -76,7 +76,7 @@ def parse_when(text: str, now: datetime) -> datetime:
 def load_settings() -> Settings:
     """Build settings, reading `api/.env` only for local work.
 
-    A host's variables stand alone: the local file's local-only keys would make
+    A host's variables are used by themselves: the local file's local-only keys would make
     hosted settings refuse to load, and its other keys would fill in what the host left unset.
     """
     if os.environ.get("CROSSTUNE_ENVIRONMENT", "development") != "development":

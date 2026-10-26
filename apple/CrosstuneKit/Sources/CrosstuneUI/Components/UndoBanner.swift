@@ -124,7 +124,7 @@ public struct UndoBanner: View {
 
 extension EnvironmentValues {
     /// Whether Liquid Glass is drawn. An image renderer cannot draw glass, so a snapshot turns
-    /// this off to see the material that stands in for it.
+    /// this off to see the material that replaces it.
     @Entry var drawsGlass = true
 }
 

@@ -14,7 +14,7 @@ export function StoreProvider({
   store,
   children,
 }: {
-  /** Stands in for the store, for a test; null means purchasing is unavailable. */
+  /** Replaces the store, for a test; null means purchasing is unavailable. */
   store?: Store | null
   children: ReactNode
 }) {

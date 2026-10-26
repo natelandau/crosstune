@@ -17,7 +17,7 @@ import { fakeEngine, testSession } from './fakeSync'
 
 export { fakeEngine, testSession }
 
-/** Stands in for a real `<audio>` element, which can neither decode a fake blob nor build a
+/** Replaces a real `<audio>` element, which can neither decode a fake blob nor build a
  * Web Audio graph from one, so a test drives play state through events instead. Exported so a
  * test that needs `play()` to fail can override it on its own instance. */
 export class FakeAudioElement extends EventTarget {

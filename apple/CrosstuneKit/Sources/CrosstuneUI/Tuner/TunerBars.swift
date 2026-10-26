@@ -47,7 +47,7 @@ struct TunerBars: View {
     }
 
     var body: some View {
-        let green = greenness(cents: cents)
+        let green = inTuneFraction(cents: cents)
         let color = BrandStyle.color(hex: PhoneStyle.tuneBarHex(cents: cents))
         GeometryReader { proxy in
             let size = proxy.size

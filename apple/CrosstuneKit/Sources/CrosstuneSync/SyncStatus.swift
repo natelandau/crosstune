@@ -3,7 +3,7 @@ import CrosstuneAnalytics
 import Foundation
 import OpenAPIRuntime
 
-/// Where the sync loop stands.
+/// The sync loop's state.
 public enum SyncStatus: String, CaseIterable, Sendable {
     case idle
     case syncing
@@ -30,7 +30,7 @@ public enum SyncStatus: String, CaseIterable, Sendable {
     }
 }
 
-/// Where the scan and recording upload and download loop stands.
+/// Where the scan and recording upload and download loop's state.
 public enum TransferStatus: String, CaseIterable, Sendable {
     case idle
     case transferring

@@ -48,7 +48,7 @@ public protocol PlaceSearching: AnyObject {
     init()
     /// The suggestions for `query`, empty when there are none or the search fails.
     func completions(for query: String) async -> [PlaceCompletion]
-    /// The place `completion` stands for, named as picked, nil when it cannot be found.
+    /// The place `completion` names, named as picked, nil when it cannot be found.
     func resolve(_ completion: PlaceCompletion) async -> PickedPlace?
 }
 
@@ -171,7 +171,7 @@ private final class MapKitCompleter: NSObject, PlaceCompleting, @preconcurrency 
             completer?.cancel()
             let fresh = MKLocalSearchCompleter()
             // No region is set, so an address that repeats across states lists every match.
-            // Query completions are left out: one stands for a category, not a place to pick.
+            // Query completions are left out: one names a category, not a place to pick.
             fresh.resultTypes = [.pointOfInterest, .address, .physicalFeature]
             fresh.delegate = self
             fresh.queryFragment = newValue

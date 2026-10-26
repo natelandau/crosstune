@@ -212,7 +212,7 @@ import Testing
 }
 
 @Suite struct TabSlotTests {
-    @Test @MainActor func theRecordSlotStandsDownOnlyWhileTheShellIsCovered() {
+    @Test @MainActor func theRecordSlotIsDisabledOnlyWhileTheShellIsCovered() {
         #expect(TabSlot.recordIsEnabled(cover: nil))
         let cover = ShellCover()
         #expect(TabSlot.recordIsEnabled(cover: cover))
@@ -522,13 +522,13 @@ import Testing
 }
 
 @Suite struct MenuGateTests {
-    @Test func newTuneStandsDownUnderASheetOrWhileSelecting() {
+    @Test func newTuneIsDisabledUnderASheetOrWhileSelecting() {
         #expect(MenuGates.newTune(sheetsOpen: false, selecting: false))
         #expect(!MenuGates.newTune(sheetsOpen: true, selecting: false))
         #expect(!MenuGates.newTune(sheetsOpen: false, selecting: true))
     }
 
-    @Test func newListStandsDownUnderASheet() {
+    @Test func newListIsDisabledUnderASheet() {
         #expect(MenuGates.newList(sheetsOpen: false))
         #expect(!MenuGates.newList(sheetsOpen: true))
     }
@@ -545,7 +545,7 @@ import Testing
         #expect(!MenuGates.sort(isShown: true, sheetsOpen: true))
     }
 
-    @Test func sortByStandsDownWhileTheScreenSelects() {
+    @Test func sortByIsDisabledWhileTheScreenSelects() {
         #expect(!MenuGates.sort(isShown: true, sheetsOpen: false, selecting: true))
         #expect(MenuGates.sort(isShown: true, sheetsOpen: false, selecting: false))
     }
@@ -558,7 +558,7 @@ import Testing
             ])
     }
 
-    @Test func recordStandsDownUnderASheetWhileSelectingOrForAPendingTakeOrACapture() {
+    @Test func recordIsDisabledUnderASheetWhileSelectingOrForAPendingTakeOrACapture() {
         #expect(MenuGates.record(sheetsOpen: false, selecting: false, takePending: false, capturing: false))
         #expect(!MenuGates.record(sheetsOpen: true, selecting: false, takePending: false, capturing: false))
         #expect(!MenuGates.record(sheetsOpen: false, selecting: true, takePending: false, capturing: false))
@@ -566,7 +566,7 @@ import Testing
         #expect(!MenuGates.record(sheetsOpen: false, selecting: false, takePending: false, capturing: true))
     }
 
-    @Test func controlsStandDownUnderASheet() {
+    @Test func controlsAreDisabledUnderASheet() {
         #expect(MenuGates.controls(sheetsOpen: false))
         #expect(!MenuGates.controls(sheetsOpen: true))
     }
@@ -839,7 +839,7 @@ import Testing
         #expect(place.tabToSave(saved: .settings) == .catalog)
     }
 
-    @Test func closingTheSheetEndsTheCatalogsStandIn() {
+    @Test func closingTheSheetEndsTheCatalogReplacement() {
         let place = ShellPlace()
         place.restore(tab: .settings, compact: true)
         place.showSettings()

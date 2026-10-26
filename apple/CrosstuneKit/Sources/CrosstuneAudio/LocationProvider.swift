@@ -16,7 +16,7 @@ public protocol LocationProvider: AnyObject {
     func currentLocation() async -> Coordinate?
 }
 
-/// The parts of `CLLocationManager` the provider uses, so tests can stand in for it.
+/// The parts of `CLLocationManager` the provider uses, so tests can replace it.
 protocol LocationManaging: AnyObject {
     var authorizationStatus: CLAuthorizationStatus { get }
     var delegate: (any CLLocationManagerDelegate)? { get set }

@@ -101,7 +101,7 @@
             }
         }
 
-        /// The dock's play is a disc that fits the dock's slot, never a frame padded to a touch target.
+        /// The dock's play is a circle that fits the dock's slot, never a frame padded to a touch target.
         @Test func dockPlayButtonFitsItsSlot() throws {
             #expect(MacStyle.dockPlayDiameter == 28)
             #expect(MacStyle.dockPlayDiameter <= MacStyle.paneIconWidth)
@@ -116,7 +116,7 @@
         /// Catalog, a list, Recordings, and the tune page set their titles on one baseline.
         @Test(arguments: [
             "Mac/ColumnTitle.swift", "Mac/MacListTitle.swift", "Recordings/RecordingsScreen.swift",
-            "Tune/TuneBand.swift",
+            "Tune/TuneHeader.swift",
         ])
         func everyColumnUsesTheOneTitleBaseline(path: String) throws {
             let file = SourceScan.sources.appending(path: path)
@@ -159,7 +159,7 @@
             }
         }
 
-        /// The dock's scrubber: a hairline track, ink fill, coral knob.
+        /// The dock's scrubber: a hairline track, ink fill, coral thumb.
         @Test func scrubberDrawsInTokens() throws {
             let file = SourceScan.sources.appending(path: "Mac/PlayerDock.swift")
             let text = SourceScan.withoutComments(try SourceScan.text(at: file))

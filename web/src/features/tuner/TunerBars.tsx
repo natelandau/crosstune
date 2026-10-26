@@ -1,5 +1,5 @@
 import { blend } from './blend'
-import { greenness, tuneStep, ZONE_CENTS } from './pitch/notes'
+import { inTuneFraction, tuneStep, ZONE_CENTS } from './pitch/notes'
 
 /** The furthest a bar travels, in cents and as a share of the stage's height. */
 const FULL_CENTS = 50
@@ -11,7 +11,7 @@ const ZONE_HEIGHT = ((2 * ZONE_CENTS) / FULL_CENTS) * FULL_TRAVEL
 function barColor(cents: number): string {
   const step = tuneStep(cents)
   if (step === 'far') return 'var(--coral)'
-  return blend('--tune-close', '--known-dark', step === 'zone' ? greenness(cents) : 0)
+  return blend('--tune-close', '--known-dark', step === 'zone' ? inTuneFraction(cents) : 0)
 }
 
 /**
@@ -23,9 +23,9 @@ export function TunerBars({ cents }: { cents: number }) {
   const clamped = Math.max(-FULL_CENTS, Math.min(FULL_CENTS, cents))
   // `translate` percentages are of the track's own height, which is the stage's.
   const shift = (-clamped / FULL_CENTS) * FULL_TRAVEL * 100
-  const green = greenness(cents)
+  const inTune = inTuneFraction(cents)
   const color = barColor(cents)
-  const zone = `color-mix(in srgb, ${blend('--silver', '--known-dark', green / 2)} ${14 + 6 * green}%, transparent)`
+  const zone = `color-mix(in srgb, ${blend('--silver', '--known-dark', inTune / 2)} ${14 + 6 * inTune}%, transparent)`
   return (
     <>
       {(

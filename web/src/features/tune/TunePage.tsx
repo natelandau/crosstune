@@ -41,7 +41,7 @@ import { usePlanOrUnknown } from '../../billing/usePlan'
 import { useTuneScreen, type TuneScreenData } from './useTuneScreen'
 import { DELETING, EDIT } from '../../ui/confirmCopy'
 import { MORE_ACTIONS } from '../../ui/menuCopy'
-import { useLeaveTo } from '../../layout/backTrail'
+import { useLeaveTo } from '../../layout/backHistory'
 import { FindRecordingsSheet } from '../links/FindRecordingsSheet'
 import { PasteLinkSheet } from '../links/PasteLinkSheet'
 import { LyricsReader } from '../lyrics/LyricsReader'
@@ -58,16 +58,16 @@ import { ErrorLine } from '../../ui/ErrorLine'
 import { Menu } from '../../ui/Menu'
 import { menuEntries } from '../../ui/sharedActions'
 import { useElementSize } from '../../ui/useElementSize'
-import { LISTS_GROUP } from './factCopy'
-import { bandGutter, factsLayout } from './factsLayout'
+import { LISTS_GROUP } from './attributeCopy'
+import { headerGutter, attributesLayout } from './attributesLayout'
 import { takeFresh } from './freshTune'
 import { useTuneFormLauncher } from './formLauncher'
 import { LinkRow, MediaList, RecordingRow } from './MediaRow'
 import { NotesField } from './NotesField'
 import { FirstRecordingCard } from './FirstRecordingCard'
 import { PageSection } from '../../ui/PageSection'
-import { TuneBand } from './TuneBand'
-import { AddedLine, TuneFacts, TuneLists } from './TuneFacts'
+import { TuneHeader } from './TuneHeader'
+import { AddedLine, TuneAttributes, TuneLists } from './TuneAttributes'
 import { isQuietPick } from './tunePick'
 import { useTuneScans, type TuneScansParts } from './useTuneScans'
 import { TuneActionButtons } from './TuneActionButtons'
@@ -126,7 +126,7 @@ export function TunePage({
   // Measured here rather than in a page, since a page reading behind another is hidden and
   // has no width.
   const root = useRef<HTMLDivElement>(null)
-  const layout = factsLayout(useElementSize(root).width)
+  const layout = attributesLayout(useElementSize(root).width)
   return (
     // On phone and split a page pushes in over the list; on wide it fades in beside it, and a
     // swap to the next tune cross-fades. Any other change, including the next page mounting
@@ -184,11 +184,11 @@ function TuneDocument({
   tuneId: string
   parent: string
   parentLabel: string
-  /** The facts beside the content as a rail, or above it as a card. */
-  layout: 'rail' | 'card'
+  /** The attributes beside the content as a column, or above it as a card. */
+  layout: 'column' | 'card'
   /** True for the page of the tune the address names; false for one held while it reads. */
   current: boolean
-  /** The title read before the page showed, for its heading until the facts read. */
+  /** The title read before the page showed, for its heading until the attributes read. */
   knownTitle?: string | null
   hidden?: boolean
   /** Runs once the tune has read, or turned out to be gone. */
@@ -208,14 +208,14 @@ function TuneDocument({
     startRecording: record.start,
   })
   const scans = useTuneScans(tuneId)
-  const { ready, missing, facts, deletingName } = screen
+  const { ready, missing, attributes, deletingName } = screen
   useUndoWithdrawn(
     tuneId,
     !media.empty ||
       scans.has ||
       screen.inLists.length > 0 ||
       Boolean(screen.notes?.trim()) ||
-      (facts?.hasLyrics ?? false),
+      (attributes?.hasLyrics ?? false),
   )
   const [picking, setPicking] = useState(false)
   const [reading, setReading] = useState(false)
@@ -225,7 +225,7 @@ function TuneDocument({
     if (ready || missing) onRead()
   }, [ready, missing, onRead])
 
-  const readTitle = facts?.title
+  const readTitle = attributes?.title
   useEffect(() => {
     if (readTitle !== undefined) rememberTuneTitle(db, tuneId, readTitle)
   }, [db, tuneId, readTitle])
@@ -235,17 +235,17 @@ function TuneDocument({
     if (current && missing) leaveTo(parent)
   }, [current, missing, leaveTo, parent])
 
-  const shownFacts = ready && !deletingName ? facts : null
-  const title = shownFacts?.title ?? deletingName ?? knownTitle ?? undefined
+  const shownAttributes = ready && !deletingName ? attributes : null
+  const title = shownAttributes?.title ?? deletingName ?? knownTitle ?? undefined
   const editAll = () => form.open({ tuneId })
   const addToList = () => setPicking(true)
   const more = menuEntries(screen.menuFor({ onAddToList: addToList, onEditAll: editAll }))
-  const view = shownFacts ? screen.tune : undefined
-  const rail = layout === 'rail'
-  // Off the phone More is the tune's own control on its title row, whichever way the facts show.
+  const view = shownAttributes ? screen.tune : undefined
+  const column = layout === 'column'
+  // Off the phone More is the tune's own control on its title row, whichever way the attributes show.
   const moreOnTitle = useFrame() !== 'phone'
-  const gutter = bandGutter(layout)
-  const moreMenu = shownFacts && (
+  const gutter = headerGutter(layout)
+  const moreMenu = shownAttributes && (
     <Menu
       label={MORE_ACTIONS}
       trigger={<Button icon={Ellipsis} label={MORE_ACTIONS} iconOnly />}
@@ -254,8 +254,8 @@ function TuneDocument({
   )
   const readLyrics = () => setReading(true)
 
-  const factsPanel = view && screen.instruments && (
-    <TuneFacts
+  const attributesPanel = view && screen.instruments && (
+    <TuneAttributes
       view={view}
       instruments={screen.instruments}
       inLists={screen.inLists}
@@ -264,7 +264,7 @@ function TuneDocument({
       onAddToList={addToList}
     />
   )
-  const sections = shownFacts && (
+  const sections = shownAttributes && (
     <TuneSections
       tuneId={tuneId}
       screen={screen}
@@ -277,7 +277,7 @@ function TuneDocument({
       lyricsOpen={lyricsOpen}
       onLyricsOpenChange={setLyricsOpen}
       lists={
-        !rail &&
+        !column &&
         view && (
           <>
             <PageSection title={LISTS_GROUP}>
@@ -302,10 +302,10 @@ function TuneDocument({
         trailing={!moreOnTitle && moreMenu}
       />
       <article>
-        <TuneBand
+        <TuneHeader
           tuneId={tuneId}
           view={view}
-          facts={shownFacts}
+          attributes={shownAttributes}
           title={title}
           active={!hidden}
           gutter={gutter}
@@ -314,7 +314,7 @@ function TuneDocument({
             <TuneActionButtons
               tuneId={tuneId}
               media={media}
-              onLyrics={shownFacts?.hasLyrics ? readLyrics : null}
+              onLyrics={shownAttributes?.hasLyrics ? readLyrics : null}
             />
           }
         />
@@ -326,14 +326,14 @@ function TuneDocument({
           )}
           <ErrorLine error={screen.error} place="inline" />
         </div>
-        {rail ? (
+        {column ? (
           <div className="grid grid-cols-[minmax(0,1fr)_auto]">
             <div className="max-w-page w-full px-7 pt-4 pb-12">{sections}</div>
-            {factsPanel}
+            {attributesPanel}
           </div>
         ) : (
           <div className="max-w-page mx-auto flex w-full flex-col gap-8 px-4 pb-12">
-            {factsPanel}
+            {attributesPanel}
             <div>{sections}</div>
           </div>
         )}
@@ -414,12 +414,12 @@ function TuneSections({
   onReadLyrics: () => void
   lyricsOpen: boolean
   onLyricsOpenChange: (open: boolean) => void
-  /** The lists and the day added, which end the page where the facts are a card. */
+  /** The lists and the day added, which end the page where the attributes are a card. */
   lists: ReactNode
 }) {
   const lyrics = screen.tune?.tune.lyrics
   const verses = useMemo(() => lyricLines(lyrics), [lyrics])
-  const hasLyrics = screen.facts?.hasLyrics ?? false
+  const hasLyrics = screen.attributes?.hasLyrics ?? false
   const addItems = media.addItems.map((item) =>
     item.label === NEW_RECORDING && !recordAvailable
       ? { ...item, disabled: RECORD_UNAVAILABLE }

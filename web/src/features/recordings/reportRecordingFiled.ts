@@ -3,7 +3,7 @@ import { recordingOrigin } from '../../usage/origin'
 import type { LocalRecording } from '../../db/types'
 
 /**
- * Reports a recording filed under `tuneId`. `before` is the row as it stood before the write:
+ * Reports a recording filed under `tuneId`. `before` is the row as it was before the write:
  * the stored tune decides `from`, since deleting a tune leaves its recordings pointing at it.
  */
 export function reportRecordingFiled(

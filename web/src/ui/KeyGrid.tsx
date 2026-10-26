@@ -10,7 +10,7 @@ interface Choice {
   /** The value `onChange` receives; null for the empty choice. */
   value: string | null
   name: string
-  face: string
+  label: string
   plain: boolean
 }
 
@@ -42,7 +42,7 @@ export function KeyGrid({
   anyLabel?: string
   /** The keys offered, in order. Defaults to every key spelling. */
   keys?: readonly string[]
-  /** A value among `keys` that stands for tunes with no key, shown as a question mark. */
+  /** A value among `keys` that means tunes with no key, shown as a question mark. */
   noKey?: string
   /** Focuses the chosen pill, or the first, on mount. */
   autoFocus?: boolean
@@ -53,13 +53,13 @@ export function KeyGrid({
   const choices: Choice[] = [
     ...(anyLabel === undefined
       ? []
-      : [{ id: EMPTY, value: null, name: anyLabel, face: anyLabel, plain: true }]),
+      : [{ id: EMPTY, value: null, name: anyLabel, label: anyLabel, plain: true }]),
     ...offered.map((key) =>
       key === noKey
         ? // A question mark is the shorthand a musician writes on a tune list; it reads as
           // nothing aloud, so the pill is named in words.
-          { id: key, value: key, name: UNKNOWN_KEY, face: '?', plain: true }
-        : { id: key, value: key, name: spokenKey(key), face: key, plain: false },
+          { id: key, value: key, name: UNKNOWN_KEY, label: '?', plain: true }
+        : { id: key, value: key, name: spokenKey(key), label: key, plain: false },
     ),
   ]
   const chosenId = value === null ? (anyLabel === undefined ? null : EMPTY) : (held ?? value)
@@ -94,7 +94,7 @@ export function KeyGrid({
           className={`${CAPSULE_HIT} inline-flex cursor-default rounded-(--radius-capsule)`}
         >
           {({ isSelected }) => (
-            <KeyPill value={choice.face} chosen={isSelected} plain={choice.plain} flood />
+            <KeyPill value={choice.label} chosen={isSelected} plain={choice.plain} flood />
           )}
         </ListBoxItem>
       )}

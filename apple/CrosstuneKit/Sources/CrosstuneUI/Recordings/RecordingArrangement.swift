@@ -94,7 +94,7 @@ public struct RecordingArrangement: Equatable, Sendable {
     }
 
     /// The sections the iPhone list shows, in order: absent ones left out, storage last. While
-    /// an empty state shows over the list, the storage row stands aside so it never sits under
+    /// an empty state shows over the list, the storage row hides so it never sits under
     /// the empty state's words.
     public static func sectionOrder(
         hasUnfinished: Bool, hasUnfiled: Bool, tuneCount: Int, narrowedToNothing: Bool = false,

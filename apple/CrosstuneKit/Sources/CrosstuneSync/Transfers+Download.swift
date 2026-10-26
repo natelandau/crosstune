@@ -149,7 +149,7 @@ extension Transfers {
     }
 
     private enum PeaksUpdate {
-        /// Nothing to fetch, so the file row's own waveform stands.
+        /// Nothing to fetch, so the file row's own waveform is kept.
         case kept(RecordingFile?)
         case fetched(URL)
     }

@@ -133,7 +133,7 @@ export function useEditRecording(
   const [openedNotes, setOpenedNotes] = useState('')
   const [players, setPlayersState] = useState('')
   const [openedPlayers, setOpenedPlayers] = useState('')
-  // The location picked or cleared here, null while the recording's own stands.
+  // The location picked or cleared here, null while the recording's own is kept.
   const [picked, setPicked] = useState<StagedPlace | null>(null)
   const [placeMethod, setPlaceMethod] = useState<PlaceMethod | null>(null)
   const [page, setPage] = useState<EditRecordingPage>('form')
@@ -178,7 +178,7 @@ export function useEditRecording(
     onClose,
   })
 
-  // The recording as it stands, so a name or a link that syncs in while the sheet is open shows.
+  // The recording as it is now, so a name or a link that syncs in while the sheet is open shows.
   const liveRow = viewId ? recordings?.find((r) => r.id === viewId) : undefined
   const location = view ? new LocationState(picked, liveRow ?? view.recording, places) : null
   const dateUnchanged = sameParts(parts, openedParts)

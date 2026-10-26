@@ -51,7 +51,7 @@ function Frame({ children }: { children: ReactNode }) {
     }
   }, [phone, floatHeight])
   return (
-    // The whole frame, bars included, is what recedes behind a touch sheet.
+    // The whole frame, bars included, is what scales back behind a touch sheet.
     <SelectionSlot value={slot}>
       <div
         data-sheet-root

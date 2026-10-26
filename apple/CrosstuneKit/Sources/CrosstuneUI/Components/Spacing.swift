@@ -20,8 +20,8 @@ public struct Spacing: Equatable, Sendable {
     public var rowInset: CGFloat { self(10) }
     /// Between the lines of one row.
     public var rowLineGap: CGFloat { self(2) }
-    /// Between the chips of a rail.
-    public var railGap: CGFloat { self(8) }
+    /// Between the chips of a segmented control.
+    public var chipGap: CGFloat { self(8) }
     /// Above and below a chip's label, inside its fill.
     public var chipVertical: CGFloat { self(6) }
     /// Between items of one group.
@@ -44,7 +44,7 @@ extension EnvironmentValues {
 #endif
 
 /// A chip's height at the default size. Scaled relative to `.subheadline`, its label's style, it
-/// stands in for a chip's height at any size where a container must leave room for the chip's
+/// substitutes for a chip's height at any size where a container must leave room for the chip's
 /// tap target before the chip lays out.
 let defaultChipHeight: CGFloat = 32
 

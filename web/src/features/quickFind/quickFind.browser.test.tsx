@@ -125,7 +125,7 @@ it('swaps in a clicked tune with motion, and one chosen from the keyboard withou
   await joyOption().click()
   await expect.poll(() => router.state.location.pathname).toBe(`/catalog/${joy}`)
   expect(isQuietPick(router.state.location.state)).toBe(false)
-  // Cmd-K stands down until the closing Quick Find lets go of the overlay stack.
+  // Cmd-K does nothing until the closing Quick Find lets go of the overlay stack.
   await expect.poll(overlays).toBe(0)
 
   await router.navigate('/catalog')

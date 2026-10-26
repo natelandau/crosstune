@@ -34,7 +34,7 @@ import Testing
             return host.sizeThatFits(in: CGSize(width: width, height: 10_000)).height
         }
 
-        @Test func wrapsWhenTheRailIsNarrow() {
+        @Test func wrapsWhenTheColumnIsNarrow() {
             let line = height(at: .large, width: 358)
             #expect(height(at: .large, width: 200) > line)
         }

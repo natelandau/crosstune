@@ -2190,7 +2190,7 @@ export interface components {
         };
         /**
          * TuneStatus
-         * @description Where a player stands with a tune.
+         * @description A player's progress with a tune.
          * @enum {string}
          */
         TuneStatus: "known" | "learning" | "want_to_learn";

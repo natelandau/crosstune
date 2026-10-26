@@ -37,15 +37,15 @@ enum PageStyle {
         static let pinsSheetActions = false
         /// A tune page's section, heading and controls included, keeps a readable measure.
         static let sectionMaxWidth = MacStyle.pageRowMaxWidth
-        /// A fact row on the tune page, a list row's height with a list row's rounded wash.
-        static let factRowHeight = MacStyle.rowHeight
-        static let factRowRadius = MacStyle.rowRadius
+        /// An attribute row on the tune page, a list row's height with a list row's rounded wash.
+        static let attributeRowHeight = MacStyle.rowHeight
+        static let attributeRowRadius = MacStyle.rowRadius
         /// A surface on the page: a card, the notes field, or the start card's outline.
         static let surfaceRadius = MacForm.cardRadius
-        static let factsCardRadius = surfaceRadius
+        static let attributesCardRadius = surfaceRadius
         static let startCardPadding: CGFloat = 16
-        /// Where a facts card's row text starts from the card's edge.
-        static let factsCardInset = MacForm.rowInset
+        /// Where an attributes card's row text starts from the card's edge.
+        static let attributesCardInset = MacForm.rowInset
     #else
         static let body = Font.body
         static let secondary = Font.subheadline
@@ -77,19 +77,19 @@ enum PageStyle {
         /// secondaries, and Close is the system close button.
         static let pinsSheetActions = true
         static let sectionMaxWidth = CGFloat.infinity
-        static let factRowHeight = minimumTapTarget
-        static let factRowRadius: CGFloat = 8
+        static let attributeRowHeight = minimumTapTarget
+        static let attributeRowRadius: CGFloat = 8
         static let surfaceRadius: CGFloat = 12
-        static let factsCardRadius = surfaceRadius
+        static let attributesCardRadius = surfaceRadius
         static let startCardPadding: CGFloat = 20
-        static let factsCardInset: CGFloat = 16
+        static let attributesCardInset: CGFloat = 16
     #endif
 
-    /// The tune page's facts rail, beside the content once the detail column has room for both.
-    static let factsRailWidth: CGFloat = 236
-    /// The narrowest the tune page's content column reads at beside the facts rail: room
+    /// The tune page's attributes column, beside the content once the detail column has room for both.
+    static let attributesColumnWidth: CGFloat = 236
+    /// The narrowest the tune page's content column reads at beside the attributes column: room
     /// enough that an 11-inch or larger iPad in landscape, with the sidebar hidden, takes the
-    /// rail, while the open iPhone Duo and a narrow Mac window take the card.
+    /// attributes column, while the open iPhone Duo and a narrow Mac window take the card.
     static let contentMinWidth: CGFloat = 340
 
     /// The space between lines of tokens drawn at ``smallControlHeight``: at least `base`, and

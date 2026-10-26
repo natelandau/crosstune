@@ -257,7 +257,7 @@ it('asks for a tap when the browser holds the audio back, and listens after it',
   await expect.poll(() => stage()?.dataset.status).toBe('listening')
   await expect.element(prompt).not.toBeInTheDocument()
   fake.play(toneThrough([[a4Plus(0), 0.5]]))
-  await expect.poll(() => stage()?.dataset.greenness).toBe('1')
+  await expect.poll(() => stage()?.dataset.inTuneFraction).toBe('1')
 })
 
 const bar = () => document.querySelector<HTMLElement>('[data-tuner-bar]')
@@ -273,18 +273,18 @@ it('turns the bars and the wash green as the note nears in tune', async () => {
   const jet = getComputedStyle(tuner().element()).backgroundColor
 
   fake.play(toneThrough([[a4Plus(30), 0.6]]))
-  await expect.poll(() => stage()?.dataset.greenness).toBe('0')
+  await expect.poll(() => stage()?.dataset.inTuneFraction).toBe('0')
   await expect.poll(() => backgroundOf(bar())).toBe(rgbOf(PALETTE.light.coral))
   await expect.poll(() => getComputedStyle(tuner().element()).backgroundColor).toBe(jet)
 
   // Just outside the zone: the close step, and still no wash.
   fake.play(toneThrough([[a4Plus(12.5), 0.6]]))
   await expect.poll(() => backgroundOf(bar())).toBe(rgbOf(PALETTE.light.tuneClose))
-  expect(stage()?.dataset.greenness).toBe('0')
+  expect(stage()?.dataset.inTuneFraction).toBe('0')
   await expect.poll(() => getComputedStyle(tuner().element()).backgroundColor).toBe(jet)
 
   fake.play(toneThrough([[a4Plus(0), 0.6]]))
-  await expect.poll(() => stage()?.dataset.greenness).toBe('1')
+  await expect.poll(() => stage()?.dataset.inTuneFraction).toBe('1')
   await expect.poll(() => backgroundOf(bar())).toBe(rgbOf(PALETTE.dark.known))
   await expect.poll(() => getComputedStyle(tuner().element()).backgroundColor).not.toBe(jet)
   const wash = getComputedStyle(tuner().element()).backgroundColor
@@ -292,7 +292,7 @@ it('turns the bars and the wash green as the note nears in tune', async () => {
   // Halfway into the zone: partly green, and a lighter wash than in tune.
   fake.play(toneThrough([[a4Plus(6.5), 0.6]]))
   await expect
-    .poll(() => Number(stage()?.dataset.greenness))
+    .poll(() => Number(stage()?.dataset.inTuneFraction))
     .toSatisfy((green: number) => green > 0.2 && green < 0.8)
   await expect
     .poll(() => backgroundOf(bar()))
@@ -344,12 +344,12 @@ it('announces only note and in-tune changes', async () => {
   expect(changes).toEqual(['A4, in tune'])
 })
 
-it('holds the last note where it stands once the sound stops', async () => {
+it('holds the last note where it is once the sound stops', async () => {
   const { fake } = await mount()
   await expect.poll(() => stage()?.dataset.status).toBe('listening')
   await expect.element(tuner().getByText(LISTENING)).toBeVisible()
   fake.play(toneThrough([[a4Plus(30), 0.5]]))
-  await expect.poll(() => stage()?.dataset.greenness).toBe('0')
+  await expect.poll(() => stage()?.dataset.inTuneFraction).toBe('0')
   await expect.element(tuner().getByText(LISTENING)).not.toBeInTheDocument()
   await expect.element(tuner().getByText(SHARP)).toBeVisible()
 
@@ -364,7 +364,7 @@ it('holds the last note where it stands once the sound stops', async () => {
   expect(Number.parseFloat(held.split(' ')[1]!)).toBeLessThan(-20)
   await expect.element(tuner().getByText(SHARP)).toBeVisible()
   expect(getComputedStyle(bar()!).opacity).toBe('1')
-  expect(stage()?.dataset.greenness).toBe('0')
+  expect(stage()?.dataset.inTuneFraction).toBe('0')
   expect(tuner().getByText(LISTENING).query()).toBeNull()
 })
 

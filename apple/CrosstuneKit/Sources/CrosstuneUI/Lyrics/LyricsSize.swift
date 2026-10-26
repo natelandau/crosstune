@@ -1,6 +1,6 @@
 import CoreGraphics
 
-/// The reading view's own text scale: an absolute size for a phone propped on a music stand, not
+/// The reading view's own text scale: an absolute size for a phone propped up at a distance, not
 /// a multiplier on the app's Dynamic Type setting, which sets the distance for reading in the
 /// hand. Stored per device, like ``Appearance``, since it needs no account.
 public enum LyricsSize {

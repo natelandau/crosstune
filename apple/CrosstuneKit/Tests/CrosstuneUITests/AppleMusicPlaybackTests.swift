@@ -11,7 +11,7 @@ import Testing
 
 @testable import CrosstuneUI
 
-/// Stands in for the device's Apple Music access: answers `state`, and a request moves a
+/// Replaces the device's Apple Music access: answers `state`, and a request moves a
 /// never-asked state to `answer`. With `holdsRequests` on, a request waits until
 /// ``releaseRequest()``, as the system prompt waits on the person.
 @MainActor
@@ -53,7 +53,7 @@ final class FakeAccess: AppleMusicAccess {
     }
 }
 
-/// Stands in for the device's MusicKit player, noting what the model asked of it. With
+/// Replaces the device's MusicKit player, noting what the model asked of it. With
 /// `holdsLoads` on, each load waits until ``release()``, and notes whether its task was
 /// cancelled by then. Observable, as the device's player is.
 @MainActor
@@ -375,8 +375,8 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
         music.trackTitle = "The Mason's Apron"
         try await play(player, appleLink(url: "https://music.apple.com/us/album/reels/1440833081"))
         #expect(PlayerBar.subtitle(player) == "The Mason's Apron")
-        // With no list playing, the link's Stand names the track too.
-        #expect(StandHeader.linkSubtitle(player: player, playback: nil) == "The Mason's Apron")
+        // With no list playing, the link's PadPracticeScreen names the track too.
+        #expect(PadPracticeHeader.linkSubtitle(player: player, playback: nil) == "The Mason's Apron")
     }
 
     @Test func namesNoTrackForASongOrAnEmbed() async throws {

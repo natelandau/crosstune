@@ -78,7 +78,7 @@ private let day: TimeInterval = 86_400
         try await addRecording()
 
         try await eventually { model.showing == .firstRecording }
-        #expect(model.facts?.holdsRecordings == true)
+        #expect(model.inputs?.holdsRecordings == true)
     }
 
     @Test func waitsWhileTheShellIsCoveredOrCapturing() async throws {
@@ -87,7 +87,7 @@ private let day: TimeInterval = 86_400
         model.coverChanged(covered: true, capturing: false)
 
         try await addRecording()
-        try await eventually { model.facts?.holdsRecordings == true }
+        try await eventually { model.inputs?.holdsRecordings == true }
         #expect(model.showing == nil)
 
         model.coverChanged(covered: false, capturing: true)
@@ -106,7 +106,7 @@ private let day: TimeInterval = 86_400
         model.dismiss()
 
         #expect(model.showing == nil)
-        try await eventually { model.facts?.seen == [.firstRecording] }
+        try await eventually { model.inputs?.seen == [.firstRecording] }
         #expect(try await store.seenNotices() == [.firstRecording])
         #expect(model.showing == nil)
         #expect(shownNotices == ["first_recording"])
@@ -134,7 +134,7 @@ private let day: TimeInterval = 86_400
         clock.now = clock.now.addingTimeInterval(day)
 
         try await eventually { model.showing == .trialReminder }
-        #expect(model.facts?.holdsRecordings == false)
+        #expect(model.inputs?.holdsRecordings == false)
     }
 
     @Test func theReminderKnowsWhenTheAccountHoldsRecordings() async throws {
@@ -144,7 +144,7 @@ private let day: TimeInterval = 86_400
         let model = try await model()
 
         try await eventually { model.showing == .trialReminder }
-        #expect(model.facts?.holdsRecordings == true)
+        #expect(model.inputs?.holdsRecordings == true)
         #expect(model.trialEndsAt == clock.now.addingTimeInterval(2 * day))
     }
 
@@ -210,7 +210,7 @@ private let day: TimeInterval = 86_400
         model.coverChanged(covered: true, capturing: false)
         model.coverChanged(covered: false, capturing: false)
         try await addRecording("r2")
-        try await eventually { model.facts?.holdsRecordings == true }
+        try await eventually { model.inputs?.holdsRecordings == true }
 
         #expect(model.showing == .firstRecording)
         #expect(
@@ -246,7 +246,7 @@ private let day: TimeInterval = 86_400
         #expect(shownNotices == ["first_recording"])
 
         presenter.dismiss()
-        try await eventually { other.facts?.seen == [.firstRecording] }
+        try await eventually { other.inputs?.seen == [.firstRecording] }
         #expect(presenter.showing == nil)
         #expect(other.showing == nil)
         #expect(shownNotices == ["first_recording"])

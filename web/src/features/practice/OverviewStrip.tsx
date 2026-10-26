@@ -1,7 +1,7 @@
 import { useLayoutEffect, useMemo, useRef, type PointerEvent } from 'react'
 import type { ShownPeaks } from './recordingRange'
 import { Waveform } from './Waveform'
-import type { LaneLoop } from './PracticeWaveform'
+import type { WaveformLoop } from './PracticeWaveform'
 import { capturePointer } from '../../platform/pointer'
 import { clamp } from '../../math'
 import type { Moving } from '../player/playheadClock'
@@ -27,7 +27,7 @@ export function OverviewStrip({
   trimStartMs: number
   /** Half the stretch the zoomed waveform shows, which is centered on the playhead. */
   halfSpanMs: number
-  loops: readonly LaneLoop[]
+  loops: readonly WaveformLoop[]
   /** Where the playhead is drawn, on the trimmed timeline. */
   playhead: Moving<number>
   selectedId: string | null

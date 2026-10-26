@@ -90,7 +90,7 @@ public struct TuneDetail: Hashable, Sendable {
         let from = Self.present(userTune.learnedFrom)
         let on = Self.present(userTune.learnedOn)
         guard from != nil || on != nil else { return nil }
-        var text = FactCopy.learnedGroup
+        var text = AttributeCopy.learnedGroup
         if let from { text += " from \(from)" }
         if let on { text += " on \(Self.learnedOn(on, locale: locale))" }
         return text

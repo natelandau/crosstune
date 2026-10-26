@@ -20,7 +20,7 @@ import { EDIT_ALL_DETAILS } from './tuneScreenCopy'
 import { useTuneActions } from './useTuneActions'
 
 /** What a tune says about itself in its header, ready to draw. */
-export interface TuneFacts {
+export interface TuneAttributes {
   title: string
   alternateTitles: string[]
   key: string | null
@@ -48,7 +48,7 @@ export interface TuneScreenData {
   /** The instruments the user plays; undefined until the settings row is read. */
   instruments: ReadonlySet<Instrument> | undefined
   recordings: readonly RecordingView[] | undefined
-  facts: TuneFacts | null
+  attributes: TuneAttributes | null
   notes: string | null
   inLists: TuneListMembership[]
   /** The tune's user row id as a one-item list, stable across renders for a list picker. */
@@ -173,7 +173,7 @@ export function useTuneScreen(
     ready,
     instruments,
     recordings,
-    facts: view
+    attributes: view
       ? {
           title: view.tune.title,
           alternateTitles: view.tune.alternate_titles,

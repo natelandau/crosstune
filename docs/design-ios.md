@@ -25,7 +25,7 @@ there where they differ. Regular-width iPad reads this page, then
   their system materials.
 - A grouped form is a `PaperForm`, never a raw grouped `Form` or a system
   grouped fill. Light draws a `surface` page with `ground` cards, dark the
-  reverse, so a card always stands off the page. A test enforces both.
+  reverse, so a card always contrasts with the page. A test enforces both.
 - A switch outside a `PaperForm`, which sets it, takes
   `.toggleStyle(.harborSwitch)`.
 - A chip with no color of its own fills with `.neutralFill`, which reads
@@ -90,7 +90,7 @@ there where they differ. Regular-width iPad reads this page, then
 
 - Transport keeps its size at every text size. A practice value keeps its
   label on one line. A row of them wraps rather than squeezing a capsule.
-- A Stop that cannot run dims as a whole disc, never only its label.
+- A Stop that cannot run dims as a whole button, never only its label.
 
 ## Motion
 

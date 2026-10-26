@@ -83,7 +83,7 @@ differ. iPhone and iPad never take a rule from here.
   block whether it holds a row or nothing, so entering selection never
   moves the rows.
 - While selecting, the pane bar keeps its search live and its controls
-  standing down, so nothing in it moves.
+  disabled, so nothing in it moves.
 - Nothing scrolls sideways where it can wrap or spread.
 - An empty column shows one onboarding state centered in it. The detail
   column stays blank meanwhile, so the two never repeat each other.
@@ -92,7 +92,7 @@ differ. iPhone and iPad never take a rule from here.
 - A note that holds for every row of a group shows once under the group's
   heading. Each row still speaks it.
 - A glyph every row would show alike shows only under the pointer or
-  focus, so a column of them never stands at rest.
+  focus, so a column of them never shows at rest.
 
 ## Pages
 

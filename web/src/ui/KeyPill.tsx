@@ -40,7 +40,7 @@ export function KeyPill({
 }: {
   value: string
   chosen?: boolean
-  /** Sits in a row of metadata rather than standing on its own as a control. */
+  /** Sits in a row of metadata rather than showing on its own as a control. */
   compact?: boolean
   /** Text after the key, such as a mode abbreviation. The hue still comes from the key alone. */
   suffix?: string

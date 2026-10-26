@@ -2,7 +2,7 @@ import CrosstuneAudio
 import CrosstuneStore
 import Foundation
 
-/// The waveform under its fixed center playhead: the zoom, scrubbing and its glide, taps, and
+/// The waveform under its fixed center playhead: the zoom, scrubbing and its momentum scroll, taps, and
 /// the playhead's moves.
 extension PracticeModel {
     // MARK: Zoom
@@ -62,7 +62,7 @@ extension PracticeModel {
     /// when none is selected.
     func fit() {
         guard width > 0, lengthMs > 0 else { return }
-        settleGlide()
+        settleMomentumScroll()
         guard let row = selected, let span = shownSpan(row.id) else {
             pointsPerSecond = minScale
             return
@@ -101,7 +101,7 @@ extension PracticeModel {
     }
 
     /// The waveform as it shows now, centered on the playhead; nil until it can be laid out.
-    var laneView: LaneView? {
+    var zoomedWaveformView: ZoomedWaveformView? {
         guard let scale else { return nil }
         return PracticeZoom.view(
             pointsPerSecond: scale, centerMs: Int64(shownCenterMs(at: clock()).rounded()), width: width,
@@ -112,7 +112,7 @@ extension PracticeModel {
     var positionText: String { PracticeText.position(centerMs, of: lengthMs) }
 
     /// Moves the playhead to `ms` on the trimmed timeline, held within the recording. A scrub
-    /// or glide under way settles there instead, so it cannot carry the playhead off again.
+    /// or momentum scroll under way settles there instead, so it cannot carry the playhead off again.
     func seek(toMs ms: Int64) {
         saveOpenRename()
         let held = min(max(ms, 0), lengthMs)
@@ -144,16 +144,16 @@ extension PracticeModel {
     // MARK: Scrubbing
 
     /// A drag on the waveform passed the threshold: playback holds where it is, and the audio
-    /// scrolls under the playhead from there. A drag that catches a glide takes over from where
-    /// the glide had got to.
+    /// scrolls under the playhead from there. A drag that catches a momentum scroll takes over
+    /// from where the scroll had got to.
     func beginScrub() {
         saveOpenRename()
         guard scale != nil else { return }
-        if glide != nil, var caught = activeScrub {
+        if momentumTask != nil, var caught = activeScrub {
             caught.originMs = scrubbingMs ?? caught.originMs
-            glide?.cancel()
-            glide = nil
-            gliding = nil
+            momentumTask?.cancel()
+            momentumTask = nil
+            momentumScroll = nil
             draggedMs = caught.originMs
             caught.pinch = pinches
             activeScrub = caught
@@ -176,11 +176,11 @@ extension PracticeModel {
         scrubbingMs = PracticeZoom.scrub(from: scrub.originMs, dx: dx, pointsPerSecond: scale, lengthMs: lengthMs)
     }
 
-    /// The drag is let go, headed for `predictedDx` points from where it began: it glides
-    /// there, then playback seeks once and plays on if it was playing. A drag a pinch took over
-    /// leaves the playhead where it was.
+    /// The drag is let go, headed for `predictedDx` points from where it began: a
+    /// momentum scroll carries it there, then playback seeks once and plays on if it was
+    /// playing. A drag a pinch took over leaves the playhead where it was.
     func endScrub(predictedDx: Double) {
-        guard let scrub = activeScrub, glide == nil else { return }
+        guard let scrub = activeScrub, momentumTask == nil else { return }
         guard scrub.pinch == pinches, let scale else {
             settleScrub(at: nil)
             return
@@ -188,31 +188,31 @@ extension PracticeModel {
         let from = scrubbingMs ?? scrub.originMs
         let to = PracticeZoom.scrub(
             from: scrub.originMs, dx: predictedDx, pointsPerSecond: scale, lengthMs: lengthMs)
-        if to == from || glideRun <= .zero {
+        if to == from || momentumScrollRun <= .zero {
             settleScrub(at: to)
         } else {
-            glide(from: from, to: to)
+            startMomentumScroll(from: from, to: to)
         }
     }
 
-    /// A glide under way stops where it has got to, so a command acts where the playhead shows
-    /// and the glide cannot carry it off afterward.
-    func settleGlide() {
-        if glide != nil { settleScrub(at: scrubbingMs) }
+    /// A momentum scroll under way stops where it has got to, so a command acts where the playhead
+    /// shows and the scroll cannot carry it off afterward.
+    func settleMomentumScroll() {
+        if momentumTask != nil { settleScrub(at: scrubbingMs) }
     }
 
     /// A drag the system took away lands where it was dragged.
     func cancelScrub() {
-        guard activeScrub != nil, glide == nil else { return }
+        guard activeScrub != nil, momentumTask == nil else { return }
         settleScrub(at: scrubbingMs)
     }
 
     /// Lets go of playback: seeks to `ms` unless nil, and plays on if it was playing, unless
     /// the playhead is at the end.
     func settleScrub(at ms: Int64?) {
-        glide?.cancel()
-        glide = nil
-        gliding = nil
+        momentumTask?.cancel()
+        momentumTask = nil
+        momentumScroll = nil
         let held = activeScrub
         activeScrub = nil
         if let ms { player.audio.seek(to: Double(min(max(ms, 0), lengthMs)) / 1000) }
@@ -220,15 +220,15 @@ extension PracticeModel {
         if held?.wasPlaying == true, (ms ?? 0) < lengthMs { player.audio.play() }
     }
 
-    /// Coasts from `from` to `to` on ``PracticeZoom/glidePosition(from:to:elapsedMs:runMs:)``,
+    /// Coasts from `from` to `to` on ``PracticeZoom/momentumScrollPosition(from:to:elapsedMs:runMs:)``,
     /// then settles there.
-    private func glide(from: Int64, to: Int64) {
-        let run = glideRun
+    private func startMomentumScroll(from: Int64, to: Int64) {
+        let run = momentumScrollRun
         let parts = run.components
         let runMs = Double(parts.seconds) * 1000 + Double(parts.attoseconds) / 1e15
-        gliding = Glide(from: from, to: to, start: clock(), runMs: runMs)
+        momentumScroll = MomentumScroll(from: from, to: to, start: clock(), runMs: runMs)
         let sleep = sleep
-        glide = Task { [weak self] in
+        momentumTask = Task { [weak self] in
             try? await sleep(run)
             guard !Task.isCancelled else { return }
             self?.settleScrub(at: to)
@@ -238,14 +238,14 @@ extension PracticeModel {
     // MARK: Taps
 
     /// A tap `x` points from the waveform's left edge: selects the loop under it, or with none
-    /// there deselects. A tap never seeks; one that lands during a glide stops it there.
+    /// there deselects. A tap never seeks; one that lands during a momentum scroll stops it there.
     func tap(atX x: Double) {
         saveOpenRename()
-        if glide != nil {
-            settleGlide()
+        if momentumTask != nil {
+            settleMomentumScroll()
             return
         }
-        guard let view = laneView else { return }
+        guard let view = zoomedWaveformView else { return }
         let ms = Int64(view.sourceMs(atX: x).rounded())
         guard let hit = LoopModel.loop(at: ms, in: placedLoops) else {
             if selectedID != nil { select(nil) }

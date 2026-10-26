@@ -2,7 +2,7 @@ import { useCallback, useId, useLayoutEffect, useState } from 'react'
 import type { BackEntry } from '../platform/backStack'
 import { useLatest } from './useLatest'
 
-/** An entry as it is held, with whether it stands the shell's controls down. */
+/** An entry as it is held, with whether it hides the shell's controls. */
 export interface HeldEntry extends BackEntry {
   coversShell: boolean
 }

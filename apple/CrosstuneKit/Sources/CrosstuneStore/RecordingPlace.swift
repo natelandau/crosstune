@@ -12,7 +12,7 @@ public struct Coordinate: Hashable, Sendable {
     }
 }
 
-/// Where a recording was played: a name to show and the point it stands for.
+/// Where a recording was played: a name to show and the point it names.
 public struct RecordingPlace: Hashable, Sendable {
     public let name: String
     public let coordinate: Coordinate

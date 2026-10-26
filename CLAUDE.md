@@ -160,7 +160,7 @@ against production, such as granting a comp or a trial.
   asks for a sheet ahead of its showing holds the menus with
   `.coversShellMenus(_:)`. A test in
   `CrosstuneUITests` enforces each, so the record control and the shell's
-  menu commands stand down behind every presentation.
+  menu commands are disabled behind every presentation.
 - Every view in `CrosstuneUI` that shows user content carries
   `.contentMask()`, so replay could never show it if it is ever enabled. A test in
   `CrosstuneUITests` enforces it; a view handed its text is masked by hand

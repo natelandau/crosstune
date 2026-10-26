@@ -23,7 +23,7 @@ import { useDestination } from '../layout/useDestination'
 import { AppRouterContext } from '../layout/appRouterContext'
 import { usePageShown } from './usePageShown'
 import { destination, type Destination, readStored, rememberLocation } from '../layout/destinations'
-import { readStoredTrail, reloadBackTrailForTest } from '../layout/backTrail'
+import { readStoredBackHistory, reloadBackHistoryForTest } from '../layout/backHistory'
 
 // Settings reads who is signed in, and the tests mount no Clerk.
 vi.mock('@clerk/react', () => import('../fixture/clerkStub'))
@@ -310,12 +310,12 @@ it('keeps the place across a reload', async () => {
 
 it('walks back to the parent after a reload when a gone tune leaves', async () => {
   const router = await mount(['/catalog', '/catalog/gone'], (router) => {
-    // The trail this session wrote before the reload, read back as a reload does.
+    // The back history this session wrote before the reload, read back as a reload does.
     sessionStorage.setItem(
-      'crosstune.backTrail',
+      'crosstune.backHistory',
       JSON.stringify([[router.state.location.key, '/catalog']]),
     )
-    reloadBackTrailForTest()
+    reloadBackHistoryForTest()
   })
   await expect.poll(at(router)).toBe('/catalog')
   expect(router.state.historyAction).toBe('POP')
@@ -325,11 +325,11 @@ it('mirrors each pushed entry to the session, and drops a malformed mirror', asy
   const router = await mount('/catalog')
   await router.navigate('/catalog/t1')
   await expect.poll(at(router)).toBe('/catalog/t1')
-  await expect.poll(() => readStoredTrail().get(router.state.location.key)).toBe('/catalog')
-  sessionStorage.setItem('crosstune.backTrail', JSON.stringify([['k', 1], 'x', ['a', 'b']]))
-  expect([...readStoredTrail()]).toEqual([['a', 'b']])
-  sessionStorage.setItem('crosstune.backTrail', '{not json')
-  expect(readStoredTrail().size).toBe(0)
+  await expect.poll(() => readStoredBackHistory().get(router.state.location.key)).toBe('/catalog')
+  sessionStorage.setItem('crosstune.backHistory', JSON.stringify([['k', 1], 'x', ['a', 'b']]))
+  expect([...readStoredBackHistory()]).toEqual([['a', 'b']])
+  sessionStorage.setItem('crosstune.backHistory', '{not json')
+  expect(readStoredBackHistory().size).toBe(0)
 })
 
 it('reports the destination of the current path', async () => {

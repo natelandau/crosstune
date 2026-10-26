@@ -16,7 +16,7 @@ struct PendingWrite<Value: Equatable> {
         return token
     }
 
-    /// The write failed, so the stored value stands. Returns whether it was the latest write,
+    /// The write failed, so the stored value is kept. Returns whether it was the latest write,
     /// the only one whose failure is still worth showing: a later write has replaced its value.
     @discardableResult
     mutating func fail(_ token: Int) -> Bool {

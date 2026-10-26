@@ -387,7 +387,7 @@ it('keeps a 16px gutter on a narrow pointer window', async () => {
   await expect.poll(() => dialog().element().getBoundingClientRect().width).toBe(390 - 32)
 })
 
-it('recedes the page behind a touch sheet and restores it on close', async () => {
+it('scales the page back behind a touch sheet and restores it on close', async () => {
   renderWithProviders(
     <div data-sheet-root>
       <Harness />
@@ -403,7 +403,7 @@ it('recedes the page behind a touch sheet and restores it on close', async () =>
   expect(document.body.getAttribute('style') ?? '').toBe('')
 })
 
-it('moves the receding page without changing its clip as the sheet rises', async () => {
+it('moves the scaled-back page without changing its clip as the sheet rises', async () => {
   renderWithProviders(
     <div data-sheet-root>
       <Harness />
@@ -420,7 +420,7 @@ it('moves the receding page without changing its clip as the sheet rises', async
   expect(new Set(opened.map((frame) => frame.clip))).toEqual(new Set(['inset(0px round 14px)']))
 })
 
-it('restores the receded page when the sheet unmounts open', async () => {
+it('restores the scaled-back page when the sheet unmounts open', async () => {
   const { rerender } = renderWithProviders(
     <div data-sheet-root>
       <Sheet isOpen onOpenChange={() => {}} title="Edit tune">
@@ -723,7 +723,7 @@ it('stays at full height when the window turns', async () => {
   await expect.poll(sheetTop).toBe(34)
 })
 
-it('keeps the page receded when a sheet under another leaves', async () => {
+it('keeps the page scaled back when a sheet under another leaves', async () => {
   function Stack({ under }: { under: boolean }) {
     return (
       <div data-sheet-root>
@@ -852,7 +852,7 @@ it.each(['pointer', 'touch'] as const)(
 )
 
 it.each(['pointer', 'touch'] as const)(
-  'a large primary runs the width of the actions and stands taller on %s',
+  'a large primary runs the width of the actions and is taller on %s',
   async (density) => {
     const sheet = (primaryLarge: boolean) => (
       <Sheet

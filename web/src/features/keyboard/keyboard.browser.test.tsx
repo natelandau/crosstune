@@ -409,7 +409,7 @@ it('leaves selection on Escape from a focused row, rather than only emptying it'
   await mountSelecting()
   await expect.element(tuneRow('Cluck')).toHaveFocus()
   await userEvent.keyboard('{Escape}')
-  // The grid's own Escape would empty the selection and leave the mode, and its Done, standing.
+  // The grid's own Escape would empty the selection and leave the mode, and its Done, showing.
   await expect.element(page.getByRole('button', { name: DONE })).not.toBeInTheDocument()
   await expect.element(page.getByRole('button', { name: MORE_ACTIONS })).toBeVisible()
   await expect.element(page.getByText(selectedTitle(0), { exact: true })).not.toBeInTheDocument()

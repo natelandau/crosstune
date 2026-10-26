@@ -133,7 +133,7 @@ it('root lists Tunes, Recordings, Appearance, Tuner, Sync and storage, Import an
   await expect.element(row(APPEARANCE)).toHaveTextContent(APPEARANCE_LABELS.system)
   await expect.element(row(TUNER_SETTINGS_TITLE)).toHaveTextContent(a4Label(440))
   await expect.element(account()).toBeVisible()
-  // The phone has no detail column, so nothing stands in for a page.
+  // The phone has no detail column, so nothing takes the place of a page.
   await expect.element(page.getByText(NO_SETTING_SELECTED)).not.toBeInTheDocument()
 })
 
@@ -241,7 +241,7 @@ const topOf = (name: string) => () => tunesGroup(name).element().getBoundingClie
 it.each([
   ['phone', SHORT_PHONE],
   ['wide', { width: 1280, height: 500 }],
-])('lands on the group a link names on %s', async (_, frame) => {
+])('scrolls to the group a link names on %s', async (_, frame) => {
   await mount(settingsGroupPath('tunes', SETTINGS_GROUPS.musicServices), frame)
   await expect.element(tunesGroup(MUSIC_SERVICES)).toBeVisible()
   // Below the pane bar and near the top, where the unscrolled page puts it well below.
@@ -429,7 +429,7 @@ it('reports the theme and the text size step each time they change', async () =>
   await page.getByRole('option', { name: APPEARANCE_LABELS.dark }).click()
   await expect.poll(() => analytics.sends()).toHaveLength(1)
   await detail.getByRole('button', { name: new RegExp(TEXT_SIZE_LABEL) }).click()
-  await page.getByRole('option', { name: TEXT_SIZE_LABELS.roomy }).click()
+  await page.getByRole('option', { name: TEXT_SIZE_LABELS.large }).click()
   await expect.poll(() => analytics.sends()).toHaveLength(2)
   await detail.getByRole('button', { name: new RegExp(TEXT_SIZE_LABEL) }).click()
   await page.getByRole('option', { name: TEXT_SIZE_LABELS.compact }).click()

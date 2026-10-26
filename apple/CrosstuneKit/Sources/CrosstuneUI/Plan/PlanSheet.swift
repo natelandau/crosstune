@@ -50,7 +50,7 @@ struct PlanSheet: View {
         case offline
         /// Annual or Monthly, at the store's prices, and Subscribe.
         case choice([PurchaseOffer])
-        /// A purchase or restore went through; its line and Close stand in for the choice.
+        /// A purchase or restore went through; its line and Close replace the choice.
         case subscribed
     }
 
@@ -174,7 +174,7 @@ struct PlanSheet: View {
         offers.contains { $0.period == period } ? period : (choices(offers).first?.period ?? period)
     }
 
-    /// The offer the selected tile stands for, whose price the renewal terms state.
+    /// The offer the selected tile represents, whose price the renewal terms state.
     nonisolated static func chosenOffer(_ period: PurchasePeriod, in offers: [PurchaseOffer]) -> PurchaseOffer? {
         let period = chosen(period, in: offers)
         return offers.first { $0.period == period }

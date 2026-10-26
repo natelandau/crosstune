@@ -102,14 +102,14 @@ extension CaptureTestCase {
         Thread.sleep(forTimeInterval: 1)
     }
 
-    /// Opens the facts card's More details, which holds the Crooked row.
+    /// Opens the attributes card's More details, which holds the Crooked row.
     func showCrooked(_ app: XCUIApplication) {
         shown(app.buttons["More details"]).tap()
         shown(button(app, startingWith: "Crooked"))
     }
 
-    /// Opens the facts card's More details where the card folds them away, so the Learned
-    /// group shows. A rail shows it already.
+    /// Opens the attributes card's More details where the card folds them away, so the Learned
+    /// group shows. The column layout shows it already.
     func showLearned(_ app: XCUIApplication) {
         let more = app.buttons["More details"]
         if more.exists { more.tap() }

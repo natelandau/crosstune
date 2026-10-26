@@ -48,7 +48,7 @@ export function MediaList({ label, children }: { label: string; children: ReactN
 
 /**
  * The two-line row recordings and links share: a fixed glyph slot showing the item's state,
- * the title, then its details in secondary. The row is the control, and its name is the verb
+ * the title, then its details in secondary. The row is the control, and its name is the action label
  * plus the lines it shows.
  */
 function MediaRow({
@@ -67,7 +67,7 @@ function MediaRow({
   onOpen,
 }: {
   id: string
-  /** The row's accessible name: the verb, then the lines it shows. */
+  /** The row's accessible name: the action label, then the lines it shows. */
   name: string
   glyph: ReactNode
   loaded: boolean
@@ -231,12 +231,12 @@ export function RecordingRow({
 /** A link to the tune elsewhere: it plays in the dock when it can, else opens its site. */
 export function LinkRow({ row: { link, pinned, actions } }: { row: LinkMediaRow }) {
   const { title, provider, control, href, reportOpened, loaded, open } = useLinkRow(link)
-  const verb =
+  const actionLabel =
     control === 'close' ? closeLinkName(title) : open ? `${open.openName} ${title}` : title
   return (
     <MediaRow
       id={link.id}
-      name={`${verb}, ${href ? linkOutText(provider) : provider}`}
+      name={`${actionLabel}, ${href ? linkOutText(provider) : provider}`}
       glyph={
         control === 'close' || control === 'play' ? (
           <TransportGlyph shape={control === 'close' ? 'stop' : 'play'} />
