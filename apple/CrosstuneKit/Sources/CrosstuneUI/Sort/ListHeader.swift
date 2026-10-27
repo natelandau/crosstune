@@ -23,11 +23,7 @@ struct ListHeader<Sort: SortKind>: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        #if os(macOS)
-            .frame(minHeight: MacStyle.headerRowHeight)
-        #else
-            .frame(minHeight: minimumTapTarget)
-        #endif
+        .frame(minHeight: PageStyle.listHeaderHeight)
     }
 
     private var countText: some View {

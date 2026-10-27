@@ -385,11 +385,7 @@ private struct CatalogContent: View {
             }
             if let results, !results.visible.isEmpty {
                 ListHeader(count: results.countLabel, choice: selection.isActive ? nil : chosenSort)
-                    #if os(macOS)
-                        .listRowInsets(MacStyle.columnRowInsets())
-                    #else
-                        .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
-                    #endif
+                    .listRowInsets(PageStyle.listHeaderInsets)
                     .plainListRow()
                 ForEach(results.visible) { entry in
                     row(entry, instruments: results.instruments)

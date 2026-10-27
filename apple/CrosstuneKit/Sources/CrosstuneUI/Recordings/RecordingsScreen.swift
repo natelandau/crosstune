@@ -564,15 +564,9 @@ private struct RecordingsContent: View {
                     .accessibilityHidden(true)
                 Spacer(minLength: 0)
             }
-            #if os(macOS)
-                .font(MacStyle.secondary.weight(.semibold))
-                .foregroundStyle(.textSecondary)
-                .frame(minHeight: MacStyle.smallControlHeight)
-            #else
-                .font(.footnote.bold())
-                .foregroundStyle(.textSecondary)
-                .frame(minHeight: minimumTapTarget)
-            #endif
+            .font(PageStyle.groupLabel)
+            .foregroundStyle(.textSecondary)
+            .frame(minHeight: PageStyle.lineButtonHeight)
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
