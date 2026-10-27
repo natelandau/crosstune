@@ -59,7 +59,6 @@ let package = Package(
             dependencies: [
                 "CrosstuneAnalytics",
                 "CrosstuneAPI",
-                "CrosstuneAudio",
                 "CrosstuneDiagnostics",
                 "CrosstuneStore",
                 "CrosstuneSync",

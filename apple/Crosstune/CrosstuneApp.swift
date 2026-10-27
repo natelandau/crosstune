@@ -72,7 +72,9 @@ struct CrosstuneApp: App {
                 analytics: analytics,
                 diagnostics: diagnostics,
                 deviceSettings: { DeviceSettings.current() },
-                assistiveTech: { AssistiveTech.current() }
+                assistiveTech: { AssistiveTech.current() },
+                // A capture a crash or kill cut short is saved now rather than waiting on the user.
+                storeOpened: { await Recorder.recoverLeftoverCaptures(in: $0) }
             ))
     }
 

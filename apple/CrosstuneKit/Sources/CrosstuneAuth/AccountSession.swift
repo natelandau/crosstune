@@ -2,7 +2,6 @@ import AuthenticationServices
 import ClerkKit
 import CrosstuneAPI
 import CrosstuneAnalytics
-import CrosstuneAudio
 import CrosstuneDiagnostics
 import CrosstuneStore
 import CrosstuneSync
@@ -175,6 +174,7 @@ public final class AccountSession {
     @ObservationIgnored private let analytics: AnalyticsClient
     @ObservationIgnored private let diagnostics: DiagnosticsClient
     @ObservationIgnored private var identity: AnalyticsIdentity
+    @ObservationIgnored private let storeOpened: @MainActor (CrosstuneStore) async -> Void
 
     /// - Parameters:
     ///   - apiOrigin: Where the API is served.
@@ -186,14 +186,18 @@ public final class AccountSession {
     ///   - deviceSettings: The settings this device keeps outside the store, which the person
     ///     carries beside the synced ones.
     ///   - assistiveTech: The assistive features the device has on, which the person carries.
+    ///   - storeOpened: Work to start each time a user's store opens. It runs in the background, and
+    ///     nothing waits for it.
     public init(
         publishableKey: String, apiOrigin: URL, clientVersion: String, storageOrigin: URL? = nil,
         remembered: RememberedUser = RememberedUser(), storeRoot: URL = CrosstuneStore.defaultRoot,
         analytics: AnalyticsClient = .noop, diagnostics: DiagnosticsClient = .noop,
         deviceSettings: @escaping @MainActor () -> [SettingChange] = { [] },
-        assistiveTech: @escaping @MainActor () -> [AssistiveTechnology]? = { nil }
+        assistiveTech: @escaping @MainActor () -> [AssistiveTechnology]? = { nil },
+        storeOpened: @escaping @MainActor (CrosstuneStore) async -> Void = { _ in }
     ) {
         self.analytics = analytics
+        self.storeOpened = storeOpened
         self.diagnostics = diagnostics
         identity = AnalyticsIdentity(analytics: analytics, deviceSettings: deviceSettings, assistiveTech: assistiveTech)
         self.remembered = remembered
@@ -823,8 +827,7 @@ public final class AccountSession {
         syncedUsageReported = false
         engine.onSynced = { [weak self] in self?.syncLanded(in: opened, storedUsage: $0) }
         sync = SessionSync(store: opened, engine: engine, isActive: isActive, isOffline: isOffline)
-        // A capture a crash or kill cut short is saved now rather than waiting on the user.
-        Task { await Recorder.recoverLeftoverCaptures(in: opened) }
+        Task { [storeOpened] in await storeOpened(opened) }
         identifyWithStorageUsage()
     }
 
