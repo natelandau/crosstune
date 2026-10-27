@@ -112,6 +112,9 @@ folder. Compose it, never rebuild it.
 
 ## Pages
 
+- Action button row: touch gives each button an equal share of the width,
+  as iOS does. A pointer keeps each button's natural width, as the Mac
+  does.
 - Charts are styled elements, never SVG.
 - Only the row highlight reaches into the gutter.
 

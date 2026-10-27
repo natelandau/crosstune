@@ -70,3 +70,25 @@ it.each([
     .not.toBe('full')
   await expect.poll(() => Math.min(...insets())).toBeGreaterThanOrEqual(4)
 })
+
+it.each([
+  ['touch', true],
+  ['pointer', false],
+] as const)('gives buttons equal shares only on %s', async (density, equal) => {
+  await page.viewport(1280, 800)
+  renderWithProviders(row(), { density })
+  const widths = () =>
+    [...document.querySelectorAll<HTMLElement>('[data-fit] button')].map(
+      (button) => button.getBoundingClientRect().width,
+    )
+  await expect.poll(() => new Set(widths().map(Math.round)).size === 1).toBe(equal)
+})
+
+it('keeps its icons with a pointer where the labels have room', async () => {
+  await page.viewport(1280, 800)
+  renderWithProviders(row(), { density: 'pointer' })
+  await expect
+    .poll(() => document.querySelector('[data-fit]')?.getAttribute('data-fit'))
+    .toBe('full')
+  await expect.poll(() => Math.min(...insets())).toBeGreaterThanOrEqual(4)
+})

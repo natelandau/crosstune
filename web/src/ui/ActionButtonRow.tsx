@@ -1,4 +1,5 @@
 import { Children, useLayoutEffect, useRef, type ReactNode } from 'react'
+import { useStampedDensity } from '../platform/density'
 
 /** How much a row gave up to fit its labels: nothing, its icons, then its icons and padding. */
 type Fit = 'full' | 'bare' | 'tightest'
@@ -27,10 +28,11 @@ function fitRow(element: HTMLElement) {
 }
 
 /**
- * A page's main actions side by side, each taking an equal share of the width. A label never
- * wraps; `tight` narrows the gaps and each button's padding so three labels fit a phone. Where
- * the labels still do not fit, at a narrow window or a larger text size, the row drops its
- * icons, then narrows the padding further.
+ * A page's main actions side by side. On touch each takes an equal share of the width; with a
+ * pointer each keeps its natural width, as the Mac's buttons do everywhere. A label never wraps;
+ * `tight` narrows the gaps and each button's padding so three labels fit a phone. Where the labels
+ * still do not fit, at a narrow window or a larger text size, the row drops its icons, then
+ * narrows the padding further.
  */
 export function ActionButtonRow({
   children,
@@ -40,6 +42,7 @@ export function ActionButtonRow({
   tight?: boolean
 }) {
   const row = useRef<HTMLDivElement>(null)
+  const stretch = useStampedDensity() === 'touch'
   // Labels can change on any render, so each one refits.
   useLayoutEffect(() => {
     if (row.current) fitRow(row.current)
@@ -72,7 +75,7 @@ export function ActionButtonRow({
       {Children.toArray(children).map((child, index) => (
         <div
           key={index}
-          className={`min-w-0 flex-1 group-data-[fit=bare]/actions:[&_svg]:hidden group-data-[fit=tightest]/actions:[&_svg]:hidden group-data-[fit=tightest]/actions:[&>button]:px-1 ${tight ? '[&>button]:px-2' : ''}`}
+          className={`min-w-0 ${stretch ? 'flex-1' : ''} group-data-[fit=bare]/actions:[&_svg]:hidden group-data-[fit=tightest]/actions:[&_svg]:hidden group-data-[fit=tightest]/actions:[&>button]:px-1 ${tight ? '[&>button]:px-2' : ''}`}
         >
           {child}
         </div>

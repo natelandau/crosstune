@@ -54,6 +54,7 @@ async function setup({
   playable = true,
   recordingState = 'ready',
   lyrics = false,
+  density = 'pointer',
 }: {
   withRecording?: boolean
   withBlob?: boolean
@@ -67,6 +68,7 @@ async function setup({
   recordingState?: RecordingState
   /** True gives the row a Lyrics button, as a tune with lyrics does. */
   lyrics?: boolean
+  density?: 'touch' | 'pointer'
 } = {}) {
   await page.viewport(width, 800)
   const db: CrosstuneDb = openTestDb()
@@ -114,7 +116,7 @@ async function setup({
         </PracticeOverlayContext.Provider>
       </PlayerContext.Provider>
     </Data>,
-    { density: 'pointer' },
+    { density },
   )
   return { start, player, open, onLyrics, media, tuneId, db }
 }
@@ -244,7 +246,7 @@ it('leaves every recording button out while its recording downloads', async () =
 })
 
 it('the phone shows Play, Practice, and Lyrics in equal columns on one line each', async () => {
-  await setup({ withRecording: true, lyrics: true, width: 390 })
+  await setup({ withRecording: true, lyrics: true, width: 390, density: 'touch' })
   await expect.element(button(LYRICS_SECTION)).toBeVisible()
   expect(shown()).toEqual([PLAY, PRACTICE, LYRICS_SECTION])
   const buttons = [...document.querySelectorAll<HTMLElement>('[data-actions] button')]
@@ -255,7 +257,7 @@ it('the phone shows Play, Practice, and Lyrics in equal columns on one line each
 })
 
 it('the phone shows only the main button for a link', async () => {
-  await setup({ withLink: true, width: 390 })
+  await setup({ withLink: true, width: 390, density: 'touch' })
   await expect.element(button(OPEN)).toBeVisible()
   expect(shown()).toEqual([OPEN])
 })
