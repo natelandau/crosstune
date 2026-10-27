@@ -258,6 +258,13 @@ import Testing
         #expect(Self.sites(in: row).contains { $0.view == "Text" })
     }
 
+    /// `SourceScan.url(of:)` finds a file by its path under its module's folder, so a path both
+    /// modules hold would read only the `CrosstuneUI` file.
+    @Test func noTwoModulesShareASourcePath() {
+        let paths = SourceScan.files().map(SourceScan.relative)
+        #expect(paths.count == Set(paths).count, "\(paths.filter { p in paths.filter { $0 == p }.count > 1 })")
+    }
+
     @Test func aBareTitleIsUnmasked() {
         #expect(Self.sites(in: "Text(tune.title)") == [Site(line: 1, view: "Text", masked: false)])
     }

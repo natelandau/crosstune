@@ -1,4 +1,3 @@
-import CrosstuneAudio
 import SwiftUI
 
 /// The colors of data drawings: loops, the heatmap, and the tuner. Each differs from every role
@@ -82,15 +81,21 @@ extension Palette {
         return mixHex(base, toward: inTune, share: green)
     }
 
-    /// The tuner's bars for a note `cents` off: the brand color far off, the close step just
-    /// outside the target zone, and blending from the close step to the dark scheme's known
-    /// green inside it.
-    package static func tunerBarHex(cents: Double) -> String {
-        switch tuneStep(cents: cents) {
+    /// How far a tuner bar's note is from in tune: far off, close outside the target zone, or
+    /// inside it, `inTune` of the way from the zone's edge (0) to in tune (1).
+    package enum TunerBarStep: Equatable, Sendable {
+        case far, close
+        case zone(inTune: Double)
+    }
+
+    /// The tuner's bars at `step`: the brand color far off, the close step just outside the
+    /// target zone, and blending from the close step to the dark scheme's known green inside it.
+    package static func tunerBarHex(_ step: TunerBarStep) -> String {
+        switch step {
         case .far: hex(.brand, .light)
         case .close: hex(.tunerClose, .light)
-        case .zone:
-            mixHex(hex(.tunerClose, .light), toward: hex(.tunerInTune, .light), share: inTuneFraction(cents: cents))
+        case .zone(let inTune):
+            mixHex(hex(.tunerClose, .light), toward: hex(.tunerInTune, .light), share: inTune)
         }
     }
 

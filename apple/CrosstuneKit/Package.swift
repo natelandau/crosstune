@@ -112,7 +112,7 @@ let package = Package(
         ),
         .target(
             name: "CrosstuneDesign",
-            dependencies: ["CrosstuneAnalytics", "CrosstuneAudio", "CrosstuneVocabulary"]
+            dependencies: ["CrosstuneAnalytics", "CrosstuneVocabulary"]
         ),
         .target(
             name: "CrosstuneUI",
