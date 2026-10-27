@@ -1,3 +1,40 @@
+## v1.2.0 (2026-10-27)
+
+### Feat
+
+- **apple**: move a Mac list's Play and Shuffle under its name
+- **tune**: offer Play whenever any recording or link can play (#240)
+- **web**: keep action buttons at natural width with a pointer
+- **tune**: redesign the attributes column on web and Apple (#239)
+- **design**: replace color tokens with a shared role system (#236)
+- **site**: rewrite the home page's problem and feature copy
+- **lists**: make the list page's play button pause and resume (#232)
+- **welcome**: explain why an account is needed before sign-up (#231)
+- **apple**: color the status filter menu's glyphs as the rows do
+
+### Fix
+
+- **apple**: report only app hangs that fully block the main thread
+- **tune**: open the lyrics reader from the Lyrics button (#230)
+- **web**: match the Apple app's colors
+- **web**: meet the design rules for contrast, focus, type, and speed (#228)
+- **apple**: close text size, contrast, and VoiceOver gaps
+- **apple**: correct sheet sizing, dates, scan paging, and locale
+
+### Refactor
+
+- **apple**: clean up module layering and platform values (#238)
+- **apple**: extract styles and controls into a design module (#237)
+- replace take and the last coined names with standard terms (#235)
+- replace coined logic names with standard terms (#234)
+- replace metaphor names with standard terms (#233)
+- **apple**: replace soft-deprecated SwiftUI and URL calls
+
+### Perf
+
+- **apple**: cut per-redraw work in lists, rows, tuner, and forms
+- **apple**: compare shell actions by the host that supplied them
+
 ## v1.1.1 (2026-10-25)
 
 ### Fix
