@@ -136,8 +136,7 @@
 
     /// A pane bar's glyph control: a glass capsule at the bar's height, every glyph button the
     /// same width so a row of them reads as one set. Glass is the bar's floating chrome, so a
-    /// worded control, such as Edit or Close, and an action that leads a set, such as a list's
-    /// Play, take ``MacButtonStyle`` instead.
+    /// worded control, such as Edit or Close, takes ``MacButtonStyle`` instead.
     package struct PaneButtonStyle: ButtonStyle {
         package func makeBody(configuration: Configuration) -> some View {
             PaneButtonBody(configuration: configuration)

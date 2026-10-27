@@ -208,13 +208,13 @@ A role only one platform has is on that platform's page.
 | --------------- | ----------------------------------------------------- | ---------------------- |
 | Title           | What the screen shows                                 | Actions, filters       |
 | Actions bar     | Main action first (Add), then one More menu           | Sort, view options     |
-| Under the title | Search field, then one filter row                     | Action buttons         |
+| Under the title | Action button row, or search field then filter row    | Add, More              |
 | List header     | Count leading, sort trailing, directly above the rows | Anything else          |
 | App-wide        | Tabs, Record, now playing, selection bar              | A screen's own actions |
 
 - At most two buttons in the bar. Select is never a toolbar button.
-- A pushed page's main actions can sit in an action button row under its heading, as
-  page content. Its bar then holds only More.
+- A screen's main actions on its item, such as Play, sit in one action button row
+  directly under its title, as page content, on every platform. Never in the bar.
 - A section's button sits trailing on that section's heading.
 - Screen-wide actions (Edit, Delete) live in More, never in a panel.
 - A control sits over the pane it acts on.

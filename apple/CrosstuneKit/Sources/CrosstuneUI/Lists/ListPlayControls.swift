@@ -56,27 +56,10 @@ struct ListPlayControls: View {
     let offer: ListPlayAvailability
 
     @Environment(\.spacing) private var spacing
-    @Environment(\.drawsGlass) private var drawsGlass
 
     var body: some View {
         VStack(alignment: .leading, spacing: spacing.stackGap) {
-            if offer.showsButtons {
-                ActionButtonRow {
-                    Button(action: offer.onPlay) {
-                        Label(offer.playLabel, systemImage: offer.playSymbol)
-                            .contentTransition(.symbolEffect(.replace))
-                            .frame(maxWidth: .infinity)
-                    }
-                    .actionButtonStyle(prominent: true, glass: drawsGlass)
-                    .disabled(offer.isPlayDisabled)
-                    Button(action: offer.onShuffle) {
-                        Label(ListPlayText.shuffle, systemImage: "shuffle")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .actionButtonStyle(prominent: false, glass: drawsGlass)
-                    .disabled(offer.isShuffleDisabled)
-                }
-            }
+            if offer.showsButtons { ListPlayButtons(offer: offer) }
             Button(action: offer.onWhatPlays) {
                 Text(ListPlayText.line(for: offer.report))
                     .font(.platform(.footnote))
@@ -88,5 +71,41 @@ struct ListPlayControls: View {
             .buttonStyle(.plain)
             .accessibilityHint(ListPlayText.whatPlaysHint)
         }
+    }
+}
+
+/// A list's Play and Shuffle in one action button row: Play the main action, Shuffle secondary.
+struct ListPlayButtons: View {
+    let offer: ListPlayAvailability
+
+    @Environment(\.drawsGlass) private var drawsGlass
+
+    var body: some View {
+        ActionButtonRow {
+            Button(action: offer.onPlay) {
+                Label(offer.playLabel, systemImage: offer.playSymbol)
+                    .contentTransition(.symbolEffect(.replace))
+                    .fillsShare()
+            }
+            .actionButtonStyle(prominent: true, glass: drawsGlass)
+            .disabled(offer.isPlayDisabled)
+            Button(action: offer.onShuffle) {
+                Label(ListPlayText.shuffle, systemImage: "shuffle")
+                    .fillsShare()
+            }
+            .actionButtonStyle(prominent: false, glass: drawsGlass)
+            .disabled(offer.isShuffleDisabled)
+        }
+    }
+}
+
+extension View {
+    /// Spans the button's share of the row; a Mac button keeps its natural width.
+    fileprivate func fillsShare() -> some View {
+        #if os(macOS)
+            self
+        #else
+            frame(maxWidth: .infinity)
+        #endif
     }
 }

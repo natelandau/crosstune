@@ -33,8 +33,9 @@
             #expect(!SourceScan.macCompiled(text).contains("Text(TunePickerModel.inThisList)"))
         }
 
-        /// A list's head is one height whether the play line, nothing, or the selection bar
-        /// sits under its title, so entering selection never moves the rows.
+        /// A list's head is one height whether its play controls or the selection bar sit under
+        /// its title, so entering selection never moves the rows, and it holds the controls'
+        /// room until it reads what can play.
         @Test func listHeadKeepsItsHeightWhateverItHolds() {
             let offer = ListPlayAvailability(
                 report: PlaylistReport(playable: ["a"], skipped: [.nothing: ["b"]], total: 2), canStart: true,
@@ -43,15 +44,17 @@
                 MacSelectionBar(
                     count: 1, allSelected: false, canSelectAll: true, onSelectAll: {}, actions: [], canAddToList: true,
                     isPending: false, onAction: { _ in }, onDone: {}))
-            func height(play: ListPlayAvailability?, selecting: Bool) -> CGFloat {
-                let head = MacListTitle(name: "Tuesday session", play: play, isSelecting: selecting)
-                    .environment(\.selectionBar, bar)
-                    .frame(width: 420)
+            func height(play: ListPlayAvailability?, selecting: Bool, waits: Bool = false) -> CGFloat {
+                let head = MacListTitle(
+                    name: "Tuesday session", play: play, isSelecting: selecting, waitsForPlay: waits
+                )
+                .environment(\.selectionBar, bar)
+                .frame(width: 420)
                 return NSHostingView(rootView: head).fittingSize.height
             }
-            let playing = height(play: offer, selecting: false)
-            #expect(height(play: nil, selecting: false) == playing)
-            #expect(height(play: nil, selecting: true) == playing)
+            #expect(height(play: offer, selecting: true) == height(play: offer, selecting: false))
+            #expect(height(play: nil, selecting: true) == height(play: nil, selecting: false))
+            #expect(height(play: nil, selecting: false, waits: true) == height(play: offer, selecting: false))
         }
 
         /// A page's media row with no glyph keeps its own height when its column offers more,

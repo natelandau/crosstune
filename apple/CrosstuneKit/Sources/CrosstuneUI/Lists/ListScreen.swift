@@ -188,10 +188,7 @@ private struct ListTunes: View {
                 // The bar stays as it is while selecting, so nothing in it moves; the selection's
                 // actions are in the list's selection bar.
                 .paneBar {
-                    Group {
-                        if let play = offer(rows) { MacListPlayButtons(play: play) }
-                        listActions(rows)
-                    }
+                    listActions(rows)
                     .disabled(selection.isActive)
                 }
                 .columnTitled(macTitle)
@@ -268,9 +265,12 @@ private struct ListTunes: View {
         if model.showArchived != nil {
             List(selection: chosen) {
                 #if os(macOS)
-                    MacListTitle(name: macTitle, play: playOffer(rows), isSelecting: selection.isActive)
-                        .listRowInsets(MacStyle.columnRowInsets())
-                        .plainListRow()
+                    MacListTitle(
+                        name: macTitle, play: offer(rows), isSelecting: selection.isActive,
+                        waitsForPlay: !rows.isEmpty && !hasReadAppleMusic
+                    )
+                    .listRowInsets(MacStyle.columnRowInsets())
+                    .plainListRow()
                 #else
                     // Stays in the list while selecting, hidden, so it keeps reporting its visibility.
                     ListNameHeading(name: list.name) { nameShows = $0 }
@@ -311,8 +311,8 @@ private struct ListTunes: View {
         selection.isActive ? nil : offer(rows)
     }
 
-    /// ``playOffer(_:)`` whether selecting or not, for the Mac's pane bar, which keeps its
-    /// controls while selecting.
+    /// ``playOffer(_:)`` whether selecting or not, for the Mac's list head, which keeps the
+    /// controls' room while selecting.
     private func offer(_ rows: [ListEntry]) -> ListPlayAvailability? {
         guard !rows.isEmpty, hasReadAppleMusic else { return nil }
         let report = playReport(rows)

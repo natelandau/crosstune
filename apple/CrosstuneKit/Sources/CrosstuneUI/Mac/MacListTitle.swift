@@ -4,39 +4,70 @@ import CrosstuneDesign
     import CrosstuneCommands
     import SwiftUI
 
-    /// A list column's head: the list's name as the column title, then one slot under it that
-    /// holds the line that says how many of its tunes will play (which opens the sheet that says
-    /// why the rest will not), the selection bar while selecting, or nothing. The slot is one
-    /// height whatever it holds, so the rows never move when selection starts or the line goes.
-    /// `play` is nil while the list cannot offer playing at all, such as while it is empty.
+    /// A list column's head: the list's name as the column title, then Play and Shuffle, then
+    /// the line that says how many of its tunes will play (which opens the sheet that says why
+    /// the rest will not). While selecting, the selection bar takes their place, and they keep
+    /// their room hidden, so the rows never move when selection starts. With no play buttons,
+    /// the room under the title is the selection bar's. `play` is nil while the list cannot
+    /// offer playing at all, such as while it is empty.
     struct MacListTitle: View {
         let name: String
         let play: ListPlayAvailability?
         let isSelecting: Bool
+        /// True while the list has tunes but has not yet read what can play, so the head keeps
+        /// the play controls' room and the rows never move when the read finishes.
+        var waitsForPlay = false
 
-        /// The slot's height: the selection bar's row, the same block the catalog's filter row
-        /// takes under its title.
+        /// The least room under the title: the selection bar's row, the same block the
+        /// catalog's filter row takes under its title.
         static var slotHeight: CGFloat {
             MacStyle.columnBarInsets.top + MacStyle.columnBarHeight + MacStyle.columnBarInsets.bottom
         }
+
+        @Environment(\.spacing) private var spacing
 
         var body: some View {
             VStack(alignment: .leading, spacing: 0) {
                 ColumnTitle(name)
                     .columnTitleBaseline(.insetList)
-                // The clear fill holds the slot's height while it holds nothing.
                 ZStack(alignment: .topLeading) {
-                    Color.clear
+                    // Holds the selection bar's height while the slot holds less.
+                    Color.clear.frame(height: Self.slotHeight)
+                    if let play {
+                        playControls(play)
+                            .padding(.vertical, MacStyle.columnBarInsets.top)
+                            .opacity(isSelecting ? 0 : 1)
+                            .disabled(isSelecting)
+                            .accessibilityHidden(isSelecting)
+                    } else if waitsForPlay {
+                        playRoom.padding(.vertical, MacStyle.columnBarInsets.top)
+                    }
                     if isSelecting {
                         SelectionBarSlot()
                             .padding(.top, MacStyle.columnBarInsets.top)
-                    } else if let play {
-                        playLine(play)
-                            .padding(.top, 4)
                     }
                 }
-                .frame(height: Self.slotHeight)
             }
+        }
+
+        private func playControls(_ play: ListPlayAvailability) -> some View {
+            VStack(alignment: .leading, spacing: spacing.stackGap) {
+                if play.showsButtons { ListPlayButtons(offer: play) }
+                playLine(play)
+            }
+        }
+
+        /// The play controls' room, empty, while the list waits to read what can play.
+        private var playRoom: some View {
+            VStack(alignment: .leading, spacing: spacing.stackGap) {
+                ActionButtonRow {
+                    Button(ListPlayText.play, systemImage: "play.fill") {}
+                        .actionButtonStyle(prominent: true, glass: false)
+                }
+                Text(ListPlayText.none).font(MacStyle.secondary.weight(.medium))
+            }
+            .hidden()
+            .accessibilityHidden(true)
         }
 
         private func playLine(_ play: ListPlayAvailability) -> some View {
@@ -73,32 +104,6 @@ import CrosstuneDesign
                 .foregroundStyle(isHovered ? Palette.textPrimary : Palette.textSecondary)
                 .opacity(configuration.isPressed ? 0.6 : 1)
                 .onHover { isHovered = $0 }
-        }
-    }
-
-    /// A list's Play and Shuffle, leading its pane bar's controls: Play the column's one primary
-    /// action, Shuffle secondary. While the list plays, Play pauses and resumes it. Neither
-    /// shows while the list has nothing to play and is not playing.
-    struct MacListPlayButtons: View {
-        let play: ListPlayAvailability
-
-        var body: some View {
-            if play.showsButtons {
-                Group {
-                    Button(action: play.onPlay) {
-                        Label(play.playLabel, systemImage: play.playSymbol)
-                            .contentTransition(.symbolEffect(.replace))
-                    }
-                    .buttonStyle(.macPrimary)
-                    .disabled(play.isPlayDisabled)
-                    Button(action: play.onShuffle) {
-                        Label(ListPlayText.shuffle, systemImage: "shuffle")
-                    }
-                    .buttonStyle(.macSecondary)
-                    .disabled(play.isShuffleDisabled)
-                }
-                .labelStyle(.titleAndIcon)
-            }
         }
     }
 #endif
