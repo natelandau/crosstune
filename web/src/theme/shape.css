@@ -32,16 +32,12 @@
 }
 
 /* The tune page's attributes column, its hairline included: narrowest, widest, and the width
-   at which a value moves beside its label (`@attributes-wide:`). The tune page and its header
-   stop at `max-w-tune-columns`. `attributesLayout.ts` holds the narrowest and the gap as
-   numbers; change both together. In px, like the page. */
+   at which a value moves beside its label (`@attributes-wide:`). `attributesLayout.ts` holds
+   the narrowest and the gap as numbers; change both together. In px, like the page. */
 @theme {
   --container-attributes: 236px;
   --container-attributes-max: 320px;
   --container-attributes-wide: 288px;
-  --container-tune-columns: calc(
-    var(--container-page) + var(--attributes-gap) + var(--container-attributes-max)
-  );
 }
 :root {
   --attributes-gap: 8px;

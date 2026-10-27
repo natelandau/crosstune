@@ -102,7 +102,7 @@ differ. iPhone and iPad never take a rule from here.
 - Section heading controls are icon buttons beside their heading (+ adds,
   a pencil edits; never a worded Edit).
 - A section stops at `pageRowMaxWidth`, so its controls stay near the
-  text.
+  text. Beside the attributes column, a section fills the content's width.
 - One leading edge for every section's text. A glyph that leads a line
   hangs in `pageGlyphColumn`, inside the margin.
 - A link line is `textSecondary`, the accent only under the pointer.

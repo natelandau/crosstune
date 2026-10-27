@@ -215,13 +215,13 @@ it('an attributes column taller than the pane scrolls on its own to the day adde
     .toBeLessThanOrEqual(scroller.getBoundingClientRect().bottom + 1)
 })
 
-it('a wide pane grows the attributes column beside the content and sets each value at its trailing edge', async () => {
+it("a wide pane fills with the content, holds the attributes column at its trailing edge, and sets each value at the row's end", async () => {
   const db = openTestDb()
   await seedTune(db, 't1', 'Cluck Old Hen')
   await renderApp({ path: '/catalog/t1', db, frame: { width: 1920, height: 900 } })
   const column = tunePage().getByRole('complementary', { name: ATTRIBUTES_LABEL })
   await expect.element(column).toBeVisible()
-  // The column's box, its hairline included, sits one gap past the content column at its widest.
+  // The column's box, its hairline included, sits one gap past the content, at the pane's edge.
   const hairline = column.element().parentElement!
   await expect
     .poll(() => hairline.getBoundingClientRect().width)
@@ -247,7 +247,13 @@ it('a wide pane grows the attributes column beside the content and sets each val
   await expect
     .poll(() => parseFloat(getComputedStyle(label!).fontSize))
     .toBeCloseTo(rootPx('--size-secondary'))
-  // The header stops where the attributes column does, so More sits over the column.
+  await expect
+    .poll(() => hairline.getBoundingClientRect().right)
+    .toBe(tunePage().element().getBoundingClientRect().right)
+  await expect
+    .poll(() => content.getBoundingClientRect().width)
+    .toBeGreaterThan(rootPx('--container-page'))
+  // The header ends where the attributes column does, so More sits over the column.
   await expect
     .poll(
       () =>

@@ -40,6 +40,17 @@ import Testing
         #expect(TuneAttributes.arrangement(.stacked, accessibilitySize: false) == .stacked)
     }
 
+    @Test func theColumnGrowsOnceTheContentHasItsReadableWidth() {
+        let content = PageStyle.pageMaxWidth + 2 * PageStyle.pageMargin + PageStyle.attributesColumnGap
+        let narrowest = PageStyle.attributesColumnWidth
+        let widest = PageStyle.attributesColumnMaxWidth
+        #expect(TuneAttributes.columnWidth(forDetailWidth: 600) == narrowest)
+        #expect(TuneAttributes.columnWidth(forDetailWidth: content + narrowest) == narrowest)
+        #expect(TuneAttributes.columnWidth(forDetailWidth: content + narrowest + 20) == narrowest + 20)
+        #expect(TuneAttributes.columnWidth(forDetailWidth: content + widest) == widest)
+        #expect(TuneAttributes.columnWidth(forDetailWidth: 3000) == widest)
+    }
+
     @Test func theColumnSwitchesBetweenItsNarrowestAndWidest() {
         #expect(PageStyle.attributesColumnWidth < PageStyle.attributesColumnBesideWidth)
         #expect(PageStyle.attributesColumnBesideWidth <= PageStyle.attributesColumnMaxWidth)

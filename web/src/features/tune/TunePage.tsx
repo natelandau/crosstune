@@ -327,8 +327,9 @@ function TuneDocument({
           <ErrorLine error={screen.error} place="inline" />
         </div>
         {column ? (
-          // The attributes grow into spare width beside the content, then the rest falls past them.
-          <div className="max-w-tune-columns grid grid-cols-[minmax(0,var(--container-page))_clamp(var(--container-attributes),100%_-_var(--container-page)_-_var(--attributes-gap),var(--container-attributes-max))] gap-x-(--attributes-gap)">
+          // The content fills the width and the attributes hold the trailing edge, growing once
+          // the content has its readable width.
+          <div className="grid grid-cols-[minmax(0,1fr)_clamp(var(--container-attributes),100%_-_var(--container-page)_-_var(--attributes-gap),var(--container-attributes-max))] gap-x-(--attributes-gap)">
             <div className="px-7 pt-4 pb-12">{sections}</div>
             {attributesPanel}
           </div>

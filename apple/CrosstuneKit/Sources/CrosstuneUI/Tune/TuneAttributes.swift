@@ -57,6 +57,8 @@ struct TuneAttributes: View {
     let model: TuneModel
     let detail: TuneDetail
     let layout: AttributesLayout
+    /// The column's width beside the content, from ``columnWidth(forDetailWidth:)``.
+    let columnWidth: CGFloat
     /// How far below the scroll view's top edge the column pins as the content scrolls under it.
     let pinnedTop: CGFloat
     /// Opens the list picker; nil leaves out Add to list.
@@ -68,12 +70,14 @@ struct TuneAttributes: View {
     @State private var widthArrangement = AttributeRowArrangement.stacked
 
     init(
-        model: TuneModel, detail: TuneDetail, layout: AttributesLayout, pinnedTop: CGFloat = 0,
+        model: TuneModel, detail: TuneDetail, layout: AttributesLayout,
+        columnWidth: CGFloat = PageStyle.attributesColumnWidth, pinnedTop: CGFloat = 0,
         onAddToList: (() -> Void)?
     ) {
         self.model = model
         self.detail = detail
         self.layout = layout
+        self.columnWidth = columnWidth
         self.pinnedTop = pinnedTop
         self.onAddToList = onAddToList
     }
@@ -83,6 +87,15 @@ struct TuneAttributes: View {
     nonisolated static func layout(forDetailWidth width: CGFloat) -> AttributesLayout {
         width >= PageStyle.attributesColumnWidth + PageStyle.attributesColumnGap + PageStyle.contentMinWidth
             ? .column : .card
+    }
+
+    /// The column holds the detail column's trailing edge at its narrowest until the content beside
+    /// it has the page's readable width, then grows to its widest; past that the content takes
+    /// the rest.
+    nonisolated static func columnWidth(forDetailWidth width: CGFloat) -> CGFloat {
+        let content = PageStyle.pageMaxWidth + 2 * PageStyle.pageMargin
+        let spare = width - content - PageStyle.attributesColumnGap
+        return min(max(PageStyle.attributesColumnWidth, spare), PageStyle.attributesColumnMaxWidth)
     }
 
     nonisolated static func arrangement(forColumnWidth width: CGFloat) -> AttributeRowArrangement {
@@ -204,11 +217,7 @@ struct TuneAttributes: View {
                 .padding(.top, Self.columnGroupGap)
         }
         .padding(.bottom, 24)
-        // Grows into what the content column leaves, between its narrowest and widest.
-        .frame(
-            minWidth: PageStyle.attributesColumnWidth, maxWidth: PageStyle.attributesColumnMaxWidth,
-            alignment: .leading
-        )
+        .frame(width: columnWidth, alignment: .leading)
         .onGeometryChange(for: AttributeRowArrangement.self) { proxy in
             Self.arrangement(forColumnWidth: proxy.size.width)
         } action: { next in

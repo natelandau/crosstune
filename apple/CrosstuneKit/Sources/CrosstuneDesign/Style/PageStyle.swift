@@ -102,7 +102,8 @@ package enum PageStyle {
     /// The tune page's attributes column at its narrowest, its hairline included, beside the
     /// content once the detail column has room for both.
     package static let attributesColumnWidth: CGFloat = 236
-    /// The widest the attributes column grows into the detail column's spare width.
+    /// The widest the attributes column grows, once the content beside it has the page's
+    /// readable width.
     package static let attributesColumnMaxWidth: CGFloat = 320
     /// The attributes column's width from which a row sets its value beside its label.
     package static let attributesColumnBesideWidth: CGFloat = 288

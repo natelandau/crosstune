@@ -20,5 +20,5 @@ export function attributesLayout(detailWidth: number): 'column' | 'card' {
 
 /** Classes that set a tune page's header in line with the columns under it. */
 export function headerGutter(layout: 'column' | 'card'): string {
-  return layout === 'column' ? 'max-w-tune-columns px-7' : 'max-w-page mx-auto w-full px-4'
+  return layout === 'column' ? 'px-7' : 'max-w-page mx-auto w-full px-4'
 }
