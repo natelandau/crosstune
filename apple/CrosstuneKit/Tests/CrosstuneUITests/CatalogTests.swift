@@ -1,4 +1,5 @@
 import CrosstuneCommands
+import CrosstuneDesign
 import CrosstuneStore
 import CrosstuneTestSupport
 import Foundation

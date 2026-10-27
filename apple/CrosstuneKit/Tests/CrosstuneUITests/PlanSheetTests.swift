@@ -232,7 +232,7 @@ private let portal = URL(string: "https://billing.example.com/portal")!
     /// Subscribe close the scrolling page.
     @Test func thePlanSheetPinsNothing() throws {
         let source = SourceScan.withoutComments(
-            try SourceScan.text(at: SourceScan.sources.appending(path: "Plan/PlanSheet.swift")))
+            try SourceScan.text(at: SourceScan.url(of: "Plan/PlanSheet.swift")))
         #expect(!source.contains(".sheetActions("))
     }
 

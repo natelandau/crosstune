@@ -1,4 +1,5 @@
 import CrosstuneAnalytics
+import CrosstuneDesign
 import SwiftUI
 
 /// A recording's speed and pitch when either is away from its default: "75% +2".

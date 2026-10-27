@@ -1,4 +1,5 @@
 import CrosstuneCommands
+import CrosstuneDesign
 import SwiftUI
 
 /// Tunes added and recordings made per month, as two strips of bars over the same months. A

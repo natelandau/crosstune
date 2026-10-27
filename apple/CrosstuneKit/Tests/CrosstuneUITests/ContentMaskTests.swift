@@ -254,8 +254,15 @@ import Testing
 
     /// A rename that hid the tune row from the scan fails here rather than passing quietly.
     @Test func theScanSeesTheTuneRowsTitle() throws {
-        let row = try SourceScan.text(at: SourceScan.sources.appending(path: "Components/TuneRow.swift"))
+        let row = try SourceScan.text(at: SourceScan.url(of: "Components/TuneRow.swift"))
         #expect(Self.sites(in: row).contains { $0.view == "Text" })
+    }
+
+    /// `SourceScan.url(of:)` finds a file by its path under its module's folder, so a path both
+    /// modules hold would read only the `CrosstuneUI` file.
+    @Test func noTwoModulesShareASourcePath() {
+        let paths = SourceScan.files().map(SourceScan.relative)
+        #expect(paths.count == Set(paths).count, "\(paths.filter { p in paths.filter { $0 == p }.count > 1 })")
     }
 
     @Test func aBareTitleIsUnmasked() {
@@ -353,7 +360,7 @@ import Testing
 
     @Test func everyHandMaskStaysInPlace() throws {
         for (file, marker) in Self.handMasks {
-            let text = try SourceScan.text(at: SourceScan.sources.appending(path: file))
+            let text = try SourceScan.text(at: SourceScan.url(of: file))
             let masks = Self.masks(of: marker, in: text)
             #expect(!masks.isEmpty, "\(file) no longer has \(marker)")
             #expect(masks.allSatisfy { $0 }, "\(file): add .contentMask() to every \(marker)")

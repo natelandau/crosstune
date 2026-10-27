@@ -1,3 +1,4 @@
+import CrosstuneDesign
 import CrosstuneStore
 
 /// What a tune row says: its title, then its key and mode, status, tunings for the instruments

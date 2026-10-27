@@ -1,7 +1,6 @@
+import CrosstuneDesign
 import SwiftUI
 import Testing
-
-@testable import CrosstuneUI
 
 @Suite struct PhoneMotionTests {
     @Test func theMacNeverMoves() {

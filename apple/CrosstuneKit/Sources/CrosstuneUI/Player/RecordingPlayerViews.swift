@@ -1,6 +1,7 @@
 import AVKit
 import CrosstuneAudio
 import CrosstuneAuth
+import CrosstuneDesign
 import CrosstuneSync
 import SwiftUI
 

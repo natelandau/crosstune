@@ -52,7 +52,7 @@ import Testing
             #expect(page.rowIdentity(.light) != page.rowIdentity(.dark), "\(page)")
         }
         let root = SourceScan.withoutComments(
-            try SourceScan.text(at: SourceScan.sources.appending(path: "Phone/SettingsRoot.swift")))
+            try SourceScan.text(at: SourceScan.url(of: "Phone/SettingsRoot.swift")))
         #expect(root.contains(".id(page.rowIdentity(colorScheme))"))
         #expect(!root.contains(".id(colorScheme)"))
     }

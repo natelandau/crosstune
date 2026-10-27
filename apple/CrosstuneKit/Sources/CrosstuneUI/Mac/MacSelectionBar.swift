@@ -1,3 +1,5 @@
+import CrosstuneDesign
+
 #if os(macOS)
     import CrosstuneVocabulary
     import SwiftUI

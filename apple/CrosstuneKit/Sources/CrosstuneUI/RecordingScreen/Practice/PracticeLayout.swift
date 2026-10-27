@@ -1,3 +1,4 @@
+import CrosstuneDesign
 import SwiftUI
 
 /// How the recording screen sizes its waveform. The waveform takes whatever height the screen

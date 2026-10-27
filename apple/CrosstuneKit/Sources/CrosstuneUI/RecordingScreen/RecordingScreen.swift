@@ -2,6 +2,7 @@ import CrosstuneAnalytics
 import CrosstuneAudio
 import CrosstuneAuth
 import CrosstuneCommands
+import CrosstuneDesign
 import CrosstuneStore
 import CrosstuneSync
 import GRDB
@@ -50,21 +51,6 @@ struct ScreenRows: Equatable, Sendable {
             recording: recording, file: try RecordingFile.fetchOne(db, key: id), tuneID: live?.id,
             tuneTitle: live?.title, partStructure: live?.partStructure,
             shownPlace: shownPlaceName(recording, places: places))
-    }
-}
-
-extension EnvironmentValues {
-    /// The appearance outside the recording screen whose practice background the screen is drawn
-    /// on, or nil where it draws on the window's own background.
-    @Entry var practiceBackground: ColorScheme?
-}
-
-extension View {
-    /// Puts the recording screen on the practice background for `scheme`, the appearance outside
-    /// it, and draws everything on it in dark so it reads on that background in every appearance.
-    func practiceBackground(_ scheme: ColorScheme) -> some View {
-        environment(\.practiceBackground, scheme)
-            .environment(\.colorScheme, .dark)
     }
 }
 

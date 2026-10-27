@@ -1,5 +1,6 @@
 import CoreTransferable
 import CrosstuneAnalytics
+import CrosstuneDesign
 import CrosstuneDiagnostics
 import CrosstuneStore
 import CrosstuneSync

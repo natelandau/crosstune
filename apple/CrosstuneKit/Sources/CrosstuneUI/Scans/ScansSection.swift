@@ -1,3 +1,4 @@
+import CrosstuneDesign
 import SwiftUI
 
 /// A tune's scans on its page: the thumbnails' sizes, and how a thumbnail opens the viewer.

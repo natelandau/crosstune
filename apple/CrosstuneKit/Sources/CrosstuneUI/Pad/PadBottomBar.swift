@@ -1,3 +1,4 @@
+import CrosstuneDesign
 import SwiftUI
 
 /// The iPad window's bottom bar: the player while something is loaded. Where the tab bar has no

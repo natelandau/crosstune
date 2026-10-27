@@ -1,6 +1,7 @@
 @preconcurrency import AVFoundation
 import CrosstuneAudio
 import CrosstuneCommands
+import CrosstuneDesign
 import CrosstuneStore
 import CrosstuneSync
 import CrosstuneTestSupport
@@ -479,7 +480,7 @@ private struct RefusingSyncAPI: SyncAPI {
 @Suite struct RecordingsScreenPartsTests {
     #if os(macOS)
         @Test func recordingsColumnUsesTheColumnList() throws {
-            let file = SourceScan.sources.appending(path: "Recordings/RecordingsScreen.swift")
+            let file = SourceScan.url(of: "Recordings/RecordingsScreen.swift")
             let mac = SourceScan.macOSRegions(of: SourceScan.withoutComments(try SourceScan.text(at: file)))
             #expect(mac.contains(".macColumnList()"))
             #expect(!mac.contains(".listStyle(.plain)"))

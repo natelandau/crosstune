@@ -1,6 +1,7 @@
 import CrosstuneAnalytics
 import CrosstuneAudio
 import CrosstuneAuth
+import CrosstuneDesign
 import CrosstuneStore
 import CrosstuneSync
 import CrosstuneVocabulary

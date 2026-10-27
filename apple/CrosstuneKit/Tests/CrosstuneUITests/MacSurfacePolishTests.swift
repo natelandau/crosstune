@@ -1,6 +1,7 @@
 #if os(macOS)
     import AppKit
     import CrosstuneCommands
+    import CrosstuneDesign
     import Foundation
     import SwiftUI
     import Testing
@@ -28,7 +29,7 @@
         /// key pills line up down the column.
         @Test func takenTuneSaysItIsInTheListAloud() throws {
             let text = SourceScan.withoutComments(
-                try SourceScan.text(at: SourceScan.sources.appending(path: "Lists/TunePickerSheet.swift")))
+                try SourceScan.text(at: SourceScan.url(of: "Lists/TunePickerSheet.swift")))
             #expect(!SourceScan.macCompiled(text).contains("Text(TunePickerModel.inThisList)"))
         }
 

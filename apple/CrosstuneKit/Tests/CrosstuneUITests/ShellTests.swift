@@ -1,4 +1,5 @@
 import CrosstuneCommands
+import CrosstuneDesign
 import CrosstuneStore
 import CrosstuneSync
 import CrosstuneTestSupport
@@ -294,7 +295,7 @@ import Testing
         /// A row's tag stays its outermost modifier, which a List needs to select and draw it.
         @Test func theMacSidebarRowEndsWithItsTag() throws {
             let source = SourceScan.withoutComments(
-                try SourceScan.text(at: SourceScan.sources.appending(path: "Mac/MacSidebar.swift")))
+                try SourceScan.text(at: SourceScan.url(of: "Mac/MacSidebar.swift")))
             let flat = source.filter { !$0.isWhitespace }
             let row = try #require(flat.range(of: "privatefuncrow("))
             let open = try #require(flat[row.upperBound...].firstIndex(of: "{"))

@@ -1,5 +1,6 @@
 import CrosstuneAnalytics
 import CrosstuneAudio
+import CrosstuneDesign
 import MusicKit
 import SwiftUI
 

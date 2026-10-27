@@ -1,3 +1,4 @@
+import CrosstuneDesign
 import CrosstuneStore
 import SwiftUI
 
@@ -105,7 +106,7 @@ struct TuneAttributes: View {
     }
 
     nonisolated static func moreDetailsState(expanded: Bool) -> String {
-        expanded ? AttributeCopy.expanded : AttributeCopy.collapsed
+        expanded ? DisclosureCopy.expanded : DisclosureCopy.collapsed
     }
 
     /// How far the column moves down to stay `top` below the scroll view's edge once its own top,

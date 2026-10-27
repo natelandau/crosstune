@@ -2,6 +2,7 @@ import CrosstuneAnalytics
 import CrosstuneAudio
 import CrosstuneAuth
 import CrosstuneBilling
+import CrosstuneDesign
 import CrosstuneDiagnostics
 import CrosstuneExport
 import CrosstuneUI

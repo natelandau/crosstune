@@ -1,15 +1,13 @@
 import Foundation
 import Testing
 
-@testable import CrosstuneUI
-
 @Suite struct GroupedFormTests {
     /// A row's own background (the iPad's open Settings page draws `field`) must win over the
     /// card's. Rebuilding the form's sections drops a row's own list modifiers, so `GroupedForm`
     /// keeps its sections as written.
     @Test func groupedFormKeepsItsSectionsAsWritten() throws {
         let code = SourceScan.withoutComments(
-            try SourceScan.text(at: SourceScan.sources.appending(path: "Style/PaletteStyles.swift")))
+            try SourceScan.text(at: SourceScan.url(of: "Style/PaletteStyles.swift")))
         #expect(!code.contains("ForEach(sections:"))
         #expect(!code.contains("Group(sections:"))
         #expect(code.contains("Group { content }"))
@@ -53,14 +51,14 @@ import Testing
     /// and the screens whose rows the list can select apply it.
     @Test func selectableRowsClearTheirBackgroundOnlyWhenUnselected() throws {
         let tuneRow = SourceScan.withoutComments(
-            try SourceScan.text(at: SourceScan.sources.appending(path: "Components/TuneRow.swift")))
+            try SourceScan.text(at: SourceScan.url(of: "Components/TuneRow.swift")))
         let start = try #require(tuneRow.range(of: "func unselectedRowBackground("))
         let rest = tuneRow[start.lowerBound...]
         let end = try #require(rest.range(of: "\n    }\n"))
         #expect(rest[..<end.upperBound].contains("listRowBackground(isSelected ? nil : Color.clear)"))
         for screen in ["Catalog/CatalogScreen.swift", "Recordings/RecordingsScreen.swift"] {
             let code = SourceScan.withoutComments(
-                try SourceScan.text(at: SourceScan.sources.appending(path: screen)))
+                try SourceScan.text(at: SourceScan.url(of: screen)))
             #expect(code.contains(".unselectedRowBackground("), "\(screen) rows clear their background")
         }
     }

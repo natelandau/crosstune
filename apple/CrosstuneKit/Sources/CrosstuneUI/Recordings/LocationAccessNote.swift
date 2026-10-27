@@ -1,4 +1,5 @@
 import CrosstuneAudio
+import CrosstuneDesign
 import SwiftUI
 
 /// The words that say location access is off and lead to where it turns back on.

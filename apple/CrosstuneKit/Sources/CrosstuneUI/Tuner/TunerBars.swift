@@ -1,4 +1,5 @@
 import CrosstuneAudio
+import CrosstuneDesign
 import SwiftUI
 
 /// A slab at each side edge, level with the note when in tune, risen when sharp and sunk when
@@ -74,5 +75,16 @@ struct TunerBars: View {
         inner == .trailing
             ? UnevenRoundedRectangle(bottomTrailingRadius: radius, topTrailingRadius: radius)
             : UnevenRoundedRectangle(topLeadingRadius: radius, bottomLeadingRadius: radius)
+    }
+}
+
+extension Palette {
+    /// The tuner's bars for a note `cents` off, on the tuner's own steps.
+    static func tunerBarHex(cents: Double) -> String {
+        switch tuneStep(cents: cents) {
+        case .far: tunerBarHex(.far)
+        case .close: tunerBarHex(.close)
+        case .zone: tunerBarHex(.zone(inTune: inTuneFraction(cents: cents)))
+        }
     }
 }

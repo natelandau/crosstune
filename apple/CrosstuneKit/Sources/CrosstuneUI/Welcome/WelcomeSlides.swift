@@ -1,5 +1,6 @@
 import CrosstuneAnalytics
 import CrosstuneAudio
+import CrosstuneDesign
 import SwiftUI
 
 /// The welcome carousel's slides, in the order they show.

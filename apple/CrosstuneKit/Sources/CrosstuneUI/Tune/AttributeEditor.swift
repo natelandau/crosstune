@@ -1,4 +1,5 @@
 import CrosstuneAnalytics
+import CrosstuneDesign
 import SwiftUI
 
 /// One in-place edit of an attribute: the value the editor opened on, the draft typed or picked since,

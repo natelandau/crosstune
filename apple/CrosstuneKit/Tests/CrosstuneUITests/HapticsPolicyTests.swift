@@ -12,16 +12,8 @@ import Testing
         "UINotificationFeedbackGenerator", "NSHapticFeedbackManager",
     ]
 
-    private static let sources = URL(filePath: #filePath)
-        .deletingLastPathComponent()  // CrosstuneUITests
-        .deletingLastPathComponent()  // Tests
-        .deletingLastPathComponent()  // CrosstuneKit
-        .appending(path: "Sources/CrosstuneUI", directoryHint: .isDirectory)
-
     @Test func onlyHandleSnapsAndTrackSkipsMakeHaptics() throws {
-        let files =
-            FileManager.default.enumerator(at: Self.sources, includingPropertiesForKeys: nil)?
-            .compactMap { $0 as? URL }.filter { $0.pathExtension == "swift" } ?? []
+        let files = SourceScan.files()
         #expect(!files.isEmpty)
         let violations = try files.filter { file in
             let source = try String(contentsOf: file, encoding: .utf8)

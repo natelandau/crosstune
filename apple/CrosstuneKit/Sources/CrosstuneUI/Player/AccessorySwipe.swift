@@ -1,4 +1,5 @@
 import CoreGraphics
+import CrosstuneDesign
 
 /// A horizontal swipe on the iPhone's now-playing accessory, which skips through the playing
 /// list as a swipe on Apple Music's does.

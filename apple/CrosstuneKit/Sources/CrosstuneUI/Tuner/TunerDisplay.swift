@@ -1,4 +1,5 @@
 import CrosstuneAudio
+import CrosstuneDesign
 import SwiftUI
 
 /// The newest reading, held until the next one replaces it, since a plucked string decays before

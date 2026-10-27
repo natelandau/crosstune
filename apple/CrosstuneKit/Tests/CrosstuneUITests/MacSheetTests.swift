@@ -1,5 +1,6 @@
 #if os(macOS)
     import AppKit
+    import CrosstuneDesign
     import Foundation
     import SwiftUI
     import Testing
@@ -40,7 +41,7 @@
 
     @MainActor
     @Suite struct MacSheetTests {
-        /// The sheets drawn on ``MacSheet`` on the Mac, by path under `Sources/CrosstuneUI`. A
+        /// The sheets drawn on ``MacSheet`` on the Mac, by path under its module's folder. A
         /// sheet joins this list in the change that moves it onto the scaffold.
         static let migratedSheets = [
             "Links/LinkSheet.swift", "TuneForm/TuneFormSheet.swift", "Selection/BulkEditSheet.swift",
@@ -143,7 +144,7 @@
             #expect(MacSheetAction.openingFocus(primary: nil) == .anchor)
 
             let text = SourceScan.withoutComments(
-                try SourceScan.text(at: SourceScan.sources.appending(path: "Mac/MacSheet.swift")))
+                try SourceScan.text(at: SourceScan.url(of: "Mac/MacSheet.swift")))
             #expect(text.contains(".defaultFocus($openingFocus, Action.openingFocus(primary: primary))"))
             #expect(text.contains(".focused($openingFocus, equals: .anchor)"))
             #expect(text.contains(".focused($openingFocus, equals: .primary)"))
@@ -280,7 +281,7 @@
         /// inside that scroll view collapses to nothing.
         @Test func fittedSheetBodiesHoldNoScrollingContainer() throws {
             for path in Self.migratedSheets {
-                let file = SourceScan.sources.appending(path: path)
+                let file = SourceScan.url(of: path)
                 let text = SourceScan.macCompiled(
                     SourceScan.withoutComments(SourceScan.withoutPreviews(try SourceScan.text(at: file))))
                 for call in Self.fittedSheetCalls(in: text) {
@@ -300,7 +301,7 @@
 
         @Test func macSheetsLeaveNoNavigationStackOnTheMac() throws {
             for path in Self.migratedSheets {
-                let file = SourceScan.sources.appending(path: path)
+                let file = SourceScan.url(of: path)
                 let text = SourceScan.withoutComments(SourceScan.withoutPreviews(try SourceScan.text(at: file)))
                 let mac = SourceScan.macCompiled(text)
                 #expect(
@@ -315,7 +316,7 @@
         /// A renamed or moved sheet fails here rather than dropping out of the scan above.
         @Test func migratedSheetsNameRealFiles() {
             for path in Self.migratedSheets + Self.pushingSheets {
-                let file = SourceScan.sources.appending(path: path)
+                let file = SourceScan.url(of: path)
                 #expect(FileManager.default.fileExists(atPath: file.path), "\(path) does not exist")
             }
         }

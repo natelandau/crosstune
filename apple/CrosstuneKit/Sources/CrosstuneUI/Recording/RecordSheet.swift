@@ -1,5 +1,6 @@
 import CrosstuneAnalytics
 import CrosstuneAudio
+import CrosstuneDesign
 import SwiftUI
 
 /// Records one recording over whatever screen is open, so finishing returns the musician to where

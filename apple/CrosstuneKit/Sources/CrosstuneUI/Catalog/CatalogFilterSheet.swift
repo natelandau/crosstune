@@ -1,4 +1,5 @@
 import CrosstuneAnalytics
+import CrosstuneDesign
 import SwiftUI
 
 /// Every filter the catalog has: status, every facet, and the archived setting. Each choice

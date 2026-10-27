@@ -17,12 +17,6 @@ import Testing
         return nested.contains { $0.file == source.name && $0.modifier == modifier && near.contains($0.marker) }
     }
 
-    private static let sources = URL(filePath: #filePath)
-        .deletingLastPathComponent()  // CrosstuneUITests
-        .deletingLastPathComponent()  // Tests
-        .deletingLastPathComponent()  // CrosstuneKit
-        .appending(path: "Sources/CrosstuneUI", directoryHint: .isDirectory)
-
     private struct Source {
         let name: String
         let lines: [String]
@@ -30,10 +24,7 @@ import Testing
     }
 
     private static func readSources() throws -> [Source] {
-        let files =
-            FileManager.default.enumerator(at: sources, includingPropertiesForKeys: nil)?
-            .compactMap { $0 as? URL }.filter { $0.pathExtension == "swift" } ?? []
-        return try files.map {
+        try SourceScan.files().map {
             Source(
                 name: $0.lastPathComponent,
                 lines: try String(contentsOf: $0, encoding: .utf8).components(separatedBy: "\n"))

@@ -1,4 +1,5 @@
 import CrosstuneAnalytics
+import CrosstuneDesign
 import CrosstuneTestSupport
 import Foundation
 import SwiftUI

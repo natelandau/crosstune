@@ -5,7 +5,7 @@ on:
   pull_request:
   push:
     branches: [main]
-    paths: ["web/**", "apple/CrosstuneKit/Sources/CrosstuneUI/Style/**", "brand/**", "fixtures/**", "analytics/tracking-plan.json", "api/openapi.json", ".github/workflows/web.yml", ".github/actions/setup-node/**", "justfile", "scripts/gate-cache.sh"]
+    paths: ["web/**", "apple/CrosstuneKit/Sources/CrosstuneDesign/Style/**", "brand/**", "fixtures/**", "analytics/tracking-plan.json", "api/openapi.json", ".github/workflows/web.yml", ".github/actions/setup-node/**", "justfile", "scripts/gate-cache.sh"]
   workflow_call:
 
 # A push to a pull request cancels that PR's previous run. Every other run, including a

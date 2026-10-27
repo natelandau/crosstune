@@ -1,22 +1,38 @@
 import Foundation
 
-/// Reads `CrosstuneUI`'s own source, for the tests that check a convention the compiler cannot.
+/// Reads the source of `CrosstuneUI` and `CrosstuneDesign`, for the tests that check a convention
+/// the compiler cannot. A file's path is relative to its module's folder, and the two modules
+/// never share one, so `Components/PageSection.swift` names one file wherever it lives.
 enum SourceScan {
-    static let sources = URL(filePath: #filePath)
+    static let packageSources = URL(filePath: #filePath)
         .deletingLastPathComponent()  // CrosstuneUITests
         .deletingLastPathComponent()  // Tests
         .deletingLastPathComponent()  // CrosstuneKit
-        .appending(path: "Sources/CrosstuneUI", directoryHint: .isDirectory)
+        .appending(path: "Sources", directoryHint: .isDirectory)
 
-    /// Every Swift file under `Sources/CrosstuneUI`.
-    static func files() -> [URL] {
-        FileManager.default.enumerator(at: sources, includingPropertiesForKeys: nil)?
-            .compactMap { $0 as? URL }.filter { $0.pathExtension == "swift" } ?? []
+    static let roots = ["CrosstuneUI", "CrosstuneDesign"].map {
+        packageSources.appending(path: $0, directoryHint: .isDirectory)
     }
 
-    /// The file's path under `Sources/CrosstuneUI`.
+    /// Every Swift file in both modules.
+    static func files() -> [URL] {
+        roots.flatMap { root in
+            FileManager.default.enumerator(at: root, includingPropertiesForKeys: nil)?
+                .compactMap { $0 as? URL }.filter { $0.pathExtension == "swift" } ?? []
+        }
+    }
+
+    /// The file at `path` under whichever module holds it, or under `CrosstuneUI` if neither
+    /// does, so a read of a missing file fails.
+    static func url(of path: String) -> URL {
+        roots.map { $0.appending(path: path) }.first { FileManager.default.fileExists(atPath: $0.path) }
+            ?? roots[0].appending(path: path)
+    }
+
+    /// The file's path under its module's folder.
     static func relative(_ file: URL) -> String {
-        String(file.path.dropFirst(sources.path.count + 1))
+        let root = roots.first { file.path.hasPrefix($0.path + "/") } ?? roots[0]
+        return String(file.path.dropFirst(root.path.count + 1))
     }
 
     static func text(at url: URL) throws -> String {

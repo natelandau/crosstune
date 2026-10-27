@@ -1,3 +1,4 @@
+import CrosstuneDesign
 import SwiftUI
 
 /// The recording screen's modes, each with its own controls under the waveform. The one last

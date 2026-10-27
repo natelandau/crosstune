@@ -1,5 +1,6 @@
 #if os(macOS)
     import AppKit
+    import CrosstuneDesign
     import SwiftUI
     import Testing
 
@@ -74,7 +75,7 @@
 
         /// Reduce Transparency's fill is the sidebar's surface, with no tint over it.
         @Test func opaqueGlassFillsWithSurface() throws {
-            let file = SourceScan.sources.appending(path: "Mac/MacStyle.swift")
+            let file = SourceScan.url(of: "Mac/MacStyle.swift")
             let text = SourceScan.withoutComments(try SourceScan.text(at: file))
             #expect(text.contains("content.background(Palette.surface, in: shape)"))
         }
@@ -119,7 +120,7 @@
         @Test func dockPlayButtonFitsItsSlot() throws {
             #expect(MacStyle.dockPlayDiameter == 28)
             #expect(MacStyle.dockPlayDiameter <= MacStyle.paneIconWidth)
-            let file = SourceScan.sources.appending(path: "Mac/PlayerDock.swift")
+            let file = SourceScan.url(of: "Mac/PlayerDock.swift")
             let dock = SourceScan.macOSRegions(of: SourceScan.withoutComments(try SourceScan.text(at: file)), in: file)
             #expect(!dock.contains("minimumTapTarget"))
             // The shared play button frames itself to the touch target.
@@ -133,7 +134,7 @@
             "Tune/TuneHeader.swift",
         ])
         func everyColumnUsesTheOneTitleBaseline(path: String) throws {
-            let file = SourceScan.sources.appending(path: path)
+            let file = SourceScan.url(of: path)
             let text = SourceScan.withoutComments(try SourceScan.text(at: file))
             #expect(SourceScan.macOSRegions(of: text, in: file).contains("columnTitleBaseline"))
         }
@@ -165,7 +166,7 @@
             #expect(MacSidebarLabel.symbolColor(emphasized: false) == .textSecondary)
             #expect(MacSidebarLabel.symbolColor(emphasized: true) == .onAccentFill)
             for path in ["Mac/MacSidebar.swift", "Shell/SidebarSectionHeader.swift"] {
-                let file = SourceScan.sources.appending(path: path)
+                let file = SourceScan.url(of: path)
                 let text = SourceScan.withoutComments(try SourceScan.text(at: file))
                 #expect(!text.contains(".tint"), "\(path)")
                 #expect(!text.contains("Palette.brand"), "\(path)")
@@ -175,7 +176,7 @@
 
         /// The dock's scrubber: a border track, a tertiary text fill, and a brand thumb.
         @Test func scrubberDrawsInTokens() throws {
-            let file = SourceScan.sources.appending(path: "Mac/PlayerDock.swift")
+            let file = SourceScan.url(of: "Mac/PlayerDock.swift")
             let text = SourceScan.withoutComments(try SourceScan.text(at: file))
             let track = try #require(text.range(of: "struct ScrubberTrack"))
             let body = text[track.lowerBound...]

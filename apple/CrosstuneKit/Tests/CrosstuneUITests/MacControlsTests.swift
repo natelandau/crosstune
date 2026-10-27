@@ -1,4 +1,5 @@
 #if os(macOS)
+    import CrosstuneDesign
     import SwiftUI
     import Testing
 
@@ -66,7 +67,7 @@
         /// every Mac checkbox is this one.
         @Test func everyMacCheckboxIsTheMacCheckbox() throws {
             let style = SourceScan.withoutComments(
-                try SourceScan.text(at: SourceScan.sources.appending(path: "Mac/MacCheckbox.swift")))
+                try SourceScan.text(at: SourceScan.url(of: "Mac/MacCheckbox.swift")))
             #expect(!style.contains("controlActiveState"))
             #expect(!style.contains("appearsActive"))
             for file in SourceScan.files() where SourceScan.relative(file) != "Mac/MacCheckbox.swift" {
@@ -80,12 +81,12 @@
         @Test func storageShowsOnTheSharedMeter() throws {
             for name in ["Settings/StorageMeter.swift", "Recordings/StorageSummary.swift"] {
                 let text = SourceScan.macCompiled(
-                    SourceScan.withoutComments(try SourceScan.text(at: SourceScan.sources.appending(path: name))))
+                    SourceScan.withoutComments(try SourceScan.text(at: SourceScan.url(of: name))))
                 #expect(text.contains("MacMeter(fraction:"), "\(name)")
                 #expect(!text.contains("ProgressView("), "\(name)")
             }
             let meter = SourceScan.withoutComments(
-                try SourceScan.text(at: SourceScan.sources.appending(path: "Mac/MacMeter.swift")))
+                try SourceScan.text(at: SourceScan.url(of: "Mac/MacMeter.swift")))
             #expect(!meter.contains("accent"))
             #expect(MacMeter.clamped(1.4) == 1)
             #expect(MacMeter.clamped(-0.2) == 0)
@@ -95,7 +96,7 @@
         /// never under the card, so the section takes no footer.
         @Test func formSectionsTakeNoFooter() throws {
             let form = SourceScan.withoutComments(
-                try SourceScan.text(at: SourceScan.sources.appending(path: "Mac/MacForm.swift")))
+                try SourceScan.text(at: SourceScan.url(of: "Mac/MacForm.swift")))
             #expect(!form.contains("footer"))
             let call = try Regex(#"MacFormSection\([^{]*footer:"#)
             for file in SourceScan.files() {

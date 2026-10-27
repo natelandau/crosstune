@@ -1,4 +1,5 @@
 import CrosstuneAnalytics
+import CrosstuneDesign
 import SwiftUI
 
 /// The row under the search results that adds the typed title as a tune.
