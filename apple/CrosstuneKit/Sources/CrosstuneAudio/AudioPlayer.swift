@@ -84,10 +84,9 @@ public final class AudioPlayer: AudioPlayback {
     /// Whether a recording is being recorded, which keeps playback silent.
     private let isCapturing: @MainActor () -> Bool
 
-    /// - Parameter isCapturing: Whether a recording is being recorded. Tests pass their own, so they
-    ///   never share the process-wide answer.
+    /// - Parameter isCapturing: Whether a recording is being recorded.
     public convenience init(
-        isCapturing: @escaping @MainActor () -> Bool = { Recorder.hasActiveCapture }
+        isCapturing: @escaping @MainActor () -> Bool
     ) {
         self.init(isCapturing: isCapturing, rendersOffline: false)
     }

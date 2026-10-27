@@ -1,6 +1,5 @@
 import CrosstuneAnalytics
 import CrosstuneAudio
-import CrosstuneCommands
 import Foundation
 import Observation
 
@@ -64,7 +63,7 @@ extension PlayerModel {
     /// queue to empty. `queued` plays it guarded, yielding the audio session first and never
     /// prompting for access; `autoplay` false leaves it paused at its start.
     func decide(
-        _ item: PlayerItem, kind: AppleMusicKind, appleMusic: AppleMusic, queued: Bool, autoplay: Bool,
+        _ item: PlayerItem, kind: AppleMusicItem, appleMusic: AppleMusic, queued: Bool, autoplay: Bool,
         asksAccess: Bool, fail: @escaping @MainActor (_ emptyingQueue: Bool) -> Void
     ) {
         linkAudio = .deciding

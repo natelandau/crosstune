@@ -22,13 +22,8 @@ struct RecordingsLine: View {
                 Spacer(minLength: 0)
             }
             .foregroundStyle(.textSecondary)
-            #if os(macOS)
-                .font(MacStyle.secondary)
-                .frame(minHeight: MacStyle.smallControlHeight)
-            #else
-                .font(.subheadline)
-                .frame(minHeight: minimumTapTarget)
-            #endif
+            .font(.platform(.subheadline))
+            .frame(minHeight: PageStyle.lineButtonHeight)
             .contentShape(.rect)
         }
         .buttonStyle(.plain)

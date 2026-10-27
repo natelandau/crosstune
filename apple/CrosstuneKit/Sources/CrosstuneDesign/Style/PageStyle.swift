@@ -46,6 +46,15 @@ package enum PageStyle {
         package static let startCardPadding: CGFloat = 16
         /// Where an attributes card's row text starts from the card's edge.
         package static let attributesCardInset = MacForm.rowInset
+        /// A line of text that acts as a button, such as a group's label that opens its tune.
+        package static let lineButtonHeight = MacStyle.smallControlHeight
+        /// The label over one group of rows.
+        package static let groupLabel = MacStyle.secondary.weight(.semibold)
+        /// A list's count and sort line.
+        package static let listHeaderHeight = MacStyle.headerRowHeight
+        package static let listHeaderInsets = MacStyle.columnRowInsets()
+        /// Where the practice screen's loop name sits in its row.
+        package static let loopSwitcherAlignment = Alignment.leading
     #else
         package static let body = Font.body
         package static let secondary = Font.subheadline
@@ -83,6 +92,11 @@ package enum PageStyle {
         package static let attributesCardRadius = surfaceRadius
         package static let startCardPadding: CGFloat = 20
         package static let attributesCardInset: CGFloat = 16
+        package static let lineButtonHeight = minimumTapTarget
+        package static let groupLabel = Font.footnote.bold()
+        package static let listHeaderHeight = minimumTapTarget
+        package static let listHeaderInsets = EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16)
+        package static let loopSwitcherAlignment = Alignment.center
     #endif
 
     /// The tune page's attributes column, beside the content once the detail column has room for both.

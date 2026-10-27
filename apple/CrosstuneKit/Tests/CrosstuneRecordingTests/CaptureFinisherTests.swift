@@ -6,6 +6,7 @@ import GRDB
 import Testing
 
 @testable import CrosstuneAudio
+@testable import CrosstuneRecording
 
 private func recording(_ store: CrosstuneStore, _ id: String) async throws -> Recording? {
     try await store.read { db in try Recording.fetchOne(db, key: id) }

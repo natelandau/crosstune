@@ -18,6 +18,12 @@ public final class TemporaryRoot {
         try? FileManager.default.removeItem(at: url)
     }
 
+    /// The folder itself, made if missing, for a test that writes files with no store.
+    public func folder() throws -> URL {
+        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        return url
+    }
+
     public func open(_ userID: String = "user_a") throws -> CrosstuneStore {
         try StoreTemplate.copyMigrated(userID: userID, into: url)
         return try CrosstuneStore.open(userID: userID, root: url)

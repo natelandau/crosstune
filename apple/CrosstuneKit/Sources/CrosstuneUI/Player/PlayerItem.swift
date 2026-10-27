@@ -1,3 +1,4 @@
+import CrosstuneAudio
 import CrosstuneCommands
 import CrosstuneStore
 import Foundation
@@ -46,11 +47,11 @@ public struct LinkPlayback: Hashable, Sendable {
     public let providerURL: URL?
     /// What MusicKit can play in place of the embed, nil for anything but an Apple Music song or
     /// album.
-    public let appleMusic: AppleMusicKind?
+    public let appleMusic: AppleMusicItem?
 
     public init(
         embed: Embed, provider: String, tuneID: String, providerName: String, providerURL: URL?,
-        appleMusic: AppleMusicKind? = nil
+        appleMusic: AppleMusicItem? = nil
     ) {
         self.embed = embed
         self.provider = provider
@@ -93,7 +94,7 @@ extension PlayerItem {
                 embed: embed, provider: link.provider, tuneID: link.tuneID,
                 providerName: LinkText.providerLabel(link.provider),
                 providerURL: LinkText.outboundURL(link.url),
-                appleMusic: link.provider == "apple_music" ? appleMusicKind(link.url) : nil))
+                appleMusic: link.provider == "apple_music" ? appleMusicKind(link.url).map(AppleMusicItem.init) : nil))
     }
 }
 
@@ -116,5 +117,14 @@ public struct RecordingAudioFile: Equatable, Sendable {
     public init(url: URL, file: RecordingFile) {
         self.url = url
         self.file = file
+    }
+}
+
+extension AppleMusicItem {
+    init(_ kind: AppleMusicKind) {
+        switch kind {
+        case .song(let id): self = .song(id: id)
+        case .album(let id): self = .album(id: id)
+        }
     }
 }

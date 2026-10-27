@@ -1,11 +1,8 @@
+import CrosstuneAudio
 import CrosstuneCommands
 import CrosstuneStore
 import Foundation
 import Observation
-
-#if canImport(UIKit)
-    import UIKit
-#endif
 
 /// One recording at a time from the microphone, written to the user's audio folder as it
 /// records and saved as a recording when it stops.
@@ -38,15 +35,6 @@ public final class Recorder {
     /// How long after Stop a fix still pending is saved to the recording. A fix takes seconds to
     /// settle, so a short recording often stops first.
     static let lateFixWindow: Duration = .seconds(10)
-
-    /// Where the user grants microphone access to Crosstune.
-    public static var settingsURL: URL? {
-        #if os(iOS)
-            URL(string: UIApplication.openSettingsURLString)
-        #else
-            URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone")
-        #endif
-    }
 
     /// Captures still being written in this process, which launch recovery must leave alone.
     static var active: Set<String> = []

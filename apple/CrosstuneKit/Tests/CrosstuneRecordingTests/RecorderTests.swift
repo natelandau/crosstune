@@ -7,6 +7,7 @@ import GRDB
 import Testing
 
 @testable import CrosstuneAudio
+@testable import CrosstuneRecording
 
 /// The device's channel setting as a test sets it.
 @MainActor
@@ -610,5 +611,31 @@ final class ChannelSetting {
         #expect(recorder.state == .recording)
         #expect(try await store.read { db in try RecordingFile.fetchCount(db) } == 1)
         await recorder.discard()
+    }
+}
+
+@MainActor
+@Suite struct UnfinishedCaptureTests {
+    @Test func discardsALeftoverCaptureButNeverOneBeingRecorded() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let id = newID()
+        try await Commands(store: store).beginCapture(
+            id, fileName: CaptureFiles.captureName(id), tuneID: nil, recordedAt: noon)
+        let capture = CaptureFinisher(store: store).captureURL(id)
+        try writeTone(to: capture, seconds: 1)
+        let row = { try await store.read { db in try RecordingFile.fetchOne(db, key: id) } }
+
+        Recorder.active.insert(id)
+        #expect(Recorder.isRecording(id))
+        try await Recorder.discardUnfinishedCapture(id, in: store)
+        #expect(try await row() != nil)
+        #expect(fileExists(capture))
+
+        Recorder.active.remove(id)
+        #expect(!Recorder.isRecording(id))
+        try await Recorder.discardUnfinishedCapture(id, in: store)
+        #expect(try await row() == nil)
+        #expect(!fileExists(capture))
     }
 }

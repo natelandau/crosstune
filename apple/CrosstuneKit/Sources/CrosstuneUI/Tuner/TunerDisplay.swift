@@ -123,7 +123,7 @@ struct TunerDisplay: View {
             Text(body)
                 .font(PageStyle.body)
                 .foregroundStyle(Palette.onPracticeSecondary)
-            if opensSettings, let url = Recorder.settingsURL {
+            if opensSettings, let url = MicrophoneAccess.settingsURL {
                 Button(TunerText.openSettings) { openURL(url) }
                     #if os(macOS)
                         .buttonStyle(.macSecondary)

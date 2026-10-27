@@ -11,6 +11,7 @@ import SwiftUI
 import Testing
 
 @testable import CrosstuneAudio
+@testable import CrosstuneRecording
 @testable import CrosstuneUI
 
 @Suite struct WaveformBarsTests {

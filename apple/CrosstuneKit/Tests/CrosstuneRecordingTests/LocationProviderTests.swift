@@ -3,7 +3,7 @@ import CrosstuneStore
 import CrosstuneVocabulary
 import Testing
 
-@testable import CrosstuneAudio
+@testable import CrosstuneRecording
 
 /// Core Location as a test sets it: the status it reports and what it was asked to do.
 final class FakeLocationManager: LocationManaging {

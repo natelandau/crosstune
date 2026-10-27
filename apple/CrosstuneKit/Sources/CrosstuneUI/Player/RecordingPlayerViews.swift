@@ -214,11 +214,7 @@ struct PlaybackScrubber: View {
 private struct TimeStyle: ViewModifier {
     func body(content: Content) -> some View {
         content
-            #if os(macOS)
-                .font(MacStyle.secondary)
-            #else
-                .font(.caption)
-            #endif
+            .font(.platform(.caption))
             .monospacedDigit()
             .foregroundStyle(.textSecondary)
             .accessibilityHidden(true)

@@ -26,11 +26,7 @@ struct LoopSwitcher: View {
                 .foregroundStyle(model.selected == nil ? .textSecondary : AnyShapeStyle(.textPrimary))
             arrow(.next, name: PracticeText.nextLoop, systemImage: "chevron.right")
         }
-        #if os(macOS)
-            .frame(maxWidth: .infinity, alignment: .leading)
-        #else
-            .frame(maxWidth: .infinity)
-        #endif
+        .frame(maxWidth: .infinity, alignment: PageStyle.loopSwitcherAlignment)
         .reserved(shown: label != nil)
     }
 

@@ -1,46 +1,9 @@
-@preconcurrency import AVFoundation
 import CrosstuneAudio
 import CrosstuneStore
+import CrosstuneTestSupport
 import Foundation
 
-/// A tone as the microphone would deliver it: Float32, non-interleaved, at the given rate.
-func sineBuffer(
-    seconds: Double, sampleRate: Double = 44_100, channels: AVAudioChannelCount = 2, amplitude: Float = 0.5,
-    frequency: Double = 440
-) -> AVAudioPCMBuffer {
-    let format = AVAudioFormat(standardFormatWithSampleRate: sampleRate, channels: channels)!
-    let frames = AVAudioFrameCount((seconds * sampleRate).rounded())
-    let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frames)!
-    buffer.frameLength = frames
-    for channel in 0..<Int(channels) {
-        let samples = buffer.floatChannelData![channel]
-        for frame in 0..<Int(frames) {
-            samples[frame] = amplitude * Float(sin(2 * .pi * frequency * Double(frame) / sampleRate))
-        }
-    }
-    return buffer
-}
-
-/// Writes `seconds` of tone through a ``CaptureWriter`` in tap-sized buffers and returns it,
-/// still open unless `close` is set.
-@discardableResult
-func writeTone(
-    to url: URL, seconds: Double, bitrate: Int = 64_000, channels: Int = 1, amplitude: Float = 0.5,
-    close: Bool = true
-) throws -> CaptureWriter {
-    let writer = try CaptureWriter(url: url, bitrate: bitrate, channels: channels)
-    for _ in 0..<Int(seconds * 10) { try writer.write(sineBuffer(seconds: 0.1, amplitude: amplitude)) }
-    if close { writer.close() }
-    return writer
-}
-
-func duration(of url: URL) async throws -> Double {
-    try await AVURLAsset(url: url).load(.duration).seconds
-}
-
-func fileExists(_ url: URL) -> Bool {
-    FileManager.default.fileExists(atPath: url.path(percentEncoded: false))
-}
+@testable import CrosstuneRecording
 
 /// A microphone that records a tone on demand, in place of the engine in tests.
 @MainActor

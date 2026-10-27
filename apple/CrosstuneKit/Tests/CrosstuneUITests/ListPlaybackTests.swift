@@ -85,7 +85,7 @@ private func audioFile(_ recordingID: String) -> RecordingAudioFile {
         url: URL(filePath: "/tmp/\(recordingID).m4a"), file: RecordingFile(id: recordingID, localState: .downloaded))
 }
 
-private func songKind(_ tune: String) throws -> AppleMusicKind {
+private func songKind(_ tune: String) throws -> AppleMusicItem {
     try #require(try song(tune).link?.appleMusic)
 }
 

@@ -1,5 +1,4 @@
 @preconcurrency import AVFoundation
-import CrosstuneStore
 import CrosstuneTestSupport
 import Foundation
 import Testing
@@ -9,8 +8,8 @@ import Testing
 @Suite struct CaptureWriterTests {
     @Test func convertsAStereoInputToMono48kHzAAC() async throws {
         let root = TemporaryRoot()
-        let folder = try root.open().audioFolder
-        let url = folder.appending(path: CaptureFiles.captureName(newID()))
+        let folder = try root.folder()
+        let url = captureURL(in: folder)
 
         let writer = try writeTone(to: url, seconds: 1)
 
@@ -27,8 +26,8 @@ import Testing
     ])
     func writesAtEveryQualitysBitrate(channels: Int, bitrate: Int) async throws {
         let root = TemporaryRoot()
-        let folder = try root.open().audioFolder
-        let url = folder.appending(path: CaptureFiles.captureName(newID()))
+        let folder = try root.folder()
+        let url = captureURL(in: folder)
 
         try writeTone(to: url, seconds: 0.5, bitrate: bitrate, channels: channels)
 
@@ -37,8 +36,8 @@ import Testing
 
     @Test func writesAStereoFileFromAStereoInput() throws {
         let root = TemporaryRoot()
-        let folder = try root.open().audioFolder
-        let url = folder.appending(path: CaptureFiles.captureName(newID()))
+        let folder = try root.folder()
+        let url = captureURL(in: folder)
 
         try writeTone(to: url, seconds: 1, bitrate: 256_000, channels: 2)
 
@@ -50,8 +49,8 @@ import Testing
 
     @Test func fillsBothChannelsWhenAMonoInputFeedsAStereoFile() throws {
         let root = TemporaryRoot()
-        let folder = try root.open().audioFolder
-        let url = folder.appending(path: CaptureFiles.captureName(newID()))
+        let folder = try root.folder()
+        let url = captureURL(in: folder)
         let writer = try CaptureWriter(url: url, bitrate: 256_000, channels: 2)
 
         for _ in 0..<10 { try writer.write(sineBuffer(seconds: 0.1, channels: 1)) }
@@ -81,9 +80,9 @@ import Testing
 
     @Test func aCaptureNeverClosedStillPlays() async throws {
         let root = TemporaryRoot()
-        let folder = try root.open().audioFolder
-        let url = folder.appending(path: CaptureFiles.captureName(newID()))
-        let killed = folder.appending(path: CaptureFiles.captureName(newID()))
+        let folder = try root.folder()
+        let url = captureURL(in: folder)
+        let killed = captureURL(in: folder)
 
         let writer = try writeTone(to: url, seconds: 2, close: false)
         // The file as a crash would leave it: whatever reached disk, never finalized.
@@ -95,8 +94,8 @@ import Testing
 
     @Test func keepsOneFileWhenTheInputFormatChangesMidway() async throws {
         let root = TemporaryRoot()
-        let folder = try root.open().audioFolder
-        let url = folder.appending(path: CaptureFiles.captureName(newID()))
+        let folder = try root.folder()
+        let url = captureURL(in: folder)
         let writer = try CaptureWriter(url: url, bitrate: 64_000, channels: 1)
 
         for _ in 0..<10 { try writer.write(sineBuffer(seconds: 0.1, sampleRate: 44_100, channels: 2)) }
@@ -110,7 +109,7 @@ import Testing
 
     @Test func writesNothingAfterClosing() throws {
         let root = TemporaryRoot()
-        let folder = try root.open().audioFolder
+        let folder = try root.folder()
         let writer = try writeTone(to: folder.appending(path: "a.aac"), seconds: 0.5)
 
         try writer.write(sineBuffer(seconds: 0.5))
