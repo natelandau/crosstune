@@ -13,7 +13,7 @@ import { useLatest } from '../../ui/useLatest'
 import { onPageLeave } from '../player/activity'
 import { markKeyFocus } from './freshTune'
 import { newTuneSource } from './newTuneState'
-import { headerGutter, attributesLayout } from './attributesLayout'
+import { attributesLayout, headerGutter } from './attributesLayout'
 import { TUNE_TITLE_LABEL } from './tuneFormCopy'
 import { useAddTune } from './useAddTune'
 

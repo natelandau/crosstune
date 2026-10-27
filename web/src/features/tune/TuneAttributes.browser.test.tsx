@@ -27,7 +27,7 @@ import {
   LISTS_GROUP,
   MORE_DETAILS,
 } from './attributeCopy'
-import { attributesLayout, MIN_CONTENT_WIDTH, COLUMN_WIDTH } from './attributesLayout'
+import { attributesLayout, COLUMN_GAP, COLUMN_WIDTH, MIN_CONTENT_WIDTH } from './attributesLayout'
 import { TuneAttributes } from './TuneAttributes'
 import { useTune } from './useTune'
 import type { TuneListMembership } from './useTuneScreen'
@@ -61,16 +61,18 @@ function Page({
   if (!view) return null
   return (
     <MemoryRouter>
-      {/* Keyed by layout: the page puts each layout under its own parent, which remounts it. */}
-      <TuneAttributes
-        key={layout}
-        view={view}
-        instruments={instruments}
-        inLists={inLists}
-        createdAt={view.tune.created_at}
-        layout={layout}
-        onAddToList={onAddToList}
-      />
+      {/* Keyed by layout: the page puts each layout under its own parent, which remounts it. The
+          column fills its grid track; here, the track at its narrowest. */}
+      <div key={layout} style={layout === 'column' ? { width: COLUMN_WIDTH } : undefined}>
+        <TuneAttributes
+          view={view}
+          instruments={instruments}
+          inLists={inLists}
+          createdAt={view.tune.created_at}
+          layout={layout}
+          onAddToList={onAddToList}
+        />
+      </div>
     </MemoryRouter>
   )
 }
@@ -102,10 +104,11 @@ const dismiss = () =>
   userEvent.click(page.elementLocator(document.body), { position: { x: 1200, y: 700 } })
 
 it('chooses the attributes column only with room beside a readable content column', () => {
-  expect(attributesLayout(COLUMN_WIDTH + MIN_CONTENT_WIDTH - 1)).toBe('card')
-  expect(attributesLayout(COLUMN_WIDTH + MIN_CONTENT_WIDTH)).toBe('column')
-  expect(attributesLayout(655)).toBe('card')
-  expect(attributesLayout(656)).toBe('column')
+  const least = COLUMN_WIDTH + COLUMN_GAP + MIN_CONTENT_WIDTH
+  expect(attributesLayout(least - 1)).toBe('card')
+  expect(attributesLayout(least)).toBe('column')
+  expect(attributesLayout(663)).toBe('card')
+  expect(attributesLayout(664)).toBe('column')
 })
 
 it('the attributes column lists every attribute and marks unset ones', async () => {
@@ -190,6 +193,23 @@ it('the attributes column sits on the page, with rounded rows and labels in seco
   await expect
     .poll(() => getComputedStyle(value!).color)
     .toBe(computedColor('var(--color-text-primary)'))
+})
+
+it('a narrow attributes column sets each label over its value', async () => {
+  await setup('column')
+  const column = page.getByRole('complementary', { name: ATTRIBUTES_LABEL })
+  const status = row(`Status, ${STATUS_LABELS.learning}`)
+  await expect.element(status).toBeVisible()
+  await expect
+    .poll(() => column.element().parentElement!.getBoundingClientRect().width)
+    .toBe(COLUMN_WIDTH)
+  const [label, value] = [...status.element().children] as HTMLElement[]
+  await expect
+    .poll(() => value!.getBoundingClientRect().top)
+    .toBeGreaterThanOrEqual(label!.getBoundingClientRect().bottom)
+  await expect
+    .poll(() => value!.getBoundingClientRect().left)
+    .toBe(label!.getBoundingClientRect().left)
 })
 
 it('the attributes column heads its groups in order and ends with the day the tune joined the catalog', async () => {

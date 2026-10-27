@@ -69,6 +69,7 @@ import {
 import { SEARCH_NEEDS_CONNECTION } from '../links/findRecordingsCopy'
 import { destination } from '../../layout/destinations'
 import { renderApp } from '../../test/renderApp'
+import { COLUMN_GAP } from './attributesLayout'
 import { DELETE } from '../../ui/Confirm'
 import type { TuneFormLauncher } from './formLauncher'
 import { tuneTitleTransition } from './TuneHeader'
@@ -111,6 +112,12 @@ const barButtons = () =>
   [...tunePage().element().querySelectorAll<HTMLElement>('[data-pane-bar] button')].map(
     (button) => button.getAttribute('aria-label') ?? button.textContent,
   )
+/** A length custom property on the root, in px; a rem value counts the root's font size. */
+const rootPx = (name: string) => {
+  const root = getComputedStyle(document.documentElement)
+  const value = root.getPropertyValue(name).trim()
+  return value.endsWith('rem') ? parseFloat(value) * parseFloat(root.fontSize) : parseFloat(value)
+}
 const middle = (element: Element | Range) => {
   const box = element.getBoundingClientRect()
   return box.top + box.height / 2
@@ -206,6 +213,47 @@ it('an attributes column taller than the pane scrolls on its own to the day adde
   await expect
     .poll(() => added.element().getBoundingClientRect().bottom)
     .toBeLessThanOrEqual(scroller.getBoundingClientRect().bottom + 1)
+})
+
+it('a wide pane grows the attributes column beside the content and sets each value at its trailing edge', async () => {
+  const db = openTestDb()
+  await seedTune(db, 't1', 'Cluck Old Hen')
+  await renderApp({ path: '/catalog/t1', db, frame: { width: 1920, height: 900 } })
+  const column = tunePage().getByRole('complementary', { name: ATTRIBUTES_LABEL })
+  await expect.element(column).toBeVisible()
+  // The column's box, its hairline included, sits one gap past the content column at its widest.
+  const hairline = column.element().parentElement!
+  await expect
+    .poll(() => hairline.getBoundingClientRect().width)
+    .toBe(rootPx('--container-attributes-max'))
+  const content = hairline.previousElementSibling!
+  await expect
+    .poll(() => hairline.getBoundingClientRect().left - content.getBoundingClientRect().right)
+    .toBe(COLUMN_GAP)
+  const status = column.getByRole('button', { name: /^Status, / })
+  await expect.element(status).toBeVisible()
+  const [label, value] = [...status.element().children] as HTMLElement[]
+  await expect
+    .poll(() => value!.getBoundingClientRect().left)
+    .toBeGreaterThan(label!.getBoundingClientRect().left)
+  await expect
+    .poll(() => Math.abs(value!.getBoundingClientRect().top - label!.getBoundingClientRect().top))
+    .toBeLessThan(4)
+  await expect
+    .poll(
+      () => status.element().getBoundingClientRect().right - value!.getBoundingClientRect().right,
+    )
+    .toBe(parseFloat(getComputedStyle(status.element()).paddingRight))
+  await expect
+    .poll(() => parseFloat(getComputedStyle(label!).fontSize))
+    .toBeCloseTo(rootPx('--size-secondary'))
+  // The header stops where the attributes column does, so More sits over the column.
+  await expect
+    .poll(
+      () =>
+        pageTitle().element().closest('header')!.firstElementChild!.getBoundingClientRect().right,
+    )
+    .toBe(hairline.getBoundingClientRect().right)
 })
 
 it('More offers Edit all details', async () => {
