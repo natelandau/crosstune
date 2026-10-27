@@ -20,6 +20,7 @@ struct TunePage: View {
     @State private var attributesLayout: AttributesLayout?
     /// The bar's height over the scroll view's top edge, where the attributes column pins.
     @State private var barInset: CGFloat = 0
+    @State private var columnWidth = PageStyle.attributesColumnWidth
     // periphery:ignore - read through its binding
     @State private var editing: RecordingView?
     // periphery:ignore - read through its binding
@@ -50,7 +51,7 @@ struct TunePage: View {
         ScrollView {
             TunePageColumn(
                 model: model, detail: detail, layout: attributesLayout ?? .card,
-                pinnedTop: barInset + Self.columnPinGap,
+                columnWidth: columnWidth, pinnedTop: barInset + Self.columnPinGap,
                 editing: $editing, deleting: $deleting, addingScans: $addingScans, deletingScan: $deletingScan,
                 more: more, onAddLyrics: onAddLyrics,
                 // The title a draft became is already in its place.
@@ -60,6 +61,12 @@ struct TunePage: View {
             .opacity(attributesLayout == nil ? 0 : 1)
         }
         .onScrollGeometryChange(for: CGFloat.self, of: { $0.contentInsets.top }) { _, top in barInset = top }
+        // Clamped as it is read, so a resize redraws the page only while the column's width moves.
+        .onGeometryChange(for: CGFloat.self) { proxy in
+            TuneAttributes.columnWidth(forDetailWidth: proxy.size.width)
+        } action: { width in
+            columnWidth = width
+        }
         .readsAttributesLayout(
             into: Binding {
                 attributesLayout ?? .card
@@ -89,6 +96,8 @@ struct TunePageColumn: View {
     let model: TuneModel
     let detail: TuneDetail
     var layout: AttributesLayout = .card
+    /// The attributes column's width beside the content.
+    var columnWidth = PageStyle.attributesColumnWidth
     /// How far below the scroll view's top edge the attributes column pins.
     var pinnedTop: CGFloat = 0
     @Binding var editing: RecordingView?
@@ -164,10 +173,9 @@ struct TunePageColumn: View {
             .tuneHeaderPlacement(layout)
             switch layout {
             case .column:
-                HStack(alignment: .top, spacing: 0) {
+                HStack(alignment: .top, spacing: PageStyle.attributesColumnGap) {
                     content
                         .padding([.horizontal, .bottom], PageStyle.pageMargin)
-                        .frame(maxWidth: Self.columnMaxWidth, alignment: .leading)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     attributes
                 }
@@ -189,8 +197,16 @@ struct TunePageColumn: View {
     /// The column's width with its margins.
     fileprivate static var columnMaxWidth: CGFloat { PageStyle.pageMaxWidth + 2 * PageStyle.pageMargin }
 
+    /// The widest a section runs: across the content beside the attributes column, which fills
+    /// the detail column, and to the readable measure over a card.
+    private var sectionMaxWidth: CGFloat {
+        layout == .column ? .infinity : PageStyle.sectionMaxWidth
+    }
+
     private var attributes: some View {
-        TuneAttributes(model: model, detail: detail, layout: layout, pinnedTop: pinnedTop, onAddToList: addToList)
+        TuneAttributes(
+            model: model, detail: detail, layout: layout, columnWidth: columnWidth, pinnedTop: pinnedTop,
+            onAddToList: addToList)
     }
 
     private var readLyrics: (() -> Void)? {
@@ -237,7 +253,7 @@ struct TunePageColumn: View {
 
     private var media: some View {
         let startsWithCard = Self.startsWithCard(detail)
-        return PageSection(TuneScreen.recordingsHeader, maxWidth: PageStyle.sectionMaxWidth) {
+        return PageSection(TuneScreen.recordingsHeader, maxWidth: sectionMaxWidth) {
             if !startsWithCard {
                 TuneMediaAddMenu(model: model, detail: detail)
             }
@@ -267,7 +283,7 @@ struct TunePageColumn: View {
 
     /// The lyrics under a heading that opens them in place, with Edit and the reader trailing.
     private var lyrics: some View {
-        PageSection(TuneFieldLabels.lyrics, maxWidth: PageStyle.sectionMaxWidth, expanded: $lyricsOpen) {
+        PageSection(TuneFieldLabels.lyrics, maxWidth: sectionMaxWidth, expanded: $lyricsOpen) {
             lyricsControls
         } content: {
             if let verses = Self.lyricsShown(detail, open: lyricsOpen) {
@@ -304,7 +320,7 @@ struct TunePageColumn: View {
     private var scansSection: some View {
         let scans = model.scans
         let layout = scans.layout
-        return PageSection(TuneScreen.scansHeader, maxWidth: PageStyle.sectionMaxWidth) {
+        return PageSection(TuneScreen.scansHeader, maxWidth: sectionMaxWidth) {
             if !layout.showsEmptyState {
                 ScanHeaderControls(model: scans, editing: $editingScans, adding: $addingScans)
             }
@@ -329,7 +345,7 @@ struct TunePageColumn: View {
     }
 
     private var notes: some View {
-        PageSection(TuneScreen.notesHeader, maxWidth: PageStyle.sectionMaxWidth) {
+        PageSection(TuneScreen.notesHeader, maxWidth: sectionMaxWidth) {
             NotesField(model: model, stored: detail.userTune.notes)
         }
     }
@@ -339,12 +355,12 @@ struct TunePageColumn: View {
     private var lists: some View {
         VStack(alignment: .leading, spacing: PageStyle.sectionGap) {
             if !detail.lists.isEmpty || addToList != nil {
-                PageSection(AttributeCopy.listsGroup, maxWidth: PageStyle.sectionMaxWidth) {
+                PageSection(AttributeCopy.listsGroup, maxWidth: sectionMaxWidth) {
                     TuneListTokens(model: model, detail: detail, onAddToList: addToList)
                 }
             }
             AddedOn(detail: detail, endsPage: true)
-                .frame(maxWidth: PageStyle.sectionMaxWidth, alignment: .leading)
+                .frame(maxWidth: sectionMaxWidth, alignment: .leading)
         }
     }
 
@@ -386,8 +402,8 @@ struct TunePageColumn: View {
 
 extension View {
     /// Places the header at the top of the page: within the page's margins, across the detail
-    /// column beside the attributes column, and in the content column's width over a card. The
-    /// new-tune draft places its header the same way.
+    /// column over the content and attributes columns, and in the content column's width over a
+    /// card. The new-tune draft places its header the same way.
     func tuneHeaderPlacement(_ layout: AttributesLayout) -> some View {
         padding(.horizontal, PageStyle.pageMargin)
             #if !os(macOS)

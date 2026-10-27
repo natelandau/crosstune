@@ -362,8 +362,10 @@ A role only one platform has is on that platform's page.
 
 ## Pages
 
-- Plain page background, no cards, at most 680 wide. The tune page's attributes
-  card and start card are the only cards.
+- Plain page background, no cards. Content at most 680 wide, except beside
+  the attributes column: the content then fills the width, and the column
+  holds the trailing edge. The tune page's attributes card and start card are
+  the only cards.
 - Title in the content, selectable.
 - Section: heading with its controls trailing. Space separates sections,
   never a border.

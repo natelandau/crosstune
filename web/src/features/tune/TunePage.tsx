@@ -59,7 +59,7 @@ import { Menu } from '../../ui/Menu'
 import { menuEntries } from '../../ui/sharedActions'
 import { useElementSize } from '../../ui/useElementSize'
 import { LISTS_GROUP } from './attributeCopy'
-import { headerGutter, attributesLayout } from './attributesLayout'
+import { attributesLayout, headerGutter } from './attributesLayout'
 import { takeFresh } from './freshTune'
 import { useTuneFormLauncher } from './formLauncher'
 import { LinkRow, MediaList, RecordingRow } from './MediaRow'
@@ -327,8 +327,10 @@ function TuneDocument({
           <ErrorLine error={screen.error} place="inline" />
         </div>
         {column ? (
-          <div className="grid grid-cols-[minmax(0,1fr)_auto]">
-            <div className="max-w-page w-full px-7 pt-4 pb-12">{sections}</div>
+          // The content fills the width and the attributes hold the trailing edge, growing once
+          // the content has its readable width.
+          <div className="grid grid-cols-[minmax(0,1fr)_clamp(var(--container-attributes),100%_-_var(--container-page)_-_var(--attributes-gap),var(--container-attributes-max))] gap-x-(--attributes-gap)">
+            <div className="px-7 pt-4 pb-12">{sections}</div>
             {attributesPanel}
           </div>
         ) : (

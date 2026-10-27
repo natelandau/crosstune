@@ -9,6 +9,13 @@ enum AttributesLayout: Equatable, Sendable {
     case card
 }
 
+/// How a row in the attributes column sets its label and value: the label over the value while the
+/// column is narrow, the value at the trailing edge beside the label once it is wide.
+enum AttributeRowArrangement: Equatable, Sendable {
+    case stacked
+    case beside
+}
+
 /// Which attribute row's editor is open. A key names the tune and the layout too, so a row on
 /// another tune, or the same attribute drawn in the other layout, never takes the editor.
 struct AttributesOpenState: Equatable {
@@ -40,8 +47,8 @@ struct AttributesOpenState: Equatable {
 }
 
 /// The tune's attributes, each a row that edits in place. As a column they sit on the page background behind a
-/// hairline in headed groups, label and value in columns, then the lists the tune is in and the
-/// day it was added; as a card they show the main attributes and open the rest under More details,
+/// hairline in headed groups, each label over its value or, in a wide column, beside it, then the
+/// lists the tune is in and the day it was added; as a card they show the main attributes and open the rest under More details,
 /// and the page ends with the lists instead.
 ///
 /// The rows belong to `model`'s tune: a new tune tears them down, so an open editor saves to
@@ -50,20 +57,27 @@ struct TuneAttributes: View {
     let model: TuneModel
     let detail: TuneDetail
     let layout: AttributesLayout
+    /// The column's width beside the content, from ``columnWidth(forDetailWidth:)``.
+    let columnWidth: CGFloat
     /// How far below the scroll view's top edge the column pins as the content scrolls under it.
     let pinnedTop: CGFloat
     /// Opens the list picker; nil leaves out Add to list.
     let onAddToList: (() -> Void)?
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var open = AttributesOpenState()
+    /// The rows' arrangement for the column's width alone; ``rowArrangement`` also weighs text size.
+    @State private var widthArrangement = AttributeRowArrangement.stacked
 
     init(
-        model: TuneModel, detail: TuneDetail, layout: AttributesLayout, pinnedTop: CGFloat = 0,
+        model: TuneModel, detail: TuneDetail, layout: AttributesLayout,
+        columnWidth: CGFloat = PageStyle.attributesColumnWidth, pinnedTop: CGFloat = 0,
         onAddToList: (() -> Void)?
     ) {
         self.model = model
         self.detail = detail
         self.layout = layout
+        self.columnWidth = columnWidth
         self.pinnedTop = pinnedTop
         self.onAddToList = onAddToList
     }
@@ -71,7 +85,33 @@ struct TuneAttributes: View {
     /// The column needs its own width beside a readable content column; narrower, the attributes
     /// fold into a card.
     nonisolated static func layout(forDetailWidth width: CGFloat) -> AttributesLayout {
-        width >= PageStyle.attributesColumnWidth + PageStyle.contentMinWidth ? .column : .card
+        width >= PageStyle.attributesColumnWidth + PageStyle.attributesColumnGap + PageStyle.contentMinWidth
+            ? .column : .card
+    }
+
+    /// The column holds the detail column's trailing edge at its narrowest until the content beside
+    /// it has the page's readable width, then grows to its widest; past that the content takes
+    /// the rest.
+    nonisolated static func columnWidth(forDetailWidth width: CGFloat) -> CGFloat {
+        let content = PageStyle.pageMaxWidth + 2 * PageStyle.pageMargin
+        let spare = width - content - PageStyle.attributesColumnGap
+        return min(max(PageStyle.attributesColumnWidth, spare), PageStyle.attributesColumnMaxWidth)
+    }
+
+    nonisolated static func arrangement(forColumnWidth width: CGFloat) -> AttributeRowArrangement {
+        width >= PageStyle.attributesColumnBesideWidth ? .beside : .stacked
+    }
+
+    /// An accessibility text size stacks every row, since a label and value side by side would
+    /// each wrap to a few words a line.
+    nonisolated static func arrangement(
+        _ widthArrangement: AttributeRowArrangement, accessibilitySize: Bool
+    ) -> AttributeRowArrangement {
+        accessibilitySize ? .stacked : widthArrangement
+    }
+
+    private var rowArrangement: AttributeRowArrangement {
+        Self.arrangement(widthArrangement, accessibilitySize: dynamicTypeSize.isAccessibilitySize)
     }
 
     /// A row's value, or "Add" while the tune holds none.
@@ -144,15 +184,7 @@ struct TuneAttributes: View {
 
     private static let columnRowMargin: CGFloat = 8
     private static let columnRowPadding: CGFloat = 8
-    private static let columnGroupGap: CGFloat = 16
-
-    /// The column's label width: "Time signature" on one line, while a long tuning such as
-    /// "5-string banjo tuning" wraps to two.
-    #if os(macOS)
-        private let columnLabelWidth: CGFloat = 88
-    #else
-        @ScaledMetric(relativeTo: .subheadline) private var columnLabelWidth: CGFloat = 108
-    #endif
+    private static let columnGroupGap: CGFloat = 20
 
     private func columnHeading(_ title: String) -> some View {
         AttributesHeading(title, inset: textInset, column: true)
@@ -184,8 +216,13 @@ struct TuneAttributes: View {
                 .padding(.horizontal, textInset)
                 .padding(.top, Self.columnGroupGap)
         }
-        .padding(.bottom, 16)
-        .frame(width: PageStyle.attributesColumnWidth, alignment: .leading)
+        .padding(.bottom, 24)
+        .frame(width: columnWidth, alignment: .leading)
+        .onGeometryChange(for: AttributeRowArrangement.self) { proxy in
+            Self.arrangement(forColumnWidth: proxy.size.width)
+        } action: { next in
+            widthArrangement = next
+        }
         .modifier(PinsWhileScrolling(top: pinnedTop))
         .overlay(alignment: .leading) {
             Rectangle().fill(Palette.border).frame(width: 1)
@@ -198,18 +235,9 @@ struct TuneAttributes: View {
             isPresented.wrappedValue = true
         } label: {
             if layout == .column {
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Text(row.label)
-                        .font(PageStyle.secondary)
-                        .foregroundStyle(.textSecondary)
-                        .frame(width: columnLabelWidth, alignment: .leading)
-                    Text(Self.value(row))
-                        .contentMask()
-                        .foregroundStyle(row.text == nil ? .textSecondary : AnyShapeStyle(.textPrimary))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.vertical, 6)
+                AttributeColumnRow(row: row, arrangement: rowArrangement)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.vertical, 6)
             } else {
                 HStack(spacing: 12) {
                     label(row)
@@ -365,8 +393,8 @@ private struct AttributesCard<Row: View, Failure: View>: View {
     }
 }
 
-/// A group's heading in the attributes, quiet over its rows: in the column a small header in
-/// tertiary text, on the card the Learned group's label in secondary text.
+/// A group's heading in the attributes: in the column a section heading like the content's beside
+/// it, on the card the Learned group's quiet label in secondary text.
 private struct AttributesHeading: View {
     let title: String
     let inset: CGFloat
@@ -380,8 +408,8 @@ private struct AttributesHeading: View {
 
     var body: some View {
         Text(title)
-            .font(column ? PageStyle.secondary.weight(.medium) : PageStyle.secondary)
-            .foregroundStyle(column ? .textSecondary : .textSecondary)
+            .font(column ? PageStyle.sectionHeading : PageStyle.secondary)
+            .foregroundStyle(column ? .textPrimary : .textSecondary)
             .accessibilityAddTraits(.isHeader)
             .padding(.horizontal, inset)
     }
@@ -408,6 +436,35 @@ private struct AttributesGroup<Content: View>: View {
         }
         .background(Palette.surface, in: shape)
         .clipShape(shape)
+    }
+}
+
+/// A row's label and value in the attributes column: the label over the value, or the value at the
+/// trailing edge beside it. One layout that changes in place, so the rows keep their identity as
+/// the column's width crosses the switch.
+private struct AttributeColumnRow: View {
+    let row: AttributeRow
+    let arrangement: AttributeRowArrangement
+
+    var body: some View {
+        let stacked = arrangement == .stacked
+        let layout =
+            stacked
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 1))
+            : AnyLayout(HStackLayout(alignment: .firstTextBaseline, spacing: 12))
+        layout {
+            Text(row.label)
+                .font(stacked ? .platform(.caption) : PageStyle.secondary)
+                .foregroundStyle(.textSecondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Text(TuneAttributes.value(row))
+                .contentMask()
+                // Medium, matching the web client's attribute values, so a set value reads over its label.
+                .fontWeight(row.text == nil ? nil : .medium)
+                .monospacedDigit()
+                .foregroundStyle(row.text == nil ? .textSecondary : AnyShapeStyle(.textPrimary))
+                .multilineTextAlignment(stacked ? .leading : .trailing)
+        }
     }
 }
 

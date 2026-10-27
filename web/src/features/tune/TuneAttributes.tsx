@@ -13,7 +13,7 @@ import { ROW_PRESS } from '../../ui/press'
 import { useElementSize } from '../../ui/useElementSize'
 import { ADD_TO_LIST } from '../lists/listPickerCopy'
 import { AttributeEditor, type AttributeEditorProps } from './AttributeEditor'
-import { COLUMN_TOP, COLUMN_WIDTH } from './attributesLayout'
+import { COLUMN_TOP } from './attributesLayout'
 import { AttributeEditorBody } from './attributeEditors'
 import {
   ABOUT_GROUP,
@@ -45,18 +45,19 @@ interface TuneAttributesProps {
 
 const ROW_SHAPE = `${ROW_PRESS} flex min-h-(--target) w-full items-center gap-3 px-4 text-start t-body`
 /**
- * A row in the attributes column: inset, so its tint reads as a rounded shape on the open page. Its label and
- * value are columns that each wrap on their own, set on their first baselines; the padding
- * centers a single line in the row's target height.
+ * A row in the attributes column: inset, so its tint reads as a rounded shape on the open page. A
+ * narrow column sets the label over its value, so the value has the full width, and the two lines
+ * clear the row's target height. A wide one sets the value at the trailing edge, on the label's
+ * first baseline, with the padding centering a single line in the target height.
  */
-const COLUMN_ROW_SHAPE = `${ROW_PRESS} mx-2 flex min-h-(--target) items-baseline gap-3 rounded-(--radius-row) px-2 py-[calc((var(--target)_-_1.45em)/2)] text-start t-body`
-/**
- * The attributes column's label width, in the label's own size: wide enough for "Time signature" on one
- * line, so a longer label such as "5-string banjo tuning" wraps to a second.
- */
-const COLUMN_LABEL = 't-secondary text-secondary w-[7.5em] shrink-0 break-words'
-/** A group header: quieter than a row by its smaller size, never by fading. */
-const COLUMN_HEADER = 't-caption text-secondary px-4 pb-1'
+const COLUMN_ROW_SHAPE = `${ROW_PRESS} mx-2 flex flex-col gap-px rounded-(--radius-row) px-2 py-1.5 text-start t-body @attributes-wide:min-h-(--target) @attributes-wide:flex-row @attributes-wide:items-baseline @attributes-wide:gap-3 @attributes-wide:py-[calc((var(--target)_-_1.45em)/2)]`
+/** Beside its value, the label takes `t-secondary`'s step. */
+const COLUMN_LABEL =
+  't-caption text-secondary font-normal break-words @attributes-wide:min-w-0 @attributes-wide:flex-1 @attributes-wide:text-(length:--size-secondary)'
+const COLUMN_VALUE =
+  'leading-[1.35] break-words @attributes-wide:max-w-[62%] @attributes-wide:text-end'
+/** A group header: the content column's section heading step, so both columns head alike. */
+const COLUMN_HEADER = 't-heading text-primary px-4 pb-1'
 
 export function TuneAttributes({
   view,
@@ -109,17 +110,16 @@ export function TuneAttributes({
       <div className="border-default border-s">
         <aside
           aria-label={ATTRIBUTES_LABEL}
-          className="sticky top-11 flex max-h-[calc(100dvh-2.75rem)] flex-col overflow-y-auto overscroll-contain pb-4"
+          className="@container sticky top-11 flex max-h-[calc(100dvh-2.75rem)] flex-col overflow-y-auto overscroll-contain pb-6"
           style={{
-            width: COLUMN_WIDTH,
             maxHeight: paneHeight > 0 ? `calc(${paneHeight}px - 2.75rem)` : undefined,
           }}
         >
           {groups.map((group, index) => (
             <Fragment key={group.header}>
               <h2
-                className={COLUMN_HEADER}
-                style={{ paddingTop: index === 0 ? COLUMN_TOP : '1.25rem' }}
+                className={index === 0 ? COLUMN_HEADER : `${COLUMN_HEADER} pt-6`}
+                style={index === 0 ? { paddingTop: COLUMN_TOP } : undefined}
               >
                 {group.header}
               </h2>
@@ -127,11 +127,11 @@ export function TuneAttributes({
             </Fragment>
           ))}
           <ErrorLine error={write.error} place="field" />
-          <h2 className={`${COLUMN_HEADER} pt-5`}>{LISTS_GROUP}</h2>
+          <h2 className={`${COLUMN_HEADER} pt-6`}>{LISTS_GROUP}</h2>
           <div className="px-4 pt-1">
             <TuneLists inLists={inLists} onAddToList={onAddToList} />
           </div>
-          <AddedLine createdAt={createdAt} className="px-4 pt-5" />
+          <AddedLine createdAt={createdAt} className="px-4 pt-6" />
         </aside>
       </div>
     )
@@ -235,6 +235,12 @@ function AttributeRowEditor({
   children: ReactNode
 }) {
   const trigger = useRef<HTMLButtonElement>(null)
+  const valueTone =
+    row.text === null
+      ? 'text-secondary'
+      : column
+        ? 'text-primary t-num font-medium'
+        : 'text-primary'
   return (
     <>
       <AriaButton
@@ -245,9 +251,7 @@ function AttributeRowEditor({
         className={column ? COLUMN_ROW_SHAPE : ROW_SHAPE}
       >
         <span className={column ? COLUMN_LABEL : FIELD_LABEL}>{row.label}</span>
-        <span
-          className={`${column ? 'min-w-0 flex-1 break-words' : FIELD_VALUE_SHAPE} ${row.text === null ? 'text-secondary' : 'text-primary'}`}
-        >
+        <span className={`${column ? COLUMN_VALUE : FIELD_VALUE_SHAPE} ${valueTone}`}>
           {row.text ?? ADD_VALUE}
         </span>
       </AriaButton>

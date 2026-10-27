@@ -99,8 +99,16 @@ package enum PageStyle {
         package static let loopSwitcherAlignment = Alignment.center
     #endif
 
-    /// The tune page's attributes column, beside the content once the detail column has room for both.
+    /// The tune page's attributes column at its narrowest, its hairline included, beside the
+    /// content once the detail column has room for both.
     package static let attributesColumnWidth: CGFloat = 236
+    /// The widest the attributes column grows, once the content beside it has the page's
+    /// readable width.
+    package static let attributesColumnMaxWidth: CGFloat = 320
+    /// The attributes column's width from which a row sets its value beside its label.
+    package static let attributesColumnBesideWidth: CGFloat = 288
+    /// The space between the content and the attributes column.
+    package static let attributesColumnGap: CGFloat = 8
     /// The narrowest the tune page's content column reads at beside the attributes column: room
     /// enough that an 11-inch or larger iPad in landscape, with the sidebar hidden, takes the
     /// attributes column, while the open iPhone Duo and a narrow Mac window take the card.

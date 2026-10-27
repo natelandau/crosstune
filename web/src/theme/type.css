@@ -21,6 +21,14 @@ html[data-density='pointer'] {
   --screen-title-collapsed: calc(0.9375 / 1.375);
 }
 
+/* `t-secondary`'s size, also read by a container variant that sets a label at that step. */
+:root {
+  --size-secondary: 0.875rem;
+}
+html[data-density='pointer'] {
+  --size-secondary: 0.78125rem;
+}
+
 /* A layer, so a utility such as font-bold overrides a role. */
 @layer components {
   .t-page-title {
@@ -48,7 +56,7 @@ html[data-density='pointer'] {
     text-wrap-style: pretty;
   }
   .t-secondary {
-    font-size: 0.875rem;
+    font-size: var(--size-secondary);
     font-weight: 400;
     line-height: 1.35;
     text-wrap-style: pretty;
@@ -99,9 +107,6 @@ html[data-density='pointer'] {
     }
     .t-body {
       font-size: 0.875rem;
-    }
-    .t-secondary {
-      font-size: 0.78125rem;
     }
     .t-caption {
       font-size: 0.6875rem;
