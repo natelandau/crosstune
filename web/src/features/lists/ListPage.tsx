@@ -47,6 +47,7 @@ import { useToast } from '../../ui/Toast'
 import { ListNameSheet } from './ListNameSheet'
 import { ListPlayRow } from './ListPlayRow'
 import { ListTuneRow } from './ListTuneRow'
+import { usePlayer } from '../player/usePlayer'
 import { useListRowSources } from './useListRowSource'
 import { TunePickerSheet } from './TunePickerSheet'
 import { useHadContent } from '../../ui/useHadContent'
@@ -265,7 +266,12 @@ function ListTunes({
   // since on wide the list stays beside the page.
   const [opening, setOpening] = useState<string | null>(null)
   const scans = useRowScanViewer({ context: 'list', listId })
-  const sources = useListRowSources(visible, tunes.playFirst)
+  const player = usePlayer()
+  const sources = useListRowSources(
+    visible,
+    tunes.playFirst,
+    player.item?.kind === 'recording' ? player.item.id : null,
+  )
 
   useEffect(() => {
     if (tunes.announcement) announce(tunes.announcement)

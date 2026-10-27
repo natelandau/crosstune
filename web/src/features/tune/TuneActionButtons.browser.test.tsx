@@ -55,6 +55,7 @@ async function setup({
   recordingState = 'ready',
   lyrics = false,
   density = 'pointer',
+  pinRecording = false,
 }: {
   withRecording?: boolean
   withBlob?: boolean
@@ -69,6 +70,8 @@ async function setup({
   /** True gives the row a Lyrics button, as a tune with lyrics does. */
   lyrics?: boolean
   density?: 'touch' | 'pointer'
+  /** True pins the recording as the tune's Play source. */
+  pinRecording?: boolean
 } = {}) {
   await page.viewport(width, 800)
   const db: CrosstuneDb = openTestDb()
@@ -84,6 +87,10 @@ async function setup({
     )
   }
   if (withLink) await db.recording_links.put(linkRow('link1', tuneId, { provider: 'apple_music' }))
+  if (pinRecording) {
+    const userTune = await db.user_tunes.where('tune_id').equals(tuneId).first()
+    await db.user_tunes.update(userTune!.id, { play_recording_id: 'rec1' })
+  }
   const start = vi.fn()
   const launcher: RecordLauncher = { start, available }
   const player = fakePlayer()
@@ -225,24 +232,35 @@ it('a recording still processing alone leaves no action button row', async () =>
   expect(shown()).toEqual([])
 })
 
-it('a recording not on this device gives no button, never Download', async () => {
-  await setup({ withRecording: true, withBlob: false })
-  await settled()
-  await expect.poll(() => shown()).toEqual([])
+it('a recording not on this device offers Play, which plays it, never Download', async () => {
+  const { player } = await setup({ withRecording: true, withBlob: false, lyrics: true })
+  await expect.element(button(PLAY)).toBeVisible()
+  // Practice still needs the audio held here.
+  expect(shown()).toEqual([PLAY, LYRICS_SECTION])
   expect(button(DOWNLOAD).query()).toBeNull()
+  await button(PLAY).click()
+  await expect
+    .poll(() => vi.mocked(player.play).mock.calls[0]?.[0])
+    .toEqual({ kind: 'recording', id: 'rec1' })
 })
 
-it('a recording not on this device leaves Lyrics alone in the row', async () => {
-  await setup({ withRecording: true, withBlob: false, lyrics: true })
-  await expect.element(button(LYRICS_SECTION)).toBeVisible()
-  expect(shown()).toEqual([LYRICS_SECTION])
-})
-
-it('leaves every recording button out while its recording downloads', async () => {
+it('offers Play while its recording downloads', async () => {
   await setup({ withRecording: true, withBlob: false, fileState: 'downloading', lyrics: true })
-  await expect.element(button(LYRICS_SECTION)).toBeVisible()
-  expect(shown()).toEqual([LYRICS_SECTION])
+  await expect.element(button(PLAY)).toBeVisible()
+  expect(shown()).toEqual([PLAY, LYRICS_SECTION])
   noneDisabled()
+})
+
+it('passes over a pinned recording still processing to a link', async () => {
+  await setup({
+    withLink: true,
+    withRecording: true,
+    withBlob: false,
+    recordingState: 'uploaded',
+    pinRecording: true,
+  })
+  await expect.element(button(OPEN)).toBeVisible()
+  expect(shown()).toEqual([OPEN])
 })
 
 it('the phone shows Play, Practice, and Lyrics in equal columns on one line each', async () => {

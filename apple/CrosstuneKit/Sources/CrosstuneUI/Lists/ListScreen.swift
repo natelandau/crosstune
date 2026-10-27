@@ -429,7 +429,8 @@ private struct ListTunes: View {
         let moves = MovePlace.places(at: index, count: count)
         let playAction = ListRowPlay.action(
             for: entry, playFirst: model.playFirst, loaded: { player?.holds(.recording, id: $0) ?? false },
-            downloading: { transfers?.isDownloading($0) ?? false }, recordingsPlay: recordingsPlay)
+            downloading: { transfers?.isDownloading($0) ?? false }, recordingsPlay: recordingsPlay,
+            online: session?.hasNetwork ?? true)
         let isCurrent = ListRowPlay.isNowPlaying(
             listID: list.id, playingListID: listPlayback?.listID, currentTuneID: listPlayback?.currentTuneID,
             tuneID: entry.tune.id)

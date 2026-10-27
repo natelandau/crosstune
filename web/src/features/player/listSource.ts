@@ -38,6 +38,15 @@ export interface PlaylistReport {
   total: number
 }
 
+/** A recording plays now with its audio held here, or online once the server holds a copy to send. */
+export function recordingPlaysNow(
+  recording: { state: string },
+  hasAudio: boolean,
+  online: boolean,
+): boolean {
+  return hasAudio || (online && recording.state === 'ready')
+}
+
 /**
  * What a playing list plays for a tune, or why it skips it. Only recordings play, since an
  * embedded link cannot report its end. A recording can play with its audio held here, or
@@ -54,7 +63,7 @@ export function playlistSource(input: PlaylistEntry & Availability): PlaylistCho
     if (recordings.length > 0 && !hasLinks) return { skip: 'premium' }
     return { skip: hasLinks ? 'linksOnly' : 'nothing' }
   }
-  const playable = recordings.filter((r) => hasAudio(r.id) || (online && r.state === 'ready'))
+  const playable = recordings.filter((r) => recordingPlaysNow(r, hasAudio(r.id), online))
   const chosen = playable.find((r) => r.id === input.pin.recordingId) ?? playable[0]
   if (chosen) return { item: { kind: 'recording', id: chosen.id } }
   if (recordings.length > 0) return { skip: 'notHere' }

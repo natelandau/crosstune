@@ -58,26 +58,34 @@ public enum ListRowPlay {
     /// `loaded` says whether the player holds a recording, which keeps its stop control through
     /// the fetch the player starts; `downloading` says whether a fetch of a recording is under way.
     /// With `recordingsPlay` false no recording plays, and a tune with only recordings is inert.
+    /// A pin or the play-first order passes over what cannot play now; while `online` is false that
+    /// includes a recording only the server holds, which is inert when the tune has nothing else.
     public static func action(
         for entry: ListEntry, playFirst: String, loaded: (String) -> Bool = { _ in false },
-        downloading: (String) -> Bool = { _ in false }, recordingsPlay: Bool = true
+        downloading: (String) -> Bool = { _ in false }, recordingsPlay: Bool = true, online: Bool = true
     ) -> Action? {
         action(
             tuneTitle: entry.tune.title, userTune: entry.userTune, recordings: entry.recordings, files: entry.files,
             links: entry.links, playFirst: playFirst, loaded: loaded, downloading: downloading,
-            recordingsPlay: recordingsPlay)
+            recordingsPlay: recordingsPlay, online: online)
     }
 
     /// The same for a tune's parts given loose, which the tune page has in hand rather than a list entry.
     static func action(
         tuneTitle: String, userTune: UserTune, recordings: [Recording], files: [String: RecordingFile],
         links: [RecordingLink], playFirst: String, loaded: (String) -> Bool = { _ in false },
-        downloading: (String) -> Bool = { _ in false }, recordingsPlay: Bool = true
+        downloading: (String) -> Bool = { _ in false }, recordingsPlay: Bool = true, online: Bool = true
     ) -> Action? {
+        let usable = playable(recordings: recordings, files: files, links: links, online: online, loaded: loaded)
+        // A tune with nothing playable falls back to all it has, so its row keeps an inert slot
+        // rather than reading as a tune with nothing.
         guard
             let source = rowSource(
-                userTune: userTune, recordings: recordings, links: links, playFirst: playFirst,
+                userTune: userTune, recordings: usable.recordings, links: usable.links, playFirst: playFirst,
                 recordingsPlay: recordingsPlay)
+                ?? rowSource(
+                    userTune: userTune, recordings: recordings, links: links, playFirst: playFirst,
+                    recordingsPlay: recordingsPlay)
         else {
             // Inert rather than nil, which would read as a tune with nothing at all.
             return !recordingsPlay && hasLiveRecording(userTune: userTune, recordings: recordings) ? .inert : nil
@@ -88,15 +96,35 @@ public enum ListRowPlay {
                 recording, file: files[recording.id], loaded: loaded(recording.id),
                 downloading: downloading(recording.id))
             switch control {
-            case .play, .close, .download: return .play(.recording(recording, tuneTitle: tuneTitle))
+            case .play, .close: return .play(.recording(recording, tuneTitle: tuneTitle))
+            case .download: return online ? .play(.recording(recording, tuneTitle: tuneTitle)) : .inert
             case .downloading: return .downloading
             case .none: return .inert
             }
         case .link(let link):
-            if let item = PlayerItem.link(link) { return .play(item) }
-            guard let url = LinkText.outboundURL(link.url) else { return .inert }
-            return .open(url, linkTitle: LinkText.title(link))
+            return linkAction(link) ?? .inert
         }
+    }
+
+    /// What a tune can play or open now, so a pin or the play-first order passes over the rest:
+    /// a recording with audio here or, online, a ready copy the player fetches, and a link with a
+    /// player or an address. A recording `loaded` names always counts, so its Stop stays.
+    static func playable(
+        recordings: [Recording], files: [String: RecordingFile], links: [RecordingLink], online: Bool,
+        loaded: (String) -> Bool
+    ) -> (recordings: [Recording], links: [RecordingLink]) {
+        let capable = Set(RecordingText.playlistCapable(recordings, files: files, online: online).map(\.id))
+        return (
+            recordings.filter { capable.contains($0.id) || loaded($0.id) },
+            links.filter { linkAction($0) != nil }
+        )
+    }
+
+    /// What a link does: play in the app's player, else open on its provider's own site, else
+    /// nil for a link with neither a player nor a safe address.
+    static func linkAction(_ link: RecordingLink) -> Action? {
+        if let item = PlayerItem.link(link) { return .play(item) }
+        return LinkText.outboundURL(link.url).map { .open($0, linkTitle: LinkText.title(link)) }
     }
 
     /// What a tap on a row other than the playing tune does, while its list plays as a playlist or not.

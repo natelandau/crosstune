@@ -37,11 +37,11 @@ import Testing
 
     private func buttons(
         _ detail: TuneDetail, recordingsPlay: Bool = true, planRead: Bool = true, showsLyrics: Bool = true,
-        capturing: Bool = false, loaded: Set<String> = []
+        capturing: Bool = false, online: Bool = true, loaded: Set<String> = []
     ) -> TuneActionButtons.Layout {
         TuneActionButtons.buttons(
             detail: detail, playFirst: UserSettings.playFirstRecordings, recordingsPlay: recordingsPlay,
-            planRead: planRead, showsLyrics: showsLyrics, capturing: capturing,
+            planRead: planRead, showsLyrics: showsLyrics, capturing: capturing, online: online,
             holds: { loaded.contains($1) })
     }
 
@@ -95,9 +95,28 @@ import Testing
         #expect(names(buttons(detail(links: [page()]), capturing: true)) == ["Open"])
     }
 
-    @Test func neverOffersDownloadForARecordingOnlyOnTheServer() {
-        #expect(buttons(detail(recordings: [recording()])) == .buttons([]))
-        #expect(names(buttons(detail(recordings: [recording(), recording("r2", held: true)]))) == ["Practice"])
+    @Test func offersPlayForARecordingOnlyOnTheServer() {
+        #expect(names(buttons(detail(recordings: [recording()]))) == ["Play"])
+        #expect(
+            names(buttons(detail(recordings: [recording(), recording("r2", held: true)]))) == ["Play", "Practice"])
+    }
+
+    @Test func passesOverARecordingWithNoAudioAnywhereToTheNextSource() {
+        let pinned = UserTune(createdAt: noon, tuneID: tune.id, status: "learning", playRecordingID: "r1")
+        let layout = buttons(detail(recordings: [recording(state: "uploaded")], links: [video()], userTune: pinned))
+        #expect(primaryItemID(layout) == "l1")
+        #expect(buttons(detail(recordings: [recording(state: "failed")])) == .buttons([]))
+    }
+
+    @Test func passesOverARecordingOnlyOnTheServerWhileOffline() {
+        #expect(primaryItemID(buttons(detail(recordings: [recording()], links: [video()]), online: false)) == "l1")
+        #expect(buttons(detail(recordings: [recording()]), online: false) == .buttons([]))
+    }
+
+    @Test func keepsStopForTheLoadedRecordingThoughItCanNoLongerPlay() {
+        let layout = buttons(detail(recordings: [recording(state: "uploaded")], links: [video()]), loaded: ["r1"])
+        #expect(names(layout).first == "Stop")
+        #expect(primaryItemID(layout) == "r1")
     }
 
     @Test func holdsTheRowWhileThePlanIsUnread() {
@@ -141,11 +160,11 @@ import Testing
         #expect(names(buttons(detail(links: [video()]), loaded: ["l1"])).first == "Stop")
     }
 
-    @Test func offersNoPlayWhileTheRecordingDownloads() {
+    @Test func offersPlayWhileTheRecordingDownloads() {
         let downloading = TuneRecording(
             recording: Recording(id: "r1", tuneID: tune.id, source: "microphone", state: "ready"),
             file: RecordingFile(id: "r1", localState: .downloading))
-        #expect(buttons(detail(recordings: [downloading])) == .buttons([]))
+        #expect(names(buttons(detail(recordings: [downloading]))) == ["Play"])
     }
 
     @Test func offersPracticeOnlyForARecordingOnTheDevice() {
@@ -163,6 +182,14 @@ import Testing
         #expect(practiceID(buttons(detail(recordings: [first, second, third], userTune: pinned))) == "c")
         let pinnedAway = UserTune(createdAt: noon, tuneID: tune.id, status: "learning", playRecordingID: "a")
         #expect(practiceID(buttons(detail(recordings: [first, second, third], userTune: pinnedAway))) == "b")
+    }
+
+    private func primaryItemID(_ layout: TuneActionButtons.Layout) -> String? {
+        guard case .buttons(let buttons) = layout else { return nil }
+        for case .play(let primary) in buttons {
+            if case .play(let item) = primary.action { return item.id }
+        }
+        return nil
     }
 
     private func practiceID(_ layout: TuneActionButtons.Layout) -> String? {
