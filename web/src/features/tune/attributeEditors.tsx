@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { TIME_SIGNATURES, TUNE_LIMITS, type Instrument } from '../../api/vocabulary'
 import { CAPO_INSTRUMENTS, GENRES, PART_STRUCTURES } from '../../constants'
 import { tuningKeyInstrument } from '../../domain/instruments'
+import { useFrame } from '../../platform/frame'
 import { NOT_SET } from '../../ui/fieldCopy'
 import { Group } from '../../ui/form/Group'
 import { PartialDateField } from '../../ui/form/PartialDateField'
@@ -116,6 +117,7 @@ function CrookedBody({ view, write }: Pick<AttributeEditorBodyProps, 'view' | 'w
 }
 
 function KeyBody({ view, write }: Pick<AttributeEditorBodyProps, 'view' | 'write'>) {
+  const frame = useFrame()
   const [key, setKey] = useState(view.tune.key ?? '')
   const [modes, setModes] = useState(() => valuesFromRows(view.tune, view.userTune).modes)
   // Each write carries both, so two quick picks never write one over the other.
@@ -128,7 +130,14 @@ function KeyBody({ view, write }: Pick<AttributeEditorBodyProps, 'view' | 'write
   return (
     <>
       <Group header={KEY} plain>
-        <KeyGrid autoFocus value={key || null} onChange={(picked) => save({ key: picked ?? '' })} />
+        {/* A popover sizes to its content, so an unbounded grid would lay every key in one row. */}
+        <div className={frame === 'phone' ? undefined : 'w-72'}>
+          <KeyGrid
+            autoFocus
+            value={key || null}
+            onChange={(picked) => save({ key: picked ?? '' })}
+          />
+        </div>
       </Group>
       <Group>
         <ModeRows
