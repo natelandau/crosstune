@@ -149,6 +149,10 @@ against production, such as granting a comp or a trial.
   and play, pause, and stop are one CSS shape that morphs
   (`TransportMark`).
   The site uses the same icons from `lucide`; `site/CLAUDE.md` says how.
+- Every color is a role from the token files, chosen by "Color" in
+  `docs/design.md`. A new role, a changed value, a new allowlist entry
+  on a color test, or a lower contrast threshold needs the owner's
+  approval first.
 - Outbound HTTP in the API uses `httpx2`, never `httpx`.
 - A ref that mirrors the latest render's value is `useLatest` from
   `web/src/ui/useLatest.ts`, named `…Ref`, never a hand-written ref plus

@@ -63,77 +63,119 @@ Decide any case the rules below do not name.
   when not the current one.
 - Same field, same label on every screen and platform.
 
-## Color and type
+## Color
 
-- Three tiers, one set of names on every platform: kebab-case on the
-  web (`text-primary`), camelCase on Apple (`textPrimary`).
+Every color a screen paints comes from a role. This section says which
+role to take and how the roles change. Values live in the token files,
+never here.
 
-  | Tier | Holds | Named by |
-  | ---- | ----- | -------- |
-  | Primitive | Raw values | Hue and step: `blue-700`, `warm-gray-50` |
-  | Role | What a component paints with | Job: `page-background`, `text-secondary`, `accent` |
-  | Component token | Data colors: keys, loops, heatmap, tuner | Job, defined from a role or primitive |
+### The system
 
+| Tier       | Holds                                          | Named by                                           |
+| ---------- | ---------------------------------------------- | -------------------------------------------------- |
+| Primitive  | Raw values                                     | Hue and step: `blue-700`, `warm-gray-50`           |
+| Role       | What a component paints with                   | Job: `page-background`, `text-secondary`, `accent` |
+| Data color | Keys, loops, the heatmap, the tuner, waveforms | What it draws, defined from a role or primitive    |
+
+- One set of role names on every platform: kebab-case on the web
+  (`text-primary`), camelCase on Apple (`textPrimary`). Never
+  `foreground` on Apple.
 - Only the token files name a primitive. A component names a role or a
-  component token, never a primitive. A new palette changes primitives;
-  a new pairing points a role at another primitive. No hue in a role
-  name, so a role can move to any hue without a rename.
+  data color, never a primitive.
+- No hue in a role name, so a role can point at any hue without a
+  rename.
 - No color value in a component: no hex, `rgb()`, mix, opacity on a
-  color, or system color. A hover, tint, or mix is its own token in the
-  token file. A test on each platform enforces it; its allowlist names
-  each exception and why.
-- `accent` is the one accent: a primary action, a plain button's words,
-  selection and chosen states, focus, switches, and set filters. Menu
-  items, row glyphs, and form action rows stay `text-primary`. Never
-  charts, glyphs at rest, or decoration.
-- A fill behind white text is `accent-fill`, its label `on-accent-fill`.
-  Never `accent`, which is too light in dark mode to carry white.
-- Accent tints, four steps, labels in `on-tint`:
+  color, or system color. A hover, a tint, or a mix is its own token in
+  the token files.
 
-  | Step | Holds |
-  | ---- | ----- |
-  | `tint-subtle` | Hover on a row or plain control; the playing row |
-  | `tint` | Selection, current item, set filter, tinted control |
-  | `tint-strong` | Hover on a tint. The ceiling for an accent label |
-  | `tint-strongest` | A tinted control's hover, a ring. Never under an accent label |
+### Choosing a color
 
-- A disabled filled control drops its fill: a `disabled-border` ring and
-  an `on-disabled` label, so it never reads as another filled control.
-- `inverse-surface`: tooltips and the undo banner. The other appearance's
-  page, text in `on-inverse-surface`, an action in `inverse-accent`.
-- Layers: `page-background` under content, pages, lists, and sheets;
-  `surface` under the sidebar, cards, and footers. `border` for every
-  rule and edge. A control's fill follows its container: `field` on
-  `page-background`, `surface-raised` on `surface`.
-- Secondary text and glyphs take `text-secondary`, never a system's
-  translucent secondary, which falls under 4.5:1. `text-tertiary` is for
-  glyphs and shapes at 3:1, never text.
-- `brand` (coral): the mark, the selected sidebar row's glyph, the
-  playhead of anything that plays back, loop handles, what marks Premium,
-  and the warning fill in light (`warning-fill`). Nothing else. A fill
-  with an `on-brand` label, never coral text.
-- `record`: recording only, never a destructive action. A label on it is
-  `on-record`, dark, since white falls under 4.5:1.
-- `danger`: destructive actions only. `warning`: cautionary actions only.
-  A label on a danger or known fill is `on-status`; on a warning fill,
-  `on-warning-fill`.
-- Charts draw in text tones.
-- Status, key, loop, and heatmap colors are identical on every platform.
-- A tune's status has one visual language: the same glyph in the same
-  color everywhere it shows, menus included. A menu tints its symbols, so
-  a status glyph goes in as an image that is already colored.
-- Never color alone: a state shown in color also shows in shape or words.
-  A glyph keeps its own color on a selected row, because the color is its
-  meaning.
+1. Name the job: what the color does on this screen.
+2. Take the role whose job matches, from the table below.
+3. If two roles fit, take the more specific job: `on-tint` over
+   `accent` for a label on a tint.
+4. If no role fits, stop and ask the owner. Never add a token for one
+   screen, never type a value, and never put opacity on a role.
+
+### Roles
+
+| Role                                                                           | Job                                                                                                                                   | Never                                                       |
+| ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| `page-background`                                                              | Under content, pages, lists, sheets                                                                                                   |                                                             |
+| `surface`                                                                      | The sidebar, cards, footers                                                                                                           |                                                             |
+| `surface-raised`                                                               | A control on a `surface`                                                                                                              |                                                             |
+| `field`                                                                        | A control on the page: inputs, chips, secondary controls                                                                              | On a `surface`, where it reads gray on gray                 |
+| `border`                                                                       | Every rule and edge                                                                                                                   |                                                             |
+| `border-strong`                                                                | Dashed outlines, slider tracks                                                                                                        |                                                             |
+| `hover-overlay`                                                                | A hover over a fill that has no hover role                                                                                            |                                                             |
+| `text-primary`                                                                 | Body text and glyphs; menu items, row glyphs, form action rows                                                                        |                                                             |
+| `text-secondary`                                                               | Secondary text and glyphs, 4.5:1                                                                                                      | A system's translucent secondary                            |
+| `text-tertiary`                                                                | A glyph that cannot act, a mark for absence, an off switch's track, 3:1                                                               | Text                                                        |
+| `disabled-border`, `on-disabled`                                               | A disabled filled control: no fill, a ring, a faint label                                                                             | A fill, which reads as another filled control               |
+| `accent`                                                                       | A plain button's words, selection and chosen states, focus, switches, set filters                                                     | Charts, glyphs at rest, decoration, a fill under white text |
+| `accent-fill`, `on-accent-fill`                                                | A primary action's fill and its label                                                                                                 |                                                             |
+| `tint-subtle`                                                                  | A hover on a row or plain control; the playing row                                                                                    |                                                             |
+| `tint`                                                                         | Selection, the current item, a set filter, a tinted control                                                                           |                                                             |
+| `tint-strong`                                                                  | A hover on a tint; the strongest step an accent label can sit on                                                                      |                                                             |
+| `tint-strongest`                                                               | A tinted control's hover, a ring                                                                                                      | An accent label                                             |
+| `on-tint`                                                                      | A label on `tint-subtle`, `tint`, or `tint-strong`                                                                                    |                                                             |
+| `inverse-surface`, `on-inverse-surface`, `inverse-accent`                      | Tooltips and the undo banner: the other appearance's page, its text, its action                                                       |                                                             |
+| `brand`, `on-brand`                                                            | The mark's T, the selected sidebar row's glyph, a playhead, loop handles, what marks Premium, the light warning fill; the label on it | Text in `brand`                                             |
+| `brand-secondary`                                                              | The mark's C                                                                                                                          | The accent                                                  |
+| `danger`, `on-status`                                                          | Destructive actions only; the label on a danger or known fill                                                                         | A recording control                                         |
+| `warning`, `warning-fill`, `on-warning-fill`                                   | Cautionary actions only: text, a fill, its label                                                                                      |                                                             |
+| `warning-fill-strong`, `danger-fill-strong`, `on-status-strong`                | A fill under a white label the platform draws, such as an Apple swipe action                                                          |                                                             |
+| `status-known`, `status-learning`, `status-unknown`, `status-unknown-on-fill`  | A tune's status, the same glyph and color everywhere it shows                                                                         |                                                             |
+| `record`, `on-record`                                                          | Recording only; its label, dark, since white falls under 4.5:1                                                                        | A destructive action                                        |
+| `practice-background`, `on-practice`, `on-practice-secondary`, `practice-fill` | Practice, trim, and the tuner, in every appearance (the Mac differs)                                                                  | The app's page                                              |
+
+A role only one platform has is on that platform's page.
+
+### Rules every role follows
+
 - Text passes 4.5:1, glyphs 3:1, in both appearances and on every
-  background. Tests measure the token pairs, so a new color is a token
-  with a test.
+  background a role sits on.
+- Never color alone: a state shown in color also shows in shape or
+  words. A glyph keeps its own color on a selected row, because the
+  color is its meaning.
+- A menu tints its symbols, so a status glyph goes in as an image that
+  is already colored.
+- Status, key, loop, and heatmap colors are identical on every
+  platform. Charts draw in text tones.
+- Practice draws in the dark scheme's accent, danger, and loops on
+  `practice-background`. A lighter background is too pale for the loops.
+
+### Changing the system
+
+- The owner approves every change below before it is made, since each
+  one changes pixels on every screen a role reaches, or weakens a guard:
+  - A new role, a removed role, or two roles merged.
+  - A changed value, a primitive included.
+  - A new entry on a guard test's allowlist.
+  - A lower contrast threshold.
+- A new role ships with all of these in the same change:
+  - A value in both appearances.
+  - The web and Apple definitions under one name, or a reason in the
+    parity test's platform-only list.
+  - Its `tokens.ts` twin on the web.
+  - A contrast test for every pair it carries.
+  - Its row in the table above.
+- A new palette changes primitives. A new pairing points a role at
+  another primitive. Neither renames a role.
+- These tests guard the system. A failing one means the change is wrong,
+  never the test:
+
+  | Test                                                    | Fails on                                                    |
+  | ------------------------------------------------------- | ----------------------------------------------------------- |
+  | `web/src/theme/colorValues.test.ts`, `PaletteRoleTests` | A color value or a primitive outside the token files        |
+  | `web/src/theme/tokens.test.ts`, the Apple style tests   | A pair under its contrast floor, or `tokens.ts` out of step |
+  | `web/src/theme/roleParity.test.ts`                      | A role on one platform only, with no reason listed          |
+
+## Type and depth
+
 - Tabular numerals wherever a number changes or lines up.
 - Depth only on floating surfaces and bars. No row, card, or section casts
   a shadow.
-- Practice and trim draw on `practice-background` in every appearance
-  (the Mac differs), with the dark scheme's accent, danger, and loops.
-  A lighter background is too pale for the loops.
 
 ## Identity
 
