@@ -1,11 +1,16 @@
 import Combine
-import CrosstuneCommands
 import Foundation
 @preconcurrency import MusicKit
 import Observation
 import os
 
 private let logger = Logger(subsystem: "app.crosstune.Crosstune", category: "apple-music")
+
+/// What MusicKit plays for an Apple Music link: one song, or an album from its first track.
+public enum AppleMusicItem: Hashable, Sendable {
+    case song(id: String)
+    case album(id: String)
+}
 
 /// Plays Apple Music catalog songs in full for a subscriber. ``AppleMusicPlayer`` is the
 /// device's; a test supplies its own.
@@ -25,7 +30,7 @@ public protocol MusicPlayback: PlaybackTransport {
     /// during the lookup, which leaves the queue as it was. `guarded`, for a song, queues it
     /// between two copies of itself, so MusicKit's next and previous move to a copy and the
     /// move is reported through ``PlaybackTransport/onTrackEnd``; an album ignores it.
-    func load(_ kind: AppleMusicKind, guarded: Bool) async -> Bool
+    func load(_ kind: AppleMusicItem, guarded: Bool) async -> Bool
     /// Plays the loaded queue and says whether it started.
     func start() async -> Bool
     func skipTrack(forward: Bool)
@@ -88,7 +93,7 @@ public final class AppleMusicPlayer: MusicPlayback {
 
     /// - Parameter isCapturing: Whether a recording is being recorded, when nothing may play.
     public init(
-        isCapturing: @escaping @MainActor () -> Bool = { Recorder.hasActiveCapture }
+        isCapturing: @escaping @MainActor () -> Bool
     ) {
         self.isCapturing = isCapturing
     }
@@ -155,7 +160,7 @@ public final class AppleMusicPlayer: MusicPlayback {
         if let realEntryID, player.queue.currentEntry?.id == realEntryID { position.seek(to: place) }
     }
 
-    public func load(_ kind: AppleMusicKind, guarded: Bool) async -> Bool {
+    public func load(_ kind: AppleMusicItem, guarded: Bool) async -> Bool {
         let player = shared()
         let playsAtLoad = plays
         do {

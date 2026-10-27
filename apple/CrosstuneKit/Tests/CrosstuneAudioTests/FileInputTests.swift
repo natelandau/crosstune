@@ -1,6 +1,7 @@
 #if DEBUG
     @preconcurrency import AVFoundation
     import CrosstuneAudio
+    import CrosstuneTestSupport
     import Foundation
     import Testing
 

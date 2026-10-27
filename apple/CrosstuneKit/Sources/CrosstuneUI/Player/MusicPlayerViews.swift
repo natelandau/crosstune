@@ -1,6 +1,7 @@
 import CrosstuneAnalytics
 import CrosstuneAudio
 import CrosstuneDesign
+import CrosstuneRecording
 import MusicKit
 import SwiftUI
 
@@ -8,7 +9,9 @@ extension PlayerModel {
     /// The app's player: this device's audio, and Apple Music through the account signed in here.
     public static func device(analytics: AnalyticsClient) -> PlayerModel {
         PlayerModel(
-            appleMusic: AppleMusic(access: DeviceAppleMusicAccess(), player: AppleMusicPlayer()), analytics: analytics)
+            appleMusic: AppleMusic(
+                access: DeviceAppleMusicAccess(), player: AppleMusicPlayer(isCapturing: { Recorder.hasActiveCapture })),
+            analytics: analytics)
     }
 }
 

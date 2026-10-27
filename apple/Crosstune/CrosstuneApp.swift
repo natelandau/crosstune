@@ -5,6 +5,7 @@ import CrosstuneBilling
 import CrosstuneDesign
 import CrosstuneDiagnostics
 import CrosstuneExport
+import CrosstuneRecording
 import CrosstuneUI
 import SwiftUI
 

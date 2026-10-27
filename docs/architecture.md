@@ -60,6 +60,10 @@ How one feature works is in its code. Deploys and releases:
   `CrosstuneDesign`. `CrosstuneUI` depends on it, never the reverse, so
   the compiler rejects a style that reaches into a screen. A type that
   needs a feature's type, string, or sample data stays in `CrosstuneUI`.
+- `CrosstuneAudio` holds the audio engine, playback, input, the tuner,
+  and MusicKit, and depends on no store, command, or database module.
+  Audio code that needs the store, a command, or a recording's row goes
+  in `CrosstuneRecording`.
 - The Swift generator reads a normalized copy of the contract, with enums
   and closed objects loosened, so an installed app decodes rows from a
   newer API.

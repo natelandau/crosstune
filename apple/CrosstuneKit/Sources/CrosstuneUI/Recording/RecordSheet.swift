@@ -1,6 +1,7 @@
 import CrosstuneAnalytics
 import CrosstuneAudio
 import CrosstuneDesign
+import CrosstuneRecording
 import SwiftUI
 
 /// Records one recording over whatever screen is open, so finishing returns the musician to where
@@ -240,7 +241,7 @@ struct RecordSheetBody: View {
                 #endif
                 .multilineTextAlignment(.center)
         }
-        if model.recorder.permissionDenied, let url = Recorder.settingsURL {
+        if model.recorder.permissionDenied, let url = MicrophoneAccess.settingsURL {
             Button(RecordSheetModel.openSettings) { openURL(url) }
                 #if os(macOS)
                     .buttonStyle(.macSecondary)

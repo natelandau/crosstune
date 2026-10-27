@@ -2,6 +2,7 @@
 import CrosstuneAudio
 import CrosstuneCommands
 import CrosstuneDesign
+import CrosstuneRecording
 import CrosstuneStore
 import CrosstuneSync
 import CrosstuneTestSupport

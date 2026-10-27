@@ -77,10 +77,10 @@ final class FakeMusic: MusicPlayback {
     private var heldSettle: CheckedContinuation<Void, Never>?
     /// Counts the settles that have returned.
     private(set) var settled = 0
-    private(set) var loaded: [AppleMusicKind] = []
+    private(set) var loaded: [AppleMusicItem] = []
     /// Whether each load asked for a guarded song, in the order of `loaded`.
     private(set) var guardedLoads: [Bool] = []
-    private(set) var cancelledLoads: [AppleMusicKind] = []
+    private(set) var cancelledLoads: [AppleMusicItem] = []
     /// What each finished load returned, in the order they finished.
     private(set) var loadResults: [Bool] = []
     /// Moves on with each play, as the device's player counts starts.
@@ -95,7 +95,7 @@ final class FakeMusic: MusicPlayback {
         onTrackEnd?(end)
     }
 
-    func load(_ kind: AppleMusicKind, guarded: Bool) async -> Bool {
+    func load(_ kind: AppleMusicItem, guarded: Bool) async -> Bool {
         calls.append("load")
         loaded.append(kind)
         guardedLoads.append(guarded)

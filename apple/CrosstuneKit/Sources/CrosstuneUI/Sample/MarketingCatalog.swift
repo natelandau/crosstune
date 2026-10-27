@@ -1,6 +1,7 @@
 #if DEBUG
     import CrosstuneAudio
     import CrosstuneCommands
+    import CrosstuneRecording
     import CrosstuneStore
     import Foundation
 

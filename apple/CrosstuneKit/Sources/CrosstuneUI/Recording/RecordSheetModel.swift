@@ -1,5 +1,5 @@
 import CrosstuneAnalytics
-import CrosstuneAudio
+import CrosstuneRecording
 import CrosstuneStore
 import Foundation
 import Observation

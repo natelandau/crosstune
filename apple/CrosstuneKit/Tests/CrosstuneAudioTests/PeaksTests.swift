@@ -1,5 +1,4 @@
 @preconcurrency import AVFoundation
-import CrosstuneStore
 import CrosstuneTestSupport
 import Foundation
 import Synchronization
@@ -33,7 +32,7 @@ import Testing
 
     @Test func readingATwoSecondToneYieldsAboutOneHundredLoudValues() async throws {
         let root = TemporaryRoot()
-        let url = try root.open().audioFolder.appending(path: "\(newID()).m4a")
+        let url = try root.folder().appending(path: "\(UUID().uuidString).m4a")
         try writeTone(to: url, seconds: 2, amplitude: 0.9)
 
         let peaks = try await Peaks.read(from: url)
@@ -49,7 +48,7 @@ import Testing
         // real test of what happens when a main-actor caller awaits the decode.
         MainActor.assertIsolated()
         let root = TemporaryRoot()
-        let url = try root.open().audioFolder.appending(path: "\(newID()).m4a")
+        let url = try root.folder().appending(path: "\(UUID().uuidString).m4a")
         try writeTone(to: url, seconds: 1)
         let ranOnMainThread = Mutex<Bool?>(nil)
 

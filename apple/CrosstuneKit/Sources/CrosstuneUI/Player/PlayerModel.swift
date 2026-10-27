@@ -1,6 +1,7 @@
 import CrosstuneAnalytics
 import CrosstuneAudio
 import CrosstuneCommands
+import CrosstuneRecording
 import CrosstuneStore
 import Foundation
 import Observation
@@ -187,7 +188,7 @@ public final class PlayerModel {
         now: @escaping @MainActor () -> Date = Date.init, analytics: AnalyticsClient = .noop
     ) {
         self.analytics = analytics
-        self.audio = audio ?? AudioPlayer()
+        self.audio = audio ?? AudioPlayer(isCapturing: { Recorder.hasActiveCapture })
         self.appleMusic = appleMusic
         loops = LoopPlayback(audio: self.audio, analytics: analytics)
         activity = PlayerActivity(clock: clock, now: now, analytics: analytics)

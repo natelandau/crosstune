@@ -46,7 +46,8 @@ public final class CaptureWriter: @unchecked Sendable {
 
     /// The size of the file on disk so far.
     public var bytesWritten: Int64 {
-        (try? CaptureFiles.size(of: url)) ?? 0
+        let attributes = try? FileManager.default.attributesOfItem(atPath: url.path(percentEncoded: false))
+        return (attributes?[.size] as? NSNumber)?.int64Value ?? 0
     }
 
     /// The waveform metered from every buffer written so far, raw and not yet fitted to a final
