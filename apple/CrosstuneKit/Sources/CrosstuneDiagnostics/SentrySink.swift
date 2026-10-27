@@ -14,6 +14,9 @@ struct SentrySink: DiagnosticsSink {
 
     /// Sets `options` to report only crashes, hangs, and handed errors, apart from `start` so a
     /// test can read what is turned off.
+    // Every hang option is deprecated because the SDK plans to remove hang tracking, not
+    // because the option stops working.
+    @diagnose(DeprecatedDeclaration, as: ignored)
     static func configure(_ options: Options, dsn: String) {
         options.dsn = dsn
         options.environment = "production"
@@ -33,6 +36,9 @@ struct SentrySink: DiagnosticsSink {
             options.attachScreenshot = false
             options.attachViewHierarchy = false
             options.enableUserInteractionTracing = false
+            // A hang that still draws frames has no blocking frame in its stack, so the report
+            // shows nowhere to look. A full hang still reports, with the blocking call.
+            options.enableReportNonFullyBlockingAppHangs = false
         #endif
         #if os(macOS)
             options.enableUncaughtNSExceptionReporting = true
