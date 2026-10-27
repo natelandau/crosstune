@@ -39,18 +39,18 @@ export interface ButtonProps extends Omit<
   ref?: Ref<HTMLButtonElement>
 }
 
-// A disabled filled button drops to a neutral fill rather than fading, so it reads as off, not
-// faint, and keeps its shape against the page.
+// A disabled filled button drops its fill for a ring and a faint label, so it reads as off and
+// never as another filled button.
 const OFF =
-  'disabled:bg-disabled-fill disabled:text-disabled-ink disabled:shadow-none aria-disabled:bg-disabled-fill aria-disabled:text-disabled-ink aria-disabled:shadow-none'
+  'disabled:bg-transparent disabled:text-on-disabled disabled:shadow-none disabled:ring-1 disabled:ring-disabled-border disabled:ring-inset aria-disabled:bg-transparent aria-disabled:text-on-disabled aria-disabled:shadow-none aria-disabled:ring-1 aria-disabled:ring-disabled-border aria-disabled:ring-inset'
 const VARIANT: Record<ButtonVariant, string> = {
   primary: `bg-accent-fill font-semibold text-on-accent-fill shadow-(--shadow-highlight) hover:bg-accent-fill-hover ${OFF}`,
   // A plain button's words take the accent; a glyph alone stays primary text, except in a section
   // heading. The lighter hover keeps the accent at 4.5:1.
-  plain: 'text-accent hover:bg-tint',
-  tinted: `bg-tint font-semibold text-primary hover:bg-tint-strong ${OFF}`,
+  plain: 'text-accent hover:bg-tint-subtle',
+  tinted: `bg-tint font-semibold text-primary hover:bg-tint-strongest ${OFF}`,
   // An outline, so a secondary action never reads like a filled button that is off.
-  bordered: 'text-accent ring-1 ring-tint-strong ring-inset hover:bg-tint',
+  bordered: 'text-accent ring-1 ring-tint-strongest ring-inset hover:bg-tint-subtle',
   destructive: 'text-danger hover:bg-danger-subtle',
   warning: 'text-warning hover:bg-warning-subtle',
   // The on-status label inverts with the scheme: white on red in light, dark on a lighter red in
@@ -60,7 +60,7 @@ const VARIANT: Record<ButtonVariant, string> = {
 }
 
 /** A plain button that is a glyph alone, such as a row's or a bar's icon control. */
-const PLAIN_GLYPH = 'text-primary hover:bg-tint-hover'
+const PLAIN_GLYPH = 'text-primary hover:bg-tint-strong'
 
 const FILLED: Record<ButtonVariant, boolean> = {
   primary: true,

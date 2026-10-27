@@ -1095,9 +1095,14 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
             #expect(ListRowKeySlot.revealsPlay(action: nil, isCurrent: false))
         }
 
+        /// The playing row takes the subtle tint, lighter than a selection's, so it reads as
+        /// marked rather than chosen.
         @Test func playingRowTintIsALightAccent() {
-            #expect(MacStyle.playingTintOpacity(.light) == 0.10)
-            #expect(MacStyle.playingTintOpacity(.dark) == 0.18)
+            for scheme in [ColorScheme.light, .dark] {
+                #expect(Palette.tintSubtleOpacity(scheme) < Palette.tintOpacity(scheme))
+            }
+            #expect(Palette.tintSubtleOpacity(.light) == 0.08)
+            #expect(Palette.tintSubtleOpacity(.dark) == 0.10)
         }
     }
 #endif

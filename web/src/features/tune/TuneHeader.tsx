@@ -7,7 +7,7 @@ import { useFrame } from '../../platform/frame'
 import { ErrorLine } from '../../ui/ErrorLine'
 import { pitchClass } from '../../ui/keyColor'
 import { KEY, spokenKey } from '../../ui/keyName'
-import { PRESS, WASH_HOVER } from '../../ui/press'
+import { PRESS, TINT_HOVER } from '../../ui/press'
 import { useLatest } from '../../ui/useLatest'
 import { ARCHIVED } from './archiveLabels'
 import { takeKeyFocus } from './freshTune'
@@ -134,9 +134,7 @@ function KeyTile({
         style={colors}
         data-key-tile
         className={`flex size-16 shrink-0 flex-col items-center justify-center rounded-2xl ${PRESS} ${
-          keyName
-            ? ''
-            : 'text-secondary border-[1.5px] border-dashed border-[color-mix(in_srgb,var(--color-text-primary)_25%,transparent)]'
+          keyName ? '' : 'text-secondary border-strong border-[1.5px] border-dashed'
         }`}
       >
         {keyName ? (
@@ -286,7 +284,7 @@ function Title({
           ref={rename}
           aria-label={`${EDIT_TITLE} ${title}`}
           onPress={start}
-          className={`text-secondary grid size-(--target) shrink-0 place-items-center rounded-full opacity-0 group-hover:opacity-100 focus-visible:opacity-100 in-[html[data-density=touch]]:opacity-100 ${WASH_HOVER} ${PRESS}`}
+          className={`text-secondary grid size-(--target) shrink-0 place-items-center rounded-full opacity-0 group-hover:opacity-100 focus-visible:opacity-100 in-[html[data-density=touch]]:opacity-100 ${TINT_HOVER} ${PRESS}`}
         >
           <Pencil className="size-4" aria-hidden />
         </AriaButton>

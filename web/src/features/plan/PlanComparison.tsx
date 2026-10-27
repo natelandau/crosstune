@@ -8,11 +8,11 @@ export const CELL_INCLUDED = 'Included'
 export const CELL_EXCLUDED = 'Not included'
 
 const COLUMN = 'w-20 px-1 text-center'
-const PREMIUM_COLUMN = `${COLUMN} bg-premium-wash`
+const PREMIUM_COLUMN = `${COLUMN} bg-tint-strong`
 
 /**
  * Free beside Premium, a row per feature with its icon. Premium's header is a coral tab over a
- * washed column, so the plan being sold carries the weight.
+ * tinted column, so the plan being sold carries the weight.
  */
 export function PlanComparison() {
   return (
@@ -63,7 +63,7 @@ function CellMark({ cell, premium }: { cell: Cell; premium: boolean }) {
   }
   const included = cell.kind === 'included'
   const Icon = included ? Check : Minus
-  const textColor = premium ? 'text-primary' : included ? 'text-secondary' : 'text-glyph-faint'
+  const textColor = premium ? 'text-primary' : included ? 'text-secondary' : 'text-tertiary'
   return (
     <>
       <Icon

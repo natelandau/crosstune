@@ -9,10 +9,12 @@ import { TraceRing } from '../TraceRing'
 
 // The chosen word takes its status's own color, as its glyph does.
 const CHOSEN: Record<TuneStatus, string> = {
-  known: 'data-[selected]:bg-status-known-subtle hover:data-[selected]:bg-status-known/25',
-  learning: 'data-[selected]:bg-status-learning-subtle hover:data-[selected]:bg-status-learning/25',
+  known:
+    'data-[selected]:bg-status-known-subtle hover:data-[selected]:bg-status-known-subtle-hover',
+  learning:
+    'data-[selected]:bg-status-learning-subtle hover:data-[selected]:bg-status-learning-subtle-hover',
   want_to_learn:
-    'data-[selected]:bg-status-unknown-subtle hover:data-[selected]:bg-status-unknown/25',
+    'data-[selected]:bg-status-unknown-subtle hover:data-[selected]:bg-status-unknown-subtle-hover',
 }
 const RING: Record<TuneStatus, string> = {
   known: 'var(--status-known)',

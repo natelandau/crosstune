@@ -224,7 +224,7 @@ private struct TuneFormContent: View {
                 if let failure = model.failure {
                     Section {
                         Text(failure)
-                            .foregroundStyle(.red)
+                            .foregroundStyle(Palette.danger)
                     }
                 }
                 titleSection
@@ -276,7 +276,7 @@ private struct TuneFormContent: View {
             } footer: {
                 if let validation = model.validation {
                     Text(validation)
-                        .foregroundStyle(.red)
+                        .foregroundStyle(Palette.danger)
                 }
             }
         }

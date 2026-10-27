@@ -44,7 +44,7 @@ struct LoopNameTab: View {
             .font(.platform(.footnote).weight(.semibold))
             .lineLimit(1)
             .truncationMode(.tail)
-            .foregroundStyle(.white)
+            .foregroundStyle(Palette.onAccentFill)
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
             .background(

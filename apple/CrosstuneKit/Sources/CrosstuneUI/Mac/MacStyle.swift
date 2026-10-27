@@ -4,12 +4,6 @@
 
     /// The Mac app's type and spacing tokens.
     public enum MacStyle {
-        /// How strongly the accent tints the row a playing list is on: lighter than a set
-        /// filter's tint, so the row reads as marked rather than chosen.
-        public static func playingTintOpacity(_ scheme: ColorScheme) -> Double {
-            scheme == .dark ? 0.18 : 0.10
-        }
-
         // SF Pro at fixed sizes: a Mac view never takes a SwiftUI text style, whose sizes follow
         // the system's own scale.
         public static let body = Font.system(size: bodySize)

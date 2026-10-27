@@ -83,7 +83,7 @@ struct LoopsPanel: View {
                 if model.deleteSelected() { onDeleted() }
             }
             // A plain button takes no color from its role.
-            .foregroundStyle(canDelete ? AnyShapeStyle(.red) : .textSecondary)
+            .foregroundStyle(canDelete ? AnyShapeStyle(Palette.danger) : .textSecondary)
             .disabled(!canDelete)
         #endif
     }

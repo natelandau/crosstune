@@ -78,7 +78,7 @@ describe('Waveform', () => {
 
   it('repaints its bars when the color scheme switches', async () => {
     const style = document.createElement('style')
-    style.textContent = ":root[data-scheme='dark'] { --wave-played: rgb(255, 0, 0); }"
+    style.textContent = ":root[data-scheme='dark'] { --waveform-played: rgb(255, 0, 0); }"
     document.head.append(style)
     try {
       render(<Harness onSeek={vi.fn()} />)

@@ -6,8 +6,8 @@
   /* Redeclared so they mix practice's danger rather than the root's. */
   --danger-subtle: color-mix(in srgb, var(--danger) 15%, transparent);
   --danger-hover: color-mix(in srgb, var(--danger), var(--text-primary) 12%);
-  --wave-played: var(--on-practice);
-  --wave-unplayed: var(--on-practice-secondary);
+  --waveform-played: var(--on-practice);
+  --waveform-unplayed: var(--on-practice-secondary);
   /* The dark scheme's loops, which the light set falls far under 3:1 against on the background. */
   --loop-0: var(--loop-0-dark);
   --loop-0-tint: var(--loop-0-tint-dark);
@@ -39,9 +39,8 @@
   --text-primary: var(--on-practice);
   --text-secondary: var(--on-practice-secondary);
   --field: var(--practice-fill);
-  --tint-hover: var(--practice-hover);
-  /* Redeclared so the set tint mixes practice's accent rather than the root's. */
-  --set-fill: color-mix(in srgb, var(--accent) 22%, transparent);
-  --set-fill-hover: color-mix(in srgb, var(--accent) 28%, transparent);
+  /* Redeclared so the tints mix practice's accent rather than the root's. */
+  --tint: color-mix(in srgb, var(--accent) 22%, transparent);
+  --tint-strong: color-mix(in srgb, var(--accent) 28%, transparent);
   --on-tint: var(--text-primary);
 }

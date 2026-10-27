@@ -4,8 +4,8 @@ import SwiftUI
 /// Tunes added and recordings made per month, as two strips of bars over the same months. A
 /// month with nothing keeps its empty slot, so the spacing reads as time.
 struct MonthBarsView: View {
-    /// Bars in the primary text color, since the accent marks only what can be chosen.
-    static var barFill: Color { Palette.textPrimary.opacity(0.7) }
+    /// Bars in secondary text, since the accent marks only what can be chosen.
+    static var barFill: Color { Palette.textSecondary }
 
     let months: Stats.Months
     var allTime = false
@@ -59,7 +59,7 @@ struct MonthBarsView: View {
             }
             .frame(height: 64)
             .overlay(alignment: .bottom) {
-                Rectangle().fill(.quaternary).frame(height: 1)
+                Rectangle().fill(Palette.border).frame(height: 1)
             }
             .accessibilityElement(children: .contain)
             .accessibilityLabel(label)

@@ -44,7 +44,7 @@ export function ModePanel({
           const next = MODES.find((m) => keys.has(m))
           if (next) onMode(next)
         }}
-        className="bg-on-practice/10 flex rounded-(--radius-capsule) p-0.5"
+        className="bg-practice-hover flex rounded-(--radius-capsule) p-0.5"
       >
         {MODES.map((m) => (
           <ToggleButton

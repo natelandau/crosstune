@@ -24,8 +24,8 @@ const STATUS_ROWS: TuneStatus[] = ['known', 'learning', 'want_to_learn']
 
 const ROW = `t-body flex min-h-(--target) w-full items-center gap-3 rounded-(--radius-row) px-3 text-start ${ROW_PRESS}`
 
-// A selected row keeps its wash under the pointer.
-const rowTone = (selected: boolean) => (selected ? 'bg-wash! text-primary' : 'text-primary')
+// A selected row keeps its tint under the pointer.
+const rowTone = (selected: boolean) => (selected ? 'bg-tint! text-primary' : 'text-primary')
 const glyphTone = (selected: boolean) => (selected ? 'text-brand' : 'text-secondary')
 
 /**
@@ -152,7 +152,7 @@ export function Sidebar() {
       </div>
       <section aria-labelledby={`${base}-lists`} className="flex flex-col gap-0.5">
         <div
-          className={`flex items-center justify-between rounded-(--radius-row) ps-3 ${listsSelected ? 'bg-wash' : ''}`}
+          className={`flex items-center justify-between rounded-(--radius-row) ps-3 ${listsSelected ? 'bg-tint' : ''}`}
         >
           <h2 id={`${base}-lists`} className="min-w-0 flex-1">
             <DestinationLink

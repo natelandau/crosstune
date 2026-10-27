@@ -440,7 +440,7 @@ it('fills every action in its tone at one width, with a short label that keeps t
   }
   expect(buttons[1]!.textContent).toBe('Archive')
   const fills = buttons.map((button) => getComputedStyle(button).backgroundColor)
-  expect(fills[1]).toBe('rgb(138, 75, 0)')
+  expect(fills[1]).toBe('rgb(239, 131, 84)')
   expect(fills[2]).toBe('rgb(179, 38, 30)')
   expect(new Set(fills).size).toBe(3)
 })

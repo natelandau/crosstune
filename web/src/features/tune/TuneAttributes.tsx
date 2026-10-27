@@ -45,7 +45,7 @@ interface TuneAttributesProps {
 
 const ROW_SHAPE = `${ROW_PRESS} flex min-h-(--target) w-full items-center gap-3 px-4 text-start t-body`
 /**
- * A row in the attributes column: inset, so its wash reads as a rounded shape on the open page. Its label and
+ * A row in the attributes column: inset, so its tint reads as a rounded shape on the open page. Its label and
  * value are columns that each wrap on their own, set on their first baselines; the padding
  * centers a single line in the row's target height.
  */

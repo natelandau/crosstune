@@ -30,24 +30,22 @@ public struct SyncBadge: View {
     }
 
     public var body: some View {
-        let colors = Self.capsuleColors(status, scheme: colorScheme)
+        let tone = Self.tone(status)
         Text(status.label)
             .font(.platform(.footnote).weight(.semibold))
-            .foregroundStyle(colors.text.color)
+            .foregroundStyle(Palette.color(tone))
             .padding(.horizontal, spacing(10))
             .padding(.vertical, spacing(4))
-            .background(colors.background.color, in: .capsule)
+            .background(Palette.subtle(tone), in: .capsule)
             .fixedSize()
     }
 
-    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.spacing) private var spacing
 
     /// A warning while offline, which fixes itself, and while an update is required, which the
     /// store does for the musician; danger when the musician has to act.
-    nonisolated static func capsuleColors(_ status: SyncStatus, scheme: ColorScheme) -> KeyColor.PillColors {
-        status == .offline || status == .updateRequired
-            ? StatusCapsuleColors.warning(scheme) : StatusCapsuleColors.danger(scheme)
+    nonisolated static func tone(_ status: SyncStatus) -> Palette.Token {
+        status == .offline || status == .updateRequired ? .warning : .danger
     }
 }
 

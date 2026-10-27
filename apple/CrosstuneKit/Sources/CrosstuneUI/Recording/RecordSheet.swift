@@ -352,7 +352,7 @@ struct RecordSheetBody: View {
             .multilineTextAlignment(.center)
             .frame(maxWidth: .infinity)
             .padding(20)
-            .background(.fill.tertiary, in: .rect(cornerRadius: 12))
+            .background(Palette.field, in: .rect(cornerRadius: 12))
         }
     }
 #endif
@@ -416,7 +416,7 @@ private struct StopButton: View {
         let button = Button(action: action) {
             Text(RecordSheetModel.stop)
                 .font(.platform(.title2).weight(.semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Palette.onRecord)
                 .lineLimit(1)
                 .minimumScaleFactor(0.5)
                 .padding(.horizontal, 8)

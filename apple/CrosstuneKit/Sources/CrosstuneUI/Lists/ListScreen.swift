@@ -464,7 +464,7 @@ private struct ListTunes: View {
                     pushed = entry.tune.id
                 } label: {
                     tuneRow
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(.textPrimary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .contentShape(.rect)
                 }
@@ -502,8 +502,9 @@ private struct ListTunes: View {
         .scrollAnchorRow(entry.id)
         .selectableRowActions(isSelecting: selection.isActive) {
             Button(ListScreen.remove, systemImage: "text.badge.xmark", role: .destructive) { remove() }
+                .tint(Palette.dangerFillStrong)
             Button(TuneRowActions.edit, systemImage: TuneRowActions.editSystemImage, action: edit)
-                .tint(.gray)
+                .tint(Palette.neutralFill)
             if let scans { ScansRowAction(action: scans) }
             #if os(iOS)
                 if reorderable { moveMenu(entry, moves) }
@@ -549,10 +550,10 @@ private struct ListTunes: View {
         #if os(macOS)
             // Inset and rounded as the selection is, so the two read as one family.
             RoundedRectangle(cornerRadius: 6)
-                .fill(Palette.accent.opacity(MacStyle.playingTintOpacity(colorScheme)))
+                .fill(Palette.tintSubtle(colorScheme))
                 .padding(.horizontal, MacStyle.selectionInset)
         #else
-            Palette.tint(colorScheme)
+            Palette.tintSubtle(colorScheme)
         #endif
     }
 
@@ -566,7 +567,7 @@ private struct ListTunes: View {
             } label: {
                 Label(ListScreen.reorder(entry.tune.title), systemImage: "arrow.up.arrow.down")
             }
-            .tint(.gray)
+            .tint(Palette.neutralFill)
         }
     #endif
 

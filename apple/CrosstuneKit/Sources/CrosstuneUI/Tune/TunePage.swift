@@ -478,7 +478,7 @@ private struct TokenLabelStyle: LabelStyle {
                 .font(PageStyle.secondary)
                 .foregroundStyle(.textSecondary)
             configuration.title
-                .foregroundStyle(.primary)
+                .foregroundStyle(.textPrimary)
         }
     }
 }

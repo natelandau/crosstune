@@ -77,7 +77,7 @@ struct SettingsFailure: View {
 
     var body: some View {
         if let failure {
-            Text(failure).foregroundStyle(.red)
+            Text(failure).foregroundStyle(Palette.danger)
         }
     }
 }

@@ -88,6 +88,19 @@ Decide any case the rules below do not name.
   charts, glyphs at rest, or decoration.
 - A fill behind white text is `accent-fill`, its label `on-accent-fill`.
   Never `accent`, which is too light in dark mode to carry white.
+- Accent tints, four steps, labels in `on-tint`:
+
+  | Step | Holds |
+  | ---- | ----- |
+  | `tint-subtle` | Hover on a row or plain control; the playing row |
+  | `tint` | Selection, current item, set filter, tinted control |
+  | `tint-strong` | Hover on a tint. The ceiling for an accent label |
+  | `tint-strongest` | A tinted control's hover, a ring. Never under an accent label |
+
+- A disabled filled control drops its fill: a `disabled-border` ring and
+  an `on-disabled` label, so it never reads as another filled control.
+- `inverse-surface`: tooltips and the undo banner. The other appearance's
+  page, text in `on-inverse-surface`, an action in `inverse-accent`.
 - Layers: `page-background` under content, pages, lists, and sheets;
   `surface` under the sidebar, cards, and footers. `border` for every
   rule and edge. A control's fill follows its container: `field` on
@@ -96,13 +109,14 @@ Decide any case the rules below do not name.
   translucent secondary, which falls under 4.5:1. `text-tertiary` is for
   glyphs and shapes at 3:1, never text.
 - `brand` (coral): the mark, the selected sidebar row's glyph, the
-  playhead of anything that plays back, loop handles, and what marks
-  Premium. Nothing else. A fill with an `on-brand` label, never coral
-  text.
+  playhead of anything that plays back, loop handles, what marks Premium,
+  and the warning fill in light (`warning-fill`). Nothing else. A fill
+  with an `on-brand` label, never coral text.
 - `record`: recording only, never a destructive action. A label on it is
   `on-record`, dark, since white falls under 4.5:1.
 - `danger`: destructive actions only. `warning`: cautionary actions only.
-  A label on a danger or known fill is `on-status`.
+  A label on a danger or known fill is `on-status`; on a warning fill,
+  `on-warning-fill`.
 - Charts draw in text tones.
 - Status, key, loop, and heatmap colors are identical on every platform.
 - A tune's status has one visual language: the same glyph in the same
@@ -202,7 +216,7 @@ Decide any case the rules below do not name.
 - Archived: all text in `text-secondary`. Glyphs keep their color.
 - Reorder: drag the whole row, no grip. The dragged row lifts, the others
   slide aside, and a drop settles it. No drop line.
-- Playing row: an animated speaker and a light accent wash.
+- Playing row: an animated speaker and `tint-subtle`.
 - Selected row: inset accent highlight.
 - At most three visible actions on a row. The rest in its menu.
 - An action that leaves the app is menu-only, never a swipe action.

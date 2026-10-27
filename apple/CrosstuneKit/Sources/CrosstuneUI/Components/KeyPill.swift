@@ -90,7 +90,7 @@ public struct KeyPill: View {
 
         private var textStyle: AnyShapeStyle {
             if let pillColors { return AnyShapeStyle(pillColors.text.color) }
-            return isChosen ? AnyShapeStyle(Palette.onAccentFill) : AnyShapeStyle(.primary)
+            return isChosen ? AnyShapeStyle(Palette.onAccentFill) : AnyShapeStyle(.textPrimary)
         }
     #endif
 }

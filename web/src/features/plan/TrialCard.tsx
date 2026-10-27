@@ -32,10 +32,10 @@ export function TrialCard({ startsAt, endsAt }: { startsAt: Date | null; endsAt:
             aria-valuemax={100}
             aria-valuenow={percent}
             aria-valuetext={trialLeft(endsAt, now)}
-            className="bg-tint-strong my-2 h-1.5 overflow-hidden rounded-full"
+            className="bg-tint-strongest my-2 h-1.5 overflow-hidden rounded-full"
           >
             <div
-              className="bg-text-primary/70 h-full rounded-full"
+              className="bg-text-secondary h-full rounded-full"
               style={{ width: `${percent}%` }}
             />
           </div>

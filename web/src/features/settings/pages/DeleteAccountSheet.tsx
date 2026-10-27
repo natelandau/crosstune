@@ -60,7 +60,7 @@ export function DeleteAccountSheet({ open, onClosed }: { open: boolean; onClosed
       onClosed={onClosed}
     >
       <div className="flex items-start gap-3 pt-2">
-        <div className="bg-danger/12 grid size-10 shrink-0 place-items-center rounded-full">
+        <div className="bg-danger-subtle grid size-10 shrink-0 place-items-center rounded-full">
           <TriangleAlert className="text-danger size-5" aria-hidden />
         </div>
         <div className="min-w-0 pt-0.5">

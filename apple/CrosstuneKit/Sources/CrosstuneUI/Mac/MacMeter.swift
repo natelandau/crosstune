@@ -17,7 +17,7 @@
                 .overlay(alignment: .leading) {
                     GeometryReader { proxy in
                         Capsule()
-                            .fill(Palette.textPrimary.opacity(0.55))
+                            .fill(Palette.textTertiary)
                             .frame(width: proxy.size.width * Self.clamped(fraction))
                     }
                 }

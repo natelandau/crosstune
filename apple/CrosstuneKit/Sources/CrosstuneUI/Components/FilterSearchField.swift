@@ -119,8 +119,10 @@ import SwiftUI
                     configuration.label
                         .foregroundStyle(isHovered ? Palette.textPrimary : Palette.textSecondary)
                         .frame(width: MacChip.Size.row.height + 4, height: MacChip.Size.row.height + 4)
-                        .background(
-                            Color.black.opacity(MacChip.hoverDarkening * emphasis), in: .rect(cornerRadius: 5))
+                        .background {
+                            RoundedRectangle(cornerRadius: 5).fill(Palette.hoverOverlay)
+                                .opacity(emphasis)
+                        }
                 }
             }
             .frame(minHeight: 22)

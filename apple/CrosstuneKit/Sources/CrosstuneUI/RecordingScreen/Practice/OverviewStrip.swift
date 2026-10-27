@@ -73,7 +73,7 @@ struct OverviewStrip: View {
             let band = CGRect(x: x0, y: size.height - Self.bandHeight, width: max(2, x1 - x0), height: Self.bandHeight)
             context.fill(
                 Path(roundedRect: band, cornerRadius: Self.bandHeight / 2),
-                with: .color(Palette.loop(loop.color, scheme: colorScheme).opacity(loop.id == selected ? 1 : 0.6)))
+                with: .color(Palette.loopOverview(loop.color, scheme: colorScheme, selected: loop.id == selected)))
         }
         let playhead = x(Double(model.centerMs))
         context.fillPlayhead(
@@ -84,7 +84,7 @@ struct OverviewStrip: View {
                 x: x(view.startMs), y: 1, width: x(view.endMs) - x(view.startMs), height: Self.waveHeight - 2)
             #if os(macOS)
                 let frame = Path(roundedRect: box.insetBy(dx: 0.5, dy: 0.5), cornerRadius: 4)
-                context.fill(frame, with: .color(Palette.accent.opacity(0.12)))
+                context.fill(frame, with: .color(Palette.tint(colorScheme)))
                 context.stroke(frame, with: .color(Palette.accent), lineWidth: 1)
             #else
                 context.stroke(Path(roundedRect: box, cornerRadius: 4), with: .style(.tint), lineWidth: 2)

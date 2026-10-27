@@ -71,7 +71,7 @@ public struct UndoBanner: View {
                 Text(message)
                     .contentMask()
                     .font(MacStyle.body)
-                    .foregroundStyle(Palette.pageBackground)
+                    .foregroundStyle(Palette.onInverseSurface)
                     .lineLimit(1)
                     .truncationMode(.middle)
                 if let onUndo {
@@ -87,8 +87,8 @@ public struct UndoBanner: View {
             }
             .padding(.horizontal, 16)
             .frame(height: MacStyle.undoBannerHeight)
-            .background(Palette.textPrimary, in: .rect(cornerRadius: 10))
-            .shadow(color: .black.opacity(0.18), radius: 10, y: 3)
+            .background(Palette.inverseSurface, in: .rect(cornerRadius: 10))
+            .elevation(.float)
             .frame(maxWidth: 480)
         }
     #else

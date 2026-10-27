@@ -23,10 +23,10 @@ function Tab({ id }: { id: Destination }) {
         <motion.span
           layoutId="tab-pill"
           aria-hidden
-          className="bg-wash absolute inset-0 rounded-full"
+          className="bg-tint absolute inset-0 rounded-full"
         />
       )}
-      {/* A chosen glyph takes the accent, which holds 3:1 on the wash where a label would not. */}
+      {/* A chosen glyph takes the accent, which holds 3:1 on the tint where a label would not. */}
       <Icon className={`relative size-[22px] ${isCurrent ? 'text-accent' : ''}`} aria-hidden />
       <span className="relative">{spec.label}</span>
     </DestinationLink>

@@ -67,7 +67,7 @@ struct HeatmapView: View {
             let width = (gridSize.width - Self.gap * CGFloat(columns - 1)) / CGFloat(columns)
             let height = (gridSize.height - Self.gap * 6) / 7
             RoundedRectangle(cornerRadius: 1)
-                .stroke(.primary, lineWidth: 1)
+                .stroke(.textPrimary, lineWidth: 1)
                 .frame(width: max(width, 0), height: max(height, 0))
                 .offset(x: CGFloat(chosen / 7) * (width + Self.gap), y: CGFloat(chosen % 7) * (height + Self.gap))
                 .allowsHitTesting(false)
@@ -179,7 +179,7 @@ private struct HeatmapCells: View, Equatable {
                         .accessibilityLabel(StatsCopy.dayDetail(day, today: today))
                 } else {
                     // An empty day is blank: a hairline ring keeps its slot without reading as a step.
-                    shape.strokeBorder(.quaternary, lineWidth: 1)
+                    shape.strokeBorder(Palette.border, lineWidth: 1)
                         .accessibilityHidden(true)
                 }
             }

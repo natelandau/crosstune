@@ -79,7 +79,7 @@ struct ScanThumbnail: View {
 
     private func placeholder(@ViewBuilder _ content: () -> some View) -> some View {
         Rectangle()
-            .fill(.quaternary)
+            .fill(Palette.border)
             .overlay { content() }
     }
 

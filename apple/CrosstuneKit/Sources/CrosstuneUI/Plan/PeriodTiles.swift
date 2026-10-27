@@ -85,7 +85,8 @@ struct PeriodTiles: View {
                 .overlay {
                     RoundedRectangle(cornerRadius: 12)
                         .strokeBorder(
-                            selected ? AnyShapeStyle(.tint) : AnyShapeStyle(.separator), lineWidth: selected ? 2 : 1)
+                            selected ? AnyShapeStyle(.tint) : AnyShapeStyle(Palette.border), lineWidth: selected ? 2 : 1
+                        )
                 }
                 .contentShape(RoundedRectangle(cornerRadius: 12))
             }

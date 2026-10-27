@@ -25,7 +25,6 @@ struct SettingsRoot: View {
     @Environment(AccountSession.self) private var session: AccountSession?
     @Environment(SyncEngine.self) private var engine: SyncEngine?
     @Environment(\.store) private var store
-    @Environment(\.colorScheme) private var colorScheme
     @State private var summary: LiveQuery<StatsSummary?>?
     @State private var summaries: LiveQuery<SettingsSummaries?>?
     @Environment(\.settingsPageShown) private var pageShown
@@ -83,7 +82,7 @@ struct SettingsRoot: View {
                             attention: attention, lastSynced: engine?.lastSyncedAt, now: context.date)
                         if let attention {
                             Text(line)
-                                .foregroundStyle(SyncBadge.capsuleColors(attention, scheme: colorScheme).text.color)
+                                .foregroundStyle(Palette.color(SyncBadge.tone(attention)))
                         } else {
                             Text(line).foregroundStyle(.textSecondary)
                         }

@@ -190,7 +190,7 @@ private struct ListPickerContent: View {
                     } footer: {
                         if let failure = model.failure {
                             Text(failure)
-                                .foregroundStyle(.red)
+                                .foregroundStyle(Palette.danger)
                         }
                     }
                 }
@@ -206,7 +206,7 @@ private struct ListPickerContent: View {
 
         /// A row that cannot add reads as inert, whether it is full or still loading.
         private func nameStyle(_ row: ListPickerModel.Row) -> AnyShapeStyle {
-            row.isOffered ? AnyShapeStyle(.primary) : AnyShapeStyle(.textSecondary)
+            row.isOffered ? AnyShapeStyle(.textPrimary) : AnyShapeStyle(.textSecondary)
         }
 
         @ViewBuilder private var newList: some View {

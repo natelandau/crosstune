@@ -167,9 +167,7 @@ function MenuList({
           renderItem(group)
         ),
       )}
-      {main.length > 0 && danger.length > 0 && (
-        <Separator className="bg-text-secondary/25 my-1 h-px" />
-      )}
+      {main.length > 0 && danger.length > 0 && <Separator className="bg-border my-1 h-px" />}
       {danger.map(renderItem)}
     </AriaMenu>
   )

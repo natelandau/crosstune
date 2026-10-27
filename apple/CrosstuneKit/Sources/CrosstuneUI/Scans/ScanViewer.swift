@@ -240,7 +240,7 @@ private struct ScanViewerBody: View {
                     )
                     #if os(macOS)
                         // The page sits on the scan background with room for its shadow and the edge buttons.
-                        .shadow(color: .black.opacity(0.18), radius: 8, y: 2)
+                        .elevation(.float)
                         .padding(.horizontal, 56)
                         .padding(.vertical, 20)
                     #endif
@@ -354,7 +354,7 @@ private struct ScanViewerBody: View {
             Button(title, systemImage: systemImage) { turn(by: step, ids: ids) }
                 .labelStyle(.iconOnly)
                 .buttonStyle(.macIcon)
-                .background(Palette.pageBackground.opacity(0.9), in: .circle)
+                .background(Palette.surfaceRaised, in: .circle)
                 .keyboardShortcut(key, modifiers: [])
                 .help(title)
                 .padding(.horizontal, 12)
@@ -496,7 +496,7 @@ struct ScanSlide: View {
 
     private var placeholder: some View {
         Rectangle()
-            .fill(.quaternary)
+            .fill(Palette.border)
             .aspectRatio(scan.aspectRatio, contentMode: .fit)
             .frame(maxWidth: 640)
             .overlay {
@@ -522,7 +522,7 @@ struct ScanSlide: View {
                 .accessibilityHidden(true)
             Text(ScanCopy.unreadableScan)
                 .font(.platform(.headline))
-                .foregroundStyle(invert ? Color.white : Color.primary)
+                .foregroundStyle(invert ? Color.white : Palette.textPrimary)
             if let onDelete {
                 Button(ScanCopy.delete, role: .destructive, action: onDelete)
                     #if os(macOS)

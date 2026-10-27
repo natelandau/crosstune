@@ -145,7 +145,7 @@ public struct MediaRow: View {
                 if let error {
                     Text(error)
                         .font(Self.smallFont)
-                        .foregroundStyle(.red)
+                        .foregroundStyle(Palette.danger)
                         .allowsHitTesting(false)
                         .accessibilityHidden(true)
                 }
@@ -416,7 +416,7 @@ public struct MediaRow: View {
         #if os(macOS)
             isHovered ? AnyShapeStyle(Palette.accent) : AnyShapeStyle(Palette.textPrimary)
         #else
-            AnyShapeStyle(.primary)
+            AnyShapeStyle(.textPrimary)
         #endif
     }
 
@@ -424,7 +424,7 @@ public struct MediaRow: View {
         #if os(macOS)
             AnyShapeStyle(.tint)
         #else
-            AnyShapeStyle(.primary)
+            AnyShapeStyle(.textPrimary)
         #endif
     }
 

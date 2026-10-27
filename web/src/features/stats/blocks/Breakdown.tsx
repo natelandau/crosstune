@@ -134,7 +134,7 @@ function ShareRow({
       {onOpen && <ChevronRight className="text-secondary size-4 shrink-0" aria-hidden />}
       <span aria-hidden className="absolute inset-x-0 bottom-1 h-1">
         <span
-          className="bg-text-primary/45 block h-full rounded-full"
+          className="bg-text-tertiary block h-full rounded-full"
           style={{ width: `${peak > 0 ? (count / peak) * 100 : 0}%` }}
         />
       </span>

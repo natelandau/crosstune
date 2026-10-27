@@ -22,7 +22,7 @@ it.each([
     .toBeGreaterThanOrEqual(min)
 })
 
-it('fills a set capsule with the set filter wash', async () => {
+it('fills a set capsule with the set filter tint', async () => {
   renderWithProviders(
     <>
       <Capsule label="Key: Any" />

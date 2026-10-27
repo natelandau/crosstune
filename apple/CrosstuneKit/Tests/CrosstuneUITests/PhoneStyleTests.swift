@@ -11,9 +11,10 @@ import Testing
     private static let known = Palette.hex(.statusKnown, .dark)
     private static let muted = Palette.hex(.onPracticeSecondary, .light)
 
-    @Test func practiceBackgroundTakesEachAppearancesValue() {
+    /// Practice draws on one dark background in either appearance.
+    @Test func practiceBackgroundIsOneValueInEachAppearance() {
         for (scheme, hex) in [
-            (ColorScheme.light, "#2D3142"), (ColorScheme.dark, "#1E212C"),
+            (ColorScheme.light, "#1E212C"), (ColorScheme.dark, "#1E212C"),
         ] {
             let resolved = Palette.practiceBackground(scheme).resolve(in: EnvironmentValues())
             let expected = KeyColor.RGB(hex: hex)
@@ -27,6 +28,15 @@ import Testing
         for background in Self.backgrounds {
             #expect(contrastRatio(Self.muted, background) >= 3, "unplayed on \(background)")
             #expect(contrastRatio(Palette.hex(.onPractice, .light), background) >= 4.5, "played on \(background)")
+        }
+    }
+
+    /// Practice draws the dark scheme's loops, which hold 3:1 on its background.
+    @Test func loopsReadOnThePracticeBackground() {
+        for slot in 0..<6 {
+            for background in Self.backgrounds {
+                #expect(contrastRatio(Palette.loopHex(slot, dark: true), background) >= 3, "loop \(slot)")
+            }
         }
     }
 

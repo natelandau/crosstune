@@ -21,7 +21,7 @@ import { Menu, type MenuTriggerProps } from '../../ui/Menu'
 import { menuEntries } from '../../ui/sharedActions'
 import { BulkEditSheet } from './BulkEditSheet'
 import { ListPickerSheet } from './ListPickerSheet'
-import { PRESS, WASH_HOVER } from '../../ui/press'
+import { PRESS, TINT_HOVER } from '../../ui/press'
 import { DURATION, EASE } from '../../theme/motion'
 import type { CatalogEntry } from '../../db/types'
 
@@ -50,7 +50,7 @@ function Cell({
       aria-label={caption === label ? undefined : label}
       isDisabled={isDisabled}
       onPress={onPress}
-      className={`t-caption text-primary flex min-h-14 w-full flex-col items-center justify-center gap-0.5 rounded-(--radius-row) disabled:opacity-40 ${PRESS} ${WASH_HOVER}`}
+      className={`t-caption text-primary flex min-h-14 w-full flex-col items-center justify-center gap-0.5 rounded-(--radius-row) disabled:opacity-40 ${PRESS} ${TINT_HOVER}`}
     >
       <Icon className="size-6" aria-hidden />
       {caption}

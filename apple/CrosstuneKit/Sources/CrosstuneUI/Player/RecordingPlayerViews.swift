@@ -260,7 +260,7 @@ struct PlayerFailureText: View {
     var body: some View {
         Text(failure)
             .font(.platform(.footnote))
-            .foregroundStyle(.red)
+            .foregroundStyle(Palette.danger)
     }
 }
 

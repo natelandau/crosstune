@@ -112,7 +112,7 @@ public struct ExportDataSheet: View {
                     } footer: {
                         if let failure = model.failure {
                             Text(failure)
-                                .foregroundStyle(.red)
+                                .foregroundStyle(Palette.danger)
                         }
                     }
                     Section {

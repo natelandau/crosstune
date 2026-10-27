@@ -67,7 +67,7 @@ export function Row({
   actions?: RowAction[]
   menu?: RowAction[]
   dimmed?: boolean
-  /** The row of the item the player has loaded, under a light wash. */
+  /** The row of the item the player has loaded, under a light tint. */
   playing?: boolean
   /** A row just added, such as a new recording, which slides in under a brief highlight. */
   fresh?: boolean
@@ -213,7 +213,7 @@ export function Row({
       className={`group relative flex min-h-(--target) cursor-default items-center rounded-(--radius-row) transition-[box-shadow,background-color] duration-(--dur-short) ease-(--ease) data-[lifted]:shadow-(--shadow-float) data-[reordering]:z-10 ${
         touch
           ? 'overflow-hidden'
-          : `data-[selected]:bg-wash data-[current]:bg-wash data-[pressed]:bg-wash! data-[reordering]:bg-page! gap-3 px-3 py-0 data-[current]:[--row-tint:var(--wash)] data-[pressed]:[--row-tint:var(--wash)] data-[reordering]:bg-[linear-gradient(var(--row-tint),var(--row-tint))] data-[selected]:[--row-tint:var(--wash)] ${playing ? 'bg-(--play-wash) [--row-tint:var(--play-wash)]' : 'not-data-[selected]:not-data-[current]:hover:bg-row-hover [--row-tint:transparent] not-data-[selected]:not-data-[current]:hover:[--row-tint:var(--row-hover)]'}`
+          : `data-[selected]:bg-tint data-[current]:bg-tint data-[pressed]:bg-tint! data-[reordering]:bg-page! gap-3 px-3 py-0 data-[current]:[--row-tint:var(--tint)] data-[pressed]:[--row-tint:var(--tint)] data-[reordering]:bg-[linear-gradient(var(--row-tint),var(--row-tint))] data-[selected]:[--row-tint:var(--tint)] ${playing ? 'bg-(--tint-subtle) [--row-tint:var(--tint-subtle)]' : 'not-data-[selected]:not-data-[current]:hover:bg-tint-subtle [--row-tint:transparent] not-data-[selected]:not-data-[current]:hover:[--row-tint:var(--tint-subtle)]'}`
       } ${dimmed ? 'text-primary [--text-primary:var(--text-secondary)]' : ''}`}
     >
       {touch ? (

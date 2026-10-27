@@ -189,7 +189,7 @@ struct ScanEditRows: View {
             } label: {
                 Label(ScanCopy.deleteScan(index), systemImage: "trash")
                     .labelStyle(.iconOnly)
-                    .foregroundStyle(.red)
+                    .foregroundStyle(Palette.danger)
                     .frame(minWidth: minimumTapTarget)
                     .tapTarget()
             }

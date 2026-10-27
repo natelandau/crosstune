@@ -20,10 +20,7 @@ export function StorageSummary() {
           aria-valuetext={summary.label}
           className="bg-field mt-2 h-1 overflow-hidden rounded-full"
         >
-          <div
-            className="bg-text-primary/70 h-full rounded-full"
-            style={{ width: `${percent}%` }}
-          />
+          <div className="bg-text-secondary h-full rounded-full" style={{ width: `${percent}%` }} />
         </div>
       )}
     </div>

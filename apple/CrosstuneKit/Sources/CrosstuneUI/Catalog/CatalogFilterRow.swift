@@ -137,7 +137,7 @@ struct CatalogFilterRow: View {
             ForEach(errors, id: \.self) { error in
                 Text(error)
                     .font(PageStyle.secondary)
-                    .foregroundStyle(.red)
+                    .foregroundStyle(Palette.danger)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -302,7 +302,7 @@ struct FilterControlStyle: ButtonStyle {
 
         private var foreground: AnyShapeStyle {
             if !isEnabled { return .textSecondary }
-            return isSet ? AnyShapeStyle(Palette.onTint(colorScheme)) : AnyShapeStyle(.primary)
+            return isSet ? AnyShapeStyle(Palette.onTint(colorScheme)) : AnyShapeStyle(.textPrimary)
         }
 
         private var fill: AnyShapeStyle {

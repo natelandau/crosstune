@@ -76,7 +76,7 @@ struct BulkEditSheet: View {
                     Section {
                         if let failure = bulk.editFailure {
                             Text(failure)
-                                .foregroundStyle(.red)
+                                .foregroundStyle(Palette.danger)
                         }
                     } footer: {
                         Text(BulkEditForm.footnote)

@@ -12,9 +12,6 @@ export interface Palette {
   textPrimary: string
   textSecondary: string
   textTertiary: string
-  glyphFaint: string
-  disabledFill: string
-  disabledInk: string
   accent: string
   accentFill: string
   onAccentFill: string
@@ -23,8 +20,8 @@ export interface Palette {
   brand: string
   onBrand: string
   brandSecondary: string
-  jet: string
-  onJet: string
+  inverseSurface: string
+  onInverseSurface: string
   danger: string
   warning: string
   warningFill: string
@@ -55,9 +52,6 @@ export const PALETTE: Record<Scheme, Palette> = {
     textPrimary: '#1C2026',
     textSecondary: '#61676F',
     textTertiary: '#8A857C',
-    glyphFaint: '#8A857C',
-    disabledFill: '#DDD9D3',
-    disabledInk: '#5F5B54',
     accent: '#1F5F9E',
     accentFill: '#1F5F9E',
     onAccentFill: '#FFFFFF',
@@ -66,19 +60,19 @@ export const PALETTE: Record<Scheme, Palette> = {
     brand: '#EF8354',
     onBrand: '#1D2230',
     brandSecondary: '#4F5D75',
-    jet: '#2D3142',
-    onJet: '#FFFFFF',
+    inverseSurface: '#1C2026',
+    onInverseSurface: '#FFFEFC',
     danger: '#B3261E',
     warning: '#8A4B00',
-    warningFill: '#8A4B00',
-    onWarningFill: '#FFFFFF',
+    warningFill: '#EF8354',
+    onWarningFill: '#1D2230',
     onStatus: '#FFFFFF',
     statusKnown: '#248A3D',
     statusLearning: '#FF8D28',
     statusUnknown: '#8A909A',
     statusUnknownOnFill: '#737983',
     record: '#FF383C',
-    onRecord: '#16181D',
+    onRecord: '#16181B',
     recordHover: '#FF564D',
     practiceBackground: '#1E212C',
     onPractice: '#FFFFFF',
@@ -95,10 +89,7 @@ export const PALETTE: Record<Scheme, Palette> = {
     handle: '#BFC0C0',
     textPrimary: '#ECEDF0',
     textSecondary: '#9CA2AB',
-    textTertiary: '#8A847B',
-    glyphFaint: '#706B63',
-    disabledFill: '#3E3C37',
-    disabledInk: '#ABA69E',
+    textTertiary: '#8A857C',
     accent: '#6AA6E6',
     accentFill: '#2B609A',
     onAccentFill: '#FFFFFF',
@@ -107,19 +98,19 @@ export const PALETTE: Record<Scheme, Palette> = {
     brand: '#EF8354',
     onBrand: '#1D2230',
     brandSecondary: '#FFFFFF',
-    jet: '#1E212C',
-    onJet: '#FFFFFF',
+    inverseSurface: '#ECEDF0',
+    onInverseSurface: '#16181B',
     danger: '#FF8A80',
     warning: '#FFB35C',
     warningFill: '#FFB35C',
-    onWarningFill: '#16181D',
-    onStatus: '#16181D',
+    onWarningFill: '#16181B',
+    onStatus: '#16181B',
     statusKnown: '#30D158',
     statusLearning: '#FF9230',
     statusUnknown: '#8A909A',
     statusUnknownOnFill: '#8A909A',
     record: '#FF4245',
-    onRecord: '#16181D',
+    onRecord: '#16181B',
     recordHover: '#FF5F56',
     practiceBackground: '#1E212C',
     onPractice: '#FFFFFF',

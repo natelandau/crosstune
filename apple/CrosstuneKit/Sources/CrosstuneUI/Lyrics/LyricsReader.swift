@@ -255,7 +255,7 @@ private struct LyricsEditSheet: View {
                         if let failure = model.failure {
                             Text(failure)
                                 .font(.platform(.footnote))
-                                .foregroundStyle(.red)
+                                .foregroundStyle(Palette.danger)
                                 .padding()
                         }
                     }

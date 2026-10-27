@@ -60,7 +60,12 @@
                 .onPracticeSecondary: Palette.onPracticeSecondary,
                 .practiceBackground: Palette.practiceBackground(scheme),
                 .onTintSecondary: Palette.onTintSecondary(scheme), .tunerClose: Palette.color(.tunerClose),
-                .tunerInTuneBackground: Palette.color(.tunerInTuneBackground),
+                .tunerInTuneBackground: Palette.color(.tunerInTuneBackground), .fieldHover: Palette.fieldHover,
+                .textTertiary: Palette.textTertiary, .neutralFill: Palette.neutralFill,
+                .warningFill: Palette.warningFill, .onWarningFill: Palette.onWarningFill, .onStatus: Palette.onStatus,
+                .onRecord: Palette.onRecord, .tunerInTune: Palette.color(.tunerInTune),
+                .warningFillStrong: Palette.warningFillStrong, .dangerFillStrong: Palette.dangerFillStrong,
+                .onStatusStrong: Palette.onStatusStrong,
             ]
             for token in Palette.Token.allCases {
                 #expect(resolved(colors[token]!, in: scheme) == Palette.hex(token, scheme).lowercased(), "\(token)")
@@ -168,14 +173,14 @@
             }
         }
 
-        /// The dock's scrubber: a border track, a primary text fill, and a brand thumb.
+        /// The dock's scrubber: a border track, a tertiary text fill, and a brand thumb.
         @Test func scrubberDrawsInTokens() throws {
             let file = SourceScan.sources.appending(path: "Mac/PlayerDock.swift")
             let text = SourceScan.withoutComments(try SourceScan.text(at: file))
             let track = try #require(text.range(of: "struct ScrubberTrack"))
             let body = text[track.lowerBound...]
             #expect(body.contains("Palette.border"))
-            #expect(body.contains("Palette.textPrimary.opacity(ScrubberTrack.fillOpacity)"))
+            #expect(body.contains("Palette.textTertiary"))
             #expect(!body.contains(".quaternary"))
         }
 

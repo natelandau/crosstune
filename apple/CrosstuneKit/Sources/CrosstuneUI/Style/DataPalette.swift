@@ -23,6 +23,17 @@ extension Palette {
         loop(slot, scheme: scheme).opacity(scheme == .dark ? 0.3 : 0.2)
     }
 
+    /// An unselected loop's tint through the waveform, quieter than the selected loop's.
+    static func loopTintUnselected(_ slot: Int, scheme: ColorScheme) -> Color {
+        loopTint(slot, scheme: scheme).opacity(0.5)
+    }
+
+    /// A loop's bar in the overview strip: full when selected, quieter otherwise, so the selected
+    /// loop leads.
+    static func loopOverview(_ slot: Int, scheme: ColorScheme, selected: Bool) -> Color {
+        loop(slot, scheme: scheme).opacity(selected ? 1 : 0.6)
+    }
+
     private static func loopValue(_ slot: Int, dark isDark: Bool) -> UInt32 {
         let count = Primitive.loopLight.count
         let index = ((slot % count) + count) % count
@@ -51,10 +62,24 @@ extension Palette {
 
     // MARK: Tuner
 
+    /// The tuner's background while the note is in tune: 14% of the in-tune green over the
+    /// practice background, as the web's `--tuner-in-tune-background` mixes it.
+    static func tunerInTuneBackgroundHex(_ scheme: ColorScheme) -> String {
+        mixHex(hex(.practiceBackground, scheme), toward: hex(.tunerInTune, scheme), share: 0.14)
+    }
+
     /// The tuner's background in `scheme` for a note `green` of the way to in tune: the practice
     /// background outside the target zone, the full in-tune background in tune.
     static func tunerBackgroundHex(_ scheme: ColorScheme, green: Double) -> String {
         mixHex(hex(.practiceBackground, scheme), toward: hex(.tunerInTuneBackground, scheme), share: green)
+    }
+
+    /// The welcome tuner illustration's background, which keeps its own lighter practice
+    /// background in light mode, as the web's illustration does.
+    static func illustrationTunerBackgroundHex(_ scheme: ColorScheme, green: Double) -> String {
+        let base = scheme == .dark ? Primitive.slate900 : Primitive.slate800
+        let inTune = mixHex(base, toward: hex(.tunerInTune, scheme), share: 0.14)
+        return mixHex(base, toward: inTune, share: green)
     }
 
     /// The tuner's bars for a note `cents` off: the brand color far off, the close step just
@@ -65,7 +90,7 @@ extension Palette {
         case .far: hex(.brand, .light)
         case .close: hex(.tunerClose, .light)
         case .zone:
-            mixHex(hex(.tunerClose, .light), toward: hex(.statusKnown, .dark), share: inTuneFraction(cents: cents))
+            mixHex(hex(.tunerClose, .light), toward: hex(.tunerInTune, .light), share: inTuneFraction(cents: cents))
         }
     }
 
@@ -73,8 +98,13 @@ extension Palette {
     /// color at rest, blending toward the dark scheme's known green, as the web's `TunerBars`
     /// mixes it.
     static func tunerZone(green: Double) -> Color {
-        color(hex: mixHex(hex(.onPracticeSecondary, .dark), toward: hex(.statusKnown, .dark), share: green / 2))
+        color(hex: mixHex(hex(.onPracticeSecondary, .dark), toward: hex(.tunerInTune, .light), share: green / 2))
             .opacity(0.14 + 0.06 * green)
+    }
+
+    /// The glow around a tuner bar drawn in `color`.
+    static func tunerGlow(_ color: Color) -> Color {
+        color.opacity(0.7)
     }
 
     /// `share` of `toward` mixed into `from` in sRGB, as the web's `color-mix(in srgb, …)` mixes.

@@ -887,7 +887,7 @@ it.each(['light', 'dark'] as const)(
     await openPaywall({ scheme })
     await expect.element(planSheet().getByRole('table')).toBeVisible()
 
-    // The Premium column sits on a translucent color-mix wash the helper cannot measure.
+    // The Premium column sits on a translucent color-mix tint the helper cannot measure.
     const table = planSheet().getByRole('table').element()
     const marks = [...table.querySelectorAll('tbody td:nth-of-type(1) svg')]
     expect(marks).toHaveLength(COMPARISON.filter((feature) => feature.free.kind !== 'value').length)

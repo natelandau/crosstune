@@ -41,22 +41,10 @@
         }
 
         /// The chosen token's fill, lighter than the field track in both appearances so it reads
-        /// raised: the page background in light, a lifted gray in dark. Deep enough in dark that a
-        /// badge in secondary text keeps 4.5:1.
-        static func chosenFillHex(_ scheme: ColorScheme) -> String {
-            scheme == .dark ? "#33373D" : Palette.hex(.pageBackground, .light)
-        }
-
-        /// ``chosenFillHex(_:)`` following the appearance. It reads only the appearance, never
-        /// whether the window is key, so the choice in use stays plain in an inactive window.
-        static var chosenFill: Color {
-            Color(
-                nsColor: NSColor(name: nil) { appearance in
-                    let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-                    let rgb = KeyColor.RGB(hex: chosenFillHex(isDark ? .dark : .light))
-                    return NSColor(srgbRed: rgb.red, green: rgb.green, blue: rgb.blue, alpha: 1)
-                })
-        }
+        /// raised. It reads only the appearance, never whether the window is key, so the choice in
+        /// use stays plain in an inactive window.
+        static var chosenFillToken: Palette.Token { .surfaceRaised }
+        static var chosenFill: Color { Palette.color(chosenFillToken) }
 
         var body: some View {
             MacSegmentTrack(
@@ -194,7 +182,7 @@
             .background {
                 RoundedRectangle(cornerRadius: Self.radius)
                     .fill(fill)
-                    .shadow(color: .black.opacity(raised ? 0.12 : 0), radius: 1.5, y: 0.5)
+                    .elevation(.control, isShown: raised)
             }
             .contentShape(.rect(cornerRadius: Self.radius))
             .macFocusRing(showsRing, cornerRadius: Self.radius)

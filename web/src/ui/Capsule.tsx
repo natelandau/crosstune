@@ -27,7 +27,7 @@ const SHAPE =
 
 function tone(set: boolean | undefined): string {
   return set
-    ? 'bg-set-fill font-medium text-on-tint hover:bg-set-fill-hover'
+    ? 'bg-tint font-medium text-on-tint hover:bg-tint-strong'
     : 'bg-field text-primary hover:bg-field-hover'
 }
 

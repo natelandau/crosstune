@@ -38,18 +38,15 @@ import Testing
     }
 
     @Test func updateRequiredIsAWarning() {
-        for scheme in [ColorScheme.light, .dark] {
-            #expect(
-                SyncBadge.capsuleColors(.updateRequired, scheme: scheme)
-                    == SyncBadge.capsuleColors(.offline, scheme: scheme))
-        }
+        #expect(SyncBadge.tone(.updateRequired) == SyncBadge.tone(.offline))
     }
 
     @Test func everyBadgeReadsAtLeastFourAndAHalfToOne() {
         for scheme in [ColorScheme.light, .dark] {
             for status in [SyncStatus.offline, .unauthorized, .error, .updateRequired] {
-                let colors = SyncBadge.capsuleColors(status, scheme: scheme)
-                #expect(contrastRatio(colors.text, colors.background) >= 4.5, "\(status) \(scheme)")
+                let text = Palette.hex(SyncBadge.tone(status), scheme)
+                let fill = blend(text, over: Palette.hex(.pageBackground, scheme), opacity: Palette.subtleOpacity)
+                #expect(contrastRatio(text, fill) >= 4.5, "\(status) \(scheme)")
             }
         }
     }

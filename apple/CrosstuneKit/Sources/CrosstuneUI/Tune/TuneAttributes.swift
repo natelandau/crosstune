@@ -204,7 +204,7 @@ struct TuneAttributes: View {
                         .frame(width: columnLabelWidth, alignment: .leading)
                     Text(Self.value(row))
                         .contentMask()
-                        .foregroundStyle(row.text == nil ? .textSecondary : AnyShapeStyle(.primary))
+                        .foregroundStyle(row.text == nil ? .textSecondary : AnyShapeStyle(.textPrimary))
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .fixedSize(horizontal: false, vertical: true)
@@ -231,7 +231,7 @@ struct TuneAttributes: View {
     private func value(_ row: AttributeRow) -> some View {
         Text(Self.value(row))
             .contentMask()
-            .foregroundStyle(row.text == nil ? .textSecondary : AnyShapeStyle(.primary))
+            .foregroundStyle(row.text == nil ? .textSecondary : AnyShapeStyle(.textPrimary))
             .lineLimit(1)
     }
 
@@ -467,7 +467,7 @@ private struct AddToListStyle: ButtonStyle {
                 // A resting fill like a list token's, so touch reads it as a control beside them.
                 .background(.neutralFill, in: .capsule)
                 .overlay {
-                    if isHovered || configuration.isPressed { Capsule().fill(Color.primary.opacity(0.06)) }
+                    if isHovered || configuration.isPressed { Capsule().fill(Palette.hoverOverlay) }
                 }
                 .contentShape(.capsule)
                 .onHover { isHovered = $0 }

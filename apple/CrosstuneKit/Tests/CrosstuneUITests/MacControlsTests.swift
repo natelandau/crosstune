@@ -10,16 +10,15 @@
         @Test(arguments: [ColorScheme.light, .dark])
         func macSegmentedKeepsSelectionVisibleWhenInactive(scheme: ColorScheme) {
             // Lighter means further from black.
-            let chosen = contrastRatio(MacSegmented<Int>.chosenFillHex(scheme), "#000000")
+            let chosen = contrastRatio(Palette.hex(MacSegmented<Int>.chosenFillToken, scheme), "#000000")
             let track = contrastRatio(Palette.hex(.field, scheme), "#000000")
             #expect(chosen > track, "\(scheme)")
-            #expect(MacSegmented<Int>.chosenFillHex(.light) == Palette.hex(.pageBackground, .light))
         }
 
         /// A segment's label and its badge read on the chosen token and on the bare track.
         @Test(arguments: [ColorScheme.light, .dark])
         func macSegmentedTextPassesContrast(scheme: ColorScheme) {
-            for back in [MacSegmented<Int>.chosenFillHex(scheme), Palette.hex(.field, scheme)] {
+            for back in [Palette.hex(MacSegmented<Int>.chosenFillToken, scheme), Palette.hex(.field, scheme)] {
                 #expect(contrastRatio(Palette.hex(.textPrimary, scheme), back) >= 4.5, "\(scheme) label on \(back)")
                 #expect(
                     contrastRatio(Palette.hex(.textSecondary, scheme), back) >= 4.5, "\(scheme) badge on \(back)")

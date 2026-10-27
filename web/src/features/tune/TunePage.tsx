@@ -72,7 +72,7 @@ import { isQuietPick } from './tunePick'
 import { useTuneScans, type TuneScansParts } from './useTuneScans'
 import { TuneActionButtons } from './TuneActionButtons'
 import { readTuneTitle, rememberTuneTitle } from './tuneTitle'
-import { WASH_HOVER } from '../../ui/press'
+import { TINT_HOVER } from '../../ui/press'
 
 const NO_RECORDINGS: readonly RecordingView[] = []
 const NO_LINKS: readonly LocalRecordingLink[] = []
@@ -542,7 +542,7 @@ function AddAction({ name, text, onPress }: { name: string; text: string; onPres
     <AriaButton
       aria-label={name}
       onPress={onPress}
-      className={`t-secondary text-secondary flex min-h-(--target) items-center gap-1 rounded-(--radius-row) px-2 ${WASH_HOVER}`}
+      className={`t-secondary text-secondary flex min-h-(--target) items-center gap-1 rounded-(--radius-row) px-2 ${TINT_HOVER}`}
     >
       <Plus className="text-accent size-4" aria-hidden />
       {text}

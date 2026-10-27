@@ -66,7 +66,7 @@ function Strip({
             <span className="sr-only">{monthBarLabel(month.month, count(month))}</span>
             <span
               aria-hidden
-              className="bg-text-primary/70 block rounded-t-sm"
+              className="bg-text-secondary block rounded-t-sm"
               style={{ height: `${(count(month) / max) * 100}%` }}
             />
           </li>

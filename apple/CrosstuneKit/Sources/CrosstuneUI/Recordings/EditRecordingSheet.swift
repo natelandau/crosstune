@@ -785,7 +785,7 @@ private struct EditRecordingForm: View {
             } footer: {
                 if let failure = model.failure {
                     Text(failure)
-                        .foregroundStyle(.red)
+                        .foregroundStyle(Palette.danger)
                 }
             }
         }
@@ -826,7 +826,7 @@ private struct EditRecordingForm: View {
             } footer: {
                 if let dateFailure = model.dateFailure {
                     Text(dateFailure)
-                        .foregroundStyle(.red)
+                        .foregroundStyle(Palette.danger)
                 } else if let time = date.keptTime {
                     Text(EditRecordingText.recordedAtNote(time))
                 }

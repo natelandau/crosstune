@@ -45,21 +45,21 @@ struct StatusGlyphStyle: ShapeStyle {
     let status: String
 
     enum Coloring: Equatable {
-        case white
+        case onAccentFill
         case status(Color)
         case ring(UnknownRing.Placement)
     }
 
     func resolve(in environment: EnvironmentValues) -> Color {
         switch Self.coloring(status, in: environment) {
-        case .white: Palette.color(.onAccentFill)
+        case .onAccentFill: Palette.color(.onAccentFill)
         case .status(let color): color
         case .ring(let placement): Palette.color(hex: UnknownRing.hex(placement, scheme: environment.colorScheme))
         }
     }
 
     static func coloring(_ status: String, in environment: EnvironmentValues) -> Coloring {
-        if environment.backgroundProminence == .increased { return .white }
+        if environment.backgroundProminence == .increased { return .onAccentFill }
         switch StatusStyle.dot(status) {
         case .filled(let color): return .status(color)
         case .ring: return .ring(UnknownRing.placement(in: environment))

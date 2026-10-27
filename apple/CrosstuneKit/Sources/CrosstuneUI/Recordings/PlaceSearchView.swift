@@ -462,7 +462,7 @@ struct PlaceSearchView: View {
                 } footer: {
                     if let failure = model.failure {
                         Text(failure)
-                            .foregroundStyle(.red)
+                            .foregroundStyle(Palette.danger)
                     }
                 }
                 if !model.showsRecent {

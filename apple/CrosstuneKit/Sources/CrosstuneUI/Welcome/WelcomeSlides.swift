@@ -323,7 +323,7 @@ struct TunerSlideArt: View {
     private static let hintSize: CGFloat = 12
 
     var body: some View {
-        let background = Palette.tunerBackgroundHex(colorScheme, green: inTuneFraction(cents: Self.cents))
+        let background = Palette.illustrationTunerBackgroundHex(colorScheme, green: inTuneFraction(cents: Self.cents))
         ZStack {
             TunerBars(cents: Self.cents, animation: nil)
             VStack(spacing: 0) {

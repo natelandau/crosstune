@@ -378,7 +378,7 @@ struct StatsDocument: View {
 
     private func chevronRow(_ label: some View) -> some View {
         HStack {
-            label.foregroundStyle(.primary)
+            label.foregroundStyle(.textPrimary)
             Spacer()
             RowChevron()
         }

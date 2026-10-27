@@ -35,6 +35,7 @@ public struct PlaylistControls: View {
     private let playback: ListPlayback
 
     @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
+    @Environment(\.colorScheme) private var colorScheme
 
     public init(playback: ListPlayback) {
         self.playback = playback
@@ -77,7 +78,7 @@ public struct PlaylistControls: View {
                 // Off and on share a symbol, so without color a disc marks on.
                 .padding(6)
                 .background {
-                    if highlighted && differentiateWithoutColor { Circle().fill(.tint.opacity(0.18)) }
+                    if highlighted && differentiateWithoutColor { Circle().fill(Palette.tintStrong(colorScheme)) }
                 }
                 .frame(minWidth: minimumTapTarget, minHeight: minimumTapTarget)
                 .contentShape(.rect)

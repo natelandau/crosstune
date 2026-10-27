@@ -36,8 +36,8 @@ folder. Compose it, never rebuild it.
   for touch and a step smaller for pointer.
 - Radii, shadows, targets, timing: `web/src/theme/shape.css`.
 - A screen never types a color, text size, radius, or row height.
-- `jet`: tooltips only. Practice, trim, and the tuner draw on
-  `practice-background` in either appearance, never the page.
+- Practice, trim, and the tuner draw on `practice-background` in either
+  appearance, never the page.
   `practiceTheme.css` gives the roles on it their dark-scheme values, and
   a shared control drawn there takes its tokens from it.
 - Text quieter than secondary is `t-caption` in `text-secondary`, never
@@ -179,7 +179,7 @@ folder. Compose it, never rebuild it.
 - A list's rows move when a change adds, removes, or reorders them. First
   paint and a resize move nothing. A list and the empty state that
   replaces it fade into each other, never on load.
-- A touch row's press wash waits a beat, so a finger that scrolls never
+- A touch row's press tint waits a beat, so a finger that scrolls never
   flashes it.
 
 ## Keyboard
@@ -203,7 +203,7 @@ folder. Compose it, never rebuild it.
 - Headings never skip a level. A page's title is h1, a sheet's or section's
   h2. A heading under one takes `useSubheadingLevel` from
   `web/src/ui/headingLevel.ts`.
-- Contrast also holds on jet.
+- Contrast also holds on `practice-background`.
 - Forced colors: a glyph whose meaning is a fill paints in system colors.
 
 ## Framework limits

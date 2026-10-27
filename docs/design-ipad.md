@@ -81,7 +81,7 @@ only `design-ios.md`. The Mac and iPhone never take a rule from here.
 ## Accessibility
 
 - Every target at least 44pt.
-- Lyric text passes 7:1 on the practice ground in both appearances. A
+- Lyric text passes 7:1 on `practiceBackground` in both appearances. A
   test asserts it.
 
 ## Framework limits

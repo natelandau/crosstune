@@ -2,7 +2,7 @@ import { ArrowDown, ArrowUp } from 'lucide-react'
 import type { ReactElement } from 'react'
 import { Button as AriaButton } from 'react-aria-components'
 import type { MenuTriggerProps } from './Menu'
-import { PRESS, WASH_HOVER } from './press'
+import { PRESS, TINT_HOVER } from './press'
 
 export interface ListSort {
   /** The current sort's name, shown beside the arrow. */
@@ -29,7 +29,7 @@ function SortControl({ sort }: { sort: ListSort }) {
   const button = (
     <AriaButton
       aria-label={sort.spoken}
-      className={`t-secondary text-primary inline-flex min-h-(--target-control) items-center gap-1 rounded-(--radius-capsule) px-2 ${PRESS} ${WASH_HOVER}`}
+      className={`t-secondary text-primary inline-flex min-h-(--target-control) items-center gap-1 rounded-(--radius-capsule) px-2 ${PRESS} ${TINT_HOVER}`}
     >
       {sort.label}
       <Arrow className="size-4" aria-hidden />

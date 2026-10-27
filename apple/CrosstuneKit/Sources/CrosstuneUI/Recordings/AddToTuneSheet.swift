@@ -266,7 +266,7 @@ private struct AddToTuneContent: View {
                 if let failure = model.failure {
                     Text(failure)
                         .font(.platform(.footnote))
-                        .foregroundStyle(.red)
+                        .foregroundStyle(Palette.danger)
                 }
                 if model.isIdle {
                     ForEach(model.idleResults ?? []) { entry in
@@ -322,7 +322,7 @@ private struct AddToTuneContent: View {
                 }
             } label: {
                 TuneRow(tune: entry.tune, userTune: entry.userTune, instruments: model.instruments)
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(.textPrimary)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .contentShape(.rect)
             }

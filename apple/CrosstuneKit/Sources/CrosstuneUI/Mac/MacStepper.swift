@@ -119,7 +119,7 @@
 
         private var fill: Color {
             guard isEnabled else { return .clear }
-            if configuration.isPressed { return Palette.textSecondary.opacity(0.22) }
+            if configuration.isPressed { return Palette.fieldHover }
             return isHovered ? Palette.border : .clear
         }
     }

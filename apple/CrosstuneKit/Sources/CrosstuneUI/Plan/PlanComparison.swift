@@ -34,15 +34,9 @@ extension PlanSheet {
 }
 
 /// Free beside Premium, a row per feature. Premium's header is a brand-colored tab over a column in
-/// the tint a set filter wears, its checks and values in `Palette.onTint`; on the Mac, where the
-/// brand color alone marks Premium, the column is a brand tint with its checks and values in the
-/// primary text color. The tint is one band behind every row, so the dividers cross it rather than
-/// cut it into blocks.
+/// the strong tint, its checks and values in `Palette.onTint`. The tint is one band behind every
+/// row, so the dividers cross it rather than cut it into blocks.
 struct PlanComparison: View {
-    #if os(macOS)
-        nonisolated static let macPremiumTintOpacity = 0.12
-    #endif
-
     /// What VoiceOver reads for a check and a dash.
     nonisolated static let includedLabel = "Included"
     nonisolated static let excludedLabel = "Not included"
@@ -72,11 +66,7 @@ struct PlanComparison: View {
     }
 
     private var premiumTint: Color {
-        #if os(macOS)
-            Palette.brand.opacity(Self.macPremiumTintOpacity)
-        #else
-            Palette.tint(scheme)
-        #endif
+        Palette.tintStrong(scheme)
     }
 
     private var header: some View {
@@ -123,13 +113,8 @@ struct PlanComparison: View {
 
     @ViewBuilder
     private func cell(_ cell: PlanSheet.Cell, column: String, premium: Bool) -> some View {
-        #if os(macOS)
-            let color = AnyShapeStyle(premium ? Palette.textPrimary : Palette.textSecondary)
-            let valueColor = color
-        #else
-            let color = premium ? AnyShapeStyle(Palette.onTint(scheme)) : AnyShapeStyle(Palette.textSecondary)
-            let valueColor = color
-        #endif
+        let color = premium ? AnyShapeStyle(Palette.onTint(scheme)) : AnyShapeStyle(Palette.textSecondary)
+        let valueColor = color
         switch cell {
         case .included:
             Image(systemName: "checkmark")

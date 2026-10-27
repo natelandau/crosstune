@@ -148,7 +148,7 @@ function AccountBlock({ current, replace }: { current: boolean; replace: boolean
       to={settingsPagePath('account')}
       replace={replace}
       aria-current={current ? 'page' : undefined}
-      className={`${BLOCK} aria-[current=page]:bg-wash`}
+      className={`${BLOCK} aria-[current=page]:bg-tint`}
     >
       <span className="t-body block truncate">{identity?.name ?? label}</span>
       <span className={`t-secondary block truncate ${tone ?? 'text-secondary'}`}>
@@ -187,7 +187,7 @@ function StatsBlock({
       // Unset, a link to the address already shown replaces it rather than stacking a copy.
       replace={replace || undefined}
       aria-current={current ? 'page' : undefined}
-      className={`${BLOCK} aria-[current=page]:bg-wash`}
+      className={`${BLOCK} aria-[current=page]:bg-tint`}
       onClick={(event) => {
         if (!fromTune || event.defaultPrevented || event.button !== 0) return
         if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return

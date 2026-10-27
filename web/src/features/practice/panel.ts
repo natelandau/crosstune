@@ -6,7 +6,7 @@ import { PRESS } from '../../ui/press'
 
 export const RESET = 'Reset'
 
-/** The hover wash of a control with no fill of its own. */
+/** The hover tint of a control with no fill of its own. */
 export const PANEL_HOVER = 'not-disabled:not-aria-disabled:hover:bg-practice-hover'
 /** The hover of a control on the panels' round fill. */
 export const PANEL_FILLED_HOVER = 'not-disabled:not-aria-disabled:hover:bg-practice-fill-hover'

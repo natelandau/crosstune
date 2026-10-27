@@ -455,7 +455,7 @@ struct LearnedOnEditor: View {
             if let refused {
                 Text(refused)
                     .font(.platform(.footnote))
-                    .foregroundStyle(.red)
+                    .foregroundStyle(Palette.danger)
             }
         }
         .onSubmit {

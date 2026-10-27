@@ -5,8 +5,8 @@ import SwiftUI
 /// One breakdown value: its name and count over a text-colored bar as wide as its share of the
 /// largest value. A row that links to the catalog ends in a chevron; the caller makes it a button.
 struct ShareBarRow: View {
-    /// A share in the text color, since the accent marks only what can be chosen.
-    static var barFill: Color { Palette.textPrimary.opacity(0.55) }
+    /// A share in the quietest text color, since the accent marks only what can be chosen.
+    static var barFill: Color { Palette.textTertiary }
 
     let value: Stats.Value
     let max: Int
@@ -17,7 +17,7 @@ struct ShareBarRow: View {
             Text(value.value)
                 .contentMask()
                 .font(PageStyle.body)
-                .foregroundStyle(.primary)
+                .foregroundStyle(.textPrimary)
                 .frame(maxWidth: .infinity, alignment: .leading)
             Text(groupedThousands(value.count))
                 .font(PageStyle.body)

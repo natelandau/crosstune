@@ -244,7 +244,7 @@ function ListenArt() {
           return (
             <div
               key={row.tune}
-              className={`flex items-center gap-3 rounded-(--radius-row) px-2 py-1.5 ${playing ? 'bg-(--play-wash)' : ''}`}
+              className={`flex items-center gap-3 rounded-(--radius-row) px-2 py-1.5 ${playing ? 'bg-(--tint-subtle)' : ''}`}
             >
               <span className="flex w-7 shrink-0 items-center">
                 <TransportGlyph shape={playing ? 'stop' : 'play'} />
@@ -276,7 +276,11 @@ function TunerArt() {
         className="text-on-practice relative h-[16em] w-[22.4em] overflow-hidden rounded-(--radius-surface)"
         style={{
           colorScheme: 'dark',
-          backgroundColor: blend('--jet', '--tuner-in-tune-background', inTune),
+          backgroundColor: blend(
+            '--illustration-practice-background',
+            '--tuner-in-tune-background',
+            inTune,
+          ),
         }}
       >
         <TunerBars cents={TUNER_CENTS} />

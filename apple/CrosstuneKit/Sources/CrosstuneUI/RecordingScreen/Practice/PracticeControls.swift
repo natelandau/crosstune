@@ -155,7 +155,7 @@ private struct PracticePlayButtonLabel: View {
             .contentTransition(.symbolEffect(.replace))
             .foregroundStyle(Palette.practiceBackground(practiceScheme))
             .frame(width: PhoneStyle.transportPlayDiameter, height: PhoneStyle.transportPlayDiameter)
-            .background(.white, in: .circle)
+            .background(Palette.onPractice, in: .circle)
             .opacity(isEnabled ? 1 : 0.4)
             .contentShape(.circle)
     }

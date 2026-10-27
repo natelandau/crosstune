@@ -467,7 +467,7 @@ private struct TrimStrip: View {
             }
         }
         // What the trim cuts away is faded back.
-        context.fill(cut, with: .style(.quaternary))
+        context.fill(cut, with: .color(Palette.border))
         context.fill(kept, with: .style(.tint))
         context.fill(keptLine, with: .style(.tint))
         let playhead = fraction(playheadMs, in: range)
@@ -483,7 +483,7 @@ private struct TrimStrip: View {
     }
 
     private var playheadStyle: AnyShapeStyle {
-        practiceScheme != nil ? AnyShapeStyle(PracticeWaveform.handleColor(isTrim: true)) : AnyShapeStyle(.primary)
+        practiceScheme != nil ? AnyShapeStyle(PracticeWaveform.handleColor(isTrim: true)) : AnyShapeStyle(.textPrimary)
     }
 }
 

@@ -442,10 +442,10 @@ it('gives a row with nothing trailing its full width for the title', async () =>
     .toBeLessThanOrEqual(12.5)
 })
 
-/** What the wash token paints, read from an element that shows it alone. */
+/** What the tint token paints, read from an element that shows it alone. */
 function washColor(): string {
   const probe = document.createElement('div')
-  probe.style.backgroundColor = 'var(--wash)'
+  probe.style.backgroundColor = 'var(--tint)'
   document.body.append(probe)
   const color = getComputedStyle(probe).backgroundColor
   probe.remove()
@@ -469,7 +469,7 @@ function pointer(target: Element, type: string, pointerType: 'mouse' | 'touch') 
   )
 }
 
-it('washes a pointer row while it is pressed, and fades its washes', async () => {
+it('tints a pointer row while it is pressed, and fades its tints', async () => {
   renderWithProviders(
     <RowList label="Tunes" onAction={() => {}}>
       <Row id="1" textValue="Forked Deer" title="Forked Deer" />
@@ -497,15 +497,15 @@ it('waits a beat before washing a pressed touch row, so a scroll never flashes i
   const row = page.getByRole('row', { name: 'Forked Deer' })
   await expect.element(row).toBeVisible()
   const content = row.element().querySelector<HTMLElement>('[style*="touch-action"]')!
-  const wash = () => getComputedStyle(content, '::before')
-  expect(Number(wash().opacity)).toBe(0)
-  expect(wash().transitionDelay).toBe('0s')
+  const tint = () => getComputedStyle(content, '::before')
+  expect(Number(tint().opacity)).toBe(0)
+  expect(tint().transitionDelay).toBe('0s')
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
   try {
     pointer(content, 'pointerdown', 'touch')
     await expect.element(row).toHaveAttribute('data-pressed')
-    expect(wash().transitionDelay).toBe('0.075s')
-    await expect.poll(() => Number(wash().opacity)).toBe(1)
+    expect(tint().transitionDelay).toBe('0.075s')
+    await expect.poll(() => Number(tint().opacity)).toBe(1)
     pointer(content, 'pointerup', 'touch')
     // React Aria ends a touch press on a timeout after the finger lifts.
     vi.runOnlyPendingTimers()
@@ -513,5 +513,5 @@ it('waits a beat before washing a pressed touch row, so a scroll never flashes i
     vi.useRealTimers()
   }
   await expect.element(row).not.toHaveAttribute('data-pressed')
-  expect(wash().transitionDelay).toBe('0s')
+  expect(tint().transitionDelay).toBe('0s')
 })

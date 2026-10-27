@@ -393,12 +393,12 @@ private struct FindRecordingsForm: View {
                 Text(FindRecordingsSheet.searching)
             } else if let failure = model.failure {
                 Text(failure)
-                    .foregroundStyle(.red)
+                    .foregroundStyle(Palette.danger)
             }
             // On a line of its own, so a search starting or failing never hides it.
             if let linkFailure = model.linkFailure {
                 Text(linkFailure)
-                    .foregroundStyle(.red)
+                    .foregroundStyle(Palette.danger)
             }
         }
     }
@@ -468,7 +468,7 @@ private struct FindRecordingsForm: View {
             } label: {
                 HStack {
                     Text(FindRecordingsSheet.searchService(FindRecordingsSheet.label(provider)))
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(.textPrimary)
                     Spacer(minLength: 0)
                     Image(systemName: inApp ? "chevron.forward" : "arrow.up.right")
                         .foregroundStyle(.textSecondary)

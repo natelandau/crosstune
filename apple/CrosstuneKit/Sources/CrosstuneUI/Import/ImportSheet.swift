@@ -204,7 +204,7 @@ private struct ImportContent: View {
                     Section {
                         Text(failure)
                             .contentMask()
-                            .foregroundStyle(.red)
+                            .foregroundStyle(Palette.danger)
                     }
                 }
                 switch model.step {

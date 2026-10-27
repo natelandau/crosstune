@@ -33,7 +33,6 @@
         /// background.
         static let ringGapWidth: CGFloat = 1
         static let ringGapToken = Palette.Token.pageBackground
-        static let hoverDarkening = 0.06
 
         static func labelRGB(state: MacChipState, scheme: ColorScheme) -> KeyColor.RGB {
             switch state {
@@ -136,7 +135,10 @@
                 .padding(.horizontal, size.horizontalPadding)
                 .frame(minWidth: minWidth, minHeight: size.height, maxHeight: size.height)
                 .background(fill, in: .capsule)
-                .overlay { Color.black.opacity(MacChip.hoverDarkening * emphasis).clipShape(.capsule) }
+                .overlay {
+                    Palette.hoverOverlay.clipShape(.capsule)
+                        .opacity(emphasis)
+                }
                 .overlay { ring }
                 .contentShape(.capsule)
         }
@@ -161,7 +163,7 @@
                     Capsule().strokeBorder(Palette.color(MacChip.ringToken), lineWidth: MacChip.ringWidth)
                 }
             } else if onSelectedRow {
-                Capsule().strokeBorder(Color.white.opacity(0.85), lineWidth: 1)
+                Capsule().strokeBorder(Palette.onAccentFill, lineWidth: 1)
             }
         }
     }

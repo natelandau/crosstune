@@ -238,14 +238,14 @@ it('returns to the list when its page is chosen again from a location on wide', 
     .getByRole('row', { name: new RegExp(`^${RECORDINGS_SETTINGS}`) })
   // Still shown as the open category while one of its locations is open.
   await expect.element(category).toHaveAttribute('aria-current', 'page')
-  const wash = () => getComputedStyle(category.element()).backgroundColor
-  const onLocation = wash()
+  const tint = () => getComputedStyle(category.element()).backgroundColor
+  const onLocation = tint()
   await category.click()
   await expect.poll(at(router)).toBe(LIST)
   await expect.element(link(/^Town Hall/)).toBeVisible()
   await expect.element(category).toHaveAttribute('aria-selected', 'true')
   await userEvent.unhover(category)
-  await expect.poll(wash).toBe(onLocation)
+  await expect.poll(tint).toBe(onLocation)
   expect(onLocation).not.toBe(
     getComputedStyle(page.getByRole('grid').getByRole('row').first().element()).backgroundColor,
   )

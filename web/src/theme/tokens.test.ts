@@ -32,9 +32,8 @@ describe.each(['light', 'dark'] as const)('%s palette', (scheme) => {
     ['label on the accent fill', p.onAccentFill, p.accentFill, 4.5],
     ['the mark on the page', p.brandSecondary, p.pageBackground, 3],
     ['label on brand', p.onBrand, p.brand, 4.5],
-    ['label on jet', p.onJet, p.jet, 4.5],
-    ['absence mark on a card', p.glyphFaint, p.surface, 3],
-    ['absence mark on the page', p.glyphFaint, p.pageBackground, 3],
+    ['label on the inverse surface', p.onInverseSurface, p.inverseSurface, 4.5],
+    ['tertiary text on a card', p.textTertiary, p.surface, 3],
     ...(['pageBackground', 'surface'] as const).flatMap((name): Case[] => [
       [`known glyph on ${name}`, p.statusKnown, p[name], 3],
       [`record on ${name}`, p.record, p[name], 3],
@@ -57,10 +56,6 @@ describe.each(['light', 'dark'] as const)('%s palette', (scheme) => {
       ]),
     ['switch thumb on the track off', p.onAccentFill, p.textTertiary, 3],
     ['switch thumb on the track on', p.onAccentFill, p.accentTrack, 3],
-    ['label on a disabled fill', p.disabledInk, p.disabledFill, 4.5],
-    // Off, a filled control still contrasts with what it sits on.
-    ['disabled fill on the page', p.disabledFill, p.pageBackground, 1.2],
-    ['disabled fill on a surface', p.disabledFill, p.surface, 1.2],
   ]
   it.each(cases)('%s passes', (_, fg, bg, min) => expect(ratio(fg, bg)).toBeGreaterThanOrEqual(min))
 })
@@ -295,13 +290,38 @@ function over(color: string, background: string): string {
   ])
 }
 
+// A disabled filled button has no fill: its label reads as off, fainter than secondary text,
+// against the page it sits on.
+it.each(['light', 'dark'] as const)(
+  'draws a %s disabled label fainter than secondary text',
+  (scheme) => {
+    const values = tokens(scheme)
+    const page = values.get('--page-background')!
+    const label = over(values.get('--on-disabled')!, page)
+    expect(ratio(label, page)).toBeLessThan(ratio(values.get('--text-secondary')!, page))
+    expect(values.get('--disabled-border')).toBe(values.get('--border-strong'))
+  },
+)
+
+// A label a platform draws white, such as an Apple swipe action's, on the strong fills.
+it.each(['light', 'dark'] as const)(
+  'keeps a white label legible on the %s strong fills',
+  (scheme) => {
+    const values = tokens(scheme)
+    for (const fill of ['--warning-fill-strong', '--danger-fill-strong'])
+      expect(ratio(values.get('--on-status-strong')!, values.get(fill)!)).toBeGreaterThanOrEqual(
+        4.5,
+      )
+  },
+)
+
 describe.each(['light', 'dark'] as const)('tints in %s', (scheme) => {
   const values = tokens(scheme)
   const token = (name: string) => values.get(name)!
   it.each([
     // The comparison's Premium column: the tint over the card it sits on.
-    ['Premium value on its tint', '--on-tint', '--premium-wash', '--surface', 4.5],
-    ['Premium check on its tint', '--text-primary', '--premium-wash', '--surface', 3],
+    ['Premium value on its tint', '--on-tint', '--tint-strong', '--surface', 4.5],
+    ['Premium check on its tint', '--text-primary', '--tint-strong', '--surface', 3],
     // A feature's icon tile, on the card its row sits on.
     ['feature icon on its tile', '--text-secondary', '--tint', '--surface', 3],
     [
@@ -312,48 +332,58 @@ describe.each(['light', 'dark'] as const)('tints in %s', (scheme) => {
       4.5,
     ],
     ['trial card text on its tint', '--text-primary', '--tint', '--page-background', 4.5],
-    ['secondary text on a selected row', '--text-secondary', '--wash', '--page-background', 4.5],
+    ['secondary text on a selected row', '--text-secondary', '--tint', '--page-background', 4.5],
     // A dimmed row, such as an archived tune, under each tint a row takes.
-    ...(['--row-hover', '--wash', '--play-wash'] as const).flatMap(
+    ...(['--tint-subtle', '--tint'] as const).flatMap(
       (tint): [string, string, string, string, number][] => [
         [`dimmed text on ${tint}`, '--text-secondary', tint, '--page-background', 4.5],
         [`tertiary text on ${tint}`, '--text-tertiary', tint, '--page-background', 3],
       ],
     ),
-    ['primary text on a set filter', '--text-primary', '--set-fill', '--page-background', 4.5],
-    ['secondary text on a set filter', '--text-secondary', '--set-fill', '--page-background', 4.5],
-    [
-      'set filter label on its tint over the page',
-      '--on-tint',
-      '--set-fill',
-      '--page-background',
-      4.5,
-    ],
-    ['set filter label on its tint over a surface', '--on-tint', '--set-fill', '--surface', 4.5],
+    ['primary text on a set filter', '--text-primary', '--tint', '--page-background', 4.5],
+    ['secondary text on a set filter', '--text-secondary', '--tint', '--page-background', 4.5],
+    ['set filter label on its tint over the page', '--on-tint', '--tint', '--page-background', 4.5],
+    ['set filter label on its tint over a surface', '--on-tint', '--tint', '--surface', 4.5],
     [
       'set filter label on its hover over a surface',
       '--on-tint',
-      '--set-fill-hover',
+      '--tint-strong',
       '--surface',
       4.5,
     ],
     // A chosen item's label and glyph, such as the current tab and a checked box, on its tint.
-    ['chosen label on its tint over the page', '--on-tint', '--wash', '--page-background', 4.5],
-    ['chosen label on its tint over a surface', '--on-tint', '--wash', '--surface', 4.5],
-    ['chosen glyph on its tint over a surface', '--accent', '--wash', '--surface', 3],
+    ['chosen label on its tint over the page', '--on-tint', '--tint', '--page-background', 4.5],
+    ['chosen label on its tint over a surface', '--on-tint', '--tint', '--surface', 4.5],
+    ['chosen glyph on its tint over a surface', '--accent', '--tint', '--surface', 3],
     // A plain worded button's accent label under the pointer.
     [
       'plain button label on its hover over the page',
       '--accent',
-      '--tint',
+      '--tint-subtle',
       '--page-background',
       4.5,
     ],
-    ['plain button label on its hover over a surface', '--accent', '--tint', '--surface', 4.5],
+    [
+      'plain button label on its hover over a surface',
+      '--accent',
+      '--tint-subtle',
+      '--surface',
+      4.5,
+    ],
+    // The ceiling on tint-strong: an accent label still holds on it, over a surface.
+    ['accent label on tint-strong over a surface', '--on-tint', '--tint-strong', '--surface', 4.5],
+    ['tinted button label on its hover', '--text-primary', '--tint-strongest', '--surface', 4.5],
+    [
+      'warning button label on its fill',
+      '--on-warning-fill',
+      '--warning-fill',
+      '--page-background',
+      4.5,
+    ],
     ...(['--danger', '--warning'] as const).flatMap(
       (tone): [string, string, string, string, number][] =>
         (['--page-background', '--surface'] as const).flatMap((background) => [
-          [`${tone} label on a selected row over ${background}`, tone, '--wash', background, 4.5],
+          [`${tone} label on a selected row over ${background}`, tone, '--tint', background, 4.5],
           [
             `${tone} label on its hover over ${background}`,
             tone,
@@ -363,7 +393,7 @@ describe.each(['light', 'dark'] as const)('tints in %s', (scheme) => {
           ],
         ]),
     ),
-    ...(['--row-hover', '--wash', '--play-wash', '--set-fill', '--tint'] as const).flatMap(
+    ...(['--tint-subtle', '--tint', '--tint-strong'] as const).flatMap(
       (tint): [string, string, string, string, number][] =>
         (['--page-background', '--surface'] as const).map((background) => [
           `unknown ring on ${tint} over ${background}`,

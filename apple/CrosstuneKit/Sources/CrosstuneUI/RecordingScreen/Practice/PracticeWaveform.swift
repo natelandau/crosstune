@@ -139,7 +139,8 @@ struct PracticeWaveform: View {
             Canvas { context, size in
                 drawRuler(in: &context, size: size, view: view)
             }
-            // The ruler has a fixed height and tick spacing, so its labels stop growing at the default size.
+            // The ruler has a fixed height and tick spacing, so its labels stop growing at the
+            // default size.
             .dynamicTypeSize(...DynamicTypeSize.large)
             .frame(height: Self.rulerHeight)
             .accessibilityHidden(true)
@@ -234,7 +235,8 @@ struct PracticeWaveform: View {
                     peaks.map { peaks in bars.path(height: height) { peaks.gridLevel(barMs: bars.barMs, index: $0) } }
                     ?? BarPath.peakBars(levels: [], in: CGRect(x: x0, y: 0, width: x1 - x0, height: height))
                 if practiceScheme != nil {
-                    // What has played, left of the fixed playhead, is white; what is to come is silver.
+                    // What has played, left of the fixed playhead, is white; what is to come is
+                    // silver.
                     context.fillSplit(
                         path, atX: width / 2, played: Palette.onPractice, unplayed: Palette.onPracticeSecondary)
                 } else {
@@ -247,10 +249,12 @@ struct PracticeWaveform: View {
             let start = max(0, view.x(ofSourceMs: Double(loop.span.startMs)))
             let end = min(width, view.x(ofSourceMs: Double(loop.span.endMs)))
             guard end > start else { continue }
-            let tint = Palette.loopTint(loop.color, scheme: colorScheme)
+            let tint =
+                loop.id == selectedID
+                ? Palette.loopTint(loop.color, scheme: colorScheme)
+                : Palette.loopTintUnselected(loop.color, scheme: colorScheme)
             context.fill(
-                Path(CGRect(x: start, y: 0, width: end - start, height: Double(size.height))),
-                with: .color(loop.id == selectedID ? tint : tint.opacity(0.5)))
+                Path(CGRect(x: start, y: 0, width: end - start, height: Double(size.height))), with: .color(tint))
         }
         context.fillPlayhead(
             CGRect(x: width / 2 - 1, y: 0, width: 2, height: Double(size.height)), onPractice: practiceScheme != nil)
@@ -366,11 +370,11 @@ struct PracticeWaveform: View {
             .accessibilityAction(named: PracticeText.earlierBySecond) { step(edge, by: -PracticeModel.largeNudgeMs) }
     }
 
-    /// A handle's color: every loop's in the brand color, the one color for what marks a
-    /// position, which leaves the loop's own color to its band and tab; trim's plain white on the
-    /// practice background, so editing reads apart from practice.
+    /// A handle's color: every loop's in the brand color, the one color for what marks a position,
+    /// which leaves the loop's own color to its band and tab; trim's in the practice background's
+    /// text color, so editing reads apart from practice.
     static func handleColor(isTrim: Bool) -> Color {
-        isTrim ? .white : Palette.brand
+        isTrim ? Palette.onPractice : Palette.brand
     }
 
     /// One VoiceOver step: a change of its own, written at once.
@@ -504,19 +508,19 @@ private struct Backing: ViewModifier {
             content
                 .background {
                     RoundedRectangle(cornerRadius: 8)
-                        .fill(Palette.pageBackground.opacity(0.92))
-                        .shadow(color: .black.opacity(0.12), radius: 3, y: 1)
+                        .fill(Palette.surfaceRaised)
+                        .elevation(.control)
                 }
                 .contentShape(.rect(cornerRadius: 8))
         #else
             content
-                .background(fill.opacity(0.8), in: .rect(cornerRadius: 8))
+                .background(fill, in: .rect(cornerRadius: 8))
                 .contentShape(.rect(cornerRadius: 8))
         #endif
     }
 
-    private var fill: AnyShapeStyle {
-        practiceScheme.map { AnyShapeStyle(Palette.practiceBackground($0)) } ?? AnyShapeStyle(.background)
+    private var fill: Color {
+        practiceScheme.map { Palette.practiceBackgroundTranslucent($0) } ?? Palette.pageBackgroundTranslucent
     }
 }
 
@@ -559,7 +563,7 @@ private struct HandleMark: View {
             .overlay {
                 HStack(spacing: 2) {
                     ForEach(0..<2, id: \.self) { _ in
-                        Capsule().fill(.white.opacity(0.9)).frame(width: 1.5, height: 16)
+                        Capsule().fill(Palette.onPractice).frame(width: 1.5, height: 16)
                     }
                 }
             }
@@ -573,26 +577,26 @@ extension GraphicsContext.Shading {
         #if os(macOS)
             .color(Palette.brand)
         #else
-            onPractice ? .color(Palette.brand) : .style(.primary)
+            onPractice ? .color(Palette.brand) : .style(.textPrimary)
         #endif
     }
 }
 
 #if os(macOS)
     extension Color {
-        /// A point of the stage's color around a brand-colored handle or playhead, so it reads where it
-        /// crosses a loop's orange band.
+        /// A point of the stage's color around a brand-colored handle or playhead, so it reads
+        /// where it crosses a loop's orange band.
         static var markOutline: Color { Palette.surface }
     }
 
     /// The Mac waveform's colors on the practice stage: what has played, left of the fixed
-    /// playhead, near the full text color, and what is to come faint, in both appearances.
+    /// playhead, in the text color, and what is to come faint, in both appearances.
     enum MacWave {
-        static var played: Color { Palette.textPrimary.opacity(0.85) }
-        static var unplayed: Color { Palette.textPrimary.opacity(0.28) }
+        static var played: Color { Palette.textPrimary }
+        static var unplayed: Color { Palette.textTertiary }
         /// Bars in place of a waveform not yet on hand, quieter than any real bar.
-        static var placeholder: Color { Palette.textPrimary.opacity(0.12) }
-        static var tick: Color { Palette.textSecondary.opacity(0.6) }
+        static var placeholder: Color { Palette.border }
+        static var tick: Color { Palette.textTertiary }
         static let tickHeight: CGFloat = 5
     }
 #endif
@@ -626,18 +630,14 @@ extension GraphicsContext {
 }
 
 extension GraphicsContext.Shading {
-    /// Quiet bars on the page, in secondary text; on the dark practice background, the system's
-    /// tertiary.
+    /// Quiet bars and ruler ticks: secondary text on the page, the practice background's
+    /// secondary text on it.
     static func quietBars(onPractice: Bool) -> Self {
-        if !onPractice { return .color(Palette.textSecondary) }
-        return .style(.tertiary)
+        .color(onPractice ? Palette.onPracticeSecondary : Palette.textSecondary)
     }
 
-    /// Ruler ticks on the page, in secondary text; on the dark practice background, the system's
-    /// secondary.
     static func rulerTick(onPractice: Bool) -> Self {
-        if !onPractice { return .color(Palette.textSecondary) }
-        return .style(.secondary)
+        .color(onPractice ? Palette.onPracticeSecondary : Palette.textSecondary)
     }
 }
 

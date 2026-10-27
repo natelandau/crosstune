@@ -11,6 +11,6 @@ struct FailureText: View {
     var body: some View {
         Text(message)
             .font(.platform(.footnote))
-            .foregroundStyle(.red)
+            .foregroundStyle(Palette.danger)
     }
 }

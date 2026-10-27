@@ -197,7 +197,7 @@ private struct TunePickerContent: View {
                 if let failure = model.failure {
                     Text(failure)
                         .font(.platform(.footnote))
-                        .foregroundStyle(.red)
+                        .foregroundStyle(Palette.danger)
                 }
                 if model.isIdle {
                     if model.showsHint {
@@ -261,7 +261,7 @@ private struct TunePickerContent: View {
                         .font(.platform(.title3))
                         .foregroundStyle(.tint)
                     TuneRow(tune: row.entry.tune, userTune: row.entry.userTune, instruments: model.instruments)
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(.textPrimary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(.rect)

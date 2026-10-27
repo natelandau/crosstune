@@ -6,12 +6,14 @@
     public struct DropOverlay: View {
         public static let label = "Drop to import"
 
+        @Environment(\.colorScheme) private var colorScheme
+
         public init() {}
 
         public var body: some View {
             let shape = RoundedRectangle(cornerRadius: 10)
             shape
-                .fill(Palette.accent.opacity(0.06))
+                .fill(Palette.tintSubtle(colorScheme))
                 .strokeBorder(Palette.accent, lineWidth: 2)
                 .overlay {
                     Label(Self.label, systemImage: "square.and.arrow.down")

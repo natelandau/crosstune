@@ -11,6 +11,26 @@ import Testing
 
 @MainActor
 @Suite struct PaletteTests {
+    /// The system draws a swipe action's label white, so every swipe fill holds 4.5:1 under it.
+    @Test(arguments: [ColorScheme.light, .dark])
+    func whiteSwipeLabelPassesContrastOnEverySwipeFill(scheme: ColorScheme) {
+        #expect(Palette.hex(.onStatusStrong, scheme) == "#FFFFFF")
+        for fill in Palette.swipeFills {
+            #expect(
+                contrastRatio(Palette.hex(.onStatusStrong, scheme), Palette.hex(fill, scheme)) >= 4.5, "\(fill)")
+        }
+    }
+
+    /// A recording row's swipe actions take only the swipe fills.
+    @Test func recordingSwipeActionsTakeOnlyTheSwipeFills() {
+        let actions: [RecordingRowAction] = [
+            .edit, .addToTune, .removeFromTune, .goToTune, .pin, .openOrigin(site: "YouTube"), .delete,
+        ]
+        for action in actions {
+            #expect(Palette.swipeFills.contains(RecordingRowHandlers.swipeFill(action)), "\(action)")
+        }
+    }
+
     /// Every filled control off the Mac fills with the accent fill, so its white label reads.
     @Test(arguments: [ColorScheme.light, .dark])
     func theLabelOnTheAccentFillPassesContrast(scheme: ColorScheme) {
@@ -53,11 +73,11 @@ import Testing
         #expect(contrastRatio(Palette.hex(.onBrand, .light), Palette.hex(.brand, .light)) >= 4.5)
     }
 
-    /// The Premium column's checks and values on the column's tint over the card.
+    /// The Premium column's checks and values on the column's strong tint over the card.
     @Test(arguments: PlanSurface.phone)
     func premiumColumnPassesContrastOnItsTint(surface: PlanSurface) {
         let tint = blend(
-            Palette.hex(.accent, surface.scheme), over: surface.card, opacity: Palette.tintOpacity(surface.scheme)
+            Palette.hex(.accent, surface.scheme), over: surface.card, opacity: Palette.tintStrongOpacity(surface.scheme)
         )
         let label = Palette.hex(Palette.onTintIsAccent(surface.scheme) ? .accent : .textPrimary, surface.scheme)
         #expect(contrastRatio(label, tint) >= 3, "check, \(surface)")
@@ -90,16 +110,14 @@ import Testing
     }
 
     #if os(macOS)
-        /// On the Mac the Premium column is a brand tint over the card, which is `surface`, with
-        /// its checks and values in the primary text color.
+        /// On the Mac the Premium column is the strong tint over the card, which is `surface`,
+        /// with its checks and values in the label on a tint.
         @Test(arguments: [ColorScheme.light, .dark])
-        func premiumColumnTextPassesContrastOnBrandTint(scheme: ColorScheme) {
+        func premiumColumnTextPassesContrastOnStrongTint(scheme: ColorScheme) {
             let card = Palette.hex(.surface, scheme)
-            let tint = blend(Palette.hex(.brand, .light), over: card, opacity: PlanComparison.macPremiumTintOpacity)
-            #expect(contrastRatio(Palette.hex(.textPrimary, scheme), tint) >= 4.5)
-            // The tint must read as the brand color, not vanish into the card.
-            #expect(PlanComparison.macPremiumTintOpacity >= 0.10)
-            #expect(PlanComparison.macPremiumTintOpacity <= 0.12)
+            let tint = blend(Palette.hex(.accent, scheme), over: card, opacity: Palette.tintStrongOpacity(scheme))
+            let label = Palette.hex(Palette.onTintIsAccent(scheme) ? .accent : .textPrimary, scheme)
+            #expect(contrastRatio(label, tint) >= 4.5)
         }
 
         /// The Free column's checks, dashes, and values in secondary text on the card, and a

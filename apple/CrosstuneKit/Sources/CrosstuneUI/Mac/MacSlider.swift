@@ -59,7 +59,7 @@
                 let anchorX = x(of: detent ?? range.lowerBound, width: width)
                 ZStack(alignment: .leading) {
                     Capsule()
-                        .fill(Palette.textSecondary.opacity(0.25))
+                        .fill(Palette.borderStrong)
                         .frame(height: Self.trackHeight)
                     Capsule()
                         .fill(Palette.accent)
@@ -72,9 +72,9 @@
                             .offset(x: x(of: detent, width: width) - 1)
                     }
                     Circle()
-                        .fill(scheme == .dark ? Palette.textPrimary : .white)
+                        .fill(scheme == .dark ? Palette.textPrimary : Palette.surfaceRaised)
                         .overlay { Circle().strokeBorder(Palette.border) }
-                        .shadow(color: .black.opacity(0.2), radius: 1.5, y: 0.5)
+                        .elevation(.control)
                         .frame(width: Self.thumbDiameter, height: Self.thumbDiameter)
                         .macFocusRing(focused, cornerRadius: Self.thumbDiameter / 2)
                         .offset(x: thumbX - Self.thumbDiameter / 2)

@@ -1,10 +1,21 @@
 import SwiftUI
 
 extension ShapeStyle where Self == AnyShapeStyle {
+    /// Body text and glyphs in a shared view: `Palette.textPrimary`, turning white on an
+    /// emphasized selection's accent fill, as the system's primary does.
+    static var textPrimary: AnyShapeStyle { AnyShapeStyle(PrimaryText()) }
+
     /// Secondary text and glyphs in a shared view: `Palette.textSecondary`, which holds 4.5:1 on
     /// every background where the system's translucent secondary does not. It turns white on an
     /// emphasized selection's accent fill.
     static var textSecondary: AnyShapeStyle { AnyShapeStyle(SecondaryText()) }
+}
+
+/// `textPrimary`, turning white where an emphasized selection raises the background.
+struct PrimaryText: ShapeStyle {
+    func resolve(in environment: EnvironmentValues) -> Color {
+        Palette.color(environment.backgroundProminence == .increased ? .onAccentFill : .textPrimary)
+    }
 }
 
 /// `textSecondary`, turning white where an emphasized selection raises the background, as the

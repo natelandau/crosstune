@@ -205,7 +205,7 @@ it.each([
   await expect.poll(() => row.element().querySelector('[data-count]')).not.toBeNull()
   const count = row.element().querySelector('[data-count]')!
   const background = paintedBackground(row.element().parentElement!)
-  // The row eases into its wash, so measure once the transition has run.
+  // The row eases into its tint, so measure once the transition has run.
   await expect.poll(() => row.element().getAnimations().length).toBe(0)
   expect(
     contrastRatio(

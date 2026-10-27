@@ -63,7 +63,7 @@ struct TunerBars: View {
             Self.innerRounded(inner, radius: Self.barRadius)
                 .fill(color)
                 .frame(height: max(Self.minBarHeight, size.height * Self.barHeightShare))
-                .shadow(color: color.opacity(0.7), radius: Self.glowRadius)
+                .shadow(color: Palette.tunerGlow(color), radius: Self.glowRadius)
                 .offset(y: Self.barOffset(cents: cents, height: size.height))
         }
         .frame(width: width, height: size.height)

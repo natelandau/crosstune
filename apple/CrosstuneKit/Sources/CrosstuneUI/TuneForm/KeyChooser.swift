@@ -76,7 +76,7 @@ struct KeyChooser: View {
                 #else
                     Text(Self.moreKeys)
                         .font(.platform(.subheadline))
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(.textPrimary)
                         .padding(.horizontal, spacing(14))
                         .padding(.vertical, spacing.chipVertical)
                         .background(.neutralFill, in: .capsule)

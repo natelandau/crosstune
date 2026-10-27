@@ -192,7 +192,7 @@ struct SuggestionField: View {
             VStack(spacing: 0) {
                 Divider()
                 configuration.label
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(.textPrimary)
                     .frame(maxWidth: .infinity, minHeight: minimumTapTarget, alignment: .leading)
                     .contentShape(.rect)
             }

@@ -41,14 +41,24 @@ private struct AccentProminentButton: View {
             }
         }
     #else
+        @Environment(\.isEnabled) private var isEnabled
+
+        /// A disabled button drops its fill for a ring and a faint label, so it reads as off and
+        /// never as another filled button.
         var body: some View {
             let button = Button(role: configuration.role, action: configuration.trigger) {
-                configuration.label.onAccentLabel()
+                configuration.label.foregroundStyle(isEnabled ? Palette.onAccentFill : Palette.onDisabled)
+            }
+            .buttonBorderShape(isEnabled ? .automatic : .capsule)
+            .overlay {
+                if !isEnabled {
+                    Capsule().strokeBorder(Palette.disabledBorder, lineWidth: 1).allowsHitTesting(false)
+                }
             }
             if glass {
-                button.buttonStyle(.glassProminent).tint(Palette.accentFill)
+                button.buttonStyle(.glassProminent).tint(isEnabled ? Palette.accentFill : .clear)
             } else {
-                button.buttonStyle(.borderedProminent).tint(Palette.accentFill)
+                button.buttonStyle(.borderedProminent).tint(isEnabled ? Palette.accentFill : .clear)
             }
         }
     #endif

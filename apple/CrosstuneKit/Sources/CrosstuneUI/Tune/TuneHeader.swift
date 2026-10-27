@@ -189,8 +189,7 @@ private struct KeyTile: View {
                 .background(background(tileLabel), in: shape)
                 .overlay {
                     if tileLabel == .empty {
-                        shape.strokeBorder(
-                            Color.primary.opacity(0.25), style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
+                        shape.strokeBorder(Palette.borderStrong, style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
                     }
                 }
                 .contentShape(shape)
@@ -253,7 +252,7 @@ private struct KeyTile: View {
     }
 
     private func textStyle(_ key: String) -> AnyShapeStyle {
-        pillColors(key).map { AnyShapeStyle($0.text.color) } ?? AnyShapeStyle(.primary)
+        pillColors(key).map { AnyShapeStyle($0.text.color) } ?? AnyShapeStyle(.textPrimary)
     }
 }
 

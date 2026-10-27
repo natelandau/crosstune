@@ -8,16 +8,7 @@
         /// Lines whose hierarchical style is proven to hold where it draws, by file. Each entry
         /// covers one line, so a second line with the same text still fails. A new entry names the
         /// background it sits on and why `textSecondary` cannot replace it.
-        static let allowed: [String: [String]] = [
-            // Drawn only on the practice background, a dark background where the system's
-            // hierarchical styles resolve against the dark scheme and hold contrast.
-            "RecordingScreen/Practice/PracticeWaveform.swift": [
-                "return .style(.tertiary)",
-                "return .style(.secondary)",
-            ],
-            // The audio a trim cuts away is faded back on purpose, so it stays quieter than the primary text color.
-            "RecordingScreen/TrimScreen.swift": ["context.fill(cut, with: .style(.quaternary))"],
-        ]
+        static let allowed: [String: [String]] = [:]
 
         /// A hierarchical style as a foreground: `.foregroundStyle(.secondary)`, one in a
         /// ternary, a canvas `.style(.tertiary)`, `Color.secondary`, or `.foregroundColor(.tertiary)`.

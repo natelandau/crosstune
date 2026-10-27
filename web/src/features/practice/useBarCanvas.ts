@@ -8,7 +8,7 @@ import { useScheme } from '../../theme/useScheme'
  * resolves each.
  */
 export const BAR_CANVAS_CLASS =
-  'ph-no-capture block w-full border-(--wave-unplayed) text-(--wave-played)'
+  'ph-no-capture block w-full border-(--waveform-unplayed) text-(--waveform-played)'
 
 interface Surface {
   width: number

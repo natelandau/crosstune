@@ -35,7 +35,7 @@ differ. iPhone and iPad never take a rule from here.
 - Glass only on pane bar glyph controls. Never on a content button, the
   sidebar, or the dock.
 - Depth from floating chrome only: toolbar, pane bar glyph controls, the
-  undo banner, and an overlay over content (`ground` with a soft shadow,
+  undo banner, and an overlay over content (`pageBackground` with a soft shadow,
   no stroke).
 
 ## Buttons and chips
@@ -104,21 +104,21 @@ differ. iPhone and iPad never take a rule from here.
   text.
 - One leading edge for every section's text. A glyph that leads a line
   hangs in `pageGlyphColumn`, inside the margin.
-- A link line is secondary ink, the accent only under the pointer.
+- A link line is `textSecondary`, the accent only under the pointer.
 - A wrapped middle-dot line breaks after a dot, never before.
 
 ## Player and practice
 
 - Practice takes the detail column, not a sheet, so sidebar and list stay
   in reach.
-- Practice follows the appearance, on `ground` with a `surface` stage
-  card. The phone's dark practice ground reads as a foreign panel beside
+- Practice follows the appearance, on `pageBackground` with a `surface`
+  stage card. The phone's dark `practiceBackground` reads as a foreign panel beside
   the sidebar and list, and flips the sheets practice opens.
 
 ## Sheets
 
 - Sheet: `MacSheet`, never a `NavigationStack` toolbar band. Title in the
-  content, body on `ground`, footer on `surface` under a hairline: leading
+  content, body on `pageBackground`, footer on `surface` under a border: leading
   slot, then Cancel or Close, then the one primary trailing. Escape
   presses Cancel, Return the primary.
 - The title of an irreversible step leads with the danger glyph.
@@ -194,16 +194,16 @@ differ. iPhone and iPad never take a rule from here.
 
 SwiftUI and AppKit behavior that a new screen runs into.
 
-- Window or scene root carries `.tint(MacStyle.accent)`. AppKit-drawn
+- Window or scene root carries `.tint(Palette.accent)`. AppKit-drawn
   pieces (list selection, focus rings, default buttons, alerts, menus,
   Settings tabs) ignore tint and take the `AccentColor` asset, whose
-  universal entries carry Harbor.
-- Every sheet root resets the container to `ground` (`MacSheet`,
+  universal entries carry the accent.
+- Every sheet root resets the container to `pageBackground` (`MacSheet`,
   `.shellSheet()`): a sheet takes its presenter's environment, so one
   opened from a card otherwise draws for the card.
-- Secondary ink on a selection that is not emphasized (an inactive window,
-  an unfocused list) turns to ink, since that gray falls under 4.5:1 with
-  secondary ink. The list does not report it, so the row marks itself
+- `textSecondary` on a selection that is not emphasized (an inactive
+  window, an unfocused list) turns to `textPrimary`, since that gray falls
+  under 4.5:1 with `textSecondary`. The list does not report it, so the row marks itself
   (`macRowSelected`).
 - `paneBar` is the one pane-control bar. Every column, detail included,
   puts its controls there, because a Mac toolbar puts a content column's

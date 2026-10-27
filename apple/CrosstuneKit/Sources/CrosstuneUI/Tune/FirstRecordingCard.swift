@@ -75,7 +75,7 @@ struct FirstRecordingCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .overlay {
             RoundedRectangle(cornerRadius: PageStyle.surfaceRadius)
-                .strokeBorder(Color.primary.opacity(0.22), style: StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
+                .strokeBorder(Palette.borderStrong, style: StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
         }
         .onChange(of: offline) { find.connectionChanged() }
     }

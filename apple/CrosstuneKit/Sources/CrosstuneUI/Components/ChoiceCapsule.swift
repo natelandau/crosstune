@@ -30,7 +30,7 @@ public struct ChoiceCapsule<Label: View>: View {
                     .fixedSize()
                     .font(.subheadline)
                     .foregroundStyle(
-                        isChosen ? AnyShapeStyle(Palette.onAccentFill) : AnyShapeStyle(.primary)
+                        isChosen ? AnyShapeStyle(Palette.onAccentFill) : AnyShapeStyle(.textPrimary)
                     )
                     .padding(.horizontal, spacing(14))
                     .padding(.vertical, spacing.chipVertical)
@@ -61,7 +61,7 @@ struct ChoiceCapsuleLabel: View {
             Text(text)
                 .font(.subheadline)
                 .lineLimit(1)
-                .foregroundStyle(chosen ? AnyShapeStyle(Palette.onAccentFill) : AnyShapeStyle(.primary))
+                .foregroundStyle(chosen ? AnyShapeStyle(Palette.onAccentFill) : AnyShapeStyle(.textPrimary))
                 .padding(.horizontal, spacing(14))
                 .padding(.vertical, spacing.chipVertical)
                 .background(chosen ? AnyShapeStyle(Palette.accentFill) : AnyShapeStyle(.neutralFill), in: .capsule)

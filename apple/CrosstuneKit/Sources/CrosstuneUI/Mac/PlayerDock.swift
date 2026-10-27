@@ -195,7 +195,7 @@ import CrosstuneAnalytics
                 if let failure = player.failure {
                     Text(failure)
                         .font(MacStyle.secondary)
-                        .foregroundStyle(.red)
+                        .foregroundStyle(Palette.danger)
                         .lineLimit(1)
                 } else if let subtitle {
                     Text(subtitle)
@@ -311,8 +311,6 @@ import CrosstuneAnalytics
         @State private var dragging = false
 
         private static let lineHeight: CGFloat = 3
-        /// The played part's color, quieter than text so the brand-color playhead leads.
-        static let fillOpacity: Double = 0.55
         /// Taller than the line, so a pointer grabs it without aiming at three points.
         private static let height: CGFloat = 20
 
@@ -324,7 +322,7 @@ import CrosstuneAnalytics
                 ZStack(alignment: .leading) {
                     Capsule().fill(Palette.border)
                         .frame(height: Self.lineHeight)
-                    Capsule().fill(Palette.textPrimary.opacity(ScrubberTrack.fillOpacity))
+                    Capsule().fill(Palette.textTertiary)
                         .frame(width: x, height: Self.lineHeight)
                     Circle()
                         .fill(Palette.brand)

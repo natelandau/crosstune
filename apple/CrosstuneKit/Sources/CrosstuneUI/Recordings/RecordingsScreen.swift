@@ -43,7 +43,7 @@ struct RecordingsGroupHeading: View {
             #if os(macOS)
                 .foregroundStyle(Palette.textPrimary)
             #else
-                .foregroundStyle(.primary)
+                .foregroundStyle(.textPrimary)
             #endif
             .textCase(nil)
             .padding(.top, PageStyle.groupHeadingTop)
@@ -187,7 +187,7 @@ private struct RecordingsContent: View {
             if let failure = model.failure {
                 Text(failure)
                     .font(.platform(.footnote))
-                    .foregroundStyle(.red)
+                    .foregroundStyle(Palette.danger)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 20)
                     .padding(.vertical, spacing.stackGap)
@@ -605,7 +605,7 @@ private struct RecordingsContent: View {
         )
         .mediaRowInsets()
         .unselectedRowBackground(isSelected: false)
-        .swipeActions(edge: .trailing, allowsFullSwipe: false) { discard }
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) { discard.tint(Palette.dangerFillStrong) }
         .contextMenu { discard }
     }
 

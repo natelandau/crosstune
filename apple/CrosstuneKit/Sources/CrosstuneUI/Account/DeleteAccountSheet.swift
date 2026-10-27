@@ -239,7 +239,7 @@ public struct DeleteAccountSheet: View {
                         VStack(spacing: spacing.stackGap) {
                             Image(systemName: "exclamationmark.triangle.fill")
                                 .font(.platform(.largeTitle, mac: .columnTitle))
-                                .foregroundStyle(.red)
+                                .foregroundStyle(Palette.danger)
                                 .accessibilityHidden(true)
                             Text(Self.heading)
                                 .font(.platform(.headline))
@@ -283,7 +283,7 @@ public struct DeleteAccountSheet: View {
                     } footer: {
                         if let failure {
                             Text(failure)
-                                .foregroundStyle(.red)
+                                .foregroundStyle(Palette.danger)
                         }
                     }
                 }

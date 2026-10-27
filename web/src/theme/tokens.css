@@ -15,7 +15,6 @@
   --warm-gray-150: #ddd9d3;
   --warm-gray-400: #aba69e;
   --warm-gray-500: #8a857c;
-  --warm-gray-510: #8a847b;
   --warm-gray-600: #706b63;
   --warm-gray-700: #5f5b54;
   --warm-gray-800: #3e3c37;
@@ -33,7 +32,6 @@
   --gray-900: #1e2024;
   --gray-925: #1c2026;
   --gray-950: #16181b;
-  --gray-960: #16181d;
   --slate-300: #bfc0c0;
   --slate-600: #4f5d75;
   --slate-800: #2d3142;
@@ -60,6 +58,7 @@
   --orange-300: #ffb35c;
   --orange-400: #ff8d28;
   --orange-450: #ff9230;
+  --orange-700: #b85c00;
   --orange-800: #8a4b00;
 
   /* Backgrounds and borders. A control on a surface takes surface-raised, since field reads
@@ -86,11 +85,12 @@
      track. */
   --text-tertiary: var(--warm-gray-500);
   --text-tertiary-hover: color-mix(in srgb, var(--text-tertiary), var(--text-primary) 22%);
-  /* A filled control that is off: a neutral shape that still contrasts with the page. */
-  --disabled-fill: var(--warm-gray-150);
-  --disabled-ink: var(--warm-gray-700);
-  /* The faintest glyph that still clears 3:1 on a fill, for a mark that means absence. */
-  --glyph-faint: var(--warm-gray-500);
+  /* A filled control that is off: no fill, a ring, and a faint label, so it reads as off and
+     never as another filled button. */
+  --disabled-border: var(--border-strong);
+  --on-disabled: color-mix(in srgb, var(--text-primary) 45%, transparent);
+  /* Laid over a fill that has no hover of its own. */
+  --hover-overlay: color-mix(in srgb, var(--text-primary) 6%, transparent);
 
   /* Accent */
   --accent: var(--blue-700);
@@ -103,18 +103,14 @@
   /* A label on an accent tint. Over a dark surface the tint leaves the accent short of 4.5:1, so
      the dark label is primary text. */
   --on-tint: var(--accent);
-  /* A tinted control's fill, a plain control's hover, and a tinted control's hover. */
+  /* The accent tint scale. Subtle: a hover on a row or plain control, and the playing row.
+     Tint: a selection, a set filter, a tinted control. Strong: a hover on a tint; no stronger, so
+     an accent label on it holds 4.5:1. Strongest: a tinted control's hover and a ring; never under
+     an accent label. */
+  --tint-subtle: color-mix(in srgb, var(--accent) 8%, transparent);
   --tint: color-mix(in srgb, var(--accent) 12%, transparent);
-  --tint-hover: color-mix(in srgb, var(--accent) 22%, transparent);
-  --tint-strong: color-mix(in srgb, var(--accent) 30%, transparent);
-  --row-hover: color-mix(in srgb, var(--accent) 8%, transparent);
-  --wash: color-mix(in srgb, var(--accent) 12%, transparent);
-  /* The playing row's wash, lighter than a selection's so the two read apart. */
-  --play-wash: color-mix(in srgb, var(--accent) 10%, transparent);
-  --set-fill: color-mix(in srgb, var(--accent) 12%, transparent);
-  /* A set filter under the pointer: a step stronger, and no more, so the accent label holds. */
-  --set-fill-hover: color-mix(in srgb, var(--accent) 16%, transparent);
-  --premium-wash: color-mix(in srgb, var(--accent) 18%, transparent);
+  --tint-strong: color-mix(in srgb, var(--accent) 18%, transparent);
+  --tint-strongest: color-mix(in srgb, var(--accent) 30%, transparent);
 
   /* Status */
   --danger: var(--red-700);
@@ -122,30 +118,53 @@
   --danger-hover: color-mix(in srgb, var(--danger), var(--text-primary) 12%);
   --warning: var(--orange-800);
   --warning-subtle: color-mix(in srgb, var(--warning) 15%, transparent);
-  --warning-fill: var(--warning);
+  /* Brand coral in light, where an orange that carries a white label reads brown. */
+  --warning-fill: var(--brand);
   --warning-fill-hover: color-mix(in srgb, var(--warning-fill), var(--text-primary) 12%);
-  --on-warning-fill: var(--on-status);
+  --on-warning-fill: var(--on-brand);
+  /* Darker fills for a white label a platform draws itself, such as an Apple swipe action. */
+  --warning-fill-strong: var(--orange-700);
+  --danger-fill-strong: var(--red-700);
+  --on-status-strong: var(--white);
   /* Text or a glyph on a danger, warning, or known fill. */
   --on-status: var(--white);
   --status-known: var(--green-700);
   --status-known-subtle: color-mix(in srgb, var(--status-known) 15%, transparent);
+  --status-known-subtle-hover: color-mix(
+    in srgb,
+    var(--status-known-subtle),
+    var(--text-primary) 6%
+  );
   /* Apple's system orange, under 3:1 on a light page; its half fill carries the status. */
   --status-learning: var(--orange-400);
   --status-learning-subtle: color-mix(in srgb, var(--status-learning) 15%, transparent);
+  --status-learning-subtle-hover: color-mix(
+    in srgb,
+    var(--status-learning-subtle),
+    var(--text-primary) 6%
+  );
   --status-unknown: var(--gray-400);
   --status-unknown-subtle: color-mix(in srgb, var(--status-unknown) 15%, transparent);
+  --status-unknown-subtle-hover: color-mix(
+    in srgb,
+    var(--status-unknown-subtle),
+    var(--text-primary) 6%
+  );
   /* The unknown ring on a surface or a tint, which the lighter gray falls under 3:1 on. */
   --status-unknown-on-fill: var(--gray-500);
   --record: var(--red-500);
   /* White falls under 4.5:1 on the red, so the label is dark and the hover lightens. */
-  --on-record: var(--gray-960);
+  --on-record: var(--gray-950);
   --record-hover: var(--red-450);
 
-  /* Inverse, brand, practice */
-  --jet: var(--slate-800);
-  --on-jet: var(--white);
-  /* A drawn device's frame in the welcome illustrations. */
-  --device-bezel: var(--jet);
+  /* Inverse, brand, practice. The inverse surface, under a tooltip or an undo banner, is the
+     other appearance's page. */
+  --inverse-surface: var(--text-primary);
+  --on-inverse-surface: var(--page-background);
+  --inverse-accent: var(--blue-300);
+  /* The welcome illustrations' own colors: a drawn device's frame and the tuner they show. */
+  --device-bezel: var(--slate-800);
+  --illustration-practice-background: var(--slate-800);
   --brand: var(--coral-400);
   /* Coral is light in either appearance, so the label on it is dark in both. */
   --on-brand: var(--slate-950);
@@ -156,9 +175,13 @@
   --on-practice: var(--white);
   --on-practice-secondary: var(--slate-300);
   --on-practice-hover: var(--gray-150);
-  --practice-fill: color-mix(in srgb, var(--gray-470) 24%, transparent);
+  --practice-fill: color-mix(in srgb, var(--gray-470) 44%, transparent);
   --practice-fill-hover: color-mix(in srgb, var(--gray-470) 42%, transparent);
   --practice-hover: color-mix(in srgb, var(--white) 14%, transparent);
+
+  /* A recording's waveform: the part played, and the part still to play. */
+  --waveform-played: var(--text-primary);
+  --waveform-unplayed: var(--text-tertiary);
 
   /* The tuner's close step, lighter than its far step of brand coral, so the two read apart by
      lightness and not only by hue. */
@@ -270,36 +293,30 @@
   --border: color-mix(in srgb, var(--blue-50) 10%, transparent);
   --text-primary: var(--gray-100);
   --text-secondary: var(--gray-300);
-  --text-tertiary: var(--warm-gray-510);
-  --disabled-fill: var(--warm-gray-800);
-  --disabled-ink: var(--warm-gray-400);
-  --glyph-faint: var(--warm-gray-600);
   --accent: var(--blue-300);
   --accent-fill: var(--blue-650);
   --accent-fill-hover: var(--blue-550);
   --accent-track: var(--blue-400);
   /* The accent falls under 4.5:1 on a dark tint over a surface. */
   --on-tint: var(--text-primary);
-  --tint: color-mix(in srgb, var(--accent) 16%, transparent);
-  --tint-hover: color-mix(in srgb, var(--accent) 28%, transparent);
-  --tint-strong: color-mix(in srgb, var(--accent) 50%, transparent);
-  --row-hover: color-mix(in srgb, var(--accent) 10%, transparent);
-  --wash: color-mix(in srgb, var(--accent) 24%, transparent);
-  --play-wash: color-mix(in srgb, var(--accent) 18%, transparent);
-  --set-fill: color-mix(in srgb, var(--accent) 22%, transparent);
-  --set-fill-hover: color-mix(in srgb, var(--accent) 28%, transparent);
-  --premium-wash: color-mix(in srgb, var(--accent) 28%, transparent);
+  --tint-subtle: color-mix(in srgb, var(--accent) 10%, transparent);
+  --tint: color-mix(in srgb, var(--accent) 22%, transparent);
+  --tint-strong: color-mix(in srgb, var(--accent) 28%, transparent);
+  --tint-strongest: color-mix(in srgb, var(--accent) 50%, transparent);
   --danger: var(--red-300);
   --warning: var(--orange-300);
-  --on-status: var(--gray-960);
+  --warning-fill: var(--warning);
+  --on-warning-fill: var(--on-status);
+  --on-status: var(--gray-950);
   --status-known: var(--green-400);
   --status-learning: var(--orange-450);
   --status-unknown-on-fill: var(--gray-400);
   --record: var(--red-480);
   --record-hover: var(--red-430);
-  --jet: var(--slate-900);
-  /* Raised on dark, where the inverse surface sinks into the page. */
+  --inverse-accent: var(--blue-700);
+  /* Raised on dark, where a dark frame sinks into the page. */
   --device-bezel: var(--surface-raised);
+  --illustration-practice-background: var(--slate-900);
   --brand-secondary: var(--white);
   color-scheme: dark;
 
@@ -395,17 +412,13 @@
   --color-on-accent-fill: var(--on-accent-fill);
   --color-accent-fill-hover: var(--accent-fill-hover);
   --color-on-tint: var(--on-tint);
+  --color-tint-subtle: var(--tint-subtle);
   --color-tint: var(--tint);
-  --color-tint-hover: var(--tint-hover);
   --color-tint-strong: var(--tint-strong);
-  --color-row-hover: var(--row-hover);
-  --color-wash: var(--wash);
-  --color-set-fill: var(--set-fill);
-  --color-set-fill-hover: var(--set-fill-hover);
-  --color-premium-wash: var(--premium-wash);
-  --color-disabled-fill: var(--disabled-fill);
-  --color-disabled-ink: var(--disabled-ink);
-  --color-glyph-faint: var(--glyph-faint);
+  --color-tint-strongest: var(--tint-strongest);
+  --color-disabled-border: var(--disabled-border);
+  --color-on-disabled: var(--on-disabled);
+  --color-text-tertiary: var(--text-tertiary);
   --color-danger: var(--danger);
   --color-danger-subtle: var(--danger-subtle);
   --color-danger-hover: var(--danger-hover);
@@ -417,15 +430,18 @@
   --color-on-status: var(--on-status);
   --color-status-known: var(--status-known);
   --color-status-known-subtle: var(--status-known-subtle);
+  --color-status-known-subtle-hover: var(--status-known-subtle-hover);
   --color-status-learning: var(--status-learning);
   --color-status-learning-subtle: var(--status-learning-subtle);
+  --color-status-learning-subtle-hover: var(--status-learning-subtle-hover);
   --color-status-unknown: var(--status-unknown);
   --color-status-unknown-subtle: var(--status-unknown-subtle);
+  --color-status-unknown-subtle-hover: var(--status-unknown-subtle-hover);
   --color-record: var(--record);
   --color-on-record: var(--on-record);
   --color-record-hover: var(--record-hover);
-  --color-jet: var(--jet);
-  --color-on-jet: var(--on-jet);
+  --color-inverse-surface: var(--inverse-surface);
+  --color-on-inverse-surface: var(--on-inverse-surface);
   --color-device-bezel: var(--device-bezel);
   --color-brand: var(--brand);
   --color-on-brand: var(--on-brand);

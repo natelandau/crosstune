@@ -425,7 +425,7 @@ private struct CatalogContent: View {
                     open(entry.tune.id)
                 } label: {
                     tuneRow
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(.textPrimary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .contentShape(.rect)
                 }

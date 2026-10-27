@@ -22,7 +22,7 @@ struct LoopSwitcher: View {
                 .font(.platform(.subheadline))
                 .lineLimit(1)
                 .truncationMode(.tail)
-                .foregroundStyle(model.selected == nil ? .textSecondary : AnyShapeStyle(.primary))
+                .foregroundStyle(model.selected == nil ? .textSecondary : AnyShapeStyle(.textPrimary))
             arrow(.next, name: PracticeText.nextLoop, systemImage: "chevron.right")
         }
         #if os(macOS)
