@@ -9,11 +9,11 @@ import { ActionButtonRow } from '../../ui/ActionButtonRow'
 import { OPEN } from '../links/linkNames'
 import type { LinkControl } from '../links/linkControl'
 import { useLinkRow } from '../links/useLinkRow'
+import { TUNE_ROW_ORIGIN } from '../player/playLog'
 import { PLAY } from '../player/transportCopy'
+import { isPlaying, usePlayer } from '../player/usePlayer'
 import { useTuneSource } from '../player/useTuneSource'
 import { usePracticeOverlay } from '../practice/usePracticeOverlay'
-import type { RowControl } from '../recordings/recordingRow'
-import { useRecordingRow } from '../recordings/useRecordingRow'
 import type { RecordingView } from '../recordings/useRecordings'
 import { LYRICS_SECTION } from './tuneScreenCopy'
 import { PRACTICE, STOP } from './tuneActionsCopy'
@@ -21,19 +21,14 @@ import type { TuneMediaData } from './useTuneMedia'
 
 /** What the main button does now. */
 interface PlayAction {
-  control: RowControl | LinkControl
-  loaded: boolean
+  control: LinkControl
   onPress: () => void
 }
 
 /** The main button, named for what a press does: play, stop, or open a link on its own site. */
-function PlayButton({ control, loaded, onPress }: PlayAction) {
+function PlayButton({ control, onPress }: PlayAction) {
   const [label, icon] =
-    loaded || control === 'close'
-      ? [STOP, Square]
-      : control === 'open'
-        ? [OPEN, ExternalLink]
-        : [PLAY, Play]
+    control === 'close' ? [STOP, Square] : control === 'open' ? [OPEN, ExternalLink] : [PLAY, Play]
   return (
     <Button variant="primary" icon={icon} solidIcon label={label} fullWidth onPress={onPress} />
   )
@@ -42,27 +37,22 @@ function PlayButton({ control, loaded, onPress }: PlayAction) {
 type RowProps = Omit<Parameters<typeof ActionButtons>[0], 'play'>
 
 /**
- * The main button for a row, or null while the row cannot play here now. A recording not on this
- * device gives no button: its own row downloads it, since a Download at the top of the page reads
- * as downloading the tune.
+ * A recording not on this device plays too, rather than offering Download: the player fetches
+ * it, since a Download at the top of the page reads as downloading the tune. `useTuneSource`
+ * offers only a recording that can play now.
  */
-function toPlay(row: {
-  control: RowControl | LinkControl
-  loaded: boolean
-  open?: { onOpen: () => void } | null
-}): PlayAction | null {
-  const onPress = row.open?.onOpen
-  const plays =
-    row.loaded || row.control === 'play' || row.control === 'close' || row.control === 'open'
-  return onPress && plays ? { control: row.control, loaded: row.loaded, onPress } : null
-}
-
 function RecordingActionButtons({ view, ...rest }: { view: RecordingView } & RowProps) {
-  return <ActionButtons {...rest} play={toPlay(useRecordingRow(view))} />
+  const player = usePlayer()
+  const item = { kind: 'recording' as const, id: view.recording.id }
+  const play: PlayAction = isPlaying(player, item)
+    ? { control: 'close', onPress: () => player.close() }
+    : { control: 'play', onPress: () => player.play(item, TUNE_ROW_ORIGIN) }
+  return <ActionButtons {...rest} play={play} />
 }
 
 function LinkActionButtons({ link, ...rest }: { link: LocalRecordingLink } & RowProps) {
-  return <ActionButtons {...rest} play={toPlay(useLinkRow(link))} />
+  const { control, open } = useLinkRow(link)
+  return <ActionButtons {...rest} play={open ? { control, onPress: open.onOpen } : null} />
 }
 
 /** The row itself: each button shows only while it can act, and with none there is no row. */
@@ -124,7 +114,8 @@ export function TuneActionButtons({
   /** Opens the lyrics reader, or null when the tune has no lyrics. */
   onLyrics: (() => void) | null
 }) {
-  const source = useTuneSource(tuneId)
+  const player = usePlayer()
+  const source = useTuneSource(tuneId, player.item?.kind === 'recording' ? player.item.id : null)
   const practice = usePracticeOverlay()
   const recordingsPlay = recordingsPlayable(usePlanOrUnknown())
   // An unread entitlement judges as unknown, which plays; waiting keeps a free plan from

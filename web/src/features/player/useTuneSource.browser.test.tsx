@@ -1,5 +1,5 @@
 import { renderHook } from '@testing-library/react'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { settingsId } from '../../commands/settings'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
@@ -70,6 +70,43 @@ describe('useTuneSource', () => {
     await db.entitlements.put(entitlementRow())
     const { result } = render()
     await expect.poll(() => result.current).toMatchObject({ kind: 'link', link: { id: 'L' } })
+  })
+
+  it('passes over a pinned recording with no audio anywhere to a link', async () => {
+    await db.recordings.put(recordingRow('R', { tune_id: 't1', state: 'uploaded' }))
+    await db.recording_files.put(recordingFile('R'))
+    await db.recording_links.put(linkRow('L', 't1'))
+    await db.user_tunes.put(userTuneRow('u1', 't1', { play_recording_id: 'R' }))
+    const { result } = render()
+    await expect.poll(() => result.current).toMatchObject({ kind: 'link', link: { id: 'L' } })
+  })
+
+  it('keeps a recording only the server holds, which plays once fetched', async () => {
+    await addRecording()
+    const { result } = render()
+    await expect
+      .poll(() => result.current)
+      .toMatchObject({ kind: 'recording', view: { recording: { id: 'R' } } })
+  })
+
+  it('passes over a recording only the server holds to a link while offline', async () => {
+    vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+    await addRecording()
+    await db.recording_links.put(linkRow('L', 't1'))
+    const { result } = render()
+    await expect.poll(() => result.current).toMatchObject({ kind: 'link', link: { id: 'L' } })
+  })
+
+  it('keeps the loaded recording though it can no longer play', async () => {
+    await db.recordings.put(recordingRow('R', { tune_id: 't1', state: 'uploaded' }))
+    await db.recording_files.put(recordingFile('R'))
+    await db.recording_links.put(linkRow('L', 't1'))
+    const { result } = renderHook(() => useTuneSource('t1', 'R'), {
+      wrapper: dataProviders({ db }),
+    })
+    await expect
+      .poll(() => result.current)
+      .toMatchObject({ kind: 'recording', view: { recording: { id: 'R' } } })
   })
 
   it('is null for a tune with nothing', async () => {

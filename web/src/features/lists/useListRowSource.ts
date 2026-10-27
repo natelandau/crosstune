@@ -5,6 +5,8 @@ import { usePlanOrUnknown } from '../../billing/usePlan'
 import { useDb } from '../../db/DbProvider'
 import type { CrosstuneDb } from '../../db/schema'
 import type { LocalRecordingLink } from '../../db/types'
+import { linkControl } from '../links/linkControl'
+import { recordingPlaysNow } from '../player/listSource'
 import { readTuneSources } from '../player/readPlaylist'
 import { chooseRowSource } from '../player/tuneSource'
 import type { RecordingView } from '../recordings/useRecordings'
@@ -45,6 +47,26 @@ export async function readTuneMedia(
   return media
 }
 
+/**
+ * The media a tune can play or open now, so a pin or the Play first order passes over the rest:
+ * a recording with audio here, or a ready copy the player can fetch (online only), and a link
+ * with a player or an address. The recording `loadedRecordingId` names always counts, so its
+ * Stop stays while it plays.
+ */
+export function playableMedia(
+  media: TuneMedia,
+  { online, loadedRecordingId }: { online: boolean; loadedRecordingId: string | null },
+): TuneMedia {
+  return {
+    views: media.views.filter(
+      (view) =>
+        view.recording.id === loadedRecordingId ||
+        recordingPlaysNow(view.recording, Boolean(view.file?.blob), online),
+    ),
+    links: media.links.filter((link) => linkControl(link, false).control !== 'none'),
+  }
+}
+
 /** What a tune plays: its pin, else the Play first order over its own media. */
 export function sourceFor({
   tuneId,
@@ -79,12 +101,14 @@ export function sourceFor({
 
 /**
  * What each list row plays, keyed by list item: `null` for a row with nothing, and undefined
- * for the whole map until the rows' media has been read. One live query serves every row, so
+ * for the whole map until the rows' media has been read. `loadedRecordingId` names the
+ * recording the player holds, which keeps its row's Stop. One live query serves every row, so
  * a write re-reads the list's media once rather than once per row.
  */
 export function useListRowSources(
   rows: readonly ListItemView[],
   playFirst: PlayFirst | undefined,
+  loadedRecordingId: string | null = null,
 ): ReadonlyMap<string, RowSource | null> | undefined {
   const db = useDb()
   const recordingsPlay = recordingsPlayable(usePlanOrUnknown())
@@ -97,20 +121,25 @@ export function useListRowSources(
   for (const row of rows) {
     const tuneMedia = media.get(row.tune.id)
     // A row whose tune joined after the last read waits for the next one.
-    if (tuneMedia)
+    if (tuneMedia) {
+      const input = {
+        tuneId: row.tune.id,
+        pin: {
+          recordingId: row.userTune.play_recording_id ?? null,
+          linkId: row.userTune.play_link_id ?? null,
+        },
+        playFirst,
+        recordingsPlay,
+      }
+      // Counted online, so a recording only the server holds keeps its Download, which says
+      // Offline. A tune with nothing playable falls back to all its media, so its row keeps
+      // an empty slot rather than reading as a tune with nothing.
+      const playable = playableMedia(tuneMedia, { online: true, loadedRecordingId })
       sources.set(
         row.item.id,
-        sourceFor({
-          tuneId: row.tune.id,
-          pin: {
-            recordingId: row.userTune.play_recording_id ?? null,
-            linkId: row.userTune.play_link_id ?? null,
-          },
-          media: tuneMedia,
-          playFirst,
-          recordingsPlay,
-        }),
+        sourceFor({ ...input, media: playable }) ?? sourceFor({ ...input, media: tuneMedia }),
       )
+    }
   }
   return sources
 }

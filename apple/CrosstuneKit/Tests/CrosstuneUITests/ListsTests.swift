@@ -698,6 +698,22 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
                 == .play(PlayerItem.recording(serverOnly, tuneTitle: hen.tune.title)))
     }
 
+    @Test func leavesARecordingOnlyTheServerHoldsInertWhileOffline() async throws {
+        let store = try await SampleCatalog.copiedStore(root: root.url)
+        let hen = try await entry("Cluck Old Hen", in: store)
+        let recordingsOnly = ListEntry(
+            item: hen.item, tune: hen.tune, userTune: hen.userTune, recordings: hen.recordings, files: hen.files,
+            links: [])
+        #expect(
+            ListRowPlay.action(for: recordingsOnly, playFirst: UserSettings.playFirstRecordings, online: false)
+                == .inert)
+        let joy = try await entry("Soldier's Joy", in: store)
+        let held = try #require(joy.recordings.first)
+        #expect(
+            ListRowPlay.action(for: joy, playFirst: UserSettings.playFirstRecordings, online: false)
+                == .play(PlayerItem.recording(held, tuneTitle: joy.tune.title)))
+    }
+
     @Test func showsASpinnerWhileTheChosenRecordingDownloads() async throws {
         let store = try await SampleCatalog.copiedStore(root: root.url)
         let hen = try await entry("Cluck Old Hen", in: store)
@@ -728,6 +744,27 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
             item: tam.item, tune: tam.tune, userTune: tam.userTune, recordings: [processing], files: [:],
             links: [])
         #expect(ListRowPlay.action(for: silent, playFirst: UserSettings.playFirstRecordings) == .inert)
+    }
+
+    @Test func passesOverARecordingThatCannotPlayToALink() async throws {
+        let store = try await SampleCatalog.copiedStore(root: root.url)
+        let tam = try await entry("Tam Lin", in: store)
+        let processing = Recording(
+            id: "r_processing", tuneID: tam.tune.id, source: "upload", addedAt: now, state: "processing")
+        let serverOnly = Recording(id: "r_server", tuneID: tam.tune.id, source: "upload", addedAt: now, state: "ready")
+        let link = RecordingLink(id: "l1", tuneID: tam.tune.id, url: "https://example.com/tune", provider: "other")
+        var pinned = tam.userTune
+        pinned.playRecordingID = processing.id
+        let processingEntry = ListEntry(
+            item: tam.item, tune: tam.tune, userTune: pinned, recordings: [processing], files: [:], links: [link])
+        let url = try #require(LinkText.outboundURL(link.url))
+        let opens = ListRowPlay.Action.open(url, linkTitle: LinkText.title(link))
+        #expect(ListRowPlay.action(for: processingEntry, playFirst: UserSettings.playFirstRecordings) == opens)
+        let serverEntry = ListEntry(
+            item: tam.item, tune: tam.tune, userTune: tam.userTune, recordings: [serverOnly], files: [:],
+            links: [link])
+        #expect(
+            ListRowPlay.action(for: serverEntry, playFirst: UserSettings.playFirstRecordings, online: false) == opens)
     }
 
     @Test func blocksOnlyPlayWhileARecordingIsRecorded() {

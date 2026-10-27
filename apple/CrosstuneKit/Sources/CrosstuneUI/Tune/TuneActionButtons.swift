@@ -1,4 +1,5 @@
 import CrosstuneAnalytics
+import CrosstuneAuth
 import CrosstuneCommands
 import CrosstuneDesign
 import CrosstuneStore
@@ -20,7 +21,7 @@ struct TuneActionButtons: View {
     let onReadLyrics: (() -> Void)?
 
     @Environment(PlayerModel.self) private var player: PlayerModel?
-    @Environment(RecordingTransferActions.self) private var transfers: RecordingTransferActions?
+    @Environment(AccountSession.self) private var session: AccountSession?
     @Environment(\.plan) private var plan
     @Environment(\.playerWindow) private var window
     @Environment(\.analytics) private var analytics
@@ -61,8 +62,7 @@ struct TuneActionButtons: View {
     /// The buttons the tune offers now. `holds` says whether the player holds an item.
     static func buttons(
         detail: TuneDetail, playFirst: String, recordingsPlay: Bool, planRead: Bool, showsLyrics: Bool = true,
-        capturing: Bool = false, holds: (PlayerItem.Kind, String) -> Bool,
-        downloading: (String) -> Bool = { _ in false }
+        capturing: Bool = false, online: Bool = true, holds: (PlayerItem.Kind, String) -> Bool
     ) -> Layout {
         guard planRead else {
             // A tune with nothing a button could act on lays out no row, so it never holds one.
@@ -72,8 +72,7 @@ struct TuneActionButtons: View {
         }
         var buttons: [Action] = []
         if let primary = primary(
-            detail: detail, playFirst: playFirst, recordingsPlay: recordingsPlay, holds: holds,
-            downloading: downloading),
+            detail: detail, playFirst: playFirst, recordingsPlay: recordingsPlay, online: online, holds: holds),
             // Playing waits on a recording being recorded; a link out does not touch the audio session.
             !ListRowPlay.isBlocked(primary.action, capturing: capturing)
         {
@@ -86,33 +85,40 @@ struct TuneActionButtons: View {
         return .buttons(buttons)
     }
 
-    /// Play for what the row would play, or nil when that is a recording this device does not
-    /// hold, which its own row downloads.
+    /// Play for what the tune plays, or nil when nothing it has can play or open now. It passes over
+    /// what cannot play as a list row does, but with nothing playable it has no button. A recording
+    /// only the server holds, or one downloading, plays too: the player fetches it, and a Download
+    /// at the top of the page would read as downloading the tune.
     private static func primary(
-        detail: TuneDetail, playFirst: String, recordingsPlay: Bool, holds: (PlayerItem.Kind, String) -> Bool,
-        downloading: (String) -> Bool
+        detail: TuneDetail, playFirst: String, recordingsPlay: Bool, online: Bool,
+        holds: (PlayerItem.Kind, String) -> Bool
     ) -> Primary? {
-        guard
-            let action = detail.playAction(
-                playFirst: playFirst, loaded: { holds(.recording, $0) }, downloading: downloading,
-                recordingsPlay: recordingsPlay)
-        else { return nil }
+        let files = Dictionary(detail.recordings.compactMap { row in row.file.map { (row.id, $0) } }) { first, _ in
+            first
+        }
+        let (recordings, links) = ListRowPlay.playable(
+            recordings: detail.recordings.map(\.recording), files: files, links: detail.links, online: online,
+            loaded: { holds(.recording, $0) })
+        let action: ListRowPlay.Action?
+        switch rowSource(
+            userTune: detail.userTune, recordings: recordings, links: links, playFirst: playFirst,
+            recordingsPlay: recordingsPlay)
+        {
+        case .recording(let recording)?: action = .play(.recording(recording, tuneTitle: detail.tune.title))
+        case .link(let link)?: action = ListRowPlay.linkAction(link)
+        case nil: action = nil
+        }
         switch action {
-        case .play(let item):
+        case .play(let item)?:
             if holds(item.kind, item.id) {
-                return Primary(label: TuneActionText.stop, symbol: "stop.fill", action: action)
+                return Primary(label: TuneActionText.stop, symbol: "stop.fill", action: .play(item))
             }
-            if item.kind == .recording, !heldHere(item.id, in: detail) { return nil }
-            return Primary(label: MediaText.play, symbol: "play.fill", action: action)
-        case .open:
-            return Primary(label: MediaText.open, symbol: "arrow.up.right", action: action)
-        case .downloading, .inert:
+            return Primary(label: MediaText.play, symbol: "play.fill", action: .play(item))
+        case .open(let url, let title)?:
+            return Primary(label: MediaText.open, symbol: "arrow.up.right", action: .open(url, linkTitle: title))
+        case .downloading?, .inert?, nil:
             return nil
         }
-    }
-
-    private static func heldHere(_ recordingID: String, in detail: TuneDetail) -> Bool {
-        detail.recordings.first { $0.id == recordingID }.map { RecordingText.holdsAudio($0.file) } ?? false
     }
 
     /// The tune's pinned or first recording that this device holds, else the first it holds.
@@ -134,8 +140,8 @@ struct TuneActionButtons: View {
         Self.buttons(
             detail: detail, playFirst: playFirst, recordingsPlay: plan.recordingsPlay,
             planRead: plan?.isLoaded ?? true, showsLyrics: onReadLyrics != nil,
-            capturing: recorders?.isCapturing ?? false,
-            holds: { player?.holds($0, id: $1) ?? false }, downloading: { transfers?.isDownloading($0) ?? false })
+            capturing: recorders?.isCapturing ?? false, online: session?.hasNetwork ?? true,
+            holds: { player?.holds($0, id: $1) ?? false })
     }
 
     var body: some View {
@@ -221,18 +227,5 @@ struct TuneActionButtons: View {
         case .nothing:
             break
         }
-    }
-}
-
-extension TuneDetail {
-    /// What the tune's play button does, chosen as a list row chooses it.
-    func playAction(
-        playFirst: String, loaded: (String) -> Bool, downloading: (String) -> Bool, recordingsPlay: Bool
-    ) -> ListRowPlay.Action? {
-        ListRowPlay.action(
-            tuneTitle: tune.title, userTune: userTune, recordings: recordings.map(\.recording),
-            files: Dictionary(recordings.compactMap { row in row.file.map { (row.id, $0) } }) { first, _ in first },
-            links: links, playFirst: playFirst, loaded: loaded, downloading: downloading,
-            recordingsPlay: recordingsPlay)
     }
 }

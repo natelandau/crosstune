@@ -79,6 +79,26 @@ describe('useListRowSources', () => {
       await addMedia()
       await expect.poll(() => idOf(result.current)).toBe('link1')
     })
+
+    it('passes over a pinned recording with no audio anywhere to the link', async () => {
+      const { result } = await setup(PLAY_FIRST[0], { play_recording_id: 'rec1' })
+      await addMedia()
+      await db.recordings.update('rec1', { state: 'uploaded' })
+      await expect.poll(() => idOf(result.current)).toBe('link1')
+    })
+
+    it('keeps a recording only the server holds, whose row offers its Download', async () => {
+      const { result } = await setup(PLAY_FIRST[0], { play_recording_id: 'rec1' })
+      await addMedia()
+      await expect.poll(() => idOf(result.current)).toBe('rec1')
+    })
+  })
+
+  it('keeps a recording with no audio anywhere when the tune has nothing else', async () => {
+    const { result } = await setup(PLAY_FIRST[0])
+    await db.recordings.put(recordingRow('rec1', { tune_id: tuneId, state: 'uploaded' }))
+    await db.recording_files.put(recordingFile('rec1'))
+    await expect.poll(() => idOf(result.current)).toBe('rec1')
   })
 })
 
