@@ -286,7 +286,7 @@ function TuneDocument({
             {/* A hairline, unlike between sections, so the date reads as the tune's, not the lists'. */}
             <AddedLine
               createdAt={view.tune.created_at}
-              className="border-hairline mt-8 border-t pt-3"
+              className="border-default mt-8 border-t pt-3"
             />
           </>
         )
@@ -320,7 +320,7 @@ function TuneDocument({
         />
         <div className={gutter}>
           {deletingName && (
-            <p role="status" className="t-secondary text-ink-2 pb-6">
+            <p role="status" className="t-secondary text-secondary pb-6">
               {DELETING}
             </p>
           )}
@@ -522,7 +522,7 @@ function TuneSections({
             role="status"
             className={
               addingFirstScan
-                ? 't-secondary text-ink-2 flex min-h-(--target) items-center px-2'
+                ? 't-secondary text-secondary flex min-h-(--target) items-center px-2'
                 : 'sr-only'
             }
           >
@@ -542,7 +542,7 @@ function AddAction({ name, text, onPress }: { name: string; text: string; onPres
     <AriaButton
       aria-label={name}
       onPress={onPress}
-      className={`t-secondary text-ink-2 flex min-h-(--target) items-center gap-1 rounded-(--radius-row) px-2 ${WASH_HOVER}`}
+      className={`t-secondary text-secondary flex min-h-(--target) items-center gap-1 rounded-(--radius-row) px-2 ${WASH_HOVER}`}
     >
       <Plus className="text-accent size-4" aria-hidden />
       {text}

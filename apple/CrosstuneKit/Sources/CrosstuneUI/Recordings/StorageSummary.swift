@@ -15,7 +15,7 @@ struct StorageSummary: View {
             Text(text)
                 .font(.platform(.footnote))
                 .monospacedDigit()
-                .foregroundStyle(.inkSecondary)
+                .foregroundStyle(.textSecondary)
             #if os(macOS)
                 MacMeter(fraction: SettingsModel.storageFraction(storage))
                     .accessibilityLabel(SettingsModel.storageUsed)
@@ -44,7 +44,7 @@ struct StorageSummary: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(Palette.surface)
                 .overlay(alignment: .top) {
-                    Rectangle().fill(Palette.hairline).frame(height: 1)
+                    Rectangle().fill(Palette.border).frame(height: 1)
                 }
         }
     }

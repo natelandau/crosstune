@@ -11,7 +11,6 @@ struct LoopsPanel: View {
     let onDeleted: () -> Void
 
     @Environment(\.spacing) private var spacing
-    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         VStack(spacing: spacing.stackGap) {
@@ -29,14 +28,14 @@ struct LoopsPanel: View {
                 Text(caption ?? " ")
                     .contentMask()
                     .font(MacStyle.secondary)
-                    .foregroundStyle(.inkSecondary)
+                    .foregroundStyle(.textSecondary)
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity)
                     .reserved(shown: caption != nil)
             #else
                 Text(PracticeText.loopsEmptyHint)
                     .font(.platform(.footnote))
-                    .foregroundStyle(.inkSecondary)
+                    .foregroundStyle(.textSecondary)
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity)
                     .reserved(shown: model.loops.isEmpty)
@@ -72,7 +71,7 @@ struct LoopsPanel: View {
             } label: {
                 // On the label, which wins over the plain style's accent.
                 Label(PracticeText.deleteLoop, systemImage: "trash")
-                    .foregroundStyle(SignalSwatch.danger(colorScheme).ink.color)
+                    .foregroundStyle(Palette.danger)
             }
             .buttonStyle(.macPlain)
             .disabled(!canDelete)
@@ -84,7 +83,7 @@ struct LoopsPanel: View {
                 if model.deleteSelected() { onDeleted() }
             }
             // A plain button takes no color from its role.
-            .foregroundStyle(canDelete ? AnyShapeStyle(.red) : .inkSecondary)
+            .foregroundStyle(canDelete ? AnyShapeStyle(.red) : .textSecondary)
             .disabled(!canDelete)
         #endif
     }

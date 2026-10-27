@@ -2,11 +2,11 @@ import CrosstuneAnalytics
 import CrosstuneCommands
 import SwiftUI
 
-/// One breakdown value: its name and count over an ink bar as wide as its share of the largest
-/// value. A row that links to the catalog ends in a chevron; the caller makes it a button.
+/// One breakdown value: its name and count over a text-colored bar as wide as its share of the
+/// largest value. A row that links to the catalog ends in a chevron; the caller makes it a button.
 struct ShareBarRow: View {
-    /// A share in ink, since the accent marks only what can be chosen.
-    static var barFill: Color { Palette.ink.opacity(0.55) }
+    /// A share in the text color, since the accent marks only what can be chosen.
+    static var barFill: Color { Palette.textPrimary.opacity(0.55) }
 
     let value: Stats.Value
     let max: Int
@@ -22,7 +22,7 @@ struct ShareBarRow: View {
             Text(groupedThousands(value.count))
                 .font(PageStyle.body)
                 .monospacedDigit()
-                .foregroundStyle(.inkSecondary)
+                .foregroundStyle(.textSecondary)
             if link {
                 RowChevron()
             }
@@ -58,7 +58,7 @@ struct RowChevron: View {
     var body: some View {
         Image(systemName: "chevron.forward")
             .font(.platform(.footnote).weight(.semibold))
-            .foregroundStyle(.inkTertiary)
+            .foregroundStyle(.textSecondary)
             .accessibilityHidden(true)
     }
 }

@@ -24,18 +24,18 @@ describe('Mark', () => {
     expect(markShapes(rendered).map(geometry)).toEqual(markShapes(source).map(geometry))
   })
 
-  it('colors the T from the mark token and the C from the mark-ink token', () => {
+  it('colors the T from the brand token and the C from the brand-secondary token', () => {
     const { container } = render(<Mark />)
     const [t, cArc, cRect] = markShapes(container)
-    expect(t?.getAttribute('stroke')).toBe('var(--color-mark)')
-    expect(cArc?.getAttribute('stroke')).toBe('var(--mark-ink)')
-    expect(cRect?.getAttribute('fill')).toBe('var(--mark-ink)')
+    expect(t?.getAttribute('stroke')).toBe('var(--brand)')
+    expect(cArc?.getAttribute('stroke')).toBe('var(--brand-secondary)')
+    expect(cRect?.getAttribute('fill')).toBe('var(--brand-secondary)')
   })
 
-  it('binds the mark token to the coral the brand sources are drawn with', () => {
+  it('binds the brand token to the coral the brand sources are drawn with', () => {
     const css = readFileSync(resolve(import.meta.dirname, '../theme/tokens.css'), 'utf8')
-    expect(css).toMatch(/--color-mark:\s*var\(--coral\);/)
-    const token = /--coral:\s*(#[0-9a-f]{6});/.exec(css)?.[1]
+    expect(css).toMatch(/--brand:\s*var\(--coral-400\);/)
+    const token = /--coral-400:\s*(#[0-9a-f]{6});/.exec(css)?.[1]
     const [t] = markShapes(parseBrand('mark-dark.svg').documentElement)
     expect(token).toBe(t?.getAttribute('stroke'))
   })

@@ -84,7 +84,7 @@ export function ListPlayRow({
           <AriaButton
             aria-describedby={hintId}
             onPress={() => setExplaining(true)}
-            className={`t-secondary text-ink-2 hover:text-ink min-h-(--target-control) text-start underline-offset-4 hover:underline ${PRESS}`}
+            className={`t-secondary text-secondary hover:text-primary min-h-(--target-control) text-start underline-offset-4 hover:underline ${PRESS}`}
           >
             {report.playable.length === 0
               ? NOTHING_PLAYS

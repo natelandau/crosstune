@@ -31,7 +31,7 @@ export function Counts({
     <PageSection title={COUNTS_HEADER}>
       <p className="flex items-baseline gap-2">
         <span className="t-page-title t-num">{counts.tunes.toLocaleString('en-US')}</span>
-        <span className="t-body text-ink-2">{TUNES_LABEL}</span>
+        <span className="t-body text-secondary">{TUNES_LABEL}</span>
       </p>
       {/* The rows under it say each count, so the bar would say them twice. */}
       <StatusSplitBar byStatus={byStatus} className="mt-3 h-2" />
@@ -52,7 +52,7 @@ export function Counts({
       <ErrorLine error={error} place="inline" />
       <p className="t-body t-num pt-2">{countsLine(counts)}</p>
       {counts.archived > 0 && (
-        <p className="t-secondary text-ink-2 pt-1">{archivedLine(counts.archived)}</p>
+        <p className="t-secondary text-secondary pt-1">{archivedLine(counts.archived)}</p>
       )}
     </PageSection>
   )

@@ -13,7 +13,7 @@ extension PlanSheet {
 }
 
 /// A trial's days left, the day it ends, how much of it has passed, and what it holds and keeps,
-/// on the accent wash.
+/// on the accent tint.
 struct TrialCard: View {
     /// When the trial began, nil when the plan does not say.
     let startsAt: Date?
@@ -69,27 +69,27 @@ struct TrialCard: View {
         .padding()
     }
 
-    /// The card's quiet lines: secondary ink on the Mac's surface card, the wash's own
+    /// The card's quiet lines: secondary text on the Mac's surface card, the tint's own
     /// secondary elsewhere.
     private var secondary: Color {
         #if os(macOS)
-            Palette.inkSecondary
+            Palette.textSecondary
         #else
-            BrandStyle.washSecondary(scheme)
+            Palette.onTintSecondary(scheme)
         #endif
     }
 
     private var label: Color {
         #if os(macOS)
-            Palette.inkSecondary
+            Palette.textSecondary
         #else
-            BrandStyle.setLabel(scheme)
+            Palette.onTint(scheme)
         #endif
     }
 }
 
-/// How much of the trial has passed: ink, as a chart is drawn, over a stronger wash than the
-/// card's, since a system progress bar's gray track all but vanishes on the wash.
+/// How much of the trial has passed: the primary text color, as a chart is drawn, over a stronger
+/// tint than the card's, since a system progress bar's gray track all but vanishes on the tint.
 private struct TrialBar: View {
     let fraction: Double
     /// What VoiceOver reads: what is left, since a bare percent does not say of what.
@@ -103,7 +103,7 @@ private struct TrialBar: View {
             .overlay(alignment: .leading) {
                 GeometryReader { proxy in
                     Capsule()
-                        .fill(Palette.ink)
+                        .fill(Palette.textPrimary)
                         .frame(width: proxy.size.width * fraction)
                 }
             }
@@ -116,6 +116,6 @@ private struct TrialBar: View {
     #if os(macOS)
         private var track: Color { Palette.field }
     #else
-        private var track: Color { BrandStyle.tintStrong(scheme) }
+        private var track: Color { Palette.tintStrongest(scheme) }
     #endif
 }

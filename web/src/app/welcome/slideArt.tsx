@@ -35,7 +35,7 @@ function Art({ children }: { children: ReactNode }) {
 /** A short label on a card, as a chip in the app shows a setting. */
 function Chip({ children }: { children: ReactNode }) {
   return (
-    <span className="border-hairline bg-surface text-ink rounded-(--radius-row) border px-[9px] py-[4px] text-[11px] leading-none font-semibold whitespace-nowrap">
+    <span className="border-default bg-surface text-primary rounded-(--radius-row) border px-[9px] py-[4px] text-[11px] leading-none font-semibold whitespace-nowrap">
       {children}
     </span>
   )
@@ -76,24 +76,24 @@ function IntroArt() {
   return (
     <Art>
       <div className="absolute inset-0">
-        <div className="bg-surface border-hairline absolute top-[0.6em] left-[0.5em] flex h-[14.6em] w-[14.8em] -rotate-6 flex-col border px-[1em] py-[0.7em] shadow-(--shadow-float)">
+        <div className="bg-surface border-default absolute top-[0.6em] left-[0.5em] flex h-[14.6em] w-[14.8em] -rotate-6 flex-col border px-[1em] py-[0.7em] shadow-(--shadow-float)">
           {PAPER.map((line, index) => (
             <div
               key={index}
-              className="border-hairline flex h-[1.4em] items-end gap-[0.3em] border-b pb-[0.25em] leading-none whitespace-nowrap"
+              className="border-default flex h-[1.4em] items-end gap-[0.3em] border-b pb-[0.25em] leading-none whitespace-nowrap"
             >
               {line.text && (
-                <span className={`text-ink-2 ${line.struck ? 'line-through' : ''}`}>
+                <span className={`text-secondary ${line.struck ? 'line-through' : ''}`}>
                   {line.text}
                 </span>
               )}
-              {line.note && <span className="text-ink italic">{line.note}</span>}
+              {line.note && <span className="text-primary italic">{line.note}</span>}
             </div>
           ))}
         </div>
         {/* Over the paper's right margin only, clear of its longest line. */}
         <div className="bg-device-bezel absolute top-[4.4em] left-[14.6em] h-[12em] w-[7.6em] rounded-[1.3em] p-[0.3em] shadow-(--shadow-float)">
-          <div className="bg-ground h-full w-full overflow-hidden rounded-[1em]">
+          <div className="bg-page h-full w-full overflow-hidden rounded-[1em]">
             <PhoneCatalog />
           </div>
         </div>
@@ -118,7 +118,7 @@ function PhoneCatalog() {
           {group.rows.map((status, index) => (
             <div
               key={index}
-              className="border-hairline flex items-center gap-[0.6em] border-b py-[0.6em]"
+              className="border-default flex items-center gap-[0.6em] border-b py-[0.6em]"
             >
               <StatusGlyph status={status} />
               <div className="bg-field h-[0.6em] flex-1 rounded-full" />
@@ -142,7 +142,7 @@ const CATALOG: { tune: string; status: TuneStatus }[] = [
 function CatalogArt() {
   return (
     <Art>
-      <div className="border-hairline bg-surface flex w-[210px] flex-col rounded-(--radius-control) border px-[12px] py-[10px] shadow-(--shadow-float)">
+      <div className="border-default bg-surface flex w-[210px] flex-col rounded-(--radius-control) border px-[12px] py-[10px] shadow-(--shadow-float)">
         <div className="mb-[8px] flex gap-[5px]">
           {['A', 'D', 'G', 'C'].map((key) => (
             <KeyPill key={key} value={key} compact chosen={key === 'D'} />
@@ -151,7 +151,7 @@ function CatalogArt() {
         {CATALOG.map((row) => (
           <div
             key={row.tune}
-            className="border-hairline text-ink flex items-center gap-[8px] border-b py-[5px] whitespace-nowrap last:border-b-0"
+            className="border-default text-primary flex items-center gap-[8px] border-b py-[5px] whitespace-nowrap last:border-b-0"
           >
             <StatusGlyph status={row.status} />
             {row.tune}
@@ -176,7 +176,7 @@ function RecordArt() {
             />
           ))}
         </div>
-        <div className="border-ink flex size-[54px] items-center justify-center rounded-full border-4">
+        <div className="border-text-primary flex size-[54px] items-center justify-center rounded-full border-4">
           <div className="bg-record size-[20px] rounded-[5px]" />
         </div>
         <Chip>Filed under Sally Goodin</Chip>
@@ -200,7 +200,7 @@ function PracticeArt() {
           {PRACTICE_LEVELS.map((level, index) => (
             <div
               key={index}
-              className="bg-ink-2 flex-1 rounded-full opacity-50"
+              className="bg-text-secondary flex-1 rounded-full opacity-50"
               style={{ height: `${level * 100}%` }}
             />
           ))}
@@ -238,7 +238,7 @@ const LISTEN: { tune: string; provider: Provider }[] = [
 function ListenArt() {
   return (
     <Art>
-      <div className="border-hairline bg-surface flex w-[236px] flex-col rounded-(--radius-control) border px-[12px] py-[10px] shadow-(--shadow-float)">
+      <div className="border-default bg-surface flex w-[236px] flex-col rounded-(--radius-control) border px-[12px] py-[10px] shadow-(--shadow-float)">
         {LISTEN.map((row, index) => {
           const playing = index === 0
           return (
@@ -250,8 +250,8 @@ function ListenArt() {
                 <TransportGlyph shape={playing ? 'stop' : 'play'} />
               </span>
               <span className="flex min-w-0 flex-col">
-                <span className="t-body text-ink whitespace-nowrap">{row.tune}</span>
-                <span className="t-secondary text-ink-2 whitespace-nowrap">
+                <span className="t-body text-primary whitespace-nowrap">{row.tune}</span>
+                <span className="t-secondary text-secondary whitespace-nowrap">
                   {PROVIDER_LABELS[row.provider]}
                 </span>
               </span>
@@ -273,8 +273,11 @@ function TunerArt() {
     <Art>
       <div
         data-practice
-        className="relative h-[16em] w-[22.4em] overflow-hidden rounded-(--radius-surface) text-(--panel-ink)"
-        style={{ colorScheme: 'dark', backgroundColor: blend('--jet', '--tune-wash', inTune) }}
+        className="text-on-practice relative h-[16em] w-[22.4em] overflow-hidden rounded-(--radius-surface)"
+        style={{
+          colorScheme: 'dark',
+          backgroundColor: blend('--jet', '--tuner-in-tune-background', inTune),
+        }}
       >
         <TunerBars cents={TUNER_CENTS} />
         <div className="absolute inset-0 grid grid-rows-[1fr_auto_1fr] justify-items-center">
@@ -283,7 +286,7 @@ function TunerArt() {
           </p>
           <div className="row-start-3 flex flex-col items-center gap-[4px] pt-[4px]">
             <p className="m-0 text-[15px] font-semibold tabular-nums">{formatCents(TUNER_CENTS)}</p>
-            <p className="m-0 text-[12px] text-(--panel-muted)">{hintLabel(TUNER_CENTS)}</p>
+            <p className="text-on-practice-secondary m-0 text-[12px]">{hintLabel(TUNER_CENTS)}</p>
           </div>
         </div>
       </div>

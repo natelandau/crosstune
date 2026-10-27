@@ -6,7 +6,7 @@ import { PRESS } from '../../ui/press'
 import { PANEL_HOVER } from './panel'
 
 /**
- * An icon-only control on jet, drawn in the panel's ink. Practice holds an overlay claim, which
+ * An icon-only control on practice's background, drawn in on-practice white. Practice holds an overlay claim, which
  * keeps every tooltip shut, so the name lives on the control alone. `aria-disabled` dims it and
  * ignores presses while leaving it able to hold focus.
  */
@@ -38,10 +38,10 @@ export function PracticeButton({
       onPress={rest['aria-disabled'] ? undefined : onPress}
       // The large control is practice's filled button, which rises under the pointer.
       data-lift={size === 'large' || undefined}
-      className={`inline-flex shrink-0 items-center justify-center rounded-(--radius-capsule) disabled:opacity-40 aria-disabled:opacity-40 aria-pressed:bg-(--fill-tertiary) ${PRESS} ${
+      className={`aria-pressed:bg-practice-fill inline-flex shrink-0 items-center justify-center rounded-(--radius-capsule) disabled:opacity-40 aria-disabled:opacity-40 ${PRESS} ${
         size === 'large'
-          ? 'size-[72px] bg-(--panel-ink) text-(--panel-on-ink) not-disabled:not-aria-disabled:hover:bg-(--panel-ink-hover)'
-          : `size-11 text-(--panel-ink) ${PANEL_HOVER}`
+          ? 'bg-on-practice text-practice-background not-disabled:not-aria-disabled:hover:bg-on-practice-hover size-[72px]'
+          : `text-on-practice size-11 ${PANEL_HOVER}`
       }`}
     >
       {glyph ??

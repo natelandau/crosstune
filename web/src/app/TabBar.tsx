@@ -16,7 +16,7 @@ function Tab({ id }: { id: Destination }) {
       to={id}
       href={spec.root}
       current={isCurrent}
-      className={`t-tab relative flex h-[52px] flex-col items-center justify-center gap-1 px-0.5 transition-colors duration-(--dur-short) ease-(--ease) ${isCurrent ? 'text-chosen-label' : 'text-ink'}`}
+      className={`t-tab relative flex h-[52px] flex-col items-center justify-center gap-1 px-0.5 transition-colors duration-(--dur-short) ease-(--ease) ${isCurrent ? 'text-on-tint' : 'text-primary'}`}
     >
       {/* One pill shared across the tabs, so choosing a tab slides it there. */}
       {isCurrent && (
@@ -51,7 +51,7 @@ export function TabBar() {
     >
       {/* Equal tabs while the labels fit; on a narrow phone a long label widens its own tab
           rather than spilling past the bar. */}
-      <div className="bg-surface border-hairline grid h-[62px] min-w-0 flex-1 grid-cols-[repeat(4,minmax(min-content,1fr))] items-center rounded-full border px-1">
+      <div className="bg-surface border-default grid h-[62px] min-w-0 flex-1 grid-cols-[repeat(4,minmax(min-content,1fr))] items-center rounded-full border px-1">
         {PHONE_TABS.map((id) => (
           <Tab key={id} id={id} />
         ))}

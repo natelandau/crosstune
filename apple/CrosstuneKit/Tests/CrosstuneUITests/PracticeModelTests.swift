@@ -991,10 +991,10 @@ private final class FakeLoops {
     }
 
     @Test func eachLoopColorHasALightAndADarkVariantMatchingTheWeb() {
-        #expect(LoopColor.hex(0, dark: false) == "#1f5fd6")
-        #expect(LoopColor.hex(5, dark: false) == "#6b3fc4")
-        #expect(LoopColor.hex(0, dark: true) == "#3570dc")
-        #expect(LoopColor.hex(4, dark: true) == "#0f808a")
-        #expect(LoopColor.hex(9, dark: false) == LoopColor.hex(3, dark: false))
+        #expect(Palette.loopHex(0, dark: false) == "#1f5fd6")
+        #expect(Palette.loopHex(5, dark: false) == "#6b3fc4")
+        #expect(Palette.loopHex(0, dark: true) == "#3570dc")
+        #expect(Palette.loopHex(4, dark: true) == "#0f808a")
+        #expect(Palette.loopHex(9, dark: false) == Palette.loopHex(3, dark: false))
     }
 }

@@ -689,8 +689,17 @@ it.each(['touch', 'pointer'] as const)(
     // A touch sheet fades a black layer; a pointer dialog colors the overlay.
     const scrim = () => {
       const dim = document.querySelector('[data-sheet-dim]')
-      if (!dim)
-        return getComputedStyle(document.querySelector('[data-sheet-scrim]')!).backgroundColor
+      if (!dim) {
+        // The overlay mixes the scrim token, which the browser reports as color(srgb …).
+        const color = getComputedStyle(
+          document.querySelector('[data-sheet-scrim]')!,
+        ).backgroundColor
+        return color.replace(
+          /^color\(srgb ([\d.]+) ([\d.]+) ([\d.]+) \/ ([\d.]+)\)$/,
+          (_, r: string, g: string, b: string, a: string) =>
+            `rgba(${[r, g, b].map((c) => Math.round(Number(c) * 255)).join(', ')}, ${a})`,
+        )
+      }
       const { backgroundColor, opacity } = getComputedStyle(dim)
       return backgroundColor.replace('rgb(', 'rgba(').replace(')', `, ${opacity})`)
     }

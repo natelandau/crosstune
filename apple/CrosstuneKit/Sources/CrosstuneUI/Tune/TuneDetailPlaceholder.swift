@@ -30,15 +30,15 @@ public struct TuneDetailPlaceholder: View {
                 VStack(spacing: 6) {
                     Image(systemName: "music.note")
                         .font(.system(size: 22, weight: .light))
-                        .foregroundStyle(.inkTertiary)
+                        .foregroundStyle(.textSecondary)
                         .padding(.bottom, 4)
                         .accessibilityHidden(true)
                     Text(Self.title)
                         .font(MacStyle.sectionHeading)
-                        .foregroundStyle(Palette.inkSecondary)
+                        .foregroundStyle(Palette.textSecondary)
                     Text(Self.hint)
                         .font(MacStyle.body)
-                        .foregroundStyle(Palette.inkSecondary)
+                        .foregroundStyle(Palette.textSecondary)
                 }
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)

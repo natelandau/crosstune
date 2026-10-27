@@ -39,15 +39,17 @@ import Testing
 
     @Test func updateRequiredIsAWarning() {
         for scheme in [ColorScheme.light, .dark] {
-            #expect(SyncBadge.swatch(.updateRequired, scheme: scheme) == SyncBadge.swatch(.offline, scheme: scheme))
+            #expect(
+                SyncBadge.capsuleColors(.updateRequired, scheme: scheme)
+                    == SyncBadge.capsuleColors(.offline, scheme: scheme))
         }
     }
 
     @Test func everyBadgeReadsAtLeastFourAndAHalfToOne() {
         for scheme in [ColorScheme.light, .dark] {
             for status in [SyncStatus.offline, .unauthorized, .error, .updateRequired] {
-                let swatch = SyncBadge.swatch(status, scheme: scheme)
-                #expect(contrastRatio(swatch.ink, swatch.background) >= 4.5, "\(status) \(scheme)")
+                let colors = SyncBadge.capsuleColors(status, scheme: scheme)
+                #expect(contrastRatio(colors.text, colors.background) >= 4.5, "\(status) \(scheme)")
             }
         }
     }

@@ -20,11 +20,11 @@ export function TrialCard({ startsAt, endsAt }: { startsAt: Date | null; endsAt:
   const lastDay = endsAt !== null && calendarDaysLeft(endsAt, now) <= 0
   return (
     <div className="bg-tint flex flex-col gap-1 rounded-(--radius-surface) p-4">
-      <p className="t-secondary text-ink-2 font-semibold">{PLAN_TRIAL}</p>
+      <p className="t-secondary text-secondary font-semibold">{PLAN_TRIAL}</p>
       {endsAt && percent !== null && (
         <>
           <p className="t-screen-title t-num">{trialDaysLeft(endsAt, now)}</p>
-          {!lastDay && <p className="t-secondary text-ink-2">{trialEnds(endsAt)}</p>}
+          {!lastDay && <p className="t-secondary text-secondary">{trialEnds(endsAt)}</p>}
           <div
             role="progressbar"
             aria-label={PLAN_TRIAL}
@@ -34,12 +34,15 @@ export function TrialCard({ startsAt, endsAt }: { startsAt: Date | null; endsAt:
             aria-valuetext={trialLeft(endsAt, now)}
             className="bg-tint-strong my-2 h-1.5 overflow-hidden rounded-full"
           >
-            <div className="bg-ink/70 h-full rounded-full" style={{ width: `${percent}%` }} />
+            <div
+              className="bg-text-primary/70 h-full rounded-full"
+              style={{ width: `${percent}%` }}
+            />
           </div>
         </>
       )}
-      <p className="t-secondary text-ink-2">{TRIAL_STORAGE}</p>
-      <p className="t-secondary text-ink-2">{TRIAL_KEEPS}</p>
+      <p className="t-secondary text-secondary">{TRIAL_STORAGE}</p>
+      <p className="t-secondary text-secondary">{TRIAL_KEEPS}</p>
     </div>
   )
 }

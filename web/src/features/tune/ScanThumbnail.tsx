@@ -26,7 +26,7 @@ export function ScanThumbnail({
     <span className="bg-surface grid place-items-center" style={size}>
       {file && thumbnail.kind === 'broken' && (
         <>
-          <ImageOff className="text-ink-2 size-6" aria-hidden />
+          <ImageOff className="text-secondary size-6" aria-hidden />
           <span className="sr-only">{SCAN_UNREADABLE}</span>
         </>
       )}

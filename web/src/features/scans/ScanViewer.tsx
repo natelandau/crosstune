@@ -86,7 +86,7 @@ function ViewerSurface({
       onOpenChange={(open) => {
         if (!open) viewer.close()
       }}
-      className="bg-ground fixed inset-0 z-50"
+      className="bg-page fixed inset-0 z-50"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}

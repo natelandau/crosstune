@@ -15,7 +15,7 @@ html[data-density='pointer'] {
 
 /* The thumb runs the track's full height, ringed in the track's color; on, it holds a check. */
 .switch-track {
-  --track: var(--switch-off);
+  --track: var(--text-tertiary);
   position: relative;
   flex-shrink: 0;
   width: var(--switch-w);
@@ -37,11 +37,11 @@ html[data-density='pointer'] {
   width: var(--size);
   height: var(--size);
   border-radius: var(--radius-capsule);
-  background: var(--switch-thumb);
+  background: var(--on-accent-fill);
   color: var(--track);
   box-shadow:
     inset 0 0 0 var(--ring) var(--track),
-    0 1px 3px rgb(0 0 0 / 0.18);
+    var(--shadow-control);
   transition:
     translate var(--dur-base) var(--ease),
     width var(--dur-short) var(--ease),
@@ -57,14 +57,13 @@ html[data-density='pointer'] {
 }
 
 [data-hovered]:not([data-selected]) > .switch-track {
-  --track: color-mix(in srgb, var(--switch-off), var(--ink) 22%);
+  --track: var(--text-tertiary-hover);
 }
-/* Toward the ground, so the on track never pales behind the white thumb. */
 [data-hovered][data-selected] > .switch-track {
-  --track: color-mix(in srgb, var(--switch-on), var(--ground) 18%);
+  --track: var(--accent-track-hover);
 }
 [data-selected] > .switch-track {
-  --track: var(--switch-on);
+  --track: var(--accent-track);
 }
 [data-selected] > .switch-track > .switch-thumb {
   translate: calc(var(--switch-w) - var(--switch-h)) 0;

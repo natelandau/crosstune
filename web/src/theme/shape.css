@@ -6,6 +6,10 @@
   --shadow-float: 0 8px 28px rgba(0, 0, 0, 0.16), 0 1px 3px rgba(0, 0, 0, 0.1);
   /* A filled button raised under the pointer. */
   --shadow-lift: 0 6px 16px -6px rgba(0, 0, 0, 0.35);
+  /* A switch thumb and other small raised controls. */
+  --shadow-control: 0 1px 3px rgba(0, 0, 0, 0.18);
+  /* The light edge along a filled button's top. */
+  --shadow-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.16);
 
   --target: 44px;
   --target-control: 44px;
@@ -38,7 +42,7 @@
   --breakpoint-welcome: 60rem;
 }
 
-/* Black shadows barely show on a near-black ground, so a floating surface also gets a faint
+/* Black shadows barely show on a near-black page, so a floating surface also gets a faint
    light edge. */
 :root[data-scheme='dark'] {
   --shadow-float:

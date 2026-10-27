@@ -203,7 +203,7 @@ public struct DeleteAccountSheet: View {
                 Text("**\(Self.cannotUndo)**\(Self.noRecovery)")
             }
             .font(MacStyle.body)
-            .foregroundStyle(Palette.ink)
+            .foregroundStyle(Palette.textPrimary)
             .fixedSize(horizontal: false, vertical: true)
         }
 
@@ -211,7 +211,7 @@ public struct DeleteAccountSheet: View {
             VStack(alignment: .leading, spacing: 6) {
                 Text(Self.confirmLabel)
                     .font(MacStyle.label)
-                    .foregroundStyle(Palette.ink)
+                    .foregroundStyle(Palette.textPrimary)
                 // The label above names the field, so it shows no prompt of its own.
                 TextField(Self.confirmLabel, text: $text, prompt: Text(verbatim: ""))
                     .contentMask()
@@ -222,7 +222,7 @@ public struct DeleteAccountSheet: View {
                 ForEach(Self.appleLines(hasAppleSignIn: session.hasAppleSignIn), id: \.self) {
                     Text($0)
                         .font(MacStyle.secondary)
-                        .foregroundStyle(Palette.inkSecondary)
+                        .foregroundStyle(Palette.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 if let failure {
@@ -234,7 +234,7 @@ public struct DeleteAccountSheet: View {
     #else
         private var content: some View {
             NavigationStack {
-                PaperForm {
+                GroupedForm {
                     Section {
                         VStack(spacing: spacing.stackGap) {
                             Image(systemName: "exclamationmark.triangle.fill")

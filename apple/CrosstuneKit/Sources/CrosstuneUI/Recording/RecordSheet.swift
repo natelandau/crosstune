@@ -133,7 +133,7 @@ private struct RecordSheetLifecycle: ViewModifier {
             if model.hasStarted {
                 Image(systemName: "circle.fill")
                     .font(.system(size: 10))
-                    .foregroundStyle(Color.recordingRed)
+                    .foregroundStyle(Palette.record)
                     .symbolEffect(.pulse, options: .repeating, isActive: model.phase == .recording && !reduceMotion)
                     .accessibilityHidden(true)
             }
@@ -145,7 +145,6 @@ struct RecordSheetBody: View {
     let model: RecordSheetModel
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.openURL) private var openURL
 
     var body: some View {
@@ -191,7 +190,7 @@ struct RecordSheetBody: View {
             HStack(spacing: 6) {
                 if model.hasStarted {
                     Image(systemName: "record.circle.fill")
-                        .foregroundStyle(Color.recordingRed)
+                        .foregroundStyle(Palette.record)
                         .symbolEffect(.pulse, options: .repeating, isActive: model.phase == .recording && !reduceMotion)
                         .transition(.symbolEffect(.appear))
                         .accessibilityHidden(true)
@@ -200,7 +199,7 @@ struct RecordSheetBody: View {
                     .contentTransition(.opacity)
             }
             .font(.platform(.subheadline))
-            .foregroundStyle(.inkSecondary)
+            .foregroundStyle(.textSecondary)
             .accessibilityElement(children: .combine)
             .accessibilityAddTraits(.updatesFrequently)
         }
@@ -213,7 +212,7 @@ struct RecordSheetBody: View {
                 Text(RecordSheet.filingUnder(title))
                     .contentMask()
                     .font(.platform(.subheadline))
-                    .foregroundStyle(.inkSecondary)
+                    .foregroundStyle(.textSecondary)
                     .lineLimit(2)
                     .multilineTextAlignment(.center)
             }
@@ -224,7 +223,7 @@ struct RecordSheetBody: View {
         if model.phase == .interrupted {
             Text(RecordSheetModel.interruptedMessage)
                 .font(.platform(.footnote))
-                .foregroundStyle(SignalSwatch.warning(colorScheme).ink.color)
+                .foregroundStyle(Palette.warning)
                 .multilineTextAlignment(.center)
         }
         if let message = model.message {
@@ -233,10 +232,10 @@ struct RecordSheetBody: View {
                 #if os(macOS)
                     .foregroundStyle(
                         model.phase == .saved
-                            ? .inkSecondary : AnyShapeStyle(SignalSwatch.danger(colorScheme).ink.color))
+                            ? .textSecondary : AnyShapeStyle(Palette.danger))
                 #else
                     .foregroundStyle(
-                        model.phase == .saved ? Palette.inkSecondary : SignalSwatch.danger(colorScheme).ink.color)
+                        model.phase == .saved ? Palette.textSecondary : Palette.danger)
                 #endif
                 .multilineTextAlignment(.center)
         }
@@ -304,17 +303,17 @@ struct RecordSheetBody: View {
             HStack(alignment: .top, spacing: 12) {
                 Image(systemName: "location.fill")
                     .font(.system(size: 20))
-                    .foregroundStyle(Palette.inkSecondary)
+                    .foregroundStyle(Palette.textSecondary)
                     .frame(width: 24)
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 4) {
                     Text(RecordSheetModel.locationNoteTitle)
                         .font(MacStyle.sectionHeading)
-                        .foregroundStyle(Palette.ink)
+                        .foregroundStyle(Palette.textPrimary)
                         .accessibilityAddTraits(.isHeader)
                     Text(RecordSheetModel.locationNoteBody)
                         .font(MacStyle.body)
-                        .foregroundStyle(Palette.inkSecondary)
+                        .foregroundStyle(Palette.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -339,7 +338,7 @@ struct RecordSheetBody: View {
                     .accessibilityAddTraits(.isHeader)
                 Text(RecordSheetModel.locationNoteBody)
                     .font(.platform(.subheadline))
-                    .foregroundStyle(.inkSecondary)
+                    .foregroundStyle(.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
                 Button(RecordSheetModel.continueToLocation) {
                     Task { await model.continueFromLocationNote() }
@@ -431,12 +430,12 @@ private struct StopButton: View {
         Group {
             #if os(macOS)
                 // Glass tinted red draws gray in a sheet, so the Mac's Stop is always solid.
-                button.background(Color.recordingRed, in: .circle)
+                button.background(Palette.record, in: .circle)
             #else
                 if drawsGlass {
-                    button.glassEffect(.regular.tint(.recordingRed).interactive(), in: .circle)
+                    button.glassEffect(.regular.tint(Palette.record).interactive(), in: .circle)
                 } else {
-                    button.background(Color.recordingRed, in: .circle)
+                    button.background(Palette.record, in: .circle)
                 }
             #endif
         }

@@ -19,7 +19,7 @@ struct LoopNameTab: View {
     var body: some View {
         let name = row.map(model.name) ?? ""
         if model.renaming == loop.id {
-            LoopNameField(model: model, id: loop.id, color: LoopColor.color(loop.color, scheme: colorScheme))
+            LoopNameField(model: model, id: loop.id, color: Palette.loop(loop.color, scheme: colorScheme))
         } else if isSelected {
             Button {
                 model.beginRename(loop.id)
@@ -48,7 +48,7 @@ struct LoopNameTab: View {
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
             .background(
-                LoopColor.color(loop.color, scheme: colorScheme),
+                Palette.loop(loop.color, scheme: colorScheme),
                 in: UnevenRoundedRectangle(bottomLeadingRadius: 5, bottomTrailingRadius: 5)
             )
             .frame(maxWidth: maxWidth, alignment: .leading)

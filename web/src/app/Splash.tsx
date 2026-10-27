@@ -9,7 +9,7 @@ export function Splash() {
       <Mark className="h-10" />
       <div role="status" aria-label={SPLASH_LABEL}>
         <LoaderCircle
-          className="text-ink-2 size-6 animate-spin motion-reduce:animate-none"
+          className="text-secondary size-6 animate-spin motion-reduce:animate-none"
           aria-hidden
         />
       </div>

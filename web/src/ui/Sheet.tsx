@@ -195,7 +195,7 @@ function SheetHeader({
     // The body takes 4px of the gap below, so the ring of a field at its top is not clipped.
     <header
       className={`flex min-h-(--target-control) items-center gap-3 border-b px-4 pt-3 pb-2 transition-colors duration-(--dur-short) ${
-        edge ? 'border-hairline' : 'border-transparent'
+        edge ? 'border-default' : 'border-transparent'
       }`}
     >
       {onBack && (
@@ -348,8 +348,8 @@ function SheetFooter({
 }) {
   return (
     <motion.footer
-      className={`bg-ground flex flex-col gap-3 border-t px-4 pt-3 transition-colors duration-(--dur-short) ${
-        edge ? 'border-hairline' : 'border-transparent'
+      className={`bg-page flex flex-col gap-3 border-t px-4 pt-3 transition-colors duration-(--dur-short) ${
+        edge ? 'border-default' : 'border-transparent'
       } ${className}`}
       style={style}
     >
@@ -392,7 +392,7 @@ function PointerDialog(props: SheetProps) {
       isDismissable={!locked}
       isKeyboardDismissDisabled={locked}
       backDismissable={!locked || asksOnBack}
-      className="bg-ground flex max-h-full max-w-full flex-col overflow-hidden rounded-(--radius-surface) shadow-(--shadow-float)"
+      className="bg-page flex max-h-full max-w-full flex-col overflow-hidden rounded-(--radius-surface) shadow-(--shadow-float)"
       style={{ width: SHEET.width }}
     >
       <Dialog
@@ -605,7 +605,7 @@ function TouchSheet(props: SheetProps) {
         style={{ opacity: backdrop, backgroundColor: SCRIM_COLOR }}
       />
       <MotionModal
-        className="bg-ground absolute inset-x-0 rounded-t-(--radius-surface) shadow-(--shadow-float) after:absolute after:inset-x-0 after:top-full after:h-16 after:bg-inherit"
+        className="bg-page absolute inset-x-0 rounded-t-(--radius-surface) shadow-(--shadow-float) after:absolute after:inset-x-0 after:top-full after:h-16 after:bg-inherit"
         style={{
           y,
           top: SHEET.topMargin,
@@ -640,7 +640,7 @@ function TouchSheet(props: SheetProps) {
             onPointerDown={startDrag}
           >
             <div className="flex touch-none justify-center pt-2" aria-hidden>
-              <div className="bg-silver h-1.5 w-10 rounded-(--radius-capsule)" />
+              <div className="bg-handle h-1.5 w-10 rounded-(--radius-capsule)" />
             </div>
             <div className="touch-none">
               <SheetHeader

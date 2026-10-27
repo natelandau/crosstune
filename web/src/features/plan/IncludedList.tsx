@@ -11,12 +11,12 @@ export function IncludedList() {
         {INCLUDED_FEATURES.map(({ title, detail, icon }) => (
           <li
             key={title}
-            className="border-hairline flex items-center gap-3 px-4 py-2.5 not-first:border-t"
+            className="border-default flex items-center gap-3 px-4 py-2.5 not-first:border-t"
           >
             <FeatureIcon icon={icon} size="large" />
             <div className="min-w-0">
               <p className="t-body">{title}</p>
-              <p className="t-secondary text-ink-2">{detail}</p>
+              <p className="t-secondary text-secondary">{detail}</p>
             </div>
           </li>
         ))}

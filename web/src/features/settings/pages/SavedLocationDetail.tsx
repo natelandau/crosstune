@@ -114,13 +114,13 @@ export function SavedLocationDetail({ placeId }: { placeId: string }) {
                   </div>
                 </form>
                 {row.place.address && (
-                  <p className="t-body text-ink-2 ph-no-capture min-h-(--target) px-4 py-3">
+                  <p className="t-body text-secondary ph-no-capture min-h-(--target) px-4 py-3">
                     {row.place.address}
                   </p>
                 )}
                 <p className="t-body flex min-h-(--target) items-center justify-between px-4 py-3">
                   <span>{SAVED_LOCATION_RECORDINGS}</span>
-                  <span className="text-ink-2">{savedLocationRecordings(row.recordings)}</span>
+                  <span className="text-secondary">{savedLocationRecordings(row.recordings)}</span>
                 </p>
               </Group>
               <Group>

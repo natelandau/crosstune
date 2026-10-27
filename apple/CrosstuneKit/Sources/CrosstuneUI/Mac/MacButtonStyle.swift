@@ -2,19 +2,19 @@
     import SwiftUI
 
     /// Every content button on the Mac, by role. Fills come from ``Palette`` and never read
-    /// whether the window is key, so a primary stays Harbor blue in an inactive window, where
+    /// whether the window is key, so a primary stays the accent in an inactive window, where
     /// AppKit's own prominent bezel turns gray.
     struct MacButtonStyle: ButtonStyle {
         enum Role: CaseIterable {
             /// The one action a surface leads with: accent fill, white label.
             case primary
-            /// Any other worded action: the container's control fill, ink label.
+            /// Any other worded action: the container's control fill, primary text label.
             case secondary
             /// Words only, in the accent, underlined on hover.
             case plain
-            /// Words only, in secondary ink, underlined on hover: a quiet utility beside content.
+            /// Words only, in secondary text, underlined on hover: a quiet utility beside content.
             case quiet
-            /// A glyph in secondary ink, with a circle of the control fill on hover.
+            /// A glyph in secondary text, with a circle of the control fill on hover.
             case icon
             /// A secondary button whose label is the danger red.
             case destructive
@@ -59,7 +59,7 @@
         /// keeps its fill and fades as a whole by ``disabledOpacity``, so a disabled primary never
         /// turns gray.
         nonisolated static func fillRGB(
-            for role: Role, scheme: ColorScheme, container: MacContainer = .ground, isPressed: Bool
+            for role: Role, scheme: ColorScheme, container: MacContainer = .pageBackground, isPressed: Bool
         ) -> KeyColor.RGB? {
             let control = KeyColor.RGB(hex: Palette.hex(container.controlFill, scheme))
             let rest: KeyColor.RGB? =
@@ -68,7 +68,7 @@
                 case .secondary, .destructive: control
                 // The light danger red in both appearances: dark mode's pale red would not
                 // carry a white label.
-                case .destructiveFilled: SignalSwatch.danger(.light).ink
+                case .destructiveFilled: StatusCapsuleColors.danger(.light).text
                 case .icon: isPressed ? control : nil
                 case .plain, .quiet: nil
                 }
@@ -77,7 +77,7 @@
         }
 
         static func fill(
-            for role: Role, scheme: ColorScheme, container: MacContainer = .ground, isPressed: Bool
+            for role: Role, scheme: ColorScheme, container: MacContainer = .pageBackground, isPressed: Bool
         ) -> Color? {
             fillRGB(for: role, scheme: scheme, container: container, isPressed: isPressed)?.color
         }
@@ -90,11 +90,11 @@
         static func labelRGB(for role: Role, scheme: ColorScheme) -> KeyColor.RGB {
             switch role {
             case .primary, .destructiveFilled: KeyColor.RGB(hex: Palette.hex(.onAccentFill, scheme))
-            case .secondary: KeyColor.RGB(hex: Palette.hex(.ink, scheme))
+            case .secondary: KeyColor.RGB(hex: Palette.hex(.textPrimary, scheme))
             case .plain: KeyColor.RGB(hex: Palette.hex(.accent, scheme))
-            case .quiet: KeyColor.RGB(hex: Palette.hex(.inkSecondary, scheme))
-            case .icon: KeyColor.RGB(hex: Palette.hex(.inkSecondary, scheme))
-            case .destructive: SignalSwatch.danger(scheme).ink
+            case .quiet: KeyColor.RGB(hex: Palette.hex(.textSecondary, scheme))
+            case .icon: KeyColor.RGB(hex: Palette.hex(.textSecondary, scheme))
+            case .destructive: StatusCapsuleColors.danger(scheme).text
             }
         }
 
@@ -172,7 +172,7 @@
                 .foregroundStyle(labelColor)
                 .background(fill ?? .clear, in: .rect(cornerRadius: MacButtonStyle.radius))
                 .macControlEdge(
-                    MacButtonStyle.strokesOn(role) ? container : .ground, scheme: scheme,
+                    MacButtonStyle.strokesOn(role) ? container : .pageBackground, scheme: scheme,
                     cornerRadius: MacButtonStyle.radius
                 )
                 .contentShape(.rect(cornerRadius: MacButtonStyle.radius))

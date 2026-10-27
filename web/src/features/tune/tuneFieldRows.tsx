@@ -37,7 +37,7 @@ export function ModeRows({
         />
       ))}
       {canAddPartMode(modes) && (
-        <AriaButton onPress={onAdd} className={`${FIELD_ROW_PRESSABLE} text-ink font-medium`}>
+        <AriaButton onPress={onAdd} className={`${FIELD_ROW_PRESSABLE} text-primary font-medium`}>
           <Plus className="size-5 shrink-0" aria-hidden />
           {ADD_PART_MODE}
         </AriaButton>

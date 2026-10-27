@@ -40,27 +40,27 @@ export interface ButtonProps extends Omit<
 }
 
 // A disabled filled button drops to a neutral fill rather than fading, so it reads as off, not
-// faint, and keeps its shape against the ground.
+// faint, and keeps its shape against the page.
 const OFF =
   'disabled:bg-disabled-fill disabled:text-disabled-ink disabled:shadow-none aria-disabled:bg-disabled-fill aria-disabled:text-disabled-ink aria-disabled:shadow-none'
 const VARIANT: Record<ButtonVariant, string> = {
-  primary: `bg-accent-fill font-semibold text-on-accent-fill shadow-[inset_0_1px_0_rgb(255_255_255/0.16)] hover:bg-accent-fill-hover ${OFF}`,
-  // A plain button's words take the accent; a glyph alone stays ink, except in a section
+  primary: `bg-accent-fill font-semibold text-on-accent-fill shadow-(--shadow-highlight) hover:bg-accent-fill-hover ${OFF}`,
+  // A plain button's words take the accent; a glyph alone stays primary text, except in a section
   // heading. The lighter hover keeps the accent at 4.5:1.
   plain: 'text-accent hover:bg-tint',
-  tinted: `bg-tint font-semibold text-ink hover:bg-tint-strong ${OFF}`,
+  tinted: `bg-tint font-semibold text-primary hover:bg-tint-strong ${OFF}`,
   // An outline, so a secondary action never reads like a filled button that is off.
   bordered: 'text-accent ring-1 ring-tint-strong ring-inset hover:bg-tint',
-  destructive: 'text-danger hover:bg-danger/15',
-  warning: 'text-warning hover:bg-warning/15',
-  // The on-tone label inverts with the scheme: white on red in light, the
-  // dark ground on a lighter red in dark. Hover mixes toward ink, darker in light, lighter in dark.
-  destructiveFill: `bg-danger font-semibold text-on-tone hover:bg-[color-mix(in_srgb,var(--danger),var(--ink)_12%)] ${OFF}`,
-  warningFill: `bg-warning font-semibold text-on-tone hover:bg-[color-mix(in_srgb,var(--warning),var(--ink)_12%)] ${OFF}`,
+  destructive: 'text-danger hover:bg-danger-subtle',
+  warning: 'text-warning hover:bg-warning-subtle',
+  // The on-status label inverts with the scheme: white on red in light, dark on a lighter red in
+  // dark. Hover mixes toward primary text, darker in light, lighter in dark.
+  destructiveFill: `bg-danger font-semibold text-on-status hover:bg-danger-hover ${OFF}`,
+  warningFill: `bg-warning-fill font-semibold text-on-warning-fill hover:bg-warning-fill-hover ${OFF}`,
 }
 
 /** A plain button that is a glyph alone, such as a row's or a bar's icon control. */
-const PLAIN_GLYPH = 'text-ink hover:bg-tint-hover'
+const PLAIN_GLYPH = 'text-primary hover:bg-tint-hover'
 
 const FILLED: Record<ButtonVariant, boolean> = {
   primary: true,

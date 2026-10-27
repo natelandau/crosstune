@@ -33,10 +33,10 @@ struct ListHeader<Sort: SortKind>: View {
         Text(count)
             #if os(macOS)
                 .font(MacStyle.secondary.weight(.medium))
-                .foregroundStyle(Palette.inkSecondary)
+                .foregroundStyle(Palette.textSecondary)
             #else
                 .font(.footnote)
-                .foregroundStyle(.inkSecondary)
+                .foregroundStyle(.textSecondary)
             #endif
             .monospacedDigit()
             .lineLimit(1)

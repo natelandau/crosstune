@@ -6,7 +6,6 @@ enum ScansSection {
     static let rowThumbnailHeight: CGFloat = 44
     #if os(macOS)
         static let macCornerRadius: CGFloat = 6
-        static let darkDimming = 0.12
     #endif
 
     /// The page's thumbnail height: taller at regular width on iOS, where the page has room.
@@ -143,7 +142,7 @@ struct ScanStrip: View {
             if let status {
                 Text(status)
                     .font(.platform(.caption))
-                    .foregroundStyle(.inkSecondary)
+                    .foregroundStyle(.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityHidden(true)
             }
@@ -181,7 +180,7 @@ struct ScanEditRows: View {
                 if let status {
                     Text(status)
                         .font(.platform(.footnote))
-                        .foregroundStyle(.inkSecondary)
+                        .foregroundStyle(.textSecondary)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -228,20 +227,18 @@ struct ScanEditRows: View {
 }
 
 /// A thumbnail's rounded corners. On the Mac a hairline holds a white page's edge on the white
-/// page behind it, every thumbnail shares one radius, and dark mode dims the paper a little so
+/// page behind it, every thumbnail shares one radius, and dark mode dims the scan a little so
 /// it does not glare.
 private struct ScanThumbnailEdge: ViewModifier {
     let cornerRadius: CGFloat
-
-    @Environment(\.colorScheme) private var colorScheme
 
     func body(content: Content) -> some View {
         #if os(macOS)
             let shape = RoundedRectangle(cornerRadius: ScansSection.macCornerRadius)
             content
-                .overlay { Color.black.opacity(colorScheme == .dark ? ScansSection.darkDimming : 0) }
+                .overlay { Palette.imageDim }
                 .clipShape(shape)
-                .overlay { shape.strokeBorder(Palette.hairline, lineWidth: 1) }
+                .overlay { shape.strokeBorder(Palette.border, lineWidth: 1) }
         #else
             content.clipShape(.rect(cornerRadius: cornerRadius))
         #endif

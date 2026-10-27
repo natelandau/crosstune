@@ -205,7 +205,7 @@ private struct ListNameForm: View {
 
     #if os(iOS)
         var body: some View {
-            PaperForm {
+            GroupedForm {
                 Section {
                     field
                 } footer: {

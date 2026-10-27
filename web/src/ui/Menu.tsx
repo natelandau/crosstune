@@ -123,7 +123,7 @@ function MenuList({
       id={id}
       textValue={text}
       isDisabled={disabled}
-      className={`t-body data-[focused]:bg-field data-[disabled]:text-ink-2 flex min-h-(--target) cursor-default items-center gap-3 rounded-(--radius-row) px-3 py-1 ${TONE[tone]}`}
+      className={`t-body data-[focused]:bg-field data-[disabled]:text-secondary flex min-h-(--target) cursor-default items-center gap-3 rounded-(--radius-row) px-3 py-1 ${TONE[tone]}`}
     >
       {({ isSelected }) => (
         <>
@@ -131,14 +131,14 @@ function MenuList({
           {description ? (
             <span className="flex min-w-0 flex-1 flex-col">
               <Text slot="label">{text}</Text>
-              <Text slot="description" className="t-secondary text-ink-2">
+              <Text slot="description" className="t-secondary text-secondary">
                 {description}
               </Text>
             </span>
           ) : (
             <span className="min-w-0 flex-1">{text}</span>
           )}
-          {isSelected && <Check className="text-ink size-5 shrink-0" aria-hidden />}
+          {isSelected && <Check className="text-primary size-5 shrink-0" aria-hidden />}
         </>
       )}
     </MenuItem>
@@ -167,7 +167,9 @@ function MenuList({
           renderItem(group)
         ),
       )}
-      {main.length > 0 && danger.length > 0 && <Separator className="bg-ink-2/25 my-1 h-px" />}
+      {main.length > 0 && danger.length > 0 && (
+        <Separator className="bg-text-secondary/25 my-1 h-px" />
+      )}
       {danger.map(renderItem)}
     </AriaMenu>
   )
@@ -177,7 +179,7 @@ function MenuPopover({ children, onClose, ...props }: PopoverProps & { onClose: 
   return (
     <Popover
       {...props}
-      className="popover-surface bg-ground rounded-(--radius-surface) p-1 shadow-(--shadow-float)"
+      className="popover-surface bg-page rounded-(--radius-surface) p-1 shadow-(--shadow-float)"
     >
       {(renderProps) => (
         <>

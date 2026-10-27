@@ -128,7 +128,7 @@ function Slide({
   if (image.kind === 'broken') {
     return (
       <div className="m-auto flex flex-col items-center gap-3 px-8 text-center">
-        <ImageOff aria-hidden className="text-ink-2 size-12" />
+        <ImageOff aria-hidden className="text-secondary size-12" />
         <p className="t-heading">{SCAN_UNREADABLE}</p>
         {brokenAction}
       </div>
@@ -145,11 +145,11 @@ function Slide({
           <div role="status" aria-label={downloadingScanName(index)}>
             <LoaderCircle
               aria-hidden
-              className="text-ink-2 size-6 animate-spin motion-reduce:animate-none"
+              className="text-secondary size-6 animate-spin motion-reduce:animate-none"
             />
           </div>
         ) : (
-          <p className="t-secondary text-ink-2 px-4 text-center">{SCAN_WAITING}</p>
+          <p className="t-secondary text-secondary px-4 text-center">{SCAN_WAITING}</p>
         )}
       </div>
     )

@@ -82,7 +82,7 @@ export function FindRecordingsSheet({
         <div className="flex min-h-(--target) items-center gap-1 ps-4 pe-1">
           <div className="min-w-0 flex-1 py-2">
             <p className="t-body">{result.title}</p>
-            {result.subtitle && <p className="t-secondary text-ink-2">{result.subtitle}</p>}
+            {result.subtitle && <p className="t-secondary text-secondary">{result.subtitle}</p>}
           </div>
           {embed && (
             <Button
@@ -110,7 +110,7 @@ export function FindRecordingsSheet({
 
   const searchOnRow = (group: SearchGroup) => (
     <a
-      className={`${FIELD_ROW_PRESSABLE} text-ink font-medium`}
+      className={`${FIELD_ROW_PRESSABLE} text-primary font-medium`}
       href={group.search_url}
       target="_blank"
       rel="noopener noreferrer"
@@ -149,7 +149,7 @@ export function FindRecordingsSheet({
             <span className={`${FIELD_LABEL} flex-1`}>
               {searchService(PROVIDER_LABELS[provider])}
             </span>
-            <Trailing className="text-ink-2 size-4 shrink-0" aria-hidden />
+            <Trailing className="text-secondary size-4 shrink-0" aria-hidden />
           </AriaButton>
         )
       })}
@@ -209,7 +209,7 @@ export function FindRecordingsSheet({
         <>
           {field}
           {/* Always present, so a screen reader hears the search start. */}
-          <p role="status" className="t-secondary text-ink-2 px-4 pt-2">
+          <p role="status" className="t-secondary text-secondary px-4 pt-2">
             {/* An opening with nothing to search for starts no search, so it says nothing. */}
             {search.kind === 'searching' && find.text.trim() ? SEARCHING : null}
           </p>

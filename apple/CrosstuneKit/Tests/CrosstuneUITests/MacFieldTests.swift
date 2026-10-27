@@ -148,23 +148,24 @@
             #expect(!room.sharesLine)
         }
 
-        /// The filters control at rest is a glyph in secondary ink; set, it is a set chip whose
+        /// The filters control at rest is a glyph in secondary text; set, it is a set chip whose
         /// count reads on the field it sits in.
         @Test(arguments: [ColorScheme.light, .dark])
         func searchFiltersCountReadsOnTheField(scheme: ColorScheme) {
             let field = Palette.hex(.field, scheme)
-            let wash = MacChip.setWashHex(over: Palette.hex(SearchFiltersStyle.chipGround, scheme), scheme: scheme)
+            let tint = MacChip.setTintHex(over: Palette.hex(SearchFiltersStyle.chipBackground, scheme), scheme: scheme)
             let label = MacChip.labelRGB(state: .set, scheme: scheme).hex
-            #expect(contrastRatio(label, wash) >= 4.5)
-            #expect(contrastRatio(Palette.hex(.inkSecondary, scheme), field) >= 3)
+            #expect(contrastRatio(label, tint) >= 4.5)
+            #expect(contrastRatio(Palette.hex(.textSecondary, scheme), field) >= 3)
         }
 
         @Test(arguments: [ColorScheme.light, .dark])
-        func popUpValuePassesContrastOnEveryGround(scheme: ColorScheme) {
+        func popUpValuePassesContrastOnEveryBackground(scheme: ColorScheme) {
             for isSet in [false, true] {
                 let value = MacPopUpStyle.valueRGB(isSet: isSet, scheme: scheme).hex
-                for ground in [Palette.Token.ground, .surface, .field, .raised] {
-                    #expect(contrastRatio(value, Palette.hex(ground, scheme)) >= 4.5, "set \(isSet) on \(ground)")
+                for background in [Palette.Token.pageBackground, .surface, .field, .surfaceRaised] {
+                    #expect(
+                        contrastRatio(value, Palette.hex(background, scheme)) >= 4.5, "set \(isSet) on \(background)")
                 }
             }
         }
@@ -175,17 +176,17 @@
                 MacPopUpStyle.valueRGB(isSet: true, scheme: scheme).hex == Palette.hex(.accent, scheme).lowercased())
             #expect(
                 MacPopUpStyle.valueRGB(isSet: false, scheme: scheme).hex
-                    == Palette.hex(.inkSecondary, scheme).lowercased())
+                    == Palette.hex(.textSecondary, scheme).lowercased())
         }
 
         /// The ring is a non-text indicator, so it holds 3:1 against the fill it rings and the
-        /// ground around it, which only the full accent does.
+        /// background around it, which only the full accent does.
         @Test(arguments: [ColorScheme.light, .dark])
         func focusRingIsTheFullAccent(scheme: ColorScheme) {
             let ring = MacFieldStyle.focusRingRGB(scheme).hex
             #expect(ring == Palette.hex(.accent, scheme).lowercased())
-            for ground in [Palette.Token.ground, .surface, .field, .raised] {
-                #expect(contrastRatio(ring, Palette.hex(ground, scheme)) >= 3, "\(ground)")
+            for background in [Palette.Token.pageBackground, .surface, .field, .surfaceRaised] {
+                #expect(contrastRatio(ring, Palette.hex(background, scheme)) >= 3, "\(background)")
             }
             #expect(MacFieldStyle.focusRingWidth == 2)
         }
@@ -196,8 +197,8 @@
         func fieldsReadOnEveryContainer(scheme: ColorScheme) {
             for container in MacContainer.allCases {
                 let fill = Palette.hex(container.controlFill, scheme)
-                #expect(contrastRatio(Palette.hex(.ink, scheme), fill) >= 4.5, "text in \(container)")
-                #expect(contrastRatio(Palette.hex(.inkSecondary, scheme), fill) >= 4.5, "prompt in \(container)")
+                #expect(contrastRatio(Palette.hex(.textPrimary, scheme), fill) >= 4.5, "text in \(container)")
+                #expect(contrastRatio(Palette.hex(.textSecondary, scheme), fill) >= 4.5, "prompt in \(container)")
                 #expect(fill != Palette.hex(container.fill, scheme))
             }
             #expect(MacContainer.surface.controlFill != .field)

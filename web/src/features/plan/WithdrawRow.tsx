@@ -57,16 +57,16 @@ export function WithdrawRow({ until }: { until: Date }) {
   }
 
   return (
-    <div className="border-hairline not-first:border-t">
+    <div className="border-default not-first:border-t">
       <Button
-        className={`${FIELD_ROW_PRESSABLE} text-ink w-full text-start`}
+        className={`${FIELD_ROW_PRESSABLE} text-primary w-full text-start`}
         isDisabled={pending || withdrawn}
         aria-describedby={dateId}
         onPress={() => void press()}
       >
         <span className="flex-1">{WITHDRAW_LABEL}</span>
       </Button>
-      <p id={dateId} className="t-secondary text-ink-2 px-4 pb-3">
+      <p id={dateId} className="t-secondary text-secondary px-4 pb-3">
         {withdrawUntil(until)}
       </p>
       <ErrorLine error={error} place="field" />

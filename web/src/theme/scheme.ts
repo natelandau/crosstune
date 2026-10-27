@@ -8,7 +8,7 @@ export function applyScheme(appearance: Appearance): void {
   const scheme = resolveDark(appearance) ? 'dark' : 'light'
   root.dataset.scheme = scheme
   root.style.colorScheme = scheme
-  syncStatusBar(PALETTE[scheme].ground)
+  syncStatusBar(PALETTE[scheme].pageBackground)
 }
 
 /**

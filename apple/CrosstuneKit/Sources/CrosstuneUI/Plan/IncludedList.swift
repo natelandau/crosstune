@@ -47,7 +47,7 @@ struct IncludedList: View {
                 Text(feature.title)
                 Text(feature.detail)
                     .font(.platform(.footnote))
-                    .foregroundStyle(Palette.inkSecondary)
+                    .foregroundStyle(Palette.textSecondary)
             }
             .fixedSize(horizontal: false, vertical: true)
         }

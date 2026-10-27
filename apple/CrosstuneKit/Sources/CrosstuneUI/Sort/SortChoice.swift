@@ -144,12 +144,12 @@ struct SortMenu<Sort: SortKind>: View {
                         .font(.system(size: 8, weight: .bold))
                 }
                 .font(MacStyle.secondary.weight(.medium))
-                .foregroundStyle(Palette.inkSecondary)
+                .foregroundStyle(Palette.textSecondary)
                 .contentShape(.rect)
             }
             .menuStyle(.button)
             .menuIndicator(.hidden)
-            // Plain, so the label keeps its secondary ink rather than the accent.
+            // Plain, so the label keeps its secondary text rather than the accent.
             .buttonStyle(.plain)
             .fixedSize()
             .accessibilityLabel(SortText.buttonLabel(choice))

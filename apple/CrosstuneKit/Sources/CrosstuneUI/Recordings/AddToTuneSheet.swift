@@ -282,7 +282,7 @@ private struct AddToTuneContent: View {
                 }
             }
             .listStyle(.plain)
-            .paperGround()
+            .pageBackground()
             .searchable(text: $model.query, placement: Self.searchPlacement, prompt: AddToTuneSheet.searchPrompt)
             .searchFocused($searchFocused)
             .onSubmit(of: .search, submitSearch)

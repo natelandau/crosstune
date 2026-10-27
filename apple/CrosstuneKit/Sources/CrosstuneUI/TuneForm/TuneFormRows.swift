@@ -237,13 +237,13 @@ struct LearnedOnRow: View {
                     Button(TuneFieldLabels.clearDate, systemImage: "xmark.circle.fill") { day = "" }
                         .labelStyle(.iconOnly)
                         .buttonStyle(.borderless)
-                        .foregroundStyle(.inkSecondary)
+                        .foregroundStyle(.textSecondary)
                 }
             } else {
                 LabeledContent(TuneFieldLabels.learnedOn) {
                     Button(TuneFieldLabels.notSet) { day = CalendarDay.day(.now) }
                         .buttonStyle(.borderless)
-                        .foregroundStyle(.inkSecondary)
+                        .foregroundStyle(.textSecondary)
                         .accessibilityLabel("\(TuneFieldLabels.learnedOn), \(TuneFieldLabels.notSet)")
                         .accessibilityHint(TuneFieldLabels.setsToday)
                 }

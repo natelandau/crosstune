@@ -175,7 +175,7 @@ export function PracticeModal({ id, onClose }: { id: string; onClose: () => void
       >
         <MotionModal
           data-practice
-          className="fixed inset-0 flex flex-col bg-(--panel-ground) text-(--panel-ink)"
+          className="bg-practice-background text-on-practice fixed inset-0 flex flex-col"
           style={{ y, colorScheme: 'dark' }}
           drag={phone ? 'y' : false}
           dragListener={false}

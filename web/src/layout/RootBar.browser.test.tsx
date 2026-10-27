@@ -8,7 +8,7 @@ import { SELECT_ALL } from '../features/selection/selectionCopy'
 import { OFFLINE } from '../sync/labels'
 import { DONE } from '../ui/confirmCopy'
 import { MORE_ACTIONS } from '../ui/menuCopy'
-import { contrastRatio, glyphInk, paintedBackground, washOver } from '../test/contrast'
+import { contrastRatio, glyphColor, paintedBackground, compositeOver } from '../test/contrast'
 import { openTestDb } from '../test/db'
 import { restoreSystemDark, stubSystemDark } from '../test/scheme'
 import { recordingRow, tuneRow, userTuneRow } from '../test/rows'
@@ -213,8 +213,11 @@ it.each([
   const disc = account().element().querySelector('span')!
   // The disc eases into the scheme's colors, so measure once the transition has run.
   await expect.poll(() => disc.getAnimations().length).toBe(0)
-  const ground = paintedBackground(account().element())
+  const background = paintedBackground(account().element())
   expect(
-    contrastRatio(glyphInk(disc), washOver(getComputedStyle(disc).backgroundColor, ground)),
+    contrastRatio(
+      glyphColor(disc),
+      compositeOver(getComputedStyle(disc).backgroundColor, background),
+    ),
   ).toBeGreaterThanOrEqual(4.5)
 })

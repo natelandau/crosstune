@@ -2,7 +2,7 @@ import type { CSSProperties } from 'react'
 import { pitchClass } from './keyColor'
 
 const BASE =
-  'inline-flex shrink-0 items-center rounded-full bg-(--pill-bg) text-(--pill-ink) tabular-nums'
+  'inline-flex shrink-0 items-center rounded-full bg-(--pill-bg) text-(--pill-text) tabular-nums'
 // Matches a Capsule's visual height. A pill is not a control, so a control that wraps one owns
 // the hit area.
 const FULL = 'min-h-[min(2rem,var(--target-filter))] px-3 t-body'
@@ -11,17 +11,20 @@ const COMPACT = 'h-[22px] px-2 t-caption in-[html[data-density=pointer]]:h-[18px
 function pillColors(pitch: number | null, chosen: boolean, flood: boolean): CSSProperties {
   const rest =
     pitch === null
-      ? { bg: 'var(--field)', ink: 'var(--ink)' }
-      : { bg: `var(--key-${pitch}-bg)`, ink: `var(--key-${pitch}-ink)` }
+      ? { background: 'var(--field)', text: 'var(--text-primary)' }
+      : { background: `var(--key-${pitch}-background)`, text: `var(--key-${pitch}-text)` }
   const on =
     pitch === null
-      ? { bg: 'var(--accent-fill)', ink: 'var(--on-accent-fill)' }
-      : { bg: `var(--key-${pitch}-on-bg)`, ink: `var(--key-${pitch}-on-ink)` }
-  // A flooding pill keeps its resting ground; its bubbles carry the chosen color over it.
+      ? { background: 'var(--accent-fill)', text: 'var(--on-accent-fill)' }
+      : {
+          background: `var(--key-${pitch}-selected-background)`,
+          text: `var(--key-${pitch}-selected-text)`,
+        }
+  // A flooding pill keeps its resting background; its bubbles carry the chosen color over it.
   return {
-    '--pill-bg': chosen && !flood ? on.bg : rest.bg,
-    '--pill-fill': on.bg,
-    '--pill-ink': chosen ? on.ink : rest.ink,
+    '--pill-bg': chosen && !flood ? on.background : rest.background,
+    '--pill-fill': on.background,
+    '--pill-text': chosen ? on.text : rest.text,
   } as CSSProperties
 }
 

@@ -21,11 +21,11 @@ private struct TunerLifecycle: Equatable {
 }
 
 /// The Tuner destination: the note heard, how far off it is, and a bar at each side, on the
-/// practice ground in every appearance.
+/// practice background in every appearance.
 struct TunerScreen: View {
     static let noteSize: CGFloat = 112
     static let octaveSize: CGFloat = 40
-    /// How long the bars slide and recolor, and the wash cross-fades.
+    /// How long the bars slide and recolor, and the in-tune background cross-fades.
     static let change = Animation.easeInOut(duration: 0.15)
 
     @Environment(TunerModel.self) private var model: TunerModel?
@@ -46,7 +46,7 @@ struct TunerScreen: View {
     #endif
     @State private var settings: LiveQuery<SettingsSummaries?>?
     /// Forgotten once listening stops, so the next session starts with the prompt. Only the
-    /// ground and the display read it, so a reading never redraws the whole screen.
+    /// background and the display read it, so a reading never redraws the whole screen.
     @State private var lastReading = TunerLastReading()
 
     /// The account's reference pitch, nil until its settings load.
@@ -104,7 +104,7 @@ struct TunerScreen: View {
             if let reference = TunerText.referenceLabel(a4) {
                 Text(reference)
                     .font(PageStyle.secondary)
-                    .foregroundStyle(PhoneStyle.tuneMuted)
+                    .foregroundStyle(Palette.onPracticeSecondary)
                     .padding(.horizontal, PageStyle.pageMargin)
             }
             TunerDisplay(model: model, lastReading: lastReading, motion: motion)
@@ -112,7 +112,7 @@ struct TunerScreen: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .environment(\.colorScheme, .dark)
         .background {
-            TunerGround(model: model, lastReading: lastReading, colorScheme: colorScheme, motion: motion)
+            TunerBackground(model: model, lastReading: lastReading, colorScheme: colorScheme, motion: motion)
         }
         // A visited tab stays alive behind the selected one, so being on screen is not enough.
         .modifier(KeepsScreenAwake(active: lifecycle.shown && lifecycle.foreground && !covered))

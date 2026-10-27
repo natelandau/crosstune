@@ -105,7 +105,7 @@ export function PartialDateField({
       <AriaButton
         isDisabled={sameParts(value, NO_DATE)}
         onPress={() => onChange(NO_DATE)}
-        className={`${FIELD_ROW_PRESSABLE} text-ink font-medium disabled:opacity-40`}
+        className={`${FIELD_ROW_PRESSABLE} text-primary font-medium disabled:opacity-40`}
       >
         {CLEAR_DATE}
       </AriaButton>

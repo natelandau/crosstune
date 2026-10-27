@@ -21,7 +21,7 @@ export function Verses({
   return (
     <div
       data-lyrics-size={step}
-      className={`${step === undefined ? 't-body' : 't-lyrics'} text-ink select-text ${className}`}
+      className={`${step === undefined ? 't-body' : 't-lyrics'} text-primary select-text ${className}`}
     >
       {verses.map((lines, verse) => (
         <div key={verse} data-verse className="[&+&]:mt-[0.9em]">

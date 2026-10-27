@@ -67,7 +67,7 @@ function Place({ transport, title }: { transport: RecordingTransport; title: str
   if (notice) {
     return (
       <span className="flex min-w-0 flex-1 items-center gap-2">
-        <span role="status" className="t-secondary text-ink-2 min-w-0 truncate">
+        <span role="status" className="t-secondary text-secondary min-w-0 truncate">
           {notice}
         </span>
         <RetryButton transport={transport} />
@@ -90,7 +90,7 @@ function Times({ transport, title }: { transport: RecordingTransport; title: str
         role="timer"
         aria-live="off"
         aria-label={ELAPSED(elapsed)}
-        className="t-caption t-num text-ink-2 shrink-0"
+        className="t-caption t-num text-secondary shrink-0"
       >
         {elapsed}
       </span>
@@ -99,7 +99,7 @@ function Times({ transport, title }: { transport: RecordingTransport; title: str
         role="timer"
         aria-live="off"
         aria-label={REMAINING(remaining)}
-        className="t-caption t-num text-ink-2 shrink-0"
+        className="t-caption t-num text-secondary shrink-0"
       >
         {/* The true minus, so the sign keeps one width beside the elapsed time. */}
         {`−${remaining}`}

@@ -26,7 +26,7 @@ struct RenewalTerms<Leading: View>: View {
         VStack(alignment: alignment, spacing: 4) {
             Text(PlanText.renewalTerms(price: price, period: period))
                 .font(.platform(.footnote))
-                .foregroundStyle(Palette.inkSecondary)
+                .foregroundStyle(Palette.textSecondary)
                 .multilineTextAlignment(textAlignment)
                 .fixedSize(horizontal: false, vertical: true)
             // One dotted line, or a column whenever that line would not fit, so no link truncates.
@@ -47,7 +47,7 @@ struct RenewalTerms<Leading: View>: View {
         ForEach(PlanSheet.links.enumerated(), id: \.element.url) { index, link in
             if dotted && (index > 0 || hasLeading) {
                 Text(verbatim: "\u{00B7}")
-                    .foregroundStyle(Palette.inkSecondary)
+                    .foregroundStyle(Palette.textSecondary)
                     .accessibilityHidden(true)
             }
             Link(link.label, destination: link.url)

@@ -10,8 +10,8 @@ const ZONE_HEIGHT = ((2 * ZONE_CENTS) / FULL_CENTS) * FULL_TRAVEL
 /** The bars' color for a note `cents` off: stepped outside the target zone, blended inside it. */
 function barColor(cents: number): string {
   const step = tuneStep(cents)
-  if (step === 'far') return 'var(--coral)'
-  return blend('--tune-close', '--known-dark', step === 'zone' ? inTuneFraction(cents) : 0)
+  if (step === 'far') return 'var(--brand)'
+  return blend('--tuner-close', '--tuner-in-tune', step === 'zone' ? inTuneFraction(cents) : 0)
 }
 
 /**
@@ -25,7 +25,7 @@ export function TunerBars({ cents }: { cents: number }) {
   const shift = (-clamped / FULL_CENTS) * FULL_TRAVEL * 100
   const inTune = inTuneFraction(cents)
   const color = barColor(cents)
-  const zone = `color-mix(in srgb, ${blend('--silver', '--known-dark', inTune / 2)} ${14 + 6 * inTune}%, transparent)`
+  const zone = `color-mix(in srgb, ${blend('--on-practice-secondary', '--tuner-in-tune', inTune / 2)} ${14 + 6 * inTune}%, transparent)`
   return (
     <>
       {(

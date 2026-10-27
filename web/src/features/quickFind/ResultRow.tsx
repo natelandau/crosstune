@@ -37,7 +37,7 @@ export function ResultRow({ item }: { item: QuickFindItem }) {
           {item.title}
         </Text>
         {detail && (
-          <Text slot="description" className="t-secondary text-ink-2 truncate">
+          <Text slot="description" className="t-secondary text-secondary truncate">
             {detail}
           </Text>
         )}

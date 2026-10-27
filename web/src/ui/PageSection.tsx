@@ -47,7 +47,7 @@ export function PageSection({
             >
               {title}
               <ChevronRight
-                className={`text-ink-2 size-4 transition-transform duration-(--dur-short) ease-(--ease) ${open ? 'rotate-90' : ''}`}
+                className={`text-secondary size-4 transition-transform duration-(--dur-short) ease-(--ease) ${open ? 'rotate-90' : ''}`}
                 aria-hidden
               />
             </AriaButton>

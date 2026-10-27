@@ -17,7 +17,7 @@ import { useRecordingRow } from '../recordings/useRecordingRow'
 import type { RecordingView } from '../recordings/useRecordings'
 import { DISC_HOVER, NotPlayableGlyph, TransportGlyph } from '../../ui/rowGlyphs'
 
-const SLOT = 'text-ink-2 grid size-(--target-control) shrink-0 place-items-center'
+const SLOT = 'text-secondary grid size-(--target-control) shrink-0 place-items-center'
 
 /** A tune played alone from its row in list `listId`. */
 function rowOrigin(listId: string): PlayOrigin {
@@ -51,7 +51,7 @@ function SlotButton({
     <AriaButton
       aria-label={name}
       onPress={onPress}
-      className={`${SLOT} rounded-full transition-[scale,opacity] duration-(--dur-short) ease-(--ease) data-[pressed]:scale-90 ${DISC_HOVER} ${loaded ? 'text-ink' : ''}`}
+      className={`${SLOT} rounded-full transition-[scale,opacity] duration-(--dur-short) ease-(--ease) data-[pressed]:scale-90 ${DISC_HOVER} ${loaded ? 'text-primary' : ''}`}
     >
       {children}
     </AriaButton>
@@ -96,10 +96,7 @@ function RecordingPlay({
       {control === 'close' || control === 'play' ? (
         <TransportGlyph shape={control === 'close' ? 'stop' : 'play'} />
       ) : (
-        <CloudDownload
-          className={`size-5 ${offlineDownload ? 'text-glyph-off' : ''}`}
-          aria-hidden
-        />
+        <CloudDownload className={`size-5 ${offlineDownload ? 'text-tertiary' : ''}`} aria-hidden />
       )}
     </SlotButton>
   )

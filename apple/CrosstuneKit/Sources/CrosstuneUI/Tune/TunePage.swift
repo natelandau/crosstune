@@ -66,7 +66,7 @@ struct TunePage: View {
                 attributesLayout = $0
             }
         )
-        .paperGround()
+        .pageBackground()
         .onAppear {
             // TuneScreen cross-fades the pages; the new title lifts into place as it does.
             withAnimation(reduceMotion ? nil : .spring(duration: 0.25)) { risen = true }
@@ -321,7 +321,7 @@ struct TunePageColumn: View {
                 } else if let note = layout.limitNote {
                     Text(note)
                         .font(PageStyle.secondary)
-                        .foregroundStyle(.inkSecondary)
+                        .foregroundStyle(.textSecondary)
                 }
             }
         }
@@ -476,7 +476,7 @@ private struct TokenLabelStyle: LabelStyle {
         HStack(spacing: 5) {
             configuration.icon
                 .font(PageStyle.secondary)
-                .foregroundStyle(.inkSecondary)
+                .foregroundStyle(.textSecondary)
             configuration.title
                 .foregroundStyle(.primary)
         }

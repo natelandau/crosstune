@@ -105,7 +105,7 @@ struct MembershipCard: View {
                         HStack(spacing: 12) {
                             if !membership.value.isEmpty {
                                 Text(membership.value)
-                                    .foregroundStyle(Palette.inkSecondary)
+                                    .foregroundStyle(Palette.textSecondary)
                             }
                             if let trailing {
                                 macManageButton(trailing, title: Self.macManage)
@@ -118,7 +118,7 @@ struct MembershipCard: View {
                 }
                 ForEach(rest.enumerated(), id: \.element) { index, place in
                     if membership != nil || index > 0 {
-                        Rectangle().fill(Palette.hairline).frame(height: 1).padding(.horizontal, MacForm.rowInset)
+                        Rectangle().fill(Palette.border).frame(height: 1).padding(.horizontal, MacForm.rowInset)
                     }
                     macManageRow(place).macPlanRow()
                 }
@@ -137,7 +137,7 @@ struct MembershipCard: View {
                 macManageButton(place, title: PlanText.manageOnTheWeb)
             case .atWebsite:
                 Text(PlanText.manageAtWebsite)
-                    .foregroundStyle(Palette.inkSecondary)
+                    .foregroundStyle(Palette.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -186,7 +186,7 @@ struct MembershipCard: View {
                 if !membership.value.isEmpty {
                     Spacer()
                     Text(membership.value)
-                        .foregroundStyle(.inkSecondary)
+                        .foregroundStyle(.textSecondary)
                 }
             }
             .accessibilityElement(children: .combine)
@@ -209,7 +209,7 @@ struct MembershipCard: View {
                 Link(PlanText.manageOnTheWeb, destination: url)
             case .atWebsite:
                 Text(PlanText.manageAtWebsite)
-                    .foregroundStyle(.inkSecondary)
+                    .foregroundStyle(.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }

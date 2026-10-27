@@ -44,20 +44,20 @@ export function ModePanel({
           const next = MODES.find((m) => keys.has(m))
           if (next) onMode(next)
         }}
-        className="flex rounded-(--radius-capsule) bg-(--panel-ink)/10 p-0.5"
+        className="bg-on-practice/10 flex rounded-(--radius-capsule) p-0.5"
       >
         {MODES.map((m) => (
           <ToggleButton
             key={m}
             id={m}
-            className="t-body t-num relative min-h-(--target) flex-1 cursor-default rounded-(--radius-capsule) px-2 text-(--panel-muted) transition-colors duration-(--dur-short) ease-(--ease) hover:text-(--panel-ink) data-[selected]:text-(--panel-on-ink) data-[selected]:delay-(--dur-short)"
+            className="t-body t-num text-on-practice-secondary hover:text-on-practice data-[selected]:text-practice-background relative min-h-(--target) flex-1 cursor-default rounded-(--radius-capsule) px-2 transition-colors duration-(--dur-short) ease-(--ease) data-[selected]:delay-(--dur-short)"
           >
             {/* One pill shared across the modes, so choosing a mode slides it there. */}
             {m === mode && (
               <motion.span
                 layoutId="practice-mode-pill"
                 aria-hidden
-                className="absolute inset-0 z-0 rounded-(--radius-capsule) bg-(--panel-ink)"
+                className="bg-on-practice absolute inset-0 z-0 rounded-(--radius-capsule)"
               />
             )}
             {/* Above the pill as it slides past, and darkening as it arrives rather than before. */}

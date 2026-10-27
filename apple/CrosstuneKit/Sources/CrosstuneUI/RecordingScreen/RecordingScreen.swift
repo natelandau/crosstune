@@ -54,27 +54,27 @@ struct ScreenRows: Equatable, Sendable {
 }
 
 extension EnvironmentValues {
-    /// The appearance outside the recording screen whose practice ground the screen is drawn on,
-    /// or nil where it draws on the window's own background.
-    @Entry var practiceGround: ColorScheme?
+    /// The appearance outside the recording screen whose practice background the screen is drawn
+    /// on, or nil where it draws on the window's own background.
+    @Entry var practiceBackground: ColorScheme?
 }
 
 extension View {
-    /// Puts the recording screen on the practice ground for `scheme`, the appearance outside
-    /// it, and draws everything on it in dark so it reads on the ground in every appearance.
-    func practiceGround(_ scheme: ColorScheme) -> some View {
-        environment(\.practiceGround, scheme)
+    /// Puts the recording screen on the practice background for `scheme`, the appearance outside
+    /// it, and draws everything on it in dark so it reads on that background in every appearance.
+    func practiceBackground(_ scheme: ColorScheme) -> some View {
+        environment(\.practiceBackground, scheme)
             .environment(\.colorScheme, .dark)
     }
 }
 
-/// Fills a screen of the recording screen's stack with the practice ground, where it has one.
-private struct PracticeGroundFill: ViewModifier {
-    @Environment(\.practiceGround) private var ground
+/// Fills a screen of the recording screen's stack with the practice background, where it has one.
+private struct PracticeBackgroundFill: ViewModifier {
+    @Environment(\.practiceBackground) private var practiceScheme
 
     func body(content: Content) -> some View {
-        if let ground {
-            content.stackBackground(PhoneStyle.practiceGround(ground))
+        if let practiceScheme {
+            content.stackBackground(Palette.practiceBackground(practiceScheme))
         } else {
             content
         }
@@ -87,7 +87,7 @@ extension View {
         #if os(iOS)
             containerBackground(color, for: .navigation)
         #else
-            // The Mac uses the ground only to preview the phone's screen.
+            // The Mac uses the practice background only to preview the phone's screen.
             background(color)
         #endif
     }
@@ -168,7 +168,7 @@ public struct RecordingScreen: View {
                     Color.clear
                 }
             }
-            .modifier(PracticeGroundFill())
+            .modifier(PracticeBackgroundFill())
             #if os(iOS)
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
@@ -211,7 +211,7 @@ struct RecordingScreenContent: View {
     @Environment(AccountSession.self) private var session: AccountSession?
     @Environment(RecordingTransferActions.self) private var transfers: RecordingTransferActions?
     @Environment(\.openURL) private var openURL
-    @Environment(\.practiceGround) private var ground
+    @Environment(\.practiceBackground) private var practiceScheme
     @Environment(\.readingPaneHasContent) private var readingPaneHasContent
     @Environment(\.plan) private var plan
     /// The mode last used on this device, kept here; the screen's model is what the panel reads.
@@ -321,7 +321,7 @@ struct RecordingScreenContent: View {
             case .trim:
                 if let trim {
                     TrimScreen(model: trim, player: player, peaks: shownPeaks, onDone: leaveTrim)
-                        .modifier(PracticeGroundFill())
+                        .modifier(PracticeBackgroundFill())
                 }
             }
         }
@@ -417,10 +417,11 @@ struct RecordingScreenContent: View {
                 waveform(practice, disabledReason: disabledReason)
                     // Outside the dimming, so the reason the screen is blocked reads at full strength.
                     .overlay(alignment: .bottom) {
-                        WaveformOverlay(model: practice, disabledReason: disabledReason, showsReadout: ground == nil)
+                        WaveformOverlay(
+                            model: practice, disabledReason: disabledReason, showsReadout: practiceScheme == nil)
                     }
-                // On the ground the readout sits under the playhead rather than over the wave.
-                if ground != nil {
+                // On the practice background the readout sits under the playhead rather than over the wave.
+                if practiceScheme != nil {
                     PracticeReadout(model: practice, disabledReason: disabledReason)
                 }
             #endif
@@ -447,14 +448,14 @@ struct RecordingScreenContent: View {
                     }
                 #else
                     VStack(spacing: spacing.sectionGap) {
-                        // On the ground the transport leads, right under the waveform it plays.
-                        if ground != nil {
+                        // On the practice background the transport leads, right under the waveform it plays.
+                        if practiceScheme != nil {
                             PracticeControls(model: practice, disabledReason: disabledReason)
                         }
                         modeWidth(ModePicker(model: practice))
                             .disabled(disabledReason != nil)
                             .opacity(disabledReason != nil ? 0.5 : 1)
-                        if ground == nil {
+                        if practiceScheme == nil {
                             PracticeControls(model: practice, disabledReason: disabledReason)
                         }
                         modeWidth(ModeControls(model: practice, onDeleted: focusWaveform))
@@ -574,7 +575,7 @@ struct RecordingScreenContent: View {
                             .contentMask()
                             .font(MacStyle.body)
                             .monospacedDigit()
-                            .foregroundStyle(.inkSecondary)
+                            .foregroundStyle(.textSecondary)
                     }
                     locationControl
                 }

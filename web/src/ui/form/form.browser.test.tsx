@@ -230,7 +230,7 @@ it.each(['light', 'dark'] as const)(
     const card = track.closest('section')!.firstElementChild!
     const style = (el: Element) => getComputedStyle(el)
     const bg = (el: Element) => style(el).backgroundColor
-    // In either state the track reads against the row and the ground, and the thumb against
+    // In either state the track reads against the row and the page, and the thumb against
     // the track. On, the thumb holds a check, so the state never rests on the thumb's place alone.
     const pairs = () => [
       contrastRatio(bg(track), bg(card)),
@@ -333,7 +333,7 @@ it('works from the keyboard on touch', async () => {
 })
 
 it.each(['pointer', 'touch'] as const)(
-  'draws a chosen value in ink and the empty choice in secondary on %s',
+  'draws a chosen value in primary text and the empty choice in secondary text on %s',
   async (density) => {
     renderWithProviders(
       <>
@@ -343,7 +343,7 @@ it.each(['pointer', 'touch'] as const)(
       { density },
     )
     // The value inside each trigger, not the hidden native options pointer adds.
-    const ink = (text: string) => () => {
+    const textColor = (text: string) => () => {
       const value = page
         .getByRole('button', { name: /Type/ })
         .elements()
@@ -360,8 +360,8 @@ it.each(['pointer', 'touch'] as const)(
       span.remove()
       return color
     }
-    await expect.poll(ink('reel')).toBe(probe('--ink'))
-    await expect.poll(ink(ANY)).toBe(probe('--ink-2'))
+    await expect.poll(textColor('reel')).toBe(probe('--text-primary'))
+    await expect.poll(textColor(ANY)).toBe(probe('--text-secondary'))
   },
 )
 

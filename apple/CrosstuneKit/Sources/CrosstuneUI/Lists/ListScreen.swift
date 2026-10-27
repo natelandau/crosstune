@@ -86,7 +86,7 @@ private struct ListContent: View {
             VStack(alignment: .leading, spacing: spacing.stackGap) {
                 Text(DeleteTuneMessage.deleting)
                     .font(.platform(.footnote))
-                    .foregroundStyle(.inkSecondary)
+                    .foregroundStyle(.textSecondary)
                 if let failure = model.failure {
                     FailureText(failure)
                 }
@@ -157,8 +157,8 @@ private struct ListTunes: View {
                 .macColumnList()
             #else
                 .listStyle(.plain)
-                .paperGround()
-                .listSelectionTint()
+                .pageBackground()
+                .accentSelectionTint()
             #endif
             .overlay {
                 if model.showArchived != nil {
@@ -539,20 +539,20 @@ private struct ListTunes: View {
         .moveDisabled(!reorderable)
     }
 
-    /// The playing tune's wash, or nothing, so the list's ground shows through.
+    /// The playing tune's tint, or nothing, so the list's background shows through.
     @ViewBuilder private func rowBackground(isCurrent: Bool) -> some View {
         if isCurrent { currentRowTint } else { Color.clear }
     }
 
-    /// The light wash on the tune a playing list is on.
+    /// The light tint on the tune a playing list is on.
     @ViewBuilder private var currentRowTint: some View {
         #if os(macOS)
             // Inset and rounded as the selection is, so the two read as one family.
             RoundedRectangle(cornerRadius: 6)
-                .fill(MacStyle.accent.opacity(MacStyle.playingWashOpacity(colorScheme)))
+                .fill(Palette.accent.opacity(MacStyle.playingTintOpacity(colorScheme)))
                 .padding(.horizontal, MacStyle.selectionInset)
         #else
-            BrandStyle.setFill(colorScheme)
+            Palette.tint(colorScheme)
         #endif
     }
 

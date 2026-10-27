@@ -63,7 +63,7 @@ struct PageSection<Content: View, Accessory: View>: View {
                 heading
                 Image(systemName: "chevron.right")
                     .font(PageStyle.secondary.weight(.semibold))
-                    .foregroundStyle(.inkSecondary)
+                    .foregroundStyle(.textSecondary)
                     .rotationEffect(.degrees(expanded.wrappedValue ? 90 : 0))
                     .accessibilityHidden(true)
             }

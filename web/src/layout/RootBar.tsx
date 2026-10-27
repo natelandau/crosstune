@@ -82,7 +82,7 @@ function PhoneRootBar({ title, titleRef, actions, search, selection }: RootBarPr
       ref={bar}
       data-root-bar
       data-collapsed={collapsed}
-      className="bg-ground sticky -top-2 z-10 pt-2"
+      className="bg-page sticky -top-2 z-10 pt-2"
     >
       {selection ?? (
         <div data-root-row className="flex h-11 items-center gap-1 ps-4 pe-2">

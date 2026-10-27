@@ -107,7 +107,7 @@ struct PitchPanel: View {
                     Text(Self.signed(split.cents))
                         .font(MacStyle.body)
                         .monospacedDigit()
-                        .foregroundStyle(Palette.ink)
+                        .foregroundStyle(Palette.textPrimary)
                         .frame(minWidth: 28, alignment: .trailing)
                         .accessibilityHidden(true)
                 }

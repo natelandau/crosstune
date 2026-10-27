@@ -97,7 +97,7 @@ final class WelcomeModel {
 
 /// A line the welcome screen shows over its sign-up buttons.
 enum WelcomeNotice: Equatable {
-    /// News from the app, such as an account just deleted, in the screen's own ink.
+    /// News from the app, such as an account just deleted, in the screen's own text color.
     case info(String)
     /// A failed sign-up, as every failure shows beside its control.
     case failure(String)
@@ -172,9 +172,9 @@ private struct WelcomeContent: View {
                     // The window narrows no further than the smallest drawing and its margins.
                     .frame(minWidth: 22.4 * WelcomeLayout.macMinimumUnit + 2 * 24)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background { Palette.ground.ignoresSafeArea() }
+                    .background { Palette.pageBackground.ignoresSafeArea() }
                 Rectangle()
-                    .fill(Palette.hairline)
+                    .fill(Palette.border)
                     .frame(width: 1)
                     .ignoresSafeArea()
                 FillingScroll {
@@ -187,7 +187,7 @@ private struct WelcomeContent: View {
                 }
                 // Room for the sign-up buttons' titles on one line.
                 .frame(minWidth: 320, maxWidth: .infinity)
-                .background { Palette.ground.ignoresSafeArea() }
+                .background { Palette.pageBackground.ignoresSafeArea() }
             }
             .toolbar(removing: .title)
             .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
@@ -323,14 +323,14 @@ private struct WelcomeContent: View {
                 Lockup()
                 Text(WelcomeCopy.reason(for: .mac))
                     .font(MacStyle.lead)
-                    .foregroundStyle(Palette.ink)
+                    .foregroundStyle(Palette.textPrimary)
                     .lineSpacing(2)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.top, 24)
                 if let info {
                     noticeText(info)
                         .font(MacStyle.body.weight(.semibold))
-                        .foregroundStyle(Palette.ink)
+                        .foregroundStyle(Palette.textPrimary)
                         .padding(.top, 16)
                 }
                 VStack(alignment: .leading, spacing: 8) {
@@ -411,9 +411,9 @@ private struct WelcomeContent: View {
             HStack(spacing: 0) {
                 paneCarousel
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background { Palette.ground.ignoresSafeArea() }
+                    .background { Palette.pageBackground.ignoresSafeArea() }
                 Rectangle()
-                    .fill(Palette.hairline)
+                    .fill(Palette.border)
                     .frame(width: 1)
                     .ignoresSafeArea()
                 FillingScroll {
@@ -501,7 +501,7 @@ private struct WelcomeContent: View {
             VStack(alignment: .leading, spacing: spacing.stackGap) {
                 Text(WelcomeCopy.reason(for: WelcomeDevice.current))
                     .font(.body)
-                    .foregroundStyle(Palette.ink)
+                    .foregroundStyle(Palette.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
                 if let info {
                     noticeText(info)
@@ -586,7 +586,7 @@ private struct SlidePage: View {
                 #if os(macOS)
                     .font(MacStyle.columnTitle)
                     .tracking(MacStyle.columnTitleTracking)
-                    .foregroundStyle(Palette.ink)
+                    .foregroundStyle(Palette.textPrimary)
                 #else
                     .font(.title2.bold())
                 #endif
@@ -631,7 +631,7 @@ private struct CarouselDots: View {
                     show(slide)
                 } label: {
                     Capsule()
-                        .fill(isCurrent ? Palette.ink : Palette.inkSecondary)
+                        .fill(isCurrent ? Palette.textPrimary : Palette.textSecondary)
                         .frame(width: isCurrent ? 18 : 8, height: 8)
                         .frame(width: Self.target, height: Self.target)
                         .contentShape(.rect)
@@ -733,7 +733,7 @@ private struct SignUpButtonLabel: View {
 
 /// One of the three sign-up buttons, all alike so no provider leads. Apple allows a Sign in with
 /// Apple button only in black, white, or white with an outline, so every row draws white with a
-/// black title, outlined in black where the ground is light, in pure colors no palette token
+/// black title, outlined in black where the background is light, in pure colors no palette token
 /// carries.
 private struct SignUpButtonStyle: ButtonStyle {
     /// Whether this row's flow runs, which keeps it at full strength so its spinner reads while
@@ -805,7 +805,7 @@ private struct FillingScroll<Content: View>: View {
                     .frame(minHeight: proxy.size.height)
             }
             .scrollBounceBehavior(.basedOnSize)
-            .paperGround()
+            .pageBackground()
         }
     }
 }

@@ -49,8 +49,10 @@ it.each([
   const images = page.getByRole('img').elements()
   expect(images).toHaveLength(statuses.length)
   for (const img of images) {
-    const ground = paintedBackground(img.parentElement as Element)
-    expect(contrastRatio(getComputedStyle(img).borderTopColor, ground)).toBeGreaterThanOrEqual(3)
+    const background = paintedBackground(img.parentElement as Element)
+    expect(contrastRatio(getComputedStyle(img).borderTopColor, background)).toBeGreaterThanOrEqual(
+      3,
+    )
   }
 })
 

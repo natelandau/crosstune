@@ -37,7 +37,7 @@ struct SettingsRoot: View {
     }
 
     var body: some View {
-        PaperForm {
+        GroupedForm {
             if let session { accountCard(session) }
             if store != nil { statsCard }
             Section {
@@ -45,12 +45,12 @@ struct SettingsRoot: View {
                     SettingsPageLink(SettingsPage.category(category)) {
                         LabeledContent {
                             Text(category.summary(summaries?.value ?? nil, appearance: appearance))
-                                .foregroundStyle(.inkSecondary)
+                                .foregroundStyle(.textSecondary)
                         } label: {
                             Label {
                                 Text(category.title)
                             } icon: {
-                                Image(systemName: category.systemImage).foregroundStyle(.inkSecondary)
+                                Image(systemName: category.systemImage).foregroundStyle(.textSecondary)
                             }
                         }
                     }
@@ -83,9 +83,9 @@ struct SettingsRoot: View {
                             attention: attention, lastSynced: engine?.lastSyncedAt, now: context.date)
                         if let attention {
                             Text(line)
-                                .foregroundStyle(SyncBadge.swatch(attention, scheme: colorScheme).ink.color)
+                                .foregroundStyle(SyncBadge.capsuleColors(attention, scheme: colorScheme).text.color)
                         } else {
-                            Text(line).foregroundStyle(.inkSecondary)
+                            Text(line).foregroundStyle(.textSecondary)
                         }
                     }
                     .font(.footnote)
@@ -201,7 +201,7 @@ private struct SettingsPageLink<RowLabel: View>: View {
                     label
                     Image(systemName: "chevron.forward")
                         .font(.footnote.weight(.semibold))
-                        .foregroundStyle(.inkTertiary)
+                        .foregroundStyle(.textSecondary)
                         .accessibilityHidden(true)
                 }
                 .contentShape(.rect)
@@ -209,7 +209,7 @@ private struct SettingsPageLink<RowLabel: View>: View {
             .buttonStyle(.plain)
             .accessibilityAddTraits(opener.current == page ? .isSelected : [])
             #if os(iOS)
-                .listRowBackground(opener.current == page ? Palette.field : Palette.groupedCard)
+                .listRowBackground(opener.current == page ? Palette.field : Palette.groupedSurface)
                 // A row's background keeps the appearance it first drew in, so the row is rebuilt
                 // when the appearance changes. The page keeps each row's identity its own: the
                 // grouped form lays its rows out by identity, and rows that share one draw as

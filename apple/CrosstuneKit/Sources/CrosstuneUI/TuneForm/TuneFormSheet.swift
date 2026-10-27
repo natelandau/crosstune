@@ -173,7 +173,7 @@ private struct TuneFormContent: View {
                     .labelsHidden()
                     .textFieldStyle(.plain)
                     .font(MacStyle.formTitle)
-                    .foregroundStyle(Palette.ink)
+                    .foregroundStyle(Palette.textPrimary)
                     // A plain field sizes to its body line, which clips the larger title's descenders.
                     .frame(minHeight: MacStyle.formTitleSize + 8)
                     .focusEffectDisabled()
@@ -181,7 +181,7 @@ private struct TuneFormContent: View {
                     .focused($titleFocused)
                     .onSubmit(save)
                 Rectangle()
-                    .fill(titleFocused ? Palette.accent : Palette.hairline)
+                    .fill(titleFocused ? Palette.accent : Palette.border)
                     .frame(height: titleFocused ? 2 : 1)
                 if let validation = model.validation {
                     FailureText(validation)
@@ -220,7 +220,7 @@ private struct TuneFormContent: View {
         }
 
         private var form: some View {
-            PaperForm {
+            GroupedForm {
                 if let failure = model.failure {
                     Section {
                         Text(failure)

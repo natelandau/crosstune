@@ -54,12 +54,12 @@ struct SettingsHelp: View {
                 #if os(macOS)
                     Text(help)
                         .font(MacStyle.secondary)
-                        .foregroundStyle(Palette.inkSecondary)
+                        .foregroundStyle(Palette.textSecondary)
                 #else
                     Text(help)
                         .font(.platform(.footnote))
                         .fontWeight(.regular)
-                        .foregroundStyle(.inkSecondary)
+                        .foregroundStyle(.textSecondary)
                         .textCase(nil)
                 #endif
             }

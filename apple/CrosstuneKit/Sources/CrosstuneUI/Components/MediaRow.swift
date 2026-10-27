@@ -78,9 +78,9 @@ public struct MediaRow: View {
         @State private var isHovered = false
     #endif
 
-    /// `actionLabel` names what the row does or would do, "Play" or "Downloading"; with no `action` the
-    /// row is inert. `dimmed` marks a row whose control cannot act right now, such as a download
-    /// offline. `spokenNotice` is spoken after the row's lines and never shown.
+    /// `actionLabel` names what the row does or would do, "Play" or "Downloading"; with no `action`
+    /// the row is inert. `dimmed` marks a row whose control cannot act right now, such as a
+    /// download offline. `spokenNotice` is spoken after the row's lines and never shown.
     public init(
         glyph: MediaGlyph, title: String, secondLine: SecondLine?, actionLabel: String? = nil,
         action: (() -> Void)? = nil, sourceLine: SourceLine? = nil, tuneLine: TuneLine? = nil,
@@ -101,7 +101,8 @@ public struct MediaRow: View {
         isDimmed = dimmed
     }
 
-    /// The row control's spoken name: the actionLabel and the lines it shows, a comma between lines.
+    /// The row control's spoken name: the actionLabel and the lines it shows, a comma between
+    /// lines.
     nonisolated public static func accessibilityName(actionLabel: String?, title: String, details: [String]) -> String {
         let first = actionLabel.map { "\($0) \(title)" } ?? title
         return ([first] + details).joined(separator: ", ")
@@ -126,7 +127,7 @@ public struct MediaRow: View {
                     Text(meta)
                         .font(Self.lineFont)
                         .monospacedDigit()
-                        .foregroundStyle(.inkSecondary)
+                        .foregroundStyle(.textSecondary)
                         .rowLineLimit()
                         .allowsHitTesting(false)
                         .accessibilityHidden(true)
@@ -137,7 +138,7 @@ public struct MediaRow: View {
                 if let notice, !noticeInHeading {
                     Text(notice)
                         .font(Self.smallFont)
-                        .foregroundStyle(.inkSecondary)
+                        .foregroundStyle(.textSecondary)
                         .allowsHitTesting(false)
                         .accessibilityHidden(true)
                 }
@@ -321,7 +322,7 @@ public struct MediaRow: View {
             #if os(macOS)
                 .macHoverAccent()
             #else
-                .foregroundStyle(.inkSecondary)
+                .foregroundStyle(.textSecondary)
             #endif
             .lineTarget(stacked: stacksLineControls, reach: 14)
         }
@@ -345,7 +346,7 @@ public struct MediaRow: View {
             #if os(macOS)
                 .macHoverAccent()
             #else
-                .foregroundStyle(.inkSecondary)
+                .foregroundStyle(.textSecondary)
             #endif
             .lineTarget(stacked: stacksLineControls, reach: 14)
         }
@@ -409,11 +410,11 @@ public struct MediaRow: View {
         private static let glyphFont = Font.title3
     #endif
 
-    /// A glyph for what a tap would start: ink, and on the Mac the accent while the pointer
-    /// is over the row, so the row reads as the control.
+    /// A glyph for what a tap would start: primary text, and on the Mac the accent while the
+    /// pointer is over the row, so the row reads as the control.
     private var idleGlyphStyle: AnyShapeStyle {
         #if os(macOS)
-            isHovered ? AnyShapeStyle(Palette.accent) : AnyShapeStyle(Palette.ink)
+            isHovered ? AnyShapeStyle(Palette.accent) : AnyShapeStyle(Palette.textPrimary)
         #else
             AnyShapeStyle(.primary)
         #endif
@@ -438,9 +439,9 @@ public struct MediaRow: View {
         case .downloading:
             ProgressView().controlSize(.small)
         case .attention:
-            Image(systemName: "exclamationmark.circle").font(Self.glyphFont).foregroundStyle(.inkSecondary)
+            Image(systemName: "exclamationmark.circle").font(Self.glyphFont).foregroundStyle(.textSecondary)
         case .waiting:
-            Image(systemName: "clock").font(Self.glyphFont).foregroundStyle(.inkSecondary)
+            Image(systemName: "clock").font(Self.glyphFont).foregroundStyle(.textSecondary)
         case .none:
             // No height of its own, so a hanging slot never stretches the row to its column.
             Color.clear.frame(height: 0)
@@ -456,10 +457,10 @@ extension EnvironmentValues {
 }
 
 #if os(macOS)
-    /// A link line's ink: secondary at rest, the accent under the pointer, so the accent stays
-    /// for what the musician is about to act on. A selected row's lines follow the selection's
-    /// secondary ink instead, since the accent holds 4.5:1 on neither the emphasized fill nor
-    /// the dark gray one.
+    /// A link line's text color: secondary at rest, the accent under the pointer, so the accent
+    /// stays for what the musician is about to act on. A selected row's lines follow the
+    /// selection's secondary text instead, since the accent holds 4.5:1 on neither the emphasized
+    /// fill nor the dark gray one.
     struct MacHoverAccent: ViewModifier {
         @State private var isHovered = false
         @Environment(\.backgroundProminence) private var prominence
@@ -467,7 +468,7 @@ extension EnvironmentValues {
 
         nonisolated static func token(hovered: Bool, emphasized: Bool, rowSelected: Bool) -> Palette.Token {
             if hovered, !emphasized, !rowSelected { return .accent }
-            return SecondaryInk.token(emphasized: emphasized, rowSelected: rowSelected)
+            return SecondaryText.token(emphasized: emphasized, rowSelected: rowSelected)
         }
 
         func body(content: Content) -> some View {

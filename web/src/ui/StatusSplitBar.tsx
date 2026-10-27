@@ -2,9 +2,9 @@ import { STATUSES, type TuneStatus } from '../api/vocabulary'
 import { STATUS_LABELS } from '../constants'
 
 const FILL: Record<TuneStatus, string> = {
-  known: 'bg-known',
-  learning: 'bg-learning',
-  want_to_learn: 'bg-unknown',
+  known: 'bg-status-known',
+  learning: 'bg-status-learning',
+  want_to_learn: 'bg-status-unknown',
 }
 
 /**

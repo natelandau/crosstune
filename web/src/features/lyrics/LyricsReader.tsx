@@ -15,7 +15,7 @@ import { Verses } from './Verses'
 const MotionModalOverlay = motion.create(ModalOverlay)
 
 /**
- * A tune's words at reading distance, over the whole window on the app's ground. It carries no
+ * A tune's words at reading distance, over the whole window on the app's page background. It carries no
  * control but the size, the editor, and the way out. Escape closes it and focus returns to the
  * control that opened it. The page passes the tune it already reads, and closes the reader by
  * `isOpen` once that tune is gone.
@@ -71,7 +71,7 @@ function ReaderSurface({
       onOpenChange={(open) => {
         if (!open) onClose()
       }}
-      className="bg-ground fixed inset-0 z-50"
+      className="bg-page fixed inset-0 z-50"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}

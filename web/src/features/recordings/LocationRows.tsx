@@ -63,7 +63,7 @@ export function LocationRow({
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="truncate">{name}</span>
         {detail && (
-          <span id={`${id}-detail`} className="t-secondary text-ink-2 truncate">
+          <span id={`${id}-detail`} className="t-secondary text-secondary truncate">
             {detail}
           </span>
         )}
@@ -132,7 +132,7 @@ export function PlaceSearch({
       </div>
       {/* Always in the tree, so a screen reader hears each message as it lands. */}
       <div id={statusId} role="status">
-        {message && <p className="t-secondary text-ink-2 px-4 pt-2">{message}</p>}
+        {message && <p className="t-secondary text-secondary px-4 pt-2">{message}</p>}
       </div>
       {results.length > 0 && (
         <Group>

@@ -30,13 +30,13 @@ public struct SyncBadge: View {
     }
 
     public var body: some View {
-        let swatch = Self.swatch(status, scheme: colorScheme)
+        let colors = Self.capsuleColors(status, scheme: colorScheme)
         Text(status.label)
             .font(.platform(.footnote).weight(.semibold))
-            .foregroundStyle(swatch.ink.color)
+            .foregroundStyle(colors.text.color)
             .padding(.horizontal, spacing(10))
             .padding(.vertical, spacing(4))
-            .background(swatch.background.color, in: .capsule)
+            .background(colors.background.color, in: .capsule)
             .fixedSize()
     }
 
@@ -45,8 +45,9 @@ public struct SyncBadge: View {
 
     /// A warning while offline, which fixes itself, and while an update is required, which the
     /// store does for the musician; danger when the musician has to act.
-    nonisolated static func swatch(_ status: SyncStatus, scheme: ColorScheme) -> KeyColor.Swatch {
-        status == .offline || status == .updateRequired ? SignalSwatch.warning(scheme) : SignalSwatch.danger(scheme)
+    nonisolated static func capsuleColors(_ status: SyncStatus, scheme: ColorScheme) -> KeyColor.PillColors {
+        status == .offline || status == .updateRequired
+            ? StatusCapsuleColors.warning(scheme) : StatusCapsuleColors.danger(scheme)
     }
 }
 

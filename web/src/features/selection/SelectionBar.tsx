@@ -50,7 +50,7 @@ function Cell({
       aria-label={caption === label ? undefined : label}
       isDisabled={isDisabled}
       onPress={onPress}
-      className={`t-caption text-ink flex min-h-14 w-full flex-col items-center justify-center gap-0.5 rounded-(--radius-row) disabled:opacity-40 ${PRESS} ${WASH_HOVER}`}
+      className={`t-caption text-primary flex min-h-14 w-full flex-col items-center justify-center gap-0.5 rounded-(--radius-row) disabled:opacity-40 ${PRESS} ${WASH_HOVER}`}
     >
       <Icon className="size-6" aria-hidden />
       {caption}
@@ -68,7 +68,7 @@ function fadeInBar(pane: Element | null) {
     ':scope > [data-pane-bar], :scope > [data-root-bar] > [data-root-row]',
   )
   if (!bar) return
-  // Its controls and title, never the bar's own ground, which hides the rows scrolling under it.
+  // Its controls and title, never the bar's own background, which hides the rows scrolling under it.
   for (const part of bar.children) {
     void animate(part, { opacity: [0, 1] }, { duration: DURATION.short, ease: EASE })
   }
@@ -192,7 +192,7 @@ export function SelectionBar({
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }}>
               <Toolbar
                 aria-label={SELECTION_ACTIONS}
-                className="bg-ground border-hairline grid grid-cols-4 items-center border-t pb-[env(safe-area-inset-bottom)]"
+                className="bg-page border-default grid grid-cols-4 items-center border-t pb-[env(safe-area-inset-bottom)]"
               >
                 {buttons}
               </Toolbar>

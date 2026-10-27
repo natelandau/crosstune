@@ -105,7 +105,7 @@ private struct TunePickerContent: View {
                                 if model.showsHint {
                                     Text(TunePickerSheet.hint)
                                         .font(MacStyle.secondary)
-                                        .foregroundStyle(Palette.inkSecondary)
+                                        .foregroundStyle(Palette.textSecondary)
                                         .padding(.horizontal, 8)
                                 }
                                 ForEach(model.idleResults ?? []) { macRow($0) }
@@ -115,7 +115,7 @@ private struct TunePickerContent: View {
                                     Text(note)
                                         .contentMask()
                                         .font(MacStyle.secondary)
-                                        .foregroundStyle(Palette.inkSecondary)
+                                        .foregroundStyle(Palette.textSecondary)
                                         .padding(.horizontal, 8)
                                         .padding(.vertical, 4)
                                 }
@@ -203,7 +203,7 @@ private struct TunePickerContent: View {
                     if model.showsHint {
                         Text(TunePickerSheet.hint)
                             .font(.platform(.footnote))
-                            .foregroundStyle(.inkSecondary)
+                            .foregroundStyle(.textSecondary)
                             .listRowSeparator(.hidden)
                     }
                     ForEach(model.idleResults ?? []) { pickerRow($0) }
@@ -213,7 +213,7 @@ private struct TunePickerContent: View {
                         Text(note)
                             .contentMask()
                             .font(.platform(.footnote))
-                            .foregroundStyle(.inkSecondary)
+                            .foregroundStyle(.textSecondary)
                     }
                     if let label = results.outcome.addTypedTitleLabel, let title = results.outcome.title {
                         AddTypedTitleRow(label: label) { create(title) }
@@ -221,7 +221,7 @@ private struct TunePickerContent: View {
                 }
             }
             .listStyle(.plain)
-            .paperGround()
+            .pageBackground()
             .searchable(text: $model.query, placement: Self.searchPlacement, prompt: CatalogScreen.searchPrompt)
             .searchFocused($searchFocused)
             .onSubmit(of: .search, submitSearch)
@@ -282,7 +282,7 @@ private struct TunePickerContent: View {
                 Spacer(minLength: 0)
                 Text(TunePickerModel.inThisList)
                     .font(.platform(.footnote))
-                    .foregroundStyle(.inkSecondary)
+                    .foregroundStyle(.textSecondary)
                     .fixedSize()
             }
             .accessibilityElement(children: .combine)

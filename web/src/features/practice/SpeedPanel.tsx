@@ -55,7 +55,7 @@ export function SpeedPanel({
           step={SPEED_STEP}
           value={value}
           aria-valuetext={SPEED_BADGE(value)}
-          className="h-11 min-w-0 flex-1 accent-(--panel-ink)"
+          className="accent-on-practice h-11 min-w-0 flex-1"
           onChange={(event) => onChange(clampSpeed(Number(event.target.value)))}
         />
         <button
@@ -77,8 +77,8 @@ export function SpeedPanel({
               aria-pressed={chosen}
               className={
                 chosen
-                  ? 't-body min-h-11 rounded-full bg-(--panel-ink) px-4 text-(--panel-on-ink) tabular-nums'
-                  : 't-body min-h-11 rounded-full bg-(--fill-tertiary) px-4 tabular-nums'
+                  ? 't-body bg-on-practice text-practice-background min-h-11 rounded-full px-4 tabular-nums'
+                  : 't-body bg-practice-fill min-h-11 rounded-full px-4 tabular-nums'
               }
               onClick={() => onChange(preset)}
             >

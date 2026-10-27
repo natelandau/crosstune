@@ -4,8 +4,8 @@ import SwiftUI
 /// Tunes added and recordings made per month, as two strips of bars over the same months. A
 /// month with nothing keeps its empty slot, so the spacing reads as time.
 struct MonthBarsView: View {
-    /// Bars in ink, since the accent marks only what can be chosen.
-    static var barFill: Color { Palette.ink.opacity(0.7) }
+    /// Bars in the primary text color, since the accent marks only what can be chosen.
+    static var barFill: Color { Palette.textPrimary.opacity(0.7) }
 
     let months: Stats.Months
     var allTime = false
@@ -27,7 +27,7 @@ struct MonthBarsView: View {
                 }
                 .font(.platform(.caption2))
                 .monospacedDigit()
-                .foregroundStyle(.inkSecondary)
+                .foregroundStyle(.textSecondary)
                 .accessibilityHidden(true)
             }
         }
@@ -40,7 +40,7 @@ struct MonthBarsView: View {
         return VStack(alignment: .leading, spacing: spacing(4)) {
             Text(label)
                 .font(.platform(.footnote))
-                .foregroundStyle(.inkSecondary)
+                .foregroundStyle(.textSecondary)
                 .accessibilityAddTraits(.isHeader)
             HStack(alignment: .bottom, spacing: 1) {
                 ForEach(shown, id: \.month) { month in

@@ -46,7 +46,7 @@ function ListPlayControl({
         else if (pausing) engine.pause()
         else engine.play()
       }}
-      className={`${SLOT} rounded-full transition-[scale,opacity] duration-(--dur-short) ease-(--ease) data-[pressed]:scale-90 ${DISC_HOVER} ${active ? 'text-ink' : 'text-ink-2'} ${
+      className={`${SLOT} rounded-full transition-[scale,opacity] duration-(--dur-short) ease-(--ease) data-[pressed]:scale-90 ${DISC_HOVER} ${active ? 'text-primary' : 'text-secondary'} ${
         hover ? 'opacity-0 group-hover:opacity-100 data-[focus-visible]:opacity-100' : ''
       }`}
     >

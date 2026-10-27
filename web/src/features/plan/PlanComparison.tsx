@@ -21,12 +21,12 @@ export function PlanComparison() {
         <thead>
           <tr className="t-caption align-bottom">
             <td />
-            <th scope="col" className={`${COLUMN} text-ink-2 pt-3 pb-1.5`}>
+            <th scope="col" className={`${COLUMN} text-secondary pt-3 pb-1.5`}>
               {COMPARE_FREE}
             </th>
             {/* Collapsed table cells ignore border-radius, so the tab is a block inside the cell. */}
             <th scope="col" className="w-20 px-0 pt-3 pb-0 text-center">
-              <span className="bg-coral text-on-coral block rounded-t-(--radius-row) py-1.5 font-semibold">
+              <span className="bg-brand text-on-brand block rounded-t-(--radius-row) py-1.5 font-semibold">
                 {COMPARE_PREMIUM}
               </span>
             </th>
@@ -34,7 +34,7 @@ export function PlanComparison() {
         </thead>
         <tbody>
           {COMPARISON.map((feature) => (
-            <tr key={feature.title} className="border-hairline border-t">
+            <tr key={feature.title} className="border-default border-t">
               <th scope="row" className="py-2 ps-3 pe-2 text-start font-normal">
                 <span className="flex items-center gap-3">
                   <FeatureIcon icon={feature.icon} size="small" />
@@ -58,15 +58,19 @@ export function PlanComparison() {
 function CellMark({ cell, premium }: { cell: Cell; premium: boolean }) {
   if (cell.kind === 'value') {
     return (
-      <span className={premium ? 'text-premium-ink font-semibold' : 'text-ink-2'}>{cell.text}</span>
+      <span className={premium ? 'text-on-tint font-semibold' : 'text-secondary'}>{cell.text}</span>
     )
   }
   const included = cell.kind === 'included'
   const Icon = included ? Check : Minus
-  const ink = premium ? 'text-ink' : included ? 'text-ink-2' : 'text-glyph-faint'
+  const textColor = premium ? 'text-primary' : included ? 'text-secondary' : 'text-glyph-faint'
   return (
     <>
-      <Icon className={`inline-block size-4 ${ink}`} strokeWidth={premium ? 2.75 : 2} aria-hidden />
+      <Icon
+        className={`inline-block size-4 ${textColor}`}
+        strokeWidth={premium ? 2.75 : 2}
+        aria-hidden
+      />
       <span className="sr-only">{included ? CELL_INCLUDED : CELL_EXCLUDED}</span>
     </>
   )

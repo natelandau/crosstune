@@ -212,7 +212,7 @@ struct ListRowPlayButton: View {
         case nil:
             Image(systemName: "circle.slash")
                 .font(glyphFont)
-                .foregroundStyle(.inkSecondary)
+                .foregroundStyle(.textSecondary)
                 .frame(minWidth: slot, minHeight: slot)
                 .accessibilityHidden(true)
         case .inert?:
@@ -250,7 +250,7 @@ struct ListRowPlayButton: View {
     @ViewBuilder private func nowPlayingGlyph(isPlaying: Bool) -> some View {
         Image(systemName: ListRowPlay.nowPlayingSymbol(isPlaying: isPlaying))
             #if os(macOS)
-                .foregroundStyle(MacStyle.accent)
+                .foregroundStyle(Palette.accent)
             #else
                 .foregroundStyle(.tint)
             #endif

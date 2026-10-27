@@ -33,13 +33,14 @@ extension PlanSheet {
     ]
 }
 
-/// Free beside Premium, a row per feature. Premium's header is a coral tab over a column in the
-/// accent wash a set filter wears, its checks and values in `BrandStyle.premiumInk`; on the Mac,
-/// where coral alone marks Premium, the column is a coral wash with its checks and values in ink.
-/// The wash is one band behind every row, so the dividers cross it rather than cut it into blocks.
+/// Free beside Premium, a row per feature. Premium's header is a brand-colored tab over a column in
+/// the tint a set filter wears, its checks and values in `Palette.onTint`; on the Mac, where the
+/// brand color alone marks Premium, the column is a brand tint with its checks and values in the
+/// primary text color. The tint is one band behind every row, so the dividers cross it rather than
+/// cut it into blocks.
 struct PlanComparison: View {
     #if os(macOS)
-        nonisolated static let macPremiumWashOpacity = 0.12
+        nonisolated static let macPremiumTintOpacity = 0.12
     #endif
 
     /// What VoiceOver reads for a check and a dash.
@@ -63,18 +64,18 @@ struct PlanComparison: View {
             }
         }
         .background(alignment: .trailing) {
-            premiumWash
+            premiumTint
                 .frame(width: columnWidth)
                 .padding(.top, Self.tabInset)
         }
         .planCard()
     }
 
-    private var premiumWash: Color {
+    private var premiumTint: Color {
         #if os(macOS)
-            BrandStyle.coral.opacity(Self.macPremiumWashOpacity)
+            Palette.brand.opacity(Self.macPremiumTintOpacity)
         #else
-            BrandStyle.setFill(scheme)
+            Palette.tint(scheme)
         #endif
     }
 
@@ -82,14 +83,14 @@ struct PlanComparison: View {
         HStack(spacing: 0) {
             Spacer(minLength: 0)
             Text(PlanText.compareFree)
-                .foregroundStyle(Palette.inkSecondary)
+                .foregroundStyle(Palette.textSecondary)
                 .frame(width: columnWidth)
                 .padding(.vertical, 6)
             Text(PlanText.comparePremium)
-                .foregroundStyle(BrandStyle.onCoral)
+                .foregroundStyle(Palette.onBrand)
                 .frame(width: columnWidth)
                 .padding(.vertical, 6)
-                .background(BrandStyle.coral, in: UnevenRoundedRectangle(topLeadingRadius: 8, topTrailingRadius: 8))
+                .background(Palette.brand, in: UnevenRoundedRectangle(topLeadingRadius: 8, topTrailingRadius: 8))
         }
         .font(.platform(.footnote).weight(.semibold))
         .fixedSize(horizontal: false, vertical: true)
@@ -123,10 +124,10 @@ struct PlanComparison: View {
     @ViewBuilder
     private func cell(_ cell: PlanSheet.Cell, column: String, premium: Bool) -> some View {
         #if os(macOS)
-            let color = AnyShapeStyle(premium ? Palette.ink : Palette.inkSecondary)
+            let color = AnyShapeStyle(premium ? Palette.textPrimary : Palette.textSecondary)
             let valueColor = color
         #else
-            let color = premium ? AnyShapeStyle(BrandStyle.premiumInk(scheme)) : AnyShapeStyle(Palette.inkSecondary)
+            let color = premium ? AnyShapeStyle(Palette.onTint(scheme)) : AnyShapeStyle(Palette.textSecondary)
             let valueColor = color
         #endif
         switch cell {
@@ -138,7 +139,7 @@ struct PlanComparison: View {
         case .excluded:
             Image(systemName: "minus")
                 .font(.platform(.subheadline))
-                .foregroundStyle(Palette.inkSecondary)
+                .foregroundStyle(Palette.textSecondary)
                 .accessibilityLabel("\(column), \(Self.excludedLabel)")
         case .value(let amount):
             Text(amount)
@@ -151,9 +152,9 @@ struct PlanComparison: View {
     }
 }
 
-/// A feature's symbol on an accent-washed tile, as the comparison and the included list draw it.
-/// The glyph takes the set filter's label color, which holds 3:1 on the wash in each appearance.
-/// On the Mac the tile is a field with the glyph in secondary ink, since accent never sits on
+/// A feature's symbol on an accent-tinted tile, as the comparison and the included list draw it.
+/// The glyph takes the set filter's label color, which holds 3:1 on the tint in each appearance.
+/// On the Mac the tile is a field with the glyph in secondary text, since accent never sits on
 /// a glyph at rest.
 struct FeatureTile: View {
     let symbol: String
@@ -164,9 +165,9 @@ struct FeatureTile: View {
 
     var body: some View {
         #if os(macOS)
-            let (glyph, fill) = (Palette.inkSecondary, Palette.field)
+            let (glyph, fill) = (Palette.textSecondary, Palette.field)
         #else
-            let (glyph, fill) = (BrandStyle.setLabel(scheme), BrandStyle.setFill(scheme))
+            let (glyph, fill) = (Palette.onTint(scheme), Palette.tint(scheme))
         #endif
         Image(systemName: symbol)
             .font(font)
@@ -178,7 +179,7 @@ struct FeatureTile: View {
 }
 
 /// The Plan sheet's inset card: the grouped row fill on iPhone and iPad, where a tinted card
-/// takes the accent wash instead; on the Mac every card is `surface` with no stroke.
+/// takes the accent tint instead; on the Mac every card is `surface` with no stroke.
 private struct PlanCard: ViewModifier {
     let tinted: Bool
 
@@ -199,8 +200,8 @@ private struct PlanCard: ViewModifier {
 
     #if !os(macOS)
         private var fill: AnyShapeStyle {
-            if tinted { return AnyShapeStyle(BrandStyle.setFill(scheme)) }
-            return AnyShapeStyle(Palette.groupedCard)
+            if tinted { return AnyShapeStyle(Palette.tint(scheme)) }
+            return AnyShapeStyle(Palette.groupedSurface)
         }
     #endif
 }
@@ -209,7 +210,7 @@ private struct PlanCard: ViewModifier {
 struct PlanDivider: View {
     var body: some View {
         #if os(macOS)
-            Rectangle().fill(Palette.hairline).frame(height: 1)
+            Rectangle().fill(Palette.border).frame(height: 1)
         #else
             Divider()
         #endif
@@ -231,13 +232,13 @@ extension View {
         }
     #endif
 
-    /// The Plan sheet's ground: the grouped background on iPhone and iPad, as Settings draws
-    /// it, so the cards contrast in both appearances. The Mac keeps the sheet's own ground.
-    func planGround() -> some View {
+    /// The Plan sheet's background: the grouped background on iPhone and iPad, as Settings draws
+    /// it, so the cards contrast in both appearances. The Mac keeps the sheet's own background.
+    func planBackground() -> some View {
         #if os(macOS)
             self
         #else
-            background(Palette.groupedPage.ignoresSafeArea())
+            background(Palette.groupedBackground.ignoresSafeArea())
         #endif
     }
 }

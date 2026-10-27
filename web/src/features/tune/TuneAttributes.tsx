@@ -45,7 +45,7 @@ interface TuneAttributesProps {
 
 const ROW_SHAPE = `${ROW_PRESS} flex min-h-(--target) w-full items-center gap-3 px-4 text-start t-body`
 /**
- * A row in the attributes column: inset, so its wash reads as a rounded shape on the open ground. Its label and
+ * A row in the attributes column: inset, so its wash reads as a rounded shape on the open page. Its label and
  * value are columns that each wrap on their own, set on their first baselines; the padding
  * centers a single line in the row's target height.
  */
@@ -54,9 +54,9 @@ const COLUMN_ROW_SHAPE = `${ROW_PRESS} mx-2 flex min-h-(--target) items-baseline
  * The attributes column's label width, in the label's own size: wide enough for "Time signature" on one
  * line, so a longer label such as "5-string banjo tuning" wraps to a second.
  */
-const COLUMN_LABEL = 't-secondary text-ink-2 w-[7.5em] shrink-0 break-words'
+const COLUMN_LABEL = 't-secondary text-secondary w-[7.5em] shrink-0 break-words'
 /** A group header: quieter than a row by its smaller size, never by fading. */
-const COLUMN_HEADER = 't-caption text-ink-2 px-4 pb-1'
+const COLUMN_HEADER = 't-caption text-secondary px-4 pb-1'
 
 export function TuneAttributes({
   view,
@@ -106,7 +106,7 @@ export function TuneAttributes({
     // pane bar, so it stays in view while long content scrolls. An attributes column taller than
     // the pane, under its bar, scrolls on its own, so its last groups are never out of reach.
     return (
-      <div className="border-hairline border-s">
+      <div className="border-default border-s">
         <aside
           aria-label={ATTRIBUTES_LABEL}
           className="sticky top-11 flex max-h-[calc(100dvh-2.75rem)] flex-col overflow-y-auto overscroll-contain pb-4"
@@ -154,7 +154,7 @@ export function TuneLists({
         <li key={list.id}>
           <Link
             to={`/lists/${list.id}`}
-            className={`t-secondary bg-field text-ink inline-flex h-[min(2rem,var(--target-filter))] items-center rounded-(--radius-capsule) px-3 ${CAPSULE_HIT}`}
+            className={`t-secondary bg-field text-primary inline-flex h-[min(2rem,var(--target-filter))] items-center rounded-(--radius-capsule) px-3 ${CAPSULE_HIT}`}
           >
             {list.name}
           </Link>
@@ -163,7 +163,7 @@ export function TuneLists({
       <li>
         <AriaButton
           onPress={onAddToList}
-          className={`t-secondary text-ink-2 hover:bg-field inline-flex h-[min(2rem,var(--target-filter))] items-center rounded-(--radius-capsule) px-3 ${CAPSULE_HIT}`}
+          className={`t-secondary text-secondary hover:bg-field inline-flex h-[min(2rem,var(--target-filter))] items-center rounded-(--radius-capsule) px-3 ${CAPSULE_HIT}`}
         >
           {ADD_TO_LIST}
         </AriaButton>
@@ -175,7 +175,7 @@ export function TuneLists({
 /** The footnote that ends a tune's attributes: the day it joined the catalog. */
 export function AddedLine({ createdAt, className }: { createdAt: string; className: string }) {
   return (
-    <p className={`t-caption text-ink-2 font-normal ${className}`}>
+    <p className={`t-caption text-secondary font-normal ${className}`}>
       {ADDED_ON(addedDay(createdAt))}
     </p>
   )
@@ -205,7 +205,7 @@ function AttributesCard({
         >
           <span className="flex-1">{MORE_DETAILS}</span>
           <ChevronDown
-            className={`text-ink-2 size-4 transition-transform duration-(--dur-short) ease-(--ease) ${expanded ? 'rotate-180' : ''}`}
+            className={`text-secondary size-4 transition-transform duration-(--dur-short) ease-(--ease) ${expanded ? 'rotate-180' : ''}`}
             aria-hidden
           />
         </AriaButton>
@@ -246,7 +246,7 @@ function AttributeRowEditor({
       >
         <span className={column ? COLUMN_LABEL : FIELD_LABEL}>{row.label}</span>
         <span
-          className={`${column ? 'min-w-0 flex-1 break-words' : FIELD_VALUE_SHAPE} ${row.text === null ? 'text-ink-2' : 'text-ink'}`}
+          className={`${column ? 'min-w-0 flex-1 break-words' : FIELD_VALUE_SHAPE} ${row.text === null ? 'text-secondary' : 'text-primary'}`}
         >
           {row.text ?? ADD_VALUE}
         </span>

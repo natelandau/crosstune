@@ -291,7 +291,7 @@ describe('WelcomeCarousel', () => {
     // The first slide's phone is jet on light paper and lifts to raised on dark paper.
     const phone = slides()[0]!.querySelector('.bg-device-bezel')!
     const jet = resolvedBackground('bg-jet')
-    const raised = resolvedBackground('bg-raised')
+    const raised = resolvedBackground('bg-surface-raised')
     expect(jet).not.toBe(raised)
     await expect
       .poll(() => getComputedStyle(phone).backgroundColor)

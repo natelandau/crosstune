@@ -11,12 +11,12 @@
         public var body: some View {
             let shape = RoundedRectangle(cornerRadius: 10)
             shape
-                .fill(MacStyle.accent.opacity(0.06))
-                .strokeBorder(MacStyle.accent, lineWidth: 2)
+                .fill(Palette.accent.opacity(0.06))
+                .strokeBorder(Palette.accent, lineWidth: 2)
                 .overlay {
                     Label(Self.label, systemImage: "square.and.arrow.down")
                         .font(MacStyle.secondary.weight(.medium))
-                        .foregroundStyle(MacStyle.accent)
+                        .foregroundStyle(Palette.accent)
                         .padding(.horizontal, 10)
                         .frame(height: MacStyle.smallControlHeight)
                         .background(.regularMaterial, in: .capsule)

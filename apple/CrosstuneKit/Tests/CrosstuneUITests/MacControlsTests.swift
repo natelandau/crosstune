@@ -13,16 +13,16 @@
             let chosen = contrastRatio(MacSegmented<Int>.chosenFillHex(scheme), "#000000")
             let track = contrastRatio(Palette.hex(.field, scheme), "#000000")
             #expect(chosen > track, "\(scheme)")
-            #expect(MacSegmented<Int>.chosenFillHex(.light) == Palette.groundLight)
+            #expect(MacSegmented<Int>.chosenFillHex(.light) == Palette.hex(.pageBackground, .light))
         }
 
         /// A segment's label and its badge read on the chosen token and on the bare track.
         @Test(arguments: [ColorScheme.light, .dark])
         func macSegmentedTextPassesContrast(scheme: ColorScheme) {
             for back in [MacSegmented<Int>.chosenFillHex(scheme), Palette.hex(.field, scheme)] {
-                #expect(contrastRatio(Palette.hex(.ink, scheme), back) >= 4.5, "\(scheme) label on \(back)")
+                #expect(contrastRatio(Palette.hex(.textPrimary, scheme), back) >= 4.5, "\(scheme) label on \(back)")
                 #expect(
-                    contrastRatio(Palette.hex(.inkSecondary, scheme), back) >= 4.5, "\(scheme) badge on \(back)")
+                    contrastRatio(Palette.hex(.textSecondary, scheme), back) >= 4.5, "\(scheme) badge on \(back)")
             }
         }
 
@@ -53,8 +53,8 @@
         @Test(arguments: [ColorScheme.light, .dark])
         func macCheckboxPassesContrast(scheme: ColorScheme) {
             let stroke = Palette.hex(MacCheckboxStyle.restStroke, scheme)
-            for ground in [Palette.Token.ground, .surface, .field] {
-                #expect(contrastRatio(stroke, Palette.hex(ground, scheme)) >= 3, "\(ground)")
+            for background in [Palette.Token.pageBackground, .surface, .field] {
+                #expect(contrastRatio(stroke, Palette.hex(background, scheme)) >= 3, "\(background)")
             }
             #expect(
                 contrastRatio(
@@ -76,7 +76,7 @@
             }
         }
 
-        /// Storage reads on one hairline meter in ink wherever it shows on the Mac, never the
+        /// Storage reads on one thin meter in the primary text color wherever it shows on the Mac, never the
         /// system's accent progress bar.
         @Test func storageShowsOnTheSharedMeter() throws {
             for name in ["Settings/StorageMeter.swift", "Recordings/StorageSummary.swift"] {

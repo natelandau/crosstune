@@ -87,13 +87,13 @@ function PointerAlert({
       onOpenChange={(open) => {
         if (!open) onAnswer(false)
       }}
-      className="bg-ground w-80 max-w-full rounded-(--radius-surface) p-4 shadow-(--shadow-float)"
+      className="bg-page w-80 max-w-full rounded-(--radius-surface) p-4 shadow-(--shadow-float)"
     >
       <Dialog role="alertdialog" aria-describedby={messageId} className="flex flex-col">
         <Heading slot="title" level={2} className="t-heading pt-1">
           {title}
         </Heading>
-        <p id={messageId} className="t-body text-ink-2 pt-1">
+        <p id={messageId} className="t-body text-secondary pt-1">
           {message}
         </p>
         {/* Two equal shares, so neither choice reads as the default by size alone. */}
@@ -191,7 +191,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
           }
         >
           {options && (
-            <p id={messageId} className="t-body text-ink-2">
+            <p id={messageId} className="t-body text-secondary">
               {options.message}
             </p>
           )}

@@ -38,15 +38,15 @@ private func matches(_ color: KeyColor.RGB, _ hex: String) -> Bool {
     }
 }
 
-@Suite struct KeySwatchTests {
-    @Test func matchesTheWebsRestingGroundsInLightMode() {
+@Suite struct KeyPillColorsTests {
+    @Test func matchesTheWebsRestingBackgroundsInLightMode() {
         let web = [
             "#facac8", "#b3dff6", "#ebd4af", "#d6d2fb", "#c5e1be", "#f5c9dd", "#ade3e6", "#f7ceb7", "#c2d9fd",
             "#d9dbb1", "#e8ccef", "#b4e4d2",
         ]
         for (pitch, hex) in web.enumerated() {
-            let swatch = KeyColor.swatch(pitchClass: pitch, scheme: .light, chosen: false)
-            #expect(matches(swatch.background, hex), "pitch \(pitch): \(swatch.background.hex) vs \(hex)")
+            let colors = KeyColor.pillColors(pitchClass: pitch, scheme: .light, chosen: false)
+            #expect(matches(colors.background, hex), "pitch \(pitch): \(colors.background.hex) vs \(hex)")
         }
     }
 
@@ -59,15 +59,15 @@ private func matches(_ color: KeyColor.RGB, _ hex: String) -> Bool {
         (6, ColorScheme.dark, true, "#23bac1", "#002021"),
         (11, ColorScheme.light, true, "#246954", "#ffffff"),
     ])
-    func matchesTheWebInEveryRole(pitch: Int, scheme: ColorScheme, chosen: Bool, background: String, ink: String) {
-        let swatch = KeyColor.swatch(pitchClass: pitch, scheme: scheme, chosen: chosen)
-        #expect(matches(swatch.background, background), "\(swatch.background.hex) vs \(background)")
-        #expect(matches(swatch.ink, ink), "\(swatch.ink.hex) vs \(ink)")
+    func matchesTheWebInEveryRole(pitch: Int, scheme: ColorScheme, chosen: Bool, background: String, text: String) {
+        let colors = KeyColor.pillColors(pitchClass: pitch, scheme: scheme, chosen: chosen)
+        #expect(matches(colors.background, background), "\(colors.background.hex) vs \(background)")
+        #expect(matches(colors.text, text), "\(colors.text.hex) vs \(text)")
     }
 
     @Test func givesBothSpellingsOfAPitchOneColor() {
-        let sharp = KeyColor.swatch(pitchClass: KeyColor.pitchClass("F#")!, scheme: .light, chosen: false)
-        let flat = KeyColor.swatch(pitchClass: KeyColor.pitchClass("Gb")!, scheme: .light, chosen: false)
+        let sharp = KeyColor.pillColors(pitchClass: KeyColor.pitchClass("F#")!, scheme: .light, chosen: false)
+        let flat = KeyColor.pillColors(pitchClass: KeyColor.pitchClass("Gb")!, scheme: .light, chosen: false)
         #expect(sharp == flat)
     }
 }
@@ -77,8 +77,8 @@ private func matches(_ color: KeyColor.RGB, _ hex: String) -> Bool {
         #expect(StatusStyle.label("known") == "Known")
         #expect(StatusStyle.label("learning") == "Learning")
         #expect(StatusStyle.label("want_to_learn") == "Unknown")
-        #expect(StatusStyle.dot("known") == .filled(StatusStyle.known))
-        #expect(StatusStyle.dot("learning") == .filled(.orange))
+        #expect(StatusStyle.dot("known") == .filled(Palette.statusKnown))
+        #expect(StatusStyle.dot("learning") == .filled(Palette.statusLearning))
         #expect(StatusStyle.dot("want_to_learn") == .ring)
     }
 

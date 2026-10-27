@@ -115,7 +115,7 @@ function PasteStep({ session }: { session: ImportSession }) {
       </div>
       <ErrorLine error={session.error} place="field" />
       <ImportHelp />
-      <p className="t-secondary text-ink-2 px-4 pt-2">{RECORDINGS_NOTE}</p>
+      <p className="t-secondary text-secondary px-4 pt-2">{RECORDINGS_NOTE}</p>
     </div>
   )
 }
@@ -186,7 +186,9 @@ function ReviewStep({ session }: { session: ImportSession }) {
           />
         )}
       </Group>
-      {session.dropped > 0 && <p className="t-secondary text-ink-2 px-4 pt-4">{OVER_LIMIT_NOTE}</p>}
+      {session.dropped > 0 && (
+        <p className="t-secondary text-secondary px-4 pt-4">{OVER_LIMIT_NOTE}</p>
+      )}
       {session.showsHelp && <ImportHelp />}
       {session.rows.length > 0 && (
         <Group>
@@ -222,7 +224,7 @@ function ReviewRow({ row, session }: { row: ImportRow; session: ImportSession })
           onChange={(value) => session.setTitle(row.key, value)}
         />
         {notes.length > 0 && (
-          <p className="t-secondary text-ink-2 -mt-2 ps-4 pe-4 pb-2 break-words">
+          <p className="t-secondary text-secondary -mt-2 ps-4 pe-4 pb-2 break-words">
             {notes.map((note, index) => (
               <Fragment key={note}>
                 {index > 0 && <span aria-hidden> · </span>}

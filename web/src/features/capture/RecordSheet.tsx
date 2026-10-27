@@ -157,7 +157,7 @@ function LocationNote({ note }: { note: LocationNoteState }) {
       <h3 id={titleId} className="t-heading">
         {LOCATION_NOTE_TITLE}
       </h3>
-      <p className="t-secondary text-ink-2">{LOCATION_NOTE_BODY}</p>
+      <p className="t-secondary text-secondary">{LOCATION_NOTE_BODY}</p>
       <div className="flex pt-2">
         <Button
           variant="primary"
@@ -181,11 +181,11 @@ function Recorder({ tuneId, session }: { tuneId: string | null; session: RecordS
   return (
     <div className="flex flex-col items-center gap-4 pt-2 text-center">
       {title && (
-        <p className="t-secondary text-ink-2">
+        <p className="t-secondary text-secondary">
           {FILING_UNDER} {title}
         </p>
       )}
-      <p role="status" aria-live="polite" className="t-secondary text-ink-2">
+      <p role="status" aria-live="polite" className="t-secondary text-secondary">
         {statusLabel}
       </p>
       {live && (

@@ -56,7 +56,7 @@ function populate(
   if (isPrecise(accuracyM)) {
     map.addAnnotation(new mapkit.MarkerAnnotation(center))
   } else if (accuracyM !== null) {
-    const color = PALETTE[scheme].coral
+    const color = PALETTE[scheme].brand
     map.addOverlay(
       new mapkit.CircleOverlay(center, accuracyM, {
         style: new mapkit.Style({

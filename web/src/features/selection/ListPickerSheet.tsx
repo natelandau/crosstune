@@ -68,7 +68,7 @@ export function ListPickerSheet({
               className={`${FIELD_ROW_PRESSABLE} disabled:opacity-40`}
             >
               <span className="min-w-0 flex-1 truncate text-start">{row.name}</span>
-              {row.note && <span className="t-secondary t-num text-ink-2">{row.note}</span>}
+              {row.note && <span className="t-secondary t-num text-secondary">{row.note}</span>}
             </AriaButton>
           ))}
           {picker.creating ? (
@@ -102,7 +102,7 @@ export function ListPickerSheet({
             <AriaButton
               isDisabled={pending}
               onPress={() => picker.setCreating(true)}
-              className={`${FIELD_ROW_PRESSABLE} text-ink font-medium disabled:opacity-40`}
+              className={`${FIELD_ROW_PRESSABLE} text-primary font-medium disabled:opacity-40`}
             >
               <Plus className="size-5 shrink-0" aria-hidden />
               {NEW_LIST_ITEM}

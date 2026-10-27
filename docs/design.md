@@ -65,25 +65,45 @@ Decide any case the rules below do not name.
 
 ## Color and type
 
-- Harbor blue (`accent`) is the one accent: a primary action, a plain
-  button's words, selection and chosen states, focus, switches, and set
-  filters. Menu items, row glyphs, and form action rows stay ink. Never
+- Three tiers, one set of names on every platform: kebab-case on the
+  web (`text-primary`), camelCase on Apple (`textPrimary`).
+
+  | Tier | Holds | Named by |
+  | ---- | ----- | -------- |
+  | Primitive | Raw values | Hue and step: `blue-700`, `warm-gray-50` |
+  | Role | What a component paints with | Job: `page-background`, `text-secondary`, `accent` |
+  | Component token | Data colors: keys, loops, heatmap, tuner | Job, defined from a role or primitive |
+
+- Only the token files name a primitive. A component names a role or a
+  component token, never a primitive. A new palette changes primitives;
+  a new pairing points a role at another primitive. No hue in a role
+  name, so a role can move to any hue without a rename.
+- No color value in a component: no hex, `rgb()`, mix, opacity on a
+  color, or system color. A hover, tint, or mix is its own token in the
+  token file. A test on each platform enforces it; its allowlist names
+  each exception and why.
+- `accent` is the one accent: a primary action, a plain button's words,
+  selection and chosen states, focus, switches, and set filters. Menu
+  items, row glyphs, and form action rows stay `text-primary`. Never
   charts, glyphs at rest, or decoration.
-- A fill behind white text is `accentFill`, its label `onAccentFill`.
+- A fill behind white text is `accent-fill`, its label `on-accent-fill`.
   Never `accent`, which is too light in dark mode to carry white.
-- Paper layers: `ground` under content, pages, lists, and sheets;
-  `surface` under the sidebar, cards, and footers. `hairline` for every
+- Layers: `page-background` under content, pages, lists, and sheets;
+  `surface` under the sidebar, cards, and footers. `border` for every
   rule and edge. A control's fill follows its container: `field` on
-  `ground`, `raised` on `surface`.
-- Secondary text and glyphs take `inkSecondary`, never a system's
-  translucent secondary, which falls under 4.5:1.
-- Coral: the mark, the selected sidebar row's glyph, the playhead of
-  anything that plays back, loop handles, and what marks Premium. Nothing
-  else. Premium's coral is a fill with dark ink, never coral text.
-- Recording red: recording only, never a destructive action. A label on
-  it is `onRecord`, dark, since white falls under 4.5:1.
-- Danger: destructive actions only. Warning: cautionary actions only.
-- Charts draw in ink tones.
+  `page-background`, `surface-raised` on `surface`.
+- Secondary text and glyphs take `text-secondary`, never a system's
+  translucent secondary, which falls under 4.5:1. `text-tertiary` is for
+  glyphs and shapes at 3:1, never text.
+- `brand` (coral): the mark, the selected sidebar row's glyph, the
+  playhead of anything that plays back, loop handles, and what marks
+  Premium. Nothing else. A fill with an `on-brand` label, never coral
+  text.
+- `record`: recording only, never a destructive action. A label on it is
+  `on-record`, dark, since white falls under 4.5:1.
+- `danger`: destructive actions only. `warning`: cautionary actions only.
+  A label on a danger or known fill is `on-status`.
+- Charts draw in text tones.
 - Status, key, loop, and heatmap colors are identical on every platform.
 - A tune's status has one visual language: the same glyph in the same
   color everywhere it shows, menus included. A menu tints its symbols, so
@@ -91,18 +111,20 @@ Decide any case the rules below do not name.
 - Never color alone: a state shown in color also shows in shape or words.
   A glyph keeps its own color on a selected row, because the color is its
   meaning.
-- Text passes 4.5:1, glyphs 3:1, in both appearances and on every ground.
-  Tests measure the token pairs, so a new color is a token with a test.
+- Text passes 4.5:1, glyphs 3:1, in both appearances and on every
+  background. Tests measure the token pairs, so a new color is a token
+  with a test.
 - Tabular numerals wherever a number changes or lines up.
 - Depth only on floating surfaces and bars. No row, card, or section casts
   a shadow.
-- Practice and trim draw in the dark scheme, on its jet, in every
-  appearance (the Mac differs). The light jet is too pale for the loops.
+- Practice and trim draw on `practice-background` in every appearance
+  (the Mac differs), with the dark scheme's accent, danger, and loops.
+  A lighter background is too pale for the loops.
 
 ## Identity
 
-- The mark's C takes `markInk`, never the accent. The T is always coral,
-  through the `mark` token, which never follows `danger`.
+- The mark's C takes `brand-secondary`, never the accent. The T is
+  always `brand`, which never follows `danger`.
 - Lockup: bare mark left of the name, capital height. No app bar lockup,
   no link home.
 - Icons: generated from `brand/` by `just web::icons`. Never hand-edit.
@@ -177,7 +199,7 @@ Decide any case the rules below do not name.
 - One row component per platform for every list of tunes.
 - A row's title keeps its width first. Secondary details truncate, then
   drop out, before the title shrinks.
-- Archived: all text in secondary ink. Glyphs keep their color.
+- Archived: all text in `text-secondary`. Glyphs keep their color.
 - Reorder: drag the whole row, no grip. The dragged row lifts, the others
   slide aside, and a drop settles it. No drop line.
 - Playing row: an animated speaker and a light accent wash.
@@ -284,11 +306,11 @@ Decide any case the rules below do not name.
 
 ## Pages
 
-- Plain ground, no cards, at most 680 wide. The tune page's attributes
+- Plain page background, no cards, at most 680 wide. The tune page's attributes
   card and start card are the only cards.
 - Title in the content, selectable.
 - Section: heading with its controls trailing. Space separates sections,
-  never a hairline.
+  never a border.
 - An empty section a page always holds shows its heading, add control,
   and one quiet line, never an empty-state block. A section only some
   items fill is absent until it holds something.

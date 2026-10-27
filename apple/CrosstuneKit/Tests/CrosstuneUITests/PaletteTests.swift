@@ -10,7 +10,7 @@ import Testing
 #endif
 
 @MainActor
-@Suite struct BrandStyleTests {
+@Suite struct PaletteTests {
     /// Every filled control off the Mac fills with the accent fill, so its white label reads.
     @Test(arguments: [ColorScheme.light, .dark])
     func theLabelOnTheAccentFillPassesContrast(scheme: ColorScheme) {
@@ -34,89 +34,89 @@ import Testing
         #expect(violations.isEmpty, "System prominent styles outside AccentProminent: \(violations)")
     }
 
-    /// A set filter's label, the accent in light mode and ink in dark mode, on its wash over
-    /// every ground and card a filter sits on, on every platform.
+    /// A set filter's label, the accent in light mode and the primary text color in dark mode,
+    /// on its tint over every background and card a filter sits on, on every platform.
     @Test(arguments: [ColorScheme.light, .dark])
-    func setFilterLabelPassesContrastOnItsWash(scheme: ColorScheme) {
+    func setFilterLabelPassesContrastOnItsTint(scheme: ColorScheme) {
         let accent = Palette.hex(.accent, scheme)
-        let label = Palette.hex(BrandStyle.setLabelIsAccent(scheme) ? .accent : .ink, scheme)
-        let grounds: [Palette.Token] = [.ground, .surface, .groupedPage, .groupedCard]
-        for ground in grounds {
-            let wash = blend(accent, over: Palette.hex(ground, scheme), opacity: BrandStyle.setFillOpacity(scheme))
-            #expect(contrastRatio(label, wash) >= 4.5, "\(scheme) on \(ground)")
+        let label = Palette.hex(Palette.onTintIsAccent(scheme) ? .accent : .textPrimary, scheme)
+        let backgrounds: [Palette.Token] = [.pageBackground, .surface, .groupedBackground, .groupedSurface]
+        for background in backgrounds {
+            let tint = blend(accent, over: Palette.hex(background, scheme), opacity: Palette.tintOpacity(scheme))
+            #expect(contrastRatio(label, tint) >= 4.5, "\(scheme) on \(background)")
         }
     }
 
-    /// Coral and its ink are fixed colors, so the Premium tab and the Save badge read the same
-    /// in both appearances.
-    @Test func inkOnCoralPassesContrast() {
-        #expect(contrastRatio(BrandStyle.onCoralHex, BrandStyle.coralHex) >= 4.5)
+    /// The brand color and the text on it are the same in both appearances, so the Premium tab
+    /// and the Save badge read the same in both.
+    @Test func onBrandPassesContrastOnBrand() {
+        #expect(contrastRatio(Palette.hex(.onBrand, .light), Palette.hex(.brand, .light)) >= 4.5)
     }
 
-    /// The Premium column's checks and values on the column's wash over the card.
+    /// The Premium column's checks and values on the column's tint over the card.
     @Test(arguments: PlanSurface.phone)
-    func premiumColumnPassesContrastOnItsWash(surface: PlanSurface) {
-        let wash = blend(
-            Palette.hex(.accent, surface.scheme), over: surface.card, opacity: BrandStyle.setFillOpacity(surface.scheme)
+    func premiumColumnPassesContrastOnItsTint(surface: PlanSurface) {
+        let tint = blend(
+            Palette.hex(.accent, surface.scheme), over: surface.card, opacity: Palette.tintOpacity(surface.scheme)
         )
-        let ink = Palette.hex(BrandStyle.setLabelIsAccent(surface.scheme) ? .accent : .ink, surface.scheme)
-        #expect(contrastRatio(ink, wash) >= 3, "check, \(surface)")
-        #expect(contrastRatio(ink, wash) >= 4.5, "value, \(surface)")
+        let label = Palette.hex(Palette.onTintIsAccent(surface.scheme) ? .accent : .textPrimary, surface.scheme)
+        #expect(contrastRatio(label, tint) >= 3, "check, \(surface)")
+        #expect(contrastRatio(label, tint) >= 4.5, "value, \(surface)")
     }
 
-    /// A feature tile's symbol, in the set filter's label color on its wash over the card.
+    /// A feature tile's symbol, in the set filter's label color on its tint over the card.
     @Test(arguments: PlanSurface.phone)
     func featureTileGlyphPassesContrast(surface: PlanSurface) {
-        let wash = blend(
-            Palette.hex(.accent, surface.scheme), over: surface.card, opacity: BrandStyle.setFillOpacity(surface.scheme)
+        let tint = blend(
+            Palette.hex(.accent, surface.scheme), over: surface.card, opacity: Palette.tintOpacity(surface.scheme)
         )
-        let ink = Palette.hex(BrandStyle.setLabelIsAccent(surface.scheme) ? .accent : .ink, surface.scheme)
-        #expect(contrastRatio(ink, wash) >= 3, "\(surface)")
+        let symbol = Palette.hex(Palette.onTintIsAccent(surface.scheme) ? .accent : .textPrimary, surface.scheme)
+        #expect(contrastRatio(symbol, tint) >= 3, "\(surface)")
     }
 
-    /// The Free column's checks, minus marks, and values, in secondary ink on the card.
+    /// The Free column's checks, minus marks, and values, in secondary text on the card.
     @Test(arguments: PlanSurface.phone)
     func freeColumnPassesContrast(surface: PlanSurface) {
-        #expect(contrastRatio(Palette.hex(.inkSecondary, surface.scheme), surface.card) >= 4.5, "\(surface)")
+        #expect(contrastRatio(Palette.hex(.textSecondary, surface.scheme), surface.card) >= 4.5, "\(surface)")
     }
 
-    /// The trial card's secondary lines on its accent wash, which lies on the sheet's ground.
+    /// The trial card's secondary lines on its accent tint, which lies on the sheet's background.
     @Test(arguments: PlanSurface.phone)
-    func trialCardTextPassesContrastOnItsWash(surface: PlanSurface) {
-        let wash = blend(
-            Palette.hex(.accent, surface.scheme), over: surface.ground,
-            opacity: BrandStyle.setFillOpacity(surface.scheme))
-        #expect(contrastRatio(BrandStyle.washSecondaryHex(surface.scheme), wash) >= 4.5, "\(surface)")
+    func trialCardTextPassesContrastOnItsTint(surface: PlanSurface) {
+        let tint = blend(
+            Palette.hex(.accent, surface.scheme), over: surface.page,
+            opacity: Palette.tintOpacity(surface.scheme))
+        #expect(contrastRatio(Palette.hex(.onTintSecondary, surface.scheme), tint) >= 4.5, "\(surface)")
     }
 
     #if os(macOS)
-        /// On the Mac the Premium column is a coral wash over the card, which is `surface`, with
-        /// its checks and values in ink.
+        /// On the Mac the Premium column is a brand tint over the card, which is `surface`, with
+        /// its checks and values in the primary text color.
         @Test(arguments: [ColorScheme.light, .dark])
-        func premiumColumnInkPassesContrastOnCoralWash(scheme: ColorScheme) {
+        func premiumColumnTextPassesContrastOnBrandTint(scheme: ColorScheme) {
             let card = Palette.hex(.surface, scheme)
-            let wash = blend(BrandStyle.coralHex, over: card, opacity: PlanComparison.macPremiumWashOpacity)
-            #expect(contrastRatio(Palette.hex(.ink, scheme), wash) >= 4.5)
-            // The wash must read as coral, not vanish into the card.
-            #expect(PlanComparison.macPremiumWashOpacity >= 0.10)
-            #expect(PlanComparison.macPremiumWashOpacity <= 0.12)
+            let tint = blend(Palette.hex(.brand, .light), over: card, opacity: PlanComparison.macPremiumTintOpacity)
+            #expect(contrastRatio(Palette.hex(.textPrimary, scheme), tint) >= 4.5)
+            // The tint must read as the brand color, not vanish into the card.
+            #expect(PlanComparison.macPremiumTintOpacity >= 0.10)
+            #expect(PlanComparison.macPremiumTintOpacity <= 0.12)
         }
 
-        /// The Free column's checks, dashes, and values in secondary ink on the card, and a
-        /// feature tile's glyph in secondary ink on its field tile.
+        /// The Free column's checks, dashes, and values in secondary text on the card, and a
+        /// feature tile's glyph in secondary text on its field tile.
         @Test(arguments: [ColorScheme.light, .dark])
-        func macPlanSecondaryInkPassesContrast(scheme: ColorScheme) {
-            let secondary = Palette.hex(.inkSecondary, scheme)
+        func macPlanSecondaryTextPassesContrast(scheme: ColorScheme) {
+            let secondary = Palette.hex(.textSecondary, scheme)
             #expect(contrastRatio(secondary, Palette.hex(.surface, scheme)) >= 4.5)
             #expect(contrastRatio(secondary, Palette.hex(.field, scheme)) >= 3)
         }
     #endif
 
     @Test func statusGlyphColorsAreTheStatusColors() {
-        #expect(StatusStyle.dot("known") == .filled(StatusStyle.known))
-        #expect(StatusStyle.dot("learning") == .filled(.orange))
+        #expect(StatusStyle.dot("known") == .filled(Palette.statusKnown))
+        #expect(StatusStyle.dot("learning") == .filled(Palette.statusLearning))
         #expect(StatusStyle.dot("want_to_learn") == .ring)
-        #expect(StatusBar.color("want_to_learn") == StatusStyle.unknown)
+        #expect(StatusBar.color("want_to_learn") == Palette.statusUnknown)
     }
 
     @Test func statusGlyphShapes() {
@@ -128,11 +128,11 @@ import Testing
 
     @Test(arguments: [ColorScheme.light, .dark])
     func brandAccentIsThePaletteAccent(scheme: ColorScheme) {
-        #expect(hex(of: BrandStyle.accent, scheme) == Palette.hex(.accent, scheme).lowercased())
+        #expect(hex(of: Palette.accent, scheme) == Palette.hex(.accent, scheme).lowercased())
         #expect(hex(of: Palette.onAccentFill, scheme) == "#ffffff")
         #expect(
-            hex(of: BrandStyle.setLabel(scheme), scheme)
-                == Palette.hex(scheme == .dark ? .ink : .accent, scheme).lowercased())
+            hex(of: Palette.onTint(scheme), scheme)
+                == Palette.hex(scheme == .dark ? .textPrimary : .accent, scheme).lowercased())
     }
 
     private func hex(of color: Color, _ scheme: ColorScheme) -> String? {
@@ -158,13 +158,13 @@ import Testing
 }
 
 /// Where the Plan sheet draws on iPhone and iPad in each appearance: the grouped page and the
-/// card on it. The Mac draws its own washes and cards, which its own tests measure.
+/// card on it. The Mac draws its own tints and cards, which its own tests measure.
 struct PlanSurface: CustomStringConvertible, Sendable {
     let scheme: ColorScheme
 
     var description: String { "iPhone \(scheme)" }
-    var ground: String { Palette.hex(.groupedPage, scheme) }
-    var card: String { Palette.hex(.groupedCard, scheme) }
+    var page: String { Palette.hex(.groupedBackground, scheme) }
+    var card: String { Palette.hex(.groupedSurface, scheme) }
 
     static let phone = [PlanSurface(scheme: .light), PlanSurface(scheme: .dark)]
 }

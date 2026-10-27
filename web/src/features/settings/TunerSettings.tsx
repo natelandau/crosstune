@@ -46,7 +46,7 @@ export function TunerSettings() {
             isDisabled={a4 <= MIN_HZ}
             onPress={() => step(a4 - 1)}
           />
-          <output className="t-body text-ink-2 min-w-24 text-center tabular-nums">
+          <output className="t-body text-secondary min-w-24 text-center tabular-nums">
             {a4Label(a4)}
           </output>
           <Button

@@ -13,8 +13,8 @@
 
 body {
   font-family: var(--font-sans);
-  background: var(--ground);
-  color: var(--ink);
+  background: var(--page-background);
+  color: var(--text-primary);
 }
 
 /* A row drag holds the grabbing cursor wherever the pointer goes, and selects no text. */

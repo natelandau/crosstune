@@ -44,7 +44,7 @@ function ShortcutGroupSection({
   const heading = useId()
   return (
     <section aria-labelledby={heading}>
-      <h3 id={heading} className="t-heading text-ink-2 pb-1">
+      <h3 id={heading} className="t-heading text-secondary pb-1">
         {group}
       </h3>
       <ul>
@@ -75,7 +75,7 @@ export function ShortcutKeys({
 }) {
   const sequence = isSequence(shortcut)
   return (
-    <span className="text-ink-2 t-caption flex shrink-0 items-center gap-1">
+    <span className="text-secondary t-caption flex shrink-0 items-center gap-1">
       {shortcut.keys.map((key, index) => (
         <span key={index} className="flex items-center gap-1">
           {sequence && index > 0 && <span>{THEN}</span>}

@@ -16,7 +16,7 @@ func showsAccountItem(showAccount: MenuAction?, isSelecting: Bool) -> Bool {
 
 #if os(iOS)
     /// The way into Settings in a compact window, which has no Settings tab: the account's
-    /// initials in a disc of the set wash, or a person in the same disc when the account has no
+    /// initials in a disc of the tint, or a person in the same disc when the account has no
     /// name. The disc is the control's whole look, so the toolbar draws no glass behind it.
     struct AccountButton: View {
         let action: @MainActor () -> Void
@@ -40,9 +40,9 @@ func showsAccountItem(showAccount: MenuAction?, isSelecting: Bool) -> Bool {
                             .font(.footnote)
                     }
                 }
-                .foregroundStyle(BrandStyle.setLabel(colorScheme))
+                .foregroundStyle(Palette.onTint(colorScheme))
                 .frame(width: 32, height: 32)
-                .background(BrandStyle.setFill(colorScheme), in: .circle)
+                .background(Palette.tint(colorScheme), in: .circle)
             }
             // The disc does not grow, so its letters stop at the default size and a long press
             // shows the button enlarged.

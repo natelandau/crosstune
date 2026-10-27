@@ -39,7 +39,7 @@ export function PhoneBar({
     <>
       <TrackTitle title={title} entering={entering} className="t-body max-w-full truncate" />
       {!notice && detail && (
-        <span className="t-secondary text-ink-2 max-w-full truncate">{detail}</span>
+        <span className="t-secondary text-secondary max-w-full truncate">{detail}</span>
       )}
     </>
   )
@@ -60,7 +60,7 @@ export function PhoneBar({
         )}
         {/* Outside the press target, whose name would hide it from a screen reader. */}
         {notice && (
-          <span role="status" className="t-secondary text-ink-2 truncate">
+          <span role="status" className="t-secondary text-secondary truncate">
             {notice}
           </span>
         )}

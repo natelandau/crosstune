@@ -4,10 +4,10 @@ import { PRIVACY_POLICY, PRIVACY_URL, renewalTerms, TERMS_OF_USE, TERMS_URL } fr
 
 /** The renewal and the legal pages, which every surface that sells shows beside its price. */
 export function RenewalTerms({ price, period }: { price: string; period: PurchasePeriod }) {
-  const link = 'text-ink underline-offset-2 hover:underline'
+  const link = 'text-primary underline-offset-2 hover:underline'
   const withdrawable = useEntitlement()?.withdrawal_used !== true
   return (
-    <div className="t-caption text-ink-2 flex flex-col items-center gap-1 text-center">
+    <div className="t-caption text-secondary flex flex-col items-center gap-1 text-center">
       <p>{renewalTerms(price, period, withdrawable)}</p>
       <p>
         <a href={TERMS_URL} target="_blank" rel="noopener noreferrer" className={link}>

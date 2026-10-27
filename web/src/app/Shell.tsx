@@ -55,7 +55,7 @@ function Frame({ children }: { children: ReactNode }) {
     <SelectionSlot value={slot}>
       <div
         data-sheet-root
-        className="bg-ground text-ink flex h-dvh"
+        className="bg-page text-primary flex h-dvh"
         style={phone ? ({ '--float-clearance': `${floatHeight}px` } as CSSProperties) : undefined}
       >
         {!phone && <Sidebar />}

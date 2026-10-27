@@ -414,14 +414,14 @@ private func loadedSummary(_ store: CrosstuneStore) async throws -> LiveQuery<St
         // Grouped rows and pages on iOS and macOS, with a margin past each.
         let lightSurfaces: [UInt32] = [0xffffff, 0xf5f5f5, 0xf2f2f7, 0xececec, 0xe5e5ea]
         let darkSurfaces: [UInt32] = [0x000000, 0x1c1c1e, 0x1e1e1e, 0x2c2c2e, 0x323232, 0x3a3a3c]
-        for step in HeatColor.light {
+        for step in Primitive.heatmapLight {
             for surface in lightSurfaces { #expect(contrast(step, surface) >= 3) }
         }
-        for step in HeatColor.dark {
+        for step in Primitive.heatmapDark {
             for surface in darkSurfaces { #expect(contrast(step, surface) >= 3) }
         }
-        #expect(HeatColor.hex(1, dark: false) == "#707c93")
-        #expect(HeatColor.hex(4, dark: true) == "#e4e8ef")
+        #expect(Palette.heatmapHex(1, dark: false) == "#707c93")
+        #expect(Palette.heatmapHex(4, dark: true) == "#e4e8ef")
     }
 
     #if os(macOS)
@@ -430,13 +430,13 @@ private func loadedSummary(_ store: CrosstuneStore) async throws -> LiveQuery<St
         @Test func theMacFillsDaysFromTheRamp() {
             for level in 1...4 {
                 for (scheme, dark) in [(ColorScheme.light, false), (.dark, true)] {
-                    let color = NSColor(HeatColor.color(level, scheme: scheme)).usingColorSpace(.sRGB)
+                    let color = NSColor(Palette.heatmap(level, scheme: scheme)).usingColorSpace(.sRGB)
                     let rgb = color.map { color in
                         [color.redComponent, color.greenComponent, color.blueComponent]
                             .map { UInt32(($0 * 255).rounded()) }
                             .reduce(0) { $0 << 8 | $1 }
                     }
-                    #expect(rgb.map { String(format: "#%06x", $0) } == HeatColor.hex(level, dark: dark))
+                    #expect(rgb.map { String(format: "#%06x", $0) } == Palette.heatmapHex(level, dark: dark))
                     #expect(color?.alphaComponent == 1)
                 }
             }

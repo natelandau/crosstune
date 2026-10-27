@@ -26,9 +26,9 @@ export function EmptyState({
     <div
       className={`flex h-full min-h-48 flex-col items-center justify-center gap-2 px-6 py-8 text-center ${arriving ? 'arrive' : ''}`}
     >
-      <Icon className="text-ink-2 size-10" aria-hidden />
+      <Icon className="text-secondary size-10" aria-hidden />
       <Heading className="t-heading">{title}</Heading>
-      {hint && <p className="t-secondary text-ink-2 max-w-sm">{hint}</p>}
+      {hint && <p className="t-secondary text-secondary max-w-sm">{hint}</p>}
       {action && <div className="pt-2">{action}</div>}
     </div>
   )

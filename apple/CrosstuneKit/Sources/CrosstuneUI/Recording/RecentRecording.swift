@@ -69,7 +69,7 @@ struct HighlightRun {
     }
 }
 
-/// Washes a recording's row in the accent while it is the recording just saved, then clears the mark.
+/// Tints a recording's row in the accent while it is the recording just saved, then clears the mark.
 private struct NewRecordingHighlight: ViewModifier {
     let recordingID: String
 
@@ -81,7 +81,7 @@ private struct NewRecordingHighlight: ViewModifier {
     func body(content: Content) -> some View {
         content
             .background {
-                RoundedRectangle(cornerRadius: 10).fill(Self.wash(scheme)).opacity(isHighlighted ? 1 : 0)
+                RoundedRectangle(cornerRadius: 10).fill(Palette.tint(scheme)).opacity(isHighlighted ? 1 : 0)
             }
             // Keyed on the id, so a recording marked before the row appears still lights it.
             .task(id: recentRecording?.id) {
@@ -91,10 +91,6 @@ private struct NewRecordingHighlight: ViewModifier {
                     clear: { recentRecording.clear(ifID: recordingID) }
                 ).run()
             }
-    }
-
-    private static func wash(_ scheme: ColorScheme) -> Color {
-        BrandStyle.setFill(scheme)
     }
 
     private func set(_ on: Bool, _ duration: Duration) {

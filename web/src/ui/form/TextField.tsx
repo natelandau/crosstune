@@ -5,7 +5,7 @@ import { FIELD_LABEL, FIELD_ROW_BARE } from './FieldRow'
 
 // iOS zooms the page on focus into text under 16px.
 const NO_ZOOM = 'in-[html[data-density=touch]]:text-[max(16px,1rem)]'
-const BOX = `t-body placeholder:text-ink-2 min-w-0 bg-transparent ${NO_ZOOM}`
+const BOX = `t-body placeholder:text-secondary min-w-0 bg-transparent ${NO_ZOOM}`
 
 /**
  * A text field. A labeled one is a field row, the label leading and the text trailing, empty

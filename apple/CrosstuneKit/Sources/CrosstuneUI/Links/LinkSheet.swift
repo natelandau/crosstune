@@ -86,7 +86,7 @@ private struct LinkForm: View {
         }
     #else
         var body: some View {
-            PaperForm {
+            GroupedForm {
                 Section {
                     field
                 } header: {
@@ -137,7 +137,7 @@ private struct LinkForm: View {
                 .lineLimit(2)
                 #if os(macOS)
                     .font(MacStyle.secondary)
-                    .foregroundStyle(Palette.inkSecondary)
+                    .foregroundStyle(Palette.textSecondary)
                 #endif
         }
     }

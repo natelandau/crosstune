@@ -92,8 +92,8 @@ private struct SlideCard: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .background(Palette.raised, in: .rect(cornerRadius: radius))
-            .overlay { RoundedRectangle(cornerRadius: radius).strokeBorder(Palette.hairline) }
+            .background(Palette.surfaceRaised, in: .rect(cornerRadius: radius))
+            .overlay { RoundedRectangle(cornerRadius: radius).strokeBorder(Palette.border) }
             .shadow(color: .black.opacity(shadow ? 0.08 : 0), radius: 6, y: 3)
     }
 }
@@ -106,7 +106,7 @@ private struct SlideChip: View {
     var body: some View {
         Text(text)
             .font(.system(size: size, weight: .semibold))
-            .foregroundStyle(Palette.ink)
+            .foregroundStyle(Palette.textPrimary)
             .lineLimit(1)
             .fixedSize()
             .padding(.horizontal, size * 9 / 11)
@@ -141,14 +141,14 @@ struct CatalogSlideArt: View {
                     dot(row.status)
                     Text(row.tune)
                         .font(.system(size: 12))
-                        .foregroundStyle(Palette.ink)
+                        .foregroundStyle(Palette.textPrimary)
                         .lineLimit(1)
                 }
                 .padding(.vertical, 5)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .overlay(alignment: .bottom) {
                     if index < Self.tunes.count - 1 {
-                        Rectangle().fill(Palette.hairline).frame(height: 1)
+                        Rectangle().fill(Palette.border).frame(height: 1)
                     }
                 }
             }
@@ -165,7 +165,7 @@ struct CatalogSlideArt: View {
         case .filled(let color):
             Circle().fill(color).frame(width: 9, height: 9)
         case .ring:
-            Circle().strokeBorder(StatusStyle.unknown, lineWidth: 1.5).frame(width: 9, height: 9)
+            Circle().strokeBorder(Palette.statusUnknown, lineWidth: 1.5).frame(width: 9, height: 9)
         }
     }
 }
@@ -186,15 +186,15 @@ struct RecordSlideArt: View {
             HStack(spacing: 4) {
                 ForEach(Self.levels.enumerated(), id: \.offset) { _, level in
                     Capsule()
-                        .fill(Color.recordingRed)
+                        .fill(Palette.record)
                         .frame(width: 5, height: 60 * level)
                 }
             }
             .frame(height: 60)
             ZStack {
-                Circle().strokeBorder(Palette.ink, lineWidth: 5)
+                Circle().strokeBorder(Palette.textPrimary, lineWidth: 5)
                 RoundedRectangle(cornerRadius: 7)
-                    .fill(Color.recordingRed)
+                    .fill(Palette.record)
                     .frame(width: 27, height: 27)
             }
             .frame(width: 72, height: 72)
@@ -220,12 +220,12 @@ struct PracticeSlideArt: View {
     private static let height: CGFloat = 50
 
     var body: some View {
-        let loop = LoopColor.color(Self.loopSlot, scheme: colorScheme)
+        let loop = Palette.loop(Self.loopSlot, scheme: colorScheme)
         VStack(spacing: 16) {
             HStack(spacing: 2) {
                 ForEach(Self.levels.enumerated(), id: \.offset) { _, level in
                     Capsule()
-                        .fill(Palette.inkSecondary.opacity(0.5))
+                        .fill(Palette.textSecondary.opacity(0.5))
                         .frame(height: Self.height * level)
                         .frame(maxWidth: .infinity)
                 }
@@ -233,7 +233,7 @@ struct PracticeSlideArt: View {
             .frame(width: Self.width, height: Self.height)
             .overlay(alignment: .topLeading) {
                 RoundedRectangle(cornerRadius: 3)
-                    .fill(LoopColor.tint(Self.loopSlot, scheme: colorScheme))
+                    .fill(Palette.loopTint(Self.loopSlot, scheme: colorScheme))
                     .overlay(alignment: .leading) { Rectangle().fill(loop).frame(width: 2) }
                     .overlay(alignment: .trailing) { Rectangle().fill(loop).frame(width: 2) }
                     .frame(width: Self.width * Self.loopShare, height: Self.height + 12)
@@ -289,7 +289,7 @@ struct ListenSlideArt: View {
                 .padding(.vertical, 2)
                 .overlay(alignment: .bottom) {
                     if index < Self.recordings.count - 1 {
-                        Rectangle().fill(Palette.hairline).frame(height: 1)
+                        Rectangle().fill(Palette.border).frame(height: 1)
                     }
                 }
             }
@@ -304,7 +304,7 @@ struct ListenSlideArt: View {
 }
 
 /// The Tuner screen's stage reading an A a little sharp: its own bars, note, and readout on
-/// the jet ground the tuner always draws on. Decorative: the headline says the same thing in
+/// the practice background the tuner always draws on. Decorative: the headline says the same thing in
 /// words.
 struct TunerSlideArt: View {
     var unit: CGFloat = baseUnit
@@ -323,7 +323,7 @@ struct TunerSlideArt: View {
     private static let hintSize: CGFloat = 12
 
     var body: some View {
-        let ground = PhoneStyle.tuneGroundHex(colorScheme, green: inTuneFraction(cents: Self.cents))
+        let background = Palette.tunerBackgroundHex(colorScheme, green: inTuneFraction(cents: Self.cents))
         ZStack {
             TunerBars(cents: Self.cents, animation: nil)
             VStack(spacing: 0) {
@@ -340,7 +340,7 @@ struct TunerSlideArt: View {
                     if let hint = TunerText.hintLabel(cents: Self.cents) {
                         Text(hint)
                             .font(.system(size: Self.hintSize))
-                            .foregroundStyle(PhoneStyle.tuneMuted)
+                            .foregroundStyle(Palette.onPracticeSecondary)
                     }
                 }
                 .padding(.top, 4)
@@ -348,7 +348,7 @@ struct TunerSlideArt: View {
             }
         }
         .frame(width: 22.4 * baseUnit, height: Self.stageHeight)
-        .background(BrandStyle.color(hex: ground), in: .rect(cornerRadius: 16))
+        .background(Palette.color(hex: background), in: .rect(cornerRadius: 16))
         .clipShape(.rect(cornerRadius: 16))
         .environment(\.colorScheme, .dark)
         .slideArt(unit: unit)
@@ -375,5 +375,5 @@ struct TunerSlideArt: View {
         }
         .padding()
     }
-    .background(Palette.ground)
+    .background(Palette.pageBackground)
 }

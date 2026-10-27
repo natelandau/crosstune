@@ -10,7 +10,7 @@ struct OverviewStrip: View {
     let peaks: ShownPeaks?
 
     @Environment(\.colorScheme) private var colorScheme
-    @Environment(\.practiceGround) private var ground
+    @Environment(\.practiceBackground) private var practiceScheme
     @State private var width: Double = 0
 
     private static let waveHeight: CGFloat = 24
@@ -49,7 +49,7 @@ struct OverviewStrip: View {
             #if os(macOS)
                 context.fill(.peakBars(nil, in: wave), with: .color(MacWave.placeholder))
             #else
-                context.fill(.peakBars(nil, in: wave), with: .quietBars(onGround: ground != nil))
+                context.fill(.peakBars(nil, in: wave), with: .quietBars(onPractice: practiceScheme != nil))
             #endif
             return
         }
@@ -64,7 +64,7 @@ struct OverviewStrip: View {
                     played: MacWave.played, unplayed: MacWave.unplayed)
             }
         #else
-            context.fill(.peakBars(peaks, in: wave), with: .quietBars(onGround: ground != nil))
+            context.fill(.peakBars(peaks, in: wave), with: .quietBars(onPractice: practiceScheme != nil))
         #endif
         let selected = model.selectedID
         for loop in model.placedLoops {
@@ -73,12 +73,12 @@ struct OverviewStrip: View {
             let band = CGRect(x: x0, y: size.height - Self.bandHeight, width: max(2, x1 - x0), height: Self.bandHeight)
             context.fill(
                 Path(roundedRect: band, cornerRadius: Self.bandHeight / 2),
-                with: .color(LoopColor.color(loop.color, scheme: colorScheme).opacity(loop.id == selected ? 1 : 0.6)))
+                with: .color(Palette.loop(loop.color, scheme: colorScheme).opacity(loop.id == selected ? 1 : 0.6)))
         }
         let playhead = x(Double(model.centerMs))
         context.fillPlayhead(
             CGRect(x: min(max(0, playhead - 1), size.width - 2), y: 0, width: 2, height: Self.waveHeight),
-            onGround: ground != nil)
+            onPractice: practiceScheme != nil)
         if let view = model.zoomedWaveformView {
             let box = CGRect(
                 x: x(view.startMs), y: 1, width: x(view.endMs) - x(view.startMs), height: Self.waveHeight - 2)

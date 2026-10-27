@@ -54,7 +54,7 @@ struct MusicPlayerCard: View {
                     if let artist = music.artistName {
                         Text(artist)
                             .font(.platform(.subheadline))
-                            .foregroundStyle(.inkSecondary)
+                            .foregroundStyle(.textSecondary)
                             .lineLimit(1)
                     }
                 }
@@ -131,7 +131,7 @@ struct MusicArtwork: View {
             } else {
                 Image(systemName: "music.note")
                     .font(.platform(.title))
-                    .foregroundStyle(.inkSecondary)
+                    .foregroundStyle(.textSecondary)
                     .frame(width: side, height: side)
                     .background(.fill.secondary)
             }

@@ -48,7 +48,7 @@ public struct SignInView: View {
             if let notice {
                 Text(notice)
                     .font(palette?.noticeFont ?? .footnote)
-                    .foregroundStyle(palette.map { AnyShapeStyle($0.inkSecondary) } ?? AnyShapeStyle(.secondary))
+                    .foregroundStyle(palette.map { AnyShapeStyle($0.textSecondary) } ?? AnyShapeStyle(.secondary))
                     .multilineTextAlignment(.center)
                     .padding()
                     // A sighted reader sees this on screen at once; VoiceOver needs the same

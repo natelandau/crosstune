@@ -31,8 +31,9 @@ struct SignInSheet: View {
             return AuthPalette(
                 accent: Palette.accent, accentFill: Palette.accentFill,
                 accentFillPressed: Palette.dynamic(light: pressed(.light), dark: pressed(.dark)),
-                onAccentFill: Palette.onAccentFill, ground: Palette.ground, surface: Palette.surface,
-                ink: Palette.ink, inkSecondary: Palette.inkSecondary, hairline: Palette.hairline,
+                onAccentFill: Palette.onAccentFill, pageBackground: Palette.pageBackground,
+                surface: Palette.surface, textPrimary: Palette.textPrimary, textSecondary: Palette.textSecondary,
+                border: Palette.border,
                 noticeFont: MacStyle.secondary)
         }
     }

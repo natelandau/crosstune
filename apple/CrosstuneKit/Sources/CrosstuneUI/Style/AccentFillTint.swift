@@ -3,18 +3,18 @@ import SwiftUI
 extension View {
     /// Tints a list that takes a selection on iPhone and iPad, where the system fills a focused
     /// selection and the edit-mode checkmarks with the tint. The Mac draws its own.
-    func listSelectionTint() -> some View {
+    func accentSelectionTint() -> some View {
         #if os(macOS)
             self
         #else
-            tint(Palette.listSelection)
+            tint(Palette.accentSelection)
         #endif
     }
 
-    /// An on switch in the one color every platform shares, scoped to the switch so nothing
-    /// else in the view takes it.
-    func switchOnTint() -> some View {
-        tint(Palette.switchOn)
+    /// An on switch's track in the one color every platform shares, scoped to the switch so
+    /// nothing else in the view takes it.
+    func accentTrackTint() -> some View {
+        tint(Palette.accentTrack)
     }
 }
 
@@ -36,15 +36,15 @@ struct ConfirmToolbarItem<Content: View>: ToolbarContent {
     }
 }
 
-/// The system switch in the shared on color. A grouped form draws every toggle with it.
-struct HarborSwitchStyle: ToggleStyle {
+/// The system switch on the accent track. A grouped form draws every toggle with it.
+struct AccentSwitchStyle: ToggleStyle {
     func makeBody(configuration: Configuration) -> some View {
         Toggle(configuration)
             .toggleStyle(.switch)
-            .switchOnTint()
+            .accentTrackTint()
     }
 }
 
-extension ToggleStyle where Self == HarborSwitchStyle {
-    static var harborSwitch: Self { HarborSwitchStyle() }
+extension ToggleStyle where Self == AccentSwitchStyle {
+    static var accentSwitch: Self { AccentSwitchStyle() }
 }

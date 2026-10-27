@@ -76,7 +76,7 @@ export function CatalogFilterSheet({
       }}
       primary={{ label: DONE, onPress: () => onOpenChange(false) }}
     >
-      <p className="t-secondary text-ink-2 t-num px-4 pt-2" aria-live="polite">
+      <p className="t-secondary text-secondary t-num px-4 pt-2" aria-live="polite">
         {tuneCountLabel(counts.visible, counts.total)}
       </p>
       <Group>

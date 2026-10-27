@@ -156,7 +156,7 @@ export function ListPage({ listId }: { listId: string }) {
         <ListPlayRow listId={list.id} rows={tunes.visible} onError={setError} />
       )}
       {deletingName !== null && (
-        <p role="status" className="t-secondary text-ink-2 px-4 pb-2">
+        <p role="status" className="t-secondary text-secondary px-4 pb-2">
           {DELETING}
         </p>
       )}

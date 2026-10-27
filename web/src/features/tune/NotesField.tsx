@@ -102,7 +102,7 @@ export function NotesField({ tuneId, notes }: { tuneId: string; notes: string | 
       </div>
       {editing && (
         <div className="flex items-center justify-between gap-3 pt-1">
-          <p className="t-caption text-ink-2 font-normal">{NOTES_SAVE_HINT}</p>
+          <p className="t-caption text-secondary font-normal">{NOTES_SAVE_HINT}</p>
           <Button
             label={DONE}
             // Focus stays in the field through a press, so its blur cannot hide Done before the

@@ -75,7 +75,7 @@ extension View {
                     TuneRowActions.archiveLabel(archived: archived),
                     systemImage: TuneRowActions.archiveSystemImage(archived: archived), action: onArchive
                 )
-                .tint(.orange)
+                .tint(Palette.statusLearning)
                 Button(TuneRowActions.edit, systemImage: TuneRowActions.editSystemImage, action: onEdit)
                     .tint(.gray)
                 if let onScans { ScansRowAction(action: onScans) }
@@ -125,7 +125,7 @@ struct TunePreview: View {
                 ForEach(details.enumerated(), id: \.offset) { Text($0.element) }
             }
             .font(.platform(.subheadline))
-            .foregroundStyle(.inkSecondary)
+            .foregroundStyle(.textSecondary)
         }
         .padding(20)
         .frame(width: 320, alignment: .leading)

@@ -12,7 +12,7 @@ import { META_CATALOG_FILTERS, normalizeFilters } from '../features/catalog/filt
 import { readSearchQuery, writeSearchQuery } from '../ui/searchSession'
 import { countTunes } from '../text/format'
 import { OFFLINE } from '../sync/labels'
-import { contrastRatio, glyphInk, paintedBackground, washOver } from '../test/contrast'
+import { contrastRatio, glyphColor, paintedBackground, compositeOver } from '../test/contrast'
 import { openTestDb } from '../test/db'
 import { restoreSystemDark, stubSystemDark } from '../test/scheme'
 import { destination, DESTINATIONS } from '../layout/destinations'
@@ -204,13 +204,13 @@ it.each([
   await expect.poll(() => document.documentElement.dataset.scheme).toBe(dark ? 'dark' : 'light')
   await expect.poll(() => row.element().querySelector('[data-count]')).not.toBeNull()
   const count = row.element().querySelector('[data-count]')!
-  const ground = paintedBackground(row.element().parentElement!)
+  const background = paintedBackground(row.element().parentElement!)
   // The row eases into its wash, so measure once the transition has run.
   await expect.poll(() => row.element().getAnimations().length).toBe(0)
   expect(
     contrastRatio(
-      glyphInk(count),
-      washOver(getComputedStyle(row.element()).backgroundColor, ground),
+      glyphColor(count),
+      compositeOver(getComputedStyle(row.element()).backgroundColor, background),
     ),
   ).toBeGreaterThanOrEqual(4.5)
 })

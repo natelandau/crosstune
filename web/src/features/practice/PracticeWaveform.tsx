@@ -277,7 +277,7 @@ export function PracticeWaveform({
             <span
               key={t}
               data-tick
-              className="absolute top-0 border-l border-(--panel-muted) pl-1 leading-4 whitespace-nowrap text-(--panel-muted)"
+              className="border-on-practice-secondary text-on-practice-secondary absolute top-0 border-l pl-1 leading-4 whitespace-nowrap"
               style={{ left: trackX(t) }}
             >
               {step < 1000 ? formatPreciseDuration(t) : formatDuration(t)}
@@ -334,7 +334,7 @@ export function PracticeWaveform({
               />
             )
           }
-          const tabClass = `loop-color t-secondary absolute top-0 truncate rounded-b-md bg-(--loop) px-2 py-1 font-semibold text-(--panel-ink)`
+          const tabClass = `loop-color t-secondary absolute top-0 truncate rounded-b-md bg-(--loop) px-2 py-1 font-semibold text-on-practice`
           return loop.id === selected?.id ? (
             <button
               key={loop.id}
@@ -363,7 +363,7 @@ export function PracticeWaveform({
         <div
           aria-hidden="true"
           data-playhead
-          className="pointer-events-none absolute inset-y-0 w-0.5 -translate-x-1/2 bg-(--playhead)"
+          className="bg-brand pointer-events-none absolute inset-y-0 w-0.5 -translate-x-1/2"
           style={{ left: widthPx / 2 }}
         />
         {selected
@@ -439,7 +439,7 @@ function RenameField({
       defaultValue={label ?? ''}
       maxLength={LOOP_LIMITS.label}
       data-color={color}
-      className="loop-color t-secondary absolute top-0 z-20 h-8 rounded-b-md border border-(--loop) bg-(--panel-ground) px-2"
+      className="loop-color t-secondary bg-practice-background absolute top-0 z-20 h-8 rounded-b-md border border-(--loop) px-2"
       style={{ width }}
       // The field takes its own presses, so selecting text never scrolls the audio.
       onPointerDown={(event) => event.stopPropagation()}

@@ -36,7 +36,7 @@ export function RecordingGroup({ audio }: { audio: RecordingSettings }) {
           }}
         />
       </Group>
-      {locationOff && <p className="t-secondary text-ink-2 px-4 pt-6">{LOCATION_ACCESS_OFF}</p>}
+      {locationOff && <p className="t-secondary text-secondary px-4 pt-6">{LOCATION_ACCESS_OFF}</p>}
     </>
   )
 }

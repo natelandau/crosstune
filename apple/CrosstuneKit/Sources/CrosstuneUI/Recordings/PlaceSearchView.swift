@@ -325,7 +325,7 @@ struct PlaceSearchView: View {
                         Text(completion.subtitle)
                             .contentMask()
                             .font(.platform(.body, mac: .secondary))
-                            .foregroundStyle(.inkSecondary)
+                            .foregroundStyle(.textSecondary)
                     }
                 }
                 #if os(macOS)
@@ -379,7 +379,7 @@ struct PlaceSearchView: View {
                             if model.foundNothing {
                                 Text(PlaceSearchText.noPlacesFound)
                                     .font(MacStyle.body)
-                                    .foregroundStyle(Palette.inkSecondary)
+                                    .foregroundStyle(Palette.textSecondary)
                                     .padding(.horizontal, 8)
                             }
                             ForEach(model.completions, id: \.self, content: resultButton)
@@ -400,12 +400,12 @@ struct PlaceSearchView: View {
                         Text(current.name)
                             .contentMask()
                             .font(MacStyle.body)
-                            .foregroundStyle(Palette.ink)
+                            .foregroundStyle(Palette.textPrimary)
                         if let address = model.currentAddress {
                             Text(address)
                                 .contentMask()
                                 .font(MacStyle.secondary)
-                                .foregroundStyle(Palette.inkSecondary)
+                                .foregroundStyle(Palette.textSecondary)
                         }
                     }
                     .lineLimit(1)
@@ -444,7 +444,7 @@ struct PlaceSearchView: View {
         }
     #else
         private var page: some View {
-            PaperForm {
+            GroupedForm {
                 if let coordinate = model.mapCoordinate {
                     Section {
                         LocationMap(coordinate: coordinate, accuracyM: coordinate.accuracyM)
@@ -469,7 +469,7 @@ struct PlaceSearchView: View {
                     Section {
                         if model.foundNothing {
                             Text(PlaceSearchText.noPlacesFound)
-                                .foregroundStyle(.inkSecondary)
+                                .foregroundStyle(.textSecondary)
                         }
                         ForEach(model.completions, id: \.self, content: resultButton)
                     }
@@ -488,7 +488,7 @@ struct PlaceSearchView: View {
                         if let address = model.currentAddress {
                             Text(address)
                                 .contentMask()
-                                .foregroundStyle(.inkSecondary)
+                                .foregroundStyle(.textSecondary)
                         }
                     }
                 }
@@ -548,7 +548,7 @@ struct LocationRow: View {
                     Text(address)
                         .contentMask()
                         .font(.platform(.body, mac: .secondary))
-                        .foregroundStyle(.inkSecondary)
+                        .foregroundStyle(.textSecondary)
                 }
             }
             #if os(macOS)

@@ -17,7 +17,7 @@ export function ActionRow({
     <AriaButton
       isDisabled={isDisabled}
       onPress={onPress}
-      className={`${FIELD_ROW_PRESSABLE} ${destructive ? 'text-danger' : 'text-ink'} font-medium data-[disabled]:opacity-40`}
+      className={`${FIELD_ROW_PRESSABLE} ${destructive ? 'text-danger' : 'text-primary'} font-medium data-[disabled]:opacity-40`}
     >
       {label}
     </AriaButton>

@@ -71,7 +71,7 @@ export function PaneBar({
       ref={bare ? undefined : pane?.bar}
       data-pane-bar={bare ? undefined : true}
       data-root-row={bare ? true : undefined}
-      className={`grid grid-cols-[minmax(max-content,1fr)_minmax(0,auto)_minmax(max-content,1fr)] items-center gap-2 px-2 ${bare ? 'h-11' : 'bg-ground sticky top-0 z-10 min-h-11'}`}
+      className={`grid grid-cols-[minmax(max-content,1fr)_minmax(0,auto)_minmax(max-content,1fr)] items-center gap-2 px-2 ${bare ? 'h-11' : 'bg-page sticky top-0 z-10 min-h-11'}`}
     >
       <div className="flex min-w-0 items-center justify-start">
         <div ref={leadingRef} className="flex items-center">
@@ -138,7 +138,7 @@ export function BackLink({
   return (
     <Link
       to={to}
-      className="t-body text-ink flex min-h-(--target-control) items-center gap-1 pe-2"
+      className="t-body text-primary flex min-h-(--target-control) items-center gap-1 pe-2"
       onClick={(event) => {
         if (event.defaultPrevented || event.button !== 0) return
         if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return

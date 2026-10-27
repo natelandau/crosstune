@@ -141,12 +141,12 @@ export function TrimStrip({
       {/* The part the trim cuts away is faded back behind the page. */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-y-0 left-0 rounded-l-lg bg-(--panel-ground) opacity-70"
+        className="bg-practice-background pointer-events-none absolute inset-y-0 left-0 rounded-l-lg opacity-70"
         style={{ width: `${startAt}%` }}
       />
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-y-0 right-0 rounded-r-lg bg-(--panel-ground) opacity-70"
+        className="bg-practice-background pointer-events-none absolute inset-y-0 right-0 rounded-r-lg opacity-70"
         style={{ left: `${endAt}%` }}
       />
       {HANDLES.map((handle) => {
@@ -188,9 +188,9 @@ export function TrimStrip({
             }}
             onKeyDown={announced ? (event) => onKeyDown(handle, event) : undefined}
           >
-            <span className="h-full w-0.5 bg-(--trim-handle)" />
+            <span className="bg-on-practice h-full w-0.5" />
             <span
-              className={`absolute size-3 rounded-full bg-(--trim-handle) ${handle === 'start' ? '-top-1.5' : '-bottom-1.5'}`}
+              className={`bg-on-practice absolute size-3 rounded-full ${handle === 'start' ? '-top-1.5' : '-bottom-1.5'}`}
             />
           </div>
         )

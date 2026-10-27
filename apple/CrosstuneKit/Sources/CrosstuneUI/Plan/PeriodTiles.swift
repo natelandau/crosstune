@@ -44,7 +44,7 @@ struct PeriodTiles: View {
                 }
                 Text(option.price)
                     .monospacedDigit()
-                    .foregroundStyle(Palette.inkSecondary)
+                    .foregroundStyle(Palette.textSecondary)
             }
         }
     #else
@@ -55,7 +55,7 @@ struct PeriodTiles: View {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Image(systemName: selected ? "largecircle.fill.circle" : "circle")
                         .font(.body)
-                        .foregroundStyle(selected ? AnyShapeStyle(.tint) : .inkSecondary)
+                        .foregroundStyle(selected ? AnyShapeStyle(.tint) : .textSecondary)
                         .accessibilityHidden(true)
                     VStack(alignment: .leading, spacing: 4) {
                         // The badge shares the label's line, and drops below it rather than cover it.
@@ -80,7 +80,7 @@ struct PeriodTiles: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 12)
                 .background(
-                    Palette.groupedCard, in: RoundedRectangle(cornerRadius: 12)
+                    Palette.groupedSurface, in: RoundedRectangle(cornerRadius: 12)
                 )
                 .overlay {
                     RoundedRectangle(cornerRadius: 12)
@@ -96,7 +96,7 @@ struct PeriodTiles: View {
         private func label(_ option: PlanSheet.PeriodOption) -> some View {
             Text(option.label)
                 .font(.subheadline)
-                .foregroundStyle(.inkSecondary)
+                .foregroundStyle(.textSecondary)
         }
 
         @ViewBuilder
@@ -114,12 +114,12 @@ struct PeriodTiles: View {
                 .monospacedDigit()
             Text(option.per)
                 .font(.subheadline)
-                .foregroundStyle(.inkSecondary)
+                .foregroundStyle(.textSecondary)
         }
     #endif
 }
 
-/// Annual's saving: a coral capsule with dark ink, the mark of Premium on a sheet that sells it.
+/// Annual's saving: a brand-colored capsule with dark text, the mark of Premium on a sheet that sells it.
 private struct SaveBadge: View {
     let text: String
 
@@ -127,10 +127,10 @@ private struct SaveBadge: View {
         Text(text)
             .font(.platform(.caption2).weight(.bold))
             .monospacedDigit()
-            .foregroundStyle(BrandStyle.onCoral)
+            .foregroundStyle(Palette.onBrand)
             .padding(.horizontal, 7)
             .padding(.vertical, 2)
-            .background(BrandStyle.coral, in: .capsule)
+            .background(Palette.brand, in: .capsule)
             .fixedSize()
     }
 }

@@ -72,7 +72,7 @@ struct BulkEditSheet: View {
     #if os(iOS)
         private var phoneBody: some View {
             NavigationStack {
-                PaperForm {
+                GroupedForm {
                     Section {
                         if let failure = bulk.editFailure {
                             Text(failure)
@@ -234,7 +234,7 @@ private struct BulkChoiceRow: View {
                             .imageScale(.small)
                             .accessibilityHidden(true)
                     }
-                    .foregroundStyle(.inkSecondary)
+                    .foregroundStyle(.textSecondary)
                 }
                 // A plain menu keeps the value secondary, as the tune form shows its values, where
                 // the default style would tint it.
@@ -345,13 +345,13 @@ private struct BulkDateRow: View {
                     Button(TuneFieldLabels.clearDate, systemImage: "xmark.circle.fill") { form.touch(field, .clear) }
                         .labelStyle(.iconOnly)
                         .buttonStyle(.borderless)
-                        .foregroundStyle(.inkSecondary)
+                        .foregroundStyle(.textSecondary)
                 }
             } else {
                 LabeledContent(field.label) {
                     Button(form.placeholder(field)) { form.touch(field, .text(CalendarDay.day(.now))) }
                         .buttonStyle(.borderless)
-                        .foregroundStyle(.inkSecondary)
+                        .foregroundStyle(.textSecondary)
                         .accessibilityLabel("\(field.label), \(form.placeholder(field))")
                         .accessibilityHint(TuneFieldLabels.setsToday)
                 }

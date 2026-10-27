@@ -45,10 +45,10 @@ struct RemoveFilterCapsule: View {
                         .font(.caption.weight(.semibold))
                 }
                 .font(.subheadline)
-                .foregroundStyle(BrandStyle.setLabel(colorScheme))
+                .foregroundStyle(Palette.onTint(colorScheme))
                 .padding(.horizontal, spacing(12))
                 .padding(.vertical, spacing.chipVertical)
-                .background(BrandStyle.setFill(colorScheme), in: .capsule)
+                .background(Palette.tint(colorScheme), in: .capsule)
                 .tapTarget()
             #endif
         }

@@ -40,16 +40,16 @@ export function SearchField({
       onFocusChange={setFocused}
       className="bg-field relative flex min-h-(--target-control) items-center rounded-(--radius-capsule) ps-3 pe-1"
     >
-      <Search className="text-ink-2 size-4 shrink-0" aria-hidden />
+      <Search className="text-secondary size-4 shrink-0" aria-hidden />
       <Input
         ref={ref}
         placeholder={label}
-        className="t-body placeholder:text-ink-2 min-w-0 flex-1 bg-transparent px-2 in-[html[data-density=touch]]:text-[max(16px,1rem)] [&::-webkit-search-cancel-button]:hidden"
+        className="t-body placeholder:text-secondary min-w-0 flex-1 bg-transparent px-2 in-[html[data-density=touch]]:text-[max(16px,1rem)] [&::-webkit-search-cancel-button]:hidden"
       />
       {focused && value !== '' && (
         <Button
           aria-label={CLEAR_SEARCH}
-          className={`text-ink-2 inline-flex size-(--target-control) shrink-0 items-center justify-center rounded-full ${PRESS} ${WASH_HOVER}`}
+          className={`text-secondary inline-flex size-(--target-control) shrink-0 items-center justify-center rounded-full ${PRESS} ${WASH_HOVER}`}
         >
           <X className="size-4" aria-hidden />
         </Button>

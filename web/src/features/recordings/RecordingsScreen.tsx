@@ -309,7 +309,7 @@ function TuneHeading({
       className="inline-flex max-w-full items-center gap-1"
     >
       <span className="truncate">{title}</span>
-      <ChevronRight className="text-ink-2 size-5 shrink-0" aria-hidden />
+      <ChevronRight className="text-secondary size-5 shrink-0" aria-hidden />
     </Link>
   )
 }

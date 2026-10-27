@@ -1095,9 +1095,9 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
             #expect(ListRowKeySlot.revealsPlay(action: nil, isCurrent: false))
         }
 
-        @Test func playingRowWashIsALightAccent() {
-            #expect(MacStyle.playingWashOpacity(.light) == 0.10)
-            #expect(MacStyle.playingWashOpacity(.dark) == 0.18)
+        @Test func playingRowTintIsALightAccent() {
+            #expect(MacStyle.playingTintOpacity(.light) == 0.10)
+            #expect(MacStyle.playingTintOpacity(.dark) == 0.18)
         }
     }
 #endif

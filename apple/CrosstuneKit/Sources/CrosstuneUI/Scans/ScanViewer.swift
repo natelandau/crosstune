@@ -113,7 +113,7 @@ final class ScanViewerModel {
 }
 
 /// A tune's scans over the whole shell, one at a time, for reading at a jam: swipe between them,
-/// pinch or double-tap to zoom, Invert for light ink on dark paper. The screen stays awake while
+/// pinch or double-tap to zoom, Invert for light marks on a dark page. The screen stays awake while
 /// it is up. Full screen on iPhone and iPad; a window-filling sheet on Mac, closed by Escape.
 public struct ScanViewer: View {
     public static let invertStorageKey = "crosstune.scanInvert"
@@ -323,7 +323,7 @@ private struct ScanViewerBody: View {
                     }
                     .safeAreaInset(edge: .top, spacing: 0) { failureBar }
                     .overlay(alignment: .top) {
-                        Rectangle().fill(Palette.hairline).frame(height: 1)
+                        Rectangle().fill(Palette.border).frame(height: 1)
                     }
                     .accessibilityElement(children: .contain)
                     .accessibilityLabel("\(title) \(ScanCopy.scans.lowercased())")
@@ -335,13 +335,13 @@ private struct ScanViewerBody: View {
             dismiss()
         }
 
-        /// An icon toggle: secondary ink when off, the accent while on.
+        /// An icon toggle: secondary text when off, the accent while on.
         private func toggle(_ title: String, systemImage: String, isOn: Binding<Bool>) -> some View {
             Button {
                 isOn.wrappedValue.toggle()
             } label: {
                 Image(systemName: systemImage)
-                    .foregroundStyle(isOn.wrappedValue ? Palette.accent : Palette.inkSecondary)
+                    .foregroundStyle(isOn.wrappedValue ? Palette.accent : Palette.textSecondary)
             }
             .buttonStyle(.macIcon)
             .help(title)
@@ -354,7 +354,7 @@ private struct ScanViewerBody: View {
             Button(title, systemImage: systemImage) { turn(by: step, ids: ids) }
                 .labelStyle(.iconOnly)
                 .buttonStyle(.macIcon)
-                .background(Palette.ground.opacity(0.9), in: .circle)
+                .background(Palette.pageBackground.opacity(0.9), in: .circle)
                 .keyboardShortcut(key, modifiers: [])
                 .help(title)
                 .padding(.horizontal, 12)
@@ -503,7 +503,7 @@ struct ScanSlide: View {
                 if scan.record.state == ScanRecord.pendingUpload {
                     Text(ScanCopy.waiting)
                         .font(.platform(.footnote))
-                        .foregroundStyle(.inkSecondary)
+                        .foregroundStyle(.textSecondary)
                         .multilineTextAlignment(.center)
                         .padding()
                 } else {
@@ -518,7 +518,7 @@ struct ScanSlide: View {
         VStack(spacing: 12) {
             Image(systemName: "exclamationmark.triangle")
                 .font(.platform(.largeTitle, mac: .columnTitle))
-                .foregroundStyle(.inkSecondary)
+                .foregroundStyle(.textSecondary)
                 .accessibilityHidden(true)
             Text(ScanCopy.unreadableScan)
                 .font(.platform(.headline))
@@ -550,7 +550,7 @@ private struct SlideTap: ViewModifier {
     }
 }
 
-/// Light ink on dark paper, when on.
+/// Light marks on a dark page, when on.
 private struct Inverted: ViewModifier {
     let isOn: Bool
 

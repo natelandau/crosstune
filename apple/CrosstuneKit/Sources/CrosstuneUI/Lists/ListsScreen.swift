@@ -53,15 +53,15 @@ public struct ListsScreen: View {
                     onDelete: { deleting = summary }
                 )
                 #if os(macOS)
-                    .listRowBackground(listPlayback?.listID == summary.id ? BrandStyle.setFill(colorScheme) : nil)
+                    .listRowBackground(listPlayback?.listID == summary.id ? Palette.tint(colorScheme) : nil)
                 #else
                     .listRowBackground(
-                        listPlayback?.listID == summary.id ? BrandStyle.setFill(colorScheme) : Color.clear)
+                        listPlayback?.listID == summary.id ? Palette.tint(colorScheme) : Color.clear)
                 #endif
             }
         }
         .listStyle(.plain)
-        .paperGround()
+        .pageBackground()
         .navigationDestination(for: ListRoute.self) { route in
             ListScreen(listID: route.id)
                 // A destination takes the stack's environment, not this screen's.

@@ -12,7 +12,7 @@ import { PageSection } from '../../../ui/PageSection'
 import { Capsule } from '../../../ui/Capsule'
 
 /**
- * Tunes added and recordings made per month, as two strips of ink bars over the same months.
+ * Tunes added and recordings made per month, as two strips of bars over the same months.
  * A month with nothing keeps its empty slot, so the spacing reads as time.
  */
 export function Months({ months }: { months: MonthsData }) {
@@ -35,7 +35,7 @@ export function Months({ months }: { months: MonthsData }) {
       <div className="flex flex-col gap-3">
         <Strip label={TUNES_ADDED_LABEL} months={shown} count={(month) => month.tunes_added} />
         <Strip label={RECORDINGS_LABEL} months={shown} count={(month) => month.recordings} />
-        <div aria-hidden className="t-caption t-num text-ink-2 flex justify-between">
+        <div aria-hidden className="t-caption t-num text-secondary flex justify-between">
           <span>{monthLabel(shown[0]!.month)}</span>
           <span>{monthLabel(shown[shown.length - 1]!.month)}</span>
         </div>
@@ -57,16 +57,16 @@ function Strip({
   const labelId = useId()
   return (
     <div>
-      <p id={labelId} className="t-secondary text-ink-2 pb-1">
+      <p id={labelId} className="t-secondary text-secondary pb-1">
         {label}
       </p>
-      <ol aria-labelledby={labelId} className="border-hairline flex h-16 items-end gap-px border-b">
+      <ol aria-labelledby={labelId} className="border-default flex h-16 items-end gap-px border-b">
         {months.map((month) => (
           <li key={month.month} className="flex h-full min-w-0 flex-1 flex-col justify-end">
             <span className="sr-only">{monthBarLabel(month.month, count(month))}</span>
             <span
               aria-hidden
-              className="bg-ink/70 block rounded-t-sm"
+              className="bg-text-primary/70 block rounded-t-sm"
               style={{ height: `${(count(month) / max) * 100}%` }}
             />
           </li>

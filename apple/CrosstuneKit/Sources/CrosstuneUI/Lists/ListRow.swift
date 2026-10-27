@@ -28,7 +28,7 @@ public struct ListRow: View {
             Text(Self.detail(count: summary.count, edited: summary.lastEditedAt))
                 .font(.platform(.subheadline))
                 .monospacedDigit()
-                .foregroundStyle(.inkSecondary)
+                .foregroundStyle(.textSecondary)
                 .rowLineLimit()
         }
         .accessibilityElement(children: .combine)

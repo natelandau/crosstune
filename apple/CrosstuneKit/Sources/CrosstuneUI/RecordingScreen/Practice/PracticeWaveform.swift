@@ -27,7 +27,7 @@ struct PracticeWaveform: View {
     var accessibilityFocus: AccessibilityFocusState<Bool>.Binding
 
     @Environment(\.colorScheme) private var colorScheme
-    @Environment(\.practiceGround) private var ground
+    @Environment(\.practiceBackground) private var practiceScheme
     /// Whether the drag under way has begun scrubbing, so its first move holds playback.
     @State private var isScrubbing = false
     /// True while Option is held on the Mac, which turns off snapping to the playhead.
@@ -59,8 +59,6 @@ struct PracticeWaveform: View {
         private static let rulerHeight: CGFloat = 16
     #endif
     private static let space = "practiceWaveform"
-    private static let wavePlayed = BrandStyle.color(hex: PhoneStyle.wavePlayed)
-    private static let waveUnplayed = BrandStyle.color(hex: PhoneStyle.waveUnplayed)
 
     var body: some View {
         let player = model.player
@@ -126,7 +124,8 @@ struct PracticeWaveform: View {
                     .peakBars(nil, in: CGRect(origin: .zero, size: size)), with: .color(MacWave.placeholder))
             #else
                 context.fill(
-                    .peakBars(nil, in: CGRect(origin: .zero, size: size)), with: .quietBars(onGround: ground != nil))
+                    .peakBars(nil, in: CGRect(origin: .zero, size: size)),
+                    with: .quietBars(onPractice: practiceScheme != nil))
             #endif
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -234,11 +233,12 @@ struct PracticeWaveform: View {
                 let path =
                     peaks.map { peaks in bars.path(height: height) { peaks.gridLevel(barMs: bars.barMs, index: $0) } }
                     ?? BarPath.peakBars(levels: [], in: CGRect(x: x0, y: 0, width: x1 - x0, height: height))
-                if ground != nil {
+                if practiceScheme != nil {
                     // What has played, left of the fixed playhead, is white; what is to come is silver.
-                    context.fillSplit(path, atX: width / 2, played: Self.wavePlayed, unplayed: Self.waveUnplayed)
+                    context.fillSplit(
+                        path, atX: width / 2, played: Palette.onPractice, unplayed: Palette.onPracticeSecondary)
                 } else {
-                    context.fill(path, with: .quietBars(onGround: false))
+                    context.fill(path, with: .quietBars(onPractice: false))
                 }
             #endif
         }
@@ -247,13 +247,13 @@ struct PracticeWaveform: View {
             let start = max(0, view.x(ofSourceMs: Double(loop.span.startMs)))
             let end = min(width, view.x(ofSourceMs: Double(loop.span.endMs)))
             guard end > start else { continue }
-            let tint = LoopColor.tint(loop.color, scheme: colorScheme)
+            let tint = Palette.loopTint(loop.color, scheme: colorScheme)
             context.fill(
                 Path(CGRect(x: start, y: 0, width: end - start, height: Double(size.height))),
                 with: .color(loop.id == selectedID ? tint : tint.opacity(0.5)))
         }
         context.fillPlayhead(
-            CGRect(x: width / 2 - 1, y: 0, width: 2, height: Double(size.height)), onGround: ground != nil)
+            CGRect(x: width / 2 - 1, y: 0, width: 2, height: Double(size.height)), onPractice: practiceScheme != nil)
     }
 
     private func drawRuler(in context: inout GraphicsContext, size: CGSize, view: ZoomedWaveformView) {
@@ -274,7 +274,7 @@ struct PracticeWaveform: View {
                     with: .color(MacWave.tick))
                 let text = rulerLabels.value(for: label, in: environment) {
                     context.resolve(
-                        Text(label).font(MacStyle.secondary).monospacedDigit().foregroundStyle(Palette.inkSecondary))
+                        Text(label).font(MacStyle.secondary).monospacedDigit().foregroundStyle(Palette.textSecondary))
                 }
                 let labelWidth = Double(text.measure(in: size).width)
                 if Self.rulerLabelFits(atX: x, labelWidth: labelWidth, width: Double(size.width)) {
@@ -282,10 +282,11 @@ struct PracticeWaveform: View {
                 }
             #else
                 context.fill(
-                    Path(CGRect(x: x, y: 0, width: 1, height: size.height)), with: .rulerTick(onGround: ground != nil))
+                    Path(CGRect(x: x, y: 0, width: 1, height: size.height)),
+                    with: .rulerTick(onPractice: practiceScheme != nil))
                 let text = rulerLabels.value(for: label, in: environment) {
                     context.resolve(
-                        Text(label).font(.platform(.caption2)).monospacedDigit().foregroundStyle(.inkSecondary))
+                        Text(label).font(.platform(.caption2)).monospacedDigit().foregroundStyle(.textSecondary))
                 }
                 context.draw(text, at: CGPoint(x: x + 3, y: 0), anchor: .topLeading)
             #endif
@@ -365,11 +366,11 @@ struct PracticeWaveform: View {
             .accessibilityAction(named: PracticeText.earlierBySecond) { step(edge, by: -PracticeModel.largeNudgeMs) }
     }
 
-    /// A handle's color: every loop's in coral, the one color for what marks a position, which
-    /// leaves the loop's own color to its band and tab; trim's plain white on the practice ground,
-    /// so editing reads apart from practice.
+    /// A handle's color: every loop's in the brand color, the one color for what marks a
+    /// position, which leaves the loop's own color to its band and tab; trim's plain white on the
+    /// practice background, so editing reads apart from practice.
     static func handleColor(isTrim: Bool) -> Color {
-        isTrim ? .white : BrandStyle.coral
+        isTrim ? .white : Palette.brand
     }
 
     /// One VoiceOver step: a change of its own, written at once.
@@ -470,7 +471,7 @@ struct PracticeReadout: View {
         if let disabledReason {
             Text(disabledReason)
                 .font(.platform(.subheadline).weight(.semibold))
-                .foregroundStyle(.inkSecondary)
+                .foregroundStyle(.textSecondary)
                 .lineLimit(2)
         } else {
             TimelineView(
@@ -479,7 +480,7 @@ struct PracticeReadout: View {
                 Text(RecordingScreenText.preciseTime(milliseconds: Int64(model.shownCenterMs(at: model.clock()))))
                     #if os(macOS)
                         .font(MacStyle.readout)
-                        .foregroundStyle(Palette.ink)
+                        .foregroundStyle(Palette.textPrimary)
                     #else
                         .font(.platform(.title3).weight(.semibold))
                         .monospacedDigit()
@@ -490,11 +491,11 @@ struct PracticeReadout: View {
     }
 }
 
-/// The page's background, or the practice ground where the screen is drawn on it, mostly opaque on
-/// iOS and fully on the Mac, so text and buttons read over bars and loop tints.
+/// The page's background, or the practice background where the screen is drawn on it, mostly
+/// opaque on iOS and fully on the Mac, so text and buttons read over bars and loop tints.
 /// Its shape takes every press, so none falls through to the waveform.
 private struct Backing: ViewModifier {
-    @Environment(\.practiceGround) private var ground
+    @Environment(\.practiceBackground) private var practiceScheme
 
     func body(content: Content) -> some View {
         #if os(macOS)
@@ -503,7 +504,7 @@ private struct Backing: ViewModifier {
             content
                 .background {
                     RoundedRectangle(cornerRadius: 8)
-                        .fill(Palette.ground.opacity(0.92))
+                        .fill(Palette.pageBackground.opacity(0.92))
                         .shadow(color: .black.opacity(0.12), radius: 3, y: 1)
                 }
                 .contentShape(.rect(cornerRadius: 8))
@@ -515,7 +516,7 @@ private struct Backing: ViewModifier {
     }
 
     private var fill: AnyShapeStyle {
-        ground.map { AnyShapeStyle(PhoneStyle.practiceGround($0)) } ?? AnyShapeStyle(.background)
+        practiceScheme.map { AnyShapeStyle(Palette.practiceBackground($0)) } ?? AnyShapeStyle(.background)
     }
 }
 
@@ -566,32 +567,32 @@ private struct HandleMark: View {
 }
 
 extension GraphicsContext.Shading {
-    /// The recording screen's playhead line: coral beside the loop handles on the Mac and on the
-    /// practice ground, plain otherwise.
-    static func playhead(onGround: Bool) -> Self {
+    /// The recording screen's playhead line: the brand color beside the loop handles on the Mac
+    /// and on the practice background, plain otherwise.
+    static func playhead(onPractice: Bool) -> Self {
         #if os(macOS)
-            .color(MacStyle.coral)
+            .color(Palette.brand)
         #else
-            onGround ? .color(BrandStyle.coral) : .style(.primary)
+            onPractice ? .color(Palette.brand) : .style(.primary)
         #endif
     }
 }
 
 #if os(macOS)
     extension Color {
-        /// A point of the stage's color around a coral handle or playhead, so it reads where it
+        /// A point of the stage's color around a brand-colored handle or playhead, so it reads where it
         /// crosses a loop's orange band.
         static var markOutline: Color { Palette.surface }
     }
 
-    /// The Mac waveform's inks on the practice stage: what has played, left of the fixed
-    /// playhead, near full ink, and what is to come faint, in both appearances.
+    /// The Mac waveform's colors on the practice stage: what has played, left of the fixed
+    /// playhead, near the full text color, and what is to come faint, in both appearances.
     enum MacWave {
-        static var played: Color { Palette.ink.opacity(0.85) }
-        static var unplayed: Color { Palette.ink.opacity(0.28) }
+        static var played: Color { Palette.textPrimary.opacity(0.85) }
+        static var unplayed: Color { Palette.textPrimary.opacity(0.28) }
         /// Bars in place of a waveform not yet on hand, quieter than any real bar.
-        static var placeholder: Color { Palette.ink.opacity(0.12) }
-        static var tick: Color { Palette.inkSecondary.opacity(0.6) }
+        static var placeholder: Color { Palette.textPrimary.opacity(0.12) }
+        static var tick: Color { Palette.textSecondary.opacity(0.6) }
         static let tickHeight: CGFloat = 5
     }
 #endif
@@ -616,24 +617,26 @@ extension GraphicsContext {
 
 extension GraphicsContext {
     /// Draws the playhead line in `rect`, outlined on the Mac as its loop handles are.
-    func fillPlayhead(_ rect: CGRect, onGround: Bool) {
+    func fillPlayhead(_ rect: CGRect, onPractice: Bool) {
         #if os(macOS)
             fill(Path(rect.insetBy(dx: -1, dy: 0)), with: .color(.markOutline))
         #endif
-        fill(Path(rect), with: .playhead(onGround: onGround))
+        fill(Path(rect), with: .playhead(onPractice: onPractice))
     }
 }
 
 extension GraphicsContext.Shading {
-    /// Quiet bars on the page, in ink; on the jet practice ground, the system's tertiary.
-    static func quietBars(onGround: Bool) -> Self {
-        if !onGround { return .color(Palette.inkSecondary) }
+    /// Quiet bars on the page, in secondary text; on the dark practice background, the system's
+    /// tertiary.
+    static func quietBars(onPractice: Bool) -> Self {
+        if !onPractice { return .color(Palette.textSecondary) }
         return .style(.tertiary)
     }
 
-    /// Ruler ticks on the page, in ink; on the jet practice ground, the system's secondary.
-    static func rulerTick(onGround: Bool) -> Self {
-        if !onGround { return .color(Palette.inkSecondary) }
+    /// Ruler ticks on the page, in secondary text; on the dark practice background, the system's
+    /// secondary.
+    static func rulerTick(onPractice: Bool) -> Self {
+        if !onPractice { return .color(Palette.textSecondary) }
         return .style(.secondary)
     }
 }

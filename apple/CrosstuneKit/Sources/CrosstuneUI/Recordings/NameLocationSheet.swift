@@ -52,7 +52,7 @@ struct NameLocationSheet: View {
                         field
                         Text(NameLocationText.help)
                             .font(MacStyle.secondary)
-                            .foregroundStyle(Palette.inkSecondary)
+                            .foregroundStyle(Palette.textSecondary)
                     }
                 }
             }
@@ -78,7 +78,7 @@ struct NameLocationSheet: View {
     #if os(iOS)
         var body: some View {
             NavigationStack {
-                PaperForm {
+                GroupedForm {
                     if !candidates.isEmpty {
                         Section(NameLocationText.savedHere) {
                             ForEach(candidates, id: \.id) { place in

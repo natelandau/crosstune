@@ -229,7 +229,7 @@ private struct PullDownLabel: View {
             Text(text)
             Image(systemName: "chevron.down")
                 .font(PageStyle.pullDownChevron)
-                .foregroundStyle(.inkSecondary)
+                .foregroundStyle(.textSecondary)
         }
     }
 }
@@ -301,12 +301,12 @@ struct FilterControlStyle: ButtonStyle {
         }
 
         private var foreground: AnyShapeStyle {
-            if !isEnabled { return .inkTertiary }
-            return isSet ? AnyShapeStyle(BrandStyle.setLabel(colorScheme)) : AnyShapeStyle(.primary)
+            if !isEnabled { return .textSecondary }
+            return isSet ? AnyShapeStyle(Palette.onTint(colorScheme)) : AnyShapeStyle(.primary)
         }
 
         private var fill: AnyShapeStyle {
-            isSet ? AnyShapeStyle(BrandStyle.setFill(colorScheme)) : AnyShapeStyle(.neutralFill)
+            isSet ? AnyShapeStyle(Palette.tint(colorScheme)) : AnyShapeStyle(.neutralFill)
         }
     }
 #endif

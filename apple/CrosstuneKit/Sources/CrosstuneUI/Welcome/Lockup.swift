@@ -1,9 +1,8 @@
 import SwiftUI
 
-/// The bare CT mark, cropped to its cap height. The C takes the foreground style so it follows
-/// the surface; the T is coral on every surface. Drawn in the artwork's own 434 by 304 units.
+/// The bare CT mark, cropped to its cap height. The C takes the foreground style so it follows the
+/// surface; the T is the brand color on every surface. Drawn in the artwork's own 434 by 304 units.
 struct Mark: View {
-    static let coral = Color(.sRGB, red: 0xEF / 255, green: 0x83 / 255, blue: 0x54 / 255)
     static let aspect: CGFloat = 434 / 304
 
     var body: some View {
@@ -17,7 +16,7 @@ struct Mark: View {
             tee.addLine(to: CGPoint(x: 439, y: 138))
             tee.move(to: CGPoint(x: 339, y: 138))
             tee.addLine(to: CGPoint(x: 339, y: 374))
-            context.stroke(tee, with: .color(Self.coral), style: style)
+            context.stroke(tee, with: .color(Palette.brand), style: style)
             // The artwork's arc from (231, 367) round the left to (191, 138), radius 118.
             var cee = Path()
             cee.addArc(
@@ -55,7 +54,7 @@ struct Lockup: View {
         HStack(alignment: .firstTextBaseline, spacing: capHeight * 0.4) {
             Mark()
                 .frame(height: capHeight)
-                .foregroundStyle(Palette.markInk)
+                .foregroundStyle(Palette.brandSecondary)
                 .alignmentGuide(.firstTextBaseline) { $0[.bottom] }
                 .accessibilityHidden(true)
             Text("Crosstune")

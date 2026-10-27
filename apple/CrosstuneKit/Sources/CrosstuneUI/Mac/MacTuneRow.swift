@@ -19,10 +19,10 @@
             self.showsKey = showsKey
         }
 
-        /// The tunings' and position's ink: secondary at rest, white on a key window's selection,
-        /// and ink on a selection that is not emphasized.
-        nonisolated static func detailInk(emphasized: Bool, rowSelected: Bool = false) -> Palette.Token {
-            SecondaryInk.token(emphasized: emphasized, rowSelected: rowSelected)
+        /// The tunings' and position's text color: secondary at rest, white on a key window's
+        /// selection, and primary on a selection that is not emphasized.
+        nonisolated static func detailColor(emphasized: Bool, rowSelected: Bool = false) -> Palette.Token {
+            SecondaryText.token(emphasized: emphasized, rowSelected: rowSelected)
         }
 
         /// One way the tunings may read: some of them, and how many more are set past them.
@@ -45,7 +45,7 @@
         }
 
         private var detailColor: Color {
-            Palette.color(Self.detailInk(emphasized: prominence == .increased, rowSelected: rowSelected))
+            Palette.color(Self.detailColor(emphasized: prominence == .increased, rowSelected: rowSelected))
         }
 
         public var body: some View {

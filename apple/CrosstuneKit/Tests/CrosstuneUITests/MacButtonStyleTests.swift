@@ -45,29 +45,29 @@
         }
 
         /// A secondary button on a `surface` card or footer takes the raised fill, lighter than
-        /// the surface, never the `field` that reads gray on gray; on `ground` it keeps `field`.
+        /// the surface, never the `field` that reads gray on gray; on `pageBackground` it keeps `field`.
         @Test(arguments: [ColorScheme.light, .dark])
         func secondaryFillsContrastWithTheirContainer(scheme: ColorScheme) throws {
             for role in [MacButtonStyle.Role.secondary, .destructive] {
-                let onGround = try #require(
+                let onPageBackground = try #require(
                     MacButtonStyle.fillRGB(
-                        for: role, scheme: scheme, container: .ground, isPressed: false))
-                #expect(onGround.hex == Palette.hex(.field, scheme).lowercased())
+                        for: role, scheme: scheme, container: .pageBackground, isPressed: false))
+                #expect(onPageBackground.hex == Palette.hex(.field, scheme).lowercased())
                 let onSurface = try #require(
                     MacButtonStyle.fillRGB(
                         for: role, scheme: scheme, container: .surface, isPressed: false))
-                #expect(onSurface.hex == Palette.hex(.raised, scheme).lowercased())
+                #expect(onSurface.hex == Palette.hex(.surfaceRaised, scheme).lowercased())
                 #expect(relativeLuminance(onSurface.hex) > relativeLuminance(Palette.hex(.surface, scheme)))
             }
         }
 
         /// On a light card the raised fill sits close to the surface, so fields and secondary
-        /// buttons take a hairline edge there; dark and the ground draw none.
+        /// buttons take a hairline edge there; dark and the page background draw none.
         @Test func onlyALightSurfaceEdgesItsControls() {
             #expect(MacContainer.surface.strokesControls(.light))
             #expect(!MacContainer.surface.strokesControls(.dark))
-            #expect(!MacContainer.ground.strokesControls(.light))
-            #expect(!MacContainer.ground.strokesControls(.dark))
+            #expect(!MacContainer.pageBackground.strokesControls(.light))
+            #expect(!MacContainer.pageBackground.strokesControls(.dark))
             #expect(MacButtonStyle.strokesOn(.secondary) && MacButtonStyle.strokesOn(.destructive))
             for role in [MacButtonStyle.Role.primary, .plain, .quiet, .icon, .destructiveFilled] {
                 #expect(!MacButtonStyle.strokesOn(role), "\(role)")
@@ -81,8 +81,9 @@
             for role in [MacButtonStyle.Role.plain, .quiet, .icon] {
                 let label = MacButtonStyle.labelRGB(for: role, scheme: scheme).hex
                 for container in MacContainer.allCases {
-                    for ground in [container.fill, container.controlFill] {
-                        #expect(contrastRatio(label, Palette.hex(ground, scheme)) >= 4.5, "\(role) on \(ground)")
+                    for background in [container.fill, container.controlFill] {
+                        #expect(
+                            contrastRatio(label, Palette.hex(background, scheme)) >= 4.5, "\(role) on \(background)")
                     }
                 }
             }
@@ -116,10 +117,11 @@
         /// The destructive roles take the app's one danger red, never a new one.
         @Test(arguments: [ColorScheme.light, .dark])
         func destructiveRolesUseTheDangerRed(scheme: ColorScheme) throws {
-            #expect(MacButtonStyle.labelRGB(for: .destructive, scheme: scheme) == SignalSwatch.danger(scheme).ink)
+            #expect(
+                MacButtonStyle.labelRGB(for: .destructive, scheme: scheme) == StatusCapsuleColors.danger(scheme).text)
             let filled = try #require(
                 MacButtonStyle.fillRGB(for: .destructiveFilled, scheme: scheme, isPressed: false))
-            #expect(filled == SignalSwatch.danger(.light).ink)
+            #expect(filled == StatusCapsuleColors.danger(.light).text)
         }
     }
 #endif

@@ -129,7 +129,7 @@ it('puts the detail on a second line on touch', async () => {
 })
 
 it.each(['light', 'dark'] as const)(
-  'dims a row in %s with ink that keeps text contrast',
+  'dims a row in %s with a text color that keeps text contrast',
   async (scheme) => {
     renderWithProviders(
       <RowList label="Tunes">

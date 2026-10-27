@@ -29,7 +29,7 @@ public struct AccountView: View {
             .shellSheet()
         #else
             NavigationStack {
-                PaperForm {
+                GroupedForm {
                     AccountSections(session: session)
                 }
                 .navigationTitle(AccountSections.title)

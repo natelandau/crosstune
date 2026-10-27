@@ -6,7 +6,7 @@ import { offWhen } from './panel'
 import type { LoopPlayback } from './useLoopPlayback'
 
 const ARROW =
-  'grid size-9 shrink-0 place-items-center rounded-full text-(--panel-ink) aria-disabled:opacity-40'
+  'grid size-9 shrink-0 place-items-center rounded-full text-on-practice aria-disabled:opacity-40'
 
 /**
  * The selected loop's name between Previous and Next, under the play button. With no loop

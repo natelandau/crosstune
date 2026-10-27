@@ -78,7 +78,7 @@ struct NotesField: View {
         HStack(spacing: 8) {
             Text(Self.savesAsYouType)
                 .font(PageStyle.secondary)
-                .foregroundStyle(.inkTertiary)
+                .foregroundStyle(.textSecondary)
             Spacer(minLength: 0)
             Button(Self.done) { focus = nil }
                 .focused($focus, equals: .done)
@@ -109,7 +109,7 @@ struct NotesField: View {
             .overlay(alignment: .topLeading) {
                 if text.isEmpty {
                     Text(Self.placeholder)
-                        .foregroundStyle(.inkSecondary)
+                        .foregroundStyle(.textSecondary)
                         .padding(Self.placeholderInset)
                         .allowsHitTesting(false)
                         .accessibilityHidden(true)

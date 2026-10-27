@@ -77,7 +77,7 @@ struct RecordingPlayButton: View {
         default:
             Image(systemName: "exclamationmark.circle")
                 .font(font)
-                .foregroundStyle(.inkSecondary)
+                .foregroundStyle(.textSecondary)
                 .frame(minWidth: minimumTapTarget, minHeight: minimumTapTarget)
                 // Sits where play would, so VoiceOver hears why there is none.
                 .accessibilityLabel(
@@ -219,7 +219,7 @@ private struct TimeStyle: ViewModifier {
                 .font(.caption)
             #endif
             .monospacedDigit()
-            .foregroundStyle(.inkSecondary)
+            .foregroundStyle(.textSecondary)
             .accessibilityHidden(true)
     }
 }
@@ -236,7 +236,7 @@ struct RecordingPlayerStatus: View {
         HStack {
             Text(message)
                 .font(.platform(.footnote))
-                .foregroundStyle(.inkSecondary)
+                .foregroundStyle(.textSecondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
             // Offline refuses the retry by not offering it, rather than a control that cannot work.
             if player.recordingAudio == .unavailable && session?.isOffline != true {

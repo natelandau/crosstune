@@ -114,7 +114,7 @@
         var escape: (@MainActor () -> Void)?
     }
 
-    /// Every Mac sheet's frame: an in-content title over a body on `ground`, and a footer on
+    /// Every Mac sheet's frame: an in-content title over a body on `pageBackground`, and a footer on
     /// `surface` holding the leading slot, then Cancel, an optional secondary, and the primary
     /// trailing. It draws no toolbar band, so it never sits in a `NavigationStack` unless the
     /// sheet pushes. The call site keeps `.shellSheet()` on its root.
@@ -222,7 +222,7 @@
             // A fitted sheet's window takes the height the sheet opens at and keeps it unless the
             // frame says otherwise, so content that arrives later sets the frame.
             .frame(height: size.maxHeight.flatMap(fitted.height(max:)))
-            .background(Palette.ground)
+            .background(Palette.pageBackground)
             .background {
                 if let escape {
                     Button("", action: escape)
@@ -242,7 +242,7 @@
             .defaultFocus($openingFocus, Action.openingFocus(primary: primary))
             // A sheet takes its presenter's environment, so one opened from a card would draw its
             // controls for the card's surface; the footer marks its own.
-            .environment(\.macContainer, .ground)
+            .environment(\.macContainer, .pageBackground)
             .macSheetFrame(size)
         }
 
@@ -251,7 +251,7 @@
                 if style.showsMark {
                     Mark()
                         .frame(height: Self.markHeight)
-                        .foregroundStyle(Palette.markInk)
+                        .foregroundStyle(Palette.brandSecondary)
                         .accessibilityHidden(true)
                         .padding(.bottom, 12)
                 }
@@ -271,7 +271,7 @@
                 if let subtitle {
                     Text(subtitle)
                         .font(MacStyle.body)
-                        .foregroundStyle(Palette.inkSecondary)
+                        .foregroundStyle(Palette.textSecondary)
                 }
             }
             .fixedSize(horizontal: false, vertical: true)
@@ -293,13 +293,13 @@
             case .sheet:
                 Text(title)
                     .font(MacStyle.sheetTitle)
-                    .foregroundStyle(Palette.ink)
+                    .foregroundStyle(Palette.textPrimary)
                     .accessibilityAddTraits(.isHeader)
             case .page:
                 Text(title)
                     .font(MacStyle.pageTitle)
                     .tracking(MacStyle.pageTitleTracking)
-                    .foregroundStyle(Palette.ink)
+                    .foregroundStyle(Palette.textPrimary)
                     .lineLimit(2)
                     .accessibilityAddTraits(.isHeader)
             }
@@ -343,7 +343,7 @@
             .background(Palette.surface)
             .macSurfaceContainer()
             .overlay(alignment: .top) {
-                Rectangle().fill(Palette.hairline).frame(height: 1)
+                Rectangle().fill(Palette.border).frame(height: 1)
             }
         }
 
@@ -418,14 +418,12 @@
     struct MacSheetSymbolImage: View {
         let symbol: MacSheetSymbol
 
-        @Environment(\.colorScheme) private var scheme
-
         var body: some View {
             switch symbol {
             case .danger:
                 Image(systemName: "exclamationmark.triangle.fill")
                     .font(.system(size: MacStyle.sheetTitleSize, weight: .semibold))
-                    .foregroundStyle(SignalSwatch.danger(scheme).ink.color)
+                    .foregroundStyle(Palette.danger)
             }
         }
     }

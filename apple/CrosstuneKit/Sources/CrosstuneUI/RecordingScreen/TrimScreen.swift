@@ -186,7 +186,7 @@ struct TrimScreen: View {
         VStack(spacing: 2) {
             Text(name)
                 .font(.platform(.caption))
-                .foregroundStyle(.inkSecondary)
+                .foregroundStyle(.textSecondary)
             Text(RecordingScreenText.preciseTime(milliseconds: milliseconds))
                 .font(.platform(.footnote))
                 .monospacedDigit()
@@ -320,7 +320,7 @@ private struct TrimStrip: View {
     /// drag always lets go of the stretch it held.
     @GestureState private var gesture: StripGesture?
     @Environment(\.isEnabled) private var isEnabled
-    @Environment(\.practiceGround) private var ground
+    @Environment(\.practiceBackground) private var practiceScheme
 
     private struct StripGesture: Equatable {
         let handle: TrimModel.Handle?
@@ -477,13 +477,13 @@ private struct TrimStrip: View {
         }
     }
 
-    /// Plain marks: the tint off the practice ground, white on it.
+    /// Plain marks: the tint off the practice background, white on it.
     private var markStyle: AnyShapeStyle {
-        ground != nil ? AnyShapeStyle(PracticeWaveform.handleColor(isTrim: true)) : AnyShapeStyle(.tint)
+        practiceScheme != nil ? AnyShapeStyle(PracticeWaveform.handleColor(isTrim: true)) : AnyShapeStyle(.tint)
     }
 
     private var playheadStyle: AnyShapeStyle {
-        ground != nil ? AnyShapeStyle(PracticeWaveform.handleColor(isTrim: true)) : AnyShapeStyle(.primary)
+        practiceScheme != nil ? AnyShapeStyle(PracticeWaveform.handleColor(isTrim: true)) : AnyShapeStyle(.primary)
     }
 }
 

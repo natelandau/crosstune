@@ -44,21 +44,21 @@ public struct StatusGlyph: View {
 struct StatusGlyphStyle: ShapeStyle {
     let status: String
 
-    enum Ink: Equatable {
+    enum Coloring: Equatable {
         case white
         case status(Color)
         case ring(UnknownRing.Placement)
     }
 
     func resolve(in environment: EnvironmentValues) -> Color {
-        switch Self.ink(status, in: environment) {
+        switch Self.coloring(status, in: environment) {
         case .white: Palette.color(.onAccentFill)
         case .status(let color): color
-        case .ring(let placement): BrandStyle.color(hex: UnknownRing.hex(placement, scheme: environment.colorScheme))
+        case .ring(let placement): Palette.color(hex: UnknownRing.hex(placement, scheme: environment.colorScheme))
         }
     }
 
-    static func ink(_ status: String, in environment: EnvironmentValues) -> Ink {
+    static func coloring(_ status: String, in environment: EnvironmentValues) -> Coloring {
         if environment.backgroundProminence == .increased { return .white }
         switch StatusStyle.dot(status) {
         case .filled(let color): return .status(color)
