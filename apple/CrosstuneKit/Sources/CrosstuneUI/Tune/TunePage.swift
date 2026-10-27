@@ -164,15 +164,17 @@ struct TunePageColumn: View {
             .tuneHeaderPlacement(layout)
             switch layout {
             case .column:
-                HStack(alignment: .top, spacing: 0) {
+                HStack(alignment: .top, spacing: PageStyle.attributesColumnGap) {
                     content
                         .padding([.horizontal, .bottom], PageStyle.pageMargin)
-                        .frame(maxWidth: Self.columnMaxWidth, alignment: .leading)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .frame(maxWidth: Self.besideMaxWidth, alignment: .leading)
+                        // The content takes its full width first; the attributes grow into the rest.
+                        .layoutPriority(1)
                     attributes
                 }
                 // The attributes column fills the row's height, so its hairline and its pin reach the content's end.
                 .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
             case .card:
                 VStack(alignment: .leading, spacing: PageStyle.sectionGap) {
                     attributes
@@ -188,6 +190,17 @@ struct TunePageColumn: View {
 
     /// The column's width with its margins.
     fileprivate static var columnMaxWidth: CGFloat { PageStyle.pageMaxWidth + 2 * PageStyle.pageMargin }
+
+    /// The content column's width with its margins beside the attributes column: as wide as its
+    /// sections run, so the attributes sit beside the text rather than past empty space.
+    fileprivate static var besideMaxWidth: CGFloat {
+        min(PageStyle.pageMaxWidth, PageStyle.sectionMaxWidth) + 2 * PageStyle.pageMargin
+    }
+
+    /// The content and attributes columns side by side at their widest.
+    fileprivate static var columnsMaxWidth: CGFloat {
+        besideMaxWidth + PageStyle.attributesColumnGap + PageStyle.attributesColumnMaxWidth
+    }
 
     private var attributes: some View {
         TuneAttributes(model: model, detail: detail, layout: layout, pinnedTop: pinnedTop, onAddToList: addToList)
@@ -385,16 +398,19 @@ struct TunePageColumn: View {
 }
 
 extension View {
-    /// Places the header at the top of the page: within the page's margins, across the detail
-    /// column beside the attributes column, and in the content column's width over a card. The
-    /// new-tune draft places its header the same way.
+    /// Places the header at the top of the page: within the page's margins, over the content and
+    /// attributes columns to where the attributes column ends at its widest, and in the content
+    /// column's width over a card. The new-tune draft places its header the same way.
     func tuneHeaderPlacement(_ layout: AttributesLayout) -> some View {
         padding(.horizontal, PageStyle.pageMargin)
             #if !os(macOS)
                 .padding(.top, PageStyle.pageMargin)
             #endif
             .padding(.bottom, PageStyle.sectionGap)
-            .frame(maxWidth: layout == .column ? .infinity : TunePageColumn.columnMaxWidth, alignment: .leading)
+            .frame(
+                maxWidth: layout == .column ? TunePageColumn.columnsMaxWidth : TunePageColumn.columnMaxWidth,
+                alignment: .leading
+            )
             .frame(maxWidth: .infinity, alignment: layout == .column ? .leading : .center)
     }
 }

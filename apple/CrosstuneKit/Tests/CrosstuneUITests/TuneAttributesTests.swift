@@ -20,10 +20,29 @@ import Testing
     // MARK: Layout
 
     @Test func theColumnNeedsRoomForItselfBesideAReadableColumn() {
-        let threshold = PageStyle.attributesColumnWidth + PageStyle.contentMinWidth
+        let threshold = PageStyle.attributesColumnWidth + PageStyle.attributesColumnGap + PageStyle.contentMinWidth
         #expect(TuneAttributes.layout(forDetailWidth: threshold - 1) == .card)
         #expect(TuneAttributes.layout(forDetailWidth: threshold) == .column)
         #expect(TuneAttributes.layout(forDetailWidth: 0) == .card)
+    }
+
+    @Test func aWideColumnSetsEachValueBesideItsLabel() {
+        let beside = PageStyle.attributesColumnBesideWidth
+        #expect(TuneAttributes.arrangement(forColumnWidth: PageStyle.attributesColumnWidth) == .stacked)
+        #expect(TuneAttributes.arrangement(forColumnWidth: beside - 1) == .stacked)
+        #expect(TuneAttributes.arrangement(forColumnWidth: beside) == .beside)
+        #expect(TuneAttributes.arrangement(forColumnWidth: PageStyle.attributesColumnMaxWidth) == .beside)
+    }
+
+    @Test func anAccessibilityTextSizeStacksEveryRow() {
+        #expect(TuneAttributes.arrangement(.beside, accessibilitySize: true) == .stacked)
+        #expect(TuneAttributes.arrangement(.beside, accessibilitySize: false) == .beside)
+        #expect(TuneAttributes.arrangement(.stacked, accessibilitySize: false) == .stacked)
+    }
+
+    @Test func theColumnSwitchesBetweenItsNarrowestAndWidest() {
+        #expect(PageStyle.attributesColumnWidth < PageStyle.attributesColumnBesideWidth)
+        #expect(PageStyle.attributesColumnBesideWidth <= PageStyle.attributesColumnMaxWidth)
     }
 
     /// The iPad's detail column: whatever of the tab's width the content column leaves.
