@@ -168,7 +168,7 @@ public struct SettingsScreen: View {
     }
 
     #if os(macOS)
-        /// The groups as cards on the ground, scrolling, with no grouped `Form`: its rows draw a
+        /// The groups as cards on the page background, scrolling, with no grouped `Form`: its rows draw a
         /// second label and its row buttons a ring around the whole card.
         private var form: some View {
             ScrollView {
@@ -179,11 +179,11 @@ public struct SettingsScreen: View {
                 .padding(MacStyle.sheetMargin)
             }
             .scrollBounceBehavior(.basedOnSize)
-            .background(Palette.ground)
+            .background(Palette.pageBackground)
         }
     #else
         private var form: some View {
-            PaperForm {
+            GroupedForm {
                 if sections.contains(.stats) && !opensStatsInSheet {
                     statsSection
                 }
@@ -408,7 +408,7 @@ public struct SettingsScreen: View {
                 if let rejected = model.rejectedMessage {
                     Text(rejected)
                         .font(.platform(.footnote))
-                        .foregroundStyle(.inkSecondary)
+                        .foregroundStyle(.textSecondary)
                 }
                 if engine != nil {
                     Button(SettingsModel.syncNow) {

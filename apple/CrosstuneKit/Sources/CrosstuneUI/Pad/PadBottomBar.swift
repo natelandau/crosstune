@@ -39,7 +39,7 @@ struct PadBottomBar: View {
                 Button(action: onRecord) {
                     HStack(spacing: PadStyle.bottomBarRecordSpacing) {
                         Image(systemName: "circle.fill")
-                            .foregroundStyle(Color.recordingRed)
+                            .foregroundStyle(Palette.record)
                             .accessibilityHidden(true)
                         Text(RecordControl.shortLabel)
                             .fontWeight(.semibold)

@@ -2,19 +2,8 @@
     import AppKit
     import SwiftUI
 
-    /// The Mac app's accent, type, and spacing tokens.
+    /// The Mac app's type and spacing tokens.
     public enum MacStyle {
-        /// Harbor blue, lighter in dark mode so text on the window keeps its contrast.
-        public static var accent: Color { Palette.accent }
-        /// Coral, the mark's color.
-        public static var coral: Color { BrandStyle.coral }
-
-        /// How strongly the accent washes the row a playing list is on: lighter than a set
-        /// filter's wash, so the row reads as marked rather than chosen.
-        public static func playingWashOpacity(_ scheme: ColorScheme) -> Double {
-            scheme == .dark ? 0.18 : 0.10
-        }
-
         // SF Pro at fixed sizes: a Mac view never takes a SwiftUI text style, whose sizes follow
         // the system's own scale.
         public static let body = Font.system(size: bodySize)
@@ -45,7 +34,8 @@
         public static let timerTracking: CGFloat = -1
 
         public static let rowHeight: CGFloat = 32
-        /// The corners of a row's hover wash where the row sits on the ground, not in a list.
+        /// The corners of a row's hover tint where the row sits on the page background, not in a
+        /// list.
         public static let rowRadius: CGFloat = 7
         public static let sidebarRowHeight: CGFloat = 28
         /// A column's header line: its count and sort.
@@ -120,20 +110,6 @@
             columnTitleBaseline - NSFont.systemFont(ofSize: size, weight: .bold).ascender - container.top
         }
 
-        /// The undo banner's Undo: the other appearance's accent, which reads on the banner's ink.
-        static func undoActionHex(_ scheme: ColorScheme) -> String {
-            Palette.hex(.accent, scheme == .dark ? .light : .dark)
-        }
-
-        static var undoAction: Color {
-            Color(
-                nsColor: NSColor(name: nil) { appearance in
-                    let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-                    let rgb = KeyColor.RGB(hex: undoActionHex(isDark ? .dark : .light))
-                    return NSColor(srgbRed: rgb.red, green: rgb.green, blue: rgb.blue, alpha: 1)
-                })
-        }
-
         /// A row above a column's tunes, such as its title or filters. The inset list style adds
         /// its own side padding, so the row starts where the tune rows do.
         public static func columnRowInsets(top: CGFloat = 0, bottom: CGFloat = 0) -> EdgeInsets {
@@ -162,10 +138,6 @@
                 self = drawsGlass ? .glass : .material
             }
         }
-
-        /// The opaque mode's fill: the sidebar's surface, so floating chrome reads as the pane it
-        /// sits over.
-        static var opaqueFill: Color { Palette.surface }
     }
 
     /// Liquid Glass in `shape`, drawn as ``MacGlassMode`` resolves.
@@ -181,8 +153,9 @@
                 reduceTransparency: reduceTransparency, increasedContrast: contrast == .increased,
                 drawsGlass: drawsGlass)
             {
+            // The sidebar's surface, so floating chrome reads as the pane it sits over.
             case .opaque:
-                content.background(MacGlassMode.opaqueFill, in: shape)
+                content.background(Palette.surface, in: shape)
             case .glass:
                 content.glassEffect(.regular.interactive(), in: shape)
             case .material:
@@ -196,7 +169,7 @@
             modifier(MacGlass(shape: shape))
         }
 
-        /// A content column's list, drawn over the column's ground. The inset style draws the
+        /// A content column's list, drawn over the column's background. The inset style draws the
         /// selection as a soft highlight inset from the column's edges; the plain style runs it
         /// edge to edge.
         func macColumnList() -> some View {

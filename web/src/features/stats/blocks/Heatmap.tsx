@@ -6,11 +6,11 @@ import { PageSection } from '../../../ui/PageSection'
 
 // An empty day is blank: a hairline ring keeps its slot without reading as a step.
 const STEPS = [
-  'shadow-[inset_0_0_0_1px_var(--hairline)]',
-  'bg-(--heat-1)',
-  'bg-(--heat-2)',
-  'bg-(--heat-3)',
-  'bg-(--heat-4)',
+  'shadow-[inset_0_0_0_1px_var(--border)]',
+  'bg-(--heatmap-1)',
+  'bg-(--heatmap-2)',
+  'bg-(--heatmap-3)',
+  'bg-(--heatmap-4)',
 ] as const
 
 /**
@@ -35,7 +35,7 @@ export function Heatmap({ heatmap, today }: { heatmap: HeatmapData; today: strin
     <PageSection title={ACTIVITY_HEADER}>
       <div
         aria-hidden
-        className="t-caption text-ink-2 grid auto-cols-fr grid-flow-col gap-px pb-1 whitespace-nowrap"
+        className="t-caption text-secondary grid auto-cols-fr grid-flow-col gap-px pb-1 whitespace-nowrap"
       >
         {weekMonthLabels(days).map((label, column) => (
           <span key={column} className="min-w-0 overflow-visible">
@@ -64,12 +64,12 @@ export function Heatmap({ heatmap, today }: { heatmap: HeatmapData; today: strin
             aria-label={cell.level > 0 ? dayDetail(cell, today) : undefined}
             aria-hidden={cell.level > 0 ? undefined : true}
             className={`aspect-square rounded-[1px] ${STEPS[cell.level]} ${
-              index === chosen ? 'outline-ink outline-2' : ''
+              index === chosen ? 'outline-text-primary outline-2' : ''
             }`}
           />
         ))}
       </div>
-      <p aria-live="polite" className="t-secondary t-num text-ink-2 pt-2">
+      <p aria-live="polite" className="t-secondary t-num text-secondary pt-2">
         {day ? dayDetail(day, today) : ACTIVITY_HINT}
       </p>
     </PageSection>

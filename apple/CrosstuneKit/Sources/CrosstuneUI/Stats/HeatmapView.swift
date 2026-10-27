@@ -1,34 +1,6 @@
 import CrosstuneCommands
 import SwiftUI
 
-/// The heatmap's four steps, from the lightest active day to the busiest: the web's hue,
-/// darkening in light mode and lightening in dark mode. Each step is at least 3:1 against every
-/// surface the grid can sit on: the grouped row and page in light (#FFFFFF down to #E5E5EA) and
-/// dark (#000000 up to #3A3A3C) on iOS and macOS. The web's `--heat-1` to `--heat-4` match.
-enum HeatColor {
-    static let light: [UInt32] = [0x707c93, 0x56627a, 0x3b465b, 0x1f2634]
-    static let dark: [UInt32] = [0x7f8ba2, 0xa0abbf, 0xc2c9d7, 0xe4e8ef]
-
-    private static func value(_ level: Int, dark isDark: Bool) -> UInt32 {
-        let index = min(max(level, 1), light.count) - 1
-        return isDark ? dark[index] : light[index]
-    }
-
-    /// `#rrggbb` for `level`'s variant.
-    static func hex(_ level: Int, dark: Bool) -> String {
-        let digits = String(value(level, dark: dark), radix: 16)
-        return "#" + String(repeating: "0", count: 6 - digits.count) + digits
-    }
-
-    /// The fill of an active day at `level`, 1 through 4.
-    static func color(_ level: Int, scheme: ColorScheme) -> Color {
-        let rgb = value(level, dark: scheme == .dark)
-        return Color(
-            .sRGB, red: Double(rgb >> 16 & 0xff) / 255, green: Double(rgb >> 8 & 0xff) / 255,
-            blue: Double(rgb & 0xff) / 255)
-    }
-}
-
 /// One cell per day, a column per week from Sunday. The cells are too small to be tap targets,
 /// so the grid takes the tap, the pointer, or the arrow keys itself and shows the chosen day's
 /// detail under it; each active cell also carries its detail for VoiceOver.
@@ -55,7 +27,7 @@ struct HeatmapView: View {
             Text(chosen.flatMap { days.indices.contains($0) ? days[$0] : nil }.map(detail) ?? StatsCopy.activityHint)
                 .font(.platform(.footnote))
                 .monospacedDigit()
-                .foregroundStyle(.inkSecondary)
+                .foregroundStyle(.textSecondary)
                 .padding(.top, spacing(4))
                 .accessibilityHidden(true)
         }
@@ -95,7 +67,7 @@ struct HeatmapView: View {
             let width = (gridSize.width - Self.gap * CGFloat(columns - 1)) / CGFloat(columns)
             let height = (gridSize.height - Self.gap * 6) / 7
             RoundedRectangle(cornerRadius: 1)
-                .stroke(.primary, lineWidth: 1)
+                .stroke(.textPrimary, lineWidth: 1)
                 .frame(width: max(width, 0), height: max(height, 0))
                 .offset(x: CGFloat(chosen / 7) * (width + Self.gap), y: CGFloat(chosen % 7) * (height + Self.gap))
                 .allowsHitTesting(false)
@@ -158,7 +130,7 @@ private struct HeatmapMonthLabels: View, Equatable {
                     .frame(maxWidth: .infinity, minHeight: 0)
                     .overlay(alignment: .leading) {
                         if let label {
-                            Text(label).font(.platform(.caption2)).foregroundStyle(.inkSecondary).fixedSize()
+                            Text(label).font(.platform(.caption2)).foregroundStyle(.textSecondary).fixedSize()
                         }
                     }
             }
@@ -202,12 +174,12 @@ private struct HeatmapCells: View, Equatable {
         if let day = days.indices.contains(index) ? days[index] : nil {
             Group {
                 if day.level > 0 {
-                    shape.fill(HeatColor.color(day.level, scheme: colorScheme))
+                    shape.fill(Palette.heatmap(day.level, scheme: colorScheme))
                         .accessibilityElement()
                         .accessibilityLabel(StatsCopy.dayDetail(day, today: today))
                 } else {
                     // An empty day is blank: a hairline ring keeps its slot without reading as a step.
-                    shape.strokeBorder(.quaternary, lineWidth: 1)
+                    shape.strokeBorder(Palette.border, lineWidth: 1)
                         .accessibilityHidden(true)
                 }
             }

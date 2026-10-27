@@ -86,7 +86,7 @@ export function Picker({
   const choose = (id: Key | null) => onChange(id === null || id === EMPTY ? null : String(id))
   const shown = all.find((option) => option.id === selected)?.label ?? emptyLabel ?? ''
   // A chosen value reads as a value; the empty choice reads like Not set in a text field.
-  const valueClass = `${FIELD_VALUE_SHAPE} ${selected === EMPTY ? 'text-ink-2' : 'text-ink'}`
+  const valueClass = `${FIELD_VALUE_SHAPE} ${selected === EMPTY ? 'text-secondary' : 'text-primary'}`
 
   if (touch) {
     return (
@@ -103,7 +103,7 @@ export function Picker({
           >
             <span className={FIELD_LABEL}>{label}</span>
             <span className={valueClass}>{shown}</span>
-            <ChevronsUpDown className="text-ink-2 size-4 shrink-0" aria-hidden />
+            <ChevronsUpDown className="text-secondary size-4 shrink-0" aria-hidden />
           </AriaButton>
         }
         items={all.map((option) => ({
@@ -145,11 +145,11 @@ export function Picker({
         className="flex min-h-(--target) min-w-0 flex-1 items-center justify-end gap-1 pe-4 after:absolute after:inset-0 after:content-['']"
       >
         <SelectValue className={valueClass} />
-        <ChevronsUpDown className="text-ink-2 size-4 shrink-0" aria-hidden />
+        <ChevronsUpDown className="text-secondary size-4 shrink-0" aria-hidden />
       </AriaButton>
       <Popover
         placement="bottom end"
-        className="bg-ground max-h-80 min-w-48 overflow-y-auto rounded-(--radius-surface) p-1 shadow-(--shadow-float)"
+        className="bg-page max-h-80 min-w-48 overflow-y-auto rounded-(--radius-surface) p-1 shadow-(--shadow-float)"
       >
         <OverlayClaim />
         {/* Escape always dismisses, even with a press still held on an option. */}
@@ -173,11 +173,14 @@ export function Picker({
                       {option.label}
                     </Text>
                     {option.description && (
-                      <Text slot="description" className="t-secondary text-ink-2 t-num shrink-0">
+                      <Text
+                        slot="description"
+                        className="t-secondary text-secondary t-num shrink-0"
+                      >
                         {option.description}
                       </Text>
                     )}
-                    {isSelected && <Check className="text-ink size-5 shrink-0" aria-hidden />}
+                    {isSelected && <Check className="text-primary size-5 shrink-0" aria-hidden />}
                   </>
                 )}
               </ListBoxItem>

@@ -17,7 +17,7 @@ import { fakeMediaForTest } from '../../test/fakeMedia'
 import { fakeStore } from '../../test/fakeStore'
 import { renderApp } from '../../test/renderApp'
 import { dataProviders, fakeEngine } from '../../test/providers'
-import { contrastRatio, glyphInk, paintedBackground } from '../../test/contrast'
+import { contrastRatio, glyphColor, paintedBackground } from '../../test/contrast'
 import { renderWithProviders } from '../../test/render'
 import { entitlementRow } from '../../test/rows'
 import type { SyncEngine } from '../../sync/types'
@@ -887,12 +887,12 @@ it.each(['light', 'dark'] as const)(
     await openPaywall({ scheme })
     await expect.element(planSheet().getByRole('table')).toBeVisible()
 
-    // The Premium column sits on a translucent color-mix wash the helper cannot measure.
+    // The Premium column sits on a translucent color-mix tint the helper cannot measure.
     const table = planSheet().getByRole('table').element()
     const marks = [...table.querySelectorAll('tbody td:nth-of-type(1) svg')]
     expect(marks).toHaveLength(COMPARISON.filter((feature) => feature.free.kind !== 'value').length)
     for (const mark of marks) {
-      expect(contrastRatio(glyphInk(mark), paintedBackground(mark))).toBeGreaterThanOrEqual(3)
+      expect(contrastRatio(glyphColor(mark), paintedBackground(mark))).toBeGreaterThanOrEqual(3)
     }
   },
 )

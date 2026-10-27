@@ -13,7 +13,8 @@ import SwiftUI
         let isFocused: FocusState<Bool>.Binding
         /// The count of set sheet filters, or nil to leave the filters control out.
         let filterCount: Int?
-        /// Whether the filters are disabled, such as while a selection lasts or with nothing to filter.
+        /// Whether the filters are disabled, such as while a selection lasts or with nothing to
+        /// filter.
         var filtersDisabled = false
         let onSubmit: () -> Void
         var onFilters: () -> Void = {}
@@ -42,7 +43,7 @@ import SwiftUI
         var body: some View {
             HStack(spacing: 6) {
                 Image(systemName: "magnifyingglass")
-                    .foregroundStyle(Palette.inkSecondary)
+                    .foregroundStyle(Palette.textSecondary)
                     .accessibilityHidden(true)
                 TextField(prompt, text: $query)
                     .contentMask()
@@ -58,11 +59,12 @@ import SwiftUI
                         query = ""
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(Palette.inkSecondary)
+                            .foregroundStyle(Palette.textSecondary)
                             .frame(minWidth: hitTarget, minHeight: hitTarget)
                             .contentShape(.rect)
                     }
-                    // A borderless button tints its glyph with the accent, which a glyph at rest never takes.
+                    // A borderless button tints its glyph with the accent, which a glyph at rest
+                    // never takes.
                     .buttonStyle(.plain)
                     .accessibilityLabel(Self.clearSearch)
                     .help(Self.clearSearch)
@@ -84,13 +86,13 @@ import SwiftUI
         }
     }
 
-    /// The search field's filters control: a glyph in secondary ink at rest, and once a filter
+    /// The search field's filters control: a glyph in secondary text at rest, and once a filter
     /// is set, a set chip carrying the count, so a narrowed list reads from the field.
     struct SearchFiltersStyle: ButtonStyle {
-        /// What the set chip's wash lands on. The field under it is too dark for the accent label
-        /// to hold 4.5:1 through the wash, so the chip carries the column's ground, as the set
-        /// tokens under the field do.
-        static let chipGround = Palette.Token.ground
+        /// What the set chip's tint lands on. The field under it is too dark for the accent label
+        /// to hold 4.5:1 through the tint, so the chip carries the column's page background, as the
+        /// set tokens under the field do.
+        static let chipBackground = Palette.Token.pageBackground
 
         let isSet: Bool
 
@@ -112,13 +114,15 @@ import SwiftUI
                 if isSet {
                     configuration.label
                         .macChip(state: .set, size: .row, emphasis: emphasis)
-                        .background(Palette.color(SearchFiltersStyle.chipGround), in: .capsule)
+                        .background(Palette.color(SearchFiltersStyle.chipBackground), in: .capsule)
                 } else {
                     configuration.label
-                        .foregroundStyle(isHovered ? Palette.ink : Palette.inkSecondary)
+                        .foregroundStyle(isHovered ? Palette.textPrimary : Palette.textSecondary)
                         .frame(width: MacChip.Size.row.height + 4, height: MacChip.Size.row.height + 4)
-                        .background(
-                            Color.black.opacity(MacChip.hoverDarkening * emphasis), in: .rect(cornerRadius: 5))
+                        .background {
+                            RoundedRectangle(cornerRadius: 5).fill(Palette.hoverOverlay)
+                                .opacity(emphasis)
+                        }
                 }
             }
             .frame(minHeight: 22)

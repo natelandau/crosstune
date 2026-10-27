@@ -1,6 +1,6 @@
 /**
  * What a glyph actually reads at: the color it paints, the surface under it, and the WCAG
- * contrast between the two. A test that asserts a ratio rather than a token catches a wash
+ * contrast between the two. A test that asserts a ratio rather than a token catches a tint
  * that is legible in one palette and lost in the other.
  */
 
@@ -35,7 +35,7 @@ function luminance(r: number, g: number, b: number): number {
 }
 
 /** The color a glyph paints, with the element's own opacity folded into its alpha. */
-export function glyphInk(element: Element): string {
+export function glyphColor(element: Element): string {
   const style = getComputedStyle(element)
   const [r, g, b, alpha] = parts(style.color)
   return `rgba(${r}, ${g}, ${b}, ${alpha * Number(style.opacity)})`
@@ -71,12 +71,12 @@ export function contrastRatio(foreground: string, background: string): number {
   return (Math.max(over, under) + 0.05) / (Math.min(over, under) + 0.05)
 }
 
-/** A translucent color(srgb ...) wash, such as a color-mix, laid over an opaque ground. */
-export function washOver(wash: string, ground: string): string {
-  const [r, g, b, alpha = 1] = (/color\(srgb ([^)]*)\)/.exec(wash)?.[1] ?? '')
+/** A translucent color(srgb ...) tint, such as a color-mix, laid over an opaque background. */
+export function compositeOver(tint: string, background: string): string {
+  const [r, g, b, alpha = 1] = (/color\(srgb ([^)]*)\)/.exec(tint)?.[1] ?? '')
     .split(/[\s/]+/)
     .map(Number)
-  const [gr, gg, gb] = ground.match(/[\d.]+/g)!.map(Number)
+  const [br, bg, bb] = background.match(/[\d.]+/g)!.map(Number)
   const mix = (top: number, under: number) => Math.round(top * 255 * alpha + under * (1 - alpha))
-  return `rgb(${mix(r!, gr!)}, ${mix(g!, gg!)}, ${mix(b!, gb!)})`
+  return `rgb(${mix(r!, br!)}, ${mix(g!, bg!)}, ${mix(b!, bb!)})`
 }

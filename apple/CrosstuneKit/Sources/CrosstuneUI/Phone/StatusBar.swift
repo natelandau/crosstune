@@ -49,6 +49,6 @@ struct StatusBar: View {
     /// Want to learn has a ring rather than a color in rows, so its segment is the unknown gray.
     static func color(_ status: String) -> Color {
         if case .filled(let color) = StatusStyle.dot(status) { return color }
-        return StatusStyle.unknown
+        return Palette.statusUnknown
     }
 }

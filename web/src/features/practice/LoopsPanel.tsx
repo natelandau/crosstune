@@ -133,7 +133,7 @@ export function LoopsPanel({
         <button
           type="button"
           {...offWhen(!selected, remove)}
-          className={`${PANEL_TEXT_BUTTON_SHAPE} inline-flex items-center gap-2 ${selected ? 'text-(--panel-danger)' : 'text-(--panel-muted)'}`}
+          className={`${PANEL_TEXT_BUTTON_SHAPE} inline-flex items-center gap-2 ${selected ? 'text-danger' : 'text-on-practice-secondary'}`}
         >
           <Trash2 aria-hidden="true" className="size-5" />
           {DELETE_LOOP}
@@ -168,7 +168,7 @@ export function LoopsPanel({
       <div className="grid items-center">
         <p
           aria-hidden={showHint ? undefined : 'true'}
-          className={`t-secondary m-0 text-center text-(--panel-muted) [grid-area:1/1] ${showHint ? '' : 'invisible'}`}
+          className={`t-secondary text-on-practice-secondary m-0 text-center [grid-area:1/1] ${showHint ? '' : 'invisible'}`}
         >
           {LOOPS_EMPTY_HINT}
         </p>

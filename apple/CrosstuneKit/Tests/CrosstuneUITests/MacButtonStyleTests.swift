@@ -7,18 +7,19 @@
 
     @MainActor
     @Suite struct MacButtonStyleTests {
-        private static let filledRoles: [MacButtonStyle.Role] = [
-            .primary, .secondary, .destructive, .destructiveFilled,
-        ]
+        private static let filledRoles: [MacButtonStyle.Role] = [.primary, .secondary, .destructiveFilled]
 
-        /// A disabled primary keeps the accent fill, which nothing but the role and the press
-        /// decides, and fades as a whole, so it never reads as a gray button.
+        /// The primary's fill depends only on the role and the press, never on the window. A
+        /// disabled filled role drops its fill for a ring; the others fade as a whole.
         @Test(arguments: [ColorScheme.light, .dark])
-        func primaryKeepsItsFillWhenInactiveAndDisabled(scheme: ColorScheme) throws {
-            let disabled = try #require(
+        func primaryFillReadsOnlyTheRoleAndThePress(scheme: ColorScheme) throws {
+            let fill = try #require(
                 MacButtonStyle.fillRGB(for: .primary, scheme: scheme, isPressed: false))
-            #expect(disabled.hex == Palette.hex(.accentFill, scheme).lowercased())
+            #expect(fill.hex == Palette.hex(.accentFill, scheme).lowercased())
             #expect(MacButtonStyle.disabledOpacity == 0.45)
+            #expect(MacButtonStyle.dropsFillWhenDisabled(.primary))
+            #expect(MacButtonStyle.dropsFillWhenDisabled(.destructiveFilled))
+            #expect(!MacButtonStyle.dropsFillWhenDisabled(.secondary))
         }
 
         /// An inactive window draws the same fills as a key one.
@@ -44,32 +45,51 @@
             }
         }
 
+        /// A destructive button draws nothing at rest and the danger role's subtle fill under the
+        /// pointer or a press, with its red label holding 4.5:1 on that fill in every container.
+        @Test(arguments: [ColorScheme.light, .dark])
+        func destructiveTakesTheSubtleDangerFill(scheme: ColorScheme) throws {
+            let label = MacButtonStyle.labelRGB(for: .destructive, scheme: scheme)
+            for container in MacContainer.allCases {
+                #expect(
+                    MacButtonStyle.fillRGB(for: .destructive, scheme: scheme, container: container, isPressed: false)
+                        == nil)
+                let fill = try #require(
+                    MacButtonStyle.fillRGB(for: .destructive, scheme: scheme, container: container, isPressed: true))
+                let expected = Palette.mixHex(
+                    Palette.hex(container.fill, scheme), toward: Palette.hex(.danger, scheme),
+                    share: Palette.subtleOpacity)
+                #expect(fill.hex == expected)
+                #expect(contrastRatio(label, fill) >= 4.5, "\(container)")
+            }
+        }
+
         /// A secondary button on a `surface` card or footer takes the raised fill, lighter than
-        /// the surface, never the `field` that reads gray on gray; on `ground` it keeps `field`.
+        /// the surface, never the `field` that reads gray on gray; on `pageBackground` it keeps `field`.
         @Test(arguments: [ColorScheme.light, .dark])
         func secondaryFillsContrastWithTheirContainer(scheme: ColorScheme) throws {
-            for role in [MacButtonStyle.Role.secondary, .destructive] {
-                let onGround = try #require(
+            for role in [MacButtonStyle.Role.secondary] {
+                let onPageBackground = try #require(
                     MacButtonStyle.fillRGB(
-                        for: role, scheme: scheme, container: .ground, isPressed: false))
-                #expect(onGround.hex == Palette.hex(.field, scheme).lowercased())
+                        for: role, scheme: scheme, container: .pageBackground, isPressed: false))
+                #expect(onPageBackground.hex == Palette.hex(.field, scheme).lowercased())
                 let onSurface = try #require(
                     MacButtonStyle.fillRGB(
                         for: role, scheme: scheme, container: .surface, isPressed: false))
-                #expect(onSurface.hex == Palette.hex(.raised, scheme).lowercased())
+                #expect(onSurface.hex == Palette.hex(.surfaceRaised, scheme).lowercased())
                 #expect(relativeLuminance(onSurface.hex) > relativeLuminance(Palette.hex(.surface, scheme)))
             }
         }
 
         /// On a light card the raised fill sits close to the surface, so fields and secondary
-        /// buttons take a hairline edge there; dark and the ground draw none.
+        /// buttons take a hairline edge there; dark and the page background draw none.
         @Test func onlyALightSurfaceEdgesItsControls() {
             #expect(MacContainer.surface.strokesControls(.light))
             #expect(!MacContainer.surface.strokesControls(.dark))
-            #expect(!MacContainer.ground.strokesControls(.light))
-            #expect(!MacContainer.ground.strokesControls(.dark))
-            #expect(MacButtonStyle.strokesOn(.secondary) && MacButtonStyle.strokesOn(.destructive))
-            for role in [MacButtonStyle.Role.primary, .plain, .quiet, .icon, .destructiveFilled] {
+            #expect(!MacContainer.pageBackground.strokesControls(.light))
+            #expect(!MacContainer.pageBackground.strokesControls(.dark))
+            #expect(MacButtonStyle.strokesOn(.secondary))
+            for role in [MacButtonStyle.Role.primary, .plain, .quiet, .icon, .destructive, .destructiveFilled] {
                 #expect(!MacButtonStyle.strokesOn(role), "\(role)")
             }
         }
@@ -78,25 +98,30 @@
         /// container's control fill, so their labels pass on every one.
         @Test(arguments: [ColorScheme.light, .dark])
         func unfilledLabelsPassContrastOnEveryContainer(scheme: ColorScheme) {
-            for role in [MacButtonStyle.Role.plain, .quiet, .icon] {
+            for role in [MacButtonStyle.Role.plain, .quiet, .icon, .destructive] {
                 let label = MacButtonStyle.labelRGB(for: role, scheme: scheme).hex
                 for container in MacContainer.allCases {
-                    for ground in [container.fill, container.controlFill] {
-                        #expect(contrastRatio(label, Palette.hex(ground, scheme)) >= 4.5, "\(role) on \(ground)")
+                    for background in [container.fill, container.controlFill] {
+                        #expect(
+                            contrastRatio(label, Palette.hex(background, scheme)) >= 4.5, "\(role) on \(background)")
                     }
                 }
             }
         }
 
+        /// A press mixes in the primary text color: darker in light mode, lighter in dark mode.
         @Test(arguments: [ColorScheme.light, .dark])
-        func pressedPrimaryDarkens(scheme: ColorScheme) throws {
+        func pressedPrimaryTakesTheHoverOverlay(scheme: ColorScheme) throws {
             let rest = try #require(
                 MacButtonStyle.fillRGB(for: .primary, scheme: scheme, isPressed: false))
             let pressed = try #require(
                 MacButtonStyle.fillRGB(for: .primary, scheme: scheme, isPressed: true))
             #expect(
-                contrastRatio(pressed, KeyColor.RGB(hex: "#000000")) < contrastRatio(rest, KeyColor.RGB(hex: "#000000"))
-            )
+                pressed.hex
+                    == Palette.mixHex(
+                        rest.hex, toward: Palette.hex(.textPrimary, scheme), share: MacButtonStyle.pressedOverlay))
+            let darker = relativeLuminance(pressed.hex) < relativeLuminance(rest.hex)
+            #expect(darker == (scheme == .light))
         }
 
         @Test func sizesFollowThePointerScale() {
@@ -113,13 +138,18 @@
             #expect(PageStyle.headingControlHeight == MacButtonStyle.Size.small.iconDiameter)
         }
 
-        /// The destructive roles take the app's one danger red, never a new one.
+        /// The destructive roles take the app's one danger red, never a new one, and a filled one
+        /// takes the label on a status fill.
         @Test(arguments: [ColorScheme.light, .dark])
         func destructiveRolesUseTheDangerRed(scheme: ColorScheme) throws {
-            #expect(MacButtonStyle.labelRGB(for: .destructive, scheme: scheme) == SignalSwatch.danger(scheme).ink)
+            let danger = KeyColor.RGB(hex: Palette.hex(.danger, scheme))
+            #expect(MacButtonStyle.labelRGB(for: .destructive, scheme: scheme) == danger)
             let filled = try #require(
                 MacButtonStyle.fillRGB(for: .destructiveFilled, scheme: scheme, isPressed: false))
-            #expect(filled == SignalSwatch.danger(.light).ink)
+            #expect(filled == danger)
+            #expect(
+                MacButtonStyle.labelRGB(for: .destructiveFilled, scheme: scheme)
+                    == KeyColor.RGB(hex: Palette.hex(.onStatus, scheme)))
         }
     }
 #endif

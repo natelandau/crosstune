@@ -205,14 +205,14 @@ private struct ListNameForm: View {
 
     #if os(iOS)
         var body: some View {
-            PaperForm {
+            GroupedForm {
                 Section {
                     field
                 } footer: {
                     // The sheet's title already names the one field, so the section has no header.
                     if let message = model.validation ?? model.failure {
                         Text(message)
-                            .foregroundStyle(.red)
+                            .foregroundStyle(Palette.danger)
                     }
                 }
             }

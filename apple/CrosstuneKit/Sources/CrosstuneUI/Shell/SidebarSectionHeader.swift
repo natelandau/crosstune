@@ -27,7 +27,7 @@
                 Button(add, systemImage: "plus", action: onAdd)
                     .labelStyle(.iconOnly)
                     .buttonStyle(.plain)
-                    .foregroundStyle(Palette.inkSecondary)
+                    .foregroundStyle(Palette.textSecondary)
                     .help(add)
             }
             .padding(.leading, Self.leadingInset)

@@ -67,7 +67,7 @@ export function Row({
   actions?: RowAction[]
   menu?: RowAction[]
   dimmed?: boolean
-  /** The row of the item the player has loaded, under a light wash. */
+  /** The row of the item the player has loaded, under a light tint. */
   playing?: boolean
   /** A row just added, such as a new recording, which slides in under a brief highlight. */
   fresh?: boolean
@@ -155,7 +155,7 @@ export function Row({
             {titleText}
             {titleEnd}
           </span>
-          {detail && <div className="t-secondary text-ink-2 min-w-0">{detail}</div>}
+          {detail && <div className="t-secondary text-secondary min-w-0">{detail}</div>}
         </div>
       ) : (
         // On pointer the row is one line: the detail wraps to a second line, clipped away,
@@ -172,7 +172,7 @@ export function Row({
           {detail && (
             <span
               data-row-detail
-              className={`t-secondary text-ink-2 min-w-0 ${touch ? 'truncate' : 'whitespace-nowrap'}`}
+              className={`t-secondary text-secondary min-w-0 ${touch ? 'truncate' : 'whitespace-nowrap'}`}
             >
               {detail}
             </span>
@@ -186,7 +186,7 @@ export function Row({
         <AriaButton
           slot="drag"
           aria-label={reorder.moveLabel({ id, title })}
-          className="bg-ground absolute inset-y-0 end-1 my-auto grid size-9 place-items-center rounded-full opacity-0 data-[focus-visible]:opacity-100"
+          className="bg-page absolute inset-y-0 end-1 my-auto grid size-9 place-items-center rounded-full opacity-0 data-[focus-visible]:opacity-100"
         >
           <ArrowUpDown className="size-5" aria-hidden />
         </AriaButton>
@@ -213,8 +213,8 @@ export function Row({
       className={`group relative flex min-h-(--target) cursor-default items-center rounded-(--radius-row) transition-[box-shadow,background-color] duration-(--dur-short) ease-(--ease) data-[lifted]:shadow-(--shadow-float) data-[reordering]:z-10 ${
         touch
           ? 'overflow-hidden'
-          : `data-[selected]:bg-wash data-[current]:bg-wash data-[pressed]:bg-wash! data-[reordering]:bg-ground! gap-3 px-3 py-0 data-[current]:[--row-tint:var(--wash)] data-[pressed]:[--row-tint:var(--wash)] data-[reordering]:bg-[linear-gradient(var(--row-tint),var(--row-tint))] data-[selected]:[--row-tint:var(--wash)] ${playing ? 'bg-(--play-wash) [--row-tint:var(--play-wash)]' : 'not-data-[selected]:not-data-[current]:hover:bg-row-hover [--row-tint:transparent] not-data-[selected]:not-data-[current]:hover:[--row-tint:var(--row-hover)]'}`
-      } ${dimmed ? 'text-ink [--ink:var(--ink-2)]' : ''}`}
+          : `data-[selected]:bg-tint data-[current]:bg-tint data-[pressed]:bg-tint! data-[reordering]:bg-page! gap-3 px-3 py-0 data-[current]:[--row-tint:var(--tint)] data-[pressed]:[--row-tint:var(--tint)] data-[reordering]:bg-[linear-gradient(var(--row-tint),var(--row-tint))] data-[selected]:[--row-tint:var(--tint)] ${playing ? 'bg-(--tint-subtle) [--row-tint:var(--tint-subtle)]' : 'not-data-[selected]:not-data-[current]:hover:bg-tint-subtle [--row-tint:transparent] not-data-[selected]:not-data-[current]:hover:[--row-tint:var(--tint-subtle)]'}`
+      } ${dimmed ? 'text-primary [--text-primary:var(--text-secondary)]' : ''}`}
     >
       {touch ? (
         // Keyed, since a virtualized list hands one row's element to another as it scrolls, and
@@ -235,7 +235,7 @@ export function Row({
           {(trailing || actions.length > 0) && (
             <div className="relative flex max-w-1/2 shrink-0 items-center self-stretch">
               {actions.length > 0 && (
-                <div className="absolute inset-y-0 end-full flex items-center gap-1 bg-[linear-gradient(to_right,transparent,var(--row-tint)_1.5rem),linear-gradient(to_right,transparent,var(--ground)_1.5rem)] ps-8 pe-2 opacity-0 transition-opacity duration-(--dur-short) ease-(--ease) group-hover:opacity-100 focus-within:opacity-100">
+                <div className="absolute inset-y-0 end-full flex items-center gap-1 bg-[linear-gradient(to_right,transparent,var(--row-tint)_1.5rem),linear-gradient(to_right,transparent,var(--page-background)_1.5rem)] ps-8 pe-2 opacity-0 transition-opacity duration-(--dur-short) ease-(--ease) group-hover:opacity-100 focus-within:opacity-100">
                   {actions.map(({ id: actionId, label, icon, tone = 'neutral', onAction }) => (
                     <Button
                       key={actionId}

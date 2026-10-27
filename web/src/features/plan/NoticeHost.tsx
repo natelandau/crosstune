@@ -206,17 +206,17 @@ export function NoticeHost({ navigate }: { navigate: (to: string) => void }) {
         {trial && (
           <>
             {trial === 'trial_reminder' && (
-              <p className="t-secondary text-ink-2">{daysLeft(showing?.daysLeft ?? 1)}</p>
+              <p className="t-secondary text-secondary">{daysLeft(showing?.daysLeft ?? 1)}</p>
             )}
             <ul className="flex flex-col gap-2">
               {LOSES.map((line) => (
                 <li key={line} className="flex items-start gap-2">
-                  <X className="text-ink-2 mt-0.5 size-4 shrink-0" aria-hidden />
+                  <X className="text-secondary mt-0.5 size-4 shrink-0" aria-hidden />
                   <span>{line}</span>
                 </li>
               ))}
             </ul>
-            <p className="text-ink-2">{NOTICE_KEEPS}</p>
+            <p className="text-secondary">{NOTICE_KEEPS}</p>
           </>
         )}
       </div>

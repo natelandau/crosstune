@@ -12,7 +12,7 @@ export function LiveWaveform({
   analyser,
   paused,
   active,
-  className = 'text-(--wave-played)',
+  className = 'text-(--waveform-played)',
 }: {
   analyser: AnalyserNode | null
   /** Hold the bars still, as during an interruption, without stopping the loop. */

@@ -80,7 +80,7 @@ function changed(before: Selection, after: Selection): Key[] | null {
 }
 
 /**
- * A list of rows with no separators; selection is a wash on the row, not a divider. At most
+ * A list of rows with no separators; selection is a tint on the row, not a divider. At most
  * one of its rows is swiped open at a time, and a swipe or hold never opens or selects a row.
  * A `single` list whose selection follows focus, so the arrows move the selection, takes
  * `selectionBehavior="replace"`. One whose selection follows focus only once a row is open

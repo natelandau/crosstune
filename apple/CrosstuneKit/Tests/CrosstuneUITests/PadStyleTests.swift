@@ -19,10 +19,10 @@ import Testing
         #expect(PadStyle.bottomBarHeight >= minimumTapTarget)
     }
 
-    // Lyrics draw in the dark scheme's primary, white, on either ground.
-    @Test func lyricsReadOnTheGround() {
-        for ground in [PhoneStyle.practiceGroundLight, PhoneStyle.practiceGroundDark] {
-            #expect(contrastRatio("#FFFFFF", ground) >= 7, "lyrics on \(ground)")
+    // Lyrics draw in the dark scheme's primary, white, on either practice background.
+    @Test func lyricsReadOnThePracticeBackground() {
+        for background in [Palette.hex(.practiceBackground, .light), Palette.hex(.practiceBackground, .dark)] {
+            #expect(contrastRatio("#FFFFFF", background) >= 7, "lyrics on \(background)")
         }
     }
 }

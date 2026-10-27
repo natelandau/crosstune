@@ -53,7 +53,7 @@ public struct TuneRow: View {
                 Text(position, format: .number)
                     .font(.platform(.subheadline))
                     .monospacedDigit()
-                    .foregroundStyle(.inkSecondary)
+                    .foregroundStyle(.textSecondary)
                     .frame(minWidth: positionWidth, alignment: .trailing)
             }
             if dynamicTypeSize.isAccessibilitySize {
@@ -91,7 +91,7 @@ public struct TuneRow: View {
             Text(line)
                 .font(.platform(.subheadline))
                 .monospacedDigit()
-                .foregroundStyle(.inkSecondary)
+                .foregroundStyle(.textSecondary)
                 .rowLineLimit()
         }
     }
@@ -116,9 +116,9 @@ extension View {
         #endif
     }
 
-    /// A list row's background on the paper ground: clear, so the ground shows through, unless
+    /// A list row's background on the page background: clear, so the page shows through, unless
     /// the list selects the row, which keeps the system's selection fill.
-    func unselectedRowGround(isSelected: Bool) -> some View {
+    func unselectedRowBackground(isSelected: Bool) -> some View {
         #if os(macOS)
             self
         #else

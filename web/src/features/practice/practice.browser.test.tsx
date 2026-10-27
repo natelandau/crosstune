@@ -47,11 +47,11 @@ vi.mock('../../commands/loops', { spy: true })
 
 const announced = () => practice()?.querySelector('[data-practice-announcer]')?.textContent ?? ''
 
-it("opens from the phone bar on the dark scheme's jet, in the light appearance too", async () => {
+it("opens from the phone bar on practice's background, in the light appearance too", async () => {
   await mountPlaying(PHONE)
   await openPractice()
-  const jet = PALETTE.dark.jet
-  const rgb = `rgb(${[1, 3, 5].map((i) => parseInt(jet.slice(i, i + 2), 16)).join(', ')})`
+  const background = PALETTE.light.practiceBackground
+  const rgb = `rgb(${[1, 3, 5].map((i) => parseInt(background.slice(i, i + 2), 16)).join(', ')})`
   await expect.poll(() => getComputedStyle(practice()!).backgroundColor).toBe(rgb)
 })
 

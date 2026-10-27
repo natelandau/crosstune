@@ -107,7 +107,7 @@ private struct ImportContent: View {
                 if model.step == .paste {
                     Text(ImportCopy.recordingsNote)
                         .font(MacStyle.secondary)
-                        .foregroundStyle(Palette.inkSecondary)
+                        .foregroundStyle(Palette.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             } content: {
@@ -181,7 +181,7 @@ private struct ImportContent: View {
             if model.review?.dropped ?? 0 > 0 {
                 Text(ImportCopy.overLimitNote)
                     .font(MacStyle.secondary)
-                    .foregroundStyle(Palette.inkSecondary)
+                    .foregroundStyle(Palette.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             if model.showsHelp {
@@ -199,12 +199,12 @@ private struct ImportContent: View {
 
     #if os(iOS)
         var body: some View {
-            PaperForm {
+            GroupedForm {
                 if let failure = model.failure {
                     Section {
                         Text(failure)
                             .contentMask()
-                            .foregroundStyle(.red)
+                            .foregroundStyle(Palette.danger)
                     }
                 }
                 switch model.step {
@@ -248,7 +248,7 @@ private struct ImportContent: View {
                     .overlay(alignment: .topLeading) {
                         if model.text.isEmpty {
                             Text(ImportCopy.pastePlaceholder)
-                                .foregroundStyle(.inkTertiary)
+                                .foregroundStyle(.textSecondary)
                                 // The text editor's own text inset, so the placeholder sits where typing starts.
                                 .padding(.top, 8)
                                 .padding(.leading, 5)
@@ -265,7 +265,7 @@ private struct ImportContent: View {
                 ImportHelp()
                 Text(ImportCopy.recordingsNote)
                     .font(.platform(.footnote))
-                    .foregroundStyle(.inkSecondary)
+                    .foregroundStyle(.textSecondary)
             }
         }
 
@@ -280,7 +280,7 @@ private struct ImportContent: View {
             if model.review?.dropped ?? 0 > 0 {
                 Section {
                     Text(ImportCopy.overLimitNote)
-                        .foregroundStyle(.inkSecondary)
+                        .foregroundStyle(.textSecondary)
                 }
             }
             if model.showsHelp {
@@ -450,7 +450,7 @@ private struct ImportReviewRow: View {
                     Text(note)
                         .contentMask()
                         .font(.platform(.footnote))
-                        .foregroundStyle(.inkSecondary)
+                        .foregroundStyle(.textSecondary)
                 }
             }
         }
@@ -466,7 +466,7 @@ private struct ImportReviewRow: View {
             } label: {
                 Image(systemName: configuration.isOn ? "checkmark.square.fill" : "square")
                     .imageScale(.large)
-                    .foregroundStyle(configuration.isOn ? AnyShapeStyle(.tint) : .inkSecondary)
+                    .foregroundStyle(configuration.isOn ? AnyShapeStyle(.tint) : .textSecondary)
                     // A borderless button takes taps only within its label, so the label fills the target.
                     .frame(minWidth: minimumTapTarget, minHeight: minimumTapTarget)
                     .contentShape(.rect)

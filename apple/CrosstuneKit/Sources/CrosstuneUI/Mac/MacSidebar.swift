@@ -121,7 +121,7 @@
         }
     }
 
-    /// A sidebar row's glyph and name. A glyph is secondary ink at rest and white with the name
+    /// A sidebar row's glyph and name. A glyph is secondary text at rest and white with the name
     /// on the key window's selection. A status's glyph keeps its status color at rest and turns
     /// white there too, through ``StatusGlyph``.
     struct MacSidebarLabel: View {
@@ -139,10 +139,10 @@
         /// What a Mac sidebar list adds above and below each row's content.
         nonisolated static let listRowPadding: CGFloat = 8
 
-        /// A symbol glyph's color: secondary ink at rest, the label on an accent fill once the
+        /// A symbol glyph's color: secondary text at rest, the label on an accent fill once the
         /// row's selection is emphasized.
-        nonisolated static func symbolInk(emphasized: Bool) -> Palette.Token {
-            emphasized ? .onAccentFill : .inkSecondary
+        nonisolated static func symbolColor(emphasized: Bool) -> Palette.Token {
+            emphasized ? .onAccentFill : .textSecondary
         }
 
         var body: some View {
@@ -155,8 +155,8 @@
                 case .symbol(let name):
                     Image(systemName: name)
                         .foregroundStyle(
-                            Self.symbolInk(emphasized: prominence == .increased) == .onAccentFill
-                                ? Palette.onAccentFill : Palette.inkSecondary)
+                            Self.symbolColor(emphasized: prominence == .increased) == .onAccentFill
+                                ? Palette.onAccentFill : Palette.textSecondary)
                 case .status(let status):
                     // The row's name already says the status.
                     StatusGlyph(status)

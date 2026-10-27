@@ -28,7 +28,7 @@ public struct ListRow: View {
             Text(Self.detail(count: summary.count, edited: summary.lastEditedAt))
                 .font(.platform(.subheadline))
                 .monospacedDigit()
-                .foregroundStyle(.inkSecondary)
+                .foregroundStyle(.textSecondary)
                 .rowLineLimit()
         }
         .accessibilityElement(children: .combine)
@@ -95,8 +95,9 @@ private struct ListRowSwipeButtons: View {
         Button(ListRowActions.delete, systemImage: ListRowActions.deleteSystemImage, role: .destructive) {
             onDelete()
         }
+        .tint(Palette.dangerFillStrong)
         Button(ListRowActions.edit, systemImage: TuneRowActions.editSystemImage, action: onEdit)
-            .tint(.gray)
+            .tint(Palette.neutralFill)
     }
 }
 
@@ -110,6 +111,7 @@ private struct ListRowMenuItems: View {
         Button(ListRowActions.delete, systemImage: ListRowActions.deleteSystemImage, role: .destructive) {
             onDelete()
         }
+        .tint(Palette.dangerFillStrong)
     }
 }
 

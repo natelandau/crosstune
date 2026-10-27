@@ -56,7 +56,7 @@ export function PracticeHeader({
         </Heading>
         <span
           data-recording-subtitle
-          className="t-secondary max-w-full overflow-x-clip text-ellipsis whitespace-nowrap text-(--panel-muted)"
+          className="t-secondary text-on-practice-secondary max-w-full overflow-x-clip text-ellipsis whitespace-nowrap"
         >
           {subtitle}
           {location && (
@@ -65,7 +65,7 @@ export function PracticeHeader({
               <AriaButton
                 aria-label={editLocation(location)}
                 onPress={onEditLocation}
-                className="ph-no-capture relative inline cursor-pointer rounded-sm underline decoration-dotted underline-offset-2 hover:text-(--panel-ink) in-[html[data-density=touch]]:after:absolute in-[html[data-density=touch]]:after:inset-x-0 in-[html[data-density=touch]]:after:top-0 in-[html[data-density=touch]]:after:min-h-(--target) in-[html[data-density=touch]]:after:content-['']"
+                className="ph-no-capture hover:text-on-practice relative inline cursor-pointer rounded-sm underline decoration-dotted underline-offset-2 in-[html[data-density=touch]]:after:absolute in-[html[data-density=touch]]:after:inset-x-0 in-[html[data-density=touch]]:after:top-0 in-[html[data-density=touch]]:after:min-h-(--target) in-[html[data-density=touch]]:after:content-['']"
               >
                 {location}
               </AriaButton>

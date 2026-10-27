@@ -60,9 +60,9 @@ export function PlanGroup() {
         >
           <span className="min-w-0 flex-1">
             <span className="block">{name}</span>
-            {detail && <span className="t-secondary text-ink-2 block">{detail}</span>}
+            {detail && <span className="t-secondary text-secondary block">{detail}</span>}
           </span>
-          <ChevronRight className="text-ink-2 size-4 shrink-0" aria-hidden />
+          <ChevronRight className="text-secondary size-4 shrink-0" aria-hidden />
           <span id={hintId} hidden>
             {SEE_PLAN}
           </span>

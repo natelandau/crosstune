@@ -9,7 +9,7 @@ export function StorageSummary() {
   const percent = summary.fraction === null ? null : Math.round(summary.fraction * 100)
   return (
     <div data-storage-summary className="px-4 pt-6 pb-4">
-      <p className="t-secondary t-num text-ink-2">{summary.label}</p>
+      <p className="t-secondary t-num text-secondary">{summary.label}</p>
       {percent !== null && (
         <div
           role="progressbar"
@@ -20,7 +20,7 @@ export function StorageSummary() {
           aria-valuetext={summary.label}
           className="bg-field mt-2 h-1 overflow-hidden rounded-full"
         >
-          <div className="bg-ink/70 h-full rounded-full" style={{ width: `${percent}%` }} />
+          <div className="bg-text-secondary h-full rounded-full" style={{ width: `${percent}%` }} />
         </div>
       )}
     </div>

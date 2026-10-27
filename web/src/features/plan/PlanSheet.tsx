@@ -151,7 +151,9 @@ export function PlanSheet({
         choice ? (
           <PeriodTiles offers={choice} period={chosen ?? period} onChange={setPeriod} />
         ) : line ? (
-          <p className={`t-secondary ${options.kind === 'offline' ? 'text-ink-2' : ''}`}>{line}</p>
+          <p className={`t-secondary ${options.kind === 'offline' ? 'text-secondary' : ''}`}>
+            {line}
+          </p>
         ) : undefined
       }
       footnote={
@@ -167,7 +169,7 @@ export function PlanSheet({
               {reason ? TITLES[reason] : ''}
             </h4>
             {body && (
-              <p id={bodyId} className="t-body text-ink-2">
+              <p id={bodyId} className="t-body text-secondary">
                 {body}
               </p>
             )}
@@ -198,7 +200,7 @@ function Member({ plan, headlineId }: { plan: Plan; headlineId: string }) {
         <h4 id={headlineId} className="t-screen-title">
           {ON_PREMIUM}
         </h4>
-        <p className="t-body text-ink-2">{THANKS}</p>
+        <p className="t-body text-secondary">{THANKS}</p>
       </div>
       <MembershipCard
         membership={membership(plan, new Date(now))}

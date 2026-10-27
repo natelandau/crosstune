@@ -20,7 +20,7 @@ export function RecordingsLine({
     <AriaButton
       aria-expanded={expanded}
       onPress={onToggle}
-      className={`t-body text-ink-2 -mx-3 flex min-h-(--target) w-[calc(100%+1.5rem)] items-center gap-3 rounded-(--radius-row) px-3 text-start ${ROW_PRESS}`}
+      className={`t-body text-secondary -mx-3 flex min-h-(--target) w-[calc(100%+1.5rem)] items-center gap-3 rounded-(--radius-row) px-3 text-start ${ROW_PRESS}`}
     >
       <span className="flex w-7 shrink-0 items-center">
         <ChevronDown

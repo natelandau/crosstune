@@ -7,7 +7,7 @@ import { useFrame } from '../../platform/frame'
 import { ErrorLine } from '../../ui/ErrorLine'
 import { pitchClass } from '../../ui/keyColor'
 import { KEY, spokenKey } from '../../ui/keyName'
-import { PRESS, WASH_HOVER } from '../../ui/press'
+import { PRESS, TINT_HOVER } from '../../ui/press'
 import { useLatest } from '../../ui/useLatest'
 import { ARCHIVED } from './archiveLabels'
 import { takeKeyFocus } from './freshTune'
@@ -26,7 +26,7 @@ import type { TuneAttributes } from './useTuneScreen'
 export const tuneTitleTransition = (tuneId: string) => `tune-title-${tuneId}`
 
 /**
- * The top of a tune's page, on the page ground: the key tile in the key's color, the title in
+ * The top of a tune's page, on the page background: the key tile in the key's color, the title in
  * the page title role, other names, and the action button row. The title renames in place, and the tile
  * opens the key editor. Off the phone More ends the title's row. Until the attributes have read it
  * is the title alone, or a hidden "Tune" while even that is unknown, so focus and the morph have
@@ -82,7 +82,7 @@ export function TuneHeader({
               trailing={more}
             />
             {attributes && attributes.alternateTitles.length > 0 && (
-              <p className="t-secondary text-ink-2">{attributes.alternateTitles.join(', ')}</p>
+              <p className="t-secondary text-secondary">{attributes.alternateTitles.join(', ')}</p>
             )}
             {attributes?.archived && (
               <p className="t-caption bg-field self-start rounded-(--radius-capsule) px-2 py-0.5">
@@ -120,8 +120,8 @@ function KeyTile({
   const pitch = keyName ? pitchClass(keyName) : null
   const colors: CSSProperties | undefined = keyName
     ? pitch === null
-      ? { background: 'var(--color-field)', color: 'var(--color-ink)' }
-      : { background: `var(--key-${pitch}-bg)`, color: `var(--key-${pitch}-ink)` }
+      ? { background: 'var(--field)', color: 'var(--text-primary)' }
+      : { background: `var(--key-${pitch}-background)`, color: `var(--key-${pitch}-text)` }
     : undefined
   const name = keyName ? `${KEY}, ${spokenKey(keyName)}${mode ? ` ${mode}` : ''}` : KEY_TILE_EMPTY
   return (
@@ -134,9 +134,7 @@ function KeyTile({
         style={colors}
         data-key-tile
         className={`flex size-16 shrink-0 flex-col items-center justify-center rounded-2xl ${PRESS} ${
-          keyName
-            ? ''
-            : 'text-ink-2 border-[1.5px] border-dashed border-[color-mix(in_srgb,var(--color-ink)_25%,transparent)]'
+          keyName ? '' : 'text-secondary border-strong border-[1.5px] border-dashed'
         }`}
       >
         {keyName ? (
@@ -275,7 +273,7 @@ function Title({
               }
             }}
             onBlur={() => finish(true, false)}
-            className="t-page-title bg-ground/60 -mx-1.5 min-w-0 rounded-(--radius-row) px-1.5 [grid-area:1/1]"
+            className="t-page-title bg-page-translucent -mx-1.5 min-w-0 rounded-(--radius-row) px-1.5 [grid-area:1/1]"
             // Over the field size the touch layout sets, so the field matches the title it covers.
             style={{ fontSize: 'inherit' }}
           />
@@ -286,7 +284,7 @@ function Title({
           ref={rename}
           aria-label={`${EDIT_TITLE} ${title}`}
           onPress={start}
-          className={`text-ink-2 grid size-(--target) shrink-0 place-items-center rounded-full opacity-0 group-hover:opacity-100 focus-visible:opacity-100 in-[html[data-density=touch]]:opacity-100 ${WASH_HOVER} ${PRESS}`}
+          className={`text-secondary grid size-(--target) shrink-0 place-items-center rounded-full opacity-0 group-hover:opacity-100 focus-visible:opacity-100 in-[html[data-density=touch]]:opacity-100 ${TINT_HOVER} ${PRESS}`}
         >
           <Pencil className="size-4" aria-hidden />
         </AriaButton>

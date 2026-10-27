@@ -342,9 +342,9 @@
         }
 
         /// A sheet takes its presenter's environment, so one opened from a card would read the
-        /// card's surface. The scaffold and every sheet root reset it to ground; the footer keeps
+        /// card's surface. The scaffold and every sheet root reset it to the page background; the footer keeps
         /// its own surface.
-        @Test func sheetsDrawTheirBodyForGroundWhateverPresentsThem() throws {
+        @Test func sheetsDrawTheirBodyForThePageBackgroundWhateverPresentsThem() throws {
             let box = SeenContainers()
             let sheet = MacSheet(
                 title: "Title", size: .fitted(max: 600), cancel: nil, primary: .init("Save") {},
@@ -363,8 +363,8 @@
                 host.layoutSubtreeIfNeeded()
                 RunLoop.main.run(until: .now)
             }
-            #expect(box.seen["body"] == .ground)
-            #expect(box.seen["root"] == .ground)
+            #expect(box.seen["body"] == .pageBackground)
+            #expect(box.seen["root"] == .pageBackground)
             #expect(box.seen["footer"] == .surface)
         }
 

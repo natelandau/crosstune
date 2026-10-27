@@ -282,7 +282,7 @@ it('heads Unfiled, then each tune under the Tune sort, as plain section headings
     .click()
   await page.getByRole('menuitemradio', { name: new RegExp(SORT_LABELS.tune) }).click()
   await expect.poll(groupHeadings).toEqual([UNFILED_HEADER, 'Cluck Old Hen', "Soldier's Joy"])
-  // No cards: a group sits on the ground.
+  // No cards: a group sits on the page.
   const group = column().getByRole('heading', { name: 'Cluck Old Hen', level: 2 })
   await expect.element(group).toHaveClass(/t-heading/)
   await group.getByRole('link', { name: 'Cluck Old Hen' }).click()

@@ -11,6 +11,8 @@ struct LocationMap: View {
     let accuracyM: Int?
 
     private static let height: CGFloat = 180
+
+    @Environment(\.colorScheme) private var colorScheme
     /// The least ground the map spans, so a pin shows its streets around it.
     private static let minimumSpanM = 400.0
 
@@ -29,7 +31,7 @@ struct LocationMap: View {
                 Marker("", coordinate: center)
             } else if let accuracyM {
                 MapCircle(center: center, radius: Double(accuracyM))
-                    .foregroundStyle(.tint.opacity(0.2))
+                    .foregroundStyle(Palette.tint(colorScheme))
                     .stroke(.tint, lineWidth: 1)
             }
         }

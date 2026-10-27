@@ -12,7 +12,7 @@ it('draws in the new palette after the scheme changes', async () => {
       getByteTimeDomainData: (data: Uint8Array) => data.fill(128),
     } as unknown as AnalyserNode
     const { container } = render(
-      <LiveWaveform analyser={analyser} paused={false} active className="text-ink" />,
+      <LiveWaveform analyser={analyser} paused={false} active className="text-primary" />,
     )
     const canvas = container.querySelector('canvas')!
     const context = canvas.getContext('2d')!

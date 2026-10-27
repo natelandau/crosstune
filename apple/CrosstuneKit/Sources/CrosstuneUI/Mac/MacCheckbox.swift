@@ -2,14 +2,14 @@
     import SwiftUI
 
     /// The Mac's checkbox, drawn in ``Palette`` colors so it never turns gray in an inactive
-    /// window as AppKit's does: a secondary-ink outline at rest, the accent fill with a white
+    /// window as AppKit's does: a secondary-text outline at rest, the accent fill with a white
     /// check when on. VoiceOver and Full Keyboard Access reach it as the system checkbox.
     struct MacCheckboxStyle: ToggleStyle {
         static let side: CGFloat = 14
         static let radius: CGFloat = 4
         static let strokeWidth: CGFloat = 1
         /// The outline at rest, which holds 3:1 on every Mac fill a row sits on.
-        static let restStroke = Palette.Token.inkSecondary
+        static let restStroke = Palette.Token.textSecondary
         static let onFill = Palette.Token.accentFill
         static let check = Palette.Token.onAccentFill
 
@@ -40,7 +40,7 @@
                             .font(.system(size: 9, weight: .bold))
                             .foregroundStyle(Palette.onAccentFill)
                     } else {
-                        shape.strokeBorder(Palette.inkSecondary, lineWidth: MacCheckboxStyle.strokeWidth)
+                        shape.strokeBorder(Palette.textSecondary, lineWidth: MacCheckboxStyle.strokeWidth)
                     }
                 }
                 // A thin white ring keeps the box apart from a key window's blue selection.

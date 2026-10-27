@@ -51,8 +51,8 @@ function snapshot(): void {
   // it. The corners take their full radius from the first frame rather than growing.
   root.style.willChange = 'transform'
   root.style.clipPath = `inset(0 round ${SURFACE_RADIUS}px)`
-  root.style.backgroundColor = 'var(--ground)'
-  body.style.backgroundColor = '#000'
+  root.style.backgroundColor = 'var(--page-background)'
+  body.style.backgroundColor = 'var(--scrim)'
 }
 
 function restore(): void {

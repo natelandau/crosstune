@@ -65,7 +65,7 @@ struct WhatPlaysSheet: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(WhatPlaysText.groupTitle(group.reason))
                                 .font(MacStyle.label)
-                                .foregroundStyle(Palette.inkSecondary)
+                                .foregroundStyle(Palette.textSecondary)
                                 .fixedSize(horizontal: false, vertical: true)
                                 .padding(.horizontal, 8)
                                 .padding(.bottom, 2)
@@ -101,11 +101,11 @@ struct WhatPlaysSheet: View {
     #if os(iOS)
         private var phoneStack: some View {
             NavigationStack {
-                PaperForm {
+                GroupedForm {
                     Section {
                         Text(WhatPlaysText.lead)
                             .font(.platform(.footnote))
-                            .foregroundStyle(.inkSecondary)
+                            .foregroundStyle(.textSecondary)
                     }
                     ForEach(WhatPlaysText.groups(report), id: \.reason) { group in
                         Section(WhatPlaysText.groupTitle(group.reason)) {

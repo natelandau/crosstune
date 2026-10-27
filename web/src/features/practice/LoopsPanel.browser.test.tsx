@@ -99,7 +99,7 @@ async function expectHidden(element: HTMLElement) {
 /** The color practice's danger resolves to. */
 function dangerColor(): string {
   const probe = document.createElement('span')
-  probe.style.color = 'var(--panel-danger)'
+  probe.style.color = 'var(--danger)'
   document.querySelector('[data-practice]')!.append(probe)
   const color = getComputedStyle(probe).color
   probe.remove()
@@ -303,7 +303,7 @@ describe('LoopsPanel', () => {
     await expect.element(chip).toBeVisible()
     const probe = document.createElement('span')
     probe.style.background = 'var(--practice-fill)'
-    probe.style.color = 'var(--panel-ink)'
+    probe.style.color = 'var(--on-practice)'
     document.querySelector('[data-practice]')!.append(probe)
     const dark = getComputedStyle(probe)
     const paint = (style: CSSStyleDeclaration) => [style.backgroundColor, style.color]

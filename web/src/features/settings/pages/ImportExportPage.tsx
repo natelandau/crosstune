@@ -23,7 +23,7 @@ export function ImportExportPage() {
               href={IMPORT_HELP_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-ink inline-flex items-center gap-0.5"
+              className="text-primary inline-flex items-center gap-0.5"
             >
               {MORE_INFO}
               <ArrowUpRight className="size-3.5 shrink-0" aria-hidden />

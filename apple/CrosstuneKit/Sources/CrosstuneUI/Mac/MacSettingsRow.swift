@@ -2,7 +2,7 @@
     import SwiftUI
 
     /// One row of a Settings tab, inside a ``MacFormSection`` card: the setting's name leading,
-    /// its help as a second line in secondary ink under the name, and its control trailing at
+    /// its help as a second line in secondary text under the name, and its control trailing at
     /// its own size. A thin layer over ``MacFormRow``.
     struct MacSettingsRow<Control: View>: View {
         /// A free-text field's width, so a row's field never runs the card's width.
@@ -48,7 +48,7 @@
         }
     }
 
-    /// A row's value that only reads, in secondary ink.
+    /// A row's value that only reads, in secondary text.
     struct MacSettingsValue: View {
         private let text: String
 
@@ -59,7 +59,7 @@
         var body: some View {
             Text(text)
                 .font(MacStyle.body)
-                .foregroundStyle(Palette.inkSecondary)
+                .foregroundStyle(Palette.textSecondary)
                 .monospacedDigit()
                 .lineLimit(1)
         }
@@ -106,7 +106,7 @@
     }
 
     /// A row that opens more, such as the plan or the stats: the label leading, an optional value
-    /// in secondary ink, and a chevron, as one button. Under keyboard focus it draws a ring inset
+    /// in secondary text, and a chevron, as one button. Under keyboard focus it draws a ring inset
     /// in its card rather than the system's, which would wrap the whole card.
     struct MacSettingsLinkRow<Label: View>: View {
         private let value: String?
@@ -130,14 +130,14 @@
                         if let value, !value.isEmpty {
                             Text(value)
                                 .font(MacStyle.body)
-                                .foregroundStyle(Palette.inkSecondary)
+                                .foregroundStyle(Palette.textSecondary)
                                 .monospacedDigit()
                                 .lineLimit(1)
                                 .truncationMode(.middle)
                         }
                         Image(systemName: "chevron.forward")
                             .font(MacStyle.rowChevron)
-                            .foregroundStyle(Palette.inkSecondary)
+                            .foregroundStyle(Palette.textSecondary)
                             .accessibilityHidden(true)
                     }
                 } label: {

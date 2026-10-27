@@ -5,11 +5,11 @@ const SCRIM_OPACITY = 0.4
 
 /** The backdrop color at `shown`, 0 hidden to 1 fully shown. */
 export function scrim(shown: number): string {
-  return `rgba(0, 0, 0, ${scrimOpacity(shown)})`
+  return `color-mix(in srgb, var(--scrim) ${scrimOpacity(shown) * 100}%, transparent)`
 }
 
 /** The backdrop layer's color, faded by `scrimOpacity` to match `scrim`. */
-export const SCRIM_COLOR = '#000'
+export const SCRIM_COLOR = 'var(--scrim)'
 
 /** The backdrop's opacity at `shown`, for a layer of `SCRIM_COLOR`. */
 export function scrimOpacity(shown: number): number {

@@ -217,10 +217,10 @@ export function EditRecordingSheet({
                 className={FIELD_ROW_PRESSABLE}
               >
                 <span className={FIELD_LABEL}>{LOCATION_LABEL}</span>
-                <span className={`${FIELD_VALUE_SHAPE} text-ink-2 ph-no-capture`}>
+                <span className={`${FIELD_VALUE_SHAPE} text-secondary ph-no-capture`}>
                   {edit.place?.name ?? NOT_SET}
                 </span>
-                <ChevronRight className="text-ink-2 size-4 shrink-0" aria-hidden />
+                <ChevronRight className="text-secondary size-4 shrink-0" aria-hidden />
               </AriaButton>
               {edit.canClearPlace && (
                 <ActionRow

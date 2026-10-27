@@ -13,7 +13,7 @@ const ARROW_STEP: Record<string, number> = {
 }
 
 /**
- * The dock's thin line of the place: played in ink, the rest a hairline, and the coral
+ * The dock's thin line of the place: played in primary text, the rest a border, and the brand coral
  * playhead. A native range lies over it, unseen, so the keys, the screen reader, and a drag all
  * move the place through one control. The line and the range follow `playhead` every frame
  * without a render; only the spoken time renders, as its text changes.
@@ -51,12 +51,12 @@ export function Scrubber({
       data-scrubber
       className="relative h-(--target-control) min-w-0 flex-1 rounded-(--radius-row) has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-(--accent)"
     >
-      <div aria-hidden className="bg-hairline absolute inset-x-0 top-1/2 h-0.5 -translate-y-1/2">
-        <div ref={played} className="bg-ink-2 h-full" />
+      <div aria-hidden className="bg-border absolute inset-x-0 top-1/2 h-0.5 -translate-y-1/2">
+        <div ref={played} className="bg-text-secondary h-full" />
         <div
           ref={head}
           data-playhead
-          className="bg-coral absolute top-1/2 h-3 w-0.5 -translate-x-1/2 -translate-y-1/2 rounded-full"
+          className="bg-brand absolute top-1/2 h-3 w-0.5 -translate-x-1/2 -translate-y-1/2 rounded-full"
         />
       </div>
       <input

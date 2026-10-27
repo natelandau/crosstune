@@ -83,7 +83,7 @@ struct PlanSection: View {
 }
 
 #if os(macOS)
-    /// A Premium plan's name as a small coral chip, the mark of Premium.
+    /// A Premium plan's name as a small brand-colored chip, the mark of Premium.
     struct PremiumChip: View {
         /// Between a row chip and a standalone one, so it sits on a row's text line.
         static let height: CGFloat = 20
@@ -97,11 +97,11 @@ struct PlanSection: View {
         var body: some View {
             Text(name)
                 .font(MacStyle.chip)
-                .foregroundStyle(BrandStyle.onCoral)
+                .foregroundStyle(Palette.onBrand)
                 .lineLimit(1)
                 .padding(.horizontal, 8)
                 .frame(height: Self.height)
-                .background(BrandStyle.coral, in: .capsule)
+                .background(Palette.brand, in: .capsule)
         }
     }
 #endif

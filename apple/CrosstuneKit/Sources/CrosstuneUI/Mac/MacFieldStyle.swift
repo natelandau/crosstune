@@ -46,7 +46,7 @@
                 if let leadingSymbol {
                     Image(systemName: leadingSymbol)
                         .font(.system(size: 12))
-                        .foregroundStyle(Palette.inkSecondary)
+                        .foregroundStyle(Palette.textSecondary)
                         .accessibilityHidden(true)
                 }
                 field
@@ -123,7 +123,7 @@
         }
     }
 
-    /// A Mac pop-up: its value in secondary ink with a small chevron, the accent once it narrows
+    /// A Mac pop-up: its value in secondary text with a small chevron, the accent once it narrows
     /// a list. It is a menu, so the keyboard and VoiceOver reach it as they do a system pop-up.
     /// It lays out as a labeled row; `.labelsHidden()` leaves the value alone where a heading
     /// already names it.
@@ -212,7 +212,7 @@
         var isSet = false
 
         static func valueRGB(isSet: Bool, scheme: ColorScheme) -> KeyColor.RGB {
-            KeyColor.RGB(hex: Palette.hex(isSet ? .accent : .inkSecondary, scheme))
+            KeyColor.RGB(hex: Palette.hex(isSet ? .accent : .textSecondary, scheme))
         }
 
         func makeBody(configuration: Configuration) -> some View {

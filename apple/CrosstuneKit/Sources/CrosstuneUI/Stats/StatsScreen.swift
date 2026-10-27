@@ -146,7 +146,7 @@ private struct StatsContent: View {
                 .padding(margins)
                 .frame(maxWidth: .infinity)
         }
-        .paperGround()
+        .pageBackground()
     }
 
     /// A sheet's margins under a sheet's title, or the page's own.
@@ -213,7 +213,7 @@ struct StatsDocument: View {
                             equivalenceText(equivalence, tuneTitle: equivalence.tuneID.flatMap { view.tuneTitles[$0] })
                         )
                         .font(PageStyle.secondary)
-                        .foregroundStyle(.inkSecondary)
+                        .foregroundStyle(.textSecondary)
                     }
                 }
             }
@@ -281,7 +281,7 @@ struct StatsDocument: View {
                     .monospacedDigit()
                 Text(StatsCopy.tunesLabel)
                     .font(PageStyle.body)
-                    .foregroundStyle(.inkSecondary)
+                    .foregroundStyle(.textSecondary)
             }
             .accessibilityElement(children: .combine)
             // The rows under it say each count, so the bar would say them twice.
@@ -307,7 +307,7 @@ struct StatsDocument: View {
             if counts.archived > 0 {
                 Text(StatsCopy.archivedLine(counts.archived))
                     .font(PageStyle.secondary)
-                    .foregroundStyle(.inkSecondary)
+                    .foregroundStyle(.textSecondary)
             }
         }
     }
@@ -350,7 +350,7 @@ struct StatsDocument: View {
             Text(StatsCopy.rarityLine(rarity))
                 .font(PageStyle.body)
             if let title = view.tuneTitles[rarity.tuneID] {
-                Text(title).font(.platform(.footnote)).foregroundStyle(.inkSecondary)
+                Text(title).font(.platform(.footnote)).foregroundStyle(.textSecondary)
                     .contentMask()
             }
         }
@@ -378,7 +378,7 @@ struct StatsDocument: View {
 
     private func chevronRow(_ label: some View) -> some View {
         HStack {
-            label.foregroundStyle(.primary)
+            label.foregroundStyle(.textPrimary)
             Spacer()
             RowChevron()
         }
@@ -442,7 +442,7 @@ struct KeyGridView: View {
                 }
             }
             .font(.platform(.footnote))
-            .foregroundStyle(.inkSecondary)
+            .foregroundStyle(.textSecondary)
             ForEach(rows, id: \.key) { row in
                 GridRow {
                     cell(

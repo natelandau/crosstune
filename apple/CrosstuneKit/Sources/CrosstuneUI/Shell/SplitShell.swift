@@ -110,7 +110,7 @@
                 } detail: {
                     withShellToolbar(DestinationScreen(destination: .tuner))
                         .playerDock(player, stage: stage)
-                        .columnGround()
+                        .columnBackground()
                         .environment(\.detailTune, detailTune)
                         .environment(\.sidebarSelection, openedRow)
                 }
@@ -119,13 +119,13 @@
                     sidebar
                 } content: {
                     withShellToolbar(content)
-                        .columnGround()
+                        .columnBackground()
                         .navigationSplitViewColumnWidth(min: 300, ideal: Self.contentIdealWidth)
                         .environment(\.detailTune, detailTune)
                         .environment(\.sidebarSelection, openedRow)
                 } detail: {
                     detail
-                        .columnGround()
+                        .columnBackground()
                         .environment(\.detailTune, detailTune)
                         .environment(\.sidebarSelection, openedRow)
                 }
@@ -227,10 +227,10 @@
     }
 
     extension View {
-        /// A content or detail column on the paper ground, with no toolbar hairline until its
+        /// A content or detail column on the page background, with no toolbar hairline until its
         /// content scrolls under the bar.
-        fileprivate func columnGround() -> some View {
-            background(Palette.ground)
+        fileprivate func columnBackground() -> some View {
+            background(Palette.pageBackground)
                 .scrollEdgeEffectStyle(.soft, for: .top)
         }
     }

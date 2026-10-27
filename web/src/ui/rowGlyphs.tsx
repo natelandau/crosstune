@@ -5,7 +5,7 @@ import type { ReactNode } from 'react'
 // in a disc: tinted while idle, solid once it holds what plays.
 const DISC =
   'grid size-7 shrink-0 place-items-center rounded-full transition-[background-color,color,scale] duration-(--dur-short) ease-(--ease) in-[html[data-density=pointer]]:size-6'
-const IDLE = 'bg-tint text-ink'
+const IDLE = 'bg-tint text-primary'
 const LOADED = 'bg-accent-fill text-on-accent-fill'
 
 /** For a control holding a disc: the disc fills while the pointer is over the control. */

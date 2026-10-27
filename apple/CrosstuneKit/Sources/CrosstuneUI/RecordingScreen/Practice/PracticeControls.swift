@@ -63,7 +63,7 @@ private struct Transport: View {
     let model: PracticeModel
 
     @Environment(\.spacing) private var spacing
-    @Environment(\.practiceGround) private var ground
+    @Environment(\.practiceBackground) private var practiceScheme
 
     private var player: PlayerModel { model.player }
 
@@ -89,8 +89,8 @@ private struct Transport: View {
             #if os(macOS)
                 MacPlayButtonLabel(playLabel: playLabel)
             #else
-                if let ground {
-                    GroundPlayButtonLabel(playLabel: playLabel, ground: ground)
+                if let practiceScheme {
+                    PracticePlayButtonLabel(playLabel: playLabel, practiceScheme: practiceScheme)
                 } else {
                     standardPlayButtonLabel(playLabel)
                 }
@@ -140,12 +140,12 @@ private struct Transport: View {
     }
 }
 
-/// Play on the practice ground: the glyph in the ground's color on a white disc, at a fixed size
-/// so the transport stays put as its labels scale.
-private struct GroundPlayButtonLabel: View {
+/// Play on the practice background: the glyph in the background's color on a white disc, at a
+/// fixed size so the transport stays put as its labels scale.
+private struct PracticePlayButtonLabel: View {
     let playLabel: PlayButtonLabel
-    /// The appearance whose ground the glyph takes.
-    let ground: ColorScheme
+    /// The appearance whose practice background the glyph takes.
+    let practiceScheme: ColorScheme
 
     @Environment(\.isEnabled) private var isEnabled
 
@@ -153,9 +153,9 @@ private struct GroundPlayButtonLabel: View {
         Image(systemName: playLabel.systemImage)
             .font(.system(size: 30, weight: .semibold))
             .contentTransition(.symbolEffect(.replace))
-            .foregroundStyle(PhoneStyle.practiceGround(ground))
+            .foregroundStyle(Palette.practiceBackground(practiceScheme))
             .frame(width: PhoneStyle.transportPlayDiameter, height: PhoneStyle.transportPlayDiameter)
-            .background(.white, in: .circle)
+            .background(Palette.onPractice, in: .circle)
             .opacity(isEnabled ? 1 : 0.4)
             .contentShape(.circle)
     }

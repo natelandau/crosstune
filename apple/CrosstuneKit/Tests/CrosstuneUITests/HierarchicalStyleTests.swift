@@ -4,25 +4,16 @@
 
     @testable import CrosstuneUI
 
-    @Suite struct InkTests {
+    @Suite struct HierarchicalStyleTests {
         /// Lines whose hierarchical style is proven to hold where it draws, by file. Each entry
         /// covers one line, so a second line with the same text still fails. A new entry names the
-        /// ground it sits on and why `inkSecondary` cannot replace it.
-        static let allowed: [String: [String]] = [
-            // Drawn only on the jet practice ground, a dark ground where the system's
-            // hierarchical styles resolve against the dark scheme and hold contrast.
-            "RecordingScreen/Practice/PracticeWaveform.swift": [
-                "return .style(.tertiary)",
-                "return .style(.secondary)",
-            ],
-            // The audio a trim cuts away is faded back on purpose, so it stays quieter than ink.
-            "RecordingScreen/TrimScreen.swift": ["context.fill(cut, with: .style(.quaternary))"],
-        ]
+        /// background it sits on and why `textSecondary` cannot replace it.
+        static let allowed: [String: [String]] = [:]
 
         /// A hierarchical style as a foreground: `.foregroundStyle(.secondary)`, one in a
         /// ternary, a canvas `.style(.tertiary)`, `Color.secondary`, or `.foregroundColor(.tertiary)`.
         /// AppKit resolves these as a translucent gray that falls under 4.5:1 on the Mac's surface
-        /// and field fills, and UIKit's falls under it on paper.
+        /// and field fills, and UIKit's falls under it on the page background.
         private static var foreground: Regex<(Substring, Substring, Substring)> {
             /(\.(?:foreground(?:Style|Color)|style)\((?:[^\n]*[^A-Za-z0-9_])?\.|\bColor\.)(secondary|tertiary|quaternary)\b/
                 .wordBoundaryKind(.simple)
@@ -55,7 +46,7 @@
             return (lines, unused)
         }
 
-        @Test func compiledCodeDrawsNoHierarchicalInk() throws {
+        @Test func compiledCodeDrawsNoHierarchicalStyle() throws {
             var found: [String] = []
             var stale: [String] = []
             for file in SourceScan.files() {
@@ -77,7 +68,7 @@
             #expect(Self.violations(in: "context.fill(path, with: .style(.tertiary))").count == 1)
             #expect(Self.violations(in: "let c = Color.secondary").count == 1)
             #expect(Self.violations(in: "let c = AnyShapeStyle(.secondary)").count == 1)
-            #expect(Self.violations(in: "let c = premium ? ink : AnyShapeStyle(.tertiary)").count == 1)
+            #expect(Self.violations(in: "let c = premium ? primary : AnyShapeStyle(.tertiary)").count == 1)
             #expect(Self.violations(in: "case .ring: .secondary").count == 1)
             #expect(Self.violations(in: "case .ring: .secondary.opacity(0.4)").count == 1)
             #expect(Self.violations(in: "case .a, .b: .tertiary").count == 1)
@@ -87,7 +78,7 @@
             #expect(Self.violations(in: "case .secondary, .destructive: control").isEmpty)
             #expect(Self.violations(in: "case .caption: self = .secondary").isEmpty)
             #expect(Self.violations(in: "AnyShapeStyle(.quaternary)").isEmpty)
-            #expect(Self.violations(in: ".foregroundStyle(Palette.inkSecondary)").isEmpty)
+            #expect(Self.violations(in: ".foregroundStyle(Palette.textSecondary)").isEmpty)
             #expect(Self.violations(in: ".font(MacStyle.secondary)").isEmpty)
         }
     }

@@ -62,7 +62,7 @@
     }
 
     /// A group of a Mac form: a section heading (15 semibold) with an optional caption trailing on
-    /// its line and an optional subtitle in secondary ink under it, then its content, then the
+    /// its line and an optional subtitle in secondary text under it, then its content, then the
     /// reason the group's last save failed, in red. Help never floats under a card: a group's
     /// goes in the subtitle, a row's in its label's second line.
     ///
@@ -101,7 +101,7 @@
                         if let subtitle {
                             Text(subtitle)
                                 .font(MacStyle.secondary)
-                                .foregroundStyle(Palette.inkSecondary)
+                                .foregroundStyle(Palette.textSecondary)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     }
@@ -125,14 +125,14 @@
                 if let title {
                     Text(title)
                         .font(MacStyle.sectionHeading)
-                        .foregroundStyle(Palette.ink)
+                        .foregroundStyle(Palette.textPrimary)
                         .accessibilityAddTraits(.isHeader)
                 }
                 Spacer(minLength: 0)
                 if let caption {
                     Text(caption)
                         .font(MacStyle.secondary)
-                        .foregroundStyle(Palette.inkSecondary)
+                        .foregroundStyle(Palette.textSecondary)
                 }
                 accessory
             }
@@ -151,7 +151,7 @@
                             .overlay(alignment: .top) {
                                 if row.id != subviews.first?.id {
                                     Rectangle()
-                                        .fill(Palette.hairline)
+                                        .fill(Palette.border)
                                         .frame(height: 1)
                                         .padding(.horizontal, MacForm.rowInset)
                                 }
@@ -178,10 +178,10 @@
         }
     }
 
-    /// One row of a Mac form card: the label leading in body ink, with any second line under it in
-    /// secondary ink as help, and the control after it. A field fills the room the label leaves.
-    /// Where the form's values lead, the label takes the form's shared label column and the
-    /// control starts right after it; otherwise the control hugs the trailing edge.
+    /// One row of a Mac form card: the label leading in the primary text color, with any second
+    /// line under it in secondary text as help, and the control after it. A field fills the room
+    /// the label leaves. Where the form's values lead, the label takes the form's shared label
+    /// column and the control starts right after it; otherwise the control hugs the trailing edge.
     struct MacFormRow<Label: View, Content: View>: View {
         private let label: Label
         private let content: Content
@@ -209,7 +209,7 @@
                         if let first = lines.first {
                             first
                                 .font(MacStyle.body)
-                                .foregroundStyle(Palette.ink)
+                                .foregroundStyle(Palette.textPrimary)
                                 .background {
                                     if leads { labelWidth(first) }
                                 }
@@ -217,7 +217,7 @@
                         ForEach(lines.dropFirst()) { line in
                             line
                                 .font(MacStyle.secondary)
-                                .foregroundStyle(Palette.inkSecondary)
+                                .foregroundStyle(Palette.textSecondary)
                         }
                     }
                 }
@@ -306,13 +306,13 @@
         func body(content: Content) -> some View {
             content
                 .toggleStyle(.switch)
-                .switchOnTint()
+                .accentTrackTint()
                 .controlSize(.small)
                 .labelsHidden()
                 .overlay {
                     if !isOn && container.strokesControls(scheme) {
                         Capsule()
-                            .strokeBorder(Palette.hairline, lineWidth: 1)
+                            .strokeBorder(Palette.border, lineWidth: 1)
                             .allowsHitTesting(false)
                     }
                 }
@@ -395,8 +395,9 @@
                     if text.isEmpty {
                         Text(placeholder)
                             .font(MacStyle.body)
-                            .foregroundStyle(Palette.inkSecondary)
-                            // TextEditor's own line fragment inset, so the prompt sits where typing starts.
+                            .foregroundStyle(Palette.textSecondary)
+                            // TextEditor's own line fragment inset, so the prompt sits where typing
+                            // starts.
                             .padding(.leading, 5)
                             .allowsHitTesting(false)
                             .accessibilityHidden(true)
@@ -408,9 +409,9 @@
     }
 
     /// A segmented choice drawn in the Mac's own colors: the chosen segment on the accent fill,
-    /// which the system segment's chosen fill ignores, and the rest in ink on the field fill.
-    /// Like the system control it is one keyboard stop whose arrows move the choice, and
-    /// VoiceOver reads it as the system's segmented picker.
+    /// which the system segment's chosen fill ignores, and the rest in the primary text color on
+    /// the field fill. Like the system control it is one keyboard stop whose arrows move the
+    /// choice, and VoiceOver reads it as the system's segmented picker.
     struct MacSegmentedPicker<Value: Hashable>: View {
         private let title: String
         @Binding private var selection: Value?
@@ -436,7 +437,7 @@
     }
 
     /// A row in a Mac picker sheet: a leading glyph slot, then the row's own content, on the
-    /// ground with a field fill under the pointer.
+    /// page background with a field fill under the pointer.
     struct MacPickRowStyle: ButtonStyle {
         static let radius = MacStyle.rowRadius
         static let minHeight: CGFloat = 32
@@ -461,7 +462,7 @@
             configuration.label
                 .environment(\.macPickRowHighlighted, isEnabled && (isHovered || isFocused))
                 .font(MacStyle.body)
-                .foregroundStyle(isEnabled ? Palette.ink : Palette.inkSecondary)
+                .foregroundStyle(isEnabled ? Palette.textPrimary : Palette.textSecondary)
                 .padding(.horizontal, 8)
                 .frame(maxWidth: .infinity, minHeight: MacPickRowStyle.minHeight, alignment: .leading)
                 .background(fill, in: .rect(cornerRadius: MacPickRowStyle.radius))
@@ -507,7 +508,7 @@
                 switch kind {
                 case .add, .addOnHighlight:
                     Image(systemName: "plus")
-                        .foregroundStyle(Palette.inkSecondary)
+                        .foregroundStyle(Palette.textSecondary)
                         .opacity(Self.shows(kind, highlighted: highlighted) ? 1 : 0)
                 case .done:
                     Image(systemName: "checkmark")

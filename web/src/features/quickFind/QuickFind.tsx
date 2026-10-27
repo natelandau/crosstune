@@ -182,7 +182,7 @@ export function QuickFind({ navigate }: { navigate: QuickFindNavigate }) {
           onOpenChange={(open) => {
             if (!open) close()
           }}
-          className="bg-ground flex max-h-[70vh] max-w-full flex-col overflow-hidden rounded-(--radius-surface) shadow-(--shadow-float)"
+          className="bg-page flex max-h-[70vh] max-w-full flex-col overflow-hidden rounded-(--radius-surface) shadow-(--shadow-float)"
           style={{ width: SHEET.width }}
         >
           <Dialog aria-label={QUICK_FIND} className="flex min-h-0 flex-col p-2 outline-none">
@@ -241,12 +241,12 @@ function FinderBody({
         autoFocus
         className="bg-field flex min-h-(--target-control) shrink-0 items-center rounded-(--radius-capsule) ps-3 pe-1"
       >
-        <Search className="text-ink-2 size-4 shrink-0" aria-hidden />
+        <Search className="text-secondary size-4 shrink-0" aria-hidden />
         <Input
           ref={fieldRef}
           onKeyDownCapture={() => markPick(false)}
           placeholder={QUICK_FIND_PLACEHOLDER}
-          className="t-body placeholder:text-ink-2 min-w-0 flex-1 bg-transparent px-2 in-[html[data-density=touch]]:text-[max(16px,1rem)]"
+          className="t-body placeholder:text-secondary min-w-0 flex-1 bg-transparent px-2 in-[html[data-density=touch]]:text-[max(16px,1rem)]"
         />
       </TextField>
       <ListBox
@@ -259,13 +259,15 @@ function FinderBody({
           if (item) run(item)
         }}
         renderEmptyState={() =>
-          searched ? <p className="t-body text-ink-2 px-3 py-4 text-center">{NO_MATCHES}</p> : null
+          searched ? (
+            <p className="t-body text-secondary px-3 py-4 text-center">{NO_MATCHES}</p>
+          ) : null
         }
         className="mt-2 min-h-0 flex-1 overflow-y-auto outline-none"
       >
         {(section) => (
           <ListBoxSection id={section.id} className="pb-2">
-            <Header className="t-caption text-ink-2 px-3 py-1">
+            <Header className="t-caption text-secondary px-3 py-1">
               {section.title ?? QUICK_FIND_SECTIONS[section.id]}
             </Header>
             <Collection items={section.items}>{(item) => <ResultRow item={item} />}</Collection>

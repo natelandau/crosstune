@@ -744,7 +744,7 @@ actor ReadCount {
         @Test func stopIsAlwaysRecordingRedOnTheMac() throws {
             let file = SourceScan.sources.appending(path: "Recording/RecordSheet.swift")
             let mac = SourceScan.macCompiled(SourceScan.withoutComments(try SourceScan.text(at: file)))
-            #expect(mac.contains("background(Color.recordingRed, in: .circle)"))
+            #expect(mac.contains("background(Palette.record, in: .circle)"))
             #expect(!mac.contains("glassEffect"))
         }
 
@@ -764,7 +764,7 @@ actor ReadCount {
         @Test func liveWaveformIsRecordingRedOnTheMac() throws {
             let file = SourceScan.sources.appending(path: "Recording/LiveWaveform.swift")
             let mac = SourceScan.macCompiled(SourceScan.withoutComments(try SourceScan.text(at: file)))
-            #expect(mac.contains("Color.recordingRed"))
+            #expect(mac.contains("Palette.record"))
             #expect(!mac.contains("AnyShapeStyle(.tint)"))
         }
     }

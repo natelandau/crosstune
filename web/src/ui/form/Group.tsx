@@ -27,7 +27,7 @@ export function Group({
   error?: string
   /** The error's id, for a field that names it as its description. */
   errorId?: string
-  /** Sets the rows on the ground with no card, for a control that is not a list of rows. */
+  /** Sets the rows on the page with no card, for a control that is not a list of rows. */
   plain?: boolean
   /** Makes the header focusable from code, for a step that moves focus to it as it shows. */
   headerRef?: Ref<HTMLHeadingElement>
@@ -47,12 +47,12 @@ export function Group({
           id={headerId}
           ref={headerRef}
           tabIndex={headerRef ? -1 : undefined}
-          className="t-secondary text-ink-2 px-4 pb-2"
+          className="t-secondary text-secondary px-4 pb-2"
         >
           {header}
         </Header>
       )}
-      {help && <p className="t-secondary text-ink-2 px-4 pb-2">{help}</p>}
+      {help && <p className="t-secondary text-secondary px-4 pb-2">{help}</p>}
       {plain ? (
         children
       ) : (
@@ -63,7 +63,7 @@ export function Group({
       {error ? (
         <ErrorLine id={errorId} error={error} place="field" />
       ) : (
-        footer && <p className="t-secondary text-ink-2 px-4 pt-2">{footer}</p>
+        footer && <p className="t-secondary text-secondary px-4 pt-2">{footer}</p>
       )}
     </section>
   )

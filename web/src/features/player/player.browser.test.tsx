@@ -269,7 +269,7 @@ it('keeps the same embed as the window crosses from phone to wide', async () => 
   if ('moveBefore' in Element.prototype) await expect.poll(embedFrame).toBe(before)
 })
 
-it('washes the catalog row of the tune that plays', async () => {
+it('tints the catalog row of the tune that plays', async () => {
   await mount('/catalog/t1', WIDE, async (db) => {
     await seedTune(db, 't1', 'Old Joe Clark')
     await seedTune(db, 't2', 'Forked Deer')
@@ -353,7 +353,7 @@ it('sets a toast at the bottom center of the detail pane on wide', async () => {
     .toBe(true)
 })
 
-it("washes a list row while any of its tune's recordings or links plays", async () => {
+it("tints a list row while any of its tune's recordings or links plays", async () => {
   await mount('/lists/l1/tunes/t1', WIDE, async (db) => {
     await seedList(db)
     await seedLink(db)

@@ -55,7 +55,7 @@ export function Breakdowns({
 }
 
 /**
- * A breakdown's values, each over a thin ink bar as wide as its share of the largest. A value
+ * A breakdown's values, each over a thin bar as wide as its share of the largest. A value
  * `onOpen` gives an action to is a control; any other only reads. Past 8 values the rest wait
  * behind a Show all row, which expands the list in place.
  */
@@ -104,7 +104,7 @@ function Breakdown({
             revealed.current = true
             setExpanded(true)
           }}
-          className={`t-body text-ink flex min-h-(--target) items-center ${PRESS}`}
+          className={`t-body text-primary flex min-h-(--target) items-center ${PRESS}`}
         >
           {showAllLabel(values.length)}
         </AriaButton>
@@ -130,11 +130,11 @@ function ShareRow({
   const label = (
     <>
       <span className="t-body min-w-0 flex-1 truncate">{value}</span>
-      <span className="t-body t-num text-ink-2">{count.toLocaleString('en-US')}</span>
-      {onOpen && <ChevronRight className="text-ink-2 size-4 shrink-0" aria-hidden />}
+      <span className="t-body t-num text-secondary">{count.toLocaleString('en-US')}</span>
+      {onOpen && <ChevronRight className="text-secondary size-4 shrink-0" aria-hidden />}
       <span aria-hidden className="absolute inset-x-0 bottom-1 h-1">
         <span
-          className="bg-ink/45 block h-full rounded-full"
+          className="bg-text-tertiary block h-full rounded-full"
           style={{ width: `${peak > 0 ? (count / peak) * 100 : 0}%` }}
         />
       </span>

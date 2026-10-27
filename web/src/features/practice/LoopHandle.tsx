@@ -281,8 +281,8 @@ export function LoopHandle({
         data-grip
         className={`absolute top-1/2 flex h-11 w-4 -translate-y-1/2 items-center justify-center gap-0.5 bg-(--loop-handle) ${edge === 'start' ? 'right-1/2 rounded-l-md' : 'left-1/2 rounded-r-md'}`}
       >
-        <span className="h-4 w-px bg-(--panel-ink)/90" />
-        <span className="h-4 w-px bg-(--panel-ink)/90" />
+        <span className="bg-on-practice h-4 w-px" />
+        <span className="bg-on-practice h-4 w-px" />
       </span>
     </div>
   )

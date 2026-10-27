@@ -37,7 +37,7 @@ struct SavedLocationDetail: View {
         }
 
         private var form: some View {
-            PaperForm {
+            GroupedForm {
                 if let row {
                     Section {
                         LocationMap(coordinate: Coordinate(lat: row.place.lat, lon: row.place.lon), accuracyM: nil)
@@ -51,7 +51,7 @@ struct SavedLocationDetail: View {
                             .submitLabel(.done)
                             .onSubmit { focused = false }
                         if let address = row.place.address {
-                            Text(address).foregroundStyle(.inkSecondary).contentMask()
+                            Text(address).foregroundStyle(.textSecondary).contentMask()
                         }
                         LabeledContent(
                             SettingsModel.recordings, value: SavedLocationsText.recordingsCount(row.recordings))
@@ -178,14 +178,14 @@ struct SavedLocationDetail: View {
                                     Text(address)
                                         .contentMask()
                                         .font(MacStyle.body)
-                                        .foregroundStyle(Palette.inkSecondary)
+                                        .foregroundStyle(Palette.textSecondary)
                                         .padding(.leading, MacFieldStyle.horizontalInset)
                                 }
                             }
                             MacFormRow(SettingsModel.recordings) {
                                 Text(SavedLocationsText.recordingsCount(row.recordings))
                                     .font(MacStyle.body)
-                                    .foregroundStyle(Palette.inkSecondary)
+                                    .foregroundStyle(Palette.textSecondary)
                                     .padding(.leading, MacFieldStyle.horizontalInset)
                             }
                         }
@@ -203,7 +203,7 @@ struct SavedLocationDetail: View {
                 } else if model.rows != nil {
                     Text(SavedLocationsText.gone)
                         .font(MacStyle.body)
-                        .foregroundStyle(Palette.inkSecondary)
+                        .foregroundStyle(Palette.textSecondary)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }

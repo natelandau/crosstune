@@ -2,8 +2,8 @@ import CrosstuneAudio
 import SwiftUI
 
 /// A slab at each side edge, level with the note when in tune, risen when sharp and sunk when
-/// flat, over a target zone that spans the in-zone cents. Coral far off, light coral just outside
-/// the zone, and turning green inside it as the note nears in tune.
+/// flat, over a target zone that spans the in-zone cents. The brand color far off, the lighter
+/// close step just outside the zone, and turning green inside it as the note nears in tune.
 struct TunerBars: View {
     let cents: Double
     let animation: Animation?
@@ -25,8 +25,6 @@ struct TunerBars: View {
     static let barRadius: CGFloat = 6
     static let zoneRadius: CGFloat = 12
     static let glowRadius: CGFloat = 6
-    /// The zone's resting tint, the web's silver, before any green mixes in.
-    static let zoneRestHex = "#BFC0C0"
 
     /// How far a bar sits from level for `cents` on a stage `height` tall: up, so negative, when
     /// sharp, and never past ``fullCents``.
@@ -40,15 +38,9 @@ struct TunerBars: View {
         max(0, min(width * barShare, width / 2 - noteClearance, maxBarWidth))
     }
 
-    /// The zone's tint for a note `green` of the way to in tune, as the web's `TunerBars` mixes it.
-    static func zoneColor(green: Double) -> Color {
-        BrandStyle.color(hex: PhoneStyle.mixHex(zoneRestHex, toward: StatusStyle.knownDarkHex, share: green / 2))
-            .opacity(0.14 + 0.06 * green)
-    }
-
     var body: some View {
         let green = inTuneFraction(cents: cents)
-        let color = BrandStyle.color(hex: PhoneStyle.tuneBarHex(cents: cents))
+        let color = Palette.color(hex: Palette.tunerBarHex(cents: cents))
         GeometryReader { proxy in
             let size = proxy.size
             let width = Self.barWidth(stageWidth: size.width)
@@ -66,12 +58,12 @@ struct TunerBars: View {
     private func side(inner: HorizontalEdge, size: CGSize, width: CGFloat, color: Color, green: Double) -> some View {
         ZStack {
             Self.innerRounded(inner, radius: Self.zoneRadius)
-                .fill(Self.zoneColor(green: green))
+                .fill(Palette.tunerZone(green: green))
                 .frame(height: size.height * Self.zoneHeight)
             Self.innerRounded(inner, radius: Self.barRadius)
                 .fill(color)
                 .frame(height: max(Self.minBarHeight, size.height * Self.barHeightShare))
-                .shadow(color: color.opacity(0.7), radius: Self.glowRadius)
+                .shadow(color: Palette.tunerGlow(color), radius: Self.glowRadius)
                 .offset(y: Self.barOffset(cents: cents, height: size.height))
         }
         .frame(width: width, height: size.height)

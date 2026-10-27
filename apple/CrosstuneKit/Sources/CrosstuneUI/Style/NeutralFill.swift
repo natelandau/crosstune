@@ -1,43 +1,41 @@
 import SwiftUI
 
 /// The fill of a capsule or pill with no color of its own. Off the Mac it follows its container,
-/// as the web's controls do: `field` on a ground, `raised` on a surface card, and on the practice
-/// ground a translucent gray that reads on jet. The Mac draws `field`, and its own chips on a card.
+/// as the web's controls do: `field` on the page background, `surfaceRaised` on a grouped
+/// surface in dark mode, and `practiceFill` on the practice background. The Mac draws `field`,
+/// and its own chips on a card.
 struct NeutralFill: ShapeStyle {
     /// Where a neutral fill sits.
     enum Container: Equatable {
-        case ground, card, practice
+        case pageBackground, groupedSurface, practice
     }
 
     func resolve(in environment: EnvironmentValues) -> Color {
         let container = Self.container(
-            practice: environment.practiceGround != nil, onPaperCard: environment.onPaperCard)
+            practice: environment.practiceBackground != nil, onGroupedSurface: environment.onGroupedSurface)
         if let token = Self.token(container, scheme: environment.colorScheme) { return Palette.color(token) }
-        return Self.practiceGray
+        return Palette.practiceFill
     }
 
-    static func container(practice: Bool, onPaperCard: Bool) -> Container {
+    static func container(practice: Bool, onGroupedSurface: Bool) -> Container {
         #if os(macOS)
-            return .ground
+            return .pageBackground
         #else
             if practice { return .practice }
-            return onPaperCard ? .card : .ground
+            return onGroupedSurface ? .groupedSurface : .pageBackground
         #endif
     }
 
-    /// The palette fill for `container`, or nil on the practice ground. A grouped form's card is
-    /// the ground in light mode and the surface in dark mode, so a chip on it takes the fill that
-    /// contrasts with that layer.
+    /// The palette fill for `container`, or nil on the practice background. A grouped surface is
+    /// the page background in light mode and the surface in dark mode, so a chip on it takes the
+    /// fill that contrasts with that layer.
     static func token(_ container: Container, scheme: ColorScheme) -> Palette.Token? {
         switch container {
-        case .ground: .field
-        case .card: scheme == .dark ? .raised : .field
+        case .pageBackground: .field
+        case .groupedSurface: scheme == .dark ? .surfaceRaised : .field
         case .practice: nil
         }
     }
-
-    /// The system's tertiary fill, heavier than its own so it shows on the dark jet ground.
-    static let practiceGray = Color(.sRGB, red: 118 / 255, green: 118 / 255, blue: 128 / 255, opacity: 0.44)
 }
 
 extension ShapeStyle where Self == NeutralFill {
@@ -45,6 +43,6 @@ extension ShapeStyle where Self == NeutralFill {
 }
 
 extension EnvironmentValues {
-    /// Whether this view sits on a grouped form's card, which ``PaperForm`` sets.
-    @Entry var onPaperCard = false
+    /// Whether this view sits on a grouped form's card, which ``GroupedForm`` sets.
+    @Entry var onGroupedSurface = false
 }

@@ -158,7 +158,7 @@ struct SavedLocationRoute: Hashable {
             if let model, let rows = model.rows {
                 Section {
                     if rows.isEmpty {
-                        Text(SavedLocationsText.emptyHint).foregroundStyle(.inkSecondary)
+                        Text(SavedLocationsText.emptyHint).foregroundStyle(.textSecondary)
                     }
                     ForEach(rows) { row in
                         NavigationLink(value: SavedLocationRoute(id: row.id)) {
@@ -183,12 +183,12 @@ struct SavedLocationRoute: Hashable {
                     if let address = row.place.address {
                         Text(address)
                             .font(.platform(.footnote))
-                            .foregroundStyle(.inkSecondary)
+                            .foregroundStyle(.textSecondary)
                             .contentMask()
                     }
                     Text(SavedLocationsText.recordingsCount(row.recordings))
                         .font(.platform(.footnote))
-                        .foregroundStyle(.inkSecondary)
+                        .foregroundStyle(.textSecondary)
                 }
             }
         }
@@ -212,7 +212,7 @@ struct SavedLocationRoute: Hashable {
                         if rows.isEmpty {
                             Text(SavedLocationsText.emptyHint)
                                 .font(MacStyle.body)
-                                .foregroundStyle(Palette.inkSecondary)
+                                .foregroundStyle(Palette.textSecondary)
                                 .fixedSize(horizontal: false, vertical: true)
                                 .padding(.vertical, 6)
                         } else {
@@ -255,22 +255,22 @@ struct SavedLocationRoute: Hashable {
                         Text(row.place.name)
                             .contentMask()
                             .font(MacStyle.body)
-                            .foregroundStyle(Palette.ink)
+                            .foregroundStyle(Palette.textPrimary)
                         if let address = row.place.address {
                             Text(address)
                                 .contentMask()
                                 .font(MacStyle.secondary)
-                                .foregroundStyle(Palette.inkSecondary)
+                                .foregroundStyle(Palette.textSecondary)
                         }
                         Text(SavedLocationsText.recordingsCount(row.recordings))
                             .font(MacStyle.secondary)
-                            .foregroundStyle(Palette.inkSecondary)
+                            .foregroundStyle(Palette.textSecondary)
                     }
                     .lineLimit(1)
                     Spacer(minLength: 8)
                     Image(systemName: "chevron.forward")
                         .font(MacStyle.rowChevron)
-                        .foregroundStyle(Palette.inkSecondary)
+                        .foregroundStyle(Palette.textSecondary)
                         .accessibilityHidden(true)
                 }
                 .padding(.vertical, 6)

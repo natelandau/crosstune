@@ -22,7 +22,7 @@ export function Recorded({
   return (
     <PageSection title={RECORDED_HEADER}>
       <p className="t-body t-num">{recordedLine(recorded.count, recorded.total_ms)}</p>
-      {comparison && <p className="t-secondary text-ink-2 pt-1">{comparison}</p>}
+      {comparison && <p className="t-secondary text-secondary pt-1">{comparison}</p>}
     </PageSection>
   )
 }

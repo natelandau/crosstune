@@ -101,7 +101,7 @@ export function SettingsRoot() {
               key={category.id}
               id={category.id}
               textValue={summary ? `${category.title}, ${summary}` : category.title}
-              leading={<Icon className="text-ink-2 size-5 shrink-0" aria-hidden />}
+              leading={<Icon className="text-secondary size-5 shrink-0" aria-hidden />}
               title={category.title}
               current={onLocation && wide && category.id === open}
               trailing={
@@ -109,7 +109,7 @@ export function SettingsRoot() {
                   // On pointer the row's trailing slot holds the cap, so a percentage here
                   // would take half of a width the text itself sets.
                   <span
-                    className={`t-body text-ink-2 min-w-0 truncate pe-1 ${touch ? 'max-w-1/2 shrink-0' : ''}`}
+                    className={`t-body text-secondary min-w-0 truncate pe-1 ${touch ? 'max-w-1/2 shrink-0' : ''}`}
                   >
                     {summary}
                   </span>
@@ -119,7 +119,7 @@ export function SettingsRoot() {
           )
         })}
       </RowList>
-      <p className="t-secondary text-ink-2 px-4 pt-6 pb-8">{aboutLine(APP_VERSION)}</p>
+      <p className="t-secondary text-secondary px-4 pt-6 pb-8">{aboutLine(APP_VERSION)}</p>
     </>
   )
 }
@@ -148,10 +148,10 @@ function AccountBlock({ current, replace }: { current: boolean; replace: boolean
       to={settingsPagePath('account')}
       replace={replace}
       aria-current={current ? 'page' : undefined}
-      className={`${BLOCK} aria-[current=page]:bg-wash`}
+      className={`${BLOCK} aria-[current=page]:bg-tint`}
     >
       <span className="t-body block truncate">{identity?.name ?? label}</span>
-      <span className={`t-secondary block truncate ${tone ?? 'text-ink-2'}`}>
+      <span className={`t-secondary block truncate ${tone ?? 'text-secondary'}`}>
         {tone ? statusLabel : syncedLine(lastSynced, now)}
       </span>
     </Link>
@@ -187,7 +187,7 @@ function StatsBlock({
       // Unset, a link to the address already shown replaces it rather than stacking a copy.
       replace={replace || undefined}
       aria-current={current ? 'page' : undefined}
-      className={`${BLOCK} aria-[current=page]:bg-wash`}
+      className={`${BLOCK} aria-[current=page]:bg-tint`}
       onClick={(event) => {
         if (!fromTune || event.defaultPrevented || event.button !== 0) return
         if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return

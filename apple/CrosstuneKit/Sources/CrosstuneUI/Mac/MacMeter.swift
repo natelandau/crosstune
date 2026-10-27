@@ -1,9 +1,9 @@
 #if os(macOS)
     import SwiftUI
 
-    /// A hairline meter in ink on a hairline track, quieter than a progress bar, for a fact to
-    /// glance at (storage used) rather than a task under way. Never the accent: it is not a
-    /// control.
+    /// A hairline meter in the primary text color on a hairline track, quieter than a progress bar,
+    /// for a fact to glance at (storage used) rather than a task under way. Never the accent: it is
+    /// not a control.
     struct MacMeter: View {
         static let height: CGFloat = 3
 
@@ -13,11 +13,11 @@
 
         var body: some View {
             Capsule()
-                .fill(Palette.hairline)
+                .fill(Palette.border)
                 .overlay(alignment: .leading) {
                     GeometryReader { proxy in
                         Capsule()
-                            .fill(Palette.ink.opacity(0.55))
+                            .fill(Palette.textTertiary)
                             .frame(width: proxy.size.width * Self.clamped(fraction))
                     }
                 }

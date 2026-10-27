@@ -35,8 +35,8 @@ public enum RecordControl {
             enabled ? enabledDot : coveredDot
         }
 
-        private static let enabledDot = dot(UIColor(Color.recordingRed))
-        private static let coveredDot = dot(UIColor(Color.recordingRed).withAlphaComponent(0.35))
+        private static let enabledDot = dot(UIColor(Palette.record))
+        private static let coveredDot = dot(UIColor(Palette.record).withAlphaComponent(0.35))
 
         private static func dot(_ color: UIColor) -> UIImage {
             if let glyph = UIImage(systemName: "circle.fill") {
@@ -72,7 +72,7 @@ public struct RecordToolbarButton: View {
             } icon: {
                 // A toolbar draws its glyphs in the label color whatever the tint.
                 Image(systemName: RecordControl.systemImage)
-                    .foregroundStyle(Color.recordingRed)
+                    .foregroundStyle(Palette.record)
             }
         }
         .symbolEffect(.bounce, value: reduceMotion ? 0 : presses)
@@ -107,17 +107,17 @@ public struct RecordToolbarButton: View {
                 HStack(spacing: 7) {
                     Image(systemName: "circle.fill")
                         .font(.system(size: Self.dotDiameter))
-                        .foregroundStyle(Color.recordingRed)
+                        .foregroundStyle(Palette.record)
                         .symbolEffect(.bounce, value: reduceMotion ? 0 : presses)
                     Text(RecordControl.shortLabel)
                         .font(MacStyle.body.weight(.medium))
-                        .foregroundStyle(Palette.ink)
+                        .foregroundStyle(Palette.textPrimary)
                 }
                 .padding(.leading, Self.dotInset)
                 .padding(.trailing, 14)
                 .frame(height: MacStyle.paneControlHeight)
                 .background(Palette.field, in: .capsule)
-                .overlay { Capsule().strokeBorder(Palette.hairline) }
+                .overlay { Capsule().strokeBorder(Palette.border) }
                 .contentShape(.capsule)
                 .opacity(isEnabled ? 1 : 0.5)
             }

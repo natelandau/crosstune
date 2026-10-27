@@ -43,7 +43,7 @@ import CrosstuneAnalytics
             .background(Palette.surface)
             .macSurfaceContainer()
             .overlay(alignment: .top) {
-                Palette.hairline.frame(height: 1)
+                Palette.border.frame(height: 1)
             }
             .animation(reduceMotion ? nil : .spring(duration: 0.35, bounce: 0.15), value: upperKind)
         }
@@ -101,7 +101,7 @@ import CrosstuneAnalytics
                 } else if let message = playback?.endMessage {
                     Text(message)
                         .font(MacStyle.body)
-                        .foregroundStyle(.inkSecondary)
+                        .foregroundStyle(.textSecondary)
                         .lineLimit(1)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.leading, 6)
@@ -130,7 +130,7 @@ import CrosstuneAnalytics
                     // so it never looks like a play button.
                     Image(systemName: Self.nowPlayingSymbol)
                         .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(Palette.inkSecondary)
+                        .foregroundStyle(Palette.textSecondary)
                         .frame(width: MacStyle.dockPlayDiameter, height: MacStyle.dockPlayDiameter)
                         .accessibilityHidden(true)
                 }
@@ -195,12 +195,12 @@ import CrosstuneAnalytics
                 if let failure = player.failure {
                     Text(failure)
                         .font(MacStyle.secondary)
-                        .foregroundStyle(.red)
+                        .foregroundStyle(Palette.danger)
                         .lineLimit(1)
                 } else if let subtitle {
                     Text(subtitle)
                         .font(MacStyle.secondary)
-                        .foregroundStyle(.inkSecondary)
+                        .foregroundStyle(.textSecondary)
                         .lineLimit(1)
                 }
             }
@@ -237,10 +237,10 @@ import CrosstuneAnalytics
                 } label: {
                     Image(systemName: playing ? "pause.fill" : "play.fill")
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(Palette.ground)
+                        .foregroundStyle(Palette.pageBackground)
                         .contentTransition(.symbolEffect(.replace))
                         .frame(width: MacStyle.dockPlayDiameter, height: MacStyle.dockPlayDiameter)
-                        .background(Palette.ink, in: .circle)
+                        .background(Palette.textPrimary, in: .circle)
                         .contentShape(.circle)
                 }
                 .buttonStyle(.plain)
@@ -254,7 +254,7 @@ import CrosstuneAnalytics
             } else {
                 Image(systemName: "exclamationmark.circle")
                     .font(.system(size: 15))
-                    .foregroundStyle(Palette.inkSecondary)
+                    .foregroundStyle(Palette.textSecondary)
                     .frame(width: MacStyle.dockPlayDiameter, height: MacStyle.dockPlayDiameter)
                     .accessibilityHidden(true)
             }
@@ -287,8 +287,8 @@ import CrosstuneAnalytics
                     // One size for every glyph, so repeat and its repeat-one form match.
                     .font(.system(size: 13, weight: .medium))
                     .imageScale(.medium)
-                    // On the label, which wins over the icon style's secondary ink.
-                    .foregroundStyle(highlighted ? Palette.accent : Palette.inkSecondary)
+                    // On the label, which wins over the icon style's secondary text.
+                    .foregroundStyle(highlighted ? Palette.accent : Palette.textSecondary)
                     .frame(width: 16, height: 16)
             }
             .buttonStyle(.mac(.icon))
@@ -298,8 +298,9 @@ import CrosstuneAnalytics
         }
     }
 
-    /// The Mac scrubber's track: a hairline, filled in ink to the position, with a coral playhead.
-    /// A click jumps there and a drag carries it along; `onEnd` gets where it was let go.
+    /// The Mac scrubber's track: a hairline, filled in the primary text color to the position,
+    /// with a brand-color playhead. A click jumps there and a drag carries it along; `onEnd` gets
+    /// where it was let go.
     struct ScrubberTrack: View {
         /// How far along, from 0 to 1.
         let fraction: Double
@@ -310,8 +311,6 @@ import CrosstuneAnalytics
         @State private var dragging = false
 
         private static let lineHeight: CGFloat = 3
-        /// The played part's ink, quieter than text so the coral playhead leads.
-        static let fillOpacity: Double = 0.55
         /// Taller than the line, so a pointer grabs it without aiming at three points.
         private static let height: CGFloat = 20
 
@@ -321,12 +320,12 @@ import CrosstuneAnalytics
                 let thumb: CGFloat = hovering || dragging ? 12 : 9
                 let x = width * min(max(fraction, 0), 1)
                 ZStack(alignment: .leading) {
-                    Capsule().fill(Palette.hairline)
+                    Capsule().fill(Palette.border)
                         .frame(height: Self.lineHeight)
-                    Capsule().fill(Palette.ink.opacity(ScrubberTrack.fillOpacity))
+                    Capsule().fill(Palette.textTertiary)
                         .frame(width: x, height: Self.lineHeight)
                     Circle()
-                        .fill(MacStyle.coral)
+                        .fill(Palette.brand)
                         .frame(width: thumb, height: thumb)
                         .offset(x: min(max(0, x - thumb / 2), width - thumb))
                 }

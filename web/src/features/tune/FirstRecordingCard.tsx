@@ -31,9 +31,9 @@ export function FirstRecordingCard({
   const [pressed, setPressed] = useState(false)
   useResetOnChange(find.refused === undefined, () => setPressed(false))
   return (
-    <div className="flex flex-col gap-3 rounded-(--radius-surface) border-[1.5px] border-dashed border-[color-mix(in_srgb,var(--color-ink)_22%,transparent)] p-5">
+    <div className="border-strong flex flex-col gap-3 rounded-(--radius-surface) border-[1.5px] border-dashed p-5">
       <h3 className="t-heading">{FIRST_RECORDING_TITLE}</h3>
-      <p className="t-secondary text-ink-2">{FIRST_RECORDING_HINT}</p>
+      <p className="t-secondary text-secondary">{FIRST_RECORDING_HINT}</p>
       <div className="flex flex-wrap gap-2">
         {recordAvailable && (
           <Button

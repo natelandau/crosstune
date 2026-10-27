@@ -15,7 +15,7 @@ import SwiftUI
                     LabeledContent(title, value: value)
                     Image(systemName: "chevron.forward")
                         .font(.platform(.footnote).weight(.semibold))
-                        .foregroundStyle(.inkTertiary)
+                        .foregroundStyle(.textSecondary)
                         .accessibilityHidden(true)
                 }
                 .contentShape(.rect)

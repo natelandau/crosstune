@@ -1,6 +1,6 @@
-/* A new recording slides in, and a wash over it fades once it has landed. The wash lies over
-   the row, because a touch row's content paints its own ground. Under reduced motion the row
-   shows in place and only the wash fades. */
+/* A new recording slides in, and a tint over it fades once it has landed. The tint lies over
+   the row, because a touch row's content paints its own background. Under reduced motion the row
+   shows in place and only the tint fades. */
 [role='row'][data-new] {
   animation: new-recording-in var(--dur-base) var(--ease) both;
 }
@@ -10,9 +10,9 @@
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: var(--wash);
+  background: var(--tint);
   pointer-events: none;
-  animation: new-recording-wash var(--dur-long) var(--ease) var(--dur-base) both;
+  animation: new-recording-tint var(--dur-long) var(--ease) var(--dur-base) both;
 }
 
 @keyframes new-recording-in {
@@ -22,7 +22,7 @@
   }
 }
 
-@keyframes new-recording-wash {
+@keyframes new-recording-tint {
   to {
     opacity: 0;
   }
@@ -34,6 +34,6 @@
   }
 
   [role='row'][data-new]::after {
-    animation: new-recording-wash var(--dur-fade) var(--ease) both;
+    animation: new-recording-tint var(--dur-fade) var(--ease) both;
   }
 }

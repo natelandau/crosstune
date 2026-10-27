@@ -54,7 +54,7 @@ struct MusicPlayerCard: View {
                     if let artist = music.artistName {
                         Text(artist)
                             .font(.platform(.subheadline))
-                            .foregroundStyle(.inkSecondary)
+                            .foregroundStyle(.textSecondary)
                             .lineLimit(1)
                     }
                 }
@@ -68,7 +68,7 @@ struct MusicPlayerCard: View {
         .frame(minHeight: fixedHeight == nil ? Self.height : nil)
         .frame(height: fixedHeight)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.fill.tertiary, in: .rect(cornerRadius: 12))
+        .background(Palette.field, in: .rect(cornerRadius: 12))
     }
 }
 
@@ -131,9 +131,9 @@ struct MusicArtwork: View {
             } else {
                 Image(systemName: "music.note")
                     .font(.platform(.title))
-                    .foregroundStyle(.inkSecondary)
+                    .foregroundStyle(.textSecondary)
                     .frame(width: side, height: side)
-                    .background(.fill.secondary)
+                    .background(Palette.field)
             }
         }
         .clipShape(.rect(cornerRadius: 8))

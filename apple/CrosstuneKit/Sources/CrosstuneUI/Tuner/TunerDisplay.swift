@@ -23,8 +23,8 @@ final class TunerLastReading {
     }
 }
 
-/// The ground behind the tuner, greening as the shown note comes into tune.
-struct TunerGround: View {
+/// The background behind the tuner, greening as the shown note comes into tune.
+struct TunerBackground: View {
     let model: TunerModel?
     let lastReading: TunerLastReading
     /// The screen's own appearance, not the dark one its content takes.
@@ -33,7 +33,7 @@ struct TunerGround: View {
 
     var body: some View {
         let green = lastReading.shown(model).map { inTuneFraction(cents: $0.note.cents) } ?? 0
-        BrandStyle.color(hex: PhoneStyle.tuneGroundHex(colorScheme, green: green))
+        Palette.color(hex: Palette.tunerBackgroundHex(colorScheme, green: green))
             .ignoresSafeArea()
             .animation(motion, value: green)
     }
@@ -69,7 +69,7 @@ struct TunerDisplay: View {
                 } else {
                     Text(TunerText.listening)
                         .font(PageStyle.body)
-                        .foregroundStyle(PhoneStyle.tuneMuted)
+                        .foregroundStyle(Palette.onPracticeSecondary)
                 }
             }
         }
@@ -102,7 +102,7 @@ struct TunerDisplay: View {
                 if let hint = TunerText.hintLabel(cents: note.cents) {
                     Text(hint)
                         .font(PageStyle.body)
-                        .foregroundStyle(PhoneStyle.tuneMuted)
+                        .foregroundStyle(Palette.onPracticeSecondary)
                 }
             }
             .padding(.top, 8)
@@ -121,7 +121,7 @@ struct TunerDisplay: View {
             }
             Text(body)
                 .font(PageStyle.body)
-                .foregroundStyle(PhoneStyle.tuneMuted)
+                .foregroundStyle(Palette.onPracticeSecondary)
             if opensSettings, let url = Recorder.settingsURL {
                 Button(TunerText.openSettings) { openURL(url) }
                     #if os(macOS)

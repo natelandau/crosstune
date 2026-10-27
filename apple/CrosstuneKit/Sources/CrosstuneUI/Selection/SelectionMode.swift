@@ -157,7 +157,7 @@ private struct SelectionMode: ViewModifier {
                 if let failure = bulk?.failure {
                     Text(failure)
                         .font(.platform(.footnote))
-                        .foregroundStyle(.red)
+                        .foregroundStyle(Palette.danger)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, 20)
                         .padding(.vertical, spacing.stackGap)

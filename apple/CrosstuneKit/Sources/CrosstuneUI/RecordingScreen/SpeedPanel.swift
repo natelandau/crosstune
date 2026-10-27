@@ -153,7 +153,7 @@ struct SpeedPresetRow: View {
 }
 
 #if os(macOS)
-    /// A Mac practice panel's label row: its name in secondary ink, with a quiet control such as
+    /// A Mac practice panel's label row: its name in secondary text, with a quiet control such as
     /// Reset at the trailing end.
     struct PanelLabelRow<Trailing: View>: View {
         let title: String
@@ -163,7 +163,7 @@ struct SpeedPresetRow: View {
             HStack(spacing: 8) {
                 Text(title)
                     .font(MacStyle.label)
-                    .foregroundStyle(Palette.inkSecondary)
+                    .foregroundStyle(Palette.textSecondary)
                     .accessibilityHidden(true)
                 Spacer(minLength: 0)
                 trailing
@@ -216,7 +216,7 @@ struct SpeedPresetRow: View {
         private func caption(_ text: String?) -> some View {
             Text(text ?? "")
                 .font(MacStyle.secondary)
-                .foregroundStyle(Palette.inkSecondary)
+                .foregroundStyle(Palette.textSecondary)
                 .accessibilityHidden(true)
         }
     }

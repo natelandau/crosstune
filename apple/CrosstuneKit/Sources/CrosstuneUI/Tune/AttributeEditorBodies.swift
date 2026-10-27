@@ -430,7 +430,7 @@ private struct AlternateTitlesEditor: View {
                 .onSubmit { controls.done() }
             Text(TuneFieldLabels.detailsFooter)
                 .font(.platform(.footnote))
-                .foregroundStyle(.inkSecondary)
+                .foregroundStyle(.textSecondary)
         }
     }
 }
@@ -455,7 +455,7 @@ struct LearnedOnEditor: View {
             if let refused {
                 Text(refused)
                     .font(.platform(.footnote))
-                    .foregroundStyle(.red)
+                    .foregroundStyle(Palette.danger)
             }
         }
         .onSubmit {

@@ -20,16 +20,16 @@
             return hex
         }
 
-        /// Ink and secondary ink on every ground a Mac view draws on, the accent as text on the
-        /// window, and the label on an accent fill.
+        /// Primary and secondary text on every background a Mac view draws on, the accent as text
+        /// on the window, and the label on an accent fill.
         @Test(arguments: [ColorScheme.light, .dark])
         func paletteTextPassesContrast(scheme: ColorScheme) {
             let hex = { Palette.hex($0, scheme) }
-            for ground in [Palette.Token.ground, .surface, .field, .raised] {
-                #expect(contrastRatio(hex(.ink), hex(ground)) >= 4.5, "ink on \(ground)")
-                #expect(contrastRatio(hex(.inkSecondary), hex(ground)) >= 4.5, "secondary ink on \(ground)")
+            for background in [Palette.Token.pageBackground, .surface, .field, .surfaceRaised] {
+                #expect(contrastRatio(hex(.textPrimary), hex(background)) >= 4.5, "primary on \(background)")
+                #expect(contrastRatio(hex(.textSecondary), hex(background)) >= 4.5, "secondary on \(background)")
             }
-            #expect(contrastRatio(hex(.accent), hex(.ground)) >= 4.5)
+            #expect(contrastRatio(hex(.accent), hex(.pageBackground)) >= 4.5)
             #expect(contrastRatio(hex(.onAccentFill), hex(.accentFill)) >= 4.5)
         }
 
@@ -38,39 +38,53 @@
             #expect(MacStyle.pageGlyphColumn < MacStyle.pageMargin)
         }
 
-        @Test func accentIsHarborInEachAppearance() {
-            #expect(resolved(MacStyle.accent, in: .light) == "#1f5f9e")
-            #expect(resolved(MacStyle.accent, in: .dark) == "#6aa6e6")
+        @Test func accentHoldsItsValueInEachAppearance() {
+            #expect(resolved(Palette.accent, in: .light) == "#1f5f9e")
+            #expect(resolved(Palette.accent, in: .dark) == "#6aa6e6")
         }
 
         @Test(arguments: [ColorScheme.light, .dark])
         func everyTokenResolvesToItsHex(scheme: ColorScheme) {
             let colors: [Palette.Token: Color] = [
                 .accent: Palette.accent, .accentFill: Palette.accentFill,
-                .onAccentFill: Palette.onAccentFill, .ground: Palette.ground, .surface: Palette.surface,
-                .field: Palette.field, .raised: Palette.raised, .ink: Palette.ink,
-                .inkSecondary: Palette.inkSecondary,
-                .markInk: Palette.markInk, .groupedPage: Palette.groupedPage,
-                .groupedCard: Palette.groupedCard, .switchOn: Palette.switchOn,
-                .listSelection: Palette.listSelection,
+                .onAccentFill: Palette.onAccentFill, .pageBackground: Palette.pageBackground, .surface: Palette.surface,
+                .field: Palette.field, .surfaceRaised: Palette.surfaceRaised, .textPrimary: Palette.textPrimary,
+                .textSecondary: Palette.textSecondary,
+                .brandSecondary: Palette.brandSecondary, .groupedBackground: Palette.groupedBackground,
+                .groupedSurface: Palette.groupedSurface, .accentTrack: Palette.accentTrack,
+                .accentSelection: Palette.accentSelection, .inverseAccent: Palette.inverseAccent,
+                .brand: Palette.brand, .onBrand: Palette.onBrand, .danger: Palette.danger,
+                .warning: Palette.warning, .statusKnown: Palette.statusKnown,
+                .statusLearning: Palette.statusLearning, .statusUnknown: Palette.statusUnknown,
+                .statusUnknownOnFill: Palette.color(.statusUnknownOnFill), .onPractice: Palette.onPractice,
+                .onPracticeSecondary: Palette.onPracticeSecondary,
+                .practiceBackground: Palette.practiceBackground(scheme),
+                .onTintSecondary: Palette.onTintSecondary(scheme), .tunerClose: Palette.color(.tunerClose),
+                .tunerInTuneBackground: Palette.color(.tunerInTuneBackground), .fieldHover: Palette.fieldHover,
+                .textTertiary: Palette.textTertiary, .neutralFill: Palette.neutralFill,
+                .warningFill: Palette.warningFill, .onWarningFill: Palette.onWarningFill, .onStatus: Palette.onStatus,
+                .onRecord: Palette.onRecord, .tunerInTune: Palette.color(.tunerInTune),
+                .warningFillStrong: Palette.warningFillStrong, .dangerFillStrong: Palette.dangerFillStrong,
+                .onStatusStrong: Palette.onStatusStrong,
             ]
             for token in Palette.Token.allCases {
                 #expect(resolved(colors[token]!, in: scheme) == Palette.hex(token, scheme).lowercased(), "\(token)")
             }
         }
 
-        /// Reduce Transparency's fill is the sidebar's surface, with no wash over it.
-        @Test(arguments: [ColorScheme.light, .dark])
-        func opaqueGlassFillsWithSurface(scheme: ColorScheme) {
-            #expect(resolved(MacGlassMode.opaqueFill, in: scheme) == Palette.hex(.surface, scheme).lowercased())
+        /// Reduce Transparency's fill is the sidebar's surface, with no tint over it.
+        @Test func opaqueGlassFillsWithSurface() throws {
+            let file = SourceScan.sources.appending(path: "Mac/MacStyle.swift")
+            let text = SourceScan.withoutComments(try SourceScan.text(at: file))
+            #expect(text.contains("content.background(Palette.surface, in: shape)"))
         }
 
         /// The mark's C stays slate on light, whatever the accent.
-        @Test func markInkNeverFollowsAccent() {
-            #expect(Palette.hex(.markInk, .light) == "#4F5D75")
-            #expect(Palette.hex(.markInk, .dark) == "#FFFFFF")
+        @Test func brandSecondaryNeverFollowsAccent() {
+            #expect(Palette.hex(.brandSecondary, .light) == "#4F5D75")
+            #expect(Palette.hex(.brandSecondary, .dark) == "#FFFFFF")
             for scheme in [ColorScheme.light, .dark] {
-                #expect(Palette.hex(.markInk, scheme) != Palette.hex(.accent, scheme))
+                #expect(Palette.hex(.brandSecondary, scheme) != Palette.hex(.accent, scheme))
             }
         }
 
@@ -82,22 +96,22 @@
             #expect(contrastRatio(Palette.hex(.onAccentFill, scheme), Palette.hex(.accentFill, scheme)) >= 4.5)
         }
 
-        /// The hairline is ink at a low opacity: dark slate on light, near white on dark.
-        @Test func hairlineHoldsItsValues() {
-            #expect(Palette.hairlineLight.rgb.hex == "#1e2837")
-            #expect(Palette.hairlineLight.alpha == 0.12)
-            #expect(Palette.hairlineDark.rgb.hex == "#e6f0ff")
-            #expect(Palette.hairlineDark.alpha == 0.10)
+        /// The border is a low opacity of a dark slate on light and a near white on dark.
+        @Test func borderHoldsItsValues() {
+            #expect(Palette.borderLight.rgb.hex == "#1e2837")
+            #expect(Palette.borderLight.alpha == 0.12)
+            #expect(Palette.borderDark.rgb.hex == "#e6f0ff")
+            #expect(Palette.borderDark.alpha == 0.10)
         }
 
-        /// A set filter's label on its accent wash, over the grounds a filter row sits on.
+        /// A set filter's label on its accent tint, over the backgrounds a filter row sits on.
         @Test(arguments: [ColorScheme.light, .dark])
-        func setLabelPassesContrastOnItsWash(scheme: ColorScheme) {
+        func setLabelPassesContrastOnItsTint(scheme: ColorScheme) {
             let accent = Palette.hex(.accent, scheme)
-            let label = BrandStyle.setLabelIsAccent(scheme) ? accent : Palette.hex(.ink, scheme)
-            for ground in [Palette.Token.ground, .surface] {
-                let wash = blend(accent, over: Palette.hex(ground, scheme), opacity: BrandStyle.setFillOpacity(scheme))
-                #expect(contrastRatio(label, wash) >= 4.5, "\(scheme) on \(ground)")
+            let label = Palette.onTintIsAccent(scheme) ? accent : Palette.hex(.textPrimary, scheme)
+            for background in [Palette.Token.pageBackground, .surface] {
+                let tint = blend(accent, over: Palette.hex(background, scheme), opacity: Palette.tintOpacity(scheme))
+                #expect(contrastRatio(label, tint) >= 4.5, "\(scheme) on \(background)")
             }
         }
 
@@ -134,39 +148,39 @@
             }
         }
 
-        /// The undo banner is ink with the ground's color for its words and the other
-        /// appearance's accent for Undo, each at 4.5:1.
+        /// The undo banner is the primary text color with the page background's color for its
+        /// words and the other appearance's accent for Undo, each at 4.5:1.
         @Test(arguments: [ColorScheme.light, .dark])
         func undoBannerPassesContrast(scheme: ColorScheme) {
             #expect(MacStyle.undoBannerHeight == 36)
-            let fill = Palette.hex(.ink, scheme)
-            #expect(contrastRatio(Palette.hex(.ground, scheme), fill) >= 4.5)
-            #expect(contrastRatio(MacStyle.undoActionHex(scheme), fill) >= 4.5)
-            #expect(resolved(MacStyle.undoAction, in: scheme) == MacStyle.undoActionHex(scheme).lowercased())
+            let fill = Palette.hex(.textPrimary, scheme)
+            #expect(contrastRatio(Palette.hex(.pageBackground, scheme), fill) >= 4.5)
+            #expect(contrastRatio(Palette.hex(.inverseAccent, scheme), fill) >= 4.5)
+            #expect(resolved(Palette.inverseAccent, in: scheme) == Palette.hex(.inverseAccent, scheme).lowercased())
         }
 
-        /// A sidebar glyph is secondary ink at rest and white on the emphasized selection; no
-        /// sidebar glyph or control takes the accent or coral at rest.
+        /// A sidebar glyph is secondary text at rest and white on the emphasized selection; no
+        /// sidebar glyph or control takes the accent or the brand color at rest.
         @Test func sidebarGlyphsAreSecondaryAtRest() throws {
-            #expect(MacSidebarLabel.symbolInk(emphasized: false) == .inkSecondary)
-            #expect(MacSidebarLabel.symbolInk(emphasized: true) == .onAccentFill)
+            #expect(MacSidebarLabel.symbolColor(emphasized: false) == .textSecondary)
+            #expect(MacSidebarLabel.symbolColor(emphasized: true) == .onAccentFill)
             for path in ["Mac/MacSidebar.swift", "Shell/SidebarSectionHeader.swift"] {
                 let file = SourceScan.sources.appending(path: path)
                 let text = SourceScan.withoutComments(try SourceScan.text(at: file))
                 #expect(!text.contains(".tint"), "\(path)")
-                #expect(!text.contains("coral"), "\(path)")
+                #expect(!text.contains("Palette.brand"), "\(path)")
                 #expect(!text.contains("plus.circle"), "\(path)")
             }
         }
 
-        /// The dock's scrubber: a hairline track, ink fill, coral thumb.
+        /// The dock's scrubber: a border track, a tertiary text fill, and a brand thumb.
         @Test func scrubberDrawsInTokens() throws {
             let file = SourceScan.sources.appending(path: "Mac/PlayerDock.swift")
             let text = SourceScan.withoutComments(try SourceScan.text(at: file))
             let track = try #require(text.range(of: "struct ScrubberTrack"))
             let body = text[track.lowerBound...]
-            #expect(body.contains("Palette.hairline"))
-            #expect(body.contains("Palette.ink.opacity(ScrubberTrack.fillOpacity)"))
+            #expect(body.contains("Palette.border"))
+            #expect(body.contains("Palette.textTertiary"))
             #expect(!body.contains(".quaternary"))
         }
 

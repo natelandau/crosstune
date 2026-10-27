@@ -122,14 +122,14 @@ export function SuggestField({
         autoFocus={autoFocus}
         maxLength={maxLength}
         placeholder={kept ? keep.label : undefined}
-        className="t-body text-ink placeholder:text-ink-2 min-h-(--target) min-w-0 flex-1 truncate bg-transparent text-end in-[html[data-density=touch]]:text-[max(16px,1rem)]"
+        className="t-body text-primary placeholder:text-secondary min-h-(--target) min-w-0 flex-1 truncate bg-transparent text-end in-[html[data-density=touch]]:text-[max(16px,1rem)]"
       />
-      <AriaButton className="text-ink-2 flex min-h-(--target) shrink-0 items-center pe-4">
+      <AriaButton className="text-secondary flex min-h-(--target) shrink-0 items-center pe-4">
         <ChevronsUpDown className="size-4" aria-hidden />
       </AriaButton>
       <Popover
         placement="bottom end"
-        className="bg-ground max-h-80 min-w-48 overflow-y-auto rounded-(--radius-surface) p-1 shadow-(--shadow-float)"
+        className="bg-page max-h-80 min-w-48 overflow-y-auto rounded-(--radius-surface) p-1 shadow-(--shadow-float)"
       >
         <OverlayClaim />
         <ListBox
@@ -147,7 +147,7 @@ export function SuggestField({
               {({ isSelected }) => (
                 <>
                   <span className="min-w-0 flex-1 truncate">{item.label}</span>
-                  {isSelected && <Check className="text-ink size-5 shrink-0" aria-hidden />}
+                  {isSelected && <Check className="text-primary size-5 shrink-0" aria-hidden />}
                 </>
               )}
             </ListBoxItem>

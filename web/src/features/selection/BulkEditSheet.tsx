@@ -102,7 +102,7 @@ function BulkEditBody({
       primary={{ label: SAVE_EDIT, onPress: bulk.save, isDisabled: !bulk.canSave }}
     >
       <div className="pb-4">
-        <p className="t-secondary text-ink-2 px-4 pt-3">{EDIT_ONLY_CHANGED}</p>
+        <p className="t-secondary text-secondary px-4 pt-3">{EDIT_ONLY_CHANGED}</p>
         <ErrorLine error={error} place="sheet" />
         <Group header={STATUS_HEADER}>{row('status')}</Group>
         <Group header={KEY} plain>

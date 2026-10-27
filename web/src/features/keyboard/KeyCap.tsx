@@ -2,7 +2,7 @@ import { keyLabel, keySpoken } from './keymap'
 import { keyPlatform, type KeyPlatform } from '../../platform/keyPlatform'
 
 /**
- * One key as a small bordered cap on the ground, showing the keymap's label. A cap that shows a
+ * One key as a small bordered cap on the page, showing the keymap's label. A cap that shows a
  * glyph or an abbreviation, such as ⌘ or Esc, is spoken by the key's name instead.
  */
 export function KeyCap({
@@ -16,7 +16,7 @@ export function KeyCap({
   const shown = keyLabel(keyName, platform)
   const spoken = keySpoken(keyName, platform)
   return (
-    <kbd className="border-hairline bg-ground text-ink t-caption t-num inline-flex h-[1.75em] min-w-[1.75em] items-center justify-center rounded-[0.35em] border px-[0.45em] font-sans">
+    <kbd className="border-default bg-page text-primary t-caption t-num inline-flex h-[1.75em] min-w-[1.75em] items-center justify-center rounded-[0.35em] border px-[0.45em] font-sans">
       {shown === spoken ? (
         shown
       ) : (

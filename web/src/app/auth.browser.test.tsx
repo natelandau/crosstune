@@ -441,7 +441,7 @@ describe('the sign-in layout', () => {
   it("paints the lockup's T in coral", async () => {
     await renderAt(390)
     const t = document.querySelector('main svg path')!
-    const coral = getComputedStyle(document.documentElement).getPropertyValue('--coral').trim()
+    const coral = getComputedStyle(document.documentElement).getPropertyValue('--brand').trim()
     await expect.poll(() => getComputedStyle(t).stroke).toBe(computedColor(coral))
   })
 

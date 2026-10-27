@@ -57,7 +57,7 @@ struct FirstRecordingCard: View {
                     .font(PageStyle.body.weight(.semibold))
                 Text(Self.hint)
                     .font(PageStyle.secondary)
-                    .foregroundStyle(.inkSecondary)
+                    .foregroundStyle(.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             if !shown.isEmpty {
@@ -75,7 +75,7 @@ struct FirstRecordingCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .overlay {
             RoundedRectangle(cornerRadius: PageStyle.surfaceRadius)
-                .strokeBorder(Color.primary.opacity(0.22), style: StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
+                .strokeBorder(Palette.borderStrong, style: StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
         }
         .onChange(of: offline) { find.connectionChanged() }
     }
@@ -90,7 +90,7 @@ struct FirstRecordingCard: View {
                     Text(Self.record)
                 } icon: {
                     Circle()
-                        .fill(Color.recordingRed)
+                        .fill(Palette.record)
                         .frame(width: 10, height: 10)
                 }
             }

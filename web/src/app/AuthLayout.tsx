@@ -36,7 +36,7 @@ export function AuthLayout({
         <div className="flex min-w-0 flex-1 flex-col items-center gap-4">
           {notice}
           {form}
-          {reason ? <p className="t-body text-ink-2 max-w-auth m-0">{reason}</p> : null}
+          {reason ? <p className="t-body text-secondary max-w-auth m-0">{reason}</p> : null}
           <Button
             label={WHY_ACCOUNT_LINK}
             onPress={() => {

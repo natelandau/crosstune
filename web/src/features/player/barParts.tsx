@@ -69,7 +69,7 @@ export function PlayToggle({ transport }: { transport: RecordingTransport }) {
 /** A list that stopped: its message where the item was, and Close player. */
 export function MessageLine({ message }: { message: string }) {
   return (
-    <span role="status" className="t-secondary text-ink-2 min-w-0 flex-1 truncate px-2">
+    <span role="status" className="t-secondary text-secondary min-w-0 flex-1 truncate px-2">
       {message}
     </span>
   )
@@ -91,7 +91,7 @@ export function PlaybackBadge({ transport }: { transport: RecordingTransport }) 
   return (
     <span
       data-playback-badge
-      className="t-caption t-num bg-field text-ink inline-flex h-6 shrink-0 items-center gap-1 rounded-(--radius-capsule) px-2"
+      className="t-caption t-num bg-field text-primary inline-flex h-6 shrink-0 items-center gap-1 rounded-(--radius-capsule) px-2"
     >
       {speedText && (
         <span>

@@ -288,13 +288,14 @@ describe('WelcomeCarousel', () => {
       await expect.poll(() => art.getBoundingClientRect().height).toBeGreaterThan(100)
       await expect.poll(() => art.getBoundingClientRect().right <= window.innerWidth).toBe(true)
     }
-    // The first slide's phone is jet on light paper and lifts to raised on dark paper.
+    // The first slide's phone is dark on the light page and lifts to surface-raised on the dark one.
     const phone = slides()[0]!.querySelector('.bg-device-bezel')!
-    const jet = resolvedBackground('bg-jet')
-    const raised = resolvedBackground('bg-raised')
-    expect(jet).not.toBe(raised)
+    const raised = resolvedBackground('bg-surface-raised')
+    const pageColor = resolvedBackground('bg-page')
     await expect
       .poll(() => getComputedStyle(phone).backgroundColor)
-      .toBe(scheme === 'dark' ? raised : jet)
+      .toSatisfy((color: string) =>
+        scheme === 'dark' ? color === raised : color !== raised && color !== pageColor,
+      )
   })
 })

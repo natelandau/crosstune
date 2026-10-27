@@ -17,7 +17,7 @@ import { ListRowPlay } from './ListRowPlay'
  * A tune in a list: its position leading, then the tune row's parts, then its own play
  * control. Scans, for a tune that has any, Edit, and Remove are its actions, and its menu adds
  * the moves before Remove, so Remove stays last. While the player holds a recording or link of
- * the tune, an animated speaker takes the position's place and the row takes a light wash.
+ * the tune, an animated speaker takes the position's place and the row takes a light tint.
  */
 export function ListTuneRow({
   view,
@@ -92,14 +92,14 @@ export function ListTuneRow({
         <>
           <span
             data-position
-            className="t-secondary t-num text-ink-2 inline-flex shrink-0 justify-end"
+            className="t-secondary t-num text-secondary inline-flex shrink-0 justify-end"
             style={{ minWidth: positionWidth }}
           >
             {playing ? (
               <>
                 <Volume2
                   data-playing-glyph
-                  className="text-ink size-4 motion-safe:animate-pulse"
+                  className="text-primary size-4 motion-safe:animate-pulse"
                   aria-hidden
                 />
                 <span className="sr-only">{position}</span>

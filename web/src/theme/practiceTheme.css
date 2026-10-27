@@ -1,29 +1,14 @@
-/* Practice's drawing palette: practice, trim, and the tuner on the dark scheme's jet in every
-   appearance, drawn in the dark scheme, with a coral playhead and loop handles and plain white
-   trim handles. */
+/* Practice, trim, and the tuner draw on practice-background in every appearance, so inside them
+   the roles that sit on that background take the dark scheme's values. */
 [data-practice] {
-  --panel-ground: var(--jet-dark);
-  --panel-ink: #ffffff;
-  --panel-on-ink: var(--jet-dark);
-  --panel-muted: var(--silver);
-  /* The dark scheme's Harbor, which reads on jet in either appearance. Only the transport disc
-     and its chips are white. */
-  --accent: var(--accent-dark);
-  --panel-danger: var(--danger-dark);
-  /* So a shared error line on jet reads as the dark scheme's. */
-  --danger: var(--danger-dark);
-  --wave-played: #ffffff;
-  --wave-unplayed: var(--silver);
-  --playhead: var(--coral);
-  --trim-handle: #ffffff;
-  /* The panels' round buttons, filled as the dark scheme fills them. */
-  --fill-tertiary: var(--practice-fill);
-  /* Hover on jet: a white wash behind a plain control, a stronger fill for a filled one, and a
-     dimmer white for the white play button. */
-  --panel-hover: rgb(255 255 255 / 0.14);
-  --fill-tertiary-hover: rgb(118 118 128 / 0.42);
-  --panel-ink-hover: #e4e5ea;
-  /* The dark scheme's loops, which the light set falls far under 3:1 against on the ground. */
+  --accent: var(--blue-300);
+  --danger: var(--red-300);
+  /* Redeclared so they mix practice's danger rather than the root's. */
+  --danger-subtle: color-mix(in srgb, var(--danger) 15%, transparent);
+  --danger-hover: color-mix(in srgb, var(--danger), var(--text-primary) 12%);
+  --waveform-played: var(--on-practice);
+  --waveform-unplayed: var(--on-practice-secondary);
+  /* The dark scheme's loops, which the light set falls far under 3:1 against on the background. */
   --loop-0: var(--loop-0-dark);
   --loop-0-tint: var(--loop-0-tint-dark);
   --loop-1: var(--loop-1-dark);
@@ -38,25 +23,24 @@
   --loop-5-tint: var(--loop-5-tint-dark);
 }
 [data-practice] .loop-color {
-  --loop-handle: var(--coral);
+  --loop-handle: var(--brand);
 }
 /* The loops panel's suggestion chips are the app's own controls, drawn here in the dark scheme. */
 [data-practice] [data-loops-panel] {
-  --ink: var(--panel-ink);
-  --ink-2: var(--panel-muted);
+  --text-primary: var(--on-practice);
+  --text-secondary: var(--on-practice-secondary);
   --field: var(--practice-fill);
-  --field-hover: var(--fill-tertiary-hover);
+  --field-hover: var(--practice-fill-hover);
 }
-/* The tuner's whole pane is practice's ground, so the shared title row and pane bar take its
-   inks, and the bar lets the ground, and its in-tune wash, show through. */
+/* The tuner's whole pane is practice's background, so the shared title row and pane bar take its
+   text colors, and the bar lets the background, and its in-tune tint, show through. */
 [data-practice][data-tuner] {
-  --ground: transparent;
-  --ink: var(--panel-ink);
-  --ink-2: var(--panel-muted);
+  --page-background: transparent;
+  --text-primary: var(--on-practice);
+  --text-secondary: var(--on-practice-secondary);
   --field: var(--practice-fill);
-  --tint-hover: var(--panel-hover);
-  /* Redeclared so the set wash mixes practice's accent rather than the root's. */
-  --set-fill: color-mix(in srgb, var(--accent) 22%, transparent);
-  --set-fill-hover: color-mix(in srgb, var(--accent) 28%, transparent);
-  --set-label: var(--ink);
+  /* Redeclared so the tints mix practice's accent rather than the root's. */
+  --tint: color-mix(in srgb, var(--accent) 22%, transparent);
+  --tint-strong: color-mix(in srgb, var(--accent) 28%, transparent);
+  --on-tint: var(--text-primary);
 }

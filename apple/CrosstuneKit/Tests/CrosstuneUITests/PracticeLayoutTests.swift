@@ -15,11 +15,11 @@ import Testing
         #expect(compact < PracticeLayout.waveformFloor(isCompactHeight: false))
     }
 
-    @Test func loopHandlesAreCoralWhateverTheLoopColor() {
+    @Test func loopHandlesAreTheBrandColorWhateverTheLoopColor() {
         let practice = PracticeWaveform.handleColor(isTrim: false)
-        #expect(practice == BrandStyle.coral)
+        #expect(practice == Palette.brand)
         for slot in 0..<6 {
-            #expect(practice != LoopColor.color(slot, scheme: .dark))
+            #expect(practice != Palette.loop(slot, scheme: .dark))
         }
     }
 

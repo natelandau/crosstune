@@ -124,7 +124,7 @@ export function PracticeView({
             onPress={() => timeline.zoom(1 / ZOOM_STEP)}
           />
           <AriaButton
-            className={`t-body min-h-11 rounded-full px-2 font-semibold text-(--panel-ink) disabled:opacity-40 ${PRESS} ${PANEL_HOVER}`}
+            className={`t-body text-on-practice min-h-11 rounded-full px-2 font-semibold disabled:opacity-40 ${PRESS} ${PANEL_HOVER}`}
             isDisabled={!timeline.pxPerS || !!blocked}
             onPress={loops.fit}
           >
@@ -181,7 +181,7 @@ export function PracticeView({
           <p
             data-locked-loops
             aria-hidden={loops.selected ? undefined : 'true'}
-            className={`t-secondary m-0 text-center text-(--panel-muted) ${loops.selected ? '' : 'invisible'}`}
+            className={`t-secondary text-on-practice-secondary m-0 text-center ${loops.selected ? '' : 'invisible'}`}
           >
             {LOCKED_LOOPS_NOTICE}
           </p>

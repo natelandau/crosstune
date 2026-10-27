@@ -317,11 +317,12 @@ private final class SuspendingClerkCalls: ClerkSignUpCalls, @unchecked Sendable 
             let colors = theme.colors
             let expected: [(Color, Palette.Token, String)] = [
                 (colors.primary, .accentFill, "primary"), (colors.ring, .accent, "ring"),
-                (colors.inputBorderFocused, .accent, "inputBorderFocused"), (colors.background, .ground, "background"),
+                (colors.inputBorderFocused, .accent, "inputBorderFocused"),
+                (colors.background, .pageBackground, "background"),
                 (colors.input, .surface, "input"), (colors.muted, .surface, "muted"),
-                (colors.foreground, .ink, "foreground"), (colors.neutral, .ink, "neutral"),
-                (colors.inputForeground, .ink, "inputForeground"),
-                (colors.mutedForeground, .inkSecondary, "mutedForeground"),
+                (colors.foreground, .textPrimary, "foreground"), (colors.neutral, .textPrimary, "neutral"),
+                (colors.inputForeground, .textPrimary, "inputForeground"),
+                (colors.mutedForeground, .textSecondary, "mutedForeground"),
                 (colors.primaryForeground, .onAccentFill, "primaryForeground"),
             ]
             for (color, token, name) in expected {

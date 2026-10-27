@@ -31,7 +31,7 @@ function storageChangedElsewhere(key: string | null) {
 it.each(['light', 'dark'] as const)('colors the status bar with the %s page', (scheme) => {
   restoreHead()
   applyScheme(scheme)
-  expect(themeColors()).toEqual([PALETTE[scheme].ground])
+  expect(themeColors()).toEqual([PALETTE[scheme].pageBackground])
 })
 
 function SchemeSync() {
@@ -49,7 +49,7 @@ it('keeps the status bar dark through a storage event that leaves the appearance
   })
   setAppearance('dark')
   render(<SchemeSync />)
-  await expect.poll(themeColors).toEqual([PALETTE.dark.ground])
+  await expect.poll(themeColors).toEqual([PALETTE.dark.pageBackground])
   act(() => storageChangedElsewhere(APPEARANCE_KEY))
-  expect(themeColors()).toEqual([PALETTE.dark.ground])
+  expect(themeColors()).toEqual([PALETTE.dark.pageBackground])
 })

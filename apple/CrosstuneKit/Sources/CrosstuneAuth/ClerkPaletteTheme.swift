@@ -12,29 +12,30 @@ public struct AuthPalette: Sendable {
     public var accentFillPressed: Color
     public var onAccentFill: Color
     /// The sheet behind the flow.
-    public var ground: Color
+    public var pageBackground: Color
     /// Fields and muted panels.
     public var surface: Color
-    public var ink: Color
-    public var inkSecondary: Color
-    /// The edge of a button that sits on the ground, such as a social sign-in.
-    public var hairline: Color
+    public var textPrimary: Color
+    public var textSecondary: Color
+    /// The edge of a button that sits on the page background, such as a social sign-in.
+    public var border: Color
     /// A notice over the flow, such as why the session ended.
     public var noticeFont: Font
 
     public init(
-        accent: Color, accentFill: Color, accentFillPressed: Color, onAccentFill: Color, ground: Color,
-        surface: Color, ink: Color, inkSecondary: Color, hairline: Color, noticeFont: Font
+        accent: Color, accentFill: Color, accentFillPressed: Color, onAccentFill: Color,
+        pageBackground: Color, surface: Color, textPrimary: Color, textSecondary: Color, border: Color,
+        noticeFont: Font
     ) {
         self.accent = accent
         self.accentFill = accentFill
         self.accentFillPressed = accentFillPressed
         self.onAccentFill = onAccentFill
-        self.ground = ground
+        self.pageBackground = pageBackground
         self.surface = surface
-        self.ink = ink
-        self.inkSecondary = inkSecondary
-        self.hairline = hairline
+        self.textPrimary = textPrimary
+        self.textSecondary = textSecondary
+        self.border = border
         self.noticeFont = noticeFont
     }
 }
@@ -46,16 +47,16 @@ extension ClerkTheme {
     /// Clerk derives it from one appearance's resolved color.
     public static func crosstune(_ palette: AuthPalette) -> ClerkTheme {
         var colors = Colors(
-            primary: palette.accentFill, background: palette.ground, input: palette.surface,
-            foreground: palette.ink, mutedForeground: palette.inkSecondary,
-            primaryForeground: palette.onAccentFill, inputForeground: palette.ink, neutral: palette.ink,
+            primary: palette.accentFill, background: palette.pageBackground, input: palette.surface,
+            foreground: palette.textPrimary, mutedForeground: palette.textSecondary,
+            primaryForeground: palette.onAccentFill, inputForeground: palette.textPrimary, neutral: palette.textPrimary,
             ring: palette.accent, muted: palette.surface, secondaryButtonBackground: palette.surface,
-            shadow: .clear, border: palette.ink)
+            shadow: .clear, border: palette.textPrimary)
         colors.primaryPressed = palette.accentFillPressed
         // The initializer's border is only the base Clerk fades for each derived edge, so the
         // edges that should read as a hairline are set outright.
-        colors.border = palette.hairline
-        colors.buttonBorder = palette.hairline
+        colors.border = palette.border
+        colors.buttonBorder = palette.border
         colors.inputBorder = .clear
         colors.inputBorderFocused = palette.accent
         return ClerkTheme(colors: colors, design: Design(borderRadius: 8))

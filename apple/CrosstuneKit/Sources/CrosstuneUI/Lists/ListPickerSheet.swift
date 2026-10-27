@@ -95,7 +95,7 @@ private struct ListPickerContent: View {
                                         Text(note)
                                             .font(MacStyle.secondary)
                                             .monospacedDigit()
-                                            .foregroundStyle(Palette.inkSecondary)
+                                            .foregroundStyle(Palette.textSecondary)
                                     }
                                 }
                             }
@@ -162,7 +162,7 @@ private struct ListPickerContent: View {
 
     #if os(iOS)
         var body: some View {
-            PaperForm {
+            GroupedForm {
                 if model.isLoaded {
                     Section {
                         ForEach(model.rows) { row in
@@ -178,7 +178,7 @@ private struct ListPickerContent: View {
                                     if let note = row.note {
                                         Text(note)
                                             .monospacedDigit()
-                                            .foregroundStyle(.inkSecondary)
+                                            .foregroundStyle(.textSecondary)
                                     }
                                 }
                                 .contentShape(.rect)
@@ -190,7 +190,7 @@ private struct ListPickerContent: View {
                     } footer: {
                         if let failure = model.failure {
                             Text(failure)
-                                .foregroundStyle(.red)
+                                .foregroundStyle(Palette.danger)
                         }
                     }
                 }
@@ -206,7 +206,7 @@ private struct ListPickerContent: View {
 
         /// A row that cannot add reads as inert, whether it is full or still loading.
         private func nameStyle(_ row: ListPickerModel.Row) -> AnyShapeStyle {
-            row.isOffered ? AnyShapeStyle(.primary) : AnyShapeStyle(.inkSecondary)
+            row.isOffered ? AnyShapeStyle(.textPrimary) : AnyShapeStyle(.textSecondary)
         }
 
         @ViewBuilder private var newList: some View {

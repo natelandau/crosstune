@@ -95,7 +95,7 @@ export function TuneSearchList({
       </div>
       <ErrorLine error={error} place="bar" />
       {idle && entries?.length === 0 && emptyHint && (
-        <p className="t-secondary text-ink-2 px-4 pt-2">{emptyHint}</p>
+        <p className="t-secondary text-secondary px-4 pt-2">{emptyHint}</p>
       )}
       {shown.length > 0 && (
         <RowList
@@ -119,7 +119,7 @@ export function TuneSearchList({
                   // The taken rows hold the same width, so every title starts on one line.
                   <Plus
                     aria-hidden
-                    className={`size-5 shrink-0 ${inert ? 'invisible' : 'text-ink'}`}
+                    className={`size-5 shrink-0 ${inert ? 'invisible' : 'text-primary'}`}
                   />
                 }
                 note={inert ? taken?.note : undefined}

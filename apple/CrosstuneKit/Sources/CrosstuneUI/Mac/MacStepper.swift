@@ -36,7 +36,7 @@
                 Text(value)
                     .font(MacStyle.body.weight(.semibold))
                     .monospacedDigit()
-                    .foregroundStyle(Palette.ink)
+                    .foregroundStyle(Palette.textPrimary)
                     .lineLimit(1)
                     .frame(minWidth: Self.valueMinWidth)
                     .padding(.horizontal, 4)
@@ -72,7 +72,7 @@
 
         private var divider: some View {
             Rectangle()
-                .fill(Palette.hairline)
+                .fill(Palette.border)
                 .frame(width: 1, height: Self.height - 12)
         }
     }
@@ -109,7 +109,7 @@
 
         var body: some View {
             configuration.label
-                .foregroundStyle(Palette.ink)
+                .foregroundStyle(Palette.textPrimary)
                 .frame(width: MacStepper.halfWidth, height: MacStepper.height)
                 .background(fill)
                 .contentShape(.rect)
@@ -119,8 +119,8 @@
 
         private var fill: Color {
             guard isEnabled else { return .clear }
-            if configuration.isPressed { return Palette.inkSecondary.opacity(0.22) }
-            return isHovered ? Palette.hairline : .clear
+            if configuration.isPressed { return Palette.fieldHover }
+            return isHovered ? Palette.border : .clear
         }
     }
 #endif

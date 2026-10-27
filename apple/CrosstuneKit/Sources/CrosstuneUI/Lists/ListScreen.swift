@@ -86,7 +86,7 @@ private struct ListContent: View {
             VStack(alignment: .leading, spacing: spacing.stackGap) {
                 Text(DeleteTuneMessage.deleting)
                     .font(.platform(.footnote))
-                    .foregroundStyle(.inkSecondary)
+                    .foregroundStyle(.textSecondary)
                 if let failure = model.failure {
                     FailureText(failure)
                 }
@@ -157,8 +157,8 @@ private struct ListTunes: View {
                 .macColumnList()
             #else
                 .listStyle(.plain)
-                .paperGround()
-                .listSelectionTint()
+                .pageBackground()
+                .accentSelectionTint()
             #endif
             .overlay {
                 if model.showArchived != nil {
@@ -464,7 +464,7 @@ private struct ListTunes: View {
                     pushed = entry.tune.id
                 } label: {
                     tuneRow
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(.textPrimary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .contentShape(.rect)
                 }
@@ -502,8 +502,9 @@ private struct ListTunes: View {
         .scrollAnchorRow(entry.id)
         .selectableRowActions(isSelecting: selection.isActive) {
             Button(ListScreen.remove, systemImage: "text.badge.xmark", role: .destructive) { remove() }
+                .tint(Palette.dangerFillStrong)
             Button(TuneRowActions.edit, systemImage: TuneRowActions.editSystemImage, action: edit)
-                .tint(.gray)
+                .tint(Palette.neutralFill)
             if let scans { ScansRowAction(action: scans) }
             #if os(iOS)
                 if reorderable { moveMenu(entry, moves) }
@@ -539,20 +540,20 @@ private struct ListTunes: View {
         .moveDisabled(!reorderable)
     }
 
-    /// The playing tune's wash, or nothing, so the list's ground shows through.
+    /// The playing tune's tint, or nothing, so the list's background shows through.
     @ViewBuilder private func rowBackground(isCurrent: Bool) -> some View {
         if isCurrent { currentRowTint } else { Color.clear }
     }
 
-    /// The light wash on the tune a playing list is on.
+    /// The light tint on the tune a playing list is on.
     @ViewBuilder private var currentRowTint: some View {
         #if os(macOS)
             // Inset and rounded as the selection is, so the two read as one family.
             RoundedRectangle(cornerRadius: 6)
-                .fill(MacStyle.accent.opacity(MacStyle.playingWashOpacity(colorScheme)))
+                .fill(Palette.tintSubtle(colorScheme))
                 .padding(.horizontal, MacStyle.selectionInset)
         #else
-            BrandStyle.setFill(colorScheme)
+            Palette.tintSubtle(colorScheme)
         #endif
     }
 
@@ -566,7 +567,7 @@ private struct ListTunes: View {
             } label: {
                 Label(ListScreen.reorder(entry.tune.title), systemImage: "arrow.up.arrow.down")
             }
-            .tint(.gray)
+            .tint(Palette.neutralFill)
         }
     #endif
 

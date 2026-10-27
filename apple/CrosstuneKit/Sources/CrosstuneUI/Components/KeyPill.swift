@@ -41,8 +41,8 @@ public struct KeyPill: View {
                     .monospacedDigit()
                     .fixedSize()
                     .macChip(
-                        state: isChosen ? .chosen : .rest, hue: swatch?.background.color,
-                        hueInk: swatch?.ink.color, size: size == .full ? .standalone : .row,
+                        state: isChosen ? .chosen : .rest, hue: pillColors?.background.color,
+                        hueText: pillColors?.text.color, size: size == .full ? .standalone : .row,
                         minWidth: size == .compact ? MacChip.minRowWidth : nil,
                         onSelectedRow: size == .compact && backgroundProminence == .increased)
             }
@@ -72,25 +72,25 @@ public struct KeyPill: View {
                 .monospacedDigit()
                 .lineLimit(1)
                 .fixedSize()
-                .foregroundStyle(ink)
+                .foregroundStyle(textStyle)
                 .padding(.horizontal, spacing(size == .full ? 12 : 8))
         }
     #endif
 
-    private var swatch: KeyColor.Swatch? {
-        KeyColor.pitchClass(key).map { KeyColor.swatch(pitchClass: $0, scheme: colorScheme, chosen: isChosen) }
+    private var pillColors: KeyColor.PillColors? {
+        KeyColor.pitchClass(key).map { KeyColor.pillColors(pitchClass: $0, scheme: colorScheme, chosen: isChosen) }
     }
 
     #if !os(macOS)
         private var fill: AnyShapeStyle {
-            if let swatch { return AnyShapeStyle(swatch.background.color) }
+            if let pillColors { return AnyShapeStyle(pillColors.background.color) }
             if isChosen { return AnyShapeStyle(Palette.accentFill) }
             return AnyShapeStyle(.neutralFill)
         }
 
-        private var ink: AnyShapeStyle {
-            if let swatch { return AnyShapeStyle(swatch.ink.color) }
-            return isChosen ? AnyShapeStyle(Palette.onAccentFill) : AnyShapeStyle(.primary)
+        private var textStyle: AnyShapeStyle {
+            if let pillColors { return AnyShapeStyle(pillColors.text.color) }
+            return isChosen ? AnyShapeStyle(Palette.onAccentFill) : AnyShapeStyle(.textPrimary)
         }
     #endif
 }
@@ -105,8 +105,8 @@ struct KeyChipButton: View {
 
     var body: some View {
         #if os(macOS)
-            let swatch = KeyColor.pitchClass(key).map {
-                KeyColor.swatch(pitchClass: $0, scheme: colorScheme, chosen: chosen)
+            let pillColors = KeyColor.pitchClass(key).map {
+                KeyColor.pillColors(pitchClass: $0, scheme: colorScheme, chosen: chosen)
             }
             Button(action: action) {
                 Text(key)
@@ -115,7 +115,7 @@ struct KeyChipButton: View {
             }
             .buttonStyle(
                 MacChipStyle(
-                    state: chosen ? .chosen : .rest, hue: swatch?.background.color, hueInk: swatch?.ink.color,
+                    state: chosen ? .chosen : .rest, hue: pillColors?.background.color, hueText: pillColors?.text.color,
                     size: .standalone)
             )
             .accessibilityAddTraits(chosen ? .isSelected : [])

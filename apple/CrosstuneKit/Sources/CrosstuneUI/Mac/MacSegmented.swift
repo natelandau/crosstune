@@ -6,16 +6,16 @@
     enum MacSegmentLook {
         /// The accent fill under a white label: a form's choice, which is a selection.
         case accent
-        /// A token raised off the field track under an ink label: a control that switches what a
-        /// view shows, such as practice's modes, where the accent would shout.
+        /// A token raised off the field track under a primary text label: a control that switches
+        /// what a view shows, such as practice's modes, where the accent would shout.
         case token
     }
 
     /// A token segmented control: the chosen segment a raised token on the field track, each
-    /// segment's label in ink with an optional badge after it in secondary ink. It keeps its
-    /// fills in an inactive window, unlike the system control, so the choice in use stays plain.
-    /// One keyboard stop whose arrows move the choice; VoiceOver reads it as the system's
-    /// segmented picker.
+    /// segment's label in the primary text color with an optional badge after it in secondary text.
+    /// It keeps its fills in an inactive window, unlike the system control, so the choice in use
+    /// stays plain. One keyboard stop whose arrows move the choice; VoiceOver reads it as the
+    /// system's segmented picker.
     struct MacSegmented<Value: Hashable>: View {
         @Binding private var selection: Value
         private let options: [Value]
@@ -41,22 +41,10 @@
         }
 
         /// The chosen token's fill, lighter than the field track in both appearances so it reads
-        /// raised: the ground in light, a lifted gray in dark. Deep enough in dark that a badge in
-        /// secondary ink keeps 4.5:1.
-        static func chosenFillHex(_ scheme: ColorScheme) -> String {
-            scheme == .dark ? "#33373D" : Palette.groundLight
-        }
-
-        /// ``chosenFillHex(_:)`` following the appearance. It reads only the appearance, never
-        /// whether the window is key, so the choice in use stays plain in an inactive window.
-        static var chosenFill: Color {
-            Color(
-                nsColor: NSColor(name: nil) { appearance in
-                    let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-                    let rgb = KeyColor.RGB(hex: chosenFillHex(isDark ? .dark : .light))
-                    return NSColor(srgbRed: rgb.red, green: rgb.green, blue: rgb.blue, alpha: 1)
-                })
-        }
+        /// raised. It reads only the appearance, never whether the window is key, so the choice in
+        /// use stays plain in an inactive window.
+        static var chosenFillToken: Palette.Token { .surfaceRaised }
+        static var chosenFill: Color { Palette.color(chosenFillToken) }
 
         var body: some View {
             MacSegmentTrack(
@@ -185,7 +173,7 @@
                         .font(MacStyle.label)
                         .monospacedDigit()
                         .foregroundStyle(
-                            look == .accent && isChosen ? Palette.onAccentFill : Palette.inkSecondary)
+                            look == .accent && isChosen ? Palette.onAccentFill : Palette.textSecondary)
                 }
             }
             .lineLimit(1)
@@ -194,7 +182,7 @@
             .background {
                 RoundedRectangle(cornerRadius: Self.radius)
                     .fill(fill)
-                    .shadow(color: .black.opacity(raised ? 0.12 : 0), radius: 1.5, y: 0.5)
+                    .elevation(.control, isShown: raised)
             }
             .contentShape(.rect(cornerRadius: Self.radius))
             .macFocusRing(showsRing, cornerRadius: Self.radius)
@@ -205,14 +193,14 @@
         private var raised: Bool { look == .token && isChosen }
 
         private var labelColor: Color {
-            look == .accent && isChosen ? Palette.onAccentFill : Palette.ink
+            look == .accent && isChosen ? Palette.onAccentFill : Palette.textPrimary
         }
 
         private var fill: Color {
             if isChosen {
                 return look == .accent ? Palette.accentFill : MacSegmented<Int>.chosenFill
             }
-            return isHovered ? Palette.hairline : .clear
+            return isHovered ? Palette.border : .clear
         }
     }
 #endif

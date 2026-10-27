@@ -59,6 +59,6 @@ export function SyncPage() {
 /** The sync state's glyph: quiet while all is well, red once a sync has failed. */
 function SyncGlyph({ status }: { status: SyncStatus }) {
   const Icon = STATUS_ICONS[status]
-  const tone = status === 'error' ? 'text-danger' : 'text-ink-2'
+  const tone = status === 'error' ? 'text-danger' : 'text-secondary'
   return <Icon className={`size-5 shrink-0 ${tone}`} aria-hidden />
 }

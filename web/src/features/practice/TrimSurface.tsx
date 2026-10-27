@@ -73,7 +73,7 @@ export function TrimReadout({
     <dl className={`${typeClass} grid flex-1 grid-cols-3 text-center tabular-nums`}>
       {cells.map(([term, ms]) => (
         <div key={term}>
-          <dt className="text-(--panel-muted)">{term}</dt>
+          <dt className="text-on-practice-secondary">{term}</dt>
           <dd>{formatPreciseDuration(ms)}</dd>
         </div>
       ))}

@@ -1,7 +1,7 @@
 import CrosstuneVocabulary
 import SwiftUI
 
-/// The top of a tune's page, on the page ground: the key tile in the key's color, the title in
+/// The top of a tune's page, on the page background: the key tile in the key's color, the title in
 /// the page title role with the tune's other names, Archived when it is, and the action button row. The
 /// title renames in place, and the tile opens the key editor.
 struct TuneHeader: View {
@@ -91,7 +91,7 @@ struct TuneHeader: View {
                     Text(alternateTitles)
                         .contentMask()
                         .font(PageStyle.secondary)
-                        .foregroundStyle(.inkSecondary)
+                        .foregroundStyle(.textSecondary)
                         .textSelection(.enabled)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -189,8 +189,7 @@ private struct KeyTile: View {
                 .background(background(tileLabel), in: shape)
                 .overlay {
                     if tileLabel == .empty {
-                        shape.strokeBorder(
-                            Color.primary.opacity(0.25), style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
+                        shape.strokeBorder(Palette.borderStrong, style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
                     }
                 }
                 .contentShape(shape)
@@ -227,7 +226,7 @@ private struct KeyTile: View {
                 }
             }
             .padding(.horizontal, 4)
-            .foregroundStyle(ink(key))
+            .foregroundStyle(textStyle(key))
         case .empty:
             HStack(spacing: 2) {
                 Image(systemName: "plus")
@@ -236,24 +235,24 @@ private struct KeyTile: View {
                     .font(PageStyle.secondary.weight(.medium))
             }
             .lineLimit(1)
-            .foregroundStyle(.inkSecondary)
+            .foregroundStyle(.textSecondary)
             // The tile's size is fixed, so larger type would wrap the label inside it.
             .dynamicTypeSize(...DynamicTypeSize.large)
         }
     }
 
-    private func swatch(_ key: String) -> KeyColor.Swatch? {
-        KeyColor.pitchClass(key).map { KeyColor.swatch(pitchClass: $0, scheme: colorScheme, chosen: false) }
+    private func pillColors(_ key: String) -> KeyColor.PillColors? {
+        KeyColor.pitchClass(key).map { KeyColor.pillColors(pitchClass: $0, scheme: colorScheme, chosen: false) }
     }
 
     private func background(_ tileLabel: TuneHeader.KeyTileLabel) -> AnyShapeStyle {
         guard case .key(let key, _) = tileLabel else { return AnyShapeStyle(.clear) }
         // A key this build cannot read keeps the tile with the neutral fill rather than a hue.
-        return swatch(key).map { AnyShapeStyle($0.background.color) } ?? AnyShapeStyle(Palette.field)
+        return pillColors(key).map { AnyShapeStyle($0.background.color) } ?? AnyShapeStyle(Palette.field)
     }
 
-    private func ink(_ key: String) -> AnyShapeStyle {
-        swatch(key).map { AnyShapeStyle($0.ink.color) } ?? AnyShapeStyle(.primary)
+    private func textStyle(_ key: String) -> AnyShapeStyle {
+        pillColors(key).map { AnyShapeStyle($0.text.color) } ?? AnyShapeStyle(.textPrimary)
     }
 }
 
@@ -423,11 +422,11 @@ private struct ArchivedCapsule: View {
     var body: some View {
         #if os(macOS)
             Text(TuneRowText.archived)
-                .macChip(state: .rest, hueInk: Palette.inkSecondary, size: .row)
+                .macChip(state: .rest, hueText: Palette.textSecondary, size: .row)
         #else
             Text(TuneRowText.archived)
                 .font(PageStyle.secondary.weight(.medium))
-                .foregroundStyle(.inkSecondary)
+                .foregroundStyle(.textSecondary)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 2)
                 .background(Palette.field, in: .capsule)

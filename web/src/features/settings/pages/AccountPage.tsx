@@ -19,7 +19,7 @@ export function AccountPage() {
         <div className="flex min-h-(--target) flex-col justify-center px-4 py-2">
           <span className="t-body truncate">{identity?.name ?? label}</span>
           {identity?.name && identity.email && (
-            <span className="t-secondary text-ink-2 truncate">{identity.email}</span>
+            <span className="t-secondary text-secondary truncate">{identity.email}</span>
           )}
         </div>
         <ActionRow label={SIGN_OUT} destructive isDisabled={pending || offline} onPress={signOut} />

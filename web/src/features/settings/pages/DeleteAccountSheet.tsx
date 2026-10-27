@@ -60,24 +60,24 @@ export function DeleteAccountSheet({ open, onClosed }: { open: boolean; onClosed
       onClosed={onClosed}
     >
       <div className="flex items-start gap-3 pt-2">
-        <div className="bg-danger/12 grid size-10 shrink-0 place-items-center rounded-full">
+        <div className="bg-danger-subtle grid size-10 shrink-0 place-items-center rounded-full">
           <TriangleAlert className="text-danger size-5" aria-hidden />
         </div>
         <div className="min-w-0 pt-0.5">
           <h2 className="t-heading">{DELETE_ACCOUNT_TITLE}</h2>
-          <p id={leadId} className="t-body text-ink-2 pt-1">
+          <p id={leadId} className="t-body text-secondary pt-1">
             {DELETE_ACCOUNT_LEAD}
           </p>
         </div>
       </div>
       {countLines && (
-        <ul className="bg-surface t-body marker:text-ink-2 mt-4 flex list-disc flex-col gap-1 rounded-(--radius-surface) py-3 ps-9 pe-4">
+        <ul className="bg-surface t-body marker:text-secondary mt-4 flex list-disc flex-col gap-1 rounded-(--radius-surface) py-3 ps-9 pe-4">
           {countLines.map((line) => (
             <li key={line}>{line}</li>
           ))}
         </ul>
       )}
-      <div className="t-secondary text-ink-2 flex flex-col gap-2 px-4 pt-3">
+      <div className="t-secondary text-secondary flex flex-col gap-2 px-4 pt-3">
         {!loading && <p>{UNSYNCED_LINE}</p>}
         {subscriptions.map(({ line, link }) => (
           <p key={line}>
@@ -89,7 +89,7 @@ export function DeleteAccountSheet({ open, onClosed }: { open: boolean; onClosed
                   href={link}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-ink inline-flex items-center gap-0.5"
+                  className="text-primary inline-flex items-center gap-0.5"
                 >
                   {MANAGE_APP_STORE}
                   <ArrowUpRight className="size-3.5 shrink-0" aria-hidden />
@@ -99,14 +99,16 @@ export function DeleteAccountSheet({ open, onClosed }: { open: boolean; onClosed
           </p>
         ))}
         <p>
-          <strong className="text-ink font-semibold">{CANNOT_UNDO}</strong>
+          <strong className="text-primary font-semibold">{CANNOT_UNDO}</strong>
           {NO_RECOVERY}
         </p>
       </div>
       <Group error={error ?? undefined}>
         <TextField standalone label={CONFIRM_LABEL} value={text} onChange={setText} />
       </Group>
-      {showsAppleLine && <p className="t-secondary text-ink-2 px-4 pt-2">{APPLE_CONFIRM_LINE}</p>}
+      {showsAppleLine && (
+        <p className="t-secondary text-secondary px-4 pt-2">{APPLE_CONFIRM_LINE}</p>
+      )}
     </Sheet>
   )
 }

@@ -11,8 +11,8 @@ extension ReadingChoice {
     }
 }
 
-/// The playing tune's scans and lyrics on the practice ground: the scans on their own paper, a
-/// page at a time, or the lyrics at the reader's size. A tune with both opens on its scans, with
+/// The playing tune's scans and lyrics on the practice background: the scans in their own colors,
+/// a page at a time, or the lyrics at the reader's size. A tune with both opens on its scans, with
 /// a control to turn to the lyrics.
 struct ReadingPane: View {
     let reading: ReadingPaneContent
@@ -122,7 +122,7 @@ private struct ReadingScans: View {
                 Text(ScanPager.indicator(shown: shown, ids: ids))
                     .font(.footnote)
                     .monospacedDigit()
-                    .foregroundStyle(.inkSecondary)
+                    .foregroundStyle(.textSecondary)
                     // The scan above is what needs the room at the largest text sizes.
                     .dynamicTypeSize(...DynamicTypeSize.accessibility1)
             }
@@ -139,7 +139,7 @@ private struct ReadingScans: View {
     }
 }
 
-/// The tune's lyrics on the ground at the size the musician keeps for the lyrics reader.
+/// The tune's lyrics on the practice background at the size the musician keeps for the lyrics reader.
 private struct ReadingLyrics: View {
     let lyrics: String
 

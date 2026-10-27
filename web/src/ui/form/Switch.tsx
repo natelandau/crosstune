@@ -30,7 +30,7 @@ export function Switch({
         <span className="flex min-w-0 shrink flex-col py-2">
           {label}
           {/* Kept out of the name; aria-describedby still reads it. */}
-          <span id={descriptionId} aria-hidden className="t-secondary text-ink-2">
+          <span id={descriptionId} aria-hidden className="t-secondary text-secondary">
             {description}
           </span>
         </span>
@@ -39,7 +39,7 @@ export function Switch({
         // holds a wrap off the row's edges, at either density.
         <span className="min-w-0 shrink py-[calc((var(--target)-1lh)/2)]">{label}</span>
       )}
-      {/* Off, a track dark enough to contrast with the ground; on, a thumb holding a check.
+      {/* Off, a track dark enough to contrast with the page; on, a thumb holding a check.
           The pairs are measured in tokens.test.ts. */}
       <span aria-hidden className="switch-track">
         <span className="switch-thumb">

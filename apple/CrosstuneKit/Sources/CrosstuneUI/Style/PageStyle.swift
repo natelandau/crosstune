@@ -37,7 +37,7 @@ enum PageStyle {
         static let pinsSheetActions = false
         /// A tune page's section, heading and controls included, keeps a readable measure.
         static let sectionMaxWidth = MacStyle.pageRowMaxWidth
-        /// An attribute row on the tune page, a list row's height with a list row's rounded wash.
+        /// An attribute row on the tune page, a list row's height with a list row's rounded tint.
         static let attributeRowHeight = MacStyle.rowHeight
         static let attributeRowRadius = MacStyle.rowRadius
         /// A surface on the page: a card, the notes field, or the start card's outline.

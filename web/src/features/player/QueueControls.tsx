@@ -23,7 +23,7 @@ interface Control {
 
 /**
  * Shuffle, Previous tune, Next tune, and Repeat for the list that plays: on the dock, or on
- * jet in full-screen practice. Nothing shows while no list plays or one has stopped.
+ * practice's background in full-screen practice. Nothing shows while no list plays or one has stopped.
  */
 export function QueueControls({ tone }: { tone: 'dock' | 'practice' }) {
   const playback = useListPlayback()
@@ -73,7 +73,7 @@ export function QueueControls({ tone }: { tone: 'dock' | 'practice' }) {
             data-focus-key={id}
             icon={icon}
             label={label}
-            iconClassName={`size-6 ${pressed === false ? 'text-(--panel-muted)' : ''}`}
+            iconClassName={`size-6 ${pressed === false ? 'text-on-practice-secondary' : ''}`}
             aria-pressed={pressed}
             onPress={onPress}
           />

@@ -643,7 +643,7 @@ it('scrolls from the edge a bar over the list leaves uncovered', async () => {
       <div data-testid="scroller" className="h-72 overflow-y-auto pb-24">
         <Tunes onReorder={onReorder} tunes={TWELVE} frames={frames} />
       </div>
-      <div data-testid="bar" className="bg-ground fixed inset-x-0 top-48 h-24" />
+      <div data-testid="bar" className="bg-page fixed inset-x-0 top-48 h-24" />
     </>,
     { density: 'touch' },
   )
@@ -668,7 +668,7 @@ it('scrolls nowhere while a bar covers nearly all of the list', async () => {
       <div data-testid="scroller" className="h-72 overflow-y-auto">
         <Tunes onReorder={vi.fn()} tunes={TWELVE} frames={frames} />
       </div>
-      <div data-testid="overlay" className="bg-ground fixed inset-x-0 top-0 h-56" />
+      <div data-testid="overlay" className="bg-page fixed inset-x-0 top-0 h-56" />
     </>,
     { density: 'touch' },
   )

@@ -41,7 +41,7 @@ extension View {
         claimsShellAsSheet()
             #if os(iOS)
                 .modifier(FormSizing())
-                .presentationBackground(Palette.ground)
+                .presentationBackground(Palette.pageBackground)
             #endif
     }
 
@@ -50,7 +50,7 @@ extension View {
         presentationDetents([.medium, .large])
             .claimsShellAsSheet()
             #if os(iOS)
-                .presentationBackground(Palette.ground)
+                .presentationBackground(Palette.pageBackground)
             #endif
     }
 
@@ -59,13 +59,13 @@ extension View {
         // the bar is whole when the sheet clears it.
         modifier(Covers(cover: \.recordCover, isCovering: true, endsAsDismissed: true))
             .modifier(Covers(cover: \.openSheets, isCovering: true))
-            // A sheet takes its presenter's environment, so one opened from a card or a washed or
+            // A sheet takes its presenter's environment, so one opened from a card or a tinted or
             // selected row would draw its controls, chips, and rings for that card or row.
-            .environment(\.onPaperCard, false)
+            .environment(\.onGroupedSurface, false)
             .environment(\.statusRingOnFill, false)
             #if os(macOS)
                 .environment(\.macRowSelected, false)
-                .environment(\.macContainer, .ground)
+                .environment(\.macContainer, .pageBackground)
             #endif
     }
 

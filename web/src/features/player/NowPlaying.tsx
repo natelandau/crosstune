@@ -36,7 +36,7 @@ let leaving: HTMLElement | null = null
 /**
  * Leaves an inert copy of the closing bar where it was and slides the bar down out of its box,
  * so it leaves the way it came. A copy, because the bar's own tree holds the transport, which
- * must stop the moment the player closes. The copy is of the whole slot, ground and all, pinned
+ * must stop the moment the player closes. The copy is of the whole slot, background and all, pinned
  * over the slot's place on the page, since the slot leaves the page with the bar.
  */
 function slideOut(section: HTMLElement) {
@@ -160,7 +160,7 @@ function BarFrame({
       ref={ref}
       aria-label={PLAYER_REGION}
       // Clipped, so the bar rises out of its own box rather than over the tab bar. The slot
-      // paints the ground, which differs between the docked bar and the phone's floating card.
+      // paints the background, which differs between the docked bar and the phone's floating card.
       className="overflow-hidden"
     >
       <motion.div initial={{ y: '100%' }} animate={{ y: 0 }}>

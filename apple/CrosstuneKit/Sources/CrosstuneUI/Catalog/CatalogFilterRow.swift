@@ -137,7 +137,7 @@ struct CatalogFilterRow: View {
             ForEach(errors, id: \.self) { error in
                 Text(error)
                     .font(PageStyle.secondary)
-                    .foregroundStyle(.red)
+                    .foregroundStyle(Palette.danger)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -229,7 +229,7 @@ private struct PullDownLabel: View {
             Text(text)
             Image(systemName: "chevron.down")
                 .font(PageStyle.pullDownChevron)
-                .foregroundStyle(.inkSecondary)
+                .foregroundStyle(.textSecondary)
         }
     }
 }
@@ -301,12 +301,12 @@ struct FilterControlStyle: ButtonStyle {
         }
 
         private var foreground: AnyShapeStyle {
-            if !isEnabled { return .inkTertiary }
-            return isSet ? AnyShapeStyle(BrandStyle.setLabel(colorScheme)) : AnyShapeStyle(.primary)
+            if !isEnabled { return .textSecondary }
+            return isSet ? AnyShapeStyle(Palette.onTint(colorScheme)) : AnyShapeStyle(.textPrimary)
         }
 
         private var fill: AnyShapeStyle {
-            isSet ? AnyShapeStyle(BrandStyle.setFill(colorScheme)) : AnyShapeStyle(.neutralFill)
+            isSet ? AnyShapeStyle(Palette.tint(colorScheme)) : AnyShapeStyle(.neutralFill)
         }
     }
 #endif

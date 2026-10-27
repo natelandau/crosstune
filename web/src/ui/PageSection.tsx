@@ -2,7 +2,7 @@ import { ChevronRight, Plus, type LucideIcon } from 'lucide-react'
 import { useId, type ReactNode } from 'react'
 import { Button as AriaButton } from 'react-aria-components'
 import { Button } from './Button'
-import { WASH_HOVER } from './press'
+import { TINT_HOVER } from './press'
 import { InSectionHeading } from './sectionHeading'
 import { HeadingLevelContext } from './headingLevel'
 
@@ -43,11 +43,11 @@ export function PageSection({
             <AriaButton
               aria-expanded={open}
               onPress={() => onOpenChange?.(!open)}
-              className={`-mx-2 flex min-h-(--target) items-center gap-1 rounded-(--radius-row) px-2 ${WASH_HOVER}`}
+              className={`-mx-2 flex min-h-(--target) items-center gap-1 rounded-(--radius-row) px-2 ${TINT_HOVER}`}
             >
               {title}
               <ChevronRight
-                className={`text-ink-2 size-4 transition-transform duration-(--dur-short) ease-(--ease) ${open ? 'rotate-90' : ''}`}
+                className={`text-secondary size-4 transition-transform duration-(--dur-short) ease-(--ease) ${open ? 'rotate-90' : ''}`}
                 aria-hidden
               />
             </AriaButton>

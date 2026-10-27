@@ -186,7 +186,7 @@ export function useTuneScans(tuneId: string): TuneScansParts {
           {SUBSCRIBE_TO_OPEN}
         </span>
       )}
-      {full && <p className="t-secondary text-ink-2 pt-2">{SCAN_LIMIT_NOTE}</p>}
+      {full && <p className="t-secondary text-secondary pt-2">{SCAN_LIMIT_NOTE}</p>}
     </>
   )
 

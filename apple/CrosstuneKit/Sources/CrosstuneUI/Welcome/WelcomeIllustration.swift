@@ -98,7 +98,7 @@ struct WelcomeIllustration: View {
             if !entry.text.isEmpty {
                 Text(entry.text)
                     .strikethrough(entry.struck, color: Self.clay)
-                    .foregroundStyle(.inkSecondary)
+                    .foregroundStyle(.textSecondary)
             }
             if let note = entry.note {
                 Text(note).foregroundStyle(Self.clay)
@@ -170,7 +170,7 @@ struct WelcomeIllustration: View {
 
     private func dotColor(_ status: String) -> Color {
         if case .filled(let color) = StatusStyle.dot(status) { return color }
-        return Palette.inkSecondary
+        return Palette.textSecondary
     }
 }
 

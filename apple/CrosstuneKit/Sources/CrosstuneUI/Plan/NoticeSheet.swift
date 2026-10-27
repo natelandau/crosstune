@@ -216,7 +216,7 @@ struct NoticeSheet: View {
                 if let message = Self.firstRecordingBody(endsAt: endsAt) {
                     Text(message)
                         .font(MacStyle.body)
-                        .foregroundStyle(Palette.ink)
+                        .foregroundStyle(Palette.textPrimary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -241,7 +241,7 @@ struct NoticeSheet: View {
                         ForEach(Self.loses, id: \.self) { lose in
                             HStack(alignment: .firstTextBaseline, spacing: 8) {
                                 Image(systemName: "xmark")
-                                    .foregroundStyle(Palette.inkSecondary)
+                                    .foregroundStyle(Palette.textSecondary)
                                     .accessibilityHidden(true)
                                 Text(lose)
                             }
@@ -256,7 +256,7 @@ struct NoticeSheet: View {
                     }
                 }
                 .font(MacStyle.body)
-                .foregroundStyle(Palette.ink)
+                .foregroundStyle(Palette.textPrimary)
                 .fixedSize(horizontal: false, vertical: true)
             }
             .task(id: PlanSheet.OfferAsk(sells: sells, offline: purchase?.isOffline)) {
@@ -332,7 +332,7 @@ struct NoticeSheet: View {
                             heading(Self.title(notice, endsAt: endsAt))
                             if let daysLeft = Self.subtitle(notice, endsAt: endsAt, now: now ?? Date()) {
                                 Text(daysLeft)
-                                    .foregroundStyle(.inkSecondary)
+                                    .foregroundStyle(.textSecondary)
                             }
                         }
                         VStack(alignment: .leading, spacing: 8) {
@@ -340,7 +340,7 @@ struct NoticeSheet: View {
                                 Label {
                                     Text(lose).fixedSize(horizontal: false, vertical: true)
                                 } icon: {
-                                    Image(systemName: "xmark").foregroundStyle(.inkSecondary)
+                                    Image(systemName: "xmark").foregroundStyle(.textSecondary)
                                 }
                             }
                         }

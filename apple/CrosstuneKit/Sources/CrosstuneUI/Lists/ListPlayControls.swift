@@ -79,7 +79,7 @@ struct ListPlayControls: View {
             Button(action: offer.onWhatPlays) {
                 Text(ListPlayText.line(for: offer.report))
                     .font(.platform(.footnote))
-                    .foregroundStyle(.inkSecondary)
+                    .foregroundStyle(.textSecondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .frame(minHeight: minimumTapTarget, alignment: .leading)
                     .contentShape(.rect)

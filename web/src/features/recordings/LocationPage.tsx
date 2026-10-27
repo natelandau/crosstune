@@ -66,7 +66,9 @@ export function LocationPage({
             <div className="flex min-h-(--target) flex-col justify-center px-4 py-2">
               <span className="t-body ph-no-capture">{edit.place.name}</span>
               {edit.placeAddress && (
-                <span className="t-secondary text-ink-2 ph-no-capture">{edit.placeAddress}</span>
+                <span className="t-secondary text-secondary ph-no-capture">
+                  {edit.placeAddress}
+                </span>
               )}
             </div>
           )}
@@ -77,7 +79,7 @@ export function LocationPage({
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => analytics.send('location_opened_in_maps', {})}
-              className={`${FIELD_ROW_PRESSABLE} text-ink font-medium`}
+              className={`${FIELD_ROW_PRESSABLE} text-primary font-medium`}
             >
               <span className="min-w-0 flex-1">{OPEN_IN_MAPS}</span>
               <ArrowUpRight className="size-4 shrink-0" aria-hidden />
@@ -138,7 +140,7 @@ export function LocationPage({
         settleMs={settleMs}
         onPick={(result) => pick(() => edit.pickSearch(result))()}
       />
-      {locationOff && <p className="t-secondary text-ink-2 px-4 pt-6">{LOCATION_ACCESS_OFF}</p>}
+      {locationOff && <p className="t-secondary text-secondary px-4 pt-6">{LOCATION_ACCESS_OFF}</p>}
     </div>
   )
 }

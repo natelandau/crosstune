@@ -42,9 +42,11 @@ function LocationItem({ row }: { row: SavedLocationRow }) {
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="ph-no-capture truncate">{place.name}</span>
         {place.address && (
-          <span className="t-secondary text-ink-2 ph-no-capture truncate">{place.address}</span>
+          <span className="t-secondary text-secondary ph-no-capture truncate">{place.address}</span>
         )}
-        <span className="t-secondary text-ink-2">{savedLocationRecordings(row.recordings)}</span>
+        <span className="t-secondary text-secondary">
+          {savedLocationRecordings(row.recordings)}
+        </span>
       </span>
     </Link>
   )
@@ -61,7 +63,9 @@ export function SavedLocationsGroup() {
   return (
     <Group id={SETTINGS_GROUPS.savedLocations} header={SAVED_LOCATIONS} help={SAVED_LOCATIONS_HELP}>
       {rows.length === 0 ? (
-        <p className="t-body text-ink-2 min-h-(--target) px-4 py-3">{SAVED_LOCATIONS_EMPTY_HINT}</p>
+        <p className="t-body text-secondary min-h-(--target) px-4 py-3">
+          {SAVED_LOCATIONS_EMPTY_HINT}
+        </p>
       ) : (
         rows.map((row) => <LocationItem key={row.place.id} row={row} />)
       )}

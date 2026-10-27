@@ -24,13 +24,13 @@ const STATUS_ROWS: TuneStatus[] = ['known', 'learning', 'want_to_learn']
 
 const ROW = `t-body flex min-h-(--target) w-full items-center gap-3 rounded-(--radius-row) px-3 text-start ${ROW_PRESS}`
 
-// A selected row keeps its wash under the pointer.
-const rowTone = (selected: boolean) => (selected ? 'bg-wash! text-ink' : 'text-ink')
-const glyphTone = (selected: boolean) => (selected ? 'text-coral' : 'text-ink-2')
+// A selected row keeps its tint under the pointer.
+const rowTone = (selected: boolean) => (selected ? 'bg-tint! text-primary' : 'text-primary')
+const glyphTone = (selected: boolean) => (selected ? 'text-brand' : 'text-secondary')
 
 /**
  * The digits are decoration; the row's description says the same in words, so the row's name
- * stays its label. Ink-2 on the selected wash falls short of 4.5:1, so a selected count is ink.
+ * stays its label. Secondary text on the selected tint falls short of 4.5:1, so a selected count is primary text.
  */
 function Count({
   id,
@@ -47,7 +47,7 @@ function Count({
       <span
         aria-hidden
         data-count
-        className={`t-caption t-num ms-auto ${selected ? 'text-ink' : 'text-ink-2'}`}
+        className={`t-caption t-num ms-auto ${selected ? 'text-primary' : 'text-secondary'}`}
       >
         {value}
       </span>
@@ -152,14 +152,14 @@ export function Sidebar() {
       </div>
       <section aria-labelledby={`${base}-lists`} className="flex flex-col gap-0.5">
         <div
-          className={`flex items-center justify-between rounded-(--radius-row) ps-3 ${listsSelected ? 'bg-wash' : ''}`}
+          className={`flex items-center justify-between rounded-(--radius-row) ps-3 ${listsSelected ? 'bg-tint' : ''}`}
         >
           <h2 id={`${base}-lists`} className="min-w-0 flex-1">
             <DestinationLink
               to="lists"
               href={destination('lists').root}
               current={listsSelected}
-              className={`t-caption flex min-h-(--target) items-center ${listsSelected ? 'text-ink' : 'text-ink-2'}`}
+              className={`t-caption flex min-h-(--target) items-center ${listsSelected ? 'text-primary' : 'text-secondary'}`}
             >
               {destination('lists').label}
             </DestinationLink>

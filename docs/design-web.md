@@ -13,26 +13,35 @@ folder. Compose it, never rebuild it.
 ## Tokens
 
 - Colors: `web/src/theme/tokens.css`, mirrored in `tokens.ts` so tests
-  measure contrast. Change both together.
-- Color tokens take the roles of Apple's `Palette`, under its names where
-  one exists (`--accent`, `--accent-fill`, `--ground`, `--surface`,
-  `--field`, `--mark-ink`). `--ink-2` is `inkSecondary`.
+  measure contrast. Change both together. Primitives, then roles, then
+  component tokens, as `design.md` sets out.
+- Each role registers in the Tailwind namespace of the property it
+  styles, so a class reads as its role and never doubles:
+  `--text-color-primary` gives `text-primary`, `--background-color-page`
+  gives `bg-page`, `--border-color-default` gives `border-default`. A
+  role several properties use stays in `--color-*` (`bg-accent`,
+  `text-accent`).
+- A role that mixes another (a tint, a hover) is computed where it is
+  declared. A scope that redeclares the base redeclares the mix too, or
+  the mix keeps the root's value.
 - `bg-surface` is the one way to paint a surface, and a test holds every
-  view to it. Inside it, `--field` becomes `--raised` and a `bg-field`
-  control takes the `--control-edge` hairline.
-- A plain `Button` with words takes `--accent`, and so does a plain glyph
+  view to it. Inside it, `--field` becomes `--surface-raised` and a
+  `bg-field` control takes the `--field-border` edge.
+- A plain `Button` with words takes `accent`, and so does a plain glyph
   button in a `PageSection` heading. A plain glyph button elsewhere stays
-  `--ink`.
+  `text-primary`.
+- Literal colors outside the token files: only the browser's
+  `theme-color` meta and the PWA manifest, which load before any CSS.
 - Type: `web/src/theme/type.css`, one `t-*` class per role, defined once
   for touch and a step smaller for pointer.
 - Radii, shadows, targets, timing: `web/src/theme/shape.css`.
 - A screen never types a color, text size, radius, or row height.
-- Jet: tooltips only, in each appearance's own jet. Practice, trim, and
-  the tuner draw on `--jet-dark` in either appearance. Never the app
-  ground. Practice's colors come from `web/src/theme/practiceTheme.css`,
-  and a shared control drawn on jet takes its tokens from there.
-- No tertiary ink. Text quieter than secondary is `t-caption` in
-  `--ink-2`, never `--ink-2` faded, which falls under 4.5:1.
+- Practice, trim, and the tuner draw on `practice-background` in either
+  appearance, never the page.
+  `practiceTheme.css` gives the roles on it their dark-scheme values, and
+  a shared control drawn there takes its tokens from it.
+- Text quieter than secondary is `t-caption` in `text-secondary`, never
+  `text-secondary` faded or `text-tertiary`, which fall under 4.5:1.
 - Geist is the one face, self-hosted so the service worker caches it.
 - Sizes in rem, so the text size setting scales every role. Page width
   caps in px, so it scales type, not the column.
@@ -170,7 +179,7 @@ folder. Compose it, never rebuild it.
 - A list's rows move when a change adds, removes, or reorders them. First
   paint and a resize move nothing. A list and the empty state that
   replaces it fade into each other, never on load.
-- A touch row's press wash waits a beat, so a finger that scrolls never
+- A touch row's press tint waits a beat, so a finger that scrolls never
   flashes it.
 
 ## Keyboard
@@ -194,7 +203,7 @@ folder. Compose it, never rebuild it.
 - Headings never skip a level. A page's title is h1, a sheet's or section's
   h2. A heading under one takes `useSubheadingLevel` from
   `web/src/ui/headingLevel.ts`.
-- Contrast also holds on jet.
+- Contrast also holds on `practice-background`.
 - Forced colors: a glyph whose meaning is a fill paints in system colors.
 
 ## Framework limits

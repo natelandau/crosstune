@@ -172,7 +172,7 @@ it('card shows the main attributes, then More details reveals the rest', async (
 const bottomRounded = (name: string) =>
   parseFloat(getComputedStyle(row(name).element()).borderBottomLeftRadius) > 0
 
-it('the attributes column sits on the page ground, with rounded rows and labels in secondary ink', async () => {
+it('the attributes column sits on the page, with rounded rows and labels in secondary text', async () => {
   await setup('column')
   const column = page.getByRole('complementary', { name: ATTRIBUTES_LABEL })
   await expect.element(column).toBeVisible()
@@ -184,8 +184,12 @@ it('the attributes column sits on the page ground, with rounded rows and labels 
     .poll(() => parseFloat(getComputedStyle(status.element()).borderTopLeftRadius))
     .toBeGreaterThan(0)
   const [label, value] = [...status.element().children] as HTMLElement[]
-  await expect.poll(() => getComputedStyle(label!).color).toBe(computedColor('var(--color-ink-2)'))
-  await expect.poll(() => getComputedStyle(value!).color).toBe(computedColor('var(--color-ink)'))
+  await expect
+    .poll(() => getComputedStyle(label!).color)
+    .toBe(computedColor('var(--text-secondary)'))
+  await expect
+    .poll(() => getComputedStyle(value!).color)
+    .toBe(computedColor('var(--color-text-primary)'))
 })
 
 it('the attributes column heads its groups in order and ends with the day the tune joined the catalog', async () => {

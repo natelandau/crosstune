@@ -63,22 +63,22 @@ public struct UndoBanner: View {
     }
 
     #if os(macOS)
-        /// Ink with the ground's color for its words, fitted to them, so it reads as a passing
-        /// notice over either appearance's column.
+        /// The primary text color, with the page background's color for its words, fitted to
+        /// them, so it reads as a passing notice over either appearance's column.
         private var macBody: some View {
             HStack(spacing: 16) {
                 // Messages name lists and tunes.
                 Text(message)
                     .contentMask()
                     .font(MacStyle.body)
-                    .foregroundStyle(Palette.ground)
+                    .foregroundStyle(Palette.onInverseSurface)
                     .lineLimit(1)
                     .truncationMode(.middle)
                 if let onUndo {
                     Button(action: onUndo) {
                         Text(Self.undo)
                             .font(MacStyle.body.weight(.semibold))
-                            .foregroundStyle(MacStyle.undoAction)
+                            .foregroundStyle(Palette.inverseAccent)
                             .frame(maxHeight: .infinity)
                             .contentShape(.rect)
                     }
@@ -87,8 +87,8 @@ public struct UndoBanner: View {
             }
             .padding(.horizontal, 16)
             .frame(height: MacStyle.undoBannerHeight)
-            .background(Palette.ink, in: .rect(cornerRadius: 10))
-            .shadow(color: .black.opacity(0.18), radius: 10, y: 3)
+            .background(Palette.inverseSurface, in: .rect(cornerRadius: 10))
+            .elevation(.float)
             .frame(maxWidth: 480)
         }
     #else

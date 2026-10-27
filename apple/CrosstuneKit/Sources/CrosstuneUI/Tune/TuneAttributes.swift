@@ -1,14 +1,15 @@
 import CrosstuneStore
 import SwiftUI
 
-/// Where the tune page's attributes sit: a column beside the content, or a card under the action button row.
+/// Where the tune page's attributes sit: a column beside the content, or a card under the action
+/// button row.
 enum AttributesLayout: Equatable, Sendable {
     case column
     case card
 }
 
-/// Which attribute row's editor is open. A key names the tune and the layout too, so a row on another
-/// tune, or the same attribute drawn in the other layout, never takes the editor.
+/// Which attribute row's editor is open. A key names the tune and the layout too, so a row on
+/// another tune, or the same attribute drawn in the other layout, never takes the editor.
 struct AttributesOpenState: Equatable {
     struct Key: Equatable {
         let tuneID: String
@@ -37,7 +38,7 @@ struct AttributesOpenState: Equatable {
     }
 }
 
-/// The tune's attributes, each a row that edits in place. As a column they sit on the ground behind a
+/// The tune's attributes, each a row that edits in place. As a column they sit on the page background behind a
 /// hairline in headed groups, label and value in columns, then the lists the tune is in and the
 /// day it was added; as a card they show the main attributes and open the rest under More details,
 /// and the page ends with the lists instead.
@@ -66,8 +67,8 @@ struct TuneAttributes: View {
         self.onAddToList = onAddToList
     }
 
-    /// The column needs its own width beside a readable content column; narrower, the attributes fold
-    /// into a card.
+    /// The column needs its own width beside a readable content column; narrower, the attributes
+    /// fold into a card.
     nonisolated static func layout(forDetailWidth width: CGFloat) -> AttributesLayout {
         width >= PageStyle.attributesColumnWidth + PageStyle.contentMinWidth ? .column : .card
     }
@@ -186,7 +187,7 @@ struct TuneAttributes: View {
         .frame(width: PageStyle.attributesColumnWidth, alignment: .leading)
         .modifier(PinsWhileScrolling(top: pinnedTop))
         .overlay(alignment: .leading) {
-            Rectangle().fill(Palette.hairline).frame(width: 1)
+            Rectangle().fill(Palette.border).frame(width: 1)
         }
     }
 
@@ -199,11 +200,11 @@ struct TuneAttributes: View {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Text(row.label)
                         .font(PageStyle.secondary)
-                        .foregroundStyle(.inkSecondary)
+                        .foregroundStyle(.textSecondary)
                         .frame(width: columnLabelWidth, alignment: .leading)
                     Text(Self.value(row))
                         .contentMask()
-                        .foregroundStyle(row.text == nil ? .inkTertiary : AnyShapeStyle(.primary))
+                        .foregroundStyle(row.text == nil ? .textSecondary : AnyShapeStyle(.textPrimary))
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .fixedSize(horizontal: false, vertical: true)
@@ -230,7 +231,7 @@ struct TuneAttributes: View {
     private func value(_ row: AttributeRow) -> some View {
         Text(Self.value(row))
             .contentMask()
-            .foregroundStyle(row.text == nil ? .inkTertiary : AnyShapeStyle(.primary))
+            .foregroundStyle(row.text == nil ? .textSecondary : AnyShapeStyle(.textPrimary))
             .lineLimit(1)
     }
 
@@ -243,7 +244,8 @@ struct TuneAttributes: View {
         }
     }
 
-    /// Why the last attribute write was refused: under the column's rows, or under the card's first group.
+    /// Why the last attribute write was refused: under the column's rows, or under the card's first
+    /// group.
     @ViewBuilder private var failure: some View {
         if let failure = model.failure(at: .attributes) {
             FailureText(failure)
@@ -291,11 +293,11 @@ struct AddedOn: View {
     var body: some View {
         VStack(alignment: .leading, spacing: PageStyle.headingGap) {
             if endsPage {
-                Rectangle().fill(Palette.hairline).frame(height: 1)
+                Rectangle().fill(Palette.border).frame(height: 1)
             }
             Text(AttributeCopy.addedOn(detail.tune.createdAt.date, locale: locale, timeZone: timeZone))
                 .font(.platform(.caption))
-                .foregroundStyle(.inkSecondary)
+                .foregroundStyle(.textSecondary)
         }
     }
 }
@@ -352,7 +354,7 @@ private struct AttributesCard<Row: View, Failure: View>: View {
                 Spacer(minLength: 0)
                 Image(systemName: "chevron.down")
                     .font(PageStyle.secondary.weight(.semibold))
-                    .foregroundStyle(.inkSecondary)
+                    .foregroundStyle(.textSecondary)
                     .rotationEffect(.degrees(expanded ? 180 : 0))
                     .accessibilityHidden(true)
             }
@@ -362,8 +364,8 @@ private struct AttributesCard<Row: View, Failure: View>: View {
     }
 }
 
-/// A group's heading in the attributes, quiet over its rows: in the column a small header in tertiary
-/// ink, on the card the Learned group's label in secondary ink.
+/// A group's heading in the attributes, quiet over its rows: in the column a small header in
+/// tertiary text, on the card the Learned group's label in secondary text.
 private struct AttributesHeading: View {
     let title: String
     let inset: CGFloat
@@ -378,7 +380,7 @@ private struct AttributesHeading: View {
     var body: some View {
         Text(title)
             .font(column ? PageStyle.secondary.weight(.medium) : PageStyle.secondary)
-            .foregroundStyle(column ? .inkTertiary : .inkSecondary)
+            .foregroundStyle(column ? .textSecondary : .textSecondary)
             .accessibilityAddTraits(.isHeader)
             .padding(.horizontal, inset)
     }
@@ -395,7 +397,7 @@ private struct AttributesGroup<Content: View>: View {
                 ForEach(subviews) { subview in
                     if subview.id != subviews.first?.id {
                         Rectangle()
-                            .fill(Palette.hairline)
+                            .fill(Palette.border)
                             .frame(height: 1)
                             .padding(.leading, PageStyle.attributesCardInset)
                     }
@@ -408,9 +410,9 @@ private struct AttributesGroup<Content: View>: View {
     }
 }
 
-/// An attribute row: label leading, value trailing, and a wash under the pointer or the press. A
-/// column row is inset, so its wash reads as a rounded shape on the open ground; a card row fills the
-/// card's width.
+/// An attribute row: label leading, value trailing, and a tint under the pointer or the press. A
+/// column row is inset, so its tint reads as a rounded shape on the open page background; a card
+/// row fills the card's width.
 private struct AttributeRowStyle: ButtonStyle {
     let column: Bool
 
@@ -458,14 +460,14 @@ private struct AddToListStyle: ButtonStyle {
         var body: some View {
             configuration.label
                 .font(PageStyle.secondary)
-                .foregroundStyle(.inkSecondary)
+                .foregroundStyle(.textSecondary)
                 .lineLimit(1)
                 .padding(.horizontal, 10)
                 .frame(minHeight: PageStyle.smallControlHeight)
                 // A resting fill like a list token's, so touch reads it as a control beside them.
                 .background(.neutralFill, in: .capsule)
                 .overlay {
-                    if isHovered || configuration.isPressed { Capsule().fill(Color.primary.opacity(0.06)) }
+                    if isHovered || configuration.isPressed { Capsule().fill(Palette.hoverOverlay) }
                 }
                 .contentShape(.capsule)
                 .onHover { isHovered = $0 }

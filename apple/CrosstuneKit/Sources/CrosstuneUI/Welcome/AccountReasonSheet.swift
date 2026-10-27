@@ -21,7 +21,7 @@ struct AccountReasonSheet: View {
                     }
                 }
                 .font(MacStyle.body)
-                .foregroundStyle(Palette.ink)
+                .foregroundStyle(Palette.textPrimary)
                 .fixedSize(horizontal: false, vertical: true)
             }
             .shellSheet()

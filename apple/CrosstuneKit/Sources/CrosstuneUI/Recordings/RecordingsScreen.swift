@@ -41,9 +41,9 @@ struct RecordingsGroupHeading: View {
         Text(title)
             .font(PageStyle.sectionHeading)
             #if os(macOS)
-                .foregroundStyle(Palette.ink)
+                .foregroundStyle(Palette.textPrimary)
             #else
-                .foregroundStyle(.primary)
+                .foregroundStyle(.textPrimary)
             #endif
             .textCase(nil)
             .padding(.top, PageStyle.groupHeadingTop)
@@ -159,8 +159,8 @@ private struct RecordingsContent: View {
         }
         #if os(iOS)
             .listStyle(.plain)
-            .paperGround()
-            .listSelectionTint()
+            .pageBackground()
+            .accentSelectionTint()
         #endif
         .overlay {
             Group {
@@ -187,7 +187,7 @@ private struct RecordingsContent: View {
             if let failure = model.failure {
                 Text(failure)
                     .font(.platform(.footnote))
-                    .foregroundStyle(.red)
+                    .foregroundStyle(Palette.danger)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 20)
                     .padding(.vertical, spacing.stackGap)
@@ -436,7 +436,7 @@ private struct RecordingsContent: View {
                 if blocksPlay(rows) {
                     Text(MediaText.stopRecordingToPlay)
                         .font(MacStyle.secondary)
-                        .foregroundStyle(Palette.inkSecondary)
+                        .foregroundStyle(Palette.textSecondary)
                 }
             }
             .headerInsets()
@@ -526,7 +526,7 @@ private struct RecordingsContent: View {
         }
         .newRecordingHighlight(view.id)
         .mediaRowInsets()
-        .unselectedRowGround(isSelected: openRecording?.wrappedValue == view.id)
+        .unselectedRowBackground(isSelected: openRecording?.wrappedValue == view.id)
         #if os(macOS)
             .macRowSelected(openRecording?.wrappedValue == view.id)
         #endif
@@ -565,11 +565,11 @@ private struct RecordingsContent: View {
             }
             #if os(macOS)
                 .font(MacStyle.secondary.weight(.semibold))
-                .foregroundStyle(.inkSecondary)
+                .foregroundStyle(.textSecondary)
                 .frame(minHeight: MacStyle.smallControlHeight)
             #else
                 .font(.footnote.bold())
-                .foregroundStyle(.inkSecondary)
+                .foregroundStyle(.textSecondary)
                 .frame(minHeight: minimumTapTarget)
             #endif
             .contentShape(.rect)
@@ -604,8 +604,8 @@ private struct RecordingsContent: View {
             actionLabel: row.actionLabel, action: { discarding = capture }
         )
         .mediaRowInsets()
-        .unselectedRowGround(isSelected: false)
-        .swipeActions(edge: .trailing, allowsFullSwipe: false) { discard }
+        .unselectedRowBackground(isSelected: false)
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) { discard.tint(Palette.dangerFillStrong) }
         .contextMenu { discard }
     }
 

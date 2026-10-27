@@ -54,7 +54,7 @@
         }
     }
 
-    /// The play line's look: secondary ink, ink under the pointer.
+    /// The play line's look: secondary text, primary text under the pointer.
     private struct WhatPlaysLineStyle: ButtonStyle {
         func makeBody(configuration: Configuration) -> some View {
             WhatPlaysLineBody(configuration: configuration)
@@ -68,7 +68,7 @@
 
         var body: some View {
             configuration.label
-                .foregroundStyle(isHovered ? Palette.ink : Palette.inkSecondary)
+                .foregroundStyle(isHovered ? Palette.textPrimary : Palette.textSecondary)
                 .opacity(configuration.isPressed ? 0.6 : 1)
                 .onHover { isHovered = $0 }
         }

@@ -12,24 +12,29 @@ there where they differ. Regular-width iPad reads this page, then
 
 | Token set    | Holds                                                                                     |
 | ------------ | ----------------------------------------------------------------------------------------- |
-| `Palette`    | Harbor and paper colors every Apple platform shares                                       |
-| `BrandStyle` | Coral, its ink, and the washes, read from `Palette`                                       |
+| `Primitive`  | Raw color values, named by hue and step. Only `Style/` names one                          |
+| `Palette`    | Every color role every Apple platform shares, and the data colors (`DataPalette.swift`)   |
+| `Elevation`  | Shadows: `.float`, `.control`, matching the web's                                         |
 | `PageStyle`  | What a shared view draws with, resolved per platform: text styles, sizes, drawing choices |
-| `PhoneStyle` | Practice ground, tuner colors (Mac too); iPhone and iPad waveform, touch sizes, timing    |
+| `PhoneStyle` | iPhone and iPad waveform, touch sizes, timing                                             |
 
-- A view never types a color, text size, or row height.
+- A view never types a color, text size, or row height. Outside `Style/`
+  it names a `Palette` role, never a system color or style, `Color(…)`,
+  or a color's `.opacity`. `PaletteRoleTests` enforces it; its allowlist
+  names each exception.
 - A value that differs by platform is a `PageStyle` value, never an
   `#if os` branch in a shared view's body.
-- A list or vertical scroll root draws `paperGround()`, never the system's
+- A list or vertical scroll root draws `pageBackground()`, never the system's
   white or black. System bars, the tab bar, and the iPad sidebar keep
   their system materials.
-- A grouped form is a `PaperForm`, never a raw grouped `Form` or a system
-  grouped fill. Light draws a `surface` page with `ground` cards, dark the
-  reverse, so a card always contrasts with the page. A test enforces both.
-- A switch outside a `PaperForm`, which sets it, takes
-  `.toggleStyle(.harborSwitch)`.
+- A grouped form is a `GroupedForm`, never a raw grouped `Form` or a
+  system grouped fill. `groupedBackground` under `groupedSurface` cards:
+  `surface` under `pageBackground` in light, the reverse in dark, so a
+  card always contrasts with the page. A test enforces both.
+- A switch outside a `GroupedForm`, which sets it, takes
+  `.toggleStyle(.accentSwitch)`.
 - A chip with no color of its own fills with `.neutralFill`, which reads
-  its container. `PaperForm` marks its cards, and a sheet's root clears
+  its container. `GroupedForm` marks its cards, and a sheet's root clears
   the mark.
 - SF Pro text styles under Dynamic Type. Page title: large title bold.
   Section heading: title 3 semibold. Row title: regular.
@@ -60,8 +65,8 @@ there where they differ. Regular-width iPad reads this page, then
 - Search: the system search field, pinned under the title. Escape follows
   the system field, not the empty-first order in `design.md`.
 - The filter row is the list's first row and scrolls with it.
-- A row on the paper ground clears its row background
-  (`unselectedRowGround`). A selected row keeps the system fill.
+- A row on the page background clears its row background
+  (`unselectedRowBackground`). A selected row keeps the system fill.
 - Grouped lists take plain headings, never cards. A section header has no
   top padding; the space between sections separates groups.
 
@@ -73,7 +78,7 @@ there where they differ. Regular-width iPad reads this page, then
   a document page.
 - Open vocabulary: matching suggestions show as rows under the field while
   it has focus, at most six. A pick ends editing.
-- Settings category row: SF Symbol in secondary ink, name, value summary
+- Settings category row: SF Symbol in `textSecondary`, name, value summary
   where one exists. No colored tiles.
 - A page clears its failure footers on open, so an old failure never reads
   as new.
@@ -108,7 +113,11 @@ there where they differ. Regular-width iPad reads this page, then
 
 ## Accessibility
 
-- Contrast also holds for silver, white, and coral on the practice ground.
+- Contrast also holds for `onPracticeSecondary`, `onPractice`, and
+  `brand` on `practiceBackground`.
+- SwiftUI draws a swipe action's label white, so a warning action takes
+  `warningFillStrong` and a danger action `dangerFillStrong`, never the
+  lighter `warningFill` or `danger`.
 - Spacing scales with Dynamic Type. A control out of room wraps, never
   clips. Exception: a fixed-size tile, such as the key tile, caps its
   type at the default size and shows the Large Content Viewer.
@@ -120,7 +129,7 @@ SwiftUI and UIKit behavior that a new screen runs into.
 
 - Window or scene root carries `.tint(Palette.accent)`. UIKit-drawn
   pieces (list selection, focus rings, default buttons, alerts, menus)
-  ignore tint and take the `AccentColor` asset, which carries Harbor.
+  ignore tint and take the `AccentColor` asset, which carries the accent.
 - An accent-filled button takes `.accentProminent` or
   `.accentGlassProminent`, never a system prominent style, which fills
   with the tint instead of `accentFill`.

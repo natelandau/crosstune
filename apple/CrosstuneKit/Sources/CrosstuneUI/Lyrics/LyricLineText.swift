@@ -68,7 +68,7 @@ private func hangingIndentStyle(characterWidth: CGFloat, lineSpacing: CGFloat) -
                 attributes: [
                     .font: font,
                     // A text view draws attributed text without a color in black, unlike a label.
-                    .foregroundColor: UIColor.label,
+                    .foregroundColor: UIColor(Palette.textPrimary),
                     .paragraphStyle: hangingIndentStyle(characterWidth: characterWidth, lineSpacing: lineSpacing),
                 ])
             if let label = view as? UILabel {
@@ -107,7 +107,7 @@ private func hangingIndentStyle(characterWidth: CGFloat, lineSpacing: CGFloat) -
                 attributes: [
                     .font: font,
                     // Attributed text without a color draws in black, whatever the appearance.
-                    .foregroundColor: NSColor.labelColor,
+                    .foregroundColor: NSColor(Palette.textPrimary),
                     .paragraphStyle: hangingIndentStyle(characterWidth: characterWidth, lineSpacing: lineSpacing),
                 ])
         }

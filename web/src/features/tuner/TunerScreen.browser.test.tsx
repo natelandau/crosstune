@@ -272,29 +272,29 @@ const backgroundOf = (element: Element | null) =>
 const rgbOf = (hex: string) =>
   `rgb(${[1, 3, 5].map((i) => Number.parseInt(hex.slice(i, i + 2), 16)).join(', ')})`
 
-it('turns the bars and the wash green as the note nears in tune', async () => {
+it('turns the bars and the background green as the note nears in tune', async () => {
   const { fake } = await mount()
   await expect.poll(() => stage()?.dataset.status).toBe('listening')
-  const jet = getComputedStyle(tuner().element()).backgroundColor
+  const resting = getComputedStyle(tuner().element()).backgroundColor
 
   fake.play(toneThrough([[a4Plus(30), 0.6]]))
   await expect.poll(() => stage()?.dataset.inTuneFraction).toBe('0')
-  await expect.poll(() => backgroundOf(bar())).toBe(rgbOf(PALETTE.light.coral))
-  await expect.poll(() => getComputedStyle(tuner().element()).backgroundColor).toBe(jet)
+  await expect.poll(() => backgroundOf(bar())).toBe(rgbOf(PALETTE.light.brand))
+  await expect.poll(() => getComputedStyle(tuner().element()).backgroundColor).toBe(resting)
 
-  // Just outside the zone: the close step, and still no wash.
+  // Just outside the zone: the close step, and still the resting background.
   fake.play(toneThrough([[a4Plus(12.5), 0.6]]))
-  await expect.poll(() => backgroundOf(bar())).toBe(rgbOf(PALETTE.light.tuneClose))
+  await expect.poll(() => backgroundOf(bar())).toBe(rgbOf(PALETTE.light.tunerClose))
   expect(stage()?.dataset.inTuneFraction).toBe('0')
-  await expect.poll(() => getComputedStyle(tuner().element()).backgroundColor).toBe(jet)
+  await expect.poll(() => getComputedStyle(tuner().element()).backgroundColor).toBe(resting)
 
   fake.play(toneThrough([[a4Plus(0), 0.6]]))
   await expect.poll(() => stage()?.dataset.inTuneFraction).toBe('1')
-  await expect.poll(() => backgroundOf(bar())).toBe(rgbOf(PALETTE.dark.known))
-  await expect.poll(() => getComputedStyle(tuner().element()).backgroundColor).not.toBe(jet)
-  const wash = getComputedStyle(tuner().element()).backgroundColor
+  await expect.poll(() => backgroundOf(bar())).toBe(rgbOf(PALETTE.light.tunerInTune))
+  await expect.poll(() => getComputedStyle(tuner().element()).backgroundColor).not.toBe(resting)
+  const inTune = getComputedStyle(tuner().element()).backgroundColor
 
-  // Halfway into the zone: partly green, and a lighter wash than in tune.
+  // Halfway into the zone: partly green, and a lighter green background than in tune.
   fake.play(toneThrough([[a4Plus(6.5), 0.6]]))
   await expect
     .poll(() => Number(stage()?.dataset.inTuneFraction))
@@ -303,11 +303,11 @@ it('turns the bars and the wash green as the note nears in tune', async () => {
     .poll(() => backgroundOf(bar()))
     .toSatisfy(
       (color: string | null) =>
-        color !== rgbOf(PALETTE.light.tuneClose) && color !== rgbOf(PALETTE.dark.known),
+        color !== rgbOf(PALETTE.light.tunerClose) && color !== rgbOf(PALETTE.light.tunerInTune),
     )
   await expect
     .poll(() => getComputedStyle(tuner().element()).backgroundColor)
-    .toSatisfy((color: string) => color !== jet && color !== wash)
+    .toSatisfy((color: string) => color !== resting && color !== inTune)
 })
 
 it('puts the slab on the zone edge at ten cents, no wider than its cap', async () => {

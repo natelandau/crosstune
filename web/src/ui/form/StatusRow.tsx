@@ -39,7 +39,7 @@ export function StatusRow({
         {icon}
         <div className="min-w-0 flex-1">
           <p className={`t-body ${numeric ? 't-num' : ''}`}>{title}</p>
-          {detail && <p className="t-secondary text-ink-2">{detail}</p>}
+          {detail && <p className="t-secondary text-secondary">{detail}</p>}
         </div>
       </div>
       {action && (

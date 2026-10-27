@@ -346,7 +346,7 @@ it('marks the new recording from the moment its row first appears', async () => 
   expect(entered.every(Boolean)).toBe(true)
 })
 
-it('keeps the wash and drops the slide under reduced motion', async () => {
+it('keeps the tint and drops the slide under reduced motion', async () => {
   await cdp().send('Emulation.setEmulatedMedia', {
     features: [{ name: 'prefers-reduced-motion', value: 'reduce' }],
   })
@@ -363,9 +363,9 @@ it('keeps the wash and drops the slide under reduced motion', async () => {
   await expect.element(row).toHaveAttribute('data-new')
   const style = getComputedStyle(row.element())
   expect(style.animationName).toBe('none')
-  const wash = getComputedStyle(row.element(), '::after')
-  expect(Number.parseFloat(wash.animationDuration)).toBeGreaterThan(0)
-  expect(Number.parseFloat(wash.animationDelay)).toBe(0)
+  const tint = getComputedStyle(row.element(), '::after')
+  expect(Number.parseFloat(tint.animationDuration)).toBeGreaterThan(0)
+  expect(Number.parseFloat(tint.animationDelay)).toBe(0)
 })
 
 function withAnalytics() {

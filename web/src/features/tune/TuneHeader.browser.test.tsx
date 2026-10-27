@@ -78,7 +78,7 @@ it("only the key tile takes the key's color", async () => {
   await expect.poll(() => getComputedStyle(header).backgroundColor).toBe('rgba(0, 0, 0, 0)')
   await expect
     .poll(() => getComputedStyle(tile.element()).backgroundColor)
-    .toBe(computedColor('var(--key-9-bg)'))
+    .toBe(computedColor('var(--key-9-background)'))
 })
 
 it('a tune with no key offers Add key', async () => {

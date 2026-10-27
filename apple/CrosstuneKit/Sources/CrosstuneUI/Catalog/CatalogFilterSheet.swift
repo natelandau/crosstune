@@ -64,7 +64,7 @@ struct CatalogFilterSheet: View {
                 HStack(spacing: 12) {
                     Text(Self.footerCount(visible: results.visible.count, total: results.total))
                         .font(MacStyle.secondary)
-                        .foregroundStyle(Palette.inkSecondary)
+                        .foregroundStyle(Palette.textSecondary)
                         .monospacedDigit()
                         .contentTransition(.numericText())
                     Button(Self.reset) {
@@ -94,7 +94,7 @@ struct CatalogFilterSheet: View {
     #endif
 
     private func form(_ results: CatalogResults) -> some View {
-        PaperForm {
+        GroupedForm {
             Section {
                 statusPicker(results)
             } header: {

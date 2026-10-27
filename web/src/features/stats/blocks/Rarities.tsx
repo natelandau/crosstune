@@ -24,11 +24,11 @@ export function Rarities({
             >
               <span className="min-w-0 flex-1">
                 <span className="t-body block">{rarityLine(rarity)}</span>
-                <span className="t-secondary text-ink-2 block">
+                <span className="t-secondary text-secondary block">
                   {tuneTitles.get(rarity.tune_id)}
                 </span>
               </span>
-              <ChevronRight className="text-ink-2 size-4 shrink-0" aria-hidden />
+              <ChevronRight className="text-secondary size-4 shrink-0" aria-hidden />
             </Link>
           </li>
         ))}

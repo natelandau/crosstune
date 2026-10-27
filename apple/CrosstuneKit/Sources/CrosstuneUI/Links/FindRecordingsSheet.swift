@@ -159,7 +159,7 @@ private struct FindRecordingsForm: View {
                         if hasStatus {
                             status
                                 .font(MacStyle.secondary)
-                                .foregroundStyle(Palette.inkSecondary)
+                                .foregroundStyle(Palette.textSecondary)
                                 .padding(.horizontal, MacStyle.sheetMargin)
                                 .padding(.bottom, 8)
                         }
@@ -175,7 +175,7 @@ private struct FindRecordingsForm: View {
                                     if let footer = FindRecordingsSheet.footer(group) {
                                         Text(footer)
                                             .font(MacStyle.secondary)
-                                            .foregroundStyle(Palette.inkSecondary)
+                                            .foregroundStyle(Palette.textSecondary)
                                             .padding(.horizontal, 8)
                                             .padding(.top, 4)
                                     }
@@ -202,7 +202,7 @@ private struct FindRecordingsForm: View {
             VStack(alignment: .leading, spacing: 12) {
                 Text(FindRecordingsSheet.noServices)
                     .font(MacStyle.body)
-                    .foregroundStyle(Palette.inkSecondary)
+                    .foregroundStyle(Palette.textSecondary)
                 Button(SettingsModel.musicServices, action: openMusicServices)
                     .buttonStyle(.macSecondary)
             }
@@ -214,16 +214,16 @@ private struct FindRecordingsForm: View {
         private func macRowGlyph(_ name: String) -> some View {
             Image(systemName: name)
                 .font(.system(size: 12))
-                .foregroundStyle(Palette.inkSecondary)
+                .foregroundStyle(Palette.textSecondary)
                 .frame(width: MacPickGlyph.width)
                 .accessibilityHidden(true)
         }
 
-        /// The trailing mark every row shares: where the row goes, at one size and ink.
+        /// The trailing mark every row shares: where the row goes, at one size and color.
         private func macTrailingMark(_ name: String) -> some View {
             Image(systemName: name)
                 .font(MacStyle.rowChevron)
-                .foregroundStyle(Palette.inkSecondary)
+                .foregroundStyle(Palette.textSecondary)
                 .accessibilityHidden(true)
         }
 
@@ -269,11 +269,11 @@ private struct FindRecordingsForm: View {
                         Text(result.title)
                             .contentMask()
                             .font(MacStyle.body)
-                            .foregroundStyle(Palette.ink)
+                            .foregroundStyle(Palette.textPrimary)
                         if let subtitle = result.subtitle {
                             Text(subtitle)
                                 .font(MacStyle.secondary)
-                                .foregroundStyle(Palette.inkSecondary)
+                                .foregroundStyle(Palette.textSecondary)
                         }
                     }
                     Spacer(minLength: 0)
@@ -335,7 +335,7 @@ private struct FindRecordingsForm: View {
 
     #if os(iOS)
         private var phoneBody: some View {
-            PaperForm {
+            GroupedForm {
                 if model.hasNoServices {
                     noServices
                 } else if model.isLoaded {
@@ -393,12 +393,12 @@ private struct FindRecordingsForm: View {
                 Text(FindRecordingsSheet.searching)
             } else if let failure = model.failure {
                 Text(failure)
-                    .foregroundStyle(.red)
+                    .foregroundStyle(Palette.danger)
             }
             // On a line of its own, so a search starting or failing never hides it.
             if let linkFailure = model.linkFailure {
                 Text(linkFailure)
-                    .foregroundStyle(.red)
+                    .foregroundStyle(Palette.danger)
             }
         }
     }
@@ -431,7 +431,7 @@ private struct FindRecordingsForm: View {
                         if let subtitle = result.subtitle {
                             Text(subtitle)
                                 .font(.platform(.subheadline))
-                                .foregroundStyle(.inkSecondary)
+                                .foregroundStyle(.textSecondary)
                         }
                     }
                     Spacer(minLength: 0)
@@ -468,10 +468,10 @@ private struct FindRecordingsForm: View {
             } label: {
                 HStack {
                     Text(FindRecordingsSheet.searchService(FindRecordingsSheet.label(provider)))
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(.textPrimary)
                     Spacer(minLength: 0)
                     Image(systemName: inApp ? "chevron.forward" : "arrow.up.right")
-                        .foregroundStyle(.inkSecondary)
+                        .foregroundStyle(.textSecondary)
                         .accessibilityHidden(true)
                 }
                 .contentShape(.rect)

@@ -134,8 +134,8 @@ private struct CatalogContent: View {
                 .macColumnList()
             #else
                 .listStyle(.plain)
-                .paperGround()
-                .listSelectionTint()
+                .pageBackground()
+                .accentSelectionTint()
             #endif
             #if os(macOS)
                 // The search and the catalog's own actions share one pane bar, which stays as it
@@ -425,7 +425,7 @@ private struct CatalogContent: View {
                     open(entry.tune.id)
                 } label: {
                     tuneRow
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(.textPrimary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .contentShape(.rect)
                 }
@@ -444,7 +444,7 @@ private struct CatalogContent: View {
                 actions: tuneScreenActions),
             onSelect: { selection.enter(with: entry.tune.id) }
         )
-        .unselectedRowGround(
+        .unselectedRowBackground(
             isSelected: TuneSelection.rowIsSelected(entry.tune.id, selection: selection, detailTune: detailTune)
         )
         .statusRingOnFill(TuneSelection.rowIsSelected(entry.tune.id, selection: selection, detailTune: detailTune))
@@ -616,16 +616,16 @@ struct PushesTune: ViewModifier {
             VStack(spacing: 0) {
                 Image(systemName: Destination.catalog.systemImage)
                     .font(.system(size: 28, weight: .light))
-                    .foregroundStyle(Palette.inkSecondary)
+                    .foregroundStyle(Palette.textSecondary)
                     .padding(.bottom, 12)
                     .accessibilityHidden(true)
                 Text(CatalogScreen.noTunesTitle)
                     .font(MacStyle.sectionHeading)
-                    .foregroundStyle(Palette.ink)
+                    .foregroundStyle(Palette.textPrimary)
                     .padding(.bottom, 4)
                 Text(CatalogScreen.noTunesHint)
                     .font(MacStyle.body)
-                    .foregroundStyle(Palette.inkSecondary)
+                    .foregroundStyle(Palette.textSecondary)
                     .frame(maxWidth: 260)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.bottom, 16)

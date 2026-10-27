@@ -227,7 +227,7 @@ struct PlanSheet: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding()
                     }
-                    .planGround()
+                    .planBackground()
                     #if os(iOS)
                         .navigationBarTitleDisplayMode(.inline)
                     #endif
@@ -265,7 +265,7 @@ struct PlanSheet: View {
                     .accessibilityAddTraits(.isHeader)
                     .fixedSize(horizontal: false, vertical: true)
                 Text(message)
-                    .foregroundStyle(.inkSecondary)
+                    .foregroundStyle(.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .multilineTextAlignment(.center)
@@ -287,7 +287,7 @@ struct PlanSheet: View {
                     .font(.platform(.title2).bold())
                     .accessibilityAddTraits(.isHeader)
                 Text(PlanText.thanks)
-                    .foregroundStyle(.inkSecondary)
+                    .foregroundStyle(.textSecondary)
             }
             .multilineTextAlignment(.center)
             .fixedSize(horizontal: false, vertical: true)
@@ -303,7 +303,7 @@ struct PlanSheet: View {
                     restoreButton(purchase)
                     if let line = Self.restoreLine(purchase) {
                         Text(line)
-                            .foregroundStyle(.inkSecondary)
+                            .foregroundStyle(.textSecondary)
                             .multilineTextAlignment(.center)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -352,7 +352,7 @@ struct PlanSheet: View {
                     PrimaryAction { Button(Self.close) { dismiss() } }
                 case (.offline, _), (.notPurchasable, _), (.choice, nil), (.loading, nil):
                     if let line {
-                        paragraph(line).foregroundStyle(.inkSecondary)
+                        paragraph(line).foregroundStyle(.textSecondary)
                     }
                     if let purchase {
                         terms(sale, purchase: purchase)
@@ -477,7 +477,7 @@ struct PlanSheet: View {
                     }
                 }
                 .font(MacStyle.body)
-                .foregroundStyle(Palette.ink)
+                .foregroundStyle(Palette.textPrimary)
             }
         }
 
@@ -494,7 +494,9 @@ struct PlanSheet: View {
             }
             if let line = Self.macOutcomeLine(sale, line: purchase?.line) {
                 Text(line)
-                    .foregroundStyle(sale == .offline || sale == .notPurchasable ? Palette.inkSecondary : Palette.ink)
+                    .foregroundStyle(
+                        sale == .offline || sale == .notPurchasable ? Palette.textSecondary : Palette.textPrimary
+                    )
                     .fixedSize(horizontal: false, vertical: true)
             }
             if case .choice(let offers) = sale, let purchase,
@@ -515,7 +517,7 @@ struct PlanSheet: View {
             if let purchase, let line = Self.restoreLine(purchase) {
                 Text(line)
                     .font(MacStyle.secondary)
-                    .foregroundStyle(Palette.inkSecondary)
+                    .foregroundStyle(Palette.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -548,14 +550,14 @@ struct WaitingSubscribeButton: View {
     }
 }
 
-/// The CT mark heading the sheet: a slate C on light, a white C on dark, and the coral T on both.
+/// The CT mark heading the sheet: a slate C on light, a white C on dark, and the brand-colored T on both.
 private struct PlanMark: View {
     @ScaledMetric(relativeTo: .title) private var height: CGFloat = 40
 
     var body: some View {
         Mark()
             .frame(height: height)
-            .foregroundStyle(Palette.markInk)
+            .foregroundStyle(Palette.brandSecondary)
             .accessibilityHidden(true)
     }
 }

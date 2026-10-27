@@ -271,7 +271,7 @@ private struct TuneContent: View {
             VStack(alignment: .leading, spacing: spacing.stackGap) {
                 Text(DeleteTuneMessage.deleting)
                     .font(.platform(.footnote))
-                    .foregroundStyle(.inkSecondary)
+                    .foregroundStyle(.textSecondary)
                 if let failure = model.failure(at: .screen) {
                     FailureText(failure)
                 }
@@ -572,7 +572,7 @@ struct TuneMediaRows: View {
             if blocksPlay(showsRecordings: !collapses || showsRecordings) {
                 Text(MediaText.stopRecordingToPlay)
                     .font(MacStyle.secondary)
-                    .foregroundStyle(Palette.inkSecondary)
+                    .foregroundStyle(Palette.textSecondary)
             }
         #endif
         if collapses {

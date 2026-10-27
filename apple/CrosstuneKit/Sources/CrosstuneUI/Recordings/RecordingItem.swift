@@ -170,7 +170,7 @@ extension View {
             // A long swipe only reveals the actions; no swipe acts on its own.
             .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                 ForEach(handlers.swipe, id: \.self) { action in
-                    handlers.button(action, short: true).tint(RecordingRowHandlers.swipeTint(action))
+                    handlers.button(action, short: true).tint(Palette.color(RecordingRowHandlers.swipeFill(action)))
                 }
             }
             .contextMenu {
@@ -210,13 +210,14 @@ struct RecordingRowHandlers {
             canPin: onTogglePin != nil, originSite: onOpenOrigin == nil ? nil : originLabel)
     }
 
-    static func swipeTint(_ action: RecordingRowAction) -> Color? {
+    /// A swipe action's fill by its job, as the web's row swipe tones: filing is a warning,
+    /// delete is danger, pin is an accent action, and the rest are neutral.
+    static func swipeFill(_ action: RecordingRowAction) -> Palette.Token {
         switch action {
-        case .pin: .indigo
-        case .addToTune, .removeFromTune: .orange
-        case .goToTune: .blue
-        case .edit: .gray
-        case .openOrigin, .delete: nil
+        case .pin: .accentFill
+        case .addToTune, .removeFromTune: .warningFillStrong
+        case .goToTune, .edit, .openOrigin: .neutralFill
+        case .delete: .dangerFillStrong
         }
     }
 

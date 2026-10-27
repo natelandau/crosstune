@@ -195,7 +195,7 @@ export function TuneRowView({
         (key || note || end) && (
           <span className="inline-flex shrink-0 items-center gap-3">
             {note && (
-              <span className="t-secondary text-ink-2 whitespace-nowrap">
+              <span className="t-secondary text-secondary whitespace-nowrap">
                 <Pause />
                 {note}
               </span>

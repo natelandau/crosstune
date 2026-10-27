@@ -10,7 +10,7 @@ struct GlassCapsule: ViewModifier {
         } else {
             content
                 .background(.thickMaterial, in: .capsule)
-                .shadow(color: .black.opacity(0.15), radius: 12, y: 4)
+                .elevation(.float)
         }
     }
 }

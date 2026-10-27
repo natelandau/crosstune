@@ -173,7 +173,9 @@ export function WelcomeCarousel({
               {/* The current dot is longer as well as darker, so it never reads by color alone. */}
               <span
                 className={`h-2 rounded-full transition-[width,background-color] duration-(--dur-short) ease-(--ease) ${
-                  n === index ? 'bg-ink w-5' : 'bg-ink-2 group-hover:bg-ink w-2'
+                  n === index
+                    ? 'bg-text-primary w-5'
+                    : 'bg-text-secondary group-hover:bg-text-primary w-2'
                 }`}
               />
             </button>

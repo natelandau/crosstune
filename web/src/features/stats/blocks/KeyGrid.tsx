@@ -31,11 +31,15 @@ export function KeyGrid({
           <caption className="sr-only">{KEY_GRID_CAPTION}</caption>
           <thead>
             <tr>
-              <th scope="col" className="t-caption text-ink-2 text-start font-normal">
+              <th scope="col" className="t-caption text-secondary text-start font-normal">
                 {FACET_LABELS.key}
               </th>
               {modes.map((mode) => (
-                <th key={mode} scope="col" className="t-caption text-ink-2 text-center font-normal">
+                <th
+                  key={mode}
+                  scope="col"
+                  className="t-caption text-secondary text-center font-normal"
+                >
                   <span aria-hidden>{isMode(mode) ? MODE_COLUMNS[mode] : mode}</span>
                   <span className="sr-only">{mode}</span>
                 </th>

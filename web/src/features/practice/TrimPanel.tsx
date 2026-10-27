@@ -31,14 +31,14 @@ import { PracticeButton } from './PracticeButton'
 /** The controls under the strips, capped so they stay in reach on a wide window. */
 const CAPPED = 'mx-auto w-full max-w-xl'
 
-const TEXT_BUTTON = `t-body min-h-(--target) rounded-(--radius-capsule) text-(--panel-ink) disabled:opacity-40 ${PRESS}`
+const TEXT_BUTTON = `t-body min-h-(--target) rounded-(--radius-capsule) text-on-practice disabled:opacity-40 ${PRESS}`
 
 const HEADER_TEXT_BUTTON = `${TEXT_BUTTON} px-3 ${PANEL_HOVER}`
 
-const FILLED_TEXT_BUTTON = `${TEXT_BUTTON} bg-(--fill-tertiary) px-4 font-semibold ${PANEL_FILLED_HOVER}`
+const FILLED_TEXT_BUTTON = `${TEXT_BUTTON} bg-practice-fill px-4 font-semibold ${PANEL_FILLED_HOVER}`
 
 /**
- * Trim in place of practice, on the same jet ground with white handles, so editing reads apart
+ * Trim in place of practice, on the same practice background with white handles, so editing reads apart
  * from practice. The overlay holds the engine at 100% speed and no pitch shift while it shows,
  * so what is heard is exactly what is cut. Escape steps back out to practice, as Cancel does,
  * except while a confirmed trim is being written, which then finishes and leaves on its own.

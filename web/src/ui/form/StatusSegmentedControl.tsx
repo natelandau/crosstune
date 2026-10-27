@@ -9,14 +9,17 @@ import { TraceRing } from '../TraceRing'
 
 // The chosen word takes its status's own color, as its glyph does.
 const CHOSEN: Record<TuneStatus, string> = {
-  known: 'data-[selected]:bg-known/15 hover:data-[selected]:bg-known/25',
-  learning: 'data-[selected]:bg-learning/15 hover:data-[selected]:bg-learning/25',
-  want_to_learn: 'data-[selected]:bg-unknown/15 hover:data-[selected]:bg-unknown/25',
+  known:
+    'data-[selected]:bg-status-known-subtle hover:data-[selected]:bg-status-known-subtle-hover',
+  learning:
+    'data-[selected]:bg-status-learning-subtle hover:data-[selected]:bg-status-learning-subtle-hover',
+  want_to_learn:
+    'data-[selected]:bg-status-unknown-subtle hover:data-[selected]:bg-status-unknown-subtle-hover',
 }
 const RING: Record<TuneStatus, string> = {
-  known: 'var(--known)',
-  learning: 'var(--learning)',
-  want_to_learn: 'var(--unknown)',
+  known: 'var(--status-known)',
+  learning: 'var(--status-learning)',
+  want_to_learn: 'var(--status-unknown)',
 }
 
 /**
@@ -59,7 +62,7 @@ export function StatusSegmentedControl({
           key={status}
           id={status}
           autoFocus={autoFocus && status === chosen}
-          className={`${CAPSULE_HIT} bg-field text-ink hover:bg-field-hover inline-flex h-[min(2rem,var(--target-filter))] items-center rounded-(--radius-capsule) px-3 ${PRESS} data-[selected]:font-medium ${CHOSEN[status]}`}
+          className={`${CAPSULE_HIT} bg-field text-primary hover:bg-field-hover inline-flex h-[min(2rem,var(--target-filter))] items-center rounded-(--radius-capsule) px-3 ${PRESS} data-[selected]:font-medium ${CHOSEN[status]}`}
         >
           <StatusGlyph status={status} labelled />
           {status === chosen && <TraceRing color={RING[status]} run={picked === status} />}

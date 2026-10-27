@@ -28,7 +28,7 @@ export function AccountButton() {
     >
       <span
         aria-hidden
-        className="bg-set-fill text-set-label t-caption group-hover:bg-set-fill-hover flex size-8 items-center justify-center rounded-full font-semibold transition-colors duration-(--dur-short) ease-(--ease)"
+        className="bg-tint text-on-tint t-caption group-hover:bg-tint-strong flex size-8 items-center justify-center rounded-full font-semibold transition-colors duration-(--dur-short) ease-(--ease)"
       >
         {letters ?? <UserRound className="size-5 fill-current" aria-hidden />}
       </span>

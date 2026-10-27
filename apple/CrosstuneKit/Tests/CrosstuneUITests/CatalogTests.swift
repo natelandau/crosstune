@@ -853,18 +853,18 @@ private let blankAndSentinel = CatalogSearch.entries(
             #expect(MacTuneRow.tuningCandidates([]).isEmpty)
         }
 
-        /// The tunings and position read in secondary ink at rest and on a selected row's fill.
+        /// The tunings and position read in secondary text at rest and on a selected row's fill.
         @Test(arguments: [ColorScheme.light, .dark])
-        func rowDetailInkPassesContrast(scheme: ColorScheme) {
-            let rest = Palette.hex(MacTuneRow.detailInk(emphasized: false), scheme)
-            #expect(MacTuneRow.detailInk(emphasized: false) == .inkSecondary)
-            #expect(contrastRatio(rest, Palette.hex(.ground, scheme)) >= 4.5)
-            #expect(MacTuneRow.detailInk(emphasized: true) == .onAccentFill)
-            #expect(MacTuneRow.detailInk(emphasized: true, rowSelected: true) == .onAccentFill)
+        func rowDetailTextPassesContrast(scheme: ColorScheme) {
+            let rest = Palette.hex(MacTuneRow.detailColor(emphasized: false), scheme)
+            #expect(MacTuneRow.detailColor(emphasized: false) == .textSecondary)
+            #expect(contrastRatio(rest, Palette.hex(.pageBackground, scheme)) >= 4.5)
+            #expect(MacTuneRow.detailColor(emphasized: true) == .onAccentFill)
+            #expect(MacTuneRow.detailColor(emphasized: true, rowSelected: true) == .onAccentFill)
         }
 
         /// The gray a selection takes in an inactive window or an unfocused list, over the
-        /// column's ground.
+        /// column's page background.
         @MainActor private static func inactiveSelectionHex(_ scheme: ColorScheme) throws -> String {
             let name: NSAppearance.Name = scheme == .dark ? .darkAqua : .aqua
             let appearance = try #require(NSAppearance(named: name))
@@ -874,30 +874,30 @@ private let blankAndSentinel = CatalogSearch.entries(
             }
             let fill = try #require(resolved)
             let rgb = KeyColor.RGB(red: fill.redComponent, green: fill.greenComponent, blue: fill.blueComponent)
-            return blend(rgb.hex, over: Palette.hex(.ground, scheme), opacity: fill.alphaComponent)
+            return blend(rgb.hex, over: Palette.hex(.pageBackground, scheme), opacity: fill.alphaComponent)
         }
 
-        /// Secondary text on a selection that is not emphasized turns to ink, which holds 4.5:1 on
-        /// that gray where secondary ink falls short.
+        /// Secondary text on a selection that is not emphasized turns to the primary text color,
+        /// which holds 4.5:1 on that gray where secondary text falls short.
         @MainActor @Test(arguments: [ColorScheme.light, .dark])
-        func secondaryInkHoldsContrastOnAnInactiveSelection(scheme: ColorScheme) throws {
+        func secondaryTextHoldsContrastOnAnInactiveSelection(scheme: ColorScheme) throws {
             let gray = try Self.inactiveSelectionHex(scheme)
-            let token = SecondaryInk.token(emphasized: false, rowSelected: true)
-            #expect(token == .ink)
-            #expect(MacTuneRow.detailInk(emphasized: false, rowSelected: true) == token)
+            let token = SecondaryText.token(emphasized: false, rowSelected: true)
+            #expect(token == .textPrimary)
+            #expect(MacTuneRow.detailColor(emphasized: false, rowSelected: true) == token)
             #expect(contrastRatio(Palette.hex(token, scheme), gray) >= 4.5, "\(gray)")
-            // A link line under the pointer on that gray keeps the selection's ink.
+            // A link line under the pointer on that gray keeps the selection's text color.
             #expect(MacHoverAccent.token(hovered: true, emphasized: false, rowSelected: true) == token)
-            #expect(SecondaryInk.token(emphasized: false, rowSelected: false) == .inkSecondary)
-            #expect(SecondaryInk.token(emphasized: true, rowSelected: false) == .onAccentFill)
+            #expect(SecondaryText.token(emphasized: false, rowSelected: false) == .textSecondary)
+            #expect(SecondaryText.token(emphasized: true, rowSelected: false) == .onAccentFill)
         }
 
         /// A media row's link lines follow the row's selection as its other secondary text does,
         /// and the pointer's accent shows only on a row that is not selected.
         @Test func linkLinesFollowTheRowsSelection() {
-            #expect(MacHoverAccent.token(hovered: false, emphasized: false, rowSelected: false) == .inkSecondary)
+            #expect(MacHoverAccent.token(hovered: false, emphasized: false, rowSelected: false) == .textSecondary)
             #expect(MacHoverAccent.token(hovered: true, emphasized: false, rowSelected: false) == .accent)
-            #expect(MacHoverAccent.token(hovered: false, emphasized: false, rowSelected: true) == .ink)
+            #expect(MacHoverAccent.token(hovered: false, emphasized: false, rowSelected: true) == .textPrimary)
             #expect(MacHoverAccent.token(hovered: false, emphasized: true, rowSelected: true) == .onAccentFill)
             #expect(MacHoverAccent.token(hovered: true, emphasized: true, rowSelected: true) == .onAccentFill)
         }

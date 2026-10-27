@@ -20,7 +20,7 @@ struct RecordingsLine: View {
                     .accessibilityHidden(true)
                 Spacer(minLength: 0)
             }
-            .foregroundStyle(.inkSecondary)
+            .foregroundStyle(.textSecondary)
             #if os(macOS)
                 .font(MacStyle.secondary)
                 .frame(minHeight: MacStyle.smallControlHeight)

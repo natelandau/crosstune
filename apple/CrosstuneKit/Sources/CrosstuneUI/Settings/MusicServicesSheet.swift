@@ -23,7 +23,7 @@ struct MusicServicesSheet: View {
             .shellSheet()
         #else
             NavigationStack {
-                PaperForm {
+                GroupedForm {
                     MusicServicesChoices(model: model)
                 }
                 .navigationTitle(SettingsModel.musicServices)

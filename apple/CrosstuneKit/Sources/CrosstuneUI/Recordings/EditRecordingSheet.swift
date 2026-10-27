@@ -608,7 +608,7 @@ private struct EditRecordingForm: View {
             .interactiveDismissDisabled(model.isEdited || model.isSaving)
             .onAppear(perform: focusNameOnce)
         #else
-            PaperForm {
+            GroupedForm {
                 nameSection
                 dateSection
                 playersSection
@@ -785,7 +785,7 @@ private struct EditRecordingForm: View {
             } footer: {
                 if let failure = model.failure {
                     Text(failure)
-                        .foregroundStyle(.red)
+                        .foregroundStyle(Palette.danger)
                 }
             }
         }
@@ -826,7 +826,7 @@ private struct EditRecordingForm: View {
             } footer: {
                 if let dateFailure = model.dateFailure {
                     Text(dateFailure)
-                        .foregroundStyle(.red)
+                        .foregroundStyle(Palette.danger)
                 } else if let time = date.keptTime {
                     Text(EditRecordingText.recordedAtNote(time))
                 }
@@ -852,12 +852,12 @@ private struct EditRecordingForm: View {
                 HStack(spacing: 8) {
                     Text(model.place?.name ?? EditRecordingText.noPlace)
                         .contentMask()
-                        .foregroundStyle(model.place == nil ? Palette.inkSecondary : Palette.ink)
+                        .foregroundStyle(model.place == nil ? Palette.textSecondary : Palette.textPrimary)
                         .lineLimit(1)
                     if placeSearch != nil {
                         Image(systemName: "chevron.right")
                             .font(MacStyle.rowChevron)
-                            .foregroundStyle(Palette.inkSecondary)
+                            .foregroundStyle(Palette.textSecondary)
                             .accessibilityHidden(true)
                     }
                 }

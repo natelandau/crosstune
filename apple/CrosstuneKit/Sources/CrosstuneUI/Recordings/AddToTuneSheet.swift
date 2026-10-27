@@ -266,7 +266,7 @@ private struct AddToTuneContent: View {
                 if let failure = model.failure {
                     Text(failure)
                         .font(.platform(.footnote))
-                        .foregroundStyle(.red)
+                        .foregroundStyle(Palette.danger)
                 }
                 if model.isIdle {
                     ForEach(model.idleResults ?? []) { entry in
@@ -282,7 +282,7 @@ private struct AddToTuneContent: View {
                 }
             }
             .listStyle(.plain)
-            .paperGround()
+            .pageBackground()
             .searchable(text: $model.query, placement: Self.searchPlacement, prompt: AddToTuneSheet.searchPrompt)
             .searchFocused($searchFocused)
             .onSubmit(of: .search, submitSearch)
@@ -322,7 +322,7 @@ private struct AddToTuneContent: View {
                 }
             } label: {
                 TuneRow(tune: entry.tune, userTune: entry.userTune, instruments: model.instruments)
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(.textPrimary)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .contentShape(.rect)
             }

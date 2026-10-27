@@ -31,7 +31,7 @@ struct RecordingsFilterSheet: View {
             .partHeightSheet()
         #else
             NavigationStack {
-                PaperForm {
+                GroupedForm {
                     Section {
                         sourcePicker
                     }

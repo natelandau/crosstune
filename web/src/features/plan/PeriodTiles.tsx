@@ -61,19 +61,19 @@ export function PeriodTiles({
             value={offer.period}
             aria-label={label}
             aria-describedby={badge ? `${priceId} ${badgeId}` : priceId}
-            className="radio-tile group bg-surface hover:bg-field border-hairline data-selected:border-accent relative flex min-w-0 flex-1 cursor-default flex-col gap-0.5 rounded-(--radius-surface) border-2 px-3 pt-2.5 pb-2 transition-colors duration-(--dur-short) ease-(--ease)"
+            className="radio-tile group bg-surface hover:bg-field border-default data-selected:border-accent relative flex min-w-0 flex-1 cursor-default flex-col gap-0.5 rounded-(--radius-surface) border-2 px-3 pt-2.5 pb-2 transition-colors duration-(--dur-short) ease-(--ease)"
           >
             {badge && (
               <span
                 id={badgeId}
-                className="t-caption bg-coral text-on-coral absolute end-3 -top-2 rounded-(--radius-capsule) px-2 font-semibold"
+                className="t-caption bg-brand text-on-brand absolute end-3 -top-2 rounded-(--radius-capsule) px-2 font-semibold"
               >
                 {badge}
               </span>
             )}
             <span className="flex items-center gap-2">
               <span
-                className="border-ink-2 group-data-selected:border-accent grid size-4 shrink-0 place-items-center rounded-full border-2"
+                className="border-text-secondary group-data-selected:border-accent grid size-4 shrink-0 place-items-center rounded-full border-2"
                 aria-hidden
               >
                 <span className="bg-accent size-2 scale-0 rounded-full transition-transform duration-(--dur-short) group-data-selected:scale-100" />

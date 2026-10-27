@@ -379,7 +379,7 @@ private struct NewTunePageFrame<Title: View>: View {
                 attributesLayout = $0
             }
         )
-        .paperGround()
+        .pageBackground()
         .navigationTitle(NewTuneScreen.title)
         #if os(macOS)
             // An empty bar keeps its height, so the header starts where the tune page's does.

@@ -26,7 +26,7 @@ struct SettingsBadgeLabel: View {
             Text(text)
                 .font(MacStyle.secondary)
                 .monospacedDigit()
-                .foregroundStyle(Palette.inkSecondary)
+                .foregroundStyle(Palette.textSecondary)
                 .frame(minHeight: PlayerBadge.macHeight)
                 .fixedSize()
         #else
@@ -70,7 +70,7 @@ struct RepeatBadge: View {
                         .lineLimit(1)
                         .truncationMode(.tail)
                         .frame(maxWidth: maxTextWidth)
-                        .foregroundStyle(Palette.inkSecondary)
+                        .foregroundStyle(Palette.textSecondary)
                         .frame(minHeight: PlayerBadge.macHeight)
                         .contentShape(.rect)
                 #else

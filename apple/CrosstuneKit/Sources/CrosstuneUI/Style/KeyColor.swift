@@ -25,10 +25,10 @@ public enum KeyColor {
         public var color: Color { Color(.sRGB, red: red, green: green, blue: blue) }
     }
 
-    /// A pill's ground and the text on it.
-    public struct Swatch: Hashable, Sendable {
+    /// A pill's background and the text on it.
+    public struct PillColors: Hashable, Sendable {
         public let background: RGB
-        public let ink: RGB
+        public let text: RGB
     }
 
     private static let noteSemitones: [String: Int] = ["C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11]
@@ -53,10 +53,10 @@ public enum KeyColor {
         return 20 + 30 * Double(position)
     }
 
-    /// OKLCH lightness and chroma for each role: the pill's ground, then its text, which is
-    /// plain white on a chosen pill in light mode.
+    /// OKLCH lightness and chroma for each role: the pill's background, then its text, which
+    /// is plain white on a chosen pill in light mode.
     private static func roles(scheme: ColorScheme, chosen: Bool) -> (
-        background: (Double, Double), ink: (Double, Double)?
+        background: (Double, Double), text: (Double, Double)?
     ) {
         switch (scheme == .dark, chosen) {
         case (false, false): ((0.88, 0.0558), (0.38, 0.062))
@@ -68,12 +68,12 @@ public enum KeyColor {
 
     /// The pill's colors for a pitch class. Choosing a key changes only the weight, never the
     /// hue, so a key never looks like a different key when it is chosen.
-    public static func swatch(pitchClass: Int, scheme: ColorScheme, chosen: Bool) -> Swatch {
+    public static func pillColors(pitchClass: Int, scheme: ColorScheme, chosen: Bool) -> PillColors {
         let hue = hue(pitchClass: pitchClass)
-        let (background, ink) = roles(scheme: scheme, chosen: chosen)
-        return Swatch(
+        let (background, text) = roles(scheme: scheme, chosen: chosen)
+        return PillColors(
             background: oklch(background.0, background.1, hue),
-            ink: ink.map { oklch($0.0, $0.1, hue) } ?? RGB(red: 1, green: 1, blue: 1))
+            text: text.map { oklch($0.0, $0.1, hue) } ?? RGB(red: 1, green: 1, blue: 1))
     }
 
     /// Converts OKLCH to sRGB through OKLab (Björn Ottosson's matrices), clamped to the gamut.

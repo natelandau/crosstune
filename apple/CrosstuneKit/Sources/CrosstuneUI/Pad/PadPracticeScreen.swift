@@ -164,7 +164,7 @@ private struct PadPracticePanes<Practice: View>: View {
     @Environment(\.plan) private var plan
     @Environment(ListPlayback.self) private var playback: ListPlayback?
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    @Environment(\.practiceGround) private var ground
+    @Environment(\.practiceBackground) private var practiceScheme
     @Environment(\.colorScheme) private var colorScheme
     @AppStorage(PadPracticeLayout.readingHiddenKey) private var readingHidden = false
     /// Nil inside until the first read, so the panes can wait for it.
@@ -234,17 +234,17 @@ private struct PadPracticePanes<Practice: View>: View {
                 }
             }
             .background {
-                if let ground {
-                    PhoneStyle.practiceGround(ground).ignoresSafeArea()
+                if let practiceScheme {
+                    Palette.practiceBackground(practiceScheme).ignoresSafeArea()
                 }
             }
-            // The panes stay dark on the ground, while the viewer over them takes the appearance
+            // The panes stay dark on the practice background, while the viewer over them takes the appearance
             // outside, as it does everywhere else.
             .environment(\.colorScheme, .dark)
             // The shell's viewer cannot present over this cover, so the pane's scans open their
             // own, without a zoom, since nothing behind the cover is where they came from.
             .modifier(ScanScreens(zooms: false))
-            .environment(\.colorScheme, ground ?? colorScheme)
+            .environment(\.colorScheme, practiceScheme ?? colorScheme)
             .task(id: key) {
                 guard fixed == nil, let store else {
                     query = nil

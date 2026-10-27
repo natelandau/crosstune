@@ -207,7 +207,7 @@ private struct UpdatePrompt: ViewModifier {
             ) {
                 Text(UpdatePromptText.message)
                     .font(MacStyle.body)
-                    .foregroundStyle(Palette.ink)
+                    .foregroundStyle(Palette.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .shellSheet()

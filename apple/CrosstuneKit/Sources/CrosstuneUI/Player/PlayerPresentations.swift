@@ -2,8 +2,8 @@
     import SwiftUI
 
     /// The player in full over an iOS shell: a recording's screen as a full-screen cover on the
-    /// practice ground, or a link's player in a sheet, and the link's player kept offscreen while only
-    /// the bar shows. Pulling either down leaves the bar playing.
+    /// practice background, or a link's player in a sheet, and the link's player kept offscreen
+    /// while only the bar shows. Pulling either down leaves the bar playing.
     struct PlayerPresentations: ViewModifier {
         let player: PlayerModel
         let stage: EmbedStage
@@ -33,7 +33,7 @@
                     }
                     .environment(\.showsReadingPane, showsReadingPane)
                     // Read out here, since the screen's own appearance is always dark.
-                    .practiceGround(colorScheme)
+                    .practiceBackground(colorScheme)
                     .zooms(from: Self.zoomID, in: zoom)
                 }
                 .modifier(OffscreenEmbed(player: player, stage: stage))
@@ -75,7 +75,7 @@
         }
     }
 
-    /// A link MusicKit plays, drawn on the practice ground beside its tune's scans and
+    /// A link MusicKit plays, drawn on the practice background beside its tune's scans and
     /// lyrics: its music card and the list's controls in place of the waveform.
     private struct LinkPadPracticeScreen: View {
         let player: PlayerModel
@@ -94,7 +94,7 @@
     private struct LinkPadPractice: View {
         let player: PlayerModel
 
-        @Environment(\.practiceGround) private var ground
+        @Environment(\.practiceBackground) private var practiceScheme
         @Environment(\.readingPaneHasContent) private var readingPaneHasContent
         @Environment(ListPlayback.self) private var playback: ListPlayback?
 
@@ -108,7 +108,7 @@
             }
             .padding(16)
             .modifier(PadPracticeWidth())
-            .containerBackground(PhoneStyle.practiceGround(ground ?? .dark), for: .navigation)
+            .containerBackground(Palette.practiceBackground(practiceScheme ?? .dark), for: .navigation)
             .navigationTitle(player.title ?? "")
             .modifier(
                 LinkPracticeSubtitle(subtitle: PadPracticeHeader.linkSubtitle(player: player, playback: playback))

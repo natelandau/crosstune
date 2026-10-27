@@ -2,19 +2,19 @@
     import SwiftUI
 
     /// Every content button on the Mac, by role. Fills come from ``Palette`` and never read
-    /// whether the window is key, so a primary stays Harbor blue in an inactive window, where
+    /// whether the window is key, so a primary stays the accent in an inactive window, where
     /// AppKit's own prominent bezel turns gray.
     struct MacButtonStyle: ButtonStyle {
         enum Role: CaseIterable {
             /// The one action a surface leads with: accent fill, white label.
             case primary
-            /// Any other worded action: the container's control fill, ink label.
+            /// Any other worded action: the container's control fill, primary text label.
             case secondary
             /// Words only, in the accent, underlined on hover.
             case plain
-            /// Words only, in secondary ink, underlined on hover: a quiet utility beside content.
+            /// Words only, in secondary text, underlined on hover: a quiet utility beside content.
             case quiet
-            /// A glyph in secondary ink, with a circle of the control fill on hover.
+            /// A glyph in secondary text, with a circle of the control fill on hover.
             case icon
             /// A secondary button whose label is the danger red.
             case destructive
@@ -41,7 +41,9 @@
         static let radius: CGFloat = 7
         static let horizontalPadding: CGFloat = 12
         static let disabledOpacity = 0.45
-        nonisolated static let pressedDarkening = 0.06
+        /// How much of the primary text color a press mixes into a fill, so a press darkens in
+        /// light mode and lightens in dark mode.
+        nonisolated static let pressedOverlay = 0.06
 
         var role: Role
         var size: Size = .regular
@@ -55,46 +57,60 @@
             MacButtonBody(configuration: configuration, role: role, size: size)
         }
 
-        /// The fill a role draws on `container`, or nil where it draws none. A disabled button
-        /// keeps its fill and fades as a whole by ``disabledOpacity``, so a disabled primary never
-        /// turns gray.
+        /// Whether a disabled button of `role` drops its fill for a ring and a faint label, so it
+        /// reads as off and never as another filled button. The other roles fade as a whole by
+        /// ``disabledOpacity``.
+        nonisolated static func dropsFillWhenDisabled(_ role: Role) -> Bool {
+            role == .primary || role == .destructiveFilled
+        }
+
+        /// The fill a role draws on `container`, or nil where it draws none. A destructive button
+        /// draws nothing at rest and the danger role's subtle fill under the pointer or a press,
+        /// so its red label never sits on a gray fill.
         nonisolated static func fillRGB(
-            for role: Role, scheme: ColorScheme, container: MacContainer = .ground, isPressed: Bool
+            for role: Role, scheme: ColorScheme, container: MacContainer = .pageBackground, isPressed: Bool
         ) -> KeyColor.RGB? {
+            if role == .destructive {
+                guard isPressed else { return nil }
+                let subtle = Palette.mixHex(
+                    Palette.hex(container.fill, scheme), toward: Palette.hex(.danger, scheme),
+                    share: Palette.subtleOpacity)
+                return KeyColor.RGB(hex: subtle)
+            }
             let control = KeyColor.RGB(hex: Palette.hex(container.controlFill, scheme))
             let rest: KeyColor.RGB? =
                 switch role {
                 case .primary: KeyColor.RGB(hex: Palette.hex(.accentFill, scheme))
-                case .secondary, .destructive: control
-                // The light danger red in both appearances: dark mode's pale red would not
-                // carry a white label.
-                case .destructiveFilled: SignalSwatch.danger(.light).ink
+                case .secondary: control
+                case .destructive: nil
+                case .destructiveFilled: KeyColor.RGB(hex: Palette.hex(.danger, scheme))
                 case .icon: isPressed ? control : nil
                 case .plain, .quiet: nil
                 }
             guard let rest, isPressed else { return rest }
-            return darkened(rest)
+            return pressed(rest, scheme: scheme)
         }
 
         static func fill(
-            for role: Role, scheme: ColorScheme, container: MacContainer = .ground, isPressed: Bool
+            for role: Role, scheme: ColorScheme, container: MacContainer = .pageBackground, isPressed: Bool
         ) -> Color? {
             fillRGB(for: role, scheme: scheme, container: container, isPressed: isPressed)?.color
         }
 
         /// Whether the role takes the container's control fill, and so its edge on a light card.
         static func strokesOn(_ role: Role) -> Bool {
-            role == .secondary || role == .destructive
+            role == .secondary
         }
 
         static func labelRGB(for role: Role, scheme: ColorScheme) -> KeyColor.RGB {
             switch role {
-            case .primary, .destructiveFilled: KeyColor.RGB(hex: Palette.hex(.onAccentFill, scheme))
-            case .secondary: KeyColor.RGB(hex: Palette.hex(.ink, scheme))
+            case .primary: KeyColor.RGB(hex: Palette.hex(.onAccentFill, scheme))
+            case .destructiveFilled: KeyColor.RGB(hex: Palette.hex(.onStatus, scheme))
+            case .secondary: KeyColor.RGB(hex: Palette.hex(.textPrimary, scheme))
             case .plain: KeyColor.RGB(hex: Palette.hex(.accent, scheme))
-            case .quiet: KeyColor.RGB(hex: Palette.hex(.inkSecondary, scheme))
-            case .icon: KeyColor.RGB(hex: Palette.hex(.inkSecondary, scheme))
-            case .destructive: SignalSwatch.danger(scheme).ink
+            case .quiet: KeyColor.RGB(hex: Palette.hex(.textSecondary, scheme))
+            case .icon: KeyColor.RGB(hex: Palette.hex(.textSecondary, scheme))
+            case .destructive: KeyColor.RGB(hex: Palette.hex(.danger, scheme))
             }
         }
 
@@ -106,9 +122,8 @@
             size == .small ? MacStyle.label.weight(.semibold) : MacStyle.body.weight(.semibold)
         }
 
-        nonisolated private static func darkened(_ rgb: KeyColor.RGB) -> KeyColor.RGB {
-            let keep = 1 - pressedDarkening
-            return KeyColor.RGB(red: rgb.red * keep, green: rgb.green * keep, blue: rgb.blue * keep)
+        nonisolated private static func pressed(_ rgb: KeyColor.RGB, scheme: ColorScheme) -> KeyColor.RGB {
+            KeyColor.RGB(hex: Palette.mixHex(rgb.hex, toward: Palette.hex(.textPrimary, scheme), share: pressedOverlay))
         }
     }
 
@@ -154,16 +169,24 @@
                 default: filled
                 }
             }
-            .opacity(isEnabled ? 1 : MacButtonStyle.disabledOpacity)
+            .opacity(isEnabled || dropsFill ? 1 : MacButtonStyle.disabledOpacity)
             .onHover { isHovered = $0 }
         }
 
         private var font: Font { MacButtonStyle.font(size) }
 
-        private var labelColor: Color { MacButtonStyle.label(for: role, scheme: scheme) }
+        /// A disabled filled role, drawn as a ring with a faint label.
+        private var dropsFill: Bool { !isEnabled && MacButtonStyle.dropsFillWhenDisabled(role) }
+
+        private var labelColor: Color {
+            dropsFill ? Palette.onDisabled : MacButtonStyle.label(for: role, scheme: scheme)
+        }
 
         private var fill: Color? {
-            MacButtonStyle.fill(for: role, scheme: scheme, container: container, isPressed: configuration.isPressed)
+            if dropsFill { return nil }
+            // A destructive button shows its fill under the pointer as well as on a press.
+            let isPressed = configuration.isPressed || (role == .destructive && isHovered && isEnabled)
+            return MacButtonStyle.fill(for: role, scheme: scheme, container: container, isPressed: isPressed)
         }
 
         private var filled: some View {
@@ -171,8 +194,14 @@
                 .macButtonMetrics(size)
                 .foregroundStyle(labelColor)
                 .background(fill ?? .clear, in: .rect(cornerRadius: MacButtonStyle.radius))
+                .overlay {
+                    if dropsFill {
+                        RoundedRectangle(cornerRadius: MacButtonStyle.radius)
+                            .strokeBorder(Palette.disabledBorder, lineWidth: 1)
+                    }
+                }
                 .macControlEdge(
-                    MacButtonStyle.strokesOn(role) ? container : .ground, scheme: scheme,
+                    MacButtonStyle.strokesOn(role) ? container : .pageBackground, scheme: scheme,
                     cornerRadius: MacButtonStyle.radius
                 )
                 .contentShape(.rect(cornerRadius: MacButtonStyle.radius))

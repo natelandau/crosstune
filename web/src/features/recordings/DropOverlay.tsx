@@ -53,9 +53,9 @@ export function DropOverlay({ shown }: { shown: boolean }) {
         >
           <div
             ref={box}
-            className="border-accent bg-wash absolute inset-x-2 top-2 flex items-center justify-center rounded-(--radius-surface) border-2"
+            className="border-accent bg-tint absolute inset-x-2 top-2 flex items-center justify-center rounded-(--radius-surface) border-2"
           >
-            <p className="t-heading text-ink">{DROP_TO_IMPORT}</p>
+            <p className="t-heading text-primary">{DROP_TO_IMPORT}</p>
           </div>
         </motion.div>
       )}

@@ -56,7 +56,7 @@ export function WhatPlaysSheet({
       primary={{ label: DONE, onPress: close }}
     >
       <div className="pb-4">
-        <p className="t-secondary text-ink-2 px-4 pt-2">{WHAT_PLAYS_LEAD}</p>
+        <p className="t-secondary text-secondary px-4 pt-2">{WHAT_PLAYS_LEAD}</p>
         {GROUPS.map(({ reason, heading }) => {
           const tuneIds = report.skipped[reason]
           if (tuneIds.length === 0) return null
