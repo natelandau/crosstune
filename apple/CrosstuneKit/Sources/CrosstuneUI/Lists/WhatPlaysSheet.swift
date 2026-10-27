@@ -1,6 +1,7 @@
 import CrosstuneAnalytics
 import CrosstuneAudio
 import CrosstuneCommands
+import CrosstuneDesign
 import SwiftUI
 
 /// Words the What plays sheet shows.

@@ -1,5 +1,6 @@
 import CrosstuneAnalytics
 import CrosstuneAudio
+import CrosstuneDesign
 import SwiftUI
 
 #if os(iOS)

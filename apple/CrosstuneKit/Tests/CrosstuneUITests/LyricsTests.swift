@@ -64,7 +64,7 @@ import Testing
         #expect(!LyricsSize.canGrow(LyricsSize.steps))
         #if os(macOS)
             // Both sit in the reader's own header, where a toolbar overflow can never hide one.
-            let file = SourceScan.sources.appending(path: "Lyrics/LyricsReader.swift")
+            let file = SourceScan.url(of: "Lyrics/LyricsReader.swift")
             let mac = SourceScan.macOSRegions(of: SourceScan.withoutComments(try SourceScan.text(at: file)))
             #expect(mac.contains("LyricsReader.smallerText"))
             #expect(mac.contains("LyricsReader.largerText"))

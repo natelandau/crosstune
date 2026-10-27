@@ -1,3 +1,4 @@
+import CrosstuneDesign
 import SwiftUI
 import Testing
 
@@ -40,12 +41,7 @@ import Testing
     /// The system's prominent styles draw their own fill and label, so every prominent button
     /// goes through the accent styles that color them.
     @Test func everyProminentButtonUsesTheAccentStyle() throws {
-        let sources = URL(filePath: #filePath)
-            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-            .appending(path: "Sources/CrosstuneUI", directoryHint: .isDirectory)
-        let files =
-            FileManager.default.enumerator(at: sources, includingPropertiesForKeys: nil)?
-            .compactMap { $0 as? URL }.filter { $0.pathExtension == "swift" } ?? []
+        let files = SourceScan.files()
         #expect(!files.isEmpty)
         let violations = try files.filter { file in
             let source = try String(contentsOf: file, encoding: .utf8)

@@ -1,4 +1,5 @@
 import Contacts
+import CrosstuneDesign
 import CrosstuneStore
 import CrosstuneVocabulary
 import Foundation

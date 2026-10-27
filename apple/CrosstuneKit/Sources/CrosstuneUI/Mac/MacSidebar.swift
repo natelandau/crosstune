@@ -1,3 +1,5 @@
+import CrosstuneDesign
+
 #if os(macOS)
     import CrosstuneStore
     import CrosstuneVocabulary

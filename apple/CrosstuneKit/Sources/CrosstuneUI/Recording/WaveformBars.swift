@@ -1,3 +1,4 @@
+import CrosstuneDesign
 import SwiftUI
 
 /// The levels behind the live waveform and where each bar goes. Scrolling keeps the newest

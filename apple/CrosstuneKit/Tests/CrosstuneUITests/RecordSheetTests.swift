@@ -2,6 +2,7 @@
 import CoreLocation
 import CrosstuneAnalytics
 import CrosstuneCommands
+import CrosstuneDesign
 import CrosstuneStore
 import CrosstuneTestSupport
 import Foundation
@@ -742,7 +743,7 @@ actor ReadCount {
     @Suite struct RecordSheetMacTests {
         /// Glass tinted red draws gray in a sheet, so the Mac's Stop is a solid red circle.
         @Test func stopIsAlwaysRecordingRedOnTheMac() throws {
-            let file = SourceScan.sources.appending(path: "Recording/RecordSheet.swift")
+            let file = SourceScan.url(of: "Recording/RecordSheet.swift")
             let mac = SourceScan.macCompiled(SourceScan.withoutComments(try SourceScan.text(at: file)))
             #expect(mac.contains("background(Palette.record, in: .circle)"))
             #expect(!mac.contains("glassEffect"))
@@ -762,7 +763,7 @@ actor ReadCount {
         }
 
         @Test func liveWaveformIsRecordingRedOnTheMac() throws {
-            let file = SourceScan.sources.appending(path: "Recording/LiveWaveform.swift")
+            let file = SourceScan.url(of: "Recording/LiveWaveform.swift")
             let mac = SourceScan.macCompiled(SourceScan.withoutComments(try SourceScan.text(at: file)))
             #expect(mac.contains("Palette.record"))
             #expect(!mac.contains("AnyShapeStyle(.tint)"))

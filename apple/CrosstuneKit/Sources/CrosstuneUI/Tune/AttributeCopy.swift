@@ -4,9 +4,6 @@ import Foundation
 public enum AttributeCopy {
     public static let addValue = "Add"
     public static let moreDetails = "More details"
-    /// More details' state, read out after its name.
-    public static let expanded = "Expanded"
-    public static let collapsed = "Collapsed"
     /// The attributes column's groups, in order, Lists last.
     public static let detailsGroup = "Details"
     public static let aboutGroup = "About"

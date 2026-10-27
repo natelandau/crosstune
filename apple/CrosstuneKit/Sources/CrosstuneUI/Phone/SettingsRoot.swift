@@ -1,4 +1,5 @@
 import CrosstuneAuth
+import CrosstuneDesign
 import CrosstuneStore
 import CrosstuneSync
 import Foundation

@@ -1,3 +1,4 @@
+import CrosstuneDesign
 import SwiftUI
 
 /// The key filter's choices as the colored pills the catalog's keys wear, since a menu draws

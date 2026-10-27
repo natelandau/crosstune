@@ -1,5 +1,6 @@
 import CrosstuneAnalytics
 import CrosstuneCommands
+import CrosstuneDesign
 import CrosstuneStore
 import CrosstuneTestSupport
 import Foundation
@@ -846,7 +847,7 @@ private func file(_ state: LocalFileState) -> RecordingFile {
         "Tune/TunePage.swift", "Tune/TuneHeader.swift", "Tune/FirstRecordingCard.swift", "Tune/NotesField.swift",
     ])
     func noEmptyStateBlocks(path: String) throws {
-        let text = SourceScan.withoutComments(try SourceScan.text(at: SourceScan.sources.appending(path: path)))
+        let text = SourceScan.withoutComments(try SourceScan.text(at: SourceScan.url(of: path)))
         #expect(!text.contains("PageEmptyState"))
     }
 
@@ -854,7 +855,7 @@ private func file(_ state: LocalFileState) -> RecordingFile {
     /// lands as the detail column swaps tunes lands on the tune it was made on.
     @Test func theHeaderWritesThroughItsOwnTunesModel() throws {
         let text = SourceScan.withoutComments(
-            try SourceScan.text(at: SourceScan.sources.appending(path: "Tune/TuneHeader.swift")))
+            try SourceScan.text(at: SourceScan.url(of: "Tune/TuneHeader.swift")))
         #expect(text.contains("write: model.write"))
         #expect(text.contains("model.write {"))
     }

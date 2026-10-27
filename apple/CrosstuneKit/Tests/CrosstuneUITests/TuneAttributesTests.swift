@@ -1,4 +1,5 @@
 import CoreGraphics
+import CrosstuneDesign
 import CrosstuneStore
 import CrosstuneTestSupport
 import Foundation
@@ -180,8 +181,8 @@ import Testing
     }
 
     @Test func moreDetailsSaysWhetherItIsOpen() {
-        #expect(TuneAttributes.moreDetailsState(expanded: true) == AttributeCopy.expanded)
-        #expect(TuneAttributes.moreDetailsState(expanded: false) == AttributeCopy.collapsed)
+        #expect(TuneAttributes.moreDetailsState(expanded: true) == DisclosureCopy.expanded)
+        #expect(TuneAttributes.moreDetailsState(expanded: false) == DisclosureCopy.collapsed)
     }
 
     // MARK: Tune identity
@@ -191,7 +192,7 @@ import Testing
     /// shows without a window, so the source is read.
     @Test func theRowsBelongToTheTuneTheyWriteTo() throws {
         let text = SourceScan.withoutComments(
-            try SourceScan.text(at: SourceScan.sources.appending(path: "Tune/TuneAttributes.swift")))
+            try SourceScan.text(at: SourceScan.url(of: "Tune/TuneAttributes.swift")))
         #expect(text.contains(".id(model.tuneID)"), "Key the attributes to the model's tune")
         #expect(text.contains("write: model.write"), "Write through the tune's own model")
     }

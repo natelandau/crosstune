@@ -1,5 +1,6 @@
 import CrosstuneAnalytics
 import CrosstuneCommands
+import CrosstuneDesign
 import SwiftUI
 
 /// One breakdown value: its name and count over a text-colored bar as wide as its share of the

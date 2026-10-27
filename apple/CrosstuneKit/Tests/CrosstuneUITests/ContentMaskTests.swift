@@ -254,7 +254,7 @@ import Testing
 
     /// A rename that hid the tune row from the scan fails here rather than passing quietly.
     @Test func theScanSeesTheTuneRowsTitle() throws {
-        let row = try SourceScan.text(at: SourceScan.sources.appending(path: "Components/TuneRow.swift"))
+        let row = try SourceScan.text(at: SourceScan.url(of: "Components/TuneRow.swift"))
         #expect(Self.sites(in: row).contains { $0.view == "Text" })
     }
 
@@ -353,7 +353,7 @@ import Testing
 
     @Test func everyHandMaskStaysInPlace() throws {
         for (file, marker) in Self.handMasks {
-            let text = try SourceScan.text(at: SourceScan.sources.appending(path: file))
+            let text = try SourceScan.text(at: SourceScan.url(of: file))
             let masks = Self.masks(of: marker, in: text)
             #expect(!masks.isEmpty, "\(file) no longer has \(marker)")
             #expect(masks.allSatisfy { $0 }, "\(file): add .contentMask() to every \(marker)")

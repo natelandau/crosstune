@@ -1,3 +1,4 @@
+import CrosstuneDesign
 import CrosstuneStore
 import CrosstuneVocabulary
 import GRDB

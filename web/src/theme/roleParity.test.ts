@@ -48,7 +48,10 @@ const webRoles = [...rootBlock.matchAll(/\n {2}--([\w-]+):/g)]
   .map((match) => match[1]!)
   .filter((name) => !PRIMITIVE.test(name) && !DATA.test(name))
 
-const styleDir = new URL('../../../apple/CrosstuneKit/Sources/CrosstuneUI/Style/', import.meta.url)
+const styleDir = new URL(
+  '../../../apple/CrosstuneKit/Sources/CrosstuneDesign/Style/',
+  import.meta.url,
+)
 const swift = readdirSync(styleDir)
   .filter((name) => name.endsWith('.swift'))
   .map((name) => readFileSync(new URL(name, styleDir), 'utf8'))

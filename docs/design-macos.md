@@ -5,8 +5,9 @@ differ. iPhone and iPad never take a rule from here.
 
 - Apple's Human Interface Guidelines: native SwiftUI controls, SF Symbols,
   system materials and fonts.
-- Mac-only views: `apple/CrosstuneKit/Sources/CrosstuneUI/Mac/`. A Mac
-  branch in a shared view never changes iPhone or iPad drawing.
+- Mac-only views: `apple/CrosstuneKit/Sources/CrosstuneUI/Mac/`. Mac
+  controls and `MacStyle`: `apple/CrosstuneKit/Sources/CrosstuneDesign/Mac/`.
+  A Mac branch in a shared view never changes iPhone or iPad drawing.
 
 ## Color
 

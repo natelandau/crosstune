@@ -1,4 +1,5 @@
 #if os(macOS)
+    import CrosstuneDesign
     import SwiftUI
     import Testing
 
@@ -8,7 +9,7 @@
     @Suite struct MacPracticeSurfaceTests {
         private static func macSource(_ path: String) throws -> String {
             SourceScan.macCompiled(
-                SourceScan.withoutComments(try SourceScan.text(at: SourceScan.sources.appending(path: path))))
+                SourceScan.withoutComments(try SourceScan.text(at: SourceScan.url(of: path))))
         }
 
         // MARK: Practice
@@ -28,7 +29,7 @@
             #expect(!(try Self.macSource("RecordingScreen/Practice/PracticeControls.swift")).contains("LoopSwitcher("))
             let screen = SourceScan.macOSRegions(
                 of: SourceScan.withoutComments(
-                    try SourceScan.text(at: SourceScan.sources.appending(path: "RecordingScreen/RecordingScreen.swift"))
+                    try SourceScan.text(at: SourceScan.url(of: "RecordingScreen/RecordingScreen.swift"))
                 ))
             #expect(screen.contains("LoopSwitcher("))
         }

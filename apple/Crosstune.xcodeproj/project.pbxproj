@@ -14,6 +14,7 @@
 		CA000000000000000000008D /* CrosstuneDiagnostics in Frameworks */ = {isa = PBXBuildFile; productRef = CA000000000000000000008C /* CrosstuneDiagnostics */; };
 		CA0000000000000000000016 /* CrosstuneExport in Frameworks */ = {isa = PBXBuildFile; productRef = CA0000000000000000000015 /* CrosstuneExport */; };
 		CA0000000000000000000018 /* CrosstuneUI in Frameworks */ = {isa = PBXBuildFile; productRef = CA0000000000000000000017 /* CrosstuneUI */; };
+		CA000000000000000000008F /* CrosstuneDesign in Frameworks */ = {isa = PBXBuildFile; productRef = CA000000000000000000008E /* CrosstuneDesign */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -64,6 +65,7 @@
 				CA000000000000000000008D /* CrosstuneDiagnostics in Frameworks */,
 				CA0000000000000000000016 /* CrosstuneExport in Frameworks */,
 				CA0000000000000000000018 /* CrosstuneUI in Frameworks */,
+				CA000000000000000000008F /* CrosstuneDesign in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -138,6 +140,7 @@
 				CA000000000000000000008C /* CrosstuneDiagnostics */,
 				CA0000000000000000000015 /* CrosstuneExport */,
 				CA0000000000000000000017 /* CrosstuneUI */,
+				CA000000000000000000008E /* CrosstuneDesign */,
 			);
 			productName = Crosstune;
 			productReference = CA0000000000000000000001 /* Crosstune.app */;
@@ -390,6 +393,10 @@
 		CA0000000000000000000017 /* CrosstuneUI */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = CrosstuneUI;
+		};
+		CA000000000000000000008E /* CrosstuneDesign */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = CrosstuneDesign;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

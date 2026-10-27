@@ -34,7 +34,7 @@ import Testing
     }
 
     private static func text(at file: String) throws -> String {
-        try SourceScan.text(at: SourceScan.sources.appending(path: file))
+        try SourceScan.text(at: SourceScan.url(of: file))
     }
 
     @Test func eachDestinationReportsItsScreenOnce() throws {

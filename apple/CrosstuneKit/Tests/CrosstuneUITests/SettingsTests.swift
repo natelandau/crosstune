@@ -685,10 +685,10 @@ private func instrumentSummary(_ model: SettingsModel) -> String {
         /// so every control in the tab keeps the system's.
         @Test func noSettingsTabOpensWithFocusOnARow() throws {
             let tabs = SourceScan.withoutComments(
-                try SourceScan.text(at: SourceScan.sources.appending(path: "Mac/MacSettingsTabs.swift")))
+                try SourceScan.text(at: SourceScan.url(of: "Mac/MacSettingsTabs.swift")))
             #expect(tabs.contains(".macSettingsOpensUnfocused()"))
             let rows = SourceScan.withoutComments(
-                try SourceScan.text(at: SourceScan.sources.appending(path: "Mac/MacSettingsRow.swift")))
+                try SourceScan.text(at: SourceScan.url(of: "Mac/MacSettingsRow.swift")))
             let start = try #require(rows.range(of: "struct MacSettingsOpensUnfocused"))
             let modifier = String(rows[start.upperBound...])
             let content = try #require(modifier.range(of: "content\n"))
@@ -714,7 +714,7 @@ private func instrumentSummary(_ model: SettingsModel) -> String {
             ]
             for path in files {
                 let text = SourceScan.withoutComments(
-                    SourceScan.withoutPreviews(try SourceScan.text(at: SourceScan.sources.appending(path: path))))
+                    SourceScan.withoutPreviews(try SourceScan.text(at: SourceScan.url(of: path))))
                 let mac = SourceScan.macCompiled(text)
                 #expect(!mac.contains("Form {"), "\(path) draws a grouped Form on the Mac")
                 #expect(!mac.contains("SettingsFieldRow("), "\(path) draws a Form row on the Mac")
@@ -726,7 +726,7 @@ private func instrumentSummary(_ model: SettingsModel) -> String {
         /// its fill as it does for every other control on a card.
         @Test func settingsButtonsUseTheMacButtonStyle() throws {
             let text = SourceScan.withoutComments(
-                try SourceScan.text(at: SourceScan.sources.appending(path: "Mac/MacSettingsRow.swift")))
+                try SourceScan.text(at: SourceScan.url(of: "Mac/MacSettingsRow.swift")))
             #expect(text.contains(".buttonStyle(.mac(role))"))
             #expect(!text.contains("MacCardButtonStyle"))
         }
@@ -802,7 +802,7 @@ private func instrumentSummary(_ model: SettingsModel) -> String {
     /// Import and export live on their own page, so the account offers neither.
     @Test func accountOffersNeitherImportNorExport() throws {
         let text = SourceScan.withoutComments(
-            try SourceScan.text(at: SourceScan.sources.appending(path: "Account/AccountSections.swift")))
+            try SourceScan.text(at: SourceScan.url(of: "Account/AccountSections.swift")))
         for name in ["ImportSheet", "ImportCopy", "ExportDataSheet"] {
             #expect(!text.contains(name), "AccountSections names \(name)")
         }

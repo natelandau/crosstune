@@ -1,3 +1,4 @@
+import CrosstuneDesign
 import SwiftUI
 
 /// Closing the practice screen with a swipe down. The swipe starts in the header or the

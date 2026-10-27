@@ -1,3 +1,4 @@
+import CrosstuneDesign
 import SwiftUI
 
 /// Words for pinning the recording or link a tune plays first in lists.

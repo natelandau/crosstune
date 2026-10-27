@@ -1,4 +1,5 @@
 import CrosstuneAudio
+import CrosstuneDesign
 import SwiftUI
 
 /// What the play button shows: Pause while playing; Repeat and the loop's name, with the repeat

@@ -1,4 +1,5 @@
 #if os(macOS)
+    import CrosstuneDesign
     import Foundation
     import SwiftUI
     import Testing
@@ -211,7 +212,7 @@
         /// fixed `field`, so none reads gray on a card.
         @Test func controlsTakeTheirFillFromTheContainer() throws {
             for name in ["Mac/MacFieldStyle.swift", "Mac/MacButtonStyle.swift", "Components/FilterSearchField.swift"] {
-                let text = SourceScan.withoutComments(try SourceScan.text(at: SourceScan.sources.appending(path: name)))
+                let text = SourceScan.withoutComments(try SourceScan.text(at: SourceScan.url(of: name)))
                 #expect(!text.contains("Palette.field"), "\(name)")
                 #expect(text.contains("@Environment(\\.macContainer)"), "\(name)")
                 #expect(text.contains(".macControlEdge("), "\(name)")
@@ -221,7 +222,7 @@
         /// Every surface card and footer marks itself, so the controls in it take the raised fill.
         @Test func surfaceCardsMarkTheirContainer() throws {
             for name in ["Mac/MacForm.swift", "Mac/MacSheet.swift", "Plan/PlanComparison.swift"] {
-                let text = SourceScan.withoutComments(try SourceScan.text(at: SourceScan.sources.appending(path: name)))
+                let text = SourceScan.withoutComments(try SourceScan.text(at: SourceScan.url(of: name)))
                 #expect(text.contains(".macSurfaceContainer()"), "\(name)")
             }
         }

@@ -169,10 +169,10 @@ against production, such as granting a comp or a trial.
   `.coversShellMenus(_:)`. A test in
   `CrosstuneUITests` enforces each, so the record control and the shell's
   menu commands are disabled behind every presentation.
-- Every view in `CrosstuneUI` that shows user content carries
-  `.contentMask()`, so replay could never show it if it is ever enabled. A test in
-  `CrosstuneUITests` enforces it; a view handed its text is masked by hand
-  and listed in that test.
+- Every view in `CrosstuneUI` or `CrosstuneDesign` that shows user
+  content carries `.contentMask()`, so replay could never show it if it is
+  ever enabled. A test in `CrosstuneUITests` enforces it; a view handed
+  its text is masked by hand and listed in that test.
 - A new analytics event goes in `analytics/tracking-plan.json` before code
   sends it, following `docs/analytics.md`. A model receives the
   `AnalyticsClient` as an init parameter, a view reads it from the

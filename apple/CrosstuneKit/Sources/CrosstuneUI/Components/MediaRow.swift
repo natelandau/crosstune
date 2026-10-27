@@ -1,4 +1,5 @@
 import CrosstuneAnalytics
+import CrosstuneDesign
 import SwiftUI
 
 /// The row shape recordings and links share: a fixed glyph slot for the item's state, the title,

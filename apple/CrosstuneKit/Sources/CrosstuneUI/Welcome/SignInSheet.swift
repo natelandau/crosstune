@@ -1,4 +1,5 @@
 import CrosstuneAuth
+import CrosstuneDesign
 import SwiftUI
 
 /// Clerk's sign-in or sign-up flow in a sheet over the welcome screen.

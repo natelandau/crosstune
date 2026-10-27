@@ -1,4 +1,5 @@
 #if os(macOS)
+    import CrosstuneDesign
     import Foundation
     import SwiftUI
     import Testing

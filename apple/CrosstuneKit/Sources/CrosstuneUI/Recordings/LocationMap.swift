@@ -1,4 +1,5 @@
 import CoreLocation
+import CrosstuneDesign
 import CrosstuneStore
 import MapKit
 import SwiftUI

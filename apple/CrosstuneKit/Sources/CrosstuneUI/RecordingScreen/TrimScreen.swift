@@ -1,5 +1,6 @@
 import CrosstuneAudio
 import CrosstuneCommands
+import CrosstuneDesign
 import SwiftUI
 
 /// What holds the keyboard on the trim screen: the screen itself, or one of its handles.

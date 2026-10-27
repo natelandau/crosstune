@@ -1,6 +1,7 @@
 import CrosstuneAnalytics
 import CrosstuneAuth
 import CrosstuneCommands
+import CrosstuneDesign
 import CrosstuneStore
 import CrosstuneSync
 import SwiftUI

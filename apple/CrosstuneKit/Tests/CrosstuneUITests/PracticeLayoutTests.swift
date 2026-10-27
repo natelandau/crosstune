@@ -1,3 +1,4 @@
+import CrosstuneDesign
 import SwiftUI
 import Testing
 
@@ -74,7 +75,7 @@ import Testing
     #if os(macOS)
         /// The practice view sits on the page's margins, as the tune page does.
         @Test func practicePageUsesThePageMargin() throws {
-            let file = SourceScan.sources.appending(path: "RecordingScreen/RecordingScreen.swift")
+            let file = SourceScan.url(of: "RecordingScreen/RecordingScreen.swift")
             let mac = SourceScan.macOSRegions(of: SourceScan.withoutComments(try SourceScan.text(at: file)))
             #expect(mac.contains("MacStyle.pageMargin"))
             #expect(!mac.contains("MacStyle.sheetMargin"))

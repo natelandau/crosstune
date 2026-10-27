@@ -64,7 +64,7 @@
                 #expect(names.contains { $0.hasPrefix(entry) }, "\(entry)")
             }
             for (name, markers) in Self.iOSOnlyDrawing {
-                let text = try SourceScan.text(at: SourceScan.sources.appending(path: name))
+                let text = try SourceScan.text(at: SourceScan.url(of: name))
                 #expect(text.contains(markers.from) && text.contains(markers.to), "\(name)")
             }
         }

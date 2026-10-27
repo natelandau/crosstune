@@ -1,4 +1,5 @@
 import CrosstuneAnalytics
+import CrosstuneDesign
 
 #if os(macOS)
     import CrosstuneAuth

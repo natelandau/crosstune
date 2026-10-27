@@ -318,8 +318,7 @@ private func with(_ entry: CatalogEntry, modes: [String]? = nil, timeSignature: 
 
         /// The app target's menu commands, beside the package.
         private static func appCommands() throws -> String {
-            let url = SourceScan.sources
-                .deletingLastPathComponent()  // Sources
+            let url = SourceScan.packageSources
                 .deletingLastPathComponent()  // CrosstuneKit
                 .deletingLastPathComponent()  // apple
                 .appending(path: "Crosstune/AppCommands.swift")

@@ -1,4 +1,5 @@
 import CrosstuneCommands
+import CrosstuneDesign
 import CrosstuneStore
 import CrosstuneTestSupport
 import CrosstuneVocabulary
@@ -623,7 +624,7 @@ private func entry(_ tuning: String? = nil, capo: Int64? = nil) -> JSONValue {
     @Suite struct MacTuneFormTests {
         /// The Mac title field is the sheet's large heading, so no label beside it names it again.
         @Test func macTuneFormTitleFieldHasNoLabel() throws {
-            let file = SourceScan.sources.appending(path: "TuneForm/TuneFormSheet.swift")
+            let file = SourceScan.url(of: "TuneForm/TuneFormSheet.swift")
             let text = SourceScan.withoutComments(SourceScan.withoutPreviews(try SourceScan.text(at: file)))
             let mac = SourceScan.macOSRegions(of: text, in: file)
             let titleField = MacFieldTests.textFieldChains(in: mac).first { $0.contains("MacStyle.formTitle") }

@@ -1,6 +1,5 @@
+import CrosstuneDesign
 import Foundation
-
-@testable import CrosstuneUI
 
 /// WCAG 2 contrast ratio between two sRGB colors.
 func contrastRatio(_ first: KeyColor.RGB, _ second: KeyColor.RGB) -> Double {

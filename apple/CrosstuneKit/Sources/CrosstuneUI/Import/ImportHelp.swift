@@ -1,3 +1,4 @@
+import CrosstuneDesign
 import SwiftUI
 
 /// "What can I paste?", which opens the public help page so the rules live in one place.

@@ -1,5 +1,6 @@
 import CrosstuneAnalytics
 import CrosstuneAudio
+import CrosstuneDesign
 import Foundation
 
 /// The settings this device keeps in its own defaults, as the person property values they map

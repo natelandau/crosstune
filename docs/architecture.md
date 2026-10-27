@@ -56,6 +56,10 @@ How one feature works is in its code. Deploys and releases:
   vocabularies. Display labels stay in each client, typed against the
   generated unions, so a new server value fails the build until it has a
   label.
+- Apple styles, tokens, and controls with no feature knowledge live in
+  `CrosstuneDesign`. `CrosstuneUI` depends on it, never the reverse, so
+  the compiler rejects a style that reaches into a screen. A type that
+  needs a feature's type, string, or sample data stays in `CrosstuneUI`.
 - The Swift generator reads a normalized copy of the contract, with enums
   and closed objects loosened, so an installed app decodes rows from a
   newer API.

@@ -1,4 +1,5 @@
 import CrosstuneAudio
+import CrosstuneDesign
 import SwiftUI
 
 /// A slab at each side edge, level with the note when in tune, risen when sharp and sunk when
