@@ -147,6 +147,8 @@ class Settings(BaseSettings):
     link_resolves_per_minute: int = 30
     link_searches_per_minute: int = 20
     place_searches_per_minute: int = 60
+    # Reverse geocodes the job runner makes for one account; the rest wait their turn.
+    place_lookups_per_minute: int = 30
     billing_refreshes_per_minute: int = 10
     # How long a request waits on its account's lock before answering 429, and how many
     # sync requests one account may have in flight at once.

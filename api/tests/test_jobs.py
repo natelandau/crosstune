@@ -2746,6 +2746,69 @@ async def test_claim_takes_each_user_s_oldest_job_in_turn(
     ]
 
 
+async def test_claim_holds_back_place_lookups_past_the_user_s_pace(
+    engine, tmp_path, settings: Settings, verify_session
+) -> None:
+    job_runner = JobRunner(
+        make_sessionmaker(engine),
+        FakeObjectStore(),
+        work_root=tmp_path,
+        settings=settings.model_copy(update={"place_lookups_per_minute": 2}),
+    )
+    busy, other = await make_user(verify_session), await make_user(verify_session)
+    burst = [
+        await _queue(verify_session, busy, JobKind.PLACE, minutes_ago)
+        for minutes_ago in (30, 20, 10)
+    ]
+    late = await _queue(verify_session, other, JobKind.PLACE, 0)
+    claimed = [await job_runner._claim() for _ in range(4)]
+    assert [job.id if job else None for job in claimed] == [
+        burst[0].id,
+        late.id,
+        burst[1].id,
+        None,
+    ]
+    held = await verify_session.get(Job, burst[2].id, populate_existing=True)
+    assert held is not None
+    assert held.locked_until is not None
+    assert held.locked_until > utc_now()
+    assert held.attempts == 0
+
+
+async def test_an_account_past_its_place_pace_has_its_backlog_held_in_one_pass(
+    engine, tmp_path, settings: Settings, verify_session, monkeypatch
+) -> None:
+    job_runner = JobRunner(
+        make_sessionmaker(engine),
+        FakeObjectStore(),
+        work_root=tmp_path,
+        settings=settings.model_copy(update={"place_lookups_per_minute": 1}),
+    )
+    busy = await make_user(verify_session)
+    backlog = [
+        await _queue(verify_session, busy, JobKind.PLACE, minutes_ago)
+        for minutes_ago in range(5, 0, -1)
+    ]
+    assert await job_runner._claim() is not None
+    passes = 0
+    claim_next = job_runner._claim_next
+
+    async def counted() -> tuple[bool, Job | None]:
+        nonlocal passes
+        passes += 1
+        return await claim_next()
+
+    monkeypatch.setattr(job_runner, "_claim_next", counted)
+    assert await job_runner._claim() is None
+    # One pass holds the whole backlog, and one more finds nothing left to claim.
+    assert passes == 2
+    for job in backlog[1:]:
+        held = await verify_session.get(Job, job.id, populate_existing=True)
+        assert held is not None
+        assert held.locked_until is not None
+        assert held.attempts == 0
+
+
 async def test_reencode_drops_a_recording_with_no_original(
     trim_runner, verify_session, media_fixtures, tmp_path
 ) -> None:
