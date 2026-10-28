@@ -291,6 +291,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.place_search_limiter = RateLimiter(
         limit=settings.place_searches_per_minute, window_seconds=60.0
     )
+    app.state.mapkit_token_limiter = RateLimiter(
+        limit=settings.mapkit_tokens_per_minute, window_seconds=60.0
+    )
+    app.state.place_snapshot_limiter = RateLimiter(
+        limit=settings.place_snapshots_per_minute, window_seconds=60.0
+    )
     app.state.billing_refresh_limiter = RateLimiter(
         limit=settings.billing_refreshes_per_minute, window_seconds=60.0
     )

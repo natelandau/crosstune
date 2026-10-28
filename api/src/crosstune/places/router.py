@@ -116,12 +116,17 @@ class SnapshotResponse(BaseModel):
     url: str
 
 
-@router.get("/mapkit-token", responses=problem_responses(503))
-async def mapkit_token(request: Request, user: CurrentUser) -> MapKitTokenResponse:  # noqa: ARG001
+@router.get("/mapkit-token", responses=problem_responses(429, 503))
+async def mapkit_token(request: Request, user: CurrentUser) -> MapKitTokenResponse:
     """Issue a short-lived MapKit JS token restricted to the web origin."""
     state = request.app.state
     if state.maps is None:
         raise ServiceUnavailableError(_MAP_UNAVAILABLE)
+    # A token's origin claim binds only a browser, so a script could spend the operator's
+    # MapKit JS quota with every token it is handed.
+    wait = state.mapkit_token_limiter.hit(user.id)
+    if wait is not None:
+        raise TooManyRequestsError(wait)
     try:
         issued = mapkit.issue_token(state.maps, origin=state.settings.web_origin)
     except MapsError:
@@ -129,10 +134,10 @@ async def mapkit_token(request: Request, user: CurrentUser) -> MapKitTokenRespon
     return MapKitTokenResponse(token=issued.token, expires_at=issued.expires_at)
 
 
-@router.get("/snapshot", responses=problem_responses(503))
+@router.get("/snapshot", responses=problem_responses(429, 503))
 async def snapshot(  # noqa: PLR0913
     request: Request,
-    user: CurrentUser,  # noqa: ARG001
+    user: CurrentUser,
     *,
     lat: Annotated[float, Query(gt=-90, lt=90)],
     lon: Annotated[float, Query(gt=-180, lt=180)],
@@ -145,6 +150,10 @@ async def snapshot(  # noqa: PLR0913
     maps = request.app.state.maps
     if maps is None:
         raise ServiceUnavailableError(_MAP_UNAVAILABLE)
+    # Each signed URL renders under the operator's snapshot quota, for anyone who holds it.
+    wait = request.app.state.place_snapshot_limiter.hit(user.id)
+    if wait is not None:
+        raise TooManyRequestsError(wait)
     try:
         url = mapkit.snapshot_url(
             maps,
