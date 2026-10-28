@@ -198,6 +198,8 @@ private struct ScanViewerBody: View {
     @State private var shown: String?
     @State private var scale = ScanZoom.fit
     @State private var deleting: Scan?
+    /// The side safe areas the pager runs under, given back to each page as padding.
+    @State private var sideInsets = EdgeInsets()
 
     private func turn(by step: Int, ids: [String]) {
         let index = (shown.flatMap { ids.firstIndex(of: $0) } ?? 0) + step
@@ -244,6 +246,9 @@ private struct ScanViewerBody: View {
                         .elevation(.float)
                         .padding(.horizontal, 56)
                         .padding(.vertical, 20)
+                    #else
+                        .padding(.leading, sideInsets.leading)
+                        .padding(.trailing, sideInsets.trailing)
                     #endif
                     .containerRelativeFrame([.horizontal, .vertical])
                     .id(scan.id)
@@ -252,6 +257,17 @@ private struct ScanViewerBody: View {
             .scrollTargetLayout()
         }
         .scrollTargetBehavior(.paging)
+        #if os(iOS)
+            // Paging turns by the whole width, so a page narrowed by a side safe area, such as the
+            // closed iPhone Duo's vertical bar or a landscape iPhone's camera, would leave the next
+            // page showing at its edge.
+            .ignoresSafeArea(.container, edges: .horizontal)
+            .onGeometryChange(for: EdgeInsets.self) {
+                $0.safeAreaInsets
+            } action: {
+                sideInsets = $0
+            }
+        #endif
         .scrollPosition(id: $shown)
         .scrollIndicators(.never)
         // A zoomed scan pans under the finger rather than turning to the next.
