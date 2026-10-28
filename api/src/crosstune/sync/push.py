@@ -49,6 +49,7 @@ async def apply_push(
     changes: list[Change],
     settings: Settings,
     resolved_links: Mapping[str, ResolvedLink] | None = None,
+    lock_wait_seconds: float | None = None,
 ) -> list[ChangeResult]:
     """Apply changes grouped by table in dependency order. Returns results in the input order.
 
@@ -60,11 +61,13 @@ async def apply_push(
         resolved_links: What each untitled link URL resolved to before the transaction, or
             None to store untitled links as pushed. A URL missing from it is stored in its
             offline form.
+        lock_wait_seconds: How long to wait on the user's lock before refusing, or None to
+            wait as long as another push holds it.
     """
     # Serializes this user's concurrent pushes so server_seq is assigned in commit order,
     # matching the order a pull cursor relies on. Released automatically when the request's
     # transaction ends.
-    await lock_user(session, user_id)
+    await lock_user(session, user_id, wait_seconds=lock_wait_seconds)
     # Resolved under the lock, so a grant change commits wholly before or after this push.
     access = await access_for(session, user_id, settings)
 

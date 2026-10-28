@@ -53,6 +53,7 @@ async def withdraw(  # noqa: PLR0913 -- each client is injected so callers and t
     now: datetime,
     *,
     allow_repeat: bool = False,
+    lock_wait_seconds: float | None = None,
 ) -> None:
     """Refund the user's web subscription in full, cancel it, end Premium, and commit.
 
@@ -75,13 +76,15 @@ async def withdraw(  # noqa: PLR0913 -- each client is injected so callers and t
         settings: The web origin for the email and the quotas for the entitlement.
         now: The instant the window is judged against and the withdrawal is stamped with.
         allow_repeat: Let an account that already withdrew once withdraw again.
+        lock_wait_seconds: How long to wait on the account's billing and user locks before
+            refusing, or None to wait as long as another holder keeps them.
 
     Raises:
         WithdrawalRefusedError: Already withdrawn, no live web subscription, or the window closed.
         BillingUnavailableError: Stripe or RevenueCat did not confirm.
     """
-    async with billing_lock(session, user.id):
-        await lock_user(session, user.id)
+    async with billing_lock(session, user.id, wait_seconds=lock_wait_seconds):
+        await lock_user(session, user.id, wait_seconds=lock_wait_seconds)
         pending = await session.scalar(
             select(Grant.id).where(Grant.user_id == user.id, *PENDING).limit(1)
         )

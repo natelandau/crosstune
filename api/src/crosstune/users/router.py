@@ -119,9 +119,10 @@ async def record_notice(
 
     The first time is the one kept; a repeat changes nothing.
     """
+    settings = request.app.state.settings
     # The row takes a new server_seq, which must commit in the order pull relies on.
-    await lock_user(session, user.id)
-    row = await refresh_entitlement(session, user.id, request.app.state.settings)
+    await lock_user(session, user.id, wait_seconds=settings.request_lock_timeout_seconds)
+    row = await refresh_entitlement(session, user.id, settings)
     column = NOTICE_COLUMNS[body.notice]
     if getattr(row, column) is None:
         now = utc_now()
@@ -218,8 +219,9 @@ async def delete_me(
     )
     # The billing lock keeps a withdrawal, the withdrawal pass, and a second deletion out
     # from the first billing step until the purge is written.
-    async with billing_lock(session, user.id):
-        await lock_user(session, user.id)
+    wait_seconds = request.app.state.settings.request_lock_timeout_seconds
+    async with billing_lock(session, user.id, wait_seconds=wait_seconds):
+        await lock_user(session, user.id, wait_seconds=wait_seconds)
         refund_notice = await end_billing(
             session,
             user,

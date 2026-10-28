@@ -60,13 +60,26 @@ async def refresh_purchases(
     revenuecat: RevenueCat,
     settings: Settings,
     now: datetime,
+    *,
+    lock_wait_seconds: float | None = None,
 ) -> None:
     """Sync the user's RevenueCat subscriptions into grants and refresh their entitlement.
+
+    Args:
+        session: The transaction the grants are written in.
+        user: The account to refresh.
+        revenuecat: Where the account's subscriptions are read.
+        settings: The quotas the entitlement is refreshed against.
+        now: The instant grants are judged against.
+        lock_wait_seconds: How long to wait on each account's lock before refusing, or
+            None to wait as long as another writer holds it.
 
     Raises:
         RevenueCatUnavailableError: RevenueCat did not answer; nothing was written.
     """
-    await refresh_many_purchases(session, [user], revenuecat, settings, now)
+    await refresh_many_purchases(
+        session, [user], revenuecat, settings, now, lock_wait_seconds=lock_wait_seconds
+    )
 
 
 async def refresh_many_purchases(
@@ -75,8 +88,12 @@ async def refresh_many_purchases(
     revenuecat: RevenueCat,
     settings: Settings,
     now: datetime,
+    *,
+    lock_wait_seconds: float | None = None,
 ) -> None:
     """Refresh several users in one transaction.
+
+    `lock_wait_seconds` bounds the wait on each account's lock, as `refresh_purchases` says.
 
     Raises:
         RevenueCatUnavailableError: RevenueCat did not answer for a user; nothing was written.
@@ -90,7 +107,7 @@ async def refresh_many_purchases(
     # A subscription moving away leaves its old account's entitlement stale, so that account is
     # locked and refreshed too. A stable order keeps concurrent calls from deadlocking.
     for user_id in sorted(refreshed | await _holders(session, fetched)):
-        await lock_user(session, user_id)
+        await lock_user(session, user_id, wait_seconds=lock_wait_seconds)
     moved_from: set[uuid.UUID] = set()
     for user, subscriptions in sorted(fetched, key=lambda pair: pair[0].id):
         # Account deletion holds the same lock, so a user it removed is gone by now.

@@ -48,7 +48,7 @@ async def upload_slot(
     """A presigned PUT for one scan's image, once the file cap, the plan, and its quota allow it."""
     store = require_store(request)
     settings = request.app.state.settings
-    await lock_user(session, user.id)
+    await lock_user(session, user.id, wait_seconds=settings.request_lock_timeout_seconds)
     scan = await owned_scan(session, user.id, scan_id)
     require_state(scan, ScanState.PENDING_UPLOAD)
     access = await access_for(session, user.id, settings)
@@ -84,7 +84,7 @@ async def upload_finished(
     scan = await owned_scan(session, user.id, scan_id)
     # The bucket round trip happens before the lock so it never holds up the caller's other writes.
     info = await head_slot(store, await slot_for_scan(session, scan.id))
-    await lock_user(session, user.id)
+    await lock_user(session, user.id, wait_seconds=settings.request_lock_timeout_seconds)
     # Re-read under the lock: another request may have confirmed or deleted this scan,
     # or deleted its tune, meanwhile.
     await session.refresh(scan)

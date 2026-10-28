@@ -293,9 +293,9 @@ async def test_webhook_reads_every_user_before_locking_any(
 
     real_lock = purchases.lock_user
 
-    async def spy_lock(session, user_id) -> None:
+    async def spy_lock(session, user_id, **kwargs) -> None:
         events.append("lock")
-        await real_lock(session, user_id)
+        await real_lock(session, user_id, **kwargs)
 
     fake.subscriptions = spy_subscriptions
     webhook_app.state.revenuecat = fake
@@ -341,9 +341,9 @@ async def test_refresh_many_locks_users_in_ascending_id_order(
     locked: list = []
     real_lock = purchases.lock_user
 
-    async def spy_lock(session, user_id) -> None:
+    async def spy_lock(session, user_id, **kwargs) -> None:
         locked.append(user_id)
-        await real_lock(session, user_id)
+        await real_lock(session, user_id, **kwargs)
 
     monkeypatch.setattr(purchases, "lock_user", spy_lock)
 

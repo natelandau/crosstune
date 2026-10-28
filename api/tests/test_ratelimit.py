@@ -5,7 +5,7 @@ from __future__ import annotations
 import httpx2
 import pytest
 
-from crosstune.ratelimit import RateLimiter
+from crosstune.ratelimit import ConcurrencyLimiter, RateLimiter
 from tests.helpers import OEMBED, T0, change, og_html, push, uid
 
 
@@ -138,3 +138,25 @@ async def test_push_and_the_resolve_route_share_one_limit(app, client, auth_head
         "/v1/links/resolve", json={"url": url}, headers=auth_headers("user_a")
     )
     assert response.status_code == 429
+
+
+def test_concurrency_limiter_refuses_past_the_limit_until_a_release() -> None:
+    limiter = ConcurrencyLimiter(limit=2)
+    assert limiter.try_acquire("a")
+    assert limiter.try_acquire("a")
+    assert not limiter.try_acquire("a")
+    limiter.release("a")
+    assert limiter.try_acquire("a")
+
+
+def test_concurrency_limiter_counts_each_key_apart() -> None:
+    limiter = ConcurrencyLimiter(limit=1)
+    assert limiter.try_acquire("a")
+    assert limiter.try_acquire("b")
+
+
+def test_concurrency_limiter_forgets_a_key_once_nothing_is_held() -> None:
+    limiter = ConcurrencyLimiter(limit=1)
+    assert limiter.try_acquire("a")
+    limiter.release("a")
+    assert limiter.tracked == 0

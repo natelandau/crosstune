@@ -33,7 +33,7 @@ from crosstune.links.search.registry import adapters as search_adapters
 from crosstune.logging import configure_logging
 from crosstune.places.maps import configured_maps
 from crosstune.places.router import router as places_router
-from crosstune.ratelimit import RateLimiter
+from crosstune.ratelimit import ConcurrencyLimiter, RateLimiter
 from crosstune.recordings.router import router as recordings_router
 from crosstune.region import router as region_router
 from crosstune.scans.router import router as scans_router
@@ -293,6 +293,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     app.state.billing_refresh_limiter = RateLimiter(
         limit=settings.billing_refreshes_per_minute, window_seconds=60.0
+    )
+    app.state.sync_request_limiter = ConcurrencyLimiter(
+        limit=settings.concurrent_sync_requests_per_user
     )
     app.state.recorded_client_versions = RecordedClientVersions()
     app.state.search_tokens = SearchTokens.from_settings(settings)

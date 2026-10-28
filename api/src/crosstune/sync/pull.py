@@ -44,7 +44,12 @@ EVENT_ROWS: dict[str, tuple[type[BaseModel], type[BaseModel]]] = {
 
 
 async def pull_since(
-    session: AsyncSession, user_id: uuid.UUID, since: int, limit: int
+    session: AsyncSession,
+    user_id: uuid.UUID,
+    since: int,
+    limit: int,
+    *,
+    lock_wait_seconds: float | None = None,
 ) -> tuple[list[PullRow], int, bool]:
     """Rows with server_seq above `since`, oldest first, at most `limit`.
 
@@ -54,13 +59,18 @@ async def pull_since(
     sources = [
         (spec.model, spec.owned_by(user_id), spec) for spec in TABLES.values() if spec.pulled
     ]
-    await share_user_lock(session, user_id)
+    await share_user_lock(session, user_id, wait_seconds=lock_wait_seconds)
     page, next_since, has_more = await _merged_page(session, sources, since, limit)
     return [_pull_row(spec, row) for spec, row in page], next_since, has_more
 
 
 async def events_since(
-    session: AsyncSession, user_id: uuid.UUID, since: int, limit: int
+    session: AsyncSession,
+    user_id: uuid.UUID,
+    since: int,
+    limit: int,
+    *,
+    lock_wait_seconds: float | None = None,
 ) -> tuple[list[EventRow], int, bool]:
     """History rows with server_seq above `since`, oldest first, at most `limit`.
 
@@ -75,7 +85,7 @@ async def events_since(
         for spec in TABLES.values()
         if spec.append_only
     )
-    await share_user_lock(session, user_id)
+    await share_user_lock(session, user_id, wait_seconds=lock_wait_seconds)
     page, next_since, has_more = await _merged_page(session, sources, since, limit)
     return [_event_row(name, row) for name, row in page], next_since, has_more
 
