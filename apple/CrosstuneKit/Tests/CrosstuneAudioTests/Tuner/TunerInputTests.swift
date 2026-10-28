@@ -20,18 +20,23 @@ private final class FakeTunerEngine: TunerEngine {
     }
 
     let state = Mutex(State())
+    let registry: TunerRegistry
+
+    init(registry: TunerRegistry) {
+        self.registry = registry
+    }
 
     var log: [String] { state.withLock { $0.log } }
 
     func activate(unlessYieldedSince yields: UInt64) async throws {
         if state.withLock({ $0.yieldDuringActivate }) {
-            await MainActor.run { TunerInput.yieldToPlayback() }
+            await registry.yieldToPlayback()
         }
         try state.withLock { state in
             state.log.append("activate")
             if let error = state.activateError { throw error }
         }
-        guard AudioSessionClaims.shared.yields == yields else { throw YieldedToPlayback() }
+        guard registry.claims.yields == yields else { throw YieldedToPlayback() }
     }
 
     func start(
@@ -79,15 +84,16 @@ private func sine(_ frequency: Double, seconds: Double, sampleRate: Double) -> [
 }
 
 extension Tuner {
-    /// Serialized, since a yield to playback reaches every live tuner in the process.
     @MainActor
-    @Suite(.serialized) struct TunerInputTests {
-        private let engine = FakeTunerEngine()
+    @Suite struct TunerInputTests {
+        private let registry = TunerRegistry(claims: AudioSessionClaims())
+        private let engine: FakeTunerEngine
         private let heard = Heard()
         private let input: TunerInput
 
         init() {
-            input = TunerInput(engine: engine)
+            engine = FakeTunerEngine(registry: registry)
+            input = TunerInput(engine: engine, registry: registry)
         }
 
         private func start(a4: Double = 440) async throws {
@@ -208,7 +214,7 @@ extension Tuner {
         @Test func yieldingToPlaybackLetsGoAtOnceAndIgnoresTheSessionChange() async throws {
             try await start()
             engine.deliver(a4Reading)
-            TunerInput.yieldToPlayback()
+            registry.yieldToPlayback()
             #expect(!input.holdsMicrophone)
 
             engine.deliver(a4Reading)
@@ -225,20 +231,20 @@ extension Tuner {
 
         @Test func tellsAYieldedTunerWhenThePlayDidNotStart() async throws {
             try await start()
-            TunerInput.yieldToPlayback()
+            registry.yieldToPlayback()
             #expect(heard.yields == [.yielded])
 
             await input.stop()
-            TunerInput.playbackDidNotStart()
-            TunerInput.playbackDidNotStart()
+            registry.playbackDidNotStart()
+            registry.playbackDidNotStart()
             #expect(heard.yields == [.yielded, .playbackDidNotStart])
         }
 
         @Test func aNewStartForgetsAnEarlierYield() async throws {
             try await start()
-            TunerInput.yieldToPlayback()
+            registry.yieldToPlayback()
             try await start()
-            TunerInput.playbackDidNotStart()
+            registry.playbackDidNotStart()
 
             #expect(heard.yields == [.yielded])
         }
