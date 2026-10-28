@@ -150,6 +150,7 @@ class Settings(BaseSettings):
     # Each MapKit JS token or signed snapshot spends the operator's Apple Maps quota.
     mapkit_tokens_per_minute: int = 10
     place_snapshots_per_minute: int = 120
+    recording_retries_per_minute: int = 10
     # Reverse geocodes the job runner makes for one account; the rest wait their turn.
     place_lookups_per_minute: int = 30
     billing_refreshes_per_minute: int = 10

@@ -24,14 +24,14 @@ from crosstune.errors import (
     NotFoundError,
     PremiumRequiredError,
     QuotaExceededError,
+    TooManyRequestsError,
     problem_responses,
 )
 from crosstune.files.quota import accept_upload, head_slot, reserve_slot, slot_for_recording
 from crosstune.files.urls import UPLOAD_URL_TTL_SECONDS, SignedUrl, presign_get, require_store
+from crosstune.jobs.importer import OVER_QUOTA
 from crosstune.recordings.service import (
     enqueue_transcode,
-    has_room,
-    importable,
     owned_recording,
     require_state,
     start_import,
@@ -200,13 +200,17 @@ async def retry(
         # A retried call after a lost response: the first one already queued the job.
         return Response(status_code=204)
     require_state(recording, "failed")
+    # Each retry that gets this far re-runs a whole transcode or import on the shared runner.
+    wait = request.app.state.recording_retry_limiter.hit(user.id)
+    if wait is not None:
+        raise TooManyRequestsError(wait)
     if _never_arrived(recording):
         access = await access_for(session, user.id, settings)
         if not access.premium:
             raise PremiumRequiredError
-        if importable(recording) and not await has_room(session, recording, access):
-            raise QuotaExceededError
         await start_import(session, recording, access)
+        if recording.error == OVER_QUOTA:
+            raise QuotaExceededError
     else:
         recording.state = "uploaded"
         recording.error = None

@@ -496,6 +496,31 @@ async def test_retry_requeues_a_failed_recording(client, auth_headers, verify_se
     assert await verify_session.scalar(select(Job).where(Job.recording_id == rec)) is not None
 
 
+async def test_retry_refuses_past_the_account_s_limit_and_counts_only_queued_work(
+    app, client, auth_headers, verify_session
+) -> None:
+    rec = uid()
+    await push(client, auth_headers("user_a"), recording(rec))
+    url = f"/v1/recordings/{rec}/retry"
+
+    async def fail_it() -> None:
+        await verify_session.execute(
+            update(Recording).where(Recording.id == rec).values(state="failed", error="boom")
+        )
+        await verify_session.commit()
+
+    limit = app.state.settings.recording_retries_per_minute
+    for _ in range(limit):
+        await fail_it()
+        assert (await client.post(url, headers=auth_headers("user_a"))).status_code == 204
+        # A repeat after a lost response changes nothing, so it spends nothing.
+        assert (await client.post(url, headers=auth_headers("user_a"))).status_code == 204
+    await fail_it()
+    refused = await client.post(url, headers=auth_headers("user_a"))
+    assert refused.status_code == 429
+    assert 0 < int(refused.headers["retry-after"]) <= 60
+
+
 TUNE_PAGE = "https://www.slippery-hill.com/content/bear-creek-sally-goodin"
 
 

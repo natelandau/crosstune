@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 
 from crosstune.db.base import bump_server_seq, utc_now
 from crosstune.db.locks import lock_user
+from crosstune.jobs.attempt import RecordingRefused
 from crosstune.jobs.media import cut, encode, needs_encode, probe, remux
 from crosstune.jobs.peaks import build_peaks
 from crosstune.recordings.loops import reclamp_recording_loops
@@ -25,6 +26,14 @@ from crosstune.storage.store import (
     upload_revision,
 )
 from crosstune.vocabulary import PlaceOrigin, RecordingPrecision, RecordingSource
+
+# The longest recording kept. Work grows with decoded length rather than file size, so a
+# small, dense upload could otherwise hold the job runner for the whole ffmpeg time limit.
+MAX_RECORDING_MS = 3 * 60 * 60 * 1000
+# How far past the limit a whole-file write runs, so output that reaches it shows the
+# source decodes for longer than the limit allows, whatever its own metadata says.
+OVERRUN_MS = 1000
+RECORDING_TOO_LONG = "Recording is too long, they must be 3 hours or shorter"
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -72,16 +81,16 @@ async def _write_playback(
         if trim.needs_cut:
             await cut(source, target, trim.start_ms, trim.end_ms, info=info)
         else:
-            await encode(source, target, info=info)
+            await encode(source, target, info=info, max_ms=MAX_RECORDING_MS + OVERRUN_MS)
     elif trim.needs_cut:
         full = work_dir / "full.m4a"
-        await remux(source, full)
+        await remux(source, full, max_ms=MAX_RECORDING_MS + OVERRUN_MS)
         kept = original_key(recording.user_id, recording.id, PLAYBACK_MIME)
         recording.original_bytes = await store.upload(full, kept, PLAYBACK_MIME)
         recording.original_key = kept
         await cut(full, target, trim.start_ms, trim.end_ms, info=info)
     else:
-        await remux(source, target)
+        await remux(source, target, max_ms=MAX_RECORDING_MS + OVERRUN_MS)
         # A prior attempt's backup, if any, still holds the whole source and is
         # never deleted, so a retry that no longer needs a cut keeps pointing at
         # it instead of orphaning it with a null write.
@@ -168,11 +177,17 @@ async def transcode(
         store: Where the uploaded object lives and the results go.
         recording: A recording in the uploaded or processing state.
         work_dir: A directory for temp files, cleaned by the caller.
+
+    Raises:
+        RecordingRefused: When the file claims, or turns out to decode to, more than
+            MAX_RECORDING_MS.
     """
     source = work_dir / "upload"
     target = work_dir / "playback.m4a"
     await store.download(upload_key(recording.user_id, recording.id), source)
     info = await probe(source)
+    if info.duration_ms > MAX_RECORDING_MS:
+        raise RecordingRefused(RECORDING_TOO_LONG)
     recording.source_duration_ms = info.duration_ms
 
     # Only ever used to decide what to actually cut; the row's own trim columns
@@ -199,6 +214,8 @@ async def transcode(
     )
 
     result = await probe(target)
+    if result.duration_ms > MAX_RECORDING_MS:
+        raise RecordingRefused(RECORDING_TOO_LONG)
     playback = await upload_revision(
         store, target, PLAYBACK_MIME, partial(playback_key, recording.user_id, recording.id)
     )

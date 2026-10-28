@@ -261,7 +261,11 @@ How one feature works is in its code. Deploys and releases:
   where nothing reads.
 - ffprobe and ffmpeg read uploads only as local files, through the
   demuxers of the allowed types, with no environment but `PATH`, and under
-  `prlimit` on Linux. The API process is non-dumpable.
+  `prlimit` on Linux. The API process is non-dumpable. A recording past
+  `MAX_RECORDING_MS` fails: before any encode when its metadata says so,
+  and otherwise when a whole-file write, which stops just past the limit,
+  reaches it. Encode time follows decoded length, not file size, and must
+  stay inside the ffmpeg time limit.
 - A signed download URL carries the revision it covers. A client records
   that revision against the file and seeks by the file's own start offset,
   never the row's, so a file from before a later trim still plays.
