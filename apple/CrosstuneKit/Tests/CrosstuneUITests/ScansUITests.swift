@@ -10,12 +10,6 @@ import UniformTypeIdentifiers
 
 @testable import CrosstuneUI
 
-@MainActor
-private func eventually(_ condition: @MainActor () -> Bool) async throws {
-    if try await poll({ condition() }) { return }
-    Issue.record("Timed out waiting for a condition")
-}
-
 private func makeTune(_ store: CrosstuneStore, _ title: String = "Soldier's Joy") async throws -> String {
     try await Commands(store: store).createTune(
         TuneInput(title: title), userTune: UserTuneInput(status: "known"), at: noon
@@ -58,7 +52,7 @@ private func jpeg(width: Int, height: Int) -> Data {
 @Suite struct ScansUITests {
     // MARK: Section
 
-    @Test func testSectionShowsAddWithNoScans() {
+    @Test func sectionShowsAddWithNoScans() {
         let layout = ScansSectionLayout(scanCount: 0)
 
         #expect(layout.showsEmptyState)
@@ -67,7 +61,7 @@ private func jpeg(width: Int, height: Int) -> Data {
         #expect(layout.limitNote == nil)
     }
 
-    @Test func testAddDisabledAtTwentyScans() {
+    @Test func addDisabledAtTwentyScans() {
         let almost = ScansSectionLayout(scanCount: 19)
         #expect(almost.canAdd)
         #expect(almost.limitNote == nil)
@@ -79,7 +73,7 @@ private func jpeg(width: Int, height: Int) -> Data {
         #expect(!full.showsEmptyState)
     }
 
-    @Test func testStorageFullScanIsMarked() {
+    @Test func storageFullScanIsMarked() {
         let pending = record(state: ScanRecord.pendingUpload)
         let full = Scan(
             record: pending,
@@ -156,7 +150,7 @@ private func jpeg(width: Int, height: Int) -> Data {
 
     // MARK: Add menu
 
-    @Test func testScanHiddenWhenUnsupported() {
+    @Test func scanHiddenWhenUnsupported() {
         #expect(ScanAddChoice.available(scanSupported: false, photoLibrary: true) == [.photo, .file])
         #expect(ScanAddChoice.available(scanSupported: true, photoLibrary: true) == [.scan, .photo, .file])
         // The Mac offers neither the camera nor the photo library.
@@ -165,7 +159,7 @@ private func jpeg(width: Int, height: Int) -> Data {
 
     // MARK: Row action
 
-    @Test func testRowOffersScansOnlyWithScans() async throws {
+    @Test func rowOffersScansOnlyWithScans() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
         let commands = Commands(store: store)
@@ -192,7 +186,7 @@ private func jpeg(width: Int, height: Int) -> Data {
 
     // MARK: Viewer
 
-    @Test func testViewerOpensAtStartIndex() {
+    @Test func viewerOpensAtStartIndex() {
         let ids = ["a", "b", "c"]
         #expect(ScanPager.initialScan(ids: ids, startIndex: 0) == "a")
         #expect(ScanPager.initialScan(ids: ids, startIndex: 2) == "c")

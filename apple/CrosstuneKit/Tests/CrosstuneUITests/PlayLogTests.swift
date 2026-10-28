@@ -40,12 +40,6 @@ final class ActivityRecorded {
     }
 }
 
-@MainActor
-func waitFor(_ condition: @MainActor () -> Bool) async throws {
-    if try await poll({ condition() }) { return }
-    Issue.record("The condition never held")
-}
-
 /// A player on fakes, timed on a test clock, writing what it logs to `recorded`.
 @MainActor
 struct ActivityFixture {
@@ -72,7 +66,7 @@ struct ActivityFixture {
 
     /// Waits until the player's activity has been told of a state that meets `condition`.
     func fed(_ condition: @MainActor (ActivitySnapshot) -> Bool) async throws {
-        try await waitFor { player.activity.lastFed.map(condition) ?? false }
+        try await eventually { player.activity.lastFed.map(condition) ?? false }
     }
 
     /// Waits until the play log has heard the player start or stop.
@@ -83,7 +77,7 @@ struct ActivityFixture {
     /// Plays recording `id` from `origin` and waits until its audio plays and is being timed.
     func playRecording(_ id: String = "r1", tuneID: String? = "t1", origin: PlayOrigin = .row) async throws {
         player.play(.recording(loggedRecording(id, tuneID: tuneID), tuneTitle: nil), origin: origin)
-        try await waitFor { audio.isPlaying }
+        try await eventually { audio.isPlaying }
         try await heard(playing: true)
     }
 
@@ -302,7 +296,7 @@ private let linkTap = PlayAttribution(
     @Test func aPausedOpenLogsNoPlay() async throws {
         let fixture = ActivityFixture()
         fixture.player.open(.recording(loggedRecording(), tuneTitle: nil), playing: false)
-        try await waitFor { fixture.player.recordingAudio == .loaded }
+        try await eventually { fixture.player.recordingAudio == .loaded }
         try await fixture.heard(playing: false)
         fixture.clock.advance(30_000)
         fixture.player.isExpanded = false
@@ -347,7 +341,7 @@ private let linkTap = PlayAttribution(
         let fixture = ActivityFixture()
         fixture.music.duration = 200
         fixture.player.play(try #require(PlayerItem.link(link())), origin: .row)
-        try await waitFor { fixture.player.linkAudio == .native }
+        try await eventually { fixture.player.linkAudio == .native }
         try await fixture.heard(playing: true)
         fixture.clock.advance(30_000)
         try await fixture.pause()
@@ -378,11 +372,11 @@ private let linkTap = PlayAttribution(
             )
         }
         playback.start(listID: "list1", name: "Session", tuneIDs: ["a", "b"], shuffled: false)
-        try await waitFor { fixture.audio.isPlaying && fixture.player.item?.id == "ra" }
+        try await eventually { fixture.audio.isPlaying && fixture.player.item?.id == "ra" }
         try await fixture.heard(playing: true)
         fixture.clock.advance(15_000)
         fixture.audio.end(.finished)
-        try await waitFor { fixture.player.item?.id == "rb" }
+        try await eventually { fixture.player.item?.id == "rb" }
         let play = try #require(fixture.recorded.plays.only)
         #expect(play.recordingID == "ra")
         #expect(play.context == "list")
@@ -400,7 +394,7 @@ private let linkTap = PlayAttribution(
         fixture.music.duration = 200
         let playback = try playlist(fixture, ["a": try #require(PlayerItem.link(link()))])
         playback.start(listID: "list1", name: "Session", tuneIDs: ["a"], shuffled: false)
-        try await waitFor { fixture.player.linkAudio == .native }
+        try await eventually { fixture.player.linkAudio == .native }
         try await fixture.heard(playing: true)
         fixture.clock.advance(12_000)
         playback.end()
@@ -418,13 +412,13 @@ private let linkTap = PlayAttribution(
         fixture.music.duration = 200
         let playback = try playlist(fixture, ["a": try #require(PlayerItem.link(link()))])
         playback.start(listID: "list1", name: "Session", tuneIDs: ["a"], shuffled: false)
-        try await waitFor { fixture.player.linkAudio == .native }
+        try await eventually { fixture.player.linkAudio == .native }
         try await fixture.heard(playing: true)
         fixture.clock.advance(6_000)
         let moved = "https://music.apple.com/us/album/the-silver-spear/1440833081?i=1440833099"
         fixture.player.linkChanged(id: "l1", to: link(url: moved))
         #expect(fixture.recorded.plays.isEmpty)
-        try await waitFor { fixture.player.linkAudio == .native && fixture.music.isPlaying }
+        try await eventually { fixture.player.linkAudio == .native && fixture.music.isPlaying }
         try await fixture.heard(playing: true)
         fixture.clock.advance(6_000)
         playback.end()
@@ -437,13 +431,13 @@ private let linkTap = PlayAttribution(
         let fixture = ActivityFixture()
         fixture.music.duration = 200
         fixture.player.play(try #require(PlayerItem.link(link())), origin: .row)
-        try await waitFor { fixture.player.linkAudio == .native }
+        try await eventually { fixture.player.linkAudio == .native }
         try await fixture.heard(playing: true)
         fixture.clock.advance(30_000)
         // MusicKit stops at the end of a song played on its own without reporting an end.
         fixture.music.elapsed = 199.6
         fixture.music.isPlaying = false
-        try await waitFor { fixture.recorded.plays.count == 1 }
+        try await eventually { fixture.recorded.plays.count == 1 }
         #expect(fixture.recorded.plays.map(\.listenedMs) == [30_000])
         try await fixture.heard(playing: false)
         fixture.music.elapsed = 0
@@ -457,7 +451,7 @@ private let linkTap = PlayAttribution(
         let fixture = ActivityFixture()
         fixture.music.duration = 200
         fixture.player.play(try #require(PlayerItem.link(link())), origin: .row)
-        try await waitFor { fixture.player.linkAudio == .native }
+        try await eventually { fixture.player.linkAudio == .native }
         try await fixture.heard(playing: true)
         fixture.clock.advance(6_000)
         fixture.music.elapsed = 150
@@ -547,7 +541,7 @@ private final class NoTrackCommands: TrackCommands {
         writer.practice(
             PracticeSession(recordingID: "r1", startedAt: noon, durationMs: 12_000, speedPercent: 80, pitchCents: 0))
         let stored = { try await store.read { db in (try PlayEvent.fetchAll(db), try PracticeSession.fetchAll(db)) } }
-        try await waitFor(async: {
+        try await eventually({
             let (plays, sessions) = try await stored()
             return plays.count == 2 && sessions.count == 1
         })
@@ -555,12 +549,6 @@ private final class NoTrackCommands: TrackCommands {
         #expect(plays.map(\.tuneID) == ["t1", "t1"])
         #expect(sessions.map(\.tuneID) == ["t1"])
     }
-}
-
-@MainActor
-private func waitFor(async condition: () async throws -> Bool) async throws {
-    if try await poll(condition) { return }
-    Issue.record("The condition never held")
 }
 
 extension Array {
@@ -585,7 +573,7 @@ private final class EndedPlays {
         try await fixture.playRecording("r1")
         fixture.clock.advance(3_000)
         fixture.player.play(.recording(loggedRecording("r2"), tuneTitle: nil))
-        try await waitFor { fixture.sent("playback_ended").count == 1 }
+        try await eventually { fixture.sent("playback_ended").count == 1 }
         let report = try #require(fixture.sent("playback_ended").only)
         #expect(report["listened_bucket"] == .string("<10s"))
         #expect(report["ended_by"] == .string("skipped"))
@@ -603,7 +591,7 @@ private final class EndedPlays {
         try await fixture.resume()
         fixture.clock.advance(20_000)
         fixture.audio.end(.finished)
-        try await waitFor { !fixture.sent("playback_ended").isEmpty }
+        try await eventually { !fixture.sent("playback_ended").isEmpty }
         let report = try #require(fixture.sent("playback_ended").only)
         #expect(report["listened_bucket"] == .string("30s-2m"))
         #expect(report["completed"] == .bool(true))
@@ -617,7 +605,7 @@ private final class EndedPlays {
         fixture.audio.onSystemCommand?()
         try await fixture.pause()
         fixture.player.leftForeground()
-        try await waitFor { !fixture.sent("playback_ended").isEmpty }
+        try await eventually { !fixture.sent("playback_ended").isEmpty }
         let report = try #require(fixture.sent("playback_ended").only)
         #expect(report["ended_by"] == .string("paused"))
         #expect(report["system_controlled"] == .bool(true))
@@ -629,7 +617,7 @@ private final class EndedPlays {
         fixture.clock.advance(20_000)
         try await fixture.pause()
         fixture.player.leftForeground()
-        try await waitFor { !fixture.sent("playback_ended").isEmpty }
+        try await eventually { !fixture.sent("playback_ended").isEmpty }
         let report = try #require(fixture.sent("playback_ended").only)
         #expect(report["ended_by"] == .string("paused"))
         #expect(report["system_controlled"] == .bool(false))
@@ -643,7 +631,7 @@ private final class EndedPlays {
         try await fixture.playRecording("r2")
         fixture.clock.advance(12_000)
         fixture.player.close()
-        try await waitFor { fixture.sent("playback_ended").count == 2 }
+        try await eventually { fixture.sent("playback_ended").count == 2 }
         let reports = fixture.sent("playback_ended")
         let first = try #require(reports.first { $0["recording_id"] == .string("r1") })
         let second = try #require(reports.first { $0["recording_id"] == .string("r2") })
@@ -665,11 +653,11 @@ private final class EndedPlays {
     @Test func aSingleListRowPlayIsNotAPlaylist() async throws {
         let fixture = ActivityFixture()
         fixture.player.play(.recording(loggedRecording(), tuneTitle: nil), origin: .list(id: "list1"), source: .list)
-        try await waitFor { fixture.audio.isPlaying }
+        try await eventually { fixture.audio.isPlaying }
         try await fixture.heard(playing: true)
         fixture.clock.advance(12_000)
         fixture.player.close()
-        try await waitFor { !fixture.sent("playback_ended").isEmpty }
+        try await eventually { !fixture.sent("playback_ended").isEmpty }
         let report = try #require(fixture.sent("playback_ended").only)
         #expect(report["queue"] == .string("single"))
         #expect(report["source"] == .string("list"))
@@ -684,11 +672,11 @@ private final class EndedPlays {
             id: "r1", tuneID: "t1", source: "import", origin: "slippery_hill", recordedAt: noon, label: "Jam",
             state: "ready", sourceDurationMs: 60_000, speedPercent: 100, pitchCents: 0)
         fixture.player.play(.recording(saved, tuneTitle: nil), origin: .row, source: .tune)
-        try await waitFor { fixture.audio.isPlaying }
+        try await eventually { fixture.audio.isPlaying }
         try await fixture.heard(playing: true)
         fixture.clock.advance(12_000)
         fixture.player.close()
-        try await waitFor { !fixture.sent("playback_ended").isEmpty }
+        try await eventually { !fixture.sent("playback_ended").isEmpty }
         let report = try #require(fixture.sent("playback_ended").only)
         #expect(report["kind"] == .string("slippery_hill"))
         #expect(report["source"] == .string("tune"))
@@ -699,12 +687,12 @@ private final class EndedPlays {
         let fixture = ActivityFixture()
         fixture.music.duration = 200
         fixture.player.play(try #require(PlayerItem.link(link())), origin: .row, source: .tune)
-        try await waitFor { fixture.player.linkAudio == .native }
+        try await eventually { fixture.player.linkAudio == .native }
         try await fixture.heard(playing: true)
         fixture.clock.advance(30_000)
         try await fixture.pause()
         fixture.player.close()
-        try await waitFor { !fixture.sent("playback_ended").isEmpty }
+        try await eventually { !fixture.sent("playback_ended").isEmpty }
         let report = try #require(fixture.sent("playback_ended").only)
         #expect(report["kind"] == .string("link"))
         #expect(report["service"] == .string("apple_music"))
@@ -727,7 +715,7 @@ private final class EndedPlays {
         try await fixture.playRecording("r2", tuneID: nil)
         fixture.clock.advance(12_000)
         fixture.player.close()
-        try await waitFor { fixture.sent("playback_ended").count == 2 }
+        try await eventually { fixture.sent("playback_ended").count == 2 }
         let reports = fixture.sent("playback_ended")
         let filed = try #require(reports.first { $0["recording_id"] == .string("r1") })
         let unfiled = try #require(reports.first { $0["recording_id"] == .string("r2") })
@@ -786,7 +774,7 @@ private final class EndedPlays {
     @Test func quittingWithTheTuneUnknownStillReportsBeforeTheFlush() async throws {
         let fixture = ActivityFixture()
         fixture.player.play(PlayerItem(kind: .recording, id: "r1", title: "Jam"), origin: .row)
-        try await waitFor { fixture.audio.isPlaying }
+        try await eventually { fixture.audio.isPlaying }
         try await fixture.heard(playing: true)
         fixture.clock.advance(12_000)
 
@@ -812,7 +800,7 @@ private final class EndedPlays {
         let fixture = ActivityFixture()
         fixture.music.duration = 200
         fixture.player.play(try #require(PlayerItem.link(link())), origin: .row, source: .tune)
-        try await waitFor { fixture.player.linkAudio == .native }
+        try await eventually { fixture.player.linkAudio == .native }
         try await fixture.heard(playing: true)
         fixture.clock.advance(12_000)
 

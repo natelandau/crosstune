@@ -12,12 +12,6 @@ import Testing
 
 @testable import CrosstuneUI
 
-@MainActor
-private func eventually(_ condition: () async throws -> Bool) async throws {
-    if try await poll({ try await condition() }) { return }
-    Issue.record("The condition never held")
-}
-
 private func view(_ id: String, tune: String?, minutes: Int64) -> RecordingView {
     RecordingView(
         recording: Recording(

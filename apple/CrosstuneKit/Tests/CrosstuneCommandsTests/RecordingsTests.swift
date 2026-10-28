@@ -19,7 +19,7 @@ import Testing
 
     @Test func formatsMidnightAndSingleDigitFieldsZeroPadded() throws {
         let utc = try #require(TimeZone(identifier: "UTC"))
-        let midnight = Timestamp(iso: "2026-01-02T00:03:00.000Z")!
+        let midnight = try #require(Timestamp(iso: "2026-01-02T00:03:00.000Z"))
 
         #expect(defaultRecordingLabel(recordedAt: midnight, timeZone: utc) == "2026-01-02 00:03")
     }
@@ -639,14 +639,14 @@ import Testing
         let store = try root.open()
         let id = try await capturedRecording(store)
         let commands = Commands(store: store)
-        let now = Timestamp(iso: "2026-10-04T12:00:00.000Z")!
-        let edge = Timestamp(iso: "2026-10-05T00:00:00.000Z")!
+        let now = try #require(Timestamp(iso: "2026-10-04T12:00:00.000Z"))
+        let edge = try #require(Timestamp(iso: "2026-10-05T00:00:00.000Z"))
 
         try await commands.updateRecordingDate(id, recordedAt: edge, precision: .day, at: now)
         #expect(try await row(store, id).recordedAt == edge)
+        let dayAfter = try #require(Timestamp(iso: "2026-10-06T00:00:00.000Z"))
         await #expect(throws: CommandError.recordedDateFuture) {
-            try await commands.updateRecordingDate(
-                id, recordedAt: Timestamp(iso: "2026-10-06T00:00:00.000Z")!, precision: .day, at: now)
+            try await commands.updateRecordingDate(id, recordedAt: dayAfter, precision: .day, at: now)
         }
     }
 
@@ -658,13 +658,13 @@ import Testing
         let now = Timestamp.now
         let ahead = Timestamp(milliseconds: now.milliseconds + 48 * 60 * 60_000)
 
+        let farMonth = try #require(Timestamp(iso: "2999-06-01T00:00:00.000Z"))
+        let farYear = try #require(Timestamp(iso: "2999-01-01T00:00:00.000Z"))
         await #expect(throws: CommandError.recordedDateFuture) {
-            try await commands.updateRecordingDate(
-                id, recordedAt: Timestamp(iso: "2999-06-01T00:00:00.000Z")!, precision: .month, at: now)
+            try await commands.updateRecordingDate(id, recordedAt: farMonth, precision: .month, at: now)
         }
         await #expect(throws: CommandError.recordedDateFuture) {
-            try await commands.updateRecordingDate(
-                id, recordedAt: Timestamp(iso: "2999-01-01T00:00:00.000Z")!, precision: .year, at: now)
+            try await commands.updateRecordingDate(id, recordedAt: farYear, precision: .year, at: now)
         }
         #expect(try await row(store, id).recordedAt == noon)
 

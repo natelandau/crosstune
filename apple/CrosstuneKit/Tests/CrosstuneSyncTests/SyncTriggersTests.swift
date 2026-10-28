@@ -31,7 +31,7 @@ import Testing
     /// Starts the triggers and waits for the store's first answer to both watches.
     func started(_ triggers: SyncTriggers) async throws {
         triggers.start()
-        try await waitUntil { triggers.outboxCount != nil && triggers.processing != nil }
+        try await eventually { triggers.outboxCount != nil && triggers.processing != nil }
     }
 
     @Test func syncsOnLaunchOnReturningToTheForegroundAndOnComingOnline() async throws {
@@ -71,16 +71,16 @@ import Testing
         let triggers = triggers()
         triggers.start()
         try await createTune(store, title: "A")
-        try await waitUntil { sleeper.requested.count == 1 }
+        try await eventually { sleeper.requested.count == 1 }
         try await createTune(store, title: "B")
-        try await waitUntil { sleeper.requested.count == 2 }
+        try await eventually { sleeper.requested.count == 2 }
         #expect(sleeper.requested == [SyncTriggers.writeDebounce, SyncTriggers.writeDebounce])
         // The second edit cancelled the first wait.
-        try await waitUntil { sleeper.pendingCount == 1 }
+        try await eventually { sleeper.pendingCount == 1 }
         #expect(syncs.count == 1)
 
         sleeper.fire()
-        try await waitUntil { syncs.count == 2 }
+        try await eventually { syncs.count == 2 }
         #expect(!triggers.isDebouncing)
         #expect(sleeper.pendingCount == 0)
         triggers.stop()
@@ -98,12 +98,12 @@ import Testing
         let triggers = triggers()
         triggers.start()
         try await createTune(store, title: "A")
-        try await waitUntil { sleeper.pendingCount == 1 }
+        try await eventually { sleeper.pendingCount == 1 }
 
         triggers.stop()
 
         #expect(!triggers.isDebouncing)
-        try await waitUntil { sleeper.pendingCount == 0 }
+        try await eventually { sleeper.pendingCount == 0 }
         #expect(syncs.count == 1)
     }
 
@@ -116,7 +116,7 @@ import Testing
         // The watch answers in commit order, so once it has seen this edit it has seen the events.
         try await createTune(store, title: "A")
         // The debounce asks for its wait from its own task, after the count updates.
-        try await waitUntil { triggers.outboxCount == 2 && sleeper.requested.count == 1 }
+        try await eventually { triggers.outboxCount == 2 && sleeper.requested.count == 1 }
 
         #expect(try await store.pendingChangeCount() == 4)
         #expect(sleeper.requested == [SyncTriggers.writeDebounce])
@@ -129,15 +129,15 @@ import Testing
         try await started(triggers)
         try await recordPlay(store, id: "p1")
         try await createTune(store, title: "A")
-        try await waitUntil { triggers.outboxCount == 2 && sleeper.requested.count == 1 }
+        try await eventually { triggers.outboxCount == 2 && sleeper.requested.count == 1 }
         #expect(sleeper.requested == [SyncTriggers.writeDebounce])
 
         sleeper.fire()
-        try await waitUntil { syncs.count == 2 }
+        try await eventually { syncs.count == 2 }
 
         try await recordPlay(store, id: "p2")
         try await createTune(store, title: "B")
-        try await waitUntil { triggers.outboxCount == 4 && sleeper.requested.count == 2 }
+        try await eventually { triggers.outboxCount == 4 && sleeper.requested.count == 2 }
         #expect(sleeper.requested == [SyncTriggers.writeDebounce, SyncTriggers.writeDebounce])
         #expect(syncs.count == 2)
         triggers.stop()
@@ -147,14 +147,14 @@ import Testing
         let triggers = triggers()
         try await started(triggers)
         let tune = try await createTune(store, title: "A")
-        try await waitUntil { sleeper.requested.count == 1 }
+        try await eventually { sleeper.requested.count == 1 }
 
         // The row keeps its one queued entry, so only its new stamp shows the edit.
         var renamed = tune
         renamed.title = "B"
         try await store.write { [renamed] writer in try writer.put(renamed, at: later(1)) }
 
-        try await waitUntil { sleeper.requested.count == 2 }
+        try await eventually { sleeper.requested.count == 2 }
         #expect(triggers.outboxCount == 2)
         triggers.stop()
     }
@@ -164,16 +164,16 @@ import Testing
         let triggers = triggers()
         triggers.start()
         // The put queued a change, so the debounce waits beside the poll.
-        try await waitUntil { sleeper.pendingDurations.contains(SyncTriggers.processingPoll) }
+        try await eventually { sleeper.pendingDurations.contains(SyncTriggers.processingPoll) }
 
         sleeper.fire(SyncTriggers.processingPoll)
-        try await waitUntil { syncs.count == 2 }
+        try await eventually { syncs.count == 2 }
         sleeper.fire(SyncTriggers.processingPoll)
-        try await waitUntil { syncs.count == 3 }
+        try await eventually { syncs.count == 3 }
         #expect(sleeper.pendingDurations.contains(SyncTriggers.processingPoll))
 
         try await putRecording(state: "ready")
-        try await waitUntil { !sleeper.pendingDurations.contains(SyncTriggers.processingPoll) }
+        try await eventually { !sleeper.pendingDurations.contains(SyncTriggers.processingPoll) }
         triggers.stop()
     }
 
@@ -200,11 +200,11 @@ import Testing
 
         triggers.setActive(true)
         #expect(triggers.isPolling)
-        try await waitUntil { sleeper.pendingDurations == [SyncTriggers.processingPoll] }
+        try await eventually { sleeper.pendingDurations == [SyncTriggers.processingPoll] }
 
         triggers.setActive(false)
         #expect(!triggers.isPolling)
-        try await waitUntil { sleeper.pendingCount == 0 }
+        try await eventually { sleeper.pendingCount == 0 }
         triggers.stop()
     }
 }

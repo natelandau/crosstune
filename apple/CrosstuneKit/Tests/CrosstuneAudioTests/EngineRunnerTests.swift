@@ -1,3 +1,4 @@
+import CrosstuneTestSupport
 import Foundation
 import Synchronization
 import Testing
@@ -6,7 +7,7 @@ import Testing
 
 @MainActor
 @Suite struct EngineRunnerTests {
-    @Test func queuesWorkInTheOrderTheMainActorAskedForIt() async {
+    @Test func queuesWorkInTheOrderTheMainActorAskedForIt() async throws {
         let log = Mutex<[String]>([])
         let queue = DispatchQueue(label: "engine-runner-test")
         // Held, so nothing queued can run ahead and every step sits in line until checked.
@@ -16,7 +17,7 @@ import Testing
         let activate = Task { try? await runner.activateSession(stereo: nil) }
         let stop = Task { await runner.stopEngine() }
         let deactivate = Task { await runner.deactivateSession() }
-        while log.withLock({ $0.count }) < 3 { await Task.yield() }
+        try await eventually { log.withLock { $0.count } == 3 }
 
         #expect(log.withLock { $0 } == ["activate", "stop", "deactivate"])
         queue.resume()

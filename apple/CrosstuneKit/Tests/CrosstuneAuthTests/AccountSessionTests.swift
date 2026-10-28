@@ -1176,13 +1176,9 @@ final class Offline {
         return SessionSync(store: store, engine: engine, isActive: true, isOffline: offline.isOn)
     }
 
-    func waitUntil(_ condition: () -> Bool) async throws {
-        #expect(try await poll { condition() })
-    }
-
     @Test func resumingAfterAFailedSignOutDoesNotSyncByItself() async throws {
         let session = session()
-        try await waitUntil { api.pulls > 0 }
+        try await eventually { api.pulls > 0 }
         await session.sync()
         let beforeStop = api.pulls
 
@@ -1202,7 +1198,7 @@ final class Offline {
         }
         api.holdsPushes = true
         let session = session(batchSize: 1)
-        try await waitUntil { api.heldPush != nil }
+        try await eventually { api.heldPush != nil }
 
         session.shutDown()
         api.releasePush()
@@ -1215,7 +1211,7 @@ final class Offline {
 
     @Test func aStoreOpenedOnlineSyncsOnceForTheConnectionItOpenedOn() async throws {
         let session = session()
-        try await waitUntil { api.pulls > 0 }
+        try await eventually { api.pulls > 0 }
         await session.sync()
         let before = api.pulls
 
@@ -1236,7 +1232,7 @@ final class Offline {
         offline.isOn = false
         session.connectivityChanged(isOffline: false)
 
-        try await waitUntil { api.pulls == 1 }
+        try await eventually { api.pulls == 1 }
         session.shutDown()
     }
 }

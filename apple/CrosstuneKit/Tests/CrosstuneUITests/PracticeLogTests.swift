@@ -293,7 +293,7 @@ private func loop(_ id: String) -> RecordingLoop {
             player: fixture.player, recording: loggedRecording("r2"), file: nil, writer: noLoopWrites)
         second.enter()
         #expect(fixture.player.activity.screenRecordingID == "r2")
-        try await waitFor { fixture.audio.isPlaying && fixture.player.item?.id == "r2" }
+        try await eventually { fixture.audio.isPlaying && fixture.player.item?.id == "r2" }
         fixture.player.setSpeed(70)
         try await fixture.fed { $0.playing && $0.speedPercent == 70 }
         fixture.clock.advance(15_000)
@@ -335,7 +335,7 @@ private func loop(_ id: String) -> RecordingLoop {
         try await fixture.fed { $0.loopID == "loop1" && $0.speedPercent == 80 && $0.playing }
         fixture.clock.advance(120_000)
         fixture.player.screenClosed()
-        try await waitFor { !fixture.sent("practice_ended").isEmpty }
+        try await eventually { !fixture.sent("practice_ended").isEmpty }
         let report = try #require(fixture.sent("practice_ended").only)
         #expect(report["used_loops"] == .bool(true))
         #expect(report["used_speed"] == .bool(true))
@@ -352,7 +352,7 @@ private func loop(_ id: String) -> RecordingLoop {
         fixture.player.screenOpened("r1")
         fixture.clock.advance(12_000)
         fixture.player.screenClosed()
-        try await waitFor { !fixture.sent("playback_ended").isEmpty }
+        try await eventually { !fixture.sent("playback_ended").isEmpty }
         let report = try #require(fixture.sent("playback_ended").only)
         #expect(report["source"] == .string("recording_screen"))
         #expect(report["ended_by"] == .string("closed"))
@@ -368,7 +368,7 @@ private func loop(_ id: String) -> RecordingLoop {
         fixture.clock.advance(60_000)
         fixture.recorded.tunes["r1"] = "t9"
         fixture.player.screenClosed()
-        try await waitFor { !fixture.sent("practice_ended").isEmpty }
+        try await eventually { !fixture.sent("practice_ended").isEmpty }
         #expect(fixture.sent("practice_ended").only?["tune_id"] == .string("t9"))
     }
 
@@ -379,7 +379,7 @@ private func loop(_ id: String) -> RecordingLoop {
         fixture.clock.advance(12_000)
         fixture.recorded.tunes["r1"] = "t9"
         fixture.player.screenClosed()
-        try await waitFor { !fixture.sent("playback_ended").isEmpty }
+        try await eventually { !fixture.sent("playback_ended").isEmpty }
         #expect(fixture.sent("playback_ended").only?["tune_id"] == .string("t9"))
     }
 }

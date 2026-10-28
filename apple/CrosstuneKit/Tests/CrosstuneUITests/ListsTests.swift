@@ -9,18 +9,6 @@ import Testing
 
 @testable import CrosstuneUI
 
-@MainActor
-private func eventually(_ condition: @MainActor () -> Bool) async throws {
-    if try await poll({ condition() }) { return }
-    Issue.record("Timed out waiting for a condition")
-}
-
-@MainActor
-private func eventually(_ condition: @MainActor () async throws -> Bool) async throws {
-    if try await poll({ try await condition() }) { return }
-    Issue.record("Timed out waiting for a condition")
-}
-
 private let session = SampleCatalog.lists[0]
 private let waltzes = SampleCatalog.lists[1]
 /// The session list's tunes, in stored order.

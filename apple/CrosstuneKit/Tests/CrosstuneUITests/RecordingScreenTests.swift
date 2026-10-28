@@ -7,12 +7,6 @@ import Testing
 
 @testable import CrosstuneUI
 
-@MainActor
-private func eventually(_ condition: () -> Bool) async throws {
-    if try await poll({ condition() }) { return }
-    Issue.record("The condition never held")
-}
-
 private let audioURL = URL(filePath: "/tmp/r1-aaaaaaaa.m4a")
 
 private func recording(

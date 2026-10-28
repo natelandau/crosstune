@@ -21,7 +21,7 @@
 
         private func openPaused(in window: UUID) async throws {
             player.open(.recording(loggedRecording(), tuneTitle: nil), in: window, playing: false)
-            try await waitFor { player.recordingAudio == .loaded }
+            try await eventually { player.recordingAudio == .loaded }
         }
 
         @Test func picksPracticeThenTuneThenPlaceholder() async throws {

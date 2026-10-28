@@ -255,7 +255,7 @@ private struct ScanViewFixture {
             try writer.put(ScanRecord(id: "s1", tuneID: tuneID, width: 600, height: 800))
         }
         let tunes = ScanTunes(store: store)
-        try await waitFor { tunes.ids.contains(tuneID) }
+        try await eventually { tunes.ids.contains(tuneID) }
         var opened: [(String, Int, ScanViewOrigin)] = []
         let actions = TuneScreenActions(viewScans: { opened.append(($0, $1, $2)) })
 

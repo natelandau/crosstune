@@ -8,7 +8,9 @@ import Testing
 
 @MainActor
 @Suite struct LiveQueryTests {
-    /// Counts how often `query` tells its observers that `value` changed.
+    /// Counts how often `query` tells its observers that `value` changed. Counts and watches
+    /// again inside `onChange`, which runs on the main actor as `value` is set, so no change can
+    /// land between one watch and the next.
     @MainActor private final class Publications {
         var count = 0
 
@@ -16,16 +18,12 @@ import Testing
             withObservationTracking {
                 _ = query.value
             } onChange: { [weak self] in
-                Task { @MainActor in
+                MainActor.assumeIsolated {
                     self?.count += 1
                     self?.watch(query)
                 }
             }
         }
-    }
-
-    private func eventually(_ condition: @MainActor () -> Bool) async throws {
-        #expect(try await poll { condition() })
     }
 
     @Test func publishesAnEquatableValueOnlyWhenItChanges() async throws {
@@ -45,15 +43,11 @@ import Testing
         try await store.write { writer in
             try writer.put(Tune(id: "t1", createdAt: noon, title: "Soldier's Joy"), at: later(1))
         }
-        try await Task.sleep(for: .milliseconds(200))
-        #expect(publications.count == 0)
-
+        // A write that changes the result, which the store delivers after the one above.
         try await store.write { writer in
             try writer.put(Tune(id: "t2", createdAt: noon, title: "Kitchen Girl"), at: later(2))
         }
-        // Publications counts on a task it schedules after the value changes, so wait on the
-        // count itself rather than the value.
-        try await eventually { publications.count == 1 }
-        #expect(titles.value == ["Kitchen Girl", "Soldier's Joy"])
+        try await eventually { titles.value == ["Kitchen Girl", "Soldier's Joy"] }
+        #expect(publications.count == 1)
     }
 }

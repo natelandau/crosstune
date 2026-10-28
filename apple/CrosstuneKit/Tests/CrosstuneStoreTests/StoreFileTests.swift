@@ -280,11 +280,7 @@ private func migrator(plus identifier: String, _ body: @escaping @Sendable (Data
 
     try await store.write { writer in try writer.put(Tune(title: "Red Haired Boy")) }
 
-    let deadline = ContinuousClock.now + .seconds(5)
-    while titles.value != ["Red Haired Boy"], ContinuousClock.now < deadline {
-        try await Task.sleep(for: .milliseconds(10))
-    }
-    #expect(titles.value == ["Red Haired Boy"])
+    try await eventually { titles.value == ["Red Haired Boy"] }
     #expect(titles.error == nil)
 }
 

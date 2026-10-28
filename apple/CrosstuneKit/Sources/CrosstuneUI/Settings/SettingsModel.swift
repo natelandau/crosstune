@@ -165,7 +165,7 @@ public final class SettingsModel {
     @ObservationIgnored private var landedGenreSet = false
     @ObservationIgnored private var genreWritesInFlight = 0
     private var pendingKeepOffline = PendingWrite<Bool>()
-    @ObservationIgnored private var lastWrite: Task<Void, Never>?
+    @ObservationIgnored private(set) var lastWrite: Task<Void, Never>?
     @ObservationIgnored private var following: Task<Void, Never>?
 
     /// - Parameter engine: Runs a sync on request and fetches recordings once downloads are

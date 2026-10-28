@@ -604,11 +604,6 @@ private let blankAndSentinel = CatalogSearch.entries(
 
 @MainActor
 @Suite struct CatalogModelTests {
-    /// Waits for the model's live queries to catch up with the store.
-    private func eventually(_ condition: @MainActor () -> Bool) async throws {
-        #expect(try await poll { condition() })
-    }
-
     private func sampleStore(_ root: TemporaryRoot) async throws -> CrosstuneStore {
         try await SampleCatalog.copiedStore(root: root.url)
     }

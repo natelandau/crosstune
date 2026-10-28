@@ -16,7 +16,7 @@ final class ChannelSetting {
 }
 
 @MainActor
-@Suite struct RecorderTests {
+@Suite(.timeLimit(.minutes(1))) struct RecorderTests {
     let root = TemporaryRoot()
     let store: CrosstuneStore
     let input = FakeInput()
@@ -260,7 +260,7 @@ final class ChannelSetting {
         try input.play(seconds: 1)
 
         input.send(.writeFailed)
-        while recorder.state != .idle { await Task.yield() }
+        try await eventually { recorder.state == .idle }
 
         #expect(recorder.savedRecordingID != nil)
         #expect(recorder.errorMessage == Recorder.partialSave)
@@ -278,7 +278,7 @@ final class ChannelSetting {
             buffers += 1
             await Task.yield()
         }
-        while recorder.state != .idle { await Task.yield() }
+        try await eventually { recorder.state == .idle }
 
         let saved = try #require(recorder.savedRecordingID)
         #expect(recorder.errorMessage == Recorder.sizeLimit)
@@ -300,7 +300,7 @@ final class ChannelSetting {
         input.holdsPermission = true
 
         let start = Task { await recorder.start(tuneID: nil) }
-        while !recorder.isStarting { await Task.yield() }
+        try await eventually { recorder.isStarting }
         await recorder.discard()
         await input.answerPermission()
         await start.value
@@ -314,7 +314,7 @@ final class ChannelSetting {
         input.holdsPermission = true
 
         let start = Task { await recorder.start(tuneID: nil) }
-        while !recorder.isStarting { await Task.yield() }
+        try await eventually { recorder.isStarting }
         #expect(await recorder.stop() == nil)
         await input.answerPermission()
         await start.value
@@ -406,7 +406,7 @@ final class ChannelSetting {
         location.fix = fix
         await recorder.start(tuneID: nil)
         try input.play(seconds: 1)
-        while recorder.settledCoordinate == nil { await Task.yield() }
+        try await eventually { recorder.settledCoordinate != nil }
 
         let saved = try #require(await recorder.stop())
 
@@ -529,7 +529,7 @@ final class ChannelSetting {
         await recorder.lateFixes[first]?.value
 
         #expect(try await savedRow(first).placeAccuracyM == 14)
-        while recorder.settledCoordinate == nil { await Task.yield() }
+        try await eventually { recorder.settledCoordinate != nil }
         #expect(recorder.settledCoordinate == fix)
         await recorder.discard()
     }
@@ -537,7 +537,7 @@ final class ChannelSetting {
     @Test func discardingDropsTheFix() async throws {
         location.fix = Coordinate(lat: 39.7392364, lon: -104.984862, accuracyM: 14)
         await recorder.start(tuneID: nil)
-        while recorder.settledCoordinate == nil { await Task.yield() }
+        try await eventually { recorder.settledCoordinate != nil }
 
         await recorder.discard()
 
@@ -575,7 +575,7 @@ final class ChannelSetting {
     @Test func aRequestSettledBeforeStopStartsNoLateFixWindow() async throws {
         await recorder.start(tuneID: nil)
         try input.play(seconds: 1)
-        while !recorder.isFixSettled { await Task.yield() }
+        try await eventually { recorder.isFixSettled }
 
         let saved = try #require(await recorder.stop())
 

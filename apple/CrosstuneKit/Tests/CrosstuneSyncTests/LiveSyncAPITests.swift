@@ -84,7 +84,7 @@ private func json(_ data: Data?) throws -> JSONObject {
                   {"table": "user_tunes", "id": "ut1", "status": "invalid", "reason": "not found"}
                 ]}
                 """)
-        let updatedAt = Timestamp(iso: "2026-09-25T12:00:00.007Z")!
+        let updatedAt = try #require(Timestamp(iso: "2026-09-25T12:00:00.007Z"))
 
         let results = try await api(transport).push([
             Change(table: .tunes, op: .upsert, id: "t1", updatedAt: updatedAt, data: ["title": .string("Mine")]),

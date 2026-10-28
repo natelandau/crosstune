@@ -183,10 +183,10 @@ private let reading = Reading(frequency: 440, note: Note(name: .a, octave: 4, ce
         await update()
         input.yieldToPlayback()
         #expect(model.status == .idle)
-        try await waitFor { input.open == 0 }
+        try await eventually { input.open == 0 }
 
         input.playbackDidNotStart()
-        try await waitFor { model.status == .listening }
+        try await eventually { model.status == .listening }
         #expect(input.open == 1)
         #expect(input.starts == 2)
         #expect(input.mostOpen == 1)
@@ -212,7 +212,7 @@ private let reading = Reading(frequency: 440, note: Note(name: .a, octave: 4, ce
     @Test func aYieldIsForgottenOnceTheTunerIsLeft() async throws {
         await update()
         input.yieldToPlayback()
-        try await waitFor { input.open == 0 }
+        try await eventually { input.open == 0 }
 
         // The screen leaves while the play runs, the play ends, and the screen comes back.
         await update(shown: false)

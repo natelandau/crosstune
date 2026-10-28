@@ -90,12 +90,6 @@ private func songKind(_ tune: String) throws -> AppleMusicItem {
 }
 
 @MainActor
-private func eventually(_ condition: @MainActor () -> Bool) async throws {
-    if try await poll({ condition() }) { return }
-    Issue.record("The condition never held")
-}
-
-@MainActor
 @Suite final class ListPlaybackTests {
     private struct Fixture {
         let player: PlayerModel
@@ -665,7 +659,7 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
 
     /// Waits until recording `id` plays and the play log has heard it.
     private func playing(_ fixture: ActivityFixture, _ id: String) async throws {
-        try await waitFor { fixture.audio.isPlaying && fixture.player.item?.id == id }
+        try await eventually { fixture.audio.isPlaying && fixture.player.item?.id == id }
         try await fixture.fed { $0.loaded == PlaySubject(kind: .recording, id: id) && $0.playing }
     }
 
@@ -679,7 +673,7 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
         try await playing(fixture, "rb")
         fixture.clock.advance(15_000)
         fixture.audio.end(.finished)
-        try await waitFor { fixture.sent("playback_ended").count == 2 }
+        try await eventually { fixture.sent("playback_ended").count == 2 }
         #expect(
             fixture.sent("playlist_started") == [
                 [
@@ -711,7 +705,7 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
         let playback = playlist(fixture)
         playback.resolve = { _, _ in nil }
         playback.start(listID: "list1", name: "Session", tuneIDs: ["a", "b"], shuffled: false)
-        try await waitFor { playback.endMessage == ListPlaybackText.nothingLeft }
+        try await eventually { playback.endMessage == ListPlaybackText.nothingLeft }
         #expect(fixture.sent("playlist_started").isEmpty)
     }
 
@@ -720,7 +714,7 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
         fixture.player.isCapturing = { true }
         let playback = playlist(fixture)
         playback.start(listID: "list1", name: "Session", tuneIDs: ["a", "b"], shuffled: false)
-        try await waitFor { !playback.isActive }
+        try await eventually { !playback.isActive }
         #expect(fixture.sent("playlist_started").isEmpty)
     }
 
@@ -735,7 +729,7 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
         fixture.clock.advance(12_000)
         playback.end()
         fixture.player.close()
-        try await waitFor { fixture.sent("playback_ended").count == 2 }
+        try await eventually { fixture.sent("playback_ended").count == 2 }
         let ended = fixture.sent("playback_ended")
         #expect(ended.map { $0["recording_id"] } == [.string("ra"), .string("rb")])
         #expect(ended.first?["ended_by"] == .string("skipped"))

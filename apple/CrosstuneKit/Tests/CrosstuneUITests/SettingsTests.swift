@@ -12,12 +12,6 @@ import Testing
 @testable import CrosstuneSync
 @testable import CrosstuneUI
 
-@MainActor
-private func eventually(_ condition: @MainActor () async throws -> Bool) async throws {
-    if try await poll({ try await condition() }) { return }
-    Issue.record("Timed out waiting for a condition")
-}
-
 /// A server that answers nothing, for an engine whose transfer pass the test counts.
 private struct SilentSyncAPI: SyncAPI {
     func push(_ changes: [Change]) async throws -> [PushResult] { [] }
@@ -378,9 +372,9 @@ private func instrumentSummary(_ model: SettingsModel) -> String {
         try await eventually { counter.count == 1 }
 
         model.setKeepsOffline(false)
-        try await eventually { try await store.meta(.keepOffline, as: Bool.self) == false }
+        await model.lastWrite?.value
+        #expect(try await store.meta(.keepOffline, as: Bool.self) == false)
         #expect(!model.keepsOffline)
-        try await Task.sleep(for: .milliseconds(50))
         #expect(counter.count == 1)
     }
 

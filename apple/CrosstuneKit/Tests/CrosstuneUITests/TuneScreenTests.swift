@@ -141,11 +141,6 @@ private func file(_ state: LocalFileState) -> RecordingFile {
 
 @MainActor
 @Suite struct TuneModelTests {
-    /// Waits for the model's live query to catch up with the store.
-    private func eventually(_ condition: @MainActor () -> Bool) async throws {
-        #expect(try await poll { condition() })
-    }
-
     private let soldiersJoy = SampleCatalog.entries[0]
 
     @Test func readsTheTuneWithItsMediaListsAndInstruments() async throws {

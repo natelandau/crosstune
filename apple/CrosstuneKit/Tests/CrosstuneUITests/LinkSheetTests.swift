@@ -8,12 +8,6 @@ import Testing
 
 @testable import CrosstuneUI
 
-@MainActor
-private func eventually(_ condition: @MainActor () -> Bool) async throws {
-    if try await poll({ condition() }) { return }
-    Issue.record("Timed out waiting for a condition")
-}
-
 /// A resolver that answers from a table and counts what it was asked.
 @MainActor
 private final class FakeResolver {

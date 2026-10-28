@@ -46,12 +46,6 @@ private func recordingItem() -> PlayerItem {
 private let queuedNowPlaying = NowPlaying(title: "Jam", tuneTitle: "Kitchen Girl")
 
 @MainActor
-private func eventually(_ condition: @MainActor () -> Bool) async throws {
-    if try await poll({ condition() }) { return }
-    Issue.record("The condition never held")
-}
-
-@MainActor
 @Suite struct PlayerQueueTests {
     private struct Fixture {
         let player: PlayerModel

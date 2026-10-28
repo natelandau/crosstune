@@ -51,20 +51,12 @@
             #expect(try await input.prepare(preferring: .stereo) == 1)
         }
 
-        /// Polls until `condition` holds or ten seconds pass.
-        private func waitUntil(_ condition: () -> Bool) async throws {
-            let deadline = ContinuousClock.now + .seconds(10)
-            while !condition(), ContinuousClock.now < deadline {
-                try await Task.sleep(for: .milliseconds(20))
-            }
-        }
-
         @Test func writesTheFileFrames() async throws {
             let input = FileInput(url: try makeSource())
             let writer = try makeWriter()
             _ = try await input.prepare(preferring: .mono)
             try await input.start(writer: writer, onLevels: { _ in }, onEvent: { _ in })
-            try await waitUntil { writer.duration >= 0.4 }
+            try await eventually { writer.duration >= 0.4 }
             await input.stop()
             #expect(writer.duration >= 0.4)
             writer.close()
@@ -75,7 +67,7 @@
             let writer = try makeWriter()
             _ = try await input.prepare(preferring: .mono)
             try await input.start(writer: writer, onLevels: { _ in }, onEvent: { _ in })
-            try await waitUntil { writer.duration > 0 }
+            try await eventually { writer.duration > 0 }
             let before = writer.duration
             // Holds the main actor without yielding, as a capture's animation work would.
             let busyUntil = ContinuousClock.now + .seconds(0.6)
@@ -96,9 +88,9 @@
             try FileHandle(forWritingTo: source).truncate(atOffset: 4_096)
             try await input.start(
                 writer: writer, onLevels: { _ in }, onEvent: { events.received.append($0) })
-            try await waitUntil { events.received.count == 1 }
+            try await eventually { events.received.count == 1 }
             try await input.resume()
-            try await waitUntil { events.received.count == 2 }
+            try await eventually { events.received.count == 2 }
             await input.stop()
             #expect(events.received == [.writeFailed, .writeFailed])
             writer.close()
@@ -111,7 +103,7 @@
             _ = try await input.prepare(preferring: .mono)
             try await input.start(
                 writer: writer, onLevels: { levels.batches.append($0) }, onEvent: { _ in })
-            try await waitUntil { levels.batches.contains { $0.contains { $0 > 0 } } }
+            try await eventually { levels.batches.contains { $0.contains { $0 > 0 } } }
             await input.stop()
             #expect(levels.batches.contains { $0.contains { $0 > 0 } })
             writer.close()
@@ -122,7 +114,7 @@
             let writer = try makeWriter()
             _ = try await input.prepare(preferring: .mono)
             try await input.start(writer: writer, onLevels: { _ in }, onEvent: { _ in })
-            try await waitUntil { writer.duration >= 0.5 }
+            try await eventually { writer.duration >= 0.5 }
             await input.stop()
             #expect(writer.duration >= 0.5)
             writer.close()
