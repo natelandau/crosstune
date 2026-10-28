@@ -17,6 +17,9 @@ export function sentryOptions(env: ReportingEnv): Sentry.BrowserOptions | null {
     release: APP_VERSION,
     environment: env.VITE_SENTRY_ENVIRONMENT ?? 'development',
     beforeBreadcrumb: scrubBreadcrumbUrl,
+    // A click breadcrumb copies the clicked control's aria-label, and labels carry list and
+    // tune names, which the privacy policy keeps out of error reports.
+    integrations: [Sentry.breadcrumbsIntegration({ dom: false })],
     // Sentry's defaults collect user info, cookies, and request and response bodies, and bodies
     // carry a user's own tunes. This is Sentry's documented restrictive baseline.
     dataCollection: {

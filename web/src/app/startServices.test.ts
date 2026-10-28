@@ -6,7 +6,7 @@ const registerSW = vi.fn()
 const init = vi.fn()
 const startAnalytics = vi.fn()
 vi.mock('virtual:pwa-register', () => ({ registerSW }))
-vi.mock('@sentry/react', () => ({ init }))
+vi.mock('@sentry/react', () => ({ init, breadcrumbsIntegration: vi.fn() }))
 vi.mock('../usage/client', () => ({ startAnalytics }))
 
 beforeEach(() => {
