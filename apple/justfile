@@ -156,22 +156,21 @@ capture-mac: screen-unlocked
     cp -R Marketing/catalog.json Marketing/assets "$staged/"
     fixture="$staged/catalog.json"
     mkdir -p {{ capture }}
-    # The fixture's ids for the tunes and the list the store stills open on.
+    # The fixture's ids for the tunes, the list, and the recording the store stills open on.
     id_of() {
         python3 -c '
     import json, sys
     catalog = json.load(open(sys.argv[1]))
-    rows = catalog["tunes"] if sys.argv[2] == "tune" else catalog["lists"]
-    key = "title" if sys.argv[2] == "tune" else "name"
-    print(next(r["id"] for r in rows if r[key] == sys.argv[3]))
+    table, key = {"tune": ("tunes", "title"), "list": ("lists", "name"), "recording": ("recordings", "label")}[sys.argv[2]]
+    print(next(r["id"] for r in catalog[table] if r[key] == sys.argv[3]))
     ' Marketing/catalog.json "$1" "$2"
     }
     # The install path mac-app.sh runs from; matching it never touches a Crosstune the user has open.
     app="$(cd "$HOME/Applications" && pwd -P)/Crosstune Dev.app"
     # Set before the first launch, so a run that fails after claiming the app still releases it.
     trap 'scripts/mac-app.sh done > /dev/null' EXIT
-    # Launches the app on the fixture with any further arguments $2..., waits for the catalog,
-    # and saves its window to <name>.png. A launch per still, since the shell opens on the place
+    # Launches the app on the fixture with any further arguments $2..., waits for the text in
+    # $loaded_text (a fixture tune by default), and saves its window to <name>.png. A launch per still, since the shell opens on the place
     # its arguments name and nothing here clicks.
     shoot() {
         local name="$1" pid="" loaded="" id
@@ -189,7 +188,7 @@ capture-mac: screen-unlocked
         [ -n "$pid" ] || { echo "the Mac app did not start" >&2; exit 1; }
         # A fixture tune in the accessibility tree marks the catalog loaded.
         for _ in $(seq 1 30); do
-            if peekaboo see --pid "$pid" --no-screenshot --tree 2> /dev/null | grep -q 'Backstep Cindy'; then
+            if peekaboo see --pid "$pid" --no-screenshot --tree 2> /dev/null | grep -q "${loaded_text:-Backstep Cindy}"; then
                 loaded=1
                 break
             fi
@@ -197,7 +196,7 @@ capture-mac: screen-unlocked
         done
         if [ -z "$loaded" ]; then
             peekaboo see --pid "$pid" --no-screenshot --tree > "{{ capture }}/$name-tree.txt" 2>&1 || true
-            echo "the marketing catalog did not load in the Mac app; its window is in {{ capture }}/$name-tree.txt" >&2
+            echo "$name never showed ${loaded_text:-Backstep Cindy} in the Mac app; its window is in {{ capture }}/$name-tree.txt" >&2
             exit 1
         fi
         # Long enough for an opened tune's page to draw.
@@ -217,6 +216,10 @@ capture-mac: screen-unlocked
     shoot store-mac-tune -MarketingTune "$(id_of tune 'Sail Away Ladies')"
     shoot store-mac-lists -MarketingList "$(id_of list 'Saturday session')" \
         -MarketingTune "$(id_of tune 'Backstep Cindy')"
+    loaded_text='With the band' shoot store-mac-practice \
+        -MarketingRecording "$(id_of recording 'With the band')" -MarketingSpeed 75
+    # An A 2 cents sharp, which reads as in tune. The spoken reading marks the tuner hearing it.
+    loaded_text='A4, in tune' shoot store-mac-tuner -MarketingSidebar tuner -TunerTone 440.51
 
 # Frame the store captures under their headlines from Marketing/store.json, at App Store sizes
 [group('capture')]

@@ -182,6 +182,9 @@ against production, such as granting a comp or a trial.
 - A change to what the Apple app collects, or a new SDK in it, updates
   `PrivacyInfo.xcprivacy` in the same change, so it and the App Store
   label stay in step.
+- A commit to internal tooling, such as the screenshot captures, the
+  marketing shell, or a recipe, is `build`, never `feat`, so the
+  changelog lists only what users see.
 
 ## Web tests
 

@@ -106,8 +106,10 @@ class CaptureTestCase: XCTestCase {
         let catalog = URL(fileURLWithPath: fixture).standardizedFileURL
         let recording = catalog.deletingLastPathComponent().appending(path: "assets/jam-recording.m4a")
         let app = XCUIApplication()
+        // The tuner hears an A 2 cents sharp, which reads as in tune, rather than the room.
         app.launchArguments = [
             "-MarketingShell", catalog.path, "-RecordFromFile", recording.path, "-crosstune.appearance", "light",
+            "-TunerTone", "440.51",
         ]
         app.launch()
         // The catalog title shows before its rows load on a cold launch.
@@ -124,6 +126,28 @@ class CaptureTestCase: XCTestCase {
     func button(_ app: XCUIApplication, startingWith prefix: String) -> XCUIElement {
         app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", prefix)).firstMatch
     }
+
+    /// Drags `list` up a little at a time until all of `element` is inside it, so a fling never
+    /// carries it past, and hands it back.
+    @discardableResult
+    func reveal(_ element: XCUIElement, in list: XCUIElement) -> XCUIElement {
+        let inView = { element.exists && list.frame.contains(element.frame) }
+        for _ in 0..<8 where !inView() {
+            list.pressAndDrag(from: CGVector(dx: 0.5, dy: 0.7), to: CGVector(dx: 0.5, dy: 0.45))
+        }
+        XCTAssertTrue(inView(), "\(element) never came into view")
+        return element
+    }
+
+    /// Opens the Tuner from the tab bar, the sidebar, or the open iPhone Duo's vertical bar, and
+    /// waits for it to show the note it hears.
+    func openTuner(_ app: XCUIApplication) {
+        let sidebar = app.cells[Self.tunerTitle]
+        (sidebar.exists ? sidebar : app.buttons[Self.tunerTitle].firstMatch).tap()
+        shown(app.staticTexts.matching(NSPredicate(format: "label ENDSWITH '¢'")).firstMatch)
+    }
+
+    private static let tunerTitle = "Tuner"
 
     /// Fails the capture unless `element` appears, and hands it back.
     @discardableResult
@@ -143,6 +167,23 @@ class CaptureTestCase: XCTestCase {
         let timeline = CaptureTimeline(name: captureName)
         timeline.start()
         Thread.sleep(forTimeInterval: 1)
+        // XCUIScreen sees only the open iPhone Duo's outer display, which is off, so the
+        // capture script shoots the inner display with simctl when the test asks for it.
+        if let handoff = ProcessInfo.processInfo.environment["CAPTURE_HANDOFF"] {
+            let folder = URL(fileURLWithPath: handoff)
+            let done = folder.appending(path: "\(captureName).done")
+            let request = folder.appending(path: captureName)
+            XCTAssertTrue(FileManager.default.createFile(atPath: request.path, contents: nil))
+            let deadline = Date.now.addingTimeInterval(30)
+            while !FileManager.default.fileExists(atPath: done.path) && Date.now < deadline {
+                Thread.sleep(forTimeInterval: 0.2)
+            }
+            XCTAssertTrue(
+                FileManager.default.fileExists(atPath: done.path), "the capture script never shot \(captureName)")
+            timeline.end()
+            timeline.attach(to: self)
+            return
+        }
         // A screenshot's pixels stay in portrait order, with the rotation only in its metadata;
         // redrawing bakes a landscape screen upright.
         let image = XCUIScreen.main.screenshot().image

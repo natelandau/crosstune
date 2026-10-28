@@ -8,6 +8,9 @@ extension EnvironmentValues {
     /// Whether the Tuner is the window's chosen tab or sidebar row. Supplied by the shell; false
     /// outside it, where the tuner never listens.
     @Entry var tunerSelected = false
+    /// Whether a Mac window the tuner is in counts as visible while other windows hide it. Only
+    /// the marketing shell sets it, since its capture window opens behind every other window.
+    @Entry var tunerListensWhileHidden = false
 }
 
 /// What decides whether the tuner listens, so a change to any of them reaches the model.
@@ -34,6 +37,7 @@ struct TunerScreen: View {
     @Environment(RecorderHost.self) private var recorders: RecorderHost?
     @Environment(\.store) private var store
     @Environment(\.tunerSelected) private var selected
+    @Environment(\.tunerListensWhileHidden) private var listensWhileHidden
     @Environment(\.openSheets) private var openSheets
     @Environment(\.recordCover) private var recordCover
     @Environment(\.scenePhase) private var scenePhase
@@ -59,7 +63,7 @@ struct TunerScreen: View {
 
     private var foreground: Bool {
         #if os(macOS)
-            windowVisible
+            windowVisible || listensWhileHidden
         #else
             Self.listens(in: scenePhase)
         #endif

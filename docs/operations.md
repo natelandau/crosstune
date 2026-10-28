@@ -284,6 +284,13 @@ fixture, `apple/Marketing/catalog.json`. The site uses no captures.
   replaces every earlier capture, so run all of a set in one call.
 - A name with `ipad` runs on the iPad. `folk` and `store-folk` run under a
   status bar with no signal.
+- A `duo-` prefix runs a capture on the iPhone Duo: an iPhone capture with
+  the Duo closed, an iPad capture with it open. With no names, every
+  `store-` capture also runs on the Duo.
+- No simctl command folds a simulator. When a run needs the Duo the other
+  way, it waits for a person to fold or unfold it in DeviceHub.
+- XCUIScreen sees only the Duo's outer display, so the script shoots the
+  open Duo's stills with `simctl io` and the tests wait for each one.
 - Run `capture-test` before `capture-mac`, since it clears the folder the
   Mac stills land in, and frame after both. `capture-mac` needs the screen
   unlocked.

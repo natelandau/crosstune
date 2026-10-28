@@ -11,8 +11,7 @@ final class StoreCaptures: CaptureTestCase {
     func test_store_tune() throws {
         try phoneOnly()
         let app = launchMarketing()
-        app.collectionViews.firstMatch.swipeUp()
-        shown(row(app, "Sail Away Ladies")).tap()
+        reveal(row(app, "Sail Away Ladies"), in: app.collectionViews.firstMatch).tap()
         shown(app.staticTexts["Joe at Clifftop"])
         showLearned(app)
         captureStill()
@@ -26,6 +25,23 @@ final class StoreCaptures: CaptureTestCase {
         shown(app.buttons["75%"]).tap()
         app.buttons["Loops"].tap()
         shown(app.buttons["Next loop"])
+        // Reaching 75% scrolls the controls on a short screen, such as the closed iPhone Duo, and
+        // a clipped control still counts as hittable, so the frames decide.
+        let controls = app.scrollViews.containing(.button, identifier: "Next loop").firstMatch
+        let back = button(app, startingWith: "Back 15")
+        if back.frame.minY < controls.frame.minY {
+            controls.pressAndDrag(from: CGVector(dx: 0.5, dy: 0.2), to: CGVector(dx: 0.5, dy: 0.9))
+            // Until the scroll bar fades.
+            Thread.sleep(forTimeInterval: 1.5)
+        }
+        XCTAssertGreaterThanOrEqual(back.frame.minY, controls.frame.minY, "the transport is in view")
+        captureStill()
+    }
+
+    func test_store_tuner() throws {
+        try phoneOnly()
+        let app = launchMarketing()
+        openTuner(app)
         captureStill()
     }
 
@@ -68,15 +84,9 @@ final class StoreCaptures: CaptureTestCase {
     func test_store_scans() throws {
         try phoneOnly()
         let app = launchMarketing()
-        app.collectionViews.firstMatch.swipeUp()
-        shown(row(app, "Sail Away Ladies")).tap()
+        reveal(row(app, "Sail Away Ladies"), in: app.collectionViews.firstMatch).tap()
         shown(app.staticTexts["Joe at Clifftop"])
-        let scan = app.buttons["Open scan 1"]
-        let tune = app.scrollViews.firstMatch
-        for _ in 0..<6 where !(scan.exists && scan.isHittable) {
-            tune.pressAndDrag(from: CGVector(dx: 0.5, dy: 0.7), to: CGVector(dx: 0.5, dy: 0.45))
-        }
-        scan.tap()
+        reveal(app.buttons["Open scan 1"], in: app.scrollViews.firstMatch).tap()
         shown(app.staticTexts["1 of 2"])
         captureStill()
     }
@@ -110,7 +120,11 @@ final class StoreCaptures: CaptureTestCase {
 
     func test_store_ipad_tune() throws {
         let app = try launchPad()
-        app.staticTexts["Sail Away Ladies"].firstMatch.tap()
+        // Below the fold on the open iPhone Duo.
+        reveal(
+            app.staticTexts["Sail Away Ladies"].firstMatch,
+            in: app.collectionViews.containing(.staticText, identifier: "Backstep Cindy").firstMatch
+        ).tap()
         shown(app.staticTexts["Joe at Clifftop"])
         showLearned(app)
         captureStill()
@@ -138,10 +152,17 @@ final class StoreCaptures: CaptureTestCase {
         captureStill()
     }
 
+    func test_store_ipad_tuner() throws {
+        let app = try launchPad()
+        openTuner(app)
+        captureStill()
+    }
+
     func test_store_ipad_lists() throws {
         let app = try launchPad()
-        // The sidebar's destinations are cells.
-        app.cells["Lists"].tap()
+        // The sidebar's destinations are cells; the open iPhone Duo has buttons in its vertical bar instead.
+        let sidebar = app.cells["Lists"]
+        (sidebar.exists ? sidebar : app.buttons["Lists"].firstMatch).tap()
         shown(app.staticTexts["Saturday session"].firstMatch).tap()
         shown(app.buttons["Play"].firstMatch)
         app.staticTexts["Backstep Cindy"].firstMatch.tap()
@@ -153,10 +174,16 @@ final class StoreCaptures: CaptureTestCase {
         try XCTSkipUnless(UIDevice.current.userInterfaceIdiom == .phone, "runs on an iPhone simulator")
     }
 
-    /// The iPad in landscape, where the catalog and the tune sit side by side.
+    /// The catalog and the tune side by side: an iPad in landscape, or the open iPhone Duo,
+    /// whose inner display ignores orientation.
     private func launchPad() throws -> XCUIApplication {
-        try XCTSkipUnless(UIDevice.current.userInterfaceIdiom == .pad, "runs on an iPad simulator")
-        XCUIDevice.shared.orientation = .landscapeLeft
-        return launchMarketing()
+        let pad = UIDevice.current.userInterfaceIdiom == .pad
+        if pad {
+            XCUIDevice.shared.orientation = .landscapeLeft
+        }
+        let app = launchMarketing()
+        try XCTSkipUnless(
+            pad || app.windows.firstMatch.frame.width >= 600, "runs on an iPad or the open iPhone Duo simulator")
+        return app
     }
 }
