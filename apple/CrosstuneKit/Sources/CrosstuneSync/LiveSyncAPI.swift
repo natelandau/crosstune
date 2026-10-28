@@ -29,6 +29,8 @@ public struct LiveSyncAPI: SyncAPI {
         switch try await client.pushV1SyncPushPost(.init(body: .json(request))) {
         case .ok(let response): return try WireFormat.pushResults(response.body.json)
         case .unprocessableContent: throw APIStatusError(status: 422)
+        case .tooManyRequests(let response):
+            throw APIStatusError(status: 429, retryAfterSeconds: Self.seconds(response.headers.retryAfter))
         case .undocumented(let status, _): throw APIStatusError(status: status)
         }
     }
@@ -37,6 +39,8 @@ public struct LiveSyncAPI: SyncAPI {
         switch try await client.pullV1SyncPullGet(.init(query: .init(since: Int(since)))) {
         case .ok(let response): return try WireFormat.pullPage(response.body.json)
         case .unprocessableContent: throw APIStatusError(status: 422)
+        case .tooManyRequests(let response):
+            throw APIStatusError(status: 429, retryAfterSeconds: Self.seconds(response.headers.retryAfter))
         case .undocumented(let status, _): throw APIStatusError(status: status)
         }
     }
@@ -47,6 +51,8 @@ public struct LiveSyncAPI: SyncAPI {
                 switch try await client.eventsV1SyncEventsGet(.init(query: .init(since: Int(since)))) {
                 case .ok(let response): return try WireFormat.eventsPage(response.body.json)
                 case .unprocessableContent: throw APIStatusError(status: 422)
+                case .tooManyRequests(let response):
+                    throw APIStatusError(status: 429, retryAfterSeconds: Self.seconds(response.headers.retryAfter))
                 case .undocumented(let status, _): throw APIStatusError(status: status)
                 }
             }
@@ -73,6 +79,8 @@ public struct LiveSyncAPI: SyncAPI {
         switch try await client.recordNoticeV1MeNoticesPost(.init(body: .json(.init(notice: notice.rawValue)))) {
         case .noContent: return
         case .unprocessableContent: throw APIStatusError(status: 422)
+        case .tooManyRequests(let response):
+            throw APIStatusError(status: 429, retryAfterSeconds: Self.seconds(response.headers.retryAfter))
         case .undocumented(let status, _): throw APIStatusError(status: status)
         }
     }
@@ -140,6 +148,8 @@ public struct LiveSyncAPI: SyncAPI {
             throw Self.refusal(422, try? response.body.applicationProblemJson)
         case .serviceUnavailable(let response):
             throw Self.refusal(503, try? response.body.applicationProblemJson)
+        case .tooManyRequests(let response):
+            throw APIStatusError(status: 429, retryAfterSeconds: Self.seconds(response.headers.retryAfter))
         case .undocumented(let status, _): throw APIStatusError(status: status)
         }
     }
@@ -156,6 +166,8 @@ public struct LiveSyncAPI: SyncAPI {
             throw Self.refusal(422, try? response.body.applicationProblemJson)
         case .serviceUnavailable(let response):
             throw Self.refusal(503, try? response.body.applicationProblemJson)
+        case .tooManyRequests(let response):
+            throw APIStatusError(status: 429, retryAfterSeconds: Self.seconds(response.headers.retryAfter))
         case .undocumented(let status, _): throw APIStatusError(status: status)
         }
     }
@@ -207,6 +219,8 @@ public struct LiveSyncAPI: SyncAPI {
             throw Self.refusal(422, try? response.body.applicationProblemJson)
         case .serviceUnavailable(let response):
             throw Self.refusal(503, try? response.body.applicationProblemJson)
+        case .tooManyRequests(let response):
+            throw APIStatusError(status: 429, retryAfterSeconds: Self.seconds(response.headers.retryAfter))
         case .undocumented(let status, _): throw APIStatusError(status: status)
         }
     }
@@ -222,6 +236,8 @@ public struct LiveSyncAPI: SyncAPI {
             throw Self.refusal(422, try? response.body.applicationProblemJson)
         case .serviceUnavailable(let response):
             throw Self.refusal(503, try? response.body.applicationProblemJson)
+        case .tooManyRequests(let response):
+            throw APIStatusError(status: 429, retryAfterSeconds: Self.seconds(response.headers.retryAfter))
         case .undocumented(let status, _): throw APIStatusError(status: status)
         }
     }
@@ -251,6 +267,9 @@ public struct LiveSyncAPI: SyncAPI {
             throw Self.refusal(422, try? response.body.applicationProblemJson)
         case .serviceUnavailable(let response):
             throw Self.refusal(503, try? response.body.applicationProblemJson)
+        case .contentTooLarge(let response): throw Self.refusal(413, try? response.body.applicationProblemJson)
+        case .tooManyRequests(let response):
+            throw APIStatusError(status: 429, retryAfterSeconds: Self.seconds(response.headers.retryAfter))
         case .undocumented(let status, _): throw APIStatusError(status: status)
         }
     }
@@ -293,7 +312,7 @@ public struct LiveSyncAPI: SyncAPI {
 
     /// A `Retry-After` given in whole seconds. The HTTP-date form, which this API never sends,
     /// reads as none.
-    static func seconds(_ retryAfter: String?) -> Int? {
+    public static func seconds(_ retryAfter: String?) -> Int? {
         guard let value = retryAfter?.trimmingCharacters(in: .whitespaces), !value.isEmpty,
             value.allSatisfy(\.isASCII), value.allSatisfy(\.isNumber)
         else { return nil }

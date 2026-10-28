@@ -412,6 +412,54 @@ private func json(_ data: Data?) throws -> JSONObject {
         }
     }
 
+    /// Each call the API can refuse because the account is busy or past a limit.
+    enum RefusableCall: CaseIterable, Sendable {
+        case push, pull, events, notice, recordingSlot, recordingUploaded, retry, scanSlot, scanUploaded
+
+        func send(_ api: LiveSyncAPI) async throws {
+            switch self {
+            case .push: _ = try await api.push([])
+            case .pull: _ = try await api.pull(since: 0)
+            case .events: _ = try await api.events(since: 0)
+            case .notice: try await api.recordNotice(.firstRecording)
+            case .recordingSlot:
+                _ = try await api.requestUploadSlot(recordingID: "r1", bytes: 42, contentType: "audio/mp4")
+            case .recordingUploaded: try await api.uploadFinished(recordingID: "r1")
+            case .retry: try await api.retryRecording(recordingID: "r1")
+            case .scanSlot: _ = try await api.scanUploadSlot(scanID: "s1", bytes: 42)
+            case .scanUploaded: try await api.scanUploaded(scanID: "s1")
+            }
+        }
+    }
+
+    @Test(arguments: RefusableCall.allCases)
+    func readsTheWaitOfARefusedCall(call: RefusableCall) async throws {
+        var headers = HTTPFields()
+        headers[.retryAfter] = "7"
+        let transport = RecordingTransport(
+            status: .tooManyRequests,
+            body: #"{"type": "about:blank", "title": "x", "status": 429, "detail": "x"}"#, headers: headers)
+
+        await #expect(throws: APIStatusError(status: 429, retryAfterSeconds: 7)) {
+            try await call.send(api(transport))
+        }
+    }
+
+    @Test func readsTheProblemOfARetryRefusedForQuota() async throws {
+        let transport = RecordingTransport(
+            status: .contentTooLarge,
+            body: """
+                {"type": "urn:crosstune:quota-exceeded", "title": "Content Too Large", "status": 413,
+                 "detail": "Storage quota exceeded"}
+                """)
+
+        await #expect(
+            throws: APIStatusError(status: 413, problemType: quotaProblem, detail: "Storage quota exceeded")
+        ) {
+            try await api(transport).retryRecording(recordingID: "r1")
+        }
+    }
+
     @Test func throwsTheStatusOfAnUndocumentedBillingRefreshFailure() async throws {
         let transport = RecordingTransport(
             status: .internalServerError, body: #"{"type": "about:blank", "title": "x", "status": 500, "detail": "x"}"#)

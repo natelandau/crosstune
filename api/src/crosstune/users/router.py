@@ -29,7 +29,6 @@ from crosstune.db.session import (
     request_runner_wake,
 )
 from crosstune.errors import (
-    VALIDATION_RESPONSE,
     AccountDeletionFailedError,
     AccountDeletionUnavailableError,
     BillingUnavailableError,
@@ -111,7 +110,7 @@ NOTICE_COLUMNS: dict[Notice, str] = {
 }
 
 
-@router.post("/me/notices", status_code=204, responses=VALIDATION_RESPONSE)
+@router.post("/me/notices", status_code=204, responses=problem_responses(429))
 async def record_notice(
     body: NoticeRequest, request: Request, user: CurrentUser, session: DbSession
 ) -> Response:
@@ -191,7 +190,7 @@ async def _apple_ids_to_revoke(
     return apple_ids
 
 
-@router.delete("/me", status_code=204, responses=problem_responses(401, 502, 503))
+@router.delete("/me", status_code=204, responses=problem_responses(401, 429, 502, 503))
 async def delete_me(
     request: Request,
     user: CurrentUser,

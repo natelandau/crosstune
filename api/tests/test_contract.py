@@ -1,5 +1,7 @@
 """The OpenAPI document is the contract the web client is generated from."""
 
+import pytest
+
 from crosstune import vocabulary
 from crosstune.main import create_app
 
@@ -147,3 +149,28 @@ def test_a_tune_row_always_carries_its_modes() -> None:
     assert "modes" in row["required"]
     assert row["properties"]["modes"]["type"] == "array"
     assert not {"feel", "mode"} & set(row["properties"])
+
+
+# Each route that can refuse because its account is busy or over a limit, so a generated
+# client has a type for the refusal and reads its Retry-After.
+REFUSING_ROUTES = [
+    ("post", "/v1/sync/push", "429"),
+    ("get", "/v1/sync/pull", "429"),
+    ("get", "/v1/sync/events", "429"),
+    ("post", "/v1/me/notices", "429"),
+    ("delete", "/v1/me", "429"),
+    ("post", "/v1/recordings/{recording_id}/upload-slot", "429"),
+    ("post", "/v1/recordings/{recording_id}/uploaded", "429"),
+    ("post", "/v1/recordings/{recording_id}/retry", "429"),
+    ("post", "/v1/recordings/{recording_id}/retry", "413"),
+    ("post", "/v1/scans/{scan_id}/upload-slot", "429"),
+    ("post", "/v1/scans/{scan_id}/uploaded", "429"),
+]
+
+
+@pytest.mark.parametrize(("method", "path", "status"), REFUSING_ROUTES)
+def test_openapi_documents_each_limit_refusal(method: str, path: str, status: str) -> None:
+    responses = create_app().openapi()["paths"][path][method]["responses"]
+    assert status in responses
+    if status == "429":
+        assert "Retry-After" in responses[status]["headers"]

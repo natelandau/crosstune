@@ -213,6 +213,15 @@ private func problem(_ status: Int) -> Components.Schemas.Problem {
     }
 }
 
+@Test func aDeleteRefusedWhileTheAccountIsBusyNamesItsWait() async {
+    await #expect(throws: APIStatusError(status: 429, retryAfterSeconds: 7)) {
+        try await AccountSession.deleteRemote {
+            DeleteOutput.tooManyRequests(
+                .init(headers: .init(retryAfter: "7"), body: .applicationProblemJson(problem(429))))
+        }
+    }
+}
+
 @Test func aDeleteWithNoAnswerFromTheAPIIsUnconfirmed() async {
     await #expect(throws: AccountSession.LeaveError.deleteUnconfirmed) {
         try await AccountSession.deleteRemote { throw URLError(.networkConnectionLost) }
