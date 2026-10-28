@@ -133,6 +133,8 @@ How one feature works is in its code. Deploys and releases:
 - The job runner claims jobs in turns across accounts: each account's
   oldest job, then each one's next. A sync push can queue hundreds of
   jobs, so oldest-first across everyone lets one account delay all others.
+  Place lookups, which spend paid Apple Maps calls, also run at most
+  `place_lookups_per_minute` per account; the rest are held, not dropped.
 - A local shape change migrates in place and keeps every row, unsent edit,
   and unuploaded file. A migration that adds a field or a table only the
   server can fill resets the pull cursor. Unsent edits still win.

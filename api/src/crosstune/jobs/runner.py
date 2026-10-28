@@ -46,6 +46,7 @@ from crosstune.jobs.sweep import (
 from crosstune.jobs.sweep import sweep_orphans as sweep_orphan_prefixes
 from crosstune.models import Job, Recording, Scan, UploadSlot
 from crosstune.places.maps import configured_maps
+from crosstune.ratelimit import RateLimiter
 from crosstune.vocabulary import JobKind
 
 if TYPE_CHECKING:
@@ -136,6 +137,9 @@ class JobRunner:
         # Without it, queued analytics deletions wait in their table until it is configured.
         self._analytics_persons = analytics_persons
         self._store = store
+        # Each place job spends an Apple Maps lookup the operator pays for, and a sync push
+        # can queue hundreds, so each account's lookups run at a bounded pace.
+        self._place_pace = RateLimiter(limit=settings.place_lookups_per_minute, window_seconds=60.0)
         self._ctx = JobContext(
             sessionmaker=sessionmaker,
             store=store,
@@ -430,6 +434,19 @@ class JobRunner:
         return purged + await purge_deleted_scans(self._sessionmaker, self._store)
 
     async def _claim(self) -> Job | None:
+        """Claim the next job in turn, holding back each place job its account has no pace left for."""
+        while True:
+            claimed, job = await self._claim_next()
+            if claimed:
+                return job
+
+    async def _claim_next(self) -> tuple[bool, Job | None]:
+        """Claim the next job in turn, or hold it back when its account is past its place pace.
+
+        Returns:
+            tuple[bool, Job | None]: True with the claimed job, or None when nothing is
+            claimable; False when the job found was held back and another may be claimed.
+        """
         now = utc_now()
         background = case((Job.kind.in_(_BACKGROUND_KINDS), 1), else_=0)
         # Each user's oldest job takes the first turn, their next oldest the second, and so on,
@@ -458,7 +475,23 @@ class JobRunner:
             )
             job = await session.scalar(stmt)
             if job is None:
-                return None
+                return True, None
+            wait = self._place_pace.hit(job.user_id) if job.kind == JobKind.PLACE.value else None
+            if wait is not None:
+                # Held, not attempted: the lock lifts when the account's pace allows another.
+                # Every claimable place job of the account is held at once, so a backlog of
+                # them costs one pass per pace window rather than one per job.
+                await session.execute(
+                    update(Job)
+                    .where(
+                        Job.user_id == job.user_id,
+                        Job.kind == JobKind.PLACE.value,
+                        _claimable(now),
+                    )
+                    .values(locked_until=now + timedelta(seconds=wait))
+                    .execution_options(synchronize_session=False)
+                )
+                return False, None
             job.locked_until = now + timedelta(seconds=LOCK_SECONDS)
             job.attempts += 1
             # An error now marks only a job waiting out a failure; see held_after_failure.
@@ -467,7 +500,7 @@ class JobRunner:
             # changes never reach the database.
             await session.flush()
             session.expunge(job)
-            return job
+            return True, job
 
     async def _run_job(self, job: Job) -> None:
         """Run a claimed job with its kind's handler, or give it up once out of attempts.
