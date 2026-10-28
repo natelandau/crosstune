@@ -2544,6 +2544,17 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    /** @description Whole seconds to wait before trying again. */
+                    "Retry-After"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
             /** @description Bad Gateway */
             502: {
                 headers: {
@@ -2717,6 +2728,17 @@ export interface operations {
             /** @description Validation Error */
             422: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    /** @description Whole seconds to wait before trying again. */
+                    "Retry-After"?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -3042,9 +3064,29 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
+            /** @description Content Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    /** @description Whole seconds to wait before trying again. */
+                    "Retry-After"?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -3131,6 +3173,17 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    /** @description Whole seconds to wait before trying again. */
+                    "Retry-After"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
             /** @description Service Unavailable */
             503: {
                 headers: {
@@ -3190,6 +3243,17 @@ export interface operations {
             /** @description Validation Error */
             422: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    /** @description Whole seconds to wait before trying again. */
+                    "Retry-After"?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -3354,6 +3418,17 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    /** @description Whole seconds to wait before trying again. */
+                    "Retry-After"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
             /** @description Service Unavailable */
             503: {
                 headers: {
@@ -3419,6 +3494,17 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    /** @description Whole seconds to wait before trying again. */
+                    "Retry-After"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
             /** @description Service Unavailable */
             503: {
                 headers: {
@@ -3459,6 +3545,17 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    /** @description Whole seconds to wait before trying again. */
+                    "Retry-After"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
         };
     };
     pull_v1_sync_pull_get: {
@@ -3484,6 +3581,17 @@ export interface operations {
             /** @description Validation Error */
             422: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    /** @description Whole seconds to wait before trying again. */
+                    "Retry-After"?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -3517,6 +3625,17 @@ export interface operations {
             /** @description Validation Error */
             422: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    /** @description Whole seconds to wait before trying again. */
+                    "Retry-After"?: string;
                     [name: string]: unknown;
                 };
                 content: {

@@ -79,7 +79,9 @@ class PeaksUrl(BaseModel):
     peaks_rev: str
 
 
-@router.post("/{recording_id}/upload-slot", responses=problem_responses(403, 404, 409, 413, 503))
+@router.post(
+    "/{recording_id}/upload-slot", responses=problem_responses(403, 404, 409, 413, 429, 503)
+)
 async def upload_slot(
     recording_id: uuid.UUID,
     body: UploadSlotRequest,
@@ -120,7 +122,9 @@ async def upload_slot(
 
 
 @router.post(
-    "/{recording_id}/uploaded", status_code=204, responses=problem_responses(404, 409, 413, 503)
+    "/{recording_id}/uploaded",
+    status_code=204,
+    responses=problem_responses(404, 409, 413, 429, 503),
 )
 async def upload_finished(
     recording_id: uuid.UUID,
@@ -175,7 +179,9 @@ async def upload_finished(
 
 
 @router.post(
-    "/{recording_id}/retry", status_code=204, responses=problem_responses(403, 404, 409, 503)
+    "/{recording_id}/retry",
+    status_code=204,
+    responses=problem_responses(403, 404, 409, 413, 429, 503),
 )
 async def retry(
     recording_id: uuid.UUID,

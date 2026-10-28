@@ -809,6 +809,78 @@ public enum Operations {
                     }
                 }
             }
+            public struct TooManyRequests: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/me/DELETE/responses/429/headers`.
+                public struct Headers: Sendable, Hashable {
+                    /// Whole seconds to wait before trying again.
+                    ///
+                    /// - Remark: Generated from `#/paths/v1/me/DELETE/responses/429/headers/Retry-After`.
+                    public var retryAfter: Swift.String?
+                    /// Creates a new `Headers`.
+                    ///
+                    /// - Parameters:
+                    ///   - retryAfter: Whole seconds to wait before trying again.
+                    public init(retryAfter: Swift.String? = nil) {
+                        self.retryAfter = retryAfter
+                    }
+                }
+                /// Received HTTP response headers
+                public var headers: Operations.DeleteMeV1MeDelete.Output.TooManyRequests.Headers
+                /// - Remark: Generated from `#/paths/v1/me/DELETE/responses/429/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/me/DELETE/responses/429/content/application\/problem+json`.
+                    case applicationProblemJson(Components.Schemas.Problem)
+                    /// The associated value of the enum case if `self` is `.applicationProblemJson`.
+                    ///
+                    /// - Throws: An error if `self` is not `.applicationProblemJson`.
+                    /// - SeeAlso: `.applicationProblemJson`.
+                    public var applicationProblemJson: Components.Schemas.Problem {
+                        get throws {
+                            switch self {
+                            case let .applicationProblemJson(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.DeleteMeV1MeDelete.Output.TooManyRequests.Body
+                /// Creates a new `TooManyRequests`.
+                ///
+                /// - Parameters:
+                ///   - headers: Received HTTP response headers
+                ///   - body: Received HTTP response body
+                public init(
+                    headers: Operations.DeleteMeV1MeDelete.Output.TooManyRequests.Headers = .init(),
+                    body: Operations.DeleteMeV1MeDelete.Output.TooManyRequests.Body
+                ) {
+                    self.headers = headers
+                    self.body = body
+                }
+            }
+            /// Too Many Requests
+            ///
+            /// - Remark: Generated from `#/paths//v1/me/delete(delete_me_v1_me_delete)/responses/429`.
+            ///
+            /// HTTP response code: `429 tooManyRequests`.
+            case tooManyRequests(Operations.DeleteMeV1MeDelete.Output.TooManyRequests)
+            /// The associated value of the enum case if `self` is `.tooManyRequests`.
+            ///
+            /// - Throws: An error if `self` is not `.tooManyRequests`.
+            /// - SeeAlso: `.tooManyRequests`.
+            public var tooManyRequests: Operations.DeleteMeV1MeDelete.Output.TooManyRequests {
+                get throws {
+                    switch self {
+                    case let .tooManyRequests(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "tooManyRequests",
+                            response: self
+                        )
+                    }
+                }
+            }
             public struct BadGateway: Sendable, Hashable {
                 /// - Remark: Generated from `#/paths/v1/me/DELETE/responses/502/content`.
                 @frozen public enum Body: Sendable, Hashable {
@@ -1813,6 +1885,78 @@ public enum Operations {
                     default:
                         try throwUnexpectedResponseStatus(
                             expectedStatus: "unprocessableContent",
+                            response: self
+                        )
+                    }
+                }
+            }
+            public struct TooManyRequests: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/me/notices/POST/responses/429/headers`.
+                public struct Headers: Sendable, Hashable {
+                    /// Whole seconds to wait before trying again.
+                    ///
+                    /// - Remark: Generated from `#/paths/v1/me/notices/POST/responses/429/headers/Retry-After`.
+                    public var retryAfter: Swift.String?
+                    /// Creates a new `Headers`.
+                    ///
+                    /// - Parameters:
+                    ///   - retryAfter: Whole seconds to wait before trying again.
+                    public init(retryAfter: Swift.String? = nil) {
+                        self.retryAfter = retryAfter
+                    }
+                }
+                /// Received HTTP response headers
+                public var headers: Operations.RecordNoticeV1MeNoticesPost.Output.TooManyRequests.Headers
+                /// - Remark: Generated from `#/paths/v1/me/notices/POST/responses/429/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/me/notices/POST/responses/429/content/application\/problem+json`.
+                    case applicationProblemJson(Components.Schemas.Problem)
+                    /// The associated value of the enum case if `self` is `.applicationProblemJson`.
+                    ///
+                    /// - Throws: An error if `self` is not `.applicationProblemJson`.
+                    /// - SeeAlso: `.applicationProblemJson`.
+                    public var applicationProblemJson: Components.Schemas.Problem {
+                        get throws {
+                            switch self {
+                            case let .applicationProblemJson(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.RecordNoticeV1MeNoticesPost.Output.TooManyRequests.Body
+                /// Creates a new `TooManyRequests`.
+                ///
+                /// - Parameters:
+                ///   - headers: Received HTTP response headers
+                ///   - body: Received HTTP response body
+                public init(
+                    headers: Operations.RecordNoticeV1MeNoticesPost.Output.TooManyRequests.Headers = .init(),
+                    body: Operations.RecordNoticeV1MeNoticesPost.Output.TooManyRequests.Body
+                ) {
+                    self.headers = headers
+                    self.body = body
+                }
+            }
+            /// Too Many Requests
+            ///
+            /// - Remark: Generated from `#/paths//v1/me/notices/post(record_notice_v1_me_notices_post)/responses/429`.
+            ///
+            /// HTTP response code: `429 tooManyRequests`.
+            case tooManyRequests(Operations.RecordNoticeV1MeNoticesPost.Output.TooManyRequests)
+            /// The associated value of the enum case if `self` is `.tooManyRequests`.
+            ///
+            /// - Throws: An error if `self` is not `.tooManyRequests`.
+            /// - SeeAlso: `.tooManyRequests`.
+            public var tooManyRequests: Operations.RecordNoticeV1MeNoticesPost.Output.TooManyRequests {
+                get throws {
+                    switch self {
+                    case let .tooManyRequests(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "tooManyRequests",
                             response: self
                         )
                     }
@@ -3718,6 +3862,57 @@ public enum Operations {
                     }
                 }
             }
+            public struct ContentTooLarge: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/recordings/{recording_id}/retry/POST/responses/413/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/recordings/{recording_id}/retry/POST/responses/413/content/application\/problem+json`.
+                    case applicationProblemJson(Components.Schemas.Problem)
+                    /// The associated value of the enum case if `self` is `.applicationProblemJson`.
+                    ///
+                    /// - Throws: An error if `self` is not `.applicationProblemJson`.
+                    /// - SeeAlso: `.applicationProblemJson`.
+                    public var applicationProblemJson: Components.Schemas.Problem {
+                        get throws {
+                            switch self {
+                            case let .applicationProblemJson(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.RetryV1RecordingsRecordingIdRetryPost.Output.ContentTooLarge.Body
+                /// Creates a new `ContentTooLarge`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                public init(body: Operations.RetryV1RecordingsRecordingIdRetryPost.Output.ContentTooLarge.Body) {
+                    self.body = body
+                }
+            }
+            /// Content Too Large
+            ///
+            /// - Remark: Generated from `#/paths//v1/recordings/{recording_id}/retry/post(retry_v1_recordings__recording_id__retry_post)/responses/413`.
+            ///
+            /// HTTP response code: `413 contentTooLarge`.
+            case contentTooLarge(Operations.RetryV1RecordingsRecordingIdRetryPost.Output.ContentTooLarge)
+            /// The associated value of the enum case if `self` is `.contentTooLarge`.
+            ///
+            /// - Throws: An error if `self` is not `.contentTooLarge`.
+            /// - SeeAlso: `.contentTooLarge`.
+            public var contentTooLarge: Operations.RetryV1RecordingsRecordingIdRetryPost.Output.ContentTooLarge {
+                get throws {
+                    switch self {
+                    case let .contentTooLarge(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "contentTooLarge",
+                            response: self
+                        )
+                    }
+                }
+            }
             public struct UnprocessableContent: Sendable, Hashable {
                 /// - Remark: Generated from `#/paths/v1/recordings/{recording_id}/retry/POST/responses/422/content`.
                 @frozen public enum Body: Sendable, Hashable {
@@ -3764,6 +3959,78 @@ public enum Operations {
                     default:
                         try throwUnexpectedResponseStatus(
                             expectedStatus: "unprocessableContent",
+                            response: self
+                        )
+                    }
+                }
+            }
+            public struct TooManyRequests: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/recordings/{recording_id}/retry/POST/responses/429/headers`.
+                public struct Headers: Sendable, Hashable {
+                    /// Whole seconds to wait before trying again.
+                    ///
+                    /// - Remark: Generated from `#/paths/v1/recordings/{recording_id}/retry/POST/responses/429/headers/Retry-After`.
+                    public var retryAfter: Swift.String?
+                    /// Creates a new `Headers`.
+                    ///
+                    /// - Parameters:
+                    ///   - retryAfter: Whole seconds to wait before trying again.
+                    public init(retryAfter: Swift.String? = nil) {
+                        self.retryAfter = retryAfter
+                    }
+                }
+                /// Received HTTP response headers
+                public var headers: Operations.RetryV1RecordingsRecordingIdRetryPost.Output.TooManyRequests.Headers
+                /// - Remark: Generated from `#/paths/v1/recordings/{recording_id}/retry/POST/responses/429/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/recordings/{recording_id}/retry/POST/responses/429/content/application\/problem+json`.
+                    case applicationProblemJson(Components.Schemas.Problem)
+                    /// The associated value of the enum case if `self` is `.applicationProblemJson`.
+                    ///
+                    /// - Throws: An error if `self` is not `.applicationProblemJson`.
+                    /// - SeeAlso: `.applicationProblemJson`.
+                    public var applicationProblemJson: Components.Schemas.Problem {
+                        get throws {
+                            switch self {
+                            case let .applicationProblemJson(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.RetryV1RecordingsRecordingIdRetryPost.Output.TooManyRequests.Body
+                /// Creates a new `TooManyRequests`.
+                ///
+                /// - Parameters:
+                ///   - headers: Received HTTP response headers
+                ///   - body: Received HTTP response body
+                public init(
+                    headers: Operations.RetryV1RecordingsRecordingIdRetryPost.Output.TooManyRequests.Headers = .init(),
+                    body: Operations.RetryV1RecordingsRecordingIdRetryPost.Output.TooManyRequests.Body
+                ) {
+                    self.headers = headers
+                    self.body = body
+                }
+            }
+            /// Too Many Requests
+            ///
+            /// - Remark: Generated from `#/paths//v1/recordings/{recording_id}/retry/post(retry_v1_recordings__recording_id__retry_post)/responses/429`.
+            ///
+            /// HTTP response code: `429 tooManyRequests`.
+            case tooManyRequests(Operations.RetryV1RecordingsRecordingIdRetryPost.Output.TooManyRequests)
+            /// The associated value of the enum case if `self` is `.tooManyRequests`.
+            ///
+            /// - Throws: An error if `self` is not `.tooManyRequests`.
+            /// - SeeAlso: `.tooManyRequests`.
+            public var tooManyRequests: Operations.RetryV1RecordingsRecordingIdRetryPost.Output.TooManyRequests {
+                get throws {
+                    switch self {
+                    case let .tooManyRequests(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "tooManyRequests",
                             response: self
                         )
                     }
@@ -4217,6 +4484,78 @@ public enum Operations {
                     }
                 }
             }
+            public struct TooManyRequests: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/recordings/{recording_id}/upload-slot/POST/responses/429/headers`.
+                public struct Headers: Sendable, Hashable {
+                    /// Whole seconds to wait before trying again.
+                    ///
+                    /// - Remark: Generated from `#/paths/v1/recordings/{recording_id}/upload-slot/POST/responses/429/headers/Retry-After`.
+                    public var retryAfter: Swift.String?
+                    /// Creates a new `Headers`.
+                    ///
+                    /// - Parameters:
+                    ///   - retryAfter: Whole seconds to wait before trying again.
+                    public init(retryAfter: Swift.String? = nil) {
+                        self.retryAfter = retryAfter
+                    }
+                }
+                /// Received HTTP response headers
+                public var headers: Operations.UploadSlotV1RecordingsRecordingIdUploadSlotPost.Output.TooManyRequests.Headers
+                /// - Remark: Generated from `#/paths/v1/recordings/{recording_id}/upload-slot/POST/responses/429/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/recordings/{recording_id}/upload-slot/POST/responses/429/content/application\/problem+json`.
+                    case applicationProblemJson(Components.Schemas.Problem)
+                    /// The associated value of the enum case if `self` is `.applicationProblemJson`.
+                    ///
+                    /// - Throws: An error if `self` is not `.applicationProblemJson`.
+                    /// - SeeAlso: `.applicationProblemJson`.
+                    public var applicationProblemJson: Components.Schemas.Problem {
+                        get throws {
+                            switch self {
+                            case let .applicationProblemJson(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.UploadSlotV1RecordingsRecordingIdUploadSlotPost.Output.TooManyRequests.Body
+                /// Creates a new `TooManyRequests`.
+                ///
+                /// - Parameters:
+                ///   - headers: Received HTTP response headers
+                ///   - body: Received HTTP response body
+                public init(
+                    headers: Operations.UploadSlotV1RecordingsRecordingIdUploadSlotPost.Output.TooManyRequests.Headers = .init(),
+                    body: Operations.UploadSlotV1RecordingsRecordingIdUploadSlotPost.Output.TooManyRequests.Body
+                ) {
+                    self.headers = headers
+                    self.body = body
+                }
+            }
+            /// Too Many Requests
+            ///
+            /// - Remark: Generated from `#/paths//v1/recordings/{recording_id}/upload-slot/post(upload_slot_v1_recordings__recording_id__upload_slot_post)/responses/429`.
+            ///
+            /// HTTP response code: `429 tooManyRequests`.
+            case tooManyRequests(Operations.UploadSlotV1RecordingsRecordingIdUploadSlotPost.Output.TooManyRequests)
+            /// The associated value of the enum case if `self` is `.tooManyRequests`.
+            ///
+            /// - Throws: An error if `self` is not `.tooManyRequests`.
+            /// - SeeAlso: `.tooManyRequests`.
+            public var tooManyRequests: Operations.UploadSlotV1RecordingsRecordingIdUploadSlotPost.Output.TooManyRequests {
+                get throws {
+                    switch self {
+                    case let .tooManyRequests(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "tooManyRequests",
+                            response: self
+                        )
+                    }
+                }
+            }
             public struct ServiceUnavailable: Sendable, Hashable {
                 /// - Remark: Generated from `#/paths/v1/recordings/{recording_id}/upload-slot/POST/responses/503/content`.
                 @frozen public enum Body: Sendable, Hashable {
@@ -4587,6 +4926,78 @@ public enum Operations {
                     default:
                         try throwUnexpectedResponseStatus(
                             expectedStatus: "unprocessableContent",
+                            response: self
+                        )
+                    }
+                }
+            }
+            public struct TooManyRequests: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/recordings/{recording_id}/uploaded/POST/responses/429/headers`.
+                public struct Headers: Sendable, Hashable {
+                    /// Whole seconds to wait before trying again.
+                    ///
+                    /// - Remark: Generated from `#/paths/v1/recordings/{recording_id}/uploaded/POST/responses/429/headers/Retry-After`.
+                    public var retryAfter: Swift.String?
+                    /// Creates a new `Headers`.
+                    ///
+                    /// - Parameters:
+                    ///   - retryAfter: Whole seconds to wait before trying again.
+                    public init(retryAfter: Swift.String? = nil) {
+                        self.retryAfter = retryAfter
+                    }
+                }
+                /// Received HTTP response headers
+                public var headers: Operations.UploadFinishedV1RecordingsRecordingIdUploadedPost.Output.TooManyRequests.Headers
+                /// - Remark: Generated from `#/paths/v1/recordings/{recording_id}/uploaded/POST/responses/429/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/recordings/{recording_id}/uploaded/POST/responses/429/content/application\/problem+json`.
+                    case applicationProblemJson(Components.Schemas.Problem)
+                    /// The associated value of the enum case if `self` is `.applicationProblemJson`.
+                    ///
+                    /// - Throws: An error if `self` is not `.applicationProblemJson`.
+                    /// - SeeAlso: `.applicationProblemJson`.
+                    public var applicationProblemJson: Components.Schemas.Problem {
+                        get throws {
+                            switch self {
+                            case let .applicationProblemJson(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.UploadFinishedV1RecordingsRecordingIdUploadedPost.Output.TooManyRequests.Body
+                /// Creates a new `TooManyRequests`.
+                ///
+                /// - Parameters:
+                ///   - headers: Received HTTP response headers
+                ///   - body: Received HTTP response body
+                public init(
+                    headers: Operations.UploadFinishedV1RecordingsRecordingIdUploadedPost.Output.TooManyRequests.Headers = .init(),
+                    body: Operations.UploadFinishedV1RecordingsRecordingIdUploadedPost.Output.TooManyRequests.Body
+                ) {
+                    self.headers = headers
+                    self.body = body
+                }
+            }
+            /// Too Many Requests
+            ///
+            /// - Remark: Generated from `#/paths//v1/recordings/{recording_id}/uploaded/post(upload_finished_v1_recordings__recording_id__uploaded_post)/responses/429`.
+            ///
+            /// HTTP response code: `429 tooManyRequests`.
+            case tooManyRequests(Operations.UploadFinishedV1RecordingsRecordingIdUploadedPost.Output.TooManyRequests)
+            /// The associated value of the enum case if `self` is `.tooManyRequests`.
+            ///
+            /// - Throws: An error if `self` is not `.tooManyRequests`.
+            /// - SeeAlso: `.tooManyRequests`.
+            public var tooManyRequests: Operations.UploadFinishedV1RecordingsRecordingIdUploadedPost.Output.TooManyRequests {
+                get throws {
+                    switch self {
+                    case let .tooManyRequests(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "tooManyRequests",
                             response: self
                         )
                     }
@@ -5489,6 +5900,78 @@ public enum Operations {
                     }
                 }
             }
+            public struct TooManyRequests: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/scans/{scan_id}/upload-slot/POST/responses/429/headers`.
+                public struct Headers: Sendable, Hashable {
+                    /// Whole seconds to wait before trying again.
+                    ///
+                    /// - Remark: Generated from `#/paths/v1/scans/{scan_id}/upload-slot/POST/responses/429/headers/Retry-After`.
+                    public var retryAfter: Swift.String?
+                    /// Creates a new `Headers`.
+                    ///
+                    /// - Parameters:
+                    ///   - retryAfter: Whole seconds to wait before trying again.
+                    public init(retryAfter: Swift.String? = nil) {
+                        self.retryAfter = retryAfter
+                    }
+                }
+                /// Received HTTP response headers
+                public var headers: Operations.UploadSlotV1ScansScanIdUploadSlotPost.Output.TooManyRequests.Headers
+                /// - Remark: Generated from `#/paths/v1/scans/{scan_id}/upload-slot/POST/responses/429/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/scans/{scan_id}/upload-slot/POST/responses/429/content/application\/problem+json`.
+                    case applicationProblemJson(Components.Schemas.Problem)
+                    /// The associated value of the enum case if `self` is `.applicationProblemJson`.
+                    ///
+                    /// - Throws: An error if `self` is not `.applicationProblemJson`.
+                    /// - SeeAlso: `.applicationProblemJson`.
+                    public var applicationProblemJson: Components.Schemas.Problem {
+                        get throws {
+                            switch self {
+                            case let .applicationProblemJson(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.UploadSlotV1ScansScanIdUploadSlotPost.Output.TooManyRequests.Body
+                /// Creates a new `TooManyRequests`.
+                ///
+                /// - Parameters:
+                ///   - headers: Received HTTP response headers
+                ///   - body: Received HTTP response body
+                public init(
+                    headers: Operations.UploadSlotV1ScansScanIdUploadSlotPost.Output.TooManyRequests.Headers = .init(),
+                    body: Operations.UploadSlotV1ScansScanIdUploadSlotPost.Output.TooManyRequests.Body
+                ) {
+                    self.headers = headers
+                    self.body = body
+                }
+            }
+            /// Too Many Requests
+            ///
+            /// - Remark: Generated from `#/paths//v1/scans/{scan_id}/upload-slot/post(upload_slot_v1_scans__scan_id__upload_slot_post)/responses/429`.
+            ///
+            /// HTTP response code: `429 tooManyRequests`.
+            case tooManyRequests(Operations.UploadSlotV1ScansScanIdUploadSlotPost.Output.TooManyRequests)
+            /// The associated value of the enum case if `self` is `.tooManyRequests`.
+            ///
+            /// - Throws: An error if `self` is not `.tooManyRequests`.
+            /// - SeeAlso: `.tooManyRequests`.
+            public var tooManyRequests: Operations.UploadSlotV1ScansScanIdUploadSlotPost.Output.TooManyRequests {
+                get throws {
+                    switch self {
+                    case let .tooManyRequests(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "tooManyRequests",
+                            response: self
+                        )
+                    }
+                }
+            }
             public struct ServiceUnavailable: Sendable, Hashable {
                 /// - Remark: Generated from `#/paths/v1/scans/{scan_id}/upload-slot/POST/responses/503/content`.
                 @frozen public enum Body: Sendable, Hashable {
@@ -5864,6 +6347,78 @@ public enum Operations {
                     }
                 }
             }
+            public struct TooManyRequests: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/scans/{scan_id}/uploaded/POST/responses/429/headers`.
+                public struct Headers: Sendable, Hashable {
+                    /// Whole seconds to wait before trying again.
+                    ///
+                    /// - Remark: Generated from `#/paths/v1/scans/{scan_id}/uploaded/POST/responses/429/headers/Retry-After`.
+                    public var retryAfter: Swift.String?
+                    /// Creates a new `Headers`.
+                    ///
+                    /// - Parameters:
+                    ///   - retryAfter: Whole seconds to wait before trying again.
+                    public init(retryAfter: Swift.String? = nil) {
+                        self.retryAfter = retryAfter
+                    }
+                }
+                /// Received HTTP response headers
+                public var headers: Operations.UploadFinishedV1ScansScanIdUploadedPost.Output.TooManyRequests.Headers
+                /// - Remark: Generated from `#/paths/v1/scans/{scan_id}/uploaded/POST/responses/429/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/scans/{scan_id}/uploaded/POST/responses/429/content/application\/problem+json`.
+                    case applicationProblemJson(Components.Schemas.Problem)
+                    /// The associated value of the enum case if `self` is `.applicationProblemJson`.
+                    ///
+                    /// - Throws: An error if `self` is not `.applicationProblemJson`.
+                    /// - SeeAlso: `.applicationProblemJson`.
+                    public var applicationProblemJson: Components.Schemas.Problem {
+                        get throws {
+                            switch self {
+                            case let .applicationProblemJson(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.UploadFinishedV1ScansScanIdUploadedPost.Output.TooManyRequests.Body
+                /// Creates a new `TooManyRequests`.
+                ///
+                /// - Parameters:
+                ///   - headers: Received HTTP response headers
+                ///   - body: Received HTTP response body
+                public init(
+                    headers: Operations.UploadFinishedV1ScansScanIdUploadedPost.Output.TooManyRequests.Headers = .init(),
+                    body: Operations.UploadFinishedV1ScansScanIdUploadedPost.Output.TooManyRequests.Body
+                ) {
+                    self.headers = headers
+                    self.body = body
+                }
+            }
+            /// Too Many Requests
+            ///
+            /// - Remark: Generated from `#/paths//v1/scans/{scan_id}/uploaded/post(upload_finished_v1_scans__scan_id__uploaded_post)/responses/429`.
+            ///
+            /// HTTP response code: `429 tooManyRequests`.
+            case tooManyRequests(Operations.UploadFinishedV1ScansScanIdUploadedPost.Output.TooManyRequests)
+            /// The associated value of the enum case if `self` is `.tooManyRequests`.
+            ///
+            /// - Throws: An error if `self` is not `.tooManyRequests`.
+            /// - SeeAlso: `.tooManyRequests`.
+            public var tooManyRequests: Operations.UploadFinishedV1ScansScanIdUploadedPost.Output.TooManyRequests {
+                get throws {
+                    switch self {
+                    case let .tooManyRequests(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "tooManyRequests",
+                            response: self
+                        )
+                    }
+                }
+            }
             public struct ServiceUnavailable: Sendable, Hashable {
                 /// - Remark: Generated from `#/paths/v1/scans/{scan_id}/uploaded/POST/responses/503/content`.
                 @frozen public enum Body: Sendable, Hashable {
@@ -6096,6 +6651,78 @@ public enum Operations {
                     }
                 }
             }
+            public struct TooManyRequests: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/sync/events/GET/responses/429/headers`.
+                public struct Headers: Sendable, Hashable {
+                    /// Whole seconds to wait before trying again.
+                    ///
+                    /// - Remark: Generated from `#/paths/v1/sync/events/GET/responses/429/headers/Retry-After`.
+                    public var retryAfter: Swift.String?
+                    /// Creates a new `Headers`.
+                    ///
+                    /// - Parameters:
+                    ///   - retryAfter: Whole seconds to wait before trying again.
+                    public init(retryAfter: Swift.String? = nil) {
+                        self.retryAfter = retryAfter
+                    }
+                }
+                /// Received HTTP response headers
+                public var headers: Operations.EventsV1SyncEventsGet.Output.TooManyRequests.Headers
+                /// - Remark: Generated from `#/paths/v1/sync/events/GET/responses/429/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/sync/events/GET/responses/429/content/application\/problem+json`.
+                    case applicationProblemJson(Components.Schemas.Problem)
+                    /// The associated value of the enum case if `self` is `.applicationProblemJson`.
+                    ///
+                    /// - Throws: An error if `self` is not `.applicationProblemJson`.
+                    /// - SeeAlso: `.applicationProblemJson`.
+                    public var applicationProblemJson: Components.Schemas.Problem {
+                        get throws {
+                            switch self {
+                            case let .applicationProblemJson(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.EventsV1SyncEventsGet.Output.TooManyRequests.Body
+                /// Creates a new `TooManyRequests`.
+                ///
+                /// - Parameters:
+                ///   - headers: Received HTTP response headers
+                ///   - body: Received HTTP response body
+                public init(
+                    headers: Operations.EventsV1SyncEventsGet.Output.TooManyRequests.Headers = .init(),
+                    body: Operations.EventsV1SyncEventsGet.Output.TooManyRequests.Body
+                ) {
+                    self.headers = headers
+                    self.body = body
+                }
+            }
+            /// Too Many Requests
+            ///
+            /// - Remark: Generated from `#/paths//v1/sync/events/get(events_v1_sync_events_get)/responses/429`.
+            ///
+            /// HTTP response code: `429 tooManyRequests`.
+            case tooManyRequests(Operations.EventsV1SyncEventsGet.Output.TooManyRequests)
+            /// The associated value of the enum case if `self` is `.tooManyRequests`.
+            ///
+            /// - Throws: An error if `self` is not `.tooManyRequests`.
+            /// - SeeAlso: `.tooManyRequests`.
+            public var tooManyRequests: Operations.EventsV1SyncEventsGet.Output.TooManyRequests {
+                get throws {
+                    switch self {
+                    case let .tooManyRequests(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "tooManyRequests",
+                            response: self
+                        )
+                    }
+                }
+            }
             /// Undocumented response.
             ///
             /// A response with a code that is not documented in the OpenAPI document.
@@ -6283,6 +6910,78 @@ public enum Operations {
                     }
                 }
             }
+            public struct TooManyRequests: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/sync/pull/GET/responses/429/headers`.
+                public struct Headers: Sendable, Hashable {
+                    /// Whole seconds to wait before trying again.
+                    ///
+                    /// - Remark: Generated from `#/paths/v1/sync/pull/GET/responses/429/headers/Retry-After`.
+                    public var retryAfter: Swift.String?
+                    /// Creates a new `Headers`.
+                    ///
+                    /// - Parameters:
+                    ///   - retryAfter: Whole seconds to wait before trying again.
+                    public init(retryAfter: Swift.String? = nil) {
+                        self.retryAfter = retryAfter
+                    }
+                }
+                /// Received HTTP response headers
+                public var headers: Operations.PullV1SyncPullGet.Output.TooManyRequests.Headers
+                /// - Remark: Generated from `#/paths/v1/sync/pull/GET/responses/429/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/sync/pull/GET/responses/429/content/application\/problem+json`.
+                    case applicationProblemJson(Components.Schemas.Problem)
+                    /// The associated value of the enum case if `self` is `.applicationProblemJson`.
+                    ///
+                    /// - Throws: An error if `self` is not `.applicationProblemJson`.
+                    /// - SeeAlso: `.applicationProblemJson`.
+                    public var applicationProblemJson: Components.Schemas.Problem {
+                        get throws {
+                            switch self {
+                            case let .applicationProblemJson(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.PullV1SyncPullGet.Output.TooManyRequests.Body
+                /// Creates a new `TooManyRequests`.
+                ///
+                /// - Parameters:
+                ///   - headers: Received HTTP response headers
+                ///   - body: Received HTTP response body
+                public init(
+                    headers: Operations.PullV1SyncPullGet.Output.TooManyRequests.Headers = .init(),
+                    body: Operations.PullV1SyncPullGet.Output.TooManyRequests.Body
+                ) {
+                    self.headers = headers
+                    self.body = body
+                }
+            }
+            /// Too Many Requests
+            ///
+            /// - Remark: Generated from `#/paths//v1/sync/pull/get(pull_v1_sync_pull_get)/responses/429`.
+            ///
+            /// HTTP response code: `429 tooManyRequests`.
+            case tooManyRequests(Operations.PullV1SyncPullGet.Output.TooManyRequests)
+            /// The associated value of the enum case if `self` is `.tooManyRequests`.
+            ///
+            /// - Throws: An error if `self` is not `.tooManyRequests`.
+            /// - SeeAlso: `.tooManyRequests`.
+            public var tooManyRequests: Operations.PullV1SyncPullGet.Output.TooManyRequests {
+                get throws {
+                    switch self {
+                    case let .tooManyRequests(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "tooManyRequests",
+                            response: self
+                        )
+                    }
+                }
+            }
             /// Undocumented response.
             ///
             /// A response with a code that is not documented in the OpenAPI document.
@@ -6458,6 +7157,78 @@ public enum Operations {
                     default:
                         try throwUnexpectedResponseStatus(
                             expectedStatus: "unprocessableContent",
+                            response: self
+                        )
+                    }
+                }
+            }
+            public struct TooManyRequests: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/sync/push/POST/responses/429/headers`.
+                public struct Headers: Sendable, Hashable {
+                    /// Whole seconds to wait before trying again.
+                    ///
+                    /// - Remark: Generated from `#/paths/v1/sync/push/POST/responses/429/headers/Retry-After`.
+                    public var retryAfter: Swift.String?
+                    /// Creates a new `Headers`.
+                    ///
+                    /// - Parameters:
+                    ///   - retryAfter: Whole seconds to wait before trying again.
+                    public init(retryAfter: Swift.String? = nil) {
+                        self.retryAfter = retryAfter
+                    }
+                }
+                /// Received HTTP response headers
+                public var headers: Operations.PushV1SyncPushPost.Output.TooManyRequests.Headers
+                /// - Remark: Generated from `#/paths/v1/sync/push/POST/responses/429/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/sync/push/POST/responses/429/content/application\/problem+json`.
+                    case applicationProblemJson(Components.Schemas.Problem)
+                    /// The associated value of the enum case if `self` is `.applicationProblemJson`.
+                    ///
+                    /// - Throws: An error if `self` is not `.applicationProblemJson`.
+                    /// - SeeAlso: `.applicationProblemJson`.
+                    public var applicationProblemJson: Components.Schemas.Problem {
+                        get throws {
+                            switch self {
+                            case let .applicationProblemJson(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.PushV1SyncPushPost.Output.TooManyRequests.Body
+                /// Creates a new `TooManyRequests`.
+                ///
+                /// - Parameters:
+                ///   - headers: Received HTTP response headers
+                ///   - body: Received HTTP response body
+                public init(
+                    headers: Operations.PushV1SyncPushPost.Output.TooManyRequests.Headers = .init(),
+                    body: Operations.PushV1SyncPushPost.Output.TooManyRequests.Body
+                ) {
+                    self.headers = headers
+                    self.body = body
+                }
+            }
+            /// Too Many Requests
+            ///
+            /// - Remark: Generated from `#/paths//v1/sync/push/post(push_v1_sync_push_post)/responses/429`.
+            ///
+            /// HTTP response code: `429 tooManyRequests`.
+            case tooManyRequests(Operations.PushV1SyncPushPost.Output.TooManyRequests)
+            /// The associated value of the enum case if `self` is `.tooManyRequests`.
+            ///
+            /// - Throws: An error if `self` is not `.tooManyRequests`.
+            /// - SeeAlso: `.tooManyRequests`.
+            public var tooManyRequests: Operations.PushV1SyncPushPost.Output.TooManyRequests {
+                get throws {
+                    switch self {
+                    case let .tooManyRequests(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "tooManyRequests",
                             response: self
                         )
                     }

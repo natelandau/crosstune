@@ -16,7 +16,7 @@ from crosstune.db.base import utc_now
 from crosstune.db.session import (
     DbSession,  # noqa: TC001 -- FastAPI resolves this annotation at route registration
 )
-from crosstune.errors import VALIDATION_RESPONSE, UserBusyError
+from crosstune.errors import UserBusyError, problem_responses
 from crosstune.geo import request_country
 from crosstune.links.resolve import ResolvedLink, resolve_link, unresolved_link
 from crosstune.schemas.common import EventsResponse, PullResponse, PushRequest, PushResponse
@@ -117,7 +117,7 @@ def _sync_slot(request: Request, user_id: uuid.UUID) -> Generator[None]:
         limiter.release(user_id)
 
 
-@router.post("/push", responses=VALIDATION_RESPONSE)
+@router.post("/push", responses=problem_responses(429))
 async def push(
     body: PushRequest,
     request: Request,
@@ -152,7 +152,7 @@ async def push(
     return PushResponse(results=results)
 
 
-@router.get("/pull", responses=VALIDATION_RESPONSE)
+@router.get("/pull", responses=problem_responses(429))
 async def pull(
     request: Request,
     user: CurrentUser,
@@ -173,7 +173,7 @@ async def pull(
     return PullResponse(rows=rows, next_since=next_since, has_more=has_more)
 
 
-@router.get("/events", responses=VALIDATION_RESPONSE)
+@router.get("/events", responses=problem_responses(429))
 async def events(
     request: Request,
     user: CurrentUser,

@@ -634,6 +634,8 @@ public final class AccountSession {
             if (try? refused.body.applicationProblemJson._type) == AuthMiddleware.accountDeletedProblem { return }
             throw APIStatusError(status: 401)
         case .unprocessableContent: throw APIStatusError(status: 422)
+        case .tooManyRequests(let busy):
+            throw APIStatusError(status: 429, retryAfterSeconds: LiveSyncAPI.seconds(busy.headers.retryAfter))
         case .badGateway: throw APIStatusError(status: 502)
         case .serviceUnavailable: throw APIStatusError(status: 503)
         case .undocumented(let status, _):

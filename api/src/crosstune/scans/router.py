@@ -37,7 +37,7 @@ class ScanUploadSlotRequest(BaseModel):
     content_type: Literal["image/jpeg"]
 
 
-@router.post("/{scan_id}/upload-slot", responses=problem_responses(403, 404, 409, 413, 503))
+@router.post("/{scan_id}/upload-slot", responses=problem_responses(403, 404, 409, 413, 429, 503))
 async def upload_slot(
     scan_id: uuid.UUID,
     body: ScanUploadSlotRequest,
@@ -68,7 +68,7 @@ async def upload_slot(
 
 
 @router.post(
-    "/{scan_id}/uploaded", status_code=204, responses=problem_responses(404, 409, 413, 503)
+    "/{scan_id}/uploaded", status_code=204, responses=problem_responses(404, 409, 413, 429, 503)
 )
 async def upload_finished(
     scan_id: uuid.UUID,
