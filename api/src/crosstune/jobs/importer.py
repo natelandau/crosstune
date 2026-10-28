@@ -54,6 +54,7 @@ async def fetch_import(
     path: Path,
     *,
     max_bytes: int,
+    room_bytes: int | None = None,
     timeout: float,  # noqa: ASYNC109 -- forwarded to httpx2's per-request timeout, not asyncio cancellation
 ) -> FetchedImport:
     """Download the audio an imported recording's page points at into a local file.
@@ -67,6 +68,7 @@ async def fetch_import(
         recording: The import whose `origin_url` names the page or file.
         path: Where the file is written.
         max_bytes: The largest file accepted.
+        room_bytes: The owner's storage left, or None when only `max_bytes` applies.
         timeout: The per-request timeout.
 
     Returns:
@@ -74,7 +76,7 @@ async def fetch_import(
 
     Raises:
         ImportRefused: When the page has no audio, the file is gone, a request leaves
-            the host, or the file is larger than `max_bytes`.
+            the host, or the file is larger than `max_bytes` or `room_bytes`.
         httpx2.TimeoutException: When the whole download outlasts DOWNLOAD_TIMEOUT_SECONDS.
     """
     try:
@@ -83,7 +85,12 @@ async def fetch_import(
             if ref is None:
                 raise ImportRefused(NO_AUDIO)
             size = await _download(
-                client, slippery_hill_file_url(ref), path, max_bytes=max_bytes, timeout=timeout
+                client,
+                slippery_hill_file_url(ref),
+                path,
+                max_bytes=max_bytes,
+                room_bytes=room_bytes,
+                timeout=timeout,
             )
             return FetchedImport(size=size, year=year, artist=artist)
     except TimeoutError as exc:
@@ -97,13 +104,14 @@ async def _download(
     path: Path,
     *,
     max_bytes: int,
+    room_bytes: int | None,
     timeout: float,  # noqa: ASYNC109 -- forwarded to httpx2's per-request timeout, not asyncio cancellation
 ) -> int:
     """Stream the file at `url` to `path`, removing a partial file on any failure."""
     done = False
     try:
         async with _get(client, url, timeout) as response:
-            size = await _save(response, path, max_bytes=max_bytes)
+            size = await _save(response, path, max_bytes=max_bytes, room_bytes=room_bytes)
         done = True
     except httpx2.HTTPStatusError as exc:
         # The page named this file, so a file the site says is gone won't come back.
@@ -120,18 +128,28 @@ def _open_for_write(path: Path) -> BinaryIO:
     return path.open("wb")
 
 
-async def _save(response: httpx2.Response, path: Path, *, max_bytes: int) -> int:
-    """Write a response body to `path`, refusing it as soon as it passes `max_bytes`."""
+async def _save(
+    response: httpx2.Response, path: Path, *, max_bytes: int, room_bytes: int | None
+) -> int:
+    """Write a response body to `path`, refusing it as soon as it passes either limit.
+
+    A file over the per-file cap is refused as too large even when the room left is
+    smaller, since no space the owner frees would let it in. Without a declared length,
+    a body cut off at the room left can only be refused as over the quota.
+    """
     declared = response.headers.get("Content-Length", "")
     if declared.isdigit() and int(declared) > max_bytes:
         raise ImportRefused(TOO_LARGE)
+    if declared.isdigit() and room_bytes is not None and int(declared) > room_bytes:
+        raise ImportRefused(OVER_QUOTA)
+    limit = max_bytes if room_bytes is None else min(max_bytes, room_bytes)
     size = 0
     file = await asyncio.to_thread(_open_for_write, path)
     try:
         async for chunk in response.aiter_bytes():
             size += len(chunk)
-            if size > max_bytes:
-                raise ImportRefused(TOO_LARGE)
+            if size > limit:
+                raise ImportRefused(TOO_LARGE if size > max_bytes else OVER_QUOTA)
             await asyncio.to_thread(file.write, chunk)
     finally:
         await asyncio.to_thread(file.close)

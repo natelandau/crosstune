@@ -351,6 +351,17 @@ async def test_push_of_a_new_import_queues_an_import_job(
     assert fake_runner.wakes == 1
 
 
+async def test_push_of_an_import_for_an_account_with_no_room_fails_it_without_a_fetch(
+    app, client, auth_headers, verify_session
+) -> None:
+    app.state.settings = app.state.settings.model_copy(update={"trial_quota_bytes": 0})
+    rec = uid()
+    [result] = await push(client, auth_headers("user_a"), _import(rec))
+    assert result["status"] == "applied"
+    assert (result["row"]["state"], result["row"]["error"]) == ("failed", "Storage quota exceeded")
+    assert await _job_kinds(verify_session, rec) == []
+
+
 async def test_push_of_an_import_from_another_host_fails_it(
     client, auth_headers, verify_session
 ) -> None:

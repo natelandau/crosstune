@@ -23,12 +23,15 @@ from crosstune.errors import (
     ConflictError,
     NotFoundError,
     PremiumRequiredError,
+    QuotaExceededError,
     problem_responses,
 )
 from crosstune.files.quota import accept_upload, head_slot, reserve_slot, slot_for_recording
 from crosstune.files.urls import UPLOAD_URL_TTL_SECONDS, SignedUrl, presign_get, require_store
 from crosstune.recordings.service import (
     enqueue_transcode,
+    has_room,
+    importable,
     owned_recording,
     require_state,
     start_import,
@@ -198,9 +201,12 @@ async def retry(
         return Response(status_code=204)
     require_state(recording, "failed")
     if _never_arrived(recording):
-        if not (await access_for(session, user.id, settings)).premium:
+        access = await access_for(session, user.id, settings)
+        if not access.premium:
             raise PremiumRequiredError
-        await start_import(session, recording)
+        if importable(recording) and not await has_room(session, recording, access):
+            raise QuotaExceededError
+        await start_import(session, recording, access)
     else:
         recording.state = "uploaded"
         recording.error = None
