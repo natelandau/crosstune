@@ -224,5 +224,7 @@ private func blankToNil(_ value: String) -> String? {
 }
 
 private func splitTitles(_ value: String) -> [String] {
-    value.split(separator: ",").map { trimmed(String($0)) }.filter { !$0.isEmpty }
+    Array(
+        value.split(separator: ",").map { trimmed(String($0)) }.filter { !$0.isEmpty }
+            .prefix(Vocabulary.Limits.Tune.alternateTitlesCount))
 }

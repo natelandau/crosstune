@@ -84,6 +84,8 @@ class TimeSignature(StrEnum):
 
 # One mode per part, for a tune whose parts change mode. Four covers an ABCD tune.
 MAX_MODES: Final[int] = 4
+# Far past any tune's real names, and low enough that one tune row stays small.
+MAX_ALTERNATE_TITLES: Final[int] = 50
 
 
 class Provider(StrEnum):

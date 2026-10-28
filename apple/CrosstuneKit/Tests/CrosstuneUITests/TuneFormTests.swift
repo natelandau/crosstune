@@ -54,6 +54,15 @@ private func entry(_ tuning: String? = nil, capo: Int64? = nil) -> JSONValue {
         #expect(values.userTuneInput.notes == nil)
     }
 
+    @Test func keepsNoMoreAlternateTitlesThanATuneHolds() {
+        let count = Vocabulary.Limits.Tune.alternateTitlesCount
+        let names = (0..<(count + 3)).map { "Title \($0)" }
+        let stored = tune("Soldier's Joy")
+        var values = TuneFormValues(tune: stored, userTune: userTune(stored.id))
+        values.alternateTitles = names.joined(separator: ", ")
+        #expect(values.tuneInput.alternateTitles == Array(names.prefix(count)))
+    }
+
     @Test func fallsBackWhenAStoredModeTimeSignatureOrStatusIsUnknown() {
         let stored = tune("Odd", modes: ["lydian"], timeSignature: "7/8")
         let values = TuneFormValues(tune: stored, userTune: userTune(stored.id, status: "bogus"))

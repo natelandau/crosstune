@@ -36,6 +36,7 @@ public enum Vocabulary {
     public enum Limits {
         public enum Tune {
             public static let alternateTitles = 200
+            public static let alternateTitlesCount = 50
             public static let composer = 200
             public static let genre = 100
             public static let key = 10

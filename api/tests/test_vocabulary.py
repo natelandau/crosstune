@@ -136,15 +136,13 @@ def _from_metadata(metadata) -> int | None:
 
 
 def _max_length(info) -> int | None:
-    found = _from_metadata(info.metadata)
-    if found is not None:
-        return found
-    # A list of limited strings carries the limit on the item annotation.
+    # A list of limited strings carries the string limit on the item annotation; any limit
+    # on the field itself is then the list's count, which the table does not hold.
     for arg in getattr(info.annotation, "__args__", ()):
         found = _from_metadata(getattr(arg, "__metadata__", ()))
         if found is not None:
             return found
-    return None
+    return _from_metadata(info.metadata)
 
 
 def test_every_schema_max_length_matches_the_table() -> None:

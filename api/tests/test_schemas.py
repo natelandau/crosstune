@@ -22,7 +22,7 @@ from crosstune.schemas.rows import (
     UserTuneData,
 )
 from crosstune.sync.tables import TABLE_ORDER, TABLES
-from crosstune.vocabulary import SPEED_PERCENT_MAX, SPEED_PERCENT_MIN
+from crosstune.vocabulary import MAX_ALTERNATE_TITLES, SPEED_PERCENT_MAX, SPEED_PERCENT_MIN
 
 NOW = datetime(2026, 9, 11, tzinfo=UTC)
 
@@ -59,6 +59,23 @@ def test_tune_accepts_type_modes_and_composer() -> None:
 def test_tune_rejects_a_fifth_mode() -> None:
     with pytest.raises(ValidationError):
         TuneData(title="Sally Ann", modes=["major"] * 5, created_at=NOW)
+
+
+def test_tune_takes_up_to_the_alternate_title_cap() -> None:
+    titles = [f"Title {n}" for n in range(MAX_ALTERNATE_TITLES)]
+    assert (
+        TuneData(title="Sally Ann", alternate_titles=titles, created_at=NOW).alternate_titles
+        == titles
+    )
+
+
+def test_tune_rejects_an_alternate_title_past_the_cap() -> None:
+    with pytest.raises(ValidationError):
+        TuneData(
+            title="Sally Ann",
+            alternate_titles=["Title"] * (MAX_ALTERNATE_TITLES + 1),
+            created_at=NOW,
+        )
 
 
 def test_tune_rejects_an_unknown_part_mode() -> None:
