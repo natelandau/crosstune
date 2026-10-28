@@ -91,7 +91,7 @@ async def upload_slot(
     """
     store = require_store(request)
     settings = request.app.state.settings
-    await lock_user(session, user.id)
+    await lock_user(session, user.id, wait_seconds=settings.request_lock_timeout_seconds)
     recording = await owned_recording(session, user.id, recording_id)
     require_state(recording, *SLOT_STATES)
     access = await access_for(session, user.id, settings)
@@ -132,7 +132,7 @@ async def upload_finished(
     recording = await owned_recording(session, user.id, recording_id)
     # The bucket round trip happens before the lock so it never holds up the caller's other writes.
     info = await head_slot(store, await slot_for_recording(session, recording.id))
-    await lock_user(session, user.id)
+    await lock_user(session, user.id, wait_seconds=settings.request_lock_timeout_seconds)
     # Re-read under the lock: another request may have confirmed, failed, or deleted this
     # recording meanwhile.
     await session.refresh(recording)
@@ -190,14 +190,15 @@ async def retry(
     """
     # Without a store there is no runner either, so a queued job would never be claimed.
     require_store(request)
-    await lock_user(session, user.id)
+    settings = request.app.state.settings
+    await lock_user(session, user.id, wait_seconds=settings.request_lock_timeout_seconds)
     recording = await owned_recording(session, user.id, recording_id)
     if recording.state in CONFIRMED_STATES:
         # A retried call after a lost response: the first one already queued the job.
         return Response(status_code=204)
     require_state(recording, "failed")
     if _never_arrived(recording):
-        if not (await access_for(session, user.id, request.app.state.settings)).premium:
+        if not (await access_for(session, user.id, settings)).premium:
             raise PremiumRequiredError
         await start_import(session, recording)
     else:

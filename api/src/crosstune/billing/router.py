@@ -63,8 +63,16 @@ async def refresh_billing(
     if wait is not None:
         raise TooManyRequestsError(wait)
     now = utc_now()
+    settings = request.app.state.settings
     try:
-        await refresh_purchases(session, user, revenuecat, request.app.state.settings, now)
+        await refresh_purchases(
+            session,
+            user,
+            revenuecat,
+            settings,
+            now,
+            lock_wait_seconds=settings.request_lock_timeout_seconds,
+        )
     except RevenueCatUnavailableError as exc:
         raise BillingFailedError from exc
     _confirm_after_commit(request, background, [user.id], now)
@@ -88,7 +96,14 @@ async def withdraw_billing(request: Request, user: CurrentUser, session: DbSessi
     if wait is not None:
         raise TooManyRequestsError(wait)
     await withdraw(
-        session, user, state.stripe, state.revenuecat, state.mailer, state.settings, utc_now()
+        session,
+        user,
+        state.stripe,
+        state.revenuecat,
+        state.mailer,
+        state.settings,
+        utc_now(),
+        lock_wait_seconds=state.settings.request_lock_timeout_seconds,
     )
     return Response(status_code=204)
 

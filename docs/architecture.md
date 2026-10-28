@@ -123,6 +123,13 @@ How one feature works is in its code. Deploys and releases:
   `server_seq`, leaves `updated_at` alone, and holds `lock_user` through
   commit. A job that calls out to a service does so outside any
   transaction, then writes only if the row is unchanged.
+- A request route passes `wait_seconds` to `lock_user` and answers 429
+  when the wait runs out, and a sync route also counts against the
+  account's requests in flight. A waiting request holds a pooled
+  connection, so an unbounded wait lets one account hold them all. A
+  route that takes the billing lock bounds that wait too. Only jobs, ops
+  commands, and webhooks, which no user can send at will, wait without a
+  bound.
 - A local shape change migrates in place and keeps every row, unsent edit,
   and unuploaded file. A migration that adds a field or a table only the
   server can fill resets the pull cursor. Unsent edits still win.

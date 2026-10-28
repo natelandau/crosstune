@@ -148,6 +148,10 @@ class Settings(BaseSettings):
     link_searches_per_minute: int = 20
     place_searches_per_minute: int = 60
     billing_refreshes_per_minute: int = 10
+    # How long a request waits on its account's lock before answering 429, and how many
+    # sync requests one account may have in flight at once.
+    request_lock_timeout_seconds: float = 2.0
+    concurrent_sync_requests_per_user: int = 4
     apple_team_id: str = ""
     apple_music_key_id: str = ""
     apple_music_private_key: SecretStr = SecretStr("")

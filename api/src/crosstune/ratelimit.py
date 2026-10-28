@@ -62,3 +62,36 @@ class RateLimiter:
                 hits.popleft()
             if not hits:
                 del self._hits[key]
+
+
+class ConcurrencyLimiter:
+    """Allow each key a fixed number of requests in flight at once, counted in process memory.
+
+    A request that waits on its account's lock holds a pooled connection while it waits,
+    so capping one account's requests in flight keeps it from holding every connection.
+    """
+
+    def __init__(self, *, limit: int) -> None:
+        self._limit = limit
+        self._held: dict[Hashable, int] = {}
+
+    @property
+    def tracked(self) -> int:
+        """How many keys have a request in flight."""
+        return len(self._held)
+
+    def try_acquire(self, key: Hashable) -> bool:
+        """Count one more request in flight for `key`, or return False when it is at the limit."""
+        held = self._held.get(key, 0)
+        if held >= self._limit:
+            return False
+        self._held[key] = held + 1
+        return True
+
+    def release(self, key: Hashable) -> None:
+        """Count one request for `key` as finished."""
+        held = self._held.get(key, 0) - 1
+        if held > 0:
+            self._held[key] = held
+        else:
+            self._held.pop(key, None)

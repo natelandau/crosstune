@@ -235,6 +235,13 @@ class TooManyRequestsError(AppError):
         )
 
 
+class UserBusyError(TooManyRequestsError):
+    """Other requests for the same account hold its lock or its share of the API, so try again."""
+
+    def __init__(self) -> None:
+        super().__init__(1, detail="Another request for this account is still running")
+
+
 def _problem(
     status: int,
     title: str,
