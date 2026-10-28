@@ -124,7 +124,7 @@ public final class PlayerModel {
         didSet { activity.setWriter(activityWriter) }
     }
 
-    @ObservationIgnored private var fetch: Task<Void, Never>?
+    @ObservationIgnored private(set) var fetch: Task<Void, Never>?
     /// Asking for access and finding the loaded Apple Music link's track.
     @ObservationIgnored var deciding: Task<Void, Never>?
     /// Set while a link is decided to load it paused rather than start it, as when the tuner

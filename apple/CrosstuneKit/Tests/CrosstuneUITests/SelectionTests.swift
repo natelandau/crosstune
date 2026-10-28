@@ -399,11 +399,6 @@ private func with(_ entry: CatalogEntry, modes: [String]? = nil, timeSignature: 
         return try #require(try await store.read { try Tune.fetchOne($0, key: id) })
     }
 
-    private func eventually(_ condition: () async throws -> Bool) async throws {
-        if try await poll({ try await condition() }) { return }
-        Issue.record("Timed out waiting for a condition")
-    }
-
     @Test func setsStatusOffersItsUndoAndTakesItBackFromTheBanner() async throws {
         let store = try await SampleCatalog.copiedStore(root: root.url)
         let bulk = BulkActions(store: store)

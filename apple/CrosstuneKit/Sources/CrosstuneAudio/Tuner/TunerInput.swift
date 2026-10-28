@@ -36,6 +36,35 @@ public protocol TunerListening: AnyObject {
     func stop() async
 }
 
+/// The tuners that a yield to playback reaches, and the session claims the yield counts on.
+/// The app has one, ``shared``; a test makes its own so its tuners hear only its yields.
+@MainActor
+final class TunerRegistry {
+    static let shared = TunerRegistry(claims: .shared)
+
+    nonisolated let claims: AudioSessionClaims
+    /// Each tuner that holds the microphone, by how it yields its session.
+    fileprivate var listeners: [ObjectIdentifier: @MainActor () -> Void] = [:]
+    /// Each tuner that yielded to a play not yet known to have started, by how it is told it
+    /// did not.
+    fileprivate var yielded: [ObjectIdentifier: @MainActor () -> Void] = [:]
+
+    init(claims: AudioSessionClaims) {
+        self.claims = claims
+    }
+
+    func yieldToPlayback() {
+        claims.yieldToPlayback()
+        for yieldNow in Array(listeners.values) { yieldNow() }
+    }
+
+    func playbackDidNotStart() {
+        let told = yielded
+        yielded = [:]
+        for tell in told.values { tell() }
+    }
+}
+
 /// The device microphone, read raw for pitch through an engine of its own.
 ///
 /// On iOS it holds a `.record` session in `.measurement` mode, which turns off the voice
@@ -43,32 +72,24 @@ public protocol TunerListening: AnyObject {
 /// and it listens again once the interruption ends.
 @MainActor
 public final class TunerInput: TunerListening {
-    /// Each tuner that holds the microphone, by how it yields its session.
-    private static var listeners: [ObjectIdentifier: @MainActor () -> Void] = [:]
-    /// Each tuner that yielded to a play not yet known to have started, by how it is told it
-    /// did not.
-    private static var yielded: [ObjectIdentifier: @MainActor () -> Void] = [:]
-
     /// Lets go of every tuner's session at once, before playback sets the audio session up for
     /// itself. A tuner left holding it would take the change for a failed microphone; its owner
     /// still stops it, which then leaves the player's session alone.
     public static func yieldToPlayback() {
-        AudioSessionClaims.shared.yieldToPlayback()
-        for yieldNow in Array(listeners.values) { yieldNow() }
+        TunerRegistry.shared.yieldToPlayback()
     }
 
     /// Tells every tuner that yielded that the play it yielded to did not start, such as a
     /// player that failed to start or a song loaded paused.
     public static func playbackDidNotStart() {
-        let told = yielded
-        yielded = [:]
-        for tell in told.values { tell() }
+        TunerRegistry.shared.playbackDidNotStart()
     }
 
     /// Whether this tuner holds the microphone, until it stops or yields to playback.
-    var holdsMicrophone: Bool { Self.listeners[ObjectIdentifier(self)] != nil }
+    var holdsMicrophone: Bool { registry.listeners[ObjectIdentifier(self)] != nil }
 
     private let engine: any TunerEngine
+    private let registry: TunerRegistry
     private let pitch = ReferencePitch(440)
     private var onReading: (@MainActor @Sendable (Reading?) -> Void)?
     private var onEnded: (@MainActor @Sendable () -> Void)?
@@ -83,13 +104,14 @@ public final class TunerInput: TunerListening {
         self.init(engine: TunerRunner())
     }
 
-    init(engine: any TunerEngine) {
+    init(engine: any TunerEngine, registry: TunerRegistry = .shared) {
         self.engine = engine
+        self.registry = registry
     }
 
     isolated deinit {
         release()
-        Self.yielded[ObjectIdentifier(self)] = nil
+        registry.yielded[ObjectIdentifier(self)] = nil
     }
 
     public func requestPermission() async -> Bool {
@@ -102,15 +124,15 @@ public final class TunerInput: TunerListening {
         onYield: @escaping @MainActor @Sendable (TunerYield) -> Void
     ) async throws {
         release()
-        Self.yielded[ObjectIdentifier(self)] = nil
-        Self.listeners[ObjectIdentifier(self)] = { [weak self] in self?.yieldNow() }
+        registry.yielded[ObjectIdentifier(self)] = nil
+        registry.listeners[ObjectIdentifier(self)] = { [weak self] in self?.yieldNow() }
         pitch.value = a4
         self.onReading = onReading
         self.onEnded = onEnded
         self.onYield = onYield
         let started = generation
         do {
-            try await engine.activate(unlessYieldedSince: AudioSessionClaims.shared.yields)
+            try await engine.activate(unlessYieldedSince: registry.claims.yields)
             guard started == generation else { throw TunerStartOvertaken() }
             observeSession()
             try await startEngine()
@@ -136,7 +158,7 @@ public final class TunerInput: TunerListening {
         let onYield = onYield
         release()
         guard let onYield else { return }
-        Self.yielded[ObjectIdentifier(self)] = { onYield(.playbackDidNotStart) }
+        registry.yielded[ObjectIdentifier(self)] = { onYield(.playbackDidNotStart) }
         onYield(.yielded)
     }
 
@@ -149,7 +171,7 @@ public final class TunerInput: TunerListening {
         onYield = nil
         interrupted = false
         generation += 1
-        Self.listeners[ObjectIdentifier(self)] = nil
+        registry.listeners[ObjectIdentifier(self)] = nil
     }
 
     private func startEngine() async throws {
@@ -209,7 +231,7 @@ public final class TunerInput: TunerListening {
     private func startOver(afterInterruption: Bool) async {
         let current = generation
         do {
-            try await engine.activate(unlessYieldedSince: AudioSessionClaims.shared.yields)
+            try await engine.activate(unlessYieldedSince: registry.claims.yields)
         } catch {
             guard current == generation else { return }
             // Another app, such as a call still on hold, keeps the session for now: wait for

@@ -347,10 +347,6 @@ import Testing
     @Suite struct SidebarSyncTests {
         private let root = TemporaryRoot()
 
-        private func eventually(_ condition: @MainActor () -> Bool) async throws {
-            #expect(try await poll { condition() })
-        }
-
         private func storedFilters(_ store: CrosstuneStore) async throws -> CatalogFilters {
             CatalogFilters(stored: try await store.meta(.catalogFilters, as: JSONValue.self))
         }

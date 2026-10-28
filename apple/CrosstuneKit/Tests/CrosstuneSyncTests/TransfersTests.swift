@@ -636,11 +636,11 @@ import Testing
         let urls = { self.api.transfers.count(where: { $0.hasPrefix("url ") }) }
 
         let pass = Task { await engine.transfer() }
-        try await waitUntil { held.count == downloadConcurrency }
+        try await eventually { held.count == downloadConcurrency }
         #expect(urls() == downloadConcurrency)
 
         held.releaseOne()
-        try await waitUntil { held.count == downloadConcurrency }
+        try await eventually { held.count == downloadConcurrency }
         #expect(urls() == downloadConcurrency + 1)
 
         held.releaseAll()
@@ -727,7 +727,7 @@ import Testing
         }
 
         async let first = engine.download("d1")
-        try await waitUntil { gate.isWaiting }
+        try await eventually { gate.isWaiting }
         #expect(engine.downloading == ["d1"])
         async let second = engine.download("d1")
         await Task.yield()
@@ -798,7 +798,7 @@ import Testing
             if entry == "get d1" { await gate.wait() }
         }
         let download = Task { await engine.download("d1") }
-        try await waitUntil { gate.isWaiting }
+        try await eventually { gate.isWaiting }
 
         let finished = Toggle(false)
         let stopping = Task {
@@ -939,7 +939,7 @@ import Testing
         }
 
         async let first = engine.peaks("d1")
-        try await waitUntil { gate.isWaiting }
+        try await eventually { gate.isWaiting }
         async let second = engine.peaks("d1")
         await Task.yield()
         gate.open()
@@ -1007,7 +1007,7 @@ import Testing
         try await engine.retry("r1")
 
         #expect(api.transfers == ["retry r1"])
-        try await waitUntil { api.pulls.count == 1 }
+        try await eventually { api.pulls.count == 1 }
     }
 
     @Test func retryAfterAStopSendsNothing() async throws {

@@ -7,12 +7,6 @@ import Testing
 
 @testable import CrosstuneUI
 
-@MainActor
-private func eventually(_ condition: @MainActor () -> Bool) async throws {
-    if try await poll({ condition() }) { return }
-    Issue.record("Timed out waiting for a condition")
-}
-
 private func entitlement(source: String?, expiresAt: Date? = nil) -> Entitlement {
     Entitlement(
         id: "entitlement-1", createdAt: noon, premiumSource: source, premiumExpiresAt: expiresAt.map(Timestamp.init),

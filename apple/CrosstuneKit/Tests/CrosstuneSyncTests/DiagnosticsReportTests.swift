@@ -36,10 +36,10 @@ import Testing
         await loop(engine)
         for _ in 0..<minutes {
             clock.now += 60
-            try await waitUntil { sleeper.pendingCount == 1 }
+            try await eventually { sleeper.pendingCount == 1 }
             let asked = sleeper.requested.count
             sleeper.fire()
-            try await waitUntil { sleeper.requested.count == asked + 1 }
+            try await eventually { sleeper.requested.count == asked + 1 }
         }
     }
 

@@ -1,3 +1,4 @@
+import CrosstuneTestSupport
 import Foundation
 import OpenAPIRuntime
 import Testing
@@ -108,13 +109,13 @@ func aConnectivityFailureIsNotReportable(_ code: URLError.Code) {
         let before = state.finished
         if sleeper.pendingCount > 0 {
             sleeper.fire()
-            try await waitUntil { state.finished == before + 1 }
+            try await eventually { state.finished == before + 1 }
         } else {
             await loop.trigger()
         }
         // The retry's wait starts on its own task; waiting here makes the next run release it.
         if outcome != .success && outcome != .stopped {
-            try await waitUntil { sleeper.pendingCount == 1 }
+            try await eventually { sleeper.pendingCount == 1 }
         }
     }
 
@@ -175,7 +176,7 @@ func aConnectivityFailureIsNotReportable(_ code: URLError.Code) {
         }
         // Dropped, so the stopped run below comes from a trigger, as a stop's would.
         loop.cancelRetry()
-        try await waitUntil { sleeper.pendingCount == 0 }
+        try await eventually { sleeper.pendingCount == 0 }
         try await run(.stopped, at: 270)
 
         try await run(.failure, at: 300)

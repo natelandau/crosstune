@@ -189,7 +189,9 @@ public final class FindRecordingsModel {
     @ObservationIgnored private var request = 0
     @ObservationIgnored private var inFlight: Task<RecordingSearchOutcome, Never>?
     /// A search the store's first answer started, not yet running.
-    @ObservationIgnored private var deferred: Task<Void, Never>?
+    @ObservationIgnored private(set) var deferred: Task<Void, Never>?
+    /// Set once the model has acted on the store's answer, so a test can await ``deferred``.
+    @ObservationIgnored private(set) var hasHandledStore = false
     /// Set as the sheet closes; nothing searches after it.
     @ObservationIgnored private var closed = false
     @ObservationIgnored private var following: Task<Void, Never>?
@@ -352,6 +354,7 @@ public final class FindRecordingsModel {
     }
 
     private func storeChanged() {
+        defer { if stored.value != nil { hasHandledStore = true } }
         guard !closed, stored.value != nil, let shown else { return }
         if submitPending {
             submitPending = false

@@ -502,8 +502,7 @@ private func link(_ provider: String, _ providerRef: String?, url: String = "htt
             #expect(webView(in: split) === playing)
 
             stage.detach(split)
-            try await Task.sleep(for: .milliseconds(20))
-            #expect(webView(in: split) == nil)
+            try await eventually { webView(in: split) == nil }
         }
     }
 #endif

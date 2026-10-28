@@ -9,12 +9,6 @@ import Testing
 
 @testable import CrosstuneUI
 
-@MainActor
-private func eventually(_ condition: @MainActor () -> Bool) async throws {
-    if try await poll({ condition() }) { return }
-    Issue.record("Timed out waiting for a condition")
-}
-
 /// A search the test answers: at once from ``outcome``, or, while ``holds`` is set, only when
 /// the test calls ``answer(_:with:)``.
 @MainActor
@@ -66,6 +60,13 @@ private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-
 @Suite struct FindRecordingsModelTests {
     private let root = TemporaryRoot()
 
+    /// Waits until the model has acted on the store's answer and any search that started has
+    /// answered, so a test can check what it did not do.
+    private func settled(_ model: FindRecordingsModel) async throws {
+        try await eventually { model.hasHandledStore }
+        await model.deferred?.value
+    }
+
     private func links(_ store: CrosstuneStore, tuneID: String) async throws -> [RecordingLink] {
         try await store.read { db in
             try RecordingLink.filter(Column("tune_id") == tuneID).fetchAll(db).filter { $0.deletedAt == nil }
@@ -101,7 +102,7 @@ private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-
         #expect(model.providers == SampleCatalog.searchProviders)
         #expect(model.shown == nil)
         #expect(!model.isDirect)
-        try await Task.sleep(for: .milliseconds(50))
+        try await settled(model)
         #expect(search.calls.isEmpty)
         #expect(!model.isSearching)
     }
@@ -147,7 +148,7 @@ private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-
 
         model.setQuery("Tam Lin")
         try await eventually { model.isLoaded }
-        try await Task.sleep(for: .milliseconds(50))
+        try await settled(model)
         #expect(model.query == "Tam Lin")
     }
 
@@ -466,7 +467,7 @@ private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-
 
         try await eventually { model.group == tidalGroup }
         #expect(search.calls == [.init(q: "Soldier's Joy Reel", providers: ["tidal"], country: "IE")])
-        try await Task.sleep(for: .milliseconds(50))
+        try await settled(model)
         #expect(search.calls.count == 1)
     }
 
@@ -477,7 +478,7 @@ private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-
 
         model.setQuery("Tam Lin")
         try await eventually { model.isLoaded }
-        try await Task.sleep(for: .milliseconds(50))
+        try await settled(model)
         #expect(model.query == "Tam Lin")
         #expect(search.calls.isEmpty)
     }
@@ -490,7 +491,7 @@ private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-
         model.setQuery("Tam Lin")
         await model.submit()
         try await eventually { search.calls.count == 1 }
-        try await Task.sleep(for: .milliseconds(50))
+        try await settled(model)
         #expect(search.calls.map(\.q) == ["Tam Lin"])
     }
 
@@ -500,7 +501,7 @@ private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-
         let model = model(store, tuneID: "no_such_tune", service: "tidal", search: search)
 
         try await eventually { model.isLoaded }
-        try await Task.sleep(for: .milliseconds(50))
+        try await settled(model)
         #expect(search.calls.isEmpty)
         #expect(!model.isSearching)
     }
@@ -616,7 +617,7 @@ private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-
 
         model.cancel()
         try await eventually { model.isLoaded }
-        try await Task.sleep(for: .milliseconds(50))
+        try await settled(model)
         #expect(search.calls.isEmpty)
         #expect(!model.isSearching)
     }
@@ -630,7 +631,7 @@ private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-
         await model.submit()
         model.cancel()
         try await eventually { model.isLoaded }
-        try await Task.sleep(for: .milliseconds(50))
+        try await settled(model)
         #expect(search.calls.isEmpty)
         #expect(!model.isSearching)
     }

@@ -353,12 +353,3 @@ final class TestClock {
 final class Counter {
     var count = 0
 }
-
-/// Waits for work on other tasks, such as a retry the sleeper released, to reach `condition`.
-@MainActor
-func waitUntil(
-    _ condition: @MainActor () -> Bool, sourceLocation: SourceLocation = #_sourceLocation
-) async throws {
-    if try await poll({ condition() }) { return }
-    Issue.record("condition never held", sourceLocation: sourceLocation)
-}

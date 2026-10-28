@@ -156,11 +156,6 @@ private func choice(_ sort: CatalogSort, _ descending: Bool) -> CatalogSortChoic
 
 @MainActor
 @Suite struct CatalogModelSortTests {
-    /// Waits for the model's live queries to catch up with the store.
-    private func eventually(_ condition: @MainActor () -> Bool) async throws {
-        #expect(try await poll { condition() })
-    }
-
     @Test func ordersByTitleUntilAnotherSortIsChosen() async throws {
         let root = TemporaryRoot()
         let model = CatalogModel(store: try await SampleCatalog.copiedStore(root: root.url))

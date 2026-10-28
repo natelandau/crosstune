@@ -7,12 +7,6 @@ import Testing
 
 @testable import CrosstuneAudio
 
-@MainActor
-private func eventually(_ condition: () -> Bool) async throws {
-    if try await poll({ condition() }) { return }
-    Issue.record("The condition never held")
-}
-
 @Suite struct PlaybackPositionTests {
     @Test func keepsAPositionWithinTheAudio() {
         #expect(clampedPosition(-4, duration: 10) == 0)

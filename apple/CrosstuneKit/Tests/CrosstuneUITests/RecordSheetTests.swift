@@ -771,9 +771,3 @@ actor ReadCount {
         }
     }
 #endif
-
-@MainActor
-private func eventually(_ condition: @MainActor () -> Bool) async throws {
-    if try await poll({ condition() }) { return }
-    Issue.record("Timed out waiting for a condition")
-}

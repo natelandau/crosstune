@@ -202,9 +202,9 @@ import Testing
         var held: CheckedContinuation<Void, Never>?
         api.onEvents = { await withCheckedContinuation { held = $0 } }
         let pulling = Task { await engine.pullEvents() }
-        try await waitUntil { held != nil }
+        try await eventually { held != nil }
         let syncing = Task { await engine.sync() }
-        try await waitUntil { engine.queuedTurns == 2 }
+        try await eventually { engine.queuedTurns == 2 }
         return (try #require(held), pulling, syncing)
     }
 

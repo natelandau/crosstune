@@ -133,7 +133,7 @@ import Testing
 
         offline.isOn = false
         sleeper.fire()
-        try await waitUntil { engine.status == .idle }
+        try await eventually { engine.status == .idle }
         #expect(api.pushes.count == 1)
         #expect(try await store.pendingChangeCount() == 0)
         engine.stop()
@@ -148,7 +148,7 @@ import Testing
 
         api.failure = nil
         sleeper.fire()
-        try await waitUntil { engine.status == .idle }
+        try await eventually { engine.status == .idle }
         #expect(sleeper.requested == [.seconds(1)])
     }
 
@@ -159,14 +159,14 @@ import Testing
         await engine.sync()
         for count in 2...9 {
             sleeper.fire()
-            try await waitUntil { sleeper.requested.count == count }
+            try await eventually { sleeper.requested.count == count }
         }
         #expect(sleeper.requested == [1, 2, 4, 8, 16, 32, 60, 60, 60].map { .seconds($0) })
         #expect(engine.status == .error)
 
         api.failure = nil
         sleeper.fire()
-        try await waitUntil { engine.status == .idle }
+        try await eventually { engine.status == .idle }
 
         api.failure = APIStatusError(status: 500)
         await engine.sync()
@@ -184,7 +184,7 @@ import Testing
 
         engine.stop()
         api.failure = nil
-        try await waitUntil { sleeper.pendingCount == 0 }
+        try await eventually { sleeper.pendingCount == 0 }
         #expect(engine.status == .error)
         #expect(api.pulls.isEmpty)
     }
@@ -220,7 +220,7 @@ import Testing
         #expect(engine.lastSyncedAt == second)
 
         let relaunched = self.engine()
-        try await waitUntil { relaunched.lastSyncedAt != nil }
+        try await eventually { relaunched.lastSyncedAt != nil }
         #expect(Timestamp(relaunched.lastSyncedAt!) == Timestamp(second))
     }
 
@@ -234,7 +234,7 @@ import Testing
         let engine = engine()
 
         let run = Task { await engine.sync() }
-        try await waitUntil { release != nil }
+        try await eventually { release != nil }
         engine.stop()
         release?.resume()
         await run.value
@@ -258,7 +258,7 @@ import Testing
         }
         let engine = engine()
         let run = Task { await engine.sync() }
-        try await waitUntil { release != nil }
+        try await eventually { release != nil }
 
         var began = false
         var stopped = false
@@ -267,7 +267,7 @@ import Testing
             await engine.stopAndWait()
             stopped = true
         }
-        try await waitUntil { began }
+        try await eventually { began }
         for _ in 0..<10 { await Task.yield() }
         // The push is still held, so the run cannot have ended.
         #expect(api.pulls.isEmpty)
@@ -297,7 +297,7 @@ import Testing
             return try await respond(changes)
         }
         let run = Task { await engine.sync() }
-        try await waitUntil { release != nil }
+        try await eventually { release != nil }
         #expect(engine.status == .syncing)
 
         engine.stop()
@@ -317,7 +317,7 @@ import Testing
         }
         let engine = engine(batchSize: 1)
         let run = Task { await engine.sync() }
-        try await waitUntil { release != nil }
+        try await eventually { release != nil }
 
         engine.stop()
         release?.resume()
@@ -562,9 +562,9 @@ import Testing
             transferPass: { transfers.count += 1 })
 
         await engine.sync()
-        try await waitUntil { transfers.count == 1 }
+        try await eventually { transfers.count == 1 }
         await engine.sync()
-        try await waitUntil { transfers.count == 2 }
+        try await eventually { transfers.count == 2 }
 
         #expect(transfers.count == 2)
         #expect(engine.transferStatus == .idle)

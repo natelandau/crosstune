@@ -16,12 +16,6 @@ import Testing
     import AppKit
 #endif
 
-@MainActor
-private func eventually(_ condition: @MainActor () async throws -> Bool) async throws {
-    if try await poll({ try await condition() }) { return }
-    Issue.record("Timed out waiting for a condition")
-}
-
 // Noon UTC keeps every fixture instant on the same local date in any zone a runner uses.
 private let opened = Timestamp(iso: "2026-10-04T12:00:00.000Z")!.date
 private let utc = TimeZone(identifier: "UTC")!

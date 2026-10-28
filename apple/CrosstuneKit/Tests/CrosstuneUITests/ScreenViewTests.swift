@@ -125,49 +125,43 @@ import Testing
             return window
         }
 
-        private func settle(until done: () -> Bool) async {
-            for _ in 0..<40 where !done() {
-                try? await Task.sleep(for: .milliseconds(25))
-            }
-        }
-
-        @Test func reportsToTheClientInTheViewsEnvironment() async {
+        @Test func reportsToTheClientInTheViewsEnvironment() async throws {
             let sink = RecordingAnalyticsSink()
             let window = host(Text(verbatim: "Stats").screenView(.stats).environment(\.analytics, sink.client))
             defer { window.close() }
 
-            await settle { !sink.calls.isEmpty }
+            try await eventually { !sink.calls.isEmpty }
 
             #expect(sink.calls == [.screen(.stats)])
         }
 
-        @Test func contentBackFromAFailedDeleteIsTheSameVisit() async {
+        @Test func contentBackFromAFailedDeleteIsTheSameVisit() async throws {
             let sink = RecordingAnalyticsSink()
             let page = Page()
             let window = host(SwappingPage(page: page).environment(\.analytics, sink.client))
             defer { window.close() }
-            await settle { !sink.calls.isEmpty }
+            try await eventually { !sink.calls.isEmpty }
 
             page.shown = false
             // SwiftUI runs the new content's onAppear before the old content's onDisappear.
-            await settle { page.lifecycle.last == "tune gone" }
+            try await eventually { page.lifecycle.last == "tune gone" }
             page.shown = true
-            await settle { page.lifecycle.last == "tune" }
+            try await eventually { page.lifecycle.last == "tune" }
 
             #expect(sink.calls == [.screen(.tune)])
         }
 
-        @Test func returningToTheScreenIsANewVisit() async {
+        @Test func returningToTheScreenIsANewVisit() async throws {
             let sink = RecordingAnalyticsSink()
             let page = Page()
             let window = host(SwappingPage(page: page).environment(\.analytics, sink.client))
             defer { window.close() }
-            await settle { !sink.calls.isEmpty }
+            try await eventually { !sink.calls.isEmpty }
 
             page.present = false
-            await settle { page.lifecycle.last == "tune gone" }
+            try await eventually { page.lifecycle.last == "tune gone" }
             page.present = true
-            await settle { sink.calls.count >= 2 }
+            try await eventually { sink.calls.count >= 2 }
 
             #expect(sink.calls == [.screen(.tune), .screen(.tune)])
         }
@@ -189,33 +183,27 @@ import Testing
             return window
         }
 
-        private func settle(until done: () -> Bool) async {
-            for _ in 0..<40 where !done() {
-                try? await Task.sleep(for: .milliseconds(25))
-            }
-        }
-
-        @Test func theReadingPaneReportsTheKindItOpensOn() async {
+        @Test func theReadingPaneReportsTheKindItOpensOn() async throws {
             let sink = RecordingAnalyticsSink()
             let reading = ReadingPaneContent(tuneID: "t1", scans: [], lyrics: "Oh the cuckoo")
             let window = host(
                 ReadingPane(reading: reading, visit: PadPracticeVisit()).environment(\.analytics, sink.client))
             defer { window.close() }
 
-            await settle { !sink.calls.isEmpty }
+            try await eventually { !sink.calls.isEmpty }
 
             #expect(sink.calls == [.capture("lyrics_opened", ["tune_id": .string("t1")])])
         }
 
-        @Test func theReadingPaneReportsAKindItGainsWhileItShows() async {
+        @Test func theReadingPaneReportsAKindItGainsWhileItShows() async throws {
             let sink = RecordingAnalyticsSink()
             let model = ReadingPaneModel(ReadingPaneContent(tuneID: "t1", scans: [], lyrics: "Oh the cuckoo"))
             let window = host(ObservedReadingPane(model: model).environment(\.analytics, sink.client))
             defer { window.close() }
-            await settle { !sink.calls.isEmpty }
+            try await eventually { !sink.calls.isEmpty }
 
             model.reading = ReadingPaneContent(tuneID: "t1", scans: [Self.scan], lyrics: "Oh the cuckoo")
-            await settle { sink.calls.count >= 2 }
+            try await eventually { sink.calls.count >= 2 }
 
             #expect(
                 sink.calls == [
@@ -224,7 +212,7 @@ import Testing
                 ])
         }
 
-        @Test func theReadingPaneReportsNothingForATuneTheListMovedTo() async {
+        @Test func theReadingPaneReportsNothingForATuneTheListMovedTo() async throws {
             let sink = RecordingAnalyticsSink()
             let visit = PadPracticeVisit()
             _ = visit.readingShown(.scans, tuneID: "t1", picked: false)
@@ -235,22 +223,22 @@ import Testing
                     .onAppear { appeared.value += 1 })
             defer { window.close() }
 
-            await settle { appeared.value > 0 }
+            try await eventually { appeared.value > 0 }
 
             #expect(sink.calls.isEmpty)
         }
 
-        @Test func quittingRunsTheQuitWork() async {
+        @Test func quittingRunsTheQuitWork() async throws {
             let center = NotificationCenter()
             let quits = Counter()
             let appeared = Counter()
             let window = host(
                 Color.clear.onAppQuit(center: center) { quits.value += 1 }.onAppear { appeared.value += 1 })
             defer { window.close() }
-            await settle { appeared.value > 0 }
+            try await eventually { appeared.value > 0 }
 
             center.post(name: NSApplication.willTerminateNotification, object: nil)
-            await settle { quits.value > 0 }
+            try await eventually { quits.value > 0 }
 
             #expect(quits.value == 1)
         }

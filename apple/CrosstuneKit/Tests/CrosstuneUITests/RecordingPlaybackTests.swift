@@ -120,12 +120,6 @@ private final class HeldSource {
     }
 }
 
-@MainActor
-private func eventually(_ condition: () -> Bool) async throws {
-    if try await poll({ condition() }) { return }
-    Issue.record("The condition never held")
-}
-
 private let audioURL = URL(filePath: "/tmp/r1.m4a")
 
 private func playable(_ url: URL = audioURL) -> RecordingAudioFile {
@@ -217,11 +211,12 @@ private func recording(_ id: String = "r1", label: String? = "Jam at Mike's") ->
         player.audioSource = source.fetch
         player.play(.recording(recording("r1"), tuneTitle: nil))
         try await eventually { source.asked == ["r1"] }
+        let firstFetch = try #require(player.fetch)
         player.play(.recording(recording("r2"), tuneTitle: nil))
         try await eventually { source.asked == ["r1", "r2"] }
 
         source.answer("r1", with: URL(filePath: "/tmp/old.m4a"))
-        try await Task.sleep(for: .milliseconds(50))
+        await firstFetch.value
         #expect(audio.loaded == nil)
         #expect(player.recordingAudio == .fetching)
 
