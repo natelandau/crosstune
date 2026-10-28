@@ -232,6 +232,32 @@ def _keyed_maps(app: FastAPI, clock=None) -> AppleMaps:
     return maps
 
 
+@pytest.mark.parametrize(
+    ("route", "params", "setting"),
+    [
+        (TOKEN_ROUTE, None, "mapkit_tokens_per_minute"),
+        (SNAPSHOT_ROUTE, SNAPSHOT_PARAMS, "place_snapshots_per_minute"),
+    ],
+)
+async def test_signed_maps_routes_refuse_past_the_user_s_limit(
+    app, client, auth_headers, route: str, params: dict | None, setting: str
+) -> None:
+    _keyed_maps(app)
+    headers = auth_headers("user_123")
+    limit = getattr(app.state.settings, setting)
+
+    codes = [
+        (await client.get(route, params=params, headers=headers)).status_code for _ in range(limit)
+    ]
+    refused = await client.get(route, params=params, headers=headers)
+    other = await client.get(route, params=params, headers=auth_headers("user_456"))
+
+    assert codes == [200] * limit
+    assert refused.status_code == 429
+    assert 0 < int(refused.headers["retry-after"]) <= 60
+    assert other.status_code == 200
+
+
 async def test_mapkit_token_claims_and_expiry(app, client, auth_headers, settings) -> None:
     maps = _keyed_maps(app, clock=lambda: 1_800_000_000.0)
 
