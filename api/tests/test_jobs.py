@@ -2714,6 +2714,38 @@ async def test_claim_takes_every_other_kind_before_a_reencode(runner, verify_ses
     assert (second.recording_id, second.kind) == (backfill.id, JobKind.REENCODE.value)
 
 
+async def _queue(verify_session, user, kind: JobKind, minutes_ago: int) -> Job:
+    recording = await add_recording(
+        verify_session, user, "ready" if kind is JobKind.REENCODE else "uploaded"
+    )
+    job = Job(
+        recording_id=recording.id,
+        user_id=user.id,
+        kind=kind.value,
+        created_at=utc_now() - timedelta(minutes=minutes_ago),
+    )
+    verify_session.add(job)
+    await verify_session.commit()
+    return job
+
+
+@pytest.mark.parametrize("kind", [JobKind.TRANSCODE, JobKind.REENCODE])
+async def test_claim_takes_each_user_s_oldest_job_in_turn(
+    runner, verify_session, kind: JobKind
+) -> None:
+    job_runner, _ = runner
+    busy, other = await make_user(verify_session), await make_user(verify_session)
+    burst = [await _queue(verify_session, busy, kind, minutes_ago) for minutes_ago in (30, 20, 10)]
+    late = await _queue(verify_session, other, kind, 0)
+    claimed = [await job_runner._claim() for _ in range(4)]
+    assert [job.id if job else None for job in claimed] == [
+        burst[0].id,
+        late.id,
+        burst[1].id,
+        burst[2].id,
+    ]
+
+
 async def test_reencode_drops_a_recording_with_no_original(
     trim_runner, verify_session, media_fixtures, tmp_path
 ) -> None:

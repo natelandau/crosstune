@@ -130,6 +130,9 @@ How one feature works is in its code. Deploys and releases:
   route that takes the billing lock bounds that wait too. Only jobs, ops
   commands, and webhooks, which no user can send at will, wait without a
   bound.
+- The job runner claims jobs in turns across accounts: each account's
+  oldest job, then each one's next. A sync push can queue hundreds of
+  jobs, so oldest-first across everyone lets one account delay all others.
 - A local shape change migrates in place and keeps every row, unsent edit,
   and unuploaded file. A migration that adds a field or a table only the
   server can fill resets the pull cursor. Unsent edits still win.

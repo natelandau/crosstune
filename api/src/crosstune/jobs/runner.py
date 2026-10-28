@@ -431,13 +431,30 @@ class JobRunner:
 
     async def _claim(self) -> Job | None:
         now = utc_now()
+        background = case((Job.kind.in_(_BACKGROUND_KINDS), 1), else_=0)
+        # Each user's oldest job takes the first turn, their next oldest the second, and so on,
+        # so one account's burst of jobs waits behind every other account's. Jobs already
+        # claimed keep their turns, or a user's next job would move up as each one is claimed.
+        ranked = (
+            select(
+                Job.id,
+                background.label("background"),
+                func.row_number()
+                .over(partition_by=(Job.user_id, background), order_by=Job.created_at)
+                .label("turn"),
+                Job.created_at,
+            )
+            .where(_dispatchable())
+            .subquery()
+        )
         async with self._sessionmaker() as session, session.begin():
             stmt = (
                 select(Job)
+                .join(ranked, Job.id == ranked.c.id)
                 .where(_claimable(now))
-                .order_by(case((Job.kind.in_(_BACKGROUND_KINDS), 1), else_=0), Job.created_at)
+                .order_by(ranked.c.background, ranked.c.turn, ranked.c.created_at)
                 .limit(1)
-                .with_for_update(skip_locked=True)
+                .with_for_update(of=Job, skip_locked=True)
             )
             job = await session.scalar(stmt)
             if job is None:
