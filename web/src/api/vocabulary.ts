@@ -98,6 +98,7 @@ export type WithdrawalRefusal = (typeof WITHDRAWAL_REFUSALS)[number]
 
 export const TUNE_LIMITS = {
   alternate_titles: 200,
+  alternate_titles_count: 50,
   composer: 200,
   genre: 100,
   key: 10,

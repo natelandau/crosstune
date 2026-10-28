@@ -61,6 +61,13 @@ func camelCase(_ snakeCase: String) -> String {
     return ([String(first)] + rest).joined()
 }
 
+/// An array property's max items when its items also carry a length, which `limit(of:)`
+/// reports in its place.
+func count(of property: [String: Any]) -> Int? {
+    guard let items = property["items"] as? [String: Any], items["maxLength"] is Int else { return nil }
+    return property["maxItems"] as? Int
+}
+
 /// A string property's max length, directly, under `anyOf`, or on its array items; else an
 /// array property's max items.
 func limit(of property: [String: Any]) -> Int? {
@@ -150,6 +157,9 @@ func render(_ document: [String: Any]) throws -> String {
             for (field, property) in properties {
                 guard let property = property as? [String: Any], let value = limit(of: property) else { continue }
                 fields.append((camelCase(field), value))
+                if let count = count(of: property) {
+                    fields.append((camelCase(field + "_count"), count))
+                }
             }
         }
         lines.append("        public enum \(namespaceName) {")

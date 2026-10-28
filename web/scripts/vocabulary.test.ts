@@ -106,6 +106,21 @@ describe('vocabulary generator', () => {
     expect(text).not.toContain('mode:')
   })
 
+  it('emits an array of limited strings with a count cap as its item length and a count', () => {
+    const tune = {
+      properties: {
+        ...ROWS.TuneRow.properties,
+        alternate_titles: {
+          type: 'array',
+          maxItems: 50,
+          items: { type: 'string', maxLength: 200 },
+        },
+      },
+    }
+    const { text } = generate({ ...ROWS, TuneRow: tune, Mode: { type: 'string', enum: ['major'] } })
+    expect(text).toContain('  alternate_titles: 200,\n  alternate_titles_count: 50,\n')
+  })
+
   it('fails on an enum the name map does not know', () => {
     const { status, stderr } = generate({ ...ROWS, Flavor: { type: 'string', enum: ['red'] } })
     expect(status).toBe(1)

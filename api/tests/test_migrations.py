@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from crosstune.db.locks import advisory_lock_key
 from crosstune.models import UploadSlot
-from crosstune.vocabulary import PlayContext
+from crosstune.vocabulary import MAX_ALTERNATE_TITLES, PlayContext
 
 pytestmark = pytest.mark.anyio
 
@@ -3994,3 +3994,64 @@ async def test_0057_renames_client_versions_and_downgrade_restores_the_old_names
         ("client_versions", "client_versions_pkey"),
         ("client_versions", "client_versions_user_id_fkey"),
     }
+
+
+async def test_0058_trims_alternate_titles_past_the_cap_and_marks_the_row_for_pull(
+    engine, database_url: str, truncate_all: None
+) -> None:
+    config = Config("alembic.ini")
+    config.set_main_option("sqlalchemy.url", database_url)
+    user = "018f0000-0000-7000-8000-000000000001"
+    long_tune = "018f0000-0000-7000-8000-000000000031"
+    short_tune = "018f0000-0000-7000-8000-000000000032"
+    titles = [f"Title {n}" for n in range(MAX_ALTERNATE_TITLES + 10)]
+    try:
+        await anyio.to_thread.run_sync(command.downgrade, config, "0057")
+        async with engine.begin() as conn:
+            await conn.execute(
+                text(
+                    "insert into users (id, clerk_user_id, created_at, updated_at) "
+                    "values (:id, 'user_a', now(), now())"
+                ),
+                {"id": user},
+            )
+            for tune_id, alternate_titles in ((long_tune, titles), (short_tune, ["Joy"])):
+                await conn.execute(
+                    text(
+                        "insert into tunes (id, owner_user_id, title, alternate_titles, "
+                        "created_at, updated_at) values (:id, :user, 'Tune', :titles, now(), now())"
+                    ),
+                    {"id": tune_id, "user": user, "titles": alternate_titles},
+                )
+            before = dict(
+                (await conn.execute(text("select id::text, server_seq from tunes"))).tuples().all()
+            )
+    finally:
+        await anyio.to_thread.run_sync(command.upgrade, config, "head")
+
+    async with engine.connect() as conn:
+        rows = {
+            row.id: row
+            for row in await conn.execute(
+                text("select id::text as id, alternate_titles, server_seq from tunes")
+            )
+        }
+    assert rows[long_tune].alternate_titles == titles[:MAX_ALTERNATE_TITLES]
+    assert rows[long_tune].server_seq > before[long_tune]
+    assert rows[short_tune].alternate_titles == ["Joy"]
+    assert rows[short_tune].server_seq == before[short_tune]
+
+
+async def test_tunes_refuse_alternate_titles_past_the_cap(session: AsyncSession) -> None:
+    await _seed_user(session)
+    with pytest.raises(IntegrityError):
+        await session.execute(
+            text(
+                "insert into tunes (id, owner_user_id, title, alternate_titles, created_at, "
+                "updated_at) values (gen_random_uuid(), :user, 'Tune', :titles, now(), now())"
+            ),
+            {
+                "user": "018f0000-0000-7000-8000-000000000001",
+                "titles": ["T"] * (MAX_ALTERNATE_TITLES + 1),
+            },
+        )

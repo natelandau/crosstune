@@ -128,7 +128,8 @@ export function inputsFromValues(
       alternate_titles: values.alternate_titles
         .split(',')
         .map((t) => t.trim())
-        .filter(Boolean),
+        .filter(Boolean)
+        .slice(0, TUNE_LIMITS.alternate_titles_count),
       key: blankToNull(values.key),
       modes: values.modes.filter((m): m is Mode => m !== ''),
       composer: blankToNull(values.composer),

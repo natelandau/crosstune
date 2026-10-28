@@ -76,6 +76,12 @@ function limitOf(property) {
   return list?.maxItems
 }
 
+/** An array's max items when its items also carry a length, which `limitOf` reports instead. */
+function countOf(property) {
+  const itemLength = Number.isInteger(property.items?.maxLength)
+  return itemLength && Number.isInteger(property.maxItems) ? property.maxItems : undefined
+}
+
 function quote(value) {
   return `'${String(value).replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`
 }
@@ -107,6 +113,8 @@ export function render(doc) {
       for (const [field, property] of Object.entries(properties)) {
         const limit = limitOf(property)
         if (limit !== undefined) lines.push(`  ${field}: ${limit},`)
+        const count = countOf(property)
+        if (count !== undefined) lines.push(`  ${field}_count: ${count},`)
       }
     }
     lines.push('} as const', '')

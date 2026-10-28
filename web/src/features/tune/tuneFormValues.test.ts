@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { Mode } from '../../api/vocabulary'
+import { TUNE_LIMITS, type Mode } from '../../api/vocabulary'
 import { tuneRow, userTuneRow } from '../../test/rows'
 import { YEAR_FORMAT } from '../../ui/partialDate'
 import {
@@ -49,6 +49,13 @@ describe('tuneFormValues', () => {
     expect(out.alternate_titles).toEqual(['Joy', 'Soldier'])
     expect(out.genre).toBeNull()
     expect(outUser.notes).toBeNull()
+  })
+
+  it('keeps no more alternate titles than a tune holds', () => {
+    const count = TUNE_LIMITS.alternate_titles_count
+    const names = Array.from({ length: count + 3 }, (_, n) => `Title ${n}`)
+    const { tune } = inputsFromValues({ ...emptyValues(), alternate_titles: names.join(', ') })
+    expect(tune.alternate_titles).toEqual(names.slice(0, count))
   })
 
   it('falls back when a stored mode or time signature is unknown', () => {

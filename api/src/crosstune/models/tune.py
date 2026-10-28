@@ -11,7 +11,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from crosstune.db.base import Base, SyncColumns
 from crosstune.models._checks import in_list, within_list
-from crosstune.vocabulary import LIMITS, MAX_MODES, Mode, TimeSignature
+from crosstune.vocabulary import LIMITS, MAX_ALTERNATE_TITLES, MAX_MODES, Mode, TimeSignature
 
 TUNE = LIMITS["tunes"]
 
@@ -26,6 +26,10 @@ class Tune(SyncColumns, Base):
             in_list("time_signature", tuple(TimeSignature)), name="ck_tunes_time_signature"
         ),
         CheckConstraint("jsonb_typeof(tunings) = 'object'", name="ck_tunes_tunings"),
+        CheckConstraint(
+            f"cardinality(alternate_titles) <= {MAX_ALTERNATE_TITLES}",
+            name="ck_tunes_alternate_titles",
+        ),
         Index("ix_tunes_owner_user_id_server_seq", "owner_user_id", "server_seq"),
     )
 

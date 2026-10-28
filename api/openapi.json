@@ -3837,6 +3837,7 @@
               "maxLength": 200,
               "type": "string"
             },
+            "maxItems": 50,
             "title": "Alternate Titles",
             "type": "array"
           },

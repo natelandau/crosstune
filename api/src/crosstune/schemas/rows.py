@@ -21,6 +21,7 @@ from pydantic import (
 from crosstune.vocabulary import (
     LIMITS,
     LOOP_COLOR_COUNT,
+    MAX_ALTERNATE_TITLES,
     MAX_EVENT_DURATION_MS,
     MAX_LOOPS_PER_RECORDING,
     MAX_MODES,
@@ -135,7 +136,9 @@ class TuneData(_Data):
     """Client-editable fields of a tune."""
 
     title: str = Field(min_length=1, max_length=TUNE["title"])
-    alternate_titles: list[Annotated[str, Field(max_length=TUNE["alternate_titles"])]] = []
+    alternate_titles: list[Annotated[str, Field(max_length=TUNE["alternate_titles"])]] = Field(
+        default=[], max_length=MAX_ALTERNATE_TITLES
+    )
     genre: str | None = Field(default=None, max_length=TUNE["genre"])
     tune_type: str | None = Field(default=None, max_length=TUNE["tune_type"])
     modes: list[Mode] = Field(default=[], max_length=MAX_MODES)
