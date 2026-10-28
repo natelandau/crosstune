@@ -538,6 +538,24 @@ async def test_retry_reimports_a_failed_import_with_no_file(
     assert fake_runner.wakes == wakes_before + 1
 
 
+async def test_retry_of_an_import_for_an_account_with_no_room_is_refused(
+    app, client, auth_headers, verify_session, fake_runner
+) -> None:
+    stored = await _failed_import(client, auth_headers, verify_session)
+    app.state.settings = app.state.settings.model_copy(update={"trial_quota_bytes": 0})
+    seq_before, wakes_before = stored.server_seq, fake_runner.wakes
+    response = await client.post(
+        f"/v1/recordings/{stored.id}/retry", headers=auth_headers("user_a")
+    )
+    assert response.status_code == 413, response.text
+    assert response.json()["type"] == "urn:crosstune:quota-exceeded"
+    await verify_session.refresh(stored)
+    assert stored.state == "failed"
+    assert stored.server_seq == seq_before
+    assert await verify_session.scalar(select(Job).where(Job.recording_id == stored.id)) is None
+    assert fake_runner.wakes == wakes_before
+
+
 async def test_retry_fails_an_import_from_another_host(
     client, auth_headers, verify_session
 ) -> None:

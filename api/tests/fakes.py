@@ -206,6 +206,8 @@ class FakeObjectStore:
         self._modified: dict[str, datetime] = {}
         self.presigned: list[tuple[str, str]] = []
         self.deleted_prefixes: list[str] = []
+        # Every key `upload` wrote, kept after a delete, so a test can see a write that was undone.
+        self.uploaded: list[str] = []
 
     def put_bytes(self, key: str, data: bytes, content_type: str) -> None:
         """What a client's PUT to a presigned URL leaves behind."""
@@ -253,6 +255,7 @@ class FakeObjectStore:
         data = path.read_bytes()  # noqa: ASYNC240 -- in-memory fake, no real I/O
         self._objects[key] = (data, content_type)
         self._modified[key] = datetime.now(UTC)
+        self.uploaded.append(key)
         return len(data)
 
     async def copy(self, source: str, target: str) -> None:

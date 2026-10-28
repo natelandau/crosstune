@@ -221,7 +221,10 @@ How one feature works is in its code. Deploys and releases:
   http and https only, every redirect hop checked, the connection made to
   the checked address.
 - An import never downloads a media URL a client sent. It reads the source
-  page again and downloads only from that source's host.
+  page again and downloads only from that source's host. Plan and room
+  are checked before it is queued and before it downloads, and the
+  download stops at the room left, so an account with no room cannot
+  make the server fetch a file it will refuse.
 - A failed link resolve yields an untitled link, never an error.
 - In-app search only where an API allows it: Apple Music, TIDAL, and the
   Internet Archive, on the app's own credentials. YouTube, Spotify,

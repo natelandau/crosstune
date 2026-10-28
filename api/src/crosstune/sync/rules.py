@@ -405,7 +405,7 @@ class RecordingRules(RowRules):
         # Only a row this push created starts an import, so an update never queues a second
         # fetch and an existing recording can't be turned into one.
         if self.stored is None and row.source == RecordingSource.IMPORT:
-            await start_import(self.session, row)
+            await start_import(self.session, row, self.access)
             # The result is serialized from this row, and server_seq is still a SQL expression.
             await self.session.flush()
             await self.session.refresh(row)

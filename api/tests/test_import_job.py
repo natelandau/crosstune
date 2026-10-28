@@ -230,6 +230,82 @@ async def test_import_over_quota_fails(
     assert await _job(verify_session, rec, JobKind.IMPORT) is None
 
 
+def _quota_runner(
+    engine, tmp_path, mock_http: MockHttp, settings: Settings, quota: int
+) -> tuple[JobRunner, FakeObjectStore]:
+    store = FakeObjectStore()
+    runner = JobRunner(
+        make_sessionmaker(engine),
+        store,
+        work_root=tmp_path,
+        http_client=mock_http.client(),
+        settings=settings.model_copy(update={"premium_quota_bytes": quota}),
+    )
+    return runner, store
+
+
+async def test_import_for_an_account_with_no_room_fails_without_fetching(
+    engine, tmp_path, verify_session, mock_http: MockHttp, settings: Settings
+) -> None:
+    runner, store = _quota_runner(engine, tmp_path, mock_http, settings, quota=4096)
+    mock_http.add(PAGE, httpx2.Response(200, text=PAGE_HTML))
+    mock_http.add(FILE, httpx2.Response(200, content=AUDIO))
+    user = await make_premium_user(verify_session)
+    await add_recording(verify_session, user, "ready", playback_bytes=4096)
+    rec = await seed_import(verify_session, user)
+
+    await runner.run_once()
+
+    await verify_session.refresh(rec)
+    assert (rec.state, rec.error) == ("failed", "Storage quota exceeded")
+    assert [call for call in mock_http.calls if "slippery-hill" in str(call.url)] == []
+    assert store.uploaded == []
+
+
+async def test_import_larger_than_the_room_left_stops_before_the_upload(
+    engine, tmp_path, verify_session, mock_http: MockHttp, settings: Settings
+) -> None:
+    runner, store = _quota_runner(engine, tmp_path, mock_http, settings, quota=4096)
+    mock_http.add(PAGE, httpx2.Response(200, text=PAGE_HTML))
+    mock_http.add(FILE, httpx2.Response(200, content=AUDIO))
+    user = await make_premium_user(verify_session)
+    await add_recording(verify_session, user, "ready", playback_bytes=4096 - 100)
+    rec = await seed_import(verify_session, user)
+
+    await runner.run_once()
+
+    await verify_session.refresh(rec)
+    assert (rec.state, rec.error) == ("failed", "Storage quota exceeded")
+    assert store.uploaded == []
+
+
+async def test_import_past_both_the_room_and_the_file_cap_says_the_file_is_too_large(
+    engine, tmp_path, verify_session, mock_http: MockHttp, settings: Settings
+) -> None:
+    store = FakeObjectStore()
+    runner = JobRunner(
+        make_sessionmaker(engine),
+        store,
+        work_root=tmp_path,
+        http_client=mock_http.client(),
+        settings=settings.model_copy(
+            update={"premium_quota_bytes": 4096, "recording_max_file_bytes": 1024}
+        ),
+    )
+    mock_http.add(PAGE, httpx2.Response(200, text=PAGE_HTML))
+    mock_http.add(FILE, httpx2.Response(200, content=AUDIO))
+    user = await make_premium_user(verify_session)
+    await add_recording(verify_session, user, "ready", playback_bytes=4096 - 100)
+    rec = await seed_import(verify_session, user)
+
+    await runner.run_once()
+
+    await verify_session.refresh(rec)
+    # Freeing space would not let a file over the cap in, so the cap is the reason given.
+    assert (rec.state, rec.error) == ("failed", "File too large")
+    assert store.uploaded == []
+
+
 async def test_import_refuses_a_redirect_off_the_host(
     importer, verify_session, mock_http: MockHttp
 ) -> None:

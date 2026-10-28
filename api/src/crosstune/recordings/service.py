@@ -10,7 +10,9 @@ from sqlalchemy.dialects.postgresql import insert
 from crosstune.db.base import bump_server_seq, utc_now
 from crosstune.db.session import request_runner_wake
 from crosstune.errors import ConflictError, NotFoundError
+from crosstune.files.quota import used_bytes
 from crosstune.jobs.attempt import held_after_failure
+from crosstune.jobs.importer import OVER_QUOTA
 from crosstune.links.detect import detect_provider
 from crosstune.models import Job, Recording
 from crosstune.recordings.trim_rules import needs_trim
@@ -22,6 +24,7 @@ if TYPE_CHECKING:
 
     from sqlalchemy.ext.asyncio import AsyncSession
 
+    from crosstune.billing.access import Access
     from crosstune.storage.store import Revision
 
 
@@ -121,13 +124,23 @@ def importable(recording: Recording) -> bool:
     )
 
 
-async def start_import(session: AsyncSession, recording: Recording) -> None:
-    """Queue the fetch of an import, or fail it at once when its address is not importable.
+async def has_room(session: AsyncSession, recording: Recording, access: Access) -> bool:
+    """Whether the owner's stored files, apart from this recording's, leave any of the quota free."""
+    return await used_bytes(session, recording.user_id, exclude=recording.id) < access.quota_bytes
 
-    Takes a new server_seq for any change, so every device pulls the state set here. An
-    import already failed for its address is left untouched.
+
+async def start_import(session: AsyncSession, recording: Recording, access: Access) -> None:
+    """Queue the fetch of an import, or fail it at once when it can never be stored.
+
+    An address that is not importable, or an account with no room left, fails the import
+    without a fetch, so the server never downloads a file it would refuse. Takes a new
+    server_seq for any change, so every device pulls the state set here. An import already
+    failed for its address is left untouched.
     """
-    if importable(recording):
+    if importable(recording) and not await has_room(session, recording, access):
+        recording.state = "failed"
+        recording.error = OVER_QUOTA
+    elif importable(recording):
         recording.state = "processing"
         recording.error = None
         await enqueue_job(session, recording, JobKind.IMPORT)

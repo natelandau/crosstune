@@ -76,13 +76,7 @@ async def run(ctx: JobContext, job: Job) -> None:
             try:
                 async with attempt_timeout():
                     path = Path(folder) / "import"
-                    fetched = await fetch_import(
-                        _client(ctx),
-                        recording,
-                        path,
-                        max_bytes=ctx.settings.recording_max_file_bytes,
-                        timeout=ctx.settings.link_resolve_timeout_seconds,
-                    )
+                    fetched = await _fetch_within_room(ctx, session, recording, path)
                     write.written = True
                     await ctx.store.upload(path, write.key, IMPORT_MIME)
                     await _commit(ctx, session, job, fetched, write)
@@ -106,6 +100,35 @@ async def run(ctx: JobContext, job: Job) -> None:
             async with session.begin():
                 current = await reload(session, Recording, job.recording_id)
             await _discard_upload(ctx, current, write.key)
+
+
+async def _fetch_within_room(
+    ctx: JobContext, session: AsyncSession, recording: Recording, path: Path
+) -> FetchedImport:
+    """Download the import only while the owner's plan and room can still take it.
+
+    The quota check under the lock in `_commit` stays the one that counts; this one keeps
+    an account with no room from making the server download, store, and delete a file.
+
+    Raises:
+        ImportRefused: When the plan has no Premium or the account has no room left.
+    """
+    async with session.begin():
+        access = await access_for(session, recording.user_id, ctx.settings)
+        used = await used_bytes(session, recording.user_id, exclude=recording.id)
+    if not access.premium:
+        raise ImportRefused(PREMIUM_REQUIRED_IMPORT)
+    room = access.quota_bytes - used
+    if room <= 0:
+        raise ImportRefused(OVER_QUOTA)
+    return await fetch_import(
+        _client(ctx),
+        recording,
+        path,
+        max_bytes=ctx.settings.recording_max_file_bytes,
+        room_bytes=room,
+        timeout=ctx.settings.link_resolve_timeout_seconds,
+    )
 
 
 def _client(ctx: JobContext) -> httpx2.AsyncClient:
