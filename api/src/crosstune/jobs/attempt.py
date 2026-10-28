@@ -58,6 +58,10 @@ UNREACHABLE = "Couldn't reach Slippery-Hill"
 _STORAGE_ERRORS = (BotoCoreError, ClientError)
 
 
+class RecordingRefused(Exception):  # noqa: N818 -- a refusal, not an error
+    """A recording no retry can fix. The message is the copy a client shows."""
+
+
 @dataclass(frozen=True)
 class JobContext:
     """The runner's shared resources, handed to every job handler."""
@@ -222,7 +226,7 @@ async def fail_recording(
     *,
     retry_state: str = "uploaded",
 ) -> None:
-    """Fail the recording on the last attempt, else hold the job back for a retry.
+    """Fail the recording on the last attempt or a refusal, else hold the job back for a retry.
 
     Args:
         session: The session to write through, in the caller's transaction.
@@ -232,7 +236,12 @@ async def fail_recording(
         retry_state: The recording's state while it waits for the retry.
     """
     await lock_user(session, recording.user_id)
-    if await retry_or_drop(session, job, exc):
+    if isinstance(exc, RecordingRefused):
+        log.info("recording refused", extra={"recording": str(recording.id), "error": str(exc)})
+        await session.delete(job)
+        recording.state = "failed"
+        recording.error = str(exc)
+    elif await retry_or_drop(session, job, exc):
         recording.state = "failed"
         # Clients read this column, so it carries a mapped phrase, never ffmpeg output.
         recording.error = client_message(exc)

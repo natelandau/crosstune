@@ -10,6 +10,7 @@ from urllib.parse import urlsplit, urlunsplit
 
 import httpx2
 
+from crosstune.jobs.attempt import RecordingRefused
 from crosstune.links.detect import SLIPPERY_HILL_ORIGIN, slippery_hill_file_url
 from crosstune.links.fetch import read_page_text
 from crosstune.links.resolve import unresolved_link
@@ -44,7 +45,7 @@ class FetchedImport:
     artist: str | None
 
 
-class ImportRefused(Exception):  # noqa: N818 -- a refusal, not an error; the name is the job's contract
+class ImportRefused(RecordingRefused):
     """An import no retry can fix. The message is the copy a client shows."""
 
 

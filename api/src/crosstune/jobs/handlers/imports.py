@@ -11,7 +11,6 @@ from typing import TYPE_CHECKING
 
 from crosstune.billing.access import access_for
 from crosstune.db.base import bump_server_seq
-from crosstune.db.locks import lock_user
 from crosstune.files.quota import used_bytes
 from crosstune.jobs.attempt import (
     attempt_timeout,
@@ -92,7 +91,9 @@ async def run(ctx: JobContext, job: Job) -> None:
                     current = await reload(session, Recording, job.recording_id)
                     stored_job = await reload(session, Job, job.id)
                     if current is not None and still_claimed(stored_job, job):
-                        await _fail(session, stored_job, current, exc)
+                        await fail_recording(
+                            session, stored_job, current, exc, retry_state="processing"
+                        )
                 if write.written:
                     await _discard_upload(ctx, current, write.key)
                 return
@@ -190,16 +191,3 @@ async def _discard_upload(ctx: JobContext, recording: Recording | None, key: str
     """
     if recording is None or recording.playback_bytes is None:
         await ctx.delete_stale(key)
-
-
-async def _fail(session: AsyncSession, job: Job, recording: Recording, exc: Exception) -> None:
-    """Fail a refused import at once; retry anything else while it stays processing."""
-    if not isinstance(exc, ImportRefused):
-        await fail_recording(session, job, recording, exc, retry_state="processing")
-        return
-    log.info("import refused", extra={"recording": str(recording.id), "error": str(exc)})
-    await lock_user(session, recording.user_id)
-    recording.state = "failed"
-    recording.error = str(exc)
-    bump_server_seq(recording)
-    await session.delete(job)

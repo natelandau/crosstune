@@ -396,7 +396,11 @@ def _playback_codec_args(info: Probe) -> tuple[str, ...]:
 
 
 async def _to_mp4(
-    source: Path, target: Path, *codec_args: str, pre_input_args: tuple[str, ...] = ()
+    source: Path,
+    target: Path,
+    *codec_args: str,
+    pre_input_args: tuple[str, ...] = (),
+    max_ms: int | None = None,
 ) -> None:
     """Write the audio of `source` to an MP4 with the index at the front, so playback starts at once.
 
@@ -406,7 +410,9 @@ async def _to_mp4(
         codec_args: ffmpeg output codec options, placed after `-vn`.
         pre_input_args: ffmpeg options that must precede `-i` to take effect, such as
             a demuxer-level seek.
+        max_ms: The longest output written, or None to write the whole input.
     """
+    limit = ("-t", f"{max_ms}ms") if max_ms is not None else ()
     await run_media_tool(
         *ffmpeg(
             "-v",
@@ -418,6 +424,7 @@ async def _to_mp4(
             str(source),
             "-vn",
             *codec_args,
+            *limit,
             "-movflags",
             "+faststart",
             "-f",
@@ -427,7 +434,7 @@ async def _to_mp4(
     )
 
 
-async def remux(source: Path, target: Path) -> None:
+async def remux(source: Path, target: Path, *, max_ms: int | None = None) -> None:
     """Rewrite the container only.
 
     Fails with ffmpeg's `MediaError`, most often because the codec cannot live in MP4.
@@ -435,15 +442,18 @@ async def remux(source: Path, target: Path) -> None:
     Args:
         source: The file to read.
         target: The MP4 file to write.
+        max_ms: The longest output written, or None to write the whole input.
     """
-    await _to_mp4(source, target, "-c:a", "copy")
+    await _to_mp4(source, target, "-c:a", "copy", max_ms=max_ms)
 
 
 async def _info(source: Path, info: Probe | None) -> Probe:
     return info if info is not None else await probe(source)
 
 
-async def encode(source: Path, target: Path, *, info: Probe | None = None) -> None:
+async def encode(
+    source: Path, target: Path, *, info: Probe | None = None, max_ms: int | None = None
+) -> None:
     """Encode to AAC-LC in MP4 at the playback bit rate for the source.
 
     Fails with ffprobe's or ffmpeg's `MediaError`, most often because the file cannot be
@@ -453,8 +463,9 @@ async def encode(source: Path, target: Path, *, info: Probe | None = None) -> No
         source: The file to read.
         target: The MP4 file to write.
         info: The probe of `source`, when one has already read it.
+        max_ms: The longest output written, or None to write the whole input.
     """
-    await _to_mp4(source, target, *_playback_codec_args(await _info(source, info)))
+    await _to_mp4(source, target, *_playback_codec_args(await _info(source, info)), max_ms=max_ms)
 
 
 async def cut(

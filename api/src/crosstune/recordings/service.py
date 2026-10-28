@@ -124,11 +124,6 @@ def importable(recording: Recording) -> bool:
     )
 
 
-async def has_room(session: AsyncSession, recording: Recording, access: Access) -> bool:
-    """Whether the owner's stored files, apart from this recording's, leave any of the quota free."""
-    return await used_bytes(session, recording.user_id, exclude=recording.id) < access.quota_bytes
-
-
 async def start_import(session: AsyncSession, recording: Recording, access: Access) -> None:
     """Queue the fetch of an import, or fail it at once when it can never be stored.
 
@@ -137,13 +132,15 @@ async def start_import(session: AsyncSession, recording: Recording, access: Acce
     server_seq for any change, so every device pulls the state set here. An import already
     failed for its address is left untouched.
     """
-    if importable(recording) and not await has_room(session, recording, access):
-        recording.state = "failed"
-        recording.error = OVER_QUOTA
-    elif importable(recording):
-        recording.state = "processing"
-        recording.error = None
-        await enqueue_job(session, recording, JobKind.IMPORT)
+    if importable(recording):
+        used = await used_bytes(session, recording.user_id, exclude=recording.id)
+        if used < access.quota_bytes:
+            recording.state = "processing"
+            recording.error = None
+            await enqueue_job(session, recording, JobKind.IMPORT)
+        else:
+            recording.state = "failed"
+            recording.error = OVER_QUOTA
     elif (recording.state, recording.error) == ("failed", NOT_IMPORTABLE):
         return
     else:

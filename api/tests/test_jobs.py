@@ -66,6 +66,7 @@ from tests.fakes import FakeClerkUsers, FakeMailer, FakeObjectStore
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
+    from pathlib import Path
 
     from sqlalchemy import ScalarResult
 
@@ -350,6 +351,42 @@ async def test_run_once_transcodes_one_job_and_removes_it(
     assert upload_key(rec.user_id, rec.id) not in set(store.keys())
     assert await verify_session.scalar(select(Job).where(Job.recording_id == rec.id)) is None
     assert await job_runner.run_once() == 0
+
+
+async def test_a_recording_past_the_length_limit_fails_on_its_first_attempt(
+    runner, verify_session, media_fixtures, monkeypatch
+) -> None:
+    job_runner, store = runner
+    # The fixture is two seconds long, so a one-second limit puts it past the limit.
+    monkeypatch.setattr(transcode_module, "MAX_RECORDING_MS", 1000)
+    rec = await seed(verify_session, store, media_fixtures["m4a"], "audio/mp4")
+    assert await job_runner.run_once() == 1
+    await verify_session.refresh(rec)
+    assert (rec.state, rec.error) == ("failed", transcode_module.RECORDING_TOO_LONG)
+    assert rec.playback_key is None
+    assert await verify_session.scalar(select(Job).where(Job.recording_id == rec.id)) is None
+
+
+async def test_a_recording_that_understates_its_length_is_refused_by_what_decodes(
+    runner, verify_session, media_fixtures, monkeypatch
+) -> None:
+    job_runner, store = runner
+    monkeypatch.setattr(transcode_module, "MAX_RECORDING_MS", 1000)
+    real_probe = transcode_module.probe
+    probed: list[Path] = []
+
+    async def understated(path: Path) -> Probe:
+        info = await real_probe(path)
+        probed.append(path)
+        # The upload's own metadata claims half a second; the file decodes for two.
+        return dataclasses.replace(info, duration_ms=500) if len(probed) == 1 else info
+
+    monkeypatch.setattr(transcode_module, "probe", understated)
+    rec = await seed(verify_session, store, media_fixtures["m4a"], "audio/mp4")
+    assert await job_runner.run_once() == 1
+    await verify_session.refresh(rec)
+    assert (rec.state, rec.error) == ("failed", transcode_module.RECORDING_TOO_LONG)
+    assert rec.playback_key is None
 
 
 async def test_run_once_leaves_no_trim_job_after_applying_a_pre_upload_trim(
