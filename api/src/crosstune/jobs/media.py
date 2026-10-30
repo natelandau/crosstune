@@ -72,8 +72,12 @@ class Probe:
     location: tuple[float, float] | None = None
     created_at: datetime | None = None
     sample_rate: int = 0
-    # Seconds; a browser recording may not start its timestamps at 0.
+    # Seconds, when the first decoded sample plays; a browser recording may not start its
+    # timestamps at 0.
     start_time: float = 0.0
+    # Seconds, the start time the running ffmpeg counts its timestamps from. Some releases
+    # put it an Opus pre-skip before `start_time`.
+    container_start_time: float = 0.0
 
 
 def parse_iso6709(value: str) -> tuple[float, float] | None:
@@ -352,6 +356,8 @@ async def probe(path: Path) -> Probe:
     tags = fmt.get("tags")
     tags = tags if isinstance(tags, dict) else {}
     location = _tag(tags, LOCATION_TAGS)
+    container_start = _seconds(fmt.get("start_time"))
+    start_time = await _first_sample_time(path)
     return Probe(
         codec=str(audio.get("codec_name", "")),
         format_names=frozenset(str(fmt.get("format_name", "")).split(",")),
@@ -361,7 +367,8 @@ async def probe(path: Path) -> Probe:
         location=parse_iso6709(location) if location is not None else None,
         created_at=parse_creation_date(tags, now=datetime.now(UTC)),
         sample_rate=int(audio.get("sample_rate") or 0),
-        start_time=_seconds(fmt.get("start_time")),
+        start_time=container_start if start_time is None else start_time,
+        container_start_time=container_start,
     )
 
 
@@ -371,6 +378,76 @@ def _seconds(value: object) -> float:
         return float(str(value))
     except ValueError:
         return 0.0
+
+
+# Enough packets to get past an AAC priming packet, which decodes to no samples.
+_FIRST_SAMPLE_PACKETS = 8
+
+
+async def _first_sample_time(path: Path) -> float | None:
+    """Read when the first decoded sample of the first audio stream plays, in seconds.
+
+    ffmpeg releases disagree on a container's start time: some report an Opus WebM's
+    first packet, before the decoder's pre-skip, others its first decoded sample. The
+    decoded frames agree across releases, so the timeline every seek counts from is
+    taken from them. None when no frame decodes from the first packets.
+    """
+    report = await run_media_tool(
+        *ffprobe(
+            "-v",
+            "error",
+            "-select_streams",
+            "a:0",
+            "-read_intervals",
+            f"%+#{_FIRST_SAMPLE_PACKETS}",
+            "-show_entries",
+            "frame=pts_time",
+            "-of",
+            "csv=p=0",
+            *INPUT_GUARD,
+            str(path),
+        )
+    )
+    for line in report.decode(errors="replace").splitlines():
+        try:
+            return float(line.split(",")[0])
+        except ValueError:
+            continue
+    return None
+
+
+def _seek_args(info: Probe, from_ms: int, to_ms: int | None = None) -> tuple[str, ...]:
+    """Build the input options that read a file from `from_ms` to `to_ms`.
+
+    Seeks by absolute timestamp, counted from the probe's start time rather than the
+    one the running ffmpeg reports, which can sit an Opus pre-skip earlier.
+
+    Args:
+        info: The probe of the file read.
+        from_ms: Where the read starts, in milliseconds from the first decoded sample.
+        to_ms: Where the read ends, or None for the end of the file.
+
+    Returns:
+        tuple[str, ...]: Options to place before `-i`.
+    """
+    stop = () if to_ms is None else ("-to", f"{info.start_time + to_ms / 1000:.6f}")
+    return ("-seek_timestamp", "1", "-ss", f"{info.start_time + from_ms / 1000:.6f}", *stop)
+
+
+def _timeline_args(info: Probe) -> tuple[str, ...]:
+    """Build the input options that start a whole-file read's timestamps at its first sample.
+
+    An input seek would do it too, but changes how an AAC source's priming is skipped.
+
+    Args:
+        info: The probe of the file read.
+
+    Returns:
+        tuple[str, ...]: Options to place before `-i`, empty when the running ffmpeg
+            already counts from the first sample.
+    """
+    shift = info.container_start_time - info.start_time
+    return () if abs(shift) < _TIMESTAMP_TOLERANCE_SECONDS else ("-itsoffset", f"{shift:.6f}")
 
 
 def needs_encode(info: Probe) -> bool:
@@ -668,7 +745,14 @@ async def encode(
     """
     info = await _info(source, info)
     fill = await _fill_gap_args(source, info, to_ms=max_ms, stalls=stalls)
-    await _to_mp4(source, target, *fill, *_playback_codec_args(info), max_ms=max_ms)
+    await _to_mp4(
+        source,
+        target,
+        *fill,
+        *_playback_codec_args(info),
+        pre_input_args=_timeline_args(info),
+        max_ms=max_ms,
+    )
 
 
 async def cut(
@@ -704,7 +788,7 @@ async def cut(
         target,
         *fill,
         *_playback_codec_args(info),
-        pre_input_args=("-ss", f"{start_ms}ms", "-to", f"{end_ms}ms"),
+        pre_input_args=_seek_args(info, start_ms, end_ms),
     )
 
 
@@ -806,7 +890,7 @@ def _unique_match(original: bytes, needle: bytes) -> int | None:
 
 
 async def _mp3_decoded_start_ms(
-    source: Path, slice_path: Path, seek_ms: int, slice_info: Probe
+    source: Path, slice_path: Path, seek_ms: int, info: Probe, slice_info: Probe
 ) -> int:
     """Find where the first decoded sample of an MP3 slice sits in the decoded original.
 
@@ -827,8 +911,7 @@ async def _mp3_decoded_start_ms(
     original = await _decode_pcm(
         source,
         rate,
-        "-ss",
-        f"{window_from}",
+        *_seek_args(info, round(window_from * 1000)),
         "-t",
         f"{_MATCH_SPAN_SECONDS + 2 * _MATCH_LEAD_SECONDS}",
     )
@@ -893,8 +976,7 @@ async def copy_slice(
             "error",
             "-y",
             *INPUT_GUARD,
-            "-ss",
-            f"{copy_from}ms",
+            *_seek_args(info, copy_from),
             "-i",
             str(source),
             "-vn",
@@ -910,7 +992,8 @@ async def copy_slice(
     )
     slice_info = await probe(target)
     if copy is _MP3:
-        return Slice(await _mp3_decoded_start_ms(source, target, copy_from, slice_info), slice_info)
+        start = await _mp3_decoded_start_ms(source, target, copy_from, info, slice_info)
+        return Slice(start, slice_info)
     # MP4 and WAV slices begin exactly at the cut: the MP4 edit list hides the leading
     # packet samples before it, and WAV packets split at any sample.
     return Slice(start_ms, slice_info)
