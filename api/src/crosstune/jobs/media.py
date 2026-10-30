@@ -39,7 +39,8 @@ INPUT_GUARD = (
 )
 # A file that makes a decoder balloon fails its job instead of exhausting the API's
 # container. Linux enforces no resident-memory limit, so this caps address space, which
-# MALLOC_ARENA_MAX and -filter_threads hold near 400 MB whatever the host's core count.
+# MALLOC_ARENA_MAX, -filter_threads, and -threads hold near 400 MB whatever the host's core
+# count.
 MEMORY_LIMIT_BYTES = 1 << 30
 FILE_LIMIT_BYTES = 1 << 30
 _PR_SET_DUMPABLE = 4
@@ -216,7 +217,9 @@ def ffmpeg(*args: str) -> tuple[str, ...]:
     Returns:
         tuple[str, ...]: The full command line for `run_media_tool` or `stream_media_tool`.
     """
-    return _limited("ffmpeg", "-filter_threads", "1", *args)
+    # `-threads` here applies to the first input, the upload: a frame-threaded decoder
+    # such as FLAC's otherwise starts a thread, and its stack, per core.
+    return _limited("ffmpeg", "-filter_threads", "1", "-threads", "1", *args)
 
 
 def ffprobe(*args: str) -> tuple[str, ...]:
