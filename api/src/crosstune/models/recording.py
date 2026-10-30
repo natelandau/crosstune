@@ -25,6 +25,8 @@ from crosstune.db.base import Base, SyncColumns
 from crosstune.models._checks import between, in_list
 from crosstune.vocabulary import (
     LIMITS,
+    MAX_SPLIT_PIECES,
+    MIN_SPLIT_PIECES,
     PITCH_CENTS_MAX,
     PITCH_CENTS_MIN,
     SPEED_PERCENT_MAX,
@@ -97,6 +99,14 @@ class Recording(SyncColumns, Base):
             between("pitch_cents", PITCH_CENTS_MIN, PITCH_CENTS_MAX),
             name="ck_recordings_pitch_cents",
         ),
+        CheckConstraint(
+            between("split_size", MIN_SPLIT_PIECES, MAX_SPLIT_PIECES),
+            name="ck_recordings_split_size",
+        ),
+        CheckConstraint(
+            "(split_id is null) = (split_size is null)", name="ck_recordings_split_pair"
+        ),
+        CheckConstraint("source_offset_ms >= 0", name="ck_recordings_source_offset_ms"),
         Index("ix_recordings_user_id_server_seq", "user_id", "server_seq"),
         # The purge sweep reads tombstones on every runner pass, across every user.
         Index("ix_recordings_tombstones", "id", postgresql_where=text("deleted_at is not null")),
@@ -169,6 +179,26 @@ class Recording(SyncColumns, Base):
     )
     pitch_cents: Mapped[int] = mapped_column(
         SmallInteger, nullable=False, default=0, server_default="0"
+    )
+
+    # Set on a piece of a split: the parent recording it came from (null once that is
+    # deleted) and the split that created it.
+    split_from_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("recordings.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    created_by_split_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    # Set on a parent recording only: the latest split it is the parent of, how many
+    # recordings that split made, itself included, and, server-owned, the split whose
+    # pieces have all been cut.
+    split_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    split_size: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
+    split_completed_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    # Where the row's original starts on its source timeline.
+    source_offset_ms: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
     )
 
     # Server-owned playback file bookkeeping, rebuilt whenever a trim changes.

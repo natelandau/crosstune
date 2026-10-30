@@ -19,6 +19,7 @@ from crosstune.http import BlockedAddressError
 from crosstune.jobs.media import SUBPROCESS_TIMEOUT_SECONDS, MediaError
 from crosstune.logging import redact_driver_values
 from crosstune.models import Job, Recording
+from crosstune.recordings.split_rules import fail_parent_split
 from crosstune.storage.store import delete_best_effort
 
 if TYPE_CHECKING:
@@ -80,8 +81,8 @@ class JobContext:
     async def delete_stale(self, *keys: str | None) -> None:
         """Best-effort delete of objects a job's own write superseded or orphaned.
 
-        Never called with an original key: the original is never deleted, since a
-        retry or a later job only ever overwrites it in place.
+        Never called with an original a row names, or one a job may still name: only
+        a split retires an original, and only after the commit that stops naming it.
         """
         await delete_best_effort(
             self.store, keys, log=log, message="could not delete a superseded object"
@@ -161,15 +162,26 @@ async def load_locked(session: AsyncSession, job: Job) -> tuple[Recording, Job] 
     """Take the job's user lock and re-read its row pair fresh, as `load_claimed` does.
 
     Re-read rather than taken from the identity map, since the rows may have changed
-    while the job worked with no transaction open.
+    while the job worked with no transaction open. A soft-deleted recording's job is
+    deleted, since the purge sweep owns its files.
+    """
+    loaded = await load_parent(session, job)
+    if loaded is not None and loaded[0].deleted_at is not None:
+        await session.delete(loaded[1])
+        return None
+    return loaded
+
+
+async def load_parent(session: AsyncSession, job: Job) -> tuple[Recording, Job] | None:
+    """Take the job's user lock and re-read its row pair fresh, keeping a soft-deleted row.
+
+    A split job still cuts the pieces of a parent deleted after the split, so its loader
+    returns the parent whether or not it is deleted.
     """
     await lock_user(session, job.user_id)
     current = await reload(session, Recording, job.recording_id)
     stored_job = await reload(session, Job, job.id)
     if current is None or not still_claimed(stored_job, job):
-        return None
-    if current.deleted_at is not None:
-        await session.delete(stored_job)
         return None
     return current, stored_job
 
@@ -228,6 +240,8 @@ async def fail_recording(
 ) -> None:
     """Fail the recording on the last attempt or a refusal, else hold the job back for a retry.
 
+    A recording that fails takes the waiting pieces of its split down with it.
+
     Args:
         session: The session to write through, in the caller's transaction.
         job: The claimed job.
@@ -248,6 +262,8 @@ async def fail_recording(
     else:
         recording.state = retry_state
     bump_server_seq(recording)
+    if recording.state == "failed":
+        await fail_parent_split(session, recording)
 
 
 async def fail_abandoned_recording(ctx: JobContext, session: AsyncSession, job: Job) -> None:  # noqa: ARG001 -- matches the abandon hook's signature
@@ -262,3 +278,4 @@ async def fail_abandoned_recording(ctx: JobContext, session: AsyncSession, job: 
     recording.state = "failed"
     recording.error = PROCESSING_FAILED
     bump_server_seq(recording)
+    await fail_parent_split(session, recording)

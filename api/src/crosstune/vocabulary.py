@@ -200,6 +200,7 @@ class JobKind(StrEnum):
     IMPORT = "import"
     REENCODE = "reencode"
     PLACE = "place"
+    SPLIT = "split"
 
 
 class GrantKind(StrEnum):
@@ -252,6 +253,14 @@ PITCH_CENTS_MIN: Final[int] = -1200
 PITCH_CENTS_MAX: Final[int] = 1200
 MIN_TRIM_MS: Final[int] = 1000
 """The shortest kept range a trim may leave; trim only narrows, never below this."""
+MAX_RECORDING_MS: Final[int] = 3 * 60 * 60 * 1000
+"""The longest recording kept; each piece of a split is held to it as well."""
+MIN_SPLIT_PIECES: Final[int] = 2
+"""The fewest recordings one split produces: one cut makes two."""
+MAX_SPLIT_PIECES: Final[int] = 50
+"""The most recordings one split may produce."""
+MAX_SPLIT_SOURCE_MS: Final[int] = 43_200_000
+"""The longest source the server accepts, and only for a recording that is split."""
 MIN_LOOP_MS: Final[int] = 500
 """The shortest range a practice loop may span."""
 MAX_EVENT_DURATION_MS: Final[int] = 86_400_000
@@ -289,6 +298,16 @@ SERVER_WRITTEN: Final = "server-written"
 """The push reason for a change to a table only the server writes."""
 PREMIUM_REQUIRED: Final = "premium required"
 """The push reason for an addition only Premium allows: a new recording or scan."""
+SPLIT_MISMATCH: Final = (
+    "created_by_split_id does not match the split of the recording it was split from"
+)
+"""The push reason for a piece whose split differs from its parent's latest split."""
+SPLIT_UNNAMED: Final = "a piece with split_from_id needs created_by_split_id"
+"""The push reason for a new piece that does not say which split created it."""
+SPLIT_FULL: Final = "the split already holds all of its pieces"
+"""The push reason for a new piece beyond its split's size."""
+SPLIT_FAILED: Final = "The piece could not be split."
+"""The error a piece shows once the split job gives up on cutting it."""
 
 # Maximum lengths, by table then field. A column with a width takes it from here, the
 # row schema publishes it, and the client stops input at it.

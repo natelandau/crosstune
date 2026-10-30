@@ -7,11 +7,14 @@ import uuid
 from datetime import timedelta
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import ARRAY, Uuid, and_, any_, delete, exists, literal, or_, select
+from sqlalchemy import ARRAY, Uuid, and_, any_, delete, exists, literal, not_, or_, select
+from sqlalchemy.orm import aliased
 
 from crosstune.db.base import bump_server_seq, utc_now
 from crosstune.db.locks import advisory_lock_key, lock_user
-from crosstune.models import Recording, Scan, UploadSlot, User
+from crosstune.models import Job, Recording, Scan, UploadSlot, User
+from crosstune.recordings.service import ensure_split_job
+from crosstune.recordings.split_rules import holds_original, ready_to_complete, waiting_pieces
 from crosstune.storage.store import (
     LEGACY_SCAN_SEGMENT,
     SCAN_SEGMENT,
@@ -24,7 +27,7 @@ from crosstune.storage.store import (
     scan_prefixes,
     upload_key,
 )
-from crosstune.vocabulary import ScanState
+from crosstune.vocabulary import JobKind, ScanState
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -319,6 +322,44 @@ async def _release_scan_slots(
         return len(abandoned)
 
 
+async def queue_ready_splits(sessionmaker: async_sessionmaker[AsyncSession]) -> int:
+    """Queue the split job of each parent whose split can complete but has no job to do it.
+
+    A push queues the job when it writes a piece, and a split job queues the next when it
+    ends. Every other way a piece goes away, such as a delete or a cascade, leaves the
+    split to this sweep.
+
+    Returns:
+        int: How many split jobs were queued.
+    """
+    piece = aliased(Recording)
+    stalled = (
+        Recording.state == "ready",
+        ready_to_complete(),
+        ~exists().where(waiting_pieces(Recording.id, piece=piece)),
+        ~exists().where(Job.recording_id == Recording.id, Job.kind == JobKind.SPLIT.value),
+    )
+    async with sessionmaker() as session:
+        async with session.begin():
+            candidates = list(
+                await session.scalars(select(Recording).where(*stalled).limit(PURGE_BATCH))
+            )
+        if not candidates:
+            return 0
+        async with session.begin():
+            await _lock_users(session, candidates)
+            parents = list(
+                await session.scalars(
+                    select(Recording)
+                    .where(Recording.id.in_([r.id for r in candidates]), *stalled)
+                    .execution_options(populate_existing=True)
+                )
+            )
+            for parent in parents:
+                await ensure_split_job(session, parent)
+        return len(parents)
+
+
 async def purge_deleted(sessionmaker: async_sessionmaker[AsyncSession], store: ObjectStore) -> int:
     """Remove the files of soft-deleted recordings and leave their rows ready to upload again.
 
@@ -338,6 +379,8 @@ async def purge_deleted(sessionmaker: async_sessionmaker[AsyncSession], store: O
     )
     purgeable = (
         Recording.deleted_at.is_not(None),
+        # The split job still cuts a waiting piece from this original.
+        not_(holds_original()),
         or_(
             Recording.playback_key.is_not(None),
             Recording.original_key.is_not(None),

@@ -13,6 +13,17 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     import httpx2
 
+GAPPED_WEBM_GAP_MS = 59
+GAPPED_WEBM_GAP_AT_S = 1.0
+STEPPED_BACK_MS = 10
+WEBM_START_OFFSET_S = 2.0
+# Where the gapped WebM's stall begins and ends, in ms on its timestamp timeline.
+GAPPED_STALL_MS = (1034, 1093)
+LONG_STALL_GAP_MS = 3000
+# Where the long-stalled WebM's stall begins and ends, in ms on its timestamp timeline.
+LONG_STALL_MS = (1034, 4034)
+DRIFT_RATIO = 0.0005
+
 T0 = datetime(2026, 9, 11, 12, 0, tzinfo=UTC)
 T1 = T0 + timedelta(seconds=10)
 T2 = T0 + timedelta(seconds=20)

@@ -132,10 +132,16 @@ def is_revision_key(key: str) -> bool:
     return name.startswith(("playback-", "peaks-"))
 
 
-def original_key(user_id: object, recording_id: object, content_type: str) -> str:
-    """Where the untouched upload is kept when it differs from the playback file."""
+def original_key(
+    user_id: object, recording_id: object, content_type: str, rev: str | None = None
+) -> str:
+    """Where the untouched upload is kept when it differs from the playback file.
+
+    A `rev` names a replacement original, so no reader of an older one sees it change.
+    """
     base = content_type.split(";", 1)[0].strip().lower()
-    return f"{recording_prefix(user_id, recording_id)}original.{_EXTENSIONS.get(base, 'bin')}"
+    name = "original" if rev is None else f"original-{rev}"
+    return f"{recording_prefix(user_id, recording_id)}{name}.{_EXTENSIONS.get(base, 'bin')}"
 
 
 @dataclass(frozen=True)
@@ -183,7 +189,8 @@ async def delete_best_effort(
     Gives up after BEST_EFFORT_DELETE_SECONDS, so a cancelled job still cleans up
     without holding shutdown on a slow bucket. A leftover object is bounded: the next
     write to the same key overwrites it, or the runner's sweeps remove it. Never pass
-    an original object's key; those are never deleted.
+    an original's key while a row names it or a job may still name it; an original
+    slice no row names may be deleted.
 
     Args:
         store: Where the objects live.

@@ -1405,6 +1405,31 @@
         }
       }
     },
+    "recording_split": {
+      "description": "A recording was split into pieces.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "feature_usage"
+      ],
+      "properties": {
+        "recording_id": {
+          "type": "uuid",
+          "required": true
+        },
+        "piece_count": {
+          "type": "string",
+          "bucket": "count",
+          "required": true
+        },
+        "over_limit": {
+          "type": "bool",
+          "required": true
+        }
+      }
+    },
     "link_added": {
       "description": "A link to a service was added to a tune.",
       "clients": [

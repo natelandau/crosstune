@@ -3891,6 +3891,86 @@ async def test_0053_allows_place_jobs(engine, database_url: str, truncate_all: N
         await anyio.to_thread.run_sync(command.upgrade, config, "head")
 
 
+async def test_0059_adds_split_columns_and_jobs(
+    engine, database_url: str, truncate_all: None
+) -> None:
+    config = Config("alembic.ini")
+    config.set_main_option("sqlalchemy.url", database_url)
+    recording = "018f0000-0000-7000-8000-000000000021"
+    second_split_job = text(
+        "insert into jobs (id, recording_id, user_id, kind, attempts, created_at) "
+        "values ('018f0000-0000-7000-8000-000000000032', :recording, "
+        "'018f0000-0000-7000-8000-000000000001', 'split', 0, now())"
+    )
+    await _seed_job(engine, "split")
+    async with engine.begin() as conn:
+        await conn.execute(
+            text(
+                "update recordings set split_size = 3, "
+                "split_id = '018f0000-0000-7000-8000-0000000000b1' where id = :id"
+            ),
+            {"id": recording},
+        )
+        offset = (await conn.execute(text("select source_offset_ms from recordings"))).scalar_one()
+    assert offset == 0
+    with pytest.raises(IntegrityError, match="ux_jobs_recording_id_split"):
+        async with engine.begin() as conn:
+            await conn.execute(second_split_job, {"recording": recording})
+    for values, check in (
+        ("split_size = 1, split_id = gen_random_uuid()", "ck_recordings_split_size"),
+        ("split_size = 51, split_id = gen_random_uuid()", "ck_recordings_split_size"),
+        ("split_size = null, split_id = gen_random_uuid()", "ck_recordings_split_pair"),
+        ("split_size = 3, split_id = null", "ck_recordings_split_pair"),
+        ("source_offset_ms = -1", "ck_recordings_source_offset_ms"),
+    ):
+        with pytest.raises(IntegrityError, match=check):
+            async with engine.begin() as conn:
+                await conn.execute(
+                    text(f"update recordings set {values} where id = :id"),  # noqa: S608 -- literals
+                    {"id": recording},
+                )
+    # Deleting the parent recording unlinks its pieces rather than deleting them.
+    piece = "018f0000-0000-7000-8000-0000000000c1"
+    async with engine.begin() as conn:
+        await conn.execute(
+            text(
+                "insert into recordings (id, user_id, source, added_at, state, created_at, "
+                "updated_at, split_from_id) values (:piece, "
+                "'018f0000-0000-7000-8000-000000000001', 'microphone', now(), 'ready', now(), "
+                "now(), :parent)"
+            ),
+            {"piece": piece, "parent": recording},
+        )
+        await conn.execute(text("delete from recordings where id = :id"), {"id": recording})
+        remaining = (
+            await conn.execute(
+                text("select split_from_id from recordings where id = :id"), {"id": piece}
+            )
+        ).all()
+    assert [row.split_from_id for row in remaining] == [None]
+    try:
+        await anyio.to_thread.run_sync(command.downgrade, config, "0058")
+        async with engine.connect() as conn:
+            assert (await conn.execute(text("select count(*) from jobs"))).scalar_one() == 0
+            columns = (
+                (
+                    await conn.execute(
+                        text(
+                            "select column_name from information_schema.columns "
+                            "where table_name = 'recordings' and column_name in "
+                            "('split_from_id', 'split_id', 'split_size', 'source_offset_ms', "
+                            "'created_by_split_id', 'split_completed_id')"
+                        )
+                    )
+                )
+                .scalars()
+                .all()
+            )
+        assert columns == []
+    finally:
+        await anyio.to_thread.run_sync(command.upgrade, config, "head")
+
+
 async def test_0055_infers_place_origin(engine, database_url: str, truncate_all: None) -> None:
     config = Config("alembic.ini")
     config.set_main_option("sqlalchemy.url", database_url)

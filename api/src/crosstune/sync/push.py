@@ -16,7 +16,9 @@ from crosstune.billing.access import access_for
 from crosstune.db.base import next_server_seq
 from crosstune.db.locks import lock_user
 from crosstune.db.session import request_runner_wake
-from crosstune.models import List, ListItem
+from crosstune.models import List, ListItem, Recording
+from crosstune.recordings.service import ensure_split_jobs
+from crosstune.recordings.split_rules import holds_original
 from crosstune.schemas.common import CHANGE_RESULTS, Change, ChangeResult
 from crosstune.sync.rules import RULES, RowRules
 from crosstune.sync.tables import (
@@ -33,7 +35,6 @@ if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
     from datetime import datetime
 
-    from pydantic import BaseModel
     from sqlalchemy import Select
     from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -97,7 +98,19 @@ async def apply_push(
                 )
             else:
                 results[index] = await _delete(session, spec, user_id, change, access)
-    return [results[i] for i in range(len(changes))]
+    ordered = [results[i] for i in range(len(changes))]
+    await ensure_split_jobs(session, _split_parents(changes, ordered))
+    return ordered
+
+
+def _split_parents(changes: list[Change], results: list[ChangeResult]) -> set[uuid.UUID | None]:
+    """Each recording an applied recordings upsert wrote, and the recording it was split from."""
+    parents: set[uuid.UUID | None] = set()
+    for change, result in zip(changes, results, strict=True):
+        if change.table == "recordings" and change.op == "upsert" and result.status == "applied":
+            row: Any = result.row
+            parents.update((row.id, row.split_from_id))
+    return parents
 
 
 async def _prefetch(session: AsyncSession, spec: TableSpec, changes: list[Change]) -> list[object]:
@@ -170,7 +183,7 @@ async def _overlaps(
     session: AsyncSession, spec: TableSpec, user_id: uuid.UUID, change: Change, access: Access
 ) -> bool:
     """Whether a pushed row's own rules say it overlaps a live row, judged before any clamp."""
-    data, rejection = _validated(spec.data_schema, change)
+    data, rejection = _validated(spec, change)
     if rejection:
         return False
     return await _rules(session, spec.name, user_id, change, None, access).overlaps(data)
@@ -224,26 +237,30 @@ async def _parents_owned(
 ) -> str | None:
     """Return a reason string when a referenced parent is missing or not the caller's.
 
-    A deleted parent still counts as owned for a table that accepts one: a loop is stored
+    A deleted parent still counts as owned in a column that accepts one: a loop is stored
     deleted instead, so a device that made it before learning of the delete gets a
     tombstone back, and an event is history a device can push after an offline delete.
     """
-    deleted_ok = spec.accepts_deleted_parents
     for column, parent_table in spec.parents:
         if data.get(column) is None:
             # An unfiled recording has no tune yet; nothing to own.
             continue
         parent = await _fetch_owned(session, TABLES[parent_table], data[column], user_id)
-        if parent is None or (parent.deleted_at is not None and not deleted_ok):
+        if parent is None or (parent.deleted_at is not None and column not in spec.deleted_parents):
             return f"{column} does not reference one of your {parent_table}"
     return None
 
 
-def _validated(
-    data_schema: type[BaseModel], change: Change
-) -> tuple[dict[str, Any], ChangeResult | None]:
+def _validated(spec: TableSpec, change: Change) -> tuple[dict[str, Any], ChangeResult | None]:
+    """The change's fields, validated, with every key a pulled row carries that a push cannot write dropped.
+
+    Dropped rather than refused, so a client that echoes pulled fields it does not know
+    still syncs.
+    """
+    row_only = spec.row_schema.model_fields.keys() - spec.data_schema.model_fields.keys()
+    data = {key: value for key, value in (change.data or {}).items() if key not in row_only}
     try:
-        return data_schema.model_validate(change.data or {}).model_dump(), None
+        return spec.data_schema.model_validate(data).model_dump(), None
     except ValidationError as exc:
         fields = ", ".join(".".join(str(p) for p in e["loc"]) or "body" for e in exc.errors())
         return {}, _invalid(change, f"invalid fields: {fields}")
@@ -253,7 +270,7 @@ async def _checked(
     session: AsyncSession, spec: TableSpec, user_id: uuid.UUID, change: Change
 ) -> tuple[dict[str, Any], ChangeResult | None]:
     """The change's validated fields, or a rejection when they or their parents fail."""
-    data, rejection = _validated(spec.data_schema, change)
+    data, rejection = _validated(spec, change)
     if rejection:
         return data, rejection
     reason = await _parents_owned(session, spec, data, user_id)
@@ -313,6 +330,7 @@ async def _upsert(
     data, rejection = await _checked(session, spec, user_id, change)
     if rejection:
         return rejection
+    await _keep_sticky(session, spec, user_id, change, data)
     rules = _rules(session, spec.name, user_id, change, resolved_links, access)
     reason = await rules.prepare(data)
     if reason:
@@ -367,6 +385,20 @@ async def _upsert(
         await rules.applied(current)
 
     return _result(spec, change, status, current)
+
+
+async def _keep_sticky(
+    session: AsyncSession, spec: TableSpec, user_id: uuid.UUID, change: Change, data: dict[str, Any]
+) -> None:
+    """Keep the stored value of each sticky field the change leaves null, in place."""
+    if not spec.sticky:
+        return
+    stored = await _fetch_owned(session, spec, change.id, user_id)
+    if stored is None:
+        return
+    for column in spec.sticky:
+        if data.get(column) is None:
+            data[column] = getattr(stored, column)
 
 
 async def _insert(
@@ -467,10 +499,23 @@ async def cascade_delete(
     Grandchildren are marked before their parents, depth first in `children` order.
     Every statement carries the caller's ownership, so no cascade can reach another
     account's rows even if a parent row ever slipped past the ownership checks above.
+    A recording whose original a waiting piece still needs is unfiled instead, with its
+    loops, so the piece can still be cut from it.
     """
     for child_name, fk_column in spec.children:
         child = TABLES[child_name]
         model: Any = child.model
+        if child.name == "recordings":
+            await session.execute(
+                update(Recording)
+                .where(
+                    getattr(Recording, fk_column).in_(parent_ids),
+                    child.owned_by(user_id),
+                    Recording.deleted_at.is_(None),
+                    holds_original(),
+                )
+                .values({fk_column: None, "updated_at": at, "server_seq": next_server_seq()})
+            )
         child_ids = select(model.id).where(
             getattr(model, fk_column).in_(parent_ids), child.owned_by(user_id)
         )

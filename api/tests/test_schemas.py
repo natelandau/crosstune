@@ -191,7 +191,12 @@ def test_every_table_has_a_schema_and_a_spec() -> None:
 
 # A merged tune points at the tune it merged into; deleting that tune keeps the pointer. A
 # recording keeps its own coordinates when its saved place is deleted, so it only unlinks.
-NOT_CASCADED = {("tunes", "merged_into_id"), ("recordings", "place_id")}
+# A piece of a split outlives the recording it was split from.
+NOT_CASCADED = {
+    ("tunes", "merged_into_id"),
+    ("recordings", "place_id"),
+    ("recordings", "split_from_id"),
+}
 
 
 def test_every_foreign_key_between_synced_tables_cascades_a_delete() -> None:

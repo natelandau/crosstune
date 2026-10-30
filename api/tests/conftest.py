@@ -40,6 +40,14 @@ from tests.fakes import (
     FakeRunner,
     FakeStripe,
 )
+from tests.helpers import (
+    DRIFT_RATIO,
+    GAPPED_WEBM_GAP_AT_S,
+    GAPPED_WEBM_GAP_MS,
+    LONG_STALL_GAP_MS,
+    STEPPED_BACK_MS,
+    WEBM_START_OFFSET_S,
+)
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Callable, Iterator
@@ -257,6 +265,37 @@ def long_m4a(tmp_path_factory: pytest.TempPathFactory) -> Path:
             str(seed),
             "-t",
             "3600",
+            "-c",
+            "copy",
+            "-f",
+            "mp4",
+            str(path),
+        ]
+    )
+    return path
+
+
+@pytest.fixture(scope="session")
+def four_hour_m4a(tmp_path_factory: pytest.TempPathFactory, long_m4a: Path) -> Path:
+    """A four-hour tone, built once by looping the one-hour file with stream copy.
+
+    Args:
+        tmp_path_factory: Builds one shared temp directory for the whole session.
+        long_m4a: The one-hour file to loop.
+
+    Returns:
+        Path: The generated file.
+    """
+    path = tmp_path_factory.mktemp("media-four-hour") / "four-hour.m4a"
+    _run_ffmpeg(
+        [
+            "-v",
+            "error",
+            "-y",
+            "-stream_loop",
+            "3",
+            "-i",
+            str(long_m4a),
             "-c",
             "copy",
             "-f",
@@ -694,3 +733,97 @@ def local_storage_buckets(
         except ClientError:
             continue
         rustfs.delete_bucket(Bucket=bucket)
+
+
+def _browser_webm(folder_name: str, tmp_path_factory, duration: int, retime: str) -> Path:
+    """Build mono 48 kHz noise as Opus in WebM, its packet timestamps rewritten by `retime`."""
+    if shutil.which("ffmpeg") is None:
+        pytest.skip("ffmpeg is not installed")
+    path = tmp_path_factory.mktemp(folder_name) / "browser.webm"
+    _run_ffmpeg(
+        [
+            "-v",
+            "error",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            f"anoisesrc=duration={duration}:amplitude=0.3:sample_rate=48000:seed=1",
+            "-af",
+            f"asetpts='{retime}'",
+            "-ac",
+            "1",
+            "-c:a",
+            "libopus",
+            "-b:a",
+            "64k",
+            "-f",
+            "webm",
+            str(path),
+        ]
+    )
+    return path
+
+
+@pytest.fixture(scope="session")
+def gapped_webm(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """Six seconds of noise as Opus in WebM with a 59 ms stall in its timestamps at 1 s.
+
+    A browser stamps each packet with the clock at capture, so a stall leaves a hole in
+    the timestamps that holds no audio: the container runs 59 ms longer than the samples.
+    """
+    shift = GAPPED_WEBM_GAP_MS / 1000
+    return _browser_webm(
+        "media-gapped",
+        tmp_path_factory,
+        6,
+        f"if(gt(PTS*TB,{GAPPED_WEBM_GAP_AT_S}),PTS+{shift}/TB,PTS)",
+    )
+
+
+@pytest.fixture(scope="session")
+def long_stalled_webm(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """Six seconds of noise as Opus in WebM with a 3 s stall in its timestamps at 1 s."""
+    shift = LONG_STALL_GAP_MS / 1000
+    return _browser_webm(
+        "media-long-stall",
+        tmp_path_factory,
+        6,
+        f"if(gt(PTS*TB,{GAPPED_WEBM_GAP_AT_S}),PTS+{shift}/TB,PTS)",
+    )
+
+
+@pytest.fixture(scope="session")
+def offset_gapped_webm(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """The gapped WebM, its timestamps starting 2 s in, as a recording that did not start at 0."""
+    shift = GAPPED_WEBM_GAP_MS / 1000
+    return _browser_webm(
+        "media-offset",
+        tmp_path_factory,
+        6,
+        f"PTS+{WEBM_START_OFFSET_S}/TB+if(gt(PTS*TB,{GAPPED_WEBM_GAP_AT_S}),{shift}/TB,0)",
+    )
+
+
+@pytest.fixture(scope="session")
+def stepped_back_webm(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """Six seconds of noise as Opus in WebM whose timestamps step back 10 ms at 1 s."""
+    return _browser_webm(
+        "media-stepped",
+        tmp_path_factory,
+        6,
+        f"if(gt(PTS*TB,{GAPPED_WEBM_GAP_AT_S}),PTS-{STEPPED_BACK_MS / 1000}/TB,PTS)",
+    )
+
+
+@pytest.fixture(scope="session", params=["slow", "fast"])
+def drifting_webm(request, tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """A minute of noise as Opus in WebM whose timestamps run 0.05% slow or fast."""
+    scale = 1 + DRIFT_RATIO if request.param == "slow" else 1 - DRIFT_RATIO
+    return _browser_webm(f"media-drift-{request.param}", tmp_path_factory, 60, f"PTS*{scale}")
+
+
+@pytest.fixture(scope="session")
+def plain_webm(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """Six seconds of noise as Opus in WebM with clean timestamps."""
+    return _browser_webm("media-plain-webm", tmp_path_factory, 6, "PTS")

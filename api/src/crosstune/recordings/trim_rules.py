@@ -10,9 +10,27 @@ if TYPE_CHECKING:
     from crosstune.models import Recording
 
 
+def original_range(recording: Recording) -> tuple[int, int | None]:
+    """The range of the source timeline the row's original covers.
+
+    Args:
+        recording: The recording to read.
+
+    Returns:
+        tuple[int, int | None]: The original's start on the source, and its end, which is
+            None before the recording has a length.
+    """
+    return recording.source_offset_ms, recording.source_duration_ms
+
+
 def clamp_stored_trim(recording: Recording, *, high: int | None) -> None:
-    """Narrow the row's saved trim into `[0, high]`, writing the columns only if that moves them."""
-    start_ms, end_ms = clamp_trim(recording.trim_start_ms, recording.trim_end_ms, low=0, high=high)
+    """Narrow the row's saved trim into `[source_offset_ms, high]`.
+
+    The columns are written only if that moves them.
+    """
+    start_ms, end_ms = clamp_trim(
+        recording.trim_start_ms, recording.trim_end_ms, low=recording.source_offset_ms, high=high
+    )
     if (start_ms, end_ms) != (recording.trim_start_ms, recording.trim_end_ms):
         recording.trim_start_ms = start_ms
         recording.trim_end_ms = end_ms

@@ -1989,6 +1989,19 @@
             "title": "Created At",
             "type": "string"
           },
+          "created_by_split_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Created By Split Id"
+          },
           "label": {
             "anyOf": [
               {
@@ -2169,6 +2182,46 @@
             "minimum": 50,
             "title": "Speed Percent",
             "type": "integer"
+          },
+          "split_from_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Split From Id"
+          },
+          "split_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Split Id"
+          },
+          "split_size": {
+            "anyOf": [
+              {
+                "maximum": 50,
+                "minimum": 2,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Split Size"
           },
           "trim_end_ms": {
             "anyOf": [
@@ -2602,6 +2655,18 @@
             "title": "Created At",
             "type": "string"
           },
+          "created_by_split_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By Split Id"
+          },
           "deleted_at": {
             "anyOf": [
               {
@@ -2891,6 +2956,55 @@
             "title": "Speed Percent",
             "type": "integer"
           },
+          "split_completed_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Split Completed Id"
+          },
+          "split_from_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Split From Id"
+          },
+          "split_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Split Id"
+          },
+          "split_size": {
+            "anyOf": [
+              {
+                "maximum": 50.0,
+                "minimum": 2.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Split Size"
+          },
           "state": {
             "$ref": "#/components/schemas/RecordingState"
           },
@@ -2953,7 +3067,8 @@
           "playback_start_ms",
           "playback_end_ms",
           "playback_rev",
-          "peaks_rev"
+          "peaks_rev",
+          "split_completed_id"
         ],
         "title": "RecordingRow",
         "type": "object"
@@ -3728,6 +3843,10 @@
             "title": "Quota Bytes",
             "type": "integer"
           },
+          "split_parent_max_file_bytes": {
+            "title": "Split Parent Max File Bytes",
+            "type": "integer"
+          },
           "used_bytes": {
             "title": "Used Bytes",
             "type": "integer"
@@ -3736,7 +3855,8 @@
         "required": [
           "used_bytes",
           "quota_bytes",
-          "max_file_bytes"
+          "max_file_bytes",
+          "split_parent_max_file_bytes"
         ],
         "title": "StorageResponse",
         "type": "object"

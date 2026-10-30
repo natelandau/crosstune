@@ -41,6 +41,7 @@ from crosstune.jobs.sweep import (
     live_pending_slot,
     purge_deleted,
     purge_deleted_scans,
+    queue_ready_splits,
     release_abandoned_slots,
 )
 from crosstune.jobs.sweep import sweep_orphans as sweep_orphan_prefixes
@@ -301,7 +302,8 @@ class JobRunner:
         Returns:
             int: How many units of work were done, so the loop knows whether to sleep.
         """
-        done = 0
+        # Before the claim, so a split queued here runs before the purge can reach its parent.
+        done = await queue_ready_splits(self._sessionmaker)
         job = await self._claim()
         if job is not None:
             await self._run_job(job)

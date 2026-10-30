@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 from crosstune.db.base import bump_server_seq, utc_now
 from crosstune.db.locks import lock_user
 from crosstune.jobs.audio_rewrite import rewrite_playback
-from crosstune.jobs.peaks import build_peaks, slice_peaks
+from crosstune.jobs.peaks import range_peaks
 from crosstune.recordings.loops import reclamp_recording_loops
 from crosstune.recordings.service import attach_peaks, attach_playback
 from crosstune.recordings.trim_rules import clamp_trim, effective_end
@@ -49,7 +49,7 @@ class _Cut:
 
 
 @dataclass(frozen=True)
-class _Files:
+class PlaybackFiles:
     """The row's current playback file and the source range it covers."""
 
     playback_key: str
@@ -58,7 +58,7 @@ class _Files:
     source_duration_ms: int
 
 
-def _current_files(recording: Recording) -> _Files:
+def current_files(recording: Recording) -> PlaybackFiles:
     """Read the playback file and the source range it covers from a ready row.
 
     Raises:
@@ -79,10 +79,10 @@ def _current_files(recording: Recording) -> _Files:
             f"source={source_duration_ms}"
         )
         raise TrimError(msg)
-    return _Files(recording.playback_key, start_ms, end_ms, source_duration_ms)
+    return PlaybackFiles(recording.playback_key, start_ms, end_ms, source_duration_ms)
 
 
-async def _back_up_playback(store: ObjectStore, recording: Recording, files: _Files) -> str:
+async def back_up_playback(store: ObjectStore, recording: Recording, files: PlaybackFiles) -> str:
     """Keep the playback file as the original when it is the only full copy of the source.
 
     A playback file that no longer covers the whole source would lose audio for
@@ -91,10 +91,14 @@ async def _back_up_playback(store: ObjectStore, recording: Recording, files: _Fi
     Returns:
         str: The original's key, already set on the row.
     """
-    if (files.start_ms, files.end_ms) != (0, files.source_duration_ms):
+    if recording.source_offset_ms != 0 or (files.start_ms, files.end_ms) != (
+        0,
+        files.source_duration_ms,
+    ):
         msg = (
             f"recording {recording.id} has no original and its playback file covers "
-            f"{files.start_ms}-{files.end_ms} of a {files.source_duration_ms} ms source"
+            f"{files.start_ms}-{files.end_ms} of a {files.source_duration_ms} ms source "
+            f"starting at {recording.source_offset_ms}"
         )
         raise TrimError(msg)
     kept = original_key(recording.user_id, recording.id, PLAYBACK_MIME)
@@ -108,7 +112,7 @@ async def _back_up_playback(store: ObjectStore, recording: Recording, files: _Fi
     return kept
 
 
-async def _require_backup(store: ObjectStore, key: str) -> None:
+async def require_backup(store: ObjectStore, key: str) -> None:
     """Refuse to commit a backup that is no longer in the bucket.
 
     A failed attempt that finds no original on its row deletes this same key while
@@ -128,7 +132,7 @@ async def _cut_and_upload(
     recording: Recording,
     *,
     original: str,
-    files: _Files,
+    files: PlaybackFiles,
     kept: tuple[int, int],
     work_dir: Path,
     uploaded: list[str],
@@ -138,7 +142,6 @@ async def _cut_and_upload(
     Every key is appended to `uploaded` before its upload starts, so the caller
     can delete what this attempt left behind if anything after it fails.
     """
-    start_ms, end_ms = kept
     source = work_dir / "original"
     target = work_dir / "playback.m4a"
     await store.download(original, source)
@@ -146,15 +149,13 @@ async def _cut_and_upload(
         store, recording, source=source, kept=kept, target=target, uploaded=uploaded
     )
 
+    current = (
+        partial(_fetch, store, recording.peaks_key, work_dir / "current-peaks.bin")
+        if recording.peaks_key is not None
+        else None
+    )
+    data = await range_peaks(current, (files.start_ms, files.end_ms), kept, partial(_ready, target))
     peaks_path = work_dir / "peaks.bin"
-    if recording.peaks_key is not None:
-        current = work_dir / "current-peaks.bin"
-        await store.download(recording.peaks_key, current)
-        # The current peaks file starts where the current playback file does.
-        full = await asyncio.to_thread(current.read_bytes)
-        data = slice_peaks(full, start_ms - files.start_ms, end_ms - files.start_ms)
-    else:
-        data = await build_peaks(target)
     await asyncio.to_thread(peaks_path.write_bytes, data)
 
     peaks = await upload_revision(
@@ -165,6 +166,15 @@ async def _cut_and_upload(
         uploaded=uploaded,
     )
     return _Cut(playback=playback, duration_ms=info.duration_ms, peaks=peaks)
+
+
+async def _fetch(store: ObjectStore, key: str, path: Path) -> Path:
+    await store.download(key, path)
+    return path
+
+
+async def _ready(path: Path) -> Path:
+    return path
 
 
 def _apply(recording: Recording, result: _Cut, start_ms: int, end_ms: int) -> list[str]:
@@ -217,7 +227,7 @@ async def trim(
     """
     requested = (recording.trim_start_ms, recording.trim_end_ms)
     peaks_key_used = recording.peaks_key
-    files = _current_files(recording)
+    files = current_files(recording)
     start_ms, end_ms = clamp_trim(
         recording.trim_start_ms,
         effective_end(recording),
@@ -238,7 +248,7 @@ async def trim(
             # playback file kept first when it is the only full copy.
             original = recording.original_key
             if original is None:
-                backup_key = await _back_up_playback(store, recording, files)
+                backup_key = await back_up_playback(store, recording, files)
                 original = backup_key
             result = await _cut_and_upload(
                 store,
@@ -263,7 +273,7 @@ async def trim(
             ],
         )
         if backup_key is not None:
-            await _require_backup(store, backup_key)
+            await require_backup(store, backup_key)
         stale = (
             (recording.trim_start_ms, recording.trim_end_ms) != requested
             or recording.playback_key != files.playback_key

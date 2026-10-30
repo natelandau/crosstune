@@ -91,8 +91,10 @@ class TableSpec:
     owned through a parent.
     parents lists (foreign key column, parent table) pairs whose target must be owned by the caller.
     insert_only names client fields a push writes when it creates the row and never changes after.
-    accepts_deleted_parents lets a soft-deleted parent count as owned, for rows a device can
-    write after another device deleted the parent.
+    sticky names client fields a push may replace but never clear: a push that leaves one
+    null keeps the stored value, so a device that has not pulled it never wipes it.
+    deleted_parents names the foreign key columns whose soft-deleted parent still counts as
+    owned, for rows a device can write after another device deleted the parent.
     append_only marks an event table: a row is written once and never edited or deleted.
     pulled is False for a table the main pull leaves out.
     children lists (child table, foreign key column on the child) pairs a delete of this
@@ -111,7 +113,8 @@ class TableSpec:
     owner_column: str | None
     parents: tuple[tuple[str, TableName], ...]
     insert_only: frozenset[str] = frozenset()
-    accepts_deleted_parents: bool = False
+    sticky: frozenset[str] = frozenset()
+    deleted_parents: frozenset[str] = frozenset()
     append_only: bool = False
     pulled: bool = True
     children: tuple[tuple[TableName, str], ...] = ()
@@ -242,10 +245,18 @@ TABLES: dict[TableName, TableSpec] = {
         RecordingData,
         RecordingRow,
         "user_id",
-        (("tune_id", "tunes"),),
+        (("tune_id", "tunes"), ("split_from_id", "recordings")),
         # Provenance decides whether the server fetches the file, so it is fixed at creation,
-        # as is the date the recording was added.
-        insert_only=frozenset({"source", "origin", "origin_url", "added_at"}),
+        # as is the date the recording was added. A piece never changes its parent recording
+        # or the split that created it.
+        insert_only=frozenset(
+            {"source", "origin", "origin_url", "added_at", "split_from_id", "created_by_split_id"}
+        ),
+        # A device that has not pulled a split pushes its parent without it, and clearing
+        # it would strand the pieces and drop the parent to the plain upload cap.
+        sticky=frozenset({"split_id", "split_size"}),
+        # A device can push a piece after another device deleted its parent recording.
+        deleted_parents=frozenset({"split_from_id"}),
         children=(("recording_loops", "recording_id"),),
         owns_files=True,
         scrub={
@@ -279,7 +290,7 @@ TABLES: dict[TableName, TableSpec] = {
         RecordingLoopRow,
         "user_id",
         (("recording_id", "recordings"),),
-        accepts_deleted_parents=True,
+        deleted_parents=frozenset({"recording_id"}),
         scrub={"label": None},
     ),
     "user_settings": TableSpec(
@@ -297,7 +308,7 @@ TABLES: dict[TableName, TableSpec] = {
             ("link_id", "recording_links"),
             ("list_id", "lists"),
         ),
-        accepts_deleted_parents=True,
+        deleted_parents=frozenset({"tune_id", "recording_id", "link_id", "list_id"}),
         append_only=True,
         pulled=False,
     ),
@@ -308,7 +319,7 @@ TABLES: dict[TableName, TableSpec] = {
         PracticeSessionRow,
         "user_id",
         (("recording_id", "recordings"), ("tune_id", "tunes")),
-        accepts_deleted_parents=True,
+        deleted_parents=frozenset({"recording_id", "tune_id"}),
         append_only=True,
         pulled=False,
     ),
@@ -319,7 +330,7 @@ TABLES: dict[TableName, TableSpec] = {
         ScanViewRow,
         "user_id",
         (("tune_id", "tunes"), ("list_id", "lists")),
-        accepts_deleted_parents=True,
+        deleted_parents=frozenset({"tune_id", "list_id"}),
         append_only=True,
         pulled=False,
     ),
@@ -335,6 +346,9 @@ TABLES: dict[TableName, TableSpec] = {
 }
 
 assert set(TABLES) == set(DATA_SCHEMAS) == set(ROW_SCHEMAS)  # noqa: S101
+assert all(  # noqa: S101
+    spec.deleted_parents <= {column for column, _ in spec.parents} for spec in TABLES.values()
+)
 
 
 def row_to_dict(obj: object) -> dict[str, Any]:

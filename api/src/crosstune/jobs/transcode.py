@@ -25,11 +25,14 @@ from crosstune.storage.store import (
     upload_key,
     upload_revision,
 )
-from crosstune.vocabulary import PlaceOrigin, RecordingPrecision, RecordingSource
+from crosstune.vocabulary import (
+    MAX_RECORDING_MS,
+    MAX_SPLIT_SOURCE_MS,
+    PlaceOrigin,
+    RecordingPrecision,
+    RecordingSource,
+)
 
-# The longest recording kept. Work grows with decoded length rather than file size, so a
-# small, dense upload could otherwise hold the job runner for the whole ffmpeg time limit.
-MAX_RECORDING_MS = 3 * 60 * 60 * 1000
 # How far past the limit a whole-file write runs, so output that reaches it shows the
 # source decodes for longer than the limit allows, whatever its own metadata says.
 OVERRUN_MS = 1000
@@ -43,6 +46,32 @@ if TYPE_CHECKING:
     from crosstune.jobs.media import Probe
     from crosstune.models import Recording
     from crosstune.storage.store import ObjectStore
+
+
+def allowed_source_ms(recording: Recording, duration_ms: int | None = None) -> int:
+    """The longest source a transcode accepts for this recording.
+
+    A source over `MAX_RECORDING_MS` is accepted only when the recording is the parent of
+    a split and its trim range, clamped to `MAX_SPLIT_SOURCE_MS`, fits `MAX_RECORDING_MS`.
+
+    Args:
+        recording: The recording about to be transcoded.
+        duration_ms: The probed source length, which an open trim end runs to. Unknown
+            reads the open end as the longest accepted source.
+
+    Returns:
+        int: `MAX_SPLIT_SOURCE_MS` for such a parent, else `MAX_RECORDING_MS`.
+    """
+    if recording.split_size is None:
+        return MAX_RECORDING_MS
+    start_ms, end_ms = clamp_trim(
+        recording.trim_start_ms, recording.trim_end_ms, low=0, high=MAX_SPLIT_SOURCE_MS
+    )
+    if end_ms is None:
+        end_ms = MAX_SPLIT_SOURCE_MS if duration_ms is None else duration_ms
+    if end_ms - start_ms > MAX_RECORDING_MS:
+        return MAX_RECORDING_MS
+    return MAX_SPLIT_SOURCE_MS
 
 
 @dataclass(frozen=True)
@@ -69,9 +98,11 @@ async def _write_playback(
     The backup always ends up holding the whole source, never just the trimmed range:
     an encode path copies the raw upload as is, and a passthrough path that needs a cut
     remuxes the upload to a full file first and keeps that instead of the raw upload.
+    A source over `MAX_RECORDING_MS` uses the encode path's backup and only ever has its
+    trim range cut, so the whole file is never remuxed or encoded.
     """
     source_key = upload_key(recording.user_id, recording.id)
-    if needs_encode(info):
+    if needs_encode(info) or info.duration_ms > MAX_RECORDING_MS:
         uploaded = await store.head(source_key)
         content_type = uploaded.content_type if uploaded else DEFAULT_CONTENT_TYPE
         kept = original_key(recording.user_id, recording.id, content_type)
@@ -179,14 +210,14 @@ async def transcode(
         work_dir: A directory for temp files, cleaned by the caller.
 
     Raises:
-        RecordingRefused: When the file claims, or turns out to decode to, more than
-            MAX_RECORDING_MS.
+        RecordingRefused: When the file claims more than `allowed_source_ms`, or its
+            playback turns out to decode to more than MAX_RECORDING_MS.
     """
     source = work_dir / "upload"
     target = work_dir / "playback.m4a"
     await store.download(upload_key(recording.user_id, recording.id), source)
     info = await probe(source)
-    if info.duration_ms > MAX_RECORDING_MS:
+    if info.duration_ms > allowed_source_ms(recording, info.duration_ms):
         raise RecordingRefused(RECORDING_TOO_LONG)
     recording.source_duration_ms = info.duration_ms
 

@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from crosstune.jobs.attempt import attempt_timeout, changed, load_claimed
-from crosstune.jobs.recovery import recover_failed_audio_rewrite
+from crosstune.jobs.recovery import Orphans, recover_failed_audio_rewrite
 from crosstune.jobs.reencode import reencode
 
 if TYPE_CHECKING:
@@ -39,7 +39,7 @@ async def run(ctx: JobContext, job: Job) -> None:
                 # once it has returned and something after it failed.
                 orphaned = changed(recording.playback_key, previous_playback_key)
                 await recover_failed_audio_rewrite(
-                    ctx, session, job, exc, orphaned=[orphaned], release_backup=False
+                    ctx, session, job, exc, orphaned=Orphans([orphaned]), release_backup=False
                 )
                 return
     if replacement is not None:

@@ -41,7 +41,8 @@ none of them outranks the others.
   catalog answers what a musician can play and what to learn next.
 - Record. Capture one tune at a time, as it is played at a jam, in a small
   session, or by one musician alone. File the recording under a tune, or
-  leave it unfiled for later.
+  leave it unfiled for later. Split a long recording into one recording
+  per tune.
 - Learn and practice by ear. Play a recording slower or faster, shift its
   pitch, and loop the hard part. Find and link other versions on streaming
   services.
