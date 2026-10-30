@@ -75,3 +75,5 @@ Import tunes reads tune titles only. To bring in recordings, such as voice memos
 On a Mac, or on the web with a mouse or trackpad, you can also drop audio files on the Recordings screen.
 
 Each uploaded recording goes to Unfiled. From there, you can file it under a tune.
+
+One recording can be up to 50 MB. A larger recording must be split into shorter recordings before it uploads.
