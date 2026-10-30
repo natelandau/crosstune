@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { recordingFile, recordingRow } from '../../test/rows'
-import { playbackWindow } from './playbackWindow'
+import { openTestDb } from '../../test/db'
+import { audioFileFor, loadAudioFile, playbackWindow } from './playbackWindow'
 
 describe('playbackWindow', () => {
   it('offsets by nothing for a captured blob, which starts at the source', () => {
@@ -69,5 +70,53 @@ describe('playbackWindow', () => {
     const row = recordingRow('rec_1', { trim_start_ms: 0, trim_end_ms: 4000 })
     const file = recordingFile('rec_1', { blob_start_ms: 1000, local_duration_ms: 3000 })
     expect(playbackWindow(row, file)).toEqual({ fromS: 0, toS: 3, lengthMs: 3000 })
+  })
+})
+
+describe('audioFileFor', () => {
+  const blob = new Blob(['x'])
+  const parent = recordingFile('rec_parent', { blob, blob_start_ms: 0, local_duration_ms: 180_000 })
+
+  it('plays a processing piece range from its parent blob', () => {
+    const piece = recordingRow('rec_piece', {
+      split_from_id: 'rec_parent',
+      state: 'processing',
+      trim_start_ms: 60_000,
+      trim_end_ms: 120_000,
+    })
+    const file = audioFileFor(piece, undefined, parent)
+    expect(file).toBe(parent)
+    expect(playbackWindow(piece, file!)).toEqual({ fromS: 60, toS: 120, lengthMs: 60_000 })
+  })
+
+  it('uses a ready piece own file', () => {
+    const piece = recordingRow('rec_piece', { split_from_id: 'rec_parent', state: 'ready' })
+    const own = recordingFile('rec_piece', { blob })
+    expect(audioFileFor(piece, own, parent)).toBe(own)
+    expect(audioFileFor(piece, undefined, parent)).toBeUndefined()
+  })
+
+  it('uses nothing when the parent holds no audio or the row is not a piece', () => {
+    const piece = recordingRow('rec_piece', { split_from_id: 'rec_parent', state: 'processing' })
+    expect(audioFileFor(piece, undefined, { ...parent, blob: null })).toBeUndefined()
+    expect(audioFileFor(piece, undefined, undefined)).toBeUndefined()
+    const plain = recordingRow('rec_plain', { state: 'processing' })
+    expect(audioFileFor(plain, undefined, parent)).toBeUndefined()
+  })
+
+  it("does not play a failed piece from its parent's audio", () => {
+    const piece = recordingRow('rec_piece', { split_from_id: 'rec_parent', state: 'failed' })
+    expect(audioFileFor(piece, undefined, parent)).toBeUndefined()
+  })
+})
+
+describe('loadAudioFile', () => {
+  it("reads a waiting piece's parent file, and nothing for no row", async () => {
+    const db = openTestDb()
+    const blob = new Blob(['x'])
+    await db.recording_files.put(recordingFile('rec_parent', { blob }))
+    const piece = recordingRow('rec_piece', { split_from_id: 'rec_parent', state: 'processing' })
+    expect((await loadAudioFile(db, piece))?.id).toBe('rec_parent')
+    expect(await loadAudioFile(db, null)).toBeUndefined()
   })
 })

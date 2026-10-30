@@ -1,8 +1,11 @@
 import { useCallback, useState } from 'react'
 
+/** What a failure says when it has no words of its own to show. */
+export const SOMETHING_WENT_WRONG = 'Something went wrong'
+
 /** The one wording for a rejection, so an inline error and a toast read the same. */
 export function messageFor(error: unknown): string {
-  return error instanceof Error ? error.message : 'Something went wrong'
+  return error instanceof Error ? error.message : SOMETHING_WENT_WRONG
 }
 
 export interface Action {

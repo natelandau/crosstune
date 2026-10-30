@@ -32,7 +32,13 @@ function renderRow(
   player = fakePlayer(),
   file?: RecordingView['file'],
 ) {
-  const view: RecordingView = { recording, file, tuneId: null, tuneTitle: null }
+  const view: RecordingView = {
+    recording,
+    file,
+    tuneId: null,
+    tuneTitle: null,
+    holdsSplitAudio: false,
+  }
   return renderHook(() => useRecordingRow(view), { wrapper: wrapperFor(player) })
 }
 
@@ -100,6 +106,7 @@ describe('useRecordingRow on a free plan', () => {
       file: undefined,
       tuneId: null,
       tuneTitle: null,
+      holdsSplitAudio: false,
     }
     const { result } = renderHook(
       () => ({ row: useRecordingRow(view), plan: usePlanOrUnknown().kind }),

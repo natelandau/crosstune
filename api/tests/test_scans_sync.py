@@ -42,9 +42,10 @@ async def test_push_cannot_write_server_columns(client, auth_headers, verify_ses
     [result] = await push(
         client, auth_headers("user_a"), scan(scan_id, tune, state="ready", file_bytes=1)
     )
-    assert result["status"] == "invalid"
-    assert "invalid fields" in result["reason"]
-    assert await verify_session.scalar(select(Scan).where(Scan.id == scan_id)) is None
+    assert result["status"] == "applied"
+    stored = await verify_session.scalar(select(Scan).where(Scan.id == scan_id))
+    assert (stored.state, stored.file_bytes) != ("ready", 1)
+    assert stored.file_bytes is None
 
 
 async def test_push_keeps_server_columns(client, auth_headers, verify_session) -> None:

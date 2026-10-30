@@ -105,6 +105,8 @@ const RECORDING_METADATA_KEYS = [
   'place_accuracy_m',
 ] as const
 
+const SPLIT_KEYS = ['split_from_id', 'split_id', 'split_size', 'created_by_split_id'] as const
+
 export class CrosstuneDb extends Dexie {
   // EntityTable<T, K> makes the key property K optional on insert, Dexie's convention for
   // autoincrement keys. These tables use app-supplied ids, so Table<T, string> keeps inserts
@@ -372,6 +374,28 @@ export class CrosstuneDb extends Dexie {
           entry.data.place_origin = row.place_origin
           await tx.table('outbox').put(entry)
         }
+      })
+
+    // Recordings gain the links a split makes between a parent recording and its pieces.
+    this.version(23)
+      .stores({ recordings: 'id, tune_id, state, split_from_id' })
+      .upgrade(async (tx) => {
+        const fill = (row: Record<string, unknown>) => {
+          for (const key of SPLIT_KEYS) row[key] ??= null
+        }
+        await tx
+          .table('recordings')
+          .toCollection()
+          .modify((row: Record<string, unknown>) => {
+            fill(row)
+            row.split_completed_id ??= null
+          })
+        await tx
+          .table('outbox')
+          .filter((entry: OutboxEntry) => entry.table === 'recordings' && entry.data != null)
+          .modify((entry: OutboxEntry) => {
+            if (entry.data) fill(entry.data)
+          })
       })
   }
 

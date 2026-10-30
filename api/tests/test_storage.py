@@ -127,6 +127,7 @@ def test_keys_share_the_user_prefix() -> None:
     assert playback_key("u1", "r1", "0a1b2c3d") == "u1/r1/playback-0a1b2c3d.m4a"
     assert original_key("u1", "r1", "audio/webm") == "u1/r1/original.webm"
     assert original_key("u1", "r1", "audio/x-something") == "u1/r1/original.bin"
+    assert original_key("u1", "r1", "audio/mp4", "ab12cd34") == "u1/r1/original-ab12cd34.m4a"
     assert user_prefix("u1") == "u1/"
 
 

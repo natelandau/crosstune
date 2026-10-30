@@ -287,6 +287,52 @@ final class ChannelSetting {
         #expect(Double(bytes) > Double(maxFileBytes) * 0.9)
     }
 
+    @Test func aRecordingRunsPastThePlainLimitToTheSplitParentLimit() async throws {
+        let maxFileBytes = 50_000
+        let splitParentMaxFileBytes = 100_000
+        try await store.setMeta(
+            .storage,
+            to: StorageUsage(
+                usedBytes: 0, quotaBytes: 1_000_000, maxFileBytes: maxFileBytes,
+                splitParentMaxFileBytes: splitParentMaxFileBytes))
+        await recorder.start(tuneID: nil)
+
+        var buffers = 0
+        while recorder.state == .recording, buffers < 1_000 {
+            try input.play(seconds: 0.1)
+            buffers += 1
+            await Task.yield()
+        }
+        try await eventually { recorder.state == .idle }
+
+        let saved = try #require(recorder.savedRecordingID)
+        #expect(recorder.errorMessage == Recorder.sizeLimit)
+        let bytes = try #require(try await store.read { db in try RecordingFile.fetchOne(db, key: saved) }?.bytes)
+        #expect(bytes > maxFileBytes)
+        #expect(bytes < splitParentMaxFileBytes)
+    }
+
+    @Test func aRecordingStopsWithinOneBufferOfTheCaptureStop() async throws {
+        let recorder = Recorder(store: store, input: input, channels: { .mono }, captureStopMs: 1_000)
+        await recorder.start(tuneID: nil)
+
+        var buffers = 0
+        while recorder.state == .recording, buffers < 100 {
+            // Each buffer can land past the stop, as a real input's do.
+            try input.play(seconds: 0.3)
+            buffers += 1
+            await Task.yield()
+        }
+        try await eventually { recorder.state == .idle }
+
+        let saved = try #require(recorder.savedRecordingID)
+        #expect(recorder.errorMessage == Recorder.sizeLimit)
+        let length = try #require(
+            try await store.read { db in try RecordingFile.fetchOne(db, key: saved) }?.localDurationMs)
+        #expect(length >= 1_000)
+        #expect(length <= 1_300)
+    }
+
     @Test func stoppingARecordingWithNoAudioSaysNothingWasRecorded() async throws {
         await recorder.start(tuneID: nil)
 

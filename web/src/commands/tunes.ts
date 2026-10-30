@@ -164,7 +164,8 @@ export async function setPlaySource(
 }
 
 /**
- * A tune and everything that hangs off it. Call inside a `recordingTx`, which is what deleting
+ * A tune and everything but its recordings that hangs off it; `tombstoneTuneRecordings` follows
+ * once for every tune the delete removes. Call inside a `recordingTx`, which is what deleting
  * one tune and deleting a selection of them share.
  */
 export async function tombstoneTune(db: CrosstuneDb, tuneId: string, at: string): Promise<void> {
@@ -176,10 +177,12 @@ export async function tombstoneTune(db: CrosstuneDb, tuneId: string, at: string)
   }
   await tombstoneWhere(db, 'recording_links', 'tune_id', tuneId, at)
   await tombstoneWhere(db, 'scans', 'tune_id', tuneId, at)
-  await tombstoneTuneRecordings(db, tuneId, at)
 }
 
 export async function deleteTune(db: CrosstuneDb, tuneId: string): Promise<void> {
   const at = now()
-  await recordingTx(db, () => tombstoneTune(db, tuneId, at))
+  await recordingTx(db, async () => {
+    await tombstoneTune(db, tuneId, at)
+    await tombstoneTuneRecordings(db, [tuneId], at)
+  })
 }

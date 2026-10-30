@@ -5,6 +5,7 @@ import type { LocalTune, LocalUserTune } from '../db/types'
 import { activeItems, createList, deleteList, restoreListItems } from './lists'
 import { setTuning, tuningEntry, tuningsMap } from '../domain/instruments'
 import { LIST_NOT_FOUND, TUNE_NOT_FOUND, TUNE_NOT_IN_LIST } from './messages'
+import { tombstoneTuneRecordings } from './recordings'
 import { tombstoneTune, type TuneInput, type UserTuneInput } from './tunes'
 import { newId, nextPosition, now, putRow, recordingTx, tombstone, writeTx } from './write'
 
@@ -184,6 +185,7 @@ export async function deleteTunes(
     const userTunes = await liveRows(db.user_tunes, unique(userTuneIds), TUNE_NOT_FOUND)
     const tuneIds = new Set(userTunes.map((userTune) => userTune.tune_id))
     for (const tuneId of tuneIds) await tombstoneTune(db, tuneId, at)
+    await tombstoneTuneRecordings(db, [...tuneIds], at)
     return tuneIds.size
   })
 }

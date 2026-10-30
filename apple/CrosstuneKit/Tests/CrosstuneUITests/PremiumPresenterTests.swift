@@ -259,7 +259,7 @@ private func entitlement(source: String?, expiresAt: Date? = nil) -> Entitlement
         let recording = Recording(id: "r1", tuneID: "t1", source: "microphone", addedAt: noon, state: "ready")
         let view = RecordingView(recording: recording, file: nil, tuneID: "t1", tuneTitle: "Kitchen Girl")
 
-        TuneMediaRows.item(view) { _ in }.offerPremium(presenter)
+        TuneMediaRows.item(view, uploadLimits: nil) { _ in }.offerPremium(presenter)
 
         #expect(presenter.presented == .recordings)
         #expect(

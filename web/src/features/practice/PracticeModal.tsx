@@ -13,11 +13,17 @@ import { useAnalytics } from '../../usage/AnalyticsProvider'
 import { listPosition } from '../player/playerCopy'
 import { useListPlayback } from '../player/useListPlayback'
 import { useRecordingActionsWith } from '../recordings/useRecordingActionsWith'
-import { practiceDisabledReason, trimDisabledReason } from './practiceOverlayModel'
+import { useUploadLimits } from '../recordings/useUploadLimits'
+import {
+  practiceDisabledReason,
+  splitDisabledReason,
+  trimDisabledReason,
+} from './practiceOverlayModel'
 import { recordingsPlayable } from '../../billing/plan'
 import { usePlanOrUnknown } from '../../billing/usePlan'
 import { usePracticeOverlayView } from './usePracticeOverlayView'
 import { useTrimHold } from './useTrimHold'
+import type { PracticeOpensIn } from './usePracticeOverlay'
 import { useWakeLock } from '../../platform/wakeLock'
 import { useEscapeCapture } from '../../ui/useEscapeCapture'
 import { useLatest } from '../../ui/useLatest'
@@ -31,6 +37,7 @@ import { ErrorLine } from '../../ui/ErrorLine'
 import { useOnTop, useOverlayClaim } from '../../ui/overlayClaim'
 import { PracticeHeader } from './PracticeHeader'
 import { PracticeView, type SavedFocus } from './PracticeView'
+import { SplitPanel } from './SplitPanel'
 import { TrimPanel } from './TrimPanel'
 
 const MotionModal = motion.create(Modal)
@@ -63,9 +70,17 @@ const FULL_CLIP = 'inset(0px 0px 0px 0px)'
 
 /**
  * Practice itself, loaded on its first open: the overlay's motion, its header, practice or
- * trim, and the sheets its More menu opens.
+ * trim or split, and the sheets its More menu opens.
  */
-export function PracticeModal({ id, onClose }: { id: string; onClose: () => void }) {
+export function PracticeModal({
+  id,
+  opensIn = 'main',
+  onClose,
+}: {
+  id: string
+  opensIn?: PracticeOpensIn
+  onClose: () => void
+}) {
   const navigate = useNavigate()
   const analytics = useAnalytics()
   // The modal mounts once per open.
@@ -75,7 +90,7 @@ export function PracticeModal({ id, onClose }: { id: string; onClose: () => void
   const isTop = useOverlayClaim({ coversShell: true, close: () => stepOutRef.current?.() })
   const phone = useFrame() === 'phone'
   const reduceMotion = useReducedMotionConfig() ?? false
-  const state = usePracticeOverlayView(id)
+  const state = usePracticeOverlayView(id, opensIn)
   const { view, title, subtitle, shows } = state
   // A recording practiced with the device propped up with the hands on the violin, must not dim.
   useWakeLock(true)
@@ -83,7 +98,7 @@ export function PracticeModal({ id, onClose }: { id: string; onClose: () => void
   const listed = playback.active?.message === null ? playback.active : null
   useTrimHold(
     id,
-    view !== null && shows === 'trim',
+    view !== null && (shows === 'trim' || shows === 'split'),
     view ? { speed: view.recording.speed_percent, pitch: view.recording.pitch_cents } : undefined,
   )
 
@@ -93,12 +108,17 @@ export function PracticeModal({ id, onClose }: { id: string; onClose: () => void
   }
   const confirm = useConfirm()
   const recordingsPlay = recordingsPlayable(usePlanOrUnknown())
+  const uploadLimits = useUploadLimits()
   const actions = useRecordingActionsWith({
     confirm,
     // A control with nothing to act on is absent, so a free plan's menu has no Trim.
     onTrim: recordingsPlay ? state.openTrim : undefined,
     trimBlocked: view
-      ? trimDisabledReason(view.recording, view.file, state.audio, recordingsPlay)
+      ? trimDisabledReason(view.recording, view.file, uploadLimits, state.audio, recordingsPlay)
+      : undefined,
+    onSplit: recordingsPlay ? state.openSplit : undefined,
+    splitBlocked: view
+      ? splitDisabledReason(view.recording, view.file, uploadLimits, state.audio, recordingsPlay)
       : undefined,
     onOpenTune: (opened) => {
       if (opened.tuneId) openTune(opened.tuneId)
@@ -129,7 +149,7 @@ export function PracticeModal({ id, onClose }: { id: string; onClose: () => void
   }, [main, stepOut])
   useEscapeCapture(stepOut, { enabled: main, when: isTop })
 
-  // Leaving trim puts focus back on More, once whatever trim stacked over practice, such as
+  // Leaving trim or split puts focus back on More, once whatever it stacked over practice, such as
   // Save's question, has let go of it.
   const top = useOnTop(isTop)
   const moreRef = useRef<HTMLButtonElement>(null)
@@ -140,7 +160,7 @@ export function PracticeModal({ id, onClose }: { id: string; onClose: () => void
     returning.current = false
     if (wasReturning) moreRef.current?.focus()
   }, [main, top])
-  const leavingTrim = (leave: () => void) => () => {
+  const leavingEditor = (leave: () => void) => () => {
     returning.current = true
     leave()
   }
@@ -202,8 +222,18 @@ export function PracticeModal({ id, onClose }: { id: string; onClose: () => void
                 shown={state.peaks}
                 isTop={isTop}
                 stepOutRef={stepOutRef}
-                onDone={leavingTrim(state.leaveTrim)}
-                onTrimmedElsewhere={leavingTrim(state.trimmedElsewhere)}
+                onDone={leavingEditor(state.leaveTrim)}
+                onTrimmedElsewhere={leavingEditor(state.trimmedElsewhere)}
+              />
+            ) : shows === 'split' && view ? (
+              <SplitPanel
+                key={view.recording.id}
+                view={view}
+                shown={state.peaks}
+                isTop={isTop}
+                stepOutRef={stepOutRef}
+                onDone={leavingEditor(state.leaveSplit)}
+                onTrimmedElsewhere={leavingEditor(state.trimmedElsewhere)}
               />
             ) : (
               <>
@@ -243,7 +273,12 @@ export function PracticeModal({ id, onClose }: { id: string; onClose: () => void
                         key={view.recording.id}
                         view={view}
                         shown={state.peaks}
-                        blocked={practiceDisabledReason(view.file, state.audio, recordingsPlay)}
+                        blocked={practiceDisabledReason(
+                          view.recording,
+                          view.file,
+                          state.audio,
+                          recordingsPlay,
+                        )}
                         escapeRef={escapeRef}
                         savedFocus={savedFocus}
                         isTop={isTop}

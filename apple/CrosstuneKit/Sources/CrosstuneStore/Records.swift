@@ -106,7 +106,7 @@ let keysNotInChanges: Set<String> = ownershipKeys.union([
     "id", "updated_at", "deleted_at", "server_seq",
     "state", "duration_ms", "playback_mime", "playback_bytes", "error",
     "source_duration_ms", "playback_start_ms", "playback_end_ms", "playback_rev", "peaks_rev",
-    "file_bytes",
+    "file_bytes", "split_completed_id",
 ])
 
 extension SyncedRecord {
@@ -550,6 +550,15 @@ public struct Recording: SyncedRecord, Hashable {
     /// How the coordinates were obtained, as a ``PlaceOrigin`` raw value; nil exactly when
     /// there are no coordinates.
     public var placeOrigin: String?
+    /// The parent recording a piece was cut from.
+    public var splitFromID: String?
+    /// On a parent recording, the latest split it is parent of; `splitSize` is that split's piece count.
+    public var splitID: String?
+    public var splitSize: Int?
+    /// The split that created a piece. Set once, never changed.
+    public var createdBySplitID: String?
+    /// The server's mark that every piece of `splitID` exists: read here, never sent in a change.
+    public var splitCompletedID: String?
     public var extra: JSONObject
 
     public enum CodingKeys: String, CodingKey, CaseIterable, ColumnExpression {
@@ -585,6 +594,11 @@ public struct Recording: SyncedRecord, Hashable {
         case placeAccuracyM = "place_accuracy_m"
         case placeID = "place_id"
         case placeOrigin = "place_origin"
+        case splitFromID = "split_from_id"
+        case splitID = "split_id"
+        case splitSize = "split_size"
+        case createdBySplitID = "created_by_split_id"
+        case splitCompletedID = "split_completed_id"
         case extra
     }
 
@@ -607,6 +621,8 @@ public struct Recording: SyncedRecord, Hashable {
         trimStartMs: Int64 = 0, trimEndMs: Int64? = nil, speedPercent: Int = 100, pitchCents: Int = 0,
         notes: String? = nil, players: String? = nil, placeName: String? = nil, placeLat: Double? = nil,
         placeLon: Double? = nil, placeAccuracyM: Int? = nil, placeID: String? = nil, placeOrigin: String? = nil,
+        splitFromID: String? = nil, splitID: String? = nil, splitSize: Int? = nil,
+        createdBySplitID: String? = nil, splitCompletedID: String? = nil,
         extra: JSONObject = [:]
     ) {
         self.id = id
@@ -645,6 +661,11 @@ public struct Recording: SyncedRecord, Hashable {
         self.placeAccuracyM = placeAccuracyM
         self.placeID = placeID
         self.placeOrigin = placeOrigin
+        self.splitFromID = splitFromID
+        self.splitID = splitID
+        self.splitSize = splitSize
+        self.createdBySplitID = createdBySplitID
+        self.splitCompletedID = splitCompletedID
         self.extra = extra
     }
 

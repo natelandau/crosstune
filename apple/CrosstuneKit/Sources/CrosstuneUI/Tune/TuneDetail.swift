@@ -8,6 +8,11 @@ import GRDB
 public struct TuneRecording: Hashable, Sendable, Identifiable {
     public let recording: Recording
     public let file: RecordingFile?
+    /// Whether a piece split from the recording still plays from its audio.
+    public var holdsSplitAudio = false
+    /// Whether deleting the tune keeps the recording, unfiled: a piece outside the tune still
+    /// plays from its audio.
+    public var keptByTuneDelete = false
 
     public var id: String { recording.id }
 }
@@ -39,11 +44,13 @@ public struct TuneDetail: Hashable, Sendable {
     public let playFirst: String
     /// Whether the lyrics hold words: whitespace alone would open the reading view on a blank page.
     public let hasLyrics: Bool
+    /// The plain per-file upload cap, nil until the server has reported it.
+    public let uploadLimits: StorageUsage?
 
     public init(
         tune: Tune, userTune: UserTune, links: [RecordingLink] = [], recordings: [TuneRecording] = [],
         lists: [TuneMembership] = [], instruments: Set<String> = [], searchProviders: [String] = searchableProviders,
-        playFirst: String = UserSettings.defaultPlayFirst
+        playFirst: String = UserSettings.defaultPlayFirst, uploadLimits: StorageUsage? = nil
     ) {
         self.tune = tune
         self.userTune = userTune
@@ -53,6 +60,7 @@ public struct TuneDetail: Hashable, Sendable {
         self.instruments = instruments
         self.searchProviders = searchProviders
         self.playFirst = playFirst
+        self.uploadLimits = uploadLimits
         hasLyrics = !LyricLines.lines(tune.lyrics).isEmpty
     }
 
@@ -116,7 +124,7 @@ public struct TuneDetail: Hashable, Sendable {
 
     /// The delete confirmation's message.
     public var deleteMessage: String {
-        DeleteTuneMessage.one(files: recordings.map(\.file))
+        DeleteTuneMessage.one(files: recordings.filter { !$0.keptByTuneDelete }.map(\.file))
     }
 
     /// A tune's rows with the musician's own before imported ones, each in the order given.
@@ -135,6 +143,9 @@ public struct TuneDetail: Hashable, Sendable {
         let recordings = activeByPosition(try Recording.filter(Recording.CodingKeys.tuneID == tuneID).fetchAll(db))
         let files = try RecordingFile.fetchAll(db, keys: recordings.map(\.id))
         let fileByID = Dictionary(files.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        let pieces = try RecordingLimits.splitPieces(db)
+        let waiting = RecordingLimits.waitingParentIDs(in: pieces)
+        let kept = RecordingLimits.keptByTuneDelete(recordings, pieces: pieces)
         let items = try ListItem.filter(ListItem.CodingKeys.userTuneID == userTune.id)
             .filter(ListItem.CodingKeys.deletedAt == nil).fetchAll(db)
         let itemByList = Dictionary(items.map { ($0.listID, $0.id) }, uniquingKeysWith: { first, _ in first })
@@ -142,12 +153,19 @@ public struct TuneDetail: Hashable, Sendable {
         let settings = try UserSettings.fetchOne(db, key: settingsID)
         return TuneDetail(
             tune: tune, userTune: userTune, links: links,
-            recordings: ownFirst(recordings.map { TuneRecording(recording: $0, file: fileByID[$0.id]) }),
+            recordings: ownFirst(
+                recordings.map {
+                    TuneRecording(
+                        recording: $0, file: fileByID[$0.id],
+                        holdsSplitAudio: RecordingLimits.holdsSplitAudio($0, waitingParentIDs: waiting),
+                        keptByTuneDelete: kept.contains($0.id))
+                }),
             lists: lists.compactMap { list in
                 itemByList[list.id].map { TuneMembership(list: list, itemID: $0) }
             },
             instruments: settings?.deletedAt == nil ? Set(settings?.instruments ?? []) : [],
-            searchProviders: chosenSearchProviders(settings), playFirst: storedPlayFirst(settings))
+            searchProviders: chosenSearchProviders(settings), playFirst: storedPlayFirst(settings),
+            uploadLimits: try? MetaKey.storage.value(in: db, as: StorageUsage.self))
     }
 }
 

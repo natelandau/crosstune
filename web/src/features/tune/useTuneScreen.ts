@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
+import { useDb } from '../../db/DbProvider'
 import type { Instrument } from '../../api/vocabulary'
 import type { MenuItem } from '../../ui/menuTypes'
 import { DELETE } from '../../ui/confirmCopy'
@@ -14,7 +15,7 @@ import { lyricOpening } from '../lyrics/lyricLines'
 import { useRecordingsWithFiles, type RecordingView } from '../recordings/useRecordings'
 import { useInstruments } from '../settings/useInstruments'
 import { ARCHIVE, UNARCHIVE } from './archiveLabels'
-import { deleteTuneMessage, deleteTuneTitle } from './deleteTuneMessage'
+import { deleteTunesQuestion } from './deleteTuneQuestion'
 import { useTune, type TuneView } from './useTune'
 import { EDIT_ALL_DETAILS } from './tuneScreenCopy'
 import { useTuneActions } from './useTuneActions'
@@ -79,6 +80,7 @@ export function useTuneScreen(
     leave: () => void
   },
 ): TuneScreenData {
+  const db = useDb()
   const listActions = useListActions()
   const tuneActions = useTuneActions()
   const view = useTune(tuneId)
@@ -158,11 +160,9 @@ export function useTuneScreen(
         label: DELETE,
         tone: 'error',
         onPress: () =>
-          void deletion.start(view.tune.title, {
-            title: deleteTuneTitle(view.tune.title),
-            message: deleteTuneMessage(recordings ?? []),
-            action: DELETE,
-          }),
+          void deleteTunesQuestion(db, [view]).then((question) =>
+            deletion.start(view.tune.title, { ...question, action: DELETE }),
+          ),
       },
     ]
   }

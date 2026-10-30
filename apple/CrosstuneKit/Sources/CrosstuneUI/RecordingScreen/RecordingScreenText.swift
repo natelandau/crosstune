@@ -40,6 +40,37 @@ public enum RecordingScreenText {
     public static let trimConfirmMessage = "This can't be undone."
     public static let trimConfirmAction = "Trim"
 
+    public static let split = "Split"
+    public static let removeCut = "Remove cut"
+    public static let pieceMinHint = "Each piece must be at least 1 second long"
+    public static let pieceMaxHint = "This piece is too long to upload. Add a cut to shorten it."
+    public static let previousCut = "Previous cut"
+    public static let nextCut = "Next cut"
+    public static let splitConfirmMessage = "This can't be undone."
+    public static let splitConfirmAction = "Split"
+    public static let splitBusy = "Still processing"
+    public static let deleteWhileSplitting = "Wait for the split to finish"
+
+    /// `Split at 9:12`, the time the cut lands.
+    public static func splitAt(milliseconds: Int64) -> String {
+        "Split at \(RecordingText.duration(of: milliseconds))"
+    }
+
+    /// `Cut 2`, a cut's handle on the zoomed strip.
+    public static func cutHandle(_ number: Int) -> String {
+        "Cut \(number)"
+    }
+
+    /// `Piece 2 of 3`.
+    public static func pieceOf(_ number: Int, count: Int) -> String {
+        "Piece \(number) of \(count)"
+    }
+
+    /// `Split into 3 recordings?`
+    public static func splitConfirmTitle(count: Int) -> String {
+        "Split into \(count) recordings?"
+    }
+
     /// `Trim to 3:12?`, the length the recording keeps.
     public static func trimConfirmTitle(milliseconds: Int64) -> String {
         "Trim to \(RecordingText.duration(milliseconds: milliseconds) ?? "")?"
@@ -147,6 +178,23 @@ public enum RecordingScreenText {
         if audio == .unavailable { return offline ? SyncStatus.offlineLabel : RecordingText.downloadFailed }
         if trimPending(recording) { return trimBusy }
         return nil
+    }
+
+    /// Why Split cannot be used now, or nil when it can: Trim's reasons first, then a split of
+    /// the row still being cut, or the row being a piece the server has not cut yet.
+    static func splitDisabledReason(
+        _ recording: Recording, file: RecordingFile?, audio: RecordingAudio?, offline: Bool = false
+    ) -> String? {
+        if let reason = trimDisabledReason(recording, file: file, audio: audio, offline: offline) { return reason }
+        if RecordingLimits.splitIncomplete(recording) { return splitBusy }
+        if RecordingLimits.waitsForCut(recording) { return splitBusy }
+        return nil
+    }
+
+    /// Why Delete cannot be used now, or nil when it can: a piece split from the recording still
+    /// waits for its cut and plays from its audio.
+    static func deleteDisabledReason(_ view: RecordingView) -> String? {
+        view.holdsSplitAudio ? deleteWhileSplitting : nil
     }
 
     /// True while a ready recording's playback file does not match its trim yet, when a

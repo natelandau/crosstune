@@ -25,6 +25,8 @@ from crosstune.vocabulary import (
     MAX_EVENT_DURATION_MS,
     MAX_LOOPS_PER_RECORDING,
     MAX_MODES,
+    MAX_SPLIT_PIECES,
+    MIN_SPLIT_PIECES,
     PITCH_CENTS_MAX,
     PITCH_CENTS_MIN,
     PLACE_ACCURACY_M_MAX,
@@ -266,6 +268,10 @@ class _RecordingFields(_Data):
     trim_end_ms: int | None = Field(default=None, ge=0)
     speed_percent: int = Field(default=100, ge=SPEED_PERCENT_MIN, le=SPEED_PERCENT_MAX)
     pitch_cents: int = Field(default=0, ge=PITCH_CENTS_MIN, le=PITCH_CENTS_MAX)
+    split_from_id: uuid.UUID | None = None
+    created_by_split_id: uuid.UUID | None = None
+    split_id: uuid.UUID | None = None
+    split_size: int | None = Field(default=None, ge=MIN_SPLIT_PIECES, le=MAX_SPLIT_PIECES)
 
     @field_validator("place_lon")
     @classmethod
@@ -534,6 +540,7 @@ class RecordingRow(_RecordingFields, _Row):
     playback_end_ms: int | None
     playback_rev: str | None
     peaks_rev: str | None
+    split_completed_id: uuid.UUID | None
 
 
 class PlaceRow(PlaceData, _Row):

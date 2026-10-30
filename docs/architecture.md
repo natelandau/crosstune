@@ -11,7 +11,7 @@ How one feature works is in its code. Deploys and releases:
 | ----------------- | ----------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
 | iPhone, iPad, Mac | One native SwiftUI app                                                                          | Capacitor, which closes the iOS gaps only through native plugins                          |
 | Android, browsers | The web client, an installable PWA. Android's store build is it in a Capacitor shell            | A native Android app: a third client and a third sync engine                              |
-| API               | Python, FastAPI. Server audio work (transcode, trim, peaks) in Python                           | Speed or pitch on the server: both play on the device                                     |
+| API               | Python, FastAPI. Server audio work (transcode, trim, split, peaks) in Python                    | Speed or pitch on the server: both play on the device                                     |
 | Web client        | React, Vite, React Router in data mode, React Aria Components, Motion, Tailwind `@theme` tokens | A component library (Ionic, daisyUI), or two component systems in one interface           |
 | Apple local store | SQLite through GRDB                                                                             | SwiftData or SQLiteData: the sync rules need exact control of transactions and migrations |
 | Web local store   | IndexedDB through Dexie                                                                         |                                                                                           |
@@ -111,7 +111,10 @@ How one feature works is in its code. Deploys and releases:
     client overwrites its copy.
   - `invalid`: only that change is refused. The client drops it and
     reports to Sentry.
-- A row with an unknown field, or missing a required one, is `invalid`. A
+- A row with an unknown field, or missing a required one, is `invalid`.
+  Exception: a recording push drops every field only a pulled row carries
+  (`state`, `split_completed_id`, ...) before validation, so a client that
+  echoes pulled fields it does not know keeps syncing. A
   missing optional field takes its default, so an upsert from a client
   that predates the field resets it. A field the server must protect from
   older clients keeps its stored value when a push omits it
@@ -262,19 +265,60 @@ How one feature works is in its code. Deploys and releases:
 - ffprobe and ffmpeg read uploads only as local files, through the
   demuxers of the allowed types, with no environment but `PATH`, and under
   `prlimit` on Linux. The API process is non-dumpable. A recording past
-  `MAX_RECORDING_MS` fails: before any encode when its metadata says so,
-  and otherwise when a whole-file write, which stops just past the limit,
-  reaches it. Encode time follows decoded length, not file size, and must
+  `MAX_RECORDING_MS` fails, unless it is a split parent (below): before
+  any encode when its metadata says so, and otherwise when a whole-file
+  write, which stops just past the limit, reaches it. Encode time follows decoded length, not file size, and must
   stay inside the ffmpeg time limit.
 - A signed download URL carries the revision it covers. A client records
   that revision against the file and seeks by the file's own start offset,
   never the row's, so a file from before a later trim still plays.
 - A new file version gets a new revisioned key. The old object is deleted
   only after the commit that stops pointing at it.
-- Recording originals are kept only so a transcode or trim can be redone.
-  Never serve one or build a feature on one.
+- Recording originals are never served. Transcode, trim, and split read
+  them.
+- A split writes originals under revisioned keys, and a replaced original
+  is deleted only after the commit that stops naming it. When a split
+  completes, a live parent recording swaps the full original for a slice
+  from its trim start to its first piece's start, or to its trim end if
+  that is later. A trim saved after the split never removes audio from
+  the original. A soft-deleted parent keeps the full original until the
+  purge.
+- A split makes pieces. The parent recording keeps the range of the first
+  piece, and each later piece is a new recording with `split_from_id`.
+  Each piece keeps its own stream-copied slice of the parent's original.
+- A push never clears a stored `split_id` or `split_size`; only a new
+  `split_id` replaces them. A push never widens a split parent's trim past
+  its stored start or its split's first piece. Both are rewritten in
+  place, never refused, since a device that has not pulled the split
+  pushes the parent without it.
+- A piece may arrive before its parent's `split_id`. It stays
+  `processing`, held to `MAX_SPLIT_PIECES` per `created_by_split_id`,
+  and is cut once the parent's split lands.
+- Every position (trim, loops, playback range) is on the source timeline.
+  An original covers `source_offset_ms` to `source_duration_ms` of it.
+  Both are server-owned.
+- A recording over `MAX_RECORDING_MS` (3 hours) is accepted only as the
+  parent of a split whose trim range is at most 3 hours, up to
+  `MAX_SPLIT_SOURCE_MS` (12 hours). Its source is never decoded whole.
+- A split parent's upload may be up to `split_parent_max_file_bytes`
+  (12 hours at the highest capture rate); every other upload keeps
+  `max_file_bytes`. Both count against the quota. Capture stops near the
+  split-parent cap or a minute short of `MAX_SPLIT_SOURCE_MS`, whichever
+  comes first, so the saved length stays within it.
+- Clients hold the upload of an unsplit recording over 3 hours or over
+  `max_file_bytes` until it is split. A file over 12 hours or over the
+  split-parent cap is not held: its upload meets the server's refusal.
+- A parent recording holds its full original while a live piece split
+  from it is `processing`, unless the parent is `failed`. The purge
+  sweep and the parent's trim job wait for that hold. A failed parent
+  fails its waiting pieces and completes its split.
 - A partial date is stored as UTC midnight at the start of its period and
   always shown in UTC, so a year never slips a day west of UTC.
+- Every local delete path keeps a parent recording's audio file while a
+  live piece split from it is `processing` and the parent is not
+  `failed`, since the piece plays from it. Delete is disabled, a tune's
+  delete leaves the parent unfiled unless the same delete removes every
+  such piece, and a pulled tombstone keeps the file until a later pass.
 - A local delete of anything with files runs inside
   `CrosstuneStore.writeDroppingFiles` on Apple, which removes files only
   after the write commits.

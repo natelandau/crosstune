@@ -19,10 +19,11 @@ from crosstune.inactivity import sweep as sweep_module
 from crosstune.inactivity.emails import idempotency_key
 from crosstune.inactivity.rules import FIRST_NOTICE, INACTIVE_AFTER, Step
 from crosstune.inactivity.sweep import run_inactivity
-from crosstune.jobs.sweep import purge_deleted, purge_deleted_scans
+from crosstune.jobs.sweep import purge_deleted, purge_deleted_scans, queue_ready_splits
 from crosstune.models import (
     Grant,
     InactivityNotice,
+    Job,
     List,
     Recording,
     RecordingLoop,
@@ -911,3 +912,35 @@ async def test_an_account_deleted_while_its_warning_is_sent_records_nothing(
     assert not await _user_exists(verify_session, victim.user)
     assert await notice_of(verify_session, victim.user) is None
     assert await notice_of(verify_session, other.user) is not None
+
+
+async def test_deleting_the_files_lets_the_sweep_queue_the_split_job_of_a_removed_piece(
+    sessionmaker: async_sessionmaker[AsyncSession],
+    clerk: FakeClerkUsers,
+    store: FakeObjectStore,
+    truncate_all: None,
+) -> None:
+    async with sessionmaker() as session:
+        seeded = await seed_user(session, clerk, store)
+        parent = seeded.recording
+        parent.split_id, parent.split_size = uuid.uuid4(), 2
+        at = ACTIVE_SINCE - timedelta(days=60)
+        piece = Recording(
+            id=new_uuid7(),
+            user_id=seeded.user.id,
+            source="microphone",
+            added_at=at,
+            created_at=at,
+            updated_at=at,
+            state="processing",
+            split_from_id=parent.id,
+            created_by_split_id=parent.split_id,
+        )
+        session.add(piece)
+        await session.commit()
+
+        await sweep_module._delete_files(session, seeded.user.id, NOW)
+        await session.commit()
+        assert await queue_ready_splits(sessionmaker) == 1
+        kinds = await session.scalars(select(Job.kind).where(Job.recording_id == parent.id))
+        assert list(kinds) == ["split"]

@@ -40,6 +40,7 @@ const viewOf = (extra: Parameters<typeof recordingRow>[1] = {}): RecordingView =
   file: undefined,
   tuneId: null,
   tuneTitle: null,
+  holdsSplitAudio: false,
 })
 
 beforeEach(() => {

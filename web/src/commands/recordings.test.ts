@@ -11,6 +11,7 @@ import {
   RECORDED_DATE_INVALID,
   RECORDED_DATE_MISMATCH,
   RECORDED_DATE_OFF_PERIOD,
+  RECORDING_HELD,
   TUNE_NOT_FOUND,
 } from './messages'
 import {
@@ -30,7 +31,9 @@ import {
   defaultRecordingLabel,
   updateRecording,
 } from './recordings'
+import { deleteTunes } from './bulk'
 import { addLink, removeLink } from './links'
+import { splitRecording } from './split'
 import { createTune, deleteTune } from './tunes'
 import { newId } from './write'
 
@@ -626,6 +629,81 @@ describe('uploads and edits', () => {
     expect(await pendingFor(db, 'recording_loops', 'lp')).toBeUndefined()
   })
 
+  it('deleting a tune keeps a split parent whose piece waits for its cut, unfiled', async () => {
+    const { tuneId } = await createTune(db, { title: 'X' }, { status: 'known' })
+    const id = await captured(tuneId)
+    const [pieceId] = await splitRecording(db, id, [5_000])
+    await deleteTune(db, tuneId)
+    const parent = await db.recordings.get(id)
+    expect(parent?.deleted_at).toBeNull()
+    expect(parent?.tune_id).toBeNull()
+    expect((await db.recording_files.get(id))?.blob).toBeTruthy()
+    expect((await db.recordings.get(pieceId!))?.deleted_at).toBeNull()
+    expect((await pendingFor(db, 'recordings', id))?.op).toBe('upsert')
+  })
+
+  it('deleting a tune deletes a split parent whose waiting piece is filed under it', async () => {
+    const { tuneId } = await createTune(db, { title: 'X' }, { status: 'known' })
+    const id = await captured(tuneId)
+    const [pieceId] = await splitRecording(db, id, [5_000])
+    await db.recordings.update(pieceId!, { tune_id: tuneId })
+    await deleteTune(db, tuneId)
+    expect((await db.recordings.get(id))?.deleted_at).not.toBeNull()
+    expect((await db.recordings.get(pieceId!))?.deleted_at).not.toBeNull()
+  })
+
+  it('deleting tunes together deletes a split parent whose waiting piece is in another', async () => {
+    for (const parentFirst of [true, false]) {
+      const a = await createTune(db, { title: 'A' }, { status: 'known' })
+      const b = await createTune(db, { title: 'B' }, { status: 'known' })
+      const id = await captured(a.tuneId)
+      const [pieceId] = await splitRecording(db, id, [5_000])
+      await db.recordings.update(pieceId!, { tune_id: b.tuneId })
+      const ids = [a.userTuneId, b.userTuneId]
+      await deleteTunes(db, parentFirst ? ids : ids.reverse())
+      expect((await db.recordings.get(id))?.deleted_at).not.toBeNull()
+      expect((await db.recordings.get(pieceId!))?.deleted_at).not.toBeNull()
+    }
+  })
+
+  it("deleting a tune leaves a held split parent's loops as they are", async () => {
+    const { tuneId } = await createTune(db, { title: 'X' }, { status: 'known' })
+    const id = await captured(tuneId)
+    await splitRecording(db, id, [5_000])
+    await db.recording_loops.put(loopRow({ id: 'lp', recording_id: id }))
+    const before = await db.recording_loops.get('lp')
+    await deleteTune(db, tuneId)
+    expect(await db.recording_loops.get('lp')).toEqual(before)
+    expect(await pendingFor(db, 'recording_loops', 'lp')).toBeUndefined()
+  })
+
+  it('refuses to delete a split parent while a piece waits for its cut', async () => {
+    const id = await captured()
+    await splitRecording(db, id, [5_000])
+    await expect(deleteRecording(db, id)).rejects.toThrow(RECORDING_HELD)
+    expect((await db.recordings.get(id))?.deleted_at).toBeNull()
+    expect(await db.recording_files.get(id)).toBeDefined()
+  })
+
+  it('deleting a tune deletes a split parent whose pieces are all cut', async () => {
+    const { tuneId } = await createTune(db, { title: 'X' }, { status: 'known' })
+    const id = await captured(tuneId)
+    const [pieceId] = await splitRecording(db, id, [5_000])
+    await db.recordings.update(pieceId!, { state: 'ready' })
+    await deleteTune(db, tuneId)
+    expect((await db.recordings.get(id))?.deleted_at).not.toBeNull()
+    expect(await db.recording_files.get(id)).toBeUndefined()
+  })
+
+  it('deleting a tune deletes a failed split parent', async () => {
+    const { tuneId } = await createTune(db, { title: 'X' }, { status: 'known' })
+    const id = await captured(tuneId)
+    await splitRecording(db, id, [5_000])
+    await db.recordings.update(id, { state: 'failed' })
+    await deleteTune(db, tuneId)
+    expect((await db.recordings.get(id))?.deleted_at).not.toBeNull()
+  })
+
   it('deleting a tune tombstones its recordings without a second delete change', async () => {
     const { tuneId } = await createTune(db, { title: 'X' }, { status: 'known' })
     const id = await captured(tuneId)
@@ -680,6 +758,7 @@ describe('keep offline and local audio', () => {
       playback_end_ms: null,
       playback_rev: null,
       peaks_rev: null,
+      split_completed_id: null,
     })
     expect(await localAudioBytes(db)).toBe(4 + 4 + 5)
     await clearDownloadedBlobs(db)

@@ -356,6 +356,9 @@ import Testing
         ("Recordings/LocationMap.swift", "Map(initialPosition"),
         // An attribute's value, read from the row it is handed.
         ("Tune/TuneAttributes.swift", "Text(Self.value(row))"),
+        // The Split screen's strips, which draw the recording's waveform.
+        ("RecordingScreen/SplitScreen.swift", "SplitOverviewStrip(model: model"),
+        ("RecordingScreen/SplitScreen.swift", "CenterLineStrip(model: model"),
     ]
 
     @Test func everyHandMaskStaysInPlace() throws {

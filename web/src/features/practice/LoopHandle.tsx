@@ -22,6 +22,7 @@ import { useAutoPan } from './useAutoPan'
 import { capturePointer } from '../../platform/pointer'
 import { tap } from '../../platform/haptics'
 import { useLatest } from '../../ui/useLatest'
+import { NUDGE_LARGE_MS, NUDGE_MS } from './panel'
 
 export const LOOP_START = 'Loop start'
 export const LOOP_END = 'Loop end'
@@ -35,8 +36,6 @@ function HANDLE_TEXT(name: string, edge: 'start' | 'end', trimmedMs: number): st
 const isSettle = (event: TransitionEvent<HTMLDivElement>) =>
   event.target === event.currentTarget && event.propertyName === 'left'
 
-const NUDGE_MS = 100
-const NUDGE_LARGE_MS = 1000
 const KEY_STEPS: Record<string, [number, number]> = {
   ArrowLeft: [-NUDGE_MS, -NUDGE_LARGE_MS],
   ArrowDown: [-NUDGE_MS, -NUDGE_LARGE_MS],
@@ -64,6 +63,9 @@ export function LoopHandle({
   onReveal,
   onTap,
   pinches,
+  label,
+  valueText,
+  minLengthMs,
 }: {
   edge: 'start' | 'end'
   id: string
@@ -91,6 +93,12 @@ export function LoopHandle({
   onTap: (x: number) => void
   /** Counts pinches; a drag that gave way to one puts the loop back and writes nothing. */
   pinches: RefObject<number>
+  /** The accessible name, in place of the loop edge's. */
+  label?: string
+  /** The value as read out, from the trimmed time, in place of the loop edge's. */
+  valueText?: (trimmedMs: number) => string
+  /** The shortest the span may get, in place of a loop's minimum. */
+  minLengthMs?: number
 }) {
   const latestRef = useLatest(span)
   const press = useRef<{
@@ -157,7 +165,7 @@ export function LoopHandle({
     if (snappedTo !== null && snappedTo !== pressed.snappedTo) tap()
     pressed.snappedTo = snappedTo
     setSnapped(snappedTo !== null)
-    const next = resizeSpan(pressed.span, edge, Math.round(to), bounds)
+    const next = resizeSpan(pressed.span, edge, Math.round(to), bounds, minLengthMs)
     latestRef.current = next
     onDraft({ id, ...next })
     autoPan.track(localX(clientX))
@@ -176,7 +184,7 @@ export function LoopHandle({
     event.preventDefault()
     const current = latestRef.current
     const at = edge === 'start' ? current.startMs : current.endMs
-    const next = resizeSpan(current, edge, at + steps[event.shiftKey ? 1 : 0], bounds)
+    const next = resizeSpan(current, edge, at + steps[event.shiftKey ? 1 : 0], bounds, minLengthMs)
     latestRef.current = next
     nudged.current = true
     onDraft({ id, ...next })
@@ -220,11 +228,13 @@ export function LoopHandle({
       role="slider"
       tabIndex={0}
       data-handle={edge}
-      aria-label={edge === 'start' ? LOOP_START : LOOP_END}
+      aria-label={label ?? (edge === 'start' ? LOOP_START : LOOP_END)}
       aria-valuemin={bounds.startMs - trimStartMs}
       aria-valuemax={bounds.endMs - trimStartMs}
       aria-valuenow={ms - trimStartMs}
-      aria-valuetext={HANDLE_TEXT(name, edge, ms - trimStartMs)}
+      aria-valuetext={
+        valueText ? valueText(ms - trimStartMs) : HANDLE_TEXT(name, edge, ms - trimStartMs)
+      }
       data-color={color}
       data-snapped={snapped || undefined}
       onTransitionRun={(event) => {

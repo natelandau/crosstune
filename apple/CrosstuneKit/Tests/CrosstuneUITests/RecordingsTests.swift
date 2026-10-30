@@ -1598,15 +1598,17 @@ private struct RefusingSyncAPI: SyncAPI {
     @Test func dimsAPlayWhileARecordingIsRecordedAndSaysWhy() throws {
         let recording = Recording(id: "r1", tuneID: nil, source: "microphone", addedAt: noon, state: "ready")
         let held = RecordingFile(id: "r1", localState: .downloaded, fileName: "r1.m4a")
-        let blocked = RecordingRowContent(recording: recording, file: held, tuneTitle: nil, playBlocked: true)
+        let blocked = RecordingRowContent(
+            recording: recording, file: held, uploadLimits: nil, tuneTitle: nil, playBlocked: true)
         #expect(blocked.isDimmed)
         #expect(blocked.notice == MediaText.stopRecordingToPlay)
         // The tap stays, and the player refuses it.
         #expect(blocked.tap == .play)
-        let free = RecordingRowContent(recording: recording, file: held, tuneTitle: nil)
+        let free = RecordingRowContent(recording: recording, file: held, uploadLimits: nil, tuneTitle: nil)
         #expect(!free.isDimmed && free.notice == nil)
         // Only a play is refused; a download row carries on as it was.
-        let download = RecordingRowContent(recording: recording, file: nil, tuneTitle: nil, playBlocked: true)
+        let download = RecordingRowContent(
+            recording: recording, file: nil, uploadLimits: nil, tuneTitle: nil, playBlocked: true)
         #expect(download.notice == nil && !download.isDimmed)
 
         var link = RecordingLink(id: "l1", tuneID: "t1", url: "https://example.com/x", provider: "youtube")
@@ -1625,7 +1627,8 @@ private struct RefusingSyncAPI: SyncAPI {
         #expect(!RecordingRowContent.blocksPlay(recording, file: held, loaded: true, downloading: false))
         #expect(!RecordingRowContent.blocksPlay(recording, file: nil, loaded: false, downloading: false))
         // The row and the heading agree.
-        let row = RecordingRowContent(recording: recording, file: held, tuneTitle: nil, playBlocked: true)
+        let row = RecordingRowContent(
+            recording: recording, file: held, uploadLimits: nil, tuneTitle: nil, playBlocked: true)
         #expect(
             (row.notice != nil)
                 == RecordingRowContent.blocksPlay(
@@ -1642,13 +1645,14 @@ private struct RefusingSyncAPI: SyncAPI {
 
     @Test func saysCouldNotDownloadOnlyWhileTheRowStillOffersADownload() {
         let recording = Recording(id: "r1", tuneID: nil, source: "microphone", addedAt: noon, state: "ready")
-        let failed = RecordingRowContent(recording: recording, file: nil, tuneTitle: nil, downloadFailed: true)
+        let failed = RecordingRowContent(
+            recording: recording, file: nil, uploadLimits: nil, tuneTitle: nil, downloadFailed: true)
         #expect(failed.error == RecordingText.downloadFailed)
         #expect(failed.tap == .download)
 
         let fetchedSince = RecordingRowContent(
             recording: recording, file: RecordingFile(id: "r1", localState: .downloaded, fileName: "r1.m4a"),
-            tuneTitle: nil, downloadFailed: true)
+            uploadLimits: nil, tuneTitle: nil, downloadFailed: true)
         #expect(fetchedSince.error == nil)
         #expect(fetchedSince.tap == .play)
     }
@@ -1907,21 +1911,24 @@ private struct RefusingSyncAPI: SyncAPI {
     private let held = RecordingFile(id: "r1", localState: .downloaded, fileName: "r1.m4a")
 
     @Test func aRowThatOpensTheScreenSaysOpen() {
-        let row = RecordingRowContent(recording: recording, file: held, tuneTitle: nil, opensScreen: true)
+        let row = RecordingRowContent(
+            recording: recording, file: held, uploadLimits: nil, tuneTitle: nil, opensScreen: true)
         #expect(row.actionLabel == MediaText.open)
         #expect(row.glyph == .play)
         #expect(row.tap == .open)
     }
 
     @Test func theLoadedRowThatOpensTheScreenNeverShowsStop() {
-        let row = RecordingRowContent(recording: recording, file: held, tuneTitle: nil, loaded: true, opensScreen: true)
+        let row = RecordingRowContent(
+            recording: recording, file: held, uploadLimits: nil, tuneTitle: nil, loaded: true, opensScreen: true)
         #expect(row.actionLabel == MediaText.open)
         #expect(row.glyph == .play)
         #expect(row.tap == .open)
     }
 
     @Test func aDownloadRowThatOpensTheScreenStillDownloads() {
-        let row = RecordingRowContent(recording: recording, file: nil, tuneTitle: nil, opensScreen: true)
+        let row = RecordingRowContent(
+            recording: recording, file: nil, uploadLimits: nil, tuneTitle: nil, opensScreen: true)
         #expect(row.actionLabel == RecordingRowContent.download)
         #expect(row.tap == .download)
     }
@@ -1932,11 +1939,13 @@ private struct RefusingSyncAPI: SyncAPI {
     private let held = RecordingFile(id: "r1", localState: .downloaded, fileName: "r1.m4a")
 
     @Test func aFreePlanDimsTheRowAndSendsItsTapToTheGate() {
-        let row = RecordingRowContent(recording: recording, file: held, tuneTitle: nil, recordingsPlay: false)
+        let row = RecordingRowContent(
+            recording: recording, file: held, uploadLimits: nil, tuneTitle: nil, recordingsPlay: false)
         #expect(row.isDimmed)
         #expect(row.tap == .premium)
         let opens = RecordingRowContent(
-            recording: recording, file: held, tuneTitle: nil, opensScreen: true, recordingsPlay: false)
+            recording: recording, file: held, uploadLimits: nil, tuneTitle: nil, opensScreen: true,
+            recordingsPlay: false)
         #expect(opens.isDimmed && opens.tap == .premium)
     }
 
@@ -1948,18 +1957,21 @@ private struct RefusingSyncAPI: SyncAPI {
     @Test func aFreePlanSpeaksNoActionLabelAndNamesPremium() {
         let title = RecordingText.title(recording, tuneTitle: nil)
         for file in [held, nil] {
-            let row = RecordingRowContent(recording: recording, file: file, tuneTitle: nil, recordingsPlay: false)
+            let row = RecordingRowContent(
+                recording: recording, file: file, uploadLimits: nil, tuneTitle: nil, recordingsPlay: false)
             #expect(row.actionLabel == nil)
             #expect(row.spokenNotice == RecordingText.subscribeToPlay)
             let names = MediaRow(recording: row, perform: { _ in }, onRetry: { _ in }).controlNames
             #expect(names == ["\(title), \(row.meta), \(RecordingText.subscribeToPlay)"])
         }
-        let plays = RecordingRowContent(recording: recording, file: held, tuneTitle: nil, recordingsPlay: true)
+        let plays = RecordingRowContent(
+            recording: recording, file: held, uploadLimits: nil, tuneTitle: nil, recordingsPlay: true)
         #expect(plays.actionLabel == MediaText.play && plays.spokenNotice == nil)
     }
 
     @Test func aFreePlanNeverDownloadsFromATap() {
-        let row = RecordingRowContent(recording: recording, file: nil, tuneTitle: nil, recordingsPlay: false)
+        let row = RecordingRowContent(
+            recording: recording, file: nil, uploadLimits: nil, tuneTitle: nil, recordingsPlay: false)
         #expect(row.isDimmed)
         #expect(row.tap == .premium)
     }
@@ -1967,12 +1979,14 @@ private struct RefusingSyncAPI: SyncAPI {
     @Test func aStuckUploadStillRetriesOnAFreePlan() {
         let stuck = RecordingFile(id: "r1", localState: .failedUpload)
         let pending = Recording(id: "r1", tuneID: nil, source: "microphone", addedAt: noon, state: "pending")
-        let row = RecordingRowContent(recording: pending, file: stuck, tuneTitle: nil, recordingsPlay: false)
+        let row = RecordingRowContent(
+            recording: pending, file: stuck, uploadLimits: nil, tuneTitle: nil, recordingsPlay: false)
         #expect(row.tap == .retry(.upload))
     }
 
     @Test func aPlanThatPlaysLeavesTheRowAsItWas() {
-        let row = RecordingRowContent(recording: recording, file: held, tuneTitle: nil, recordingsPlay: true)
+        let row = RecordingRowContent(
+            recording: recording, file: held, uploadLimits: nil, tuneTitle: nil, recordingsPlay: true)
         #expect(!row.isDimmed)
         #expect(row.tap == .play)
     }

@@ -5,6 +5,7 @@ import {
   FolderOutput,
   Pencil,
   Scissors,
+  SquareSplitHorizontal,
   Trash2,
 } from 'lucide-react'
 import { useState } from 'react'
@@ -15,6 +16,7 @@ import { setPlaySource } from '../../commands/tunes'
 import { useAction } from '../../ui/useAction'
 import { useLatest } from '../../ui/useLatest'
 import { useDb } from '../../db/DbProvider'
+import { useUploadLimits } from './useUploadLimits'
 import { useSyncEngine } from '../../sync/SyncProvider'
 import { DELETE } from '../../ui/confirmCopy'
 import type { ConfirmQuestion } from '../../ui/confirmQuestion'
@@ -23,6 +25,12 @@ import type { RowAction } from '../../ui/rowTypes'
 import { isPlaying, usePlayer } from '../player/usePlayer'
 import { pinRowAction } from '../tune/playSourceText'
 import { TRIM } from '../practice/trimCopy'
+import { DELETE_WHILE_SPLITTING, SPLIT } from '../practice/splitCopy'
+import { mustSplitToUpload } from '../../domain/recordingLimits'
+import { recordingsPlayable } from '../../billing/plan'
+import { usePlanOrUnknown } from '../../billing/usePlan'
+import { splitDisabledReason } from '../practice/practiceOverlayModel'
+import { usePracticeOverlay } from '../practice/usePracticeOverlay'
 import { openOn, EDIT, ADD_TO_TUNE } from './recordingCopy'
 import { GO_TO_TUNE } from './recordingNames'
 import { deleteRecordingMessage, originLink } from './recordingRow'
@@ -42,10 +50,14 @@ export interface RecordingActions {
   /** Runs any other mutation the same list offers, reporting it on the same one line. */
   run: (action: () => Promise<unknown>) => void
   retry: (view: RecordingView, kind: 'upload' | 'transcode') => void
-  /** A row's actions: edit it, file or unfile it, delete it. */
+  /** A row's swipe and hover actions: on a row that must be split to upload, split it, file
+   * or unfile it, and delete it; on any other row, every action of its menu. */
   actionsFor: (view: RecordingView) => RowAction[]
+  /** A row's menu: split one that must be split to upload, edit it, file or unfile it, go to
+   * its tune, pin it, delete it. */
+  rowMenuFor: (view: RecordingView) => RowAction[]
   /**
-   * Practice's menu: trim it, edit it, file or unfile it, go to its tune, open it
+   * Practice's menu: trim it, split it, edit it, file or unfile it, go to its tune, open it
    * on the site it came from, delete it.
    */
   menuFor: (view: RecordingView) => MenuItem[]
@@ -62,6 +74,10 @@ export interface RecordingActionsOptions {
   onTrim?: () => void
   /** Why Trim cannot be used right now; the menu shows it disabled with this reason. */
   trimBlocked?: string
+  /** Left out where nothing offers Split; only practice's menu does, beside Trim. */
+  onSplit?: () => void
+  /** Why Split cannot be used right now; the menu shows it disabled with this reason. */
+  splitBlocked?: string
   /** Runs once a confirmed delete is under way, for practice, which must go with its recording. */
   onDeleted?: () => void
   /** Left out by a list where every recording is already filed under the tune it belongs to. */
@@ -82,6 +98,8 @@ export function useRecordingActionsWith({
   onEdit,
   onTrim,
   trimBlocked,
+  onSplit,
+  splitBlocked,
   onAddToTune,
   onOpenTune,
   onDeleted,
@@ -93,6 +111,9 @@ export function useRecordingActionsWith({
   const analytics = useAnalytics()
   const engine = useSyncEngine()
   const player = usePlayer()
+  const practiceOverlay = usePracticeOverlay()
+  const uploadLimits = useUploadLimits()
+  const recordingsPlay = recordingsPlayable(usePlanOrUnknown())
   const { error: actionError, pending, run: runAction, clear: clearAction } = useAction()
   const [uploadError, setUploadError] = useState<string | null>(null)
 
@@ -182,10 +203,12 @@ export function useRecordingActionsWith({
       ? { label: GO_TO_TUNE, icon: ArrowRight, tone: 'neutral', onPress: () => onOpenTune(view) }
       : null
 
+  // A piece still waiting for its cut plays from its parent's audio.
   const deleteAction = (view: RecordingView): RowAction => ({
     label: DELETE,
     icon: Trash2,
     tone: 'error',
+    disabled: view.holdsSplitAudio ? DELETE_WHILE_SPLITTING : undefined,
     onPress: () => void remove(view),
   })
 
@@ -213,14 +236,45 @@ export function useRecordingActionsWith({
     )
   }
 
-  const actionsFor = (view: RecordingView): RowAction[] =>
+  // A recording over the upload limit is held on this device until it is split, so its row
+  // offers the way out.
+  const splitToUploadAction = (view: RecordingView): RowAction | null => {
+    const { recording, file } = view
+    if (!mustSplitToUpload(recording, file, uploadLimits)) return null
+    return {
+      label: SPLIT,
+      icon: SquareSplitHorizontal,
+      tone: 'neutral',
+      disabled: splitDisabledReason(
+        recording,
+        file,
+        uploadLimits,
+        file?.blob ? 'held' : 'unavailable',
+        recordingsPlay,
+      ),
+      onPress: () => practiceOverlay.open(recording.id, 'split'),
+    }
+  }
+
+  const rowMenuFor = (view: RecordingView): RowAction[] =>
     [
+      splitToUploadAction(view),
       editAction(view),
       filing(view),
       goToTuneAction(view),
       pinAction(view),
       deleteAction(view),
     ].filter((action): action is RowAction => action !== null)
+
+  // A swipe holds at most three actions, so a row that must be split keeps Edit, Go to tune,
+  // and the pin in its menu.
+  const actionsFor = (view: RecordingView): RowAction[] => {
+    const split = splitToUploadAction(view)
+    if (!split) return rowMenuFor(view)
+    return [split, filing(view), deleteAction(view)].filter(
+      (action): action is RowAction => action !== null,
+    )
+  }
 
   const menuFor = (view: RecordingView): MenuItem[] => {
     const file = filing(view)
@@ -233,6 +287,17 @@ export function useRecordingActionsWith({
               tone: 'neutral' as const,
               disabled: trimBlocked,
               onPress: onTrim,
+            },
+          ]
+        : []),
+      ...(onSplit
+        ? [
+            {
+              label: SPLIT,
+              icon: SquareSplitHorizontal,
+              tone: 'neutral' as const,
+              disabled: splitBlocked,
+              onPress: onSplit,
             },
           ]
         : []),
@@ -250,6 +315,7 @@ export function useRecordingActionsWith({
     run,
     retry,
     actionsFor,
+    rowMenuFor,
     menuFor,
   }
 }

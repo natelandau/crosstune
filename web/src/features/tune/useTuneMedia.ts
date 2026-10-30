@@ -44,6 +44,8 @@ export interface RecordingMediaRow {
   view: RecordingView
   pinned: boolean
   actions: RowAction[]
+  /** The row's menu, where it holds more than its swipe actions. */
+  menu?: RowAction[]
   /** The file's upload refusal, when the row's retry is an upload. */
   error: string | null | undefined
 }
@@ -124,12 +126,13 @@ export function useTuneMedia(
   )
   const pinnedRecordingId = userTune?.play_recording_id ?? null
   const pinnedLinkId = userTune?.play_link_id ?? null
-  const { error, pending, run, retry, actionsFor, setUploadError } = useRecordingActionsWith({
-    confirm,
-    subject: tuneId,
-    onEdit: setEditing,
-    pin: userTune ? { userTuneId: userTune.id, recordingId: pinnedRecordingId } : undefined,
-  })
+  const { error, pending, run, retry, actionsFor, rowMenuFor, setUploadError } =
+    useRecordingActionsWith({
+      confirm,
+      subject: tuneId,
+      onEdit: setEditing,
+      pin: userTune ? { userTuneId: userTune.id, recordingId: pinnedRecordingId } : undefined,
+    })
   useResetOnChange(tuneId, () => {
     setPasting(false)
     setEditing(null)
@@ -223,6 +226,7 @@ export function useTuneMedia(
       view,
       pinned: view.recording.id === pinnedRecordingId,
       actions: actionsFor(view),
+      menu: rowMenuFor(view),
       error: retryKind(view, { uploads: playable }) === 'upload' ? view.file?.error : null,
     })),
     linkRows: links.map((link) => {

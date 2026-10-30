@@ -4,7 +4,7 @@ import Testing
 /// The app makes a haptic only for loop-handle snaps and track skips from the now-playing
 /// accessory. Every other control leaves feedback to the system.
 @Suite struct HapticsPolicyTests {
-    static let allowed: Set<String> = ["PracticeWaveform.swift", "PlayerBar.swift"]
+    static let allowed: Set<String> = ["PracticeWaveform.swift", "CenterLineStrip.swift", "PlayerBar.swift"]
 
     /// SwiftUI's haptic modifier and every UIKit and AppKit haptic generator.
     static let hapticMarkers = [

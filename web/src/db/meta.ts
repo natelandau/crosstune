@@ -22,6 +22,8 @@ export interface StorageUsage {
   used_bytes: number
   quota_bytes: number
   max_file_bytes: number
+  /** The cap for a split parent's upload; absent in usage stored before the server sent it. */
+  split_parent_max_file_bytes?: number
 }
 
 /**

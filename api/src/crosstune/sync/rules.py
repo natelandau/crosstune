@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 from sqlalchemy import func, select
 
-from crosstune.db.base import next_server_seq
+from crosstune.db.base import bump_server_seq, next_server_seq
 from crosstune.links.detect import detect_provider, normalize_url, valid_slippery_hill_ref
 from crosstune.links.resolve import unresolved_link
 from crosstune.models import (
@@ -35,12 +35,17 @@ from crosstune.recordings.loops import (
     reclamp_recording_loops,
 )
 from crosstune.recordings.service import ensure_place_job, ensure_trim_job, start_import
-from crosstune.recordings.trim_rules import clamp_trim
+from crosstune.recordings.split_rules import latest_split_pieces, split_first_cut
+from crosstune.recordings.trim_rules import clamp_trim, original_range
 from crosstune.vocabulary import (
     MAX_LOOPS_PER_RECORDING,
     MAX_SCANS_PER_TUNE,
+    MAX_SPLIT_PIECES,
     MIN_LOOP_MS,
     PREMIUM_REQUIRED,
+    SPLIT_FULL,
+    SPLIT_MISMATCH,
+    SPLIT_UNNAMED,
     PlaceOrigin,
     RecordingSource,
     TableName,
@@ -243,6 +248,8 @@ class RecordingRules(RowRules):
     """Hold a free plan's trims, keep a trim inside the playback file, and start work."""
 
     stored: Recording | None = None
+    # The recording a piece this push creates was split from.
+    parent: Recording | None = None
     # The stored place as it was before the upsert, which refreshes `stored` in place.
     stored_place: tuple[float | None, float | None, str | None] | None = None
 
@@ -272,19 +279,81 @@ class RecordingRules(RowRules):
                 data["trim_start_ms"] = self.stored.trim_start_ms
                 data["trim_end_ms"] = self.stored.trim_end_ms
                 return None
-        low = (self.stored.playback_start_ms or 0) if self.stored else 0
+        low = (
+            max(self.stored.source_offset_ms, self.stored.playback_start_ms or 0)
+            if self.stored
+            else 0
+        )
         high = self.stored.playback_end_ms if self.stored else None
         source_end = self.stored.source_duration_ms if self.stored else None
+        if self.stored is None and data.get("split_from_id") is not None:
+            parent = await self._piece_parent(data)
+            if not isinstance(parent, Recording):
+                return parent
+            # A piece's trim is a range of the parent's source, which the parent's own
+            # playback file may no longer cover.
+            low, high = original_range(parent)
         end = data["trim_end_ms"]
         # A null end means the source end, which a playback file cut short no longer
         # reaches, so it is clamped as that end and only stays null where it still fits.
         if end is None and source_end is not None:
             end = source_end
         start, end = clamp_trim(data["trim_start_ms"], end, low=low, high=high)
+        start, end = await self._hold_split_parent(data, start, end)
         if data["trim_end_ms"] is None and end == source_end:
             end = None
         data["trim_start_ms"], data["trim_end_ms"] = start, end
         return None
+
+    async def _hold_split_parent(
+        self, data: dict[str, Any], start: int, end: int | None
+    ) -> tuple[int, int | None]:
+        """Keep a split parent's trim inside its stored start and its split's first piece.
+
+        A device that has not pulled the split pushes the parent's full trim, which would
+        widen the parent over its pieces' audio.
+
+        Returns:
+            tuple[int, int | None]: The trim, narrowed where the push widened it.
+        """
+        stored = self.stored
+        if stored is None or stored.split_id is None or data["split_id"] != stored.split_id:
+            return start, end
+        first_cut = await split_first_cut(self.session, stored)
+        high = first_cut if first_cut is not None else stored.trim_end_ms
+        if high is not None and (end is None or end > high):
+            end = high
+        return clamp_trim(start, end, low=stored.trim_start_ms, high=high)
+
+    async def _piece_parent(self, data: dict[str, Any]) -> Recording | str | None:
+        """Check a new piece against the recording it was split from.
+
+        Returns:
+            Recording | str | None: The parent recording; the reason to refuse the piece;
+            or None when the parent is not one of this user's recordings, which the
+            parent check refuses on its own.
+        """
+        created_by = data.get("created_by_split_id")
+        if created_by is None:
+            return SPLIT_UNNAMED
+        parent = await self.session.get(Recording, data["split_from_id"])
+        if parent is None:
+            return None
+        if parent.split_id is not None and created_by != parent.split_id:
+            return SPLIT_MISMATCH
+        # The parent's split when it has one, which the check above makes the same.
+        held = await self.session.scalar(
+            select(func.count())
+            .select_from(Recording)
+            .where(latest_split_pieces(parent.id, created_by))
+        )
+        # A piece may arrive before its parent's split does; it stays processing until the
+        # split lands, held meanwhile to the most pieces any split makes.
+        size = parent.split_size if parent.split_id is not None else MAX_SPLIT_PIECES
+        if size is not None and (held or 0) >= size - 1:
+            return SPLIT_FULL
+        self.parent = parent
+        return parent
 
     async def _settle_place(self, data: dict[str, Any]) -> None:
         """Set the pushed place link and origin in place, and link a new fix to its place.
@@ -396,7 +465,22 @@ class RecordingRules(RowRules):
         return (row.place_lat, row.place_lon) != (lat, lon) or cleared_name
 
     async def applied(self, row: Recording) -> None:
-        """Queue trim and place jobs, re-clamp the loops, and start an import the push created."""
+        """Queue trim and place jobs, re-clamp the loops, and start what the push created.
+
+        The push queues split jobs once for its whole batch.
+        """
+        created_piece = self.stored is None and row.split_from_id is not None
+        if created_piece:
+            parent = self.parent
+            if parent is not None and parent.state == "failed":
+                # A failed parent has nothing to cut the piece from.
+                row.state, row.error = "failed", parent.error
+            else:
+                row.state = "processing"
+            bump_server_seq(row)
+            # The result is serialized from this row, and server_seq is still a SQL expression.
+            await self.session.flush()
+            await self.session.refresh(row)
         # Queued from the row as committed by the upsert, in the same transaction as the push.
         await ensure_trim_job(self.session, row)
         if self._place_may_need_name(row):

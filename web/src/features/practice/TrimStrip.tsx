@@ -16,12 +16,10 @@ import type { TrimAction, TrimHandle, TrimState } from './trimModel'
 import { Waveform } from './Waveform'
 import { clamp } from '../../math'
 import { capturePointer } from '../../platform/pointer'
+import { NUDGE_LARGE_MS, NUDGE_MS } from './panel'
 
 export const START_HANDLE = 'Start'
 export const END_HANDLE = 'End'
-
-const NUDGE_MS = 100
-const NUDGE_LARGE_MS = 1000
 
 const HANDLES = ['start', 'end'] as const
 const HANDLE_LABELS: Record<TrimHandle, string> = { start: START_HANDLE, end: END_HANDLE }

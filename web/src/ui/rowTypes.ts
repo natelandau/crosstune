@@ -10,5 +10,7 @@ export interface RowAction {
   short?: string
   icon: LucideIcon
   tone: 'neutral' | 'warning' | 'error'
+  /** Why the action cannot be used right now; it stays, disabled, with this reason. */
+  disabled?: string
   onPress: () => void
 }

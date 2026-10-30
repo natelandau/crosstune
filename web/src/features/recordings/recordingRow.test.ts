@@ -4,7 +4,14 @@ import type { StorageUsage } from '../../db/meta'
 import type { RecordingFile } from '../../db/recordings'
 import type { LocalRecording } from '../../db/types'
 import { recordingFile, recordingRow } from '../../test/rows'
-import { PROCESS_FAILED, UPLOAD_FAILED, WAITING_TO_UPLOAD } from '../../text/format'
+import { MAX_RECORDING_MS } from '../../domain/recordingLimits'
+import {
+  MUST_SPLIT,
+  PROCESS_FAILED,
+  SPLIT_FAILED,
+  UPLOAD_FAILED,
+  WAITING_TO_UPLOAD,
+} from '../../text/format'
 import type { RecordingView } from './useRecordings'
 import {
   isWebUrl,
@@ -31,6 +38,7 @@ function view(
     file: overrides.file,
     tuneId: overrides.tuneId ?? null,
     tuneTitle: overrides.tuneTitle ?? null,
+    holdsSplitAudio: false,
   }
 }
 
@@ -325,6 +333,27 @@ describe('recordingMeta', () => {
       null,
     )
     expect(result).toEqual([UPLOAD_FAILED])
+  })
+
+  it('a large unsplit recording shows the must-split text', () => {
+    const storage: StorageUsage = { used_bytes: 0, quota_bytes: 2_000_000, max_file_bytes: 500 }
+    const file = recordingFile('r1', { local_duration_ms: 60_000, bytes: 501 })
+    expect(recordingMeta(view({ file }), storage)).toContain(MUST_SPLIT)
+    expect(recordingMeta(view({ file: { ...file, bytes: 500 } }), storage)).not.toContain(
+      MUST_SPLIT,
+    )
+  })
+
+  it('a long unsplit recording shows the must-split text', () => {
+    const file = recordingFile('r1', { local_duration_ms: MAX_RECORDING_MS + 1000 })
+    expect(recordingMeta(view({ file }), null)).toContain(MUST_SPLIT)
+    const split = view({ file, recording: { split_id: 's1', split_size: 2 } })
+    expect(recordingMeta(split, null)).not.toContain(MUST_SPLIT)
+  })
+
+  it('a failed piece shows The piece could not be split.', () => {
+    const piece = view({ recording: { state: 'failed', split_from_id: 'p0' } })
+    expect(recordingMeta(piece, null)).toContain(SPLIT_FAILED)
   })
 })
 

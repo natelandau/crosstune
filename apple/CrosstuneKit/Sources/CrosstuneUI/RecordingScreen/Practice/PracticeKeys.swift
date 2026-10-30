@@ -16,9 +16,6 @@ struct PracticeKeys: ViewModifier {
     let onDeleted: () -> Void
     let onClose: () -> Void
 
-    /// Modifiers that make a key some other command, which these keys leave alone.
-    private static let commandModifiers: EventModifiers = [.command, .control, .option]
-
     private var isReady: Bool { !isBlocked && model.isLoaded && !TextEntry.isActive }
 
     func body(content: Content) -> some View {
@@ -29,7 +26,7 @@ struct PracticeKeys: ViewModifier {
                 return .handled
             }
             .onKeyPress(characters: CharacterSet(charactersIn: "nN[]"), phases: .down) { press in
-                guard isReady, press.modifiers.isDisjoint(with: Self.commandModifiers) else { return .ignored }
+                guard isReady, press.modifiers.isDisjoint(with: .otherCommand) else { return .ignored }
                 switch press.characters {
                 case "[": model.setEdge(.start)
                 case "]": model.setEdge(.end)
@@ -39,7 +36,7 @@ struct PracticeKeys: ViewModifier {
             }
             // Held arrows repeat, sweeping the handle, as a slider does; letting go writes it once.
             .onKeyPress(keys: [.leftArrow, .rightArrow, .upArrow, .downArrow], phases: .all) { press in
-                guard !isBlocked, !TextEntry.isActive, press.modifiers.isDisjoint(with: Self.commandModifiers) else {
+                guard !isBlocked, !TextEntry.isActive, press.modifiers.isDisjoint(with: .otherCommand) else {
                     return .ignored
                 }
                 let back = press.key == .leftArrow || press.key == .downArrow
@@ -48,7 +45,7 @@ struct PracticeKeys: ViewModifier {
                     if press.phase == .up {
                         model.commitNudge()
                     } else {
-                        let step = large ? PracticeModel.largeNudgeMs : PracticeModel.nudgeMs
+                        let step = large ? WaveformSteps.largeNudgeMs : WaveformSteps.nudgeMs
                         model.nudge(edge, by: back ? -step : step)
                     }
                     return .handled
@@ -61,7 +58,7 @@ struct PracticeKeys: ViewModifier {
                 return .handled
             }
             .onKeyPress(keys: [.delete, .deleteForward], phases: .down) { press in
-                guard isReady, press.modifiers.isDisjoint(with: Self.commandModifiers) else { return .ignored }
+                guard isReady, press.modifiers.isDisjoint(with: .otherCommand) else { return .ignored }
                 guard model.deleteSelected() else { return .ignored }
                 onDeleted()
                 return .handled

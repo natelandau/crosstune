@@ -191,7 +191,7 @@ it('trims on the phone, where a drag on its header leaves practice open', async 
   await expect.element(dialog.getByRole('button', { name: CANCEL })).toBeVisible()
   await expect.element(dialog.getByRole('button', { name: SAVE_TRIM })).toBeVisible()
 
-  await drag(page.elementLocator(practice()!.querySelector('[data-trim-header]')!), 0, 600)
+  await drag(page.elementLocator(practice()!.querySelector('[data-editor-header]')!), 0, 600)
   await expect.element(startHandle()).toBeVisible()
   expect(practice()).not.toBeNull()
   await expect.poll(() => practice()!.getBoundingClientRect().top).toBe(0)

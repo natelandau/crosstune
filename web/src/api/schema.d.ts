@@ -1332,6 +1332,11 @@ export interface components {
              */
             created_at: string;
             /**
+             * Created By Split Id
+             * @default null
+             */
+            created_by_split_id: string | null;
+            /**
              * Label
              * @default null
              */
@@ -1403,6 +1408,21 @@ export interface components {
              * @default 100
              */
             speed_percent: number;
+            /**
+             * Split From Id
+             * @default null
+             */
+            split_from_id: string | null;
+            /**
+             * Split Id
+             * @default null
+             */
+            split_id: string | null;
+            /**
+             * Split Size
+             * @default null
+             */
+            split_size: number | null;
             /**
              * Trim End Ms
              * @default null
@@ -1622,6 +1642,8 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /** Created By Split Id */
+            created_by_split_id?: string | null;
             /** Deleted At */
             deleted_at: string | null;
             /** Duration Ms */
@@ -1689,6 +1711,14 @@ export interface components {
              * @default 100
              */
             speed_percent: number;
+            /** Split Completed Id */
+            split_completed_id: string | null;
+            /** Split From Id */
+            split_from_id?: string | null;
+            /** Split Id */
+            split_id?: string | null;
+            /** Split Size */
+            split_size?: number | null;
             state: components["schemas"]["RecordingState"];
             /** Trim End Ms */
             trim_end_ms?: number | null;
@@ -2087,6 +2117,8 @@ export interface components {
             max_file_bytes: number;
             /** Quota Bytes */
             quota_bytes: number;
+            /** Split Parent Max File Bytes */
+            split_parent_max_file_bytes: number;
             /** Used Bytes */
             used_bytes: number;
         };

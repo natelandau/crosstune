@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
+import { MIN_KEPT_MS } from '../../domain/recordingLimits'
 import {
   detailWindow,
   initialTrim,
   isChanged,
   MIN_DETAIL_MS,
-  MIN_TRIM_MS,
   trimPatch,
   trimReducer,
   type TrimState,
@@ -53,7 +53,7 @@ describe('trimModel', () => {
     ['start before the bounds', 'start', -500, 0, 60_000],
     ['end past the bounds', 'end', 70_000, 0, 60_000],
     ['start within a second of the end', 'start', 59_500, 59_000, 60_000],
-    ['end within a second of the start', 'end', 200, 0, MIN_TRIM_MS],
+    ['end within a second of the start', 'end', 200, 0, MIN_KEPT_MS],
   ] as const)('drag clamps the %s', (_name, handle, ms, start, end) => {
     const next = trimReducer(state(), { type: 'drag', handle, ms })
     expect([next.start, next.end]).toEqual([start, end])

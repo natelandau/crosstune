@@ -19,12 +19,16 @@ public struct RecordingView: Identifiable, Hashable, Sendable {
     public let tuneTitle: String?
     /// The location's name to show: its saved location's while that is live, else the recording's own.
     public let shownPlace: String?
+    /// Whether a piece split from the recording still plays from its audio, which holds Delete.
+    public let holdsSplitAudio: Bool
 
     public var id: String { recording.id }
 
     public init(
-        recording: Recording, file: RecordingFile?, tuneID: String?, tuneTitle: String?, shownPlace: String? = nil
+        recording: Recording, file: RecordingFile?, tuneID: String?, tuneTitle: String?, shownPlace: String? = nil,
+        holdsSplitAudio: Bool = false
     ) {
+        self.holdsSplitAudio = holdsSplitAudio
         self.shownPlace = shownPlace ?? recording.placeName
         self.recording = recording
         self.file = file
@@ -228,6 +232,9 @@ public final class RecordingsModel {
         return storage
     }
 
+    /// The server's per-file upload caps, nil until it has reported them.
+    public var uploadLimits: StorageUsage? { settings.value?.storage }
+
     /// The account's storage measured against the plan's quota when the plan is known, nil when
     /// the plan has no quota.
     public func storage(plan: Plan) -> StorageUsage? {
@@ -250,11 +257,13 @@ public final class RecordingsModel {
         let places = Dictionary(
             try SavedPlace.fetchAll(db).map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         let titles = Dictionary(tunes.map { ($0.id, $0.title) }, uniquingKeysWith: { first, _ in first })
+        let waiting = RecordingLimits.waitingParentIDs(in: live)
         let views = live.map { recording in
             let tuneID = recording.tuneID.flatMap { titles[$0] == nil ? nil : $0 }
             return RecordingView(
                 recording: recording, file: filesByID[recording.id], tuneID: tuneID,
-                tuneTitle: tuneID.flatMap { titles[$0] }, shownPlace: shownPlaceName(recording, places: places))
+                tuneTitle: tuneID.flatMap { titles[$0] }, shownPlace: shownPlaceName(recording, places: places),
+                holdsSplitAudio: RecordingLimits.holdsSplitAudio(recording, waitingParentIDs: waiting))
         }
         let unfinished = files.filter { $0.localState == .capturing }
             .sorted { ($0.recordedAt?.milliseconds ?? 0) > ($1.recordedAt?.milliseconds ?? 0) }

@@ -53,6 +53,12 @@ class Job(Base):
             unique=True,
             postgresql_where=text(f"kind = '{JobKind.PLACE.value}'"),
         ),
+        Index(
+            "ux_jobs_recording_id_split",
+            "recording_id",
+            unique=True,
+            postgresql_where=text(f"kind = '{JobKind.SPLIT.value}'"),
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid7)

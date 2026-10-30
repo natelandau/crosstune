@@ -59,9 +59,9 @@ public struct RecordingRowContent: Hashable, Sendable {
     }
 
     public init(
-        recording: Recording, file: RecordingFile?, tuneTitle: String?, tuneNamedAbove: Bool = false,
-        loaded: Bool = false, downloading: Bool = false, downloadFailed: Bool = false, offline: Bool = false,
-        playBlocked: Bool = false, storage: StorageUsage? = nil, sort: RecordingSort? = nil,
+        recording: Recording, file: RecordingFile?, uploadLimits: StorageUsage?, tuneTitle: String?,
+        tuneNamedAbove: Bool = false, loaded: Bool = false, downloading: Bool = false, downloadFailed: Bool = false,
+        offline: Bool = false, playBlocked: Bool = false, storage: StorageUsage? = nil, sort: RecordingSort? = nil,
         opensScreen: Bool = false, isLocalUntilSubscribed: Bool = false, recordingsPlay: Bool = true,
         locale: Locale = .current, timeZone: TimeZone = .current
     ) {
@@ -71,7 +71,7 @@ public struct RecordingRowContent: Hashable, Sendable {
         control = RecordingText.control(recording, file: file, loaded: loaded, downloading: downloading)
         let offlineDownload = control == .download && offline
         meta = RecordingText.meta(
-            recording, file: file, storage: storage, offline: offlineDownload,
+            recording, file: file, storage: storage, uploadLimits: uploadLimits, offline: offlineDownload,
             dateInTitle: RecordingText.titleIsDate(recording, tuneTitle: tuneTitle, tuneNamedAbove: tuneNamedAbove),
             // A row stays local-only until the next push, but a Premium plan sends the recording on it.
             sort: sort, isLocalUntilSubscribed: isLocalUntilSubscribed && !recordingsPlay, locale: locale,

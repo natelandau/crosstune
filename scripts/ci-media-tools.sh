@@ -16,9 +16,11 @@ docker run --detach --name "$container" --user "$(id -u):$(id -g)" \
 
 bin="$(mktemp -d)"
 # The API starts the tools through prlimit, which must run in the container too, or it
-# would limit the docker client instead of the tool.
+# would limit the docker client instead of the tool. docker exec passes on none of the
+# caller's environment, and without the API's arena cap glibc reserves enough address
+# space per thread to hit the memory limit.
 for tool in ffmpeg ffprobe prlimit; do
-  printf '#!/bin/sh\nexec docker exec %s %s "$@"\n' "$container" "$tool" > "$bin/$tool"
+  printf '#!/bin/sh\nexec docker exec --env MALLOC_ARENA_MAX %s %s "$@"\n' "$container" "$tool" > "$bin/$tool"
   chmod +x "$bin/$tool"
 done
 echo "$bin" >> "$GITHUB_PATH"

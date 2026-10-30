@@ -520,7 +520,7 @@ private struct RecordingsContent: View {
         #endif
         return RecordingItem(
             view: view, source: .recordingsList, tuneNamedAbove: view.tuneID != nil, storage: model.storage(plan: plan),
-            sort: sort.sort,
+            uploadLimits: model.uploadLimits, sort: sort.sort,
             onOpenTune: opensTune ? open : nil, opensScreen: opensScreen
         ) { kind in
             retry(view.id, kind)
@@ -547,7 +547,12 @@ private struct RecordingsContent: View {
             onAddToTune: { filing = view },
             onRemoveFromTune: { Task { await model.removeFromTune(view.id) } },
             onGoToTune: open,
-            onDelete: { deleting = view })
+            onDelete: { deleting = view },
+            onSplit: RecordingRowHandlers.split(
+                view, uploadLimits: model.uploadLimits, player: player, window: window, source: .recordingsList,
+                recordingsPlay: plan.recordingsPlay),
+            splitDisabledReason: RecordingRowHandlers.splitDisabledReason(view),
+            deleteDisabledReason: RecordingScreenText.deleteDisabledReason(view))
     }
 
     /// The line over one tune's recordings under Tune sort. The whole line opens the tune.

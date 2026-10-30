@@ -11,7 +11,9 @@ import re
 import sys
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NamedTuple
+
+from crosstune.storage.store import PLAYBACK_MIME
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, Callable, Mapping
@@ -37,7 +39,8 @@ INPUT_GUARD = (
 )
 # A file that makes a decoder balloon fails its job instead of exhausting the API's
 # container. Linux enforces no resident-memory limit, so this caps address space, which
-# MALLOC_ARENA_MAX and -filter_threads hold near 400 MB whatever the host's core count.
+# MALLOC_ARENA_MAX, -filter_threads, and -threads hold near 400 MB whatever the host's core
+# count.
 MEMORY_LIMIT_BYTES = 1 << 30
 FILE_LIMIT_BYTES = 1 << 30
 _PR_SET_DUMPABLE = 4
@@ -69,6 +72,13 @@ class Probe:
     channels: int
     location: tuple[float, float] | None = None
     created_at: datetime | None = None
+    sample_rate: int = 0
+    # Seconds, when the first decoded sample plays; a browser recording may not start its
+    # timestamps at 0.
+    start_time: float = 0.0
+    # Seconds, the start time the running ffmpeg counts its timestamps from. Some releases
+    # put it an Opus pre-skip before `start_time`.
+    container_start_time: float = 0.0
 
 
 def parse_iso6709(value: str) -> tuple[float, float] | None:
@@ -207,7 +217,9 @@ def ffmpeg(*args: str) -> tuple[str, ...]:
     Returns:
         tuple[str, ...]: The full command line for `run_media_tool` or `stream_media_tool`.
     """
-    return _limited("ffmpeg", "-filter_threads", "1", *args)
+    # `-threads` here applies to the first input, the upload: a frame-threaded decoder
+    # such as FLAC's otherwise starts a thread, and its stack, per core.
+    return _limited("ffmpeg", "-filter_threads", "1", "-threads", "1", *args)
 
 
 def ffprobe(*args: str) -> tuple[str, ...]:
@@ -347,6 +359,8 @@ async def probe(path: Path) -> Probe:
     tags = fmt.get("tags")
     tags = tags if isinstance(tags, dict) else {}
     location = _tag(tags, LOCATION_TAGS)
+    container_start = _seconds(fmt.get("start_time"))
+    start_time = await _first_sample_time(path)
     return Probe(
         codec=str(audio.get("codec_name", "")),
         format_names=frozenset(str(fmt.get("format_name", "")).split(",")),
@@ -355,7 +369,88 @@ async def probe(path: Path) -> Probe:
         channels=int(audio.get("channels") or 1),
         location=parse_iso6709(location) if location is not None else None,
         created_at=parse_creation_date(tags, now=datetime.now(UTC)),
+        sample_rate=int(audio.get("sample_rate") or 0),
+        start_time=container_start if start_time is None else start_time,
+        container_start_time=container_start,
     )
+
+
+def _seconds(value: object) -> float:
+    """A time ffprobe reports as text, or 0 when it reports none."""
+    try:
+        return float(str(value))
+    except ValueError:
+        return 0.0
+
+
+# Enough packets to get past an AAC priming packet, which decodes to no samples.
+_FIRST_SAMPLE_PACKETS = 8
+
+
+async def _first_sample_time(path: Path) -> float | None:
+    """Read when the first decoded sample of the first audio stream plays, in seconds.
+
+    ffmpeg releases disagree on a container's start time: some report an Opus WebM's
+    first packet, before the decoder's pre-skip, others its first decoded sample. The
+    decoded frames agree across releases, so the timeline every seek counts from is
+    taken from them. None when no frame decodes from the first packets.
+    """
+    report = await run_media_tool(
+        *ffprobe(
+            "-v",
+            "error",
+            "-select_streams",
+            "a:0",
+            "-read_intervals",
+            f"%+#{_FIRST_SAMPLE_PACKETS}",
+            "-show_entries",
+            "frame=pts_time",
+            "-of",
+            "csv=p=0",
+            *INPUT_GUARD,
+            str(path),
+        )
+    )
+    for line in report.decode(errors="replace").splitlines():
+        try:
+            return float(line.split(",")[0])
+        except ValueError:
+            continue
+    return None
+
+
+def _seek_args(info: Probe, from_ms: int, to_ms: int | None = None) -> tuple[str, ...]:
+    """Build the input options that read a file from `from_ms` to `to_ms`.
+
+    Seeks by absolute timestamp, counted from the probe's start time rather than the
+    one the running ffmpeg reports, which can sit an Opus pre-skip earlier.
+
+    Args:
+        info: The probe of the file read.
+        from_ms: Where the read starts, in milliseconds from the first decoded sample.
+        to_ms: Where the read ends, or None for the end of the file.
+
+    Returns:
+        tuple[str, ...]: Options to place before `-i`.
+    """
+    stop = () if to_ms is None else ("-to", f"{info.start_time + to_ms / 1000:.6f}")
+    return ("-seek_timestamp", "1", "-ss", f"{info.start_time + from_ms / 1000:.6f}", *stop)
+
+
+def _timeline_args(info: Probe) -> tuple[str, ...]:
+    """Build the input options that start a whole-file read's timestamps at its first sample.
+
+    An input seek would do it too, but changes how an AAC source's priming is skipped.
+
+    Args:
+        info: The probe of the file read.
+
+    Returns:
+        tuple[str, ...]: Options to place before `-i`, empty when the running ffmpeg
+            already counts from the first sample.
+    """
+    shift = info.container_start_time - info.start_time
+    return () if abs(shift) < _TIMESTAMP_TOLERANCE_SECONDS else ("-itsoffset", f"{shift:.6f}")
 
 
 def needs_encode(info: Probe) -> bool:
@@ -374,6 +469,186 @@ def needs_encode(info: Probe) -> bool:
         and info.bit_rate is not None
         and info.bit_rate <= passthrough_max_bitrate(info.channels)
     )
+
+
+# A browser stamps each WebM packet with the clock at capture, so a stall leaves a hole in
+# the timestamps that holds no samples. A forward step past one Opus frame is a real
+# stall; the 1 ms rounding of the stamps and a few ms of clock drift per packet are
+# not. Smaller steps, overlaps, and drift are left alone, so every sample is kept.
+MIN_TIMESTAMP_GAP_SECONDS = 0.020
+# Packet stamps are whole milliseconds, but less the start time they can miss by a float
+# rounding error, and a packet stamped at the range's end falls outside `-to`.
+_TIMESTAMP_TOLERANCE_SECONDS = 1e-6
+_GAP_FORMATS = frozenset({"matroska", "webm"})
+
+
+@dataclass(frozen=True)
+class _Stall:
+    """One forward step in a file's packet timestamps longer than a real stall."""
+
+    # The latest stamp of any packet before the one after the stall.
+    earlier_max_pts: float
+    # Where the packet before the stall ends, or None when the stall opens the file.
+    previous_end: float | None
+    # The stamp of the packet after the stall.
+    pts: float
+
+
+@dataclass(frozen=True)
+class StallMap:
+    """Every stall in a file's packet timestamps, in file order, in seconds from its start time.
+
+    Read once per file, so each range cut from it only intersects the map.
+    """
+
+    stalls: tuple[_Stall, ...] = ()
+
+
+@dataclass(frozen=True)
+class _Stalls:
+    """The stalls in a range of a WebM's packet timestamps."""
+
+    # Where each stall ends, in seconds from the file's start time, and its length.
+    gaps: list[tuple[float, float]]
+    # Whether the range starts inside a stall, so the audio begins late.
+    starts_in_stall: bool = False
+    # Seconds of the stall the range ends inside, which the audio does not reach.
+    end_silence: float = 0.0
+
+
+def _has_stalls(info: Probe) -> bool:
+    """Whether the file's container stamps packets with a capture clock that can stall."""
+    return bool(info.format_names & _GAP_FORMATS) and bool(info.sample_rate)
+
+
+async def scan_stalls(source: Path, info: Probe) -> StallMap:
+    """Find every stall in a WebM's packet timestamps, reading the whole file once.
+
+    Args:
+        source: The file to read.
+        info: The probe of `source`.
+
+    Returns:
+        StallMap: The file's stalls, empty for a container that never stalls.
+    """
+    if not _has_stalls(info):
+        return StallMap()
+    report = await run_media_tool(
+        *ffprobe(
+            "-v",
+            "error",
+            "-select_streams",
+            "a:0",
+            "-show_entries",
+            "packet=pts_time,duration_time",
+            "-of",
+            "csv=p=0",
+            *INPUT_GUARD,
+            str(source),
+        )
+    )
+    stalls: list[_Stall] = []
+    earlier_max_pts = float("-inf")
+    previous_end: float | None = None
+    for line in report.decode(errors="replace").splitlines():
+        fields = line.split(",")
+        try:
+            pts, duration = float(fields[0]) - info.start_time, float(fields[1])
+        except (ValueError, IndexError):
+            continue
+        if pts - (previous_end or 0) > MIN_TIMESTAMP_GAP_SECONDS:
+            stalls.append(_Stall(earlier_max_pts, previous_end, pts))
+        earlier_max_pts = max(earlier_max_pts, pts)
+        previous_end = pts + duration
+    return StallMap(tuple(stalls))
+
+
+def _range_stalls(stall_map: StallMap, from_ms: int, to_ms: int | None) -> _Stalls:
+    """Intersect a file's stalls with a range.
+
+    A stall the range starts or ends inside counts only for the part inside it.
+
+    Args:
+        stall_map: The file's stalls.
+        from_ms: Start of the range, in milliseconds from the file's start time.
+        to_ms: End of the range, or None for the rest of the file.
+
+    Returns:
+        _Stalls: The stalls, with timestamps relative to the file's start time, which is
+            what ffmpeg's `-ss` and `-to` and the filter graph count from.
+    """
+    low = max(0, from_ms) / 1000
+    high = None if to_ms is None else to_ms / 1000
+    gaps: list[tuple[float, float]] = []
+    starts_in_stall = False
+    for stall in stall_map.stalls:
+        if high is not None:
+            edge = high - _TIMESTAMP_TOLERANCE_SECONDS
+            # A packet with no stall before it reached the end first.
+            if stall.earlier_max_pts >= edge:
+                break
+            if stall.pts >= edge:
+                end_silence = _end_silence(stall.pts, stall.previous_end, low, high)
+                return _Stalls(gaps, starts_in_stall, end_silence)
+        if stall.pts > low and stall.previous_end is not None:
+            stalled = stall.pts - max(stall.previous_end, low)
+            if stalled > MIN_TIMESTAMP_GAP_SECONDS:
+                gaps.append((stall.pts, stalled))
+                starts_in_stall = starts_in_stall or stall.previous_end <= low
+    return _Stalls(gaps, starts_in_stall)
+
+
+def _end_silence(next_pts: float, previous_end: float | None, low: float, high: float) -> float:
+    """Measure the part of a range that falls in the stall before the packet after it."""
+    stall_start = max(previous_end or 0, low)
+    stalled = next_pts - (previous_end or 0)
+    return high - stall_start if stalled > MIN_TIMESTAMP_GAP_SECONDS and stall_start < high else 0.0
+
+
+async def _fill_gap_args(
+    source: Path,
+    info: Probe,
+    *,
+    from_ms: int = 0,
+    to_ms: int | None = None,
+    pad_end: bool = False,
+    stalls: StallMap | None = None,
+) -> tuple[str, ...]:
+    """Build the ffmpeg filter that puts silence where a WebM's timestamps stall.
+
+    Frames are re-stamped from their sample count plus the stalls so far, so the filter
+    sees only the stalls. Drift and backward steps in the stamps never reach it, and it
+    never drops or stretches audio. A source with no stall gets no filter at all.
+
+    Args:
+        source: The file to read.
+        info: The probe of `source`.
+        from_ms: Where the read starts, which ffmpeg counts timestamps from.
+        to_ms: Where the read ends, or None for the end of the file.
+        pad_end: Whether to pad the output with silence to the end of the range when the
+            range ends in a stall.
+        stalls: The stalls of `source`, when a scan has already read them.
+
+    Returns:
+        tuple[str, ...]: ffmpeg options, empty when nothing needs filling.
+    """
+    if not _has_stalls(info):
+        return ()
+    stall_map = stalls if stalls is not None else await scan_stalls(source, info)
+    found = _range_stalls(stall_map, from_ms, to_ms)
+    end_silence = found.end_silence if pad_end else 0.0
+    if not found.gaps and not end_silence:
+        return ()
+    shift = from_ms / 1000
+    stalled = "+".join(f"if(gte(PTS*TB,{at - shift:.6f}),{gap:.6f},0)" for at, gap in found.gaps)
+    # The first frame's stamp already holds the part of a stall the range starts inside.
+    origin = "" if found.starts_in_stall else "STARTPTS+"
+    filters = [f"asetpts='{origin}N/SR/TB+({stalled or 0})/TB'"]
+    first = "first_pts=0:" if found.starts_in_stall else ""
+    filters.append(f"aresample=async=1:{first}min_hard_comp={MIN_TIMESTAMP_GAP_SECONDS / 2}")
+    if end_silence:
+        filters.append(f"apad=pad_dur={end_silence:.6f}")
+    return ("-af", ",".join(filters))
 
 
 # Shared by encode and cut, so a change to the playback profile applies to every path
@@ -452,7 +727,12 @@ async def _info(source: Path, info: Probe | None) -> Probe:
 
 
 async def encode(
-    source: Path, target: Path, *, info: Probe | None = None, max_ms: int | None = None
+    source: Path,
+    target: Path,
+    *,
+    info: Probe | None = None,
+    max_ms: int | None = None,
+    stalls: StallMap | None = None,
 ) -> None:
     """Encode to AAC-LC in MP4 at the playback bit rate for the source.
 
@@ -464,12 +744,28 @@ async def encode(
         target: The MP4 file to write.
         info: The probe of `source`, when one has already read it.
         max_ms: The longest output written, or None to write the whole input.
+        stalls: The stalls of `source`, when a scan has already read them.
     """
-    await _to_mp4(source, target, *_playback_codec_args(await _info(source, info)), max_ms=max_ms)
+    info = await _info(source, info)
+    fill = await _fill_gap_args(source, info, to_ms=max_ms, stalls=stalls)
+    await _to_mp4(
+        source,
+        target,
+        *fill,
+        *_playback_codec_args(info),
+        pre_input_args=_timeline_args(info),
+        max_ms=max_ms,
+    )
 
 
 async def cut(
-    source: Path, target: Path, start_ms: int, end_ms: int, *, info: Probe | None = None
+    source: Path,
+    target: Path,
+    start_ms: int,
+    end_ms: int,
+    *,
+    info: Probe | None = None,
+    stalls: StallMap | None = None,
 ) -> None:
     """Re-encode the `start_ms` to `end_ms` range of `source` to a playback MP4.
 
@@ -484,10 +780,223 @@ async def cut(
         start_ms: Where the kept range starts, in milliseconds.
         end_ms: Where the kept range ends, in milliseconds.
         info: The probe of `source`, when one has already read it.
+        stalls: The stalls of `source`, when a scan has already read them.
     """
+    info = await _info(source, info)
+    fill = await _fill_gap_args(
+        source, info, from_ms=start_ms, to_ms=end_ms, pad_end=True, stalls=stalls
+    )
     await _to_mp4(
         source,
         target,
-        *_playback_codec_args(await _info(source, info)),
-        pre_input_args=("-ss", f"{start_ms}ms", "-to", f"{end_ms}ms"),
+        *fill,
+        *_playback_codec_args(info),
+        pre_input_args=_seek_args(info, start_ms, end_ms),
     )
+
+
+@dataclass(frozen=True)
+class _CopyTarget:
+    """A container whose audio stream copies cleanly into a file of the same family."""
+
+    accepts: Callable[[Probe], bool]
+    output_args: tuple[str, ...]
+    content_type: str
+    # How far before the cut the copy starts, and past its end it runs.
+    lead_ms: int = 0
+
+
+# An MP3 slice decodes from a point after its first packet, since the decoder spends its
+# first samples on delay. Starting the copy this far before the cut keeps that point at
+# or before the cut, and the slice that much longer keeps it covering the end.
+MP3_LEAD_MS = 50
+_MP3 = _CopyTarget(
+    accepts=lambda info: info.codec == "mp3" and "mp3" in info.format_names,
+    output_args=("-f", "mp3"),
+    content_type="audio/mpeg",
+    lead_ms=MP3_LEAD_MS,
+)
+_COPY_TARGETS = (
+    _CopyTarget(
+        accepts=lambda info: info.codec == "aac" and "mp4" in info.format_names,
+        output_args=("-movflags", "+faststart", "-f", "mp4"),
+        content_type=PLAYBACK_MIME,
+    ),
+    _MP3,
+    _CopyTarget(
+        accepts=lambda info: info.codec.startswith("pcm_") and "wav" in info.format_names,
+        output_args=("-f", "wav"),
+        content_type="audio/wav",
+    ),
+)
+# Samples compared to locate a decoded slice inside its decoded original, taken past the
+# first frames, which a decoder starting mid-stream has no earlier frame to build on. A
+# run of samples that matches more than one place, such as silence or a steady tone, says
+# nothing, so later runs are tried in steps across the searched span.
+_MATCH_SKIP_MS = 100
+_MATCH_SAMPLES = 64
+_MATCH_STEP_MS = 50
+_MATCH_SPAN_SECONDS = 10.0
+_MATCH_LEAD_SECONDS = 1.0
+
+
+def _copy_target(info: Probe) -> _CopyTarget | None:
+    """The container a stream copy of this source is written in, or None if it has none."""
+    return next((target for target in _COPY_TARGETS if target.accepts(info)), None)
+
+
+def slice_content_type(info: Probe) -> str:
+    """Name the type of the file `copy_slice` writes from a source with this probe.
+
+    Args:
+        info: The probe of the source being sliced.
+
+    Returns:
+        str: The source's container type, or M4A when the slice is re-encoded.
+    """
+    target = _copy_target(info)
+    return PLAYBACK_MIME if target is None else target.content_type
+
+
+async def _decode_pcm(path: Path, rate: int, *args: str) -> bytes:
+    return await run_media_tool(
+        *ffmpeg(
+            "-v",
+            "error",
+            *INPUT_GUARD,
+            *args,
+            "-i",
+            str(path),
+            "-vn",
+            "-ac",
+            "1",
+            "-ar",
+            str(rate),
+            "-f",
+            "s16le",
+            "-",
+        )
+    )
+
+
+def _unique_match(original: bytes, needle: bytes) -> int | None:
+    """The one sample position `needle` decodes at in `original`, or None if not exactly one."""
+    found: int | None = None
+    at = original.find(needle)
+    while at != -1:
+        if at % 2 == 0:
+            if found is not None:
+                return None
+            found = at // 2
+        at = original.find(needle, at + 1)
+    return found
+
+
+async def _mp3_decoded_start_ms(
+    source: Path, slice_path: Path, seek_ms: int, info: Probe, slice_info: Probe
+) -> int:
+    """Find where the first decoded sample of an MP3 slice sits in the decoded original.
+
+    A slice has no gapless header, so its decoder skips fewer samples than the
+    original's does and the first decoded sample is not at the packet's pts. The
+    offset is measured by matching decoded samples at their own rate. When no run of
+    samples in the searched span matches exactly one place, as in a slice that is all
+    silence or a steady tone, the copy's start is returned: any offset decodes alike there.
+
+    Raises:
+        MediaError: The slice reports no sample rate.
+    """
+    rate = slice_info.sample_rate
+    if not rate:
+        msg = f"{slice_path.name} reports no sample rate to align it by"
+        raise MediaError(msg)
+    window_from = max(0.0, seek_ms / 1000 - _MATCH_LEAD_SECONDS)
+    original = await _decode_pcm(
+        source,
+        rate,
+        *_seek_args(info, round(window_from * 1000)),
+        "-t",
+        f"{_MATCH_SPAN_SECONDS + 2 * _MATCH_LEAD_SECONDS}",
+    )
+    sliced = await _decode_pcm(slice_path, rate, "-t", f"{_MATCH_SPAN_SECONDS}")
+    step = rate * _MATCH_STEP_MS // 1000
+    for at in range(rate * _MATCH_SKIP_MS // 1000, len(sliced) // 2 - _MATCH_SAMPLES, step):
+        needle = sliced[2 * at : 2 * (at + _MATCH_SAMPLES)]
+        if needle.count(needle[:2]) == _MATCH_SAMPLES:
+            continue
+        found = _unique_match(original, needle)
+        if found is not None:
+            return round((window_from + (found - at) / rate) * 1000)
+    return seek_ms
+
+
+class Slice(NamedTuple):
+    """A slice `copy_slice` wrote."""
+
+    # Where the first decoded sample of the slice sits on the source's timeline, in ms.
+    start_ms: int
+    # The probe of the slice.
+    info: Probe
+
+
+async def copy_slice(
+    source: Path,
+    target: Path,
+    start_ms: int,
+    end_ms: int,
+    *,
+    info: Probe | None = None,
+    stalls: StallMap | None = None,
+) -> Slice:
+    """Copy a range of an original without re-encoding, so the audio stays bit-exact.
+
+    The slice starts at the last packet at or before `start_ms` and ends at the first
+    packet at or after `end_ms`. Decoding `target` from its start gives the same
+    samples as decoding `source` from the returned offset. A source with no stream-copy
+    container, such as WebM, is re-encoded to M4A over exactly the range.
+
+    Args:
+        source: The file to read.
+        target: The file to write, in the source's container family when copied.
+        start_ms: Where the range starts, in milliseconds on the source's timeline.
+        end_ms: Where the range ends, in milliseconds on the source's timeline.
+        info: The probe of `source`, when one has already read it.
+        stalls: The stalls of `source`, when a scan has already read them.
+
+    Returns:
+        Slice: The slice's probe, and where its first decoded sample sits on the
+            source's timeline, which is `start_ms` when the range was re-encoded.
+    """
+    info = await _info(source, info)
+    copy = _copy_target(info)
+    if copy is None:
+        await cut(source, target, start_ms, end_ms, info=info, stalls=stalls)
+        return Slice(start_ms, await probe(target))
+    copy_from, copy_to = max(0, start_ms - copy.lead_ms), end_ms + copy.lead_ms
+    await run_media_tool(
+        *ffmpeg(
+            "-v",
+            "error",
+            "-y",
+            *INPUT_GUARD,
+            *_seek_args(info, copy_from),
+            "-i",
+            str(source),
+            "-vn",
+            "-map_metadata",
+            "-1",
+            "-c:a",
+            "copy",
+            "-t",
+            f"{copy_to - copy_from}ms",
+            *copy.output_args,
+            str(target),
+        )
+    )
+    slice_info = await probe(target)
+    if copy is _MP3:
+        start = await _mp3_decoded_start_ms(source, target, copy_from, info, slice_info)
+        return Slice(start, slice_info)
+    # MP4 and WAV slices begin exactly at the cut: the MP4 edit list hides the leading
+    # packet samples before it, and WAV packets split at any sample.
+    return Slice(start_ms, slice_info)

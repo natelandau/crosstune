@@ -7,6 +7,7 @@ import type { LocalRecording, LocalRecordingLink } from '../../db/types'
 import { displayTitle } from '../links/display'
 import { recordingTitle } from '../recordings/recordingRow'
 import { embedFor, type Embed } from './embed'
+import { loadAudioFile } from './playbackWindow'
 import { usePlayer } from './usePlayer'
 import type { PlayerItem } from '../../domain/playerItem'
 
@@ -80,7 +81,7 @@ export function useDockItem(): DockItem {
       item,
       link: null,
       recording,
-      file: (await db.recording_files.get(item.id)) ?? null,
+      file: (await loadAudioFile(db, recording)) ?? null,
       tuneTitle: liveTune(tune)?.title ?? null,
     }
   }, [db, item])
@@ -125,6 +126,7 @@ export function useDockItem(): DockItem {
             file: next.file ?? undefined,
             tuneId: null,
             tuneTitle: next.tuneTitle,
+            holdsSplitAudio: false,
           })
 
   return { current, link, recording, file, tuneTitle, embed, title, shown: next }

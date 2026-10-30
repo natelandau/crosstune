@@ -83,11 +83,8 @@ final class PracticeModel {
         let wasPlaying: Bool
     }
 
-    static let nudgeMs: Int64 = 100
-    static let largeNudgeMs: Int64 = 1000
     static let arrowStepMs: Int64 = 1000
     static let arrowLargeStepMs: Int64 = 5000
-    static let zoomStep = 2.0
 
     let player: PlayerModel
     private(set) var recording: Recording
@@ -181,7 +178,7 @@ final class PracticeModel {
 
     var trimStartMs: Int64 { recording.trimStartMs }
 
-    var isLoaded: Bool { player.recordingAudio == .loaded && !player.audio.hasFailed }
+    var isLoaded: Bool { player.isRecordingAudioReady }
 
     /// The trimmed recording's length: the player's once its audio is loaded, else the row's,
     /// and 0 while nothing says how long it is.

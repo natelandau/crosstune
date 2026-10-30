@@ -2,7 +2,9 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import type { PlayFirst } from '../../api/vocabulary'
 import { recordingsPlayable } from '../../billing/plan'
 import { usePlanOrUnknown } from '../../billing/usePlan'
+import { waitingParentIds } from '../../commands/recordings'
 import { useDb } from '../../db/DbProvider'
+import { holdsSplitAudio } from '../../domain/recordingLimits'
 import type { CrosstuneDb } from '../../db/schema'
 import type { LocalRecordingLink } from '../../db/types'
 import { linkControl } from '../links/linkControl'
@@ -27,9 +29,10 @@ export async function readTuneMedia(
 ): Promise<ReadonlyMap<string, TuneMedia>> {
   const sources = await readTuneSources(db, tuneIds)
   const recordings = [...sources.recordings.values()].flat()
-  const [files, tunes] = await Promise.all([
+  const [files, tunes, waiting] = await Promise.all([
     db.recording_files.bulkGet(recordings.map((recording) => recording.id)),
     db.tunes.bulkGet([...tuneIds]),
+    waitingParentIds(db),
   ])
   const fileOf = new Map(recordings.map((recording, i) => [recording.id, files[i]] as const))
   const media = new Map<string, TuneMedia>()
@@ -41,6 +44,7 @@ export async function readTuneMedia(
       file: fileOf.get(recording.id),
       tuneId: live?.id ?? null,
       tuneTitle: live?.title ?? null,
+      holdsSplitAudio: holdsSplitAudio(recording, waiting),
     }))
     media.set(tuneId, { views, links: [...(sources.links.get(tuneId) ?? [])] })
   }

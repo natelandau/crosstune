@@ -47,12 +47,14 @@ async def test_batch_creates_tune_user_tune_and_link(
 
 
 async def test_owner_comes_from_token_not_body(client, auth_headers) -> None:
+    claimed = uid()
     results = await push(
         client,
         auth_headers("user_a"),
-        change("tunes", uid(), T0, title="Sally Ann", owner_user_id=uid()),
+        change("tunes", uid(), T0, title="Sally Ann", owner_user_id=claimed),
     )
-    assert results[0]["status"] == "invalid"
+    assert results[0]["status"] == "applied"
+    assert results[0]["row"]["owner_user_id"] not in {None, claimed}
 
 
 async def test_older_write_is_stale_and_returns_current_row(client, auth_headers) -> None:

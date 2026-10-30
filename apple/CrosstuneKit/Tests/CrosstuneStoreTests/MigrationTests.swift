@@ -1313,3 +1313,58 @@ private let v16Schema = """
     #expect(row.tunerA4Hz == UserSettings.defaultTunerA4Hz)
     #expect(row.extra["tuner_a4_hz"] == nil)
 }
+
+@Test func v23MovesSplitColumnsOutOfExtra() throws {
+    let queue = try DatabaseQueue()
+    try Schema.migrator.migrate(queue, upTo: "v22")
+    let time = "2026-10-22T12:00:00.000Z"
+    try queue.write { db in
+        try db.execute(
+            sql: """
+                INSERT INTO recordings
+                    (id, created_at, updated_at, server_seq, source, added_at, position, state, extra)
+                VALUES
+                    ('r-1', ?, ?, 0, 'microphone', ?, 0, 'ready', '{}'),
+                    ('r-2', ?, ?, 3, 'microphone', ?, 1, 'ready',
+                        '{"split_id":"s1","split_size":3,"split_completed_id":"s1","split_from_id":"r-1","created_by_split_id":"s0","theme":"dark"}'),
+                    ('r-3', ?, ?, 4, 'microphone', ?, 2, 'ready', '{"split_size":"many","split_id":7}')
+                """,
+            arguments: [time, time, time, time, time, time, time, time, time])
+        try db.execute(
+            sql: """
+                INSERT INTO outbox (table_name, row_id, op, updated_at, data) VALUES
+                    ('recordings', 'r-2', 'upsert', ?, '{"label":"A"}'),
+                    ('recordings', 'r-9', 'upsert', ?, '{"label":"B"}'),
+                    ('tunes', 't-1', 'upsert', ?, '{"title":"Jam"}')
+                """,
+            arguments: [time, time, time])
+    }
+
+    try Schema.migrator.migrate(queue, upTo: "v23")
+
+    try queue.read { db in
+        let row = try #require(try Row.fetchOne(db, sql: "SELECT * FROM recordings WHERE id = 'r-2'"))
+        #expect(row["split_id"] as String? == "s1")
+        #expect(row["split_size"] as Int? == 3)
+        #expect(row["split_completed_id"] as String? == "s1")
+        #expect(row["split_from_id"] as String? == "r-1")
+        #expect(row["created_by_split_id"] as String? == "s0")
+        #expect(row["extra"] as String == #"{"theme":"dark"}"#)
+        let plain = try #require(try Row.fetchOne(db, sql: "SELECT * FROM recordings WHERE id = 'r-1'"))
+        #expect(plain["split_id"] as String? == nil)
+        // A wrong-typed value is dropped from extra without being moved, as in v21.
+        let wrong = try #require(try Row.fetchOne(db, sql: "SELECT * FROM recordings WHERE id = 'r-3'"))
+        #expect(wrong["split_size"] as Int? == nil)
+        #expect(wrong["split_id"] as String? == nil)
+        #expect(wrong["extra"] as String == "{}")
+
+        let data = try String?.fetchAll(db, sql: "SELECT data FROM outbox ORDER BY seq")
+        #expect(
+            data == [
+                #"{"label":"A","split_from_id":"r-1","split_id":"s1","split_size":3,"created_by_split_id":"s0"}"#,
+                // No row to read, so the queued change is left as it was.
+                #"{"label":"B"}"#,
+                #"{"title":"Jam"}"#,
+            ])
+    }
+}

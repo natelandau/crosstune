@@ -44,8 +44,9 @@ async def rewrite_playback(
         tuple[Revision, Probe]: The uploaded playback revision and the probe of the cut.
     """
     start_ms, end_ms = kept
-    # The kept range is on the source timeline, which is the original's own timeline.
-    await cut(source, target, start_ms, end_ms, info=source_info)
+    # The kept range is on the source timeline, and the original starts at its offset on it.
+    offset_ms = recording.source_offset_ms
+    await cut(source, target, start_ms - offset_ms, end_ms - offset_ms, info=source_info)
     info = await probe(target)
     playback = await upload_revision(
         store,

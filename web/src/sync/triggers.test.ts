@@ -40,6 +40,7 @@ function processingRecording(overrides: Partial<LocalRecording> = {}): LocalReco
     playback_end_ms: null,
     playback_rev: null,
     peaks_rev: null,
+    split_completed_id: null,
     ...overrides,
   }
 }

@@ -15,16 +15,19 @@ from crosstune.jobs.attempt import held_after_failure
 from crosstune.jobs.importer import OVER_QUOTA
 from crosstune.links.detect import detect_provider
 from crosstune.models import Job, Recording
+from crosstune.recordings.split_rules import split_holds_original, split_ready_to_complete
 from crosstune.recordings.trim_rules import needs_trim
 from crosstune.storage.store import PLAYBACK_MIME
 from crosstune.vocabulary import IMPORTABLE_PROVIDERS, JobKind
 
 if TYPE_CHECKING:
     import uuid
+    from collections.abc import Iterable
 
     from sqlalchemy.ext.asyncio import AsyncSession
 
     from crosstune.billing.access import Access
+    from crosstune.config import Settings
     from crosstune.storage.store import Revision
 
 
@@ -52,12 +55,14 @@ async def owned_recording(
 
 
 # Kinds a recording holds at most one of, each deduplicated against its partial unique index.
-_SINGLE_KINDS = frozenset({JobKind.TRIM, JobKind.PLACE})
+_SINGLE_KINDS = frozenset({JobKind.TRIM, JobKind.PLACE, JobKind.SPLIT})
 
 
 @overload
 async def enqueue_job(
-    session: AsyncSession, recording: Recording, kind: Literal[JobKind.TRIM, JobKind.PLACE]
+    session: AsyncSession,
+    recording: Recording,
+    kind: Literal[JobKind.TRIM, JobKind.PLACE, JobKind.SPLIT],
 ) -> Job | None: ...
 @overload
 async def enqueue_job(
@@ -68,7 +73,7 @@ async def enqueue_job(
 async def enqueue_job(session: AsyncSession, recording: Recording, kind: JobKind) -> Job | None:
     """Queue one job for the recording and wake the runner once the request commits.
 
-    A trim or a place job is deduplicated against its `ux_jobs_recording_id_<kind>`
+    A trim, place, or split job is deduplicated against its `ux_jobs_recording_id_<kind>`
     index: a recording can have only one of each queued at a time, so a call while one
     is already pending inserts nothing.
 
@@ -78,7 +83,7 @@ async def enqueue_job(session: AsyncSession, recording: Recording, kind: JobKind
         kind: What work the job asks the runner to do.
 
     Returns:
-        Job | None: The queued row, or None when `kind` is TRIM or PLACE and one was
+        Job | None: The queued row, or None when `kind` is TRIM, PLACE, or SPLIT and one was
             already pending.
     """
     request_runner_wake(session)
@@ -152,10 +157,38 @@ async def start_import(session: AsyncSession, recording: Recording, access: Acce
 async def ensure_trim_job(session: AsyncSession, recording: Recording) -> None:
     """Queue a trim job when the recording's playback file no longer matches its saved trim.
 
-    A soft-deleted recording never gets one: the purge sweep owns its files.
+    A soft-deleted recording never gets one: the purge sweep owns its files. Neither does
+    a parent whose original a waiting piece still needs; the split job queues the trim
+    once no piece waits.
     """
-    if recording.deleted_at is None and needs_trim(recording):
+    if (
+        recording.deleted_at is None
+        and needs_trim(recording)
+        and not await split_holds_original(session, recording)
+    ):
         await enqueue_job(session, recording, JobKind.TRIM)
+
+
+async def ensure_split_job(session: AsyncSession, parent: Recording) -> None:
+    """Queue the parent's split job when it is ready and its split has work left.
+
+    The work is a live piece of any of its splits awaiting its cut, or a latest split
+    whose pieces are all cut but which is not yet recorded as completed.
+    """
+    if parent.state != "ready" or parent.split_id is None:
+        return
+    if await split_holds_original(session, parent) or await split_ready_to_complete(
+        session, parent
+    ):
+        await enqueue_job(session, parent, JobKind.SPLIT)
+
+
+async def ensure_split_jobs(session: AsyncSession, parent_ids: Iterable[uuid.UUID | None]) -> None:
+    """Queue the split job of each listed recording that has split work left, once each."""
+    for parent_id in {parent_id for parent_id in parent_ids if parent_id is not None}:
+        parent = await session.get(Recording, parent_id)
+        if parent is not None:
+            await ensure_split_job(session, parent)
 
 
 async def ensure_place_job(session: AsyncSession, recording: Recording) -> None:
@@ -186,6 +219,17 @@ def attach_peaks(recording: Recording, peaks: Revision) -> None:
     recording.peaks_key = peaks.key
     recording.peaks_rev = peaks.rev
     recording.peaks_bytes = peaks.size
+
+
+def max_upload_bytes(recording: Recording, settings: Settings) -> int:
+    """The per-file cap for a recording's upload.
+
+    A split parent is held on its device until split, so its whole long original is the
+    file it uploads; every other recording keeps the plain cap.
+    """
+    if recording.split_size is not None:
+        return settings.recording_split_parent_max_file_bytes
+    return settings.recording_max_file_bytes
 
 
 def require_state(recording: Recording, *expected: str) -> None:

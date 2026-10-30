@@ -65,6 +65,14 @@ private final class Writes {
         #expect(audio.window == PlaybackWindow(from: 1, to: 3))
     }
 
+    @Test func anEarlyEndShortensTheWindowFromItsStartAndTheTrimEndRestoresIt() async throws {
+        try await load(recording(trimStartMs: 1000, trimEndMs: 4000))
+        player.endPlayback(atSourceMs: 2500)
+        #expect(audio.window == PlaybackWindow(from: 1, to: 2.5))
+        player.endPlayback(atSourceMs: nil)
+        #expect(audio.window == PlaybackWindow(from: 1, to: 4))
+    }
+
     @Test func aSpeedBurstWritesOnce() async throws {
         let sleep = ManualSleep()
         player.sleep = sleep.sleep
@@ -301,26 +309,28 @@ private final class Writes {
         #expect(audio.calls.count == before)
     }
 
-    @Test func theMoreMenuOffersTrimEditAddToTuneAndDelete() {
+    @Test func theMoreMenuOffersTrimSplitEditAddToTuneAndDelete() {
         #expect(
             RecordingMenuItem.items(inTune: false, trimDisabledReason: nil) == [
-                .trim(disabledReason: nil), .edit, .addToTune, .delete,
+                .trim(disabledReason: nil), .split(disabledReason: nil), .edit, .addToTune,
+                .delete(disabledReason: nil),
             ])
         #expect(
             RecordingMenuItem.items(inTune: true, trimDisabledReason: RecordingScreenText.trimBusy) == [
-                .trim(disabledReason: RecordingScreenText.trimBusy), .edit, .removeFromTune, .delete,
+                .trim(disabledReason: RecordingScreenText.trimBusy), .split(disabledReason: nil), .edit,
+                .removeFromTune, .delete(disabledReason: nil),
             ])
         #expect(RecordingMenuItem.trim(disabledReason: nil).label == "Trim")
         #expect(RecordingMenuItem.edit.label == RecordingRowActions.edit)
         #expect(RecordingRowActions.edit == "Edit")
         #expect(RecordingMenuItem.addToTune.label == RecordingRowActions.addToTune)
-        #expect(RecordingMenuItem.delete.label == RecordingRowActions.delete)
+        #expect(RecordingMenuItem.delete(disabledReason: nil).label == RecordingRowActions.delete)
     }
 
-    @Test func theMoreMenuLeavesTrimOutWhenTheRecordingCannotTrim() {
+    @Test func theMoreMenuLeavesTrimAndSplitOutWhenTheRecordingCannotTrim() {
         #expect(
             RecordingMenuItem.items(inTune: true, trimDisabledReason: nil, trims: false) == [
-                .edit, .removeFromTune, .delete,
+                .edit, .removeFromTune, .delete(disabledReason: nil),
             ])
     }
 
@@ -334,7 +344,8 @@ private final class Writes {
         #expect(open.label == RecordingRowActions.openOn("Slippery-Hill"))
         #expect(
             RecordingMenuItem.items(inTune: true, trimDisabledReason: nil, openOrigin: open) == [
-                .trim(disabledReason: nil), .edit, .removeFromTune, open, .delete,
+                .trim(disabledReason: nil), .split(disabledReason: nil), .edit, .removeFromTune, open,
+                .delete(disabledReason: nil),
             ])
         #expect(RecordingMenuItem.openOrigin(for: imported("javascript:alert(1)")) == nil)
         #expect(RecordingMenuItem.openOrigin(for: imported(nil, origin: "own")) == nil)

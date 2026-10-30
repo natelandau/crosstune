@@ -2,12 +2,6 @@ import CrosstuneDesign
 import CrosstuneStore
 import SwiftUI
 
-#if os(iOS)
-    import GameController
-#elseif os(macOS)
-    import AppKit
-#endif
-
 /// What holds the keyboard on the recording screen: the screen itself, or one of the selected
 /// loop's handles.
 enum PracticeFocus: Hashable {
@@ -31,8 +25,6 @@ struct PracticeWaveform: View {
     @Environment(\.practiceBackground) private var practiceScheme
     /// Whether the drag under way has begun scrubbing, so its first move holds playback.
     @State private var isScrubbing = false
-    /// True while Option is held on the Mac, which turns off snapping to the playhead.
-    @State private var optionHeld = false
     /// Reset however a gesture ends, cancelled included, so each always lets go.
     @GestureState private var scrubPressed = false
     @GestureState private var handlePressed = false
@@ -98,23 +90,6 @@ struct PracticeWaveform: View {
         }
         #if os(iOS)
             .sensoryFeedback(.impact(weight: .light), trigger: model.snaps)
-        #elseif os(macOS)
-            // A change only reports keys pressed after the view appears, so one already held is
-            // read on appear.
-            .onAppear { optionHeld = NSEvent.modifierFlags.contains(.option) }
-            .onModifierKeysChanged(mask: .option) { _, keys in optionHeld = keys.contains(.option) }
-        #endif
-    }
-
-    /// Whether a handle's drag snaps to the playhead now: not while Option is held on a
-    /// hardware keyboard. The Mac hears Option change; an iPad's keyboard is read as the drag
-    /// moves.
-    private var snaps: Bool {
-        #if os(iOS)
-            let keys = GCKeyboard.coalesced?.keyboardInput
-            return ![GCKeyCode.leftAlt, .rightAlt].contains { keys?.button(forKeyCode: $0)?.isPressed == true }
-        #else
-            !optionHeld
         #endif
     }
 
@@ -213,38 +188,9 @@ struct PracticeWaveform: View {
     private func draw(in context: inout GraphicsContext, size: CGSize, view: ZoomedWaveformView, placed: [PlacedLoop]) {
         let width = Double(size.width)
         let lengthMs = Double(model.lengthMs)
-        let bars = ZoomedWaveformBars(view: view, lengthMs: lengthMs, displayScale: context.environment.displayScale)
-        // Bars cover only the recording's own stretch, so the view past either end stays blank.
-        let x0 = max(0, -bars.offsetX)
-        let x1 = min(width, lengthMs / 1000 * view.pointsPerSecond - bars.offsetX)
-        if x1 > x0 {
-            let height = size.height
-            // A trim past the end of the peaks leaves no points, and a silent file has no level to
-            // scale to; both draw as if the peaks had not come, as the overview strip does.
-            let peaks = self.peaks.flatMap { $0.values.isEmpty || $0.loudest == 0 ? nil : $0 }
-            #if os(macOS)
-                if let peaks {
-                    context.fillSplit(
-                        bars.path(height: height) { peaks.gridLevel(barMs: bars.barMs, index: $0) },
-                        atX: width / 2, played: MacWave.played, unplayed: MacWave.unplayed)
-                } else {
-                    context.fill(
-                        bars.path(height: height) { PeakBars.placeholderLevel($0) }, with: .color(MacWave.placeholder))
-                }
-            #else
-                let path =
-                    peaks.map { peaks in bars.path(height: height) { peaks.gridLevel(barMs: bars.barMs, index: $0) } }
-                    ?? BarPath.peakBars(levels: [], in: CGRect(x: x0, y: 0, width: x1 - x0, height: height))
-                if practiceScheme != nil {
-                    // What has played, left of the fixed playhead, is white; what is to come is
-                    // silver.
-                    context.fillSplit(
-                        path, atX: width / 2, played: Palette.onPractice, unplayed: Palette.onPracticeSecondary)
-                } else {
-                    context.fill(path, with: .quietBars(onPractice: false))
-                }
-            #endif
-        }
+        context.fillZoomedBars(
+            view: view, lengthMs: lengthMs, peaks: peaks, size: size, onPractice: practiceScheme != nil,
+            placeholderOnMac: true)
         let selectedID = model.selectedID
         for loop in placed {
             let start = max(0, view.x(ofSourceMs: Double(loop.span.startMs)))
@@ -323,52 +269,22 @@ struct PracticeWaveform: View {
     // MARK: Handles
 
     private func handle(_ edge: LoopModel.Edge, at x: Double, view: ZoomedWaveformView) -> some View {
-        let inView = x >= 0 && x <= view.width
-        let name = edge == .start ? PracticeText.loopStart : PracticeText.loopEnd
-        return HandleMark(edge: edge, color: Self.handleColor(isTrim: false))
-            .frame(width: PracticeModel.handleReach * 2)
-            .frame(maxHeight: .infinity)
-            .contentShape(.rect)
-            .offset(x: min(max(x, 0), view.width) - PracticeModel.handleReach)
-            // Keyed on the snap, so only a jump onto or off a snap point eases; a drag's own
-            // moves and the waveform's scroll stay locked to the finger and the playhead.
-            .phoneAnimation(.spring(duration: 0.3, bounce: 0.3), reduced: nil, value: model.handleDrag?.snappedTo)
-            .opacity(inView ? 1 : 0)
-            .allowsHitTesting(inView)
+        LoopEdgeHandle(
+            edge: edge, x: x, width: view.width, space: Self.space, snappedTo: model.handleDrag?.snappedTo,
+            focus: focus, focusValue: .handle(edge), pressed: $handlePressed,
+            label: edge == .start ? PracticeText.loopStart : PracticeText.loopEnd,
+            valueText: model.handleValue(edge),
             // The target reaches past the loop's edge, so a tap on it is a tap on the waveform.
-            .onTapGesture(coordinateSpace: .named(Self.space)) { location in
-                model.tap(atX: Double(location.x))
-            }
-            .highPriorityGesture(
-                DragGesture(minimumDistance: LoopModel.dragThreshold, coordinateSpace: .named(Self.space))
-                    .updating($handlePressed) { _, pressed, _ in pressed = true }
-                    .onChanged { value in
-                        if model.handleDrag == nil { model.beginHandleDrag(edge) }
-                        model.dragHandle(toX: Double(value.location.x), snapping: snaps)
-                    }
-                    .onEnded { value in
-                        model.endHandleDrag(atX: Double(value.location.x), snapping: snaps)
-                    }
-            )
-            .focusable()
-            .focused(focus, equals: .handle(edge))
-            .onChange(of: focus.wrappedValue == .handle(edge)) { _, focused in
-                if focused, !inView, let row = model.selected {
-                    model.reveal(edge == .start ? row.startMs : row.endMs)
-                }
-            }
-            .accessibilityElement()
-            .accessibilityLabel(name)
-            .accessibilityValue(model.handleValue(edge))
-            .accessibilityAdjustableAction { direction in
-                switch direction {
-                case .increment: step(edge, by: PracticeModel.nudgeMs)
-                case .decrement: step(edge, by: -PracticeModel.nudgeMs)
-                @unknown default: break
-                }
-            }
-            .accessibilityAction(named: PracticeText.laterBySecond) { step(edge, by: PracticeModel.largeNudgeMs) }
-            .accessibilityAction(named: PracticeText.earlierBySecond) { step(edge, by: -PracticeModel.largeNudgeMs) }
+            onTap: { model.tap(atX: $0) },
+            onDrag: { x, snapping in
+                if model.handleDrag == nil { model.beginHandleDrag(edge) }
+                model.dragHandle(toX: x, snapping: snapping)
+            },
+            onDragEnd: { x, snapping in model.endHandleDrag(atX: x, snapping: snapping) },
+            onStep: { step(edge, by: $0) },
+            onReveal: {
+                if let row = model.selected { model.reveal(edge == .start ? row.startMs : row.endMs) }
+            })
     }
 
     /// A handle's color: every loop's in the brand color, the one color for what marks a position,
@@ -409,7 +325,7 @@ struct WaveformOverlay: View {
             Spacer(minLength: 0)
             HStack(spacing: 0) {
                 iconButton(RecordingScreenText.zoomOut, systemImage: "minus.magnifyingglass") {
-                    model.zoom(by: 1 / PracticeModel.zoomStep)
+                    model.zoom(by: 1 / WaveformSteps.zoomStep)
                 }
                 .keyboardShortcut("-", modifiers: .command)
                 .disabled(!model.canZoomOut)
@@ -429,7 +345,7 @@ struct WaveformOverlay: View {
                     .accessibilityShowsLargeContentViewer()
                 #endif
                 iconButton(RecordingScreenText.zoomIn, systemImage: "plus.magnifyingglass") {
-                    model.zoom(by: PracticeModel.zoomStep)
+                    model.zoom(by: WaveformSteps.zoomStep)
                 }
                 .keyboardShortcut("=", modifiers: .command)
                 .disabled(!model.canZoomIn)
@@ -525,52 +441,6 @@ private struct Backing: ViewModifier {
     }
 }
 
-/// A loop handle: a line the height of the waveform with a grab tab centered on it. The tab sits
-/// outside the loop so it never covers the audio being looped.
-private struct HandleMark: View {
-    static let tabWidth: CGFloat = 16
-    static let tabHeight: CGFloat = 44
-
-    let edge: LoopModel.Edge
-    let color: Color
-
-    var body: some View {
-        ZStack {
-            Rectangle()
-                .fill(color)
-                .frame(width: 2)
-                #if os(macOS)
-                    .background { Rectangle().fill(Color.markOutline).frame(width: 4) }
-                #endif
-            tab
-                .offset(x: edge == .start ? -Self.tabWidth / 2 : Self.tabWidth / 2)
-        }
-    }
-
-    private var tab: some View {
-        let radius: CGFloat = 6
-        let shape =
-            edge == .start
-            ? UnevenRoundedRectangle(topLeadingRadius: radius, bottomLeadingRadius: radius)
-            : UnevenRoundedRectangle(bottomTrailingRadius: radius, topTrailingRadius: radius)
-        return
-            shape
-            .fill(color)
-            #if os(macOS)
-                // A centered stroke shows its outer half, a point outside the tab.
-                .background { shape.stroke(Color.markOutline, lineWidth: 2) }
-            #endif
-            .frame(width: Self.tabWidth, height: Self.tabHeight)
-            .overlay {
-                HStack(spacing: 2) {
-                    ForEach(0..<2, id: \.self) { _ in
-                        Capsule().fill(Palette.onPractice).frame(width: 1.5, height: 16)
-                    }
-                }
-            }
-    }
-}
-
 extension GraphicsContext.Shading {
     /// The recording screen's playhead line: the brand color beside the loop handles on the Mac
     /// and on the practice background, plain otherwise.
@@ -603,6 +473,41 @@ extension GraphicsContext.Shading {
 #endif
 
 extension GraphicsContext {
+    /// Draws a zoomed waveform's bars over the recording's own stretch of `view`, so the view
+    /// past either end stays blank: what has played, left of the fixed center, apart from what
+    /// is to come on the Mac and on the practice background. Without peaks, the Mac draws
+    /// placeholder bars when `placeholderOnMac` is set, and a plain timeline bar otherwise.
+    func fillZoomedBars(
+        view: ZoomedWaveformView, lengthMs: Double, peaks: ShownPeaks?, size: CGSize, onPractice: Bool,
+        placeholderOnMac: Bool
+    ) {
+        let width = Double(size.width)
+        let height = size.height
+        let bars = ZoomedWaveformBars(view: view, lengthMs: lengthMs, displayScale: environment.displayScale)
+        let x0 = max(0, -bars.offsetX)
+        let x1 = min(width, lengthMs / 1000 * view.pointsPerSecond - bars.offsetX)
+        guard x1 > x0 else { return }
+        // A trim past the end of the peaks leaves no points, and a silent file has no level to
+        // scale to; both draw as if the peaks had not come, as the overview strip does.
+        let peaks = peaks.flatMap { $0.values.isEmpty || $0.loudest == 0 ? nil : $0 }
+        let path =
+            peaks.map { peaks in bars.path(height: height) { peaks.gridLevel(barMs: bars.barMs, index: $0) } }
+            ?? BarPath.peakBars(levels: [], in: CGRect(x: x0, y: 0, width: x1 - x0, height: height))
+        #if os(macOS)
+            if peaks == nil, placeholderOnMac {
+                fill(bars.path(height: height) { PeakBars.placeholderLevel($0) }, with: .color(MacWave.placeholder))
+            } else {
+                fillSplit(path, atX: width / 2, played: MacWave.played, unplayed: MacWave.unplayed)
+            }
+        #else
+            if onPractice {
+                fillSplit(path, atX: width / 2, played: Palette.onPractice, unplayed: Palette.onPracticeSecondary)
+            } else {
+                fill(path, with: .quietBars(onPractice: false))
+            }
+        #endif
+    }
+
     /// Fills `path` in `played` left of `x` and in `unplayed` from it on.
     func fillSplit(_ path: BarPath, atX x: Double, played: Color, unplayed: Color) {
         // An empty path's bounds are the null rect, whose infinite origin would make each clip NaN.

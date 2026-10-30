@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import uuid
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
@@ -55,6 +56,41 @@ async def test_slot_refuses_a_file_over_the_cap(client, app, auth_headers) -> No
     response = await slot(client, auth_headers("user_a"), rec, bytes_=501)
     assert response.status_code == 413
     assert response.json()["type"] == "urn:crosstune:file-too-large"
+
+
+async def mark_split_parent(verify_session, rec: str) -> None:
+    await verify_session.execute(
+        update(Recording).where(Recording.id == rec).values(split_id=uuid.uuid4(), split_size=2)
+    )
+    await verify_session.commit()
+
+
+async def test_slot_accepts_a_split_parent_over_the_cap_up_to_its_own_limit(
+    client, app, auth_headers, verify_session
+) -> None:
+    app.state.settings.recording_max_file_bytes = 500
+    app.state.settings.recording_split_parent_max_file_bytes = 2000
+    parent, unsplit = uid(), uid()
+    await push(client, auth_headers("user_a"), recording(parent), recording(unsplit))
+    await mark_split_parent(verify_session, parent)
+    assert (await slot(client, auth_headers("user_a"), parent, bytes_=2000)).status_code == 200
+    refused = await slot(client, auth_headers("user_a"), parent, bytes_=2001)
+    assert refused.status_code == 413
+    assert refused.json()["type"] == "urn:crosstune:file-too-large"
+    assert (await slot(client, auth_headers("user_a"), unsplit, bytes_=501)).status_code == 413
+
+
+async def test_uploaded_accepts_a_split_parent_over_the_cap(
+    client, app, auth_headers, object_store, verify_session
+) -> None:
+    app.state.settings.recording_max_file_bytes = 10
+    app.state.settings.recording_split_parent_max_file_bytes = 100
+    rec = uid()
+    await push(client, auth_headers("user_a"), recording(rec))
+    await mark_split_parent(verify_session, rec)
+    await slot(client, auth_headers("user_a"), rec, bytes_=50)
+    object_store.put_bytes(object_store.presigned[-1][1], b"x" * 50, "audio/mp4")
+    assert (await uploaded(client, auth_headers("user_a"), rec)).status_code == 204
 
 
 async def test_slot_refuses_when_quota_would_be_exceeded(
@@ -741,4 +777,5 @@ async def test_me_reports_storage(client, app, auth_headers, verify_session) -> 
         "used_bytes": 1200,
         "quota_bytes": 5000,
         "max_file_bytes": 50_000_000,
+        "split_parent_max_file_bytes": 1_800_000_000,
     }

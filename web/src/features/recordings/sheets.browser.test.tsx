@@ -151,6 +151,7 @@ function view(): RecordingView {
     file: undefined,
     tuneId: null,
     tuneTitle: null,
+    holdsSplitAudio: false,
   }
 }
 

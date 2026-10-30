@@ -19,6 +19,8 @@ export interface RowAction {
   shortLabel?: string
   icon: LucideIcon
   tone?: 'neutral' | 'warning' | 'danger'
+  /** Why the action cannot be used right now; it stays, disabled, with this reason. */
+  disabled?: string
   onAction: () => void
 }
 
@@ -236,16 +238,22 @@ export function Row({
             <div className="relative flex max-w-1/2 shrink-0 items-center self-stretch">
               {actions.length > 0 && (
                 <div className="absolute inset-y-0 end-full flex items-center gap-1 bg-[linear-gradient(to_right,transparent,var(--row-tint)_1.5rem),linear-gradient(to_right,transparent,var(--page-background)_1.5rem)] ps-8 pe-2 opacity-0 transition-opacity duration-(--dur-short) ease-(--ease) group-hover:opacity-100 focus-within:opacity-100">
-                  {actions.map(({ id: actionId, label, icon, tone = 'neutral', onAction }) => (
-                    <Button
-                      key={actionId}
-                      variant={ACTION_VARIANT[tone]}
-                      icon={icon}
-                      label={label}
-                      iconOnly
-                      onPress={onAction}
-                    />
-                  ))}
+                  {actions.map(
+                    ({ id: actionId, label, icon, tone = 'neutral', disabled, onAction }) => (
+                      <Button
+                        key={actionId}
+                        variant={ACTION_VARIANT[tone]}
+                        icon={icon}
+                        label={label}
+                        description={disabled}
+                        iconOnly
+                        // aria-disabled rather than disabled, so the tooltip with the reason
+                        // still shows on hover.
+                        aria-disabled={disabled !== undefined || undefined}
+                        onPress={disabled === undefined ? onAction : undefined}
+                      />
+                    ),
+                  )}
                 </div>
               )}
               {trailing}

@@ -100,6 +100,43 @@ import Testing
         #expect(engine.transferStatus == .idle)
     }
 
+    @Test func holdsARecordingOverThreeHoursUntilItIsSplit() async throws {
+        try await captured("r1")
+        try await captured("r2")
+        try await store.write { writer in
+            try writer.db.execute(sql: "UPDATE recording_files SET local_duration_ms = 10800001 WHERE id = 'r1'")
+        }
+        let engine = engine()
+
+        await engine.transfer()
+
+        #expect(api.transfers == ["slot r2", "put r2", "confirm r2"])
+        #expect(try await file("r1")?.localState == .captured)
+    }
+
+    @Test func holdsAnUnsplitRecordingOverThePerFileLimit() async throws {
+        try await captured("r1", audio: "0123456789")
+        try await captured("r2", audio: "01234")
+        try await store.setMeta(.storage, to: StorageUsage(usedBytes: 0, quotaBytes: 1_000, maxFileBytes: 5))
+        let engine = engine()
+
+        await engine.transfer()
+
+        #expect(api.transfers == ["slot r2", "put r2", "confirm r2"])
+        #expect(try await file("r1")?.localState == .captured)
+    }
+
+    @Test func uploadsARecordingWithNoKnownLength() async throws {
+        try await captured("r1")
+        try await store.write { writer in
+            try writer.db.execute(sql: "UPDATE recording_files SET local_duration_ms = NULL WHERE id = 'r1'")
+        }
+
+        await engine().transfer()
+
+        #expect(api.transfers == ["slot r1", "put r1", "confirm r1"])
+    }
+
     @Test func skipsAnImportRecordingThatHasNoFile() async throws {
         try await store.write { writer in
             try writer.put(
@@ -403,6 +440,28 @@ import Testing
 
         await engine().transfer()
 
+        #expect(try await file("r1") == nil)
+        #expect(!exists(audio))
+    }
+
+    @Test func keepsTheFileOfASplitParentDeletedElsewhereWhileAPieceWaits() async throws {
+        let audio = try await captured("r1", state: .uploaded, recordingState: "ready")
+        let waiting = Recording(
+            id: "p1", tuneID: nil, source: "microphone", state: "processing", splitFromID: "r1",
+            createdBySplitID: "s1")
+        try await store.write { writer in
+            try writer.put(waiting)
+            try writer.applyPullPage(rows: [(.recordings, Self.tombstone("r1"))], nextSince: 5)
+        }
+
+        await engine().transfer()
+        #expect(try await file("r1") != nil)
+        #expect(exists(audio))
+
+        var cut = waiting
+        cut.state = "ready"
+        try await store.write { [cut] writer in try writer.put(cut) }
+        await engine().transfer()
         #expect(try await file("r1") == nil)
         #expect(!exists(audio))
     }

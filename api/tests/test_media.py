@@ -2,18 +2,25 @@
 
 from __future__ import annotations
 
+import array
 import asyncio
 import json
 import os
+import shutil
 import subprocess
 import sys
+import time
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
 import pytest
 
 from crosstune.jobs.media import (
+    MP3_LEAD_MS,
     MediaError,
     Probe,
+    _fill_gap_args,
+    copy_slice,
     cut,
     encode,
     ffmpeg,
@@ -27,6 +34,16 @@ from crosstune.jobs.media import (
     run_media_tool,
     stream_media_tool,
 )
+from tests.helpers import (
+    GAPPED_STALL_MS,
+    GAPPED_WEBM_GAP_AT_S,
+    GAPPED_WEBM_GAP_MS,
+    LONG_STALL_MS,
+    STEPPED_BACK_MS,
+)
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 pytestmark = pytest.mark.anyio
 
@@ -454,3 +471,425 @@ async def test_probe_of_a_file_without_tags_has_no_location_or_date(media_fixtur
     info = await probe(media_fixtures["wav"])
     assert info.location is None
     assert info.created_at is None
+
+
+SLICE_RATE = 44_100
+FFMPEG = shutil.which("ffmpeg") or "ffmpeg"
+SLICE_ENCODERS = {
+    "m4a": ["-c:a", "aac", "-b:a", "128k", "-f", "mp4"],
+    "mp3": ["-c:a", "libmp3lame", "-b:a", "128k", "-f", "mp3"],
+    "wav": ["-c:a", "pcm_s16le", "-f", "wav"],
+}
+
+
+@pytest.fixture(scope="module")
+def noise_sources(tmp_path_factory) -> dict[str, Path]:
+    """Four seconds of 44.1 kHz noise per format, so a decoded position matches only once."""
+    folder = tmp_path_factory.mktemp("noise")
+    paths = {}
+    for name, args in SLICE_ENCODERS.items():
+        paths[name] = folder / f"noise.{name}"
+        subprocess.run(  # noqa: S603
+            [
+                FFMPEG,
+                "-v",
+                "error",
+                "-f",
+                "lavfi",
+                "-i",
+                f"anoisesrc=duration=4:amplitude=0.3:sample_rate={SLICE_RATE}:seed=1",
+                "-ac",
+                "1",
+                *args,
+                str(paths[name]),
+            ],
+            check=True,
+        )
+    return paths
+
+
+def playable_args(path: Path) -> list[str]:
+    """Stop a decode where an MP4's edit list ends the audio, as a player does.
+
+    Some ffmpeg releases decode an AAC file's last frame whole, padding included.
+    """
+    report = json.loads(
+        subprocess.run(  # noqa: S603
+            [
+                shutil.which("ffprobe") or "ffprobe",
+                "-v", "error", "-select_streams", "a:0", "-show_entries",
+                "format=format_name:stream=duration", "-of", "json", str(path),
+            ],
+            check=True,
+            capture_output=True,
+        ).stdout
+    )  # fmt: skip
+    if "mp4" not in report["format"]["format_name"].split(","):
+        return []
+    return ["-t", report["streams"][0]["duration"]]
+
+
+def decode_pcm(path: Path) -> bytes:
+    return subprocess.run(  # noqa: S603
+        [
+            FFMPEG,
+            "-v",
+            "error",
+            "-i",
+            str(path),
+            *playable_args(path),
+            "-f",
+            "s16le",
+            "-ac",
+            "1",
+            "-ar",
+            "44100",
+            "-",
+        ],
+        check=True,
+        capture_output=True,
+    ).stdout
+
+
+# 1280 ms is exactly 49 MP3 frames of 1152 samples at 44.1 kHz, so the cut falls on a packet
+# boundary.
+@pytest.mark.parametrize("name", ["m4a", "mp3", "wav"])
+@pytest.mark.parametrize("start_ms", [0, 1000, 1100, 1280, 1500, 2200, 3333])
+async def test_copy_slice_decodes_like_the_original_from_the_returned_start(
+    noise_sources, tmp_path, name, start_ms
+) -> None:
+    end_ms = start_ms + 600
+    target = tmp_path / f"slice.{name}"
+    returned = (await copy_slice(noise_sources[name], target, start_ms, end_ms)).start_ms
+
+    assert start_ms - 100 < returned <= start_ms
+    original, sliced = decode_pcm(noise_sources[name]), decode_pcm(target)
+    # Past the first frames, which a decoder starting mid-stream cannot reproduce.
+    probe_at = 20_000
+    found = original.find(sliced[2 * probe_at : 2 * (probe_at + 64)])
+    assert found != -1
+    assert abs((found // 2 - probe_at) * 1000 / SLICE_RATE - returned) <= 1
+    assert returned + len(sliced) / 2 / SLICE_RATE * 1000 >= end_ms - 1
+
+
+def _aligned_at(original: bytes, sliced: bytes, probe_at: int) -> float:
+    """Where, in ms on the original's decoded timeline, the slice's decode starts."""
+    found = original.find(sliced[2 * probe_at : 2 * (probe_at + 64)])
+    assert found != -1
+    assert original.find(sliced[2 * probe_at : 2 * (probe_at + 64)], found + 1) == -1
+    return (found // 2 - probe_at) * 1000 / SLICE_RATE
+
+
+async def test_copy_slice_of_an_mp3_aligns_where_it_starts_in_silence(tmp_path) -> None:
+    source = tmp_path / "gap.mp3"
+    await run_media_tool(
+        *ffmpeg(
+            "-v", "error",
+            "-f", "lavfi", "-i", f"anoisesrc=d=1.5:a=0.3:r={SLICE_RATE}:seed=1",
+            "-f", "lavfi", "-i", f"anullsrc=r={SLICE_RATE}:cl=mono:d=1.5",
+            "-f", "lavfi", "-i", f"anoisesrc=d=1.5:a=0.3:r={SLICE_RATE}:seed=2",
+            "-filter_complex", "[0][1][2]concat=n=3:v=0:a=1", "-ac", "1",
+            *SLICE_ENCODERS["mp3"], str(source),
+        )
+    )  # fmt: skip
+    target = tmp_path / "slice.mp3"
+    # The first second of the slice is silence, which matches anywhere in the gap.
+    returned = (await copy_slice(source, target, 1_600, 3_800)).start_ms
+
+    original, sliced = decode_pcm(source), decode_pcm(target)
+    noise_at = round((3_000 - returned + 200) * SLICE_RATE / 1000)
+    assert abs(_aligned_at(original, sliced, noise_at) - returned) <= 1
+
+
+async def test_copy_slice_of_an_mp3_needs_no_sample_rate_from_its_probe(
+    noise_sources, tmp_path
+) -> None:
+    info = Probe(
+        codec="mp3", format_names=frozenset({"mp3"}), bit_rate=None, duration_ms=4_000, channels=1
+    )
+    target = tmp_path / "slice.mp3"
+    returned = (await copy_slice(noise_sources["mp3"], target, 1_000, 1_600, info=info)).start_ms
+    original, sliced = decode_pcm(noise_sources["mp3"]), decode_pcm(target)
+    assert abs(_aligned_at(original, sliced, 20_000) - returned) <= 1
+
+
+async def test_copy_slice_of_an_all_silent_mp3_starts_where_the_copy_does(tmp_path) -> None:
+    source = tmp_path / "silence.mp3"
+    await run_media_tool(
+        *ffmpeg(
+            "-v", "error", "-f", "lavfi", "-i", f"anullsrc=r={SLICE_RATE}:cl=mono:d=3",
+            *SLICE_ENCODERS["mp3"], str(source),
+        )
+    )  # fmt: skip
+    returned = (await copy_slice(source, tmp_path / "slice.mp3", 1_000, 2_000)).start_ms
+    assert returned == 1_000 - MP3_LEAD_MS
+
+
+async def test_copy_slice_of_an_mp4_with_a_video_stream_copies_the_audio(
+    noise_sources, tmp_path
+) -> None:
+    source = tmp_path / "video.mp4"
+    await run_media_tool(
+        *ffmpeg(
+            "-v", "error",
+            "-f", "lavfi", "-i", "color=c=black:s=64x64:r=1:d=4",
+            "-i", str(noise_sources["m4a"]),
+            "-map", "0:v", "-map", "1:a", "-c:v", "libx264", "-g", "4", "-c:a", "copy",
+            "-f", "mp4", str(source),
+        )
+    )  # fmt: skip
+    target = tmp_path / "slice.m4a"
+    returned = (await copy_slice(source, target, 1_500, 2_500)).start_ms
+
+    info = await probe(target)
+    assert info.codec == "aac"
+    assert 1_400 < returned <= 1_500
+    assert abs(_aligned_at(decode_pcm(source), decode_pcm(target), 20_000) - returned) <= 1
+
+
+async def test_copy_slice_of_long_m4a_is_fast(long_m4a, tmp_path) -> None:
+    began = time.monotonic()
+    start = (await copy_slice(long_m4a, tmp_path / "slice.m4a", 1_800_000, 2_400_000)).start_ms
+    assert time.monotonic() - began < 5
+    assert 1_800_000 - 100 < start <= 1_800_000
+    assert (await probe(tmp_path / "slice.m4a")).duration_ms >= 2_400_000 - start - 30
+
+
+async def test_copy_slice_of_webm_reencodes(media_fixtures, tmp_path) -> None:
+    target = tmp_path / "slice.m4a"
+    assert (await copy_slice(media_fixtures["webm"], target, 500, 1500)).start_ms == 500
+    info = await probe(target)
+    assert info.codec == "aac"
+    assert 900 <= info.duration_ms <= 1_100
+
+
+CUT_RATE = 8_000
+CUT_WINDOW = 4_000
+CUT_LAG = 80
+
+
+def decode_low_rate(path: Path) -> array.array:
+    pcm = subprocess.run(  # noqa: S603
+        [
+            FFMPEG,
+            "-v",
+            "error",
+            "-i",
+            str(path),
+            *playable_args(path),
+            "-f",
+            "s16le",
+            "-ac",
+            "1",
+            "-ar",
+            str(CUT_RATE),
+            "-",
+        ],
+        check=True,
+        capture_output=True,
+    ).stdout
+    samples = array.array("h")
+    samples.frombytes(pcm)
+    return samples
+
+
+def best_lag(reference: array.array, heard: array.array, ref_at: int, heard_at: int) -> int:
+    """Find how many samples `reference` runs ahead of `heard` where both are the same audio."""
+    window = heard[heard_at : heard_at + CUT_WINDOW]
+
+    def score(lag: int) -> int:
+        start = ref_at + lag
+        return sum(
+            a * b for a, b in zip(reference[start : start + CUT_WINDOW], window, strict=False)
+        )
+
+    return max(range(-CUT_LAG, CUT_LAG + 1), key=score)
+
+
+@pytest.mark.parametrize("name", ["m4a", "mp3", "wav"])
+@pytest.mark.parametrize("start_ms", [200, 1000, 1500, 2000, 2200])
+async def test_cut_lands_on_the_decoded_timeline(noise_sources, tmp_path, name, start_ms) -> None:
+    end_ms = start_ms + 1500
+    target = tmp_path / "cut.m4a"
+    await cut(noise_sources[name], target, start_ms, end_ms)
+
+    original, cut_audio = decode_low_rate(noise_sources[name]), decode_low_rate(target)
+    ms = CUT_RATE // 1000
+    # 1 ms is eight samples; the start window and a window ending at end_ms both align.
+    assert abs(best_lag(original, cut_audio, start_ms * ms + 500, 500)) <= ms
+    tail = (end_ms - start_ms) * ms - CUT_WINDOW - 500
+    assert abs(best_lag(original, cut_audio, start_ms * ms + tail, tail)) <= ms
+    assert abs(len(cut_audio) / ms - (end_ms - start_ms)) <= 1
+
+
+async def test_cut_deep_in_a_long_file_is_fast(long_m4a, tmp_path) -> None:
+    began = time.monotonic()
+    await cut(long_m4a, tmp_path / "cut.m4a", 3_500_000, 3_510_000)
+    assert time.monotonic() - began < 5
+    assert 9_900 <= (await probe(tmp_path / "cut.m4a")).duration_ms <= 10_100
+
+
+def decoded_ms(path: Path) -> float:
+    return len(decode_pcm(path)) / 2 / SLICE_RATE * 1000
+
+
+@pytest.mark.parametrize(
+    ("start_ms", "end_ms"), [(0, 1843), (200, 900), (1000, 2000), (1843, 3781), (3000, 4000)]
+)
+async def test_cut_of_a_webm_with_a_timestamp_gap_covers_its_range(
+    gapped_webm, tmp_path, start_ms, end_ms
+) -> None:
+    target = tmp_path / "cut.m4a"
+    await cut(gapped_webm, target, start_ms, end_ms)
+    assert abs(decoded_ms(target) - (end_ms - start_ms)) <= 1
+
+
+@pytest.mark.parametrize(
+    ("start_ms", "end_ms"), [(0, 1843), (200, 900), (1100, 2000), (1843, 3781), (3000, 4000)]
+)
+async def test_copy_slice_of_a_webm_with_a_timestamp_gap_aligns_and_covers(
+    gapped_webm, tmp_path, start_ms, end_ms
+) -> None:
+    target = tmp_path / "slice.m4a"
+    assert (await copy_slice(gapped_webm, target, start_ms, end_ms)).start_ms == start_ms
+    assert abs(decoded_ms(target) - (end_ms - start_ms)) <= 1
+
+    # The gap holds no samples, so after it the sample timeline trails the timestamps.
+    original, sliced = decode_low_rate(gapped_webm), decode_low_rate(target)
+    ms = CUT_RATE // 1000
+    skipped = GAPPED_WEBM_GAP_MS if start_ms > GAPPED_WEBM_GAP_AT_S * 1000 else 0
+    ref_at = (start_ms - skipped) * ms + 500
+    assert abs(best_lag(original, sliced, ref_at, 500)) <= ms
+
+
+async def test_encode_and_cut_of_a_gapped_webm_share_a_timeline(gapped_webm, tmp_path) -> None:
+    whole, part = tmp_path / "whole.m4a", tmp_path / "part.m4a"
+    await encode(gapped_webm, whole)
+    await cut(gapped_webm, part, 3000, 4000)
+
+    ms = CUT_RATE // 1000
+    # The silence sits in both, so 3000 ms of the encode is 3000 ms of the cut's source.
+    assert abs(decoded_ms(whole) - (6000 + GAPPED_WEBM_GAP_MS)) <= 30
+    lag = best_lag(decode_low_rate(whole), decode_low_rate(part), 3000 * ms + 500, 500)
+    assert abs(lag) <= ms
+
+
+async def test_cut_of_a_webm_stepping_back_keeps_every_sample(stepped_back_webm, tmp_path) -> None:
+    target = tmp_path / "cut.m4a"
+    await cut(stepped_back_webm, target, 0, 7000)
+    assert abs(decoded_ms(target) - 6000) <= 25
+    await encode(stepped_back_webm, target)
+    assert abs(decoded_ms(target) - 6000) <= 25
+    assert STEPPED_BACK_MS < 20
+
+
+async def test_cut_of_a_drifting_webm_keeps_every_sample(drifting_webm, tmp_path) -> None:
+    target = tmp_path / "cut.m4a"
+    plain = tmp_path / "plain.m4a"
+    await cut(drifting_webm, target, 0, 59_000)
+    # The same range with no filter: whatever the timestamps select, nothing is added or removed.
+    await run_media_tool(
+        *ffmpeg(
+            "-v", "error", "-y", "-ss", "0ms", "-to", "59000ms", "-i", str(drifting_webm),
+            "-vn", "-c:a", "aac", "-b:a", "64k", "-f", "mp4", str(plain),
+        )
+    )  # fmt: skip
+    assert abs(decoded_ms(target) - decoded_ms(plain)) <= 25
+
+
+@pytest.mark.parametrize("name", ["m4a", "mp3", "wav"])
+async def test_gapless_sources_are_cut_and_encoded_unfiltered(
+    media_fixtures, tmp_path, name
+) -> None:
+    source = media_fixtures[name]
+    info = await probe(source)
+    assert await _fill_gap_args(source, info, to_ms=1500) == ()
+
+
+async def test_a_clean_webm_gets_no_gap_filter(plain_webm) -> None:
+    assert await _fill_gap_args(plain_webm, await probe(plain_webm)) == ()
+
+
+STALL_START, STALL_END = GAPPED_STALL_MS
+
+
+@pytest.mark.parametrize("webm", ["gapped_webm", "offset_gapped_webm"])
+@pytest.mark.parametrize("start_ms", [STALL_START + 6, 1050, 1080, STALL_END - 3])
+async def test_cut_starting_inside_a_stall_keeps_its_length_and_audio(
+    request, tmp_path, webm, start_ms
+) -> None:
+    source = request.getfixturevalue(webm)
+    end_ms = 2000
+    target = tmp_path / "cut.m4a"
+    await cut(source, target, start_ms, end_ms)
+    assert abs(decoded_ms(target) - (end_ms - start_ms)) <= 1
+
+    # The audio resumes at the stall's end, where the sample timeline trails by the stall.
+    ms = CUT_RATE // 1000
+    original, cut_audio = decode_low_rate(source), decode_low_rate(target)
+    resumed = (STALL_END - GAPPED_WEBM_GAP_MS + 300) * ms
+    heard_at = (STALL_END + 300 - start_ms) * ms
+    assert abs(best_lag(original, cut_audio, resumed, heard_at)) <= ms
+
+
+@pytest.mark.parametrize("webm", ["gapped_webm", "offset_gapped_webm"])
+@pytest.mark.parametrize("end_ms", [STALL_START + 6, 1050, 1080, STALL_END - 3, STALL_END])
+async def test_cut_ending_inside_a_stall_keeps_its_length_and_audio(
+    request, tmp_path, webm, end_ms
+) -> None:
+    source = request.getfixturevalue(webm)
+    start_ms = 500
+    target = tmp_path / "cut.m4a"
+    await cut(source, target, start_ms, end_ms)
+    assert abs(decoded_ms(target) - (end_ms - start_ms)) <= 1
+
+    ms = CUT_RATE // 1000
+    original, cut_audio = decode_low_rate(source), decode_low_rate(target)
+    assert abs(best_lag(original, cut_audio, (start_ms + 100) * ms, 100 * ms)) <= ms
+
+
+LONG_STALL_START, LONG_STALL_END = LONG_STALL_MS
+
+
+def rms(samples: array.array) -> float:
+    return (sum(sample * sample for sample in samples) / len(samples)) ** 0.5
+
+
+@pytest.mark.parametrize(
+    "end_ms", [LONG_STALL_START + 1000, LONG_STALL_START + 2500, LONG_STALL_END]
+)
+async def test_cut_ending_far_inside_a_long_stall_keeps_its_length(
+    long_stalled_webm, tmp_path, end_ms
+) -> None:
+    start_ms = 500
+    target = tmp_path / "cut.m4a"
+    await cut(long_stalled_webm, target, start_ms, end_ms)
+    assert abs(decoded_ms(target) - (end_ms - start_ms)) <= 1
+
+    ms = CUT_RATE // 1000
+    original, cut_audio = decode_low_rate(long_stalled_webm), decode_low_rate(target)
+    assert abs(best_lag(original, cut_audio, (start_ms + 100) * ms, 100 * ms)) <= ms
+    stalled = cut_audio[(LONG_STALL_START - start_ms + 30) * ms :]
+    assert rms(stalled) < rms(original) / 50
+
+
+@pytest.mark.parametrize(
+    ("webm", "start_ms", "end_ms"),
+    [
+        ("gapped_webm", 1050, 1080),
+        ("gapped_webm", 1050, STALL_END),
+        ("gapped_webm", STALL_START, STALL_END),
+        ("long_stalled_webm", 1500, 3000),
+    ],
+)
+async def test_cut_wholly_inside_a_stall_is_silence_of_its_length(
+    request, tmp_path, webm, start_ms, end_ms
+) -> None:
+    target = tmp_path / "cut.m4a"
+    source = request.getfixturevalue(webm)
+    await cut(source, target, start_ms, end_ms)
+    assert abs(decoded_ms(target) - (end_ms - start_ms)) <= 1
+    # A cut on a packet's end keeps a fraction of a millisecond of it, which the AAC
+    # encoder smears at a low level across its frame, so this measures level, not peaks.
+    edge = 2 * CUT_RATE // 1000
+    assert rms(decode_low_rate(target)[edge:]) < rms(decode_low_rate(source)) / 50

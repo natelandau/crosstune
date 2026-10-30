@@ -12,6 +12,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -22,6 +23,7 @@ import {
 import { getInteractionModality } from 'react-aria/private/interactions/useFocusVisible'
 import { Button as AriaButton, type Key } from 'react-aria-components'
 import { tap } from '../platform/haptics'
+import { ControlDescription, descriptionProps } from './ControlDescription'
 import { useLatest } from './useLatest'
 import { SPRING } from '../theme/motion'
 import { ReorderContext, type ReorderDrag } from './reorder'
@@ -178,6 +180,7 @@ export function RowSwipe({
   const lockedAxis = useRef<'x' | 'y' | null>(null)
   const endListeners = useRef<(() => void) | null>(null)
   const onLongPressRef = useLatest(onLongPress)
+  const reasonId = useId()
   const width = actions.length * SWIPE_ACTION_WIDTH
   // The row's rounded clip antialiases the content and the actions under it alike, so a
   // closed row would fringe its corners in the actions' color. Clip the actions to what the
@@ -371,25 +374,32 @@ export function RowSwipe({
           if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false)
         }}
       >
-        {actions.map(({ id, label, shortLabel, icon: Icon, tone = 'neutral', onAction }) => (
-          <AriaButton
-            key={id}
-            aria-label={label}
-            onPress={(event) => {
-              onAction()
-              // A keyboard or screen reader press leaves focus here, so the row stays open to
-              // keep the focused action in view.
-              if (event.pointerType !== 'keyboard' && event.pointerType !== 'virtual') {
-                settle(false)
-              }
-            }}
-            style={{ width: SWIPE_ACTION_WIDTH }}
-            className={`flex h-full flex-col items-center justify-center gap-0.5 px-1 focus-visible:-outline-offset-4! focus-visible:outline-current! ${FILL[tone]}`}
-          >
-            <Icon className="size-5 shrink-0" aria-hidden />
-            <span className="t-caption max-w-full truncate">{shortLabel ?? label}</span>
-          </AriaButton>
-        ))}
+        {actions.map(
+          ({ id, label, shortLabel, icon: Icon, tone = 'neutral', disabled, onAction }, index) => (
+            <AriaButton
+              key={id}
+              aria-label={label}
+              // aria-disabled rather than disabled, so the action keeps focus and reads its reason.
+              aria-disabled={disabled !== undefined || undefined}
+              {...descriptionProps(`${reasonId}-${index}`, disabled)}
+              onPress={(event) => {
+                if (disabled !== undefined) return
+                onAction()
+                // A keyboard or screen reader press leaves focus here, so the row stays open to
+                // keep the focused action in view.
+                if (event.pointerType !== 'keyboard' && event.pointerType !== 'virtual') {
+                  settle(false)
+                }
+              }}
+              style={{ width: SWIPE_ACTION_WIDTH }}
+              className={`flex h-full flex-col items-center justify-center gap-0.5 px-1 focus-visible:-outline-offset-4! focus-visible:outline-current! aria-disabled:opacity-40 ${FILL[tone]}`}
+            >
+              <Icon className="size-5 shrink-0" aria-hidden />
+              <span className="t-caption max-w-full truncate">{shortLabel ?? label}</span>
+              <ControlDescription id={`${reasonId}-${index}`} text={disabled} />
+            </AriaButton>
+          ),
+        )}
       </motion.div>
       <motion.div
         drag="x"

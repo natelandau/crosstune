@@ -10,9 +10,10 @@ export interface HeldSettings {
 
 export interface PracticeOverlayHandle {
   /**
-   * Opens practice for `id`, starting it in the player if it is not loaded.
+   * Opens practice for `id`, starting it in the player if it is not loaded. `opensIn` is the
+   * view it opens on, such as Split for a recording that must be split to upload.
    */
-  open: (id: string) => void
+  open: (id: string, opensIn?: PracticeOpensIn) => void
   close: () => void
   /**
    * What practice plays for `id` ahead of the row, so a stored value landing late (its own
@@ -32,7 +33,7 @@ export interface PracticeOverlayHandle {
 
 // A list or the dock rendered without the provider, as in a test that does not need
 // practice, gets a no-op rather than a throw.
-const detached: PracticeOverlayHandle = {
+export const DETACHED_PRACTICE_OVERLAY: PracticeOverlayHandle = {
   open: () => {},
   close: () => {},
   held: () => null,
@@ -41,7 +42,8 @@ const detached: PracticeOverlayHandle = {
   subscribe: () => () => {},
 }
 
-export const PracticeOverlayContext = createContext<PracticeOverlayHandle>(detached)
+export const PracticeOverlayContext =
+  createContext<PracticeOverlayHandle>(DETACHED_PRACTICE_OVERLAY)
 
 export function usePracticeOverlay(): PracticeOverlayHandle {
   return useContext(PracticeOverlayContext)
@@ -56,7 +58,11 @@ export interface ShownRecording {
   id: string
   open: boolean
   opening: number
+  opensIn: PracticeOpensIn
 }
+
+/** The view practice opens on. */
+export type PracticeOpensIn = 'main' | 'split'
 
 export interface PracticeOverlayShown {
   shown: ShownRecording | null

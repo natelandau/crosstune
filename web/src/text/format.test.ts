@@ -44,34 +44,39 @@ describe('format', () => {
 
   it('labels the state a user cares about', () => {
     const row = { state: 'pending_upload', error: null, source: 'microphone' } as const
-    expect(fileStateLabel(row, { local_state: 'captured' })).toBe(WAITING_TO_UPLOAD)
-    expect(fileStateLabel(row, { local_state: 'uploading' })).toBe('Uploading')
-    expect(fileStateLabel(row, { local_state: 'blocked_quota' })).toBe(STORAGE_FULL)
-    expect(fileStateLabel(row, { local_state: 'failed_upload' })).toBe(UPLOAD_FAILED)
+    expect(fileStateLabel(row, { local_state: 'captured' }, null)).toBe(WAITING_TO_UPLOAD)
+    expect(fileStateLabel(row, { local_state: 'uploading' }, null)).toBe('Uploading')
+    expect(fileStateLabel(row, { local_state: 'blocked_quota' }, null)).toBe(STORAGE_FULL)
+    expect(fileStateLabel(row, { local_state: 'failed_upload' }, null)).toBe(UPLOAD_FAILED)
     expect(
       fileStateLabel(
         { state: 'processing', error: null, source: 'upload' },
         { local_state: 'uploaded' },
+        null,
       ),
     ).toBe('Processing')
     expect(
       fileStateLabel(
         { state: 'failed', error: 'x', source: 'upload' },
         { local_state: 'uploaded' },
+        null,
       ),
     ).toBe(PROCESS_FAILED)
     expect(
       fileStateLabel(
         { state: 'ready', error: null, source: 'upload' },
         { local_state: 'uploaded' },
+        null,
       ),
     ).toBe('')
-    expect(fileStateLabel({ state: 'ready', error: null, source: 'upload' }, undefined)).toBe('')
+    expect(fileStateLabel({ state: 'ready', error: null, source: 'upload' }, undefined, null)).toBe(
+      '',
+    )
     expect(
-      fileStateLabel({ state: 'pending_upload', error: null, source: 'import' }, undefined),
+      fileStateLabel({ state: 'pending_upload', error: null, source: 'import' }, undefined, null),
     ).toBe('Processing')
     expect(
-      fileStateLabel({ state: 'pending_upload', error: null, source: 'upload' }, undefined),
+      fileStateLabel({ state: 'pending_upload', error: null, source: 'upload' }, undefined, null),
     ).toBe('')
   })
 })

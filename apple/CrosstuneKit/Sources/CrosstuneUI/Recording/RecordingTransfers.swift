@@ -72,16 +72,9 @@ struct RecordingTransfers: ViewModifier {
                 let store = store
                 actions = engine.map { RecordingTransferActions(engine: $0, store: store) }
                 player.audioSource = { recordingID in
-                    let url =
-                        if let engine { await engine.download(recordingID) } else {
-                            await store.localAudio(recordingID: recordingID)
-                        }
-                    guard url != nil else { return nil }
-                    // The row read after the fetch names the file the fetch left, with where its
-                    // audio starts in the source.
-                    let file = try? await store.read { db in try RecordingFile.fetchOne(db, key: recordingID) }
-                    guard let file = file ?? nil, let fileURL = store.localAudio(file) else { return nil }
-                    return RecordingAudioFile(url: fileURL, file: file)
+                    await RecordingAudioLookup.fetch(recordingID, store: store) { id in
+                        if let engine { await engine.download(id) } else { await store.localAudio(recordingID: id) }
+                    }
                 }
                 player.activityWriter = .store(store)
                 player.saveSettings = { recordingID, change in

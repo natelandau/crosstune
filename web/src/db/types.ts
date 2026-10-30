@@ -259,6 +259,7 @@ const RECORDING_PIPELINE_KEYS = [
   'playback_rev',
   'peaks_rev',
   'file_bytes',
+  'split_completed_id',
 ] as const
 
 const BOOKKEEPING_KEYS = [

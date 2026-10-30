@@ -13,6 +13,9 @@ public enum RecordingText {
     public static let downloadFailed = "Couldn't download"
     public static let processing = "Processing"
     public static let processFailed = "Couldn't process"
+    /// A recording too long to upload until it is split.
+    public static let mustSplit = "Too long to upload. Split it into shorter recordings."
+    public static let splitFailed = "The piece could not be split."
     /// A recording the server refused as Premium only, which waits here until the account subscribes.
     public static let isLocalUntilSubscribed = "On this device only. Syncs when you subscribe."
 
@@ -141,9 +144,13 @@ public enum RecordingText {
     }
 
     /// What to tell the musician about a recording that is not simply playable. Nil when it is.
-    public static func fileState(_ recording: Recording, file: RecordingFile?) -> String? {
+    /// `uploadLimits` are the server's per-file upload caps, nil when unknown.
+    public static func fileState(
+        _ recording: Recording, file: RecordingFile?, uploadLimits: StorageUsage? = nil
+    ) -> String? {
         // An import has no file to upload: until the server answers, it is already being fetched.
         if recording.source == "import", recording.state == "pending_upload", file == nil { return processing }
+        if RecordingLimits.mustSplitToUpload(recording, file: file, uploadLimits: uploadLimits) { return mustSplit }
         switch file?.localState {
         case .capturing: return Self.recording
         case .captured: return waitingToUpload
@@ -153,6 +160,7 @@ public enum RecordingText {
         case .downloading: return downloading
         case .uploaded, .downloaded, nil: break
         }
+        if recording.splitFromID != nil, recording.state == "failed" { return splitFailed }
         switch recording.state {
         case "uploaded", "processing": return processing
         case "failed": return processFailed
@@ -167,7 +175,8 @@ public enum RecordingText {
     /// cannot start, and replaces the status. A recording kept local until subscribed says so in place
     /// of its status. The file's own length is shown until the server reports the recording's.
     public static func meta(
-        _ recording: Recording, file: RecordingFile?, storage: StorageUsage? = nil, offline: Bool = false,
+        _ recording: Recording, file: RecordingFile?, storage: StorageUsage? = nil, uploadLimits: StorageUsage? = nil,
+        offline: Bool = false,
         dateInTitle: Bool = false, sort: RecordingSort? = nil, isLocalUntilSubscribed: Bool = false,
         locale: Locale = .current, timeZone: TimeZone = .current
     ) -> [String] {
@@ -184,7 +193,7 @@ public enum RecordingText {
             } else {
                 Self.date(recording, locale: locale, timeZone: timeZone)
             }
-        let status = fileState(recording, file: file) ?? date
+        let status = fileState(recording, file: file, uploadLimits: uploadLimits) ?? date
         let waiting = file?.localState == .captured || file?.localState == .uploading
         let attempts = file?.uploadAttempts ?? 0
         let tries = waiting && attempts > 0 ? failedTries(attempts) : nil

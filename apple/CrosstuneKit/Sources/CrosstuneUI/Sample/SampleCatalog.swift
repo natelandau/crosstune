@@ -147,7 +147,7 @@
         public static var recordingRows: [RecordingRowContent] {
             recordings.map {
                 RecordingRowContent(
-                    recording: $0.recording, file: $0.file, tuneTitle: $0.tuneTitle, locale: locale,
+                    recording: $0.recording, file: $0.file, uploadLimits: nil, tuneTitle: $0.tuneTitle, locale: locale,
                     timeZone: timeZone)
             }
         }

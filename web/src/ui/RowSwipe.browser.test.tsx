@@ -851,3 +851,21 @@ it("runs a row's action on pointer though its last touch swipe was never reporte
   ;(row.element() as HTMLElement).click()
   await expect.poll(() => onRowAction).toHaveBeenCalledWith('1')
 })
+
+it('shows a disabled swipe action off with its reason, and never runs it', async () => {
+  const onAction = vi.fn()
+  const off: RowAction[] = [
+    { id: 'delete', label: 'Delete', icon: Trash2, disabled: 'Not now', onAction },
+  ]
+  renderWithProviders(
+    <RowList label="Tunes">
+      <Row id="1" textValue="Sally Goodin" title="Sally Goodin" actions={off} />
+    </RowList>,
+    { density: 'touch' },
+  )
+  const button = page.getByRole('button', { name: 'Delete' })
+  await expect.element(button).toHaveAttribute('aria-disabled', 'true')
+  await expect.element(button).toHaveAccessibleDescription('Not now')
+  ;(button.element() as HTMLElement).click()
+  expect(onAction).not.toHaveBeenCalled()
+})

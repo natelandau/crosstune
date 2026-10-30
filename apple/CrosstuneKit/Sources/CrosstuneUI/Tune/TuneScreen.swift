@@ -564,6 +564,7 @@ struct TuneMediaRows: View {
     @Environment(\.openURL) private var openURL
     @Environment(\.premium) private var premium
     @Environment(\.plan) private var plan
+    @Environment(\.playerWindow) private var window
     /// Whether a free plan's recordings line is open to the rows below it, for this visit only.
     @State private var showsRecordings = false
 
@@ -620,11 +621,12 @@ struct TuneMediaRows: View {
 
     private func recordingRow(_ entry: TuneRecording) -> some View {
         let view = RecordingView(
-            recording: entry.recording, file: entry.file, tuneID: detail.tune.id, tuneTitle: detail.tune.title)
+            recording: entry.recording, file: entry.file, tuneID: detail.tune.id, tuneTitle: detail.tune.title,
+            holdsSplitAudio: entry.holdsSplitAudio)
         // The screen's own title above already names the tune.
         let pinned = detail.userTune.playRecordingID == view.id
         return HStack {
-            Self.item(view) { kind in retry(view.id, kind) }
+            Self.item(view, uploadLimits: detail.uploadLimits) { kind in retry(view.id, kind) }
             if pinned { PinnedMark() }
         }
         .newRecordingHighlight(view.id)
@@ -634,26 +636,36 @@ struct TuneMediaRows: View {
                 togglePin: { Task { await model.setPlaySource(.recording(id: view.id), pinned: pinned) } },
                 open: { openURL($0) }, edit: { editing = view },
                 removeFromTune: { Task { await model.unfileRecording(view.recording) } },
-                delete: { deleting = view }))
+                delete: { deleting = view },
+                split: RecordingRowHandlers.split(
+                    view, uploadLimits: detail.uploadLimits, player: player, window: window, source: .tune,
+                    recordingsPlay: plan.recordingsPlay)))
     }
 
     /// A recording row's actions on the page: every recording here is filed under the tune
     /// being looked at, so it offers Remove from tune but neither Add to tune nor Go to tune.
     static func rowHandlers(
         _ view: RecordingView, pinned: Bool, togglePin: @escaping () -> Void, open: @escaping (URL) -> Void,
-        edit: @escaping () -> Void, removeFromTune: @escaping () -> Void, delete: @escaping () -> Void
+        edit: @escaping () -> Void, removeFromTune: @escaping () -> Void, delete: @escaping () -> Void,
+        split: (() -> Void)? = nil
     ) -> RecordingRowHandlers {
         RecordingRowHandlers(
             filed: true, pinned: pinned, onTogglePin: togglePin,
             originLabel: RecordingText.originLabel(view.recording.origin),
             onOpenOrigin: RecordingRowActions.originPage(view.recording).map { page in { open(page) } },
-            onEdit: edit, onAddToTune: nil, onRemoveFromTune: removeFromTune, onDelete: delete)
+            onEdit: edit, onAddToTune: nil, onRemoveFromTune: removeFromTune, onDelete: delete, onSplit: split,
+            splitDisabledReason: RecordingRowHandlers.splitDisabledReason(view),
+            deleteDisabledReason: RecordingScreenText.deleteDisabledReason(view))
     }
 
     /// A recording's row on the page. A free plan shows it only under the recordings line, so
     /// its tap is reported as coming from the line.
-    static func item(_ view: RecordingView, onRetry: @escaping (RecordingText.Retry) -> Void) -> RecordingItem {
-        RecordingItem(view: view, source: .tune, tuneNamedAbove: true, premiumEntry: .recordingsLine, onRetry: onRetry)
+    static func item(
+        _ view: RecordingView, uploadLimits: StorageUsage?, onRetry: @escaping (RecordingText.Retry) -> Void
+    ) -> RecordingItem {
+        RecordingItem(
+            view: view, source: .tune, tuneNamedAbove: true, uploadLimits: uploadLimits, premiumEntry: .recordingsLine,
+            onRetry: onRetry)
     }
 
     private func retry(_ recordingID: String, _ kind: RecordingText.Retry) {

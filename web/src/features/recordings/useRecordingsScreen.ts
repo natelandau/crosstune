@@ -57,6 +57,7 @@ export interface RecordingsScreen {
   setError: (message: string | null) => void
   retry: (view: RecordingView, kind: 'upload' | 'transcode') => void
   actionsFor: (view: RecordingView) => RowAction[]
+  rowMenuFor: (view: RecordingView) => RowAction[]
   menuFor: (view: RecordingView) => MenuItem[]
   /** The recording the edit sheet shows, or null. */
   editing: RecordingView | null
@@ -86,14 +87,16 @@ export function useRecordingsScreen({
   const views = loadedViews ?? NO_VIEWS
   const [filing, setFiling] = useState<RecordingView | null>(null)
   const [editing, setEditing] = useState<RecordingView | null>(null)
-  const { error, setUploadError, retry, actionsFor, menuFor } = useRecordingActionsWith({
-    confirm,
-    onEdit: setEditing,
-    onAddToTune: setFiling,
-    onOpenTune: ({ tuneId }) => {
-      if (tuneId) onOpenTune(tuneId)
+  const { error, setUploadError, retry, actionsFor, rowMenuFor, menuFor } = useRecordingActionsWith(
+    {
+      confirm,
+      onEdit: setEditing,
+      onAddToTune: setFiling,
+      onOpenTune: ({ tuneId }) => {
+        if (tuneId) onOpenTune(tuneId)
+      },
     },
-  })
+  )
 
   const origins = useMemo(() => heldOrigins(views), [views])
   const shown = useMemo(
@@ -138,6 +141,7 @@ export function useRecordingsScreen({
     setError: setUploadError,
     retry,
     actionsFor,
+    rowMenuFor,
     menuFor,
     editing,
     setEditing,

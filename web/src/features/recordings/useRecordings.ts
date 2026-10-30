@@ -1,6 +1,11 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { activeRecordingsForTune } from '../../commands/recordings'
+import {
+  activeRecordingsForTune,
+  waitingParentIds,
+  waitingParentIdsIn,
+} from '../../commands/recordings'
 import { useDb } from '../../db/DbProvider'
+import { holdsSplitAudio } from '../../domain/recordingLimits'
 import type { RecordingFile } from '../../db/recordings'
 import type { CrosstuneDb } from '../../db/schema'
 import type { LocalPlace, LocalRecording, LocalTune } from '../../db/types'
@@ -13,6 +18,9 @@ export interface RecordingView {
    * even if `recording.tune_id` still points at a tune deleted elsewhere. */
   tuneId: string | null
   tuneTitle: string | null
+  /** A piece split from the recording still waits for its cut and plays from its audio, so the
+   * recording cannot be deleted. */
+  holdsSplitAudio: boolean
   /**
    * The location name the recording shows: its saved location's while that is live, else its
    * own. Left unset by a view built without the saved locations.
@@ -30,9 +38,16 @@ export async function readRecordingsWithFiles(
   db: CrosstuneDb,
   { tuneId, withFiles = true }: { tuneId?: string; withFiles?: boolean } = {},
 ): Promise<RecordingView[]> {
-  const live = tuneId
-    ? await activeRecordingsForTune(db, tuneId)
-    : (await db.recordings.toArray()).filter((r) => !r.deleted_at)
+  let live: LocalRecording[]
+  let waiting: Set<string>
+  if (tuneId) {
+    live = await activeRecordingsForTune(db, tuneId)
+    waiting = await waitingParentIds(db)
+  } else {
+    const all = await db.recordings.toArray()
+    live = all.filter((r) => !r.deleted_at)
+    waiting = waitingParentIdsIn(all)
+  }
   const files = withFiles ? await db.recording_files.bulkGet(live.map((r) => r.id)) : []
   const wantedTuneIds = [...new Set(live.map((r) => r.tune_id).filter((s): s is string => !!s))]
   const places = new Map<string, LocalPlace>((await db.places.toArray()).map((p) => [p.id, p]))
@@ -47,6 +62,7 @@ export async function readRecordingsWithFiles(
       file: files[i],
       tuneId: tune?.id ?? null,
       tuneTitle: tune?.title ?? null,
+      holdsSplitAudio: holdsSplitAudio(recording, waiting),
       shownPlace: shownPlaceName(recording, places),
     }
   })

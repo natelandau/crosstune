@@ -34,12 +34,15 @@ public final class PlayerModel {
         didSet {
             guard oldValue && !isExpanded else { return }
             expandedWindow = nil
+            splitRequest = nil
             flushSettings()
             releaseHolds()
             // Opened and closed without a play reads as browsing, so it leaves nothing loaded.
             if opensUnplayed && transport?.isPlaying != true { close() }
         }
     }
+    /// The recording whose screen opens on its Split screen, until that screen claims the request.
+    public internal(set) var splitRequest: String?
     /// The window that asked for the player in full, or nil when any window may show it.
     public internal(set) var expandedWindow: UUID?
     /// True from a paused ``open(_:in:playing:)`` that loaded the item until its audio first plays.
@@ -118,6 +121,8 @@ public final class PlayerModel {
     @ObservationIgnored private var following: Task<Void, Never>?
     /// Whether the queue hears each track's end, as it does from loading a track until it leaves.
     @ObservationIgnored private var queueHearsTrackEnds = false
+    /// Where ``endPlayback(atSourceMs:)`` ends playback early, nil at the trim end.
+    @ObservationIgnored private var playbackEndMs: Int64?
     /// Where plays and practice sessions are written. The shell sets it; without it nothing is.
     /// One for another store drops the play under way.
     @ObservationIgnored public var activityWriter: ActivityWriter? {
@@ -243,6 +248,8 @@ public final class PlayerModel {
     }
 
     private func trackEnded(_ end: TrackEnd) {
+        // An early end is the Split screen's stop on a cut, not the recording finishing.
+        guard playbackEndMs == nil else { return }
         activity.trackEnded(end)
         if queueHearsTrackEnds { queue?.playerTrackEnded(end) }
     }
@@ -445,6 +452,22 @@ public final class PlayerModel {
         return true
     }
 
+    /// Shows a recording's screen as ``open(_:in:playing:source:)`` does, paused, and asks it to
+    /// open on its Split screen.
+    @discardableResult
+    public func openSplit(_ item: PlayerItem, in window: UUID? = nil, source: ActionSource = .dock) -> Bool {
+        guard item.kind == .recording, open(item, in: window, playing: false, source: source) else { return false }
+        splitRequest = item.id
+        return true
+    }
+
+    /// Claims the request to open recording `id` on its Split screen, returning whether there was one.
+    func claimSplitRequest(for id: String) -> Bool {
+        guard splitRequest == id else { return false }
+        splitRequest = nil
+        return true
+    }
+
     /// Shows the loaded item's player in full in `window`, or in any window when nil. `source`
     /// is where it was asked for.
     public func expand(in window: UUID? = nil, source: ActionSource = .dock) {
@@ -561,6 +584,7 @@ public final class PlayerModel {
     /// keeps Repeat on through a new file of the same recording.
     func start(_ file: RecordingAudioFile, _ item: PlayerItem, keepLoop: Bool = false) {
         audio.load(file.url, nowPlaying: nowPlaying(for: item), keepLoop: keepLoop)
+        playbackEndMs = nil
         loadedFile = (file, audio.duration)
         applied = [:]
         recordingAudio = .loaded
@@ -573,6 +597,16 @@ public final class PlayerModel {
     /// The queue's own title while one drives the player, otherwise `item`'s.
     func nowPlaying(for item: PlayerItem) -> NowPlaying {
         queuedNowPlaying ?? NowPlaying(title: item.title, tuneTitle: item.tuneTitle)
+    }
+
+    /// Ends the loaded recording's playback exactly at `sourceMs` on its source timeline, before
+    /// its trim end, or at the trim end again when nil. The window keeps its start, so positions
+    /// still count from the trim start.
+    func endPlayback(atSourceMs sourceMs: Int64?) {
+        guard sourceMs != playbackEndMs, let row = item?.recording, let full = window(row) else { return }
+        playbackEndMs = sourceMs
+        let end = sourceMs.map { full.from + TimeInterval($0 - row.trimStartMs) / 1000 }
+        audio.setWindow(end.map { PlaybackWindow(from: full.from, to: min(full.to, $0)) } ?? full)
     }
 
     func window(_ row: Recording) -> PlaybackWindow? {

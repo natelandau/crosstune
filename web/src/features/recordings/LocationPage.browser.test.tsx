@@ -86,7 +86,13 @@ async function setup({
   const fake = mapkit ? fakeMapKit(mapkit) : null
   const load = vi.fn(async (): Promise<MapKit | null> => fake?.mapkit ?? null)
   const Data = dataProviders({ db, analytics, engine: fakeEngine({ searchPlaces }) })
-  const view: RecordingView = { recording, file: undefined, tuneId: null, tuneTitle: null }
+  const view: RecordingView = {
+    recording,
+    file: undefined,
+    tuneId: null,
+    tuneTitle: null,
+    holdsSplitAudio: false,
+  }
   function Host() {
     const [shown, setShown] = useState<RecordingView | null>(view)
     return (

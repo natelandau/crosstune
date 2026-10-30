@@ -182,6 +182,7 @@ def test_pulled_rows_store_validated_values_as_plain_strings() -> None:
         playback_end_ms=None,
         playback_rev=None,
         peaks_rev=None,
+        split_completed_id=None,
     )
     assert type(row.model_dump()["state"]) is str
     assert type(row.model_dump()["source"]) is str

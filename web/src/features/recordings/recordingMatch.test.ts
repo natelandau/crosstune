@@ -9,6 +9,7 @@ function view(extra: Partial<RecordingView> = {}, label: string | null = null): 
     file: undefined,
     tuneId: null,
     tuneTitle: null,
+    holdsSplitAudio: false,
     ...extra,
   }
 }

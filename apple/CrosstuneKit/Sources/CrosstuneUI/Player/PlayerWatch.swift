@@ -41,6 +41,8 @@ struct PlayerRecordingWatch: ViewModifier {
     private struct Loaded: Equatable, Sendable {
         let recording: Recording?
         let file: RecordingFile?
+        /// The parent's file, read only for a piece the server has not cut yet.
+        let parentFile: RecordingFile?
         let tuneTitle: String?
         let loops: [RecordingLoop]
     }
@@ -51,8 +53,11 @@ struct PlayerRecordingWatch: ViewModifier {
             let rows = ValueObservation.tracking { db in
                 let recording = try Recording.fetchOne(db, key: recordingID)
                 let tune = try recording?.tuneID.flatMap { try Tune.fetchOne(db, key: $0) }
+                let parentFile = try RecordingAudioLookup.parentID(of: recording)
+                    .flatMap { try RecordingFile.fetchOne(db, key: $0) }
                 return Loaded(
                     recording: recording, file: try RecordingFile.fetchOne(db, key: recordingID),
+                    parentFile: parentFile,
                     tuneTitle: tune?.deletedAt == nil ? tune?.title : nil,
                     loops: try RecordingLoop.filter(RecordingLoop.CodingKeys.recordingID == recordingID).fetchAll(db))
             }
@@ -60,9 +65,8 @@ struct PlayerRecordingWatch: ViewModifier {
             .values(in: store.database)
             do {
                 for try await loaded in rows {
-                    let audioFile = loaded.file.flatMap { file in
-                        store.localAudio(file).map { RecordingAudioFile(url: $0, file: file) }
-                    }
+                    let audioFile = RecordingAudioLookup.audioFile(
+                        recording: loaded.recording, own: loaded.file, parent: loaded.parentFile, store: store)
                     player.recordingChanged(
                         id: recordingID, to: loaded.recording, audioFile: audioFile, tuneTitle: loaded.tuneTitle)
                     player.loopsChanged(id: recordingID, to: loaded.loops)

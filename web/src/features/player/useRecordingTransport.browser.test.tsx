@@ -76,6 +76,7 @@ async function remoteRecording(): Promise<string> {
     playback_end_ms: 3000,
     playback_rev: 'aaaaaaaa',
     peaks_rev: null,
+    split_completed_id: null,
   })
   return id
 }

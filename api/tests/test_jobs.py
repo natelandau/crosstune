@@ -6,6 +6,7 @@ import asyncio
 import dataclasses
 import logging
 import re
+import subprocess
 import uuid
 from datetime import UTC, datetime, timedelta
 from functools import partial
@@ -49,6 +50,7 @@ from crosstune.jobs.transcode import transcode
 from crosstune.jobs.trim import trim
 from crosstune.models import Job, Recording, RecordingLoop, ScheduledRun, UploadSlot, User
 from crosstune.recordings.service import attach_playback, enqueue_job, ensure_trim_job
+from crosstune.recordings.split_rules import latest_split_pieces, split_ready_to_complete
 from crosstune.storage.prefixed import PrefixedStore
 from crosstune.storage.store import (
     PLAYBACK_MIME,
@@ -1003,6 +1005,135 @@ async def test_purge_leaves_a_recording_undeleted_and_uploaded_meanwhile(
     assert rec.server_seq == seq_before
 
 
+async def _deleted_split_parent(verify_session, store, state: str = "ready") -> Recording:
+    user = await make_user(verify_session)
+    split_id = uuid.uuid4()
+    rec = await add_recording(
+        verify_session,
+        user,
+        state,
+        deleted_at=utc_now(),
+        playback_bytes=3,
+        split_id=split_id,
+        split_size=3,
+    )
+    rec.playback_key = playback_key(user.id, rec.id, REV)
+    await verify_session.commit()
+    store.put_bytes(rec.playback_key, b"abc", "audio/mp4")
+    return rec
+
+
+async def _add_waiting_piece(verify_session, parent: Recording) -> Recording:
+    user = await verify_session.get(User, parent.user_id)
+    piece = await add_recording(
+        verify_session,
+        user,
+        "processing",
+        split_from_id=parent.id,
+        created_by_split_id=parent.split_id,
+    )
+    await verify_session.commit()
+    return piece
+
+
+async def test_purge_skips_parent_while_a_piece_waits_for_its_cut(runner, verify_session) -> None:
+    """A deleted parent keeps its original while a live piece still needs it."""
+    job_runner, store = runner
+    rec = await _deleted_split_parent(verify_session, store)
+    await _add_waiting_piece(verify_session, rec)
+    assert await sweep_module.purge_deleted(job_runner._sessionmaker, store) == 0
+    assert store.get_bytes(rec.playback_key) == b"abc"
+    await verify_session.refresh(rec)
+    assert rec.state == "ready"
+
+
+async def test_purge_deletes_parent_whose_split_has_no_waiting_piece(
+    runner, verify_session
+) -> None:
+    """An uncompleted split holds nothing once no live piece waits for its cut."""
+    job_runner, store = runner
+    await _deleted_split_parent(verify_session, store)
+    assert await sweep_module.purge_deleted(job_runner._sessionmaker, store) == 1
+    assert store.keys() == []
+
+
+async def test_purge_deletes_failed_parent_with_a_waiting_piece(runner, verify_session) -> None:
+    """A failed parent has nothing to cut a piece from, so it holds nothing."""
+    job_runner, store = runner
+    rec = await _deleted_split_parent(verify_session, store, state="failed")
+    await _add_waiting_piece(verify_session, rec)
+    assert await sweep_module.purge_deleted(job_runner._sessionmaker, store) == 1
+    assert store.keys() == []
+
+
+async def test_purge_rechecks_the_split_hold_under_the_lock(
+    runner, verify_session, engine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A piece that arrives between the candidate read and the lock keeps the parent's files."""
+    job_runner, store = runner
+    rec = await _deleted_split_parent(verify_session, store)
+    real_lock_users = sweep_module._lock_users
+
+    async def piece_arrives_then_lock(session, rows) -> None:
+        async with make_sessionmaker(engine)() as other:
+            parent = await other.get(Recording, rec.id)
+            await _add_waiting_piece(other, parent)
+        await real_lock_users(session, rows)
+
+    monkeypatch.setattr(sweep_module, "_lock_users", piece_arrives_then_lock)
+    assert await sweep_module.purge_deleted(job_runner._sessionmaker, store) == 0
+    assert store.get_bytes(rec.playback_key) == b"abc"
+
+
+async def test_purge_deletes_parent_once_split_completes(runner, verify_session) -> None:
+    job_runner, store = runner
+    user = await make_user(verify_session)
+    split_id = uuid.uuid4()
+    rec = await add_recording(
+        verify_session,
+        user,
+        "ready",
+        deleted_at=utc_now(),
+        playback_bytes=3,
+        split_id=split_id,
+        split_size=2,
+        split_completed_id=split_id,
+    )
+    rec.playback_key = playback_key(user.id, rec.id, REV)
+    await verify_session.commit()
+    store.put_bytes(rec.playback_key, b"abc", "audio/mp4")
+    assert await sweep_module.purge_deleted(job_runner._sessionmaker, store) == 1
+    assert store.keys() == []
+
+
+async def test_purge_keeps_a_purged_piece_counting_toward_its_split(runner, verify_session) -> None:
+    """Purge leaves the piece row as a tombstone, so the parent's piece count holds."""
+    job_runner, store = runner
+    user = await make_user(verify_session)
+    split_id = uuid.uuid4()
+    parent = await add_recording(verify_session, user, "ready", split_id=split_id, split_size=2)
+    piece = await add_recording(
+        verify_session,
+        user,
+        "ready",
+        deleted_at=utc_now(),
+        playback_bytes=3,
+        split_from_id=parent.id,
+        created_by_split_id=split_id,
+    )
+    piece.playback_key = playback_key(user.id, piece.id, REV)
+    await verify_session.commit()
+    store.put_bytes(piece.playback_key, b"abc", "audio/mp4")
+    assert await sweep_module.purge_deleted(job_runner._sessionmaker, store) == 1
+    assert store.keys() == []
+    await verify_session.refresh(parent)
+    pieces = await verify_session.scalars(
+        select(Recording.id).where(latest_split_pieces(parent.id, parent.split_id))
+    )
+    assert len(pieces.all()) == 1
+    assert await split_ready_to_complete(verify_session, parent)
+
+
 async def test_run_once_purges_objects_the_row_never_named(runner, verify_session) -> None:
     """A transcode that copied the original and then failed before committing leaves no key."""
     job_runner, store = runner
@@ -1926,6 +2057,57 @@ async def test_trim_cuts_from_original(
     # A kept second at 50 points per second, sliced from the full peaks file.
     assert abs(len(decode_peaks(store.get_bytes(rec.peaks_key))) - 50) <= 1
     assert await trim_jobs(verify_session, rec) == []
+
+
+def make_tone(path: Path, seconds: int) -> None:
+    subprocess.run(  # noqa: S603 -- fixed argv, no shell
+        [  # noqa: S607 -- resolved from PATH, no shell
+            "ffmpeg",
+            "-v",
+            "error",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            f"sine=frequency=440:duration={seconds}",
+            "-c:a",
+            "aac",
+            "-f",
+            "mp4",
+            str(path),
+        ],
+        check=True,
+    )
+
+
+async def test_trim_a_piece_cuts_relative_to_its_slice(
+    trim_runner, verify_session, tmp_path
+) -> None:
+    job_runner, store = trim_runner
+    slice_path = tmp_path / "slice.m4a"
+    await asyncio.to_thread(make_tone, slice_path, 10)
+    user = await make_user(verify_session)
+    rec = await add_recording(
+        verify_session, user, "ready", source_offset_ms=5_000, source_duration_ms=15_000
+    )
+    data = slice_path.read_bytes()
+    rec.original_key = original_key(user.id, rec.id, "audio/mp4")
+    rec.original_bytes = len(data)
+    store.put_bytes(rec.original_key, data, "audio/mp4")
+    rec.playback_key = playback_key(user.id, rec.id, REV)
+    rec.playback_rev = REV
+    rec.playback_mime = PLAYBACK_MIME
+    rec.playback_bytes = len(data)
+    store.put_bytes(rec.playback_key, data, PLAYBACK_MIME)
+    rec.duration_ms = 10_000
+    rec.playback_start_ms, rec.playback_end_ms = 5_000, 15_000
+    await save_trim(verify_session, rec, 12_000, 14_000)
+
+    assert await job_runner.run_once() == 1
+    await verify_session.refresh(rec)
+    assert (rec.playback_start_ms, rec.playback_end_ms) == (12_000, 14_000)
+    assert abs(rec.duration_ms - 2_000) <= 50
+    assert abs(await probe_key(store, rec.playback_key, tmp_path) - 2_000) <= 50
 
 
 async def test_second_trim_narrows_from_original(

@@ -1,6 +1,7 @@
 import { AudioLines, ChevronRight, SlidersHorizontal, Upload, X } from 'lucide-react'
 import { useId, useRef, useState, type MouseEvent, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
+import { useStorage } from '../../db/useStorage'
 import { NOTHING_MATCHES } from '../catalog/catalogCopy'
 import type { SortChoice } from './arrangeRecordings'
 import { retryKind, sourceLabel } from './recordingRow'
@@ -74,7 +75,7 @@ export function RecordingsScreen() {
     })
   }
   const screen = useRecordingsScreen({ confirm: useConfirm(), onOpenTune: openTune })
-  const { ready, unfiled, filed, sort, actionsFor, retry, error } = screen
+  const { ready, unfiled, filed, sort, actionsFor, rowMenuFor, retry, error } = screen
   const hadRecordings = useHadContent(ready && screen.listed > 0)
   const hadNoRecordings = useHadContent(ready && screen.listed === 0)
   const [filtersOpen, setFiltersOpen] = useState(false)
@@ -102,6 +103,7 @@ export function RecordingsScreen() {
   const importFiles = (files: File[]) => (held ? held() : void screen.importFiles(files))
   const drop = useFileDrop(pointer ? importFiles : undefined)
 
+  const storage = useStorage() ?? null
   const row = (view: RecordingView, { grouped }: { grouped: boolean }) => (
     <RecordingRow
       key={view.recording.id}
@@ -109,6 +111,7 @@ export function RecordingsScreen() {
         view,
         pinned: false,
         actions: actionsFor(view),
+        menu: rowMenuFor(view),
         error: retryKind(view, { uploads }) === 'upload' ? view.file?.error : null,
       }}
       tuneNamedAbove={grouped}
@@ -116,6 +119,7 @@ export function RecordingsScreen() {
       onOpenTune={!grouped && view.tuneId ? () => openTune(view.tuneId!) : undefined}
       onRetry={(kind) => retry(view, kind)}
       playOrigin={RECORDINGS_ROW_ORIGIN}
+      storage={storage}
     />
   )
 

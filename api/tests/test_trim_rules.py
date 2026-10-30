@@ -8,7 +8,7 @@ import pytest
 
 from crosstune.db.base import utc_now
 from crosstune.models import Recording
-from crosstune.recordings.trim_rules import clamp_trim, needs_trim
+from crosstune.recordings.trim_rules import clamp_trim, needs_trim, original_range
 
 
 def make_recording(**overrides: object) -> Recording:
@@ -117,3 +117,9 @@ def test_needs_trim_is_false_without_a_playback_range(
         source_duration_ms=source_duration_ms,
     )
     assert needs_trim(rec) is False
+
+
+def test_original_range_for_a_piece() -> None:
+    piece = make_recording(source_offset_ms=59_980, source_duration_ms=120_020)
+    assert original_range(piece) == (59_980, 120_020)
+    assert original_range(make_recording(source_offset_ms=0, source_duration_ms=None)) == (0, None)

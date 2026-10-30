@@ -712,3 +712,29 @@ async def test_import_of_a_file_address_leaves_the_date_unknown(
     await verify_session.refresh(rec)
     assert rec.state == "uploaded"
     assert (rec.recorded_at, rec.recorded_precision) == (None, None)
+
+
+async def test_failed_import_fails_the_pieces_waiting_on_it(
+    importer, verify_session, mock_http: MockHttp
+) -> None:
+    runner, _ = importer
+    mock_http.add(PAGE, httpx2.Response(200, text="<html><body>No audio</body></html>"))
+    rec = await seed_import(verify_session)
+    rec.split_id = new_uuid7()
+    rec.split_size = 2
+    user = await verify_session.get(User, rec.user_id)
+    piece = await add_recording(
+        verify_session,
+        user,
+        "processing",
+        split_from_id=rec.id,
+        created_by_split_id=rec.split_id,
+    )
+    await verify_session.commit()
+
+    await runner.run_once()
+
+    await verify_session.refresh(rec)
+    await verify_session.refresh(piece)
+    assert rec.state == "failed"
+    assert (piece.state, piece.error) == ("failed", rec.error)

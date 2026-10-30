@@ -174,3 +174,12 @@ def test_openapi_documents_each_limit_refusal(method: str, path: str, status: st
     assert status in responses
     if status == "429":
         assert "Retry-After" in responses[status]["headers"]
+
+
+def test_openapi_publishes_split_size_range() -> None:
+    prop = create_app().openapi()["components"]["schemas"]["RecordingRow"]["properties"][
+        "split_size"
+    ]
+    candidates = [prop, *prop.get("anyOf", [])]
+    assert vocabulary.MIN_SPLIT_PIECES in {c.get("minimum") for c in candidates}
+    assert vocabulary.MAX_SPLIT_PIECES in {c.get("maximum") for c in candidates}

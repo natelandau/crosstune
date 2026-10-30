@@ -23,7 +23,8 @@ import {
 import { SORT_LABELS } from './sortCopy'
 
 import { openTestDb } from '../../test/db'
-import { entitlementRow, recordingRow, tuneRow, userTuneRow } from '../../test/rows'
+import { entitlementRow, recordingFile, recordingRow, tuneRow, userTuneRow } from '../../test/rows'
+import { MUST_SPLIT } from '../../text/format'
 import { PREMIUM_RECORDINGS_TITLE } from '../plan/planCopy'
 import { AnalyticsProvider } from '../../usage/AnalyticsProvider'
 import { recordingAnalytics } from '../../usage/testing'
@@ -406,6 +407,21 @@ it('sits the storage summary after the last group', async () => {
   expect(
     last.compareDocumentPosition(storage.element()) & Node.DOCUMENT_POSITION_FOLLOWING,
   ).toBeTruthy()
+})
+
+it('says a captured recording over the per-file limit must be split to upload', async () => {
+  await setStorage(db, { used_bytes: 0, quota_bytes: 2_000_000, max_file_bytes: 500 })
+  await db.recordings.put(recordingRow('r1', { label: 'Long session' }))
+  await db.recording_files.put(
+    recordingFile('r1', {
+      blob: new Blob(['x'], { type: 'audio/mp4' }),
+      local_state: 'captured',
+      local_duration_ms: 60_000,
+      bytes: 501,
+    }),
+  )
+  await show()
+  await expect.element(row('Long session')).toHaveTextContent(MUST_SPLIT)
 })
 
 it('hides the storage summary while there are no recordings', async () => {

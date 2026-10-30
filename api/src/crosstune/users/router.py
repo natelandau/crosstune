@@ -63,6 +63,8 @@ class StorageResponse(BaseModel):
     used_bytes: int
     quota_bytes: int
     max_file_bytes: int
+    # The cap for a recording that is the parent of a split, which uploads its whole original.
+    split_parent_max_file_bytes: int
 
 
 class MeResponse(BaseModel):
@@ -89,6 +91,7 @@ async def me(request: Request, user: CurrentUser, session: DbSession) -> MeRespo
             used_bytes=await used_bytes(session, user.id),
             quota_bytes=access.quota_bytes,
             max_file_bytes=settings.recording_max_file_bytes,
+            split_parent_max_file_bytes=settings.recording_split_parent_max_file_bytes,
         ),
     )
 

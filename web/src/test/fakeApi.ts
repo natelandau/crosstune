@@ -12,6 +12,7 @@ import type {
   UserTuneRow,
 } from '../api/types'
 import type { NoticeKind } from '../billing/plan'
+import type { StorageUsage } from '../db/meta'
 import { isEventTable } from '../db/types'
 
 function conflict(detail?: string): ApiError {
@@ -63,7 +64,11 @@ export function createFakeApi() {
   const scanStates = new Map<string, 'pending_upload' | 'ready'>()
   const scanSlots = new Map<string, ScanUploadSlotRequest>()
   const putTypes = new Map<string, string>()
-  let storage = { used_bytes: 0, quota_bytes: 1_073_741_824, max_file_bytes: 50_000_000 }
+  let storage: StorageUsage = {
+    used_bytes: 0,
+    quota_bytes: 1_073_741_824,
+    max_file_bytes: 50_000_000,
+  }
   let slotError: unknown = null
   let slotErrorId: string | null = null
   let confirmError: unknown = null
@@ -149,7 +154,7 @@ export function createFakeApi() {
         clerk_user_id: 'user_1',
         email: null,
         created_at: '2026-09-11T00:00:00Z',
-        storage,
+        storage: { split_parent_max_file_bytes: 1_800_000_000, ...storage },
       }
     },
     async deleteAccount() {},
@@ -377,6 +382,7 @@ export function serverRecording(overrides: Partial<RecordingRow> & { id: string 
     playback_end_ms: null,
     playback_rev: null,
     peaks_rev: null,
+    split_completed_id: null,
     ...overrides,
   }
 }

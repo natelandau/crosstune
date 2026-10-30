@@ -32,6 +32,7 @@ from crosstune.files.urls import UPLOAD_URL_TTL_SECONDS, SignedUrl, presign_get,
 from crosstune.jobs.importer import OVER_QUOTA
 from crosstune.recordings.service import (
     enqueue_transcode,
+    max_upload_bytes,
     owned_recording,
     require_state,
     start_import,
@@ -107,7 +108,7 @@ async def upload_slot(
         recording,
         declared_bytes=body.bytes,
         content_type=body.content_type,
-        max_file_bytes=settings.recording_max_file_bytes,
+        max_file_bytes=max_upload_bytes(recording, settings),
         quota_bytes=access.quota_bytes,
     )
     if recording.state == "failed":
@@ -158,7 +159,7 @@ async def upload_finished(
         slot,
         info,
         target=target,
-        max_file_bytes=settings.recording_max_file_bytes,
+        max_file_bytes=max_upload_bytes(recording, settings),
     )
     # A slot whose key is the target holds the confirmed file, so only a staged key is deleted.
     staged = slot.object_key if slot is not None and slot.object_key != target else None

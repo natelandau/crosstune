@@ -46,7 +46,8 @@ differ. iPhone and iPad never take a rule from here.
 - An icon button's circle is never under 26pt, so a glyph keeps a pointer
   target.
 - Natural width, never stretched across a sheet or column.
-- One primary per surface.
+- One primary per surface. Exception: the split screen, where Save in the
+  pane bar and the Split at button in the content are both primary.
 - Destructive filled only for the final confirm of an irreversible action.
 - Why a control is off shows as a secondary caption near it, since a
   pointer cannot learn it from a disabled button.

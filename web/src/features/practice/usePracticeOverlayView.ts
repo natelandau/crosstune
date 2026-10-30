@@ -1,8 +1,11 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useLayoutEffect, useMemo, useState } from 'react'
+import { waitingParentIds } from '../../commands/recordings'
 import { useDb } from '../../db/DbProvider'
+import { holdsSplitAudio } from '../../domain/recordingLimits'
 import { liveTune } from '../../db/tunes'
 import { useSyncEngine } from '../../sync/SyncProvider'
+import { loadAudioFile } from '../player/playbackWindow'
 import { formatDuration, recordingDateLabel } from '../../text/format'
 import { shownPlaceName } from '../recordings/place'
 import { recordingTitle } from '../recordings/recordingRow'
@@ -10,9 +13,9 @@ import type { RecordingView } from '../recordings/useRecordings'
 import { shownPeaks, trimmedLengthMs, type ShownPeaks } from './recordingRange'
 import { TRIM_CHANGED_ELSEWHERE } from './trimViewCopy'
 import { useAudioFetch, type AudioFetch } from './practiceOverlayModel'
-import { usePracticeOverlay } from './usePracticeOverlay'
+import { usePracticeOverlay, type PracticeOpensIn } from './usePracticeOverlay'
 
-export type PracticeOverlayShows = 'main' | 'trim'
+export type PracticeOverlayShows = 'main' | 'trim' | 'split'
 
 export interface PracticeOverlayView {
   /** The recording and its tune, or null until the row is read and once it is gone. */
@@ -30,7 +33,9 @@ export interface PracticeOverlayView {
   shows: PracticeOverlayShows
   openTrim: () => void
   leaveTrim: () => void
-  /** Leaves the trim view because a trim written elsewhere replaced the one being edited. */
+  openSplit: () => void
+  leaveSplit: () => void
+  /** Leaves the trim or split view because a trim written elsewhere replaced the one being edited. */
   trimmedElsewhere: () => void
   trimNotice: string | null
   /** Practice's own error. A caller shows its recording actions' error ahead of it. */
@@ -50,9 +55,12 @@ export interface PracticeOverlayView {
 /**
  * Practice's state for recording `id`: the row and its tune, what the header reads,
  * the waveform's peaks, the state of the audio, and which view shows. Mount it keyed on each
- * open, so a fresh open starts on the main view.
+ * open, so a fresh open starts on `opensIn`.
  */
-export function usePracticeOverlayView(id: string): PracticeOverlayView {
+export function usePracticeOverlayView(
+  id: string,
+  opensIn: PracticeOpensIn = 'main',
+): PracticeOverlayView {
   const db = useDb()
   const syncEngine = useSyncEngine()
   const loaded = useLiveQuery(async () => {
@@ -63,9 +71,10 @@ export function usePracticeOverlayView(id: string): PracticeOverlayView {
     return {
       place,
       recording: recording && !recording.deleted_at ? recording : null,
-      file: await db.recording_files.get(id),
+      file: await loadAudioFile(db, recording),
       tuneId: live?.id ?? null,
       tuneTitle: live?.title ?? null,
+      holdsSplitAudio: recording ? holdsSplitAudio(recording, await waitingParentIds(db)) : false,
     }
   }, [db, id])
   const view = useMemo<RecordingView | null>(
@@ -76,6 +85,7 @@ export function usePracticeOverlayView(id: string): PracticeOverlayView {
             file: loaded.file,
             tuneId: loaded.tuneId,
             tuneTitle: loaded.tuneTitle,
+            holdsSplitAudio: loaded.holdsSplitAudio,
             shownPlace: shownPlaceName(
               loaded.recording,
               new Map(loaded.place ? [[loaded.place.id, loaded.place]] : []),
@@ -96,7 +106,7 @@ export function usePracticeOverlayView(id: string): PracticeOverlayView {
   const [filing, setFiling] = useState<RecordingView | null>(null)
   const [trimNotice, setTrimNotice] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [shows, setShows] = useState<PracticeOverlayShows>('main')
+  const [shows, setShows] = useState<PracticeOverlayShows>(opensIn)
   // A playing list can move practice to its next recording; nothing said or open about the
   // last one carries over.
   const [shownId, setShownId] = useState(id)
@@ -172,6 +182,11 @@ export function usePracticeOverlayView(id: string): PracticeOverlayView {
       setShows('trim')
     },
     leaveTrim: () => setShows('main'),
+    openSplit: () => {
+      setTrimNotice(null)
+      setShows('split')
+    },
+    leaveSplit: () => setShows('main'),
     trimmedElsewhere: () => {
       setTrimNotice(TRIM_CHANGED_ELSEWHERE)
       setShows('main')

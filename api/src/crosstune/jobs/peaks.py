@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import array
+import asyncio
 import sys
 from typing import TYPE_CHECKING
 
 from crosstune.jobs.media import INPUT_GUARD, ffmpeg, stream_media_tool
 
 if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
     from pathlib import Path
 
 PEAKS_VERSION = 1
@@ -159,3 +161,36 @@ def slice_peaks(data: bytes, start_ms: int, end_ms: int) -> bytes:
     start = start_ms * PEAKS_PER_SECOND // 1000
     end = end_ms * PEAKS_PER_SECOND // 1000
     return encode_peaks(values[start:end])
+
+
+async def range_peaks(
+    current: Callable[[], Awaitable[Path]] | None,
+    covered: tuple[int | None, int | None],
+    kept: tuple[int, int],
+    playback: Callable[[], Awaitable[Path]],
+) -> bytes:
+    """Slice a current peaks file down to a kept range, or build peaks from its playback file.
+
+    Args:
+        current: Fetches the current peaks file, or None when there is none.
+        covered: The source range the current peaks file covers; it starts where that
+            range does.
+        kept: The kept range, in milliseconds on the same source timeline.
+        playback: Waits for the playback file of the kept range and returns it, read only
+            when the current peaks file does not cover the range.
+
+    Returns:
+        bytes: A full peaks file, header and all, covering only the kept range.
+    """
+    start_ms, end_ms = kept
+    covered_from, covered_to = covered
+    if (
+        current is None
+        or covered_from is None
+        or covered_to is None
+        or start_ms < covered_from
+        or end_ms > covered_to
+    ):
+        return await build_peaks(await playback())
+    full = await asyncio.to_thread((await current()).read_bytes)
+    return slice_peaks(full, start_ms - covered_from, end_ms - covered_from)

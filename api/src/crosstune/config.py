@@ -181,6 +181,10 @@ class Settings(BaseSettings):
     storage_addon_bytes: int = 50_000_000_000
     trial_days: int = 30
     recording_max_file_bytes: int = 50_000_000
+    # A split parent uploads its whole original, up to MAX_SPLIT_SOURCE_MS long: 12 h at the
+    # highest capture rate either client uses (160 kbps per channel, stereo: 320 kbps) is
+    # 43,200 s x 40,000 B/s = 1.728 GB, plus room for the container.
+    recording_split_parent_max_file_bytes: int = 1_800_000_000
     scan_max_file_bytes: int = 5_242_880
     # Each sweep wakes the database and lists the whole bucket, so an idle app pays
     # for it; orphans are garbage, so a late sweep costs nothing.

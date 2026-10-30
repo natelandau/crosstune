@@ -78,6 +78,7 @@ public enum AnalyticsEvent: Sendable, Equatable {
     case locationOpenedInMaps
     case recordingDeleted(origin: RecordingOrigin, recordingID: String)
     case recordingTrimmed(recordingID: String)
+    case recordingSplit(recordingID: String, pieceCount: Int, overLimit: Bool)
 
     case linkAdded(service: LinkService, via: LinkVia, linkID: String, tuneID: String)
     case linkRemoved(service: LinkService, linkID: String)
@@ -162,6 +163,7 @@ public enum AnalyticsEvent: Sendable, Equatable {
         case .locationOpenedInMaps: "location_opened_in_maps"
         case .recordingDeleted: "recording_deleted"
         case .recordingTrimmed: "recording_trimmed"
+        case .recordingSplit: "recording_split"
         case .linkAdded: "link_added"
         case .linkRemoved: "link_removed"
         case .linkOpenedExternally: "link_opened_externally"
@@ -274,6 +276,8 @@ public enum AnalyticsEvent: Sendable, Equatable {
             ["method": .string(method.rawValue)]
         case .recordingTrimmed(let recordingID), .recordingPlaceCleared(let recordingID), .loopSet(let recordingID):
             ["recording_id": .string(recordingID)]
+        case .recordingSplit(let recordingID, let pieceCount, let overLimit):
+            ["recording_id": .string(recordingID), "piece_count": .count(pieceCount), "over_limit": .bool(overLimit)]
         case .linkAdded(let service, let via, let linkID, let tuneID):
             [
                 "service": .string(service.rawValue), "via": .string(via.rawValue), "link_id": .string(linkID),

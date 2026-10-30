@@ -214,7 +214,7 @@ extension StoreWriter {
             }
             tuneIDs.insert(userTune.tuneID)
         }
-        for tuneID in tuneIDs { try tombstoneTune(tuneID, at: time) }
+        for tuneID in tuneIDs { try tombstoneTune(tuneID, at: time, deletedTuneIDs: tuneIDs) }
         return tuneIDs.count
     }
 
