@@ -508,9 +508,44 @@ def noise_sources(tmp_path_factory) -> dict[str, Path]:
     return paths
 
 
+def playable_args(path: Path) -> list[str]:
+    """Stop a decode where an MP4's edit list ends the audio, as a player does.
+
+    Some ffmpeg releases decode an AAC file's last frame whole, padding included.
+    """
+    report = json.loads(
+        subprocess.run(  # noqa: S603
+            [
+                shutil.which("ffprobe") or "ffprobe",
+                "-v", "error", "-select_streams", "a:0", "-show_entries",
+                "format=format_name:stream=duration", "-of", "json", str(path),
+            ],
+            check=True,
+            capture_output=True,
+        ).stdout
+    )  # fmt: skip
+    if "mp4" not in report["format"]["format_name"].split(","):
+        return []
+    return ["-t", report["streams"][0]["duration"]]
+
+
 def decode_pcm(path: Path) -> bytes:
     return subprocess.run(  # noqa: S603
-        [FFMPEG, "-v", "error", "-i", str(path), "-f", "s16le", "-ac", "1", "-ar", "44100", "-"],
+        [
+            FFMPEG,
+            "-v",
+            "error",
+            "-i",
+            str(path),
+            *playable_args(path),
+            "-f",
+            "s16le",
+            "-ac",
+            "1",
+            "-ar",
+            "44100",
+            "-",
+        ],
         check=True,
         capture_output=True,
     ).stdout
@@ -641,6 +676,7 @@ def decode_low_rate(path: Path) -> array.array:
             "error",
             "-i",
             str(path),
+            *playable_args(path),
             "-f",
             "s16le",
             "-ac",
