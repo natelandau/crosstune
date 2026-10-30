@@ -221,9 +221,12 @@ extension StoreWriter {
     }
 
     /// Tombstones a tune and everything that hangs off it: its user tune, that user tune's list
-    /// items, its recording links, its scans, and its recordings. Only the tune's own
-    /// delete is queued; the rest ride along with it, as the server's own cascade does.
-    public func tombstoneTune(_ tuneID: String, at time: Timestamp = .now) throws {
+    /// items, its recording links, its scans, and its recordings. Only the tune's own delete and
+    /// the unfiling of a recording it keeps are queued; the rest go with the tune's delete, as the
+    /// server's own cascade does.
+    public func tombstoneTune(
+        _ tuneID: String, at time: Timestamp = .now, deletedTuneIDs: Set<String>? = nil
+    ) throws {
         try tombstone(Tune.self, id: tuneID, at: time)
         let userTunes = try UserTune.filter(Column("tune_id") == tuneID).fetchAll(db)
         for userTune in userTunes {
@@ -238,19 +241,34 @@ extension StoreWriter {
             try tombstone(RecordingLink.self, id: link.id, at: time, enqueueDelete: false)
         }
         try tombstoneTuneScans(tuneID: tuneID, at: time)
-        try tombstoneTuneRecordings(tuneID: tuneID, at: time)
+        try tombstoneTuneRecordings(tuneID: tuneID, at: time, deletedTuneIDs: deletedTuneIDs)
     }
 
     /// Tombstones every recording linked to a tune and drops its local audio file entry. Called
-    /// from a tune's own delete; a recording deleted on its own goes through its own command.
-    public func tombstoneTuneRecordings(tuneID: String, at time: Timestamp = .now) throws {
+    /// from a tune's own delete; a recording deleted on its own goes through its own command. A
+    /// recording whose waiting piece still plays from its audio is kept and left unfiled instead,
+    /// as the server's cascade does. `deletedTuneIDs` names every tune the same delete removes
+    /// (by default this one), so a waiting piece filed under any of them holds no parent whichever
+    /// tune is deleted first.
+    public func tombstoneTuneRecordings(
+        tuneID: String, at time: Timestamp = .now, deletedTuneIDs: Set<String>? = nil
+    ) throws {
+        let kept = try RecordingLimits.keptByTuneDelete(db, tuneIDs: deletedTuneIDs ?? [tuneID])
         let recordings = try Recording.filter(Column("tune_id") == tuneID).fetchAll(db)
+        var deleted: [String] = []
         for recording in recordings {
+            if kept.contains(recording.id) {
+                var unfiled = recording
+                unfiled.tuneID = nil
+                try put(unfiled, at: time)
+                continue
+            }
             try tombstone(Recording.self, id: recording.id, at: time, enqueueDelete: false)
             try tombstoneLoops(recordingID: recording.id, at: time, enqueueDelete: false)
             try RecordingFile.deleteOne(db, key: recording.id)
+            deleted.append(recording.id)
         }
-        try releaseLocalOnlyRows(recordings.map(\.id))
+        try releaseLocalOnlyRows(deleted)
     }
 }
 

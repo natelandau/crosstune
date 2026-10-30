@@ -268,8 +268,14 @@ extension StoreWriter {
         }
     }
 
-    /// Tombstones a recording and drops its local audio file entry.
+    /// Tombstones a recording and drops its local audio file entry, refused while a piece split
+    /// from it still plays from its audio.
     public func deleteRecording(_ recordingID: String, at time: Timestamp = .now) throws {
+        if let row = try Recording.fetchOne(db, key: recordingID),
+            RecordingLimits.holdsSplitAudio(row, waitingParentIDs: try RecordingLimits.waitingParentIDs(db))
+        {
+            throw SplitError.openSplit
+        }
         try tombstone(Recording.self, id: recordingID, at: time)
         try tombstoneLoops(recordingID: recordingID, at: time, enqueueDelete: false)
         try RecordingFile.deleteOne(db, key: recordingID)

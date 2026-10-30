@@ -244,8 +244,10 @@ public final class BulkActions {
 
     /// Each live recording's local file for the tunes, nil where this device has none.
     nonisolated static func recordingFiles(_ db: Database, tuneIDs: [String]) throws -> [RecordingFile?] {
+        let kept = try RecordingLimits.keptByTuneDelete(db, tuneIDs: tuneIDs)
         let recordings = try Recording.filter(tuneIDs.contains(Recording.CodingKeys.tuneID))
             .filter(Recording.CodingKeys.deletedAt == nil).fetchAll(db)
+            .filter { !kept.contains($0.id) }
         let files = try RecordingFile.fetchAll(db, keys: recordings.map(\.id))
         let byID = Dictionary(files.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         return recordings.map { byID[$0.id] }

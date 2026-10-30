@@ -70,7 +70,8 @@ public struct LiveSyncAPI: SyncAPI {
         case .ok(let response):
             let storage = try response.body.json.storage
             return StorageUsage(
-                usedBytes: storage.usedBytes, quotaBytes: storage.quotaBytes, maxFileBytes: storage.maxFileBytes)
+                usedBytes: storage.usedBytes, quotaBytes: storage.quotaBytes, maxFileBytes: storage.maxFileBytes,
+                splitParentMaxFileBytes: storage.splitParentMaxFileBytes)
         case .undocumented(let status, _): throw APIStatusError(status: status)
         }
     }

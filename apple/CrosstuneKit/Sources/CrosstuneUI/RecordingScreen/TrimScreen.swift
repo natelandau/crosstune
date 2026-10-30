@@ -26,28 +26,13 @@ struct TrimScreen: View {
     @GestureState private var isPinching = false
     @FocusState private var keyboard: TrimKeyboardFocus?
 
-    /// Modifiers that make a key some other command, which the screen's keys leave alone.
-    private static let commandModifiers: EventModifiers = [.command, .control, .option]
-
-    /// One reading of the player, which Play selection watches to stop on the end handle.
-    fileprivate struct Reading: Equatable {
-        let playing: Bool
-        let elapsed: TimeInterval
-    }
-
     /// Where the playhead is on the source, in ms: the start of the bounds until audio loads.
     fileprivate static func playheadMs(_ player: PlayerModel, in model: TrimModel) -> Double {
-        Double(model.bounds.lowerBound) + (isReady(player) ? player.audio.elapsed * 1000 : 0)
-    }
-
-    /// Whether the recording's audio is loaded and playable.
-    private static func isReady(_ player: PlayerModel) -> Bool {
-        player.recordingAudio == .loaded && !player.audio.hasFailed
+        Double(model.bounds.lowerBound) + (player.isRecordingAudioReady ? player.audio.elapsed * 1000 : 0)
     }
 
     var body: some View {
-        @Bindable var model = model
-        let ready = Self.isReady(player)
+        let ready = player.isRecordingAudioReady
         let playing = ready && player.audio.isPlaying
         ScrollView {
             VStack(spacing: 20) {
@@ -103,15 +88,22 @@ struct TrimScreen: View {
             .navigationBarTitleDisplayMode(.inline)
         #endif
         .navigationBarBackButtonHidden()
-        .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
-                Button(RecordingScreenText.cancel) { leave() }
+        #if os(iOS)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { cancelButton }
+                ConfirmToolbarItem { saveButton }
             }
-            ConfirmToolbarItem {
-                Button(RecordingScreenText.save) { model.isConfirming = true }
-                    .disabled(!model.isChanged || model.isSaving)
+        #else
+            .paneBar {
+                cancelButton
+                .buttonStyle(.macSecondary)
+                .keyboardShortcut(.cancelAction)
+                .help(RecordingScreenText.cancel)
+                saveButton
+                .buttonStyle(.macPrimary)
+                .help(RecordingScreenText.save)
             }
-        }
+        #endif
         .focusable()
         .focusEffectDisabled()
         .focused($keyboard, equals: .screen)
@@ -124,16 +116,16 @@ struct TrimScreen: View {
         }
         // Held arrows repeat, sweeping the handle, as a slider does.
         .onKeyPress(keys: [.leftArrow, .rightArrow, .upArrow, .downArrow]) { press in
-            guard ready, !TextEntry.isActive, press.modifiers.isDisjoint(with: Self.commandModifiers) else {
+            guard ready, !TextEntry.isActive, press.modifiers.isDisjoint(with: .otherCommand) else {
                 return .ignored
             }
-            let step = press.modifiers.contains(.shift) ? TrimModel.largeNudgeMs : TrimModel.nudgeMs
+            let step = press.modifiers.contains(.shift) ? WaveformSteps.largeNudgeMs : WaveformSteps.nudgeMs
             let back = press.key == .leftArrow || press.key == .downArrow
             model.nudge(model.focus, by: back ? -step : step)
             return .handled
         }
         .onKeyPress(characters: CharacterSet(charactersIn: "[]"), phases: .down) { press in
-            guard ready, !TextEntry.isActive, press.modifiers.isDisjoint(with: Self.commandModifiers) else {
+            guard ready, !TextEntry.isActive, press.modifiers.isDisjoint(with: .otherCommand) else {
                 return .ignored
             }
             setAtPlayhead(press.characters == "[" ? .start : .end)
@@ -145,42 +137,19 @@ struct TrimScreen: View {
         .onChange(of: isPinching) { _, pinching in
             if !pinching { model.endPinch() }
         }
-        .background { ReadingWatch(player: player, onChange: follow) }
+        .background { PlayerReadingWatch(player: player, onChange: follow) }
         .onDisappear {
             stop.disarm()
             model.leave()
         }
-        .coversShell(model.isConfirming)
-        .confirmationDialog(
-            RecordingScreenText.trimConfirmTitle(milliseconds: model.length), isPresented: $model.isConfirming,
-            titleVisibility: .visible
-        ) {
-            Button(RecordingScreenText.trimConfirmAction, role: .destructive) { Task { await save() } }
-            Button(RecordingScreenText.cancel, role: .cancel) {}
-        } message: {
-            Text(RecordingScreenText.trimConfirmMessage)
-        }
     }
 
     private var zoomAndReadouts: some View {
-        HStack {
-            Button(RecordingScreenText.zoomOut, systemImage: "minus.magnifyingglass") {
-                model.zoom(by: 1 / TrimModel.zoomStep)
-            }
-            .help(RecordingScreenText.zoomOut)
-            .disabled(!model.canZoomOut)
+        ZoomButtons(canZoomOut: model.canZoomOut, canZoomIn: model.canZoomIn, onZoom: model.zoom(by:)) {
             readout(RecordingScreenText.startHandle, model.start - model.bounds.lowerBound)
             readout(RecordingScreenText.length, model.length)
             readout(RecordingScreenText.endHandle, model.end - model.bounds.lowerBound)
-            Button(RecordingScreenText.zoomIn, systemImage: "plus.magnifyingglass") {
-                model.zoom(by: TrimModel.zoomStep)
-            }
-            .help(RecordingScreenText.zoomIn)
-            .disabled(!model.canZoomIn)
         }
-        .labelStyle(.iconOnly)
-        .buttonStyle(.borderless)
-        .font(.platform(.title3))
     }
 
     private func readout(_ name: String, _ milliseconds: Int64) -> some View {
@@ -197,23 +166,13 @@ struct TrimScreen: View {
     }
 
     private func transport(playing: Bool) -> some View {
-        HStack(spacing: 40) {
+        EditorTransport(playing: playing, playName: RecordingScreenText.playSelection, onToggle: toggle) {
             Button(RecordingScreenText.goToStart, systemImage: "arrow.left.to.line") { goTo(model.start) }
                 .help(RecordingScreenText.goToStart)
-            Button(
-                playing ? RecordingPlayerText.pause : RecordingScreenText.playSelection,
-                systemImage: playing ? "pause.fill" : "play.fill", action: toggle
-            )
-            .help(playing ? RecordingPlayerText.pause : RecordingScreenText.playSelection)
-            .font(.platform(.largeTitle, mac: .columnTitle))
-            .contentTransition(.symbolEffect(.replace))
-            .frame(minWidth: 64, minHeight: 64)
+        } trailing: {
             Button(RecordingScreenText.goToEnd, systemImage: "arrow.right.to.line") { goTo(model.end) }
                 .help(RecordingScreenText.goToEnd)
         }
-        .labelStyle(.iconOnly)
-        .buttonStyle(.borderless)
-        .font(.platform(.title2))
     }
 
     /// Seconds into the audio player's window for `ms` on the source timeline.
@@ -250,7 +209,7 @@ struct TrimScreen: View {
         model.setAtPlayhead(handle, playheadMs: playheadMs)
     }
 
-    private func follow(_ reading: Reading) {
+    private func follow(_ reading: PlayerReading) {
         let action = stop.observe(
             playing: reading.playing, elapsed: reading.elapsed, end: seconds(model.end),
             length: player.audio.duration ?? 0)
@@ -263,6 +222,26 @@ struct TrimScreen: View {
         case .park(let at):
             player.audio.seek(to: at)
         }
+    }
+
+    private var cancelButton: some View {
+        Button(RecordingScreenText.cancel, action: leave)
+    }
+
+    private var saveButton: some View {
+        @Bindable var model = model
+        return Button(RecordingScreenText.save) { model.isConfirming = true }
+            .disabled(!model.isChanged || model.isSaving)
+            .coversShell(model.isConfirming)
+            .confirmationDialog(
+                RecordingScreenText.trimConfirmTitle(milliseconds: model.length),
+                isPresented: $model.isConfirming, titleVisibility: .visible
+            ) {
+                Button(RecordingScreenText.trimConfirmAction, role: .destructive) { Task { await save() } }
+                Button(RecordingScreenText.cancel, role: .cancel) {}
+            } message: {
+                Text(RecordingScreenText.trimConfirmMessage)
+            }
     }
 
     private func leave() {
@@ -281,21 +260,6 @@ struct TrimScreen: View {
             // A trim from elsewhere takes the screen away, saying why, in place of this.
             if !model.isStale { failure = RecordingScreenText.trimNotSaved }
         }
-    }
-}
-
-/// Watches the player's position for the trim screen. It reads the position in a body of its
-/// own, so the playback tick re-runs this and not the screen around it.
-private struct ReadingWatch: View {
-    let player: PlayerModel
-    let onChange: (TrimScreen.Reading) -> Void
-
-    var body: some View {
-        Color.clear
-            .onChange(of: TrimScreen.Reading(playing: player.audio.isPlaying, elapsed: player.audio.elapsed)) {
-                _, reading in
-                onChange(reading)
-            }
     }
 }
 
@@ -381,8 +345,8 @@ private struct TrimStrip: View {
                     )
                     .accessibilityAdjustableAction { direction in
                         switch direction {
-                        case .increment: model.nudge(handle, by: TrimModel.nudgeMs)
-                        case .decrement: model.nudge(handle, by: -TrimModel.nudgeMs)
+                        case .increment: model.nudge(handle, by: WaveformSteps.nudgeMs)
+                        case .decrement: model.nudge(handle, by: -WaveformSteps.nudgeMs)
                         @unknown default: break
                         }
                     }
@@ -506,64 +470,3 @@ private struct HandleMark: View {
             }
     }
 }
-
-#if os(macOS)
-    /// Zooms by Control and the scroll wheel over the view it backs, as maps and editors do on
-    /// a Mac. SwiftUI has no scroll wheel event, so this watches the window's own.
-    struct ControlScrollZoom: NSViewRepresentable {
-        /// The monitor sees events whatever SwiftUI has disabled, so it is told directly.
-        let isEnabled: Bool
-        /// Takes how many times to zoom in (under 1 zooms out) and the pointer's x from the
-        /// view's leading edge.
-        let onZoom: @MainActor (Double, Double) -> Void
-
-        func makeNSView(context: Context) -> ScrollZoomView {
-            let view = ScrollZoomView()
-            view.isEnabled = isEnabled
-            view.onZoom = onZoom
-            return view
-        }
-
-        func updateNSView(_ view: ScrollZoomView, context: Context) {
-            view.isEnabled = isEnabled
-            view.onZoom = onZoom
-        }
-
-        static func dismantleNSView(_ view: ScrollZoomView, coordinator: ()) {
-            view.stopWatching()
-        }
-    }
-
-    final class ScrollZoomView: NSView {
-        var onZoom: (@MainActor (Double, Double) -> Void)?
-        var isEnabled = false
-        private var monitor: Any?
-        /// How far one point of scrolling zooms; a trackpad reports many small points.
-        private static let rate = 0.01
-
-        override func viewDidMoveToWindow() {
-            super.viewDidMoveToWindow()
-            stopWatching()
-            guard window != nil else { return }
-            monitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { [weak self] event in
-                MainActor.assumeIsolated { self?.zoom(event) ?? false } ? nil : event
-            }
-        }
-
-        func stopWatching() {
-            if let monitor { NSEvent.removeMonitor(monitor) }
-            monitor = nil
-        }
-
-        /// Zooms on a Control scroll over this view, and says whether it did.
-        private func zoom(_ event: NSEvent) -> Bool {
-            guard isEnabled, event.modifierFlags.contains(.control), let window, event.window === window,
-                bounds.contains(convert(event.locationInWindow, from: nil)), let onZoom
-            else { return false }
-            // A mouse wheel reports lines rather than points.
-            let points = event.hasPreciseScrollingDeltas ? event.scrollingDeltaY : event.scrollingDeltaY * 10
-            onZoom(exp(Double(points) * Self.rate), Double(convert(event.locationInWindow, from: nil).x))
-            return true
-        }
-    }
-#endif

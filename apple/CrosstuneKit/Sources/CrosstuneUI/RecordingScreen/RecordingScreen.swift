@@ -8,10 +8,11 @@ import CrosstuneSync
 import GRDB
 import SwiftUI
 
-/// Where the recording screen's navigation stack goes: the trim editor, the one screen of its
-/// own.
+/// Where the recording screen's navigation stack goes: the trim and split editors, its only
+/// screens of their own.
 enum RecordingRoute: Hashable {
     case trim
+    case split
 }
 
 /// The loaded recording's stored rows, as the recording screen reads them.
@@ -25,10 +26,13 @@ struct ScreenRows: Equatable, Sendable {
     let partStructure: String?
     /// The location's name to show: its saved location's while that is live, else the recording's own.
     let shownPlace: String?
+    /// Whether a piece split from the recording still plays from its audio.
+    var holdsSplitAudio = false
 
     var view: RecordingView {
         RecordingView(
-            recording: recording, file: file, tuneID: tuneID, tuneTitle: tuneTitle, shownPlace: shownPlace)
+            recording: recording, file: file, tuneID: tuneID, tuneTitle: tuneTitle, shownPlace: shownPlace,
+            holdsSplitAudio: holdsSplitAudio)
     }
 
     /// How long the trimmed recording plays, or nil when nothing says how long it is. A row the
@@ -50,7 +54,9 @@ struct ScreenRows: Equatable, Sendable {
         return ScreenRows(
             recording: recording, file: try RecordingFile.fetchOne(db, key: id), tuneID: live?.id,
             tuneTitle: live?.title, partStructure: live?.partStructure,
-            shownPlace: shownPlaceName(recording, places: places))
+            shownPlace: shownPlaceName(recording, places: places),
+            holdsSplitAudio: RecordingLimits.holdsSplitAudio(
+                recording, waitingParentIDs: try RecordingLimits.waitingParentIDs(db)))
     }
 }
 
@@ -215,7 +221,10 @@ struct RecordingScreenContent: View {
     @State private var failure: String?
     /// The open trim screen's model, kept until the screen has gone.
     @State private var trim: TrimModel?
-    /// Why the trim screen gave way on its own, until the musician next does something here.
+    /// The open split screen's model, kept until the screen has gone.
+    @State private var split: SplitModel?
+    /// Why the trim or split screen gave way on its own, until the musician next does something
+    /// here.
     @State private var trimNotice: String?
     @State private var practice: PracticeModel?
     /// The natural height of everything under the waveform, which the waveform leaves room for.
@@ -309,18 +318,31 @@ struct RecordingScreenContent: View {
                     TrimScreen(model: trim, player: player, peaks: shownPeaks, onDone: leaveTrim)
                         .modifier(PracticeBackgroundFill())
                 }
+            case .split:
+                if let split {
+                    SplitScreen(model: split, player: player, peaks: shownPeaks, onDone: leaveTrim)
+                        .modifier(PracticeBackgroundFill())
+                }
             }
         }
         .onAppear(perform: openPractice)
         .onDisappear { practice?.leave() }
         .onChange(of: path.isEmpty) { _, isEmpty in
-            // However the trim screen went, back swipe included, it holds nothing after.
+            // However the trim or split screen went, back swipe included, it holds nothing after.
             guard isEmpty else { return }
             trim?.leave()
             trim = nil
+            split?.leave()
+            split = nil
+        }
+        // A row's Split asks for this screen to open on the Split screen once Split can open.
+        // The request waits while another screen is pushed, rather than being used up by it.
+        .onChange(of: splitRequested && path.isEmpty && splitDisabledReason == nil, initial: true) { _, canOpen in
+            if canOpen, path.isEmpty, player.claimSplitRequest(for: rows.recording.id) { openSplit() }
         }
         .onChange(of: rows.recording) { _, row in
             trim?.follow(row)
+            split?.follow(row)
             practice?.follow(row, file: rows.file)
         }
         .onChange(of: rows.file) { _, file in
@@ -333,7 +355,7 @@ struct RecordingScreenContent: View {
             if let chosen { mode = chosen }
         }
         // True once a trim from elsewhere has landed, and a save under way has finished.
-        .onChange(of: trim?.mustGiveWay == true) { _, mustGiveWay in
+        .onChange(of: trim?.mustGiveWay == true || split?.mustGiveWay == true) { _, mustGiveWay in
             guard mustGiveWay else { return }
             leaveTrim()
             trimNotice = RecordingScreenText.trimChangedElsewhere
@@ -397,7 +419,7 @@ struct RecordingScreenContent: View {
             #if os(macOS)
                 stage(practice, disabledReason: disabledReason)
             #else
-                OverviewStrip(model: practice, peaks: shownPeaks)
+                OverviewStrip(source: practice, peaks: shownPeaks)
                     .disabled(disabledReason != nil)
                     .opacity(disabledReason != nil ? 0.5 : 1)
                 waveform(practice, disabledReason: disabledReason)
@@ -523,7 +545,7 @@ struct RecordingScreenContent: View {
         /// and the readout centered under the playhead with the loop switcher at its line's start.
         private func stage(_ practice: PracticeModel, disabledReason: String?) -> some View {
             VStack(spacing: 12) {
-                OverviewStrip(model: practice, peaks: shownPeaks)
+                OverviewStrip(source: practice, peaks: shownPeaks)
                     .disabled(disabledReason != nil)
                     .opacity(disabledReason != nil ? 0.5 : 1)
                 waveform(practice, disabledReason: disabledReason)
@@ -618,17 +640,28 @@ struct RecordingScreenContent: View {
             offline: session?.isOffline == true)
     }
 
+    private var splitDisabledReason: String? {
+        let downloading = transfers?.isDownloading(rows.recording.id) == true
+        return RecordingScreenText.splitDisabledReason(
+            rows.recording, file: rows.file, audio: downloading ? .fetching : player.recordingAudio,
+            offline: session?.isOffline == true)
+    }
+
+    private var splitRequested: Bool { player.splitRequest == rows.recording.id }
+
     private var menu: some View {
         let view = rows.view
         return Menu {
             ForEach(
                 RecordingMenuItem.items(
                     inTune: view.tuneID != nil, trimDisabledReason: trimDisabledReason,
+                    splitDisabledReason: splitDisabledReason,
+                    deleteDisabledReason: RecordingScreenText.deleteDisabledReason(rows.view),
                     openOrigin: RecordingMenuItem.openOrigin(for: rows.recording), trims: recordingsPlay),
                 id: \.self
             ) { item in
-                if item == .delete { Divider() }
-                Button(role: item == .delete ? .destructive : nil) {
+                if case .delete = item { Divider() }
+                Button(role: item.isDelete ? .destructive : nil) {
                     trimNotice = nil
                     choose(item, view)
                 } label: {
@@ -686,6 +719,7 @@ struct RecordingScreenContent: View {
     private func choose(_ item: RecordingMenuItem, _ view: RecordingView) {
         switch item {
         case .trim: openTrim()
+        case .split: openSplit()
         case .edit: edit(view, page: nil)
         case .addToTune: filing = view
         case .removeFromTune: removeFromTune()
@@ -720,9 +754,24 @@ struct RecordingScreenContent: View {
         path.append(.trim)
     }
 
-    /// Back to the recording screen from the trim screen, which writes and holds nothing after.
+    private func openSplit() {
+        guard recordingsPlay, path.isEmpty, splitDisabledReason == nil, let commands else { return }
+        let id = rows.recording.id
+        let model = SplitModel(
+            recording: rows.recording, file: rows.file,
+            write: { _ = try await commands.splitRecording($0, cutsMs: $1) },
+            hold: { [player] in player.hold(id, $0) }, analytics: player.analytics)
+        model.open()
+        split = model
+        trimNotice = nil
+        path.append(.split)
+    }
+
+    /// Back to the recording screen from the trim or split screen, which writes and holds nothing
+    /// after.
     private func leaveTrim() {
         trim?.leave()
+        split?.leave()
         path.removeAll()
     }
 

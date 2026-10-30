@@ -4,16 +4,20 @@ public struct StorageUsage: Codable, Hashable, Sendable {
     public var usedBytes: Int
     public var quotaBytes: Int
     public var maxFileBytes: Int
+    /// The cap for a split parent's upload; nil in usage stored before the server sent it.
+    public var splitParentMaxFileBytes: Int?
 
-    public init(usedBytes: Int, quotaBytes: Int, maxFileBytes: Int) {
+    public init(usedBytes: Int, quotaBytes: Int, maxFileBytes: Int, splitParentMaxFileBytes: Int? = nil) {
         self.usedBytes = usedBytes
         self.quotaBytes = quotaBytes
         self.maxFileBytes = maxFileBytes
+        self.splitParentMaxFileBytes = splitParentMaxFileBytes
     }
 
     enum CodingKeys: String, CodingKey {
         case usedBytes = "used_bytes"
         case quotaBytes = "quota_bytes"
         case maxFileBytes = "max_file_bytes"
+        case splitParentMaxFileBytes = "split_parent_max_file_bytes"
     }
 }

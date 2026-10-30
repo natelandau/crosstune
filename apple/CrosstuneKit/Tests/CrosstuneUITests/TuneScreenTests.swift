@@ -32,6 +32,52 @@ private func file(_ state: LocalFileState) -> RecordingFile {
                 == "This removes its links, list entries, and 2 recordings.")
     }
 
+    @Test func leavesOutASplitParentTheDeleteKeepsForItsWaitingPiece() throws {
+        let tune = Tune(createdAt: noon, title: "Old Joe Clark")
+        let detail = TuneDetail(
+            tune: tune, userTune: UserTune(createdAt: noon, tuneID: tune.id, status: "known"),
+            recordings: [
+                TuneRecording(
+                    recording: Recording(id: "parent", tuneID: tune.id, source: "microphone"),
+                    file: file(.captured), holdsSplitAudio: true, keptByTuneDelete: true),
+                TuneRecording(recording: Recording(id: "other", tuneID: tune.id, source: "microphone"), file: nil),
+            ])
+        #expect(detail.deleteMessage == "This removes its links, list entries, and 1 recording.")
+    }
+
+    @Test func aTuneDeleteCountsAParentWhoseWaitingPieceIsFiledUnderTheSameTune() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        try await store.write { writer in
+            try writer.put(Tune(id: "t1", createdAt: noon, title: "Old Joe Clark"))
+            try writer.put(UserTune(createdAt: noon, tuneID: "t1", status: "known"))
+            try writer.put(Recording(id: "parent", tuneID: "t1", source: "microphone", state: "ready"))
+            try writer.put(
+                Recording(
+                    id: "piece", tuneID: "t1", source: "microphone", state: "processing", splitFromID: "parent",
+                    createdBySplitID: "s1"))
+        }
+        let detail = try #require(
+            try await store.read { db in try TuneDetail.fetch(db, tuneID: "t1", settingsID: "none") })
+        #expect(detail.recordings.first { $0.id == "parent" }?.holdsSplitAudio == true)
+        #expect(detail.deleteMessage == "This removes its links, list entries, and 2 recordings.")
+    }
+
+    @Test func aBulkDeleteLeavesOutASplitParentTheDeleteKeeps() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        try await store.write { writer in
+            try writer.put(Recording(id: "parent", tuneID: "t1", source: "microphone", state: "ready"))
+            try writer.put(
+                Recording(
+                    id: "piece", tuneID: nil, source: "microphone", state: "processing", splitFromID: "parent",
+                    createdBySplitID: "s1"))
+            try writer.put(Recording(id: "other", tuneID: "t1", source: "microphone", state: "ready"))
+        }
+        let files = try await store.read { db in try BulkActions.recordingFiles(db, tuneIDs: ["t1"]) }
+        #expect(files.count == 1)
+    }
+
     @Test func warnsWhenAnyRecordingHasNotUploaded() {
         #expect(
             DeleteTuneMessage.one(files: [file(.downloaded), file(.failedUpload)])

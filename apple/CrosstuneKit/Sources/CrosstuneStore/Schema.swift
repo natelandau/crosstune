@@ -420,6 +420,45 @@ enum Schema {
                     """,
                 arguments: [table])
         }
+        migrator.registerMigration("v23") { db in
+            let table = SyncTable.recordings.rawValue
+            let text = ["split_from_id", "split_id", "created_by_split_id", "split_completed_id"]
+            try db.alter(table: table) { t in
+                for column in text { t.add(column: column, .text) }
+                t.add(column: "split_size", .integer)
+            }
+            // A row pulled from a server that already had the fields kept them in `extra`.
+            for column in text {
+                try db.execute(
+                    sql: """
+                        UPDATE recordings
+                        SET \(column) = json_extract(extra, '$.\(column)')
+                        WHERE json_type(extra, '$.\(column)') = 'text'
+                        """)
+            }
+            try db.execute(
+                sql: """
+                    UPDATE recordings SET split_size = json_extract(extra, '$.split_size')
+                    WHERE json_type(extra, '$.split_size') = 'integer'
+                    """)
+            try db.execute(
+                sql: """
+                    UPDATE recordings SET extra = json_remove(extra, '$.split_from_id', '$.split_id',
+                        '$.split_size', '$.created_by_split_id', '$.split_completed_id')
+                    """)
+            // split_completed_id is server-owned, so only the client-owned fields are carried.
+            let owned = ["split_from_id", "split_id", "split_size", "created_by_split_id"]
+            let assignments = owned.map { column in
+                "'$.\(column)', (SELECT \(column) FROM recordings WHERE id = outbox.row_id)"
+            }.joined(separator: ", ")
+            try db.execute(
+                sql: """
+                    UPDATE outbox SET data = json_set(data, \(assignments))
+                    WHERE table_name = ? AND data IS NOT NULL AND json_type(data, '$.split_id') IS NULL
+                        AND EXISTS (SELECT 1 FROM recordings WHERE id = outbox.row_id)
+                    """,
+                arguments: [table])
+        }
         return migrator
     }()
 

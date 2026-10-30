@@ -82,6 +82,8 @@ public final class Recorder {
     private var abandoned = false
     /// The file size at which the recording stops, from the server's per-file cap.
     private var sizeCap: Int64?
+    /// The length at which the capture stops, short of the longest source a split parent may have.
+    private let captureStopMs: Int64
     /// Why the recording ended early, told once it is saved.
     private var endedEarly: String?
     private var isResuming = false
@@ -94,8 +96,10 @@ public final class Recorder {
         store: CrosstuneStore, input: (any AudioInput)? = nil,
         channels: @escaping @MainActor () -> CaptureChannels = { CaptureChannels.stored() },
         location: (any LocationProvider)? = nil,
-        sleep: @escaping @MainActor (Duration) async throws -> Void = { try await Task.sleep(for: $0) }
+        sleep: @escaping @MainActor (Duration) async throws -> Void = { try await Task.sleep(for: $0) },
+        captureStopMs: Int64 = RecordingLimits.captureStopMs
     ) {
+        self.captureStopMs = captureStopMs
         self.store = store
         self.input = input ?? EngineInput()
         self.channels = channels
@@ -157,8 +161,11 @@ public final class Recorder {
         Self.active.insert(recordingID)
         do {
             let bitrate = try await commands.captureBitrate()
-            // Without usage from the server yet, the recording has no cap, as on the web.
-            let cap = (try? await store.meta(.storage, as: StorageUsage.self))??.maxFileBytes
+            // Without usage from the server yet, the recording has no cap, as on the web. A capture
+            // over the plain cap is held on this device until it is split, and uploads as a split
+            // parent, so only the split parent's cap stops it.
+            let usage = (try? await store.meta(.storage, as: StorageUsage.self)) ?? nil
+            let cap = usage.map { $0.splitParentMaxFileBytes ?? $0.maxFileBytes }
             try await commands.beginCapture(
                 recordingID, fileName: CaptureFiles.captureName(recordingID), tuneID: tuneID, recordedAt: .now)
             if abandoned { return await backOut(recordingID) }
@@ -375,7 +382,8 @@ public final class Recorder {
         levels = inputLevels.values
         levelCount += newLevels.count
         elapsed = capture.writer.duration
-        if let sizeCap, capture.writer.bytesWritten >= sizeCap {
+        let overSize = sizeCap.map { capture.writer.bytesWritten >= $0 } ?? false
+        if overSize || Int64(elapsed * 1000) >= captureStopMs {
             endedEarly = Self.sizeLimit
             Task { await stop() }
         }

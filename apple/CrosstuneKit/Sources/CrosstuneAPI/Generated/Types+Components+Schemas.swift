@@ -2348,6 +2348,8 @@ extension Components {
             public var addedAt: Foundation.Date
             /// - Remark: Generated from `#/components/schemas/RecordingData/created_at`.
             public var createdAt: Foundation.Date
+            /// - Remark: Generated from `#/components/schemas/RecordingData/created_by_split_id`.
+            public var createdBySplitId: Swift.String?
             /// - Remark: Generated from `#/components/schemas/RecordingData/label`.
             public var label: Swift.String?
             /// - Remark: Generated from `#/components/schemas/RecordingData/notes`.
@@ -2382,6 +2384,12 @@ extension Components {
             public var source: Components.Schemas.RecordingSource
             /// - Remark: Generated from `#/components/schemas/RecordingData/speed_percent`.
             public var speedPercent: Swift.Int?
+            /// - Remark: Generated from `#/components/schemas/RecordingData/split_from_id`.
+            public var splitFromId: Swift.String?
+            /// - Remark: Generated from `#/components/schemas/RecordingData/split_id`.
+            public var splitId: Swift.String?
+            /// - Remark: Generated from `#/components/schemas/RecordingData/split_size`.
+            public var splitSize: Swift.Int?
             /// - Remark: Generated from `#/components/schemas/RecordingData/trim_end_ms`.
             public var trimEndMs: Swift.Int?
             /// - Remark: Generated from `#/components/schemas/RecordingData/trim_start_ms`.
@@ -2393,6 +2401,7 @@ extension Components {
             /// - Parameters:
             ///   - addedAt:
             ///   - createdAt:
+            ///   - createdBySplitId:
             ///   - label:
             ///   - notes:
             ///   - origin:
@@ -2410,12 +2419,16 @@ extension Components {
             ///   - recordedPrecision:
             ///   - source:
             ///   - speedPercent:
+            ///   - splitFromId:
+            ///   - splitId:
+            ///   - splitSize:
             ///   - trimEndMs:
             ///   - trimStartMs:
             ///   - tuneId:
             public init(
                 addedAt: Foundation.Date,
                 createdAt: Foundation.Date,
+                createdBySplitId: Swift.String? = nil,
                 label: Swift.String? = nil,
                 notes: Swift.String? = nil,
                 origin: Components.Schemas.RecordingOrigin? = nil,
@@ -2433,12 +2446,16 @@ extension Components {
                 recordedPrecision: Components.Schemas.RecordingPrecision? = nil,
                 source: Components.Schemas.RecordingSource,
                 speedPercent: Swift.Int? = nil,
+                splitFromId: Swift.String? = nil,
+                splitId: Swift.String? = nil,
+                splitSize: Swift.Int? = nil,
                 trimEndMs: Swift.Int? = nil,
                 trimStartMs: Swift.Int? = nil,
                 tuneId: Swift.String? = nil
             ) {
                 self.addedAt = addedAt
                 self.createdAt = createdAt
+                self.createdBySplitId = createdBySplitId
                 self.label = label
                 self.notes = notes
                 self.origin = origin
@@ -2456,6 +2473,9 @@ extension Components {
                 self.recordedPrecision = recordedPrecision
                 self.source = source
                 self.speedPercent = speedPercent
+                self.splitFromId = splitFromId
+                self.splitId = splitId
+                self.splitSize = splitSize
                 self.trimEndMs = trimEndMs
                 self.trimStartMs = trimStartMs
                 self.tuneId = tuneId
@@ -2463,6 +2483,7 @@ extension Components {
             public enum CodingKeys: String, CodingKey {
                 case addedAt = "added_at"
                 case createdAt = "created_at"
+                case createdBySplitId = "created_by_split_id"
                 case label
                 case notes
                 case origin
@@ -2480,6 +2501,9 @@ extension Components {
                 case recordedPrecision = "recorded_precision"
                 case source
                 case speedPercent = "speed_percent"
+                case splitFromId = "split_from_id"
+                case splitId = "split_id"
+                case splitSize = "split_size"
                 case trimEndMs = "trim_end_ms"
                 case trimStartMs = "trim_start_ms"
                 case tuneId = "tune_id"
@@ -3096,6 +3120,8 @@ extension Components {
             public var addedAt: Foundation.Date
             /// - Remark: Generated from `#/components/schemas/RecordingRow/created_at`.
             public var createdAt: Foundation.Date
+            /// - Remark: Generated from `#/components/schemas/RecordingRow/created_by_split_id`.
+            public var createdBySplitId: Swift.String?
             /// - Remark: Generated from `#/components/schemas/RecordingRow/deleted_at`.
             public var deletedAt: Foundation.Date?
             /// - Remark: Generated from `#/components/schemas/RecordingRow/duration_ms`.
@@ -3154,6 +3180,14 @@ extension Components {
             public var sourceDurationMs: Swift.Int?
             /// - Remark: Generated from `#/components/schemas/RecordingRow/speed_percent`.
             public var speedPercent: Swift.Int?
+            /// - Remark: Generated from `#/components/schemas/RecordingRow/split_completed_id`.
+            public var splitCompletedId: Swift.String?
+            /// - Remark: Generated from `#/components/schemas/RecordingRow/split_from_id`.
+            public var splitFromId: Swift.String?
+            /// - Remark: Generated from `#/components/schemas/RecordingRow/split_id`.
+            public var splitId: Swift.String?
+            /// - Remark: Generated from `#/components/schemas/RecordingRow/split_size`.
+            public var splitSize: Swift.Int?
             /// - Remark: Generated from `#/components/schemas/RecordingRow/state`.
             public var state: Components.Schemas.RecordingState
             /// - Remark: Generated from `#/components/schemas/RecordingRow/trim_end_ms`.
@@ -3173,6 +3207,7 @@ extension Components {
             /// - Parameters:
             ///   - addedAt:
             ///   - createdAt:
+            ///   - createdBySplitId:
             ///   - deletedAt:
             ///   - durationMs:
             ///   - error:
@@ -3202,6 +3237,10 @@ extension Components {
             ///   - source:
             ///   - sourceDurationMs:
             ///   - speedPercent:
+            ///   - splitCompletedId:
+            ///   - splitFromId:
+            ///   - splitId:
+            ///   - splitSize:
             ///   - state:
             ///   - trimEndMs:
             ///   - trimStartMs:
@@ -3212,6 +3251,7 @@ extension Components {
             public init(
                 addedAt: Foundation.Date,
                 createdAt: Foundation.Date,
+                createdBySplitId: Swift.String? = nil,
                 deletedAt: Foundation.Date? = nil,
                 durationMs: Swift.Int? = nil,
                 error: Swift.String? = nil,
@@ -3241,6 +3281,10 @@ extension Components {
                 source: Components.Schemas.RecordingSource,
                 sourceDurationMs: Swift.Int? = nil,
                 speedPercent: Swift.Int? = nil,
+                splitCompletedId: Swift.String? = nil,
+                splitFromId: Swift.String? = nil,
+                splitId: Swift.String? = nil,
+                splitSize: Swift.Int? = nil,
                 state: Components.Schemas.RecordingState,
                 trimEndMs: Swift.Int? = nil,
                 trimStartMs: Swift.Int? = nil,
@@ -3251,6 +3295,7 @@ extension Components {
             ) {
                 self.addedAt = addedAt
                 self.createdAt = createdAt
+                self.createdBySplitId = createdBySplitId
                 self.deletedAt = deletedAt
                 self.durationMs = durationMs
                 self.error = error
@@ -3280,6 +3325,10 @@ extension Components {
                 self.source = source
                 self.sourceDurationMs = sourceDurationMs
                 self.speedPercent = speedPercent
+                self.splitCompletedId = splitCompletedId
+                self.splitFromId = splitFromId
+                self.splitId = splitId
+                self.splitSize = splitSize
                 self.state = state
                 self.trimEndMs = trimEndMs
                 self.trimStartMs = trimStartMs
@@ -3291,6 +3340,7 @@ extension Components {
             public enum CodingKeys: String, CodingKey {
                 case addedAt = "added_at"
                 case createdAt = "created_at"
+                case createdBySplitId = "created_by_split_id"
                 case deletedAt = "deleted_at"
                 case durationMs = "duration_ms"
                 case error
@@ -3320,6 +3370,10 @@ extension Components {
                 case source
                 case sourceDurationMs = "source_duration_ms"
                 case speedPercent = "speed_percent"
+                case splitCompletedId = "split_completed_id"
+                case splitFromId = "split_from_id"
+                case splitId = "split_id"
+                case splitSize = "split_size"
                 case state
                 case trimEndMs = "trim_end_ms"
                 case trimStartMs = "trim_start_ms"
@@ -3336,6 +3390,10 @@ extension Components {
                 self.createdAt = try container.decode(
                     Foundation.Date.self,
                     forKey: .createdAt
+                )
+                self.createdBySplitId = try container.decodeIfPresent(
+                    Swift.String.self,
+                    forKey: .createdBySplitId
                 )
                 self.deletedAt = try container.decodeIfPresent(
                     Foundation.Date.self,
@@ -3453,6 +3511,22 @@ extension Components {
                     Swift.Int.self,
                     forKey: .speedPercent
                 )
+                self.splitCompletedId = try container.decodeIfPresent(
+                    Swift.String.self,
+                    forKey: .splitCompletedId
+                )
+                self.splitFromId = try container.decodeIfPresent(
+                    Swift.String.self,
+                    forKey: .splitFromId
+                )
+                self.splitId = try container.decodeIfPresent(
+                    Swift.String.self,
+                    forKey: .splitId
+                )
+                self.splitSize = try container.decodeIfPresent(
+                    Swift.Int.self,
+                    forKey: .splitSize
+                )
                 self.state = try container.decode(
                     Components.Schemas.RecordingState.self,
                     forKey: .state
@@ -3480,6 +3554,7 @@ extension Components {
                 additionalProperties = try decoder.decodeAdditionalProperties(knownKeys: [
                     "added_at",
                     "created_at",
+                    "created_by_split_id",
                     "deleted_at",
                     "duration_ms",
                     "error",
@@ -3509,6 +3584,10 @@ extension Components {
                     "source",
                     "source_duration_ms",
                     "speed_percent",
+                    "split_completed_id",
+                    "split_from_id",
+                    "split_id",
+                    "split_size",
                     "state",
                     "trim_end_ms",
                     "trim_start_ms",
@@ -3526,6 +3605,10 @@ extension Components {
                 try container.encode(
                     self.createdAt,
                     forKey: .createdAt
+                )
+                try container.encodeIfPresent(
+                    self.createdBySplitId,
+                    forKey: .createdBySplitId
                 )
                 try container.encodeIfPresent(
                     self.deletedAt,
@@ -3642,6 +3725,22 @@ extension Components {
                 try container.encodeIfPresent(
                     self.speedPercent,
                     forKey: .speedPercent
+                )
+                try container.encodeIfPresent(
+                    self.splitCompletedId,
+                    forKey: .splitCompletedId
+                )
+                try container.encodeIfPresent(
+                    self.splitFromId,
+                    forKey: .splitFromId
+                )
+                try container.encodeIfPresent(
+                    self.splitId,
+                    forKey: .splitId
+                )
+                try container.encodeIfPresent(
+                    self.splitSize,
+                    forKey: .splitSize
                 )
                 try container.encode(
                     self.state,
@@ -4481,6 +4580,8 @@ extension Components {
             public var maxFileBytes: Swift.Int
             /// - Remark: Generated from `#/components/schemas/StorageResponse/quota_bytes`.
             public var quotaBytes: Swift.Int
+            /// - Remark: Generated from `#/components/schemas/StorageResponse/split_parent_max_file_bytes`.
+            public var splitParentMaxFileBytes: Swift.Int
             /// - Remark: Generated from `#/components/schemas/StorageResponse/used_bytes`.
             public var usedBytes: Swift.Int
             /// Creates a new `StorageResponse`.
@@ -4488,19 +4589,23 @@ extension Components {
             /// - Parameters:
             ///   - maxFileBytes:
             ///   - quotaBytes:
+            ///   - splitParentMaxFileBytes:
             ///   - usedBytes:
             public init(
                 maxFileBytes: Swift.Int,
                 quotaBytes: Swift.Int,
+                splitParentMaxFileBytes: Swift.Int,
                 usedBytes: Swift.Int
             ) {
                 self.maxFileBytes = maxFileBytes
                 self.quotaBytes = quotaBytes
+                self.splitParentMaxFileBytes = splitParentMaxFileBytes
                 self.usedBytes = usedBytes
             }
             public enum CodingKeys: String, CodingKey {
                 case maxFileBytes = "max_file_bytes"
                 case quotaBytes = "quota_bytes"
+                case splitParentMaxFileBytes = "split_parent_max_file_bytes"
                 case usedBytes = "used_bytes"
             }
         }

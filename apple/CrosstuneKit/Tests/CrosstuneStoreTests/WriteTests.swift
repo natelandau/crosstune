@@ -150,9 +150,22 @@ import Testing
                 "recorded_precision", "label", "position",
                 "trim_start_ms", "trim_end_ms", "speed_percent", "pitch_cents", "notes", "players",
                 "place_name", "place_lat", "place_lon", "place_accuracy_m", "place_id", "place_origin", "mood",
+                "split_from_id", "split_id", "split_size", "created_by_split_id",
             ])
     #expect(data["created_at"] == .string("2026-09-25T12:00:00.000Z"))
     #expect(data["tune_id"] == .null)
+}
+
+@Test func changeDataNeverCarriesTheServersSplitCompletion() throws {
+    let recording = Recording(
+        tuneID: nil, source: "microphone", splitID: "s1", splitSize: 3, splitCompletedID: "s1",
+        extra: ["split_completed_id": .string("s1")])
+
+    let data = try recording.changeData()
+
+    #expect(data["split_completed_id"] == nil)
+    #expect(data["split_id"] == .string("s1"))
+    #expect(data["split_size"] == .integer(3))
 }
 
 @Test func aTombstoneQueuesADelete() async throws {

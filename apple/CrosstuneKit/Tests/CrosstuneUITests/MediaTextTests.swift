@@ -179,7 +179,7 @@ private func file(_ state: LocalFileState, fileName: String? = "r1.m4a", error: 
             recording(state: "pending_upload"), file: waiting, isLocalUntilSubscribed: true)
         #expect(localOnly == ["0:42", RecordingText.isLocalUntilSubscribed])
         let row = RecordingRowContent(
-            recording: recording(state: "pending_upload"), file: file(.captured), tuneTitle: nil,
+            recording: recording(state: "pending_upload"), file: file(.captured), uploadLimits: nil, tuneTitle: nil,
             isLocalUntilSubscribed: true,
             recordingsPlay: false)
         #expect(row.meta == "0:42 · \(RecordingText.isLocalUntilSubscribed)")
@@ -187,7 +187,7 @@ private func file(_ state: LocalFileState, fileName: String? = "r1.m4a", error: 
 
     @Test func leavesTheLocalOnlyLabelOffOncePremium() {
         let row = RecordingRowContent(
-            recording: recording(state: "pending_upload"), file: file(.captured), tuneTitle: nil,
+            recording: recording(state: "pending_upload"), file: file(.captured), uploadLimits: nil, tuneTitle: nil,
             isLocalUntilSubscribed: true,
             recordingsPlay: true)
         #expect(!row.meta.contains(RecordingText.isLocalUntilSubscribed))
@@ -368,11 +368,13 @@ private func file(_ state: LocalFileState, fileName: String? = "r1.m4a", error: 
 
 @Suite struct RecordingRowContentTests {
     @Test func namesTheRowByItsActionLabelAndShowsTheMatchingGlyph() {
-        let row = RecordingRowContent(recording: recording(label: "Jam"), file: file(.downloaded), tuneTitle: nil)
+        let row = RecordingRowContent(
+            recording: recording(label: "Jam"), file: file(.downloaded), uploadLimits: nil, tuneTitle: nil)
         #expect(row.glyph == .play)
         #expect(row.actionLabel == MediaText.play)
         #expect(row.tap == .play)
-        let loaded = RecordingRowContent(recording: recording(), file: nil, tuneTitle: "Jam", loaded: true)
+        let loaded = RecordingRowContent(
+            recording: recording(), file: nil, uploadLimits: nil, tuneTitle: "Jam", loaded: true)
         #expect(loaded.glyph == .stop)
         #expect(loaded.actionLabel == MediaText.closePlayer)
         #expect(loaded.tap == .close)
@@ -381,7 +383,7 @@ private func file(_ state: LocalFileState, fileName: String? = "r1.m4a", error: 
     @Test func carriesAStuckUploadsErrorAndRetry() {
         let row = RecordingRowContent(
             recording: recording(label: "Jam", state: "pending_upload"),
-            file: file(.failedUpload, error: "Refused"), tuneTitle: nil)
+            file: file(.failedUpload, error: "Refused"), uploadLimits: nil, tuneTitle: nil)
         #expect(row.error == "Refused")
         #expect(row.retryName == "Retry uploading Jam")
         #expect(row.meta == "0:42 · Upload failed")
@@ -389,28 +391,32 @@ private func file(_ state: LocalFileState, fileName: String? = "r1.m4a", error: 
 
     @Test func showsTheDateOnceForAnUnlabeledRecording() {
         let row = RecordingRowContent(
-            recording: recording(), file: file(.downloaded), tuneTitle: nil, locale: locale, timeZone: utc)
+            recording: recording(), file: file(.downloaded), uploadLimits: nil, tuneTitle: nil, locale: locale,
+            timeZone: utc)
         #expect(row.title == "Recording, \(recordedAtText)")
         #expect(row.meta == "0:42")
     }
 
     @Test func showsWhenItWasAddedUnderDateAddedBesideARecordedDateTitle() {
         let row = RecordingRowContent(
-            recording: recording(), file: file(.downloaded), tuneTitle: nil, sort: .added, locale: locale,
+            recording: recording(), file: file(.downloaded), uploadLimits: nil, tuneTitle: nil, sort: .added,
+            locale: locale,
             timeZone: utc)
         #expect(row.title == "Recording, \(recordedAtText)")
         #expect(row.meta == "0:42 · Added Mar 14, 2026")
     }
 
     @Test func dimsADownloadOffline() {
-        let row = RecordingRowContent(recording: recording(label: "Jam"), file: nil, tuneTitle: nil, offline: true)
+        let row = RecordingRowContent(
+            recording: recording(label: "Jam"), file: nil, uploadLimits: nil, tuneTitle: nil, offline: true)
         #expect(row.glyph == .download)
         #expect(row.isDimmed)
         #expect(row.meta == "0:42 · Offline")
     }
 
     @Test func aStuckRowWithNothingToPlayRetriesOnATap() {
-        let row = RecordingRowContent(recording: recording(label: "Jam", state: "failed"), file: nil, tuneTitle: nil)
+        let row = RecordingRowContent(
+            recording: recording(label: "Jam", state: "failed"), file: nil, uploadLimits: nil, tuneTitle: nil)
         #expect(row.retryName == "Retry Jam")
         #expect(row.error == nil)
         #expect(row.glyph == .attention)
@@ -420,21 +426,23 @@ private func file(_ state: LocalFileState, fileName: String? = "r1.m4a", error: 
 
     @Test func aStuckUploadStillPlaysWhatThisDeviceHolds() {
         let row = RecordingRowContent(
-            recording: recording(label: "Jam", state: "pending_upload"), file: file(.failedUpload), tuneTitle: nil)
+            recording: recording(label: "Jam", state: "pending_upload"), file: file(.failedUpload), uploadLimits: nil,
+            tuneTitle: nil)
         #expect(row.tap == .play)
         #expect(row.retry == .upload)
     }
 
     @Test func aProcessingRowWaitsAndIsInert() {
         let row = RecordingRowContent(
-            recording: recording(label: "Jam", state: "processing"), file: nil, tuneTitle: nil)
+            recording: recording(label: "Jam", state: "processing"), file: nil, uploadLimits: nil, tuneTitle: nil)
         #expect(row.glyph == .waiting)
         #expect(row.tap == nil)
         #expect(row.actionLabel == nil)
     }
 
     @Test func aDownloadSaysSoToAScreenReader() {
-        let row = RecordingRowContent(recording: recording(label: "Jam"), file: nil, tuneTitle: nil, downloading: true)
+        let row = RecordingRowContent(
+            recording: recording(label: "Jam"), file: nil, uploadLimits: nil, tuneTitle: nil, downloading: true)
         #expect(row.glyph == .downloading)
         #expect(row.actionLabel == RecordingText.downloading)
         #expect(row.tap == nil)

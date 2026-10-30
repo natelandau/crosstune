@@ -218,12 +218,13 @@ private func json(_ data: Data?) throws -> JSONObject {
         let transport = RecordingTransport(
             body: """
                 {"id": "u", "clerk_user_id": "user_1", "email": null, "created_at": "2026-09-11T00:00:00Z",
-                 "storage": {"used_bytes": 5, "quota_bytes": 100, "max_file_bytes": 50}}
+                 "storage": {"used_bytes": 5, "quota_bytes": 100, "max_file_bytes": 50,
+                             "split_parent_max_file_bytes": 500}}
                 """)
 
         let usage = try await api(transport).storage()
 
-        #expect(usage == StorageUsage(usedBytes: 5, quotaBytes: 100, maxFileBytes: 50))
+        #expect(usage == StorageUsage(usedBytes: 5, quotaBytes: 100, maxFileBytes: 50, splitParentMaxFileBytes: 500))
     }
 
     @Test func resolvesALink() async throws {

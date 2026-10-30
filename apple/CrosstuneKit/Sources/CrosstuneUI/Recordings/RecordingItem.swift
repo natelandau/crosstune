@@ -15,6 +15,8 @@ struct RecordingItem: View {
     var tuneNamedAbove = false
     /// The account's storage, for a recording the quota blocked.
     var storage: StorageUsage?
+    /// The plain per-file upload cap, for a recording too large to upload until it is split.
+    var uploadLimits: StorageUsage?
     /// The Recordings screen's sort, which picks the date the meta line shows. Nil elsewhere,
     /// which shows when it was played.
     var sort: RecordingSort?
@@ -40,10 +42,12 @@ struct RecordingItem: View {
         let id = view.id
         let offline = session?.isOffline ?? false
         let row = RecordingRowContent(
-            recording: view.recording, file: view.file, tuneTitle: view.tuneTitle, tuneNamedAbove: tuneNamedAbove,
+            recording: view.recording, file: view.file, uploadLimits: uploadLimits, tuneTitle: view.tuneTitle,
+            tuneNamedAbove: tuneNamedAbove,
             loaded: player?.holds(.recording, id: id) ?? false, downloading: transfers?.isDownloading(id) ?? false,
             downloadFailed: transfers?.failedDownloads.contains(id) ?? false, offline: offline,
-            playBlocked: recorders?.isCapturing ?? false, storage: storage, sort: sort, opensScreen: opensScreen,
+            playBlocked: recorders?.isCapturing ?? false, storage: storage, sort: sort,
+            opensScreen: opensScreen,
             isLocalUntilSubscribed: plan?.isLocalUntilSubscribed.contains(id) ?? false,
             recordingsPlay: plan.recordingsPlay)
         MediaRow(
@@ -103,6 +107,9 @@ extension MediaRow.SourceLine {
 
 /// One of a recording row's actions.
 enum RecordingRowAction: Hashable {
+    /// Opens the recording's Split screen, offered only while the recording must be split to
+    /// upload.
+    case split
     case edit
     case addToTune
     case removeFromTune
@@ -114,6 +121,7 @@ enum RecordingRowAction: Hashable {
     /// The action's name, or for the pin its name while unpinned.
     var title: String {
         switch self {
+        case .split: RecordingScreenText.split
         case .edit: RecordingRowActions.edit
         case .addToTune: RecordingRowActions.addToTune
         case .removeFromTune: RecordingRowActions.removeFromTune
@@ -126,16 +134,22 @@ enum RecordingRowAction: Hashable {
 
     /// The context menu's actions, top to bottom. `originSite` nil leaves Open on out.
     static func menu(
-        filed: Bool, canAddToTune: Bool, canGoToTune: Bool, canPin: Bool, originSite: String?
+        filed: Bool, canAddToTune: Bool, canGoToTune: Bool, canPin: Bool, originSite: String?, canSplit: Bool = false
     ) -> [Self] {
-        [.edit] + filing(filed: filed, canAddToTune: canAddToTune, canGoToTune: canGoToTune)
+        (canSplit ? [.split] : []) + [.edit]
+            + filing(filed: filed, canAddToTune: canAddToTune, canGoToTune: canGoToTune)
             + (canPin ? [.pin] : []) + (originSite.map { [.openOrigin(site: $0)] } ?? []) + [.delete]
     }
 
-    /// The swipe actions, from the trailing edge in.
-    static func swipe(filed: Bool, canAddToTune: Bool, canGoToTune: Bool, canPin: Bool) -> [Self] {
-        [.delete] + (canPin ? [.pin] : [])
-            + filing(filed: filed, canAddToTune: canAddToTune, canGoToTune: canGoToTune) + [.edit]
+    /// The swipe actions, from the trailing edge in. A row that must be split shows Delete,
+    /// Split, and one filing action, since a swipe holds at most three; Edit and the pin stay in
+    /// its context menu.
+    static func swipe(filed: Bool, canAddToTune: Bool, canGoToTune: Bool, canPin: Bool, canSplit: Bool = false)
+        -> [Self]
+    {
+        let filing = filing(filed: filed, canAddToTune: canAddToTune, canGoToTune: canGoToTune)
+        if canSplit { return [.delete, .split] + filing.prefix(1) }
+        return [.delete] + (canPin ? [.pin] : []) + filing + [.edit]
     }
 
     private static func filing(filed: Bool, canAddToTune: Bool, canGoToTune: Bool) -> [Self] {
@@ -145,8 +159,8 @@ enum RecordingRowAction: Hashable {
 }
 
 extension View {
-    /// Swipe actions and a context menu for a recording row: edit it, file it under a tune or
-    /// take it out of one, go to its tune, and delete it.
+    /// Swipe actions and a context menu for a recording row: split it when it must be split to
+    /// upload, edit it, file it under a tune or move it out of one, go to its tune, and delete it.
     /// `onAddToTune` nil leaves Add to tune out, for a list where every recording is already
     /// under the tune being looked at. `onGoToTune` nil leaves Go to tune out. `onTogglePin` nil
     /// leaves the pin action out; `pinned` says whether it unpins. Open on shows in the context
@@ -156,13 +170,15 @@ extension View {
         filed: Bool, pinned: Bool = false, onTogglePin: (() -> Void)? = nil, originLabel: String? = nil,
         onOpenOrigin: (() -> Void)? = nil, onEdit: @escaping () -> Void,
         onAddToTune: (() -> Void)?, onRemoveFromTune: @escaping () -> Void, onGoToTune: (() -> Void)? = nil,
-        onDelete: @escaping () -> Void
+        onDelete: @escaping () -> Void, onSplit: (() -> Void)? = nil, splitDisabledReason: String? = nil,
+        deleteDisabledReason: String? = nil
     ) -> some View {
         recordingRowActions(
             RecordingRowHandlers(
                 filed: filed, pinned: pinned, onTogglePin: onTogglePin, originLabel: originLabel,
                 onOpenOrigin: onOpenOrigin, onEdit: onEdit, onAddToTune: onAddToTune,
-                onRemoveFromTune: onRemoveFromTune, onGoToTune: onGoToTune, onDelete: onDelete))
+                onRemoveFromTune: onRemoveFromTune, onGoToTune: onGoToTune, onDelete: onDelete, onSplit: onSplit,
+                splitDisabledReason: splitDisabledReason, deleteDisabledReason: deleteDisabledReason))
     }
 
     /// Swipe actions and a context menu for a recording row, from `handlers`.
@@ -196,19 +212,25 @@ struct RecordingRowHandlers {
     let onRemoveFromTune: () -> Void
     var onGoToTune: (() -> Void)?
     let onDelete: () -> Void
+    /// Opens the Split screen. Nil leaves Split out.
+    var onSplit: (() -> Void)?
+    /// Why Split cannot be used now; it shows disabled with this reason.
+    var splitDisabledReason: String?
+    /// Why Delete cannot be used now; it shows disabled with this reason.
+    var deleteDisabledReason: String?
 
     /// The swipe actions, from the trailing edge in.
     var swipe: [RecordingRowAction] {
         RecordingRowAction.swipe(
             filed: filed, canAddToTune: onAddToTune != nil, canGoToTune: onGoToTune != nil,
-            canPin: onTogglePin != nil)
+            canPin: onTogglePin != nil, canSplit: onSplit != nil)
     }
 
     /// The context menu's actions, top to bottom.
     var menu: [RecordingRowAction] {
         RecordingRowAction.menu(
             filed: filed, canAddToTune: onAddToTune != nil, canGoToTune: onGoToTune != nil,
-            canPin: onTogglePin != nil, originSite: onOpenOrigin == nil ? nil : originLabel)
+            canPin: onTogglePin != nil, originSite: onOpenOrigin == nil ? nil : originLabel, canSplit: onSplit != nil)
     }
 
     /// A swipe action's fill by its job, as the web's row swipe tones: filing is a warning,
@@ -217,13 +239,21 @@ struct RecordingRowHandlers {
         switch action {
         case .pin: .accentFill
         case .addToTune, .removeFromTune: .warningFillStrong
-        case .goToTune, .edit, .openOrigin: .neutralFill
+        case .goToTune, .edit, .openOrigin, .split: .neutralFill
         case .delete: .dangerFillStrong
         }
     }
 
     @ViewBuilder func button(_ action: RecordingRowAction, short: Bool) -> some View {
         switch action {
+        case .split:
+            if let onSplit {
+                disabling(
+                    Button(action: onSplit) {
+                        reasonLabel(
+                            action.title, systemImage: "rectangle.split.3x1", reason: short ? nil : splitDisabledReason)
+                    }, reason: splitDisabledReason)
+            }
         case .edit:
             Button(action.title, systemImage: "pencil", action: onEdit)
         case .addToTune:
@@ -239,7 +269,50 @@ struct RecordingRowHandlers {
                 Button(action.title, systemImage: "arrow.up.right.square", action: onOpenOrigin)
             }
         case .delete:
-            Button(action.title, systemImage: "trash", role: .destructive, action: onDelete)
+            disabling(
+                Button(role: .destructive, action: onDelete) {
+                    reasonLabel(action.title, systemImage: "trash", reason: short ? nil : deleteDisabledReason)
+                }, reason: deleteDisabledReason)
         }
+    }
+
+    /// The action's name, with why it is disabled under it in a menu. A swipe action has room for
+    /// the name alone.
+    private func reasonLabel(_ title: String, systemImage: String, reason: String?) -> some View {
+        Label {
+            Text(title)
+            if let reason { Text(reason) }
+        } icon: {
+            Image(systemName: systemImage)
+        }
+    }
+
+    /// Disables `button` while there is a `reason`, which VoiceOver reads where a swipe action is
+    /// too narrow to show it.
+    private func disabling(_ button: some View, reason: String?) -> some View {
+        button
+            .disabled(reason != nil)
+            .accessibilityHint(reason ?? "")
+    }
+}
+
+extension RecordingRowHandlers {
+    /// Split for a row whose recording must be split to upload, which opens the recording's
+    /// screen on its Split screen; nil for every other row, and while the plan holds recordings
+    /// back.
+    static func split(
+        _ view: RecordingView, uploadLimits: StorageUsage?, player: PlayerModel?, window: UUID?, source: ActionSource,
+        recordingsPlay: Bool
+    ) -> (() -> Void)? {
+        guard recordingsPlay, let player,
+            RecordingLimits.mustSplitToUpload(view.recording, file: view.file, uploadLimits: uploadLimits)
+        else { return nil }
+        return { player.openSplit(.recording(view.recording, tuneTitle: view.tuneTitle), in: window, source: source) }
+    }
+
+    /// Why a row's Split cannot be used now. The row holds its audio, so only the recording's
+    /// own state counts.
+    static func splitDisabledReason(_ view: RecordingView) -> String? {
+        RecordingScreenText.splitDisabledReason(view.recording, file: view.file, audio: nil)
     }
 }

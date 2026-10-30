@@ -8,7 +8,7 @@ import Observation
 /// timeline; the audio player counts seconds from `bounds.lowerBound`.
 ///
 /// The handles start on the row's current trim and cannot leave it, so a trim only narrows,
-/// and never come nearer each other than ``minTrimMs``.
+/// and never come nearer each other than ``RecordingLimits/minLengthMs``.
 @MainActor
 @Observable
 final class TrimModel {
@@ -28,15 +28,10 @@ final class TrimModel {
         let trimEndMs: Int64?
     }
 
-    /// The shortest kept range, as `MIN_TRIM_MS` in `api/src/crosstune/vocabulary.py` enforces.
-    static let minTrimMs: Int64 = 1000
     /// The shortest stretch the detail waveform zooms in to.
     static let minDetailMs: Int64 = 2000
     /// How much the detail waveform shows when the screen opens.
     static let openingDetailMs: Int64 = 10_000
-    static let nudgeMs: Int64 = 100
-    static let largeNudgeMs: Int64 = 1000
-    static let zoomStep = 2.0
     /// How much Preview end plays before the end handle.
     static let previewMs: Int64 = 3000
 
@@ -133,7 +128,8 @@ final class TrimModel {
     /// it moves nothing rather than landing the handle somewhere the musician did not choose.
     func setAtPlayhead(_ handle: Handle, playheadMs: Int64) {
         let tooNear =
-            handle == .start ? playheadMs > end - Self.minTrimMs : playheadMs < start + Self.minTrimMs
+            handle == .start
+            ? playheadMs > end - RecordingLimits.minLengthMs : playheadMs < start + RecordingLimits.minLengthMs
         if !tooNear { place(handle, playheadMs) }
     }
 
@@ -249,9 +245,9 @@ final class TrimModel {
         let high = bounds.upperBound
         switch handle {
         case .start:
-            start = min(max(ms, low), max(low, end - Self.minTrimMs))
+            start = min(max(ms, low), max(low, end - RecordingLimits.minLengthMs))
         case .end:
-            end = min(max(ms, min(high, start + Self.minTrimMs)), high)
+            end = min(max(ms, min(high, start + RecordingLimits.minLengthMs)), high)
         }
         select(handle)
     }

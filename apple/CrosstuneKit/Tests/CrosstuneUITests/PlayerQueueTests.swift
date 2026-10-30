@@ -263,6 +263,20 @@ private let queuedNowPlaying = NowPlaying(title: "Jam", tuneTitle: "Kitchen Girl
         #expect(fixture.queue.ends == [.finished, .next, .previous(elapsed: 5)])
     }
 
+    @Test func anEarlyEndIsNoTrackEndUntilItIsCleared() async throws {
+        let fixture = fixture()
+        fixture.audio.duration = 60
+        try await queueRecording(fixture)
+        fixture.player.endPlayback(atSourceMs: 10_000)
+        #expect(fixture.audio.window == PlaybackWindow(from: 0, to: 10))
+        fixture.audio.end(.finished)
+        #expect(fixture.queue.ends.isEmpty)
+
+        fixture.player.endPlayback(atSourceMs: nil)
+        fixture.audio.end(.finished)
+        #expect(fixture.queue.ends == [.finished])
+    }
+
     @Test func closeAndPlainPlayLeaveTheQueue() async throws {
         let fixture = fixture()
         try await queueRecording(fixture)

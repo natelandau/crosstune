@@ -35,8 +35,10 @@ struct Transfers {
         guard try await store.plan(at: now()).recordingsPlay else { return nil }
 
         let waiting: [LocalFileState] = [.captured, .blockedQuota, .uploading]
-        let files = try await store.read { db in
-            try RecordingFile.filter(waiting.contains(RecordingFile.CodingKeys.localState)).fetchAll(db)
+        let (files, rows) = try await store.read { db in
+            let files = try RecordingFile.filter(waiting.contains(RecordingFile.CodingKeys.localState)).fetchAll(db)
+            let rows = try Recording.fetchAll(db, keys: files.map(\.id))
+            return (files, Dictionary(rows.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first }))
         }
         let storage = try await store.meta(.storage, as: StorageUsage.self)
         let now = Timestamp.now
@@ -50,6 +52,10 @@ struct Transfers {
                 continue
             }
             if let next = file.nextAttemptAt, next > now { continue }
+            // Held until a split replaces it with pieces the server accepts.
+            if let row = rows[file.id], RecordingLimits.mustSplitToUpload(row, file: file, uploadLimits: storage) {
+                continue
+            }
             do {
                 try await uploadOne(file.id)
             } catch is RefusedByPlan {
@@ -234,6 +240,7 @@ struct Transfers {
         // Read first so a pass with nothing to drop never takes the write lock.
         guard try await store.read({ db in try Self.orphanedFiles(db).isEmpty == false }) else { return }
         try await store.writeDroppingFiles { writer in
+            let waiting = try RecordingLimits.waitingParentIDs(writer.db)
             for file in try Self.orphanedFiles(writer.db) {
                 let row = try Recording.fetchOne(writer.db, key: file.id)
                 if var row, let fileName = file.fileName, file.localState.isNotUploaded,
@@ -250,6 +257,8 @@ struct Transfers {
                     try restored.update(writer.db)
                     continue
                 }
+                // A piece waiting for its cut plays from this audio; a later pass drops it.
+                if let row, RecordingLimits.holdsSplitAudio(row, waitingParentIDs: waiting) { continue }
                 try file.delete(writer.db)
             }
         }
