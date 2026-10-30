@@ -23,7 +23,12 @@ export function PracticeOverlay({ children }: { children: ReactNode }) {
       <Suspense fallback={null}>
         <AnimatePresence onExitComplete={dismissed}>
           {shown?.open && (
-            <PracticeModal key={shown.opening} id={shown.id} onClose={overlay.close} />
+            <PracticeModal
+              key={shown.opening}
+              id={shown.id}
+              opensIn={shown.opensIn}
+              onClose={overlay.close}
+            />
           )}
         </AnimatePresence>
       </Suspense>

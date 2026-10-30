@@ -17,6 +17,7 @@ const unfiled = (id: string): RecordingView => ({
   file: undefined,
   tuneId: null,
   tuneTitle: null,
+  holdsSplitAudio: false,
 })
 
 beforeEach(() => {

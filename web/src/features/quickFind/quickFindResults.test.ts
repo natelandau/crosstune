@@ -31,12 +31,14 @@ const recordings: RecordingView[] = [
     file: undefined,
     tuneId: null,
     tuneTitle: null,
+    holdsSplitAudio: false,
   },
   {
     recording: recordingRow('r2', { label: null, tune_id: 't3' }),
     file: undefined,
     tuneId: 't3',
     tuneTitle: "Soldier's Joy",
+    holdsSplitAudio: false,
   },
 ]
 
@@ -104,6 +106,7 @@ describe('rankResults', () => {
       file: undefined,
       tuneId: null,
       tuneTitle: null,
+      holdsSplitAudio: false,
     }))
     const found = rankResults({
       query: 'reel',
@@ -125,6 +128,7 @@ describe('rankResults', () => {
       file: undefined,
       tuneId: null,
       tuneTitle: null,
+      holdsSplitAudio: false,
       shownPlace: 'Town Hall',
     }
     const found = rankResults({

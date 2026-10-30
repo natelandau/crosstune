@@ -16,9 +16,26 @@ function emit(
 }
 
 /**
+ * Calls `onWheel` for each wheel event on `element`. Attached by hand because React's wheel
+ * listener is passive, so it could not keep the page from scrolling or zooming as well.
+ */
+export function useNonPassiveWheel(
+  element: RefObject<HTMLElement | null>,
+  onWheel: (event: WheelEvent) => void,
+) {
+  const onWheelRef = useLatest(onWheel)
+  useEffect(() => {
+    const target = element.current
+    if (!target) return
+    const listener = (event: WheelEvent) => onWheelRef.current(event)
+    target.addEventListener('wheel', listener, { passive: false })
+    return () => target.removeEventListener('wheel', listener)
+  }, [element, onWheelRef])
+}
+
+/**
  * Two-finger pinch and ctrl-scroll (which is also how a trackpad pinch arrives) zoom the
- * detail waveform. The wheel listener is attached by hand because React's is passive and
- * could not stop the page zooming too.
+ * detail waveform.
  *
  * A pinch starts with one finger, which has already begun a seek or a handle drag by the time
  * the second lands. From then until every finger lifts the pointers' moves stop here, and
@@ -41,20 +58,13 @@ export function useZoomGestures(
     msAt?: (clientX: number) => number
   },
 ) {
-  // The wheel listener is attached once, so it reaches the latest callbacks through a ref.
   const latestRef = useLatest({ onZoom, msAt, onPinchEnd })
 
-  useEffect(() => {
-    const target = element.current
-    if (!target) return
-    const onWheel = (event: WheelEvent) => {
-      if (!event.ctrlKey && !event.metaKey) return
-      event.preventDefault()
-      emit(latestRef.current, Math.exp(-event.deltaY * WHEEL_ZOOM_RATE), event.clientX)
-    }
-    target.addEventListener('wheel', onWheel, { passive: false })
-    return () => target.removeEventListener('wheel', onWheel)
-  }, [element, latestRef])
+  useNonPassiveWheel(element, (event) => {
+    if (!event.ctrlKey && !event.metaKey) return
+    event.preventDefault()
+    emit(latestRef.current, Math.exp(-event.deltaY * WHEEL_ZOOM_RATE), event.clientX)
+  })
 
   const pointers = useRef(new Map<number, { x: number; y: number }>())
   const spread = useRef<number | null>(null)

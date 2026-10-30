@@ -139,6 +139,7 @@ const SAMPLES: { [N in EventName]: EventProps[N] } = {
   location_opened_in_maps: {},
   recording_deleted: { origin: 'slippery_hill', recording_id: ID_2 },
   recording_trimmed: { recording_id: ID_2 },
+  recording_split: { recording_id: ID_2, piece_count: '1-9', over_limit: false },
   link_added: { service: 'youtube', via: 'paste', link_id: ID_2, tune_id: ID_1 },
   link_removed: { service: 'spotify', link_id: ID_2 },
   link_opened_externally: { service: 'bandcamp', link_id: ID_2 },

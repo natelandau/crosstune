@@ -2,6 +2,7 @@ import { RECORDING_LIMITS, type RecordingPrecision } from '../api/vocabulary'
 import type { LocalFileState, RecordingFile } from '../db/recordings'
 import type { CrosstuneDb } from '../db/schema'
 import type { LocalRecording } from '../db/types'
+import { holdsSplitAudio, waitsForCut } from '../domain/recordingLimits'
 import { localIsoDate, localIsoTime } from '../text/localDate'
 import {
   LINK_NOT_FOUND,
@@ -9,6 +10,7 @@ import {
   RECORDED_DATE_INVALID,
   RECORDED_DATE_MISMATCH,
   RECORDED_DATE_OFF_PERIOD,
+  RECORDING_HELD,
   RECORDING_NOT_FOUND,
   TUNE_NOT_FOUND,
 } from './messages'
@@ -88,6 +90,11 @@ async function putRecordingRow(
     place_name: null,
     place_id: null,
     place_origin: fields.place ? 'device' : null,
+    split_from_id: null,
+    split_id: null,
+    split_size: null,
+    created_by_split_id: null,
+    split_completed_id: null,
     place_lat: fields.place?.lat ?? null,
     place_lon: fields.place?.lon ?? null,
     place_accuracy_m: fields.place?.accuracyM ?? null,
@@ -401,17 +408,81 @@ async function tombstoneRecording(
   await db.recording_chunks.where('recording_id').equals(id).delete()
 }
 
+/** Delete a recording, refused while a piece split from it still plays from its audio. */
 export async function deleteRecording(db: CrosstuneDb, id: string): Promise<void> {
-  await recordingTx(db, () => tombstoneRecording(db, id, now(), { enqueueDelete: true }))
+  await recordingTx(db, async () => {
+    const row = await db.recordings.get(id)
+    if (row && holdsSplitAudio(row, await waitingParentIds(db))) {
+      throw new Error(RECORDING_HELD)
+    }
+    await tombstoneRecording(db, id, now(), { enqueueDelete: true })
+  })
 }
 
-/** Called inside deleteTune's transaction, which is already widened to the audio tables. */
+/**
+ * The parents of every live piece in `rows` still waiting for its cut, which plays from their
+ * audio. `excludedPieceIds` are pieces about to be deleted, which no longer hold their parent.
+ */
+export function waitingParentIdsIn(
+  rows: readonly LocalRecording[],
+  excludedPieceIds: ReadonlySet<string> = new Set(),
+): Set<string> {
+  const ids = new Set<string>()
+  for (const row of rows) {
+    if (waitsForCut(row) && !excludedPieceIds.has(row.id)) ids.add(row.split_from_id!)
+  }
+  return ids
+}
+
+/** `waitingParentIdsIn` over the store, reading only the rows still processing. */
+export async function waitingParentIds(
+  db: CrosstuneDb,
+  excludedPieceIds: ReadonlySet<string> = new Set(),
+): Promise<Set<string>> {
+  const processing = await db.recordings.where('state').equals('processing').toArray()
+  return waitingParentIdsIn(processing, excludedPieceIds)
+}
+
+/**
+ * What deleting `tuneIds` does to their live recordings: `removed` go with the tunes, and
+ * `unfiled` are parents a waiting piece still plays from, which stay and are left unfiled. A
+ * waiting piece the same delete removes holds no parent.
+ */
+export async function tuneDeleteRecordings(
+  db: CrosstuneDb,
+  tuneIds: readonly string[],
+): Promise<{ removed: LocalRecording[]; unfiled: LocalRecording[] }> {
+  const live = activeByPosition(
+    await db.recordings
+      .where('tune_id')
+      .anyOf([...tuneIds])
+      .toArray(),
+  )
+  const waiting = await waitingParentIds(db, new Set(live.map((row) => row.id)))
+  const removed: LocalRecording[] = []
+  const unfiled: LocalRecording[] = []
+  for (const row of live) (holdsSplitAudio(row, waiting) ? unfiled : removed).push(row)
+  return { removed, unfiled }
+}
+
+/**
+ * Called inside a tune delete's transaction, which is already widened to the audio tables, once
+ * for every tune the delete removes. The server's cascade unfiles a held parent the same way.
+ */
 export async function tombstoneTuneRecordings(
   db: CrosstuneDb,
-  tuneId: string,
+  tuneIds: readonly string[],
   at: string,
 ): Promise<void> {
-  const ids = await db.recordings.where('tune_id').equals(tuneId).primaryKeys()
+  const { unfiled } = await tuneDeleteRecordings(db, tuneIds)
+  for (const row of unfiled) {
+    await putRow(db, 'recordings', { ...row, tune_id: null, updated_at: at })
+  }
+  // Every row still filed under the tunes, tombstones included, so their local audio goes too.
+  const ids = await db.recordings
+    .where('tune_id')
+    .anyOf([...tuneIds])
+    .primaryKeys()
   for (const id of ids) await tombstoneRecording(db, id, at, { enqueueDelete: false })
 }
 

@@ -5,12 +5,17 @@ import { recordingAnalytics } from '../../usage/testing'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
 import { dataProviders, fakePlayer } from '../../test/providers'
-import { recordingRow } from '../../test/rows'
+import { entitlementRow, recordingFile, recordingRow } from '../../test/rows'
 import { DELETE } from '../../ui/confirmCopy'
 import { PlayerContext } from '../player/usePlayer'
 import { TRIM } from '../practice/trimCopy'
+import { DELETE_WHILE_SPLITTING, SPLIT } from '../practice/splitCopy'
+import { DETACHED_PRACTICE_OVERLAY, PracticeOverlayContext } from '../practice/usePracticeOverlay'
+import { PREMIUM_RECORDINGS_TITLE } from '../plan/planCopy'
+import { MAX_RECORDING_MS } from '../../domain/recordingLimits'
 import { EDIT, openOn, ADD_TO_TUNE } from './recordingCopy'
 import { GO_TO_TUNE } from './recordingNames'
+import { PLAY_FIRST_IN_LISTS } from '../tune/playSourceText'
 import type { RecordingView } from './useRecordings'
 import {
   REMOVE_FROM_TUNE,
@@ -35,6 +40,7 @@ function view(overrides: Partial<RecordingView> & { origin_url?: string | null }
     file: undefined,
     tuneId: null,
     tuneTitle: null,
+    holdsSplitAudio: false,
     ...rest,
   } satisfies RecordingView
 }
@@ -45,9 +51,13 @@ function setup(
   analytics = recordingAnalytics(),
 ) {
   const Data = dataProviders({ db, analytics })
+  const open = vi.fn()
+  const overlay = { ...DETACHED_PRACTICE_OVERLAY, open }
   const wrapper = ({ children }: { children: ReactNode }) => (
     <Data>
-      <PlayerContext.Provider value={fakePlayer()}>{children}</PlayerContext.Provider>
+      <PracticeOverlayContext.Provider value={overlay}>
+        <PlayerContext.Provider value={fakePlayer()}>{children}</PlayerContext.Provider>
+      </PracticeOverlayContext.Provider>
     </Data>
   )
   const confirm = vi.fn(async () => answer)
@@ -57,6 +67,7 @@ function setup(
       return result.current
     },
     confirm,
+    open,
   }
 }
 
@@ -86,6 +97,83 @@ describe('useRecordingActionsWith', () => {
         openOn('Slippery-Hill'),
       )
     }
+  })
+
+  it('offers Split first on a row that must be split to upload, opening practice on Split', () => {
+    const result = setup({ onEdit: () => {} })
+    const long = view({
+      file: recordingFile('r1', {
+        blob: new Blob(['x']),
+        local_duration_ms: MAX_RECORDING_MS + 1000,
+      }),
+    })
+    const split = result.current.actionsFor(long)[0]!
+    expect(split).toMatchObject({ label: SPLIT, disabled: undefined })
+    split.onPress()
+    expect(result.open).toHaveBeenCalledWith('r1', 'split')
+    expect(labels(result.current.actionsFor(view()))).not.toContain(SPLIT)
+  })
+
+  it('swipes Split, one filing action, and Delete on a row that must be split', () => {
+    const file = recordingFile('r1', {
+      blob: new Blob(['x']),
+      local_duration_ms: MAX_RECORDING_MS + 1000,
+    })
+    const result = setup({
+      onEdit: () => {},
+      onAddToTune: () => {},
+      onOpenTune: () => {},
+      pin: { userTuneId: 'ut1', recordingId: null },
+    })
+    const unfiled = view({ file })
+    expect(labels(result.current.actionsFor(unfiled))).toEqual([SPLIT, ADD_TO_TUNE, DELETE])
+    expect(labels(result.current.rowMenuFor(unfiled))).toEqual([
+      SPLIT,
+      EDIT,
+      ADD_TO_TUNE,
+      PLAY_FIRST_IN_LISTS,
+      DELETE,
+    ])
+    const filed = view({ file, tuneId: 't1', tuneTitle: 'Cluck Old Hen' })
+    expect(labels(result.current.actionsFor(filed))).toEqual([SPLIT, REMOVE_FROM_TUNE, DELETE])
+    expect(labels(result.current.rowMenuFor(filed))).toEqual([
+      SPLIT,
+      EDIT,
+      REMOVE_FROM_TUNE,
+      GO_TO_TUNE,
+      PLAY_FIRST_IN_LISTS,
+      DELETE,
+    ])
+    const unfilable = setup().current
+    expect(labels(unfilable.actionsFor(unfiled))).toEqual([SPLIT, DELETE])
+  })
+
+  it('swipes and lists the same actions on a row that need not be split', () => {
+    const result = setup({ onEdit: () => {}, onAddToTune: () => {} })
+    expect(labels(result.current.actionsFor(view()))).toEqual([EDIT, ADD_TO_TUNE, DELETE])
+    expect(labels(result.current.rowMenuFor(view()))).toEqual([EDIT, ADD_TO_TUNE, DELETE])
+  })
+
+  it('waits to delete a recording only while it holds split audio', () => {
+    const result = setup()
+    const deleteOf = (target: RecordingView) =>
+      result.current.actionsFor(target).find((action) => action.label === DELETE)?.disabled
+    expect(deleteOf(view({ holdsSplitAudio: true }))).toBe(DELETE_WHILE_SPLITTING)
+    expect(deleteOf(view())).toBeUndefined()
+  })
+
+  it('shows Split disabled with its reason on a free plan', async () => {
+    await db.entitlements.put(entitlementRow())
+    const result = setup()
+    const long = view({
+      file: recordingFile('r1', {
+        blob: new Blob(['x']),
+        local_duration_ms: MAX_RECORDING_MS + 1000,
+      }),
+    })
+    await expect
+      .poll(() => result.current.actionsFor(long)[0]?.disabled)
+      .toBe(PREMIUM_RECORDINGS_TITLE)
   })
 
   it('offers Go to tune after Remove from tune, on a filed view with a handler only', () => {

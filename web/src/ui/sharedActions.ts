@@ -32,6 +32,7 @@ export function rowActions(actions: readonly SharedRowAction[]): RowAction[] {
     shortLabel: action.short,
     icon: action.icon,
     tone: TONE[action.tone],
+    disabled: action.disabled,
     onAction: action.onPress,
   }))
 }

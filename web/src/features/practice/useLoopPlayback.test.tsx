@@ -35,6 +35,7 @@ function view(blobStartMs = 10_000, blobRev: string | null = null): RecordingVie
     file: recordingFile('rec-1', { blob_start_ms: blobStartMs, blob_rev: blobRev }),
     tuneId: null,
     tuneTitle: null,
+    holdsSplitAudio: false,
   }
 }
 

@@ -9,7 +9,6 @@ import {
   type RefObject,
 } from 'react'
 import { useAnalytics } from '../../usage/AnalyticsProvider'
-import { RECORDING_NOT_FOUND } from '../../commands/messages'
 import { updateRecording } from '../../commands/recordings'
 import { useDb } from '../../db/DbProvider'
 import type { ConfirmQuestion } from '../../ui/confirmQuestion'
@@ -36,6 +35,7 @@ import {
   type TrimHandle,
   type TrimState,
 } from './trimModel'
+import { useEditorSave } from './useEditorSave'
 import { useZoomGestures } from './useZoomGestures'
 
 const PREVIEW_MS = 3000
@@ -125,8 +125,6 @@ export function useTrimEditor({
   const lengthMs = useEngineState(engine, (s) => s.lengthMs)
   const clock = usePlayheadClock(engine, { frames })
   const [trim, dispatch] = useReducer(trimReducer, undefined, () => initialTrim(recording, file))
-  const [error, setError] = useState<string | null>(null)
-  const [saving, setSaving] = useState(false)
   // The detail holds still while one of its own handles is dragged, so the bars do not slide
   // out from under the pointer.
   const [heldWindow, setHeldWindow] = useState<[number, number] | null>(null)
@@ -139,33 +137,16 @@ export function useTrimEditor({
   const detail = heldWindow ?? detailWindow(trim)
   const changed = isChanged(trim, recording)
 
-  // Every handle, seek, and the write itself count from the trim the editor opened on. A trim
-  // landing from elsewhere moves what the engine plays, so the editor gives way rather than
-  // cut the recording somewhere the musician did not choose.
-  const [opened] = useState(() => ({
-    start: recording.trim_start_ms,
-    end: recording.trim_end_ms,
-  }))
-  const trimmedElsewhere =
-    recording.trim_start_ms !== opened.start || recording.trim_end_ms !== opened.end
-  const writing = useRef(false)
-  const live = useRef(true)
-  // Withdraws an open Save question once there is nothing for it to act on.
-  const question = useRef<AbortController | null>(null)
-  useEffect(() => {
-    live.current = true
-    return () => {
-      live.current = false
-      question.current?.abort()
-    }
-  }, [])
-  const staleRef = useLatest(trimmedElsewhere)
-  const onTrimmedElsewhereRef = useLatest(onTrimmedElsewhere)
-  useEffect(() => {
-    if (!trimmedElsewhere || writing.current) return
-    question.current?.abort()
-    onTrimmedElsewhereRef.current()
-  }, [trimmedElsewhere, onTrimmedElsewhereRef])
+  const {
+    save: confirmAndWrite,
+    saving,
+    error,
+  } = useEditorSave({
+    recording,
+    confirm,
+    onTrimmedElsewhere,
+    failure: TRIM_NOT_SAVED,
+  })
 
   // Play selection and Preview end run up to the end handle and stop on it. The check reads
   // the handle as it is now, so moving it while playing moves where playback stops.
@@ -265,33 +246,19 @@ export function useTrimEditor({
     },
   )
 
-  const save = async () => {
-    const controller = new AbortController()
-    question.current = controller
-    const answer = await confirm({
-      title: TRIM_CONFIRM_TITLE(trim.end - trim.start),
-      message: TRIM_CONFIRM_MESSAGE,
-      action: TRIM_CONFIRM_ACTION,
-      signal: controller.signal,
-    })
-    if (question.current === controller) question.current = null
-    // The editor can have given way while the question was up.
-    if (!answer || !live.current || staleRef.current) return
-    writing.current = true
-    setSaving(true)
-    setError(null)
-    try {
-      await updateRecording(db, recording.id, trimPatch(trim, recording))
-      analytics.send('recording_trimmed', { recording_id: recording.id })
-      onDone()
-    } catch (caught) {
-      writing.current = false
-      setSaving(false)
-      // A row that is gone takes practice with it, so there is nothing to report.
-      if (caught instanceof Error && caught.message === RECORDING_NOT_FOUND) return
-      setError(TRIM_NOT_SAVED)
-    }
-  }
+  const save = () =>
+    confirmAndWrite(
+      {
+        title: TRIM_CONFIRM_TITLE(trim.end - trim.start),
+        message: TRIM_CONFIRM_MESSAGE,
+        action: TRIM_CONFIRM_ACTION,
+      },
+      async () => {
+        await updateRecording(db, recording.id, trimPatch(trim, recording))
+        analytics.send('recording_trimmed', { recording_id: recording.id })
+        onDone()
+      },
+    )
 
   return {
     trim,

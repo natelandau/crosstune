@@ -1,4 +1,4 @@
-import { activeRecordingsForTune } from '../../commands/recordings'
+import { tuneDeleteRecordings } from '../../commands/recordings'
 import type { CrosstuneDb } from '../../db/schema'
 import { countTunes } from '../../text/format'
 import { deleteTuneMessage, deleteTunesMessage, deleteTuneTitle } from './deleteTuneMessage'
@@ -14,10 +14,8 @@ export async function deleteTunesQuestion(
   entries: readonly CatalogEntry[],
 ): Promise<{ title: string; message: string }> {
   const tuneIds = [...new Set(entries.map((entry) => entry.tune.id))]
-  const recordings = (
-    await Promise.all(tuneIds.map((tuneId) => activeRecordingsForTune(db, tuneId)))
-  ).flat()
-  const files = await db.recording_files.bulkGet(recordings.map((row) => row.id))
+  const { removed } = await tuneDeleteRecordings(db, tuneIds)
+  const files = await db.recording_files.bulkGet(removed.map((row) => row.id))
   const views = files.map((file) => ({ file }))
   const only = entries.length === 1 ? entries[0] : undefined
   return only

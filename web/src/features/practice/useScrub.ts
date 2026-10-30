@@ -39,6 +39,24 @@ interface Press {
   samples: { t: number; x: number }[]
 }
 
+/** Starts a press with the primary button or a touch, holding the pointer; false for any other
+ * button. */
+export function capturePress(event: PointerEvent<HTMLElement>): boolean {
+  if (event.pointerType === 'mouse' && event.button !== 0) return false
+  capturePointer(event.currentTarget, event.pointerId)
+  return true
+}
+
+/** How far a press has moved sideways once it is a drag, or null while it is still within
+ * the threshold that tells a drag from a tap. */
+export function dragTravel(
+  pressed: { startX: number; moved: boolean },
+  clientX: number,
+): number | null {
+  const dx = clientX - pressed.startX
+  return !pressed.moved && Math.abs(dx) < DRAG_THRESHOLD_PX ? null : dx
+}
+
 /**
  * Dragging the audio under a fixed playhead. A drag past the threshold holds playback where it
  * is and reports the playhead it draws to `onShow` (trimmed timeline), and a touch released
@@ -165,10 +183,8 @@ export function useScrub({
 
     const handlers: PointerHandlers = {
       onPointerDown: (event) => {
-        if (event.pointerType === 'mouse' && event.button !== 0) return
         // A second finger belongs to a pinch, not to this press.
-        if (press.current) return
-        capturePointer(event.currentTarget, event.pointerId)
+        if (press.current || !capturePress(event)) return
         const { position, pinches } = latestRef.current
         const caught = isMomentumScrolling()
         if (caught) stopMomentumScroll()
@@ -196,8 +212,8 @@ export function useScrub({
           if (shownRef.current !== null) show(null)
           return
         }
-        const dx = event.clientX - pressed.startX
-        if (!pressed.moved && Math.abs(dx) < DRAG_THRESHOLD_PX) return
+        const dx = dragTravel(pressed, event.clientX)
+        if (dx === null) return
         // A tap leaves playback alone; only a drag holds it, from where the playhead now is.
         if (!held.current) {
           const { engine, position } = latestRef.current

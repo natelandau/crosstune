@@ -2,6 +2,7 @@ import { devices, expect, test, type Locator, type Page } from '@playwright/test
 import {
   addTune,
   DEFAULT_LABEL,
+  escapeRegExp,
   nudgeSync,
   openPractice,
   playRecording,
@@ -14,6 +15,15 @@ import {
   waitForReady,
 } from './helpers'
 import { ELAPSED_LABEL, PAUSE, PLAY } from '../src/features/player/transportCopy'
+import {
+  REMOVE_CUT,
+  SAVE_SPLIT,
+  SPLIT,
+  SPLIT_AT,
+  SPLIT_CONFIRM_ACTION,
+  SPLIT_CONFIRM_TITLE,
+} from '../src/features/practice/splitCopy'
+import { formatDuration } from '../src/text/format'
 import { TRIM } from '../src/features/practice/trimCopy'
 import {
   GO_TO_START,
@@ -23,7 +33,7 @@ import {
   TRIM_CONFIRM_ACTION,
   TRIM_CONFIRM_MESSAGE,
 } from '../src/features/practice/trimViewCopy'
-import { PLAYER_REGION } from '../src/features/player/playerCopy'
+import { PLAYER_REGION, SKIP_FORWARD } from '../src/features/player/playerCopy'
 import {
   ADD_TO_TUNE_TITLE,
   addToTuneName,
@@ -230,6 +240,99 @@ test('trims a recording and another device sees it', async ({ page, browser }) =
         { timeout: 60_000, intervals: [3_000] },
       )
       .toMatch(/0:03/)
+    expect(consoleErrors2, JSON.stringify(consoleErrors2)).toEqual([])
+  } finally {
+    await secondDevice.close()
+  }
+  expect(consoleErrors, JSON.stringify(consoleErrors)).toEqual([])
+})
+
+test('splits a recording and another device sees the pieces', async ({ page, browser }) => {
+  test.setTimeout(240_000)
+
+  const consoleErrors: string[] = []
+  page.on('console', (msg) => {
+    if (msg.type() === 'error') consoleErrors.push(msg.text())
+  })
+
+  await signIn(page)
+
+  const unfiled = await recordUnfiled(page, 6)
+  await waitForReady(page, unfiled)
+  const practice = await openPractice(page, unfiled)
+
+  // Pausing keeps the playhead near the start, where the split view opens its cut line.
+  const transport = practice
+    .getByRole('button', { name: PAUSE, exact: true })
+    .or(practice.getByRole('button', { name: PLAY, exact: true }))
+  await expect(transport).toBeVisible({ timeout: 15_000 })
+  if ((await transport.getAttribute('aria-label')) === PAUSE) await transport.click()
+
+  const label = unique('Split recording')
+  await renameRecording(page, practice, label)
+
+  await practice.getByRole('button', { name: MORE_ACTIONS, exact: true }).click()
+  await page
+    .getByRole('menu', { name: MORE_ACTIONS })
+    .getByRole('menuitem', { name: SPLIT, exact: true })
+    .click()
+
+  const split = page.getByRole('dialog', { name: SPLIT, exact: true })
+  await expect(split).toBeVisible()
+  // One cut a second in, one two seconds before the end of the 6-second recording.
+  // Split at the line, whatever time the line is at.
+  const splitAtPrefix = SPLIT_AT(0).replace(formatDuration(0), '')
+  const addCut = split.getByRole('button', { name: new RegExp(`^${escapeRegExp(splitAtPrefix)}`) })
+  await page.keyboard.press('Shift+ArrowRight')
+  await page.keyboard.press('s')
+  // The new cut is selected, so the arrows would move it; a skip lets it go and puts the line
+  // at the end, from where the second cut is two seconds back.
+  await expect(split.getByRole('button', { name: REMOVE_CUT, exact: true })).toBeVisible()
+  await split.getByRole('button', { name: SKIP_FORWARD }).click()
+  await page.keyboard.press('Shift+ArrowLeft')
+  await page.keyboard.press('Shift+ArrowLeft')
+  await expect(addCut).toBeVisible()
+  await page.keyboard.press('s')
+  await expect(split.getByRole('button', { name: REMOVE_CUT, exact: true })).toBeVisible()
+  await split.getByRole('button', { name: SAVE_SPLIT, exact: true }).click()
+  const confirm = page.getByRole('dialog').filter({ hasText: SPLIT_CONFIRM_TITLE(3) })
+  await confirm.getByRole('button', { name: SPLIT_CONFIRM_ACTION, exact: true }).click()
+  await expect(confirm).toHaveCount(0)
+  await expect(split).toHaveCount(0)
+  await practice.getByRole('button', { name: CLOSE, exact: true }).click()
+
+  const pieces = (p: Page): Locator =>
+    p
+      .getByRole('grid', { name: UNFILED_HEADER, exact: true })
+      .getByRole('row')
+      .filter({ hasText: label })
+  await expect(pieces(page)).toHaveCount(3, { timeout: 15_000 })
+
+  const secondDevice = await browser.newContext({ ...test.info().project.use })
+  try {
+    const page2 = await secondDevice.newPage()
+    const consoleErrors2: string[] = []
+    page2.on('console', (msg) => {
+      if (msg.type() === 'error') consoleErrors2.push(msg.text())
+    })
+    await signIn(page2)
+    await page2.goto('/recordings')
+    const rows2 = pieces(page2)
+    // The server cuts the pieces in a background job; each poll nudges both devices so neither
+    // sits on a backed-off sync pass waiting for the other.
+    await expect
+      .poll(
+        async () => {
+          await nudgeSync(page)
+          await nudgeSync(page2)
+          // A nudge lands on Settings first, so wait for the list to draw before counting.
+          await expect(page2.getByRole('grid', { name: UNFILED_HEADER, exact: true })).toBeVisible()
+          return rows2.filter({ hasNotText: /Processing/ }).count()
+        },
+        { timeout: 90_000, intervals: [3_000] },
+      )
+      .toBe(3)
+    await expect(rows2).toHaveCount(3)
     expect(consoleErrors2, JSON.stringify(consoleErrors2)).toEqual([])
   } finally {
     await secondDevice.close()

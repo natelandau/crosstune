@@ -12,6 +12,7 @@ import {
   storePeaks,
 } from '../commands/recordings'
 import { addLink } from '../commands/links'
+import { splitRecording } from '../commands/split'
 import { createTune, deleteTune } from '../commands/tunes'
 import { CHUNK_MS } from '../db/recordings'
 import { getStorage, setKeepOffline, setStorage } from '../db/meta'
@@ -129,6 +130,7 @@ async function readyOnServer(id: string, tuneId: string | null = null): Promise<
     playback_end_ms: null,
     playback_rev: READY_REV,
     peaks_rev: null,
+    split_completed_id: null,
   })
   fake.recordingStates.set(id, 'ready')
   fake.objects.set(`${id}/playback.m4a`, new Blob(['xyz'], { type: 'audio/mp4' }))
@@ -141,6 +143,47 @@ describe('uploadPass', () => {
     await uploadPass(db, fake.api, createUploadReports(noopAnalytics))
     expect((await db.recording_files.get(id))?.local_state).toBe('captured')
     expect(fake.objects.size).toBe(0)
+  })
+
+  it('holds the upload of a recording over 3 hours until it is split', async () => {
+    const id = await captured()
+    await pushed(id)
+    await db.recording_files.update(id, { local_state: 'captured', local_duration_ms: 10_800_001 })
+    const slot = vi.spyOn(fake.api, 'requestUploadSlot')
+    await uploadPass(db, fake.api, createUploadReports(noopAnalytics))
+    expect(slot).not.toHaveBeenCalled()
+    expect((await db.recording_files.get(id))?.local_state).toBe('captured')
+  })
+
+  it('holds the upload of an unsplit recording over the per-file limit', async () => {
+    fake.setStorage({ used_bytes: 0, quota_bytes: 1_000_000, max_file_bytes: 2 })
+    const id = await captured()
+    await pushed(id)
+    const file = await db.recording_files.get(id)
+    expect(file!.bytes).toBeGreaterThan(2)
+    const slot = vi.spyOn(fake.api, 'requestUploadSlot')
+    await uploadPass(db, fake.api, createUploadReports(noopAnalytics))
+    expect(slot).not.toHaveBeenCalled()
+    expect((await db.recording_files.get(id))?.local_state).toBe('captured')
+  })
+
+  it('uploads it once split_id is set and pushed', async () => {
+    const id = await captured()
+    await db.recording_files.update(id, { local_duration_ms: 10_800_001 })
+    const splitId = newId()
+    await db.recordings.update(id, { split_id: splitId, split_size: 2 })
+    await db.outbox
+      .filter((entry) => entry.row_id === id)
+      .modify((entry) => {
+        if (entry.data) Object.assign(entry.data, { split_id: splitId, split_size: 2 })
+      })
+    const slot = vi.spyOn(fake.api, 'requestUploadSlot')
+    await uploadPass(db, fake.api, createUploadReports(noopAnalytics))
+    expect(slot).not.toHaveBeenCalled()
+    await pushed(id)
+    await uploadPass(db, fake.api, createUploadReports(noopAnalytics))
+    expect(slot).toHaveBeenCalledTimes(1)
+    expect((await db.recording_files.get(id))?.local_state).toBe('uploaded')
   })
 
   it('requests no slot for an import row, which has no file', async () => {
@@ -440,6 +483,19 @@ describe('uploadPass', () => {
     await uploadPass(db, fake.api, createUploadReports(noopAnalytics))
     expect(await db.recording_files.get(id)).toBeUndefined()
     expect(await pendingFor(db, 'recordings', id)).toBeUndefined()
+  })
+
+  it('keeps the file of an uploaded split parent tombstoned elsewhere while a piece waits', async () => {
+    const id = await captured()
+    await pushed(id)
+    const [pieceId] = await splitRecording(db, id, [1_500])
+    await db.recordings.update(id, { deleted_at: AT })
+    await uploadPass(db, fake.api, createUploadReports(noopAnalytics))
+    expect((await db.recording_files.get(id))?.blob).toBeTruthy()
+
+    await db.recordings.update(pieceId!, { state: 'ready' })
+    await uploadPass(db, fake.api, createUploadReports(noopAnalytics))
+    expect(await db.recording_files.get(id)).toBeUndefined()
   })
 
   it('skips a blocked row until storage usage shows room for it', async () => {
@@ -1188,7 +1244,12 @@ describe('engine integration', () => {
       isOnline: () => true,
     })
     await engine.sync()
-    expect(await getStorage(db)).toEqual({ used_bytes: 42, quota_bytes: 100, max_file_bytes: 50 })
+    expect(await getStorage(db)).toEqual({
+      used_bytes: 42,
+      quota_bytes: 100,
+      max_file_bytes: 50,
+      split_parent_max_file_bytes: 1_800_000_000,
+    })
     await transfersSettled(engine)
 
     expect((await db.recording_files.get(id))?.local_state).toBe('uploaded')

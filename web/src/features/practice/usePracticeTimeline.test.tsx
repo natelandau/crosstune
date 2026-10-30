@@ -21,6 +21,7 @@ function setup({
     file: recordingFile('rec-1'),
     tuneId: null,
     tuneTitle: null,
+    holdsSplitAudio: false,
   }
   const engine = fakePlaybackEngine()
   engine.load(

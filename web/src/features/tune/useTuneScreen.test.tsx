@@ -7,7 +7,8 @@ import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
 import { dataProviders } from '../../test/providers'
 import { recordingAnalytics } from '../../usage/testing'
-import { deleteTuneTitle } from './deleteTuneMessage'
+import { recordingFile, recordingRow } from '../../test/rows'
+import { deleteTuneMessage, deleteTuneTitle } from './deleteTuneMessage'
 import { ARCHIVE, UNARCHIVE } from './archiveLabels'
 import { useTuneScreen } from './useTuneScreen'
 
@@ -169,6 +170,36 @@ describe('useTuneScreen', () => {
     await waitFor(() => expect(result.current.tune).toBeUndefined())
     expect(result.current.missing).toBe(false)
     expect((await db.tunes.get(ids.tuneId))?.deleted_at).toBeTruthy()
+  })
+
+  it('leaves out of the delete question a split parent the delete keeps', async () => {
+    await db.recordings.bulkPut([
+      recordingRow('parent', {
+        tune_id: ids.tuneId,
+        state: 'ready',
+        split_id: 's1',
+        split_size: 2,
+      }),
+      recordingRow('piece', {
+        state: 'processing',
+        split_from_id: 'parent',
+        created_by_split_id: 's1',
+      }),
+      recordingRow('other', { tune_id: ids.tuneId, state: 'ready' }),
+    ])
+    await db.recording_files.bulkPut([
+      recordingFile('parent', { local_state: 'captured' }),
+      recordingFile('other', { local_state: 'uploaded' }),
+    ])
+    const { result, confirm } = mount(ids.tuneId, { answer: false })
+    await waitFor(() => expect(result.current.ready).toBe(true))
+    await press(result, 'Delete')
+    await waitFor(() => expect(confirm).toHaveBeenCalled())
+    expect(confirm).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: deleteTuneMessage([{ file: { local_state: 'uploaded' } }]),
+      }),
+    )
   })
 
   it('keeps the tune when the delete is declined', async () => {

@@ -48,7 +48,9 @@ describe('PracticeOverlayStateProvider', () => {
     const { result } = setup()
     act(() => result.current.overlay.open(id))
     await expect.poll(() => result.current.player.item).toEqual({ kind: 'recording', id })
-    await expect.poll(() => result.current.shown).toEqual({ id, open: true, opening: 1 })
+    await expect
+      .poll(() => result.current.shown)
+      .toEqual({ id, open: true, opening: 1, opensIn: 'main' })
   })
 
   it('closes when the player loads another item', async () => {
@@ -58,7 +60,9 @@ describe('PracticeOverlayStateProvider', () => {
     act(() => result.current.overlay.open(id))
     await expect.poll(() => result.current.shown?.open).toBe(true)
     act(() => result.current.player.play({ kind: 'recording', id: other }))
-    await expect.poll(() => result.current.shown).toEqual({ id, open: false, opening: 1 })
+    await expect
+      .poll(() => result.current.shown)
+      .toEqual({ id, open: false, opening: 1, opensIn: 'main' })
   })
 
   it('tells the list of a trim hold within the call that makes it', () => {

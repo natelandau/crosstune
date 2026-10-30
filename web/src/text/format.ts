@@ -1,13 +1,16 @@
 import type { RecordingPrecision } from '../api/vocabulary'
 import type { LocalFileState } from '../db/recordings'
 import { isRecordingPrecision } from '../db/types'
+import { mustSplitToUpload, type UploadLimits } from '../domain/recordingLimits'
 
 export const DOWNLOAD_FAILED = "Couldn't download"
 export const DOWNLOADING = 'Downloading'
+export const MUST_SPLIT = 'Too long to upload. Split it into shorter recordings.'
 export const NOT_AVAILABLE = 'Not available'
 export const PROCESS_FAILED = "Couldn't process"
 /** A capture under way, and the name of the Recording settings category. */
 export const RECORDING = 'Recording'
+export const SPLIT_FAILED = 'The piece could not be split.'
 export const STORAGE_FULL = 'Storage full'
 export const UPLOAD_FAILED = 'Upload failed'
 export const WAITING_TO_UPLOAD = 'Waiting to upload'
@@ -107,15 +110,26 @@ const SERVER_LABELS: Record<string, string> = {
   failed: PROCESS_FAILED,
 }
 
-/** What to tell the user about a recording that is not simply playable. Empty when it is. */
+/** What to tell the user about a recording that is not simply playable. Empty when it is.
+ * `limits` are the server's upload caps, or null when unknown. */
 export function fileStateLabel(
-  row: { state: string; error: string | null; source: string },
-  file: { local_state: LocalFileState } | undefined,
+  row: {
+    state: string
+    error: string | null
+    source: string
+    split_id?: string | null
+    split_from_id?: string | null
+  },
+  file:
+    { local_state: LocalFileState; local_duration_ms?: number | null; bytes?: number } | undefined,
+  limits: UploadLimits | null,
 ): string {
   // An import row has no file to upload: until the server answers, it is already being fetched.
   if (row.source === 'import' && row.state === 'pending_upload') return 'Processing'
+  if (mustSplitToUpload(row, file, limits)) return MUST_SPLIT
   const local = file ? LOCAL_LABELS[file.local_state] : undefined
   if (local !== undefined) return local
+  if (row.split_from_id && row.state === 'failed') return SPLIT_FAILED
   return SERVER_LABELS[row.state] ?? ''
 }
 

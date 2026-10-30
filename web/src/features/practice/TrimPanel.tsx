@@ -1,7 +1,5 @@
 import { ArrowLeftToLine, ArrowRightToLine, ZoomIn, ZoomOut } from 'lucide-react'
 import { TransportMark } from '../../ui/rowGlyphs'
-import { useCallback, useEffect, useRef, type RefObject } from 'react'
-import { Button as AriaButton, Heading } from 'react-aria-components'
 import { usePlaybackEngine } from '../player/PlaybackEngineProvider'
 import { PAUSE } from '../player/transportCopy'
 import type { ShownPeaks } from './recordingRange'
@@ -14,28 +12,22 @@ import {
   SET_END,
   SET_START,
 } from './trimViewCopy'
-import { PRESS } from '../../ui/press'
-import { PANEL_FILLED_HOVER, PANEL_HOVER, ZOOM_IN, ZOOM_OUT } from './panel'
+import { ZOOM_IN, ZOOM_OUT } from './panel'
 import { TRIM } from './trimCopy'
 import { TrimReadout, TrimStrips } from './TrimSurface'
 import { stripProps, useTrimEditor } from './useTrimEditor'
 import type { RecordingView } from '../recordings/useRecordings'
-import { CANCEL } from '../../ui/confirmCopy'
-import { useEscapeCapture } from '../../ui/useEscapeCapture'
-import { useLatest } from '../../ui/useLatest'
 import { useConfirm } from '../../ui/Confirm'
 import { ErrorLine } from '../../ui/ErrorLine'
-import { useOnTop } from '../../ui/overlayClaim'
 import { PracticeButton } from './PracticeButton'
-
-/** The controls under the strips, capped so they stay in reach on a wide window. */
-const CAPPED = 'mx-auto w-full max-w-xl'
-
-const TEXT_BUTTON = `t-body min-h-(--target) rounded-(--radius-capsule) text-on-practice disabled:opacity-40 ${PRESS}`
-
-const HEADER_TEXT_BUTTON = `${TEXT_BUTTON} px-3 ${PANEL_HOVER}`
-
-const FILLED_TEXT_BUTTON = `${TEXT_BUTTON} bg-practice-fill px-4 font-semibold ${PANEL_FILLED_HOVER}`
+import {
+  EDITOR_CAPPED,
+  EDITOR_FILLED_BUTTON,
+  EDITOR_TEXT_BUTTON,
+  EditorHeader,
+} from './EditorHeader'
+import { Button as AriaButton } from 'react-aria-components'
+import type { RefObject } from 'react'
 
 /**
  * Trim in place of practice, on the same practice background with white handles, so editing reads apart
@@ -91,53 +83,22 @@ export function TrimPanel({
     error,
   } = editor
 
-  // Focus lands on Cancel once More's menu has let go, since the menu hands focus back to its
-  // trigger as it leaves, and the trigger has gone with practice's header.
-  const top = useOnTop(isTop)
-  const cancel = useRef<HTMLButtonElement>(null)
-  const entered = useRef(false)
-  useEffect(() => {
-    if (!top || entered.current) return
-    entered.current = true
-    cancel.current?.focus()
-  }, [top])
-
-  const onDoneRef = useLatest(onDone)
-  const savingRef = useLatest(saving)
-  const stepOut = useCallback(() => {
-    if (!savingRef.current) onDoneRef.current()
-  }, [onDoneRef, savingRef])
-  useEffect(() => {
-    if (stepOutRef) stepOutRef.current = stepOut
-  }, [stepOut, stepOutRef])
-  useEscapeCapture(stepOut, { when: isTop })
-
   return (
     <>
-      <header data-trim-header className="flex items-center gap-2 px-2 py-2">
-        <AriaButton
-          ref={cancel}
-          className={HEADER_TEXT_BUTTON}
-          isDisabled={saving}
-          onPress={onDone}
-        >
-          {CANCEL}
-        </AriaButton>
-        <Heading slot="title" className="t-heading min-w-0 flex-1 truncate text-center">
-          {TRIM}
-        </Heading>
-        <AriaButton
-          className={`${HEADER_TEXT_BUTTON} font-semibold`}
-          isDisabled={!changed || saving}
-          onPress={() => void save()}
-        >
-          {SAVE_TRIM}
-        </AriaButton>
-      </header>
+      <EditorHeader
+        title={TRIM}
+        saveLabel={SAVE_TRIM}
+        isTop={isTop}
+        stepOutRef={stepOutRef}
+        saving={saving}
+        canSave={changed}
+        onDone={onDone}
+        onSave={() => void save()}
+      />
       <div data-trim className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-4 py-2">
         <ErrorLine error={error} place="stack" />
         <TrimStrips {...stripProps(editor)} shown={shown} />
-        <div className={`${CAPPED} flex flex-col gap-5`}>
+        <div className={`${EDITOR_CAPPED} flex flex-col gap-5`}>
           <div className="flex items-center gap-2">
             <PracticeButton
               icon={ZoomOut}
@@ -157,14 +118,14 @@ export function TrimPanel({
           </div>
           <div className="grid grid-cols-2 gap-3">
             <AriaButton
-              className={FILLED_TEXT_BUTTON}
+              className={EDITOR_FILLED_BUTTON}
               isDisabled={!loaded}
               onPress={() => setAtPlayhead('start')}
             >
               {SET_START}
             </AriaButton>
             <AriaButton
-              className={FILLED_TEXT_BUTTON}
+              className={EDITOR_FILLED_BUTTON}
               isDisabled={!loaded}
               onPress={() => setAtPlayhead('end')}
             >
@@ -195,7 +156,7 @@ export function TrimPanel({
             />
           </div>
           <AriaButton
-            className={`${HEADER_TEXT_BUTTON} self-center`}
+            className={`${EDITOR_TEXT_BUTTON} self-center`}
             isDisabled={!loaded}
             onPress={previewEnd}
           >

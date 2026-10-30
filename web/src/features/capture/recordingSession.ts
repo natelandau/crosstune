@@ -8,6 +8,7 @@ import {
 } from '../../commands/recordings'
 import { settingsId } from '../../commands/settings'
 import { AUDIO_BITRATES } from '../../constants'
+import { CAPTURE_STOP_MS } from '../../domain/recordingLimits'
 import { getStorage } from '../../db/meta'
 import { CHUNK_MS, pickMimeType, storedAudioQuality } from '../../db/recordings'
 import type { CrosstuneDb } from '../../db/schema'
@@ -154,6 +155,12 @@ export function createRecordingSession<S extends MediaStreamLike>(
   }
 
   const elapsed = () => activeMs + (startedAt ? clock.now() - startedAt : 0)
+  // Ends the capture where the server could still take it, as a split parent, keeping it all.
+  const stopAtLimit = () => {
+    if (ending) return
+    sizeLimited = true
+    void finishRecording()
+  }
 
   const pauseClock = () => {
     activeMs = elapsed()
@@ -268,7 +275,10 @@ export function createRecordingSession<S extends MediaStreamLike>(
     ])
     if (abandoned()) return abandonStart()
     const bitrate = AUDIO_BITRATES[storedAudioQuality(settings)]
-    const sizeCap = storage?.max_file_bytes ? storage.max_file_bytes * SIZE_LIMIT_FRACTION : null
+    // A capture over the plain cap is held on this device until it is split, and uploads as a
+    // split parent, so only the split parent's cap stops it.
+    const fileCap = storage?.split_parent_max_file_bytes ?? storage?.max_file_bytes
+    const sizeCap = fileCap ? fileCap * SIZE_LIMIT_FRACTION : null
 
     let stream: S
     try {
@@ -365,9 +375,8 @@ export function createRecordingSession<S extends MediaStreamLike>(
       timesliceMs: CHUNK_MS,
       onChunk: (idx, blob) => {
         bytesWritten += blob.size
-        if (sizeCap !== null && bytesWritten >= sizeCap && !ending) {
-          sizeLimited = true
-          void finishRecording()
+        if ((sizeCap !== null && bytesWritten >= sizeCap) || elapsed() >= CAPTURE_STOP_MS) {
+          stopAtLimit()
         }
         return appendChunk(db, recordingId, idx, blob)
       },

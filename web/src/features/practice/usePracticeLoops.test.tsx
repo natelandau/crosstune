@@ -28,6 +28,7 @@ async function setup() {
     file: await db.recording_files.get(id),
     tuneId: null,
     tuneTitle: null,
+    holdsSplitAudio: false,
   }
   const engine = fakePlaybackEngine()
   engine.load(

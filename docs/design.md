@@ -50,6 +50,8 @@ Decide any case the rules below do not name.
 - Acts on several items: carry the count ("Archive 3 tunes").
 - Title inside a message: straight double quotes, `Delete "Soldier's Joy"?`
 - Help text: one or two sentences, with a period. Label: no period.
+- A length or size limit appears only in a warning message, never in a
+  hint or help text.
 - Example placeholder: lowercase, ends in an ellipsis. Search placeholder:
   capitalized imperative, `Search tunes`.
 - Opens more interface: ends in an ellipsis, `New list…`.

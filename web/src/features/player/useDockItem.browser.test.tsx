@@ -3,6 +3,8 @@ import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { addLink } from '../../commands/links'
 import { deleteRecording } from '../../commands/recordings'
+import { newId } from '../../commands/write'
+import { recordingRow } from '../../test/rows'
 import { createTune } from '../../commands/tunes'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
@@ -68,5 +70,23 @@ describe('useDockItem', () => {
     await expect.poll(() => result.current.shown?.kind).toBe('link')
     expect(result.current.title).toBe('Cluck Old Hen on YouTube')
     expect(result.current.embed).not.toBeNull()
+  })
+
+  it('loads a processing piece with its parent file', async () => {
+    const parentId = await captureRecording(db, { tuneId, durationMs: 180_000, label: null })
+    const pieceId = newId()
+    await db.recordings.put(
+      recordingRow(pieceId, {
+        tune_id: tuneId,
+        split_from_id: parentId,
+        state: 'processing',
+        trim_start_ms: 60_000,
+      }),
+    )
+    const { result } = setup({ kind: 'recording', id: pieceId })
+    await expect.poll(() => result.current.shown?.kind).toBe('recording')
+    await expect
+      .poll(() => (result.current.shown as { file: { id: string } | null }).file?.id)
+      .toBe(parentId)
   })
 })

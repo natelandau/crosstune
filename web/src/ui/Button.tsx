@@ -1,7 +1,8 @@
 import type { LucideIcon } from 'lucide-react'
-import { useContext, type ReactNode, type Ref } from 'react'
+import { useContext, useId, type ReactNode, type Ref } from 'react'
 import { Button as AriaButton, type ButtonProps as AriaButtonProps } from 'react-aria-components'
 import { useStampedDensity } from '../platform/density'
+import { ControlDescription, descriptionProps } from './ControlDescription'
 import { iconMotion } from './iconMotion'
 import { PRESS } from './press'
 import { InBar } from './inBar'
@@ -28,6 +29,8 @@ export interface ButtonProps extends Omit<
   label: string
   /** The accessible name when it differs from the visible label, such as one naming its row. */
   name?: string
+  /** Read after the name and shown under the label in the tooltip, such as why it is off. */
+  description?: string
   iconOnly?: boolean
   /** Fills the glyph, for a transport glyph such as Play that reads as a solid shape. */
   solidIcon?: boolean
@@ -78,6 +81,7 @@ export function Button({
   icon: Icon,
   label,
   name,
+  description,
   iconOnly,
   solidIcon,
   glyph,
@@ -88,11 +92,13 @@ export function Button({
   const density = useStampedDensity()
   const inHeading = useContext(InSectionHeading)
   const inBar = useContext(InBar)
+  const descriptionId = useId()
   const tone = variant === 'plain' && iconOnly && !inHeading ? PLAIN_GLYPH : VARIANT[variant]
   const button = (
     <AriaButton
       {...rest}
       aria-label={iconOnly ? label : name}
+      {...descriptionProps(descriptionId, description)}
       // A filled button rises under the pointer; controls.css holds the lift.
       data-lift={FILLED[variant] || undefined}
       className={`t-body inline-flex shrink-0 items-center justify-center gap-2 select-none ${PRESS} ${
@@ -119,6 +125,7 @@ export function Button({
           <Icon className="size-5 shrink-0" data-motion={iconMotion(Icon)} aria-hidden />
         ))}
       {!iconOnly && label}
+      <ControlDescription id={descriptionId} text={description} />
     </AriaButton>
   )
   if (!iconOnly) return button
@@ -127,7 +134,10 @@ export function Button({
   return (
     <TipTrigger isDisabled={density === 'touch'}>
       {button}
-      <Tip>{label}</Tip>
+      <Tip>
+        {label}
+        {description && <span className="block">{description}</span>}
+      </Tip>
     </TipTrigger>
   )
 }

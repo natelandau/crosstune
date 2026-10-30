@@ -1,10 +1,9 @@
 import { useUser } from '@clerk/react'
 import * as Sentry from '@sentry/react'
-import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useRef } from 'react'
 import { useAuthSession } from '../auth/AuthContext'
-import { getStorage } from '../db/meta'
 import { useDb } from '../db/DbProvider'
+import { useStorage } from '../db/useStorage'
 import { useAnalytics } from './AnalyticsProvider'
 import type { PersonProperties } from './events'
 import { personProperties, readWebSettings } from './personProperties'
@@ -54,7 +53,7 @@ export function AnalyticsIdentity() {
   // The first sync that brings the account's storage usage completes the person. A store that
   // already held it was covered by the identify above. Until the person is set, each change
   // to the usage tries again.
-  const storage = useLiveQuery(() => getStorage(db), [db])
+  const storage = useStorage()
   useEffect(() => {
     if (storage === undefined) return
     if (storage === null) {

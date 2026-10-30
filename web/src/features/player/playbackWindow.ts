@@ -1,5 +1,7 @@
 import type { RecordingFile } from '../../db/recordings'
+import type { CrosstuneDb } from '../../db/schema'
 import type { LocalRecording } from '../../db/types'
+import { waitsForCut } from '../../domain/recordingLimits'
 
 export interface PlaybackWindow {
   fromS: number
@@ -31,4 +33,32 @@ export function playbackWindow(row: WindowRow, file: WindowFile): PlaybackWindow
   if (sourceEndMs === null) return { fromS: fromMs / 1000, toS: Infinity, lengthMs: 0 }
   const toMs = clampMs(sourceEndMs - file.blob_start_ms)
   return { fromS: fromMs / 1000, toS: toMs / 1000, lengthMs: Math.max(0, toMs - fromMs) }
+}
+
+/**
+ * The file a recording plays from: its own once it holds audio, else, for a split piece
+ * waiting for its cut, its parent's, since the piece's trim is on the parent's timeline.
+ * With neither, the own file (or none) so its state still shows.
+ */
+export function audioFileFor(
+  row: Pick<LocalRecording, 'split_from_id' | 'deleted_at' | 'state'> | null,
+  own: RecordingFile | undefined,
+  parent: RecordingFile | undefined,
+): RecordingFile | undefined {
+  if (own?.blob) return own
+  if (row && waitsForCut(row) && parent?.blob) return parent
+  return own
+}
+
+/** `audioFileFor` read from the store: the file recording `row` plays from, if any. */
+export async function loadAudioFile(
+  db: CrosstuneDb,
+  row: Pick<LocalRecording, 'id' | 'split_from_id' | 'deleted_at' | 'state'> | null,
+): Promise<RecordingFile | undefined> {
+  if (row === null) return undefined
+  const [own, parent] = await Promise.all([
+    db.recording_files.get(row.id),
+    row.split_from_id ? db.recording_files.get(row.split_from_id) : undefined,
+  ])
+  return audioFileFor(row, own, parent)
 }

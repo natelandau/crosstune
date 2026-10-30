@@ -43,6 +43,7 @@ async function setup(confirm: (question: ConfirmQuestion) => Promise<boolean> = 
     file: await db.recording_files.get(id),
     tuneId: null,
     tuneTitle: null,
+    holdsSplitAudio: false,
   }
   const element = new FakeAudioElement()
   const { clock, tick } = manualClock()

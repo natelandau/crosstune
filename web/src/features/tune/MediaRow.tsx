@@ -10,6 +10,7 @@ import { useRecordingRow } from '../recordings/useRecordingRow'
 import type { PlayOrigin } from '../player/playLog'
 import type { PremiumEntry } from '../plan/PremiumSheetProvider'
 import type { LinkMediaRow, RecordingMediaRow } from './useTuneMedia'
+import type { StorageUsage } from '../../db/meta'
 import { PinnedMark } from './PinnedMark'
 import { DISC_ROW_HOVER, TransportGlyph } from '../../ui/rowGlyphs'
 import { useLatest } from '../../ui/useLatest'
@@ -62,6 +63,7 @@ function MediaRow({
   description,
   trailing,
   actions,
+  menu,
   dimmed,
   fresh,
   onOpen,
@@ -78,6 +80,8 @@ function MediaRow({
   description?: string
   trailing?: ReactNode
   actions: Parameters<typeof rowActions>[0]
+  /** The row's menu, where it holds more than `actions`. */
+  menu?: Parameters<typeof rowActions>[0]
   dimmed?: boolean
   fresh?: boolean
   onOpen?: () => void
@@ -107,6 +111,7 @@ function MediaRow({
       description={description}
       trailing={trailing}
       actions={rowActions(actions)}
+      menu={menu && rowActions(menu)}
       dimmed={dimmed}
       fresh={fresh}
       playing={loaded}
@@ -116,13 +121,14 @@ function MediaRow({
 
 /** A recording: it plays what this device holds and fetches what it does not. */
 export function RecordingRow({
-  row: { view, pinned, actions, error },
+  row: { view, pinned, actions, menu, error },
   onRetry,
   tuneNamedAbove = true,
   sort,
   onOpenTune,
   playOrigin,
   premiumFrom,
+  storage,
 }: {
   row: RecordingMediaRow
   onRetry: (kind: 'upload' | 'transcode') => void
@@ -136,6 +142,8 @@ export function RecordingRow({
   playOrigin?: PlayOrigin
   /** Where a tap on a disabled row counts as opening the Plan sheet from. */
   premiumFrom?: PremiumEntry
+  /** The server's storage report, read once by the list rather than by each row. */
+  storage: StorageUsage | null
 }) {
   const data = useRecordingRow(view, {
     tuneNamedAbove,
@@ -143,6 +151,7 @@ export function RecordingRow({
     error,
     origin: playOrigin,
     premiumFrom,
+    storage,
   })
   const fresh = useNewRecording(view.recording.id)
   const { title, control, open, retry, origin } = data
@@ -223,6 +232,7 @@ export function RecordingRow({
         )
       }
       actions={actions}
+      menu={menu}
       onOpen={open?.onOpen}
     />
   )

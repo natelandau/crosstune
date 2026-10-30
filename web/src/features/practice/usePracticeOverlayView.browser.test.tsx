@@ -2,6 +2,7 @@ import { act, renderHook } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { deleteSavedPlace, renameSavedPlace } from '../../commands/places'
+import { splitRecording } from '../../commands/split'
 import { createTune } from '../../commands/tunes'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
@@ -49,6 +50,17 @@ describe('usePracticeOverlayView', () => {
     )
     expect(result.current.rowLengthMs).toBe(3000)
     await expect.poll(() => result.current.audio).toBe('held')
+  })
+
+  it("plays a piece the server has not cut from its parent's file, then from its own", async () => {
+    const parent = await captureRecording(db, { durationMs: 3000 })
+    const [piece] = await splitRecording(db, parent, [1500])
+    const { result } = setup(piece!)
+    await expect.poll(() => result.current.view?.file?.id).toBe(parent)
+    await expect.poll(() => result.current.audio).toBe('held')
+
+    await db.recordings.update(piece!, { state: 'ready' })
+    await expect.poll(() => result.current.view?.file?.id).toBeUndefined()
   })
 
   it('adds the players to the subtitle and hands the place over as the location', async () => {

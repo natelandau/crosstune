@@ -2,9 +2,7 @@ import type { RecordingFile } from '../../db/recordings'
 import type { LocalRecording } from '../../db/types'
 import { trimmedLengthMs } from './recordingRange'
 import { clamp } from '../../math'
-
-/** The shortest kept range, as `MIN_TRIM_MS` in `api/src/crosstune/vocabulary.py` enforces. */
-export const MIN_TRIM_MS = 1000
+import { MIN_KEPT_MS } from '../../domain/recordingLimits'
 
 /** The shortest stretch the detail waveform zooms in to. */
 export const MIN_DETAIL_MS = 2000
@@ -56,10 +54,10 @@ export function initialTrim(
 function place(state: TrimState, handle: TrimHandle, ms: number): TrimState {
   const [low, high] = state.bounds
   if (handle === 'start') {
-    const start = Math.round(clamp(ms, low, Math.max(low, state.end - MIN_TRIM_MS)))
+    const start = Math.round(clamp(ms, low, Math.max(low, state.end - MIN_KEPT_MS)))
     return { ...state, start, focus: 'start' }
   }
-  const end = Math.round(clamp(ms, Math.min(high, state.start + MIN_TRIM_MS), high))
+  const end = Math.round(clamp(ms, Math.min(high, state.start + MIN_KEPT_MS), high))
   return { ...state, end, focus: 'end' }
 }
 
@@ -74,8 +72,8 @@ export function trimReducer(state: TrimState, action: TrimAction): TrimState {
       // than landing the handle somewhere the musician did not choose.
       const tooNear =
         action.handle === 'start'
-          ? action.ms > state.end - MIN_TRIM_MS
-          : action.ms < state.start + MIN_TRIM_MS
+          ? action.ms > state.end - MIN_KEPT_MS
+          : action.ms < state.start + MIN_KEPT_MS
       return tooNear ? state : place(state, action.handle, action.ms)
     }
     case 'focus':

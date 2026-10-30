@@ -25,7 +25,7 @@ type Tone = NonNullable<RowAction['tone']>
  * A menu item. Any row action is one; a menu item can also go without an icon, carry a
  * description under its label, be a choice the menu marks, or be disabled.
  */
-export interface MenuEntry extends Omit<RowAction, 'icon' | 'shortLabel'> {
+export interface MenuEntry extends Omit<RowAction, 'icon' | 'shortLabel' | 'disabled'> {
   icon?: LucideIcon
   description?: string
   /** Present on a choice; true while it is the one chosen. */
@@ -304,8 +304,14 @@ export function MenuAtPoint({
 }) {
   const density = useStampedDensity()
   const triggerRef = useRef<HTMLSpanElement>(null)
+  // A disabled action reads its reason under its label, as a disabled menu item does.
+  const entries = items.map(({ disabled, ...item }): MenuEntry => ({
+    ...item,
+    description: disabled,
+    disabled: disabled !== undefined,
+  }))
   if (density === 'touch') {
-    return <ActionSheet isOpen={at !== null} onClose={onClose} label={label} items={items} />
+    return <ActionSheet isOpen={at !== null} onClose={onClose} label={label} items={entries} />
   }
   if (!at) return null
   return (
@@ -330,7 +336,7 @@ export function MenuAtPoint({
         placement="bottom start"
         onClose={onClose}
       >
-        <MenuList label={label} items={items} onDone={onClose} autoFocus />
+        <MenuList label={label} items={entries} onDone={onClose} autoFocus />
       </MenuPopover>
     </>
   )

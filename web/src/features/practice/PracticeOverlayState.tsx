@@ -9,6 +9,7 @@ import {
   PracticeOverlayShownContext,
   type HeldSettings,
   type PracticeOverlayHandle,
+  type PracticeOpensIn,
   type PracticeOverlayShown,
   type ShownRecording,
 } from './usePracticeOverlay'
@@ -41,13 +42,13 @@ export function PracticeOverlayStateProvider({ children }: { children: ReactNode
   )
 
   const open = useCallback(
-    (id: string) => {
+    (id: string, opensIn: PracticeOpensIn = 'main') => {
       const active = document.activeElement
       opener.current = active instanceof HTMLElement && active !== document.body ? active : null
       const item = { kind: 'recording', id } as const
       // Inside the tap, so the player primes the engine's audio while iOS still allows it.
       if (!isPlaying(player, item)) player.play(item)
-      setShown((current) => ({ id, open: true, opening: (current?.opening ?? 0) + 1 }))
+      setShown((current) => ({ id, open: true, opening: (current?.opening ?? 0) + 1, opensIn }))
     },
     [player],
   )

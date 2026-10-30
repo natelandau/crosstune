@@ -1,6 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { updateRecording } from '../../commands/recordings'
 import { setStorage } from '../../db/meta'
+import {
+  CAPTURE_STOP_MS,
+  MAX_SPLIT_SOURCE_MS,
+  mustSplitToUpload,
+} from '../../domain/recordingLimits'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
 import { FakeRecorder, FakeTrack, fakeStream, LAST_CHUNK } from '../../test/fakeMedia'
@@ -292,6 +297,43 @@ describe('createRecordingSession finish and cancel', () => {
     expect(recorders[0]?.state).toBe('inactive')
     expect(releaseLock).toHaveBeenCalledTimes(1)
     expect((await db.recording_files.get('rec_1'))?.local_state).toBe('captured')
+  })
+
+  it('keeps recording past the plain per-file limit up to the split parent limit', async () => {
+    await setStorage(db, {
+      used_bytes: 0,
+      quota_bytes: 1_000,
+      max_file_bytes: 20,
+      split_parent_max_file_bytes: 40,
+    })
+    const { session, recorders } = setup()
+    await session.start()
+    recorders[0]!.emit('0123456789')
+    recorders[0]!.emit('0123456789')
+    recorders[0]!.emit('0123456789')
+    await vi.waitFor(async () => expect(await db.recording_chunks.count()).toBe(3))
+    expect(session.snapshot().phase).toBe('recording')
+    recorders[0]!.emit('0123456789')
+    await vi.waitFor(() => expect(session.snapshot().phase).toBe('saved'))
+    expect(session.snapshot().error).toBe(SIZE_LIMIT)
+  })
+
+  it('stops a recording early enough that its saved length stays a split parent', async () => {
+    const { session, recorders, clock } = setup()
+    await session.start()
+    clock.time += CAPTURE_STOP_MS - 1
+    recorders[0]!.emit('0123456789')
+    await vi.waitFor(async () => expect(await db.recording_chunks.count()).toBe(1))
+    expect(session.snapshot().phase).toBe('recording')
+    // A whole chunk past the stop, as the recorder's timeslice can land.
+    clock.time += 5_000
+    recorders[0]!.emit('0123456789')
+    await vi.waitFor(() => expect(session.snapshot().phase).toBe('saved'))
+    expect(session.snapshot().error).toBe(SIZE_LIMIT)
+    const file = await db.recording_files.get('rec_1')
+    expect(file!.local_duration_ms!).toBeLessThan(MAX_SPLIT_SOURCE_MS)
+    const row = await db.recordings.get('rec_1')
+    expect(mustSplitToUpload(row!, file, null)).toBe(true)
   })
 
   it('never stops a recording for size when no storage usage is cached', async () => {

@@ -515,3 +515,24 @@ it('waits a beat before washing a pressed touch row, so a scroll never flashes i
   await expect.element(row).not.toHaveAttribute('data-pressed')
   expect(tint().transitionDelay).toBe('0s')
 })
+
+it('shows a disabled action off with its reason, and never runs it', async () => {
+  const onAction = vi.fn()
+  const off = [{ id: 'delete', label: 'Delete', icon: Trash2, disabled: 'Not now', onAction }]
+  renderWithProviders(
+    <RowList label="Tunes">
+      <Row id="1" textValue="Arkansas Traveler" title="Arkansas Traveler" actions={off} />
+    </RowList>,
+    { density: 'pointer' },
+  )
+  const button = page.getByRole('button', { name: 'Delete' })
+  await expect.element(button).toHaveAttribute('aria-disabled', 'true')
+  await expect.element(button).toHaveAccessibleDescription('Not now')
+  ;(button.element() as HTMLElement).click()
+
+  await page.getByRole('row', { name: /Arkansas Traveler/ }).click({ button: 'right' })
+  const item = page.getByRole('menuitem', { name: /Delete/ })
+  await expect.element(item).toHaveAttribute('aria-disabled', 'true')
+  await expect.element(item).toHaveTextContent('Not now')
+  expect(onAction).not.toHaveBeenCalled()
+})

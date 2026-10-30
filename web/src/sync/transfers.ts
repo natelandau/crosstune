@@ -14,6 +14,7 @@ import {
   setFileState,
   storeDownloadedBlob,
   storePeaks,
+  waitingParentIds,
 } from '../commands/recordings'
 import { now, putRow, recordingTx } from '../commands/write'
 import {
@@ -28,6 +29,7 @@ import { pendingFor } from '../db/outbox'
 import type { CrosstuneDb } from '../db/schema'
 import { liveTune } from '../db/tunes'
 import type { LocalRecording } from '../db/types'
+import { holdsSplitAudio, mustSplitToUpload } from '../domain/recordingLimits'
 import { defaultLocks, heldCaptureIds } from './captureLock'
 import { isAuthFailure, isPlanRefusal, isRetryableRefusal, QUOTA_PROBLEM } from './errors'
 
@@ -277,6 +279,7 @@ async function dropTombstonedFiles(db: CrosstuneDb, reports: UploadReports): Pro
       return row && !row.deleted_at ? [] : [{ id, row }]
     })
     const files = await db.recording_files.bulkGet(orphans.map((o) => o.id))
+    const waiting = orphans.length > 0 ? await waitingParentIds(db) : new Set<string>()
     for (const [i, { id, row }] of orphans.entries()) {
       const file = files[i]
       if (row && file?.blob && isNotUploaded(file)) {
@@ -289,6 +292,8 @@ async function dropTombstonedFiles(db: CrosstuneDb, reports: UploadReports): Pro
         await db.recording_files.update(id, { local_state: 'captured', error: null })
         continue
       }
+      // A piece waiting for its cut plays from this audio; a later pass drops it.
+      if (row && holdsSplitAudio(row, waiting)) continue
       await db.recording_files.delete(id)
       await db.recording_chunks.where('recording_id').equals(id).delete()
       reports.ended(id)
@@ -325,10 +330,11 @@ export async function uploadPass(
     .where('local_state')
     .anyOf(['captured', 'blocked_quota', 'uploading'])
     .toArray()
+  const rows = await db.recordings.bulkGet(waiting.map((file) => file.id))
   const storage = await getStorage(db)
   const nowMs = Date.now()
   let firstError: unknown = null
-  for (const file of waiting) {
+  for (const [i, file] of waiting.entries()) {
     // A pass is the only place a blocked row is reconsidered, so re-check storage usage
     // rather than hammering the server with a slot request that will fail again.
     if (
@@ -339,6 +345,8 @@ export async function uploadPass(
       continue
     }
     if (file.next_attempt_at !== null && file.next_attempt_at > nowMs) continue
+    const row = rows[i]
+    if (row && mustSplitToUpload(row, file, storage ?? null)) continue
     try {
       await uploadOne(db, api, reports, file.id)
     } catch (error) {

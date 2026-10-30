@@ -1,10 +1,27 @@
 import { describe, expect, it } from 'vitest'
 import { openTestDb } from '../../test/db'
 import { captureRecording } from '../../test/recordings'
-import { placeRow } from '../../test/rows'
+import { placeRow, recordingRow } from '../../test/rows'
 import { readRecordingsWithFiles } from './useRecordings'
 
 describe('readRecordingsWithFiles', () => {
+  it('marks a parent held only while a live piece split from it waits for its cut', async () => {
+    const db = openTestDb()
+    await db.recordings.bulkPut([
+      recordingRow('parent', { tune_id: 't1', state: 'ready' }),
+      recordingRow('failed', { tune_id: 't1', state: 'failed' }),
+      recordingRow('done', { tune_id: 't1', state: 'ready' }),
+      recordingRow('p1', { split_from_id: 'parent', state: 'processing' }),
+      recordingRow('p2', { split_from_id: 'failed', state: 'processing' }),
+      recordingRow('p3', { split_from_id: 'done', state: 'ready' }),
+    ])
+    for (const tuneId of [undefined, 't1']) {
+      const views = await readRecordingsWithFiles(db, { tuneId })
+      const held = views.filter((v) => v.holdsSplitAudio).map((v) => v.recording.id)
+      expect(held).toEqual(['parent'])
+    }
+  })
+
   it('pairs each recording with its local file', async () => {
     const db = openTestDb()
     const id = await captureRecording(db)

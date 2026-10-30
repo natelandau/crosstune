@@ -1,7 +1,5 @@
-import { useLiveQuery } from 'dexie-react-hooks'
 import { usePlan } from '../../billing/usePlan'
-import { useDb } from '../../db/DbProvider'
-import { getStorage } from '../../db/meta'
+import { useStorage } from '../../db/useStorage'
 import { formatBytes } from '../../text/format'
 
 export interface StorageSummary {
@@ -21,9 +19,8 @@ export interface StorageSummary {
  * server's last report.
  */
 export function useStorageSummary(): StorageSummary | null {
-  const db = useDb()
   const plan = usePlan()
-  const usage = useLiveQuery(() => getStorage(db), [db])
+  const usage = useStorage()
   if (!usage) return null
   const used = usage.used_bytes
   const quota = plan.kind === 'free' ? 0 : (plan.quotaBytes ?? usage.quota_bytes)

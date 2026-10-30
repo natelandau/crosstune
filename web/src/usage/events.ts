@@ -321,6 +321,7 @@ export interface EventProps {
   location_opened_in_maps: Empty
   recording_deleted: { origin: Origin; recording_id: string }
   recording_trimmed: { recording_id: string }
+  recording_split: { recording_id: string; piece_count: CountBucket; over_limit: boolean }
   link_added: { service: Service; via: LinkVia; link_id: string; tune_id: string }
   link_removed: { service: Service; link_id: string }
   link_opened_externally: { service: Service; link_id: string }

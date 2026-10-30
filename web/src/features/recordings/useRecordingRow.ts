@@ -3,7 +3,7 @@ import { recordingsPlayable } from '../../billing/plan'
 import { usePlanOrUnknown } from '../../billing/usePlan'
 import { useDb } from '../../db/DbProvider'
 import { isNotUploaded } from '../../db/recordings'
-import { getLocalOnlyRows, getStorage } from '../../db/meta'
+import { getLocalOnlyRows, type StorageUsage } from '../../db/meta'
 import { OFFLINE } from '../../sync/labels'
 import { useOnline } from '../../sync/SyncProvider'
 import { usePremiumSheet, type PremiumEntry } from '../plan/PremiumSheetProvider'
@@ -60,6 +60,7 @@ export function useRecordingRow(
     error,
     origin: playOrigin = TUNE_ROW_ORIGIN,
     premiumFrom = 'recording_row',
+    storage = null,
   }: {
     tuneNamedAbove?: boolean
     sort?: RecordingSort
@@ -69,6 +70,8 @@ export function useRecordingRow(
     origin?: PlayOrigin
     /** Where a tap on a disabled row counts as opening the Plan sheet from. */
     premiumFrom?: PremiumEntry
+    /** The server's storage report, which the meta line reads for a file not yet uploaded. */
+    storage?: StorageUsage | null
   } = {},
 ): RecordingRowData {
   const { recording, file } = view
@@ -80,11 +83,6 @@ export function useRecordingRow(
   const title = recordingTitle(view, { tuneNamedAbove })
   const item = { kind: 'recording' as const, id: recording.id }
   const loaded = isPlaying(player, item)
-  const blockedQuota = file?.local_state === 'blocked_quota'
-  const storage = useLiveQuery(
-    () => (blockedQuota ? getStorage(db) : undefined),
-    [db, blockedQuota],
-  )
   // Only a recording the server has not stored can be local-only, and a local-only recording goes
   // out as soon as the plan is Premium, so any other row skips the read.
   const free = !recordingsPlayable(usePlanOrUnknown())
@@ -111,7 +109,7 @@ export function useRecordingRow(
     ? [formatDuration(recording.duration_ms ?? file?.local_duration_ms), OFFLINE].filter(
         (part): part is string => Boolean(part),
       )
-    : recordingMeta(view, storage ?? null, {
+    : recordingMeta(view, storage, {
         dateInTitle: titleIsDate(view, { tuneNamedAbove }),
         sort,
         localOnly,

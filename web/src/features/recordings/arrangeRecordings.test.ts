@@ -39,6 +39,7 @@ function view(
     file: undefined,
     tuneId: opts.tuneId ?? null,
     tuneTitle: opts.tuneTitle ?? null,
+    holdsSplitAudio: false,
   }
 }
 

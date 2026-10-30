@@ -32,6 +32,10 @@ export const PANEL_TEXT_BUTTON = `${PANEL_TEXT_BUTTON_SHAPE} text-on-practice`
 export const ZOOM_IN = 'Zoom in'
 export const ZOOM_OUT = 'Zoom out'
 
+/** How far an arrow key moves a handle or the line, and with Shift. */
+export const NUDGE_MS = 100
+export const NUDGE_LARGE_MS = 1000
+
 /** How much one zoom step scales the view by. */
 export const ZOOM_STEP = 2
 

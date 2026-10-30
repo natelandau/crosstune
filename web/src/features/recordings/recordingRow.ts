@@ -112,7 +112,7 @@ export function recordingMeta(
       LOCAL_UNTIL_SUBSCRIBED,
     ].filter((part): part is string => Boolean(part))
   }
-  const status = fileStateLabel(recording, file)
+  const status = fileStateLabel(recording, file, storage)
   const duration = formatDuration(recording.duration_ms ?? file?.local_duration_ms)
   const attempts = file?.upload_attempts ?? 0
   const waiting = file?.local_state === 'captured' || file?.local_state === 'uploading'

@@ -24,6 +24,7 @@ import { PITCH_BADGE, SPEED_BADGE } from './transportCopy'
 import { useCurrentAudio } from './useCurrentAudio'
 import { LoadFailedContext } from './useListPlayback'
 import { useRecordingDownload } from './useRecordingDownload'
+import { useUploadLimits } from '../recordings/useUploadLimits'
 
 export interface RecordingTransportOptions {
   recording: LocalRecording
@@ -80,6 +81,7 @@ export function useRecordingTransport({
 }: RecordingTransportOptions): RecordingTransport {
   const engine = usePlaybackEngine()
   const online = useOnline()
+  const uploadLimits = useUploadLimits()
   const { blob, failed, retry } = useRecordingDownload(recording, file)
   useCurrentAudio(recording, file)
   useLoopFollow(useLoops(recording.id), {
@@ -250,7 +252,7 @@ export function useRecordingTransport({
           ? DOWNLOAD_FAILED
           : recording.state === 'ready'
             ? DOWNLOADING
-            : fileStateLabel(recording, file ?? undefined)) || NOT_AVAILABLE
+            : fileStateLabel(recording, file ?? undefined, uploadLimits)) || NOT_AVAILABLE
 
   return {
     state,

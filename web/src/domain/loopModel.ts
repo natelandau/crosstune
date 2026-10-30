@@ -42,16 +42,22 @@ export function placedLoop(row: {
 export type Draft = Span & { id: string | null }
 
 /** Drags one edge to a new time, keeping the minimum length and staying inside the bounds. */
-export function resizeSpan(span: Span, edge: 'start' | 'end', toMs: number, bounds: Bounds): Span {
+export function resizeSpan(
+  span: Span,
+  edge: 'start' | 'end',
+  toMs: number,
+  bounds: Bounds,
+  minMs = MIN_LOOP_MS,
+): Span {
   if (edge === 'start') {
     return {
-      startMs: clamp(toMs, bounds.startMs, span.endMs - MIN_LOOP_MS),
+      startMs: clamp(toMs, bounds.startMs, span.endMs - minMs),
       endMs: span.endMs,
     }
   }
   return {
     startMs: span.startMs,
-    endMs: clamp(toMs, span.startMs + MIN_LOOP_MS, bounds.endMs),
+    endMs: clamp(toMs, span.startMs + minMs, bounds.endMs),
   }
 }
 

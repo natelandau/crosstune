@@ -13,6 +13,7 @@ import {
 import { Button as AriaButton } from 'react-aria-components'
 import { useLocation } from 'react-router'
 import { useDb } from '../../db/DbProvider'
+import { useStorage } from '../../db/useStorage'
 import type { LocalRecordingLink } from '../../db/types'
 import { lyricLines } from '../lyrics/lyricLines'
 import { Verses } from '../lyrics/Verses'
@@ -431,6 +432,7 @@ function TuneSections({
   const folded = !recordingsPlayable(usePlanOrUnknown()) && media.recordingRows.length > 0
   const [unfolded, setUnfolded] = useState(false)
   const recordingRows = folded && !unfolded ? [] : media.recordingRows
+  const storage = useStorage() ?? null
   const addScan = scans.loaded && !scans.has && !scans.adding
   // A first scan has no section to show it until it lands, so the add line says it is coming.
   const addingFirstScan = !scans.has && scans.adding
@@ -474,6 +476,7 @@ function TuneSections({
                     row={row}
                     onRetry={(kind) => media.retry(row.view, kind)}
                     premiumFrom={folded ? 'recordings_line' : undefined}
+                    storage={storage}
                   />
                 ))}
                 {media.linkRows.map((row) => (
