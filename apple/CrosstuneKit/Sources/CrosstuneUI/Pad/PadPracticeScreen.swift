@@ -20,8 +20,6 @@ extension EnvironmentValues {
     /// Whether the practice screen around this view has scans or lyrics to show, so its header
     /// offers to hide or show them.
     @Entry var readingPaneHasContent = false
-    /// The widest practice grows while it has the screen to itself, or nil for no limit.
-    @Entry var padPracticeMaxWidth: CGFloat?
     /// The window's practice screen visit, held above its shells so a size change keeps it.
     @Entry var padPracticeVisit: PadPracticeVisit?
 }
@@ -280,9 +278,6 @@ private struct PadPracticePanes<Practice: View>: View {
         layout {
             practice
                 .environment(\.readingPaneHasContent, reading != nil)
-                .environment(
-                    \.padPracticeMaxWidth, arrangement == .practiceOnly ? PadStyle.padPracticeControlsMaxWidth : nil
-                )
                 .frame(
                     width: arrangement == .sideBySide ? size.width * PadStyle.padPracticeShare : nil,
                     height: arrangement == .stacked ? stackedPracticeHeight : nil
@@ -359,21 +354,6 @@ struct ReadingPaneToggle: View {
             Label(title, systemImage: "rectangle.split.2x1")
         }
         .help(title)
-    }
-}
-
-/// Caps practice at the width the practice screen gives it while it has the screen to itself, centered.
-struct PadPracticeWidth: ViewModifier {
-    @Environment(\.padPracticeMaxWidth) private var maxWidth
-
-    func body(content: Content) -> some View {
-        if let maxWidth {
-            content
-                .frame(maxWidth: maxWidth)
-                .frame(maxWidth: .infinity)
-        } else {
-            content
-        }
     }
 }
 

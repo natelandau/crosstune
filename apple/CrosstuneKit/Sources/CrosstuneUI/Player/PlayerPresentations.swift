@@ -108,8 +108,8 @@ import CrosstuneDesign
                 PlaylistControlsRow()
                 Spacer(minLength: 0)
             }
+            .controlsColumn()
             .padding(16)
-            .modifier(PadPracticeWidth())
             .containerBackground(Palette.practiceBackground(practiceScheme ?? .dark), for: .navigation)
             .navigationTitle(player.title ?? "")
             .modifier(

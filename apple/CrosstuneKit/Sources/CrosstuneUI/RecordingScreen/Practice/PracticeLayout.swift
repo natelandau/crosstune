@@ -18,9 +18,42 @@ enum PracticeLayout {
     #else
         static let target = minimumTapTarget
     #endif
+
+    /// The widest a player screen's controls grow, at the default text size. Matches the web's
+    /// rem-based cap, so it grows with the text.
+    static let controlsMaxWidth: CGFloat = 576
+}
+
+/// Holds a group of controls to ``PracticeLayout/controlsMaxWidth``, scaled with the text size
+/// and centered, so on a wide window they stay near what they act on while a waveform above them
+/// takes the full width. A phone on its side keeps the full width: its height is scarce, and
+/// narrower controls wrap taller.
+private struct ControlsColumn: ViewModifier {
+    @ScaledMetric(relativeTo: .body) private var maxWidth = PracticeLayout.controlsMaxWidth
+    #if os(iOS)
+        @Environment(\.verticalSizeClass) private var verticalSizeClass
+    #endif
+
+    private var cap: CGFloat {
+        #if os(iOS)
+            if verticalSizeClass == .compact { return .infinity }
+        #endif
+        return maxWidth
+    }
+
+    func body(content: Content) -> some View {
+        content
+            .frame(maxWidth: cap)
+            .frame(maxWidth: .infinity)
+    }
 }
 
 extension View {
+    /// Holds a group of controls in the centered controls column.
+    func controlsColumn() -> some View {
+        modifier(ControlsColumn())
+    }
+
     /// Shows the view, or keeps its room with nothing there that can be seen, pressed, focused,
     /// or read.
     func reserved(shown: Bool) -> some View {

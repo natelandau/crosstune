@@ -25,32 +25,34 @@ struct SplitScreen: View {
             VStack(spacing: 20) {
                 if let message = player.failure ?? failure {
                     PlayerFailureText(message)
+                        .controlsColumn()
                 }
                 SplitOverviewStrip(model: model, peaks: peaks)
                     .contentMask()
                 CenterLineStrip(model: model, peaks: peaks, focus: $focus)
                     .contentMask()
-                SplitReadout(model: model)
-                SplitMainButton(model: model, ready: ready)
-                HStack(spacing: 12) {
-                    Button(action: model.previous) {
-                        Text(RecordingScreenText.previousCut).frame(maxWidth: .infinity)
+                VStack(spacing: 20) {
+                    SplitReadout(model: model)
+                    SplitMainButton(model: model, ready: ready)
+                    HStack(spacing: 12) {
+                        Button(action: model.previous) {
+                            Text(RecordingScreenText.previousCut).frame(maxWidth: .infinity)
+                        }
+                        .disabled(!model.canStepPrevious)
+                        Button(action: model.next) {
+                            Text(RecordingScreenText.nextCut).frame(maxWidth: .infinity)
+                        }
+                        .disabled(!model.canStepNext)
                     }
-                    .disabled(!model.canStepPrevious)
-                    Button(action: model.next) {
-                        Text(RecordingScreenText.nextCut).frame(maxWidth: .infinity)
-                    }
-                    .disabled(!model.canStepNext)
+                    .buttonStyle(.bordered)
+                    .controlSize(.large)
+                    SplitCutList(model: model)
+                    SplitTransport(model: model)
                 }
-                .buttonStyle(.bordered)
-                .controlSize(.large)
-                SplitCutList(model: model)
-                SplitTransport(model: model)
+                .controlsColumn()
             }
             .disabled(!ready)
-            .frame(maxWidth: 560)
             .padding(16)
-            .frame(maxWidth: .infinity)
         }
         .navigationTitle(RecordingScreenText.split)
         #if os(iOS)

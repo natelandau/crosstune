@@ -197,7 +197,6 @@ struct RecordingScreenContent: View {
     @Environment(\.store) private var store
     @Environment(\.commands) private var commands
     @Environment(\.spacing) private var spacing
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.verticalSizeClass) private var verticalSizeClass
     @Environment(SyncEngine.self) private var engine: SyncEngine?
     @Environment(AccountSession.self) private var session: AccountSession?
@@ -385,15 +384,6 @@ struct RecordingScreenContent: View {
         }
     }
 
-    /// Phone versus wide is a size decision, never width alone.
-    private var isWide: Bool {
-        #if os(macOS)
-            true
-        #else
-            horizontalSizeClass == .regular && verticalSizeClass == .regular
-        #endif
-    }
-
     private var isCompactHeight: Bool { verticalSizeClass == .compact }
 
     private func screen(_ practice: PracticeModel) -> some View {
@@ -404,24 +394,26 @@ struct RecordingScreenContent: View {
             #endif
             if let message = player.failure ?? failure ?? practice.failure {
                 PlayerFailureText(message)
+                    .controlsColumn()
             }
             if let trimNotice {
                 Text(trimNotice)
                     .font(.platform(.footnote))
+                    .controlsColumn()
             }
             if disabledReason == nil,
                 let status = RecordingPlayerText.status(
                     player.recordingAudio, hasFailed: player.audio.hasFailed, offline: session?.isOffline == true)
             {
                 RecordingPlayerStatus(player: player, message: status)
+                    .controlsColumn()
             }
             PlaylistControlsRow()
             #if os(macOS)
                 stage(practice, disabledReason: disabledReason)
             #else
                 OverviewStrip(source: practice, peaks: shownPeaks)
-                    .disabled(disabledReason != nil)
-                    .opacity(disabledReason != nil ? 0.5 : 1)
+                    .dimmedWhenDisabled(disabledReason != nil)
                 waveform(practice, disabledReason: disabledReason)
                     // Outside the dimming, so the reason the screen is blocked reads at full strength.
                     .overlay(alignment: .bottom) {
@@ -434,48 +426,41 @@ struct RecordingScreenContent: View {
                 }
             #endif
             ScrollView {
-                #if os(macOS)
-                    // The transport right under the stage it plays, then the mode picker over
-                    // its panel, so the two read as one unit.
-                    VStack(spacing: MacStyle.sectionGap) {
-                        PracticeControls(model: practice, disabledReason: disabledReason)
-                        modeWidth(
+                Group {
+                    #if os(macOS)
+                        // The transport right under the stage it plays, then the mode picker over
+                        // its panel, so the two read as one unit.
+                        VStack(spacing: MacStyle.sectionGap) {
+                            PracticeControls(model: practice, disabledReason: disabledReason)
                             VStack(spacing: 16) {
                                 ModePicker(model: practice)
                                 ModeControls(model: practice, onDeleted: focusWaveform)
                             }
-                        )
-                        .disabled(disabledReason != nil)
-                        .opacity(disabledReason != nil ? 0.5 : 1)
-                    }
-                    .padding(.top, MacStyle.headingGap)
-                    .onGeometryChange(for: Double.self) {
-                        $0.size.height
-                    } action: {
-                        controlsHeight = $0
-                    }
-                #else
-                    VStack(spacing: spacing.sectionGap) {
-                        // On the practice background the transport leads, right under the waveform it plays.
-                        if practiceScheme != nil {
-                            PracticeControls(model: practice, disabledReason: disabledReason)
+                            .dimmedWhenDisabled(disabledReason != nil)
                         }
-                        modeWidth(ModePicker(model: practice))
-                            .disabled(disabledReason != nil)
-                            .opacity(disabledReason != nil ? 0.5 : 1)
-                        if practiceScheme == nil {
-                            PracticeControls(model: practice, disabledReason: disabledReason)
+                        .padding(.top, MacStyle.headingGap)
+                    #else
+                        VStack(spacing: spacing.sectionGap) {
+                            // On the practice background the transport leads, right under the waveform it plays.
+                            if practiceScheme != nil {
+                                PracticeControls(model: practice, disabledReason: disabledReason)
+                            }
+                            ModePicker(model: practice)
+                                .dimmedWhenDisabled(disabledReason != nil)
+                            if practiceScheme == nil {
+                                PracticeControls(model: practice, disabledReason: disabledReason)
+                            }
+                            ModeControls(model: practice, onDeleted: focusWaveform)
+                                .dimmedWhenDisabled(disabledReason != nil)
                         }
-                        modeWidth(ModeControls(model: practice, onDeleted: focusWaveform))
-                            .disabled(disabledReason != nil)
-                            .opacity(disabledReason != nil ? 0.5 : 1)
-                    }
-                    .onGeometryChange(for: Double.self) {
-                        $0.size.height
-                    } action: {
-                        controlsHeight = $0
-                    }
-                #endif
+                    #endif
+                }
+                .controlsColumn()
+                .onGeometryChange(for: Double.self) {
+                    $0.size.height
+                } action: {
+                    controlsHeight = $0
+                }
             }
             .scrollBounceBehavior(.basedOnSize)
             .onGeometryChange(for: CGFloat.self) {
@@ -498,7 +483,6 @@ struct RecordingScreenContent: View {
             .padding(.top, MacStyle.headingGap)
         #else
             .padding(16)
-            .modifier(PadPracticeWidth())
         #endif
         // The keyboard covers the controls rather than squeezing the waveform, so opening a name
         // field leaves the waveform as it is.
@@ -530,8 +514,7 @@ struct RecordingScreenContent: View {
         PracticeWaveform(
             model: practice, peaks: shownPeaks, focus: $focus, accessibilityFocus: $waveformFocused
         )
-        .disabled(disabledReason != nil)
-        .opacity(disabledReason != nil ? 0.5 : 1)
+        .dimmedWhenDisabled(disabledReason != nil)
         .frame(minHeight: PracticeLayout.waveformFloor(isCompactHeight: isCompactHeight), maxHeight: .infinity)
         .onGeometryChange(for: CGFloat.self) {
             $0.size.height
@@ -546,8 +529,7 @@ struct RecordingScreenContent: View {
         private func stage(_ practice: PracticeModel, disabledReason: String?) -> some View {
             VStack(spacing: 12) {
                 OverviewStrip(source: practice, peaks: shownPeaks)
-                    .disabled(disabledReason != nil)
-                    .opacity(disabledReason != nil ? 0.5 : 1)
+                    .dimmedWhenDisabled(disabledReason != nil)
                 waveform(practice, disabledReason: disabledReason)
                     // Outside the dimming, so the zoom keeps its strength beside a blocked wave.
                     .overlay(alignment: .bottomTrailing) {
@@ -592,16 +574,6 @@ struct RecordingScreenContent: View {
             .padding(.bottom, MacStyle.headingGap)
         }
     #endif
-
-    /// Wide holds the mode's selector and controls to a fixed width.
-    @ViewBuilder
-    private func modeWidth(_ content: some View) -> some View {
-        if isWide {
-            content.frame(maxWidth: 440)
-        } else {
-            content
-        }
-    }
 
     private func close() {
         player.isExpanded = false
@@ -847,5 +819,12 @@ struct RecordingScreenContent: View {
             failure = failureMessage(error)
             return false
         }
+    }
+}
+
+extension View {
+    /// Disables the view and dims it, so a blocked control reads as unavailable.
+    fileprivate func dimmedWhenDisabled(_ isDisabled: Bool) -> some View {
+        disabled(isDisabled).opacity(isDisabled ? 0.5 : 1)
     }
 }
