@@ -9,8 +9,6 @@ public enum PadStyle {
     /// The least share of the height the stacked reading pane keeps when practice's controls
     /// want more; at the largest text sizes the controls scroll instead.
     public static let readingPaneMinShare: CGFloat = 0.25
-    /// The widest the practice controls grow when practice has the practice screen to itself.
-    public static let padPracticeControlsMaxWidth: CGFloat = 640
     /// A scan thumbnail's height on a regular-width tune page.
     public static let scanThumbnailHeight: CGFloat = 180
     /// The content column's share of a tab's width: half, so the list and the page it opens

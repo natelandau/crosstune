@@ -87,7 +87,9 @@ import CrosstuneDesign
                 NavigationStack {
                     LinkPadPractice(player: player)
                 }
-                .closesPracticeBySwipe(areaBottom: nil, isEnabled: true) { player.isExpanded = false }
+                .closesPracticeBySwipe(areaBottom: nil, isScrolledToTop: true, isEnabled: true) {
+                    player.isExpanded = false
+                }
             }
             .shellSheet()
         }
@@ -108,8 +110,8 @@ import CrosstuneDesign
                 PlaylistControlsRow()
                 Spacer(minLength: 0)
             }
+            .controlsColumn()
             .padding(16)
-            .modifier(PadPracticeWidth())
             .containerBackground(Palette.practiceBackground(practiceScheme ?? .dark), for: .navigation)
             .navigationTitle(player.title ?? "")
             .modifier(

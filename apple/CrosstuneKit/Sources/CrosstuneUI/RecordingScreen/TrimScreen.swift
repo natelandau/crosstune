@@ -38,6 +38,7 @@ struct TrimScreen: View {
             VStack(spacing: 20) {
                 if let message = player.failure ?? failure {
                     PlayerFailureText(message)
+                        .controlsColumn()
                 }
                 TrimStrip(
                     model: model, range: Double(model.bounds.lowerBound)...Double(model.bounds.upperBound),
@@ -58,16 +59,17 @@ struct TrimScreen: View {
                 #if os(macOS)
                     .background { ControlScrollZoom(isEnabled: ready) { factor, _ in model.zoom(by: factor) } }
                 #endif
-                zoomAndReadouts
-                transport(playing: playing)
-                Button(RecordingScreenText.previewEnd) {
-                    play(from: max(model.start, model.end - TrimModel.previewMs))
+                VStack(spacing: 20) {
+                    zoomAndReadouts
+                    transport(playing: playing)
+                    Button(RecordingScreenText.previewEnd) {
+                        play(from: max(model.start, model.end - TrimModel.previewMs))
+                    }
                 }
+                .controlsColumn()
             }
             .disabled(!ready)
-            .frame(maxWidth: 560)
             .padding(16)
-            .frame(maxWidth: .infinity)
         }
         .navigationTitle(RecordingScreenText.trim)
         #if os(iOS)
