@@ -62,15 +62,25 @@ async function expectBackOnMore() {
 
 const trimStart = async (db: CrosstuneDb) => (await db.recordings.get('r1'))?.trim_start_ms
 
-it('opens from More in place of practice, with white handles', async () => {
+it('opens from More in place of practice, with loop handles in brand', async () => {
   const { engine } = await mountPlaying(WIDE)
   await openTrim(engine)
   expect(practice()).not.toBeNull()
-  const marks = [...practice()!.querySelectorAll<HTMLElement>('[data-handle] span')]
-  expect(marks.length).toBeGreaterThan(0)
+  const brand = document.createElement('span')
+  brand.className = 'bg-brand'
+  practice()!.append(brand)
+  const lines = [...practice()!.querySelectorAll<HTMLElement>('[data-handle] > span:first-child')]
+  try {
+    expect(lines.length).toBeGreaterThan(0)
+    await expect
+      .poll(() => lines.map((line) => getComputedStyle(line).backgroundColor))
+      .toEqual(lines.map(() => getComputedStyle(brand).backgroundColor))
+  } finally {
+    brand.remove()
+  }
   await expect
-    .poll(() => marks.map((mark) => getComputedStyle(mark).backgroundColor))
-    .toEqual(marks.map(() => 'rgb(255, 255, 255)'))
+    .poll(() => practice()!.querySelectorAll('[data-handle] [data-grip]').length)
+    .toBe(lines.length)
   await expect
     .poll(() => document.activeElement)
     .toBe(trimDialog().getByRole('button', { name: CANCEL }).element())
@@ -80,6 +90,18 @@ it('sets the start at the playhead with [', async () => {
   const { engine } = await mountPlaying(WIDE)
   await openTrim(engine)
   await setStartAt(engine, 5000)
+})
+
+it('tints the kept range from the start handle to the end handle', async () => {
+  const { engine } = await mountPlaying(WIDE)
+  await openTrim(engine)
+  const overview = () => practice()!.querySelector<HTMLElement>('[data-trim-range]')!
+  await expect.poll(() => overview().style.left).toBe('0%')
+  await expect.poll(() => overview().style.width).toBe('100%')
+  await setStartAt(engine, 5000)
+  await expect
+    .poll(() => parseFloat(overview().style.left))
+    .toBeCloseTo((5000 / engine.getState().lengthMs) * 100, 3)
 })
 
 it('saves after confirming, then returns to practice with focus on More', async () => {

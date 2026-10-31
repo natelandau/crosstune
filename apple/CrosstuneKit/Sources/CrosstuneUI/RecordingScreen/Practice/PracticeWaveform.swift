@@ -287,13 +287,6 @@ struct PracticeWaveform: View {
             })
     }
 
-    /// A handle's color: every loop's in the brand color, the one color for what marks a position,
-    /// which leaves the loop's own color to its band and tab; trim's in the practice background's
-    /// text color, so editing reads apart from practice.
-    static func handleColor(isTrim: Bool) -> Color {
-        isTrim ? Palette.onPractice : Palette.brand
-    }
-
     /// One VoiceOver step: a change of its own, written at once.
     private func step(_ edge: LoopModel.Edge, by deltaMs: Int64) {
         model.nudge(edge, by: deltaMs)

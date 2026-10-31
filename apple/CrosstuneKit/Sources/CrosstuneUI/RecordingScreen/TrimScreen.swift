@@ -263,7 +263,7 @@ struct TrimScreen: View {
     }
 }
 
-/// Bars for `range` of the source with the selection lit and a handle at each end of it. The
+/// Bars for `range` of the source with the kept range tinted and a handle at each end of it. The
 /// overview's handles are what VoiceOver and the keyboard reach; the detail's repeat them for
 /// touch and the pointer alone, so each handle is announced once. Tap or drag the bars to move
 /// the playhead there; drag a handle to move it.
@@ -286,6 +286,7 @@ private struct TrimStrip: View {
     @GestureState private var gesture: StripGesture?
     @Environment(\.isEnabled) private var isEnabled
     @Environment(\.practiceBackground) private var practiceScheme
+    @Environment(\.colorScheme) private var colorScheme
 
     private struct StripGesture: Equatable {
         let handle: TrimModel.Handle?
@@ -294,16 +295,18 @@ private struct TrimStrip: View {
         let range: ClosedRange<Double>
     }
 
-    /// A touch target around a thin line.
+    /// A touch target around the line and its tab.
     private static let handleWidth = minimumTapTarget
-    private static let barWidth: CGFloat = 2
-    private static let barGap: CGFloat = 1
+    /// Room on each side for a tab, so a handle at either end of the recording shows it whole.
+    private static let inset = LoopHandleMark.tabWidth
+    /// The kept range takes the color Split gives its first piece.
+    private static let color = SplitModel.State.pieceColor(0)
 
     var body: some View {
         let shown = gesture?.range ?? range
         let playheadMs = TrimScreen.playheadMs(player, in: model)
         GeometryReader { geometry in
-            let width = geometry.size.width
+            let width = max(0, geometry.size.width - Self.inset * 2)
             ZStack(alignment: .topLeading) {
                 Canvas { context, size in
                     draw(in: &context, size: size, range: shown, playheadMs: playheadMs)
@@ -313,6 +316,8 @@ private struct TrimStrip: View {
                     handleView(handle, range: shown, width: width)
                 }
             }
+            .frame(width: width)
+            .padding(.horizontal, Self.inset)
             .contentShape(.rect)
             .gesture(drag(width: width), including: isEnabled ? .all : .none)
         }
@@ -328,7 +333,7 @@ private struct TrimStrip: View {
         let raw = fraction(Double(model.value(handle)), in: range)
         // A handle being dragged stays on the strip, pinned to its edge, so its finger does.
         if gesture?.handle == handle || (0...1).contains(raw) {
-            let mark = HandleMark(handle: handle, color: markStyle)
+            let mark = LoopHandleMark(edge: handle == .start ? .start : .end)
                 .frame(width: Self.handleWidth, height: height)
                 .contentShape(.rect)
                 .position(x: min(max(raw, 0), 1) * width, y: height / 2)
@@ -360,18 +365,18 @@ private struct TrimStrip: View {
         DragGesture(minimumDistance: 0)
             .updating($gesture) { value, state, _ in
                 guard state == nil else { return }
-                let handle = hit(value.startLocation.x, width: width)
+                let handle = hit(value.startLocation.x - Self.inset, width: width)
                 state = StripGesture(handle: handle, range: range)
                 model.beginGesture(on: handle)
             }
             .onChanged { value in
                 guard !model.gestureCancelled, let handle = model.gestureHandle else { return }
-                model.drag(handle, to: ms(at: value.location.x, width: width))
+                model.drag(handle, to: ms(at: value.location.x - Self.inset, width: width))
             }
             .onEnded { value in
                 defer { model.endGesture() }
                 guard !model.gestureCancelled, model.gestureHandle == nil else { return }
-                onSeek(ms(at: value.location.x, width: width))
+                onSeek(ms(at: value.location.x - Self.inset, width: width))
             }
     }
 
@@ -405,68 +410,22 @@ private struct TrimStrip: View {
         let low = Double(model.bounds.lowerBound)
         let startX = fraction(Double(model.start), in: range) * size.width
         let endX = fraction(Double(model.end), in: range) * size.width
-        let step = Self.barWidth + Self.barGap
         let levels =
             peaks?.sliced(fromMs: Int64(range.lowerBound - low), toMs: Int64((range.upperBound - low).rounded(.up)))
-            .bars(Int(size.width / step)) ?? []
-        var kept = BarPath(width: Self.barWidth)
-        var cut = BarPath(width: levels.isEmpty ? 4 : Self.barWidth)
-        // With no bars, the kept stretch of the plain line has square ends where the trim cuts it.
-        var keptLine = Path()
-        if levels.isEmpty {
-            let line = CGRect(x: 0, y: (size.height - 4) / 2, width: size.width, height: 4)
-            cut.add(line)
-            let from = min(max(startX, 0), size.width)
-            let to = min(max(endX, 0), size.width)
-            keptLine.addRect(CGRect(x: from, y: line.minY, width: max(0, to - from), height: line.height))
-        } else {
-            for (index, level) in levels.enumerated() {
-                let bar = max(2, level * size.height)
-                let rect = CGRect(
-                    x: CGFloat(index) * step, y: (size.height - bar) / 2, width: Self.barWidth, height: bar)
-                if rect.midX >= startX && rect.midX <= endX {
-                    kept.add(rect)
-                } else {
-                    cut.add(rect)
-                }
-            }
+            .bars(PeakBars.count(in: size.width)) ?? []
+        let bars = BarPath.peakBars(levels: levels, in: CGRect(origin: .zero, size: size))
+        context.fill(bars, with: .style(.tint))
+        let from = min(max(startX, 0), size.width)
+        let to = min(max(endX, 0), size.width)
+        if to > from {
+            context.fill(
+                Path(CGRect(x: from, y: 0, width: to - from, height: size.height)),
+                with: .color(Palette.loopTint(Self.color, scheme: colorScheme)))
         }
-        // What the trim cuts away is faded back.
-        context.fill(cut, with: .color(Palette.border))
-        context.fill(kept, with: .style(.tint))
-        context.fill(keptLine, with: .style(.tint))
         let playhead = fraction(playheadMs, in: range)
         if (0...1).contains(playhead) {
             let x = min(max(0, playhead * size.width - 1), size.width - 2)
-            context.fill(Path(CGRect(x: x, y: 0, width: 2, height: size.height)), with: .style(playheadStyle))
+            context.fillPlayhead(CGRect(x: x, y: 0, width: 2, height: size.height), onPractice: practiceScheme != nil)
         }
-    }
-
-    /// Plain marks: the tint off the practice background, white on it.
-    private var markStyle: AnyShapeStyle {
-        practiceScheme != nil ? AnyShapeStyle(PracticeWaveform.handleColor(isTrim: true)) : AnyShapeStyle(.tint)
-    }
-
-    private var playheadStyle: AnyShapeStyle {
-        practiceScheme != nil ? AnyShapeStyle(PracticeWaveform.handleColor(isTrim: true)) : AnyShapeStyle(.textPrimary)
-    }
-}
-
-/// A trim handle: a line the height of the strip with a thumb, at the top for the start and at
-/// the bottom for the end, so the two read apart where they meet.
-private struct HandleMark: View {
-    let handle: TrimModel.Handle
-    let color: AnyShapeStyle
-
-    var body: some View {
-        Rectangle()
-            .fill(color)
-            .frame(width: 2)
-            .overlay(alignment: handle == .start ? .top : .bottom) {
-                Circle()
-                    .fill(color)
-                    .frame(width: 12, height: 12)
-                    .offset(y: handle == .start ? -6 : 6)
-            }
     }
 }

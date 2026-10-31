@@ -17,15 +17,9 @@ import Testing
     }
 
     @Test func loopHandlesAreTheBrandColorWhateverTheLoopColor() {
-        let practice = PracticeWaveform.handleColor(isTrim: false)
-        #expect(practice == Palette.brand)
         for slot in 0..<6 {
-            #expect(practice != Palette.loop(slot, scheme: .dark))
+            #expect(Palette.brand != Palette.loop(slot, scheme: .dark))
         }
-    }
-
-    @Test func trimHandlesReadApartFromPractice() {
-        #expect(PracticeWaveform.handleColor(isTrim: true) != PracticeWaveform.handleColor(isTrim: false))
     }
 
     /// A recording whose waveform has not arrived still shows bars on the Mac, muted, rather
