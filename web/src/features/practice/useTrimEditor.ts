@@ -76,13 +76,12 @@ export interface TrimEditor {
   detail: [number, number]
   /** True once either handle has left the row's current trim. */
   changed: boolean
-  /** Moves the playhead onto a handle. */
-  goTo: (edge: TrimHandle) => void
+  /** Centers the detail waveform on a handle. */
+  showInDetail: (edge: TrimHandle) => void
   /** Seeks to `ms` on the source timeline. */
   seek: (ms: number) => void
   /** Plays from `ms` on the source timeline and stops on the end handle. */
   playFrom: (ms: number) => void
-  setAtPlayhead: (edge: TrimHandle) => void
   playSelection: () => void
   /** Pauses while playing, otherwise plays the selection. */
   togglePlay: () => void
@@ -105,7 +104,7 @@ export interface TrimEditor {
 
 /**
  * Trim's logic: the handles, a transport that stops on the end
- * handle, the `[`, `]`, and Space keys, pinch zoom, and the confirmed write. The caller holds
+ * handle, the Space key, pinch zoom, and the confirmed write. The caller holds
  * the engine at 100% speed and no pitch shift, so what is heard is exactly what is cut.
  */
 export function useTrimEditor({
@@ -187,42 +186,35 @@ export function useTrimEditor({
   }, [engine, low, latestRef])
 
   const seek = (ms: number) => engine.seek(ms - low)
-  const goTo = (edge: TrimHandle) =>
-    engine.seek(Math.min(trim[edge] - low, Math.max(0, engine.getState().lengthMs - 1)))
+  const showInDetail = (edge: TrimHandle) => dispatch({ type: 'focus', handle: edge })
   const playFrom = (ms: number) => {
     engine.seek(ms - low)
     stopAtEnd.current = true
     engine.play()
   }
-  const setAtPlayhead = (edge: TrimHandle) =>
-    dispatch({ type: 'setAtPlayhead', handle: edge, ms: low + engine.getState().positionMs })
   const playSelection = () => playFrom(latestRef.current.start)
   const togglePlay = () => (engine.getState().playing ? engine.pause() : playSelection())
   const previewEnd = () => playFrom(Math.max(trim.start, trim.end - PREVIEW_MS))
 
   const isTopRef = useLatest(isTop)
-  const keysRef = useLatest({ setAtPlayhead, togglePlay })
+  const togglePlayRef = useLatest(togglePlay)
   // Space is Play selection, so it stops on the end handle like the button. The arrows belong
   // to a focused handle, which nudges it; with none focused they do nothing here. A layout
   // effect, so the keys work from the commit that shows the handles rather than after a
   // passive effect that a busy page can run later.
   useLayoutEffect(() => {
     const onKey = (event: globalThis.KeyboardEvent) => {
-      if (event.key !== '[' && event.key !== ']' && event.key !== ' ') return
+      if (event.key !== ' ') return
       if (event.metaKey || event.ctrlKey || event.altKey || event.repeat) return
       if (isTextEntry(event.target) || !isTopRef.current()) return
-      if (event.key === ' ' && isControl(event.target)) return
+      if (isControl(event.target)) return
       if (engine.getState().lengthMs === 0) return
       event.preventDefault()
-      if (event.key === ' ') {
-        keysRef.current.togglePlay()
-      } else {
-        keysRef.current.setAtPlayhead(event.key === '[' ? 'start' : 'end')
-      }
+      togglePlayRef.current()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [engine, isTopRef, keysRef])
+  }, [engine, isTopRef, togglePlayRef])
 
   const detailBox = useRef<HTMLDivElement>(null)
   const beforePinch = useRef({ positionMs: 0, start: trim.start, end: trim.end })
@@ -269,10 +261,9 @@ export function useTrimEditor({
     playhead,
     detail,
     changed,
-    goTo,
+    showInDetail,
     seek,
     playFrom,
-    setAtPlayhead,
     playSelection,
     togglePlay,
     previewEnd,

@@ -8,8 +8,6 @@ export const TRIM_WHILE_RECORDING = 'Still recording'
 export const TRIM_WHILE_DOWNLOADING = DOWNLOADING
 
 export const SAVE_TRIM = 'Save'
-export const SET_START = 'Set start'
-export const SET_END = 'Set end'
 export const PLAY_SELECTION = 'Play selection'
 export const PREVIEW_END = 'Preview end'
 export const GO_TO_START = 'Go to start'

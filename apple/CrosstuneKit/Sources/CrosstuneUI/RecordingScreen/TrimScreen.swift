@@ -59,20 +59,6 @@ struct TrimScreen: View {
                     .background { ControlScrollZoom(isEnabled: ready) { factor, _ in model.zoom(by: factor) } }
                 #endif
                 zoomAndReadouts
-                HStack(spacing: 12) {
-                    Button {
-                        setAtPlayhead(.start)
-                    } label: {
-                        Text(RecordingScreenText.setStart).frame(maxWidth: .infinity)
-                    }
-                    Button {
-                        setAtPlayhead(.end)
-                    } label: {
-                        Text(RecordingScreenText.setEnd).frame(maxWidth: .infinity)
-                    }
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.large)
                 transport(playing: playing)
                 Button(RecordingScreenText.previewEnd) {
                     play(from: max(model.start, model.end - TrimModel.previewMs))
@@ -124,15 +110,13 @@ struct TrimScreen: View {
             model.nudge(model.focus, by: back ? -step : step)
             return .handled
         }
-        .onKeyPress(characters: CharacterSet(charactersIn: "[]"), phases: .down) { press in
-            guard ready, !TextEntry.isActive, press.modifiers.isDisjoint(with: .otherCommand) else {
-                return .ignored
-            }
-            setAtPlayhead(press.characters == "[" ? .start : .end)
-            return .handled
-        }
         .onChange(of: keyboard) { _, focused in
             if case .handle(let handle) = focused { model.select(handle) }
+        }
+        // The arrows nudge the handle the detail follows, so a focused handle's ring moves with
+        // it however that changes: a drag, a Go to button, or a nudge.
+        .onChange(of: model.focus) { _, handle in
+            if case .handle = keyboard { keyboard = .handle(handle) }
         }
         .onChange(of: isPinching) { _, pinching in
             if !pinching { model.endPinch() }
@@ -167,10 +151,10 @@ struct TrimScreen: View {
 
     private func transport(playing: Bool) -> some View {
         EditorTransport(playing: playing, playName: RecordingScreenText.playSelection, onToggle: toggle) {
-            Button(RecordingScreenText.goToStart, systemImage: "arrow.left.to.line") { goTo(model.start) }
+            Button(RecordingScreenText.goToStart, systemImage: "arrow.left.to.line") { model.select(.start) }
                 .help(RecordingScreenText.goToStart)
         } trailing: {
-            Button(RecordingScreenText.goToEnd, systemImage: "arrow.right.to.line") { goTo(model.end) }
+            Button(RecordingScreenText.goToEnd, systemImage: "arrow.right.to.line") { model.select(.end) }
                 .help(RecordingScreenText.goToEnd)
         }
     }
@@ -182,10 +166,6 @@ struct TrimScreen: View {
 
     private func seek(_ ms: Double) {
         player.audio.seek(to: (ms - Double(model.bounds.lowerBound)) / 1000)
-    }
-
-    private func goTo(_ ms: Int64) {
-        player.audio.seek(to: seconds(ms))
     }
 
     /// Plays from `ms` up to the end handle, where playback stops.
@@ -202,11 +182,6 @@ struct TrimScreen: View {
         } else {
             play(from: model.start)
         }
-    }
-
-    private func setAtPlayhead(_ handle: TrimModel.Handle) {
-        let playheadMs = model.bounds.lowerBound + Int64((player.audio.elapsed * 1000).rounded())
-        model.setAtPlayhead(handle, playheadMs: playheadMs)
     }
 
     private func follow(_ reading: PlayerReading) {

@@ -88,28 +88,6 @@ describe('trimModel', () => {
     expect(next.start).toBe(10_050)
   })
 
-  it('setAtPlayhead places a handle at the playhead', () => {
-    const next = trimReducer(state({ focus: 'start' }), {
-      type: 'setAtPlayhead',
-      handle: 'end',
-      ms: 30_000,
-    })
-    expect(next.end).toBe(30_000)
-    expect(next.focus).toBe('end')
-  })
-
-  it('setAtPlayhead ignores an end less than a second after the start', () => {
-    const before = state({ start: 10_000 })
-    const next = trimReducer(before, { type: 'setAtPlayhead', handle: 'end', ms: 10_500 })
-    expect(next).toBe(before)
-  })
-
-  it('setAtPlayhead ignores a start less than a second before the end', () => {
-    const before = state({ end: 20_000 })
-    const next = trimReducer(before, { type: 'setAtPlayhead', handle: 'start', ms: 19_500 })
-    expect(next).toBe(before)
-  })
-
   it('focus changes only which handle the detail follows', () => {
     const next = trimReducer(state(), { type: 'focus', handle: 'end' })
     expect(next).toEqual(state({ focus: 'end' }))

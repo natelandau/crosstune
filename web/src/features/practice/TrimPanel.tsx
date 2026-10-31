@@ -3,15 +3,7 @@ import { TransportMark } from '../../ui/rowGlyphs'
 import { usePlaybackEngine } from '../player/PlaybackEngineProvider'
 import { PAUSE } from '../player/transportCopy'
 import type { ShownPeaks } from './recordingRange'
-import {
-  GO_TO_END,
-  GO_TO_START,
-  PLAY_SELECTION,
-  PREVIEW_END,
-  SAVE_TRIM,
-  SET_END,
-  SET_START,
-} from './trimViewCopy'
+import { GO_TO_END, GO_TO_START, PLAY_SELECTION, PREVIEW_END, SAVE_TRIM } from './trimViewCopy'
 import { ZOOM_IN, ZOOM_OUT } from './panel'
 import { TRIM } from './trimCopy'
 import { TrimReadout, TrimStrips } from './TrimSurface'
@@ -20,12 +12,7 @@ import type { RecordingView } from '../recordings/useRecordings'
 import { useConfirm } from '../../ui/Confirm'
 import { ErrorLine } from '../../ui/ErrorLine'
 import { PracticeButton } from './PracticeButton'
-import {
-  EDITOR_CAPPED,
-  EDITOR_FILLED_BUTTON,
-  EDITOR_TEXT_BUTTON,
-  EditorHeader,
-} from './EditorHeader'
+import { EDITOR_CAPPED, EDITOR_TEXT_BUTTON, EditorHeader } from './EditorHeader'
 import { Button as AriaButton } from 'react-aria-components'
 import type { RefObject } from 'react'
 
@@ -71,8 +58,7 @@ export function TrimPanel({
     loaded,
     playing,
     changed,
-    goTo,
-    setAtPlayhead,
+    showInDetail,
     togglePlay,
     previewEnd,
     zoom,
@@ -116,29 +102,13 @@ export function TrimPanel({
               onPress={() => zoom('in')}
             />
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <AriaButton
-              className={EDITOR_FILLED_BUTTON}
-              isDisabled={!loaded}
-              onPress={() => setAtPlayhead('start')}
-            >
-              {SET_START}
-            </AriaButton>
-            <AriaButton
-              className={EDITOR_FILLED_BUTTON}
-              isDisabled={!loaded}
-              onPress={() => setAtPlayhead('end')}
-            >
-              {SET_END}
-            </AriaButton>
-          </div>
           <div data-trim-transport className="flex items-center justify-center gap-6">
             <PracticeButton
               icon={ArrowLeftToLine}
               iconClassName="size-7"
               label={GO_TO_START}
               isDisabled={!loaded}
-              onPress={() => goTo('start')}
+              onPress={() => showInDetail('start')}
             />
             <PracticeButton
               size="large"
@@ -152,7 +122,7 @@ export function TrimPanel({
               iconClassName="size-7"
               label={GO_TO_END}
               isDisabled={!loaded}
-              onPress={() => goTo('end')}
+              onPress={() => showInDetail('end')}
             />
           </div>
           <AriaButton
