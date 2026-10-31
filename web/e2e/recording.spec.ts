@@ -26,10 +26,7 @@ import {
 import { formatDuration } from '../src/text/format'
 import { TRIM } from '../src/features/practice/trimCopy'
 import {
-  GO_TO_START,
-  OVERVIEW_LABEL,
   SAVE_TRIM,
-  SET_END,
   TRIM_CONFIRM_ACTION,
   TRIM_CONFIRM_MESSAGE,
 } from '../src/features/practice/trimViewCopy'
@@ -191,18 +188,13 @@ test('trims a recording and another device sees it', async ({ page, browser }) =
     .getByRole('menuitem', { name: TRIM, exact: true })
     .click()
 
-  const overview = practice.getByRole('slider', { name: OVERVIEW_LABEL })
-  const setEnd = practice.getByRole('button', { name: SET_END, exact: true })
-  await expect(setEnd).toBeEnabled()
-  const box = await overview.boundingBox()
-  if (!box) throw new Error('trim overview is not visible')
-  // Halfway across a 6-second recording lands the playhead around 3 seconds.
-  await overview.click({ position: { x: box.width / 2, y: box.height / 2 } })
-  await setEnd.click()
+  // Three one-second steps in from the end of a 6-second recording keep about 3 seconds.
+  const endHandle = practice.locator('[role="slider"][data-handle="end"]')
+  await expect(endHandle).toBeVisible()
+  await endHandle.focus()
+  for (let step = 0; step < 3; step++) await page.keyboard.press('PageDown')
   const save = practice.getByRole('button', { name: SAVE_TRIM, exact: true })
   await expect(save).toBeEnabled()
-  // Back to the start before saving, so the kept range plays from its own beginning.
-  await practice.getByRole('button', { name: GO_TO_START }).click()
   await save.click()
   // The confirm is its own overlay, outside practice's.
   const confirm = page.getByRole('dialog').filter({ hasText: TRIM_CONFIRM_MESSAGE })

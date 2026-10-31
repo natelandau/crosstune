@@ -15,7 +15,7 @@ const TEXT_BUTTON = `t-body min-h-(--target) rounded-(--radius-capsule) text-on-
 /** A text button with no fill, such as Cancel. */
 export const EDITOR_TEXT_BUTTON = `${TEXT_BUTTON} px-3 ${PANEL_HOVER}`
 
-/** A text button on the panels' round fill, such as Set start. */
+/** A text button on the panels' round fill, such as Split at 0:12. */
 export const EDITOR_FILLED_BUTTON = `${TEXT_BUTTON} bg-practice-fill px-4 font-semibold ${PANEL_FILLED_HOVER}`
 
 /**

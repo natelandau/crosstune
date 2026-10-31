@@ -14,6 +14,8 @@ import type { Moving } from '../player/playheadClock'
 import type { ShownPeaks } from './recordingRange'
 import type { TrimAction, TrimHandle, TrimState } from './trimModel'
 import { Waveform } from './Waveform'
+import { LoopHandleMark } from './LoopHandleMark'
+import { pieceColor } from './splitModel'
 import { clamp } from '../../math'
 import { capturePointer } from '../../platform/pointer'
 import { NUDGE_LARGE_MS, NUDGE_MS } from './panel'
@@ -22,6 +24,8 @@ export const START_HANDLE = 'Start'
 export const END_HANDLE = 'End'
 
 const HANDLES = ['start', 'end'] as const
+/** The kept range takes the color split gives its first piece. */
+const TRIM_COLOR = pieceColor(0)
 const HANDLE_LABELS: Record<TrimHandle, string> = { start: START_HANDLE, end: END_HANDLE }
 
 /** How far each key moves a handle, as [plain, with Shift]. */
@@ -35,7 +39,7 @@ const KEY_STEPS: Record<string, [number, number]> = {
 }
 
 /**
- * Bars for `range` of the source with the selection lit and a handle at each end of it. The
+ * Bars for `range` of the source with the kept range tinted and a handle at each end of it. The
  * overview's handles are the sliders a keyboard or screen reader moves; the detail's repeat
  * them for the pointer alone, so each handle is announced once.
  */
@@ -124,75 +128,72 @@ export function TrimStrip({
   const startAt = clamp(fraction(trim.start), 0, 1) * 100
   const endAt = clamp(fraction(trim.end), 0, 1) * 100
   return (
-    <div ref={box} className="relative">
-      <Waveform
-        peaks={peaks}
-        loudest={shown?.loudest}
-        lengthMs={span}
-        positionMs={position}
-        disabled={!loaded}
-        label={label}
-        compact={compact}
-        decorative={!announced}
-        onSeek={(ms) => onSeek(from + ms)}
-      />
-      {/* The part the trim cuts away is faded back behind the page. */}
-      <div
-        aria-hidden="true"
-        className="bg-practice-background pointer-events-none absolute inset-y-0 left-0 rounded-l-lg opacity-70"
-        style={{ width: `${startAt}%` }}
-      />
-      <div
-        aria-hidden="true"
-        className="bg-practice-background pointer-events-none absolute inset-y-0 right-0 rounded-r-lg opacity-70"
-        style={{ left: `${endAt}%` }}
-      />
-      {HANDLES.map((handle) => {
-        const ms = trim[handle]
-        const raw = fraction(ms)
-        // A handle being dragged stays on the strip, pinned to its edge, so its pointer does.
-        if (dragged !== handle && (raw < 0 || raw > 1)) return null
-        const at = clamp(raw, 0, 1)
-        return (
-          <div
-            key={handle}
-            data-handle={handle}
-            role={announced ? 'slider' : undefined}
-            tabIndex={announced ? 0 : undefined}
-            aria-hidden={announced ? undefined : true}
-            aria-label={announced ? HANDLE_LABELS[handle] : undefined}
-            aria-valuemin={announced ? 0 : undefined}
-            aria-valuemax={announced ? high - low : undefined}
-            aria-valuenow={announced ? ms - low : undefined}
-            aria-valuetext={announced ? formatPreciseDuration(ms - low) : undefined}
-            // A 44px target around a thin line; touch-none keeps a drag from scrolling.
-            className="absolute inset-y-0 flex w-11 -translate-x-1/2 cursor-ew-resize touch-none justify-center rounded-md outline-offset-0 select-none"
-            style={{ left: `${at * 100}%` }}
-            onFocus={() => dispatch({ type: 'focus', handle })}
-            onPointerDown={(event) => {
-              capturePointer(event.currentTarget, event.pointerId)
-              dragging.current = handle
-              setDragged(handle)
-              dispatch({ type: 'focus', handle })
-              onDragChange?.(true)
-            }}
-            onPointerMove={(event) => {
-              if (dragging.current === handle) dragTo(handle, event)
-            }}
-            onPointerUp={endDrag}
-            onPointerCancel={endDrag}
-            onLostPointerCapture={() => {
-              if (dragging.current === handle) endDrag()
-            }}
-            onKeyDown={announced ? (event) => onKeyDown(handle, event) : undefined}
-          >
-            <span className="bg-on-practice h-full w-0.5" />
-            <span
-              className={`bg-on-practice absolute size-3 rounded-full ${handle === 'start' ? '-top-1.5' : '-bottom-1.5'}`}
-            />
-          </div>
-        )
-      })}
+    // Inset by a tab's width, so a handle at either end of the recording shows its whole tab.
+    <div className="px-4">
+      <div ref={box} className="relative">
+        <Waveform
+          peaks={peaks}
+          loudest={shown?.loudest}
+          lengthMs={span}
+          positionMs={position}
+          disabled={!loaded}
+          label={label}
+          compact={compact}
+          decorative={!announced}
+          onSeek={(ms) => onSeek(from + ms)}
+        />
+        <div
+          aria-hidden="true"
+          data-trim-range
+          data-color={TRIM_COLOR}
+          className="loop-color pointer-events-none absolute inset-y-0 bg-(--loop-tint)"
+          style={{ left: `${startAt}%`, width: `${endAt - startAt}%` }}
+        />
+        {HANDLES.map((handle) => {
+          const ms = trim[handle]
+          const raw = fraction(ms)
+          // A handle being dragged stays on the strip, pinned to its edge, so its pointer does.
+          if (dragged !== handle && (raw < 0 || raw > 1)) return null
+          const at = clamp(raw, 0, 1)
+          return (
+            <div
+              key={handle}
+              data-handle={handle}
+              data-color={TRIM_COLOR}
+              role={announced ? 'slider' : undefined}
+              tabIndex={announced ? 0 : undefined}
+              aria-hidden={announced ? undefined : true}
+              aria-label={announced ? HANDLE_LABELS[handle] : undefined}
+              aria-valuemin={announced ? 0 : undefined}
+              aria-valuemax={announced ? high - low : undefined}
+              aria-valuenow={announced ? ms - low : undefined}
+              aria-valuetext={announced ? formatPreciseDuration(ms - low) : undefined}
+              // A 44px target around the line and its tab; touch-none keeps a drag from scrolling.
+              className="loop-color absolute inset-y-0 flex w-11 -translate-x-1/2 cursor-ew-resize touch-none justify-center rounded-md outline-offset-0 select-none"
+              style={{ left: `${at * 100}%` }}
+              onFocus={() => dispatch({ type: 'focus', handle })}
+              onPointerDown={(event) => {
+                capturePointer(event.currentTarget, event.pointerId)
+                dragging.current = handle
+                setDragged(handle)
+                dispatch({ type: 'focus', handle })
+                onDragChange?.(true)
+              }}
+              onPointerMove={(event) => {
+                if (dragging.current === handle) dragTo(handle, event)
+              }}
+              onPointerUp={endDrag}
+              onPointerCancel={endDrag}
+              onLostPointerCapture={() => {
+                if (dragging.current === handle) endDrag()
+              }}
+              onKeyDown={announced ? (event) => onKeyDown(handle, event) : undefined}
+            >
+              <LoopHandleMark edge={handle} />
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }

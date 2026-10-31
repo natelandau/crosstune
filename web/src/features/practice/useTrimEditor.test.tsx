@@ -117,12 +117,13 @@ describe('useTrimEditor', () => {
     expect(engine.getState().positionMs).toBe(20_000)
   })
 
-  it('sets the end at the playhead with ]', async () => {
+  it('centers the detail on a handle without moving the playhead', async () => {
     const { engine, result } = await setup()
     act(() => engine.seek(20_000))
-    act(() => press(']'))
-    expect(result.current.trim.end).toBe(20_000)
-    expect(result.current.changed).toBe(true)
+    act(() => result.current.showInDetail('end'))
+    expect(result.current.trim.focus).toBe('end')
+    expect(result.current.changed).toBe(false)
+    expect(engine.getState().positionMs).toBe(20_000)
   })
 
   it('writes nothing when the confirm is declined', async () => {

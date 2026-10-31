@@ -24,8 +24,6 @@ public enum RecordingScreenText {
     public static let pitchNotSaved = "The pitch could not be saved."
     public static let cancel = "Cancel"
     public static let save = "Save"
-    public static let setStart = "Set start"
-    public static let setEnd = "Set end"
     public static let playSelection = "Play selection"
     public static let previewEnd = "Preview end"
     public static let goToStart = "Go to start"

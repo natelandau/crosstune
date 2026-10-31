@@ -123,27 +123,6 @@ private final class Holds {
         #expect(trim.start == 10_050)
     }
 
-    @Test func setAtPlayheadPlacesAHandleAtThePlayhead() {
-        let trim = model()
-        trim.setAtPlayhead(.end, playheadMs: 30_000)
-        #expect(trim.end == 30_000)
-        #expect(trim.focus == .end)
-    }
-
-    @Test func setAtPlayheadIgnoresAnEndLessThanASecondAfterTheStart() {
-        let trim = placed(start: 10_000)
-        trim.setAtPlayhead(.end, playheadMs: 10_500)
-        #expect(trim.end == 60_000)
-        #expect(trim.focus == .start)
-    }
-
-    @Test func setAtPlayheadIgnoresAStartLessThanASecondBeforeTheEnd() {
-        let trim = placed(end: 20_000, focus: .end)
-        trim.setAtPlayhead(.start, playheadMs: 19_500)
-        #expect(trim.start == 0)
-        #expect(trim.focus == .end)
-    }
-
     @Test func selectChangesOnlyWhichHandleTheDetailFollows() {
         let trim = model()
         trim.select(.end)

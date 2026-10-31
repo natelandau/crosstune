@@ -18,6 +18,7 @@ import {
   type Span,
 } from '../../domain/loopModel'
 import { msAtX, xOfMs, type ZoomedViewSource } from './practiceZoom'
+import { LoopHandleMark } from './LoopHandleMark'
 import { useAutoPan } from './useAutoPan'
 import { capturePointer } from '../../platform/pointer'
 import { tap } from '../../platform/haptics'
@@ -285,15 +286,7 @@ export function LoopHandle({
       // After a pointerup the press is already gone, so only a capture taken away mid-drag lands.
       onLostPointerCapture={cancel}
     >
-      <span className="h-full w-0.5 bg-(--loop-handle)" />
-      {/* The tab sits outside the loop so it never covers the audio being looped. */}
-      <span
-        data-grip
-        className={`absolute top-1/2 flex h-11 w-4 -translate-y-1/2 items-center justify-center gap-0.5 bg-(--loop-handle) ${edge === 'start' ? 'right-1/2 rounded-l-md' : 'left-1/2 rounded-r-md'}`}
-      >
-        <span className="bg-on-practice h-4 w-px" />
-        <span className="bg-on-practice h-4 w-px" />
-      </span>
+      <LoopHandleMark edge={edge} />
     </div>
   )
 }

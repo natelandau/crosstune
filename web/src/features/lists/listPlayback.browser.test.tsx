@@ -52,7 +52,6 @@ import { MORE_ACTIONS } from '../../ui/menuCopy'
 import { EDIT, RECORDING_NAME_LABEL } from '../recordings/recordingCopy'
 import { EDIT_RECORDING_TITLE, SAVE_RECORDING } from '../recordings/recordingsCopy'
 
-import { press } from '../../test/practice'
 import { renderApp } from '../../test/renderApp'
 import { TUNE_LIST, SELECT_TUNES } from '../catalog/catalogCopy'
 
@@ -572,8 +571,8 @@ it('holds the list at the end of a tune being trimmed, and saves its own trim', 
   await startList()
   const start = await openTrim(engine)
   engine.pause()
-  engine.seek(1000)
-  press('[')
+  ;(start.element() as HTMLElement).focus()
+  await userEvent.keyboard('{PageUp}')
   await expect.element(start).toHaveAttribute('aria-valuenow', '1000')
   endTune()
   const trim = page.getByRole('dialog', { name: TRIM })

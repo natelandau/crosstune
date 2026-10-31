@@ -27,7 +27,6 @@ export interface TrimState {
 export type TrimAction =
   | { type: 'drag'; handle: TrimHandle; ms: number }
   | { type: 'nudge'; handle: TrimHandle; deltaMs: number }
-  | { type: 'setAtPlayhead'; handle: TrimHandle; ms: number }
   | { type: 'focus'; handle: TrimHandle }
   | { type: 'zoom'; factor: number }
   | { type: 'restore'; start: number; end: number }
@@ -67,15 +66,6 @@ export function trimReducer(state: TrimState, action: TrimAction): TrimState {
       return place(state, action.handle, action.ms)
     case 'nudge':
       return place(state, action.handle, state[action.handle] + action.deltaMs)
-    case 'setAtPlayhead': {
-      // A playhead too near the other handle is a mistimed tap, so it moves nothing rather
-      // than landing the handle somewhere the musician did not choose.
-      const tooNear =
-        action.handle === 'start'
-          ? action.ms > state.end - MIN_KEPT_MS
-          : action.ms < state.start + MIN_KEPT_MS
-      return tooNear ? state : place(state, action.handle, action.ms)
-    }
     case 'focus':
       return state.focus === action.handle ? state : { ...state, focus: action.handle }
     case 'zoom':

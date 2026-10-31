@@ -37,7 +37,7 @@ struct LoopEdgeHandle<Focus: Hashable>: View {
 
     var body: some View {
         let inView = x >= 0 && x <= width
-        LoopHandleMark(edge: edge, color: PracticeWaveform.handleColor(isTrim: false))
+        LoopHandleMark(edge: edge)
             .frame(width: PracticeModel.handleReach * 2)
             .frame(maxHeight: .infinity)
             .contentShape(.rect)
@@ -88,19 +88,20 @@ enum HandleSnapping {
     }
 }
 
-/// A loop handle: a line the height of the waveform with a grab tab centered on it. The tab sits
-/// outside the loop so it never covers the audio being looped.
+/// A range handle, for a loop, a cut, or a trim: a line the height of the waveform with a grab
+/// tab centered on it. The tab sits outside the range so it never covers the audio in it. Every
+/// handle is brand, the one color for what marks a position, which leaves a loop's own color to
+/// its band and tab.
 struct LoopHandleMark: View {
     static let tabWidth: CGFloat = 16
     static let tabHeight: CGFloat = 44
 
     let edge: LoopModel.Edge
-    let color: Color
 
     var body: some View {
         ZStack {
             Rectangle()
-                .fill(color)
+                .fill(Palette.brand)
                 .frame(width: 2)
                 #if os(macOS)
                     .background { Rectangle().fill(Color.markOutline).frame(width: 4) }
@@ -118,7 +119,7 @@ struct LoopHandleMark: View {
             : UnevenRoundedRectangle(bottomTrailingRadius: radius, topTrailingRadius: radius)
         return
             shape
-            .fill(color)
+            .fill(Palette.brand)
             #if os(macOS)
                 // A centered stroke shows its outer half, a point outside the tab.
                 .background { shape.stroke(Color.markOutline, lineWidth: 2) }

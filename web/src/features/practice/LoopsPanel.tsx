@@ -8,13 +8,14 @@ import { Capsule } from '../../ui/Capsule'
 import { FilterRow } from '../../ui/FilterRow'
 import { offWhen, PANEL_TEXT_BUTTON, PANEL_TEXT_BUTTON_SHAPE } from './panel'
 import { loopName, partSuggestions, type Bounds, type NewLoop } from '../../domain/loopModel'
-import { SET_END, SET_START } from './trimViewCopy'
 import {
   DELETE_LOOP,
   INSIDE_LOOP,
   LOOP_NAME_SUGGESTIONS,
   LOOPS_EMPTY_HINT,
   NEW_LOOP,
+  SET_END,
+  SET_START,
 } from './practiceCopy'
 import { useLoopCommands } from './useLoopCommands'
 import type { LoopPlayback } from './useLoopPlayback'

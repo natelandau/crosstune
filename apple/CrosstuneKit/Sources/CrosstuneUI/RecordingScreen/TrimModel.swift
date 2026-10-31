@@ -124,15 +124,6 @@ final class TrimModel {
         place(handle, value(handle) + deltaMs)
     }
 
-    /// Puts `handle` at the playhead. A playhead too near the other handle is a mistimed tap, so
-    /// it moves nothing rather than landing the handle somewhere the musician did not choose.
-    func setAtPlayhead(_ handle: Handle, playheadMs: Int64) {
-        let tooNear =
-            handle == .start
-            ? playheadMs > end - RecordingLimits.minLengthMs : playheadMs < start + RecordingLimits.minLengthMs
-        if !tooNear { place(handle, playheadMs) }
-    }
-
     func zoom(by factor: Double) {
         zoom = clampedZoom(zoom * factor)
     }

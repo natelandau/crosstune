@@ -11,11 +11,12 @@ import {
   LOOP_NAME,
   LOOP_SELECTED,
   LOOPS_LABEL,
+  SET_END,
+  SET_START,
 } from './practiceCopy'
 import { CENTS, PITCH, PITCH_PAUSES_ON_LOCK } from './PitchPanel'
 import { SPEED } from './SpeedPanel'
 import { TRIM } from './trimCopy'
-import { SET_END, SET_START } from './trimViewCopy'
 import { OFFLINE } from '../../sync/labels'
 import { liveLoops, seedLoop } from '../../test/recordings'
 import { MORE_ACTIONS } from '../../ui/menuCopy'
