@@ -602,22 +602,32 @@ private final class Writes {
     private let down = CGSize(width: 10, height: 200)
 
     @Test func aLongMostlyVerticalDragFromTheHeaderOrWaveformCloses() {
-        #expect(PracticeSwipe.closes(startY: 40, translation: down, areaBottom: 400))
-        #expect(PracticeSwipe.closes(startY: 390, translation: down, areaBottom: 400))
+        #expect(PracticeSwipe.closes(startY: 40, translation: down, areaBottom: 400, startedAtTop: true))
+        #expect(PracticeSwipe.closes(startY: 390, translation: down, areaBottom: 400, startedAtTop: true))
     }
 
     @Test func aDragFromTheControlsUnderTheWaveformNeverCloses() {
-        #expect(!PracticeSwipe.closes(startY: 410, translation: down, areaBottom: 400))
+        #expect(!PracticeSwipe.closes(startY: 410, translation: down, areaBottom: 400, startedAtTop: true))
     }
 
     @Test func aScrubOrAShortDragNeverCloses() {
-        #expect(!PracticeSwipe.closes(startY: 40, translation: CGSize(width: 200, height: 150), areaBottom: 400))
-        #expect(!PracticeSwipe.closes(startY: 40, translation: CGSize(width: 0, height: 60), areaBottom: 400))
-        #expect(!PracticeSwipe.closes(startY: 40, translation: CGSize(width: 0, height: -200), areaBottom: 400))
+        #expect(
+            !PracticeSwipe.closes(
+                startY: 40, translation: CGSize(width: 200, height: 150), areaBottom: 400, startedAtTop: true))
+        #expect(
+            !PracticeSwipe.closes(
+                startY: 40, translation: CGSize(width: 0, height: 60), areaBottom: 400, startedAtTop: true))
+        #expect(
+            !PracticeSwipe.closes(
+                startY: 40, translation: CGSize(width: 0, height: -200), areaBottom: 400, startedAtTop: true))
+    }
+
+    @Test func aDragOnAScrolledPageNeverCloses() {
+        #expect(!PracticeSwipe.closes(startY: 40, translation: down, areaBottom: 400, startedAtTop: false))
     }
 
     @Test func beforeTheControlsAreLaidOutAnywhereCloses() {
-        #expect(PracticeSwipe.closes(startY: 700, translation: down, areaBottom: nil))
+        #expect(PracticeSwipe.closes(startY: 700, translation: down, areaBottom: nil, startedAtTop: true))
     }
 
     @Test func aGridBarTakesTheLoudestPointItCoversWhereverTheGridStarts() throws {

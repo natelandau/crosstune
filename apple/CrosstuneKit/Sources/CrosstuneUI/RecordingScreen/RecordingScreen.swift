@@ -102,6 +102,8 @@ public struct RecordingScreen: View {
     @State private var path: [RecordingRoute] = []
     /// The top of the practice controls, below which a swipe down never closes the screen.
     @State private var controlsTop: CGFloat?
+    /// Whether the practice page is scrolled to its top, the only place a swipe down closes it.
+    @State private var isScrolledToTop = true
     /// This screen's identity for the visit it logs, so another window's screen ends only its own.
     @State private var screen = UUID()
 
@@ -152,7 +154,8 @@ public struct RecordingScreen: View {
             Group {
                 if let loaded = rows?.value ?? nil {
                     RecordingScreenContent(
-                        player: player, rows: loaded, path: $path, controlsTop: $controlsTop, screen: screen
+                        player: player, rows: loaded, path: $path, controlsTop: $controlsTop,
+                        isScrolledToTop: $isScrolledToTop, screen: screen
                     )
                     .id(loaded.recording.id)
                 } else {
@@ -177,7 +180,9 @@ public struct RecordingScreen: View {
                 }
             #endif
         }
-        .closesPracticeBySwipe(areaBottom: controlsTop, isEnabled: path.isEmpty) { player.isExpanded = false }
+        .closesPracticeBySwipe(areaBottom: controlsTop, isScrolledToTop: isScrolledToTop, isEnabled: path.isEmpty) {
+            player.isExpanded = false
+        }
     }
 
     private var loadedID: String? {
@@ -193,6 +198,8 @@ struct RecordingScreenContent: View {
     @Binding var path: [RecordingRoute]
     /// Where the controls under the waveform start, in the screen's swipe space.
     @Binding var controlsTop: CGFloat?
+    /// Whether the page is scrolled to its top.
+    @Binding var isScrolledToTop: Bool
 
     @Environment(\.store) private var store
     @Environment(\.commands) private var commands
@@ -226,12 +233,11 @@ struct RecordingScreenContent: View {
     /// here.
     @State private var trimNotice: String?
     @State private var practice: PracticeModel?
-    /// The natural height of everything under the waveform, which the waveform leaves room for.
-    @State private var controlsHeight: Double?
-    /// The waveform's and the controls region's laid-out heights, which tell the iPad's practice screen how
-    /// short practice can go before its controls clip.
+    /// The window's height, the page's height, and the waveform's, from which the waveform takes
+    /// the height the rest of the page leaves.
+    @State private var viewportHeight: CGFloat?
+    @State private var pageHeight: CGFloat?
     @State private var waveformHeight: CGFloat?
-    @State private var controlsRegionHeight: CGFloat?
     @Environment(\.showsReadingPane) private var showsReadingPane
     @Environment(ListPlayback.self) private var playback: ListPlayback?
     @FocusState private var focus: PracticeFocus?
@@ -262,7 +268,8 @@ struct RecordingScreenContent: View {
     ///   - peaks: Peaks to show before any load, as for a snapshot.
     init(
         player: PlayerModel, rows: ScreenRows, path: Binding<[RecordingRoute]>,
-        controlsTop: Binding<CGFloat?> = .constant(nil), screen: UUID? = nil, practice: PracticeModel? = nil,
+        controlsTop: Binding<CGFloat?> = .constant(nil), isScrolledToTop: Binding<Bool> = .constant(true),
+        screen: UUID? = nil, practice: PracticeModel? = nil,
         peaks: Peaks? = nil
     ) {
         self.player = player
@@ -270,6 +277,7 @@ struct RecordingScreenContent: View {
         self.rows = rows
         _path = path
         _controlsTop = controlsTop
+        _isScrolledToTop = isScrolledToTop
         _practice = State(initialValue: practice)
         _peaks = State(initialValue: peaks.map { LoadedPeaks(peaks: $0, rev: nil) })
     }
@@ -388,102 +396,71 @@ struct RecordingScreenContent: View {
 
     private func screen(_ practice: PracticeModel) -> some View {
         let disabledReason = screenUnavailableReason
-        return VStack(spacing: spacing.stackGap) {
-            #if os(macOS)
-                header
-            #endif
-            if let message = player.failure ?? failure ?? practice.failure {
-                PlayerFailureText(message)
-                    .controlsColumn()
-            }
-            if let trimNotice {
-                Text(trimNotice)
-                    .font(.platform(.footnote))
-                    .controlsColumn()
-            }
-            if disabledReason == nil,
-                let status = RecordingPlayerText.status(
-                    player.recordingAudio, hasFailed: player.audio.hasFailed, offline: session?.isOffline == true)
-            {
-                RecordingPlayerStatus(player: player, message: status)
-                    .controlsColumn()
-            }
-            PlaylistControlsRow()
-            #if os(macOS)
-                stage(practice, disabledReason: disabledReason)
-            #else
-                OverviewStrip(source: practice, peaks: shownPeaks)
-                    .dimmedWhenDisabled(disabledReason != nil)
-                waveform(practice, disabledReason: disabledReason)
-                    // Outside the dimming, so the reason the screen is blocked reads at full strength.
-                    .overlay(alignment: .bottom) {
-                        WaveformOverlay(
-                            model: practice, disabledReason: disabledReason, showsReadout: practiceScheme == nil)
+        // One scrolling page, so a window too short for everything scrolls the waveform away with
+        // the controls rather than scrolling the controls under a fixed waveform.
+        return ScrollView {
+            VStack(spacing: spacing.stackGap) {
+                #if os(macOS)
+                    header
+                #endif
+                if let message = player.failure ?? failure ?? practice.failure {
+                    PlayerFailureText(message)
+                        .controlsColumn()
+                }
+                if let trimNotice {
+                    Text(trimNotice)
+                        .font(.platform(.footnote))
+                        .controlsColumn()
+                }
+                if disabledReason == nil,
+                    let status = RecordingPlayerText.status(
+                        player.recordingAudio, hasFailed: player.audio.hasFailed, offline: session?.isOffline == true)
+                {
+                    RecordingPlayerStatus(player: player, message: status)
+                        .controlsColumn()
+                }
+                PlaylistControlsRow()
+                #if os(macOS)
+                    stage(practice, disabledReason: disabledReason)
+                #else
+                    OverviewStrip(source: practice, peaks: shownPeaks)
+                        .dimmedWhenDisabled(disabledReason != nil)
+                    waveform(practice, disabledReason: disabledReason)
+                        // Outside the dimming, so the reason the screen is blocked reads at full strength.
+                        .overlay(alignment: .bottom) {
+                            WaveformOverlay(
+                                model: practice, disabledReason: disabledReason, showsReadout: practiceScheme == nil)
+                        }
+                    // On the practice background the readout sits under the playhead rather than over the wave.
+                    if practiceScheme != nil {
+                        PracticeReadout(model: practice, disabledReason: disabledReason)
                     }
-                // On the practice background the readout sits under the playhead rather than over the wave.
-                if practiceScheme != nil {
-                    PracticeReadout(model: practice, disabledReason: disabledReason)
-                }
+                #endif
+                controls(practice, disabledReason: disabledReason)
+            }
+            #if os(macOS)
+                .padding([.horizontal, .bottom], MacStyle.pageMargin)
+                .padding(.top, MacStyle.headingGap)
+            #else
+                .padding(16)
             #endif
-            ScrollView {
-                Group {
-                    #if os(macOS)
-                        // The transport right under the stage it plays, then the mode picker over
-                        // its panel, so the two read as one unit.
-                        VStack(spacing: MacStyle.sectionGap) {
-                            PracticeControls(model: practice, disabledReason: disabledReason)
-                            VStack(spacing: 16) {
-                                ModePicker(model: practice)
-                                ModeControls(model: practice, onDeleted: focusWaveform)
-                            }
-                            .dimmedWhenDisabled(disabledReason != nil)
-                        }
-                        .padding(.top, MacStyle.headingGap)
-                    #else
-                        VStack(spacing: spacing.sectionGap) {
-                            // On the practice background the transport leads, right under the waveform it plays.
-                            if practiceScheme != nil {
-                                PracticeControls(model: practice, disabledReason: disabledReason)
-                            }
-                            ModePicker(model: practice)
-                                .dimmedWhenDisabled(disabledReason != nil)
-                            if practiceScheme == nil {
-                                PracticeControls(model: practice, disabledReason: disabledReason)
-                            }
-                            ModeControls(model: practice, onDeleted: focusWaveform)
-                                .dimmedWhenDisabled(disabledReason != nil)
-                        }
-                    #endif
-                }
-                .controlsColumn()
-                .onGeometryChange(for: Double.self) {
-                    $0.size.height
-                } action: {
-                    controlsHeight = $0
-                }
-            }
-            .scrollBounceBehavior(.basedOnSize)
-            .onGeometryChange(for: CGFloat.self) {
-                $0.frame(in: .named(PracticeSwipe.space)).minY
-            } action: {
-                controlsTop = $0
-            }
-            // Laid out first, so it takes its natural height and the waveform the rest; only once
-            // the waveform is at its floor does this region shrink and scroll.
-            .frame(maxHeight: controlsHeight.map { CGFloat($0) })
             .onGeometryChange(for: CGFloat.self) {
                 $0.size.height
             } action: {
-                controlsRegionHeight = $0
+                pageHeight = $0
             }
-            .layoutPriority(1)
         }
-        #if os(macOS)
-            .padding([.horizontal, .bottom], MacStyle.pageMargin)
-            .padding(.top, MacStyle.headingGap)
-        #else
-            .padding(16)
-        #endif
+        .scrollBounceBehavior(.basedOnSize)
+        .onScrollGeometryChange(for: Bool.self) {
+            $0.contentOffset.y + $0.contentInsets.top <= 0
+        } action: { _, atTop in
+            isScrolledToTop = atTop
+        }
+        .onGeometryChange(for: CGFloat.self) {
+            $0.size.height
+        } action: {
+            viewportHeight = $0
+        }
         // The keyboard covers the controls rather than squeezing the waveform, so opening a name
         // field leaves the waveform as it is.
         .ignoresSafeArea(.keyboard)
@@ -500,22 +477,70 @@ struct RecordingScreenContent: View {
         .preference(key: PracticeSpareHeight.self, value: showsReadingPane ? practiceSpareHeight : nil)
     }
 
-    /// The height practice could give up before the controls under the waveform clip, or how
-    /// much more it needs when negative: the waveform's room above its floor, less what the
-    /// controls region lacks of its natural height.
-    private var practiceSpareHeight: CGFloat? {
-        guard let waveformHeight, let controlsRegionHeight, let controlsHeight else { return nil }
-        return waveformHeight - PracticeLayout.waveformFloor(isCompactHeight: isCompactHeight)
-            + controlsRegionHeight - CGFloat(controlsHeight)
+    /// The transport and the mode panels, under the waveform.
+    private func controls(_ practice: PracticeModel, disabledReason: String?) -> some View {
+        Group {
+            #if os(macOS)
+                // The transport right under the stage it plays, then the mode picker over
+                // its panel, so the two read as one unit.
+                VStack(spacing: MacStyle.sectionGap) {
+                    PracticeControls(model: practice, disabledReason: disabledReason)
+                    VStack(spacing: 16) {
+                        ModePicker(model: practice)
+                        ModeControls(model: practice, onDeleted: focusWaveform)
+                    }
+                    .dimmedWhenDisabled(disabledReason != nil)
+                }
+                .padding(.top, MacStyle.headingGap)
+            #else
+                VStack(spacing: spacing.sectionGap) {
+                    // On the practice background the transport leads, right under the waveform it plays.
+                    if practiceScheme != nil {
+                        PracticeControls(model: practice, disabledReason: disabledReason)
+                    }
+                    ModePicker(model: practice)
+                        .dimmedWhenDisabled(disabledReason != nil)
+                    if practiceScheme == nil {
+                        PracticeControls(model: practice, disabledReason: disabledReason)
+                    }
+                    ModeControls(model: practice, onDeleted: focusWaveform)
+                        .dimmedWhenDisabled(disabledReason != nil)
+                }
+            #endif
+        }
+        .controlsColumn()
+        .onGeometryChange(for: CGFloat.self) {
+            $0.frame(in: .named(PracticeSwipe.space)).minY
+        } action: {
+            controlsTop = $0
+        }
     }
 
-    /// The waveform, which takes the height the controls leave, down to its floor.
+    /// The page's height without the waveform, which does not change with the waveform's height.
+    private var heightBesideWaveform: CGFloat? {
+        guard let pageHeight, let waveformHeight else { return nil }
+        return pageHeight - waveformHeight
+    }
+
+    /// The height the window has beyond everything on the page but the waveform, less the
+    /// waveform's floor; negative when the page is taller than the window and scrolls.
+    private var practiceSpareHeight: CGFloat? {
+        guard let viewportHeight, let heightBesideWaveform else { return nil }
+        return viewportHeight - heightBesideWaveform - PracticeLayout.waveformFloor(isCompactHeight: isCompactHeight)
+    }
+
+    /// The waveform's height: what the window has left, down to its floor.
+    private var waveformTargetHeight: CGFloat {
+        PracticeLayout.waveformFloor(isCompactHeight: isCompactHeight) + max(0, practiceSpareHeight ?? 0)
+    }
+
+    /// The waveform, which takes the height the rest of the page leaves, down to its floor.
     private func waveform(_ practice: PracticeModel, disabledReason: String?) -> some View {
         PracticeWaveform(
             model: practice, peaks: shownPeaks, focus: $focus, accessibilityFocus: $waveformFocused
         )
         .dimmedWhenDisabled(disabledReason != nil)
-        .frame(minHeight: PracticeLayout.waveformFloor(isCompactHeight: isCompactHeight), maxHeight: .infinity)
+        .frame(height: waveformTargetHeight)
         .onGeometryChange(for: CGFloat.self) {
             $0.size.height
         } action: {

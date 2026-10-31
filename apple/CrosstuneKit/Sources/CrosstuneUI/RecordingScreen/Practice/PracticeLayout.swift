@@ -4,7 +4,7 @@ import SwiftUI
 /// How the recording screen sizes its waveform. The waveform takes whatever height the screen
 /// has left over the mode panels, which always reserve the tallest panel's height, so changing
 /// mode, adding the first loop, or opening a name field never moves the controls the musician is
-/// reaching for. Below its floor the waveform stops shrinking and the panels scroll instead.
+/// reaching for. Below its floor the waveform stops shrinking and the whole page scrolls instead.
 enum PracticeLayout {
     /// The least height the waveform keeps, in points. A phone on its side has little height,
     /// so its floor is lower.

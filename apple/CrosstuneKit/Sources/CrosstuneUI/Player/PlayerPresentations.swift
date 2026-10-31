@@ -87,7 +87,9 @@ import CrosstuneDesign
                 NavigationStack {
                     LinkPadPractice(player: player)
                 }
-                .closesPracticeBySwipe(areaBottom: nil, isEnabled: true) { player.isExpanded = false }
+                .closesPracticeBySwipe(areaBottom: nil, isScrolledToTop: true, isEnabled: true) {
+                    player.isExpanded = false
+                }
             }
             .shellSheet()
         }
