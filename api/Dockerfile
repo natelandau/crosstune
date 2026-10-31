@@ -26,10 +26,13 @@ RUN mkdir /geo && sh -c ' \
     done; \
     echo "DB-IP download failed; building without a country database" >&2; exit 0'
 
-# CI borrows this stage's ffmpeg without building the app.
+# Local runs and CI borrow this stage's ffmpeg without building the app
+# (scripts/media-tools.sh). The build fails on any major but 7, so a new base image
+# never moves production to another ffmpeg unnoticed.
 FROM python:3.13-slim-trixie@sha256:70729b46c69b4f1e97c4822c1af3df53a1476cf5ddc6c087c0c10bc3a5678c2f AS media
 RUN apt-get update && apt-get install -y --no-install-recommends tini ffmpeg \
     && rm -rf /var/lib/apt/lists/* \
+    && ffmpeg -version | grep -q '^ffmpeg version 7\.' \
     && useradd --uid 1000 --create-home appuser
 WORKDIR /app
 

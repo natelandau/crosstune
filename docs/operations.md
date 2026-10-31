@@ -6,16 +6,16 @@ deployable reads its settings: `architecture.md`, Configuration.
 
 ## Prerequisites
 
-| Tool                                                   | Version        | Notes                                                                           |
-| ------------------------------------------------------ | -------------- | ------------------------------------------------------------------------------- |
-| [uv](https://docs.astral.sh/uv/)                       | any            | Installs Python 3.13, the API's dependencies, and the git hooks.                |
-| [Node.js](https://nodejs.org/)                         | 22.22 or newer | Runs the web toolchain.                                                         |
-| [pnpm](https://pnpm.io/)                               | 12.11.2        | Pinned in `web/package.json`. `corepack enable` installs it.                    |
-| [just](https://just.systems)                           | any            | The task runner.                                                                |
-| [Docker](https://docs.docker.com/get-docker/)          | any            | Runs Postgres 18 and RustFS for development and the API tests. Must be running. |
-| [ffmpeg](https://ffmpeg.org/)                          | any            | Transcodes recordings. Without it the API tests that use audio skip.            |
-| [Xcode](https://developer.apple.com/xcode/)            | 27             | Builds and tests the Apple app. Root `lint`, `format`, and `test` need it.      |
-| [Periphery](https://github.com/peripheryapp/periphery) | 3.8            | Finds unused Swift code for `just apple::deadcode`.                             |
+| Tool                                                   | Version        | Notes                                                                                              |
+| ------------------------------------------------------ | -------------- | -------------------------------------------------------------------------------------------------- |
+| [uv](https://docs.astral.sh/uv/)                       | any            | Installs Python 3.13, the API's dependencies, and the git hooks.                                   |
+| [Node.js](https://nodejs.org/)                         | 22.22 or newer | Runs the web toolchain.                                                                            |
+| [pnpm](https://pnpm.io/)                               | 12.11.2        | Pinned in `web/package.json`. `corepack enable` installs it.                                       |
+| [just](https://just.systems)                           | any            | The task runner.                                                                                   |
+| [Docker](https://docs.docker.com/get-docker/)          | any            | Runs Postgres 18, RustFS, and the API's ffmpeg for development and the API tests. Must be running. |
+| [ffmpeg](https://ffmpeg.org/)                          | any            | Builds the App Store preview. The API never uses it.                                               |
+| [Xcode](https://developer.apple.com/xcode/)            | 27             | Builds and tests the Apple app. Root `lint`, `format`, and `test` need it.                         |
+| [Periphery](https://github.com/peripheryapp/periphery) | 3.8            | Finds unused Swift code for `just apple::deadcode`.                                                |
 
 Also a free [Clerk](https://clerk.com) development instance with email
 verification code, Apple, and Google sign-in on. The Apple app's
@@ -71,6 +71,11 @@ Apple app:
 
 `just test` runs every unit and integration suite. `just e2e` runs
 Playwright.
+
+- The API's recipes, `just dev` included, put `scripts/media-tools.sh`
+  first on `PATH`. It runs ffmpeg and ffprobe inside the API image's
+  `media` stage, so local runs, CI, and production use one ffmpeg build.
+  The image build fails on any ffmpeg major but 7.
 
 ### Gate cache
 

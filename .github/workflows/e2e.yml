@@ -10,7 +10,7 @@ on:
     paths:
       - "web/**"
       - "api/**"
-      - "scripts/ci-media-tools.sh"
+      - "scripts/media-tools.sh"
       - "compose.yml"
       - "justfile"
       - ".github/workflows/e2e.yml"
@@ -86,9 +86,6 @@ jobs:
           chromium: "true"
       - run: uv sync --all-groups
         working-directory: api
-      # The API transcodes recordings with ffprobe and ffmpeg from PATH.
-      - name: use the API image's ffmpeg
-        run: scripts/ci-media-tools.sh
       - name: start RustFS
         run: docker compose up -d --wait rustfs
       # run-e2e creates and migrates the database and the buckets before it serves.

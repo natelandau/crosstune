@@ -103,9 +103,6 @@ jobs:
       - name: start RustFS
         working-directory: .
         run: docker compose up -d --wait rustfs
-      - name: use the API image's ffmpeg
-        working-directory: .
-        run: scripts/ci-media-tools.sh
       - run: just test
 
   # Railway builds the full image only after merge, and production's build only after

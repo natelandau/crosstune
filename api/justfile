@@ -7,6 +7,8 @@ py_src := "src/ tests/"
 # Runs a lint or test gate through gate-cache when it is installed
 gate := "../scripts/gate-cache.sh"
 compose := "docker compose -f ../compose.yml"
+# Puts the API image's ffmpeg and ffprobe first on PATH, the build production runs
+media_path := 'PATH="$(../scripts/media-tools.sh):$PATH"'
 
 # The database the end-to-end suite owns, beside the development database in the
 # server compose.yml starts. The e2e recipes name only this one, so the data a
@@ -54,7 +56,7 @@ lint: ruff format ty typos contract-check
 [group('test')]
 [positional-arguments]
 test *args:
-    {{ gate }} api-test --argc "$#" --tool 'ffmpeg -version' just _test "$@"
+    {{ media_path }} {{ gate }} api-test --argc "$#" --tool 'ffmpeg -version' just _test "$@"
 
 [positional-arguments]
 _test *args:
@@ -65,7 +67,7 @@ _test *args:
 # Run the API with reload
 [group('run')]
 run:
-    uv run uvicorn crosstune.main:app --reload --reload-dir src --port 8000
+    {{ media_path }} uv run uvicorn crosstune.main:app --reload --reload-dir src --port 8000
 
 # Run the API against the end-to-end database, for `just web::e2e`
 [group('run')]
@@ -74,7 +76,7 @@ run-e2e: e2e-db storage-setup _serve-e2e
 # Serve the end-to-end database unchanged; `just e2e` prepares it first
 _serve-e2e:
     @echo "serving {{ e2e_db }} on :{{ e2e_port }}"
-    {{ e2e_env }} uv run uvicorn crosstune.main:app --port {{ e2e_port }}
+    {{ media_path }} {{ e2e_env }} uv run uvicorn crosstune.main:app --port {{ e2e_port }}
 
 # Wait for the e2e API started as process `pid` to answer, or print `log` and fail once it exits or 90 seconds pass
 [group('run')]
@@ -271,6 +273,8 @@ update:
 clean:
     rm -rf .cache .coverage .coverage.* build dist *.egg-info
     find src tests -type d -name __pycache__ -prune -exec rm -rf {} +
+    # One media container per image the media stage has built; the next run starts its own
+    docker ps --all --quiet --filter name=crosstune-media- | xargs docker container rm --force > /dev/null 2>&1 || true
 
 # Install dependencies and create .env from the example if absent
 [group('maintenance')]
