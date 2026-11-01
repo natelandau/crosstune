@@ -1,5 +1,5 @@
 {
-  "originHash" : "2cbd82f217574443257c2dab67721546ce3914b896378d1f1fdca421cfc9534c",
+  "originHash" : "95fd5f2dffe642e4c98d6510335fac8cbd6113adc8acdc1bb5a4edf04ef2417c",
   "pins" : [
     {
       "identity" : "clerk-ios",
@@ -87,8 +87,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-openapi-runtime",
       "state" : {
-        "revision" : "50ad7976f18fec6c09466d2aebf7be3dc9476cfb",
-        "version" : "1.13.0"
+        "revision" : "6927ad435adf4d00fe55fc61b9a07a04673c79c8",
+        "version" : "1.13.3"
       }
     },
     {
