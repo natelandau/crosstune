@@ -235,6 +235,7 @@ public enum CatalogFilterKind: String, CaseIterable, Sendable {
     case mode
     case tuning
     case genre
+    case timeSignature = "time_signature"
     case composer
     case learnedFrom = "learned_from"
     case archived

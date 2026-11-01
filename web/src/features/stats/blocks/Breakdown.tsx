@@ -17,8 +17,8 @@ type OnFilter = (patch: Partial<CatalogFilters>, header: string) => void
 
 /**
  * One group per attribute the catalog uses, in a fixed order. A value that is a catalog filter
- * opens the catalog with only that filter; time signature only counts. A filter that could not
- * be saved reports under the group it was tapped in.
+ * opens the catalog with only that filter. A filter that could not be saved reports under the
+ * group it was tapped in.
  */
 export function Breakdowns({
   breakdowns,
@@ -38,18 +38,21 @@ export function Breakdowns({
           error={filterError(FACET_LABELS.key)}
         />
       )}
-      {breakdownGroups(breakdowns).map(({ header, values, facet }) => (
-        <Breakdown
-          key={header}
-          title={header}
-          values={values}
-          onOpen={(value) => {
-            const patch = valueFilter(facet, value)
-            return patch ? () => onFilter(patch, header) : undefined
-          }}
-          error={filterError(header)}
-        />
-      ))}
+      {breakdownGroups(breakdowns).map(({ values, facet }) => {
+        const header = FACET_LABELS[facet]
+        return (
+          <Breakdown
+            key={header}
+            title={header}
+            values={values}
+            onOpen={(value) => {
+              const patch = valueFilter(facet, value)
+              return patch ? () => onFilter(patch, header) : undefined
+            }}
+            error={filterError(header)}
+          />
+        )
+      })}
     </>
   )
 }

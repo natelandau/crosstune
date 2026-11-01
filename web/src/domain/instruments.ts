@@ -1,6 +1,7 @@
 import { INSTRUMENTS, type Instrument } from '../api/vocabulary'
 import { CAPO_INSTRUMENTS, INSTRUMENT_LABELS, STANDARD_TUNINGS } from '../constants'
 import { isInstrument, storedInstruments, type LocalUserSettings } from '../db/types'
+import { completeRecord } from './completeRecord'
 
 /** The footer under the instruments setting, wherever it is asked. */
 export const INSTRUMENTS_HELP = 'Tunes show a tuning for each instrument chosen here.'
@@ -43,18 +44,12 @@ export function tuningKeyInstrument(key: string): Instrument | undefined {
   return KEY_INSTRUMENTS.get(key)
 }
 
-function hasEveryTuningKey<T>(
-  record: Partial<Record<TuningKey, T>>,
-): record is Record<TuningKey, T> {
-  return TUNING_KEYS.every((key) => key in record)
-}
-
 /** One value per tuning key, typed as a complete record. */
 export function byTuningKey<T>(value: (instrument: Instrument) => T): Record<TuningKey, T> {
-  const record: Partial<Record<TuningKey, T>> = {}
-  for (const instrument of INSTRUMENTS) record[tuningKey(instrument)] = value(instrument)
-  if (!hasEveryTuningKey(record)) throw new Error('A tuning key is missing its value')
-  return record
+  return completeRecord(
+    TUNING_KEYS,
+    INSTRUMENTS.map((instrument) => [tuningKey(instrument), value(instrument)] as const),
+  )
 }
 
 export const tuningLabel = (instrument: Instrument) => `${INSTRUMENT_LABELS[instrument]} tuning`

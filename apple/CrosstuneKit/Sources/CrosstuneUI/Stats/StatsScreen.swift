@@ -56,9 +56,8 @@ enum StatsBlock: Identifiable {
     case activity
     case onThisDay
     case keys
-    /// A breakdown of one attribute. `facet` is the catalog filter its values set, or nil for
-    /// an attribute the catalog does not filter on, whose values only count.
-    case values(header: String, values: [Stats.Value], facet: CatalogFacet?)
+    /// A breakdown of one attribute, headed by the label of the catalog filter its values set.
+    case values([Stats.Value], facet: CatalogFacet)
     case rarities
 
     var id: String { header }
@@ -71,7 +70,7 @@ enum StatsBlock: Identifiable {
         case .activity: StatsCopy.activityHeader
         case .onThisDay: StatsCopy.onThisDayHeader
         case .keys: CatalogFacet.key.label
-        case .values(let header, _, _): header
+        case .values(_, let facet): facet.label
         case .rarities: StatsCopy.raritiesHeader
         }
     }
@@ -82,17 +81,16 @@ enum StatsBlock: Identifiable {
         let tunings = breakdowns.tunings.compactMap { row -> StatsBlock? in
             // An instrument this build cannot name has no catalog filter to open.
             guard Vocabulary.instrumentLabels[row.instrument] != nil else { return nil }
-            let facet = CatalogFacet.tuning(row.instrument)
-            return .values(header: facet.label, values: row.values, facet: facet)
+            return .values(row.values, facet: .tuning(row.instrument))
         }
         let values: [StatsBlock] =
-            [.values(header: CatalogFacet.tuneType.label, values: breakdowns.tuneType, facet: .tuneType)]
+            [.values(breakdowns.tuneType, facet: .tuneType)]
             + tunings
             + [
-                .values(header: CatalogFacet.genre.label, values: breakdowns.genre, facet: .genre),
-                .values(header: TuneFieldLabels.timeSignature, values: breakdowns.timeSignature, facet: nil),
-                .values(header: CatalogFacet.composer.label, values: breakdowns.composer, facet: .composer),
-                .values(header: CatalogFacet.learnedFrom.label, values: breakdowns.learnedFrom, facet: .learnedFrom),
+                .values(breakdowns.genre, facet: .genre),
+                .values(breakdowns.timeSignature, facet: .timeSignature),
+                .values(breakdowns.composer, facet: .composer),
+                .values(breakdowns.learnedFrom, facet: .learnedFrom),
             ]
         var blocks: [StatsBlock] = [.counts, .recorded]
         if !stats.months.allTime.isEmpty { blocks.append(.months) }
@@ -100,7 +98,7 @@ enum StatsBlock: Identifiable {
         if !stats.onThisDay.isEmpty { blocks.append(.onThisDay) }
         if !breakdowns.key.isEmpty { blocks.append(.keys) }
         blocks += values.filter {
-            if case .values(_, let values, _) = $0 { !values.isEmpty } else { true }
+            if case .values(let values, _) = $0 { !values.isEmpty } else { true }
         }
         if !stats.rarities.isEmpty { blocks.append(.rarities) }
         return blocks
@@ -248,8 +246,8 @@ struct StatsDocument: View {
             PageSection(block.header) {
                 KeyGridView(rows: stats.breakdowns.key, open: tapThrough)
             }
-        case .values(let header, let values, let facet):
-            PageSection(header) { breakdown(id: block.id, values, facet: facet) }
+        case .values(let values, let facet):
+            PageSection(block.header) { breakdown(id: block.id, values, facet: facet) }
         case .rarities:
             PageSection(block.header) {
                 VStack(alignment: .leading, spacing: 4) {
@@ -313,7 +311,7 @@ struct StatsDocument: View {
         }
     }
 
-    @ViewBuilder private func breakdown(id: String, _ values: [Stats.Value], facet: CatalogFacet?) -> some View {
+    @ViewBuilder private func breakdown(id: String, _ values: [Stats.Value], facet: CatalogFacet) -> some View {
         let isOpen = expanded.contains(id)
         let parts = StatsBreakdown.visible(values, expanded: isOpen)
         let peak = values.map(\.count).max() ?? 0
@@ -333,8 +331,8 @@ struct StatsDocument: View {
         }
     }
 
-    @ViewBuilder private func valueRow(_ value: Stats.Value, max: Int, facet: CatalogFacet?) -> some View {
-        if let facet, let tapThrough, let link = StatsLink.value(value.value, facet: facet) {
+    @ViewBuilder private func valueRow(_ value: Stats.Value, max: Int, facet: CatalogFacet) -> some View {
+        if let tapThrough, let link = StatsLink.value(value.value, facet: facet) {
             Button {
                 tapThrough(link)
             } label: {

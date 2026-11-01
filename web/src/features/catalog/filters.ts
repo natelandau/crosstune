@@ -10,11 +10,11 @@ import {
   isTuningKey,
   TUNING_KEYS,
   tuningEntry,
-  tuningKey,
   tuningKeyInstrument,
   tuningLabel,
 } from '../../domain/instruments'
 import { compareNames } from '../../text/collate'
+import { completeRecord } from '../../domain/completeRecord'
 
 /** One tuning facet per instrument, so each instrument's tunings filter on their own. */
 export const FACETS = [
@@ -23,6 +23,7 @@ export const FACETS = [
   'mode',
   ...TUNING_KEYS,
   'genre',
+  'time_signature',
   'composer',
   'learned_from',
 ] as const
@@ -34,6 +35,7 @@ export const FACET_LABELS: Record<Facet, string> = {
   mode: 'Mode',
   ...byTuningKey(tuningLabel),
   genre: 'Genre',
+  time_signature: DETAIL_LABELS.time_signature,
   composer: DETAIL_LABELS.composer,
   learned_from: DETAIL_LABELS.learned_from,
 }
@@ -72,15 +74,8 @@ export const MISSING_ATTRIBUTES = [
 export type MissingAttribute = (typeof MISSING_ATTRIBUTES)[number]
 
 export const MISSING_LABELS: Record<MissingAttribute, string> = {
-  key: FACET_LABELS.key,
-  mode: FACET_LABELS.mode,
-  tune_type: FACET_LABELS.tune_type,
-  genre: FACET_LABELS.genre,
-  time_signature: DETAIL_LABELS.time_signature,
-  composer: DETAIL_LABELS.composer,
+  ...FACET_LABELS,
   part_structure: DETAIL_LABELS.part_structure,
-  ...byTuningKey(tuningLabel),
-  learned_from: DETAIL_LABELS.learned_from,
   learned_on: DETAIL_LABELS.learned_on,
 }
 
@@ -91,15 +86,17 @@ export type CatalogFilters = Record<Facet, string> & {
   missing: MissingAttribute | 'all'
 }
 
+/** One value per facet, typed as a complete record. */
+function byFacet<T>(value: (facet: Facet) => T): Record<Facet, T> {
+  return completeRecord(
+    FACETS,
+    FACETS.map((facet) => [facet, value(facet)] as const),
+  )
+}
+
 export const DEFAULT_FILTERS: CatalogFilters = {
   status: 'all',
-  key: 'all',
-  tune_type: 'all',
-  mode: 'all',
-  ...byTuningKey(() => 'all'),
-  genre: 'all',
-  composer: 'all',
-  learned_from: 'all',
+  ...byFacet(() => 'all'),
   archived: false,
   unheard: false,
   missing: 'all',
@@ -137,13 +134,7 @@ export function normalizeFilters(value: unknown): CatalogFilters {
   // the next write drops it.
   return {
     status: isStatus(stored.status) || stored.status === 'all' ? stored.status : 'all',
-    key: text('key'),
-    tune_type: text('tune_type'),
-    mode: text('mode'),
-    ...byTuningKey((instrument) => text(tuningKey(instrument))),
-    genre: text('genre'),
-    composer: text('composer'),
-    learned_from: text('learned_from'),
+    ...byFacet(text),
     archived: stored.archived === true,
     unheard: stored.unheard === true,
     missing: isMissingAttribute(stored.missing) ? stored.missing : 'all',
@@ -206,13 +197,12 @@ function attributeValues(
   attribute: MissingAttribute,
 ): readonly (string | null | undefined)[] {
   if (attribute === 'learned_on') return [entry.userTune.learned_on]
-  if (attribute === 'time_signature' || attribute === 'part_structure')
-    return [entry.tune[attribute]]
+  if (attribute === 'part_structure') return [entry.tune.part_structure]
   return facetValuesOf(entry, attribute)
 }
 
 function facetMatches(filter: string, value: string | null | undefined): boolean {
-  return filter === 'all' || (hasText(value) && sameText(filter, value))
+  return hasText(value) && sameText(filter, value)
 }
 
 export function filterCatalog(
@@ -221,21 +211,18 @@ export function filterCatalog(
   query = '',
 ): HeardEntry[] {
   const needle = query.trim()
+  const setFacets = FACETS.filter((facet) => filters[facet] !== 'all')
   return hideArchived(entries, filters.archived).filter((entry) => {
     const { tune, userTune } = entry
     if (filters.status !== 'all' && effectiveStatus(userTune) !== filters.status) return false
     if (filters.unheard && entry.heard) return false
     if (filters.missing !== 'all' && !isMissing(attributeValues(entry, filters.missing)))
       return false
-    for (const facet of FACETS) {
+    for (const facet of setFacets) {
       const values = facetValuesOf(entry, facet)
       if (facet === 'key' && filters.key === NO_KEY) {
         if (!isMissing(values)) return false
-      } else if (
-        filters[facet] !== 'all' &&
-        !values.some((value) => facetMatches(filters[facet], value))
-      )
-        return false
+      } else if (!values.some((value) => facetMatches(filters[facet], value))) return false
     }
     if (!needle) return true
     const haystack = [
@@ -266,15 +253,12 @@ export type FacetValues = Record<Facet, string[]>
  * and some do not; with no keys at all it would narrow nothing.
  */
 export function facetValues(entries: CatalogEntry[]): FacetValues {
-  const values = Object.fromEntries(
-    FACETS.map((facet) => [
+  const values = byFacet((facet) =>
+    distinct(
       facet,
-      distinct(
-        facet,
-        entries.flatMap((e) => facetValuesOf(e, facet)),
-      ),
-    ]),
-  ) as FacetValues
+      entries.flatMap((e) => facetValuesOf(e, facet)),
+    ),
+  )
   if (values.key.length > 0 && entries.some((e) => !hasText(e.tune.key)))
     values.key = [NO_KEY, ...values.key]
   return values
