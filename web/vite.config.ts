@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs'
+import optimizeLocales from '@react-aria/optimize-locales-plugin'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig, loadEnv } from 'vite'
@@ -42,7 +43,13 @@ export default defineConfig(({ mode }) => {
   const proxy = devProxy(env)
   const hosts = allowedHosts(env)
   return {
-    plugins: [react(), tailwindcss(), VitePWA(pwaOptions)],
+    plugins: [
+      // The app's copy is English only, so react-aria's built-in labels stay English too.
+      optimizeLocales.vite({ locales: ['en-US'] }),
+      react(),
+      tailwindcss(),
+      VitePWA(pwaOptions),
+    ],
     define: { __APP_VERSION__: JSON.stringify(pkg.version) },
     // A dev server that drifted off 5173 would lose the Clerk origin and the Apple app's
     // storage origin, so a taken port is an error instead.

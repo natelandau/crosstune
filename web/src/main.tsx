@@ -1,6 +1,7 @@
 import { ClerkProvider } from '@clerk/react'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import { I18nProvider } from 'react-aria'
 import { AnalyticsProvider } from './usage/AnalyticsProvider'
 import { LOCALIZATION } from './app/clerkAppearance'
 import { AuthGate } from './app/AuthGate'
@@ -15,13 +16,17 @@ function mountApp(element: HTMLElement) {
   if (!clerkKey) throw new Error('VITE_CLERK_PUBLISHABLE_KEY is not set')
   createRoot(element).render(
     <StrictMode>
-      <ClerkProvider publishableKey={clerkKey} localization={LOCALIZATION}>
-        <AnalyticsProvider client={analytics}>
-          <AuthGate>
-            <SignedInApp />
-          </AuthGate>
-        </AnalyticsProvider>
-      </ClerkProvider>
+      {/* The page is English and left to right, so react-aria's labels, keyboard direction, and
+          formatting follow it rather than the browser's language. */}
+      <I18nProvider locale="en-US">
+        <ClerkProvider publishableKey={clerkKey} localization={LOCALIZATION}>
+          <AnalyticsProvider client={analytics}>
+            <AuthGate>
+              <SignedInApp />
+            </AuthGate>
+          </AnalyticsProvider>
+        </ClerkProvider>
+      </I18nProvider>
     </StrictMode>,
   )
 }
