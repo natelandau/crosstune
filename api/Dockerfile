@@ -1,4 +1,4 @@
-FROM ghcr.io/astral-sh/uv:0.13.0-python3.13-trixie-slim@sha256:40215b626e22e4ff65839863624c4b885b8829b1a66ce895b7be20eca7fabe6d AS builder
+FROM ghcr.io/astral-sh/uv:0.13.6-python3.13-trixie-slim@sha256:e586c1c65b7071aec78f02c5587c76c5011159cd76b3d6f1255f40e48e850abc AS builder
 ENV UV_COMPILE_BYTECODE=1
 WORKDIR /app
 COPY uv.lock pyproject.toml ./
@@ -9,7 +9,7 @@ RUN uv sync --locked --no-dev --no-cache
 
 # The DB-IP country database is fetched at build time. A failed download leaves the
 # directory empty, and the API then runs without country lookups.
-FROM curlimages/curl:8.11.1@sha256:c1fe1679c34d9784c1b0d1e5f62ac0a79fca01fb6377cdd33e90473c6f9f9a69 AS geo
+FROM curlimages/curl:8.22.0@sha256:58adaa4e8dca9c988bae2aba4ab3434a0bb2da16bbe3f92dec39ec7785166777 AS geo
 USER root
 # Unused by the script, but a new value per deploy misses the layer cache, so each deploy
 # fetches the current file. Unset in a local build, which then caches as before.

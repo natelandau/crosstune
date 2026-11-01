@@ -87,7 +87,7 @@ jobs:
     # which `just web::playwright-image` checks. User 1001 owns the
     # runner's workspace.
     container:
-      image: mcr.microsoft.com/playwright:v1.64.0-noble
+      image: mcr.microsoft.com/playwright:v1.64.1-noble
       options: --user 1001
     strategy:
       fail-fast: false
