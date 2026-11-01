@@ -17,6 +17,8 @@ export const SHOW_UNHEARD = 'Only unheard'
 export const MISSING_LABEL = 'Missing'
 const UNHEARD_PILL = 'Unheard'
 export const ARCHIVED_SHOWN = 'Archived shown'
+/** A time signature capsule's name for its field, shorter than the field's own label. */
+export const TIME_SIGNATURE_TOKEN = 'Time'
 
 /** A facet value as a musician reads it: the no-key filter is named in words. */
 function facetValueLabel(facet: Facet, value: string): string {
@@ -28,12 +30,14 @@ export function facetControlLabel(facet: Facet, value: string): string {
   return `${FACET_LABELS[facet]}: ${value === 'all' ? ANY : facetValueLabel(facet, value)}`
 }
 
-// A tuning names its instrument, since two instruments can share a tuning's name, and a
-// composer or learned from names its field, since one person can be both.
+// A tuning names its instrument, since two instruments can share a tuning's name; a composer
+// or learned from names its field, since one person can be both; and a time signature names
+// its field, since a value such as "other" says nothing alone.
 function tokenLabel(facet: Facet, value: string): string {
   const instrument = tuningKeyInstrument(facet)
   if (instrument) return withInstrumentLabel(instrument, value)
   if (facet === 'composer' || facet === 'learned_from') return `${FACET_LABELS[facet]}: ${value}`
+  if (facet === 'time_signature') return `${TIME_SIGNATURE_TOKEN}: ${value}`
   return facetValueLabel(facet, value)
 }
 

@@ -17,6 +17,7 @@ const GENRES = ['Irish', 'irish', ' Írish ', 'ÍRISH', 'Old-time', 'old-time 
 const TYPES = ['Reel', 'reel', 'REEL ', 'Jig', 'jig', 'Slip jig', 'Waltz', 'waltz']
 const KEYS = ['D', 'd', ' D', 'G', 'g', 'A', 'Bb', 'bb']
 const MODES = ['major', 'Major', 'MAJOR ', 'dorian', 'Dorian', 'mixolydian', 'Mixólydian']
+const TIME_SIGNATURES = ['4/4', '2/4', '6/8', '3/4', '9/8'] as const
 const TUNINGS = ['GDAE', 'gdae', ' GDAE', 'AEAE', 'aeae', 'Calico (AEAC#)']
 
 const COMPOSERS = [
@@ -34,6 +35,7 @@ const tunes = Array.from({ length: 40 }, (_, i) =>
     genre: GENRES[i % GENRES.length],
     composer: COMPOSERS[(i * 5) % COMPOSERS.length],
     tune_type: TYPES[(i * 3) % TYPES.length],
+    time_signature: TIME_SIGNATURES[(i * 2) % TIME_SIGNATURES.length],
     key: KEYS[(i * 5) % KEYS.length],
     modes: [MODES[i % MODES.length]!, MODES[(i * 2 + 1) % MODES.length]!],
     tunings: { violin: { tuning: TUNINGS[(i * 7) % TUNINGS.length] } },
@@ -57,6 +59,7 @@ function shown(patch: Partial<CatalogFilters>): number {
 const facetValues: [Facet, { value: string; count: number }][] = [
   ...stats.tune_type.map((value) => ['tune_type', value] as [Facet, typeof value]),
   ...stats.genre.map((value) => ['genre', value] as [Facet, typeof value]),
+  ...stats.time_signature.map((value) => ['time_signature', value] as [Facet, typeof value]),
   ...stats.composer.map((value) => ['composer', value] as [Facet, typeof value]),
   ...stats.learned_from.map((value) => ['learned_from', value] as [Facet, typeof value]),
   ...stats.tunings.flatMap(({ instrument, values }) =>

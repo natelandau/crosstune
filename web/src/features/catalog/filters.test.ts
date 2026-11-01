@@ -24,7 +24,7 @@ import {
   tuneCountLabel,
   visibleFacets,
 } from './filters'
-import { sheetFilters } from './filterLabels'
+import { sheetFilters, TIME_SIGNATURE_TOKEN } from './filterLabels'
 
 const tunes = [
   tune('s1', "soldier's joy", {
@@ -260,6 +260,10 @@ describe('part modes', () => {
 })
 
 describe('normalizeFilters', () => {
+  it('keeps a stored time signature filter', () => {
+    expect(normalizeFilters({ time_signature: '6/8' }).time_signature).toBe('6/8')
+  })
+
   it('fills defaults for missing or malformed stored values', () => {
     expect(normalizeFilters(null)).toEqual(DEFAULT_FILTERS)
     expect(normalizeFilters({ status: 'bogus', archived: 'yes' })).toEqual(DEFAULT_FILTERS)
@@ -322,6 +326,7 @@ describe('visibleFacets', () => {
       'tuning:mandolin': 'all',
       'tuning:bouzouki': 'all',
       'tuning:mountain_dulcimer': 'all',
+      time_signature: 'all',
       composer: 'all',
       learned_from: 'all',
     })
@@ -379,6 +384,28 @@ describe('type and composer', () => {
     )
     expect(sheet.tokens.map((t) => t.label)).toEqual(['reel'])
     expect(sheet.count).toBe(3)
+  })
+})
+
+describe('time signature', () => {
+  const entries = catalogEntries(
+    [
+      tune('w1', 'Midnight on the Water', { time_signature: '3/4' }),
+      tune('w2', 'Blackberry Blossom', { time_signature: '4/4' }),
+      tune('w3', 'Unknown Meter'),
+    ],
+    [userTune('wu1', 'w1'), userTune('wu2', 'w2'), userTune('wu3', 'w3')],
+  )
+
+  it('filters by time signature and offers each one the catalog holds', () => {
+    const found = filterCatalog(entries, { ...DEFAULT_FILTERS, time_signature: '3/4' })
+    expect(found.map((e) => e.tune.id)).toEqual(['w1'])
+    expect(facetValues(entries).time_signature).toEqual(['3/4', '4/4'])
+  })
+
+  it('names its field on the capsule', () => {
+    const sheet = sheetFilters({ ...DEFAULT_FILTERS, time_signature: 'other' }, ['time_signature'])
+    expect(sheet.tokens.map((t) => t.label)).toEqual([`${TIME_SIGNATURE_TOKEN}: other`])
   })
 })
 

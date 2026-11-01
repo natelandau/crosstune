@@ -57,10 +57,13 @@ private struct FailingEventsAPI: SyncAPI {
 
 private func addTune(
     _ writer: StoreWriter, _ id: String, _ title: String, key: String? = nil, modes: [String] = [],
-    genre: String? = nil, composer: String? = nil, learnedFrom: String? = nil, created: Timestamp = noon
+    genre: String? = nil, composer: String? = nil, timeSignature: String? = nil, learnedFrom: String? = nil,
+    created: Timestamp = noon
 ) throws {
     try writer.put(
-        Tune(id: id, createdAt: created, title: title, composer: composer, genre: genre, key: key, modes: modes))
+        Tune(
+            id: id, createdAt: created, title: title, composer: composer, genre: genre, key: key, modes: modes,
+            timeSignature: timeSignature))
     try writer.put(
         UserTune(id: "u-\(id)", createdAt: created, tuneID: id, status: "known", learnedFrom: learnedFrom))
 }
@@ -205,19 +208,18 @@ private func loadedSummary(_ store: CrosstuneStore) async throws -> LiveQuery<St
         #expect(!headers.contains(CatalogFacet.genre.label))
     }
 
-    @Test func composerAndLearnedFromRowsCarryTheirFacets() async throws {
+    @Test func valueRowsCarryTheirFacets() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
         try await store.write {
-            try addTune($0, "t1", "Sally Ann", composer: "Ed Haley", learnedFrom: "Kevin")
+            try addTune($0, "t1", "Sally Ann", composer: "Ed Haley", timeSignature: "3/4", learnedFrom: "Kevin")
         }
         let model = try await loaded(store)
-        let blocks = StatsBlock.blocks(try #require(model.view).stats)
-        let facets = blocks.compactMap { block -> (String, CatalogFacet?)? in
-            if case .values(let header, _, let facet) = block { (header, facet) } else { nil }
+        let facets = StatsBlock.blocks(try #require(model.view).stats).compactMap { block -> CatalogFacet? in
+            if case .values(_, let facet) = block { facet } else { nil }
         }
-        #expect(facets.map(\.0) == [CatalogFacet.composer.label, CatalogFacet.learnedFrom.label])
-        #expect(facets.map(\.1) == [.composer, .learnedFrom])
+        #expect(facets == [.timeSignature, .composer, .learnedFrom])
+        #expect(StatsLink.value("3/4", facet: .timeSignature) == [.timeSignature: "3/4"])
     }
 
     @Test func statsRenderOfflineFromLocalRows() async throws {

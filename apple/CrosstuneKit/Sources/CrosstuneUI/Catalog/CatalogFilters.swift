@@ -40,25 +40,21 @@ public struct SearchableEntry: Hashable, Sendable, Identifiable {
     public var id: String { entry.id }
 }
 
-/// A field the Missing filter can ask about. The learned fields read the musician's own row;
-/// every other attribute reads the tune. Raw values are the web client's, so both read the same
-/// stored filter.
+/// A field the Missing filter can ask about: any facet, or a field no facet filters on. The
+/// learned fields read the musician's own row; every other attribute reads the tune. Raw values
+/// are the web client's, so both read the same stored filter.
 public enum MissingAttribute: Hashable, Sendable, RawRepresentable {
-    case key
-    case mode
-    case tuneType
-    case genre
-    case timeSignature
-    case composer
+    case facet(CatalogFacet)
     case partStructure
-    case tuning(String)
-    case learnedFrom
     case learnedOn
 
     /// Every attribute in the order the sheet lists them.
     nonisolated public static let all: [MissingAttribute] =
-        [.key, .mode, .tuneType, .genre, .timeSignature, .composer, .partStructure]
-        + Vocabulary.instruments.map(MissingAttribute.tuning) + [.learnedFrom, .learnedOn]
+        [
+            .facet(.key), .facet(.mode), .facet(.tuneType), .facet(.genre), .facet(.timeSignature),
+            .facet(.composer), .partStructure,
+        ]
+        + Vocabulary.instruments.map { .facet(.tuning($0)) } + [.facet(.learnedFrom), .learnedOn]
 
     public init?(rawValue: String) {
         guard let match = Self.all.first(where: { $0.rawValue == rawValue }) else { return nil }
@@ -67,30 +63,16 @@ public enum MissingAttribute: Hashable, Sendable, RawRepresentable {
 
     public var rawValue: String {
         switch self {
-        case .key: "key"
-        case .mode: "mode"
-        case .tuneType: "tune_type"
-        case .genre: "genre"
-        case .timeSignature: "time_signature"
-        case .composer: "composer"
+        case .facet(let facet): facet.storageKey
         case .partStructure: "part_structure"
-        case .tuning(let instrument): "tuning:\(instrument)"
-        case .learnedFrom: "learned_from"
         case .learnedOn: "learned_on"
         }
     }
 
     public var label: String {
         switch self {
-        case .key: CatalogFacet.key.label
-        case .mode: CatalogFacet.mode.label
-        case .tuneType: CatalogFacet.tuneType.label
-        case .genre: CatalogFacet.genre.label
-        case .timeSignature: TuneFieldLabels.timeSignature
-        case .composer: TuneFieldLabels.composer
+        case .facet(let facet): facet.label
         case .partStructure: TuneFieldLabels.partStructure
-        case .tuning(let instrument): CatalogFacet.tuning(instrument).label
-        case .learnedFrom: TuneFieldLabels.learnedFrom
         case .learnedOn: TuneFieldLabels.learnedOn
         }
     }
@@ -98,22 +80,15 @@ public enum MissingAttribute: Hashable, Sendable, RawRepresentable {
     /// The facet whose visibility gates this attribute: a tuning for an instrument the musician
     /// does not play is hidden, so it cannot narrow the list.
     var tuningFacet: CatalogFacet? {
-        if case .tuning(let instrument) = self { return .tuning(instrument) }
+        if case .facet(let facet) = self, facet.instrument != nil { return facet }
         return nil
     }
 
     /// Every value the entry holds for this attribute.
     func values(of entry: CatalogEntry) -> [String?] {
         switch self {
-        case .key: CatalogFacet.key.values(of: entry)
-        case .mode: CatalogFacet.mode.values(of: entry)
-        case .tuneType: CatalogFacet.tuneType.values(of: entry)
-        case .genre: CatalogFacet.genre.values(of: entry)
-        case .timeSignature: [entry.tune.timeSignature]
-        case .composer: CatalogFacet.composer.values(of: entry)
+        case .facet(let facet): facet.values(of: entry)
         case .partStructure: [entry.tune.partStructure]
-        case .tuning(let instrument): CatalogFacet.tuning(instrument).values(of: entry)
-        case .learnedFrom: CatalogFacet.learnedFrom.values(of: entry)
         case .learnedOn: [entry.userTune.learnedOn]
         }
     }
@@ -394,6 +369,7 @@ extension CatalogFacet {
         case .mode: .mode
         case .tuning: .tuning
         case .genre: .genre
+        case .timeSignature: .timeSignature
         case .composer: .composer
         case .learnedFrom: .learnedFrom
         }

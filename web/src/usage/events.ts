@@ -73,6 +73,7 @@ export const FILTERS = [
   'mode',
   'tuning',
   'genre',
+  'time_signature',
   'composer',
   'learned_from',
   'archived',

@@ -9,11 +9,13 @@ import Testing
 
 private func tune(
     _ id: String, _ title: String, alternateTitles: [String] = [], composer: String? = nil, genre: String? = nil,
-    type: String? = nil, key: String? = nil, modes: [String] = [], tunings: JSONObject = [:], deleted: Bool = false
+    type: String? = nil, key: String? = nil, modes: [String] = [], timeSignature: String? = nil,
+    tunings: JSONObject = [:], deleted: Bool = false
 ) -> Tune {
     Tune(
         id: id, createdAt: noon, deletedAt: deleted ? noon : nil, title: title, alternateTitles: alternateTitles,
-        composer: composer, genre: genre, tuneType: type, key: key, modes: modes, tunings: tunings)
+        composer: composer, genre: genre, tuneType: type, key: key, modes: modes, timeSignature: timeSignature,
+        tunings: tunings)
 }
 
 private func userTune(
@@ -93,7 +95,8 @@ private let blankAndSentinel = CatalogSearch.entries(
     }
 
     @Test func readsAValueThatFoldsToNothingAsMissingAndMatchesNoFilterWithIt() {
-        #expect(ids(CatalogSearch.filter(blankAndSentinel, by: CatalogFilters(missing: .genre))) == ["b1", "b2"])
+        #expect(
+            ids(CatalogSearch.filter(blankAndSentinel, by: CatalogFilters(missing: .facet(.genre)))) == ["b1", "b2"])
         #expect(CatalogSearch.filter(blankAndSentinel, by: CatalogFilters(facets: [.genre: "\u{301}"])).isEmpty)
     }
 
@@ -315,8 +318,8 @@ private let blankAndSentinel = CatalogSearch.entries(
         #expect(CatalogSearch.facetValues(all)[.learnedFrom] == [])
     }
 
-    @Test func offersBothFacetsAfterGenreAndKeepsThemOffTheScreen() {
-        #expect(CatalogFacet.all.suffix(3) == [.genre, .composer, .learnedFrom])
+    @Test func offersGenreTimeSignatureComposerAndLearnedFromLastAndKeepsThemOffTheScreen() {
+        #expect(CatalogFacet.all.suffix(4) == [.genre, .timeSignature, .composer, .learnedFrom])
         let values = CatalogSearch.facetValues(entries)
         #expect(CatalogSearch.visibleFacets(values, instruments: []) == [.composer, .learnedFrom])
         #expect(!CatalogFacet.onScreen.contains(.composer) && !CatalogFacet.onScreen.contains(.learnedFrom))
@@ -344,8 +347,8 @@ private let blankAndSentinel = CatalogSearch.entries(
 
     @Test func missingLearnedFromReadsTheUsersRow() {
         let held = CatalogSearch.entries(tunes: [tune("m", "M")], userTunes: [userTune("mu", "m", learnedFrom: "Sam")])
-        #expect(!MissingAttribute.learnedFrom.isMissing(in: held[0]))
-        #expect(MissingAttribute.learnedFrom.isMissing(in: catalog[0]))
+        #expect(!MissingAttribute.facet(.learnedFrom).isMissing(in: held[0]))
+        #expect(MissingAttribute.facet(.learnedFrom).isMissing(in: catalog[0]))
     }
 }
 
@@ -369,26 +372,41 @@ private let blankAndSentinel = CatalogSearch.entries(
     }
 
     @Test func findsTunesMissingAnAttribute() {
-        #expect(shown(CatalogFilters(missing: .composer)) == ["b", "c"])
-        #expect(shown(CatalogFilters(missing: .key)) == ["b", "c"])
-        #expect(shown(CatalogFilters(missing: .mode)) == ["b", "c"])
-        #expect(shown(CatalogFilters(missing: .tuning("violin"))) == ["b", "c"])
-        #expect(shown(CatalogFilters(missing: .genre)) == ["b", "c"])
-        #expect(shown(CatalogFilters(missing: .learnedFrom)) == ["a", "b", "c"])
-        #expect(shown(CatalogFilters(unheard: true, missing: .composer)) == ["b", "c"])
+        #expect(shown(CatalogFilters(missing: .facet(.composer))) == ["b", "c"])
+        #expect(shown(CatalogFilters(missing: .facet(.key))) == ["b", "c"])
+        #expect(shown(CatalogFilters(missing: .facet(.mode))) == ["b", "c"])
+        #expect(shown(CatalogFilters(missing: .facet(.tuning("violin")))) == ["b", "c"])
+        #expect(shown(CatalogFilters(missing: .facet(.genre))) == ["b", "c"])
+        #expect(shown(CatalogFilters(missing: .facet(.learnedFrom))) == ["a", "b", "c"])
+        #expect(shown(CatalogFilters(unheard: true, missing: .facet(.composer))) == ["b", "c"])
     }
 
     @Test func offersOnlyAttributesSomeTuneHolds() {
         #expect(
             CatalogSearch.missingChoices(entries)
-                == [.key, .mode, .genre, .composer, .tuning("violin")])
+                == [.facet(.key), .facet(.mode), .facet(.genre), .facet(.composer), .facet(.tuning("violin"))])
     }
 
     @Test func offersAMissingTuningOnlyForAPlayedInstrument() {
         let violin = CatalogOverview(entries: catalog, instruments: ["violin"]).missingChoices
-        #expect(violin.contains(.tuning("violin")))
-        #expect(!violin.contains(.tuning("five_string_banjo")))
+        #expect(violin.contains(.facet(.tuning("violin"))))
+        #expect(!violin.contains(.facet(.tuning("five_string_banjo"))))
         #expect(CatalogOverview(entries: catalog, instruments: []).missingChoices.allSatisfy { $0.tuningFacet == nil })
+    }
+
+    @Test func filtersByTimeSignatureAndOffersEachOneTheCatalogHolds() {
+        let catalog = CatalogSearch.entries(
+            tunes: [
+                tune("w1", "Midnight on the Water", timeSignature: "3/4"),
+                tune("w2", "Blackberry Blossom", timeSignature: "4/4"), tune("w3", "Unknown Meter"),
+            ],
+            userTunes: [userTune("wu1", "w1"), userTune("wu2", "w2"), userTune("wu3", "w3")])
+        let found = CatalogSearch.filter(catalog, by: CatalogFilters(facets: [.timeSignature: "3/4"]))
+        #expect(found.map(\.tune.id) == ["w1"])
+        #expect(CatalogSearch.facetValues(catalog)[.timeSignature] == ["3/4", "4/4"])
+        #expect(CatalogFacet.timeSignature.storageKey == "time_signature")
+        #expect(CatalogFacet.timeSignature.label == TuneFieldLabels.timeSignature)
+        #expect(CatalogFacet.timeSignature.capsuleLabel("other") == "\(CatalogFacet.timeSignatureCapsule): other")
     }
 
     @Test func marksHeardTunesOnTheEntry() {
@@ -398,35 +416,35 @@ private let blankAndSentinel = CatalogSearch.entries(
 
     @Test func keepsAStaleMissingAttributeAsAnOption() {
         let overview = CatalogOverview(entries: entries, instruments: ["violin"])
-        let filters = CatalogFilters(missing: .timeSignature)
+        let filters = CatalogFilters(missing: .facet(.timeSignature))
         let results = CatalogResults(
             entries: entries, instruments: [], filters: filters, facetValues: [:], facets: [], visible: [],
             outcome: .none, total: 0, archivedCount: 0, missingChoices: overview.missingChoices)
-        #expect(results.missingOptions.last == .timeSignature)
+        #expect(results.missingOptions.last == .facet(.timeSignature))
     }
 
     @Test func clearsAMissingTuningForAnInstrumentNotPlayed() {
-        let filters = CatalogFilters(missing: .tuning("guitar"))
+        let filters = CatalogFilters(missing: .facet(.tuning("guitar")))
         #expect(filters.clearingHidden(visible: [.tuning("violin")]).missing == nil)
-        #expect(filters.clearingHidden(visible: [.tuning("guitar")]).missing == .tuning("guitar"))
-        #expect(CatalogFilters(missing: .composer).clearingHidden(visible: []).missing == .composer)
+        #expect(filters.clearingHidden(visible: [.tuning("guitar")]).missing == .facet(.tuning("guitar")))
+        #expect(CatalogFilters(missing: .facet(.composer)).clearingHidden(visible: []).missing == .facet(.composer))
     }
 
     @Test func countsAndClearsStatusUnheardAndMissing() {
-        let filters = CatalogFilters(status: "known", unheard: true, missing: .key)
+        let filters = CatalogFilters(status: "known", unheard: true, missing: .facet(.key))
         #expect(filters.setCount == 3)
         #expect(filters.cleared == CatalogFilters())
     }
 
     @Test func showsCapsulesForBoth() {
-        let set = CatalogFilterRow.setFilters(CatalogFilters(unheard: true, missing: .tuning("violin")))
+        let set = CatalogFilterRow.setFilters(CatalogFilters(unheard: true, missing: .facet(.tuning("violin"))))
         #expect(
             set.map(\.label) == [
                 CatalogFilterRow.unheardShown, "\(CatalogFilterSheet.missing) Violin tuning",
             ])
-        var removed = CatalogFilters(unheard: true, missing: .key)
+        var removed = CatalogFilters(unheard: true, missing: .facet(.key))
         set[0].remove(&removed)
-        #expect(removed == CatalogFilters(missing: .key))
+        #expect(removed == CatalogFilters(missing: .facet(.key)))
     }
 
     @Test func storedWebShapeRoundTrips() {
@@ -437,7 +455,7 @@ private let blankAndSentinel = CatalogSearch.entries(
         }
         #expect(object["unheard"] == .bool(true) && object["missing"] == .string("learned_on"))
         #expect(CatalogFilters(stored: filters.stored) == filters)
-        let tuning = CatalogFilters(missing: .tuning("violin"))
+        let tuning = CatalogFilters(missing: .facet(.tuning("violin")))
         #expect(tuning.stored == CatalogFilters(stored: tuning.stored).stored)
         guard case .object(let t) = tuning.stored else {
             Issue.record("not an object")
@@ -458,7 +476,7 @@ private let blankAndSentinel = CatalogSearch.entries(
             CatalogFilters(stored: value)
                 == CatalogFilters(
                     status: "known", facets: [.tuneType: "Reel", .tuning("violin"): "ADAE"], unheard: true,
-                    missing: .tuning("violin")))
+                    missing: .facet(.tuning("violin"))))
     }
 
     @Test func readsInvalidValuesAsDefaults() {
@@ -496,6 +514,7 @@ private let blankAndSentinel = CatalogSearch.entries(
         let json = try JSONSerialization.jsonObject(with: JSONEncoder().encode(filters.stored)) as? [String: Any]
         let expected: [String: Any] = [
             "status": "learning", "key": "all", "tune_type": "Reel", "mode": "all", "genre": "all",
+            "time_signature": "all",
             "composer": "all", "learned_from": "all",
             "tuning:violin": "ADAE", "tuning:five_string_banjo": "all", "tuning:tenor_banjo": "all",
             "tuning:guitar": "all", "tuning:mandolin": "all", "tuning:bouzouki": "all",
@@ -670,7 +689,7 @@ private let blankAndSentinel = CatalogSearch.entries(
         let store = try await sampleStore(root)
         try await store.setMeta(
             .catalogFilters,
-            to: CatalogFilters(unheard: true, missing: .tuning("guitar")).stored)
+            to: CatalogFilters(unheard: true, missing: .facet(.tuning("guitar"))).stored)
         let model = CatalogModel(store: store)
         try await eventually { model.results?.filters.unheard == true }
         #expect(model.results?.filters.missing == nil)
