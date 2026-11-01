@@ -45,7 +45,7 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [
       // The app's copy is English only, so react-aria's built-in labels stay English too.
-      { ...optimizeLocales.vite({ locales: ['en-US'] }), enforce: 'pre' },
+      optimizeLocales.vite({ locales: ['en-US'] }),
       react(),
       tailwindcss(),
       VitePWA(pwaOptions),
