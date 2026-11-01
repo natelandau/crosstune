@@ -228,8 +228,6 @@ A role only one platform has is on that platform's page.
   destination, and the playing item.
 - Bottom chrome reserves its own room. Every column scrolls its last row
   clear of it.
-- A control with nothing to act on is absent, never shown disabled.
-  Exceptions, shown disabled: form buttons and a mode panel's controls.
 - App-wide controls (Record, sheet-opening commands) are disabled behind
   every sheet, dialog, and file picker, and while a screen is selecting.
 - One action reached from several places opens one component, over the
