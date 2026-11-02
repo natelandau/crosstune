@@ -1,12 +1,14 @@
 @preconcurrency import AVFoundation
+import CrosstuneVocabulary
 import Foundation
 import Observation
 import os
 
 private let logger = Logger(subsystem: "app.crosstune.Crosstune", category: "playback")
 
-/// Plays a recording's audio file through `AVAudioEngine`: the player node feeds a time-pitch
-/// unit, so the trim window, the speed, and the pitch each change on their own. Plays on
+/// Plays a recording's audio file through `AVAudioEngine`: the player node feeds the isolate
+/// unit and then a time-pitch unit, so the trim window, the isolate setting, the speed, and the
+/// pitch each change on their own. Plays on
 /// through the lock screen and in the background, out to AirPlay, headphones, or the speaker,
 /// with the lock screen and Control Center showing it and driving it while it is loaded.
 @MainActor
@@ -39,6 +41,10 @@ public final class AudioPlayer: AudioPlayback {
 
     @ObservationIgnored let engine = AVAudioEngine()
     @ObservationIgnored private let node = AVAudioPlayerNode()
+    /// The isolate node and its unit once first asked for, so launch never opens the unit. The
+    /// inner nil is a system that could not make it, in which case the player node feeds the
+    /// time-pitch unit directly and the isolate does nothing.
+    @ObservationIgnored private var madeIsolate: (node: AVAudioUnitEffect, unit: IsolateAudioUnit)??
     @ObservationIgnored let timePitch = AVAudioUnitTimePitch()
     @ObservationIgnored private var file: AVAudioFile?
     @ObservationIgnored private var fileDuration: TimeInterval = 0
@@ -115,6 +121,23 @@ public final class AudioPlayer: AudioPlayback {
         }
     }
 
+    /// Makes the isolate node and attaches it on first use, which ``load(_:nowPlaying:keepLoop:)``
+    /// reaches before it connects a file, so the graph never changes under playing audio.
+    private var isolateParts: (node: AVAudioUnitEffect, unit: IsolateAudioUnit)? {
+        if let madeIsolate { return madeIsolate }
+        let made = IsolateAudioUnit.makeNode()
+        if let made {
+            engine.attach(made.node)
+        } else {
+            logger.error("The isolate unit could not be made; playback goes on without it")
+        }
+        madeIsolate = .some(made)
+        return made
+    }
+
+    var isolateNode: AVAudioUnitEffect? { isolateParts?.node }
+    var isolate: IsolateAudioUnit? { isolateParts?.unit }
+
     isolated deinit {
         ticker?.cancel()
         for observer in observers { NotificationCenter.default.removeObserver(observer) }
@@ -126,13 +149,19 @@ public final class AudioPlayer: AudioPlayback {
         unload()
         timePitch.rate = 1
         timePitch.pitch = 0
+        isolate?.setIsolate(.standard, isMono: false)
         self.nowPlaying = nowPlaying
         controls = NowPlayingControls(player: self, skipsByInterval: skipsByInterval)
         do {
             let file = try AVAudioFile(forReading: url)
             let format = file.processingFormat
             try probe(file)
-            engine.connect(node, to: timePitch, format: format)
+            if let isolateNode {
+                engine.connect(node, to: isolateNode, format: format)
+                engine.connect(isolateNode, to: timePitch, format: format)
+            } else {
+                engine.connect(node, to: timePitch, format: format)
+            }
             engine.connect(timePitch, to: engine.mainMixerNode, format: format)
             self.file = file
             fileDuration = Double(file.length) / format.sampleRate
@@ -222,6 +251,22 @@ public final class AudioPlayer: AudioPlayback {
         timePitch.pitch = Float(cents)
     }
 
+    public func setIsolate(_ s: IsolateSetting, isMono: Bool) {
+        isolate?.setIsolate(s, isMono: isMono)
+    }
+
+    public func setIsolateOutlineWanted(_ on: Bool) {
+        isolate?.setOutlineWanted(on)
+    }
+
+    public var isolateOutline: IsolateOutline? { isolate?.outline }
+
+    public var isolateAvailable: Bool { isolate != nil }
+
+    public func measureMono(url: URL) async throws -> Bool {
+        try await MonoDetector.measure(url: url)
+    }
+
     /// Publishes the outcome once whether or not playback starts, so a caller that stopped
     /// playback just before, such as a configuration change, never leaves the system showing it.
     public func play() {
@@ -301,18 +346,25 @@ public final class AudioPlayer: AudioPlayback {
         deactivateSession()
     }
 
-    /// Renders `seconds` of output on the offline renderer, as the output device would pull it.
-    func render(seconds: TimeInterval) throws {
+    /// Renders `seconds` of output on the offline renderer, as the output device would pull it,
+    /// and returns the first channel.
+    @discardableResult
+    func render(seconds: TimeInterval) throws -> [Float] {
         let format = engine.manualRenderingFormat
         let capacity = engine.manualRenderingMaximumFrameCount
-        guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: capacity) else { return }
+        guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: capacity) else { return [] }
         var remaining = AVAudioFrameCount(seconds * format.sampleRate)
+        var rendered: [Float] = []
         while remaining > 0 {
             let frames = min(remaining, capacity)
             _ = try engine.renderOffline(frames, to: buffer)
+            if let channel = buffer.floatChannelData?[0] {
+                rendered.append(contentsOf: UnsafeBufferPointer(start: channel, count: Int(buffer.frameLength)))
+            }
             remaining -= frames
         }
         refreshElapsed()
+        return rendered
     }
 
     // MARK: Segment
@@ -323,6 +375,9 @@ public final class AudioPlayer: AudioPlayback {
     private func schedule(from position: TimeInterval) -> Bool {
         segmentID += 1
         node.stop()
+        // The node starts somewhere new, so audio the units after it still hold is from before.
+        isolate?.reset()
+        timePitch.reset()
         guard let file else { return false }
         let sampleRate = file.processingFormat.sampleRate
         let segments = LoopSchedule.next(

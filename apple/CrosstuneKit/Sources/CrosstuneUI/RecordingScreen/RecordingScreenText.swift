@@ -22,6 +22,39 @@ public enum RecordingScreenText {
     public static let trimWhileDownloading = RecordingText.downloading
     public static let speedNotSaved = "The speed could not be saved."
     public static let pitchNotSaved = "The pitch could not be saved."
+    public static let isolateNotSaved = "The isolate setting could not be saved."
+    public static let isolate = "Isolate"
+    public static let solo = "Solo"
+    public static let mute = "Mute"
+    /// The Solo and Mute choice, for VoiceOver.
+    public static let isolateEffect = "Effect"
+    public static let stereo = "Stereo"
+    public static let frequency = "Frequency"
+    public static let monoNotice = "This recording is mono, so only frequency applies."
+    public static let stereoStart = "Stereo start"
+    public static let stereoEnd = "Stereo end"
+    public static let frequencyLow = "Frequency low"
+    public static let frequencyHigh = "Frequency high"
+    /// VoiceOver actions that move a stereo or frequency edge by its large step.
+    public static let stereoRightLarge = "Right by 20"
+    public static let stereoLeftLarge = "Left by 20"
+    public static let frequencyUpLarge = "Up an octave"
+    public static let frequencyDownLarge = "Down an octave"
+    public static let isolateUnavailable = "Isolate isn't available here"
+    /// `35 left` and `35 right`, a stereo edge's place off center.
+    public static func stereoLeftBy(_ units: Int) -> String { "\(units) left" }
+    public static func stereoRightBy(_ units: Int) -> String { "\(units) right" }
+    /// The stereo readout's words: where the range sits, then how wide it is.
+    public static let stereoCenter = "Center"
+    public static let stereoLeft = "Left"
+    public static let stereoRight = "Right"
+    public static let stereoLeftOfCenter = "Left of center"
+    public static let stereoRightOfCenter = "Right of center"
+    public static let stereoNarrow = "narrow"
+    public static let stereoMedium = "medium"
+    public static let stereoWide = "wide"
+    /// A stereo range that keeps the whole picture.
+    public static let stereoEverything = "Everything"
     public static let cancel = "Cancel"
     public static let save = "Save"
     public static let playSelection = "Play selection"

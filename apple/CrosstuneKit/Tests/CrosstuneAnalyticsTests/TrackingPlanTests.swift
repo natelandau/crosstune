@@ -159,10 +159,12 @@ private let samples: [AnalyticsEvent] = [
     .practiceEnded(
         PracticeReport(
             source: .recordingsList, durationMs: 150_000, usedLoops: true, usedSpeed: false, usedPitch: true,
+            usedIsolate: false,
             kind: .recorded, recordingID: recordingID, tuneID: tuneID)),
     .loopSet(recordingID: recordingID),
     .speedChanged(rate: 0.8, recordingID: recordingID),
     .pitchChanged(semitones: -2, recordingID: recordingID),
+    .isolateChanged(effect: .solo, usesStereo: true, usesFrequency: false, recordingID: recordingID),
     .scanAdded(via: .camera, scanID: scanID, tuneID: tuneID),
     .scanViewed(tuneID: tuneID),
     .scanDeleted(scanID: scanID, tuneID: tuneID),
@@ -199,7 +201,8 @@ private func hasASample(_ event: AnalyticsEvent) {
         .locationOpenedInMaps, .recordingDeleted,
         .recordingTrimmed, .recordingSplit, .linkAdded, .linkRemoved, .linkOpenedExternally, .findRecordingsUsed,
         .appleMusicAuthorized,
-        .playbackEnded, .playlistStarted, .practiceEnded, .loopSet, .speedChanged, .pitchChanged, .scanAdded,
+        .playbackEnded, .playlistStarted, .practiceEnded, .loopSet, .speedChanged, .pitchChanged, .isolateChanged,
+        .scanAdded,
         .scanViewed, .scanDeleted, .scansReordered, .settingChanged, .usageSharingDisabled, .storageLimitReached,
         .premiumSheetShown, .noticeShown, .purchaseStarted, .purchaseCompleted, .purchaseFailed, .purchaseRestored,
         .uploadFailed, .syncFailed, .exportCompleted, .exportFailed:
@@ -280,6 +283,7 @@ private let pairedEnums: [(name: String, rawValues: [String])] = [
     ("trigger", PlaybackTrigger.allCases.map(\.rawValue)),
     ("ended_by", PlaybackEnd.allCases.map(\.rawValue)),
     ("repeat", RepeatMode.allCases.map(\.rawValue)),
+    ("isolate_effect", Vocabulary.IsolateEffect.allCases.map(\.rawValue)),
     ("filed_from", FiledFrom.allCases.map(\.rawValue)),
     ("sort", CatalogSort.allCases.map(\.rawValue)),
     ("bulk_action", BulkAction.allCases.map(\.rawValue)),

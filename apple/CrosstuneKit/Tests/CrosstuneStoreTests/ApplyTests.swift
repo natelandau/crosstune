@@ -29,6 +29,15 @@ private func serverTune(
     ]
 }
 
+private func serverRecording(_ extra: JSONObject) -> JSONObject {
+    [
+        "id": .string("r1"), "created_at": .string(noon.iso), "updated_at": .string(noon.iso),
+        "deleted_at": .null, "server_seq": .integer(2), "source": .string("microphone"),
+        "added_at": .string(noon.iso), "state": .string("ready"), "position": .integer(0),
+        "isolate_effect": .string("mute"), "isolate_low_hz": .integer(300),
+    ].merging(extra) { _, new in new }
+}
+
 private func serverUserTune(
     id: String, tuneID: String, status: String = "known", updatedAt: Timestamp = noon, serverSeq: Int64 = 2
 ) -> JSONObject {
@@ -421,6 +430,49 @@ private func createTune(_ store: CrosstuneStore, title: String, status: String =
         let stored = try #require(try await store.read { db in try RecordingLoop.fetchOne(db, key: "loop-1") })
         #expect(stored.label == "B part")
         #expect(stored.extra == ["tempo": .integer(96)])
+    }
+
+    @Test func aPulledRecordingWithoutIsMonoKeepsTheStoredValue() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        func fetch() async throws -> Recording {
+            try #require(try await store.read { db in try Recording.fetchOne(db, key: "r1") })
+        }
+
+        try await store.write { writer in
+            try writer.applyPullPage(rows: [(.recordings, serverRecording(["is_mono": .bool(true)]))], nextSince: 2)
+        }
+        #expect(try await fetch().isMono == true)
+
+        try await store.write { writer in
+            try writer.applyPullPage(rows: [(.recordings, serverRecording([:]))], nextSince: 3)
+        }
+        var row = try await fetch()
+        #expect(row.isMono == true)
+        #expect(row.isolateEffect == "mute" && row.isolateLowHz == 300 && row.isolateHighHz == 16000)
+
+        try await store.write { writer in
+            try writer.applyPullPage(rows: [(.recordings, serverRecording(["is_mono": .null]))], nextSince: 4)
+        }
+        row = try await fetch()
+        #expect(row.isMono == true)
+
+        try await store.write { writer in
+            try writer.applyPullPage(rows: [(.recordings, serverRecording(["is_mono": .bool(false)]))], nextSince: 5)
+        }
+        #expect(try await fetch().isMono == false)
+    }
+
+    @Test func aPulledRecordingWithAnUnknownIsolateEffectKeepsItAndReadsAsSolo() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        try await store.write { writer in
+            try writer.applyPullPage(
+                rows: [(.recordings, serverRecording(["isolate_effect": .string("duck")]))], nextSince: 2)
+        }
+        let row = try #require(try await store.read { db in try Recording.fetchOne(db, key: "r1") })
+        #expect(row.isolateEffect == "duck")
+        #expect(row.isolate.effect == .solo)
     }
 
     @Test func appliesPulledPlaces() async throws {

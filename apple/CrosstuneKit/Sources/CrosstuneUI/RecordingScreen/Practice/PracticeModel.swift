@@ -1,6 +1,7 @@
 import CrosstuneAudio
 import CrosstuneCommands
 import CrosstuneStore
+import CrosstuneVocabulary
 import Foundation
 import Observation
 import SwiftUI
@@ -155,9 +156,11 @@ final class PracticeModel {
     /// What the open name field holds, so a touch elsewhere can save it without waiting on focus.
     @ObservationIgnored private var renameDraft: String?
     @ObservationIgnored private var writes: [UUID: Task<Void, Never>] = [:]
-    /// The speed or pitch the open panel showed as it opened, which it is reported against as
+    /// The settings the open panel showed as it opened, which it is reported against as
     /// it closes, so a slider dragged through many values reports only where it stopped.
-    @ObservationIgnored private var panelOpenedOn: Int?
+    @ObservationIgnored private var panelOpenedOn: PlayedSettings?
+    /// This screen's hold on the isolate outline while its Isolate panel shows.
+    @ObservationIgnored private let panelRequester = UUID()
 
     init(
         player: PlayerModel, recording: Recording, file: RecordingFile?, writer: LoopWriter,
@@ -172,6 +175,11 @@ final class PracticeModel {
         self.mode = mode
         self.clock = clock
         self.announce = announce
+    }
+
+    /// A screen that goes without leaving still lets go of the isolate outline.
+    isolated deinit {
+        player.requestIsolateOutline(false, by: panelRequester)
     }
 
     // MARK: The recording
@@ -438,33 +446,43 @@ final class PracticeModel {
         autoPan = 0
     }
 
-    private func panelValue(_ mode: PracticeMode) -> Int? {
-        switch mode {
-        case .loops: nil
-        case .speed: player.speedPercent
-        case .pitch: player.pitchCents
-        }
-    }
-
+    /// The Isolate panel engages the isolate unit while it shows, so its outline is live and the
+    /// first change brings no jump in delay.
     private func openPanel() {
-        panelOpenedOn = panelValue(mode)
+        panelOpenedOn = player.playedSettings(of: recording.id)
+        if mode == .isolate { player.requestIsolateOutline(true, by: panelRequester) }
     }
 
+    /// Reports the panel's setting where it differs from the one it opened on, both read for
+    /// this screen's recording even after the player has moved on to another; unknown, nothing
+    /// is reported. Isolate sends only the effect and which ranges are narrowed, never the ranges.
     private func closePanel(_ mode: PracticeMode) {
+        if mode == .isolate { player.requestIsolateOutline(false, by: panelRequester) }
         defer { panelOpenedOn = nil }
-        guard let opened = panelOpenedOn, let value = panelValue(mode) else { return }
+        guard let opened = panelOpenedOn, let now = player.playedSettings(of: recording.id) else { return }
         switch mode {
         case .loops: break
         case .speed:
-            if value != opened {
-                player.analytics.send(.speedChanged(rate: Double(value) / 100, recordingID: recording.id))
+            if now.speedPercent != opened.speedPercent {
+                player.analytics.send(.speedChanged(rate: Double(now.speedPercent) / 100, recordingID: recording.id))
             }
         case .pitch:
             // Reported in whole semitones, so a few cents either way is no change.
-            let semitones = PitchSplit(cents: value).semitones
-            if semitones != PitchSplit(cents: opened).semitones {
+            let semitones = PitchSplit(cents: now.pitchCents).semitones
+            if semitones != PitchSplit(cents: opened.pitchCents).semitones {
                 player.analytics.send(.pitchChanged(semitones: semitones, recordingID: recording.id))
             }
+        case .isolate:
+            guard now.isolate != opened.isolate else { return }
+            let isMono = (player.holds(.recording, id: recording.id) ? player.isMono : nil) ?? recording.isMono
+            let setting = now.isolate.effective(isMono: isMono == true)
+            let full = IsolateSetting.standard
+            player.analytics.send(
+                .isolateChanged(
+                    effect: setting.effect,
+                    usesStereo: setting.panStart != full.panStart || setting.panEnd != full.panEnd,
+                    usesFrequency: setting.lowHz != full.lowHz || setting.highHz != full.highHz,
+                    recordingID: recording.id))
         }
     }
 

@@ -1,3 +1,4 @@
+import CrosstuneVocabulary
 import Foundation
 import GRDB
 
@@ -56,6 +57,9 @@ where ID == String {
     /// fields the API contract itself declares a default for; every other absent field is
     /// simply optional and decodes to `nil`.
     static var wireDefaults: JSONObject { get }
+    /// Columns a pulled row may replace but never clear: a row that leaves one null keeps the
+    /// stored value.
+    static var stickyColumns: [String] { get }
     var id: String { get }
     var updatedAt: Timestamp { get set }
     var deletedAt: Timestamp? { get set }
@@ -65,6 +69,7 @@ where ID == String {
 extension SyncedRecord {
     public static var databaseTableName: String { table.rawValue }
     public static var wireDefaults: JSONObject { [:] }
+    public static var stickyColumns: [String] { [] }
 
     public static func databaseJSONEncoder(for column: String) -> JSONEncoder {
         let encoder = JSONEncoder()
@@ -500,6 +505,8 @@ public struct SavedPlace: SyncedRecord, Hashable {
 
 public struct Recording: SyncedRecord, Hashable {
     public static let table = SyncTable.recordings
+    /// A pull without the mono measurement never erases the one made on this device.
+    public static let stickyColumns = ["is_mono"]
 
     public var id: String
     public var createdAt: Timestamp
@@ -536,6 +543,15 @@ public struct Recording: SyncedRecord, Hashable {
     public var trimEndMs: Int64?
     public var speedPercent: Int
     public var pitchCents: Int
+    /// The isolate choice, held as flat columns; see ``isolate``.
+    /// An ``Vocabulary/IsolateEffect`` raw value; a value newer than this build reads as solo.
+    public var isolateEffect: String
+    public var isolatePanStart: Int
+    public var isolatePanEnd: Int
+    public var isolateLowHz: Int
+    public var isolateHighHz: Int
+    /// Whether the audio is effectively mono, nil until measured. A pull never clears it.
+    public var isMono: Bool?
     public var notes: String?
     public var players: String?
     /// Where it was played. The coordinates are set together; `placeAccuracyM` only for a
@@ -587,6 +603,12 @@ public struct Recording: SyncedRecord, Hashable {
         case trimEndMs = "trim_end_ms"
         case speedPercent = "speed_percent"
         case pitchCents = "pitch_cents"
+        case isolateEffect = "isolate_effect"
+        case isolatePanStart = "isolate_pan_start"
+        case isolatePanEnd = "isolate_pan_end"
+        case isolateLowHz = "isolate_low_hz"
+        case isolateHighHz = "isolate_high_hz"
+        case isMono = "is_mono"
         case notes, players
         case placeName = "place_name"
         case placeLat = "place_lat"
@@ -606,6 +628,11 @@ public struct Recording: SyncedRecord, Hashable {
         [
             "origin": .string("own"), "position": .integer(0), "trim_start_ms": .integer(0),
             "trim_end_ms": .null, "speed_percent": .integer(100), "pitch_cents": .integer(0),
+            "isolate_effect": .string(IsolateSetting.standard.effect.rawValue),
+            "isolate_pan_start": .integer(Int64(IsolateSetting.standard.panStart)),
+            "isolate_pan_end": .integer(Int64(IsolateSetting.standard.panEnd)),
+            "isolate_low_hz": .integer(Int64(IsolateSetting.standard.lowHz)),
+            "isolate_high_hz": .integer(Int64(IsolateSetting.standard.highHz)),
         ]
     }
 
@@ -619,6 +646,7 @@ public struct Recording: SyncedRecord, Hashable {
         error: String? = nil, sourceDurationMs: Int64? = nil, playbackStartMs: Int64? = nil,
         playbackEndMs: Int64? = nil, playbackRev: String? = nil, peaksRev: String? = nil,
         trimStartMs: Int64 = 0, trimEndMs: Int64? = nil, speedPercent: Int = 100, pitchCents: Int = 0,
+        isolate: IsolateSetting = .standard, isMono: Bool? = nil,
         notes: String? = nil, players: String? = nil, placeName: String? = nil, placeLat: Double? = nil,
         placeLon: Double? = nil, placeAccuracyM: Int? = nil, placeID: String? = nil, placeOrigin: String? = nil,
         splitFromID: String? = nil, splitID: String? = nil, splitSize: Int? = nil,
@@ -653,6 +681,12 @@ public struct Recording: SyncedRecord, Hashable {
         self.trimEndMs = trimEndMs
         self.speedPercent = speedPercent
         self.pitchCents = pitchCents
+        isolateEffect = isolate.effect.rawValue
+        isolatePanStart = isolate.panStart
+        isolatePanEnd = isolate.panEnd
+        isolateLowHz = isolate.lowHz
+        isolateHighHz = isolate.highHz
+        self.isMono = isMono
         self.notes = notes
         self.players = players
         self.placeName = placeName
@@ -667,6 +701,32 @@ public struct Recording: SyncedRecord, Hashable {
         self.createdBySplitID = createdBySplitID
         self.splitCompletedID = splitCompletedID
         self.extra = extra
+    }
+
+    public var isolate: IsolateSetting {
+        get {
+            IsolateSetting(
+                effect: Vocabulary.IsolateEffect(rawValue: isolateEffect) ?? IsolateSetting.standard.effect,
+                panStart: isolatePanStart, panEnd: isolatePanEnd, lowHz: isolateLowHz,
+                highHz: isolateHighHz)
+        }
+        set {
+            isolateEffect = newValue.effect.rawValue
+            isolatePanStart = newValue.panStart
+            isolatePanEnd = newValue.panEnd
+            isolateLowHz = newValue.lowHz
+            isolateHighHz = newValue.highHz
+        }
+    }
+
+    /// Takes `other`'s isolate setting column by column, so an effect newer than this build,
+    /// which ``isolate`` reads as solo, carries over unchanged.
+    public mutating func copyIsolate(from other: Recording) {
+        isolateEffect = other.isolateEffect
+        isolatePanStart = other.isolatePanStart
+        isolatePanEnd = other.isolatePanEnd
+        isolateLowHz = other.isolateLowHz
+        isolateHighHz = other.isolateHighHz
     }
 
     /// The named place, nil unless the name and both coordinates are set. A coordinate alone,

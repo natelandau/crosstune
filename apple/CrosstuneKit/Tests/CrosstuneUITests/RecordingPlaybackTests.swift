@@ -1,6 +1,7 @@
 import CrosstuneAudio
 import CrosstuneStore
 import CrosstuneTestSupport
+import CrosstuneVocabulary
 import Foundation
 import Observation
 import Synchronization
@@ -96,6 +97,25 @@ final class FakeAudio: AudioPlayback {
         calls.append("setPitch(\(cents))")
     }
 
+    var isolateOutline: IsolateOutline? { nil }
+    var isolateAvailable = true
+
+    /// Answers each mono measurement. Fails by default, so no test reads the file system
+    /// unless it asks to.
+    var measureMonoAnswer: @MainActor (URL) async throws -> Bool = { _ in throw CancellationError() }
+
+    func measureMono(url: URL) async throws -> Bool {
+        try await measureMonoAnswer(url)
+    }
+
+    func setIsolate(_ s: IsolateSetting, isMono: Bool) {
+        calls.append("setIsolate(\(s.isDefault ? "default" : "custom"), mono: \(isMono))")
+    }
+
+    func setIsolateOutlineWanted(_ on: Bool) {
+        calls.append("setIsolateOutlineWanted(\(on))")
+    }
+
     func unload() {
         loaded = nil
         nowPlaying = nil
@@ -127,7 +147,9 @@ private func playable(_ url: URL = audioURL) -> RecordingAudioFile {
 }
 
 /// What the player asks of the audio to load a recording at its row's defaults and start it.
-private let loadAndPlay = ["load", "setWindow", "setRate(100)", "setPitch(0)", "play"]
+private let loadAndPlay = [
+    "load", "setWindow", "setRate(100)", "setPitch(0)", "setIsolate(default, mono: false)", "play",
+]
 
 private func recording(_ id: String = "r1", label: String? = "Jam at Mike's") -> Recording {
     Recording(id: id, tuneID: "t1", source: "microphone", addedAt: noon, label: label, state: "ready")
@@ -358,7 +380,7 @@ private func recording(_ id: String = "r1", label: String? = "Jam at Mike's") ->
 }
 
 /// What the player asks of the audio to load a recording at its row's defaults, paused.
-private let loadPaused = ["load", "setWindow", "setRate(100)", "setPitch(0)"]
+private let loadPaused = ["load", "setWindow", "setRate(100)", "setPitch(0)", "setIsolate(default, mono: false)"]
 
 @MainActor
 @Suite struct PausedOpenTests {

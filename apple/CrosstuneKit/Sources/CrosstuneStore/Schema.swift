@@ -459,6 +459,58 @@ enum Schema {
                     """,
                 arguments: [table])
         }
+        migrator.registerMigration("v24") { db in
+            let table = SyncTable.recordings.rawValue
+            try db.alter(table: table) { t in
+                t.add(column: "isolate_effect", .text).notNull().defaults(sql: "'solo'")
+                t.add(column: "isolate_pan_start", .integer).notNull().defaults(sql: "-100")
+                t.add(column: "isolate_pan_end", .integer).notNull().defaults(sql: "100")
+                t.add(column: "isolate_low_hz", .integer).notNull().defaults(sql: "40")
+                t.add(column: "isolate_high_hz", .integer).notNull().defaults(sql: "16000")
+                t.add(column: "is_mono", .boolean)
+            }
+            // A row pulled from a server that already had the fields kept them in `extra`.
+            try db.execute(
+                sql: """
+                    UPDATE recordings SET isolate_effect = json_extract(extra, '$.isolate_effect')
+                    WHERE json_extract(extra, '$.isolate_effect') IN ('solo', 'mute')
+                    """)
+            let integers = ["isolate_pan_start", "isolate_pan_end", "isolate_low_hz", "isolate_high_hz"]
+            for column in integers {
+                try db.execute(
+                    sql: """
+                        UPDATE recordings SET \(column) = json_extract(extra, '$.\(column)')
+                        WHERE json_type(extra, '$.\(column)') = 'integer'
+                        """)
+            }
+            try db.execute(
+                sql: """
+                    UPDATE recordings SET is_mono = json_extract(extra, '$.is_mono')
+                    WHERE json_type(extra, '$.is_mono') IN ('true', 'false')
+                    """)
+            try db.execute(
+                sql: """
+                    UPDATE recordings SET extra = json_remove(extra, '$.isolate_effect', '$.isolate_pan_start',
+                        '$.isolate_pan_end', '$.isolate_low_hz', '$.isolate_high_hz', '$.is_mono')
+                    """)
+            // A queued change that predates the fields carries them from the row, so a pushed
+            // upsert never leaves them out.
+            let assignments = (["isolate_effect"] + integers).map { column in
+                "'$.\(column)', (SELECT \(column) FROM recordings WHERE id = outbox.row_id)"
+            }.joined(separator: ", ")
+            // is_mono is stored as 0/1 but goes on the wire as a JSON boolean.
+            let monoAssignment = """
+                '$.is_mono', (SELECT CASE WHEN is_mono IS NULL THEN json('null') WHEN is_mono THEN json('true')
+                    ELSE json('false') END FROM recordings WHERE id = outbox.row_id)
+                """
+            try db.execute(
+                sql: """
+                    UPDATE outbox SET data = json_set(data, \(assignments), \(monoAssignment))
+                    WHERE table_name = ? AND data IS NOT NULL AND json_type(data, '$.isolate_effect') IS NULL
+                        AND EXISTS (SELECT 1 FROM recordings WHERE id = outbox.row_id)
+                    """,
+                arguments: [table])
+        }
         return migrator
     }()
 

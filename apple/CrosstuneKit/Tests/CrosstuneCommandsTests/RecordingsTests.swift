@@ -185,6 +185,34 @@ import Testing
         #expect(try await store.read { db in try Recording.fetchOne(db, key: "r1") } == before)
     }
 
+    @Test func updatingIsolateAndMonoQueuesOneChangeWithTheFlatFields() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let commands = Commands(store: store)
+        try await store.write { writer in
+            try writer.put(Recording(id: "r1", tuneID: nil, source: "microphone", addedAt: .now))
+        }
+        let setting = IsolateSetting(effect: .mute, panStart: -30, panEnd: 40, lowHz: 100, highHz: 5000)
+
+        try await commands.updateRecording("r1", isolate: .value(setting), isMono: .value(true))
+
+        let row = try #require(try await store.read { db in try Recording.fetchOne(db, key: "r1") })
+        #expect(row.isolate == setting)
+        #expect(row.isMono == true)
+        #expect(try await store.pendingChangeCount() == 1)
+        let data = try #require(try await store.pendingChanges(limit: 10).first { $0.rowID == "r1" }?.data)
+        #expect(data["isolate_effect"] == .string("mute"))
+        #expect(data["isolate_pan_start"] == .integer(-30))
+        #expect(data["isolate_pan_end"] == .integer(40))
+        #expect(data["isolate_low_hz"] == .integer(100))
+        #expect(data["isolate_high_hz"] == .integer(5000))
+        #expect(data["is_mono"] == .bool(true))
+
+        try await commands.updateRecording("r1", label: .value("x"))
+        let kept = try #require(try await store.read { db in try Recording.fetchOne(db, key: "r1") })
+        #expect(kept.isolate == setting && kept.isMono == true)
+    }
+
     @Test func updatingSpeedAndPitchQueuesOneChangeWithoutServerFields() async throws {
         let root = TemporaryRoot()
         let store = try root.open()

@@ -1,5 +1,6 @@
 import CrosstuneStore
 import CrosstuneTestSupport
+import CrosstuneVocabulary
 import Foundation
 import GRDB
 import Testing
@@ -52,7 +53,9 @@ import Testing
             Recording(
                 id: "rec-1", tuneID: "tune-1", source: "upload", origin: "other", originURL: "https://x.test",
                 recordedAt: recordedAt, recordedPrecision: "time", label: "Session", trimEndMs: 180_000,
-                speedPercent: 80, pitchCents: 50, notes: "n", players: "Ann", placeName: "Hall", placeLat: 1,
+                speedPercent: 80, pitchCents: 50,
+                isolate: IsolateSetting(effect: .mute, panStart: -10, panEnd: 20, lowHz: 90, highHz: 3000),
+                isMono: false, notes: "n", players: "Ann", placeName: "Hall", placeLat: 1,
                 placeLon: 2, placeOrigin: "device"))
         let id = try await commands.splitRecording("rec-1", cutsMs: [60_000])[0]
         let piece = try await recording(store, id)
@@ -63,7 +66,21 @@ import Testing
         #expect(piece.placeName == "Hall" && piece.placeLat == 1 && piece.placeLon == 2)
         #expect(piece.placeOrigin == "device")
         #expect(piece.speedPercent == 80 && piece.pitchCents == 50)
+        #expect(piece.isolate == IsolateSetting(effect: .mute, panStart: -10, panEnd: 20, lowHz: 90, highHz: 3000))
+        #expect(piece.isMono == false)
         #expect(piece.origin == "other" && piece.originURL == "https://x.test" && piece.source == "upload")
+    }
+
+    @Test func copiesAnIsolateEffectThisBuildDoesNotKnow() async throws {
+        var parent = Recording(id: "rec-1", tuneID: nil, source: "microphone", label: "Session", trimEndMs: 180_000)
+        parent.isolate = IsolateSetting(effect: .mute, panStart: -10, panEnd: 20, lowHz: 90, highHz: 3000)
+        parent.isolateEffect = "boost"
+        let (store, commands) = try await seeded(parent)
+        let id = try await commands.splitRecording("rec-1", cutsMs: [60_000])[0]
+        let piece = try await recording(store, id)
+        #expect(piece.isolateEffect == "boost")
+        #expect(piece.isolatePanStart == -10 && piece.isolatePanEnd == 20)
+        #expect(piece.isolateLowHz == 90 && piece.isolateHighHz == 3000)
     }
 
     @Test func labelsPiecesFromTheParentLabel() async throws {

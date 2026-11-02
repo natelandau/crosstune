@@ -97,6 +97,8 @@ struct LoopHandleMark: View {
     static let tabHeight: CGFloat = 44
 
     let edge: LoopModel.Edge
+    /// Shorter than ``tabHeight`` only where the mark's whole control is shorter.
+    var gripHeight: CGFloat = Self.tabHeight
 
     var body: some View {
         ZStack {
@@ -124,7 +126,7 @@ struct LoopHandleMark: View {
                 // A centered stroke shows its outer half, a point outside the tab.
                 .background { shape.stroke(Color.markOutline, lineWidth: 2) }
             #endif
-            .frame(width: Self.tabWidth, height: Self.tabHeight)
+            .frame(width: Self.tabWidth, height: gripHeight)
             .overlay {
                 HStack(spacing: 2) {
                     ForEach(0..<2, id: \.self) { _ in

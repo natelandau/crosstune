@@ -172,14 +172,15 @@ extension StoreWriter {
             at: time)
     }
 
-    /// Applies an edit to a recording: label, tune, trim, speed, pitch, notes, players, or place. Moving it to a
+    /// Applies an edit to a recording: label, tune, trim, speed, pitch, isolate, notes, players, or place. Moving it to a
     /// different, live tune repositions it past that tune's other recordings; clearing its tune
     /// keeps its position. A failed upload is put back in the queue, since the edit re-pushes the
     /// row.
     public func updateRecording(
         _ recordingID: String, label: Patch<String?> = .keep, tuneID: Patch<String?> = .keep,
         trimStartMs: Patch<Int64> = .keep, trimEndMs: Patch<Int64?> = .keep, speedPercent: Patch<Int> = .keep,
-        pitchCents: Patch<Int> = .keep, notes: Patch<String?> = .keep, players: Patch<String?> = .keep,
+        pitchCents: Patch<Int> = .keep, isolate: Patch<IsolateSetting> = .keep, isMono: Patch<Bool?> = .keep,
+        notes: Patch<String?> = .keep, players: Patch<String?> = .keep,
         place: Patch<RecordingPlace?> = .keep, at time: Timestamp = .now
     ) throws {
         guard var recording = try Recording.fetchOne(db, key: recordingID), recording.deletedAt == nil else {
@@ -197,6 +198,9 @@ extension StoreWriter {
         recording.trimEndMs = trimEndMs.resolved(from: recording.trimEndMs)
         recording.speedPercent = speedPercent.resolved(from: recording.speedPercent)
         recording.pitchCents = pitchCents.resolved(from: recording.pitchCents)
+        // Only an explicit choice rewrites the effect, so an edit never replaces a value this build does not know.
+        if case .value(let newIsolate) = isolate { recording.isolate = newIsolate }
+        recording.isMono = isMono.resolved(from: recording.isMono)
         recording.notes = notes.resolved(from: recording.notes)
         recording.players = players.resolved(from: recording.players)
         if case .value(let newPlace) = place {
@@ -347,13 +351,15 @@ extension Commands {
     public func updateRecording(
         _ recordingID: String, label: Patch<String?> = .keep, tuneID: Patch<String?> = .keep,
         trimStartMs: Patch<Int64> = .keep, trimEndMs: Patch<Int64?> = .keep, speedPercent: Patch<Int> = .keep,
-        pitchCents: Patch<Int> = .keep, notes: Patch<String?> = .keep, players: Patch<String?> = .keep,
+        pitchCents: Patch<Int> = .keep, isolate: Patch<IsolateSetting> = .keep, isMono: Patch<Bool?> = .keep,
+        notes: Patch<String?> = .keep, players: Patch<String?> = .keep,
         place: Patch<RecordingPlace?> = .keep, at time: Timestamp = .now
     ) async throws {
         try await store.write { writer in
             try writer.updateRecording(
                 recordingID, label: label, tuneID: tuneID, trimStartMs: trimStartMs, trimEndMs: trimEndMs,
-                speedPercent: speedPercent, pitchCents: pitchCents, notes: notes, players: players,
+                speedPercent: speedPercent, pitchCents: pitchCents, isolate: isolate, isMono: isMono, notes: notes,
+                players: players,
                 place: place, at: time)
         }
     }

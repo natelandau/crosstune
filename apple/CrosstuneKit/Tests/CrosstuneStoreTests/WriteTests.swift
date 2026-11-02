@@ -148,7 +148,8 @@ import Testing
             == [
                 "created_at", "tune_id", "source", "origin", "origin_url", "added_at", "recorded_at",
                 "recorded_precision", "label", "position",
-                "trim_start_ms", "trim_end_ms", "speed_percent", "pitch_cents", "notes", "players",
+                "trim_start_ms", "trim_end_ms", "speed_percent", "pitch_cents", "isolate_effect", "isolate_pan_start",
+                "isolate_pan_end", "isolate_low_hz", "isolate_high_hz", "is_mono", "notes", "players",
                 "place_name", "place_lat", "place_lon", "place_accuracy_m", "place_id", "place_origin", "mood",
                 "split_from_id", "split_id", "split_size", "created_by_split_id",
             ])

@@ -3,6 +3,7 @@ import CrosstuneCommands
 import CrosstuneDesign
 import CrosstuneStore
 import CrosstuneTestSupport
+import CrosstuneVocabulary
 import Foundation
 import Testing
 
@@ -10,10 +11,11 @@ import Testing
 
 private let audioURL = URL(filePath: "/tmp/r1-aaaaaaaa.m4a")
 
-private func recording(trimStartMs: Int64 = 0, trimEndMs: Int64? = nil, sourceDurationMs: Int64? = 60_000) -> Recording
-{
+private func recording(
+    id: String = "r1", trimStartMs: Int64 = 0, trimEndMs: Int64? = nil, sourceDurationMs: Int64? = 60_000
+) -> Recording {
     Recording(
-        id: "r1", tuneID: nil, source: "microphone", addedAt: noon, label: "Jam", state: "ready",
+        id: id, tuneID: nil, source: "microphone", addedAt: noon, label: "Jam", state: "ready",
         sourceDurationMs: sourceDurationMs, trimStartMs: trimStartMs, trimEndMs: trimEndMs, speedPercent: 100,
         pitchCents: 0)
 }
@@ -833,6 +835,82 @@ private final class FakeLoops {
         #expect(closed == 0)
         model.escape { closed += 1 }
         #expect(closed == 1)
+    }
+
+    // MARK: Isolate mode
+
+    private var isolateCalls: [String] { audio.calls.filter { $0.hasPrefix("setIsolateOutlineWanted") } }
+
+    @Test func choosingIsolateEngagesTheUnitAndLeavingReleasesIt() async throws {
+        try await load()
+        let model = practice()
+        model.enter()
+        #expect(isolateCalls.isEmpty)
+
+        model.mode = .isolate
+        #expect(isolateCalls == ["setIsolateOutlineWanted(true)"])
+
+        model.mode = .speed
+        #expect(isolateCalls == ["setIsolateOutlineWanted(true)", "setIsolateOutlineWanted(false)"])
+
+        model.mode = .isolate
+        model.leave()
+        #expect(isolateCalls.suffix(2) == ["setIsolateOutlineWanted(true)", "setIsolateOutlineWanted(false)"])
+    }
+
+    @Test func arrivingOnIsolateEngagesTheUnit() async throws {
+        try await load()
+        let model = PracticeModel(
+            player: player, recording: recording(), file: nil, writer: store.writer, mode: .isolate,
+            announce: { _ in })
+        model.enter()
+        #expect(isolateCalls == ["setIsolateOutlineWanted(true)"])
+    }
+
+    @Test func theNextScreenKeepsTheUnitEngagedWhenTheLastOneGoesAfterIt() async throws {
+        try await load()
+        let first = practice()
+        first.enter()
+        first.mode = .isolate
+
+        let second = recording(id: "r2")
+        player.audioSource = { _ in
+            RecordingAudioFile(url: audioURL, file: RecordingFile(id: "r2", localState: .downloaded))
+        }
+        player.play(.recording(second, tuneTitle: nil))
+        try await eventually { player.recordingAudio == .loaded && player.holds(.recording, id: "r2") }
+        let next = PracticeModel(
+            player: player, recording: second, file: nil, writer: store.writer, mode: .isolate, announce: { _ in })
+        next.enter()
+        first.leave()
+        #expect(isolateCalls == ["setIsolateOutlineWanted(true)"])
+
+        next.leave()
+        #expect(isolateCalls == ["setIsolateOutlineWanted(true)", "setIsolateOutlineWanted(false)"])
+    }
+
+    @Test func aScreenThatGoesWithoutLeavingLetsGoOfTheUnit() async throws {
+        try await load()
+        weak var gone: PracticeModel?
+        do {
+            let model = practice()
+            model.enter()
+            model.mode = .isolate
+            gone = model
+        }
+        #expect(gone == nil)
+        #expect(isolateCalls == ["setIsolateOutlineWanted(true)", "setIsolateOutlineWanted(false)"])
+    }
+
+    @Test func theIsolateSegmentReadsItsEffectOnceOffItsDefault() {
+        let muted = IsolateSetting(effect: .mute, panStart: -100, panEnd: 100, lowHz: 40, highHz: 16000)
+        let soloed = IsolateSetting(effect: .solo, panStart: -40, panEnd: 0, lowHz: 40, highHz: 16000)
+        #expect(PracticeMode.isolate.badge(speedPercent: 100, pitchCents: 0, isolate: muted) == "Mute")
+        #expect(PracticeMode.isolate.title(speedPercent: 100, pitchCents: 0, isolate: muted) == "Isolate Mute")
+        #expect(PracticeMode.isolate.title(speedPercent: 100, pitchCents: 0, isolate: soloed) == "Isolate Solo")
+        #expect(PracticeMode.isolate.title(speedPercent: 75, pitchCents: 200, isolate: .standard) == "Isolate")
+        #expect(PracticeMode.speed.badge(speedPercent: 75, pitchCents: 0, isolate: muted) == "75%")
+        #expect(PracticeMode.allCases == [.loops, .speed, .pitch, .isolate])
     }
 
     // MARK: The shown playhead

@@ -1,13 +1,12 @@
 import CrosstuneAudio
 import CrosstuneCommands
 import CrosstuneDesign
-import CrosstuneStore
 import SwiftUI
 
 /// Where the musician splits a recording into one per tune: the whole recording with its
 /// pieces, a zoomed strip under a fixed center line where a cut lands, the readout, the main
-/// button, the cuts, and a transport. Its model holds the player at 100% speed and no pitch
-/// shift while it shows, so what is heard is exactly where a cut falls.
+/// button, the cuts, and a transport. Its model holds the player at 100% speed, no pitch
+/// shift, and nothing isolated while it shows, so what is heard is exactly where a cut falls.
 struct SplitScreen: View {
     let model: SplitModel
     let player: PlayerModel

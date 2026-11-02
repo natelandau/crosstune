@@ -78,16 +78,19 @@ extension StoreWriter {
         of parent: Recording, id: String, splitID: String, number: Int, trimStartMs: Int64, trimEndMs: Int64,
         position: Int, at time: Timestamp
     ) -> Recording {
-        Recording(
+        var piece = Recording(
             id: id, createdAt: time, tuneID: nil, source: parent.source, origin: parent.origin,
             originURL: parent.originURL, addedAt: parent.addedAt, recordedAt: parent.recordedAt,
             recordedPrecision: parent.recordedPrecision,
             label: RecordingLimits.pieceLabel(parent.label, number: number), position: position,
             state: "processing", trimStartMs: trimStartMs, trimEndMs: trimEndMs,
-            speedPercent: parent.speedPercent, pitchCents: parent.pitchCents, notes: parent.notes,
+            speedPercent: parent.speedPercent, pitchCents: parent.pitchCents,
+            isMono: parent.isMono, notes: parent.notes,
             players: parent.players, placeName: parent.placeName, placeLat: parent.placeLat,
             placeLon: parent.placeLon, placeAccuracyM: parent.placeAccuracyM, placeID: parent.placeID,
             placeOrigin: parent.placeOrigin, splitFromID: parent.id, createdBySplitID: splitID)
+        piece.copyIsolate(from: parent)
+        return piece
     }
 }
 
