@@ -1125,3 +1125,38 @@ async def test_completion_deletes_original_slices_no_row_names(
     assert parent.split_completed_id == parent.split_id
     assert orphan not in set(store.keys())
     assert parent.original_key in set(store.keys())
+
+
+async def test_split_piece_takes_the_parent_mono_flag(
+    split_runner, verify_session, tones, tmp_path
+) -> None:
+    job_runner, store = split_runner
+    parent = await _seed(verify_session, store, tones[10], tmp_path)
+    # Opposite to what the tone measures, so only a copy explains the piece's value.
+    parent.is_mono = False
+    _, [piece] = await _split(verify_session, parent, [5_000])
+
+    assert await job_runner.run_once() == 1
+    await _refresh(verify_session, piece)
+    assert piece.state == "ready"
+    assert piece.is_mono is False
+    assert await _jobs(verify_session, piece, JobKind.MONO) == []
+
+
+async def test_split_piece_of_an_unmeasured_parent_is_measured(
+    split_runner, verify_session, tones, tmp_path
+) -> None:
+    job_runner, store = split_runner
+    parent = await _seed(verify_session, store, tones[10], tmp_path)
+    parent.is_mono = None
+    _, [piece] = await _split(verify_session, parent, [5_000])
+
+    assert await job_runner.run_once() == 1
+    await _refresh(verify_session, piece)
+    assert piece.is_mono is None
+    assert len(await _jobs(verify_session, piece, JobKind.MONO)) == 1
+
+    await _run_all(job_runner, verify_session)
+    await _refresh(verify_session, piece)
+    assert piece.is_mono is True
+    assert await _jobs(verify_session, piece, JobKind.MONO) == []

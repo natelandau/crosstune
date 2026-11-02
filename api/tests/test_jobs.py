@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from crosstune.db.base import new_uuid7, utc_now
@@ -113,6 +113,13 @@ async def make_uploaded(
     return rec
 
 
+async def drop_mono_job(session, rec: Recording) -> None:
+    """Clear the mono job a transcode queues, for a seed that stands for a measured recording."""
+    await session.execute(
+        delete(Job).where(Job.recording_id == rec.id, Job.kind == JobKind.MONO.value)
+    )
+
+
 async def test_transcode_passes_an_aac_upload_through(session, media_fixtures, tmp_path) -> None:
     store = FakeObjectStore()
     user = await make_user(session)
@@ -151,6 +158,32 @@ async def test_transcode_sets_ranges_and_peaks(session, media_fixtures, tmp_path
     assert rec.peaks_key == peaks_key(user.id, rec.id, rec.peaks_rev)
     points = decode_peaks(store.get_bytes(rec.peaks_key))
     assert 90 <= len(points) <= 110
+
+
+async def test_transcode_queues_a_mono_measurement(session, media_fixtures, tmp_path) -> None:
+    store = FakeObjectStore()
+    user = await make_user(session)
+    rec = await make_uploaded(session, store, user, media_fixtures["m4a"], "audio/mp4")
+    await transcode(session, store, rec, tmp_path)
+    assert (rec.state, rec.is_mono) == ("ready", None)
+    jobs = await session.scalars(
+        select(Job).where(Job.recording_id == rec.id, Job.kind == JobKind.MONO.value)
+    )
+    assert len(jobs.all()) == 1
+
+
+async def test_transcode_keeps_a_stored_mono_flag(session, media_fixtures, tmp_path) -> None:
+    store = FakeObjectStore()
+    user = await make_user(session)
+    rec = await make_uploaded(session, store, user, media_fixtures["m4a"], "audio/mp4")
+    rec.is_mono = False
+    await session.flush()
+    await transcode(session, store, rec, tmp_path)
+    assert rec.is_mono is False
+    jobs = await session.scalars(
+        select(Job).where(Job.recording_id == rec.id, Job.kind == JobKind.MONO.value)
+    )
+    assert jobs.all() == []
 
 
 async def test_transcode_applies_trim_saved_before_upload(
@@ -351,6 +384,11 @@ async def test_run_once_transcodes_one_job_and_removes_it(
     assert rec.state == "ready"
     assert rec.server_seq > before_seq
     assert upload_key(rec.user_id, rec.id) not in set(store.keys())
+    [queued] = await verify_session.scalars(select(Job).where(Job.recording_id == rec.id))
+    assert queued.kind == JobKind.MONO.value
+    assert await job_runner.run_once() == 1
+    await verify_session.refresh(rec)
+    assert rec.is_mono is True
     assert await verify_session.scalar(select(Job).where(Job.recording_id == rec.id)) is None
     assert await job_runner.run_once() == 0
 
@@ -394,7 +432,7 @@ async def test_a_recording_that_understates_its_length_is_refused_by_what_decode
 async def test_run_once_leaves_no_trim_job_after_applying_a_pre_upload_trim(
     runner, verify_session, media_fixtures
 ) -> None:
-    """transcode() never queues jobs itself; only the runner's ensure_trim_job call can."""
+    """transcode() never queues a trim job itself; only the runner's ensure_trim_job call can."""
     job_runner, store = runner
     user = await make_user(verify_session)
     rec = await make_uploaded(verify_session, store, user, media_fixtures["m4a"], "audio/mp4")
@@ -535,6 +573,7 @@ async def seed_ready_for_peaks(
     user = await make_user(verify_session)
     rec = await make_uploaded(verify_session, store, user, media_fixtures["m4a"], "audio/mp4")
     await transcode(verify_session, store, rec, tmp_path)
+    await drop_mono_job(verify_session, rec)
     rec.peaks_key = None
     rec.peaks_rev = None
     rec.peaks_bytes = None
@@ -1994,6 +2033,7 @@ async def seed_ready(verify_session, store: FakeObjectStore, path, content_type,
     work = tmp_path / f"seed-{rec.id}"
     work.mkdir()
     await transcode(verify_session, store, rec, work)
+    await drop_mono_job(verify_session, rec)
     await store.delete(upload_key(user.id, rec.id))
     await verify_session.commit()
     await verify_session.refresh(rec)
@@ -3187,7 +3227,10 @@ async def _seed_upload(verify_session, store, media_fixtures, **fields) -> Recor
 
 
 async def _kinds(verify_session, rec: Recording) -> list[str]:
-    jobs = await verify_session.scalars(select(Job).where(Job.recording_id == rec.id))
+    """The jobs queued for `rec`, past the mono job every transcode queues."""
+    jobs = await verify_session.scalars(
+        select(Job).where(Job.recording_id == rec.id, Job.kind != JobKind.MONO.value)
+    )
     return [job.kind for job in jobs]
 
 

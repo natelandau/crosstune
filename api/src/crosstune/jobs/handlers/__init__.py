@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from crosstune.jobs.attempt import fail_abandoned_recording
-from crosstune.jobs.handlers import imports, peaks, place, reencode, split, transcode, trim
+from crosstune.jobs.handlers import imports, mono, peaks, place, reencode, split, transcode, trim
 from crosstune.jobs.recovery import release_backup_copy
 from crosstune.vocabulary import JobKind
 
@@ -39,4 +39,5 @@ HANDLERS: dict[JobKind, JobHandler] = {
     JobKind.IMPORT: JobHandler(run=imports.run, abandon=fail_abandoned_recording),
     JobKind.REENCODE: JobHandler(run=reencode.run, background=True),
     JobKind.PLACE: JobHandler(run=place.run, background=True),
+    JobKind.MONO: JobHandler(run=mono.run, background=True),
 }

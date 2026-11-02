@@ -142,6 +142,12 @@ def test_openapi_publishes_recording_ranges() -> None:
     assert properties["speed_percent"]["maximum"] == vocabulary.SPEED_PERCENT_MAX
     assert properties["pitch_cents"]["minimum"] == vocabulary.PITCH_CENTS_MIN
     assert properties["pitch_cents"]["maximum"] == vocabulary.PITCH_CENTS_MAX
+    for name in ("isolate_pan_start", "isolate_pan_end"):
+        assert properties[name]["minimum"] == vocabulary.ISOLATE_PAN_MIN
+        assert properties[name]["maximum"] == vocabulary.ISOLATE_PAN_MAX
+    for name in ("isolate_low_hz", "isolate_high_hz"):
+        assert properties[name]["minimum"] == vocabulary.ISOLATE_HZ_MIN
+        assert properties[name]["maximum"] == vocabulary.ISOLATE_HZ_MAX
 
 
 def test_a_tune_row_always_carries_its_modes() -> None:

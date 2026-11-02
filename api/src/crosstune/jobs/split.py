@@ -16,7 +16,12 @@ from crosstune.jobs.media import copy_slice, probe, scan_stalls, slice_content_t
 from crosstune.jobs.peaks import range_peaks
 from crosstune.jobs.trim import back_up_playback, current_files, require_backup
 from crosstune.recordings.loops import reclamp_recording_loops
-from crosstune.recordings.service import attach_peaks, attach_playback, ensure_trim_job
+from crosstune.recordings.service import (
+    attach_peaks,
+    attach_playback,
+    enqueue_job,
+    ensure_trim_job,
+)
 from crosstune.recordings.split_rules import split_pieces_start, split_ready_to_complete
 from crosstune.recordings.trim_rules import (
     clamp_stored_trim,
@@ -33,6 +38,7 @@ from crosstune.storage.store import (
     recording_prefix,
     upload_revision,
 )
+from crosstune.vocabulary import JobKind
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator
@@ -284,8 +290,14 @@ async def _cut_and_upload(
     )
 
 
-async def _attach_cut(session: AsyncSession, piece: Recording, cut: _PieceCut) -> None:
-    """Point the piece at its new files and mark it ready."""
+async def _attach_cut(
+    session: AsyncSession, piece: Recording, cut: _PieceCut, *, parent_is_mono: bool | None
+) -> None:
+    """Point the piece at its new files and mark it ready.
+
+    A piece is a slice of its parent's source, so it takes the parent's mono flag, or
+    queues a measurement of its own while the parent is still unmeasured.
+    """
     piece.original_key = cut.original.key
     piece.original_bytes = cut.original.size
     piece.source_offset_ms = cut.offset_ms
@@ -298,6 +310,11 @@ async def _attach_cut(session: AsyncSession, piece: Recording, cut: _PieceCut) -
     attach_peaks(piece, cut.peaks)
     piece.state = "ready"
     piece.error = None
+    if piece.is_mono is None:
+        if parent_is_mono is None:
+            await enqueue_job(session, piece, JobKind.MONO)
+        else:
+            piece.is_mono = parent_is_mono
     await reclamp_recording_loops(session, piece, utc_now())
     bump_server_seq(piece)
     # A trim saved on the piece while it was cut is queued against its new slice.
@@ -347,8 +364,10 @@ async def cut_piece(
                     "deleted_at",
                     "state",
                     "source_offset_ms",
+                    "is_mono",
                 ],
             )
+            await session.refresh(parent, attribute_names=["is_mono"])
         # Compared with the range asked of the cut, not the range it kept: a re-encoded
         # slice can measure a few ms short, and a cut again would come out the same.
         now_start, now_end = _piece_range(piece, low=low, high=high)
@@ -362,7 +381,7 @@ async def cut_piece(
                 files.store, uploaded, log=log, message="could not delete a skipped piece's cut"
             )
             return
-        await _attach_cut(session, piece, cut)
+        await _attach_cut(session, piece, cut, parent_is_mono=parent.is_mono)
         await session.flush()
     except BaseException:
         await delete_best_effort(

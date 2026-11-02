@@ -55,14 +55,14 @@ async def owned_recording(
 
 
 # Kinds a recording holds at most one of, each deduplicated against its partial unique index.
-_SINGLE_KINDS = frozenset({JobKind.TRIM, JobKind.PLACE, JobKind.SPLIT})
+_SINGLE_KINDS = frozenset({JobKind.TRIM, JobKind.PLACE, JobKind.SPLIT, JobKind.MONO})
 
 
 @overload
 async def enqueue_job(
     session: AsyncSession,
     recording: Recording,
-    kind: Literal[JobKind.TRIM, JobKind.PLACE, JobKind.SPLIT],
+    kind: Literal[JobKind.TRIM, JobKind.PLACE, JobKind.SPLIT, JobKind.MONO],
 ) -> Job | None: ...
 @overload
 async def enqueue_job(
@@ -73,7 +73,7 @@ async def enqueue_job(
 async def enqueue_job(session: AsyncSession, recording: Recording, kind: JobKind) -> Job | None:
     """Queue one job for the recording and wake the runner once the request commits.
 
-    A trim, place, or split job is deduplicated against its `ux_jobs_recording_id_<kind>`
+    A trim, place, split, or mono job is deduplicated against its `ux_jobs_recording_id_<kind>`
     index: a recording can have only one of each queued at a time, so a call while one
     is already pending inserts nothing.
 
@@ -83,7 +83,7 @@ async def enqueue_job(session: AsyncSession, recording: Recording, kind: JobKind
         kind: What work the job asks the runner to do.
 
     Returns:
-        Job | None: The queued row, or None when `kind` is TRIM, PLACE, or SPLIT and one was
+        Job | None: The queued row, or None when `kind` is TRIM, PLACE, SPLIT, or MONO and one was
             already pending.
     """
     request_runner_wake(session)

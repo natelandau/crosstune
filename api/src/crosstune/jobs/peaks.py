@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-import array
 import asyncio
-import sys
 from typing import TYPE_CHECKING
 
-from crosstune.jobs.media import INPUT_GUARD, ffmpeg, stream_media_tool
+from crosstune.jobs.media import decode_to_pcm, pcm_samples, stream_media_tool
 
 if TYPE_CHECKING:
+    import array
     from collections.abc import Awaitable, Callable
     from pathlib import Path
 
@@ -35,21 +34,7 @@ async def build_peaks(source: Path) -> bytes:
     """
     reducer = _PeakReducer()
     await stream_media_tool(
-        *ffmpeg(
-            "-v",
-            "error",
-            *INPUT_GUARD,
-            "-i",
-            str(source),
-            "-ac",
-            "1",
-            "-ar",
-            str(_SAMPLE_RATE),
-            "-f",
-            "s16le",
-            "-",
-        ),
-        on_stdout=reducer.feed,
+        *decode_to_pcm(source, channels=1, rate=_SAMPLE_RATE), on_stdout=reducer.feed
     )
     return encode_peaks(reducer.finish())
 
@@ -88,14 +73,7 @@ def reduce_pcm(raw: bytes) -> bytes:
     Returns:
         bytes: The peak bytes, without the format header.
     """
-    samples = array.array("h")
-    # A stray trailing byte from an odd sample count would otherwise raise on frombytes.
-    whole = len(raw) - len(raw) % samples.itemsize
-    samples.frombytes(raw[:whole])
-    if sys.byteorder == "big":
-        # ffmpeg's s16le output is always little-endian; array.array reads it in
-        # host order, so a big-endian host must swap before treating it as PCM.
-        samples.byteswap()
+    samples = pcm_samples(raw)
     windows = range(0, len(samples), _WINDOW_SAMPLES)
     return bytes(_window_peak(samples[start : start + _WINDOW_SAMPLES]) for start in windows)
 

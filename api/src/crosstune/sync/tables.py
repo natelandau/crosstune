@@ -253,8 +253,9 @@ TABLES: dict[TableName, TableSpec] = {
             {"source", "origin", "origin_url", "added_at", "split_from_id", "created_by_split_id"}
         ),
         # A device that has not pulled a split pushes its parent without it, and clearing
-        # it would strand the pieces and drop the parent to the plain upload cap.
-        sticky=frozenset({"split_id", "split_size"}),
+        # it would strand the pieces and drop the parent to the plain upload cap. A device
+        # that has not measured the file pushes is_mono null, which would erase a measurement.
+        sticky=frozenset({"split_id", "split_size", "is_mono"}),
         # A device can push a piece after another device deleted its parent recording.
         deleted_parents=frozenset({"split_from_id"}),
         children=(("recording_loops", "recording_id"),),

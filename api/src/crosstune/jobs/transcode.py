@@ -13,7 +13,7 @@ from crosstune.jobs.attempt import RecordingRefused
 from crosstune.jobs.media import cut, encode, needs_encode, probe, remux
 from crosstune.jobs.peaks import build_peaks
 from crosstune.recordings.loops import reclamp_recording_loops
-from crosstune.recordings.service import attach_peaks, attach_playback
+from crosstune.recordings.service import attach_peaks, attach_playback, enqueue_job
 from crosstune.recordings.trim_rules import clamp_stored_trim, clamp_trim
 from crosstune.storage.store import (
     DEFAULT_CONTENT_TYPE,
@@ -28,6 +28,7 @@ from crosstune.storage.store import (
 from crosstune.vocabulary import (
     MAX_RECORDING_MS,
     MAX_SPLIT_SOURCE_MS,
+    JobKind,
     PlaceOrigin,
     RecordingPrecision,
     RecordingSource,
@@ -158,6 +159,12 @@ async def _reclamp_trim(session: AsyncSession, recording: Recording) -> None:
     clamp_stored_trim(recording, high=recording.source_duration_ms)
 
 
+async def _queue_mono(session: AsyncSession, recording: Recording) -> None:
+    """Queue a measurement of whether the playback file is mono, unless the flag is set."""
+    if recording.is_mono is None:
+        await enqueue_job(session, recording, JobKind.MONO)
+
+
 async def _adopt_upload_tags(session: AsyncSession, recording: Recording, info: Probe) -> None:
     """Give an upload the place and date its file was tagged with, when it has none of its own.
 
@@ -194,10 +201,11 @@ async def transcode(
     """Produce the playback file for one uploaded recording and mark it ready.
 
     Applies whatever trim was saved before upload, clamped now that the source's
-    real length is known, and builds the waveform peaks for the resulting playback
-    file. An upload with no place or recorded date of its own takes the ones its
-    file was tagged with. The uploaded object is left in the bucket: it is what a
-    retry reads, and the caller deletes it once the row is committed.
+    real length is known, builds the waveform peaks for the resulting playback
+    file, and queues a measurement of whether it is mono. An upload with no place or recorded date
+    of its own takes the ones its file was tagged with. The uploaded object is left
+    in the bucket: it is what a retry reads, and the caller deletes it once the row
+    is committed.
 
     A failure partway through can leave server-owned columns set on the in-memory
     row without a matching commit; the caller must refresh the row from the
@@ -267,6 +275,7 @@ async def transcode(
     await lock_user(session, recording.user_id)
     await _reclamp_trim(session, recording)
     await _adopt_upload_tags(session, recording, info)
+    await _queue_mono(session, recording)
     await reclamp_recording_loops(session, recording, utc_now())
     bump_server_seq(recording)
     await session.flush()

@@ -41,6 +41,11 @@ CHECKS = {
     ),
     (UserSettings, "ck_user_settings_play_first"): ("play_first", vocabulary.PlayFirst, False),
     (Job, "ck_jobs_kind"): ("kind", vocabulary.JobKind, False),
+    (Recording, "ck_recordings_isolate_effect"): (
+        "isolate_effect",
+        vocabulary.IsolateEffect,
+        False,
+    ),
 }
 
 # Every check constraint that restricts a column to an inclusive numeric range.
@@ -54,6 +59,26 @@ RANGE_CHECKS = {
         "pitch_cents",
         vocabulary.PITCH_CENTS_MIN,
         vocabulary.PITCH_CENTS_MAX,
+    ),
+    (Recording, "ck_recordings_isolate_pan_start"): (
+        "isolate_pan_start",
+        vocabulary.ISOLATE_PAN_MIN,
+        vocabulary.ISOLATE_PAN_MAX,
+    ),
+    (Recording, "ck_recordings_isolate_pan_end"): (
+        "isolate_pan_end",
+        vocabulary.ISOLATE_PAN_MIN,
+        vocabulary.ISOLATE_PAN_MAX,
+    ),
+    (Recording, "ck_recordings_isolate_low_hz"): (
+        "isolate_low_hz",
+        vocabulary.ISOLATE_HZ_MIN,
+        vocabulary.ISOLATE_HZ_MAX,
+    ),
+    (Recording, "ck_recordings_isolate_high_hz"): (
+        "isolate_high_hz",
+        vocabulary.ISOLATE_HZ_MIN,
+        vocabulary.ISOLATE_HZ_MAX,
     ),
     (RecordingLoop, "ck_recording_loops_color"): (
         "color",

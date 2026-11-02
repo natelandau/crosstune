@@ -44,8 +44,9 @@ none of them outranks the others.
   leave it unfiled for later. Split a long recording into one recording
   per tune.
 - Learn and practice by ear. Play a recording slower or faster, shift its
-  pitch, and loop the hard part. Find and link other versions on streaming
-  services.
+  pitch, and loop the hard part. Solo or mute a stereo range and a
+  frequency range to hear one part. Find and link other versions on
+  streaming services.
 - Keep lists. Ordered, named lists for a set list, a practice plan, a
   playlist, or any grouping a musician wants.
 

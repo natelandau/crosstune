@@ -510,6 +510,15 @@
         "title": "InstrumentTuning",
         "type": "object"
       },
+      "IsolateEffect": {
+        "description": "Whether playback keeps only the isolated band or removes it.",
+        "enum": [
+          "solo",
+          "mute"
+        ],
+        "title": "IsolateEffect",
+        "type": "string"
+      },
       "ListChangeResult": {
         "description": "The outcome of one change to a list.",
         "properties": {
@@ -2002,6 +2011,50 @@
             "default": null,
             "title": "Created By Split Id"
           },
+          "is_mono": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Is Mono"
+          },
+          "isolate_effect": {
+            "$ref": "#/components/schemas/IsolateEffect",
+            "default": "solo"
+          },
+          "isolate_high_hz": {
+            "default": 16000,
+            "maximum": 16000,
+            "minimum": 40,
+            "title": "Isolate High Hz",
+            "type": "integer"
+          },
+          "isolate_low_hz": {
+            "default": 40,
+            "maximum": 16000,
+            "minimum": 40,
+            "title": "Isolate Low Hz",
+            "type": "integer"
+          },
+          "isolate_pan_end": {
+            "default": 100,
+            "maximum": 100,
+            "minimum": -100,
+            "title": "Isolate Pan End",
+            "type": "integer"
+          },
+          "isolate_pan_start": {
+            "default": -100,
+            "maximum": 100,
+            "minimum": -100,
+            "title": "Isolate Pan Start",
+            "type": "integer"
+          },
           "label": {
             "anyOf": [
               {
@@ -2705,6 +2758,49 @@
             "format": "uuid",
             "title": "Id",
             "type": "string"
+          },
+          "is_mono": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Mono"
+          },
+          "isolate_effect": {
+            "$ref": "#/components/schemas/IsolateEffect",
+            "default": "solo"
+          },
+          "isolate_high_hz": {
+            "default": 16000,
+            "maximum": 16000.0,
+            "minimum": 40.0,
+            "title": "Isolate High Hz",
+            "type": "integer"
+          },
+          "isolate_low_hz": {
+            "default": 40,
+            "maximum": 16000.0,
+            "minimum": 40.0,
+            "title": "Isolate Low Hz",
+            "type": "integer"
+          },
+          "isolate_pan_end": {
+            "default": 100,
+            "maximum": 100.0,
+            "minimum": -100.0,
+            "title": "Isolate Pan End",
+            "type": "integer"
+          },
+          "isolate_pan_start": {
+            "default": -100,
+            "maximum": 100.0,
+            "minimum": -100.0,
+            "title": "Isolate Pan Start",
+            "type": "integer"
           },
           "label": {
             "anyOf": [

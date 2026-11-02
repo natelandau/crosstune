@@ -11,7 +11,7 @@ How one feature works is in its code. Deploys and releases:
 | ----------------- | ----------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
 | iPhone, iPad, Mac | One native SwiftUI app                                                                          | Capacitor, which closes the iOS gaps only through native plugins                          |
 | Android, browsers | The web client, an installable PWA. Android's store build is it in a Capacitor shell            | A native Android app: a third client and a third sync engine                              |
-| API               | Python, FastAPI. Server audio work (transcode, trim, split, peaks) in Python                    | Speed or pitch on the server: both play on the device                                     |
+| API               | Python, FastAPI. Server audio work (transcode, trim, split, peaks, mono detection) in Python    | Speed, pitch, or isolate on the server: all play on the device                            |
 | Web client        | React, Vite, React Router in data mode, React Aria Components, Motion, Tailwind `@theme` tokens | A component library (Ionic, daisyUI), or two component systems in one interface           |
 | Apple local store | SQLite through GRDB                                                                             | SwiftData or SQLiteData: the sync rules need exact control of transactions and migrations |
 | Web local store   | IndexedDB through Dexie                                                                         |                                                                                           |
@@ -83,8 +83,8 @@ How one feature works is in its code. Deploys and releases:
   `window.location`. Never per-tab stacks apart from history: the
   browser's back and the app's back would disagree.
 - Nothing the tuner hears leaves the device. Logic written in both
-  clients (the pitch detector) tests against one shared fixture in
-  `fixtures/`.
+  clients (the pitch detector, the isolate mask) tests against one
+  shared fixture in `fixtures/`.
 
 ## Sources of truth
 
@@ -319,6 +319,16 @@ How one feature works is in its code. Deploys and releases:
   `failed`, since the piece plays from it. Delete is disabled, a tune's
   delete leaves the parent unfiled unless the same delete removes every
   such piece, and a pulled tombstone keeps the file until a later pass.
+- Isolate plays recordings only, never streaming links. `is_mono` decides
+  whether the stereo range shows. The server sets it for every playback
+  file, including recordings that predate the field, and the Apple app
+  sets it while it is unknown. A split piece takes the parent's value,
+  and the web client never measures. A push never clears a stored
+  `is_mono`.
+- The isolate mask exists twice (web, Apple) and the mono rule twice
+  (server `jobs/mono.py`, Apple `MonoDetector`), no shared code. A
+  change to a mask constant or a mono threshold lands on both sides in
+  the same change.
 - A local delete of anything with files runs inside
   `CrosstuneStore.writeDroppingFiles` on Apple, which removes files only
   after the write commits.

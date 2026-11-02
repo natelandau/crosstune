@@ -1272,6 +1272,144 @@ RECORDING_0017_COLUMNS = {
 }
 
 
+RECORDING_0060_COLUMNS = {
+    "isolate_effect",
+    "isolate_pan_start",
+    "isolate_pan_end",
+    "isolate_low_hz",
+    "isolate_high_hz",
+    "is_mono",
+}
+
+
+RECORDING_0060_CHECKS = {
+    "ck_recordings_isolate_effect",
+    "ck_recordings_isolate_pan_start",
+    "ck_recordings_isolate_pan_end",
+    "ck_recordings_isolate_pan_order",
+    "ck_recordings_isolate_low_hz",
+    "ck_recordings_isolate_high_hz",
+    "ck_recordings_isolate_hz_order",
+}
+
+
+async def test_0060_adds_and_downgrade_drops_the_isolate_columns(
+    engine, database_url: str, truncate_all: None
+) -> None:
+    config = Config("alembic.ini")
+    config.set_main_option("sqlalchemy.url", database_url)
+
+    async def recording_columns() -> set[str]:
+        async with engine.connect() as conn:
+            return {
+                row[0]
+                for row in await conn.execute(
+                    text(
+                        "select column_name from information_schema.columns "
+                        "where table_name = 'recordings'"
+                    )
+                )
+            }
+
+    async def isolate_checks() -> set[str]:
+        async with engine.connect() as conn:
+            return {
+                row[0]
+                for row in await conn.execute(
+                    text(
+                        "select conname from pg_constraint "
+                        "where conrelid = 'recordings'::regclass and conname like 'ck_recordings_isolate_%'"
+                    )
+                )
+            }
+
+    try:
+        assert await recording_columns() >= RECORDING_0060_COLUMNS
+        assert await isolate_checks() == RECORDING_0060_CHECKS
+        await anyio.to_thread.run_sync(command.downgrade, config, "0059")
+        assert not await recording_columns() & RECORDING_0060_COLUMNS
+        assert not await isolate_checks()
+    finally:
+        await anyio.to_thread.run_sync(command.upgrade, config, "head")
+
+
+async def test_0061_queues_mono_backfill(engine, database_url: str, truncate_all: None) -> None:
+    config = Config("alembic.ini")
+    config.set_main_option("sqlalchemy.url", database_url)
+    user = "018f0000-0000-7000-8000-000000000001"
+    unmeasured = "018f0000-0000-7000-8000-000000000021"
+    measured = "018f0000-0000-7000-8000-000000000022"
+    no_playback = "018f0000-0000-7000-8000-000000000023"
+    deleted = "018f0000-0000-7000-8000-000000000024"
+    try:
+        await anyio.to_thread.run_sync(command.downgrade, config, "0060")
+        async with engine.begin() as conn:
+            await conn.execute(
+                text(
+                    "insert into users (id, clerk_user_id, created_at, updated_at) "
+                    "values (:id, 'user_a', now(), now())"
+                ),
+                {"id": user},
+            )
+            await conn.execute(
+                text(
+                    "insert into recordings (id, user_id, source, added_at, state, "
+                    "playback_key, is_mono, created_at, updated_at, deleted_at) values "
+                    "(:unmeasured, :user, 'upload', now(), 'ready', 'k1', null, now(), now(), "
+                    "null), "
+                    "(:measured, :user, 'upload', now(), 'ready', 'k2', false, now(), now(), "
+                    "null), "
+                    "(:no_playback, :user, 'upload', now(), 'pending_upload', null, null, now(), "
+                    "now(), null), "
+                    "(:deleted, :user, 'upload', now(), 'ready', 'k4', null, now(), now(), now())"
+                ),
+                {
+                    "unmeasured": unmeasured,
+                    "measured": measured,
+                    "no_playback": no_playback,
+                    "deleted": deleted,
+                    "user": user,
+                },
+            )
+    finally:
+        await anyio.to_thread.run_sync(command.upgrade, config, "head")
+
+    async with engine.connect() as conn:
+        jobs = {
+            row[0]: row[1:]
+            for row in (
+                await conn.execute(
+                    text("select recording_id::text, kind, locked_until is null from jobs")
+                )
+            ).tuples()
+        }
+    assert jobs == {unmeasured: ("mono", True)}
+
+
+async def test_downgrade_to_0060_deletes_mono_jobs(
+    engine, database_url: str, truncate_all: None
+) -> None:
+    config = Config("alembic.ini")
+    config.set_main_option("sqlalchemy.url", database_url)
+    await _seed_job(engine, "mono")
+    try:
+        await anyio.to_thread.run_sync(command.downgrade, config, "0060")
+        async with engine.connect() as conn:
+            assert (await conn.execute(text("select count(*) from jobs"))).scalar_one() == 0
+        with pytest.raises(IntegrityError, match="ck_jobs_kind"):
+            async with engine.begin() as conn:
+                await conn.execute(
+                    text(
+                        "insert into jobs (id, recording_id, user_id, kind, attempts, "
+                        "created_at) values ('018f0000-0000-7000-8000-000000000032', "
+                        "'018f0000-0000-7000-8000-000000000021', "
+                        "'018f0000-0000-7000-8000-000000000001', 'mono', 0, now())"
+                    )
+                )
+    finally:
+        await anyio.to_thread.run_sync(command.upgrade, config, "head")
+
+
 async def test_downgrade_to_0016_drops_the_new_columns_and_non_transcode_jobs(
     engine, database_url: str, truncate_all: None
 ) -> None:
@@ -2259,6 +2397,29 @@ async def test_0028_refuses_a_recorded_date_without_its_precision(
 ) -> None:
     await _seed_recording(engine, source="upload")
     with pytest.raises(IntegrityError, match="ck_recordings_recorded_date"):
+        async with engine.begin() as conn:
+            await conn.execute(text(statement))
+
+
+@pytest.mark.parametrize(
+    ("statement", "constraint"),
+    [
+        (
+            "update recordings set isolate_pan_start = 10, isolate_pan_end = 0",
+            "ck_recordings_isolate_pan_order",
+        ),
+        (
+            "update recordings set isolate_low_hz = 4000, isolate_high_hz = 200",
+            "ck_recordings_isolate_hz_order",
+        ),
+    ],
+    ids=["pan", "hz"],
+)
+async def test_0060_refuses_an_unordered_isolate_range(
+    engine, truncate_all: None, statement: str, constraint: str
+) -> None:
+    await _seed_recording(engine, source="upload")
+    with pytest.raises(IntegrityError, match=constraint):
         async with engine.begin() as conn:
             await conn.execute(text(statement))
 
