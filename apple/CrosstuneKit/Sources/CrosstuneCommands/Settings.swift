@@ -53,7 +53,7 @@ private func storedSearchProviders(_ row: UserSettings?) -> [String] {
 }
 
 private func storedAudioQuality(_ row: UserSettings?) -> String {
-    guard let row, Vocabulary.audioQualities.contains(row.audioQuality) else { return "standard" }
+    guard let row, Vocabulary.audioQualities.contains(row.audioQuality) else { return UserSettings.defaultAudioQuality }
     return row.audioQuality
 }
 
@@ -213,7 +213,7 @@ extension Commands {
     public func captureBitrate() async throws -> Int {
         let id = settingsID(clerkUserID: store.userID)
         let quality = try await store.read { db in storedAudioQuality(try UserSettings.fetchOne(db, key: id)) }
-        return Vocabulary.audioBitrates[quality] ?? Vocabulary.audioBitrates["standard"]!
+        return Vocabulary.audioBitrates[quality] ?? Vocabulary.audioBitrates[UserSettings.defaultAudioQuality]!
     }
 
     public func setInstruments(clerkUserID: String, instruments: [String], at time: Timestamp = .now) async throws {

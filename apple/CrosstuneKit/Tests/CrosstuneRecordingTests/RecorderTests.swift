@@ -165,10 +165,11 @@ final class ChannelSetting {
         let saved = try #require(await recorder.stop())
 
         #expect(try channelCount(of: saved) == 1)
-        #expect(input.writer?.bitrate == 64_000)
+        #expect(input.writer?.bitrate == 160_000)
     }
 
-    @Test func recordsMonoByDefault() async throws {
+    @Test func recordsMonoFromAStereoInputWhenMonoIsChosen() async throws {
+        setting.value = .mono
         input.inputChannels = 2
         await recorder.start(tuneID: nil)
         try input.play(seconds: 1)

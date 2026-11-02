@@ -4,16 +4,19 @@ function isAudioQuality(value: unknown): value is AudioQuality {
   return typeof value === 'string' && (AUDIO_QUALITIES as readonly string[]).includes(value)
 }
 
-/** The preset a settings row holds, or standard when there is no usable value. */
+/** Matches the server's default, so a device with no settings row records as a new row would. */
+export const DEFAULT_AUDIO_QUALITY: AudioQuality = 'highest'
+
+/** The preset a settings row holds, or the default when there is no usable value. */
 export function storedAudioQuality(
   row: { audio_quality?: unknown } | null | undefined,
 ): AudioQuality {
-  return isAudioQuality(row?.audio_quality) ? row.audio_quality : 'standard'
+  return isAudioQuality(row?.audio_quality) ? row.audio_quality : DEFAULT_AUDIO_QUALITY
 }
 
 /**
  * The audio quality a write keeps: the stored value even when this client does not know it, so
- * a newer client's choice survives, or standard when there is none.
+ * a newer client's choice survives, or the default when there is none.
  */
 export function storedAudioQualityValue(
   row: { audio_quality?: unknown; deleted_at?: string | null } | null | undefined,

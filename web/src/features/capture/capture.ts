@@ -10,6 +10,7 @@ export interface RecorderLike extends EventTarget {
 export interface TrackLike extends EventTarget {
   muted: boolean
   stop(): void
+  getSettings(): { channelCount?: number }
 }
 
 export interface CaptureOptions {

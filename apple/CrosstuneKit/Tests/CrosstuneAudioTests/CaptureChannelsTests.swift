@@ -11,21 +11,21 @@ import Testing
         body(suite.defaults)
     }
 
-    @Test func readsMonoWhenNothingIsStored() {
-        withDefaults { #expect(CaptureChannels.stored(in: $0) == .mono) }
+    @Test func readsStereoWhenNothingIsStored() {
+        withDefaults { #expect(CaptureChannels.stored(in: $0) == .stereo) }
     }
 
-    @Test func readsAStoredStereoChoice() {
+    @Test func readsAStoredMonoChoice() {
         withDefaults {
-            $0.set("stereo", forKey: CaptureChannels.storageKey)
-            #expect(CaptureChannels.stored(in: $0) == .stereo)
+            $0.set("mono", forKey: CaptureChannels.storageKey)
+            #expect(CaptureChannels.stored(in: $0) == .mono)
         }
     }
 
-    @Test func readsMonoForAnUnknownValue() {
+    @Test func readsStereoForAnUnknownValue() {
         withDefaults {
             $0.set("surround", forKey: CaptureChannels.storageKey)
-            #expect(CaptureChannels.stored(in: $0) == .mono)
+            #expect(CaptureChannels.stored(in: $0) == .stereo)
         }
     }
 

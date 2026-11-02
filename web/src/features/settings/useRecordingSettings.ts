@@ -7,7 +7,7 @@ import { clearDownloadedBlobs, localAudioBytes } from '../../commands/recordings
 import { setAudioQuality, settingsId } from '../../commands/settings'
 import { useDb } from '../../db/DbProvider'
 import { getKeepOffline, setKeepOffline } from '../../db/meta'
-import { storedAudioQuality } from '../../db/recordings'
+import { DEFAULT_AUDIO_QUALITY, storedAudioQuality } from '../../db/recordings'
 import { persistStorage } from '../../platform/storage'
 import { useSyncEngine } from '../../sync/SyncProvider'
 import { useAction } from '../../ui/useAction'
@@ -65,9 +65,9 @@ export function useRecordingSettings(): RecordingSettings {
   const localBytes = useLiveQuery(() => localAudioBytes(db), [db])
 
   return {
-    quality: quality?.quality ?? 'standard',
+    quality: quality?.quality ?? DEFAULT_AUDIO_QUALITY,
     setQuality: (next) => {
-      const changed = next !== (quality?.quality ?? 'standard')
+      const changed = next !== (quality?.quality ?? DEFAULT_AUDIO_QUALITY)
       qualityAction.run(() =>
         writeQuality({ quality: next }).then(() => {
           if (changed) analytics.send('setting_changed', { setting: 'audio_quality', value: next })

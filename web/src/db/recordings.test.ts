@@ -16,13 +16,13 @@ describe('recordings helpers', () => {
     expect(baseContentType('')).toBe('application/octet-stream')
   })
 
-  it('maps presets to bit rates and defaults to standard', () => {
+  it('maps presets to bit rates and defaults to highest', () => {
     expect(AUDIO_BITRATES.low).toBe(48000)
     expect(AUDIO_BITRATES.standard).toBe(64000)
     expect(AUDIO_BITRATES.high).toBe(128000)
     expect(AUDIO_BITRATES.highest).toBe(160000)
-    expect(storedAudioQuality(null)).toBe('standard')
+    expect(storedAudioQuality(null)).toBe('highest')
     expect(storedAudioQuality({ audio_quality: 'high' })).toBe('high')
-    expect(storedAudioQuality({ audio_quality: 'lossless' })).toBe('standard')
+    expect(storedAudioQuality({ audio_quality: 'lossless' })).toBe('highest')
   })
 })

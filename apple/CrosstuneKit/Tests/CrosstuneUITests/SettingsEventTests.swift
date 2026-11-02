@@ -42,7 +42,7 @@ import Testing
         let store = try root.open()
         let model = try await loaded(store)
 
-        model.setAudioQuality(SettingsModel.defaultQuality)
+        model.setAudioQuality(UserSettings.defaultAudioQuality)
         model.setPlayFirst(model.playFirst)
         model.setKeepsOffline(false)
         model.setAudioQuality("low")
@@ -235,16 +235,16 @@ import Testing
         let suite = TemporaryDefaults("DeviceSettingsTests")
         #expect(
             DeviceSettings.current(defaults: suite.defaults) == [
-                .appearance(.system), .textSize(0), .captureChannels(.mono),
+                .appearance(.system), .textSize(0), .captureChannels(.stereo),
             ])
 
         suite.defaults.set("dark", forKey: Appearance.storageKey)
         suite.defaults.set(2, forKey: TextSize.storageKey)
-        suite.defaults.set("stereo", forKey: CaptureChannels.storageKey)
+        suite.defaults.set("mono", forKey: CaptureChannels.storageKey)
 
         #expect(
             DeviceSettings.current(defaults: suite.defaults) == [
-                .appearance(.dark), .textSize(2), .captureChannels(.stereo),
+                .appearance(.dark), .textSize(2), .captureChannels(.mono),
             ])
     }
 }

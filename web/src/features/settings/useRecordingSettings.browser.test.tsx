@@ -51,7 +51,7 @@ describe('useRecordingSettings', () => {
   it('writes the quality and labels the audio on this device', async () => {
     const { result } = setup()
     await expect.poll(() => result.current.localBytesLabel).toBe(audioOnDevice(0))
-    expect(result.current.quality).toBe('standard')
+    expect(result.current.quality).toBe('highest')
     act(() => result.current.setQuality('high'))
     await expect
       .poll(async () => (await db.user_settings.get(settingsId('user_1')))?.audio_quality)
@@ -62,7 +62,7 @@ describe('useRecordingSettings', () => {
   it('reports a changed audio quality once it is written', async () => {
     const { result, analytics } = setup()
     await expect.poll(() => result.current.localBytesLabel).toBe(audioOnDevice(0))
-    act(() => result.current.setQuality('standard'))
+    act(() => result.current.setQuality('highest'))
     act(() => result.current.setQuality('high'))
     await expect.poll(() => analytics.sends()).toHaveLength(1)
     await expect.poll(() => result.current.quality).toBe('high')

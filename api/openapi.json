@@ -4309,7 +4309,7 @@
         "properties": {
           "audio_quality": {
             "$ref": "#/components/schemas/AudioQuality",
-            "default": "standard"
+            "default": "highest"
           },
           "created_at": {
             "format": "date-time",

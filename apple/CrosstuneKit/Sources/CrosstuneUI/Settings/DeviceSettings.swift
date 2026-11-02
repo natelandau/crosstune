@@ -8,8 +8,7 @@ import Foundation
 public enum DeviceSettings {
     public static func current(defaults: UserDefaults = .standard) -> [SettingChange] {
         let appearance = defaults.string(forKey: Appearance.storageKey).flatMap(Appearance.init(rawValue:)) ?? .system
-        let channels =
-            defaults.string(forKey: CaptureChannels.storageKey).flatMap(CaptureChannels.init(rawValue:)) ?? .mono
+        let channels = CaptureChannels.stored(in: defaults)
         return [
             .appearance(AppearanceChoice(appearance)), .textSize(defaults.integer(forKey: TextSize.storageKey)),
             .captureChannels(ChannelChoice(channels)),
