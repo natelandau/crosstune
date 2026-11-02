@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { FakeAudioElement, fakePlaybackEngine } from '../../test/providers'
+import { FakeAudioElement, fakePlaybackEngine, playbackSettings } from '../../test/providers'
 import { TICK_MS, type EngineClock } from './playbackEngine'
 import { PlayheadClock, type FrameSource } from './playheadClock'
 
@@ -47,7 +47,7 @@ function setup() {
   engine.load(
     'blob:test',
     { fromS: 0, toS: LENGTH_MS / 1000, lengthMs: LENGTH_MS },
-    { speedPercent: 100, pitchCents: 0 },
+    playbackSettings,
     { title: 'Test recording' },
   )
   let t = 1000

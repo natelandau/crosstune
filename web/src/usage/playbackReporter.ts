@@ -130,6 +130,7 @@ export function createPlaybackReporter(
         used_loops: visit.usedLoops,
         used_speed: visit.usedSpeed,
         used_pitch: visit.usedPitch,
+        used_isolate: visit.usedIsolate,
         kind: recordingKind(found.row),
         recording_id: visit.recordingId,
         ...(tuneId ? { tune_id: tuneId } : {}),

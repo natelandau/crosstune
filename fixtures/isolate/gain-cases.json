@@ -1,0 +1,158 @@
+[
+  {
+    "setting": {
+      "effect": "solo",
+      "panStart": -100,
+      "panEnd": 100,
+      "lowHz": 40,
+      "highHz": 16000
+    },
+    "isMono": false,
+    "pan": 0,
+    "hz": 1000,
+    "gain": 1
+  },
+  {
+    "setting": {
+      "effect": "solo",
+      "panStart": -100,
+      "panEnd": 100,
+      "lowHz": 40,
+      "highHz": 16000
+    },
+    "isMono": false,
+    "pan": 100,
+    "hz": 40,
+    "gain": 1
+  },
+  {
+    "setting": {
+      "effect": "solo",
+      "panStart": -50,
+      "panEnd": 0,
+      "lowHz": 200,
+      "highHz": 4000
+    },
+    "isMono": false,
+    "pan": -25,
+    "hz": 1000,
+    "gain": 1
+  },
+  {
+    "setting": {
+      "effect": "solo",
+      "panStart": -50,
+      "panEnd": 0,
+      "lowHz": 200,
+      "highHz": 4000
+    },
+    "isMono": false,
+    "pan": 50,
+    "hz": 1000,
+    "gain": 0
+  },
+  {
+    "setting": {
+      "effect": "solo",
+      "panStart": -50,
+      "panEnd": 0,
+      "lowHz": 200,
+      "highHz": 4000
+    },
+    "isMono": false,
+    "pan": -50,
+    "hz": 1000,
+    "gain": 0.5
+  },
+  {
+    "setting": {
+      "effect": "solo",
+      "panStart": -50,
+      "panEnd": 0,
+      "lowHz": 200,
+      "highHz": 4000
+    },
+    "isMono": false,
+    "pan": -25,
+    "hz": 200,
+    "gain": 0.5
+  },
+  {
+    "setting": {
+      "effect": "solo",
+      "panStart": -50,
+      "panEnd": 0,
+      "lowHz": 200,
+      "highHz": 4000
+    },
+    "isMono": false,
+    "pan": -50,
+    "hz": 200,
+    "gain": 0.25
+  },
+  {
+    "setting": {
+      "effect": "mute",
+      "panStart": -50,
+      "panEnd": 0,
+      "lowHz": 200,
+      "highHz": 4000
+    },
+    "isMono": false,
+    "pan": -25,
+    "hz": 1000,
+    "gain": 0
+  },
+  {
+    "setting": {
+      "effect": "mute",
+      "panStart": -50,
+      "panEnd": 0,
+      "lowHz": 200,
+      "highHz": 4000
+    },
+    "isMono": false,
+    "pan": 50,
+    "hz": 1000,
+    "gain": 1
+  },
+  {
+    "setting": {
+      "effect": "mute",
+      "panStart": -50,
+      "panEnd": 0,
+      "lowHz": 200,
+      "highHz": 4000
+    },
+    "isMono": false,
+    "pan": -50,
+    "hz": 200,
+    "gain": 0.75
+  },
+  {
+    "setting": {
+      "effect": "solo",
+      "panStart": -50,
+      "panEnd": 0,
+      "lowHz": 200,
+      "highHz": 4000
+    },
+    "isMono": true,
+    "pan": 50,
+    "hz": 1000,
+    "gain": 1
+  },
+  {
+    "setting": {
+      "effect": "mute",
+      "panStart": -100,
+      "panEnd": 100,
+      "lowHz": 40,
+      "highHz": 16000
+    },
+    "isMono": false,
+    "pan": 0,
+    "hz": 1000,
+    "gain": 0
+  }
+]

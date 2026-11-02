@@ -28,6 +28,7 @@ const ARRAY_NAMES = {
   ScanViewContext: 'SCAN_VIEW_CONTEXTS',
   GrantSource: 'GRANT_SOURCES',
   WithdrawalRefusal: 'WITHDRAWAL_REFUSALS',
+  IsolateEffect: 'ISOLATE_EFFECTS',
 }
 
 // Exported limits object -> the row schemas whose string limits it gathers. A tune and
@@ -48,7 +49,16 @@ const LIMIT_OBJECTS = {
 const RANGE_OBJECTS = {
   RECORDING_RANGES: {
     schema: 'RecordingData',
-    fields: ['speed_percent', 'pitch_cents', 'trim_start_ms', 'place_accuracy_m'],
+    fields: [
+      'speed_percent',
+      'pitch_cents',
+      'trim_start_ms',
+      'place_accuracy_m',
+      'isolate_pan_start',
+      'isolate_pan_end',
+      'isolate_low_hz',
+      'isolate_high_hz',
+    ],
   },
   LOOP_RANGES: { schema: 'RecordingLoopRow', fields: ['start_ms', 'color'] },
   USER_SETTINGS_RANGES: { schema: 'UserSettingsRow', fields: ['tuner_a4_hz'] },

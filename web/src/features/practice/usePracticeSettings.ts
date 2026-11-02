@@ -6,16 +6,28 @@ import { updateRecording } from '../../commands/recordings'
 import { useDb } from '../../db/DbProvider'
 import type { LocalRecording } from '../../db/types'
 import { useLatest } from '../../ui/useLatest'
+import {
+  DEFAULT_ISOLATE,
+  effectiveIsolate,
+  isMonoFromRow,
+  isolateEquals,
+  isolateFromRow,
+  isolateToPatch,
+  type IsolateSetting,
+} from '../player/isolate/isolateSetting'
+import { useRowIsolate } from '../player/isolate/useRowIsolate'
 import { usePlaybackEngine } from '../player/PlaybackEngineProvider'
 import { usePracticeOverlay, type HeldSettings } from './usePracticeOverlay'
 import { useSettledWrite } from './useSettledWrite'
 
 const SPEED_NOT_SAVED = 'The speed could not be saved.'
 const PITCH_NOT_SAVED = 'The pitch could not be saved.'
+const ISOLATE_NOT_SAVED = 'The isolate setting could not be saved.'
 
 /**
- * The recording's speed and pitch as practice plays them: applied to the engine at once,
- * written once each settles, and held ahead of the row for the dock until the writes land.
+ * The recording's speed, pitch, and isolate setting as practice plays them: applied to the
+ * engine at once, written once each settles, and held ahead of the row for the dock until the
+ * writes land.
  */
 export function usePracticeSettings({
   recording,
@@ -30,58 +42,18 @@ export function usePracticeSettings({
 }): {
   speed: number
   pitch: number
+  isolate: IsolateSetting
   changeSpeed: (percent: number) => void
   changePitch: (cents: number) => void
+  changeIsolate: (setting: IsolateSetting) => void
 } {
   const db = useDb()
   const engine = usePlaybackEngine()
   const analytics = useAnalytics()
 
-  // What the controls show runs ahead of the row while a change settles, and follows the row
-  // when it changes while nothing is settling. `sent` is the last value this view wrote or
-  // took from the row: a control that differs from it holds a change of the musician's own,
-  // which a row value landing meanwhile (such as this view's own earlier write) never undoes.
-  const [speed, setSpeed] = useState(recording.speed_percent)
-  const [pitch, setPitch] = useState(recording.pitch_cents)
-  const [sent, setSent] = useState({ speed: recording.speed_percent, pitch: recording.pitch_cents })
-  const [rowSettings, setRowSettings] = useState({
-    speed: recording.speed_percent,
-    pitch: recording.pitch_cents,
-  })
   const rowSpeed = recording.speed_percent
   const rowPitch = recording.pitch_cents
-  if (rowSettings.speed !== rowSpeed || rowSettings.pitch !== rowPitch) {
-    setRowSettings({ speed: rowSpeed, pitch: rowPitch })
-    const adoptSpeed = rowSettings.speed !== rowSpeed && speed === sent.speed
-    const adoptPitch = rowSettings.pitch !== rowPitch && pitch === sent.pitch
-    if (adoptSpeed) setSpeed(rowSpeed)
-    if (adoptPitch) setPitch(rowPitch)
-    if (adoptSpeed || adoptPitch) {
-      setSent({
-        speed: adoptSpeed ? rowSpeed : sent.speed,
-        pitch: adoptPitch ? rowPitch : sent.pitch,
-      })
-    }
-  }
-
-  const practiceOverlay = usePracticeOverlay()
-  const recordingId = recording.id
-  // Tells the dock what plays ahead of the row, so a stored value landing late re-applies
-  // this view's value rather than the older one.
-  const ownHold = useRef<HeldSettings | null>(null)
-  useLayoutEffect(() => {
-    const settings =
-      speed === rowSpeed && pitch === rowPitch
-        ? null
-        : {
-            speedPercent: speed === rowSpeed ? null : speed,
-            pitchCents: pitch === rowPitch ? null : pitch,
-            trimming: false,
-          }
-    ownHold.current = settings
-    practiceOverlay.hold(recordingId, settings)
-  }, [practiceOverlay, recordingId, speed, pitch, rowSpeed, rowPitch])
-
+  const rowIsolate = useRowIsolate(recording).setting
   const rowRef = useLatest(recording)
   const mounted = useRef(true)
   useEffect(() => {
@@ -99,7 +71,7 @@ export function usePracticeSettings({
   }
   const writing = useRef(new Set<Promise<void>>())
   const write = (
-    patch: { speed_percent: number } | { pitch_cents: number },
+    patch: { speed_percent: number } | { pitch_cents: number } | ReturnType<typeof isolateToPatch>,
     message: string,
     report: (recordingId: string) => void,
   ) => {
@@ -113,8 +85,7 @@ export function usePracticeSettings({
     void done.finally(() => writing.current.delete(done))
   }
   // A value the row already holds, such as one adopted from another device, is not written back.
-  useSettledWrite(speed, (value) => {
-    setSent((current) => ({ ...current, speed: value }))
+  const [speed, setSpeed] = useSettledSetting(rowSpeed, Object.is, (value) => {
     if (value === rowRef.current.speed_percent) return
     write({ speed_percent: value }, SPEED_NOT_SAVED, (id) =>
       analytics.send('speed_changed', {
@@ -123,13 +94,46 @@ export function usePracticeSettings({
       }),
     )
   })
-  useSettledWrite(pitch, (value) => {
-    setSent((current) => ({ ...current, pitch: value }))
+  const [pitch, setPitch] = useSettledSetting(rowPitch, Object.is, (value) => {
     if (value === rowRef.current.pitch_cents) return
     write({ pitch_cents: value }, PITCH_NOT_SAVED, (id) =>
       analytics.send('pitch_changed', { semitones: value / 100, recording_id: id }),
     )
   })
+  const [isolate, setIsolate] = useSettledSetting(rowIsolate, isolateEquals, (value) => {
+    if (isolateEquals(value, isolateFromRow(rowRef.current))) return
+    const heard = effectiveIsolate(value, isMonoFromRow(rowRef.current))
+    write(isolateToPatch(value), ISOLATE_NOT_SAVED, (id) =>
+      analytics.send('isolate_changed', {
+        effect: heard.effect,
+        uses_stereo:
+          heard.panStart !== DEFAULT_ISOLATE.panStart || heard.panEnd !== DEFAULT_ISOLATE.panEnd,
+        uses_frequency:
+          heard.lowHz !== DEFAULT_ISOLATE.lowHz || heard.highHz !== DEFAULT_ISOLATE.highHz,
+        recording_id: id,
+      }),
+    )
+  })
+
+  const practiceOverlay = usePracticeOverlay()
+  const recordingId = recording.id
+  // Tells the dock what plays ahead of the row, so a stored value landing late re-applies
+  // this view's value rather than the older one.
+  const ownHold = useRef<HeldSettings | null>(null)
+  useLayoutEffect(() => {
+    const settings =
+      speed === rowSpeed && pitch === rowPitch && isolateEquals(isolate, rowIsolate)
+        ? null
+        : {
+            speedPercent: speed === rowSpeed ? null : speed,
+            pitchCents: pitch === rowPitch ? null : pitch,
+            isolate: isolateEquals(isolate, rowIsolate) ? null : isolate,
+            trimming: false,
+          }
+    ownHold.current = settings
+    practiceOverlay.hold(recordingId, settings)
+  }, [practiceOverlay, recordingId, speed, pitch, isolate, rowSpeed, rowPitch, rowIsolate])
+
   // Declared after the settled writes, so their flush on leaving is already under way. The hold
   // outlives the view until every write has settled, so neither practice nor the dock shows
   // an older value landing first. A hold another view has taken since, such as the trim view's
@@ -154,8 +158,42 @@ export function usePracticeSettings({
   const changePitch = (cents: number) => {
     setPitch(cents)
     onError(null)
-    // Inside the tap that changed it, so iOS grants the audio context a pitch stage needs.
+    // Inside the tap that changed it, so iOS grants the audio context an audio stage needs.
     engine.setPitch(cents)
   }
-  return { speed, pitch, changeSpeed, changePitch }
+  const changeIsolate = (setting: IsolateSetting) => {
+    setIsolate(setting)
+    onError(null)
+    engine.setIsolate(setting, isMonoFromRow(rowRef.current))
+  }
+  return { speed, pitch, isolate, changeSpeed, changePitch, changeIsolate }
+}
+
+/**
+ * A setting as the controls show it, which runs ahead of the row while a change settles and
+ * follows the row when it changes while nothing is settling. `sent` is the last value written
+ * or taken from the row: a value that differs from it holds a change of the musician's own,
+ * which a row value landing meanwhile (such as this view's own earlier write) never undoes.
+ * `write` runs once a change settles; `row` must keep its identity until its value changes.
+ */
+function useSettledSetting<T>(
+  row: T,
+  equals: (a: T, b: T) => boolean,
+  write: (value: T) => void,
+): [T, (value: T) => void] {
+  const [value, setValue] = useState(row)
+  const [sent, setSent] = useState(row)
+  const [seenRow, setSeenRow] = useState(row)
+  if (seenRow !== row) {
+    setSeenRow(row)
+    if (!equals(seenRow, row) && equals(value, sent)) {
+      setValue(row)
+      setSent(row)
+    }
+  }
+  useSettledWrite(value, (settled) => {
+    setSent(settled)
+    write(settled)
+  })
+  return [value, setValue]
 }

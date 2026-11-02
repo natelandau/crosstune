@@ -107,6 +107,16 @@ const RECORDING_METADATA_KEYS = [
 
 const SPLIT_KEYS = ['split_from_id', 'split_id', 'split_size', 'created_by_split_id'] as const
 
+// Frozen at version 24: the defaults an upgrade writes must not follow later changes to the live ones.
+const ISOLATE_KEYS = {
+  is_mono: null,
+  isolate_effect: 'solo',
+  isolate_pan_start: -100,
+  isolate_pan_end: 100,
+  isolate_low_hz: 40,
+  isolate_high_hz: 16000,
+} as const
+
 export class CrosstuneDb extends Dexie {
   // EntityTable<T, K> makes the key property K optional on insert, Dexie's convention for
   // autoincrement keys. These tables use app-supplied ids, so Table<T, string> keeps inserts
@@ -390,6 +400,22 @@ export class CrosstuneDb extends Dexie {
             fill(row)
             row.split_completed_id ??= null
           })
+        await tx
+          .table('outbox')
+          .filter((entry: OutboxEntry) => entry.table === 'recordings' && entry.data != null)
+          .modify((entry: OutboxEntry) => {
+            if (entry.data) fill(entry.data)
+          })
+      })
+
+    // Recordings gain the isolate setting and the mono flag.
+    this.version(24)
+      .stores({})
+      .upgrade(async (tx) => {
+        const fill = (row: Record<string, unknown>) => {
+          for (const [key, value] of Object.entries(ISOLATE_KEYS)) row[key] ??= value
+        }
+        await tx.table('recordings').toCollection().modify(fill)
         await tx
           .table('outbox')
           .filter((entry: OutboxEntry) => entry.table === 'recordings' && entry.data != null)

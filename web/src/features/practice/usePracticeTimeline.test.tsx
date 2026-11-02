@@ -2,7 +2,7 @@ import { act, renderHook } from '@testing-library/react'
 import { MotionConfig, MotionGlobalConfig } from 'motion/react'
 import type { ReactNode } from 'react'
 import { describe, expect, it, onTestFinished, vi } from 'vitest'
-import { fakePlaybackEngine } from '../../test/providers'
+import { fakePlaybackEngine, playbackSettings } from '../../test/providers'
 import { recordingFile, recordingRow } from '../../test/rows'
 import { ZOOM_STEP } from './panel'
 import type { RecordingView } from '../recordings/useRecordings'
@@ -24,12 +24,9 @@ function setup({
     holdsSplitAudio: false,
   }
   const engine = fakePlaybackEngine()
-  engine.load(
-    'blob:a',
-    { fromS: 10, toS: 190, lengthMs: LENGTH_MS },
-    { speedPercent: 100, pitchCents: 0 },
-    { title: 'Jam' },
-  )
+  engine.load('blob:a', { fromS: 10, toS: 190, lengthMs: LENGTH_MS }, playbackSettings, {
+    title: 'Jam',
+  })
   const rendered = renderHook(
     ({ width }: { width: number }) => {
       onRender?.()

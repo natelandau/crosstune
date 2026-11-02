@@ -6,7 +6,7 @@ import { recordingAnalytics } from '../../usage/testing'
 import { DbContext } from '../../db/DbProvider'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
-import { fakePlaybackEngine, FakeAudioElement } from '../../test/providers'
+import { fakePlaybackEngine, FakeAudioElement, playbackSettings } from '../../test/providers'
 import { linkRow, recordingRow } from '../../test/rows'
 import { usePracticeLog } from '../practice/usePracticeLog'
 import type { HeldSettings } from '../practice/usePracticeOverlay'
@@ -125,11 +125,10 @@ function harness(
   return { overlay, rerender: (props: HarnessProps) => view.rerender(tree(props)) }
 }
 
-const SETTINGS = { speedPercent: 100, pitchCents: 0 }
 const META = { title: 'Reel' }
 
 function loadAndPlay(engine: PlaybackEngine) {
-  engine.load('blob:rec-1', SPAN, SETTINGS, META)
+  engine.load('blob:rec-1', SPAN, playbackSettings, META)
   engine.play()
 }
 
@@ -209,7 +208,7 @@ describe('usePlayLog', () => {
       recordingRow('rec-3'),
     ])
     const { rerender } = harness(db, engine, now, { item: REC })
-    engine.load('blob:rec-1', { fromS: 0, toS: 4, lengthMs: 4_000 }, SETTINGS, META)
+    engine.load('blob:rec-1', { fromS: 0, toS: 4, lengthMs: 4_000 }, playbackSettings, META)
     engine.play()
     advance(1_000)
     rerender({ item: { kind: 'recording', id: 'rec-2' } })
@@ -217,14 +216,14 @@ describe('usePlayLog', () => {
     engine.pause()
     engine.unload()
     // A length the engine learns only from the media, which this one never reports.
-    engine.load('blob:rec-2', { fromS: 0, toS: Infinity, lengthMs: 0 }, SETTINGS, META)
+    engine.load('blob:rec-2', { fromS: 0, toS: Infinity, lengthMs: 0 }, playbackSettings, META)
     engine.play()
     advance(5_000)
     engine.pause()
     // Under the full ten seconds an unknown length needs; 4 s would have let it through.
     rerender({ item: { kind: 'recording', id: 'rec-3' } })
     engine.unload()
-    engine.load('blob:rec-3', SPAN, SETTINGS, META)
+    engine.load('blob:rec-3', SPAN, playbackSettings, META)
     engine.play()
     advance(12_000)
     engine.pause()
@@ -244,7 +243,7 @@ describe('usePlayLog', () => {
     engine.load(
       'blob:rec-1',
       { fromS: 0, toS: 6, lengthMs: 6_000 },
-      { speedPercent: 150, pitchCents: 0 },
+      { ...playbackSettings, speedPercent: 150 },
       META,
     )
     engine.play()
@@ -365,7 +364,7 @@ describe('usePlayLog', () => {
     const { db, engine, now, advance } = setup()
     await db.recordings.bulkPut([recordingRow('rec-1'), recordingRow('rec-2')])
     const { rerender } = harness(db, engine, now, { item: REC })
-    engine.load('blob:rec-1', SPAN, { speedPercent: 80, pitchCents: 0 }, META)
+    engine.load('blob:rec-1', SPAN, { ...playbackSettings, speedPercent: 80 }, META)
     engine.play()
     advance(4_000)
     rerender({ item: REC, overlayId: 'rec-2' })
@@ -386,7 +385,7 @@ describe('usePlayLog', () => {
     const { overlay, rerender } = harness(db, engine, now, { item: REC, overlayId: 'rec-1' })
     loadAndPlay(engine)
     advance(4_000)
-    overlay.hold('rec-1', { ...SETTINGS, trimming: true })
+    overlay.hold('rec-1', { ...playbackSettings, trimming: true })
     advance(20_000)
     overlay.hold('rec-1', null)
     engine.pause()
@@ -487,7 +486,7 @@ describe('usePlayLog reports', () => {
     advance(2_000)
     rerender({ item: { kind: 'recording', id: 'rec-2' }, origin: TUNE_ROW })
     await expect.poll(() => ends(analytics)).toHaveLength(2)
-    engine.load('blob:rec-2', SPAN, SETTINGS, META)
+    engine.load('blob:rec-2', SPAN, playbackSettings, META)
     engine.play()
     advance(1_000)
     rerender({ item: null, origin: TUNE_ROW })
@@ -623,6 +622,7 @@ describe('usePlayLog reports', () => {
             used_loops: true,
             used_speed: false,
             used_pitch: false,
+            used_isolate: false,
             kind: 'recorded',
             recording_id: 'rec-1',
             tune_id: 'tune-1',

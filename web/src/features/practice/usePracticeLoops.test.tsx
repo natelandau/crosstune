@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { NO_ROOM } from '../../commands/messages'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
-import { dataProviders, fakePlaybackEngine } from '../../test/providers'
+import { dataProviders, fakePlaybackEngine, playbackSettings } from '../../test/providers'
 import { captureRecording, seedLoop } from '../../test/recordings'
 import type { PlaybackEngine } from '../player/playbackEngine'
 import { PlaybackEngineContext } from '../player/PlaybackEngineProvider'
@@ -34,7 +34,7 @@ async function setup() {
   engine.load(
     'blob:a',
     { fromS: 0, toS: LENGTH_MS / 1000, lengthMs: LENGTH_MS },
-    { speedPercent: 100, pitchCents: 0 },
+    playbackSettings,
     { title: 'Jam' },
   )
   const Data = dataProviders({ db })

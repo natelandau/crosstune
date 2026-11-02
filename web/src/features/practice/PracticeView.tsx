@@ -2,6 +2,7 @@ import { ZoomIn, ZoomOut } from 'lucide-react'
 import { useLayoutEffect, type RefObject } from 'react'
 import { Button as AriaButton } from 'react-aria-components'
 import { useEngineState, usePlaybackEngine } from '../player/PlaybackEngineProvider'
+import { isMonoFromRow } from '../player/isolate/isolateSetting'
 import { FIT, LOCKED_LOOPS_NOTICE } from './practiceCopy'
 import {
   PracticeLoopSwitcher,
@@ -11,7 +12,7 @@ import {
 } from './PracticeSurface'
 import { slotProps, usePracticeCore } from './usePracticeCore'
 import { usePracticeKeys } from './usePracticeKeys'
-import { usePracticeMode } from './usePracticeMode'
+import { usePracticeMode, type Mode } from './usePracticeMode'
 import { usePracticeSettings } from './usePracticeSettings'
 import { formatPreciseDuration } from '../../text/format'
 import { clamp } from '../../math'
@@ -38,8 +39,8 @@ const CAPPED = 'mx-auto w-full max-w-xl'
 
 /**
  * Practice's working view on jet: the overview, the waveform under a fixed playhead, the time
- * and zoom under it, the transport with the loop switcher, and the Loops, Speed, and Pitch
- * panel. It drives the engine the bar loaded and owns the zoom and the keyboard.
+ * and zoom under it, the transport with the loop switcher, and the Loops, Speed, Pitch, and
+ * Isolate panel. It drives the engine the bar loaded and owns the zoom and the keyboard.
  */
 export function PracticeView({
   view,
@@ -68,7 +69,7 @@ export function PracticeView({
 }) {
   const { recording } = view
   const engine = usePlaybackEngine()
-  const pitchUnavailable = useEngineState(engine, (s) => s.pitchUnavailable)
+  const stageUnavailable = useEngineState(engine, (s) => s.stageUnavailable)
 
   const core = usePracticeCore({
     view,
@@ -79,13 +80,18 @@ export function PracticeView({
   const { timeline, loops, content, focusWaveform } = core
 
   const toast = useToast()
-  const { speed, pitch, changeSpeed, changePitch } = usePracticeSettings({
+  const { speed, pitch, isolate, changeSpeed, changePitch, changeIsolate } = usePracticeSettings({
     recording,
     onError,
     toast: (message) => toast.show(message),
   })
 
   const [mode, setMode] = usePracticeMode()
+  const chooseMode = (next: Mode) => {
+    setMode(next)
+    // Inside the tap, so iOS grants the audio context the Isolate panel's outline needs.
+    if (next === 'isolate') engine.prime()
+  }
 
   usePracticeKeys(escapeRef, { ...loops.keyActions, isTop, blocked })
 
@@ -159,12 +165,19 @@ export function PracticeView({
         <div inert={!!blocked} className={`${CAPPED} ${off}`}>
           <ModePanel
             mode={mode}
-            onMode={setMode}
+            onMode={chooseMode}
             speedPercent={speed}
             pitchCents={pitch}
             onSpeed={changeSpeed}
             onPitch={changePitch}
-            pitchUnavailable={pitchUnavailable}
+            stageUnavailable={stageUnavailable}
+            isolate={{
+              value: isolate,
+              isMono: isMonoFromRow(recording),
+              onChange: changeIsolate,
+              subscribeOutline: engine.subscribeIsolateOutline,
+              recordingId: recording.id,
+            }}
             loops={
               <PracticeLoopsPanel
                 timeline={timeline}

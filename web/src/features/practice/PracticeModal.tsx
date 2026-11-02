@@ -10,6 +10,7 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties } from 're
 import { Dialog, Modal, ModalOverlay } from 'react-aria-components'
 import { useNavigate } from 'react-router'
 import { useAnalytics } from '../../usage/AnalyticsProvider'
+import { isMonoFromRow, isolateFromRow } from '../player/isolate/isolateSetting'
 import { listPosition } from '../player/playerCopy'
 import { useListPlayback } from '../player/useListPlayback'
 import { useRecordingActionsWith } from '../recordings/useRecordingActionsWith'
@@ -99,7 +100,14 @@ export function PracticeModal({
   useTrimHold(
     id,
     view !== null && (shows === 'trim' || shows === 'split'),
-    view ? { speed: view.recording.speed_percent, pitch: view.recording.pitch_cents } : undefined,
+    view
+      ? {
+          speed: view.recording.speed_percent,
+          pitch: view.recording.pitch_cents,
+          isolate: isolateFromRow(view.recording),
+          isMono: isMonoFromRow(view.recording),
+        }
+      : undefined,
   )
 
   const openTune = (tuneId: string) => {

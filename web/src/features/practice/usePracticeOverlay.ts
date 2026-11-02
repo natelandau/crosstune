@@ -1,9 +1,14 @@
 import { createContext, useContext } from 'react'
+import type { IsolateSetting } from '../player/isolate/isolateSetting'
 
-/** Speed and pitch practice is playing but has not yet written; null where it matches the row. */
+/**
+ * Speed, pitch, and isolate setting practice is playing but has not yet written; null where it
+ * matches the row.
+ */
 export interface HeldSettings {
   speedPercent: number | null
   pitchCents: number | null
+  isolate: IsolateSetting | null
   /** True for the trim view's hold. Time it plays is neither practice nor practice settings. */
   trimming: boolean
 }

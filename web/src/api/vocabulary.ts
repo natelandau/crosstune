@@ -18,6 +18,9 @@ export const INSTRUMENTS = [
 ] as const
 export type Instrument = (typeof INSTRUMENTS)[number]
 
+export const ISOLATE_EFFECTS = ['solo', 'mute'] as const
+export type IsolateEffect = (typeof ISOLATE_EFFECTS)[number]
+
 export const MODES = ['major', 'minor', 'mixolydian', 'dorian', 'modal', 'other'] as const
 export type Mode = (typeof MODES)[number]
 
@@ -146,6 +149,10 @@ export const RECORDING_RANGES = {
   pitch_cents: { min: -1200, max: 1200 },
   trim_start_ms: { min: 0 },
   place_accuracy_m: { min: 0, max: 1000000 },
+  isolate_pan_start: { min: -100, max: 100 },
+  isolate_pan_end: { min: -100, max: 100 },
+  isolate_low_hz: { min: 40, max: 16000 },
+  isolate_high_hz: { min: 40, max: 16000 },
 } as const
 
 export const LOOP_RANGES = {

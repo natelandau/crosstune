@@ -3,7 +3,7 @@ import { MotionConfig } from 'motion/react'
 import { useState, type RefObject } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
-import { fakePlaybackEngine, FakeAudioElement } from '../../test/providers'
+import { fakePlaybackEngine, FakeAudioElement, playbackSettings } from '../../test/providers'
 import type { EngineClock, PlaybackEngine } from '../player/playbackEngine'
 import { PlaybackEngineContext } from '../player/PlaybackEngineProvider'
 import { usePlayheadClock } from '../player/playheadClock'
@@ -120,7 +120,7 @@ function setup({
   engine.load(
     'blob:test',
     { fromS: 0, toS: LENGTH_MS / 1000, lengthMs: LENGTH_MS },
-    { speedPercent: 100, pitchCents: 0 },
+    playbackSettings,
     { title: 'Test recording' },
   )
   engine.seek(positionMs)

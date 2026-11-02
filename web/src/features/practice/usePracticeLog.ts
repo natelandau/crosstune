@@ -73,6 +73,7 @@ export function usePracticeLog(
       if (loaded) {
         log.setSpeed(state.speedPercent)
         log.setPitch(state.pitchCents)
+        log.setIsolate(state.isolateDefault)
       }
       const audible = loaded && playing && !trimming()
       log.playing(audible)
@@ -82,7 +83,11 @@ export function usePracticeLog(
     const begin = () => {
       const loaded = playLog.practiceOpened(recordingId)
       const state = engine.getState()
-      log.open(recordingId, { speedPercent: state.speedPercent, pitchCents: state.pitchCents })
+      log.open(recordingId, {
+        speedPercent: state.speedPercent,
+        pitchCents: state.pitchCents,
+        isolateDefault: state.isolateDefault,
+      })
       if (loaded) playing = state.playing
       feed()
     }

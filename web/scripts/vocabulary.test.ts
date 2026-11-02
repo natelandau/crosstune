@@ -69,6 +69,18 @@ const ROWS = {
       place_accuracy_m: {
         anyOf: [{ type: 'integer', minimum: 0, maximum: 1000000 }, { type: 'null' }],
       },
+      isolate_pan_start: {
+        anyOf: [{ type: 'integer', minimum: -100, maximum: 100 }, { type: 'null' }],
+      },
+      isolate_pan_end: {
+        anyOf: [{ type: 'integer', minimum: -100, maximum: 100 }, { type: 'null' }],
+      },
+      isolate_low_hz: {
+        anyOf: [{ type: 'integer', minimum: 40, maximum: 16000 }, { type: 'null' }],
+      },
+      isolate_high_hz: {
+        anyOf: [{ type: 'integer', minimum: 40, maximum: 16000 }, { type: 'null' }],
+      },
     },
   },
 }
@@ -121,6 +133,15 @@ describe('vocabulary generator', () => {
     expect(text).toContain('  alternate_titles: 200,\n  alternate_titles_count: 50,\n')
   })
 
+  it('names the isolate effect list', () => {
+    const { text } = generate({
+      ...ROWS,
+      Mode: { type: 'string', enum: ['major'] },
+      IsolateEffect: { type: 'string', enum: ['solo', 'mute'] },
+    })
+    expect(text).toContain("export const ISOLATE_EFFECTS = ['solo', 'mute'] as const")
+  })
+
   it('fails on an enum the name map does not know', () => {
     const { status, stderr } = generate({ ...ROWS, Flavor: { type: 'string', enum: ['red'] } })
     expect(status).toBe(1)
@@ -154,6 +175,10 @@ describe('vocabulary generator', () => {
         '  pitch_cents: { min: -1200, max: 1200 },',
         '  trim_start_ms: { min: 0 },',
         '  place_accuracy_m: { min: 0, max: 1000000 },',
+        '  isolate_pan_start: { min: -100, max: 100 },',
+        '  isolate_pan_end: { min: -100, max: 100 },',
+        '  isolate_low_hz: { min: 40, max: 16000 },',
+        '  isolate_high_hz: { min: 40, max: 16000 },',
         '} as const',
       ].join('\n'),
     )

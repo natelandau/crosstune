@@ -36,6 +36,7 @@ import { addLink, removeLink } from './links'
 import { splitRecording } from './split'
 import { createTune, deleteTune } from './tunes'
 import { newId } from './write'
+import { DEFAULT_ISOLATE, isolateToPatch } from '../features/player/isolate/isolateSetting'
 
 let db: CrosstuneDb
 
@@ -249,6 +250,8 @@ describe('capture', () => {
       playback_end_ms: null,
       playback_rev: null,
       peaks_rev: null,
+      is_mono: null,
+      ...isolateToPatch(DEFAULT_ISOLATE),
     })
   })
 
@@ -324,6 +327,21 @@ describe('capture', () => {
 })
 
 describe('uploads and edits', () => {
+  it('saves an isolate setting and the mono flag on the row and in the queued change', async () => {
+    const id = await captured()
+    const expected = {
+      is_mono: true,
+      isolate_effect: 'mute' as const,
+      isolate_pan_start: -50,
+      isolate_pan_end: 25,
+      isolate_low_hz: 200,
+      isolate_high_hz: 4000,
+    }
+    await updateRecording(db, id, expected)
+    expect(await db.recordings.get(id)).toMatchObject(expected)
+    expect((await pendingFor(db, 'recordings', id))?.data).toMatchObject(expected)
+  })
+
   it('saves notes, players, and place on the row and in the queued change', async () => {
     const id = await captured()
     await updateRecording(db, id, {
@@ -758,6 +776,8 @@ describe('keep offline and local audio', () => {
       playback_end_ms: null,
       playback_rev: null,
       peaks_rev: null,
+      is_mono: null,
+      ...isolateToPatch(DEFAULT_ISOLATE),
       split_completed_id: null,
     })
     expect(await localAudioBytes(db)).toBe(4 + 4 + 5)

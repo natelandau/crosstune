@@ -1,16 +1,21 @@
-import { expect, it, vi } from 'vitest'
+import { expect, it, onTestFinished, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
 import { AnalyticsProvider } from '../../usage/AnalyticsProvider'
 import { recordingAnalytics } from '../../usage/testing'
 import { removeLoop, updateLoop } from '../../commands/loops'
-import { PAUSE } from '../player/transportCopy'
+import { PAUSE, PITCH_BADGE, SPEED_BADGE } from '../player/transportCopy'
 import { ARROW_LARGE_STEP_MS, ARROW_STEP_MS } from './PracticeWaveform'
 import {
+  ISOLATE_LABEL,
+  ISOLATE_UNAVAILABLE,
   LOCKED_LOOPS_NOTICE,
   LOOP_CREATED,
   LOOP_NAME,
   LOOP_SELECTED,
   LOOPS_LABEL,
+  MODES_LABEL,
+  MUTE,
+  SEGMENT_LABEL,
   SET_END,
   SET_START,
 } from './practiceCopy'
@@ -22,6 +27,7 @@ import { liveLoops, seedLoop } from '../../test/recordings'
 import { MORE_ACTIONS } from '../../ui/menuCopy'
 import { GO_TO_TUNE } from '../recordings/recordingNames'
 import { PALETTE } from '../../theme/tokens'
+import { fakePlaybackEngine, fakeStage } from '../../test/providers'
 import { isAppleTouch } from '../../platform/appleTouch'
 import { addTypedTitleLabel, SEARCH_TUNES } from '../catalog/catalogCopy'
 import { EDIT, RECORDING_NAME_LABEL, ADD_TO_TUNE } from '../recordings/recordingCopy'
@@ -258,6 +264,145 @@ it('holds the mode panel at one height across Loops, Speed, and Pitch', async ()
   await mode(PITCH).click()
   await expect.element(mode(PITCH)).toBeChecked()
   await expect.poll(height).toBe(loops)
+  await mode(ISOLATE_LABEL).click()
+  await expect.element(mode(ISOLATE_LABEL)).toBeChecked()
+  await expect.poll(height).toBe(loops)
+})
+
+it('offers four modes for a recording, the Isolate segment naming Mute while it mutes', async () => {
+  await mountPlaying(PHONE, { recording: { isolate_effect: 'mute' } })
+  await openPractice()
+  const modes = page.getByRole('dialog').getByRole('radiogroup', { name: MODES_LABEL })
+  await expect.poll(() => modes.getByRole('radio').all().length).toBe(4)
+  await expect
+    .element(modes.getByRole('radio', { name: SEGMENT_LABEL(ISOLATE_LABEL, MUTE), exact: true }))
+    .toBeVisible()
+})
+
+it('engages the isolate stage while the Isolate mode shows, and not after', async () => {
+  const stage = fakeStage()
+  await mountPlaying(PHONE, {
+    playbackEngine: fakePlaybackEngine(undefined, undefined, async () => stage.stage),
+  })
+  const engaged = stage.setEngaged
+  await openPractice()
+  const mode = (name: string) =>
+    page.getByRole('dialog').getByRole('radio', { name: new RegExp(`^${name}`) })
+  await mode(ISOLATE_LABEL).click()
+  await expect.poll(() => engaged.mock.lastCall).toEqual([true])
+  await mode(LOOPS_LABEL).click()
+  await expect.poll(() => engaged.mock.lastCall).toEqual([false])
+})
+
+it('lets the isolate stage go when practice closes on the Isolate mode', async () => {
+  const stage = fakeStage()
+  await mountPlaying(PHONE, {
+    playbackEngine: fakePlaybackEngine(undefined, undefined, async () => stage.stage),
+  })
+  const engaged = stage.setEngaged
+  await openPractice()
+  await page
+    .getByRole('dialog')
+    .getByRole('radio', { name: new RegExp(`^${ISOLATE_LABEL}`) })
+    .click()
+  await expect.poll(() => engaged.mock.lastCall).toEqual([true])
+  press('Escape')
+  await expect.poll(practice).toBeNull()
+  await expect.poll(() => engaged.mock.lastCall).toEqual([false])
+})
+
+/** A mode panel's own height, under the grid cell that stretches it to the tallest. */
+const contentHeight = (mode: string) =>
+  practice()!
+    .querySelector<HTMLElement>(`[data-mode-panel="${mode}"]`)!
+    .firstElementChild!.getBoundingClientRect().height
+
+it('the isolate panel fits the panel height', async () => {
+  await mountPlaying(PHONE)
+  await openPractice()
+  await expect.poll(() => contentHeight('isolate')).toBeGreaterThan(0)
+  await expect
+    .poll(
+      () =>
+        Math.max(contentHeight('loops'), contentHeight('speed'), contentHeight('pitch')) -
+        contentHeight('isolate'),
+    )
+    .toBeGreaterThanOrEqual(0)
+})
+
+/** Every value off its default, so each segment's value label is its longest. */
+const VALUED = { speed_percent: 75, pitch_cents: -250, isolate_effect: 'mute' } as const
+
+const segments = () => [
+  ...practice()!.querySelectorAll<HTMLElement>('[data-mode-selector] [role="radio"]'),
+]
+/** The label each segment shows, past its pill and its measuring copy. */
+const shownLabel = (segment: HTMLElement) => segment.querySelector<HTMLElement>('span.relative')!
+
+it('shows plain mode names where a value label would not fit, and the values where they do', async () => {
+  document.documentElement.dataset.textSize = 'large'
+  onTestFinished(() => {
+    delete document.documentElement.dataset.textSize
+  })
+  await mountPlaying({ width: 320, height: 568 }, { recording: VALUED })
+  await openPractice()
+  await expect.poll(() => segments().length).toBe(4)
+  const names = [LOOPS_LABEL, SPEED, PITCH, ISOLATE_LABEL]
+  await expect.poll(() => segments().map((s) => shownLabel(s).textContent)).toEqual(names)
+  // How far any label runs past its segment, or onto a second line.
+  const overflow = () =>
+    Math.max(
+      ...segments().map((segment) => {
+        const label = shownLabel(segment)
+        const box = segment.getBoundingClientRect()
+        const text = label.getBoundingClientRect()
+        return Math.max(
+          box.left - text.left,
+          text.right - box.right,
+          (label.getClientRects().length - 1) * 1000,
+        )
+      }),
+    )
+  await expect.poll(overflow).toBeLessThanOrEqual(0)
+  // Each still carries its value in its name.
+  await expect
+    .poll(() => segments().map((s) => s.getAttribute('aria-label')))
+    .toEqual([
+      LOOPS_LABEL,
+      SEGMENT_LABEL(SPEED, SPEED_BADGE(75)),
+      SEGMENT_LABEL(PITCH, PITCH_BADGE(-250)),
+      SEGMENT_LABEL(ISOLATE_LABEL, MUTE),
+    ])
+
+  await page.viewport(WIDE.width, WIDE.height)
+  await expect
+    .poll(() => segments().map((s) => shownLabel(s).textContent))
+    .toEqual([
+      LOOPS_LABEL,
+      SEGMENT_LABEL(SPEED, SPEED_BADGE(75)),
+      SEGMENT_LABEL(PITCH, PITCH_BADGE(-250)),
+      SEGMENT_LABEL(ISOLATE_LABEL, MUTE),
+    ])
+})
+
+it('holds the panel height with one line in place of the isolate controls', async () => {
+  const engine = fakePlaybackEngine(undefined, undefined, () => Promise.reject(new Error('no')))
+  await mountPlaying(PHONE, { playbackEngine: engine })
+  await openPractice()
+  await page
+    .getByRole('dialog')
+    .getByRole('radio', { name: new RegExp(`^${ISOLATE_LABEL}`) })
+    .click()
+  await expect
+    .element(page.getByRole('dialog').getByRole('status').filter({ hasText: ISOLATE_UNAVAILABLE }))
+    .toBeVisible()
+  await expect
+    .poll(
+      () =>
+        Math.max(contentHeight('loops'), contentHeight('speed'), contentHeight('pitch')) -
+        contentHeight('isolate'),
+    )
+    .toBeGreaterThanOrEqual(0)
 })
 
 it("goes to the recording's tune from More, closing practice", async () => {

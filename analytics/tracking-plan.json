@@ -105,6 +105,10 @@
       "list",
       "tune"
     ],
+    "isolate_effect": [
+      "solo",
+      "mute"
+    ],
     "filed_from": [
       "unfiled",
       "other_tune"
@@ -1687,6 +1691,10 @@
           "type": "bool",
           "required": true
         },
+        "used_isolate": {
+          "type": "bool",
+          "required": true
+        },
         "kind": {
           "type": "string",
           "enum": "kind",
@@ -1751,6 +1759,35 @@
       "properties": {
         "semitones": {
           "type": "number",
+          "required": true
+        },
+        "recording_id": {
+          "type": "uuid",
+          "required": true
+        }
+      }
+    },
+    "isolate_changed": {
+      "description": "An isolate setting changed.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "feature_usage"
+      ],
+      "properties": {
+        "effect": {
+          "type": "string",
+          "enum": "isolate_effect",
+          "required": true
+        },
+        "uses_stereo": {
+          "type": "bool",
+          "required": true
+        },
+        "uses_frequency": {
+          "type": "bool",
           "required": true
         },
         "recording_id": {

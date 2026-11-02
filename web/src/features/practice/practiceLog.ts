@@ -8,6 +8,8 @@ const DEFAULT_PITCH_CENTS = 0
 export interface PracticeSettings {
   speedPercent: number
   pitchCents: number
+  /** Whether the isolate setting is the default, which leaves the sound as it was. */
+  isolateDefault: boolean
 }
 
 /** One visit to practice that reached the threshold, timed on the injected clock. */
@@ -28,6 +30,7 @@ export interface ClosedVisit {
   /** Whether the speed was played, or only set, away from normal during the visit. */
   usedSpeed: boolean
   usedPitch: boolean
+  usedIsolate: boolean
 }
 
 interface OpenSession {
@@ -38,8 +41,10 @@ interface OpenSession {
   loopIds: Set<string>
   speedMs: Map<number, number>
   pitchMs: Map<number, number>
+  isolateOffMs: number
   setSpeedOff: boolean
   setPitchOff: boolean
+  setIsolateOff: boolean
 }
 
 /** The key with the most time; the first to reach it wins a tie. */
@@ -79,8 +84,10 @@ export class PracticeLog {
       loopIds: new Set(),
       speedMs: new Map(),
       pitchMs: new Map(),
+      isolateOffMs: 0,
       setSpeedOff: false,
       setPitchOff: false,
+      setIsolateOff: false,
     }
   }
 
@@ -111,6 +118,14 @@ export class PracticeLog {
     if (cents !== DEFAULT_PITCH_CENTS) open.setPitchOff = true
   }
 
+  setIsolate(isDefault: boolean): void {
+    const open = this.#open
+    if (!open || open.settings.isolateDefault === isDefault) return
+    this.book(open, open.span.take(this.now()))
+    open.settings.isolateDefault = isDefault
+    if (!isDefault) open.setIsolateOff = true
+  }
+
   /**
    * Ends the visit. Writes a practice session and returns `'practice'` when it was practice with
    * enough audio; returns null when it was practice too short to keep, and `'play'` when it was
@@ -123,7 +138,10 @@ export class PracticeLog {
     this.#open = null
     const playedSpeedOff = [...open.speedMs.keys()].some((speed) => speed !== DEFAULT_SPEED_PERCENT)
     const playedPitchOff = [...open.pitchMs.keys()].some((pitch) => pitch !== DEFAULT_PITCH_CENTS)
-    if (open.loopIds.size === 0 && !playedSpeedOff && !playedPitchOff) return 'play'
+    const playedIsolateOff = open.isolateOffMs > 0
+    if (open.loopIds.size === 0 && !playedSpeedOff && !playedPitchOff && !playedIsolateOff) {
+      return 'play'
+    }
     if (open.durationMs > 0) {
       this.onClosed({
         recordingId: open.recordingId,
@@ -131,6 +149,7 @@ export class PracticeLog {
         usedLoops: open.loopIds.size > 0,
         usedSpeed: playedSpeedOff || open.setSpeedOff,
         usedPitch: playedPitchOff || open.setPitchOff,
+        usedIsolate: playedIsolateOff || open.setIsolateOff,
       })
     }
     const startedAt = open.span.startedAt
@@ -150,8 +169,9 @@ export class PracticeLog {
   private book(open: OpenSession, ms: number): void {
     if (ms <= 0) return
     open.durationMs += ms
-    const { speedPercent, pitchCents } = open.settings
+    const { speedPercent, pitchCents, isolateDefault } = open.settings
     open.speedMs.set(speedPercent, (open.speedMs.get(speedPercent) ?? 0) + ms)
     open.pitchMs.set(pitchCents, (open.pitchMs.get(pitchCents) ?? 0) + ms)
+    if (!isolateDefault) open.isolateOffMs += ms
   }
 }

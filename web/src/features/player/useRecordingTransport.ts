@@ -16,6 +16,7 @@ import { loopHolds, useLoopFollow } from '../practice/useLoopFollow'
 import { useLoops } from '../practice/useLoops'
 import { DOWNLOAD_FAILED, DOWNLOADING, fileStateLabel, NOT_AVAILABLE } from '../../text/format'
 import type { HeldSettings } from '../practice/usePracticeOverlay'
+import { useRowIsolate } from './isolate/useRowIsolate'
 import type { PlaybackState } from './playbackEngine'
 import { useEngineState, usePlaybackEngine } from './PlaybackEngineProvider'
 import { usePlayheadClock, type FrameSource, type Moving } from './playheadClock'
@@ -94,6 +95,7 @@ export function useRecordingTransport({
   // (the recording and whether a blob exists) and reads the current blob through this ref,
   // kept in sync after every render rather than during it.
   const blobRef = useLatest(blob)
+  const rowIsolate = useRowIsolate(recording)
   const hasBlob = !!blob
   // Minted and revoked in the same effect (not useMemo, which StrictMode can
   // double-invoke without a matching cleanup) so every URL is revoked exactly once. Keyed on
@@ -159,6 +161,8 @@ export function useRecordingTransport({
       {
         speedPercent: hold?.speedPercent ?? recording.speed_percent,
         pitchCents: hold?.pitchCents ?? recording.pitch_cents,
+        isolate: hold?.isolate ?? rowIsolate.setting,
+        isMono: rowIsolate.isMono,
       },
       { title },
       { keepLoop: !!replaced },
@@ -201,6 +205,15 @@ export function useRecordingTransport({
     onPitchChange()
   }, [recording.pitch_cents])
 
+  // A stored isolate setting or a measured mono flag, applied as speed and pitch are.
+  const onIsolateChange = useEffectEvent(() => {
+    if (!src || loadedBlobIdentity.current !== blobIdentity) return
+    engine.setIsolate(held()?.isolate ?? rowIsolate.setting, rowIsolate.isMono)
+  })
+  useEffect(() => {
+    onIsolateChange()
+  }, [rowIsolate])
+
   // A rename touches only what the lock screen shows.
   const onTitleChange = useEffectEvent(() => {
     if (!src || loadedBlobIdentity.current !== blobIdentity) return
@@ -225,7 +238,7 @@ export function useRecordingTransport({
   const failedToPlay = useEngineState(engine, (s) => s.failed)
   const loop = useEngineState(engine, (s) => s.loop)
   const repeat = useEngineState(engine, (s) => s.repeat)
-  const pitchUnavailable = useEngineState(engine, (s) => s.pitchUnavailable)
+  const stageUnavailable = useEngineState(engine, (s) => s.stageUnavailable)
   const state = useMemo<TransportState>(
     () => ({ playing, lengthMs, failed: failedToPlay, loop, repeat }),
     [playing, lengthMs, failedToPlay, loop, repeat],
@@ -261,7 +274,7 @@ export function useRecordingTransport({
     seek,
     speedText: recording.speed_percent !== 100 ? SPEED_BADGE(recording.speed_percent) : null,
     pitchText: recording.pitch_cents !== 0 ? PITCH_BADGE(recording.pitch_cents) : null,
-    pitchUnavailable: pitchUnavailable && recording.pitch_cents !== 0,
+    pitchUnavailable: stageUnavailable && recording.pitch_cents !== 0,
     status,
     // Offline refuses the tap by not offering it, rather than leaving a control that cannot work.
     canRetry: !src && failed && online,

@@ -137,5 +137,11 @@ function pieceRow(
     playback_end_ms: null,
     playback_rev: null,
     peaks_rev: null,
+    is_mono: parent.is_mono ?? null,
+    isolate_effect: parent.isolate_effect,
+    isolate_pan_start: parent.isolate_pan_start,
+    isolate_pan_end: parent.isolate_pan_end,
+    isolate_low_hz: parent.isolate_low_hz,
+    isolate_high_hz: parent.isolate_high_hz,
   }
 }
