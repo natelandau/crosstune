@@ -1,4 +1,4 @@
-import { fft } from './fft'
+import { Fft } from '../../../fft'
 import { TRACKER } from './constants'
 
 export interface PitchEstimate {
@@ -19,6 +19,7 @@ function nextPowerOfTwo(n: number): number {
 }
 
 interface Spectrum {
+  fft: Fft
   re: Float64Array<ArrayBuffer>
   im: Float64Array<ArrayBuffer>
   power: Float64Array<ArrayBuffer>
@@ -31,6 +32,7 @@ interface Spectrum {
  */
 export class PitchEstimator {
   private readonly spectra = new Map<number, Spectrum>()
+  private fft = new Fft(2)
   private re = new Float64Array(0)
   private im = new Float64Array(0)
   private power = new Float64Array(0)
@@ -64,13 +66,13 @@ export class PitchEstimator {
     re.fill(0)
     im.fill(0)
     for (let i = 0; i < w; i++) re[i] = samples[i]!
-    fft(re, im, false)
+    this.fft.forward(re, im)
     for (let k = 0; k < re.length; k++) {
       re[k] = re[k]! * re[k]! + im[k]! * im[k]!
       im[k] = 0
       if (k < power.length) power[k] = re[k]!
     }
-    fft(re, im, true)
+    this.fft.inverseUnscaled(re, im)
     const scale = 1 / re.length
 
     // m(τ) = Σ x[j]² + x[j+τ]² over the overlap, shrinking by one sample at each end per lag.
@@ -127,12 +129,14 @@ export class PitchEstimator {
     let spectrum = this.spectra.get(fftSize)
     if (!spectrum) {
       spectrum = {
+        fft: new Fft(fftSize),
         re: new Float64Array(fftSize),
         im: new Float64Array(fftSize),
         power: new Float64Array(fftSize / 2 + 1),
       }
       this.spectra.set(fftSize, spectrum)
     }
+    this.fft = spectrum.fft
     this.re = spectrum.re
     this.im = spectrum.im
     this.power = spectrum.power
