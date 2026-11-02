@@ -60,7 +60,7 @@ public struct SettingsScreen: View {
     @AppStorage(Appearance.storageKey) private var appearance: Appearance = .system
     @AppStorage(TextSize.storageKey) private var textSizeOffset = 0
     @Environment(\.systemDynamicTypeSize) private var systemTextSize
-    @AppStorage(CaptureChannels.storageKey) private var channels: CaptureChannels = .mono
+    @AppStorage(CaptureChannels.storageKey) private var channels: CaptureChannels = CaptureChannels.defaultChoice
     @AppStorage(UsageData.storageKey) private var sharesUsageData = false
     @Environment(\.analytics) private var analytics
     @Environment(AccountSession.self) private var session: AccountSession?

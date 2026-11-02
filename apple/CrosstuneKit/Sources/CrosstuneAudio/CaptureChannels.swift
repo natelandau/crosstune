@@ -19,9 +19,12 @@ public enum CaptureChannels: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
-    /// The stored choice, or mono when nothing valid is stored.
+    /// Stereo, since ``resolve(_:inputChannels:)`` still records mono from a one-channel input.
+    public static let defaultChoice = CaptureChannels.stereo
+
+    /// The stored choice, or the default when nothing valid is stored.
     public static func stored(in defaults: UserDefaults = .standard) -> CaptureChannels {
-        defaults.string(forKey: storageKey).flatMap(CaptureChannels.init(rawValue:)) ?? .mono
+        defaults.string(forKey: storageKey).flatMap(CaptureChannels.init(rawValue:)) ?? defaultChoice
     }
 
     /// The channel count to record: two only when stereo is chosen and the input has them.

@@ -797,10 +797,11 @@ public struct UserSettings: SyncedRecord, Hashable {
     public static let defaultPlayFirst = playFirstRecordings
     public static let defaultNewTuneStatus = "want_to_learn"
     public static let defaultTunerA4Hz = 440
+    public static let defaultAudioQuality = "highest"
 
     public static var wireDefaults: JSONObject {
         [
-            "audio_quality": .string("standard"), "instruments": .array([]),
+            "audio_quality": .string(defaultAudioQuality), "instruments": .array([]),
             "search_providers": .array(defaultSearchProviders.map(JSONValue.string)),
             "play_first": .string(defaultPlayFirst), "new_tune_genre": .null,
             "new_tune_status": .string(defaultNewTuneStatus), "tuner_a4_hz": .integer(Int64(defaultTunerA4Hz)),
@@ -809,7 +810,7 @@ public struct UserSettings: SyncedRecord, Hashable {
 
     public init(
         id: String = newID(), createdAt: Timestamp = .now, updatedAt: Timestamp? = nil,
-        deletedAt: Timestamp? = nil, serverSeq: Int64 = 0, audioQuality: String = "standard",
+        deletedAt: Timestamp? = nil, serverSeq: Int64 = 0, audioQuality: String = defaultAudioQuality,
         instruments: [String] = [], searchProviders: [String] = defaultSearchProviders,
         playFirst: String = defaultPlayFirst, newTuneGenre: String? = nil,
         newTuneStatus: String = defaultNewTuneStatus, tunerA4Hz: Int = defaultTunerA4Hz,

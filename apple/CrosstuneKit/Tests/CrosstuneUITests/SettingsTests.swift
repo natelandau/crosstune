@@ -191,7 +191,7 @@ private func instrumentSummary(_ model: SettingsModel) -> String {
         let store = try root.open()
         let model = try await loadedModel(store)
         #expect(instrumentSummary(model) == "Not set")
-        #expect(model.audioQuality == "standard")
+        #expect(model.audioQuality == "highest")
         #expect(model.storage == nil)
     }
 

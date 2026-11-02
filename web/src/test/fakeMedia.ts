@@ -49,6 +49,10 @@ export class FakeRecorder extends EventTarget implements RecorderLike {
 export class FakeTrack extends EventTarget implements TrackLike {
   muted = false
   stop = vi.fn()
+  channelCount: number | undefined = 1
+  getSettings() {
+    return { channelCount: this.channelCount }
+  }
 }
 
 export function fakeStream(track: FakeTrack) {

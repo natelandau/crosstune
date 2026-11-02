@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { updateRecording } from '../../commands/recordings'
+import { AUDIO_BITRATES } from '../../constants'
 import { setStorage } from '../../db/meta'
 import {
   CAPTURE_STOP_MS,
@@ -11,6 +12,7 @@ import { openTestDb } from '../../test/db'
 import { FakeRecorder, FakeTrack, fakeStream, LAST_CHUNK } from '../../test/fakeMedia'
 import { parsePeaks } from '../waveform/peaks'
 import {
+  captureBitrate,
   createRecordingSession,
   LATE_FIX_MS,
   PARTIAL_SAVE,
@@ -204,17 +206,41 @@ describe('createRecordingSession start sequence', () => {
     expect(typeWhenAsked).toBe('play-and-record')
   })
 
-  it('asks the microphone for one channel with processing off', async () => {
+  it('asks the microphone for stereo at 48 kHz with processing off', async () => {
     const { session, deps } = setup()
     await session.start()
     expect(deps.getUserMedia).toHaveBeenCalledWith({
       audio: {
-        channelCount: 1,
+        channelCount: 2,
+        sampleRate: 48_000,
         echoCancellation: false,
         noiseSuppression: false,
         autoGainControl: false,
       },
     })
+  })
+})
+
+describe('createRecordingSession bitrate', () => {
+  it('records a mono track at the default preset when no settings row exists', async () => {
+    const { session, recorders } = setup()
+    await session.start()
+    await expect.poll(() => recorders[0]?.options.audioBitsPerSecond).toBe(AUDIO_BITRATES.highest)
+  })
+
+  it('doubles the rate for a stereo track', async () => {
+    const track = new FakeTrack()
+    track.channelCount = 2
+    const { session, recorders } = setup({ getUserMedia: vi.fn(async () => fakeStream(track)) })
+    await session.start()
+    await expect
+      .poll(() => recorders[0]?.options.audioBitsPerSecond)
+      .toBe(2 * AUDIO_BITRATES.highest)
+  })
+
+  it('takes a track wider than stereo, or one that reports no count, at its capped rate', () => {
+    expect(captureBitrate(160_000, 6)).toBe(320_000)
+    expect(captureBitrate(160_000, undefined)).toBe(160_000)
   })
 })
 

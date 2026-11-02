@@ -129,7 +129,7 @@ it('root lists Tunes, Recordings, Appearance, Tuner, Sync and storage, Import an
     ])
   const row = (name: string) => categories().getByRole('row', { name: new RegExp(`^${name}`) })
   await expect.element(row(TUNES)).toHaveTextContent(INSTRUMENT_LABELS.violin)
-  await expect.element(row(RECORDINGS_SETTINGS)).toHaveTextContent(AUDIO_QUALITY_NAMES.standard)
+  await expect.element(row(RECORDINGS_SETTINGS)).toHaveTextContent(AUDIO_QUALITY_NAMES.highest)
   await expect.element(row(APPEARANCE)).toHaveTextContent(APPEARANCE_LABELS.system)
   await expect.element(row(TUNER_SETTINGS_TITLE)).toHaveTextContent(a4Label(440))
   await expect.element(account()).toBeVisible()

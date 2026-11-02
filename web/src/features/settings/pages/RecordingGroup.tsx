@@ -13,7 +13,8 @@ const QUALITY_OPTIONS = AUDIO_QUALITIES.map((id) => ({ id, label: QUALITY_LABELS
 
 /**
  * The quality a recording captures at, and a note while the browser keeps recordings from saving
- * where they were made. The web records one channel, so it has no Channels.
+ * where they were made. The web records stereo whenever the microphone offers it, so it has no
+ * Channels.
  */
 export function RecordingGroup({ audio }: { audio: RecordingSettings }) {
   const { quality, setQuality, qualityError } = audio

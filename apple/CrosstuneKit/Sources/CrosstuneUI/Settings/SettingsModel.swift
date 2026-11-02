@@ -50,7 +50,7 @@ struct StoredSettings: Equatable, Sendable {
     /// The row's recording quality, or the default for none or one this build does not know.
     static func quality(_ row: UserSettings?) -> String {
         row.map(\.audioQuality).flatMap { Vocabulary.audioQualities.contains($0) ? $0 : nil }
-            ?? SettingsModel.defaultQuality
+            ?? UserSettings.defaultAudioQuality
     }
 }
 
@@ -124,8 +124,6 @@ public final class SettingsModel {
     nonisolated public static let oneRejected = "1 change was rejected by the server and is only on this device."
     nonisolated public static let storage = "Storage"
     nonisolated public static let storageUsed = "Storage used"
-    /// The quality a musician with no settings row, or an unknown value, records at.
-    nonisolated static let defaultQuality = "standard"
 
     /// Why the last instrument toggle failed, cleared by the next one or by opening the sheet.
     public private(set) var instrumentsFailure: String?
@@ -388,9 +386,9 @@ public final class SettingsModel {
 
     // MARK: Recording
 
-    /// The quality recordings are made at: `low`, `standard`, or `high`.
+    /// The quality recordings are made at: `low`, `standard`, `high`, or `highest`.
     public var audioQuality: String {
-        pendingQuality.value ?? stored.value?.audioQuality ?? Self.defaultQuality
+        pendingQuality.value ?? stored.value?.audioQuality ?? UserSettings.defaultAudioQuality
     }
 
     public func setAudioQuality(_ quality: String) {

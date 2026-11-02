@@ -191,7 +191,7 @@ import Testing
         let store = try root.open()
         let commands = Commands(store: store)
 
-        #expect(try await commands.captureBitrate() == 64_000)
+        #expect(try await commands.captureBitrate() == 160_000)
 
         try await commands.setAudioQuality(clerkUserID: store.userID, quality: "high")
         #expect(try await commands.captureBitrate() == 128_000)

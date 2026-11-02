@@ -2290,7 +2290,7 @@ export interface components {
          * @description A stored settings row, as push and pull return it.
          */
         UserSettingsRow: {
-            /** @default standard */
+            /** @default highest */
             audio_quality: components["schemas"]["AudioQuality"];
             /**
              * Created At

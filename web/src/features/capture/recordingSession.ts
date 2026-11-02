@@ -107,6 +107,15 @@ export const SIZE_LIMIT = 'This recording reached the size limit and was saved.'
 // flushes on stop, so the finished recording can still upload.
 const SIZE_LIMIT_FRACTION = 0.95
 
+/**
+ * The recorder's total rate: the per-channel preset times the channels the track delivers,
+ * at most two, since the server mixes anything wider down to stereo. A browser that does not
+ * report a count is taken as mono.
+ */
+export function captureBitrate(perChannel: number, channelCount: number | undefined): number {
+  return perChannel * Math.min(Math.max(channelCount ?? 1, 1), 2)
+}
+
 /** One recording from one microphone: start, interruptions, and exactly one finish or cancel. */
 export function createRecordingSession<S extends MediaStreamLike>(
   deps: RecordingSessionDeps<S>,
@@ -274,7 +283,7 @@ export function createRecordingSession<S extends MediaStreamLike>(
       getStorage(db),
     ])
     if (abandoned()) return abandonStart()
-    const bitrate = AUDIO_BITRATES[storedAudioQuality(settings)]
+    const perChannelBitrate = AUDIO_BITRATES[storedAudioQuality(settings)]
     // A capture over the plain cap is held on this device until it is split, and uploads as a
     // split parent, so only the split parent's cap stops it.
     const fileCap = storage?.split_parent_max_file_bytes ?? storage?.max_file_bytes
@@ -287,7 +296,9 @@ export function createRecordingSession<S extends MediaStreamLike>(
       setAudioSessionType('play-and-record')
       stream = await deps.getUserMedia({
         audio: {
-          channelCount: 1,
+          // Plain values are ideals, so a mono microphone or a lower-rate device still records.
+          channelCount: 2,
+          sampleRate: 48_000,
           echoCancellation: false,
           noiseSuppression: false,
           autoGainControl: false,
@@ -354,10 +365,12 @@ export function createRecordingSession<S extends MediaStreamLike>(
       // The waveform is only a visual cue; a recording must never depend on it.
     }
 
+    const track = stream.getAudioTracks()[0]
+    if (!track) throw new Error('No microphone track')
     const mime = pickMimeType((m) => deps.MediaRecorder.isTypeSupported(m))
     const created = new deps.MediaRecorder(stream, {
       ...(mime ? { mimeType: mime } : {}),
-      audioBitsPerSecond: bitrate,
+      audioBitsPerSecond: captureBitrate(perChannelBitrate, track.getSettings().channelCount),
     })
     recorder = created
     // Stamped before the row is written so recovery, which reads it from the row, files an
@@ -369,8 +382,6 @@ export function createRecordingSession<S extends MediaStreamLike>(
     // Asked only once there is a recording worth protecting from storage eviction.
     deps.persistStorage()
 
-    const track = stream.getAudioTracks()[0]
-    if (!track) throw new Error('No microphone track')
     capture = createCapture(created, track, {
       timesliceMs: CHUNK_MS,
       onChunk: (idx, blob) => {

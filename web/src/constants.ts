@@ -212,6 +212,7 @@ export const PROVIDER_LABELS: Record<Provider, string> = {
 
 // ---- Recording -----------------------------------------------------------------------------
 
+/** Bits per second for each channel; a stereo recording uses twice the rate. */
 export const AUDIO_BITRATES: Record<AudioQuality, number> = {
   low: 48_000,
   standard: 64_000,
