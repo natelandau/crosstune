@@ -20,6 +20,11 @@ public enum Vocabulary {
     public static let timeSignatures: [String] = ["4/4", "2/4", "2/2", "3/4", "3/2", "6/8", "9/8", "12/8", "other"]
     public static let statuses: [String] = ["known", "learning", "want_to_learn"]
 
+    public enum IsolateEffect: String, CaseIterable, Sendable {
+        case solo
+        case mute
+    }
+
     public enum PlayContext: String, CaseIterable, Sendable {
         case row
         case list
@@ -77,6 +82,10 @@ public enum Vocabulary {
 
     public enum Ranges {
         public enum Recording {
+            public static let isolateHighHz = 40...16000
+            public static let isolateLowHz = 40...16000
+            public static let isolatePanEnd = -100...100
+            public static let isolatePanStart = -100...100
             public static let pitchCents = -1200...1200
             public static let placeAccuracyM = 0...1_000_000
             public static let speedPercent = 50...150

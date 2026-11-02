@@ -1,5 +1,6 @@
 @preconcurrency import AVFoundation
 import CrosstuneTestSupport
+import CrosstuneVocabulary
 import Foundation
 import MediaPlayer
 import Synchronization
@@ -119,10 +120,10 @@ import Testing
     }
 
     /// A player on the offline renderer, with a 4-second tone loaded.
-    private func offlinePlayer(_ root: TemporaryRoot) throws -> AudioPlayer {
+    private func offlinePlayer(_ root: TemporaryRoot, channels: Int = 1) throws -> AudioPlayer {
         try FileManager.default.createDirectory(at: root.url, withIntermediateDirectories: true)
         let url = root.url.appending(path: "tone.aac")
-        try writeTone(to: url, seconds: 4)
+        try writeTone(to: url, seconds: 4, channels: channels)
         let player = AudioPlayer(isCapturing: { false }, rendersOffline: true)
         player.load(url, nowPlaying: NowPlaying(title: "Take", tuneTitle: nil))
         return player
@@ -228,6 +229,22 @@ import Testing
         #expect(abs(player.elapsed - before) < 0.001)
         try player.render(seconds: 0.5)
         #expect(player.elapsed > before + 0.3 && player.elapsed < before + 0.8)
+        player.unload()
+    }
+
+    @Test func aConfigurationChangeKeepsTheIsolateConnected() async throws {
+        let root = TemporaryRoot()
+        let player = try offlinePlayer(root)
+        player.play()
+        let dry = rms(try player.render(seconds: 0.5).suffix(11_025))
+        player.setIsolate(highBand, isMono: false)
+        NotificationCenter.default.post(name: .AVAudioEngineConfigurationChange, object: player.engine)
+        try await eventually { player.isPlaying && player.engine.isRunning }
+        let isolateNode = try #require(player.isolateNode)
+        #expect(player.engine.inputConnectionPoint(for: isolateNode, inputBus: 0)?.node is AVAudioPlayerNode)
+        #expect(player.engine.inputConnectionPoint(for: player.timePitch, inputBus: 0)?.node === isolateNode)
+        let wet = rms(try player.render(seconds: 1).suffix(22_050))
+        #expect(decibels(wet / dry) < -30)
         player.unload()
     }
 
@@ -553,6 +570,184 @@ import Testing
         player.unload()
     }
 
+    // MARK: Isolate
+
+    /// Solo 2 to 8 kHz, which holds none of the 440 Hz test tone.
+    private let highBand = IsolateSetting(effect: .solo, panStart: -100, panEnd: 100, lowHz: 2_000, highHz: 8_000)
+
+    @Test func setIsolateEngagesTheUnitWhenNotDefault() throws {
+        let root = TemporaryRoot()
+        let player = try offlinePlayer(root)
+        let isolate = try #require(player.isolate)
+        #expect(!isolate.isEngaged)
+        #expect(player.isolateOutline == nil)
+        player.setIsolate(highBand, isMono: false)
+        #expect(isolate.isEngaged)
+        player.setIsolate(.standard, isMono: false)
+        #expect(!isolate.isEngaged)
+        player.setIsolateOutlineWanted(true)
+        #expect(isolate.isEngaged)
+        player.setIsolateOutlineWanted(false)
+        #expect(!isolate.isEngaged)
+        player.unload()
+    }
+
+    @Test func aPanOnlySettingLeavesTheUnitBypassedForMonoAudio() throws {
+        let root = TemporaryRoot()
+        let player = try offlinePlayer(root)
+        let isolate = try #require(player.isolate)
+        let leftHalf = IsolateSetting(effect: .solo, panStart: -100, panEnd: 0, lowHz: 40, highHz: 16000)
+        player.setIsolate(leftHalf, isMono: true)
+        #expect(!isolate.isEngaged)
+        player.setIsolate(leftHalf, isMono: false)
+        #expect(isolate.isEngaged)
+        player.unload()
+    }
+
+    @Test func aNewFileResetsTheIsolateToDefault() throws {
+        let root = TemporaryRoot()
+        let player = try offlinePlayer(root)
+        player.setIsolate(highBand, isMono: true)
+        player.load(root.url.appending(path: "tone.aac"), nowPlaying: NowPlaying(title: "Take", tuneTitle: nil))
+        let isolate = try #require(player.isolate)
+        #expect(isolate.setting == .standard)
+        #expect(!isolate.isMono)
+        #expect(!isolate.isEngaged)
+        player.unload()
+    }
+
+    @Test func defaultIsolateLeavesTheRenderedToneUnchanged() throws {
+        let root = TemporaryRoot()
+        let player = try offlinePlayer(root, channels: 2)
+        player.play()
+        let dry = rms(try player.render(seconds: 1).suffix(22_050))
+        player.setIsolateOutlineWanted(true)
+        let wet = rms(try player.render(seconds: 1).suffix(22_050))
+        #expect(abs(decibels(wet / dry)) < 0.1, "\(decibels(wet / dry)) dB")
+        #expect(player.isolateOutline?.freq.contains(1) == true)
+        player.unload()
+    }
+
+    @Test func anEngageShowsNoOutlineUntilTheUnitHasRenderedSince() throws {
+        let root = TemporaryRoot()
+        let player = try offlinePlayer(root, channels: 2)
+        player.play()
+        player.setIsolateOutlineWanted(true)
+        _ = try player.render(seconds: 0.5)
+        #expect(player.isolateOutline != nil)
+        player.setIsolateOutlineWanted(false)
+        _ = try player.render(seconds: 0.5)
+
+        player.setIsolateOutlineWanted(true)
+        #expect(player.isolateOutline == nil)
+        _ = try player.render(seconds: 0.1)
+        #expect(player.isolateOutline != nil)
+        player.unload()
+    }
+
+    @Test func soloBandRejectsAnOutOfBandTone() throws {
+        let root = TemporaryRoot()
+        let player = try offlinePlayer(root, channels: 2)
+        player.play()
+        let dry = rms(try player.render(seconds: 0.5).suffix(11_025))
+        player.setIsolate(highBand, isMono: false)
+        let wet = rms(try player.render(seconds: 1).suffix(22_050))
+        #expect(decibels(wet / dry) < -30, "\(decibels(wet / dry)) dB")
+        player.unload()
+    }
+
+    @Test func binFrequenciesFollowTheFilesSampleRate() throws {
+        let root = TemporaryRoot()
+        try FileManager.default.createDirectory(at: root.url, withIntermediateDirectories: true)
+        let url = root.url.appending(path: "tone.aac")
+        // The recorder writes 48 kHz, where a mask that assumed 44.1 kHz would place this tone
+        // near 4040 Hz, inside the band's upper edge at about -9 dB.
+        try writeTone(to: url, seconds: 4, channels: 2, frequency: 4_400)
+        #expect(CaptureWriter.sampleRate == 48_000)
+        let player = AudioPlayer(isCapturing: { false }, rendersOffline: true)
+        player.load(url, nowPlaying: NowPlaying(title: "Take", tuneTitle: nil))
+        player.play()
+        let dry = rms(try player.render(seconds: 0.5).suffix(11_025))
+        player.setIsolate(
+            IsolateSetting(effect: .solo, panStart: -100, panEnd: 100, lowHz: 40, highHz: 4_000), isMono: false)
+        let wet = rms(try player.render(seconds: 1).suffix(22_050))
+        #expect(decibels(wet / dry) < -30, "\(decibels(wet / dry)) dB")
+        player.unload()
+    }
+
+    @Test func engagingAndBypassingKeepTheLevelSteady() throws {
+        let root = TemporaryRoot()
+        try FileManager.default.createDirectory(at: root.url, withIntermediateDirectories: true)
+        let url = root.url.appending(path: "noise.aac")
+        try writeNoise(to: url, seconds: 4)
+        let player = AudioPlayer(isCapturing: { false }, rendersOffline: true)
+        player.load(url, nowPlaying: NowPlaying(title: "Take", tuneTitle: nil))
+        player.play()
+        let dry = rms(try player.render(seconds: 0.5).suffix(11_025))
+
+        player.setIsolateOutlineWanted(true)
+        let engaging = try player.render(seconds: 0.4)
+        player.setIsolateOutlineWanted(false)
+        let bypassing = try player.render(seconds: 0.4)
+
+        // Noise, because a tone and its copy one mask latency later can cancel mid-crossfade.
+        for (name, samples) in [("engaging", engaging), ("bypassing", bypassing)] {
+            let levels = stride(from: 0, to: samples.count - 220, by: 220).map {
+                decibels(rms(samples[$0..<$0 + 220]) / dry)
+            }
+            #expect(levels.allSatisfy { $0 > -3 && $0 < 3 }, "\(name): \(levels.min() ?? 0) to \(levels.max() ?? 0) dB")
+        }
+        player.unload()
+    }
+
+    @Test(arguments: [true, false]) func aSeekMidFadeKeepsTheLevelSteady(engaging: Bool) throws {
+        let root = TemporaryRoot()
+        try FileManager.default.createDirectory(at: root.url, withIntermediateDirectories: true)
+        let url = root.url.appending(path: "noise.aac")
+        try writeNoise(to: url, seconds: 4)
+        let player = AudioPlayer(isCapturing: { false }, rendersOffline: true)
+        player.load(url, nowPlaying: NowPlaying(title: "Take", tuneTitle: nil))
+        player.setIsolateOutlineWanted(!engaging)
+        player.play()
+        let dry = rms(try player.render(seconds: 0.5).suffix(11_025))
+
+        player.setIsolateOutlineWanted(engaging)
+        // Engaging first stays dry for the mask's latency, one offline block; 20 ms more is
+        // partway through the 50 ms crossfade either way.
+        if engaging { try player.render(seconds: 0.065) }
+        try player.render(seconds: 0.02)
+        player.seek(to: 2)
+        let after = try player.render(seconds: 0.3).dropFirst(64)
+
+        let levels = stride(from: after.startIndex, to: after.endIndex - 220, by: 220).map {
+            decibels(rms(after[$0..<$0 + 220]) / dry)
+        }
+        #expect(levels.allSatisfy { $0 > -3 && $0 < 3 }, "\(levels.min() ?? 0) to \(levels.max() ?? 0) dB")
+        player.unload()
+    }
+
+    @Test func seekResetsTheIsolate() throws {
+        let root = TemporaryRoot()
+        try FileManager.default.createDirectory(at: root.url, withIntermediateDirectories: true)
+        let url = root.url.appending(path: "tone-then-silence.aac")
+        let writer = try CaptureWriter(url: url, bitrate: 64_000, channels: 2)
+        for step in 0..<40 { try writer.write(sineBuffer(seconds: 0.1, amplitude: step < 20 ? 0.5 : 0)) }
+        writer.close()
+        let player = AudioPlayer(isCapturing: { false }, rendersOffline: true)
+        player.load(url, nowPlaying: NowPlaying(title: "Take", tuneTitle: nil))
+        player.setIsolateOutlineWanted(true)
+        player.play()
+        let tone = try player.render(seconds: 1)
+        #expect(peak(tone.suffix(4_410)) > 0.3)
+
+        // The mask holds 2048 frames, over 40 ms, of the tone; only a reset drops them. The
+        // mixer carries a few samples across any jump.
+        player.seek(to: 3)
+        let after = try player.render(seconds: 0.04).dropFirst(64)
+        #expect(peak(after) < 0.01, "\(peak(after))")
+        player.unload()
+    }
+
     @Test func failsAFileThatIsNotAudio() async throws {
         let root = TemporaryRoot()
         try FileManager.default.createDirectory(at: root.url, withIntermediateDirectories: true)
@@ -566,4 +761,35 @@ import Testing
         player.unload()
         #expect(!player.hasFailed)
     }
+}
+
+private func rms(_ samples: some Collection<Float>) -> Float {
+    (samples.reduce(0) { $0 + $1 * $1 } / Float(max(samples.count, 1))).squareRoot()
+}
+
+private func peak(_ samples: some Collection<Float>) -> Float {
+    samples.reduce(0) { max($0, abs($1)) }
+}
+
+private func decibels(_ ratio: Float) -> Float {
+    20 * log10(max(ratio, 1e-12))
+}
+
+/// Writes `seconds` of white noise, different in each channel, through a ``CaptureWriter``.
+private func writeNoise(to url: URL, seconds: Double) throws {
+    let writer = try CaptureWriter(url: url, bitrate: 128_000, channels: 2)
+    var state: UInt32 = 1
+    for _ in 0..<Int(seconds * 10) {
+        let buffer = sineBuffer(seconds: 0.1, amplitude: 0)
+        for channel in 0..<2 {
+            let samples = buffer.floatChannelData![channel]
+            for frame in 0..<Int(buffer.frameLength) {
+                // Linear congruential generator, so the noise is the same on every run.
+                state = state &* 1_664_525 &+ 1_013_904_223
+                samples[frame] = (Float(state >> 8) / Float(1 << 24) - 0.5) * 0.6
+            }
+        }
+        try writer.write(buffer)
+    }
+    writer.close()
 }

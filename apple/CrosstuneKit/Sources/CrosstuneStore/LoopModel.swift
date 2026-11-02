@@ -53,10 +53,6 @@ public enum LoopModel {
         case atCap
     }
 
-    private static func clamped(_ value: Int64, _ low: Int64, _ high: Int64) -> Int64 {
-        min(max(value, low), high)
-    }
-
     /// Pulls a span inside the bounds; nil when less than the minimum length remains.
     public static func clamp(_ span: LoopSpan, to bounds: LoopSpan) -> LoopSpan? {
         let start = max(span.startMs, bounds.startMs)
@@ -68,9 +64,9 @@ public enum LoopModel {
     public static func resize(_ span: LoopSpan, edge: Edge, to ms: Int64, bounds: LoopSpan) -> LoopSpan {
         switch edge {
         case .start:
-            LoopSpan(startMs: clamped(ms, bounds.startMs, span.endMs - minLoopMs), endMs: span.endMs)
+            LoopSpan(startMs: ms.clamped(min: bounds.startMs, max: span.endMs - minLoopMs), endMs: span.endMs)
         case .end:
-            LoopSpan(startMs: span.startMs, endMs: clamped(ms, span.startMs + minLoopMs, bounds.endMs))
+            LoopSpan(startMs: span.startMs, endMs: ms.clamped(min: span.startMs + minLoopMs, max: bounds.endMs))
         }
     }
 

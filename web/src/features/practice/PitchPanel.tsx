@@ -39,7 +39,7 @@ export function PitchPanel({
 }: {
   value: number
   onChange: (cents: number) => void
-  /** The engine could not build its pitch stage, so a shift will not be heard. */
+  /** The engine could not build its audio stage, so a shift will not be heard. */
   unavailable?: boolean
   /** Says that pitch-shifted playback pauses when the screen locks, as it does on iOS. */
   lockNotice?: boolean

@@ -28,8 +28,8 @@ describe('pwaOptions', () => {
 
   // Config only: whether the built chunk is actually precached is for the task that mounts
   // the engine and can run a real build against it.
-  it('config would precache lazily loaded .js chunks like the pitch stage, and nothing excludes them', () => {
-    const sampleChunks = ['assets/pitchStage-abc123.js', 'assets/SignalsmithStretch-abc123.js']
+  it('config would precache lazily loaded .js chunks like the audio stage, and nothing excludes them', () => {
+    const sampleChunks = ['assets/audioStage-abc123.js', 'assets/SignalsmithStretch-abc123.js']
     const patterns = pwaOptions.workbox?.globPatterns ?? []
     const ignores = pwaOptions.workbox?.globIgnores ?? []
     for (const chunk of sampleChunks) {

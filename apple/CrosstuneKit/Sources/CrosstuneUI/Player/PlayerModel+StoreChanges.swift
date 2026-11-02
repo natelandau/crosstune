@@ -50,8 +50,9 @@ extension PlayerModel {
     /// Follows the stored row of the loaded recording `id`, its audio file on this device, and
     /// the title of its tune: a new name shows in place, and a row that is gone or deleted
     /// closes the player, or moves a queue on to its next track. The audio already playing
-    /// carries on, taking a new trim, speed, or pitch in place, and a new file of the audio
-    /// reloads at the same position. Does nothing when another item is loaded.
+    /// carries on, taking a new trim, speed, pitch, isolate setting, or mono flag in place, and
+    /// a new file of the audio reloads at the same position. Does nothing when another item is
+    /// loaded.
     public func recordingChanged(
         id: String, to row: Recording?, audioFile: RecordingAudioFile?, tuneTitle: String?,
         locale: Locale = .current, timeZone: TimeZone = .current
@@ -65,8 +66,9 @@ extension PlayerModel {
         let next = PlayerItem.recording(row, tuneTitle: tuneTitle, locale: locale, timeZone: timeZone)
         if next != previous { item = next }
         let before = previous?.recording
-        let changed = PlaybackSetting.allCases.filter { before.map($0.value(of:)) != $0.value(of: row) }
-        for setting in changed { follow(setting, row: row) }
+        follow(.speed, from: before, to: row)
+        follow(.pitch, from: before, to: row)
+        follow(.isolate, from: before, to: row)
         guard recordingAudio == .loaded else { return }
         if next.title != previous?.title || next.tuneTitle != previous?.tuneTitle {
             audio.retitle(nowPlaying(for: next))
@@ -84,7 +86,7 @@ extension PlayerModel {
             audio.setWindow(window)
             loops.trimMoved(to: row.trimStartMs)
         }
-        for setting in changed { apply(setting) }
+        for setting in PlaybackSetting.allCases { apply(setting) }
     }
 
     /// Follows the loops of the loaded recording `id`. Does nothing when another item is loaded.

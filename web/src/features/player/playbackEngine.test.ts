@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { compensatedSemitones, type PitchStage } from './pitchStage'
+import { fakeStage } from '../../test/fakeStage'
+import { DEFAULT_ISOLATE } from './isolate/isolateSetting'
+import { compensatedSemitones } from './audioStage'
 import { PlaybackEngine, type EngineClock, type PlaybackState } from './playbackEngine'
 
 /** jsdom has no AudioContext; state stays 'running' unless a test suspends or interrupts it. */
@@ -114,7 +116,7 @@ afterEach(() => {
 })
 
 const span = { fromS: 2, toS: 10, lengthMs: 8000 }
-const settings = { speedPercent: 100, pitchCents: 0 }
+const settings = { speedPercent: 100, pitchCents: 0, isolate: DEFAULT_ISOLATE, isMono: false }
 const meta = { title: 'Test recording' }
 
 describe('PlaybackEngine', () => {
@@ -184,7 +186,7 @@ describe('PlaybackEngine', () => {
     const element = fakeElement()
     const { clock } = fakeClock()
     const engine = new PlaybackEngine(element as unknown as HTMLAudioElement, clock)
-    engine.load('blob:test', span, { speedPercent: 80, pitchCents: 200 }, meta)
+    engine.load('blob:test', span, { ...settings, speedPercent: 80, pitchCents: 200 }, meta)
     expect(engine.getState()).toMatchObject({ speedPercent: 80, pitchCents: 200 })
     engine.setSpeed(75)
     engine.setPitch(-100)
@@ -201,7 +203,7 @@ describe('PlaybackEngine', () => {
     engine.load(
       'blob:two',
       { fromS: 0, toS: 4, lengthMs: 4000 },
-      { speedPercent: 70, pitchCents: 100 },
+      { ...settings, speedPercent: 70, pitchCents: 100 },
       meta,
     )
     expect(states).toEqual([
@@ -313,11 +315,12 @@ describe('PlaybackEngine', () => {
       positionMs: 0,
       lengthMs: 0,
       failed: false,
-      pitchUnavailable: false,
+      stageUnavailable: false,
       loop: null,
       repeat: false,
       speedPercent: 100,
       pitchCents: 0,
+      isolateDefault: true,
     })
     element.currentTime = 999
     tick()
@@ -465,7 +468,7 @@ describe('PlaybackEngine', () => {
     expect(() => engine.prime()).not.toThrow()
   })
 
-  it('prime creates the AudioContext that a later pitch stage reuses, not a second one', async () => {
+  it('prime creates the AudioContext that a later audio stage reuses, not a second one', async () => {
     vi.stubGlobal('AudioContext', FakeAudioContext)
     const element = fakeElement()
     const { clock } = fakeClock()
@@ -528,7 +531,7 @@ describe('PlaybackEngine', () => {
     expect(() => engine.unload()).not.toThrow()
   })
 
-  it('dispose disposes the pitch stage and closes the AudioContext', async () => {
+  it('dispose disposes the audio stage and closes the AudioContext', async () => {
     vi.stubGlobal('AudioContext', FakeAudioContext)
     const element = fakeElement()
     const { clock } = fakeClock()
@@ -545,20 +548,6 @@ describe('PlaybackEngine', () => {
     expect(dispose).toHaveBeenCalled()
     expect(context.close).toHaveBeenCalled()
   })
-
-  function fakeStage(): {
-    stage: PitchStage
-    setTranspose: ReturnType<typeof vi.fn>
-    start: ReturnType<typeof vi.fn>
-    stop: ReturnType<typeof vi.fn>
-    dispose: ReturnType<typeof vi.fn>
-  } {
-    const setTranspose = vi.fn()
-    const start = vi.fn(async () => {})
-    const stop = vi.fn()
-    const dispose = vi.fn()
-    return { stage: { setTranspose, start, stop, dispose }, setTranspose, start, stop, dispose }
-  }
 
   describe('pitch shifting', () => {
     it('setPitch(200) creates the stage once and transposes by 2', async () => {
@@ -634,7 +623,7 @@ describe('PlaybackEngine', () => {
       const { stage, setTranspose } = fakeStage()
       const createStage = vi.fn(async () => stage)
       const engine = new PlaybackEngine(element as unknown as HTMLAudioElement, clock, createStage)
-      engine.load('blob:test', span, { speedPercent: 100, pitchCents: 200 }, meta)
+      engine.load('blob:test', span, { ...settings, speedPercent: 100, pitchCents: 200 }, meta)
 
       engine.play()
       await createStage.mock.results[0]?.value
@@ -702,7 +691,7 @@ describe('PlaybackEngine', () => {
       engine.play()
       await start.mock.results[0]?.value.catch(() => {})
 
-      expect(engine.getState().pitchUnavailable).toBe(true)
+      expect(engine.getState().stageUnavailable).toBe(true)
     })
 
     it('hands pitch correction back to the element when the stage fails to start', async () => {
@@ -713,7 +702,7 @@ describe('PlaybackEngine', () => {
       start.mockRejectedValue(new Error('start failed'))
       const createStage = vi.fn(async () => stage)
       const engine = new PlaybackEngine(element as unknown as HTMLAudioElement, clock, createStage)
-      engine.load('blob:test', span, { speedPercent: 75, pitchCents: 0 }, meta)
+      engine.load('blob:test', span, { ...settings, speedPercent: 75, pitchCents: 0 }, meta)
 
       engine.setPitch(200)
       await createStage.mock.results[0]?.value
@@ -758,13 +747,13 @@ describe('PlaybackEngine', () => {
 
       engine.setPitch(200)
       await createStage.mock.results[0]?.value.catch(() => {})
-      expect(engine.getState().pitchUnavailable).toBe(true)
+      expect(engine.getState().stageUnavailable).toBe(true)
 
       engine.play()
       expect(element.paused).toBe(false)
     })
 
-    it('a successful retry after a threw-on-construction AudioContext clears pitchUnavailable', async () => {
+    it('a successful retry after a threw-on-construction AudioContext clears stageUnavailable', async () => {
       const element = fakeElement()
       const { clock } = fakeClock()
       const { stage } = fakeStage()
@@ -774,15 +763,319 @@ describe('PlaybackEngine', () => {
 
       // No AudioContext stubbed yet: `new AudioContext()` throws (jsdom has none at all).
       engine.setPitch(200)
-      expect(engine.getState().pitchUnavailable).toBe(true)
+      expect(engine.getState().stageUnavailable).toBe(true)
       expect(createStage).not.toHaveBeenCalled()
 
       vi.stubGlobal('AudioContext', FakeAudioContext)
       engine.setPitch(400)
       await createStage.mock.results[0]?.value
 
-      expect(engine.getState().pitchUnavailable).toBe(false)
+      expect(engine.getState().stageUnavailable).toBe(false)
     })
+  })
+})
+
+describe('PlaybackEngine isolate', () => {
+  const narrow = { ...DEFAULT_ISOLATE, panStart: -50, panEnd: 0 }
+
+  function setup() {
+    vi.stubGlobal('AudioContext', FakeAudioContext)
+    const element = fakeElement()
+    const c = fakeClock()
+    const fake = fakeStage()
+    const createStage = vi.fn(async () => fake.stage)
+    const engine = new PlaybackEngine(element as unknown as HTMLAudioElement, c.clock, createStage)
+    engine.load('blob:test', { fromS: 0, toS: 10, lengthMs: 10_000 }, settings, meta)
+    return { element, engine, createStage, ...fake, ...c }
+  }
+
+  it('setIsolate with a non-default setting builds the stage at pitch 0', async () => {
+    const { engine, createStage } = setup()
+
+    engine.setIsolate(narrow, false)
+    await createStage.mock.results[0]?.value
+
+    expect(createStage).toHaveBeenCalledTimes(1)
+  })
+
+  it('setIsolate with the default setting at pitch 0 builds no stage', () => {
+    const { engine, createStage } = setup()
+
+    engine.setIsolate(DEFAULT_ISOLATE, false)
+
+    expect(createStage).not.toHaveBeenCalled()
+  })
+
+  it('setIsolate with only pan changed on a mono recording builds no stage and reads default', () => {
+    const { engine, createStage } = setup()
+
+    engine.setIsolate({ ...DEFAULT_ISOLATE, panStart: -50, panEnd: 0 }, true)
+
+    expect(createStage).not.toHaveBeenCalled()
+    expect(engine.getState().isolateDefault).toBe(true)
+  })
+
+  it('setIsolate forwards the setting and mono flag to the stage', async () => {
+    const { engine, createStage, setSetting } = setup()
+    engine.setPitch(200)
+    await createStage.mock.results[0]?.value
+
+    engine.setIsolate(narrow, true)
+
+    expect(setSetting).toHaveBeenLastCalledWith(narrow, true)
+  })
+
+  it('a built stage receives the current setting and engaged flag', async () => {
+    const { engine, createStage, setSetting, setEngaged } = setup()
+    const isolate = { ...narrow, lowHz: 200 }
+    engine.load(
+      'blob:test',
+      { fromS: 0, toS: 10, lengthMs: 10_000 },
+      { ...settings, isolate, isMono: true },
+      meta,
+    )
+
+    engine.play()
+    await createStage.mock.results[0]?.value
+
+    expect(createStage).toHaveBeenCalledTimes(1)
+    expect(setSetting).toHaveBeenLastCalledWith(isolate, true)
+    expect(setEngaged).toHaveBeenLastCalledWith(false)
+  })
+
+  it('an outline subscriber with no audio context creates none and builds no stage', () => {
+    const { engine, createStage } = setup()
+
+    engine.subscribeIsolateOutline(() => {})
+
+    expect(FakeAudioContext.created).toBe(0)
+    expect(createStage).not.toHaveBeenCalled()
+  })
+
+  it('the next play after an outline subscription builds the stage and engages it', async () => {
+    const { engine, createStage, setEngaged } = setup()
+    engine.subscribeIsolateOutline(() => {})
+    expect(createStage).not.toHaveBeenCalled()
+
+    engine.play()
+    await createStage.mock.results[0]?.value
+
+    expect(createStage).toHaveBeenCalledTimes(1)
+    expect(setEngaged).toHaveBeenLastCalledWith(true)
+  })
+
+  it('the next prime after an outline subscription builds the stage and engages it', async () => {
+    const { engine, createStage, setEngaged } = setup()
+    engine.subscribeIsolateOutline(() => {})
+    expect(createStage).not.toHaveBeenCalled()
+
+    engine.prime()
+    await createStage.mock.results[0]?.value
+
+    expect(createStage).toHaveBeenCalledTimes(1)
+    expect(setEngaged).toHaveBeenLastCalledWith(true)
+  })
+
+  it('an outline subscriber after a prime in the same tap builds the stage at once', async () => {
+    const { engine, createStage, setEngaged } = setup()
+    engine.prime()
+
+    engine.subscribeIsolateOutline(() => {})
+    await createStage.mock.results[0]?.value
+
+    expect(createStage).toHaveBeenCalledTimes(1)
+    expect(setEngaged).toHaveBeenLastCalledWith(true)
+  })
+
+  it('an outline subscriber with a suspended audio context builds no stage', () => {
+    const { engine, createStage } = setup()
+    engine.prime()
+    FakeAudioContext.instances[0]!.state = 'suspended'
+
+    engine.subscribeIsolateOutline(() => {})
+
+    expect(createStage).not.toHaveBeenCalled()
+  })
+
+  it('an outline subscriber engages a stage that already exists at once', async () => {
+    const { engine, createStage, setEngaged } = setup()
+    engine.setPitch(200)
+    await createStage.mock.results[0]?.value
+    setEngaged.mockClear()
+
+    engine.subscribeIsolateOutline(() => {})
+
+    expect(setEngaged).toHaveBeenCalledWith(true)
+    expect(createStage).toHaveBeenCalledTimes(1)
+  })
+
+  it('an outline subscriber builds the stage and engages it until the last one leaves', async () => {
+    const { engine, createStage, setEngaged } = setup()
+
+    engine.prime()
+    const first = engine.subscribeIsolateOutline(() => {})
+    await createStage.mock.results[0]?.value
+
+    expect(createStage).toHaveBeenCalledTimes(1)
+    expect(setEngaged).toHaveBeenLastCalledWith(true)
+
+    const second = engine.subscribeIsolateOutline(() => {})
+    first()
+    first()
+    expect(setEngaged).toHaveBeenLastCalledWith(true)
+    second()
+    expect(setEngaged).toHaveBeenLastCalledWith(false)
+    expect(setEngaged).toHaveBeenCalledTimes(2)
+  })
+
+  it('engages a stage again for a new outline subscriber', async () => {
+    const { engine, createStage, setEngaged } = setup()
+    engine.prime()
+    engine.subscribeIsolateOutline(() => {})()
+    await createStage.mock.results[0]?.value
+    expect(setEngaged).toHaveBeenLastCalledWith(false)
+
+    engine.subscribeIsolateOutline(() => {})
+
+    expect(setEngaged).toHaveBeenLastCalledWith(true)
+  })
+
+  it('seek resets the isolate node', async () => {
+    const { engine, createStage, reset } = setup()
+    engine.prime()
+    engine.subscribeIsolateOutline(() => {})
+    await createStage.mock.results[0]?.value
+    reset.mockClear()
+
+    engine.seek(3000)
+
+    expect(reset).toHaveBeenCalledTimes(1)
+  })
+
+  it('a loop wrap from a tick keeps the isolate node, and a seek resets it', async () => {
+    const { element, engine, createStage, reset, tick } = setup()
+    engine.prime()
+    engine.subscribeIsolateOutline(() => {})
+    await createStage.mock.results[0]?.value
+    engine.setLoop({ id: 'l1', label: 'Bridge', fromS: 2, toS: 4 })
+    engine.setRepeat(true)
+    engine.play()
+    element.currentTime = 3
+    tick()
+    reset.mockClear()
+
+    element.currentTime = 4.02
+    tick()
+
+    expect(element.currentTime).toBe(2)
+    expect(reset).not.toHaveBeenCalled()
+
+    engine.seek(2500)
+    expect(reset).toHaveBeenCalledTimes(1)
+  })
+
+  it('a loop wrap from the end timer keeps the isolate node', async () => {
+    const { element, engine, createStage, reset, tick, fire } = setup()
+    engine.subscribeIsolateOutline(() => {})
+    await createStage.mock.results[0]?.value
+    engine.setLoop({ id: 'l1', label: 'Bridge', fromS: 2, toS: 4 })
+    engine.setRepeat(true)
+    engine.play()
+    element.currentTime = 3.99
+    tick()
+    reset.mockClear()
+
+    element.currentTime = 4
+    fire()
+
+    expect(element.currentTime).toBe(2)
+    expect(reset).not.toHaveBeenCalled()
+  })
+
+  it('a loop wrap at the media end keeps the isolate node', async () => {
+    const { element, engine, createStage, reset, tick } = setup()
+    engine.subscribeIsolateOutline(() => {})
+    await createStage.mock.results[0]?.value
+    engine.setLoop({ id: 'l1', label: 'Tail', fromS: 6, toS: 10 })
+    engine.setRepeat(true)
+    engine.play()
+    element.currentTime = 9.9
+    tick()
+    reset.mockClear()
+
+    element.currentTime = 10
+    element.pause()
+    element.dispatchEvent(new Event('ended'))
+
+    expect(element.currentTime).toBe(6)
+    expect(reset).not.toHaveBeenCalled()
+  })
+
+  it('load resets the isolate node', async () => {
+    const { engine, createStage, reset } = setup()
+    engine.prime()
+    engine.subscribeIsolateOutline(() => {})
+    await createStage.mock.results[0]?.value
+    reset.mockClear()
+
+    engine.load('blob:next', { fromS: 0, toS: 10, lengthMs: 10_000 }, settings, meta)
+
+    expect(reset).toHaveBeenCalled()
+  })
+
+  it('a stage that fails to build sets stageUnavailable', async () => {
+    vi.stubGlobal('AudioContext', FakeAudioContext)
+    const element = fakeElement()
+    const { clock } = fakeClock()
+    const createStage = vi.fn(async () => {
+      throw new Error('worklet unavailable')
+    })
+    const engine = new PlaybackEngine(element as unknown as HTMLAudioElement, clock, createStage)
+    engine.load('blob:test', span, settings, meta)
+
+    engine.setIsolate(narrow, false)
+    await createStage.mock.results[0]?.value.catch(() => {})
+
+    expect(engine.getState().stageUnavailable).toBe(true)
+    engine.play()
+    expect(element.paused).toBe(false)
+  })
+
+  it('disposes a stage that finishes building after the engine is disposed', async () => {
+    vi.stubGlobal('AudioContext', FakeAudioContext)
+    const element = fakeElement()
+    const { clock } = fakeClock()
+    const fake = fakeStage()
+    let finish: (stage: typeof fake.stage) => void = () => {}
+    const createStage = vi.fn(() => new Promise<typeof fake.stage>((resolve) => (finish = resolve)))
+    const engine = new PlaybackEngine(element as unknown as HTMLAudioElement, clock, createStage)
+    engine.load('blob:test', span, settings, meta)
+    engine.prime()
+    engine.subscribeIsolateOutline(() => {})
+
+    engine.dispose()
+    engine.revive()
+    finish(fake.stage)
+    await createStage.mock.results[0]?.value
+
+    expect(fake.dispose).toHaveBeenCalledTimes(1)
+    expect(fake.setSetting).not.toHaveBeenCalled()
+    expect(fake.onOutline).not.toHaveBeenCalled()
+  })
+
+  it('subscribeIsolateOutline delivers outlines from a stage built after it subscribed', async () => {
+    const { engine, createStage, emitOutline } = setup()
+    const received: unknown[] = []
+    engine.prime()
+    const unsubscribe = engine.subscribeIsolateOutline((outline) => received.push(outline))
+
+    await createStage.mock.results[0]?.value
+    const outline = { pan: new Float32Array(32), freq: new Float32Array(48) }
+    emitOutline(outline)
+    unsubscribe()
+    emitOutline(outline)
+
+    expect(received).toEqual([outline])
   })
 })
 

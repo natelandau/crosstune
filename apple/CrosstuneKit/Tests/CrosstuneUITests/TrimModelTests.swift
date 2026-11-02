@@ -222,10 +222,10 @@ private final class Holds {
     @Test func holdsNormalSpeedAndPitchUntilItLeavesOnce() {
         let trim = model()
         trim.open()
-        #expect(holds.made == [PlaybackSettings(speedPercent: 100, pitchCents: 0)])
+        #expect(holds.made == [.normal])
         trim.leave()
         trim.leave()
-        #expect(holds.made == [PlaybackSettings(speedPercent: 100, pitchCents: 0), nil])
+        #expect(holds.made == [.normal, nil])
     }
 
     @Test func aTrimFromElsewhereIsSeenButNotItsOwnWrite() async throws {
@@ -436,7 +436,8 @@ private final class Holds {
         try await load()
         player.hold("r1", PlaybackSettings(speedPercent: 100, pitchCents: 0))
         try await load(row(id: "r2", speedPercent: 60, pitchCents: -100))
-        #expect(audio.calls.suffix(3) == ["setRate(60)", "setPitch(-100)", "play"])
+        #expect(
+            audio.calls.suffix(4) == ["setRate(60)", "setPitch(-100)", "setIsolate(default, mono: false)", "play"])
         // Letting go of the old recording's hold late leaves the new one alone.
         let before = audio.calls.count
         player.hold("r1", nil)

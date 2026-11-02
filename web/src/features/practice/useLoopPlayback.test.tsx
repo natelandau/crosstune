@@ -2,7 +2,7 @@ import { act, renderHook } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { describe, expect, it } from 'vitest'
 import type { LocalRecordingLoop } from '../../db/types'
-import { FakeAudioElement } from '../../test/providers'
+import { FakeAudioElement, playbackSettings } from '../../test/providers'
 import { loopRow, recordingFile, recordingRow } from '../../test/rows'
 import { PlaybackEngine, type EngineClock } from '../player/playbackEngine'
 import { PlaybackEngineContext } from '../player/PlaybackEngineProvider'
@@ -17,12 +17,9 @@ function setup() {
   const engine = new PlaybackEngine(element as unknown as HTMLAudioElement, quietClock, () =>
     Promise.reject(new Error('no stage')),
   )
-  engine.load(
-    'blob:a',
-    { fromS: 0, toS: 170, lengthMs: 170_000 },
-    { speedPercent: 100, pitchCents: 0 },
-    { title: 'Jam' },
-  )
+  engine.load('blob:a', { fromS: 0, toS: 170, lengthMs: 170_000 }, playbackSettings, {
+    title: 'Jam',
+  })
   const wrapper = ({ children }: { children: ReactNode }) => (
     <PlaybackEngineContext.Provider value={engine}>{children}</PlaybackEngineContext.Provider>
   )
@@ -113,7 +110,7 @@ describe('useLoopPlayback', () => {
       engine.load(
         'blob:b',
         { fromS: 0, toS: 100, lengthMs: 100_000 },
-        { speedPercent: 100, pitchCents: 0 },
+        playbackSettings,
         { title: 'Jam' },
         { keepLoop: true },
       ),
@@ -132,7 +129,7 @@ describe('useLoopPlayback', () => {
       engine.load(
         'blob:b',
         { fromS: 0, toS: 100, lengthMs: 100_000 },
-        { speedPercent: 100, pitchCents: 0 },
+        playbackSettings,
         { title: 'Jam' },
         { keepLoop: true },
       ),

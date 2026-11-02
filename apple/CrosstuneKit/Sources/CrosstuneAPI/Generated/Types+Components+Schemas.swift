@@ -443,6 +443,10 @@ extension Components {
                 case tuning
             }
         }
+        /// Whether playback keeps only the isolated band or removes it.
+        ///
+        /// - Remark: Generated from `#/components/schemas/IsolateEffect`.
+        public typealias IsolateEffect = Swift.String
         /// The outcome of one change to a list.
         ///
         /// - Remark: Generated from `#/components/schemas/ListChangeResult`.
@@ -2356,6 +2360,18 @@ extension Components {
             public var createdAt: Foundation.Date
             /// - Remark: Generated from `#/components/schemas/RecordingData/created_by_split_id`.
             public var createdBySplitId: Swift.String?
+            /// - Remark: Generated from `#/components/schemas/RecordingData/is_mono`.
+            public var isMono: Swift.Bool?
+            /// - Remark: Generated from `#/components/schemas/RecordingData/isolate_effect`.
+            public var isolateEffect: Components.Schemas.IsolateEffect?
+            /// - Remark: Generated from `#/components/schemas/RecordingData/isolate_high_hz`.
+            public var isolateHighHz: Swift.Int?
+            /// - Remark: Generated from `#/components/schemas/RecordingData/isolate_low_hz`.
+            public var isolateLowHz: Swift.Int?
+            /// - Remark: Generated from `#/components/schemas/RecordingData/isolate_pan_end`.
+            public var isolatePanEnd: Swift.Int?
+            /// - Remark: Generated from `#/components/schemas/RecordingData/isolate_pan_start`.
+            public var isolatePanStart: Swift.Int?
             /// - Remark: Generated from `#/components/schemas/RecordingData/label`.
             public var label: Swift.String?
             /// - Remark: Generated from `#/components/schemas/RecordingData/notes`.
@@ -2408,6 +2424,12 @@ extension Components {
             ///   - addedAt:
             ///   - createdAt:
             ///   - createdBySplitId:
+            ///   - isMono:
+            ///   - isolateEffect:
+            ///   - isolateHighHz:
+            ///   - isolateLowHz:
+            ///   - isolatePanEnd:
+            ///   - isolatePanStart:
             ///   - label:
             ///   - notes:
             ///   - origin:
@@ -2435,6 +2457,12 @@ extension Components {
                 addedAt: Foundation.Date,
                 createdAt: Foundation.Date,
                 createdBySplitId: Swift.String? = nil,
+                isMono: Swift.Bool? = nil,
+                isolateEffect: Components.Schemas.IsolateEffect? = nil,
+                isolateHighHz: Swift.Int? = nil,
+                isolateLowHz: Swift.Int? = nil,
+                isolatePanEnd: Swift.Int? = nil,
+                isolatePanStart: Swift.Int? = nil,
                 label: Swift.String? = nil,
                 notes: Swift.String? = nil,
                 origin: Components.Schemas.RecordingOrigin? = nil,
@@ -2462,6 +2490,12 @@ extension Components {
                 self.addedAt = addedAt
                 self.createdAt = createdAt
                 self.createdBySplitId = createdBySplitId
+                self.isMono = isMono
+                self.isolateEffect = isolateEffect
+                self.isolateHighHz = isolateHighHz
+                self.isolateLowHz = isolateLowHz
+                self.isolatePanEnd = isolatePanEnd
+                self.isolatePanStart = isolatePanStart
                 self.label = label
                 self.notes = notes
                 self.origin = origin
@@ -2490,6 +2524,12 @@ extension Components {
                 case addedAt = "added_at"
                 case createdAt = "created_at"
                 case createdBySplitId = "created_by_split_id"
+                case isMono = "is_mono"
+                case isolateEffect = "isolate_effect"
+                case isolateHighHz = "isolate_high_hz"
+                case isolateLowHz = "isolate_low_hz"
+                case isolatePanEnd = "isolate_pan_end"
+                case isolatePanStart = "isolate_pan_start"
                 case label
                 case notes
                 case origin
@@ -3136,6 +3176,18 @@ extension Components {
             public var error: Swift.String?
             /// - Remark: Generated from `#/components/schemas/RecordingRow/id`.
             public var id: Swift.String
+            /// - Remark: Generated from `#/components/schemas/RecordingRow/is_mono`.
+            public var isMono: Swift.Bool?
+            /// - Remark: Generated from `#/components/schemas/RecordingRow/isolate_effect`.
+            public var isolateEffect: Components.Schemas.IsolateEffect?
+            /// - Remark: Generated from `#/components/schemas/RecordingRow/isolate_high_hz`.
+            public var isolateHighHz: Swift.Int?
+            /// - Remark: Generated from `#/components/schemas/RecordingRow/isolate_low_hz`.
+            public var isolateLowHz: Swift.Int?
+            /// - Remark: Generated from `#/components/schemas/RecordingRow/isolate_pan_end`.
+            public var isolatePanEnd: Swift.Int?
+            /// - Remark: Generated from `#/components/schemas/RecordingRow/isolate_pan_start`.
+            public var isolatePanStart: Swift.Int?
             /// - Remark: Generated from `#/components/schemas/RecordingRow/label`.
             public var label: Swift.String?
             /// - Remark: Generated from `#/components/schemas/RecordingRow/notes`.
@@ -3218,6 +3270,12 @@ extension Components {
             ///   - durationMs:
             ///   - error:
             ///   - id:
+            ///   - isMono:
+            ///   - isolateEffect:
+            ///   - isolateHighHz:
+            ///   - isolateLowHz:
+            ///   - isolatePanEnd:
+            ///   - isolatePanStart:
             ///   - label:
             ///   - notes:
             ///   - origin:
@@ -3262,6 +3320,12 @@ extension Components {
                 durationMs: Swift.Int? = nil,
                 error: Swift.String? = nil,
                 id: Swift.String,
+                isMono: Swift.Bool? = nil,
+                isolateEffect: Components.Schemas.IsolateEffect? = nil,
+                isolateHighHz: Swift.Int? = nil,
+                isolateLowHz: Swift.Int? = nil,
+                isolatePanEnd: Swift.Int? = nil,
+                isolatePanStart: Swift.Int? = nil,
                 label: Swift.String? = nil,
                 notes: Swift.String? = nil,
                 origin: Components.Schemas.RecordingOrigin? = nil,
@@ -3306,6 +3370,12 @@ extension Components {
                 self.durationMs = durationMs
                 self.error = error
                 self.id = id
+                self.isMono = isMono
+                self.isolateEffect = isolateEffect
+                self.isolateHighHz = isolateHighHz
+                self.isolateLowHz = isolateLowHz
+                self.isolatePanEnd = isolatePanEnd
+                self.isolatePanStart = isolatePanStart
                 self.label = label
                 self.notes = notes
                 self.origin = origin
@@ -3351,6 +3421,12 @@ extension Components {
                 case durationMs = "duration_ms"
                 case error
                 case id
+                case isMono = "is_mono"
+                case isolateEffect = "isolate_effect"
+                case isolateHighHz = "isolate_high_hz"
+                case isolateLowHz = "isolate_low_hz"
+                case isolatePanEnd = "isolate_pan_end"
+                case isolatePanStart = "isolate_pan_start"
                 case label
                 case notes
                 case origin
@@ -3416,6 +3492,30 @@ extension Components {
                 self.id = try container.decode(
                     Swift.String.self,
                     forKey: .id
+                )
+                self.isMono = try container.decodeIfPresent(
+                    Swift.Bool.self,
+                    forKey: .isMono
+                )
+                self.isolateEffect = try container.decodeIfPresent(
+                    Components.Schemas.IsolateEffect.self,
+                    forKey: .isolateEffect
+                )
+                self.isolateHighHz = try container.decodeIfPresent(
+                    Swift.Int.self,
+                    forKey: .isolateHighHz
+                )
+                self.isolateLowHz = try container.decodeIfPresent(
+                    Swift.Int.self,
+                    forKey: .isolateLowHz
+                )
+                self.isolatePanEnd = try container.decodeIfPresent(
+                    Swift.Int.self,
+                    forKey: .isolatePanEnd
+                )
+                self.isolatePanStart = try container.decodeIfPresent(
+                    Swift.Int.self,
+                    forKey: .isolatePanStart
                 )
                 self.label = try container.decodeIfPresent(
                     Swift.String.self,
@@ -3565,6 +3665,12 @@ extension Components {
                     "duration_ms",
                     "error",
                     "id",
+                    "is_mono",
+                    "isolate_effect",
+                    "isolate_high_hz",
+                    "isolate_low_hz",
+                    "isolate_pan_end",
+                    "isolate_pan_start",
                     "label",
                     "notes",
                     "origin",
@@ -3631,6 +3737,30 @@ extension Components {
                 try container.encode(
                     self.id,
                     forKey: .id
+                )
+                try container.encodeIfPresent(
+                    self.isMono,
+                    forKey: .isMono
+                )
+                try container.encodeIfPresent(
+                    self.isolateEffect,
+                    forKey: .isolateEffect
+                )
+                try container.encodeIfPresent(
+                    self.isolateHighHz,
+                    forKey: .isolateHighHz
+                )
+                try container.encodeIfPresent(
+                    self.isolateLowHz,
+                    forKey: .isolateLowHz
+                )
+                try container.encodeIfPresent(
+                    self.isolatePanEnd,
+                    forKey: .isolatePanEnd
+                )
+                try container.encodeIfPresent(
+                    self.isolatePanStart,
+                    forKey: .isolatePanStart
                 )
                 try container.encodeIfPresent(
                     self.label,

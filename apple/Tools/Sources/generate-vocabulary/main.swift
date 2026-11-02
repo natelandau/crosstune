@@ -30,7 +30,7 @@ let arrayNames: [(schema: String, swift: String)] = [
 /// Enum schemas emitted as Swift enums inside `Vocabulary`, for a value set the client names
 /// one case at a time rather than lists. A schema missing here is simply not emitted; one
 /// listed but absent from the document fails the run.
-let enumTypes: [String] = ["PlayContext", "ScanViewContext"]
+let enumTypes: [String] = ["IsolateEffect", "PlayContext", "ScanViewContext"]
 
 /// A limits namespace to the row schemas it gathers string and array limits from, in the
 /// order they are emitted. A tune and its user row are one form to the client, so their
@@ -49,7 +49,13 @@ let limitNamespaces: [(name: String, rows: [String])] = [
 /// they are emitted. A field missing its range fails the run, so the client's own range is
 /// never silently narrower or wider than what the API actually enforces.
 let rangeNamespaces: [(name: String, schema: String, fields: [String])] = [
-    ("Recording", "RecordingData", ["pitch_cents", "place_accuracy_m", "speed_percent"]),
+    (
+        "Recording", "RecordingData",
+        [
+            "isolate_high_hz", "isolate_low_hz", "isolate_pan_end", "isolate_pan_start", "pitch_cents",
+            "place_accuracy_m", "speed_percent",
+        ]
+    ),
     ("RecordingLoop", "RecordingLoopRow", ["color"]),
     ("UserSettings", "UserSettingsRow", ["tuner_a4_hz"]),
 ]

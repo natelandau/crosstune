@@ -184,6 +184,13 @@ class RecordingState(StrEnum):
     FAILED = "failed"
 
 
+class IsolateEffect(StrEnum):
+    """Whether playback keeps only the isolated band or removes it."""
+
+    SOLO = "solo"
+    MUTE = "mute"
+
+
 class ScanState(StrEnum):
     """Where a scan's image is in the upload pipeline."""
 
@@ -201,6 +208,7 @@ class JobKind(StrEnum):
     REENCODE = "reencode"
     PLACE = "place"
     SPLIT = "split"
+    MONO = "mono"
 
 
 class GrantKind(StrEnum):
@@ -251,6 +259,10 @@ SPEED_PERCENT_MIN: Final[int] = 50
 SPEED_PERCENT_MAX: Final[int] = 150
 PITCH_CENTS_MIN: Final[int] = -1200
 PITCH_CENTS_MAX: Final[int] = 1200
+ISOLATE_PAN_MIN: Final[int] = -100
+ISOLATE_PAN_MAX: Final[int] = 100
+ISOLATE_HZ_MIN: Final[int] = 40
+ISOLATE_HZ_MAX: Final[int] = 16000
 MIN_TRIM_MS: Final[int] = 1000
 """The shortest kept range a trim may leave; trim only narrows, never below this."""
 MAX_RECORDING_MS: Final[int] = 3 * 60 * 60 * 1000

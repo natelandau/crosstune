@@ -2,7 +2,9 @@ import CrosstuneAudio
 import CrosstuneCommands
 import CrosstuneStore
 import CrosstuneTestSupport
+import CrosstuneVocabulary
 import Foundation
+import Synchronization
 import Testing
 
 @testable import CrosstuneUI
@@ -10,17 +12,33 @@ import Testing
 private let audioURL = URL(filePath: "/tmp/r1-aaaaaaaa.m4a")
 
 private func recording(
-    trimStartMs: Int64 = 1000, trimEndMs: Int64? = 3000, speedPercent: Int = 75, pitchCents: Int = 200,
+    _ id: String = "r1", trimStartMs: Int64 = 1000, trimEndMs: Int64? = 3000, speedPercent: Int = 75,
+    pitchCents: Int = 200, isolate: IsolateSetting = .standard, isMono: Bool? = nil,
     label: String? = "Jam at Mike's"
 ) -> Recording {
     Recording(
-        id: "r1", tuneID: nil, source: "microphone", addedAt: noon, label: label, state: "ready",
+        id: id, tuneID: nil, source: "microphone", addedAt: noon, label: label, state: "ready",
         sourceDurationMs: 4000, trimStartMs: trimStartMs, trimEndMs: trimEndMs, speedPercent: speedPercent,
-        pitchCents: pitchCents)
+        pitchCents: pitchCents, isolate: isolate, isMono: isMono)
 }
+
+/// The left half of the stereo field, soloed.
+private let leftHalf = IsolateSetting(effect: .solo, panStart: -100, panEnd: 0, lowHz: 40, highHz: 16000)
+/// The 200 Hz to 4 kHz band, muted.
+private let mutedBand = IsolateSetting(effect: .mute, panStart: -100, panEnd: 100, lowHz: 200, highHz: 4000)
 
 private func audioFile(_ url: URL = audioURL, blobStartMs: Int64 = 0) -> RecordingAudioFile {
     RecordingAudioFile(url: url, file: RecordingFile(id: "r1", localState: .downloaded, blobStartMs: blobStartMs))
+}
+
+/// Notes each mono flag the player saves.
+@MainActor
+private final class MonoWrites {
+    private(set) var made: [String: Bool] = [:]
+
+    func save(_ recordingID: String, _ isMono: Bool) async throws {
+        made[recordingID] = isMono
+    }
 }
 
 /// Notes each settled write the player makes, and can refuse them.
@@ -39,6 +57,7 @@ private final class Writes {
 @Suite struct RecordingScreenTests {
     private let audio = FakeAudio()
     private let writes = Writes()
+    private let monos = MonoWrites()
     private let player: PlayerModel
 
     init() {
@@ -46,11 +65,15 @@ private final class Writes {
         player.settleDelay = .milliseconds(40)
         audio.duration = 4
         player.saveSettings = writes.save
+        player.saveMono = monos.save
     }
 
     /// Waits until no change is settling and every settled write has landed.
     private func settled() async throws {
-        try await eventually { player.settling.isEmpty && player.writing.isEmpty }
+        try await eventually {
+            player.settling.isEmpty && player.measuring.isEmpty
+                && player.writing.isEmpty
+        }
     }
 
     private func load(_ row: Recording = recording()) async throws {
@@ -61,7 +84,10 @@ private final class Writes {
 
     @Test func loadingARecordingAppliesItsWindowSpeedAndPitch() async throws {
         try await load()
-        #expect(audio.calls == ["load", "setWindow", "setRate(75)", "setPitch(200)", "play"])
+        #expect(
+            audio.calls == [
+                "load", "setWindow", "setRate(75)", "setPitch(200)", "setIsolate(default, mono: false)", "play",
+            ])
         #expect(audio.window == PlaybackWindow(from: 1, to: 3))
     }
 
@@ -85,6 +111,195 @@ private final class Writes {
         sleep.wake()
         try await settled()
         #expect(writes.made == [PlaybackSettings(speedPercent: 90)])
+    }
+
+    @Test func setIsolateAppliesAtOnceAndSettlesToOneSave() async throws {
+        let sleep = ManualSleep()
+        player.sleep = sleep.sleep
+        try await load(recording(isMono: false))
+        player.setIsolate(leftHalf)
+        player.setIsolate(mutedBand)
+        #expect(audio.calls.suffix(2) == ["setIsolate(custom, mono: false)", "setIsolate(custom, mono: false)"])
+        #expect(player.isolate == mutedBand)
+        try await eventually { sleep.cancelled == 1 && sleep.pending.count == 1 }
+        #expect(writes.made.isEmpty)
+        sleep.wake()
+        try await settled()
+        #expect(writes.made == [PlaybackSettings(isolate: mutedBand)])
+    }
+
+    @Test func anIsolateFromElsewhereAppliesAndASettlingOneWins() async throws {
+        try await load(recording(isMono: false))
+        let before = audio.calls.count
+        player.recordingChanged(
+            id: "r1", to: recording(isolate: leftHalf, isMono: false), audioFile: audioFile(), tuneTitle: nil)
+        #expect(Array(audio.calls[before...]) == ["setIsolate(custom, mono: false)"])
+        #expect(player.isolate == leftHalf)
+
+        player.setIsolate(mutedBand)
+        player.recordingChanged(id: "r1", to: recording(isMono: false), audioFile: audioFile(), tuneTitle: nil)
+        #expect(player.isolate == mutedBand)
+        try await eventually { writes.made == [PlaybackSettings(isolate: mutedBand)] }
+    }
+
+    @Test func aFailedIsolateWriteShowsAndGoesBackToTheRow() async throws {
+        try await load(recording(isolate: leftHalf, isMono: false))
+        writes.refusal = URLError(.cannotOpenFile)
+        player.setIsolate(.standard)
+        #expect(audio.calls.last == "setIsolate(default, mono: false)")
+        try await eventually { player.failure == RecordingScreenText.isolateNotSaved }
+        #expect(player.isolate == leftHalf)
+        #expect(audio.calls.last == "setIsolate(custom, mono: false)")
+    }
+
+    @Test func aMonoRecordingReadsAPanOnlyIsolateAsDefault() async throws {
+        try await load(recording(isolate: leftHalf, isMono: true))
+        #expect(player.isolate == leftHalf)
+        #expect(player.effectiveIsolate.isDefault)
+        #expect(player.activitySnapshot.isolateDefault)
+    }
+
+    @Test func reloadingTheSameRecordingReportsWhatPlayedUntilTheAudioIsBack() async throws {
+        try await load(recording(isMono: false))
+        player.setIsolate(mutedBand)
+        let gate = AsyncStream<Void>.makeStream()
+        player.audioSource = { _ in
+            for await _ in gate.stream { break }
+            return audioFile()
+        }
+        player.play(.recording(recording(isMono: false), tuneTitle: nil))
+        #expect(player.recordingAudio == .fetching)
+        #expect(player.playedSettings(of: "r1")?.isolate == mutedBand)
+        gate.continuation.yield()
+        try await eventually { player.recordingAudio == .loaded }
+        try await settled()
+    }
+
+    @Test func aHoldPlaysItsIsolateUntilLetGo() async throws {
+        try await load(recording(isolate: leftHalf, isMono: false))
+        player.hold("r1", .normal)
+        #expect(audio.calls.last == "setIsolate(default, mono: false)")
+        player.hold("r1", nil)
+        #expect(audio.calls.last == "setIsolate(custom, mono: false)")
+    }
+
+    @Test func startingARecordingWithIsMonoNilMeasuresAndSavesIt() async throws {
+        let measured = Mutex<[URL]>([])
+        audio.measureMonoAnswer = { url in
+            measured.withLock { $0.append(url) }
+            return true
+        }
+        try await load(recording(isolate: leftHalf))
+        try await settled()
+        #expect(measured.withLock { $0 } == [audioURL])
+        #expect(monos.made == ["r1": true])
+        #expect(player.isMono == true)
+        #expect(audio.calls.last == "setIsolate(custom, mono: true)")
+    }
+
+    @Test func startingWithIsMonoSetNeverMeasures() async throws {
+        audio.measureMonoAnswer = { _ in
+            Issue.record("A recording whose mono flag is known was measured.")
+            return true
+        }
+        try await load(recording(isolate: leftHalf, isMono: false))
+        #expect(player.measuring.isEmpty)
+        try await settled()
+        #expect(monos.made.isEmpty)
+        #expect(player.isMono == false)
+    }
+
+    @Test func aMonoFlagFromElsewhereReappliesTheIsolate() async throws {
+        try await load(recording(isolate: leftHalf))
+        player.recordingChanged(
+            id: "r1", to: recording(isolate: leftHalf, isMono: true), audioFile: audioFile(), tuneTitle: nil)
+        #expect(audio.calls.last == "setIsolate(custom, mono: true)")
+        #expect(player.isMono == true)
+    }
+
+    @Test func aFailedMeasurementLeavesTheMonoFlagUnknown() async throws {
+        try await load(recording(isolate: leftHalf))
+        try await settled()
+        #expect(monos.made.isEmpty)
+        #expect(player.isMono == nil)
+        #expect(audio.calls.last == "play")
+    }
+
+    @Test func aFileTheDetectorCannotReadLeavesTheMonoFlagUnknown() async throws {
+        audio.measureMonoAnswer = { _ in throw CaptureError.unsupportedFormat }
+        try await load(recording(isolate: leftHalf))
+        try await settled()
+        #expect(monos.made.isEmpty)
+        #expect(player.isMono == nil)
+    }
+
+    @Test func aMeasurementLandingAfterASwitchIsSavedButNotApplied() async throws {
+        let gate = AsyncStream<Void>.makeStream()
+        audio.measureMonoAnswer = { _ in
+            for await _ in gate.stream { break }
+            return true
+        }
+        try await load(recording(isolate: leftHalf))
+        let measurement = try #require(player.measuring["r1"])
+        player.audioSource = { id in audioFile(URL(filePath: "/tmp/\(id).m4a")) }
+        player.play(.recording(recording("r2", isMono: false), tuneTitle: nil))
+        try await eventually { player.holds(.recording, id: "r2") && player.recordingAudio == .loaded }
+        let before = audio.calls.count
+        gate.continuation.yield()
+        await measurement.value
+        try await settled()
+        #expect(monos.made == ["r1": true])
+        #expect(audio.calls.count == before)
+        #expect(player.isMono == false)
+    }
+
+    @Test func aMeasurementStillUnderWayWhenSettingsFinishNeverSaves() async throws {
+        let gate = AsyncStream<Void>.makeStream()
+        audio.measureMonoAnswer = { _ in
+            for await _ in gate.stream { break }
+            return true
+        }
+        try await load(recording(isolate: leftHalf))
+        let measurement = try #require(player.measuring["r1"])
+        await player.finishSettings()
+        #expect(player.measuring.isEmpty)
+        gate.continuation.yield()
+        await measurement.value
+        try await settled()
+        #expect(monos.made.isEmpty)
+        #expect(player.isMono == nil)
+    }
+
+    @Test func leavingTheStoreStopsAMeasurementUnderWay() async throws {
+        let gate = AsyncStream<Void>.makeStream()
+        audio.measureMonoAnswer = { _ in
+            for await _ in gate.stream { break }
+            return true
+        }
+        try await load(recording(isolate: leftHalf))
+        let measurement = try #require(player.measuring["r1"])
+        let saveMono = monos.save
+        player.leaveStore()
+        // A store opened again before the measurement lands still receives nothing.
+        player.saveMono = saveMono
+        gate.continuation.yield()
+        await measurement.value
+        #expect(player.measuring.isEmpty)
+        #expect(monos.made.isEmpty)
+    }
+
+    @Test func switchingRecordingsAppliesTheNewIsolate() async throws {
+        let sleep = ManualSleep()
+        player.sleep = sleep.sleep
+        try await load(recording(isolate: leftHalf, isMono: false))
+        #expect(audio.calls.contains("setIsolate(custom, mono: false)"))
+        player.setIsolate(mutedBand)
+        player.audioSource = { id in audioFile(URL(filePath: "/tmp/\(id).m4a")) }
+        player.play(.recording(recording("r2", isMono: true), tuneTitle: nil))
+        try await eventually { player.holds(.recording, id: "r2") && player.recordingAudio == .loaded }
+        #expect(audio.calls.suffix(2) == ["setIsolate(default, mono: true)", "play"])
+        #expect(player.isolate == .standard)
+        #expect(player.isMono == true)
     }
 
     @Test func anotherDevicesTrimReappliesTheWindow() async throws {
@@ -115,7 +330,9 @@ private final class Writes {
             id: "r1", to: recording(), audioFile: audioFile(next, blobStartMs: 1000), tuneTitle: nil)
         #expect(audio.loaded == next)
         #expect(
-            Array(audio.calls[before...]) == ["load", "setWindow", "setRate(75)", "setPitch(200)", "seek", "play"])
+            Array(audio.calls[before...]) == [
+                "load", "setWindow", "setRate(75)", "setPitch(200)", "setIsolate(default, mono: false)", "seek", "play",
+            ])
         #expect(audio.window == PlaybackWindow(from: 0, to: 2))
         #expect(audio.elapsed == 1.5)
         #expect(audio.keptLoop == true)
@@ -231,7 +448,10 @@ private final class Writes {
         #expect(!player.isExpanded)
         try await eventually { player.recordingAudio == .loaded }
         #expect(
-            audio.calls.suffix(7) == ["unload", "load", "setWindow", "setRate(75)", "setPitch(200)", "seek", "play"])
+            audio.calls.suffix(8) == [
+                "unload", "load", "setWindow", "setRate(75)", "setPitch(200)", "setIsolate(default, mono: false)",
+                "seek", "play",
+            ])
         #expect(audio.elapsed == 1.5)
 
         await player.deleteLoadedRecording {}
@@ -364,12 +584,12 @@ private final class Writes {
     }
 
     @Test func theSpeedAndPitchSegmentsNameTheirValuesOffDefault() {
-        #expect(PracticeMode.allCases == [.loops, .speed, .pitch])
-        #expect(PracticeMode.loops.title(speedPercent: 75, pitchCents: 200) == "Loops")
-        #expect(PracticeMode.speed.title(speedPercent: 100, pitchCents: 0) == "Speed")
-        #expect(PracticeMode.speed.title(speedPercent: 75, pitchCents: 0) == "Speed 75%")
-        #expect(PracticeMode.pitch.title(speedPercent: 100, pitchCents: 0) == "Pitch")
-        #expect(PracticeMode.pitch.title(speedPercent: 100, pitchCents: 200) == "Pitch +2")
+        #expect(PracticeMode.allCases == [.loops, .speed, .pitch, .isolate])
+        #expect(PracticeMode.loops.title(speedPercent: 75, pitchCents: 200, isolate: .standard) == "Loops")
+        #expect(PracticeMode.speed.title(speedPercent: 100, pitchCents: 0, isolate: .standard) == "Speed")
+        #expect(PracticeMode.speed.title(speedPercent: 75, pitchCents: 0, isolate: .standard) == "Speed 75%")
+        #expect(PracticeMode.pitch.title(speedPercent: 100, pitchCents: 0, isolate: .standard) == "Pitch")
+        #expect(PracticeMode.pitch.title(speedPercent: 100, pitchCents: 200, isolate: .standard) == "Pitch +2")
         #expect(PracticeText.segment("Speed", value: nil) == "Speed")
     }
 

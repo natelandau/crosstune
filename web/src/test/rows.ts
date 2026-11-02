@@ -14,6 +14,7 @@ import type {
   LocalUserSettings,
   LocalUserTune,
 } from '../db/types'
+import { DEFAULT_ISOLATE, isolateToPatch } from '../features/player/isolate/isolateSetting'
 
 export function tuneRow(id: string, title: string, extra: Partial<LocalTune> = {}): LocalTune {
   return {
@@ -124,6 +125,8 @@ export function recordingRow(id: string, extra: Partial<LocalRecording> = {}): L
     playback_end_ms: null,
     playback_rev: null,
     peaks_rev: null,
+    is_mono: null,
+    ...isolateToPatch(DEFAULT_ISOLATE),
     ...extra,
   }
 }

@@ -43,6 +43,7 @@ import {
   STALE_CAPTURE_MS,
   uploadPass,
 } from './transfers'
+import { DEFAULT_ISOLATE, isolateToPatch } from '../features/player/isolate/isolateSetting'
 
 let db: CrosstuneDb
 let fake: ReturnType<typeof createFakeApi>
@@ -130,6 +131,8 @@ async function readyOnServer(id: string, tuneId: string | null = null): Promise<
     playback_end_ms: null,
     playback_rev: READY_REV,
     peaks_rev: null,
+    is_mono: null,
+    ...isolateToPatch(DEFAULT_ISOLATE),
     split_completed_id: null,
   })
   fake.recordingStates.set(id, 'ready')

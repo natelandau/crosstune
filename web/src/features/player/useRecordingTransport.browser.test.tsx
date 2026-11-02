@@ -15,6 +15,7 @@ import {
   FakeAudioElement,
   fakeEngine,
   fakePlaybackEngine,
+  playbackSettings,
 } from '../../test/providers'
 import { captureRecording } from '../../test/recordings'
 import type { HeldSettings } from '../practice/usePracticeOverlay'
@@ -23,6 +24,7 @@ import type { EngineClock, PlaybackEngine } from './playbackEngine'
 import { PlaybackEngineContext } from './PlaybackEngineProvider'
 import { SPEED_BADGE } from './transportCopy'
 import { useRecordingTransport } from './useRecordingTransport'
+import { DEFAULT_ISOLATE, isolateToPatch } from './isolate/isolateSetting'
 
 let db: CrosstuneDb
 let tuneId: string
@@ -76,6 +78,8 @@ async function remoteRecording(): Promise<string> {
     playback_end_ms: 3000,
     playback_rev: 'aaaaaaaa',
     peaks_rev: null,
+    is_mono: null,
+    ...isolateToPatch(DEFAULT_ISOLATE),
     split_completed_id: null,
   })
   return id
@@ -202,10 +206,90 @@ describe('useRecordingTransport', () => {
     const id = await captureRecording(db, { tuneId, durationMs: 3000, label: 'Jam' })
     const playback = fakePlaybackEngine()
     const load = vi.spyOn(playback, 'load')
-    const held = () => ({ speedPercent: 70, pitchCents: null, trimming: false })
+    const held = () => ({ speedPercent: 70, pitchCents: null, isolate: null, trimming: false })
     await setup(id, { held, playback })
     await expect.poll(() => load.mock.calls.length).toBe(1)
-    expect(load.mock.calls[0]![2]).toEqual({ speedPercent: 70, pitchCents: 0 })
+    expect(load.mock.calls[0]![2]).toEqual({ ...playbackSettings, speedPercent: 70 })
+  })
+
+  it('loads a recording with its stored isolate and mono flag', async () => {
+    const id = await captureRecording(db, { tuneId, durationMs: 3000, label: 'Jam' })
+    const stored = { ...DEFAULT_ISOLATE, effect: 'mute' as const, lowHz: 200, highHz: 4000 }
+    await updateRecording(db, id, { ...isolateToPatch(stored), is_mono: true })
+    const playback = fakePlaybackEngine()
+    const load = vi.spyOn(playback, 'load')
+    await setup(id, { playback })
+    await expect.poll(() => load.mock.calls.length).toBe(1)
+    expect(load.mock.calls[0]![2]).toEqual({ ...playbackSettings, isolate: stored, isMono: true })
+  })
+
+  it('applies a stored isolate change and a measured mono flag without reloading', async () => {
+    const id = await captureRecording(db, { tuneId, durationMs: 3000, label: 'Jam' })
+    const playback = fakePlaybackEngine()
+    const load = vi.spyOn(playback, 'load')
+    const setIsolate = vi.spyOn(playback, 'setIsolate')
+    const { rerender } = await setup(id, { playback })
+    await expect.poll(() => load.mock.calls.length).toBe(1)
+    setIsolate.mockClear()
+
+    const stored = { ...DEFAULT_ISOLATE, panStart: -50, panEnd: 0 }
+    await updateRecording(db, id, isolateToPatch(stored))
+    rerender(await read(id))
+    await expect.poll(() => setIsolate.mock.calls).toEqual([[stored, false]])
+
+    await updateRecording(db, id, { is_mono: true })
+    rerender(await read(id))
+    await expect.poll(() => setIsolate.mock.calls.at(-1)).toEqual([stored, true])
+    expect(load).toHaveBeenCalledOnce()
+  })
+
+  it('plays a held isolate over the row', async () => {
+    const id = await captureRecording(db, { tuneId, durationMs: 3000, label: 'Jam' })
+    const playback = fakePlaybackEngine()
+    const load = vi.spyOn(playback, 'load')
+    const isolate = { ...DEFAULT_ISOLATE, effect: 'mute' as const }
+    const held = () => ({ speedPercent: null, pitchCents: null, isolate, trimming: false })
+    await setup(id, { held, playback })
+    await expect.poll(() => load.mock.calls.length).toBe(1)
+    expect(load.mock.calls[0]![2]).toEqual({ ...playbackSettings, isolate })
+  })
+
+  it('applies the next recording its own isolate when the dock switches', async () => {
+    const first = await captureRecording(db, { tuneId, durationMs: 3000, label: 'One' })
+    const second = await captureRecording(db, { tuneId, durationMs: 3000, label: 'Two' })
+    const stored = { ...DEFAULT_ISOLATE, effect: 'mute' as const, lowHz: 300 }
+    await updateRecording(db, second, { ...isolateToPatch(stored), is_mono: true })
+    const playback = fakePlaybackEngine()
+    const load = vi.spyOn(playback, 'load')
+    const one = await setup(first, { playback })
+    await expect.poll(() => load.mock.calls.length).toBe(1)
+    one.unmount()
+    await setup(second, { playback })
+    await expect.poll(() => load.mock.calls.length).toBe(2)
+    expect(load.mock.calls[1]![2]).toEqual({ ...playbackSettings, isolate: stored, isMono: true })
+  })
+
+  it('ignores an isolate held for another recording when the dock switches', async () => {
+    const first = await captureRecording(db, { tuneId, durationMs: 3000, label: 'One' })
+    const second = await captureRecording(db, { tuneId, durationMs: 3000, label: 'Two' })
+    const stored = { ...DEFAULT_ISOLATE, panStart: -20, panEnd: 40 }
+    await updateRecording(db, second, isolateToPatch(stored))
+    const playback = fakePlaybackEngine()
+    const load = vi.spyOn(playback, 'load')
+    const heldForFirst = { ...DEFAULT_ISOLATE, effect: 'mute' as const }
+    const held = (id: string) => (): HeldSettings | null =>
+      id === first
+        ? { speedPercent: null, pitchCents: null, isolate: heldForFirst, trimming: false }
+        : null
+    // The dock keys the hook on the recording, so a switch remounts it on the shared engine.
+    const one = await setup(first, { playback, held: held(first) })
+    await expect.poll(() => load.mock.calls.length).toBe(1)
+    expect(load.mock.calls[0]![2].isolate).toEqual(heldForFirst)
+    one.unmount()
+
+    await setup(second, { playback, held: held(second) })
+    await expect.poll(() => load.mock.calls.length).toBe(2)
+    expect(load.mock.calls[1]![2].isolate).toEqual(stored)
   })
 
   it('offers a retry after a failed fetch only while online', async () => {

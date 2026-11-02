@@ -2,19 +2,20 @@ import CrosstuneAnalytics
 import CrosstuneAudio
 import CrosstuneStore
 import CrosstuneTestSupport
+import CrosstuneVocabulary
 import Foundation
 import Testing
 
 @testable import CrosstuneUI
 
-private func recording() -> Recording {
+private func recording(_ id: String = "r1", isMono: Bool? = nil) -> Recording {
     Recording(
-        id: "r1", tuneID: nil, source: "microphone", addedAt: noon, label: "Jam", state: "ready",
-        sourceDurationMs: 60_000, trimStartMs: 0, speedPercent: 100, pitchCents: 0)
+        id: id, tuneID: nil, source: "microphone", addedAt: noon, label: "Jam", state: "ready",
+        sourceDurationMs: 60_000, trimStartMs: 0, speedPercent: 100, pitchCents: 0, isMono: isMono)
 }
 
-/// The recording screen reports a loop once it repeats, a speed or pitch once its panel closes
-/// changed, and a trim once it is saved.
+/// The recording screen reports a loop once it repeats, a speed, pitch, or isolate setting once
+/// its panel closes changed, and a trim once it is saved.
 @MainActor
 @Suite struct PracticeEventTests {
     private let sink = RecordingAnalyticsSink()
@@ -44,10 +45,11 @@ private func recording() -> Recording {
     }
 
     /// The recording loaded paused on its screen.
-    private func opened() async throws -> PracticeModel {
-        player.open(.recording(recording(), tuneTitle: nil), playing: false, source: .recordingsList)
+    private func opened(isMono: Bool? = nil) async throws -> PracticeModel {
+        let row = recording(isMono: isMono)
+        player.open(.recording(row, tuneTitle: nil), playing: false, source: .recordingsList)
         #expect(try await poll { player.recordingAudio == .loaded })
-        let model = PracticeModel(player: player, recording: recording(), file: nil, writer: writer, announce: { _ in })
+        let model = PracticeModel(player: player, recording: row, file: nil, writer: writer, announce: { _ in })
         model.enter()
         return model
     }
@@ -104,6 +106,125 @@ private func recording() -> Recording {
         #expect(
             captures(named: "pitch_changed") == [
                 .init(name: "pitch_changed", properties: ["semitones": .int(3), "recording_id": .string("r1")])
+            ])
+    }
+
+    @Test func closingTheIsolatePanelAfterAChangeSendsIsolateChangedWithBucketsOnly() async throws {
+        let model = try await opened()
+        model.mode = .isolate
+        player.setIsolate(IsolateSetting(effect: .solo, panStart: -60, panEnd: 20, lowHz: 40, highHz: 16000))
+        player.setIsolate(IsolateSetting(effect: .mute, panStart: -100, panEnd: 100, lowHz: 200, highHz: 4000))
+
+        model.mode = .loops
+
+        #expect(
+            captures(named: "isolate_changed") == [
+                .init(
+                    name: "isolate_changed",
+                    properties: [
+                        "effect": .string("mute"), "uses_stereo": .bool(false), "uses_frequency": .bool(true),
+                        "recording_id": .string("r1"),
+                    ])
+            ])
+    }
+
+    @Test func reportsNoStereoRangeOnAMonoRecording() async throws {
+        let model = try await opened(isMono: true)
+        model.mode = .isolate
+        player.setIsolate(IsolateSetting(effect: .mute, panStart: -60, panEnd: 20, lowHz: 200, highHz: 4000))
+
+        model.mode = .loops
+
+        #expect(
+            captures(named: "isolate_changed") == [
+                .init(
+                    name: "isolate_changed",
+                    properties: [
+                        "effect": .string("mute"), "uses_stereo": .bool(false), "uses_frequency": .bool(true),
+                        "recording_id": .string("r1"),
+                    ])
+            ])
+    }
+
+    @Test func reportsNoIsolatePutBackWhereItWas() async throws {
+        let model = try await opened()
+        model.mode = .isolate
+        let openedOn = player.isolate
+        player.setIsolate(IsolateSetting(effect: .mute, panStart: -100, panEnd: 0, lowHz: 40, highHz: 16000))
+        player.setIsolate(openedOn)
+
+        model.mode = .loops
+
+        #expect(captures(named: "isolate_changed").isEmpty)
+    }
+
+    @Test func reportsOneIsolateChangeAsTheIsolatePanelCloses() async throws {
+        let model = try await opened()
+        model.mode = .isolate
+        player.setIsolate(IsolateSetting(effect: .solo, panStart: -60, panEnd: 20, lowHz: 40, highHz: 16000))
+        player.setIsolate(IsolateSetting(effect: .mute, panStart: -60, panEnd: 20, lowHz: 40, highHz: 16000))
+        #expect(captures(named: "isolate_changed").isEmpty)
+
+        model.mode = .loops
+
+        #expect(captures(named: "isolate_changed").count == 1)
+        #expect(captures(named: "isolate_changed").first?.properties["effect"] == .string("mute"))
+    }
+
+    @Test func reportsNoIsolateWhenTheIsolatePanelClosesUnchanged() async throws {
+        let model = try await opened()
+        model.mode = .isolate
+
+        model.leave()
+
+        #expect(captures(named: "isolate_changed").isEmpty)
+    }
+
+    /// The screen on the next recording, which shows before the last one's has gone.
+    private func switched(to id: String, mode: PracticeMode) async throws -> PracticeModel {
+        player.open(.recording(recording(id), tuneTitle: nil), playing: false, source: .recordingsList)
+        #expect(try await poll { player.recordingAudio == .loaded && player.holds(.recording, id: id) })
+        let model = PracticeModel(
+            player: player, recording: recording(id), file: nil, writer: writer, mode: mode, announce: { _ in })
+        model.enter()
+        return model
+    }
+
+    @Test func aScreenLeftAfterTheNextOneShowsReportsItsOwnRecordingsIsolate() async throws {
+        let first = try await opened()
+        first.mode = .isolate
+        player.setIsolate(IsolateSetting(effect: .mute, panStart: -60, panEnd: 20, lowHz: 40, highHz: 16000))
+
+        let next = try await switched(to: "r2", mode: .isolate)
+        first.leave()
+
+        #expect(
+            captures(named: "isolate_changed") == [
+                .init(
+                    name: "isolate_changed",
+                    properties: [
+                        "effect": .string("mute"), "uses_stereo": .bool(true), "uses_frequency": .bool(false),
+                        "recording_id": .string("r1"),
+                    ])
+            ])
+        next.leave()
+        #expect(captures(named: "isolate_changed").count == 1)
+    }
+
+    @Test func aScreenLeftAfterTheNextOneShowsReportsItsOwnRecordingsSpeed() async throws {
+        let first = try await opened()
+        first.mode = .speed
+        player.setSpeed(80)
+
+        let next = try await switched(to: "r2", mode: .speed)
+        first.leave()
+        next.leave()
+
+        #expect(
+            captures(named: "speed_changed") == [
+                .init(
+                    name: "speed_changed",
+                    properties: ["speed_bucket": .string("0.75-0.99"), "recording_id": .string("r1")])
             ])
     }
 

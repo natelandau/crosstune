@@ -657,6 +657,12 @@ export interface components {
             tuning?: string | null;
         };
         /**
+         * IsolateEffect
+         * @description Whether playback keeps only the isolated band or removes it.
+         * @enum {string}
+         */
+        IsolateEffect: "solo" | "mute";
+        /**
          * ListChangeResult
          * @description The outcome of one change to a list.
          */
@@ -1337,6 +1343,33 @@ export interface components {
              */
             created_by_split_id: string | null;
             /**
+             * Is Mono
+             * @default null
+             */
+            is_mono: boolean | null;
+            /** @default solo */
+            isolate_effect: components["schemas"]["IsolateEffect"];
+            /**
+             * Isolate High Hz
+             * @default 16000
+             */
+            isolate_high_hz: number;
+            /**
+             * Isolate Low Hz
+             * @default 40
+             */
+            isolate_low_hz: number;
+            /**
+             * Isolate Pan End
+             * @default 100
+             */
+            isolate_pan_end: number;
+            /**
+             * Isolate Pan Start
+             * @default -100
+             */
+            isolate_pan_start: number;
+            /**
              * Label
              * @default null
              */
@@ -1655,6 +1688,30 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /** Is Mono */
+            is_mono?: boolean | null;
+            /** @default solo */
+            isolate_effect: components["schemas"]["IsolateEffect"];
+            /**
+             * Isolate High Hz
+             * @default 16000
+             */
+            isolate_high_hz: number;
+            /**
+             * Isolate Low Hz
+             * @default 40
+             */
+            isolate_low_hz: number;
+            /**
+             * Isolate Pan End
+             * @default 100
+             */
+            isolate_pan_end: number;
+            /**
+             * Isolate Pan Start
+             * @default -100
+             */
+            isolate_pan_start: number;
             /** Label */
             label?: string | null;
             /** Notes */

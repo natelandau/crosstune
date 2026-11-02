@@ -92,6 +92,7 @@ public enum AnalyticsEvent: Sendable, Equatable {
     case loopSet(recordingID: String)
     case speedChanged(rate: Double, recordingID: String)
     case pitchChanged(semitones: Int, recordingID: String)
+    case isolateChanged(effect: Vocabulary.IsolateEffect, usesStereo: Bool, usesFrequency: Bool, recordingID: String)
 
     case scanAdded(via: ScanVia, scanID: String, tuneID: String)
     case scanViewed(tuneID: String)
@@ -175,6 +176,7 @@ public enum AnalyticsEvent: Sendable, Equatable {
         case .loopSet: "loop_set"
         case .speedChanged: "speed_changed"
         case .pitchChanged: "pitch_changed"
+        case .isolateChanged: "isolate_changed"
         case .scanAdded: "scan_added"
         case .scanViewed: "scan_viewed"
         case .scanDeleted: "scan_deleted"
@@ -302,6 +304,11 @@ public enum AnalyticsEvent: Sendable, Equatable {
             ["speed_bucket": .string(Bucket.speed(rate)), "recording_id": .string(recordingID)]
         case .pitchChanged(let semitones, let recordingID):
             ["semitones": .int(semitones), "recording_id": .string(recordingID)]
+        case .isolateChanged(let effect, let usesStereo, let usesFrequency, let recordingID):
+            [
+                "effect": .string(effect.rawValue), "uses_stereo": .bool(usesStereo),
+                "uses_frequency": .bool(usesFrequency), "recording_id": .string(recordingID),
+            ]
         case .scanAdded(let via, let scanID, let tuneID):
             ["via": .string(via.rawValue), "scan_id": .string(scanID), "tune_id": .string(tuneID)]
         case .scanDeleted(let scanID, let tuneID):
@@ -403,19 +410,21 @@ public struct PracticeReport: Sendable, Equatable {
     public var usedLoops: Bool
     public var usedSpeed: Bool
     public var usedPitch: Bool
+    public var usedIsolate: Bool
     public var kind: PlaybackKind
     public var recordingID: String
     public var tuneID: String?
 
     public init(
         source: ActionSource, durationMs: Int64, usedLoops: Bool, usedSpeed: Bool, usedPitch: Bool,
-        kind: PlaybackKind, recordingID: String, tuneID: String?
+        usedIsolate: Bool, kind: PlaybackKind, recordingID: String, tuneID: String?
     ) {
         self.source = source
         self.durationMs = durationMs
         self.usedLoops = usedLoops
         self.usedSpeed = usedSpeed
         self.usedPitch = usedPitch
+        self.usedIsolate = usedIsolate
         self.kind = kind
         self.recordingID = recordingID
         self.tuneID = tuneID
@@ -426,6 +435,7 @@ public struct PracticeReport: Sendable, Equatable {
             "source": .string(source.rawValue),
             "duration_bucket": .string(Bucket.duration(seconds: Double(durationMs) / 1000)),
             "used_loops": .bool(usedLoops), "used_speed": .bool(usedSpeed), "used_pitch": .bool(usedPitch),
+            "used_isolate": .bool(usedIsolate),
             "kind": .string(kind.rawValue), "recording_id": .string(recordingID),
         ]
         .adding("tune_id", tuneID.map(AnalyticsValue.string))

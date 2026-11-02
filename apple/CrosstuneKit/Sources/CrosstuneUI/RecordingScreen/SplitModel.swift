@@ -470,12 +470,12 @@ final class SplitModel {
 
     // MARK: Lifecycle
 
-    /// Plays at normal speed and pitch while the screen shows, so what is heard is exactly where
-    /// a cut falls.
+    /// Plays ``PlaybackSettings/normal`` while the screen shows, so what is heard is exactly
+    /// where a cut falls.
     func open() {
         guard !hasLeft, !isHolding else { return }
         isHolding = true
-        hold(PlaybackSettings(speedPercent: 100, pitchCents: 0))
+        hold(.normal)
     }
 
     /// Gives way: the question goes, the hold is let go, and nothing is written after.

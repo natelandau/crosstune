@@ -787,7 +787,7 @@ private final class SplitHolds {
         let split = model()
         split.open()
         split.leave()
-        #expect(holds.made == [PlaybackSettings(speedPercent: 100, pitchCents: 0), nil])
+        #expect(holds.made == [.normal, nil])
     }
 
     @Test func saveWritesOneSplitAndSendsRecordingSplit() async throws {

@@ -132,6 +132,7 @@ describe('createPlaybackReporter', () => {
       usedLoops: true,
       usedSpeed: false,
       usedPitch: true,
+      usedIsolate: true,
     })
     expect(analytics.sends()).toEqual([
       {
@@ -142,6 +143,7 @@ describe('createPlaybackReporter', () => {
           used_loops: true,
           used_speed: false,
           used_pitch: true,
+          used_isolate: true,
           kind: 'imported',
           recording_id: 'rec-1',
           tune_id: 'tune-1',

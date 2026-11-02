@@ -5,6 +5,7 @@ import type {
   ListenedBucket,
   SpeedBucket,
 } from './buckets'
+import { ISOLATE_EFFECTS, type IsolateEffect } from '../api/vocabulary'
 import type { Notice } from '../api/types'
 import { DISPLAY_MODES, FORM_FACTORS } from './superProperties'
 
@@ -162,6 +163,7 @@ export const ENUMS = {
   trigger: TRIGGERS,
   ended_by: ENDED_BYS,
   repeat: REPEATS,
+  isolate_effect: ISOLATE_EFFECTS,
   filed_from: FILED_SOURCES,
   sort: SORTS,
   bulk_action: BULK_ACTIONS,
@@ -354,6 +356,7 @@ export interface EventProps {
     used_loops: boolean
     used_speed: boolean
     used_pitch: boolean
+    used_isolate: boolean
     kind: Kind
     recording_id: string
     tune_id?: string
@@ -361,6 +364,12 @@ export interface EventProps {
   loop_set: { recording_id: string }
   speed_changed: { speed_bucket: SpeedBucket; recording_id: string }
   pitch_changed: { semitones: number; recording_id: string }
+  isolate_changed: {
+    effect: IsolateEffect
+    uses_stereo: boolean
+    uses_frequency: boolean
+    recording_id: string
+  }
   scan_added: { via: ScanVia; scan_id: string; tune_id: string }
   scan_viewed: { tune_id: string }
   scan_deleted: { scan_id: string; tune_id: string }

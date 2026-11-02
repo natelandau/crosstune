@@ -2,6 +2,7 @@ import CrosstuneAnalytics
 import CrosstuneAudio
 import CrosstuneStore
 import CrosstuneTestSupport
+import CrosstuneVocabulary
 import Foundation
 import Testing
 
@@ -65,6 +66,32 @@ import Testing
         log.setSpeed(50)
         clock.advance(60_000)
         log.setSpeed(100)
+        log.playing(true)
+        clock.advance(30_000)
+        #expect(log.close() == .play)
+        #expect(recorded.sessions.isEmpty)
+    }
+
+    @Test func anIsolatedSessionIsPractice() throws {
+        let log = makeLog()
+        var ended: [EndedVisit] = []
+        log.onEnd = { ended.append($0) }
+        log.open("rec-1", speedPercent: 100, pitchCents: 0, isolateDefault: true)
+        log.setIsolate(isDefault: false)
+        log.playing(true)
+        clock.advance(15_000)
+        #expect(log.close() == .practice)
+        let session = try #require(recorded.sessions.only)
+        #expect(session.durationMs == 15_000)
+        #expect(ended.map(\.usedIsolate) == [true])
+        #expect(ended.map(\.usedSpeed) == [false])
+    }
+
+    @Test func anIsolateSetAndPutBackWhilePausedIsNoPractice() {
+        let log = makeLog()
+        log.open("rec-1", speedPercent: 100, pitchCents: 0, isolateDefault: true)
+        log.setIsolate(isDefault: false)
+        log.setIsolate(isDefault: true)
         log.playing(true)
         clock.advance(30_000)
         #expect(log.close() == .play)
@@ -212,8 +239,8 @@ private func loop(_ id: String) -> RecordingLoop {
         let fixture = ActivityFixture()
         try await fixture.playRecording()
         fixture.player.screenOpened("r1")
-        // The trim screen plays at normal speed and pitch while it shows.
-        fixture.player.hold("r1", PlaybackSettings(speedPercent: 100, pitchCents: 0))
+        // The trim screen plays at normal speed and pitch, with nothing isolated, while it shows.
+        fixture.player.hold("r1", .normal)
         try await fixture.fed { $0.trimming && $0.playing }
         fixture.clock.advance(30_000)
         fixture.player.screenClosed()
@@ -343,6 +370,23 @@ private func loop(_ id: String) -> RecordingLoop {
         #expect(report["duration_bucket"] == .string("2-5m"))
         #expect(report["kind"] == .string("recorded"))
         #expect(report["recording_id"] == .string("r1"))
+        #expect(fixture.sent("playback_ended").isEmpty)
+    }
+
+    @Test func usedIsolateIsTrueAfterPlayingOffTheDefault() async throws {
+        let fixture = ActivityFixture()
+        try await fixture.playRecording()
+        fixture.player.screenOpened("r1")
+        fixture.player.setIsolate(
+            IsolateSetting(effect: .mute, panStart: -100, panEnd: 100, lowHz: 200, highHz: 4000))
+        try await fixture.fed { !$0.isolateDefault && $0.playing }
+        fixture.clock.advance(120_000)
+        fixture.player.screenClosed()
+        try await eventually { !fixture.sent("practice_ended").isEmpty }
+        let report = try #require(fixture.sent("practice_ended").only)
+        #expect(report["used_isolate"] == .bool(true))
+        #expect(report["used_speed"] == .bool(false))
+        #expect(report["used_loops"] == .bool(false))
         #expect(fixture.sent("playback_ended").isEmpty)
     }
 

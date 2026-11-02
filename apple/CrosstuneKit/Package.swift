@@ -79,7 +79,7 @@ let package = Package(
         ),
         .target(
             name: "CrosstuneStore",
-            dependencies: [.product(name: "GRDB", package: "GRDB.swift")]
+            dependencies: ["CrosstuneVocabulary", .product(name: "GRDB", package: "GRDB.swift")]
         ),
         .target(
             name: "CrosstuneCommands",

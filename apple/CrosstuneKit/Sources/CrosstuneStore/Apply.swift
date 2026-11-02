@@ -71,11 +71,11 @@ extension StoreWriter {
     private func decodeWireRow(table: SyncTable, _ row: JSONObject) throws -> (
         id: String, updatedAt: Timestamp, save: () throws -> Void
     ) {
-        func decoded<Record: SyncedRecord>(_: Record.Type) throws -> (
-            id: String, updatedAt: Timestamp, save: () throws -> Void
-        ) {
+        func decoded<Record: SyncedRecord>(
+            _: Record.Type
+        ) throws -> (id: String, updatedAt: Timestamp, save: () throws -> Void) {
             let record = try Record(wire: row)
-            return (record.id, record.updatedAt, { try record.upsert(db) })
+            return (record.id, record.updatedAt, { try record.upsertKeepingSticky(db) })
         }
         func decodedEvent<Event: EventRecord>(_: Event.Type) throws -> (
             id: String, updatedAt: Timestamp, save: () throws -> Void
@@ -237,5 +237,15 @@ extension OutboxEntry {
             case .string(let id) = data?[RecordingLoop.CodingKeys.recordingID.rawValue]
         else { return nil }
         return id
+    }
+}
+
+extension SyncedRecord {
+    /// Upserts the row, keeping the stored value of each of ``stickyColumns`` it leaves null.
+    fileprivate func upsertKeepingSticky(_ db: Database) throws {
+        guard !Self.stickyColumns.isEmpty else { return try upsert(db) }
+        _ = try upsertAndFetch(db) { excluded in
+            Self.stickyColumns.map { name in Column(name).set(to: excluded[Column(name)] ?? Column(name)) }
+        }
     }
 }

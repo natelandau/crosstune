@@ -1,5 +1,4 @@
 import CrosstuneDesign
-import CrosstuneStore
 import SwiftUI
 
 /// The whole trimmed recording, a band beneath it for each of its source's stretches, a line at

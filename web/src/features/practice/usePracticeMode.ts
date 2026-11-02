@@ -1,11 +1,16 @@
 import { useCallback, useState } from 'react'
 import { readStored, writeStored } from '../../platform/storage'
 
-export type Mode = 'loops' | 'speed' | 'pitch'
+export type Mode = 'loops' | 'speed' | 'pitch' | 'isolate'
 
 export const MODE_KEY = 'crosstune.practiceMode'
 
-export const MODES: readonly Mode[] = ['loops', 'speed', 'pitch']
+export const MODES: readonly Mode[] = ['loops', 'speed', 'pitch', 'isolate']
+
+/** Every mode, or every mode but Isolate where nothing can isolate. */
+export function availableModes(canIsolate: boolean): readonly Mode[] {
+  return canIsolate ? MODES : MODES.filter((mode) => mode !== 'isolate')
+}
 
 function readMode(): Mode {
   const stored = readStored(MODE_KEY)

@@ -13,6 +13,7 @@ private let recordingSaved = AnalyticsEvent.recordingSaved(seconds: 30, recordin
 private let practiceEnded = AnalyticsEvent.practiceEnded(
     PracticeReport(
         source: .recordingsList, durationMs: 150_000, usedLoops: true, usedSpeed: false, usedPitch: false,
+        usedIsolate: false,
         kind: .recorded, recordingID: recordingID, tuneID: tuneID))
 
 @MainActor

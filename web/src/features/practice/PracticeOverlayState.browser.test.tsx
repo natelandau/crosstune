@@ -69,7 +69,7 @@ describe('PracticeOverlayStateProvider', () => {
     const reported: (string | null)[] = []
     const { result } = setup((id) => reported.push(id))
     const { overlay } = result.current
-    overlay.hold('r1', { speedPercent: 100, pitchCents: 0, trimming: true })
+    overlay.hold('r1', { speedPercent: 100, pitchCents: 0, isolate: null, trimming: true })
     expect(reported.at(-1)).toBe('r1')
     overlay.hold('r1', null)
     expect(reported.at(-1)).toBeNull()
@@ -81,7 +81,7 @@ describe('PracticeOverlayStateProvider', () => {
     const { overlay } = result.current
     overlay.holdEnd('r1', true)
     expect(reported.at(-1)).toBe('r1')
-    overlay.hold('r2', { speedPercent: 100, pitchCents: 0, trimming: true })
+    overlay.hold('r2', { speedPercent: 100, pitchCents: 0, isolate: null, trimming: true })
     expect(reported.at(-1)).toBe('r2')
     overlay.hold('r2', null)
     expect(reported.at(-1)).toBe('r1')

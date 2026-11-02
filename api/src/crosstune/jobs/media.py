@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import array
 import asyncio
 import contextlib
 import ctypes
@@ -220,6 +221,62 @@ def ffmpeg(*args: str) -> tuple[str, ...]:
     # `-threads` here applies to the first input, the upload: a frame-threaded decoder
     # such as FLAC's otherwise starts a thread, and its stack, per core.
     return _limited("ffmpeg", "-filter_threads", "1", "-threads", "1", *args)
+
+
+def decode_to_pcm(
+    source: Path, *, channels: int, rate: int, max_seconds: int | None = None
+) -> tuple[str, ...]:
+    """Build the ffmpeg command line that streams `source` to stdout as raw PCM.
+
+    For measuring audio in Python: read the output with `pcm_samples`.
+
+    Args:
+        source: A local audio file.
+        channels: How many interleaved channels to mix the audio down or up to.
+        rate: The sample rate in Hz.
+        max_seconds: Decode only this many seconds from the start, or the whole file
+            when None.
+
+    Returns:
+        tuple[str, ...]: The full command line for `stream_media_tool`, which writes
+            signed 16-bit little-endian samples.
+    """
+    limit = () if max_seconds is None else ("-t", str(max_seconds))
+    return ffmpeg(
+        "-v",
+        "error",
+        *INPUT_GUARD,
+        "-i",
+        str(source),
+        *limit,
+        "-ac",
+        str(channels),
+        "-ar",
+        str(rate),
+        "-f",
+        "s16le",
+        "-",
+    )
+
+
+def pcm_samples(raw: bytes) -> array.array:
+    """Read signed 16-bit little-endian PCM, as `decode_to_pcm` writes it, into samples.
+
+    A stray trailing byte from an odd byte count is dropped.
+
+    Args:
+        raw: The PCM bytes.
+
+    Returns:
+        array.array: One signed int per sample, channels still interleaved.
+    """
+    samples = array.array("h")
+    whole = len(raw) - len(raw) % samples.itemsize
+    samples.frombytes(raw[:whole])
+    if sys.byteorder == "big":
+        # array.array reads in host order, and s16le is always little-endian.
+        samples.byteswap()
+    return samples
 
 
 def ffprobe(*args: str) -> tuple[str, ...]:

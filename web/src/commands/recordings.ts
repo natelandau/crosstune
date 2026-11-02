@@ -1,4 +1,9 @@
-import { RECORDING_LIMITS, type RecordingPrecision } from '../api/vocabulary'
+import {
+  type IsolateEffect,
+  RECORDING_LIMITS,
+  RECORDING_RANGES,
+  type RecordingPrecision,
+} from '../api/vocabulary'
 import type { LocalFileState, RecordingFile } from '../db/recordings'
 import type { CrosstuneDb } from '../db/schema'
 import type { LocalRecording } from '../db/types'
@@ -117,6 +122,12 @@ async function putRecordingRow(
     playback_end_ms: null,
     playback_rev: null,
     peaks_rev: null,
+    is_mono: null,
+    isolate_effect: 'solo',
+    isolate_pan_start: RECORDING_RANGES.isolate_pan_start.min,
+    isolate_pan_end: RECORDING_RANGES.isolate_pan_end.max,
+    isolate_low_hz: RECORDING_RANGES.isolate_low_hz.min,
+    isolate_high_hz: RECORDING_RANGES.isolate_high_hz.max,
   })
 }
 
@@ -310,6 +321,12 @@ export async function updateRecording(
     place_lat?: number | null
     place_lon?: number | null
     place_accuracy_m?: number | null
+    is_mono?: boolean | null
+    isolate_effect?: IsolateEffect
+    isolate_pan_start?: number
+    isolate_pan_end?: number
+    isolate_low_hz?: number
+    isolate_high_hz?: number
   },
 ): Promise<void> {
   checkRecordedDate(patch)

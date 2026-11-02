@@ -32,3 +32,40 @@ export function LOOP_SELECTED(name: string): string {
 export function SEGMENT_LABEL(label: string, value: string | null): string {
   return value === null ? label : `${label} ${value}`
 }
+
+export const ISOLATE_LABEL = 'Isolate'
+export const SOLO = 'Solo'
+export const MUTE = 'Mute'
+/** The accessible name of the Solo and Mute choice. */
+export const ISOLATE_EFFECT_LABEL = 'Effect'
+export const STEREO = 'Stereo'
+export const FREQUENCY = 'Frequency'
+export const MONO_NOTICE = 'This recording is mono, so only frequency applies.'
+export const ISOLATE_PAUSES_ON_LOCK = 'Isolated playback pauses when the screen locks.'
+export const ISOLATE_UNAVAILABLE = "Isolate isn't available here"
+export const STEREO_START = 'Stereo start'
+export const STEREO_END = 'Stereo end'
+export const FREQUENCY_LOW = 'Frequency low'
+export const FREQUENCY_HIGH = 'Frequency high'
+
+/** The stereo readout's words: where the range sits, then how wide it is. */
+export const STEREO_CENTER = 'Center'
+export const STEREO_LEFT = 'Left'
+export const STEREO_RIGHT = 'Right'
+export const STEREO_LEFT_OF_CENTER = 'Left of center'
+export const STEREO_RIGHT_OF_CENTER = 'Right of center'
+export const STEREO_NARROW = 'narrow'
+export const STEREO_MEDIUM = 'medium'
+export const STEREO_WIDE = 'wide'
+/** A stereo range that keeps the whole picture. */
+export const STEREO_EVERYTHING = 'Everything'
+
+/** The side a stereo edge sits on, after its distance from center. */
+export const STEREO_EDGE_LEFT = 'left'
+export const STEREO_EDGE_RIGHT = 'right'
+
+/** `Left of center, 35 left`: a stereo edge's band, then how far from center it sits. */
+export function STEREO_EDGE_VALUE(band: string, pan: number): string {
+  if (pan === 0) return band
+  return `${band}, ${Math.abs(pan)} ${pan < 0 ? STEREO_EDGE_LEFT : STEREO_EDGE_RIGHT}`
+}

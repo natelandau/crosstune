@@ -1,11 +1,15 @@
 import { setAudioSessionType } from '../../platform/audioSession'
-import { compensatedSemitones, createPitchStage, type PitchStage } from './pitchStage'
+import { DEFAULT_ISOLATE, isIsolateOff, type IsolateSetting } from './isolate/isolateSetting'
+import type { IsolateOutline } from './isolate/isolateStage'
+import { compensatedSemitones, createAudioStage, type AudioStage } from './audioStage'
 import type { PlaybackWindow } from './playbackWindow'
 import { clamp } from '../../math'
 
 export interface PlaybackSettings {
   speedPercent: number
   pitchCents: number
+  isolate: IsolateSetting
+  isMono: boolean
 }
 
 export interface PlaybackMeta {
@@ -17,14 +21,17 @@ export interface PlaybackState {
   positionMs: number
   lengthMs: number
   failed: boolean
-  /** True once loading the pitch stage has failed; speed still works, pitch does not. */
-  pitchUnavailable: boolean
+  /** True once loading the audio stage has failed; speed still works, pitch and isolate do
+   * not. */
+  stageUnavailable: boolean
   /** The loop Repeat plays, if one is chosen; its times stay inside the engine. */
   loop: { id: string; label: string } | null
   /** Whether reaching the end of the loop jumps back to its start. */
   repeat: boolean
   speedPercent: number
   pitchCents: number
+  /** Whether the isolate setting is the default, which leaves the sound as it was. */
+  isolateDefault: boolean
 }
 
 /** A span of the loaded blob to repeat, in seconds like `PlaybackWindow`. */
@@ -35,8 +42,8 @@ export interface PlaybackLoop {
   toS: number
 }
 
-/** Builds the pitch stage; swappable in tests, which never load the real worklet. */
-export type CreateStage = (context: AudioContext, element: HTMLAudioElement) => Promise<PitchStage>
+/** Builds the audio stage; swappable in tests, which never load the real worklet. */
+export type CreateStage = (context: AudioContext, element: HTMLAudioElement) => Promise<AudioStage>
 
 export interface EngineClock {
   /** Call `fn` every `ms` until the returned function is called. */
@@ -95,22 +102,28 @@ export class PlaybackEngine {
   private span: PlaybackWindow = { fromS: 0, toS: 0, lengthMs: 0 }
   #pitchCents = 0
   #speedPercent = 100
-  #pitchStage: PitchStage | null = null
+  #isolate: IsolateSetting = DEFAULT_ISOLATE
+  #isMono = false
+  #stage: AudioStage | null = null
   #audioContext: AudioContext | null = null
   // Guards the async stage creation, which must run at most once for the element's life.
   #stageRequested = false
   #disposed = false
+  // Counts disposals, so a stage that finishes building after one is dropped, even when a
+  // revive follows: it belongs to the closed AudioContext.
+  #lifetime = 0
   #loads = 0
   private state: PlaybackState = {
     playing: false,
     positionMs: 0,
     lengthMs: 0,
     failed: false,
-    pitchUnavailable: false,
+    stageUnavailable: false,
     loop: null,
     repeat: false,
     speedPercent: 100,
     pitchCents: 0,
+    isolateDefault: true,
   }
   private loop: PlaybackLoop | null = null
   private repeat = false
@@ -122,13 +135,14 @@ export class PlaybackEngine {
   private readonly jumpListeners = new Set<() => void>()
   private readonly endListeners = new Set<() => void>()
   private readonly systemListeners = new Set<() => void>()
+  private readonly outlineListeners = new Set<(outline: IsolateOutline) => void>()
   private stopTick: (() => void) | null = null
   private ticksSinceReport = 0
 
   constructor(
     private readonly element: HTMLAudioElement,
     private readonly clock: EngineClock,
-    private readonly createStage: CreateStage = createPitchStage,
+    private readonly createStage: CreateStage = createAudioStage,
   ) {
     this.listen()
   }
@@ -183,6 +197,24 @@ export class PlaybackEngine {
     return () => this.endListeners.delete(fn)
   }
 
+  /** Calls `fn` with each outline the isolate stage reports. While any subscriber remains, the
+   * stage runs even at the default setting, so its outline shows the audio. A subscription can
+   * come from a render outside any tap, so it never creates the AudioContext: iOS starts a
+   * context made outside a tap suspended, and moving a playing element into it would silence
+   * it. It builds the stage only on a context a tap already left running; otherwise the next
+   * play(), prime(), setPitch, or setIsolate builds it, engaged. */
+  subscribeIsolateOutline = (fn: (outline: IsolateOutline) => void): (() => void) => {
+    this.outlineListeners.add(fn)
+    if (this.outlineListeners.size === 1) {
+      if (this.#audioContext?.state === 'running') this.ensureStage()
+      this.#stage?.isolate.setEngaged(true)
+    }
+    return () => {
+      if (!this.outlineListeners.delete(fn) || this.outlineListeners.size > 0) return
+      this.#stage?.isolate.setEngaged(false)
+    }
+  }
+
   /** Calls `fn` just before a lock-screen, headset, or media-key control acts. */
   onSystemAction = (fn: () => void): (() => void) => {
     this.systemListeners.add(fn)
@@ -215,6 +247,7 @@ export class PlaybackEngine {
     }
     this.span = this.withKnownEnd(span)
     this.#pitchCents = settings.pitchCents
+    this.applyIsolate(settings.isolate, settings.isMono)
     this.element.src = src
     this.element.currentTime = span.fromS
     this.applySpeed(settings.speedPercent)
@@ -230,10 +263,12 @@ export class PlaybackEngine {
         failed: false,
         speedPercent: settings.speedPercent,
         pitchCents: settings.pitchCents,
+        isolateDefault: this.isolateIsDefault(),
       },
       { force: true },
     )
     this.stopTick = this.clock.every(TICK_MS, this.tick)
+    this.resetIsolate()
     this.jumped()
   }
 
@@ -245,8 +280,8 @@ export class PlaybackEngine {
     this.resumeAudioContext()
     // A recording since the graph was built can have reset the session to 'auto'; resuming
     // playback reclaims it.
-    if (this.#pitchStage) setAudioSessionType('playback')
-    if (this.#pitchCents !== 0) this.ensurePitchStage()
+    if (this.#stage) setAudioSessionType('playback')
+    if (this.needsStage()) this.ensureStage()
     const result = this.element.play()
     // Autoplay policy or a missing source rejects rather than throws; either way playback
     // never started, so no 'play' event follows and only failed needs setting here.
@@ -278,6 +313,7 @@ export class PlaybackEngine {
 
   /** `ms` is on the trimmed timeline, zero at the trim start. */
   seek(ms: number): void {
+    this.resetIsolate()
     this.jumpTo(clamp(this.span.fromS + ms / 1000, this.span.fromS, this.span.toS))
   }
 
@@ -290,9 +326,16 @@ export class PlaybackEngine {
 
   setPitch(cents: number): void {
     this.#pitchCents = cents
-    if (cents !== 0) this.ensurePitchStage()
+    if (cents !== 0) this.ensureStage()
     this.updateTranspose()
     this.setState({ pitchCents: cents })
+  }
+
+  /** The setting applies at once; the stage is built for it unless it is the default. */
+  setIsolate(setting: IsolateSetting, isMono: boolean): void {
+    this.applyIsolate(setting, isMono)
+    if (!this.isolateIsDefault()) this.ensureStage()
+    this.setState({ isolateDefault: this.isolateIsDefault() })
   }
 
   setWindow(span: PlaybackWindow): void {
@@ -301,6 +344,7 @@ export class PlaybackEngine {
     if (time !== this.element.currentTime) {
       this.cancelTimer()
       this.element.currentTime = time
+      this.resetIsolate()
     }
     // The loop's repeating part is cut to the window, so the playhead may have left it.
     this.insideLoop = this.isInside(this.element.currentTime)
@@ -319,10 +363,14 @@ export class PlaybackEngine {
 
   /**
    * Creates (or resumes) the AudioContext synchronously, inside the tap that is about to ask
-   * to play a recording, so iOS has already granted it by the time a pitch stage needs one.
-   * Builds no stage itself.
+   * to play a recording, so iOS has already granted it by the time an audio stage needs one.
+   * Also builds the stage when the current settings or an outline subscriber already need it.
    */
   prime(): void {
+    if (this.needsStage()) {
+      this.ensureStage()
+      return
+    }
     try {
       this.#audioContext ??= new AudioContext()
     } catch {
@@ -352,14 +400,15 @@ export class PlaybackEngine {
    * recording it can later reload. */
   dispose(): void {
     this.#disposed = true
+    this.#lifetime += 1
     this.unload()
     this.element.removeEventListener('play', this.onElementPlay)
     this.element.removeEventListener('pause', this.onElementPause)
     this.element.removeEventListener('ended', this.onElementEnded)
     this.element.removeEventListener('durationchange', this.onElementDuration)
     this.clearActionHandlers()
-    this.#pitchStage?.dispose()
-    this.#pitchStage = null
+    this.#stage?.dispose()
+    this.#stage = null
     if (this.#audioContext) {
       void this.#audioContext.close().catch(() => {})
       this.#audioContext = null
@@ -390,7 +439,7 @@ export class PlaybackEngine {
     // Covers every way playback can (re)start, lock-screen and media-key controls included,
     // not just this engine's own play() call. A refused start() falls back to a direct
     // connection on its own; this only needs to reflect that back into the state.
-    this.#pitchStage?.start().catch(this.onStageStartFailed)
+    this.#stage?.start().catch(this.onStageStartFailed)
     this.setState({ playing: true, failed: false })
     this.reportPosition()
   }
@@ -398,7 +447,7 @@ export class PlaybackEngine {
   private readonly onElementPause = (): void => {
     this.cancelTimer()
     // Stops the worklet from processing silence while nothing is playing.
-    this.#pitchStage?.stop()
+    this.#stage?.stop()
     this.setState({ playing: false })
     this.reportPosition()
   }
@@ -434,7 +483,7 @@ export class PlaybackEngine {
   /** A stage that refused to start has already routed the element straight to the output, so
    * the element takes back correcting pitch for speed. */
   private readonly onStageStartFailed = (): void => {
-    this.setState({ pitchUnavailable: true })
+    this.setState({ stageUnavailable: true })
     this.applySpeed(this.#speedPercent)
   }
 
@@ -444,6 +493,7 @@ export class PlaybackEngine {
       this.element.pause()
       this.element.currentTime = this.span.fromS
       this.setState({ positionMs: 0 })
+      this.resetIsolate()
       this.jumped()
       this.ended()
     } else {
@@ -516,6 +566,7 @@ export class PlaybackEngine {
   private enterLoopIfOutside(): void {
     const loop = this.activeLoop()
     if (this.repeat && loop && !this.isInside(this.element.currentTime)) {
+      this.resetIsolate()
       this.jumpTo(loop.fromS)
     }
   }
@@ -527,6 +578,13 @@ export class PlaybackEngine {
     this.insideLoop = this.isInside(target)
     this.setState({ positionMs: this.positionMsFor(target) })
     this.jumped()
+  }
+
+  /** The isolate stage buffers audio from before a jump, which would otherwise play on. A loop
+   * wrap skips this: that audio is the loop's own unplayed end, so it plays out and blends into
+   * the loop start instead of leaving a gap. */
+  private resetIsolate(): void {
+    this.#stage?.isolate.reset()
   }
 
   private jumped(): void {
@@ -558,16 +616,34 @@ export class PlaybackEngine {
   private applySpeed(percent: number): void {
     this.#speedPercent = percent
     this.element.playbackRate = percent / 100
-    // Once a working pitch stage exists it owns the pitch shift, so the element must stop
+    // Once a working audio stage exists it owns the pitch shift, so the element must stop
     // correcting for speed on its own or the two corrections would compound.
-    const preserves = this.#pitchStage === null || this.state.pitchUnavailable
+    const preserves = this.#stage === null || this.state.stageUnavailable
     this.element.preservesPitch = preserves
     const legacy = this.element as LegacyPitchElement
     if ('webkitPreservesPitch' in legacy) legacy.webkitPreservesPitch = preserves
   }
 
+  private applyIsolate(setting: IsolateSetting, isMono: boolean): void {
+    this.#isolate = setting
+    this.#isMono = isMono
+    this.#stage?.isolate.setSetting(setting, isMono)
+  }
+
+  private isolateIsDefault(): boolean {
+    return isIsolateOff(this.#isolate, this.#isMono)
+  }
+
+  private isolateEngaged(): boolean {
+    return this.outlineListeners.size > 0
+  }
+
+  private needsStage(): boolean {
+    return this.#pitchCents !== 0 || this.isolateEngaged() || !this.isolateIsDefault()
+  }
+
   private updateTranspose(): void {
-    this.#pitchStage?.setTranspose(compensatedSemitones(this.#pitchCents, this.#speedPercent))
+    this.#stage?.setTranspose(compensatedSemitones(this.#pitchCents, this.#speedPercent))
   }
 
   /** Resumes an already-built AudioContext synchronously (iOS requires this inside the tap
@@ -586,33 +662,44 @@ export class PlaybackEngine {
   }
 
   /** Creates the AudioContext synchronously (iOS requires this inside the tap that called
-   * setPitch/play), then kicks off the async stage load at most once. */
-  private ensurePitchStage(): void {
+   * setPitch, setIsolate, prime, or play), then kicks off the async stage load at
+   * most once. */
+  private ensureStage(): void {
     let context: AudioContext
     try {
       this.#audioContext ??= new AudioContext()
       context = this.#audioContext
     } catch {
-      this.setState({ pitchUnavailable: true })
+      this.setState({ stageUnavailable: true })
       return
     }
     this.resumeAudioContext()
-    if (this.#pitchStage || this.#stageRequested) return
+    if (this.#stage || this.#stageRequested) return
     this.#stageRequested = true
     // Claimed only once the graph actually builds, not on every resume above, so a plain
     // resume never blocks a recording that starts afterward from reclaiming the session.
     setAudioSessionType('playback')
+    const lifetime = this.#lifetime
     this.createStage(context, this.element)
       .then((stage) => {
-        this.#pitchStage = stage
-        this.setState({ pitchUnavailable: false })
+        if (lifetime !== this.#lifetime) {
+          stage.dispose()
+          return
+        }
+        this.#stage = stage
+        this.setState({ stageUnavailable: false })
         this.applySpeed(this.#speedPercent)
         this.updateTranspose()
+        stage.isolate.setSetting(this.#isolate, this.#isMono)
+        stage.isolate.setEngaged(this.isolateEngaged())
+        stage.isolate.onOutline((outline) => {
+          for (const fn of this.outlineListeners) fn(outline)
+        })
         if (!this.element.paused) {
           stage.start().catch(this.onStageStartFailed)
         }
       })
-      .catch(() => this.setState({ pitchUnavailable: true }))
+      .catch(() => this.setState({ stageUnavailable: true }))
   }
 
   private applyMetadata(meta: PlaybackMeta): void {

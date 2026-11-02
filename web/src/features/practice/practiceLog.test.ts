@@ -16,7 +16,7 @@ function setup() {
   return { log, written, closed, advance, at: () => t }
 }
 
-const DEFAULTS = { speedPercent: 100, pitchCents: 0 }
+const DEFAULTS = { speedPercent: 100, pitchCents: 0, isolateDefault: true }
 
 describe('PracticeLog', () => {
   it('a loop session is practice', () => {
@@ -88,7 +88,7 @@ describe('PracticeLog', () => {
 
   it('practice under ten seconds writes nothing', () => {
     const { log, written, advance } = setup()
-    log.open('rec-1', { speedPercent: 80, pitchCents: 0 })
+    log.open('rec-1', { ...DEFAULTS, speedPercent: 80 })
     log.playing(true)
     advance(9_000)
     expect(log.close()).toBeNull()
@@ -138,6 +138,7 @@ describe('PracticeLog', () => {
         usedLoops: true,
         usedSpeed: false,
         usedPitch: true,
+        usedIsolate: false,
       },
     ])
   })
@@ -148,5 +149,38 @@ describe('PracticeLog', () => {
     log.setSpeed(80)
     log.close()
     expect(closed).toEqual([])
+  })
+
+  it('a visit that played a non-default isolate setting is practice and reports it', () => {
+    const { log, written, closed, advance } = setup()
+    log.open('rec-1', DEFAULTS)
+    log.playing(true)
+    advance(5_000)
+    log.setIsolate(false)
+    advance(6_000)
+    expect(log.close()).toBe('practice')
+    expect(written).toEqual([expect.objectContaining({ durationMs: 11_000 })])
+    expect(closed).toEqual([expect.objectContaining({ usedIsolate: true })])
+  })
+
+  it('an isolate setting set but never played still counts as used', () => {
+    const { log, closed, advance } = setup()
+    log.open('rec-1', DEFAULTS)
+    log.usedLoop('loop-1')
+    log.playing(true)
+    advance(3_000)
+    log.playing(false)
+    log.setIsolate(false)
+    log.close()
+    expect(closed).toEqual([expect.objectContaining({ usedIsolate: true })])
+  })
+
+  it('a visit that opens on a non-default isolate setting played it', () => {
+    const { log, closed, advance } = setup()
+    log.open('rec-1', { ...DEFAULTS, isolateDefault: false })
+    log.playing(true)
+    advance(4_000)
+    expect(log.close()).toBeNull()
+    expect(closed).toEqual([expect.objectContaining({ usedIsolate: true })])
   })
 })

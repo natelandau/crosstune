@@ -132,6 +132,29 @@ async def test_push_speed_out_of_range_is_invalid(client, auth_headers) -> None:
     assert result["status"] == "invalid"
 
 
+@pytest.mark.parametrize(
+    "fields",
+    [
+        {"isolate_high_hz": 16001},
+        {"isolate_pan_start": 10, "isolate_pan_end": 0},
+        {"isolate_low_hz": 4000, "isolate_high_hz": 200},
+    ],
+)
+async def test_push_invalid_isolate_values_are_refused(client, auth_headers, fields) -> None:
+    [result] = await push(client, auth_headers("user_a"), recording(uid(), **fields))
+    assert result["status"] == "invalid"
+
+
+async def test_push_without_is_mono_keeps_stored_value(client, auth_headers) -> None:
+    rec = uid()
+    headers = auth_headers("user_a")
+    await push(client, headers, recording(rec, is_mono=True))
+    [result] = await push(client, headers, recording(rec, T1, is_mono=None))
+    assert result["status"] == "applied"
+    rows = [r["row"] for r in (await pull(client, headers))["rows"] if r["table"] == "recordings"]
+    assert [r["is_mono"] for r in rows] == [True]
+
+
 async def test_push_clamps_trim_to_playback_range(client, auth_headers, verify_session) -> None:
     rec = uid()
     await push(client, auth_headers("user_a"), recording(rec))

@@ -7,6 +7,7 @@ from datetime import datetime
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     CheckConstraint,
     DateTime,
     Double,
@@ -24,6 +25,10 @@ from sqlalchemy.orm import Mapped, mapped_column
 from crosstune.db.base import Base, SyncColumns
 from crosstune.models._checks import between, in_list
 from crosstune.vocabulary import (
+    ISOLATE_HZ_MAX,
+    ISOLATE_HZ_MIN,
+    ISOLATE_PAN_MAX,
+    ISOLATE_PAN_MIN,
     LIMITS,
     MAX_SPLIT_PIECES,
     MIN_SPLIT_PIECES,
@@ -31,6 +36,7 @@ from crosstune.vocabulary import (
     PITCH_CENTS_MIN,
     SPEED_PERCENT_MAX,
     SPEED_PERCENT_MIN,
+    IsolateEffect,
     PlaceOrigin,
     RecordingOrigin,
     RecordingPrecision,
@@ -99,6 +105,30 @@ class Recording(SyncColumns, Base):
             between("pitch_cents", PITCH_CENTS_MIN, PITCH_CENTS_MAX),
             name="ck_recordings_pitch_cents",
         ),
+        CheckConstraint(
+            in_list("isolate_effect", tuple(IsolateEffect), nullable=False),
+            name="ck_recordings_isolate_effect",
+        ),
+        CheckConstraint(
+            between("isolate_pan_start", ISOLATE_PAN_MIN, ISOLATE_PAN_MAX),
+            name="ck_recordings_isolate_pan_start",
+        ),
+        CheckConstraint(
+            between("isolate_pan_end", ISOLATE_PAN_MIN, ISOLATE_PAN_MAX),
+            name="ck_recordings_isolate_pan_end",
+        ),
+        CheckConstraint(
+            "isolate_pan_start <= isolate_pan_end", name="ck_recordings_isolate_pan_order"
+        ),
+        CheckConstraint(
+            between("isolate_low_hz", ISOLATE_HZ_MIN, ISOLATE_HZ_MAX),
+            name="ck_recordings_isolate_low_hz",
+        ),
+        CheckConstraint(
+            between("isolate_high_hz", ISOLATE_HZ_MIN, ISOLATE_HZ_MAX),
+            name="ck_recordings_isolate_high_hz",
+        ),
+        CheckConstraint("isolate_low_hz <= isolate_high_hz", name="ck_recordings_isolate_hz_order"),
         CheckConstraint(
             between("split_size", MIN_SPLIT_PIECES, MAX_SPLIT_PIECES),
             name="ck_recordings_split_size",
@@ -180,6 +210,23 @@ class Recording(SyncColumns, Base):
     pitch_cents: Mapped[int] = mapped_column(
         SmallInteger, nullable=False, default=0, server_default="0"
     )
+    isolate_effect: Mapped[str] = mapped_column(
+        String(4), nullable=False, default=IsolateEffect.SOLO, server_default="solo"
+    )
+    isolate_pan_start: Mapped[int] = mapped_column(
+        SmallInteger, nullable=False, default=ISOLATE_PAN_MIN, server_default="-100"
+    )
+    isolate_pan_end: Mapped[int] = mapped_column(
+        SmallInteger, nullable=False, default=ISOLATE_PAN_MAX, server_default="100"
+    )
+    isolate_low_hz: Mapped[int] = mapped_column(
+        SmallInteger, nullable=False, default=ISOLATE_HZ_MIN, server_default="40"
+    )
+    isolate_high_hz: Mapped[int] = mapped_column(
+        SmallInteger, nullable=False, default=ISOLATE_HZ_MAX, server_default="16000"
+    )
+    # Null until a device measures the file; a push that leaves it null keeps the stored value.
+    is_mono: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
 
     # Set on a piece of a split: the parent recording it came from (null once that is
     # deleted) and the split that created it.

@@ -5,17 +5,20 @@ import type { AnalyticsClient } from '../usage/client'
 import { AuthProvider, type AuthSession } from '../auth/AuthContext'
 import { DbContext } from '../db/DbProvider'
 import type { CrosstuneDb } from '../db/schema'
+import { DEFAULT_ISOLATE } from '../features/player/isolate/isolateSetting'
 import {
   PlaybackEngine,
   type CreateStage,
   type EngineClock,
+  type PlaybackSettings,
 } from '../features/player/playbackEngine'
 import type { Player } from '../features/player/usePlayer'
 import { SyncContext } from '../sync/SyncProvider'
 import type { SyncEngine } from '../sync/types'
+import { fakeStage } from './fakeStage'
 import { fakeEngine, testSession } from './fakeSync'
 
-export { fakeEngine, testSession }
+export { fakeEngine, fakeStage, testSession }
 
 /** Replaces a real `<audio>` element, which can neither decode a fake blob nor build a
  * Web Audio graph from one, so a test drives play state through events instead. Exported so a
@@ -55,22 +58,28 @@ const realClock: EngineClock = {
   },
 }
 
-/** Skips the real Signalsmith worklet, which needs a genuine `HTMLMediaElement` to attach to. */
-const noopStage: CreateStage = async () => ({
-  start: async () => {},
-  stop: () => {},
-  setTranspose: () => {},
-  dispose: () => {},
-})
+/** A recording's settings as it was first added: full speed, no pitch shift, no isolate. */
+export const playbackSettings: PlaybackSettings = {
+  speedPercent: 100,
+  pitchCents: 0,
+  isolate: DEFAULT_ISOLATE,
+  isMono: false,
+}
+
+/** Skips the real isolate and Signalsmith worklets, which need a genuine `HTMLMediaElement`
+ * to attach to. */
+const noopStage: CreateStage = async () => fakeStage().stage
 
 /** A playback engine a test can drive and inspect without decoding real audio. Pass an
  * element (a `FakeAudioElement` whose `play` was overridden to reject, say) to control how
- * it behaves, and a clock to control its ticks. */
+ * it behaves, a clock to control its ticks, and a stage (from `fakeStage()`) to watch what
+ * it asks of the audio graph. */
 export function fakePlaybackEngine(
   element: HTMLAudioElement = new FakeAudioElement() as unknown as HTMLAudioElement,
   clock: EngineClock = realClock,
+  createStage: CreateStage = noopStage,
 ): PlaybackEngine {
-  return new PlaybackEngine(element, clock, noopStage)
+  return new PlaybackEngine(element, clock, createStage)
 }
 
 export interface ProviderOptions {

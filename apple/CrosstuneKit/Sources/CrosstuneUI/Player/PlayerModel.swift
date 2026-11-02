@@ -3,6 +3,7 @@ import CrosstuneAudio
 import CrosstuneCommands
 import CrosstuneRecording
 import CrosstuneStore
+import CrosstuneVocabulary
 import Foundation
 import Observation
 
@@ -11,18 +12,21 @@ import Observation
 /// thing plays at a time: loading a recording takes a link's player away, and loading a link
 /// stops a recording.
 ///
-/// A loaded recording plays its row's trim, speed, and pitch, and follows each as it changes
-/// without reloading. Speed and pitch changed here play at once and are written to the row once
-/// they settle, so a slider dragged through dozens of values writes one change.
+/// A loaded recording plays its row's trim, speed, pitch, and isolate setting, and follows each
+/// as it changes without reloading. Speed, pitch, and isolate changed here play at once and are
+/// written to the row once they settle, so a slider dragged through dozens of values writes one
+/// change.
 @MainActor
 @Observable
 public final class PlayerModel {
     /// Finds a recording's audio file on this device, fetching it first when it is not here.
     /// Nil when there is nothing to play.
     public typealias AudioSource = @MainActor (_ recordingID: String) async -> RecordingAudioFile?
-    /// Writes a recording's settled speed or pitch to its row.
+    /// Writes a recording's settled speed, pitch, or isolate setting to its row.
     public typealias SettingsWriter =
         @MainActor (_ recordingID: String, _ change: PlaybackSettings) async throws -> Void
+    /// Writes whether a recording's audio is mono, as measured on this device, to its row.
+    public typealias MonoWriter = @MainActor (_ recordingID: String, _ isMono: Bool) async throws -> Void
 
     /// The loaded item, or nil when nothing is loaded.
     public internal(set) var item: PlayerItem?
@@ -85,8 +89,11 @@ public final class PlayerModel {
             loadAudio(item, playing: !opensUnplayed)
         }
     }
-    /// Where settled speed and pitch changes go. The shell sets it; without it they only play.
+    /// Where settled speed, pitch, and isolate changes go. The shell sets it; without it they
+    /// only play.
     @ObservationIgnored public var saveSettings: SettingsWriter?
+    /// Where a mono flag measured here goes. The shell sets it; without it the flag only plays.
+    @ObservationIgnored public var saveMono: MonoWriter?
 
     /// Whether a recording is being recorded, when nothing may play: playback would change the
     /// audio session under the microphone, or be recorded into the recording. The shell answers it
@@ -144,15 +151,26 @@ public final class PlayerModel {
     @ObservationIgnored var loadedFile: (audio: RecordingAudioFile, duration: TimeInterval?)?
     /// Changes made here that the row does not hold yet. Each wins over the row until the row
     /// catches up, or until a value from elsewhere lands once it is no longer settling.
-    var edits: [PlaybackSetting: Int] = [:]
+    var edits = PlaybackSettings()
     @ObservationIgnored var settling: [PlaybackSetting: Task<Void, Never>] = [:]
     /// Settled writes under way, so leaving the store can wait for them.
     @ObservationIgnored var writing: [UUID: Task<Void, Never>] = [:]
     /// Settings that play in place of the row's and the edits, by recording, such as the trim
-    /// screen's normal speed and pitch.
+    /// screen's ``PlaybackSettings/normal``.
     var held: [String: PlaybackSettings] = [:]
     /// What the audio player was last told, so a change that plays the same is not sent again.
     @ObservationIgnored var applied: [PlaybackSetting: Int] = [:]
+    /// The isolate setting and mono flag the audio player was last told.
+    @ObservationIgnored var appliedIsolate: AppliedIsolate?
+    /// The settings the last recording let go of played with, kept for a screen that reports
+    /// them after the player has moved on.
+    @ObservationIgnored var settingsLeft: (id: String, settings: PlayedSettings)?
+    /// The screens that show the isolate outline, which holds the isolate unit engaged.
+    @ObservationIgnored var outlineRequesters: Set<UUID> = []
+    /// The loaded recording's mono flag as measured here, until its row holds one.
+    var measuredMono: Bool?
+    /// Mono measurements under way, by recording.
+    @ObservationIgnored var measuring: [String: Task<Void, Never>] = [:]
 
     /// The loaded item's title, or nil when nothing is loaded.
     public var title: String? { item?.title }
@@ -177,9 +195,16 @@ public final class PlayerModel {
     }
 
     /// The loaded recording's speed, with a change made here ahead of its row.
-    public var speedPercent: Int { setting(.speed) }
+    public var speedPercent: Int { value(.speed) }
     /// The loaded recording's pitch shift in cents, with a change made here ahead of its row.
-    public var pitchCents: Int { setting(.pitch) }
+    public var pitchCents: Int { value(.pitch) }
+    /// The loaded recording's isolate setting, with a change made here ahead of its row.
+    public var isolate: IsolateSetting { value(.isolate) }
+    /// Whether the loaded recording's audio is mono: its row's flag, else the one measured
+    /// here. Nil while unknown.
+    public var isMono: Bool? { item?.recording?.isMono ?? measuredMono }
+    /// The isolate setting as it sounds, which an unknown mono flag reads as stereo.
+    public var effectiveIsolate: IsolateSetting { isolate.effective(isMono: isMono == true) }
 
     /// - Parameters:
     ///   - audio: Plays recordings; nil is the device's player.
@@ -238,7 +263,7 @@ public final class PlayerModel {
         return ActivitySnapshot(
             loaded: loadedSubject, playing: playing,
             lengthMs: transport?.duration.map { Int64(($0 * 1000).rounded()) } ?? 0,
-            speedPercent: speedPercent, pitchCents: pitchCents,
+            speedPercent: speedPercent, pitchCents: pitchCents, isolateDefault: effectiveIsolate.isDefault,
             trimming: item.map { held[$0.id] != nil } ?? false,
             loopID: loops.isRepeating ? loops.selectedID : nil, atEnd: atEnd)
     }
@@ -513,6 +538,7 @@ public final class PlayerModel {
         activityWriter = nil
         cancelSettling()
         saveSettings = nil
+        saveMono = nil
         close()
     }
 
@@ -521,7 +547,7 @@ public final class PlayerModel {
     public func deleteLoadedRecording(_ delete: () async throws -> Void) async {
         guard let item, item.kind == .recording else { return }
         let id = item.id
-        // A recording being deleted has nowhere to write its speed or pitch.
+        // A recording being deleted has nowhere to write its speed, pitch, or isolate setting.
         cancelSettling()
         // The delete decides whether the recording goes, so closing its screen must not.
         let screen = (shown: isExpanded, window: expandedWindow, unplayed: opensUnplayed)
@@ -535,6 +561,7 @@ public final class PlayerModel {
         recordingAudio = .fetching
         loadedFile = nil
         applied = [:]
+        appliedIsolate = nil
         do {
             try await delete()
             if holds(.recording, id: id) { close() }
@@ -580,18 +607,21 @@ public final class PlayerModel {
         }
     }
 
-    /// Loads `file` paused at its start, playing `item`'s trim, speed, and pitch. `keepLoop`
-    /// keeps Repeat on through a new file of the same recording.
+    /// Loads `file` paused at its start, playing `item`'s trim, speed, pitch, and isolate
+    /// setting, and measures whether it is mono when its row does not say. `keepLoop` keeps
+    /// Repeat on through a new file of the same recording.
     func start(_ file: RecordingAudioFile, _ item: PlayerItem, keepLoop: Bool = false) {
         audio.load(file.url, nowPlaying: nowPlaying(for: item), keepLoop: keepLoop)
         playbackEndMs = nil
         loadedFile = (file, audio.duration)
         applied = [:]
+        appliedIsolate = nil
         recordingAudio = .loaded
         guard let row = item.recording else { return }
         if let window = window(row) { audio.setWindow(window) }
         for setting in PlaybackSetting.allCases { apply(setting) }
         loops.audioReady(trimStartMs: row.trimStartMs)
+        measureMonoIfUnknown(row, url: file.url)
     }
 
     /// The queue's own title while one drives the player, otherwise `item`'s.
@@ -618,6 +648,9 @@ public final class PlayerModel {
 
     func stopAudio() {
         flushSettings()
+        if let id = item?.recording?.id {
+            settingsLeft = (id, PlayedSettings(speedPercent: speedPercent, pitchCents: pitchCents, isolate: isolate))
+        }
         fetch?.cancel()
         fetch = nil
         finishDeciding()
@@ -630,7 +663,9 @@ public final class PlayerModel {
         recordingAudio = nil
         loadedFile = nil
         applied = [:]
-        edits = [:]
+        edits = PlaybackSettings()
+        appliedIsolate = nil
+        measuredMono = nil
         held = [:]
         failure = nil
     }

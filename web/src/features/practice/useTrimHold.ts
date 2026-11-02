@@ -2,19 +2,28 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useLayoutEffect } from 'react'
 import { useDb } from '../../db/DbProvider'
 import { useLatest } from '../../ui/useLatest'
+import {
+  DEFAULT_ISOLATE,
+  isMonoFromRow,
+  isolateFromRow,
+  type IsolateSetting,
+} from '../player/isolate/isolateSetting'
 import { usePlaybackEngine } from '../player/PlaybackEngineProvider'
 import { usePracticeOverlay } from './usePracticeOverlay'
 
 export interface TrimHoldSettings {
   speed: number
   pitch: number
+  isolate: IsolateSetting
+  isMono: boolean
 }
 
 /**
- * While `trimming`, plays recording `id` at 100% and no pitch shift, so what is heard is
- * exactly what is cut, and holds those settings ahead of the row so nothing reapplies the row's
- * own. Leaving the trim view, or practice as a whole from inside it, gives back the row's speed
- * and pitch: `settings` from a caller already reading the row, else the hook's own read.
+ * While `trimming`, plays recording `id` at 100%, with no pitch shift and no isolate setting, so
+ * what is heard is exactly what is cut, and holds those settings ahead of the row so nothing
+ * reapplies the row's own. Leaving the trim view, or practice as a whole from inside it, gives
+ * back the row's speed, pitch, and isolate setting: `settings` from a caller already reading the
+ * row, else the hook's own read.
  */
 export function useTrimHold(id: string, trimming: boolean, settings?: TrimHoldSettings): void {
   const practiceOverlay = usePracticeOverlay()
@@ -26,11 +35,25 @@ export function useTrimHold(id: string, trimming: boolean, settings?: TrimHoldSe
     async () => (given ? null : ((await db.recordings.get(id)) ?? null)),
     [db, id, given],
   )
-  const current = settings ?? (row ? { speed: row.speed_percent, pitch: row.pitch_cents } : null)
+  const current =
+    settings ??
+    (row
+      ? {
+          speed: row.speed_percent,
+          pitch: row.pitch_cents,
+          isolate: isolateFromRow(row),
+          isMono: isMonoFromRow(row),
+        }
+      : null)
 
   useLayoutEffect(() => {
     if (!trimming) return
-    practiceOverlay.hold(id, { speedPercent: 100, pitchCents: 0, trimming: true })
+    practiceOverlay.hold(id, {
+      speedPercent: 100,
+      pitchCents: 0,
+      isolate: DEFAULT_ISOLATE,
+      trimming: true,
+    })
     return () => practiceOverlay.hold(id, null)
   }, [practiceOverlay, id, trimming])
 
@@ -41,6 +64,8 @@ export function useTrimHold(id: string, trimming: boolean, settings?: TrimHoldSe
     if (!forcing) return
     engine.setSpeed(100)
     engine.setPitch(0)
+    // The real mono flag keeps the engine's flag in step with the row for the restore.
+    engine.setIsolate(DEFAULT_ISOLATE, settingsRef.current?.isMono ?? false)
     return () => {
       // The settings as they are when trimming ends, not as they were when it began.
       // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -48,6 +73,7 @@ export function useTrimHold(id: string, trimming: boolean, settings?: TrimHoldSe
       if (!restore) return
       engine.setSpeed(restore.speed)
       engine.setPitch(restore.pitch)
+      engine.setIsolate(restore.isolate, restore.isMono)
     }
   }, [forcing, engine, settingsRef])
 }

@@ -54,9 +54,9 @@ public final class RecordingTransferActions {
 }
 
 /// Wires recording transfers into the shell: the rows' Download and Retry, where the player
-/// finds a recording's audio, and where it writes a recording's settled speed and pitch.
-/// Without an engine, as signed out, rows fetch and retry nothing, and the player plays only
-/// what is on this device.
+/// finds a recording's audio, and where it writes a recording's settled speed, pitch, isolate
+/// setting, and measured mono flag. Without an engine, as signed out, rows fetch and retry
+/// nothing, and the player plays only what is on this device.
 struct RecordingTransfers: ViewModifier {
     let store: CrosstuneStore
     let player: PlayerModel
@@ -80,7 +80,12 @@ struct RecordingTransfers: ViewModifier {
                 player.saveSettings = { recordingID, change in
                     try await CrosstuneCommands.Commands(store: store).updateRecording(
                         recordingID, speedPercent: change.speedPercent.map(Patch.value) ?? .keep,
-                        pitchCents: change.pitchCents.map(Patch.value) ?? .keep)
+                        pitchCents: change.pitchCents.map(Patch.value) ?? .keep,
+                        isolate: change.isolate.map(Patch.value) ?? .keep)
+                }
+                player.saveMono = { recordingID, isMono in
+                    try await CrosstuneCommands.Commands(store: store).updateRecording(
+                        recordingID, isMono: .value(isMono))
                 }
             }
     }

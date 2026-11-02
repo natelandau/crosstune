@@ -1,4 +1,7 @@
 import CrosstuneDesign
+import CrosstuneStore
+import CrosstuneTestSupport
+import CrosstuneVocabulary
 import SwiftUI
 import Testing
 
@@ -64,6 +67,45 @@ import Testing
             lengthMs: 10_000, displayScale: 2)
         #expect(early.indices?.lowerBound == 0)
         #expect(early.x(of: 0) == 50)
+    }
+
+    /// A panel's height in a controls column as wide as an iPhone's, at the default text size.
+    private func panelHeight(_ panel: some View) -> CGFloat {
+        let width: CGFloat = 358
+        let root = panel.frame(width: width).environment(\.dynamicTypeSize, .large)
+        #if os(macOS)
+            let host = NSHostingController(rootView: root)
+        #else
+            let host = UIHostingController(rootView: root)
+        #endif
+        return host.sizeThatFits(in: CGSize(width: width, height: 10_000)).height
+    }
+
+    /// Isolate never makes the mode panel taller, so the waveform keeps its height. The package
+    /// tests run on the Mac, so this covers the Mac panels only; the iPhone panels are measured
+    /// on a simulator.
+    @Test func isolatePanelFitsThePanelHeight() {
+        let row = Recording(
+            id: "r1", tuneID: nil, source: "microphone", addedAt: noon, label: "Jam", state: "ready",
+            sourceDurationMs: 60_000, trimStartMs: 0, speedPercent: 100, pitchCents: 0)
+        let model = PracticeModel(
+            player: PlayerModel(audio: FakeAudio()), recording: row, file: nil,
+            writer: LoopWriter(add: { _, _ in throw CancellationError() }, update: { _, _, _ in }, remove: { _ in }))
+        let tallest =
+            [
+                panelHeight(LoopsPanel(model: model, onDeleted: {})),
+                panelHeight(SpeedPanel(value: 100, onChange: { _ in })),
+                panelHeight(PitchPanel(value: 0, onChange: { _ in })),
+            ].max() ?? 0
+        let narrowed = IsolateSetting(effect: .mute, panStart: -40, panEnd: -10, lowHz: 200, highHz: 4100)
+        for isMono in [false, true] {
+            let isolate = IsolatePanel(
+                value: narrowed, isMono: isMono, outline: { nil }, isLive: false, onChange: { _ in })
+            #expect(panelHeight(isolate) <= tallest)
+        }
+        let unavailable = IsolatePanel(
+            value: narrowed, isMono: false, isAvailable: false, outline: { nil }, isLive: false, onChange: { _ in })
+        #expect(panelHeight(unavailable) <= tallest)
     }
 
     #if os(macOS)

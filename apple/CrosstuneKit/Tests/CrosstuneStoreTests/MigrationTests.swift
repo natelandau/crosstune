@@ -554,17 +554,6 @@ private struct V4Fixture {
         #expect(rows.map { $0["recorded_at"] as String? } == [played, nil, nil, "1937-01-01T00:00:00.000Z"])
         #expect(rows.map { $0["recorded_precision"] as String? } == ["time", nil, nil, "year"])
         #expect(rows.map { $0["extra"] as String } == ["{}", "{}", "{}", #"{"theme":"dark"}"#])
-        let recording = try #require(try Recording.fetchOne(db, key: "r-1"))
-        #expect(recording.addedAt == Timestamp(iso: played))
-        #expect(recording.recordedAt == Timestamp(iso: played))
-        #expect(recording.recordedPrecision == "time")
-        let upload = try #require(try Recording.fetchOne(db, key: "r-2"))
-        #expect(upload.addedAt == Timestamp(iso: played))
-        #expect(upload.recordedAt == nil)
-        #expect(upload.recordedPrecision == nil)
-        let pulled = try #require(try Recording.fetchOne(db, key: "r-4"))
-        #expect(pulled.recordedPrecision == "year")
-        #expect(pulled.extra == ["theme": .string("dark")])
 
         let data = try String?.fetchAll(db, sql: "SELECT data FROM outbox ORDER BY seq")
         #expect(
@@ -576,6 +565,23 @@ private struct V4Fixture {
                 #"{"added_at":"2026-09-24T09:00:00.000Z","recorded_at":"1937-01-01T00:00:00.000Z","recorded_precision":"year","source":"import"}"#,
                 #"{"title":"Jam","recorded_at":"x"}"#,
             ])
+    }
+
+    // A later migration adds columns the model reads, so the rows decode once fully migrated.
+    try Schema.migrator.migrate(queue)
+
+    try queue.read { db in
+        let recording = try #require(try Recording.fetchOne(db, key: "r-1"))
+        #expect(recording.addedAt == Timestamp(iso: played))
+        #expect(recording.recordedAt == Timestamp(iso: played))
+        #expect(recording.recordedPrecision == "time")
+        let upload = try #require(try Recording.fetchOne(db, key: "r-2"))
+        #expect(upload.addedAt == Timestamp(iso: played))
+        #expect(upload.recordedAt == nil)
+        #expect(upload.recordedPrecision == nil)
+        let pulled = try #require(try Recording.fetchOne(db, key: "r-4"))
+        #expect(pulled.recordedPrecision == "year")
+        #expect(pulled.extra == ["theme": .string("dark")])
     }
 }
 
@@ -1366,5 +1372,72 @@ private let v16Schema = """
                 #"{"label":"B"}"#,
                 #"{"title":"Jam"}"#,
             ])
+    }
+}
+
+@Test func v24MovesIsolateColumnsOutOfExtra() throws {
+    let queue = try DatabaseQueue()
+    try Schema.migrator.migrate(queue, upTo: "v23")
+    let time = "2026-10-22T12:00:00.000Z"
+    try queue.write { db in
+        try db.execute(
+            sql: """
+                INSERT INTO recordings
+                    (id, created_at, updated_at, server_seq, source, added_at, position, state, extra)
+                VALUES
+                    ('r-1', ?, ?, 0, 'microphone', ?, 0, 'ready', '{}'),
+                    ('r-2', ?, ?, 3, 'microphone', ?, 1, 'ready',
+                        '{"isolate_effect":"mute","isolate_pan_start":-20,"isolate_pan_end":60,"isolate_low_hz":200,"isolate_high_hz":4000,"is_mono":true,"theme":"dark"}'),
+                    ('r-3', ?, ?, 4, 'microphone', ?, 2, 'ready', '{"isolate_effect":"loud","isolate_low_hz":"low"}')
+                """,
+            arguments: [time, time, time, time, time, time, time, time, time])
+        try db.execute(
+            sql: """
+                INSERT INTO outbox (table_name, row_id, op, updated_at, data) VALUES
+                    ('recordings', 'r-2', 'upsert', ?, '{"label":"A"}'),
+                    ('recordings', 'r-9', 'upsert', ?, '{"label":"B"}'),
+                    ('tunes', 't-1', 'upsert', ?, '{"title":"Jam"}'),
+                    ('recordings', 'r-1', 'upsert', ?, '{"label":"C"}')
+                """,
+            arguments: [time, time, time, time])
+    }
+
+    try Schema.migrator.migrate(queue, upTo: "v24")
+
+    try queue.read { db in
+        let row = try #require(try Row.fetchOne(db, sql: "SELECT * FROM recordings WHERE id = 'r-2'"))
+        #expect(row["isolate_effect"] as String == "mute")
+        #expect(row["isolate_pan_start"] as Int == -20)
+        #expect(row["isolate_pan_end"] as Int == 60)
+        #expect(row["isolate_low_hz"] as Int == 200)
+        #expect(row["isolate_high_hz"] as Int == 4000)
+        #expect(row["is_mono"] as Bool? == true)
+        #expect(row["extra"] as String == #"{"theme":"dark"}"#)
+        let plain = try #require(try Row.fetchOne(db, sql: "SELECT * FROM recordings WHERE id = 'r-1'"))
+        #expect(plain["isolate_effect"] as String == "solo")
+        #expect(plain["isolate_pan_start"] as Int == -100)
+        #expect(plain["isolate_pan_end"] as Int == 100)
+        #expect(plain["isolate_low_hz"] as Int == 40)
+        #expect(plain["isolate_high_hz"] as Int == 16000)
+        #expect(plain["is_mono"] as Bool? == nil)
+        // A wrong-typed value is dropped from extra without being moved.
+        let wrong = try #require(try Row.fetchOne(db, sql: "SELECT * FROM recordings WHERE id = 'r-3'"))
+        #expect(wrong["isolate_effect"] as String == "solo")
+        #expect(wrong["isolate_low_hz"] as Int == 40)
+        #expect(wrong["extra"] as String == "{}")
+
+        let data = try String?.fetchAll(db, sql: "SELECT data FROM outbox ORDER BY seq")
+        #expect(
+            data == [
+                #"{"label":"A","isolate_effect":"mute","isolate_pan_start":-20,"isolate_pan_end":60,"isolate_low_hz":200,"isolate_high_hz":4000,"is_mono":true}"#,
+                // No row to read, so the queued change is left as it was.
+                #"{"label":"B"}"#,
+                #"{"title":"Jam"}"#,
+                #"{"label":"C","isolate_effect":"solo","isolate_pan_start":-100,"isolate_pan_end":100,"isolate_low_hz":40,"isolate_high_hz":16000,"is_mono":null}"#,
+            ])
+        // An unknown mono flag goes on the wire as JSON null, not as a missing key.
+        let unknownMono = try String.fetchOne(
+            db, sql: "SELECT json_type(data, '$.is_mono') FROM outbox WHERE row_id = 'r-1'")
+        #expect(unknownMono == "null")
     }
 }

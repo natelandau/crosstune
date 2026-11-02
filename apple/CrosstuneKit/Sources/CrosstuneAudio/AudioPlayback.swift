@@ -1,3 +1,4 @@
+import CrosstuneVocabulary
 import Foundation
 
 /// What the system's Now Playing surfaces show for the loaded audio: the lock screen, Control
@@ -78,6 +79,21 @@ public protocol AudioPlayback: PlaybackTransport {
     func setRate(_ percent: Int)
     /// Shifts the pitch by `cents` with the speed held, without restarting.
     func setPitch(cents: Int)
+    /// Keeps or removes the part of the sound `s` describes, without restarting; `isMono` makes
+    /// it ignore pan. Any setting but the default engages the isolate unit.
+    func setIsolate(_ s: IsolateSetting, isMono: Bool)
+    /// Asks for the isolate outline, as the Isolate panel does while it shows. Wanted, the outline
+    /// engages the isolate unit at any setting, so it is live and the first change to the
+    /// setting brings no jump in delay.
+    func setIsolateOutlineWanted(_ on: Bool)
+    /// Whether the isolate unit could be made; without it the setting does nothing.
+    var isolateAvailable: Bool { get }
+    /// Input level by pan and by frequency, nil while nothing wants it. Changes
+    /// without telling observers, so a view reads it on a timer.
+    var isolateOutline: IsolateOutline? { get }
+    /// Whether the audio file at `url` is mono, by ``MonoDetector``'s rule. Reads and decodes
+    /// the file off the main actor.
+    func measureMono(url: URL) async throws -> Bool
     /// Renames the loaded audio on the Now Playing surfaces.
     func retitle(_ nowPlaying: NowPlaying)
     /// Stops and lets go of the loaded audio and the system's playback controls.

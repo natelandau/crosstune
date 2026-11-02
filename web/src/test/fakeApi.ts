@@ -14,6 +14,7 @@ import type {
 import type { NoticeKind } from '../billing/plan'
 import type { StorageUsage } from '../db/meta'
 import { isEventTable } from '../db/types'
+import { DEFAULT_ISOLATE, isolateToPatch } from '../features/player/isolate/isolateSetting'
 
 function conflict(detail?: string): ApiError {
   return new ApiError(
@@ -382,6 +383,8 @@ export function serverRecording(overrides: Partial<RecordingRow> & { id: string 
     playback_end_ms: null,
     playback_rev: null,
     peaks_rev: null,
+    is_mono: null,
+    ...isolateToPatch(DEFAULT_ISOLATE),
     split_completed_id: null,
     ...overrides,
   }

@@ -88,9 +88,10 @@ struct ActivitySnapshot: Equatable, Sendable {
     var playing = false
     /// The loaded item's playing length, 0 while unknown.
     var lengthMs: Int64 = 0
-    var speedPercent = PlaybackSetting.speed.standard
-    var pitchCents = PlaybackSetting.pitch.standard
-    /// Whether the trim screen holds the recording at normal speed and pitch.
+    var speedPercent = PlaybackField.speed.standard
+    var pitchCents = PlaybackField.pitch.standard
+    var isolateDefault = true
+    /// Whether the trim screen holds the recording at ``PlaybackSettings/normal``.
     var trimming = false
     /// The loop repeating, if any.
     var loopID: String?
@@ -204,9 +205,11 @@ final class PlayerActivity {
         if screenLoaded {
             practice.setSpeed(snapshot.speedPercent)
             practice.setPitch(snapshot.pitchCents)
+            practice.setIsolate(isDefault: snapshot.isolateDefault)
         }
-        // The trim screen forces normal speed and pitch so what is heard is what is cut. That
-        // is neither practice nor a listen, so its time counts toward nothing.
+        // The trim screen forces normal speed and pitch, with nothing isolated, so what is heard
+        // is what is cut. That is neither practice nor a listen, so its time counts toward
+        // nothing.
         let audible = screenLoaded && snapshot.playing && !snapshot.trimming
         plays.playing(audible)
         practice.playing(audible)
@@ -233,7 +236,9 @@ final class PlayerActivity {
         screenSource = source
         let subject = PlaySubject(kind: .recording, id: recordingID)
         plays.start(subject, origin: .recordingScreen, attribution: screenAttribution)
-        practice.open(recordingID, speedPercent: snapshot.speedPercent, pitchCents: snapshot.pitchCents)
+        practice.open(
+            recordingID, speedPercent: snapshot.speedPercent, pitchCents: snapshot.pitchCents,
+            isolateDefault: snapshot.isolateDefault)
         if loaded == subject { feed(snapshot) }
     }
 
@@ -309,7 +314,8 @@ final class PlayerActivity {
     private func report(_ ended: EndedVisit) {
         let report = PracticeReport(
             source: screenSource, durationMs: ended.durationMs, usedLoops: ended.usedLoops,
-            usedSpeed: ended.usedSpeed, usedPitch: ended.usedPitch, kind: screenKind, recordingID: ended.recordingID,
+            usedSpeed: ended.usedSpeed, usedPitch: ended.usedPitch, usedIsolate: ended.usedIsolate,
+            kind: screenKind, recordingID: ended.recordingID,
             tuneID: nil)
         send(tune: screenTune, recordingID: ended.recordingID, linkID: nil) { tuneID in
             var report = report

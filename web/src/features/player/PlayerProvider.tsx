@@ -46,7 +46,7 @@ export function PlayerProvider({
       const active = document.activeElement
       opener.current = active instanceof HTMLElement && active !== document.body ? active : null
       // Synchronous, inside the tap, so iOS has already granted the AudioContext by the
-      // time a pitch stage needs it.
+      // time an audio stage needs it.
       if (next.kind === 'recording') engine.prime()
       setLoaded({ item: next, origin })
     },

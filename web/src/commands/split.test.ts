@@ -72,6 +72,20 @@ describe('splitRecording', () => {
     })
   })
 
+  it('copies the parent isolate setting and mono flag', async () => {
+    const isolate = {
+      is_mono: true,
+      isolate_effect: 'mute' as const,
+      isolate_pan_start: -50,
+      isolate_pan_end: 25,
+      isolate_low_hz: 200,
+      isolate_high_hz: 4000,
+    }
+    await db.recordings.put(recordingRow('rec-1', { trim_end_ms: 180_000, ...isolate }))
+    const ids = await splitRecording(db, 'rec-1', [60_000, 120_000])
+    for (const id of ids) expect(await db.recordings.get(id)).toMatchObject(isolate)
+  })
+
   it('labels pieces from the parent label', async () => {
     const [a] = await splitRecording(db, 'rec-1', [60_000])
     expect((await db.recordings.get(a!))?.label).toBe('Session, part 2')

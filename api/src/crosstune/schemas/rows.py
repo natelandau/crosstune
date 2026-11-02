@@ -19,6 +19,10 @@ from pydantic import (
 )
 
 from crosstune.vocabulary import (
+    ISOLATE_HZ_MAX,
+    ISOLATE_HZ_MIN,
+    ISOLATE_PAN_MAX,
+    ISOLATE_PAN_MIN,
     LIMITS,
     LOOP_COLOR_COUNT,
     MAX_ALTERNATE_TITLES,
@@ -40,6 +44,7 @@ from crosstune.vocabulary import (
     AudioQuality,
     GrantSource,
     Instrument,
+    IsolateEffect,
     Mode,
     PlaceOrigin,
     PlayContext,
@@ -268,6 +273,12 @@ class _RecordingFields(_Data):
     trim_end_ms: int | None = Field(default=None, ge=0)
     speed_percent: int = Field(default=100, ge=SPEED_PERCENT_MIN, le=SPEED_PERCENT_MAX)
     pitch_cents: int = Field(default=0, ge=PITCH_CENTS_MIN, le=PITCH_CENTS_MAX)
+    isolate_effect: IsolateEffect = IsolateEffect.SOLO
+    isolate_pan_start: int = Field(default=ISOLATE_PAN_MIN, ge=ISOLATE_PAN_MIN, le=ISOLATE_PAN_MAX)
+    isolate_pan_end: int = Field(default=ISOLATE_PAN_MAX, ge=ISOLATE_PAN_MIN, le=ISOLATE_PAN_MAX)
+    isolate_low_hz: int = Field(default=ISOLATE_HZ_MIN, ge=ISOLATE_HZ_MIN, le=ISOLATE_HZ_MAX)
+    isolate_high_hz: int = Field(default=ISOLATE_HZ_MAX, ge=ISOLATE_HZ_MIN, le=ISOLATE_HZ_MAX)
+    is_mono: bool | None = None
     split_from_id: uuid.UUID | None = None
     created_by_split_id: uuid.UUID | None = None
     split_id: uuid.UUID | None = None
@@ -281,6 +292,23 @@ class _RecordingFields(_Data):
             msg = "place_lat and place_lon are set together"
             raise ValueError(msg)
         return place_lon
+
+    @field_validator("isolate_pan_end")
+    @classmethod
+    def _pan_ordered(cls, pan_end: int, info: ValidationInfo) -> int:
+        # A start that failed its own validation is absent here and already refused.
+        if "isolate_pan_start" in info.data and info.data["isolate_pan_start"] > pan_end:
+            msg = "isolate_pan_start is above isolate_pan_end"
+            raise ValueError(msg)
+        return pan_end
+
+    @field_validator("isolate_high_hz")
+    @classmethod
+    def _hz_ordered(cls, high_hz: int, info: ValidationInfo) -> int:
+        if "isolate_low_hz" in info.data and info.data["isolate_low_hz"] > high_hz:
+            msg = "isolate_low_hz is above isolate_high_hz"
+            raise ValueError(msg)
+        return high_hz
 
     @field_validator("players", "place_name")
     @classmethod

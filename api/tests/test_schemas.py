@@ -12,6 +12,7 @@ from crosstune.schemas.rows import (
     InstrumentTuning,
     PlayEventData,
     PracticeSessionData,
+    RecordingData,
     RecordingLinkData,
     RecordingLinkRow,
     ScanViewData,
@@ -470,6 +471,45 @@ def test_practice_session_rejects_a_speed_out_of_range(speed: int) -> None:
             speed_percent=speed,
             pitch_cents=0,
             created_at=NOW,
+        )
+
+
+@pytest.mark.parametrize(
+    "fields",
+    [
+        {"isolate_pan_start": -101},
+        {"isolate_pan_end": 101},
+        {"isolate_low_hz": 39},
+        {"isolate_high_hz": 16001},
+        {"isolate_effect": "boost"},
+    ],
+)
+def test_recording_rejects_an_isolate_value_out_of_range(fields: dict) -> None:
+    with pytest.raises(ValidationError):
+        RecordingData(
+            source="microphone",
+            added_at=NOW,
+            recorded_at=NOW,
+            recorded_precision="time",
+            **fields,
+        )
+
+
+@pytest.mark.parametrize(
+    "fields",
+    [
+        {"isolate_pan_start": 10, "isolate_pan_end": 0},
+        {"isolate_low_hz": 4000, "isolate_high_hz": 200},
+    ],
+)
+def test_isolate_ranges_are_ordered(fields: dict) -> None:
+    with pytest.raises(ValidationError):
+        RecordingData(
+            source="microphone",
+            added_at=NOW,
+            recorded_at=NOW,
+            recorded_precision="time",
+            **fields,
         )
 
 

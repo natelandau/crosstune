@@ -115,12 +115,14 @@ private let linkID = "9d3a6c1e-2f4b-4b7a-a5c8-7e1f0d2b3c94"
 
 @Test func sendsAPracticeVisitAsItsDurationBucketAndTools() {
     let report = PracticeReport(
-        source: .dock, durationMs: 400_000, usedLoops: false, usedSpeed: true, usedPitch: false, kind: .imported,
+        source: .dock, durationMs: 400_000, usedLoops: false, usedSpeed: true, usedPitch: false, usedIsolate: false,
+        kind: .imported,
         recordingID: recordingID, tuneID: nil)
     #expect(
         AnalyticsEvent.practiceEnded(report).properties == [
             "source": .string("dock"), "duration_bucket": .string("5m+"), "used_loops": .bool(false),
-            "used_speed": .bool(true), "used_pitch": .bool(false), "kind": .string("imported"),
+            "used_speed": .bool(true), "used_pitch": .bool(false), "used_isolate": .bool(false),
+            "kind": .string("imported"),
             "recording_id": .string(recordingID),
         ])
 }
