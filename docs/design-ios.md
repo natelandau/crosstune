@@ -136,11 +136,11 @@ SwiftUI and UIKit behavior that a new screen runs into.
   `AccentColor` asset, which carries the accent.
 - An accent-filled button takes `.accentProminent` or
   `.accentGlassProminent`, never a system prominent style, which fills
-  with the tint instead of `accentFill`.
+  with the tint (primary text) instead of `accentFill`.
 - The system fills a confirm toolbar button and a focused list selection
-  with the tint behind white, and the dark accent leaves white under
-  4.5:1. So a confirm item is a `ConfirmToolbarItem`, and a list that
-  takes a selection carries `.listSelectionTint()`. A test enforces both.
+  with the tint behind white, which primary text makes unreadable in dark
+  mode. So a confirm item is a `ConfirmToolbarItem`, and a list that
+  takes a selection carries `.accentSelectionTint()`. A test enforces both.
 - More is an explicit `Menu`. Loose overflow items lose a destructive
   item's separator and red role.
 - SwiftUI runs swipe actions only on a `List`'s rows. Rows that swipe
@@ -148,7 +148,7 @@ SwiftUI and UIKit behavior that a new screen runs into.
   scrolls and takes its rows' height.
 - A system picker shows the chosen value inline, so its options carry no
   counts, which would read as part of the value.
-- Section heading control: plain tinted glyph or word in a 44pt frame, no
+- Section heading control: plain glyph or accent word in a 44pt frame, no
   glass. A menu draws glass at its label's full frame, so glass cannot
   stay smaller than its tap frame.
 - A system segment shows an image or a word, never both.
