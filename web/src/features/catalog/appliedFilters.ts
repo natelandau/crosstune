@@ -17,7 +17,6 @@ export function appliedFilters(before: CatalogFilters, patch: Partial<CatalogFil
     applied.add(isTuningKey(facet) ? 'tuning' : facet)
   }
   if (patch.archived && !before.archived) applied.add('archived')
-  if (patch.unheard && !before.unheard) applied.add('unheard')
   if (patch.missing !== undefined && patch.missing !== 'all' && patch.missing !== before.missing) {
     applied.add('missing')
   }

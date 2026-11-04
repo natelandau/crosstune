@@ -8,14 +8,14 @@ import Foundation
 public struct CatalogEntry: Hashable, Sendable, Identifiable {
     public let tune: Tune
     public let userTune: UserTune
-    /// Whether the tune has a live recording or link. Only a catalog that filters on it reads it;
-    /// every other entry reads as unheard.
-    public let heard: Bool
+    /// Whether the tune has a live recording or link, or nil when it was not read. Only a catalog
+    /// that filters on it reads it.
+    public let hasAudio: Bool?
 
-    public init(tune: Tune, userTune: UserTune, heard: Bool = false) {
+    public init(tune: Tune, userTune: UserTune, hasAudio: Bool? = nil) {
         self.tune = tune
         self.userTune = userTune
-        self.heard = heard
+        self.hasAudio = hasAudio
     }
 
     public var id: String { userTune.id }
@@ -40,13 +40,14 @@ public struct SearchableEntry: Hashable, Sendable, Identifiable {
     public var id: String { entry.id }
 }
 
-/// A field the Missing filter can ask about: any facet, or a field no facet filters on. The
-/// learned fields read the musician's own row; every other attribute reads the tune. Raw values
-/// are the web client's, so both read the same stored filter.
+/// A field the Missing filter can ask about: any facet, a field no facet filters on, or audio, a
+/// live recording or link. The learned fields read the musician's own row; every other attribute
+/// reads the tune. Raw values are the web client's, so both read the same stored filter.
 public enum MissingAttribute: Hashable, Sendable, RawRepresentable {
     case facet(CatalogFacet)
     case partStructure
     case learnedOn
+    case audio
 
     /// Every attribute in the order the sheet lists them.
     nonisolated public static let all: [MissingAttribute] =
@@ -54,7 +55,7 @@ public enum MissingAttribute: Hashable, Sendable, RawRepresentable {
             .facet(.key), .facet(.mode), .facet(.tuneType), .facet(.genre), .facet(.timeSignature),
             .facet(.composer), .partStructure,
         ]
-        + Vocabulary.instruments.map { .facet(.tuning($0)) } + [.facet(.learnedFrom), .learnedOn]
+        + Vocabulary.instruments.map { .facet(.tuning($0)) } + [.facet(.learnedFrom), .learnedOn, .audio]
 
     public init?(rawValue: String) {
         guard let match = Self.all.first(where: { $0.rawValue == rawValue }) else { return nil }
@@ -66,6 +67,7 @@ public enum MissingAttribute: Hashable, Sendable, RawRepresentable {
         case .facet(let facet): facet.storageKey
         case .partStructure: "part_structure"
         case .learnedOn: "learned_on"
+        case .audio: "audio"
         }
     }
 
@@ -74,6 +76,7 @@ public enum MissingAttribute: Hashable, Sendable, RawRepresentable {
         case .facet(let facet): facet.label
         case .partStructure: TuneFieldLabels.partStructure
         case .learnedOn: TuneFieldLabels.learnedOn
+        case .audio: "Audio"
         }
     }
 
@@ -84,19 +87,22 @@ public enum MissingAttribute: Hashable, Sendable, RawRepresentable {
         return nil
     }
 
-    /// Every value the entry holds for this attribute.
-    func values(of entry: CatalogEntry) -> [String?] {
+    /// Whether the entry holds something for this attribute, or nil when it was not read. An
+    /// entry read without audio neither holds nor lacks it, so Missing Audio is never offered for
+    /// it and never matches it.
+    func isHeld(in entry: CatalogEntry) -> Bool? {
+        let values: [String?]
         switch self {
-        case .facet(let facet): facet.values(of: entry)
-        case .partStructure: [entry.tune.partStructure]
-        case .learnedOn: [entry.userTune.learnedOn]
+        case .facet(let facet): values = facet.values(of: entry)
+        case .partStructure: values = [entry.tune.partStructure]
+        case .learnedOn: values = [entry.userTune.learnedOn]
+        case .audio: return entry.hasAudio
         }
+        return values.contains(where: CatalogSearch.hasText)
     }
 
     /// Whether the entry holds nothing for this attribute.
-    func isMissing(in entry: CatalogEntry) -> Bool {
-        !values(of: entry).contains(where: CatalogSearch.hasText)
-    }
+    func isMissing(in entry: CatalogEntry) -> Bool { isHeld(in: entry) == false }
 }
 
 /// The catalog's filters: status, one value per facet, and whether archived tunes show. Stored
@@ -114,25 +120,23 @@ public struct CatalogFilters: Hashable, Sendable {
     /// Each set facet's value. A facet missing here narrows nothing.
     public var facets: [CatalogFacet: String]
     public var archived: Bool
-    /// Whether only tunes with no recording or link show.
-    public var unheard: Bool
     /// Nil narrows nothing; otherwise only tunes holding nothing for the attribute show.
     public var missing: MissingAttribute?
 
     public init(
         status: String? = nil, facets: [CatalogFacet: String] = [:], archived: Bool = false,
-        unheard: Bool = false, missing: MissingAttribute? = nil
+        missing: MissingAttribute? = nil
     ) {
         self.status = status
         self.facets = facets
         self.archived = archived
-        self.unheard = unheard
         self.missing = missing
     }
 
     /// The filters a stored value holds, with every missing or malformed field read as its
     /// default. Only current facet keys are read, so a filter stored under a retired key reads as
-    /// Any and the next write drops it.
+    /// Any and the next write drops it. The retired `unheard` flag reads as Missing Audio when no
+    /// other Missing attribute is set.
     public init(stored: JSONValue?) {
         guard case .object(let object) = stored ?? .null else {
             self.init()
@@ -150,16 +154,16 @@ public struct CatalogFilters: Hashable, Sendable {
         }
         var missing: MissingAttribute?
         if case .string(let value) = object["missing"] ?? .null { missing = MissingAttribute(rawValue: value) }
+        if missing == nil, object["unheard"] == .bool(true) { missing = .audio }
         self.init(
-            status: status, facets: facets, archived: object["archived"] == .bool(true),
-            unheard: object["unheard"] == .bool(true), missing: missing)
+            status: status, facets: facets, archived: object["archived"] == .bool(true), missing: missing)
     }
 
     /// The value to store: every field, with `all` for one that narrows nothing.
     public var stored: JSONValue {
         var object: JSONObject = [
             "status": .string(status ?? Self.any), "archived": .bool(archived),
-            "unheard": .bool(unheard), "missing": .string(missing?.rawValue ?? Self.any),
+            "missing": .string(missing?.rawValue ?? Self.any),
         ]
         for facet in CatalogFacet.all {
             object[facet.storageKey] = .string(facets[facet] ?? Self.any)
@@ -186,7 +190,7 @@ public struct CatalogFilters: Hashable, Sendable {
 
     /// How many filters are set: the count on the Filters button and the gate on Reset.
     public var setCount: Int {
-        (status != nil ? 1 : 0) + facets.count + (archived ? 1 : 0) + (unheard ? 1 : 0) + (missing != nil ? 1 : 0)
+        (status != nil ? 1 : 0) + facets.count + (archived ? 1 : 0) + (missing != nil ? 1 : 0)
     }
 
     /// These filters with every one cleared.
@@ -209,7 +213,9 @@ public enum CatalogSearch {
     }
 
     /// Every active tune with its active user row, sorted by title.
-    public static func entries(tunes: [Tune], userTunes: [UserTune], heard: Set<String> = []) -> [CatalogEntry] {
+    public static func entries(tunes: [Tune], userTunes: [UserTune], withAudio: Set<String>? = nil)
+        -> [CatalogEntry]
+    {
         let tunesByID = Dictionary(
             tunes.filter { $0.deletedAt == nil }.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         return
@@ -217,7 +223,7 @@ public enum CatalogSearch {
             .filter { $0.deletedAt == nil }
             .compactMap { userTune in
                 tunesByID[userTune.tuneID].map {
-                    CatalogEntry(tune: $0, userTune: userTune, heard: heard.contains($0.id))
+                    CatalogEntry(tune: $0, userTune: userTune, hasAudio: withAudio?.contains($0.id))
                 }
             }
             .sorted(by: titleFirst)
@@ -251,7 +257,6 @@ public enum CatalogSearch {
             let entry = searchable.entry
             if !filters.archived, entry.isArchived { return false }
             if let status = filters.status, entry.userTune.status != status { return false }
-            if filters.unheard, entry.heard { return false }
             if let missing = filters.missing, !missing.isMissing(in: entry) { return false }
             for (facet, noKey, value) in facets {
                 let values = facet.values(of: entry).map { FoldedText($0 ?? "") }
@@ -308,7 +313,7 @@ public enum CatalogSearch {
     /// The attributes some entry holds, in sheet order: asking for a missing one is only useful
     /// then.
     public static func missingChoices(_ entries: [CatalogEntry]) -> [MissingAttribute] {
-        MissingAttribute.all.filter { attribute in entries.contains { !attribute.isMissing(in: $0) } }
+        MissingAttribute.all.filter { attribute in entries.contains { attribute.isHeld(in: $0) == true } }
     }
 
     /// The facets worth offering: those with values, minus tunings for instruments the musician
@@ -354,7 +359,6 @@ extension CatalogFilters {
         if let status, status != before.status { kinds.insert(.status) }
         for (facet, value) in facets where before.facets[facet] != value { kinds.insert(facet.filterKind) }
         if archived && !before.archived { kinds.insert(.archived) }
-        if unheard && !before.unheard { kinds.insert(.unheard) }
         if let missing, missing != before.missing { kinds.insert(.missing) }
         return CatalogFilterKind.allCases.filter(kinds.contains)
     }

@@ -6,7 +6,7 @@ import { recordingLabel, recordingMatches } from '../recordings/recordingMatch'
 import { recordingTitle } from '../recordings/recordingRow'
 import type { RecordingView } from '../recordings/useRecordings'
 import { compareNames } from '../../text/collate'
-import type { HeardEntry } from '../../db/types'
+import type { CatalogEntry } from '../../db/types'
 
 export const QUICK_FIND_PLACEHOLDER = 'Find tunes, lists, and recordings'
 export const NO_MATCHES = 'No matches'
@@ -76,7 +76,7 @@ export interface QuickFindList {
 
 export interface QuickFindSources {
   query: string
-  tunes: readonly HeardEntry[]
+  tunes: readonly CatalogEntry[]
   lists: readonly QuickFindList[]
   recordings: readonly RecordingView[]
   commands: readonly QuickFindCommand[]

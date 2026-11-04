@@ -244,7 +244,7 @@ private func loadedSummary(_ store: CrosstuneStore) async throws -> LiveQuery<St
             try addTune(writer, "t2", "Kesh", key: "E", modes: ["dorian"])
             try writer.setMeta(
                 .catalogFilters,
-                to: CatalogFilters(status: "known", facets: [.genre: "Irish"], archived: true, unheard: true).stored)
+                to: CatalogFilters(status: "known", facets: [.genre: "Irish"], archived: true, missing: .audio).stored)
         }
         let catalog = CatalogModel(store: store)
         try await eventually { catalog.results?.filters.facets[.genre] == "Irish" }

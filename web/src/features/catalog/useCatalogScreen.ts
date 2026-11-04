@@ -34,9 +34,9 @@ import { useCatalog } from './useCatalog'
 import { useCatalogFilters } from './useCatalogFilters'
 import { setCatalogSort, useCatalogSort } from './useCatalogSort'
 import { useLastPlayed } from './useLastPlayed'
-import type { CatalogEntry, HeardEntry } from '../../db/types'
+import type { CatalogEntry, CatalogEntryWithAudio } from '../../db/types'
 
-const NO_ENTRIES: HeardEntry[] = []
+const NO_ENTRIES: CatalogEntryWithAudio[] = []
 const NO_INSTRUMENTS: ReadonlySet<Instrument> = new Set()
 
 export interface CatalogScreenOptions {
@@ -50,7 +50,7 @@ export interface CatalogScreen {
   /** False until the entries, filters, and instruments have all been read. */
   ready: boolean
   /** Every stored tune, unfiltered. */
-  entries: HeardEntry[]
+  entries: CatalogEntryWithAudio[]
   instruments: ReadonlySet<Instrument>
   /** Ids of the tunes with live scans, for the row's Scans action. */
   tunesWithScans: ReadonlySet<string>
@@ -110,7 +110,7 @@ export function useCatalogScreen({
       ),
     [debounceClock, analytics],
   )
-  const loadedEntries = useCatalog(true, { heard: true })
+  const loadedEntries = useCatalog(true, { withAudio: true })
   const [storedFilters, updateFilters, filterError] = useCatalogFilters()
   const loadedInstruments = useInstruments()
   const tunesWithScans = useTunesWithScans()

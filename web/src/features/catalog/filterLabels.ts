@@ -13,9 +13,7 @@ import {
 } from './filters'
 
 /** Wording shared by the filter sheet, the filter bar's pills, and the tests that query them. */
-export const SHOW_UNHEARD = 'Only unheard'
 export const MISSING_LABEL = 'Missing'
-const UNHEARD_PILL = 'Unheard'
 export const ARCHIVED_SHOWN = 'Archived shown'
 /** A time signature capsule's name for its field, shorter than the field's own label. */
 export const TIME_SIGNATURE_TOKEN = 'Time'
@@ -59,8 +57,6 @@ function filterTokens(filters: CatalogFilters, visible: readonly Facet[]): Filte
     }))
   if (filters.archived)
     tokens.push({ key: 'archived', label: ARCHIVED_SHOWN, patch: { archived: false } })
-  if (filters.unheard)
-    tokens.push({ key: 'unheard', label: UNHEARD_PILL, patch: { unheard: false } })
   if (filters.missing !== 'all')
     tokens.push({
       key: 'missing',

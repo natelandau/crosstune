@@ -64,7 +64,7 @@ import Testing
         for filters in [
             CatalogFilters(status: "learning"), CatalogFilters(facets: [.key: "D"]),
             CatalogFilters(facets: [.genre: "Old-time"]), CatalogFilters(archived: true),
-            CatalogFilters(unheard: true), CatalogFilters(missing: .facet(.key)),
+            CatalogFilters(missing: .facet(.key)), CatalogFilters(missing: .audio),
         ] {
             #expect(CatalogFilterRow.isShownOnPhoneAndPad(withFilters(empty, filters), hasErrors: false))
         }

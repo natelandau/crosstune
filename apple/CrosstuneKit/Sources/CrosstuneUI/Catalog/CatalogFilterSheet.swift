@@ -10,7 +10,6 @@ struct CatalogFilterSheet: View {
     static let done = "Done"
     nonisolated static let any = "Any"
     static let showArchived = "Show archived"
-    static let onlyUnheard = "Only unheard"
     nonisolated static let missing = "Missing"
     static let status = "Status"
 
@@ -83,7 +82,6 @@ struct CatalogFilterSheet: View {
                         }
                     }
                     MacFormSection {
-                        unheardToggle(results)
                         missingPopUp(results)
                     }
                     MacFormSection {
@@ -109,7 +107,6 @@ struct CatalogFilterSheet: View {
                 }
             }
             Section {
-                unheardToggle(results)
                 missingPopUp(results)
             }
             Section {
@@ -181,16 +178,6 @@ struct CatalogFilterSheet: View {
                 }
             }
         #endif
-    }
-
-    private func unheardToggle(_ results: CatalogResults) -> some View {
-        Toggle(
-            Self.onlyUnheard,
-            isOn: Binding {
-                results.filters.unheard
-            } set: { unheard in
-                model.updateFilters { $0.unheard = unheard }
-            })
     }
 
     @ViewBuilder private func missingPopUp(_ results: CatalogResults) -> some View {

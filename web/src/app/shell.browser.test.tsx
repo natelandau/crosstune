@@ -300,14 +300,14 @@ it('opens the catalog from a status row only after its scope is saved', async ()
 it('keeps the other filters and the query when a status is chosen', async () => {
   const db = openTestDb()
   await seed(db)
-  await setMeta(db, META_CATALOG_FILTERS, { key: 'G', tune_type: 'reel', unheard: true })
+  await setMeta(db, META_CATALOG_FILTERS, { key: 'G', tune_type: 'reel', missing: 'audio' })
   writeSearchQuery('catalog', 'ang')
   onTestFinished(() => writeSearchQuery('catalog', ''))
   await renderApp({ path: '/lists', db, frame: WIDE })
   await sidebar().getByRole('button', { name: STATUS_LABELS.known, exact: true }).click()
   await expect
     .poll(async () => normalizeFilters(await getMeta(db, META_CATALOG_FILTERS, null)))
-    .toMatchObject({ status: 'known', key: 'G', tune_type: 'reel', unheard: true })
+    .toMatchObject({ status: 'known', key: 'G', tune_type: 'reel', missing: 'audio' })
   expect(readSearchQuery('catalog')).toBe('ang')
 })
 

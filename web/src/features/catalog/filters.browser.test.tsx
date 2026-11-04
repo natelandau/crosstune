@@ -522,8 +522,8 @@ it('opens the key grid in a sheet on touch, and choosing a key closes it', async
 const MANY = {
   composer: 'Benny Thomasson',
   'tuning:violin': CROSS_A,
+  tune_type: 'reel',
   archived: true,
-  unheard: true,
 } satisfies Partial<CatalogFilters>
 
 function RowHost({ ready, filters }: { ready: boolean; filters: Partial<CatalogFilters> }) {

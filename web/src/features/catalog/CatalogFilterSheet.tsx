@@ -11,7 +11,7 @@ import { KEY } from '../../ui/keyName'
 import { KeyGrid } from '../../ui/KeyGrid'
 import { Sheet } from '../../ui/Sheet'
 import { SHOW_ARCHIVED } from './catalogCopy'
-import { archivedCountLabel, MISSING_LABEL, SHOW_UNHEARD, type SheetFilters } from './filterLabels'
+import { archivedCountLabel, MISSING_LABEL, type SheetFilters } from './filterLabels'
 import {
   FACET_LABELS,
   facetChoices,
@@ -29,7 +29,7 @@ import { STATUS_SCOPE } from './scope'
 import type { LiveTuneCounts } from './useStatusCounts'
 
 /**
- * Every catalog filter: Status, Key, the other facets, the unheard and missing filters, and
+ * Every catalog filter: Status, Key, the other facets, the Missing filter, and
  * Show archived. Every choice applies at once; Reset clears them all.
  */
 export function CatalogFilterSheet({
@@ -121,11 +121,6 @@ export function CatalogFilterSheet({
         </Group>
       )}
       <Group>
-        <Switch
-          label={SHOW_UNHEARD}
-          isSelected={filters.unheard}
-          onChange={(unheard) => onChange({ unheard })}
-        />
         <Picker
           label={MISSING_LABEL}
           value={filters.missing === 'all' ? null : filters.missing}

@@ -239,7 +239,6 @@ public enum CatalogFilterKind: String, CaseIterable, Sendable {
     case composer
     case learnedFrom = "learned_from"
     case archived
-    case unheard
     case missing
 }
 

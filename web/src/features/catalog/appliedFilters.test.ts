@@ -17,7 +17,7 @@ it('names each kind set once, mapping every instrument tuning to tuning', () => 
 it('ignores a filter cleared, kept, or already on', () => {
   const before = { ...DEFAULT_FILTERS, status: 'known' as const, archived: true }
   expect(
-    appliedFilters(before, { status: 'known', archived: true, unheard: false, genre: 'all' }),
+    appliedFilters(before, { status: 'known', archived: true, missing: 'all', genre: 'all' }),
   ).toEqual([])
   expect(appliedFilters(before, { status: 'all', archived: false })).toEqual([])
 })
