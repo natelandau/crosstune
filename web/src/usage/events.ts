@@ -78,7 +78,6 @@ export const FILTERS = [
   'composer',
   'learned_from',
   'archived',
-  'unheard',
   'missing',
 ] as const
 export const AUDIO_FORMATS = ['m4a', 'mp3', 'wav', 'aiff', 'flac', 'other'] as const

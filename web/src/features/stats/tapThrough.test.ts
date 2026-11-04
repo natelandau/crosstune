@@ -46,7 +46,7 @@ const userTunes = tunes.map((tune, i) =>
     learned_from: LEARNED_FROM[(i * 3) % LEARNED_FROM.length],
   }),
 )
-const entries = catalogEntries(tunes, userTunes)
+const entries = catalogEntries(tunes, userTunes, new Set())
 const stats = breakdowns(
   tunes.map((tune, i) => ({ tune, userTune: userTunes[i]! })),
   ['violin'],

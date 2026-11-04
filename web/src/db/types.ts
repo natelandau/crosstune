@@ -298,6 +298,6 @@ export interface CatalogEntry {
 }
 
 /** A catalog entry that knows whether the tune has a recording or a link, deleted ones aside. */
-export interface HeardEntry extends CatalogEntry {
-  heard: boolean
+export interface CatalogEntryWithAudio extends CatalogEntry {
+  hasAudio: boolean
 }

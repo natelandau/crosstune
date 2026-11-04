@@ -1,5 +1,5 @@
 import { STATUSES, type Instrument, type TuneStatus } from '../../api/vocabulary'
-import type { CatalogEntry, HeardEntry, LocalTune, LocalUserTune } from '../../db/types'
+import type { CatalogEntry, CatalogEntryWithAudio, LocalTune, LocalUserTune } from '../../db/types'
 import { containsText, foldText, sameText } from '../../text/fold'
 import { groupByFold } from '../../text/spelling'
 import { countTunes } from '../../text/format'
@@ -57,7 +57,8 @@ function facetValuesOf(
 
 /**
  * Every attribute the Missing filter can ask about, in the order the sheet lists them. The
- * learned fields read the user's own row; every other attribute reads the tune.
+ * learned fields read the user's own row, audio is a live recording or link, and every other
+ * attribute reads the tune.
  */
 export const MISSING_ATTRIBUTES = [
   'key',
@@ -70,6 +71,7 @@ export const MISSING_ATTRIBUTES = [
   ...TUNING_KEYS,
   'learned_from',
   'learned_on',
+  'audio',
 ] as const
 export type MissingAttribute = (typeof MISSING_ATTRIBUTES)[number]
 
@@ -77,12 +79,12 @@ export const MISSING_LABELS: Record<MissingAttribute, string> = {
   ...FACET_LABELS,
   part_structure: DETAIL_LABELS.part_structure,
   learned_on: DETAIL_LABELS.learned_on,
+  audio: 'Audio',
 }
 
 export type CatalogFilters = Record<Facet, string> & {
   status: TuneStatus | 'all'
   archived: boolean
-  unheard: boolean
   missing: MissingAttribute | 'all'
 }
 
@@ -94,11 +96,10 @@ function byFacet<T>(value: (facet: Facet) => T): Record<Facet, T> {
   )
 }
 
-export const DEFAULT_FILTERS: CatalogFilters = {
+export const DEFAULT_FILTERS: FiltersWithoutAudio = {
   status: 'all',
   ...byFacet(() => 'all'),
   archived: false,
-  unheard: false,
   missing: 'all',
 }
 
@@ -130,39 +131,65 @@ export function normalizeFilters(value: unknown): CatalogFilters {
   >
   const text = (key: Facet) =>
     typeof stored[key] === 'string' ? (stored[key] as string) : DEFAULT_FILTERS[key]
+  // The retired `unheard` flag reads as Missing Audio when no other Missing attribute is set.
+  const missing = isMissingAttribute(stored.missing)
+    ? stored.missing
+    : stored.unheard === true
+      ? 'audio'
+      : 'all'
   // Only current facet keys are read, so a filter stored under a retired key reads as Any and
   // the next write drops it.
   return {
     status: isStatus(stored.status) || stored.status === 'all' ? stored.status : 'all',
     ...byFacet(text),
     archived: stored.archived === true,
-    unheard: stored.unheard === true,
-    missing: isMissingAttribute(stored.missing) ? stored.missing : 'all',
+    missing,
   }
 }
 
-/** Every live user tune paired with its live tune, in storage order. */
+/**
+ * Every live user tune paired with its live tune, in storage order. Given the ids of tunes with
+ * audio, each entry says whether it has any; without them, entries carry no audio field, so the
+ * types keep the Missing Audio filter away from them.
+ */
 export function pairTunes(
   tunes: LocalTune[],
   userTunes: LocalUserTune[],
-  heard: ReadonlySet<string> = new Set(),
-): HeardEntry[] {
+  withAudio: ReadonlySet<string>,
+): CatalogEntryWithAudio[]
+export function pairTunes(tunes: LocalTune[], userTunes: LocalUserTune[]): CatalogEntry[]
+export function pairTunes(
+  tunes: LocalTune[],
+  userTunes: LocalUserTune[],
+  withAudio?: ReadonlySet<string>,
+): CatalogEntry[] {
   const tuneById = new Map(tunes.filter((s) => !s.deleted_at).map((s) => [s.id, s]))
-  const entries: HeardEntry[] = []
+  const entries: (CatalogEntry | CatalogEntryWithAudio)[] = []
   for (const userTune of userTunes) {
     if (userTune.deleted_at) continue
     const tune = tuneById.get(userTune.tune_id)
-    if (tune) entries.push({ tune, userTune, heard: heard.has(tune.id) })
+    if (!tune) continue
+    entries.push(
+      withAudio ? { tune, userTune, hasAudio: withAudio.has(tune.id) } : { tune, userTune },
+    )
   }
   return entries
 }
 
+/** ``pairTunes`` sorted by title. */
 export function catalogEntries(
   tunes: LocalTune[],
   userTunes: LocalUserTune[],
-  heard: ReadonlySet<string> = new Set(),
-): HeardEntry[] {
-  return pairTunes(tunes, userTunes, heard).sort((a, b) => compareNames(a.tune.title, b.tune.title))
+  withAudio: ReadonlySet<string>,
+): CatalogEntryWithAudio[]
+export function catalogEntries(tunes: LocalTune[], userTunes: LocalUserTune[]): CatalogEntry[]
+export function catalogEntries(
+  tunes: LocalTune[],
+  userTunes: LocalUserTune[],
+  withAudio?: ReadonlySet<string>,
+): CatalogEntry[] {
+  const entries = withAudio ? pairTunes(tunes, userTunes, withAudio) : pairTunes(tunes, userTunes)
+  return entries.sort((a, b) => compareNames(a.tune.title, b.tune.title))
 }
 
 /** True when the query names the tune's title or an alternate title, as `sameText` compares them. */
@@ -192,32 +219,35 @@ export function isFilterValue(facet: Facet, value: string): boolean {
   return key !== '' && key !== 'all' && !(facet === 'key' && key === foldText(NO_KEY))
 }
 
-function attributeValues(
-  entry: CatalogEntry,
-  attribute: MissingAttribute,
-): readonly (string | null | undefined)[] {
-  if (attribute === 'learned_on') return [entry.userTune.learned_on]
-  if (attribute === 'part_structure') return [entry.tune.part_structure]
-  return facetValuesOf(entry, attribute)
+/** Filters that never ask about audio, for entries read without it. */
+export type FiltersWithoutAudio = CatalogFilters & {
+  missing: Exclude<CatalogFilters['missing'], 'audio'>
+}
+
+/** Whether the entry holds nothing for the attribute. */
+function lacks(entry: CatalogEntry, attribute: MissingAttribute): boolean {
+  if (attribute === 'audio') return !('hasAudio' in entry && entry.hasAudio)
+  if (attribute === 'learned_on') return isMissing([entry.userTune.learned_on])
+  if (attribute === 'part_structure') return isMissing([entry.tune.part_structure])
+  return isMissing(facetValuesOf(entry, attribute))
 }
 
 function facetMatches(filter: string, value: string | null | undefined): boolean {
   return hasText(value) && sameText(filter, value)
 }
 
-export function filterCatalog(
-  entries: HeardEntry[],
-  filters: CatalogFilters,
+/** The entries the filters and the query let through. Only entries read with audio take Missing Audio. */
+export function filterCatalog<T extends CatalogEntry>(
+  entries: T[],
+  filters: T extends CatalogEntryWithAudio ? CatalogFilters : FiltersWithoutAudio,
   query = '',
-): HeardEntry[] {
+): T[] {
   const needle = query.trim()
   const setFacets = FACETS.filter((facet) => filters[facet] !== 'all')
   return hideArchived(entries, filters.archived).filter((entry) => {
     const { tune, userTune } = entry
     if (filters.status !== 'all' && effectiveStatus(userTune) !== filters.status) return false
-    if (filters.unheard && entry.heard) return false
-    if (filters.missing !== 'all' && !isMissing(attributeValues(entry, filters.missing)))
-      return false
+    if (filters.missing !== 'all' && !lacks(entry, filters.missing)) return false
     for (const facet of setFacets) {
       const values = facetValuesOf(entry, facet)
       if (facet === 'key' && filters.key === NO_KEY) {
@@ -303,10 +333,8 @@ export function tuneCountLabel(visible: number, total: number): string {
 }
 
 /** The attributes some tune holds, in sheet order: asking for a missing one is only useful then. */
-export function missingChoices(entries: CatalogEntry[]): MissingAttribute[] {
-  return MISSING_ATTRIBUTES.filter((attribute) =>
-    entries.some((entry) => !isMissing(attributeValues(entry, attribute))),
-  )
+export function missingChoices(entries: CatalogEntryWithAudio[]): MissingAttribute[] {
+  return MISSING_ATTRIBUTES.filter((attribute) => entries.some((entry) => !lacks(entry, attribute)))
 }
 
 /**
@@ -338,7 +366,6 @@ export function setFilterCount(filters: CatalogFilters, visible: readonly Facet[
     (filters.status !== 'all' ? 1 : 0) +
     facets +
     (filters.archived ? 1 : 0) +
-    (filters.unheard ? 1 : 0) +
     (filters.missing !== 'all' ? 1 : 0)
   )
 }
@@ -348,7 +375,6 @@ export function sheetResets(visible: readonly Facet[]): Partial<CatalogFilters> 
   const patch: Partial<CatalogFilters> = {
     status: 'all',
     archived: false,
-    unheard: false,
     missing: 'all',
   }
   for (const facet of visible) patch[facet] = 'all'

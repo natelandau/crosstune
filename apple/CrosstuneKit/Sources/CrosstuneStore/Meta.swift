@@ -13,7 +13,7 @@ public enum MetaKey: String, Sendable {
     case storage
     /// Whether this device downloads every ready recording to play without a connection.
     case keepOffline = "keep_offline"
-    /// The catalog screen's status, key, mode, genre, tuning, and archived filters.
+    /// The catalog screen's filters.
     case catalogFilters = "catalog_filters"
     /// Whether list screens show archived tunes.
     case listShowArchived = "list_show_archived"

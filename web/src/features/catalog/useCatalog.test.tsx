@@ -20,33 +20,33 @@ function wrapper({ children }: { children: ReactNode }) {
 }
 
 describe('useCatalog', () => {
-  it('marks a tune heard only while a recording or link of it is live', async () => {
+  it('marks a tune as having audio only while a recording or link of it is live', async () => {
     const tuneId = (await db.tunes.toArray())[0]!.id
-    const { result } = renderHook(() => useCatalog(true, { heard: true }), { wrapper })
+    const { result } = renderHook(() => useCatalog(true, { withAudio: true }), { wrapper })
     await waitFor(() => expect(result.current).toHaveLength(1))
-    expect(result.current![0]!.heard).toBe(false)
+    expect(result.current![0]!.hasAudio).toBe(false)
     await db.recordings.put(recordingRow('r1', { tune_id: tuneId, deleted_at: 't' }))
     await db.recording_links.put(linkRow('l1', tuneId))
-    await waitFor(() => expect(result.current![0]!.heard).toBe(true))
+    await waitFor(() => expect(result.current![0]!.hasAudio).toBe(true))
     await db.recording_links.update('l1', { deleted_at: 't' })
-    await waitFor(() => expect(result.current![0]!.heard).toBe(false))
+    await waitFor(() => expect(result.current![0]!.hasAudio).toBe(false))
   })
 
-  it('leaves recordings and links unread unless heard is asked for', async () => {
+  it('leaves recordings and links unread unless audio is asked for', async () => {
     const tuneId = (await db.tunes.toArray())[0]!.id
     await db.recording_links.put(linkRow('l1', tuneId))
     const reads = vi.spyOn(db.recordings, 'where')
     const { result } = renderHook(() => useCatalog(), { wrapper })
     await waitFor(() => expect(result.current).toHaveLength(1))
-    expect(result.current![0]!.heard).toBe(false)
+    expect(result.current![0]).not.toHaveProperty('hasAudio')
     expect(reads).not.toHaveBeenCalled()
   })
 
   it('ignores a recording filed under no tune', async () => {
     await db.recordings.put(recordingRow('r1', { tune_id: null }))
-    const { result } = renderHook(() => useCatalog(true, { heard: true }), { wrapper })
+    const { result } = renderHook(() => useCatalog(true, { withAudio: true }), { wrapper })
     await waitFor(() => expect(result.current).toHaveLength(1))
-    expect(result.current![0]!.heard).toBe(false)
+    expect(result.current![0]!.hasAudio).toBe(false)
   })
 
   it('reads every tune with its user row', async () => {

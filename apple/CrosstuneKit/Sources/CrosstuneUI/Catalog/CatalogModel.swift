@@ -148,7 +148,7 @@ public final class CatalogModel {
         self.analytics = analytics
         self.searchSettleDelay = searchSettleDelay
         self.sort = sort
-        entries = LiveQuery(store, initial: nil) { try Self.fetchEntries($0, withHeard: true) }
+        entries = LiveQuery(store, initial: nil) { try Self.fetchEntries($0, withAudio: true) }
         storedFilters = LiveQuery(store, initial: nil) { db in
             CatalogFilters(stored: try MetaKey.catalogFilters.value(in: db, as: JSONValue.self))
         }
@@ -205,24 +205,24 @@ public final class CatalogModel {
 
     /// Every active tune with its user row, sorted by title.
     nonisolated static func fetchEntries(_ db: Database) throws -> [CatalogEntry] {
-        try fetchEntries(db, withHeard: false)
+        try fetchEntries(db, withAudio: false)
     }
 
-    /// ``fetchEntries(_:)``, and with `withHeard` the tunes holding a live recording or link
-    /// marked heard. Only the catalog filters on it, so other readers skip the two extra reads.
-    nonisolated static func fetchEntries(_ db: Database, withHeard: Bool) throws -> [CatalogEntry] {
-        var heard: Set<String> = []
-        if withHeard {
-            heard.formUnion(
-                try String.fetchAll(
-                    db,
-                    Recording.filter(Recording.CodingKeys.deletedAt == nil && Recording.CodingKeys.tuneID != nil)
-                        .select(Recording.CodingKeys.tuneID)))
-            heard.formUnion(
-                try String.fetchAll(
-                    db,
-                    RecordingLink.filter(RecordingLink.CodingKeys.deletedAt == nil)
-                        .select(RecordingLink.CodingKeys.tuneID)))
+    /// ``fetchEntries(_:)``, and with `withAudio` each entry's ``CatalogEntry/hasAudio`` read
+    /// from the live recordings and links. Only the catalog filters on it, so other readers skip
+    /// the two extra reads.
+    nonisolated static func fetchEntries(_ db: Database, withAudio: Bool) throws -> [CatalogEntry] {
+        var tunesWithAudio: Set<String>?
+        if withAudio {
+            let recorded = try String.fetchAll(
+                db,
+                Recording.filter(Recording.CodingKeys.deletedAt == nil && Recording.CodingKeys.tuneID != nil)
+                    .select(Recording.CodingKeys.tuneID))
+            let linked = try String.fetchAll(
+                db,
+                RecordingLink.filter(RecordingLink.CodingKeys.deletedAt == nil)
+                    .select(RecordingLink.CodingKeys.tuneID))
+            tunesWithAudio = Set(recorded + linked)
         }
         // Read in nearly title order, so the locale-aware sort that decides the order finds long
         // sorted runs and makes few comparisons.
@@ -235,7 +235,7 @@ public final class CatalogModel {
             tunes: try Tune.filter(Tune.CodingKeys.deletedAt == nil).fetchAll(db),
             userTunes: try UserTune.filter(UserTune.CodingKeys.deletedAt == nil)
                 .order(sql: "\(byTitle) COLLATE NOCASE").fetchAll(db),
-            heard: heard)
+            withAudio: tunesWithAudio)
     }
 
     /// A stored change from elsewhere, such as another window, replaces what the screen shows.

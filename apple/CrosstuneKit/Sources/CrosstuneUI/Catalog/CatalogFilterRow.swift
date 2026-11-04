@@ -6,7 +6,6 @@ import SwiftUI
 /// search field on the Mac, which also leaves status to its sidebar.
 struct CatalogFilterRow: View {
     nonisolated static let archivedShown = "Archived shown"
-    nonisolated static let unheardShown = "Unheard"
 
     nonisolated static func statusLabel(_ selected: String?) -> String {
         "\(TuneFieldLabels.status): \(selected.map(StatusStyle.label) ?? CatalogFilterSheet.any)"
@@ -78,9 +77,6 @@ struct CatalogFilterRow: View {
         }
         if filters.archived {
             set.append(SetFilter(id: "archived", label: archivedShown) { $0.archived = false })
-        }
-        if filters.unheard {
-            set.append(SetFilter(id: "unheard", label: unheardShown) { $0.unheard = false })
         }
         if let missing = filters.missing {
             set.append(

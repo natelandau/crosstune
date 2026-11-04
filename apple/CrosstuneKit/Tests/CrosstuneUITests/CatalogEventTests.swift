@@ -111,7 +111,7 @@ import Testing
             $0.status = "learning"
             $0[.tuning("violin")] = "AEAE"
             $0[.tuning("five_string_banjo")] = "gDGBD"
-            $0.unheard = true
+            $0.missing = .audio
         }
 
         #expect(try await poll { !catalog.isSavingFilters })
@@ -119,7 +119,7 @@ import Testing
             sink.captures == [
                 .init(name: "catalog_filtered", properties: ["filter": .string("status")]),
                 .init(name: "catalog_filtered", properties: ["filter": .string("tuning")]),
-                .init(name: "catalog_filtered", properties: ["filter": .string("unheard")]),
+                .init(name: "catalog_filtered", properties: ["filter": .string("missing")]),
             ])
     }
 

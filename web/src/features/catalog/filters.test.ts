@@ -372,7 +372,6 @@ describe('type and composer', () => {
       key: 'all',
       genre: 'all',
       archived: false,
-      unheard: false,
       missing: 'all',
     })
   })
@@ -473,22 +472,26 @@ describe('tunes with no key', () => {
   })
 })
 
-describe('unheard', () => {
-  const build = (heard: ReadonlySet<string>) =>
+describe('missing audio', () => {
+  const build = (withAudio: ReadonlySet<string> = new Set()) =>
     catalogEntries(
-      [tune('h1', 'Heard'), tune('h2', 'Silent')],
+      [tune('h1', 'Recorded'), tune('h2', 'Silent')],
       [userTune('hu1', 'h1'), userTune('hu2', 'h2')],
-      heard,
+      withAudio,
     )
 
-  it('unheard keeps tunes with no recording or link', () => {
-    const heard = new Set(['h1'])
-    const entries = build(heard)
-    expect(entries.map((e) => e.heard)).toEqual([true, false])
+  it('keeps tunes with no recording or link', () => {
+    const entries = build(new Set(['h1']))
+    expect(entries.map((e) => e.hasAudio)).toEqual([true, false])
     expect(
-      filterCatalog(entries, { ...DEFAULT_FILTERS, unheard: true }).map((e) => e.tune.id),
+      filterCatalog(entries, { ...DEFAULT_FILTERS, missing: 'audio' }).map((e) => e.tune.id),
     ).toEqual(['h2'])
     expect(filterCatalog(entries, DEFAULT_FILTERS)).toHaveLength(2)
+  })
+
+  it('offers audio only once some tune has it', () => {
+    expect(missingChoices(build(new Set(['h1'])))).toContain('audio')
+    expect(missingChoices(build())).not.toContain('audio')
   })
 })
 
@@ -504,6 +507,7 @@ describe('missing', () => {
       tune('m2', 'Bare', { key: '  ', composer: '' }),
     ],
     [userTune('mu1', 'm1', { learned_from: 'Sam' }), userTune('mu2', 'm2')],
+    new Set(),
   )
   const ids = (missing: CatalogFilters['missing']) =>
     filterCatalog(entries, { ...DEFAULT_FILTERS, missing }).map((e) => e.tune.id)
@@ -540,9 +544,9 @@ describe('missing', () => {
   })
 
   it('counts and resets the new sheet filters', () => {
-    const set = { ...DEFAULT_FILTERS, unheard: true, missing: 'genre' as const }
+    const set = { ...DEFAULT_FILTERS, archived: true, missing: 'audio' as const }
     expect(setFilterCount(set, [])).toBe(2)
-    expect(sheetResets([])).toMatchObject({ status: 'all', unheard: false, missing: 'all' })
+    expect(sheetResets([])).toMatchObject({ status: 'all', archived: false, missing: 'all' })
   })
 
   it('resets a missing tuning whose facet is hidden', () => {
@@ -555,16 +559,15 @@ describe('missing', () => {
 describe('stored filters without the new keys', () => {
   it('stored filters without the new keys normalize to defaults', () => {
     const filters = normalizeFilters({ key: 'D' })
-    expect(filters.unheard).toBe(false)
     expect(filters.missing).toBe('all')
-    expect(normalizeFilters({ unheard: true, missing: 'composer' })).toMatchObject({
-      unheard: true,
-      missing: 'composer',
-    })
-    expect(normalizeFilters({ unheard: 'yes', missing: 'bogus' })).toMatchObject({
-      unheard: false,
-      missing: 'all',
-    })
+    expect(normalizeFilters({ missing: 'composer' }).missing).toBe('composer')
+    expect(normalizeFilters({ unheard: 'yes', missing: 'bogus' }).missing).toBe('all')
+  })
+
+  it('reads the retired unheard flag as missing audio', () => {
+    expect(normalizeFilters({ unheard: true }).missing).toBe('audio')
+    expect(normalizeFilters({ unheard: true, missing: 'composer' }).missing).toBe('composer')
+    expect(normalizeFilters({ unheard: true })).not.toHaveProperty('unheard')
   })
 })
 
@@ -580,6 +583,7 @@ describe('composer and learned from facets', () => {
       userTune('cu2', 'c2', { learned_from: ' bruce molsky ' }),
       userTune('cu3', 'c3', { learned_from: '   ', archived_at: 't' }),
     ],
+    new Set(),
   )
   const ids = (found: { tune: { id: string } }[]) => found.map((e) => e.tune.id)
 
