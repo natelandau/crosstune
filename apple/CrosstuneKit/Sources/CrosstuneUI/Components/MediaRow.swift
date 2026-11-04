@@ -301,7 +301,7 @@ public struct MediaRow: View {
         }
         .buttonStyle(.plain)
         #if !os(macOS)
-            .foregroundStyle(.tint)
+            .foregroundStyle(Palette.accent)
         #endif
         .accessibilityLabel(name)
     }
@@ -368,7 +368,7 @@ public struct MediaRow: View {
                     .contentShape(.rect)
             }
             .buttonStyle(.plain)
-            .foregroundStyle(.tint)
+            .foregroundStyle(Palette.accent)
             .accessibilityLabel(retry.name)
         #endif
     }

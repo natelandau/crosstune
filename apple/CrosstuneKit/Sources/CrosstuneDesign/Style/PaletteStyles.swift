@@ -91,7 +91,7 @@ extension View {
 
 /// A grouped `Form`: the page takes ``Palette/groupedBackground`` and every row, in any section,
 /// takes ``Palette/groupedSurface`` unless it sets its own background. Its switches take the
-/// accent track. The sections stay as written: rebuilding them (`ForEach(sections:)`) drops a
+/// accent track, and its buttons the accent, since the app's tint is primary text. The sections stay as written: rebuilding them (`ForEach(sections:)`) drops a
 /// row's own list modifiers, such as the open Settings page's `field` background.
 package struct GroupedForm<Content: View>: View {
     @ViewBuilder package let content: Content
@@ -108,6 +108,21 @@ package struct GroupedForm<Content: View>: View {
         }
         .formStyle(.grouped)
         .toggleStyle(.accentSwitch)
+        .buttonStyle(.accentWords)
         .groupedBackground()
     }
+}
+
+/// The system's own button in the accent. A button that sets its own style keeps it.
+package struct AccentWordsButtonStyle: PrimitiveButtonStyle {
+    package func makeBody(configuration: Configuration) -> some View {
+        // `.automatic` stops this style from applying to the button it makes.
+        Button(configuration)
+            .buttonStyle(.automatic)
+            .tint(Palette.accent)
+    }
+}
+
+extension PrimitiveButtonStyle where Self == AccentWordsButtonStyle {
+    package static var accentWords: Self { AccentWordsButtonStyle() }
 }

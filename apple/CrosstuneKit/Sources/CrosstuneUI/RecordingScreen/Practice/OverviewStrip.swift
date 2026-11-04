@@ -130,7 +130,7 @@ struct OverviewStrip<Source: OverviewSource, Header: View>: View {
                 context.fill(frame, with: .color(Palette.tint(colorScheme)))
                 context.stroke(frame, with: .color(Palette.accent), lineWidth: 1)
             #else
-                context.stroke(Path(roundedRect: box, cornerRadius: 4), with: .style(.tint), lineWidth: 2)
+                context.stroke(Path(roundedRect: box, cornerRadius: 4), with: .color(Palette.accent), lineWidth: 2)
             #endif
         case .split:
             let from = max(0, from)
@@ -138,7 +138,7 @@ struct OverviewStrip<Source: OverviewSource, Header: View>: View {
             guard to > from else { return }
             context.stroke(
                 Path(roundedRect: CGRect(x: from, y: 1, width: to - from, height: waveHeight - 2), cornerRadius: 4),
-                with: .style(.tint), lineWidth: 2)
+                with: .color(Palette.accent), lineWidth: 2)
         }
     }
 }

@@ -196,7 +196,8 @@ differ. iPhone and iPad never take a rule from here.
 
 SwiftUI and AppKit behavior that a new screen runs into.
 
-- Window or scene root carries `.tint(Palette.accent)`. AppKit-drawn
+- Window or scene root carries `.tint(Palette.textPrimary)`. A view that
+  needs the accent names `Palette.accent`, never `.tint`. AppKit-drawn
   pieces (list selection, focus rings, default buttons, alerts, menus,
   Settings tabs) ignore tint and take the `AccentColor` asset, whose
   universal entries carry the accent.

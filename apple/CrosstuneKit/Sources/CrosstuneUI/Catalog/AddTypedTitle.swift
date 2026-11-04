@@ -11,7 +11,7 @@ struct AddTypedTitleRow: View {
         Button(action: action) {
             Label(label, systemImage: "plus")
                 .contentMask()
-                .foregroundStyle(.tint)
+                .foregroundStyle(Palette.accent)
                 .frame(maxWidth: .infinity, minHeight: minimumTapTarget, alignment: .leading)
                 .contentShape(.rect)
         }
@@ -40,7 +40,7 @@ struct HiddenMatchNote: View {
                     .padding(-12)
             }
             .buttonStyle(.plain)
-            .foregroundStyle(.tint)
+            .foregroundStyle(Palette.accent)
             .accessibilityLabel(match.openName)
         }
         .font(.platform(.footnote))

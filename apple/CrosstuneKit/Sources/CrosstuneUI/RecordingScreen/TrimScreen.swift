@@ -391,7 +391,7 @@ private struct TrimStrip: View {
             peaks?.sliced(fromMs: Int64(range.lowerBound - low), toMs: Int64((range.upperBound - low).rounded(.up)))
             .bars(PeakBars.count(in: size.width)) ?? []
         let bars = BarPath.peakBars(levels: levels, in: CGRect(origin: .zero, size: size))
-        context.fill(bars, with: .style(.tint))
+        context.fill(bars, with: .color(Palette.accent))
         let from = min(max(startX, 0), size.width)
         let to = min(max(endX, 0), size.width)
         if to > from {

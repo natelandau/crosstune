@@ -127,9 +127,13 @@ there where they differ. Regular-width iPad reads this page, then
 
 SwiftUI and UIKit behavior that a new screen runs into.
 
-- Window or scene root carries `.tint(Palette.accent)`. UIKit-drawn
-  pieces (list selection, focus rings, default buttons, alerts, menus)
-  ignore tint and take the `AccentColor` asset, which carries the accent.
+- Window or scene root carries `.tint(Palette.textPrimary)`, so toolbar
+  glyphs, menu pickers, and icon controls draw in primary text. A
+  `GroupedForm` gives its buttons the accent. Any other view that needs
+  the accent (a worded button, a link, a selected state) names
+  `Palette.accent`, never `.tint`. UIKit-drawn pieces (list selection,
+  focus rings, default buttons, alerts, menus) ignore tint and take the
+  `AccentColor` asset, which carries the accent.
 - An accent-filled button takes `.accentProminent` or
   `.accentGlassProminent`, never a system prominent style, which fills
   with the tint instead of `accentFill`.

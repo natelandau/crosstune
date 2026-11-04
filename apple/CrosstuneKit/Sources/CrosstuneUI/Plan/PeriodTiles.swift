@@ -56,7 +56,7 @@ struct PeriodTiles: View {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Image(systemName: selected ? "largecircle.fill.circle" : "circle")
                         .font(.body)
-                        .foregroundStyle(selected ? AnyShapeStyle(.tint) : .textSecondary)
+                        .foregroundStyle(selected ? AnyShapeStyle(Palette.accent) : .textSecondary)
                         .accessibilityHidden(true)
                     VStack(alignment: .leading, spacing: 4) {
                         // The badge shares the label's line, and drops below it rather than cover it.
@@ -86,7 +86,8 @@ struct PeriodTiles: View {
                 .overlay {
                     RoundedRectangle(cornerRadius: 12)
                         .strokeBorder(
-                            selected ? AnyShapeStyle(.tint) : AnyShapeStyle(Palette.border), lineWidth: selected ? 2 : 1
+                            selected ? AnyShapeStyle(Palette.accent) : AnyShapeStyle(Palette.border),
+                            lineWidth: selected ? 2 : 1
                         )
                 }
                 .contentShape(RoundedRectangle(cornerRadius: 12))

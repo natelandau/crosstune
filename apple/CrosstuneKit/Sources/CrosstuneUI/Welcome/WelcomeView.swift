@@ -778,14 +778,14 @@ private struct SignUpButtonStyle: ButtonStyle {
 }
 
 #if !os(macOS)
-    /// A worded link in the tint with a full touch target.
+    /// A worded link in the accent with a full touch target.
     private struct WelcomeLinkStyle: ButtonStyle {
         let font: Font
 
         func makeBody(configuration: Configuration) -> some View {
             configuration.label
                 .font(font)
-                .foregroundStyle(.tint)
+                .foregroundStyle(Palette.accent)
                 .multilineTextAlignment(.leading)
                 .frame(maxWidth: .infinity, minHeight: PageStyle.minTarget, alignment: .leading)
                 .contentShape(.rect)
