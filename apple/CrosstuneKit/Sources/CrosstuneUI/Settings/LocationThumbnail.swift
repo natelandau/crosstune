@@ -61,7 +61,7 @@ struct LocationThumbnail: View {
             let diameter = Self.side * 2 * Double(accuracyM) / Self.spanM(accuracyM: accuracyM)
             Circle()
                 .fill(Palette.tint(colorScheme))
-                .stroke(.tint, lineWidth: 1)
+                .stroke(Palette.accent, lineWidth: 1)
                 .frame(width: diameter, height: diameter)
         }
     }

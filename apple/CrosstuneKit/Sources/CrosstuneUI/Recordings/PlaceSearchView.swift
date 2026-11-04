@@ -560,7 +560,7 @@ struct LocationRow: View {
             #if os(iOS)
                 if isCurrent {
                     Image(systemName: "checkmark")
-                        .foregroundStyle(.tint)
+                        .foregroundStyle(Palette.accent)
                         .accessibilityHidden(true)
                 }
             #endif

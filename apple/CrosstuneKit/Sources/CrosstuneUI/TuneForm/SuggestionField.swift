@@ -175,7 +175,7 @@ struct SuggestionField: View {
 #if os(iOS)
     /// A suggestion row. In a form it is the form's own row; outside one it draws as a list row
     /// would, the full width pressable at a touch's height under a hairline, rather than as a
-    /// bare tinted button.
+    /// bare button.
     private struct SuggestionRow: ViewModifier {
         let outsideForm: Bool
 

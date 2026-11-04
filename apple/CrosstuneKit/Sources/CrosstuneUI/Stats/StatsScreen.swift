@@ -323,7 +323,7 @@ struct StatsDocument: View {
                 Button(StatsCopy.showAll(values.count)) { expanded.insert(id) }
                     .font(PageStyle.secondary.weight(.semibold))
                     .buttonStyle(.plain)
-                    .foregroundStyle(.tint)
+                    .foregroundStyle(Palette.accent)
                     .padding(.horizontal, 8)
                     .frame(minHeight: PageStyle.minTarget, alignment: .leading)
                     .contentShape(.rect)

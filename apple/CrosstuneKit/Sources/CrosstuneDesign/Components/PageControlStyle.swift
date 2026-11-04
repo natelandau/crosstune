@@ -25,7 +25,7 @@ package struct PageControlStyle: ButtonStyle {
             configuration.label
                 .font(PageStyle.secondary.weight(.semibold))
                 .lineLimit(1)
-                .foregroundStyle(isEnabled ? AnyShapeStyle(.tint) : .textSecondary)
+                .foregroundStyle(isEnabled ? AnyShapeStyle(Palette.accent) : .textSecondary)
                 .padding(.horizontal, 6)
                 .frame(minWidth: PageControlStyle.height, minHeight: PageControlStyle.height)
                 .contentShape(.rect)

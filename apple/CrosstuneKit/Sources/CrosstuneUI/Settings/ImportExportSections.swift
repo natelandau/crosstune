@@ -42,6 +42,7 @@ struct ImportExportSections: View {
                 MacSettingsRow(ImportCopy.title, attributedHelp: Self.importHelpText) {
                     importButton(MacSettingsButton(Self.importMac) { showsImport = true })
                 }
+                .tint(Palette.accent)
                 MacSettingsRow(ExportDataSheet.title, help: Self.exportHelp) {
                     exportButton(MacSettingsButton(Self.exportMac) { showsExport = true })
                 }
@@ -51,6 +52,7 @@ struct ImportExportSections: View {
                 importButton(Button(ImportCopy.title) { showsImport = true })
             } header: {
                 SettingsHelp(attributed: Self.importHelpText, title: Self.importHeader)
+                    .tint(Palette.accent)
             }
             Section {
                 exportButton(Button(ExportDataSheet.title) { showsExport = true })

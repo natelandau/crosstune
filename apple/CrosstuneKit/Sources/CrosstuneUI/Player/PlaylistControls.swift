@@ -75,7 +75,7 @@ public struct PlaylistControls: View {
         Button(action: action) {
             Image(systemName: symbol)
                 .imageScale(.large)
-                .foregroundStyle(highlighted ? AnyShapeStyle(.tint) : .textSecondary)
+                .foregroundStyle(highlighted ? AnyShapeStyle(Palette.accent) : .textSecondary)
                 // Off and on share a symbol, so without color a disc marks on.
                 .padding(6)
                 .background {

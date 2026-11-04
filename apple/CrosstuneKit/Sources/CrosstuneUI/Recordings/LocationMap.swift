@@ -33,7 +33,7 @@ struct LocationMap: View {
             } else if let accuracyM {
                 MapCircle(center: center, radius: Double(accuracyM))
                     .foregroundStyle(Palette.tint(colorScheme))
-                    .stroke(.tint, lineWidth: 1)
+                    .stroke(Palette.accent, lineWidth: 1)
             }
         }
         .contentMask()

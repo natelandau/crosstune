@@ -108,7 +108,7 @@ public struct UndoBanner: View {
                             .contentShape(.rect)
                     }
                     .buttonStyle(.plain)
-                    .foregroundStyle(.tint)
+                    .foregroundStyle(Palette.inverseAccent)
                 }
             }
             // A notice keeps the height a banner with Undo has.
