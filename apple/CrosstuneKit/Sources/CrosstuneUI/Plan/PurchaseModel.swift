@@ -10,6 +10,9 @@ public final class PurchaseModel {
     public enum Offers: Equatable {
         case loading
         case ready([PurchaseOffer])
+        /// The device is offline.
+        case offline
+        /// The store could not answer while the device was online.
         case unavailable
     }
 
@@ -18,9 +21,9 @@ public final class PurchaseModel {
         case subscribed, pending, failed, restored, nothingToRestore, otherAccount, restoreFailed
     }
 
-    /// The store's answer, which reads as unavailable while the device is offline: RevenueCat
-    /// answers from its cache then, and a purchase would only fail.
-    public var offers: Offers { offline() ? .unavailable : loaded }
+    /// The store's answer, which reads as offline while the device is: RevenueCat answers from its
+    /// cache then, and a purchase would only fail.
+    public var offers: Offers { offline() ? .offline : loaded }
     public var isOffline: Bool { offline() }
     public var period: PurchasePeriod = .annual
     /// Whether a purchase or restore is under way on this model's client, from any model.

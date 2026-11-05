@@ -47,12 +47,17 @@ struct PlanSheet: View {
         case notPurchasable
         /// Asking the store: a disabled Subscribe holds its place, so nothing moves under a tap.
         case loading
-        /// As `notPurchasable`, saying the store could not be reached.
+        /// As `notPurchasable`, saying the device is offline.
         case offline
+        /// As `notPurchasable`, saying the store could not answer.
+        case unavailable
         /// Annual or Monthly, at the store's prices, and Subscribe.
         case choice([PurchaseOffer])
         /// A purchase or restore went through; its line and Close replace the choice.
         case subscribed
+
+        /// Offline or unavailable: the store cannot be reached.
+        var isUnreachable: Bool { self == .offline || self == .unavailable }
     }
 
     /// One of the legal pages the sheet links to.
@@ -86,7 +91,8 @@ struct PlanSheet: View {
         guard plan.canSubscribe else { return .notPurchasable }
         switch offers {
         case .loading: return .loading
-        case .unavailable: return .offline
+        case .offline: return .offline
+        case .unavailable: return .unavailable
         case .ready(let found):
             let offered = choices(found)
             return offered.isEmpty ? .notPurchasable : .choice(offered)
@@ -144,12 +150,13 @@ struct PlanSheet: View {
     }
 
     /// The line by the actions: the settled line once subscribed, otherwise the outcome of a
-    /// try in this sheet, and failing that the offline line while the store cannot be reached.
+    /// try in this sheet, and failing that why the store cannot be reached.
     nonisolated static func outcomeLine(_ sale: Sale, line: PurchaseModel.Line?) -> String? {
         switch sale {
         case .choice, .loading, .notPurchasable: line.map(PlanText.line)
         case .subscribed: settledLine(line)
         case .offline: line.map(PlanText.line) ?? PlanText.subscribeOffline
+        case .unavailable: line.map(PlanText.line) ?? PlanText.subscribeUnavailable
         }
     }
 
@@ -351,7 +358,7 @@ struct PlanSheet: View {
                     }
                     // The phone's glass xmark is easy to miss, so Close also reads as a button.
                     PrimaryAction { Button(Self.close) { dismiss() } }
-                case (.offline, _), (.notPurchasable, _), (.choice, nil), (.loading, nil):
+                case (.offline, _), (.unavailable, _), (.notPurchasable, _), (.choice, nil), (.loading, nil):
                     if let line {
                         paragraph(line).foregroundStyle(.textSecondary)
                     }
@@ -421,7 +428,7 @@ struct PlanSheet: View {
             switch sale {
             case .choice:
                 footer.primary = .subscribe(title: PlanText.subscribe, isEnabled: !isWorking, action: subscribe)
-            case .loading, .offline:
+            case .loading, .offline, .unavailable:
                 footer.primary = .subscribe(title: PlanText.subscribe, isEnabled: false, action: subscribe)
             case .notPurchasable, .subscribed:
                 break
@@ -437,12 +444,12 @@ struct PlanSheet: View {
         /// The Mac sheet's subtitle: why nothing is purchasable while the store cannot be reached, which
         /// says more than the pitch then, or the pitch.
         nonisolated static func macSubtitle(_ sale: Sale, line: PurchaseModel.Line?, pitch: String) -> String {
-            sale == .offline && line == nil ? PlanText.subscribeOffline : pitch
+            line == nil && sale.isUnreachable ? outcomeLine(sale, line: nil) ?? pitch : pitch
         }
 
-        /// ``outcomeLine(_:line:)`` less the offline line, which the Mac sheet's subtitle carries.
+        /// ``outcomeLine(_:line:)`` less the unreachable line, which the Mac sheet's subtitle carries.
         nonisolated static func macOutcomeLine(_ sale: Sale, line: PurchaseModel.Line?) -> String? {
-            sale == .offline && line == nil ? nil : outcomeLine(sale, line: line)
+            line == nil && sale.isUnreachable ? nil : outcomeLine(sale, line: line)
         }
 
         /// The mark, title, and line over a trial's card and the comparison while purchasable, or the
@@ -496,7 +503,7 @@ struct PlanSheet: View {
             if let line = Self.macOutcomeLine(sale, line: purchase?.line) {
                 Text(line)
                     .foregroundStyle(
-                        sale == .offline || sale == .notPurchasable ? Palette.textSecondary : Palette.textPrimary
+                        sale.isUnreachable || sale == .notPurchasable ? Palette.textSecondary : Palette.textPrimary
                     )
                     .fixedSize(horizontal: false, vertical: true)
             }

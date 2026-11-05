@@ -153,7 +153,9 @@ private let portal = URL(string: "https://billing.example.com/portal")!
         let comp = Plan(kind: .premium, source: .comp)
         #expect(PlanSheet.sale(plan: comp, offers: .ready(offers), line: nil) == .notPurchasable)
         #expect(PlanSheet.sale(plan: comp, offers: .unavailable, line: nil) == .notPurchasable)
-        #expect(PlanSheet.sale(plan: free, offers: .unavailable, line: nil) == .offline)
+        #expect(PlanSheet.sale(plan: comp, offers: .offline, line: nil) == .notPurchasable)
+        #expect(PlanSheet.sale(plan: free, offers: .offline, line: nil) == .offline)
+        #expect(PlanSheet.sale(plan: free, offers: .unavailable, line: nil) == .unavailable)
         // A line from an earlier try keeps the choice up for another.
         #expect(PlanSheet.sale(plan: free, offers: .ready(offers), line: .failed) == .choice(offers))
     }
@@ -192,6 +194,8 @@ private let portal = URL(string: "https://billing.example.com/portal")!
         #expect(PlanSheet.outcomeLine(.offline, line: nil) == PlanText.subscribeOffline)
         // A restore tried while offline says how it went in place of the offline line.
         #expect(PlanSheet.outcomeLine(.offline, line: .restoreFailed) == PlanText.line(.restoreFailed))
+        #expect(PlanSheet.outcomeLine(.unavailable, line: nil) == PlanText.subscribeUnavailable)
+        #expect(PlanSheet.outcomeLine(.unavailable, line: .failed) == PlanText.line(.failed))
         #expect(PlanSheet.outcomeLine(.notPurchasable, line: nil) == nil)
         #expect(PlanSheet.outcomeLine(.notPurchasable, line: .restoreFailed) == PlanText.line(.restoreFailed))
     }
@@ -223,6 +227,7 @@ private let portal = URL(string: "https://billing.example.com/portal")!
         #expect(PlanSheet.offersRestore(.choice(offers)))
         #expect(PlanSheet.offersRestore(.loading))
         #expect(PlanSheet.offersRestore(.offline))
+        #expect(PlanSheet.offersRestore(.unavailable))
         #expect(PlanSheet.offersRestore(.notPurchasable))
         // After a purchase, a restore could replace its line and bring Subscribe back.
         #expect(PlanSheet.offersRestore(.subscribed) == false)
@@ -508,8 +513,9 @@ private let portal = URL(string: "https://billing.example.com/portal")!
 
         /// Offline, Subscribe holds its place disabled, so the sheet keeps one visible primary and
         /// the subtitle says why it cannot be pressed.
-        @Test func offlineShowsSubscribeDisabled() {
-            let footer = PlanSheet.macFooter(.offline, isWorking: false, close: {}, subscribe: {})
+        @Test(arguments: [PlanSheet.Sale.offline, .unavailable])
+        func unreachableShowsSubscribeDisabled(sale: PlanSheet.Sale) {
+            let footer = PlanSheet.macFooter(sale, isWorking: false, close: {}, subscribe: {})
             #expect(footer.cancel?.title == PlanSheet.close)
             #expect(footer.primary?.title == PlanText.subscribe)
             #expect(footer.primary?.isEnabled == false)
@@ -545,6 +551,8 @@ private let portal = URL(string: "https://billing.example.com/portal")!
             #expect(PlanSheet.macOutcomeLine(.offline, line: nil) == nil)
             #expect(PlanSheet.macSubtitle(.offline, line: .restoreFailed, pitch: "Pitch") == "Pitch")
             #expect(PlanSheet.macOutcomeLine(.offline, line: .restoreFailed) == PlanText.line(.restoreFailed))
+            #expect(PlanSheet.macSubtitle(.unavailable, line: nil, pitch: "Pitch") == PlanText.subscribeUnavailable)
+            #expect(PlanSheet.macOutcomeLine(.unavailable, line: nil) == nil)
             #expect(PlanSheet.macSubtitle(.loading, line: nil, pitch: "Pitch") == "Pitch")
             #expect(PlanSheet.macOutcomeLine(.subscribed, line: .subscribed) == PlanText.subscribed)
         }

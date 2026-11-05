@@ -133,6 +133,7 @@ private func entitlement(source: String?, expiresAt: Date? = nil) -> Entitlement
             ("PERIOD_MONTHLY", PlanText.periodMonthly),
             ("BILLING_PERIOD", PlanText.billingPeriod),
             ("SUBSCRIBE_OFFLINE", PlanText.subscribeOffline),
+            ("SUBSCRIBE_UNAVAILABLE", PlanText.subscribeUnavailable),
             ("SUBSCRIBED", PlanText.subscribed),
             ("SUBSCRIBE_FAILED", PlanText.subscribeFailed),
             ("APP_STORE_SUBSCRIPTIONS_URL", RevenueCatPurchases.appleSubscriptionsURL.absoluteString),

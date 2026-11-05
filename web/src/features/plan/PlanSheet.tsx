@@ -25,6 +25,7 @@ import {
   PREMIUM_SCANS_TITLE,
   SUBSCRIBE,
   SUBSCRIBE_OFFLINE,
+  SUBSCRIBE_UNAVAILABLE,
   SUBSCRIBED,
   THANKS,
 } from './planCopy'
@@ -47,8 +48,10 @@ type PurchaseOptions =
   | { kind: 'pending' }
   /** The store answered with nothing to buy. */
   | { kind: 'empty' }
-  /** The store could not be reached; its line takes the choice's place. */
+  /** The device is offline; its line takes the choice's place. */
   | { kind: 'offline' }
+  /** The store could not answer while online; its line takes the choice's place. */
+  | { kind: 'unavailable' }
   /** Annual or Monthly, at the store's prices, and Subscribe. */
   | { kind: 'choice'; offers: StoreOffer[] }
   /** A purchase went through before the plan turned Premium; its line replaces the choice. */
@@ -72,7 +75,8 @@ function purchaseOptionsFor({
   if (!hasStore) return { kind: 'notPurchasable' }
   if (settled) return { kind: 'subscribed' }
   if (!canSubscribe(plan)) return { kind: 'notPurchasable' }
-  if (!online || offers.kind === 'failed') return { kind: 'offline' }
+  if (!online) return { kind: 'offline' }
+  if (offers.kind === 'failed') return { kind: 'unavailable' }
   if (offers.kind === 'pending') return { kind: 'pending' }
   return offers.offers.length > 0 ? { kind: 'choice', offers: offers.offers } : { kind: 'empty' }
 }
@@ -131,7 +135,9 @@ export function PlanSheet({
       ? SUBSCRIBED
       : options.kind === 'offline'
         ? SUBSCRIBE_OFFLINE
-        : null
+        : options.kind === 'unavailable'
+          ? SUBSCRIBE_UNAVAILABLE
+          : null
   const primary = subscribeAction(options, () => onSubscribe(chosen ?? period))
   return (
     <Sheet
@@ -151,7 +157,9 @@ export function PlanSheet({
         choice ? (
           <PeriodTiles offers={choice} period={chosen ?? period} onChange={setPeriod} />
         ) : line ? (
-          <p className={`t-secondary ${options.kind === 'offline' ? 'text-secondary' : ''}`}>
+          <p
+            className={`t-secondary ${options.kind === 'offline' || options.kind === 'unavailable' ? 'text-secondary' : ''}`}
+          >
             {line}
           </p>
         ) : undefined
@@ -225,6 +233,7 @@ function subscribeAction(
     case 'notPurchasable':
     case 'empty':
     case 'offline':
+    case 'unavailable':
     case 'subscribed':
       return undefined
   }

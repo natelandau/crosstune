@@ -34,6 +34,7 @@ export const PERIOD_ANNUAL = 'Annual'
 export const PERIOD_MONTHLY = 'Monthly'
 export const BILLING_PERIOD = 'Billing period'
 export const SUBSCRIBE_OFFLINE = 'Subscribing needs a connection.'
+export const SUBSCRIBE_UNAVAILABLE = 'Subscribing is unavailable right now. Try again later.'
 export const SUBSCRIBED = "You're on Premium."
 export const SUBSCRIBE_FAILED = "Subscribing didn't finish. Try again in a moment."
 export const TERMS_OF_USE = 'Terms of Use'

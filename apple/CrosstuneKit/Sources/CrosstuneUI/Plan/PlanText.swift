@@ -23,6 +23,7 @@ public enum PlanText {
     nonisolated public static let periodMonthly = "Monthly"
     nonisolated public static let billingPeriod = "Billing period"
     nonisolated public static let subscribeOffline = "Subscribing needs a connection."
+    nonisolated public static let subscribeUnavailable = "Subscribing is unavailable right now. Try again later."
     nonisolated public static let subscribed = "You're on Premium."
     nonisolated public static let subscribeFailed = "Subscribing didn't finish. Try again in a moment."
     nonisolated public static let subscribePending =

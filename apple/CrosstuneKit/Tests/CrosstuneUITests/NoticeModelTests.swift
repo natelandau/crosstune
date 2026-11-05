@@ -413,7 +413,7 @@ private let day: TimeInterval = 86_400
         #expect(NoticeSheet.annualOffer(.loading) == nil)
         #expect(NoticeSheet.annualOffer(.unavailable) == nil)
         #expect(NoticeSheet.annualOffer(.ready([monthly])) == nil)
-        for offers: PurchaseModel.Offers in [.unavailable, .ready([monthly]), .ready([])] {
+        for offers: PurchaseModel.Offers in [.offline, .unavailable, .ready([monthly]), .ready([])] {
             #expect(NoticeSheet.offer(sells: true, offers: offers, line: nil) == comparePlans)
         }
         // A notice that is not purchasable shows the comparison alone, prices or not.

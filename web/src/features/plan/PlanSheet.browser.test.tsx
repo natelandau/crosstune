@@ -66,6 +66,7 @@ import {
   SUBSCRIBE,
   SUBSCRIBE_FAILED,
   SUBSCRIBE_OFFLINE,
+  SUBSCRIBE_UNAVAILABLE,
   SUBSCRIBED,
   TERMS_OF_USE,
   TERMS_URL,
@@ -483,12 +484,13 @@ it('subscribes to the one period the store sells', async () => {
   await expect.poll(() => purchase.mock.calls).toEqual([['monthly']])
 })
 
-it('offers failing shows the offline line and no tiles', async () => {
+it('offers failing while online shows the unavailable line and no tiles', async () => {
   await openPaywall({
     store: fakeStore({ offers: () => Promise.reject(new Error('unreachable')) }),
   })
 
-  await expect.element(planSheet().getByText(SUBSCRIBE_OFFLINE)).toBeVisible()
+  await expect.element(planSheet().getByText(SUBSCRIBE_UNAVAILABLE)).toBeVisible()
+  expect(planSheet().getByText(SUBSCRIBE_OFFLINE).query()).toBeNull()
   await expect.element(planSheet().getByRole('table')).toBeVisible()
   expect(planSheet().getByRole('radio').query()).toBeNull()
   expect(planSheet().getByRole('button', { name: SUBSCRIBE }).query()).toBeNull()
@@ -773,14 +775,14 @@ it('holds the header close and an off Subscribe while asking, then fills in the 
   expect([...places()]).toEqual(['header'])
 })
 
-it('keeps the header close in place when asking fails, beside the offline line', async () => {
+it('keeps the header close in place when asking fails, beside the unavailable line', async () => {
   const answer = held<Awaited<ReturnType<Store['offers']>>>()
   await openPaywall({ store: fakeStore({ offers: () => answer.promise }) })
   await expect.element(planSheet().getByRole('button', { name: SUBSCRIBE })).toBeDisabled()
   const places = watchCloseControl()
 
   answer.reject(new Error('unreachable'))
-  await expect.element(planSheet().getByText(SUBSCRIBE_OFFLINE)).toBeVisible()
+  await expect.element(planSheet().getByText(SUBSCRIBE_UNAVAILABLE)).toBeVisible()
   expect(planSheet().getByRole('button', { name: SUBSCRIBE }).query()).toBeNull()
   expect(planSheet().getByRole('button', { name: CANCEL }).query()).toBeNull()
   expect([...places()]).toEqual(['header'])
