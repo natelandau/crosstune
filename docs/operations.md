@@ -65,7 +65,27 @@ Apple app:
   `apple/Config/Local.xcconfig`, which git ignores and only Debug builds
   read. Its settings carry `[sdk=iphoneos*]`, so the Simulator and the Mac
   keep localhost.
-- `just apple::shots` needs the screen unlocked.
+- `just apple::shots` needs the screen unlocked, and Screen Recording and
+  Accessibility for the app that hosts Peekaboo's daemon, not the
+  terminal. `peekaboo bridge status` names that app and shows its grants.
+
+## Review shots
+
+`just shots NAME...` captures the branch and its merge base with main on
+each platform the branch touched, and writes a page of the shots that
+differ to `.cache/shots/review/`.
+
+- Names are `SampleScreen` cases. A screen with no case cannot be
+  captured, so a new Apple screen needs one.
+- The base runs in `.worktrees/shots-base`, a detached checkout the
+  script owns and resets each run. Never work in it. Base shots are
+  cached by commit in the main checkout's `.cache/shots/base/`. Its
+  Apple builds are deleted when the run ends, so a run after main
+  moves builds the base from scratch.
+- Two runs on one commit must give the same pixels, or every review
+  shows noise. A capture writes a shot only once two screenshots in a
+  row match. Anything that moves on its own, such as a playing
+  recording, is stopped at a fixed point before the shot.
 
 ## Test
 

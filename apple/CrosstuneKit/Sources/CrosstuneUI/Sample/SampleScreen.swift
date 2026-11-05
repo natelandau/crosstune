@@ -91,17 +91,35 @@
         /// Opens a store with no tunes, lists, or recordings.
         var isEmpty: Bool { self == .emptyCatalog }
 
-        /// Where the shell opens: the sidebar row and the detail column's tune.
+        /// Where the shell opens: on the Mac, the sidebar row and the detail column's tune; on
+        /// iPhone and iPad, the tab, its list, and its tune.
         @MainActor func place() -> ShellPlace {
             let place = ShellPlace()
+            place.restoresTab = false
             switch self {
             case .recordings, .recordingsFilters, .recordingsSetFilters, .editRecording, .editLocation, .addToTune:
                 place.sidebar = .recordings
-            case .list, .listSelecting, .tunePicker, .whatPlays: place.sidebar = .list(id: Self.listID)
+                place.tab = .recordings
+            case .list, .listSelecting, .tunePicker, .whatPlays:
+                place.sidebar = .list(id: Self.listID)
+                place.tab = .lists
+                place.tabList = Self.listID
             default: break
             }
-            if !isEmpty { place.detailTune = self == .tuneArchived ? Self.archivedTuneID : Self.tuneID }
+            let tuneID = self == .tuneArchived ? Self.archivedTuneID : Self.tuneID
+            if !isEmpty { place.detailTune = tuneID }
+            // On iPhone a tune covers the tab's own screen, so only a screen shown from a tune opens one.
+            if opensFromTune { place.tabTunes[place.tab] = tuneID }
             return place
+        }
+
+        /// Shown from a tune's screen, so iPhone and iPad must open that tune first.
+        private var opensFromTune: Bool {
+            switch self {
+            case .tune, .tuneArchived, .tuneEdit, .deleteTune, .findRecordings, .link, .listPicker, .lyrics, .scans:
+                true
+            default: false
+            }
         }
 
         /// The plan a screen needs to show, used when no `-SamplePlan` names one.

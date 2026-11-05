@@ -9,56 +9,12 @@ cd "$(dirname "$0")/.."
 capture="${CAPTURE:?CAPTURE is not set; run just apple::capture-test}"
 derived_data="${DERIVED_DATA:?DERIVED_DATA is not set; run just apple::capture-test}"
 scrub="scripts/scrub-env.sh"
+# shellcheck source-path=SCRIPTDIR source=simulators.sh
+source scripts/simulators.sh
 # Simulators of their own, never signed in to an Apple Account, so no system alert covers a capture.
 capture_device="Crosstune Capture iPhone 17 Pro Max"
 capture_pad="Crosstune Capture iPad"
 capture_duo="Crosstune Capture iPhone Duo"
-
-# Prints the udid of the simulator named $1, made from device type $2 on the newest iOS
-# runtime when missing, booted with the capture status bar.
-simulator() {
-    # Called inside $(...), where bash clears errexit, so a failed create or boot would
-    # otherwise print an empty udid and exit 0.
-    set -e
-    local device runtime
-    device="$(xcrun simctl list devices available -j | python3 -c '
-import json, sys
-devices = [d for ds in json.load(sys.stdin)["devices"].values() for d in ds]
-print(next((d["udid"] for d in devices if d["name"] == sys.argv[1]), ""))
-' "$1")"
-    if [ -z "$device" ]; then
-        runtime="$(xcrun simctl list runtimes available -j | python3 -c '
-import json, sys
-ios = [r for r in json.load(sys.stdin)["runtimes"] if r["platform"] == "iOS"]
-print(max(ios, key=lambda r: [int(p) for p in r["version"].split(".")])["identifier"])
-')"
-        device="$(xcrun simctl create "$1" "com.apple.CoreSimulator.SimDeviceType.$2" "$runtime")"
-    fi
-    xcrun simctl bootstatus "$device" -b > /dev/null
-    # The first keyboard otherwise opens under a swipe-to-type tip.
-    xcrun simctl spawn "$device" defaults write com.apple.keyboard.preferences \
-        DidShowContinuousPathIntroduction -bool true
-    # Location refused up front, so no recording opens on the location note or tags a place.
-    xcrun simctl privacy "$device" revoke location app.crosstune.Crosstune
-    status_bar "$device" full
-    echo "$device"
-}
-# Sets the capture status bar on simulator $1: full signal, or none at all when $2 is
-# `none`. A full date, rather than a bare time, also fixes the date an iPad shows beside
-# 9:41; today's date makes the weekday it shows the real one. simctl takes only UTC with
-# milliseconds and shows it in the host's time zone, so 9:41 local is converted first.
-status_bar() {
-    # Overrides accumulate, so full signal sets every mode back as well as the bars.
-    local signal=(--cellularMode active --cellularBars 4 --wifiMode active --wifiBars 3)
-    [ "$2" != none ] ||
-        signal=(--cellularMode active --cellularBars 0 --wifiMode failed --wifiBars 0 --operatorName '')
-    local at
-    at="$(/bin/date -j -f '%Y-%m-%dT%H:%M:%S' "$(/bin/date +%Y-%m-%d)T09:41:00" +%s)"
-    # The time goes in a call of its own: sent together with the other flags, the iPad shows
-    # a weekday that disagrees with the date.
-    xcrun simctl status_bar "$1" override --batteryState charged --batteryLevel 100 "${signal[@]}"
-    xcrun simctl status_bar "$1" override --time "$(/bin/date -u -r "$at" '+%Y-%m-%dT%H:%M:%S.000Z')"
-}
 
 # Whether the iPhone Duo simulator $1 is open: its inner display is black while it is closed.
 duo_open() {

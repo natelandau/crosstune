@@ -8,15 +8,26 @@
 // a signed-in test session and no network. `@clerk/react` is aliased to a stub here, so
 // the sign-in screen renders with no Clerk instance.
 
-import { mkdir, rm } from 'node:fs/promises'
+import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { createServer as createNetServer } from 'node:net'
+import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium, webkit } from 'playwright'
 import { createServer } from 'vite'
 
-const WEB = fileURLToPath(new URL('..', import.meta.url))
-const OUT = fileURLToPath(new URL('../.cache/gallery-shots/', import.meta.url))
-const CLERK_STUB = fileURLToPath(new URL('../src/fixture/clerkStub.tsx', import.meta.url))
+// `--web DIR` serves another checkout's web app, such as a base commit's, with this script.
+const webFlag = process.argv.indexOf('--web')
+const WEB =
+  webFlag === -1
+    ? fileURLToPath(new URL('..', import.meta.url))
+    : resolve(process.argv[webFlag + 1])
+// `--out DIR` writes the shots there instead.
+const outFlag = process.argv.indexOf('--out')
+const OUT =
+  outFlag === -1
+    ? fileURLToPath(new URL('../.cache/gallery-shots/', import.meta.url))
+    : `${resolve(process.argv[outFlag + 1])}/`
+const CLERK_STUB = resolve(WEB, 'src/fixture/clerkStub.tsx')
 
 // Ids and titles from src/fixture/seed.ts.
 const TUNE = 'soldier-s-joy'
@@ -157,11 +168,13 @@ async function catalogReady(page, density) {
 /** `scanned` says the tune holds a scan this browser could store, so its thumbnail must draw. */
 async function tuneReady(page, density, { scanned = false } = {}) {
   await tunePage(page).getByRole('heading', { level: 1 }).waitFor()
-  // On wide the list beside the page reads after the page does.
-  await page.waitForFunction(() => {
-    const grid = document.querySelector('[role=grid]')
-    return !grid || grid.querySelector('[role=row]')
-  })
+  // On wide the list beside the page reads after the page does. On narrow that list stays
+  // mounted, hidden and unrendered, under the page, so only a shown grid counts.
+  await page.waitForFunction(() =>
+    [...document.querySelectorAll('[role=grid]')]
+      .filter((grid) => grid.offsetParent !== null)
+      .every((grid) => grid.querySelector('[role=row]')),
+  )
   // A scan's thumbnail and the sidebar's list counts read after the page does. The fixture
   // has lists, so a sidebar with no list rows has not read yet.
   await page.waitForFunction((withScan) => {
@@ -201,9 +214,18 @@ async function still(locator) {
   }
 }
 
+/** Writes the page once two screenshots in a row match, so a list still filtering or a layout
+ * still settling never lands in a shot that a later run would take differently. */
 async function shoot(page, file, fullPage = false, animations = 'disabled') {
   const path = `${OUT}${file}.png`
-  await page.screenshot({ path, fullPage, animations })
+  let shot = await page.screenshot({ fullPage, animations })
+  for (let tries = 0; tries < 20; tries += 1) {
+    await page.waitForTimeout(100)
+    const next = await page.screenshot({ fullPage, animations })
+    if (next.equals(shot)) break
+    shot = next
+  }
+  await writeFile(path, shot)
   console.log(`wrote ${path}`)
 }
 
@@ -267,9 +289,10 @@ async function captureScreens(browser, origin, size, density, look) {
   }
   await shoot(page, `${name}-tune-end`)
 
-  // Recording rows carry an Edit of their own, after the page's.
-  await tunePage(page).getByRole('button', { name: 'Edit', exact: true }).first().click()
-  await still(page.getByRole('dialog'))
+  await tunePage(page).getByRole('button', { name: 'More actions' }).click()
+  await page.getByRole('menuitem', { name: 'Edit all details' }).click()
+  await page.getByRole('dialog', { name: 'More actions' }).waitFor({ state: 'detached' })
+  await still(page.getByRole('dialog', { name: 'Edit tune' }))
   await settle(page, density)
   await shoot(page, `${name}-form`)
   await context.close()
@@ -415,11 +438,17 @@ async function capturePractice(browser, origin, size, density, look) {
   const practice = page.locator('[data-practice]').getByRole('dialog')
   await still(practice)
   await practice.locator('[data-practice-waveform]').waitFor()
+  // The waveform scrolls with the playhead, so the shot is taken paused at the start, the one
+  // place every run can stop on.
+  const pause = practice.getByRole('button', { name: 'Pause', exact: true })
+  if (await pause.isVisible()) await pause.click()
+  const waveform = practice.getByRole('slider', { name: 'Waveform', exact: true })
+  await waveform.focus()
+  await waveform.press('Home')
+  await practice.focus()
   await settle(page, density)
   await shoot(page, `${name}-practice`)
 
-  const pause = practice.getByRole('button', { name: 'Pause', exact: true })
-  if (await pause.isVisible()) await pause.click()
   const tab = practice.locator(`button[data-name-tab="${UNNAMED_LOOP}"]`)
   for (let step = 0; step < 3 && !(await tab.isVisible()); step++) {
     await practice.getByRole('button', { name: 'Next loop', exact: true }).click()

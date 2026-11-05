@@ -86,6 +86,11 @@ contract: api::contract web::contract apple::contract
 smoke api_origin web_origin site_origin="":
     scripts/smoke.sh '{{ api_origin }}' '{{ web_origin }}' '{{ site_origin }}'
 
+# Capture the branch's UI and main's on each platform it touched, and build a page of the shots that differ: `just shots tune plan`
+[positional-arguments]
+shots *args:
+    scripts/shots.sh "$@"
+
 # Install every module's dependencies and create missing .env and secrets files from their examples
 setup: api::setup web::setup site::setup apple::setup
 
