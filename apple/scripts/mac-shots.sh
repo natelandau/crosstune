@@ -14,6 +14,7 @@ apple="$(git rev-parse --show-toplevel)/apple"
 out="$apple/.build/shots"
 appearance=""
 settle=3
+limit=20
 names=()
 extra=()
 while (($#)); do
@@ -74,28 +75,66 @@ shoot() {
   [[ -n "$listed" ]] || { printf '%s\n' "the Mac app showed no window for $name" >&2; exit 1; }
   # Long enough for the store to open, the surface's own pause, and its presentation.
   sleep "$settle"
+  # A sheet takes its window, and the window under it its title, partway through presenting,
+  # so the windows are kept only once two rounds a second apart list and draw the same.
+  local round="$out/.round" previous="$out/.previous" waited=0
+  rm -rf "$round" "$previous"
+  capture_windows "$pid" "$name$suffix" "$previous"
+  while true; do
+    sleep 1
+    waited=$((waited + 1))
+    capture_windows "$pid" "$name$suffix" "$round"
+    same_round "$previous" "$round" && break
+    if ((waited >= limit)); then
+      printf 'warning: the windows for %s still changed after %ss\n' "$name" "$((settle + limit))" >&2
+      break
+    fi
+    rm -rf "$previous"
+    mv "$round" "$previous"
+  done
   rm -f "$out/$name$suffix"--*.png
+  local file
+  for file in "$round"/*.png; do
+    [[ -e "$file" ]] || continue
+    mv "$file" "$out/"
+    printf '%s\n' "$out/${file##*/}"
+  done
+  rm -rf "$round" "$previous"
+}
+
+# Captures every window of process $1 into folder $3, each named $2--<window title>.png.
+capture_windows() {
+  local pid="$1" prefix="$2" folder="$3" listed="" id title part file
+  mkdir -p "$folder"
   for _ in 1 2 3; do
     listed="$(windows "$pid")"
     [[ -z "$listed" ]] || break
     sleep 1
   done
-  local id title part file
   while IFS=$'\t' read -r id title; do
     [[ -n "$id" ]] || continue
     # Named for the window's title; a sheet, popover, or alert has none. The double dash ends the
     # screen name, so clearing one screen's files never matches another that extends its name.
     part="$(tr '[:upper:] ' '[:lower:]-' <<< "${title:-sheet}")"
-    file="$out/$name$suffix--$part.png"
-    [[ ! -e "$file" ]] || file="$out/$name$suffix--$part-$id.png"
-    # The window under a sheet, and the sheet itself, refuse screencapture; Peekaboo reads them,
-    # one engine or the other depending on the window.
-    screencapture -o -x -l"$id" "$file" 2> /dev/null ||
-      peekaboo see --window-id "$id" --no-elements --retina --path "$file" > /dev/null 2>&1 ||
+    file="$folder/$prefix--$part.png"
+    [[ ! -e "$file" ]] || file="$folder/$prefix--$part-$id.png"
+    # Peekaboo first: screencapture can return the whole window under a sheet for the sheet's
+    # own id, and a fallback taken only some of the time makes two runs differ.
+    peekaboo see --window-id "$id" --no-elements --retina --path "$file" > /dev/null 2>&1 ||
       peekaboo see --window-id "$id" --no-elements --retina --capture-engine sckit --path "$file" > /dev/null 2>&1 ||
-      { printf '%s\n' "could not capture window $id for $name; capture needs the screen unlocked" >&2; continue; }
-    printf '%s\n' "$file${title:+ ($title)}"
+      screencapture -o -x -l"$id" "$file" 2> /dev/null ||
+      printf '%s\n' "could not capture window $id; capture needs the screen unlocked" >&2
   done <<< "$listed"
+}
+
+# Whether folders $1 and $2 hold the same files with the same bytes.
+same_round() {
+  [[ "$(ls "$1")" == "$(ls "$2")" ]] || return 1
+  local file
+  for file in "$1"/*.png; do
+    [[ -e "$file" ]] || return 1
+    cmp -s "$file" "$2/${file##*/}" || return 1
+  done
 }
 
 for name in "${names[@]}"; do

@@ -66,7 +66,8 @@ Apple app:
   read. Its settings carry `[sdk=iphoneos*]`, so the Simulator and the Mac
   keep localhost.
 - `just apple::shots` needs the screen unlocked, and Screen Recording and
-  Accessibility access for the terminal that runs it.
+  Accessibility for the app that hosts Peekaboo's daemon, not the
+  terminal. `peekaboo bridge status` names that app and shows its grants.
 
 ## Review shots
 
