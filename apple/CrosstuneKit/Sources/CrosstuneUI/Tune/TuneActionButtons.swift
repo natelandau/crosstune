@@ -26,7 +26,6 @@ struct TuneActionButtons: View {
     @Environment(\.playerWindow) private var window
     @Environment(\.analytics) private var analytics
     @Environment(\.openURL) private var openURL
-    @Environment(\.drawsGlass) private var drawsGlass
     @Environment(RecorderHost.self) private var recorders: RecorderHost?
 
     /// The main button: what a press does, named for it.
@@ -152,19 +151,7 @@ struct TuneActionButtons: View {
                 .hidden()
                 .accessibilityHidden(true)
         case .buttons(let buttons):
-            if !buttons.isEmpty {
-                #if os(macOS)
-                    row(buttons)
-                #else
-                    // A label never wraps or truncates: where equal columns are too narrow for
-                    // every label beside its glyph, the glyphs go, then the labels' insets tighten.
-                    ViewThatFits(in: .horizontal) {
-                        row(buttons)
-                        row(buttons).labelStyle(.titleOnly)
-                        row(buttons).labelStyle(.titleOnly).environment(\.tightActionButtonLabels, true)
-                    }
-                #endif
-            }
+            if !buttons.isEmpty { row(buttons) }
         }
     }
 
@@ -181,7 +168,7 @@ struct TuneActionButtons: View {
                 case .lyrics:
                     if let onReadLyrics {
                         button(TuneFieldLabels.lyrics, "text.quote", prominent: false, action: onReadLyrics)
-                            // ViewThatFits builds only the shown candidate, so this registers once, not per candidate.
+                            // The row's ViewThatFits builds only the shown candidate, so this registers once.
                             .lyricsZoomSource(tuneID: detail.tune.id, origin: .actionButton)
                     }
                 }
@@ -194,9 +181,8 @@ struct TuneActionButtons: View {
     {
         Button(action: action) {
             Label(title, systemImage: symbol)
-                .actionButtonLabelWidth()
         }
-        .actionButtonStyle(prominent: prominent, glass: drawsGlass)
+        .actionButtonStyle(prominent: prominent)
     }
 
     /// What pressing the main button does: Stop for the item the player holds, else Play it, or

@@ -78,34 +78,19 @@ struct ListPlayControls: View {
 struct ListPlayButtons: View {
     let offer: ListPlayAvailability
 
-    @Environment(\.drawsGlass) private var drawsGlass
-
     var body: some View {
         ActionButtonRow {
             Button(action: offer.onPlay) {
                 Label(offer.playLabel, systemImage: offer.playSymbol)
                     .contentTransition(.symbolEffect(.replace))
-                    .fillsShare()
             }
-            .actionButtonStyle(prominent: true, glass: drawsGlass)
+            .actionButtonStyle(prominent: true)
             .disabled(offer.isPlayDisabled)
             Button(action: offer.onShuffle) {
                 Label(ListPlayText.shuffle, systemImage: "shuffle")
-                    .fillsShare()
             }
-            .actionButtonStyle(prominent: false, glass: drawsGlass)
+            .actionButtonStyle(prominent: false)
             .disabled(offer.isShuffleDisabled)
         }
-    }
-}
-
-extension View {
-    /// Spans the button's share of the row; a Mac button keeps its natural width.
-    fileprivate func fillsShare() -> some View {
-        #if os(macOS)
-            self
-        #else
-            frame(maxWidth: .infinity)
-        #endif
     }
 }

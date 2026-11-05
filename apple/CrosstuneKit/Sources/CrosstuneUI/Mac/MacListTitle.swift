@@ -62,7 +62,7 @@ import CrosstuneDesign
             VStack(alignment: .leading, spacing: spacing.stackGap) {
                 ActionButtonRow {
                     Button(ListPlayText.play, systemImage: "play.fill") {}
-                        .actionButtonStyle(prominent: true, glass: false)
+                        .actionButtonStyle(prominent: true)
                 }
                 Text(ListPlayText.none).font(MacStyle.secondary.weight(.medium))
             }

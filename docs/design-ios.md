@@ -73,7 +73,8 @@ there where they differ. Regular-width iPad reads this page, then
 ## Pages and forms
 
 - An action button row is `ActionButtonRow`: the main button an
-  accent-filled capsule, the others glass capsules, in equal shares.
+  accent-filled capsule, the others `tint` capsules with an `on-tint`
+  label, in equal shares.
 - A form keeps the native inset grouped style. A screen that only reads is
   a document page.
 - Open vocabulary: matching suggestions show as rows under the field while
@@ -134,9 +135,10 @@ SwiftUI and UIKit behavior that a new screen runs into.
   `Palette.accent`, never `.tint`. UIKit-drawn pieces (list selection,
   focus rings, default buttons, alerts, menus) ignore tint and take the
   `AccentColor` asset, which carries the accent.
-- An accent-filled button takes `.accentProminent` or
-  `.accentGlassProminent`, never a system prominent style, which fills
-  with the tint (primary text) instead of `accentFill`.
+- An accent-filled button takes `.accentProminent`,
+  `.accentGlassProminent`, or `actionButtonStyle(prominent: true)`, never
+  a system prominent style, which fills with the tint (primary text)
+  instead of `accentFill`.
 - The system fills a confirm toolbar button and a focused list selection
   with the tint behind white, which primary text makes unreadable in dark
   mode. So a confirm item is a `ConfirmToolbarItem`, and a list that
