@@ -9,6 +9,7 @@ usage="usage: $0 [--out DIR] [--appearance light|dark] [--settle SECONDS] [--lim
 names: the cases of SampleScreen (Sample/SampleScreen.swift), such as catalog, tune, tune-new,
 plan, or welcome. settings-<tab> names are Mac only and are skipped."
 
+# The app captured is the one in the current checkout.
 apple="$(git rev-parse --show-toplevel)/apple"
 out="$apple/.build/shots"
 appearance=light
@@ -34,16 +35,18 @@ case "$appearance" in light | dark) ;; *) printf '%s\n' "$usage" >&2; exit 2 ;; 
 ((${#devices[@]})) || devices=(iphone ipad)
 mkdir -p "$out"
 
+# Helpers come from beside this script, which can capture another checkout's app.
+scripts="$(cd "$(dirname "$0")" && pwd)"
 cd "$apple"
 # shellcheck source-path=SCRIPTDIR source=simulators.sh
-source scripts/simulators.sh
+source "$scripts/simulators.sh"
 # A fixed date, so the iPad's status bar reads the same in shots taken on different days.
 export STATUS_BAR_DATE=2026-10-06
 derived_data=.build/DerivedData
 product="$derived_data/Build/Products/Debug-iphonesimulator/Crosstune.app"
 
 if ((build)); then
-  scripts/scrub-env.sh xcodebuild build -quiet -project Crosstune.xcodeproj -scheme Crosstune \
+  "$scripts/scrub-env.sh" xcodebuild build -quiet -project Crosstune.xcodeproj -scheme Crosstune \
     -configuration Debug -destination 'generic/platform=iOS Simulator' -derivedDataPath "$derived_data" \
     COMPILATION_CACHE_ENABLE_CACHING=YES COMPILATION_CACHE_LIMIT_SIZE=4G
 fi

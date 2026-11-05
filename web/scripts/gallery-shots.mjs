@@ -15,14 +15,19 @@ import { fileURLToPath } from 'node:url'
 import { chromium, webkit } from 'playwright'
 import { createServer } from 'vite'
 
-const WEB = fileURLToPath(new URL('..', import.meta.url))
+// `--web DIR` serves another checkout's web app, such as a base commit's, with this script.
+const webFlag = process.argv.indexOf('--web')
+const WEB =
+  webFlag === -1
+    ? fileURLToPath(new URL('..', import.meta.url))
+    : resolve(process.argv[webFlag + 1])
 // `--out DIR` writes the shots there instead.
 const outFlag = process.argv.indexOf('--out')
 const OUT =
   outFlag === -1
     ? fileURLToPath(new URL('../.cache/gallery-shots/', import.meta.url))
     : `${resolve(process.argv[outFlag + 1])}/`
-const CLERK_STUB = fileURLToPath(new URL('../src/fixture/clerkStub.tsx', import.meta.url))
+const CLERK_STUB = resolve(WEB, 'src/fixture/clerkStub.tsx')
 
 // Ids and titles from src/fixture/seed.ts.
 const TUNE = 'soldier-s-joy'
