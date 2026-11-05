@@ -17,9 +17,9 @@
 	<key>NSCameraUsageDescription</key>
 	<string>Crosstune scans written music for your tunes.</string>
 	<key>NSLocationUsageDescription</key>
-	<string>Crosstune saves where you record a tune.</string>
+	<string>Crosstune saves the location where you make a recording, so you can later find recordings by where you made them.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Crosstune saves where you record a tune.</string>
+	<string>Crosstune saves the location where you make a recording, so you can later find recordings by where you made them.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Crosstune records and tunes what you play.</string>
 	<key>PostHogHost</key>
