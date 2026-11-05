@@ -79,7 +79,9 @@ differ to `.cache/shots/review/`.
   captured, so a new Apple screen needs one.
 - The base runs in `.worktrees/shots-base`, a detached checkout the
   script owns and resets each run. Never work in it. Base shots are
-  cached by commit in the main checkout's `.cache/shots/base/`.
+  cached by commit in the main checkout's `.cache/shots/base/`. Its
+  Apple builds are deleted when the run ends, so a run after main
+  moves builds the base from scratch.
 - Two runs on one commit must give the same pixels, or every review
   shows noise. A capture writes a shot only once two screenshots in a
   row match. Anything that moves on its own, such as a playing

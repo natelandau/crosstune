@@ -62,9 +62,12 @@ for platform in "${platforms[@]}"; do
   fi
 done
 
-# The base commit, checked out in a detached worktree every run reuses, so its dependencies
-# and builds stay warm. It needs no database or bucket, so it is not made with `just worktree`.
+# The base commit, checked out in a detached worktree every run reuses, so its web
+# dependencies stay installed. It needs no database or bucket, so it is not made with
+# `just worktree`. Its Apple builds take 11 GB or more and go stale once main moves, while
+# the shots stay cached, so they are deleted when the run ends, failed or not.
 base_checkout() {
+  trap 'rm -rf "$base_tree/apple/.build"' EXIT
   if [[ ! -d "$base_tree" ]]; then
     git -C "$main_checkout" worktree add --detach "$base_tree" "$base" > /dev/null
   fi
