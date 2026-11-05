@@ -10,10 +10,6 @@ import { dirname, join, relative } from 'node:path'
 import pixelmatch from 'pixelmatch'
 import { PNG } from 'pngjs'
 
-// Under this share of changed pixels a pair counts as the same: a caret blink or one
-// antialiased edge, not a change anyone needs to review.
-const SAME_BELOW = 0.0001
-
 async function listShots(root) {
   const found = []
   async function walk(folder) {
@@ -73,7 +69,8 @@ async function diffShots(baseRoot, branchRoot, outRoot) {
       await readFile(join(baseRoot, path)),
       await readFile(join(branchRoot, path)),
     )
-    if (ratio < SAME_BELOW) {
+    // Two runs on one commit give the same pixels, so any changed pixel is a change.
+    if (ratio === 0) {
       same += 1
       continue
     }

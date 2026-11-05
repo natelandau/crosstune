@@ -6,7 +6,7 @@
 # turn for the shared install and always releases it.
 set -euo pipefail
 
-usage="usage: $0 [--out DIR] [--appearance light|dark] [--settle SECONDS] name... [-- app args...]
+usage="usage: $0 [--out DIR] [--appearance light|dark] [--settle SECONDS] [--limit SECONDS] name... [-- app args...]
 names: the cases of SampleScreen (Sample/SampleScreen.swift), such as catalog, tune, tune-new,
 plan, welcome, or settings-<tab> for a Settings tab: general, account, tunes, recordings, importExport"
 
@@ -22,6 +22,7 @@ while (($#)); do
     --out) out="$2"; shift 2 ;;
     --appearance) appearance="$2"; shift 2 ;;
     --settle) settle="$2"; shift 2 ;;
+    --limit) limit="$2"; shift 2 ;;
     -h | --help) printf '%s\n' "$usage"; exit 0 ;;
     --) shift; extra=("$@"); break ;;
     *) names+=("$1"); shift ;;

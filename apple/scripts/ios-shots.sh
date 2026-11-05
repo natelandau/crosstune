@@ -93,7 +93,13 @@ shoot() {
     xcrun simctl io "$udid" screenshot "$file" > /dev/null 2>&1
     if cmp -s "$previous" "$file" && ! blank "$file"; then break; fi
     if ((waited >= limit)); then
-      printf 'warning: %s on %s was blank or still changed after %ss\n' "$name" "$device" "$((settle + limit))" >&2
+      # A blank shot is dropped rather than kept, so it never stands in a cache for a screen.
+      if blank "$file"; then
+        rm -f "$file" "$previous"
+        printf 'warning: %s on %s was still blank after %ss; no shot kept\n' "$name" "$device" "$((settle + limit))" >&2
+        return
+      fi
+      printf 'warning: %s on %s still changed after %ss\n' "$name" "$device" "$((settle + limit))" >&2
       break
     fi
     cp "$file" "$previous"

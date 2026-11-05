@@ -36,7 +36,8 @@ base_tree="$main_checkout/.worktrees/shots-base"
 touched() {
   local changed
   changed="$({ git diff --name-only "$base"; git ls-files --others --exclude-standard; } | sort -u)"
-  if grep -E '^web/(src/|index\.html|public/)' <<< "$changed" | grep -qvE '\.test\.tsx?$'; then
+  # Not piped into `grep -q`, whose early exit can fail the pipeline under pipefail.
+  if [[ -n "$(grep -E '^web/(src/|index\.html|public/)' <<< "$changed" | grep -vE '\.test\.tsx?$' || true)" ]]; then
     printf 'web\n'
   fi
   if grep -qE '^apple/(Crosstune/|CrosstuneKit/Sources/(CrosstuneUI|CrosstuneDesign)/)' <<< "$changed"; then
@@ -51,6 +52,34 @@ if ((${#platforms[@]} == 0)); then
   printf 'no UI change since main: nothing to capture\n'
   exit 0
 fi
+
+sample_screens="apple/CrosstuneKit/Sources/CrosstuneUI/Sample/SampleScreen.swift"
+# Prints the names of the SampleScreen cases in the Swift source on stdin.
+screen_cases() {
+  sed -nE 's/^ *case ([a-zA-Z]+)( = "([a-z-]+)")?$/\1 \3/p' | awk '{ print ($2 == "" ? $1 : $2) }'
+}
+
+# A name SampleScreen does not know opens the plain shell, which would pass for a capture.
+branch_cases="$(screen_cases < "$root/$sample_screens")"
+for name in ${names[@]+"${names[@]}"}; do
+  [[ "$name" == settings-* ]] || grep -qxF "$name" <<< "$branch_cases" ||
+    { printf 'no SampleScreen case is named %s\n' "$name" >&2; exit 2; }
+done
+
+# The names in "${@:2}" the base can capture on platform $1. A case new on the branch has no
+# base shot, so it shows as added, and iOS has no Settings tabs.
+base_names() {
+  local platform="$1" known name
+  shift
+  known="$(git show "$base:$sample_screens" 2> /dev/null | screen_cases || true)"
+  for name in "$@"; do
+    if [[ "$name" == settings-* ]]; then
+      [[ "$platform" == ios ]] || printf '%s\n' "$name"
+    elif grep -qxF "$name" <<< "$known"; then
+      printf '%s\n' "$name"
+    fi
+  done
+}
 
 notes=()
 captured=()
@@ -69,6 +98,8 @@ done
 base_checkout() {
   trap 'rm -rf "$base_tree/apple/.build"' EXIT
   if [[ ! -d "$base_tree" ]]; then
+    # A folder deleted by hand stays registered, and git refuses to add it again.
+    git -C "$main_checkout" worktree prune
     git -C "$main_checkout" worktree add --detach "$base_tree" "$base" > /dev/null
   fi
   git -C "$base_tree" checkout --force --detach "$base" > /dev/null 2>&1
@@ -129,8 +160,10 @@ for platform in ${captured[@]+"${captured[@]}"}; do
       touch "$cache/web/.complete"
     fi
   else
+    capturable=()
+    while IFS= read -r name; do capturable+=("$name"); done < <(base_names "$platform" "${names[@]}")
     lacking=()
-    while IFS= read -r name; do lacking+=("$name"); done < <(missing "$cache/$platform" "${names[@]}")
+    while IFS= read -r name; do lacking+=("$name"); done < <(missing "$cache/$platform" ${capturable[@]+"${capturable[@]}"})
     if ((${#lacking[@]})); then
       base_checkout
       capture "$platform" "$base_tree" "$cache/$platform" "${lacking[@]}"

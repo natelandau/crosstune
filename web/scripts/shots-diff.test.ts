@@ -69,7 +69,7 @@ describe('diffShots', () => {
     await expect(readFile(join(root, 'out/after/web/same.png'))).rejects.toThrow()
   })
 
-  it('counts a pair under one changed pixel in ten thousand as the same', async () => {
+  it('counts one changed pixel as a change', async () => {
     const big = new PNG({ width: 200, height: 100 })
     big.data.fill(255)
     const one = PNG.sync.write(big)
@@ -79,7 +79,7 @@ describe('diffShots', () => {
 
     const manifest = await diffShots()
 
-    expect(manifest).toEqual({ same: 1, shots: [] })
+    expect(manifest.shots).toEqual([{ path: 'a.png', status: 'changed', ratio: 1 / 20000 }])
   })
 
   it('counts a change of size as every pixel changed', async () => {

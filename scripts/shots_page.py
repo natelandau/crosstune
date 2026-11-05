@@ -44,7 +44,7 @@ def figure(label: str, src: str) -> str:
     return f'<figure><figcaption>{label}</figcaption><a href="{src}"><img src="{src}" loading="lazy" alt="{label}"></a></figure>'
 
 
-def shot_row(platform: str, shot: Shot) -> str:
+def shot_row(folder: Path, platform: str, shot: Shot) -> str:
     """The before, after, and diff images of one shot, or the one side it has."""
     path = shot["path"]
     status = shot["status"]
@@ -61,7 +61,8 @@ def shot_row(platform: str, shot: Shot) -> str:
     images = figure(label="Before", src=f"{platform}/before/{path}") + figure(
         label="After", src=f"{platform}/after/{path}"
     )
-    if ratio < 1:
+    # A pair of different sizes has no diff image.
+    if (folder / platform / "diff" / path).exists():
         images += figure(label="Changed pixels", src=f"{platform}/diff/{path}")
     return f'<h3>{html.escape(path)} <span class="meta">{share}</span></h3><div class="row">{images}</div>'
 
@@ -77,7 +78,9 @@ def platform_section(folder: Path, platform: str) -> str:
     summary = f"{len(shots)} changed, {manifest['same']} unchanged"
     if not shots:
         return f"<h2>{title}</h2><p class='note'>No shot changed ({manifest['same']} unchanged).</p>"
-    rows = "".join(shot_row(platform=platform, shot=shot) for shot in shots)
+    rows = "".join(
+        shot_row(folder=folder, platform=platform, shot=shot) for shot in shots
+    )
     return f"<h2>{title} <span class='meta'>{summary}</span></h2>{rows}"
 
 
