@@ -14,6 +14,9 @@ final class ShellPlace {
     var detailTune: String?
     /// The iPhone and iPad shells' tab.
     var tab: Destination = .catalog
+    /// Whether the scene's saved tab replaces `tab` as the shell appears. False keeps a tab chosen
+    /// before the shell shows, as a sample screen's.
+    var restoresTab = true
     /// The list open on the Lists tab.
     var tabList: String? {
         didSet {
@@ -147,6 +150,7 @@ final class ShellPlace {
     func restore(tab saved: Destination, compact: Bool) {
         knowsSize = true
         isCompact = compact
+        guard restoresTab else { return }
         catalogReplacesSettings = compact && saved == .settings
         tab = catalogReplacesSettings ? .catalog : saved
     }
