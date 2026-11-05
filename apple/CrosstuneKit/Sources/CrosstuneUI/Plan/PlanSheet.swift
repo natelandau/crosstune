@@ -444,7 +444,12 @@ struct PlanSheet: View {
         /// The Mac sheet's subtitle: why nothing is purchasable while the store cannot be reached, which
         /// says more than the pitch then, or the pitch.
         nonisolated static func macSubtitle(_ sale: Sale, line: PurchaseModel.Line?, pitch: String) -> String {
-            line == nil && sale.isUnreachable ? outcomeLine(sale, line: nil) ?? pitch : pitch
+            guard line == nil else { return pitch }
+            switch sale {
+            case .offline: return PlanText.subscribeOffline
+            case .unavailable: return PlanText.subscribeUnavailable
+            case .notPurchasable, .loading, .choice, .subscribed: return pitch
+            }
         }
 
         /// ``outcomeLine(_:line:)`` less the unreachable line, which the Mac sheet's subtitle carries.

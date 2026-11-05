@@ -506,6 +506,25 @@ it('an offline browser shows the offline line', async () => {
   expect(planSheet().getByRole('radio').query()).toBeNull()
 })
 
+it('asks the store again on reconnecting after it failed offline', async () => {
+  const onLine = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+  let reachable = false
+  const offers = vi.fn(() =>
+    reachable ? fakeStore().offers() : Promise.reject(new Error('unreachable')),
+  )
+  await openPaywall({ store: fakeStore({ offers }) })
+  await expect.element(planSheet().getByText(SUBSCRIBE_OFFLINE)).toBeVisible()
+  await expect.poll(() => offers.mock.calls.length).toBe(1)
+
+  reachable = true
+  onLine.mockReturnValue(true)
+  window.dispatchEvent(new Event('online'))
+
+  await expect.element(annual()).toBeChecked()
+  expect(planSheet().getByText(SUBSCRIBE_UNAVAILABLE).query()).toBeNull()
+  await expect.poll(() => offers.mock.calls.length).toBe(2)
+})
+
 it('asks the store for offers once per opening', async () => {
   const offers = vi.fn(fakeStore().offers)
   await openPaywall({ store: fakeStore({ offers }) })
