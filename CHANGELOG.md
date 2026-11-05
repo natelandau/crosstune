@@ -1,3 +1,36 @@
+## v1.3.0 (2026-11-05)
+
+### Feat
+
+- **apple**: use primary text as the app tint (#268)
+- **catalog**: move the unheard filter into Missing as Audio (#267)
+- **practice**: add Isolate to solo or mute part of a recording (#266)
+- **recording**: default to stereo at the Highest preset (#265)
+- **catalog**: filter the catalog by time signature (#248)
+- **trim**: draw the trim range as a box with handles (#244)
+- **recordings**: split one recording into several (#243)
+
+### Fix
+
+- **apple**: explain how the app uses the recording location (#270)
+- **apple**: restyle the page action buttons as smaller solid pills (#269)
+- **apple**: span waveforms across wide windows (#246)
+- **api**: document the limit refusals in the API contract
+- **web**: keep clicked control labels out of error reports
+- **api**: refuse recordings over 3 hours and limit retries
+- **api**: limit MapKit tokens and map snapshots per account
+- **sync**: cap the number of alternate titles on a tune
+- **api**: pace each account's place lookups
+- **api**: check import quota before the download
+- **api**: claim each account's jobs in turn
+- **api**: bound request waits on an account's lock
+- **apple**: page scans across the full screen width
+- **web**: wrap the tune key editor's pills onto a few lines
+
+### Perf
+
+- **web**: ship react-aria in English only (#247)
+
 ## v1.2.0 (2026-10-27)
 
 ### Feat
