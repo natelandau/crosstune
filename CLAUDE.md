@@ -119,10 +119,14 @@ against production, such as granting a comp or a trial.
 - The site draws the app's screens as HTML demos in `site/src/demos/`.
   The demos do not follow the app, so an app change never needs a demo
   redrawn. Read `site/CLAUDE.md` before changing the site.
-- New recipes go in `api/justfile`, `web/justfile`, `site/justfile`, or
-  `apple/justfile`,
-  tagged with a `[group(...)]` that matches their neighbors. A root
-  aggregate calls every module.
+- New recipes go in a module's justfile, tagged with a `[group(...)]`
+  that matches their neighbors. A root aggregate calls every module.
+- A recipe body is a few commands with no loop or function. Anything
+  longer is a script the recipe calls. Script logic worth a test is
+  Python in `scripts/` or `apple/scripts/`, tested in their `tests/`
+  folders, with no dependency outside the API's environment;
+  `just scripts::lint` and `just scripts::test` cover both. Bash only
+  runs other commands in order.
 - Lint and test recipes skip a gate that already passed on the same
   tree. Run the recipe again rather than judging whether it needs to run.
   A pass on uncommitted work also covers its commit. `just gate status`

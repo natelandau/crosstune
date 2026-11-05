@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
-"""Usage: store_frames.py CAPTURE OUT
+"""Frame the App Store captures under their headlines.
+
+Usage: store_frames.py CAPTURE OUT
 
 Frames each capture named in Marketing/store.json under a headline, at the pixel size App Store
 Connect takes for its device, and writes the PNG files to OUT/<device>/. CAPTURE holds the exported
 test attachments (`attachments/` with its manifest) and the Mac stills (`<name>.png`).
 """
 
+import argparse
 import html
 import json
 import shutil
@@ -13,6 +16,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from typing import TypedDict
 
 APPLE = Path(__file__).resolve().parent.parent
 FONT = (
@@ -21,10 +25,23 @@ FONT = (
 )
 CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 
+
 # The canvas App Store Connect takes for each device, and how a shot sits on it, in canvas
 # pixels: the headline block's height from the top, the gap left under the device, the screen's
 # corner radius, the bezel, and the type sizes. The device takes the height that remains.
-DEVICES = {
+class Device(TypedDict):
+    """How a shot sits on one device's canvas, in canvas pixels."""
+
+    size: tuple[int, int]
+    head: int
+    foot: int
+    radius: int
+    bezel: int
+    headline: int
+    sub: int
+
+
+DEVICES: dict[str, Device] = {
     "iphone": {
         "size": (1320, 2868),
         "head": 700,
@@ -120,9 +137,7 @@ def captures(folder: Path) -> dict[str, Path]:
             for item in test.get("attachments", []):
                 name = item.get("suggestedHumanReadableName", "")
                 if name.endswith(".png"):
-                    found[name.split("_")[0]] = (
-                        folder / "attachments" / item["exportedFileName"]
-                    )
+                    found[name.split("_")[0]] = folder / "attachments" / item["exportedFileName"]
     for still in folder.glob("*.png"):
         found.setdefault(still.stem, still)
     return found
@@ -155,9 +170,7 @@ def page(device: str, shot: dict, image: Path) -> str:
 <div class="device{bare}"><img src="{image.as_uri()}"></div></body></html>"""
 
 
-def render(
-    source: Path, out: Path, size: tuple[int, int], *, transparent: bool = False
-) -> None:
+def render(source: Path, out: Path, size: tuple[int, int], *, transparent: bool = False) -> None:
     """Screenshot an HTML page at exactly `size`, with an alpha channel when `transparent`."""
     w, h = size
     background = "00000000" if transparent else "ffffffff"
@@ -180,10 +193,14 @@ def render(
 
 
 def main() -> int:
-    if len(sys.argv) != 3:
-        print(__doc__, file=sys.stderr)
-        return 2
-    capture, out = Path(sys.argv[1]).resolve(), Path(sys.argv[2]).resolve()
+    """Frame every capture store.json names and report the ones the capture folder lacks."""
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    parser.add_argument("capture", type=Path)
+    parser.add_argument("out", type=Path)
+    args = parser.parse_args()
+    capture, out = args.capture.resolve(), args.out.resolve()
     spec = json.loads((APPLE / "Marketing/store.json").read_text())
     images = captures(capture)
     missing = []
