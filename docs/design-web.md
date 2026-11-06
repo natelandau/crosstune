@@ -158,6 +158,7 @@ folder. Compose it, never rebuild it.
 - A hairline sets the header or footer apart only while content scrolls
   under it.
 - Alert: Cancel and the action in equal shares, focus on Cancel.
+- Failure alert (`useAlert`): OK alone, full width, focused.
 
 ## Forms
 

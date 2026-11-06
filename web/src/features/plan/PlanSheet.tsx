@@ -1,4 +1,4 @@
-import { useId, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { canSubscribe, planMode, type Plan } from '../../billing/plan'
 import type { StoreOffer } from '../../billing/store'
 import { storeConfig } from '../../billing/storeConfig'
@@ -6,6 +6,7 @@ import { useStore } from '../../billing/StoreProvider'
 import { usePlanOrUnknown } from '../../billing/usePlan'
 import { useOnline } from '../../sync/SyncProvider'
 import type { PremiumReason, PurchasePeriod } from '../../usage/events'
+import { useAlert } from '../../ui/Confirm'
 import { Mark } from '../../ui/Mark'
 import { Sheet, type SheetPrimary } from '../../ui/Sheet'
 import { useNow } from '../../ui/useNow'
@@ -25,6 +26,8 @@ import {
   PREMIUM_SCANS_TITLE,
   SUBSCRIBE,
   SUBSCRIBE_OFFLINE,
+  SUBSCRIBE_UNAVAILABLE_MESSAGE,
+  SUBSCRIBE_UNAVAILABLE_TITLE,
   SUBSCRIBED,
   THANKS,
 } from './planCopy'
@@ -47,8 +50,10 @@ type PurchaseOptions =
   | { kind: 'pending' }
   /** The store answered with nothing to buy. */
   | { kind: 'empty' }
-  /** The store could not be reached; its line takes the choice's place. */
+  /** The device is offline; its line takes the choice's place. */
   | { kind: 'offline' }
+  /** The store could not answer while online, which an alert over the sheet says. */
+  | { kind: 'unavailable' }
   /** Annual or Monthly, at the store's prices, and Subscribe. */
   | { kind: 'choice'; offers: StoreOffer[] }
   /** A purchase went through before the plan turned Premium; its line replaces the choice. */
@@ -72,7 +77,8 @@ function purchaseOptionsFor({
   if (!hasStore) return { kind: 'notPurchasable' }
   if (settled) return { kind: 'subscribed' }
   if (!canSubscribe(plan)) return { kind: 'notPurchasable' }
-  if (!online || offers.kind === 'failed') return { kind: 'offline' }
+  if (!online) return { kind: 'offline' }
+  if (offers.kind === 'failed') return { kind: 'unavailable' }
   if (offers.kind === 'pending') return { kind: 'pending' }
   return offers.offers.length > 0 ? { kind: 'choice', offers: offers.offers } : { kind: 'empty' }
 }
@@ -132,6 +138,19 @@ export function PlanSheet({
       : options.kind === 'offline'
         ? SUBSCRIBE_OFFLINE
         : null
+  const alert = useAlert()
+  const unavailable = open && reason !== null && options.kind === 'unavailable'
+  useEffect(() => {
+    if (!unavailable) return
+    // The sheet closing, or the store answering, takes the alert away with it.
+    const shown = new AbortController()
+    void alert({
+      title: SUBSCRIBE_UNAVAILABLE_TITLE,
+      message: SUBSCRIBE_UNAVAILABLE_MESSAGE,
+      signal: shown.signal,
+    })
+    return () => shown.abort()
+  }, [unavailable, alert])
   const primary = subscribeAction(options, () => onSubscribe(chosen ?? period))
   return (
     <Sheet
@@ -225,6 +244,7 @@ function subscribeAction(
     case 'notPurchasable':
     case 'empty':
     case 'offline':
+    case 'unavailable':
     case 'subscribed':
       return undefined
   }

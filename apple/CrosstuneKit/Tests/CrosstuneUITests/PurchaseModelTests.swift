@@ -66,23 +66,23 @@ private struct RefreshFailed: Error {}
         #expect(model.offers == .unavailable)
     }
 
-    @Test func offersTheStoreAnswersOfflineAreUnavailable() async {
+    @Test func offersTheStoreAnswersWhileOfflineReadAsOffline() async {
         let network = Network()
         network.isOffline = true
         let model = PurchaseModel(
             client: client, refresh: {}, sync: {}, isOffline: { network.isOffline }, analytics: sink.client)
         await model.loadOffers()
-        #expect(model.offers == .unavailable)
+        #expect(model.offers == .offline)
     }
 
-    @Test func loadedOffersAreUnavailableOnceOffline() async {
+    @Test func loadedOffersReadAsOfflineOnceOffline() async {
         let network = Network()
         let model = PurchaseModel(
             client: client, refresh: {}, sync: {}, isOffline: { network.isOffline }, analytics: sink.client)
         await model.loadOffers()
         network.isOffline = true
         #expect(model.isOffline)
-        #expect(model.offers == .unavailable)
+        #expect(model.offers == .offline)
     }
 
     @Test func goingOnlineAgainLoadsTheOffers() async {
@@ -91,7 +91,7 @@ private struct RefreshFailed: Error {}
         let model = PurchaseModel(
             client: client, refresh: {}, sync: {}, isOffline: { network.isOffline }, analytics: sink.client)
         await model.loadOffers()
-        #expect(model.offers == .unavailable)
+        #expect(model.offers == .offline)
 
         network.isOffline = false
         #expect(model.offers == .loading)

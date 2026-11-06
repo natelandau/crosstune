@@ -11,14 +11,14 @@ import {
   type ReactNode,
 } from 'react'
 import { Dialog, Heading } from 'react-aria-components'
-import { CANCEL } from './confirmCopy'
+import { CANCEL, OK } from './confirmCopy'
 import { useStampedDensity } from '../platform/density'
 import { Button } from './Button'
 import { PointerOverlay } from './PointerOverlay'
 import { Sheet } from './Sheet'
 import { TONE_VARIANT, type ActionTone } from './toneVariant'
 
-export { CANCEL, DELETE } from './confirmCopy'
+export { CANCEL, DELETE, OK } from './confirmCopy'
 
 export interface ConfirmOptions {
   title: string
@@ -30,7 +30,21 @@ export interface ConfirmOptions {
   signal?: AbortSignal
 }
 
+export interface AlertOptions {
+  title: string
+  message: string
+  /** Aborting closes the alert, if it is still the one on screen. */
+  signal?: AbortSignal
+}
+
 type Confirm = (options: ConfirmOptions) => Promise<boolean>
+
+type Alert = (options: AlertOptions) => Promise<void>
+
+/** A question, or with `alert` a failure the musician acknowledges with OK alone. */
+interface Shown extends ConfirmOptions {
+  alert?: boolean
+}
 
 type Token = object
 
@@ -40,7 +54,7 @@ interface Owner {
 }
 
 interface ConfirmApi {
-  ask: (options: ConfirmOptions, token: Token) => Promise<boolean>
+  ask: (options: Shown, token: Token) => Promise<boolean>
   /** Answers no and closes the dialog if `token` still owns it. */
   withdraw: (token: Token) => void
 }
@@ -53,8 +67,24 @@ const ConfirmContext = createContext<ConfirmApi | null>(null)
  */
 // eslint-disable-next-line react-refresh/only-export-components
 export function useConfirm(): Confirm {
+  return useAsk('useConfirm')
+}
+
+/** Returns a function that says a failure in an alert with OK alone, resolving once it closes. */
+// eslint-disable-next-line react-refresh/only-export-components
+export function useAlert(): Alert {
+  const ask = useAsk('useAlert')
+  return useCallback(
+    async (options) => {
+      await ask({ ...options, action: OK, alert: true })
+    },
+    [ask],
+  )
+}
+
+function useAsk(hook: string): (options: Shown) => Promise<boolean> {
   const api = useContext(ConfirmContext)
-  if (!api) throw new Error('useConfirm needs a ConfirmProvider')
+  if (!api) throw new Error(`${hook} needs a ConfirmProvider`)
   const { ask, withdraw } = api
   // One token per hook instance, so a declined repeat call still withdraws the open question.
   const [token] = useState<Token>(() => ({}))
@@ -66,21 +96,15 @@ export function useConfirm(): Confirm {
     [withdraw, token],
   )
   return useCallback(
-    (options) => {
+    (options: Shown) => {
       return ask(options, token)
     },
     [ask, token],
   )
 }
 
-function PointerAlert({
-  options,
-  onAnswer,
-}: {
-  options: ConfirmOptions
-  onAnswer: (ok: boolean) => void
-}) {
-  const { title, message, action, tone = 'danger' } = options
+function PointerAlert({ options, onAnswer }: { options: Shown; onAnswer: (ok: boolean) => void }) {
+  const { title, message, action, tone = 'danger', alert = false } = options
   const messageId = useId()
   return (
     <PointerOverlay
@@ -96,36 +120,51 @@ function PointerAlert({
         <p id={messageId} className="t-body text-secondary pt-1">
           {message}
         </p>
-        {/* Two equal shares, so neither choice reads as the default by size alone. */}
-        <div className="flex gap-2 pt-5">
-          <div className="flex min-w-0 flex-1">
-            {/* Focus starts on the safe choice. */}
+        {alert ? (
+          <div className="flex pt-5">
             <Button
-              variant="bordered"
-              fullWidth
-              label={CANCEL}
-              autoFocus
-              onPress={() => onAnswer(false)}
-            />
-          </div>
-          <div className="flex min-w-0 flex-1">
-            <Button
-              variant={TONE_VARIANT[tone]}
+              variant="primary"
               fullWidth
               label={action}
+              autoFocus
               onPress={() => onAnswer(true)}
             />
           </div>
-        </div>
+        ) : (
+          // Two equal shares, so neither choice reads as the default by size alone.
+          <div className="flex gap-2 pt-5">
+            <div className="flex min-w-0 flex-1">
+              {/* Focus starts on the safe choice. */}
+              <Button
+                variant="bordered"
+                fullWidth
+                label={CANCEL}
+                autoFocus
+                onPress={() => onAnswer(false)}
+              />
+            </div>
+            <div className="flex min-w-0 flex-1">
+              <Button
+                variant={TONE_VARIANT[tone]}
+                fullWidth
+                label={action}
+                onPress={() => onAnswer(true)}
+              />
+            </div>
+          </div>
+        )}
       </Dialog>
     </PointerOverlay>
   )
 }
 
-/** Owns the one confirmation on screen, as an action sheet on touch and an alert on pointer. */
+/**
+ * Owns the one confirmation or failure alert on screen, as an action sheet on touch and an alert
+ * on pointer.
+ */
 export function ConfirmProvider({ children }: { children: ReactNode }) {
   const density = useStampedDensity()
-  const [shown, setShown] = useState<{ options: ConfirmOptions; open: boolean } | null>(null)
+  const [shown, setShown] = useState<{ options: Shown; open: boolean } | null>(null)
   const owner = useRef<Owner | null>(null)
 
   const ask = useCallback<ConfirmApi['ask']>((options, token) => {
@@ -185,10 +224,11 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
           primary={
             options && {
               label: options.action,
-              tone: options.tone ?? 'danger',
+              tone: options.alert ? undefined : (options.tone ?? 'danger'),
               onPress: () => onAnswer(true),
             }
           }
+          cancel={options?.alert ? null : undefined}
         >
           {options && (
             <p id={messageId} className="t-body text-secondary">

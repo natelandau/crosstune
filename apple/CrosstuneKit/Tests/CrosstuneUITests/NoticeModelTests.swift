@@ -413,7 +413,7 @@ private let day: TimeInterval = 86_400
         #expect(NoticeSheet.annualOffer(.loading) == nil)
         #expect(NoticeSheet.annualOffer(.unavailable) == nil)
         #expect(NoticeSheet.annualOffer(.ready([monthly])) == nil)
-        for offers: PurchaseModel.Offers in [.unavailable, .ready([monthly]), .ready([])] {
+        for offers: PurchaseModel.Offers in [.offline, .unavailable, .ready([monthly]), .ready([])] {
             #expect(NoticeSheet.offer(sells: true, offers: offers, line: nil) == comparePlans)
         }
         // A notice that is not purchasable shows the comparison alone, prices or not.
@@ -484,7 +484,9 @@ private let day: TimeInterval = 86_400
 
     @Test func onlyAChoiceOrASettledPurchaseShowsTheOutcome() {
         let subscribe = NoticeSheet.Offer(primary: .subscribe("$49.99"), secondary: .comparePlans)
-        #expect(subscribe.outcome(.failed) == PlanText.line(.failed))
+        #expect(subscribe.outcome(.pending) == PlanText.subscribePending)
+        // A failure is an alert, never a line.
+        #expect(subscribe.outcome(.failed) == nil)
         #expect(subscribe.outcome(nil) == nil)
         #expect(NoticeSheet.Offer(primary: .close, secondary: nil).outcome(.subscribed) == PlanText.subscribed)
         // A failure from before the device went offline does not sit over Compare plans.

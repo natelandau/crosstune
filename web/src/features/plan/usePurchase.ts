@@ -2,10 +2,11 @@ import { useMemo } from 'react'
 import type { PurchasePeriod } from '../../billing/store'
 import { useStore } from '../../billing/StoreProvider'
 import { useSyncEngine } from '../../sync/SyncProvider'
+import { useAlert } from '../../ui/Confirm'
 import { useToast } from '../../ui/Toast'
 import { useAnalytics } from '../../usage/AnalyticsProvider'
 import type { PremiumEntry } from '../../usage/events'
-import { SUBSCRIBE_FAILED, SUBSCRIBED } from './planCopy'
+import { SUBSCRIBE_FAILED_MESSAGE, SUBSCRIBE_FAILED_TITLE, SUBSCRIBED } from './planCopy'
 
 export interface Purchase {
   /**
@@ -21,6 +22,7 @@ export function usePurchase(): Purchase {
   const store = useStore()
   const engine = useSyncEngine()
   const toast = useToast()
+  const alert = useAlert()
   const analytics = useAnalytics()
   return useMemo<Purchase>(
     () => ({
@@ -33,7 +35,7 @@ export function usePurchase(): Purchase {
             outcome = await store.purchase(period)
           } catch {
             analytics.send('purchase_failed', { period, reason: 'error' })
-            toast.show(SUBSCRIBE_FAILED)
+            void alert({ title: SUBSCRIBE_FAILED_TITLE, message: SUBSCRIBE_FAILED_MESSAGE })
             return false
           }
           if (outcome === 'cancelled') {
@@ -55,6 +57,6 @@ export function usePurchase(): Purchase {
         })()
       },
     }),
-    [store, engine, toast, analytics],
+    [store, engine, toast, alert, analytics],
   )
 }
