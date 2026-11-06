@@ -9,7 +9,7 @@ RUN uv sync --locked --no-dev --no-cache
 
 # The DB-IP country database is fetched at build time. A failed download leaves the
 # directory empty, and the API then runs without country lookups.
-FROM curlimages/curl:8.22.0@sha256:58adaa4e8dca9c988bae2aba4ab3434a0bb2da16bbe3f92dec39ec7785166777 AS geo
+FROM curlimages/curl:8.23.0@sha256:3fb7e13e5d179a845c97d78204f3f1064d1907037f26a3ebf91710571151fd93 AS geo
 USER root
 # Unused by the script, but a new value per deploy misses the layer cache, so each deploy
 # fetches the current file. Unset in a local build, which then caches as before.
