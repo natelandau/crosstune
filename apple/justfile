@@ -230,17 +230,13 @@ setup:
 clean:
     rm -rf .build CrosstuneKit/.build Tools/.build
 
-# Delete DerivedData of removed checkouts
+# Delete DerivedData and packages no checkout uses
 [group('maintenance')]
-prune-derived-data:
+prune:
     uv run --project .. python scripts/derived_data.py prune
-
-# Delete Swift package copies no checkout uses
-[group('maintenance')]
-prune-packages:
     python3 scripts/source_packages.py prune
 
-# Delete builds of checkouts not building now
+# Delete idle checkouts' builds, then run prune
 [group('maintenance')]
-prune-builds:
+prune-builds: && prune
     uv run --project .. python scripts/builds.py prune
