@@ -62,6 +62,7 @@ function Probe() {
   }, [destination])
   return (
     <>
+      <span data-testid="navigation-probe" hidden />
       <Hold />
       <Outlet />
     </>
@@ -129,6 +130,8 @@ async function mount(
       </Data>,
     )
   })
+  // The first commit can take longer than a poll waits, so wait on the probe's element first.
+  await expect.element(page.getByTestId('navigation-probe')).toBeInTheDocument()
   await expect.poll(() => probe.dest).toBeDefined()
   return router
 }
