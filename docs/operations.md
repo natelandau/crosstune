@@ -185,7 +185,10 @@ is set.
   rule is the backstop.
 - `API`, `Web`, `Site`, `Analytics`, and `Scripts` start on every PR and
   skip jobs for what it does not touch, so they can be required checks.
-  Each filter names only what that module's checks read. `Repo` runs the
+  Each filter names only what that module's checks read. A module's
+  inputs are listed once, in `AREAS` in
+  `scripts/tests/test_change_filters.py`; its workflow `paths`, `changes`
+  regex, and pre-push test hook must match that list. `Repo` runs the
   repo-wide hooks (`just lint-repo`) on every PR with no filter. `Apple` runs
   only when `apple/`, the contract, or the tracking plan changes, so it is
   not required. `E2E` is not required, so a Clerk outage never blocks

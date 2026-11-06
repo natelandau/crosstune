@@ -39,9 +39,7 @@ repos:
     rev: v0.17.3
     hooks:
       - id: ruff-check
-        files: ^api/
       - id: ruff-format
-        files: ^api/
         args: [--check]
 
   - repo: "https://github.com/adhtruong/mirrors-typos"
@@ -116,7 +114,7 @@ repos:
         language: system
         pass_filenames: false
         stages: [pre-push]
-        files: ^(api/|compose\.yml$|justfile$)
+        files: ^(api/|compose\.yml$|scripts/(gate-cache|media-tools)\.sh$)
 
       - id: commitizen-branch
         name: commitizen check branch
@@ -153,8 +151,7 @@ repos:
         language: system
         pass_filenames: false
         stages: [pre-push]
-        # Each path outside web/ is one a web test reads, and the root justfile runs every module.
-        files: ^(web/|brand/|fixtures/|analytics/|api/openapi\.json$|justfile$)
+        files: ^(web/|apple/CrosstuneKit/Sources/CrosstuneDesign/Style/|brand/|fixtures/|analytics/tracking-plan\.json$|api/openapi\.json$|scripts/gate-cache\.sh$)
 
       - id: site-eslint
         name: eslint
@@ -183,7 +180,7 @@ repos:
         language: system
         pass_filenames: false
         stages: [pre-push]
-        files: ^(site/|brand/|justfile$)
+        files: ^(site/|brand/|analytics/tracking-plan\.json$|scripts/gate-cache\.sh$)
 
       - id: apple-swift-format
         name: swift format
@@ -199,12 +196,21 @@ repos:
         pass_filenames: false
         files: ^analytics/
 
+      - id: analytics-test
+        name: tracking plan tests
+        entry: just analytics::test
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
+        files: ^(analytics/|api/pyproject\.toml$|api/uv\.lock$|scripts/gate-cache\.sh$)
+
       - id: scripts-lint
         name: scripts lint
         entry: just scripts::lint
         language: system
         pass_filenames: false
-        files: ^(scripts|apple/scripts|analytics)/.*\.(py|toml|ini)$|^(ruff|ty)\.toml$
+        files: \.py$|^scripts/pytest\.ini$|^(ruff|ty)\.toml$
+        exclude: ^api/
 
       - id: scripts-test
         name: scripts pytest
@@ -212,8 +218,8 @@ repos:
         language: system
         pass_filenames: false
         stages: [pre-push]
-        # The tests also read every justfile.
-        files: ^(scripts/|apple/scripts/)|(^|/)justfile$|\.just$
+        # The tests also read every justfile, workflow, and hook.
+        files: ^(scripts/|apple/scripts/|api/pyproject\.toml$|api/uv\.lock$|\.github/workflows/|\.pre-commit-config\.yaml$)|(^|/)justfile$|\.just$
 
       - id: apple-swift-test
         name: swift test
@@ -221,5 +227,4 @@ repos:
         language: system
         pass_filenames: false
         stages: [pre-push]
-        # The tracking plan test reads analytics/, and the root justfile runs every module.
-        files: ^(apple/|fixtures/|analytics/|api/openapi\.json$|justfile$)
+        files: ^(apple/(?!scripts/)|apple/scripts/(scrub-env\.sh|xcodebuild\.sh|source_packages\.py)$|fixtures/|api/openapi\.json$|analytics/tracking-plan\.json$|scripts/gate-cache\.sh$)

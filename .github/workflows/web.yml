@@ -42,7 +42,7 @@ jobs:
       - id: changes
         uses: ./.github/actions/changes
         with:
-          pattern: '^(web/|brand/|fixtures/|analytics/tracking-plan\.json$|api/openapi\.json$|\.github/workflows/web\.yml$|\.github/actions/setup-node/|scripts/gate-cache\.sh$)'
+          pattern: '^(web/|apple/CrosstuneKit/Sources/CrosstuneDesign/Style/|brand/|fixtures/|analytics/tracking-plan\.json$|api/openapi\.json$|\.github/workflows/web\.yml$|\.github/actions/setup-node/|scripts/gate-cache\.sh$)'
 
   lint:
     needs: changes

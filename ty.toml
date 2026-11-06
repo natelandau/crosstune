@@ -1,5 +1,5 @@
 # One type check configuration for every Python file in the repository, on the API's
-# environment. Each lint recipe names the folders it checks.
+# environment. `root` lists the folders whose modules import each other.
 [environment]
 python = "api/.venv"
 python-version = "3.13"
