@@ -7,7 +7,7 @@ enum TabSlot: Hashable {
 
     /// The iPhone tab bar's destinations, in order, ahead of the record slot. Settings opens
     /// from the account button instead.
-    static let phoneTabs: [Destination] = [.catalog, .lists, .tuner, .recordings]
+    static let phoneTabs: [Destination] = [.catalog, .recordings, .lists, .tuner]
 
     /// The tab to show once `self` is chosen, and whether choosing it starts a recording. The
     /// record slot records and leaves `current` in place.

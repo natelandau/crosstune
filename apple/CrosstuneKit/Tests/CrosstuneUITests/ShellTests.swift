@@ -228,7 +228,7 @@ import Testing
     }
 
     @Test func thePhoneTabsAreCatalogListsTunerRecordings() {
-        #expect(TabSlot.phoneTabs == [.catalog, .lists, .tuner, .recordings])
+        #expect(TabSlot.phoneTabs == [.catalog, .recordings, .lists, .tuner])
     }
 }
 
