@@ -61,7 +61,7 @@ struct CrosstuneApp: App {
         appStoreURL = UpdatePromptText.appStoreURL(id: configuration.appStoreID)
         // Before any window can start an export, so only zips a past run left behind go.
         ExportArchive.removeLeftovers()
-        let player = PlayerModel.device(analytics: analytics)
+        let player = PlayerModel.device(analytics: analytics, diagnostics: diagnostics)
         _player = State(initialValue: player)
         _listPlayback = State(initialValue: ListPlayback.device(player: player, analytics: analytics))
         _session = State(
@@ -102,6 +102,12 @@ struct CrosstuneApp: App {
             AppCommands()
         }
         .onChange(of: scenePhase, initial: true) {
+            switch scenePhase {
+            case .active: diagnostics.note(.sceneActive)
+            case .inactive: diagnostics.note(.sceneInactive)
+            case .background: diagnostics.note(.sceneBackground)
+            @unknown default: break
+            }
             session.sceneActivityChanged(isActive: scenePhase == .active)
             if scenePhase == .background {
                 player.leftForeground()

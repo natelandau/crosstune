@@ -59,6 +59,12 @@ struct SentrySink: DiagnosticsSink {
         crumb.message = screen.rawValue
         SentrySDK.addBreadcrumb(crumb)
     }
+
+    func breadcrumb(event: DiagnosticEvent) {
+        let crumb = Breadcrumb(level: .info, category: event.category)
+        crumb.message = event.rawValue
+        SentrySDK.addBreadcrumb(crumb)
+    }
 }
 
 /// `event` with every URL query and fragment and home folder name cut, and every user field but
