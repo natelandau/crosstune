@@ -1,7 +1,0 @@
-# Type checks the tooling scripts here and in apple/scripts, on the API's environment.
-[environment]
-python-version = "3.13"
-extra-paths = [".", "../apple/scripts"]
-
-[terminal]
-error-on-warning = true

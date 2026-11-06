@@ -10,7 +10,7 @@ set dotenv-load
 derived_data := ".build/DerivedData"
 # Builds run without credential-like environment variables, which Xcode and SwiftPM store in
 # plain text under .build/.
-xcodebuild := "scripts/scrub-env.sh xcodebuild"
+xcodebuild := "scripts/xcodebuild.sh"
 swift := "scripts/scrub-env.sh swift"
 # Runs a lint or test gate through gate-cache when it is installed
 gate := "../scripts/gate-cache.sh"
@@ -161,7 +161,7 @@ upload:
     ASC_KEY_PATH="${ASC_KEY_PATH/#\~/$HOME}"
     for platform in iOS macOS; do
         rm -rf ".build/export/$platform"
-        {{ xcodebuild }} -exportArchive -archivePath "{{ archives }}/$platform.xcarchive" \
+        scripts/scrub-env.sh xcodebuild -exportArchive -archivePath "{{ archives }}/$platform.xcarchive" \
             -exportOptionsPlist Config/ExportOptions.plist \
             -exportPath ".build/export/$platform" {{ asc_auth }}
     done
@@ -236,3 +236,13 @@ clean:
 [group('maintenance')]
 prune-derived-data:
     uv run --project ../api python scripts/derived_data.py prune
+
+# Delete Swift package copies no checkout uses
+[group('maintenance')]
+prune-packages:
+    python3 scripts/source_packages.py prune
+
+# Delete builds of checkouts not building now
+[group('maintenance')]
+prune-builds:
+    uv run --project ../api python scripts/builds.py prune

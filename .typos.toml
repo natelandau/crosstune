@@ -15,6 +15,8 @@
     udid = "udid"
     # The web StatusGlyph's prop for a glyph whose row already says its status, in ARIA's spelling.
     labelled = "labelled"
+    # The prefix of ruff's copyright-notice rules, such as CPY001.
+    CPY = "CPY"
     # Proper names keep their own spelling, such as the Jalopy Theatre in Brooklyn and Centre St
     # in Newton, MA.
     theatre = "theatre"

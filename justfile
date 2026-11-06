@@ -22,7 +22,7 @@ mod scripts
 mod ops 'api/ops.just'
 
 # The prek hooks that only call a module's lint recipe, which `just lint` and CI run directly
-module_hooks := "ty,ruff-check,ruff-format,web-eslint,web-prettier,web-tsc,site-eslint,site-prettier,site-tsc,apple-swift-format,analytics-check,scripts-lint"
+module_hooks := "ty,ruff-check,ruff-format,api-ruff-config,web-eslint,web-prettier,web-tsc,site-eslint,site-prettier,site-tsc,apple-swift-format,analytics-check,scripts-lint"
 
 [default]
 _default:

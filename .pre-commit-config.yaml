@@ -99,7 +99,16 @@ repos:
         entry: just api::ty
         pass_filenames: false
         language: system
-        files: ^api/.*\.py$
+        files: ^api/.*\.py$|^ty\.toml$
+
+      # The ruff hooks above check only the files a commit changes, so a rule change re-checks
+      # the API here.
+      - id: api-ruff-config
+        name: ruff (api, rule change)
+        entry: just api::ruff api::format
+        pass_filenames: false
+        language: system
+        files: ^ruff\.toml$
 
       - id: pytest
         name: pytest
@@ -195,7 +204,7 @@ repos:
         entry: just scripts::lint
         language: system
         pass_filenames: false
-        files: ^(scripts|apple/scripts)/.*\.(py|toml|ini)$
+        files: ^(scripts|apple/scripts|analytics)/.*\.(py|toml|ini)$|^(ruff|ty)\.toml$
 
       - id: scripts-test
         name: scripts pytest

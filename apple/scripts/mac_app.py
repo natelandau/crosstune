@@ -26,6 +26,8 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import builds
+
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
 
@@ -223,7 +225,7 @@ class MacApp:
         self.lease = lease
         self.apple = Path(me) / "apple"
         # Apart from `just apple::build`, whose unsigned Debug products fail the signed build
-        self.derived = self.apple / ".build/RunDerivedData"
+        self.derived = self.apple.parent / builds.RUN_DERIVED_DATA
         applications = Path.home() / "Applications"
         applications.mkdir(parents=True, exist_ok=True)
         # Resolved, since quitting matches the process path and ~/Applications may be a link
@@ -231,11 +233,15 @@ class MacApp:
 
     def run(self, app_args: list[str]) -> int:
         """Build the signed app, wait for the lease, then install and launch it."""
+        # The wait for the lease can be long, and a prune must not delete the build meanwhile.
+        with builds.in_use(self.apple):
+            return self._build_and_launch(app_args)
+
+    def _build_and_launch(self, app_args: list[str]) -> int:
         # Signed, so the keychain sees the same identity from every worktree
         build = subprocess.run(
             [
-                str(self.apple / "scripts/scrub-env.sh"),
-                "xcodebuild",
+                str(self.apple / "scripts/xcodebuild.sh"),
                 "build",
                 "-quiet",
                 "-project",
@@ -249,6 +255,7 @@ class MacApp:
                 "-derivedDataPath",
                 str(self.derived),
             ],
+            cwd=self.apple,
             check=False,
         )
         if build.returncode != 0:

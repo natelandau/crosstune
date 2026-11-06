@@ -104,6 +104,7 @@ def test_remove_deletes_a_branch_main_holds(main):
     assert just.calls == [
         ((*prefix, "api::prune-worktree-dbs"), main),
         ((*prefix, "apple::prune-derived-data"), main),
+        ((*prefix, "apple::prune-packages"), main),
     ]
 
 
@@ -130,7 +131,7 @@ def test_remove_keeps_an_unmerged_branch(main, capfd):
     assert not path.exists()
     assert has_branch(main, "feat")
     assert "kept branch feat: neither main nor origin/main holds its work" in capfd.readouterr().err
-    assert len(just.calls) == 2
+    assert len(just.calls) == 3
 
 
 def test_remove_trusts_a_merged_pull_request_whose_head_is_the_tip(main):
