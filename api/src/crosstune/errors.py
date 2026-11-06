@@ -306,7 +306,7 @@ def _publish_problem_media_type(app: FastAPI) -> None:
         return schema
 
     # Replacing the generator on the instance is FastAPI's documented extension point.
-    app.openapi = openapi  # ty: ignore[invalid-assignment]
+    app.openapi = openapi
 
 
 def install_error_handlers(app: FastAPI) -> None:
