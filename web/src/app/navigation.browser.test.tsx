@@ -306,9 +306,9 @@ it('keeps the place across a reload', async () => {
   await first.navigate('/lists')
   await expect.poll(at(first)).toBe('/lists')
   // A reload re-reads sessionStorage; the stored value must be what the map held.
-  expect(JSON.parse(sessionStorage.getItem('crosstune.destinations') ?? '{}')).toMatchObject({
-    settings: '/settings/stats',
-  })
+  await expect
+    .poll(() => JSON.parse(sessionStorage.getItem('crosstune.destinations') ?? '{}'))
+    .toMatchObject({ settings: '/settings/stats' })
 })
 
 it('walks back to the parent after a reload when a gone tune leaves', async () => {

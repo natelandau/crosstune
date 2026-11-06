@@ -89,15 +89,15 @@ it('Undo after the tune was deleted another way reports and shows no new toast',
   await expect
     .poll(() => analytics.sends().filter((s) => s.name === 'tune_deleted'))
     .toHaveLength(1)
-  const shown = document.querySelector('[role="status"]')?.textContent
+  const added = page.getByRole('status').getByText(addedMessage(STORED)).element()
+  const region = page.elementLocator(added.closest('[role="status"]')!)
   await page.getByRole('status').getByRole('button', { name: UNDO }).click()
   // A write transaction queues behind Undo's, so what Undo would do has been done by now.
   await db.transaction('rw', db.tables, () => {})
   await expect
     .poll(() => analytics.sends().filter((s) => s.name === 'tune_deleted'))
     .toHaveLength(1)
-  await expect
-    .element(page.getByRole('status').getByText(keptMessage(STORED)))
-    .not.toBeInTheDocument()
-  expect(document.querySelector('[role="status"]')?.textContent).toBe(shown)
+  // Undo fades the Added toast out. A toast shown since would replace it and, on this clock,
+  // stay, so the region empties only when Undo showed none.
+  await expect.element(region).toBeEmptyDOMElement()
 })
