@@ -203,7 +203,8 @@ repos:
         language: system
         pass_filenames: false
         stages: [pre-push]
-        files: ^(scripts|apple/scripts)/
+        # The tests also read every justfile.
+        files: ^(scripts/|apple/scripts/)|(^|/)justfile$|\.just$
 
       - id: apple-swift-test
         name: swift test

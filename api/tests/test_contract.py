@@ -1,9 +1,12 @@
 """The OpenAPI document is the contract the web client is generated from."""
 
+import json
+
 import pytest
 
 from crosstune import vocabulary
 from crosstune.main import create_app
+from crosstune.ops import openapi
 
 
 def test_openapi_lists_every_public_route() -> None:
@@ -189,3 +192,9 @@ def test_openapi_publishes_split_size_range() -> None:
     candidates = [prop, *prop.get("anyOf", [])]
     assert vocabulary.MIN_SPLIT_PIECES in {c.get("minimum") for c in candidates}
     assert vocabulary.MAX_SPLIT_PIECES in {c.get("maximum") for c in candidates}
+
+
+def test_export_is_the_openapi_document_with_a_trailing_newline() -> None:
+    exported = openapi.render()
+    assert exported.endswith("}\n")
+    assert json.loads(exported) == create_app().openapi()

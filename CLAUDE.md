@@ -91,7 +91,7 @@ against production, such as granting a comp or a trial.
   site together. Every checkout and worktree shares one Postgres container,
   but each worktree gets its own database and bucket, copied from main's by
   `just api::worktree-db`, so one branch's migrations never reach another.
-  `just api::worktree-db reset` takes a fresh copy.
+  `just api::worktree-db-reset` takes a fresh copy.
 - Do all work in a worktree, never in the main checkout.
 - Create a worktree with `just worktree <branch>`, never `git worktree add`.
   It adds `.worktrees/<branch>`, copies every module's `.env`,
@@ -121,6 +121,12 @@ against production, such as granting a comp or a trial.
   redrawn. Read `site/CLAUDE.md` before changing the site.
 - New recipes go in a module's justfile, tagged with a `[group(...)]`
   that matches their neighbors. A root aggregate calls every module.
+- A recipe's description is one comment line that keeps its `just --list`
+  line within 80 columns. Detail goes in `[arg(NAME, help=...)]` on every
+  parameter, which `just --usage <recipe>` prints. `just scripts::test`
+  enforces both.
+- Operator commands that read or change accounts go in the `ops` module
+  (`api/ops.just`), never in `api`.
 - A recipe body is a few commands with no loop or function. Anything
   longer is a script the recipe calls. Script logic worth a test is
   Python in `scripts/` or `apple/scripts/`, tested in their `tests/`

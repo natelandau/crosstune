@@ -2,6 +2,8 @@
 # from this directory: `just web::test` from anywhere in the repository.
 
 set shell := ["bash", "-euo", "pipefail", "-c"]
+set script-interpreter := ["bash", "-euo", "pipefail"]
+set positional-arguments
 
 # Where `just api::run-e2e` serves. Not the :8000 of a dev session, so the suite and
 # `just dev` run side by side.
@@ -10,8 +12,8 @@ e2e_api := "http://localhost:" + trim(read("../api/e2e-port"))
 # Runs a lint or test gate through gate-cache when it is installed
 gate := "../scripts/gate-cache.sh"
 
-[private]
-default:
+[default]
+_default:
     @just --list web
 
 # Lint with eslint
@@ -29,7 +31,7 @@ format:
 tsc:
     {{ gate }} web-tsc pnpm tsc --noEmit
 
-# Spell check the client and the brand sources it is built from
+# Spell check the client and its brand sources
 [group('lint')]
 typos:
     {{ gate }} web-typos uv run --project ../api --only-group typos typos --config ../.typos.toml . ../brand
@@ -39,14 +41,13 @@ typos:
 deadcode:
     {{ gate }} web-knip pnpm knip --no-progress
 
-# Fail when the committed client types no longer match the committed OpenAPI schema
+# Fail when the typed client is stale
 [group('lint')]
 contract-check:
     {{ gate }} web-contract-check just _contract-check
 
+[script]
 _contract-check:
-    #!/usr/bin/env bash
-    set -euo pipefail
     case "${CI:-}" in 1|true|yes) echo "skipping contract check: CI runs it as its own job"; exit 0 ;; esac
     out=.cache/contract-check
     rm -rf "$out" && mkdir -p "$out"
@@ -58,14 +59,13 @@ _contract-check:
     done
     [ "$stale" -eq 0 ] || { echo "web/src/api is stale; run just contract" >&2; exit 1; }
 
-# Fail when the CI test image's Playwright differs from the one package.json pins
+# Fail when CI's Playwright image drifts
 [group('lint')]
 playwright-image:
     {{ gate }} web-playwright-image just _playwright-image
 
+[script]
 _playwright-image:
-    #!/usr/bin/env bash
-    set -euo pipefail
     pinned=$(node -p "require('./package.json').devDependencies.playwright")
     image=$(sed -nE 's|^ *image: mcr\.microsoft\.com/playwright:v([^-]+)-.*|\1|p' ../.github/workflows/web.yml)
     [ "$image" = "$pinned" ] || {
@@ -83,74 +83,40 @@ fix:
     pnpm eslint --fix .
     pnpm prettier --write .
 
-# Run the unit and browser tests with coverage; args go to vitest and drop coverage
+# Run the unit and browser tests with coverage
 [group('test')]
-[positional-arguments]
+[arg("args", help="Arguments for vitest; any drops coverage")]
 test *args:
     {{ gate }} web-test --argc "$#" --file .env --tool 'node --version' just _test "$@"
 
 # V8 coverage reads Chromium's profiler, which WebKit lacks, so WebKit runs on its own.
-[positional-arguments]
 _test *args:
     if [ "$#" -gt 0 ]; then exec pnpm vitest run "$@"; fi; pnpm vitest run --coverage --project unit --project browser && pnpm vitest run --project browser-webkit
 
 # Run only the jsdom unit project
 [group('test')]
-[positional-arguments]
+[arg("args", help="Arguments for vitest")]
 test-unit *args:
     {{ gate }} web-test-unit --argc "$#" --file .env --tool 'node --version' pnpm vitest run --project unit "$@"
 
 # Run only the browser projects: Chromium and WebKit
 [group('test')]
-[positional-arguments]
+[arg("args", help="Arguments for vitest")]
 test-browser *args:
     {{ gate }} web-test-browser --argc "$#" --file .env --tool 'node --version' pnpm vitest run --project browser --project browser-webkit "$@"
 
-# Reproduce a flaky test: run tests shuffled, by default the branch's changed test files; SEED=<n> replays one
+# Rerun tests shuffled to find a flaky one
 [group('test')]
-[positional-arguments]
+[arg("runs", pattern="[0-9]+", help="How many shuffled runs; SEED=<n> in the environment replays one")]
+[arg("args", help="Test files or vitest arguments; none takes the branch's changed test files")]
 stress runs *args:
-    #!/usr/bin/env bash
-    set -uo pipefail
-    shift
-    if (( $# == 0 )); then
-        base=$(git merge-base main HEAD)
-        files=()
-        while IFS= read -r file; do files+=("$file"); done < <(
-            { git diff --name-only --relative --diff-filter=AMR "$base"; git ls-files --others --exclude-standard; } \
-                | grep -E '\.test\.tsx?$' | sort -u
-        )
-        if (( ${#files[@]} == 0 )); then
-            echo "no test files changed since main; pass files or vitest args to stress others"
-            exit 0
-        fi
-        printf 'stressing %s\n' "${files[@]}"
-        set -- "${files[@]}"
-    fi
-    # Shuffling exposes a test that leans on state an earlier test left behind, which file
-    # order hides.
-    if [[ -n "${SEED:-}" ]]; then
-        exec pnpm vitest run --sequence.shuffle --sequence.seed="$SEED" "$@"
-    fi
-    failed=()
-    for run in $(seq 1 {{ runs }}); do
-        seed=$RANDOM$RANDOM
-        echo "run $run/{{ runs }}, seed $seed"
-        pnpm vitest run --sequence.shuffle --sequence.seed="$seed" "$@" || failed+=("$seed")
-    done
-    if (( ${#failed[@]} )); then
-        echo "${#failed[@]} of {{ runs }} runs failed; replay one with SEED=<seed> just web::stress 1 {{ args }}"
-        printf '  %s\n' "${failed[@]}"
-        exit 1
-    fi
-    echo "all {{ runs }} runs passed"
+    scripts/stress.sh "$@"
 
-# Run the Playwright suite against a production build; needs the e2e API and Clerk env
+# Run Playwright against a production build
 [group('test')]
-[positional-arguments]
+[arg("args", help="Arguments for Playwright")]
+[script]
 e2e *args:
-    #!/usr/bin/env bash
-    set -euo pipefail
     fix="run 'just e2e' from the repository root, which starts one"
     # Only a database the e2e suite owns names itself in the health response, so an API
     # bound to anyone's development database is turned away before a fixture is written.
@@ -172,28 +138,27 @@ preview:
     pnpm vite build
     pnpm vite preview
 
-# Capture the component gallery and app screens on a seeded fixture into .cache/gallery-shots for review
+# Capture the component gallery and screens
 [group('run')]
 gallery-shots:
     node scripts/gallery-shots.mjs
 
-# Build for production and validate the Worker config and bundle without uploading
+# Build for production and validate the Worker
 [group('build')]
 build:
     pnpm vite build
     pnpm wrangler deploy --dry-run
 
-# Regenerate the favicon and PWA icons in public/ from the brand mark in ../brand
+# Regenerate the favicon and PWA icons
 [group('build')]
 icons:
     cp ../brand/icon-dark.svg public/logo.svg
     pnpm pwa-assets-generator
 
-# Regenerate the typed client and the vocabulary from the committed OpenAPI contract
+# Regenerate the typed client from the contract
 [group('contract')]
+[script]
 contract:
-    #!/usr/bin/env bash
-    set -euo pipefail
     out=.cache/contract
     rm -rf "$out" && mkdir -p "$out"
     trap 'rm -rf "$out"' EXIT
@@ -202,16 +167,15 @@ contract:
 
 # Write the typed client and the vocabulary into `out`; `contract` and `contract-check` share
 # it, so the check compares exactly what `contract` would commit
+[script]
 _generate $out:
-    #!/usr/bin/env bash
-    set -euo pipefail
     pnpm --silent openapi-typescript ../api/openapi.json -o "$out/schema.d.ts" > /dev/null
     node scripts/vocabulary.mjs ../api/openapi.json "$out/vocabulary.raw.ts"
     # Formatted as the committed file's path so prettier applies that file's config.
     pnpm --silent exec prettier --stdin-filepath src/api/vocabulary.ts < "$out/vocabulary.raw.ts" > "$out/vocabulary.ts"
     rm "$out/vocabulary.raw.ts"
 
-# Upgrade dependencies, holding the majors .github/dependabot.yml ignores to their range
+# Upgrade dependencies within dependabot's ranges
 [group('maintenance')]
 update:
     pnpm update --latest '!typescript' '!@types/node'
@@ -222,7 +186,7 @@ update:
 clean:
     rm -rf dist dev-dist coverage playwright-report test-results node_modules/.vite .vitest
 
-# Install dependencies, browsers, and create .env from the example if absent
+# Install dependencies and browsers; create .env
 [group('maintenance')]
 setup:
     pnpm install --frozen-lockfile

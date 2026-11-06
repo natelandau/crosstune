@@ -1,8 +1,9 @@
 """Operator commands that comp an account, move its trial end, or withdraw its web subscription.
 
-Run as `just api::comp`, `just api::trial`, and `just api::withdraw`. Each prints the environment and database
-it will write to, refuses production without `--yes`, and refuses the e2e database unless
-`--e2e` names it, as only the e2e suite's own recipe does.
+Run as `just ops::billing comp`, `just ops::billing trial`, and `just ops::billing
+withdraw`. Each prints the environment and database it will write to, refuses production
+without `--yes`, and refuses the e2e database unless `--e2e` names it, as only the e2e
+suite's own recipe does.
 """
 
 from __future__ import annotations

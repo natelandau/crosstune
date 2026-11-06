@@ -2,7 +2,7 @@
 # Captures Mac app surfaces over the sample catalog, for a design pass. Each name is a launch:
 # the app opens on that surface through `-SampleShell -SampleScreen <name>` (or a Settings tab
 # through `settings-<tab>`), and every window it shows, sheets included, is saved by window id,
-# which works while the app stays in the background. Runs through mac-app.sh, so it waits its
+# which works while the app stays in the background. Runs through mac_app.py, so it waits its
 # turn for the shared install and always releases it.
 set -euo pipefail
 
@@ -11,6 +11,7 @@ names: the cases of SampleScreen (Sample/SampleScreen.swift), such as catalog, t
 plan, welcome, or settings-<tab> for a Settings tab: general, account, tunes, recordings, importExport"
 
 apple="$(git rev-parse --show-toplevel)/apple"
+mac_app() { uv run --project "$apple/../api" python "$apple/scripts/mac_app.py" "$@"; }
 out="$apple/.build/shots"
 appearance=""
 settle=3
@@ -32,9 +33,9 @@ done
 case "$appearance" in "" | light | dark) ;; *) printf '%s\n' "$usage" >&2; exit 2 ;; esac
 mkdir -p "$out"
 
-# The install path mac-app.sh runs from; matching it never touches a Crosstune the user has open.
+# The install path mac_app.py runs from; matching it never touches a Crosstune the user has open.
 app="$(cd "$HOME/Applications" && pwd -P)/Crosstune Dev.app"
-trap '"$apple/scripts/mac-app.sh" "done" > /dev/null' EXIT
+trap 'mac_app "done" > /dev/null' EXIT
 
 # Window id and title of each window the app shows, one per line, tab separated.
 windows() {
@@ -59,7 +60,7 @@ shoot() {
   fi
   # A launch argument sets the appearance for this run only, never the shared defaults.
   [[ -z "$appearance" ]] || { args+=(-crosstune.appearance "$appearance"); suffix="-$appearance"; }
-  "$apple/scripts/mac-app.sh" run "${args[@]}" ${extra[@]+"${extra[@]}"} > /dev/null
+  mac_app run "${args[@]}" ${extra[@]+"${extra[@]}"} > /dev/null
   for _ in $(seq 1 30); do
     pid="$(pgrep -nf "^$app/Contents/MacOS/" || true)"
     [[ -z "$pid" ]] || break

@@ -2,6 +2,8 @@
 # from this directory: `just api::test` from anywhere in the repository.
 
 set shell := ["bash", "-euo", "pipefail", "-c"]
+set script-interpreter := ["bash", "-euo", "pipefail"]
+set positional-arguments
 
 py_src := "src/ tests/"
 # Runs a lint or test gate through gate-cache when it is installed
@@ -24,8 +26,8 @@ e2e_env := "CROSSTUNE_DATABASE_URL='" + e2e_database_url + "' CROSSTUNE_STORAGE_
 # justfile starts this port and web/justfile points the preview proxy at it.
 e2e_port := trim(read("e2e-port"))
 
-[private]
-default:
+[default]
+_default:
     @just --list api
 
 # Lint with ruff
@@ -52,13 +54,12 @@ typos:
 [group('lint')]
 lint: ruff format ty typos contract-check
 
-# Run the test suite on its own databases in the compose test Postgres; args narrow the run and drop coverage
+# Run the tests; any args drop coverage
 [group('test')]
-[positional-arguments]
+[arg("args", help="Arguments for pytest; any narrows the run and drops coverage")]
 test *args:
     {{ media_path }} {{ gate }} api-test --argc "$#" --tool 'ffmpeg -version' just _test "$@"
 
-[positional-arguments]
 _test *args:
     docker info > /dev/null 2>&1 || { echo "Docker is not running" >&2; exit 1; }
     {{ compose }} up -d --wait postgres-test
@@ -69,7 +70,7 @@ _test *args:
 run:
     {{ media_path }} uv run uvicorn crosstune.main:app --reload --reload-dir src --port 8000
 
-# Run the API against the end-to-end database, for `just web::e2e`
+# Run the API on the e2e database
 [group('run')]
 run-e2e: e2e-db storage-setup _serve-e2e
 
@@ -78,11 +79,12 @@ _serve-e2e:
     @echo "serving {{ e2e_db }} on :{{ e2e_port }}"
     {{ media_path }} {{ e2e_env }} uv run uvicorn crosstune.main:app --port {{ e2e_port }}
 
-# Wait for the e2e API started as process `pid` to answer, or print `log` and fail once it exits or 90 seconds pass
+# Wait for the e2e API to answer
 [group('run')]
+[arg("pid", help="The process ID of the e2e API")]
+[arg("log", help="The file the e2e API logs to")]
+[script]
 wait-e2e pid log:
-    #!/usr/bin/env bash
-    set -euo pipefail
     health="http://localhost:{{ e2e_port }}/healthz"
     for _ in $(seq 1 90); do
         curl -fsS "$health" > /dev/null 2>&1 && exit 0
@@ -94,20 +96,20 @@ wait-e2e pid log:
     echo "the e2e API did not start" >&2
     exit 1
 
-# Create the local RustFS buckets and their CORS rules; safe to repeat
+# Create the local buckets; safe to repeat
 [group('storage')]
 storage-setup:
     uv run python -m crosstune.ops.local_storage setup
 
-# Inspect local recordings: `ls [prefix]` or `get <key> [dest]`, with --bucket crosstune-e2e for the e2e bucket
+# List or download local recordings
 [group('storage')]
-[positional-arguments]
+[arg("args", help="`ls [prefix]` or `get <key> [dest]`, and --bucket")]
 storage *args:
     uv run python -m crosstune.ops.local_storage --cwd '{{ invocation_directory() }}' "$@"
 
-# Delete every object in a local bucket, the one api/.env names by default
+# Empty a local bucket
 [group('storage')]
-[positional-arguments]
+[arg("bucket", help="The bucket to empty; defaults to the one api/.env names")]
 storage-reset *bucket:
     uv run python -m crosstune.ops.local_storage reset "$@"
 
@@ -116,48 +118,48 @@ storage-reset *bucket:
 migrate:
     uv run alembic upgrade head
 
-# Generate a migration from model changes; review it before committing
+# Generate a migration from model changes
 [group('db')]
+[arg("message", help="The migration's message")]
 makemigrations $message='auto':
     uv run alembic revision --autogenerate -m "$message"
 
-# Create the end-to-end database if it is absent and migrate it to head
+# Create and migrate the e2e database
 [group('db')]
 e2e-db: (_e2e-db "keep")
 
-# Drop the end-to-end database, recreate it empty, and migrate it to head
+# Recreate the e2e database empty
 [group('db')]
 e2e-db-reset: (_e2e-db "recreate")
 
-# Give this worktree its own migrated copy of main's database and bucket; `reset` recopies both
+# Copy main's database for this worktree
 [group('db')]
-worktree-db mode='keep':
-    #!/usr/bin/env bash
-    set -euo pipefail
-    case '{{ mode }}' in
-        keep) flags=() ;;
-        reset) flags=(--reset) ;;
-        *) echo "mode is keep or reset, not '{{ mode }}'" >&2; exit 1 ;;
-    esac
+worktree-db: (_worktree-db "")
+
+# Recopy main's database for this worktree
+[group('db')]
+worktree-db-reset: (_worktree-db "--reset")
+
+[script]
+_worktree-db flag:
     {{ compose }} up -d --wait postgres rustfs
-    # bash 3.2 treats an empty array as unbound under set -u.
-    uv run python -m crosstune.ops.local_worktree provision ${flags[@]+"${flags[@]}"}
+    uv run python -m crosstune.ops.local_worktree provision {{ flag }}
     if ! uv run alembic upgrade head; then
         echo "If alembic cannot locate a revision, main's database ran another branch's migration" >&2
         echo "and this copy inherited it. Downgrade main's database from that branch, then run" >&2
-        echo "'just api::worktree-db reset'." >&2
+        echo "'just api::worktree-db-reset'." >&2
         exit 1
     fi
 
-# Drop the database and bucket of every worktree that no longer exists
+# Drop databases of removed worktrees
 [group('db')]
 prune-worktree-dbs:
     {{ compose }} up -d --wait postgres rustfs
     uv run python -m crosstune.ops.local_worktree prune
 
+[arg("mode", pattern="keep|recreate|drop")]
+[script]
 _e2e-db mode:
-    #!/usr/bin/env bash
-    set -euo pipefail
     # "drop" has no public recipe: only `just e2e` creates a database it must remove.
     uv run python -m crosstune.ops.local_e2e_db '{{ mode }}' '{{ e2e_database_url }}'
     if [ '{{ mode }}' != "drop" ]; then
@@ -165,78 +167,29 @@ _e2e-db mode:
         echo "{{ e2e_db }} is at head. The development database crosstune is untouched."
     fi
 
-# Comp an account (Clerk ID or email), or revoke its comp
-[group('billing')]
-[positional-arguments]
-comp *args:
-    uv run python -m crosstune.ops.billing comp "$@"
-
-# Refund and cancel an account's web subscription it withdrew from by email
-[group('billing')]
-[positional-arguments]
-withdraw *args:
-    uv run python -m crosstune.ops.billing withdraw "$@"
-
-# Count accounts by country (countries)
-[group('billing')]
-[positional-arguments]
-stats *args:
-    uv run python -m crosstune.ops.stats "$@"
-
-# Re-name recordings the server named, with the street-address rules (rename-automatic)
-[group('accounts')]
-[positional-arguments]
-places *args:
-    uv run python -m crosstune.ops.places "$@"
-
-# Email every account about a change to the terms or privacy policy (--subject, --key, --body)
-[group('accounts')]
-[positional-arguments]
-notify-accounts *args:
-    uv run python -m crosstune.ops.notify_accounts "$@"
-
-# Move the end of an account's trial
-[group('billing')]
-[positional-arguments]
-trial *args:
-    uv run python -m crosstune.ops.billing trial "$@"
-
-# Preview, test-send, or run the inactive-account warnings (preview, send-test, run)
-[group('billing')]
-[positional-arguments]
-inactivity *args:
-    uv run python -m crosstune.ops.inactivity "$@"
-
-# Preview, test-send, or run the inactive-account warnings on Railway development
-[group('billing')]
-[positional-arguments]
-inactivity-railway *args:
-    railway ssh --environment development --service crosstune -- python -m crosstune.ops.inactivity "$@"
-
-# End or move the trial of an account in the e2e database, for the e2e suite
-[group('billing')]
-[positional-arguments]
+# Move an account's trial in the e2e database
+[group('testdata')]
+[arg("args", help="A Clerk user ID and the trial options of `ops::billing trial`")]
 e2e-trial *args:
     {{ e2e_env }} uv run python -m crosstune.ops.billing trial "$@" --e2e
 
-# Seed, clear, or set the billing state of a Clerk development account
+# Seed or set the state of a dev account
 [group('testdata')]
-[positional-arguments]
+[arg("args", help="An email or Clerk user ID, then options; --help lists them")]
 testdata *args:
     {{ compose }} up -d --wait postgres rustfs
     uv run python -m crosstune.ops.testdata "$@"
 
-# Seed, clear, or set the billing state of a Railway development account
+# Seed or set a Railway dev account
 [group('testdata')]
-[positional-arguments]
+[arg("args", help="An email or Clerk user ID, then options; --help lists them")]
 testdata-railway *args:
     railway ssh --environment development --service crosstune -- python -m crosstune.ops.testdata "$@"
 
-# Export the OpenAPI schema every client generates its types from
+# Export the OpenAPI schema to openapi.json
 [group('contract')]
+[script]
 contract:
-    #!/usr/bin/env bash
-    set -euo pipefail
     out=openapi.json
     # Written aside and moved into place, so a failed export leaves the committed
     # contract intact instead of truncating it.
@@ -245,14 +198,13 @@ contract:
     just _export-openapi "$staged"
     mv "$staged" "$out"
 
-# Fail when the committed OpenAPI schema no longer matches the code
+# Fail when openapi.json is stale
 [group('lint')]
 contract-check:
     {{ gate }} api-contract-check just _contract-check
 
+[script]
 _contract-check:
-    #!/usr/bin/env bash
-    set -euo pipefail
     case "${CI:-}" in 1|true|yes) echo "skipping contract check: CI runs it as its own job"; exit 0 ;; esac
     fresh="$(mktemp)"
     trap 'rm -f "$fresh"' EXIT
@@ -260,7 +212,7 @@ _contract-check:
     diff -u openapi.json "$fresh" || { echo "api/openapi.json is stale; run just contract" >&2; exit 1; }
 
 _export-openapi out:
-    @uv run python -c "import json; from crosstune.main import create_app; print(json.dumps(create_app().openapi(), indent=2, sort_keys=True))" > "{{ out }}"
+    @uv run python -m crosstune.ops.openapi '{{ out }}'
 
 # Upgrade dependencies
 [group('maintenance')]
@@ -276,7 +228,7 @@ clean:
     # One media container per image the media stage has built; the next run starts its own
     docker ps --all --quiet --filter name=crosstune-media- | xargs docker container rm --force > /dev/null 2>&1 || true
 
-# Install dependencies and create .env from the example if absent
+# Install dependencies and create .env
 [group('maintenance')]
 setup:
     uv sync

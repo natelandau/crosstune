@@ -1,6 +1,6 @@
 """Operator command that emails every account about a significant change to the terms or privacy policy.
 
-Run as `just api::notify-accounts --subject S --key K --body PATH|-`. The body is plain
+Run as `just ops::notify-accounts --subject S --key K --body PATH|-`. The body is plain
 prose: blank lines separate paragraphs and bare https URLs become links. Without `--yes` it
 only prints how many accounts it would email, in every environment. With `--yes` it sends in
 batches of 100 and records each account it emailed under `--key`, so a rerun, after a Resend
