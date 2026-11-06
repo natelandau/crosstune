@@ -52,7 +52,7 @@ def test_web_source_touches_web():
 
 def test_web_tests_and_tooling_touch_nothing():
     assert touched_platforms(["web/src/app/App.test.tsx", "web/src/x.test.ts"]) == []
-    assert touched_platforms(["web/scripts/shots-diff.mjs", "web/package.json"]) == []
+    assert touched_platforms(["web/scripts/shots-diff.ts", "web/package.json"]) == []
 
 
 def test_apple_ui_touches_mac_and_ios():

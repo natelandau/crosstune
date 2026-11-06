@@ -141,7 +141,7 @@ preview:
 # Capture the component gallery and screens
 [group('run')]
 gallery-shots:
-    node scripts/gallery-shots.mjs
+    node scripts/gallery-shots.ts
 
 # Build for production and validate the Worker
 [group('build')]
@@ -170,7 +170,7 @@ contract:
 [script]
 _generate $out:
     pnpm --silent openapi-typescript ../api/openapi.json -o "$out/schema.d.ts" > /dev/null
-    node scripts/vocabulary.mjs ../api/openapi.json "$out/vocabulary.raw.ts"
+    node scripts/vocabulary.ts ../api/openapi.json "$out/vocabulary.raw.ts"
     # Formatted as the committed file's path so prettier applies that file's config.
     pnpm --silent exec prettier --stdin-filepath src/api/vocabulary.ts < "$out/vocabulary.raw.ts" > "$out/vocabulary.ts"
     rm "$out/vocabulary.raw.ts"

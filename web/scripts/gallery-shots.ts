@@ -9,24 +9,70 @@
 // the sign-in screen renders with no Clerk instance.
 
 import { mkdir, rm, writeFile } from 'node:fs/promises'
-import { createServer as createNetServer } from 'node:net'
+import { createServer as createNetServer, type AddressInfo } from 'node:net'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { chromium, webkit } from 'playwright'
+import {
+  chromium,
+  webkit,
+  type Browser,
+  type BrowserContext,
+  type Locator,
+  type Page,
+} from 'playwright'
 import { createServer } from 'vite'
+
+type Density = 'touch' | 'pointer'
+type SyncState = 'error' | 'offline'
+
+interface Viewport {
+  width: number
+  height: number
+}
+
+interface Size extends Viewport {
+  name: string
+}
+
+interface Look {
+  name: string
+  appearance: 'light' | 'dark'
+  textSize: 'regular' | 'large'
+}
+
+interface Opened {
+  context: BrowserContext
+  page: Page
+}
+
+interface AppOptions {
+  size: Viewport
+  density: Density
+  look?: Look
+  path: string
+  sync?: SyncState
+  signIn?: boolean
+}
+
+declare global {
+  interface Window {
+    /** The view transition animations `holdNextTransition` paused, once the transition starts. */
+    __held: Animation[] | null
+  }
+}
 
 // `--web DIR` serves another checkout's web app, such as a base commit's, with this script.
 const webFlag = process.argv.indexOf('--web')
 const WEB =
   webFlag === -1
     ? fileURLToPath(new URL('..', import.meta.url))
-    : resolve(process.argv[webFlag + 1])
+    : resolve(process.argv[webFlag + 1]!)
 // `--out DIR` writes the shots there instead.
 const outFlag = process.argv.indexOf('--out')
 const OUT =
   outFlag === -1
     ? fileURLToPath(new URL('../.cache/gallery-shots/', import.meta.url))
-    : `${resolve(process.argv[outFlag + 1])}/`
+    : `${resolve(process.argv[outFlag + 1]!)}/`
 const CLERK_STUB = resolve(WEB, 'src/fixture/clerkStub.tsx')
 
 // Ids and titles from src/fixture/seed.ts.
@@ -48,40 +94,47 @@ const QUICK_FIND_QUERY = 'so'
 // shot changes only when the app does, never with the day it was taken.
 const NOW = '2026-10-06T16:00:00.000Z'
 
-const PHONE = { name: '390', width: 390, height: 844 }
-const SPLIT = { name: '820', width: 820, height: 1180 }
-const DESKTOP = { name: '1280', width: 1280, height: 800 }
+const PHONE: Size = { name: '390', width: 390, height: 844 }
+const SPLIT: Size = { name: '820', width: 820, height: 1180 }
+const DESKTOP: Size = { name: '1280', width: 1280, height: 800 }
 const SIZES = [PHONE, SPLIT, DESKTOP]
 
-const DENSITIES = ['touch', 'pointer']
+const DENSITIES: Density[] = ['touch', 'pointer']
 
-const LIGHT = { name: 'light', appearance: 'light', textSize: 'regular' }
-const DARK = { name: 'dark', appearance: 'dark', textSize: 'regular' }
-const LARGE = { name: 'large-light', appearance: 'light', textSize: 'large' }
+const LIGHT: Look = { name: 'light', appearance: 'light', textSize: 'regular' }
+const DARK: Look = { name: 'dark', appearance: 'dark', textSize: 'regular' }
+const LARGE: Look = { name: 'large-light', appearance: 'light', textSize: 'large' }
 const LOOKS = [LIGHT, DARK, LARGE]
 
 /** The frames the app is captured on: each at the density its device has. */
-const APP_FRAMES = [
+const APP_FRAMES: { size: Size; density: Density }[] = [
   { size: PHONE, density: 'touch' },
   { size: SPLIT, density: 'touch' },
   { size: DESKTOP, density: 'pointer' },
 ]
 
 /** A port nothing holds now, so the capture runs beside `just dev` on 5173. */
-function freePort() {
+function freePort(): Promise<number> {
   return new Promise((resolve, reject) => {
     const probe = createNetServer()
     probe.once('error', reject)
     probe.listen(0, '127.0.0.1', () => {
-      const { port } = probe.address()
+      // A TCP listener's address is always an AddressInfo, never a pipe name.
+      const { port } = probe.address() as AddressInfo
       probe.close(() => resolve(port))
     })
   })
 }
 
-const errors = []
+const errors: string[] = []
 
-async function open(browser, url, size, density, look) {
+async function open(
+  browser: Browser,
+  url: string,
+  size: Viewport,
+  density: Density,
+  look: Look,
+): Promise<Opened> {
   const touch = density === 'touch'
   const context = await browser.newContext({
     viewport: { width: size.width, height: size.height },
@@ -103,7 +156,7 @@ async function open(browser, url, size, density, look) {
   return { context, page }
 }
 
-async function settle(page, density) {
+async function settle(page: Page, density: Density): Promise<void> {
   // The app stamps density from the hover media query, which emulation does not always flip,
   // and a width alone never implies a density.
   const stamped = await page.evaluate(() => document.documentElement.dataset.density)
@@ -115,7 +168,13 @@ async function settle(page, density) {
   await page.evaluate(() => document.fonts.ready)
 }
 
-async function openGallery(browser, origin, size, density, look) {
+async function openGallery(
+  browser: Browser,
+  origin: string,
+  size: Size,
+  density: Density,
+  look: Look,
+): Promise<Opened> {
   const { context, page } = await open(
     browser,
     `${origin}/gallery?fixture&now=${NOW}`,
@@ -128,25 +187,29 @@ async function openGallery(browser, origin, size, density, look) {
   return { context, page }
 }
 
-async function openApp(browser, origin, { size, density, look = LIGHT, path, sync, signIn }) {
+async function openApp(
+  browser: Browser,
+  origin: string,
+  { size, density, look = LIGHT, path, sync, signIn }: AppOptions,
+): Promise<Opened> {
   const query = signIn ? 'fixture=signin' : `fixture&now=${NOW}${sync ? `&sync=${sync}` : ''}`
   const { context, page } = await open(browser, `${origin}${path}?${query}`, size, density, look)
   return { context, page }
 }
 
-const tuneRows = (page) => page.getByRole('grid', { name: 'Tunes' }).getByRole('row')
-const tunePage = (page) => page.getByRole('main', { name: 'Tune' })
+const tuneRows = (page: Page) => page.getByRole('grid', { name: 'Tunes' }).getByRole('row')
+const tunePage = (page: Page) => page.getByRole('main', { name: 'Tune' })
 
-const grid = (page, name) => page.getByRole('grid', { name, exact: true })
+const grid = (page: Page, name: string) => page.getByRole('grid', { name, exact: true })
 
 /** Waits for the grid's first row, then for every image on the page to draw. */
-async function gridReady(page, density, name) {
+async function gridReady(page: Page, density: Density, name: string): Promise<void> {
   await grid(page, name).getByRole('row').first().waitFor()
   await imagesDrawn(page)
   await settle(page, density)
 }
 
-async function imagesDrawn(page) {
+async function imagesDrawn(page: Page): Promise<void> {
   await page.waitForFunction(() =>
     [...document.querySelectorAll('img')].every(
       (image) => image.complete && image.naturalWidth > 0,
@@ -155,23 +218,27 @@ async function imagesDrawn(page) {
 }
 
 // Recordings group into a grid per tune, so a known row is the thing to wait for.
-async function recordingsReady(page, density) {
+async function recordingsReady(page: Page, density: Density): Promise<void> {
   await page.getByRole('row', { name: new RegExp(RECORDING_LABEL) }).waitFor()
   await settle(page, density)
 }
 
-async function catalogReady(page, density) {
+async function catalogReady(page: Page, density: Density): Promise<void> {
   await tuneRows(page).first().waitFor()
   await settle(page, density)
 }
 
 /** `scanned` says the tune holds a scan this browser could store, so its thumbnail must draw. */
-async function tuneReady(page, density, { scanned = false } = {}) {
+async function tuneReady(
+  page: Page,
+  density: Density,
+  { scanned = false }: { scanned?: boolean } = {},
+): Promise<void> {
   await tunePage(page).getByRole('heading', { level: 1 }).waitFor()
   // On wide the list beside the page reads after the page does. On narrow that list stays
   // mounted, hidden and unrendered, under the page, so only a shown grid counts.
   await page.waitForFunction(() =>
-    [...document.querySelectorAll('[role=grid]')]
+    [...document.querySelectorAll<HTMLElement>('[role=grid]')]
       .filter((grid) => grid.offsetParent !== null)
       .every((grid) => grid.querySelector('[role=row]')),
   )
@@ -182,7 +249,7 @@ async function tuneReady(page, density, { scanned = false } = {}) {
     const lists = [...(sidebar?.querySelectorAll('a[href*="/lists/"]') ?? [])]
     const counted =
       !sidebar || (lists.length > 0 && lists.every((row) => row.querySelector('[data-count]')))
-    const images = [...document.querySelectorAll('[aria-label=Scans] img')]
+    const images = [...document.querySelectorAll<HTMLImageElement>('[aria-label=Scans] img')]
     const drawn = images.every((image) => image.complete && image.naturalWidth > 0)
     return counted && drawn && (!withScan || images.length > 0)
   }, scanned)
@@ -193,7 +260,7 @@ async function tuneReady(page, density, { scanned = false } = {}) {
  * Scrolls the element's scrolling column to its end, since the shell, not the page, scrolls.
  * Returns whether there was anything to scroll.
  */
-async function scrollToEnd(locator) {
+async function scrollToEnd(locator: Locator): Promise<boolean> {
   return locator.evaluate((element) => {
     let column = element.parentElement
     while (column && column.scrollHeight <= column.clientHeight) column = column.parentElement
@@ -203,9 +270,9 @@ async function scrollToEnd(locator) {
 }
 
 /** Waits until an overlay stops moving, since its entrance is driven from script, not CSS. */
-async function still(locator) {
+async function still(locator: Locator): Promise<void> {
   await locator.waitFor()
-  let last = null
+  let last: string | null = null
   for (let tries = 0; tries < 60; tries += 1) {
     const box = JSON.stringify(await locator.boundingBox())
     if (box === last) return
@@ -216,7 +283,12 @@ async function still(locator) {
 
 /** Writes the page once two screenshots in a row match, so a list still filtering or a layout
  * still settling never lands in a shot that a later run would take differently. */
-async function shoot(page, file, fullPage = false, animations = 'disabled') {
+async function shoot(
+  page: Page,
+  file: string,
+  fullPage = false,
+  animations: 'disabled' | 'allow' = 'disabled',
+): Promise<void> {
   const path = `${OUT}${file}.png`
   let shot = await page.screenshot({ fullPage, animations })
   for (let tries = 0; tries < 20; tries += 1) {
@@ -229,7 +301,7 @@ async function shoot(page, file, fullPage = false, animations = 'disabled') {
   console.log(`wrote ${path}`)
 }
 
-async function captureGallery(browser, origin) {
+async function captureGallery(browser: Browser, origin: string): Promise<void> {
   for (const size of SIZES) {
     for (const density of DENSITIES) {
       for (const look of LOOKS) {
@@ -263,7 +335,13 @@ async function captureGallery(browser, origin) {
 }
 
 /** Catalog, catalog with Key D set and the key chooser open, tune page, tune form, sign-in. */
-async function captureScreens(browser, origin, size, density, look) {
+async function captureScreens(
+  browser: Browser,
+  origin: string,
+  size: Size,
+  density: Density,
+  look: Look,
+): Promise<void> {
   const name = `app-${size.name}-${density}-${look.name}`
   let { context, page } = await openApp(browser, origin, { size, density, look, path: '/catalog' })
   await catalogReady(page, density)
@@ -310,7 +388,7 @@ async function captureScreens(browser, origin, size, density, look) {
 }
 
 /** Every appearance variable the sign-in screen gives Clerk must name a token that resolves. */
-async function checkClerkAppearance(browser, origin) {
+async function checkClerkAppearance(browser: Browser, origin: string): Promise<void> {
   const { context, page } = await openApp(browser, origin, {
     size: PHONE,
     density: 'touch',
@@ -325,7 +403,7 @@ async function checkClerkAppearance(browser, origin) {
       ...Object.values(window.__clerkAppearance?.elements ?? {}).flatMap(Object.values),
     ]
     return values
-      .flatMap((value) => [...String(value).matchAll(/var\((--[\w-]+)\)/g)].map((m) => m[1]))
+      .flatMap((value) => [...String(value).matchAll(/var\((--[\w-]+)\)/g)].map((m) => m[1]!))
       .filter((name) => style.getPropertyValue(name).trim() === '')
   })
   if (unresolved.length) errors.push(`Clerk appearance names unset tokens: ${unresolved}`)
@@ -337,9 +415,15 @@ async function checkClerkAppearance(browser, origin) {
  * Lists, a list page, selection, recordings and their sheets, Settings, stats, and the lyrics
  * and scan viewers, on one frame and look.
  */
-async function captureLibrary(browser, origin, size, density, look) {
+async function captureLibrary(
+  browser: Browser,
+  origin: string,
+  size: Size,
+  density: Density,
+  look: Look,
+): Promise<void> {
   const name = `app-${size.name}-${density}-${look.name}`
-  const at = (path) => openApp(browser, origin, { size, density, look, path })
+  const at = (path: string) => openApp(browser, origin, { size, density, look, path })
 
   let { context, page } = await at('/lists')
   await gridReady(page, density, 'Lists')
@@ -417,7 +501,13 @@ async function captureLibrary(browser, origin, size, density, look) {
  * Practice on the fixture's take, then renaming its unnamed loop, which shows the suggestion
  * chips. Practice draws in the dark scheme in every appearance, so both looks are checked.
  */
-async function capturePractice(browser, origin, size, density, look) {
+async function capturePractice(
+  browser: Browser,
+  origin: string,
+  size: Size,
+  density: Density,
+  look: Look,
+): Promise<void> {
   const name = `app-${size.name}-${density}-${look.name}`
   const { context, page } = await openApp(browser, origin, {
     size,
@@ -462,7 +552,13 @@ async function capturePractice(browser, origin, size, density, look) {
 }
 
 /** The page an unknown address lands on. */
-async function captureNotFound(browser, origin, size, density, look) {
+async function captureNotFound(
+  browser: Browser,
+  origin: string,
+  size: Size,
+  density: Density,
+  look: Look,
+): Promise<void> {
   const { context, page } = await openApp(browser, origin, {
     size,
     density,
@@ -480,9 +576,15 @@ async function captureNotFound(browser, origin, size, density, look) {
  * Find's command on touch, where single-key shortcuts do not run. A pending `G` shows nothing,
  * so it has no shot.
  */
-async function captureKeyboard(browser, origin, size, density, look) {
+async function captureKeyboard(
+  browser: Browser,
+  origin: string,
+  size: Size,
+  density: Density,
+  look: Look,
+): Promise<void> {
   const name = `app-${size.name}-${density}-${look.name}`
-  const quickFind = (page) => page.getByRole('dialog', { name: 'Quick Find' })
+  const quickFind = (page: Page) => page.getByRole('dialog', { name: 'Quick Find' })
   const openQuickFind = async () => {
     const opened = await openApp(browser, origin, { size, density, look, path: '/catalog' })
     await catalogReady(opened.page, density)
@@ -518,9 +620,15 @@ async function captureKeyboard(browser, origin, size, density, look) {
 }
 
 /** The Settings root, the Sync and storage page, and stats. */
-async function captureSettings(browser, origin, size, density, look) {
+async function captureSettings(
+  browser: Browser,
+  origin: string,
+  size: Size,
+  density: Density,
+  look: Look,
+): Promise<void> {
   const name = `app-${size.name}-${density}-${look.name}`
-  const at = (path) => openApp(browser, origin, { size, density, look, path })
+  const at = (path: string) => openApp(browser, origin, { size, density, look, path })
   let { context, page } = await at('/settings')
   await gridReady(page, density, 'Settings categories')
   await shoot(page, `${name}-settings`)
@@ -543,7 +651,7 @@ async function captureSettings(browser, origin, size, density, look) {
   await context.close()
 }
 
-async function captureExtras(browser, origin) {
+async function captureExtras(browser: Browser, origin: string): Promise<void> {
   for (const { size, density } of APP_FRAMES) {
     await captureSettings(browser, origin, size, density, LARGE)
     await captureScreens(browser, origin, size, density, LARGE)
@@ -585,7 +693,7 @@ async function captureExtras(browser, origin) {
   for (const [size, density, sync] of [
     [PHONE, 'touch', 'error'],
     [DESKTOP, 'pointer', 'offline'],
-  ]) {
+  ] as const) {
     ;({ context, page } = await openApp(browser, origin, { size, density, path: '/catalog', sync }))
     await catalogReady(page, density)
     await shoot(page, `app-${size.name}-${density}-light-sync-${sync}`)
@@ -597,7 +705,7 @@ async function captureExtras(browser, origin) {
  * Freezes the next view transition as soon as it starts, so a capture can step through it.
  * React starts it through `document.startViewTransition`, which this wraps.
  */
-function holdNextTransition(page) {
+function holdNextTransition(page: Page): Promise<void> {
   return page.evaluate(() => {
     window.__held = null
     const start = document.startViewTransition.bind(document)
@@ -606,7 +714,11 @@ function holdNextTransition(page) {
       transition.ready.then(() => {
         const animations = document
           .getAnimations()
-          .filter((a) => a.effect?.pseudoElement?.startsWith('::view-transition'))
+          .filter(
+            (a) =>
+              a.effect instanceof KeyframeEffect &&
+              a.effect.pseudoElement?.startsWith('::view-transition'),
+          )
         for (const animation of animations) animation.pause()
         window.__held = animations
       })
@@ -615,23 +727,23 @@ function holdNextTransition(page) {
   })
 }
 
-async function stepHeldTransition(page, file, fractions) {
+async function stepHeldTransition(page: Page, file: string, fractions: number[]): Promise<void> {
   await page.waitForFunction(() => window.__held !== null)
-  const count = await page.evaluate(() => window.__held.length)
+  const count = await page.evaluate(() => window.__held!.length)
   if (count === 0) errors.push(`${file}: the view transition had no animations`)
   for (const fraction of fractions) {
     await page.evaluate((at) => {
-      for (const animation of window.__held) {
-        const { delay = 0, duration } = animation.effect.getComputedTiming()
+      for (const animation of window.__held!) {
+        const { delay = 0, duration } = animation.effect!.getComputedTiming()
         animation.currentTime = delay + Number(duration) * at
       }
     }, fraction)
     await shoot(page, `${file}-${Math.round(fraction * 100)}`, false, 'allow')
   }
-  await page.evaluate(() => window.__held.forEach((animation) => animation.finish()))
+  await page.evaluate(() => window.__held!.forEach((animation) => animation.finish()))
 }
 
-async function captureTransitions(browser, origin) {
+async function captureTransitions(browser: Browser, origin: string): Promise<void> {
   let { context, page } = await openApp(browser, origin, {
     size: PHONE,
     density: 'touch',
@@ -663,7 +775,7 @@ async function captureTransitions(browser, origin) {
   await context.close()
 }
 
-async function captureWebKit(origin) {
+async function captureWebKit(origin: string): Promise<void> {
   const browser = await webkit.launch({ headless: true })
   try {
     let { context, page } = await openApp(browser, origin, {
@@ -695,7 +807,7 @@ const server = await createServer({
   server: { host: '127.0.0.1', port, strictPort: true },
   resolve: { alias: [{ find: /^@clerk\/react$/, replacement: CLERK_STUB }] },
 })
-let browser
+let browser: Browser | undefined
 try {
   await server.listen()
   const origin = `http://127.0.0.1:${port}`

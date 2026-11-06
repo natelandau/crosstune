@@ -16,7 +16,9 @@
     "noEmit": true,
     "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
+    "allowJs": true,
+    "checkJs": true,
     "types": ["vite/client", "vite-plugin-pwa/client", "@testing-library/jest-dom", "node"]
   },
-  "include": ["src", "e2e", "worker", "scripts", "*.ts"]
+  "include": ["src", "e2e", "worker", "scripts", "*.ts", "*.js"]
 }

@@ -2,8 +2,8 @@
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "entry": [
     "e2e/global.setup.ts",
-    "scripts/gallery-shots.mjs",
-    "src/features/scans/fixtures/generate.mjs"
+    "scripts/gallery-shots.ts",
+    "src/features/scans/fixtures/generate.ts"
   ],
   "ignoreBinaries": ["just", "sips"],
   "ignoreExportsUsedInFile": true,

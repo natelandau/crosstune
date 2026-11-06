@@ -284,7 +284,7 @@ class Review:
             subprocess.run(
                 [
                     "node",
-                    str(self.root / "web/scripts/gallery-shots.mjs"),
+                    str(self.root / "web/scripts/gallery-shots.ts"),
                     "--web",
                     str(checkout / "web"),
                     "--out",
@@ -350,7 +350,7 @@ class Review:
         diff = subprocess.run(
             [
                 "node",
-                str(self.root / "web/scripts/shots-diff.mjs"),
+                str(self.root / "web/scripts/shots-diff.ts"),
                 str(self.base_set(platform)),
                 str(branch),
                 str(self.shots / "review" / platform),

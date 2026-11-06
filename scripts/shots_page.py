@@ -2,7 +2,7 @@
 """Builds index.html in a review folder from each platform's diff manifest.
 
 Each platform folder holds before/, after/, diff/, and manifest.json from
-web/scripts/shots-diff.mjs. The page links the images by relative path, so the folder can be
+web/scripts/shots-diff.ts. The page links the images by relative path, so the folder can be
 opened or published as it is.
 """
 

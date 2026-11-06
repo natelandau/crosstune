@@ -3,21 +3,24 @@
 // changed pair goes to OUT/before, OUT/after, and OUT/diff, and OUT/manifest.json lists every
 // changed, added, and removed shot. Identical shots leave nothing behind.
 //
-// usage: node scripts/shots-diff.mjs BASE BRANCH OUT
+// usage: node scripts/shots-diff.ts BASE BRANCH OUT
 
 import { copyFile, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { dirname, join, relative } from 'node:path'
 import pixelmatch from 'pixelmatch'
 import { PNG } from 'pngjs'
 
-async function listShots(root) {
-  const found = []
-  async function walk(folder) {
+type Shot =
+  { path: string; status: 'added' | 'removed' } | { path: string; status: 'changed'; ratio: number }
+
+async function listShots(root: string): Promise<string[]> {
+  const found: string[] = []
+  async function walk(folder: string): Promise<void> {
     let entries
     try {
       entries = await readdir(folder, { withFileTypes: true })
     } catch (error) {
-      if (error.code === 'ENOENT') return
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return
       throw error
     }
     for (const entry of entries) {
@@ -32,7 +35,10 @@ async function listShots(root) {
 }
 
 // Share of pixels that differ, and the diff image; a size change counts as every pixel.
-function comparePngs(beforeBytes, afterBytes) {
+function comparePngs(
+  beforeBytes: Buffer,
+  afterBytes: Buffer,
+): { ratio: number; diff: Buffer | null } {
   const before = PNG.sync.read(beforeBytes)
   const after = PNG.sync.read(afterBytes)
   if (before.width !== after.width || before.height !== after.height)
@@ -42,17 +48,21 @@ function comparePngs(beforeBytes, afterBytes) {
   return { ratio: count / (before.width * before.height), diff: PNG.sync.write(diff) }
 }
 
-async function place(source, target) {
+async function place(source: string, target: string): Promise<void> {
   await mkdir(dirname(target), { recursive: true })
   await copyFile(source, target)
 }
 
-async function diffShots(baseRoot, branchRoot, outRoot) {
+async function diffShots(
+  baseRoot: string,
+  branchRoot: string,
+  outRoot: string,
+): Promise<{ same: number; shots: Shot[] }> {
   await rm(outRoot, { recursive: true, force: true })
   await mkdir(outRoot, { recursive: true })
   const base = new Set(await listShots(baseRoot))
   const branch = new Set(await listShots(branchRoot))
-  const shots = []
+  const shots: Shot[] = []
   let same = 0
   for (const path of [...new Set([...base, ...branch])].sort()) {
     if (!branch.has(path)) {
@@ -87,14 +97,15 @@ async function diffShots(baseRoot, branchRoot, outRoot) {
   return manifest
 }
 
-const [baseRoot, branchRoot, outRoot] = process.argv.slice(2)
+// The defaults never apply: OUT is the third argument, so both roots precede it.
+const [baseRoot = '', branchRoot = '', outRoot] = process.argv.slice(2)
 if (!outRoot) {
-  console.error('usage: node scripts/shots-diff.mjs BASE BRANCH OUT')
+  console.error('usage: node scripts/shots-diff.ts BASE BRANCH OUT')
   process.exit(2)
 }
 const { same, shots } = await diffShots(baseRoot, branchRoot, outRoot)
 for (const shot of shots) {
-  const share = shot.ratio === undefined ? '' : ` ${(shot.ratio * 100).toFixed(2)}%`
+  const share = shot.status === 'changed' ? ` ${(shot.ratio * 100).toFixed(2)}%` : ''
   console.log(`${shot.status} ${shot.path}${share}`)
 }
 console.log(`${shots.length} differ, ${same} same`)
