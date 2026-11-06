@@ -3,11 +3,6 @@ default_install_hook_types: [pre-commit, pre-push, commit-msg]
 default_stages: [pre-commit, manual]
 fail_fast: true
 repos:
-  - repo: "https://github.com/commitizen-tools/commitizen"
-    rev: v4.19.3
-    hooks:
-      - id: commitizen
-
   - repo: "https://github.com/pre-commit/pre-commit-hooks"
     rev: v6.0.0
     hooks:
@@ -77,12 +72,6 @@ repos:
     hooks:
       - id: shellcheck
 
-  - repo: "https://github.com/crate-ci/committed"
-    rev: v1.1.11
-    hooks:
-      - id: committed
-        stages: [commit-msg]
-
   - repo: "https://github.com/tsvikas/sync-with-uv"
     rev: v0.6.0
     hooks:
@@ -116,9 +105,16 @@ repos:
         stages: [pre-push]
         files: ^(api/|compose\.yml$|scripts/(gate-cache|media-tools)\.sh$)
 
-      - id: commitizen-branch
-        name: commitizen check branch
-        entry: bash -c 'uv run --project api --quiet cz check --rev-range "$PRE_COMMIT_FROM_REF..$PRE_COMMIT_TO_REF"' --
+      # committed.toml holds the rules. Commitizen writes and bumps commits but does not check them.
+      - id: committed
+        name: committed
+        entry: uv run --project api --quiet committed --fixup --wip --commit-file
+        language: system
+        stages: [commit-msg]
+
+      - id: committed-branch
+        name: committed (branch)
+        entry: bash -c 'uv run --project api --quiet committed "$PRE_COMMIT_FROM_REF..$PRE_COMMIT_TO_REF"' --
         language: system
         stages: [pre-push]
         pass_filenames: false

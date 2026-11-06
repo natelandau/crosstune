@@ -232,6 +232,23 @@ wheels = [
 ]
 
 [[package]]
+name = "committed"
+version = "1.1.12"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/99/1b/0eafbeb3b27a2fd71ab9aad92e7ddf6b46c4be350bec4b659d899b77a985/committed-1.1.12.tar.gz", hash = "sha256:d9a891d19b57572a26f2aa7a31e5a4881ed8594b1559cd124be947ae15167ac6", size = 23214, upload-time = "2026-11-04T22:35:15.217Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/60/03/b8e011f2f293ba79874b19d6d529545f3b909f7ba9db989a10bd7585d576/committed-1.1.12-py3-none-macosx_10_12_x86_64.whl", hash = "sha256:66137026fea796af9234d41f3369a7746609d971bcfec51e065f2f27438c87bf", size = 1584162, upload-time = "2026-11-04T22:35:01.21Z" },
+    { url = "https://files.pythonhosted.org/packages/29/64/b0e7a4e9f1d318486ee2a722f1ab64809eeba442c855cc32d03f82168e41/committed-1.1.12-py3-none-macosx_11_0_arm64.whl", hash = "sha256:e67b501854511a925cf8c33edf3946c51dd3e42583d5569c6a174075b8f2e863", size = 1480408, upload-time = "2026-11-04T22:35:02.601Z" },
+    { url = "https://files.pythonhosted.org/packages/f3/a0/62f644ebb3bf10264bbfc8a189b0ba75a95f0ddec0a5b60730bc0ee9658d/committed-1.1.12-py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:f1a6f847479301b1258e4a1ec546261b28b75afc1540c257bb485deab4c2ea26", size = 5327179, upload-time = "2026-11-04T22:35:04.094Z" },
+    { url = "https://files.pythonhosted.org/packages/73/b3/9969bed32dbad15f5f4a952299ce6bee8d4a88b039f5909601e0aa753768/committed-1.1.12-py3-none-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:9f7a79839e764eb025edecaaccea67e20f2431ce1c59c83357dcbd92d60ae434", size = 6062968, upload-time = "2026-11-04T22:35:05.813Z" },
+    { url = "https://files.pythonhosted.org/packages/67/d8/e5a0ebd4ee9b3db0eed59a75323acceb58076199c67e5543b8c328f0b5a2/committed-1.1.12-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:e15be27aae45700b1c48c3add52e22961a817783ec536f7aadee5f7371ffdea3", size = 6320232, upload-time = "2026-11-04T22:35:07.643Z" },
+    { url = "https://files.pythonhosted.org/packages/bf/fb/c33619a7e00558fdfb04b540fa2b68e42024cdfa9da41adbf56b04e81dd4/committed-1.1.12-py3-none-musllinux_1_2_aarch64.whl", hash = "sha256:02cdaea1d7e0c1db796fc98e16005ed0bca7184f206af22f27dfbe1d4b35a325", size = 5956566, upload-time = "2026-11-04T22:35:09.361Z" },
+    { url = "https://files.pythonhosted.org/packages/ef/fc/be85c8b1ea6f23952f54c6a9d6f82b1b7708427f4db4bf9a63dd10107668/committed-1.1.12-py3-none-musllinux_1_2_x86_64.whl", hash = "sha256:4c36e1c54c57bfa10a100a8fe3fe7cacb7364b597477f8d6086903fda17d6778", size = 6123936, upload-time = "2026-11-04T22:35:10.782Z" },
+    { url = "https://files.pythonhosted.org/packages/d2/3b/5abe04b3b8b2f3d5a1f6385a28e4c4c2322cd4777e7f535d136ba61a9365/committed-1.1.12-py3-none-win32.whl", hash = "sha256:a5aba913323d26bc68b74bc8122f0f92af7c5c4b21710626b57c56c4e5f04483", size = 1558505, upload-time = "2026-11-04T22:35:12.577Z" },
+    { url = "https://files.pythonhosted.org/packages/ea/db/df7332b9f548a8779b767fcbf0a4a6575e489faecb8589efec2b16d88d87/committed-1.1.12-py3-none-win_amd64.whl", hash = "sha256:3331023395c36f47dfa2c7995998ec1886cb05df13c506d9fdaff9163b3ca0c4", size = 1748341, upload-time = "2026-11-04T22:35:13.973Z" },
+]
+
+[[package]]
 name = "coverage"
 version = "7.17.0"
 source = { registry = "https://pypi.org/simple" }
@@ -284,6 +301,7 @@ dependencies = [
 dev = [
     { name = "anyio" },
     { name = "commitizen" },
+    { name = "committed" },
     { name = "gate-cache" },
     { name = "honcho" },
     { name = "prek" },
@@ -325,6 +343,7 @@ requires-dist = [
 dev = [
     { name = "anyio", specifier = ">=4.15.1" },
     { name = "commitizen", specifier = ">=4.18.0" },
+    { name = "committed", specifier = ">=1.1.12" },
     { name = "gate-cache", specifier = ">=0.4.0" },
     { name = "honcho", specifier = ">=2.0.0" },
     { name = "prek", specifier = ">=0.5.2" },
