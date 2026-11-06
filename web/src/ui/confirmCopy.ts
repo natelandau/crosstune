@@ -1,6 +1,7 @@
 export const DELETE = 'Delete'
 export const DELETING = 'Deleting…'
 export const CANCEL = 'Cancel'
+export const OK = 'OK'
 export const DONE = 'Done'
 export const CLOSE = 'Close'
 export const EDIT = 'Edit'

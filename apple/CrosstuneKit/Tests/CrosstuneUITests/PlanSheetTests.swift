@@ -166,11 +166,33 @@ private let portal = URL(string: "https://billing.example.com/portal")!
         #expect(PlanSheet.sale(plan: premium, offers: .ready(offers), line: .subscribed) == .subscribed)
         #expect(PlanText.line(.subscribed) == PlanText.subscribed)
         #expect(PlanText.line(.pending) == PlanText.subscribePending)
-        #expect(PlanText.line(.failed) == PlanText.subscribeFailed)
+        #expect(PlanText.line(.failed) == nil)
         #expect(PlanText.line(.restored) == PlanText.restored)
         #expect(PlanText.line(.nothingToRestore) == PlanText.nothingToRestore)
         #expect(PlanText.line(.otherAccount) == PlanText.otherAccount)
-        #expect(PlanText.line(.restoreFailed) == PlanText.restoreFailed)
+        #expect(PlanText.line(.restoreFailed) == nil)
+    }
+
+    @Test func aFailedTryInTheSheetIsAnAlert() {
+        #expect(StoreAlert.failure(.failed) == .subscribeFailed)
+        #expect(StoreAlert.failure(.restoreFailed) == .restoreFailed)
+        for line: PurchaseModel.Line? in [.subscribed, .pending, .restored, .nothingToRestore, .otherAccount, nil] {
+            #expect(StoreAlert.failure(line) == nil, "\(String(describing: line))")
+        }
+        #expect(PlanSheet.storeAlert(.choice(offers), line: .failed, unavailableDismissed: false) == .subscribeFailed)
+        #expect(PlanSheet.storeAlert(.offline, line: .restoreFailed, unavailableDismissed: false) == .restoreFailed)
+        #expect(PlanSheet.storeAlert(.choice(offers), line: .pending, unavailableDismissed: false) == nil)
+    }
+
+    @Test func aStoreThatCannotAnswerIsAnAlertUntilDismissed() {
+        #expect(PlanSheet.storeAlert(.unavailable, line: nil, unavailableDismissed: false) == .unavailable)
+        #expect(PlanSheet.storeAlert(.unavailable, line: nil, unavailableDismissed: true) == nil)
+        // A failed try says its own failure first.
+        #expect(PlanSheet.storeAlert(.unavailable, line: .restoreFailed, unavailableDismissed: false) == .restoreFailed)
+        // Offline is a line, never an alert.
+        #expect(PlanSheet.storeAlert(.offline, line: nil, unavailableDismissed: false) == nil)
+        #expect(StoreAlert.unavailable.title == PlanText.subscribeUnavailableTitle)
+        #expect(StoreAlert.unavailable.message == PlanText.subscribeUnavailableMessage)
     }
 
     @Test func aRestoreSettlesTheSheetAsAPurchaseDoes() {
@@ -188,16 +210,18 @@ private let portal = URL(string: "https://billing.example.com/portal")!
 
     @Test func theOutcomeLineIsTheOutcomeOrTheSettledLine() {
         #expect(PlanSheet.outcomeLine(.choice(offers), line: nil) == nil)
-        #expect(PlanSheet.outcomeLine(.choice(offers), line: .failed) == PlanText.line(.failed))
+        #expect(PlanSheet.outcomeLine(.choice(offers), line: .pending) == PlanText.subscribePending)
+        #expect(PlanSheet.outcomeLine(.choice(offers), line: .failed) == nil)
         #expect(PlanSheet.outcomeLine(.subscribed, line: .restored) == PlanText.restored)
         #expect(PlanSheet.outcomeLine(.subscribed, line: .subscribed) == PlanText.subscribed)
         #expect(PlanSheet.outcomeLine(.offline, line: nil) == PlanText.subscribeOffline)
         // A restore tried while offline says how it went in place of the offline line.
-        #expect(PlanSheet.outcomeLine(.offline, line: .restoreFailed) == PlanText.line(.restoreFailed))
-        #expect(PlanSheet.outcomeLine(.unavailable, line: nil) == PlanText.subscribeUnavailable)
-        #expect(PlanSheet.outcomeLine(.unavailable, line: .failed) == PlanText.line(.failed))
+        #expect(PlanSheet.outcomeLine(.offline, line: .nothingToRestore) == PlanText.nothingToRestore)
+        // The alert says the store could not answer, so no line does.
+        #expect(PlanSheet.outcomeLine(.unavailable, line: nil) == nil)
+        #expect(PlanSheet.outcomeLine(.unavailable, line: .nothingToRestore) == PlanText.nothingToRestore)
         #expect(PlanSheet.outcomeLine(.notPurchasable, line: nil) == nil)
-        #expect(PlanSheet.outcomeLine(.notPurchasable, line: .restoreFailed) == PlanText.line(.restoreFailed))
+        #expect(PlanSheet.outcomeLine(.notPurchasable, line: .nothingToRestore) == PlanText.nothingToRestore)
     }
 
     @Test func whileTheStoreAnswersSubscribesPlaceIsHeld() {
@@ -211,7 +235,7 @@ private let portal = URL(string: "https://billing.example.com/portal")!
         #expect(PlanSheet.sale(plan: .unknown, offers: .loading, line: nil) == .notPurchasable)
         #expect(PlanSheet.sale(plan: free, offers: .loading, line: .subscribed) == .subscribed)
         #expect(PlanSheet.outcomeLine(.loading, line: nil) == nil)
-        #expect(PlanSheet.outcomeLine(.loading, line: .restoreFailed) == PlanText.line(.restoreFailed))
+        #expect(PlanSheet.outcomeLine(.loading, line: .nothingToRestore) == PlanText.nothingToRestore)
     }
 
     @Test func onlyAPurchasableSheetForAPlanThatCanSubscribeAsksForOffers() {
@@ -549,9 +573,9 @@ private let portal = URL(string: "https://billing.example.com/portal")!
         @Test func offlineReasonIsTheMacSubtitle() {
             #expect(PlanSheet.macSubtitle(.offline, line: nil, pitch: "Pitch") == PlanText.subscribeOffline)
             #expect(PlanSheet.macOutcomeLine(.offline, line: nil) == nil)
-            #expect(PlanSheet.macSubtitle(.offline, line: .restoreFailed, pitch: "Pitch") == "Pitch")
-            #expect(PlanSheet.macOutcomeLine(.offline, line: .restoreFailed) == PlanText.line(.restoreFailed))
-            #expect(PlanSheet.macSubtitle(.unavailable, line: nil, pitch: "Pitch") == PlanText.subscribeUnavailable)
+            #expect(PlanSheet.macSubtitle(.offline, line: .nothingToRestore, pitch: "Pitch") == "Pitch")
+            #expect(PlanSheet.macOutcomeLine(.offline, line: .nothingToRestore) == PlanText.nothingToRestore)
+            #expect(PlanSheet.macSubtitle(.unavailable, line: nil, pitch: "Pitch") == "Pitch")
             #expect(PlanSheet.macOutcomeLine(.unavailable, line: nil) == nil)
             #expect(PlanSheet.macSubtitle(.loading, line: nil, pitch: "Pitch") == "Pitch")
             #expect(PlanSheet.macOutcomeLine(.subscribed, line: .subscribed) == PlanText.subscribed)

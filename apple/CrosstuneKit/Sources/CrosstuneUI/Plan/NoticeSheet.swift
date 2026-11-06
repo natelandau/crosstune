@@ -97,7 +97,7 @@ struct NoticeSheet: View {
         /// an earlier failure never sits over Compare plans once the store is gone.
         func outcome(_ line: PurchaseModel.Line?) -> String? {
             switch primary {
-            case .subscribe, .close: line.map(PlanText.line)
+            case .subscribe, .close: line.flatMap(PlanText.line)
             case .waiting, .comparePlans: nil
             }
         }
@@ -144,6 +144,9 @@ struct NoticeSheet: View {
     /// What stops when a trial ends.
     nonisolated static let loses = [NoticeText.losePlayback, NoticeText.loseRecording, NoticeText.loseScans]
 
+    /// A failed purchase from this notice's Subscribe.
+    private var failure: StoreAlert? { tried ? StoreAlert.failure(purchase?.line) : nil }
+
     var body: some View {
         #if os(macOS)
             Group {
@@ -153,6 +156,7 @@ struct NoticeSheet: View {
                     macTrial
                 }
             }
+            .storeAlert(failure) { purchase?.clearLine() }
             .shellSheet()
         #else
             Group {
@@ -162,6 +166,7 @@ struct NoticeSheet: View {
                     trial
                 }
             }
+            .storeAlert(failure) { purchase?.clearLine() }
             .presentationDetents([.medium, .large])
             .shellSheet()
         #endif

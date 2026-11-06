@@ -237,6 +237,9 @@ A role only one platform has is on that platform's page.
 
 - Error beside its control. Row action: reports under its list. Screen
   action: above the rows.
+- Store failure: an alert with OK alone, never a line or a toast. The
+  store cannot answer, a purchase fails, or a restore fails. A line beside
+  the control reads as the sheet's own text.
 - Empty list: icon, title naming what is absent, optional hint, optional
   action.
 - Loading is silence. The body shows nothing until its data is read.

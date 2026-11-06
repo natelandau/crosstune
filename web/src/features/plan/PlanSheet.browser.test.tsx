@@ -22,7 +22,7 @@ import { renderWithProviders } from '../../test/render'
 import { entitlementRow } from '../../test/rows'
 import type { SyncEngine } from '../../sync/types'
 import { Button } from '../../ui/Button'
-import { CANCEL, CLOSE } from '../../ui/confirmCopy'
+import { CANCEL, CLOSE, OK } from '../../ui/confirmCopy'
 import { FixedNow } from '../../ui/useNow'
 import { AnalyticsProvider } from '../../usage/AnalyticsProvider'
 import type { PremiumEntry, PremiumReason } from '../../usage/events'
@@ -64,9 +64,11 @@ import {
   save,
   SEE_PLAN,
   SUBSCRIBE,
-  SUBSCRIBE_FAILED,
+  SUBSCRIBE_FAILED_MESSAGE,
+  SUBSCRIBE_FAILED_TITLE,
   SUBSCRIBE_OFFLINE,
-  SUBSCRIBE_UNAVAILABLE,
+  SUBSCRIBE_UNAVAILABLE_MESSAGE,
+  SUBSCRIBE_UNAVAILABLE_TITLE,
   SUBSCRIBED,
   TERMS_OF_USE,
   TERMS_URL,
@@ -484,13 +486,18 @@ it('subscribes to the one period the store sells', async () => {
   await expect.poll(() => purchase.mock.calls).toEqual([['monthly']])
 })
 
-it('offers failing while online shows the unavailable line and no tiles', async () => {
+it('offers failing while online show the unavailable alert over the sheet and no tiles', async () => {
   await openPaywall({
     store: fakeStore({ offers: () => Promise.reject(new Error('unreachable')) }),
   })
 
-  await expect.element(planSheet().getByText(SUBSCRIBE_UNAVAILABLE)).toBeVisible()
+  const alert = storeAlert(SUBSCRIBE_UNAVAILABLE_TITLE)
+  await expect.element(alert).toBeVisible()
+  await expect.element(alert.getByText(SUBSCRIBE_UNAVAILABLE_MESSAGE)).toBeVisible()
   expect(planSheet().getByText(SUBSCRIBE_OFFLINE).query()).toBeNull()
+  await alert.getByRole('button', { name: OK }).click()
+
+  await expect.element(alert).not.toBeInTheDocument()
   await expect.element(planSheet().getByRole('table')).toBeVisible()
   expect(planSheet().getByRole('radio').query()).toBeNull()
   expect(planSheet().getByRole('button', { name: SUBSCRIBE }).query()).toBeNull()
@@ -521,7 +528,7 @@ it('asks the store again on reconnecting after it failed offline', async () => {
   window.dispatchEvent(new Event('online'))
 
   await expect.element(annual()).toBeChecked()
-  expect(planSheet().getByText(SUBSCRIBE_UNAVAILABLE).query()).toBeNull()
+  expect(storeAlert(SUBSCRIBE_UNAVAILABLE_TITLE).query()).toBeNull()
   await expect.poll(() => offers.mock.calls.length).toBe(2)
 })
 
@@ -620,7 +627,7 @@ it('a failed refresh still syncs and shows the toast', async () => {
 
   await expect.element(page.getByText(SUBSCRIBED)).toBeVisible()
   await expect.poll(() => sync.mock.calls.length).toBe(1)
-  expect(page.getByText(SUBSCRIBE_FAILED).query()).toBeNull()
+  expect(storeAlert(SUBSCRIBE_FAILED_TITLE).query()).toBeNull()
 })
 
 it('cancelled purchase shows nothing', async () => {
@@ -636,16 +643,18 @@ it('cancelled purchase shows nothing', async () => {
       { name: 'purchase_failed', props: { period: 'annual', reason: 'cancelled' } },
     ])
   expect(page.getByText(SUBSCRIBED).query()).toBeNull()
-  expect(page.getByText(SUBSCRIBE_FAILED).query()).toBeNull()
+  expect(storeAlert(SUBSCRIBE_FAILED_TITLE).query()).toBeNull()
 })
 
-it('failed purchase shows the failure toast', async () => {
+it('failed purchase shows the failure alert', async () => {
   const { analytics } = await openPaywall({
     store: fakeStore({ purchase: () => Promise.reject(new Error('declined')) }),
   })
   await planSheet().getByRole('button', { name: SUBSCRIBE }).click()
 
-  await expect.element(page.getByText(SUBSCRIBE_FAILED)).toBeVisible()
+  const alert = storeAlert(SUBSCRIBE_FAILED_TITLE)
+  await expect.element(alert).toBeVisible()
+  await expect.element(alert.getByText(SUBSCRIBE_FAILED_MESSAGE)).toBeVisible()
   expect(purchaseSends(analytics)).toEqual([
     { name: 'purchase_started', props: { period: 'annual', from: 'record' } },
     { name: 'purchase_failed', props: { period: 'annual', reason: 'error' } },
@@ -794,18 +803,23 @@ it('holds the header close and an off Subscribe while asking, then fills in the 
   expect([...places()]).toEqual(['header'])
 })
 
-it('keeps the header close in place when asking fails, beside the unavailable line', async () => {
+it('keeps the header close in place when asking fails, under the unavailable alert', async () => {
   const answer = held<Awaited<ReturnType<Store['offers']>>>()
   await openPaywall({ store: fakeStore({ offers: () => answer.promise }) })
   await expect.element(planSheet().getByRole('button', { name: SUBSCRIBE })).toBeDisabled()
   const places = watchCloseControl()
 
   answer.reject(new Error('unreachable'))
-  await expect.element(planSheet().getByText(SUBSCRIBE_UNAVAILABLE)).toBeVisible()
+  await expect.element(storeAlert(SUBSCRIBE_UNAVAILABLE_TITLE)).toBeVisible()
   expect(planSheet().getByRole('button', { name: SUBSCRIBE }).query()).toBeNull()
   expect(planSheet().getByRole('button', { name: CANCEL }).query()).toBeNull()
   expect([...places()]).toEqual(['header'])
 })
+
+/** The alert a store failure raises, named by its title. */
+function storeAlert(title: string) {
+  return page.getByRole('alertdialog', { name: title })
+}
 
 /** Waits for the sheet to finish moving in, so the boxes inside it read where they rest. */
 async function settled(sheet: Element): Promise<void> {

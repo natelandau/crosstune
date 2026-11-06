@@ -23,9 +23,11 @@ public enum PlanText {
     nonisolated public static let periodMonthly = "Monthly"
     nonisolated public static let billingPeriod = "Billing period"
     nonisolated public static let subscribeOffline = "Subscribing needs a connection."
-    nonisolated public static let subscribeUnavailable = "Subscribing is unavailable right now. Try again later."
+    nonisolated public static let subscribeUnavailableTitle = "Subscribing is unavailable"
+    nonisolated public static let subscribeUnavailableMessage = "Try again later."
     nonisolated public static let subscribed = "You're on Premium."
-    nonisolated public static let subscribeFailed = "Subscribing didn't finish. Try again in a moment."
+    nonisolated public static let subscribeFailedTitle = "Subscribing didn't finish"
+    nonisolated public static let subscribeFailedMessage = "Try again in a moment."
     nonisolated public static let subscribePending =
         "Your purchase is waiting for approval. Premium starts once it goes through."
     nonisolated public static let restorePurchases = "Restore purchases"
@@ -33,7 +35,8 @@ public enum PlanText {
     nonisolated public static let nothingToRestore = "This Apple Account has no Crosstune subscription to restore."
     nonisolated public static let otherAccount =
         "This App Store subscription belongs to another Crosstune account. Sign out, then sign in with the account that subscribed."
-    nonisolated public static let restoreFailed = "Restoring didn't finish. Try again in a moment."
+    nonisolated public static let restoreFailedTitle = "Restoring didn't finish"
+    nonisolated public static let restoreFailedMessage = "Try again in a moment."
     nonisolated public static let manageAppStore = "Manage in App Store settings"
     nonisolated public static let manageOnTheWeb = "Manage on the web"
     nonisolated public static let manageAtWebsite = "Manage your subscription at my.crosstune.app."
@@ -85,16 +88,15 @@ public enum PlanText {
         return whole >= 1 ? whole : nil
     }
 
-    /// The words for a purchase or restore outcome.
-    nonisolated public static func line(_ line: PurchaseModel.Line) -> String {
+    /// The words for a purchase or restore outcome, or nil for a failure, which an alert says.
+    nonisolated public static func line(_ line: PurchaseModel.Line) -> String? {
         switch line {
         case .subscribed: subscribed
         case .pending: subscribePending
-        case .failed: subscribeFailed
         case .restored: restored
         case .nothingToRestore: nothingToRestore
         case .otherAccount: otherAccount
-        case .restoreFailed: restoreFailed
+        case .failed, .restoreFailed: nil
         }
     }
 

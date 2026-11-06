@@ -71,7 +71,7 @@ extension PlanSheet {
     /// The outcome under Restore: a restore's, never a purchase's.
     static func restoreLine(_ purchase: PurchaseModel) -> String? {
         guard purchase.lineFrom == .restore else { return nil }
-        return purchase.line.map(PlanText.line)
+        return purchase.line.flatMap(PlanText.line)
     }
 }
 

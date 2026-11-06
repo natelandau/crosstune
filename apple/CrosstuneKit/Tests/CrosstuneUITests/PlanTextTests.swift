@@ -63,7 +63,8 @@ import Testing
             PlanText.otherAccount
                 == "This App Store subscription belongs to another Crosstune account. Sign out, then sign in with the account that subscribed."
         )
-        #expect(PlanText.restoreFailed == "Restoring didn't finish. Try again in a moment.")
+        #expect(PlanText.restoreFailedTitle == "Restoring didn't finish")
+        #expect(PlanText.restoreFailedMessage == "Try again in a moment.")
         #expect(PlanText.manageOnTheWeb == "Manage on the web")
         #expect(PlanText.manageAtWebsite == "Manage your subscription at my.crosstune.app.")
         #expect(PlanText.termsOfUse == "Terms of Use")

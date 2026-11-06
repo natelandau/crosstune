@@ -22,6 +22,8 @@ struct PlanSheet: View {
     @Environment(\.purchases) private var purchases
     @Environment(\.stripePortalURL) private var portalURL
     @State private var storefront: StorefrontRead = .unread
+    /// Whether OK has closed the alert for the store's failure to answer, until the sheet asks again.
+    @State private var unavailableDismissed = false
 
     init(reason: PremiumReason, entry: PremiumEntry, purchase: PurchaseModel?, now: Date? = nil) {
         self.reason = reason
@@ -49,15 +51,12 @@ struct PlanSheet: View {
         case loading
         /// As `notPurchasable`, saying the device is offline.
         case offline
-        /// As `notPurchasable`, saying the store could not answer.
+        /// As `notPurchasable`, with an alert saying the store could not answer.
         case unavailable
         /// Annual or Monthly, at the store's prices, and Subscribe.
         case choice([PurchaseOffer])
         /// A purchase or restore went through; its line and Close replace the choice.
         case subscribed
-
-        /// Offline or unavailable: the store cannot be reached.
-        var isUnreachable: Bool { self == .offline || self == .unavailable }
     }
 
     /// One of the legal pages the sheet links to.
@@ -146,18 +145,26 @@ struct PlanSheet: View {
 
     /// The line a settled sheet shows: the restore's after a restore, otherwise the purchase's.
     nonisolated static func settledLine(_ line: PurchaseModel.Line?) -> String {
-        PlanText.line(line == .restored ? .restored : .subscribed)
+        line == .restored ? PlanText.restored : PlanText.subscribed
     }
 
     /// The line by the actions: the settled line once subscribed, otherwise the outcome of a
-    /// try in this sheet, and failing that why the store cannot be reached.
+    /// try in this sheet, and failing that the offline line while the device is offline.
     nonisolated static func outcomeLine(_ sale: Sale, line: PurchaseModel.Line?) -> String? {
         switch sale {
-        case .choice, .loading, .notPurchasable: line.map(PlanText.line)
+        case .choice, .loading, .notPurchasable, .unavailable: line.flatMap(PlanText.line)
         case .subscribed: settledLine(line)
-        case .offline: line.map(PlanText.line) ?? PlanText.subscribeOffline
-        case .unavailable: line.map(PlanText.line) ?? PlanText.subscribeUnavailable
+        case .offline: line.flatMap(PlanText.line) ?? PlanText.subscribeOffline
         }
+    }
+
+    /// The alert over the sheet: a failed try in it, otherwise the store's failure to answer
+    /// until it is dismissed.
+    nonisolated static func storeAlert(_ sale: Sale, line: PurchaseModel.Line?, unavailableDismissed: Bool)
+        -> StoreAlert?
+    {
+        if let failure = StoreAlert.failure(line) { return failure }
+        return sale == .unavailable && !unavailableDismissed ? .unavailable : nil
     }
 
     /// Whether the sheet asks the store for offers: only where the plan is purchasable.
@@ -247,6 +254,15 @@ struct PlanSheet: View {
                 }
             #endif
         }
+        .storeAlert(
+            Self.storeAlert(sale, line: purchase?.line, unavailableDismissed: unavailableDismissed)
+        ) {
+            if StoreAlert.failure(purchase?.line) != nil {
+                purchase?.clearLine()
+            } else {
+                unavailableDismissed = true
+            }
+        }
         .task(id: currentPlan.paidSources) {
             storefront = .unread
             storefront = .read(await Self.storefront(for: currentPlan, client: purchases))
@@ -254,6 +270,7 @@ struct PlanSheet: View {
         // Asks only where the plan is purchasable, and again when the connection comes back.
         .task(id: OfferAsk(sells: Self.asksForOffers(currentPlan), offline: purchase?.isOffline)) {
             guard Self.asksForOffers(currentPlan) else { return }
+            unavailableDismissed = false
             await purchase?.loadOffers()
         }
         .presentationDetents(Self.detents)
@@ -441,20 +458,15 @@ struct PlanSheet: View {
             MacSheetFooter(primary: .init(Self.close, action: close), escape: close)
         }
 
-        /// The Mac sheet's subtitle: why nothing is purchasable while the store cannot be reached, which
-        /// says more than the pitch then, or the pitch.
+        /// The Mac sheet's subtitle: the offline line while the device is offline, which says more
+        /// than the pitch then, or the pitch.
         nonisolated static func macSubtitle(_ sale: Sale, line: PurchaseModel.Line?, pitch: String) -> String {
-            guard line == nil else { return pitch }
-            switch sale {
-            case .offline: return PlanText.subscribeOffline
-            case .unavailable: return PlanText.subscribeUnavailable
-            case .notPurchasable, .loading, .choice, .subscribed: return pitch
-            }
+            line == nil && sale == .offline ? PlanText.subscribeOffline : pitch
         }
 
-        /// ``outcomeLine(_:line:)`` less the unreachable line, which the Mac sheet's subtitle carries.
+        /// ``outcomeLine(_:line:)`` less the offline line, which the Mac sheet's subtitle carries.
         nonisolated static func macOutcomeLine(_ sale: Sale, line: PurchaseModel.Line?) -> String? {
-            line == nil && sale.isUnreachable ? nil : outcomeLine(sale, line: line)
+            line == nil && sale == .offline ? nil : outcomeLine(sale, line: line)
         }
 
         /// The mark, title, and line over a trial's card and the comparison while purchasable, or the
@@ -508,7 +520,7 @@ struct PlanSheet: View {
             if let line = Self.macOutcomeLine(sale, line: purchase?.line) {
                 Text(line)
                     .foregroundStyle(
-                        sale.isUnreachable || sale == .notPurchasable ? Palette.textSecondary : Palette.textPrimary
+                        sale == .offline || sale == .notPurchasable ? Palette.textSecondary : Palette.textPrimary
                     )
                     .fixedSize(horizontal: false, vertical: true)
             }
