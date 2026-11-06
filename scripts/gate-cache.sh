@@ -2,7 +2,7 @@
 # Usage: gate-cache.sh NAME [--argc N] [--file PATH]... [--tool COMMAND]... COMMAND [ARGS...]
 # Runs a lint or test gate through gate-cache, which skips it when the same gate already
 # passed on the same files git does not ignore, and runs it uncached when CI is set. A
-# checkout whose api environment lacks gate-cache, such as one `just setup` has not
+# checkout whose root tooling environment lacks gate-cache, such as one `just setup` has not
 # reached yet, runs the command itself. A run with extra args is a different gate, so a
 # recipe that forwards its args passes their count with --argc and appends them to
 # COMMAND: any count but 0 runs COMMAND directly, uncached.
@@ -16,7 +16,7 @@ set -euo pipefail
 name="$1"
 shift
 root="$(cd "$(dirname "$0")/.." && pwd)"
-gate_cache="$root/api/.venv/bin/gate-cache"
+gate_cache="$root/.venv/bin/gate-cache"
 
 argc=0
 inputs=()

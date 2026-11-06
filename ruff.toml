@@ -9,7 +9,7 @@ src = ["api/src", "api/tests", "scripts", "apple/scripts", "analytics"]
 target-version = "py313"
 
 [per-file-target-version]
-# Runs on the macOS system python3, so CI can call it before the API's environment exists.
+# Runs on the macOS system python3, so CI can call it before the tooling environment exists.
 "apple/scripts/source_packages.py" = "py39"
 
 [lint]

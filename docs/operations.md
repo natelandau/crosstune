@@ -8,7 +8,7 @@ deployable reads its settings: `architecture.md`, Configuration.
 
 | Tool                                                   | Version        | Notes                                                                                              |
 | ------------------------------------------------------ | -------------- | -------------------------------------------------------------------------------------------------- |
-| [uv](https://docs.astral.sh/uv/)                       | any            | Installs Python 3.13, the API's dependencies, and the git hooks.                                   |
+| [uv](https://docs.astral.sh/uv/)                       | any            | Installs Python 3.13, the API's dependencies, and the root tooling with the git hooks.             |
 | [Node.js](https://nodejs.org/)                         | 22.22 or newer | Runs the web toolchain.                                                                            |
 | [pnpm](https://pnpm.io/)                               | 12.11.2        | Pinned in `web/package.json`. `corepack enable` installs it.                                       |
 | [just](https://just.systems)                           | 1.46 or newer  | The task runner. Recipe options and argument help need 1.46.                                       |
@@ -183,8 +183,13 @@ is set.
   Closing the PR deletes its environment. If cleanup fails, run `Preview`
   from the Actions tab with the PR number. The preview bucket's lifecycle
   rule is the backstop.
-- `API`, `Web`, `Site`, and `Analytics` start on every PR and skip jobs for
-  what it does not touch, so they can be required checks. `Apple` runs
+- `API`, `Web`, `Site`, `Analytics`, and `Scripts` start on every PR and
+  skip jobs for what it does not touch, so they can be required checks.
+  Each filter names only what that module's checks read. A module's
+  inputs are listed once, in `AREAS` in
+  `scripts/tests/test_change_filters.py`; its workflow `paths`, `changes`
+  regex, and pre-push test hook must match that list. `Repo` runs the
+  repo-wide hooks (`just lint-repo`) on every PR with no filter. `Apple` runs
   only when `apple/`, the contract, or the tracking plan changes, so it is
   not required. `E2E` is not required, so a Clerk outage never blocks
   unrelated merges.

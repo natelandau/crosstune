@@ -4,7 +4,7 @@ name: Release
 # Railway and Workers Builds deploy production from the `production` branch,
 # and neither host can trigger on a tag. Pushing a version tag moves that
 # branch to the tagged commit, so a tag is the only thing that reaches
-# production. The branch moves only after the API, Web, and Apple workflows
+# production. The branch moves only after the Repo, API, Web, and Apple workflows
 # pass and the Apple release builds archive on that commit, which gates every
 # client in one place. Those archives then go to TestFlight. A manual run
 # started from a tag, under "Use workflow from", moves the branch to that tag
@@ -48,6 +48,10 @@ jobs:
       # points at a commit that never reaches `main`. Refuse it.
       - name: require the tagged commit to be on main
         run: git merge-base --is-ancestor HEAD origin/main
+  repo:
+    name: Repo
+    needs: guard
+    uses: ./.github/workflows/repo.yml
   api:
     name: API
     needs: guard
@@ -70,7 +74,7 @@ jobs:
       skip_build: true
   promote:
     name: Move the production branch to the tag
-    needs: [api, web, apple, archive]
+    needs: [repo, api, web, apple, archive]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:

@@ -1,6 +1,6 @@
 // Writes the prepareImage test fixtures into this directory. Needs macOS for `sips`, which does
 // the JPEG encoding; everything else is Node's standard library.
-//   node web/src/features/scans/fixtures/generate.mjs
+//   node web/src/features/scans/fixtures/generate.ts
 import { execFileSync } from 'node:child_process'
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -10,7 +10,7 @@ import { crc32, deflateSync } from 'node:zlib'
 
 const here = fileURLToPath(new URL('.', import.meta.url))
 
-function chunk(type, data) {
+function chunk(type: string, data: Buffer): Buffer {
   const head = Buffer.alloc(8)
   head.writeUInt32BE(data.length, 0)
   head.write(type, 4, 'ascii')
@@ -20,7 +20,7 @@ function chunk(type, data) {
 }
 
 /** An 8-bit RGBA PNG whose pixels come from `pixel(x, y)`. */
-function png(width, height, pixel) {
+function png(width: number, height: number, pixel: (x: number, y: number) => number[]): Buffer {
   const raw = Buffer.alloc((width * 4 + 1) * height)
   for (let y = 0; y < height; y++) {
     const row = y * (width * 4 + 1)
@@ -38,7 +38,7 @@ function png(width, height, pixel) {
   ])
 }
 
-function jpegFrom(pngBytes, quality) {
+function jpegFrom(pngBytes: Buffer, quality: number): Buffer {
   const dir = mkdtempSync(join(tmpdir(), 'scan-fixtures-'))
   try {
     const source = join(dir, 'in.png')
@@ -58,7 +58,7 @@ function jpegFrom(pngBytes, quality) {
 }
 
 /** Drop every APP1 segment the encoder wrote and put in one Exif block holding only `orientation`. */
-function withOrientation(jpeg, orientation) {
+function withOrientation(jpeg: Buffer, orientation: number): Buffer {
   const tiff = Buffer.from(
     [
       '4d4d002a00000008', // big-endian TIFF header, IFD0 at offset 8
@@ -73,7 +73,7 @@ function withOrientation(jpeg, orientation) {
   app1.writeUInt16BE(0xffe1, 0)
   app1.writeUInt16BE(body.length + 2, 2)
 
-  const kept = []
+  const kept: Buffer[] = []
   let at = 2
   while (jpeg[at] === 0xff && jpeg[at + 1] !== 0xda) {
     const length = jpeg.readUInt16BE(at + 2)

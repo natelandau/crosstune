@@ -1,9 +1,7 @@
 # Recipes for the web client. Loaded as the `web` module by the root justfile and run
 # from this directory: `just web::test` from anywhere in the repository.
 
-set shell := ["bash", "-euo", "pipefail", "-c"]
-set script-interpreter := ["bash", "-euo", "pipefail"]
-set positional-arguments
+import '../scripts/settings.just'
 
 # Where `just api::run-e2e` serves. Not the :8000 of a dev session, so the suite and
 # `just dev` run side by side.
@@ -34,7 +32,7 @@ tsc:
 # Spell check the client and its brand sources
 [group('lint')]
 typos:
-    {{ gate }} web-typos uv run --project ../api --only-group typos typos --config ../.typos.toml . ../brand
+    {{ gate }} web-typos uv run --project .. --only-group typos typos --config ../.typos.toml . ../brand
 
 # Find unused files, exports, and dependencies with knip
 [group('lint')]
@@ -141,7 +139,7 @@ preview:
 # Capture the component gallery and screens
 [group('run')]
 gallery-shots:
-    node scripts/gallery-shots.mjs
+    node scripts/gallery-shots.ts
 
 # Build for production and validate the Worker
 [group('build')]
@@ -170,7 +168,7 @@ contract:
 [script]
 _generate $out:
     pnpm --silent openapi-typescript ../api/openapi.json -o "$out/schema.d.ts" > /dev/null
-    node scripts/vocabulary.mjs ../api/openapi.json "$out/vocabulary.raw.ts"
+    node scripts/vocabulary.ts ../api/openapi.json "$out/vocabulary.raw.ts"
     # Formatted as the committed file's path so prettier applies that file's config.
     pnpm --silent exec prettier --stdin-filepath src/api/vocabulary.ts < "$out/vocabulary.raw.ts" > "$out/vocabulary.ts"
     rm "$out/vocabulary.raw.ts"

@@ -11,7 +11,7 @@ names: the cases of SampleScreen (Sample/SampleScreen.swift), such as catalog, t
 plan, welcome, or settings-<tab> for a Settings tab: general, account, tunes, recordings, importExport"
 
 apple="$(git rev-parse --show-toplevel)/apple"
-mac_app() { uv run --project "$apple/../api" python "$apple/scripts/mac_app.py" "$@"; }
+mac_app() { uv run --project "$apple/.." python "$apple/scripts/mac_app.py" "$@"; }
 out="$apple/.build/shots"
 appearance=""
 settle=3

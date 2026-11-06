@@ -3,9 +3,7 @@
 # the `ops` module by the root justfile and run from api/. Each forwards its arguments to
 # its CLI; `--help` after a subcommand lists that subcommand's options.
 
-set shell := ["bash", "-euo", "pipefail", "-c"]
-set script-interpreter := ["bash", "-euo", "pipefail"]
-set positional-arguments
+import '../scripts/settings.just'
 
 [default]
 _default:

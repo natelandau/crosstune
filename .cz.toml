@@ -1,6 +1,5 @@
 # Commitizen runs from the repository root so one bump moves every deployable.
-# `cz` itself is an API dev dependency: `just commit`, `just bump`, or
-# `uv run --project api cz ...`.
+# `cz` is in the root tooling project: `just commit`, `just bump`, or `uv run cz ...`.
 [tool.commitizen]
     annotated_tag            = true
     bump_message             = "bump(release): v$current_version → v$new_version"

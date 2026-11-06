@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url'
 import { PNG } from 'pngjs'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
-const SCRIPT = fileURLToPath(new URL('./shots-diff.mjs', import.meta.url))
+const SCRIPT = fileURLToPath(new URL('./shots-diff.ts', import.meta.url))
 
 interface Manifest {
   same: number

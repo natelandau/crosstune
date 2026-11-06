@@ -5,7 +5,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 capture=.build/capture
-mac_app=(uv run --project ../api python scripts/mac_app.py)
+mac_app=(uv run --project .. python scripts/mac_app.py)
 
 # A locked session draws no app windows.
 if ioreg -n Root -d1 -a | grep -A1 CGSSessionScreenIsLocked | grep -q '<true/>'; then

@@ -1,5 +1,5 @@
 ---
-# npm and uv updates arrive as one grouped pull request per ecosystem each month; the
+# npm and uv updates arrive as one grouped pull request per folder each month; the
 # other ecosystems open one pull request per dependency, because closing an ungrouped
 # pull request makes Dependabot skip that version, and closing a grouped one does not.
 # The prefix becomes the PR title's conventional-commit type and scope, and the PR title
@@ -52,6 +52,18 @@ updates:
         update-types: ["version-update:semver-major"]
     groups:
       npm:
+        patterns: ["*"]
+
+  - package-ecosystem: uv
+    directory: /
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: build
+    groups:
+      uv:
         patterns: ["*"]
 
   - package-ecosystem: uv

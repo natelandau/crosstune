@@ -10,6 +10,8 @@ on:
     paths:
       - "web/**"
       - "api/**"
+      - "scripts/e2e.sh"
+      - "scripts/settings.just"
       - "scripts/media-tools.sh"
       - "compose.yml"
       - "justfile"

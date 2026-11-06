@@ -1,13 +1,14 @@
-# Recipes for the repository's tooling scripts: the Python here, in apple/scripts, and in
-# analytics. Loaded as the `scripts` module by the root justfile and run from this directory.
+# Recipes for the repository's tooling scripts. Lint covers every Python file outside api/,
+# which the api module lints. Loaded as the `scripts` module by the root justfile and run from
+# this directory.
 
-set shell := ["bash", "-euo", "pipefail", "-c"]
-set script-interpreter := ["bash", "-euo", "pipefail"]
-set positional-arguments
+import 'settings.just'
 
 # Runs a lint or test gate through gate-cache when it is installed
 gate := "./gate-cache.sh"
-python_src := ". ../apple/scripts ../analytics"
+# Ruff and ty skip what .gitignore lists, so a new folder of scripts is linted without a change here.
+# A bare `api` would also skip every nested folder named api; ty.toml excludes api/ for ty.
+ruff_src := "--extend-exclude ../api .."
 
 [default]
 _default:
@@ -16,17 +17,17 @@ _default:
 # Lint with ruff
 [group('lint')]
 ruff:
-    {{ gate }} scripts-ruff uv run --project ../api ruff check --no-fix {{ python_src }}
+    {{ gate }} scripts-ruff uv run --project .. ruff check --no-fix {{ ruff_src }}
 
 # Check formatting with ruff
 [group('lint')]
 format:
-    {{ gate }} scripts-ruff-format uv run --project ../api ruff format --check {{ python_src }}
+    {{ gate }} scripts-ruff-format uv run --project .. ruff format --check {{ ruff_src }}
 
 # Type check with ty
 [group('lint')]
 ty:
-    {{ gate }} scripts-ty uv run --project ../api ty check {{ python_src }}
+    {{ gate }} scripts-ty uv run --project .. ty check ..
 
 # Run all linters
 [group('lint')]
@@ -35,11 +36,11 @@ lint: ruff format ty
 # Fix lint and formatting where ruff can
 [group('lint')]
 fix:
-    uv run --project ../api ruff check --fix {{ python_src }}
-    uv run --project ../api ruff format {{ python_src }}
+    uv run --project .. ruff check --fix {{ ruff_src }}
+    uv run --project .. ruff format {{ ruff_src }}
 
 # Run the scripts' tests
 [group('test')]
 [arg("args", help="Arguments for pytest; any narrows the run")]
 test *args:
-    {{ gate }} scripts-test --argc "$#" uv run --project ../api pytest -c pytest.ini "$@"
+    {{ gate }} scripts-test --argc "$#" uv run --project .. pytest -c pytest.ini "$@"
