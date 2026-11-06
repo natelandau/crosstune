@@ -75,7 +75,7 @@ clean:
 [group('maintenance')]
 update:
     pnpm update --latest '!typescript' '!@types/node'
-    pnpm update typescript @types/node
+    pnpm update
 
 # Install dependencies
 [group('maintenance')]

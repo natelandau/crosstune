@@ -177,7 +177,7 @@ _generate $out:
 [group('maintenance')]
 update:
     pnpm update --latest '!typescript' '!@types/node'
-    pnpm update typescript @types/node
+    pnpm update
 
 # Remove build artifacts and caches
 [group('maintenance')]
