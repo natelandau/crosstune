@@ -8,7 +8,7 @@ deployable reads its settings: `architecture.md`, Configuration.
 
 | Tool                                                   | Version        | Notes                                                                                              |
 | ------------------------------------------------------ | -------------- | -------------------------------------------------------------------------------------------------- |
-| [uv](https://docs.astral.sh/uv/)                       | any            | Installs Python 3.13, the API's dependencies, and the git hooks.                                   |
+| [uv](https://docs.astral.sh/uv/)                       | any            | Installs Python 3.13, the API's dependencies, and the root tooling with the git hooks.             |
 | [Node.js](https://nodejs.org/)                         | 22.22 or newer | Runs the web toolchain.                                                                            |
 | [pnpm](https://pnpm.io/)                               | 12.11.2        | Pinned in `web/package.json`. `corepack enable` installs it.                                       |
 | [just](https://just.systems)                           | 1.46 or newer  | The task runner. Recipe options and argument help need 1.46.                                       |
