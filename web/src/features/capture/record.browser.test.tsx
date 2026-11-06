@@ -1,4 +1,4 @@
-import { cdp, page, userEvent } from 'vitest/browser'
+import { page, userEvent } from 'vitest/browser'
 import type { ReactElement } from 'react'
 import { expect, it, onTestFinished } from 'vitest'
 import { AnalyticsProvider } from '../../usage/AnalyticsProvider'
@@ -17,6 +17,7 @@ import {
 } from './recordCopy'
 import { RECORDINGS_SECTION } from '../tune/tuneScreenCopy'
 import { RECORD } from '../tune/tuneMediaCopy'
+import { emulateReducedMotion } from '../../test/reducedMotion'
 import { openTestDb } from '../../test/db'
 import { FakeRecorder, fakeMediaForTest } from '../../test/fakeMedia'
 import {
@@ -347,12 +348,7 @@ it('marks the new recording from the moment its row first appears', async () => 
 })
 
 it('keeps the tint and drops the slide under reduced motion', async () => {
-  await cdp().send('Emulation.setEmulatedMedia', {
-    features: [{ name: 'prefers-reduced-motion', value: 'reduce' }],
-  })
-  onTestFinished(async () => {
-    await cdp().send('Emulation.setEmulatedMedia', { features: [] })
-  })
+  await emulateReducedMotion()
   fakeMediaForTest()
   const db = openTestDb()
   const { stop, recordings } = await saveRecordingOnTunePage(db)

@@ -13,23 +13,6 @@ public enum PlaySourcePin: Hashable, Sendable {
     case link(id: String)
 }
 
-/// Why a list leaves a tune out.
-public enum PlaylistSkip: Hashable, Sendable {
-    case nothing
-    case noCapableLink
-    case needsSubscription
-    case needsConnection
-    /// The tune's recordings are its only source a list can play, and none has audio here now.
-    case recordingsNotHere
-    /// The tune's recordings are its only source a list can play, and the plan holds them back.
-    case premium
-}
-
-public enum PlaylistChoice: Hashable, Sendable {
-    case play(TuneSource)
-    case skip(PlaylistSkip)
-}
-
 /// The live recordings and links that belong to the user tune's tune, so a pin to a deleted row
 /// or another tune's row never counts.
 private func liveSources(
@@ -70,31 +53,26 @@ public func rowSource(
     return links.first.map(TuneSource.link)
 }
 
-/// What a list plays for a tune, or why it skips it. Only recordings and Apple Music songs
+/// What a list plays for a tune, or nil when it skips it. Only recordings and Apple Music songs
 /// play in a list, and only the recordings in `playable`, the IDs with audio this device can
 /// play now, none of them while `recordingsPlay` is false. A pin that cannot play here passes
 /// over to the next choice.
 public func playlistSource(
     userTune: UserTune, recordings: [Recording], playable: Set<String>, links: [RecordingLink],
     playFirst: String, fullTracks: Bool, online: Bool, recordingsPlay: Bool
-) -> PlaylistChoice {
+) -> TuneSource? {
     let (live, links) = liveSources(of: userTune, recordings: recordings, links: links)
     let recordings = recordingsPlay ? live.filter { playable.contains($0.id) } : []
     let songs = links.filter(isAppleMusicSong)
     let playableSongs = fullTracks && online ? songs : []
 
     if let pinned = recordings.first(where: { $0.id == userTune.playRecordingID }) {
-        return .play(.recording(pinned))
+        return .recording(pinned)
     }
-    if let pinned = playableSongs.first(where: { $0.id == userTune.playLinkID }) { return .play(.link(pinned)) }
+    if let pinned = playableSongs.first(where: { $0.id == userTune.playLinkID }) { return .link(pinned) }
 
-    if playFirst == UserSettings.playFirstAppleMusic, let song = playableSongs.first { return .play(.link(song)) }
-    if let first = recordings.first { return .play(.recording(first)) }
-    if let song = playableSongs.first { return .play(.link(song)) }
-
-    if songs.isEmpty {
-        if !live.isEmpty { return .skip(recordingsPlay ? .recordingsNotHere : .premium) }
-        return .skip(links.isEmpty ? .nothing : .noCapableLink)
-    }
-    return .skip(fullTracks ? .needsConnection : .needsSubscription)
+    if playFirst == UserSettings.playFirstAppleMusic, let song = playableSongs.first { return .link(song) }
+    if let first = recordings.first { return .recording(first) }
+    if let song = playableSongs.first { return .link(song) }
+    return nil
 }

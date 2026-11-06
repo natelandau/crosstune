@@ -12,13 +12,15 @@ public struct ListsScreen: View {
     public static let noListsTitle = "No lists yet"
     public static let noListsHint = "A list is an ordered set of tunes, like a setlist."
 
+    @Environment(\.spacing) private var spacing
     @Environment(\.store) private var store
     @Environment(\.listSheets) private var listSheets
     @Environment(SyncEngine.self) private var engine: SyncEngine?
     @State private var lists: LiveQuery<[ListSummary]?>?
     @State private var deleting: ListSummary?
+    @Environment(\.openList) private var openList
+    @Namespace private var zoom
     @Environment(\.stackTune) private var stackTune
-    @Environment(\.colorScheme) private var colorScheme
     @Environment(PlayerModel.self) private var player: PlayerModel?
     @Environment(ListPlayback.self) private var listPlayback: ListPlayback?
     @Environment(AccountSession.self) private var session: AccountSession?
@@ -38,27 +40,36 @@ public struct ListsScreen: View {
         List {
             ForEach(lists ?? []) { summary in
                 let report = reports[summary.id]
-                NavigationLink(value: ListRoute(id: summary.id)) {
-                    HStack(spacing: 0) {
+                let isPlaying = listPlayback?.listID == summary.id
+                HStack(spacing: spacing(4)) {
+                    Button {
+                        openList?(summary.id)
+                    } label: {
                         ListRow(summary)
+                            .foregroundStyle(.textPrimary)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                        ListsRowPlayButton(summary: summary, report: report) { report in
-                            start(summary, report: report, shuffled: listPlayback?.isShuffled ?? false)
+                            .contentShape(.rect)
+                    }
+                    // Not the automatic style, so the slot beside the row keeps its own tap.
+                    .buttonStyle(.plain)
+                    .matchedTransitionSource(id: summary.id, in: zoom)
+                    // Only the playing list shows a control here; Play and Shuffle for the
+                    // others are in the row's menu.
+                    if isPlaying {
+                        RowActionSlot {
+                            RowNowPlayingButton(
+                                pauseLabel: ListsPlayability.pauseLabel(listName: summary.name),
+                                playLabel: ListsPlayability.playLabel(listName: summary.name))
                         }
                     }
                 }
-                .scaledRowInsets()
+                .listItemRow()
                 .listRowActions(
                     onPlay: report.map { report in { shuffled in start(summary, report: report, shuffled: shuffled) } },
                     onEdit: { listSheets?.name(.rename(listID: summary.id, name: summary.name)) },
                     onDelete: { deleting = summary }
                 )
-                #if os(macOS)
-                    .listRowBackground(listPlayback?.listID == summary.id ? Palette.tint(colorScheme) : nil)
-                #else
-                    .listRowBackground(
-                        listPlayback?.listID == summary.id ? Palette.tint(colorScheme) : Color.clear)
-                #endif
+                .playingRowBackground(isPlaying: isPlaying)
             }
         }
         .listStyle(.plain)
@@ -67,6 +78,9 @@ public struct ListsScreen: View {
             ListScreen(listID: route.id)
                 // A destination takes the stack's environment, not this screen's.
                 .environment(\.stackTune, stackTune)
+                #if os(iOS)
+                    .navigationTransition(.zoom(sourceID: route.id, in: zoom))
+                #endif
         }
         .overlay {
             if lists?.isEmpty == true {

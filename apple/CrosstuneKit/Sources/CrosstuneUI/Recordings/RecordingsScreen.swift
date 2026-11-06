@@ -509,6 +509,9 @@ private struct RecordingsContent: View {
         #endif
     }
 
+    /// The space above and below a media row on the Mac, which sits at the column's tune row edges.
+    private static let macRowInset: CGFloat = 4
+
     /// A recording's row. A filed one names its tune in a tune line when `opensTune`, and
     /// otherwise sits under a line naming it; either way its title never falls back to the tune.
     private func row(_ view: RecordingView, opensTune: Bool = false) -> some View {
@@ -526,7 +529,7 @@ private struct RecordingsContent: View {
             retry(view.id, kind)
         }
         .newRecordingHighlight(view.id)
-        .mediaRowInsets()
+        .listItemRow(macVerticalInset: Self.macRowInset)
         .unselectedRowBackground(isSelected: openRecording?.wrappedValue == view.id)
         #if os(macOS)
             .macRowSelected(openRecording?.wrappedValue == view.id)
@@ -579,7 +582,7 @@ private struct RecordingsContent: View {
         .accessibilityAddTraits(.isHeader)
         .selectionDisabled()
         #if os(macOS)
-            .mediaRowInsets()
+            .listItemRow(macVerticalInset: Self.macRowInset)
         #endif
     }
 
@@ -603,7 +606,7 @@ private struct RecordingsContent: View {
             glyph: .attention, title: row.title, secondLine: .text(UnfinishedCaptureRowContent.note),
             actionLabel: row.actionLabel, action: { discarding = capture }
         )
-        .mediaRowInsets()
+        .listItemRow(macVerticalInset: Self.macRowInset)
         .unselectedRowBackground(isSelected: false)
         .swipeActions(edge: .trailing, allowsFullSwipe: false) { discard.tint(Palette.dangerFillStrong) }
         .contextMenu { discard }
@@ -649,17 +652,6 @@ extension View {
             self
         #else
             listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 4, trailing: 16))
-        #endif
-    }
-
-    /// A media row's place in a list: on the Mac at the column's tune row edges, with no
-    /// separator, as the tune rows sit.
-    fileprivate func mediaRowInsets() -> some View {
-        #if os(macOS)
-            listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
-                .listRowSeparator(.hidden)
-        #else
-            scaledRowInsets()
         #endif
     }
 }

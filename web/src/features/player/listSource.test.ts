@@ -16,12 +16,8 @@ function rec(
   return { id, tune_id: TUNE, deleted_at: null, state: 'ready', ...extra }
 }
 
-function link(id: string, extra: Partial<{ tune_id: string; deleted_at: string | null }> = {}) {
-  return { id, tune_id: TUNE, deleted_at: null, ...extra }
-}
-
 function entry(input: Partial<PlaylistEntry> = {}): PlaylistEntry {
-  return { tuneId: TUNE, pin: { recordingId: null }, recordings: [], links: [], ...input }
+  return { tuneId: TUNE, pin: { recordingId: null }, recordings: [], ...input }
 }
 
 const held =
@@ -37,7 +33,7 @@ describe('playlistSource', () => {
       recordingsPlay: true,
       hasAudio: held(),
     })
-    expect(result).toEqual({ item: { kind: 'recording', id: 'r2' } })
+    expect(result).toEqual({ kind: 'recording', id: 'r2' })
   })
 
   it('plays the first recording when nothing is pinned', () => {
@@ -47,7 +43,7 @@ describe('playlistSource', () => {
       recordingsPlay: true,
       hasAudio: held(),
     })
-    expect(result).toEqual({ item: { kind: 'recording', id: 'r1' } })
+    expect(result).toEqual({ kind: 'recording', id: 'r1' })
   })
 
   it('falls through from a pinned recording without audio offline to one with audio', () => {
@@ -57,45 +53,33 @@ describe('playlistSource', () => {
       recordingsPlay: true,
       hasAudio: held('r3'),
     })
-    expect(result).toEqual({ item: { kind: 'recording', id: 'r3' } })
+    expect(result).toEqual({ kind: 'recording', id: 'r3' })
   })
 
-  it('skips notHere offline when no recording has its audio on this device', () => {
+  it('skips offline when no recording has its audio on this device', () => {
     const result = playlistSource({
-      ...entry({ recordings: [rec('r1')], links: [link('l1')] }),
+      ...entry({ recordings: [rec('r1')] }),
       online: false,
       recordingsPlay: true,
       hasAudio: held(),
     })
-    expect(result).toEqual({ skip: 'notHere' })
+    expect(result).toBeNull()
   })
 
-  it('skips notHere online when no recording has audio the server can send', () => {
+  it('skips online when no recording has audio the server can send', () => {
     const result = playlistSource({
       ...entry({ recordings: [rec('r1', { state: 'pending_upload' })] }),
       online: true,
       recordingsPlay: true,
       hasAudio: held(),
     })
-    expect(result).toEqual({ skip: 'notHere' })
+    expect(result).toBeNull()
   })
 
-  it('skips linksOnly for a tune with only links', () => {
-    const result = playlistSource({
-      ...entry({ links: [link('l1')] }),
-      online: true,
-      recordingsPlay: true,
-      hasAudio: held(),
-    })
-    expect(result).toEqual({ skip: 'linksOnly' })
-  })
-
-  it('skips nothing for a tune with no recordings or links', () => {
+  it('skips a tune with no recordings', () => {
     expect(
       playlistSource({ ...entry(), online: true, recordingsPlay: true, hasAudio: held() }),
-    ).toEqual({
-      skip: 'nothing',
-    })
+    ).toBeNull()
   })
 
   it('counts only live rows that belong to the tune', () => {
@@ -103,51 +87,42 @@ describe('playlistSource', () => {
       ...entry({
         pin: { recordingId: 'other' },
         recordings: [rec('gone', { deleted_at: '2026-01-01' }), rec('other', { tune_id: 'x' })],
-        links: [link('l-gone', { deleted_at: '2026-01-01' })],
       }),
       online: true,
       recordingsPlay: true,
       hasAudio: held('gone', 'other'),
     })
-    expect(result).toEqual({ skip: 'nothing' })
+    expect(result).toBeNull()
   })
 })
 
 describe('playlistSource while recordings cannot play', () => {
   const free = { online: true, recordingsPlay: false, hasAudio: held('r1') }
 
-  it('skips premium for a tune holding only recordings, even with its audio here', () => {
+  it('skips a tune holding only recordings, even with its audio here', () => {
     const result = playlistSource({
       ...entry({ pin: { recordingId: 'r1' }, recordings: [rec('r1')] }),
       ...free,
     })
-    expect(result).toEqual({ skip: 'premium' })
-  })
-
-  it('skips linksOnly for a pinned recording beside a link, as for a missing recording', () => {
-    const result = playlistSource({
-      ...entry({ pin: { recordingId: 'r1' }, recordings: [rec('r1')], links: [link('l1')] }),
-      ...free,
-    })
-    expect(result).toEqual({ skip: 'linksOnly' })
+    expect(result).toBeNull()
   })
 
   it('plays the pinned recording once recordings can play', () => {
     const result = playlistSource({
-      ...entry({ pin: { recordingId: 'r1' }, recordings: [rec('r1')], links: [link('l1')] }),
+      ...entry({ pin: { recordingId: 'r1' }, recordings: [rec('r1')] }),
       ...free,
       recordingsPlay: true,
     })
-    expect(result).toEqual({ item: { kind: 'recording', id: 'r1' } })
+    expect(result).toEqual({ kind: 'recording', id: 'r1' })
   })
 })
 
 describe('playlistReport', () => {
-  it('sorts the entries into playable tunes and skips by reason, in list order', () => {
+  it('lists the playable tunes in list order', () => {
     const report = playlistReport(
       [
         entry({ tuneId: 'a', recordings: [rec('ra', { tune_id: 'a' })] }),
-        entry({ tuneId: 'b', links: [link('lb', { tune_id: 'b' })] }),
+        entry({ tuneId: 'b' }),
         entry({ tuneId: 'c' }),
         entry({ tuneId: 'd', recordings: [rec('rd', { tune_id: 'd' })] }),
         entry({ tuneId: 'e', recordings: [rec('re', { tune_id: 'e' })] }),
@@ -156,7 +131,6 @@ describe('playlistReport', () => {
     )
     expect(report).toEqual({
       playable: ['a', 'd'],
-      skipped: { nothing: ['c'], linksOnly: ['b'], notHere: ['e'], premium: [] },
       total: 5,
     })
   })
@@ -170,19 +144,15 @@ describe('playlistReport', () => {
       { online: false, recordingsPlay: true, hasAudio: held() },
     )
     expect(report.playable).toEqual([])
-    expect(report.skipped.notHere).toEqual(['a', 'b'])
     expect(report.total).toBe(2)
   })
 
-  it('reports tunes holding only recordings as premium while recordings cannot play', () => {
+  it('reports nothing playable while recordings cannot play', () => {
     const report = playlistReport(
-      [
-        entry({ tuneId: 'a', recordings: [rec('ra', { tune_id: 'a' })] }),
-        entry({ tuneId: 'b', links: [link('lb', { tune_id: 'b' })] }),
-      ],
+      [entry({ tuneId: 'a', recordings: [rec('ra', { tune_id: 'a' })] }), entry({ tuneId: 'b' })],
       { online: true, recordingsPlay: false, hasAudio: held('ra') },
     )
     expect(report.playable).toEqual([])
-    expect(report.skipped).toEqual({ nothing: [], linksOnly: ['b'], notHere: [], premium: ['a'] })
+    expect(report.total).toBe(2)
   })
 })

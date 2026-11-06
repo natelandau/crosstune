@@ -109,7 +109,7 @@ export const TuneRow = memo(function TuneRow({
 
 /**
  * The tune row's parts around the caller's own row key and actions, for a tune shown outside
- * the catalog, such as a list's row with its position leading.
+ * the catalog, such as a list's row, which speaks its position.
  */
 export function TuneRowView({
   id,

@@ -39,7 +39,7 @@ private func choice(
     _ pin: UserTune = userTune(), recordings: [Recording] = [], playable: Set<String>? = nil,
     links: [RecordingLink] = [], playFirst: String = UserSettings.playFirstRecordings, fullTracks: Bool = true,
     online: Bool = true, recordingsPlay: Bool = true
-) -> PlaylistChoice {
+) -> TuneSource? {
     playlistSource(
         userTune: pin, recordings: recordings, playable: playable ?? Set(recordings.map(\.id)), links: links,
         playFirst: playFirst, fullTracks: fullTracks, online: online, recordingsPlay: recordingsPlay)
@@ -158,36 +158,36 @@ private func choice(
 @Suite struct PlaylistSourceTests {
     @Test func aRecordingPlaysOffline() {
         let r1 = rec("r1")
-        #expect(choice(recordings: [r1], fullTracks: false, online: false) == .play(.recording(r1)))
+        #expect(choice(recordings: [r1], fullTracks: false, online: false) == .recording(r1))
     }
 
     @Test func anAlbumLinkIsNotPlaylistCapable() {
         let album = link("l1", "apple_music", url: album)
-        #expect(choice(links: [album]) == .skip(.noCapableLink))
+        #expect(choice(links: [album]) == nil)
     }
 
     @Test func anAppleMusicSongPlaysWhenSubscribedAndOnline() {
         let l1 = link("l1", "apple_music")
-        #expect(choice(links: [l1]) == .play(.link(l1)))
+        #expect(choice(links: [l1]) == .link(l1))
     }
 
     @Test func aPinnedSpotifyLinkPassesOverToARecording() {
         let r1 = rec("r1")
         let result = choice(userTune(link: "l2"), recordings: [r1], links: [link("l2", "spotify")])
-        #expect(result == .play(.recording(r1)))
+        #expect(result == .recording(r1))
     }
 
     @Test func aPinnedSongWithoutFullTracksPassesOverToARecording() {
         let r1 = rec("r1")
         let result = choice(
             userTune(link: "l1"), recordings: [r1], links: [link("l1", "apple_music")], fullTracks: false)
-        #expect(result == .play(.recording(r1)))
+        #expect(result == .recording(r1))
     }
 
     @Test func aPinnedAppleMusicAlbumPassesOverToASong() {
         let song = link("l2", "apple_music")
         let result = choice(userTune(link: "l1"), links: [link("l1", "apple_music", url: album), song])
-        #expect(result == .play(.link(song)))
+        #expect(result == .link(song))
     }
 
     @Test func aPinnedRecordingWinsOverPlayFirst() {
@@ -195,14 +195,14 @@ private func choice(
         let result = choice(
             userTune(recording: "r2"), recordings: [rec("r1"), r2], links: [link("l1", "apple_music")],
             playFirst: UserSettings.playFirstAppleMusic)
-        #expect(result == .play(.recording(r2)))
+        #expect(result == .recording(r2))
     }
 
     @Test func playFirstAppleMusicPrefersTheSongOverARecording() {
         let l1 = link("l1", "apple_music")
         #expect(
             choice(recordings: [rec("r1")], links: [l1], playFirst: UserSettings.playFirstAppleMusic)
-                == .play(.link(l1)))
+                == .link(l1))
     }
 
     @Test func playFirstAppleMusicFallsBackToARecordingOffline() {
@@ -210,67 +210,66 @@ private func choice(
         let result = choice(
             recordings: [r1], links: [link("l1", "apple_music")], playFirst: UserSettings.playFirstAppleMusic,
             online: false)
-        #expect(result == .play(.recording(r1)))
+        #expect(result == .recording(r1))
     }
 
-    @Test func skipsWithNothingWhenThereIsNoRecordingOrLink() {
-        #expect(choice() == .skip(.nothing))
+    @Test func skipsWhenThereIsNoRecordingOrLink() {
+        #expect(choice() == nil)
         #expect(
             choice(recordings: [rec("r1", deleted: true)], links: [link("l1", "youtube", deleted: true)])
-                == .skip(.nothing))
+                == nil)
     }
 
-    @Test func skipsWithNoCapableLinkWhenOnlyOtherLinksExist() {
-        #expect(choice(links: [link("l1", "youtube"), link("l2", "spotify")]) == .skip(.noCapableLink))
+    @Test func skipsWhenOnlyOtherLinksExist() {
+        #expect(choice(links: [link("l1", "youtube"), link("l2", "spotify")]) == nil)
     }
 
-    @Test func skipsWithNeedsSubscriptionBeforeNeedsConnection() {
+    @Test func skipsASongWithoutASubscription() {
         let links = [link("l1", "apple_music")]
-        #expect(choice(links: links, fullTracks: false, online: false) == .skip(.needsSubscription))
-        #expect(choice(links: links, fullTracks: false) == .skip(.needsSubscription))
+        #expect(choice(links: links, fullTracks: false, online: false) == nil)
+        #expect(choice(links: links, fullTracks: false) == nil)
     }
 
-    @Test func skipsWithNeedsConnectionWhenOffline() {
-        #expect(choice(links: [link("l1", "apple_music")], online: false) == .skip(.needsConnection))
+    @Test func skipsASongWhileOffline() {
+        #expect(choice(links: [link("l1", "apple_music")], online: false) == nil)
     }
 
     @Test func aPinnedRecordingWithNoAudioHerePassesOverToASong() {
         let song = link("l1", "apple_music")
         let result = choice(userTune(recording: "r1"), recordings: [rec("r1")], playable: [], links: [song])
-        #expect(result == .play(.link(song)))
+        #expect(result == .link(song))
     }
 
     @Test func skipsRecordingsWithNoAudioHereWhenTheyAreTheOnlySource() {
-        #expect(choice(recordings: [rec("r1")], playable: []) == .skip(.recordingsNotHere))
+        #expect(choice(recordings: [rec("r1")], playable: []) == nil)
     }
 
     @Test func skipsRecordingsWithNoAudioHereBesideALinkThatCannotPlay() {
         let result = choice(recordings: [rec("r1")], playable: [], links: [link("l1", "spotify")])
-        #expect(result == .skip(.recordingsNotHere))
+        #expect(result == nil)
     }
 
-    @Test func aSongBesideRecordingsWithNoAudioHereSkipsForTheSong() {
+    @Test func aSongThatCannotPlayBesideRecordingsWithNoAudioHereSkips() {
         let links = [link("l1", "apple_music")]
         #expect(
-            choice(recordings: [rec("r1")], playable: [], links: links, fullTracks: false) == .skip(.needsSubscription))
-        #expect(choice(recordings: [rec("r1")], playable: [], links: links, online: false) == .skip(.needsConnection))
+            choice(recordings: [rec("r1")], playable: [], links: links, fullTracks: false) == nil)
+        #expect(choice(recordings: [rec("r1")], playable: [], links: links, online: false) == nil)
     }
 
     @Test func aPinnedRecordingFallsBackToASongWhileRecordingsCannotPlay() {
         let song = link("l1", "apple_music")
         let result = choice(userTune(recording: "r1"), recordings: [rec("r1")], links: [song], recordingsPlay: false)
-        #expect(result == .play(.link(song)))
+        #expect(result == .link(song))
     }
 
-    @Test func skipsATuneWithOnlyRecordingsForPremium() {
-        #expect(choice(recordings: [rec("r1")], recordingsPlay: false) == .skip(.premium))
-        // A link that cannot play in a list leaves the recordings as the reason.
+    @Test func skipsATuneWithOnlyRecordingsWhileRecordingsCannotPlay() {
+        #expect(choice(recordings: [rec("r1")], recordingsPlay: false) == nil)
         #expect(
-            choice(recordings: [rec("r1")], links: [link("l1", "spotify")], recordingsPlay: false) == .skip(.premium))
-        #expect(choice(recordings: [rec("r1")], recordingsPlay: true) == .play(.recording(rec("r1"))))
+            choice(recordings: [rec("r1")], links: [link("l1", "spotify")], recordingsPlay: false) == nil)
+        #expect(choice(recordings: [rec("r1")], recordingsPlay: true) == .recording(rec("r1")))
     }
 
-    @Test func aDeletedRecordingWithNoAudioHereCountsAsNothing() {
-        #expect(choice(recordings: [rec("r1", deleted: true)], playable: []) == .skip(.nothing))
+    @Test func aDeletedRecordingWithNoAudioHereSkips() {
+        #expect(choice(recordings: [rec("r1", deleted: true)], playable: []) == nil)
     }
 }

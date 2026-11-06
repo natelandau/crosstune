@@ -1,7 +1,8 @@
 import SwiftUI
 
 /// A page's main actions side by side: on iPhone and iPad each takes an equal share of the
-/// width; on the Mac each keeps its natural width, as the Mac's buttons do everywhere. Each
+/// width, or the full width, stacked, where no labels fit side by side; on the Mac each keeps
+/// its natural width, as the Mac's buttons do everywhere. Each
 /// button takes `actionButtonStyle(prominent:)`, which sets its look and size.
 package struct ActionButtonRow<Content: View>: View {
     @ViewBuilder package let content: Content
@@ -18,11 +19,16 @@ package struct ActionButtonRow<Content: View>: View {
                 .labelStyle(.titleAndIcon)
         #else
             // A label never wraps or truncates: where equal columns are too narrow for every
-            // label beside its glyph, the glyphs go, then the labels' insets tighten.
+            // label beside its glyph, the glyphs go, then the labels' insets tighten, then the
+            // buttons stack at full width.
             ViewThatFits(in: .horizontal) {
-                columns
+                // Named, since a List row's default label style reports an ideal width without
+                // its title, which would pass a row whose labels are cut off.
+                columns.labelStyle(.titleAndIcon)
                 columns.labelStyle(.titleOnly)
                 columns.labelStyle(.titleOnly).environment(\.tightActionButtonLabels, true)
+                VStack(spacing: spacing(10)) { content }
+                    .labelStyle(.titleAndIcon)
             }
         #endif
     }

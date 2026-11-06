@@ -35,7 +35,6 @@
         case listNew = "list-new"
         case listPicker = "list-picker"
         case tunePicker = "tune-picker"
-        case whatPlays = "what-plays"
         case link
         case findRecordings = "find-recordings"
         case lyrics
@@ -100,7 +99,7 @@
             case .recordings, .recordingsFilters, .recordingsSetFilters, .editRecording, .editLocation, .addToTune:
                 place.sidebar = .recordings
                 place.tab = .recordings
-            case .list, .listSelecting, .tunePicker, .whatPlays:
+            case .list, .listSelecting, .tunePicker:
                 place.sidebar = .list(id: Self.listID)
                 place.tab = .lists
                 place.tabList = Self.listID

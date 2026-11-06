@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, BinaryIO
 
 import httpx2
 import pytest
@@ -470,6 +471,35 @@ async def test_import_that_outlasts_the_download_limit_retries(
     assert job.attempts == 1
     assert rec.state == "processing"
     assert store.keys() == []
+
+
+async def test_import_cut_off_while_opening_its_file_closes_it(
+    importer, verify_session, mock_http: MockHttp, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    runner, _ = importer
+    opened: list[tuple[Path, BinaryIO]] = []
+    open_for_write = importer_module._open_for_write
+
+    def slow_open(path: Path) -> BinaryIO:
+        time.sleep(0.2)
+        file = open_for_write(path)
+        opened.append((path, file))
+        return file
+
+    monkeypatch.setattr(importer_module, "DOWNLOAD_TIMEOUT_SECONDS", 0.05)
+    monkeypatch.setattr(importer_module, "_open_for_write", slow_open)
+    mock_http.add(PAGE, httpx2.Response(200, text=PAGE_HTML))
+    mock_http.add(FILE, httpx2.Response(200, content=_chunks(AUDIO)))
+    rec = await seed_import(verify_session)
+
+    await runner.run_once()
+
+    job = await _job(verify_session, rec, JobKind.IMPORT)
+    assert job is not None
+    assert job.attempts == 1
+    [(path, file)] = opened
+    assert file.closed
+    assert not path.exists()
 
 
 class _GatedStore(FakeObjectStore):

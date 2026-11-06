@@ -4,18 +4,15 @@ import CrosstuneStore
 import SwiftUI
 
 /// The one tune row, wherever tunes are listed. On iPhone and iPad it is one line: status glyph,
-/// title, and the key at the trailing edge, with a second line only for tunings, capos, or
-/// archived. At the accessibility text sizes the key moves under the title so nothing clips. An
-/// archived row is dimmed as a whole. In a list the row leads with its position. The Mac shows
-/// the same row on one line, as ``MacTuneRow``.
+/// title, and the key at the trailing edge, with a second line only for tunings, capos,
+/// archived, or a note from its screen. At the accessibility text sizes the key moves under the
+/// title so nothing clips. An archived row is dimmed as a whole. In a list the row speaks its position but never draws it.
+/// The Mac shows the same row on one line, as ``MacTuneRow``.
 public struct TuneRow: View {
     private let text: TuneRowText
     private let position: Int?
     private let stacked: Bool
-    /// False where the row's list draws the key itself, in a slot it shares with another control.
-    private let showsKey: Bool
 
-    @ScaledMetric(relativeTo: .subheadline) private var positionWidth: CGFloat = 28
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.spacing) private var spacing
 
@@ -25,15 +22,14 @@ public struct TuneRow: View {
     }
 
     /// `stacked` draws the iPhone and iPad row on every platform, for a snapshot of those screens
-    /// rendered on a Mac.
+    /// rendered on a Mac. `note` ends the second line, as ``TuneRowText/note`` says.
     init(
         tune: Tune, userTune: UserTune, instruments: Set<String>, position: Int? = nil, stacked: Bool = false,
-        showsKey: Bool = true
+        note: String? = nil
     ) {
-        text = TuneRowText(tune: tune, userTune: userTune, instruments: instruments)
+        text = TuneRowText(tune: tune, userTune: userTune, instruments: instruments, note: note)
         self.position = position
         self.stacked = stacked
-        self.showsKey = showsKey
     }
 
     public var body: some View {
@@ -41,7 +37,7 @@ public struct TuneRow: View {
             if stacked {
                 phoneRow
             } else {
-                MacTuneRow(text: text, position: position, showsKey: showsKey)
+                MacTuneRow(text: text, position: position)
             }
         #else
             phoneRow
@@ -50,13 +46,6 @@ public struct TuneRow: View {
 
     private var phoneRow: some View {
         HStack(alignment: .firstTextBaseline, spacing: spacing(12)) {
-            if let position {
-                Text(position, format: .number)
-                    .font(.platform(.subheadline))
-                    .monospacedDigit()
-                    .foregroundStyle(.textSecondary)
-                    .frame(minWidth: positionWidth, alignment: .trailing)
-            }
             if dynamicTypeSize.isAccessibilitySize {
                 VStack(alignment: .leading, spacing: spacing.rowLineGap) {
                     titleLine
@@ -106,17 +95,6 @@ public struct TuneRow: View {
 }
 
 extension View {
-    /// A tune row's place in a list, with no separator. The Mac row sets its own height.
-    func tuneRowInsets() -> some View {
-        #if os(macOS)
-            listRowInsets(EdgeInsets())
-                .listRowSeparator(.hidden)
-        #else
-            scaledRowInsets()
-                .listRowSeparator(.hidden)
-        #endif
-    }
-
     /// A list row's background on the page background: clear, so the page shows through, unless
     /// the list selects the row, which keeps the system's selection fill.
     func unselectedRowBackground(isSelected: Bool) -> some View {

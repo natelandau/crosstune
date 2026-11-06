@@ -14,6 +14,10 @@ package enum PageStyle {
         package static let sectionGap = MacStyle.sectionGap
         package static let headingGap = MacStyle.headingGap
         package static let smallControlHeight = MacStyle.smallControlHeight
+        /// The point size of a row's action glyph.
+        package static let rowGlyphSize = MacStyle.bodySize
+        /// The action glyph's point size in a media row, which always holds at least two lines.
+        package static let mediaRowGlyphSize: CGFloat = 20
         package static let filterControlHeight = MacStyle.smallControlHeight
         /// A pointer needs no hit area past a control's drawn edge.
         package static let minTarget: CGFloat = 0
@@ -65,6 +69,8 @@ package enum PageStyle {
         package static let sectionGap: CGFloat = 28
         package static let headingGap: CGFloat = 8
         package static let smallControlHeight: CGFloat = 32
+        package static let rowGlyphSize: CGFloat = 24
+        package static let mediaRowGlyphSize: CGFloat = 24
         package static let filterControlHeight = PhoneStyle.filterControlHeight
         package static let minTarget = minimumTapTarget
         package static let pullDownChevron = Font.caption2.weight(.semibold)

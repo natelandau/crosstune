@@ -1,10 +1,11 @@
-import { cdp, page } from 'vitest/browser'
+import { page } from 'vitest/browser'
 import { MotionGlobalConfig } from 'motion/react'
 import { expect, it, onTestFinished, vi } from 'vitest'
 import type { CrosstuneDb } from '../../db/schema'
 import type { LocalRecording } from '../../db/types'
 import { PLAYER_REGION } from './playerCopy'
 import { CLOSE_PLAYER, PLAY } from './transportCopy'
+import { emulateReducedMotion } from '../../test/reducedMotion'
 import { openTestDb } from '../../test/db'
 import { fakePlaybackEngine } from '../../test/providers'
 import { linkRow, recordingFile, recordingRow, tuneRow, userTuneRow } from '../../test/rows'
@@ -171,13 +172,7 @@ it('clears a closing copy still on its way out when the player opens again', asy
 })
 
 it('leaves no copy behind under reduced motion', async () => {
-  await cdp().send('Emulation.setEmulatedMedia', {
-    features: [{ name: 'prefers-reduced-motion', value: 'reduce' }],
-  })
-  onTestFinished(async () => {
-    await cdp().send('Emulation.setEmulatedMedia', { features: [] })
-  })
-  await expect.poll(() => matchMedia('(prefers-reduced-motion: reduce)').matches).toBe(true)
+  await emulateReducedMotion()
   await mount(PHONE)
   await open(recordingRowLocator(FAST))
   const copies = watchLeaving()

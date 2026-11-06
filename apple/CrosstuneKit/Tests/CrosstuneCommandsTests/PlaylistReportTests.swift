@@ -36,45 +36,41 @@ private func report(
             entry("c", recordings: 1), entry("a", links: [("apple_music", song)]), entry("b", recordings: 2),
         ])
         #expect(result.playable == ["c", "a", "b"])
-        #expect(result.skipped.isEmpty)
         #expect(result.total == 3)
     }
 
-    @Test func groupsEachSkipReasonInListOrder() {
+    @Test func leavesOutTunesWithNothingAListCanPlay() {
         let result = report([
             entry("n1"), entry("l1", links: [("youtube", "https://example.com/1")]),
             entry("n2"), entry("l2", links: [("spotify", "https://example.com/2")]), entry("ok", recordings: 1),
         ])
         #expect(result.playable == ["ok"])
-        #expect(result.skipped[.nothing] == ["n1", "n2"])
-        #expect(result.skipped[.noCapableLink] == ["l1", "l2"])
         #expect(result.total == 5)
     }
 
     @Test func skipsASongWithoutASubscription() {
         let result = report([entry("s", links: [("apple_music", song)])], fullTracks: false)
-        #expect(result.skipped[.needsSubscription] == ["s"])
         #expect(result.playable.isEmpty)
+        #expect(result.total == 1)
     }
 
     @Test func skipsASongWhileOffline() {
         let result = report([entry("s", links: [("apple_music", song)])], online: false)
-        #expect(result.skipped[.needsConnection] == ["s"])
+        #expect(result.playable.isEmpty)
+        #expect(result.total == 1)
     }
 
     @Test func countsAnEmptyListAsNothingToPlay() {
-        #expect(report([]) == PlaylistReport(playable: [], skipped: [:], total: 0))
+        #expect(report([]) == PlaylistReport(playable: [], total: 0))
     }
 
-    @Test func groupsRecordingsWithNoAudioHere() {
+    @Test func leavesOutRecordingsWithNoAudioHere() {
         let result = report([
             entry("r", recordings: 1, playable: false),
             entry("rs", recordings: 1, playable: false, links: [("spotify", "https://example.com/1")]),
             entry("ok", recordings: 1),
         ])
         #expect(result.playable == ["ok"])
-        #expect(result.skipped[.recordingsNotHere] == ["r", "rs"])
-        #expect(result.skipped[.nothing] == nil)
-        #expect(result.skipped[.noCapableLink] == nil)
+        #expect(result.total == 3)
     }
 }

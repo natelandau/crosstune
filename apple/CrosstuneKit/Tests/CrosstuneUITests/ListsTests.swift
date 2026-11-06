@@ -5,6 +5,7 @@ import CrosstuneStore
 import CrosstuneTestSupport
 import Foundation
 import GRDB
+import SwiftUI
 import Testing
 
 @testable import CrosstuneUI
@@ -656,7 +657,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
         let action = ListRowPlay.action(for: linkOnly, playFirst: UserSettings.playFirstRecordings)
         #expect(action == .open(url, linkTitle: LinkText.title(hen.links[0])))
         let open = try #require(action)
-        #expect(ListRowPlay.symbol(for: open, loaded: false) == "arrow.up.right")
+        #expect(ListRowPlay.symbol(for: open, loaded: false) == "arrow.up.right.circle")
         #expect(
             ListRowText.label(for: open, tuneTitle: hen.tune.title, loaded: false)
                 == "\(LinkText.open) \(LinkText.title(hen.links[0]))")
@@ -829,20 +830,20 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 
     @Test func saysWhenNothingCanPlay() {
-        let none = PlaylistReport(playable: [], skipped: [.nothing: ["a"]], total: 1)
+        let none = PlaylistReport(playable: [], total: 1)
         #expect(ListPlayText.line(for: none) == "No tunes in this list can play")
-        let one = PlaylistReport(playable: ["a"], skipped: [:], total: 1)
+        let one = PlaylistReport(playable: ["a"], total: 1)
         #expect(ListPlayText.line(for: one) == "1 of 1 tunes will play")
     }
 }
 
 @Suite struct ListPlayOfferTests {
     private func offer(
-        report: PlaylistReport = PlaylistReport(playable: ["a"], skipped: [:], total: 1), canStart: Bool = true,
+        report: PlaylistReport = PlaylistReport(playable: ["a"], total: 1), canStart: Bool = true,
         playing: ListPlayAvailability.Playing? = nil
     ) -> ListPlayAvailability {
         ListPlayAvailability(
-            report: report, canStart: canStart, playing: playing, onPlay: {}, onShuffle: {}, onWhatPlays: {})
+            report: report, canStart: canStart, playing: playing, onPlay: {}, onShuffle: {})
     }
 
     @Test func offersPlayWhileTheListIsStopped() {
@@ -868,7 +869,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 
     @Test func leavesOutTheButtonsWhenNothingCanPlay() {
-        let none = PlaylistReport(playable: [], skipped: [.nothing: ["a"]], total: 1)
+        let none = PlaylistReport(playable: [], total: 1)
         #expect(!offer(report: none).showsButtons)
         #expect(offer().showsButtons)
     }
@@ -876,7 +877,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     /// A playing list's tunes can stop being playable, such as when their recordings are
     /// deleted, and Play must still pause what plays.
     @Test func pausesAPlayingListWithNothingLeftToStart() {
-        let none = PlaylistReport(playable: [], skipped: [.nothing: ["a"]], total: 1)
+        let none = PlaylistReport(playable: [], total: 1)
         let playing = offer(report: none, playing: .init(isPlaying: true, isSettled: true))
         #expect(playing.showsButtons)
         #expect(!playing.isPlayDisabled)
@@ -897,10 +898,10 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 
     @Test func neverCallsThePlayingRowNotPlayable() {
-        #expect(ListRowText.hint(hasAction: false, isCurrent: false, isSelecting: false) == ListRowText.notPlayable)
-        #expect(ListRowText.hint(hasAction: false, isCurrent: true, isSelecting: false).isEmpty)
-        #expect(ListRowText.hint(hasAction: false, isCurrent: false, isSelecting: true).isEmpty)
-        #expect(ListRowText.hint(hasAction: true, isCurrent: false, isSelecting: false).isEmpty)
+        #expect(ListRowText.notPlayable == "Nothing to play")
+        #expect(ListRowText.note(hasAction: false, isCurrent: false) == ListRowText.notPlayable)
+        #expect(ListRowText.note(hasAction: false, isCurrent: true) == nil)
+        #expect(ListRowText.note(hasAction: true, isCurrent: false) == nil)
     }
 
     @Test func marksTheCurrentTuneOfThePlayingListWhateverItsRowActionIs() {
@@ -1016,40 +1017,11 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
         let report = playlistReport(
             entries: contents.entries.map { $0.playlistEntry(online: online) },
             playFirst: UserSettings.playFirstRecordings, fullTracks: true, online: online)
-        #expect(report.skipped[.recordingsNotHere]?.contains(id) == true)
+        #expect(!report.playable.contains(id))
         for entry in contents.entries {
             let turn = await resolve(store, tuneID: entry.tune.id, online: online)
             #expect((turn != nil) == report.playable.contains(entry.tune.id), "\(entry.tune.title)")
         }
-    }
-}
-
-@Suite struct WhatPlaysTests {
-    @Test func showsGroupsInOrderWithoutEmptyOnes() {
-        let report = PlaylistReport(
-            playable: [],
-            skipped: [.needsConnection: ["d"], .nothing: ["a", "b"], .needsSubscription: ["c"], .noCapableLink: []],
-            total: 4)
-        let groups = WhatPlaysText.groups(report)
-        #expect(groups.map(\.reason) == [.nothing, .needsSubscription, .needsConnection])
-        #expect(groups.first?.tuneIDs == ["a", "b"])
-        #expect(WhatPlaysText.groupTitle(.noCapableLink) == "Only links that can't play in a list")
-    }
-
-    @Test func listsRecordingsNotOnThisDeviceLast() {
-        let report = PlaylistReport(
-            playable: [], skipped: [.recordingsNotHere: ["e"], .needsConnection: ["d"], .nothing: ["a"]], total: 3)
-        #expect(WhatPlaysText.groups(report).map(\.reason) == [.nothing, .needsConnection, .recordingsNotHere])
-        #expect(WhatPlaysText.groupTitle(.recordingsNotHere) == "Recordings that aren't on this device yet")
-    }
-
-    @Test func listsTunesSkippedForPremiumAfterTheOthers() {
-        let report = PlaylistReport(
-            playable: [], skipped: [.premium: ["f"], .recordingsNotHere: ["e"], .nothing: ["a"]], total: 3)
-        #expect(WhatPlaysText.groups(report).map(\.reason) == [.nothing, .recordingsNotHere, .premium])
-        #expect(
-            WhatPlaysText.groupTitle(.premium)
-                == "Recordings need Premium, so tunes with only recordings were skipped.")
     }
 }
 
@@ -1112,15 +1084,6 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     import SwiftUI
 
     @Suite struct MacListColumnTests {
-        /// The row's play takes the key pill's place only when it has something to show, so a row
-        /// that can do nothing keeps its key in sight under the pointer.
-        @Test func keySlotRevealsPlayOnlyWithSomethingToShow() {
-            #expect(!ListRowKeySlot.revealsPlay(action: .inert, isCurrent: false))
-            #expect(ListRowKeySlot.revealsPlay(action: .inert, isCurrent: true))
-            #expect(ListRowKeySlot.revealsPlay(action: .downloading, isCurrent: false))
-            #expect(ListRowKeySlot.revealsPlay(action: nil, isCurrent: false))
-        }
-
         /// The playing row takes the subtle tint, lighter than a selection's, so it reads as
         /// marked rather than chosen.
         @Test func playingRowTintIsALightAccent() {
@@ -1132,3 +1095,115 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
         }
     }
 #endif
+
+@MainActor
+@Suite struct ListRowLayoutTests {
+    private let tune = Tune(createdAt: noon, title: "Soldier's Joy", key: "D")
+    private var userTune: UserTune { UserTune(createdAt: noon, tuneID: tune.id, status: "learning") }
+
+    @Test func speaksItsPosition() {
+        let text = TuneRowText(tune: tune, userTune: userTune, instruments: [])
+        #expect(text.accessibilityLabel(position: 3).hasPrefix("3, "))
+    }
+
+    /// The row's note, as the list page gives it for a tune with nothing to play.
+    private func noted(
+        tune: Tune? = nil, hasAction: Bool = false, isCurrent: Bool = false
+    ) -> TuneRowText {
+        let tune = tune ?? self.tune
+        return TuneRowText(
+            tune: tune, userTune: UserTune(createdAt: noon, tuneID: tune.id, status: "learning"),
+            instruments: ["violin"],
+            note: ListRowText.note(hasAction: hasAction, isCurrent: isCurrent))
+    }
+
+    @Test func saysNothingToPlayInItsSecondLineAndSpokenName() {
+        let row = noted()
+        #expect(row.secondLine == "Nothing to play")
+        #expect(row.accessibilityLabel(position: 2) == "2, Soldier's Joy, Key D, Learning, Nothing to play")
+        let tuned = Tune(
+            createdAt: noon, title: "Bonaparte's Retreat", key: "D",
+            tunings: ["violin": .object(["tuning": .string("Cross D (DADD)")])])
+        #expect(noted(tune: tuned).secondLine == "Cross D (DADD) · \(ListRowText.notPlayable)")
+    }
+
+    @Test func saysNothingToPlayOnlyForARowWithNothingToPlay() {
+        for row in [noted(hasAction: true), noted(isCurrent: true)] {
+            #expect(row.secondLine == nil)
+            #expect(!row.accessibilityLabel().contains(ListRowText.notPlayable))
+        }
+    }
+
+    #if os(macOS)
+        @Test func drawsNoPosition() {
+            let plain = TuneRow(tune: tune, userTune: userTune, instruments: [], stacked: true)
+            let placed = TuneRow(tune: tune, userTune: userTune, instruments: [], position: 12, stacked: true)
+            #expect(hostedSize(placed).width == hostedSize(plain).width)
+        }
+
+        @Test func macRowDrawsNoPosition() {
+            let text = TuneRowText(tune: tune, userTune: userTune, instruments: [])
+            let placed = hostedSize(MacTuneRow(text: text, position: 12))
+            #expect(placed.width == hostedSize(MacTuneRow(text: text, position: nil)).width)
+        }
+
+        @Test(arguments: [DynamicTypeSize.large, .accessibility3])
+        func listPageRowMatchesCatalogRowHeight(textSize: DynamicTypeSize) {
+            let catalog = TuneRow(tune: tune, userTune: userTune, instruments: [], stacked: true)
+            let entry = bareListEntry(tune: tune, userTune: userTune)
+            let item = sampleRecordingItem()
+            let listRow = HStack {
+                TuneRow(tune: tune, userTune: userTune, instruments: [], position: 1, stacked: true)
+                ListRowPlayButton(entry: entry, action: .play(item), listID: "l1")
+            }
+            let listHeight = hostedSize(listRow, width: 375, textSize: textSize).height
+            #expect(listHeight == hostedSize(catalog, width: 375, textSize: textSize).height)
+        }
+
+        /// A row with nothing to play keeps its slot's width, so its key lines up with the keys
+        /// of rows that play, and its second line makes it no taller than a catalog row with one.
+        @Test(arguments: [DynamicTypeSize.large, .accessibility3])
+        func nothingToPlayRowKeepsTheColumnAndTheCatalogHeight(textSize: DynamicTypeSize) {
+            let tuned = Tune(
+                createdAt: noon, title: "Bonaparte's Retreat", key: "D",
+                tunings: ["violin": .object(["tuning": .string("Cross D (DADD)")])])
+            let catalog = TuneRow(
+                tune: tuned, userTune: UserTune(createdAt: noon, tuneID: tuned.id, status: "learning"),
+                instruments: ["violin"], stacked: true)
+            let entry = bareListEntry(tune: tune, userTune: userTune)
+            let item = sampleRecordingItem()
+            let empty = ListRowPlayButton(entry: entry, action: nil, listID: "l1")
+            let listRow = HStack {
+                TuneRow(
+                    tune: tune, userTune: userTune, instruments: [], position: 1, stacked: true,
+                    note: ListRowText.note(hasAction: false, isCurrent: false))
+                empty
+            }
+            let listHeight = hostedSize(listRow, width: 375, textSize: textSize).height
+            #expect(listHeight == hostedSize(catalog, width: 375, textSize: textSize).height)
+            let playWidth = hostedSize(
+                ListRowPlayButton(entry: entry, action: .play(item), listID: "l1"), textSize: textSize
+            )
+            .width
+            #expect(hostedSize(empty, textSize: textSize).width == playWidth)
+            #expect(playWidth > 0)
+        }
+
+        @Test func macRowShowsItsNote() {
+            let plain = TuneRowText(tune: tune, userTune: userTune, instruments: [])
+            let noted = TuneRowText(
+                tune: tune, userTune: userTune, instruments: [], note: ListRowText.notPlayable)
+            #expect(
+                hostedSize(MacTuneRow(text: noted, position: 1)).width
+                    > hostedSize(MacTuneRow(text: plain, position: 1)).width)
+        }
+    #endif
+}
+
+@Suite struct ListsScreenRowTests {
+    @Test func listsScreenRowsHaveNoChevronOrSeparator() throws {
+        let source = SourceScan.withoutComments(try SourceScan.text(at: SourceScan.url(of: "Lists/ListsScreen.swift")))
+        #expect(!source.contains("NavigationLink"))
+        #expect(source.contains(".listItemRow()"))
+    }
+}

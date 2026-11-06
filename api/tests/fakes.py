@@ -248,7 +248,12 @@ class FakeObjectStore:
 
     async def download(self, key: str, path: Path) -> None:
         """Fetch an object into a local file."""
-        path.write_bytes(self._objects[key][0])  # noqa: ASYNC240 -- in-memory fake, no real I/O
+        # Renamed into place whole, as boto's download_file does: the local media tools
+        # read through a container's bind mount, which can serve a file written in place
+        # before all of its bytes show.
+        part = path.with_name(f"{path.name}.part")
+        part.write_bytes(self._objects[key][0])
+        part.replace(path)
 
     async def upload(self, path: Path, key: str, content_type: str) -> int:
         """Store a local file. Returns the byte count stored."""

@@ -1,16 +1,13 @@
 import CrosstuneStore
 
-/// Which tunes of a list play as a playlist and why the rest do not.
+/// Which tunes of a list play as a playlist.
 public struct PlaylistReport: Equatable, Sendable {
     /// Tune IDs in list order.
     public var playable: [String]
-    /// Tune IDs per reason, in list order.
-    public var skipped: [PlaylistSkip: [String]]
     public var total: Int
 
-    public init(playable: [String], skipped: [PlaylistSkip: [String]], total: Int) {
+    public init(playable: [String], total: Int) {
         self.playable = playable
-        self.skipped = skipped
         self.total = total
     }
 }
@@ -31,20 +28,17 @@ public struct PlaylistEntry: Sendable {
     }
 }
 
-/// Sorts a list's tunes into those a playlist plays and those it skips, by reason.
+/// Sorts a list's tunes into those a playlist plays and those it skips.
 /// `recordingsPlay` false plays no recording, as on a free plan.
 public func playlistReport(
     entries: [PlaylistEntry], playFirst: String, fullTracks: Bool, online: Bool, recordingsPlay: Bool = true
 ) -> PlaylistReport {
-    var report = PlaylistReport(playable: [], skipped: [:], total: entries.count)
+    var report = PlaylistReport(playable: [], total: entries.count)
     for entry in entries {
-        let choice = playlistSource(
+        let source = playlistSource(
             userTune: entry.userTune, recordings: entry.recordings, playable: entry.playable, links: entry.links,
             playFirst: playFirst, fullTracks: fullTracks, online: online, recordingsPlay: recordingsPlay)
-        switch choice {
-        case .play: report.playable.append(entry.userTune.tuneID)
-        case .skip(let reason): report.skipped[reason, default: []].append(entry.userTune.tuneID)
-        }
+        if source != nil { report.playable.append(entry.userTune.tuneID) }
     }
     return report
 }

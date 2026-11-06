@@ -80,6 +80,19 @@ extension View {
         modifier(ScaledRowInsets())
     }
 
+    /// A row that is one of a list's items, with no separator: on iOS the scaled space above and
+    /// below, on the Mac edge to edge with `macVerticalInset` above and below, since a Mac row
+    /// sets its own height.
+    package func listItemRow(macVerticalInset: CGFloat = 0) -> some View {
+        #if os(macOS)
+            listRowInsets(EdgeInsets(top: macVerticalInset, leading: 0, bottom: macVerticalInset, trailing: 0))
+                .listRowSeparator(.hidden)
+        #else
+            scaledRowInsets()
+                .listRowSeparator(.hidden)
+        #endif
+    }
+
     /// A list row that is not one of the list's items, such as a heading, a control, or a note:
     /// no separator, no background, and no selection.
     package func plainListRow() -> some View {

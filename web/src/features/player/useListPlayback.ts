@@ -56,3 +56,9 @@ export function useListPlayback(): ListPlayback {
   if (!playback) throw new Error('useListPlayback must be used inside ListPlaybackProvider')
   return playback
 }
+
+/** The run when list `listId` is the one playing, or null, including once it has stopped. */
+export function useActiveListRun(listId: string): ListPlaybackActive | null {
+  const run = useListPlayback().active
+  return run?.listId === listId && run.message === null ? run : null
+}

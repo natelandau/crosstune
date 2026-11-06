@@ -2,7 +2,7 @@ import CrosstuneDesign
 import CrosstuneStore
 
 /// What a tune row says: its title, then its key and mode, status, tunings for the instruments
-/// played, and whether it is archived, each left out when unset.
+/// played, whether it is archived, and a note from the screen showing it, each left out when unset.
 public struct TuneRowText: Hashable, Sendable {
     public static let archived = "Archived"
     /// Spoken before the key, so "D" is not heard as a stray letter.
@@ -16,20 +16,23 @@ public struct TuneRowText: Hashable, Sendable {
     /// ``tunings`` one instrument at a time.
     public let tuningParts: [String]
     public let isArchived: Bool
+    /// Said last, shown and spoken, such as a list's word for a tune with nothing to play.
+    public let note: String?
 
-    public init(tune: Tune, userTune: UserTune, instruments: Set<String>) {
+    public init(tune: Tune, userTune: UserTune, instruments: Set<String>, note: String? = nil) {
         title = tune.title
         key = KeyModeText(key: tune.key, modes: tune.modes)
         status = StatusStyle.normalized(userTune.status)
         tuningParts = TuningText.rowParts(tune.tunings, instruments: instruments)
         tunings = TuningText.row(tune.tunings, instruments: instruments)
         isArchived = userTune.archivedAt != nil
+        self.note = note
     }
 
     /// The line under the title on iPhone and iPad, or nil when there is nothing beyond the
-    /// glyph, title, and key to say: the tunings and capos, then whether it is archived.
+    /// glyph, title, and key to say: the tunings and capos, whether it is archived, then the note.
     public var secondLine: String? {
-        let parts = [tunings, isArchived ? Self.archived : nil].compactMap { $0 }
+        let parts = [tunings, isArchived ? Self.archived : nil, note].compactMap { $0 }
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
@@ -40,6 +43,7 @@ public struct TuneRowText: Hashable, Sendable {
         parts.append(StatusStyle.label(status))
         if let tunings { parts.append(tunings) }
         if isArchived { parts.append(Self.archived) }
+        if let note { parts.append(note) }
         return parts
     }
 

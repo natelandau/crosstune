@@ -1,4 +1,4 @@
-import { ArrowUpRight, ChevronRight, CloudDownload, ExternalLink } from 'lucide-react'
+import { ArrowUpRight, ChevronRight, ExternalLink } from 'lucide-react'
 import { createContext, useContext, useLayoutEffect, useState, type ReactNode } from 'react'
 import { Button as AriaButton, type Key } from 'react-aria-components'
 import { closeLinkName, linkOutText, openOnProviderName } from '../links/linkNames'
@@ -12,7 +12,12 @@ import type { PremiumEntry } from '../plan/PremiumSheetProvider'
 import type { LinkMediaRow, RecordingMediaRow } from './useTuneMedia'
 import type { StorageUsage } from '../../db/meta'
 import { PinnedMark } from './PinnedMark'
-import { DISC_ROW_HOVER, TransportGlyph } from '../../ui/rowGlyphs'
+import {
+  ActionSlot,
+  LinkControlGlyph,
+  RecordingControlGlyph,
+  RING_ROW_HOVER,
+} from '../../ui/rowGlyphs'
 import { useLatest } from '../../ui/useLatest'
 import { useNewRecording } from '../capture/useNewRecording'
 import { Row } from '../../ui/Row'
@@ -48,9 +53,9 @@ export function MediaList({ label, children }: { label: string; children: ReactN
 }
 
 /**
- * The two-line row recordings and links share: a fixed glyph slot showing the item's state,
- * the title, then its details in secondary. The row is the control, and its name is the action label
- * plus the lines it shows.
+ * The two-line row recordings and links share: the title, its details in secondary, then a
+ * trailing slot that holds a glyph for the item's state, or a control that takes its place.
+ * The row is the control, and its name is the action label plus the lines it shows.
  */
 function MediaRow({
   id,
@@ -61,7 +66,7 @@ function MediaRow({
   pinned,
   details,
   description,
-  trailing,
+  action,
   actions,
   menu,
   dimmed,
@@ -78,7 +83,8 @@ function MediaRow({
   details: ReactNode
   /** Heard after the row's name. */
   description?: string
-  trailing?: ReactNode
+  /** A control that takes the glyph's slot, such as a stuck recording's Retry. */
+  action?: ReactNode
   actions: Parameters<typeof rowActions>[0]
   /** The row's menu, where it holds more than `actions`. */
   menu?: Parameters<typeof rowActions>[0]
@@ -97,19 +103,17 @@ function MediaRow({
       id={id}
       textValue={name}
       stacked
-      leading={
-        <span
-          data-media-glyph
-          className={`flex h-(--target) w-7 shrink-0 items-center justify-start ${DISC_ROW_HOVER} ${loaded ? 'text-primary' : 'text-secondary'}`}
-        >
-          {glyph}
-        </span>
-      }
       title={title}
       titleEnd={pinned ? <PinnedMark /> : undefined}
       detail={details}
       description={description}
-      trailing={trailing}
+      trailing={
+        action ?? (
+          <ActionSlot data-media-glyph className={RING_ROW_HOVER}>
+            {glyph}
+          </ActionSlot>
+        )
+      }
       actions={rowActions(actions)}
       menu={menu && rowActions(menu)}
       dimmed={dimmed}
@@ -156,15 +160,7 @@ export function RecordingRow({
   const fresh = useNewRecording(view.recording.id)
   const { title, control, open, retry, origin } = data
   const meta = data.meta.join(' · ')
-  const glyph =
-    control === 'close' || control === 'play' ? (
-      <TransportGlyph shape={control === 'close' ? 'stop' : 'play'} />
-    ) : control === 'download' || control === 'downloading' ? (
-      <CloudDownload
-        className={`size-5 shrink-0 ${control === 'downloading' || data.offlineDownload ? 'text-tertiary' : ''}`}
-        aria-hidden
-      />
-    ) : null
+  const glyph = <RecordingControlGlyph control={control} offline={data.offlineDownload} />
   const name = [open?.openName ? `${open.openName} ${title}` : title, meta]
     .filter(Boolean)
     .join(', ')
@@ -174,7 +170,9 @@ export function RecordingRow({
       name={name}
       glyph={
         control === 'downloading' ? (
-          <span role="status" aria-label={downloadingName(title)} className="contents">
+          // A box, since Chromium drops a display: contents element whose children are all
+          // hidden from the accessibility tree, name and all.
+          <span role="status" aria-label={downloadingName(title)} className="grid">
             {glyph}
           </span>
         ) : (
@@ -218,17 +216,17 @@ export function RecordingRow({
           {data.error && <span className="text-danger block">{data.error}</span>}
         </>
       }
-      trailing={
+      action={
         retry && (
-          <span {...keepPress} className="contents">
+          <ActionSlot {...keepPress} worded>
             <AriaButton
               aria-label={retryName(retry, title)}
               onPress={() => onRetry(retry)}
-              className="t-body text-primary min-h-(--target-control) shrink-0 px-2"
+              className="t-body text-accent size-full px-2"
             >
               {RETRY}
             </AriaButton>
-          </span>
+          </ActionSlot>
         )
       }
       actions={actions}
@@ -247,11 +245,7 @@ export function LinkRow({ row: { link, pinned, actions } }: { row: LinkMediaRow 
     <MediaRow
       id={link.id}
       name={`${actionLabel}, ${href ? linkOutText(provider) : provider}`}
-      glyph={
-        control === 'close' || control === 'play' ? (
-          <TransportGlyph shape={control === 'close' ? 'stop' : 'play'} />
-        ) : null
-      }
+      glyph={<LinkControlGlyph control={control} />}
       loaded={loaded}
       title={title}
       pinned={pinned}

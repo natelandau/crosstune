@@ -4,25 +4,23 @@ import CrosstuneDesign
     import CrosstuneAnalytics
     import SwiftUI
 
-    /// The Mac tune row on one line: position in a list, status glyph, title, tunings, then the
-    /// key pill at the trailing edge, so the keys down a column line up.
+    /// The Mac tune row on one line: status glyph, title, tunings, archived, and the row's note,
+    /// then the key pill at the trailing edge, so the keys down a column line up. A list's
+    /// `position` is only spoken.
     public struct MacTuneRow: View {
         private let text: TuneRowText
         private let position: Int?
-        private let showsKey: Bool
 
         @Environment(\.backgroundProminence) private var prominence
         @Environment(\.macRowSelected) private var rowSelected
 
-        /// `showsKey` false leaves the key to a list that draws it in a trailing slot of its own.
-        public init(text: TuneRowText, position: Int?, showsKey: Bool = true) {
+        public init(text: TuneRowText, position: Int?) {
             self.text = text
             self.position = position
-            self.showsKey = showsKey
         }
 
-        /// The tunings' and position's text color: secondary at rest, white on a key window's
-        /// selection, and primary on a selection that is not emphasized.
+        /// The tunings' text color: secondary at rest, white on a key window's selection,
+        /// and primary on a selection that is not emphasized.
         nonisolated static func detailColor(emphasized: Bool, rowSelected: Bool = false) -> Palette.Token {
             SecondaryText.token(emphasized: emphasized, rowSelected: rowSelected)
         }
@@ -53,14 +51,6 @@ import CrosstuneDesign
         public var body: some View {
             HStack(spacing: 8) {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    if let position {
-                        // As wide as three digits, so titles start in one column down a list.
-                        Text(position, format: .number)
-                            .font(MacStyle.secondary)
-                            .monospacedDigit()
-                            .foregroundStyle(detailColor)
-                            .frame(minWidth: Self.positionWidth, alignment: .trailing)
-                    }
                     StatusGlyph(text.status)
                     Text(text.title)
                         .contentMask()
@@ -70,7 +60,7 @@ import CrosstuneDesign
                     details
                 }
                 Spacer(minLength: 0)
-                if showsKey, let key = text.key {
+                if let key = text.key {
                     KeyPill(key.key, suffix: key.suffix, size: .compact)
                         .fixedSize()
                 }
@@ -105,17 +95,21 @@ import CrosstuneDesign
                     }
                     .monospacedDigit()
                 }
-                if text.isArchived {
-                    Text(TuneRowText.archived)
-                        .fixedSize()
-                }
+                if text.isArchived { wholeOrHidden(TuneRowText.archived) }
+                if let note = text.note { wholeOrHidden(note) }
             }
             .font(MacStyle.secondary)
             .foregroundStyle(detailColor)
         }
 
-        /// Three tabular digits at the secondary size.
-        private static let positionWidth: CGFloat = 21
+        /// `detail` whole, or nothing where it does not fit, so it never squeezes the title. The
+        /// row's label still says it.
+        private func wholeOrHidden(_ detail: String) -> some View {
+            ViewThatFits(in: .horizontal) {
+                Text(detail).fixedSize()
+                Color.clear.frame(width: 0, height: 0)
+            }
+        }
 
         /// Room for a tuning's name to read before it truncates.
         private static let minTuningsWidth: CGFloat = 56

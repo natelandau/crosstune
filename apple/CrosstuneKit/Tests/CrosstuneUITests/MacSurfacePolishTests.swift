@@ -2,6 +2,7 @@
     import AppKit
     import CrosstuneCommands
     import CrosstuneDesign
+    import CrosstuneStore
     import Foundation
     import SwiftUI
     import Testing
@@ -38,8 +39,8 @@
         /// room until it reads what can play.
         @Test func listHeadKeepsItsHeightWhateverItHolds() {
             let offer = ListPlayAvailability(
-                report: PlaylistReport(playable: ["a"], skipped: [.nothing: ["b"]], total: 2), canStart: true,
-                onPlay: {}, onShuffle: {}, onWhatPlays: {})
+                report: PlaylistReport(playable: ["a"], total: 2), canStart: true,
+                onPlay: {}, onShuffle: {})
             let bar = AnyView(
                 MacSelectionBar(
                     count: 1, allSelected: false, canSelectAll: true, onSelectAll: {}, actions: [], canAddToList: true,
@@ -57,17 +58,6 @@
             #expect(height(play: nil, selecting: false, waits: true) == height(play: offer, selecting: false))
         }
 
-        /// A page's media row with no glyph keeps its own height when its column offers more,
-        /// as a tune's content does beside a taller attributes column.
-        @Test func glyphlessPageRowKeepsItsHeight() throws {
-            let url = try #require(URL(string: "https://example.com/tune"))
-            let row = MediaRow(glyph: .none, title: "Bibb County Hoedown", secondLine: .link("Open", url, name: "Open"))
-                .environment(\.hangsMediaGlyph, true)
-            let host = NSHostingController(rootView: row)
-            let fitting = host.sizeThatFits(in: CGSize(width: 420, height: CGFloat.infinity)).height
-            #expect(host.sizeThatFits(in: CGSize(width: 420, height: 1000)).height == fitting)
-        }
-
         /// A taken row in the tune picker reads everything an open row does, then that it is in
         /// the list.
         @Test func takenRowReadsTheWholeRow() {
@@ -78,6 +68,89 @@
             #expect(
                 TunePickerSheet.takenLabel(entry, instruments: SampleCatalog.instruments)
                     == "\(row), \(TunePickerModel.inThisList)")
+        }
+
+        /// Whether `view`, drawn `width` wide with nothing over it, paints anything in its last
+        /// `trailing` points.
+        private func drawsInTrailingEdge(_ view: some View, width: CGFloat, trailing: CGFloat) throws -> Bool {
+            try trailingInk(view, width: width, trailing: trailing) != nil
+        }
+
+        /// The rows `view` paints in its last `trailing` points, and its height, drawn `width` wide.
+        private func trailingInk(_ view: some View, width: CGFloat, trailing: CGFloat) throws
+            -> (top: Int, bottom: Int, height: Int)?
+        {
+            let renderer = ImageRenderer(content: view.frame(width: width))
+            renderer.scale = 1
+            let image = try #require(renderer.cgImage)
+            let (columns, rows) = (image.width, image.height)
+            var pixels = [UInt8](repeating: 0, count: columns * rows * 4)
+            let context = try #require(
+                CGContext(
+                    data: &pixels, width: columns, height: rows, bitsPerComponent: 8, bytesPerRow: columns * 4,
+                    space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+            context.draw(image, in: CGRect(x: 0, y: 0, width: columns, height: rows))
+            let start = columns - Int(trailing)
+            let inked = (0..<rows).filter { row in
+                (start..<columns).contains { pixels[(row * columns + $0) * 4 + 3] > 0 }
+            }
+            guard let top = inked.first, let bottom = inked.last else { return nil }
+            return (top, bottom, rows)
+        }
+
+        /// A row with no glyph keeps its slot, so its text ends on the same edge as its neighbors'.
+        @Test func mediaRowWithNoGlyphKeepsItsSlot() {
+            func idealWidth(_ glyph: MediaGlyph) -> CGFloat {
+                hostedSize(MediaRow(glyph: glyph, title: "Take 1", secondLine: .text("1:02"))).width
+            }
+            #expect(idealWidth(.none) == idealWidth(.play))
+        }
+
+        /// A media row holds two lines or more, so its glyph is the larger one and centers on
+        /// the whole row, as on the web.
+        @Test func mediaRowGlyphCentersOnTheRow() throws {
+            let row = MediaRow(
+                glyph: .play, title: "Take 1", secondLine: .text("1:02"), actionLabel: "Play", action: {})
+            let ink = try #require(try trailingInk(row, width: 320, trailing: RowSlotMetrics.baseWidth))
+            let drawn = ink.bottom - ink.top + 1
+            #expect(drawn >= Int(PageStyle.mediaRowGlyphSize) - 2)
+            let middle = Double(ink.top + ink.bottom + 1) / 2
+            #expect(abs(middle - Double(ink.height) / 2) <= 1)
+        }
+
+        /// A list row's play shows at rest, as on iPhone, iPad, and the web.
+        @Test func listRowPlayShowsWithNothingOverIt() throws {
+            let sample = SampleCatalog.entries[0]
+            let entry = bareListEntry(tune: sample.tune, userTune: sample.userTune)
+            let item = sampleRecordingItem()
+            let slot = RowSlotMetrics.baseWidth
+            let play = ListRowPlayButton(entry: entry, action: .play(item), listID: "l1")
+            #expect(try drawsInTrailingEdge(play, width: slot, trailing: slot))
+            let empty = ListRowPlayButton(entry: entry, action: nil, listID: "l1")
+            #expect(try !drawsInTrailingEdge(empty, width: slot, trailing: slot))
+        }
+
+        /// A list's tune row draws its key and play the same on every platform: the row keeps its
+        /// key, and play sits after it outside any Mac-only branch.
+        @Test func listRowDrawsPlayOnEveryPlatform() throws {
+            let text = SourceScan.withoutComments(
+                try SourceScan.text(at: SourceScan.url(of: "Lists/ListScreen.swift")))
+            #expect(SourceScan.macCompiled(text).contains("ListRowPlayButton(entry: entry"))
+            #expect(SourceScan.iOSCompiled(text).contains("ListRowPlayButton(entry: entry"))
+            #expect(!SourceScan.macOSRegions(of: text).contains("ListRowPlayButton("))
+            #expect(!text.contains("onHover"))
+        }
+
+        /// A media row's play and download glyphs show at rest, as on iPhone, iPad, and the web.
+        @Test(arguments: [MediaGlyph.play, .download])
+        func mediaRowGlyphShowsWithNothingOverIt(glyph: MediaGlyph) throws {
+            let slot = RowSlotMetrics.baseWidth
+            let row = MediaRow(
+                glyph: glyph, title: "Take 1", secondLine: .text("1:02"), actionLabel: "Play", action: {})
+            #expect(try drawsInTrailingEdge(row, width: 320, trailing: slot))
+            let bare = MediaRow(
+                glyph: .none, title: "Take 1", secondLine: .text("1:02"), actionLabel: "Play", action: {})
+            #expect(try !drawsInTrailingEdge(bare, width: 320, trailing: slot))
         }
     }
 #endif

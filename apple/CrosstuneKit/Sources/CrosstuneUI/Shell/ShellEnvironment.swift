@@ -29,6 +29,9 @@ extension EnvironmentValues {
     /// shows it in the detail column and a switch back pushes it again. Nil in the split view and
     /// on a screen pushed over the tab's own.
     @Entry var stackTune: ShellValue<String?>?
+    /// Pushes a list onto the Lists tab's stack through the shell's place, which keeps the open
+    /// list. Nil outside the Lists tab.
+    @Entry var openList: IDOpener?
     /// The row a column's list keeps at its top, by id, nil at the very top. The iPad shell keeps
     /// one per destination, so every tab that shows that destination opens at the same place
     /// after a form change. Nil elsewhere.
@@ -40,7 +43,7 @@ extension EnvironmentValues {
     @Entry var openCatalogRoot: MenuAction?
     /// Closes the practice view and opens a tune where this window shows tunes. Nil outside the
     /// shell.
-    @Entry var openTune: TuneOpener?
+    @Entry var openTune: IDOpener?
     /// The counts beside the catalog's status choices, read once for the window and shared by
     /// every screen that shows them. Nil outside the shell.
     @Entry var catalogCounts: LiveQuery<CatalogCounts?>?
@@ -70,24 +73,30 @@ public final class ShellValue<Value> {
     }
 }
 
-/// Opens a tune from somewhere that has no tune column or stack of its own, such as the practice
-/// view. Two openers are equal when they share an identity, so the shell making it again on its
-/// next pass redraws nothing.
-struct TuneOpener: Equatable {
+/// Opens a tune or a list by its id, through the shell. Two openers are equal when they share
+/// an identity, so the shell making it again on its next pass redraws nothing.
+struct IDOpener: Equatable {
     private let id: AnyHashable
-    private let open: @MainActor (_ tuneID: String) -> Void
+    private let open: @MainActor (_ id: String) -> Void
 
-    init(id: some Hashable, open: @escaping @MainActor (_ tuneID: String) -> Void) {
+    init(id: some Hashable, open: @escaping @MainActor (_ id: String) -> Void) {
         self.id = AnyHashable(id)
         self.open = open
     }
 
-    static func == (lhs: TuneOpener, rhs: TuneOpener) -> Bool {
+    static func == (lhs: IDOpener, rhs: IDOpener) -> Bool {
         lhs.id == rhs.id
     }
 
-    @MainActor func callAsFunction(_ tuneID: String) {
-        open(tuneID)
+    @MainActor func callAsFunction(_ id: String) {
+        open(id)
+    }
+}
+
+extension IDOpener {
+    /// Opens a list on the Lists tab's stack through `place`, which keeps the open list.
+    static func listOpener(_ place: ShellPlace) -> IDOpener {
+        IDOpener(id: ObjectIdentifier(place)) { [place] in place.tabList = $0 }
     }
 }
 

@@ -246,14 +246,14 @@ function ListenArt() {
               key={row.tune}
               className={`flex items-center gap-3 rounded-(--radius-row) px-2 py-1.5 ${playing ? 'bg-(--tint-subtle)' : ''}`}
             >
-              <span className="flex w-7 shrink-0 items-center">
-                <TransportGlyph shape={playing ? 'stop' : 'play'} />
-              </span>
-              <span className="flex min-w-0 flex-col">
+              <span className="flex min-w-0 flex-1 flex-col">
                 <span className="t-body text-primary whitespace-nowrap">{row.tune}</span>
                 <span className="t-secondary text-secondary whitespace-nowrap">
                   {PROVIDER_LABELS[row.provider]}
                 </span>
+              </span>
+              <span className="flex shrink-0 items-center">
+                <TransportGlyph shape={playing ? 'stop' : 'play'} />
               </span>
             </div>
           )

@@ -172,11 +172,10 @@ export function ListPlaybackProvider({
   const resolve = (playlist: Playlist | null, tuneId: string | null): PlayerItem | null => {
     const entry = playlist?.entries.find((e) => e.tuneId === tuneId)
     if (!playlist || !entry) return null
-    const choice = playlistSource({
+    return playlistSource({
       ...entry,
       ...playlistAvailability(playlist, onlineRef.current, recordingsPlayRef.current),
     })
-    return 'item' in choice ? choice.item : null
   }
 
   const load = (item: PlayerItem, current: Run) => {

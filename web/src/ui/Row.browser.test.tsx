@@ -422,6 +422,39 @@ it("keeps a hovered row's key in view beside its actions", async () => {
     .toBe(true)
 })
 
+it("leaves the actions' faded pad to the row, so only the buttons take a click", async () => {
+  await page.viewport(390, 844)
+  renderWithProviders(
+    <RowList label="Tunes">
+      <Row
+        id="1"
+        textValue="t"
+        title="Billy in the Lowground"
+        trailing={<KeyPill value="C" compact />}
+        actions={actions}
+      />
+    </RowList>,
+    { density: 'pointer' },
+  )
+  const row = page.getByRole('row')
+  await userEvent.hover(row)
+  const edit = page.getByRole('button', { name: 'Edit' })
+  const strip = () => edit.element().parentElement!
+  await expect.poll(() => Number(getComputedStyle(strip()).opacity)).toBe(1)
+  const padHit = () => {
+    const box = strip().getBoundingClientRect()
+    return document.elementFromPoint(box.left + 8, box.top + box.height / 2)
+  }
+  await expect.poll(() => padHit() !== null && row.element().contains(padHit())).toBe(true)
+  await expect.poll(() => strip().contains(padHit())).toBe(false)
+  const onEdit = () => {
+    const box = edit.element().getBoundingClientRect()
+    const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2)
+    return hit !== null && edit.element().contains(hit)
+  }
+  await expect.poll(onEdit).toBe(true)
+})
+
 it('gives a row with nothing trailing its full width for the title', async () => {
   await page.viewport(390, 844)
   renderWithProviders(

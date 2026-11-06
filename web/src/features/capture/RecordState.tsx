@@ -60,6 +60,12 @@ export function useLastSaved(): LastSaved | null {
   return useContext(RecordStateContext)?.lastSaved ?? null
 }
 
+/** Whether the recorder is open, or false outside a provider. */
+// eslint-disable-next-line react-refresh/only-export-components
+export function useRecording(): boolean {
+  return useContext(RecordStateContext)?.recording ?? false
+}
+
 /**
  * Holds the one recorder's state, so every control that starts a recording reaches the same one.
  * The recorder itself is drawn from `target`.

@@ -5,11 +5,10 @@ import CrosstuneDesign
     import SwiftUI
 
     /// A list column's head: the list's name as the column title, then Play and Shuffle, then
-    /// the line that says how many of its tunes will play (which opens the sheet that says why
-    /// the rest will not). While selecting, the selection bar takes their place, and they keep
-    /// their room hidden, so the rows never move when selection starts. With no play buttons,
-    /// the room under the title is the selection bar's. `play` is nil while the list cannot
-    /// offer playing at all, such as while it is empty.
+    /// the line that says how many of its tunes will play. While selecting, the selection bar
+    /// takes their place, and they keep their room hidden, so the rows never move when selection
+    /// starts. With no play buttons, the room under the title is the selection bar's. `play` is
+    /// nil while the list cannot offer playing at all, such as while it is empty.
     struct MacListTitle: View {
         let name: String
         let play: ListPlayAvailability?
@@ -71,39 +70,10 @@ import CrosstuneDesign
         }
 
         private func playLine(_ play: ListPlayAvailability) -> some View {
-            Button(action: play.onWhatPlays) {
-                HStack(spacing: 4) {
-                    Text(ListPlayText.line(for: play.report))
-                        .monospacedDigit()
-                    // Says the line opens more, since it reads as a plain caption.
-                    Image(systemName: "info.circle")
-                        .accessibilityHidden(true)
-                }
+            Text(ListPlayText.line(for: play.report))
+                .monospacedDigit()
                 .font(MacStyle.secondary.weight(.medium))
-                .contentShape(.rect)
-            }
-            .buttonStyle(WhatPlaysLineStyle())
-            .help(ListPlayText.whatPlaysHint)
-        }
-    }
-
-    /// The play line's look: secondary text, primary text under the pointer.
-    private struct WhatPlaysLineStyle: ButtonStyle {
-        func makeBody(configuration: Configuration) -> some View {
-            WhatPlaysLineBody(configuration: configuration)
-        }
-    }
-
-    private struct WhatPlaysLineBody: View {
-        let configuration: ButtonStyle.Configuration
-
-        @State private var isHovered = false
-
-        var body: some View {
-            configuration.label
-                .foregroundStyle(isHovered ? Palette.textPrimary : Palette.textSecondary)
-                .opacity(configuration.isPressed ? 0.6 : 1)
-                .onHover { isHovered = $0 }
+                .foregroundStyle(Palette.textSecondary)
         }
     }
 #endif

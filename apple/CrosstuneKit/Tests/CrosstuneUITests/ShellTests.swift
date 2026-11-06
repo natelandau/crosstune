@@ -646,6 +646,13 @@ import Testing
         #expect(place.tabList == nil)
     }
 
+    @Test func openingAListPutsItOnTheListsStack() {
+        let place = ShellPlace()
+        IDOpener.listOpener(place)("a")
+        #expect(place.tabList == "a")
+        #expect(place.listPath == [ListRoute(id: "a")])
+    }
+
     @Test func aTabRootClosesWhatTheTabHasOpen() {
         let place = ShellPlace()
         place.tab = .catalog

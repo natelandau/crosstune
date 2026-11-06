@@ -168,7 +168,8 @@ against production, such as granting a comp or a trial.
   control's shape that animates between states, which a static icon
   cannot: the checkbox mark and the status ring are inline SVG strokes,
   and play, pause, and stop are one CSS shape that morphs
-  (`TransportMark`).
+  (`TransportMark`). A row's action slot draws its circle as a CSS ring
+  around a lucide icon (`web/src/ui/rowGlyphs.tsx`).
   The site uses the same icons from `lucide`; `site/CLAUDE.md` says how.
 - Every color is a role from the token files, chosen by "Color" in
   `docs/design.md`. A new role, a changed value, a new allowlist entry

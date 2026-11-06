@@ -1,64 +1,20 @@
 import { Play, Shuffle, SquarePen, Trash2 } from 'lucide-react'
-import { Button as AriaButton } from 'react-aria-components'
 import { editedLabel } from './editedLabel'
 import { pauseListName, playListName, SHUFFLE } from './listPlayCopy'
 import { RENAME } from './listsCopy'
+import { NowPlayingControl } from './NowPlayingControl'
 import type { ListSummary } from './useLists'
-import { usePlaybackEngine, useEngineState } from '../player/PlaybackEngineProvider'
 import { PLAY } from '../player/transportCopy'
-import { useListPlayback } from '../player/useListPlayback'
+import { useActiveListRun } from '../player/useListPlayback'
 import { countTunes } from '../../text/format'
-import { useStampedDensity } from '../../platform/density'
 import { DELETE } from '../../ui/confirmCopy'
 import { Row, type RowAction } from '../../ui/Row'
-import { DISC_HOVER, TransportGlyph } from '../../ui/rowGlyphs'
 import { useNow } from '../../ui/useNow'
-
-const SLOT = 'grid size-(--target-control) shrink-0 place-items-center'
-
-/**
- * The list's own play control, trailing. While the list plays it pauses and resumes; otherwise
- * it plays the list. On pointer it shows on hover or focus, unless the list is playing.
- */
-function ListPlayControl({
-  name,
-  active,
-  settled,
-  onPlay,
-}: {
-  name: string
-  active: boolean
-  /** The player holds the playing list's current tune; false while the next one loads. */
-  settled: boolean
-  onPlay: () => void
-}) {
-  const engine = usePlaybackEngine()
-  const playing = useEngineState(engine, (state) => state.playing)
-  const hover = useStampedDensity() === 'pointer' && !active
-  const pausing = active && playing
-  return (
-    <AriaButton
-      aria-label={pausing ? pauseListName(name) : playListName(name)}
-      // Until the next tune loads, the engine holds the one being left.
-      isDisabled={active && !settled}
-      onPress={() => {
-        if (!active) onPlay()
-        else if (pausing) engine.pause()
-        else engine.play()
-      }}
-      className={`${SLOT} rounded-full transition-[scale,opacity] duration-(--dur-short) ease-(--ease) data-[pressed]:scale-90 ${DISC_HOVER} ${active ? 'text-primary' : 'text-secondary'} ${
-        hover ? 'opacity-0 group-hover:opacity-100 data-[focus-visible]:opacity-100' : ''
-      }`}
-    >
-      <TransportGlyph shape={pausing ? 'pause' : 'play'} loaded={active} />
-    </AriaButton>
-  )
-}
 
 /**
  * One list among the lists: its name, then its tune count and when it was last edited. A list
- * with a tune that plays offers Play trailing and Play and Shuffle in its menu; one without
- * keeps the slot empty, so every row's text ends in one place.
+ * with a tune that plays offers Play and Shuffle in its menu. Only the playing list holds a
+ * trailing control.
  */
 export function ListRow({
   list,
@@ -76,8 +32,7 @@ export function ListRow({
 }) {
   const count = countTunes(list.count)
   const edited = editedLabel(list.lastEditedAt, new Date(useNow()))
-  const run = useListPlayback().active
-  const active = run?.listId === list.id && run.message === null
+  const run = useActiveListRun(list.id)
   const actions: RowAction[] = [
     { id: 'rename', label: RENAME, icon: SquarePen, onAction: onRename },
     { id: 'delete', label: DELETE, icon: Trash2, tone: 'danger', onAction: onDelete },
@@ -94,7 +49,7 @@ export function ListRow({
       textValue={`${list.name}, ${count}, ${edited}`}
       title={list.name}
       stacked
-      playing={active}
+      playing={run !== null}
       detail={
         <>
           <span className="sr-only">, </span>
@@ -105,16 +60,13 @@ export function ListRow({
         </>
       }
       trailing={
-        playable || active ? (
-          <ListPlayControl
-            name={list.name}
-            active={active}
-            settled={run?.settled ?? false}
-            onPlay={() => onPlay({})}
+        run ? (
+          <NowPlayingControl
+            pauseName={pauseListName(list.name)}
+            playName={playListName(list.name)}
+            settled={run.settled}
           />
-        ) : (
-          <span className={SLOT} />
-        )
+        ) : undefined
       }
       actions={actions}
       menu={[...plays, ...actions]}

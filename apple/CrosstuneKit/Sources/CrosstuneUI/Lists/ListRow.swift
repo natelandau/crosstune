@@ -24,7 +24,7 @@ public struct ListRow: View {
         VStack(alignment: .leading, spacing: spacing.rowLineGap) {
             Text(summary.name)
                 .contentMask()
-                .font(.platform(.headline))
+                .font(.platform(.body))
                 .rowLineLimit()
             Text(Self.detail(count: summary.count, edited: summary.lastEditedAt))
                 .font(.platform(.subheadline))

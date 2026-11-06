@@ -93,8 +93,6 @@ differ. iPhone and iPad never take a rule from here.
   the pane bar.
 - A note that holds for every row of a group shows once under the group's
   heading. Each row still speaks it.
-- A glyph every row would show alike shows only under the pointer or
-  focus, so a column of them never shows at rest.
 
 ## Pages
 
@@ -104,8 +102,7 @@ differ. iPhone and iPad never take a rule from here.
   a pencil edits; never a worded Edit).
 - A section stops at `pageRowMaxWidth`, so its controls stay near the
   text. Beside the attributes column, a section fills the content's width.
-- One leading edge for every section's text. A glyph that leads a line
-  hangs in `pageGlyphColumn`, inside the margin.
+- One leading edge for every section's text.
 - A link line is `textSecondary`, the accent only under the pointer.
 - A wrapped middle-dot line breaks after a dot, never before.
 
