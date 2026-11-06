@@ -3,10 +3,21 @@ name: Apple
 
 on:
   pull_request:
-    paths: ["apple/**", "fixtures/**", "api/openapi.json", ".github/workflows/apple.yml", "justfile", "scripts/gate-cache.sh", "analytics/tracking-plan.json"]
+    paths: &paths
+      - "apple/**"
+      # The scripts workflow checks the tooling scripts; the Apple jobs run only these three.
+      - "!apple/scripts/**"
+      - "apple/scripts/scrub-env.sh"
+      - "apple/scripts/xcodebuild.sh"
+      - "apple/scripts/source_packages.py"
+      - "fixtures/**"
+      - "api/openapi.json"
+      - "analytics/tracking-plan.json"
+      - "scripts/gate-cache.sh"
+      - ".github/workflows/apple.yml"
   push:
     branches: [main]
-    paths: ["apple/**", "fixtures/**", "api/openapi.json", ".github/workflows/apple.yml", "justfile", "scripts/gate-cache.sh", "analytics/tracking-plan.json"]
+    paths: *paths
   workflow_call:
     inputs:
       skip_build:

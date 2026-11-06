@@ -1,0 +1,39 @@
+---
+name: Repo
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_call:
+
+# A push to a pull request cancels that PR's previous run. Every other run, including a
+# push to main and a Release call, falls back to its own run ID and is never canceled.
+concurrency:
+  group: repo-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # Fail when uv.lock disagrees with pyproject.toml instead of relocking.
+  UV_LOCKED: "1"
+  CI: "true"
+
+jobs:
+  # The repo-wide hooks read every file, so this job runs on every change and has no path filter.
+  lint:
+    name: Repo lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v10.3.2
+        with:
+          enable-cache: true
+      - uses: extractions/setup-just@v4
+      - run: uv sync --project api --all-groups
+      - run: just lint-repo

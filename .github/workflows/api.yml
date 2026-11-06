@@ -7,12 +7,12 @@ on:
     branches: [main]
     paths:
       - "api/**"
-      - "scripts/**"
-      - ".github/**"
-      - ".pre-commit-config.yaml"
-      - ".typos.toml"
       - "compose.yml"
-      - "justfile"
+      - "ruff.toml"
+      - "ty.toml"
+      - "scripts/gate-cache.sh"
+      - "scripts/media-tools.sh"
+      - ".github/workflows/api.yml"
   workflow_call:
 
 # A push to a pull request cancels that PR's previous run. Every other run, including a
@@ -32,7 +32,6 @@ env:
 jobs:
   # The checks are required, so they run on every pull request and skip when it touches
   # nothing they cover; a skipped job passes a required check, a missing one blocks it.
-  # The lint job's hooks also lint every workflow, so any change under .github counts.
   changes:
     name: API changes
     runs-on: ubuntu-latest
@@ -51,7 +50,7 @@ jobs:
       - id: changes
         uses: ./.github/actions/changes
         with:
-          pattern: '^(api/|scripts/|\.github/|\.pre-commit-config\.yaml$|\.typos\.toml$|compose\.yml$|justfile$)'
+          pattern: '^(api/|compose\.yml$|ruff\.toml$|ty\.toml$|scripts/(gate-cache|media-tools)\.sh$|\.github/workflows/api\.yml$)'
       - id: image
         uses: ./.github/actions/changes
         with:
@@ -76,10 +75,6 @@ jobs:
       - uses: extractions/setup-just@v4
       - run: uv sync --all-groups
       - run: just lint
-      # The module hooks it skips run in `just lint` here and in the web, site, Apple, and
-      # analytics workflows.
-      - run: just lint-repo
-        working-directory: .
 
   test:
     needs: changes
