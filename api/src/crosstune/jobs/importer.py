@@ -129,6 +129,25 @@ def _open_for_write(path: Path) -> BinaryIO:
     return path.open("wb")
 
 
+async def _open_for_write_in_thread(path: Path) -> BinaryIO:
+    """Open `path` for writing off the event loop, closing it if the caller is cancelled.
+
+    A thread cannot be stopped, so a cancelled open still creates the file. Waiting
+    for it lets the caller's cleanup find the file, and closes the handle no one holds.
+    """
+    opening = asyncio.ensure_future(asyncio.to_thread(_open_for_write, path))
+    try:
+        return await asyncio.shield(opening)
+    except asyncio.CancelledError:
+        # Shielded again, so a second cancel cannot drop the handle before it is closed.
+        while not opening.done():
+            with contextlib.suppress(asyncio.CancelledError):
+                await asyncio.shield(opening)
+        if opening.exception() is None:
+            opening.result().close()
+        raise
+
+
 async def _save(
     response: httpx2.Response, path: Path, *, max_bytes: int, room_bytes: int | None
 ) -> int:
@@ -145,7 +164,7 @@ async def _save(
         raise ImportRefused(OVER_QUOTA)
     limit = max_bytes if room_bytes is None else min(max_bytes, room_bytes)
     size = 0
-    file = await asyncio.to_thread(_open_for_write, path)
+    file = await _open_for_write_in_thread(path)
     try:
         async for chunk in response.aiter_bytes():
             size += len(chunk)
