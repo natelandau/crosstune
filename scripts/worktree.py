@@ -187,7 +187,7 @@ def create(
             just(*SETUP_RECIPES, cwd=path)
             just("api::worktree-db", cwd=path)
             just("--justfile", str(justfile), "api::prune-worktree-dbs", cwd=path)
-            just("--justfile", str(justfile), "apple::prune-derived-data", cwd=path)
+            just("--justfile", str(justfile), "apple::prune", cwd=path)
     except subprocess.CalledProcessError as error:
         status = error.returncode
     except OSError as error:
@@ -305,8 +305,7 @@ def remove(
         print(f"kept branch {branch}: neither main nor origin/main holds its work", file=sys.stderr)
     for recipe in (
         "api::prune-worktree-dbs",
-        "apple::prune-derived-data",
-        "apple::prune-packages",
+        "apple::prune",
     ):
         just(
             "--justfile", str(main / "justfile"), "--working-directory", str(main), recipe, cwd=main
