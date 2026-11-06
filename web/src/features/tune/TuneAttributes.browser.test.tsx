@@ -100,8 +100,9 @@ async function setup(
 }
 
 const row = (name: string) => page.getByRole('button', { name })
+// Held as long as a person holds a click, so the page draws frames between press and release.
 const dismiss = () =>
-  userEvent.click(page.elementLocator(document.body), { position: { x: 1200, y: 700 } })
+  userEvent.click(page.elementLocator(document.body), { position: { x: 1200, y: 700 }, delay: 100 })
 
 it('chooses the attributes column only with room beside a readable content column', () => {
   const least = COLUMN_WIDTH + COLUMN_GAP + MIN_CONTENT_WIDTH

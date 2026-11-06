@@ -1,5 +1,5 @@
 import { Check, ChevronsUpDown } from 'lucide-react'
-import { useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   Button as AriaButton,
   ComboBox,
@@ -58,6 +58,27 @@ export function SuggestField({
   // opens as the press starts, so a quick click can lift over an option, and React Aria picks
   // an option on any mouse release over it, wherever the press began.
   const pressOnField = useRef(false)
+  // A press elsewhere blurs the field, and a surface that holds focus returns it while the
+  // press is still down. A list opened on that focus sits above the surface, which then ignores
+  // the release that would have closed it, so only the musician's own focus opens the list.
+  const [pressElsewhere, setPressElsewhere] = useState(false)
+  const row = useRef<HTMLDivElement>(null)
+  const list = useRef<HTMLElement>(null)
+  useEffect(() => {
+    const down = (event: PointerEvent) => {
+      const target = event.target as Node
+      setPressElsewhere(!row.current?.contains(target) && !list.current?.contains(target))
+    }
+    const up = () => setPressElsewhere(false)
+    window.addEventListener('pointerdown', down, true)
+    window.addEventListener('pointerup', up, true)
+    window.addEventListener('pointercancel', up, true)
+    return () => {
+      window.removeEventListener('pointerdown', down, true)
+      window.removeEventListener('pointerup', up, true)
+      window.removeEventListener('pointercancel', up, true)
+    }
+  }, [])
   const kept = keep?.kept === true
   const items = [
     // Offered only once the row is touched: a kept row already reads as kept. Its text is
@@ -79,6 +100,7 @@ export function SuggestField({
 
   return (
     <ComboBox
+      ref={row}
       defaultItems={items}
       allowsCustomValue
       // Only the text is controlled: React Aria owns the pick, so it closes the list after one
@@ -88,7 +110,7 @@ export function SuggestField({
         if (!(kept && text === '')) onChange(text)
       }}
       onChange={choose}
-      menuTrigger="focus"
+      menuTrigger={pressElsewhere ? 'input' : 'focus'}
       // Keep alone has empty text, so it stays offered whatever is typed.
       defaultFilter={(text, input) => text === '' || containsText(text, input)}
       className={`${FIELD_ROW_BARE} relative`}
@@ -128,6 +150,7 @@ export function SuggestField({
         <ChevronsUpDown className="size-4" aria-hidden />
       </AriaButton>
       <Popover
+        ref={list}
         placement="bottom end"
         className="bg-page max-h-80 min-w-48 overflow-y-auto rounded-(--radius-surface) p-1 shadow-(--shadow-float)"
       >
