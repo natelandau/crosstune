@@ -1,12 +1,13 @@
-# One type check configuration for every Python file in the repository, on the API's
-# environment. `root` lists the folders whose modules import each other.
+# Type check configuration for the tooling Python, on the root tooling environment. The API
+# has its own in api/pyproject.toml, which ty finds first when it runs from api/.
+# `root` lists the folders whose modules import each other.
 [environment]
-python = "api/.venv"
+python = ".venv"
 python-version = "3.13"
-root = ["api/src", "scripts", "apple/scripts", "analytics"]
+root = ["scripts", "apple/scripts", "analytics"]
 
 [src]
-exclude = ["api/**/migrations/**", "api/tests/**"]
+exclude = ["api/"]
 
 [terminal]
 error-on-warning = true

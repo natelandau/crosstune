@@ -135,10 +135,15 @@ against production, such as granting a comp or a trial.
 - A recipe body is a few lines. Anything longer is a script the recipe
   calls. A decision worth a test, such as parsing, choosing, or
   comparing, is Python in `scripts/` or `apple/scripts/`, tested in
-  their `tests/` folders, with no dependency outside the API's
-  environment; `just scripts::lint` and `just scripts::test` cover both.
+  their `tests/` folders, with no dependency outside the root tooling
+  project; `just scripts::lint` and `just scripts::test` cover both.
   A bash script runs commands in order, with waits, retries, and
   cleanup.
+- Developer tools (linters, hooks, release commands, and what the
+  tooling scripts import) go in the root `pyproject.toml`, run with
+  `uv run` from the root or `uv run --project ..` from a module.
+  `api/pyproject.toml` holds only what the API runs and its tests need,
+  so the API image and its lockfile never carry tooling.
 - Lint and test recipes skip a gate that already passed on the same
   tree. Run the recipe again rather than judging whether it needs to run.
   A pass on uncommitted work also covers its commit. `just gate status`

@@ -26,27 +26,16 @@
     requires      = ["uv_build>=0.11.0,<0.14.0"]
 
 [dependency-groups]
+    # Lint, hooks, and release tools live in the repository root's tooling project.
     dev = [
         "anyio>=4.15.1",
-        "commitizen>=4.18.0",
-        "committed>=1.1.12",
-        "gate-cache>=0.4.0",
-        "honcho>=2.0.0",
-        "prek>=0.5.2",
         "pytest-cov>=7.1.0",
         "pytest-env>=1.7.1",
         "pytest-mock>=3.15.1",
         "pytest-xdist>=3.8.0",
         "pytest>=9.1.1",
-        "pyyaml>=6.0.3",
-        "ruff>=0.16.7",
-        "ty>=0.0.80",
         "types-boto3[s3]>=1.43.94",
-        { include-group = "typos" },
-        "yamllint>=1.38.0",
 ]
-    # Its own group so the other modules' spell checks install it alone.
-    typos = ["typos>=1.50.1"]
 
 [tool.coverage.report]
     exclude_lines = ['def __repr__', 'if TYPE_CHECKING', 'pragma: no cover']
@@ -66,6 +55,18 @@
 
 [tool.coverage.xml]
     output = ".cache/coverage.xml"
+
+# The root tooling project runs ty, so the API's environment is named outright.
+[tool.ty.environment]
+    python         = ".venv"
+    python-version = "3.13"
+    root           = ["src"]
+
+[tool.ty.src]
+    exclude = ["src/crosstune/db/migrations/**"]
+
+[tool.ty.terminal]
+    error-on-warning = true
 
 [tool.pytest.ini_options]
     addopts        = "--color=yes --strict-config --strict-markers -n auto --dist worksteal"

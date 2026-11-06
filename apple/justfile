@@ -36,7 +36,7 @@ format:
 # Spell check the Apple client
 [group('lint')]
 typos:
-    {{ gate }} apple-typos uv run --project ../api --only-group typos typos --config ../.typos.toml .
+    {{ gate }} apple-typos uv run --project .. --only-group typos typos --config ../.typos.toml .
 
 # Fail when the Swift client is stale
 [group('lint')]
@@ -106,12 +106,12 @@ build platform='all':
 [group('run')]
 [arg("args", help="Launch arguments for the app")]
 run *args:
-    uv run --project ../api python scripts/mac_app.py run "$@"
+    uv run --project .. python scripts/mac_app.py run "$@"
 
 # Quit the Mac app and release it
 [group('run')]
 done:
-    uv run --project ../api python scripts/mac_app.py done
+    uv run --project .. python scripts/mac_app.py done
 
 # Capture Mac app surfaces over the sample catalog
 [group('run')]
@@ -122,7 +122,7 @@ shots *args:
 # Show which worktree holds the Mac app
 [group('run')]
 status:
-    uv run --project ../api python scripts/mac_app.py status
+    uv run --project .. python scripts/mac_app.py status
 
 # Record the marketing UI tests
 [group('capture')]
@@ -138,12 +138,12 @@ capture-mac:
 # Frame the store captures under headlines
 [group('capture')]
 store-frames:
-    uv run --project ../api python scripts/store_frames.py {{ capture }} {{ capture }}/store
+    uv run --project .. python scripts/store_frames.py {{ capture }} {{ capture }}/store
 
 # Cut the capture into the iPhone App Preview
 [group('capture')]
 store-preview:
-    uv run --project ../api python scripts/store_preview.py {{ capture }} {{ capture }}/store
+    uv run --project .. python scripts/store_preview.py {{ capture }} {{ capture }}/store
 
 # Archive the signed Release build for upload
 [group('release')]
@@ -233,7 +233,7 @@ clean:
 # Delete DerivedData of removed checkouts
 [group('maintenance')]
 prune-derived-data:
-    uv run --project ../api python scripts/derived_data.py prune
+    uv run --project .. python scripts/derived_data.py prune
 
 # Delete Swift package copies no checkout uses
 [group('maintenance')]
@@ -243,4 +243,4 @@ prune-packages:
 # Delete builds of checkouts not building now
 [group('maintenance')]
 prune-builds:
-    uv run --project ../api python scripts/builds.py prune
+    uv run --project .. python scripts/builds.py prune

@@ -9,7 +9,8 @@ on:
       - "api/**"
       - "compose.yml"
       - "ruff.toml"
-      - "ty.toml"
+      - "pyproject.toml"
+      - "uv.lock"
       - "scripts/gate-cache.sh"
       - "scripts/media-tools.sh"
       - ".github/workflows/api.yml"
@@ -50,7 +51,7 @@ jobs:
       - id: changes
         uses: ./.github/actions/changes
         with:
-          pattern: '^(api/|compose\.yml$|ruff\.toml$|ty\.toml$|scripts/(gate-cache|media-tools)\.sh$|\.github/workflows/api\.yml$)'
+          pattern: '^(api/|compose\.yml$|ruff\.toml$|pyproject\.toml$|uv\.lock$|scripts/(gate-cache|media-tools)\.sh$|\.github/workflows/api\.yml$)'
       - id: image
         uses: ./.github/actions/changes
         with:

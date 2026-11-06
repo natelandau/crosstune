@@ -35,5 +35,5 @@ jobs:
         with:
           enable-cache: true
       - uses: extractions/setup-just@v4
-      - run: uv sync --project api --all-groups
+      - run: uv sync
       - run: just lint-repo

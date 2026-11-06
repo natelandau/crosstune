@@ -13,20 +13,20 @@ _default:
 # Check the tracking plan for problems
 [group('lint')]
 check:
-    {{ gate }} analytics-check uv run --project ../api python plan.py check
+    {{ gate }} analytics-check uv run --project .. python plan.py check
 
 # Run the checker's tests and the plan's own test
 [group('test')]
 [arg("args", help="Arguments for pytest")]
 test *args:
-    {{ gate }} analytics-test --argc "$#" uv run --project ../api python -m pytest test_plan.py -q "$@"
+    {{ gate }} analytics-test --argc "$#" uv run --project .. python -m pytest test_plan.py -q "$@"
 
 # Push the plan's event descriptions to PostHog
 [group('analytics')]
 sync:
-    uv run --project ../api python plan.py sync
+    uv run --project .. python plan.py sync
 
 # List events missing from the plan or from PostHog
 [group('analytics')]
 audit:
-    uv run --project ../api python plan.py audit
+    uv run --project .. python plan.py audit

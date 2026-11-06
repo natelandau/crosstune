@@ -76,8 +76,6 @@ repos:
     rev: v0.6.0
     hooks:
       - id: sync-with-uv
-        files: ^api/
-        args: ["-u", "api/uv.lock"]
 
   - repo: local
     hooks:
@@ -86,7 +84,7 @@ repos:
         entry: just api::ty
         pass_filenames: false
         language: system
-        files: ^api/.*\.py$|^ty\.toml$
+        files: ^api/.*\.py$|^api/pyproject\.toml$
 
       # The ruff hooks above check only the files a commit changes, so a rule change re-checks
       # the API here.
@@ -108,13 +106,13 @@ repos:
       # committed.toml holds the rules. Commitizen writes and bumps commits but does not check them.
       - id: committed
         name: committed
-        entry: uv run --project api --quiet committed --fixup --wip --commit-file
+        entry: uv run --quiet committed --fixup --wip --commit-file
         language: system
         stages: [commit-msg]
 
       - id: committed-branch
         name: committed (branch)
-        entry: bash -c 'uv run --project api --quiet committed "$PRE_COMMIT_FROM_REF..$PRE_COMMIT_TO_REF"' --
+        entry: bash -c 'uv run --quiet committed "$PRE_COMMIT_FROM_REF..$PRE_COMMIT_TO_REF"' --
         language: system
         stages: [pre-push]
         pass_filenames: false
@@ -198,7 +196,7 @@ repos:
         language: system
         pass_filenames: false
         stages: [pre-push]
-        files: ^(analytics/|api/pyproject\.toml$|api/uv\.lock$|scripts/gate-cache\.sh$)
+        files: ^(analytics/|pyproject\.toml$|uv\.lock$|scripts/gate-cache\.sh$)
 
       - id: scripts-lint
         name: scripts lint
@@ -215,7 +213,7 @@ repos:
         pass_filenames: false
         stages: [pre-push]
         # The tests also read every justfile, workflow, and hook.
-        files: ^(scripts/|apple/scripts/|api/pyproject\.toml$|api/uv\.lock$|\.github/workflows/|\.pre-commit-config\.yaml$)|(^|/)justfile$|\.just$
+        files: ^(scripts/|apple/scripts/|pyproject\.toml$|uv\.lock$|\.github/workflows/|\.pre-commit-config\.yaml$)|(^|/)justfile$|\.just$
 
       - id: apple-swift-test
         name: swift test

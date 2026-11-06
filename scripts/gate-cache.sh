@@ -16,7 +16,7 @@ set -euo pipefail
 name="$1"
 shift
 root="$(cd "$(dirname "$0")/.." && pwd)"
-gate_cache="$root/api/.venv/bin/gate-cache"
+gate_cache="$root/.venv/bin/gate-cache"
 
 argc=0
 inputs=()

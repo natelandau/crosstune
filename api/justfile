@@ -31,22 +31,22 @@ _default:
 # Lint with ruff
 [group('lint')]
 ruff:
-    {{ gate }} api-ruff uv run ruff check --no-fix {{ py_src }}
+    {{ gate }} api-ruff uv run --project .. ruff check --no-fix {{ py_src }}
 
 # Check formatting with ruff
 [group('lint')]
 format:
-    {{ gate }} api-ruff-format uv run ruff format --check {{ py_src }}
+    {{ gate }} api-ruff-format uv run --project .. ruff format --check {{ py_src }}
 
 # Type check with ty
 [group('lint')]
 ty:
-    {{ gate }} api-ty uv run ty check src
+    {{ gate }} api-ty uv run --project .. ty check src
 
 # Spell check with typos
 [group('lint')]
 typos:
-    {{ gate }} api-typos uv run typos --config ../.typos.toml
+    {{ gate }} api-typos uv run --project .. --only-group typos typos --config ../.typos.toml
 
 # Run all linters
 [group('lint')]

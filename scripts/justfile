@@ -17,17 +17,17 @@ _default:
 # Lint with ruff
 [group('lint')]
 ruff:
-    {{ gate }} scripts-ruff uv run --project ../api ruff check --no-fix {{ ruff_src }}
+    {{ gate }} scripts-ruff uv run --project .. ruff check --no-fix {{ ruff_src }}
 
 # Check formatting with ruff
 [group('lint')]
 format:
-    {{ gate }} scripts-ruff-format uv run --project ../api ruff format --check {{ ruff_src }}
+    {{ gate }} scripts-ruff-format uv run --project .. ruff format --check {{ ruff_src }}
 
 # Type check with ty
 [group('lint')]
 ty:
-    {{ gate }} scripts-ty uv run --project ../api ty check {{ ty_src }}
+    {{ gate }} scripts-ty uv run --project .. ty check {{ ty_src }}
 
 # Run all linters
 [group('lint')]
@@ -36,11 +36,11 @@ lint: ruff format ty
 # Fix lint and formatting where ruff can
 [group('lint')]
 fix:
-    uv run --project ../api ruff check --fix {{ ruff_src }}
-    uv run --project ../api ruff format {{ ruff_src }}
+    uv run --project .. ruff check --fix {{ ruff_src }}
+    uv run --project .. ruff format {{ ruff_src }}
 
 # Run the scripts' tests
 [group('test')]
 [arg("args", help="Arguments for pytest; any narrows the run")]
 test *args:
-    {{ gate }} scripts-test --argc "$#" uv run --project ../api pytest -c pytest.ini "$@"
+    {{ gate }} scripts-test --argc "$#" uv run --project .. pytest -c pytest.ini "$@"
