@@ -41,6 +41,7 @@ AREAS = {
             "pyproject.toml",
             "uv.lock",
             "scripts/gate-cache.sh",
+            "scripts/settings.just",
             "scripts/media-tools.sh",
             ".github/workflows/api.yml",
         ),
@@ -59,6 +60,7 @@ AREAS = {
             ".github/workflows/web.yml",
             ".github/actions/setup-node/**",
             "scripts/gate-cache.sh",
+            "scripts/settings.just",
         ),
         ci_only=(".github/workflows/web.yml", ".github/actions/setup-node/**"),
     ),
@@ -71,6 +73,7 @@ AREAS = {
             ".github/workflows/site.yml",
             ".github/actions/setup-node/**",
             "scripts/gate-cache.sh",
+            "scripts/settings.just",
             "analytics/tracking-plan.json",
         ),
         ci_only=(".github/workflows/site.yml", ".github/actions/setup-node/**"),
@@ -88,6 +91,7 @@ AREAS = {
             "api/openapi.json",
             "analytics/tracking-plan.json",
             "scripts/gate-cache.sh",
+            "scripts/settings.just",
             ".github/workflows/apple.yml",
         ),
         ci_only=(".github/workflows/apple.yml",),
@@ -101,6 +105,7 @@ AREAS = {
             "uv.lock",
             ".github/workflows/analytics.yml",
             "scripts/gate-cache.sh",
+            "scripts/settings.just",
         ),
         ci_only=(".github/workflows/analytics.yml",),
     ),
@@ -111,8 +116,7 @@ AREAS = {
             "scripts/**",
             "apple/scripts/**",
             "**/*.py",
-            "!api/src/**",
-            "!api/tests/**",
+            "!api/**",
             "ruff.toml",
             "ty.toml",
             "pyproject.toml",
@@ -122,9 +126,9 @@ AREAS = {
             "**/justfile",
             "**/*.just",
         ),
-        # The scripts lint covers every Python file outside the API package; the tests
+        # The scripts lint covers every Python file outside api/; the tests
         # cover only scripts/ and apple/scripts/.
-        ci_only=("**/*.py", "!api/src/**", "!api/tests/**", "ruff.toml", "ty.toml"),
+        ci_only=("**/*.py", "!api/**", "ruff.toml", "ty.toml"),
     ),
 }
 

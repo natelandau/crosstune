@@ -5,7 +5,7 @@ on:
   pull_request:
   push:
     branches: [main]
-    paths: ["analytics/**", "pyproject.toml", "uv.lock", ".github/workflows/analytics.yml", "scripts/gate-cache.sh"]
+    paths: ["analytics/**", "pyproject.toml", "uv.lock", ".github/workflows/analytics.yml", "scripts/gate-cache.sh", "scripts/settings.just"]
 
 # A push to a pull request cancels that PR's previous run. Every other run, including a
 # push to main, falls back to its own run ID and is never canceled.
@@ -42,7 +42,7 @@ jobs:
       - id: changes
         uses: ./.github/actions/changes
         with:
-          pattern: '^(analytics/|pyproject\.toml$|uv\.lock$|\.github/workflows/analytics\.yml$|scripts/gate-cache\.sh$)'
+          pattern: '^(analytics/|pyproject\.toml$|uv\.lock$|\.github/workflows/analytics\.yml$|scripts/(gate-cache\.sh|settings\.just)$)'
 
   check:
     needs: changes

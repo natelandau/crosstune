@@ -3,7 +3,6 @@
 
 import '../scripts/settings.just'
 
-py_src := "src/ tests/"
 # Runs a lint or test gate through gate-cache when it is installed
 gate := "../scripts/gate-cache.sh"
 compose := "docker compose -f ../compose.yml"
@@ -31,17 +30,17 @@ _default:
 # Lint with ruff
 [group('lint')]
 ruff:
-    {{ gate }} api-ruff uv run --project .. ruff check --no-fix {{ py_src }}
+    {{ gate }} api-ruff uv run --project .. ruff check --no-fix .
 
 # Check formatting with ruff
 [group('lint')]
 format:
-    {{ gate }} api-ruff-format uv run --project .. ruff format --check {{ py_src }}
+    {{ gate }} api-ruff-format uv run --project .. ruff format --check .
 
 # Type check with ty
 [group('lint')]
 ty:
-    {{ gate }} api-ty uv run --project .. ty check src
+    {{ gate }} api-ty uv run --project .. ty check
 
 # Spell check with typos
 [group('lint')]

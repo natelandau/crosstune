@@ -63,7 +63,7 @@
     root           = ["src"]
 
 [tool.ty.src]
-    exclude = ["src/crosstune/db/migrations/**"]
+    exclude = ["src/crosstune/db/migrations/**", "tests/"]
 
 [tool.ty.terminal]
     error-on-warning = true

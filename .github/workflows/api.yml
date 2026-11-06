@@ -12,6 +12,7 @@ on:
       - "pyproject.toml"
       - "uv.lock"
       - "scripts/gate-cache.sh"
+      - "scripts/settings.just"
       - "scripts/media-tools.sh"
       - ".github/workflows/api.yml"
   workflow_call:
@@ -51,7 +52,7 @@ jobs:
       - id: changes
         uses: ./.github/actions/changes
         with:
-          pattern: '^(api/|compose\.yml$|ruff\.toml$|pyproject\.toml$|uv\.lock$|scripts/(gate-cache|media-tools)\.sh$|\.github/workflows/api\.yml$)'
+          pattern: '^(api/|compose\.yml$|ruff\.toml$|pyproject\.toml$|uv\.lock$|scripts/((gate-cache|media-tools)\.sh|settings\.just)$|\.github/workflows/api\.yml$)'
       - id: image
         uses: ./.github/actions/changes
         with:

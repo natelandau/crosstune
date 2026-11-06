@@ -101,7 +101,7 @@ repos:
         language: system
         pass_filenames: false
         stages: [pre-push]
-        files: ^(api/|compose\.yml$|scripts/(gate-cache|media-tools)\.sh$)
+        files: ^(api/|compose\.yml$|scripts/((gate-cache|media-tools)\.sh|settings\.just)$)
 
       # committed.toml holds the rules. Commitizen writes and bumps commits but does not check them.
       - id: committed
@@ -112,7 +112,7 @@ repos:
 
       - id: committed-branch
         name: committed (branch)
-        entry: bash -c 'uv run --quiet committed "$PRE_COMMIT_FROM_REF..$PRE_COMMIT_TO_REF"' --
+        entry: bash -c 'uv run --quiet committed --fixup "$PRE_COMMIT_FROM_REF..$PRE_COMMIT_TO_REF"' --
         language: system
         stages: [pre-push]
         pass_filenames: false
@@ -145,7 +145,7 @@ repos:
         language: system
         pass_filenames: false
         stages: [pre-push]
-        files: ^(web/|apple/CrosstuneKit/Sources/CrosstuneDesign/Style/|brand/|fixtures/|analytics/tracking-plan\.json$|api/openapi\.json$|scripts/gate-cache\.sh$)
+        files: ^(web/|apple/CrosstuneKit/Sources/CrosstuneDesign/Style/|brand/|fixtures/|analytics/tracking-plan\.json$|api/openapi\.json$|scripts/(gate-cache\.sh|settings\.just)$)
 
       - id: site-eslint
         name: eslint
@@ -174,7 +174,7 @@ repos:
         language: system
         pass_filenames: false
         stages: [pre-push]
-        files: ^(site/|brand/|analytics/tracking-plan\.json$|scripts/gate-cache\.sh$)
+        files: ^(site/|brand/|analytics/tracking-plan\.json$|scripts/(gate-cache\.sh|settings\.just)$)
 
       - id: apple-swift-format
         name: swift format
@@ -196,7 +196,7 @@ repos:
         language: system
         pass_filenames: false
         stages: [pre-push]
-        files: ^(analytics/|pyproject\.toml$|uv\.lock$|scripts/gate-cache\.sh$)
+        files: ^(analytics/|pyproject\.toml$|uv\.lock$|scripts/(gate-cache\.sh|settings\.just)$)
 
       - id: scripts-lint
         name: scripts lint
@@ -221,4 +221,4 @@ repos:
         language: system
         pass_filenames: false
         stages: [pre-push]
-        files: ^(apple/(?!scripts/)|apple/scripts/(scrub-env\.sh|xcodebuild\.sh|source_packages\.py)$|fixtures/|api/openapi\.json$|analytics/tracking-plan\.json$|scripts/gate-cache\.sh$)
+        files: ^(apple/(?!scripts/)|apple/scripts/(scrub-env\.sh|xcodebuild\.sh|source_packages\.py)$|fixtures/|api/openapi\.json$|analytics/tracking-plan\.json$|scripts/(gate-cache\.sh|settings\.just)$)

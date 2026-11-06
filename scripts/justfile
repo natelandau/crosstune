@@ -7,8 +7,8 @@ import 'settings.just'
 # Runs a lint or test gate through gate-cache when it is installed
 gate := "./gate-cache.sh"
 # Ruff and ty skip what .gitignore lists, so a new folder of scripts is linted without a change here.
-ruff_src := "--extend-exclude api .."
-ty_src := "--exclude api/ .."
+# A bare `api` would also skip every nested folder named api; ty.toml excludes api/ for ty.
+ruff_src := "--extend-exclude ../api .."
 
 [default]
 _default:
@@ -27,7 +27,7 @@ format:
 # Type check with ty
 [group('lint')]
 ty:
-    {{ gate }} scripts-ty uv run --project .. ty check {{ ty_src }}
+    {{ gate }} scripts-ty uv run --project .. ty check ..
 
 # Run all linters
 [group('lint')]

@@ -5,7 +5,7 @@ on:
   pull_request:
   push:
     branches: [main]
-    paths: ["scripts/**", "apple/scripts/**", "**/*.py", "!api/src/**", "!api/tests/**", "ruff.toml", "ty.toml", "pyproject.toml", "uv.lock", ".github/workflows/**", ".pre-commit-config.yaml", "**/justfile", "**/*.just"]
+    paths: ["scripts/**", "apple/scripts/**", "**/*.py", "!api/**", "ruff.toml", "ty.toml", "pyproject.toml", "uv.lock", ".github/workflows/**", ".pre-commit-config.yaml", "**/justfile", "**/*.just"]
 
 # A push to a pull request cancels that PR's previous run. Every other run, including a
 # push to main, falls back to its own run ID and is never canceled.
@@ -24,7 +24,7 @@ env:
 jobs:
   # A required check runs on every pull request and skips when it touches nothing it
   # covers; a skipped job passes a required check, a missing one blocks it. The lint
-  # covers every Python file outside the API package, the scripts run on the root tooling
+  # covers every Python file outside api/, the scripts run on the root tooling
   # project, so a change to its dependencies counts, and the tests read every justfile,
   # workflow, and hook.
   changes:
@@ -45,7 +45,7 @@ jobs:
         uses: ./.github/actions/changes
         with:
           pattern: '^(scripts/|apple/scripts/|ruff\.toml$|ty\.toml$|pyproject\.toml$|uv\.lock$|\.github/workflows/|\.pre-commit-config\.yaml$)|\.py$|(^|/)justfile$|\.just$'
-          exclude: '^api/(src|tests)/'
+          exclude: '^api/.*\.py$'
 
   check:
     needs: changes

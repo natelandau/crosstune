@@ -14,6 +14,7 @@ on:
       - "api/openapi.json"
       - "analytics/tracking-plan.json"
       - "scripts/gate-cache.sh"
+      - "scripts/settings.just"
       - ".github/workflows/apple.yml"
   push:
     branches: [main]
