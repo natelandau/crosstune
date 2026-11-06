@@ -6,10 +6,14 @@ import { listShows, META_LIST_SHOW_ARCHIVED } from '../lists/useListShowArchived
 import { readListView, type ListItemView } from '../lists/useLists'
 import type { Availability, PlaylistEntry } from './listSource'
 
-/** The sources of some tunes, keyed by tune id, and which recordings this device holds. */
-export interface PlaylistMedia {
+/** Each tune's live recordings and links, by tune id. */
+export interface TuneSources {
   recordings: ReadonlyMap<string, readonly LocalRecording[]>
   links: ReadonlyMap<string, readonly LocalRecordingLink[]>
+}
+
+export interface PlaylistMedia {
+  recordings: ReadonlyMap<string, readonly LocalRecording[]>
   /** Recordings whose audio this device holds. */
   held: ReadonlySet<string>
 }
@@ -33,42 +37,56 @@ export function playlistAvailability(
 }
 
 /**
- * Each tune's recordings, in tune-screen order (own recordings first, each group by position), and
- * its links, from one query per table whatever the number of tunes. A tune with neither is
- * absent from both maps.
+ * Each tune's live recordings, in tune-screen order (own recordings first, each group by
+ * position), from one query whatever the number of tunes. A tune with none is absent.
  */
-export async function readTuneSources(
+export async function readTuneRecordings(
   db: CrosstuneDb,
   tuneIds: readonly string[],
-): Promise<Omit<PlaylistMedia, 'held'>> {
-  const unique = [...new Set(tuneIds)]
-  const [recordingRows, linkRows] = await Promise.all([
-    db.recordings.where('tune_id').anyOf(unique).toArray(),
-    db.recording_links.where('tune_id').anyOf(unique).toArray(),
-  ])
+): Promise<Map<string, LocalRecording[]>> {
+  const rows = await db.recordings
+    .where('tune_id')
+    .anyOf([...new Set(tuneIds)])
+    .toArray()
   const recordings = new Map<string, LocalRecording[]>()
-  for (const [tuneId, rows] of groupByTune(recordingRows)) {
+  for (const [tuneId, group] of groupByTune(rows)) {
     // Array.sort is stable, so each group keeps its position order.
-    const ordered = activeByPosition(rows).sort(
+    const ordered = activeByPosition(group).sort(
       (a, b) => Number(a.origin !== 'own') - Number(b.origin !== 'own'),
     )
     recordings.set(tuneId, ordered)
   }
+  return recordings
+}
+
+/**
+ * Each tune's recordings, as `readTuneRecordings` orders them, and its links, from one query
+ * per table whatever the number of tunes. A tune with neither is absent from both maps.
+ */
+export async function readTuneSources(
+  db: CrosstuneDb,
+  tuneIds: readonly string[],
+): Promise<TuneSources> {
+  const unique = [...new Set(tuneIds)]
+  const [recordings, linkRows] = await Promise.all([
+    readTuneRecordings(db, unique),
+    db.recording_links.where('tune_id').anyOf(unique).toArray(),
+  ])
   const links = new Map<string, LocalRecordingLink[]>()
   for (const [tuneId, rows] of groupByTune(linkRows)) links.set(tuneId, activeByPosition(rows))
   return { recordings, links }
 }
 
-/** `readTuneSources`, plus which of those recordings this device holds. */
+/** A list's recordings, and which of them this device holds. */
 export async function readPlaylistMedia(
   db: CrosstuneDb,
   tuneIds: readonly string[],
 ): Promise<PlaylistMedia> {
-  const { recordings, links } = await readTuneSources(db, tuneIds)
+  const recordings = await readTuneRecordings(db, tuneIds)
   const live = [...recordings.values()].flat()
   const files = await db.recording_files.bulkGet(live.map((r) => r.id))
   const held = new Set(live.filter((_, i) => files[i]?.blob).map((r) => r.id))
-  return { recordings, links, held }
+  return { recordings, held }
 }
 
 function groupByTune<T extends { tune_id?: string | null }>(rows: readonly T[]): Map<string, T[]> {
@@ -91,7 +109,6 @@ export function playlistEntries(
     tuneId: tune.id,
     pin: { recordingId: userTune.play_recording_id ?? null },
     recordings: media.recordings.get(tune.id) ?? [],
-    links: media.links.get(tune.id) ?? [],
   }))
 }
 

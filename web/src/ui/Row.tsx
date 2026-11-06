@@ -233,11 +233,12 @@ export function Row({
         <>
           {content}
           {/* The actions lie over the title's end, never over the trailing slot, which holds
-              data such as the key. Resting, they take no width, so the title keeps it all. */}
+              data such as the key. Resting, they take no width, so the title keeps it all. Their
+              faded pad takes no clicks, so a click beside the buttons still reaches the row. */}
           {(trailing || actions.length > 0) && (
             <div className="relative flex max-w-1/2 shrink-0 items-center self-stretch">
               {actions.length > 0 && (
-                <div className="absolute inset-y-0 end-full flex items-center gap-1 bg-[linear-gradient(to_right,transparent,var(--row-tint)_1.5rem),linear-gradient(to_right,transparent,var(--page-background)_1.5rem)] ps-8 pe-2 opacity-0 transition-opacity duration-(--dur-short) ease-(--ease) group-hover:opacity-100 focus-within:opacity-100">
+                <div className="pointer-events-none absolute inset-y-0 end-full flex items-center gap-1 bg-[linear-gradient(to_right,transparent,var(--row-tint)_1.5rem),linear-gradient(to_right,transparent,var(--page-background)_1.5rem)] ps-8 pe-2 opacity-0 transition-opacity duration-(--dur-short) ease-(--ease) *:pointer-events-auto group-hover:opacity-100 focus-within:opacity-100">
                   {actions.map(
                     ({ id: actionId, label, icon, tone = 'neutral', disabled, onAction }) => (
                       <Button

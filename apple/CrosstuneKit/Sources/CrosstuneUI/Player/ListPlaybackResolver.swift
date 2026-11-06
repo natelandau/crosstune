@@ -29,16 +29,16 @@ extension ListPlayback {
             let wantsSong = isOnline && entry.links.contains { $0.provider == "apple_music" }
             let fullTracks = wantsSong ? await access.current() == .fullTracks : false
             let sources = entry.playlistEntry(online: isOnline)
-            let choice = playlistSource(
+            let source = playlistSource(
                 userTune: sources.userTune, recordings: sources.recordings, playable: sources.playable,
                 links: sources.links, playFirst: playFirst(), fullTracks: fullTracks, online: isOnline,
                 recordingsPlay: recordingsPlay())
             let title = entry.tune.title
-            switch choice {
-            case .play(.recording(let recording)):
+            switch source {
+            case .recording(let recording)?:
                 return Turn(title: title, item: .recording(recording, tuneTitle: title))
-            case .play(.link(let link)): return PlayerItem.link(link).map { Turn(title: title, item: $0) }
-            case .skip: return nil
+            case .link(let link)?: return PlayerItem.link(link).map { Turn(title: title, item: $0) }
+            case nil: return nil
             }
         }
     }

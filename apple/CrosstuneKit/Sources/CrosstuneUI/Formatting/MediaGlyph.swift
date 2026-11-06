@@ -9,6 +9,19 @@ public enum MediaGlyph: Hashable, Sendable {
     /// Waiting on something outside the musician's hands, such as the server processing.
     case waiting
     case none
+
+    /// The outlined-circle symbol the trailing slot draws, or nil for a glyph drawn another way:
+    /// the progress ring, or nothing.
+    var systemName: String? {
+        switch self {
+        case .play: RowGlyph.play
+        case .stop: RowGlyph.stop
+        case .download: RowGlyph.download
+        case .attention: RowGlyph.attention
+        case .waiting: RowGlyph.waiting
+        case .downloading, .none: nil
+        }
+    }
 }
 
 /// Words recording and link rows share.

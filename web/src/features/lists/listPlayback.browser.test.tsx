@@ -7,16 +7,7 @@ import { RECORD_LABEL } from '../../layout/tabs'
 import { NEW_RECORDING } from '../capture/recordCopy'
 import type { CrosstuneDb } from '../../db/schema'
 import type { LocalList, LocalListItem } from '../../db/types'
-import {
-  NOTHING_PLAYS,
-  PLAYLIST_SKIP_PREMIUM,
-  SHUFFLE,
-  SKIP_LINKS_ONLY,
-  WHAT_PLAYS_HINT,
-  WHAT_PLAYS_LEAD,
-  WHAT_PLAYS_TITLE,
-  willPlayLabel,
-} from './listPlayCopy'
+import { NOTHING_PLAYS, SHUFFLE, willPlayLabel } from './listPlayCopy'
 import {
   listPosition,
   NEXT_TUNE,
@@ -36,7 +27,7 @@ import {
 } from '../practice/trimViewCopy'
 import { TRIM } from '../practice/trimCopy'
 import { START_HANDLE } from '../practice/TrimStrip'
-import { playName } from '../recordings/recordingNames'
+import { pauseName, playName } from '../recordings/recordingNames'
 import { openTestDb } from '../../test/db'
 import { fakeMediaForTest } from '../../test/fakeMedia'
 import { FakeAudioElement, fakePlaybackEngine } from '../../test/providers'
@@ -160,36 +151,25 @@ it('offers Play and Shuffle over how many tunes will play', async () => {
   await mount(WIDE, ONE_LINK)
   await expect.element(playButton()).toBeEnabled()
   await expect.element(shuffleButton()).toBeEnabled()
-  const line = page.getByRole('button', { name: willPlayLabel(2, 3) })
+  await expect.element(page.getByText(willPlayLabel(2, 3), { exact: true })).toBeVisible()
+})
+
+it('shows how many tunes will play as plain text, not a button', async () => {
+  await mount(WIDE, ONE_LINK)
+  const line = page.getByText(willPlayLabel(2, 3), { exact: true })
   await expect.element(line).toBeVisible()
-  await expect.element(line).toHaveAccessibleDescription(WHAT_PLAYS_HINT)
+  await expect
+    .element(page.getByRole('button', { name: willPlayLabel(2, 3) }))
+    .not.toBeInTheDocument()
+  expect(line.element().closest('button, [role="button"]')).toBeNull()
+  expect(line.element().querySelector('svg')).toBeNull()
 })
 
-it('says what plays and opens a skipped tune from the sheet', async () => {
-  const { router } = await mount(WIDE, ONE_LINK)
-  await page.getByRole('button', { name: willPlayLabel(2, 3) }).click()
-  const sheet = page.getByRole('dialog', { name: WHAT_PLAYS_TITLE })
-  await expect.element(sheet.getByText(WHAT_PLAYS_LEAD)).toBeVisible()
-  const group = sheet.getByRole('region', { name: SKIP_LINKS_ONLY })
-  const tune = group.getByRole('button', { name: TITLES.t2 })
-  await expect.element(tune).toBeVisible()
-  await expect.element(group.getByRole('button', { name: TITLES.t1 })).not.toBeInTheDocument()
-  await tune.click()
-  await expect.element(sheet).not.toBeInTheDocument()
-  await expect.poll(() => router.state.location.pathname).toBe('/lists/l1/tunes/t2')
-})
-
-it('plays nothing on a free plan and says recordings need Premium', async () => {
+it('plays nothing on a free plan and says no tune can play', async () => {
   await mount(WIDE, ONE_LINK, { before: (db) => db.entitlements.put(entitlementRow()) })
-  await expect.element(page.getByRole('button', { name: NOTHING_PLAYS })).toBeVisible()
+  await expect.element(page.getByText(NOTHING_PLAYS, { exact: true })).toBeVisible()
   await expect.element(playButton()).not.toBeInTheDocument()
-  await page.getByRole('button', { name: NOTHING_PLAYS }).click()
-  const sheet = page.getByRole('dialog', { name: WHAT_PLAYS_TITLE })
-  const premium = sheet.getByRole('region', { name: PLAYLIST_SKIP_PREMIUM })
-  await expect.element(premium.getByRole('button', { name: TITLES.t1 })).toBeVisible()
-  await expect.element(premium.getByRole('button', { name: TITLES.t3 })).toBeVisible()
-  const linksOnly = sheet.getByRole('region', { name: SKIP_LINKS_ONLY })
-  await expect.element(linksOnly.getByRole('button', { name: TITLES.t2 })).toBeVisible()
+  await expect.element(page.getByRole('button', { name: NOTHING_PLAYS })).not.toBeInTheDocument()
 })
 
 it('plays the list from its first tune', async () => {
@@ -198,20 +178,64 @@ it('plays the list from its first tune', async () => {
   await expect.element(row('t3')).not.toHaveAttribute('data-playing')
 })
 
-it("pauses and resumes the playing list from the list's own Play", async () => {
-  const { engine } = await mount(PHONE, ONE_LINK)
+/** Starts the list, moves it on to its third tune, and seeks into that tune. */
+async function playThirdTune(engine: ReturnType<typeof fakePlaybackEngine>) {
   await startList()
   await expect.poll(() => engine.getState().playing).toBe(true)
+  const firstLoads = engine.loads
+  await row('t3')
+    .getByRole('button', { name: playName(TITLES.t3) })
+    .click()
+  await expect.element(row('t3')).toHaveAttribute('data-playing')
+  // The row marks the tune before its audio loads, and the load resets the position, so the
+  // seek waits for it.
+  await expect.poll(() => engine.loads).toBeGreaterThan(firstLoads)
+  await expect.poll(() => engine.getState().playing).toBe(true)
+  engine.seek(1500)
+  await expect.poll(() => engine.getState().positionMs).toBe(1500)
+  return engine.loads
+}
+
+/** The list still plays its third tune from where it was paused, with no reload. */
+async function resumedThirdTune(engine: ReturnType<typeof fakePlaybackEngine>, loads: number) {
+  await expect.poll(() => engine.getState()).toMatchObject({ playing: true, positionMs: 1500 })
+  expect(engine.loads).toBe(loads)
+  await expect.element(row('t3')).toHaveAttribute('data-playing')
+  await expect.element(row('t1')).not.toHaveAttribute('data-playing')
+}
+
+it("pauses and resumes the playing list from the list's own Play", async () => {
+  const { engine } = await mount(PHONE, ALL_HELD)
+  const loads = await playThirdTune(engine)
   // The page, apart from the player bar's own Play and Pause.
   const listPage = () => page.getByRole('main')
-  await listPage().getByRole('button', { name: PAUSE }).click()
+  await listPage().getByRole('button', { name: PAUSE, exact: true }).click()
   await expect.poll(() => engine.getState().playing).toBe(false)
-  await expect.element(row('t1')).toHaveAttribute('data-playing')
+  await expect.element(row('t3')).toHaveAttribute('data-playing')
   await listPage().getByRole('button', { name: PLAY, exact: true }).click()
-  await expect.poll(() => engine.getState().playing).toBe(true)
-  // Resumes the tune that was paused rather than starting the list over.
-  await expect.element(row('t1')).toHaveAttribute('data-playing')
-  await expect.element(listPage().getByRole('button', { name: PAUSE })).toBeVisible()
+  await resumedThirdTune(engine, loads)
+  await expect.element(listPage().getByRole('button', { name: PAUSE, exact: true })).toBeVisible()
+})
+
+it('shows the speaker in the play slot of the playing tune, and pauses and resumes from it', async () => {
+  const { engine } = await mount(WIDE, ALL_HELD)
+  const loads = await playThirdTune(engine)
+  const pause = row('t3').getByRole('button', { name: pauseName(TITLES.t3) })
+  await expect.element(pause).toBeEnabled()
+  await expect.poll(() => pause.element().querySelector('[data-playing-glyph]')).not.toBeNull()
+  expect(row('t3').element().querySelectorAll('[data-playing-glyph]')).toHaveLength(1)
+  expect(row('t1').element().querySelector('[data-playing-glyph]')).toBeNull()
+  await pause.click()
+  await expect.poll(() => engine.getState().playing).toBe(false)
+  const resume = row('t3').getByRole('button', { name: playName(TITLES.t3) })
+  await expect.element(resume).toBeEnabled()
+  await expect
+    .poll(() => resume.element().querySelector('[data-row-ring]')?.className)
+    .toMatch(/\btext-accent\b/)
+  await resume.click()
+  await resumedThirdTune(engine, loads)
+  // Still the queue, so its controls stay on the dock.
+  await expect.element(player().getByRole('button', { name: NEXT_TUNE })).toBeVisible()
 })
 
 it('steps through the list from the dock', async () => {
@@ -485,14 +509,14 @@ it('a single play from a list row is queue single with list_id', async () => {
 
 it('leaves out Play and Shuffle when nothing in the list can play', async () => {
   await mount(WIDE, { t1: 'none', t2: 'link', t3: 'none' })
-  await expect.element(page.getByRole('button', { name: NOTHING_PLAYS })).toBeVisible()
+  await expect.element(page.getByText(NOTHING_PLAYS, { exact: true })).toBeVisible()
   await expect.element(playButton()).not.toBeInTheDocument()
   await expect.element(shuffleButton()).not.toBeInTheDocument()
 })
 
 it('says nothing is left on the bar when no tune can be fetched after Play', async () => {
   await mount(WIDE, { t1: 'server', t2: 'server', t3: 'link' }, { download: async () => null })
-  await expect.element(page.getByRole('button', { name: willPlayLabel(2, 3) })).toBeVisible()
+  await expect.element(page.getByText(willPlayLabel(2, 3), { exact: true })).toBeVisible()
   await playButton().click()
   const bar = player()
   await expect.element(bar.getByText(NOTHING_LEFT)).toBeVisible()
@@ -519,7 +543,7 @@ it('hides the play row for an empty list', async () => {
 
 it('says nothing is left on the phone bar, and Close clears it', async () => {
   await mount(PHONE, { t1: 'server', t2: 'server', t3: 'link' }, { download: async () => null })
-  await expect.element(page.getByRole('button', { name: willPlayLabel(2, 3) })).toBeVisible()
+  await expect.element(page.getByText(willPlayLabel(2, 3), { exact: true })).toBeVisible()
   await playButton().click()
   const bar = player()
   await expect.element(bar.getByText(NOTHING_LEFT)).toBeVisible()
@@ -530,7 +554,7 @@ it('says nothing is left on the phone bar, and Close clears it', async () => {
 it('clears what the stopped list said once a recording starts', async () => {
   fakeMediaForTest()
   await mount(WIDE, { t1: 'server', t2: 'server', t3: 'link' }, { download: async () => null })
-  await expect.element(page.getByRole('button', { name: willPlayLabel(2, 3) })).toBeVisible()
+  await expect.element(page.getByText(willPlayLabel(2, 3), { exact: true })).toBeVisible()
   await playButton().click()
   await expect.element(player().getByText(NOTHING_LEFT)).toBeVisible()
   await page.getByRole('button', { name: RECORD_LABEL }).click()

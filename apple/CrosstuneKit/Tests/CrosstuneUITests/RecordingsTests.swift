@@ -493,13 +493,28 @@ private struct RefusingSyncAPI: SyncAPI {
         #expect(unfiled.controlNames == ["Play Take 1, 1:02"])
     }
 
+    @Test func aStuckRowShowsRetryInPlaceOfItsGlyph() {
+        let stuck = MediaRow(
+            glyph: .attention, title: "Take 1", secondLine: .text("1:02"),
+            retry: MediaRow.Retry(name: "Retry Take 1", action: {}))
+        #expect(stuck.controlNames == ["Take 1, 1:02", "Retry Take 1"])
+        let plain = MediaRow(
+            glyph: .play, title: "Take 1", secondLine: .text("1:02"), actionLabel: "Play", action: {})
+        #expect(plain.controlNames == ["Play Take 1, 1:02"])
+    }
+
+    @Test func mediaGlyphsAreCircles() {
+        #expect(MediaGlyph.play.systemName == RowGlyph.play)
+        #expect(MediaGlyph.stop.systemName == RowGlyph.stop)
+        #expect(MediaGlyph.download.systemName == RowGlyph.download)
+    }
+
     @Test func drawsItsInnerControlsInReadingOrderWithRetryAtTheTrailingEdge() {
         let row = MediaRow(
             glyph: .play, title: "Take 1", secondLine: .text("1:02"), actionLabel: "Play", action: {},
             tuneLine: MediaRow.TuneLine(title: "Soldier's Joy", action: {}),
             retry: MediaRow.Retry(name: "Retry Take 1", action: {}))
         #expect(row.innerControls.map(\.name) == ["Open Soldier's Joy", "Retry Take 1"])
-        #expect(row.innerControls.map(\.isTrailing) == [false, true])
         #expect(row.controlNames == ["Play Take 1, 1:02", "Open Soldier's Joy", "Retry Take 1"])
     }
 
@@ -514,7 +529,6 @@ private struct RefusingSyncAPI: SyncAPI {
             row.controlNames == [
                 "Play Take 1, 1:02", "Open on Slippery-Hill", "Open Soldier's Joy", "Retry Take 1",
             ])
-        #expect(row.innerControls.map(\.isTrailing) == [false, false, true])
         #expect(row.stacksLineControls, "two padded line targets would overlap")
         let sourceOnly = MediaRow(
             glyph: .play, title: "Take 1", secondLine: .text("1:02"), actionLabel: "Play", action: {},

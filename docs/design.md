@@ -256,12 +256,20 @@ A role only one platform has is on that platform's page.
 ## Lists and rows
 
 - One row component per platform for every list of tunes.
+- A row's leading slot says what the item is and never holds a control.
+  Its action slot, such as play, sits trailing, holds one control at
+  most, and always shows, on pointer platforms too. Row actions, such as
+  Edit, keep the hover reveal below.
+- No separators, and no chevron on a row that opens something. The
+  platforms add both by default.
+- The text sets a row's height. A control's tap target reaches past the
+  row and never adds height.
 - A row's title keeps its width first. Secondary details truncate, then
   drop out, before the title shrinks.
 - Archived: all text in `text-secondary`. Glyphs keep their color.
 - Reorder: drag the whole row, no grip. The dragged row lifts, the others
   slide aside, and a drop settles it. No drop line.
-- Playing row: an animated speaker and `tint-subtle`.
+- Playing row: `tint-subtle`.
 - Selected row: inset accent highlight.
 - At most three visible actions on a row. The rest in its menu.
 - An action that leaves the app is menu-only, never a swipe action.
@@ -389,7 +397,7 @@ A role only one platform has is on that platform's page.
 ## Motion
 
 - Shows where a thing came from and went. Never decoration.
-- Moves on its own: only the record control, the live waveform, and a
-  playing row's speaker. Native Apple transitions and symbol effects are
-  exempt.
+- Moves on its own: only the record control, the live waveform, a
+  playing row's speaker, and a downloading row's progress ring. Native
+  Apple transitions and symbol effects are exempt.
 - Reduced motion: cross-fade or instant.

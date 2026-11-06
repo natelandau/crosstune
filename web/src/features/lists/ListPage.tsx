@@ -294,9 +294,6 @@ function ListTunes({
   }
 
   const selected = visible.find((view) => view.tune.id === tuneId)
-  // Holds the widest number shown, so a list that runs into three digits does not step every
-  // title after row 99 inward. Tabular figures make each digit one ch wide.
-  const positionWidth = `max(1.5rem, ${String(visible.length).length}ch)`
 
   // The rows are keyed by list item and the selection by user tune.
   const choosing = (keys: Selection) =>
@@ -353,7 +350,6 @@ function ListTunes({
             key={view.item.id}
             view={view}
             position={index + 1}
-            positionWidth={positionWidth}
             instruments={instruments}
             source={sources?.get(view.item.id)}
             moves={tunes.moveItems(view, index)}

@@ -486,13 +486,43 @@ it("plays a row's recording in the list's context", async () => {
   await expect.poll(at(router)).toBe('/lists/l1')
 })
 
-it('says when a tune in the list has nothing to play', async () => {
-  await mount('/lists/l1', WIDE, { player: fakePlayer() })
+it('draws no visible position, and holds it in the row text content', async () => {
+  await mount('/lists/l1', WIDE, { player: fakePlayer(), before: heldRecording })
+  const row = tuneRows().getByRole('row', { name: /^Soldier's Joy, Key D/ })
+  await expect.element(row).toBeVisible()
+  expect(tuneRows().element().querySelector('[data-position]')).toBeNull()
+  // The position leads the row's content, not its accessible name.
+  await expect.element(row.getByText('1,', { exact: true })).toBeInTheDocument()
+  await expect.poll(() => row.element().textContent).toMatch(/^1, .*Soldier's Joy/)
+})
+
+it('says when a tune in the list has nothing to play, and leaves its slot empty', async () => {
+  await mount('/lists/l1', WIDE, { player: fakePlayer(), before: heldRecording })
   const row = tuneRows().getByRole('row', { name: /Cluck Old Hen/ })
   await expect.element(row).toHaveAccessibleName(new RegExp(NOT_PLAYABLE))
-  await expect.element(row).toHaveTextContent(NOT_PLAYABLE)
+  await expect.element(row.getByText(NOT_PLAYABLE)).toBeVisible()
   expect(row.getByRole('button', { name: playName('Cluck Old Hen') }).elements()).toHaveLength(0)
+  await expect.poll(() => slotAfterKey(row.element())?.childElementCount).toBe(0)
+  expect(slotAfterKey(row.element())?.textContent).toBe('')
 })
+
+it('lines up the key of a tune with nothing to play with the key of one that plays', async () => {
+  await mount('/lists/l1', WIDE, { player: fakePlayer(), before: heldRecording })
+  const playable = tuneRows().getByRole('row', { name: /Soldier's Joy/ })
+  const unplayable = tuneRows().getByRole('row', { name: /Cluck Old Hen/ })
+  await expect
+    .element(playable.getByRole('button', { name: playName("Soldier's Joy") }))
+    .toBeVisible()
+  await expect.element(unplayable.getByText(NOT_PLAYABLE)).toBeVisible()
+  const keyRight = (row: Element) =>
+    row.querySelector('[data-pitch]')?.getBoundingClientRect().right ?? Number.NaN
+  await expect.poll(() => keyRight(unplayable.element()) - keyRight(playable.element())).toBe(0)
+})
+
+/** The element that follows a row's key pill: the row's play slot. */
+function slotAfterKey(row: Element): Element | null | undefined {
+  return row.querySelector('[data-pitch]')?.parentElement?.parentElement?.nextElementSibling
+}
 
 /**
  * What the row paints behind its title: the first background, color or image, between the
@@ -518,8 +548,10 @@ it.each(['pointer', 'touch'] as const)(
     const other = tuneRows().getByRole('row', { name: /Forked Deer/ })
     await expect.element(row).toHaveAttribute('data-playing')
     await expect.element(other).not.toHaveAttribute('data-playing')
-    expect(row.element().querySelector('[data-playing-glyph]')).not.toBeNull()
-    expect(other.element().querySelector('[data-playing-glyph]')).toBeNull()
+    // A tune played alone shows stop, since a tap on it stops; only a playing list's tune
+    // shows the speaker.
+    await expect.poll(() => row.element().querySelector('[data-shape="stop"]')).not.toBeNull()
+    expect(row.element().querySelector('[data-playing-glyph]')).toBeNull()
     expect(paintedBehindTitle(row.element())).not.toBe(paintedBehindTitle(other.element()))
     await row.getByRole('button', { name: closeRecordingName("Soldier's Joy") }).click()
     await expect.poll(() => player.close).toHaveBeenCalled()

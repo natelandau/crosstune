@@ -1,20 +1,48 @@
-import { page } from 'vitest/browser'
-import { expect, it } from 'vitest'
+import { page, userEvent } from 'vitest/browser'
+import { act } from '@testing-library/react'
+import { useSyncExternalStore } from 'react'
+import { expect, it, vi } from 'vitest'
 import type { CrosstuneDb } from '../../db/schema'
 import type { LocalList, LocalListItem } from '../../db/types'
 import { destination } from '../../layout/destinations'
-import { RECORD_LABEL } from '../../layout/tabs'
-import { NEW_RECORDING } from '../capture/recordCopy'
+import type * as RecordStateModule from '../capture/RecordState'
 import { pauseListName, playListName, SHUFFLE } from './listPlayCopy'
 import { PLAY } from '../player/transportCopy'
 import { PLAYER_REGION } from '../player/playerCopy'
 import { openTestDb } from '../../test/db'
-import { fakeMediaForTest } from '../../test/fakeMedia'
 import { FakeAudioElement, fakePlaybackEngine } from '../../test/providers'
 import { linkRow, recordingFile, recordingRow, tuneRow, userTuneRow } from '../../test/rows'
 import { renderApp } from '../../test/renderApp'
 
-const PHONE = { width: 390, height: 844 }
+/** Forces the recorder's `recording` flag, so a test can hold a recording without a microphone. */
+const recorder = vi.hoisted(() => {
+  let recording = false
+  const listeners = new Set<() => void>()
+  return {
+    get: () => recording,
+    set: (next: boolean) => {
+      recording = next
+      listeners.forEach((listener) => listener())
+    },
+    subscribe: (listener: () => void) => {
+      listeners.add(listener)
+      return () => listeners.delete(listener)
+    },
+  }
+})
+
+vi.mock('../capture/RecordState', async (importOriginal) => {
+  const actual = await importOriginal<typeof RecordStateModule>()
+  return {
+    ...actual,
+    useRecordState: () => {
+      const state = actual.useRecordState()
+      const forced = useSyncExternalStore(recorder.subscribe, recorder.get)
+      return { ...state, recording: state.recording || forced }
+    },
+  }
+})
+
 const WIDE = { width: 1280, height: 800 }
 const AT = '2026-01-01T00:00:00.000Z'
 const LISTS = destination('lists')
@@ -71,33 +99,44 @@ const listRow = (name: string) =>
   page.getByRole('grid', { name: LISTS.label }).getByRole('row', { name: new RegExp(name) })
 const playList = (name: string) => page.getByRole('button', { name: playListName(name) })
 
-it('offers Play on a list with something to play and on no other', async () => {
+/** Waits until the lists' sources have read, when Thursday jam's menu offers Play. */
+async function sourcesRead() {
+  await listRow('Thursday jam').click({ button: 'right' })
+  await expect.element(page.getByRole('menuitem', { name: PLAY, exact: true })).toBeVisible()
+  await userEvent.keyboard('{Escape}')
+  await expect.element(page.getByRole('menu')).not.toBeInTheDocument()
+}
+
+/** Plays a list from its row's menu. */
+async function playFromMenu(name: string) {
+  await listRow(name).click({ button: 'right' })
+  await page.getByRole('menuitem', { name: PLAY, exact: true }).click()
+}
+
+it('offers no play button on a list until it plays', async () => {
   await mount()
-  await expect.element(playList('Thursday jam')).toBeInTheDocument()
-  await expect.element(listRow('Session tunes')).toBeVisible()
-  await expect.element(listRow('Empty')).toBeVisible()
+  await sourcesRead()
+  expect(playList('Thursday jam').query()).toBeNull()
   expect(playList('Session tunes').query()).toBeNull()
   expect(playList('Empty').query()).toBeNull()
 })
 
-it('shows Play on touch, where nothing hovers', async () => {
-  await mount(PHONE, 'touch')
-  await expect.element(playList('Thursday jam')).toBeVisible()
-})
-
-it('plays the list from its row without opening it', async () => {
+it('plays the list from its row menu without opening it', async () => {
   const { router } = await mount()
-  await playList('Thursday jam').click()
+  await playFromMenu('Thursday jam')
   await expect.element(page.getByRole('region', { name: PLAYER_REGION })).toBeVisible()
   await expect.element(listRow('Thursday jam')).toHaveAttribute('data-playing')
   await expect.poll(() => router.state.location.pathname).toBe(LISTS.root)
 })
 
-it('pauses and resumes the playing list from its row', async () => {
+it('shows the playing list as playing, and pauses and resumes it from its row', async () => {
   const { engine } = await mount()
-  await playList('Thursday jam').click()
+  await playFromMenu('Thursday jam')
   await expect.poll(() => engine.getState().playing).toBe(true)
-  await page.getByRole('button', { name: pauseListName('Thursday jam') }).click()
+  const pause = page.getByRole('button', { name: pauseListName('Thursday jam') })
+  await expect.element(pause).toBeEnabled()
+  expect(pause.element().querySelector('[data-playing-glyph]')).not.toBeNull()
+  await pause.click()
   await expect.poll(() => engine.getState().playing).toBe(false)
   await playList('Thursday jam').click()
   await expect.poll(() => engine.getState().playing).toBe(true)
@@ -113,21 +152,27 @@ it('offers Play and Shuffle in the menu of a list that plays', async () => {
 
 it('leaves Play and Shuffle out of the menu of a list with nothing to play', async () => {
   await mount()
-  await expect.element(playList('Thursday jam')).toBeInTheDocument()
+  await sourcesRead()
   await listRow('Session tunes').click({ button: 'right' })
   await expect.element(page.getByRole('menu')).toBeVisible()
   expect(page.getByRole('menuitem', { name: PLAY, exact: true }).query()).toBeNull()
   expect(page.getByRole('menuitem', { name: SHUFFLE, exact: true }).query()).toBeNull()
 })
 
-it('takes Play away while a recording is under way', async () => {
-  fakeMediaForTest()
+it('leaves Play and Shuffle out of the menu while a recording is under way, then offers them', async () => {
   await mount()
-  await expect.element(playList('Thursday jam')).toBeInTheDocument()
-  await page.getByRole('button', { name: RECORD_LABEL }).click()
-  await expect.element(page.getByRole('dialog', { name: NEW_RECORDING })).toBeVisible()
-  // The lists sit inert behind the record sheet.
-  await expect
-    .element(page.getByRole('button', { name: playListName('Thursday jam'), includeHidden: true }))
-    .not.toBeInTheDocument()
+  await sourcesRead()
+  act(() => recorder.set(true))
+  try {
+    await listRow('Thursday jam').click({ button: 'right' })
+    await expect.element(page.getByRole('menu')).toBeVisible()
+    await expect
+      .element(page.getByRole('menuitem', { name: PLAY, exact: true }))
+      .not.toBeInTheDocument()
+    expect(page.getByRole('menuitem', { name: SHUFFLE, exact: true }).query()).toBeNull()
+  } finally {
+    act(() => recorder.set(false))
+  }
+  await userEvent.keyboard('{Escape}')
+  await sourcesRead()
 })

@@ -1,4 +1,4 @@
-import { ListChecks, ListX, SquarePen, Volume2 } from 'lucide-react'
+import { ListChecks, ListX, SquarePen } from 'lucide-react'
 import type { Instrument } from '../../api/vocabulary'
 import { NOT_PLAYABLE, REMOVE } from './listsCopy'
 import type { RowSource } from './useListRowSource'
@@ -14,15 +14,15 @@ import { scansAction } from '../scans/scansAction'
 import { ListRowPlay } from './ListRowPlay'
 
 /**
- * A tune in a list: its position leading, then the tune row's parts, then its own play
- * control. Scans, for a tune that has any, Edit, and Remove are its actions, and its menu adds
- * the moves before Remove, so Remove stays last. While the player holds a recording or link of
- * the tune, an animated speaker takes the position's place and the row takes a light tint.
+ * A tune in a list: the tune row's parts, then its own play control. Its position shows
+ * nowhere. A screen reader finds it in the row's content, not in the row's name. Scans, for a
+ * tune that has any, Edit, and Remove are its actions, and its menu adds the moves before
+ * Remove, so Remove stays last. While the player holds a recording or link of the tune, the
+ * row takes a light tint.
  */
 export function ListTuneRow({
   view,
   position,
-  positionWidth,
   instruments,
   source,
   moves,
@@ -36,8 +36,6 @@ export function ListTuneRow({
   view: ListItemView
   /** Counted from 1. */
   position: number
-  /** Holds the widest position the list shows, so every title starts on one line. */
-  positionWidth: string
   instruments: ReadonlySet<Instrument>
   /** What the row plays: null for nothing, undefined until the list's media has been read. */
   source: RowSource | null | undefined
@@ -86,31 +84,10 @@ export function ListTuneRow({
           title={view.tune.title}
           listId={view.item.list_id}
           tuneId={view.tune.id}
+          playing={playing}
         />
       }
-      lead={
-        <>
-          <span
-            data-position
-            className="t-secondary t-num text-secondary inline-flex shrink-0 justify-end"
-            style={{ minWidth: positionWidth }}
-          >
-            {playing ? (
-              <>
-                <Volume2
-                  data-playing-glyph
-                  className="text-primary size-4 motion-safe:animate-pulse"
-                  aria-hidden
-                />
-                <span className="sr-only">{position}</span>
-              </>
-            ) : (
-              position
-            )}
-          </span>
-          <span className="sr-only">, </span>
-        </>
-      }
+      lead={<span className="sr-only">{position}, </span>}
     />
   )
 }

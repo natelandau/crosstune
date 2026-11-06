@@ -46,7 +46,7 @@
         static let migratedSheets = [
             "Links/LinkSheet.swift", "TuneForm/TuneFormSheet.swift", "Selection/BulkEditSheet.swift",
             "Catalog/CatalogFilterSheet.swift", "Lists/ListNameSheet.swift", "Lists/ListPickerSheet.swift",
-            "Lists/TunePickerSheet.swift", "Lists/WhatPlaysSheet.swift", "Import/ImportSheet.swift",
+            "Lists/TunePickerSheet.swift", "Import/ImportSheet.swift",
             "Recordings/RecordingsFilterSheet.swift", "Recordings/EditRecordingSheet.swift",
             "Recordings/PlaceSearchView.swift", "Recordings/AddToTuneSheet.swift", "Recording/RecordSheet.swift",
             "Links/FindRecordingsSheet.swift", "Lyrics/LyricsReader.swift", "Scans/ScanViewer.swift",

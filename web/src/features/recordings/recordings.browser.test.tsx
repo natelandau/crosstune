@@ -545,7 +545,8 @@ it('dims every recording on a free plan, filed and unfiled, and answers a tap wi
     await expect.element(row(name)).toHaveAccessibleDescription(SUBSCRIBE_TO_PLAY)
     await expect.element(row(name)).toHaveAttribute('data-dimmed')
   }
-  await row('Hen take').click()
+  // On the title, since in a narrow column the row's hover actions reach its middle.
+  await row('Hen take').getByText('Hen take', { exact: true }).click()
   await expect
     .element(
       page

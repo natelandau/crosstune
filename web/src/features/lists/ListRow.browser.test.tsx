@@ -49,18 +49,49 @@ function playback(active: Partial<ListPlaybackActive>): ListPlayback {
   }
 }
 
-function mount(value: ListPlayback) {
+function idle(): ListPlayback {
+  return { ...playback({}), active: null }
+}
+
+function mount(value: ListPlayback, density: 'pointer' | 'touch' = 'touch') {
+  const engine = fakePlaybackEngine()
+  const play = vi.spyOn(engine, 'play')
+  const onPlay = vi.fn()
   renderWithProviders(
-    <PlaybackEngineContext.Provider value={fakePlaybackEngine()}>
+    <PlaybackEngineContext.Provider value={engine}>
       <ListPlaybackContext.Provider value={value}>
         <RowList label="Lists">
-          <ListRow list={LIST} playable onPlay={vi.fn()} onRename={vi.fn()} onDelete={vi.fn()} />
+          <ListRow list={LIST} playable onPlay={onPlay} onRename={vi.fn()} onDelete={vi.fn()} />
         </RowList>
       </ListPlaybackContext.Provider>
     </PlaybackEngineContext.Provider>,
-    { density: 'touch' },
+    { density },
   )
+  return { play, onPlay }
 }
+
+it.each(['pointer', 'touch'] as const)(
+  'offers no play button on a list that is not playing, on %s',
+  async (density) => {
+    mount(idle(), density)
+    await expect.element(page.getByRole('row', { name: /Thursday jam/ })).toBeVisible()
+    await expect
+      .element(page.getByRole('button', { name: playListName(LIST.name) }))
+      .not.toBeInTheDocument()
+  },
+)
+
+it('resumes, not restarts, the paused playing list', async () => {
+  const { play, onPlay } = mount(playback({ settled: true }))
+  const control = page.getByRole('button', { name: playListName(LIST.name) })
+  await expect.element(control).toBeEnabled()
+  // The control has settled, so its glyph no longer changes.
+  expect(control.element().querySelector('[data-row-ring]')).toHaveClass('text-accent')
+  expect(control.element().querySelector('[data-shape]')).toHaveAttribute('data-shape', 'play')
+  await control.click()
+  await expect.poll(() => play.mock.calls.length).toBe(1)
+  expect(onPlay).not.toHaveBeenCalled()
+})
 
 it('holds the playing list control while the next tune loads', async () => {
   mount(playback({ settled: false }))

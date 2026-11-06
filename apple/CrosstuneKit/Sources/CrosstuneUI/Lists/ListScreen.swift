@@ -127,15 +127,11 @@ private struct ListTunes: View {
     @Environment(RecorderHost.self) private var recorders: RecorderHost?
     @Environment(\.plan) private var plan
     @Environment(\.premium) private var premium
-    @Environment(\.openURL) private var openURL
     @Environment(\.scenePhase) private var scenePhase
     @Environment(ScanTunes.self) private var scanTunes: ScanTunes?
     @Environment(\.tuneScreenActions) private var tuneScreenActions
     /// Whether this device plays Apple Music in full, nil until read.
     @State private var appleMusic: AppleMusicAccessState?
-    @State private var showsWhatPlays = false
-    /// A tune chosen in the What plays sheet, opened once the sheet has gone.
-    @State private var chosen: String?
     @State private var pushed: String?
     @State private var picking = false
     @State private var confirmsDelete = false
@@ -146,7 +142,6 @@ private struct ListTunes: View {
         /// This screen's own Select tunes, never taken for another window's.
         @State private var selectActionID = UUID()
     #endif
-    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.spacing) private var spacing
     @AccessibilityFocusState private var focusedRow: String?
     @Namespace private var zoom
@@ -218,27 +213,8 @@ private struct ListTunes: View {
             .sheet(isPresented: $picking) {
                 TunePickerSheet(listID: list.id, onLateFailure: model.report)
             }
-            .sheet(isPresented: $showsWhatPlays, onDismiss: openChosen) {
-                WhatPlaysSheet(
-                    report: playReport(rows),
-                    titles: Dictionary(
-                        rows.map { ($0.tune.id, $0.tune.title) }, uniquingKeysWith: { first, _ in first }),
-                    access: appleMusic, onChoose: { chosen = $0 },
-                    onAllow: {
-                        guard let access = player?.appleMusic?.access else { return }
-                        Task {
-                            let answer = await access.request()
-                            appleMusic = answer
-                            player?.analytics.appleMusicAnswered(answer)
-                        }
-                    },
-                    onOpenSettings: {
-                        if let url = AppleMusicRowAction.systemSettingsURL { openURL(url) }
-                    })
-            }
             #if DEBUG
                 .opensForSample(.tunePicker) { picking = true }
-                .opensForSample(.whatPlays) { showsWhatPlays = true }
             #endif
             .coversShell(confirmsDelete)
             .confirmationDialog(
@@ -286,7 +262,7 @@ private struct ListTunes: View {
                 #endif
                 ForEach(rows.enumerated(), id: \.element.id) { index, entry in
                     row(entry, index: index, count: rows.count, reorderable: rows.count > 1 && !selection.isActive)
-                        .tuneRowInsets()
+                        .listItemRow()
                 }
                 .onMove(perform: reorder)
             }
@@ -321,8 +297,7 @@ private struct ListTunes: View {
             report: report, canStart: listPlayback != nil && !(recorders?.isCapturing ?? false),
             playing: playing,
             onPlay: { playing == nil ? startPlaylist(report, shuffled: false) : togglePlaylist() },
-            onShuffle: { startPlaylist(report, shuffled: true) },
-            onWhatPlays: { showsWhatPlays = true })
+            onShuffle: { startPlaylist(report, shuffled: true) })
     }
 
     /// This list as it plays, or nil while another list or nothing plays.
@@ -361,12 +336,6 @@ private struct ListTunes: View {
     private func startPlaylist(_ report: PlaylistReport, shuffled: Bool) {
         guard let listPlayback else { return }
         listPlayback.start(listID: list.id, name: list.name, report: report, shuffled: shuffled)
-    }
-
-    private func openChosen() {
-        guard let id = chosen else { return }
-        chosen = nil
-        open(id)
     }
 
     private func open(_ tuneID: String) {
@@ -434,16 +403,10 @@ private struct ListTunes: View {
         let isCurrent = ListRowPlay.isNowPlaying(
             listID: list.id, playingListID: listPlayback?.listID, currentTuneID: listPlayback?.currentTuneID,
             tuneID: entry.tune.id)
-        #if os(macOS)
-            // The list draws the key in the slot the row's play shares, so the two never crowd.
-            let tuneRow = TuneRow(
-                tune: entry.tune, userTune: entry.userTune, instruments: model.instruments, position: position,
-                showsKey: false)
-        #else
-            let tuneRow = TuneRow(
-                tune: entry.tune, userTune: entry.userTune, instruments: model.instruments, position: position)
-        #endif
-        let hint = ListRowText.hint(hasAction: playAction != nil, isCurrent: isCurrent, isSelecting: selection.isActive)
+        let note = ListRowText.note(hasAction: playAction != nil, isCurrent: isCurrent)
+        let tuneRow = TuneRow(
+            tune: entry.tune, userTune: entry.userTune, instruments: model.instruments, position: position,
+            note: note)
         let edit = { open(entry.tune.id) }
         let remove: () -> Void = { Task { await model.remove(entry) } }
         let scans = TuneRowActions.scansAction(
@@ -454,7 +417,6 @@ private struct ListTunes: View {
                 // The list's selection drives the detail column, or is the selection.
                 tuneRow
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .accessibilityHint(hint)
                     .modifier(MoveActions(reorderable: reorderable) { moveButtons(entry, moves) })
                     #if os(macOS)
                         .selectionCheckbox(
@@ -472,33 +434,13 @@ private struct ListTunes: View {
                 }
                 // Not the automatic style, so the play button beside the row keeps its own tap.
                 .buttonStyle(.plain)
-                .accessibilityHint(hint)
                 .modifier(MoveActions(reorderable: reorderable) { moveButtons(entry, moves) })
                 .matchedTransitionSource(id: entry.tune.id, in: zoom)
             }
-            #if os(macOS)
-                // The key and play share one trailing slot, so keys line up with the catalog's
-                // and titles keep their width in a narrow column. Dragging the row reorders; Move
-                // is in its context menu and its accessibility actions.
-                ListRowKeySlot(
-                    key: KeyModeText(key: entry.tune.key, modes: entry.tune.modes),
-                    revealsPlay: !selection.isActive
-                        && ListRowKeySlot.revealsPlay(action: playAction, isCurrent: isCurrent),
-                    pinned: isCurrent || playAction == .downloading
-                ) {
-                    if !selection.isActive {
-                        ListRowPlayButton(entry: entry, action: playAction, listID: list.id)
-                    }
-                }
-            #else
-                if !selection.isActive {
-                    ListRowPlayButton(entry: entry, action: playAction, listID: list.id)
-                }
-            #endif
+            if !selection.isActive {
+                ListRowPlayButton(entry: entry, action: playAction, listID: list.id)
+            }
         }
-        #if os(macOS)
-            .revealsActionsOnHover()
-        #endif
         // Before the row's tag, background, and move rule: the visibility watch wraps the row, and
         // a wrapper around them hides them from the list.
         .scrollAnchorRow(entry.id)
@@ -521,15 +463,10 @@ private struct ListTunes: View {
         } preview: {
             TunePreview(entry: entry.catalogEntry, instruments: model.instruments)
         }
-        #if os(macOS)
-            .listRowBackground(isCurrent && !selection.isActive ? currentRowTint : nil)
-        #else
-            .listRowBackground(
-                TuneSelection.rowIsSelected(entry.tune.id, selection: selection, detailTune: detailTune)
-                    && !(isCurrent && !selection.isActive)
-                    ? nil : rowBackground(isCurrent: isCurrent && !selection.isActive)
-            )
-        #endif
+        .playingRowBackground(
+            isPlaying: isCurrent && !selection.isActive,
+            isSelected: TuneSelection.rowIsSelected(entry.tune.id, selection: selection, detailTune: detailTune)
+        )
         .statusRingOnFill(
             isCurrent && !selection.isActive
                 || TuneSelection.rowIsSelected(entry.tune.id, selection: selection, detailTune: detailTune)
@@ -540,23 +477,6 @@ private struct ListTunes: View {
         #endif
         .tag(entry.tune.id)
         .moveDisabled(!reorderable)
-    }
-
-    /// The playing tune's tint, or nothing, so the list's background shows through.
-    @ViewBuilder private func rowBackground(isCurrent: Bool) -> some View {
-        if isCurrent { currentRowTint } else { Color.clear }
-    }
-
-    /// The light tint on the tune a playing list is on.
-    @ViewBuilder private var currentRowTint: some View {
-        #if os(macOS)
-            // Inset and rounded as the selection is, so the two read as one family.
-            RoundedRectangle(cornerRadius: 6)
-                .fill(Palette.tintSubtle(colorScheme))
-                .padding(.horizontal, MacStyle.selectionInset)
-        #else
-            Palette.tintSubtle(colorScheme)
-        #endif
     }
 
     #if os(iOS)

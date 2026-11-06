@@ -1,25 +1,20 @@
 import { Shuffle } from 'lucide-react'
-import { useId, useState } from 'react'
-import { Button as AriaButton } from 'react-aria-components'
-import { NOTHING_PLAYS, SHUFFLE, WHAT_PLAYS_HINT, willPlayLabel } from './listPlayCopy'
+import { NOTHING_PLAYS, SHUFFLE, willPlayLabel } from './listPlayCopy'
 import type { ListItemView } from './useLists'
 import { usePlaylistReport } from './usePlaylistReport'
 import { usePlaybackEngine, useEngineState } from '../player/PlaybackEngineProvider'
 import { PAUSE, PLAY } from '../player/transportCopy'
-import { useListPlayback } from '../player/useListPlayback'
+import { useActiveListRun, useListPlayback } from '../player/useListPlayback'
 import { useRecordState } from '../capture/RecordState'
 import { messageFor } from '../../ui/useAction'
 import { Button } from '../../ui/Button'
-import { WhatPlaysSheet } from './WhatPlaysSheet'
-import { PRESS } from '../../ui/press'
 import { ActionButtonRow } from '../../ui/ActionButtonRow'
 import { TransportMark } from '../../ui/rowGlyphs'
 
 /**
- * Play and Shuffle for a list, over the line that says how many of its tunes will play. The
- * line opens What plays, which says why the rest will not. While the list plays, Play pauses
- * and resumes it; Shuffle always starts it over shuffled. With nothing to play, and the list
- * not playing, only the line shows.
+ * Play and Shuffle for a list, over the line that says how many of its tunes will play. While
+ * the list plays, Play pauses and resumes it; Shuffle always starts it over shuffled. With
+ * nothing to play, and the list not playing, only the line shows.
  */
 export function ListPlayRow({
   listId,
@@ -36,10 +31,8 @@ export function ListPlayRow({
   const playing = useEngineState(engine, (state) => state.playing)
   const recording = useRecordState().recording
   const report = usePlaylistReport(rows)
-  const [explaining, setExplaining] = useState(false)
-  const hintId = useId()
-  const run = playback.active
-  const active = run?.listId === listId && run.message === null
+  const run = useActiveListRun(listId)
+  const active = run !== null
   const pausing = active && playing
   const nothingPlays = report?.playable.length === 0
   const disabled = !report || nothingPlays || recording
@@ -60,7 +53,7 @@ export function ListPlayRow({
               label={pausing ? PAUSE : PLAY}
               fullWidth
               // Until the next tune loads, the engine holds the one being left.
-              isDisabled={active ? !run.settled || recording : disabled}
+              isDisabled={run ? !run.settled || recording : disabled}
               onPress={() => {
                 if (!active) start(false)
                 else if (pausing) engine.pause()
@@ -81,29 +74,13 @@ export function ListPlayRow({
       {/* Held at its height while the sources read, so the rows under it do not shift. */}
       <div className="flex min-h-(--target-control) items-center">
         {report && (
-          <AriaButton
-            aria-describedby={hintId}
-            onPress={() => setExplaining(true)}
-            className={`t-secondary text-secondary hover:text-primary min-h-(--target-control) text-start underline-offset-4 hover:underline ${PRESS}`}
-          >
+          <p className="t-secondary text-secondary">
             {report.playable.length === 0
               ? NOTHING_PLAYS
               : willPlayLabel(report.playable.length, report.total)}
-          </AriaButton>
+          </p>
         )}
-        <span id={hintId} hidden>
-          {WHAT_PLAYS_HINT}
-        </span>
       </div>
-      {report && (
-        <WhatPlaysSheet
-          listId={listId}
-          report={report}
-          rows={rows}
-          isOpen={explaining}
-          onOpenChange={setExplaining}
-        />
-      )}
     </div>
   )
 }

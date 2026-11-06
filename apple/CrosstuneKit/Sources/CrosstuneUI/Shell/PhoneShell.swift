@@ -115,6 +115,7 @@ enum TabSlot: Hashable {
             Group {
                 if destination == .lists {
                     NavigationStack(path: $place.listPath) { root }
+                        .environment(\.openList, .listOpener(place))
                 } else {
                     NavigationStack { root }
                 }

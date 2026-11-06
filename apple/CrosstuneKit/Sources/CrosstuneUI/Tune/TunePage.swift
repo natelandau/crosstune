@@ -264,7 +264,6 @@ struct TunePageColumn: View {
                 } else {
                     TuneMediaRows(model: model, detail: detail, editing: $editing, deleting: $deleting)
                         #if os(macOS)
-                            .environment(\.hangsMediaGlyph, true)
                             .environment(\.mediaNoticeInHeading, true)
                         #endif
                 }

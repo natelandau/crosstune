@@ -431,7 +431,7 @@ private struct CatalogContent: View {
         }
         // Inside the row insets, which a wrapper around them would hide from the list.
         .scrollAnchorRow(entry.id)
-        .tuneRowInsets()
+        .listItemRow()
         .catalogRowActions(
             entry, instruments: instruments, isSelecting: selection.isActive,
             onEdit: { open(entry.tune.id) },

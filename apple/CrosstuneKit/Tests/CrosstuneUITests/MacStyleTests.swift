@@ -34,11 +34,6 @@
             #expect(contrastRatio(hex(.onAccentFill), hex(.accentFill)) >= 4.5)
         }
 
-        @Test func pageGlyphsHangInsideThePageMargin() {
-            #expect(MacStyle.pageGlyphColumn > 0)
-            #expect(MacStyle.pageGlyphColumn < MacStyle.pageMargin)
-        }
-
         @Test func accentHoldsItsValueInEachAppearance() {
             #expect(resolved(Palette.accent, in: .light) == "#1f5f9e")
             #expect(resolved(Palette.accent, in: .dark) == "#6aa6e6")

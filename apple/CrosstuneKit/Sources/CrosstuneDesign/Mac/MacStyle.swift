@@ -47,19 +47,12 @@
         /// chrome: a filter control, a section heading's control, a row's own control, and a
         /// group's heading line.
         public static let smallControlHeight: CGFloat = 24
-        /// The square a media row's state glyph takes.
-        public static let mediaGlyphSlot: CGFloat = 28
-        /// A media row's title line at the body size, which its glyph centers on.
-        public static let mediaTitleLineHeight: CGFloat = 16
+        /// The least height a media row takes.
+        public static let mediaRowMinHeight: CGFloat = 28
         public static let pageMaxWidth: CGFloat = 680
         /// The widest a page's section runs, heading included, so its controls and a row's
         /// trailing controls stay near the text and long text keeps a readable measure.
         public static let pageRowMaxWidth: CGFloat = 440
-        /// The column a page's glyphs (play, quote, status) hang in, left of the text's leading
-        /// edge and inside the page margin, so every section's text starts on one edge.
-        public static let pageGlyphColumn: CGFloat = 24
-        /// Between a hung glyph and its text, inside ``pageGlyphColumn``.
-        public static let pageGlyphGap: CGFloat = 8
         public static let pageMargin: CGFloat = 32
         public static let sectionGap: CGFloat = 28
         public static let headingGap: CGFloat = 8

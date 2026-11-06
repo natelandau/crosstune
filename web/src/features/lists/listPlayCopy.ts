@@ -1,4 +1,4 @@
-/** A list's play row and its What plays sheet. */
+/** A list's play row. */
 
 export const SHUFFLE = 'Shuffle'
 
@@ -8,16 +8,6 @@ export function willPlayLabel(playable: number, total: number): string {
 }
 
 export const NOTHING_PLAYS = 'No tunes in this list can play'
-export const WHAT_PLAYS_HINT = 'Shows which tunes play in a list and why the others do not.'
-export const WHAT_PLAYS_TITLE = 'What plays'
-export const WHAT_PLAYS_LEAD =
-  "Lists play your recordings. Links play from each tune's play button."
-
-export const SKIP_NOTHING = 'No recordings or links'
-export const SKIP_LINKS_ONLY = "Only links that can't play in a list"
-export const SKIP_NOT_HERE = "Recordings that aren't on this device yet"
-export const PLAYLIST_SKIP_PREMIUM =
-  'Recordings need Premium, so tunes with only recordings were skipped.'
 
 /** `Play Thursday jam`, a list row's play control. */
 export function playListName(name: string): string {

@@ -1,4 +1,4 @@
-import { CLOSE_PLAYER } from '../player/transportCopy'
+import { CLOSE_PLAYER, PAUSE } from '../player/transportCopy'
 
 /**
  * The action labels and names a recording's controls carry wherever they show: its play control, and
@@ -11,6 +11,11 @@ export const GO_TO_TUNE = 'Go to tune'
 
 export function playName(title: string): string {
   return `${PLAY} ${title}`
+}
+
+/** `Pause Soldier's Joy`, the control on the tune a playing list is on. */
+export function pauseName(title: string): string {
+  return `${PAUSE} ${title}`
 }
 
 export function downloadName(title: string): string {

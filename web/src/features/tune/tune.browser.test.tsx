@@ -5,7 +5,7 @@ import { deleteTune, updateUserTune } from '../../commands/tunes'
 import type { CrosstuneDb } from '../../db/schema'
 import type { LocalTune } from '../../db/types'
 import { CLOSE_PLAYER } from '../player/transportCopy'
-import { PLAY } from '../recordings/recordingNames'
+import { DOWNLOAD, downloadingName, PLAY, retryName } from '../recordings/recordingNames'
 import type * as images from '../scans/prepareImage'
 import { prepareImage, UndecodableImageError } from '../scans/prepareImage'
 import { ADD_SCANS, CHOOSE_SCAN_FILES, unreadableFilesMessage } from '../scans/scanCopy'
@@ -40,6 +40,7 @@ import { DETAIL_LABELS } from './detailFields'
 import { addedDay } from '../../text/format'
 import { DONE } from '../../ui/confirmCopy'
 import { lyricsTitle } from '../lyrics/lyricsCopy'
+import { computedColor } from '../../test/color'
 import { openTestDb } from '../../test/db'
 import {
   entitlementRow,
@@ -716,6 +717,119 @@ it('plays a recording when its row is tapped', async () => {
     .toBeVisible()
 })
 
+it.each([
+  ['phone', PHONE, 'touch'],
+  ['wide', WIDE, 'pointer'],
+] as const)('puts the media glyph after the title on %s', async (_, frame, density) => {
+  const db = openTestDb()
+  await seedTune(db, 't1', 'Old Joe Clark')
+  await db.recordings.put(recordingRow('r1', { tune_id: 't1', label: 'Fast take' }))
+  await db.recording_files.put(
+    recordingFile('r1', { blob: new Blob(['x'], { type: 'audio/mp4' }) }),
+  )
+  await db.recording_links.put(
+    linkRow('l1', 't1', { title: 'Henry Reed', url: 'https://example.com/joy' }),
+  )
+  await renderApp({ path: '/catalog/t1', db, frame, density })
+  const section = tunePage().getByRole('region', { name: RECORDINGS_SECTION })
+  for (const title of ['Fast take', 'Henry Reed']) {
+    const row = section.getByRole('row', { name: new RegExp(title) })
+    await expect.element(row).toBeVisible()
+    const glyphFollowsTitle = () => {
+      const glyph = row.element().querySelector('[data-media-glyph] [data-row-ring]')
+      const titleText = row.element().querySelector('[data-row-title]')
+      return (
+        glyph !== null &&
+        titleText !== null &&
+        (titleText.compareDocumentPosition(glyph) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0
+      )
+    }
+    await expect.poll(glyphFollowsTitle).toBe(true)
+  }
+})
+
+it('shows a download glyph on a recording held only on the server', async () => {
+  const db = openTestDb()
+  await seedTune(db, 't1', 'Old Joe Clark')
+  await db.recordings.put(recordingRow('r1', { tune_id: 't1', label: 'Fast take', state: 'ready' }))
+  await renderApp({ path: '/catalog/t1', db, frame: PHONE })
+  const row = tunePage().getByRole('row', { name: new RegExp(`^${DOWNLOAD} Fast take`) })
+  await expect.element(row).toBeVisible()
+  const cloud = () => row.element().querySelector('[data-media-glyph] svg.lucide-cloud-download')
+  await expect.poll(() => cloud()).not.toBeNull()
+  // The ring fills under the pointer, which an earlier test may have left over the row.
+  await userEvent.hover(pageTitle())
+  await expect
+    .poll(() => getComputedStyle(cloud()!).color)
+    .toBe(computedColor('var(--color-text-primary)'))
+})
+
+it('dims the download glyph with the tertiary text role while offline', async () => {
+  const onLine = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+  onTestFinished(() => onLine.mockRestore())
+  const db = openTestDb()
+  await seedTune(db, 't1', 'Old Joe Clark')
+  await db.recordings.put(recordingRow('r1', { tune_id: 't1', label: 'Fast take', state: 'ready' }))
+  await renderApp({ path: '/catalog/t1', db, frame: PHONE })
+  const row = tunePage().getByRole('row', { name: new RegExp(`^${DOWNLOAD} Fast take`) })
+  await expect.element(row).toHaveAttribute('data-dimmed')
+  const cloud = () => row.element().querySelector('[data-media-glyph] svg.lucide-cloud-download')
+  await expect.poll(() => cloud()).not.toBeNull()
+  // The ring fills under the pointer, which an earlier test may have left over the row.
+  await userEvent.hover(pageTitle())
+  await expect
+    .poll(() => getComputedStyle(cloud()!).color)
+    .toBe(computedColor('var(--color-text-tertiary)'))
+})
+
+it('shows a downloading glyph, named as a status, while a recording downloads', async () => {
+  const db = openTestDb()
+  await seedTune(db, 't1', 'Old Joe Clark')
+  await db.recordings.put(recordingRow('r1', { tune_id: 't1', label: 'Fast take', state: 'ready' }))
+  await db.recording_files.put(recordingFile('r1', { local_state: 'downloading' }))
+  await renderApp({ path: '/catalog/t1', db, frame: PHONE })
+  const row = tunePage().getByRole('row', { name: /Fast take/ })
+  await expect.element(row).toBeVisible()
+  const status = row.getByRole('status', { name: downloadingName('Fast take') })
+  await expect.element(status).toBeInTheDocument()
+  await expect
+    .poll(
+      () =>
+        status.element().closest('[data-media-glyph]')?.querySelector('[data-downloading-arc]') ??
+        null,
+    )
+    .not.toBeNull()
+})
+
+it.each([
+  ['phone', PHONE, 'touch'],
+  ['wide', WIDE, 'pointer'],
+] as const)(
+  'shows Retry in place of the glyph on a stuck row on %s, and the row still plays',
+  async (_, frame, density) => {
+    const db = openTestDb()
+    await seedTune(db, 't1', 'Old Joe Clark')
+    await db.recordings.put(recordingRow('r1', { tune_id: 't1', label: 'Fast take' }))
+    await db.recording_files.put(
+      recordingFile('r1', {
+        blob: new Blob(['x'], { type: 'audio/mp4' }),
+        local_state: 'failed_upload',
+      }),
+    )
+    await renderApp({ path: '/catalog/t1', db, frame, density })
+    const row = tunePage().getByRole('row', { name: new RegExp(`^${PLAY} Fast take`) })
+    await expect
+      .element(row.getByRole('button', { name: retryName('upload', 'Fast take') }))
+      .toBeVisible()
+    await expect.poll(() => row.element().querySelector('[data-media-glyph]')).toBeNull()
+    await expect.poll(() => row.element().querySelector('[data-row-ring]')).toBeNull()
+    await row.click()
+    await expect
+      .element(tunePage().getByRole('row', { name: new RegExp(`^${CLOSE_PLAYER} Fast take`) }))
+      .toBeVisible()
+  },
+)
+
 it("folds a free plan's recordings into one line that opens to dimmed rows", async () => {
   const db = openTestDb()
   await db.entitlements.put(entitlementRow())
@@ -932,10 +1046,8 @@ it.each([
   const edge = () => left(recordings.getByRole('heading', { name: RECORDINGS_SECTION }).element())
   const titles = () => [...recordings.element().querySelectorAll('[data-row-title]')]
   await expect.poll(() => titles().length).toBe(2)
-  // Titles line up across recordings and links, whether or not a row shows a glyph.
   await expect.poll(() => Math.abs(left(titles()[0]!) - left(titles()[1]!))).toBeLessThan(1)
-  const glyph = () => recordings.element().querySelector('[data-media-glyph] svg')!
-  await expect.poll(() => Math.abs(left(glyph()) - edge())).toBeLessThan(1.5)
+  await expect.poll(() => Math.abs(left(titles()[0]!) - edge())).toBeLessThan(1)
   await expect.poll(() => Math.abs(left(verse.element()) - edge())).toBeLessThan(1)
 })
 

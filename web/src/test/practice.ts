@@ -77,9 +77,11 @@ export async function mountPlaying(
     wrap: options.wrap,
   })
   const rows = filed ? page.getByRole('main', { name: TUNE }) : page
+  // On the title, since in a narrow frame the row's hover actions reach its middle.
   await rows
     .getByRole('row', { name: new RegExp(RECORDING_LABEL) })
     .first()
+    .getByText(RECORDING_LABEL, { exact: true })
     .click()
   await expect.element(player()).toBeVisible()
   return { db, engine, router }

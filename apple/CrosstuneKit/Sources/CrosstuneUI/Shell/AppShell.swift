@@ -149,7 +149,7 @@ public struct AppShell: View {
             .environment(\.playerWindow, playerWindow)
             .environment(\.padPracticeVisit, padPracticeVisit)
             .environment(\.openCatalogRoot, MenuAction(id: ShellActionID.openCatalogRoot) { showCatalogRoot() })
-            .environment(\.openTune, TuneOpener(id: ObjectIdentifier(place)) { openTune($0) })
+            .environment(\.openTune, IDOpener(id: ObjectIdentifier(place)) { openTune($0) })
             .focusedSceneValue(
                 \.recordAction,
                 canRecord ? MenuAction(id: recordID) { startRecording(tuneID: nil, source: .menu) } : nil

@@ -242,6 +242,7 @@ import CrosstuneDesign
             switch destination {
             case .lists:
                 NavigationStack(path: $place.listPath) { screen }
+                    .environment(\.openList, .listOpener(place))
             case .settings:
                 NavigationStack { screen }
                     // A row the root opens replaces the detail column's page rather than pushing here.

@@ -6,13 +6,14 @@ import Foundation
 import SwiftUI
 
 public enum ListRowText {
-    /// Spoken after a row whose tune has nothing to play.
-    public static let notPlayable = "No recordings or links"
+    /// The second line of a row whose tune has nothing to play.
+    public static let notPlayable = "Nothing to play"
 
-    /// What a row says after its title: ``notPlayable`` for a tune with nothing to play, never
-    /// for the tune its list is playing, whose source the playlist chose, nor while selecting.
-    public static func hint(hasAction: Bool, isCurrent: Bool, isSelecting: Bool) -> String {
-        hasAction || isCurrent || isSelecting ? "" : notPlayable
+    /// The row's note, shown and spoken: ``notPlayable`` for a tune with nothing to play, never
+    /// for the tune its list is playing, whose source the playlist chose. It stays while
+    /// selecting, so a row keeps its height when selection starts.
+    public static func note(hasAction: Bool, isCurrent: Bool) -> String? {
+        hasAction || isCurrent ? nil : notPlayable
     }
 
     /// The play button's name: "Play Soldier's Joy", or "Close player for Soldier's Joy" once
@@ -145,11 +146,6 @@ public enum ListRowPlay {
         playingListID == listID && currentTuneID == tuneID
     }
 
-    /// The symbol on the tune a playing list is on: a speaker while it sounds, play once paused.
-    static func nowPlayingSymbol(isPlaying: Bool) -> String {
-        isPlaying ? "speaker.wave.2.fill" : "play.fill"
-    }
-
     /// Whether the action's item is the one the player holds, which the button shows as stop.
     static func isLoaded(_ action: Action, holds: (PlayerItem.Kind, String) -> Bool) -> Bool {
         guard case .play(let item) = action else { return false }
@@ -166,16 +162,16 @@ public enum ListRowPlay {
     /// The button's symbol, or nil for an action that shows no button.
     static func symbol(for action: Action, loaded: Bool) -> String? {
         switch action {
-        case .play: loaded ? "stop.fill" : "play.fill"
-        case .open: "arrow.up.right"
+        case .play: loaded ? RowGlyph.stop : RowGlyph.play
+        case .open: RowGlyph.linkOut
         case .downloading, .inert: nil
         }
     }
 }
 
-/// A list row's play button: play, stop for the loaded item, or the link out; a spinner while
-/// the chosen recording downloads; an empty slot for a choice that cannot act; or a muted mark
-/// when the tune has nothing to play.
+/// A list row's play button: play, stop for the loaded item, or the link out; a progress ring while
+/// the chosen recording downloads; or an empty slot of the same width for a choice that cannot
+/// act or a tune with nothing to play, whose row says so in its second line.
 struct ListRowPlayButton: View {
     let entry: ListEntry
     let action: ListRowPlay.Action?
@@ -186,24 +182,6 @@ struct ListRowPlayButton: View {
     @Environment(RecorderHost.self) private var recorders: RecorderHost?
     @Environment(\.openURL) private var openURL
     @Environment(\.analytics) private var analytics
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    /// The square each state takes, so the row keeps its width whichever shows.
-    private var slot: CGFloat {
-        #if os(macOS)
-            MacStyle.smallControlHeight
-        #else
-            44
-        #endif
-    }
-
-    private var glyphFont: Font {
-        #if os(macOS)
-            MacStyle.body
-        #else
-            .title3
-        #endif
-    }
 
     private var isNowPlaying: Bool {
         ListRowPlay.isNowPlaying(
@@ -213,24 +191,11 @@ struct ListRowPlayButton: View {
 
     var body: some View {
         if isNowPlaying {
-            // Until the tune loads, the transport still plays the tune being left.
-            let settled = listPlayback?.isSettled ?? false
-            let isPlaying = settled && player?.transport?.isPlaying == true
-            Button {
-                guard settled, let transport = player?.transport else { return }
-                if transport.isPlaying { transport.pause() } else { transport.play() }
-            } label: {
-                nowPlayingGlyph(isPlaying: isPlaying)
-                    .font(glyphFont)
-                    .frame(minWidth: slot, minHeight: slot)
-                    .contentShape(.rect)
+            RowActionSlot {
+                RowNowPlayingButton(
+                    pauseLabel: ListRowText.nowPlayingLabel(tuneTitle: entry.tune.title, isPlaying: true),
+                    playLabel: ListRowText.nowPlayingLabel(tuneTitle: entry.tune.title, isPlaying: false))
             }
-            .buttonStyle(.plain)
-            .disabled(!settled)
-            .accessibilityLabel(ListRowText.nowPlayingLabel(tuneTitle: entry.tune.title, isPlaying: isPlaying))
-            #if os(macOS)
-                .help(ListRowText.nowPlayingLabel(tuneTitle: entry.tune.title, isPlaying: isPlaying))
-            #endif
         } else {
             rowButton
         }
@@ -238,52 +203,37 @@ struct ListRowPlayButton: View {
 
     @ViewBuilder private var rowButton: some View {
         switch action {
-        case nil:
-            Image(systemName: "circle.slash")
-                .font(glyphFont)
-                .foregroundStyle(.textSecondary)
-                .frame(minWidth: slot, minHeight: slot)
-                .accessibilityHidden(true)
-        case .inert?:
-            Color.clear
-                .frame(width: slot, height: slot)
-                .accessibilityHidden(true)
+        case nil, .inert?:
+            RowActionSlot.empty(holdingGlyphHeight: true)
         case .downloading?:
-            ProgressView()
-                #if os(macOS)
-                    .controlSize(.small)
-                #endif
-                .frame(minWidth: slot, minHeight: slot)
-                .accessibilityLabel(
-                    ListRowText.label(for: .downloading, tuneTitle: entry.tune.title, loaded: false) ?? "")
+            RowActionSlot {
+                RowProgressRing()
+                    .accessibilityElement()
+                    .accessibilityLabel(
+                        ListRowText.label(for: .downloading, tuneTitle: entry.tune.title, loaded: false) ?? "")
+            }
         case let action?:
             let loaded = ListRowPlay.isLoaded(action) { player?.holds($0, id: $1) ?? false }
-            let listPlaying = listPlayback?.listID == listID
-            Button {
-                tapped(action, loaded: loaded, listPlaying: listPlaying)
-            } label: {
-                Image(systemName: ListRowPlay.symbol(for: action, loaded: loaded) ?? "play.fill")
-                    .font(glyphFont)
-                    .frame(minWidth: slot, minHeight: slot)
-                    .contentShape(.rect)
+            if let symbol = ListRowPlay.symbol(for: action, loaded: loaded) {
+                let listPlaying = listPlayback?.listID == listID
+                let blocked = ListRowPlay.isBlocked(action, capturing: recorders?.isCapturing ?? false)
+                let label = ListRowText.label(for: action, tuneTitle: entry.tune.title, loaded: loaded) ?? ""
+                RowActionSlot {
+                    RowSlotButton {
+                        tapped(action, loaded: loaded, listPlaying: listPlaying)
+                    } label: {
+                        RowGlyphImage(systemName: symbol)
+                            // The explicit style overrides a disabled button's dimming, so it dims itself.
+                            .foregroundStyle(blocked ? Palette.textTertiary : Palette.textPrimary)
+                    }
+                    .disabled(blocked)
+                    .accessibilityLabel(label)
+                    #if os(macOS)
+                        .help(label)
+                    #endif
+                }
             }
-            .buttonStyle(.plain)
-            .disabled(ListRowPlay.isBlocked(action, capturing: recorders?.isCapturing ?? false))
-            .accessibilityLabel(ListRowText.label(for: action, tuneTitle: entry.tune.title, loaded: loaded) ?? "")
-            #if os(macOS)
-                .help(ListRowText.label(for: action, tuneTitle: entry.tune.title, loaded: loaded) ?? "")
-            #endif
         }
-    }
-
-    @ViewBuilder private func nowPlayingGlyph(isPlaying: Bool) -> some View {
-        Image(systemName: ListRowPlay.nowPlayingSymbol(isPlaying: isPlaying))
-            #if os(macOS)
-                .foregroundStyle(Palette.accent)
-            #else
-                .foregroundStyle(.tint)
-            #endif
-            .symbolEffect(.variableColor.iterative, options: .repeating, isActive: isPlaying && !reduceMotion)
     }
 
     private func tapped(_ action: ListRowPlay.Action, loaded: Bool, listPlaying: Bool) {

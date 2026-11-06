@@ -191,7 +191,7 @@ private func songKind(_ tune: String) throws -> AppleMusicItem {
         fixture.player.play(recording("x"))
         try await playing(fixture, "rx")
         fixture.resolver.holding = ["a"]
-        let report = PlaylistReport(playable: ["a", "b"], skipped: [:], total: 2)
+        let report = PlaylistReport(playable: ["a", "b"], total: 2)
         fixture.playback.start(listID: "list1", name: listName, report: report, shuffled: false)
         // The first tune is still resolving, and what was loaded is already gone.
         try await eventually { fixture.resolver.isHolding("a") }
@@ -475,7 +475,7 @@ private func songKind(_ tune: String) throws -> AppleMusicItem {
 
     @Test func startFromAReportPlaysOnlyTheTunesThatWillPlay() async throws {
         let fixture = fixture()
-        let report = PlaylistReport(playable: ["a", "c"], skipped: [.nothing: ["b"]], total: 3)
+        let report = PlaylistReport(playable: ["a", "c"], total: 3)
         fixture.playback.start(listID: "list1", name: listName, report: report, shuffled: false)
         try await playing(fixture, "ra")
         #expect(fixture.playback.count == 2)
