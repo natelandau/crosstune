@@ -11,7 +11,7 @@ Crosstune has a tuner for any instrument, from upright bass to fiddle. Play a no
 
 ## Open the tuner
 
-Choose **Tuner** in the tab bar or the sidebar. Tuner is next to Recordings on every device.
+Choose **Tuner** in the tab bar or the sidebar.
 
 The first time you open the tuner, Crosstune asks to use your microphone. Allow it, because the tuner cannot hear you without it. If you did not allow it, turn on the microphone for Crosstune in the settings of your phone, tablet, or computer. In a web browser, allow the microphone for the Crosstune site in the browser settings. Then open the tuner again.
 

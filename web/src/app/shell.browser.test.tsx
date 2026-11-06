@@ -42,14 +42,14 @@ async function seed(db: CrosstuneDb) {
 
 const sidebar = () => page.getByRole('navigation', { name: SIDEBAR })
 
-it('holds Catalog, Lists, Tuner, Recordings, then Record on the phone', async () => {
+it('holds Catalog, Recordings, Lists, Tuner, then Record on the phone', async () => {
   await renderApp({ path: '/catalog', db: openTestDb(), frame: PHONE })
   const tabs = page.getByRole('navigation', { name: TAB_BAR })
   await expect.element(tabs).toBeVisible()
   const controls = tabs.getByRole('link').or(tabs.getByRole('button'))
   await expect
     .poll(() => controls.elements().map((e) => e.textContent || e.ariaLabel))
-    .toEqual(['Catalog', 'Lists', 'Tuner', 'Recordings', RECORD_LABEL])
+    .toEqual(['Catalog', 'Recordings', 'Lists', 'Tuner', RECORD_LABEL])
   await expect
     .element(tabs.getByRole('link', { name: 'Catalog', exact: true }))
     .toHaveAttribute('aria-current', 'page')

@@ -21,7 +21,7 @@ export const TABS = [
 ] as const satisfies readonly TabSpec[]
 
 /** The phone tab bar's destinations, in bar order. Settings opens from the account button. */
-export const PHONE_TABS = ['catalog', 'lists', 'tuner', 'recordings'] as const
+export const PHONE_TABS = ['catalog', 'recordings', 'lists', 'tuner'] as const
 
 /** A destination's name, as its tab shows it. */
 export const tabLabel = (tab: (typeof TABS)[number]['tab']) =>
