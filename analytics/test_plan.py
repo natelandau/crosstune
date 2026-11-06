@@ -12,7 +12,7 @@ from plan import SyncResult, audit, check, load_env, main, sync
 
 PLAN = Path(__file__).parent / "tracking-plan.json"
 
-BASE = {
+BASE: dict = {
     "version": 1,
     "clients": ["site", "apple", "web"],
     "buckets": {"count": ["0", "1-9", "10-49", "50-199", "200+"]},
@@ -78,7 +78,7 @@ def test_the_real_plan_has_no_problems():
 
 
 def test_the_base_plan_has_no_problems(tmp_path):
-    assert problems(tmp_path, lambda p: None) == []
+    assert problems(tmp_path, lambda _p: None) == []
 
 
 def test_reports_a_property_naming_an_unknown_enum(tmp_path):
@@ -88,14 +88,14 @@ def test_reports_a_property_naming_an_unknown_enum(tmp_path):
 
 
 def test_reports_a_non_snake_case_event_name(tmp_path):
-    def edit(p):
+    def edit(p) -> None:
         p["events"]["TuneCreated"] = p["events"].pop("tune_created")
 
     assert any("TuneCreated" in f for f in problems(tmp_path, edit))
 
 
 def test_allows_a_builtin_event_with_any_name(tmp_path):
-    def edit(p):
+    def edit(p) -> None:
         p["events"]["Application Opened"] = {
             "description": "The app opened.",
             "clients": ["apple"],
@@ -106,16 +106,14 @@ def test_allows_a_builtin_event_with_any_name(tmp_path):
             "description": "A screen was shown.",
             "clients": ["apple"],
             "answers": ["activation"],
-            "properties": {
-                "source": {"type": "string", "enum": "source", "required": True}
-            },
+            "properties": {"source": {"type": "string", "enum": "source", "required": True}},
         }
 
     assert problems(tmp_path, edit) == []
 
 
 def test_reports_a_builtin_event_with_properties(tmp_path):
-    def edit(p):
+    def edit(p) -> None:
         p["events"]["$pageview"] = {
             "description": "A page was viewed.",
             "clients": ["site"],
@@ -128,28 +126,28 @@ def test_reports_a_builtin_event_with_properties(tmp_path):
 
 
 def test_reports_an_unknown_client(tmp_path):
-    def edit(p):
+    def edit(p) -> None:
         p["events"]["tune_created"]["clients"] = ["android"]
 
     assert any("android" in f for f in problems(tmp_path, edit))
 
 
 def test_reports_a_uuid_property_not_ending_in_id(tmp_path):
-    def edit(p):
+    def edit(p) -> None:
         p["events"]["tune_created"]["properties"]["tune"] = {"type": "uuid"}
 
     assert any("tune" in f and "_id" in f for f in problems(tmp_path, edit))
 
 
 def test_reports_a_string_property_with_neither_enum_nor_bucket(tmp_path):
-    def edit(p):
+    def edit(p) -> None:
         p["events"]["tune_created"]["properties"]["title"] = {"type": "string"}
 
     assert any("title" in f for f in problems(tmp_path, edit))
 
 
 def test_reports_a_null_enum(tmp_path):
-    def edit(p):
+    def edit(p) -> None:
         p["events"]["tune_created"]["properties"]["to"] = {
             "type": "string",
             "enum": None,
@@ -172,14 +170,14 @@ def add_setting_changed(plan: dict, value: dict) -> None:
 
 
 def test_accepts_a_setting_value_beside_its_setting(tmp_path):
-    def edit(p):
+    def edit(p) -> None:
         add_setting_changed(p, {"type": "setting_value", "required": True})
 
     assert problems(tmp_path, edit) == []
 
 
 def test_reports_a_setting_value_without_a_setting_property(tmp_path):
-    def edit(p):
+    def edit(p) -> None:
         add_setting_changed(p, {"type": "setting_value", "required": True})
         del p["events"]["setting_changed"]["properties"]["setting"]
 
@@ -187,7 +185,7 @@ def test_reports_a_setting_value_without_a_setting_property(tmp_path):
 
 
 def test_reports_a_setting_value_when_the_setting_enum_is_missing(tmp_path):
-    def edit(p):
+    def edit(p) -> None:
         add_setting_changed(p, {"type": "setting_value", "required": True})
         del p["enums"]["setting"]
 
@@ -195,14 +193,14 @@ def test_reports_a_setting_value_when_the_setting_enum_is_missing(tmp_path):
 
 
 def test_reports_a_setting_value_with_an_enum(tmp_path):
-    def edit(p):
+    def edit(p) -> None:
         add_setting_changed(p, {"type": "setting_value", "enum": "source"})
 
     assert any("setting_value" in f for f in problems(tmp_path, edit))
 
 
 def test_reports_a_setting_that_takes_a_setting_value(tmp_path):
-    def edit(p):
+    def edit(p) -> None:
         p["settings"]["audio_quality"] = {"type": "setting_value"}
         p["person_properties"]["setting_audio_quality"] = {
             "type": "setting_value",
@@ -213,21 +211,21 @@ def test_reports_a_setting_that_takes_a_setting_value(tmp_path):
 
 
 def test_reports_an_answer_that_names_no_question(tmp_path):
-    def edit(p):
+    def edit(p) -> None:
         p["events"]["tune_created"]["answers"] = ["activation", "nope"]
 
     assert any("nope" in f for f in problems(tmp_path, edit))
 
 
 def test_reports_a_question_nothing_answers(tmp_path):
-    def edit(p):
+    def edit(p) -> None:
         p["questions"]["retention"] = "Do people come back?"
 
     assert "question 'retention': nothing answers it" in problems(tmp_path, edit)
 
 
 def test_reports_a_question_without_text_or_with_a_bad_key(tmp_path):
-    def edit(p):
+    def edit(p) -> None:
         p["questions"]["activation"] = ""
         p["questions"]["Bad Key"] = "Text."
         p["events"]["tune_created"]["answers"].append("Bad Key")
@@ -285,7 +283,7 @@ def test_reports_duplicate_enum_values(tmp_path):
 
 
 def test_reports_an_unknown_bucket(tmp_path):
-    def edit(p):
+    def edit(p) -> None:
         p["events"]["tune_created"]["properties"]["n"] = {
             "type": "string",
             "bucket": "nope",
@@ -295,7 +293,7 @@ def test_reports_an_unknown_bucket(tmp_path):
 
 
 def test_reports_free_text_on_an_ordinary_property(tmp_path):
-    def edit(p):
+    def edit(p) -> None:
         p["events"]["tune_created"]["properties"]["title"] = {
             "type": "string",
             "format": "free",
@@ -305,7 +303,7 @@ def test_reports_free_text_on_an_ordinary_property(tmp_path):
 
 
 def test_allows_free_text_on_acquisition_properties(tmp_path):
-    def edit(p):
+    def edit(p) -> None:
         props = p["events"]["tune_created"]["properties"]
         props["$referrer"] = {"type": "string", "format": "free"}
         props["utm_source"] = {"type": "string", "format": "free"}
@@ -314,37 +312,35 @@ def test_allows_free_text_on_acquisition_properties(tmp_path):
 
 
 def test_reports_a_setting_without_its_person_property(tmp_path):
-    def edit(p):
+    def edit(p) -> None:
         del p["person_properties"]["setting_audio_quality"]
 
     assert any("setting_audio_quality" in f for f in problems(tmp_path, edit))
 
 
 def test_reports_a_setting_person_property_that_differs_from_its_setting(tmp_path):
-    def edit(p):
+    def edit(p) -> None:
         p["person_properties"]["setting_audio_quality"]["enum"] = None
 
     assert any("setting_audio_quality" in f for f in problems(tmp_path, edit))
 
 
 def test_accepts_a_property_description(tmp_path):
-    def edit(p):
+    def edit(p) -> None:
         p["person_properties"]["catalog_size"]["description"] = "Live tunes, bucketed."
 
     assert problems(tmp_path, edit) == []
 
 
 def test_reports_an_empty_property_description(tmp_path):
-    def edit(p):
+    def edit(p) -> None:
         p["person_properties"]["catalog_size"]["description"] = ""
 
-    assert any(
-        "catalog_size" in f and "description" in f for f in problems(tmp_path, edit)
-    )
+    assert any("catalog_size" in f and "description" in f for f in problems(tmp_path, edit))
 
 
 def test_reports_a_person_property_with_a_bad_set(tmp_path):
-    def edit(p):
+    def edit(p) -> None:
         p["person_properties"]["catalog_size"]["set"] = "sometimes"
 
     assert any("catalog_size" in f for f in problems(tmp_path, edit))
@@ -405,25 +401,22 @@ class FakePostHog:
         if request.method == "POST" and path == EVENTS_URL:
             return httpx2.Response(201, json={"id": "new-id", "name": body["name"]})
         if request.method == "PATCH" and path.startswith(EVENTS_URL):
-            ident = path.rstrip("/").split("/")[-1]
-            name = next((n for n, i in self.known.items() if i == ident), None)
-            if name in self.fail:
-                return httpx2.Response(self.fail[name], json={"detail": "nope"})
-            return httpx2.Response(200, json={"id": ident})
+            return self._update(path)
         if request.method == "POST" and path == QUERY_URL:
-            return httpx2.Response(
-                200, json={"results": [[name] for name in self.seen]}
-            )
+            return httpx2.Response(200, json={"results": [[name] for name in self.seen]})
         return httpx2.Response(404)
+
+    def _update(self, path: str) -> httpx2.Response:
+        ident = path.rstrip("/").split("/")[-1]
+        name = next((n for n, i in self.known.items() if i == ident), None)
+        if name in self.fail:
+            return httpx2.Response(self.fail[name], json={"detail": "nope"})
+        return httpx2.Response(200, json={"id": ident})
 
     def _lookup(self, request: httpx2.Request) -> httpx2.Response:
         search = request.url.params["search"]
         offset = int(request.url.params.get("offset", "0"))
-        hits = [
-            {"id": ident, "name": name}
-            for name, ident in self.known.items()
-            if search in name
-        ]
+        hits = [{"id": ident, "name": name} for name, ident in self.known.items() if search in name]
         page = hits[offset : offset + self.page_size]
         more = offset + self.page_size < len(hits)
         next_url = (
@@ -554,9 +547,7 @@ def write_plan(tmp_path: Path, plan: dict) -> Path:
 def test_sync_refuses_to_run_when_check_fails(tmp_path, monkeypatch, capsys):
     bad = copy.deepcopy(BASE)
     bad["events"]["tune_created"]["description"] = ""
-    monkeypatch.setattr(
-        plan_module, "make_client", lambda env: pytest.fail("reached the network")
-    )
+    monkeypatch.setattr(plan_module, "make_client", lambda _env: pytest.fail("reached the network"))
 
     code = main(["sync", "--plan", str(write_plan(tmp_path, bad))])
 
@@ -564,14 +555,10 @@ def test_sync_refuses_to_run_when_check_fails(tmp_path, monkeypatch, capsys):
     assert "missing description" in capsys.readouterr().out
 
 
-def test_audit_refuses_a_plan_whose_events_it_cannot_read(
-    tmp_path, monkeypatch, capsys
-):
+def test_audit_refuses_a_plan_whose_events_it_cannot_read(tmp_path, monkeypatch, capsys):
     path = tmp_path / "plan.json"
     path.write_text("{not json")
-    monkeypatch.setattr(
-        plan_module, "make_client", lambda env: pytest.fail("reached the network")
-    )
+    monkeypatch.setattr(plan_module, "make_client", lambda _env: pytest.fail("reached the network"))
 
     code = main(["audit", "--plan", str(path)])
 
@@ -588,11 +575,11 @@ def test_reports_a_plan_file_that_cannot_be_read(tmp_path):
 
 def test_audit_exits_one_when_either_list_is_not_empty(tmp_path, monkeypatch, capsys):
     fake = FakePostHog(seen=["tune_created", "rogue_event"])
-    monkeypatch.setattr(plan_module, "make_client", lambda env: client_for(fake))
+    monkeypatch.setattr(plan_module, "make_client", lambda _env: client_for(fake))
     monkeypatch.setattr(
         plan_module,
         "load_env",
-        lambda path=None: {
+        lambda _path=None: {
             "POSTHOG_DEFINITIONS_KEY": "secret",
             "POSTHOG_PROJECT_ID": PROJECT,
         },
@@ -607,11 +594,11 @@ def test_audit_exits_one_when_either_list_is_not_empty(tmp_path, monkeypatch, ca
 
 def test_audit_exits_zero_when_the_plan_and_posthog_agree(tmp_path, monkeypatch):
     fake = FakePostHog(seen=["tune_created"])
-    monkeypatch.setattr(plan_module, "make_client", lambda env: client_for(fake))
+    monkeypatch.setattr(plan_module, "make_client", lambda _env: client_for(fake))
     monkeypatch.setattr(
         plan_module,
         "load_env",
-        lambda path=None: {
+        lambda _path=None: {
             "POSTHOG_DEFINITIONS_KEY": "secret",
             "POSTHOG_PROJECT_ID": PROJECT,
         },
@@ -621,7 +608,7 @@ def test_audit_exits_zero_when_the_plan_and_posthog_agree(tmp_path, monkeypatch)
 
 
 def test_a_missing_key_or_project_id_exits_two(tmp_path, monkeypatch, capsys):
-    monkeypatch.setattr(plan_module, "load_env", lambda path=None: {})
+    monkeypatch.setattr(plan_module, "load_env", lambda _path=None: {})
 
     code = main(["audit", "--plan", str(write_plan(tmp_path, BASE))])
 
@@ -631,9 +618,7 @@ def test_a_missing_key_or_project_id_exits_two(tmp_path, monkeypatch, capsys):
 
 def test_load_env_reads_the_file_and_real_variables_win(tmp_path, monkeypatch):
     env_file = tmp_path / ".env"
-    env_file.write_text(
-        '# comment\nPOSTHOG_DEFINITIONS_KEY=from-file\nPOSTHOG_PROJECT_ID="7"\n'
-    )
+    env_file.write_text('# comment\nPOSTHOG_DEFINITIONS_KEY=from-file\nPOSTHOG_PROJECT_ID="7"\n')
     monkeypatch.setenv("POSTHOG_DEFINITIONS_KEY", "from-env")
     monkeypatch.delenv("POSTHOG_PROJECT_ID", raising=False)
 
@@ -644,11 +629,11 @@ def test_load_env_reads_the_file_and_real_variables_win(tmp_path, monkeypatch):
 
 
 def use_fake(monkeypatch, fake: FakePostHog) -> None:
-    monkeypatch.setattr(plan_module, "make_client", lambda env: client_for(fake))
+    monkeypatch.setattr(plan_module, "make_client", lambda _env: client_for(fake))
     monkeypatch.setattr(
         plan_module,
         "load_env",
-        lambda path=None: {
+        lambda _path=None: {
             "POSTHOG_DEFINITIONS_KEY": "secret",
             "POSTHOG_PROJECT_ID": PROJECT,
         },
@@ -674,9 +659,7 @@ def test_sync_exits_one_with_counts_when_an_event_fails(tmp_path, monkeypatch, c
 
 
 @pytest.mark.parametrize("command", ["sync", "audit"])
-def test_a_rejected_key_prints_one_line_without_the_key(
-    tmp_path, monkeypatch, capsys, command
-):
+def test_a_rejected_key_prints_one_line_without_the_key(tmp_path, monkeypatch, capsys, command):
     fake = FakePostHog(status=401)
     use_fake(monkeypatch, fake)
 
@@ -692,16 +675,15 @@ def test_a_rejected_key_prints_one_line_without_the_key(
 
 
 @pytest.mark.parametrize("command", ["sync", "audit"])
-def test_a_network_error_prints_one_line_without_the_key(
-    tmp_path, monkeypatch, capsys, command
-):
+def test_a_network_error_prints_one_line_without_the_key(tmp_path, monkeypatch, capsys, command):
     def unreachable(request: httpx2.Request) -> httpx2.Response:
-        raise httpx2.ConnectError("connection refused", request=request)
+        message = "connection refused"
+        raise httpx2.ConnectError(message, request=request)
 
     monkeypatch.setattr(
         plan_module,
         "make_client",
-        lambda env: httpx2.Client(
+        lambda _env: httpx2.Client(
             base_url="https://us.posthog.com",
             headers={"Authorization": "Bearer secret"},
             transport=httpx2.MockTransport(unreachable),
@@ -710,7 +692,7 @@ def test_a_network_error_prints_one_line_without_the_key(
     monkeypatch.setattr(
         plan_module,
         "load_env",
-        lambda path=None: {
+        lambda _path=None: {
             "POSTHOG_DEFINITIONS_KEY": "secret",
             "POSTHOG_PROJECT_ID": PROJECT,
         },
@@ -727,28 +709,28 @@ def test_a_network_error_prints_one_line_without_the_key(
 
 
 def test_reports_a_person_property_without_clients(tmp_path):
-    def edit(p):
+    def edit(p) -> None:
         del p["person_properties"]["catalog_size"]["clients"]
 
     assert any("catalog_size" in f and "clients" in f for f in problems(tmp_path, edit))
 
 
 def test_reports_a_person_property_with_an_unknown_client(tmp_path):
-    def edit(p):
+    def edit(p) -> None:
         p["person_properties"]["catalog_size"]["clients"] = ["android"]
 
     assert any("catalog_size" in f and "android" in f for f in problems(tmp_path, edit))
 
 
 def test_reports_a_person_property_for_the_site(tmp_path):
-    def edit(p):
+    def edit(p) -> None:
         p["person_properties"]["catalog_size"]["clients"] = ["site"]
 
     assert any("catalog_size" in f and "site" in f for f in problems(tmp_path, edit))
 
 
 def test_a_person_property_can_answer_a_question(tmp_path):
-    def edit(p):
+    def edit(p) -> None:
         p["questions"]["reach"] = "How many people use assistive technology?"
         p["person_properties"]["catalog_size"]["answers"] = ["reach"]
 
@@ -756,7 +738,7 @@ def test_a_person_property_can_answer_a_question(tmp_path):
 
 
 def test_reports_a_person_property_answer_that_names_no_question(tmp_path):
-    def edit(p):
+    def edit(p) -> None:
         p["person_properties"]["catalog_size"]["answers"] = ["nope"]
 
     assert any("catalog_size" in f and "nope" in f for f in problems(tmp_path, edit))

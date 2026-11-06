@@ -1,8 +1,0 @@
-# The API's rules, for the repository's tooling scripts.
-extend = "../api/pyproject.toml"
-src = [".", "tests"]
-
-[lint.per-file-ignores]
-# Command-line tools: they print, and they run commands found on PATH.
-"*.py" = ["T201", "S603", "S607"]
-"tests/**/*.py" = ["ANN001", "ANN201", "ARG001", "D102", "D103", "PLR2004", "S101", "SLF001", "INP001"]

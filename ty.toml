@@ -1,0 +1,12 @@
+# One type check configuration for every Python file in the repository, on the API's
+# environment. Each lint recipe names the folders it checks.
+[environment]
+python = "api/.venv"
+python-version = "3.13"
+root = ["api/src", "scripts", "apple/scripts", "analytics"]
+
+[src]
+exclude = ["api/**/migrations/**", "api/tests/**"]
+
+[terminal]
+error-on-warning = true

@@ -33,17 +33,17 @@ _default:
 # Lint with ruff
 [group('lint')]
 ruff:
-    {{ gate }} api-ruff uv run ruff check --no-fix --config pyproject.toml {{ py_src }}
+    {{ gate }} api-ruff uv run ruff check --no-fix {{ py_src }}
 
 # Check formatting with ruff
 [group('lint')]
 format:
-    {{ gate }} api-ruff-format uv run ruff format --check --config pyproject.toml {{ py_src }}
+    {{ gate }} api-ruff-format uv run ruff format --check {{ py_src }}
 
 # Type check with ty
 [group('lint')]
 ty:
-    {{ gate }} api-ty uv run ty check
+    {{ gate }} api-ty uv run ty check src
 
 # Spell check with typos
 [group('lint')]

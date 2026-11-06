@@ -1,5 +1,5 @@
-# Recipes for the repository's tooling scripts: the Python here and in apple/scripts. Loaded
-# as the `scripts` module by the root justfile and run from this directory.
+# Recipes for the repository's tooling scripts: the Python here, in apple/scripts, and in
+# analytics. Loaded as the `scripts` module by the root justfile and run from this directory.
 
 set shell := ["bash", "-euo", "pipefail", "-c"]
 set script-interpreter := ["bash", "-euo", "pipefail"]
@@ -7,7 +7,7 @@ set positional-arguments
 
 # Runs a lint or test gate through gate-cache when it is installed
 gate := "./gate-cache.sh"
-python_src := ". ../apple/scripts"
+python_src := ". ../apple/scripts ../analytics"
 
 [default]
 _default:

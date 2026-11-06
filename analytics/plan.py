@@ -20,8 +20,7 @@ KEY_VAR = "POSTHOG_DEFINITIONS_KEY"
 PROJECT_VAR = "POSTHOG_PROJECT_ID"
 # PostHog caps a query without a LIMIT at 100 rows, which would read as events never seen.
 SEEN_EVENTS_QUERY = (
-    "SELECT DISTINCT event FROM events "
-    "WHERE timestamp > now() - INTERVAL 30 DAY LIMIT 10000"
+    "SELECT DISTINCT event FROM events WHERE timestamp > now() - INTERVAL 30 DAY LIMIT 10000"
 )
 
 CLIENTS = {"site", "apple", "web"}
@@ -61,9 +60,7 @@ def _check_values(kind: str, table: dict, problems: list[str]) -> None:
             problems.append(f"{kind} {name!r}: duplicate values")
 
 
-def _check_answers(
-    where: str, answers: object, plan: dict, problems: list[str]
-) -> None:
+def _check_answers(where: str, answers: list, plan: dict, problems: list[str]) -> None:
     problems.extend(
         f"{where}: answers unknown question {a!r}"
         for a in answers
@@ -76,21 +73,15 @@ def _check_clients(where: str, clients: object, problems: list[str]) -> None:
         problems.append(f"{where}: clients must be a non-empty list")
         return
     problems.extend(
-        f"{where}: unknown client {c!r}"
-        for c in clients
-        if not _is_name(c) or c not in CLIENTS
+        f"{where}: unknown client {c!r}" for c in clients if not _is_name(c) or c not in CLIENTS
     )
 
 
-def _check_value_source(
-    where: str, key: str, spec: dict, plan: dict, problems: list[str]
-) -> None:
+def _check_value_source(where: str, key: str, spec: dict, plan: dict, problems: list[str]) -> None:
     """Check that a string-like property names exactly one source of its values."""
     sources = [name for name in ("enum", "bucket", "format") if name in spec]
     if len(sources) != 1:
-        problems.append(
-            f"{where}: a {spec['type']} needs exactly one of enum, bucket, or format"
-        )
+        problems.append(f"{where}: a {spec['type']} needs exactly one of enum, bucket, or format")
         return
     source = sources[0]
     value = spec[source]
@@ -104,14 +95,10 @@ def _check_value_source(
         if value not in FORMATS:
             problems.append(f"{where}: unknown format {value!r}")
         elif value == "free" and not FREE_KEYS.match(key):
-            problems.append(
-                f"{where}: format free is allowed only on $ and utm_ properties"
-            )
+            problems.append(f"{where}: format free is allowed only on $ and utm_ properties")
 
 
-def _check_property(
-    where: str, key: str, spec: object, plan: dict, problems: list[str]
-) -> bool:
+def _check_property(where: str, key: str, spec: object, plan: dict, problems: list[str]) -> bool:
     """Check one property's spec, and return whether it is an object worth reading further."""
     if not isinstance(spec, dict):
         problems.append(f"{where}: must be an object")
@@ -177,6 +164,27 @@ def _check_event(name: str, event: object, plan: dict, problems: list[str]) -> N
             _check_setting_value(prop_where, properties, problems)
 
 
+def _check_person_properties(plan: dict, problems: list[str]) -> None:
+    for key, spec in plan["person_properties"].items():
+        where = f"person property {key!r}"
+        if not _check_property(where, key, spec, plan, problems):
+            continue
+        if spec.get("type") == "setting_value":
+            problems.append(f"{where}: a person property cannot take a setting_value")
+        if not _is_name(spec.get("set")) or spec["set"] not in SET_MODES:
+            problems.append(f"{where}: set must be once or always")
+        clients = spec.get("clients")
+        _check_clients(where, clients, problems)
+        if isinstance(clients, list) and "site" in clients:
+            problems.append(f"{where}: the site sets no person properties")
+        answers = spec.get("answers")
+        if answers is not None:
+            if isinstance(answers, list):
+                _check_answers(where, answers, plan, problems)
+            else:
+                problems.append(f"{where}: answers must be a list")
+
+
 def _check_settings(plan: dict, problems: list[str]) -> None:
     settings = plan["settings"]
     person = plan["person_properties"]
@@ -192,9 +200,7 @@ def _check_settings(plan: dict, problems: list[str]) -> None:
         elif not isinstance(mirror, dict):
             continue
         elif {k: v for k, v in mirror.items() if k not in PERSON_ONLY_KEYS} != spec:
-            problems.append(
-                f"person property 'setting_{name}' differs from setting {name!r}"
-            )
+            problems.append(f"person property 'setting_{name}' differs from setting {name!r}")
     problems.extend(
         f"person property {key!r}: no setting {key.removeprefix('setting_')!r}"
         for key in person
@@ -211,9 +217,7 @@ def _check_settings(plan: dict, problems: list[str]) -> None:
         for event in plan["events"].values()
     )
     if takes_values and (not settings or listed is None):
-        problems.append(
-            "a setting_value needs a non-empty settings table and enum 'setting'"
-        )
+        problems.append("a setting_value needs a non-empty settings table and enum 'setting'")
     if (
         isinstance(listed, list)
         and all(_is_name(v) for v in listed)
@@ -236,9 +240,7 @@ def _check_questions(plan: dict, problems: list[str]) -> None:
         if _is_name(a)
     }
     problems.extend(
-        f"question {key!r}: nothing answers it"
-        for key in plan["questions"]
-        if key not in answered
+        f"question {key!r}: nothing answers it" for key in plan["questions"] if key not in answered
     )
 
 
@@ -278,25 +280,7 @@ def check(path: Path) -> list[str]:
         if _check_property(where, key, spec, plan, problems):
             _check_clients(where, spec.get("clients"), problems)
 
-    for key, spec in plan["person_properties"].items():
-        where = f"person property {key!r}"
-        if not _check_property(where, key, spec, plan, problems):
-            continue
-        if spec.get("type") == "setting_value":
-            problems.append(f"{where}: a person property cannot take a setting_value")
-        if not _is_name(spec.get("set")) or spec["set"] not in SET_MODES:
-            problems.append(f"{where}: set must be once or always")
-        clients = spec.get("clients")
-        _check_clients(where, clients, problems)
-        if isinstance(clients, list) and "site" in clients:
-            problems.append(f"{where}: the site sets no person properties")
-        answers = spec.get("answers")
-        if answers is not None:
-            if isinstance(answers, list):
-                _check_answers(where, answers, plan, problems)
-            else:
-                problems.append(f"{where}: answers must be a list")
-
+    _check_person_properties(plan, problems)
     _check_settings(plan, problems)
     _check_questions(plan, problems)
 
@@ -315,19 +299,31 @@ def _check_command(args: argparse.Namespace) -> int:
 class Client(Protocol):
     """The slice of `httpx2.Client` that `sync` and `audit` use."""
 
-    def get(self, url: str, *, params: dict | None = None) -> "Response": ...
+    def get(self, url: str, *, params: dict | None = None) -> "Response":
+        """Send a GET request."""
+        ...
 
-    def post(self, url: str, *, json: dict) -> "Response": ...
+    def post(self, url: str, *, json: dict) -> "Response":
+        """Send a POST request with a JSON body."""
+        ...
 
-    def patch(self, url: str, *, json: dict) -> "Response": ...
+    def patch(self, url: str, *, json: dict) -> "Response":
+        """Send a PATCH request with a JSON body."""
+        ...
 
 
 class Response(Protocol):
+    """The slice of `httpx2.Response` that `sync` and `audit` read."""
+
     status_code: int
 
-    def raise_for_status(self) -> object: ...
+    def raise_for_status(self) -> object:
+        """Raise when the response reports an error status."""
+        ...
 
-    def json(self) -> dict: ...
+    def json(self) -> dict:
+        """Decode the response body as JSON."""
+        ...
 
 
 def load_env(path: Path | None = None) -> dict[str, str]:
@@ -349,7 +345,7 @@ def load_env(path: Path | None = None) -> dict[str, str]:
 
 def make_client(env: dict[str, str]) -> "Client":
     """Build the authenticated PostHog client from the loaded settings."""
-    import httpx2
+    import httpx2  # noqa: PLC0415 - keeps `check` on the standard library
 
     return httpx2.Client(
         base_url=POSTHOG_HOST,
@@ -388,7 +384,7 @@ class SyncResult:
 
 def _raise_unless_per_event(error: Exception) -> None:
     """Re-raise a failure that would fail every event alike, so sync stops at the first."""
-    import httpx2
+    import httpx2  # noqa: PLC0415 - keeps `check` on the standard library
 
     if not isinstance(error, httpx2.HTTPStatusError):
         raise error
@@ -396,9 +392,7 @@ def _raise_unless_per_event(error: Exception) -> None:
         raise error
 
 
-def _sync_event(
-    client: Client, base: str, name: str, event: dict, result: SyncResult
-) -> None:
+def _sync_event(client: Client, base: str, name: str, event: dict, result: SyncResult) -> None:
     definition_id = _find_definition(client, base, name)
     if definition_id is None:
         response = client.post(base, json={"name": name})
@@ -433,7 +427,7 @@ def sync(plan: dict, client: Client, *, project_id: str) -> SyncResult:
         SyncResult: The counts of definitions updated and created, and each failed event with
             its HTTP status.
     """
-    import httpx2
+    import httpx2  # noqa: PLC0415 - keeps `check` on the standard library
 
     base = f"/api/projects/{project_id}/event_definitions/"
     result = SyncResult()
@@ -448,9 +442,7 @@ def sync(plan: dict, client: Client, *, project_id: str) -> SyncResult:
     return result
 
 
-def audit(
-    plan: dict, client: Client, *, project_id: str
-) -> tuple[list[str], list[str]]:
+def audit(plan: dict, client: Client, *, project_id: str) -> tuple[list[str], list[str]]:
     """List events PostHog saw in the last 30 days that the plan lacks, and the reverse.
 
     Returns:
@@ -464,9 +456,7 @@ def audit(
     seen = {row[0] for row in response.json()["results"]}
     builtin = {n for n, e in plan["events"].items() if e.get("builtin") is True}
     planned = set(plan["events"]) - builtin
-    unplanned = sorted(
-        n for n in seen if not n.startswith("$") and n not in plan["events"]
-    )
+    unplanned = sorted(n for n in seen if not n.startswith("$") and n not in plan["events"])
     unseen = sorted(planned - seen)
     return unplanned, unseen
 
@@ -501,7 +491,7 @@ def _remote_command(args: argparse.Namespace) -> int:
         )
         return 2
 
-    import httpx2
+    import httpx2  # noqa: PLC0415 - keeps `check` on the standard library
 
     plan = json.loads(args.plan.read_text())
     client = make_client(env)
@@ -545,6 +535,14 @@ def _print_audit(unplanned: list[str], unseen: list[str]) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Run the subcommand the arguments name.
+
+    Args:
+        argv: The arguments, without the program name. Defaults to the process arguments.
+
+    Returns:
+        int: The exit status.
+    """
     parser = argparse.ArgumentParser(description="Tracking plan tools")
     commands = parser.add_subparsers(dest="command", required=True)
     check_parser = commands.add_parser("check", help="validate the plan file")
