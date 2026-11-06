@@ -8,9 +8,10 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 capture="${CAPTURE:?CAPTURE is not set; run just apple::capture-test}"
 derived_data="${DERIVED_DATA:?DERIVED_DATA is not set; run just apple::capture-test}"
-scrub="scripts/scrub-env.sh"
 # shellcheck source-path=SCRIPTDIR source=simulators.sh
 source scripts/simulators.sh
+# shellcheck source-path=SCRIPTDIR source=in-use.sh
+source scripts/in-use.sh
 # Simulators of their own, never signed in to an Apple Account, so no system alert covers a capture.
 capture_device="Crosstune Capture iPhone 17 Pro Max"
 capture_pad="Crosstune Capture iPad"
@@ -94,10 +95,10 @@ pass() {
     local bundle="$1" device="$2"
     shift 2
     local destination="platform=iOS Simulator,id=$device"
-    "$scrub" xcodebuild build-for-testing -quiet -project Crosstune.xcodeproj -scheme Marketing \
+    scripts/xcodebuild.sh build-for-testing -quiet -project Crosstune.xcodeproj -scheme Marketing \
         -destination "$destination" -derivedDataPath "$derived_data"
     # A failed test would otherwise wait up to ten minutes for a simulator sysdiagnose.
-    "$scrub" xcodebuild test-without-building -quiet -project Crosstune.xcodeproj -scheme Marketing \
+    scripts/xcodebuild.sh test-without-building -quiet -project Crosstune.xcodeproj -scheme Marketing \
         -testPlan Marketing -destination "$destination" -derivedDataPath "$derived_data" \
         -collect-test-diagnostics never -resultBundlePath "$capture/$bundle.xcresult" \
         "$@" || status=$?

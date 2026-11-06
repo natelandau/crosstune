@@ -275,7 +275,7 @@ def remove(
     just: JustRunner = run_just,
     pull_request_heads: PullRequestHeads = merged_pull_request_heads,
 ) -> int:
-    """Remove `.worktrees/<branch>`, its branch once merged, its database, bucket, and DerivedData.
+    """Remove `.worktrees/<branch>`, its branch once merged, its database, bucket, and builds.
 
     Args:
         branch: The worktree's branch, which names its folder.
@@ -303,7 +303,11 @@ def remove(
         git.run("branch", "-D", branch)
     else:
         print(f"kept branch {branch}: neither main nor origin/main holds its work", file=sys.stderr)
-    for recipe in ("api::prune-worktree-dbs", "apple::prune-derived-data"):
+    for recipe in (
+        "api::prune-worktree-dbs",
+        "apple::prune-derived-data",
+        "apple::prune-packages",
+    ):
         just(
             "--justfile", str(main / "justfile"), "--working-directory", str(main), recipe, cwd=main
         )

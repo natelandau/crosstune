@@ -38,6 +38,8 @@ mkdir -p "$out"
 # Helpers come from beside this script, which can capture another checkout's app.
 scripts="$(cd "$(dirname "$0")" && pwd)"
 cd "$apple"
+# shellcheck source-path=SCRIPTDIR source=in-use.sh
+source "$scripts/in-use.sh"
 # shellcheck source-path=SCRIPTDIR source=simulators.sh
 source "$scripts/simulators.sh"
 # A fixed date, so the iPad's status bar reads the same in shots taken on different days.
@@ -46,7 +48,7 @@ derived_data=.build/DerivedData
 product="$derived_data/Build/Products/Debug-iphonesimulator/Crosstune.app"
 
 if ((build)); then
-  "$scripts/scrub-env.sh" xcodebuild build -quiet -project Crosstune.xcodeproj -scheme Crosstune \
+  "$scripts/xcodebuild.sh" build -quiet -project Crosstune.xcodeproj -scheme Crosstune \
     -configuration Debug -destination 'generic/platform=iOS Simulator' -derivedDataPath "$derived_data" \
     COMPILATION_CACHE_ENABLE_CACHING=YES COMPILATION_CACHE_LIMIT_SIZE=4G
 fi

@@ -74,8 +74,13 @@ against production, such as granting a comp or a trial.
   trusts it once; `run` waits while another worktree holds it, and
   `just apple::status` shows who. Never launch a build from DerivedData.
 - Build the Apple app with the `apple` recipes. An `xcodebuild` no recipe
-  covers runs from `apple/` with `-derivedDataPath .build/DerivedData`, never a folder of
-  its own: nothing deletes a one-off folder, and each holds gigabytes.
+  covers runs from `apple/` as `scripts/xcodebuild.sh`, which shares the
+  Swift packages, with `-derivedDataPath .build/DerivedData`, never a
+  folder of its own: nothing deletes a one-off folder, and each holds
+  gigabytes. `just apple::prune-builds` deletes the builds of every
+  checkout no build tool is using, for when the disk runs low. A script
+  that uses a build after `xcodebuild` exits sources
+  `scripts/in-use.sh`, or a prune can delete the build under it.
 - To see or drive a running app, use Peekaboo for the Mac app and
   Maestro for the iOS simulators. Run `peekaboo learn` and
   `maestro --help` for their commands. Peekaboo: target the app with
@@ -106,7 +111,7 @@ against production, such as granting a comp or a trial.
 - Remove a worktree with `just worktree-remove <branch>`, never
   `git worktree remove`. It also deletes the branch once main or
   origin/main holds its work, squash merges included, and the
-  worktree's database and bucket, and its Xcode DerivedData. It refuses a
+  worktree's database, bucket, and builds. It refuses a
   worktree with uncommitted changes; never pass `--force` to git instead.
 - `just test` never runs Playwright. `just e2e` does. It starts Postgres,
   its own API on :8001, and its own preview server against its own

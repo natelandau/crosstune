@@ -10,13 +10,13 @@ build_number="${1:?usage: archive.sh BUILD_NUMBER}"
 : "${ASC_KEY_PATH:?the path of the .p8 key file}" "${ASC_KEY_ID:?the key ID}" "${ASC_ISSUER_ID:?the issuer ID}"
 # A dotenv file does not expand `~`.
 ASC_KEY_PATH="${ASC_KEY_PATH/#\~/$HOME}"
-xcodebuild=(scripts/scrub-env.sh xcodebuild)
+xcodebuild=scripts/xcodebuild.sh
 archives=.build/archives
 
 # An empty token ships a release that silently sends no analytics. Reading the settings
 # whole lets a failed xcodebuild stop here instead of reading as an empty token.
-settings="$("${xcodebuild[@]}" -showBuildSettings -project Crosstune.xcodeproj -scheme Crosstune \
-  -configuration Release)"
+settings="$("$xcodebuild" -showBuildSettings -project Crosstune.xcodeproj -scheme Crosstune \
+  -configuration Release -derivedDataPath .build/DerivedData)"
 if ! grep -qE '^ *POSTHOG_PROJECT_TOKEN = phc_' <<< "$settings"; then
   echo "POSTHOG_PROJECT_TOKEN is empty; set it in Config/Secrets.xcconfig" >&2
   exit 1
@@ -27,7 +27,7 @@ if ! grep -qE '^ *SENTRY_DSN = https://' <<< "$settings"; then
 fi
 rm -rf "$archives"
 for platform in iOS macOS; do
-  "${xcodebuild[@]}" archive -quiet -project Crosstune.xcodeproj -scheme Crosstune \
+  "$xcodebuild" archive -quiet -project Crosstune.xcodeproj -scheme Crosstune \
     -configuration Release -destination "generic/platform=$platform" \
     -derivedDataPath .build/DerivedData -archivePath "$archives/$platform.xcarchive" \
     CURRENT_PROJECT_VERSION="$build_number" -allowProvisioningUpdates \
