@@ -1,9 +1,7 @@
 # Recipes for the API. Loaded as the `api` module by the root justfile and run
 # from this directory: `just api::test` from anywhere in the repository.
 
-set shell := ["bash", "-euo", "pipefail", "-c"]
-set script-interpreter := ["bash", "-euo", "pipefail"]
-set positional-arguments
+import '../scripts/settings.just'
 
 py_src := "src/ tests/"
 # Runs a lint or test gate through gate-cache when it is installed

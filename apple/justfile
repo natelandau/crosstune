@@ -1,9 +1,7 @@
 # Recipes for the Apple client. Loaded as the `apple` module by the root justfile and run
 # from this directory: `just apple::test` from anywhere in the repository. Needs Xcode.
 
-set shell := ["bash", "-euo", "pipefail", "-c"]
-set script-interpreter := ["bash", "-euo", "pipefail"]
-set positional-arguments
+import '../scripts/settings.just'
 set dotenv-load
 
 # Build products stay inside the module, so a clean checkout holds everything the build made.

@@ -1,9 +1,7 @@
 # Recipes for the web client. Loaded as the `web` module by the root justfile and run
 # from this directory: `just web::test` from anywhere in the repository.
 
-set shell := ["bash", "-euo", "pipefail", "-c"]
-set script-interpreter := ["bash", "-euo", "pipefail"]
-set positional-arguments
+import '../scripts/settings.just'
 
 # Where `just api::run-e2e` serves. Not the :8000 of a dev session, so the suite and
 # `just dev` run side by side.

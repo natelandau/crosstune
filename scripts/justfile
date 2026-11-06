@@ -2,9 +2,7 @@
 # which the api module lints. Loaded as the `scripts` module by the root justfile and run from
 # this directory.
 
-set shell := ["bash", "-euo", "pipefail", "-c"]
-set script-interpreter := ["bash", "-euo", "pipefail"]
-set positional-arguments
+import 'settings.just'
 
 # Runs a lint or test gate through gate-cache when it is installed
 gate := "./gate-cache.sh"

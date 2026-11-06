@@ -2,9 +2,7 @@
 # a module (`just api::test`, `just web::test`); the recipes here run every
 # module that exists. `just --list` shows everything.
 
-set shell := ["bash", "-euo", "pipefail", "-c"]
-set script-interpreter := ["bash", "-euo", "pipefail"]
-set positional-arguments
+import 'scripts/settings.just'
 
 [doc("API lint, tests, database, storage, test data")]
 mod api
