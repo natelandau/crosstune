@@ -1,3 +1,7 @@
+# Set explicitly so pnpm fails on a release younger than a day instead of
+# exempting it in minimumReleaseAgeExclude.
+minimumReleaseAge: 1440
+
 allowBuilds:
   # Each resolves its platform binary from optional dependencies at runtime, and the
   # postinstall only hardlinks and checks the version, so denying it is safe.
@@ -9,3 +13,8 @@ allowBuilds:
   bufferutil: false
   core-js: false
   utf-8-validate: false
+
+overrides:
+  # @napi-rs/wasm-runtime accepts the 2.0 prereleases, which break against the
+  # 1.x @emnapi/core that astro's language server loads.
+  '@emnapi/runtime': ^1.11.3

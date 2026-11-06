@@ -1,3 +1,7 @@
+# Set explicitly so pnpm fails on a release younger than a day instead of
+# exempting it in minimumReleaseAgeExclude.
+minimumReleaseAge: 1440
+
 allowBuilds:
   # Optional polyfill banner from posthog-js; nothing needs it at build time.
   core-js: false
