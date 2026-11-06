@@ -91,7 +91,7 @@ against production, such as granting a comp or a trial.
   site together. Every checkout and worktree shares one Postgres container,
   but each worktree gets its own database and bucket, copied from main's by
   `just api::worktree-db`, so one branch's migrations never reach another.
-  `just api::worktree-db reset` takes a fresh copy.
+  `just api::worktree-db-reset` takes a fresh copy.
 - Do all work in a worktree, never in the main checkout.
 - Create a worktree with `just worktree <branch>`, never `git worktree add`.
   It adds `.worktrees/<branch>`, copies every module's `.env`,
@@ -119,10 +119,21 @@ against production, such as granting a comp or a trial.
 - The site draws the app's screens as HTML demos in `site/src/demos/`.
   The demos do not follow the app, so an app change never needs a demo
   redrawn. Read `site/CLAUDE.md` before changing the site.
-- New recipes go in `api/justfile`, `web/justfile`, `site/justfile`, or
-  `apple/justfile`,
-  tagged with a `[group(...)]` that matches their neighbors. A root
-  aggregate calls every module.
+- New recipes go in a module's justfile, tagged with a `[group(...)]`
+  that matches their neighbors. A root aggregate calls every module.
+- A recipe's description is one comment line that keeps its `just --list`
+  line within 80 columns. Detail goes in `[arg(NAME, help=...)]` on every
+  parameter, which `just --usage <recipe>` prints. `just scripts::test`
+  enforces both.
+- Operator commands that read or change accounts go in the `ops` module
+  (`api/ops.just`), never in `api`.
+- A recipe body is a few lines. Anything longer is a script the recipe
+  calls. A decision worth a test, such as parsing, choosing, or
+  comparing, is Python in `scripts/` or `apple/scripts/`, tested in
+  their `tests/` folders, with no dependency outside the API's
+  environment; `just scripts::lint` and `just scripts::test` cover both.
+  A bash script runs commands in order, with waits, retries, and
+  cleanup.
 - Lint and test recipes skip a gate that already passed on the same
   tree. Run the recipe again rather than judging whether it needs to run.
   A pass on uncommitted work also covers its commit. `just gate status`

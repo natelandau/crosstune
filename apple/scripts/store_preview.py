@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
-"""Usage: store_preview.py CAPTURE OUT
+"""Cut the iPhone App Preview from the marketing capture.
+
+Usage: store_preview.py CAPTURE OUT
 
 Cuts the `preview-filter` capture's screen recording into an iPhone App Preview: the app's
 footage inside the phone frame the screenshots use, at 886 x 1920 and 30 fps with the silent
 stereo track App Store Connect asks for. Writes OUT/iphone-preview.mp4.
 """
 
+import argparse
 import json
 import re
 import subprocess
@@ -20,6 +23,9 @@ NAME = "preview-filter"
 WIDTH, HEIGHT, FPS = 886, 1920, 30
 # Under App Store Connect's 30 s, so rounding to whole frames never runs over.
 LONGEST = 29.5
+SHORTEST = 15
+# The loaded catalog's still screen and at least one action's.
+MIN_STILLS = 2
 # The phone on the canvas: its outer box, the bezel, and the screen's corner radius, sized so
 # the native 1320 x 2868 footage scales to exactly the screen's width.
 PHONE_W, BEZEL, RADIUS = 780, 16, 94
@@ -56,9 +62,7 @@ def recording(capture: Path) -> Path:
     folder = capture / "attachments"
     for test in json.loads((folder / "manifest.json").read_text()):
         if "test_preview_filter" in test["testIdentifier"]:
-            video = next(
-                i for i in test["attachments"] if i["exportedFileName"].endswith(".mp4")
-            )
+            video = next(i for i in test["attachments"] if i["exportedFileName"].endswith(".mp4"))
             return folder / video["exportedFileName"]
     msg = f"no {NAME} capture in {folder}; run just apple::capture-test {NAME}"
     raise SystemExit(msg)
@@ -111,7 +115,7 @@ def spans(video: Path) -> list[tuple[float, float]]:
     # The blank screen the app shows while the catalog opens starts within the launch, so the
     # first still that starts after it is the loaded catalog.
     found = [(start, end) for start, end in stills(video) if start > LAUNCH]
-    if len(found) < 2:
+    if len(found) < MIN_STILLS:
         msg = f"{video} holds still {len(found)} times after the launch; the preview needs the catalog and an action"
         raise SystemExit(msg)
     first, rest = found[0], found[1:]
@@ -129,10 +133,14 @@ def spans(video: Path) -> list[tuple[float, float]]:
 
 
 def main() -> int:
-    if len(sys.argv) != 3:
-        print(__doc__, file=sys.stderr)
-        return 2
-    capture, out = Path(sys.argv[1]).resolve(), Path(sys.argv[2]).resolve()
+    """Write OUT/iphone-preview.mp4 from the capture folder's preview recording."""
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    parser.add_argument("capture", type=Path)
+    parser.add_argument("out", type=Path)
+    args = parser.parse_args()
+    capture, out = args.capture.resolve(), args.out.resolve()
     out.mkdir(parents=True, exist_ok=True)
     video = recording(capture)
     with tempfile.TemporaryDirectory() as folder:
@@ -140,7 +148,7 @@ def main() -> int:
         retimed = normalized(video, scratch)
         kept = spans(retimed)
         length = sum(end - start for start, end in kept)
-        if not 15 <= length <= LONGEST:
+        if not SHORTEST <= length <= LONGEST:
             msg = f"the preview runs {length:.1f} s; App Store Connect takes 15 to 30 s"
             raise SystemExit(msg)
         picked = "+".join(f"between(t,{start:.3f},{end:.3f})" for start, end in kept)
@@ -154,10 +162,7 @@ def main() -> int:
         graph = ";".join(
             [
                 f"[1:v]fps={FPS},trim=duration={length:.3f}[bg]",
-                (
-                    f"[0:v]select='{picked}',setpts=N/{FPS}/TB,"
-                    f"scale={SCREEN_W}:{SCREEN_H}[app]"
-                ),
+                (f"[0:v]select='{picked}',setpts=N/{FPS}/TB,scale={SCREEN_W}:{SCREEN_H}[app]"),
                 f"[bg][app]overlay={LEFT + BEZEL}:{TOP + BEZEL}[framed]",
                 "[framed][2:v]overlay=0:0,format=yuv420p[v]",
             ]

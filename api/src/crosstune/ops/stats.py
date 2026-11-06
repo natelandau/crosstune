@@ -1,6 +1,6 @@
 """Operator commands that count accounts by country and by client version.
 
-Run as `just api::stats countries` or `just api::stats versions`. Both only read, so
+Run as `just ops::stats countries` or `just ops::stats versions`. Both only read, so
 production needs no `--yes`, but each still prints the environment and database it reads.
 """
 

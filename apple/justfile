@@ -2,6 +2,8 @@
 # from this directory: `just apple::test` from anywhere in the repository. Needs Xcode.
 
 set shell := ["bash", "-euo", "pipefail", "-c"]
+set script-interpreter := ["bash", "-euo", "pipefail"]
+set positional-arguments
 set dotenv-load
 
 # Build products stay inside the module, so a clean checkout holds everything the build made.
@@ -20,33 +22,31 @@ capture := ".build/capture"
 asc_auth := '-allowProvisioningUpdates -authenticationKeyPath "$ASC_KEY_PATH" -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID"'
 archives := ".build/archives"
 
-[private]
-default:
+[default]
+_default:
     @just --list apple
 
 # Every hand-written Swift file; the generated client is left as the generator wrote it
-[private]
-sources:
+_sources:
     @find Crosstune CrosstuneKit CrosstuneMarketingUITests Tools -name '*.swift' -not -path '*/Generated/*' -not -path '*/.build/*'
 
 # Check formatting and lint rules with swift format
 [group('lint')]
 format:
-    {{ gate }} apple-swift-format --tool 'swift --version' bash -c 'just sources | xargs swift format lint --strict'
+    {{ gate }} apple-swift-format --tool 'swift --version' bash -c 'just _sources | xargs swift format lint --strict'
 
 # Spell check the Apple client
 [group('lint')]
 typos:
     {{ gate }} apple-typos uv run --project ../api --only-group typos typos --config ../.typos.toml .
 
-# Fail when the committed Swift client or vocabulary no longer match the OpenAPI schema
+# Fail when the Swift client is stale
 [group('lint')]
 contract-check:
     {{ gate }} apple-contract-check --tool 'swift --version' just _contract-check
 
+[script]
 _contract-check:
-    #!/usr/bin/env bash
-    set -euo pipefail
     case "${CI:-}" in 1|true|yes) echo "skipping contract check: CI runs it as its own job"; exit 0 ;; esac
     out=.build/contract-check
     rm -rf "$out" && mkdir -p "$out"
@@ -63,11 +63,11 @@ lint: format typos contract-check
 
 # Fail on unused code in the package, its tests, and the app. Builds both first, so it stays out
 # of `lint` and CI. Settings are in CrosstuneKit/.periphery.yml.
+[doc("Find unused Swift code; builds the app first")]
 [group('lint')]
 deadcode:
     {{ gate }} apple-deadcode --tool 'periphery version' --tool 'swift --version' just _deadcode
 
-[private]
 _deadcode: build
     {{ swift }} build --build-tests --quiet --package-path CrosstuneKit
     cd CrosstuneKit && periphery scan --quiet
@@ -75,11 +75,11 @@ _deadcode: build
 # Fix formatting where swift format can
 [group('lint')]
 fix:
-    just sources | xargs swift format --in-place
+    just _sources | xargs swift format --in-place
 
-# Run the package tests on the Mac; extra args go to swift test
+# Run the package tests on the Mac
 [group('test')]
-[positional-arguments]
+[arg("args", help="Arguments for swift test")]
 test *args:
     {{ gate }} apple-test --argc "$#" --tool 'swift --version' {{ swift }} test --package-path CrosstuneKit "$@"
 
@@ -88,16 +88,15 @@ test *args:
 # reaches, so a cache restored and saved on every run would grow without end; this one prunes
 # what recent builds have not used once it passes the limit.
 
-# Build the app unsigned for the iOS Simulator and macOS, or for one: `ios` or `macos`
+# Build the app unsigned
 [group('build')]
+[arg("platform", pattern="all|ios|macos", help="all, ios, or macos")]
+[script]
 build platform='all':
-    #!/usr/bin/env bash
-    set -euo pipefail
     case "{{ platform }}" in
         all) destinations=('generic/platform=iOS Simulator' 'generic/platform=macOS') ;;
         ios) destinations=('generic/platform=iOS Simulator') ;;
         macos) destinations=('generic/platform=macOS') ;;
-        *) echo "platform is all, ios, or macos, not {{ platform }}" >&2; exit 1 ;;
     esac
     for destination in "${destinations[@]}"; do
         {{ xcodebuild }} build -quiet -project Crosstune.xcodeproj -scheme Crosstune \
@@ -105,165 +104,59 @@ build platform='all':
             COMPILATION_CACHE_ENABLE_CACHING=YES COMPILATION_CACHE_LIMIT_SIZE=4G
     done
 
-# Build the signed Debug Mac app and run it from ~/Applications; args go to the app
+# Build and run the signed Debug Mac app
 [group('run')]
-[positional-arguments]
+[arg("args", help="Launch arguments for the app")]
 run *args:
-    scripts/mac-app.sh run "$@"
+    uv run --project ../api python scripts/mac_app.py run "$@"
 
-# Quit the Mac app `just run` started and let the next worktree run it
+# Quit the Mac app and release it
 [group('run')]
 done:
-    scripts/mac-app.sh done
+    uv run --project ../api python scripts/mac_app.py done
 
-# Capture Mac app surfaces over the sample catalog: `just shots tune plan settings-account`
+# Capture Mac app surfaces over the sample catalog
 [group('run')]
-[positional-arguments]
+[arg("args", help="SampleScreen cases, such as tune, plan, or settings-account")]
 shots *args:
     scripts/mac-shots.sh "$@"
 
-# Show which worktree holds the Mac app and how many are waiting
+# Show which worktree holds the Mac app
 [group('run')]
 status:
-    scripts/mac-app.sh status
+    uv run --project ../api python scripts/mac_app.py status
 
-# Record the marketing UI tests named (all when none) and export their attachments
+# Record the marketing UI tests
 [group('capture')]
-[positional-arguments]
+[arg("names", help="Marketing UI tests to record; none records all")]
 capture-test *names:
     CAPTURE='{{ capture }}' DERIVED_DATA='{{ derived_data }}' scripts/capture-test.sh "$@"
 
-# Fail when the Mac's screen is locked, since a locked session draws no app windows
-[private]
-screen-unlocked:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    if ioreg -n Root -d1 -a | grep -A1 CGSSessionScreenIsLocked | grep -q '<true/>'; then
-        echo "the screen is locked, so the Mac app draws no window; unlock it and run again" >&2
-        exit 1
-    fi
-
-# Run the signed Mac app on the marketing catalog and capture its window to family-mac.png and the store stills
+# Capture the Mac marketing and store stills
 [group('capture')]
-capture-mac: screen-unlocked
-    #!/usr/bin/env bash
-    set -euo pipefail
-    # The signed app is sandboxed, so it reads the fixture from a copy in its own container;
-    # asset paths in the fixture are relative to it, so the assets come along.
-    staged="$HOME/Library/Containers/app.crosstune.Crosstune/Data/Library/Caches/marketing-capture"
-    rm -rf "$staged"
-    mkdir -p "$staged"
-    cp -R Marketing/catalog.json Marketing/assets "$staged/"
-    fixture="$staged/catalog.json"
-    mkdir -p {{ capture }}
-    # The fixture's ids for the tunes, the list, and the recording the store stills open on.
-    id_of() {
-        python3 -c '
-    import json, sys
-    catalog = json.load(open(sys.argv[1]))
-    table, key = {"tune": ("tunes", "title"), "list": ("lists", "name"), "recording": ("recordings", "label")}[sys.argv[2]]
-    print(next(r["id"] for r in catalog[table] if r[key] == sys.argv[3]))
-    ' Marketing/catalog.json "$1" "$2"
-    }
-    # The install path mac-app.sh runs from; matching it never touches a Crosstune the user has open.
-    app="$(cd "$HOME/Applications" && pwd -P)/Crosstune Dev.app"
-    # Set before the first launch, so a run that fails after claiming the app still releases it.
-    trap 'scripts/mac-app.sh done > /dev/null' EXIT
-    # Launches the app on the fixture with any further arguments $2..., waits for the text in
-    # $loaded_text (a fixture tune by default), and saves its window to <name>.png. A launch per still, since the shell opens on the place
-    # its arguments name and nothing here clicks.
-    shoot() {
-        local name="$1" pid="" loaded="" id
-        shift
-        local out="$PWD/{{ capture }}/$name.png"
-        rm -f "$out"
-        # Launch arguments set these for this run only, never the defaults every worktree shares.
-        scripts/mac-app.sh run -MarketingShell "$fixture" -crosstune.appearance light \
-            -catalogSort.v1 title.asc "$@"
-        for _ in $(seq 1 30); do
-            pid="$(pgrep -nf "^$app/Contents/MacOS/" || true)"
-            [ -z "$pid" ] || break
-            sleep 1
-        done
-        [ -n "$pid" ] || { echo "the Mac app did not start" >&2; exit 1; }
-        # A fixture tune in the accessibility tree marks the catalog loaded.
-        for _ in $(seq 1 30); do
-            if peekaboo see --pid "$pid" --no-screenshot --tree 2> /dev/null | grep -q "${loaded_text:-Backstep Cindy}"; then
-                loaded=1
-                break
-            fi
-            sleep 1
-        done
-        if [ -z "$loaded" ]; then
-            peekaboo see --pid "$pid" --no-screenshot --tree > "{{ capture }}/$name-tree.txt" 2>&1 || true
-            echo "$name never showed ${loaded_text:-Backstep Cindy} in the Mac app; its window is in {{ capture }}/$name-tree.txt" >&2
-            exit 1
-        fi
-        # Long enough for an opened tune's page to draw.
-        sleep 2
-        # Captured by window id: the app's window has no accessibility match that the
-        # app-and-title selectors need. The main window is titled with its sidebar row.
-        id="$(peekaboo window list --pid "$pid" --json | python3 -c '
-    import json, sys
-    windows = json.load(sys.stdin)["data"]["windows"]
-    print(next(w["window_id"] for w in windows if w["window_title"]))
-    ')"
-        peekaboo see --window-id "$id" --no-elements --retina --path "$out" > /dev/null
-        scripts/mac-app.sh done > /dev/null
-        echo "captured the Mac app to $out"
-    }
-    shoot family-mac
-    shoot store-mac-tune -MarketingTune "$(id_of tune 'Sail Away Ladies')"
-    shoot store-mac-lists -MarketingList "$(id_of list 'Saturday session')" \
-        -MarketingTune "$(id_of tune 'Backstep Cindy')"
-    loaded_text='With the band' shoot store-mac-practice \
-        -MarketingRecording "$(id_of recording 'With the band')" -MarketingSpeed 75
-    # An A 2 cents sharp, which reads as in tune. The spoken reading marks the tuner hearing it.
-    loaded_text='A4, in tune' shoot store-mac-tuner -MarketingSidebar tuner -TunerTone 440.51
+capture-mac:
+    scripts/capture-mac.sh
 
-# Frame the store captures under their headlines from Marketing/store.json, at App Store sizes
+# Frame the store captures under headlines
 [group('capture')]
 store-frames:
-    scripts/store_frames.py {{ capture }} {{ capture }}/store
+    uv run --project ../api python scripts/store_frames.py {{ capture }} {{ capture }}/store
 
-# Cut the preview-filter capture into the iPhone App Preview
+# Cut the capture into the iPhone App Preview
 [group('capture')]
 store-preview:
-    scripts/store_preview.py {{ capture }} {{ capture }}/store
+    uv run --project ../api python scripts/store_preview.py {{ capture }} {{ capture }}/store
 
-# Archive the signed Release build for iOS and macOS, ready for `just upload`
+# Archive the signed Release build for upload
 [group('release')]
+[arg("build_number", pattern="[0-9]+(\\.[0-9]+)*", help="The build number App Store Connect records")]
 archive build_number:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    : "${ASC_KEY_PATH:?the path of the .p8 key file}" "${ASC_KEY_ID:?the key ID}" "${ASC_ISSUER_ID:?the issuer ID}"
-    # A .env file does not expand `~`.
-    ASC_KEY_PATH="${ASC_KEY_PATH/#\~/$HOME}"
-    # An empty token ships a release that silently sends no analytics. Reading the settings
-    # whole lets a failed xcodebuild stop here instead of reading as an empty token.
-    settings="$({{ xcodebuild }} -showBuildSettings -project Crosstune.xcodeproj -scheme Crosstune \
-        -configuration Release)"
-    if ! grep -qE '^ *POSTHOG_PROJECT_TOKEN = phc_' <<<"$settings"; then
-        echo "POSTHOG_PROJECT_TOKEN is empty; set it in Config/Secrets.xcconfig" >&2
-        exit 1
-    fi
-    if ! grep -qE '^ *SENTRY_DSN = https://' <<<"$settings"; then
-        echo "SENTRY_DSN is empty; set it in Config/Secrets.xcconfig" >&2
-        exit 1
-    fi
-    rm -rf {{ archives }}
-    for platform in iOS macOS; do
-        {{ xcodebuild }} archive -quiet -project Crosstune.xcodeproj -scheme Crosstune \
-            -configuration Release -destination "generic/platform=$platform" \
-            -derivedDataPath {{ derived_data }} -archivePath "{{ archives }}/$platform.xcarchive" \
-            CURRENT_PROJECT_VERSION='{{ build_number }}' {{ asc_auth }}
-    done
+    scripts/archive.sh '{{ build_number }}'
 
-# Upload the archives `just archive` made to App Store Connect
+# Upload the archives to App Store Connect
 [group('release')]
+[script]
 upload:
-    #!/usr/bin/env bash
-    set -euo pipefail
     : "${ASC_KEY_PATH:?the path of the .p8 key file}" "${ASC_KEY_ID:?the key ID}" "${ASC_ISSUER_ID:?the issuer ID}"
     ASC_KEY_PATH="${ASC_KEY_PATH/#\~/$HOME}"
     for platform in iOS macOS; do
@@ -273,35 +166,33 @@ upload:
             -exportPath ".build/export/$platform" {{ asc_auth }}
     done
 
-# Upload the dSYMs of the archives `just archive` made to Sentry
+# Upload the archives' dSYMs to Sentry
 [group('release')]
+[script]
 upload-symbols:
-    #!/usr/bin/env bash
-    set -euo pipefail
     : "${SENTRY_AUTH_TOKEN:?the Sentry auth token}" "${SENTRY_ORG:?the Sentry organization slug}" \
         "${SENTRY_PROJECT:?the Sentry project slug}"
     sentry-cli debug-files upload --wait {{ archives }}/iOS.xcarchive/dSYMs {{ archives }}/macOS.xcarchive/dSYMs
 
-# Archive the Release build for iOS and macOS, upload its symbols to Sentry, and upload both to App Store Connect
+# Archive and upload a build to TestFlight
 [group('release')]
+[arg("build_number", pattern="[0-9]+(\\.[0-9]+)*", help="The build number App Store Connect records")]
 testflight build_number: (archive build_number) upload-symbols upload
 
-# Fail when Xcode made a development certificate, which a signing run must never leave behind
+# Fail when Xcode left a development certificate
 [group('release')]
+[script]
 check-certificates:
-    #!/usr/bin/env bash
-    set -euo pipefail
     if security find-identity -v -p codesigning | grep -q "Created via API"; then
         msg="Xcode created a development certificate; revoke it in the developer portal"
         if [ -n "${GITHUB_ACTIONS:-}" ]; then echo "::error::$msg"; else echo "$msg" >&2; fi
         exit 1
     fi
 
-# Regenerate the Swift client and vocabulary from the committed OpenAPI contract
+# Regenerate the Swift client from the contract
 [group('contract')]
+[script]
 contract:
-    #!/usr/bin/env bash
-    set -euo pipefail
     out=.build/contract
     rm -rf "$out" && mkdir -p "$out"
     trap 'rm -rf "$out"' EXIT
@@ -312,9 +203,8 @@ contract:
 
 # Write the Swift client and the vocabulary into `out`; `contract` and `contract-check` share
 # it, so the check compares exactly what `contract` would commit
+[script]
 _generate $out:
-    #!/usr/bin/env bash
-    set -euo pipefail
     mkdir -p "$out/Generated"
     {{ swift }} run -q --package-path Tools normalize-contract ../api/openapi.json "$out/openapi.json"
     {{ swift }} run -q --package-path Tools swift-openapi-generator generate \
@@ -330,7 +220,7 @@ update:
     {{ swift }} package update --package-path CrosstuneKit
     {{ swift }} package update --package-path Tools
 
-# Create .env and Config/Secrets.xcconfig from their examples, and Config/Local.xcconfig for this Mac, if absent
+# Create .env and Xcode config files if absent
 [group('maintenance')]
 setup:
     test -e .env || cp .env.example .env
@@ -342,21 +232,7 @@ setup:
 clean:
     rm -rf .build CrosstuneKit/.build Tools/.build
 
-# Delete Xcode's DerivedData for Crosstune checkouts that no longer exist
+# Delete DerivedData of removed checkouts
 [group('maintenance')]
 prune-derived-data:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    # Xcode never deletes the folder of a removed worktree. Only Crosstune-* folders are
-    # candidates, so the caches every project shares stay.
-    root="$HOME/Library/Developer/Xcode/DerivedData"
-    [ -d "$root" ] || exit 0
-    for dir in "$root"/Crosstune-*; do
-        # A folder without a recorded project may still be in use, so only a missing project counts
-        [ -f "$dir/info.plist" ] || continue
-        project="$(/usr/libexec/PlistBuddy -c 'Print :WorkspacePath' "$dir/info.plist" 2>/dev/null || true)"
-        if [ -n "$project" ] && [ ! -e "$project" ]; then
-            rm -rf "$dir"
-            echo "removed ${dir##*/} (${project})"
-        fi
-    done
+    uv run --project ../api python scripts/derived_data.py prune

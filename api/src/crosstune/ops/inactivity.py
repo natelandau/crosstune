@@ -1,6 +1,6 @@
 """Operator commands for the inactive-account warnings.
 
-Run as `just api::inactivity`. `preview` reads one account and writes nothing,
+Run as `just ops::inactivity`. `preview` reads one account and writes nothing,
 `send-test` mails one warning to the account's Clerk address and records nothing, and
 `run` takes one pass of the daily job now. Each prints the environment and database it
 works on and refuses production without `--yes`, except `preview`, which only reads.

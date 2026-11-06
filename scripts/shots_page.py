@@ -77,10 +77,10 @@ def platform_section(folder: Path, platform: str) -> str:
     shots: list[Shot] = manifest["shots"]
     summary = f"{len(shots)} changed, {manifest['same']} unchanged"
     if not shots:
-        return f"<h2>{title}</h2><p class='note'>No shot changed ({manifest['same']} unchanged).</p>"
-    rows = "".join(
-        shot_row(folder=folder, platform=platform, shot=shot) for shot in shots
-    )
+        return (
+            f"<h2>{title}</h2><p class='note'>No shot changed ({manifest['same']} unchanged).</p>"
+        )
+    rows = "".join(shot_row(folder=folder, platform=platform, shot=shot) for shot in shots)
     return f"<h2>{title} <span class='meta'>{summary}</span></h2>{rows}"
 
 
@@ -102,8 +102,7 @@ def main() -> None:
 
     platforms = args.platforms.split()
     sections = "".join(
-        platform_section(folder=args.folder, platform=platform)
-        for platform in platforms
+        platform_section(folder=args.folder, platform=platform) for platform in platforms
     )
     notes = "".join(f"<p class='note'>{html.escape(note)}</p>" for note in args.note)
     branch = html.escape(args.branch)

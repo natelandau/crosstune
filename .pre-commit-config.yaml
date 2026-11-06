@@ -190,6 +190,22 @@ repos:
         pass_filenames: false
         files: ^analytics/
 
+      - id: scripts-lint
+        name: scripts lint
+        entry: just scripts::lint
+        language: system
+        pass_filenames: false
+        files: ^(scripts|apple/scripts)/.*\.(py|toml|ini)$
+
+      - id: scripts-test
+        name: scripts pytest
+        entry: just scripts::test
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
+        # The tests also read every justfile.
+        files: ^(scripts/|apple/scripts/)|(^|/)justfile$|\.just$
+
       - id: apple-swift-test
         name: swift test
         entry: just apple::test

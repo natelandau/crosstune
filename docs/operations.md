@@ -11,7 +11,7 @@ deployable reads its settings: `architecture.md`, Configuration.
 | [uv](https://docs.astral.sh/uv/)                       | any            | Installs Python 3.13, the API's dependencies, and the git hooks.                                   |
 | [Node.js](https://nodejs.org/)                         | 22.22 or newer | Runs the web toolchain.                                                                            |
 | [pnpm](https://pnpm.io/)                               | 12.11.2        | Pinned in `web/package.json`. `corepack enable` installs it.                                       |
-| [just](https://just.systems)                           | any            | The task runner.                                                                                   |
+| [just](https://just.systems)                           | 1.46 or newer  | The task runner. Recipe options and argument help need 1.46.                                       |
 | [Docker](https://docs.docker.com/get-docker/)          | any            | Runs Postgres 18, RustFS, and the API's ffmpeg for development and the API tests. Must be running. |
 | [ffmpeg](https://ffmpeg.org/)                          | any            | Builds the App Store preview. The API never uses it.                                               |
 | [Xcode](https://developer.apple.com/xcode/)            | 27             | Builds and tests the Apple app. Root `lint`, `format`, and `test` need it.                         |
@@ -36,6 +36,9 @@ In the main checkout:
 4. In `web/.env`, set `VITE_CLERK_PUBLISHABLE_KEY` to the publishable key.
 5. In Xcode > Settings > Locations, set Derived Data to Relative,
    `.build/DerivedData`, so removing a worktree removes its build.
+6. Optional: shell completion for recipe and module names. For zsh,
+   `just --completions zsh > ~/.zfunc/_just` with `~/.zfunc` on `fpath`.
+   `just --usage <recipe>` lists a recipe's arguments.
 
 Migrations run every time `just dev` starts. Nothing is created by hand.
 Worktrees: `CLAUDE.md`, Task runner.

@@ -1,6 +1,6 @@
 """Operator command that renames existing recordings with the street-address naming rules.
 
-Run as `just api::places rename-automatic`. It re-looks-up every live recording whose
+Run as `just ops::places rename-automatic`. It re-looks-up every live recording whose
 coordinates came from a device fix or a file and whose name the server wrote, at a paced rate that
 stays well inside Apple Maps' daily quota. A name the musician picked is never touched.
 Prints the environment and database first and refuses production without `--yes`.
