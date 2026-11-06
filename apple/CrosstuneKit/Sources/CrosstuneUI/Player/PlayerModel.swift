@@ -1,6 +1,7 @@
 import CrosstuneAnalytics
 import CrosstuneAudio
 import CrosstuneCommands
+import CrosstuneDiagnostics
 import CrosstuneRecording
 import CrosstuneStore
 import CrosstuneVocabulary
@@ -124,6 +125,8 @@ public final class PlayerModel {
     /// Logs each play and recording screen visit.
     @ObservationIgnored let activity: PlayerActivity
     let analytics: AnalyticsClient
+    /// Notes the player's recording coming and going, so a crash report shows what led up to it.
+    let diagnostics: DiagnosticsClient
     /// Follows the state the activity log times.
     @ObservationIgnored private var following: Task<Void, Never>?
     /// Whether the queue hears each track's end, as it does from loading a track until it leaves.
@@ -215,9 +218,11 @@ public final class PlayerModel {
     public init(
         audio: (any AudioPlayback)? = nil, appleMusic: AppleMusic? = nil,
         clock: @escaping @MainActor () -> SuspendingClock.Instant = { .now },
-        now: @escaping @MainActor () -> Date = Date.init, analytics: AnalyticsClient = .noop
+        now: @escaping @MainActor () -> Date = Date.init, analytics: AnalyticsClient = .noop,
+        diagnostics: DiagnosticsClient = .noop
     ) {
         self.analytics = analytics
+        self.diagnostics = diagnostics
         self.audio = audio ?? AudioPlayer(isCapturing: { Recorder.hasActiveCapture })
         self.appleMusic = appleMusic
         loops = LoopPlayback(audio: self.audio, analytics: analytics)
@@ -273,6 +278,7 @@ public final class PlayerModel {
     }
 
     private func trackEnded(_ end: TrackEnd) {
+        diagnostics.note(.playbackEnded)
         // An early end is the Split screen's stop on a cut, not the recording finishing.
         guard playbackEndMs == nil else { return }
         activity.trackEnded(end)
@@ -312,6 +318,7 @@ public final class PlayerModel {
     /// it, since another window's screen can go after this one has taken the visit over.
     func screenClosed(by screen: UUID? = nil) {
         guard screen == visitScreen else { return }
+        diagnostics.note(.recordingScreenClosed)
         visitScreen = nil
         activity.screenClosed(loaded: loadedSubject, with: activitySnapshot)
     }
@@ -512,6 +519,7 @@ public final class PlayerModel {
 
     /// Unloads the item, which stops it and takes the player off screen.
     public func close() {
+        diagnostics.note(.playerClosed)
         unloadItem()
         leaveAttachedQueue()
     }
@@ -617,6 +625,7 @@ public final class PlayerModel {
         applied = [:]
         appliedIsolate = nil
         recordingAudio = .loaded
+        diagnostics.note(.recordingLoaded)
         guard let row = item.recording else { return }
         if let window = window(row) { audio.setWindow(window) }
         for setting in PlaybackSetting.allCases { apply(setting) }

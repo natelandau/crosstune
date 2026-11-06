@@ -26,6 +26,20 @@ import Testing
     #expect(sink.screens == [.tune])
 }
 
+@Test func clientForwardsEvents() {
+    let sink = RecordingDiagnosticsSink()
+
+    sink.client.note(.sceneBackground)
+    sink.client.note(.playerClosed)
+
+    #expect(sink.events == [.sceneBackground, .playerClosed])
+}
+
+@Test func scenesFileAsAppLifecycleAndThePlayersMomentsAsPlayer() {
+    #expect(DiagnosticEvent.sceneBackground.category == "app.lifecycle")
+    #expect(DiagnosticEvent.playbackEnded.category == "player")
+}
+
 @Test func redactsQueriesAndFragments() {
     #expect(
         redactingURLQueries("PUT https://r2.example/a/b.m4a?X-Amz-Signature=abc failed")

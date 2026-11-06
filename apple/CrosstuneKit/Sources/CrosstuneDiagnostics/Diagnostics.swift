@@ -11,18 +11,41 @@ public enum DiagnosticArea: String, Sendable, CaseIterable {
     case restore
 }
 
+/// A moment worth noting before a crash: the app moving between foreground and background, and
+/// the player's recording coming and going. Carries no user content, only which moment it was.
+public enum DiagnosticEvent: String, Sendable, CaseIterable {
+    case sceneActive = "scene active"
+    case sceneInactive = "scene inactive"
+    case sceneBackground = "scene background"
+    case recordingLoaded = "recording loaded"
+    case playbackEnded = "playback ended"
+    case recordingScreenClosed = "recording screen closed"
+    case playerClosed = "player closed"
+
+    /// The Sentry breadcrumb category it files under.
+    var category: String {
+        switch self {
+        case .sceneActive, .sceneInactive, .sceneBackground: "app.lifecycle"
+        case .recordingLoaded, .playbackEnded, .recordingScreenClosed, .playerClosed: "player"
+        }
+    }
+}
+
 /// Where diagnostics go. Sentry in the app; a recording double in tests. Behind SPI so features
 /// reach Sentry through `DiagnosticsClient` alone.
 @_spi(Testing) public protocol DiagnosticsSink: Sendable {
     func report(_ error: any Error, area: DiagnosticArea)
     /// Notes the screen the musician is on, so a later crash shows where it happened.
     func breadcrumb(screen: Screen)
+    /// Notes `event`, so a later crash shows what led up to it.
+    func breadcrumb(event: DiagnosticEvent)
 }
 
 /// Drops every call.
 struct NoopDiagnosticsSink: DiagnosticsSink {
     func report(_ error: any Error, area: DiagnosticArea) {}
     func breadcrumb(screen: Screen) {}
+    func breadcrumb(event: DiagnosticEvent) {}
 }
 
 /// The app's one way to report an error that left a feature failed. The app makes one with
@@ -43,6 +66,10 @@ public struct DiagnosticsClient: Sendable {
 
     public func screen(_ screen: Screen) {
         sink.breadcrumb(screen: screen)
+    }
+
+    public func note(_ event: DiagnosticEvent) {
+        sink.breadcrumb(event: event)
     }
 
     /// Whether this client reports nothing, for tests of `Diagnostics.start`.
