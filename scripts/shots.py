@@ -15,6 +15,8 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from worktree import main_checkout
+
 PLATFORMS = ("web", "mac", "ios")
 SAMPLE_SCREENS = "apple/CrosstuneKit/Sources/CrosstuneUI/Sample/SampleScreen.swift"
 APPLE_CONFIG_FILES = ("apple/Config/Secrets.xcconfig", "apple/Config/Local.xcconfig")
@@ -205,9 +207,7 @@ class Review:
         """Find the checkout, the main checkout, and the base from git."""
         self.names = names
         self.root = Path(git("rev-parse", "--show-toplevel"))
-        self.main_checkout = Path(
-            git("rev-parse", "--path-format=absolute", "--git-common-dir")
-        ).parent
+        self.main_checkout = main_checkout(self.root)
         self.base = git("merge-base", "main", "HEAD")
         self.head = git("rev-parse", "HEAD")
         self.shots = self.root / ".cache/shots"

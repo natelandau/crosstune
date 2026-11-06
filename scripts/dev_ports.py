@@ -13,6 +13,8 @@ import time
 from pathlib import Path
 from typing import Protocol, TextIO, override
 
+from worktree import main_checkout
+
 USAGE = "usage: dev_ports.py <port>..."
 WAIT_POLLS = 20
 WAIT_INTERVAL = 0.5
@@ -219,21 +221,15 @@ def check_ports(ports: list[str], *, system: System, repo: Path, err: TextIO) ->
     return held
 
 
-def main_checkout() -> Path:
-    """Return the main checkout, which every worktree shares a git directory with."""
-    common = subprocess.run(
-        ["git", "rev-parse", "--git-common-dir"], capture_output=True, text=True, check=True
-    ).stdout.strip()
-    return Path(common).resolve().parent
-
-
 def main() -> int:
     """Check the ports named on the command line."""
     ports = sys.argv[1:]
     if not ports:
         print(USAGE, file=sys.stderr)
         return 2
-    return check_ports(ports, system=LocalSystem(), repo=main_checkout(), err=sys.stderr)
+    return check_ports(
+        ports, system=LocalSystem(), repo=main_checkout(Path.cwd()).resolve(), err=sys.stderr
+    )
 
 
 if __name__ == "__main__":

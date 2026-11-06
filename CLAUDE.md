@@ -127,12 +127,13 @@ against production, such as granting a comp or a trial.
   enforces both.
 - Operator commands that read or change accounts go in the `ops` module
   (`api/ops.just`), never in `api`.
-- A recipe body is a few commands with no loop or function. Anything
-  longer is a script the recipe calls. Script logic worth a test is
-  Python in `scripts/` or `apple/scripts/`, tested in their `tests/`
-  folders, with no dependency outside the API's environment;
-  `just scripts::lint` and `just scripts::test` cover both. Bash only
-  runs other commands in order.
+- A recipe body is a few lines. Anything longer is a script the recipe
+  calls. A decision worth a test, such as parsing, choosing, or
+  comparing, is Python in `scripts/` or `apple/scripts/`, tested in
+  their `tests/` folders, with no dependency outside the API's
+  environment; `just scripts::lint` and `just scripts::test` cover both.
+  A bash script runs commands in order, with waits, retries, and
+  cleanup.
 - Lint and test recipes skip a gate that already passed on the same
   tree. Run the recipe again rather than judging whether it needs to run.
   A pass on uncommitted work also covers its commit. `just gate status`

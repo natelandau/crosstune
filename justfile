@@ -31,7 +31,9 @@ _default:
 # Run every linter, then the repo-wide hooks
 [group('check')]
 [parallel]
-lint: api::lint web::lint site::lint apple::lint analytics::check scripts::lint lint-repo
+lint: api::lint web::lint site::lint apple::lint analytics::check scripts::lint
+    # Its hooks rewrite files, so it waits until no module linter is reading them.
+    just lint-repo
 
 # Run the prek hooks no module lint covers
 [group('check')]

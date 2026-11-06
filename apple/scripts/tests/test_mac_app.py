@@ -110,6 +110,26 @@ def test_only_the_oldest_live_waiter_claims(tmp_path):
     assert [p.name for p in lease.queue.iterdir()] == ["1699999999-77"]
 
 
+def test_a_waiter_whose_ticket_was_deleted_still_claims_the_freed_lease(tmp_path):
+    lease = make_lease(tmp_path, tmp_path / "wt-a")
+    hold(lease, tmp_path / "wt-b", renewed=lease.clock())
+    waits = 0
+
+    def ticket_deleted_then_lease_freed(_seconds: float) -> None:
+        nonlocal waits
+        waits += 1
+        if waits > 1:
+            raise StopWaitingError
+        for ticket in lease.queue.iterdir():
+            ticket.unlink()
+        lease.release()
+
+    lease.sleep = ticket_deleted_then_lease_freed
+    lease.claim()
+    assert lease.owner() == str(tmp_path / "wt-a")
+    assert list(lease.queue.iterdir()) == []
+
+
 def test_a_dead_waiters_ticket_is_dropped(tmp_path):
     lease = make_lease(tmp_path, tmp_path / "wt-a", is_alive=lambda pid: pid != 77)
     lease.queue.mkdir(parents=True)

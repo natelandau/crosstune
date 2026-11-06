@@ -158,6 +158,9 @@ class Lease:
             while True:
                 if self.held():
                     return
+                # The shell form of this tool drops any ticket whose waiter is not itself,
+                # so a lost ticket is restored under its first name to keep this waiter's turn.
+                ticket.touch()
                 # Only the oldest waiter contends, so a stale lease has one taker.
                 if next(self.live_tickets(), None) == ticket.name:
                     self._take_over_if_stale()
