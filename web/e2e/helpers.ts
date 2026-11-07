@@ -509,10 +509,10 @@ export async function openRecordingPage(
  * Show one of the recording page's tabs. A wide page shows practice beside the details and has
  * no tabs, so there it does nothing.
  */
-async function showTab(page: Page, name: string): Promise<void> {
-  // The tabs draw with the title, so once the title shows, a page with tabs has them.
-  await expect(recordingPage(page).getByRole('heading', { level: 1 })).toBeVisible()
+async function showTab(page: Page, name: string, wideContent: Locator): Promise<void> {
   const tab = recordingPage(page).getByRole('tab', { name, exact: true })
+  // The title draws before the page measures its width, which decides tabs or the wide layout.
+  await expect(tab.or(wideContent).first()).toBeVisible()
   if ((await tab.count()) === 0) return
   await tab.click()
   await expect(tab).toHaveAttribute('aria-selected', 'true')
@@ -520,12 +520,12 @@ async function showTab(page: Page, name: string): Promise<void> {
 
 /** Show the open recording page's Details, where its attribute rows are. */
 export async function showDetails(page: Page): Promise<void> {
-  await showTab(page, DETAILS)
+  await showTab(page, DETAILS, recordingAttribute(page, NAME_LABEL))
 }
 
 /** Show practice on the open recording page, and return it. */
 export async function showPractice(page: Page): Promise<Locator> {
-  await showTab(page, PRACTICE)
+  await showTab(page, PRACTICE, page.locator('[data-practice]'))
   const practice = page.locator('[data-practice]')
   await expect(practice).toBeVisible()
   return practice
@@ -546,7 +546,7 @@ export async function openPractice(
  * recordings made in the same minute would share a label. The page is left on its details.
  */
 export async function renameRecording(page: Page, name: string): Promise<void> {
-  await showTab(page, DETAILS)
+  await showDetails(page)
   await recordingAttribute(page, NAME_LABEL).click()
   const editor = page.getByRole('dialog', { name: NAME_LABEL, exact: true })
   const field = editor.getByRole('textbox', { name: RECORDING_NAME_LABEL, exact: true })

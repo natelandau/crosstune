@@ -131,6 +131,8 @@ test('opens a recording page from its row, edits it there, and plays from the sl
   await openRecordingPage(row, name)
   await expect(recordingPage(page).getByRole('heading', { name, level: 1 })).toBeVisible()
   await expect(player).toHaveCount(0)
+  // The elapsed time is on Details' play bar.
+  await showDetails(page)
   const elapsed = recordingPage(page).getByRole('timer', {
     name: new RegExp(`^${ELAPSED_LABEL}`),
   })
