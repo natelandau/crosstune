@@ -876,7 +876,7 @@ private struct RefusingSyncAPI: SyncAPI {
         let (tuneID, _) = try await Commands(store: store).createTune(
             TuneInput(title: "Kitchen Girl"), userTune: UserTuneInput(status: "known"))
         let model = RecordingTunePickerModel(store: store)
-        try await eventually { model.results != nil }
+        try await model.load()
         #expect(model.results?.rows.isEmpty == true)
 
         model.query = "kitchen"
@@ -896,7 +896,7 @@ private struct RefusingSyncAPI: SyncAPI {
             TuneInput(title: "Big Scioty"), userTune: UserTuneInput(status: "known"))
         try await commands.setArchived(archived.userTuneID, archived: true)
         let model = RecordingTunePickerModel(store: store)
-        try await eventually { model.idleResults != nil }
+        try await model.load()
         #expect(model.idleResults?.map(\.tune.title) == ["Ashokan Farewell", "Big Scioty", "Kitchen Girl"])
         model.query = "kitchen"
         #expect(model.idleResults?.isEmpty == true, "typing hands the rows to the search")
@@ -906,7 +906,8 @@ private struct RefusingSyncAPI: SyncAPI {
         let root = TemporaryRoot()
         let store = try root.open()
         let model = RecordingTunePickerModel(store: store)
-        try await eventually { model.results != nil && model.idleResults != nil }
+        try await model.load()
+        #expect(model.results != nil)
         #expect(model.idleResults?.isEmpty == true)
     }
 
@@ -914,7 +915,7 @@ private struct RefusingSyncAPI: SyncAPI {
         let root = TemporaryRoot()
         let store = try root.open()
         let model = RecordingTunePickerModel(store: store)
-        try await eventually { model.results != nil }
+        try await model.load()
         model.query = "Sally Goodin"
         #expect(model.results?.outcome.addTypedTitleLabel == "Add \"Sally Goodin\"")
         #expect(model.submit() == .create(title: "Sally Goodin"))

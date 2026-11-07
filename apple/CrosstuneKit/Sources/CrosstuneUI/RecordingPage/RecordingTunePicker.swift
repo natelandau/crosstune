@@ -58,6 +58,13 @@ final class RecordingTunePickerModel {
 
     var isIdle: Bool { CatalogPickerSearch.isIdle(query) }
 
+    /// Reads the catalog and fills ``results`` and ``idleResults`` from it, an empty one
+    /// included. Later catalog writes arrive through the live query.
+    func load() async throws {
+        try await search.load()
+        refresh()
+    }
+
     /// Refreshes now and again after each catalog change. Tracking is armed in the same
     /// synchronous step as the read, so no change slips between them, and an empty catalog
     /// refreshes like any other.
@@ -123,7 +130,9 @@ struct RecordingTuneEditor: View {
         }
         .task {
             guard model == nil, let store else { return }
-            model = RecordingTunePickerModel(store: store)
+            let picker = RecordingTunePickerModel(store: store)
+            try? await picker.load()
+            model = picker
         }
     }
 
