@@ -3,12 +3,12 @@ import CrosstuneStore
 import Foundation
 import MapKit
 
-/// The distances the location page works to, the same on every client.
+/// The distances the location editor works to, the same on every client.
 enum PlaceDistances {
-    /// How far from a recording the page looks for places near it.
+    /// How far from a recording the editor looks for places near it.
     static let nearbyRadiusM = 150.0
-    /// The most places the page lists as near a recording.
-    static let nearbyLimit = 10
+    /// The most places the editor lists as near a recording.
+    static let nearbyLimit = 7
     /// How close a saved location sits to count as the same spot.
     static let matchRadiusM = 30.0
     /// The loosest fix that is precise enough to name or match a spot.
@@ -27,7 +27,17 @@ enum PlaceDistances {
     }
 }
 
+extension Coordinate {
+    /// The point as Core Location and MapKit take it.
+    var clCoordinate: CLLocationCoordinate2D {
+        CLLocationCoordinate2D(latitude: lat, longitude: lon)
+    }
+}
+
 extension SavedPlace {
+    /// Where the saved location lies.
+    var point: Coordinate { Coordinate(lat: lat, lon: lon) }
+
     /// The live saved location a pick matches, so a repeat pick links rather than saves twice:
     /// the one with its Apple Maps id, else one of its name, trimmed and in any case, within 30 m.
     /// The name match also covers an id, since a place saved from a search with no id has none.
@@ -82,7 +92,7 @@ public protocol NearbySearch: AnyObject {
     func places(near center: Coordinate, radiusM: Double, limit: Int) async throws -> [NearbyPlace]
 }
 
-/// One row of the location page's Nearby list: a saved location or a venue not yet saved.
+/// One row of the location editor's Nearby list: a saved location or a venue not yet saved.
 enum NearbyRow: Hashable {
     case saved(SavedPlace)
     case venue(NearbyPlace)
@@ -98,6 +108,14 @@ enum NearbyRow: Hashable {
         switch self {
         case .saved(let place): place.address
         case .venue(let place): place.address
+        }
+    }
+
+    /// Where the place lies.
+    var point: Coordinate {
+        switch self {
+        case .saved(let place): place.point
+        case .venue(let place): Coordinate(lat: place.lat, lon: place.lon)
         }
     }
 }
@@ -119,7 +137,7 @@ public final class MapKitNearbySearch: NearbySearch {
     @diagnose(DeprecatedDeclaration, as: ignored)
     public func places(near center: Coordinate, radiusM: Double, limit: Int) async throws -> [NearbyPlace] {
         let request = MKLocalPointsOfInterestRequest(
-            center: CLLocationCoordinate2D(latitude: center.lat, longitude: center.lon), radius: radiusM)
+            center: center.clCoordinate, radius: radiusM)
         request.pointOfInterestFilter = MKPointOfInterestFilter(including: Self.venues)
         let items = try await MKLocalSearch(request: request).start().mapItems
         let found = items.compactMap { item -> (NearbyPlace, Double)? in

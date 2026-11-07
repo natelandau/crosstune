@@ -287,6 +287,24 @@ private final class FakeLoops {
         #expect(abs(try #require(model.scale) - 150.0 / 11) < 0.001)
     }
 
+    /// A row the trim pipeline has not reached knows only its playback file's length, which
+    /// covers the source from `playbackStartMs`.
+    @Test func aRecordingTheTrimPipelineHasNotReachedTakesItsPlaybackLength() {
+        var row = recording(sourceDurationMs: nil)
+        row.durationMs = 184_000
+        let model = practice(row)
+        #expect(model.lengthMs == 184_000)
+        #expect(model.zoomedWaveformView != nil)
+
+        row.trimStartMs = 4_000
+        model.follow(row, file: nil)
+        #expect(model.lengthMs == 180_000)
+
+        row.playbackStartMs = 4_000
+        model.follow(row, file: nil)
+        #expect(model.lengthMs == 184_000)
+    }
+
     @Test func aRecordingStillCapturingHasNoViewUntilItsLengthIsKnown() {
         let capturing = RecordingFile(id: "r1", localState: .capturing)
         let model = practice(recording(sourceDurationMs: nil), file: capturing)
@@ -844,7 +862,8 @@ private final class FakeLoops {
     @Test func choosingIsolateEngagesTheUnitAndLeavingReleasesIt() async throws {
         try await load()
         let model = practice()
-        model.enter()
+        model.openVisit()
+        model.showPanel()
         #expect(isolateCalls.isEmpty)
 
         model.mode = .isolate
@@ -863,14 +882,16 @@ private final class FakeLoops {
         let model = PracticeModel(
             player: player, recording: recording(), file: nil, writer: store.writer, mode: .isolate,
             announce: { _ in })
-        model.enter()
+        model.openVisit()
+        model.showPanel()
         #expect(isolateCalls == ["setIsolateOutlineWanted(true)"])
     }
 
     @Test func theNextScreenKeepsTheUnitEngagedWhenTheLastOneGoesAfterIt() async throws {
         try await load()
         let first = practice()
-        first.enter()
+        first.openVisit()
+        first.showPanel()
         first.mode = .isolate
 
         let second = recording(id: "r2")
@@ -881,7 +902,8 @@ private final class FakeLoops {
         try await eventually { player.recordingAudio == .loaded && player.holds(.recording, id: "r2") }
         let next = PracticeModel(
             player: player, recording: second, file: nil, writer: store.writer, mode: .isolate, announce: { _ in })
-        next.enter()
+        next.openVisit()
+        next.showPanel()
         first.leave()
         #expect(isolateCalls == ["setIsolateOutlineWanted(true)"])
 
@@ -894,7 +916,8 @@ private final class FakeLoops {
         weak var gone: PracticeModel?
         do {
             let model = practice()
-            model.enter()
+            model.openVisit()
+            model.showPanel()
             model.mode = .isolate
             gone = model
         }
@@ -910,7 +933,30 @@ private final class FakeLoops {
         #expect(PracticeMode.isolate.title(speedPercent: 100, pitchCents: 0, isolate: soloed) == "Isolate Solo")
         #expect(PracticeMode.isolate.title(speedPercent: 75, pitchCents: 200, isolate: .standard) == "Isolate")
         #expect(PracticeMode.speed.badge(speedPercent: 75, pitchCents: 0, isolate: muted) == "75%")
-        #expect(PracticeMode.allCases == [.loops, .speed, .pitch, .isolate])
+        #expect(PracticeMode.allCases == [.speed, .pitch, .isolate, .loops])
+    }
+
+    @Test func aFreshModelStartsOnSpeed() async throws {
+        try await load()
+        #expect(practice().mode == .speed)
+    }
+
+    @Test func aPageOpenedAfterUsingLoopsStartsOnSpeed() async throws {
+        try await load()
+        let first = practice()
+        first.mode = .loops
+        first.leave()
+        #expect(practice().mode == .speed)
+    }
+
+    @Test func aTabSwitchOrAFoldKeepsTheChosenMode() async throws {
+        try await load()
+        let model = practice()
+        model.mode = .loops
+        model.showPanel()
+        model.leave()
+        model.showPanel()
+        #expect(model.mode == .loops)
     }
 
     // MARK: The shown playhead

@@ -355,52 +355,6 @@ import Testing
         #expect(try await stored(store, first) != nil)
     }
 
-    @Test func aNoticeWaitsForTheBannerWhoseUndoIsOnShow() async throws {
-        let store = try await seeded()
-        let added = AddedTuneUndo(store: store, analytics: sink.client)
-        let tuneID = try #require(await added.add(title: "Angeline", source: .searchOffer))
-        let created = try #require(try await stored(store, tuneID))
-
-        added.notify(AddToTuneModel.failed)
-        #expect(added.undoBannerItem?.message == AddedTuneUndo.added("Angeline"))
-        #expect(added.undoBannerItem?.undo != nil)
-
-        try await Work.notes.attach(
-            to: CreatedTune(
-                tuneID: tuneID, userTuneID: created.1.id, title: created.0.title, defaults: NewTuneDefaults(nil)),
-            in: store)
-        #expect(try await poll { added.undoBannerItem?.message == AddToTuneModel.failed })
-        #expect(added.undoBannerItem?.undo == nil)
-    }
-
-    @Test func noticesShowFirstInFirstOut() async throws {
-        let store = try await seeded()
-        let deadline = Deadline()
-        let added = AddedTuneUndo(store: store, analytics: sink.client, waitOut: { _ in await deadline.wait() })
-        let tuneID = try #require(await added.add(title: "Angeline", source: .searchOffer))
-        let created = try #require(try await stored(store, tuneID))
-        added.notify("first")
-        added.notify("second")
-
-        try await Work.notes.attach(
-            to: CreatedTune(
-                tuneID: tuneID, userTuneID: created.1.id, title: created.0.title, defaults: NewTuneDefaults(nil)),
-            in: store)
-        #expect(try await poll { added.undoBannerItem?.message == "first" })
-        // A notice arriving while others wait joins the end, rather than replacing the one on show.
-        added.notify("third")
-        #expect(added.undoBannerItem?.message == "first")
-
-        // Each banner's wait has begun before its time is passed: the Added one, then each notice.
-        #expect(try await poll { deadline.started == 2 })
-        deadline.pass()
-        #expect(try await poll { added.undoBannerItem?.message == "second" && deadline.started == 3 })
-        deadline.pass()
-        #expect(try await poll { added.undoBannerItem?.message == "third" && deadline.started == 4 })
-        deadline.pass()
-        #expect(try await poll { added.undoBannerItem == nil })
-    }
-
     @Test func aSecondAddWhileOneRunsCreatesNothingMore() async throws {
         let store = try await seeded()
         let added = AddedTuneUndo(store: store, analytics: sink.client)

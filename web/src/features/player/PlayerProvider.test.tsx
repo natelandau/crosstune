@@ -6,10 +6,13 @@ import { openTestDb } from '../../test/db'
 import { fakePlaybackEngine } from '../../test/providers'
 import { entitlementRow } from '../../test/rows'
 import { usePlanOrUnknown } from '../../billing/usePlan'
+import { usePagePlayback, useShowsRecordingPage } from './pagePlayback'
 import { PlaybackEngineContext, PlaybackEngineProvider } from './PlaybackEngineProvider'
 import type { PlaybackEngine } from './playbackEngine'
 import { PlayerProvider } from './PlayerProvider'
 import { usePlayer, type Player } from './usePlayer'
+
+const LOOP = { id: 'loop-1', label: 'A part', fromS: 5, toS: 8 }
 
 afterEach(() => {
   vi.useRealTimers()
@@ -67,6 +70,14 @@ describe('PlayerProvider', () => {
     act(() => player().play({ kind: 'link', id: 'l1' }))
     act(() => player().play({ kind: 'link', id: 'l2' }))
     expect(screen.getByText('l2')).toBeInTheDocument()
+  })
+
+  it('holds where play asked the item to start, or its start when none is asked', () => {
+    const { player } = renderPlayer()
+    act(() => player().play({ kind: 'link', id: 'l1' }, { at: 30_000, loop: LOOP }))
+    expect(player().start).toEqual({ at: 30_000, loop: LOOP })
+    act(() => player().play({ kind: 'link', id: 'l2' }))
+    expect(player().start).toEqual({ at: 0, loop: null })
   })
 
   it('clears the loaded link on close', () => {
@@ -141,5 +152,83 @@ describe('PlayerProvider', () => {
 
     await act(() => vi.advanceTimersByTimeAsync(10_000))
     await vi.waitFor(() => expect(screen.getByText('none')).toBeInTheDocument())
+  })
+
+  describe("a recording's page", () => {
+    function Page({ id }: { id: string }) {
+      useShowsRecordingPage(id)
+      return null
+    }
+
+    /** The player under the pages named by `pages`, each keyed so a new key is a new page. */
+    function renderWithPages(initial: readonly (readonly [key: string, id: string])[]) {
+      const seen: { player: Player | null; onPage: boolean } = { player: null, onPage: false }
+      function Consumer() {
+        seen.player = usePlayer()
+        seen.onPage = usePagePlayback().onPage
+        return null
+      }
+      const db = openTestDb()
+      const engine = fakePlaybackEngine()
+      const tree = (pages: readonly (readonly [string, string])[]) => (
+        <DbContext.Provider value={db}>
+          <PlaybackEngineContext.Provider value={engine}>
+            <PlayerProvider>
+              {pages.map(([key, id]) => (
+                <Page key={key} id={id} />
+              ))}
+              <Consumer />
+            </PlayerProvider>
+          </PlaybackEngineContext.Provider>
+        </DbContext.Provider>
+      )
+      const { rerender } = render(tree(initial))
+      return {
+        player: () => seen.player!,
+        onPage: () => seen.onPage,
+        show: (pages: readonly (readonly [string, string])[]) => rerender(tree(pages)),
+      }
+    }
+
+    it('stops playback its page started once the page goes', () => {
+      const { player, onPage, show } = renderWithPages([['a', 'r1']])
+      act(() => player().play({ kind: 'recording', id: 'r1' }, { fromPage: true }))
+      expect(player().item).toEqual({ kind: 'recording', id: 'r1' })
+      expect(onPage()).toBe(true)
+      show([])
+      expect(player().item).toBeNull()
+      expect(onPage()).toBe(false)
+    })
+
+    it('keeps playback started elsewhere once the page goes', () => {
+      const { player, onPage, show } = renderWithPages([['a', 'r1']])
+      act(() => player().play({ kind: 'recording', id: 'r1' }))
+      expect(onPage()).toBe(true)
+      show([])
+      expect(player().item).toEqual({ kind: 'recording', id: 'r1' })
+      expect(onPage()).toBe(false)
+    })
+
+    it('hands playback to a load from elsewhere, even of the same recording', () => {
+      const { player, show } = renderWithPages([['a', 'r1']])
+      act(() => player().play({ kind: 'recording', id: 'r1' }, { fromPage: true }))
+      act(() => player().play({ kind: 'recording', id: 'r1' }))
+      show([])
+      expect(player().item).toEqual({ kind: 'recording', id: 'r1' })
+    })
+
+    it("keeps the page's playback while a page of the recording takes its place", () => {
+      const { player, onPage, show } = renderWithPages([['a', 'r1']])
+      act(() => player().play({ kind: 'recording', id: 'r1' }, { fromPage: true }))
+      show([['b', 'r1']])
+      expect(player().item).toEqual({ kind: 'recording', id: 'r1' })
+      expect(onPage()).toBe(true)
+    })
+
+    it('is not the player while it shows a recording other than the loaded one', () => {
+      const { player, onPage } = renderWithPages([['a', 'r2']])
+      act(() => player().play({ kind: 'recording', id: 'r1' }))
+      expect(onPage()).toBe(false)
+    })
   })
 })

@@ -37,7 +37,7 @@ export function EditorHeader({
 }: {
   title: string
   saveLabel: string
-  /** True while practice is the overlay on top. */
+  /** True while nothing sits over the editor. */
   isTop: () => boolean
   /** Takes the editor's Escape, for a device back to step out the same way. */
   stepOutRef?: RefObject<(() => void) | null>

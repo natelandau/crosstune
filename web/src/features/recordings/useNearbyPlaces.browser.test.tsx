@@ -33,25 +33,14 @@ it('sorts by distance, nearest first', async () => {
   await expect.poll(() => result.current?.map((p) => p.name)).toEqual(['Near', 'Middle', 'Far'])
 })
 
-it('caps the list at 10, keeping the nearest, and drops anything past 150 m', async () => {
+it('caps the list at 7, keeping the nearest, and drops anything past 150 m', async () => {
   const places = [
     ...Array.from({ length: 12 }, (_, i) => north(`P${i + 1}`, (12 - i) * 10)),
     north('Out of reach', 200),
   ]
   const { result } = setup(CENTER, { places })
-  await expect.poll(() => result.current?.length).toBe(10)
-  expect(result.current?.map((p) => p.name)).toEqual([
-    'P12',
-    'P11',
-    'P10',
-    'P9',
-    'P8',
-    'P7',
-    'P6',
-    'P5',
-    'P4',
-    'P3',
-  ])
+  await expect.poll(() => result.current?.length).toBe(7)
+  expect(result.current?.map((p) => p.name)).toEqual(['P12', 'P11', 'P10', 'P9', 'P8', 'P7', 'P6'])
 })
 
 it('measures across the antimeridian', async () => {

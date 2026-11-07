@@ -19,6 +19,28 @@ import Testing
         #expect(compact < PracticeLayout.waveformFloor(isCompactHeight: false))
     }
 
+    @Test func theWaveformCapMatchesTheDesktopWebWaveform() {
+        #expect(PracticeLayout.waveformCap == 160)
+    }
+
+    @Test func aTallWindowStopsTheWaveformAtTheCap() {
+        #expect(PracticeLayout.waveformHeight(spare: 900, isCompactHeight: false) == PracticeLayout.waveformCap)
+        #expect(PracticeLayout.waveformHeight(spare: 900, isCompactHeight: true) == PracticeLayout.waveformCap)
+    }
+
+    @Test func aShortWindowGivesTheWaveformTheLeftover() {
+        let floor = PracticeLayout.waveformFloor(isCompactHeight: false)
+        #expect(PracticeLayout.waveformHeight(spare: 10, isCompactHeight: false) == floor + 10)
+    }
+
+    @Test func theWaveformNeverShrinksBelowItsFloor() {
+        for compact in [false, true] {
+            let floor = PracticeLayout.waveformFloor(isCompactHeight: compact)
+            #expect(PracticeLayout.waveformHeight(spare: -200, isCompactHeight: compact) == floor)
+            #expect(PracticeLayout.waveformHeight(spare: nil, isCompactHeight: compact) == floor)
+        }
+    }
+
     @Test func loopHandlesAreTheBrandColorWhateverTheLoopColor() {
         for slot in 0..<6 {
             #expect(Palette.brand != Palette.loop(slot, scheme: .dark))

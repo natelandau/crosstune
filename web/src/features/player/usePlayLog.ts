@@ -15,6 +15,7 @@ import { iso, onPageLeave, type PageLeave } from './activity'
 import {
   heardLengthMs,
   PlayLog,
+  RECORDING_SCREEN_ORIGIN,
   tappedFrom,
   type PlayAttribution,
   type PlayOrigin,
@@ -58,9 +59,8 @@ export interface PlayLogControl {
 }
 
 /** A play on practice, which keeps reporting from there while it plays on in the dock. */
-const PRACTICE_REPORT = tappedFrom('recording_screen')
-const PRACTICE_ORIGIN: PlayOrigin = { context: 'recording_screen', report: PRACTICE_REPORT }
-const PLAYED_ON_ORIGIN: PlayOrigin = { context: 'dock', report: PRACTICE_REPORT }
+const PRACTICE_ORIGIN = RECORDING_SCREEN_ORIGIN
+const PLAYED_ON_ORIGIN: PlayOrigin = { context: 'dock', report: RECORDING_SCREEN_ORIGIN.report }
 
 /**
  * Where the play reopened after a playlist's natural end comes from: the list again when it

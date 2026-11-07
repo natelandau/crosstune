@@ -39,14 +39,11 @@ import { ListHeader } from '../../ui/ListHeader'
 import { Menu } from '../../ui/Menu'
 import { SearchField } from '../../ui/SearchField'
 import { useSearchTarget } from '../keyboard/searchTarget'
-import { AddToTuneSheet } from './AddToTuneSheet'
 import { DropOverlay } from './DropOverlay'
-import { EditRecordingSheet } from './EditRecordingSheet'
 import { RecordingsFilterSheet } from './RecordingsFilterSheet'
 import { StorageSummary } from './StorageSummary'
 import { useHadContent } from '../../ui/useHadContent'
-import { recordingsPlayable } from '../../billing/plan'
-import { usePlanOrUnknown } from '../../billing/usePlan'
+import { useRecordingsPlayable } from '../../billing/usePlan'
 import { usePremiumSheet } from '../plan/PremiumSheetProvider'
 
 const RECORDINGS = destination('recordings')
@@ -74,8 +71,8 @@ export function RecordingsScreen() {
       state: tunePick(),
     })
   }
-  const screen = useRecordingsScreen({ confirm: useConfirm(), onOpenTune: openTune })
-  const { ready, unfiled, filed, sort, actionsFor, rowMenuFor, retry, error } = screen
+  const screen = useRecordingsScreen({ confirm: useConfirm() })
+  const { ready, unfiled, filed, sort, actionsFor, retry, error } = screen
   const hadRecordings = useHadContent(ready && screen.listed > 0)
   const hadNoRecordings = useHadContent(ready && screen.listed === 0)
   const [filtersOpen, setFiltersOpen] = useState(false)
@@ -98,7 +95,7 @@ export function RecordingsScreen() {
   )
   const premium = usePremiumSheet()
   // On a free plan Upload and a drop stay in place and answer with the Plan sheet.
-  const uploads = recordingsPlayable(usePlanOrUnknown())
+  const uploads = useRecordingsPlayable()
   const held = uploads ? undefined : () => premium.open('recordings', 'upload')
   const importFiles = (files: File[]) => (held ? held() : void screen.importFiles(files))
   const drop = useFileDrop(pointer ? importFiles : undefined)
@@ -111,7 +108,6 @@ export function RecordingsScreen() {
         view,
         pinned: false,
         actions: actionsFor(view),
-        menu: rowMenuFor(view),
         error: retryKind(view, { uploads }) === 'upload' ? view.file?.error : null,
       }}
       tuneNamedAbove={grouped}
@@ -119,6 +115,7 @@ export function RecordingsScreen() {
       onOpenTune={!grouped && view.tuneId ? () => openTune(view.tuneId!) : undefined}
       onRetry={(kind) => retry(view, kind)}
       playOrigin={RECORDINGS_ROW_ORIGIN}
+      pageSource="recordings_list"
       storage={storage}
     />
   )
@@ -232,13 +229,6 @@ export function RecordingsScreen() {
           />
         </>
       )}
-      <EditRecordingSheet view={screen.editing} onClose={() => screen.setEditing(null)} />
-      <AddToTuneSheet
-        source="recordings_list"
-        view={screen.filing}
-        onClose={() => screen.setFiling(null)}
-        onOpenTune={openTune}
-      />
     </div>
   )
 }

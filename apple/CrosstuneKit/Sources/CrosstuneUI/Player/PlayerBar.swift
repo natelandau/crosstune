@@ -17,7 +17,8 @@ public struct PlayerBar: View {
 
     private let player: PlayerModel
 
-    @Environment(\.playerWindow) private var window
+    @Environment(\.openRecordingPage) private var openRecordingPage
+    @Environment(\.openTune) private var openTune
     @Environment(ListPlayback.self) private var playback: ListPlayback?
     /// How many tunes a swipe has skipped, which each skip's haptic follows.
     @State private var swipeSkips = 0
@@ -50,10 +51,12 @@ public struct PlayerBar: View {
         playback?.isActive == true
     }
 
-    /// Whether the player shows at all: while an item is loaded, and while a playlist that
-    /// stopped with nothing loaded still has its message to show.
-    static func isShown(_ player: PlayerModel, _ playback: ListPlayback?) -> Bool {
-        player.isLoaded || playback?.endMessage != nil
+    /// Whether the player shows at all in `window`: while an item is loaded, and while a
+    /// playlist that stopped with nothing loaded still has its message to show. Never while a
+    /// recording page is the player; see ``PlayerModel/pagePlays(in:)``.
+    static func isShown(_ player: PlayerModel, _ playback: ListPlayback?, in window: UUID?) -> Bool {
+        guard !player.pagePlays(in: window) else { return false }
+        return player.isLoaded || playback?.endMessage != nil
     }
 
     /// Whether the bar leads with a static play glyph: only for a link in its embed, whose
@@ -124,7 +127,7 @@ public struct PlayerBar: View {
                 itemLabel(glyph: glyph)
             } else {
                 Button {
-                    player.expand(in: window, source: .dock)
+                    player.openLoaded(recordingPage: openRecordingPage, tune: openTune, source: .dock)
                 } label: {
                     itemLabel(glyph: glyph)
                         .contentShape(.rect)

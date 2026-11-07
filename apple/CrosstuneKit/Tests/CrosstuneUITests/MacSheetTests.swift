@@ -47,8 +47,8 @@
             "Links/LinkSheet.swift", "TuneForm/TuneFormSheet.swift", "Selection/BulkEditSheet.swift",
             "Catalog/CatalogFilterSheet.swift", "Lists/ListNameSheet.swift", "Lists/ListPickerSheet.swift",
             "Lists/TunePickerSheet.swift", "Import/ImportSheet.swift",
-            "Recordings/RecordingsFilterSheet.swift", "Recordings/EditRecordingSheet.swift",
-            "Recordings/PlaceSearchView.swift", "Recordings/AddToTuneSheet.swift", "Recording/RecordSheet.swift",
+            "Recordings/RecordingsFilterSheet.swift", "RecordingPage/Location/LocationEditor.swift",
+            "Recording/RecordSheet.swift",
             "Links/FindRecordingsSheet.swift", "Lyrics/LyricsReader.swift", "Scans/ScanViewer.swift",
             "Stats/StatsSheet.swift", "Account/ExportDataSheet.swift", "Account/DeleteAccountSheet.swift",
             "Settings/MusicServicesSheet.swift", "Account/AccountSections.swift", "Plan/PlanSheet.swift",
@@ -56,8 +56,8 @@
             "Settings/SavedLocationDetail.swift",
         ]
 
-        /// Sheets that push a screen (place search, trim), which keep their navigation on the Mac.
-        static let pushingSheets = ["Recordings/EditRecordingSheet.swift", "RecordingScreen/RecordingScreen.swift"]
+        /// Sheets that push a screen (trim), which keep their navigation on the Mac.
+        static let pushingSheets = ["RecordingScreen/RecordingScreen.swift"]
 
         @Test func macSheetMapsCancelAndDefaultKeys() {
             let cancel = MacSheetAction.cancel("Cancel") {}

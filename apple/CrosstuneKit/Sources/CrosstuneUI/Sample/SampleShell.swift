@@ -109,7 +109,8 @@
                 }
                 if screen == .practice {
                     let entry = SampleCatalog.playable
-                    player.open(.recording(entry.recording, tuneTitle: entry.tuneTitle), playing: false)
+                    player.loadPaused(.recording(entry.recording, tuneTitle: entry.tuneTitle))
+                    place.openRecordingPage(entry.recording.id, tab: .practice, source: .dock)
                 }
                 #if os(macOS)
                     if let tab = SampleScreen.settingsTab() ?? screen?.settingsTab {
@@ -129,9 +130,12 @@
         func events(since: Int64) async throws -> EventsPage { throw URLError(.notConnectedToInternet) }
         func recordNotice(_ notice: PlanNotice) async throws { throw URLError(.notConnectedToInternet) }
         func refreshBilling() async throws { throw URLError(.notConnectedToInternet) }
-        func storage() async throws -> StorageUsage { throw URLError(.notConnectedToInternet) }
+        func account() async throws -> AccountSummary { throw URLError(.notConnectedToInternet) }
         func resolveLink(url: String) async throws -> ResolvedLink { throw URLError(.notConnectedToInternet) }
         func searchRecordings(q: String, providers: [String], country: String) async throws -> SearchResponse {
+            throw URLError(.notConnectedToInternet)
+        }
+        func reversePlace(lat: Double, lon: Double) async throws -> ReversedPlace? {
             throw URLError(.notConnectedToInternet)
         }
         func requestUploadSlot(recordingID: String, bytes: Int64, contentType: String) async throws -> URL {

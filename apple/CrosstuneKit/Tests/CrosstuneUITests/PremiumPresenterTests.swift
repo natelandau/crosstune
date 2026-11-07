@@ -289,11 +289,32 @@ private func entitlement(source: String?, expiresAt: Date? = nil) -> Entitlement
             ])
     }
 
+    @Test func theRecordingPagesBlockedPlayOpensThePlanFromThePage() async throws {
+        let presenter = PremiumPresenter(
+            plan: try await plan(entitlement(source: nil), kind: .free), analytics: sink.client)
+
+        _ = presenter.gate(.recordings, from: RecordingPage.planEntry)
+
+        #expect(presenter.presented == .recordings)
+        #expect(presenter.presentedFrom == .recordingPage)
+        #expect(
+            sink.captures == [
+                .init(
+                    name: "premium_sheet_shown",
+                    properties: ["reason": .string("recordings"), "from": .string("recording_page")])
+            ])
+        let row = RecordingView(
+            recording: Recording(id: "r1", tuneID: nil, source: "microphone", addedAt: noon, state: "ready"),
+            file: nil, tuneID: nil, tuneTitle: nil)
+        #expect(RecordingItem(view: row, source: .recordingsList) { _ in }.premiumEntry == .recordingRow)
+    }
+
     @Test func theEntriesAndReasonsNameThePlansValues() {
         #expect(PremiumReason.allCases.map(\.rawValue) == ["recordings", "scans", "plan"])
         #expect(
             PremiumEntry.allCases.map(\.rawValue) == [
-                "record", "upload", "add_to_recordings", "recording_row", "recordings_line", "scan", "add_scan",
+                "record", "upload", "add_to_recordings", "recording_row", "recording_page", "recordings_line", "scan",
+                "add_scan",
                 "plan_group", "trial_reminder", "trial_ended",
             ])
     }

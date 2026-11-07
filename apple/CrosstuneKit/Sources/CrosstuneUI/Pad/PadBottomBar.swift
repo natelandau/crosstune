@@ -10,6 +10,7 @@ struct PadBottomBar: View {
 
     @Environment(ListPlayback.self) private var playback: ListPlayback?
     @Environment(\.recordCover) private var cover
+    @Environment(\.playerWindow) private var window
 
     init(player: PlayerModel, showsRecord: Bool, onRecord: @escaping @MainActor () -> Void) {
         self.player = player
@@ -17,14 +18,16 @@ struct PadBottomBar: View {
         self.onRecord = onRecord
     }
 
-    /// Whether the player part shows.
-    @MainActor static func showsPlayer(_ player: PlayerModel, _ playback: ListPlayback?) -> Bool {
-        PlayerBar.isShown(player, playback)
+    /// Whether the player part shows in `window`.
+    @MainActor static func showsPlayer(_ player: PlayerModel, _ playback: ListPlayback?, in window: UUID?) -> Bool {
+        PlayerBar.isShown(player, playback, in: window)
     }
 
-    /// Whether the capsule shows at all: never empty.
-    @MainActor static func isShown(showsRecord: Bool, _ player: PlayerModel, _ playback: ListPlayback?) -> Bool {
-        showsRecord || showsPlayer(player, playback)
+    /// Whether the capsule shows at all in `window`: never empty.
+    @MainActor static func isShown(
+        showsRecord: Bool, _ player: PlayerModel, _ playback: ListPlayback?, in window: UUID?
+    ) -> Bool {
+        showsRecord || showsPlayer(player, playback, in: window)
     }
 
     /// Whether Record takes a press.
@@ -34,7 +37,7 @@ struct PadBottomBar: View {
 
     var body: some View {
         let isEnabled = Self.recordIsEnabled(cover: cover)
-        let showsPlayer = Self.showsPlayer(player, playback)
+        let showsPlayer = Self.showsPlayer(player, playback, in: window)
         HStack(spacing: 0) {
             if showsRecord {
                 Button(action: onRecord) {

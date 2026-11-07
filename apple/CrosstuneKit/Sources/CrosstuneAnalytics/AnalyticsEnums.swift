@@ -10,7 +10,6 @@ public enum Screen: String, CaseIterable, Sendable {
     case findRecordings = "find_recordings"
     case settings
     case stats
-    case padPractice = "pad_practice"
     case tuner
 }
 
@@ -53,12 +52,22 @@ public enum RecordingOrigin: String, CaseIterable, Sendable {
 }
 
 /// How a recording's place was chosen: typed into search, picked from a suggestion, from the
-/// places near the recording, or from the saved locations.
+/// places near the recording, from the saved locations, from the device's current location, or
+/// from a pin placed on the map.
 public enum PlaceMethod: String, CaseIterable, Sendable {
     case search
     case suggestion
     case nearby
     case saved
+    case currentLocation = "current_location"
+    case pin
+}
+
+/// The arrangement the recording page opened in.
+public enum RecordingPageLayout: String, CaseIterable, Sendable {
+    case details
+    case practice
+    case wide
 }
 
 /// How a saved location came to be: from the places near a recording, a search result, or a name
@@ -264,6 +273,7 @@ public enum PremiumEntry: String, CaseIterable, Sendable {
     case upload
     case addToRecordings = "add_to_recordings"
     case recordingRow = "recording_row"
+    case recordingPage = "recording_page"
     case recordingsLine = "recordings_line"
     case scan
     case addScan = "add_scan"

@@ -1,7 +1,12 @@
 import { ZoomIn, ZoomOut } from 'lucide-react'
-import { useLayoutEffect, type RefObject } from 'react'
+import { useLayoutEffect, useMemo, type RefObject } from 'react'
 import { Button as AriaButton } from 'react-aria-components'
-import { useEngineState, usePlaybackEngine } from '../player/PlaybackEngineProvider'
+import {
+  PlaybackEngineContext,
+  useEngineState,
+  usePlaybackEngine,
+} from '../player/PlaybackEngineProvider'
+import type { PlaybackEngine } from '../player/playbackEngine'
 import { isMonoFromRow } from '../player/isolate/isolateSetting'
 import { FIT, LOCKED_LOOPS_NOTICE } from './practiceCopy'
 import {
@@ -11,7 +16,7 @@ import {
   PracticeWaveformSlot,
 } from './PracticeSurface'
 import { slotProps, usePracticeCore } from './usePracticeCore'
-import { usePracticeKeys } from './usePracticeKeys'
+import { usePracticeKeys, type PracticeKeyScope } from './usePracticeKeys'
 import { usePracticeMode, type Mode } from './usePracticeMode'
 import { usePracticeSettings } from './usePracticeSettings'
 import { formatPreciseDuration } from '../../text/format'
@@ -37,39 +42,70 @@ export interface SavedFocus {
 /** The controls under the waveform, capped so they stay in reach on a wide window. */
 const CAPPED = 'mx-auto w-full max-w-xl'
 
-/**
- * Practice's working view on jet: the overview, the waveform under a fixed playhead, the time
- * and zoom under it, the transport with the loop switcher, and the Loops, Speed, Pitch, and
- * Isolate panel. It drives the engine the bar loaded and owns the zoom and the keyboard.
- */
-export function PracticeView({
-  view,
-  shown,
-  blocked,
-  escapeRef,
-  savedFocus,
-  isTop,
-  onError,
-}: {
+interface PracticeViewProps {
   view: RecordingView
+  /** The page's engine for the recording, from `useRecordingEngine`. */
+  engine: PlaybackEngine
+  /** Whether `engine` is the player's, holding the recording. */
+  loaded: boolean
   /** The peaks for the recording's current trim range. */
   shown: ShownPeaks | null
   /** Why the waveform, transport, and modes cannot be used yet, such as a recording under way. */
   blocked?: string
-  /** Set to what Escape does here before practice closes; true when it did something. */
+  /** Set to what Escape does here; true when it did something. */
   escapeRef: RefObject<(() => boolean) | null>
   /**
    * The `data-focus-key` of the control focus was on when this view last unmounted, which a
    * fresh view puts focus back on as it mounts.
    */
   savedFocus: SavedFocus
-  /** True while practice is the overlay on top. */
+  /** True while nothing sits over practice. */
   isTop: () => boolean
+  /** Where its keys reach; left out, only practice itself. */
+  keyScope?: PracticeKeyScope
   onError: (message: string | null) => void
+}
+
+/**
+ * Practice's working view on jet: the overview, the waveform under a fixed playhead, the time
+ * and zoom under it, the transport with the loop switcher, and the Loops, Speed, Pitch, and
+ * Isolate panel. It owns the zoom and the keyboard.
+ *
+ * Everything under it drives `engine`: the player's while it has the recording loaded,
+ * otherwise the page's own for the unloaded recording, so playback never changes, and Play
+ * loads the recording at the playhead.
+ */
+export function PracticeView({ engine, loaded, ...props }: PracticeViewProps) {
+  const stageUnavailable = useEngineState(usePlaybackEngine(), (s) => s.stageUnavailable)
+  return (
+    <PlaybackEngineContext.Provider value={engine}>
+      <PracticeBody
+        {...props}
+        engine={engine}
+        loaded={loaded}
+        stageUnavailable={stageUnavailable}
+      />
+    </PlaybackEngineContext.Provider>
+  )
+}
+
+function PracticeBody({
+  view,
+  shown,
+  blocked,
+  escapeRef,
+  savedFocus,
+  isTop,
+  keyScope,
+  onError,
+  engine,
+  loaded,
+  stageUnavailable,
+}: PracticeViewProps & {
+  /** The device cannot build an audio stage, so pitch and isolate will not be heard. */
+  stageUnavailable: boolean
 }) {
   const { recording } = view
-  const engine = usePlaybackEngine()
-  const stageUnavailable = useEngineState(engine, (s) => s.stageUnavailable)
 
   const core = usePracticeCore({
     view,
@@ -93,7 +129,8 @@ export function PracticeView({
     if (next === 'isolate') engine.prime()
   }
 
-  usePracticeKeys(escapeRef, { ...loops.keyActions, isTop, blocked })
+  const ownScope = useMemo(() => ({ root: content }), [content])
+  usePracticeKeys(escapeRef, { ...loops.keyActions, scope: keyScope ?? ownScope, isTop, blocked })
 
   // A list moving on remounts this view, Play and Next tune included, so focus follows the
   // control it was on into the new one within the same commit. The saved focus is spent on mount
@@ -145,15 +182,17 @@ export function PracticeView({
           />
         </div>
       </div>
-      {/* Scrolls only when the waveform is down to its floor, such as on a landscape phone. */}
+      {/* Scrolls only when the window is too short for it, such as on a landscape phone. */}
       <div data-practice-below className="flex min-h-16 shrink flex-col gap-4 overflow-y-auto">
         <div className={`${CAPPED} flex flex-col items-center gap-2`}>
           <TransportRow
             playing={timeline.playing}
             repeatName={loops.repeatName}
-            disabled={unusable}
+            // Play on a recording the player has not loaded loads it, its length known or not.
+            disabled={loaded ? unusable : !!blocked}
             onTogglePlay={timeline.togglePlay}
             onSkip={timeline.skip}
+            recordingId={recording.id}
           />
           <PracticeLoopSwitcher
             timeline={timeline}

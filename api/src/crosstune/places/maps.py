@@ -14,13 +14,19 @@ from cryptography.hazmat.primitives.asymmetric import ec
 from crosstune.config import Settings, load_apple_p256_key
 from crosstune.links.fetch import get_json
 from crosstune.places.countries import country as country_named
-from crosstune.places.names import PlaceKind, automatic_name, suggestion_name
+from crosstune.places.names import (
+    PlaceKind,
+    automatic_name,
+    reverse_address,
+    reverse_name,
+    suggestion_name,
+)
 
 MAPS_URL = "https://maps-api.apple.com"
 MAX_HITS = 10
-# Venues, landmarks, street addresses, and towns together. The only location hint is the
-# account country's fixed center, so an address that repeats across states lists every match
-# rather than the nearest, and a place abroad is still found.
+# Venues, landmarks, street addresses, and towns together. Results lean toward a given point,
+# else the account country's fixed center, and neither limits them, so a place abroad is still
+# found.
 _SEARCH_TYPES = "poi,address"
 _SIGNING_LIFETIME_SECONDS = 3_600
 _EARLY_RENEWAL_SECONDS = 60
@@ -38,6 +44,16 @@ class PlaceHit:
     kind: PlaceKind
     subtitle: str | None = None
     address: str | None = None
+
+
+@dataclass(frozen=True)
+class ReversePlace:
+    """The place at a point: its street-tier name, its whole address, and the point asked about."""
+
+    name: str
+    address: str | None
+    lat: float
+    lon: float
 
 
 class MapsError(Exception):
@@ -113,6 +129,7 @@ class AppleMaps:
         query: str,
         *,
         country: str | None,
+        near: tuple[float, float] | None = None,
         timeout: float,  # noqa: ASYNC109 -- forwarded to httpx2's per-request timeout
     ) -> list[PlaceHit]:
         """Suggest places, street addresses, and towns as a query is typed, each named as picked.
@@ -120,8 +137,10 @@ class AppleMaps:
         Args:
             client: The outbound client.
             query: The text typed so far.
-            country: The account's two-letter country code. Results lean toward its center
-                point and its rows leave out its name; None or an unknown code leans nowhere.
+            country: The account's two-letter country code. Its rows leave out its name, and
+                results lean toward its center point unless `near` is given; None or an
+                unknown code leans nowhere.
+            near: A (latitude, longitude) pair that results lean toward, or None.
             timeout: The per-request timeout in seconds.
 
         Returns:
@@ -133,7 +152,9 @@ class AppleMaps:
         """
         home = country_named(country)
         params = {"q": query, "resultTypeFilter": _SEARCH_TYPES}
-        if home:
+        if near:
+            params["searchLocation"] = f"{near[0]},{near[1]}"
+        elif home:
             params["searchLocation"] = f"{home.lat},{home.lon}"
         body = await self._get(client, "/v1/searchAutocomplete", params, timeout)
         hits: list[PlaceHit] = []
@@ -189,6 +210,44 @@ class AppleMaps:
         body = await self._get(client, "/v1/reverseGeocode", {"loc": f"{lat},{lon}"}, timeout)
         results = _results(body)
         return automatic_name(results[0], accuracy_m) if results else None
+
+    async def reverse_place(
+        self,
+        client: httpx2.AsyncClient,
+        lat: float,
+        lon: float,
+        *,
+        country: str | None,
+        timeout: float,  # noqa: ASYNC109 -- forwarded to httpx2's per-request timeout
+    ) -> ReversePlace | None:
+        """Name a dropped pin and give its address, for a client that has only a point.
+
+        Args:
+            client: The outbound client.
+            lat: Latitude in degrees.
+            lon: Longitude in degrees.
+            country: The account's two-letter country code. Its name is left out of the
+                address; None or an unknown code leaves out nothing.
+            timeout: The per-request timeout in seconds.
+
+        Returns:
+            ReversePlace | None: The first result, named at street tier or else by its
+                address, or None when Apple Maps knows no place there.
+
+        Raises:
+            MapsBusyError: If Apple Maps rate limits the key.
+            MapsError: If Apple Maps fails or answers unreadably.
+        """
+        body = await self._get(client, "/v1/reverseGeocode", {"loc": f"{lat},{lon}"}, timeout)
+        results = _results(body)
+        if not results:
+            return None
+        home = country_named(country)
+        address = reverse_address(results[0], home.name if home else None)
+        name = reverse_name(results[0], address)
+        if not name:
+            return None
+        return ReversePlace(name=name, address=address, lat=lat, lon=lon)
 
     async def _get(
         self,

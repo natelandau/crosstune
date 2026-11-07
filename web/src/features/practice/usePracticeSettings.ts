@@ -17,7 +17,7 @@ import {
 } from '../player/isolate/isolateSetting'
 import { useRowIsolate } from '../player/isolate/useRowIsolate'
 import { usePlaybackEngine } from '../player/PlaybackEngineProvider'
-import { usePracticeOverlay, type HeldSettings } from './usePracticeOverlay'
+import { usePracticeHolds, type HeldSettings } from './practiceHolds'
 import { useSettledWrite } from './useSettledWrite'
 
 const SPEED_NOT_SAVED = 'The speed could not be saved.'
@@ -115,7 +115,7 @@ export function usePracticeSettings({
     )
   })
 
-  const practiceOverlay = usePracticeOverlay()
+  const holds = usePracticeHolds()
   const recordingId = recording.id
   // Tells the dock what plays ahead of the row, so a stored value landing late re-applies
   // this view's value rather than the older one.
@@ -131,8 +131,8 @@ export function usePracticeSettings({
             trimming: false,
           }
     ownHold.current = settings
-    practiceOverlay.hold(recordingId, settings)
-  }, [practiceOverlay, recordingId, speed, pitch, isolate, rowSpeed, rowPitch, rowIsolate])
+    holds.hold(recordingId, settings)
+  }, [holds, recordingId, speed, pitch, isolate, rowSpeed, rowPitch, rowIsolate])
 
   // Declared after the settled writes, so their flush on leaving is already under way. The hold
   // outlives the view until every write has settled, so neither practice nor the dock shows
@@ -145,10 +145,10 @@ export function usePracticeSettings({
       const left = own.current
       if (!left) return
       void Promise.allSettled([...pending]).then(() => {
-        if (practiceOverlay.held(recordingId) === left) practiceOverlay.hold(recordingId, null)
+        if (holds.held(recordingId) === left) holds.hold(recordingId, null)
       })
     }
-  }, [practiceOverlay, recordingId])
+  }, [holds, recordingId])
 
   const changeSpeed = (percent: number) => {
     setSpeed(percent)

@@ -9,6 +9,7 @@ import {
   type ReactNode,
   type RefObject,
 } from 'react'
+import { useElementSize } from '../ui/useElementSize'
 
 interface PaneScope {
   scroller: RefObject<HTMLDivElement | null>
@@ -19,11 +20,19 @@ interface PaneScope {
 }
 
 const PaneContext = createContext<PaneScope | null>(null)
+// Apart from the scope, so a resize re-renders only the readers of the height.
+const PaneHeightContext = createContext(0)
 
 /** The pane the caller sits in, or null outside any. */
 // eslint-disable-next-line react-refresh/only-export-components
 export function usePane(): PaneScope | null {
   return useContext(PaneContext)
+}
+
+/** The client height of the pane the caller sits in, zero until measured or outside any. */
+// eslint-disable-next-line react-refresh/only-export-components
+export function usePaneHeight(): number {
+  return useContext(PaneHeightContext)
 }
 
 /**
@@ -43,21 +52,25 @@ export function PaneScroller({
   const scroller = scrollerRef ?? own
   const bar = useRef<HTMLDivElement>(null)
   const [titleOut, setTitleOut] = useState<boolean | null>(null)
+  // Measured here, since a child's layout effect runs before this element's ref is attached.
+  const { height } = useElementSize(scroller)
   const scope = useMemo(() => ({ scroller, bar, titleOut, setTitleOut }), [scroller, titleOut])
   return (
     <PaneContext value={scope}>
-      {/* Relative, so an absolute box inside, such as a hidden announcer, is clipped and
-          scrolled by the pane instead of stretching the window. */}
-      {/* Scroll padding keeps a control that takes focus clear of the pinned bar above and the
-          floating phone chrome below. */}
-      <div
-        ref={scroller}
-        data-pane-scroller
-        className={`relative scroll-pt-(--pane-bar-clearance) scroll-pb-(--float-clearance) ${className}`}
-        {...rest}
-      >
-        {children}
-      </div>
+      <PaneHeightContext value={height}>
+        {/* Relative, so an absolute box inside, such as a hidden announcer, is clipped and
+            scrolled by the pane instead of stretching the window. */}
+        {/* Scroll padding keeps a control that takes focus clear of the pinned bar above and the
+            floating phone chrome below. */}
+        <div
+          ref={scroller}
+          data-pane-scroller
+          className={`relative scroll-pt-(--pane-bar-clearance) scroll-pb-(--float-clearance) ${className}`}
+          {...rest}
+        >
+          {children}
+        </div>
+      </PaneHeightContext>
     </PaneContext>
   )
 }

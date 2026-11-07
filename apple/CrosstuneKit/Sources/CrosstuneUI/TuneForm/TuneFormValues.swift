@@ -121,18 +121,18 @@ public struct TuneFormValues: Hashable, Sendable {
     /// The tune fields as the form holds them, trimmed, for comparing against what is stored.
     public var tuneInput: TuneInput {
         TuneInput(
-            title: trimmed(title), alternateTitles: splitTitles(alternateTitles), genre: blankToNil(genre),
-            lyrics: blankToNil(lyrics), key: blankToNil(key), tuneType: blankToNil(tuneType),
-            modes: modes.filter { !$0.isEmpty }, composer: blankToNil(composer), tunings: tuningsMap(stored: [:]),
-            partStructure: blankToNil(partStructure), timeSignature: timeSignature.isEmpty ? nil : timeSignature,
+            title: trimmed(title), alternateTitles: splitTitles(alternateTitles), genre: genre.nilIfBlank,
+            lyrics: lyrics.nilIfBlank, key: key.nilIfBlank, tuneType: tuneType.nilIfBlank,
+            modes: modes.filter { !$0.isEmpty }, composer: composer.nilIfBlank, tunings: tuningsMap(stored: [:]),
+            partStructure: partStructure.nilIfBlank, timeSignature: timeSignature.isEmpty ? nil : timeSignature,
             isCrooked: isCrooked)
     }
 
     /// The musician's own row fields as the form holds them, trimmed.
     public var userTuneInput: UserTuneInput {
         UserTuneInput(
-            status: status, learnedFrom: blankToNil(learnedFrom), learnedOn: learnedOn.isEmpty ? nil : learnedOn,
-            notes: blankToNil(notes))
+            status: status, learnedFrom: learnedFrom.nilIfBlank, learnedOn: learnedOn.isEmpty ? nil : learnedOn,
+            notes: notes.nilIfBlank)
     }
 
     /// The stored map with each instrument the form changed written over it. A key this build
@@ -141,7 +141,7 @@ public struct TuneFormValues: Hashable, Sendable {
         var map = stored
         for instrument in Vocabulary.instruments {
             guard let entry = tunings[instrument] else { continue }
-            let tuning = blankToNil(entry.tuning)
+            let tuning = entry.tuning.nilIfBlank
             let current = tuningEntry(stored, instrument: instrument)
             if tuning == current.tuning && entry.capo == current.capo { continue }
             map = setTuning(map, instrument: instrument, tuning: tuning, capo: entry.capo)
@@ -216,11 +216,6 @@ private func changed<Value: Equatable & Sendable>(_ next: Value, _ before: Value
 
 private func trimmed(_ value: String) -> String {
     value.trimmingCharacters(in: .whitespacesAndNewlines)
-}
-
-private func blankToNil(_ value: String) -> String? {
-    let value = trimmed(value)
-    return value.isEmpty ? nil : value
 }
 
 private func splitTitles(_ value: String) -> [String] {

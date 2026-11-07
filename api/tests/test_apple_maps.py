@@ -12,6 +12,7 @@ from crosstune.places.maps import (
     MapsBusyError,
     MapsError,
     PlaceHit,
+    ReversePlace,
 )
 from crosstune.vocabulary import LIMITS
 from tests.conftest import MockHttp
@@ -33,6 +34,18 @@ GALAX = {
         "administrativeAreaCode": "VA",
     },
     "formattedAddressLines": ["Galax, VA", "United States"],
+}
+E_23RD = {
+    "name": "158 E 23rd St",
+    "coordinate": {"latitude": 40.7399, "longitude": -73.9853},
+    "country": "United States",
+    "countryCode": "US",
+    "structuredAddress": {
+        "locality": "New York",
+        "administrativeAreaCode": "NY",
+        "fullThoroughfare": "158 E 23rd St",
+    },
+    "formattedAddressLines": ["158 E 23rd St", "New York, NY 10010", "United States"],
 }
 ENNIS = {
     "name": "Ennis",
@@ -163,6 +176,24 @@ async def test_search_leans_toward_the_account_country(maps: AppleMaps, http: Mo
         assert hint not in params
 
 
+async def test_search_leans_toward_a_given_point_over_the_country(
+    maps: AppleMaps, http: MockHttp
+) -> None:
+    async with http.client() as client:
+        await maps.search(client, "globe bar", country="US", near=(40.7394, -73.9826), timeout=5)
+
+    assert _sent(http, SEARCH_URL)[0].url.params["searchLocation"] == "40.7394,-73.9826"
+
+
+async def test_search_leans_toward_a_given_point_with_no_country(
+    maps: AppleMaps, http: MockHttp
+) -> None:
+    async with http.client() as client:
+        await maps.search(client, "globe bar", country=None, near=(40.7394, -73.9826), timeout=5)
+
+    assert _sent(http, SEARCH_URL)[0].url.params["searchLocation"] == "40.7394,-73.9826"
+
+
 @pytest.mark.parametrize("country", [None, "XX"])
 async def test_search_without_a_known_country_leans_nowhere(
     maps: AppleMaps, http: MockHttp, country: str | None
@@ -270,6 +301,79 @@ async def test_reverse_name_uses_first_result(maps: AppleMaps, http: MockHttp) -
 
     assert name == "Galax, VA"
     assert _sent(http, REVERSE_URL)[0].url.params["loc"] == "36.6612,-80.9239"
+
+
+async def test_reverse_place_returns_name_and_address(maps: AppleMaps, http: MockHttp) -> None:
+    http.add(REVERSE_URL, httpx2.Response(200, json={"results": [E_23RD]}))
+    async with http.client() as client:
+        place = await maps.reverse_place(client, 40.7399, -73.9853, country=None, timeout=5)
+
+    assert place == ReversePlace(
+        name="158 E 23rd St, New York, NY",
+        address="158 E 23rd St, New York, NY",
+        lat=40.7399,
+        lon=-73.9853,
+    )
+    assert _sent(http, REVERSE_URL)[0].url.params["loc"] == "40.7399,-73.9853"
+
+
+async def test_reverse_place_names_a_venue_with_its_street_and_town(
+    maps: AppleMaps, http: MockHttp
+) -> None:
+    venue = {
+        **E_23RD,
+        "name": "Jalopy Theatre",
+        "structuredAddress": {
+            "locality": "New York",
+            "subLocality": "Brooklyn",
+            "administrativeAreaCode": "NY",
+            "fullThoroughfare": "315 Columbia St",
+            "postCode": "11231",
+        },
+        "formattedAddressLines": [
+            "Jalopy Theatre",
+            "315 Columbia St",
+            "Brooklyn, NY 11231",
+            "United States",
+        ],
+    }
+    http.add(REVERSE_URL, httpx2.Response(200, json={"results": [venue]}))
+    async with http.client() as client:
+        place = await maps.reverse_place(client, 40.68, -74.0, country=None, timeout=5)
+
+    assert place is not None
+    assert place.address == "Jalopy Theatre, 315 Columbia St, Brooklyn, NY"
+
+
+async def test_reverse_place_outside_the_us_keeps_the_country_and_drops_the_post_code(
+    maps: AppleMaps, http: MockHttp
+) -> None:
+    berlin = {
+        "name": "Hauptstrasse 5",
+        "country": "Germany",
+        "countryCode": "DE",
+        "structuredAddress": {
+            "locality": "Berlin",
+            "fullThoroughfare": "Hauptstrasse 5",
+            "postCode": "10115",
+        },
+        "formattedAddressLines": ["Hauptstrasse 5", "10115 Berlin", "Germany"],
+    }
+    http.add(REVERSE_URL, httpx2.Response(200, json={"results": [berlin]}))
+    async with http.client() as client:
+        abroad = await maps.reverse_place(client, 52.5, 13.4, country="US", timeout=5)
+        home = await maps.reverse_place(client, 52.5, 13.4, country="DE", timeout=5)
+
+    assert abroad is not None
+    assert abroad.address == "Hauptstrasse 5, Berlin, Germany"
+    assert home is not None
+    assert home.address == "Hauptstrasse 5, Berlin"
+
+
+async def test_reverse_place_is_none_without_results(maps: AppleMaps, http: MockHttp) -> None:
+    http.add(REVERSE_URL, httpx2.Response(200, json={"results": []}))
+    async with http.client() as client:
+        assert await maps.reverse_place(client, 0.0, 0.0, country=None, timeout=5) is None
 
 
 async def test_reverse_name_is_none_without_results(maps: AppleMaps, http: MockHttp) -> None:

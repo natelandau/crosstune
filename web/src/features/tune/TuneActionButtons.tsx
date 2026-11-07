@@ -1,7 +1,6 @@
 import { ExternalLink, Gauge, Play, Square, TextQuote } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { recordingsPlayable } from '../../billing/plan'
-import { usePlanCheckOrUnknown, usePlanOrUnknown } from '../../billing/usePlan'
+import { usePlanCheckOrUnknown, useRecordingsPlayable } from '../../billing/usePlan'
 import type { LocalRecordingLink } from '../../db/types'
 import { useFrame } from '../../platform/frame'
 import { Button } from '../../ui/Button'
@@ -13,7 +12,7 @@ import { TUNE_ROW_ORIGIN } from '../player/playLog'
 import { PLAY } from '../player/transportCopy'
 import { isPlaying, usePlayer } from '../player/usePlayer'
 import { useTuneSource } from '../player/useTuneSource'
-import { usePracticeOverlay } from '../practice/usePracticeOverlay'
+import { useOpenRecordingPage } from '../player/recordingPageOpener'
 import type { RecordingView } from '../recordings/useRecordings'
 import { LYRICS_SECTION } from './tuneScreenCopy'
 import { PRACTICE, STOP } from './tuneActionsCopy'
@@ -46,7 +45,7 @@ function RecordingActionButtons({ view, ...rest }: { view: RecordingView } & Row
   const item = { kind: 'recording' as const, id: view.recording.id }
   const play: PlayAction = isPlaying(player, item)
     ? { control: 'close', onPress: () => player.close() }
-    : { control: 'play', onPress: () => player.play(item, TUNE_ROW_ORIGIN) }
+    : { control: 'play', onPress: () => player.play(item, { origin: TUNE_ROW_ORIGIN }) }
   return <ActionButtons {...rest} play={play} />
 }
 
@@ -116,8 +115,8 @@ export function TuneActionButtons({
 }) {
   const player = usePlayer()
   const source = useTuneSource(tuneId, player.item?.kind === 'recording' ? player.item.id : null)
-  const practice = usePracticeOverlay()
-  const recordingsPlay = recordingsPlayable(usePlanOrUnknown())
+  const openPage = useOpenRecordingPage()
+  const recordingsPlay = useRecordingsPlayable()
   // An unread entitlement judges as unknown, which plays; waiting keeps a free plan from
   // flashing a button it then drops.
   const planRead = usePlanCheckOrUnknown().row !== undefined
@@ -134,7 +133,9 @@ export function TuneActionButtons({
       ? source.view.recording.id
       : (media.recordingRows.find((row) => practiceable(row.view))?.view.recording.id ?? null)
 
-  const row = { practiceId, onPractice: practice.open, onLyrics }
+  const onPractice = (recordingId: string) =>
+    openPage?.(recordingId, { tab: 'practice', source: 'tune', tuneId })
+  const row = { practiceId, onPractice, onLyrics }
   if (source === null) return <ActionButtons {...row} play={null} />
   return source.kind === 'recording' ? (
     <RecordingActionButtons key={source.view.recording.id} view={source.view} {...row} />

@@ -94,6 +94,7 @@ export const PREMIUM_ENTRIES = [
   'upload',
   'add_to_recordings',
   'recording_row',
+  'recording_page',
   'recordings_line',
   'scan',
   'add_scan',
@@ -119,7 +120,15 @@ export const INSTRUMENTS = [
   'bouzouki',
   'mountain_dulcimer',
 ] as const
-const PLACE_METHODS = ['search', 'suggestion', 'nearby', 'saved'] as const
+const PLACE_METHODS = [
+  'search',
+  'suggestion',
+  'nearby',
+  'saved',
+  'current_location',
+  'pin',
+] as const
+const RECORDING_PAGE_LAYOUTS = ['details', 'practice', 'wide'] as const
 const SAVED_LOCATION_METHODS = ['nearby', 'search', 'custom'] as const
 
 /** The plan's `screen` enum without the iPad practice screen, which only the Apple apps have. */
@@ -189,6 +198,7 @@ export const ENUMS = {
   tune_status: TUNE_STATUSES,
   instrument: INSTRUMENTS,
   place_method: PLACE_METHODS,
+  recording_page_layout: RECORDING_PAGE_LAYOUTS,
   saved_location_method: SAVED_LOCATION_METHODS,
 } as const
 
@@ -224,6 +234,7 @@ export type PlanNotice = Notice
 export type Appearance = (typeof APPEARANCES)[number]
 export type TuneStatus = (typeof TUNE_STATUSES)[number]
 export type Instrument = (typeof INSTRUMENTS)[number]
+export type RecordingPageLayout = (typeof RECORDING_PAGE_LAYOUTS)[number]
 export type PlaceMethod = (typeof PLACE_METHODS)[number]
 export type SavedLocationMethod = (typeof SAVED_LOCATION_METHODS)[number]
 export type Screen = (typeof SCREENS)[number]
@@ -299,6 +310,7 @@ export interface EventProps {
     list: ImportList
   }
   recording_started: { source: Source }
+  recording_page_opened: { recording_id: string; layout: RecordingPageLayout; source: Source }
   recording_saved: {
     duration_bucket: DurationBucket
     filed: boolean

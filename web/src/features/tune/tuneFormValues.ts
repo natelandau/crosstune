@@ -14,6 +14,7 @@ import { isTuneStatus } from '../../domain/status'
 import { isFullYear, YEAR_FORMAT, type DateParts } from '../../ui/partialDate'
 import { setTuning, tuningEntry, tuningsMap, type TuningsMap } from '../../domain/instruments'
 import { timeSignatureFor } from './tuneTypes'
+import { blankToNull } from '../../text/blank'
 
 /** One instrument's tuning and capo as the form holds them: text, empty when unset. */
 export interface TuningValues {
@@ -94,8 +95,6 @@ export function valuesFromRows(tune: LocalTune, userTune: LocalUserTune): TuneFo
     notes: userTune.notes ?? '',
   }
 }
-
-const blankToNull = (value: string): string | null => (value.trim() ? value.trim() : null)
 
 /**
  * The stored map with each instrument the form changed written over it. A key this client does

@@ -50,7 +50,7 @@ extension PracticeModel {
         run { [self] in
             do {
                 let row = try await writer.add(recordingID, span)
-                player.loops.select(row)
+                select(row)
                 announce(PracticeText.loopCreated)
             } catch {
                 report(error)
@@ -174,7 +174,7 @@ extension PracticeModel {
         putDraft(drag.id, span)
         // A loop dragged off the playhead takes it along on release instead.
         if drag.id == selectedID, playheadMs >= span.startMs, playheadMs < span.endMs {
-            player.loops.hold(drag.id, span)
+            hold(drag.id, span)
         }
         setAutoPan(autoPanDepth(atX: x))
     }
@@ -222,7 +222,7 @@ extension PracticeModel {
 
     private func letGo(_ id: String) {
         dropDraft(id)
-        if id == selectedID { player.loops.hold(id, nil) }
+        if id == selectedID { hold(id, nil) }
     }
 
     private func autoPanDepth(atX x: Double) -> Double {

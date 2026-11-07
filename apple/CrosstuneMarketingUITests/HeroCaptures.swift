@@ -73,13 +73,12 @@ final class HeroCaptures: CaptureTestCase {
 
         let recordingRow = shown(
             app.buttons.matching(NSPredicate(format: "label CONTAINS 'Waiting to upload'")).firstMatch)
-        timeline.drag(recordingRow, from: CGVector(dx: 0.85, dy: 0.5), to: CGVector(dx: 0.3, dy: 0.5), hold: 0.05)
-        timeline.tap(shown(app.buttons["Add to tune"]))
+        openRecordingPage(recordingRow, timeline: timeline)
+        timeline.tap(shown(app.buttons["Linked Tune, Not set"]))
         dismissKeyboardTip(app)
         app.typeText("Half")
         timeline.tap(shown(app.buttons["Add to Half Past Four"]))
-        timeline.tap(shown(app.buttons["Open Half Past Four"]))
-        shown(app.staticTexts["Half Past Four"])
+        shown(app.buttons["Linked Tune, Half Past Four"])
         Thread.sleep(forTimeInterval: 1.5)
         timeline.end()
         timeline.attach(to: self)
@@ -115,6 +114,11 @@ extension CaptureTestCase {
         let more = app.buttons["More details"]
         if more.exists { more.tap() }
         shown(button(app, startingWith: "Learned from"))
+    }
+
+    /// Opens a recording's page from its row in the Recordings list.
+    func openRecordingPage(_ row: XCUIElement, timeline: CaptureTimeline) {
+        timeline.tap(row)
     }
 
     /// A fresh simulator's first keyboard opens under a swipe-to-type tip.

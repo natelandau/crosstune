@@ -9,7 +9,7 @@ import { ListPlaybackProvider } from '../features/player/ListPlaybackProvider'
 import { PlayerProvider } from '../features/player/PlayerProvider'
 import { PlayerContext, type Player } from '../features/player/usePlayer'
 import { RecordStateProvider, useRecordState } from '../features/capture/RecordState'
-import { PracticeOverlayStateProvider } from '../features/practice/PracticeOverlayState'
+import { PracticeHoldsProvider } from '../features/practice/PracticeHoldsProvider'
 import { useAppearance } from '../theme/appearance'
 import { ShortcutSheet } from '../features/keyboard/ShortcutSheet'
 import { ShortcutSheetProvider } from '../features/keyboard/ShortcutsProvider'
@@ -27,8 +27,7 @@ import { NoticeHost } from '../features/plan/NoticeHost'
 import { PremiumSheetProvider, usePremiumSheet } from '../features/plan/PremiumSheetProvider'
 import { StoreProvider } from '../billing/StoreProvider'
 import type { Store } from '../billing/store'
-import { recordingsPlayable } from '../billing/plan'
-import { usePlanOrUnknown } from '../billing/usePlan'
+import { useRecordingsPlayable } from '../billing/usePlan'
 import { ToastProvider } from '../ui/Toast'
 import type { BackAdapter } from '../platform/backHandler'
 import { BackStackProvider } from './BackStackProvider'
@@ -82,14 +81,14 @@ export function App({
   ) : (
     <TuneFormProvider>{withSheets}</TuneFormProvider>
   )
-  // Above the router, so practice's holds reach the bar and the overlay in every route, and the
-  // round Record button, the capsule, and a tune page reach the one recorder.
+  // Above the router, so practice's holds reach the bar and the recording page in every route,
+  // and the round Record button, the capsule, and a tune page reach the one recorder.
   const practiced = (
-    <PracticeOverlayStateProvider>
+    <PracticeHoldsProvider>
       <RecordStateProvider>
         <RecordLauncher>{routed}</RecordLauncher>
       </RecordStateProvider>
-    </PracticeOverlayStateProvider>
+    </PracticeHoldsProvider>
   )
   // Above the router too, so the bars and practice reach the list that plays.
   const listed = <ListPlaybackProvider>{practiced}</ListPlaybackProvider>
@@ -130,7 +129,7 @@ export function App({
  */
 function RecordLauncher({ children }: { children: ReactNode }) {
   const { start } = useRecordState()
-  const playable = recordingsPlayable(usePlanOrUnknown())
+  const playable = useRecordingsPlayable()
   const premium = usePremiumSheet()
   const launcher = useMemo<Launcher>(
     () => ({

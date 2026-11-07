@@ -9,7 +9,7 @@ struct StatsDestination: ViewModifier {
             content.navigationDestination(for: StatsRoute.self) { _ in
                 StatsScreen()
                     // A tune opened from the stats screen is not the tab's own pushed tune.
-                    .environment(\.stackTune, nil)
+                    .environment(\.stackPath, nil)
             }
         } else {
             content

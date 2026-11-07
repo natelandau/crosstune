@@ -1,6 +1,8 @@
 import type {
   DeleteAccountOptions,
+  PlaceHint,
   PlaceResult,
+  ReversePlaceResponse,
   ResolveResponse,
   SearchGroup,
   SnapshotQuery,
@@ -20,6 +22,15 @@ export type SearchOutcome =
 /** Like `SearchOutcome`, plus `unavailable` for a server with no place search configured. */
 export type PlaceSearchOutcome =
   | { kind: 'ok'; results: PlaceResult[] }
+  | { kind: 'offline' }
+  | { kind: 'rate_limited'; retryAfterSeconds: number }
+  | { kind: 'unavailable' }
+  | { kind: 'failed' }
+
+/** Like `PlaceSearchOutcome`, plus `not_found` for a point with no place. */
+export type PlaceReverseOutcome =
+  | { kind: 'ok'; place: ReversePlaceResponse }
+  | { kind: 'not_found' }
   | { kind: 'offline' }
   | { kind: 'rate_limited'; retryAfterSeconds: number }
   | { kind: 'unavailable' }
@@ -55,7 +66,8 @@ export interface SyncEngine {
   pullEvents(): Promise<void>
   resolveLink(url: string): Promise<ResolveResponse | null>
   searchRecordings(q: string, providers: Provider[], country: string): Promise<SearchOutcome>
-  searchPlaces(q: string): Promise<PlaceSearchOutcome>
+  searchPlaces(q: string, near?: PlaceHint): Promise<PlaceSearchOutcome>
+  reversePlace(lat: number, lon: number): Promise<PlaceReverseOutcome>
   /** A fresh MapKit JS token, or null offline or when the server cannot issue one. */
   mapKitToken(): Promise<string | null>
   /** A signed map image URL for a point, or null offline or when the server cannot make one. */

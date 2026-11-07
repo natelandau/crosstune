@@ -1,0 +1,43 @@
+import SwiftUI
+
+/// The page's More actions menu: trim, split, the pin, Go to tune, the recording's origin, and
+/// Delete, each disabled with its reason when it cannot be used now.
+struct RecordingPageMenu: View {
+    let rows: ScreenRows
+    let goesToTune: Bool
+    let trimDisabledReason: String?
+    let splitDisabledReason: String?
+    let recordingsPlay: Bool
+    let onChoose: (RecordingMenuItem) -> Void
+
+    var body: some View {
+        Menu {
+            ForEach(
+                RecordingMenuItem.items(
+                    pinned: rows.userTuneID == nil ? nil : rows.playsFirst, goesToTune: goesToTune,
+                    trimDisabledReason: trimDisabledReason,
+                    splitDisabledReason: splitDisabledReason,
+                    deleteDisabledReason: RecordingScreenText.deleteDisabledReason(rows.view),
+                    openOrigin: RecordingMenuItem.openOrigin(for: rows.recording), trims: recordingsPlay),
+                id: \.self
+            ) { item in
+                if case .delete = item { Divider() }
+                Button(role: item.isDelete ? .destructive : nil) {
+                    onChoose(item)
+                } label: {
+                    Label {
+                        Text(item.label)
+                        if let reason = item.disabledReason { Text(reason) }
+                    } icon: {
+                        Image(systemName: item.systemImage)
+                    }
+                }
+                .disabled(item.disabledReason != nil)
+            }
+        } label: {
+            Label(TuneScreen.moreActions, systemImage: "ellipsis")
+                .labelStyle(.iconOnly)
+        }
+        .help(TuneScreen.moreActions)
+    }
+}

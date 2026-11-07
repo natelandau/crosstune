@@ -1,78 +1,76 @@
 import { useEffect, useRef, useState } from 'react'
 import { isPrecise } from '../domain/placeDistances'
 import type { MapKit, MapKitMap } from '../platform/mapkit'
-import { useMapKit } from '../platform/useMapKit'
+import { useMapKitState } from '../platform/useMapKit'
+import { useOnline } from '../sync/SyncProvider'
 import { PALETTE, type Scheme } from '../theme/tokens'
 import { useScheme } from '../theme/useScheme'
+import { mapOptions, MINIMUM_SPAN_M, regionAround } from './mapRegion'
+import { useLatest } from './useLatest'
 
-/** The least ground the map spans, so a pin shows the streets around it. */
-const MINIMUM_SPAN_M = 400
-const M_PER_DEGREE_LATITUDE = 111_320
-
-function drawMap(
-  mapkit: MapKit,
-  element: HTMLElement,
-  lat: number,
-  lon: number,
-  accuracyM: number | null,
-  scheme: Scheme,
-) {
-  const map = new mapkit.Map(element, {
-    isScrollEnabled: false,
-    isZoomEnabled: false,
-    isRotationEnabled: false,
-    showsMapTypeControl: false,
-    showsZoomControl: false,
-    showsCompass: 'hidden',
-    showsScale: 'hidden',
-    colorScheme: scheme,
-  })
-  try {
-    populate(mapkit, map, lat, lon, accuracyM, scheme)
-  } catch (error) {
-    map.destroy()
-    throw error
-  }
-  return map
-}
-
-function populate(
+/** Centers `map` on the spot and marks it, returning a call that takes the mark away. */
+function markSpot(
   mapkit: MapKit,
   map: MapKitMap,
   lat: number,
   lon: number,
   accuracyM: number | null,
   scheme: Scheme,
-) {
+): () => void {
   const center = new mapkit.Coordinate(lat, lon)
-  const spanM = Math.max(MINIMUM_SPAN_M, (accuracyM ?? 0) * 3)
-  const latitudeDelta = spanM / M_PER_DEGREE_LATITUDE
-  // A degree of longitude shrinks toward the poles.
-  const longitudeDelta = latitudeDelta / Math.max(Math.cos((lat * Math.PI) / 180), 0.01)
-  map.region = new mapkit.CoordinateRegion(
-    center,
-    new mapkit.CoordinateSpan(latitudeDelta, longitudeDelta),
-  )
+  map.region = regionAround(mapkit, lat, lon, Math.max(MINIMUM_SPAN_M, (accuracyM ?? 0) * 3))
   if (isPrecise(accuracyM)) {
-    map.addAnnotation(new mapkit.MarkerAnnotation(center))
-  } else if (accuracyM !== null) {
-    const color = PALETTE[scheme].brand
-    map.addOverlay(
-      new mapkit.CircleOverlay(center, accuracyM, {
-        style: new mapkit.Style({
-          fillColor: color,
-          fillOpacity: 0.2,
-          strokeColor: color,
-          lineWidth: 1,
-        }),
-      }),
-    )
+    const pin = map.addAnnotation(new mapkit.MarkerAnnotation(center))
+    return () => map.removeAnnotation(pin)
   }
+  if (accuracyM === null) return () => {}
+  const color = PALETTE[scheme].brand
+  const circle = map.addOverlay(
+    new mapkit.CircleOverlay(center, accuracyM, {
+      style: new mapkit.Style({
+        fillColor: color,
+        fillOpacity: 0.2,
+        strokeColor: color,
+        lineWidth: 1,
+      }),
+    }),
+  )
+  return () => map.removeOverlay(circle)
+}
+
+export const MAP_UNAVAILABLE = 'The map is unavailable right now.'
+export const MAP_NEEDS_CONNECTION = 'The map needs a connection.'
+
+/**
+ * What a map's space says when there is no map: it needs a connection offline, and is
+ * unavailable when MapKit cannot load or draw. Null while MapKit loads, or when the map shows.
+ */
+// eslint-disable-next-line react-refresh/only-export-components
+export function useMapMessage(
+  status: 'loading' | 'ready' | 'unavailable',
+  failed = false,
+): string | null {
+  const online = useOnline()
+  if (!online) return MAP_NEEDS_CONNECTION
+  return status === 'unavailable' || (status === 'ready' && failed) ? MAP_UNAVAILABLE : null
+}
+
+/** The message in the muted style of an empty state, filling the map's own space. */
+export function MapMessage({ message, height }: { message: string; height: string | number }) {
+  return (
+    <div
+      role="status"
+      className="t-secondary text-secondary flex w-full items-center justify-center rounded-lg px-6 text-center"
+      style={{ height }}
+    >
+      {message}
+    </div>
+  )
 }
 
 /**
  * A small still map of a spot: a pin for a precise point, or a circle as wide as the fix's
- * accuracy for a loose one. Draws nothing until MapKit JS has loaded, and nothing at all when
+ * accuracy for a loose one. Draws nothing while MapKit JS loads, and says why when
  * it cannot load or draw. Apple's terms want an Apple map wherever an Apple address or venue
  * shows, so a page with a point shows one when it can.
  */
@@ -80,40 +78,76 @@ export function LocationMap({
   lat,
   lon,
   accuracyM,
+  height = 180,
 }: {
   lat: number
   lon: number
   accuracyM: number | null
+  /** In CSS pixels. */
+  height?: number
 }) {
-  const mapkit = useMapKit()
+  const { mapkit, status } = useMapKitState()
   const scheme = useScheme()
   const element = useRef<HTMLDivElement>(null)
+  const map = useRef<MapKitMap | null>(null)
   const [failedFor, setFailedFor] = useState<string | null>(null)
   const key = `${lat},${lon},${accuracyM},${scheme}`
+  const failed = failedFor === key
+  const keyRef = useLatest(key)
+
+  // One map per scheme; a new spot moves it and its mark rather than drawing a new one.
+  useEffect(() => {
+    if (!mapkit || !element.current || failed) return
+    let made: MapKitMap
+    try {
+      made = new mapkit.Map(element.current, {
+        ...mapOptions(scheme),
+        isScrollEnabled: false,
+        isZoomEnabled: false,
+        showsZoomControl: false,
+      })
+    } catch {
+      // Deferred so the effect makes no synchronous state write.
+      queueMicrotask(() => setFailedFor(keyRef.current))
+      return
+    }
+    map.current = made
+    return () => {
+      map.current = null
+      try {
+        made.destroy()
+      } catch {
+        // A map that cannot be torn down has nothing left to lose.
+      }
+    }
+  }, [mapkit, scheme, failed, keyRef])
 
   useEffect(() => {
-    if (!mapkit || !element.current) return
+    const shown = map.current
+    if (!mapkit || !shown) return
     try {
-      const map = drawMap(mapkit, element.current, lat, lon, accuracyM, scheme)
+      const unmark = markSpot(mapkit, shown, lat, lon, accuracyM, scheme)
       return () => {
         try {
-          map.destroy()
+          unmark()
         } catch {
-          // A map that cannot be torn down has nothing left to lose.
+          // A map that cannot be cleared has nothing left to lose.
         }
       }
     } catch {
-      // Deferred so the effect makes no synchronous state write.
       queueMicrotask(() => setFailedFor(key))
     }
-  }, [mapkit, lat, lon, accuracyM, scheme, key])
+  }, [mapkit, scheme, failed, lat, lon, accuracyM, key])
 
-  if (!mapkit || failedFor === key) return null
+  const message = useMapMessage(status, failed)
+  if (message) return <MapMessage message={message} height={height} />
+  if (!mapkit || failed) return null
   return (
     <div
       ref={element}
       aria-hidden
-      className="ph-no-capture h-[180px] w-full overflow-hidden rounded-lg"
+      className="ph-no-capture w-full overflow-hidden rounded-lg"
+      style={{ height }}
     />
   )
 }

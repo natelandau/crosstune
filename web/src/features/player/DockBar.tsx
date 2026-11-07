@@ -46,8 +46,8 @@ export function DockBar({
         className="t-body max-w-[40%] min-w-0 shrink truncate"
       />
       {transport ? <Place transport={transport} title={title} /> : <span className="flex-1" />}
-      <QueueControls tone="dock" />
-      {transport && (
+      <QueueControls tone="bar" />
+      {(transport || onOpen) && (
         <Button
           icon={Maximize2}
           label={OPEN_RECORDING(title)}

@@ -22,6 +22,8 @@ struct CrosstuneApp: App {
     /// One for the app, so two windows on the Tuner share one microphone session.
     @State private var tuner: TunerModel
     @State private var locationAccess = LocationAccess()
+    /// The location editor's reader of where the device is, one for the app.
+    @State private var deviceLocation = DeviceLocationProvider()
     /// The open store's plan, made again for each store so another account starts unknown.
     @State private var plan: PlanModel?
     /// Which window shows the plan notices, made again with each store's plan.
@@ -94,6 +96,7 @@ struct CrosstuneApp: App {
                 .environment(\.placeSearch, MapKitPlaceSearch.self)
                 .environment(\.nearbySearch, MapKitNearbySearch.self)
                 .environment(\.locationAccess, locationAccess)
+                .environment(\.locationProvider, deviceLocation)
                 .followsDisplaySettings()
                 .tint(appTint)
         }

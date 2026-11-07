@@ -103,11 +103,11 @@ import Testing
         #expect(prompt < openSheets && prompt < recordCover)
     }
 
-    /// The location page's naming sheet opens over the edit sheet, so a rename that hid it from
-    /// the scan fails here rather than passing quietly.
+    /// The naming sheet opens over the location editor, so a rename that hid it from the scan
+    /// fails here rather than passing quietly.
     @Test func theNameLocationSheetIsChecked() throws {
         let sources = try Self.readSources()
-        let page = try #require(sources.first { $0.name == "PlaceSearchView.swift" })
+        let page = try #require(sources.first { $0.name == "LocationEditor.swift" })
         let sheet = page.lines.firstIndex { $0.trimmingCharacters(in: .whitespaces).hasPrefix(".sheet(") }
         let opened = try #require(sheet)
         #expect(page.lines[opened..<min(opened + 10, page.lines.count)].joined().contains("NameLocationSheet("))

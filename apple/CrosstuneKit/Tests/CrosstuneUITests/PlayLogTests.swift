@@ -293,13 +293,13 @@ private let linkTap = PlayAttribution(
         #expect(play.listenedMs == 12_000)
     }
 
-    @Test func aPausedOpenLogsNoPlay() async throws {
+    @Test func aPausedLoadLogsNoPlay() async throws {
         let fixture = ActivityFixture()
-        fixture.player.open(.recording(loggedRecording(), tuneTitle: nil), playing: false)
+        fixture.player.loadPaused(.recording(loggedRecording(), tuneTitle: nil))
         try await eventually { fixture.player.recordingAudio == .loaded }
         try await fixture.heard(playing: false)
         fixture.clock.advance(30_000)
-        fixture.player.isExpanded = false
+        fixture.player.close()
         #expect(fixture.recorded.plays.isEmpty)
     }
 

@@ -291,18 +291,13 @@ private func link(_ provider: String, _ providerRef: String?, url: String = "htt
         #expect(player.title == nil)
     }
 
-    @Test func showsALinksPlayerInFullOnPlayAndARecordingsOnlyWhenAsked() throws {
+    @Test func showsALinksPlayerInFullOnPlayAndNeverARecordings() throws {
         let player = PlayerModel()
         player.play(try #require(PlayerItem.link(youtube())))
-        #expect(player.isExpanded)
-        player.isExpanded = false
-        player.expand()
         #expect(player.isExpanded)
 
         player.play(PlayerItem(kind: .recording, id: "r1", title: "Kitchen Girl"))
         #expect(!player.isExpanded)
-        player.expand()
-        #expect(player.isExpanded)
 
         player.play(try #require(PlayerItem.link(youtube())))
         player.close()
@@ -356,7 +351,7 @@ private func link(_ provider: String, _ providerRef: String?, url: String = "htt
         player.plan = plan
 
         #expect(!player.play(PlayerItem(kind: .recording, id: "r1", title: "Kitchen Girl")))
-        #expect(!player.open(PlayerItem(kind: .recording, id: "r1", title: "Kitchen Girl"), playing: false))
+        #expect(!player.loadPaused(PlayerItem(kind: .recording, id: "r1", title: "Kitchen Girl")))
         #expect(!player.isLoaded)
         // Links are not Premium's to hold.
         #expect(player.play(try #require(PlayerItem.link(youtube()))))
@@ -617,20 +612,20 @@ private final class QuietTrackCommands: TrackCommands {
         player.play(PlayerItem(kind: .recording, id: "r1", title: "Kitchen Girl"))
         #expect(playback.endMessage == nil)
         player.close()
-        #expect(!PlayerBar.isShown(player, playback))
+        #expect(!PlayerBar.isShown(player, playback, in: nil))
     }
 
     @Test func showsTheBarForAMessageWithNothingLoaded() async throws {
         let player = PlayerModel()
         let playback = playback(player)
-        #expect(!PlayerBar.isShown(player, playback))
+        #expect(!PlayerBar.isShown(player, playback, in: nil))
         // Nothing resolves, so the playlist stops with its message.
         playback.start(listID: "l1", name: "Session set", tuneIDs: ["a"], shuffled: false)
         #expect(try await poll { playback.endMessage != nil })
         #expect(!player.isLoaded)
-        #expect(PlayerBar.isShown(player, playback))
+        #expect(PlayerBar.isShown(player, playback, in: nil))
         PlayerBar.closePlayer(player, playback)
-        #expect(!PlayerBar.isShown(player, playback))
+        #expect(!PlayerBar.isShown(player, playback, in: nil))
     }
 }
 

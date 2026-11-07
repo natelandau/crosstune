@@ -75,6 +75,25 @@
         "title": "Change",
         "type": "object"
       },
+      "CountryCenterResponse": {
+        "description": "A point inside the account's country.",
+        "properties": {
+          "lat": {
+            "title": "Lat",
+            "type": "number"
+          },
+          "lon": {
+            "title": "Lon",
+            "type": "number"
+          }
+        },
+        "required": [
+          "lat",
+          "lon"
+        ],
+        "title": "CountryCenterResponse",
+        "type": "object"
+      },
       "DeleteMeRequest": {
         "description": "What the app may send with an account deletion.",
         "properties": {
@@ -787,7 +806,7 @@
         "type": "object"
       },
       "MapKitTokenResponse": {
-        "description": "A MapKit JS token for the web client's map, good only on the web origin.",
+        "description": "A MapKit JS token for the web client's map, good only on the requesting web origin.",
         "properties": {
           "expires_at": {
             "format": "date-time",
@@ -812,6 +831,16 @@
           "clerk_user_id": {
             "title": "Clerk User Id",
             "type": "string"
+          },
+          "country_center": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CountryCenterResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "created_at": {
             "format": "date-time",
@@ -843,7 +872,8 @@
           "clerk_user_id",
           "email",
           "created_at",
-          "storage"
+          "storage",
+          "country_center"
         ],
         "title": "MeResponse",
         "type": "object"
@@ -3295,6 +3325,42 @@
         "title": "ResolveResponse",
         "type": "object"
       },
+      "ReversePlaceResponse": {
+        "description": "The place at a point: the name a recording stores, its address line, and the point.",
+        "properties": {
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "lat": {
+            "title": "Lat",
+            "type": "number"
+          },
+          "lon": {
+            "title": "Lon",
+            "type": "number"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "address",
+          "lat",
+          "lon"
+        ],
+        "title": "ReversePlaceResponse",
+        "type": "object"
+      },
       "ScanChangeResult": {
         "description": "The outcome of one change to a scan.",
         "properties": {
@@ -5155,8 +5221,27 @@
     },
     "/v1/places/mapkit-token": {
       "get": {
-        "description": "Issue a short-lived MapKit JS token restricted to the web origin.",
+        "description": "Issue a short-lived MapKit JS token restricted to the web client's origin.\n\nA browser sends no `Origin` header on a same-origin request, so the page passes its own\norigin as `origin`. An origin sign-in would not accept gets the configured web origin.",
         "operationId": "mapkit_token_v1_places_mapkit_token_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "origin",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Origin"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -5214,9 +5299,104 @@
         ]
       }
     },
+    "/v1/places/reverse": {
+      "get": {
+        "description": "Name a point as a street address with its town, and give its whole address.",
+        "operationId": "reverse_place_v1_places_reverse_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "lat",
+            "required": true,
+            "schema": {
+              "maximum": 90,
+              "minimum": -90,
+              "title": "Lat",
+              "type": "number"
+            }
+          },
+          {
+            "in": "query",
+            "name": "lon",
+            "required": true,
+            "schema": {
+              "maximum": 180,
+              "minimum": -180,
+              "title": "Lon",
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReversePlaceResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Too Many Requests",
+            "headers": {
+              "Retry-After": {
+                "description": "Whole seconds to wait before trying again.",
+                "required": false,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Reverse Place",
+        "tags": [
+          "places"
+        ]
+      }
+    },
     "/v1/places/search": {
       "get": {
-        "description": "Named places, street addresses, and towns for the text typed so far, each named as picked.\n\nResults lean toward the account's country, never toward the user's own location.",
+        "description": "Named places, street addresses, and towns for the text typed so far, each named as picked.\n\nResults lean toward the point given by `lat` and `lon`, which come together, else toward the\naccount's country.",
         "operationId": "search_places_v1_places_search_get",
         "parameters": [
           {
@@ -5228,6 +5408,42 @@
               "minLength": 2,
               "title": "Q",
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "lat",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 90,
+                  "minimum": -90,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Lat"
+            }
+          },
+          {
+            "in": "query",
+            "name": "lon",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 180,
+                  "minimum": -180,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Lon"
             }
           }
         ],
@@ -5298,8 +5514,8 @@
             "name": "lat",
             "required": true,
             "schema": {
-              "exclusiveMaximum": 90,
-              "exclusiveMinimum": -90,
+              "maximum": 90,
+              "minimum": -90,
               "title": "Lat",
               "type": "number"
             }
@@ -5309,8 +5525,8 @@
             "name": "lon",
             "required": true,
             "schema": {
-              "exclusiveMaximum": 180,
-              "exclusiveMinimum": -180,
+              "maximum": 180,
+              "minimum": -180,
               "title": "Lon",
               "type": "number"
             }

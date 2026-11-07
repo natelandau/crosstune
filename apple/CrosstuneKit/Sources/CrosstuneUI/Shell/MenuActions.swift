@@ -94,7 +94,7 @@ extension FocusedValues {
     @Entry public var nextTuneAction: MenuAction?
     /// Plays the playing list's previous tune. Published by the shell with ``nextTuneAction``.
     @Entry public var previousTuneAction: MenuAction?
-    /// Opens the loaded recording's screen. Published by the shell while a recording is loaded.
+    /// Opens the loaded recording's page. Published by the shell while a recording is loaded.
     @Entry public var goToRecordingAction: MenuAction?
     /// Unloads the player. Published by the shell while something is loaded, or while a
     /// playlist's end message shows.

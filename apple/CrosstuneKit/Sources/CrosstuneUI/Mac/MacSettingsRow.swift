@@ -151,7 +151,7 @@ import CrosstuneDesign
             .focusEffectDisabled()
             .focused($focused)
             .macSettingsRowRing(focused)
-            .accessibilityHint(hint ?? "")
+            .accessibilityHint(hint ?? "", isEnabled: hint != nil)
         }
     }
 

@@ -22,7 +22,7 @@ struct PracticeKeys: ViewModifier {
         content
             .onKeyPress(.space, phases: .down) { _ in
                 guard isReady else { return .ignored }
-                model.player.audio.toggle()
+                model.togglePlay()
                 return .handled
             }
             .onKeyPress(characters: CharacterSet(charactersIn: "nN[]"), phases: .down) { press in

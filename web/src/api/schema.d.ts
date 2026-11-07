@@ -146,9 +146,32 @@ export interface paths {
         };
         /**
          * Mapkit Token
-         * @description Issue a short-lived MapKit JS token restricted to the web origin.
+         * @description Issue a short-lived MapKit JS token restricted to the web client's origin.
+         *
+         *     A browser sends no `Origin` header on a same-origin request, so the page passes its own
+         *     origin as `origin`. An origin sign-in would not accept gets the configured web origin.
          */
         get: operations["mapkit_token_v1_places_mapkit_token_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/places/reverse": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Reverse Place
+         * @description Name a point as a street address with its town, and give its whole address.
+         */
+        get: operations["reverse_place_v1_places_reverse_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -168,7 +191,8 @@ export interface paths {
          * Search Places
          * @description Named places, street addresses, and towns for the text typed so far, each named as picked.
          *
-         *     Results lean toward the account's country, never toward the user's own location.
+         *     Results lean toward the point given by `lat` and `lon`, which come together, else toward the
+         *     account's country.
          */
         get: operations["search_places_v1_places_search_get"];
         put?: never;
@@ -495,6 +519,16 @@ export interface components {
             updated_at: string;
         };
         /**
+         * CountryCenterResponse
+         * @description A point inside the account's country.
+         */
+        CountryCenterResponse: {
+            /** Lat */
+            lat: number;
+            /** Lon */
+            lon: number;
+        };
+        /**
          * DeleteMeRequest
          * @description What the app may send with an account deletion.
          */
@@ -813,7 +847,7 @@ export interface components {
         };
         /**
          * MapKitTokenResponse
-         * @description A MapKit JS token for the web client's map, good only on the web origin.
+         * @description A MapKit JS token for the web client's map, good only on the requesting web origin.
          */
         MapKitTokenResponse: {
             /**
@@ -831,6 +865,7 @@ export interface components {
         MeResponse: {
             /** Clerk User Id */
             clerk_user_id: string;
+            country_center: components["schemas"]["CountryCenterResponse"] | null;
             /**
              * Created At
              * Format: date-time
@@ -1844,6 +1879,20 @@ export interface components {
             url: string;
         };
         /**
+         * ReversePlaceResponse
+         * @description The place at a point: the name a recording stores, its address line, and the point.
+         */
+        ReversePlaceResponse: {
+            /** Address */
+            address: string | null;
+            /** Lat */
+            lat: number;
+            /** Lon */
+            lon: number;
+            /** Name */
+            name: string;
+        };
+        /**
          * ScanChangeResult
          * @description The outcome of one change to a scan.
          */
@@ -2838,7 +2887,9 @@ export interface operations {
     };
     mapkit_token_v1_places_mapkit_token_get: {
         parameters: {
-            query?: never;
+            query?: {
+                origin?: string | null;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -2885,10 +2936,73 @@ export interface operations {
             };
         };
     };
+    reverse_place_v1_places_reverse_get: {
+        parameters: {
+            query: {
+                lat: number;
+                lon: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReversePlaceResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    /** @description Whole seconds to wait before trying again. */
+                    "Retry-After"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     search_places_v1_places_search_get: {
         parameters: {
             query: {
                 q: string;
+                lat?: number | null;
+                lon?: number | null;
             };
             header?: never;
             path?: never;

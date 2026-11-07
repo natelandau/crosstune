@@ -14,7 +14,7 @@ import { transportNotice } from './transportNotice'
 /**
  * Now playing on the phone: a card floating directly above the tab bar. Play and Pause lead, then
  * the title over its tune or source, the speed and pitch badge, and Close. A press on the
- * body opens practice. A list's controls live in practice, never here.
+ * body opens its page. A list's controls live in practice, never here.
  */
 export function PhoneBar({
   title,

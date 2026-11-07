@@ -15,8 +15,3 @@ export const REPEAT_OFF = 'Repeat off'
 export const REPEAT_LIST = 'Repeat list'
 export const REPEAT_TUNE = 'Repeat tune'
 export const NOTHING_LEFT = 'Nothing left in this list can play'
-
-/** `Thursday jam, 3 of 18`, the list that plays and where in it. */
-export function listPosition(name: string, position: number, count: number): string {
-  return `${name}, ${position} of ${count}`
-}

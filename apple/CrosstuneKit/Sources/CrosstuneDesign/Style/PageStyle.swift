@@ -32,8 +32,6 @@ package enum PageStyle {
         /// The Mac allows only a few signature moments, so its filters and handles stay still.
         package static let animatesPhoneMotion = false
         package static let headingControlHeight = MacButtonStyle.Size.small.iconDiameter
-        /// A Mac sheet closes with its button and Escape, never a swipe.
-        package static let practiceClosesBySwipe = false
         /// The key grid spreads across the row whenever it fits, rather than hugging the
         /// leading edge.
         package static let keyGridSpreads = true
@@ -85,7 +83,6 @@ package enum PageStyle {
         package static let animatesPhoneMotion = true
         /// A heading control's frame is its whole hit area, since a menu takes taps only there.
         package static let headingControlHeight = minimumTapTarget
-        package static let practiceClosesBySwipe = true
         /// The key grid keeps its natural width and scrolls sideways once it outgrows the row.
         package static let keyGridSpreads = false
         /// A sheet's actions pin to its bottom edge, a full-width primary over centered

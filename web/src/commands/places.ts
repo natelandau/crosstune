@@ -1,7 +1,7 @@
 import { PLACE_LIMITS } from '../api/vocabulary'
 import type { CrosstuneDb } from '../db/schema'
 import type { LocalPlace } from '../db/types'
-import { distanceM, MATCH_RADIUS_M } from '../domain/placeDistances'
+import { byDistance, isPrecise, MATCH_RADIUS_M, metersFrom } from '../domain/placeDistances'
 import { PLACE_NAME_REQUIRED, PLACE_NOT_FOUND, RECORDING_NOT_FOUND } from './messages'
 import { requeueFailedUpload, updateRecording, type RecordingPlace } from './recordings'
 import { newId, now, putRow, recordingTx, tombstone, writeTx } from './write'
@@ -96,26 +96,91 @@ export async function setRecordingPlace(
   recordingId: string,
   pick: PlacePick,
 ): Promise<void> {
+  await placeRecording(db, recordingId, async () =>
+    pick.kind === 'search'
+      ? {
+          kind: 'search',
+          place: pick.place,
+          saved: pick.savedPlaceId ? await livePlace(db, pick.savedPlaceId) : null,
+        }
+      : { kind: 'saved', place: await livePlace(db, pick.place.id) },
+  )
+}
+
+/** A pick whose saved place has been read live in the transaction that writes it. */
+type ReadPick =
+  | { kind: 'search'; place: RecordingPlace & { name: string }; saved: LocalPlace | null }
+  | { kind: 'saved'; place: LocalPlace }
+
+/** `setRecordingPlace` for a pick `read` reads once the recording is known to be live. */
+async function placeRecording(
+  db: CrosstuneDb,
+  recordingId: string,
+  read: () => Promise<ReadPick>,
+): Promise<void> {
   await recordingTx(db, async () => {
     const row = await db.recordings.get(recordingId)
     if (!row || row.deleted_at) throw new Error(RECORDING_NOT_FOUND)
+    const pick = await read()
     const next = { ...row, place_origin: 'picked', updated_at: now() }
     if (pick.kind === 'search') {
-      next.place_name = pick.place.name
+      // A dropped pin the server could not name yet is left unnamed for its place job.
+      next.place_name = pick.place.name.trim() || null
       next.place_lat = pick.place.lat
       next.place_lon = pick.place.lon
       next.place_accuracy_m = null
-      next.place_id = pick.savedPlaceId ? (await livePlace(db, pick.savedPlaceId)).id : null
+      next.place_id = pick.saved?.id ?? null
     } else {
-      const place = await livePlace(db, pick.place.id)
       if (row.place_lat == null || row.place_lon == null) {
-        next.place_lat = place.lat
-        next.place_lon = place.lon
+        next.place_lat = pick.place.lat
+        next.place_lon = pick.place.lon
         next.place_accuracy_m = null
       }
-      next.place_id = place.id
+      next.place_id = pick.place.id
     }
     await putRow(db, 'recordings', next)
+    await requeueFailedUpload(db, recordingId)
+  })
+}
+
+/**
+ * The one live saved place within 30 m of a precise fix, the one the server's place job would
+ * link, or undefined. A loose fix, or two places in range, links none, since the fix could be at
+ * any of them.
+ */
+export function savedPlaceAt(
+  places: readonly LocalPlace[],
+  at: RecordingPlace,
+): LocalPlace | undefined {
+  if (!isPrecise(at.accuracyM)) return undefined
+  const live = places.filter((place) => !place.deleted_at)
+  const near = byDistance(at, live, MATCH_RADIUS_M)
+  return near.length === 1 ? near[0]?.place : undefined
+}
+
+/**
+ * Moves a live recording to the device's fix, as a capture records it: its accuracy kept, its
+ * name cleared for the server to name, and linked to the saved place the fix is at, if any.
+ */
+export async function setCurrentPlace(
+  db: CrosstuneDb,
+  recordingId: string,
+  place: RecordingPlace,
+): Promise<void> {
+  await recordingTx(db, async () => {
+    const row = await db.recordings.get(recordingId)
+    if (!row || row.deleted_at) throw new Error(RECORDING_NOT_FOUND)
+    const saved = savedPlaceAt(await db.places.toArray(), place)
+    await putRow(db, 'recordings', {
+      ...row,
+      place_name: null,
+      place_lat: place.lat,
+      place_lon: place.lon,
+      place_accuracy_m: place.accuracyM,
+      place_origin: 'device',
+      place_id: saved?.id ?? null,
+      updated_at: now(),
+    })
     await requeueFailedUpload(db, recordingId)
   })
 }
@@ -160,11 +225,7 @@ export function savedPlaceFor(
   const name = nameKey(draft.name)
   return (
     byId ??
-    live.find(
-      (place) =>
-        nameKey(place.name) === name &&
-        distanceM(place.lat, place.lon, draft.lat, draft.lon) <= MATCH_RADIUS_M,
-    )
+    live.find((place) => nameKey(place.name) === name && metersFrom(place, draft) <= MATCH_RADIUS_M)
   )
 }
 
@@ -181,33 +242,33 @@ export async function linkRecordingPlace(
   link: PlaceLink,
 ): Promise<boolean> {
   return recordingTx(db, async () => {
-    const linked = async (placeId: string, over: PickedPoint | null, method: 'nearby' | 'saved') =>
-      setRecordingPlace(
-        db,
-        recordingId,
-        over
-          ? { kind: 'search', place: asSearch(over), savedPlaceId: placeId }
-          : { kind: method, place: await livePlace(db, placeId) },
-      )
+    const linked = (read: () => Promise<LocalPlace>, over: PickedPoint | null) =>
+      placeRecording(db, recordingId, async () => {
+        const place = await read()
+        return over
+          ? { kind: 'search', place: asSearch(over), saved: place }
+          : { kind: 'saved', place }
+      })
     const saved = async (draft: SavedPlaceDraft) => savedPlaceFor(await db.places.toArray(), draft)
     const create = (draft: SavedPlaceDraft) => createSavedPlace(db, draft)
     switch (link.kind) {
       case 'search': {
         const existing = link.saving && (await saved(link.saving))
         const made = !existing && link.saving ? await create(link.saving) : null
-        await setRecordingPlace(db, recordingId, {
+        await placeRecording(db, recordingId, async () => ({
           kind: 'search',
           place: asSearch(link.place),
-          savedPlaceId: (existing ?? made)?.id,
-        })
+          saved: existing || made,
+        }))
         return made !== null
       }
       case 'link':
-        await linked(link.placeId, link.over, link.method)
+        await linked(() => livePlace(db, link.placeId), link.over)
         return false
       case 'create': {
         const existing = await saved(link.draft)
-        await linked((existing ?? (await create(link.draft))).id, link.over, link.method)
+        const place = existing ?? (await create(link.draft))
+        await linked(async () => place, link.over)
         return !existing
       }
     }

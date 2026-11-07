@@ -12,7 +12,7 @@ import {
   type EngineClock,
   type PlaybackSettings,
 } from '../features/player/playbackEngine'
-import type { Player } from '../features/player/usePlayer'
+import { FROM_THE_START, type Player } from '../features/player/usePlayer'
 import { SyncContext } from '../sync/SyncProvider'
 import type { SyncEngine } from '../sync/types'
 import { fakeStage } from './fakeStage'
@@ -44,7 +44,14 @@ export class FakeAudioElement extends EventTarget {
 
 /** A player with nothing loaded whose every call is a spy, to watch what a tree asks of it. */
 export function fakePlayer(overrides: Partial<Player> = {}): Player {
-  return { item: null, play: vi.fn(), close: vi.fn(), returnFocus: vi.fn(), ...overrides }
+  return {
+    item: null,
+    start: FROM_THE_START,
+    play: vi.fn(),
+    close: vi.fn(),
+    returnFocus: vi.fn(),
+    ...overrides,
+  }
 }
 
 const realClock: EngineClock = {

@@ -9,8 +9,7 @@ import {
   type ReactNode,
 } from 'react'
 import { useAnalytics } from '../../usage/AnalyticsProvider'
-import { recordingsPlayable } from '../../billing/plan'
-import { usePlanOrUnknown } from '../../billing/usePlan'
+import { useRecordingsPlayable } from '../../billing/usePlan'
 import type { Trigger } from '../../usage/events'
 import { createPlaybackReporter } from '../../usage/playbackReporter'
 import { useDb } from '../../db/DbProvider'
@@ -101,7 +100,7 @@ export function ListPlaybackProvider({
   const player = usePlayer()
   const playerRef = useLatest(player)
   const onlineRef = useLatest(useOnline())
-  const recordingsPlayRef = useLatest(recordingsPlayable(usePlanOrUnknown()))
+  const recordingsPlayRef = useLatest(useRecordingsPlayable())
   const dbRef = useLatest(db)
 
   const [repeat, setRepeat] = useState(storedRepeat)
@@ -190,9 +189,11 @@ export function ListPlaybackProvider({
     handedAt.current = engine.loads
     counted.current = null
     playerRef.current.play(item, {
-      context: 'list',
-      listId: current.listId,
-      report: { source: 'list', queue: 'playlist', trigger: trigger.current },
+      origin: {
+        context: 'list',
+        listId: current.listId,
+        report: { source: 'list', queue: 'playlist', trigger: trigger.current },
+      },
     })
     const start = unreportedStart.current
     if (start) {

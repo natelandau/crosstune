@@ -1,10 +1,19 @@
+import { act } from 'react'
 import { page } from 'vitest/browser'
 import { expect, it, vi } from 'vitest'
 import type { CrosstuneDb } from '../../db/schema'
 import type { LocalList, LocalListItem, LocalRecording } from '../../db/types'
 import { REMOVE } from '../lists/listsCopy'
 import { PLAYER_REGION } from './playerCopy'
-import { CLOSE_PLAYER, ELAPSED, PAUSE, PLAY, PROGRESS, SPEED_BADGE } from './transportCopy'
+import {
+  CLOSE_PLAYER,
+  ELAPSED,
+  OPEN_RECORDING,
+  PAUSE,
+  PLAY,
+  PROGRESS,
+  SPEED_BADGE,
+} from './transportCopy'
 import { formatDuration } from '../../text/format'
 import { playName } from '../recordings/recordingNames'
 import { openTestDb } from '../../test/db'
@@ -110,14 +119,14 @@ async function mount(
 const player = () => page.getByRole('region', { name: PLAYER_REGION })
 const box = (element: Element) => element.getBoundingClientRect()
 const tunePage = () => page.getByRole('main', { name: TUNE })
-const recordingRowLocator = () =>
-  tunePage().getByRole('row', { name: new RegExp(`^${PLAY} ${RECORDING_LABEL}`) })
+const playControl = () =>
+  tunePage().getByRole('button', { name: playName(RECORDING_LABEL), exact: true })
 
 async function playRecording() {
-  const row = recordingRowLocator()
-  await expect.element(row).toBeVisible()
-  const opener = row.element()
-  await row.click()
+  const control = playControl()
+  await expect.element(control).toBeVisible()
+  const opener = control.element()
+  await control.click()
   await expect.element(player()).toBeVisible()
   return opener
 }
@@ -190,7 +199,7 @@ it('keeps the recording playing as the window crosses from phone to wide', async
   await expect.poll(() => engine.getState()).toMatchObject({ playing: true, positionMs: 1500 })
 })
 
-it('closes, and hands focus back to the row that opened it', async () => {
+it('closes, and hands focus back to the control that opened it', async () => {
   await mount('/catalog/t1', PHONE, async (db) => {
     await seedTune(db, 't1', 'Old Joe Clark')
     await seedRecording(db, 't1')
@@ -367,3 +376,36 @@ it("tints a list row while any of its tune's recordings or links plays", async (
   await expect.element(row('Old Joe Clark')).toHaveAttribute('data-playing')
   await expect.element(row('Forked Deer')).not.toHaveAttribute('data-playing')
 })
+
+it.each([
+  ['the dock', WIDE],
+  ['the phone bar', PHONE],
+])("expanding a link from %s opens the link's tune page", async (_, frame) => {
+  const { router } = await mount('/catalog/t1', frame, seedLink)
+  await playLink()
+  const elsewhere = destination('recordings').root
+  await act(() => router.navigate(elsewhere))
+  await expect.poll(() => router.state.location.pathname).toBe(elsewhere)
+  await player()
+    .getByRole('button', { name: OPEN_RECORDING(YOUTUBE_TITLE) })
+    .click()
+  await expect.poll(() => router.state.location.pathname).toBe('/catalog/t1')
+})
+
+it.each(['/recordings/t1', '/lists/l1/tunes/t1'])(
+  "expanding a link on %s keeps the link's tune in that tab",
+  async (shown) => {
+    const { router } = await mount('/catalog/t1', WIDE, async (db) => {
+      await seedLink(db)
+      await seedList(db)
+    })
+    await playLink()
+    await act(() => router.navigate(shown))
+    await expect.poll(() => router.state.location.pathname).toBe(shown)
+    await player()
+      .getByRole('button', { name: OPEN_RECORDING(YOUTUBE_TITLE) })
+      .click()
+    await expect.poll(() => router.state.historyAction).toBe('REPLACE')
+    expect(router.state.location.pathname).toBe(shown)
+  },
+)

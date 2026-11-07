@@ -92,22 +92,23 @@ enum TabSlot: Hashable {
         }
     }
 
-    /// A tab's navigation stack. The Lists tab's pushed list and each tab's pushed tune live in
-    /// the shell's place, so they outlast a switch to the split view and back.
+    /// A tab's navigation stack. The Lists tab's pushed list and each tab's pushed tune and
+    /// recording page live in the shell's place, so they outlast a switch to the split view and
+    /// back.
     private struct TabStack: View {
         let destination: Destination
         @Bindable var place: ShellPlace
         /// Made once, so the screens' environment stays the same from one shell pass to the next.
-        @State private var stackTune: ShellValue<String?>
+        @State private var stackPath: ShellValue<PagePath>
 
         init(destination: Destination, place: ShellPlace) {
             self.destination = destination
             self.place = place
-            _stackTune = State(
+            _stackPath = State(
                 initialValue: ShellValue {
-                    place.tabTunes[destination]
+                    place.tabPaths[destination] ?? PagePath()
                 } set: {
-                    place.tabTunes[destination] = $0
+                    place.tabPaths[destination] = $0
                 })
         }
 
@@ -129,27 +130,24 @@ enum TabSlot: Hashable {
                 .toolbarTitleDisplayMode(.inlineLarge)
                 .syncBadgeToolbar(leading: destination == .catalog)
                 .environment(\.showAccount, MenuAction(id: ObjectIdentifier(place)) { place.showSettings() })
-                .environment(\.stackTune, stackTune)
+                .environment(\.stackPath, stackPath)
         }
     }
 
-    /// The player in the tab bar's bottom accessory, only while something is loaded, with the
-    /// player in full zooming out of it.
+    /// The player in the tab bar's bottom accessory, only while something is loaded.
     private struct PlayerAccessory: ViewModifier {
         let player: PlayerModel
         let stage: EmbedStage
 
         @Environment(ListPlayback.self) private var playback: ListPlayback?
-        @Environment(\.accessibilityReduceMotion) private var reduceMotion
-        @Namespace private var zoom
+        @Environment(\.playerWindow) private var window
 
         func body(content: Content) -> some View {
             content
-                .tabViewBottomAccessory(isEnabled: PlayerBar.isShown(player, playback)) {
+                .tabViewBottomAccessory(isEnabled: PlayerBar.isShown(player, playback, in: window)) {
                     PlayerBar(player: player)
-                        .matchedTransitionSource(id: PlayerPresentations.zoomID, in: zoom)
                 }
-                .modifier(PlayerPresentations(player: player, stage: stage, zoom: reduceMotion ? nil : zoom))
+                .modifier(PlayerPresentations(player: player, stage: stage))
         }
     }
 #endif

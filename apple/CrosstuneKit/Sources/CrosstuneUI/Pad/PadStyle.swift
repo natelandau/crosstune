@@ -2,13 +2,6 @@ import SwiftUI
 
 /// The iPad's layout tokens: the proportions and sizes its screens share.
 public enum PadStyle {
-    /// The practice pane's share of the practice screen's width in landscape.
-    public static let padPracticeShare: CGFloat = 0.6
-    /// The reading pane's share of the practice screen's height in portrait.
-    public static let readingPaneShare: CGFloat = 0.55
-    /// The least share of the height the stacked reading pane keeps when practice's controls
-    /// want more; at the largest text sizes the controls scroll instead.
-    public static let readingPaneMinShare: CGFloat = 0.25
     /// A scan thumbnail's height on a regular-width tune page.
     public static let scanThumbnailHeight: CGFloat = 180
     /// The content column's share of a tab's width: half, so the list and the page it opens

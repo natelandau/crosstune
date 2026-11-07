@@ -3,15 +3,11 @@ import { page, userEvent } from 'vitest/browser'
 import { deleteRecording } from '../../commands/recordings'
 import { META_RECORDINGS_ORIGIN, setStorage } from '../../db/meta'
 import type { CrosstuneDb } from '../../db/schema'
-import { addTypedTitleLabel, SEARCH_TUNES } from '../catalog/catalogCopy'
 import { providerLabel } from '../links/display'
 import { NOT_AUDIO_ERROR } from './addAudioFiles'
-import { openTuneName } from './recordingNames'
+import { openTuneName, playName } from './recordingNames'
 import {
-  ADD_TO_TUNE_TITLE,
-  addToTuneName,
   FILED_HEADER,
-  filedToast,
   MY_RECORDINGS,
   NO_RECORDINGS_TITLE,
   SEARCH_RECORDINGS,
@@ -35,10 +31,9 @@ import { destination } from '../../layout/destinations'
 import { CHOOSE_FROM_RECORDING, NO_TUNE_SELECTED } from '../../layout/DetailEmpty'
 import { renderApp } from '../../test/renderApp'
 import { TUNE } from '../tune/tunePageCopy'
-import { UNDO } from '../../ui/Toast'
 import { DROP_TO_IMPORT } from './DropOverlay'
 import { RECORDINGS_FILTER_ROW } from './RecordingsScreen'
-import { ADD_TO_TUNE, SUBSCRIBE_TO_PLAY } from './recordingCopy'
+import { SUBSCRIBE_TO_PLAY } from './recordingCopy'
 
 const PHONE = { width: 390, height: 844 }
 const WIDE = { width: 1280, height: 800 }
@@ -349,48 +344,6 @@ it("pushes a filed recording's tune from its tune line on the phone", async () =
     .toHaveTextContent("Soldier's Joy")
 })
 
-it('files an unfiled recording from its row action, with an Undo', async () => {
-  await seedTunes()
-  await db.recordings.put(recordingRow('r1', { label: 'Jam recording' }))
-  await show()
-  await row('Jam recording').hover()
-  await row('Jam recording').getByRole('button', { name: ADD_TO_TUNE, exact: true }).click()
-  const dialog = page.getByRole('dialog', { name: ADD_TO_TUNE_TITLE })
-  await dialog.getByRole('searchbox', { name: SEARCH_TUNES }).fill('cluck')
-  await dialog.getByRole('row', { name: addToTuneName('Cluck Old Hen'), exact: true }).click()
-  await expect.poll(async () => (await db.recordings.get('r1'))?.tune_id).toBe('hen')
-  await expect.element(page.getByText(filedToast('Cluck Old Hen'))).toBeVisible()
-  await expect.poll(groupHeadings).toEqual([FILED_HEADER])
-  await page.getByRole('button', { name: UNDO }).click()
-  await expect.poll(async () => (await db.recordings.get('r1'))?.tune_id).toBeNull()
-  await expect.poll(groupHeadings).toEqual([UNFILED_HEADER])
-})
-
-it('files an unfiled recording under a new tune from its menu, and opens its page', async () => {
-  await db.recordings.put(recordingRow('r1', { label: 'Jam recording' }))
-  const { router } = await show()
-  await row('Jam recording').click({ button: 'right' })
-  await page.getByRole('menuitem', { name: ADD_TO_TUNE }).click()
-  const dialog = page.getByRole('dialog', { name: ADD_TO_TUNE_TITLE })
-  await dialog.getByRole('searchbox', { name: SEARCH_TUNES }).fill('Sally Goodin')
-  await dialog
-    .getByRole('button', {
-      name: addTypedTitleLabel({ kind: 'create', title: 'Sally Goodin', another: false }),
-    })
-    .click()
-  await expect.poll(() => db.tunes.where('title').equals('Sally Goodin').count()).toBe(1)
-  const [tune] = await db.tunes.where('title').equals('Sally Goodin').toArray()
-  await expect.poll(async () => (await db.recordings.get('r1'))?.tune_id).toBe(tune!.id)
-  await expect.poll(() => router.state.location.pathname).toBe(`${RECORDINGS.root}/${tune!.id}`)
-  await expect
-    .element(
-      page
-        .getByRole('main', { name: TUNE })
-        .getByRole('heading', { level: 1, name: 'Sally Goodin' }),
-    )
-    .toBeVisible()
-})
-
 it('sits the storage summary after the last group', async () => {
   await setStorage(db, { used_bytes: 1_000_000, quota_bytes: 2_000_000, max_file_bytes: 500_000 })
   await seedTunes()
@@ -525,7 +478,7 @@ it('drops the storage summary once the plan lapses to free, which has no quota',
   await expect.element(column().getByText(/ used$/)).not.toBeInTheDocument()
 })
 
-it('dims every recording on a free plan, filed and unfiled, and answers a tap with Premium', async () => {
+it('dims every recording on a free plan, filed and unfiled, and answers its play with Premium', async () => {
   await db.entitlements.put(entitlementRow())
   await db.tunes.put(tuneRow('hen', 'Cluck Old Hen'))
   await db.user_tunes.put(userTuneRow('u-hen', 'hen'))
@@ -540,13 +493,13 @@ it('dims every recording on a free plan, filed and unfiled, and answers a tap wi
     wrap: (app) => <AnalyticsProvider client={analytics}>{app}</AnalyticsProvider>,
   })
   for (const name of ['Jam recording', 'Hen take']) {
-    // Named without Play, since the tap opens the Plan sheet instead.
     await expect.element(column().getByRole('row', { name: new RegExp(`^${name}`) })).toBeVisible()
     await expect.element(row(name)).toHaveAccessibleDescription(SUBSCRIBE_TO_PLAY)
     await expect.element(row(name)).toHaveAttribute('data-dimmed')
   }
-  // On the title, since in a narrow column the row's hover actions reach its middle.
-  await row('Hen take').getByText('Hen take', { exact: true }).click()
+  await row('Hen take')
+    .getByRole('button', { name: playName('Hen take'), exact: true })
+    .click()
   await expect
     .element(
       page

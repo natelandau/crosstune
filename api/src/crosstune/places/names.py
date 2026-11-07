@@ -106,6 +106,54 @@ def street_address(result: Mapping[str, object]) -> str | None:
     return _stored(name) if name else None
 
 
+def reverse_address(result: Mapping[str, object], home: str | None) -> str | None:
+    """The address of a reverse-geocoded place, in the format a search result's address has.
+
+    Apple's formatted lines without the postal code, and without the country when it is the
+    United States or `home`, so a US address reads `street, town, ST` and one elsewhere keeps
+    its country.
+
+    Args:
+        result: An Apple Maps place object.
+        home: The account country's name as Apple writes it, or None.
+
+    Returns:
+        str | None: The address cut to the length a saved address holds, or None when the
+            place has no formatted lines.
+    """
+    lines = result.get("formattedAddressLines")
+    if not isinstance(lines, list):
+        return None
+    parts = _parts(", ".join(line for line in map(_text, lines) if line))
+    country = parts.pop() if parts and _is_country(parts[-1], result) else None
+    post_code = _text(_address(result).get("postCode"))
+    if post_code:
+        # Some countries write the code before the town, others after it. The street line is
+        # first and its house number can equal the code, so it keeps it.
+        parts = parts[:1] + [
+            part.removeprefix(post_code).removesuffix(post_code).strip() for part in parts[1:]
+        ]
+    kept = _kept(_kept(country, _US), home)
+    joined = _joined(*(part for part in parts if part), kept)
+    if not joined:
+        return None
+    return _DANGLING.sub("", whole_characters(joined, SAVED_ADDRESS_MAX)) or None
+
+
+def reverse_name(result: Mapping[str, object], address: str | None) -> str | None:
+    """The name a dropped pin takes: its street-tier name, else its address.
+
+    Args:
+        result: An Apple Maps place object.
+        address: The place's address from `reverse_address`, or None.
+
+    Returns:
+        str | None: The name cut to the length a recording stores, or None when the place has
+            neither a name nor an address.
+    """
+    return automatic_name(result, None) or (_stored(address) if address else None)
+
+
 def _neighborhood(result: Mapping[str, object]) -> str | None:
     """The neighborhood with its mailing-address town, or None when it adds nothing.
 

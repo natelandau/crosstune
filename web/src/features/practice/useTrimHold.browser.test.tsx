@@ -9,8 +9,8 @@ import { updateRecording } from '../../commands/recordings'
 import { DEFAULT_ISOLATE, isolateToPatch } from '../player/isolate/isolateSetting'
 import { PlaybackEngineContext } from '../player/PlaybackEngineProvider'
 import { PlayerProvider } from '../player/PlayerProvider'
-import { PracticeOverlayStateProvider } from './PracticeOverlayState'
-import { usePracticeOverlay } from './usePracticeOverlay'
+import { PracticeHoldsProvider } from './PracticeHoldsProvider'
+import { usePracticeHolds } from './practiceHolds'
 import { useTrimHold } from './useTrimHold'
 
 let db: CrosstuneDb
@@ -25,7 +25,7 @@ function setup(engine: ReturnType<typeof fakePlaybackEngine>) {
     <Data>
       <PlaybackEngineContext.Provider value={engine}>
         <PlayerProvider>
-          <PracticeOverlayStateProvider>{children}</PracticeOverlayStateProvider>
+          <PracticeHoldsProvider>{children}</PracticeHoldsProvider>
         </PlayerProvider>
       </PlaybackEngineContext.Provider>
     </Data>
@@ -42,7 +42,7 @@ describe('useTrimHold', () => {
     const { result, rerender } = renderHook(
       ({ trimming }: { trimming: boolean }) => {
         useTrimHold(id, trimming)
-        return usePracticeOverlay()
+        return usePracticeHolds()
       },
       { wrapper, initialProps: { trimming: false } },
     )

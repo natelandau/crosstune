@@ -22,10 +22,13 @@ public enum RecordingLimits {
         case tooLong
     }
 
-    /// Where a split of `recording` ends on its source timeline: its trim end, else its source
-    /// length. A recording not yet uploaded has its length only on the local file.
-    public static func splitRangeEnd(_ recording: Recording, file: RecordingFile?) -> Int64? {
-        recording.trimEndMs ?? recording.sourceDurationMs ?? recording.durationMs ?? file?.localDurationMs
+    /// Where `recording` ends on its source timeline: its trim end, else the source's length,
+    /// which a recording not yet uploaded has only on the local file. A row the trim pipeline
+    /// has not reached knows only its playback file, which starts at `playbackStartMs`.
+    public static func sourceEndMs(_ recording: Recording, file: RecordingFile?) -> Int64? {
+        let playbackEnd =
+            recording.playbackEndMs ?? recording.durationMs.map { (recording.playbackStartMs ?? 0) + $0 }
+        return recording.trimEndMs ?? recording.sourceDurationMs ?? file?.localDurationMs ?? playbackEnd
     }
 
     /// What is wrong with the pieces between ascending `edges` (the range's start, each cut, and

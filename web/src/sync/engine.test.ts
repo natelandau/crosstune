@@ -937,7 +937,13 @@ describe('createSyncEngine', () => {
       const search = vi.fn(async () => ({ results }))
       const engine = withSearch(search)
       await expect(engine.searchPlaces('Ga')).resolves.toEqual({ kind: 'ok', results })
-      expect(search).toHaveBeenCalledWith('Ga')
+      expect(search).toHaveBeenCalledWith('Ga', undefined)
+    })
+
+    it('passes the point the search leans toward', async () => {
+      const search = vi.fn(async () => ({ results }))
+      await withSearch(search).searchPlaces('Ga', { lat: 1, lon: 2 })
+      expect(search).toHaveBeenCalledWith('Ga', { lat: 1, lon: 2 })
     })
 
     it('reports a 429 with its Retry-After seconds', async () => {
@@ -966,6 +972,48 @@ describe('createSyncEngine', () => {
         throw new ApiError(500, null)
       })
       await expect(server.searchPlaces('Ga')).resolves.toEqual({ kind: 'failed' })
+    })
+  })
+
+  describe('reversePlace', () => {
+    const place = { name: 'Galax', address: null, lat: 1, lon: 2 }
+    const withReverse = (reversePlace: SyncApi['reversePlace'], isOnline = () => true) =>
+      createSyncEngine({
+        analytics: noopAnalytics,
+        db,
+        api: { ...fake.api, reversePlace },
+        isOnline,
+      })
+
+    it('returns offline without calling the API', async () => {
+      const reverse = vi.fn()
+      await expect(withReverse(reverse, () => false).reversePlace(1, 2)).resolves.toEqual({
+        kind: 'offline',
+      })
+      expect(reverse).not.toHaveBeenCalled()
+    })
+
+    it('hands back the place, or not_found when there is none', async () => {
+      await expect(withReverse(async () => place).reversePlace(1, 2)).resolves.toEqual({
+        kind: 'ok',
+        place,
+      })
+      await expect(withReverse(async () => null).reversePlace(1, 2)).resolves.toEqual({
+        kind: 'not_found',
+      })
+    })
+
+    it('maps 429, 503, and other failures', async () => {
+      const failing = (error: Error) =>
+        withReverse(async () => {
+          throw error
+        }).reversePlace(1, 2)
+      await expect(failing(new ApiError(429, null, 7))).resolves.toEqual({
+        kind: 'rate_limited',
+        retryAfterSeconds: 7,
+      })
+      await expect(failing(new ApiError(503, null))).resolves.toEqual({ kind: 'unavailable' })
+      await expect(failing(new ApiError(500, null))).resolves.toEqual({ kind: 'failed' })
     })
   })
 

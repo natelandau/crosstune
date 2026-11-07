@@ -65,13 +65,16 @@ public struct LiveSyncAPI: SyncAPI {
         }
     }
 
-    public func storage() async throws -> StorageUsage {
+    public func account() async throws -> AccountSummary {
         switch try await client.meV1MeGet(.init()) {
         case .ok(let response):
-            let storage = try response.body.json.storage
-            return StorageUsage(
-                usedBytes: storage.usedBytes, quotaBytes: storage.quotaBytes, maxFileBytes: storage.maxFileBytes,
-                splitParentMaxFileBytes: storage.splitParentMaxFileBytes)
+            let me = try response.body.json
+            let storage = me.storage
+            return AccountSummary(
+                storage: StorageUsage(
+                    usedBytes: storage.usedBytes, quotaBytes: storage.quotaBytes, maxFileBytes: storage.maxFileBytes,
+                    splitParentMaxFileBytes: storage.splitParentMaxFileBytes),
+                countryCenter: me.countryCenter.map { Coordinate(lat: $0.lat, lon: $0.lon) })
         case .undocumented(let status, _): throw APIStatusError(status: status)
         }
     }
@@ -131,6 +134,20 @@ public struct LiveSyncAPI: SyncAPI {
         case .unprocessableContent: throw APIStatusError(status: 422)
         case .tooManyRequests(let response):
             throw APIStatusError(status: 429, retryAfterSeconds: Self.seconds(response.headers.retryAfter))
+        case .undocumented(let status, _): throw APIStatusError(status: status)
+        }
+    }
+
+    public func reversePlace(lat: Double, lon: Double) async throws -> ReversedPlace? {
+        switch try await client.reversePlaceV1PlacesReverseGet(.init(query: .init(lat: lat, lon: lon))) {
+        case .ok(let response):
+            let place = try response.body.json
+            return ReversedPlace(name: place.name, address: place.address)
+        case .notFound: return nil
+        case .unprocessableContent: throw APIStatusError(status: 422)
+        case .tooManyRequests(let response):
+            throw APIStatusError(status: 429, retryAfterSeconds: Self.seconds(response.headers.retryAfter))
+        case .serviceUnavailable: throw APIStatusError(status: 503)
         case .undocumented(let status, _): throw APIStatusError(status: status)
         }
     }

@@ -132,8 +132,9 @@ let package = Package(
         .target(
             name: "CrosstuneTestSupport",
             dependencies: [
-                "CrosstuneAnalytics", "CrosstuneAudio", "CrosstuneBilling", "CrosstuneDiagnostics", "CrosstuneStore",
-                .product(name: "GRDB", package: "GRDB.swift"),
+                "CrosstuneAnalytics", "CrosstuneAudio", "CrosstuneBilling", "CrosstuneDiagnostics",
+                "CrosstuneRecording",
+                "CrosstuneStore", .product(name: "GRDB", package: "GRDB.swift"),
             ],
             path: "Tests/CrosstuneTestSupport"
         ),

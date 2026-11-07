@@ -33,6 +33,13 @@ public struct AttributeRow: Hashable, Sendable, Identifiable {
     public let group: Group
 }
 
+extension AttributeRow {
+    /// The row as an attributes column draws it, under `group`'s heading.
+    func columnRow(group: String) -> AttributeColumnRow<AttributeID> {
+        AttributeColumnRow(id: id, label: label, text: text, group: group)
+    }
+}
+
 /// The ordered attribute rows the tune page's attributes column and card show.
 public enum AttributeRows {
     /// A letter per mode a tune can hold: A for the tune's own, then one per part from B.

@@ -4,10 +4,11 @@ import { useLatest } from './useLatest'
 /**
  * Runs `onEscape` for an Escape heard at window capture, ahead of the focused control and of an
  * overlay's own dismissal, while `enabled` and `when` agrees, typically when this overlay is on
- * top. The event goes no further, so whatever sits underneath never also steps out.
+ * top. The event goes no further, so whatever sits underneath never also steps out, unless
+ * `onEscape` returns false to say it had nothing to step out of.
  */
 export function useEscapeCapture(
-  onEscape: () => void,
+  onEscape: () => boolean | void,
   { enabled = true, when }: { enabled?: boolean; when: (event: KeyboardEvent) => boolean },
 ): void {
   const onEscapeRef = useLatest(onEscape)
@@ -16,9 +17,9 @@ export function useEscapeCapture(
     if (!enabled) return
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== 'Escape' || !whenRef.current(event)) return
+      if (onEscapeRef.current() === false) return
       event.preventDefault()
       event.stopPropagation()
-      onEscapeRef.current()
     }
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)

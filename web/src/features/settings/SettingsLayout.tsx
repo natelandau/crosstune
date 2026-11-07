@@ -4,6 +4,7 @@ import { SETTINGS_STATS_PATH } from './settingsPaths'
 import { STATS_TITLE } from '../stats/copy'
 import { destination } from '../../layout/destinations'
 import { Columns } from '../../layout/Columns'
+import { RECORDING } from '../../text/format'
 import { TUNE } from '../tune/tunePageCopy'
 import { EmptyState } from '../../ui/EmptyState'
 import { SettingsPage } from './SettingsPage'
@@ -19,7 +20,7 @@ const SETTINGS = destination('settings')
  * stats, or a tune opened from the stats.
  */
 export function SettingsLayout() {
-  const { page, tuneId, placeId } = useParams()
+  const { page, tuneId, recordingId, placeId } = useParams()
   const outlet = useOutlet()
   const stats = useMatch(`${SETTINGS_STATS_PATH}/*`) !== null
   // A saved location's address has no `:page`, but it belongs to Recordings.
@@ -31,7 +32,8 @@ export function SettingsLayout() {
   // The root and a settings page route to no element of their own, so only the stats routes
   // fill the detail from the outlet.
   const detail = spec ? <SettingsPage key={spec.id} spec={spec} /> : stats ? outlet : null
-  const detailLabel = spec?.title ?? (tuneId ? TUNE : stats ? STATS_TITLE : SETTINGS.label)
+  const detailLabel =
+    spec?.title ?? (recordingId ? RECORDING : tuneId ? TUNE : stats ? STATS_TITLE : SETTINGS.label)
   return (
     <Columns
       list={<SettingsRoot />}

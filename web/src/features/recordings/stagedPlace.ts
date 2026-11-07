@@ -7,7 +7,7 @@ import {
 } from '../../commands/places'
 import type { LocalPlace, LocalRecording } from '../../db/types'
 import {
-  distanceM,
+  byDistance,
   isPrecise,
   MATCH_RADIUS_M,
   NEARBY_LIMIT,
@@ -17,7 +17,7 @@ import type { PlaceMethod, SavedLocationMethod } from '../../usage/events'
 import { recordingPlace, samePlace, shownPlaceName, type PlaceChoice } from './place'
 import type { NearbyPlace } from './useNearbyPlaces'
 
-/** A location picked on the location page, held until Save. */
+/** A location picked in the location editor, held until the editor saves. */
 export type StagedPlace =
   /** No location, coordinates and all. */
   | { kind: 'cleared' }
@@ -36,13 +36,15 @@ export type StagedPlace =
       /** The search result's own saved location, made should the linked one go. */
       saving?: SavedPlaceDraft | null
     }
-  /** A saved location made on Save and then linked, with how it came to be, over as for a link. */
+  /** A saved location made on saving and then linked, with how it came to be, over as for a link. */
   | {
       kind: 'create'
       draft: SavedPlaceDraft
       made: SavedLocationMethod
       over: PlaceChoice | null
     }
+  /** The device's fix, with its accuracy and the saved location it is at, named by the server. */
+  | { kind: 'device'; point: PlacePoint; saved: LocalPlace | null }
 
 /** A point with the fix's accuracy, null for a point picked by hand or a file's. */
 export type PlacePoint = { lat: number; lon: number; accuracyM: number | null }
@@ -81,26 +83,14 @@ export function searchDraft(result: PlaceResult): SavedPlaceDraft | null {
   }
 }
 
-/** A place near the recording: a saved location or a venue not yet saved. */
-export type NearbyRow = { kind: 'saved'; place: LocalPlace } | { kind: 'venue'; venue: NearbyPlace }
-
-const metersFrom = (center: { lat: number; lon: number }, place: { lat: number; lon: number }) =>
-  distanceM(center.lat, center.lon, place.lat, place.lon)
-
-const byDistance = <T extends { lat: number; lon: number }>(
-  center: { lat: number; lon: number },
-  places: readonly T[],
-  radiusM: number,
-): T[] =>
-  places
-    .map((place) => ({ place, meters: metersFrom(center, place) }))
-    .filter(({ meters }) => meters <= radiusM)
-    .sort((a, b) => a.meters - b.meters)
-    .map(({ place }) => place)
+/** A place near the recording, a saved location or a venue not yet saved, and how far it is. */
+export type NearbyRow =
+  | { kind: 'saved'; place: LocalPlace; meters: number }
+  | { kind: 'venue'; venue: NearbyPlace; meters: number }
 
 /**
- * The saved locations within 150 m of the recording, nearest first, then the venues not saved by
- * `savedPlaceFor`'s rule, at most 10 in all. Empty until the venue search answers, and when it fails.
+ * The saved locations within 150 m of the recording and the venues not saved by `savedPlaceFor`'s
+ * rule, nearest first, at most 7 in all. Empty until the venue search answers, and when it fails.
  */
 export function nearbyRows(
   center: { lat: number; lon: number } | null,
@@ -111,9 +101,15 @@ export function nearbyRows(
   const close = byDistance(center, saved, NEARBY_RADIUS_M)
   const unsaved = venues.filter((venue) => !savedPlaceFor(saved, venue))
   return [
-    ...close.map((place): NearbyRow => ({ kind: 'saved', place })),
-    ...byDistance(center, unsaved, Infinity).map((venue): NearbyRow => ({ kind: 'venue', venue })),
-  ].slice(0, NEARBY_LIMIT)
+    ...close.map(({ place, meters }): NearbyRow => ({ kind: 'saved', place, meters })),
+    ...byDistance(center, unsaved, Infinity).map(({ place: venue, meters }): NearbyRow => ({
+      kind: 'venue',
+      venue,
+      meters,
+    })),
+  ]
+    .sort((a, b) => a.meters - b.meters)
+    .slice(0, NEARBY_LIMIT)
 }
 
 /** The saved locations within 30 m of the point, nearest first, offered before a new name. */
@@ -121,7 +117,7 @@ export function namingCandidates(
   at: { lat: number; lon: number } | null,
   saved: readonly LocalPlace[],
 ): LocalPlace[] {
-  return at ? byDistance(at, saved, MATCH_RADIUS_M) : []
+  return at ? byDistance(at, saved, MATCH_RADIUS_M).map(({ place }) => place) : []
 }
 
 const point = (place: { lat: number; lon: number }): PlacePoint => ({
@@ -131,11 +127,11 @@ const point = (place: { lat: number; lon: number }): PlacePoint => ({
 })
 
 /**
- * What the edit sheet shows and saves for a recording's location, from the pick held for Save
+ * What a location edit shows and saves for a recording, from the pick held for saving
  * and the recording and saved locations as they are now.
  */
 export class LocationState {
-  /** The pick held for Save, with a link to a saved location deleted meanwhile fallen back. */
+  /** The pick held for saving, with a link to a saved location deleted meanwhile fallen back. */
   readonly staged: StagedPlace | null
   private readonly byId: ReadonlyMap<string, LocalPlace>
   private readonly fellBack: boolean
@@ -160,7 +156,7 @@ export class LocationState {
         : picked
   }
 
-  /** How the location Save writes was chosen: a fallen-back link writes the search pick under it. */
+  /** How the location a save writes was chosen: a fallen-back link writes the search pick under it. */
   method(picked: PlaceMethod | null): PlaceMethod | null {
     return this.fellBack && this.staged?.kind === 'search' ? 'search' : picked
   }
@@ -170,8 +166,13 @@ export class LocationState {
    * its own.
    */
   get recordingPoint(): PlacePoint | null {
+    if (this.staged?.kind === 'device') return this.staged.point
     const pending = pendingPlace(this.staged)
     if (pending) return point(pending)
+    return this.ownPoint
+  }
+
+  private get ownPoint(): PlacePoint | null {
     const { place_lat: lat, place_lon: lon, place_accuracy_m: accuracyM } = this.current
     return lat != null && lon != null ? { lat, lon, accuracyM: accuracyM ?? null } : null
   }
@@ -184,7 +185,19 @@ export class LocationState {
       return id ? (this.byId.get(id) ?? null) : null
     }
     if (staged.kind === 'link') return this.byId.get(staged.place.id) ?? staged.place
+    if (staged.kind === 'device')
+      return staged.saved ? (this.byId.get(staged.saved.id) ?? null) : null
     return null
+  }
+
+  /**
+   * The recording's point as stored, with its accuracy: its own, else its saved location's. Null
+   * with neither.
+   */
+  get storedPoint(): PlacePoint | null {
+    const id = this.current.place_id
+    const linked = id ? this.byId.get(id) : undefined
+    return this.ownPoint ?? (linked ? point(linked) : null)
   }
 
   /**
@@ -194,12 +207,12 @@ export class LocationState {
    */
   get place(): PlaceChoice | null {
     const staged = this.staged
-    const at = this.recordingPoint
     switch (staged?.kind) {
       case undefined: {
-        if (!at || (this.current.place_id && this.places === undefined)) return null
+        const shown = this.storedPoint
+        if (!shown || (this.current.place_id && this.places === undefined)) return null
         const name = shownPlaceName(this.current, this.byId)
-        return name ? { name, lat: at.lat, lon: at.lon } : null
+        return name ? { name, lat: shown.lat, lon: shown.lon } : null
       }
       case 'cleared':
         return null
@@ -208,13 +221,20 @@ export class LocationState {
         return staged.place
       case 'link': {
         const live = this.linked ?? staged.place
+        const at = this.recordingPoint
         return { name: live.name, ...(at ? { lat: at.lat, lon: at.lon } : point(live)) }
       }
-      case 'create':
+      case 'create': {
+        const at = this.recordingPoint
         return {
           name: staged.draft.name,
           ...(at ? { lat: at.lat, lon: at.lon } : point(staged.draft)),
         }
+      }
+      case 'device': {
+        const saved = this.linked
+        return saved ? { name: saved.name, lat: staged.point.lat, lon: staged.point.lon } : null
+      }
     }
   }
 
@@ -222,7 +242,7 @@ export class LocationState {
   get address(): string | null {
     const kind = this.staged?.kind
     const address =
-      kind === undefined || kind === 'link'
+      kind === undefined || kind === 'link' || kind === 'device'
         ? (this.linked?.address ?? null)
         : this.staged?.kind === 'create'
           ? this.staged.draft.address
@@ -230,12 +250,15 @@ export class LocationState {
     return address === this.place?.name ? null : address
   }
 
-  /** The point the map shows, with the recording's accuracy, named or not. Null with no place. */
+  /**
+   * The point the map shows, with the recording's accuracy, named or not: the recording's own,
+   * else its saved location's. Null with no place.
+   */
   get point(): PlacePoint | null {
     const staged = this.staged
     switch (staged?.kind) {
       case undefined:
-        return this.recordingPoint
+        return this.storedPoint
       case 'cleared':
         return null
       case 'place':
@@ -245,6 +268,8 @@ export class LocationState {
         return this.recordingPoint ?? point(staged.place)
       case 'create':
         return this.recordingPoint ?? point(staged.draft)
+      case 'device':
+        return staged.point
     }
   }
 
@@ -260,12 +285,21 @@ export class LocationState {
   }
 
   /**
-   * Whether the point is precise enough to save under a typed name, so a vague fix never becomes
-   * a saved location that pulls in its neighbors.
+   * Whether the place can be saved under a typed name: not a saved location already, which is
+   * renamed where saved locations are, and precise enough that a vague fix never becomes a saved
+   * location that pulls in its neighbors.
    */
   get canName(): boolean {
+    // A fix not yet saved has no name or street of its own to save a location with.
+    if (this.staged?.kind === 'device') return false
+    if (this.linked || this.staged?.kind === 'create') return false
     const at = this.point
     return at !== null && isPrecise(at.accuracyM)
+  }
+
+  /** Whether the place is a saved location, which is renamed rather than named. */
+  get canRename(): boolean {
+    return this.linked !== null
   }
 
   /**
@@ -291,6 +325,8 @@ export class LocationState {
         return (this.linked ?? staged.place).address ?? null
       case 'create':
         return staged.draft.address
+      case 'device':
+        return this.linked?.address ?? null
       default:
         return null
     }
@@ -304,7 +340,12 @@ export class LocationState {
       case undefined:
         return false
       case 'cleared':
-        return stored.place_lat != null || stored.place_lon != null || stored.place_name != null
+        return (
+          stored.place_lat != null ||
+          stored.place_lon != null ||
+          stored.place_name != null ||
+          stored.place_id != null
+        )
       case 'place':
         return stored.place_id != null || !samePlace(recordingPlace(stored), staged.place)
       case 'link':
@@ -334,7 +375,7 @@ export class LocationState {
     }
   }
 
-  /** The hand edit Save writes for the pick, or null to leave the place alone. */
+  /** The hand edit a save writes for the pick, or null to leave the place alone. */
   handPatch(): {
     place_name: string | null
     place_lat: number | null
@@ -349,7 +390,7 @@ export class LocationState {
     return null
   }
 
-  /** The link Save writes for the pick, null for none. */
+  /** The link a save writes for the pick, null for none. */
   link(method: PlaceMethod | null): PlaceLink | null {
     const staged = this.changed ? this.staged : null
     const how = method === 'nearby' ? 'nearby' : 'saved'

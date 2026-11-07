@@ -66,6 +66,15 @@ private final class Holds {
         return trim
     }
 
+    /// A row the trim pipeline has not reached knows its end only from its playback file.
+    @Test func startsARowWithOnlyAPlaybackLengthOnThatLength() {
+        var playbackOnly = row(sourceDurationMs: nil)
+        playbackOnly.durationMs = 184_000
+        let trim = model(playbackOnly)
+        #expect(trim.bounds == 0...184_000)
+        #expect(trim.end == 184_000)
+    }
+
     @Test func startsAnUntrimmedRowOnTheWholeSource() {
         let trim = model()
         #expect(trim.bounds == 0...60_000)
@@ -387,16 +396,8 @@ private final class Holds {
             RecordingAudioFile(
                 url: URL(filePath: "/tmp/\(id).m4a"), file: RecordingFile(id: id, localState: .downloaded))
         }
-        player.open(.recording(recording, tuneTitle: nil))
+        player.play(.recording(recording, tuneTitle: nil))
         #expect(try await poll { player.recordingAudio == .loaded })
-    }
-
-    @Test func closingTheSheetLetsGoOfTheHold() async throws {
-        try await load()
-        player.hold("r1", PlaybackSettings(speedPercent: 100, pitchCents: 0))
-        #expect(audio.calls.suffix(2) == ["setRate(100)", "setPitch(0)"])
-        player.isExpanded = false
-        #expect(audio.calls.suffix(2) == ["setRate(75)", "setPitch(200)"])
     }
 
     private func trim(write: @escaping TrimModel.Write = { _, _, _ in }) -> TrimModel {
@@ -421,14 +422,14 @@ private final class Holds {
         #expect(audio.calls.suffix(2) == ["setRate(75)", "setPitch(200)"])
     }
 
-    @Test func aFailedSaveKeepsTheHoldUntilTheSheetCloses() async throws {
+    @Test func aFailedSaveKeepsTheHoldUntilTheScreenLeaves() async throws {
         try await load()
         let trim = trim { _, _, _ in throw URLError(.cannotOpenFile) }
         trim.open()
         trim.drag(.start, to: 5000)
         await #expect(throws: URLError.self) { try await trim.save() }
         #expect(audio.calls.suffix(2) == ["setRate(100)", "setPitch(0)"])
-        player.isExpanded = false
+        trim.leave()
         #expect(audio.calls.suffix(2) == ["setRate(75)", "setPitch(200)"])
     }
 

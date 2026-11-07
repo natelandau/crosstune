@@ -18,7 +18,7 @@ import type { RefObject } from 'react'
 
 /**
  * Trim in place of practice, on the same practice background with white handles, so editing reads apart
- * from practice. The overlay holds the engine at 100% speed and no pitch shift while it shows,
+ * from practice. The recording page holds the engine at 100% speed and no pitch shift while it shows,
  * so what is heard is exactly what is cut. Escape steps back out to practice, as Cancel does,
  * except while a confirmed trim is being written, which then finishes and leaves on its own.
  */
@@ -33,7 +33,7 @@ export function TrimPanel({
   view: RecordingView
   /** The peaks for the recording's current trim range. */
   shown: ShownPeaks | null
-  /** True while practice is the overlay on top. */
+  /** True while nothing sits over the editor. */
   isTop: () => boolean
   /** Takes the panel's Escape, for a device back to step out the same way. */
   stepOutRef?: RefObject<(() => void) | null>

@@ -48,6 +48,11 @@
   --container-auth: 25rem;
 }
 
+/* The height of the phone's floating chrome, which the shell sets on the phone. */
+:root {
+  --float-clearance: 0px;
+}
+
 /* Where the welcome and sign-in page splits into two halves: `welcome:` at and above it,
    `max-welcome:` strictly below, so exactly one side matches at any width. */
 @theme {

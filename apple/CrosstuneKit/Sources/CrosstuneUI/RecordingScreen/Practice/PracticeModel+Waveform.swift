@@ -88,10 +88,10 @@ extension PracticeModel {
     func shownCenterMs(at now: ContinuousClock.Instant) -> Double {
         if let scrubbingMs { return Double(scrubbingMs) }
         let base = positionMs
-        guard player.audio.isPlaying, let reading, abs(reading.elapsed * 1000 - base) < 1 else { return base }
+        guard isPlaying, let reading, abs(reading.elapsed * 1000 - base) < 1 else { return base }
         let parts = (now - reading.at).components
         let since = Double(parts.seconds) + Double(parts.attoseconds) / 1e18
-        let ahead = min(max(0, since), AudioPlayer.tick) * Double(player.speedPercent) / 100 * 1000
+        let ahead = min(max(0, since), AudioPlayer.tick) * Double(speedPercent) / 100 * 1000
         var limit = Double(lengthMs)
         if isRepeating, let row = selected, let span = shownSpan(row.id) {
             let end = Double(span.endMs - trimStartMs)
@@ -118,8 +118,10 @@ extension PracticeModel {
         let held = min(max(ms, 0), lengthMs)
         if activeScrub != nil {
             settleScrub(at: held)
-        } else {
+        } else if isCurrent {
             player.audio.seek(to: Double(held) / 1000)
+        } else {
+            moveOwnPlayhead(toMs: held)
         }
     }
 
@@ -159,7 +161,7 @@ extension PracticeModel {
             activeScrub = caught
             return
         }
-        let playing = player.audio.isPlaying
+        let playing = isPlaying
         if playing { player.audio.pause() }
         let origin = Int64(positionMs.rounded())
         activeScrub = Scrub(originMs: origin, pinch: pinches, wasPlaying: playing)
@@ -215,9 +217,12 @@ extension PracticeModel {
         momentumScroll = nil
         let held = activeScrub
         activeScrub = nil
-        if let ms { player.audio.seek(to: Double(min(max(ms, 0), lengthMs)) / 1000) }
+        if let ms {
+            let landed = min(max(ms, 0), lengthMs)
+            if isCurrent { player.audio.seek(to: Double(landed) / 1000) } else { moveOwnPlayhead(toMs: landed) }
+        }
         draggedMs = nil
-        if held?.wasPlaying == true, (ms ?? 0) < lengthMs { player.audio.play() }
+        if held?.wasPlaying == true, isCurrent, (ms ?? 0) < lengthMs { player.audio.play() }
     }
 
     /// Coasts from `from` to `to` on ``PracticeZoom/momentumScrollPosition(from:to:elapsedMs:runMs:)``,

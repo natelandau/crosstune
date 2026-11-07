@@ -5,6 +5,8 @@ export const META_PULL_CURSOR = 'pull_cursor'
 const META_EVENTS_CURSOR = 'events_cursor'
 const META_INVALID_CHANGES = 'invalid_changes'
 const META_STORAGE = 'storage'
+/** A point inside the account's country, from the API. */
+const META_COUNTRY_CENTER = 'country_center'
 export const META_KEEP_OFFLINE = 'keep_offline'
 /** Which recordings the Recordings tab lists: 'all', 'own', or an import source. */
 export const META_RECORDINGS_ORIGIN = 'recordings_origin'
@@ -66,6 +68,18 @@ export function getStorage(db: CrosstuneDb): Promise<StorageUsage | null> {
 
 export function setStorage(db: CrosstuneDb, usage: StorageUsage): Promise<void> {
   return setMeta(db, META_STORAGE, usage)
+}
+
+/** A point inside the account's country, null until the API has given one. */
+export function getCountryCenter(db: CrosstuneDb): Promise<{ lat: number; lon: number } | null> {
+  return getMeta<{ lat: number; lon: number } | null>(db, META_COUNTRY_CENTER, null)
+}
+
+export function setCountryCenter(
+  db: CrosstuneDb,
+  center: { lat: number; lon: number } | null,
+): Promise<void> {
+  return setMeta(db, META_COUNTRY_CENTER, center)
 }
 
 /** Whether this device downloads every ready recording so it plays without a connection. */

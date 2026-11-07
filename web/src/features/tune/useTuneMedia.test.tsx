@@ -28,6 +28,7 @@ import { useRecordingsWithFiles } from '../recordings/useRecordings'
 import { DONT_PLAY_FIRST, PLAY_FIRST_IN_LISTS } from './playSourceText'
 import { useTune } from './useTune'
 import { useTuneMedia } from './useTuneMedia'
+import { DELETE } from '../../ui/confirmCopy'
 import { PremiumSheetProvider } from '../plan/PremiumSheetProvider'
 import { entitlementRow } from '../../test/rows'
 
@@ -102,7 +103,14 @@ describe('useTuneMedia', () => {
     const [row] = result.current.media.recordingRows
     expect(row!.view.recording.id).toBe(id)
     expect(row!.pinned).toBe(false)
-    expect(row!.actions.map(label)).toContain(PLAY_FIRST_IN_LISTS)
+    expect(row!.actions.map(label)).toEqual([DELETE])
+  })
+
+  it('marks the pinned recording row', async () => {
+    const id = await captureRecording(db, { tuneId: ids.tuneId })
+    await db.user_tunes.update(ids.userTuneId, { play_recording_id: id })
+    const { result } = mount()
+    await waitFor(() => expect(result.current.media.recordingRows[0]?.pinned).toBe(true))
   })
 
   it('shows a failed upload error only while the plan uploads', async () => {
@@ -221,7 +229,6 @@ describe('useTuneMedia', () => {
     expect(result.current.media.error).toBeNull()
     expect(result.current.media.pasting).toBe(false)
     expect(result.current.media.finding).toBe(false)
-    expect(result.current.media.editing).toBeNull()
   })
 
   it('shows no refusal from the old tune once another tune is open', async () => {

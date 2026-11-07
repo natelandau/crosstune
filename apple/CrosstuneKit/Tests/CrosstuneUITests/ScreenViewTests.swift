@@ -18,11 +18,10 @@ import Testing
         ("Lists/ListScreen.swift", "list"),
         ("Recordings/RecordingsScreen.swift", "recordings"),
         ("Tuner/TunerScreen.swift", "tuner"),
-        ("RecordingScreen/RecordingScreen.swift", "recording"),
+        ("RecordingPage/RecordingPage.swift", "recording"),
         ("Phone/SettingsRoot.swift", "settings"),
         ("Mac/MacSettingsTabs.swift", "settings"),
         ("Stats/StatsScreen.swift", "stats"),
-        ("Pad/PadPracticeScreen.swift", "padPractice"),
         ("Welcome/WelcomeView.swift", "welcome"),
         ("Links/FindRecordingsSheet.swift", "findRecordings"),
     ]
@@ -80,20 +79,6 @@ import Testing
         var present = true
         /// What has appeared and disappeared, in order, so a test knows a swap has rendered.
         @ObservationIgnored var lifecycle: [String] = []
-    }
-
-    @MainActor @Observable private final class ReadingPaneModel {
-        var reading: ReadingPaneContent
-        init(_ reading: ReadingPaneContent) { self.reading = reading }
-    }
-
-    private struct ObservedReadingPane: View {
-        let model: ReadingPaneModel
-        @State private var visit = PadPracticeVisit()
-
-        var body: some View {
-            ReadingPane(reading: model.reading, visit: visit)
-        }
     }
 
     private struct SwappingPage: View {
@@ -172,60 +157,12 @@ import Testing
     @MainActor
     @Suite(.enabled(if: hasWindowServer, "Needs a window server to run onAppear"))
     struct HostedAnalyticsWiringTests {
-        private static let scan = Scan(
-            record: ScanRecord(id: "scan1", tuneID: "t1", width: 600, height: 800, state: ScanRecord.ready), file: nil)
-
         private func host(_ view: some View) -> NSWindow {
             let window = hiddenWindow(
                 size: CGSize(width: 400, height: 300), styleMask: [.borderless], appearance: .aqua)
             window.contentView = NSHostingView(rootView: view)
             window.orderFrontRegardless()
             return window
-        }
-
-        @Test func theReadingPaneReportsTheKindItOpensOn() async throws {
-            let sink = RecordingAnalyticsSink()
-            let reading = ReadingPaneContent(tuneID: "t1", scans: [], lyrics: "Oh the cuckoo")
-            let window = host(
-                ReadingPane(reading: reading, visit: PadPracticeVisit()).environment(\.analytics, sink.client))
-            defer { window.close() }
-
-            try await eventually { !sink.calls.isEmpty }
-
-            #expect(sink.calls == [.capture("lyrics_opened", ["tune_id": .string("t1")])])
-        }
-
-        @Test func theReadingPaneReportsAKindItGainsWhileItShows() async throws {
-            let sink = RecordingAnalyticsSink()
-            let model = ReadingPaneModel(ReadingPaneContent(tuneID: "t1", scans: [], lyrics: "Oh the cuckoo"))
-            let window = host(ObservedReadingPane(model: model).environment(\.analytics, sink.client))
-            defer { window.close() }
-            try await eventually { !sink.calls.isEmpty }
-
-            model.reading = ReadingPaneContent(tuneID: "t1", scans: [Self.scan], lyrics: "Oh the cuckoo")
-            try await eventually { sink.calls.count >= 2 }
-
-            #expect(
-                sink.calls == [
-                    .capture("lyrics_opened", ["tune_id": .string("t1")]),
-                    .capture("scan_viewed", ["tune_id": .string("t1")]),
-                ])
-        }
-
-        @Test func theReadingPaneReportsNothingForATuneTheListMovedTo() async throws {
-            let sink = RecordingAnalyticsSink()
-            let visit = PadPracticeVisit()
-            _ = visit.readingShown(.scans, tuneID: "t1", picked: false)
-            let reading = ReadingPaneContent(tuneID: "t2", scans: [], lyrics: "Oh the cuckoo")
-            let appeared = Counter()
-            let window = host(
-                ReadingPane(reading: reading, visit: visit).environment(\.analytics, sink.client)
-                    .onAppear { appeared.value += 1 })
-            defer { window.close() }
-
-            try await eventually { appeared.value > 0 }
-
-            #expect(sink.calls.isEmpty)
         }
 
         @Test func quittingRunsTheQuitWork() async throws {

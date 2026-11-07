@@ -11,6 +11,7 @@ import {
   livePaidSources,
   nextPlanChange,
   planOf,
+  recordingsPlayable,
   type PaidSource,
   type Plan,
 } from './plan'
@@ -235,6 +236,11 @@ export function usePlan(): Plan {
  */
 export function usePlanOrUnknown(): Plan {
   return usePlanRead(false)
+}
+
+/** Whether the plan plays recordings, read as `usePlanOrUnknown` reads the plan. */
+export function useRecordingsPlayable(): boolean {
+  return recordingsPlayable(usePlanOrUnknown())
 }
 
 function usePlanRead(rethrow: boolean): Plan {

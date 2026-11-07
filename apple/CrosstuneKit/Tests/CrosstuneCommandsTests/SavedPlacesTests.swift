@@ -157,6 +157,70 @@ import Testing
         }
     }
 
+    @Test func currentPickStoresDeviceOrigin() async throws {
+        let store = try root.open()
+        let commands = Commands(store: store)
+        try await store.write { writer in
+            try writer.put(
+                Recording(
+                    id: "r1", tuneID: nil, source: "microphone", addedAt: .now, placeName: "Denver, CO",
+                    placeLat: 39.7, placeLon: -104.9, placeID: "old", placeOrigin: "picked"))
+        }
+        let fix = Coordinate(lat: 36.66, lon: -80.92, accuracyM: 12)
+
+        try await commands.setRecordingPlace("r1", pick: .current(fix, savedPlaceID: nil))
+
+        var row = try await recording(store, "r1")
+        // The server names a device fix, so the old name never sticks to the new point.
+        #expect(row.placeName == nil)
+        #expect(row.placeLat == 36.66)
+        #expect(row.placeLon == -80.92)
+        #expect(row.placeAccuracyM == 12)
+        #expect(row.placeID == nil)
+        #expect(row.placeOrigin == "device")
+        let queued = try await store.pendingChanges(limit: 10).filter { $0.rowID == "r1" }
+        #expect(queued.first?.data?["place_origin"] == .string("device"))
+        #expect(queued.first?.data?["place_accuracy_m"] == .integer(12))
+
+        let saved = try await commands.createSavedPlace(
+            name: "The barn", lat: 36.66, lon: -80.92, address: nil, applePlaceID: nil)
+        try await commands.setRecordingPlace("r1", pick: .current(fix, savedPlaceID: saved.id))
+        row = try await recording(store, "r1")
+        #expect(row.placeID == saved.id)
+        #expect(row.placeOrigin == "device")
+    }
+
+    @Test func pointPickStoresAnUnnamedPickedPoint() async throws {
+        let store = try root.open()
+        let commands = Commands(store: store)
+        try await store.write { writer in
+            try writer.put(
+                Recording(
+                    id: "r1", tuneID: nil, source: "microphone", addedAt: .now, placeName: "Denver, CO",
+                    placeLat: 39.7, placeLon: -104.9, placeAccuracyM: 30, placeID: "old", placeOrigin: "device"))
+        }
+
+        try await commands.setRecordingPlace(
+            "r1", pick: .point(Coordinate(lat: 36.66, lon: -80.92, accuracyM: 12), savedPlaceID: nil))
+
+        var row = try await recording(store, "r1")
+        // The server names a point with no name, as it names a device fix.
+        #expect(row.placeName == nil)
+        #expect(row.placeLat == 36.66)
+        #expect(row.placeLon == -80.92)
+        #expect(row.placeAccuracyM == nil)
+        #expect(row.placeID == nil)
+        #expect(row.placeOrigin == "picked")
+
+        let saved = try await commands.createSavedPlace(
+            name: "The barn", lat: 36.66, lon: -80.92, address: nil, applePlaceID: nil)
+        try await commands.setRecordingPlace(
+            "r1", pick: .point(Coordinate(lat: 36.66, lon: -80.92), savedPlaceID: saved.id))
+        row = try await recording(store, "r1")
+        #expect(row.placeID == saved.id)
+        #expect(row.placeOrigin == "picked")
+    }
+
     @Test func refusesAPickOfAMissingOrDeletedPlaceOrRecording() async throws {
         let store = try root.open()
         let commands = Commands(store: store)

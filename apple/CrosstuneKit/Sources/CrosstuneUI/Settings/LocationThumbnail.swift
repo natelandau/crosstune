@@ -21,7 +21,7 @@ struct LocationThumbnail: View {
             AnyShapeStyle(Palette.border)
         #endif
     }
-    /// The least ground the thumbnail spans, as the location page's map does.
+    /// The least ground the thumbnail spans, as the location editor's map does.
     private static let minimumSpanM = 400.0
 
     @Environment(\.colorScheme) private var colorScheme

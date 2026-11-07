@@ -19,7 +19,7 @@ interface Recorded {
   maps: {
     element: HTMLElement
     options: Record<string, unknown>
-    region: unknown
+    region: { center: { latitude: number; longitude: number }; span?: unknown } | null
     destroyed: boolean
   }[]
   annotations: unknown[]
@@ -36,6 +36,11 @@ export function fakeMapKit(options: FakeMapKitOptions = {}): {
   dispatch: (type: string, event?: MapKitEvent) => void
   /** How many listeners an event type has now. */
   listenerCount: (type: string) => number
+  /**
+   * Moves the newest map's center as a drag does, firing the events MapKit fires. `settle: false`
+   * stops before the region finishes changing.
+   */
+  moveMap: (lat: number, lon: number, options?: { settle?: boolean }) => void
 } {
   const listeners = new Map<string, Set<(event: MapKitEvent) => void>>()
   const dispatch = (type: string, event: MapKitEvent = {}) =>
@@ -89,8 +94,10 @@ export function fakeMapKit(options: FakeMapKitOptions = {}): {
       ) {}
     },
     Map: class {
-      region: unknown = null
+      region: { center: { latitude: number; longitude: number } } | null = null
       destroyed = false
+      moved: { latitude: number; longitude: number } | null = null
+      listeners = new Map<string, Set<() => void>>()
       constructor(
         readonly element: HTMLElement,
         readonly options: Record<string, unknown>,
@@ -107,6 +114,25 @@ export function fakeMapKit(options: FakeMapKitOptions = {}): {
         if (fails.decorationFails) throw new Error('overlay failed')
         seen.overlays.push(overlay)
         return overlay
+      }
+      removeAnnotation(annotation: unknown) {
+        seen.annotations = seen.annotations.filter((shown) => shown !== annotation)
+      }
+      removeOverlay(overlay: unknown) {
+        seen.overlays = seen.overlays.filter((shown) => shown !== overlay)
+      }
+      /** Where the musician moved the map, else the region's center. */
+      get center() {
+        return this.moved ?? this.region?.center ?? { latitude: 0, longitude: 0 }
+      }
+      addEventListener(type: string, listener: () => void) {
+        this.listeners.set(type, (this.listeners.get(type) ?? new Set()).add(listener))
+      }
+      removeEventListener(type: string, listener: () => void) {
+        this.listeners.get(type)?.delete(listener)
+      }
+      dispatch(type: string) {
+        ;[...(this.listeners.get(type) ?? [])].forEach((listener) => listener())
       }
       destroy() {
         this.destroyed = true
@@ -128,7 +154,17 @@ export function fakeMapKit(options: FakeMapKitOptions = {}): {
     },
   }
   const listenerCount = (type: string) => listeners.get(type)?.size ?? 0
-  return { mapkit: mapkit as unknown as MapKit, seen, dispatch, listenerCount }
+  const moveMap = (lat: number, lon: number, { settle = true } = {}) => {
+    const map = seen.maps.at(-1) as unknown as InstanceType<typeof mapkit.Map> | undefined
+    if (!map) throw new Error('no map to move')
+    map.dispatch('scroll-start')
+    map.dispatch('region-change-start')
+    map.moved = { latitude: lat, longitude: lon }
+    if (!settle) return
+    map.dispatch('scroll-end')
+    map.dispatch('region-change-end')
+  }
+  return { mapkit: mapkit as unknown as MapKit, seen, dispatch, listenerCount, moveMap }
 }
 
 /** A point of interest as MapKit JS returns it. */

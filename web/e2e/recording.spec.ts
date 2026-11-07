@@ -4,12 +4,16 @@ import {
   DEFAULT_LABEL,
   escapeRegExp,
   nudgeSync,
-  openPractice,
+  openRecordingPage,
+  openTab,
   playRecording,
+  recordingAttribute,
+  showDetails,
+  recordingPage,
   recordUnfiled,
   renameRecording,
+  showPractice,
   signIn,
-  swipeLeft,
   tunePage,
   unique,
   waitForReady,
@@ -32,28 +36,33 @@ import {
 } from '../src/features/practice/trimViewCopy'
 import { PLAYER_REGION, SKIP_FORWARD } from '../src/features/player/playerCopy'
 import {
-  ADD_TO_TUNE_TITLE,
   addToTuneName,
   FILED_HEADER,
   UNFILED_HEADER,
 } from '../src/features/recordings/recordingsCopy'
+import { LINKED_TUNE_LABEL } from '../src/features/recording/recordingPageCopy'
 import { RECORDINGS_SECTION } from '../src/features/tune/tuneScreenCopy'
-import { CLOSE } from '../src/ui/confirmCopy'
 import { MORE_ACTIONS } from '../src/ui/menuCopy'
-import { ADD_TO_TUNE } from '../src/features/recordings/recordingCopy'
 import { SEARCH_TUNES } from '../src/features/catalog/catalogCopy'
 
 // The Stop button pulses continuously while recording, so Playwright's actionability
 // check never sees it stable. Reduced motion turns the pulse off.
 test.use({ reducedMotion: 'reduce' })
 
-/** File an unfiled row under `title` from its swipe action, and return its row in Filed. */
+/**
+ * File an unfiled row under `title` from the Linked Tune row of its page, and return its row
+ * in Filed, back on Recordings.
+ */
 async function addToTune(page: Page, row: Locator, title: string): Promise<Locator> {
-  await swipeLeft(page, row)
-  await row.getByRole('button', { name: ADD_TO_TUNE, exact: true }).click()
-  const picker = page.getByRole('dialog', { name: ADD_TO_TUNE_TITLE })
+  await openRecordingPage(row)
+  await showDetails(page)
+  await recordingAttribute(page, LINKED_TUNE_LABEL).click()
+  const picker = page.getByRole('dialog', { name: LINKED_TUNE_LABEL, exact: true })
   await picker.getByRole('searchbox', { name: SEARCH_TUNES }).fill(title)
   await picker.getByRole('row', { name: addToTuneName(title), exact: true }).click()
+  await expect(picker).toHaveCount(0)
+  await expect(recordingAttribute(page, LINKED_TUNE_LABEL, title)).toBeVisible()
+  await openTab(page, 'recordings')
   // Every filed recording shares one list, and each row there names its tune on its tune line.
   const filed = page
     .getByRole('grid', { name: FILED_HEADER, exact: true })
@@ -136,8 +145,8 @@ test('uploads a recording, transcodes it, and plays it back from a second device
       .getByRole('grid', { name: RECORDINGS_SECTION })
       .getByRole('row')
       .first()
-    // The second device holds no audio yet: the row fetches it first, then offers to play it.
-    await expect(row2).toHaveAccessibleName(/^Download /)
+    // The second device holds no audio yet: the row's slot fetches it first, then plays it.
+    await expect(row2.getByRole('button', { name: /^Download / })).toBeVisible()
     await playRecording(row2)
     const player2 = page2.getByRole('region', { name: PLAYER_REGION })
     await expect(player2.getByRole('button', { name: PAUSE })).toBeVisible()
@@ -172,17 +181,17 @@ test('trims a recording and another device sees it', async ({ page, browser }) =
 
   const unfiled = await recordUnfiled(page, 6)
   await waitForReady(page, unfiled)
-  const practice = await openPractice(page, unfiled)
+  await openRecordingPage(unfiled)
+  const label = unique('Trimmed recording')
+  await renameRecording(page, label)
+  const practice = await showPractice(page)
+  // Opening a recording's page leaves it stopped, so the playhead holds still for the trim.
+  await expect(practice.getByRole('button', { name: PLAY, exact: true })).toBeVisible({
+    timeout: 15_000,
+  })
 
-  // Opening the recording starts it playing; pausing (whichever state it lands in) keeps the
-  // playhead from drifting past the range this test is about to trim.
-  const transport = practice
-    .getByRole('button', { name: PAUSE, exact: true })
-    .or(practice.getByRole('button', { name: PLAY, exact: true }))
-  await expect(transport).toBeVisible({ timeout: 15_000 })
-  if ((await transport.getAttribute('aria-label')) === PAUSE) await transport.click()
-
-  await practice.getByRole('button', { name: MORE_ACTIONS, exact: true }).click()
+  // Trim is in the page's own menu, outside practice.
+  await recordingPage(page).getByRole('button', { name: MORE_ACTIONS, exact: true }).click()
   await page
     .getByRole('menu', { name: MORE_ACTIONS })
     .getByRole('menuitem', { name: TRIM, exact: true })
@@ -196,15 +205,14 @@ test('trims a recording and another device sees it', async ({ page, browser }) =
   const save = practice.getByRole('button', { name: SAVE_TRIM, exact: true })
   await expect(save).toBeEnabled()
   await save.click()
-  // The confirm is its own overlay, outside practice's.
+  // The confirm is its own overlay, outside the trim view's.
   const confirm = page.getByRole('dialog').filter({ hasText: TRIM_CONFIRM_MESSAGE })
   await confirm.getByRole('button', { name: TRIM_CONFIRM_ACTION, exact: true }).click()
   await expect(confirm).toHaveCount(0)
-  const label = unique('Trimmed recording')
-  await renameRecording(page, practice, label)
-  // Practice's header gives the recording's length beside when it was made.
-  await expect(practice.getByRole('banner')).toContainText(/\b0:03\b/, { timeout: 15_000 })
-  await practice.getByRole('button', { name: CLOSE, exact: true }).click()
+  // The page's subtitle gives the recording's length beside when it was made.
+  await expect(recordingPage(page).locator('[data-recording-subtitle]')).toContainText(/\b0:03\b/, {
+    timeout: 15_000,
+  })
 
   // A phone, since each nudge drives the phone's tab bar on both devices.
   const secondDevice = await browser.newContext({ ...test.info().project.use })
@@ -251,19 +259,17 @@ test('splits a recording and another device sees the pieces', async ({ page, bro
 
   const unfiled = await recordUnfiled(page, 6)
   await waitForReady(page, unfiled)
-  const practice = await openPractice(page, unfiled)
-
-  // Pausing keeps the playhead near the start, where the split view opens its cut line.
-  const transport = practice
-    .getByRole('button', { name: PAUSE, exact: true })
-    .or(practice.getByRole('button', { name: PLAY, exact: true }))
-  await expect(transport).toBeVisible({ timeout: 15_000 })
-  if ((await transport.getAttribute('aria-label')) === PAUSE) await transport.click()
-
+  await openRecordingPage(unfiled)
   const label = unique('Split recording')
-  await renameRecording(page, practice, label)
+  await renameRecording(page, label)
+  const practice = await showPractice(page)
+  // Opening a recording's page leaves it stopped at the start, where the split view opens its
+  // cut line.
+  await expect(practice.getByRole('button', { name: PLAY, exact: true })).toBeVisible({
+    timeout: 15_000,
+  })
 
-  await practice.getByRole('button', { name: MORE_ACTIONS, exact: true }).click()
+  await recordingPage(page).getByRole('button', { name: MORE_ACTIONS, exact: true }).click()
   await page
     .getByRole('menu', { name: MORE_ACTIONS })
     .getByRole('menuitem', { name: SPLIT, exact: true })
@@ -291,7 +297,7 @@ test('splits a recording and another device sees the pieces', async ({ page, bro
   await confirm.getByRole('button', { name: SPLIT_CONFIRM_ACTION, exact: true }).click()
   await expect(confirm).toHaveCount(0)
   await expect(split).toHaveCount(0)
-  await practice.getByRole('button', { name: CLOSE, exact: true }).click()
+  await openTab(page, 'recordings')
 
   const pieces = (p: Page): Locator =>
     p

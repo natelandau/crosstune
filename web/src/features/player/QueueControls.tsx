@@ -3,6 +3,7 @@ import { SHUFFLE } from '../lists/listPlayCopy'
 import type { RepeatMode } from './listQueue'
 import { NEXT_TUNE, PREVIOUS_TUNE, REPEAT_LIST, REPEAT_OFF, REPEAT_TUNE } from './playerCopy'
 import { useListPlayback } from './useListPlayback'
+import { isPlaying, usePlayer } from './usePlayer'
 import { PracticeButton } from '../practice/PracticeButton'
 import { Button } from '../../ui/Button'
 
@@ -11,6 +12,8 @@ const REPEAT_NAME: Record<RepeatMode, string> = {
   list: REPEAT_LIST,
   one: REPEAT_TUNE,
 }
+
+type Tone = 'bar' | 'practice'
 
 interface Control {
   id: string
@@ -22,10 +25,26 @@ interface Control {
 }
 
 /**
- * Shuffle, Previous tune, Next tune, and Repeat for the list that plays: on the dock, or on
- * practice's background in full-screen practice. Nothing shows while no list plays or one has stopped.
+ * Shuffle, Previous tune, Next tune, and Repeat for the list that plays: in a bar, the dock or
+ * the Details tab's play bar, or on practice's background. Nothing shows while no list plays or
+ * one has stopped, nor on a recording's page while the player holds another item.
  */
-export function QueueControls({ tone }: { tone: 'dock' | 'practice' }) {
+export function QueueControls({
+  tone,
+  recordingId,
+}: {
+  tone: Tone
+  /** The recording a page shows, the only one whose list controls it shows. */
+  recordingId?: string
+}) {
+  const player = usePlayer()
+  if (recordingId !== undefined && !isPlaying(player, { kind: 'recording', id: recordingId })) {
+    return null
+  }
+  return <ListControls tone={tone} />
+}
+
+function ListControls({ tone }: { tone: Tone }) {
   const playback = useListPlayback()
   const { active } = playback
   if (!active || active.message !== null) return null
@@ -52,11 +71,11 @@ export function QueueControls({ tone }: { tone: 'dock' | 'practice' }) {
     <div
       data-queue-controls
       className={
-        tone === 'dock' ? 'flex shrink-0 items-center' : 'flex items-center justify-center gap-6'
+        tone === 'bar' ? 'flex shrink-0 items-center' : 'flex items-center justify-center gap-6'
       }
     >
       {controls.map(({ id, icon, label, pressed, onPress }) =>
-        tone === 'dock' ? (
+        tone === 'bar' ? (
           <Button
             key={id}
             icon={icon}

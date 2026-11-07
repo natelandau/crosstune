@@ -15,7 +15,7 @@ import { addLink } from '../commands/links'
 import { splitRecording } from '../commands/split'
 import { createTune, deleteTune } from '../commands/tunes'
 import { CHUNK_MS } from '../db/recordings'
-import { getStorage, setKeepOffline, setStorage } from '../db/meta'
+import { getCountryCenter, getStorage, setKeepOffline, setStorage } from '../db/meta'
 import { pendingFor } from '../db/outbox'
 import type { CrosstuneDb } from '../db/schema'
 import { newId } from '../commands/write'
@@ -1229,11 +1229,12 @@ describe('fakeApi retryRecording', () => {
 })
 
 describe('engine integration', () => {
-  it('runs recovery and storage refresh in the sync, then uploads and downloads after it', async () => {
+  it('runs recovery and the account refresh in the sync, then uploads and downloads after it', async () => {
     const id = await captured()
     await readyOnServer('r1')
     await setKeepOffline(db, true)
     fake.setStorage({ used_bytes: 42, quota_bytes: 100, max_file_bytes: 50 })
+    fake.setCountryCenter({ lat: 51.2, lon: 10.4 })
     const stray = newId()
     await beginCapture(db, stray, { tuneId: null, recordedAt: new Date().toISOString() })
     await appendChunk(db, stray, 0, new Blob(['ab'], { type: 'audio/mp4' }))
@@ -1253,6 +1254,7 @@ describe('engine integration', () => {
       max_file_bytes: 50,
       split_parent_max_file_bytes: 1_800_000_000,
     })
+    expect(await getCountryCenter(db)).toEqual({ lat: 51.2, lon: 10.4 })
     await transfersSettled(engine)
 
     expect((await db.recording_files.get(id))?.local_state).toBe('uploaded')

@@ -133,27 +133,6 @@ private func songKind(_ tune: String) throws -> AppleMusicItem {
         fixture.audio.calls.count(where: { $0 == "load" })
     }
 
-    @Test func practiceScreenHeaderFollowsASkip() async throws {
-        let fixture = fixture()
-        start(fixture)
-        try await playing(fixture, "ra")
-        let own = RecordingScreenText.subtitle(
-            Recording(id: "ra", tuneID: "a", source: "microphone", addedAt: noon, label: "Take a", state: "ready"),
-            tuneTitle: "Tune a", lengthMs: nil)
-        func header() -> String? {
-            PadPracticeHeader.subtitle(
-                recording: Recording(
-                    id: "ra", tuneID: "a", source: "microphone", addedAt: noon, label: "Take a", state: "ready"),
-                tuneTitle: "Tune a", lengthMs: nil, playback: fixture.playback, showsReadingPane: true)
-        }
-        #expect(header() == "\(listName) \u{B7} 1 of 3")
-        #expect(header() != own)
-
-        fixture.playback.next()
-        try await playing(fixture, "rb")
-        #expect(header() == "\(listName) \u{B7} 2 of 3")
-    }
-
     @Test func playsInOrderAndAdvancesOnFinish() async throws {
         let fixture = fixture()
         start(fixture)

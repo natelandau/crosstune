@@ -9,7 +9,7 @@ import { iso, onPageLeave, type PageLeave } from '../player/activity'
 import { usePlaybackEngine } from '../player/PlaybackEngineProvider'
 import type { PlaybackState } from '../player/playbackEngine'
 import { usePlayLogControl } from '../player/usePlayLog'
-import type { PracticeOverlayHandle } from './usePracticeOverlay'
+import type { PracticeHolds } from './practiceHolds'
 import { PracticeLog, type PracticeRecord } from './practiceLog'
 
 async function recordPractice(
@@ -39,14 +39,14 @@ async function recordPractice(
  */
 export function usePracticeLog(
   recordingId: string | null,
-  overlay: Pick<PracticeOverlayHandle, 'held' | 'subscribe'>,
+  holds: Pick<PracticeHolds, 'held' | 'subscribe'>,
   { now = Date.now }: { now?: () => number } = {},
 ): void {
   const engine = usePlaybackEngine()
   const playLog = usePlayLogControl()
   const db = useContext(DbContext)
   const analytics = useAnalytics()
-  const { held, subscribe } = overlay
+  const { held, subscribe } = holds
 
   useEffect(() => {
     if (recordingId === null) return

@@ -53,3 +53,26 @@ private struct DisplaySettingsModifier: ViewModifier {
             .environment(\.systemDynamicTypeSize, system)
     }
 }
+
+#if os(iOS)
+    extension View {
+        /// Light navigation bar and status bar text while `isOn`, for a screen that draws dark in
+        /// every appearance.
+        func darkBars(_ isOn: Bool = true) -> some View {
+            modifier(DarkBars(isOn: isOn))
+        }
+    }
+
+    private struct DarkBars: ViewModifier {
+        let isOn: Bool
+
+        func body(content: Content) -> some View {
+            let bars = content.toolbarColorScheme(isOn ? .dark : nil, for: .navigationBar)
+            if #available(iOS 27, *) {
+                bars.toolbarColorScheme(isOn ? .dark : nil, for: .statusBar)
+            } else {
+                bars
+            }
+        }
+    }
+#endif

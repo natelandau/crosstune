@@ -2,15 +2,13 @@ import CrosstuneDesign
 import CrosstuneVocabulary
 import SwiftUI
 
-/// The recording screen's modes, each with its own controls under the waveform. The one last
-/// used is device state, kept under ``storageKey``.
+/// The recording screen's modes, each with its own controls under the waveform. A page opens on
+/// the first, Speed.
 enum PracticeMode: String, CaseIterable, Identifiable, Sendable {
-    case loops
     case speed
     case pitch
     case isolate
-
-    static let storageKey = "practiceMode"
+    case loops
 
     var id: Self { self }
 
@@ -41,13 +39,11 @@ enum PracticeMode: String, CaseIterable, Identifiable, Sendable {
     }
 }
 
-/// Loops, Speed, Pitch, and Isolate as one segmented control. The chosen mode's controls are
+/// Speed, Pitch, Isolate, and Loops as one segmented control. The chosen mode's controls are
 /// ``ModeControls``; on iPhone and iPad the transport sits between the two, while the Mac sets
 /// the picker right over its panel, under the transport. Both read the mode from the model.
 struct ModePicker: View {
     let model: PracticeModel
-
-    private var player: PlayerModel { model.player }
 
     var body: some View {
         @Bindable var model = model
@@ -56,8 +52,8 @@ struct ModePicker: View {
                 selection: $model.mode, options: PracticeMode.allCases, label: \.name,
                 badge: {
                     $0.badge(
-                        speedPercent: player.speedPercent, pitchCents: player.pitchCents,
-                        isolate: player.effectiveIsolate)
+                        speedPercent: model.speedPercent, pitchCents: model.pitchCents,
+                        isolate: model.effectiveIsolate)
                 },
                 title: PracticeText.modes, fillsWidth: true)
         #else
@@ -71,8 +67,8 @@ struct ModePicker: View {
             ForEach(PracticeMode.allCases) { mode in
                 Text(
                     mode.title(
-                        speedPercent: player.speedPercent, pitchCents: player.pitchCents,
-                        isolate: player.effectiveIsolate)
+                        speedPercent: model.speedPercent, pitchCents: model.pitchCents,
+                        isolate: model.effectiveIsolate)
                 )
                 .monospacedDigit()
                 .tag(mode)
@@ -91,14 +87,12 @@ struct ModeControls: View {
     /// Delete loop removed the selected loop, whose control goes disabled with it.
     let onDeleted: () -> Void
 
-    private var player: PlayerModel { model.player }
-
     var body: some View {
         ZStack(alignment: .top) {
             panel(.loops) { LoopsPanel(model: model, onDeleted: onDeleted) }
-            panel(.speed) { SpeedPanel(value: player.speedPercent, onChange: player.setSpeed) }
-            panel(.pitch) { PitchPanel(value: player.pitchCents, onChange: player.setPitch) }
-            panel(.isolate) { LiveIsolatePanel(player: player, shown: model.mode == .isolate) }
+            panel(.speed) { SpeedPanel(value: model.speedPercent, onChange: model.setSpeed) }
+            panel(.pitch) { PitchPanel(value: model.pitchCents, onChange: model.setPitch) }
+            panel(.isolate) { LiveIsolatePanel(model: model, shown: model.mode == .isolate) }
         }
     }
 

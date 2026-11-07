@@ -2,7 +2,7 @@ import { motion } from 'motion/react'
 import { useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { ToggleButton } from 'react-aria-components'
 import { ModeControls, type IsolateControls } from './ModeControls'
-import { SegmentedChoice } from './SegmentedChoice'
+import { SegmentedChoice } from '../../ui/SegmentedChoice'
 import { MODE_NAMES, useModeLabels } from './useModeLabels'
 import { MODES_LABEL } from './practiceCopy'
 import { DEFAULT_ISOLATE, effectiveIsolate } from '../player/isolate/isolateSetting'
@@ -10,7 +10,7 @@ import { availableModes, type Mode } from './usePracticeMode'
 import { isAppleTouch } from '../../platform/appleTouch'
 
 /**
- * Loops, Speed, Pitch, and Isolate as one segmented choice over the chosen mode's controls.
+ * Speed, Pitch, Isolate, and Loops as one segmented choice over the chosen mode's controls.
  * Every mode's controls stay laid out, so the panel holds the height of the tallest.
  */
 export function ModePanel({
@@ -42,13 +42,14 @@ export function ModePanel({
     isolate ? effectiveIsolate(isolate.value, isolate.isMono) : DEFAULT_ISOLATE,
   )
   const modes = availableModes(isolate !== null)
-  // A mode this item does not offer, such as one kept from a recording, opens on Loops.
-  const shown = modes.includes(mode) ? mode : 'loops'
+  // A mode this item does not offer, such as one kept from a recording, opens on Speed.
+  const shown = modes.includes(mode) ? mode : 'speed'
   const selector = useRef<HTMLDivElement>(null)
   const fits = useValueLabelsFit(selector, modes.join(' '))
   return (
     <div data-mode-panel-root className="flex flex-col gap-3">
       <SegmentedChoice
+        tone="practice"
         ref={selector}
         data-mode-selector
         label={MODES_LABEL}

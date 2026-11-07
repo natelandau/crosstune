@@ -174,12 +174,6 @@ extension PlayerModel {
         }
     }
 
-    func releaseHolds() {
-        guard !held.isEmpty else { return }
-        held = [:]
-        for setting in PlaybackSetting.allCases { apply(setting) }
-    }
-
     func cancelSettling() {
         for task in settling.values { task.cancel() }
         settling = [:]

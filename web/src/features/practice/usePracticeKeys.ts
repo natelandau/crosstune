@@ -16,8 +16,26 @@ const isButton = (target: EventTarget | null) =>
 const keepsTransportKey = (key: string, target: EventTarget | null) =>
   key === ' ' ? isButton(target) : isControl(target) || isButton(target)
 
+/** Where practice's keys reach: inside `root`, except inside any of `outside`. */
+export interface PracticeKeyScope {
+  root: RefObject<Element | null>
+  outside?: readonly RefObject<Element | null>[]
+}
+
+/**
+ * True for a key pressed inside `scope`, or with focus on nothing. A key pressed in a list or a
+ * control beside it belongs to that, and to the app's shortcuts, as does one in a part `scope`
+ * leaves out, such as a page's attribute rows.
+ */
+export const inPractice = (target: EventTarget | null, scope: PracticeKeyScope) => {
+  if (!(target instanceof Element) || target === document.body) return true
+  if (!scope.root.current?.contains(target)) return false
+  return !scope.outside?.some((part) => part.current?.contains(target))
+}
+
 export interface PracticeKeyActions {
-  /** True while practice is the topmost overlay, the only one the keys reach. */
+  scope: PracticeKeyScope
+  /** True while no overlay sits over practice, the only time the keys reach it. */
   isTop: () => boolean
   /** Why practice is paused, which turns every key off. */
   blocked?: string
@@ -59,7 +77,9 @@ export function usePracticeKeys(
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       const keys = actionsRef.current
-      if (isTextEntry(event.target) || !keys.isTop()) return
+      if (isTextEntry(event.target) || !inPractice(event.target, keys.scope) || !keys.isTop()) {
+        return
+      }
       if (keys.blocked) return
       const key = event.key
       if (event.ctrlKey || event.metaKey) {
@@ -110,8 +130,10 @@ export function usePracticeKeys(
         keys.startRename(keys.selectedId)
       }
     }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    // At capture, so a key practice takes is spent before the app's shortcuts, which share
+    // Space and N, hear it.
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
   }, [engine, actionsRef])
 
   useLayoutEffect(() => {

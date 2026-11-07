@@ -1,9 +1,7 @@
-import { useLiveQuery } from 'dexie-react-hooks'
 import { useMemo, useRef, useState } from 'react'
 import { updateLoop } from '../../commands/loops'
 import { useDb } from '../../db/DbProvider'
 import type { LocalRecordingLoop } from '../../db/types'
-import { liveTune } from '../../db/tunes'
 import type { RecordingView } from '../recordings/useRecordings'
 import {
   loopAt,
@@ -21,6 +19,7 @@ import { useLoopActions, type LoopActions } from './useLoopCommands'
 import { useLoopDrafts, type LoopDrafts } from './useLoopDrafts'
 import { useLoopPlayback, type LoopPlayback } from './useLoopPlayback'
 import { useLoops } from './useLoops'
+import { useLiveTune } from '../tune/useLiveTune'
 import type { PracticeKeyActions } from './usePracticeKeys'
 import type { PracticeTimeline } from './usePracticeTimeline'
 
@@ -61,7 +60,7 @@ export interface PracticeLoops {
    */
   fit: () => void
   /** What practice's keys do, for `usePracticeKeys` with the caller's `isTop` and `blocked`. */
-  keyActions: Omit<PracticeKeyActions, 'isTop' | 'blocked'>
+  keyActions: Omit<PracticeKeyActions, 'scope' | 'isTop' | 'blocked'>
 }
 
 /**
@@ -97,10 +96,7 @@ export function usePracticeLoops({
   const loopRows = useLoops(recording.id)
   const rows = useMemo(() => loopRows ?? [], [loopRows])
   const playback = useLoopPlayback(view, loopRows)
-  const partStructure = useLiveQuery(
-    async () => (tuneId ? (liveTune(await db.tunes.get(tuneId))?.part_structure ?? null) : null),
-    [db, tuneId],
-  )
+  const partStructure = useLiveTune(tuneId)?.part_structure
   const commands = useLoopActions({
     recordingId: recording.id,
     loops: rows,

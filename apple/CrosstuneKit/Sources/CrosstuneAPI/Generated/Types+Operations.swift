@@ -1993,13 +1993,29 @@ public enum Operations {
     }
     /// Mapkit Token
     ///
-    /// Issue a short-lived MapKit JS token restricted to the web origin.
+    /// Issue a short-lived MapKit JS token restricted to the web client's origin.
+    ///
+    /// A browser sends no `Origin` header on a same-origin request, so the page passes its own
+    /// origin as `origin`. An origin sign-in would not accept gets the configured web origin.
     ///
     /// - Remark: HTTP `GET /v1/places/mapkit-token`.
     /// - Remark: Generated from `#/paths//v1/places/mapkit-token/get(mapkit_token_v1_places_mapkit_token_get)`.
     public enum MapkitTokenV1PlacesMapkitTokenGet {
         public static let id: Swift.String = "mapkit_token_v1_places_mapkit_token_get"
         public struct Input: Sendable, Hashable {
+            /// - Remark: Generated from `#/paths/v1/places/mapkit-token/GET/query`.
+            public struct Query: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/places/mapkit-token/GET/query/origin`.
+                public var origin: Swift.String?
+                /// Creates a new `Query`.
+                ///
+                /// - Parameters:
+                ///   - origin:
+                public init(origin: Swift.String? = nil) {
+                    self.origin = origin
+                }
+            }
+            public var query: Operations.MapkitTokenV1PlacesMapkitTokenGet.Input.Query
             /// - Remark: Generated from `#/paths/v1/places/mapkit-token/GET/header`.
             public struct Headers: Sendable, Hashable {
                 public var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.MapkitTokenV1PlacesMapkitTokenGet.AcceptableContentType>]
@@ -2015,8 +2031,13 @@ public enum Operations {
             /// Creates a new `Input`.
             ///
             /// - Parameters:
+            ///   - query:
             ///   - headers:
-            public init(headers: Operations.MapkitTokenV1PlacesMapkitTokenGet.Input.Headers = .init()) {
+            public init(
+                query: Operations.MapkitTokenV1PlacesMapkitTokenGet.Input.Query = .init(),
+                headers: Operations.MapkitTokenV1PlacesMapkitTokenGet.Input.Headers = .init()
+            ) {
+                self.query = query
                 self.headers = headers
             }
         }
@@ -2283,11 +2304,380 @@ public enum Operations {
             }
         }
     }
+    /// Reverse Place
+    ///
+    /// Name a point as a street address with its town, and give its whole address.
+    ///
+    /// - Remark: HTTP `GET /v1/places/reverse`.
+    /// - Remark: Generated from `#/paths//v1/places/reverse/get(reverse_place_v1_places_reverse_get)`.
+    public enum ReversePlaceV1PlacesReverseGet {
+        public static let id: Swift.String = "reverse_place_v1_places_reverse_get"
+        public struct Input: Sendable, Hashable {
+            /// - Remark: Generated from `#/paths/v1/places/reverse/GET/query`.
+            public struct Query: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/places/reverse/GET/query/lat`.
+                public var lat: Swift.Double
+                /// - Remark: Generated from `#/paths/v1/places/reverse/GET/query/lon`.
+                public var lon: Swift.Double
+                /// Creates a new `Query`.
+                ///
+                /// - Parameters:
+                ///   - lat:
+                ///   - lon:
+                public init(
+                    lat: Swift.Double,
+                    lon: Swift.Double
+                ) {
+                    self.lat = lat
+                    self.lon = lon
+                }
+            }
+            public var query: Operations.ReversePlaceV1PlacesReverseGet.Input.Query
+            /// - Remark: Generated from `#/paths/v1/places/reverse/GET/header`.
+            public struct Headers: Sendable, Hashable {
+                public var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.ReversePlaceV1PlacesReverseGet.AcceptableContentType>]
+                /// Creates a new `Headers`.
+                ///
+                /// - Parameters:
+                ///   - accept:
+                public init(accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.ReversePlaceV1PlacesReverseGet.AcceptableContentType>] = .defaultValues()) {
+                    self.accept = accept
+                }
+            }
+            public var headers: Operations.ReversePlaceV1PlacesReverseGet.Input.Headers
+            /// Creates a new `Input`.
+            ///
+            /// - Parameters:
+            ///   - query:
+            ///   - headers:
+            public init(
+                query: Operations.ReversePlaceV1PlacesReverseGet.Input.Query,
+                headers: Operations.ReversePlaceV1PlacesReverseGet.Input.Headers = .init()
+            ) {
+                self.query = query
+                self.headers = headers
+            }
+        }
+        @frozen public enum Output: Sendable, Hashable {
+            public struct Ok: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/places/reverse/GET/responses/200/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/places/reverse/GET/responses/200/content/application\/json`.
+                    case json(Components.Schemas.ReversePlaceResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    public var json: Components.Schemas.ReversePlaceResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.ReversePlaceV1PlacesReverseGet.Output.Ok.Body
+                /// Creates a new `Ok`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                public init(body: Operations.ReversePlaceV1PlacesReverseGet.Output.Ok.Body) {
+                    self.body = body
+                }
+            }
+            /// Successful Response
+            ///
+            /// - Remark: Generated from `#/paths//v1/places/reverse/get(reverse_place_v1_places_reverse_get)/responses/200`.
+            ///
+            /// HTTP response code: `200 ok`.
+            case ok(Operations.ReversePlaceV1PlacesReverseGet.Output.Ok)
+            /// The associated value of the enum case if `self` is `.ok`.
+            ///
+            /// - Throws: An error if `self` is not `.ok`.
+            /// - SeeAlso: `.ok`.
+            public var ok: Operations.ReversePlaceV1PlacesReverseGet.Output.Ok {
+                get throws {
+                    switch self {
+                    case let .ok(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "ok",
+                            response: self
+                        )
+                    }
+                }
+            }
+            public struct NotFound: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/places/reverse/GET/responses/404/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/places/reverse/GET/responses/404/content/application\/problem+json`.
+                    case applicationProblemJson(Components.Schemas.Problem)
+                    /// The associated value of the enum case if `self` is `.applicationProblemJson`.
+                    ///
+                    /// - Throws: An error if `self` is not `.applicationProblemJson`.
+                    /// - SeeAlso: `.applicationProblemJson`.
+                    public var applicationProblemJson: Components.Schemas.Problem {
+                        get throws {
+                            switch self {
+                            case let .applicationProblemJson(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.ReversePlaceV1PlacesReverseGet.Output.NotFound.Body
+                /// Creates a new `NotFound`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                public init(body: Operations.ReversePlaceV1PlacesReverseGet.Output.NotFound.Body) {
+                    self.body = body
+                }
+            }
+            /// Not Found
+            ///
+            /// - Remark: Generated from `#/paths//v1/places/reverse/get(reverse_place_v1_places_reverse_get)/responses/404`.
+            ///
+            /// HTTP response code: `404 notFound`.
+            case notFound(Operations.ReversePlaceV1PlacesReverseGet.Output.NotFound)
+            /// The associated value of the enum case if `self` is `.notFound`.
+            ///
+            /// - Throws: An error if `self` is not `.notFound`.
+            /// - SeeAlso: `.notFound`.
+            public var notFound: Operations.ReversePlaceV1PlacesReverseGet.Output.NotFound {
+                get throws {
+                    switch self {
+                    case let .notFound(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "notFound",
+                            response: self
+                        )
+                    }
+                }
+            }
+            public struct UnprocessableContent: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/places/reverse/GET/responses/422/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/places/reverse/GET/responses/422/content/application\/problem+json`.
+                    case applicationProblemJson(Components.Schemas.Problem)
+                    /// The associated value of the enum case if `self` is `.applicationProblemJson`.
+                    ///
+                    /// - Throws: An error if `self` is not `.applicationProblemJson`.
+                    /// - SeeAlso: `.applicationProblemJson`.
+                    public var applicationProblemJson: Components.Schemas.Problem {
+                        get throws {
+                            switch self {
+                            case let .applicationProblemJson(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.ReversePlaceV1PlacesReverseGet.Output.UnprocessableContent.Body
+                /// Creates a new `UnprocessableContent`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                public init(body: Operations.ReversePlaceV1PlacesReverseGet.Output.UnprocessableContent.Body) {
+                    self.body = body
+                }
+            }
+            /// Validation Error
+            ///
+            /// - Remark: Generated from `#/paths//v1/places/reverse/get(reverse_place_v1_places_reverse_get)/responses/422`.
+            ///
+            /// HTTP response code: `422 unprocessableContent`.
+            case unprocessableContent(Operations.ReversePlaceV1PlacesReverseGet.Output.UnprocessableContent)
+            /// The associated value of the enum case if `self` is `.unprocessableContent`.
+            ///
+            /// - Throws: An error if `self` is not `.unprocessableContent`.
+            /// - SeeAlso: `.unprocessableContent`.
+            public var unprocessableContent: Operations.ReversePlaceV1PlacesReverseGet.Output.UnprocessableContent {
+                get throws {
+                    switch self {
+                    case let .unprocessableContent(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "unprocessableContent",
+                            response: self
+                        )
+                    }
+                }
+            }
+            public struct TooManyRequests: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/places/reverse/GET/responses/429/headers`.
+                public struct Headers: Sendable, Hashable {
+                    /// Whole seconds to wait before trying again.
+                    ///
+                    /// - Remark: Generated from `#/paths/v1/places/reverse/GET/responses/429/headers/Retry-After`.
+                    public var retryAfter: Swift.String?
+                    /// Creates a new `Headers`.
+                    ///
+                    /// - Parameters:
+                    ///   - retryAfter: Whole seconds to wait before trying again.
+                    public init(retryAfter: Swift.String? = nil) {
+                        self.retryAfter = retryAfter
+                    }
+                }
+                /// Received HTTP response headers
+                public var headers: Operations.ReversePlaceV1PlacesReverseGet.Output.TooManyRequests.Headers
+                /// - Remark: Generated from `#/paths/v1/places/reverse/GET/responses/429/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/places/reverse/GET/responses/429/content/application\/problem+json`.
+                    case applicationProblemJson(Components.Schemas.Problem)
+                    /// The associated value of the enum case if `self` is `.applicationProblemJson`.
+                    ///
+                    /// - Throws: An error if `self` is not `.applicationProblemJson`.
+                    /// - SeeAlso: `.applicationProblemJson`.
+                    public var applicationProblemJson: Components.Schemas.Problem {
+                        get throws {
+                            switch self {
+                            case let .applicationProblemJson(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.ReversePlaceV1PlacesReverseGet.Output.TooManyRequests.Body
+                /// Creates a new `TooManyRequests`.
+                ///
+                /// - Parameters:
+                ///   - headers: Received HTTP response headers
+                ///   - body: Received HTTP response body
+                public init(
+                    headers: Operations.ReversePlaceV1PlacesReverseGet.Output.TooManyRequests.Headers = .init(),
+                    body: Operations.ReversePlaceV1PlacesReverseGet.Output.TooManyRequests.Body
+                ) {
+                    self.headers = headers
+                    self.body = body
+                }
+            }
+            /// Too Many Requests
+            ///
+            /// - Remark: Generated from `#/paths//v1/places/reverse/get(reverse_place_v1_places_reverse_get)/responses/429`.
+            ///
+            /// HTTP response code: `429 tooManyRequests`.
+            case tooManyRequests(Operations.ReversePlaceV1PlacesReverseGet.Output.TooManyRequests)
+            /// The associated value of the enum case if `self` is `.tooManyRequests`.
+            ///
+            /// - Throws: An error if `self` is not `.tooManyRequests`.
+            /// - SeeAlso: `.tooManyRequests`.
+            public var tooManyRequests: Operations.ReversePlaceV1PlacesReverseGet.Output.TooManyRequests {
+                get throws {
+                    switch self {
+                    case let .tooManyRequests(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "tooManyRequests",
+                            response: self
+                        )
+                    }
+                }
+            }
+            public struct ServiceUnavailable: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/places/reverse/GET/responses/503/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/places/reverse/GET/responses/503/content/application\/problem+json`.
+                    case applicationProblemJson(Components.Schemas.Problem)
+                    /// The associated value of the enum case if `self` is `.applicationProblemJson`.
+                    ///
+                    /// - Throws: An error if `self` is not `.applicationProblemJson`.
+                    /// - SeeAlso: `.applicationProblemJson`.
+                    public var applicationProblemJson: Components.Schemas.Problem {
+                        get throws {
+                            switch self {
+                            case let .applicationProblemJson(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.ReversePlaceV1PlacesReverseGet.Output.ServiceUnavailable.Body
+                /// Creates a new `ServiceUnavailable`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                public init(body: Operations.ReversePlaceV1PlacesReverseGet.Output.ServiceUnavailable.Body) {
+                    self.body = body
+                }
+            }
+            /// Service Unavailable
+            ///
+            /// - Remark: Generated from `#/paths//v1/places/reverse/get(reverse_place_v1_places_reverse_get)/responses/503`.
+            ///
+            /// HTTP response code: `503 serviceUnavailable`.
+            case serviceUnavailable(Operations.ReversePlaceV1PlacesReverseGet.Output.ServiceUnavailable)
+            /// The associated value of the enum case if `self` is `.serviceUnavailable`.
+            ///
+            /// - Throws: An error if `self` is not `.serviceUnavailable`.
+            /// - SeeAlso: `.serviceUnavailable`.
+            public var serviceUnavailable: Operations.ReversePlaceV1PlacesReverseGet.Output.ServiceUnavailable {
+                get throws {
+                    switch self {
+                    case let .serviceUnavailable(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "serviceUnavailable",
+                            response: self
+                        )
+                    }
+                }
+            }
+            /// Undocumented response.
+            ///
+            /// A response with a code that is not documented in the OpenAPI document.
+            case undocumented(statusCode: Swift.Int, OpenAPIRuntime.UndocumentedPayload)
+        }
+        @frozen public enum AcceptableContentType: AcceptableProtocol {
+            case json
+            case applicationProblemJson
+            case other(Swift.String)
+            public init?(rawValue: Swift.String) {
+                switch rawValue.lowercased() {
+                case "application/json":
+                    self = .json
+                case "application/problem+json":
+                    self = .applicationProblemJson
+                default:
+                    self = .other(rawValue)
+                }
+            }
+            public var rawValue: Swift.String {
+                switch self {
+                case let .other(string):
+                    return string
+                case .json:
+                    return "application/json"
+                case .applicationProblemJson:
+                    return "application/problem+json"
+                }
+            }
+            public static var allCases: [Self] {
+                [
+                    .json,
+                    .applicationProblemJson
+                ]
+            }
+        }
+    }
     /// Search Places
     ///
     /// Named places, street addresses, and towns for the text typed so far, each named as picked.
     ///
-    /// Results lean toward the account's country, never toward the user's own location.
+    /// Results lean toward the point given by `lat` and `lon`, which come together, else toward the
+    /// account's country.
     ///
     /// - Remark: HTTP `GET /v1/places/search`.
     /// - Remark: Generated from `#/paths//v1/places/search/get(search_places_v1_places_search_get)`.
@@ -2298,12 +2688,24 @@ public enum Operations {
             public struct Query: Sendable, Hashable {
                 /// - Remark: Generated from `#/paths/v1/places/search/GET/query/q`.
                 public var q: Swift.String
+                /// - Remark: Generated from `#/paths/v1/places/search/GET/query/lat`.
+                public var lat: Swift.Double?
+                /// - Remark: Generated from `#/paths/v1/places/search/GET/query/lon`.
+                public var lon: Swift.Double?
                 /// Creates a new `Query`.
                 ///
                 /// - Parameters:
                 ///   - q:
-                public init(q: Swift.String) {
+                ///   - lat:
+                ///   - lon:
+                public init(
+                    q: Swift.String,
+                    lat: Swift.Double? = nil,
+                    lon: Swift.Double? = nil
+                ) {
                     self.q = q
+                    self.lat = lat
+                    self.lon = lon
                 }
             }
             public var query: Operations.SearchPlacesV1PlacesSearchGet.Input.Query

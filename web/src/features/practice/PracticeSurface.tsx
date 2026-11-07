@@ -16,6 +16,9 @@ import type { PracticeTimeline } from './usePracticeTimeline'
 /** The waveform's ruler and the gap under it, which the bars' height leaves room for. */
 const RULER_PX = 20
 
+/** The waveform slot's one height, its ruler included. */
+export const WAVEFORM_SLOT_PX = 160
+
 const offClass = (blocked?: string) => (blocked ? 'pointer-events-none opacity-50' : '')
 
 /** The whole recording with the view's window on it, or a plain bar until there is a length. */
@@ -53,9 +56,9 @@ export function PracticeOverview({
 }
 
 /**
- * The zoomed waveform under the fixed playhead. It takes whatever the controls below leave,
- * which never changes with the mode or the loops, so its height holds still. `children` sit
- * over it as siblings, so a press on them never reaches its scrub, tap, pinch, or handle drag.
+ * The zoomed waveform under the fixed playhead, at one height whatever the window, mode, or
+ * loops, so a taller window grows the surface around it instead. `children` sit over it as
+ * siblings, so a press on them never reaches its scrub, tap, pinch, or handle drag.
  */
 export function PracticeWaveformSlot({
   timeline,
@@ -74,7 +77,7 @@ export function PracticeWaveformSlot({
   children?: ReactNode
 }) {
   return (
-    <div className="relative min-h-[160px] flex-1">
+    <div className="relative shrink-0" style={{ height: WAVEFORM_SLOT_PX }}>
       <div
         ref={slotRef}
         inert={!!blocked}

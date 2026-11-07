@@ -47,7 +47,7 @@ import { useSplitEditor } from './useSplitEditor'
 
 /**
  * Split in place of practice, on the same practice background, with the header, focus, and
- * Escape of Trim. The overlay holds the engine at 100% speed and no pitch shift while it shows,
+ * Escape of Trim. The recording page holds the engine at 100% speed and no pitch shift while it shows,
  * so what is heard is exactly where a cut falls.
  */
 export function SplitPanel({
@@ -61,7 +61,7 @@ export function SplitPanel({
   view: RecordingView
   /** The peaks for the recording's current trim range. */
   shown: ShownPeaks | null
-  /** True while practice is the overlay on top. */
+  /** True while nothing sits over the editor. */
   isTop: () => boolean
   /** Takes the panel's Escape, for a device back to step out the same way. */
   stepOutRef?: RefObject<(() => void) | null>

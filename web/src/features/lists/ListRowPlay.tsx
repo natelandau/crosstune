@@ -4,13 +4,7 @@ import { closeLinkName, openLinkName } from '../links/linkNames'
 import { useLinkRow } from '../links/useLinkRow'
 import { tappedFrom, type PlayOrigin } from '../player/playLog'
 import { useActiveListRun, useListPlayback } from '../player/useListPlayback'
-import {
-  closeRecordingName,
-  downloadingName,
-  downloadName,
-  pauseName,
-  playName,
-} from '../recordings/recordingNames'
+import { downloadingName, pauseName, playName, slotName } from '../recordings/recordingNames'
 import { useRecordingRow } from '../recordings/useRecordingRow'
 import type { RecordingView } from '../recordings/useRecordings'
 import {
@@ -50,7 +44,7 @@ function RecordingPlay({
   listId: string
   tuneId: string
 }) {
-  const { control, open, offlineDownload } = useRecordingRow(view, {
+  const { control, slot, offlineDownload } = useRecordingRow(view, {
     origin: rowOrigin(listId),
   })
   const listed = useListedPlay(listId, tuneId)
@@ -61,15 +55,9 @@ function RecordingPlay({
       </ActionSlot>
     )
   }
-  if (!open) return <ActionSlot />
-  const name =
-    control === 'close'
-      ? closeRecordingName(title)
-      : control === 'play'
-        ? playName(title)
-        : downloadName(title)
+  if (!slot || control === 'none') return <ActionSlot />
   return (
-    <SlotButton name={name} onPress={control === 'play' ? listed(open.onOpen) : open.onOpen}>
+    <SlotButton name={slotName(control, title)} onPress={control === 'play' ? listed(slot) : slot}>
       <RecordingControlGlyph control={control} offline={offlineDownload} />
     </SlotButton>
   )

@@ -16,6 +16,12 @@ import {
   RecordingsTune,
   StatsTune,
 } from '../features/tune/tuneRoutes'
+import {
+  CatalogRecording,
+  ListRecording,
+  RecordingsRecording,
+  StatsRecording,
+} from '../features/recording/recordingRoutes'
 import { CatalogLayout } from './CatalogLayout'
 import { DestinationTracker } from './DestinationTracker'
 import { NOT_FOUND } from './notFound'
@@ -72,6 +78,7 @@ export function appRoutes(dev: boolean): RouteObject[] {
           children: [
             { path: 'new', element: <CatalogNewTune /> },
             { path: ':tuneId', element: <CatalogTune /> },
+            { path: ':tuneId/recordings/:recordingId', element: <CatalogRecording /> },
           ],
         },
         {
@@ -82,13 +89,18 @@ export function appRoutes(dev: boolean): RouteObject[] {
             { index: true, element: null },
             { path: ':listId', element: null },
             { path: ':listId/tunes/:tuneId', element: <ListTune /> },
+            { path: ':listId/tunes/:tuneId/recordings/:recordingId', element: <ListRecording /> },
           ],
         },
         {
           path: '/recordings',
           // No index route: at the root the outlet is empty, which is what shows the list alone.
+          // A recording's page sits under its own segment, so it never reads as a tune's id.
           element: <RecordingsLayout />,
-          children: [{ path: ':tuneId', element: <RecordingsTune /> }],
+          children: [
+            { path: 'recording/:recordingId', element: <RecordingsRecording /> },
+            { path: ':tuneId', element: <RecordingsTune /> },
+          ],
         },
         {
           path: '/tuner',
@@ -112,6 +124,7 @@ export function appRoutes(dev: boolean): RouteObject[] {
               }),
             },
             { path: 'stats/tunes/:tuneId', element: <StatsTune /> },
+            { path: 'stats/tunes/:tuneId/recordings/:recordingId', element: <StatsRecording /> },
             { path: `recordings/${SAVED_LOCATIONS_SEGMENT}/:placeId`, element: null },
             { path: 'saved-locations/:placeId', loader: legacySavedLocation },
             { path: ':page', loader: knownSettingsPage, element: null },

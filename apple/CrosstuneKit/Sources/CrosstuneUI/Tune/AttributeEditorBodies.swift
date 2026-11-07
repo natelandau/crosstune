@@ -219,7 +219,7 @@ private struct AttributeEditing: ViewModifier {
 
 /// An editor body's layout: its rows stacked, wide enough for the key grid in a popover and as
 /// wide as a sheet allows.
-private struct AttributeEditorStack<Content: View>: View {
+struct AttributeEditorStack<Content: View>: View {
     @ViewBuilder let content: Content
 
     @Environment(\.spacing) private var spacing
@@ -328,7 +328,7 @@ private struct TimeSignatureEditor: View {
 }
 
 /// The catalog's entries, joined as the form joins them, for the suggestions it offers.
-private struct AttributeCatalog: Sendable {
+struct AttributeCatalog: Sendable {
     var entries: [CatalogEntry] = []
 
     var tunes: [Tune] { entries.map(\.tune) }
@@ -344,11 +344,13 @@ private struct AttributeCatalog: Sendable {
 
 /// An open vocabulary's editor: a field with suggestions, where a pick saves and closes and
 /// Enter saves what was typed.
-private struct SuggestionEditor: View {
+struct SuggestionEditor: View {
     enum Suggestions {
         case fixed([String])
         /// Drawn from the catalog, read once as the editor opens.
         case catalog((AttributeCatalog) -> [String])
+        /// Read from the store once as the editor opens.
+        case read(@Sendable (Database) throws -> [String])
     }
 
     let label: String
@@ -368,9 +370,14 @@ private struct SuggestionEditor: View {
         )
         .onSubmit { controls.done() }
         .task {
-            guard case .catalog(let build) = suggestions else { return }
-            let read = (try? await store?.read(AttributeCatalog.read)) ?? AttributeCatalog()
-            built = build(read)
+            switch suggestions {
+            case .fixed: return
+            case .catalog(let build):
+                let read = (try? await store?.read(AttributeCatalog.read)) ?? AttributeCatalog()
+                built = build(read)
+            case .read(let read):
+                built = (try? await store?.read(read)) ?? []
+            }
         }
     }
 
@@ -378,6 +385,7 @@ private struct SuggestionEditor: View {
         switch suggestions {
         case .fixed(let list): list
         case .catalog(let build): built ?? build(AttributeCatalog())
+        case .read: built ?? []
         }
     }
 }

@@ -66,8 +66,6 @@ private struct Transport: View {
     @Environment(\.spacing) private var spacing
     @Environment(\.practiceBackground) private var practiceScheme
 
-    private var player: PlayerModel { model.player }
-
     var body: some View {
         #if os(macOS)
             HStack(spacing: 20) { buttons }
@@ -83,9 +81,9 @@ private struct Transport: View {
     }
 
     private var playButton: some View {
-        let playLabel = PlayButtonLabel(isPlaying: player.audio.isPlaying, repeating: model.selected.map(model.name))
+        let playLabel = PlayButtonLabel(isPlaying: model.isPlaying, repeating: model.selected.map(model.name))
         return Button {
-            player.audio.toggle()
+            model.togglePlay()
         } label: {
             #if os(macOS)
                 MacPlayButtonLabel(playLabel: playLabel)
@@ -116,7 +114,7 @@ private struct Transport: View {
 
     private func skip(_ seconds: TimeInterval, systemImage: String, name: (TimeInterval) -> String) -> some View {
         Button {
-            player.audio.skip(by: seconds)
+            model.skip(by: seconds)
         } label: {
             #if os(macOS)
                 Label(name(abs(seconds)), systemImage: systemImage)

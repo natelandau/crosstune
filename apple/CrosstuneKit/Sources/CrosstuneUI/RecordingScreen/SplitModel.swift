@@ -87,7 +87,7 @@ final class SplitModel {
     ) {
         recordingID = recording.id
         let low = recording.trimStartMs
-        let high = max(low, RecordingLimits.splitRangeEnd(recording, file: file) ?? low)
+        let high = max(low, RecordingLimits.sourceEndMs(recording, file: file) ?? low)
         state = State(
             lowMs: low, highMs: high, lineMs: low, overLimit: high - low > RecordingLimits.maxRecordingMs)
         opened = TrimModel.Patch(trimStartMs: recording.trimStartMs, trimEndMs: recording.trimEndMs)

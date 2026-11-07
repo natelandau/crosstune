@@ -95,8 +95,9 @@ Each has a place in the data model and no code:
 ## Constraints for every release
 
 - Phone first. A screen used with an instrument in hand works one-handed
-  and in poor light. A recording of any tune is at most two taps from the
-  catalog.
+  and in poor light. A recording of any tune plays within two taps of the
+  catalog: the tune, then the play glyph on the recording's row. Play on
+  the recording's page is one tap more.
 - Offline. The catalog is readable and editable with no signal.
 - API first. The backend never depends on a client. The Apple app and the
   web client use the same endpoints.

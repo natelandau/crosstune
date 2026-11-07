@@ -7,7 +7,7 @@ import { FakeAudioElement, fakePlaybackEngine } from '../../test/providers'
 import { entitlementRow, recordingFile, recordingRow } from '../../test/rows'
 import { renderApp } from '../../test/renderApp'
 import { FixedNow } from '../../ui/useNow'
-import { PLAY } from '../recordings/recordingNames'
+import { playName } from '../recordings/recordingNames'
 import { PLAYER_REGION } from './playerCopy'
 import { PAUSE } from './transportCopy'
 
@@ -15,7 +15,7 @@ const WIDE = { width: 1280, height: 800 }
 const BEFORE_END = Date.parse('2026-10-10T12:00:00.000Z')
 const TRIAL_END = '2026-10-10T12:00:10.000Z'
 
-it('stops a playing recording and hands focus back to its row when the trial ends', async () => {
+it('stops a playing recording and hands focus back to its play control when the trial ends', async () => {
   const db = openTestDb()
   await db.entitlements.put(
     entitlementRow({
@@ -51,11 +51,11 @@ it('stops a playing recording and hands focus back to its row when the trial end
     wrap: (app) => <Clock>{app}</Clock>,
   })
 
-  const row = page.getByRole('row', { name: new RegExp(`^${PLAY} Jam take`) })
-  await expect.element(row).toBeVisible()
-  // Held, since playing and then the lapse rename the row.
-  const rowElement = row.element()
-  await row.click()
+  const control = page.getByRole('button', { name: playName('Jam take'), exact: true })
+  await expect.element(control).toBeVisible()
+  // Held, since playing renames the control.
+  const controlElement = control.element()
+  await control.click()
   const player = page.getByRole('region', { name: PLAYER_REGION })
   const pause = player.getByRole('button', { name: PAUSE, exact: true })
   await expect.element(pause).toBeVisible()
@@ -67,6 +67,8 @@ it('stops a playing recording and hands focus back to its row when the trial end
   await expect.element(player).not.toBeInTheDocument()
   await expect.poll(() => engine.getState().playing).toBe(false)
   await expect.poll(() => element.src).toBe('')
-  await expect.poll(() => document.activeElement).toBe(rowElement)
-  await expect.element(page.getByRole('row', { name: /^Jam take/ })).toHaveFocus()
+  await expect.poll(() => document.activeElement).toBe(controlElement)
+  await expect
+    .element(page.getByRole('button', { name: playName('Jam take'), exact: true }))
+    .toHaveFocus()
 })

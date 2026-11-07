@@ -1,17 +1,19 @@
 import SwiftUI
 
-/// The detail column: the tab's tune page, or its placeholder.
+/// The detail column: what the tab's path shows there.
 struct PadDetail: View {
-    let tuneID: String?
-
-    init(tuneID: String?) {
-        self.tuneID = tuneID
-    }
+    let detail: DetailPage
+    /// Closes the recording page, back to the tune under it.
+    let onCloseRecording: @MainActor () -> Void
 
     var body: some View {
-        if let tuneID {
+        switch detail {
+        case .recording(let recordingID):
+            RecordingPage(
+                recordingID: recordingID, parent: RecordingPageParent(showsClose: true, leave: onCloseRecording))
+        case .tune(let tuneID):
             TuneScreen(tuneID: tuneID)
-        } else {
+        case .placeholder:
             TuneDetailPlaceholder()
         }
     }

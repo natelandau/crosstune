@@ -35,7 +35,7 @@ import Testing
     }
 
     @Test func notesTheRecordingScreenClosingAndThePlayerClosing() async throws {
-        player.open(item, playing: false)
+        player.loadPaused(item)
         try await eventually { player.recordingAudio == .loaded }
         player.screenOpened("r1")
         player.screenClosed()

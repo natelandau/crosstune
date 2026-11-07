@@ -58,7 +58,7 @@ struct PracticeWaveform: View {
         // The player reports its position only a few times a second, so while it plays the view
         // redraws every frame and runs the playhead on in between. A momentum scroll's position
         // comes from the clock, so it redraws every frame too.
-        let still = model.momentumScroll == nil && (!player.audio.isPlaying || model.draggedMs != nil)
+        let still = model.momentumScroll == nil && (!model.isPlaying || model.draggedMs != nil)
         TimelineView(.animation(paused: still)) { _ in
             if let view = model.zoomedWaveformView {
                 content(view)
@@ -389,7 +389,7 @@ struct PracticeReadout: View {
                 .lineLimit(2)
         } else {
             TimelineView(
-                .animation(minimumInterval: 0.1, paused: !model.player.audio.isPlaying && model.momentumScroll == nil)
+                .animation(minimumInterval: 0.1, paused: !model.isPlaying && model.momentumScroll == nil)
             ) { _ in
                 Text(RecordingScreenText.preciseTime(milliseconds: Int64(model.shownCenterMs(at: model.clock()))))
                     #if os(macOS)

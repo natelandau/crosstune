@@ -8,22 +8,24 @@ import {
   useState,
   type ReactNode,
 } from 'react'
+import { useLocation, useNavigate } from 'react-router'
 import { providerLabel } from '../links/display'
+import { usePagePlayback } from './pagePlayback'
 import { PLAYER_REGION } from './playerCopy'
 import { useDockItem, type DockShown } from './useDockItem'
 import { useListPlayback } from './useListPlayback'
-import { usePlayer } from './usePlayer'
+import { startOf, usePlayer } from './usePlayer'
 import { usePlayerFocusReturn } from './usePlayerFocusReturn'
 import { useRecordingTransport } from './useRecordingTransport'
-import { usePracticeOverlay } from '../practice/usePracticeOverlay'
-import { loadPracticeModal } from '../practice/practiceModalLoader'
+import { usePracticeHolds } from '../practice/practiceHolds'
 import { useFrame } from '../../platform/frame'
 import { useNowPlaying } from '../../layout/NowPlayingSlot'
 import type { BarProps } from './barParts'
 import { DockBar } from './DockBar'
 import { EmbedPanel } from './EmbedPanel'
 import { PhoneBar } from './PhoneBar'
-import { useOpenPractice } from './practiceOpener'
+import { useOpenRecordingPage } from './recordingPageOpener'
+import { tunePageFor } from '../recording/recordingPageParent'
 import { DURATION, EASE } from '../../theme/motion'
 import { useLatest } from '../../ui/useLatest'
 
@@ -85,10 +87,13 @@ function slideOut(section: HTMLElement) {
 /**
  * Docks the loaded item in the shell's now-playing slot: the phone bar above the tab bar, or
  * the dock across the foot of the detail pane. A list that stopped keeps the bar, with nothing
- * loaded, to say why until it is closed. Mount it once, inside the shell.
+ * loaded, to say why until it is closed. While a recording's page shows the loaded recording,
+ * the page is the player and the bar stays hidden, still mounted, so the audio plays on. Mount
+ * it once, inside the shell.
  */
 export function NowPlaying() {
   const { set } = useNowPlaying()
+  const { onPage } = usePagePlayback()
   const { shown, title } = useDockItem()
   const { active, end } = useListPlayback()
   const message = active?.message ?? null
@@ -116,9 +121,11 @@ export function NowPlaying() {
       ) : null,
     [message, end, shown, title, focusRef],
   )
-  useEffect(() => {
-    set(bar)
-  }, [set, bar])
+  // The bar and whether it hides change in one update, so a bar that goes as its page goes is
+  // never put back in a slot to slide out.
+  useLayoutEffect(() => {
+    set(bar, onPage)
+  }, [set, bar, onPage])
   useEffect(() => () => set(null), [set])
   return null
 }
@@ -181,14 +188,36 @@ function NowPlayingBar({ shown, title }: { shown: DockShown; title: string }) {
     // Keyed, since the transport takes a later blob as the same recording's replaced.
     <RecordingBar key={shown.recording.id} shown={shown} title={title} entering={seen.changed} />
   ) : (
+    <LinkBar shown={shown} title={title} entering={seen.changed} />
+  )
+}
+
+/** A playing link's embed over its bar, whose Expand opens the link's tune page. */
+function LinkBar({
+  shown,
+  title,
+  entering,
+}: {
+  shown: Extract<DockShown, { kind: 'link' }>
+  title: string
+  entering: boolean
+}) {
+  const navigate = useNavigate()
+  const pathnameRef = useLatest(useLocation().pathname)
+  const open = () => {
+    const at = pathnameRef.current
+    const tunePath = tunePageFor(at, shown.link.tune_id)
+    void navigate(tunePath, { replace: tunePath === at })
+  }
+  return (
     <>
       <EmbedPanel embed={shown.embed} title={title} />
       <Bar
         title={title}
         detail={providerLabel(shown.link)}
         transport={null}
-        onOpen={null}
-        entering={seen.changed}
+        onOpen={open}
+        entering={entering}
       />
     </>
   )
@@ -205,25 +234,32 @@ function RecordingBar({
 }) {
   const { recording, file, tuneTitle } = shown
   // Above the frame's choice of bar, so a resize keeps the recording loaded and playing.
-  const practiceOverlay = usePracticeOverlay()
+  const holds = usePracticeHolds()
+  const start = startOf(usePlayer(), { kind: 'recording', id: recording.id })
   const transport = useRecordingTransport({
     recording,
     file,
     title,
-    held: () => practiceOverlay.held(recording.id),
+    held: () => holds.held(recording.id),
+    start,
   })
-  const openPractice = useOpenPractice()
-  // A loaded recording is what practice opens on, so its code loads now rather than on the tap.
-  useEffect(() => {
-    if (openPractice) loadPracticeModal().catch(() => {})
-  }, [openPractice])
+  const openPage = useOpenRecordingPage()
   return (
     <Bar
       title={title}
       // A recording with no label already takes its tune's name as its title.
       detail={recording.label !== null ? tuneTitle : null}
       transport={transport}
-      onOpen={openPractice ? () => openPractice(recording.id) : null}
+      onOpen={
+        openPage
+          ? () =>
+              openPage(recording.id, {
+                tab: 'practice',
+                source: 'dock',
+                tuneId: recording.tune_id ?? null,
+              })
+          : null
+      }
       entering={entering}
     />
   )
@@ -241,6 +277,9 @@ function Bar({ onClose, ...props }: Omit<BarProps, 'onClose'> & { onClose?: () =
   )
 }
 
+const TOAST_PROPERTIES = ['--toast-bottom', '--toast-left', '--toast-right'] as const
+type ToastProperty = (typeof TOAST_PROPERTIES)[number]
+
 /**
  * Places the toast above the bar while the bar shows, centered on the pane the bar docks in.
  * The bar's slot sits at the foot of its column, so whatever lies below it, such as the tab
@@ -252,10 +291,14 @@ function useToastClearance(sectionRef: { current: HTMLElement | null }) {
     if (!section) return
     const root = document.documentElement.style
     let observed: Element[] = []
+    // A hidden bar has no slot, and the toast drops to wherever it sits with no bar.
+    const clear = () => {
+      for (const name of TOAST_PROPERTIES) root.removeProperty(name)
+    }
     const measure = () => {
       // The slot is laid out unmoved while the bar rises inside it.
       const slot = section.closest('[data-now-playing]')
-      if (!slot) return
+      if (!slot) return clear()
       const watch = [slot, slot.previousElementSibling].filter((el): el is Element => !!el)
       if (watch.some((el, i) => el !== observed[i])) {
         observer.disconnect()
@@ -264,12 +307,14 @@ function useToastClearance(sectionRef: { current: HTMLElement | null }) {
         observer.observe(section)
       }
       const rect = slot.getBoundingClientRect()
-      const clearance = window.innerHeight - rect.top + TOAST_GAP_PX
-      root.setProperty('--toast-bottom', `${Math.max(clearance, 0)}px`)
       // The slot spans the pane it docks in, so the toast centers on the detail pane on split
       // and wide, and on the window on the phone.
-      root.setProperty('--toast-left', `${Math.max(rect.left, 0)}px`)
-      root.setProperty('--toast-right', `${Math.max(window.innerWidth - rect.right, 0)}px`)
+      const px: Record<ToastProperty, number> = {
+        '--toast-bottom': window.innerHeight - rect.top + TOAST_GAP_PX,
+        '--toast-left': rect.left,
+        '--toast-right': window.innerWidth - rect.right,
+      }
+      for (const name of TOAST_PROPERTIES) root.setProperty(name, `${Math.max(px[name], 0)}px`)
     }
     // A frame later, so the whole layout has settled before the slot is read.
     let frame = 0
@@ -284,9 +329,7 @@ function useToastClearance(sectionRef: { current: HTMLElement | null }) {
       cancelAnimationFrame(frame)
       observer.disconnect()
       window.removeEventListener('resize', schedule)
-      root.removeProperty('--toast-bottom')
-      root.removeProperty('--toast-left')
-      root.removeProperty('--toast-right')
+      clear()
     }
   }, [sectionRef])
 }

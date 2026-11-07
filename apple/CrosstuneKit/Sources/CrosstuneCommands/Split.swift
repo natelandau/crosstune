@@ -24,7 +24,7 @@ extension StoreWriter {
 
         let start = parent.trimStartMs
         let file = try RecordingFile.fetchOne(db, key: parentID)
-        guard let end = RecordingLimits.splitRangeEnd(parent, file: file) else { throw SplitError.cutOutside }
+        guard let end = RecordingLimits.sourceEndMs(parent, file: file) else { throw SplitError.cutOutside }
         let cuts = cutsMs.sorted()
         guard !cuts.isEmpty, cuts.allSatisfy({ $0 > start && $0 < end }) else { throw SplitError.cutOutside }
         let bounds = [start] + cuts + [end]

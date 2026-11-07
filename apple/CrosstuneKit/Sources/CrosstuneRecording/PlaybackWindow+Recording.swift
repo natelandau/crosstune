@@ -9,8 +9,8 @@ extension PlaybackWindow {
     /// the file predates the recording's latest trim.
     public static func make(recording: Recording, file: RecordingFile, fileDuration: TimeInterval) -> PlaybackWindow {
         let fileMs = fileDuration * 1000
-        let sourceEndMs = (recording.trimEndMs ?? recording.sourceDurationMs).map(Double.init) ?? fileMs
         let blobStartMs = Double(file.blobStartMs)
+        let sourceEndMs = (recording.trimEndMs ?? recording.sourceDurationMs).map(Double.init) ?? blobStartMs + fileMs
         func inFile(_ ms: Double) -> TimeInterval { min(max(0, ms), fileMs) / 1000 }
         return PlaybackWindow(
             from: inFile(Double(recording.trimStartMs) - blobStartMs), to: inFile(sourceEndMs - blobStartMs))

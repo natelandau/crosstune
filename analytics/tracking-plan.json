@@ -196,7 +196,6 @@
       "find_recordings",
       "settings",
       "stats",
-      "pad_practice",
       "tuner"
     ],
     "audio_format": [
@@ -263,7 +262,14 @@
       "search",
       "suggestion",
       "nearby",
-      "saved"
+      "saved",
+      "current_location",
+      "pin"
+    ],
+    "recording_page_layout": [
+      "details",
+      "practice",
+      "wide"
     ],
     "saved_location_method": [
       "nearby",
@@ -303,6 +309,7 @@
       "upload",
       "add_to_recordings",
       "recording_row",
+      "recording_page",
       "recordings_line",
       "scan",
       "add_scan",
@@ -964,21 +971,6 @@
         }
       }
     },
-    "pad_practice_opened": {
-      "description": "The iPad practice screen was opened for a tune.",
-      "clients": [
-        "apple"
-      ],
-      "answers": [
-        "feature_usage"
-      ],
-      "properties": {
-        "tune_id": {
-          "type": "uuid",
-          "required": true
-        }
-      }
-    },
     "list_created": {
       "description": "A list was created.",
       "clients": [
@@ -1105,6 +1097,32 @@
         "feature_usage"
       ],
       "properties": {
+        "source": {
+          "type": "string",
+          "enum": "source",
+          "required": true
+        }
+      }
+    },
+    "recording_page_opened": {
+      "description": "The recording page was opened for a recording.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "feature_usage"
+      ],
+      "properties": {
+        "recording_id": {
+          "type": "uuid",
+          "required": true
+        },
+        "layout": {
+          "type": "string",
+          "enum": "recording_page_layout",
+          "required": true
+        },
         "source": {
           "type": "string",
           "enum": "source",
@@ -1605,7 +1623,8 @@
         "ended_by": {
           "type": "string",
           "enum": "ended_by",
-          "required": true
+          "required": true,
+          "description": "`closed` includes leaving a recording's page that owned the playback."
         },
         "tune_id": {
           "type": "uuid",

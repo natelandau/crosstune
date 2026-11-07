@@ -15,7 +15,7 @@ import { useLatest } from '../../ui/useLatest'
 import { loopHolds, useLoopFollow } from '../practice/useLoopFollow'
 import { useLoops } from '../practice/useLoops'
 import { DOWNLOAD_FAILED, DOWNLOADING, fileStateLabel, NOT_AVAILABLE } from '../../text/format'
-import type { HeldSettings } from '../practice/usePracticeOverlay'
+import type { HeldSettings } from '../practice/practiceHolds'
 import { useRowIsolate } from './isolate/useRowIsolate'
 import type { PlaybackState } from './playbackEngine'
 import { useEngineState, usePlaybackEngine } from './PlaybackEngineProvider'
@@ -23,6 +23,7 @@ import { usePlayheadClock, type FrameSource, type Moving } from './playheadClock
 import { playbackWindow, type PlaybackWindow } from './playbackWindow'
 import { PITCH_BADGE, SPEED_BADGE } from './transportCopy'
 import { useCurrentAudio } from './useCurrentAudio'
+import { FROM_THE_START, type PlayStart } from './usePlayer'
 import { LoadFailedContext } from './useListPlayback'
 import { useRecordingDownload } from './useRecordingDownload'
 import { useUploadLimits } from '../recordings/useUploadLimits'
@@ -34,6 +35,8 @@ export interface RecordingTransportOptions {
   title: string
   /** What practice plays ahead of the row, which wins over the row's settings. */
   held: () => HeldSettings | null
+  /** Where the first load starts. */
+  start?: PlayStart
   /** What the playhead's frames run on, for a test to step them. */
   frames?: FrameSource
 }
@@ -78,6 +81,7 @@ export function useRecordingTransport({
   file,
   title,
   held,
+  start = FROM_THE_START,
   frames,
 }: RecordingTransportOptions): RecordingTransport {
   const engine = usePlaybackEngine()
@@ -167,7 +171,17 @@ export function useRecordingTransport({
       { title },
       { keepLoop: !!replaced },
     )
-    if (replaced) engine.seek(replaced.positionMs)
+    if (replaced) {
+      engine.seek(replaced.positionMs)
+    } else {
+      if (start.at > 0) engine.seek(start.at)
+      // Repeating moves a start outside the loop to the loop's start, as selecting it does.
+      // The loop follows its row from here, so a range handed over before the row read holds.
+      if (start.loop) {
+        engine.setLoop(start.loop)
+        engine.setRepeat(true)
+      }
+    }
     if (!replaced || replaced.playing) engine.play()
     loadedBlobIdentity.current = blobIdentity
   })

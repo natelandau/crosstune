@@ -86,6 +86,8 @@ final class FakeSyncAPI: SyncAPI {
     var pushes: [[Change]] = []
     var pulls: [Int64] = []
     var storageCalls = 0
+    /// The country center the account call answers with.
+    var countryCenter: Coordinate?
     /// Thrown by every call while set.
     var failure: (any Error)?
     /// Thrown by the storage call alone while set.
@@ -152,12 +154,12 @@ final class FakeSyncAPI: SyncAPI {
         if let failure { throw failure }
     }
 
-    func storage() async throws -> StorageUsage {
+    func account() async throws -> AccountSummary {
         onRequest()
         if let failure { throw failure }
         storageCalls += 1
         if let storageFailure { throw storageFailure }
-        return usage
+        return AccountSummary(storage: usage, countryCenter: countryCenter)
     }
 
     func resolveLink(url: String) async throws -> ResolvedLink {
@@ -180,6 +182,11 @@ final class FakeSyncAPI: SyncAPI {
         searches.append(Search(q: q, providers: providers, country: country))
         if let failure { throw failure }
         return SearchResponse(groups: searchGroups)
+    }
+
+    func reversePlace(lat: Double, lon: Double) async throws -> ReversedPlace? {
+        if let failure { throw failure }
+        return nil
     }
 
     // MARK: Transfers

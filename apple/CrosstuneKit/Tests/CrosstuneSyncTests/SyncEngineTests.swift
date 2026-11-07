@@ -471,6 +471,15 @@ import Testing
         #expect(try await store.meta(.storage, as: StorageUsage.self) == api.usage)
     }
 
+    @Test func keepsTheCountryCenter() async throws {
+        api.countryCenter = Coordinate(lat: 51.2, lon: 10.4)
+        let engine = engine()
+
+        await engine.sync()
+
+        #expect(try await store.meta(.countryCenter, as: Coordinate?.self) == Coordinate(lat: 51.2, lon: 10.4))
+    }
+
     @Test func finishesCleanWhenOnlyTheStorageUsageFail() async throws {
         api.storageFailure = APIStatusError(status: 500)
         let engine = engine()

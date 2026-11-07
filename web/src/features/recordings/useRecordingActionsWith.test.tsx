@@ -5,23 +5,17 @@ import { recordingAnalytics } from '../../usage/testing'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
 import { dataProviders, fakePlayer } from '../../test/providers'
-import { entitlementRow, recordingFile, recordingRow } from '../../test/rows'
+import { recordingFile, recordingRow } from '../../test/rows'
 import { DELETE } from '../../ui/confirmCopy'
 import { PlayerContext } from '../player/usePlayer'
 import { TRIM } from '../practice/trimCopy'
 import { DELETE_WHILE_SPLITTING, SPLIT } from '../practice/splitCopy'
-import { DETACHED_PRACTICE_OVERLAY, PracticeOverlayContext } from '../practice/usePracticeOverlay'
-import { PREMIUM_RECORDINGS_TITLE } from '../plan/planCopy'
 import { MAX_RECORDING_MS } from '../../domain/recordingLimits'
-import { EDIT, openOn, ADD_TO_TUNE } from './recordingCopy'
+import { openOn } from './recordingCopy'
 import { GO_TO_TUNE } from './recordingNames'
-import { PLAY_FIRST_IN_LISTS } from '../tune/playSourceText'
+import { DONT_PLAY_FIRST, PLAY_FIRST_IN_LISTS } from '../tune/playSourceText'
 import type { RecordingView } from './useRecordings'
-import {
-  REMOVE_FROM_TUNE,
-  useRecordingActionsWith,
-  type RecordingActionsOptions,
-} from './useRecordingActionsWith'
+import { useRecordingActionsWith, type RecordingActionsOptions } from './useRecordingActionsWith'
 
 let db: CrosstuneDb
 
@@ -51,13 +45,9 @@ function setup(
   analytics = recordingAnalytics(),
 ) {
   const Data = dataProviders({ db, analytics })
-  const open = vi.fn()
-  const overlay = { ...DETACHED_PRACTICE_OVERLAY, open }
   const wrapper = ({ children }: { children: ReactNode }) => (
     <Data>
-      <PracticeOverlayContext.Provider value={overlay}>
-        <PlayerContext.Provider value={fakePlayer()}>{children}</PlayerContext.Provider>
-      </PracticeOverlayContext.Provider>
+      <PlayerContext.Provider value={fakePlayer()}>{children}</PlayerContext.Provider>
     </Data>
   )
   const confirm = vi.fn(async () => answer)
@@ -67,7 +57,6 @@ function setup(
       return result.current
     },
     confirm,
-    open,
   }
 }
 
@@ -75,83 +64,94 @@ const labels = (items: { label: string }[]) => items.map((item) => item.label)
 
 describe('useRecordingActionsWith', () => {
   it('offers Trim first, only in the menu', () => {
-    const result = setup({ onEdit: () => {}, onTrim: () => {}, onAddToTune: () => {} })
-    expect(labels(result.current.menuFor(view()))).toEqual([TRIM, EDIT, ADD_TO_TUNE, DELETE])
+    const result = setup({ onTrim: () => {} })
+    expect(labels(result.current.pageMenuFor(view()))).toEqual([TRIM, DELETE])
     expect(labels(result.current.actionsFor(view()))).not.toContain(TRIM)
-    expect(result.current.menuFor(view())[0]).toMatchObject({ disabled: undefined })
+    expect(result.current.pageMenuFor(view())[0]).toMatchObject({ disabled: undefined })
   })
 
   it('shows Trim disabled with its reason while it is blocked', () => {
     const result = setup({ onTrim: () => {}, trimBlocked: 'Offline' })
-    expect(result.current.menuFor(view())[0]).toMatchObject({ label: TRIM, disabled: 'Offline' })
+    expect(result.current.pageMenuFor(view())[0]).toMatchObject({
+      label: TRIM,
+      disabled: 'Offline',
+    })
   })
 
   it('offers Open on the site only for an import whose page is http or https', () => {
     const result = setup()
     const page = 'https://www.slippery-hill.com/content/x'
-    expect(labels(result.current.menuFor(view({ origin_url: page })))).toContain(
+    expect(labels(result.current.pageMenuFor(view({ origin_url: page })))).toContain(
       openOn('Slippery-Hill'),
     )
     for (const url of ['javascript:alert(1)', 'garbage', null]) {
-      expect(labels(result.current.menuFor(view({ origin_url: url })))).not.toContain(
+      expect(labels(result.current.pageMenuFor(view({ origin_url: url })))).not.toContain(
         openOn('Slippery-Hill'),
       )
     }
   })
 
-  it('offers Split first on a row that must be split to upload, opening practice on Split', () => {
-    const result = setup({ onEdit: () => {} })
+  it("a row's only swipe and menu action is Delete", () => {
+    const file = recordingFile('r1', {
+      blob: new Blob(['x']),
+      local_duration_ms: MAX_RECORDING_MS + 1000,
+    })
+    const result = setup({
+      onOpenTune: () => {},
+      onTrim: () => {},
+      onSplit: () => {},
+      pin: { userTuneId: 'ut1', recordingId: null },
+    })
+    for (const target of [
+      view(),
+      view({ file }),
+      view({ tuneId: 't1', tuneTitle: 'Cluck Old Hen', origin_url: 'https://example.com/x' }),
+    ]) {
+      expect(labels(result.current.actionsFor(target))).toEqual([DELETE])
+    }
+  })
+
+  it('the page menu holds Pin, Go to tune, Open on the site, Trim, Split, then Delete', () => {
+    const result = setup({
+      onOpenTune: () => {},
+      onTrim: () => {},
+      onSplit: () => {},
+      pin: { userTuneId: 'ut1', recordingId: null },
+    })
+    const filed = view({
+      tuneId: 't1',
+      tuneTitle: 'Cluck Old Hen',
+      origin_url: 'https://www.slippery-hill.com/content/x',
+    })
+    expect(labels(result.current.pageMenuFor(filed))).toEqual([
+      PLAY_FIRST_IN_LISTS,
+      GO_TO_TUNE,
+      openOn('Slippery-Hill'),
+      TRIM,
+      SPLIT,
+      DELETE,
+    ])
+  })
+
+  it('offers Split on the page of a recording that must be split to upload', () => {
     const long = view({
       file: recordingFile('r1', {
         blob: new Blob(['x']),
         local_duration_ms: MAX_RECORDING_MS + 1000,
       }),
     })
-    const split = result.current.actionsFor(long)[0]!
-    expect(split).toMatchObject({ label: SPLIT, disabled: undefined })
+    const onSplit = vi.fn()
+    const result = setup({ onSplit })
+    const split = result.current.pageMenuFor(long).find((item) => item.label === SPLIT)!
+    expect(split).toMatchObject({ disabled: undefined })
     split.onPress()
-    expect(result.open).toHaveBeenCalledWith('r1', 'split')
-    expect(labels(result.current.actionsFor(view()))).not.toContain(SPLIT)
+    expect(onSplit).toHaveBeenCalledOnce()
   })
 
-  it('swipes Split, one filing action, and Delete on a row that must be split', () => {
-    const file = recordingFile('r1', {
-      blob: new Blob(['x']),
-      local_duration_ms: MAX_RECORDING_MS + 1000,
-    })
-    const result = setup({
-      onEdit: () => {},
-      onAddToTune: () => {},
-      onOpenTune: () => {},
-      pin: { userTuneId: 'ut1', recordingId: null },
-    })
-    const unfiled = view({ file })
-    expect(labels(result.current.actionsFor(unfiled))).toEqual([SPLIT, ADD_TO_TUNE, DELETE])
-    expect(labels(result.current.rowMenuFor(unfiled))).toEqual([
-      SPLIT,
-      EDIT,
-      ADD_TO_TUNE,
-      PLAY_FIRST_IN_LISTS,
-      DELETE,
-    ])
-    const filed = view({ file, tuneId: 't1', tuneTitle: 'Cluck Old Hen' })
-    expect(labels(result.current.actionsFor(filed))).toEqual([SPLIT, REMOVE_FROM_TUNE, DELETE])
-    expect(labels(result.current.rowMenuFor(filed))).toEqual([
-      SPLIT,
-      EDIT,
-      REMOVE_FROM_TUNE,
-      GO_TO_TUNE,
-      PLAY_FIRST_IN_LISTS,
-      DELETE,
-    ])
-    const unfilable = setup().current
-    expect(labels(unfilable.actionsFor(unfiled))).toEqual([SPLIT, DELETE])
-  })
-
-  it('swipes and lists the same actions on a row that need not be split', () => {
-    const result = setup({ onEdit: () => {}, onAddToTune: () => {} })
-    expect(labels(result.current.actionsFor(view()))).toEqual([EDIT, ADD_TO_TUNE, DELETE])
-    expect(labels(result.current.rowMenuFor(view()))).toEqual([EDIT, ADD_TO_TUNE, DELETE])
+  it('offers Pin on the page only with a tune to pin in, and unpins a pinned recording', () => {
+    const result = setup({ pin: { userTuneId: 'ut1', recordingId: 'r1' } })
+    expect(labels(result.current.pageMenuFor(view()))).toContain(DONT_PLAY_FIRST)
+    expect(labels(setup().current.pageMenuFor(view()))).not.toContain(PLAY_FIRST_IN_LISTS)
   })
 
   it('waits to delete a recording only while it holds split audio', () => {
@@ -162,30 +162,12 @@ describe('useRecordingActionsWith', () => {
     expect(deleteOf(view())).toBeUndefined()
   })
 
-  it('shows Split disabled with its reason on a free plan', async () => {
-    await db.entitlements.put(entitlementRow())
-    const result = setup()
-    const long = view({
-      file: recordingFile('r1', {
-        blob: new Blob(['x']),
-        local_duration_ms: MAX_RECORDING_MS + 1000,
-      }),
-    })
-    await expect
-      .poll(() => result.current.actionsFor(long)[0]?.disabled)
-      .toBe(PREMIUM_RECORDINGS_TITLE)
-  })
-
-  it('offers Go to tune after Remove from tune, on a filed view with a handler only', () => {
+  it('offers Go to tune on a filed view with a handler only', () => {
     const filed = view({ tuneId: 't1', tuneTitle: 'Cluck Old Hen' })
     const withHandler = setup({ onOpenTune: () => {} })
-    expect(labels(withHandler.current.menuFor(filed))).toEqual([
-      REMOVE_FROM_TUNE,
-      GO_TO_TUNE,
-      DELETE,
-    ])
-    expect(labels(withHandler.current.menuFor(view()))).not.toContain(GO_TO_TUNE)
-    expect(labels(setup().current.menuFor(filed))).not.toContain(GO_TO_TUNE)
+    expect(labels(withHandler.current.pageMenuFor(filed))).toEqual([GO_TO_TUNE, DELETE])
+    expect(labels(withHandler.current.pageMenuFor(view()))).not.toContain(GO_TO_TUNE)
+    expect(labels(setup().current.pageMenuFor(filed))).not.toContain(GO_TO_TUNE)
   })
 
   describe('analytics', () => {
@@ -220,21 +202,6 @@ describe('useRecordingActionsWith', () => {
       await expect.poll(() => result.confirm.mock.calls.length).toBe(1)
       await expect.poll(async () => (await db.recordings.get('r1'))?.deleted_at).toBeNull()
       expect(analytics.sends()).toEqual([])
-    })
-
-    it('sends recording_unfiled with the origin from Remove from tune', async () => {
-      const analytics = recordingAnalytics()
-      const result = setup({}, false, analytics)
-      const target = view({ tuneId: 't1', tuneTitle: 'Cluck Old Hen' })
-      await db.recordings.put({ ...target.recording, tune_id: 't1', source: 'upload' })
-      const upload = { ...target, recording: { ...target.recording, source: 'upload' as const } }
-
-      pressAction(result, upload, REMOVE_FROM_TUNE)
-
-      await expect.poll(async () => (await db.recordings.get('r1'))?.tune_id).toBeNull()
-      await expect
-        .poll(() => analytics.sends())
-        .toEqual([{ name: 'recording_unfiled', props: { origin: 'imported', recording_id: 'r1' } }])
     })
   })
 })

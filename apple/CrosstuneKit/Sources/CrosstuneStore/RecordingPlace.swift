@@ -1,5 +1,5 @@
 /// A point on Earth, at the precision the device or the search reported.
-public struct Coordinate: Hashable, Sendable {
+public struct Coordinate: Hashable, Sendable, Codable {
     public let lat: Double
     public let lon: Double
     /// The reported accuracy in whole meters, nil for a place picked by hand.

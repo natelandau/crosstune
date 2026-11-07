@@ -214,17 +214,33 @@ private func json(_ data: Data?) throws -> JSONObject {
         #expect(try PlayEvent(wire: try #require(results.first?.row)).serverSeq == 4)
     }
 
-    @Test func readsTheStorageUsage() async throws {
+    @Test func readsTheStorageUsageAndTheCountryCenter() async throws {
         let transport = RecordingTransport(
             body: """
                 {"id": "u", "clerk_user_id": "user_1", "email": null, "created_at": "2026-09-11T00:00:00Z",
                  "storage": {"used_bytes": 5, "quota_bytes": 100, "max_file_bytes": 50,
-                             "split_parent_max_file_bytes": 500}}
+                             "split_parent_max_file_bytes": 500},
+                 "country_center": {"lat": 51.2, "lon": 10.4}}
                 """)
 
-        let usage = try await api(transport).storage()
+        let account = try await api(transport).account()
 
-        #expect(usage == StorageUsage(usedBytes: 5, quotaBytes: 100, maxFileBytes: 50, splitParentMaxFileBytes: 500))
+        #expect(
+            account.storage
+                == StorageUsage(usedBytes: 5, quotaBytes: 100, maxFileBytes: 50, splitParentMaxFileBytes: 500))
+        #expect(account.countryCenter == Coordinate(lat: 51.2, lon: 10.4))
+    }
+
+    @Test func readsNoCountryCenterWhileTheCountryIsUnknown() async throws {
+        let transport = RecordingTransport(
+            body: """
+                {"id": "u", "clerk_user_id": "user_1", "email": null, "created_at": "2026-09-11T00:00:00Z",
+                 "storage": {"used_bytes": 5, "quota_bytes": 100, "max_file_bytes": 50,
+                             "split_parent_max_file_bytes": 500},
+                 "country_center": null}
+                """)
+
+        #expect(try await api(transport).account().countryCenter == nil)
     }
 
     @Test func resolvesALink() async throws {
@@ -238,6 +254,30 @@ private func json(_ data: Data?) throws -> JSONObject {
 
         #expect(link == ResolvedLink(provider: "youtube", url: "https://youtu.be/x", providerRef: "x", title: "Tune"))
         #expect(try json(transport.requests.first?.body) == ["url": .string("https://youtu.be/x")])
+    }
+
+    @Test func namesAPoint() async throws {
+        let transport = RecordingTransport(
+            body: """
+                {"name": "113 E Grayson St, Galax", "address": "113 E Grayson St, Galax, VA 24333",
+                 "lat": 36.66, "lon": -80.92}
+                """)
+
+        let place = try await api(transport).reversePlace(lat: 36.66, lon: -80.92)
+
+        #expect(place == ReversedPlace(name: "113 E Grayson St, Galax", address: "113 E Grayson St, Galax, VA 24333"))
+        let sent = try #require(transport.requests.first)
+        #expect(sent.request.method == .get)
+        #expect(sent.request.path?.hasPrefix("/v1/places/reverse?") == true)
+        #expect(sent.request.path?.contains("lat=36.66") == true)
+        #expect(sent.request.path?.contains("lon=-80.92") == true)
+    }
+
+    @Test func aPointWithNoPlaceIsNil() async throws {
+        let transport = RecordingTransport(
+            status: .notFound, body: #"{"type": "about:blank", "title": "x", "status": 404, "detail": "No place"}"#)
+
+        #expect(try await api(transport).reversePlace(lat: 0, lon: 0) == nil)
     }
 
     @Test func searchesEachServiceAndMapsTheGroups() async throws {

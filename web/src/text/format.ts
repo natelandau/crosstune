@@ -8,7 +8,7 @@ export const DOWNLOADING = 'Downloading'
 export const MUST_SPLIT = 'Too long to upload. Split it into shorter recordings.'
 export const NOT_AVAILABLE = 'Not available'
 export const PROCESS_FAILED = "Couldn't process"
-/** A capture under way, and the name of the Recording settings category. */
+/** A capture under way, the name of the Recording settings category, and a recording page's landmark. */
 export const RECORDING = 'Recording'
 export const SPLIT_FAILED = 'The piece could not be split.'
 export const STORAGE_FULL = 'Storage full'

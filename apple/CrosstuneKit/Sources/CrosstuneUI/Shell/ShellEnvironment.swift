@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import CrosstuneCommands
 import CrosstuneRecording
 import CrosstuneStore
@@ -8,15 +9,19 @@ extension EnvironmentValues {
     @Entry public var store: CrosstuneStore?
     /// The writes a screen makes against ``store``. Nil outside the shell.
     @Entry public var commands: CrosstuneCommands.Commands?
-    /// The kind of search for a recording's place, made once for each search screen so two
+    /// The kind of search for a recording's place, made once for each location editor so two
     /// windows never share one. Nil where nothing can search, which offers no search.
     @Entry public var placeSearch: (any PlaceSearching.Type)?
-    /// The kind of search for the venues near a recording, made once for each location page.
+    /// The kind of search for the venues near a recording, made once for each location editor.
     /// Nil where nothing can search, which leaves Nearby out.
     @Entry public var nearbySearch: (any NearbySearch.Type)?
     /// Whether the app may read where the device is, which the place search, Settings, and the
     /// record sheet tell the musician about. Nil where nothing reads it, which says nothing.
     @Entry public var locationAccess: LocationAccess?
+    /// Where the device is, which the location editor reads for Use current location and to
+    /// center a search for a recording with no place. Nil where nothing reads it, which leaves
+    /// Use current location inert.
+    @Entry public var locationProvider: (any LocationProvider)?
     /// The tune the split view's detail column shows, by id. Nil on iPhone, where a screen
     /// pushes the tune onto its own stack instead.
     @Entry public var detailTune: ShellValue<String?>?
@@ -25,10 +30,14 @@ extension EnvironmentValues {
     @Entry var pushedTune: Binding<String?>?
     /// Whether a screen sits in either column of the iPad shell's split.
     @Entry var inPadSplit = false
-    /// The tune a tab's screen pushes on iPhone, kept by the shell so a switch to the split view
-    /// shows it in the detail column and a switch back pushes it again. Nil in the split view and
-    /// on a screen pushed over the tab's own.
-    @Entry var stackTune: ShellValue<String?>?
+    /// What a tab pushes on iPhone over its own screen: a tune, a recording page, and a tune over
+    /// that page. Kept by the shell, so a switch to the split view shows the tune and page in the
+    /// detail column and a switch back pushes them again. Nil in the split view and on a screen
+    /// pushed over the tab's own.
+    @Entry var stackPath: ShellValue<PagePath>?
+    /// The recording page the Mac detail column shows, by id, which the recordings list reads as
+    /// its open row. Nil elsewhere.
+    @Entry var detailRecording: ShellValue<String?>?
     /// Pushes a list onto the Lists tab's stack through the shell's place, which keeps the open
     /// list. Nil outside the Lists tab.
     @Entry var openList: IDOpener?
@@ -41,9 +50,11 @@ extension EnvironmentValues {
     /// Shows the Catalog at its root in this window, as from a stats value. Nil outside the
     /// shell, as in the Mac Settings window, which cannot switch the main window's destination.
     @Entry var openCatalogRoot: MenuAction?
-    /// Closes the practice view and opens a tune where this window shows tunes. Nil outside the
-    /// shell.
+    /// Opens a tune where this window shows tunes. Nil outside the shell.
     @Entry var openTune: IDOpener?
+    /// Opens a recording's page in this window, and holds the request until the page reports it.
+    /// Nil outside the shell.
+    @Entry var openRecordingPage: RecordingPageOpener?
     /// The counts beside the catalog's status choices, read once for the window and shared by
     /// every screen that shows them. Nil outside the shell.
     @Entry var catalogCounts: LiveQuery<CatalogCounts?>?
@@ -97,6 +108,51 @@ extension IDOpener {
     /// Opens a list on the Lists tab's stack through `place`, which keeps the open list.
     static func listOpener(_ place: ShellPlace) -> IDOpener {
         IDOpener(id: ObjectIdentifier(place)) { [place] in place.tabList = $0 }
+    }
+}
+
+/// Opens a recording's page in one window through its shell's place, which holds the request
+/// until the page reports it opened. Two openers are equal when they share a place, so the shell
+/// making it again on its next pass redraws nothing.
+struct RecordingPageOpener: Equatable {
+    private let place: ShellPlace
+    private let open: @MainActor (_ id: String, _ tab: RecordingPageTab?, _ source: ActionSource) -> Void
+
+    init(
+        place: ShellPlace,
+        open: @escaping @MainActor (_ id: String, _ tab: RecordingPageTab?, _ source: ActionSource) -> Void
+    ) {
+        self.place = place
+        self.open = open
+    }
+
+    static func == (lhs: RecordingPageOpener, rhs: RecordingPageOpener) -> Bool {
+        lhs.place === rhs.place
+    }
+
+    /// Opens recording `id`'s page on `tab`, or on Practice when nil, leaving playback as
+    /// it is. `source` is where the page was asked for.
+    @MainActor func callAsFunction(_ id: String, tab: RecordingPageTab? = nil, source: ActionSource) {
+        open(id, tab, source)
+    }
+
+    /// The last request for a page, until that page takes it.
+    @MainActor var unreported: PageOpen? { place.unreportedOpen }
+
+    /// Takes the request for recording `id`'s page still to report, once.
+    @MainActor func takeUnreported(of id: String) -> PageOpen? {
+        place.takeUnreportedOpen(of: id)
+    }
+}
+
+extension RecordingPageOpener {
+    /// Opens pages through `place`. `player` keeps where each was asked for, which the page's
+    /// practice visit reports.
+    static func shell(_ place: ShellPlace, player: PlayerModel) -> RecordingPageOpener {
+        RecordingPageOpener(place: place) { [place, player] id, tab, source in
+            player.pageSource = source
+            place.openRecordingPage(id, tab: tab, source: source)
+        }
     }
 }
 

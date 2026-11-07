@@ -7,7 +7,7 @@ import CrosstuneDesign
     import SwiftUI
 
     /// The Mac frame: a sidebar of destinations, status filters, and lists, a content column with
-    /// the chosen one, and the tune or the practice view in the detail column. The player docks
+    /// the chosen one, and the tune or a recording's page in the detail column. The player docks
     /// across the foot of the detail column.
     struct SplitShell: View {
         static let sidebarIdealWidth: CGFloat = 240
@@ -17,8 +17,6 @@ import CrosstuneDesign
         let player: PlayerModel
         let stage: EmbedStage
         @Bindable var place: ShellPlace
-        /// This window's identity for the shared player.
-        let window: UUID
         /// Changes when the Recordings screen should come forward.
         let recordingsShown: Int
         let onRecord: @MainActor () -> Void
@@ -32,23 +30,24 @@ import CrosstuneDesign
         /// One value for both layouts, since a visibility means a different set of columns in a
         /// two-column split than in a three-column one.
         @State private var sidebarHidden = false
-        /// The detail column's tune as the screens see it. The practice view takes the column, and
+        /// The detail column's tune as the screens see it. A recording page takes the column, and
         /// opening any tune closes it.
         @State private var detailTune: ShellValue<String?>
+        @State private var detailRecording: ShellValue<String?>
         @State private var openedRow: ShellValue<SidebarItem>
 
         init(
-            store: CrosstuneStore, player: PlayerModel, stage: EmbedStage, place: ShellPlace, window: UUID,
+            store: CrosstuneStore, player: PlayerModel, stage: EmbedStage, place: ShellPlace,
             recordingsShown: Int, onRecord: @escaping @MainActor () -> Void
         ) {
             self.store = store
             self.player = player
             self.stage = stage
             self.place = place
-            self.window = window
             self.recordingsShown = recordingsShown
             self.onRecord = onRecord
-            _detailTune = State(initialValue: practiceAwareDetailTune(place, player: player, window: window))
+            _detailTune = State(initialValue: place.listedTuneValue())
+            _detailRecording = State(initialValue: place.recordingValue())
             _openedRow = State(
                 initialValue: ShellValue {
                     place.sidebar
@@ -124,6 +123,7 @@ import CrosstuneDesign
                         .columnBackground()
                         .navigationSplitViewColumnWidth(min: 300, ideal: Self.contentIdealWidth)
                         .environment(\.detailTune, detailTune)
+                        .environment(\.detailRecording, detailRecording)
                         .environment(\.sidebarSelection, openedRow)
                 } detail: {
                     detail
@@ -143,29 +143,35 @@ import CrosstuneDesign
         }
 
         @ViewBuilder private var detail: some View {
-            let practicing = MacDetail.pick(player, in: window, tune: place.detailTune) == .practice
+            let detail = place.detailPath.detail
+            let covered = if case .recording = detail { true } else { false }
             ZStack {
-                // The page stays mounted under the practice view, so closing it returns to the
-                // page as it was left, scrolled where it was.
+                // The tune page stays mounted under a recording page, so closing that returns to
+                // the tune as it was left, scrolled where it was.
                 tunePage
                     // Inside the dock, so the banner rises clear of it.
                     .addedTuneBanner()
-                    .playerDock(player, stage: stage)
-                    .opacity(practicing ? 0 : 1)
-                    .disabled(practicing)
-                    .accessibilityHidden(practicing)
-                if practicing {
-                    // The practice view is the player in full, so the dock under it is hidden too.
-                    // Its mode selector and controls hold a fixed width, so the column never
-                    // squeezes it narrower than they need.
-                    RecordingScreen(player: player)
-                        .frame(minWidth: RecordingScreen.minimumWidth)
+                    .opacity(covered ? 0 : 1)
+                    .disabled(covered)
+                    .accessibilityHidden(covered)
+                if case .recording(let id) = detail {
+                    // Its own stack, so the trim and split editors push over the page alone.
+                    NavigationStack {
+                        RecordingPage(
+                            recordingID: id,
+                            parent: RecordingPageParent(showsClose: true) { place.detailPath.recording = nil })
+                    }
+                    // The practice view's mode selector and controls hold a fixed width, so the
+                    // column never squeezes it narrower than they need.
+                    .frame(minWidth: RecordingScreen.minimumWidth)
                 }
             }
+            // One dock for the column, so the embed it hosts never moves to a layer that is hidden.
+            .playerDock(player, stage: stage)
         }
 
         @ViewBuilder private var tunePage: some View {
-            if let detailTune = place.detailTune {
+            if let detailTune = place.detailPath.tune {
                 TuneScreen(tuneID: detailTune)
             } else {
                 TuneDetailPlaceholder()

@@ -34,6 +34,17 @@
             #expect(screen.contains("LoopSwitcher("))
         }
 
+        /// The stage card hugs its content: no spacer inside it and no page minimum height, so
+        /// a tall window's spare height falls below the controls, never in the card.
+        @Test func stageCardHugsItsContent() throws {
+            let screen = SourceScan.macOSRegions(
+                of: SourceScan.withoutComments(
+                    try SourceScan.text(at: SourceScan.url(of: "RecordingScreen/RecordingScreen.swift"))
+                ))
+            #expect(!screen.contains("Spacer("))
+            #expect(!screen.contains("minHeight: viewportHeight"))
+        }
+
         /// Why New loop is off shows as a caption; with nothing in the way the empty hint shows
         /// until there is a loop.
         @Test func loopsCaptionSaysWhyNewLoopIsOff() {

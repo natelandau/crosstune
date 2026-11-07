@@ -1,10 +1,11 @@
 import { act } from '@testing-library/react'
 import type { ReactNode } from 'react'
+import { page } from 'vitest/browser'
 import { expect, it, vi } from 'vitest'
 import { MapKitContext } from '../platform/useMapKit'
 import { fakeMapKit, type FakeMapKitOptions } from '../test/fakeMapKit'
 import { renderWithProviders } from '../test/render'
-import { LocationMap } from './LocationMap'
+import { LocationMap, MAP_NEEDS_CONNECTION, MAP_UNAVAILABLE } from './LocationMap'
 
 function setup(
   point: { accuracyM: number | null },
@@ -69,7 +70,10 @@ it('spans at least 400 m, and three times a loose fix', async () => {
   expect(latitudeDelta(loose.seen) * 111_320).toBeCloseTo(1500, 0)
 })
 
-it('draws nothing until MapKit has loaded', async () => {
+/** The map itself, which the message that takes its place is not. */
+const drawn = (container: HTMLElement) => container.querySelector('[aria-hidden]')
+
+it('says nothing while MapKit loads, then that the map is unavailable when it cannot', async () => {
   let resolve: (value: null) => void = () => {}
   const load = vi.fn(() => new Promise<null>((r) => (resolve = r)))
   const { container } = renderWithProviders(
@@ -80,24 +84,44 @@ it('draws nothing until MapKit has loaded', async () => {
   await expect.poll(() => load.mock.calls.length).toBe(1)
   expect(container).toBeEmptyDOMElement()
   await act(async () => resolve(null))
-  expect(container).toBeEmptyDOMElement()
+  await expect.element(page.getByText(MAP_UNAVAILABLE)).toBeVisible()
+  expect(page.getByText(MAP_NEEDS_CONNECTION).query()).toBeNull()
 })
 
-it('draws nothing when the map cannot be made', async () => {
-  const { container, seen, load } = setup({ accuracyM: 20 }, { mapFails: true })
+it('says the map is unavailable when the map cannot be made', async () => {
+  const { seen, load } = setup({ accuracyM: 20 }, { mapFails: true })
   await expect.poll(() => load.mock.calls.length).toBe(1)
-  await act(async () => {})
+  await expect.element(page.getByText(MAP_UNAVAILABLE)).toBeVisible()
   expect(seen.maps).toEqual([])
-  expect(container).toBeEmptyDOMElement()
 })
 
-it('moves to a new point with a new map and lets the old one go', async () => {
+it('says the map needs a connection when the browser is offline', async () => {
+  vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+  setup({ accuracyM: 20 })
+  await expect.element(page.getByText(MAP_NEEDS_CONNECTION)).toBeVisible()
+  expect(page.getByText(MAP_UNAVAILABLE).query()).toBeNull()
+})
+
+it('fills the map height with its message', async () => {
+  const load = vi.fn(async () => null)
+  renderWithProviders(
+    <MapKitContext.Provider value={load}>
+      <LocationMap lat={1} lon={2} accuracyM={10} height={240} />
+    </MapKitContext.Provider>,
+  )
+  await expect.element(page.getByText(MAP_UNAVAILABLE)).toBeVisible()
+  expect(page.getByText(MAP_UNAVAILABLE).element().getBoundingClientRect().height).toBe(240)
+})
+
+it('moves the same map and its mark to a new point', async () => {
   const { seen, rerender, wrap } = setup({ accuracyM: 20 })
-  await expect.poll(() => seen.maps.length).toBe(1)
-  rerender(wrap(<LocationMap lat={40} lon={-70} accuracyM={20} />))
-  await expect.poll(() => seen.maps.length).toBe(2)
-  expect(seen.maps[0]!.destroyed).toBe(true)
-  expect(seen.maps[1]!.destroyed).toBe(false)
+  await expect.poll(() => seen.annotations.length).toBe(1)
+  rerender(wrap(<LocationMap lat={40} lon={-70} accuracyM={80} />))
+  await expect.poll(() => seen.overlays.length).toBe(1)
+  expect(seen.annotations).toEqual([])
+  expect(seen.maps).toHaveLength(1)
+  expect(seen.maps[0]!.destroyed).toBe(false)
+  expect(seen.maps[0]!.region?.center).toMatchObject({ latitude: 40, longitude: -70 })
 })
 
 it('lets the map go when it leaves', async () => {
@@ -107,14 +131,14 @@ it('lets the map go when it leaves', async () => {
   expect(seen.maps[0]!.destroyed).toBe(true)
 })
 
-it('draws nothing when MapKit reports Too Many Requests', async () => {
-  const { container, seen, dispatch } = setup({ accuracyM: 20 })
+it('says the map is unavailable when MapKit reports Too Many Requests', async () => {
+  const { seen, dispatch } = setup({ accuracyM: 20 })
   await expect.poll(() => seen.maps.length).toBe(1)
-  expect(container.firstChild).not.toBeNull()
+  expect(page.getByText(MAP_UNAVAILABLE).query()).toBeNull()
 
   act(() => dispatch('error', { status: 'Too Many Requests' }))
 
-  await expect.poll(() => container.firstChild).toBeNull()
+  await expect.element(page.getByText(MAP_UNAVAILABLE)).toBeVisible()
   expect(seen.maps[0]!.destroyed).toBe(true)
 })
 
@@ -122,23 +146,23 @@ it('draws the map again once MapKit configures itself after a passing error', as
   const { container, seen, dispatch } = setup({ accuracyM: 20 })
   await expect.poll(() => seen.maps.length).toBe(1)
   act(() => dispatch('error', { status: 'Network Error' }))
-  await expect.poll(() => container.firstChild).toBeNull()
+  await expect.poll(() => drawn(container)).toBeNull()
 
   act(() => dispatch('configuration-change', { status: 'Refreshed' }))
 
   await expect.poll(() => seen.maps.length).toBe(2)
-  await expect.element(container.firstChild as HTMLElement).toBeInTheDocument()
+  await expect.element(drawn(container) as HTMLElement).toBeInTheDocument()
 })
 
 it('keeps the map gone once MapKit refuses its token', async () => {
   const { container, seen, dispatch } = setup({ accuracyM: 20 })
   await expect.poll(() => seen.maps.length).toBe(1)
   act(() => dispatch('error', { status: 'Unauthorized' }))
-  await expect.poll(() => container.firstChild).toBeNull()
+  await expect.poll(() => drawn(container)).toBeNull()
 
   act(() => dispatch('configuration-change', { status: 'Refreshed' }))
 
-  await expect.poll(() => container.firstChild).toBeNull()
+  await expect.poll(() => drawn(container)).toBeNull()
   expect(seen.maps).toHaveLength(1)
 })
 
@@ -146,12 +170,12 @@ it('lets a half-built map go when the pin cannot be added', async () => {
   const { container, seen, load } = setup({ accuracyM: 20 }, { decorationFails: true })
   await expect.poll(() => load.mock.calls.length).toBe(1)
   await expect.poll(() => seen.maps.length).toBe(1)
-  await expect.poll(() => container.firstChild).toBeNull()
+  await expect.poll(() => drawn(container)).toBeNull()
   expect(seen.maps[0]!.destroyed).toBe(true)
 })
 
 it('keeps the map out of session replay', async () => {
   const { container, seen } = setup({ accuracyM: 20 })
   await expect.poll(() => seen.maps.length).toBe(1)
-  expect(container.firstChild).toHaveClass('ph-no-capture')
+  expect(drawn(container)).toHaveClass('ph-no-capture')
 })

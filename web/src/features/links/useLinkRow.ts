@@ -56,7 +56,7 @@ export function useLinkRow(
   } else if (control === 'close') {
     open = { onOpen: () => player.close(), openName: CLOSE }
   } else if (control === 'play') {
-    open = { onOpen: () => player.play(item, origin), openName: PLAY }
+    open = { onOpen: () => player.play(item, { origin }), openName: PLAY }
   }
   return {
     title: displayTitle(link),

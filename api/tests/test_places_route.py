@@ -29,6 +29,18 @@ pytestmark = pytest.mark.anyio
 URL = "/v1/places/search"
 TOKEN_URL = f"{MAPS_URL}/v1/token"
 SEARCH_URL = f"{MAPS_URL}/v1/searchAutocomplete"
+REVERSE_URL = f"{MAPS_URL}/v1/reverseGeocode"
+E_23RD = {
+    "name": "158 E 23rd St",
+    "country": "United States",
+    "countryCode": "US",
+    "structuredAddress": {
+        "locality": "New York",
+        "administrativeAreaCode": "NY",
+        "fullThoroughfare": "158 E 23rd St",
+    },
+    "formattedAddressLines": ["158 E 23rd St", "New York, NY 10010", "United States"],
+}
 GALAX = {
     "displayLines": ["Galax, VA", "United States"],
     "location": {"latitude": 36.66123456, "longitude": -80.92391234},
@@ -139,6 +151,88 @@ async def test_search_leans_toward_the_account_country(
         "kind": "town",
         "address": None,
     }
+
+
+async def _set_country(client, auth_headers, verify_session, country: str) -> None:
+    # The account exists once it has made a request.
+    await client.get(URL, params={"q": "galax"}, headers=auth_headers("user_123"))
+    await verify_session.execute(
+        update(User).where(User.clerk_user_id == "user_123").values(country=country)
+    )
+    await verify_session.commit()
+
+
+def _searches(mock_http: MockHttp) -> list[httpx2.Request]:
+    return [call for call in mock_http.calls if str(call.url).startswith(SEARCH_URL)]
+
+
+@pytest.mark.usefixtures("maps")
+async def test_search_leans_toward_the_given_point(
+    client, auth_headers, mock_http, verify_session
+) -> None:
+    headers = auth_headers("user_123")
+    await _set_country(client, auth_headers, verify_session, "US")
+
+    response = await client.get(
+        URL, params={"q": "globe bar", "lat": 40.7394, "lon": -73.9826}, headers=headers
+    )
+
+    assert response.status_code == 200
+    assert _searches(mock_http)[-1].url.params["searchLocation"] == "40.7394,-73.9826"
+
+
+@pytest.mark.usefixtures("maps")
+async def test_search_without_a_point_leans_toward_the_country(
+    client, auth_headers, mock_http, verify_session
+) -> None:
+    await _set_country(client, auth_headers, verify_session, "US")
+
+    await client.get(URL, params={"q": "globe bar"}, headers=auth_headers("user_123"))
+
+    assert _searches(mock_http)[-1].url.params["searchLocation"] == "39.54,-97.48"
+
+
+@pytest.mark.usefixtures("maps")
+@pytest.mark.parametrize("given", [{"lat": 40.7}, {"lon": -73.9}])
+async def test_search_with_only_one_coordinate_is_refused(
+    app, client, auth_headers, mock_http, given
+) -> None:
+    headers = auth_headers("user_123")
+    limit = app.state.settings.place_searches_per_minute
+
+    refused = [
+        await client.get(URL, params={"q": "globe bar", **given}, headers=headers)
+        for _ in range(limit + 1)
+    ]
+    accepted = await client.get(URL, params={"q": "galax"}, headers=headers)
+
+    assert {r.status_code for r in refused} == {422}
+    assert refused[0].headers["content-type"] == "application/problem+json"
+    assert accepted.status_code == 200
+    assert len(_searches(mock_http)) == 1
+
+
+@pytest.mark.usefixtures("maps")
+async def test_search_with_a_point_still_drops_the_home_country_name(
+    client, auth_headers, mock_http, verify_session
+) -> None:
+    await _set_country(client, auth_headers, verify_session, "US")
+    venue = {
+        **GALAX,
+        "displayLines": ["Rex Theater", "113 E Grayson St, Galax, VA  24333, United States"],
+    }
+    mock_http.add(SEARCH_URL, httpx2.Response(200, json={"results": [venue]}))
+
+    response = await client.get(
+        URL,
+        params={"q": "rex", "lat": 40.7394, "lon": -73.9826},
+        headers=auth_headers("user_123"),
+    )
+
+    [result] = response.json()["results"]
+    assert result["subtitle"] == "113 E Grayson St, Galax, VA"
+    for field in ("name", "title", "subtitle", "address"):
+        assert "United States" not in result[field]
 
 
 async def test_search_needs_sign_in(client) -> None:
@@ -284,6 +378,161 @@ async def test_mapkit_token_claims_and_expiry(app, client, auth_headers, setting
     )
 
 
+def _token_origin_claim(maps, token: str) -> str:
+    return jwt.decode(
+        token,
+        maps.test_public_key,
+        algorithms=["ES256"],
+        options={"verify_exp": False, "verify_iat": False},
+    )["origin"]
+
+
+PR_PREVIEW_REGEX = r"https://pr-\d+\.example\.dev"
+
+
+@pytest.mark.parametrize(
+    ("origin", "extra_party", "regex", "trusted"),
+    [
+        ("http://localhost:5173", "http://localhost:5173", "", True),
+        ("https://pr-7.example.dev", None, PR_PREVIEW_REGEX, True),
+        ("https://evil.example", "http://localhost:5173", PR_PREVIEW_REGEX, False),
+        (None, "http://localhost:5173", "", False),
+    ],
+)
+async def test_mapkit_token_origin_follows_trusted_request_origin(
+    app, client, auth_headers, origin, extra_party, regex, trusted
+) -> None:
+    maps = _keyed_maps(app)
+    settings = app.state.settings
+    app.state.settings = settings.model_copy(
+        update={
+            "clerk_authorized_parties": [
+                *settings.clerk_authorized_parties,
+                *filter(None, [extra_party]),
+            ],
+            "clerk_authorized_party_regex": regex,
+        }
+    )
+    headers = auth_headers("user_123")
+    if origin is not None:
+        headers = {**headers, "Origin": origin}
+
+    response = await client.get(TOKEN_ROUTE, headers=headers)
+
+    assert response.status_code == 200
+    assert _token_origin_claim(maps, response.json()["token"]) == (
+        origin if trusted else settings.web_origin
+    )
+
+
+async def _query_origin_claim(
+    app, client, auth_headers, *, origin, headers=None, **overrides
+) -> str:
+    maps = _keyed_maps(app)
+    settings = app.state.settings
+    parties = overrides["clerk_authorized_parties"]
+    if parties:
+        # Keep the parties the test token's own origin needs to sign in.
+        overrides["clerk_authorized_parties"] = [*settings.clerk_authorized_parties, *parties]
+    app.state.settings = settings.model_copy(update=overrides)
+    params = {} if origin is None else {"origin": origin}
+    response = await client.get(
+        TOKEN_ROUTE, params=params, headers={**auth_headers("user_123"), **(headers or {})}
+    )
+    assert response.status_code == 200
+    return _token_origin_claim(maps, response.json()["token"])
+
+
+async def test_mapkit_token_query_origin_trusted_by_list(app, client, auth_headers) -> None:
+    claim = await _query_origin_claim(
+        app,
+        client,
+        auth_headers,
+        origin="http://localhost:5173",
+        clerk_authorized_parties=["http://localhost:5173"],
+        clerk_authorized_party_regex="",
+    )
+    assert claim == "http://localhost:5173"
+
+
+async def test_mapkit_token_query_origin_trusted_by_regex(app, client, auth_headers) -> None:
+    claim = await _query_origin_claim(
+        app,
+        client,
+        auth_headers,
+        origin="https://pr-7.example.dev",
+        clerk_authorized_parties=["http://localhost:5173"],
+        clerk_authorized_party_regex=PR_PREVIEW_REGEX,
+    )
+    assert claim == "https://pr-7.example.dev"
+
+
+async def test_mapkit_token_untrusted_query_origin_falls_back(app, client, auth_headers) -> None:
+    claim = await _query_origin_claim(
+        app,
+        client,
+        auth_headers,
+        origin="https://evil.example",
+        clerk_authorized_parties=["http://localhost:5173"],
+        clerk_authorized_party_regex=PR_PREVIEW_REGEX,
+    )
+    assert claim == app.state.settings.web_origin
+
+
+@pytest.mark.parametrize(
+    "origin",
+    [
+        "localhost:5173",
+        "ftp://localhost",
+        "http://localhost:5173/path",
+        "http://localhost:5173/",
+        "http://user@localhost:5173",
+        "http://localhost:99999",
+        "http://",
+        "not an origin",
+    ],
+)
+async def test_mapkit_token_malformed_query_origin_falls_back(
+    app, client, auth_headers, origin
+) -> None:
+    claim = await _query_origin_claim(
+        app,
+        client,
+        auth_headers,
+        origin=origin,
+        clerk_authorized_parties=[],
+        clerk_authorized_party_regex="",
+    )
+    assert claim == app.state.settings.web_origin
+
+
+async def test_mapkit_token_any_origin_when_no_parties_configured(
+    app, client, auth_headers
+) -> None:
+    claim = await _query_origin_claim(
+        app,
+        client,
+        auth_headers,
+        origin="http://192.168.1.20:5173",
+        clerk_authorized_parties=[],
+        clerk_authorized_party_regex="",
+    )
+    assert claim == "http://192.168.1.20:5173"
+
+
+async def test_mapkit_token_header_origin_without_query(app, client, auth_headers) -> None:
+    claim = await _query_origin_claim(
+        app,
+        client,
+        auth_headers,
+        origin=None,
+        headers={"Origin": "http://localhost:3000"},
+        clerk_authorized_parties=[],
+        clerk_authorized_party_regex="",
+    )
+    assert claim == "http://localhost:3000"
+
+
 async def test_mapkit_token_needs_sign_in(app, client) -> None:
     _keyed_maps(app)
 
@@ -379,7 +628,7 @@ async def test_snapshot_keeps_rounded_coordinates_inside_apples_open_ranges(
 
 
 @pytest.mark.parametrize("override", [{"lat": 90}, {"lat": -90}, {"lon": 180}, {"lon": -180}])
-async def test_snapshot_rejects_the_poles_and_antimeridian(
+async def test_snapshot_accepts_the_poles_and_antimeridian(
     app, client, auth_headers, override
 ) -> None:
     _keyed_maps(app)
@@ -388,4 +637,141 @@ async def test_snapshot_rejects_the_poles_and_antimeridian(
         SNAPSHOT_ROUTE, params={**SNAPSHOT_PARAMS, **override}, headers=auth_headers("user_123")
     )
 
-    assert response.status_code == 422
+    assert response.status_code == 200
+
+
+REVERSE = "/v1/places/reverse"
+POINT = {"lat": 40.7399, "lon": -73.9853}
+
+
+@pytest.mark.usefixtures("maps")
+async def test_reverse_names_a_point_by_its_street_address(client, auth_headers, mock_http) -> None:
+    mock_http.add(REVERSE_URL, httpx2.Response(200, json={"results": [E_23RD]}))
+
+    response = await client.get(REVERSE, params=POINT, headers=auth_headers("user_123"))
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "name": "158 E 23rd St, New York, NY",
+        "address": "158 E 23rd St, New York, NY",
+        **POINT,
+    }
+
+
+@pytest.mark.usefixtures("maps")
+@pytest.mark.parametrize("edge", [{"lat": 90, "lon": 180}, {"lat": -90, "lon": -180}])
+async def test_reverse_and_search_accept_coordinates_on_the_edges(
+    client, auth_headers, mock_http, edge
+) -> None:
+    mock_http.add(REVERSE_URL, httpx2.Response(200, json={"results": [E_23RD]}))
+    headers = auth_headers("user_123")
+
+    reverse = await client.get(REVERSE, params=edge, headers=headers)
+    search = await client.get(URL, params={"q": "globe bar", **edge}, headers=headers)
+
+    assert reverse.status_code == 200
+    assert search.status_code == 200
+
+
+@pytest.mark.usefixtures("maps")
+async def test_reverse_with_no_result_is_404(client, auth_headers, mock_http) -> None:
+    mock_http.add(REVERSE_URL, httpx2.Response(200, json={"results": []}))
+
+    response = await client.get(REVERSE, params=POINT, headers=auth_headers("user_123"))
+
+    assert response.status_code == 404
+    assert response.headers["content-type"] == "application/problem+json"
+
+
+@pytest.mark.usefixtures("maps")
+async def test_reverse_names_a_point_with_only_an_address_by_its_address(
+    client, auth_headers, mock_http
+) -> None:
+    lines = {"formattedAddressLines": ["Mile Marker 12", "Coconino County, AZ", "United States"]}
+    mock_http.add(REVERSE_URL, httpx2.Response(200, json={"results": [lines]}))
+
+    response = await client.get(REVERSE, params=POINT, headers=auth_headers("user_123"))
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "name": "Mile Marker 12, Coconino County, AZ",
+        "address": "Mile Marker 12, Coconino County, AZ",
+        **POINT,
+    }
+
+
+@pytest.mark.usefixtures("maps")
+async def test_reverse_with_no_name_and_no_address_is_404(client, auth_headers, mock_http) -> None:
+    mock_http.add(REVERSE_URL, httpx2.Response(200, json={"results": [{"country": "Nowhere"}]}))
+
+    response = await client.get(REVERSE, params=POINT, headers=auth_headers("user_123"))
+
+    assert response.status_code == 404
+
+
+@pytest.mark.usefixtures("maps")
+async def test_reverse_answers_429_with_busy_maps_retry_after(
+    client, auth_headers, mock_http
+) -> None:
+    mock_http.add(REVERSE_URL, httpx2.Response(429, headers={"Retry-After": "17"}))
+
+    response = await client.get(REVERSE, params=POINT, headers=auth_headers("user_123"))
+
+    assert response.status_code == 429
+    assert response.headers["retry-after"] == "17"
+
+
+@pytest.mark.usefixtures("maps")
+async def test_reverse_with_failing_maps_is_503(client, auth_headers, mock_http) -> None:
+    mock_http.add(REVERSE_URL, httpx2.Response(500))
+
+    response = await client.get(REVERSE, params=POINT, headers=auth_headers("user_123"))
+
+    assert response.status_code == 503
+
+
+@pytest.mark.usefixtures("maps")
+async def test_reverse_shares_the_place_search_limit(app, client, auth_headers, mock_http) -> None:
+    mock_http.add(REVERSE_URL, httpx2.Response(200, json={"results": [E_23RD]}))
+    headers = auth_headers("user_123")
+    limit = app.state.settings.place_searches_per_minute
+
+    codes = [
+        (await client.get(URL, params={"q": "galax"}, headers=headers)).status_code
+        for _ in range(limit)
+    ]
+    refused = await client.get(REVERSE, params=POINT, headers=headers)
+
+    assert codes == [200] * limit
+    assert refused.status_code == 429
+
+
+async def test_reverse_without_maps_is_503(app, client, auth_headers) -> None:
+    app.state.maps = None
+
+    response = await client.get(REVERSE, params=POINT, headers=auth_headers("user_123"))
+
+    assert response.status_code == 503
+
+
+@pytest.mark.usefixtures("maps")
+async def test_reverse_leaves_the_account_country_out_of_the_address(
+    client, auth_headers, mock_http, verify_session
+) -> None:
+    await _set_country(client, auth_headers, verify_session, "DE")
+    berlin = {
+        "name": "Hauptstrasse 5",
+        "country": "Germany",
+        "countryCode": "DE",
+        "structuredAddress": {
+            "locality": "Berlin",
+            "fullThoroughfare": "Hauptstrasse 5",
+            "postCode": "10115",
+        },
+        "formattedAddressLines": ["Hauptstrasse 5", "10115 Berlin", "Germany"],
+    }
+    mock_http.add(REVERSE_URL, httpx2.Response(200, json={"results": [berlin]}))
+
+    response = await client.get(REVERSE, params=POINT, headers=auth_headers("user_123"))
+
+    assert response.json()["address"] == "Hauptstrasse 5, Berlin"

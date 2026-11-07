@@ -16,6 +16,11 @@ export function samePlace(a: PlaceChoice | null, b: PlaceChoice | null): boolean
   return a.name === b.name && a.lat === b.lat && a.lon === b.lon
 }
 
+/** The live saved locations, by name. */
+export function livePlacesByName(places: readonly LocalPlace[]): LocalPlace[] {
+  return places.filter((place) => !place.deleted_at).sort((a, b) => compareNames(a.name, b.name))
+}
+
 const live = (recordings: readonly LocalRecording[]) => recordings.filter((r) => !r.deleted_at)
 
 /**

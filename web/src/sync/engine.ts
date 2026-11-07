@@ -18,10 +18,11 @@ import {
   fetchUnstored,
   fetchPeaks,
   recoverInterruptedCaptures,
-  refreshStorage,
+  refreshAccount,
   uploadPass,
 } from './transfers'
 import type {
+  PlaceReverseOutcome,
   PlaceSearchOutcome,
   SearchOutcome,
   SyncApi,
@@ -340,10 +341,10 @@ export function createSyncEngine({
               }
               await pull()
               try {
-                await refreshStorage(db, api)
+                await refreshAccount(db, api)
               } catch (error) {
-                // Storage usage is informational; only an auth failure should fail a sync
-                // whose push and pull already landed.
+                // The account's storage and country are informational; only an auth failure
+                // should fail a sync whose push and pull already landed.
                 if (isAuthFailure(error)) throw error
               }
               syncedAt = new Date().toISOString()
@@ -396,11 +397,27 @@ export function createSyncEngine({
         return { kind: 'failed' }
       }
     },
-    async searchPlaces(q): Promise<PlaceSearchOutcome> {
+    async searchPlaces(q, near): Promise<PlaceSearchOutcome> {
       if (!isOnline()) return { kind: 'offline' }
       try {
-        const { results } = await api.searchPlaces(q)
+        const { results } = await api.searchPlaces(q, near)
         return { kind: 'ok', results }
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 429) {
+          return {
+            kind: 'rate_limited',
+            retryAfterSeconds: error.retryAfterSeconds ?? DEFAULT_RETRY_AFTER_SECONDS,
+          }
+        }
+        if (error instanceof ApiError && error.status === 503) return { kind: 'unavailable' }
+        return { kind: 'failed' }
+      }
+    },
+    async reversePlace(lat, lon): Promise<PlaceReverseOutcome> {
+      if (!isOnline()) return { kind: 'offline' }
+      try {
+        const place = await api.reversePlace(lat, lon)
+        return place ? { kind: 'ok', place } : { kind: 'not_found' }
       } catch (error) {
         if (error instanceof ApiError && error.status === 429) {
           return {

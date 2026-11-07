@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { TIME_SIGNATURES, TUNE_LIMITS, type Instrument } from '../../api/vocabulary'
 import { CAPO_INSTRUMENTS, GENRES, PART_STRUCTURES } from '../../constants'
 import { tuningKeyInstrument } from '../../domain/instruments'
@@ -14,10 +14,13 @@ import { Switch } from '../../ui/form/Switch'
 import { TextField } from '../../ui/form/TextField'
 import { KeyGrid } from '../../ui/KeyGrid'
 import { KEY } from '../../ui/keyName'
-import { useLatest } from '../../ui/useLatest'
 import { useCatalog } from '../catalog/useCatalog'
 import { DETAIL_LABELS, DETAILS_FOOTER } from './detailFields'
-import { useAttributeEdit, type AttributeEdit } from './AttributeEditor'
+import {
+  useAttributeEdit,
+  useEnterKey,
+  type AttributeEdit,
+} from '../../ui/attributes/AttributeEditor'
 import type { AttributeId } from './attributeRows'
 import { suggestionsFor } from './attributeSuggestions'
 import { ModeRows, TuningRows } from './tuneFieldRows'
@@ -33,7 +36,7 @@ import {
   valuesFromRows,
   type TuneFormValues,
 } from './tuneFormValues'
-import type { AttributeWrite } from './useAttributeWrite'
+import type { AttributePatch, AttributeWrite } from './useAttributeWrite'
 import type { TuneView } from './useTune'
 
 export interface AttributeEditorBodyProps {
@@ -42,7 +45,7 @@ export interface AttributeEditorBodyProps {
   write: AttributeWrite
 }
 
-type BodyProps = Pick<AttributeEditorBodyProps, 'view'> & { edit: AttributeEdit }
+type BodyProps = Pick<AttributeEditorBodyProps, 'view'> & { edit: AttributeEdit<AttributePatch> }
 
 /**
  * The editor for one attribute: a pick saves at once and closes, unless the editor holds more to
@@ -50,7 +53,7 @@ type BodyProps = Pick<AttributeEditorBodyProps, 'view'> & { edit: AttributeEdit 
  * first field as it opens.
  */
 export function AttributeEditorBody({ id, view, write }: AttributeEditorBodyProps) {
-  const edit = useAttributeEdit()
+  const edit = useAttributeEdit<AttributePatch>()
   const instrument = tuningKeyInstrument(id)
   if (instrument) {
     return <TuningBody instrument={instrument} view={view} write={write} edit={edit} />
@@ -158,6 +161,7 @@ function TuningBody({
 }: { instrument: Instrument; write: AttributeWrite } & BodyProps) {
   const [tunings, setTunings] = useState(() => valuesFromRows(view.tune, view.userTune).tunings)
   const entry = tunings[instrument] ?? { tuning: '', capo: '' }
+  useEnterKey()
   const change = (patch: Partial<typeof entry>) => {
     const next = { ...tunings, [instrument]: { ...entry, ...patch } }
     setTunings(next)
@@ -188,6 +192,7 @@ type SuggestAttribute = 'tune_type' | 'genre' | 'composer' | 'part_structure' | 
 function SuggestBody({ field, view, edit }: { field: SuggestAttribute } & BodyProps) {
   const catalog = useCatalog()
   const [value, setValue] = useState(() => valuesFromRows(view.tune, view.userTune)[field])
+  useEnterKey()
   const genre = view.tune.genre ?? ''
   const suggestions = useMemo(() => suggestionsFor(genre, catalog ?? []), [genre, catalog])
   const options: Record<SuggestAttribute, readonly string[]> = {
@@ -217,6 +222,7 @@ function SuggestBody({ field, view, edit }: { field: SuggestAttribute } & BodyPr
 
 function AlternateTitlesBody({ view, edit }: BodyProps) {
   const [value, setValue] = useState(view.tune.alternate_titles.join(', '))
+  useEnterKey()
   return (
     <Group footer={DETAILS_FOOTER}>
       <TextField
@@ -237,16 +243,11 @@ function LearnedOnBody({ view, edit }: BodyProps) {
   // The reason shows once the player leaves the date, so typing a year never flashes it.
   const [left, setLeft] = useState(false)
   const error = left ? learnedOnError(text) : null
-  const textRef = useLatest(text)
   // Enter on a date still missing a part says why and stays; a dismissal discards it.
-  useEffect(() => {
-    edit.holdEnter(() => {
-      const refused = learnedOnError(textRef.current) !== null
-      if (refused) setLeft(true)
-      return refused
-    })
-    return () => edit.holdEnter(null)
-  }, [edit, textRef])
+  useEnterKey(() => {
+    if (learnedOnError(text) === null) edit.done()
+    else setLeft(true)
+  })
   return (
     <Group error={error ?? undefined}>
       <PartialDateField

@@ -284,27 +284,27 @@ import Testing
             let place = ShellPlace()
             place.tab = .lists
             place.tabList = "l1"
-            place.tabTunes[.catalog] = "t1"
+            place.tabPaths[.catalog] = PagePath(tune: "t1")
 
             place.openNewTune(source: .menu)
 
             #expect(place.tab == .catalog)
-            #expect(place.tabTunes[.catalog] == NewTuneDraft.id(source: .menu))
+            #expect(place.tabPaths[.catalog]?.tune == NewTuneDraft.id(source: .menu))
             #expect(place.tabList == "l1")
         }
     #else
         @Test func aNewTuneOpensInTheDetailColumnBesideACatalogWhereTheTunerFillsIt() {
             let place = ShellPlace()
             place.sidebar = .recordings
-            place.detailTune = "t1"
+            place.detailPath.tune = "t1"
             place.openNewTune(source: .menu)
             #expect(place.sidebar == .recordings)
-            #expect(place.detailTune == NewTuneDraft.id(source: .menu))
+            #expect(place.detailPath.tune == NewTuneDraft.id(source: .menu))
 
             place.sidebar = .tuner
             place.openNewTune(source: .catalog)
             #expect(place.sidebar == .catalog)
-            #expect(place.detailTune == NewTuneDraft.id(source: .catalog))
+            #expect(place.detailPath.tune == NewTuneDraft.id(source: .catalog))
         }
     #endif
 }

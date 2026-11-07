@@ -36,16 +36,15 @@ import type { RecordingView } from '../recordings/useRecordings'
 import { useSearchProviders } from '../settings/searchProviders'
 import { useResetOnChange } from '../../ui/useResetOnChange'
 import { pinRowAction } from './playSourceText'
-import { recordingsPlayable } from '../../billing/plan'
-import { usePlanOrUnknown } from '../../billing/usePlan'
+import { useRecordingsPlayable } from '../../billing/usePlan'
 import { usePremiumSheet } from '../plan/PremiumSheetProvider'
+import { useUserTune } from './useUserTune'
 
 export interface RecordingMediaRow {
   view: RecordingView
   pinned: boolean
+  /** The row's swipe, hover, and menu actions. */
   actions: RowAction[]
-  /** The row's menu, where it holds more than its swipe actions. */
-  menu?: RowAction[]
   /** The file's upload refusal, when the row's retry is an upload. */
   error: string | null | undefined
 }
@@ -78,9 +77,6 @@ export interface TuneMediaData {
   only: Provider | null
   pasting: boolean
   setPasting: (open: boolean) => void
-  /** The recording whose edit sheet is open. */
-  editing: RecordingView | null
-  setEditing: (view: RecordingView | null) => void
   finding: boolean
   setFinding: (open: boolean) => void
 }
@@ -111,31 +107,21 @@ export function useTuneMedia(
   const online = useOnline()
   const engine = useSyncEngine()
   const providers = useSearchProviders()
-  const playable = recordingsPlayable(usePlanOrUnknown())
+  const playable = useRecordingsPlayable()
   const premium = usePremiumSheet()
   const [pasting, setPasting] = useState(false)
-  const [editing, setEditing] = useState<RecordingView | null>(null)
   const [finding, setFinding] = useState(false)
-  // No Add to tune: every recording here is already filed under the tune being looked at.
-  // The pin is read here rather than passed down, so the rows that show it are the ones that
-  // change it. A pin naming a row of another tune never matches one of this tune's rows.
-  const userTune = useLiveQuery(
-    async () =>
-      (await db.user_tunes.where('tune_id').equals(tuneId).toArray()).find((u) => !u.deleted_at),
-    [db, tuneId],
-  )
+  // The pin is read here rather than passed down, beside the link rows that change it. A pin
+  // naming a row of another tune never matches one of this tune's rows.
+  const userTune = useUserTune(tuneId)
   const pinnedRecordingId = userTune?.play_recording_id ?? null
   const pinnedLinkId = userTune?.play_link_id ?? null
-  const { error, pending, run, retry, actionsFor, rowMenuFor, setUploadError } =
-    useRecordingActionsWith({
-      confirm,
-      subject: tuneId,
-      onEdit: setEditing,
-      pin: userTune ? { userTuneId: userTune.id, recordingId: pinnedRecordingId } : undefined,
-    })
+  const { error, pending, run, retry, actionsFor, setUploadError } = useRecordingActionsWith({
+    confirm,
+    subject: tuneId,
+  })
   useResetOnChange(tuneId, () => {
     setPasting(false)
-    setEditing(null)
     setFinding(false)
     setUploadError(null)
   })
@@ -226,7 +212,6 @@ export function useTuneMedia(
       view,
       pinned: view.recording.id === pinnedRecordingId,
       actions: actionsFor(view),
-      menu: rowMenuFor(view),
       error: retryKind(view, { uploads: playable }) === 'upload' ? view.file?.error : null,
     })),
     linkRows: links.map((link) => {
@@ -251,8 +236,6 @@ export function useTuneMedia(
     only,
     pasting,
     setPasting,
-    editing,
-    setEditing,
     finding,
     setFinding,
   }

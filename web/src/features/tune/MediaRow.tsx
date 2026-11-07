@@ -5,7 +5,13 @@ import { closeLinkName, linkOutText, openOnProviderName } from '../links/linkNam
 import { useLinkRow } from '../links/useLinkRow'
 import { openOn, SUBSCRIBE_TO_PLAY } from '../recordings/recordingCopy'
 import type { RecordingSort } from '../recordings/arrangeRecordings'
-import { downloadingName, openTuneName, RETRY, retryName } from '../recordings/recordingNames'
+import {
+  downloadingName,
+  openTuneName,
+  RETRY,
+  retryName,
+  slotName,
+} from '../recordings/recordingNames'
 import { useRecordingRow } from '../recordings/useRecordingRow'
 import type { PlayOrigin } from '../player/playLog'
 import type { PremiumEntry } from '../plan/PremiumSheetProvider'
@@ -17,15 +23,18 @@ import {
   LinkControlGlyph,
   RecordingControlGlyph,
   RING_ROW_HOVER,
+  SlotButton,
 } from '../../ui/rowGlyphs'
+import { useOpenRecordingPage } from '../player/recordingPageOpener'
+import type { Source } from '../../usage/events'
 import { useLatest } from '../../ui/useLatest'
 import { useNewRecording } from '../capture/useNewRecording'
 import { Row } from '../../ui/Row'
 import { RowList } from '../../ui/RowList'
 import { rowActions } from '../../ui/sharedActions'
 
-// The row and its lines answer different taps, so a line that is its own control keeps its
-// press from reaching the row, which would play. Other keys still reach the list, so the
+// The row, its lines, and its slot answer different taps, so a line or slot that is its own
+// control keeps its press from reaching the row. Other keys still reach the list, so the
 // arrows move on from it.
 const keepPress = {
   onClick: (event: { stopPropagation: () => void }) => event.stopPropagation(),
@@ -55,7 +64,6 @@ export function MediaList({ label, children }: { label: string; children: ReactN
 /**
  * The two-line row recordings and links share: the title, its details in secondary, then a
  * trailing slot that holds a glyph for the item's state, or a control that takes its place.
- * The row is the control, and its name is the action label plus the lines it shows.
  */
 function MediaRow({
   id,
@@ -68,26 +76,25 @@ function MediaRow({
   description,
   action,
   actions,
-  menu,
   dimmed,
   fresh,
   onOpen,
 }: {
   id: string
-  /** The row's accessible name: the action label, then the lines it shows. */
+  /** The row's accessible name: the lines it shows, after the action label where the row's
+   * tap is the slot's action. */
   name: string
-  glyph: ReactNode
+  /** Stands for the row's own tap in the slot, where no `action` takes its place. */
+  glyph?: ReactNode
   loaded: boolean
   title: string
   pinned: boolean
   details: ReactNode
   /** Heard after the row's name. */
   description?: string
-  /** A control that takes the glyph's slot, such as a stuck recording's Retry. */
+  /** A control that takes the glyph's slot, such as a recording's play or a stuck one's Retry. */
   action?: ReactNode
   actions: Parameters<typeof rowActions>[0]
-  /** The row's menu, where it holds more than `actions`. */
-  menu?: Parameters<typeof rowActions>[0]
   dimmed?: boolean
   fresh?: boolean
   onOpen?: () => void
@@ -115,7 +122,6 @@ function MediaRow({
         )
       }
       actions={rowActions(actions)}
-      menu={menu && rowActions(menu)}
       dimmed={dimmed}
       fresh={fresh}
       playing={loaded}
@@ -123,14 +129,18 @@ function MediaRow({
   )
 }
 
-/** A recording: it plays what this device holds and fetches what it does not. */
+/**
+ * A recording: its tap opens the recording's page, and its slot plays what this device holds
+ * and fetches what it does not.
+ */
 export function RecordingRow({
-  row: { view, pinned, actions, menu, error },
+  row: { view, pinned, actions, error },
   onRetry,
   tuneNamedAbove = true,
   sort,
   onOpenTune,
   playOrigin,
+  pageSource = 'tune',
   premiumFrom,
   storage,
 }: {
@@ -144,7 +154,9 @@ export function RecordingRow({
   onOpenTune?: () => void
   /** Where a play from the row counts as asked for; a tune's page by default. */
   playOrigin?: PlayOrigin
-  /** Where a tap on a disabled row counts as opening the Plan sheet from. */
+  /** Where the recording's page counts as opened from; a tune's page by default. */
+  pageSource?: Source
+  /** Where a press on a disabled row's slot counts as opening the Plan sheet from. */
   premiumFrom?: PremiumEntry
   /** The server's storage report, read once by the list rather than by each row. */
   storage: StorageUsage | null
@@ -158,27 +170,14 @@ export function RecordingRow({
     storage,
   })
   const fresh = useNewRecording(view.recording.id)
-  const { title, control, open, retry, origin } = data
+  const openPage = useOpenRecordingPage()
+  const { title, control, slot, retry, origin } = data
   const meta = data.meta.join(' · ')
   const glyph = <RecordingControlGlyph control={control} offline={data.offlineDownload} />
-  const name = [open?.openName ? `${open.openName} ${title}` : title, meta]
-    .filter(Boolean)
-    .join(', ')
   return (
     <MediaRow
       id={view.recording.id}
-      name={name}
-      glyph={
-        control === 'downloading' ? (
-          // A box, since Chromium drops a display: contents element whose children are all
-          // hidden from the accessibility tree, name and all.
-          <span role="status" aria-label={downloadingName(title)} className="grid">
-            {glyph}
-          </span>
-        ) : (
-          glyph
-        )
-      }
+      name={[title, meta].filter(Boolean).join(', ')}
       loaded={data.loaded}
       title={title}
       pinned={pinned}
@@ -217,7 +216,7 @@ export function RecordingRow({
         </>
       }
       action={
-        retry && (
+        retry ? (
           <ActionSlot {...keepPress} worded>
             <AriaButton
               aria-label={retryName(retry, title)}
@@ -227,11 +226,26 @@ export function RecordingRow({
               {RETRY}
             </AriaButton>
           </ActionSlot>
+        ) : control === 'downloading' ? (
+          <ActionSlot data-media-glyph role="status" aria-label={downloadingName(title)}>
+            {glyph}
+          </ActionSlot>
+        ) : slot && control !== 'none' ? (
+          <span {...keepPress} data-media-glyph className="contents">
+            <SlotButton name={slotName(control, title)} onPress={slot}>
+              {glyph}
+            </SlotButton>
+          </span>
+        ) : (
+          <ActionSlot />
         )
       }
       actions={actions}
-      menu={menu}
-      onOpen={open?.onOpen}
+      onOpen={
+        openPage
+          ? () => openPage(view.recording.id, { tuneId: view.tuneId, source: pageSource })
+          : undefined
+      }
     />
   )
 }

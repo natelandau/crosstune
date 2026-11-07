@@ -732,9 +732,14 @@ public struct Recording: SyncedRecord, Hashable {
     /// The named place, nil unless the name and both coordinates are set. A coordinate alone,
     /// as a capture stores it, is not shown.
     public var place: RecordingPlace? {
-        guard let placeName, let placeLat, let placeLon else { return nil }
-        return RecordingPlace(
-            name: placeName, coordinate: Coordinate(lat: placeLat, lon: placeLon, accuracyM: placeAccuracyM))
+        guard let placeName, let placePoint else { return nil }
+        return RecordingPlace(name: placeName, coordinate: placePoint)
+    }
+
+    /// The recording's point with its accuracy, named or not; nil with no coordinates.
+    public var placePoint: Coordinate? {
+        guard let placeLat, let placeLon else { return nil }
+        return Coordinate(lat: placeLat, lon: placeLon, accuracyM: placeAccuracyM)
     }
 
     /// The precision of `recordedAt`, nil when the date is unknown or carries a precision newer

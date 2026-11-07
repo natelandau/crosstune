@@ -239,7 +239,7 @@ struct SettingsPageScreen: View {
         case .stats:
             StatsScreen()
                 // A tune opened from the stats screen is not the tab's own pushed tune.
-                .environment(\.stackTune, nil)
+                .environment(\.stackPath, nil)
         case .category(let category):
             SettingsScreen(
                 version: version, sections: category.sections, title: category.title, opensStatsInSheet: false,

@@ -561,15 +561,6 @@ private struct ScannedTunes {
         #expect(viewed == [fixture.tuneB])
     }
 
-    @Test func thePadPracticeScreenLeavesOutScansThatDoNotOpen() {
-        let scan = Scan(record: record(), file: nil)
-        let both = ReadingPaneContent(tuneID: "b", scans: [scan], lyrics: "Words")
-        #expect(both.withScans(opening: true) == both)
-        #expect(both.withScans(opening: false) == ReadingPaneContent(tuneID: "b", scans: [], lyrics: "Words"))
-        let scansOnly = ReadingPaneContent(tuneID: "b", scans: [scan], lyrics: nil)
-        #expect(scansOnly.withScans(opening: false) == nil)
-    }
-
     @Test func aLockedThumbnailNamesPremiumAndNoActionLabel() {
         #expect(ScanCopy.thumbnailName(0, opens: true) == ScanCopy.openScan(0))
         #expect(ScanCopy.subscribeToOpen == "Subscribe to open")

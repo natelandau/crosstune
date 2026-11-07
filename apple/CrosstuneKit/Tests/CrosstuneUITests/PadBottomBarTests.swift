@@ -5,13 +5,13 @@ import Testing
 @MainActor
 @Suite struct PadBottomBarTests {
     @Test func idleShowsRecordOnly() {
-        #expect(!PadBottomBar.showsPlayer(PlayerModel(), nil))
+        #expect(!PadBottomBar.showsPlayer(PlayerModel(), nil, in: nil))
     }
 
     @Test func playingShowsThePlayerBesideRecord() {
         let player = PlayerModel()
         player.play(PlayerItem(kind: .link, id: "l", title: "Soldier's Joy"))
-        #expect(PadBottomBar.showsPlayer(player, nil))
+        #expect(PadBottomBar.showsPlayer(player, nil, in: nil))
     }
 
     @Test func recordIsDisabledWhileCovered() {
@@ -24,13 +24,13 @@ import Testing
 
     @Test func bottomBarShowsOnlyWithSomethingInIt() {
         let player = PlayerModel()
-        #expect(!PadBottomBar.isShown(showsRecord: false, player, nil))
+        #expect(!PadBottomBar.isShown(showsRecord: false, player, nil, in: nil))
         player.play(PlayerItem(kind: .link, id: "l", title: "Soldier's Joy"))
-        #expect(PadBottomBar.isShown(showsRecord: false, player, nil))
+        #expect(PadBottomBar.isShown(showsRecord: false, player, nil, in: nil))
     }
 
     @Test func bottomBarKeepsRecordWhenRecordIsNotATab() {
-        #expect(PadBottomBar.isShown(showsRecord: true, PlayerModel(), nil))
+        #expect(PadBottomBar.isShown(showsRecord: true, PlayerModel(), nil, in: nil))
     }
 
     @Test func columnsClearTheFootOnlyWhileItShows() {

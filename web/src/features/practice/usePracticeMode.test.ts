@@ -1,42 +1,25 @@
 import { act, renderHook } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import { MODE_KEY, usePracticeMode } from './usePracticeMode'
-
-afterEach(() => {
-  localStorage.clear()
-})
+import { describe, expect, it } from 'vitest'
+import { usePracticeMode } from './usePracticeMode'
 
 describe('usePracticeMode', () => {
-  it('opens on Loops the first time', () => {
+  it('opens on Speed', () => {
     const { result } = renderHook(() => usePracticeMode())
+    expect(result.current[0]).toBe('speed')
+  })
+
+  it('keeps the chosen mode across rerenders of one page', () => {
+    const { result, rerender } = renderHook(() => usePracticeMode())
+    act(() => result.current[1]('loops'))
+    rerender()
     expect(result.current[0]).toBe('loops')
   })
 
-  it('remembers the last mode for the next visit', () => {
+  it('opens the next page on Speed after Loops was used', () => {
     const first = renderHook(() => usePracticeMode())
-    act(() => first.result.current[1]('pitch'))
-    expect(first.result.current[0]).toBe('pitch')
+    act(() => first.result.current[1]('loops'))
     first.unmount()
     const { result } = renderHook(() => usePracticeMode())
-    expect(result.current[0]).toBe('pitch')
-  })
-
-  it('opens on Loops when the stored mode is one it does not know', () => {
-    localStorage.setItem(MODE_KEY, 'tempo')
-    const { result } = renderHook(() => usePracticeMode())
-    expect(result.current[0]).toBe('loops')
-  })
-
-  it('still switches modes when storage throws', () => {
-    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
-      throw new Error('blocked')
-    })
-    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
-      throw new Error('blocked')
-    })
-    const { result } = renderHook(() => usePracticeMode())
-    expect(result.current[0]).toBe('loops')
-    act(() => result.current[1]('speed'))
     expect(result.current[0]).toBe('speed')
   })
 })

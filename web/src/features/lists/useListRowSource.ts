@@ -1,7 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import type { PlayFirst } from '../../api/vocabulary'
-import { recordingsPlayable } from '../../billing/plan'
-import { usePlanOrUnknown } from '../../billing/usePlan'
+import { useRecordingsPlayable } from '../../billing/usePlan'
 import { waitingParentIds } from '../../commands/recordings'
 import { useDb } from '../../db/DbProvider'
 import { holdsSplitAudio } from '../../domain/recordingLimits'
@@ -115,7 +114,7 @@ export function useListRowSources(
   loadedRecordingId: string | null = null,
 ): ReadonlyMap<string, RowSource | null> | undefined {
   const db = useDb()
-  const recordingsPlay = recordingsPlayable(usePlanOrUnknown())
+  const recordingsPlay = useRecordingsPlayable()
   // Keyed by the set of tunes, since the caller builds its rows afresh each render and a
   // reorder changes nothing to read.
   const key = [...new Set(rows.map((row) => row.tune.id))].sort().join(' ')

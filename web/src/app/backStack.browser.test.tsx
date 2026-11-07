@@ -20,7 +20,7 @@ import { MORE_ACTIONS } from '../ui/menuCopy'
 
 import { useAndroidBackForTest } from '../test/androidBack'
 import { tap } from '../test/gestures'
-import { mountPlaying, openPractice, player, practice, RECORDING_LABEL } from '../test/practice'
+import { mountPlaying, openPractice, player, practice, recordingPage } from '../test/practice'
 import { renderApp } from '../test/renderApp'
 import { SELECTION_ACTIONS } from '../features/selection/selectionCopy'
 
@@ -150,13 +150,14 @@ it('asks before back discards a live recording, and keeps recording when decline
   expect(await db.recordings.count()).toBe(0)
 })
 
-it('closes practice on back, still playing', async () => {
+it('leaves the recording page on back, still playing', async () => {
   const android = useAndroidBackForTest()
-  const { engine } = await mountPlaying(PHONE, { android, density: 'touch' })
+  const { engine, router } = await mountPlaying(PHONE, { android, density: 'touch' })
   await openPractice()
 
-  expect(android.press()).toMatchObject({ kind: 'entry', entry: { layer: 'overlay' } })
+  expect(android.press()).toMatchObject({ kind: 'history' })
   await expect.poll(practice).toBeNull()
+  await expect.poll(() => router.state.location.pathname).toBe('/catalog/t1')
   await expect.element(player().getByRole('button', { name: PAUSE })).toBeVisible()
   expect(engine.getState().playing).toBe(true)
 })
@@ -165,7 +166,7 @@ it('steps back from trim to practice, which stays open', async () => {
   const android = useAndroidBackForTest()
   const { engine } = await mountPlaying(WIDE, { android })
   await openPractice()
-  const practiceDialog = page.getByRole('dialog', { name: RECORDING_LABEL })
+  const practiceDialog = recordingPage()
   await practiceDialog.getByRole('button', { name: MORE_ACTIONS }).click()
   await page.getByRole('menuitem', { name: TRIM }).click()
   const handle = page.getByRole('slider', { name: START_HANDLE })

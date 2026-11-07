@@ -78,6 +78,52 @@ extension AttributeEditSession where Value == String {
     }
 }
 
+/// Which attribute row's editor is open. A key names the row's owner and the layout too, so a row
+/// on another tune or recording, or the same attribute drawn in the other layout, never takes the
+/// editor.
+struct AttributesOpenState: Equatable {
+    struct Key: Hashable {
+        let owner: String
+        let layout: AttributesLayout
+        let id: AnyHashable
+    }
+
+    private var open: Key?
+
+    func isPresented(_ key: Key) -> Bool { open == key }
+
+    /// Whether `key`'s editor is open, for a binding that opens and closes it.
+    subscript(key: Key) -> Bool {
+        get { isPresented(key) }
+        set { set(key, shown: newValue) }
+    }
+
+    /// Opens `key`'s editor, or closes it; closing another row leaves the open one alone.
+    mutating func set(_ key: Key, shown: Bool) {
+        if shown {
+            open = key
+        } else if open == key {
+            open = nil
+        }
+    }
+
+    /// Closes the editor when the attributes show another owner or another layout, so a return to
+    /// the owner or the layout never reopens it.
+    mutating func keep(owner: String, layout: AttributesLayout) {
+        guard let open, open.owner != owner || open.layout != layout else { return }
+        self.open = nil
+    }
+}
+
+/// How an attribute's editor shows: a popover at the row, or a sheet where the window is compact.
+enum AttributeEditorPresentation {
+    /// A compact width takes the sheet, and so does a compact height, which only a phone in
+    /// landscape has, so a phone takes the sheet even at a regular width.
+    static func presentsAsSheet(compactWidth: Bool, compactHeight: Bool) -> Bool {
+        compactWidth || compactHeight
+    }
+}
+
 /// What an editor's body works with: the draft, the focus its first field takes, and the ways
 /// it ends the edit.
 struct AttributeEditorControls<Value: Equatable> {
@@ -137,15 +183,16 @@ private struct AttributeEditorPresenter<Value: Equatable, Body: View>: ViewModif
     #if os(iOS)
         @Environment(\.horizontalSizeClass) private var sizeClass
         @Environment(\.verticalSizeClass) private var verticalSizeClass
-        /// A compact width takes the sheet, and so does a compact height, which only a phone in
-        /// landscape has, so a phone takes the sheet even at a regular width.
-        private var asSheet: Bool { sizeClass == .compact || verticalSizeClass == .compact }
+        private var asSheet: Bool {
+            AttributeEditorPresentation.presentsAsSheet(
+                compactWidth: sizeClass == .compact, compactHeight: verticalSizeClass == .compact)
+        }
     #else
-        private let asSheet = false
+        private var asSheet: Bool { false }
     #endif
 
     func body(content: Content) -> some View {
-        // Both presentations stay attached, gated by width, so the row keeps its identity as the
+        // Both presentations stay attached, gated by `asSheet`, so the row keeps its identity as the
         // column changes size class.
         content
             .popover(isPresented: shown(!asSheet), attachmentAnchor: anchor, arrowEdge: PageStyle.popoverArrowEdge) {
@@ -155,13 +202,11 @@ private struct AttributeEditorPresenter<Value: Equatable, Body: View>: ViewModif
                 )
                 .presentationCompactAdaptation(.popover)
             }
-            #if os(iOS)
-                .sheet(isPresented: shown(asSheet)) {
-                    AttributeEditorSurface(
-                        style: .sheet, isPresented: $isPresented, label: label, session: session, onCommit: onCommit,
-                        editorBody: editorBody)
-                }
-            #endif
+            .sheet(isPresented: shown(asSheet)) {
+                AttributeEditorSurface(
+                    style: .sheet, isPresented: $isPresented, label: label, session: session, onCommit: onCommit,
+                    editorBody: editorBody)
+            }
     }
 
     private func shown(_ here: Bool) -> Binding<Bool> {
@@ -230,7 +275,7 @@ private struct AttributeEditorSurface<Value: Equatable, Body: View>: View {
                 .accessibilityLabel(label)
         case .sheet:
             NavigationStack {
-                ScrollView { editor.padding(Self.padding) }
+                sheetContent
                     .navigationTitle(label)
                     #if os(iOS)
                         .navigationBarTitleDisplayMode(.inline)
@@ -243,6 +288,15 @@ private struct AttributeEditorSurface<Value: Equatable, Body: View>: View {
             }
             .partHeightSheet()
         }
+    }
+
+    /// On the Mac a sheet sizes to its content, which a scroll view would collapse.
+    @ViewBuilder private var sheetContent: some View {
+        #if os(macOS)
+            editor.padding(Self.padding)
+        #else
+            ScrollView { editor.padding(Self.padding) }
+        #endif
     }
 
     private var editor: some View {

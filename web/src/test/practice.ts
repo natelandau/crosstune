@@ -5,11 +5,13 @@ import type { CrosstuneDb } from '../db/schema'
 import type { LocalRecording } from '../db/types'
 import { PLAYER_REGION } from '../features/player/playerCopy'
 import { OPEN_RECORDING } from '../features/player/transportCopy'
+import { playName } from '../features/recordings/recordingNames'
 import { openTestDb } from './db'
 import { fakePlaybackEngine } from './providers'
 import { recordingFile, recordingRow, tuneRow, userTuneRow } from './rows'
 import { destination } from '../layout/destinations'
 import { TUNE } from '../features/tune/tunePageCopy'
+import { RECORDING } from '../text/format'
 import type { Density } from '../platform/density'
 import type { AndroidBackForTest } from './androidBack'
 import { renderApp } from './renderApp'
@@ -77,11 +79,10 @@ export async function mountPlaying(
     wrap: options.wrap,
   })
   const rows = filed ? page.getByRole('main', { name: TUNE }) : page
-  // On the title, since in a narrow frame the row's hover actions reach its middle.
   await rows
     .getByRole('row', { name: new RegExp(RECORDING_LABEL) })
     .first()
-    .getByText(RECORDING_LABEL, { exact: true })
+    .getByRole('button', { name: playName(RECORDING_LABEL), exact: true })
     .click()
   await expect.element(player()).toBeVisible()
   return { db, engine, router }
@@ -90,17 +91,19 @@ export async function mountPlaying(
 export const player = () => page.getByRole('region', { name: PLAYER_REGION })
 export const openButton = () =>
   player().getByRole('button', { name: OPEN_RECORDING(RECORDING_LABEL) })
+/** The recording page, as the detail's landmark names it. */
+export const recordingPage = () => page.getByRole('main', { name: RECORDING })
 export const practice = () => document.querySelector<HTMLElement>('[data-practice]')
 export const waveform = () => practice()?.querySelector<HTMLElement>('[data-practice-waveform]')
 
-/** A key pressed with focus on nothing in particular. */
+/** A key pressed with focus on nothing in particular, cancelable as a real press is. */
 export function press(key: string, init: KeyboardEventInit = {}) {
-  const event = new KeyboardEvent('keydown', { key, bubbles: true, ...init })
+  const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...init })
   document.body.dispatchEvent(event)
   return event
 }
 
-/** Opens practice from the bar, once its waveform has a scale. */
+/** Opens the recording's page on Practice from the bar, once its waveform has a scale. */
 export async function openPractice() {
   await openButton().click()
   await expect.poll(() => waveform()?.dataset.pxPerS).toBeTruthy()

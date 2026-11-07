@@ -12,7 +12,7 @@ enum SavedLocationsText {
     /// The glyph of a saved location where none is drawn on a map.
     static let systemImage = "map"
     static let emptyHint =
-        "Open a recording's location and choose \"\(NameLocationText.title)\", or pick a nearby place."
+        "Open a recording's location and choose \"\(NameLocationText.title)\", or pick a nearby location."
     static let nameLabel = "Name"
     static let nameHelp = "Recordings at this location show this name."
     static let delete = "Delete"

@@ -42,7 +42,6 @@ public enum AnalyticsEvent: Sendable, Equatable {
     case catalogSorted(sort: CatalogSort)
 
     case lyricsOpened(tuneID: String)
-    case padPracticeOpened(tuneID: String)
 
     case listCreated(listID: String, count: Int)
     /// Never the name.
@@ -58,6 +57,7 @@ public enum AnalyticsEvent: Sendable, Equatable {
     case importCompleted(reader: ImportReader, added: Int, skipped: Int, list: ImportList)
 
     case recordingStarted(source: ActionSource)
+    case recordingPageOpened(recordingID: String, layout: RecordingPageLayout, source: ActionSource)
     case microphoneDenied(source: ActionSource)
     /// A recording saved with a tune is filed.
     case recordingSaved(seconds: Double, recordingID: String, tuneID: String?)
@@ -137,7 +137,6 @@ public enum AnalyticsEvent: Sendable, Equatable {
         case .catalogFiltered: "catalog_filtered"
         case .catalogSorted: "catalog_sorted"
         case .lyricsOpened: "lyrics_opened"
-        case .padPracticeOpened: "pad_practice_opened"
         case .listCreated: "list_created"
         case .listRenamed: "list_renamed"
         case .listDeleted: "list_deleted"
@@ -148,6 +147,7 @@ public enum AnalyticsEvent: Sendable, Equatable {
         case .importReviewed: "import_reviewed"
         case .importCompleted: "import_completed"
         case .recordingStarted: "recording_started"
+        case .recordingPageOpened: "recording_page_opened"
         case .microphoneDenied: "microphone_denied"
         case .recordingSaved: "recording_saved"
         case .recordingDiscarded: "recording_discarded"
@@ -214,7 +214,7 @@ public enum AnalyticsEvent: Sendable, Equatable {
         case .tuneStatusChanged(let from, let to, let tuneID):
             ["from": .string(from.rawValue), "to": .string(to.rawValue), "tune_id": .string(tuneID)]
         case .tuneArchived(let tuneID), .tuneUnarchived(let tuneID), .lyricsOpened(let tuneID),
-            .padPracticeOpened(let tuneID), .scanViewed(let tuneID), .scansReordered(let tuneID):
+            .scanViewed(let tuneID), .scansReordered(let tuneID):
             ["tune_id": .string(tuneID)]
         case .tuneDeleted(let tuneID, let recordings, let links, let scans):
             [
@@ -249,6 +249,11 @@ public enum AnalyticsEvent: Sendable, Equatable {
             ]
         case .recordingStarted(let source), .microphoneDenied(let source):
             ["source": .string(source.rawValue)]
+        case .recordingPageOpened(let recordingID, let layout, let source):
+            [
+                "recording_id": .string(recordingID), "layout": .string(layout.rawValue),
+                "source": .string(source.rawValue),
+            ]
         case .recordingSaved(let seconds, let recordingID, let tuneID):
             [
                 "duration_bucket": .string(Bucket.duration(seconds: seconds)), "filed": .bool(tuneID != nil),
