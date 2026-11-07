@@ -69,16 +69,27 @@ public protocol APIProtocol: Sendable {
     func recordNoticeV1MeNoticesPost(_ input: Operations.RecordNoticeV1MeNoticesPost.Input) async throws -> Operations.RecordNoticeV1MeNoticesPost.Output
     /// Mapkit Token
     ///
-    /// Issue a short-lived MapKit JS token restricted to the web origin.
+    /// Issue a short-lived MapKit JS token restricted to the web client's origin.
+    ///
+    /// A browser sends no `Origin` header on a same-origin request, so the page passes its own
+    /// origin as `origin`. An origin sign-in would not accept gets the configured web origin.
     ///
     /// - Remark: HTTP `GET /v1/places/mapkit-token`.
     /// - Remark: Generated from `#/paths//v1/places/mapkit-token/get(mapkit_token_v1_places_mapkit_token_get)`.
     func mapkitTokenV1PlacesMapkitTokenGet(_ input: Operations.MapkitTokenV1PlacesMapkitTokenGet.Input) async throws -> Operations.MapkitTokenV1PlacesMapkitTokenGet.Output
+    /// Reverse Place
+    ///
+    /// Name a point as a street address with its town, and give its whole address.
+    ///
+    /// - Remark: HTTP `GET /v1/places/reverse`.
+    /// - Remark: Generated from `#/paths//v1/places/reverse/get(reverse_place_v1_places_reverse_get)`.
+    func reversePlaceV1PlacesReverseGet(_ input: Operations.ReversePlaceV1PlacesReverseGet.Input) async throws -> Operations.ReversePlaceV1PlacesReverseGet.Output
     /// Search Places
     ///
     /// Named places, street addresses, and towns for the text typed so far, each named as picked.
     ///
-    /// Results lean toward the account's country, never toward the user's own location.
+    /// Results lean toward the point given by `lat` and `lon`, which come together, else toward the
+    /// account's country.
     ///
     /// - Remark: HTTP `GET /v1/places/search`.
     /// - Remark: Generated from `#/paths//v1/places/search/get(search_places_v1_places_search_get)`.
@@ -291,18 +302,43 @@ extension APIProtocol {
     }
     /// Mapkit Token
     ///
-    /// Issue a short-lived MapKit JS token restricted to the web origin.
+    /// Issue a short-lived MapKit JS token restricted to the web client's origin.
+    ///
+    /// A browser sends no `Origin` header on a same-origin request, so the page passes its own
+    /// origin as `origin`. An origin sign-in would not accept gets the configured web origin.
     ///
     /// - Remark: HTTP `GET /v1/places/mapkit-token`.
     /// - Remark: Generated from `#/paths//v1/places/mapkit-token/get(mapkit_token_v1_places_mapkit_token_get)`.
-    public func mapkitTokenV1PlacesMapkitTokenGet(headers: Operations.MapkitTokenV1PlacesMapkitTokenGet.Input.Headers = .init()) async throws -> Operations.MapkitTokenV1PlacesMapkitTokenGet.Output {
-        try await mapkitTokenV1PlacesMapkitTokenGet(Operations.MapkitTokenV1PlacesMapkitTokenGet.Input(headers: headers))
+    public func mapkitTokenV1PlacesMapkitTokenGet(
+        query: Operations.MapkitTokenV1PlacesMapkitTokenGet.Input.Query = .init(),
+        headers: Operations.MapkitTokenV1PlacesMapkitTokenGet.Input.Headers = .init()
+    ) async throws -> Operations.MapkitTokenV1PlacesMapkitTokenGet.Output {
+        try await mapkitTokenV1PlacesMapkitTokenGet(Operations.MapkitTokenV1PlacesMapkitTokenGet.Input(
+            query: query,
+            headers: headers
+        ))
+    }
+    /// Reverse Place
+    ///
+    /// Name a point as a street address with its town, and give its whole address.
+    ///
+    /// - Remark: HTTP `GET /v1/places/reverse`.
+    /// - Remark: Generated from `#/paths//v1/places/reverse/get(reverse_place_v1_places_reverse_get)`.
+    public func reversePlaceV1PlacesReverseGet(
+        query: Operations.ReversePlaceV1PlacesReverseGet.Input.Query,
+        headers: Operations.ReversePlaceV1PlacesReverseGet.Input.Headers = .init()
+    ) async throws -> Operations.ReversePlaceV1PlacesReverseGet.Output {
+        try await reversePlaceV1PlacesReverseGet(Operations.ReversePlaceV1PlacesReverseGet.Input(
+            query: query,
+            headers: headers
+        ))
     }
     /// Search Places
     ///
     /// Named places, street addresses, and towns for the text typed so far, each named as picked.
     ///
-    /// Results lean toward the account's country, never toward the user's own location.
+    /// Results lean toward the point given by `lat` and `lon`, which come together, else toward the
+    /// account's country.
     ///
     /// - Remark: HTTP `GET /v1/places/search`.
     /// - Remark: Generated from `#/paths//v1/places/search/get(search_places_v1_places_search_get)`.

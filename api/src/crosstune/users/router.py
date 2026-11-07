@@ -38,6 +38,7 @@ from crosstune.errors import (
 from crosstune.files.quota import used_bytes
 from crosstune.jobs.analytics import schedule_person_deletion
 from crosstune.models import User
+from crosstune.places.countries import country as country_named
 from crosstune.storage.store import user_prefix
 from crosstune.users.apple import AppleClient, AppleRevokeError
 from crosstune.users.clerk import ClerkUnavailableError
@@ -67,6 +68,13 @@ class StorageResponse(BaseModel):
     split_parent_max_file_bytes: int
 
 
+class CountryCenterResponse(BaseModel):
+    """A point inside the account's country."""
+
+    lat: float
+    lon: float
+
+
 class MeResponse(BaseModel):
     """The calling user's public profile."""
 
@@ -75,6 +83,9 @@ class MeResponse(BaseModel):
     email: str | None
     created_at: datetime
     storage: StorageResponse
+    # Where place search and the pin map fall back to with no nearer point; null while the
+    # account's country is unknown.
+    country_center: CountryCenterResponse | None
 
 
 @router.get("/me")
@@ -82,6 +93,7 @@ async def me(request: Request, user: CurrentUser, session: DbSession) -> MeRespo
     """The calling user's profile and storage figures."""
     settings = request.app.state.settings
     access = await access_for(session, user.id, settings)
+    home = country_named(user.country)
     return MeResponse(
         id=user.id,
         clerk_user_id=user.clerk_user_id,
@@ -93,6 +105,7 @@ async def me(request: Request, user: CurrentUser, session: DbSession) -> MeRespo
             max_file_bytes=settings.recording_max_file_bytes,
             split_parent_max_file_bytes=settings.recording_split_parent_max_file_bytes,
         ),
+        country_center=CountryCenterResponse(lat=home.lat, lon=home.lon) if home else None,
     )
 
 

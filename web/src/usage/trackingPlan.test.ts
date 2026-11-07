@@ -115,6 +115,7 @@ const SAMPLES: { [N in EventName]: EventProps[N] } = {
   },
   import_completed: { reader: 'plain', count_bucket: '10-49', skipped_bucket: '0', list: 'new' },
   recording_started: { source: 'dock' },
+  recording_page_opened: { recording_id: ID_2, layout: 'wide', source: 'recordings_list' },
   recording_saved: {
     duration_bucket: '2-5m',
     filed: true,
@@ -324,8 +325,8 @@ describe('tracking plan', () => {
     }
   })
 
-  it("the screens equal the plan's screen enum minus the iPad practice screen", () => {
-    expect([...SCREENS]).toEqual(plan.enums.screen!.filter((s) => s !== 'pad_practice'))
+  it("the screens equal the plan's screen enum", () => {
+    expect([...SCREENS]).toEqual(plan.enums.screen)
   })
 
   it("every web setting is in the plan, and the plan's other settings are Apple-only", () => {

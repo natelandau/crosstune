@@ -75,6 +75,31 @@ extension Components {
                 case updatedAt = "updated_at"
             }
         }
+        /// A point inside the account's country.
+        ///
+        /// - Remark: Generated from `#/components/schemas/CountryCenterResponse`.
+        public struct CountryCenterResponse: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/CountryCenterResponse/lat`.
+            public var lat: Swift.Double
+            /// - Remark: Generated from `#/components/schemas/CountryCenterResponse/lon`.
+            public var lon: Swift.Double
+            /// Creates a new `CountryCenterResponse`.
+            ///
+            /// - Parameters:
+            ///   - lat:
+            ///   - lon:
+            public init(
+                lat: Swift.Double,
+                lon: Swift.Double
+            ) {
+                self.lat = lat
+                self.lon = lon
+            }
+            public enum CodingKeys: String, CodingKey {
+                case lat
+                case lon
+            }
+        }
         /// What the app may send with an account deletion.
         ///
         /// - Remark: Generated from `#/components/schemas/DeleteMeRequest`.
@@ -885,7 +910,7 @@ extension Components {
                 try encoder.encodeAdditionalProperties(additionalProperties)
             }
         }
-        /// A MapKit JS token for the web client's map, good only on the web origin.
+        /// A MapKit JS token for the web client's map, good only on the requesting web origin.
         ///
         /// - Remark: Generated from `#/components/schemas/MapKitTokenResponse`.
         public struct MapKitTokenResponse: Codable, Hashable, Sendable {
@@ -916,6 +941,8 @@ extension Components {
         public struct MeResponse: Codable, Hashable, Sendable {
             /// - Remark: Generated from `#/components/schemas/MeResponse/clerk_user_id`.
             public var clerkUserId: Swift.String
+            /// - Remark: Generated from `#/components/schemas/MeResponse/country_center`.
+            public var countryCenter: Components.Schemas.CountryCenterResponse?
             /// - Remark: Generated from `#/components/schemas/MeResponse/created_at`.
             public var createdAt: Foundation.Date
             /// - Remark: Generated from `#/components/schemas/MeResponse/email`.
@@ -928,18 +955,21 @@ extension Components {
             ///
             /// - Parameters:
             ///   - clerkUserId:
+            ///   - countryCenter:
             ///   - createdAt:
             ///   - email:
             ///   - id:
             ///   - storage:
             public init(
                 clerkUserId: Swift.String,
+                countryCenter: Components.Schemas.CountryCenterResponse? = nil,
                 createdAt: Foundation.Date,
                 email: Swift.String? = nil,
                 id: Swift.String,
                 storage: Components.Schemas.StorageResponse
             ) {
                 self.clerkUserId = clerkUserId
+                self.countryCenter = countryCenter
                 self.createdAt = createdAt
                 self.email = email
                 self.id = id
@@ -947,6 +977,7 @@ extension Components {
             }
             public enum CodingKeys: String, CodingKey {
                 case clerkUserId = "clerk_user_id"
+                case countryCenter = "country_center"
                 case createdAt = "created_at"
                 case email
                 case id
@@ -3988,6 +4019,43 @@ extension Components {
                 case providerRef = "provider_ref"
                 case title
                 case url
+            }
+        }
+        /// The place at a point: the name a recording stores, its address line, and the point.
+        ///
+        /// - Remark: Generated from `#/components/schemas/ReversePlaceResponse`.
+        public struct ReversePlaceResponse: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/ReversePlaceResponse/address`.
+            public var address: Swift.String?
+            /// - Remark: Generated from `#/components/schemas/ReversePlaceResponse/lat`.
+            public var lat: Swift.Double
+            /// - Remark: Generated from `#/components/schemas/ReversePlaceResponse/lon`.
+            public var lon: Swift.Double
+            /// - Remark: Generated from `#/components/schemas/ReversePlaceResponse/name`.
+            public var name: Swift.String
+            /// Creates a new `ReversePlaceResponse`.
+            ///
+            /// - Parameters:
+            ///   - address:
+            ///   - lat:
+            ///   - lon:
+            ///   - name:
+            public init(
+                address: Swift.String? = nil,
+                lat: Swift.Double,
+                lon: Swift.Double,
+                name: Swift.String
+            ) {
+                self.address = address
+                self.lat = lat
+                self.lon = lon
+                self.name = name
+            }
+            public enum CodingKeys: String, CodingKey {
+                case address
+                case lat
+                case lon
+                case name
             }
         }
         /// The outcome of one change to a scan.

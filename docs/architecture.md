@@ -136,7 +136,7 @@ How one feature works is in its code. Deploys and releases:
 - The job runner claims jobs in turns across accounts: each account's
   oldest job, then each one's next. A sync push can queue hundreds of
   jobs, so oldest-first across everyone lets one account delay all others.
-  Place lookups, which spend paid Apple Maps calls, also run at most
+  Location lookups, which spend paid Apple Maps calls, also run at most
   `place_lookups_per_minute` per account; the rest are held, not dropped.
 - A local shape change migrates in place and keeps every row, unsent edit,
   and unuploaded file. A migration that adds a field or a table only the
@@ -337,8 +337,24 @@ How one feature works is in its code. Deploys and releases:
   `pr-<n>` API adds its own prefix. Older scans keep `notation/` keys, so
   sweeps look under both prefixes.
 - Location: a recording gets the device's location only when the user allows
-  it. Place search hints only with the account's country, never the user's
-  location. The Maps key never reaches the browser.
+  it. The Maps key never reaches the browser. The API signs the MapKit JS
+  token for the requesting origin when that origin may sign in (the web
+  origin, or a Clerk authorized party), else for the web origin.
+- Location search ranks results near one point: the recording's, else a
+  linked saved location's, else the device's (only while location access is on), else the latest recording
+  with a location, else the account country's center. A hint only ranks,
+  never filters, and never sets a location.
+- The account country's center comes from `GET /v1/me`, which each
+  client's sync keeps. A linked saved location's point also centers Nearby and
+  distances. The pin map starts at the recording's own point, then a linked
+  saved location's, the device, the typed search's area, the latest
+  placed recording, the account country's center, then a world view.
+- Web location search goes through the API, which applies the country center
+  itself. Apple searches on the device with
+  MapKit: `MKLocalSearchCompleter` ignores its region, so a regional
+  `MKLocalSearch` around the point runs beside it and its results lead.
+- A dropped pin is named by the API's reverse lookup on both clients, so
+  the same point gets the same name. No client geocodes on its own.
 
 ## Delivery
 
@@ -399,5 +415,5 @@ version tag promoted.
 | R2                   | Audio already on the device works. Uploads wait and retry. A first download elsewhere fails.       |
 | Neon                 | The API returns 500s. The client behaves as if the API were down.                                  |
 | A streaming provider | New links save untitled. Embeds fail. Its search group offers only its own search page.            |
-| Apple Maps           | Place jobs wait and retry. Web place search and maps fail quietly.                                 |
+| Apple Maps           | Location jobs wait and retry. Web location search says so. A web map says why it cannot show.      |
 | Sentry or GitHub     | Nothing visible. Errors are dropped, or deploys and checks wait.                                   |

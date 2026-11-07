@@ -4,11 +4,12 @@ import asyncio
 
 import httpx2
 import pytest
-from sqlalchemy import func, insert, select
+from sqlalchemy import func, insert, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from crosstune.db.base import utc_now
 from crosstune.models import DeletedAccount, User
+from crosstune.places.countries import country
 from crosstune.users.service import purge_account
 
 pytestmark = pytest.mark.anyio
@@ -32,6 +33,30 @@ async def test_me_is_idempotent(
         select(func.count()).select_from(User).where(User.clerk_user_id == "user_twice")
     )
     assert count == 1
+
+
+async def test_me_gives_the_account_country_center(
+    client: httpx2.AsyncClient, auth_headers, verify_session: AsyncSession
+) -> None:
+    await client.get("/v1/me", headers=auth_headers("user_de"))
+    await verify_session.execute(
+        update(User).where(User.clerk_user_id == "user_de").values(country="DE")
+    )
+    await verify_session.commit()
+    germany = country("DE")
+    assert germany is not None
+
+    response = await client.get("/v1/me", headers=auth_headers("user_de"))
+
+    assert response.json()["country_center"] == {"lat": germany.lat, "lon": germany.lon}
+
+
+async def test_me_gives_no_country_center_while_the_country_is_unknown(
+    client: httpx2.AsyncClient, auth_headers
+) -> None:
+    response = await client.get("/v1/me", headers=auth_headers("user_nowhere"))
+
+    assert response.json()["country_center"] is None
 
 
 async def test_email_claim_is_recorded_and_kept(

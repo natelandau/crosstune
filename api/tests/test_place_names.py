@@ -8,6 +8,7 @@ from crosstune.places.names import (
     PickedName,
     automatic_name,
     place_name,
+    reverse_address,
     street_address,
     suggestion_name,
 )
@@ -506,3 +507,47 @@ def test_a_postal_code_leading_the_second_line_is_no_street() -> None:
     )
     assert lone is not None
     assert lone.kind == "town"
+
+
+def test_reverse_address_drops_the_zip_and_the_united_states() -> None:
+    result = {"formattedAddressLines": ["158 E 23rd St", "New York, NY 10010", "United States"]}
+
+    assert reverse_address(result, None) == "158 E 23rd St, New York, NY"
+
+
+def test_reverse_address_keeps_a_foreign_country_but_not_the_home_one() -> None:
+    result = {
+        "structuredAddress": {"postCode": "10115"},
+        "formattedAddressLines": ["Hauptstrasse 5", "10115 Berlin", "Germany"],
+    }
+
+    assert reverse_address(result, None) == "Hauptstrasse 5, Berlin, Germany"
+    assert reverse_address(result, "Germany") == "Hauptstrasse 5, Berlin"
+
+
+def test_reverse_address_drops_a_post_code_at_the_end_of_a_part() -> None:
+    toronto = {
+        "structuredAddress": {"postCode": "M5V 2T6"},
+        "formattedAddressLines": ["40 Front St W", "Toronto ON M5V 2T6", "Canada"],
+    }
+    london = {
+        "structuredAddress": {"postCode": "SW1A 1AA"},
+        "formattedAddressLines": ["12 High St", "London SW1A 1AA", "United Kingdom"],
+    }
+
+    assert reverse_address(toronto, None) == "40 Front St W, Toronto ON, Canada"
+    assert reverse_address(london, None) == "12 High St, London, United Kingdom"
+
+
+def test_reverse_address_keeps_a_house_number_equal_to_the_post_code() -> None:
+    result = {
+        "structuredAddress": {"postCode": "1000", "locality": "Bruxelles"},
+        "formattedAddressLines": ["1000 Rue Royale", "1000 Bruxelles", "Belgium"],
+    }
+
+    assert reverse_address(result, None) == "1000 Rue Royale, Bruxelles, Belgium"
+    assert reverse_address(result, "Belgium") == "1000 Rue Royale, Bruxelles"
+
+
+def test_reverse_address_without_lines_is_none() -> None:
+    assert reverse_address({}, None) is None
