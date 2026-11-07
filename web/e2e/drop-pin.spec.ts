@@ -59,6 +59,11 @@ for (const { from, query, answer } of ENTRIES) {
   test(`drags the pin map opened from ${from} and uses the spot`, async ({ page }) => {
     await signIn(page)
     const center = await fakeMapKit(page)
+    // No country center, so a search with no results leaves the pin map on the world view.
+    await page.route('**/v1/me', async (route) => {
+      const response = await route.fetch()
+      await route.fulfill({ response, json: { ...(await response.json()), country_center: null } })
+    })
     await page.route('**/v1/places/search**', (route) => {
       const q = new URL(route.request().url()).searchParams.get('q') ?? ''
       return route.fulfill({ json: { results: /felts/i.test(q) ? [PARK] : [] } })

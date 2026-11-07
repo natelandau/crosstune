@@ -128,7 +128,7 @@ function installFakeMapKit() {
  * on any origin. Returns where the newest map's center is.
  */
 export async function fakeMapKit(page: Page): Promise<() => Promise<Coordinate | null>> {
-  await page.route('**/v1/places/mapkit-token', (route) =>
+  await page.route('**/v1/places/mapkit-token**', (route) =>
     route.fulfill({
       json: { token: 'e2e', expires_at: new Date(Date.now() + 3_600_000).toISOString() },
     }),
