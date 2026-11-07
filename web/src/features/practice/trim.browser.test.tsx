@@ -16,7 +16,7 @@ import {
 import { TRIM } from './trimCopy'
 import { START_HANDLE } from './TrimStrip'
 import { NUDGE_LARGE_MS } from './panel'
-import { CANCEL, CLOSE } from '../../ui/confirmCopy'
+import { CANCEL } from '../../ui/confirmCopy'
 import { MORE_ACTIONS } from '../../ui/menuCopy'
 import { drag } from '../../test/gestures'
 import { PALETTE } from '../../theme/tokens'
@@ -27,14 +27,14 @@ import {
   openPractice,
   PHONE,
   practice,
+  recordingPage,
   press,
-  RECORDING_LABEL,
   WIDE,
 } from '../../test/practice'
 
 vi.mock('../../commands/recordings', { spy: true })
 
-const practiceDialog = () => page.getByRole('dialog', { name: RECORDING_LABEL })
+const practiceDialog = () => recordingPage()
 const trimDialog = () => page.getByRole('dialog', { name: TRIM })
 const more = () => practiceDialog().getByRole('button', { name: MORE_ACTIONS })
 const startHandle = () => trimDialog().getByRole('slider', { name: START_HANDLE })
@@ -245,12 +245,12 @@ it('returns focus to More once, so a later overlay on practice leaves focus alon
   await expect.poll(() => trimStart(db)).toBe(5000)
   await expectBackOnMore()
 
-  const close = practiceDialog().getByRole('button', { name: CLOSE })
-  ;(close.element() as HTMLElement).focus()
-  await expect.poll(() => document.activeElement).toBe(close.element())
-  // Mounting and unmounting run in act, so practice has seen itself go under and come back on
-  // top by the time each returns.
+  const other = practice()!.querySelector<HTMLElement>('[data-practice-transport] button')!
+  other.focus()
+  await expect.poll(() => document.activeElement).toBe(other)
+  // Mounting and unmounting run in act, so the page has seen the claim come and go by the time
+  // each returns.
   const stacked = renderHookWithProviders(() => useOverlayClaim({ close: () => {} }))
   stacked.unmount()
-  expect(document.activeElement).toBe(close.element())
+  expect(document.activeElement).toBe(other)
 })

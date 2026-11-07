@@ -11,6 +11,7 @@ import {
   editRecording,
   linkRecordingPlace,
   renameSavedPlace,
+  setCurrentPlace,
   setRecordingPlace,
 } from './places'
 
@@ -193,6 +194,68 @@ describe('setRecordingPlace', () => {
     )
     expect(await db.recordings.get('rec-1')).toEqual(taken())
     expect(await db.outbox.count()).toBe(0)
+  })
+})
+
+describe('setCurrentPlace', () => {
+  const named = () =>
+    recordingRow('rec-1', {
+      place_name: 'Galax, VA',
+      place_lat: 36.66,
+      place_lon: -80.92,
+      place_accuracy_m: null,
+      place_origin: 'picked',
+      place_id: 'p9',
+    })
+
+  it("moves to the device's fix with its accuracy, leaving the name to the server", async () => {
+    await db.recordings.put(named())
+    await setCurrentPlace(db, 'rec-1', { lat: 36.5, lon: -80.5, accuracyM: 8 })
+    const expected = {
+      place_origin: 'device',
+      place_name: null,
+      place_lat: 36.5,
+      place_lon: -80.5,
+      place_accuracy_m: 8,
+      place_id: null,
+    }
+    expect(await db.recordings.get('rec-1')).toMatchObject(expected)
+    expect((await pendingFor(db, 'recordings', 'rec-1'))?.data).toMatchObject(expected)
+  })
+
+  it('links the one live saved place within 30 m of a precise fix', async () => {
+    await db.recordings.put(named())
+    await db.places.bulkPut([
+      placeRow('far', 'Far', { lat: 36.5 + 45 / 111_320, lon: -80.5 }),
+      placeRow('near', 'Near', { lat: 36.5 + 10 / 111_320, lon: -80.5 }),
+      placeRow('gone', 'Gone', { lat: 36.5, lon: -80.5, deleted_at: '2026-01-02T00:00:00.000Z' }),
+    ])
+    await setCurrentPlace(db, 'rec-1', { lat: 36.5, lon: -80.5, accuracyM: 8 })
+    expect((await db.recordings.get('rec-1'))?.place_id).toBe('near')
+  })
+
+  it('links none when two live saved places lie within 30 m', async () => {
+    await db.recordings.put(named())
+    await db.places.bulkPut([
+      placeRow('one', 'One', { lat: 36.5 + 25 / 111_320, lon: -80.5 }),
+      placeRow('two', 'Two', { lat: 36.5 + 10 / 111_320, lon: -80.5 }),
+    ])
+    await setCurrentPlace(db, 'rec-1', { lat: 36.5, lon: -80.5, accuracyM: 8 })
+    expect((await db.recordings.get('rec-1'))?.place_id).toBeNull()
+  })
+
+  it('links none for a loose fix', async () => {
+    await db.recordings.put(named())
+    await db.places.put(placeRow('near', 'Near', { lat: 36.5, lon: -80.5 }))
+    await setCurrentPlace(db, 'rec-1', { lat: 36.5, lon: -80.5, accuracyM: 120 })
+    expect((await db.recordings.get('rec-1'))?.place_id).toBeNull()
+  })
+
+  it('refuses a deleted recording', async () => {
+    await db.recordings.put(recordingRow('rec-1', { deleted_at: '2026-01-02T00:00:00.000Z' }))
+    await expect(
+      setCurrentPlace(db, 'rec-1', { lat: 36.5, lon: -80.5, accuracyM: 8 }),
+    ).rejects.toThrow(RECORDING_NOT_FOUND)
   })
 })
 

@@ -1,36 +1,31 @@
-import { ChevronDown } from 'lucide-react'
-import { Fragment, useRef, useState, type ReactNode } from 'react'
 import { Button as AriaButton } from 'react-aria-components'
 import { Link } from 'react-router'
-import { usePane } from '../../layout/pane'
 import type { Instrument } from '../../api/vocabulary'
 import { addedDay } from '../../text/format'
+import { AttributesColumn, COLUMN_HEADER } from '../../ui/attributes/AttributesColumn'
 import { CAPSULE_HIT } from '../../ui/Capsule'
-import { FIELD_LABEL, FIELD_VALUE_SHAPE } from '../../ui/form/FieldRow'
-import { ErrorLine } from '../../ui/ErrorLine'
-import { Group } from '../../ui/form/Group'
-import { ROW_PRESS } from '../../ui/press'
-import { useElementSize } from '../../ui/useElementSize'
 import { ADD_TO_LIST } from '../lists/listPickerCopy'
-import { AttributeEditor, type AttributeEditorProps } from './AttributeEditor'
-import { COLUMN_TOP } from './attributesLayout'
 import { AttributeEditorBody } from './attributeEditors'
 import {
   ABOUT_GROUP,
   ADD_VALUE,
-  attributeRowName,
   ADDED_ON,
   DETAILS_GROUP,
   ATTRIBUTES_LABEL,
   LEARNED_GROUP,
   LISTS_GROUP,
-  MORE_DETAILS,
 } from './attributeCopy'
-import { cardRows, attributeRows, type AttributeId, type AttributeRow } from './attributeRows'
+import { cardRows, attributeRows } from './attributeRows'
 import { valuesFromRows } from './tuneFormValues'
 import { useAttributeWrite } from './useAttributeWrite'
 import type { TuneView } from './useTune'
 import type { TuneListMembership } from './useTuneScreen'
+
+const GROUPS = [
+  { id: 'details', heading: DETAILS_GROUP },
+  { id: 'about', heading: ABOUT_GROUP },
+  { id: 'learned', heading: LEARNED_GROUP, cardSection: true },
+]
 
 interface TuneAttributesProps {
   view: TuneView
@@ -43,22 +38,6 @@ interface TuneAttributesProps {
   onAddToList: () => void
 }
 
-const ROW_SHAPE = `${ROW_PRESS} flex min-h-(--target) w-full items-center gap-3 px-4 text-start t-body`
-/**
- * A row in the attributes column: inset, so its tint reads as a rounded shape on the open page. A
- * narrow column sets the label over its value, so the value has the full width, and the two lines
- * clear the row's target height. A wide one sets the value at the trailing edge, on the label's
- * first baseline, with the padding centering a single line in the target height.
- */
-const COLUMN_ROW_SHAPE = `${ROW_PRESS} mx-2 flex flex-col gap-px rounded-(--radius-row) px-2 py-1.5 text-start t-body @attributes-wide:min-h-(--target) @attributes-wide:flex-row @attributes-wide:items-baseline @attributes-wide:gap-3 @attributes-wide:py-[calc((var(--target)_-_1.45em)/2)]`
-/** Beside its value, the label takes `t-secondary`'s step. */
-const COLUMN_LABEL =
-  't-caption text-secondary font-normal break-words @attributes-wide:min-w-0 @attributes-wide:flex-1 @attributes-wide:text-(length:--size-secondary)'
-const COLUMN_VALUE =
-  'leading-[1.35] break-words @attributes-wide:max-w-[62%] @attributes-wide:text-end'
-/** A group header: the content column's section heading step, so both columns head alike. */
-const COLUMN_HEADER = 't-heading text-primary px-4 pb-1'
-
 export function TuneAttributes({
   view,
   instruments,
@@ -67,77 +46,32 @@ export function TuneAttributes({
   layout,
   onAddToList,
 }: TuneAttributesProps) {
-  const [openId, setOpenId] = useState<AttributeId | null>(null)
   const write = useAttributeWrite(view.tune.id)
-  const noPane = useRef<HTMLElement>(null)
-  const paneHeight = useElementSize(usePane()?.scroller ?? noPane).height
   const rows = attributeRows(view, instruments)
-  const stored = valuesFromRows(view.tune, view.userTune)
 
-  const renderRow = (row: AttributeRow) => {
-    const isOpen = openId === row.id
-    return (
-      <AttributeRowEditor
-        key={row.id}
-        row={row}
-        isOpen={isOpen}
-        column={layout === 'column'}
-        onOpen={() => setOpenId(row.id)}
-        editor={{
-          isOpen: true,
-          onOpenChange: (next) => {
-            if (!next) setOpenId(null)
-          },
-          stored,
-          onCommit: write.write,
-        }}
-      >
-        <AttributeEditorBody id={row.id} view={view} write={write} />
-      </AttributeRowEditor>
-    )
-  }
-
-  if (layout === 'column') {
-    const groups = [
-      { header: DETAILS_GROUP, rows: rows.filter((r) => r.group === 'details') },
-      { header: ABOUT_GROUP, rows: rows.filter((r) => r.group === 'about') },
-      { header: LEARNED_GROUP, rows: rows.filter((r) => r.group === 'learned') },
-    ]
-    // The hairline spans the content's height; the attributes column inside sticks under the
-    // pane bar, so it stays in view while long content scrolls. An attributes column taller than
-    // the pane, under its bar, scrolls on its own, so its last groups are never out of reach.
-    return (
-      <div className="border-default border-s">
-        <aside
-          aria-label={ATTRIBUTES_LABEL}
-          className="@container sticky top-11 flex max-h-[calc(100dvh-2.75rem)] flex-col overflow-y-auto overscroll-contain pb-6"
-          style={{
-            maxHeight: paneHeight > 0 ? `calc(${paneHeight}px - 2.75rem)` : undefined,
-          }}
-        >
-          {groups.map((group, index) => (
-            <Fragment key={group.header}>
-              <h2
-                className={index === 0 ? COLUMN_HEADER : `${COLUMN_HEADER} pt-6`}
-                style={index === 0 ? { paddingTop: COLUMN_TOP } : undefined}
-              >
-                {group.header}
-              </h2>
-              {group.rows.map(renderRow)}
-            </Fragment>
-          ))}
-          <ErrorLine error={write.error} place="field" />
+  return (
+    <AttributesColumn
+      label={ATTRIBUTES_LABEL}
+      layout={layout}
+      groups={GROUPS}
+      rows={rows}
+      emptyText={ADD_VALUE}
+      stored={valuesFromRows(view.tune, view.userTune)}
+      onCommit={write.write}
+      editorFor={(row) => <AttributeEditorBody id={row.id} view={view} write={write} />}
+      fold={cardRows}
+      error={write.error}
+      footer={
+        <>
           <h2 className={`${COLUMN_HEADER} pt-6`}>{LISTS_GROUP}</h2>
           <div className="px-4 pt-1">
             <TuneLists inLists={inLists} onAddToList={onAddToList} />
           </div>
           <AddedLine createdAt={createdAt} className="px-4 pt-6" />
-        </aside>
-      </div>
-    )
-  }
-
-  return <AttributesCard rows={rows} renderRow={renderRow} error={write.error} />
+        </>
+      }
+    />
+  )
 }
 
 /** The lists a tune is in, as capsules that open each list, then a way to add it to another. */
@@ -178,88 +112,5 @@ export function AddedLine({ createdAt, className }: { createdAt: string; classNa
     <p className={`t-caption text-secondary font-normal ${className}`}>
       {ADDED_ON(addedDay(createdAt))}
     </p>
-  )
-}
-
-function AttributesCard({
-  rows,
-  renderRow,
-  error,
-}: {
-  rows: AttributeRow[]
-  renderRow: (row: AttributeRow) => ReactNode
-  /** Why the last write from a row was refused. */
-  error: string | null
-}) {
-  const [expanded, setExpanded] = useState(false)
-  const { shown, more } = cardRows(rows)
-  const learned = more.filter((r) => r.group === 'learned')
-  return (
-    <section aria-label={ATTRIBUTES_LABEL}>
-      <Group error={error ?? undefined}>
-        {shown.map(renderRow)}
-        <AriaButton
-          aria-expanded={expanded}
-          onPress={() => setExpanded((prev) => !prev)}
-          className={ROW_SHAPE}
-        >
-          <span className="flex-1">{MORE_DETAILS}</span>
-          <ChevronDown
-            className={`text-secondary size-4 transition-transform duration-(--dur-short) ease-(--ease) ${expanded ? 'rotate-180' : ''}`}
-            aria-hidden
-          />
-        </AriaButton>
-        {expanded && more.filter((r) => r.group !== 'learned').map(renderRow)}
-      </Group>
-      {expanded && learned.length > 0 && (
-        <Group header={LEARNED_GROUP}>{learned.map(renderRow)}</Group>
-      )}
-    </section>
-  )
-}
-
-function AttributeRowEditor({
-  row,
-  isOpen,
-  column,
-  onOpen,
-  editor,
-  children,
-}: {
-  row: AttributeRow
-  isOpen: boolean
-  /** Two wrapping columns on a rounded row, rather than the card's grouped row. */
-  column: boolean
-  onOpen: () => void
-  editor: Omit<AttributeEditorProps, 'label' | 'triggerRef' | 'children'>
-  children: ReactNode
-}) {
-  const trigger = useRef<HTMLButtonElement>(null)
-  const valueTone =
-    row.text === null
-      ? 'text-secondary'
-      : column
-        ? 'text-primary t-num font-medium'
-        : 'text-primary'
-  return (
-    <>
-      <AriaButton
-        ref={trigger}
-        aria-label={attributeRowName(row.label, row.text)}
-        aria-haspopup="dialog"
-        onPress={onOpen}
-        className={column ? COLUMN_ROW_SHAPE : ROW_SHAPE}
-      >
-        <span className={column ? COLUMN_LABEL : FIELD_LABEL}>{row.label}</span>
-        <span className={`${column ? COLUMN_VALUE : FIELD_VALUE_SHAPE} ${valueTone}`}>
-          {row.text ?? ADD_VALUE}
-        </span>
-      </AriaButton>
-      {isOpen && (
-        <AttributeEditor {...editor} label={row.label} triggerRef={trigger}>
-          {children}
-        </AttributeEditor>
-      )}
-    </>
   )
 }

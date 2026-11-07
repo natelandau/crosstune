@@ -1,7 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useAuthSession } from '../../auth/AuthContext'
-import { recordingsPlayable } from '../../billing/plan'
-import { usePlanOrUnknown } from '../../billing/usePlan'
+import { useRecordingsPlayable } from '../../billing/usePlan'
 import { settingsId } from '../../commands/settings'
 import { useDb } from '../../db/DbProvider'
 import { storedPlayFirst } from '../../db/types'
@@ -20,7 +19,7 @@ export function useTuneSource(
 ): RowSource | null | undefined {
   const db = useDb()
   const { userId } = useAuthSession()
-  const recordingsPlay = recordingsPlayable(usePlanOrUnknown())
+  const recordingsPlay = useRecordingsPlayable()
   const online = useOnline()
   const read = useLiveQuery(async () => {
     const [media, userTunes, settings] = await Promise.all([

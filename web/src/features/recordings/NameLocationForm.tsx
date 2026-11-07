@@ -3,23 +3,27 @@ import type { LocalPlace } from '../../db/types'
 import { Group } from '../../ui/form/Group'
 import { TextField } from '../../ui/form/TextField'
 import { LocationRow } from './LocationRows'
-import { LOCATION_NAME_LABEL, NAME_LOCATION_HELP, SAVED_HERE } from './recordingsCopy'
+import { LOCATION_NAME_LABEL, SAVED_HERE } from './recordingsCopy'
 
 /**
- * Names the recording's point: the saved locations already within 30 m first, so reusing one is one
- * press, then a name field that saves a new one. Nothing is written until the edit sheet saves.
+ * A location's name: the saved locations offered in its place first, so reusing one is one
+ * press, then a name field with `help` under it, or `error` in its place.
  */
 export function NameLocationForm({
-  candidates,
+  candidates = [],
   name,
+  help,
+  error,
   onNameChange,
   onPick,
   onSubmit,
 }: {
-  candidates: LocalPlace[]
+  candidates?: LocalPlace[]
   name: string
+  help: string
+  error?: string
   onNameChange: (name: string) => void
-  onPick: (place: LocalPlace) => void
+  onPick?: (place: LocalPlace) => void
   onSubmit: () => void
 }) {
   return (
@@ -38,12 +42,12 @@ export function NameLocationForm({
               key={place.id}
               name={place.name}
               detail={place.address}
-              onPress={() => onPick(place)}
+              onPress={() => onPick?.(place)}
             />
           ))}
         </Group>
       )}
-      <Group footer={NAME_LOCATION_HELP}>
+      <Group footer={help} error={error}>
         <TextField
           standalone
           label={LOCATION_NAME_LABEL}

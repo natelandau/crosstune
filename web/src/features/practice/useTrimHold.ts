@@ -9,7 +9,7 @@ import {
   type IsolateSetting,
 } from '../player/isolate/isolateSetting'
 import { usePlaybackEngine } from '../player/PlaybackEngineProvider'
-import { usePracticeOverlay } from './usePracticeOverlay'
+import { usePracticeHolds } from './practiceHolds'
 
 export interface TrimHoldSettings {
   speed: number
@@ -26,7 +26,7 @@ export interface TrimHoldSettings {
  * row, else the hook's own read.
  */
 export function useTrimHold(id: string, trimming: boolean, settings?: TrimHoldSettings): void {
-  const practiceOverlay = usePracticeOverlay()
+  const holds = usePracticeHolds()
   const engine = usePlaybackEngine()
   const db = useDb()
   const given = settings !== undefined
@@ -48,14 +48,14 @@ export function useTrimHold(id: string, trimming: boolean, settings?: TrimHoldSe
 
   useLayoutEffect(() => {
     if (!trimming) return
-    practiceOverlay.hold(id, {
+    holds.hold(id, {
       speedPercent: 100,
       pitchCents: 0,
       isolate: DEFAULT_ISOLATE,
       trimming: true,
     })
-    return () => practiceOverlay.hold(id, null)
-  }, [practiceOverlay, id, trimming])
+    return () => holds.hold(id, null)
+  }, [holds, id, trimming])
 
   const settingsRef = useLatest(current)
   // Waits for the row, so there are settings to give back when trimming ends.

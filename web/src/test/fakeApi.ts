@@ -70,6 +70,7 @@ export function createFakeApi() {
     quota_bytes: 1_073_741_824,
     max_file_bytes: 50_000_000,
   }
+  let countryCenter: { lat: number; lon: number } | null = null
   let slotError: unknown = null
   let slotErrorId: string | null = null
   let confirmError: unknown = null
@@ -140,6 +141,9 @@ export function createFakeApi() {
     async searchPlaces() {
       return { results: [] }
     },
+    async reversePlace() {
+      return null
+    },
     async mapKitToken() {
       return { token: 'map-token', expires_at: '2026-10-21T01:00:00Z' }
     },
@@ -156,6 +160,7 @@ export function createFakeApi() {
         email: null,
         created_at: '2026-09-11T00:00:00Z',
         storage: { split_parent_max_file_bytes: 1_800_000_000, ...storage },
+        country_center: countryCenter,
       }
     },
     async deleteAccount() {},
@@ -281,6 +286,9 @@ export function createFakeApi() {
     },
     setStorage(next: typeof storage) {
       storage = next
+    },
+    setCountryCenter(next: typeof countryCenter) {
+      countryCenter = next
     },
     /** With no id, every slot request fails; with one, only that recording's does. */
     failSlot(error: unknown, recordingId: string | null = null) {

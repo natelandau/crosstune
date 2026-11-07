@@ -69,15 +69,14 @@ describe('useRecordingRow local-only line', () => {
 })
 
 describe('useRecordingRow on a free plan', () => {
-  it('dims a recording the server holds and answers its tap without playing or fetching', async () => {
+  it('dims a recording the server holds and answers its slot without playing or fetching', async () => {
     await db.entitlements.put(entitlementRow())
     const player = fakePlayer()
     const { result } = renderRow(recordingRow('r1', { state: 'ready' }), player)
     await expect.poll(() => result.current.disabled).toBe(true)
     expect(result.current.control).toBe('play')
     expect(result.current.offlineDownload).toBe(false)
-    expect(result.current.open?.openName).toBeNull()
-    result.current.open?.onOpen()
+    result.current.slot?.()
     expect(player.play).not.toHaveBeenCalled()
   })
 
@@ -99,7 +98,7 @@ describe('useRecordingRow on a free plan', () => {
     await expect.poll(() => failed.result.current.retry).toBe('transcode')
   })
 
-  it('leaves a recording with nothing to play yet undimmed, without a control or a tap', async () => {
+  it('leaves a recording with nothing to play yet undimmed, without a slot control', async () => {
     await db.entitlements.put(entitlementRow())
     const view: RecordingView = {
       recording: recordingRow('r1', { state: 'failed' }),
@@ -115,6 +114,6 @@ describe('useRecordingRow on a free plan', () => {
     await expect.poll(() => result.current.plan).toBe('free')
     expect(result.current.row.control).toBe('none')
     expect(result.current.row.disabled).toBe(false)
-    expect(result.current.row.open).toBeUndefined()
+    expect(result.current.row.slot).toBeUndefined()
   })
 })

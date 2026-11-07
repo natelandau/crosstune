@@ -153,23 +153,24 @@ export function useTrimEditor({
   const latestRef = useLatest(trim)
   useEffect(() => {
     // The engine rewinds to the range start when it reaches the range end, even paused, so
-    // a stop there parks a millisecond short of it.
-    const park = (endMs: number) => Math.min(endMs, Math.max(0, engine.getState().lengthMs - 1))
+    // a stop there lands a millisecond short of it.
+    const shortOfEnd = (endMs: number) =>
+      Math.min(endMs, Math.max(0, engine.getState().lengthMs - 1))
     let wasPlaying = engine.getState().playing
     let awaitingRewind = false
     const unsubscribe = engine.subscribe((next) => {
       const endMs = latestRef.current.end - low
       if (awaitingRewind) {
         awaitingRewind = false
-        if (!next.playing && next.positionMs === 0) engine.seek(park(endMs))
+        if (!next.playing && next.positionMs === 0) engine.seek(shortOfEnd(endMs))
       } else if (stopAtEnd.current) {
         if (next.playing && next.positionMs >= endMs - STOP_EARLY_MS) {
           stopAtEnd.current = false
           engine.pause()
-          engine.seek(park(endMs))
+          engine.seek(shortOfEnd(endMs))
         } else if (wasPlaying && !next.playing) {
           stopAtEnd.current = false
-          // A pause with the end handle on the range end is the engine running off it, and
+          // A pause with the end handle on the range end is the engine past it, and
           // its rewind comes next; any other pause leaves the next play an ordinary one.
           // The engine's rewind follows its pause inside the same tick, so a wait that
           // outlasts the tick was an ordinary pause.

@@ -1,0 +1,107 @@
+import { act, renderHook } from '@testing-library/react'
+import type { ReactNode } from 'react'
+import { beforeEach, describe, expect, it } from 'vitest'
+import { deleteSavedPlace, renameSavedPlace } from '../../commands/places'
+import { splitRecording } from '../../commands/split'
+import { createTune } from '../../commands/tunes'
+import type { CrosstuneDb } from '../../db/schema'
+import { openTestDb } from '../../test/db'
+import { dataProviders, fakePlaybackEngine } from '../../test/providers'
+import { captureRecording } from '../../test/recordings'
+import { placeRow } from '../../test/rows'
+import { PlaybackEngineContext } from '../player/PlaybackEngineProvider'
+import { PlayerProvider } from '../player/PlayerProvider'
+import { formatDuration, recordingDateLabel } from '../../text/format'
+import { TRIM_CHANGED_ELSEWHERE } from '../practice/trimViewCopy'
+import { useRecordingPageView } from './useRecordingPageView'
+
+let db: CrosstuneDb
+
+beforeEach(() => {
+  db = openTestDb()
+})
+
+function setup(id: string) {
+  const Data = dataProviders({ db })
+  const engine = fakePlaybackEngine()
+  const wrapper = ({ children }: { children: ReactNode }) => (
+    <Data>
+      <PlaybackEngineContext.Provider value={engine}>
+        <PlayerProvider>{children}</PlayerProvider>
+      </PlaybackEngineContext.Provider>
+    </Data>
+  )
+  return renderHook(() => useRecordingPageView(id), { wrapper })
+}
+
+describe('useRecordingPageView', () => {
+  it("titles the page with the tune's name and the recording's date and length", async () => {
+    const { tuneId } = await createTune(db, { title: 'Cluck Old Hen' }, { status: 'learning' })
+    const id = await captureRecording(db, { tuneId, durationMs: 3000, label: null })
+    const { result } = setup(id)
+    await expect.poll(() => result.current.view?.recording.id).toBe(id)
+    const recording = result.current.view!.recording
+    expect(result.current.title).toBe('Cluck Old Hen')
+    expect(result.current.subtitle).toBe(
+      `${recordingDateLabel(recording)} · ${formatDuration(3000)}`,
+    )
+    expect(result.current.rowLengthMs).toBe(3000)
+    await expect.poll(() => result.current.audio).toBe('held')
+  })
+
+  it("plays a piece the server has not cut from its parent's file, then from its own", async () => {
+    const parent = await captureRecording(db, { durationMs: 3000 })
+    const [piece] = await splitRecording(db, parent, [1500])
+    const { result } = setup(piece!)
+    await expect.poll(() => result.current.view?.file?.id).toBe(parent)
+    await expect.poll(() => result.current.audio).toBe('held')
+
+    await db.recordings.update(piece!, { state: 'ready' })
+    await expect.poll(() => result.current.view?.file?.id).toBeUndefined()
+  })
+
+  it('leaves the players out of the subtitle', async () => {
+    const id = await captureRecording(db, { durationMs: 3000, players: 'Kevin and Ed' })
+    const { result } = setup(id)
+    await expect.poll(() => result.current.view?.recording.id).toBe(id)
+    const recording = result.current.view!.recording
+    expect(result.current.subtitle).toBe(
+      `${recordingDateLabel(recording)} · ${formatDuration(3000)}`,
+    )
+  })
+
+  it('shows the saved location name, following a rename, even when the recording has no name', async () => {
+    await db.places.put(placeRow('p1', 'Town Hall'))
+    const id = await captureRecording(db, { durationMs: 3000 })
+    await db.recordings.update(id, { place_id: 'p1', place_name: null })
+    const { result } = setup(id)
+    await expect.poll(() => result.current.view?.shownPlace).toBe('Town Hall')
+    await renameSavedPlace(db, 'p1', 'Guild Hall')
+    await expect.poll(() => result.current.view?.shownPlace).toBe('Guild Hall')
+    await deleteSavedPlace(db, 'p1')
+    await expect.poll(() => result.current.view?.shownPlace).toBeNull()
+  })
+
+  it('says the recording is missing only once it reads as gone', async () => {
+    const id = await captureRecording(db)
+    const { result } = setup(id)
+    await expect.poll(() => result.current.view?.recording.id).toBe(id)
+    expect(result.current.missing).toBe(false)
+    await db.recordings.update(id, { deleted_at: '2026-02-01T00:00:00.000Z' })
+    await expect.poll(() => result.current.missing).toBe(true)
+    expect(result.current.view).toBeNull()
+  })
+
+  it('leaves a trim written elsewhere with a notice that the next trim clears', async () => {
+    const id = await captureRecording(db)
+    const { result } = setup(id)
+    await expect.poll(() => result.current.view).not.toBeNull()
+    act(() => result.current.openEditor('trim'))
+    await expect.poll(() => result.current.shows).toBe('trim')
+    act(() => result.current.trimmedElsewhere())
+    await expect.poll(() => result.current.shows).toBe('main')
+    expect(result.current.trimNotice).toBe(TRIM_CHANGED_ELSEWHERE)
+    act(() => result.current.openEditor('trim'))
+    await expect.poll(() => result.current.trimNotice).toBeNull()
+  })
+})

@@ -3,11 +3,12 @@ import { expect, test, type Locator, type Page } from '@playwright/test'
 import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { ADD_TUNE, TUNE_LIST } from '../src/features/catalog/catalogCopy'
-import { PLAYER_REGION } from '../src/features/player/playerCopy'
 import { NEW_RECORDING, STOP } from '../src/features/capture/recordCopy'
 import { FIRST_RECORDING_TITLE, NOTICE_OK } from '../src/features/plan/noticeCopy'
-import { EDIT, RECORDING_NAME_LABEL } from '../src/features/recordings/recordingCopy'
-import { EDIT_RECORDING_TITLE, UNFILED_HEADER } from '../src/features/recordings/recordingsCopy'
+import { RECORDING_NAME_LABEL } from '../src/features/recordings/recordingCopy'
+import { NAME_LABEL, UNFILED_HEADER } from '../src/features/recordings/recordingsCopy'
+import { DETAILS, PRACTICE } from '../src/features/recording/recordingPageCopy'
+import { RECORDING } from '../src/text/format'
 import {
   ACCOUNT,
   SYNC_AND_STORAGE,
@@ -18,7 +19,6 @@ import {
 import { TUNE_TITLE_LABEL } from '../src/features/tune/tuneFormCopy'
 import { KEY_TILE_EMPTY } from '../src/features/tune/tuneScreenCopy'
 import { TUNE } from '../src/features/tune/tunePageCopy'
-import { MORE_ACTIONS } from '../src/ui/menuCopy'
 import {
   ACCOUNT_BUTTON,
   PHONE_TABS,
@@ -465,59 +465,97 @@ export async function waitForReady(
     .not.toMatch(busy)
 }
 
-/** The practice overlay, which names itself for the recording, as the trim view does for trim. */
-const practiceOverlay = (page: Page): Locator => page.locator('[data-practice]').getByRole('dialog')
+/** The landmark that holds a recording's page. */
+export const recordingPage = (page: Page): Locator => page.getByRole('main', { name: RECORDING })
 
 /**
- * Play a recording row the way a musician does: a press plays it, and on a device that does not
- * hold its audio the first press fetches it. The press lands on the row's `label`, clear of the
- * tune line a filed row carries under it, which is a control of its own.
+ * A row of the recording page's attributes, by its label and the value it shows, or any value.
+ * Each row is a button named for both, which opens the row's editor.
  */
-export async function playRecording(
-  row: Locator,
-  label: string | RegExp = DEFAULT_LABEL,
-): Promise<void> {
-  const page = row.page()
-  const download = row.and(page.getByRole('row', { name: /^Download / }))
-  const play = row.and(page.getByRole('row', { name: /^Play / }))
+export const recordingAttribute = (page: Page, label: string, value?: string): Locator =>
+  recordingPage(page).getByRole('button', {
+    name: value === undefined ? new RegExp(`^${escapeRegExp(label)}, `) : `${label}, ${value}`,
+    exact: true,
+  })
+
+/**
+ * Play a recording row the way a musician does: its slot plays it, and on a device that does
+ * not hold its audio the slot fetches it first. A tap anywhere else on the row opens its page.
+ */
+export async function playRecording(row: Locator): Promise<void> {
+  const download = row.getByRole('button', { name: /^Download / })
+  const play = row.getByRole('button', { name: /^Play / })
   await expect(play.or(download)).toBeVisible({ timeout: 30_000 })
-  if (await download.isVisible()) await download.getByText(label).first().click()
-  await play.getByText(label).first().click({ timeout: 30_000 })
+  if (await download.isVisible()) await download.click()
+  await play.click({ timeout: 30_000 })
 }
 
-/** Open practice on `row`: play it, then open practice from the now-playing bar's title. */
-export async function openPractice(
-  page: Page,
+/**
+ * Open the page of the recording on `row` with a tap on its `label`, clear of the tune line a
+ * filed row carries under it and of the slot, which are controls of their own.
+ */
+export async function openRecordingPage(
   row: Locator,
   label: string | RegExp = DEFAULT_LABEL,
 ): Promise<Locator> {
-  await playRecording(row, label)
-  await page
-    .getByRole('region', { name: PLAYER_REGION, exact: true })
-    .getByRole('button', { name: /^Open / })
-    .click()
-  const practice = practiceOverlay(page)
+  const page = row.page()
+  await row.getByText(label).first().click()
+  const opened = recordingPage(page)
+  await expect(opened.getByRole('heading', { level: 1 })).toBeVisible()
+  return opened
+}
+
+/**
+ * Show one of the recording page's tabs. A wide page shows practice beside the details and has
+ * no tabs, so there it does nothing.
+ */
+async function showTab(page: Page, name: string): Promise<void> {
+  // The tabs draw with the title, so once the title shows, a page with tabs has them.
+  await expect(recordingPage(page).getByRole('heading', { level: 1 })).toBeVisible()
+  const tab = recordingPage(page).getByRole('tab', { name, exact: true })
+  if ((await tab.count()) === 0) return
+  await tab.click()
+  await expect(tab).toHaveAttribute('aria-selected', 'true')
+}
+
+/** Show the open recording page's Details, where its attribute rows are. */
+export async function showDetails(page: Page): Promise<void> {
+  await showTab(page, DETAILS)
+}
+
+/** Show practice on the open recording page, and return it. */
+export async function showPractice(page: Page): Promise<Locator> {
+  await showTab(page, PRACTICE)
+  const practice = page.locator('[data-practice]')
   await expect(practice).toBeVisible()
   return practice
 }
 
+/** Open the page of the recording on `row`, then its practice. */
+export async function openPractice(
+  row: Locator,
+  label: string | RegExp = DEFAULT_LABEL,
+): Promise<Locator> {
+  await openRecordingPage(row, label)
+  return showPractice(row.page())
+}
+
 /**
- * Rename the recording open on `practice` through Edit in its menu. A recording's default label
- * is only minute-precise, so a second device can find the row by a `unique()` name where two
- * recordings made in the same minute would share a label.
+ * Rename the recording whose page is open through its Name row. A recording's default label is
+ * only minute-precise, so a second device can find the row by a `unique()` name where two
+ * recordings made in the same minute would share a label. The page is left on its details.
  */
-export async function renameRecording(page: Page, practice: Locator, name: string): Promise<void> {
-  await practice.getByRole('button', { name: MORE_ACTIONS, exact: true }).click()
-  await page
-    .getByRole('menu', { name: MORE_ACTIONS })
-    .getByRole('menuitem', { name: EDIT, exact: true })
-    .click()
-  const sheet = page.getByRole('dialog', { name: EDIT_RECORDING_TITLE })
-  const field = sheet.getByRole('textbox', { name: RECORDING_NAME_LABEL, exact: true })
+export async function renameRecording(page: Page, name: string): Promise<void> {
+  await showTab(page, DETAILS)
+  await recordingAttribute(page, NAME_LABEL).click()
+  const editor = page.getByRole('dialog', { name: NAME_LABEL, exact: true })
+  const field = editor.getByRole('textbox', { name: RECORDING_NAME_LABEL, exact: true })
   await field.fill(name)
   await field.press('Enter')
-  await expect(sheet).toHaveCount(0)
-  await expect(practice.getByRole('heading', { name, exact: true })).toBeVisible()
+  await expect(editor).toHaveCount(0)
+  await expect(
+    recordingPage(page).getByRole('heading', { name, level: 1, exact: true }),
+  ).toBeVisible()
 }
 
 /** Nudge the transfer loop from Settings, then return to the Recordings root. */

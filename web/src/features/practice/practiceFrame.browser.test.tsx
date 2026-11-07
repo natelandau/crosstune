@@ -2,38 +2,40 @@ import { expect, it, onTestFinished, vi } from 'vitest'
 import { page } from 'vitest/browser'
 import type { CrosstuneDb } from '../../db/schema'
 import type { LocalList, LocalListItem } from '../../db/types'
-import { listPosition, NEXT_TUNE, PREVIOUS_TUNE } from '../player/playerCopy'
+import { NEXT_TUNE } from '../player/playerCopy'
 import { OPEN_RECORDING, PLAY } from '../player/transportCopy'
 import { openTestDb } from '../../test/db'
 import { FakeAudioElement, fakePlaybackEngine } from '../../test/providers'
-import { placeRow, recordingFile, recordingRow, tuneRow, userTuneRow } from '../../test/rows'
+import { recordingFile, recordingRow, tuneRow, userTuneRow } from '../../test/rows'
 import {
   mountPlaying,
   openPractice,
   PHONE,
   practice,
-  press,
-  RECORDING_LABEL,
+  recordingPage,
   waveform,
   WIDE,
 } from '../../test/practice'
 import { renderApp } from '../../test/renderApp'
 import { SIDEBAR } from '../../app/Sidebar'
 
-import { editLocation, LOCATION_LABEL } from '../recordings/recordingsCopy'
-import { DELETE_LOOP, LOOP_NAME_SUGGESTIONS, NEW_LOOP } from './practiceCopy'
+import { DELETE_LOOP, LOOP_NAME_SUGGESTIONS, LOOPS_LABEL, NEW_LOOP } from './practiceCopy'
 import { TAB_BAR } from '../../layout/tabs'
+import { DETAILS } from '../recording/recordingPageCopy'
 
-const dialog = () => page.getByRole('dialog', { name: RECORDING_LABEL })
+const dialog = () => recordingPage()
 const box = (selector: string) =>
   practice()?.querySelector<HTMLElement>(selector)?.getBoundingClientRect() ?? null
 
-it('centers the transport in a wide window', async () => {
+it('centers the transport in practice on a wide window', async () => {
   await mountPlaying(WIDE)
   await openPractice()
   await expect.poll(() => box('[data-practice-transport]')?.width ?? 0).toBeGreaterThan(0)
   const transport = box('[data-practice-transport]')!
-  expect(Math.abs(transport.left + transport.width / 2 - WIDE.width / 2)).toBeLessThan(2)
+  const area = practice()!.getBoundingClientRect()
+  expect(
+    Math.abs(transport.left + transport.width / 2 - (area.left + area.width / 2)),
+  ).toBeLessThan(2)
 })
 
 it.each([
@@ -55,6 +57,7 @@ it.each([
     const { db } = await mountPlaying(frame, { density: 'touch' })
     await db.tunes.update('t1', { part_structure: 'AABB' })
     await openPractice()
+    await dialog().getByRole('radio', { name: LOOPS_LABEL, exact: true }).click()
     await dialog().getByRole('button', { name: NEW_LOOP, exact: true }).click()
     await expect.poll(() => practice()?.querySelector('button[data-name-tab]')).not.toBeNull()
     practice()!.querySelector<HTMLElement>('button[data-name-tab]')!.click()
@@ -90,10 +93,10 @@ it('holds the screen awake while practice shows', async () => {
     return sentinel
   })
   vi.spyOn(navigator, 'wakeLock', 'get').mockReturnValue({ request } as unknown as WakeLock)
-  await mountPlaying(WIDE)
+  const { router } = await mountPlaying(WIDE)
   await openPractice()
   await expect.poll(() => request.mock.calls.length).toBe(1)
-  press('Escape')
+  await router.navigate(-1)
   await expect.poll(practice).toBeNull()
   await expect.poll(() => release.mock.calls.length).toBe(1)
   expect(request).toHaveBeenCalledTimes(1)
@@ -101,26 +104,25 @@ it('holds the screen awake while practice shows', async () => {
 
 const shellNav = (name: string) => document.querySelector(`nav[aria-label="${name}"]`)
 
-it('keeps playing in place across a frame change', async () => {
+it('keeps playing in place across a frame change, with practice showing', async () => {
   const { engine } = await mountPlaying(WIDE)
   await openPractice()
   await expect.poll(() => engine.getState().playing).toBe(true)
   engine.seek(20_000)
   await expect.poll(() => engine.getState().positionMs).toBe(20_000)
-  const shown = waveform()
 
   await page.viewport(PHONE.width, PHONE.height)
   await expect.poll(() => shellNav(TAB_BAR)).not.toBeNull()
+  // The page folds to its tabs, where Practice, the tab it opened on, shows.
+  await expect.poll(waveform).not.toBeNull()
   expect(engine.getState().playing).toBe(true)
   expect(engine.getState().positionMs).toBe(20_000)
-  // Practice itself lives on through the change, so its zoom and loops do too.
-  expect(waveform()).toBe(shown)
 
   await page.viewport(WIDE.width, WIDE.height)
   await expect.poll(() => shellNav(SIDEBAR)).not.toBeNull()
+  await expect.poll(waveform).not.toBeNull()
   expect(engine.getState().playing).toBe(true)
   expect(engine.getState().positionMs).toBe(20_000)
-  expect(waveform()).toBe(shown)
 })
 
 const TITLES = { t1: 'Old Joe Clark', t2: 'Forked Deer', t3: "Soldier's Joy" } as const
@@ -161,9 +163,7 @@ async function seedList(db: CrosstuneDb, tunes: TuneId[]) {
   await db.lists.put(list)
 }
 
-const subtitle = () => practice()?.querySelector('[data-recording-subtitle]')?.textContent
-
-it("reads a playing list's place in the header and steps to the next tune", async () => {
+it('stays on its own recording when a playing list moves to the next tune', async () => {
   const db = openTestDb()
   await seedList(db, ['t1', 't2', 't3'])
   const engine = fakePlaybackEngine(new FakeAudioElement() as unknown as HTMLAudioElement)
@@ -172,58 +172,34 @@ it("reads a playing list's place in the header and steps to the next tune", asyn
   await expect.element(play).toBeEnabled()
   await play.click()
   await page.getByRole('button', { name: OPEN_RECORDING(`${TITLES.t1} take`) }).click()
-  const header = () => page.getByRole('dialog')
-  await expect.poll(subtitle).toBe(listPosition('Thursday jam', 1, 3))
-  await expect.element(header().getByRole('button', { name: PREVIOUS_TUNE })).toBeVisible()
+  const title = recordingPage().getByRole('heading', { level: 1 })
+  await expect.element(title).toHaveTextContent(`${TITLES.t1} take`)
 
-  await header().getByRole('button', { name: NEXT_TUNE }).click()
-  await expect.element(page.getByRole('dialog', { name: `${TITLES.t2} take` })).toBeVisible()
-  await expect.poll(subtitle).toBe(listPosition('Thursday jam', 2, 3))
-})
-
-it('makes the header location a control that opens the location page, saved name first', async () => {
-  const { db } = await mountPlaying(WIDE, {
-    recording: { place_name: '1 Main St', place_lat: 36.66, place_lon: -80.92, place_id: 'p1' },
-  })
-  await db.places.put(placeRow('p1', 'Town Hall'))
-  await openPractice()
-  const control = dialog().getByRole('button', { name: editLocation('Town Hall') })
-  await expect.element(control).toHaveTextContent('Town Hall')
-  // The rest of the subtitle stays text.
-  expect(subtitle()).toMatch(/ · Town Hall$/)
-  expect(control.element().closest('[data-recording-subtitle]')).not.toBeNull()
-  await control.click()
-  await expect.element(page.getByRole('dialog', { name: LOCATION_LABEL })).toBeVisible()
-})
-
-it('shows no location control when the recording has no place', async () => {
-  await mountPlaying(WIDE)
-  await openPractice()
+  await page.getByRole('button', { name: NEXT_TUNE }).click()
   await expect
-    .element(dialog().getByRole('button', { name: /^Edit location/ }))
-    .not.toBeInTheDocument()
+    .element(page.getByRole('button', { name: OPEN_RECORDING(`${TITLES.t2} take`) }))
+    .toBeVisible()
+  await expect.element(title).toHaveTextContent(`${TITLES.t1} take`)
 })
 
-it('gives the header location a full touch target without growing the subtitle line', async () => {
-  const { db } = await mountPlaying(PHONE, {
-    density: 'touch',
-    recording: { place_name: '1 Main St', place_lat: 36.66, place_lon: -80.92, place_id: 'p1' },
-  })
-  await db.places.put(placeRow('p1', 'Town Hall'))
-  await openPractice()
-  const control = dialog().getByRole('button', { name: editLocation('Town Hall') })
-  await expect.element(control).toBeVisible()
-  const el = control.element()
-  const hit = getComputedStyle(el, '::after')
-  const target = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--target'))
-  expect(parseFloat(hit.height)).toBeGreaterThanOrEqual(target || 44)
-  expect(el.getBoundingClientRect().height).toBeLessThan(target || 44)
-  // The title above stays the header's drag area: the hit area starts below it.
-  const heading = dialog().getByRole('heading').first().element()
-  // Tailwind moves with the `translate` property, which a transform matrix leaves out.
-  const [, moved = '0px'] = hit.translate === 'none' ? [] : hit.translate.split(' ')
-  const shift =
-    (hit.transform === 'none' ? 0 : new DOMMatrix(hit.transform).m42) + parseFloat(moved)
-  const hitTop = el.getBoundingClientRect().top + parseFloat(hit.top) + shift
-  expect(hitTop).toBeGreaterThanOrEqual(heading.getBoundingClientRect().bottom - 0.5)
+it("shows the list's controls on Details only while a list plays the page's recording", async () => {
+  const db = openTestDb()
+  await seedList(db, ['t1', 't2', 't3'])
+  const engine = fakePlaybackEngine(new FakeAudioElement() as unknown as HTMLAudioElement)
+  await renderApp({ path: '/lists/l1', db, frame: PHONE, playbackEngine: engine })
+  const play = page.getByRole('button', { name: PLAY, exact: true })
+  await expect.element(play).toBeEnabled()
+  await play.click()
+  await page.getByRole('button', { name: OPEN_RECORDING(`${TITLES.t1} take`) }).click()
+  await page.getByRole('tab', { name: DETAILS, exact: true }).click()
+  const details = page.getByRole('tabpanel', { name: DETAILS })
+  const next = details.getByRole('button', { name: NEXT_TUNE, exact: true })
+  await expect.element(next).toBeVisible()
+
+  // The list moves on, so the page's own recording is no longer the one it steps.
+  await next.click()
+  await expect
+    .element(page.getByRole('button', { name: OPEN_RECORDING(`${TITLES.t2} take`) }))
+    .toBeVisible()
+  await expect.element(next).not.toBeInTheDocument()
 })

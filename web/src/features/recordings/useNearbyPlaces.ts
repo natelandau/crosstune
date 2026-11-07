@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { PLACE_LIMITS } from '../../api/vocabulary'
-import { distanceM, NEARBY_LIMIT, NEARBY_RADIUS_M } from '../../domain/placeDistances'
+import { byDistance, NEARBY_LIMIT, NEARBY_RADIUS_M } from '../../domain/placeDistances'
 import type { MapKit, MapKitPlace } from '../../platform/mapkit'
 import { useMapKit } from '../../platform/useMapKit'
 
@@ -82,25 +82,20 @@ async function search(mapkit: MapKit, at: Coordinate): Promise<NearbyPlace[]> {
     radius: NEARBY_RADIUS_M,
     pointOfInterestFilter: mapkit.PointOfInterestFilter.including(categories),
   })
-  return places
-    .map((place) => ({
-      place: {
-        name: place.name,
-        address: venueAddress(place),
-        lat: place.coordinate.latitude,
-        lon: place.coordinate.longitude,
-        applePlaceId: place.id ?? null,
-      },
-      meters: distanceM(at.lat, at.lon, place.coordinate.latitude, place.coordinate.longitude),
-    }))
-    .filter(({ meters }) => meters <= NEARBY_RADIUS_M)
-    .sort((a, b) => a.meters - b.meters)
+  const venues = places.map((place) => ({
+    name: place.name,
+    address: venueAddress(place),
+    lat: place.coordinate.latitude,
+    lon: place.coordinate.longitude,
+    applePlaceId: place.id ?? null,
+  }))
+  return byDistance(at, venues, NEARBY_RADIUS_M)
     .slice(0, NEARBY_LIMIT)
     .map(({ place }) => place)
 }
 
 /**
- * The venues within 150 m of a point, nearest first and at most 10, found with MapKit JS.
+ * The venues within 150 m of a point, nearest first and at most 7, found with MapKit JS.
  * Null while loading, with no point, and when MapKit or the search fails.
  */
 export function useNearbyPlaces(at: Coordinate | null): NearbyPlace[] | null {

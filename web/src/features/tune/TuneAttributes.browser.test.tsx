@@ -25,9 +25,14 @@ import {
   ATTRIBUTES_LABEL,
   LEARNED_GROUP,
   LISTS_GROUP,
-  MORE_DETAILS,
 } from './attributeCopy'
-import { attributesLayout, COLUMN_GAP, COLUMN_WIDTH, MIN_CONTENT_WIDTH } from './attributesLayout'
+import { MORE_DETAILS } from '../../ui/attributes/attributesCopy'
+import {
+  attributesLayout,
+  COLUMN_GAP,
+  COLUMN_WIDTH,
+  MIN_CONTENT_WIDTH,
+} from '../../ui/attributes/attributesLayout'
 import { TuneAttributes } from './TuneAttributes'
 import { useTune } from './useTune'
 import type { TuneListMembership } from './useTuneScreen'

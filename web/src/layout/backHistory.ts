@@ -80,6 +80,18 @@ export function useLeaveTo(): (to: string) => void {
   )
 }
 
+/** Leaves for `parent` once `missing` turns true, such as a page whose item was deleted, and
+ * only once. */
+export function useLeaveWhenMissing(missing: boolean, parent: string): void {
+  const leaveTo = useLeaveTo()
+  const left = useRef(false)
+  useEffect(() => {
+    if (!missing || left.current) return
+    left.current = true
+    leaveTo(parent)
+  }, [missing, leaveTo, parent])
+}
+
 export function resetBackHistoryForTest() {
   entered.clear()
 }

@@ -36,7 +36,8 @@ interface Host {
 
 interface NowPlaying {
   node: ReactNode
-  set: (node: ReactNode) => void
+  set: (node: ReactNode, hidden?: boolean) => void
+  hidden: boolean
   /** The slot element now holding the docked node, or null. */
   active: HTMLElement | null
   register: (element: HTMLElement, priority: number) => () => void
@@ -51,7 +52,16 @@ const NowPlayingContext = createContext<NowPlaying | null>(null)
  * mounting it again.
  */
 export function NowPlayingProvider({ children }: { children: ReactNode }) {
-  const [node, set] = useState<ReactNode>(null)
+  // One state, so the node and whether it hides always change together.
+  const [docked, setDocked] = useState<{ node: ReactNode; hidden: boolean }>({
+    node: null,
+    hidden: false,
+  })
+  const { node, hidden } = docked
+  const set = useCallback(
+    (next: ReactNode, nextHidden = false) => setDocked({ node: next, hidden: nextHidden }),
+    [],
+  )
   const [container] = useState(() => document.createElement('div'))
   const [active, setActive] = useState<HTMLElement | null>(null)
   const hosts = useRef<Host[]>([])
@@ -81,7 +91,10 @@ export function NowPlayingProvider({ children }: { children: ReactNode }) {
     [place],
   )
 
-  const value = useMemo(() => ({ node, set, active, register }), [node, active, register])
+  const value = useMemo(
+    () => ({ node, set, hidden, active, register }),
+    [node, set, hidden, active, register],
+  )
   return (
     <NowPlayingContext value={value}>
       {children}
@@ -90,9 +103,12 @@ export function NowPlayingProvider({ children }: { children: ReactNode }) {
   )
 }
 
-/** `set(bar)` docks it, `set(null)` clears it. */
+/**
+ * `set(bar)` docks it, `set(null)` clears it. `set(bar, true)` docks it hidden: off the page
+ * with its slot freed, yet mounted, so what it holds, such as playing audio, goes on.
+ */
 // eslint-disable-next-line react-refresh/only-export-components
-export function useNowPlaying(): { set: (node: ReactNode) => void } {
+export function useNowPlaying(): { set: (node: ReactNode, hidden?: boolean) => void } {
   const context = useContext(NowPlayingContext)
   if (!context) throw new Error('useNowPlaying needs a NowPlayingProvider')
   return { set: context.set }
@@ -102,7 +118,8 @@ export function useNowPlaying(): { set: (node: ReactNode) => void } {
  * A place the docked node can sit: the shell's floating above the tab bar on the phone and at
  * the foot of the content elsewhere, and a layout's own, such as the columns' under the detail
  * pane, which outranks the shell's with a higher `priority`. Only the slot holding the node
- * shows, and none shows while nothing is docked, so no slot reserves space.
+ * shows, and none shows while nothing is docked or the docked node is hidden, so no slot
+ * reserves space.
  */
 export function NowPlayingSlot({
   priority = 0,
@@ -114,7 +131,7 @@ export function NowPlayingSlot({
 }) {
   const context = useContext(NowPlayingContext)
   const [host, setHost] = useState<HTMLDivElement | null>(null)
-  const shown = Boolean(context?.node)
+  const shown = Boolean(context?.node) && !context?.hidden
   const register = context?.register
 
   useLayoutEffect(() => {

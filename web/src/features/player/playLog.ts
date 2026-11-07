@@ -25,6 +25,11 @@ export function tappedFrom(source: Source): PlayAttribution {
   return { source, queue: 'single', trigger: 'tap' }
 }
 
+/** A play started on a recording's own page, its Play or practice's. */
+export const RECORDING_SCREEN_ORIGIN: PlayOrigin = {
+  context: 'recording_screen',
+  report: tappedFrom('recording_screen'),
+}
 /** A play from a recording or link row on a tune's page. */
 export const TUNE_ROW_ORIGIN: PlayOrigin = { context: 'row', report: tappedFrom('tune') }
 /** A play from a row of the Recordings list. */

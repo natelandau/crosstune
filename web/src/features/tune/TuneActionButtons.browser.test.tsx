@@ -13,7 +13,7 @@ import { OPEN } from '../links/linkNames'
 import { readRecordingsWithFiles } from '../recordings/useRecordings'
 import type { RecordingView } from '../recordings/useRecordings'
 import { PlayerContext } from '../player/usePlayer'
-import { PracticeOverlayContext } from '../practice/usePracticeOverlay'
+import { RecordingPageOpenerContext } from '../player/recordingPageOpener'
 import { PLAY } from '../player/transportCopy'
 import { DOWNLOAD } from '../recordings/recordingNames'
 import { LYRICS_SECTION } from './tuneScreenCopy'
@@ -101,16 +101,7 @@ async function setup({
   renderWithProviders(
     <Data>
       <PlayerContext.Provider value={player}>
-        <PracticeOverlayContext.Provider
-          value={{
-            open,
-            close: () => {},
-            held: () => null,
-            hold: () => {},
-            holdEnd: () => {},
-            subscribe: () => () => {},
-          }}
-        >
+        <RecordingPageOpenerContext.Provider value={open}>
           <RecordLauncherContext.Provider value={launcher}>
             <div data-actions>
               <TuneActionButtons
@@ -120,7 +111,7 @@ async function setup({
               />
             </div>
           </RecordLauncherContext.Provider>
-        </PracticeOverlayContext.Provider>
+        </RecordingPageOpenerContext.Provider>
       </PlayerContext.Provider>
     </Data>,
     { density },
@@ -178,12 +169,16 @@ it('a free plan with only recordings shows neither Play nor Practice', async () 
 })
 
 it('a playable tune offers Play and Practice, never Add to list', async () => {
-  const { player, open } = await setup({ withRecording: true })
+  const { player, open, tuneId } = await setup({ withRecording: true })
   await expect.element(button(PLAY)).toBeVisible()
   expect(shown()).toEqual([PLAY, PRACTICE])
   noneDisabled()
   await button(PRACTICE).click()
-  await expect.poll(() => open.mock.calls).toEqual([['rec1']])
+  // Practice opens the page without playing it.
+  await expect
+    .poll(() => open.mock.calls)
+    .toEqual([['rec1', { tab: 'practice', source: 'tune', tuneId }]])
+  expect(player.play).not.toHaveBeenCalled()
   await button(PLAY).click()
   await expect
     .poll(() => vi.mocked(player.play).mock.calls[0]?.[0])

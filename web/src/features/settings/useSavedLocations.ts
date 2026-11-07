@@ -4,9 +4,10 @@ import { deleteSavedPlace, renameSavedPlace, savedPlaceName } from '../../comman
 import { useDb } from '../../db/DbProvider'
 import type { CrosstuneDb } from '../../db/schema'
 import type { LocalPlace } from '../../db/types'
-import { compareNames } from '../../text/collate'
 import { messageFor } from '../../ui/useAction'
 import { useAnalytics } from '../../usage/AnalyticsProvider'
+import type { AnalyticsClient } from '../../usage/client'
+import { livePlacesByName } from '../recordings/place'
 
 /** A saved location and the live recordings linked to it. */
 export interface SavedLocationRow {
@@ -16,20 +17,29 @@ export interface SavedLocationRow {
 
 /** The live saved locations by name, each with how many live recordings use it. */
 export async function readSavedLocations(db: CrosstuneDb): Promise<SavedLocationRow[]> {
-  const places = (await db.places.toArray()).filter((place) => !place.deleted_at)
+  const places = livePlacesByName(await db.places.toArray())
   const counts = new Map<string, number>()
   for (const recording of await db.recordings.toArray()) {
     if (recording.deleted_at || !recording.place_id) continue
     counts.set(recording.place_id, (counts.get(recording.place_id) ?? 0) + 1)
   }
-  return places
-    .sort((a, b) => compareNames(a.name, b.name))
-    .map((place) => ({ place, recordings: counts.get(place.id) ?? 0 }))
+  return places.map((place) => ({ place, recordings: counts.get(place.id) ?? 0 }))
 }
 
-export interface SavedLocations {
-  /** Undefined until the first read. */
-  rows: SavedLocationRow[] | undefined
+/** Renames a saved location, unless it has that name already; throws why it could not. */
+async function renameSavedLocation(
+  db: CrosstuneDb,
+  analytics: AnalyticsClient,
+  id: string,
+  name: string,
+): Promise<void> {
+  const stored = await db.places.get(id)
+  if (stored && !stored.deleted_at && stored.name === savedPlaceName(name)) return
+  await renameSavedPlace(db, id, name)
+  analytics.send('saved_location_renamed', {})
+}
+
+export interface SavedLocationActions {
   /** Why the last rename or delete failed, cleared by the next one. */
   failure: string | null
   clearFailure: () => void
@@ -39,45 +49,59 @@ export interface SavedLocations {
    * time. Resolves whether the stored name now matches.
    */
   rename: (id: string, name: string) => Promise<boolean>
+  /**
+   * Renames as `rename` does, after any rename still running, but throws why it could not
+   * rather than holding it in `failure`.
+   */
+  commitRename: (id: string, name: string) => Promise<void>
   /** Resolves whether the location was deleted. */
   remove: (id: string) => Promise<boolean>
 }
 
-/**
- * The saved locations and the two things Settings does with one: rename and delete. Neither
- * event carries any part of the location.
- */
+export interface SavedLocations extends SavedLocationActions {
+  /** Undefined until the first read. */
+  rows: SavedLocationRow[] | undefined
+}
+
+/** The saved locations and the two things Settings does with one: rename and delete. */
 export function useSavedLocations(): SavedLocations {
   const db = useDb()
-  const analytics = useAnalytics()
   const rows = useLiveQuery(() => readSavedLocations(db), [db])
-  const [failure, setFailure] = useState<string | null>(null)
-  const last = useRef<Promise<boolean>>(Promise.resolve(true))
+  return { rows, ...useSavedLocationActions() }
+}
 
-  const save = useCallback(
-    async (id: string, name: string) => {
-      try {
-        const stored = await db.places.get(id)
-        if (stored && !stored.deleted_at && stored.name === savedPlaceName(name)) return true
-        await renameSavedPlace(db, id, name)
-      } catch (error) {
-        setFailure(messageFor(error))
-        return false
-      }
-      analytics.send('saved_location_renamed', {})
-      return true
+/**
+ * Renames and deletes a saved location, without reading the list. Neither event carries any
+ * part of the location.
+ */
+export function useSavedLocationActions(): SavedLocationActions {
+  const db = useDb()
+  const analytics = useAnalytics()
+  const [failure, setFailure] = useState<string | null>(null)
+  // Every rename waits for the one before it, so the unchanged check reads the name it wrote.
+  const last = useRef<Promise<unknown>>(Promise.resolve())
+
+  const commitRename = useCallback(
+    (id: string, name: string) => {
+      const run = last.current.then(() => renameSavedLocation(db, analytics, id, name))
+      last.current = run.catch(() => undefined)
+      return run
     },
     [db, analytics],
   )
 
   const rename = useCallback(
-    (id: string, name: string) => {
+    async (id: string, name: string) => {
       setFailure(null)
-      const run = last.current.then(() => save(id, name))
-      last.current = run
-      return run
+      try {
+        await commitRename(id, name)
+      } catch (error) {
+        setFailure(messageFor(error))
+        return false
+      }
+      return true
     },
-    [save],
+    [commitRename],
   )
 
   const remove = useCallback(
@@ -96,5 +120,5 @@ export function useSavedLocations(): SavedLocations {
   )
 
   const clearFailure = useCallback(() => setFailure(null), [])
-  return { rows, failure, clearFailure, rename, remove }
+  return { failure, clearFailure, rename, commitRename, remove }
 }

@@ -477,9 +477,11 @@ it("plays a row's recording in the list's context", async () => {
     .toHaveBeenCalledWith(
       { kind: 'recording', id: 'rec1' },
       {
-        context: 'list',
-        listId: 'l1',
-        report: { source: 'list', queue: 'single', trigger: 'tap' },
+        origin: {
+          context: 'list',
+          listId: 'l1',
+          report: { source: 'list', queue: 'single', trigger: 'tap' },
+        },
       },
     )
   // The control answers alone; the row's own press would open the tune.

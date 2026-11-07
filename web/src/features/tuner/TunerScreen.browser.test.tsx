@@ -25,7 +25,7 @@ import { OverlayClaim } from '../../ui/overlayClaim'
 import type { Player } from '../player/usePlayer'
 import { LOCATION_NOTE_TITLE, NEW_RECORDING } from '../capture/recordCopy'
 import { PLAYER_REGION } from '../player/playerCopy'
-import { PLAY } from '../player/transportCopy'
+import { playName } from '../recordings/recordingNames'
 import { TUNE } from '../tune/tunePageCopy'
 import { PALETTE } from '../../theme/tokens'
 import { LISTENING, referenceLabel, SHARP, TAP_TO_LISTEN, TUNER_TITLE } from './tunerCopy'
@@ -100,7 +100,7 @@ it('pauses playback on entry and leaves the queue', async () => {
   const { engine } = await mount({ path: '/catalog/t1', seed: seedRecording })
   await page
     .getByRole('main', { name: TUNE })
-    .getByRole('row', { name: new RegExp(`^${PLAY} ${RECORDING_LABEL}`) })
+    .getByRole('button', { name: playName(RECORDING_LABEL), exact: true })
     .click()
   await expect.poll(() => engine.getState().playing).toBe(true)
 
@@ -145,7 +145,7 @@ it('stops listening while a play runs and listens again once it pauses', async (
   const { fake, engine } = await mount({ path: '/catalog/t1', seed: seedRecording })
   await page
     .getByRole('main', { name: TUNE })
-    .getByRole('row', { name: new RegExp(`^${PLAY} ${RECORDING_LABEL}`) })
+    .getByRole('button', { name: playName(RECORDING_LABEL), exact: true })
     .click()
   await expect.poll(() => engine.getState().playing).toBe(true)
   await page

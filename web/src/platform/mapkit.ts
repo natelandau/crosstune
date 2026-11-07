@@ -25,8 +25,14 @@ export interface MapKitPlace {
 
 export interface MapKitMap {
   region: unknown
+  /** The point at the map's center, which moves as the musician drags. */
+  readonly center: MapKitCoordinate
+  addEventListener(type: string, listener: () => void): void
+  removeEventListener(type: string, listener: () => void): void
   addAnnotation(annotation: unknown): unknown
   addOverlay(overlay: unknown): unknown
+  removeAnnotation(annotation: unknown): void
+  removeOverlay(overlay: unknown): void
   destroy(): void
 }
 

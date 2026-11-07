@@ -24,7 +24,7 @@ import {
   type LocalFileState,
   type RecordingFile,
 } from '../db/recordings'
-import { getKeepOffline, getStorage, setStorage } from '../db/meta'
+import { getKeepOffline, getStorage, setCountryCenter, setStorage } from '../db/meta'
 import { pendingFor } from '../db/outbox'
 import type { CrosstuneDb } from '../db/schema'
 import { liveTune } from '../db/tunes'
@@ -562,7 +562,9 @@ export async function downloadPass(
   }
 }
 
-export async function refreshStorage(db: CrosstuneDb, api: SyncApi): Promise<void> {
+/** Stores the account's storage usage and its country's center from the API. */
+export async function refreshAccount(db: CrosstuneDb, api: SyncApi): Promise<void> {
   const me = await api.me()
   await setStorage(db, me.storage)
+  await setCountryCenter(db, me.country_center)
 }

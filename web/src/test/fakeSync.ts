@@ -16,6 +16,7 @@ export function fakeEngine(overrides: Partial<SyncEngine> = {}): SyncEngine {
     resolveLink: async () => null,
     searchRecordings: async () => ({ kind: 'failed' }),
     searchPlaces: async () => ({ kind: 'failed' }),
+    reversePlace: async () => ({ kind: 'failed' }),
     mapKitToken: async () => null,
     placeSnapshot: async () => null,
     download: async () => null,

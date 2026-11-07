@@ -95,14 +95,14 @@ it('shows plain mode names once a changed value label no longer fits', async () 
     )
   await expect
     .poll(shown)
-    .toEqual([LOOPS_LABEL, SPEED, SEGMENT_LABEL(PITCH, PITCH_BADGE(100)), ISOLATE_LABEL])
+    .toEqual([SPEED, SEGMENT_LABEL(PITCH, PITCH_BADGE(100)), ISOLATE_LABEL, LOOPS_LABEL])
 
   rerender(narrow('mute'))
 
   await expect
     .element(page.getByRole('radio', { name: SEGMENT_LABEL(ISOLATE_LABEL, MUTE), exact: true }))
     .toBeInTheDocument()
-  await expect.poll(shown).toEqual([LOOPS_LABEL, SPEED, PITCH, ISOLATE_LABEL])
+  await expect.poll(shown).toEqual([SPEED, PITCH, ISOLATE_LABEL, LOOPS_LABEL])
 })
 
 it('names no effect on a mono recording whose only change is pan', async () => {

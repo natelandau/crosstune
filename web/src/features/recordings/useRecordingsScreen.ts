@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
 import type { ConfirmQuestion } from '../../ui/confirmQuestion'
-import type { MenuItem } from '../../ui/menuTypes'
 import type { RowAction } from '../../ui/rowTypes'
 import { readSearchQuery, writeSearchQuery } from '../../ui/searchSession'
 import {
@@ -20,7 +19,6 @@ const NO_VIEWS: RecordingView[] = []
 
 export interface RecordingsScreenOptions {
   confirm: (question: ConfirmQuestion) => Promise<boolean>
-  onOpenTune: (tuneId: string) => void
 }
 
 export interface RecordingsScreen {
@@ -57,14 +55,6 @@ export interface RecordingsScreen {
   setError: (message: string | null) => void
   retry: (view: RecordingView, kind: 'upload' | 'transcode') => void
   actionsFor: (view: RecordingView) => RowAction[]
-  rowMenuFor: (view: RecordingView) => RowAction[]
-  menuFor: (view: RecordingView) => MenuItem[]
-  /** The recording the edit sheet shows, or null. */
-  editing: RecordingView | null
-  setEditing: (view: RecordingView | null) => void
-  /** The recording the Add to tune sheet files, or null. */
-  filing: RecordingView | null
-  setFiling: (view: RecordingView | null) => void
   /** Adds dropped or picked audio files as unfiled recordings, reporting on `error`. */
   importFiles: (files: File[]) => Promise<void>
 }
@@ -77,26 +67,14 @@ function heldOrigins(views: readonly RecordingView[]): string[] {
 }
 
 /** Everything the Recordings screen reads and does. */
-export function useRecordingsScreen({
-  confirm,
-  onOpenTune,
-}: RecordingsScreenOptions): RecordingsScreen {
+export function useRecordingsScreen({ confirm }: RecordingsScreenOptions): RecordingsScreen {
   const loadedViews = useRecordingsWithFiles()
   const [choice, choose] = useRecordingsOrigin()
   const ready = loadedViews !== undefined && choice !== undefined
   const views = loadedViews ?? NO_VIEWS
-  const [filing, setFiling] = useState<RecordingView | null>(null)
-  const [editing, setEditing] = useState<RecordingView | null>(null)
-  const { error, setUploadError, retry, actionsFor, rowMenuFor, menuFor } = useRecordingActionsWith(
-    {
-      confirm,
-      onEdit: setEditing,
-      onAddToTune: setFiling,
-      onOpenTune: ({ tuneId }) => {
-        if (tuneId) onOpenTune(tuneId)
-      },
-    },
-  )
+  const { error, setUploadError, retry, actionsFor } = useRecordingActionsWith({
+    confirm,
+  })
 
   const origins = useMemo(() => heldOrigins(views), [views])
   const shown = useMemo(
@@ -141,12 +119,6 @@ export function useRecordingsScreen({
     setError: setUploadError,
     retry,
     actionsFor,
-    rowMenuFor,
-    menuFor,
-    editing,
-    setEditing,
-    filing,
-    setFiling,
     importFiles,
   }
 }

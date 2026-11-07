@@ -30,6 +30,15 @@ export function closeRecordingName(title: string): string {
   return `${CLOSE_PLAYER} ${title}`
 }
 
+/** The name of a recording row's slot control, which plays, stops, or downloads `title`. */
+export function slotName(control: 'play' | 'close' | 'download', title: string): string {
+  return control === 'close'
+    ? closeRecordingName(title)
+    : control === 'play'
+      ? playName(title)
+      : downloadName(title)
+}
+
 export function openTuneName(title: string): string {
   return `Open ${title}`
 }

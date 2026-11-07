@@ -1,51 +1,32 @@
 import { Check } from 'lucide-react'
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useRef, type ReactNode } from 'react'
 import { Button as AriaButton } from 'react-aria-components'
 import type { PlaceResult } from '../../api/types'
-import { useSyncEngine } from '../../sync/SyncProvider'
-import type { PlaceSearchOutcome } from '../../sync/types'
 import { FIELD_ROW_PRESSABLE } from '../../ui/form/FieldRow'
 import { Group } from '../../ui/form/Group'
 import { SearchField } from '../../ui/SearchField'
-import {
-  LOCATION_SEARCH_OFFLINE,
-  LOCATION_SEARCH_UNAVAILABLE,
-  locationSearchBusy,
-  NO_LOCATIONS_FOUND,
-  pickLocationName,
-  SEARCH_LOCATIONS,
-} from './recordingsCopy'
+import { pickLocationName } from './recordingsCopy'
+import type { PlaceSearchState } from './usePlaceSearch'
 
-// The search endpoint's bounds on the text it takes.
-const MIN_QUERY = 2
+// The search endpoint's longest text.
 const MAX_QUERY = 100
 
-function outcomeMessage(outcome: PlaceSearchOutcome): string {
-  switch (outcome.kind) {
-    case 'ok':
-      return NO_LOCATIONS_FOUND
-    case 'offline':
-      return LOCATION_SEARCH_OFFLINE
-    case 'rate_limited':
-      return locationSearchBusy(outcome.retryAfterSeconds)
-    default:
-      return LOCATION_SEARCH_UNAVAILABLE
-  }
-}
-
 /**
- * A location to pick: its name, the line under it when there is one, and a check when it is the
- * recording's now.
+ * A location to pick: its name, the line under it when there is one, how far it is when known,
+ * and a check when it is the recording's now.
  */
 export function LocationRow({
   name,
   detail,
+  distance,
   current = false,
   isDisabled = false,
   onPress,
 }: {
   name: string
   detail?: string | null
+  /** How far the location is, as `formatDistance` writes it. */
+  distance?: string | null
   current?: boolean
   isDisabled?: boolean
   onPress: () => void
@@ -68,66 +49,57 @@ export function LocationRow({
           </span>
         )}
       </span>
+      {distance && <span className="t-secondary text-secondary t-num shrink-0">{distance}</span>}
       {current && <Check className="text-accent size-5 shrink-0" aria-hidden />}
     </AriaButton>
   )
 }
 
 /**
- * The location page's search: two or more characters search once the typing has settled for
- * `settleMs`, and only the latest search's answer shows. Picking a result hands it to `onPick`.
+ * A place search's field and what `search` answered: while the field holds text, the results
+ * show under it, then `children`. Picking a result hands it to `onPick`.
  */
 export function PlaceSearch({
+  label,
+  query,
+  onQueryChange,
+  search,
+  distanceOf,
   onPick,
   autoFocus = false,
-  settleMs = 300,
+  children,
 }: {
+  /** The field's name and placeholder. */
+  label: string
+  query: string
+  onQueryChange: (query: string) => void
+  /** The search for `query`, from `usePlaceSearch`. */
+  search: PlaceSearchState
+  /** How far a result is, null when there is nothing to measure from. */
+  distanceOf?: (at: { lat: number; lon: number }) => string | null
   onPick: (result: PlaceResult) => void
   autoFocus?: boolean
-  settleMs?: number
+  /** Shown after the results while the field holds text. */
+  children?: ReactNode
 }) {
-  const engine = useSyncEngine()
-  const [query, setQuery] = useState('')
-  const [answer, setAnswer] = useState<{ term: string; outcome: PlaceSearchOutcome } | null>(null)
-  const latestAsk = useRef(0)
   const statusId = useId()
   const field = useRef<HTMLInputElement>(null)
-  const trimmed = query.trim()
-  const term = trimmed.length >= MIN_QUERY ? trimmed : null
+  const { results, message } = search
 
   useEffect(() => {
     if (autoFocus) field.current?.focus()
   }, [autoFocus])
 
-  useEffect(() => {
-    // Every change of term retires the search before it, so a slow answer never shows late.
-    const ask = ++latestAsk.current
-    if (term === null) return
-    const timer = setTimeout(() => {
-      void engine
-        .searchPlaces(term)
-        .catch((): PlaceSearchOutcome => ({ kind: 'failed' }))
-        .then((outcome) => {
-          if (ask === latestAsk.current) setAnswer({ term, outcome })
-        })
-    }, settleMs)
-    return () => clearTimeout(timer)
-  }, [engine, term, settleMs])
-
-  const outcome = term !== null && answer?.term === term ? answer.outcome : undefined
-  const results = outcome?.kind === 'ok' ? outcome.results : []
-  const message = outcome && results.length === 0 ? outcomeMessage(outcome) : null
-
   return (
     <>
-      <div className="pt-6">
+      <div className="pt-2">
         <SearchField
           ref={field}
-          label={SEARCH_LOCATIONS}
+          label={label}
           value={query}
           maxLength={MAX_QUERY}
           describedBy={statusId}
-          onChange={setQuery}
+          onChange={onQueryChange}
         />
       </div>
       {/* Always in the tree, so a screen reader hears each message as it lands. */}
@@ -141,11 +113,13 @@ export function PlaceSearch({
               key={`${result.lat},${result.lon},${i}`}
               name={result.title}
               detail={result.subtitle}
+              distance={distanceOf?.(result)}
               onPress={() => onPick(result)}
             />
           ))}
         </Group>
       )}
+      {query.trim() !== '' && children}
     </>
   )
 }

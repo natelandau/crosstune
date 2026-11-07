@@ -7,14 +7,14 @@ import { CLOSE_PLAYER, PAUSE, PITCH_LABEL, PLAY, SPEED_LABEL } from './transport
 import type { RecordingTransport } from './useRecordingTransport'
 import { Button } from '../../ui/Button'
 
-/** What both bars show: the loaded item, how to open practice for it, and how to close it. */
+/** What both bars show: the loaded item, how to open its page, and how to close it. */
 export interface BarProps {
   title: string
   /** The tune or the source, in secondary under the title on the phone. */
   detail: string | null
   /** The recording's transport; null for a link, which plays in its own embed. */
   transport: RecordingTransport | null
-  /** Opens practice; null leaves the bar's body inert. */
+  /** Opens the recording's page; null leaves the bar's body inert. */
   onOpen: (() => void) | null
   onClose: () => void
   /** Why a list stopped. While set, the bar shows only it and Close player. */

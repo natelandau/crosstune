@@ -4,7 +4,8 @@ import { expect, it, onTestFinished, vi } from 'vitest'
 import type { CrosstuneDb } from '../../db/schema'
 import type { LocalRecording } from '../../db/types'
 import { PLAYER_REGION } from './playerCopy'
-import { CLOSE_PLAYER, PLAY } from './transportCopy'
+import { CLOSE_PLAYER } from './transportCopy'
+import { playName } from '../recordings/recordingNames'
 import { emulateReducedMotion } from '../../test/reducedMotion'
 import { openTestDb } from '../../test/db'
 import { fakePlaybackEngine } from '../../test/providers'
@@ -53,14 +54,14 @@ async function mount(frame: { width: number; height: number }) {
   await seed(db)
   const engine = fakePlaybackEngine()
   await renderApp({ path: '/catalog/t1', db, frame, playbackEngine: engine })
-  await expect.element(recordingRowLocator(SLOW)).toBeVisible()
+  await expect.element(playControl(SLOW)).toBeVisible()
   return engine
 }
 
 const player = () => page.getByRole('region', { name: PLAYER_REGION })
 const tunePage = () => page.getByRole('main', { name: TUNE })
-const recordingRowLocator = (label: string) =>
-  tunePage().getByRole('row', { name: new RegExp(`^${PLAY} ${label}`) })
+const playControl = (label: string) =>
+  tunePage().getByRole('button', { name: playName(label), exact: true })
 const linkRowOnPage = () => tunePage().getByRole('row', { name: new RegExp(YOUTUBE_TITLE) })
 const titleIn = (label: string) =>
   player().getByText(label, { exact: true }).element() as HTMLElement
@@ -79,9 +80,9 @@ async function holdingMotion(step: () => Promise<void>) {
   }
 }
 
-/** Opens the player from `row` and waits for the bar to finish rising into place. */
-async function open(row: ReturnType<typeof recordingRowLocator>) {
-  await row.click()
+/** Opens the player from `control` and waits for the bar to finish rising into place. */
+async function open(control: ReturnType<typeof playControl>) {
+  await control.click()
   await expect.element(player()).toBeVisible()
   const bar = () => player().element().firstElementChild as HTMLElement
   await expect.poll(() => bar().style.transform).toBe('none')
@@ -114,10 +115,10 @@ it.each([
 ])('slides in a new title on a track change on %s, never the first one', async (_, frame) => {
   await mount(frame)
   await holdingMotion(async () => {
-    await recordingRowLocator(FAST).click()
+    await playControl(FAST).click()
     await expect.element(player()).toBeVisible()
     expect(titleIn(FAST).style.transform).toBe('none')
-    await recordingRowLocator(SLOW).click()
+    await playControl(SLOW).click()
     await expect.element(player().getByText(SLOW, { exact: true })).toBeInTheDocument()
     expect(titleIn(SLOW).style.transform).not.toBe('none')
   })
@@ -127,7 +128,7 @@ it.each([
 it('closes at once and leaves an inert, hidden copy that slides out and goes', async () => {
   const engine = await mount(PHONE)
   const unload = vi.spyOn(engine, 'unload')
-  await open(recordingRowLocator(FAST))
+  await open(playControl(FAST))
   const copies = watchLeaving()
   await holdingMotion(async () => {
     await player().getByRole('button', { name: CLOSE_PLAYER, exact: true }).click()
@@ -159,13 +160,13 @@ it("leaves no live embed in a closing link's copy", async () => {
 
 it('clears a closing copy still on its way out when the player opens again', async () => {
   await mount(PHONE)
-  await open(recordingRowLocator(FAST))
+  await open(playControl(FAST))
   const copies = watchLeaving()
   await holdingMotion(async () => {
     await player().getByRole('button', { name: CLOSE_PLAYER, exact: true }).click()
     await expect.poll(() => copies.length).toBe(1)
     expect(copies[0]!.isConnected).toBe(true)
-    await recordingRowLocator(SLOW).click()
+    await playControl(SLOW).click()
     await expect.element(player()).toBeVisible()
     await expect.poll(() => copies[0]!.isConnected).toBe(false)
   })
@@ -174,19 +175,19 @@ it('clears a closing copy still on its way out when the player opens again', asy
 it('leaves no copy behind under reduced motion', async () => {
   await emulateReducedMotion()
   await mount(PHONE)
-  await open(recordingRowLocator(FAST))
+  await open(playControl(FAST))
   const copies = watchLeaving()
   await player().getByRole('button', { name: CLOSE_PLAYER, exact: true }).click()
   await expect.element(player()).not.toBeInTheDocument()
   // Opening the player again proves the close has long since committed.
-  await recordingRowLocator(SLOW).click()
+  await playControl(SLOW).click()
   await expect.element(player()).toBeVisible()
   expect(copies).toHaveLength(0)
 })
 
 it('leaves no copy when a resize moves the bar to the other frame, only on a close', async () => {
   await mount(PHONE)
-  await open(recordingRowLocator(FAST))
+  await open(playControl(FAST))
   const slot = () => player().element().closest('[data-now-playing]')
   const phoneSlot = slot()
   const copies = watchLeaving()
@@ -208,8 +209,8 @@ it('leaves no copy when the app goes away with the bar open', async () => {
     frame: PHONE,
     playbackEngine: fakePlaybackEngine(),
   })
-  await expect.element(recordingRowLocator(SLOW)).toBeVisible()
-  await open(recordingRowLocator(FAST))
+  await expect.element(playControl(SLOW)).toBeVisible()
+  await open(playControl(FAST))
   const copies = watchLeaving()
   app.unmount()
   await expect.element(player()).not.toBeInTheDocument()

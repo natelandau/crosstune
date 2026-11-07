@@ -71,6 +71,11 @@ const overlayOpen = () => readBackEntries().some((entry) => entry.layer === 'ove
 const shellCovered = () =>
   readBackEntries().some((entry) => entry.layer === 'overlay' && entry.coversShell)
 
+/** Whether any overlay holds a claim now, for a key listener that reads it at each press. */
+export function isOverlayOpen(): boolean {
+  return overlayOpen()
+}
+
 /** Whether any overlay holds a claim. */
 export function useOverlayOpen(): boolean {
   return useSyncExternalStore(subscribeBackEntries, overlayOpen)

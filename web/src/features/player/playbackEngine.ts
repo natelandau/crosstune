@@ -74,10 +74,15 @@ const MEDIA_SESSION_ACTIONS: MediaSessionAction[] = [
 /** Undeclared on HTMLMediaElement; only some Safari builds still read it. */
 type LegacyPitchElement = HTMLAudioElement & { webkitPreservesPitch?: boolean }
 
-function mediaSession(): MediaSession | undefined {
+function deviceMediaSession(): MediaSession | undefined {
   return typeof navigator !== 'undefined' && 'mediaSession' in navigator
     ? navigator.mediaSession
     : undefined
+}
+
+export interface EngineOptions {
+  /** The lock screen's controls and what they show; the device's by default. */
+  mediaSession?: () => MediaSession | undefined
 }
 
 /** Not every browser supports every action, so registering or clearing one can throw. */
@@ -138,12 +143,15 @@ export class PlaybackEngine {
   private readonly outlineListeners = new Set<(outline: IsolateOutline) => void>()
   private stopTick: (() => void) | null = null
   private ticksSinceReport = 0
+  private readonly mediaSession: () => MediaSession | undefined
 
   constructor(
     private readonly element: HTMLAudioElement,
     private readonly clock: EngineClock,
     private readonly createStage: CreateStage = createAudioStage,
+    { mediaSession = deviceMediaSession }: EngineOptions = {},
   ) {
+    this.mediaSession = mediaSession
     this.listen()
   }
 
@@ -703,13 +711,13 @@ export class PlaybackEngine {
   }
 
   private applyMetadata(meta: PlaybackMeta): void {
-    const session = mediaSession()
+    const session = this.mediaSession()
     if (!session || typeof MediaMetadata === 'undefined') return
     session.metadata = new MediaMetadata({ title: meta.title })
   }
 
   private registerActionHandlers(): void {
-    const session = mediaSession()
+    const session = this.mediaSession()
     if (!session) return
     const handle = (action: MediaSessionAction, act: MediaSessionActionHandler) =>
       setActionHandler(session, action, (details) => {
@@ -733,14 +741,14 @@ export class PlaybackEngine {
   }
 
   private clearActionHandlers(): void {
-    const session = mediaSession()
+    const session = this.mediaSession()
     if (!session) return
     for (const action of MEDIA_SESSION_ACTIONS) setActionHandler(session, action, null)
   }
 
   private reportPosition(): void {
     this.ticksSinceReport = 0
-    const session = mediaSession()
+    const session = this.mediaSession()
     if (!session?.setPositionState) return
     const duration = this.span.lengthMs / 1000
     if (!Number.isFinite(duration) || duration <= 0) return

@@ -198,6 +198,51 @@ describe('createApiClient', () => {
     )
   })
 
+  it('sends the point a place search leans toward', async () => {
+    const urls: string[] = []
+    const api = makeClient(async (input) => {
+      urls.push(input.url)
+      return Response.json({ results: [] })
+    })
+    await api.searchPlaces('Galax', { lat: 36.66, lon: -80.92 })
+    const url = new URL(urls[0]!)
+    expect(url.searchParams.get('lat')).toBe('36.66')
+    expect(url.searchParams.get('lon')).toBe('-80.92')
+  })
+
+  describe('reversePlace', () => {
+    const place = { name: 'Galax', address: 'Galax, VA', lat: 36.66, lon: -80.92 }
+    const respondWith = (status: number) => {
+      const urls: string[] = []
+      const api = makeClient(async (input) => {
+        urls.push(input.url)
+        return status === 200
+          ? Response.json(place)
+          : Response.json({ type: 'about:blank', title: 'x', status }, { status })
+      })
+      return { api, urls }
+    }
+
+    it('returns the place at a point', async () => {
+      const { api, urls } = respondWith(200)
+      await expect(api.reversePlace(36.66, -80.92)).resolves.toEqual(place)
+      const url = new URL(urls[0]!)
+      expect(url.pathname).toBe('/v1/places/reverse')
+      expect(url.searchParams.get('lat')).toBe('36.66')
+      expect(url.searchParams.get('lon')).toBe('-80.92')
+    })
+
+    it('resolves null on 404', async () => {
+      await expect(respondWith(404).api.reversePlace(1, 2)).resolves.toBeNull()
+    })
+
+    it('throws an ApiError on other errors', async () => {
+      await expect(respondWith(500).api.reversePlace(1, 2)).rejects.toSatisfy(
+        (error) => error instanceof ApiError && error.status === 500,
+      )
+    })
+  })
+
   it('searches places by text', async () => {
     const urls: string[] = []
     const results = [
@@ -232,7 +277,9 @@ describe('createApiClient', () => {
         scheme: 'dark',
       }),
     ).resolves.toEqual({ url: 'https://snapshot.test/a.png' })
-    expect(new URL(urls[0]!).pathname).toBe('/v1/places/mapkit-token')
+    const token = new URL(urls[0]!)
+    expect(token.pathname).toBe('/v1/places/mapkit-token')
+    expect(token.searchParams.get('origin')).toBe(window.location.origin)
     const snapshot = new URL(urls[1]!)
     expect(snapshot.pathname).toBe('/v1/places/snapshot')
     expect(Object.fromEntries(snapshot.searchParams)).toEqual({

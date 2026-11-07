@@ -18,12 +18,13 @@ import {
   playbackSettings,
 } from '../../test/providers'
 import { captureRecording } from '../../test/recordings'
-import type { HeldSettings } from '../practice/usePracticeOverlay'
+import type { HeldSettings } from '../practice/practiceHolds'
 import { DOWNLOAD_FAILED } from '../../text/format'
 import type { EngineClock, PlaybackEngine } from './playbackEngine'
 import { PlaybackEngineContext } from './PlaybackEngineProvider'
 import { SPEED_BADGE } from './transportCopy'
 import { useRecordingTransport } from './useRecordingTransport'
+import type { PlayStart } from './usePlayer'
 import { DEFAULT_ISOLATE, isolateToPatch } from './isolate/isolateSetting'
 
 let db: CrosstuneDb
@@ -91,10 +92,12 @@ async function setup(
     held = () => null,
     engine = fakeEngine(),
     playback = fakePlaybackEngine(),
+    start,
   }: {
     held?: () => HeldSettings | null
     engine?: SyncEngine
     playback?: PlaybackEngine
+    start?: PlayStart
   } = {},
 ) {
   const Data = dataProviders({ db, engine })
@@ -107,7 +110,7 @@ async function setup(
   const view = renderHook(
     (props: Props) => {
       renders++
-      return useRecordingTransport({ ...props, title: 'Cluck Old Hen', held })
+      return useRecordingTransport({ ...props, title: 'Cluck Old Hen', held, start })
     },
     { wrapper, initialProps: await read(id) },
   )
@@ -128,6 +131,13 @@ describe('useRecordingTransport', () => {
     await expect.poll(() => load.mock.calls.length).toBe(2)
     expect(load.mock.calls[1]![4]).toEqual({ keepLoop: true })
     await expect.poll(() => playback.getState()).toMatchObject({ playing: true, positionMs: 1500 })
+  })
+
+  it('starts playing where it was asked to', async () => {
+    const id = await captureRecording(db, { tuneId, durationMs: 3000, label: 'Jam' })
+    const { result, playback } = await setup(id, { start: { at: 1800, loop: null } })
+    await expect.poll(() => result.current.state.playing).toBe(true)
+    expect(playback.getState().positionMs).toBe(1800)
   })
 
   it("renders on a play or pause, never on the engine's position tick", async () => {

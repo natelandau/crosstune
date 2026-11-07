@@ -11,6 +11,7 @@ import {
   mountPlaying,
   openPractice,
   practice,
+  recordingPage,
   press,
   RECORDING_LABEL,
   WIDE,
@@ -39,7 +40,7 @@ import {
 } from './splitCopy'
 import { pieceColor } from './splitModel'
 
-const practiceDialog = () => page.getByRole('dialog', { name: RECORDING_LABEL })
+const practiceDialog = () => recordingPage()
 const splitDialog = () => page.getByRole('dialog', { name: SPLIT })
 const more = () => practiceDialog().getByRole('button', { name: MORE_ACTIONS })
 const mainButton = () => splitDialog().getByRole('button', { name: /^(Split at|Remove cut)/ })
@@ -259,7 +260,7 @@ it('holds Save while a piece of a recording over 3 hours is still over 3 hours',
   await expect.element(splitDialog().getByRole('button', { name: SAVE_SPLIT })).toBeDisabled()
 })
 
-it('opens practice on Split from the row of a recording that must be split to upload', async () => {
+it('opens Split from the page of a recording that must be split to upload', async () => {
   const db = openTestDb()
   const long = MAX_RECORDING_MS + 60_000
   await db.recordings.put(recordingRow('r1', { label: RECORDING_LABEL, tune_id: null }))
@@ -278,7 +279,9 @@ it('opens practice on Split from the row of a recording that must be split to up
   await page
     .getByRole('row', { name: new RegExp(RECORDING_LABEL) })
     .first()
-    .click({ button: 'right' })
+    .getByText(RECORDING_LABEL, { exact: true })
+    .click()
+  await page.getByRole('main').getByRole('button', { name: MORE_ACTIONS }).click()
   await page.getByRole('menuitem', { name: SPLIT }).click()
   await expect.element(mainButton()).toBeVisible()
 })

@@ -9,7 +9,7 @@ import { dataProviders, fakePlayer } from '../../test/providers'
 import { recordingRow } from '../../test/rows'
 import { PlayerContext } from '../player/usePlayer'
 import { NOT_AUDIO_ERROR } from './addAudioFiles'
-import { GO_TO_TUNE } from './recordingNames'
+import { DELETE } from '../../ui/confirmCopy'
 import { useRecordingsScreen } from './useRecordingsScreen'
 
 let db: CrosstuneDb
@@ -27,9 +27,8 @@ function setup() {
     </Data>
   )
   const confirm = vi.fn().mockResolvedValue(true)
-  const onOpenTune = vi.fn()
-  const view = renderHook(() => useRecordingsScreen({ confirm, onOpenTune }), { wrapper })
-  return { ...view, confirm, onOpenTune }
+  const view = renderHook(() => useRecordingsScreen({ confirm }), { wrapper })
+  return { ...view, confirm }
 }
 
 describe('useRecordingsScreen', () => {
@@ -80,11 +79,11 @@ describe('useRecordingsScreen', () => {
     expect(await db.recordings.count()).toBe(0)
   })
 
-  it('lists Unfiled apart from the filed recordings and opens a filed one’s tune', async () => {
+  it('lists Unfiled apart from the filed recordings, each with Delete as its only action', async () => {
     const { tuneId } = await createTune(db, { title: "Soldier's Joy" }, { status: 'known' })
     await db.recordings.put(recordingRow('r1', { label: 'Loose take' }))
     await db.recordings.put(recordingRow('r2', { label: 'Filed take', tune_id: tuneId }))
-    const { result, onOpenTune } = setup()
+    const { result } = setup()
     await expect.poll(() => result.current.ready).toBe(true)
     expect(result.current.total).toBe(2)
     expect(result.current.countLabel).toBe('2 recordings')
@@ -97,15 +96,8 @@ describe('useRecordingsScreen', () => {
       [...result.current.unfiled, ...(filed.kind === 'flat' ? filed.views : [])].find(
         (view) => view.recording.id === id,
       )!
-    expect(result.current.actionsFor(go('r1')).map((action) => action.label)).not.toContain(
-      GO_TO_TUNE,
-    )
-    act(() =>
-      result.current
-        .actionsFor(go('r2'))
-        .find((action) => action.label === GO_TO_TUNE)!
-        .onPress(),
-    )
-    expect(onOpenTune).toHaveBeenCalledExactlyOnceWith(tuneId)
+    for (const id of ['r1', 'r2']) {
+      expect(result.current.actionsFor(go(id)).map((action) => action.label)).toEqual([DELETE])
+    }
   })
 })

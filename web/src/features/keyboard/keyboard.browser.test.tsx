@@ -25,11 +25,11 @@ import type { AppRouter } from '../../app/router'
 import { SIDEBAR } from '../../app/Sidebar'
 import {
   mountPlaying,
-  openButton,
   openPractice,
   player,
   practice,
   press,
+  recordingPage,
   WIDE,
 } from '../../test/practice'
 import { renderWithProviders } from '../../test/render'
@@ -429,11 +429,10 @@ it('holds a locked sheet and the selection under it against Escape', async () =>
   await expect.element(selected(2)).toBeVisible()
 })
 
-it('steps out of a loop, then practice, then nothing, one per Escape', async () => {
+it('steps out of a loop, then nothing, one per Escape, on the recording page', async () => {
   const { engine, router } = await mountPlaying(WIDE)
-  const seen = visits(router)
   await openPractice()
-  const expand = openButton().element()
+  const seen = visits(router)
   press('n')
   await expect.poll(() => engine.getState().loop).not.toBeNull()
 
@@ -442,13 +441,11 @@ it('steps out of a loop, then practice, then nothing, one per Escape', async () 
   expect(practice()).not.toBeNull()
 
   await userEvent.keyboard('{Escape}')
-  await expect.poll(practice).toBeNull()
-  await expect.poll(() => document.activeElement).toBe(expand)
-
-  await userEvent.keyboard('{Escape}')
-  await expect.element(player().getByRole('button', { name: PAUSE })).toBeVisible()
-  expect(practice()).toBeNull()
-  expect(document.activeElement).toBe(expand)
+  await expect
+    .element(recordingPage().getByRole('button', { name: PAUSE, exact: true }))
+    .toBeVisible()
+  expect(practice()).not.toBeNull()
+  await expect.poll(() => engine.getState().playing).toBe(true)
   expect(seen).toEqual([])
 })
 

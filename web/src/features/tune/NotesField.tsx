@@ -10,8 +10,7 @@ import { useAnalytics } from '../../usage/AnalyticsProvider'
 import { Button } from '../../ui/Button'
 import { DONE } from '../../ui/confirmCopy'
 import { NOTES_SAVE_HINT, NOTES_SECTION, WRITE_A_NOTE } from './tuneScreenCopy'
-
-const stored = (text: string): string | null => text.trim() || null
+import { blankToNull } from '../../text/blank'
 
 /**
  * A tune's notes, typed straight into the page. Changes save as they are typed; the edit is
@@ -40,7 +39,7 @@ export function NotesField({ tuneId, notes }: { tuneId: string; notes: string | 
   const report = (text: string | null) => {
     const started = atFocus.current
     atFocus.current = null
-    if (text === null || started === null || stored(text) === stored(started)) return
+    if (text === null || started === null || blankToNull(text) === blankToNull(started)) return
     analytics.send('tune_edited', { fields_changed: ['notes'], tune_id: tuneId })
   }
 
@@ -54,7 +53,7 @@ export function NotesField({ tuneId, notes }: { tuneId: string; notes: string | 
     pending.current = async () => {
       const userTune = await db.user_tunes.where('tune_id').equals(tuneId).first()
       if (userTune && !userTune.deleted_at) {
-        await updateUserTune(db, userTune.id, { notes: stored(text) })
+        await updateUserTune(db, userTune.id, { notes: blankToNull(text) })
       }
     }
     if (queued) return
@@ -96,7 +95,7 @@ export function NotesField({ tuneId, notes }: { tuneId: string; notes: string | 
             }
             report(typed)
             // Saves still landing hand the field back once the stored notes change.
-            if (typed === null || stored(typed) === notes) setTyped(null)
+            if (typed === null || blankToNull(typed) === notes) setTyped(null)
           }}
         />
       </div>

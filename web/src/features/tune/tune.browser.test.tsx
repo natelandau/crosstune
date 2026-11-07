@@ -4,8 +4,14 @@ import type * as tunes from '../../commands/tunes'
 import { deleteTune, updateUserTune } from '../../commands/tunes'
 import type { CrosstuneDb } from '../../db/schema'
 import type { LocalTune } from '../../db/types'
-import { CLOSE_PLAYER } from '../player/transportCopy'
-import { DOWNLOAD, downloadingName, PLAY, retryName } from '../recordings/recordingNames'
+import {
+  closeRecordingName,
+  downloadingName,
+  downloadName,
+  PLAY,
+  playName,
+  retryName,
+} from '../recordings/recordingNames'
 import type * as images from '../scans/prepareImage'
 import { prepareImage, UndecodableImageError } from '../scans/prepareImage'
 import { ADD_SCANS, CHOOSE_SCAN_FILES, unreadableFilesMessage } from '../scans/scanCopy'
@@ -52,7 +58,7 @@ import {
 } from '../../test/rows'
 import { fakePlayer } from '../../test/providers'
 import { PREMIUM_RECORDINGS_TITLE } from '../plan/planCopy'
-import { EDIT, SUBSCRIBE_TO_PLAY } from '../recordings/recordingCopy'
+import { SUBSCRIBE_TO_PLAY } from '../recordings/recordingCopy'
 import { AnalyticsProvider } from '../../usage/AnalyticsProvider'
 import { recordingAnalytics } from '../../usage/testing'
 import { MORE_ACTIONS } from '../../ui/menuCopy'
@@ -70,7 +76,7 @@ import {
 import { SEARCH_NEEDS_CONNECTION } from '../links/findRecordingsCopy'
 import { destination } from '../../layout/destinations'
 import { renderApp } from '../../test/renderApp'
-import { COLUMN_GAP } from './attributesLayout'
+import { COLUMN_GAP } from '../../ui/attributes/attributesLayout'
 import { DELETE } from '../../ui/Confirm'
 import type { TuneFormLauncher } from './formLauncher'
 import { tuneTitleTransition } from './TuneHeader'
@@ -701,7 +707,7 @@ it('leaves for the parent without an error when the tune is deleted elsewhere', 
   expect(page.getByRole('alert').elements()).toHaveLength(0)
 })
 
-it('plays a recording when its row is tapped', async () => {
+it("plays a recording from its row's play control", async () => {
   const db = openTestDb()
   await seedTune(db, 't1', 'Old Joe Clark')
   await db.recordings.put(recordingRow('r1', { tune_id: 't1', label: 'Fast take' }))
@@ -709,11 +715,10 @@ it('plays a recording when its row is tapped', async () => {
     recordingFile('r1', { blob: new Blob(['x'], { type: 'audio/mp4' }) }),
   )
   await renderApp({ path: '/catalog/t1', db, frame: PHONE })
-  const row = tunePage().getByRole('row', { name: new RegExp(`^${PLAY} Fast take`) })
-  await expect.element(row).toBeVisible()
-  await row.click()
+  const row = tunePage().getByRole('row', { name: /^Fast take/ })
+  await row.getByRole('button', { name: playName('Fast take'), exact: true }).click()
   await expect
-    .element(tunePage().getByRole('row', { name: new RegExp(`^${CLOSE_PLAYER} Fast take`) }))
+    .element(row.getByRole('button', { name: closeRecordingName('Fast take'), exact: true }))
     .toBeVisible()
 })
 
@@ -753,8 +758,10 @@ it('shows a download glyph on a recording held only on the server', async () => 
   await seedTune(db, 't1', 'Old Joe Clark')
   await db.recordings.put(recordingRow('r1', { tune_id: 't1', label: 'Fast take', state: 'ready' }))
   await renderApp({ path: '/catalog/t1', db, frame: PHONE })
-  const row = tunePage().getByRole('row', { name: new RegExp(`^${DOWNLOAD} Fast take`) })
-  await expect.element(row).toBeVisible()
+  const row = tunePage().getByRole('row', { name: /^Fast take/ })
+  await expect
+    .element(row.getByRole('button', { name: downloadName('Fast take'), exact: true }))
+    .toBeVisible()
   const cloud = () => row.element().querySelector('[data-media-glyph] svg.lucide-cloud-download')
   await expect.poll(() => cloud()).not.toBeNull()
   // The ring fills under the pointer, which an earlier test may have left over the row.
@@ -771,8 +778,11 @@ it('dims the download glyph with the tertiary text role while offline', async ()
   await seedTune(db, 't1', 'Old Joe Clark')
   await db.recordings.put(recordingRow('r1', { tune_id: 't1', label: 'Fast take', state: 'ready' }))
   await renderApp({ path: '/catalog/t1', db, frame: PHONE })
-  const row = tunePage().getByRole('row', { name: new RegExp(`^${DOWNLOAD} Fast take`) })
+  const row = tunePage().getByRole('row', { name: /^Fast take/ })
   await expect.element(row).toHaveAttribute('data-dimmed')
+  await expect
+    .element(row.getByRole('button', { name: downloadName('Fast take'), exact: true }))
+    .toBeVisible()
   const cloud = () => row.element().querySelector('[data-media-glyph] svg.lucide-cloud-download')
   await expect.poll(() => cloud()).not.toBeNull()
   // The ring fills under the pointer, which an earlier test may have left over the row.
@@ -805,7 +815,7 @@ it.each([
   ['phone', PHONE, 'touch'],
   ['wide', WIDE, 'pointer'],
 ] as const)(
-  'shows Retry in place of the glyph on a stuck row on %s, and the row still plays',
+  'shows Retry in place of the glyph on a stuck row on %s, and the row still opens its page',
   async (_, frame, density) => {
     const db = openTestDb()
     await seedTune(db, 't1', 'Old Joe Clark')
@@ -816,17 +826,15 @@ it.each([
         local_state: 'failed_upload',
       }),
     )
-    await renderApp({ path: '/catalog/t1', db, frame, density })
-    const row = tunePage().getByRole('row', { name: new RegExp(`^${PLAY} Fast take`) })
+    const { router } = await renderApp({ path: '/catalog/t1', db, frame, density })
+    const row = tunePage().getByRole('row', { name: /^Fast take/ })
     await expect
       .element(row.getByRole('button', { name: retryName('upload', 'Fast take') }))
       .toBeVisible()
     await expect.poll(() => row.element().querySelector('[data-media-glyph]')).toBeNull()
     await expect.poll(() => row.element().querySelector('[data-row-ring]')).toBeNull()
-    await row.click()
-    await expect
-      .element(tunePage().getByRole('row', { name: new RegExp(`^${CLOSE_PLAYER} Fast take`) }))
-      .toBeVisible()
+    await row.getByText('Fast take', { exact: true }).click()
+    await expect.poll(() => router.state.location.pathname).toBe('/catalog/t1/recordings/r1')
   },
 )
 
@@ -873,16 +881,14 @@ it("folds a free plan's recordings into one line that opens to dimmed rows", asy
     await expect.element(row).toHaveAttribute('data-dimmed')
   }
 
-  // A gated row's name drops the action label its tap will not do.
   const gatedRow = section.getByRole('row', { name: /^Take 1/ })
   await expect.element(gatedRow).toHaveAccessibleDescription(SUBSCRIBE_TO_PLAY)
   await gatedRow.click({ button: 'right' })
-  await expect.element(page.getByRole('menuitem', { name: EDIT })).toBeVisible()
   await expect.element(page.getByRole('menuitem', { name: DELETE })).toBeVisible()
   await userEvent.keyboard('{Escape}')
-  await expect.element(page.getByRole('menuitem', { name: EDIT })).not.toBeInTheDocument()
+  await expect.element(page.getByRole('menuitem', { name: DELETE })).not.toBeInTheDocument()
 
-  await gatedRow.click()
+  await gatedRow.getByRole('button', { name: playName('Take 1'), exact: true }).click()
   await expect
     .element(
       page

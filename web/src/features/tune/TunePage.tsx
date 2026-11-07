@@ -37,17 +37,15 @@ import {
 } from './tuneScreenCopy'
 import { useTuneMedia } from './useTuneMedia'
 import { RecordingsLine } from './RecordingsLine'
-import { recordingsPlayable } from '../../billing/plan'
-import { usePlanOrUnknown } from '../../billing/usePlan'
+import { useRecordingsPlayable } from '../../billing/usePlan'
 import { useTuneScreen, type TuneScreenData } from './useTuneScreen'
 import { DELETING, EDIT } from '../../ui/confirmCopy'
 import { MORE_ACTIONS } from '../../ui/menuCopy'
-import { useLeaveTo } from '../../layout/backHistory'
+import { useLeaveTo, useLeaveWhenMissing } from '../../layout/backHistory'
 import { FindRecordingsSheet } from '../links/FindRecordingsSheet'
 import { PasteLinkSheet } from '../links/PasteLinkSheet'
 import { LyricsReader } from '../lyrics/LyricsReader'
 import { useFrame } from '../../platform/frame'
-import { EditRecordingSheet } from '../recordings/EditRecordingSheet'
 import { ListPickerSheet } from '../selection/ListPickerSheet'
 import { useDetailPage } from '../../layout/Columns'
 import { BackLink, PaneBar } from '../../layout/PaneBar'
@@ -59,8 +57,8 @@ import { ErrorLine } from '../../ui/ErrorLine'
 import { Menu } from '../../ui/Menu'
 import { menuEntries } from '../../ui/sharedActions'
 import { useElementSize } from '../../ui/useElementSize'
+import { attributesLayout, headerGutter } from '../../ui/attributes/attributesLayout'
 import { LISTS_GROUP } from './attributeCopy'
-import { attributesLayout, headerGutter } from './attributesLayout'
 import { takeFresh } from './freshTune'
 import { useTuneFormLauncher } from './formLauncher'
 import { LinkRow, MediaList, RecordingRow } from './MediaRow'
@@ -232,9 +230,7 @@ function TuneDocument({
   }, [db, tuneId, readTitle])
 
   // A held page whose tune went away stays until the next page replaces it.
-  useEffect(() => {
-    if (current && missing) leaveTo(parent)
-  }, [current, missing, leaveTo, parent])
+  useLeaveWhenMissing(current && missing, parent)
 
   const shownAttributes = ready && !deletingName ? attributes : null
   const title = shownAttributes?.title ?? deletingName ?? knownTitle ?? undefined
@@ -356,7 +352,6 @@ function TuneDocument({
         isOpen={reading && current && screen.tune !== undefined && !deletingName}
         onOpenChange={setReading}
       />
-      <EditRecordingSheet view={media.editing} onClose={() => media.setEditing(null)} />
       <PasteLinkSheet
         tuneId={tuneId}
         isOpen={media.pasting && current}
@@ -429,7 +424,7 @@ function TuneSections({
       : item,
   )
   // A free plan folds its recordings into one line; opening it lasts for this visit only.
-  const folded = !recordingsPlayable(usePlanOrUnknown()) && media.recordingRows.length > 0
+  const folded = !useRecordingsPlayable() && media.recordingRows.length > 0
   const [unfolded, setUnfolded] = useState(false)
   const recordingRows = folded && !unfolded ? [] : media.recordingRows
   const storage = useStorage() ?? null

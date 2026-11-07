@@ -165,11 +165,23 @@ export function createApiClient(options: ApiClientOptions): SyncApi {
     async searchRecordings(q, providers, country) {
       return unwrap(client.POST('/v1/links/search', { body: { q, providers, country } }))
     },
-    async searchPlaces(q) {
-      return unwrap(client.GET('/v1/places/search', { params: { query: { q } } }))
+    async searchPlaces(q, near) {
+      return unwrap(client.GET('/v1/places/search', { params: { query: { q, ...near } } }))
+    },
+    async reversePlace(lat, lon) {
+      const result = await withNetworkErrors(() =>
+        client.GET('/v1/places/reverse', { params: { query: { lat, lon } } }),
+      )
+      if (result.data !== undefined) return result.data
+      if (result.response.status === 404) return null
+      throw apiError(result)
     },
     async mapKitToken() {
-      return unwrap(client.GET('/v1/places/mapkit-token'))
+      return unwrap(
+        client.GET('/v1/places/mapkit-token', {
+          params: { query: { origin: window.location.origin } },
+        }),
+      )
     },
     async placeSnapshot(query) {
       return unwrap(client.GET('/v1/places/snapshot', { params: { query } }))

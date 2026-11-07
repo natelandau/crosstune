@@ -9,7 +9,7 @@ import { openTestDb } from '../../test/db'
 import { fakePlaybackEngine, FakeAudioElement, playbackSettings } from '../../test/providers'
 import { linkRow, recordingRow } from '../../test/rows'
 import { usePracticeLog } from '../practice/usePracticeLog'
-import type { HeldSettings } from '../practice/usePracticeOverlay'
+import type { HeldSettings } from '../practice/practiceHolds'
 import { PlaybackEngineContext } from './PlaybackEngineProvider'
 import type { EngineClock, PlaybackEngine } from './playbackEngine'
 import type { PlayOrigin } from './playLog'
@@ -360,23 +360,30 @@ describe('usePlayLog', () => {
       .toEqual({ plays: [['recording_screen', 12_000]], practice: 0 })
   })
 
-  it("another recording playing while practice shows counts toward neither's visit", async () => {
+  it('practice opened as its recording loads leaves the play before it whole', async () => {
     const { db, engine, now, advance } = setup()
     await db.recordings.bulkPut([recordingRow('rec-1'), recordingRow('rec-2')])
     const { rerender } = harness(db, engine, now, { item: REC })
-    engine.load('blob:rec-1', SPAN, { ...playbackSettings, speedPercent: 80 }, META)
-    engine.play()
-    advance(4_000)
-    rerender({ item: REC, overlayId: 'rec-2' })
-    // A pause and resume from the lock screen, while rec-1 is still the one loaded.
-    engine.pause()
+    loadAndPlay(engine)
+    advance(14_000)
+    // Practice for rec-2 opens only once Play on it loads it, in the same render.
+    rerender({ item: { kind: 'recording', id: 'rec-2' }, overlayId: 'rec-2' })
+    engine.load('blob:rec-2', SPAN, playbackSettings, META)
     engine.play()
     advance(20_000)
     engine.pause()
-    rerender({ item: REC, overlayId: null })
+    rerender({ item: { kind: 'recording', id: 'rec-2' }, overlayId: null })
     rerender({ item: null })
 
-    await expect.poll(() => written(db)).toEqual({ plays: [], practice: 0 })
+    await expect
+      .poll(() => written(db))
+      .toEqual({
+        plays: [
+          ['row', 14_000],
+          ['recording_screen', 20_000],
+        ],
+        practice: 0,
+      })
   })
 
   it('time in the trim view at the default settings counts toward no play', async () => {

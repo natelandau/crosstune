@@ -121,10 +121,10 @@ function SpyPlayer({ children }: { children: ReactNode }) {
   const spied = useMemo<Player>(
     () => ({
       ...real,
-      play: (item, origin) => {
-        plays.push({ item, origin })
+      play: (item, options) => {
+        plays.push({ item, origin: options?.origin })
         calls.push(`play ${item.id}`)
-        real.play(item, origin)
+        real.play(item, options)
       },
       close: () => {
         calls.push('close')
@@ -419,7 +419,7 @@ describe('ListPlayback', () => {
     mount()
     await api().start('l1', { shuffle: false })
     await playing('r-t1')
-    player().play({ kind: 'recording', id: 'r-t3' }, { context: 'row' })
+    player().play({ kind: 'recording', id: 'r-t3' }, { origin: { context: 'row' } })
     await expect.poll(() => api().active).toBeNull()
     await playing('r-t3')
   })
@@ -428,7 +428,7 @@ describe('ListPlayback', () => {
     mount()
     await api().start('l1', { shuffle: false })
     await playing('r-t1')
-    player().play({ kind: 'recording', id: 'r-t1' }, { context: 'row' })
+    player().play({ kind: 'recording', id: 'r-t1' }, { origin: { context: 'row' } })
     await expect.poll(() => api().active).toBeNull()
   })
 
@@ -486,7 +486,7 @@ describe('ListPlayback', () => {
     mount()
     const open = holdReads()
     const started = api().start('l1', { shuffle: false })
-    player().play({ kind: 'recording', id: 'r-t3' }, { context: 'row' })
+    player().play({ kind: 'recording', id: 'r-t3' }, { origin: { context: 'row' } })
     await expect.poll(loadedId).toBe('r-t3')
     open()
     await started
