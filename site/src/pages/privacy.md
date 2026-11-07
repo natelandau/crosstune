@@ -7,7 +7,7 @@ path: /privacy
 
 # Privacy policy
 
-Last updated: 2026-10-21
+Last updated: 2026-11-07
 
 Crosstune is run by Nathaniel Landau, an individual, from New York in the United States. In this policy, "we" and "us" mean Nathaniel Landau as the operator of Crosstune. Questions and requests go to [support@crosstune.app](mailto:support@crosstune.app), or by post to 367 St Marks Ave #1240, Brooklyn, NY 11238, United States.
 
@@ -40,7 +40,7 @@ Everything you add to your catalog, which can include:
 - Tunes and their details: titles and other titles, key, mode, tunings, genre, type, time signature, part structure, composer, and lyrics.
 - Your relationship to each tune: its status, who or where you learned it from, when, and your notes. What you write here can name other people, such as a teacher.
 - Lists, links you paste, and the title we fetch for each link.
-- Your saved locations: a name, an optional address, and coordinates for each place you save. They are stored with your account, and a recording can point to one.
+- Your saved locations: a name, an optional address, and coordinates for each location you save. They are stored with your account, and a recording can point to one.
 - Your settings, such as the instruments you play and the music services you search.
 
 ### Your recordings
@@ -127,11 +127,13 @@ When you use these features, the service you use receives what that feature need
 
 ### Apple Maps
 
-Apple Maps names the places where your recordings were made and finds the places you search for:
+Apple Maps names the locations where your recordings were made and finds the locations you search for:
 
-- To name a recording's place, our server sends its coordinates to Apple Maps. Our server's address is sent, not yours, and nothing else about you or the recording.
-- When you search for a place in the web app, our server sends your search text to Apple Maps in the same way. In the iPhone, iPad, and Mac apps, the search goes from your device to Apple Maps, under [Apple's privacy policy](https://www.apple.com/legal/privacy/).
-- In the web app, your browser loads Apple's MapKit JS and sends a recording's coordinates to Apple to draw its map and list the places nearby. Apple sees your browser's address, under its own privacy policy. In the iPhone, iPad, and Mac apps, the map and nearby places come from your device to Apple Maps in the same way.
+- To name a recording's location, our server sends its coordinates to Apple Maps. Our server's address is sent, not yours, and nothing else about you or the recording.
+- When you search for a location in the web app, our server sends your search text to Apple Maps in the same way, with one point to rank results near: the recording's coordinates or its saved location's, your device's location if you have allowed location access, or the coordinates of your latest recording that has a location. Without any of these, it sends a point in your account's country. In the iPhone, iPad, and Mac apps, the search and the same point go from your device to Apple Maps, under [Apple's privacy policy](https://www.apple.com/legal/privacy/).
+- When you drop a pin on the map, our server sends the pin's coordinates to Apple Maps to name the spot, in the same way.
+- In the web app, your browser loads Apple's MapKit JS and sends Apple a point to draw the map and list the locations nearby. The point is the recording's coordinates or its saved location's, or your device's location if the recording has neither and you have allowed location access. Apple sees your browser's address, under its own privacy policy. In the iPhone, iPad, and Mac apps, the map and nearby locations come from your device to Apple Maps in the same way.
+- Use current location reads your device's location only when you choose it, and only with location access allowed. The recording keeps those coordinates, and our server names the location as above.
 
 ### AI providers
 
@@ -157,7 +159,7 @@ The web app and the apps also report counts and choices that describe your use w
 
 On this site, visits are counted without cookies, and the analytics are not linked to an account. When you click a Create account button, the site records which button you clicked, with the page that referred you and any campaign tags from the link. That record is not linked to the account you create. The site also records your clicks and how fast its pages load. The site has no switch to turn them off, but a content blocker stops them.
 
-The web app and the apps link this data to your account. They never send your email address or name to PostHog. Events can carry the internal IDs of tunes, lists, recordings, links, and scans. They never send tune names, notes, lyrics, scans, or recordings. They never send where a recording was made, its place name, or what you search for to find a place. They report only that you set or cleared a place, whether it came from a search or a suggestion, and whether it replaced one.
+The web app and the apps link this data to your account. They never send your email address or name to PostHog. Events can carry the internal IDs of tunes, lists, recordings, links, and scans. They never send tune names, notes, lyrics, scans, or recordings. They never send where a recording was made, its location name, or what you search for to find a location. They report only that you set or cleared a location, how you chose it (a search, a recent location, a nearby location, a saved location, your current location, or a dropped pin), and whether it replaced one.
 
 The apps do not record your screen or your sessions.
 
