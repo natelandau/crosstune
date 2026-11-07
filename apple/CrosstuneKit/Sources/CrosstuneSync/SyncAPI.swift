@@ -11,8 +11,8 @@ public protocol SyncAPI: Sendable {
     func events(since: Int64) async throws -> EventsPage
     /// Tells the server the account has seen a one-time notice. A repeat changes nothing.
     func recordNotice(_ notice: PlanNotice) async throws
-    /// The account's recording storage usage.
-    func storage() async throws -> StorageUsage
+    /// The account's recording storage usage and its country's center.
+    func account() async throws -> AccountSummary
     /// Asks the server to read the account's purchases from the billing provider now, rather than
     /// wait for its webhook.
     func refreshBilling() async throws
@@ -21,6 +21,9 @@ public protocol SyncAPI: Sendable {
     /// Recordings matching `q` on each of `providers`, one group per service in the server's
     /// order. `country` is the storefront the services search, as two letters.
     func searchRecordings(q: String, providers: [String], country: String) async throws -> SearchResponse
+    /// The street address at a point, named as the server names a recording's place; nil when
+    /// there is no place there.
+    func reversePlace(lat: Double, lon: Double) async throws -> ReversedPlace?
     /// A signed URL to PUT one recording's file to, once the quota allows its size.
     func requestUploadSlot(recordingID: String, bytes: Int64, contentType: String) async throws -> URL
     /// Confirms the file landed, so the server transcodes it.
@@ -120,6 +123,30 @@ public struct EventsPage: Hashable, Sendable {
         self.rows = rows
         self.nextSince = nextSince
         self.hasMore = hasMore
+    }
+}
+
+/// What the sync engine keeps from the account: its storage usage and its country's center.
+public struct AccountSummary: Hashable, Sendable {
+    public var storage: StorageUsage
+    /// A point inside the account's country, nil while the country is unknown.
+    public var countryCenter: Coordinate?
+
+    public init(storage: StorageUsage, countryCenter: Coordinate? = nil) {
+        self.storage = storage
+        self.countryCenter = countryCenter
+    }
+}
+
+/// The place at a point, by the name a recording stores for it, and its whole address.
+public struct ReversedPlace: Hashable, Sendable {
+    public var name: String
+    /// The address line a saved location keeps, nil when the server has none.
+    public var address: String?
+
+    public init(name: String, address: String? = nil) {
+        self.name = name
+        self.address = address
     }
 }
 

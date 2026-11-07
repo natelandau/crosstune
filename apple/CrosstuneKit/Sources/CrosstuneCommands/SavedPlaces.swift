@@ -12,6 +12,12 @@ public enum PlacePick: Sendable {
     case nearby(SavedPlace)
     /// A saved location chosen from the list. Keeps the recording's own coordinates.
     case saved(SavedPlace)
+    /// The device's position with its accuracy, linked to the saved location at that spot, if
+    /// any. Clears the name, so the server names the spot as it names a captured one.
+    case current(Coordinate, savedPlaceID: String?)
+    /// A point picked on a map, with no name and no accuracy, so the server names it, linked to
+    /// the saved location made there, if one was.
+    case point(Coordinate, savedPlaceID: String?)
 }
 
 /// `text` trimmed and cut to `limit` Unicode scalars, as the server counts them; nil when nothing is left.
@@ -66,8 +72,9 @@ extension StoreWriter {
         try tombstone(SavedPlace.self, id: placeID, at: time)
     }
 
-    /// Sets a live recording's place from a pick, and records that the user chose it. A
-    /// saved location picked for a recording with no coordinates lends its own point.
+    /// Sets a live recording's place from a pick, and records where it came from: the device
+    /// for the current location, else the user's choice. A saved location picked for a recording
+    /// with no coordinates lends its own point.
     public func setRecordingPlace(_ recordingID: String, pick: PlacePick, at time: Timestamp = .now) throws {
         guard var recording = try Recording.fetchOne(db, key: recordingID), recording.deletedAt == nil else {
             throw CommandError.recordingNotFound
@@ -87,8 +94,28 @@ extension StoreWriter {
                 recording.placeAccuracyM = nil
             }
             recording.placeID = place.id
+        case .current(let point, let savedPlaceID):
+            recording.placeName = nil
+            recording.placeLat = point.lat
+            recording.placeLon = point.lon
+            recording.placeAccuracyM = point.accuracyM
+            // The link is only where the fix happens to be, so one deleted since leaves the fix
+            // unlinked rather than refusing it, as the server's place job would.
+            recording.placeID = try savedPlaceID.flatMap { id in
+                try SavedPlace.fetchOne(db, key: id).flatMap { $0.deletedAt == nil ? $0.id : nil }
+            }
+        case .point(let point, let savedPlaceID):
+            recording.placeName = nil
+            recording.placeLat = point.lat
+            recording.placeLon = point.lon
+            recording.placeAccuracyM = nil
+            recording.placeID = try savedPlaceID.map { try liveSavedPlace($0, db: db).id }
         }
-        recording.placeOrigin = PlaceOrigin.picked.rawValue
+        if case .current = pick {
+            recording.placeOrigin = PlaceOrigin.device.rawValue
+        } else {
+            recording.placeOrigin = PlaceOrigin.picked.rawValue
+        }
         try put(recording, at: time)
         try requeueFailedUpload(recordingID, at: time)
     }

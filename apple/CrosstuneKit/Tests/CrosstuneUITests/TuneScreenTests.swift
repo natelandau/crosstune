@@ -740,37 +740,6 @@ private func file(_ state: LocalFileState) -> RecordingFile {
         #expect(!TuneScreen.moreOnTitleRow(mac: false, compactWidth: true))
     }
 
-    private func recordingView(origin: String = "own", url: String? = nil) -> RecordingView {
-        RecordingView(
-            recording: Recording(
-                id: "r1", tuneID: entry.tune.id, source: url == nil ? "microphone" : "import", origin: origin,
-                originURL: url, addedAt: noon),
-            file: nil, tuneID: entry.tune.id, tuneTitle: entry.tune.title)
-    }
-
-    /// The page's recording row swipes to Delete, Play first, Remove from tune, and Edit, as on
-    /// the Recordings screen, and never offers to file it under the tune it is already under.
-    @MainActor @Test func aRecordingRowOnTheTunePageSwipesToItsActions() {
-        let handlers = TuneMediaRows.rowHandlers(
-            recordingView(), pinned: false, togglePin: {}, open: { _ in }, edit: {}, removeFromTune: {},
-            delete: {})
-        #expect(handlers.swipe == [.delete, .pin, .removeFromTune, .edit])
-        #expect(handlers.menu == [.edit, .removeFromTune, .pin, .delete])
-    }
-
-    /// An imported recording's page row opens the site it came from from its context menu only.
-    @MainActor @Test func anImportedRecordingRowOnTheTunePageOpensItsSite() throws {
-        var opened: URL?
-        let handlers = TuneMediaRows.rowHandlers(
-            recordingView(origin: "slippery_hill", url: "https://example.com/tune"), pinned: true, togglePin: {},
-            open: { opened = $0 }, edit: {}, removeFromTune: {}, delete: {})
-        let site = try #require(RecordingText.originLabel("slippery_hill"))
-        #expect(handlers.menu.contains(.openOrigin(site: site)))
-        #expect(!handlers.swipe.contains { if case .openOrigin = $0 { true } else { false } })
-        handlers.onOpenOrigin?()
-        #expect(opened == URL(string: "https://example.com/tune"))
-    }
-
     /// The swipe list sizes to its rows, so it never collapses before they lay out: a row not
     /// measured yet counts at the estimate, and the gaps sit between rows only.
     @Test func theSwipeListTakesItsRowsHeightCountingUnmeasuredRowsAtTheEstimate() {

@@ -9,9 +9,9 @@ only `design-ios.md`. The Mac and iPhone never take a rule from here.
 ## Principles
 
 - iPhone's rows, zones, and tokens. The Mac's composition and tab order.
-- Two jobs, one tap apart: the library and the practice screen (practice
-  beside the playing tune's scans and lyrics).
-- The practice screen gets the boldest design. Everything else stays quiet.
+- Two jobs, one tap apart: the library and a recording's page (practice
+  beside the recording's attributes).
+- Practice gets the boldest design. Everything else stays quiet.
 
 ## Tokens
 
@@ -36,7 +36,8 @@ only `design-ios.md`. The Mac and iPhone never take a rule from here.
 - `PadBottomBar`: our own glass capsule, centered at the window's bottom
   edge in every form.
 - Holds the iPhone's player accessory while something is loaded, up to
-  `PadStyle.bottomBarMaxWidth`.
+  `PadStyle.bottomBarMaxWidth`. Hidden while a recording's page shows the
+  loaded recording.
 - Columns leave `PadStyle.bottomBarClearance` under the last row only
   while the capsule shows.
 - Fixed height, so its text stops growing at the first accessibility size.
@@ -52,37 +53,33 @@ only `design-ios.md`. The Mac and iPhone never take a rule from here.
 
 - iPhone rows at touch sizes. Row controls stay visible with a pointer,
   since a control waiting for hover is invisible without one.
+- The row of the recording whose page shows in the detail column is the
+  list's selected row, as the open tune's is in the catalog.
 
 ## Pages
 
 - Images decode at their drawn size.
 - A page fading out takes no taps.
 
-## Practice screen
+## Recording page
 
-- `PadPracticeScreen` wraps practice and `PadPracticeLayout` picks the
-  layout. Labels call it practice.
-- One layout whose axis changes, so practice keeps its state across
-  rotation and a hidden pane.
-- Whole controls beat a larger scan: reading gives way before practice's
-  controls clip. Shares are `PadStyle` values.
+- A recording's page fills the detail column. Practice sits beside the
+  attributes column on the page background, as on the Mac. No scans or
+  lyrics.
+- A column narrower than `RecordingPageArrangement.foldWidth` folds the
+  page into the Practice and Details tabs, the Practice tab on
+  `practiceBackground`.
+- The page, not the practice view, owns the practice visit, so a fold or
+  a tab switch keeps practice's state.
 
 ## Sheets
 
 - Every `.shellSheet()` sheet is a centered `.form` sheet. Part-height
-  sheets keep their detents. Full-screen readers and the practice screen
-  stay full screen.
-
-## Motion
-
-- A reader opened from the practice screen opens plainly, since its source
-  is behind the cover.
+  sheets keep their detents. Full-screen readers stay full screen.
 
 ## Accessibility
 
 - Every target at least 44pt.
-- Lyric text passes 7:1 on `practiceBackground` in both appearances. A
-  test asserts it.
 
 ## Framework limits
 

@@ -47,7 +47,6 @@ public struct AppShell: View {
     @State private var recordingsShown = 0
     @State private var place = ShellPlace()
     @State private var playerWindow = UUID()
-    @State private var padPracticeVisit = PadPracticeVisit()
     @State private var recentRecording = RecentRecording()
     /// Made again for each plan, which is made again for each store.
     @State private var premium: PremiumPresenter?
@@ -147,9 +146,9 @@ public struct AppShell: View {
             .environment(\.premium, premium)
             .environment(\.purchase, purchase)
             .environment(\.playerWindow, playerWindow)
-            .environment(\.padPracticeVisit, padPracticeVisit)
             .environment(\.openCatalogRoot, MenuAction(id: ShellActionID.openCatalogRoot) { showCatalogRoot() })
             .environment(\.openTune, IDOpener(id: ObjectIdentifier(place)) { openTune($0) })
+            .environment(\.openRecordingPage, recordingPageOpener)
             .focusedSceneValue(
                 \.recordAction,
                 canRecord ? MenuAction(id: recordID) { startRecording(tuneID: nil, source: .menu) } : nil
@@ -163,6 +162,7 @@ public struct AppShell: View {
             .modifier(
                 ShellControls(
                     player: player, playback: listPlayback, window: playerWindow,
+                    openRecordingPage: recordingPageOpener,
                     isActive: MenuCommandAvailability.controls(sheetsOpen: openSheets.isCovered), show: show(_:))
             )
             // Made here rather than by their screens, which a Mac or iPad sidebar tears down, so
@@ -276,6 +276,10 @@ public struct AppShell: View {
         place.openTune(tuneID)
     }
 
+    private var recordingPageOpener: RecordingPageOpener {
+        .shell(place, player: player)
+    }
+
     private func openNewTune() {
         catalog?.newTune()
         player.isExpanded = false
@@ -342,7 +346,7 @@ public struct AppShell: View {
             }
         #else
             SplitShell(
-                store: store, player: player, stage: stage, place: place, window: playerWindow,
+                store: store, player: player, stage: stage, place: place,
                 recordingsShown: recordingsShown, onRecord: record)
         #endif
     }

@@ -47,4 +47,13 @@ private func file(blobStartMs: Int64 = 0) -> RecordingFile {
             recording: recording(trimStartMs: 1000, trimEndMs: 9000), file: file(), fileDuration: 4)
         #expect(pastFile == PlaybackWindow(from: 1, to: 4))
     }
+
+    /// With no source length, the end is the file's own end, which sits `blobStartMs` along the
+    /// source.
+    @Test func noSourceLengthPlaysAFileCutPartwayToItsEnd() {
+        let window = PlaybackWindow.make(
+            recording: recording(trimStartMs: 1000, sourceDurationMs: nil), file: file(blobStartMs: 1000),
+            fileDuration: 2)
+        #expect(window == PlaybackWindow(from: 0, to: 2))
+    }
 }

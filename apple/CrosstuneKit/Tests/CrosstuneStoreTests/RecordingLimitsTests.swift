@@ -66,14 +66,20 @@ import Testing
         #expect(RecordingLimits.pieceLabel(nil, number: 3) == "Part 3")
     }
 
-    @Test func aSplitEndsAtTheTrimEndThenTheSourceThenTheDurationThenTheLocalFile() {
+    @Test func theSourceEndsAtTheTrimEndThenTheSourceThenTheLocalFileThenThePlaybackFile() {
         let local = file(20_000)
         func end(_ row: Recording, _ file: RecordingFile? = nil) -> Int64? {
-            RecordingLimits.splitRangeEnd(row, file: file)
+            RecordingLimits.sourceEndMs(row, file: file)
         }
         #expect(end(Recording(tuneID: nil, source: "m", sourceDurationMs: 9000, trimEndMs: 5000), local) == 5000)
         #expect(end(Recording(tuneID: nil, source: "m", durationMs: 8000, sourceDurationMs: 9000), local) == 9000)
-        #expect(end(Recording(tuneID: nil, source: "m", durationMs: 8000), local) == 8000)
+        #expect(end(Recording(tuneID: nil, source: "m", durationMs: 8000), local) == 20_000)
+        #expect(end(Recording(tuneID: nil, source: "m", durationMs: 8000)) == 8000)
+        // The playback file covers the source from its own start.
+        #expect(end(Recording(tuneID: nil, source: "m", durationMs: 8000, playbackStartMs: 2000)) == 10_000)
+        #expect(
+            end(Recording(tuneID: nil, source: "m", durationMs: 8000, playbackStartMs: 2000, playbackEndMs: 9500))
+                == 9500)
         #expect(end(Recording(tuneID: nil, source: "m"), local) == 20_000)
         #expect(end(Recording(tuneID: nil, source: "m")) == nil)
     }

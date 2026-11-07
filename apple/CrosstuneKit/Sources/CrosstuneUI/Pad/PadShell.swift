@@ -5,8 +5,9 @@ import CrosstuneDesign
     import SwiftUI
 
     /// The regular-width iPad frame: a tab view that is a sidebar in wide windows and a top bar
-    /// in narrow ones, each tab a split of its content and the tune or page it opens, Record in
-    /// the bar's prominent slot, and the player in a bottom bar at the window's lower edge.
+    /// in narrow ones, each tab a split of its content and the tune, recording page, or settings
+    /// page it opens, Record in the bar's prominent slot, and the player in a bottom bar at the
+    /// window's lower edge.
     struct PadShell: View {
         private let player: PlayerModel
         private let stage: EmbedStage
@@ -32,6 +33,7 @@ import CrosstuneDesign
         /// Made once, so the screens' environment stays the same from one shell pass to the next.
         @State private var tabTunes: [Destination: ShellValue<String?>]
         @State private var scrollAnchors: [Destination: ShellValue<String?>]
+        @State private var tabRecordings: [Destination: ShellValue<String?>]
         @State private var openList: ShellValue<SidebarItem>
 
         init(
@@ -43,7 +45,12 @@ import CrosstuneDesign
             self.place = place
             self.recordingsShown = recordingsShown
             self.onRecord = onRecord
-            _tabTunes = State(initialValue: Self.perDestination(\.tabTunes, of: place))
+            _tabTunes = State(
+                initialValue: Dictionary(
+                    uniqueKeysWithValues: Destination.allCases.map { ($0, place.listedTuneValue(in: $0)) }))
+            _tabRecordings = State(
+                initialValue: Dictionary(
+                    uniqueKeysWithValues: Destination.allCases.map { ($0, place.recordingValue(in: $0)) }))
             _scrollAnchors = State(initialValue: Self.perDestination(\.scrollAnchors, of: place))
             _openList = State(
                 initialValue: ShellValue {
@@ -141,7 +148,7 @@ import CrosstuneDesign
                 PadBottomBarSlot(player: player, onRecord: onRecord)
             }
             .confirmsListDelete($deleting)
-            .modifier(PlayerPresentations(player: player, stage: stage, zoom: nil, showsReadingPane: true))
+            .modifier(PlayerPresentations(player: player, stage: stage))
             .task(id: store?.userID) {
                 lists = store.map { store in LiveQuery(store, initial: nil) { try ListSummary.fetchAll($0) } }
             }
@@ -211,6 +218,7 @@ import CrosstuneDesign
             columns(destination)
                 .environment(\.inPadSplit, true)
                 .environment(\.detailTune, destination == .settings ? nil : tabTunes[destination])
+                .environment(\.detailRecording, destination == .settings ? nil : tabRecordings[destination])
                 .environment(\.scrollAnchor, scrollAnchors[destination])
                 .background {
                     TabBarPlacementReader { inSidebar = $0 }
@@ -271,7 +279,9 @@ import CrosstuneDesign
                 .id(place.settingsPage)
             } else {
                 NavigationStack {
-                    PadDetail(tuneID: place.tabTunes[destination])
+                    PadDetail(detail: (place.tabPaths[destination] ?? PagePath()).detail) {
+                        place.tabPaths[destination]?.recording = nil
+                    }
                 }
                 .addedTuneBanner()
                 // A tune page opens one of its lists on the Lists tab, never over the detail column.
@@ -289,9 +299,10 @@ import CrosstuneDesign
 
         @Environment(\.selecting) private var selecting
         @Environment(ListPlayback.self) private var playback: ListPlayback?
+        @Environment(\.playerWindow) private var window
 
         var body: some View {
-            let isShown = PadBottomBar.isShown(showsRecord: !RecordControl.isTab, player, playback)
+            let isShown = PadBottomBar.isShown(showsRecord: !RecordControl.isTab, player, playback, in: window)
             ZStack {
                 if selecting?.isCovered != true && isShown {
                     GlassEffectContainer {
@@ -313,9 +324,11 @@ import CrosstuneDesign
         let player: PlayerModel
 
         @Environment(ListPlayback.self) private var playback: ListPlayback?
+        @Environment(\.playerWindow) private var window
 
         func body(content: Content) -> some View {
-            let bottomBarShown = PadBottomBar.isShown(showsRecord: !RecordControl.isTab, player, playback)
+            let bottomBarShown = PadBottomBar.isShown(
+                showsRecord: !RecordControl.isTab, player, playback, in: window)
             content.safeAreaPadding(.bottom, PadStyle.bottomBarClearance(bottomBarShown: bottomBarShown))
         }
     }

@@ -59,8 +59,7 @@ there where they differ. Regular-width iPad reads this page, then
 
 - Accessibility text sizes: the key pill moves under the title, controls
   wrap instead of clipping, and token labels wrap instead of truncating.
-- A row on a page takes a context menu, not swipe actions, and reorders
-  through a move menu.
+- A row on a page takes a context menu and reorders through a move menu.
 - List reorder: long press and drag.
 - Search: the system search field, pinned under the title. Escape follows
   the system field, not the empty-first order in `design.md`.

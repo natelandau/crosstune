@@ -66,7 +66,7 @@ struct LoopsPanel: View {
             }
             .buttonStyle(.macSecondary)
             .disabled(reason != nil || !model.isLoaded)
-            .accessibilityHint(reason ?? "")
+            .accessibilityHint(reason ?? "", isEnabled: reason != nil)
             Button(role: .destructive) {
                 if model.deleteSelected() { onDeleted() }
             } label: {
@@ -79,7 +79,7 @@ struct LoopsPanel: View {
         #else
             textButton(PracticeText.newLoop, systemImage: "plus", action: model.newLoop)
                 .disabled(reason != nil || !model.isLoaded)
-                .accessibilityHint(reason ?? "")
+                .accessibilityHint(reason ?? "", isEnabled: reason != nil)
             textButton(PracticeText.deleteLoop, systemImage: "trash", role: .destructive) {
                 if model.deleteSelected() { onDeleted() }
             }

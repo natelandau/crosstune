@@ -540,29 +540,33 @@ struct PushesTune: ViewModifier {
     /// opens from somewhere with no single source to zoom out of.
     let zoom: Namespace.ID?
 
-    @Environment(\.stackTune) private var stackTune
+    @Environment(\.stackPath) private var stackPath
 
     func body(content: Content) -> some View {
         if isPushing {
             content.navigationDestination(item: keptTuneID) { tuneID in
                 TuneScreen(tuneID: tuneID)
+                    // A recording page opened over the tune is pushed over it, never under it.
+                    .modifier(PushesRecordingPage(path: stackPath, isActive: true))
                     // A list opened from the tune pushes its own tunes, which the shell does not keep.
-                    .environment(\.stackTune, nil)
+                    .environment(\.stackPath, nil)
                     .environment(\.pushedTune, keptTuneID)
                     #if os(iOS)
                         .modifier(ZoomsFromSource(sourceID: tuneID, zoom: zoom))
                     #endif
             }
+            // The tab's own recording page, while no tune is pushed over this screen.
+            .modifier(PushesRecordingPage(path: stackPath, isActive: tuneID == nil))
             .onChange(of: tuneID) {
-                if let stackTune, stackTune.value != tuneID { stackTune.value = tuneID }
+                if let stackPath, stackPath.value.tune != tuneID { stackPath.value.tune = tuneID }
             }
-            .onChange(of: stackTune?.value) { _, kept in
-                if stackTune != nil, kept != tuneID { tuneID = kept }
+            .onChange(of: stackPath?.value.tune) { _, kept in
+                if stackPath != nil, kept != tuneID { tuneID = kept }
             }
             // After the screen is on show: a push made while the screen itself is being pushed is
             // dropped.
             .task {
-                if let kept = stackTune?.value, kept != tuneID { tuneID = kept }
+                if let kept = stackPath?.value.tune, kept != tuneID { tuneID = kept }
             }
         } else {
             content
@@ -592,7 +596,7 @@ struct PushesTune: ViewModifier {
             tuneID
         } set: { new in
             tuneID = new
-            if let stackTune, stackTune.value != new { stackTune.value = new }
+            if let stackPath, stackPath.value.tune != new { stackPath.value.tune = new }
         }
     }
 }

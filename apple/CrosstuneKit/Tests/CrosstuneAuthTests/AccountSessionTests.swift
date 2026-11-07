@@ -1124,8 +1124,8 @@ final class CountingSyncAPI: SyncAPI {
     func recordNotice(_ notice: PlanNotice) async throws {}
     func refreshBilling() async throws {}
 
-    func storage() async throws -> StorageUsage {
-        StorageUsage(usedBytes: 0, quotaBytes: 0, maxFileBytes: 0)
+    func account() async throws -> AccountSummary {
+        AccountSummary(storage: StorageUsage(usedBytes: 0, quotaBytes: 0, maxFileBytes: 0))
     }
 
     func resolveLink(url: String) async throws -> ResolvedLink {
@@ -1135,6 +1135,7 @@ final class CountingSyncAPI: SyncAPI {
     func searchRecordings(q: String, providers: [String], country: String) async throws -> SearchResponse {
         SearchResponse(groups: [])
     }
+    func reversePlace(lat: Double, lon: Double) async throws -> ReversedPlace? { nil }
 
     func requestUploadSlot(recordingID: String, bytes: Int64, contentType: String) async throws -> URL {
         throw URLError(.badURL)

@@ -590,14 +590,10 @@ struct ScanRequest: Identifiable, Equatable {
 }
 
 /// The scan viewer the tune screen and tune rows ask for, presented over the whole shell, and
-/// the read of which tunes have scans that every row's Scans action follows. The iPad's practice
-/// cover applies its own, since the shell's cannot present over that cover.
+/// the read of which tunes have scans that every row's Scans action follows.
 /// Each look at the scans is logged into the shell's store, timed while this window is in the
 /// foreground, so each window counts its own viewer.
 struct ScanScreens: ViewModifier {
-    /// Whether the viewer zooms out of the thumbnail it opened on, where one is marked.
-    var zooms = true
-
     @State private var request: ScanRequest?
     /// The position of the scan the open viewer shows, which its close zooms back into.
     @State private var shownIndex: Int?
@@ -667,7 +663,7 @@ struct ScanScreens: ViewModifier {
 
     #if os(iOS)
         private var zoomNamespace: Namespace.ID? {
-            zooms && !reduceMotion ? zoom : nil
+            reduceMotion ? nil : zoom
         }
     #endif
 

@@ -22,7 +22,7 @@ import SwiftUI
                 .contentShape(.rect)
             }
             .buttonStyle(.plain)
-            .accessibilityHint(hint ?? "")
+            .accessibilityHint(hint ?? "", isEnabled: hint != nil)
         }
     }
 #endif

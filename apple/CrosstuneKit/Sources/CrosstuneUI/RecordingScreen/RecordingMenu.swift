@@ -1,32 +1,42 @@
+import CrosstuneCommands
 import CrosstuneStore
 import Foundation
 
-/// An action in the recording screen's ⋯ menu, which holds every screen-level action.
+/// An action in the recording page's ⋯ menu, which holds every action on the recording.
 enum RecordingMenuItem: Hashable {
+    /// Plays the recording first in lists of its tune, or stops that while `pinned`.
+    case pin(pinned: Bool)
+    case goToTune
     /// Opens the trim editor; `disabledReason` says why it cannot open now, and the item stays in the
     /// menu, disabled, showing it.
     case trim(disabledReason: String?)
-    /// Opens the Split screen, disabled with the reason it cannot open now, as Trim is.
+    /// Opens the Split screen, disabled with the reason it cannot open now, as Trim is. It also
+    /// splits a recording too large to upload whole.
     case split(disabledReason: String?)
-    case edit
-    case addToTune
-    case removeFromTune
     /// Opens an imported recording's page on the site it came from.
     case openOrigin(site: String, page: URL)
     /// Deletes the recording; disabled with `disabledReason` while it cannot go.
     case delete(disabledReason: String?)
 
-    /// The menu in order: Trim, Split, Edit, filing under or out of a tune, Open on when the
-    /// recording has a page to open, then Delete. `trims` false leaves Trim and Split out, as on
-    /// a free plan.
+    /// The menu in order: the pin while `pinned` is set, Go to tune when `goesToTune`, Open on
+    /// when the recording has a page to open, Trim, Split, then Delete. `pinned` nil leaves
+    /// the pin out, for a recording with no tune. `trims` false leaves Trim and Split out, as
+    /// on a free plan.
     static func items(
-        inTune: Bool, trimDisabledReason: String?, splitDisabledReason: String? = nil,
+        pinned: Bool?, goesToTune: Bool, trimDisabledReason: String?, splitDisabledReason: String? = nil,
         deleteDisabledReason: String? = nil, openOrigin: RecordingMenuItem? = nil, trims: Bool = true
     ) -> [RecordingMenuItem] {
+        let pin: [RecordingMenuItem] = pinned.map { [.pin(pinned: $0)] } ?? []
         let tools: [RecordingMenuItem] =
             trims ? [.trim(disabledReason: trimDisabledReason), .split(disabledReason: splitDisabledReason)] : []
-        return tools + [.edit, inTune ? .removeFromTune : .addToTune] + (openOrigin.map { [$0] } ?? [])
+        return pin + (goesToTune ? [.goToTune] : []) + (openOrigin.map { [$0] } ?? []) + tools
             + [.delete(disabledReason: deleteDisabledReason)]
+    }
+
+    /// What the pin item writes as its tune's play source: nothing while `pinned`, which unpins,
+    /// and otherwise recording `recordingID`.
+    static func playSource(togglingPinned pinned: Bool, recordingID: String) -> PlaySourcePin? {
+        pinned ? nil : .recording(id: recordingID)
     }
 
     /// The Open on item for `recording`, or nil for one made here or one with no web page.
@@ -42,17 +52,16 @@ enum RecordingMenuItem: Hashable {
     var disabledReason: String? {
         switch self {
         case .trim(let disabledReason), .split(let disabledReason), .delete(let disabledReason): disabledReason
-        case .edit, .addToTune, .removeFromTune, .openOrigin: nil
+        case .pin, .goToTune, .openOrigin: nil
         }
     }
 
     var label: String {
         switch self {
+        case .pin(let pinned): pinned ? PlaySourceText.dontPlayFirst : PlaySourceText.playFirstInLists
+        case .goToTune: RecordingsListText.goToTune
         case .trim: RecordingScreenText.trim
         case .split: RecordingScreenText.split
-        case .edit: RecordingRowActions.edit
-        case .addToTune: RecordingRowActions.addToTune
-        case .removeFromTune: RecordingRowActions.removeFromTune
         case .openOrigin(let site, _): RecordingRowActions.openOn(site)
         case .delete: RecordingRowActions.delete
         }
@@ -60,11 +69,10 @@ enum RecordingMenuItem: Hashable {
 
     var systemImage: String {
         switch self {
+        case .pin(let pinned): pinned ? "pin.slash" : "pin.fill"
+        case .goToTune: "arrow.right.circle"
         case .trim: "scissors"
         case .split: "rectangle.split.3x1"
-        case .edit: "pencil"
-        case .addToTune: "folder.badge.plus"
-        case .removeFromTune: "folder.badge.minus"
         case .openOrigin: "arrow.up.right.square"
         case .delete: "trash"
         }

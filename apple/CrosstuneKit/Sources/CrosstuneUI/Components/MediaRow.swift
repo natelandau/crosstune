@@ -6,7 +6,9 @@ import SwiftUI
 /// recording came from, the tune line for a filed recording, a red line for a transfer error, and
 /// at the trailing edge a slot holding the item's state glyph, or Retry in its place.
 ///
-/// The row is the control. Its spoken name is its actionLabel plus the lines it shows.
+/// The row is the control. Its spoken name is its actionLabel plus the lines it shows. A row that
+/// opens a page is instead two controls: the row opens the page, and the glyph in the action slot
+/// keeps the action, spoken as the actionLabel and the title.
 public struct MediaRow: View {
     /// The line under the title.
     public enum SecondLine {
@@ -60,6 +62,7 @@ public struct MediaRow: View {
     private let secondLine: SecondLine?
     private let actionLabel: String?
     private let action: (() -> Void)?
+    private let open: (() -> Void)?
     private let sourceLine: SourceLine?
     private let tuneLine: TuneLine?
     private let error: String?
@@ -76,19 +79,21 @@ public struct MediaRow: View {
     @Environment(\.mediaNoticeInHeading) private var noticeInHeading
 
     /// `actionLabel` names what the row does or would do, "Play" or "Downloading"; with no `action`
-    /// the row is inert. `dimmed` marks a row whose control cannot act right now, such as a
-    /// download offline. `spokenNotice` is spoken after the row's lines and never shown.
+    /// the row is inert. `open`, when set, is the row's own press, and `action` moves to the glyph
+    /// in the action slot. `dimmed` marks a row whose control cannot act right now, such as a
+    /// download offline. `spokenNotice` is spoken with the action and never shown.
     public init(
         glyph: MediaGlyph, title: String, secondLine: SecondLine?, actionLabel: String? = nil,
-        action: (() -> Void)? = nil, sourceLine: SourceLine? = nil, tuneLine: TuneLine? = nil,
-        error: String? = nil, notice: String? = nil, spokenNotice: String? = nil, retry: Retry? = nil,
-        dimmed: Bool = false
+        action: (() -> Void)? = nil, open: (() -> Void)? = nil, sourceLine: SourceLine? = nil,
+        tuneLine: TuneLine? = nil, error: String? = nil, notice: String? = nil, spokenNotice: String? = nil,
+        retry: Retry? = nil, dimmed: Bool = false
     ) {
         self.glyph = glyph
         self.title = title
         self.secondLine = secondLine
         self.actionLabel = actionLabel
         self.action = action
+        self.open = open
         self.sourceLine = sourceLine
         self.tuneLine = tuneLine
         self.error = error
@@ -144,8 +149,11 @@ public struct MediaRow: View {
             Spacer(minLength: 0)
             if let retry {
                 // Retry stands where the glyph would, so a stuck row's text ends on the same
-                // edge as its neighbors' and the row never holds two controls.
+                // edge as its neighbors' and the slot never holds two controls.
                 retryButton(retry)
+            } else if open != nil {
+                slotControl
+                    .environment(\.rowGlyphBase, PageStyle.mediaRowGlyphSize)
             } else {
                 glyphSlot
                     .environment(\.rowGlyphBase, PageStyle.mediaRowGlyphSize)
@@ -163,8 +171,9 @@ public struct MediaRow: View {
     }
 
     @ViewBuilder private var rowControl: some View {
-        if let action {
-            Button(action: action) { Color.clear.contentShape(.rect) }
+        // A row that opens a page presses to open it, and its slot keeps the action.
+        if let press = open ?? action {
+            Button(action: press) { Color.clear.contentShape(.rect) }
                 .buttonStyle(.plain)
                 .accessibilityLabel(rowName)
         } else {
@@ -328,7 +337,8 @@ public struct MediaRow: View {
 
     /// The spoken names of the row's control and of each control inside it, in reading order.
     var controlNames: [String] {
-        [rowName] + innerControls.map(\.name)
+        let slot = slotIsControl ? [slotName ?? title] : []
+        return [rowName] + innerControls.map(\.name) + slot
     }
 
     private var rowName: String {
@@ -336,8 +346,23 @@ public struct MediaRow: View {
         if case .text(let meta) = secondLine { details.append(meta) }
         if let notice { details.append(notice) }
         if let error { details.append(error) }
+        guard open == nil else { return Self.accessibilityName(actionLabel: nil, title: title, details: details) }
         if let spokenNotice { details.append(spokenNotice) }
         return Self.accessibilityName(actionLabel: actionLabel, title: title, details: details)
+    }
+
+    /// Whether the action slot is a control of its own: in a row that opens a page, a glyph with
+    /// an action. A progress ring or an empty slot only shows.
+    private var slotIsControl: Bool {
+        open != nil && retry == nil && action != nil && glyph != .downloading && glyph != .none
+    }
+
+    /// The action slot's spoken name in a row that opens a page, "Play Jam", or nil for a slot
+    /// with nothing to say.
+    private var slotName: String? {
+        guard actionLabel != nil || spokenNotice != nil else { return nil }
+        return Self.accessibilityName(
+            actionLabel: actionLabel, title: title, details: spokenNotice.map { [$0] } ?? [])
     }
 
     #if os(macOS)
@@ -361,6 +386,27 @@ public struct MediaRow: View {
             RowActionSlot { symbol.foregroundStyle(.textSecondary) }
         case .play, .stop, .download:
             RowActionSlot { symbol.foregroundStyle(.textPrimary) }
+        }
+    }
+
+    /// The action slot of a row that opens a page: the glyph is its own control, so a press on it
+    /// acts without opening the page.
+    @ViewBuilder private var slotControl: some View {
+        if slotIsControl, let action {
+            let name = slotName ?? title
+            RowActionSlot {
+                RowSlotButton(action: action) { symbol.foregroundStyle(.textPrimary) }
+                    .accessibilityLabel(name)
+                    #if os(macOS)
+                        .help(name)
+                    #endif
+            }
+        } else {
+            glyphSlot
+                .allowsHitTesting(false)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(slotName ?? "")
+                .accessibilityHidden(slotName == nil)
         }
     }
 
@@ -427,15 +473,17 @@ extension View {
 
 extension MediaRow {
     /// A recording's row. `sourceLine` names the site an import came from; `tuneLine` names a
-    /// filed recording's tune when no heading above does. `perform` runs what a tap on the row
-    /// does; `onRetry` runs Retry.
+    /// filed recording's tune when no heading above does. `open` runs a press on the row, which
+    /// opens the recording's page; `perform` runs what a press on the action slot does; `onRetry`
+    /// runs Retry.
     public init(
         recording row: RecordingRowContent, sourceLine: SourceLine? = nil, tuneLine: TuneLine? = nil,
-        perform: @escaping (RecordingRowContent.Tap) -> Void, onRetry: @escaping (RecordingText.Retry) -> Void
+        open: @escaping () -> Void, perform: @escaping (RecordingRowContent.Tap) -> Void,
+        onRetry: @escaping (RecordingText.Retry) -> Void
     ) {
         self.init(
             glyph: row.glyph, title: row.title, secondLine: .text(row.meta), actionLabel: row.actionLabel,
-            action: row.tap.map { tap in { perform(tap) } }, sourceLine: sourceLine, tuneLine: tuneLine,
+            action: row.tap.map { tap in { perform(tap) } }, open: open, sourceLine: sourceLine, tuneLine: tuneLine,
             error: row.error, notice: row.notice, spokenNotice: row.spokenNotice,
             retry: row.retry.flatMap { retry in row.retryName.map { Retry(name: $0) { onRetry(retry) } } },
             dimmed: row.isDimmed)
@@ -455,7 +503,7 @@ extension MediaRow {
     #Preview("Media rows") {
         List {
             ForEach(SampleCatalog.recordingRows, id: \.self) { row in
-                MediaRow(recording: row, perform: { _ in }, onRetry: { _ in })
+                MediaRow(recording: row, open: {}, perform: { _ in }, onRetry: { _ in })
             }
             ForEach(SampleCatalog.linkRows, id: \.self) { row in
                 MediaRow(link: row) { _ in }

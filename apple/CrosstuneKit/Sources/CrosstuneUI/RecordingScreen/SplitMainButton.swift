@@ -24,7 +24,7 @@ struct SplitMainButton: View {
             .buttonStyle(.accentProminent)
             .controlSize(.large)
             .disabled(!removes && !model.canAddCut)
-            .accessibilityHint(hint ?? "")
+            .accessibilityHint(hint ?? "", isEnabled: hint != nil)
             if let hint {
                 Text(hint)
                     .font(.platform(.footnote))

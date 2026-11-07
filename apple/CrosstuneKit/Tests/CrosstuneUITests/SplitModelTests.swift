@@ -94,10 +94,15 @@ private final class SplitHolds {
         #expect(model(row(trimStartMs: 5000, trimEndMs: 40_000)).bounds == 5000...40_000)
     }
 
-    @Test func fallsBackToTheDurationThenTheLocalFileLength() {
-        #expect(model(row(sourceDurationMs: nil, durationMs: 30_000)).bounds.upperBound == 30_000)
+    @Test func fallsBackToTheLocalFileThenThePlaybackFileLength() {
         let file = RecordingFile(id: "r1", localState: .captured, localDurationMs: 20_000)
         #expect(model(row(sourceDurationMs: nil), file: file).bounds.upperBound == 20_000)
+        #expect(model(row(sourceDurationMs: nil, durationMs: 30_000), file: file).bounds.upperBound == 20_000)
+        #expect(model(row(sourceDurationMs: nil, durationMs: 30_000)).bounds.upperBound == 30_000)
+        // A playback file cut at the trim start ends that far along the source.
+        var cut = row(trimStartMs: 4_000, sourceDurationMs: nil, durationMs: 30_000)
+        cut.playbackStartMs = 4_000
+        #expect(model(cut).bounds == 4_000...34_000)
     }
 
     @Test func flagsARangeOver3Hours() {
@@ -928,37 +933,15 @@ private final class SplitHolds {
 
     @Test func theMenuOffersSplitAfterTrimAndDisablesDeleteDuringASplit() {
         let items = RecordingMenuItem.items(
-            inTune: false, trimDisabledReason: nil, splitDisabledReason: RecordingScreenText.splitBusy,
+            pinned: nil, goesToTune: false, trimDisabledReason: nil, splitDisabledReason: RecordingScreenText.splitBusy,
             deleteDisabledReason: RecordingScreenText.deleteWhileSplitting)
         #expect(
             items == [
-                .trim(disabledReason: nil), .split(disabledReason: RecordingScreenText.splitBusy), .edit, .addToTune,
+                .trim(disabledReason: nil), .split(disabledReason: RecordingScreenText.splitBusy),
                 .delete(disabledReason: RecordingScreenText.deleteWhileSplitting),
             ])
         #expect(RecordingMenuItem.split(disabledReason: nil).label == RecordingScreenText.split)
         #expect(RecordingMenuItem.split(disabledReason: nil).systemImage == "rectangle.split.3x1")
         #expect(items.last?.disabledReason == RecordingScreenText.deleteWhileSplitting)
-    }
-
-    @Test func aRowThatMustSplitOffersSplitFirstInItsMenu() {
-        let menu = RecordingRowAction.menu(
-            filed: false, canAddToTune: true, canGoToTune: false, canPin: false, originSite: nil, canSplit: true)
-        #expect(menu == [.split, .edit, .addToTune, .delete])
-    }
-
-    @Test func aRowThatMustSplitSwipesDeleteSplitAndOneFilingAction() {
-        let unfiled = RecordingRowAction.swipe(
-            filed: false, canAddToTune: true, canGoToTune: false, canPin: false, canSplit: true)
-        #expect(unfiled == [.delete, .split, .addToTune])
-        let filed = RecordingRowAction.swipe(
-            filed: true, canAddToTune: true, canGoToTune: true, canPin: false, canSplit: true)
-        #expect(filed == [.delete, .split, .removeFromTune])
-        // A tune page's row: filed under the tune, with the pin, and no Go to tune.
-        let onTune = RecordingRowAction.swipe(
-            filed: true, canAddToTune: false, canGoToTune: false, canPin: true, canSplit: true)
-        #expect(onTune == [.delete, .split, .removeFromTune])
-        let unfilable = RecordingRowAction.swipe(
-            filed: false, canAddToTune: false, canGoToTune: false, canPin: false, canSplit: true)
-        #expect(unfilable == [.delete, .split])
     }
 }

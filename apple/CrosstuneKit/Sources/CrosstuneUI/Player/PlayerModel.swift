@@ -31,31 +31,32 @@ public final class PlayerModel {
 
     /// The loaded item, or nil when nothing is loaded.
     public internal(set) var item: PlayerItem?
-    /// Whether the loaded item's player shows in full: a recording's screen, or on iPhone a
-    /// link's player. One request shared by every window, which only the window that made it
-    /// answers; see ``showsExpanded(in:)``. Letting go of it writes any change still settling
-    /// and lets go of every hold, since only a screen inside it holds.
+    /// Whether the loaded link's player shows in full, as a link in its provider's embed does on
+    /// iPhone and iPad. One request shared by every window, which only the window that made it
+    /// answers; see ``showsExpanded(in:)``. A recording never shows in full: its page opens in
+    /// the window's navigation instead.
     public var isExpanded = false {
         didSet {
             guard oldValue && !isExpanded else { return }
             expandedWindow = nil
-            splitRequest = nil
-            flushSettings()
-            releaseHolds()
-            // Opened and closed without a play reads as browsing, so it leaves nothing loaded.
-            if opensUnplayed && transport?.isPlaying != true { close() }
         }
     }
-    /// The recording whose screen opens on its Split screen, until that screen claims the request.
-    public internal(set) var splitRequest: String?
     /// The window that asked for the player in full, or nil when any window may show it.
     public internal(set) var expandedWindow: UUID?
-    /// True from a paused ``open(_:in:playing:)`` that loaded the item until its audio first plays.
-    private(set) var opensUnplayed = false
     /// The recording screen whose visit is open.
     @ObservationIgnored private var visitScreen: UUID?
-    /// Where the player was last asked for in full, which a recording screen's visit reports.
-    @ObservationIgnored private var expandSource = ActionSource.dock
+    /// The recording pages on show, which a window's dock or player bar gives way to while one
+    /// shows the loaded recording; see ``pagePlays(in:)``.
+    var shownPages: [UUID: ShownPage] = [:]
+    /// What of each page in ``shownPages`` is on screen, and what the page does as it leaves.
+    @ObservationIgnored var pageSurfaces: [UUID: PageSurfaces] = [:]
+    /// The page whose play or editor loaded the item, which stops it as the page leaves. Nil once
+    /// anything loads from elsewhere.
+    var owningPage: UUID?
+    /// Takes the pages with nothing on screen off show, on the main actor's next turn.
+    @ObservationIgnored var pageLeaving: Task<Void, Never>?
+    /// Where a recording page was last asked for, which its practice visit reports.
+    @ObservationIgnored var pageSource = ActionSource.dock
     /// The loaded recording's loops, the selected one, and Repeat.
     public let loops: LoopPlayback
     /// The state of the loaded recording's audio; nil unless a recording is loaded.
@@ -87,7 +88,7 @@ public final class PlayerModel {
     @ObservationIgnored public var audioSource: AudioSource? {
         didSet {
             guard let item, item.kind == .recording, recordingAudio != .loaded else { return }
-            loadAudio(item, playing: !opensUnplayed)
+            loadAudio(item, at: pendingStart, playing: !loadsPaused)
         }
     }
     /// Where settled speed, pitch, and isolate changes go. The shell sets it; without it they
@@ -150,6 +151,12 @@ public final class PlayerModel {
     /// How long finding and starting an Apple Music track may take before the embed plays
     /// instead. The access prompt does not count, since it waits on the musician.
     @ObservationIgnored var decisionTimeout: Duration = .seconds(10)
+    /// Where the recording whose audio is still being fetched starts once it loads, and whether
+    /// it loads paused, so a load tried again keeps both.
+    @ObservationIgnored private var pendingStart: TimeInterval?
+    @ObservationIgnored private var loadsPaused = false
+    /// True from a ``loadPaused(_:source:page:)`` that loaded the recording until its audio first plays.
+    @ObservationIgnored private(set) var loadedUnplayed = false
     /// The file the audio player holds, and its full length before any window.
     @ObservationIgnored var loadedFile: (audio: RecordingAudioFile, duration: TimeInterval?)?
     /// Changes made here that the row does not hold yet. Each wins over the row until the row
@@ -233,7 +240,7 @@ public final class PlayerModel {
         following = Task { [weak self] in
             for await snapshot in Observations({ @MainActor [weak self] in self?.activitySnapshot }) {
                 guard let snapshot else { continue }
-                if snapshot.playing, self?.opensUnplayed == true { self?.opensUnplayed = false }
+                if snapshot.playing, self?.loadedUnplayed == true { self?.loadedUnplayed = false }
                 self?.activity.feed(snapshot)
             }
         }
@@ -292,26 +299,8 @@ public final class PlayerModel {
         let row = recording ?? item?.recording.flatMap { $0.id == recordingID ? $0 : nil }
         activity.screenOpened(
             recordingID, kind: row.map { PlaybackKind(RecordingOrigin($0)) } ?? .recorded,
-            tune: row.map { .known($0.tuneID) } ?? .lookUp, source: expandSource, loaded: loadedSubject,
+            tune: row.map { .known($0.tuneID) } ?? .lookUp, source: pageSource, loaded: loadedSubject,
             with: activitySnapshot)
-    }
-
-    /// The recording screens on show, by the window each shows in.
-    @ObservationIgnored private var shownScreens: [UUID: UUID?] = [:]
-
-    /// The recording screen `screen` shows in `window`.
-    func screenAppeared(_ screen: UUID, in window: UUID?) {
-        shownScreens[screen] = window
-    }
-
-    /// The recording screen `screen` has left `window`. SwiftUI can make a second screen and
-    /// drop the first as one opens, so only the window's last screen going while the window
-    /// still asks for the player in full means the window itself went, which leaves nothing that
-    /// could ever close the player.
-    func screenDisappeared(_ screen: UUID, in window: UUID?) {
-        shownScreens[screen] = nil
-        guard let window, isExpanded, expandedWindow == window, !shownScreens.values.contains(window) else { return }
-        isExpanded = false
     }
 
     /// The recording screen `screen` has gone. Only the screen that opened the visit last ends
@@ -340,21 +329,50 @@ public final class PlayerModel {
         item?.kind == kind && item?.id == id
     }
 
-    /// Loads an item and starts it, in place of whatever was loaded. Only a play tap, or a paused
-    /// ``open(_:in:playing:)`` of a recording, loads the player. A link in its embed opens in
-    /// full, since its provider's player is what plays it; a recording and a link MusicKit plays
-    /// play from the bar, and a tap on the one already loaded resumes it, carrying on its play.
-    /// `origin` is where the play is logged as asked for, and `source` where it is reported as
-    /// started from. Refused, returning false, while a recording is being recorded, and for a
-    /// recording while the plan holds recordings back.
+    /// Loads an item and starts it, in place of whatever was loaded. Only a play, or
+    /// ``loadPaused(_:source:page:)`` of a recording, loads the player; opening a page never does. A
+    /// link in its embed opens in full, since its provider's player is what plays it; a recording
+    /// and a link MusicKit plays play from the bar, and a tap on the one already loaded resumes
+    /// it, carrying on its play. A recording loaded here starts `at` seconds into its trim when
+    /// given. `origin` is where the play is logged as asked for, and `source` where it is
+    /// reported as started from. Refused, returning false, while a recording is being recorded,
+    /// and for a recording while the plan holds recordings back. A play from a recording page
+    /// passes the page, which then owns the playback.
     @discardableResult
-    public func play(_ item: PlayerItem, origin: PlayOrigin = .dock, source: ActionSource = .dock) -> Bool {
-        load(item, origin: origin, playing: true, source: source)
+    public func play(
+        _ item: PlayerItem, at position: TimeInterval? = nil, origin: PlayOrigin = .dock, source: ActionSource = .dock,
+        page: UUID? = nil
+    ) -> Bool {
+        load(item, at: position, origin: origin, playing: true, source: source, page: page)
     }
 
-    private func load(_ item: PlayerItem, origin: PlayOrigin, playing: Bool, source: ActionSource) -> Bool {
+    /// Loads a recording paused at its start, in place of whatever was loaded, as the trim and
+    /// split editors need its audio. Refused, returning false, as ``play(_:at:origin:source:page:)``
+    /// is.
+    @discardableResult
+    public func loadPaused(_ item: PlayerItem, source: ActionSource = .recordingScreen, page: UUID? = nil) -> Bool {
+        guard item.kind == .recording, load(item, at: nil, origin: .dock, playing: false, source: source, page: page)
+        else {
+            return false
+        }
+        loadedUnplayed = true
+        return true
+    }
+
+    /// Unloads recording `id` where ``loadPaused(_:source:page:)`` loaded it and it has not played
+    /// since, so an editor opened and closed without a play leaves nothing loaded.
+    public func closeIfUnplayed(_ id: String) {
+        guard loadedUnplayed, holds(.recording, id: id), transport?.isPlaying != true else { return }
+        close()
+    }
+
+    private func load(
+        _ item: PlayerItem, at position: TimeInterval?, origin: PlayOrigin, playing: Bool, source: ActionSource,
+        page: UUID?
+    ) -> Bool {
         guard !isCapturing(), item.kind != .recording || recordingsPlay else { return false }
-        opensUnplayed = false
+        loadedUnplayed = false
+        owningPage = page
         let same = holds(item.kind, id: item.id)
         activity.begin(
             PlaySubject(kind: item.kind, id: item.id), origin: origin,
@@ -374,7 +392,7 @@ public final class PlayerModel {
         expandedWindow = nil
         if item.kind == .recording {
             isExpanded = false
-            loadAudio(item, playing: playing)
+            loadAudio(item, at: position, playing: playing)
         } else {
             startLink(item)
         }
@@ -405,7 +423,8 @@ public final class PlayerModel {
         keepsPlay: Bool
     ) -> Bool {
         guard !isCapturing(), item.kind != .recording || recordingsPlay else { return false }
-        opensUnplayed = false
+        loadedUnplayed = false
+        owningPage = nil
         let same = holds(item.kind, id: item.id)
         activity.begin(
             PlaySubject(kind: item.kind, id: item.id), origin: origin,
@@ -466,47 +485,15 @@ public final class PlayerModel {
         detachQueue()
     }
 
-    /// Shows a recording's screen in `window`, loading the recording first when it is not the
-    /// one loaded: started, or paused at its start when `playing` is false. One loaded paused
-    /// and closed before it ever plays is unloaded. Refused, returning false, while a recording is
-    /// being recorded or the plan holds recordings back. `source` is where the screen was asked
-    /// for.
-    @discardableResult
-    public func open(
-        _ item: PlayerItem, in window: UUID? = nil, playing: Bool = true, source: ActionSource = .dock
-    ) -> Bool {
-        if !holds(item.kind, id: item.id) {
-            // Played from its own screen, which this opens on.
-            guard load(item, origin: .dock, playing: playing, source: .recordingScreen) else { return false }
-            opensUnplayed = !playing
+    /// The expand control on the dock and the player bar: opens the loaded recording's page on
+    /// Practice through `recordingPage`, or the loaded link's tune page through `tune`, since a
+    /// link has no page of its own. Playback is left as it is.
+    func openLoaded(recordingPage: RecordingPageOpener?, tune: IDOpener?, source: ActionSource) {
+        guard let item else { return }
+        switch item.kind {
+        case .recording: recordingPage?(item.id, tab: .practice, source: source)
+        case .link: if let tuneID = item.link?.tuneID { tune?(tuneID) }
         }
-        expand(in: window, source: source)
-        return true
-    }
-
-    /// Shows a recording's screen as ``open(_:in:playing:source:)`` does, paused, and asks it to
-    /// open on its Split screen.
-    @discardableResult
-    public func openSplit(_ item: PlayerItem, in window: UUID? = nil, source: ActionSource = .dock) -> Bool {
-        guard item.kind == .recording, open(item, in: window, playing: false, source: source) else { return false }
-        splitRequest = item.id
-        return true
-    }
-
-    /// Claims the request to open recording `id` on its Split screen, returning whether there was one.
-    func claimSplitRequest(for id: String) -> Bool {
-        guard splitRequest == id else { return false }
-        splitRequest = nil
-        return true
-    }
-
-    /// Shows the loaded item's player in full in `window`, or in any window when nil. `source`
-    /// is where it was asked for.
-    public func expand(in window: UUID? = nil, source: ActionSource = .dock) {
-        guard item != nil else { return }
-        expandSource = source
-        expandedWindow = window
-        isExpanded = true
     }
 
     /// Whether `window` shows the player in full: only the window that asked for it, so every
@@ -530,14 +517,15 @@ public final class PlayerModel {
         stopAudio()
         loops.reset(forgettingRows: true)
         item = nil
-        opensUnplayed = false
+        owningPage = nil
+        loadedUnplayed = false
         if !keepsExpansion { isExpanded = false }
     }
 
     /// Tries the loaded recording's audio again after it could not be found or fetched.
     public func retryAudio() {
         guard let item, item.kind == .recording, recordingAudio == .unavailable else { return }
-        loadAudio(item, playing: !opensUnplayed)
+        loadAudio(item, at: pendingStart, playing: !loadsPaused)
     }
 
     /// Lets go of the store the player writes to: changes still settling and the play under way
@@ -557,9 +545,6 @@ public final class PlayerModel {
         let id = item.id
         // A recording being deleted has nowhere to write its speed, pitch, or isolate setting.
         cancelSettling()
-        // The delete decides whether the recording goes, so closing its screen must not.
-        let screen = (shown: isExpanded, window: expandedWindow, unplayed: opensUnplayed)
-        opensUnplayed = false
         isExpanded = false
         let position = audio.elapsed
         let wasPlaying = audio.isPlaying
@@ -577,12 +562,6 @@ public final class PlayerModel {
             guard holds(.recording, id: id) else { return }
             failure = failureMessage(error)
             loadAudio(self.item ?? item, at: position, playing: wasPlaying)
-            // An unplayed open would otherwise stay loaded with no screen to close it, so its
-            // screen comes back, showing the failure, where the delete was asked for.
-            if screen.shown && screen.unplayed {
-                expand(in: screen.window)
-                opensUnplayed = true
-            }
         }
     }
 
@@ -591,6 +570,8 @@ public final class PlayerModel {
     private func loadAudio(_ item: PlayerItem, at position: TimeInterval? = nil, playing: Bool = true) {
         fetch?.cancel()
         recordingAudio = .fetching
+        pendingStart = position
+        loadsPaused = !playing
         let source = audioSource
         let id = item.id
         fetch = Task { [weak self] in
@@ -605,6 +586,8 @@ public final class PlayerModel {
                 return
             }
             start(file, self.item ?? item)
+            pendingStart = nil
+            loadsPaused = false
             if queuedNowPlaying != nil, audio.hasFailed {
                 queuedItemCannotPlay()
                 return

@@ -22,8 +22,6 @@ struct TunePage: View {
     @State private var barInset: CGFloat = 0
     @State private var columnWidth = PageStyle.attributesColumnWidth
     // periphery:ignore - read through its binding
-    @State private var editing: RecordingView?
-    // periphery:ignore - read through its binding
     @State private var deleting: RecordingView?
     // periphery:ignore - read through its binding
     @State private var addingScans: ScanAddChoice?
@@ -52,7 +50,7 @@ struct TunePage: View {
             TunePageColumn(
                 model: model, detail: detail, layout: attributesLayout ?? .card,
                 columnWidth: columnWidth, pinnedTop: barInset + Self.columnPinGap,
-                editing: $editing, deleting: $deleting, addingScans: $addingScans, deletingScan: $deletingScan,
+                deleting: $deleting, addingScans: $addingScans, deletingScan: $deletingScan,
                 more: more, onAddLyrics: onAddLyrics,
                 // The title a draft became is already in its place.
                 titleRise: risen || reduceMotion || replacesDraft ? 0 : PageStyle.titleRise,
@@ -63,7 +61,7 @@ struct TunePage: View {
         .onScrollGeometryChange(for: CGFloat.self, of: { $0.contentInsets.top }) { _, top in barInset = top }
         // Clamped as it is read, so a resize redraws the page only while the column's width moves.
         .onGeometryChange(for: CGFloat.self) { proxy in
-            TuneAttributes.columnWidth(forDetailWidth: proxy.size.width)
+            AttributesLayout.columnWidth(forDetailWidth: proxy.size.width)
         } action: { width in
             columnWidth = width
         }
@@ -82,8 +80,7 @@ struct TunePage: View {
         .barTitle(detail.tune.title, shown: !titleShows)
         .modifier(
             TunePresentations(
-                model: model, editing: $editing, deleting: $deleting, addingScans: $addingScans,
-                deletingScan: $deletingScan))
+                model: model, deleting: $deleting, addingScans: $addingScans, deletingScan: $deletingScan))
     }
 
     /// Air between the bar and the pinned attributes column's first row.
@@ -100,7 +97,6 @@ struct TunePageColumn: View {
     var columnWidth = PageStyle.attributesColumnWidth
     /// How far below the scroll view's top edge the attributes column pins.
     var pinnedTop: CGFloat = 0
-    @Binding var editing: RecordingView?
     @Binding var deleting: RecordingView?
     @Binding var addingScans: ScanAddChoice?
     @Binding var deletingScan: Scan?
@@ -262,7 +258,7 @@ struct TunePageColumn: View {
                 if startsWithCard {
                     FirstRecordingCard(model: model, detail: detail)
                 } else {
-                    TuneMediaRows(model: model, detail: detail, editing: $editing, deleting: $deleting)
+                    TuneMediaRows(model: model, detail: detail, deleting: $deleting)
                         #if os(macOS)
                             .environment(\.mediaNoticeInHeading, true)
                         #endif

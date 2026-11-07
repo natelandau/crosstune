@@ -26,10 +26,13 @@ struct LoopWriter {
     }
 }
 
-/// The loaded recording on its screen: the waveform under a fixed playhead, its zoom and
-/// scrubbing, the loops drawn on it, and naming them. The selection, which is what repeats,
-/// belongs to the player's ``LoopPlayback``, so it outlives this screen. Every loop write is one
-/// per finished action, made when the gesture or key ends; none can be undone.
+/// A recording's practice: the waveform under a fixed playhead, its zoom and scrubbing, the
+/// loops drawn on it, and naming them. While the player holds the recording, the playhead,
+/// speed, pitch, and isolate are the player's, and the selection, which is what repeats, belongs
+/// to the player's ``LoopPlayback``, so it outlives this screen. While it holds another, the
+/// model keeps its own playhead and selection on the row's timeline, writes speed, pitch, and
+/// isolate to the row, and Play loads the recording there. Every loop write is one per finished
+/// action, made when the gesture or key ends; none can be undone.
 ///
 /// The waveform's state lives in `PracticeModel+Waveform.swift`, the loop commands and handles
 /// in `PracticeModel+Loops.swift`.
@@ -92,11 +95,24 @@ final class PracticeModel {
     private(set) var file: RecordingFile?
     /// The recording's tune's part structure, for name suggestions.
     var partStructure: String?
+    /// The recording's tune's title, which the recording plays under once Play loads it.
+    var tuneTitle: String?
+    /// The loops' rows while the player holds another recording, by start and then end.
+    private(set) var ownLoops: [RecordingLoop] = []
+    /// The selected loop while the player holds another recording.
+    private(set) var ownSelectedID: String?
+    /// A loop just made and selected before the rows hold it.
+    private(set) var ownUnseen: RecordingLoop?
+    /// The playhead on the trimmed timeline while the player holds another recording.
+    var ownPositionMs: Int64 = 0
+    /// Speed, pitch, and isolate changed here while the player holds another recording, each
+    /// ahead of the row until the row holds it.
+    var ownEdits = PlaybackSettings()
     /// The mode whose controls show under the waveform, which the mode panel reads and sets;
-    /// the screen keeps it as device state. Leaving a mode closes its panel.
+    /// a page opens on Speed. Leaving a mode closes its panel.
     var mode: PracticeMode {
         didSet {
-            guard mode != oldValue else { return }
+            guard mode != oldValue, isPanelShown else { return }
             closePanel(oldValue)
             openPanel()
         }
@@ -132,8 +148,12 @@ final class PracticeModel {
     @ObservationIgnored let writer: LoopWriter
     @ObservationIgnored let clock: () -> ContinuousClock.Instant
     @ObservationIgnored let announce: (String) -> Void
+    /// The recording page this practice is on, which owns the playback its Play starts.
+    @ObservationIgnored let page: UUID?
     @ObservationIgnored var handleDrag: HandleDrag?
     @ObservationIgnored var activeScrub: Scrub?
+    /// Changes to ``ownEdits`` waiting out the player's settle delay before they are written.
+    @ObservationIgnored var ownSettling: [PlaybackSetting: Task<Void, Never>] = [:]
     /// Settles the momentum scroll under way once its run ends.
     @ObservationIgnored var momentumTask: Task<Void, Never>?
     /// How long a released drag coasts: three time constants, where 95% of its distance is covered.
@@ -159,12 +179,14 @@ final class PracticeModel {
     /// The settings the open panel showed as it opened, which it is reported against as
     /// it closes, so a slider dragged through many values reports only where it stopped.
     @ObservationIgnored private var panelOpenedOn: PlayedSettings?
+    /// Whether the practice view shows, so its panel reports and holds the outline.
+    @ObservationIgnored private var isPanelShown = false
     /// This screen's hold on the isolate outline while its Isolate panel shows.
     @ObservationIgnored private let panelRequester = UUID()
 
     init(
         player: PlayerModel, recording: Recording, file: RecordingFile?, writer: LoopWriter,
-        mode: PracticeMode = .loops,
+        mode: PracticeMode = .speed, page: UUID? = nil,
         clock: @escaping () -> ContinuousClock.Instant = { .now },
         announce: @escaping (String) -> Void = { AccessibilityNotification.Announcement($0).post() }
     ) {
@@ -173,6 +195,7 @@ final class PracticeModel {
         self.file = file
         self.writer = writer
         self.mode = mode
+        self.page = page
         self.clock = clock
         self.announce = announce
     }
@@ -186,21 +209,33 @@ final class PracticeModel {
 
     var trimStartMs: Int64 { recording.trimStartMs }
 
-    var isLoaded: Bool { player.isRecordingAudioReady }
+    /// Whether the player holds this recording, whose playback state is then the player's.
+    var isCurrent: Bool { player.holds(.recording, id: recording.id) }
+
+    /// Whether the waveform can be used: the loaded recording's audio is ready, or the player
+    /// holds another recording and the waveform works from the row.
+    var isLoaded: Bool { isCurrent ? player.isRecordingAudioReady : true }
+
+    /// Whether the recording is playing, which only the loaded one can be.
+    var isPlaying: Bool { isCurrent && player.audio.isPlaying }
 
     /// The trimmed recording's length: the player's once its audio is loaded, else the row's,
     /// and 0 while nothing says how long it is.
     var lengthMs: Int64 {
-        if isLoaded, let duration = player.audio.duration { return Int64((duration * 1000).rounded()) }
-        guard let end = recording.trimEndMs ?? recording.sourceDurationMs ?? file?.localDurationMs else { return 0 }
-        return max(0, end - trimStartMs)
+        if isCurrent, player.isRecordingAudioReady, let duration = player.audio.duration {
+            return Int64((duration * 1000).rounded())
+        }
+        return ScreenRows.trimmedLengthMs(recording, file: file) ?? 0
     }
 
     /// The trim range on the source timeline, which no loop leaves.
     var bounds: LoopSpan { LoopSpan(startMs: trimStartMs, endMs: trimStartMs + lengthMs) }
 
     /// The playhead on the trimmed timeline.
-    var positionMs: Double { isLoaded ? player.audio.elapsed * 1000 : 0 }
+    var positionMs: Double {
+        guard isCurrent else { return Double(ownPositionMs) }
+        return player.isRecordingAudioReady ? player.audio.elapsed * 1000 : 0
+    }
 
     /// The playhead on the source timeline where it shows, a scrub or momentum scroll under way
     /// included, which is where every loop command acts.
@@ -208,17 +243,35 @@ final class PracticeModel {
 
     /// Takes the recording's row and file as they are now.
     func follow(_ recording: Recording, file: RecordingFile?) {
-        if recording != self.recording { self.recording = recording }
+        if recording != self.recording {
+            self.recording = recording
+            followOwnEdits(recording)
+        }
         if file != self.file { self.file = file }
         ensureZoom()
     }
 
+    /// Takes the recording's loops as they are now, which the model keeps for itself while the
+    /// player holds another recording.
+    func followLoops(_ rows: [RecordingLoop]) {
+        let live =
+            rows.filter { $0.deletedAt == nil }
+            .sorted { ($0.startMs, $0.endMs, $0.id) < ($1.startMs, $1.endMs, $1.id) }
+        if live != ownLoops { ownLoops = live }
+        if let unseen = ownUnseen, live.contains(where: { $0.id == unseen.id }) { ownUnseen = nil }
+        if let id = ownSelectedID, ownUnseen?.id != id, !live.contains(where: { $0.id == id }) { ownSelectedID = nil }
+    }
+
     // MARK: Loops and selection
 
-    var loops: [RecordingLoop] { player.loops.rows }
-    var selectedID: String? { player.loops.selectedID }
-    var selected: RecordingLoop? { player.loops.selected }
-    var isRepeating: Bool { player.loops.isRepeating }
+    var loops: [RecordingLoop] { isCurrent ? player.loops.rows : ownLoops }
+    var selectedID: String? { isCurrent ? player.loops.selectedID : ownSelectedID }
+    var selected: RecordingLoop? {
+        guard !isCurrent else { return player.loops.selected }
+        guard let ownSelectedID else { return nil }
+        return ownLoops.first { $0.id == ownSelectedID } ?? (ownUnseen?.id == ownSelectedID ? ownUnseen : nil)
+    }
+    var isRepeating: Bool { isCurrent ? player.loops.isRepeating : ownSelectedID != nil }
 
     func name(_ loop: RecordingLoop) -> String {
         LoopModel.name(label: loop.label, startMs: loop.startMs, trimStartMs: trimStartMs)
@@ -226,7 +279,37 @@ final class PracticeModel {
 
     /// Selects loop `id`, which then repeats, or none, which plays on.
     func select(_ id: String?) {
-        player.loops.select(id)
+        guard !isCurrent else {
+            player.loops.select(id)
+            return
+        }
+        ownUnseen = nil
+        ownSelectedID = id
+        bringPlayheadIntoSelected()
+    }
+
+    /// Selects `row`, a loop just written that the rows may not hold yet.
+    func select(_ row: RecordingLoop) {
+        guard !isCurrent else {
+            player.loops.select(row)
+            return
+        }
+        ownUnseen = ownLoops.contains { $0.id == row.id } ? nil : row
+        ownSelectedID = row.id
+        bringPlayheadIntoSelected()
+    }
+
+    /// Plays `span` for loop `id` ahead of its row while the player holds this recording.
+    func hold(_ id: String, _ span: LoopSpan?) {
+        if isCurrent { player.loops.hold(id, span) }
+    }
+
+    /// A playhead outside the selected loop moves to its start, as the player's selection does.
+    private func bringPlayheadIntoSelected() {
+        guard let row = selected else { return }
+        let start = row.startMs - trimStartMs
+        let end = row.endMs - trimStartMs
+        if ownPositionMs < start || ownPositionMs >= end { ownPositionMs = max(0, start) }
     }
 
     /// Loop `id`'s row, the selected loop's included while the live rows catch up with it.
@@ -369,13 +452,13 @@ final class PracticeModel {
     func write(_ id: String, _ span: LoopSpan) {
         putDraft(id, span)
         drafts[id]?.sent.append(span)
-        if id == selectedID { player.loops.hold(id, span) }
+        if id == selectedID { hold(id, span) }
         run { [self] in
             do {
                 try await writer.update(id, span, .keep)
             } catch {
                 dropDraft(id)
-                if id == selectedID { player.loops.hold(id, nil) }
+                if id == selectedID { hold(id, nil) }
                 report(error)
             }
         }
@@ -426,16 +509,33 @@ final class PracticeModel {
 
     // MARK: Arriving and leaving
 
-    /// The screen is showing: the time spent on it until the sheet holding it goes is one visit
-    /// to the recording, however often it shows again in between.
-    func enter(screen: UUID? = nil) {
-        player.screenOpened(recording.id, recording: recording, by: screen)
+    /// The practice view is showing: the open mode's panel starts reporting its changes. The
+    /// page, not the practice view, owns the visit, so a tab switch never ends it.
+    func showPanel() {
+        guard !isPanelShown else { return }
+        isPanelShown = true
         openPanel()
+    }
+
+    /// The player has taken this recording or let it go: the Isolate panel holds the isolate
+    /// outline only while the player holds the recording it shows.
+    func currentChanged() {
+        guard isPanelShown, mode == .isolate else { return }
+        player.requestIsolateOutline(isCurrent, by: panelRequester)
+    }
+
+    /// Opens the visit to the recording, once the player holds it: a page open on a recording
+    /// that is not loaded is no visit, since nothing of it plays.
+    func openVisit(screen: UUID? = nil) {
+        guard isCurrent else { return }
+        player.screenOpened(recording.id, recording: recording, by: screen)
     }
 
     /// The screen is going: a nudge and a name field that lost focus are written, a scrub lands
     /// where it was dragged, and a handle's drag comes to nothing.
     func leave() {
+        flushOwnSettings()
+        isPanelShown = false
         closePanel(mode)
         commitNudge()
         flushBlur()
@@ -449,8 +549,10 @@ final class PracticeModel {
     /// The Isolate panel engages the isolate unit while it shows, so its outline is live and the
     /// first change brings no jump in delay.
     private func openPanel() {
-        panelOpenedOn = player.playedSettings(of: recording.id)
-        if mode == .isolate { player.requestIsolateOutline(true, by: panelRequester) }
+        panelOpenedOn = playedSettings
+        // A recording the player does not hold has no outline, and asking would engage the
+        // isolate unit for the one that plays.
+        if mode == .isolate, isCurrent { player.requestIsolateOutline(true, by: panelRequester) }
     }
 
     /// Reports the panel's setting where it differs from the one it opened on, both read for
@@ -459,7 +561,7 @@ final class PracticeModel {
     private func closePanel(_ mode: PracticeMode) {
         if mode == .isolate { player.requestIsolateOutline(false, by: panelRequester) }
         defer { panelOpenedOn = nil }
-        guard let opened = panelOpenedOn, let now = player.playedSettings(of: recording.id) else { return }
+        guard let opened = panelOpenedOn, let now = playedSettings else { return }
         switch mode {
         case .loops: break
         case .speed:
@@ -474,7 +576,7 @@ final class PracticeModel {
             }
         case .isolate:
             guard now.isolate != opened.isolate else { return }
-            let isMono = (player.holds(.recording, id: recording.id) ? player.isMono : nil) ?? recording.isMono
+            let isMono = (isCurrent ? player.isMono : nil) ?? recording.isMono
             let setting = now.isolate.effective(isMono: isMono == true)
             let full = IsolateSetting.standard
             player.analytics.send(

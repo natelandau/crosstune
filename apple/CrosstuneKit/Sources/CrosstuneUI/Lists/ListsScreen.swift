@@ -20,7 +20,7 @@ public struct ListsScreen: View {
     @State private var deleting: ListSummary?
     @Environment(\.openList) private var openList
     @Namespace private var zoom
-    @Environment(\.stackTune) private var stackTune
+    @Environment(\.stackPath) private var stackPath
     @Environment(PlayerModel.self) private var player: PlayerModel?
     @Environment(ListPlayback.self) private var listPlayback: ListPlayback?
     @Environment(AccountSession.self) private var session: AccountSession?
@@ -77,7 +77,7 @@ public struct ListsScreen: View {
         .navigationDestination(for: ListRoute.self) { route in
             ListScreen(listID: route.id)
                 // A destination takes the stack's environment, not this screen's.
-                .environment(\.stackTune, stackTune)
+                .environment(\.stackPath, stackPath)
                 #if os(iOS)
                     .navigationTransition(.zoom(sourceID: route.id, in: zoom))
                 #endif

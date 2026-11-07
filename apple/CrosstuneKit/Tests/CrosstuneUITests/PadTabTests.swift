@@ -102,9 +102,9 @@ import Testing
     @Test func aStatusChoiceKeepsEachTabsTune() async throws {
         let catalog = try await loadedCatalog()
         let place = ShellPlace()
-        place.tabTunes = [.catalog: "t1", .lists: "t2"]
+        place.tabPaths = [.catalog: PagePath(tune: "t1"), .lists: PagePath(tune: "t2")]
         PadTab.choose(.status("known"), place: place, catalog: catalog, inSidebar: true)
-        #expect(place.tabTunes == [.catalog: "t1", .lists: "t2"])
+        #expect(place.tabPaths == [.catalog: PagePath(tune: "t1"), .lists: PagePath(tune: "t2")])
         #expect(try await poll { !catalog.isSavingFilters })
     }
 
@@ -143,5 +143,30 @@ import Testing
         #expect(place.tab == .lists)
         #expect(place.tabList == "l1")
         #expect(PadTab.openList(place: place) == .list(id: "l1"))
+    }
+
+    @Test func theOpenRecordingFollowsTheTabsPage() {
+        let place = ShellPlace()
+        let open = place.recordingValue(in: .recordings)
+        #expect(open.value == nil)
+
+        place.tab = .recordings
+        place.openRecordingPageInTabs("r1")
+        #expect(open.value == "r1")
+
+        place.tab = .recordings
+        place.openRecordingPageInTabs("r2")
+        #expect(open.value == "r2")
+
+        place.tabPaths[.recordings]?.recording = nil
+        #expect(open.value == nil)
+    }
+
+    @Test func choosingARowWritesTheTabsPage() {
+        let place = ShellPlace()
+        let open = place.recordingValue(in: .recordings)
+        open.value = "r3"
+        #expect(place.tabPaths[.recordings]?.recording == "r3")
+        #expect(place.recordingValue(in: .catalog).value == nil)
     }
 }

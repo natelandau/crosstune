@@ -364,7 +364,7 @@ struct StatsDocument: View {
         } else if commands != nil {
             NavigationLink {
                 TuneScreen(tuneID: rarity.tuneID)
-                    .environment(\.stackTune, nil)
+                    .environment(\.stackPath, nil)
             } label: {
                 chevronRow(label)
             }

@@ -24,11 +24,8 @@ import Testing
 
     /// A recording row's swipe actions take only the swipe fills.
     @Test func recordingSwipeActionsTakeOnlyTheSwipeFills() {
-        let actions: [RecordingRowAction] = [
-            .edit, .addToTune, .removeFromTune, .goToTune, .pin, .openOrigin(site: "YouTube"), .delete,
-        ]
-        for action in actions {
-            #expect(Palette.swipeFills.contains(RecordingRowHandlers.swipeFill(action)), "\(action)")
+        for action in RecordingRowAction.swipe {
+            #expect(Palette.swipeFills.contains(action.swipeFill), "\(action)")
         }
     }
 

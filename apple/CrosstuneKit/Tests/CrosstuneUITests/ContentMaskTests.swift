@@ -36,8 +36,6 @@ import Testing
         "facetLine", "valueLabel", "capsuleLabel", "learned",
         // Lines built around a typed search, a tune title, or a list name.
         "noTuneCalled", "added", "removed", "openTune", "filingUnder",
-        // A recording's players and place name.
-        "credits", "editLocation",
     ]
 
     /// Reads whose property or method is named like content but hold the app's own words.
@@ -47,6 +45,8 @@ import Testing
         "feature.title",
         // The date a member's plan renews or ends.
         "membership.value",
+        // The location editor's list names: Nearby, Saved locations, Recent locations.
+        "list.title",
     ]
 
     /// Views that show their argument. One whose argument reads a content property is masked.
@@ -344,18 +344,21 @@ import Testing
         ("Import/ImportSheet.swift", "Picker(ImportCopy.listLabel"),
         // A file read's failure, which can name the file.
         ("Import/ImportSheet.swift", "Text(failure)"),
-        // The Mac recording heading's second line, which ends with the players and the place.
-        ("RecordingScreen/RecordingScreen.swift", "Text(subtitle)"),
-        // The edit sheet's place row, and a place suggestion's second line, which names the region.
-        ("Recordings/EditRecordingSheet.swift", "Text(model.place?.name"),
-        ("Recordings/PlaceSearchView.swift", "Text(completion.subtitle)"),
-        // A location row's name and address, handed in by the location page.
-        ("Recordings/PlaceSearchView.swift", "Text(name)"),
-        ("Recordings/PlaceSearchView.swift", "Text(address)"),
+        // The recording page heading's title and second line, handed in by the page.
+        ("RecordingPage/RecordingPageHeader.swift", "Text(title)"),
+        ("RecordingPage/RecordingPageHeader.swift", "Text(subtitle)"),
+        // A place suggestion's second line, which names the region.
+        ("RecordingPage/Location/LocationEditor.swift", "Text(completion.subtitle)"),
+        // A location row's name, address, and distance, handed in by the location editor.
+        ("RecordingPage/Location/LocationEditor.swift", "Text(name)"),
+        ("RecordingPage/Location/LocationEditor.swift", "Text(address)"),
+        ("RecordingPage/Location/LocationEditor.swift", "Text(distance)"),
         // The map of a recording's spot, which shows where it was made.
         ("Recordings/LocationMap.swift", "Map(initialPosition"),
+        // The pin map, which shows the spot being picked.
+        ("RecordingPage/Location/DropPinView.swift", "Map(position"),
         // An attribute's value, read from the row it is handed.
-        ("Tune/TuneAttributes.swift", "Text(Self.value(row))"),
+        ("Components/Attributes/AttributesColumn.swift", "Text(row.value(emptyText: emptyText))"),
         // The Split screen's strips, which draw the recording's waveform.
         ("RecordingScreen/SplitScreen.swift", "SplitOverviewStrip(model: model"),
         ("RecordingScreen/SplitScreen.swift", "CenterLineStrip(model: model"),

@@ -36,9 +36,14 @@ private struct FailingEventsAPI: SyncAPI {
     }
     func recordNotice(_ notice: PlanNotice) async throws {}
     func refreshBilling() async throws {}
-    func storage() async throws -> StorageUsage { StorageUsage(usedBytes: 0, quotaBytes: 0, maxFileBytes: 0) }
+    func account() async throws -> AccountSummary {
+        AccountSummary(storage: StorageUsage(usedBytes: 0, quotaBytes: 0, maxFileBytes: 0))
+    }
     func resolveLink(url: String) async throws -> ResolvedLink { throw URLError(.badURL) }
     func searchRecordings(q: String, providers: [String], country: String) async throws -> SearchResponse {
+        throw URLError(.badURL)
+    }
+    func reversePlace(lat: Double, lon: Double) async throws -> ReversedPlace? {
         throw URLError(.badURL)
     }
     func requestUploadSlot(recordingID: String, bytes: Int64, contentType: String) async throws -> URL {
@@ -251,13 +256,13 @@ private func loadedSummary(_ store: CrosstuneStore) async throws -> LiveQuery<St
         catalog.query = "reel"
         let place = ShellPlace()
         place.tab = .settings
-        place.tabTunes[.catalog] = "t2"
+        place.tabPaths[.catalog] = PagePath(tune: "t2")
         let open = CatalogTapThrough(catalog: catalog, showRoot: MenuAction { place.showTabRoot(.catalog) })
 
         open(StatsLink.key("D")!)
         #expect(catalog.query.isEmpty)
         #expect(place.tab == .catalog)
-        #expect(place.tabTunes[.catalog] == nil)
+        #expect(place.tabPaths[.catalog]?.tune == nil)
         try await eventually { !catalog.isSavingFilters }
         var stored = CatalogFilters(stored: try await store.meta(.catalogFilters, as: JSONValue.self))
         #expect(stored == CatalogFilters(facets: [.key: "D"]))

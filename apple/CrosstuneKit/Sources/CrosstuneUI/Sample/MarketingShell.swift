@@ -64,11 +64,11 @@
             let place = ShellPlace()
             if value("-MarketingSidebar") == "tuner" { place.sidebar = .tuner }
             if let list = value("-MarketingList") { place.sidebar = .list(id: list) }
-            place.detailTune = value("-MarketingTune")
+            place.detailPath.tune = value("-MarketingTune")
             return place
         }
 
-        /// Opens the recording named by `-MarketingRecording <recording id>` on its own screen,
+        /// Plays the recording named by `-MarketingRecording <recording id>` and opens its page,
         /// playing at `-MarketingSpeed <percent>` when given, for the Mac capture.
         private func openRecording(in store: CrosstuneStore) async {
             guard let id = Self.value("-MarketingRecording") else { return }
@@ -77,7 +77,8 @@
                 return (recording, try Tune.fetchOne(db, key: recording.tuneID)?.title)
             }
             guard let (recording, title) = found ?? nil else { return }
-            player.open(.recording(recording, tuneTitle: title))
+            player.play(.recording(recording, tuneTitle: title))
+            place.openRecordingPage(recording.id, tab: .practice, source: .dock)
             if let speed = Self.value("-MarketingSpeed").flatMap(Int.init) { player.setSpeed(speed) }
         }
 

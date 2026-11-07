@@ -241,17 +241,19 @@ final class IsolateOutlineReader {
     }
 }
 
-/// The Isolate panel on the loaded recording, whose outlines follow the audio while the panel
-/// shows and the recording plays.
+/// The Isolate panel on the practice view's recording, whose outlines follow the audio while
+/// the panel shows and the loaded recording plays. A recording the player does not hold has no
+/// outline to show.
 struct LiveIsolatePanel: View {
-    let player: PlayerModel
+    let model: PracticeModel
     let shown: Bool
 
     var body: some View {
-        let audio = player.audio
+        let audio = model.player.audio
+        let live = model.isCurrent
         IsolatePanel(
-            value: player.isolate, isMono: player.isMono, isAvailable: audio.isolateAvailable,
-            outline: { shown ? audio.isolateOutline : nil },
-            isLive: shown && audio.isPlaying, onChange: player.setIsolate)
+            value: model.isolate, isMono: model.isMono, isAvailable: audio.isolateAvailable,
+            outline: { shown && live ? audio.isolateOutline : nil },
+            isLive: shown && model.isPlaying, onChange: model.setIsolate)
     }
 }

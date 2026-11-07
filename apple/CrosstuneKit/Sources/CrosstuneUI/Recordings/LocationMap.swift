@@ -6,19 +6,18 @@ import SwiftUI
 
 /// A small still map of a recording's spot: a pin for a precise point, or a circle as wide as
 /// the fix's accuracy for a loose one. Apple's terms want an Apple map wherever an Apple address
-/// or venue shows, so the location page always draws one for a point.
+/// or venue shows, so the location editor always draws one for a point.
 struct LocationMap: View {
     let coordinate: Coordinate
     let accuracyM: Int?
-
-    private static let height: CGFloat = 180
+    var height: CGFloat = 180
 
     @Environment(\.colorScheme) private var colorScheme
     /// The least ground the map spans, so a pin shows its streets around it.
     private static let minimumSpanM = 400.0
 
     private var center: CLLocationCoordinate2D {
-        CLLocationCoordinate2D(latitude: coordinate.lat, longitude: coordinate.lon)
+        coordinate.clCoordinate
     }
 
     private var region: MKCoordinateRegion {
@@ -39,8 +38,8 @@ struct LocationMap: View {
         .contentMask()
         // The camera is set only when the map is made, so a new point makes a new map.
         .id(coordinate)
-        .frame(height: Self.height)
-        // The Current section below names the spot in words.
+        .frame(height: height)
+        // The Location row, or the Current section below, names the spot in words.
         .accessibilityHidden(true)
     }
 }

@@ -23,7 +23,7 @@ struct TuneActionButtons: View {
     @Environment(PlayerModel.self) private var player: PlayerModel?
     @Environment(AccountSession.self) private var session: AccountSession?
     @Environment(\.plan) private var plan
-    @Environment(\.playerWindow) private var window
+    @Environment(\.openRecordingPage) private var openRecordingPage
     @Environment(\.analytics) private var analytics
     @Environment(\.openURL) private var openURL
     @Environment(RecorderHost.self) private var recorders: RecorderHost?
@@ -163,7 +163,7 @@ struct TuneActionButtons: View {
                     button(primary.label, primary.symbol, prominent: true) { press(primary) }
                 case .practice(let item):
                     button(TuneActionText.practice, "gauge.with.needle", prominent: false) {
-                        player?.open(item, in: window, playing: false, source: .tune)
+                        openRecordingPage?(item.id, tab: .practice, source: .tune)
                     }
                 case .lyrics:
                     if let onReadLyrics {

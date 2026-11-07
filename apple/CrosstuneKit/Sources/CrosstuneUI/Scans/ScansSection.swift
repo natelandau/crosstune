@@ -139,7 +139,7 @@ struct ScanStrip: View {
             .zoomSource(id: ScanScreens.sourceID(tuneID: tuneID, index: index), in: scanZoom)
             .disabled(!ScansSection.tileActs(opens: opens, actions: actions, premium: premium))
             .accessibilityLabel(ScanCopy.thumbnailName(index, opens: opens))
-            .accessibilityHint(status ?? "")
+            .accessibilityHint(status ?? "", isEnabled: status != nil)
             if let status {
                 Text(status)
                     .font(.platform(.caption))

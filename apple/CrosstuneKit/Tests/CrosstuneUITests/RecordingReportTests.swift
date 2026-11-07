@@ -45,12 +45,9 @@ import Testing
         let store = try root.open()
         let tuneID = try await tune("Kitchen Girl", in: store)
         try await put(recording("r1"), in: store)
-        let model = AddToTuneModel(store: store, recordingID: "r1", analytics: sink.client)
-        #expect(try await poll { model.results != nil })
-        model.query = "kitchen"
-        let entry = try #require(model.results?.rows.first)
+        let model = RecordingAttributeModel(store: store, recordingID: "r1", analytics: sink.client)
 
-        #expect(await model.pick(entry))
+        await model.file(tuneID)
 
         #expect(
             sink.captures == [
@@ -68,12 +65,9 @@ import Testing
         let first = try await tune("Kitchen Girl", in: store)
         let second = try await tune("Soldier's Joy", in: store)
         try await put(recording("r1", tuneID: first, source: "upload"), in: store)
-        let model = AddToTuneModel(store: store, recordingID: "r1", analytics: sink.client)
-        #expect(try await poll { model.results != nil })
-        model.query = "soldier"
-        let entry = try #require(model.results?.rows.first)
+        let model = RecordingAttributeModel(store: store, recordingID: "r1", analytics: sink.client)
 
-        #expect(await model.pick(entry))
+        await model.file(second)
 
         #expect(
             sink.captures == [
@@ -89,62 +83,53 @@ import Testing
     @Test func aRefusedFilingReportsNothing() async throws {
         let store = try root.open()
         let tuneID = try await tune("Kitchen Girl", in: store)
-        let model = AddToTuneModel(store: store, recordingID: "missing", analytics: sink.client)
-        #expect(try await poll { model.results != nil })
-        model.query = "kitchen"
-        let entry = try #require(model.results?.rows.first)
-        #expect(entry.tune.id == tuneID)
+        let model = RecordingAttributeModel(store: store, recordingID: "missing", analytics: sink.client)
 
-        #expect(!(await model.pick(entry)))
+        await model.file(tuneID)
 
         #expect(sink.calls.isEmpty)
     }
 
-    @Test func filingUnderANewTuneFromTheRecordingsScreenReportsTheCreateAndWhereItWas() async throws {
+    @Test func filingUnderANewTuneFromTheTuneRowReportsTheCreateAndWhereItWas() async throws {
         let store = try root.open()
         try await put(recording("r1"), in: store)
-        let model = RecordingsModel(store: store, analytics: sink.client)
-        #expect(try await poll { model.view("r1") != nil })
+        let model = RecordingAttributeModel(store: store, recordingID: "r1", analytics: sink.client)
 
-        let tuneID = try #require(await model.createTune("Kitchen Girl", filing: "r1")).tuneID
+        await model.fileUnderNewTune("Kitchen Girl")
 
-        #expect(try await poll { model.view("r1")?.tuneID == tuneID })
+        let filed = try await store.read { db in try Recording.fetchOne(db, key: "r1")?.tuneID }
+        #expect(filed != nil)
         #expect(sink.captures.map(\.name) == ["tune_created", "recording_filed"])
-        #expect(sink.captures.first?.properties["source"] == .string("recordings_list"))
+        #expect(sink.captures.first?.properties["source"] == .string("recording_screen"))
         #expect(sink.captures.last?.properties["from"] == .string("unfiled"))
         #expect(model.failure == nil)
     }
 
-    @Test func aRecordingThatRefusesItsNewTuneStillOpensTheTune() async throws {
+    @Test func aRecordingThatRefusesItsNewTuneSaysSoAndKeepsTheTune() async throws {
         let store = try root.open()
-        let model = RecordingsModel(store: store, analytics: sink.client)
+        let model = RecordingAttributeModel(store: store, recordingID: "missing", analytics: sink.client)
 
-        let created = try #require(await model.createTune("Kitchen Girl", filing: "missing"))
+        await model.fileUnderNewTune("Kitchen Girl")
 
-        #expect(created.filingError as? CommandError == .recordingNotFound)
-        // The tune's page opens over this screen, so the refusal goes to the window's banner.
-        #expect(model.failure == nil)
+        #expect(model.failure == RecordingAttributeModel.filingFailed)
+        let tunes = try await store.read { db in try Tune.fetchCount(db) }
+        #expect(tunes == 1)
     }
 
-    @Test func unfilingAndDeletingReportTheRecordingsOrigin() async throws {
+    @Test func deletingReportsTheRecordingsOrigin() async throws {
         let store = try root.open()
         let tuneID = try await tune("Kitchen Girl", in: store)
-        try await put(recording("r1", tuneID: tuneID, source: "import", origin: "slippery_hill"), in: store)
         try await put(recording("r2", tuneID: tuneID), in: store)
         let model = RecordingsModel(store: store, analytics: sink.client)
-        #expect(try await poll { model.view("r1") != nil && model.view("r2") != nil })
+        #expect(try await poll { model.view("r2") != nil })
 
-        await model.removeFromTune("r1")
         await model.delete("r2")
 
         #expect(
             sink.captures == [
                 .init(
-                    name: "recording_unfiled",
-                    properties: ["origin": .string("slippery_hill"), "recording_id": .string("r1")]),
-                .init(
                     name: "recording_deleted",
-                    properties: ["origin": .string("recorded"), "recording_id": .string("r2")]),
+                    properties: ["origin": .string("recorded"), "recording_id": .string("r2")])
             ])
     }
 
@@ -161,26 +146,6 @@ import Testing
         #expect(sink.calls.isEmpty)
     }
 
-    @Test func renamingReportsOnlyAChangedName() async throws {
-        let store = try root.open()
-        let stored = recording("r1")
-        try await put(stored, in: store)
-        let rename = EditRecordingModel(store: store, recording: stored, analytics: sink.client)
-        rename.setName("  Take 2  ")
-        #expect(await rename.save())
-
-        let dateOnly = EditRecordingModel(store: store, recording: stored, analytics: sink.client)
-        dateOnly.setYear("1998")
-        #expect(await dateOnly.save())
-
-        #expect(
-            sink.captures == [
-                .init(
-                    name: "recording_renamed",
-                    properties: ["origin": .string("recorded"), "recording_id": .string("r1")])
-            ])
-    }
-
     @Test func settingAPlaceReportsHowItWasPickedAndWhetherItReplacedOne() async throws {
         let store = try root.open()
         let bare = recording("r1")
@@ -192,10 +157,10 @@ import Testing
         try await put(placed, in: store)
         let spot = RecordingPlace(name: "Mount Airy, NC", coordinate: Coordinate(lat: 36.5, lon: -80.6))
 
-        let first = EditRecordingModel(store: store, recording: bare, analytics: sink.client)
+        let first = RecordingLocationEdit(store: store, recording: bare, analytics: sink.client)
         first.setPlace(spot, method: .search)
         #expect(await first.save())
-        let second = EditRecordingModel(store: store, recording: placed, analytics: sink.client)
+        let second = RecordingLocationEdit(store: store, recording: placed, analytics: sink.client)
         second.setPlace(spot, method: .suggestion)
         #expect(await second.save())
 
@@ -223,15 +188,14 @@ import Testing
         placed.placeAccuracyM = 12
         try await put(placed, in: store)
 
-        let untouched = EditRecordingModel(store: store, recording: placed, analytics: sink.client)
-        untouched.setPlayers("Tommy Jarrell")
+        let untouched = RecordingLocationEdit(store: store, recording: placed, analytics: sink.client)
         #expect(await untouched.save())
-        let repicked = EditRecordingModel(store: store, recording: placed, analytics: sink.client)
+        let repicked = RecordingLocationEdit(store: store, recording: placed, analytics: sink.client)
         repicked.setPlace(
             RecordingPlace(name: "Galax, VA", coordinate: Coordinate(lat: 36.66, lon: -80.92)), method: .suggestion)
         #expect(!repicked.isEdited)
         #expect(await repicked.save())
-        let cleared = EditRecordingModel(store: store, recording: placed, analytics: sink.client)
+        let cleared = RecordingLocationEdit(store: store, recording: placed, analytics: sink.client)
         cleared.clearPlace()
         #expect(await cleared.save())
 
@@ -240,8 +204,16 @@ import Testing
 
     @Test func aRefusedSaveReportsNoPlace() async throws {
         let store = try root.open()
-        let missing = recording("missing")
-        let edit = EditRecordingModel(store: store, recording: missing, analytics: sink.client)
+        let opened = recording("r1")
+        try await put(opened, in: store)
+        try await store.write { writer in
+            try writer.db.execute(
+                sql: """
+                    CREATE TRIGGER refuse_places BEFORE UPDATE ON recordings
+                    BEGIN SELECT RAISE(ABORT, 'refused'); END
+                    """)
+        }
+        let edit = RecordingLocationEdit(store: store, recording: opened, analytics: sink.client)
         edit.setPlace(
             RecordingPlace(name: "Galax, VA", coordinate: Coordinate(lat: 36.66, lon: -80.92)), method: .search)
         #expect(!(await edit.save()))
@@ -254,26 +226,20 @@ import Testing
         return model
     }
 
-    @Test func theTunePageReportsUnfilingAndDeletingARecording() async throws {
+    @Test func theTunePageReportsDeletingARecording() async throws {
         let store = try root.open()
         let tuneID = try await tune("Kitchen Girl", in: store)
-        let first = recording("r1", tuneID: tuneID)
         let second = recording("r2", tuneID: tuneID, source: "upload")
-        try await put(first, in: store)
         try await put(second, in: store)
         let model = try await loadedTune(tuneID, in: store)
 
-        await model.unfileRecording(first)
         await model.deleteRecording(second)
 
         #expect(
             sink.captures == [
                 .init(
-                    name: "recording_unfiled",
-                    properties: ["origin": .string("recorded"), "recording_id": .string("r1")]),
-                .init(
                     name: "recording_deleted",
-                    properties: ["origin": .string("imported"), "recording_id": .string("r2")]),
+                    properties: ["origin": .string("imported"), "recording_id": .string("r2")])
             ])
     }
 

@@ -11,6 +11,8 @@ public enum MetaKey: String, Sendable {
     case invalidChanges = "invalid_changes"
     /// The account's storage usage from the API.
     case storage
+    /// A point inside the account's country from the API, null while the country is unknown.
+    case countryCenter = "country_center"
     /// Whether this device downloads every ready recording to play without a connection.
     case keepOffline = "keep_offline"
     /// The catalog screen's filters.

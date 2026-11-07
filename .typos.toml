@@ -21,3 +21,5 @@
     # in Newton, MA.
     theatre = "theatre"
     centre = "centre"
+    # The SF Symbol for a map pin (`mappin`, `mappin.circle`), not a typo for "mapping".
+    mappin = "mappin"

@@ -78,7 +78,7 @@ final class TrimModel {
         self.analytics = analytics
         recordingID = recording.id
         let low = recording.trimStartMs
-        let endMs = recording.trimEndMs ?? recording.sourceDurationMs ?? file?.localDurationMs ?? low
+        let endMs = RecordingLimits.sourceEndMs(recording, file: file) ?? low
         bounds = low...max(low, endMs)
         start = bounds.lowerBound
         end = bounds.upperBound

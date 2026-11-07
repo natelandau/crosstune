@@ -583,9 +583,9 @@ import Testing
     @Test func aTunePushedOverOneListLeavesWithIt() {
         let place = ShellPlace()
         place.tabList = "list-1"
-        place.tabTunes = [.lists: "tune-1", .catalog: "tune-2"]
+        place.tabPaths = [.lists: PagePath(tune: "tune-1"), .catalog: PagePath(tune: "tune-2")]
         place.tabList = "list-2"
-        #expect(place.tabTunes == [.catalog: "tune-2"])
+        #expect(place.tabPaths == [.catalog: PagePath(tune: "tune-2")])
     }
 
     @Test func aPlaceScrolledToInOneListLeavesWithIt() {
@@ -604,23 +604,23 @@ import Testing
             place.tab = .recordings
             place.openTune("t1")
             #expect(place.tab == .recordings)
-            #expect(place.tabTunes[.recordings] == "t1")
+            #expect(place.tabPaths[.recordings]?.tune == "t1")
 
             place.tab = .lists
             place.tabList = "l1"
             place.openTune("t2")
             #expect(place.tab == .lists)
-            #expect(place.tabTunes[.lists] == "t2")
+            #expect(place.tabPaths[.lists]?.tune == "t2")
 
             place.tabList = nil
             place.openTune("t3")
             #expect(place.tab == .catalog)
-            #expect(place.tabTunes[.catalog] == "t3")
+            #expect(place.tabPaths[.catalog]?.tune == "t3")
 
             place.tab = .tuner
             place.openTune("t4")
             #expect(place.tab == .catalog)
-            #expect(place.tabTunes[.catalog] == "t4")
+            #expect(place.tabPaths[.catalog]?.tune == "t4")
         }
     #else
         @Test func aTuneOpensInTheDetailColumnBesideACatalogWhereTheTunerFillsIt() {
@@ -628,14 +628,99 @@ import Testing
             place.sidebar = .recordings
             place.openTune("t1")
             #expect(place.sidebar == .recordings)
-            #expect(place.detailTune == "t1")
+            #expect(place.detailPath.tune == "t1")
 
             place.sidebar = .tuner
             place.openTune("t2")
             #expect(place.sidebar == .catalog)
-            #expect(place.detailTune == "t2")
+            #expect(place.detailPath.tune == "t2")
         }
     #endif
+
+    /// Go to tune on a compact window's recording page pushes the tune over the page, so Back
+    /// returns to the page. Another page, or a tab root, closes the tune with the page.
+    @Test func aTuneOpenedOverACompactRecordingPageIsPushedOverIt() {
+        let place = ShellPlace()
+        place.isCompact = true
+        place.tab = .recordings
+        place.tabPaths[.recordings, default: PagePath()].recording = "r1"
+        place.openTuneInTabs("t1")
+        #expect(place.tabPaths[.recordings]?.recording == "r1")
+        #expect(place.tabPaths[.recordings]?.pageTune == "t1")
+        #expect(place.tabPaths[.recordings]?.tune == nil)
+
+        place.tabPaths[.recordings, default: PagePath()].pageTune = nil
+        #expect(place.tabPaths[.recordings]?.recording == "r1")
+
+        place.openTuneInTabs("t1")
+        place.tabPaths[.recordings, default: PagePath()].recording = "r2"
+        #expect(place.tabPaths[.recordings]?.pageTune == nil)
+
+        place.openTuneInTabs("t2")
+        place.showTabRoot(.recordings)
+        #expect(place.tabPaths.values.allSatisfy { $0.pageTune == nil })
+        #expect(place.tabPaths.values.allSatisfy { $0.recording == nil })
+
+        // The regular iPad shows the page in the detail column, where the tune takes its place.
+        place.isCompact = false
+        place.tabPaths[.recordings, default: PagePath()].recording = "r1"
+        place.openTuneInTabs("t3")
+        #expect(place.tabPaths[.recordings]?.recording == nil)
+        #expect(place.tabPaths[.recordings]?.tune == "t3")
+        #expect(place.tabPaths.values.allSatisfy { $0.pageTune == nil })
+    }
+
+    @Test func reopeningThePageUnderAPushedTuneTakesItBack() {
+        let place = ShellPlace()
+        place.isCompact = true
+        place.tab = .recordings
+        place.openRecordingPageInTabs("r1")
+        place.openTuneInTabs("t1")
+        #expect(place.tabPaths[.recordings]?.pageTune == "t1")
+        place.openRecordingPageInTabs("r1")
+        #expect(place.tabPaths[.recordings]?.recording == "r1")
+        #expect(place.tabPaths[.recordings]?.pageTune == nil)
+    }
+
+    /// A page opened over tune t1 goes back to t1 for Go to tune t1, rather than pushing t1 twice.
+    @Test func goToTheTuneUnderThePageGoesBackToIt() {
+        let place = ShellPlace()
+        place.isCompact = true
+        place.tab = .catalog
+        place.tabPaths[.catalog, default: PagePath()].tune = "t1"
+        place.tabPaths[.catalog, default: PagePath()].recording = "r1"
+        place.openTuneInTabs("t1")
+        #expect(place.tabPaths[.catalog]?.tune == "t1")
+        #expect(place.tabPaths[.catalog]?.recording == nil)
+        #expect(place.tabPaths.values.allSatisfy { $0.pageTune == nil })
+    }
+
+    /// A detail column's list reads the covered tune as none, so choosing it closes the page.
+    @Test func choosingTheCoveredTuneClosesThePage() {
+        var path = PagePath(tune: "t1")
+        path.recording = "r1"
+        #expect(path.listedTune == nil)
+
+        path.setListedTune(nil)
+        #expect(path == PagePath(tune: "t1", recording: "r1"))
+
+        path.setListedTune("t1")
+        #expect(path.recording == nil)
+        #expect(path.listedTune == "t1")
+    }
+
+    @Test func wideningDropsATunePushedOverAPage() {
+        let place = ShellPlace()
+        place.isCompact = true
+        place.tab = .recordings
+        place.tabPaths[.recordings, default: PagePath()].recording = "r1"
+        place.openTuneInTabs("t1")
+        place.widened()
+        #expect(place.tabPaths.values.allSatisfy { $0.pageTune == nil })
+        place.narrowed()
+        #expect(place.tabPaths.values.allSatisfy { $0.pageTune == nil })
+        #expect(place.tabPaths[.recordings]?.recording == "r1")
+    }
 
     @Test func theListsStackIsTheOpenList() {
         let place = ShellPlace()
@@ -657,11 +742,11 @@ import Testing
         let place = ShellPlace()
         place.tab = .catalog
         place.tabList = "l1"
-        place.tabTunes[.lists] = "t1"
+        place.tabPaths[.lists, default: PagePath()].tune = "t1"
         place.showTabRoot(.lists)
         #expect(place.tab == .lists)
         #expect(place.tabList == nil)
-        #expect(place.tabTunes[.lists] == nil)
+        #expect(place.tabPaths[.lists]?.tune == nil)
         place.settingsPage = .stats
         place.showTabRoot(.settings)
         #expect(place.settingsPage == nil)
@@ -907,13 +992,13 @@ import Testing
         let place = ShellPlace()
         place.tab = .lists
         place.tabList = "l1"
-        place.tabTunes[.lists] = "t1"
+        place.tabPaths[.lists, default: PagePath()].tune = "t1"
         place.scrollAnchors[.lists] = "item-3"
         #expect(PadTab.selected(place: place, status: nil, inSidebar: true) == .list(id: "l1"))
         #expect(PadTab.selected(place: place, status: nil, inSidebar: false) == .destination(.lists))
         // Choosing the top-level tab, as the top bar does, keeps the open list's tune and place.
         PadTab.choose(.destination(.lists), place: place, catalog: nil, inSidebar: false)
-        #expect(place.tabTunes[.lists] == "t1")
+        #expect(place.tabPaths[.lists]?.tune == "t1")
         #expect(place.scrollAnchors[.lists] == "item-3")
     }
 

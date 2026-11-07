@@ -34,6 +34,37 @@ public struct RecordingsScreen: View {
     }
 }
 
+extension RecordingsScreen {
+    /// Opens the page of the recording a Mac click or arrow key selected, leaving playback as it
+    /// is. Every listed recording opens, whether or not it can play.
+    static func openSelected(_ id: String?, isListed: (String) -> Bool, open: RecordingPageOpener?) {
+        guard let id, isListed(id) else { return }
+        open?(id, source: .recordingsList)
+    }
+
+    #if os(macOS)
+        /// Opens the selected recording's page unless a pointer press made the selection. A click
+        /// on a row lands on the row's own button, which opens the page, or on its slot's, which
+        /// never does, so the list's selection opens only for the arrow keys. `cause` is the event
+        /// the selection came from, nil when there is none.
+        static func openSelected(
+            _ id: String?, isListed: (String) -> Bool, open: RecordingPageOpener?, cause: NSEvent.EventType?
+        ) {
+            guard !(cause.map(isPointerPress) ?? false) else { return }
+            openSelected(id, isListed: isListed, open: open)
+        }
+
+        private static func isPointerPress(_ type: NSEvent.EventType) -> Bool {
+            switch type {
+            case .leftMouseDown, .leftMouseUp, .leftMouseDragged, .rightMouseDown, .rightMouseUp, .otherMouseDown,
+                .otherMouseUp:
+                true
+            default: false
+            }
+        }
+    #endif
+}
+
 /// A group's title over its recordings, as a plain heading with no card behind it.
 struct RecordingsGroupHeading: View {
     let title: String
@@ -57,13 +88,12 @@ private struct RecordingsContent: View {
 
     @Environment(PlayerModel.self) private var player: PlayerModel?
     @Environment(RecordingTransferActions.self) private var transfers: RecordingTransferActions?
-    @Environment(AddedTuneUndo.self) private var addedTune: AddedTuneUndo?
     @Environment(SyncEngine.self) private var engine: SyncEngine?
     @Environment(RecorderHost.self) private var recorders: RecorderHost?
     @Environment(\.detailTune) private var detailTune
-    @Environment(\.playerWindow) private var window
+    @Environment(\.detailRecording) private var detailRecording
+    @Environment(\.openRecordingPage) private var openRecordingPage
     @Environment(\.spacing) private var spacing
-    @Environment(\.openURL) private var openURL
     @Environment(\.openSheets) private var openSheets
     @Environment(\.plan) private var planModel: PlanModel?
     @Environment(\.premium) private var premium
@@ -78,11 +108,6 @@ private struct RecordingsContent: View {
     @State private var importing = false
     @State private var dropTargeted = false
     @State private var showsFilters = false
-    @State private var filing: RecordingView?
-    @State private var editing: RecordingView?
-    /// A tune the add to tune sheet asked to start, with the recording to file under it, made
-    /// once that sheet has gone.
-    @State private var creating: (recordingID: String, title: String)?
     @State private var deleting: RecordingView?
     @State private var discarding: RecordingFile?
     @Namespace private var zoom
@@ -255,24 +280,9 @@ private struct RecordingsContent: View {
         .sheet(isPresented: $showsFilters) {
             RecordingsFilterSheet(model: model)
         }
-        .sheet(item: $editing) { view in
-            EditRecordingSheet(view: view)
-        }
-        .sheet(item: $filing, onDismiss: openCreated) { view in
-            AddToTuneSheet(recordingID: view.id) { title in creating = (view.id, title) }
-        }
         #if DEBUG
             .opensForSample(.recordingsFilters) { showsFilters = true }
             .opensForSample(.recordingsSetFilters) { Task { await model.setChoice(RecordingText.ownOrigin) } }
-            .opensForSample(.editRecording, when: model.view(SampleScreen.editedRecordingID) != nil) {
-                editing = model.view(SampleScreen.editedRecordingID)
-            }
-            .opensForSample(.editLocation, when: model.view(SampleScreen.editedRecordingID) != nil) {
-                editing = model.view(SampleScreen.editedRecordingID)
-            }
-            .opensForSample(.addToTune, when: model.view(SampleScreen.unfiledRecordingID) != nil) {
-                filing = model.view(SampleScreen.unfiledRecordingID)
-            }
         #endif
         .coversShell(deleting != nil)
         .confirmationDialog(
@@ -487,26 +497,26 @@ private struct RecordingsContent: View {
         importing = premium?.gate(.recordings, from: .upload) ?? true
     }
 
-    /// The recording whose practice view the Mac detail column shows, as the list's selection,
-    /// so its row reads as the open one and the arrow keys open its neighbors. Nil elsewhere.
+    /// The recording whose page the detail column shows, as the list's selection, so its row reads
+    /// as the open one and, on the Mac, the arrow keys open its neighbors. Nil on a phone, where the
+    /// page replaces the list.
     private var openRecording: Binding<String?>? {
         #if os(macOS)
-            guard let player else { return nil }
-            return Binding<String?> {
-                guard player.showsExpanded(in: window), let item = player.item, item.kind == .recording else {
-                    return nil
-                }
-                return item.id
-            } set: { id in
-                // The row's own tap offers Premium instead.
-                guard plan.recordingsPlay, let id, let view = model.view(id) else { return }
-                player.open(
-                    .recording(view.recording, tuneTitle: view.tuneTitle), in: window, playing: false,
-                    source: .recordingsList)
-            }
+            guard player != nil else { return nil }
         #else
-            nil
+            guard detailRecording != nil else { return nil }
         #endif
+        return Binding<String?> {
+            detailRecording?.value
+        } set: { id in
+            #if os(macOS)
+                RecordingsScreen.openSelected(
+                    id, isListed: { model.view($0) != nil }, open: openRecordingPage,
+                    cause: NSApp.currentEvent?.type)
+            #else
+                RecordingsScreen.openSelected(id, isListed: { model.view($0) != nil }, open: openRecordingPage)
+            #endif
+        }
     }
 
     /// The space above and below a media row on the Mac, which sits at the column's tune row edges.
@@ -516,46 +526,40 @@ private struct RecordingsContent: View {
     /// otherwise sits under a line naming it; either way its title never falls back to the tune.
     private func row(_ view: RecordingView, opensTune: Bool = false) -> some View {
         let open = view.tuneID.map { tuneID in { openTune(tuneID) } }
-        #if os(macOS)
-            let opensScreen = true
-        #else
-            let opensScreen = false
-        #endif
         return RecordingItem(
             view: view, source: .recordingsList, tuneNamedAbove: view.tuneID != nil, storage: model.storage(plan: plan),
-            uploadLimits: model.uploadLimits, sort: sort.sort,
-            onOpenTune: opensTune ? open : nil, opensScreen: opensScreen
+            uploadLimits: model.uploadLimits, sort: sort.sort, onOpenTune: opensTune ? open : nil
         ) { kind in
             retry(view.id, kind)
         }
         .newRecordingHighlight(view.id)
-        .listItemRow(macVerticalInset: Self.macRowInset)
+        #if os(macOS)
+            // The space above and below the row is inside the row's open button rather than in
+            // the list's row insets, so a click anywhere on the row but its slot opens the page,
+            // and the list's selection never has to.
+            .padding(.vertical, Self.macRowInset)
+            .background {
+                Button {
+                    openRecordingPage?(view.id, source: .recordingsList)
+                } label: {
+                    Color.clear.contentShape(.rect)
+                }
+                .buttonStyle(.plain)
+                .accessibilityHidden(true)
+                // The row's own button takes the same press, so keyboard focus stops there alone.
+                .focusable(false)
+            }
+            .listItemRow()
+        #else
+            .listItemRow(macVerticalInset: Self.macRowInset)
+        #endif
         .unselectedRowBackground(isSelected: openRecording?.wrappedValue == view.id)
         #if os(macOS)
             .macRowSelected(openRecording?.wrappedValue == view.id)
         #endif
         .tag(view.id)
-        // A row with no audio here downloads or retries on a click, so selecting it, or arrowing
-        // past it, must not open its practice view and fetch it. A plan that holds recordings
-        // back sends the click to the Plan sheet.
-        .selectionDisabled(
-            !plan.recordingsPlay
-                || (!RecordingText.holdsAudio(view.file) && player?.holds(.recording, id: view.id) != true)
-        )
         .recordingRowActions(
-            filed: view.tuneID != nil,
-            originLabel: RecordingText.originLabel(view.recording.origin),
-            onOpenOrigin: RecordingRowActions.originPage(view.recording).map { page in { openURL(page) } },
-            onEdit: { editing = view },
-            onAddToTune: { filing = view },
-            onRemoveFromTune: { Task { await model.removeFromTune(view.id) } },
-            onGoToTune: open,
-            onDelete: { deleting = view },
-            onSplit: RecordingRowHandlers.split(
-                view, uploadLimits: model.uploadLimits, player: player, window: window, source: .recordingsList,
-                recordingsPlay: plan.recordingsPlay),
-            splitDisabledReason: RecordingRowHandlers.splitDisabledReason(view),
-            deleteDisabledReason: RecordingScreenText.deleteDisabledReason(view))
+            onDelete: { deleting = view }, deleteDisabledReason: RecordingScreenText.deleteDisabledReason(view))
     }
 
     /// The line over one tune's recordings under Tune sort. The whole line opens the tune.
@@ -627,20 +631,6 @@ private struct RecordingsContent: View {
         // The player lets go of the audio before its file goes.
         if player?.holds(.recording, id: view.id) == true { player?.close() }
         Task { await model.delete(view.id) }
-    }
-
-    /// Creates the tune the add to tune sheet asked for, files the recording under it, and opens
-    /// it, once the sheet has gone so the page opens over a screen with no sheet left. A refused
-    /// filing still opens the tune, with the refusal in the window's banner over it, since the
-    /// tune's page covers this screen's own failure line on iPhone.
-    private func openCreated() {
-        guard let creating else { return }
-        self.creating = nil
-        Task {
-            guard let created = await model.createTune(creating.title, filing: creating.recordingID) else { return }
-            if created.filingError != nil { addedTune?.notify(AddToTuneModel.failed) }
-            openTune(created.tuneID)
-        }
     }
 }
 

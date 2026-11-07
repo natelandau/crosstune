@@ -47,7 +47,7 @@ enum PlayerBadge {
     static let macHeight: CGFloat = 20
 }
 
-/// While a loop repeats: "Repeating B part", which opens the recording's screen, and a Repeat
+/// While a loop repeats: "Repeating B part", which opens the recording's page, and a Repeat
 /// control that deselects the loop.
 struct RepeatBadge: View {
     let player: PlayerModel
@@ -57,12 +57,13 @@ struct RepeatBadge: View {
     /// rather than pushing the player's own controls out; it grows with the caption it holds.
     @ScaledMetric(relativeTo: .caption) private var maxTextWidth: CGFloat = 120
 
-    @Environment(\.playerWindow) private var window
+    @Environment(\.openRecordingPage) private var openRecordingPage
+    @Environment(\.openTune) private var openTune
 
     var body: some View {
         HStack(spacing: 0) {
             Button {
-                if let item = player.item { player.open(item, in: window, source: .dock) }
+                player.openLoaded(recordingPage: openRecordingPage, tune: openTune, source: .dock)
             } label: {
                 #if os(macOS)
                     Text(PracticeText.repeating(name))

@@ -31,6 +31,18 @@ public struct SavedPlaceDraft: Hashable, Sendable {
     }
 }
 
+/// A place a full search found near the search's point: the row it shows as, and the place
+/// picking it sets, known already so the row shows its distance and a pick needs no lookup.
+public struct LocalPlaceResult: Hashable {
+    public let completion: PlaceCompletion
+    public let picked: PickedPlace
+
+    public init(completion: PlaceCompletion, picked: PickedPlace) {
+        self.completion = completion
+        self.picked = picked
+    }
+}
+
 /// A search result once picked: the place it sets, and the saved location it makes when it is a
 /// venue or a street address. A town makes none.
 public struct PickedPlace: Hashable, Sendable {
@@ -46,9 +58,16 @@ public struct PickedPlace: Hashable, Sendable {
 /// Searches for a venue, street address, or town, for a place picked by hand.
 @MainActor
 public protocol PlaceSearching: AnyObject {
-    init()
-    /// The suggestions for `query`, empty when there are none or the search fails.
+    /// A search whose full search looks around `near`; with no point there is no full search,
+    /// only the suggestions.
+    init(near: Coordinate?)
+    /// The suggestions for `query` as it is typed, from anywhere, empty when there are none or
+    /// the search fails.
     func completions(for query: String) async -> [PlaceCompletion]
+    /// The places a full search for `query` finds around the search's point, nearest-ranked
+    /// first. Empty with no point, or when the search fails. It needs whole words, so it runs
+    /// once the typing settles.
+    func localResults(for query: String) async -> [LocalPlaceResult]
     /// The place `completion` names, named as picked, nil when it cannot be found.
     func resolve(_ completion: PlaceCompletion) async -> PickedPlace?
 }
@@ -67,24 +86,43 @@ protocol PlaceCompleting: AnyObject {
 @MainActor
 public final class MapKitPlaceSearch: PlaceSearching {
     private let completer: any PlaceCompleting
+    /// Where the full search looks, nil for no full search.
+    private let region: MKCoordinateRegion?
     /// Every search waiting on the completer's current fragment, by a key of its own.
     private var waiting: [UUID: CheckedContinuation<Void, Never>] = [:]
     /// The fragment ``answer`` answers. Nil while the current fragment has no answer yet.
     private var answeredFragment: String?
     private var answer: [PlaceCompletion] = []
 
-    public required convenience init() {
-        self.init(completer: MapKitCompleter())
+    /// The ground the full search's region spans, in degrees of latitude and longitude: about
+    /// 55 km across, so a small venue near the hint ranks above a better-known one far away.
+    static let regionSpanDegrees = 0.5
+    /// The most places the full search lists, above the suggestions.
+    static let localLimit = 7
+
+    public required convenience init(near: Coordinate?) {
+        let region = Self.region(near: near)
+        self.init(completer: MapKitCompleter(region: region), region: region)
     }
 
-    init(completer: any PlaceCompleting) {
+    /// The region the full search looks in, centered on `near`; nil with no point.
+    static func region(near: Coordinate?) -> MKCoordinateRegion? {
+        near.map {
+            MKCoordinateRegion(
+                center: $0.clCoordinate,
+                span: MKCoordinateSpan(latitudeDelta: regionSpanDegrees, longitudeDelta: regionSpanDegrees))
+        }
+    }
+
+    init(completer: any PlaceCompleting, region: MKCoordinateRegion? = nil) {
         self.completer = completer
+        self.region = region
         completer.onAnswer = { [weak self] fragment, found in self?.answered(fragment, found: found) }
     }
 
     public func completions(for query: String) async -> [PlaceCompletion] {
         let typed = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard typed.count >= PlaceSearchModel.minimumQuery else { return [] }
+        guard typed.count >= LocationEditorModel.minimumQuery else { return [] }
         if query == answeredFragment { return answer }
         let key = UUID()
         await withTaskCancellationHandler {
@@ -107,13 +145,41 @@ public final class MapKitPlaceSearch: PlaceSearching {
         return query == answeredFragment ? answer : []
     }
 
-    // Only the deprecated placemark carries the US state code the name rule needs, and the
-    // street on its own; nothing that replaces it does.
-    @diagnose(DeprecatedDeclaration, as: ignored)
     public func resolve(_ completion: PlaceCompletion) async -> PickedPlace? {
         guard let picked = completion.token.base as? MKLocalSearchCompletion else { return nil }
         let response = try? await MKLocalSearch(request: MKLocalSearch.Request(completion: picked)).start()
-        guard let item = response?.mapItems.first else { return nil }
+        return response?.mapItems.first.flatMap(Self.picked)
+    }
+
+    public func localResults(for query: String) async -> [LocalPlaceResult] {
+        guard let region else { return [] }
+        let request = MKLocalSearch.Request()
+        request.naturalLanguageQuery = query
+        request.region = region
+        request.resultTypes = [.pointOfInterest, .address, .physicalFeature]
+        guard let items = try? await MKLocalSearch(request: request).start().mapItems else { return [] }
+        return Self.limited(items).compactMap { item in
+            guard let picked = Self.picked(item) else { return nil }
+            let point = picked.place.coordinate
+            let address = item.address?.fullAddress.replacingOccurrences(of: "\n", with: ", ") ?? ""
+            let key = item.identifier?.rawValue ?? "\(point.lat),\(point.lon)"
+            return LocalPlaceResult(
+                completion: PlaceCompletion(
+                    title: item.name ?? picked.place.name, subtitle: address, token: "local:\(key)"),
+                picked: picked)
+        }
+    }
+
+    /// The first ``localLimit`` of `items`, in the order the search ranked them.
+    static func limited<Item>(_ items: [Item]) -> [Item] {
+        Array(items.prefix(localLimit))
+    }
+
+    /// The place `item` names, named as picked, with the saved location it makes.
+    // Only the deprecated placemark carries the US state code the name rule needs, and the
+    // street on its own; nothing that replaces it does.
+    @diagnose(DeprecatedDeclaration, as: ignored)
+    private static func picked(_ item: MKMapItem) -> PickedPlace? {
         let placemark = item.placemark
         // The postal street is the street line in the country's own order, as the API's
         // `fullThoroughfare` is.
@@ -157,13 +223,19 @@ public final class MapKitPlaceSearch: PlaceSearching {
     }
 }
 
-/// `MKLocalSearchCompleter` for venues, addresses, and towns anywhere, answering through ``onAnswer``. Each fragment
-/// gets a completer of its own, since MapKit does not say which fragment an answer is for, so an
-/// answer from a replaced completer is known to be stale and dropped.
+/// `MKLocalSearchCompleter` for venues, addresses, and towns anywhere, answering through
+/// ``onAnswer``. Each fragment gets a completer of its own, since MapKit does not say which
+/// fragment an answer is for, so an answer from a replaced completer is known to be stale and
+/// dropped.
 @MainActor
 private final class MapKitCompleter: NSObject, PlaceCompleting, @preconcurrency MKLocalSearchCompleterDelegate {
     private var completer: MKLocalSearchCompleter?
+    private let region: MKCoordinateRegion?
     var onAnswer: ((String, Bool) -> Void)?
+
+    init(region: MKCoordinateRegion?) {
+        self.region = region
+    }
 
     var queryFragment: String {
         get { completer?.queryFragment ?? "" }
@@ -171,7 +243,8 @@ private final class MapKitCompleter: NSObject, PlaceCompleting, @preconcurrency 
             completer?.delegate = nil
             completer?.cancel()
             let fresh = MKLocalSearchCompleter()
-            // No region is set, so an address that repeats across states lists every match.
+            // MapKit may ignore the region here; the full search is what finds venues near it.
+            if let region { fresh.region = region }
             // Query completions are left out: one names a category, not a place to pick.
             fresh.resultTypes = [.pointOfInterest, .address, .physicalFeature]
             fresh.delegate = self

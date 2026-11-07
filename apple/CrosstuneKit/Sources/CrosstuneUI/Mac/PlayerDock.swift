@@ -90,7 +90,8 @@ import CrosstuneDesign
     struct PlayerDockBar: View {
         let player: PlayerModel
 
-        @Environment(\.playerWindow) private var window
+        @Environment(\.openRecordingPage) private var openRecordingPage
+        @Environment(\.openTune) private var openTune
         @Environment(ListPlayback.self) private var playback: ListPlayback?
         @Environment(AccountSession.self) private var session: AccountSession?
         @Environment(\.openURL) private var openURL
@@ -177,7 +178,7 @@ import CrosstuneDesign
                         PlayerBar.showLabel(player, playback: playback),
                         systemImage: "arrow.up.left.and.arrow.down.right", help: PlayerBar.show
                     ) {
-                        player.expand(in: window, source: .dock)
+                        player.openLoaded(recordingPage: openRecordingPage, tune: openTune, source: .dock)
                     }
                 }
                 close
@@ -367,10 +368,11 @@ import CrosstuneDesign
 
         @Environment(\.accessibilityReduceMotion) private var reduceMotion
         @Environment(ListPlayback.self) private var playback: ListPlayback?
+        @Environment(\.playerWindow) private var window
         @State private var columnHeight: CGFloat = .infinity
 
         func body(content: Content) -> some View {
-            let shown = PlayerBar.isShown(player, playback)
+            let shown = PlayerBar.isShown(player, playback, in: window)
             content
                 .scrollEdgeEffectStyle(.soft, for: .bottom)
                 .safeAreaBar(edge: .bottom, spacing: 0) {

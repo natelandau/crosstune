@@ -1,3 +1,4 @@
+import CrosstuneRecording
 import CrosstuneStore
 
 @testable import CrosstuneUI
@@ -11,12 +12,20 @@ import CrosstuneStore
     /// The saved location a resolved completion makes, by its title; none for a town.
     var saving: [String: SavedPlaceDraft] = [:]
     var held: Set<String> = []
+    /// The places the full search finds, by query; a query missing here finds none, as a failed
+    /// search does.
+    var local: [String: [LocalPlaceResult]] = [:]
+    /// The point the search ranks results near, as it was made.
+    let near: Coordinate?
 
     private(set) var queries: [String] = []
     private(set) var resolves: [String] = []
+    private(set) var localQueries: [String] = []
     private var waiting: [String: CheckedContinuation<Void, Never>] = [:]
 
-    init() {}
+    init(near: Coordinate? = nil) {
+        self.near = near
+    }
 
     func completions(for query: String) async -> [PlaceCompletion] {
         queries.append(query)
@@ -34,6 +43,11 @@ import CrosstuneStore
         return places[completion.title].map { PickedPlace(place: $0, saving: saving[completion.title]) }
     }
 
+    func localResults(for query: String) async -> [LocalPlaceResult] {
+        localQueries.append(query)
+        return local[query] ?? []
+    }
+
     func release(_ query: String) {
         held.remove(query)
         waiting.removeValue(forKey: query)?.resume()
@@ -41,6 +55,13 @@ import CrosstuneStore
 
     static func completion(_ title: String, _ subtitle: String = "") -> PlaceCompletion {
         PlaceCompletion(title: title, subtitle: subtitle, token: title)
+    }
+
+    /// A place the full search finds, named `title` at `point`.
+    static func local(_ title: String, _ subtitle: String, at point: Coordinate) -> LocalPlaceResult {
+        LocalPlaceResult(
+            completion: PlaceCompletion(title: title, subtitle: subtitle, token: "local:\(title)"),
+            picked: PickedPlace(place: RecordingPlace(name: title, coordinate: point), saving: nil))
     }
 }
 
@@ -61,6 +82,22 @@ import CrosstuneStore
 
     func fail() {
         onAnswer?(queryFragment, false)
+    }
+}
+
+/// Makes one ``FakePlaceSearch`` for every search the editor asks for, keeping where each was
+/// asked to rank results near.
+@MainActor final class FakePlaceSearches {
+    let search: FakePlaceSearch
+    private(set) var asked: [Coordinate?] = []
+
+    init(_ search: FakePlaceSearch = FakePlaceSearch()) {
+        self.search = search
+    }
+
+    func make(near: Coordinate?) -> any PlaceSearching {
+        asked.append(near)
+        return search
     }
 }
 

@@ -358,12 +358,11 @@ private final class Writes {
         #expect(player.pitchCents == 0)
     }
 
-    @Test func closingTheScreenWritesAPendingChangeAtOnce() async throws {
+    @Test func flushingWritesAPendingChangeAtOnce() async throws {
         try await load()
         player.settleDelay = .seconds(60)
-        player.isExpanded = true
         player.setPitch(-50)
-        player.isExpanded = false
+        player.flushSettings()
         try await eventually { writes.made == [PlaybackSettings(pitchCents: -50)] }
     }
 
@@ -389,13 +388,12 @@ private final class Writes {
         #expect(player.failure == nil)
     }
 
-    @Test func aFailureSentAsTheScreenClosesStillShowsOnThePlayer() async throws {
+    @Test func aFailureSentAsThePageClosesStillShowsOnThePlayer() async throws {
         try await load()
         player.settleDelay = .seconds(60)
         writes.refusal = URLError(.cannotOpenFile)
-        player.expand()
         player.setSpeed(60)
-        player.isExpanded = false
+        player.flushSettings()
         try await eventually { player.failure == RecordingScreenText.speedNotSaved }
         #expect(player.isLoaded)
     }
@@ -441,11 +439,9 @@ private final class Writes {
 
     @Test func aFailedDeleteLoadsTheRecordingAgainAndSaysSo() async throws {
         try await load()
-        player.expand()
         audio.elapsed = 1.5
         await player.deleteLoadedRecording { throw CommandError.recordingNotFound }
         #expect(player.failure == CommandError.recordingNotFoundMessage)
-        #expect(!player.isExpanded)
         try await eventually { player.recordingAudio == .loaded }
         #expect(
             audio.calls.suffix(8) == [
@@ -458,43 +454,17 @@ private final class Writes {
         #expect(!player.isLoaded)
     }
 
-    @Test func onlyTheWindowThatAskedShowsTheScreen() {
-        let asking = UUID()
-        let other = UUID()
-        player.open(.recording(recording(), tuneTitle: nil), in: asking)
-        #expect(player.showsExpanded(in: asking))
-        #expect(!player.showsExpanded(in: other))
-        player.isExpanded = false
-        #expect(!player.showsExpanded(in: asking))
-        #expect(player.expandedWindow == nil)
-
-        // A request from no particular window, such as a link's play, shows everywhere.
-        player.expand()
-        #expect(player.showsExpanded(in: asking) && player.showsExpanded(in: other))
+    @Test func aPageRequestGoesToTheWindowThatAsked() {
+        let asking = ShellPlace()
+        let other = ShellPlace()
+        RecordingPageOpener.shell(asking, player: player)("r1", source: .recordingsList)
+        #expect(other.takeUnreportedOpen(of: "r1") == nil)
+        #expect(asking.takeUnreportedOpen(of: "r1")?.tab == nil)
+        #expect(player.pageSource == .recordingsList)
     }
 
-    /// SwiftUI can make a second screen and drop the first as the screen opens, so the screen
-    /// closes only once the window's last one goes, as when the window itself closes.
-    @Test func theScreenClosesOnlyWhenItsWindowsLastScreenGoes() {
-        let window = UUID()
-        let other = UUID()
-        player.open(.recording(recording(), tuneTitle: nil), in: window)
-        let first = UUID()
-        let second = UUID()
-        player.screenAppeared(first, in: window)
-        player.screenAppeared(second, in: window)
-        player.screenAppeared(UUID(), in: other)
-
-        player.screenDisappeared(first, in: window)
-        #expect(player.showsExpanded(in: window))
-
-        player.screenDisappeared(second, in: window)
-        #expect(!player.isExpanded)
-    }
-
-    @Test func aLinkPlayedWhileAScreenIsOpenShowsInEveryWindow() throws {
-        let asking = UUID()
-        player.open(.recording(recording(), tuneTitle: nil), in: asking)
+    @Test func aLinkPlayedWhileAPageIsOpenShowsInEveryWindow() throws {
+        RecordingPageOpener.shell(ShellPlace(), player: player)("r1", source: .recordingsList)
         var link = RecordingLink(id: "l1", tuneID: "t1", url: "https://example.com/x", provider: "youtube")
         link.providerRef = "dQw4w9WgXcQ"
         player.play(try #require(PlayerItem.link(link)))
@@ -514,47 +484,25 @@ private final class Writes {
         #expect(audio.calls.suffix(2) == ["setRate(60)", "setPitch(200)"])
     }
 
-    @Test func editOpensTheRecordingScreen() async throws {
-        player.audioSource = { _ in audioFile() }
-        #expect(player.open(.recording(recording(), tuneTitle: nil)))
-        #expect(player.isExpanded)
-        #expect(player.holds(.recording, id: "r1"))
-        try await eventually { player.recordingAudio == .loaded }
-
-        // Opening what is already loaded shows it without starting it over.
-        player.isExpanded = false
-        let before = audio.calls.count
-        #expect(player.open(.recording(recording(), tuneTitle: nil)))
-        #expect(player.isExpanded)
-        #expect(audio.calls.count == before)
-    }
-
-    @Test func theMoreMenuOffersTrimSplitEditAddToTuneAndDelete() {
+    @Test func theMoreMenuOffersTrimAndSplitBeforeDelete() {
         #expect(
-            RecordingMenuItem.items(inTune: false, trimDisabledReason: nil) == [
-                .trim(disabledReason: nil), .split(disabledReason: nil), .edit, .addToTune,
-                .delete(disabledReason: nil),
-            ])
-        #expect(
-            RecordingMenuItem.items(inTune: true, trimDisabledReason: RecordingScreenText.trimBusy) == [
-                .trim(disabledReason: RecordingScreenText.trimBusy), .split(disabledReason: nil), .edit,
-                .removeFromTune, .delete(disabledReason: nil),
-            ])
+            RecordingMenuItem.items(
+                pinned: true, goesToTune: true, trimDisabledReason: RecordingScreenText.trimBusy) == [
+                    .pin(pinned: true), .goToTune, .trim(disabledReason: RecordingScreenText.trimBusy),
+                    .split(disabledReason: nil), .delete(disabledReason: nil),
+                ])
         #expect(RecordingMenuItem.trim(disabledReason: nil).label == "Trim")
-        #expect(RecordingMenuItem.edit.label == RecordingRowActions.edit)
-        #expect(RecordingRowActions.edit == "Edit")
-        #expect(RecordingMenuItem.addToTune.label == RecordingRowActions.addToTune)
         #expect(RecordingMenuItem.delete(disabledReason: nil).label == RecordingRowActions.delete)
     }
 
     @Test func theMoreMenuLeavesTrimAndSplitOutWhenTheRecordingCannotTrim() {
         #expect(
-            RecordingMenuItem.items(inTune: true, trimDisabledReason: nil, trims: false) == [
-                .edit, .removeFromTune, .delete(disabledReason: nil),
+            RecordingMenuItem.items(pinned: false, goesToTune: true, trimDisabledReason: nil, trims: false) == [
+                .pin(pinned: false), .goToTune, .delete(disabledReason: nil),
             ])
     }
 
-    @Test func theMoreMenuOpensAnImportedRecordingOnItsSiteBeforeDelete() throws {
+    @Test func theMoreMenuOpensAnImportedRecordingOnItsSiteBeforeTrim() throws {
         let page = "https://www.slippery-hill.com/content/bear-creek-sally-goodin"
         func imported(_ url: String?, origin: String = "slippery_hill") -> Recording {
             Recording(tuneID: nil, source: "import", origin: origin, originURL: url, addedAt: noon)
@@ -563,8 +511,8 @@ private final class Writes {
         #expect(open == .openOrigin(site: "Slippery-Hill", page: try #require(URL(string: page))))
         #expect(open.label == RecordingRowActions.openOn("Slippery-Hill"))
         #expect(
-            RecordingMenuItem.items(inTune: true, trimDisabledReason: nil, openOrigin: open) == [
-                .trim(disabledReason: nil), .split(disabledReason: nil), .edit, .removeFromTune, open,
+            RecordingMenuItem.items(pinned: true, goesToTune: true, trimDisabledReason: nil, openOrigin: open) == [
+                .pin(pinned: true), .goToTune, open, .trim(disabledReason: nil), .split(disabledReason: nil),
                 .delete(disabledReason: nil),
             ])
         #expect(RecordingMenuItem.openOrigin(for: imported("javascript:alert(1)")) == nil)
@@ -580,11 +528,19 @@ private final class Writes {
             recording: row, file: nil, tuneID: nil, tuneTitle: nil, partStructure: nil, shownPlace: nil)
         #expect(rows.trimmedLengthMs == 184_000)
         #expect(RecordingText.duration(milliseconds: rows.trimmedLengthMs) == "3:04")
-        #expect(RecordingScreenContent.headingSubtitle(rows).contains("3:04"))
+        #expect(RecordingPageRows.subtitle(rows).contains("3:04"))
+
+        // A playback file cut from the trim start already plays the trimmed length.
+        var trimmed = row
+        trimmed.trimStartMs = 4_000
+        trimmed.playbackStartMs = 4_000
+        let trimmedRows = ScreenRows(
+            recording: trimmed, file: nil, tuneID: nil, tuneTitle: nil, partStructure: nil, shownPlace: nil)
+        #expect(trimmedRows.trimmedLengthMs == 184_000)
     }
 
     @Test func theSpeedAndPitchSegmentsNameTheirValuesOffDefault() {
-        #expect(PracticeMode.allCases == [.loops, .speed, .pitch, .isolate])
+        #expect(PracticeMode.allCases == [.speed, .pitch, .isolate, .loops])
         #expect(PracticeMode.loops.title(speedPercent: 75, pitchCents: 200, isolate: .standard) == "Loops")
         #expect(PracticeMode.speed.title(speedPercent: 100, pitchCents: 0, isolate: .standard) == "Speed")
         #expect(PracticeMode.speed.title(speedPercent: 75, pitchCents: 0, isolate: .standard) == "Speed 75%")
@@ -626,11 +582,12 @@ private final class Writes {
         #expect(PracticeText.position(42_300, of: 190_000) == "0:42 of 3:10")
     }
 
-    @Test func theBadgeOpensTheLoadedRecordingsScreen() async throws {
-        let window = UUID()
+    @Test func theBadgeOpensTheLoadedRecordingsPracticeTab() async throws {
+        let place = ShellPlace()
         try await load()
-        #expect(player.open(.recording(recording(), tuneTitle: nil), in: window))
-        #expect(player.showsExpanded(in: window))
+        player.openLoaded(recordingPage: .shell(place, player: player), tune: nil, source: .dock)
+        #expect(place.takeUnreportedOpen(of: "r1")?.tab == .practice)
+        #expect(player.isLoaded)
     }
 
     @Test func theBarsStopControlClearsTheSelection() async throws {
@@ -741,115 +698,7 @@ private final class Writes {
     }
 }
 
-@Suite struct PracticeSubtitleTests {
-    private let gmt = TimeZone.gmt
-    private let locale = Locale(identifier: "en_US")
-
-    private func subtitle(
-        _ recording: Recording, tuneTitle: String?, lengthMs: Int64? = 125_000, place: String? = nil
-    ) -> String {
-        RecordingScreenText.subtitle(
-            recording, tuneTitle: tuneTitle, lengthMs: lengthMs, place: place, locale: locale, timeZone: gmt)
-    }
-
-    private func date(_ recording: Recording) -> String {
-        RecordingText.date(recording, locale: locale, timeZone: gmt)
-    }
-
-    @Test func aLabeledRecordingNamesTheTuneItIsFiledUnder() {
-        let labeled = Recording(tuneID: "t1", source: "microphone", addedAt: noon, label: "Jam at Mike's")
-        #expect(subtitle(labeled, tuneTitle: "Soldier's Joy") == "Soldier's Joy · 2:05")
-    }
-
-    @Test func aRecordingTitledByItsTuneReadsTheSiteItCameFromOrItsDate() {
-        let imported = Recording(tuneID: "t1", source: "import", origin: "slippery_hill", addedAt: noon)
-        #expect(subtitle(imported, tuneTitle: "Soldier's Joy") == "Slippery-Hill · 2:05")
-        let own = Recording(tuneID: "t1", source: "microphone", addedAt: noon)
-        #expect(subtitle(own, tuneTitle: "Soldier's Joy") == "\(date(own)) · 2:05")
-    }
-
-    @Test func aRecordingTitledByItsDateDoesNotRepeatIt() {
-        let unfiled = Recording(tuneID: nil, source: "microphone", addedAt: noon)
-        #expect(subtitle(unfiled, tuneTitle: nil) == "2:05")
-        #expect(subtitle(unfiled, tuneTitle: nil, lengthMs: nil).isEmpty)
-    }
-
-    @Test func endsWithThePlayersAndTheShownPlace() {
-        let credited = Recording(
-            tuneID: nil, source: "microphone", addedAt: noon, players: "Tommy Jarrell", placeName: "Galax, VA",
-            placeLat: 36.66, placeLon: -80.92)
-        #expect(subtitle(credited, tuneTitle: nil, place: "Galax, VA") == "2:05 · Tommy Jarrell · Galax, VA")
-        #expect(subtitle(credited, tuneTitle: nil, lengthMs: nil, place: "Galax, VA") == "Tommy Jarrell · Galax, VA")
-    }
-
-    @Test func subtitleShowsTheSavedPlaceName() {
-        let linked = Recording(
-            tuneID: nil, source: "microphone", addedAt: noon, placeName: "1 Main St", placeLat: 36.66, placeLon: -80.92,
-            placeID: "p1")
-        let place = SavedPlace(id: "p1", createdAt: noon, name: "The Down Home", lat: 36.66, lon: -80.92)
-        let shown = shownPlaceName(linked, places: ["p1": place])
-        #expect(subtitle(linked, tuneTitle: nil, place: shown) == "2:05 · The Down Home")
-    }
-
-    @Test func subtitleLocationOpensTheLocationPage() {
-        #expect(RecordingScreenText.editLocation("The Down Home") == "Edit location, The Down Home")
-        #expect(RecordingScreenText.editLocation(nil) == nil)
-        #expect(RecordingScreenText.editLocation("") == nil)
-        let view = RecordingView(
-            recording: Recording(tuneID: nil, source: "microphone", addedAt: noon), file: nil, tuneID: nil,
-            tuneTitle: nil)
-        #expect(EditRecordingSheet(view: view, initialPage: .location).initialPage == .location)
-        #expect(EditRecordingSheet(view: view).initialPage == nil)
-        // The Mac heading keeps the place out of its text, since the place is a button there.
-        let credited = Recording(
-            tuneID: nil, source: "microphone", addedAt: noon, players: "Tommy Jarrell", placeName: "Galax, VA")
-        #expect(
-            RecordingScreenText.subtitle(
-                credited, tuneTitle: nil, lengthMs: 125_000, place: "Galax, VA", includesPlace: false,
-                locale: locale, timeZone: gmt) == "2:05 · Tommy Jarrell")
-    }
-
-    @Test func leavesOutAPlaceWithNoNameAndNoPlayers() {
-        let unnamed = Recording(
-            tuneID: nil, source: "microphone", addedAt: noon, placeLat: 36.66, placeLon: -80.92, placeAccuracyM: 9)
-        #expect(subtitle(unnamed, tuneTitle: nil) == "2:05")
-        let playersOnly = Recording(tuneID: nil, source: "microphone", addedAt: noon, players: "Tommy Jarrell")
-        #expect(subtitle(playersOnly, tuneTitle: nil) == "2:05 · Tommy Jarrell")
-    }
-}
-
-@Suite struct PracticeSwipeTests {
-    private let down = CGSize(width: 10, height: 200)
-
-    @Test func aLongMostlyVerticalDragFromTheHeaderOrWaveformCloses() {
-        #expect(PracticeSwipe.closes(startY: 40, translation: down, areaBottom: 400, startedAtTop: true))
-        #expect(PracticeSwipe.closes(startY: 390, translation: down, areaBottom: 400, startedAtTop: true))
-    }
-
-    @Test func aDragFromTheControlsUnderTheWaveformNeverCloses() {
-        #expect(!PracticeSwipe.closes(startY: 410, translation: down, areaBottom: 400, startedAtTop: true))
-    }
-
-    @Test func aScrubOrAShortDragNeverCloses() {
-        #expect(
-            !PracticeSwipe.closes(
-                startY: 40, translation: CGSize(width: 200, height: 150), areaBottom: 400, startedAtTop: true))
-        #expect(
-            !PracticeSwipe.closes(
-                startY: 40, translation: CGSize(width: 0, height: 60), areaBottom: 400, startedAtTop: true))
-        #expect(
-            !PracticeSwipe.closes(
-                startY: 40, translation: CGSize(width: 0, height: -200), areaBottom: 400, startedAtTop: true))
-    }
-
-    @Test func aDragOnAScrolledPageNeverCloses() {
-        #expect(!PracticeSwipe.closes(startY: 40, translation: down, areaBottom: 400, startedAtTop: false))
-    }
-
-    @Test func beforeTheControlsAreLaidOutAnywhereCloses() {
-        #expect(PracticeSwipe.closes(startY: 700, translation: down, areaBottom: nil, startedAtTop: true))
-    }
-
+@Suite struct ShownPeaksGridTests {
     @Test func aGridBarTakesTheLoudestPointItCoversWhereverTheGridStarts() throws {
         let values = (0..<200).map { UInt8($0 % 256) }
         // The trim keeps points 50 to 149, the loudest point in the file is 199.

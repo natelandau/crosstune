@@ -11,8 +11,9 @@ struct ShellControls: ViewModifier {
     let player: PlayerModel
     /// The playlist driving the player, when the app has one.
     let playback: ListPlayback?
-    /// The window the shell lives in, where Go to recording opens the recording's screen.
+    /// The window the shell lives in, where Go to recording opens the recording's page.
     let window: UUID
+    let openRecordingPage: RecordingPageOpener
     /// False while a sheet or dialog covers the shell, which disables every command.
     let isActive: Bool
     let show: @MainActor (Destination) -> Void
@@ -50,12 +51,12 @@ struct ShellControls: ViewModifier {
                 \.goToRecordingAction,
                 isActive && player.item?.kind == .recording
                     ? MenuAction(id: ShellActionID.goToRecording(player: ObjectIdentifier(player), window: window)) {
-                        player.expand(in: window, source: .menu)
+                        player.openLoaded(recordingPage: openRecordingPage, tune: nil, source: .menu)
                     } : nil
             )
             .focusedSceneValue(
                 \.closePlayerAction,
-                isActive && PlayerBar.isShown(player, playback)
+                isActive && PlayerBar.isShown(player, playback, in: window)
                     ? MenuAction(
                         id: ShellActionID.closePlayer(
                             player: ObjectIdentifier(player), playback: playback.map(ObjectIdentifier.init))

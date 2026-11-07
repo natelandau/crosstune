@@ -446,7 +446,6 @@ struct TuneMoreHandlers {
 /// The tune page's sheets and confirmations, presented from the page's own state.
 struct TunePresentations: ViewModifier {
     let model: TuneModel
-    @Binding var editing: RecordingView?
     @Binding var deleting: RecordingView?
     @Binding var addingScans: ScanAddChoice?
     @Binding var deletingScan: Scan?
@@ -455,9 +454,6 @@ struct TunePresentations: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .sheet(item: $editing) { view in
-                EditRecordingSheet(view: view)
-            }
             .coversShell(deleting != nil)
             .confirmationDialog(
                 RecordingsModel.deleteTitle,
@@ -555,7 +551,6 @@ struct TuneMediaAddMenu: View {
 struct TuneMediaRows: View {
     let model: TuneModel
     let detail: TuneDetail
-    @Binding var editing: RecordingView?
     @Binding var deleting: RecordingView?
 
     @Environment(PlayerModel.self) private var player: PlayerModel?
@@ -564,7 +559,6 @@ struct TuneMediaRows: View {
     @Environment(\.openURL) private var openURL
     @Environment(\.premium) private var premium
     @Environment(\.plan) private var plan
-    @Environment(\.playerWindow) private var window
     /// Whether a free plan's recordings line is open to the rows below it, for this visit only.
     @State private var showsRecordings = false
 
@@ -631,35 +625,11 @@ struct TuneMediaRows: View {
         }
         .newRecordingHighlight(view.id)
         .recordingRowActions(
-            Self.rowHandlers(
-                view, pinned: pinned,
-                togglePin: { Task { await model.setPlaySource(.recording(id: view.id), pinned: pinned) } },
-                open: { openURL($0) }, edit: { editing = view },
-                removeFromTune: { Task { await model.unfileRecording(view.recording) } },
-                delete: { deleting = view },
-                split: RecordingRowHandlers.split(
-                    view, uploadLimits: detail.uploadLimits, player: player, window: window, source: .tune,
-                    recordingsPlay: plan.recordingsPlay)))
-    }
-
-    /// A recording row's actions on the page: every recording here is filed under the tune
-    /// being looked at, so it offers Remove from tune but neither Add to tune nor Go to tune.
-    static func rowHandlers(
-        _ view: RecordingView, pinned: Bool, togglePin: @escaping () -> Void, open: @escaping (URL) -> Void,
-        edit: @escaping () -> Void, removeFromTune: @escaping () -> Void, delete: @escaping () -> Void,
-        split: (() -> Void)? = nil
-    ) -> RecordingRowHandlers {
-        RecordingRowHandlers(
-            filed: true, pinned: pinned, onTogglePin: togglePin,
-            originLabel: RecordingText.originLabel(view.recording.origin),
-            onOpenOrigin: RecordingRowActions.originPage(view.recording).map { page in { open(page) } },
-            onEdit: edit, onAddToTune: nil, onRemoveFromTune: removeFromTune, onDelete: delete, onSplit: split,
-            splitDisabledReason: RecordingRowHandlers.splitDisabledReason(view),
-            deleteDisabledReason: RecordingScreenText.deleteDisabledReason(view))
+            onDelete: { deleting = view }, deleteDisabledReason: RecordingScreenText.deleteDisabledReason(view))
     }
 
     /// A recording's row on the page. A free plan shows it only under the recordings line, so
-    /// its tap is reported as coming from the line.
+    /// a press on its slot is reported as coming from the line.
     static func item(
         _ view: RecordingView, uploadLimits: StorageUsage?, onRetry: @escaping (RecordingText.Retry) -> Void
     ) -> RecordingItem {

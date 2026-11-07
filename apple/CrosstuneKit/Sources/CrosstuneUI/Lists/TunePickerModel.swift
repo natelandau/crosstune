@@ -58,9 +58,8 @@ public final class TunePickerModel {
     public private(set) var failure: String?
 
     private let store: CrosstuneStore
-    private let entries: LiveQuery<[SearchableEntry]?>
+    private let search: CatalogPickerSearch
     private let members: LiveQuery<Set<String>?>
-    private let storedInstruments: LiveQuery<Set<String>?>
     private var adding: Set<String> = []
     /// True from a create until it lands or fails, so a second press or Return makes no second tune.
     @ObservationIgnored private var isCreating = false
@@ -81,50 +80,43 @@ public final class TunePickerModel {
         self.analytics = analytics
         self.listID = listID
         self.onLateFailure = onLateFailure
-        // Folded on the store's reader rather than on each keystroke.
-        entries = LiveQuery(store, initial: nil) { try CatalogModel.fetchEntries($0).map(SearchableEntry.init) }
+        search = CatalogPickerSearch(store: store)
         members = LiveQuery(store, initial: nil) { db in
             Set(
                 try ListItem.filter(ListItem.CodingKeys.listID == listID)
                     .filter(ListItem.CodingKeys.deletedAt == nil)
                     .fetchAll(db).map(\.userTuneID))
         }
-        let settingsRow = settingsID(clerkUserID: store.userID)
-        storedInstruments = LiveQuery(store, initial: nil) { db in
-            guard let row = try UserSettings.fetchOne(db, key: settingsRow), row.deletedAt == nil else { return [] }
-            return Set(row.instruments)
-        }
     }
 
     /// The instruments the musician plays. A row shows no tunings until they are read, rather
     /// than the results waiting on them.
-    public var instruments: Set<String> { storedInstruments.value ?? [] }
+    public var instruments: Set<String> { search.instruments }
 
     /// Whether the search field is empty, when the sheet says what it is for.
-    public var isIdle: Bool { query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    public var isIdle: Bool { CatalogPickerSearch.isIdle(query) }
 
     /// Nil until the catalog and the list are read: an unread catalog looks like one holding no
     /// such tune, and would offer to create a tune that is already there.
     public var results: Results? {
-        guard let entries = entries.value, let members = members.value else { return nil }
-        let matches = isIdle ? [] : CatalogSearch.matching(entries, query: query)
+        guard let members = members.value, let found = search.find(query) else { return nil }
+        let matches = found.matches
         return Results(
             rows: matches.prefix(Self.maxResults).map { Row(entry: $0.entry, isTaken: members.contains($0.id)) },
-            matches: matches.map(\.entry),
-            outcome: SearchOutcome(entries: entries, visible: matches, query: query, archivedShown: true))
+            matches: matches.map(\.entry), outcome: found.outcome)
     }
 
     /// The whole catalog A to Z while the search field is empty, archived tunes included; empty
     /// once something is typed, when ``results`` takes over. Nil until the catalog and the list
     /// are read. The catalog is read in that order, so nothing sorts it on each redraw.
     public var idleResults: [Row]? {
-        guard let entries = entries.value, let members = members.value else { return nil }
+        guard let entries = search.entries, let members = members.value else { return nil }
         guard isIdle else { return [] }
-        return entries.map { Row(entry: $0.entry, isTaken: members.contains($0.id)) }
+        return entries.map { Row(entry: $0, isTaken: members.contains($0.id)) }
     }
 
     /// Whether the idle picker has nothing to list, so its sheet says what it is for.
-    public var showsHint: Bool { isIdle && members.value != nil && entries.value?.isEmpty == true }
+    public var showsHint: Bool { isIdle && members.value != nil && search.entries?.isEmpty == true }
 
     /// Adds a tune to the list and clears the search for the next. A tune already in the list,
     /// or one whose add is running, is left alone.

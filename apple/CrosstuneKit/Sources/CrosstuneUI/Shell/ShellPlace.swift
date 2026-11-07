@@ -10,8 +10,9 @@ import SwiftUI
 final class ShellPlace {
     /// The Mac split view's sidebar row.
     var sidebar: SidebarItem = .catalog
-    /// The tune in the Mac split view's detail column.
-    var detailTune: String?
+    /// The tune in the Mac split view's detail column, and the recording page over it, under
+    /// which the tune stays mounted.
+    var detailPath = PagePath()
     /// The iPhone and iPad shells' tab.
     var tab: Destination = .catalog
     /// Whether the scene's saved tab replaces `tab` as the shell appears. False keeps a tab chosen
@@ -22,13 +23,16 @@ final class ShellPlace {
         didSet {
             // A tune pushed over one list, or a place scrolled to in it, does not belong to the next.
             if tabList != oldValue {
-                tabTunes[.lists] = nil
+                tabPaths[.lists] = nil
                 scrollAnchors[.lists] = nil
             }
         }
     }
-    /// The tune each tab shows: pushed on iPhone, in the detail column on iPad.
-    var tabTunes: [Destination: String] = [:]
+    /// What each tab has open over its screen: pushed on iPhone, in the detail column on iPad.
+    var tabPaths: [Destination: PagePath] = [:]
+    /// The last recording page asked for in this window, until that page reports it opened.
+    /// Observed, so a page already on show takes a fresh request for its own recording.
+    private(set) var unreportedOpen: PageOpen?
     /// The row each destination's list keeps at its top, which every iPad tab showing that
     /// destination shares.
     var scrollAnchors: [Destination: String] = [:]
@@ -59,7 +63,7 @@ final class ShellPlace {
 
     /// Shows `destination` in the iPhone and iPad tabs: its tab, with nothing open.
     func showTabRoot(_ destination: Destination) {
-        tabTunes[destination] = nil
+        tabPaths[destination] = nil
         if destination == .lists { tabList = nil }
         if destination == .settings {
             settingsPage = nil
@@ -74,11 +78,56 @@ final class ShellPlace {
     func openTune(_ tuneID: String) {
         #if os(macOS)
             if sidebar == .tuner { sidebar = .catalog }
-            detailTune = tuneID
+            detailPath.recording = nil
+            detailPath.tune = tuneID
         #else
-            if !showsTunes(tab) { tab = .catalog }
-            tabTunes[tab] = tuneID
+            openTuneInTabs(tuneID)
         #endif
+    }
+
+    /// Opens a tune in the iPhone and iPad tabs: in the tab on show where that tab shows tunes,
+    /// else in the catalog's. Over a compact window's recording page, the tune is pushed over the
+    /// page, so Back returns to it, unless the page sits over that same tune, which the page then
+    /// goes back to. Elsewhere it takes the tab's tune and closes the page.
+    func openTuneInTabs(_ tuneID: String) {
+        if showsTunes(tab), isCompact, let path = tabPaths[tab], path.recording != nil, path.tune != tuneID {
+            tabPaths[tab]?.pageTune = tuneID
+            return
+        }
+        if !showsTunes(tab) { tab = .catalog }
+        tabPaths[tab, default: PagePath()].recording = nil
+        tabPaths[tab, default: PagePath()].tune = tuneID
+    }
+
+    /// Opens recording `id`'s page from outside any tab's own screens: over the Mac detail
+    /// column's tune, beside the recordings where the tuner fills the window, and on iPhone and
+    /// iPad over the tab on show where that tab shows tunes, else in the Recordings tab. The page
+    /// shows `tab`, or Practice when nil, and reports `source` as where it was asked for.
+    func openRecordingPage(_ id: String, tab: RecordingPageTab? = nil, source: ActionSource) {
+        unreportedOpen = PageOpen(recordingID: id, tab: tab, source: source)
+        #if os(macOS)
+            if sidebar == .tuner { sidebar = .recordings }
+            detailPath.recording = id
+        #else
+            openRecordingPageInTabs(id)
+        #endif
+    }
+
+    /// The request for recording `id`'s page still to report, once: nil when there is none, as for
+    /// a page that shows again on its own.
+    func takeUnreportedOpen(of id: String) -> PageOpen? {
+        guard let open = unreportedOpen, open.recordingID == id else { return nil }
+        unreportedOpen = nil
+        return open
+    }
+
+    /// Opens recording `id`'s page in the iPhone and iPad tabs: over the tab on show where that
+    /// tab shows tunes, else in the Recordings tab. Reopening the page on show takes it back from
+    /// a tune pushed over it.
+    func openRecordingPageInTabs(_ id: String) {
+        if !showsTunes(tab) { tab = .recordings }
+        tabPaths[tab, default: PagePath()].recording = id
+        tabPaths[tab]?.pageTune = nil
     }
 
     /// Opens the new-tune draft: in the Mac detail column, beside the catalog where the tuner
@@ -87,23 +136,23 @@ final class ShellPlace {
         let draft = NewTuneDraft.id(source: source)
         #if os(macOS)
             if sidebar == .tuner { sidebar = .catalog }
-            detailTune = draft
+            detailPath.recording = nil
+            detailPath.tune = draft
         #else
             tab = .catalog
-            tabTunes[.catalog] = draft
+            tabPaths[.catalog, default: PagePath()].recording = nil
+            tabPaths[.catalog, default: PagePath()].tune = draft
         #endif
     }
 
-    #if os(iOS)
-        /// Whether a tab's screen opens tunes: the catalog, the recordings, and an open list.
-        private func showsTunes(_ destination: Destination) -> Bool {
-            switch destination {
-            case .catalog, .recordings: true
-            case .lists: tabList != nil
-            case .tuner, .settings: false
-            }
+    /// Whether a tab's screen opens tunes: the catalog, the recordings, and an open list.
+    private func showsTunes(_ destination: Destination) -> Bool {
+        switch destination {
+        case .catalog, .recordings: true
+        case .lists: tabList != nil
+        case .tuner, .settings: false
         }
-    #endif
+    }
 
     /// Opens `page` from the Settings root: in the Settings sheet over a compact window, on the
     /// Settings tab otherwise.
@@ -174,6 +223,8 @@ final class ShellPlace {
     func widened() {
         knowsSize = true
         isCompact = false
+        // The split view has no place for a tune over a page, so narrowing never brings one back.
+        for destination in tabPaths.keys { tabPaths[destination]?.pageTune = nil }
         catalogReplacesSettings = false
         if settingsSheetShown {
             settingsSheetShown = false
@@ -196,6 +247,64 @@ final class ShellPlace {
     var listPath: [ListRoute] {
         get { tabList.map { [ListRoute(id: $0)] } ?? [] }
         set { tabList = newValue.last?.id }
+    }
+}
+
+/// A request for a recording's page: the tab it opens on, nil for Practice, and where it
+/// was asked for.
+struct PageOpen: Equatable {
+    let recordingID: String
+    let tab: RecordingPageTab?
+    let source: ActionSource
+    /// Tells two requests for the same page apart.
+    let id = UUID()
+}
+
+/// What a tab, or the Mac detail column, has open over its own screen, each part belonging to the
+/// one before it: a tune, a recording page opened over it, and the tune a compact window pushes
+/// over that page, so Back returns to the page. Another tune closes the page, and another page
+/// closes the tune pushed over it.
+struct PagePath: Equatable {
+    var tune: String? {
+        didSet { if tune != oldValue { recording = nil } }
+    }
+    var recording: String? {
+        didSet { if recording != oldValue { pageTune = nil } }
+    }
+    var pageTune: String?
+
+    /// What a detail column shows of the path.
+    var detail: DetailPage {
+        if let recording { return .recording(recording) }
+        return tune.map(DetailPage.tune) ?? .placeholder
+    }
+
+    /// The detail column's tune as a list sees it: none while a recording page covers it, so no
+    /// row shows as open and a press on the covered tune still writes.
+    var listedTune: String? { detail.tuneID }
+
+    /// A list's write of the detail column's tune. Any tune closes the recording page, the covered
+    /// one included; a clear while a page shows leaves the tune under it.
+    mutating func setListedTune(_ tuneID: String?) {
+        if let tuneID {
+            recording = nil
+            tune = tuneID
+        } else if recording == nil {
+            tune = nil
+        }
+    }
+}
+
+/// What a detail column shows: the recording page opened there, which covers the tune under it,
+/// otherwise the tune, otherwise the placeholder. What the player has loaded never decides it.
+enum DetailPage: Equatable {
+    case recording(String)
+    case tune(String)
+    case placeholder
+
+    /// The tune on show, nil while a recording page covers it.
+    var tuneID: String? {
+        if case .tune(let id) = self { id } else { nil }
     }
 }
 

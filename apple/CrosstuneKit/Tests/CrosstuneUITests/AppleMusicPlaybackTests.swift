@@ -369,8 +369,6 @@ private func appleLink(url: String = songURL) -> RecordingLink {
         music.trackTitle = "The Mason's Apron"
         try await play(player, appleLink(url: "https://music.apple.com/us/album/reels/1440833081"))
         #expect(PlayerBar.subtitle(player) == "The Mason's Apron")
-        // With no list playing, the link's PadPracticeScreen names the track too.
-        #expect(PadPracticeHeader.linkSubtitle(player: player, playback: nil) == "The Mason's Apron")
     }
 
     @Test func namesNoTrackForASongOrAnEmbed() async throws {

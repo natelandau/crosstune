@@ -4,12 +4,12 @@ import CrosstuneDesign
 import CrosstuneStore
 import SwiftUI
 
-/// The one row every list of recordings shows: it plays what this device holds, fetches what it
-/// does not, and asks the musician to retry whichever of an upload or a transcode has stuck it.
-/// The row itself is the play, close, or download control.
+/// The one row every list of recordings shows: a press on it opens the recording's page, and its
+/// action slot plays what this device holds, fetches what it does not, and asks the musician to
+/// retry whichever of an upload or a transcode has stuck it.
 struct RecordingItem: View {
     let view: RecordingView
-    /// The screen the row is on, which its plays are reported as started from.
+    /// The screen the row is on, which its plays and page opens are reported as started from.
     let source: ActionSource
     /// True in a list whose heading already names the recording's tune.
     var tuneNamedAbove = false
@@ -22,19 +22,16 @@ struct RecordingItem: View {
     var sort: RecordingSort?
     /// Opens the recording's tune from a tune line under the row's meta. Nil leaves the line out.
     var onOpenTune: (() -> Void)?
-    /// True where a tap opens the recording's practice view, paused, rather than playing or
-    /// stopping it from the row.
-    var opensScreen = false
-    /// Where a free plan's tap on the row is reported as coming from.
+    /// Where a free plan's press on the slot is reported as coming from.
     var premiumEntry: PremiumEntry = .recordingRow
-    /// Retries a stuck upload or transcode; the row's tap and its Retry both land here.
+    /// Retries a stuck upload or transcode; the slot's press and its Retry both land here.
     let onRetry: (RecordingText.Retry) -> Void
 
     @Environment(PlayerModel.self) private var player: PlayerModel?
     @Environment(RecordingTransferActions.self) private var transfers: RecordingTransferActions?
     @Environment(AccountSession.self) private var session: AccountSession?
     @Environment(RecorderHost.self) private var recorders: RecorderHost?
-    @Environment(\.playerWindow) private var window
+    @Environment(\.openRecordingPage) private var openRecordingPage
     @Environment(\.plan) private var plan
     @Environment(\.premium) private var premium
 
@@ -47,39 +44,55 @@ struct RecordingItem: View {
             loaded: player?.holds(.recording, id: id) ?? false, downloading: transfers?.isDownloading(id) ?? false,
             downloadFailed: transfers?.failedDownloads.contains(id) ?? false, offline: offline,
             playBlocked: recorders?.isCapturing ?? false, storage: storage, sort: sort,
-            opensScreen: opensScreen,
             isLocalUntilSubscribed: plan?.isLocalUntilSubscribed.contains(id) ?? false,
             recordingsPlay: plan.recordingsPlay)
         MediaRow(
             recording: row,
             sourceLine: MediaRow.SourceLine(recording: view.recording),
             tuneLine: onOpenTune.flatMap { open in view.tuneTitle.map { MediaRow.TuneLine(title: $0, action: open) } },
+            open: { openPage(openRecordingPage) },
             perform: { tap in
-                let item = PlayerItem.recording(view.recording, tuneTitle: view.tuneTitle)
-                switch tap {
-                case .play: player?.play(item, origin: .row, source: source)
-                case .close: player?.close()
-                case .open: player?.open(item, in: window, playing: false, source: source)
-                // Refused rather than disabled while offline, so the row keeps its tap and its
-                // name; Offline in the meta line says why.
-                case .download: if !offline { Task { await transfers?.download(id) } }
-                case .retry(let kind): onRetry(kind)
-                case .premium: offerPremium(premium)
-                }
+                press(
+                    tap, player: player, offline: offline, download: { await transfers?.download($0) },
+                    premium: premium)
             },
             onRetry: onRetry)
     }
 
-    /// Shows the Plan sheet for a tap the plan holds back.
+    /// Opens the recording's page, whatever the player holds and whether or not the recording
+    /// can play, and leaves playback as it is.
+    func openPage(_ open: RecordingPageOpener?) {
+        open?(view.id, source: source)
+    }
+
+    /// Runs a press on the action slot, which never opens the page.
+    func press(
+        _ tap: RecordingRowContent.Tap, player: PlayerModel?, offline: Bool,
+        download: @escaping @MainActor (String) async -> Void, premium: PremiumPresenter?
+    ) {
+        switch tap {
+        case .play: player?.play(.recording(view.recording, tuneTitle: view.tuneTitle), origin: .row, source: source)
+        case .close: player?.close()
+        // Refused rather than disabled while offline, so the slot keeps its press and its name;
+        // Offline in the meta line says why.
+        case .download:
+            if !offline {
+                let id = view.id
+                Task { await download(id) }
+            }
+        case .retry(let kind): onRetry(kind)
+        case .premium: offerPremium(premium)
+        }
+    }
+
+    /// Shows the Plan sheet for a press the plan holds back.
     func offerPremium(_ premium: PremiumPresenter?) {
         _ = premium?.gate(.recordings, from: premiumEntry)
     }
 }
 
-/// Words the recording row actions and the recording screen's menu show.
+/// Words the recording row actions and the recording page's menu show.
 public enum RecordingRowActions {
-    public static let edit = "Edit"
-    public static let addToTune = "Add to tune"
     public static let removeFromTune = "Remove from tune"
     public static let delete = "Delete"
 
@@ -105,214 +118,72 @@ extension MediaRow.SourceLine {
     }
 }
 
-/// One of a recording row's actions.
+/// One of a recording row's actions. Every other action on a recording lives on its page.
 enum RecordingRowAction: Hashable {
-    /// Opens the recording's Split screen, offered only while the recording must be split to
-    /// upload.
-    case split
-    case edit
-    case addToTune
-    case removeFromTune
-    case goToTune
-    case pin
-    case openOrigin(site: String)
     case delete
 
-    /// The action's name, or for the pin its name while unpinned.
     var title: String {
         switch self {
-        case .split: RecordingScreenText.split
-        case .edit: RecordingRowActions.edit
-        case .addToTune: RecordingRowActions.addToTune
-        case .removeFromTune: RecordingRowActions.removeFromTune
-        case .goToTune: RecordingsListText.goToTune
-        case .pin: PlaySourceText.playFirstInLists
-        case .openOrigin(let site): RecordingRowActions.openOn(site)
         case .delete: RecordingRowActions.delete
         }
     }
 
-    /// The context menu's actions, top to bottom. `originSite` nil leaves Open on out.
-    static func menu(
-        filed: Bool, canAddToTune: Bool, canGoToTune: Bool, canPin: Bool, originSite: String?, canSplit: Bool = false
-    ) -> [Self] {
-        (canSplit ? [.split] : []) + [.edit]
-            + filing(filed: filed, canAddToTune: canAddToTune, canGoToTune: canGoToTune)
-            + (canPin ? [.pin] : []) + (originSite.map { [.openOrigin(site: $0)] } ?? []) + [.delete]
-    }
+    /// The context menu's actions, top to bottom.
+    static let menu: [Self] = [.delete]
 
-    /// The swipe actions, from the trailing edge in. A row that must be split shows Delete,
-    /// Split, and one filing action, since a swipe holds at most three; Edit and the pin stay in
-    /// its context menu.
-    static func swipe(filed: Bool, canAddToTune: Bool, canGoToTune: Bool, canPin: Bool, canSplit: Bool = false)
-        -> [Self]
-    {
-        let filing = filing(filed: filed, canAddToTune: canAddToTune, canGoToTune: canGoToTune)
-        if canSplit { return [.delete, .split] + filing.prefix(1) }
-        return [.delete] + (canPin ? [.pin] : []) + filing + [.edit]
-    }
+    /// The swipe actions, from the trailing edge in.
+    static let swipe: [Self] = [.delete]
 
-    private static func filing(filed: Bool, canAddToTune: Bool, canGoToTune: Bool) -> [Self] {
-        if filed { return canGoToTune ? [.removeFromTune, .goToTune] : [.removeFromTune] }
-        return canAddToTune ? [.addToTune] : []
+    /// The swipe action's fill, as the web's row swipe tones.
+    var swipeFill: Palette.Token {
+        switch self {
+        case .delete: .dangerFillStrong
+        }
     }
 }
 
 extension View {
-    /// Swipe actions and a context menu for a recording row: split it when it must be split to
-    /// upload, edit it, file it under a tune or move it out of one, go to its tune, and delete it.
-    /// `onAddToTune` nil leaves Add to tune out, for a list where every recording is already
-    /// under the tune being looked at. `onGoToTune` nil leaves Go to tune out. `onTogglePin` nil
-    /// leaves the pin action out; `pinned` says whether it unpins. Open on shows in the context
-    /// menu only; `onOpenOrigin` nil leaves it out, for a recording made here or one with no page
-    /// to open, and `originLabel` names the site it opens.
-    func recordingRowActions(
-        filed: Bool, pinned: Bool = false, onTogglePin: (() -> Void)? = nil, originLabel: String? = nil,
-        onOpenOrigin: (() -> Void)? = nil, onEdit: @escaping () -> Void,
-        onAddToTune: (() -> Void)?, onRemoveFromTune: @escaping () -> Void, onGoToTune: (() -> Void)? = nil,
-        onDelete: @escaping () -> Void, onSplit: (() -> Void)? = nil, splitDisabledReason: String? = nil,
-        deleteDisabledReason: String? = nil
-    ) -> some View {
-        recordingRowActions(
-            RecordingRowHandlers(
-                filed: filed, pinned: pinned, onTogglePin: onTogglePin, originLabel: originLabel,
-                onOpenOrigin: onOpenOrigin, onEdit: onEdit, onAddToTune: onAddToTune,
-                onRemoveFromTune: onRemoveFromTune, onGoToTune: onGoToTune, onDelete: onDelete, onSplit: onSplit,
-                splitDisabledReason: splitDisabledReason, deleteDisabledReason: deleteDisabledReason))
-    }
-
-    /// Swipe actions and a context menu for a recording row, from `handlers`.
-    func recordingRowActions(_ handlers: RecordingRowHandlers) -> some View {
-        self
+    /// Swipe actions and a context menu for a recording row, which hold Delete alone. Delete
+    /// shows disabled with `deleteDisabledReason` while it cannot be used.
+    func recordingRowActions(onDelete: @escaping () -> Void, deleteDisabledReason: String? = nil) -> some View {
+        let handlers = RecordingRowHandlers(onDelete: onDelete, deleteDisabledReason: deleteDisabledReason)
+        return
+            self
             // A long swipe only reveals the actions; no swipe acts on its own.
             .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                ForEach(handlers.swipe, id: \.self) { action in
-                    handlers.button(action, short: true).tint(Palette.color(RecordingRowHandlers.swipeFill(action)))
+                ForEach(RecordingRowAction.swipe, id: \.self) { action in
+                    handlers.button(action, short: true).tint(Palette.color(action.swipeFill))
                 }
             }
             .contextMenu {
-                ForEach(handlers.menu, id: \.self) { action in
-                    if action == .delete { Divider() }
+                ForEach(RecordingRowAction.menu, id: \.self) { action in
                     handlers.button(action, short: false)
                 }
             }
     }
 }
 
-/// What a recording row's actions do, and so which of them the row offers.
+/// What a recording row's actions do.
 @MainActor
 struct RecordingRowHandlers {
-    let filed: Bool
-    var pinned = false
-    var onTogglePin: (() -> Void)?
-    var originLabel: String?
-    var onOpenOrigin: (() -> Void)?
-    let onEdit: () -> Void
-    let onAddToTune: (() -> Void)?
-    let onRemoveFromTune: () -> Void
-    var onGoToTune: (() -> Void)?
     let onDelete: () -> Void
-    /// Opens the Split screen. Nil leaves Split out.
-    var onSplit: (() -> Void)?
-    /// Why Split cannot be used now; it shows disabled with this reason.
-    var splitDisabledReason: String?
     /// Why Delete cannot be used now; it shows disabled with this reason.
     var deleteDisabledReason: String?
 
-    /// The swipe actions, from the trailing edge in.
-    var swipe: [RecordingRowAction] {
-        RecordingRowAction.swipe(
-            filed: filed, canAddToTune: onAddToTune != nil, canGoToTune: onGoToTune != nil,
-            canPin: onTogglePin != nil, canSplit: onSplit != nil)
-    }
-
-    /// The context menu's actions, top to bottom.
-    var menu: [RecordingRowAction] {
-        RecordingRowAction.menu(
-            filed: filed, canAddToTune: onAddToTune != nil, canGoToTune: onGoToTune != nil,
-            canPin: onTogglePin != nil, originSite: onOpenOrigin == nil ? nil : originLabel, canSplit: onSplit != nil)
-    }
-
-    /// A swipe action's fill by its job, as the web's row swipe tones: filing is a warning,
-    /// delete is danger, pin is an accent action, and the rest are neutral.
-    static func swipeFill(_ action: RecordingRowAction) -> Palette.Token {
-        switch action {
-        case .pin: .accentFill
-        case .addToTune, .removeFromTune: .warningFillStrong
-        case .goToTune, .edit, .openOrigin, .split: .neutralFill
-        case .delete: .dangerFillStrong
-        }
-    }
-
     @ViewBuilder func button(_ action: RecordingRowAction, short: Bool) -> some View {
         switch action {
-        case .split:
-            if let onSplit {
-                disabling(
-                    Button(action: onSplit) {
-                        reasonLabel(
-                            action.title, systemImage: "rectangle.split.3x1", reason: short ? nil : splitDisabledReason)
-                    }, reason: splitDisabledReason)
-            }
-        case .edit:
-            Button(action.title, systemImage: "pencil", action: onEdit)
-        case .addToTune:
-            if let onAddToTune { Button(action.title, systemImage: "folder.badge.plus", action: onAddToTune) }
-        case .removeFromTune:
-            Button(action.title, systemImage: "folder.badge.minus", action: onRemoveFromTune)
-        case .goToTune:
-            if let onGoToTune { Button(action.title, systemImage: "arrow.right.circle", action: onGoToTune) }
-        case .pin:
-            PinAction(pinned: pinned, onTogglePin: onTogglePin, short: short)
-        case .openOrigin:
-            if let onOpenOrigin {
-                Button(action.title, systemImage: "arrow.up.right.square", action: onOpenOrigin)
-            }
         case .delete:
-            disabling(
-                Button(role: .destructive, action: onDelete) {
-                    reasonLabel(action.title, systemImage: "trash", reason: short ? nil : deleteDisabledReason)
-                }, reason: deleteDisabledReason)
+            Button(role: .destructive, action: onDelete) {
+                Label {
+                    Text(action.title)
+                    if !short, let deleteDisabledReason { Text(deleteDisabledReason) }
+                } icon: {
+                    Image(systemName: "trash")
+                }
+            }
+            .disabled(deleteDisabledReason != nil)
+            // VoiceOver reads the reason where a swipe action is too narrow to show it.
+            .accessibilityHint(deleteDisabledReason ?? "", isEnabled: deleteDisabledReason != nil)
         }
-    }
-
-    /// The action's name, with why it is disabled under it in a menu. A swipe action has room for
-    /// the name alone.
-    private func reasonLabel(_ title: String, systemImage: String, reason: String?) -> some View {
-        Label {
-            Text(title)
-            if let reason { Text(reason) }
-        } icon: {
-            Image(systemName: systemImage)
-        }
-    }
-
-    /// Disables `button` while there is a `reason`, which VoiceOver reads where a swipe action is
-    /// too narrow to show it.
-    private func disabling(_ button: some View, reason: String?) -> some View {
-        button
-            .disabled(reason != nil)
-            .accessibilityHint(reason ?? "")
-    }
-}
-
-extension RecordingRowHandlers {
-    /// Split for a row whose recording must be split to upload, which opens the recording's
-    /// screen on its Split screen; nil for every other row, and while the plan holds recordings
-    /// back.
-    static func split(
-        _ view: RecordingView, uploadLimits: StorageUsage?, player: PlayerModel?, window: UUID?, source: ActionSource,
-        recordingsPlay: Bool
-    ) -> (() -> Void)? {
-        guard recordingsPlay, let player,
-            RecordingLimits.mustSplitToUpload(view.recording, file: view.file, uploadLimits: uploadLimits)
-        else { return nil }
-        return { player.openSplit(.recording(view.recording, tuneTitle: view.tuneTitle), in: window, source: source) }
-    }
-
-    /// Why a row's Split cannot be used now. The row holds its audio, so only the recording's
-    /// own state counts.
-    static func splitDisabledReason(_ view: RecordingView) -> String? {
-        RecordingScreenText.splitDisabledReason(view.recording, file: view.file, audio: nil)
     }
 }

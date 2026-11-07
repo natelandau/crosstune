@@ -90,9 +90,6 @@ public final class AddedTuneUndo {
     /// The target the shown Undo is registered against in the undo manager, so it can be
     /// withdrawn on its own. The manager does not retain it.
     @ObservationIgnored private var systemUndo: SystemUndoTarget?
-    /// Notices that wait for the banner whose Undo is on show, so none takes that Undo, shown
-    /// first in, first out.
-    @ObservationIgnored private var pendingNotices: [String] = []
     private static let logger = Logger(subsystem: "app.crosstune.Crosstune", category: "added-tune")
 
     /// - Parameter waitOut: Returns once a banner's time is up, given whether VoiceOver runs.
@@ -157,17 +154,6 @@ public final class AddedTuneUndo {
             await withCheckedContinuation { addWaiters.append($0) }
         }
         return await add(title: title, source: source)
-    }
-
-    /// Shows a notice with no Undo in the banner, such as a refusal from a screen that is closing.
-    /// A banner offering Undo keeps it: the notice follows once that banner leaves or loses its
-    /// Undo, after any notice already waiting.
-    public func notify(_ message: String) {
-        if undoBannerItem?.undo != nil || !pendingNotices.isEmpty {
-            pendingNotices.append(message)
-        } else {
-            show(UndoBannerItem(message: message))
-        }
     }
 
     private func showUndo(tuneID: String, title: String) {
@@ -237,12 +223,6 @@ public final class AddedTuneUndo {
         stopWatching()
         withdrawSystemUndo()
         undoBannerItem = nil
-        showPendingNotice()
-    }
-
-    private func showPendingNotice() {
-        guard !pendingNotices.isEmpty else { return }
-        show(UndoBannerItem(message: pendingNotices.removeFirst()))
     }
 
     private func withdrawSystemUndo() {
@@ -260,7 +240,6 @@ public final class AddedTuneUndo {
         withdrawSystemUndo()
         guard let item = undoBannerItem, item.id == id else { return }
         undoBannerItem = item.withoutUndo()
-        showPendingNotice()
     }
 
     /// - Parameter pressedAt: ``shownCount`` when Undo was pressed. A banner shown since is
@@ -273,10 +252,9 @@ public final class AddedTuneUndo {
                 undone = tuneID
                 // Deleted only with nothing attached, so it took no recording, link, or scan.
                 analytics.send(.tuneDeleted(tuneID: tuneID, recordings: 0, links: 0, scans: 0))
-                if isLatest { showPendingNotice() }
             case .gone:
                 // Deleted already, here or elsewhere, which reported it then.
-                if isLatest { showPendingNotice() }
+                break
             case .kept:
                 if isLatest { show(UndoBannerItem(message: Self.kept(title))) }
             }

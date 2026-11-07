@@ -305,7 +305,8 @@ private func loop(_ id: String) -> RecordingLoop {
         try await fixture.playRecording("r1")
         let first = PracticeModel(
             player: fixture.player, recording: loggedRecording("r1"), file: nil, writer: noLoopWrites)
-        first.enter()
+        first.openVisit()
+        first.showPanel()
         fixture.player.setSpeed(80)
         try await fixture.fed { $0.speedPercent == 80 }
         fixture.clock.advance(12_000)
@@ -318,7 +319,8 @@ private func loop(_ id: String) -> RecordingLoop {
         first.leave()
         let second = PracticeModel(
             player: fixture.player, recording: loggedRecording("r2"), file: nil, writer: noLoopWrites)
-        second.enter()
+        second.openVisit()
+        second.showPanel()
         #expect(fixture.player.activity.screenRecordingID == "r2")
         try await eventually { fixture.audio.isPlaying && fixture.player.item?.id == "r2" }
         fixture.player.setSpeed(70)
@@ -333,13 +335,15 @@ private func loop(_ id: String) -> RecordingLoop {
         let fixture = ActivityFixture()
         try await fixture.playRecording()
         let model = PracticeModel(player: fixture.player, recording: loggedRecording(), file: nil, writer: noLoopWrites)
-        model.enter()
+        model.openVisit()
+        model.showPanel()
         fixture.player.setSpeed(80)
         try await fixture.fed { $0.speedPercent == 80 }
         fixture.clock.advance(10_000)
         // As on coming back from the trim screen.
         model.leave()
-        model.enter()
+        model.openVisit()
+        model.showPanel()
         fixture.clock.advance(10_000)
         fixture.player.screenClosed()
         #expect(fixture.recorded.sessions.map(\.durationMs) == [20_000])

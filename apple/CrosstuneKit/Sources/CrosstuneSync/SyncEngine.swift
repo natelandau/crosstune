@@ -266,6 +266,13 @@ public final class SyncEngine {
         return try? await api.resolveLink(url: url)
     }
 
+    /// The place at `point` as the server names it, or nil when offline, when there is none,
+    /// or when the lookup fails.
+    public func reversePlace(at point: Coordinate) async -> ReversedPlace? {
+        guard !isOffline() else { return nil }
+        return try? await api.reversePlace(lat: point.lat, lon: point.lon)
+    }
+
     /// Searches `providers` for recordings matching `q`. Never throws: a rate limit is told
     /// apart from every other failure, so the musician learns how long to wait.
     public func searchRecordings(q: String, providers: [String], country: String) async -> RecordingSearchOutcome {
@@ -354,9 +361,10 @@ public final class SyncEngine {
         var storedUsage = false
         do {
             try checkStopped()
-            let usage = try await api.storage()
-            try await store.setMeta(.storage, to: usage)
+            let account = try await api.account()
+            try await store.setMeta(.storage, to: account.storage)
             storedUsage = true
+            try await store.setMeta(.countryCenter, to: account.countryCenter)
         } catch  where endsThePass(error) {
             throw error
         } catch {

@@ -19,57 +19,54 @@
             }
         }
 
-        private func openPaused(in window: UUID) async throws {
-            player.open(.recording(loggedRecording(), tuneTitle: nil), in: window, playing: false)
-            try await eventually { player.recordingAudio == .loaded }
-        }
-
-        @Test func picksPracticeThenTuneThenPlaceholder() async throws {
-            let window = UUID()
-            #expect(MacDetail.pick(player, in: window, tune: nil) == .placeholder)
-            #expect(MacDetail.pick(player, in: window, tune: "t1") == .tune("t1"))
-
-            try await openPaused(in: window)
-            #expect(MacDetail.pick(player, in: window, tune: "t1") == .practice)
-        }
-
-        @Test func anotherWindowKeepsItsTune() async throws {
-            try await openPaused(in: UUID())
-            #expect(MacDetail.pick(player, in: UUID(), tune: "t1") == .tune("t1"))
-        }
-
-        @Test func aLinkInFullIsNotPractice() throws {
-            var link = RecordingLink(id: "l1", tuneID: "t1", url: "https://example.com/x", provider: "youtube")
-            link.providerRef = "dQw4w9WgXcQ"
-            player.play(try #require(PlayerItem.link(link)))
-            #expect(player.isExpanded)
-            #expect(MacDetail.pick(player, in: UUID(), tune: "t1") == .tune("t1"))
-        }
-
-        @Test func openingAnyTuneClosesPractice() async throws {
+        @Test func picksTheRecordingThenTheTuneThenThePlaceholder() {
             let place = ShellPlace()
-            place.detailTune = "t1"
-            let window = UUID()
-            try await openPaused(in: window)
-            let detailTune = practiceAwareDetailTune(place, player: player, window: window)
+            #expect(place.detailPath.detail == .placeholder)
+            place.detailPath.tune = "t1"
+            #expect(place.detailPath.detail == .tune("t1"))
+            place.detailPath.recording = "r1"
+            #expect(place.detailPath.detail == .recording("r1"))
+        }
+
+        @Test func theDetailColumnShowsTheOpenedRecordingNotTheLoadedOne() async throws {
+            player.play(.recording(loggedRecording("r1"), tuneTitle: nil))
+            try await eventually { player.recordingAudio == .loaded }
+            let place = ShellPlace()
+            place.openRecordingPage("r2", source: .recordingsList)
+            #expect(place.detailPath.detail == .recording("r2"))
+            #expect(player.item?.id == "r1")
+        }
+
+        @Test func openingARecordingPageFromTheTunerShowsTheRecordings() {
+            let place = ShellPlace()
+            place.sidebar = .tuner
+            place.openRecordingPage("r1", source: .recordingsList)
+            #expect(place.sidebar == .recordings)
+            #expect(place.detailPath.detail == .recording("r1"))
+        }
+
+        @Test func openingAnyTuneClosesTheRecordingPage() {
+            let place = ShellPlace()
+            place.detailPath.tune = "t1"
+            place.openRecordingPage("r1", source: .recordingsList)
+            let detailTune = place.listedTuneValue()
             #expect(detailTune.value == nil)
 
             detailTune.value = "t1"
-            #expect(!player.isExpanded)
-            #expect(place.detailTune == "t1")
+            #expect(place.detailPath.recording == nil)
+            #expect(place.detailPath.tune == "t1")
             #expect(detailTune.value == "t1")
         }
 
-        @Test func anUnhighlightWhileExpandedKeepsTheTuneUnderneath() async throws {
+        @Test func anUnhighlightWhileARecordingShowsKeepsTheTuneUnderneath() {
             let place = ShellPlace()
-            place.detailTune = "t1"
-            let window = UUID()
-            try await openPaused(in: window)
-            player.transport?.play()
-            let detailTune = practiceAwareDetailTune(place, player: player, window: window)
+            place.detailPath.tune = "t1"
+            place.openRecordingPage("r1", source: .recordingsList)
+            let detailTune = place.listedTuneValue()
 
             detailTune.value = nil
-            #expect(place.detailTune == "t1")
+            #expect(place.detailPath.tune == "t1")
+            #expect(place.detailPath.recording == "r1")
         }
     }
 #endif

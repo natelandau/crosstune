@@ -183,12 +183,6 @@ public final class TuneModel {
         }
     }
 
-    /// Takes one of the tune's recordings out of it, leaving it unfiled.
-    public func unfileRecording(_ recording: Recording) async {
-        let removed = await run(.media) { try await $0.updateRecording(recording.id, tuneID: .value(nil)) }
-        if removed { analytics.recordingUnfiled(recording) }
-    }
-
     /// Deletes one of the tune's recordings.
     public func deleteRecording(_ recording: Recording) async {
         let deleted = await run(.media) { try await $0.deleteRecording(recording.id) }

@@ -27,10 +27,6 @@
         case recordingsFilters = "recordings-filters"
         /// Recordings narrowed to the musician's own, so the screen shows its Filters controls.
         case recordingsSetFilters = "recordings-set-filters"
-        case editRecording = "edit-recording"
-        /// The edit sheet opened on its location page, for a recording at a saved location.
-        case editLocation = "edit-location"
-        case addToTune = "add-to-tune"
         case record
         case listNew = "list-new"
         case listPicker = "list-picker"
@@ -71,18 +67,6 @@
             SampleCatalog.entries.first { $0.userTune.archivedAt != nil }?.tune.id ?? tuneID
         }
         static var listID: String { SampleCatalog.lists[0].id }
-        /// The recording the edit sheet opens: one with a name and its audio here, so every field
-        /// has something to show.
-        static var editedRecordingID: String {
-            let richest = SampleCatalog.recordings.first {
-                $0.recording.label != nil && $0.file?.localState == .downloaded
-            }
-            return (richest ?? SampleCatalog.recordings[0]).recording.id
-        }
-        /// A recording filed under no tune, for the add to tune sheet.
-        static var unfiledRecordingID: String {
-            (SampleCatalog.recordings.first { $0.recording.tuneID == nil } ?? SampleCatalog.recordings[0]).recording.id
-        }
 
         /// Shows the signed-out welcome screen in place of the shell.
         var isSignedOut: Bool { self == .welcome || self == .signIn }
@@ -96,7 +80,7 @@
             let place = ShellPlace()
             place.restoresTab = false
             switch self {
-            case .recordings, .recordingsFilters, .recordingsSetFilters, .editRecording, .editLocation, .addToTune:
+            case .recordings, .recordingsFilters, .recordingsSetFilters:
                 place.sidebar = .recordings
                 place.tab = .recordings
             case .list, .listSelecting, .tunePicker:
@@ -106,9 +90,9 @@
             default: break
             }
             let tuneID = self == .tuneArchived ? Self.archivedTuneID : Self.tuneID
-            if !isEmpty { place.detailTune = tuneID }
+            if !isEmpty { place.detailPath.tune = tuneID }
             // On iPhone a tune covers the tab's own screen, so only a screen shown from a tune opens one.
-            if opensFromTune { place.tabTunes[place.tab] = tuneID }
+            if opensFromTune { place.tabPaths[place.tab, default: PagePath()].tune = tuneID }
             return place
         }
 

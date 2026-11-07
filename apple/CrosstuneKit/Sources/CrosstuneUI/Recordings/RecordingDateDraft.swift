@@ -2,7 +2,7 @@ import CrosstuneCommands
 import CrosstuneStore
 import Foundation
 
-/// A recorded date as the Edit sheet holds it: a typed year, narrowed by an optional month and
+/// A recorded date as its editor holds it: a typed year, narrowed by an optional month and
 /// day. A recording's exact time survives only while its date parts are left as they opened.
 public struct RecordingDateDraft: Equatable, Sendable {
     /// Why the parts cannot be stored.
@@ -30,11 +30,21 @@ public struct RecordingDateDraft: Equatable, Sendable {
     private let exactTime: Timestamp?
     private let timeZone: TimeZone
 
-    public var year: String { parts.year }
-    /// Nil is Any.
-    public var month: Int? { parts.month }
-    /// Nil is Any.
-    public var day: Int? { parts.day }
+    /// Setting it keeps the digits typed, as ``setYear(_:)`` does.
+    public var year: String {
+        get { parts.year }
+        set { setYear(newValue) }
+    }
+    /// Nil is Any. Setting it narrows the day, as ``setMonth(_:)`` does.
+    public var month: Int? {
+        get { parts.month }
+        set { setMonth(newValue) }
+    }
+    /// Nil is Any. Setting it drops a day the month lacks, as ``setDay(_:)`` does.
+    public var day: Int? {
+        get { parts.day }
+        set { setDay(newValue) }
+    }
 
     /// `timeZone` reads a recording's day; a partial date is read in UTC, where it is stored.
     public init(recordedAt: Timestamp?, precision: RecordingPrecision?, timeZone: TimeZone = .current) {

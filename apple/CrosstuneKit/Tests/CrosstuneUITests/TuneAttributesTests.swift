@@ -21,34 +21,34 @@ import Testing
 
     @Test func theColumnNeedsRoomForItselfBesideAReadableColumn() {
         let threshold = PageStyle.attributesColumnWidth + PageStyle.attributesColumnGap + PageStyle.contentMinWidth
-        #expect(TuneAttributes.layout(forDetailWidth: threshold - 1) == .card)
-        #expect(TuneAttributes.layout(forDetailWidth: threshold) == .column)
-        #expect(TuneAttributes.layout(forDetailWidth: 0) == .card)
+        #expect(AttributesLayout.layout(forDetailWidth: threshold - 1) == .card)
+        #expect(AttributesLayout.layout(forDetailWidth: threshold) == .column)
+        #expect(AttributesLayout.layout(forDetailWidth: 0) == .card)
     }
 
     @Test func aWideColumnSetsEachValueBesideItsLabel() {
         let beside = PageStyle.attributesColumnBesideWidth
-        #expect(TuneAttributes.arrangement(forColumnWidth: PageStyle.attributesColumnWidth) == .stacked)
-        #expect(TuneAttributes.arrangement(forColumnWidth: beside - 1) == .stacked)
-        #expect(TuneAttributes.arrangement(forColumnWidth: beside) == .beside)
-        #expect(TuneAttributes.arrangement(forColumnWidth: PageStyle.attributesColumnMaxWidth) == .beside)
+        #expect(AttributeRowArrangement.arrangement(forColumnWidth: PageStyle.attributesColumnWidth) == .stacked)
+        #expect(AttributeRowArrangement.arrangement(forColumnWidth: beside - 1) == .stacked)
+        #expect(AttributeRowArrangement.arrangement(forColumnWidth: beside) == .beside)
+        #expect(AttributeRowArrangement.arrangement(forColumnWidth: PageStyle.attributesColumnMaxWidth) == .beside)
     }
 
     @Test func anAccessibilityTextSizeStacksEveryRow() {
-        #expect(TuneAttributes.arrangement(.beside, accessibilitySize: true) == .stacked)
-        #expect(TuneAttributes.arrangement(.beside, accessibilitySize: false) == .beside)
-        #expect(TuneAttributes.arrangement(.stacked, accessibilitySize: false) == .stacked)
+        #expect(AttributeRowArrangement.arrangement(.beside, accessibilitySize: true) == .stacked)
+        #expect(AttributeRowArrangement.arrangement(.beside, accessibilitySize: false) == .beside)
+        #expect(AttributeRowArrangement.arrangement(.stacked, accessibilitySize: false) == .stacked)
     }
 
     @Test func theColumnGrowsOnceTheContentHasItsReadableWidth() {
         let content = PageStyle.pageMaxWidth + 2 * PageStyle.pageMargin + PageStyle.attributesColumnGap
         let narrowest = PageStyle.attributesColumnWidth
         let widest = PageStyle.attributesColumnMaxWidth
-        #expect(TuneAttributes.columnWidth(forDetailWidth: 600) == narrowest)
-        #expect(TuneAttributes.columnWidth(forDetailWidth: content + narrowest) == narrowest)
-        #expect(TuneAttributes.columnWidth(forDetailWidth: content + narrowest + 20) == narrowest + 20)
-        #expect(TuneAttributes.columnWidth(forDetailWidth: content + widest) == widest)
-        #expect(TuneAttributes.columnWidth(forDetailWidth: 3000) == widest)
+        #expect(AttributesLayout.columnWidth(forDetailWidth: 600) == narrowest)
+        #expect(AttributesLayout.columnWidth(forDetailWidth: content + narrowest) == narrowest)
+        #expect(AttributesLayout.columnWidth(forDetailWidth: content + narrowest + 20) == narrowest + 20)
+        #expect(AttributesLayout.columnWidth(forDetailWidth: content + widest) == widest)
+        #expect(AttributesLayout.columnWidth(forDetailWidth: 3000) == widest)
     }
 
     @Test func theColumnSwitchesBetweenItsNarrowestAndWidest() {
@@ -73,7 +73,7 @@ import Testing
                 ("Mac 1400", macDetail(1400), .column),
             ] as [(String, CGFloat, AttributesLayout)])
         func theMacLayoutFollowsTheWindow(_ place: String, _ width: CGFloat, _ expected: AttributesLayout) {
-            #expect(TuneAttributes.layout(forDetailWidth: width) == expected, "\(place) at \(width)")
+            #expect(AttributesLayout.layout(forDetailWidth: width) == expected, "\(place) at \(width)")
         }
     #endif
 
@@ -96,23 +96,23 @@ import Testing
             ("Duo closed", 466, .card),
         ] as [(String, CGFloat, AttributesLayout)])
     func theLayoutFollowsTheDetailColumn(_ place: String, _ width: CGFloat, _ expected: AttributesLayout) {
-        #expect(TuneAttributes.layout(forDetailWidth: width) == expected, "\(place) at \(width)")
+        #expect(AttributesLayout.layout(forDetailWidth: width) == expected, "\(place) at \(width)")
     }
 
     // MARK: Pinning
 
     @Test func theColumnStaysPutUntilItsTopReachesThePin() {
-        #expect(TuneAttributes.pinOffset(top: 50, minY: 120, containerHeight: 1000, attributesHeight: 400) == 0)
-        #expect(TuneAttributes.pinOffset(top: 50, minY: 50, containerHeight: 1000, attributesHeight: 400) == 0)
+        #expect(PinsWhileScrolling.offset(top: 50, minY: 120, containerHeight: 1000, attributesHeight: 400) == 0)
+        #expect(PinsWhileScrolling.offset(top: 50, minY: 50, containerHeight: 1000, attributesHeight: 400) == 0)
     }
 
     @Test func thePinnedColumnFollowsTheScroll() {
-        #expect(TuneAttributes.pinOffset(top: 50, minY: -100, containerHeight: 1000, attributesHeight: 400) == 150)
+        #expect(PinsWhileScrolling.offset(top: 50, minY: -100, containerHeight: 1000, attributesHeight: 400) == 150)
     }
 
     @Test func thePinnedColumnStopsAtTheColumnsEnd() {
-        #expect(TuneAttributes.pinOffset(top: 50, minY: -900, containerHeight: 1000, attributesHeight: 400) == 600)
-        #expect(TuneAttributes.pinOffset(top: 50, minY: -900, containerHeight: 300, attributesHeight: 400) == 0)
+        #expect(PinsWhileScrolling.offset(top: 50, minY: -900, containerHeight: 1000, attributesHeight: 400) == 600)
+        #expect(PinsWhileScrolling.offset(top: 50, minY: -900, containerHeight: 300, attributesHeight: 400) == 0)
     }
 
     // MARK: Open editor
@@ -121,41 +121,41 @@ import Testing
 
     @Test func onlyTheOpenedRowShowsItsEditor() {
         var state = AttributesOpenState()
-        let status = Key(tuneID: "a", layout: .column, id: .status)
+        let status = Key(owner: "a", layout: .column, id: AttributeID.status)
         state.set(status, shown: true)
         #expect(state.isPresented(status))
-        #expect(!state.isPresented(Key(tuneID: "a", layout: .column, id: .key)))
-        #expect(!state.isPresented(Key(tuneID: "b", layout: .column, id: .status)))
-        #expect(!state.isPresented(Key(tuneID: "a", layout: .card, id: .status)))
+        #expect(!state.isPresented(Key(owner: "a", layout: .column, id: AttributeID.key)))
+        #expect(!state.isPresented(Key(owner: "b", layout: .column, id: AttributeID.status)))
+        #expect(!state.isPresented(Key(owner: "a", layout: .card, id: AttributeID.status)))
     }
 
     @Test func anotherRowClosingLeavesTheOpenOneAlone() {
         var state = AttributesOpenState()
-        let status = Key(tuneID: "a", layout: .column, id: .status)
+        let status = Key(owner: "a", layout: .column, id: AttributeID.status)
         state.set(status, shown: true)
-        state.set(Key(tuneID: "a", layout: .column, id: .key), shown: false)
+        state.set(Key(owner: "a", layout: .column, id: AttributeID.key), shown: false)
         #expect(state.isPresented(status))
         state.set(status, shown: false)
         #expect(!state.isPresented(status))
     }
 
     @Test func anotherTuneOrLayoutClosesTheEditor() {
-        let status = Key(tuneID: "a", layout: .column, id: .status)
+        let status = Key(owner: "a", layout: .column, id: AttributeID.status)
         var swapped = AttributesOpenState()
         swapped.set(status, shown: true)
-        swapped.keep(tuneID: "b", layout: .column)
-        swapped.keep(tuneID: "a", layout: .column)
+        swapped.keep(owner: "b", layout: .column)
+        swapped.keep(owner: "a", layout: .column)
         #expect(!swapped.isPresented(status), "a return to the tune never reopens it")
 
         var flipped = AttributesOpenState()
         flipped.set(status, shown: true)
-        flipped.keep(tuneID: "a", layout: .card)
-        flipped.keep(tuneID: "a", layout: .column)
+        flipped.keep(owner: "a", layout: .card)
+        flipped.keep(owner: "a", layout: .column)
         #expect(!flipped.isPresented(status))
 
         var same = AttributesOpenState()
         same.set(status, shown: true)
-        same.keep(tuneID: "a", layout: .column)
+        same.keep(owner: "a", layout: .column)
         #expect(same.isPresented(status))
     }
 
@@ -179,40 +179,68 @@ import Testing
         #expect(AttributeCopy.listsGroup == "Lists")
     }
 
+    @Test func theColumnRowsSitUnderTheirGroupsHeadings() {
+        let rows = TuneAttributes.columnRows(AttributeRows.rows(detail()))
+        let entries = AttributeColumnEntry.entries(groups: TuneAttributes.columnGroups, rows: rows)
+        let headings = entries.compactMap { entry -> String? in
+            if case .heading(let title, _) = entry { title } else { nil }
+        }
+        #expect(headings == [AttributeCopy.detailsGroup, AttributeCopy.aboutGroup, AttributeCopy.learnedGroup])
+        #expect(rows.map(\.id) == AttributeRows.rows(detail()).map(\.id))
+        #expect(rows.allSatisfy { !$0.isReadOnly })
+    }
+
     @Test func anUnsetValueReadsAdd() {
-        let rows = AttributeRows.rows(detail(learnedFrom: "Kevin Burke"))
+        let rows = TuneAttributes.columnRows(AttributeRows.rows(detail(learnedFrom: "Kevin Burke")))
         let type = rows.first { $0.id == .tuneType }!
         let from = rows.first { $0.id == .learnedFrom }!
-        #expect(TuneAttributes.value(type) == AttributeCopy.addValue)
-        #expect(TuneAttributes.value(from) == "Kevin Burke")
+        #expect(type.value(emptyText: AttributeCopy.addValue) == AttributeCopy.addValue)
+        #expect(from.value(emptyText: AttributeCopy.addValue) == "Kevin Burke")
     }
 
     @Test func eachRowIsNamedForItsLabelAndValue() {
-        let rows = AttributeRows.rows(detail())
+        let rows = TuneAttributes.columnRows(AttributeRows.rows(detail()))
         let status = rows.first { $0.id == .status }!
         let type = rows.first { $0.id == .tuneType }!
-        #expect(TuneAttributes.accessibilityLabel(status) == "Status, Learning")
-        #expect(TuneAttributes.accessibilityLabel(type) == "Type, Add")
+        #expect(status.accessibilityLabel(emptyText: AttributeCopy.addValue) == "Status, Learning")
+        #expect(type.accessibilityLabel(emptyText: AttributeCopy.addValue) == "Type, Add")
     }
 
     @Test func theCardShowsTheMainAttributesUntilMoreDetailsOpens() {
         let tune = Tune(createdAt: noon, title: "T", tuneType: "reel", partStructure: "AABB")
-        let rows = AttributeRows.rows(detail(tune))
-        let closed = TuneAttributes.card(rows, expanded: false)
-        #expect(closed.shown.map(\.id) == [.status, .key, .tuning("violin"), .tuneType])
-        #expect(closed.shown.last?.text == "reel · AABB")
-        #expect(closed.more.isEmpty)
-        #expect(closed.learned.isEmpty)
+        let card = TuneAttributes.cardRows(AttributeRows.rows(detail(tune)))
+        func sections(expanded: Bool) -> [AttributeCardSection<AttributeID>] {
+            AttributeCardSection.sections(
+                groups: TuneAttributes.cardGroups, rows: card.rows, beforeMoreDetails: card.beforeMoreDetails,
+                expanded: expanded)
+        }
+        let closed = sections(expanded: false)
+        #expect(closed.count == 1)
+        #expect(closed[0].heading == nil)
+        #expect(closed[0].hasMoreDetails)
+        #expect(closed[0].rows.map(\.id) == [.status, .key, .tuning("violin"), .tuneType])
+        #expect(closed[0].rows.last?.text == "reel · AABB")
+        #expect(closed[0].more.isEmpty)
 
-        let open = TuneAttributes.card(rows, expanded: true)
-        #expect(open.shown == closed.shown)
-        #expect(open.more.map(\.id) == [.timeSignature, .partStructure, .genre, .composer, .alternateTitles])
-        #expect(open.learned.map(\.id) == [.learnedFrom, .learnedOn])
+        let open = sections(expanded: true)
+        #expect(open.count == 2)
+        #expect(open[0].rows == closed[0].rows)
+        #expect(open[0].more.map(\.id) == [.timeSignature, .partStructure, .genre, .composer, .alternateTitles])
+        #expect(open[1].heading == AttributeCopy.learnedGroup)
+        #expect(open[1].rows.map(\.id) == [.learnedFrom, .learnedOn])
     }
 
     @Test func moreDetailsSaysWhetherItIsOpen() {
-        #expect(TuneAttributes.moreDetailsState(expanded: true) == DisclosureCopy.expanded)
-        #expect(TuneAttributes.moreDetailsState(expanded: false) == DisclosureCopy.collapsed)
+        #expect(MoreDetailsText.state(expanded: true) == DisclosureCopy.expanded)
+        #expect(MoreDetailsText.state(expanded: false) == DisclosureCopy.collapsed)
+    }
+
+    /// The column draws every group's heading, so no tune may leave a group empty.
+    @Test func everyColumnGroupHasARowForEveryTune() {
+        let rows = TuneAttributes.columnRows(AttributeRows.rows(detail()))
+        for group in TuneAttributes.columnGroups {
+            #expect(rows.contains { $0.group == group }, "\(group)")
+        }
     }
 
     // MARK: Tune identity

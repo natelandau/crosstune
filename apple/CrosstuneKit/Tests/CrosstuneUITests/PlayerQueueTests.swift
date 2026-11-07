@@ -410,7 +410,7 @@ private let queuedNowPlaying = NowPlaying(title: "Jam", tuneTitle: "Kitchen Girl
     @Test func releasingASongKeepsTheOpenPlayerAndTheBar() async throws {
         let fixture = fixture()
         try await queueSong(fixture)
-        fixture.player.expand()
+        fixture.player.isExpanded = true
         fixture.music.holdsLoads = true
         fixture.player.leaveQueue()
         try await eventually { fixture.music.isHoldingLoad }
@@ -618,7 +618,8 @@ private let queuedNowPlaying = NowPlaying(title: "Jam", tuneTitle: "Kitchen Girl
         let fixture = fixture()
         let window = UUID()
         try await queueRecording(fixture)
-        fixture.player.expand(in: window)
+        fixture.player.expandedWindow = window
+        fixture.player.isExpanded = true
         try await queueSong(fixture)
         #expect(fixture.player.isExpanded)
         #expect(fixture.player.expandedWindow == window)
@@ -630,7 +631,8 @@ private let queuedNowPlaying = NowPlaying(title: "Jam", tuneTitle: "Kitchen Girl
         let fixture = fixture()
         let window = UUID()
         try await queueRecording(fixture)
-        fixture.player.expand(in: window)
+        fixture.player.expandedWindow = window
+        fixture.player.isExpanded = true
         fixture.music.found = false
         fixture.player.playQueued(try songItem(), nowPlaying: queuedNowPlaying, trigger: .autoAdvance)
         try await eventually { fixture.queue.calls == ["couldNotPlay"] }

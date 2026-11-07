@@ -107,43 +107,6 @@ public enum RecordingScreenText {
         "Trim to \(RecordingText.duration(milliseconds: milliseconds) ?? "")?"
     }
 
-    /// The accessible name of the control that opens the location page, or nil when the recording has no
-    /// shown location.
-    public static func editLocation(_ name: String?) -> String? {
-        guard let name, !name.isEmpty else { return nil }
-        return "Edit \(EditRecordingText.place.lowercased()), \(name)"
-    }
-
-    /// The practice screen's subtitle: where the recording came from, its length, then its
-    /// ``credits(_:place:)``. The source is the tune it is filed under when its own label is the title,
-    /// else the site it was imported from, else its date, which a title that is already the date
-    /// leaves out. A recording with none of these has no subtitle.
-    public static func subtitle(
-        _ recording: Recording, tuneTitle: String?, lengthMs: Int64?, place: String? = nil,
-        includesPlace: Bool = true, locale: Locale = .current, timeZone: TimeZone = .current
-    ) -> String {
-        let date = RecordingText.date(recording, locale: locale, timeZone: timeZone)
-        let source: String? =
-            if recording.label != nil, let tuneTitle {
-                tuneTitle
-            } else if let site = RecordingText.originLabel(recording.origin) {
-                site
-            } else if RecordingText.titleIsDate(recording, tuneTitle: tuneTitle) {
-                nil
-            } else {
-                date
-            }
-        return
-            ([source, RecordingText.duration(milliseconds: lengthMs)].compactMap { $0 }
-            + credits(recording, place: includesPlace ? place : nil))
-            .joined(separator: " · ")
-    }
-
-    /// Who played and the shown location's name, the ones set.
-    static func credits(_ recording: Recording, place: String?) -> [String] {
-        [recording.players, place].compactMap { $0 }
-    }
-
     /// `m:ss.t`, for placing a trim handle to the tenth of a second.
     public static func preciseTime(milliseconds: Int64) -> String {
         let tenths = Int64((Double(max(0, milliseconds)) / 100).rounded())
@@ -197,6 +160,21 @@ public enum RecordingScreenText {
         if file?.localState == .capturing { return trimWhileRecording }
         if downloading || file?.localState == .downloading { return trimWhileDownloading }
         return nil
+    }
+
+    /// Why a recording the player does not hold cannot load and play now, or nil when Play would
+    /// load it: still being recorded or downloaded, not on this device while offline, or with no
+    /// audio ready anywhere yet, as while another device uploads it, which its row's state says.
+    static func loadUnavailableReason(
+        _ recording: Recording, file: RecordingFile?, downloading: Bool, offline: Bool
+    ) -> String? {
+        if let reason = screenUnavailableReason(file: file, downloading: downloading) { return reason }
+        return switch RecordingText.control(recording, file: file, loaded: false, downloading: downloading) {
+        case .play, .close: nil
+        case .download: offline ? SyncStatus.offlineLabel : nil
+        case .downloading: RecordingText.downloading
+        case .none: RecordingText.fileState(recording, file: file) ?? RecordingText.processing
+        }
     }
 
     /// Why Trim cannot be used now, or nil when it can: the recording is still being recorded, its
