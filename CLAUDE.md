@@ -83,15 +83,18 @@ against production, such as granting a comp or a trial.
   `scripts/in-use.sh`, or a prune can delete the build under it.
 - To see or drive a running app, use Peekaboo for the Mac app and
   Maestro for the iOS simulators. Run `peekaboo learn` and
-  `maestro --help` for their commands. Peekaboo: target the app with
-  `--app Crosstune`, pass `--input-strategy actionOnly`, never pass
+  `maestro --help` for their commands. Peekaboo (v4): target the app with
+  `--pid` (from `pgrep -f "Crosstune Dev.app"`), read it with
+  `peekaboo see --pid <pid>` (`--tree` for the accessibility tree), act
+  with `action`, `set-value`, or `menu` and
+  `--input-strategy actionOnly`, and wait with `verify`. Never pass
   `--foreground`, and never use `peekaboo agent`. Maestro: always pass
   `--udid` (from `xcrun simctl list devices booted`), since several
   simulators run at once.
 - `run` opens the app in the background. Capture it with
-  `screencapture -o -l<windowID>`, which works behind other windows. Never
-  bring the app forward or send synthetic mouse or keyboard events: the
-  developer is working on the same Mac.
+  `peekaboo see --pid <pid> --no-elements --path <file>`, which works
+  behind other windows. Never bring the app forward or send synthetic
+  mouse or keyboard events: the developer is working on the same Mac.
 - `just dev` runs Postgres, migrations, the API, the web client, and the
   site together. Every checkout and worktree shares one Postgres container,
   but each worktree gets its own database and bucket, copied from main's by
@@ -223,6 +226,9 @@ fails there at random. Every web test follows these rules:
 - Under fake timers, a poll advances the clock by its interval on each
   miss, so it can fire a timer the test means to hold. There, poll with
   `pollStill` and `elementStill` from `web/src/test/stillPoll.ts`.
+- A browser action such as `fill` or `click` advances fake timers while
+  it runs. Under fake timers, type with `fillStill` from the same file.
+  Another action that must not move the clock gets a still helper there.
 - Behavior driven by elapsed time or animation frames takes its clock or
   frame source as an input, or the test uses fake timers. No assertion
   depends on how many frames a runner renders.
