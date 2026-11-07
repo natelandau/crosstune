@@ -46,26 +46,28 @@ final class RecordingTunePickerModel {
     private(set) var idleResults: [CatalogEntry]?
 
     private let search: CatalogPickerSearch
-    @ObservationIgnored private var following: Task<Void, Never>?
 
     init(store: CrosstuneStore) {
         let search = CatalogPickerSearch(store: store)
         self.search = search
-        following = Task { [weak self] in
-            for await _ in Observations({ @MainActor in search.entries }) {
-                self?.refresh()
-            }
-        }
-    }
-
-    isolated deinit {
-        following?.cancel()
+        follow()
     }
 
     /// The instruments the musician plays, for the tunings each row shows.
     var instruments: Set<String> { search.instruments }
 
     var isIdle: Bool { CatalogPickerSearch.isIdle(query) }
+
+    /// Refreshes now and again after each catalog change. Tracking is armed in the same
+    /// synchronous step as the read, so no change slips between them, and an empty catalog
+    /// refreshes like any other.
+    private func follow() {
+        withObservationTracking {
+            refresh()
+        } onChange: { [weak self] in
+            Task { @MainActor in self?.follow() }
+        }
+    }
 
     private func refresh() {
         if let found = search.find(query) {

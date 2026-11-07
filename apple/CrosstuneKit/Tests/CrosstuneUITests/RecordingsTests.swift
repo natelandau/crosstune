@@ -902,6 +902,14 @@ private struct RefusingSyncAPI: SyncAPI {
         #expect(model.idleResults?.isEmpty == true, "typing hands the rows to the search")
     }
 
+    @Test func readsAnEmptyCatalogWithoutTyping() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let model = RecordingTunePickerModel(store: store)
+        try await eventually { model.results != nil && model.idleResults != nil }
+        #expect(model.idleResults?.isEmpty == true)
+    }
+
     @Test func offersToStartATuneWhenNothingMatches() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
