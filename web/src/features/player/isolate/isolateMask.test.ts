@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import cases from '../../../../../fixtures/isolate/gain-cases.json'
 import { seeded } from '../../../test/random'
-import { binGain, IsolateMask } from './isolateMask'
+import { binGain, IsolateMask, outlinePanBin } from './isolateMask'
 import { DEFAULT_ISOLATE, type IsolateSetting } from './isolateSetting'
 
 const SAMPLE_RATES = [44100, 48000]
@@ -50,6 +50,20 @@ function maskWith(sampleRate: number, setting: Partial<IsolateSetting>, isMono =
   mask.setSetting({ ...DEFAULT_ISOLATE, ...setting }, isMono)
   return mask
 }
+
+describe('outlinePanBin', () => {
+  it.each([-100 - 1e-12, -100, 0, 100, 100 + 1e-12])('puts pan %d in an outline bin', (pan) => {
+    expect(outlinePanBin(pan)).toBeGreaterThanOrEqual(0)
+    expect(outlinePanBin(pan)).toBeLessThan(32)
+  })
+
+  // Rounding puts this left-only magnitude's pan just under -100.
+  it('puts a left-only bin in the first outline bin', () => {
+    const left = 1.0000637019874848e-7
+    const right = 0
+    expect(outlinePanBin((100 * (right - left)) / (left + right))).toBe(0)
+  })
+})
 
 describe('binGain', () => {
   it('matches every parity case', () => {

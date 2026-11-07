@@ -71,6 +71,15 @@ function gainAt(pan: number, log2Hz: number, b: LogBounds, isMono: boolean): num
   return effectGain(panWeight(pan, b, isMono) * freqWeight(log2Hz, b), b)
 }
 
+/**
+ * The outline bin for `pan`. Rounding can put a one-sided bin's pan just past ±100, so the
+ * index is clamped at both ends.
+ */
+export function outlinePanBin(pan: number): number {
+  const bin = Math.floor(((pan - PAN_MIN) / (PAN_MAX - PAN_MIN)) * OUTLINE_PAN_BINS)
+  return Math.min(OUTLINE_PAN_BINS - 1, Math.max(0, bin))
+}
+
 /** The mask's gain for a bin at `pan` (-100..100) and `hz`. */
 export function binGain(pan: number, hz: number, s: IsolateSetting, isMono: boolean): number {
   return gainAt(pan, Math.log2(hz), logBounds(s), isMono)
@@ -228,10 +237,7 @@ export class IsolateMask {
       }
 
       if (measure && k > 0) {
-        const panBin = Math.min(
-          OUTLINE_PAN_BINS - 1,
-          Math.floor(((pan - PAN_MIN) / (PAN_MAX - PAN_MIN)) * OUTLINE_PAN_BINS),
-        )
+        const panBin = outlinePanBin(pan)
         this.panSums[panBin] = this.panSums[panBin]! + total
         const freqBin = this.binOutlineFreq[k]!
         if (freqBin >= 0) this.freqSums[freqBin] = this.freqSums[freqBin]! + total
