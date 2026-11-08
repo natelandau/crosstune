@@ -70,7 +70,7 @@ struct TunerDisplay: View {
                 } else {
                     Text(TunerText.listening)
                         .font(PageStyle.body)
-                        .foregroundStyle(Palette.onPracticeSecondary)
+                        .foregroundStyle(Palette.onTunerSecondary)
                 }
             }
         }
@@ -103,7 +103,7 @@ struct TunerDisplay: View {
                 if let hint = TunerText.hintLabel(cents: note.cents) {
                     Text(hint)
                         .font(PageStyle.body)
-                        .foregroundStyle(Palette.onPracticeSecondary)
+                        .foregroundStyle(Palette.onTunerSecondary)
                 }
             }
             .padding(.top, 8)
@@ -122,7 +122,7 @@ struct TunerDisplay: View {
             }
             Text(body)
                 .font(PageStyle.body)
-                .foregroundStyle(Palette.onPracticeSecondary)
+                .foregroundStyle(Palette.onTunerSecondary)
             if opensSettings, let url = MicrophoneAccess.settingsURL {
                 Button(TunerText.openSettings) { openURL(url) }
                     #if os(macOS)

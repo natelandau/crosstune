@@ -13,11 +13,11 @@ public enum Palette {
         case pageBackground, surface, surfaceRaised, field, fieldHover, groupedBackground, groupedSurface
         case textPrimary, textSecondary, textTertiary, neutralFill
         case accent, accentFill, onAccentFill, accentSelection, accentTrack, inverseAccent
-        case brand, onBrand, brandSecondary, onTintSecondary
+        case brand, onBrand, brandSecondary, onTintSecondary, playhead
         case danger, warning, warningFill, onWarningFill, onStatus
         case warningFillStrong, dangerFillStrong, onStatusStrong
         case statusKnown, statusLearning, statusUnknown, statusUnknownOnFill, onRecord
-        case practiceBackground, onPractice, onPracticeSecondary, tunerClose, tunerInTune, tunerInTuneBackground
+        case tunerBackground, onTuner, onTunerSecondary, tunerClose, tunerInTune, tunerInTuneBackground
     }
 
     public static func hex(_ token: Token, _ scheme: ColorScheme) -> String {
@@ -55,6 +55,8 @@ public enum Palette {
         // The other appearance's accent, which reads on the inverse surface's text color.
         case .inverseAccent: (hex(.accent, .dark), hex(.accent, .light))
         case .brand: (Primitive.coral400, Primitive.coral400)
+        // Brand coral, darkened in light so the thin line holds 3:1 on the page and a surface.
+        case .playhead: (Primitive.coral600, Primitive.coral400)
         // Dark in both appearances, since the brand color is light in both.
         case .onBrand: (Primitive.slate950, Primitive.slate950)
         case .brandSecondary: (Primitive.slate600, Primitive.white)
@@ -84,10 +86,10 @@ public enum Palette {
         // White falls under 4.5:1 on the record red, so its label is dark.
         case .onRecord: (Primitive.gray950, Primitive.gray950)
         // The same dark background in either appearance.
-        case .practiceBackground: (Primitive.slate900, Primitive.slate900)
-        case .onPractice: (Primitive.white, Primitive.white)
-        // Holds 4.5:1 on the practice background and on the tuner's in-tune background alike.
-        case .onPracticeSecondary: (Primitive.slate300, Primitive.slate300)
+        case .tunerBackground: (Primitive.slate900, Primitive.slate900)
+        case .onTuner: (Primitive.white, Primitive.white)
+        // Holds 4.5:1 on the tuner's background and on its in-tune background alike.
+        case .onTunerSecondary: (Primitive.slate300, Primitive.slate300)
         // Lighter than the brand color, so the tuner's close and far steps read apart by
         // lightness and not only by hue.
         case .tunerClose: (Primitive.coral200, Primitive.coral200)
@@ -215,6 +217,8 @@ public enum Palette {
 
     /// The mark's T, the playhead, the premium header, and the scrubber's marker.
     public static let brand = color(.brand)
+    /// The playhead line and the dock scrubber's thumb.
+    public static let playhead = color(.playhead)
     public static let onBrand = color(.onBrand)
     /// The mark's C, which never follows the accent.
     public static let brandSecondary = color(.brandSecondary)
@@ -250,26 +254,17 @@ public enum Palette {
     public static let record = Color.red
     public static let onRecord = color(.onRecord)
 
-    // MARK: Practice
+    // MARK: Tuner
 
-    /// The practice screen's background in `scheme`, the app's appearance rather than the
-    /// practice screen's own.
-    public static func practiceBackground(_ scheme: ColorScheme) -> Color {
-        color(hex: hex(.practiceBackground, scheme))
+    /// The tuner's background in `scheme`, the same dark color in either appearance.
+    public static func tunerBackground(_ scheme: ColorScheme) -> Color {
+        color(hex: hex(.tunerBackground, scheme))
     }
 
-    /// Behind a label over the practice waveform, so the waveform shows faintly through.
-    package static func practiceBackgroundTranslucent(_ scheme: ColorScheme) -> Color {
-        color(hex: hex(.practiceBackground, scheme), opacity: 0.8)
-    }
-
-    /// Text, the played waveform, and the trim handles on practice.
-    public static let onPractice = color(.onPractice)
-    /// Secondary text, the unplayed waveform, and the tuner's muted text on practice.
-    public static let onPracticeSecondary = color(.onPracticeSecondary)
-    /// Round buttons and chips on practice: the system's tertiary fill, heavier than its own so
-    /// it shows on the dark practice background.
-    package static let practiceFill = color(hex: Primitive.gray470, opacity: 0.44)
+    /// Text and glyphs on the tuner's background.
+    public static let onTuner = color(.onTuner)
+    /// Secondary text on the tuner's background.
+    public static let onTunerSecondary = color(.onTunerSecondary)
 
     // MARK: Resolving
 

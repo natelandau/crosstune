@@ -62,18 +62,18 @@ extension Palette {
     // MARK: Tuner
 
     /// The tuner's background while the note is in tune: 14% of the in-tune green over the
-    /// practice background, as the web's `--tuner-in-tune-background` mixes it.
+    /// tuner's own background, as the web's `--tuner-in-tune-background` mixes it.
     package static func tunerInTuneBackgroundHex(_ scheme: ColorScheme) -> String {
-        mixHex(hex(.practiceBackground, scheme), toward: hex(.tunerInTune, scheme), share: 0.14)
+        mixHex(hex(.tunerBackground, scheme), toward: hex(.tunerInTune, scheme), share: 0.14)
     }
 
-    /// The tuner's background in `scheme` for a note `green` of the way to in tune: the practice
+    /// The tuner's background in `scheme` for a note `green` of the way to in tune: its own
     /// background outside the target zone, the full in-tune background in tune.
     package static func tunerBackgroundHex(_ scheme: ColorScheme, green: Double) -> String {
-        mixHex(hex(.practiceBackground, scheme), toward: hex(.tunerInTuneBackground, scheme), share: green)
+        mixHex(hex(.tunerBackground, scheme), toward: hex(.tunerInTuneBackground, scheme), share: green)
     }
 
-    /// The welcome tuner illustration's background, which keeps its own lighter practice
+    /// The welcome tuner illustration's background, which keeps its own lighter tuner
     /// background in light mode, as the web's illustration does.
     package static func illustrationTunerBackgroundHex(_ scheme: ColorScheme, green: Double) -> String {
         let base = scheme == .dark ? Primitive.slate900 : Primitive.slate800
@@ -99,11 +99,11 @@ extension Palette {
         }
     }
 
-    /// The tuner zone's tint for a note `green` of the way to in tune: the muted practice text
+    /// The tuner zone's tint for a note `green` of the way to in tune: the tuner's muted text
     /// color at rest, blending toward the dark scheme's known green, as the web's `TunerBars`
     /// mixes it.
     package static func tunerZone(green: Double) -> Color {
-        color(hex: mixHex(hex(.onPracticeSecondary, .dark), toward: hex(.tunerInTune, .light), share: green / 2))
+        color(hex: mixHex(hex(.onTunerSecondary, .dark), toward: hex(.tunerInTune, .light), share: green / 2))
             .opacity(0.14 + 0.06 * green)
     }
 

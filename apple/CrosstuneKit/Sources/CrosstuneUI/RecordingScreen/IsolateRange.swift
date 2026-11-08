@@ -118,6 +118,10 @@ struct IsolateRange: View {
     @GestureState private var dragging = false
     @FocusState private var focused: LoopModel.Edge?
     @State private var outlineCache = IsolateOutlineCache()
+    @Environment(\.colorScheme) private var colorScheme
+
+    /// The loop color an isolated range draws in, orange, so it reads as a range over the outline.
+    private static let color = 1
 
     var body: some View {
         GeometryReader { proxy in
@@ -125,7 +129,7 @@ struct IsolateRange: View {
             let band = Swift.max(0, x(end, width) - x(start, width))
             ZStack(alignment: .leading) {
                 Rectangle()
-                    .fill(.neutralFill)
+                    .fill(Palette.loopTint(Self.color, scheme: colorScheme))
                     .frame(width: band)
                     .contentShape(.rect)
                     .offset(x: x(start, width))
@@ -168,13 +172,15 @@ struct IsolateRange: View {
             .frame(width: outer + inner)
             .frame(maxHeight: .infinity)
             .overlay(alignment: side) {
-                LoopHandleMark(edge: edge, gripHeight: PracticeLayout.target)
-                    .frame(width: 2 * outer)
-                    // On the mark, which is centered on the edge, not the uneven press target.
-                    #if os(macOS)
-                        .macFocusRing(focused == edge, cornerRadius: 4)
-                    #endif
-                    .allowsHitTesting(false)
+                LoopHandleMark(
+                    edge: edge, color: Palette.loop(Self.color, scheme: colorScheme), gripHeight: PracticeLayout.target
+                )
+                .frame(width: 2 * outer)
+                // On the mark, which is centered on the edge, not the uneven press target.
+                #if os(macOS)
+                    .macFocusRing(focused == edge, cornerRadius: 4)
+                #endif
+                .allowsHitTesting(false)
             }
             .contentShape(.rect)
             .offset(x: x(value, width) - (edge == .start ? outer : inner))

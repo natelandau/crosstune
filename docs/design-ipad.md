@@ -67,8 +67,7 @@ only `design-ios.md`. The Mac and iPhone never take a rule from here.
   attributes column on the page background, as on the Mac. No scans or
   lyrics.
 - A column narrower than `RecordingPageArrangement.foldWidth` folds the
-  page into the Practice and Details tabs, the Practice tab on
-  `practiceBackground`.
+  page into the Practice and Details tabs.
 - The page, not the practice view, owns the practice visit, so a fold or
   a tab switch keeps practice's state.
 

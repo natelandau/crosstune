@@ -305,8 +305,7 @@ struct ListenSlideArt: View {
 }
 
 /// The Tuner screen's stage reading an A a little sharp: its own bars, note, and readout on
-/// the practice background the tuner always draws on. Decorative: the headline says the same thing in
-/// words.
+/// the tuner's dark background. Decorative: the headline says the same thing in words.
 struct TunerSlideArt: View {
     var unit: CGFloat = baseUnit
 
@@ -341,7 +340,7 @@ struct TunerSlideArt: View {
                     if let hint = TunerText.hintLabel(cents: Self.cents) {
                         Text(hint)
                             .font(.system(size: Self.hintSize))
-                            .foregroundStyle(Palette.onPracticeSecondary)
+                            .foregroundStyle(Palette.onTunerSecondary)
                     }
                 }
                 .padding(.top, 4)

@@ -31,25 +31,23 @@ import SwiftUI
 #endif
 
 #if os(iOS)
-    /// The bar's title and subtitle, in place of the system's so they can take the practice
-    /// background's text roles and carry .contentMask().
+    /// The bar's title and subtitle, in place of the system's so they can carry .contentMask().
     struct RecordingPageBarHeader: View {
         let title: String
         let subtitle: String
-        let roles: (title: Palette.Token, subtitle: Palette.Token)
 
         var body: some View {
             VStack(spacing: 0) {
                 Text(title)
                     .contentMask()
                     .font(.headline)
-                    .foregroundStyle(Palette.color(roles.title))
+                    .foregroundStyle(Palette.textPrimary)
                 if !subtitle.isEmpty {
                     Text(subtitle)
                         .contentMask()
                         .font(.subheadline)
                         .monospacedDigit()
-                        .foregroundStyle(Palette.color(roles.subtitle))
+                        .foregroundStyle(Palette.textSecondary)
                 }
             }
             .lineLimit(1)
