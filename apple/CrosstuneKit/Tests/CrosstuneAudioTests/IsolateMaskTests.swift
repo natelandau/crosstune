@@ -209,6 +209,25 @@ private func mask(
         #expect(mask.outline().freq.allSatisfy { $0 == 0 })
     }
 
+    @Test(arguments: [Float(-100).nextDown, -100, 0, 100, Float(100).nextUp])
+    func everyPanLandsInAnOutlineBin(pan: Float) {
+        #expect((0..<outlinePanBins).contains(outlinePanBin(pan)))
+    }
+
+    /// Rounding puts this left-only magnitude's pan just under -100.
+    @Test func aLeftOnlyBinLandsInTheFirstOutlineBin() {
+        let left: Float = 1.2207125e-06
+        let right: Float = 0
+        #expect(outlinePanBin(100 * (right - left) / (left + right)) == 0)
+    }
+
+    @Test(arguments: sampleRates) func outlinesAHardLeftToneInTheFirstPanBin(sampleRate: Double) {
+        let frames = Int(sampleRate)
+        let mask = mask(sampleRate: sampleRate)
+        _ = run(mask, tone(1000, sampleRate: sampleRate, frames: frames), [Float](repeating: 0, count: frames))
+        #expect(mask.outline().pan.firstIndex(of: 1) == 0)
+    }
+
     @Test func skippingTheOutlineLeavesTheAudioAndTheLastSums() {
         let left = noise(seed: 1, frames: 8 * fftSize)
         let right = noise(seed: 2, frames: 8 * fftSize)

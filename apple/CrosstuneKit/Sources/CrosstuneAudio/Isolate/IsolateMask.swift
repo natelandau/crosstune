@@ -55,6 +55,13 @@ private func gain(inRange: Float, effect: Vocabulary.IsolateEffect) -> Float {
     }
 }
 
+/// The outline bin for `pan`. Rounding can put a one-sided bin's pan just past ±100, so the
+/// index is clamped at both ends.
+func outlinePanBin(_ pan: Float) -> Int {
+    let bin = Int(((pan - panMin) / (panMax - panMin) * Float(outlinePanBins)).rounded(.down))
+    return min(outlinePanBins - 1, max(0, bin))
+}
+
 /// The mask's gain for a bin at `pan` (-100..100) and `hz`.
 public func binGain(pan: Float, hz: Float, setting: IsolateSetting, isMono: Bool) -> Float {
     let inRange = panWeight(pan, setting: setting, isMono: isMono) * freqWeight(log2Hz: log2(hz), setting: setting)
@@ -301,10 +308,7 @@ public final class IsolateMask {
             }
 
             if measuring && k > 0 {
-                let panBin = min(
-                    outlinePanBins - 1,
-                    Int(((pan - panMin) / (panMax - panMin) * Float(outlinePanBins)).rounded(.down)))
-                panSums[panBin] += total
+                panSums[outlinePanBin(pan)] += total
                 let freqBin = binOutlineFreq[k]
                 if freqBin >= 0 { freqSums[freqBin] += total }
             }
