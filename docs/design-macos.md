@@ -112,9 +112,6 @@ differ. iPhone and iPad never take a rule from here.
   list stay in reach. Practice sits beside its attributes column, or in
   its Practice tab in a column narrower than
   `RecordingPageArrangement.foldWidth`.
-- Practice follows the appearance, on `pageBackground` with a `surface`
-  stage card. The phone's dark `practiceBackground` reads as a foreign panel beside
-  the sidebar and list, and flips the sheets practice opens.
 
 ## Sheets
 

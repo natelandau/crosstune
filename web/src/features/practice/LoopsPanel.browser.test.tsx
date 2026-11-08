@@ -6,7 +6,7 @@ import type { CrosstuneDb } from '../../db/schema'
 import type { LocalRecordingLoop } from '../../db/types'
 import { stampAxes } from '../../test/render'
 import { openTestDb } from '../../test/db'
-import { renderInPractice } from '../../test/practiceTheme'
+import { renderInPractice } from '../../test/renderInPractice'
 import { captureRecording, liveLoops, seedLoop } from '../../test/recordings'
 import { loopRow } from '../../test/rows'
 import { LoopsPanel } from './LoopsPanel'
@@ -295,21 +295,24 @@ describe('LoopsPanel', () => {
       .toContain('linear-gradient')
   })
 
-  it('draws the suggestions in the dark scheme in the light appearance', async () => {
-    stampAxes({ density: 'touch', scheme: 'light' })
-    const t = setup({ loops: [row('a', 1000, 5000)], renamingId: 'a', partStructure: 'AB' })
-    renderInPractice(t.ui('rec'), { db })
-    const chip = page.getByRole('button', { name: 'A part', exact: true })
-    await expect.element(chip).toBeVisible()
-    const probe = document.createElement('span')
-    probe.style.background = 'var(--practice-fill)'
-    probe.style.color = 'var(--on-practice)'
-    document.querySelector('[data-practice]')!.append(probe)
-    const dark = getComputedStyle(probe)
-    const paint = (style: CSSStyleDeclaration) => [style.backgroundColor, style.color]
-    await expect.poll(() => paint(getComputedStyle(chip.element()))).toEqual(paint(dark))
-    probe.remove()
-  })
+  it.each(['light', 'dark'] as const)(
+    "draws the suggestions in the page's field and text in %s",
+    async (scheme) => {
+      stampAxes({ density: 'touch', scheme })
+      const t = setup({ loops: [row('a', 1000, 5000)], renamingId: 'a', partStructure: 'AB' })
+      renderInPractice(t.ui('rec'), { db })
+      const chip = page.getByRole('button', { name: 'A part', exact: true })
+      await expect.element(chip).toBeVisible()
+      const probe = document.createElement('span')
+      probe.style.background = 'var(--field)'
+      probe.style.color = 'var(--text-primary)'
+      document.querySelector('[data-practice]')!.append(probe)
+      const roles = getComputedStyle(probe)
+      const paint = (style: CSSStyleDeclaration) => [style.backgroundColor, style.color]
+      await expect.poll(() => paint(getComputedStyle(chip.element()))).toEqual(paint(roles))
+      probe.remove()
+    },
+  )
 
   it('keeps its height when a rename opens the suggestions', async () => {
     stampAxes({ density: 'pointer' })

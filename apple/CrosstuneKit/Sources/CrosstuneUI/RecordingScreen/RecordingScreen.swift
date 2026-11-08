@@ -91,7 +91,7 @@ struct RecordingScreen: View {
     @Environment(\.verticalSizeClass) private var verticalSizeClass
     @Environment(AccountSession.self) private var session: AccountSession?
     @Environment(RecordingTransferActions.self) private var transfers: RecordingTransferActions?
-    @Environment(\.practiceBackground) private var practiceScheme
+    @Environment(\.practiceIsFullPage) private var isFullPage
     /// The window's height, and off the Mac the page's and the waveform's, from which the waveform
     /// takes the height the rest of the page leaves.
     @State private var viewportHeight: CGFloat?
@@ -157,10 +157,10 @@ struct RecordingScreen: View {
                         // Outside the dimming, so the reason the screen is blocked reads at full strength.
                         .overlay(alignment: .bottom) {
                             WaveformOverlay(
-                                model: practice, disabledReason: disabledReason, showsReadout: practiceScheme == nil)
+                                model: practice, disabledReason: disabledReason, showsReadout: !isFullPage)
                         }
-                    // On the practice background the readout sits under the playhead rather than over the wave.
-                    if practiceScheme != nil {
+                    // On a full page the readout sits under the playhead rather than over the wave.
+                    if isFullPage {
                         PracticeReadout(model: practice, disabledReason: disabledReason)
                     }
                 #endif
@@ -216,13 +216,13 @@ struct RecordingScreen: View {
             .controlsColumn()
         #else
             VStack(spacing: spacing.sectionGap) {
-                // On the practice background the transport leads, right under the waveform it plays.
-                if practiceScheme != nil {
+                // On a full page the transport leads, right under the waveform it plays.
+                if isFullPage {
                     PracticeControls(model: practice, disabledReason: disabledReason)
                 }
                 ModePicker(model: practice)
                     .dimmedWhenDisabled(disabledReason != nil)
-                if practiceScheme == nil {
+                if !isFullPage {
                     PracticeControls(model: practice, disabledReason: disabledReason)
                 }
                 ModeControls(model: practice, onDeleted: focusWaveform)

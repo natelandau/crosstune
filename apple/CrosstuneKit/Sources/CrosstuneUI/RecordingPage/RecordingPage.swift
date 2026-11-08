@@ -132,7 +132,7 @@ private struct RecordingPageBody: View {
                 if let width {
                     let shown = layout(width: width)
                     arranged(shown)
-                        .modifier(PracticeSurface(isShown: shown == .practice))
+                        .modifier(PracticePageFill(fillsPage: shown == .practice))
                         .onChange(of: openRecordingPage?.unreported, initial: true) { takeOpen(width: width) }
                 }
             }
@@ -141,9 +141,7 @@ private struct RecordingPageBody: View {
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .principal) {
-                        RecordingPageBarHeader(
-                            title: title, subtitle: model.subtitle,
-                            roles: RecordingPageArrangement.headerRoles(width.map { layout(width: $0) } ?? .details))
+                        RecordingPageBarHeader(title: title, subtitle: model.subtitle)
                     }
                     if model.parent.showsClose {
                         ToolbarItem(placement: .cancellationAction) {
@@ -178,12 +176,12 @@ private struct RecordingPageBody: View {
                     case .trim:
                         if let trim = model.trim {
                             TrimScreen(model: trim, player: player, peaks: shownPeaks, onDone: model.leaveEditor)
-                                .modifier(PracticeSurface(isShown: true))
+                                .modifier(PracticePageFill(fillsPage: true))
                         }
                     case .split:
                         if let split = model.split {
                             SplitScreen(model: split, player: player, peaks: shownPeaks, onDone: model.leaveEditor)
-                                .modifier(PracticeSurface(isShown: true))
+                                .modifier(PracticePageFill(fillsPage: true))
                         }
                     }
                 }
@@ -382,33 +380,23 @@ private struct RecordingPageBody: View {
     }
 }
 
-/// On iPhone and iPad, the Practice tab and the trim and split screens draw on the practice
-/// background, as practice always has there; Details and the wide page draw on the page's own.
-/// Set where each screen is declared, since a pushed screen takes the stack's environment.
-private struct PracticeSurface: ViewModifier {
-    let isShown: Bool
+extension EnvironmentValues {
+    /// Whether the practice view fills the page, as in the Practice tab, rather than sitting
+    /// beside the attributes. Sets the practice layout, which never follows the appearance.
+    @Entry var practiceIsFullPage = false
+}
 
-    @Environment(\.colorScheme) private var colorScheme
-    @Environment(\.practiceBackground) private var inheritedPractice
+/// Lays practice out to fill the page in the Practice tab and the trim and split screens on
+/// iPhone and iPad. Set where each screen is declared, since a pushed screen takes the stack's
+/// environment.
+struct PracticePageFill: ViewModifier {
+    let fillsPage: Bool
 
     func body(content: Content) -> some View {
-        // One path whichever tab shows, so a switch keeps the page's identity. The stack's
-        // background and the bar's have no neutral value, so they come from a view that exists
-        // only while practice shows.
+        // One path whichever tab shows, so a switch keeps the page's identity.
         #if os(iOS)
             content
-                .environment(\.practiceBackground, isShown ? colorScheme : inheritedPractice)
-                .environment(\.colorScheme, isShown ? .dark : colorScheme)
-                .background {
-                    if isShown {
-                        Color.clear
-                            .containerBackground(Palette.practiceBackground(colorScheme), for: .navigation)
-                            // The bar takes the dark scheme only while its background is visible.
-                            .toolbarBackground(Palette.practiceBackground(colorScheme), for: .navigationBar)
-                            .toolbarBackgroundVisibility(.visible, for: .navigationBar)
-                    }
-                }
-                .darkBars(isShown)
+                .environment(\.practiceIsFullPage, fillsPage)
         #else
             content
         #endif

@@ -113,8 +113,8 @@ there where they differ. Regular-width iPad reads this page, then
 
 ## Accessibility
 
-- Contrast also holds for `onPracticeSecondary`, `onPractice`, and
-  `brand` on `practiceBackground`.
+- Contrast also holds for `onTunerSecondary`, `onTuner`, and `brand` on
+  `tunerBackground`.
 - SwiftUI draws a swipe action's label white, so a warning action takes
   `warningFillStrong` and a danger action `dangerFillStrong`, never the
   lighter `warningFill` or `danger`.

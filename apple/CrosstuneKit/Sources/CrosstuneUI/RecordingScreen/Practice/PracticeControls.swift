@@ -64,7 +64,7 @@ private struct Transport: View {
     let model: PracticeModel
 
     @Environment(\.spacing) private var spacing
-    @Environment(\.practiceBackground) private var practiceScheme
+    @Environment(\.practiceIsFullPage) private var isFullPage
 
     var body: some View {
         #if os(macOS)
@@ -88,8 +88,8 @@ private struct Transport: View {
             #if os(macOS)
                 MacPlayButtonLabel(playLabel: playLabel)
             #else
-                if let practiceScheme {
-                    PracticePlayButtonLabel(playLabel: playLabel, practiceScheme: practiceScheme)
+                if isFullPage {
+                    PracticePlayButtonLabel(playLabel: playLabel)
                 } else {
                     standardPlayButtonLabel(playLabel)
                 }
@@ -139,12 +139,10 @@ private struct Transport: View {
     }
 }
 
-/// Play on the practice background: the glyph in the background's color on a white disc, at a
-/// fixed size so the transport stays put as its labels scale.
+/// Play on a full page: the primary action's fill, as on the Mac, at a fixed size so the transport
+/// stays put as its labels scale.
 private struct PracticePlayButtonLabel: View {
     let playLabel: PlayButtonLabel
-    /// The appearance whose practice background the glyph takes.
-    let practiceScheme: ColorScheme
 
     @Environment(\.isEnabled) private var isEnabled
 
@@ -152,9 +150,9 @@ private struct PracticePlayButtonLabel: View {
         Image(systemName: playLabel.systemImage)
             .font(.system(size: 30, weight: .semibold))
             .contentTransition(.symbolEffect(.replace))
-            .foregroundStyle(Palette.practiceBackground(practiceScheme))
+            .foregroundStyle(Palette.onAccentFill)
             .frame(width: PhoneStyle.transportPlayDiameter, height: PhoneStyle.transportPlayDiameter)
-            .background(Palette.onPractice, in: .circle)
+            .background(Palette.accentFill, in: .circle)
             .opacity(isEnabled ? 1 : 0.4)
             .contentShape(.circle)
     }

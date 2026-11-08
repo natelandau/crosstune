@@ -250,7 +250,7 @@ export function CenterLineStrip({
       <div
         aria-hidden="true"
         data-center-line
-        className="bg-brand pointer-events-none absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2"
+        className="bg-playhead pointer-events-none absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2"
       />
       <div
         role="slider"

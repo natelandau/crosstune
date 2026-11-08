@@ -14,12 +14,13 @@ import type { RecordingView } from '../recordings/useRecordings'
 import { CenterLineStrip } from './CenterLineStrip'
 import {
   EDITOR_CAPPED,
+  EDITOR_BUTTON_SHAPE,
   EDITOR_FILLED_BUTTON,
   EDITOR_TEXT_BUTTON,
   EditorHeader,
 } from './EditorHeader'
 import { OverviewStrip } from './OverviewStrip'
-import { ZOOM_IN, ZOOM_OUT } from './panel'
+import { CHIP, ZOOM_IN, ZOOM_OUT } from './panel'
 import { PracticeButton } from './PracticeButton'
 import type { WaveformLoop } from './PracticeWaveform'
 import type { ShownPeaks } from './recordingRange'
@@ -46,8 +47,7 @@ import {
 import { useSplitEditor } from './useSplitEditor'
 
 /**
- * Split in place of practice, on the same practice background, with the header, focus, and
- * Escape of Trim. The recording page holds the engine at 100% speed and no pitch shift while it shows,
+ * Split in place of practice, with the header, focus, and Escape of Trim. The recording page holds the engine at 100% speed and no pitch shift while it shows,
  * so what is heard is exactly where a cut falls.
  */
 export function SplitPanel({
@@ -170,7 +170,7 @@ export function SplitPanel({
               {editor.removes ? REMOVE_CUT : SPLIT_AT(shownLineMs - low)}
             </AriaButton>
             {hint && (
-              <p id={hintId} className="t-secondary text-on-practice-secondary m-0 text-center">
+              <p id={hintId} className="t-secondary text-secondary m-0 text-center">
                 {hint}
               </p>
             )}
@@ -200,7 +200,7 @@ export function SplitPanel({
                     isSelected={index === split.selected}
                     isDisabled={!loaded}
                     onChange={() => editor.toggleCut(index)}
-                    className={`${EDITOR_TEXT_BUTTON} t-num bg-practice-fill data-selected:bg-on-practice data-selected:text-practice-background`}
+                    className={`${EDITOR_BUTTON_SHAPE} t-num data-selected:font-semibold ${CHIP} data-selected:bg-tint data-selected:hover:bg-tint-strongest`}
                   >
                     {formatPreciseDuration(cut - low)}
                   </ToggleButton>
@@ -237,7 +237,7 @@ export function SplitPanel({
 
 /**
  * The whole trimmed recording with the pieces in loop colors under it, numbered, and
- * a white line at each cut. A tap moves the line there.
+ * a line at each cut. A tap moves the line there.
  */
 function SplitOverview({
   split,
@@ -294,7 +294,7 @@ function SplitOverview({
         {bands.map((band, index) => (
           <span
             key={band.id}
-            className="t-caption t-num text-on-practice absolute top-0 -translate-x-1/2"
+            className="t-caption t-num text-primary absolute top-0 -translate-x-1/2"
             style={{ left: share((band.startMs + band.endMs) / 2) }}
           >
             {index + 1}
@@ -305,7 +305,7 @@ function SplitOverview({
         {split.cuts.map((cut) => (
           <div
             key={cut}
-            className="bg-on-practice absolute inset-y-0 w-0.5 -translate-x-1/2"
+            className="bg-text-primary absolute inset-y-0 w-0.5 -translate-x-1/2"
             style={{ left: share(cut) }}
           />
         ))}

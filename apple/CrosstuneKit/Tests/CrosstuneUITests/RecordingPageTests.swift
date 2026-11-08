@@ -123,46 +123,39 @@ private let noLoopWrites = LoopWriter(
         #expect(RecordingPageArrangement.showsTabs(folded))
     }
 
-    /// The bar over Practice sits on the practice background in every appearance, so its title
-    /// and subtitle take practice's text roles there and the page's own elsewhere.
-    @Test func theHeaderTakesPracticeTextRolesWhilePracticeShows() {
-        let practice = RecordingPageArrangement.headerRoles(.practice)
-        #expect(practice.title == .onPractice)
-        #expect(practice.subtitle == .onPracticeSecondary)
-        for scheme in [ColorScheme.light, .dark] {
-            let background = Palette.hex(.practiceBackground, scheme)
-            #expect(contrastRatio(Palette.hex(practice.title, scheme), background) >= 4.5)
-            #expect(contrastRatio(Palette.hex(practice.subtitle, scheme), background) >= 4.5)
-        }
-        for layout in [RecordingPageLayout.details, .wide] {
-            let page = RecordingPageArrangement.headerRoles(layout)
-            #expect(page.title == .textPrimary)
-            #expect(page.subtitle == .textSecondary)
-        }
-    }
-
-    /// The practice surface wraps the page once whichever tab shows, so a switch between Details
+    /// The practice layout wraps the page once whichever tab shows, so a switch between Details
     /// and Practice keeps the page's identity, and VoiceOver's focus stays on the tab control.
     @Test func thePracticeSurfaceKeepsThePageIdentity() throws {
         let text = SourceScan.iOSCompiled(
             SourceScan.withoutComments(
                 try SourceScan.text(at: SourceScan.url(of: "RecordingPage/RecordingPage.swift"))))
-        // The surface is the file's last type, so it runs to the end of the text.
-        let start = try #require(text.range(of: "private struct PracticeSurface"))
+        // The layout is the file's last type, so it runs to the end of the text.
+        let start = try #require(text.range(of: "struct PracticePageFill"))
         let surface = String(text[start.upperBound...])
         let uses = surface.matches(of: /\bcontent\b/).count
         // The parameter, then the one use.
         #expect(uses == 2)
     }
 
-    /// Practice, trim, split, and the tuner draw dark in every appearance, so each takes light
-    /// bars while it shows.
-    @Test func darkScreensTakeLightBars() throws {
-        for path in ["RecordingPage/RecordingPage.swift", "Tuner/TunerScreen.swift"] {
-            let source = try SourceScan.text(at: SourceScan.url(of: path))
-            let text = SourceScan.iOSCompiled(SourceScan.withoutComments(source))
-            #expect(text.contains(".darkBars("), "\(path)")
-        }
+    /// The practice layout follows where practice sits, never the appearance, so a switch of
+    /// appearance never moves the controls.
+    @Test func practiceLayoutIgnoresTheAppearance() throws {
+        let text = SourceScan.withoutComments(
+            try SourceScan.text(at: SourceScan.url(of: "RecordingScreen/RecordingScreen.swift")))
+        #expect(!text.contains("colorScheme"))
+    }
+
+    /// The tuner draws dark in every appearance, so it takes light bars. Practice, trim, and split
+    /// draw on the page, so they leave the bars to the appearance.
+    @Test func onlyTheTunerTakesLightBars() throws {
+        let tuner = SourceScan.iOSCompiled(
+            SourceScan.withoutComments(try SourceScan.text(at: SourceScan.url(of: "Tuner/TunerScreen.swift"))))
+        #expect(tuner.contains(".darkBars("))
+        let page = SourceScan.iOSCompiled(
+            SourceScan.withoutComments(
+                try SourceScan.text(at: SourceScan.url(of: "RecordingPage/RecordingPage.swift"))))
+        #expect(!page.contains(".darkBars("))
+        #expect(!page.contains("Palette.tunerBackground"))
     }
 
     /// A pushed screen takes the stack's environment, so the tune pushed over a recording page is

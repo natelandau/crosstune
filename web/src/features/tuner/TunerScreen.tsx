@@ -62,19 +62,19 @@ export function TunerScreen() {
       <main
         aria-label={TUNER_TITLE}
         data-pane-focus
-        data-practice
+        data-tuner-theme
         data-tuner
-        className="bg-practice-background text-on-practice flex min-h-full flex-col transition-colors duration-(--dur-short) ease-(--ease)"
+        className="bg-tuner-background text-on-tuner flex min-h-full flex-col transition-colors duration-(--dur-short) ease-(--ease)"
         style={{
           colorScheme: 'dark',
           backgroundColor:
             inTune > 0
-              ? blend('--practice-background', '--tuner-in-tune-background', inTune)
+              ? blend('--tuner-background', '--tuner-in-tune-background', inTune)
               : undefined,
         }}
       >
         <RootBar title={TUNER_TITLE} />
-        {reference && <p className="t-secondary text-on-practice-secondary px-4">{reference}</p>}
+        {reference && <p className="t-secondary text-on-tuner-secondary px-4">{reference}</p>}
         <div
           data-tuner-stage
           data-status={state.status}
@@ -105,7 +105,7 @@ function Message({ title, body }: { title?: string; body: string }) {
   return (
     <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-8 text-center">
       {title && <h2 className="t-heading">{title}</h2>}
-      <p className="t-body text-on-practice-secondary">{body}</p>
+      <p className="t-body text-on-tuner-secondary">{body}</p>
     </div>
   )
 }
@@ -168,11 +168,11 @@ function Readout({ reading, shown }: { reading: Reading | null; shown: Reading |
           </p>
           <div className="row-start-3 flex flex-col items-center gap-2 pt-2">
             <p className="t-heading t-num m-0">{formatCents(shown.note.cents)}</p>
-            <p className="t-body text-on-practice-secondary m-0">{hintLabel(shown.note.cents)}</p>
+            <p className="t-body text-on-tuner-secondary m-0">{hintLabel(shown.note.cents)}</p>
           </div>
         </div>
       ) : (
-        <p className="t-body text-on-practice-secondary absolute inset-0 m-0 flex items-center justify-center">
+        <p className="t-body text-on-tuner-secondary absolute inset-0 m-0 flex items-center justify-center">
           {LISTENING}
         </p>
       )}

@@ -272,12 +272,12 @@ function TunerArt() {
   return (
     <Art>
       <div
-        data-practice
-        className="text-on-practice relative h-[16em] w-[22.4em] overflow-hidden rounded-(--radius-surface)"
+        data-tuner-theme
+        className="text-on-tuner relative h-[16em] w-[22.4em] overflow-hidden rounded-(--radius-surface)"
         style={{
           colorScheme: 'dark',
           backgroundColor: blend(
-            '--illustration-practice-background',
+            '--illustration-tuner-background',
             '--tuner-in-tune-background',
             inTune,
           ),
@@ -290,7 +290,7 @@ function TunerArt() {
           </p>
           <div className="row-start-3 flex flex-col items-center gap-[4px] pt-[4px]">
             <p className="m-0 text-[15px] font-semibold tabular-nums">{formatCents(TUNER_CENTS)}</p>
-            <p className="text-on-practice-secondary m-0 text-[12px]">{hintLabel(TUNER_CENTS)}</p>
+            <p className="text-on-tuner-secondary m-0 text-[12px]">{hintLabel(TUNER_CENTS)}</p>
           </div>
         </div>
       </div>

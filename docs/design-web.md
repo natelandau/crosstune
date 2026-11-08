@@ -36,19 +36,19 @@ folder. Compose it, never rebuild it.
   for touch and a step smaller for pointer.
 - Radii, shadows, targets, timing: `web/src/theme/shape.css`.
 - A screen never types a color, text size, radius, or row height.
-- Practice, trim, and the tuner draw on `practice-background` in either
-  appearance, never the page.
-  `practiceTheme.css` gives the roles on it their dark-scheme values, and
-  a shared control drawn there takes its tokens from it.
+- A control that draws its own shape takes its colors from the shared
+  tones: `web/src/ui/buttonTone.ts` and `web/src/ui/segmentedTrack.ts`.
 - Text quieter than secondary is `t-caption` in `text-secondary`, never
   `text-secondary` faded or `text-tertiary`, which fall under 4.5:1.
 - Geist is the one face, self-hosted so the service worker caches it.
 - Sizes in rem, so the text size setting scales every role. Page width
   caps in px, so it scales type, not the column.
 - Signed value: true minus (U+2212) in a fixed slot.
-- Radius follows hierarchy: capsules, pills, toggle groups, and icon-only
-  buttons fully round. A labeled button in content `--radius-control`, one
-  in a bar round. Floating surfaces `--radius-surface`. Row highlights and
+- Radius follows hierarchy: capsules, pills, and toggle groups fully
+  round. A button with a fill or a label `--radius-control`
+  (`BUTTON_CORNER`); a bare glyph and a button in a bar round. The
+  transport (play, pause, skip) is the only round filled control.
+  Floating surfaces `--radius-surface`. Row highlights and
   inputs `--radius-row`.
 - Only floating surfaces cast `--shadow-float`. In dark mode they also take
   a faint light edge, since a black shadow vanishes on near-black.
@@ -207,7 +207,7 @@ folder. Compose it, never rebuild it.
 - Headings never skip a level. A page's title is h1, a sheet's or section's
   h2. A heading under one takes `useSubheadingLevel` from
   `web/src/ui/headingLevel.ts`.
-- Contrast also holds on `practice-background`.
+- Contrast also holds on `tuner-background` with the dark roles.
 - Forced colors: a glyph whose meaning is a fill paints in system colors.
 
 ## Framework limits

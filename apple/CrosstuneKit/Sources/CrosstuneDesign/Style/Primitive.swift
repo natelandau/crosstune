@@ -40,6 +40,7 @@ package enum Primitive {
 
     package static let coral200 = "#F6BBA1"
     package static let coral400 = "#EF8354"
+    package static let coral600 = "#D4622F"
 
     package static let red300 = "#FF8A80"
     package static let red700 = "#B3261E"

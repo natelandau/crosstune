@@ -19,7 +19,6 @@ struct OverviewStrip<Source: OverviewSource, Header: View>: View {
     let header: Header
 
     @Environment(\.colorScheme) private var colorScheme
-    @Environment(\.practiceBackground) private var practiceScheme
     @Environment(\.isEnabled) private var isEnabled
     @State private var width: Double = 0
     @State private var bars = OverviewBars()
@@ -64,7 +63,6 @@ struct OverviewStrip<Source: OverviewSource, Header: View>: View {
 
     private func draw(in context: inout GraphicsContext, size: CGSize) {
         let wave = CGRect(x: 0, y: 0, width: size.width, height: waveHeight)
-        let onPractice = practiceScheme != nil
         let length = Double(source.overviewLengthMs)
         let levels = bars.levels(peaks, count: PeakBars.count(in: wave.width))
         guard length > 0 else {
@@ -73,7 +71,7 @@ struct OverviewStrip<Source: OverviewSource, Header: View>: View {
                     .peakBars(levels: PeakBars.placeholder(PeakBars.count(in: wave.width)), in: wave),
                     with: .color(MacWave.placeholder))
             #else
-                context.fill(.peakBars(levels: [], in: wave), with: .quietBars(onPractice: onPractice))
+                context.fill(.peakBars(levels: [], in: wave), with: .quietBars)
             #endif
             return
         }
@@ -86,13 +84,13 @@ struct OverviewStrip<Source: OverviewSource, Header: View>: View {
                     with: .color(MacWave.placeholder))
             } else if style == .practice {
                 context.fillSplit(
-                    .peakBars(levels: levels, in: wave), atX: Double(playheadX), played: MacWave.played,
-                    unplayed: MacWave.unplayed)
+                    .peakBars(levels: levels, in: wave), atX: Double(playheadX), played: Wave.played,
+                    unplayed: Wave.unplayed)
             } else {
-                context.fill(.peakBars(levels: levels, in: wave), with: .color(MacWave.unplayed))
+                context.fill(.peakBars(levels: levels, in: wave), with: .color(Wave.unplayed))
             }
         #else
-            context.fill(.peakBars(levels: levels, in: wave), with: .quietBars(onPractice: onPractice))
+            context.fill(.peakBars(levels: levels, in: wave), with: .quietBars)
         #endif
         for band in source.overviewBands {
             let x0 = x(Double(band.startMs))
@@ -104,7 +102,7 @@ struct OverviewStrip<Source: OverviewSource, Header: View>: View {
             context.fill(
                 path, with: .color(Palette.loopOverview(band.color, scheme: colorScheme, selected: band.selected)))
         }
-        let cutColor: GraphicsContext.Shading = onPractice ? .color(Palette.onPractice) : .style(.textPrimary)
+        let cutColor: GraphicsContext.Shading = .style(.textPrimary)
         for cut in source.overviewCutsMs {
             let cutX = x(Double(cut))
             // The gap that sets a cut off its waveform would erase the bands, so the line crosses
@@ -114,8 +112,7 @@ struct OverviewStrip<Source: OverviewSource, Header: View>: View {
                 Path(CGRect(x: cutX - 1, y: waveHeight, width: 2, height: size.height - waveHeight)), with: cutColor)
         }
         context.fillPlayhead(
-            CGRect(x: min(max(0, playheadX - 1), size.width - 2), y: 0, width: 2, height: waveHeight),
-            onPractice: onPractice)
+            CGRect(x: min(max(0, playheadX - 1), size.width - 2), y: 0, width: 2, height: waveHeight))
         if let view = source.overviewZoomedView {
             drawZoomBox(in: &context, from: x(view.startMs), to: x(view.endMs), width: size.width)
         }

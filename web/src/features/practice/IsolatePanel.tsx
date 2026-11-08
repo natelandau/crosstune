@@ -9,6 +9,7 @@ import {
 import type { OutlineFeed } from './isolateOutlineFeed'
 import { IsolateRange } from './IsolateRange'
 import { SegmentedChoice } from '../../ui/SegmentedChoice'
+import { SEGMENT } from '../../ui/segmentedTrack'
 import { frequencyReadout, hzReadout, stereoEdgeReadout, stereoReadout } from './isolateReadout'
 import { offWhen, PANEL_TEXT_BUTTON, RESET } from './panel'
 import {
@@ -85,7 +86,6 @@ export function IsolatePanel({
         <div className="flex flex-col gap-3">
           <div className="flex items-center justify-between gap-3">
             <SegmentedChoice
-              tone="practice"
               label={ISOLATE_EFFECT_LABEL}
               options={EFFECT_IDS}
               selected={value.effect}
@@ -95,7 +95,7 @@ export function IsolatePanel({
                 <ToggleButton
                   key={effect.id}
                   id={effect.id}
-                  className="t-body text-on-practice-secondary hover:text-on-practice data-[selected]:bg-on-practice data-[selected]:text-practice-background min-h-(--target) cursor-default rounded-(--radius-capsule) px-4 transition-colors duration-(--dur-short) ease-(--ease)"
+                  className={`t-body ${SEGMENT} min-h-(--target) cursor-default rounded-(--radius-capsule) px-4 transition-colors duration-(--dur-short) ease-(--ease)`}
                 >
                   {effect.label}
                 </ToggleButton>

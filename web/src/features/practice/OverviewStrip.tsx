@@ -110,12 +110,12 @@ export function OverviewStrip({
       ))}
       <div
         ref={line}
-        className="bg-brand pointer-events-none absolute top-0 bottom-2 w-0.5 -translate-x-1/2"
+        className="bg-playhead pointer-events-none absolute top-0 bottom-2 w-0.5 -translate-x-1/2"
       />
       <div
         ref={box}
         data-overview-box
-        className="border-on-practice pointer-events-none absolute top-0 bottom-2 rounded-md border-2"
+        className="border-accent pointer-events-none absolute top-0 bottom-2 rounded-md border-2"
       />
     </div>
   )

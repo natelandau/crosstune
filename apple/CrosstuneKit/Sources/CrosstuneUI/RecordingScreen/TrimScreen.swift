@@ -262,7 +262,6 @@ private struct TrimStrip: View {
     /// drag always lets go of the stretch it held.
     @GestureState private var gesture: StripGesture?
     @Environment(\.isEnabled) private var isEnabled
-    @Environment(\.practiceBackground) private var practiceScheme
     @Environment(\.colorScheme) private var colorScheme
 
     private struct StripGesture: Equatable {
@@ -310,10 +309,12 @@ private struct TrimStrip: View {
         let raw = fraction(Double(model.value(handle)), in: range)
         // A handle being dragged stays on the strip, pinned to its edge, so its finger does.
         if gesture?.handle == handle || (0...1).contains(raw) {
-            let mark = LoopHandleMark(edge: handle == .start ? .start : .end)
-                .frame(width: Self.handleWidth, height: height)
-                .contentShape(.rect)
-                .position(x: min(max(raw, 0), 1) * width, y: height / 2)
+            let mark = LoopHandleMark(
+                edge: handle == .start ? .start : .end, color: Palette.loop(Self.color, scheme: colorScheme)
+            )
+            .frame(width: Self.handleWidth, height: height)
+            .contentShape(.rect)
+            .position(x: min(max(raw, 0), 1) * width, y: height / 2)
             if announced {
                 mark
                     .focusable()
@@ -402,7 +403,7 @@ private struct TrimStrip: View {
         let playhead = fraction(playheadMs, in: range)
         if (0...1).contains(playhead) {
             let x = min(max(0, playhead * size.width - 1), size.width - 2)
-            context.fillPlayhead(CGRect(x: x, y: 0, width: 2, height: size.height), onPractice: practiceScheme != nil)
+            context.fillPlayhead(CGRect(x: x, y: 0, width: 2, height: size.height))
         }
     }
 }

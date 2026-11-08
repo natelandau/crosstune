@@ -50,12 +50,6 @@ enum RecordingPageArrangement {
         isEnabled(chosen, recordingsPlay: recordingsPlay) ? chosen : nil
     }
 
-    /// The color roles of the bar's title and subtitle over `layout`. On iPhone and iPad the
-    /// Practice tab draws on the practice background in every appearance.
-    static func headerRoles(_ layout: RecordingPageLayout) -> (title: Palette.Token, subtitle: Palette.Token) {
-        layout == .practice ? (.onPractice, .onPracticeSecondary) : (.textPrimary, .textSecondary)
-    }
-
     /// Why the play bar, the Practice tab, and the practice area are disabled, or nil while they
     /// can be used.
     static func playBlockedReason(recordingsPlay: Bool) -> String? {

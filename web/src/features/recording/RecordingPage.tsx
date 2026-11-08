@@ -24,7 +24,7 @@ import { Button } from '../../ui/Button'
 import { useConfirm } from '../../ui/Confirm'
 import { ErrorLine } from '../../ui/ErrorLine'
 import { Menu } from '../../ui/Menu'
-import { segmentedTrack } from '../../ui/segmentedTrack'
+import { SEGMENT, SEGMENTED_TRACK } from '../../ui/segmentedTrack'
 import { MORE_ACTIONS } from '../../ui/menuCopy'
 import { isOverlayOpen, useOverlayClaim, useOverlayOpen } from '../../ui/overlayClaim'
 import { menuEntries } from '../../ui/sharedActions'
@@ -66,8 +66,8 @@ import { useRecordingPageView, type RecordingPageView } from './useRecordingPage
 
 const RECORDINGS = destination('recordings')
 
-// Practice's dark scheme, and the spring a snapped loop handle settles with.
-const PRACTICE_STYLE = { colorScheme: 'dark', '--spring': springEasing() } as CSSProperties
+// The spring a snapped loop handle settles with.
+const PRACTICE_STYLE = { '--spring': springEasing() } as CSSProperties
 
 // Practice remounts only with its recording, so there is no earlier view's focus to carry.
 const NO_SAVED_FOCUS: SavedFocus = { peek: () => null, keep: () => {} }
@@ -195,9 +195,10 @@ export function RecordingPage({
   }, [editing, overlayOpen])
 
   const paneHeight = usePaneHeight()
-  // Practice keeps one height whatever it shows, so the page fills the pane rather than
-  // scrolling in it while practice or an editor shows.
+  // Practice and the editors fill the pane. An editor keeps that height; practice grows past it
+  // on a window too short for it, so the whole page scrolls rather than only its controls.
   const fills = (practiceShown || editing) && paneHeight > 0
+  const fillHeight = `calc(${paneHeight}px - var(--float-clearance))`
   const error = actions.error ?? state.error
   // Why practice and the play bar cannot play the recording yet, a plan that plays none first.
   const blocked = view
@@ -208,7 +209,7 @@ export function RecordingPage({
     <div
       ref={root}
       className={fills ? 'flex flex-col' : undefined}
-      style={fills ? { height: `calc(${paneHeight}px - var(--float-clearance))` } : undefined}
+      style={fills ? (editing ? { height: fillHeight } : { minHeight: fillHeight }) : undefined}
     >
       {!measured ? null : editing && view ? (
         <Editor state={state} view={view} engine={recordingEngine.engine} />
@@ -253,7 +254,7 @@ export function RecordingPage({
                 disabledKeys={recordingsPlay ? [] : ['practice']}
                 className={fills ? 'flex min-h-0 flex-1 flex-col' : undefined}
               >
-                <TabList aria-label={state.title} className={`${segmentedTrack('page')} mx-4 mb-3`}>
+                <TabList aria-label={state.title} className={`${SEGMENTED_TRACK} mx-4 mb-3`}>
                   <PageTab id="practice">{PRACTICE}</PageTab>
                   <PageTab id="details">{DETAILS}</PageTab>
                 </TabList>
@@ -312,7 +313,7 @@ function PageTab({ id, children }: { id: RecordingPageTab; children: ReactNode }
   return (
     <Tab
       id={id}
-      className="t-body text-secondary data-[selected]:bg-page data-[selected]:text-primary flex min-h-(--target-control) flex-1 cursor-default items-center justify-center rounded-(--radius-capsule) px-3 outline-none data-[disabled]:opacity-50 data-[focus-visible]:outline-2 data-[focus-visible]:outline-(--accent)"
+      className={`t-body ${SEGMENT} flex min-h-(--target-control) flex-1 cursor-default items-center justify-center rounded-(--radius-capsule) px-3 outline-none data-[disabled]:opacity-50 data-[focus-visible]:outline-2 data-[focus-visible]:outline-(--accent)`}
     >
       {children}
     </Tab>
@@ -356,7 +357,7 @@ function PageHeader({
   )
 }
 
-/** Practice on its own background: the overview, waveform, transport, and modes. */
+/** Practice: the overview, waveform, transport, and modes. */
 function PracticeArea({
   state,
   view,
@@ -387,7 +388,7 @@ function PracticeArea({
   return (
     <div
       data-practice
-      className="bg-practice-background text-on-practice flex min-h-0 flex-1 flex-col gap-3 px-4 pt-3 pb-4"
+      className="flex min-h-0 flex-1 flex-col gap-3 px-4 pt-3 pb-4"
       style={PRACTICE_STYLE}
     >
       <ErrorLine error={error} place="stack" />
@@ -467,7 +468,7 @@ function EditorPanel({ state, view }: { state: RecordingPageView; view: Recordin
   return (
     <Dialog
       data-practice
-      className="bg-practice-background text-on-practice flex min-h-0 flex-1 flex-col pb-4 outline-none"
+      className="flex min-h-0 flex-1 flex-col pb-4 outline-none"
       style={PRACTICE_STYLE}
     >
       <Panel

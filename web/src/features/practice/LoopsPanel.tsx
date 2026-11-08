@@ -7,6 +7,7 @@ import type { LocalRecordingLoop } from '../../db/types'
 import { Capsule } from '../../ui/Capsule'
 import { FilterRow } from '../../ui/FilterRow'
 import { offWhen, PANEL_TEXT_BUTTON, PANEL_TEXT_BUTTON_SHAPE } from './panel'
+import { BUTTON_TONE } from '../../ui/buttonTone'
 import { loopName, partSuggestions, type Bounds, type NewLoop } from '../../domain/loopModel'
 import {
   DELETE_LOOP,
@@ -134,7 +135,7 @@ export function LoopsPanel({
         <button
           type="button"
           {...offWhen(!selected, remove)}
-          className={`${PANEL_TEXT_BUTTON_SHAPE} inline-flex items-center gap-2 ${selected ? 'text-danger' : 'text-on-practice-secondary'}`}
+          className={`${PANEL_TEXT_BUTTON_SHAPE} inline-flex items-center gap-2 ${selected ? BUTTON_TONE.destructive : 'text-secondary'}`}
         >
           <Trash2 aria-hidden="true" className="size-5" />
           {DELETE_LOOP}
@@ -169,7 +170,7 @@ export function LoopsPanel({
       <div className="grid items-center">
         <p
           aria-hidden={showHint ? undefined : 'true'}
-          className={`t-secondary text-on-practice-secondary m-0 text-center [grid-area:1/1] ${showHint ? '' : 'invisible'}`}
+          className={`t-secondary text-secondary m-0 text-center [grid-area:1/1] ${showHint ? '' : 'invisible'}`}
         >
           {LOOPS_EMPTY_HINT}
         </p>

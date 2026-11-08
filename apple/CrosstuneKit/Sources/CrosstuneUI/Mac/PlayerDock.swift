@@ -327,7 +327,7 @@ import CrosstuneDesign
                     Capsule().fill(Palette.textTertiary)
                         .frame(width: x, height: Self.lineHeight)
                     Circle()
-                        .fill(Palette.brand)
+                        .fill(Palette.playhead)
                         .frame(width: thumb, height: thumb)
                         .offset(x: min(max(0, x - thumb / 2), width - thumb))
                 }

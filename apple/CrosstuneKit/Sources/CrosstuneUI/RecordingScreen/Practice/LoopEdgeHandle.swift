@@ -14,6 +14,8 @@ import SwiftUI
 /// waveform's coordinate space `space`, which is `width` wide.
 struct LoopEdgeHandle<Focus: Hashable>: View {
     let edge: LoopModel.Edge
+    /// The color of the range the handle bounds.
+    let color: Color
     let x: Double
     let width: Double
     let space: String
@@ -37,7 +39,7 @@ struct LoopEdgeHandle<Focus: Hashable>: View {
 
     var body: some View {
         let inView = x >= 0 && x <= width
-        LoopHandleMark(edge: edge)
+        LoopHandleMark(edge: edge, color: color)
             .frame(width: PracticeModel.handleReach * 2)
             .frame(maxHeight: .infinity)
             .contentShape(.rect)
@@ -88,22 +90,22 @@ enum HandleSnapping {
     }
 }
 
-/// A range handle, for a loop, a cut, or a trim: a line the height of the waveform with a grab
-/// tab centered on it. The tab sits outside the range so it never covers the audio in it. Every
-/// handle is brand, the one color for what marks a position, which leaves a loop's own color to
-/// its band and tab.
+/// A range handle, for a loop, a cut, a trim, or an isolated range: a line the height of the
+/// waveform with a grab tab centered on it, in the color of the range it bounds. The tab sits
+/// outside the range so it never covers the audio in it.
 struct LoopHandleMark: View {
     static let tabWidth: CGFloat = 16
     static let tabHeight: CGFloat = 44
 
     let edge: LoopModel.Edge
+    let color: Color
     /// Shorter than ``tabHeight`` only where the mark's whole control is shorter.
     var gripHeight: CGFloat = Self.tabHeight
 
     var body: some View {
         ZStack {
             Rectangle()
-                .fill(Palette.brand)
+                .fill(color)
                 .frame(width: 2)
                 #if os(macOS)
                     .background { Rectangle().fill(Color.markOutline).frame(width: 4) }
@@ -121,7 +123,7 @@ struct LoopHandleMark: View {
             : UnevenRoundedRectangle(bottomTrailingRadius: radius, topTrailingRadius: radius)
         return
             shape
-            .fill(Palette.brand)
+            .fill(color)
             #if os(macOS)
                 // A centered stroke shows its outer half, a point outside the tab.
                 .background { shape.stroke(Color.markOutline, lineWidth: 2) }
@@ -130,7 +132,7 @@ struct LoopHandleMark: View {
             .overlay {
                 HStack(spacing: 2) {
                     ForEach(0..<2, id: \.self) { _ in
-                        Capsule().fill(Palette.onPractice).frame(width: 1.5, height: 16)
+                        Capsule().fill(Palette.onAccentFill).frame(width: 1.5, height: 16)
                     }
                 }
             }

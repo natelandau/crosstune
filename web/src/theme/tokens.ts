@@ -18,6 +18,7 @@ export interface Palette {
   accentTrack: string
   onTint: string
   brand: string
+  playhead: string
   onBrand: string
   brandSecondary: string
   inverseSurface: string
@@ -34,9 +35,9 @@ export interface Palette {
   record: string
   onRecord: string
   recordHover: string
-  practiceBackground: string
-  onPractice: string
-  onPracticeSecondary: string
+  tunerBackground: string
+  onTuner: string
+  onTunerSecondary: string
   tunerClose: string
   tunerInTune: string
 }
@@ -58,6 +59,7 @@ export const PALETTE: Record<Scheme, Palette> = {
     accentTrack: '#1F5F9E',
     onTint: '#1F5F9E',
     brand: '#EF8354',
+    playhead: '#D4622F',
     onBrand: '#1D2230',
     brandSecondary: '#4F5D75',
     inverseSurface: '#1C2026',
@@ -74,9 +76,9 @@ export const PALETTE: Record<Scheme, Palette> = {
     record: '#FF383C',
     onRecord: '#16181B',
     recordHover: '#FF564D',
-    practiceBackground: '#1E212C',
-    onPractice: '#FFFFFF',
-    onPracticeSecondary: '#BFC0C0',
+    tunerBackground: '#1E212C',
+    onTuner: '#FFFFFF',
+    onTunerSecondary: '#BFC0C0',
     tunerClose: '#F6BBA1',
     tunerInTune: '#30D158',
   },
@@ -96,6 +98,7 @@ export const PALETTE: Record<Scheme, Palette> = {
     accentTrack: '#4A86C4',
     onTint: '#ECEDF0',
     brand: '#EF8354',
+    playhead: '#EF8354',
     onBrand: '#1D2230',
     brandSecondary: '#FFFFFF',
     inverseSurface: '#ECEDF0',
@@ -112,9 +115,9 @@ export const PALETTE: Record<Scheme, Palette> = {
     record: '#FF4245',
     onRecord: '#16181B',
     recordHover: '#FF5F56',
-    practiceBackground: '#1E212C',
-    onPractice: '#FFFFFF',
-    onPracticeSecondary: '#BFC0C0',
+    tunerBackground: '#1E212C',
+    onTuner: '#FFFFFF',
+    onTunerSecondary: '#BFC0C0',
     tunerClose: '#F6BBA1',
     tunerInTune: '#30D158',
   },
@@ -280,7 +283,7 @@ export const KEY_COLORS: Record<Scheme, readonly KeyColors[]> = {
   ],
 }
 
-/** The six loop colors. Practice draws the dark set in either appearance. */
+/** The six loop colors in each appearance. */
 export const LOOP_COLORS: Record<Scheme, readonly string[]> = {
   light: ['#1F5FD6', '#B34700', '#1E7A34', '#B0247A', '#00727A', '#6B3FC4'],
   dark: ['#3570DC', '#C0560A', '#26853C', '#C8368C', '#0F808A', '#7D56D8'],

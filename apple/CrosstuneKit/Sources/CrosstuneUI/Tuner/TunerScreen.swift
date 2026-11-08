@@ -25,7 +25,7 @@ private struct TunerLifecycle: Equatable {
 }
 
 /// The Tuner destination: the note heard, how far off it is, and a bar at each side, on the
-/// practice background in every appearance.
+/// tuner's own dark background in every appearance.
 struct TunerScreen: View {
     static let noteSize: CGFloat = 112
     static let octaveSize: CGFloat = 40
@@ -109,7 +109,7 @@ struct TunerScreen: View {
             if let reference = TunerText.referenceLabel(a4) {
                 Text(reference)
                     .font(PageStyle.secondary)
-                    .foregroundStyle(Palette.onPracticeSecondary)
+                    .foregroundStyle(Palette.onTunerSecondary)
                     .padding(.horizontal, PageStyle.pageMargin)
             }
             TunerDisplay(model: model, lastReading: lastReading, motion: motion)

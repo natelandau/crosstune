@@ -22,7 +22,6 @@ struct CenterLineStrip: View {
 
     @Environment(\.isEnabled) private var isEnabled
     @Environment(\.colorScheme) private var colorScheme
-    @Environment(\.practiceBackground) private var practiceScheme
     @GestureState private var isPinching = false
     @GestureState private var scrubPressed = false
     @GestureState private var handlePressed = false
@@ -137,7 +136,8 @@ struct CenterLineStrip: View {
 
     private func handle(_ index: Int, view: ZoomedWaveformView) -> some View {
         LoopEdgeHandle(
-            edge: .end, x: view.x(ofSourceMs: Double(model.state.cuts[index])), width: view.width,
+            edge: .end, color: Palette.loop(SplitModel.State.pieceColor(index), scheme: colorScheme),
+            x: view.x(ofSourceMs: Double(model.state.cuts[index])), width: view.width,
             space: Self.space, snappedTo: model.cutDrag?.index == index ? model.cutDrag?.snappedTo : nil,
             focus: focus, focusValue: .cut(index), pressed: $handlePressed,
             label: RecordingScreenText.cutHandle(index + 1), valueText: model.cutValue(index),
@@ -157,7 +157,7 @@ struct CenterLineStrip: View {
         let height = Double(size.height)
         context.fillZoomedBars(
             view: view, lengthMs: Double(model.bounds.upperBound - model.bounds.lowerBound), peaks: peaks, size: size,
-            onPractice: practiceScheme != nil, placeholderOnMac: false)
+            placeholderOnMac: false)
         // One piece is the whole recording, which needs no tint.
         if !model.state.cuts.isEmpty {
             let selected = model.selectedPiece
@@ -181,6 +181,6 @@ struct CenterLineStrip: View {
             }
         }
         context.fillPlayhead(
-            CGRect(x: width / 2 - 1, y: 0, width: 2, height: height), onPractice: practiceScheme != nil)
+            CGRect(x: width / 2 - 1, y: 0, width: 2, height: height))
     }
 }

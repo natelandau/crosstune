@@ -14,7 +14,7 @@ import { countTunes } from '../text/format'
 import { OFFLINE } from '../sync/labels'
 import { contrastRatio, glyphColor, paintedBackground, compositeOver } from '../test/contrast'
 import { openTestDb } from '../test/db'
-import { restoreSystemDark, stubSystemDark } from '../test/scheme'
+import { stubSystemDarkForTest } from '../test/scheme'
 import { destination, DESTINATIONS } from '../layout/destinations'
 import { renderApp } from '../test/renderApp'
 import { TUNE } from '../features/tune/tunePageCopy'
@@ -193,8 +193,7 @@ it.each([
   ['light', false],
   ['dark', true],
 ])('keeps a selected row count at 4.5:1 in %s', async (_name, dark) => {
-  stubSystemDark(dark)
-  onTestFinished(restoreSystemDark)
+  stubSystemDarkForTest(dark)
   const db = openTestDb()
   await seed(db)
   await setMeta(db, META_CATALOG_FILTERS, { status: 'learning' })

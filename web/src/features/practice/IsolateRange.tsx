@@ -226,6 +226,7 @@ export function IsolateRange({
         aria-valuenow={value}
         aria-valuetext={valueText(value)}
         data-range-grab={which}
+        data-color={ISOLATE_COLOR}
         style={{ left: at(value) }}
         // A 44 px target around the edge, as the loop handles have.
         className="loop-color absolute inset-y-0 z-10 flex w-11 -translate-x-1/2 cursor-ew-resize touch-none justify-center rounded-md outline-offset-0 select-none"
@@ -252,8 +253,9 @@ export function IsolateRange({
           <div
             data-range-span
             data-range-grab="both"
+            data-color={ISOLATE_COLOR}
             style={{ left: at(start), right: `calc(100% - ${at(end)})` }}
-            className="bg-practice-fill absolute inset-y-0 cursor-grab touch-none"
+            className="loop-color absolute inset-y-0 cursor-grab touch-none bg-(--loop-tint)"
             {...drags}
           />
           {edge('start')}
@@ -263,6 +265,9 @@ export function IsolateRange({
     </div>
   )
 }
+
+/** The loop color an isolated range draws in, orange, so it reads as a range over the outline. */
+const ISOLATE_COLOR = 1
 
 const noSubscribe = () => () => {}
 const noOutline = () => null
@@ -293,7 +298,7 @@ function Outline({ source }: { source: OutlineSource | null }) {
       ref={canvasRef}
       aria-hidden="true"
       data-outline={outline ? '' : undefined}
-      className="ph-no-capture text-practice-fill pointer-events-none absolute inset-0 block size-full"
+      className="ph-no-capture text-field pointer-events-none absolute inset-0 block size-full"
     />
   )
 }

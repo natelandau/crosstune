@@ -717,7 +717,7 @@ it('opens wide straight into its layout, never drawing the tabs first', async ()
   expect(document.querySelector('[data-practice-waveform]')).toBe(shown)
 })
 
-/** How far practice's dark surface stops above the bottom of the pane area it shows in. */
+/** How far practice stops above the bottom of the pane area it shows in. */
 function gapUnderPractice(): number | undefined {
   const surface = practice()
   const scroller = surface?.closest<HTMLElement>('[data-pane-scroller]')

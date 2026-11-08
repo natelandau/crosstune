@@ -220,7 +220,6 @@ private struct SplitOverviewStrip: View {
 private struct PieceNumbers: View {
     let model: SplitModel
 
-    @Environment(\.practiceBackground) private var practiceScheme
     @State private var width: Double = 0
 
     private static let height: CGFloat = 16
@@ -234,7 +233,7 @@ private struct PieceNumbers: View {
                 Text("\(index + 1)")
                     .font(.platform(.caption))
                     .monospacedDigit()
-                    .foregroundStyle(numberStyle)
+                    .foregroundStyle(.textPrimary)
                     .fixedSize()
                     .position(
                         x: lengthMs > 0 ? Double(piece.startMs + piece.endMs - 2 * low) / 2 / lengthMs * width : 0,
@@ -249,8 +248,4 @@ private struct PieceNumbers: View {
         }
     }
 
-    /// White on the practice background, the text color off it.
-    private var numberStyle: AnyShapeStyle {
-        practiceScheme != nil ? AnyShapeStyle(Palette.onPractice) : AnyShapeStyle(.textPrimary)
-    }
 }
