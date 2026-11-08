@@ -3,6 +3,7 @@ import { useLayoutEffect, useRef, useState, type ReactNode, type RefObject } fro
 import { ToggleButton } from 'react-aria-components'
 import { ModeControls, type IsolateControls } from './ModeControls'
 import { SegmentedChoice } from '../../ui/SegmentedChoice'
+import { SEGMENT_PILL, SEGMENT_TEXT } from '../../ui/segmentedTrack'
 import { MODE_NAMES, useModeLabels } from './useModeLabels'
 import { MODES_LABEL } from './practiceCopy'
 import { DEFAULT_ISOLATE, effectiveIsolate } from '../player/isolate/isolateSetting'
@@ -49,7 +50,6 @@ export function ModePanel({
   return (
     <div data-mode-panel-root className="flex flex-col gap-3">
       <SegmentedChoice
-        tone="practice"
         ref={selector}
         data-mode-selector
         label={MODES_LABEL}
@@ -63,14 +63,14 @@ export function ModePanel({
             id={m}
             // The name keeps the value whichever label shows, so it never changes with the width.
             aria-label={labels[m]}
-            className="t-body t-num text-on-practice-secondary hover:text-on-practice data-[selected]:text-practice-background relative min-h-(--target) flex-1 cursor-default overflow-hidden rounded-(--radius-capsule) px-2 transition-colors duration-(--dur-short) ease-(--ease) data-[selected]:delay-(--dur-short)"
+            className={`t-body t-num ${SEGMENT_TEXT} relative min-h-(--target) flex-1 cursor-default overflow-hidden rounded-(--radius-capsule) px-2 transition-colors duration-(--dur-short) ease-(--ease) data-[selected]:delay-(--dur-short)`}
           >
             {/* One pill shared across the modes, so choosing a mode slides it there. */}
             {m === shown && (
               <motion.span
                 layoutId="practice-mode-pill"
                 aria-hidden
-                className="bg-on-practice absolute inset-0 z-0 rounded-(--radius-capsule)"
+                className={`${SEGMENT_PILL} absolute inset-0 z-0 rounded-(--radius-capsule)`}
               />
             )}
             {/* Above the pill as it slides past, and darkening as it arrives rather than before. */}

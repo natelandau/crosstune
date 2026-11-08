@@ -27,6 +27,33 @@ const dialog = () => recordingPage()
 const box = (selector: string) =>
   practice()?.querySelector<HTMLElement>(selector)?.getBoundingClientRect() ?? null
 
+it('shows the clock small and centered on a phone, with zoom over the waveform', async () => {
+  await mountPlaying(PHONE)
+  await openPractice()
+  await expect.poll(() => box('[data-practice-clock]')?.width ?? 0).toBeGreaterThan(0)
+  const clock = practice()!.querySelector<HTMLElement>('[data-practice-clock]')!
+  expect(clock.classList.contains('t-heading')).toBe(true)
+  // How far the clock's words sit from practice's center.
+  const offCenter = () => {
+    const area = practice()!.getBoundingClientRect()
+    const text = document.createRange()
+    text.selectNodeContents(clock)
+    const words = text.getBoundingClientRect()
+    return Math.abs(words.left + words.width / 2 - (area.left + area.width / 2))
+  }
+  await expect.poll(offCenter).toBeLessThan(2)
+  const placed = () => {
+    const zoom = box('[data-practice-zoom]')!
+    const slot = box('[data-waveform-slot]')!
+    return (
+      zoom.top >= slot.top &&
+      zoom.bottom <= slot.bottom + 0.5 &&
+      clock.getBoundingClientRect().top >= slot.bottom
+    )
+  }
+  await expect.poll(placed).toBe(true)
+})
+
 it('centers the transport in practice on a wide window', async () => {
   await mountPlaying(WIDE)
   await openPractice()
@@ -84,6 +111,17 @@ it.each([
     }
   },
 )
+
+it('scrolls the whole page, waveform included, on a phone too short for practice', async () => {
+  await mountPlaying({ width: 390, height: 560 })
+  await openPractice()
+  await dialog().getByRole('radio', { name: LOOPS_LABEL, exact: true }).click()
+  await expect.poll(() => practice()?.querySelector('[data-mode-panel="loops"]')).not.toBeNull()
+  const below = practice()!.querySelector<HTMLElement>('[data-practice-below]')!
+  const scroller = practice()!.closest<HTMLElement>('[data-pane-scroller]')!
+  await expect.poll(() => scroller.scrollHeight).toBeGreaterThan(scroller.clientHeight)
+  expect(below.scrollHeight).toBeLessThanOrEqual(below.clientHeight + 1)
+})
 
 it('holds the screen awake while practice shows', async () => {
   const release = vi.fn(async () => {})

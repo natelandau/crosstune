@@ -441,7 +441,6 @@ function PlaceLists({ editor }: { editor: LocationEditorState }) {
   return (
     <div className="pt-6">
       <SegmentedChoice
-        tone="page"
         label={LOCATION_LABEL}
         options={LISTS}
         selected={shown}

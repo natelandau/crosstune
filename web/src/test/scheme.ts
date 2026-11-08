@@ -1,3 +1,4 @@
+import { onTestFinished } from 'vitest'
 import { DARK_QUERY } from '../theme/appearance'
 
 interface DarkList {
@@ -43,4 +44,10 @@ export function restoreSystemDark(): void {
   if (original) window.matchMedia = original
   original = undefined
   listeners.clear()
+}
+
+/** Stubs the system's dark query to `dark` until the test finishes. */
+export function stubSystemDarkForTest(dark: boolean): void {
+  stubSystemDark(dark)
+  onTestFinished(restoreSystemDark)
 }

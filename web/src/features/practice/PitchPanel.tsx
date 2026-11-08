@@ -100,7 +100,7 @@ export function PitchPanel({
         max={MAX_CENTS}
         step={1}
         value={cents}
-        className="accent-on-practice h-11 w-full"
+        className="accent-accent h-11 w-full"
         onChange={(event) => combine(semitones, Number(event.target.value))}
       />
       <div className="flex items-center justify-end">

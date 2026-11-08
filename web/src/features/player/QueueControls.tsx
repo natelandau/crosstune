@@ -26,7 +26,7 @@ interface Control {
 
 /**
  * Shuffle, Previous tune, Next tune, and Repeat for the list that plays: in a bar, the dock or
- * the Details tab's play bar, or on practice's background. Nothing shows while no list plays or
+ * the Details tab's play bar, or in practice's transport. Nothing shows while no list plays or
  * one has stopped, nor on a recording's page while the player holds another item.
  */
 export function QueueControls({
@@ -92,7 +92,7 @@ function ListControls({ tone }: { tone: Tone }) {
             data-focus-key={id}
             icon={icon}
             label={label}
-            iconClassName={`size-6 ${pressed === false ? 'text-on-practice-secondary' : ''}`}
+            iconClassName={`size-6 ${pressed === false ? 'text-secondary' : ''}`}
             aria-pressed={pressed}
             onPress={onPress}
           />

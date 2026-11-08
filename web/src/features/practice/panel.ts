@@ -2,14 +2,14 @@
 
 import { RECORDING_RANGES } from '../../api/vocabulary'
 import { clamp } from '../../math'
+import { BUTTON_CORNER, BUTTON_TONE, UNFILLED_OFF } from '../../ui/buttonTone'
 import { PRESS } from '../../ui/press'
 
 export const RESET = 'Reset'
 
-/** The hover tint of a control with no fill of its own. */
-export const PANEL_HOVER = 'not-disabled:not-aria-disabled:hover:bg-practice-hover'
-/** The hover of a control on the panels' round fill. */
-export const PANEL_FILLED_HOVER = 'not-disabled:not-aria-disabled:hover:bg-practice-fill-hover'
+/** A chip, such as a speed preset, and the one chosen. */
+export const CHIP = 'bg-field text-primary not-disabled:not-aria-disabled:hover:bg-field-hover'
+export const CHIP_CHOSEN = BUTTON_TONE.tinted
 
 /**
  * A native button's off state and press: aria-disabled rather than disabled, since a disabled
@@ -21,13 +21,13 @@ export function offWhen(off: boolean, onClick: () => void) {
 }
 
 /** A round stepper button. */
-export const PANEL_ICON_BUTTON = `grid size-11 shrink-0 place-items-center rounded-full bg-practice-fill aria-disabled:opacity-40 ${PRESS} ${PANEL_FILLED_HOVER}`
+export const PANEL_ICON_BUTTON = `grid size-11 shrink-0 place-items-center ${BUTTON_CORNER} aria-disabled:opacity-40 ${PRESS} ${CHIP}`
 
 /** A text button's shape with no color of its own, for a button that picks its own. */
-export const PANEL_TEXT_BUTTON_SHAPE = `t-body min-h-11 rounded-full px-4 aria-disabled:opacity-40 ${PRESS} ${PANEL_HOVER}`
+export const PANEL_TEXT_BUTTON_SHAPE = `t-body min-h-11 ${BUTTON_CORNER} px-4 aria-disabled:opacity-40 ${PRESS}`
 
 /** A text button, such as Reset. */
-export const PANEL_TEXT_BUTTON = `${PANEL_TEXT_BUTTON_SHAPE} text-on-practice`
+export const PANEL_TEXT_BUTTON = `${PANEL_TEXT_BUTTON_SHAPE} ${BUTTON_TONE.plain} ${UNFILLED_OFF}`
 
 export const ZOOM_IN = 'Zoom in'
 export const ZOOM_OUT = 'Zoom out'

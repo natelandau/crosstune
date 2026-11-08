@@ -1,0 +1,21 @@
+/* The tuner, and the welcome illustration of it, draw on tuner-background in every appearance,
+   so the roles that sit on it take the dark scheme's values. */
+[data-tuner-theme] {
+  --accent: var(--blue-300);
+  --danger: var(--red-300);
+  /* Redeclared so they mix the tuner's danger rather than the root's. */
+  --danger-subtle: color-mix(in srgb, var(--danger) 15%, transparent);
+  --danger-hover: color-mix(in srgb, var(--danger), var(--text-primary) 12%);
+}
+/* The tuner's whole pane is its background, so the shared title row and pane bar take its text
+   colors, and the bar lets the background, and its in-tune tint, show through. */
+[data-tuner-theme][data-tuner] {
+  --page-background: transparent;
+  --text-primary: var(--on-tuner);
+  --text-secondary: var(--on-tuner-secondary);
+  --field: var(--tuner-fill);
+  /* Redeclared so the tints mix the tuner's accent rather than the root's. */
+  --tint: color-mix(in srgb, var(--accent) 22%, transparent);
+  --tint-strong: color-mix(in srgb, var(--accent) 28%, transparent);
+  --on-tint: var(--text-primary);
+}

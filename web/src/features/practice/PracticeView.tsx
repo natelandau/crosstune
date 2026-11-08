@@ -24,13 +24,15 @@ import { clamp } from '../../math'
 import { usePlayhead } from '../player/playheadClock'
 import type { PracticeTimeline } from './usePracticeTimeline'
 import { PRESS } from '../../ui/press'
-import { PANEL_HOVER, ZOOM_IN, ZOOM_OUT, ZOOM_STEP } from './panel'
+import { ZOOM_IN, ZOOM_OUT, ZOOM_STEP } from './panel'
+import { BUTTON_CORNER, BUTTON_TONE, UNFILLED_OFF } from '../../ui/buttonTone'
 import type { ShownPeaks } from './recordingRange'
 import type { RecordingView } from '../recordings/useRecordings'
 import { isAppleTouch } from '../../platform/appleTouch'
 import { useToast } from '../../ui/Toast'
 import { ModePanel } from './ModePanel'
 import { PracticeButton } from './PracticeButton'
+import { useFrame } from '../../platform/frame'
 import { TransportRow } from './TransportRow'
 
 /** Where `PracticeView` leaves the control focus was on, for the next view to take up. */
@@ -150,40 +152,60 @@ function PracticeBody({
   const off = blocked ? 'pointer-events-none opacity-50' : ''
   const unusable = !timeline.loaded || !!blocked
 
+  const phone = useFrame() === 'phone'
+  const clock = blocked ?? <PlayheadTime timeline={timeline} />
+  const zoom = (
+    <div data-practice-zoom className="flex items-center">
+      <PracticeButton
+        icon={ZoomOut}
+        iconClassName="size-5"
+        label={ZOOM_OUT}
+        isDisabled={!timeline.canZoomOut || !!blocked}
+        onPress={() => timeline.zoom(1 / ZOOM_STEP)}
+      />
+      <AriaButton
+        className={`t-body min-h-11 ${BUTTON_CORNER} px-2 font-semibold ${UNFILLED_OFF} ${PRESS} ${BUTTON_TONE.plain}`}
+        isDisabled={!timeline.pxPerS || !!blocked}
+        onPress={loops.fit}
+      >
+        {FIT}
+      </AriaButton>
+      <PracticeButton
+        icon={ZoomIn}
+        iconClassName="size-5"
+        label={ZOOM_IN}
+        isDisabled={!timeline.canZoomIn || !!blocked}
+        onPress={() => timeline.zoom(ZOOM_STEP)}
+      />
+    </div>
+  )
+
   return (
     <div ref={content} className="flex min-h-0 flex-1 flex-col gap-3">
       <PracticeOverview timeline={timeline} loops={loops} shown={shown} blocked={blocked} />
-      <PracticeWaveformSlot {...slotProps(core)} shown={shown} blocked={blocked} />
-      <div className="flex items-center justify-between gap-2">
-        <p data-practice-clock className="t-timer t-num m-0">
-          {blocked ?? <PlayheadTime timeline={timeline} />}
-        </p>
-        <div data-practice-zoom className="flex items-center">
-          <PracticeButton
-            icon={ZoomOut}
-            iconClassName="size-5"
-            label={ZOOM_OUT}
-            isDisabled={!timeline.canZoomOut || !!blocked}
-            onPress={() => timeline.zoom(1 / ZOOM_STEP)}
-          />
-          <AriaButton
-            className={`t-body text-on-practice min-h-11 rounded-full px-2 font-semibold disabled:opacity-40 ${PRESS} ${PANEL_HOVER}`}
-            isDisabled={!timeline.pxPerS || !!blocked}
-            onPress={loops.fit}
-          >
-            {FIT}
-          </AriaButton>
-          <PracticeButton
-            icon={ZoomIn}
-            iconClassName="size-5"
-            label={ZOOM_IN}
-            isDisabled={!timeline.canZoomIn || !!blocked}
-            onPress={() => timeline.zoom(ZOOM_STEP)}
-          />
-        </div>
+      <div data-waveform-slot className="relative">
+        <PracticeWaveformSlot {...slotProps(core)} shown={shown} blocked={blocked} />
+        {/* On a phone the zoom rides over the waveform's corner, as on iOS, so the clock takes a
+            row of its own. */}
+        {phone && (
+          <div className="bg-page-translucent absolute right-0 bottom-0 z-30 rounded-(--radius-control)">
+            {zoom}
+          </div>
+        )}
       </div>
-      {/* Scrolls only when the window is too short for it, such as on a landscape phone. */}
-      <div data-practice-below className="flex min-h-16 shrink flex-col gap-4 overflow-y-auto">
+      {phone ? (
+        <p data-practice-clock className="t-heading t-num m-0 text-center">
+          {clock}
+        </p>
+      ) : (
+        <div className="flex items-center justify-between gap-2">
+          <p data-practice-clock className="t-timer t-num m-0">
+            {clock}
+          </p>
+          {zoom}
+        </div>
+      )}
+      <div data-practice-below className="flex shrink-0 flex-col gap-4">
         <div className={`${CAPPED} flex flex-col items-center gap-2`}>
           <TransportRow
             playing={timeline.playing}
@@ -233,7 +255,7 @@ function PracticeBody({
           <p
             data-locked-loops
             aria-hidden={loops.selected ? undefined : 'true'}
-            className={`t-secondary text-on-practice-secondary m-0 text-center ${loops.selected ? '' : 'invisible'}`}
+            className={`t-secondary text-secondary m-0 text-center ${loops.selected ? '' : 'invisible'}`}
           >
             {LOCKED_LOOPS_NOTICE}
           </p>

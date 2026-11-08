@@ -47,6 +47,7 @@
   --blue-800: #194f84;
   --coral-200: #f6bba1;
   --coral-400: #ef8354;
+  --coral-600: #d4622f;
   --red-300: #ff8a80;
   --red-430: #ff5f56;
   --red-450: #ff564d;
@@ -157,27 +158,26 @@
   --on-record: var(--gray-950);
   --record-hover: var(--red-450);
 
-  /* Inverse, brand, practice. The inverse surface, under a tooltip or an undo banner, is the
+  /* Inverse, brand, tuner. The inverse surface, under a tooltip or an undo banner, is the
      other appearance's page. */
   --inverse-surface: var(--text-primary);
   --on-inverse-surface: var(--page-background);
   --inverse-accent: var(--blue-300);
   /* The welcome illustrations' own colors: a drawn device's frame and the tuner they show. */
   --device-bezel: var(--slate-800);
-  --illustration-practice-background: var(--slate-800);
+  --illustration-tuner-background: var(--slate-800);
   --brand: var(--coral-400);
   /* Coral is light in either appearance, so the label on it is dark in both. */
   --on-brand: var(--slate-950);
   /* The mark's C. */
   --brand-secondary: var(--slate-600);
-  /* Practice, trim, and the tuner draw on the same dark background in either appearance. */
-  --practice-background: var(--slate-900);
-  --on-practice: var(--white);
-  --on-practice-secondary: var(--slate-300);
-  --on-practice-hover: var(--gray-150);
-  --practice-fill: color-mix(in srgb, var(--gray-470) 44%, transparent);
-  --practice-fill-hover: color-mix(in srgb, var(--gray-470) 42%, transparent);
-  --practice-hover: color-mix(in srgb, var(--white) 14%, transparent);
+  /* Brand coral, darkened in light so the thin line holds 3:1 on the page and a surface. */
+  --playhead: var(--coral-600);
+  /* The tuner's dark background, the same in either appearance. */
+  --tuner-background: var(--slate-900);
+  --on-tuner: var(--white);
+  --on-tuner-secondary: var(--slate-300);
+  --tuner-fill: color-mix(in srgb, var(--gray-470) 44%, transparent);
 
   /* A recording's waveform: the part played, and the part still to play. */
   --waveform-played: var(--text-primary);
@@ -189,11 +189,7 @@
   /* The tuner's in-tune green, the dark scheme's known in either appearance. */
   --tuner-in-tune: var(--green-400);
   /* The tuner's background while the note is in tune. */
-  --tuner-in-tune-background: color-mix(
-    in srgb,
-    var(--tuner-in-tune) 14%,
-    var(--practice-background)
-  );
+  --tuner-in-tune-background: color-mix(in srgb, var(--tuner-in-tune) 14%, var(--tuner-background));
 
   color-scheme: light;
 
@@ -260,7 +256,7 @@
   --loop-5-tint: rgba(107, 63, 196, 0.2);
 
   /* The dark scheme's loops, lighter to clear 3:1 on a dark page and no lighter, so white text
-     still clears 4.5:1 on them. Practice draws them on its background in either appearance. */
+     still clears 4.5:1 on them. */
   --loop-0-dark: #3570dc;
   --loop-0-tint-dark: rgba(53, 112, 220, 0.3);
   --loop-1-dark: #c0560a;
@@ -316,8 +312,9 @@
   --inverse-accent: var(--blue-700);
   /* Raised on dark, where a dark frame sinks into the page. */
   --device-bezel: var(--surface-raised);
-  --illustration-practice-background: var(--slate-900);
+  --illustration-tuner-background: var(--slate-900);
   --brand-secondary: var(--white);
+  --playhead: var(--coral-400);
   color-scheme: dark;
 
   --key-0-background: #5c3232;
@@ -444,14 +441,12 @@
   --color-on-inverse-surface: var(--on-inverse-surface);
   --color-device-bezel: var(--device-bezel);
   --color-brand: var(--brand);
+  --color-playhead: var(--playhead);
   --color-on-brand: var(--on-brand);
-  --color-practice-background: var(--practice-background);
-  --color-on-practice: var(--on-practice);
-  --color-on-practice-secondary: var(--on-practice-secondary);
-  --color-on-practice-hover: var(--on-practice-hover);
-  --color-practice-fill: var(--practice-fill);
-  --color-practice-fill-hover: var(--practice-fill-hover);
-  --color-practice-hover: var(--practice-hover);
+  --color-tuner-background: var(--tuner-background);
+  --color-on-tuner: var(--on-tuner);
+  --color-on-tuner-secondary: var(--on-tuner-secondary);
+  --color-tuner-fill: var(--tuner-fill);
 }
 
 /* A surface, and any tint a row or a filter takes, draws the unknown ring and bar in the

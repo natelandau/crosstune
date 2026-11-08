@@ -13,7 +13,7 @@ const ARROW_STEP: Record<string, number> = {
 }
 
 /**
- * The dock's thin line of the place: played in primary text, the rest a border, and the brand coral
+ * The dock's thin line of the place: played in primary text, the rest a border, and the
  * playhead. A native range lies over it, unseen, so the keys, the screen reader, and a drag all
  * move the place through one control. The line and the range follow `playhead` every frame
  * without a render; only the spoken time renders, as its text changes.
@@ -56,7 +56,7 @@ export function Scrubber({
         <div
           ref={head}
           data-playhead
-          className="bg-brand absolute top-1/2 h-3 w-0.5 -translate-x-1/2 -translate-y-1/2 rounded-full"
+          className="bg-playhead absolute top-1/2 h-3 w-0.5 -translate-x-1/2 -translate-y-1/2 rounded-full"
         />
       </div>
       <input

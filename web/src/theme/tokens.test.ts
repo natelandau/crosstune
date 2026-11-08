@@ -37,6 +37,7 @@ describe.each(['light', 'dark'] as const)('%s palette', (scheme) => {
     ...(['pageBackground', 'surface'] as const).flatMap((name): Case[] => [
       [`known glyph on ${name}`, p.statusKnown, p[name], 3],
       [`record on ${name}`, p.record, p[name], 3],
+      [`playhead on ${name}`, p.playhead, p[name], 3],
     ]),
     ['unknown ring on the page', p.statusUnknown, p.pageBackground, 3],
     ['unknown ring on a surface', p.statusUnknownOnFill, p.surface, 3],
@@ -80,7 +81,7 @@ it.each(['light', 'dark'] as const)(
 
 // Read from disk: the unit project hands CSS imports, raw ones included, over empty.
 const css = readFileSync(new URL('./tokens.css', import.meta.url), 'utf8')
-const practiceTheme = readFileSync(new URL('./practiceTheme.css', import.meta.url), 'utf8')
+const tunerTheme = readFileSync(new URL('./tunerTheme.css', import.meta.url), 'utf8')
 
 /** The custom properties a block of CSS sets, by name. */
 function declared(selector: string, source = css): Map<string, string> {
@@ -210,36 +211,27 @@ describe.each(['light', 'dark'] as const)('the music palettes in %s', (scheme) =
   )
 })
 
-/** Every token inside practice in a scheme, with practiceTheme.css's redeclarations applied. */
-const practiceTokens = (scheme: 'light' | 'dark') =>
-  tokens(scheme, declared('[data-practice]', practiceTheme))
+/** Every token on the tuner's background in a scheme, with tunerTheme.css's redeclarations
+ * applied. */
+const tunerTokens = (scheme: 'light' | 'dark') =>
+  tokens(scheme, declared('[data-tuner-theme]', tunerTheme))
 
-describe.each(['light', 'dark'] as const)("practice's background in %s", (scheme) => {
-  const values = practiceTokens(scheme)
-  const background = values.get('--practice-background')!
+describe.each(['light', 'dark'] as const)("the tuner's background in %s", (scheme) => {
+  const values = tunerTokens(scheme)
+  const background = values.get('--tuner-background')!
 
-  it('keeps white, the accent, the secondary text, and the brand playhead legible', () => {
-    expect(ratio(values.get('--on-practice')!, background)).toBeGreaterThanOrEqual(4.5)
-    // Practice draws the dark scheme's accent in either appearance, as text and glyphs.
+  it('keeps white, the accent, the secondary text, and the brand legible', () => {
+    expect(ratio(values.get('--on-tuner')!, background)).toBeGreaterThanOrEqual(4.5)
+    // The tuner draws the dark scheme's accent in either appearance, as text and glyphs.
     expect(normal(values.get('--accent')!)).toBe(normal(PALETTE.dark.accent))
     expect(ratio(values.get('--accent')!, background)).toBeGreaterThanOrEqual(4.5)
-    expect(ratio(values.get('--on-practice-secondary')!, background)).toBeGreaterThanOrEqual(4.5)
+    expect(ratio(values.get('--on-tuner-secondary')!, background)).toBeGreaterThanOrEqual(4.5)
     expect(ratio(values.get('--brand')!, background)).toBeGreaterThanOrEqual(3)
   })
 
   it("draws the dark scheme's danger in either appearance", () => {
     expect(normal(values.get('--danger')!)).toBe(normal(PALETTE.dark.danger))
   })
-
-  // Practice draws the dark scheme's loops, each under its white name tab.
-  it.each(LOOP_COLORS.dark.map((color, slot) => [slot, color] as const))(
-    'draws loop %i legibly, under a legible name',
-    (slot, color) => {
-      expect(normal(values.get(`--loop-${slot}`)!)).toBe(normal(color))
-      expect(ratio(color, background)).toBeGreaterThanOrEqual(3)
-      expect(ratio('#FFFFFF', color)).toBeGreaterThanOrEqual(4.5)
-    },
-  )
 
   // The tuner's two off-pitch steps: both legible, and apart in lightness as well as hue, so
   // they stay apart under red-green color blindness.
@@ -262,20 +254,13 @@ describe.each(['light', 'dark'] as const)("practice's background in %s", (scheme
     }
   })
 
-  // The in-tune background replaces practice's under the tuner's white type and green bars.
+  // The in-tune background replaces the tuner's own under its white type and green bars.
   it('keeps white type and the green bars legible on the in-tune background', () => {
     const inTune = values.get('--tuner-in-tune-background')!
-    expect(ratio(values.get('--on-practice')!, inTune)).toBeGreaterThanOrEqual(4.5)
+    expect(ratio(values.get('--on-tuner')!, inTune)).toBeGreaterThanOrEqual(4.5)
     expect(ratio(values.get('--tuner-in-tune')!, inTune)).toBeGreaterThanOrEqual(3)
     expect(inTune).not.toBe(background)
   })
-})
-
-it('redeclares every loop color for practice', () => {
-  for (let slot = 0; slot < LOOP_COLORS.dark.length; slot++) {
-    expect(practiceTheme).toContain(`--loop-${slot}: var(--loop-${slot}-dark);`)
-    expect(practiceTheme).toContain(`--loop-${slot}-tint: var(--loop-${slot}-tint-dark);`)
-  }
 })
 
 /** `color`, possibly translucent, painted over an opaque background. */

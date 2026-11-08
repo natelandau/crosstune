@@ -9,7 +9,7 @@ const ALLOWED: Record<string, string> = {
   'theme/tokens.css': 'the palette',
   'theme/tokens.ts': 'the palette, mirrored for the contrast tests',
   'theme/shape.css': 'shadows, which mix black and white at fixed strengths',
-  'theme/practiceTheme.css': 'mixes that must follow the roles practice redeclares',
+  'theme/tunerTheme.css': 'mixes that must follow the roles the tuner redeclares',
   'features/tuner/blend.ts': 'an animated blend between two tokens',
   'features/tuner/TunerBars.tsx': 'an animated blend between two tokens',
   'ui/sheetGeometry.ts': "the scrim's animated strength",

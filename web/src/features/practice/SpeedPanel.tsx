@@ -2,9 +2,12 @@ import { Minus, Plus } from 'lucide-react'
 import { useId } from 'react'
 import { RECORDING_RANGES } from '../../api/vocabulary'
 import { SPEED_BADGE, SPEED_LABEL } from '../player/transportCopy'
+import { BUTTON_CORNER } from '../../ui/buttonTone'
 import {
   clampSpeed,
   offWhen,
+  CHIP,
+  CHIP_CHOSEN,
   PANEL_ICON_BUTTON,
   PANEL_TEXT_BUTTON,
   RESET,
@@ -55,7 +58,7 @@ export function SpeedPanel({
           step={SPEED_STEP}
           value={value}
           aria-valuetext={SPEED_BADGE(value)}
-          className="accent-on-practice h-11 min-w-0 flex-1"
+          className="accent-accent h-11 min-w-0 flex-1"
           onChange={(event) => onChange(clampSpeed(Number(event.target.value)))}
         />
         <button
@@ -75,11 +78,7 @@ export function SpeedPanel({
               key={preset}
               type="button"
               aria-pressed={chosen}
-              className={
-                chosen
-                  ? 't-body bg-on-practice text-practice-background min-h-11 rounded-full px-4 tabular-nums'
-                  : 't-body bg-practice-fill min-h-11 rounded-full px-4 tabular-nums'
-              }
+              className={`t-body min-h-11 ${BUTTON_CORNER} px-4 tabular-nums ${chosen ? CHIP_CHOSEN : CHIP}`}
               onClick={() => onChange(preset)}
             >
               {SPEED_BADGE(preset)}

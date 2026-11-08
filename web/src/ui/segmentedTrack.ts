@@ -1,10 +1,11 @@
-const TRACKS = {
-  practice: 'bg-practice-hover',
-  page: 'bg-field',
-} as const
+/** The capsule a row of segments sits in. */
+export const SEGMENTED_TRACK = 'bg-field flex rounded-(--radius-capsule) p-0.5'
 
-export type SegmentedTone = keyof typeof TRACKS
+/** A segment's text: secondary until chosen. */
+export const SEGMENT_TEXT = 'text-secondary hover:text-primary data-[selected]:text-primary'
 
-/** The capsule a row of segments sits in, on practice's background or a page's. */
-export const segmentedTrack = (tone: SegmentedTone) =>
-  `${TRACKS[tone]} flex rounded-(--radius-capsule) p-0.5`
+/** The chosen segment's pill, drawn on its own when it slides between segments. */
+export const SEGMENT_PILL = 'bg-page'
+
+/** A segment whose chosen state draws its own pill. */
+export const SEGMENT = `${SEGMENT_TEXT} data-[selected]:bg-page`

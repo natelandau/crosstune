@@ -31,6 +31,8 @@ import {
   press,
   WIDE,
 } from '../../test/practice'
+import { stubSystemDarkForTest } from '../../test/scheme'
+import { computedColor } from '../../test/color'
 
 vi.mock('../../commands/recordings', { spy: true })
 
@@ -66,22 +68,12 @@ async function expectBackOnMore() {
 
 const trimStart = async (db: CrosstuneDb) => (await db.recordings.get('r1'))?.trim_start_ms
 
-it('opens from More in place of practice, with loop handles in brand', async () => {
+it('opens from More in place of practice, with a grip on each handle', async () => {
   const { engine } = await mountPlaying(WIDE)
   await openTrim(engine)
   expect(practice()).not.toBeNull()
-  const brand = document.createElement('span')
-  brand.className = 'bg-brand'
-  practice()!.append(brand)
   const lines = [...practice()!.querySelectorAll<HTMLElement>('[data-handle] > span:first-child')]
-  try {
-    expect(lines.length).toBeGreaterThan(0)
-    await expect
-      .poll(() => lines.map((line) => getComputedStyle(line).backgroundColor))
-      .toEqual(lines.map(() => getComputedStyle(brand).backgroundColor))
-  } finally {
-    brand.remove()
-  }
+  expect(lines.length).toBeGreaterThan(0)
   await expect
     .poll(() => practice()!.querySelectorAll('[data-handle] [data-grip]').length)
     .toBe(lines.length)
@@ -89,6 +81,28 @@ it('opens from More in place of practice, with loop handles in brand', async () 
     .poll(() => document.activeElement)
     .toBe(trimDialog().getByRole('button', { name: CANCEL }).element())
 })
+
+it.each(['light', 'dark'] as const)(
+  "draws its handles in the trim slot's loop color in %s",
+  async (scheme) => {
+    stubSystemDarkForTest(scheme === 'dark')
+    const { engine } = await mountPlaying(WIDE)
+    await openTrim(engine)
+    const loop = document.createElement('span')
+    loop.className = 'loop-color bg-(--loop)'
+    loop.dataset.color = practice()!.querySelector<HTMLElement>('[data-handle]')!.dataset.color!
+    practice()!.append(loop)
+    const lines = [...practice()!.querySelectorAll<HTMLElement>('[data-handle] > span:first-child')]
+    try {
+      expect(lines.length).toBeGreaterThan(0)
+      await expect
+        .poll(() => lines.map((line) => getComputedStyle(line).backgroundColor))
+        .toEqual(lines.map(() => getComputedStyle(loop).backgroundColor))
+    } finally {
+      loop.remove()
+    }
+  },
+)
 
 it('centers the detail on a handle with Go to start and Go to end', async () => {
   const { engine } = await mountPlaying(WIDE)
@@ -206,21 +220,25 @@ it('holds Cancel and Escape while the confirmed trim is written', async () => {
   await expectBackOnMore()
 })
 
-it("says a failed save in the dark scheme's danger, in the light appearance too", async () => {
-  vi.mocked(updateRecording).mockRejectedValueOnce(new Error('offline'))
-  const { engine } = await mountPlaying(WIDE)
-  await openTrim(engine)
-  await setStartAt(5000)
-  await trimDialog().getByRole('button', { name: SAVE_TRIM }).click()
-  const question = page.getByRole('alertdialog', { name: TRIM_CONFIRM_TITLE(55_000) })
-  await question.getByRole('button', { name: TRIM_CONFIRM_ACTION }).click()
+it.each(['light', 'dark'] as const)(
+  'says a failed save in danger in the %s appearance',
+  async (scheme) => {
+    stubSystemDarkForTest(scheme === 'dark')
+    vi.mocked(updateRecording).mockRejectedValueOnce(new Error('offline'))
+    const { engine } = await mountPlaying(WIDE)
+    await openTrim(engine)
+    await setStartAt(5000)
+    await trimDialog().getByRole('button', { name: SAVE_TRIM }).click()
+    const question = page.getByRole('alertdialog', { name: TRIM_CONFIRM_TITLE(55_000) })
+    await question.getByRole('button', { name: TRIM_CONFIRM_ACTION }).click()
 
-  const alert = trimDialog().getByRole('alert')
-  await expect.element(alert).toHaveTextContent(TRIM_NOT_SAVED)
-  const danger = PALETTE.dark.danger
-  const rgb = `rgb(${[1, 3, 5].map((i) => parseInt(danger.slice(i, i + 2), 16)).join(', ')})`
-  await expect.poll(() => getComputedStyle(alert.element()).color).toBe(rgb)
-})
+    const alert = trimDialog().getByRole('alert')
+    await expect.element(alert).toHaveTextContent(TRIM_NOT_SAVED)
+    await expect
+      .poll(() => getComputedStyle(alert.element()).color)
+      .toBe(computedColor(PALETTE[scheme].danger))
+  },
+)
 
 it('trims on the phone, where a drag on its header leaves practice open', async () => {
   const { engine } = await mountPlaying(PHONE)

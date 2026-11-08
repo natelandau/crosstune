@@ -5,18 +5,22 @@ import { useOnTop } from '../../ui/overlayClaim'
 import { PRESS } from '../../ui/press'
 import { useEscapeCapture } from '../../ui/useEscapeCapture'
 import { useLatest } from '../../ui/useLatest'
-import { PANEL_FILLED_HOVER, PANEL_HOVER } from './panel'
+import { BUTTON_CORNER, BUTTON_TONE, UNFILLED_OFF } from '../../ui/buttonTone'
+import { CHIP } from './panel'
 
 /** The controls under an editor's strips, capped so they stay in reach on a wide window. */
 export const EDITOR_CAPPED = 'mx-auto w-full max-w-xl'
 
-const TEXT_BUTTON = `t-body min-h-(--target) rounded-(--radius-capsule) text-on-practice disabled:opacity-40 ${PRESS}`
+const TEXT_BUTTON = `t-body min-h-(--target) ${BUTTON_CORNER} disabled:opacity-40 ${PRESS}`
+
+/** An editor button's shape, for a button that takes its own colors. */
+export const EDITOR_BUTTON_SHAPE = `${TEXT_BUTTON} px-3`
 
 /** A text button with no fill, such as Cancel. */
-export const EDITOR_TEXT_BUTTON = `${TEXT_BUTTON} px-3 ${PANEL_HOVER}`
+export const EDITOR_TEXT_BUTTON = `${EDITOR_BUTTON_SHAPE} ${BUTTON_TONE.plain} ${UNFILLED_OFF}`
 
 /** A text button on the panels' round fill, such as Split at 0:12. */
-export const EDITOR_FILLED_BUTTON = `${TEXT_BUTTON} bg-practice-fill px-4 font-semibold ${PANEL_FILLED_HOVER}`
+export const EDITOR_FILLED_BUTTON = `${TEXT_BUTTON} px-4 font-semibold ${CHIP}`
 
 /**
  * An editor shown in place of practice, such as Trim or Split: Cancel, the title, and Save. Cancel

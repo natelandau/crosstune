@@ -1,11 +1,10 @@
 import type { ReactNode, Ref } from 'react'
 import { ToggleButtonGroup } from 'react-aria-components'
-import { segmentedTrack, type SegmentedTone } from './segmentedTrack'
+import { SEGMENTED_TRACK } from './segmentedTrack'
 
 /** One of `options`, chosen from a row of segments in a capsule; the segments are `children`. */
 export function SegmentedChoice<T extends string>({
   ref,
-  tone,
   label,
   options,
   selected,
@@ -14,7 +13,6 @@ export function SegmentedChoice<T extends string>({
   ...data
 }: {
   ref?: Ref<HTMLDivElement>
-  tone: SegmentedTone
   label: string
   options: readonly T[]
   selected: T
@@ -33,7 +31,7 @@ export function SegmentedChoice<T extends string>({
         const next = options.find((option) => keys.has(option))
         if (next) onChange(next)
       }}
-      className={segmentedTrack(tone)}
+      className={SEGMENTED_TRACK}
     >
       {children}
     </ToggleButtonGroup>

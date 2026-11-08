@@ -26,7 +26,6 @@ import { OFFLINE } from '../../sync/labels'
 import { liveLoops, seedLoop } from '../../test/recordings'
 import { MORE_ACTIONS } from '../../ui/menuCopy'
 import { GO_TO_TUNE } from '../recordings/recordingNames'
-import { PALETTE } from '../../theme/tokens'
 import { fakePlaybackEngine, fakeStage } from '../../test/providers'
 import { isAppleTouch } from '../../platform/appleTouch'
 import {
@@ -39,19 +38,22 @@ import {
   press,
   WIDE,
 } from '../../test/practice'
+import { stubSystemDarkForTest } from '../../test/scheme'
 
 vi.mock('../../platform/appleTouch', { spy: true })
 vi.mock('../../commands/loops', { spy: true })
 
 const announced = () => practice()?.querySelector('[data-practice-announcer]')?.textContent ?? ''
 
-it("opens from the phone bar on practice's background, in the light appearance too", async () => {
-  await mountPlaying(PHONE)
-  await openPractice()
-  const background = PALETTE.light.practiceBackground
-  const rgb = `rgb(${[1, 3, 5].map((i) => parseInt(background.slice(i, i + 2), 16)).join(', ')})`
-  await expect.poll(() => getComputedStyle(practice()!).backgroundColor).toBe(rgb)
-})
+it.each(['light', 'dark'] as const)(
+  'opens from the phone bar on the page, with no background of its own, in %s',
+  async (scheme) => {
+    stubSystemDarkForTest(scheme === 'dark')
+    await mountPlaying(PHONE)
+    await openPractice()
+    await expect.poll(() => getComputedStyle(practice()!).backgroundColor).toBe('rgba(0, 0, 0, 0)')
+  },
+)
 
 it("opens from the dock's Expand on wide", async () => {
   await mountPlaying(WIDE)

@@ -25,7 +25,7 @@ export function TunerBars({ cents }: { cents: number }) {
   const shift = (-clamped / FULL_CENTS) * FULL_TRAVEL * 100
   const inTune = inTuneFraction(cents)
   const color = barColor(cents)
-  const zone = `color-mix(in srgb, ${blend('--on-practice-secondary', '--tuner-in-tune', inTune / 2)} ${14 + 6 * inTune}%, transparent)`
+  const zone = `color-mix(in srgb, ${blend('--on-tuner-secondary', '--tuner-in-tune', inTune / 2)} ${14 + 6 * inTune}%, transparent)`
   return (
     <>
       {(

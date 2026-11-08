@@ -3,10 +3,10 @@ import type { ReactNode, Ref } from 'react'
 import { Button as AriaButton, type ButtonProps as AriaButtonProps } from 'react-aria-components'
 import { iconMotion } from '../../ui/iconMotion'
 import { PRESS } from '../../ui/press'
-import { PANEL_HOVER } from './panel'
+import { BUTTON_TONE, PLAIN_GLYPH, UNFILLED_OFF } from '../../ui/buttonTone'
 
 /**
- * An icon-only control on practice's background, drawn in on-practice white. Practice holds an overlay claim, which
+ * An icon-only control on practice, in the app's button tones. Practice holds an overlay claim, which
  * keeps every tooltip shut, so the name lives on the control alone. `aria-disabled` dims it and
  * ignores presses while leaving it able to hold focus.
  */
@@ -38,10 +38,10 @@ export function PracticeButton({
       onPress={rest['aria-disabled'] ? undefined : onPress}
       // The large control is practice's filled button, which rises under the pointer.
       data-lift={size === 'large' || undefined}
-      className={`aria-pressed:bg-practice-fill inline-flex shrink-0 items-center justify-center rounded-(--radius-capsule) disabled:opacity-40 aria-disabled:opacity-40 ${PRESS} ${
+      className={`inline-flex shrink-0 items-center justify-center rounded-(--radius-capsule) ${PRESS} ${
         size === 'large'
-          ? 'bg-on-practice text-practice-background not-disabled:not-aria-disabled:hover:bg-on-practice-hover size-[72px]'
-          : `text-on-practice size-11 ${PANEL_HOVER}`
+          ? `${BUTTON_TONE.primary} size-[72px]`
+          : `${PLAIN_GLYPH} aria-pressed:bg-tint size-11 ${UNFILLED_OFF} aria-pressed:rounded-(--radius-control)`
       }`}
     >
       {glyph ??

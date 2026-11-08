@@ -10,7 +10,7 @@ import { DONE } from '../ui/confirmCopy'
 import { MORE_ACTIONS } from '../ui/menuCopy'
 import { contrastRatio, glyphColor, paintedBackground, compositeOver } from '../test/contrast'
 import { openTestDb } from '../test/db'
-import { restoreSystemDark, stubSystemDark } from '../test/scheme'
+import { stubSystemDarkForTest } from '../test/scheme'
 import { recordingRow, tuneRow, userTuneRow } from '../test/rows'
 import { renderApp } from '../test/renderApp'
 import { destination } from './destinations'
@@ -205,8 +205,7 @@ it.each([
   ['the tuner', 'light', '/tuner', false],
   ['the tuner', 'dark', '/tuner', true],
 ])('keeps the account initials at 4.5:1 on %s in %s', async (_where, _name, path, dark) => {
-  stubSystemDark(dark)
-  onTestFinished(restoreSystemDark)
+  stubSystemDarkForTest(dark)
   await renderApp({ path, db: openTestDb(), frame: PHONE })
   await expect.poll(() => document.documentElement.dataset.scheme).toBe(dark ? 'dark' : 'light')
   await expect.element(account()).toBeVisible()
