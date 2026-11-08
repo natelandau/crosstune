@@ -53,23 +53,13 @@ only `design-ios.md`. The Mac and iPhone never take a rule from here.
 
 - iPhone rows at touch sizes. Row controls stay visible with a pointer,
   since a control waiting for hover is invisible without one.
-- The row of the recording whose page shows in the detail column is the
-  list's selected row, as the open tune's is in the catalog.
+- The row whose page shows in the detail column is the list's selected
+  row.
 
 ## Pages
 
 - Images decode at their drawn size.
 - A page fading out takes no taps.
-
-## Recording page
-
-- A recording's page fills the detail column. Practice sits beside the
-  attributes column on the page background, as on the Mac. No scans or
-  lyrics.
-- A column narrower than `RecordingPageArrangement.foldWidth` folds the
-  page into the Practice and Details tabs.
-- The page, not the practice view, owns the practice visit, so a fold or
-  a tab switch keeps practice's state.
 
 ## Sheets
 

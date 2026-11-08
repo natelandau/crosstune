@@ -277,11 +277,7 @@ A role only one platform has is on that platform's page.
 - Selected row: inset accent highlight.
 - At most three visible actions on a row. The rest in its menu.
 - An action that leaves the app is menu-only, never a swipe action.
-- A media row always answers a tap. A link row is itself the control. A
-  recording row's tap opens the recording's page, and its action slot
-  plays or downloads without opening it.
-- A recording row's menu and swipe hold Delete alone. Every other
-  recording action is in its page's More menu.
+- A media row always answers a tap. A link row is itself the control.
 - Row title: the most specific name. Drop what the heading above already
   says.
 - Sizes truncate, never round. Durations `m:ss`.
@@ -332,8 +328,6 @@ A role only one platform has is on that platform's page.
 - Every form is a sheet over the current screen. No form route, no save
   bar.
 - An in-place editor saves on every dismissal. Only Escape cancels.
-- The location editor also has a Cancel button, because it stages several
-  picks.
 - Toolbar: `Cancel` leading, bold primary action trailing, named for what
   it does.
 - Sections of related fields. The header names the group, and the footer
@@ -396,28 +390,7 @@ A role only one platform has is on that platform's page.
 - Action button row: what the musician does with the item, never editing.
   A button shows only when it can act now, and is never disabled.
 - Attributes: the same attributes in the same order on every item, so
-  nothing moves between items. An unset value reads "Add" on a tune's
-  page and "Not set" on a recording's page.
-- Every field of a recording edits from its own row on its page, with the
-  tune page's row editors. No Edit sheet, no edit mode.
-- Opening a recording's page never changes playback. Its Play loads the
-  recording, and the page then owns that playback.
-- While a page shows the loaded recording, the dock and the player bar
-  hide. Leaving the page stops playback the page started, except a
-  Details/Practice switch, a fold, and Trim or Split. Playback started
-  elsewhere keeps playing and the dock returns.
-- While a list plays the page's recording, the page carries the list
-  controls: practice at every width, the Details play bar at compact
-  widths.
-- Practice: beside the attributes column where the page's width holds
-  both, else Practice and Details tabs, Practice first. Every page opens on
-  Practice, never on a tab used before. Never scans or lyrics. A fold or
-  a tab switch keeps practice's zoom, selected loop, and playhead.
-- Practice modes run Speed, Pitch, Isolate, Loops. Every page open
-  starts on Speed. A page keeps its chosen mode until it closes. The
-  waveform and ruler cap at 160 (px on web, pt on Apple) at every width.
-  Extra height goes to the surface around them.
-- A recording's Details lists "Linked Tune" below "Added".
+  nothing moves between items.
 - Moving between items cross-fades. The current page stays until the next
   has read, so the column never goes blank.
 - Mode panels: a segmented control under the main surface. The panel

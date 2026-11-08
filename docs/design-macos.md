@@ -106,13 +106,6 @@ differ. iPhone and iPad never take a rule from here.
 - A link line is `textSecondary`, the accent only under the pointer.
 - A wrapped middle-dot line breaks after a dot, never before.
 
-## Player and practice
-
-- A recording's page takes the detail column, not a sheet, so sidebar and
-  list stay in reach. Practice sits beside its attributes column, or in
-  its Practice tab in a column narrower than
-  `RecordingPageArrangement.foldWidth`.
-
 ## Sheets
 
 - Sheet: `MacSheet`, never a `NavigationStack` toolbar band. Title in the
