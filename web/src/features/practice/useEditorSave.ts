@@ -3,6 +3,7 @@ import { RECORDING_NOT_FOUND } from '../../commands/messages'
 import type { LocalRecording } from '../../db/types'
 import type { ConfirmQuestion } from '../../ui/confirmQuestion'
 import { useLatest } from '../../ui/useLatest'
+import { untracked, type TrackWork } from '../../ui/useWorking'
 
 export interface EditorSaveOptions {
   recording: Pick<LocalRecording, 'trim_start_ms' | 'trim_end_ms'>
@@ -14,8 +15,15 @@ export interface EditorSaveOptions {
 }
 
 export interface EditorSave {
-  /** Asks `question`, then runs `write` unless the editor has given way meanwhile. */
-  save: (question: Omit<ConfirmQuestion, 'signal'>, write: () => Promise<void>) => Promise<void>
+  /**
+   * Asks `question`, then runs `write` unless the editor has given way meanwhile. The write alone
+   * goes to `track`, so a Save button shows it working only once the question is answered.
+   */
+  save: (
+    question: Omit<ConfirmQuestion, 'signal'>,
+    write: () => Promise<void>,
+    track?: TrackWork,
+  ) => Promise<void>
   saving: boolean
   error: string | null
 }
@@ -55,7 +63,11 @@ export function useEditorSave({
     onTrimmedElsewhereRef.current()
   }, [trimmedElsewhere, onTrimmedElsewhereRef])
 
-  const save = async (asked: Omit<ConfirmQuestion, 'signal'>, write: () => Promise<void>) => {
+  const save = async (
+    asked: Omit<ConfirmQuestion, 'signal'>,
+    write: () => Promise<void>,
+    track: TrackWork = untracked,
+  ) => {
     const controller = new AbortController()
     question.current = controller
     const answer = await confirm({ ...asked, signal: controller.signal })
@@ -65,7 +77,7 @@ export function useEditorSave({
     setSaving(true)
     setError(null)
     try {
-      await write()
+      await track(write())
     } catch (caught) {
       writing.current = false
       setSaving(false)

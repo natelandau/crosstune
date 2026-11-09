@@ -405,6 +405,7 @@ it('Notes keeps line breaks', async () => {
 
 it("a lapsed account's page rows still open their editors", async () => {
   await mount(PHONE, { lapsed: true })
+  await page.getByRole('tab', { name: DETAILS, exact: true }).click()
   const details = page.getByRole('tabpanel', { name: DETAILS })
   await details.getByRole('button', { name: `${NAME}, ${FAST}`, exact: true }).click()
   await expect

@@ -67,7 +67,7 @@ export function TextField({
       placeholder={placeholder}
       inputMode={inputMode}
       enterKeyHint={enterKeyHint}
-      className={`${BOX} min-h-(--target) flex-1 ${standalone ? 'px-4' : 'pe-4 text-end'}`}
+      className={`${BOX} min-h-(--size-row) flex-1 ${standalone ? 'px-4' : 'pe-4 text-end'}`}
     />
   )
   return (

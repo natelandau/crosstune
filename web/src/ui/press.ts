@@ -1,8 +1,8 @@
 /** A control's press and hover, shared by every button that draws its own shape. */
 
-/** Squeezes while pressed and eases its hover changes. */
+/** Squeezes fast while pressed, springs back on release, and eases its hover changes. */
 export const PRESS =
-  'cursor-default transition-[scale,translate,box-shadow,background-color,color,opacity] duration-(--dur-short) ease-(--ease) data-[pressed]:scale-[0.96] aria-disabled:data-[pressed]:scale-100'
+  'press cursor-default data-[pressed]:scale-[0.96] aria-disabled:data-[pressed]:scale-100 motion-reduce:data-[pressed]:scale-100'
 
 /** A plain capsule or round control: a tint under the pointer. */
 export const TINT_HOVER = 'not-disabled:hover:bg-tint-strong'

@@ -22,7 +22,7 @@ export interface LyricsReader {
   editing: boolean
   setEditing: (editing: boolean) => void
   /** Writes the words on their own, and leaves editing once the write lands. */
-  save: (text: string) => void
+  save: (text: string) => Promise<void>
   /** A refused write, for the editor to show beside the words it kept. */
   error: string | null
   pending: boolean
@@ -44,7 +44,7 @@ export function useLyricsReader({
 }): LyricsReader {
   const db = useDb()
   const [editing, setEditing] = useState(false)
-  const { error, pending, runThen, clear } = useAction()
+  const { error, pending, attempt, clear } = useAction()
   const step = useLyricsStep()
   const [announced, setAnnounced] = useState('')
   // A body runs to 20,000 characters, and every keystroke elsewhere on the screen re-renders
@@ -88,7 +88,7 @@ export function useLyricsReader({
 
   const save = (text: string) => {
     const body = text.trim()
-    runThen(
+    return attempt(
       () => updateTune(db, tuneId, { lyrics: body || null }),
       () => setEditing(false),
     )

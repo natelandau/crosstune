@@ -26,9 +26,12 @@ import { useLatest } from './useLatest'
 import { useStampedDensity } from '../platform/density'
 import { DURATION, EASE, SPRING } from '../theme/motion'
 import { Button } from './Button'
+import { IconButton } from './IconButton'
 import { InBar } from './inBar'
+import { InOverlay } from './inOverlay'
 import { HeadingLevelContext } from './headingLevel'
-import { TONE_VARIANT, type ActionTone } from './toneVariant'
+import type { ActionTone } from './buttonTone'
+import type { ControlSize } from './inRow'
 import { PointerOverlay } from './PointerOverlay'
 import { scaleBackground } from './backgroundScale'
 import {
@@ -42,6 +45,7 @@ import {
 import { useOverlayClaim } from './overlayClaim'
 import { useFittedHeight, useKeyboardInset, useScrollEdges, useViewport } from './sheetMeasure'
 import { clamp } from '../math'
+import type { TrackWork } from './useWorking'
 
 const MotionModalOverlay = motion.create(ModalOverlay)
 const MotionModal = motion.create(Modal)
@@ -49,12 +53,16 @@ const MotionModal = motion.create(Modal)
 export interface SheetAction {
   label: string
   icon?: LucideIcon
-  onPress: () => void
+  /** Returned or tracked work shows the button working, then done or failed (see `Button`). */
+  onPress: (track: TrackWork) => void | Promise<unknown>
   isDisabled?: boolean
 }
 
 export interface SheetPrimary extends SheetAction {
   tone?: ActionTone
+  /** Shows the check when the work ends. Off by default: a primary's work usually closes the
+   * sheet, and the closing confirms it. */
+  showDone?: boolean
 }
 
 export interface SheetCancel {
@@ -141,16 +149,18 @@ export function Sheet(props: SheetProps) {
   return (
     // A sheet opened from a bar is content, not part of the bar.
     <InBar value={false}>
-      <HeadingLevelContext value={2}>
-        <AnimatePresence onExitComplete={props.onClosed}>
-          {props.isOpen &&
-            (density === 'touch' ? (
-              <TouchSheet key="touch" {...props} />
-            ) : (
-              <PointerDialog key="pointer" {...props} />
-            ))}
-        </AnimatePresence>
-      </HeadingLevelContext>
+      <InOverlay value>
+        <HeadingLevelContext value={2}>
+          <AnimatePresence onExitComplete={props.onClosed}>
+            {props.isOpen &&
+              (density === 'touch' ? (
+                <TouchSheet key="touch" {...props} />
+              ) : (
+                <PointerDialog key="pointer" {...props} />
+              ))}
+          </AnimatePresence>
+        </HeadingLevelContext>
+      </InOverlay>
     </InBar>
   )
 }
@@ -194,13 +204,13 @@ function SheetHeader({
   return (
     // The body takes 4px of the gap below, so the ring of a field at its top is not clipped.
     <header
-      className={`flex min-h-(--target-control) items-center gap-3 border-b px-4 pt-3 pb-2 transition-colors duration-(--dur-short) ${
+      className={`flex min-h-(--size-regular) items-center gap-3 border-b px-4 pt-3 pb-2 transition-colors duration-(--dur-short) ${
         edge ? 'border-default' : 'border-transparent'
       }`}
     >
       {onBack && (
         <span className="-ms-2 flex">
-          <Button iconOnly icon={ChevronLeft} label={BACK} onPress={onBack} />
+          <IconButton icon={ChevronLeft} label={BACK} onPress={onBack} />
         </span>
       )}
       {title === undefined ? (
@@ -210,7 +220,7 @@ function SheetHeader({
           {title}
         </Heading>
       )}
-      {onClose && !onBack && <Button iconOnly icon={X} label={CLOSE} onPress={onClose} />}
+      {onClose && !onBack && <IconButton icon={X} label={CLOSE} onPress={onClose} />}
     </header>
   )
 }
@@ -251,25 +261,10 @@ function SheetActions({
         {accessory}
         {actions && (
           <div className="flex flex-col items-stretch gap-1">
-            {primary && (
-              <Button
-                variant={primary.tone ? TONE_VARIANT[primary.tone] : 'primary'}
-                fullWidth
-                large
-                label={primary.label}
-                icon={primary.icon}
-                onPress={primary.onPress}
-                isDisabled={primary.isDisabled}
-              />
-            )}
+            {primary && <PrimaryButton primary={primary} size="large" />}
             {tertiary && (
               <div className="flex justify-center">
-                <Button
-                  label={tertiary.label}
-                  icon={tertiary.icon}
-                  onPress={tertiary.onPress}
-                  isDisabled={tertiary.isDisabled}
-                />
+                <TertiaryButton tertiary={tertiary} />
               </div>
             )}
           </div>
@@ -285,19 +280,14 @@ function SheetActions({
         <div className="flex items-center gap-2">
           {tertiary && (
             <div className="me-auto flex">
-              <Button
-                label={tertiary.label}
-                icon={tertiary.icon}
-                onPress={tertiary.onPress}
-                isDisabled={tertiary.isDisabled}
-              />
+              <TertiaryButton tertiary={tertiary} />
             </div>
           )}
           {!tertiary && !touch && !primaryLarge && <div className="me-auto" />}
           {cancel !== null && (
             <div className={slot}>
               <Button
-                variant="bordered"
+                variant="secondary"
                 fullWidth
                 label={cancel?.label ?? CANCEL}
                 onPress={cancel?.onPress ?? onClose}
@@ -307,21 +297,39 @@ function SheetActions({
           )}
           {primary && (
             <div className={slot}>
-              <Button
-                variant={primary.tone ? TONE_VARIANT[primary.tone] : 'primary'}
-                fullWidth
-                large={primaryLarge}
-                label={primary.label}
-                icon={primary.icon}
-                onPress={primary.onPress}
-                isDisabled={primary.isDisabled}
-              />
+              <PrimaryButton primary={primary} size={primaryLarge ? 'large' : undefined} />
             </div>
           )}
         </div>
       )}
       {footnote}
     </>
+  )
+}
+
+function PrimaryButton({ primary, size }: { primary: SheetPrimary; size?: ControlSize }) {
+  return (
+    <Button
+      variant={primary.tone ? 'destructiveFill' : 'primary'}
+      fullWidth
+      size={size}
+      label={primary.label}
+      icon={primary.icon}
+      onPress={primary.onPress}
+      showDone={primary.showDone ?? false}
+      isDisabled={primary.isDisabled}
+    />
+  )
+}
+
+function TertiaryButton({ tertiary }: { tertiary: SheetAction }) {
+  return (
+    <Button
+      label={tertiary.label}
+      icon={tertiary.icon}
+      onPress={tertiary.onPress}
+      isDisabled={tertiary.isDisabled}
+    />
   )
 }
 
@@ -392,7 +400,7 @@ function PointerDialog(props: SheetProps) {
       isDismissable={!locked}
       isKeyboardDismissDisabled={locked}
       backDismissable={!locked || asksOnBack}
-      className="bg-page flex max-h-full max-w-full flex-col overflow-hidden rounded-(--radius-surface) shadow-(--shadow-float)"
+      className="bg-page flex max-h-full max-w-full flex-col overflow-hidden rounded-(--radius) shadow-(--shadow-float)"
       style={{ width: SHEET.width }}
     >
       <Dialog
@@ -605,7 +613,7 @@ function TouchSheet(props: SheetProps) {
         style={{ opacity: backdrop, backgroundColor: SCRIM_COLOR }}
       />
       <MotionModal
-        className="bg-page absolute inset-x-0 rounded-t-(--radius-surface) shadow-(--shadow-float) after:absolute after:inset-x-0 after:top-full after:h-16 after:bg-inherit"
+        className="bg-page absolute inset-x-0 rounded-t-(--radius) shadow-(--shadow-float) after:absolute after:inset-x-0 after:top-full after:h-16 after:bg-inherit"
         style={{
           y,
           top: SHEET.topMargin,

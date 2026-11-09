@@ -35,7 +35,7 @@ function Art({ children }: { children: ReactNode }) {
 /** A short label on a card, as a chip in the app shows a setting. */
 function Chip({ children }: { children: ReactNode }) {
   return (
-    <span className="border-default bg-surface text-primary rounded-(--radius-row) border px-[9px] py-[4px] text-[11px] leading-none font-semibold whitespace-nowrap">
+    <span className="border-default bg-surface text-primary rounded-(--radius) border px-[9px] py-[4px] text-[11px] leading-none font-semibold whitespace-nowrap">
       {children}
     </span>
   )
@@ -142,7 +142,7 @@ const CATALOG: { tune: string; status: TuneStatus }[] = [
 function CatalogArt() {
   return (
     <Art>
-      <div className="border-default bg-surface flex w-[210px] flex-col rounded-(--radius-control) border px-[12px] py-[10px] shadow-(--shadow-float)">
+      <div className="border-default bg-surface flex w-[210px] flex-col rounded-(--radius) border px-[12px] py-[10px] shadow-(--shadow-float)">
         <div className="mb-[8px] flex gap-[5px]">
           {['A', 'D', 'G', 'C'].map((key) => (
             <KeyPill key={key} value={key} compact chosen={key === 'D'} />
@@ -238,13 +238,13 @@ const LISTEN: { tune: string; provider: Provider }[] = [
 function ListenArt() {
   return (
     <Art>
-      <div className="border-default bg-surface flex w-[236px] flex-col rounded-(--radius-control) border px-[12px] py-[10px] shadow-(--shadow-float)">
+      <div className="border-default bg-surface flex w-[236px] flex-col rounded-(--radius) border px-[12px] py-[10px] shadow-(--shadow-float)">
         {LISTEN.map((row, index) => {
           const playing = index === 0
           return (
             <div
               key={row.tune}
-              className={`flex items-center gap-3 rounded-(--radius-row) px-2 py-1.5 ${playing ? 'bg-(--tint-subtle)' : ''}`}
+              className={`flex items-center gap-3 rounded-(--radius) px-2 py-1.5 ${playing ? 'bg-(--tint-subtle)' : ''}`}
             >
               <span className="flex min-w-0 flex-1 flex-col">
                 <span className="t-body text-primary whitespace-nowrap">{row.tune}</span>
@@ -273,7 +273,7 @@ function TunerArt() {
     <Art>
       <div
         data-tuner-theme
-        className="text-on-tuner relative h-[16em] w-[22.4em] overflow-hidden rounded-(--radius-surface)"
+        className="text-on-tuner relative h-[16em] w-[22.4em] overflow-hidden rounded-(--radius)"
         style={{
           colorScheme: 'dark',
           backgroundColor: blend(

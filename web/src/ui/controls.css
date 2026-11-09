@@ -1,16 +1,70 @@
 /* Control shapes and motions that utilities cannot express: keyframes, clip-path morphs, and
    rules that read a parent's state. Every motion here answers the musician's own action. */
 
+/* ---------- Press ---------- */
+
+/* In is quick, release overshoots. Scale carries its own timing apart from the other changes.
+   A hover color changes at Instant, a pressed one at Quick. */
+/* In a layer, so a caller's transition utilities win over it; PRESS callers carry none. */
+@layer components {
+  .press {
+    transition:
+      scale var(--dur-long) var(--ease-pop),
+      translate var(--dur-short) var(--ease),
+      box-shadow var(--dur-short) var(--ease),
+      background-color var(--dur-instant) linear,
+      color var(--dur-instant) linear,
+      opacity var(--dur-instant) linear;
+  }
+  .press[data-pressed] {
+    transition:
+      scale var(--dur-press) var(--ease),
+      translate var(--dur-short) var(--ease),
+      box-shadow var(--dur-short) var(--ease),
+      background-color var(--dur-short) var(--ease),
+      color var(--dur-short) var(--ease),
+      opacity var(--dur-short) var(--ease);
+  }
+}
+
+/* ---------- Button working and done ---------- */
+
+/* A progress indicator, so it keeps turning under reduced motion. */
+.button-spinner {
+  width: 0.875rem;
+  height: 0.875rem;
+  border-radius: var(--radius-capsule);
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  animation: button-spin var(--dur-spin) linear infinite;
+}
+@keyframes button-spin {
+  to {
+    rotate: 360deg;
+  }
+}
+
+/* The check draws its stroke as it appears. */
+.button-check path {
+  stroke-dasharray: 24;
+  stroke-dashoffset: 0;
+  transition: stroke-dashoffset var(--dur-check) var(--ease);
+}
+@starting-style {
+  .button-check path {
+    stroke-dashoffset: 24;
+  }
+}
+
 /* ---------- Switch ---------- */
 
-/* iOS's switch on touch, a smaller one on pointer so it sits inside a 32px row. */
+/* The track is the compact height, 24 by 40 on pointer and 32 by 52 on touch. */
 :root {
-  --switch-w: 51px;
-  --switch-h: 31px;
+  --switch-h: var(--size-compact);
+  --switch-w: calc(var(--switch-h) * 1.625);
 }
 html[data-density='pointer'] {
-  --switch-w: 34px;
-  --switch-h: 20px;
+  --switch-w: calc(var(--switch-h) * 5 / 3);
 }
 
 /* The thumb runs the track's full height, ringed in the track's color; on, it holds a check. */
@@ -101,6 +155,40 @@ html[data-density='pointer'] {
 [data-selected] > .check-mark polyline {
   stroke-dashoffset: 42;
   transition: stroke-dashoffset 200ms linear 150ms;
+}
+
+/* ---------- Group rows ---------- */
+
+/* A hairline between a group's rows, inset to the text and none above the first, and the card's
+   corners on its first and last rows. A row may sit in a display: contents wrapper, such as a
+   date's parts, so its rows count as the group's. A picker leaves an unrendered template before
+   its row, which never counts as a row. In a layer, so a row's own utilities still win. */
+@layer components {
+  .group-rows > :not(template, .contents),
+  .group-rows > .contents > :not(template) {
+    position: relative;
+  }
+  .group-rows > :not(template) ~ :not(template, .contents)::before,
+  .group-rows > .contents > :not(template) ~ :not(template)::before,
+  .group-rows > :not(template) ~ .contents > :not(template):not(:not(template) ~ *)::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    inset-inline: 1rem 0;
+    height: 1px;
+    background: var(--border);
+    pointer-events: none;
+  }
+  .group-rows > :not(template, .contents):not(:not(template) ~ *),
+  .group-rows > .contents:not(:not(template) ~ *) > :not(template):not(:not(template) ~ *) {
+    border-start-start-radius: var(--radius);
+    border-start-end-radius: var(--radius);
+  }
+  .group-rows > :not(template, .contents):last-child,
+  .group-rows > .contents:last-child > :not(template):last-child {
+    border-end-start-radius: var(--radius);
+    border-end-end-radius: var(--radius);
+  }
 }
 
 /* ---------- Status ring trace ---------- */
@@ -353,6 +441,14 @@ html[data-density='pointer'] {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  /* Reduced motion keeps color changes, at Quick. */
+  .press,
+  .press[data-pressed] {
+    transition:
+      background-color var(--dur-color) var(--ease),
+      color var(--dur-color) var(--ease),
+      opacity var(--dur-color) var(--ease);
+  }
   .trace-ring[data-run] .trace-lead,
   .trace-ring[data-run] .trace-track,
   [data-motion],

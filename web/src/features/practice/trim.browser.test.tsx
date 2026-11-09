@@ -125,7 +125,7 @@ it('centers the detail on a handle with Go to start and Go to end', async () => 
 it('tints the kept range from the start handle to the end handle', async () => {
   const { engine } = await mountPlaying(WIDE)
   await openTrim(engine)
-  const overview = () => practice()!.querySelector<HTMLElement>('[data-trim-range]')!
+  const overview = () => practice()!.querySelector<HTMLElement>('[data-range-span]')!
   await expect.poll(() => overview().style.left).toBe('0%')
   await expect.poll(() => overview().style.width).toBe('100%')
   await setStartAt(5000)

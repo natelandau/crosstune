@@ -13,6 +13,7 @@ import { DeleteAccountSheet } from './pages/DeleteAccountSheet'
 import { entitlementRow } from '../../test/rows'
 import type * as AppleSignInModule from './appleSignIn'
 import type { AppleIDAuth } from './appleSignIn'
+import type { TrackWork } from '../../ui/useWorking'
 import {
   APPLE_CONFIRM_LINE,
   APPLE_SUBSCRIPTION_LINE,
@@ -62,14 +63,14 @@ describe('useDeleteAccount', () => {
     })
     await expect.poll(() => result.current.countLines).toEqual([SETTINGS_LINE])
     expect(result.current.confirmed).toBe(false)
-    act(() => result.current.run())
+    act(() => void result.current.run())
     act(() => result.current.setText(DELETE_CONFIRMATION_TEXT.slice(0, -1)))
     expect(result.current.confirmed).toBe(false)
-    act(() => result.current.run())
+    act(() => void result.current.run())
     expect(deleteAccount).not.toHaveBeenCalled()
     act(() => result.current.setText(DELETE_CONFIRMATION_TEXT))
     expect(result.current.confirmed).toBe(true)
-    act(() => result.current.run())
+    act(() => void result.current.run())
     await expect.poll(() => deleteAccount.mock.calls.length).toBe(1)
     await expect.poll(() => result.current.error).toBe(DELETE_FAILED)
   })
@@ -162,7 +163,7 @@ describe('useDeleteAccount with an Apple account', () => {
     await expect.poll(() => result.current.loading).toBe(false)
     await expect.poll(() => result.current.appleReady).toBe(true)
     act(() => result.current.setText(DELETE_CONFIRMATION_TEXT))
-    act(() => result.current.run())
+    act(() => void result.current.run())
     return result
   }
 
@@ -183,6 +184,36 @@ describe('useDeleteAccount with an Apple account', () => {
     const result = await deleteWith(deleteAccount)
     await expect.poll(() => deleteAccount.mock.calls.length).toBe(1)
     expect(deleteAccount).toHaveBeenCalledWith({ appleAuthorizationCode: 'c1' })
+    await expect.poll(() => result.current.error).toBe(DELETE_FAILED)
+  })
+
+  it('hands the delete to track only once Apple answers', async () => {
+    let answer!: () => void
+    const answered = new Promise<void>((resolve) => (answer = resolve))
+    apple.load = vi.fn(async () =>
+      appleAuth(async () => {
+        await answered
+        return { authorization: { code: 'c1' } }
+      }),
+    )
+    const deleteAccount = refused()
+    const { result } = renderHook(() => useDeleteAccount(true), {
+      wrapper: dataProviders({ db, engine: fakeEngine({ deleteAccount }) }),
+    })
+    await expect.poll(() => result.current.loading).toBe(false)
+    await expect.poll(() => result.current.appleReady).toBe(true)
+    act(() => result.current.setText(DELETE_CONFIRMATION_TEXT))
+    const tracked = vi.fn()
+    const track: TrackWork = (work) => {
+      tracked(work)
+      return work
+    }
+    act(() => void result.current.run(track))
+    await expect.poll(() => result.current.pending).toBe(true)
+    expect(tracked).not.toHaveBeenCalled()
+    answer()
+    await expect.poll(() => tracked.mock.calls.length).toBe(1)
+    await expect.poll(() => deleteAccount.mock.calls.length).toBe(1)
     await expect.poll(() => result.current.error).toBe(DELETE_FAILED)
   })
 

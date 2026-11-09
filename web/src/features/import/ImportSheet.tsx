@@ -14,6 +14,7 @@ import { StatusSegmentedControl } from '../../ui/form/StatusSegmentedControl'
 import { SuggestField } from '../../ui/form/SuggestField'
 import { TextField } from '../../ui/form/TextField'
 import { Sheet } from '../../ui/Sheet'
+import { primaryDisabled } from '../../ui/sheetPrimary'
 import { useFileDrop } from '../../ui/useFileDrop'
 import { LIST_NAME_LABEL } from '../lists/listsCopy'
 import { TITLE_FIELD } from '../tune/tuneFormCopy'
@@ -79,7 +80,7 @@ export function ImportSheet({
           ? {
               label: addTunesLabel(session.count),
               onPress: session.add,
-              isDisabled: !session.canAdd,
+              isDisabled: primaryDisabled(session.canAdd, pending),
             }
           : { label: CONTINUE, onPress: session.review, isDisabled: !session.canContinue }
       }
@@ -96,7 +97,7 @@ function PasteStep({ session }: { session: ImportSession }) {
   return (
     <div
       {...drop.handlers}
-      className={`rounded-(--radius-surface) ${drop.over ? 'ring-accent ring-2' : ''}`}
+      className={`rounded-(--radius) ${drop.over ? 'ring-accent ring-2' : ''}`}
     >
       <Group>
         <TextField

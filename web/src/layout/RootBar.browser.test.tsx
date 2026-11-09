@@ -18,7 +18,7 @@ import { ACCOUNT_BUTTON, PHONE_TABS } from './tabs'
 
 const PHONE = { width: 390, height: 844 }
 const SPLIT = { width: 900, height: 800 }
-const NARROW_PHONE = { width: 320, height: 640 }
+const NARROW_PHONE = { width: 280, height: 640 }
 const CATALOG = destination('catalog')
 
 const pad = (n: number) => String(n).padStart(3, '0')
@@ -174,7 +174,7 @@ it('replaces the row with the selection controls and keeps search', async () => 
   await expect.element(account()).toBeVisible()
 })
 
-it('truncates a long title before the controls at the large size on a 320px phone', async () => {
+it('truncates a long title before the controls at the large size on a 280px phone', async () => {
   const html = document.documentElement
   html.dataset.textSize = 'large'
   onTestFinished(() => {
@@ -195,7 +195,11 @@ it('truncates a long title before the controls at the large size on a 320px phon
   expect(box.right).toBeLessThanOrEqual(window.innerWidth)
   for (const control of rootBar()!.querySelectorAll('[data-root-row] button')) {
     expect(control.getBoundingClientRect().right).toBeLessThanOrEqual(window.innerWidth)
-    expect(control.scrollWidth).toBeLessThanOrEqual(control.clientWidth + 1)
+    // Measured by its content, since a touch tap area reaches past the control by design.
+    const right = control.getBoundingClientRect().right
+    for (const part of control.querySelectorAll('*')) {
+      expect(part.getBoundingClientRect().right).toBeLessThanOrEqual(right + 1)
+    }
   }
 })
 

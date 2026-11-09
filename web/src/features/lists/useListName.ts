@@ -21,7 +21,7 @@ export interface ListName {
   /** The last failed save. */
   error: string | null
   pending: boolean
-  save: () => void
+  save: () => Promise<void> | undefined
   close: () => void
   /** The sheet's onClose, run once its dismissal ends. */
   dismissed: () => void
@@ -45,7 +45,7 @@ export function useListName(
 ): ListName {
   const db = useDb()
   const analytics = useAnalytics()
-  const { error, pending, runThen, clear } = useAction()
+  const { error, pending, attempt, clear } = useAction()
   const [name, setNameState] = useState('')
   const [invalid, setInvalid] = useState<string | null>(null)
   const sheet = useSheetSession(target, {
@@ -76,7 +76,7 @@ export function useListName(
     sheet.beginSave()
     const current = target
     let listId = current.kind === 'rename' ? current.listId : ''
-    runThen(
+    return attempt(
       async () => {
         try {
           if (current.kind === 'new') {

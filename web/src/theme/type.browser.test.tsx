@@ -63,16 +63,14 @@ it('sets the timer in tabular figures', async () => {
 })
 
 it.each([
-  ['touch', { target: '44px', control: '44px', filter: '44px' }],
-  ['pointer', { target: '32px', control: '28px', filter: '24px' }],
+  ['touch', { target: '44px', filter: '44px' }],
+  ['pointer', { target: '32px', filter: '24px' }],
 ] as const)('sets %s target sizes', async (density, targets) => {
   renderWithProviders(<p>x</p>, { density })
   const variable = (name: string) =>
     getComputedStyle(document.documentElement).getPropertyValue(name).trim()
   await expect.poll(() => variable('--target')).toBe(targets.target)
-  expect(variable('--target-control')).toBe(targets.control)
   expect(variable('--target-filter')).toBe(targets.filter)
-  expect(variable('--radius-surface')).toBe('14px')
 })
 
 it.each([

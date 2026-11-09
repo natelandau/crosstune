@@ -290,7 +290,7 @@ it('a new tune shows the start card, no action button row, and no empty-state bl
     await expect.element(recordings.getByRole('button', { name, exact: true })).toBeVisible()
   }
   await expect
-    .poll(() => document.querySelector('div[aria-hidden][class="min-h-(--target-control)"]'))
+    .poll(() => document.querySelector('div[aria-hidden][class="min-h-(--size-regular)"]'))
     .toBeNull()
   for (const name of [TRANSPORT_PLAY, PRACTICE]) {
     expect(tunePage().getByRole('button', { name, exact: true }).query()).toBeNull()

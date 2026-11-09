@@ -11,9 +11,9 @@ import { stripProps, useTrimEditor } from './useTrimEditor'
 import type { RecordingView } from '../recordings/useRecordings'
 import { useConfirm } from '../../ui/Confirm'
 import { ErrorLine } from '../../ui/ErrorLine'
-import { PracticeButton } from './PracticeButton'
-import { EDITOR_CAPPED, EDITOR_TEXT_BUTTON, EditorHeader } from './EditorHeader'
-import { Button as AriaButton } from 'react-aria-components'
+import { IconButton } from '../../ui/IconButton'
+import { CONTROLS_CAPPED, EditorHeader } from './EditorHeader'
+import { Button } from '../../ui/Button'
 import type { RefObject } from 'react'
 
 /**
@@ -78,59 +78,56 @@ export function TrimPanel({
         saving={saving}
         canSave={changed}
         onDone={onDone}
-        onSave={() => void save()}
+        onSave={(track) => void save(track)}
       />
       <div data-trim className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-4 py-2">
         <ErrorLine error={error} place="stack" />
         <TrimStrips {...stripProps(editor)} shown={shown} />
-        <div className={`${EDITOR_CAPPED} flex flex-col gap-5`}>
+        <div className={`${CONTROLS_CAPPED} flex flex-col gap-5`}>
           <div className="flex items-center gap-2">
-            <PracticeButton
+            <IconButton
+              size="large44"
               icon={ZoomOut}
-              iconClassName="size-5"
               label={ZOOM_OUT}
               isDisabled={!canZoomOut}
               onPress={() => zoom('out')}
             />
             <TrimReadout trim={trim} low={low} typeClass="t-secondary" />
-            <PracticeButton
+            <IconButton
+              size="large44"
               icon={ZoomIn}
-              iconClassName="size-5"
               label={ZOOM_IN}
               isDisabled={!canZoomIn}
               onPress={() => zoom('in')}
             />
           </div>
-          <div data-trim-transport className="flex items-center justify-center gap-6">
-            <PracticeButton
+          <div data-trim-transport className="flex items-center justify-center gap-8">
+            <IconButton
+              size="transport"
               icon={ArrowLeftToLine}
-              iconClassName="size-7"
               label={GO_TO_START}
               isDisabled={!loaded}
               onPress={() => showInDetail('start')}
             />
-            <PracticeButton
-              size="large"
+            <IconButton
+              variant="feature"
+              size="feature"
               glyph={<TransportMark shape={playing ? 'pause' : 'play'} className="size-7" />}
               label={playing ? PAUSE : PLAY_SELECTION}
               isDisabled={!loaded}
               onPress={togglePlay}
             />
-            <PracticeButton
+            <IconButton
+              size="transport"
               icon={ArrowRightToLine}
-              iconClassName="size-7"
               label={GO_TO_END}
               isDisabled={!loaded}
               onPress={() => showInDetail('end')}
             />
           </div>
-          <AriaButton
-            className={`${EDITOR_TEXT_BUTTON} self-center`}
-            isDisabled={!loaded}
-            onPress={previewEnd}
-          >
-            {PREVIEW_END}
-          </AriaButton>
+          <div className="flex justify-center">
+            <Button label={PREVIEW_END} isDisabled={!loaded} onPress={previewEnd} />
+          </div>
         </div>
       </div>
     </>

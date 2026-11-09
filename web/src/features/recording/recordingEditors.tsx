@@ -10,7 +10,7 @@ import {
   type AttributeEdit,
 } from '../../ui/attributes/AttributeEditor'
 import { NOT_SET } from '../../ui/fieldCopy'
-import { ActionRow } from '../../ui/form/ActionRow'
+import { ButtonRow } from '../../ui/form/ButtonRow'
 import { Group } from '../../ui/form/Group'
 import { PartialDateField } from '../../ui/form/PartialDateField'
 import { SuggestField } from '../../ui/form/SuggestField'
@@ -33,7 +33,7 @@ import { useAllRecordings } from '../recordings/useAllRecordings'
 import { useFileRecording } from '../recordings/useFileRecording'
 import type { RecordingView } from '../recordings/useRecordings'
 import { LocationEditor } from './location/LocationEditor'
-import { DETAILS, REMOVE_FROM_TUNE } from './recordingPageCopy'
+import { DETAILS, LINKED_TUNE_LABEL, REMOVE_FROM_TUNE } from './recordingPageCopy'
 import { RECORDING_GROUPS, recordingRows, type RecordingAttributeId } from './recordingRows'
 import { useRecordingAttributeWrite, type RecordingPatch } from './useRecordingAttributeWrite'
 import type { RecordingLocation } from './useRecordingPageView'
@@ -84,13 +84,14 @@ export function RecordingAttributes({
         below: location && (
           <LocationBelow location={location} onPress={() => setOpenId('location')} />
         ),
-        editor: ({ onClose, onWrite }) => (
+        editor: ({ isOpen, onClose, onClosed, onWrite }) => (
           <LocationEditor
             view={view}
-            isOpen
+            isOpen={isOpen}
             onOpenChange={(open) => {
               if (!open) onClose()
             }}
+            onClosed={onClosed}
             run={(save) => {
               onWrite()
               void write.run(save)
@@ -185,7 +186,14 @@ function TuneBody({ view, edit }: BodyProps) {
     <>
       {view.tuneId && (
         <Group>
-          <ActionRow label={REMOVE_FROM_TUNE} onPress={() => edit.done({ tune_id: null })} />
+          <ButtonRow
+            title={LINKED_TUNE_LABEL}
+            button={{
+              label: REMOVE_FROM_TUNE,
+              variant: 'destructive',
+              onPress: () => edit.done({ tune_id: null }),
+            }}
+          />
         </Group>
       )}
       <TuneSearchList

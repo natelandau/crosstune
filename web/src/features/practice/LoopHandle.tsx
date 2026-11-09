@@ -9,20 +9,14 @@ import {
 } from 'react'
 import { clamp } from '../../math'
 import { formatDuration } from '../../text/format'
-import {
-  DRAG_THRESHOLD_PX,
-  resizeSpan,
-  snapMs,
-  type Bounds,
-  type Draft,
-  type Span,
-} from '../../domain/loopModel'
+import { resizeSpan, snapMs, type Bounds, type Draft, type Span } from '../../domain/loopModel'
 import { msAtX, xOfMs, type ZoomedViewSource } from './practiceZoom'
-import { LoopHandleMark } from './LoopHandleMark'
+import { RangeEdge } from '../../ui/RangeHandles'
 import { useAutoPan } from './useAutoPan'
-import { capturePointer } from '../../platform/pointer'
+import { capturePointer, dragTravel } from '../../platform/pointer'
 import { tap } from '../../platform/haptics'
 import { useLatest } from '../../ui/useLatest'
+import { keyStep, useStepCommit } from '../../ui/keySteps'
 import { NUDGE_LARGE_MS, NUDGE_MS } from './panel'
 
 export const LOOP_START = 'Loop start'
@@ -36,13 +30,6 @@ function HANDLE_TEXT(name: string, edge: 'start' | 'end', trimmedMs: number): st
 /** The handle's own move along the timeline, not a transition inside it or of another property. */
 const isSettle = (event: TransitionEvent<HTMLDivElement>) =>
   event.target === event.currentTarget && event.propertyName === 'left'
-
-const KEY_STEPS: Record<string, [number, number]> = {
-  ArrowLeft: [-NUDGE_MS, -NUDGE_LARGE_MS],
-  ArrowDown: [-NUDGE_MS, -NUDGE_LARGE_MS],
-  ArrowRight: [NUDGE_MS, NUDGE_LARGE_MS],
-  ArrowUp: [NUDGE_MS, NUDGE_LARGE_MS],
-}
 
 /**
  * One edge of the selected loop on the zoomed waveform: a slider a pointer drags and the
@@ -113,7 +100,6 @@ export function LoopHandle({
     /** The target the edge rests on, so the snap buzzes once as it takes hold, not each move. */
     snappedTo: number | null
   } | null>(null)
-  const nudged = useRef(false)
   // Whether the drag rests on a snap target, so an app can settle the handle onto it. Kept
   // until a settling transition ends, so letting go mid-settle does not cut it short.
   const [snapped, setSnapped] = useState(false)
@@ -179,25 +165,18 @@ export function LoopHandle({
     },
   })
 
+  const nudges = useStepCommit(() => onCommit({ id, ...latestRef.current }))
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    const steps = KEY_STEPS[event.key]
-    if (!steps) return
+    const by = keyStep(event, NUDGE_MS, NUDGE_LARGE_MS)
+    if (by === null) return
     event.preventDefault()
     const current = latestRef.current
     const at = edge === 'start' ? current.startMs : current.endMs
-    const next = resizeSpan(current, edge, at + steps[event.shiftKey ? 1 : 0], bounds, minLengthMs)
+    const next = resizeSpan(current, edge, at + by, bounds, minLengthMs)
     latestRef.current = next
-    nudged.current = true
+    nudges.stepped()
     onDraft({ id, ...next })
     onReveal(edge === 'start' ? next.startMs : next.endMs)
-  }
-  const commitNudge = () => {
-    if (!nudged.current) return
-    nudged.current = false
-    onCommit({ id, ...latestRef.current })
-  }
-  const onKeyUp = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (KEY_STEPS[event.key]) commitNudge()
   }
 
   const cancel = (event: PointerEvent<HTMLDivElement>) => {
@@ -224,11 +203,12 @@ export function LoopHandle({
   }
 
   return (
-    <div
+    <RangeEdge
       ref={handle}
+      edge={edge}
+      color={color}
       role="slider"
       tabIndex={0}
-      data-handle={edge}
       aria-label={label ?? (edge === 'start' ? LOOP_START : LOOP_END)}
       aria-valuemin={bounds.startMs - trimStartMs}
       aria-valuemax={bounds.endMs - trimStartMs}
@@ -236,7 +216,6 @@ export function LoopHandle({
       aria-valuetext={
         valueText ? valueText(ms - trimStartMs) : HANDLE_TEXT(name, edge, ms - trimStartMs)
       }
-      data-color={color}
       data-snapped={snapped || undefined}
       onTransitionRun={(event) => {
         if (isSettle(event)) settling.current = true
@@ -247,15 +226,13 @@ export function LoopHandle({
       onTransitionCancel={(event) => {
         if (isSettle(event)) settled()
       }}
-      // A 44 px target around the edge and its tab; off the view it stays reachable by keyboard.
-      className="loop-color absolute inset-y-0 z-10 flex w-11 -translate-x-1/2 cursor-ew-resize touch-none justify-center rounded-md outline-offset-0 select-none"
+      // Off the view the edge stays reachable by keyboard.
       onFocus={() => {
         if (!inView()) onReveal(ms)
       }}
-      // A key let go elsewhere never reaches this handle's keyup.
-      onBlur={commitNudge}
+      onBlur={nudges.onBlur}
       onKeyDown={onKeyDown}
-      onKeyUp={onKeyUp}
+      onKeyUp={nudges.onKeyUp}
       onPointerDown={(event) => {
         if (event.pointerType === 'mouse' && event.button !== 0) return
         event.stopPropagation()
@@ -275,7 +252,7 @@ export function LoopHandle({
         const pressed = press.current
         if (!pressed || pressed.pointerId !== event.pointerId) return
         event.stopPropagation()
-        if (!pressed.moved && Math.abs(event.clientX - pressed.startX) < DRAG_THRESHOLD_PX) return
+        if (dragTravel(pressed, event.clientX) === null) return
         pressed.moved = true
         pressed.lastX = event.clientX
         pressed.alt = event.altKey
@@ -285,8 +262,6 @@ export function LoopHandle({
       onPointerCancel={cancel}
       // After a pointerup the press is already gone, so only a capture taken away mid-drag lands.
       onLostPointerCapture={cancel}
-    >
-      <LoopHandleMark edge={edge} />
-    </div>
+    />
   )
 }

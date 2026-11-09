@@ -443,11 +443,11 @@ it("marks a list that already holds the tune page's tune and keeps it inert", as
   await tunePage.getByRole('button', { name: MORE_ACTIONS }).click()
   await page.getByRole('menuitem', { name: ADD_TO_LIST }).click()
   const picker = page.getByRole('dialog', { name: ADD_TO_LIST_TITLE })
-  const jam = picker.getByRole('button', { name: /Thursday jam/ })
+  const jam = picker.getByRole('option', { name: /Thursday jam/ })
   await expect.element(jam).toHaveTextContent(IN_THIS_LIST)
-  await expect.element(jam).toBeDisabled()
-  const dance = picker.getByRole('button', { name: 'Square dance set', exact: true })
-  await expect.element(dance).toBeEnabled()
+  await expect.element(jam).toHaveAttribute('aria-disabled', 'true')
+  const dance = picker.getByRole('option', { name: 'Square dance set', exact: true })
+  await expect.element(dance).not.toHaveAttribute('aria-disabled', 'true')
 })
 
 it("adds the tune page's tune to a list from the picker", async () => {
@@ -467,7 +467,7 @@ it("adds the tune page's tune to a list from the picker", async () => {
   const picker = page.getByRole('dialog', { name: ADD_TO_LIST_TITLE })
   await expect.element(picker).toBeVisible()
   // A list that holds none of the tune carries no note, so its name is the whole label.
-  const jam = picker.getByRole('button', { name: 'Thursday jam', exact: true })
+  const jam = picker.getByRole('option', { name: 'Thursday jam', exact: true })
   await expect.element(jam).toBeVisible()
   await jam.click()
   await expect.element(picker).not.toBeInTheDocument()

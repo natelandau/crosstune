@@ -11,8 +11,8 @@ import { Sheet } from '../../ui/Sheet'
  * The whole lyrics body, at the height a body needs. Done hands the words to whoever opened
  * the sheet rather than writing them: the tune form keeps them until it is saved, so cancelling
  * the form discards them with everything else, and the reader writes them on their own. A
- * caller that writes passes `pending` and `error` and closes the sheet once the write lands,
- * so refused words stay in the box.
+ * caller that writes returns the write from `onSave`, passes `pending` and `error`, and closes
+ * the sheet once the write lands, so refused words stay in the box.
  */
 export function LyricsEditor({
   value,
@@ -23,7 +23,7 @@ export function LyricsEditor({
   pending = false,
 }: {
   value: string
-  onSave: (value: string) => void
+  onSave: (value: string) => void | Promise<unknown>
   isOpen: boolean
   onOpenChange: (open: boolean) => void
   /** A refused write, shown under the box. */
@@ -46,7 +46,7 @@ export function LyricsEditor({
       title={LYRICS_SECTION}
       height="full"
       locked={draft !== value || pending}
-      primary={{ label: DONE, onPress: () => onSave(draft), isDisabled: pending }}
+      primary={{ label: DONE, onPress: () => onSave(draft) }}
     >
       {/* The sheet's title already names the field, so a header would only repeat it. */}
       <Group error={error ?? undefined}>

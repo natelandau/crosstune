@@ -1,5 +1,5 @@
 import { ChevronDown } from 'lucide-react'
-import { Fragment, useState, type ReactNode, type Ref } from 'react'
+import { Fragment, useCallback, useState, type ReactNode, type Ref } from 'react'
 import { Button as AriaButton } from 'react-aria-components'
 import { usePaneHeight } from '../../layout/pane'
 import { ErrorLine } from '../ErrorLine'
@@ -24,12 +24,20 @@ export interface AttributeColumnRow {
   readOnly?: boolean
   /**
    * The editor the row opens, in place of one from `editorFor`, for one that saves outside
-   * `onCommit`. It closes with `onClose`, and calls `onWrite` as it writes, so a refusal shows
-   * beside the row.
+   * `onCommit`. It shows while `isOpen`, asks to close with `onClose`, and calls `onWrite` as it
+   * writes, so a refusal shows beside the row. It stays mounted until it calls `onClosed`, once
+   * its surface has finished closing, and each opening mounts a fresh one.
    */
-  ownEditor?: (edit: { onClose: () => void; onWrite: () => void }) => ReactNode
+  ownEditor?: (edit: OwnEditorSlot) => ReactNode
   /** Content set under the row, such as a map. */
   below?: ReactNode
+}
+
+export interface OwnEditorSlot {
+  isOpen: boolean
+  onClose: () => void
+  onClosed: () => void
+  onWrite: () => void
 }
 
 export interface AttributeGroup {
@@ -101,20 +109,36 @@ export function AttributesColumn<R extends AttributeColumnRow, P extends object>
   const [savedGroup, setSavedGroup] = useState<string | null>(null)
   const paneHeight = usePaneHeight()
   const column = layout === 'column'
+  const ownEditors = useOwnEditorMounts(
+    openId !== null && rows.some((r) => r.id === openId && r.ownEditor) ? openId : null,
+  )
 
   const renderRow = (row: R) => {
     const face = { label: row.label, text: row.text, emptyText, column }
+    const { ownEditor } = row
     return (
       <Fragment key={row.id}>
         {row.readOnly ? (
           <ReadOnlyRow {...face} />
-        ) : row.ownEditor ? (
+        ) : ownEditor ? (
           <>
             <AttributeRowButton {...face} onPress={() => setOpenId(row.id)} />
-            {openId === row.id &&
-              row.ownEditor({
-                onClose: () => setOpenId(null),
-                onWrite: () => setSavedGroup(row.group),
+            {ownEditors.mounts
+              .filter((mount) => mount.id === row.id)
+              .map((mount) => {
+                const isOpen = mount === ownEditors.open
+                return (
+                  <Fragment key={mount.key}>
+                    {ownEditor({
+                      isOpen,
+                      onClose: () => {
+                        if (isOpen) setOpenId(null)
+                      },
+                      onClosed: () => ownEditors.closed(mount.key),
+                      onWrite: () => setSavedGroup(row.group),
+                    })}
+                  </Fragment>
+                )
               })}
           </>
         ) : (
@@ -123,7 +147,6 @@ export function AttributesColumn<R extends AttributeColumnRow, P extends object>
             isOpen={openId === row.id}
             onOpen={() => setOpenId(row.id)}
             editor={{
-              isOpen: true,
               onOpenChange: (next) => {
                 if (!next) setOpenId(null)
               },
@@ -193,6 +216,46 @@ export function AttributesColumn<R extends AttributeColumnRow, P extends object>
       savedGroup={savedGroup}
     />
   )
+}
+
+interface EditorMount {
+  id: string
+  key: number
+}
+
+/**
+ * The custom editors to keep mounted: the open one, and any still closing until their surface
+ * has left. Each opening takes a new key, so it starts with nothing held from the last.
+ */
+function useOwnEditorMounts(openId: string | null) {
+  const [state, setState] = useState<{
+    openId: string | null
+    open: EditorMount | null
+    closing: EditorMount[]
+    next: number
+  }>({ openId: null, open: null, closing: [], next: 0 })
+  if (state.openId !== openId) {
+    // Opening a row that is still closing drops its closing editor, so only one shows.
+    const closing = [...state.closing, ...(state.open ? [state.open] : [])].filter(
+      (mount) => mount.id !== openId,
+    )
+    setState({
+      openId,
+      open: openId === null ? null : { id: openId, key: state.next },
+      closing,
+      next: state.next + 1,
+    })
+  }
+  const closed = useCallback(
+    (key: number) =>
+      setState((now) => ({ ...now, closing: now.closing.filter((mount) => mount.key !== key) })),
+    [],
+  )
+  return {
+    open: state.open,
+    mounts: state.open ? [...state.closing, state.open] : state.closing,
+    closed,
+  }
 }
 
 function AttributesCard<R extends AttributeColumnRow>({

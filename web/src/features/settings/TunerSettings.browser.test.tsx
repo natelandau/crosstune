@@ -49,8 +49,8 @@ it.each([
 ])('disables the step past %s Hz and leaves the other', async (hz, past, back) => {
   await mount(hz)
   await expect.element(reading(a4Label(hz))).toBeVisible()
-  await expect.element(past()).toBeDisabled()
-  await expect.element(back()).toBeEnabled()
+  await expect.element(past()).toHaveAttribute('aria-disabled', 'true')
+  await expect.element(back()).not.toHaveAttribute('aria-disabled')
 })
 
 it('names the reading with its row label', async () => {
@@ -60,14 +60,14 @@ it('names the reading with its row label', async () => {
 })
 
 it.each([
-  [449, raise, lower],
-  [431, lower, raise],
-])('moves focus off a step as it reaches its bound from %s Hz', async (hz, step, other) => {
+  [449, raise],
+  [431, lower],
+])('keeps focus on a step as it reaches its bound from %s Hz', async (hz, step) => {
   await mount(hz)
   await expect.element(reading(a4Label(hz))).toBeVisible()
   await step().click()
-  await expect.element(step()).toBeDisabled()
-  await expect.element(other()).toHaveFocus()
+  await expect.element(step()).toHaveAttribute('aria-disabled', 'true')
+  await expect.element(step()).toHaveFocus()
 })
 
 it('sends setting_changed and stores the value', async () => {

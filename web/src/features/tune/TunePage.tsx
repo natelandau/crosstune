@@ -10,7 +10,6 @@ import {
   ViewTransition,
   type ReactNode,
 } from 'react'
-import { Button as AriaButton } from 'react-aria-components'
 import { useLocation } from 'react-router'
 import { useDb } from '../../db/DbProvider'
 import { useStorage } from '../../db/useStorage'
@@ -51,6 +50,7 @@ import { useDetailPage } from '../../layout/Columns'
 import { BackLink, PaneBar } from '../../layout/PaneBar'
 import { RECORD_UNAVAILABLE, useRecordLauncher } from '../../app/recordLauncher'
 import { Button } from '../../ui/Button'
+import { IconButton } from '../../ui/IconButton'
 import { useConfirm } from '../../ui/Confirm'
 import { useToast } from '../../ui/Toast'
 import { ErrorLine } from '../../ui/ErrorLine'
@@ -71,7 +71,6 @@ import { isQuietPick } from './tunePick'
 import { useTuneScans, type TuneScansParts } from './useTuneScans'
 import { TuneActionButtons } from './TuneActionButtons'
 import { readTuneTitle, rememberTuneTitle } from './tuneTitle'
-import { TINT_HOVER } from '../../ui/press'
 
 const NO_RECORDINGS: readonly RecordingView[] = []
 const NO_LINKS: readonly LocalRecordingLink[] = []
@@ -245,7 +244,7 @@ function TuneDocument({
   const moreMenu = shownAttributes && (
     <Menu
       label={MORE_ACTIONS}
-      trigger={<Button icon={Ellipsis} label={MORE_ACTIONS} iconOnly />}
+      trigger={<IconButton icon={Ellipsis} label={MORE_ACTIONS} />}
       items={more}
     />
   )
@@ -441,7 +440,7 @@ function TuneSections({
           media.empty ? undefined : (
             <Menu
               label={ADD_RECORDING}
-              trigger={<Button icon={Plus} label={ADD_RECORDING} iconOnly />}
+              trigger={<IconButton icon={Plus} label={ADD_RECORDING} />}
               items={menuEntries(addItems)}
             />
           )
@@ -492,7 +491,7 @@ function TuneSections({
           add={
             <span className="flex items-center gap-1">
               <Button label={EDIT} name={EDIT_LYRICS} onPress={onEditLyrics} />
-              <Button icon={BookOpen} label={OPEN_LYRICS} iconOnly onPress={onReadLyrics} />
+              <IconButton icon={BookOpen} label={OPEN_LYRICS} onPress={onReadLyrics} />
             </span>
           }
         >
@@ -538,14 +537,5 @@ function TuneSections({
 }
 
 function AddAction({ name, text, onPress }: { name: string; text: string; onPress: () => void }) {
-  return (
-    <AriaButton
-      aria-label={name}
-      onPress={onPress}
-      className={`t-secondary text-secondary flex min-h-(--target) items-center gap-1 rounded-(--radius-row) px-2 ${TINT_HOVER}`}
-    >
-      <Plus className="text-accent size-4" aria-hidden />
-      {text}
-    </AriaButton>
-  )
+  return <Button icon={Plus} label={text} name={name} onPress={onPress} />
 }

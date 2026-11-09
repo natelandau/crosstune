@@ -6,7 +6,7 @@ import { useSyncSettings } from '../useSyncSettings'
 import { StorageSummary } from '../../recordings/StorageSummary'
 import { FieldRow } from '../../../ui/form/FieldRow'
 import { Group } from '../../../ui/form/Group'
-import { StatusRow } from '../../../ui/form/StatusRow'
+import { ButtonRow } from '../../../ui/form/ButtonRow'
 import { useNow } from '../../../ui/useNow'
 
 const STATUS_ICONS: Record<SyncStatus, LucideIcon> = {
@@ -24,23 +24,19 @@ const STATUS_ICONS: Record<SyncStatus, LucideIcon> = {
 export function SyncPage() {
   const sync = useSyncSettings()
   const now = useNow()
-  const syncing = sync.pending || sync.status === 'syncing'
+  // A sync this button started shows its own working state; one started elsewhere holds it off.
+  const syncingElsewhere = sync.status === 'syncing' && !sync.pending
   return (
     <>
       <Group header={SYNC} error={sync.error ?? undefined}>
-        <StatusRow
+        <ButtonRow
           icon={<SyncGlyph status={sync.status} />}
           title={sync.statusLabel}
-          detail={lastSyncedLine(sync.lastSynced, now)}
-          action={{
+          description={lastSyncedLine(sync.lastSynced, now)}
+          button={{
             label: SYNC_NOW,
-            glyph: (
-              <RefreshCw
-                className={`size-5 shrink-0 ${syncing ? 'motion-safe:animate-spin' : ''}`}
-                aria-hidden
-              />
-            ),
-            isDisabled: syncing,
+            icon: RefreshCw,
+            isDisabled: syncingElsewhere,
             onPress: sync.syncNow,
           }}
         />

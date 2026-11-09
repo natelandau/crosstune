@@ -36,6 +36,7 @@ import { ColumnTitle } from '../../layout/ColumnTitle'
 import { BackLink, PaneBar } from '../../layout/PaneBar'
 import { tunePick } from '../tune/tunePick'
 import { Button } from '../../ui/Button'
+import { IconButton } from '../../ui/IconButton'
 import { useConfirm } from '../../ui/Confirm'
 import { EmptyState } from '../../ui/EmptyState'
 import { ErrorLine } from '../../ui/ErrorLine'
@@ -136,15 +137,10 @@ export function ListPage({ listId }: { listId: string }) {
             list &&
             screen.settingsRead && (
               <>
-                <Button
-                  icon={Plus}
-                  label={ADD_TUNES}
-                  iconOnly
-                  onPress={() => screen.setPicking(true)}
-                />
+                <IconButton icon={Plus} label={ADD_TUNES} onPress={() => screen.setPicking(true)} />
                 <Menu
                   label={MORE_ACTIONS}
-                  trigger={<Button ref={moreRef} icon={Ellipsis} label={MORE_ACTIONS} iconOnly />}
+                  trigger={<IconButton ref={moreRef} icon={Ellipsis} label={MORE_ACTIONS} />}
                   items={more}
                 />
               </>
@@ -189,7 +185,9 @@ export function ListPage({ listId }: { listId: string }) {
                 <Button
                   variant="primary"
                   label={SHOW_ARCHIVED}
-                  onPress={() => void screen.setShowArchived(true)}
+                  // The archived tunes replacing this empty state confirm it.
+                  showDone={false}
+                  onPress={() => screen.setShowArchived(true)}
                 />
               }
             />

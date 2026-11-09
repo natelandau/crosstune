@@ -91,7 +91,7 @@ export function DropPin({
     <div className="pb-4">
       <PinMap start={start} onSettle={setPoint} />
       <Group footer={NAME_LOCATION_HELP}>
-        <div className="flex min-h-(--target) flex-col justify-center px-4 py-2">
+        <div className="flex min-h-(--size-row) flex-col justify-center px-4 py-2">
           <span className="t-secondary text-secondary">{MOVE_THE_MAP}</span>
           {/* Always in the tree, so a screen reader hears each address as the map settles. */}
           <span role="status" className="flex flex-col">

@@ -1,5 +1,4 @@
 import type { Ref } from 'react'
-import { Button as AriaButton } from 'react-aria-components'
 import {
   ANY_LABEL,
   CLEAR_DATE,
@@ -16,7 +15,8 @@ import {
   type DateParts,
 } from '../partialDate'
 import { NOT_SET } from '../fieldCopy'
-import { FIELD_ROW_PRESSABLE } from './FieldRow'
+import { Button } from '../Button'
+import { TEXT_BUTTON_ROW } from './FieldRow'
 import { Picker } from './Picker'
 import { TextField } from './TextField'
 
@@ -102,13 +102,14 @@ export function PartialDateField({
         describedBy={describedBy}
         onChange={(day) => edit({ day: day ?? '' })}
       />
-      <AriaButton
-        isDisabled={sameParts(value, NO_DATE)}
-        onPress={() => onChange(NO_DATE)}
-        className={`${FIELD_ROW_PRESSABLE} text-primary font-medium disabled:opacity-40`}
-      >
-        {CLEAR_DATE}
-      </AriaButton>
+      <div className={TEXT_BUTTON_ROW}>
+        <Button
+          variant="text"
+          label={CLEAR_DATE}
+          isDisabled={sameParts(value, NO_DATE)}
+          onPress={() => onChange(NO_DATE)}
+        />
+      </div>
     </div>
   )
 }

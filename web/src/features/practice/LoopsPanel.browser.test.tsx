@@ -243,13 +243,11 @@ describe('LoopsPanel', () => {
     expect(t.onError).not.toHaveBeenCalled()
   })
 
-  it('shows Delete loop disabled and not red with nothing selected', async () => {
+  it('dims Delete loop with nothing selected', async () => {
     const t = setup({ loops: [row('a', 1000, 5000)] })
     renderInPractice(t.ui('rec'), { db })
     await expect.element(button(DELETE_LOOP)).toHaveAttribute('aria-disabled', 'true')
-    await expect
-      .poll(() => getComputedStyle(button(DELETE_LOOP).element()).color)
-      .not.toBe(dangerColor())
+    await expect.poll(() => getComputedStyle(button(DELETE_LOOP).element()).opacity).toBe('0.4')
   })
 
   it('shows Delete loop enabled and red with a loop selected', async () => {

@@ -1,6 +1,5 @@
 import { ZoomIn, ZoomOut } from 'lucide-react'
 import { useLayoutEffect, useMemo, type RefObject } from 'react'
-import { Button as AriaButton } from 'react-aria-components'
 import {
   PlaybackEngineContext,
   useEngineState,
@@ -23,15 +22,14 @@ import { formatPreciseDuration } from '../../text/format'
 import { clamp } from '../../math'
 import { usePlayhead } from '../player/playheadClock'
 import type { PracticeTimeline } from './usePracticeTimeline'
-import { PRESS } from '../../ui/press'
 import { ZOOM_IN, ZOOM_OUT, ZOOM_STEP } from './panel'
-import { BUTTON_CORNER, BUTTON_TONE, UNFILLED_OFF } from '../../ui/buttonTone'
+import { Button } from '../../ui/Button'
 import type { ShownPeaks } from './recordingRange'
 import type { RecordingView } from '../recordings/useRecordings'
 import { isAppleTouch } from '../../platform/appleTouch'
 import { useToast } from '../../ui/Toast'
 import { ModePanel } from './ModePanel'
-import { PracticeButton } from './PracticeButton'
+import { IconButton } from '../../ui/IconButton'
 import { useFrame } from '../../platform/frame'
 import { TransportRow } from './TransportRow'
 
@@ -65,6 +63,8 @@ interface PracticeViewProps {
   isTop: () => boolean
   /** Where its keys reach; left out, only practice itself. */
   keyScope?: PracticeKeyScope
+  /** How the modes show: tabs, or a toolbar of popovers where the page is wide. */
+  modeLayout?: 'tabs' | 'toolbar'
   onError: (message: string | null) => void
 }
 
@@ -99,6 +99,7 @@ function PracticeBody({
   savedFocus,
   isTop,
   keyScope,
+  modeLayout = 'tabs',
   onError,
   engine,
   loaded,
@@ -156,23 +157,17 @@ function PracticeBody({
   const clock = blocked ?? <PlayheadTime timeline={timeline} />
   const zoom = (
     <div data-practice-zoom className="flex items-center">
-      <PracticeButton
+      <IconButton
+        size="large44"
         icon={ZoomOut}
-        iconClassName="size-5"
         label={ZOOM_OUT}
         isDisabled={!timeline.canZoomOut || !!blocked}
         onPress={() => timeline.zoom(1 / ZOOM_STEP)}
       />
-      <AriaButton
-        className={`t-body min-h-11 ${BUTTON_CORNER} px-2 font-semibold ${UNFILLED_OFF} ${PRESS} ${BUTTON_TONE.plain}`}
-        isDisabled={!timeline.pxPerS || !!blocked}
-        onPress={loops.fit}
-      >
-        {FIT}
-      </AriaButton>
-      <PracticeButton
+      <Button label={FIT} isDisabled={!timeline.pxPerS || !!blocked} onPress={loops.fit} />
+      <IconButton
+        size="large44"
         icon={ZoomIn}
-        iconClassName="size-5"
         label={ZOOM_IN}
         isDisabled={!timeline.canZoomIn || !!blocked}
         onPress={() => timeline.zoom(ZOOM_STEP)}
@@ -188,7 +183,7 @@ function PracticeBody({
         {/* On a phone the zoom rides over the waveform's corner, as on iOS, so the clock takes a
             row of its own. */}
         {phone && (
-          <div className="bg-page-translucent absolute right-0 bottom-0 z-30 rounded-(--radius-control)">
+          <div className="bg-page-translucent absolute right-0 bottom-0 z-30 rounded-(--radius)">
             {zoom}
           </div>
         )}
@@ -225,6 +220,9 @@ function PracticeBody({
         </div>
         <div inert={!!blocked} className={`${CAPPED} ${off}`}>
           <ModePanel
+            layout={modeLayout}
+            disabled={!!blocked}
+            loopCount={loops.rows.length}
             mode={mode}
             onMode={chooseMode}
             speedPercent={speed}

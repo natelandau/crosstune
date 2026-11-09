@@ -1,8 +1,9 @@
+import * as Sentry from '@sentry/react'
 import { useEffect, useState } from 'react'
 import { PLACE_LIMITS } from '../../api/vocabulary'
 import { byDistance, NEARBY_LIMIT, NEARBY_RADIUS_M } from '../../domain/placeDistances'
 import type { MapKit, MapKitPlace } from '../../platform/mapkit'
-import { useMapKit } from '../../platform/useMapKit'
+import { useMapKitState } from '../../platform/useMapKit'
 
 /** A place of interest near a recording, which picking saves as a location at its own point. */
 export interface NearbyPlace {
@@ -77,10 +78,15 @@ async function search(mapkit: MapKit, at: Coordinate): Promise<NearbyPlace[]> {
   const categories = VENUE_CATEGORIES.map((name) => mapkit.PointOfInterestCategory[name]).filter(
     (category): category is string => !!category,
   )
-  const { places } = await new mapkit.PointsOfInterestSearch().search({
-    center: new mapkit.Coordinate(at.lat, at.lon),
-    radius: NEARBY_RADIUS_M,
-    pointOfInterestFilter: mapkit.PointOfInterestFilter.including(categories),
+  const places = await new Promise<MapKitPlace[]>((resolve, reject) => {
+    new mapkit.PointsOfInterestSearch().search(
+      (error, response) => (error ? reject(error) : resolve(response?.places ?? [])),
+      {
+        center: new mapkit.Coordinate(at.lat, at.lon),
+        radius: NEARBY_RADIUS_M,
+        pointOfInterestFilter: mapkit.PointOfInterestFilter.including(categories),
+      },
+    )
   })
   const venues = places.map((place) => ({
     name: place.name,
@@ -94,13 +100,18 @@ async function search(mapkit: MapKit, at: Coordinate): Promise<NearbyPlace[]> {
     .map(({ place }) => place)
 }
 
+/** Where a nearby lookup stands: out, failed or without MapKit, or answered (possibly empty). */
+export type NearbyLookup =
+  { status: 'loading' } | { status: 'unavailable' } | { status: 'found'; places: NearbyPlace[] }
+
 /**
  * The venues within 150 m of a point, nearest first and at most 7, found with MapKit JS.
- * Null while loading, with no point, and when MapKit or the search fails.
+ * Loading while MapKit loads, the search is out, and with no point; unavailable when MapKit
+ * cannot load or the search fails.
  */
-export function useNearbyPlaces(at: Coordinate | null): NearbyPlace[] | null {
-  const mapkit = useMapKit(at !== null)
-  const [found, setFound] = useState<{ key: string; places: NearbyPlace[] } | null>(null)
+export function useNearbyLookup(at: Coordinate | null): NearbyLookup {
+  const { status, mapkit } = useMapKitState(at !== null)
+  const [answer, setAnswer] = useState<{ key: string; places: NearbyPlace[] | null } | null>(null)
   const key = at ? `${at.lat},${at.lon}` : null
   const lat = at?.lat
   const lon = at?.lon
@@ -108,14 +119,30 @@ export function useNearbyPlaces(at: Coordinate | null): NearbyPlace[] | null {
   useEffect(() => {
     if (!mapkit || lat === undefined || lon === undefined) return
     let current = true
+    const answered = `${lat},${lon}`
     search(mapkit, { lat, lon }).then(
-      (places) => current && setFound({ key: `${lat},${lon}`, places }),
-      () => {},
+      (places) => current && setAnswer({ key: answered, places }),
+      (error: unknown) => {
+        Sentry.captureException(error, { level: 'warning' })
+        if (current) setAnswer({ key: answered, places: null })
+      },
     )
     return () => {
       current = false
     }
   }, [mapkit, lat, lon])
 
-  return key !== null && found?.key === key ? found.places : null
+  if (key === null) return { status: 'loading' }
+  if (status === 'unavailable') return { status: 'unavailable' }
+  if (answer?.key !== key) return { status: 'loading' }
+  return answer.places ? { status: 'found', places: answer.places } : { status: 'unavailable' }
+}
+
+/**
+ * The venues within 150 m of a point, nearest first and at most 7, found with MapKit JS.
+ * Null while loading, with no point, and when MapKit or the search fails.
+ */
+export function useNearbyPlaces(at: Coordinate | null): NearbyPlace[] | null {
+  const lookup = useNearbyLookup(at)
+  return lookup.status === 'found' ? lookup.places : null
 }

@@ -1,4 +1,5 @@
 import { useId } from 'react'
+// eslint-disable-next-line no-restricted-imports -- Priced plan tiles
 import { Radio, RadioGroup } from 'react-aria-components'
 import type { StoreOffer } from '../../billing/store'
 import type { PurchasePeriod } from '../../usage/events'
@@ -61,7 +62,7 @@ export function PeriodTiles({
             value={offer.period}
             aria-label={label}
             aria-describedby={badge ? `${priceId} ${badgeId}` : priceId}
-            className="radio-tile group bg-surface hover:bg-field border-default data-selected:border-accent relative flex min-w-0 flex-1 cursor-default flex-col gap-0.5 rounded-(--radius-surface) border-2 px-3 pt-2.5 pb-2 transition-colors duration-(--dur-short) ease-(--ease)"
+            className="radio-tile group bg-surface hover:bg-field border-default data-selected:border-accent relative flex min-w-0 flex-1 cursor-default flex-col gap-0.5 rounded-(--radius) border-2 px-3 pt-2.5 pb-2 transition-colors duration-(--dur-short) ease-(--ease)"
           >
             {badge && (
               <span

@@ -554,7 +554,11 @@ it('shows the separator can be dragged under the pointer and while it is', async
   const separator = page.getByRole('separator', { name: COLUMN_WIDTH })
   await expect.element(separator).toBeInTheDocument()
   const bar = separator.element().querySelector<HTMLElement>('[aria-hidden]')!
-  const shown = () => Number(getComputedStyle(bar).opacity)
+  // Ends the fade first, so a check reads the state's opacity however few frames have drawn.
+  const shown = () => {
+    for (const fade of bar.getAnimations()) fade.finish()
+    return Number(getComputedStyle(bar).opacity)
+  }
   // The test pointer stays where an earlier test left it.
   await userEvent.unhover(separator)
   await expect.poll(shown).toBe(0)

@@ -13,14 +13,16 @@ export interface Action {
   error: string | null
   /** True while any action is in flight, to disable the control that started it. */
   pending: boolean
-  /** `runThen` with no success step: on failure the control stays as it was. */
+  /** `attempt` with no success step and no returned work: on failure the control stays as it was. */
   run: (action: () => Promise<unknown>) => void
   /**
+   * Runs `action` and returns the work, for a `Button` that shows it running, done, or failed.
    * Calls `onSuccess` only once `action` resolves, for a close or a navigation that must not
    * happen on failure. Starting clears the last error, and a throw from `onSuccess` lands in
-   * `error` too.
+   * `error` too. The returned promise rejects on failure, but the rejection is already handled
+   * here, so a caller may drop it with `void`.
    */
-  runThen: (action: () => Promise<unknown>, onSuccess: () => void) => void
+  attempt: (action: () => Promise<unknown>, onSuccess?: () => void) => Promise<void>
   /** Drops the last rejection without starting another action. */
   clear: () => void
 }
@@ -33,20 +35,20 @@ export function useAction(): Action {
   const [error, setError] = useState<string | null>(null)
   // A count, so the first of two overlapping actions to settle does not end the other's wait.
   const [inFlight, setInFlight] = useState(0)
-  const runThen = useCallback((action: () => Promise<unknown>, onSuccess: () => void) => {
+  const attempt = useCallback((action: () => Promise<unknown>, onSuccess?: () => void) => {
     setError(null)
     setInFlight((n) => n + 1)
-    action()
-      .then(onSuccess)
-      .catch((e: unknown) => setError(messageFor(e)))
-      .finally(() => setInFlight((n) => n - 1))
+    // Runs `action` at once, and turns a synchronous throw into a rejection like any other.
+    const work = new Promise((resolve) => resolve(action())).then(() => onSuccess?.())
+    work.catch((e: unknown) => setError(messageFor(e))).finally(() => setInFlight((n) => n - 1))
+    return work
   }, [])
   const run = useCallback(
     (action: () => Promise<unknown>) => {
-      runThen(action, () => {})
+      void attempt(action)
     },
-    [runThen],
+    [attempt],
   )
   const clear = useCallback(() => setError(null), [])
-  return { error, pending: inFlight > 0, run, runThen, clear }
+  return { error, pending: inFlight > 0, run, attempt, clear }
 }

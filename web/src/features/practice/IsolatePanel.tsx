@@ -1,4 +1,3 @@
-import { ToggleButton } from 'react-aria-components'
 import { RECORDING_RANGES } from '../../api/vocabulary'
 import {
   DEFAULT_ISOLATE,
@@ -9,9 +8,7 @@ import {
 import type { OutlineFeed } from './isolateOutlineFeed'
 import { IsolateRange } from './IsolateRange'
 import { SegmentedChoice } from '../../ui/SegmentedChoice'
-import { SEGMENT } from '../../ui/segmentedTrack'
 import { frequencyReadout, hzReadout, stereoEdgeReadout, stereoReadout } from './isolateReadout'
-import { offWhen, PANEL_TEXT_BUTTON, RESET } from './panel'
 import {
   FREQUENCY,
   FREQUENCY_HIGH,
@@ -26,13 +23,12 @@ import {
   STEREO_END,
   STEREO_START,
 } from './practiceCopy'
+import { ResetButton } from './ResetButton'
 
 const EFFECTS: readonly { id: IsolateEffect; label: string }[] = [
   { id: 'solo', label: SOLO },
   { id: 'mute', label: MUTE },
 ]
-
-const EFFECT_IDS = EFFECTS.map((effect) => effect.id)
 
 /** The full range each control spans, from the start field's lowest to the end field's
  * highest. */
@@ -87,27 +83,14 @@ export function IsolatePanel({
           <div className="flex items-center justify-between gap-3">
             <SegmentedChoice
               label={ISOLATE_EFFECT_LABEL}
-              options={EFFECT_IDS}
+              segments={EFFECTS}
               selected={value.effect}
               onChange={(effect) => onChange({ ...value, effect })}
-            >
-              {EFFECTS.map((effect) => (
-                <ToggleButton
-                  key={effect.id}
-                  id={effect.id}
-                  className={`t-body ${SEGMENT} min-h-(--target) cursor-default rounded-(--radius-capsule) px-4 transition-colors duration-(--dur-short) ease-(--ease)`}
-                >
-                  {effect.label}
-                </ToggleButton>
-              ))}
-            </SegmentedChoice>
-            <button
-              type="button"
-              className={PANEL_TEXT_BUTTON}
-              {...offWhen(isIsolateOff(value, isMono), () => onChange(DEFAULT_ISOLATE))}
-            >
-              {RESET}
-            </button>
+            />
+            <ResetButton
+              atDefault={isIsolateOff(value, isMono)}
+              onReset={() => onChange(DEFAULT_ISOLATE)}
+            />
           </div>
           {isMono ? (
             <p className="t-secondary m-0">{MONO_NOTICE}</p>

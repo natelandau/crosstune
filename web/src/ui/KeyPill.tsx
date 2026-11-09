@@ -3,9 +3,9 @@ import { pitchClass } from './keyColor'
 
 const BASE =
   'inline-flex shrink-0 items-center rounded-full bg-(--pill-bg) text-(--pill-text) tabular-nums'
-// Matches a Capsule's visual height. A pill is not a control, so a control that wraps one owns
+// Matches a Capsule's height and label size. A pill is not a control, so a control that wraps one owns
 // the hit area.
-const FULL = 'min-h-[min(2rem,var(--target-filter))] px-3 t-body'
+const FULL = 'min-h-(--size-compact) px-3 t-secondary'
 const COMPACT = 'h-[22px] px-2 t-caption in-[html[data-density=pointer]]:h-[18px]'
 
 function pillColors(pitch: number | null, chosen: boolean, flood: boolean): CSSProperties {

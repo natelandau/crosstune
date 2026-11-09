@@ -22,7 +22,7 @@ describe('useSyncSettings', () => {
   it('syncs through the engine on Sync now', async () => {
     const sync = vi.fn(async () => {})
     const { result } = setup(fakeEngine({ sync }))
-    act(() => result.current.syncNow())
+    act(() => void result.current.syncNow().catch(() => {}))
     await expect.poll(() => sync.mock.calls.length).toBe(1)
     await expect.poll(() => result.current.pending).toBe(false)
     expect(result.current.error).toBeNull()
@@ -30,7 +30,7 @@ describe('useSyncSettings', () => {
 
   it('reports a refused sync', async () => {
     const { result } = setup(fakeEngine({ sync: async () => Promise.reject(new Error('No')) }))
-    act(() => result.current.syncNow())
+    act(() => void result.current.syncNow().catch(() => {}))
     await expect.poll(() => result.current.error).toBe('No')
   })
 

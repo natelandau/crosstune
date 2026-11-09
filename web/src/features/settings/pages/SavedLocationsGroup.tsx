@@ -1,6 +1,5 @@
-import { Link } from 'react-router'
 import { useScheme } from '../../../theme/useScheme'
-import { FIELD_ROW_PRESSABLE } from '../../../ui/form/FieldRow'
+import { PressableRow } from '../../../ui/PressableRow'
 import { Group } from '../../../ui/form/Group'
 import { useLocationSnapshot } from '../../recordings/useLocationSnapshot'
 import { SAVED_LOCATIONS } from '../../recordings/recordingsCopy'
@@ -37,7 +36,7 @@ function Thumbnail({ lat, lon }: { lat: number; lon: number }) {
 function LocationItem({ row }: { row: SavedLocationRow }) {
   const { place } = row
   return (
-    <Link to={savedLocationPath(place.id)} className={`${FIELD_ROW_PRESSABLE} py-2`}>
+    <PressableRow to={savedLocationPath(place.id)} className="py-2">
       <Thumbnail lat={place.lat} lon={place.lon} />
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="ph-no-capture truncate">{place.name}</span>
@@ -48,7 +47,7 @@ function LocationItem({ row }: { row: SavedLocationRow }) {
           {savedLocationRecordings(row.recordings)}
         </span>
       </span>
-    </Link>
+    </PressableRow>
   )
 }
 
@@ -63,7 +62,7 @@ export function SavedLocationsGroup() {
   return (
     <Group id={SETTINGS_GROUPS.savedLocations} header={SAVED_LOCATIONS} help={SAVED_LOCATIONS_HELP}>
       {rows.length === 0 ? (
-        <p className="t-body text-secondary min-h-(--target) px-4 py-3">
+        <p className="t-body text-secondary min-h-(--size-row) px-4 py-3">
           {SAVED_LOCATIONS_EMPTY_HINT}
         </p>
       ) : (

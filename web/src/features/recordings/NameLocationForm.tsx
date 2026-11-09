@@ -2,7 +2,7 @@ import { PLACE_LIMITS } from '../../api/vocabulary'
 import type { LocalPlace } from '../../db/types'
 import { Group } from '../../ui/form/Group'
 import { TextField } from '../../ui/form/TextField'
-import { LocationRow } from './LocationRows'
+import { LocationList, LocationRow } from './LocationRows'
 import { LOCATION_NAME_LABEL, SAVED_HERE } from './recordingsCopy'
 
 /**
@@ -36,16 +36,17 @@ export function NameLocationForm({
       }}
     >
       {candidates.length > 0 && (
-        <Group header={SAVED_HERE}>
+        <LocationList label={SAVED_HERE} showLabel>
           {candidates.map((place) => (
             <LocationRow
               key={place.id}
+              id={place.id}
               name={place.name}
               detail={place.address}
               onPress={() => onPick?.(place)}
             />
           ))}
-        </Group>
+        </LocationList>
       )}
       <Group footer={help} error={error}>
         <TextField

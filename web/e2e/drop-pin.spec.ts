@@ -43,7 +43,7 @@ const ENTRIES: { from: string; query: string; answer: (editor: Locator) => Locat
     from: 'the end of a result list',
     query: 'Felts',
     answer: (editor) =>
-      editor.getByRole('button', {
+      editor.getByRole('option', {
         name: pickLocationName(PARK.title, PARK.subtitle),
         exact: true,
       }),

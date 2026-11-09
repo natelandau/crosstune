@@ -24,6 +24,7 @@ import { useQuickFind, type QuickFind as Finder } from './useQuickFind'
 import { QUICK_FIND, shortcutById, type ShortcutId } from '../keyboard/keymap'
 import { useEscapeCapture } from '../../ui/useEscapeCapture'
 import { useLatest } from '../../ui/useLatest'
+import { SEARCH_BOX, SEARCH_INPUT } from '../../ui/SearchField'
 import { destination, type Destination } from '../../layout/destinations'
 import { useScreenCommands } from '../../app/screenCommands'
 import { useShortcutSheet } from '../keyboard/shortcutSheetLauncher'
@@ -182,7 +183,7 @@ export function QuickFind({ navigate }: { navigate: QuickFindNavigate }) {
           onOpenChange={(open) => {
             if (!open) close()
           }}
-          className="bg-page flex max-h-[70vh] max-w-full flex-col overflow-hidden rounded-(--radius-surface) shadow-(--shadow-float)"
+          className="bg-page flex max-h-[70vh] max-w-full flex-col overflow-hidden rounded-(--radius) shadow-(--shadow-float)"
           style={{ width: SHEET.width }}
         >
           <Dialog aria-label={QUICK_FIND} className="flex min-h-0 flex-col p-2 outline-none">
@@ -236,17 +237,17 @@ function FinderBody({
   return (
     <Autocomplete inputValue={query} onInputChange={setQuery}>
       <TextField
-        data-search-field
+        data-focus-host
         aria-label={QUICK_FIND}
         autoFocus
-        className="bg-field flex min-h-(--target-control) shrink-0 items-center rounded-(--radius-capsule) ps-3 pe-1"
+        className={`${SEARCH_BOX} shrink-0`}
       >
         <Search className="text-secondary size-4 shrink-0" aria-hidden />
         <Input
           ref={fieldRef}
           onKeyDownCapture={() => markPick(false)}
           placeholder={QUICK_FIND_PLACEHOLDER}
-          className="t-body placeholder:text-secondary min-w-0 flex-1 bg-transparent px-2 in-[html[data-density=touch]]:text-[max(16px,1rem)]"
+          className={SEARCH_INPUT}
         />
       </TextField>
       <ListBox

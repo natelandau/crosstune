@@ -6,6 +6,7 @@ import { act } from '@testing-library/react'
 import { renderWithProviders } from '../test/render'
 import { elementStill } from '../test/stillPoll'
 import { Button } from './Button'
+import { IconButton } from './IconButton'
 import { CANCEL, DELETE, useConfirm, type ConfirmOptions } from './Confirm'
 import { Menu, MenuAtPoint } from './Menu'
 import { StatusGlyph } from './StatusGlyph'
@@ -16,7 +17,7 @@ function MoreMenu({ onEdit = () => {} }: { onEdit?: () => void }) {
   return (
     <Menu
       label={MORE_ACTIONS}
-      trigger={<Button label={MORE_ACTIONS} iconOnly icon={Ellipsis} />}
+      trigger={<IconButton label={MORE_ACTIONS} icon={Ellipsis} />}
       items={[
         { id: 'edit', label: 'Edit', icon: Pencil, onAction: onEdit },
         { id: 'archive', label: 'Archive', icon: TriangleAlert, tone: 'warning', onAction() {} },
@@ -329,7 +330,7 @@ it('describes an item under its label', async () => {
   renderWithProviders(
     <Menu
       label={MORE_ACTIONS}
-      trigger={<Button label={MORE_ACTIONS} iconOnly icon={Ellipsis} />}
+      trigger={<IconButton label={MORE_ACTIONS} icon={Ellipsis} />}
       items={[{ id: 'a', label: 'Learning', description: '3 tunes', onAction() {} }]}
     />,
   )
@@ -347,7 +348,7 @@ it.each([
     <Menu
       label={MORE_ACTIONS}
       choiceMode={choiceMode}
-      trigger={<Button label={MORE_ACTIONS} iconOnly icon={Ellipsis} />}
+      trigger={<IconButton label={MORE_ACTIONS} icon={Ellipsis} />}
       items={[
         { id: 'plain', label: 'Plain', icon: Pencil, onAction() {} },
         { id: 'a', label: 'Choice A', checked: true, onAction() {} },
@@ -375,7 +376,7 @@ it.each(['touch', 'pointer'] as const)(
       <Menu
         label={MORE_ACTIONS}
         choiceMode="single"
-        trigger={<Button label={MORE_ACTIONS} iconOnly icon={Ellipsis} />}
+        trigger={<IconButton label={MORE_ACTIONS} icon={Ellipsis} />}
         items={[
           { id: 'a', label: 'Choice A', checked: false, onAction() {} },
           { id: 'b', label: 'Choice B', checked: true, onAction() {} },
@@ -402,7 +403,7 @@ it.each(['touch', 'pointer'] as const)(
       <Menu
         label={MORE_ACTIONS}
         choiceMode="single"
-        trigger={<Button label={MORE_ACTIONS} iconOnly icon={Ellipsis} />}
+        trigger={<IconButton label={MORE_ACTIONS} icon={Ellipsis} />}
         items={['a', 'b', 'c'].map((id) => ({
           id,
           label: `Choice ${id.toUpperCase()}`,
@@ -429,7 +430,7 @@ it('shows a disabled item without running it', async () => {
   renderWithProviders(
     <Menu
       label={MORE_ACTIONS}
-      trigger={<Button label={MORE_ACTIONS} iconOnly icon={Ellipsis} />}
+      trigger={<IconButton label={MORE_ACTIONS} icon={Ellipsis} />}
       items={[
         { id: 'off', label: 'Off', description: 'Not yet.', disabled: true, onAction },
         { id: 'on', label: 'On', onAction() {} },
@@ -457,7 +458,7 @@ it('names a menu by its own label, not by its trigger', async () => {
 })
 
 const TIPPED = [
-  ['an icon button', () => <Button label="Add tune" iconOnly icon={Pencil} />, 'Add tune'],
+  ['an icon button', () => <IconButton label="Add tune" icon={Pencil} />, 'Add tune'],
   ['a status glyph', () => <StatusGlyph status="known" />, STATUS_LABELS.known],
 ] as const
 

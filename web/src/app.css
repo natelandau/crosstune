@@ -11,6 +11,9 @@
 @import './ui/focus.css';
 @import './ui/controls.css';
 
+/* Off either way: disabled, or aria-disabled so the control can still hold focus. */
+@custom-variant off (&:is(:disabled, [aria-disabled='true']));
+
 body {
   font-family: var(--font-sans);
   background: var(--page-background);

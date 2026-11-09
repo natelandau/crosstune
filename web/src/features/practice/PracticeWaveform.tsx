@@ -336,6 +336,7 @@ export function PracticeWaveform({
           }
           const tabClass = `loop-color t-secondary absolute top-0 truncate rounded-b-md bg-(--loop) px-2 py-1 font-semibold text-on-accent-fill`
           return loop.id === selected?.id ? (
+            // eslint-disable-next-line no-restricted-syntax -- Loop name tab drawn on the waveform at the loop position, part of the media timeline
             <button
               key={loop.id}
               ref={tabRef(loop.id)}

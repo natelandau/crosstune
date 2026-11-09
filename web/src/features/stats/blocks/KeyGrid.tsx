@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+// eslint-disable-next-line no-restricted-imports -- Chart blocks
 import { Button as AriaButton } from 'react-aria-components'
 import { FACET_LABELS, isFilterValue, type CatalogFilters } from '../../catalog/filters'
 import { usedModes } from '../breakdowns'
@@ -91,8 +92,7 @@ export function KeyGrid({
   )
 }
 
-const CELL =
-  'inline-grid min-h-(--target) min-w-(--target) place-items-center rounded-(--radius-row)'
+const CELL = 'inline-grid min-h-(--target) min-w-(--target) place-items-center rounded-(--radius)'
 
 /** A cell that filters the catalog, or only reads when its value cannot be a filter. */
 function Cell({

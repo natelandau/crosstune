@@ -6,8 +6,7 @@ import { LOOP_LIMIT, NO_ROOM } from '../../commands/messages'
 import type { LocalRecordingLoop } from '../../db/types'
 import { Capsule } from '../../ui/Capsule'
 import { FilterRow } from '../../ui/FilterRow'
-import { offWhen, PANEL_TEXT_BUTTON, PANEL_TEXT_BUTTON_SHAPE } from './panel'
-import { BUTTON_TONE } from '../../ui/buttonTone'
+import { Button } from '../../ui/Button'
 import { loopName, partSuggestions, type Bounds, type NewLoop } from '../../domain/loopModel'
 import {
   DELETE_LOOP,
@@ -121,43 +120,28 @@ export function LoopsPanel({
   return (
     <div data-loops-panel className="flex flex-col gap-3">
       <div className="flex items-center justify-center gap-2">
-        <button
-          type="button"
-          {...offWhen(!canCreate || result.kind !== 'span', () => {
+        <Button
+          icon={Plus}
+          label={NEW_LOOP}
+          aria-disabled={!canCreate || result.kind !== 'span'}
+          onPress={() => {
             create(onCommand?.() ?? undefined)
-          })}
+          }}
           aria-describedby={reason ? reasonId : undefined}
-          className={`${PANEL_TEXT_BUTTON} inline-flex items-center gap-2`}
-        >
-          <Plus aria-hidden="true" className="size-5" />
-          {NEW_LOOP}
-        </button>
-        <button
-          type="button"
-          {...offWhen(!selected, remove)}
-          className={`${PANEL_TEXT_BUTTON_SHAPE} inline-flex items-center gap-2 ${selected ? BUTTON_TONE.destructive : 'text-secondary'}`}
-        >
-          <Trash2 aria-hidden="true" className="size-5" />
-          {DELETE_LOOP}
-        </button>
+        />
+        <Button
+          variant="destructive"
+          icon={Trash2}
+          label={DELETE_LOOP}
+          aria-disabled={!selected}
+          onPress={remove}
+        />
       </div>
       {onSetEdge ? (
         // A handle drag without the drag, as `[` and `]` are from the keyboard.
         <div data-loop-edges className="flex items-center justify-center gap-2">
-          <button
-            type="button"
-            {...offWhen(edgesOff, () => onSetEdge('start'))}
-            className={PANEL_TEXT_BUTTON}
-          >
-            {SET_START}
-          </button>
-          <button
-            type="button"
-            {...offWhen(edgesOff, () => onSetEdge('end'))}
-            className={PANEL_TEXT_BUTTON}
-          >
-            {SET_END}
-          </button>
+          <Button label={SET_START} aria-disabled={edgesOff} onPress={() => onSetEdge('start')} />
+          <Button label={SET_END} aria-disabled={edgesOff} onPress={() => onSetEdge('end')} />
         </div>
       ) : null}
       {reason ? (

@@ -182,7 +182,7 @@ async function openGallery(
     density,
     look,
   )
-  await page.getByRole('heading', { name: 'Gallery', level: 1 }).waitFor()
+  await page.getByRole('heading', { name: 'Component library', level: 1 }).waitFor()
   await settle(page, density)
   return { context, page }
 }
@@ -314,18 +314,18 @@ async function captureGallery(browser: Browser, origin: string): Promise<void> {
 
   let { context, page } = await openGallery(browser, origin, PHONE, 'touch', LIGHT)
   await page.getByRole('button', { name: 'Part-height sheet' }).click()
-  await still(page.getByRole('dialog', { name: 'Sort tunes' }))
+  await still(page.getByRole('dialog', { name: 'Sort items' }))
   await shoot(page, '390-touch-light-sheet')
   await context.close()
   ;({ context, page } = await openGallery(browser, origin, PHONE, 'touch', LIGHT))
   await page.getByRole('button', { name: 'Confirm delete' }).click()
   // On touch the confirmation is an action sheet, so its message is the stable thing to find.
-  await page.getByText('This removes its links and list entries.').waitFor()
+  await page.getByText('This removes it for good.').waitFor()
   await shoot(page, '390-touch-light-confirm')
   await context.close()
   ;({ context, page } = await openGallery(browser, origin, DESKTOP, 'pointer', LIGHT))
   await page.getByRole('button', { name: 'Show toast' }).click()
-  await page.getByText('Archived 3 tunes').waitFor()
+  await page.getByText('Archived 3 items').waitFor()
   // Opened from the keyboard so the shot also shows the focus ring on a menu item.
   await page.getByRole('button', { name: 'More actions' }).focus()
   await page.keyboard.press('Enter')
@@ -468,15 +468,6 @@ async function captureLibrary(
   await still(page.getByRole('dialog', { name: 'Filters' }))
   await shoot(page, `${name}-recordings-filters`)
   await context.close()
-  ;({ context, page } = await at('/recordings'))
-  await recordingsReady(page, density)
-  // A right-click opens the row menu at every density, with no swipe or hover to stage.
-  await page.getByRole('row', { name: new RegExp(RECORDING_LABEL) }).click({ button: 'right' })
-  await page.getByRole('menuitem', { name: 'Edit', exact: true }).click()
-  await still(page.getByRole('dialog', { name: 'Edit recording' }))
-  await settle(page, density)
-  await shoot(page, `${name}-edit-recording`)
-  await context.close()
 
   await captureSettings(browser, origin, size, density, look)
 
@@ -521,11 +512,7 @@ async function capturePractice(
     .getByText(PRACTICE_LABEL)
     .first()
     .click()
-  await page
-    .getByRole('region', { name: 'Player', exact: true })
-    .getByRole('button', { name: /^Open / })
-    .click()
-  const practice = page.locator('[data-practice]').getByRole('dialog')
+  const practice = page.locator('[data-practice]')
   await still(practice)
   await practice.locator('[data-practice-waveform]').waitFor()
   // The waveform scrolls with the playhead, so the shot is taken paused at the start, the one
@@ -539,13 +526,14 @@ async function capturePractice(
   await settle(page, density)
   await shoot(page, `${name}-practice`)
 
+  await practice.getByRole('tab', { name: 'Loops', exact: true }).click()
   const tab = practice.locator(`button[data-name-tab="${UNNAMED_LOOP}"]`)
   for (let step = 0; step < 3 && !(await tab.isVisible()); step++) {
     await practice.getByRole('button', { name: 'Next loop', exact: true }).click()
   }
   await tab.click()
   await practice.getByRole('textbox', { name: 'Loop name', exact: true }).waitFor()
-  await practice.getByRole('button', { name: 'B part' }).waitFor()
+  await practice.getByRole('button', { name: 'B part', exact: true }).waitFor()
   await settle(page, density)
   await shoot(page, `${name}-practice-rename`)
   await context.close()

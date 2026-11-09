@@ -1,17 +1,22 @@
-import { Minus, Plus } from 'lucide-react'
-import { useId, useState } from 'react'
+import { useState } from 'react'
+import { Slider } from '../../ui/Slider'
+import { Stepper } from '../../ui/Stepper'
 import { PITCH_LABEL, PITCH_UNAVAILABLE } from '../player/transportCopy'
-import { clampPitch, offWhen, PANEL_ICON_BUTTON, PANEL_TEXT_BUTTON, RESET } from './panel'
+import { clampPitch } from './panel'
+import { ResetButton } from './ResetButton'
 
 export const PITCH = PITCH_LABEL
 export const SEMITONES = 'Semitones'
 export const CENTS = 'Cents'
 export const PITCH_DOWN = 'Down a semitone'
 export const PITCH_UP = 'Up a semitone'
+export const CENTS_DOWN = 'Down a cent'
+export const CENTS_UP = 'Up a cent'
 export const PITCH_PAUSES_ON_LOCK = 'Pitch-shifted playback pauses when the screen locks.'
 
 const MAX_SEMITONES = 12
 const MAX_CENTS = 50
+const CENTS_LARGE_STEP = 10
 
 // The true minus, as the pitch badge writes it.
 function signed(n: number): string {
@@ -44,8 +49,6 @@ export function PitchPanel({
   /** Says that pitch-shifted playback pauses when the screen locks, as it does on iOS. */
   lockNotice?: boolean
 }) {
-  const semitonesId = useId()
-  const centsId = useId()
   // A pitch on a half semitone splits two ways (+2 and +50 cents, or +3 and -50), so the
   // panel keeps the split the musician chose and splits afresh only for a pitch from elsewhere.
   const [split, setSplit] = useState({ value, semitones: splitSemitones(value) })
@@ -62,55 +65,33 @@ export function PitchPanel({
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-3">
-        <span id={semitonesId} className="t-secondary">
-          {SEMITONES}
-        </span>
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            aria-label={PITCH_DOWN}
-            className={PANEL_ICON_BUTTON}
-            {...offWhen(semitones <= -MAX_SEMITONES, () => combine(semitones - 1, cents))}
-          >
-            <Minus aria-hidden="true" className="size-5" />
-          </button>
-          <output aria-labelledby={semitonesId} className="t-heading w-10 text-center tabular-nums">
-            {signed(semitones)}
-          </output>
-          <button
-            type="button"
-            aria-label={PITCH_UP}
-            className={PANEL_ICON_BUTTON}
-            {...offWhen(semitones >= MAX_SEMITONES, () => combine(semitones + 1, cents))}
-          >
-            <Plus aria-hidden="true" className="size-5" />
-          </button>
-        </div>
+        <span className="t-secondary">{SEMITONES}</span>
+        <Stepper
+          label={SEMITONES}
+          value={semitones}
+          min={-MAX_SEMITONES}
+          max={MAX_SEMITONES}
+          format={signed}
+          decrementLabel={PITCH_DOWN}
+          incrementLabel={PITCH_UP}
+          onChange={(next) => combine(next, cents)}
+        />
       </div>
-      <div className="flex items-center justify-between">
-        <label htmlFor={centsId} className="t-secondary">
-          {CENTS}
-        </label>
-        <span className="t-secondary tabular-nums">{signed(cents)}</span>
-      </div>
-      <input
-        id={centsId}
-        type="range"
+      <Slider
+        label={CENTS}
+        value={cents}
         min={-MAX_CENTS}
         max={MAX_CENTS}
         step={1}
-        value={cents}
-        className="accent-accent h-11 w-full"
-        onChange={(event) => combine(semitones, Number(event.target.value))}
+        largeStep={CENTS_LARGE_STEP}
+        detent={0}
+        format={signed}
+        decrementLabel={CENTS_DOWN}
+        incrementLabel={CENTS_UP}
+        onChange={(next) => combine(semitones, next)}
       />
       <div className="flex items-center justify-end">
-        <button
-          type="button"
-          className={PANEL_TEXT_BUTTON}
-          {...offWhen(value === 0, () => onChange(0))}
-        >
-          {RESET}
-        </button>
+        <ResetButton atDefault={value === 0} onReset={() => onChange(0)} />
       </div>
       {/* Hidden rather than absent, so the panel's height never changes with the engine. */}
       <p

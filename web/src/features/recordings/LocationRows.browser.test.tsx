@@ -80,7 +80,7 @@ function typeAndSettle(input: ReturnType<typeof setup>['input'], text: string) {
 }
 
 const result = (name: string, detail?: string) =>
-  page.getByRole('button', { name: pickLocationName(name, detail), exact: true })
+  page.getByRole('option', { name: pickLocationName(name, detail), exact: true })
 
 it('searches once the typing settles, and hands the picked result on', async () => {
   const { input, onPick, search } = setup({

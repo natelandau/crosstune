@@ -227,5 +227,7 @@ it.each([
   // The browser pointer is shared between tests, so one left over an earlier test's title would
   // reveal the button here.
   await userEvent.unhover(page.elementLocator(document.body))
-  await expect.poll(() => getComputedStyle(rename('Reel').element()).opacity).toBe(opacity)
+  await expect
+    .poll(() => getComputedStyle(rename('Reel').element().closest('[data-rename]')!).opacity)
+    .toBe(opacity)
 })

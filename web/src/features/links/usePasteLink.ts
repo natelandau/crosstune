@@ -25,7 +25,7 @@ export interface PasteLink {
   error: string | null
   pending: boolean
   /** Adds the typed link to the tune, then closes. */
-  submit: () => void
+  submit: () => Promise<void> | undefined
   close: () => void
   /** The sheet's onClose, run once its dismissal ends. */
   dismissed: () => void
@@ -49,7 +49,7 @@ export function usePasteLink(
   const db = useDb()
   const engine = useSyncEngine()
   const analytics = useAnalytics()
-  const { error, pending, runThen, clear } = useAction()
+  const { error, pending, attempt, clear } = useAction()
   const [url, setUrlState] = useState('')
   const [validation, setValidation] = useState<string | null>(null)
   const sheet = useSheetSession(tuneId, {
@@ -70,12 +70,18 @@ export function usePasteLink(
   const submit = () => {
     if (!tuneId || !sheet.canSave()) return
     const trimmed = url.trim()
-    if (!trimmed) return refuse(LINK_REQUIRED)
-    if (outboundUrl({ url: trimmed }) === null) return refuse(LINK_NOT_WEB)
+    if (!trimmed) {
+      refuse(LINK_REQUIRED)
+      return
+    }
+    if (outboundUrl({ url: trimmed }) === null) {
+      refuse(LINK_NOT_WEB)
+      return
+    }
     setValidation(null)
     sheet.beginSave()
     const target = tuneId
-    runThen(async () => {
+    return attempt(async () => {
       // Metadata is a nicety; a link the resolver cannot reach still gets added.
       const resolved: ResolveResponse | null = await engine.resolveLink(trimmed)
       const detected = detectProvider(trimmed)

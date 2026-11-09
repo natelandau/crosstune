@@ -15,6 +15,7 @@ import type { ConfirmQuestion } from '../../ui/confirmQuestion'
 import type { EngineClock } from '../player/playbackEngine'
 import type { RecordingView } from '../recordings/useRecordings'
 import { TRIM_CONFIRM_TITLE } from './trimViewCopy'
+import type { TrackWork } from '../../ui/useWorking'
 import { useTrimEditor } from './useTrimEditor'
 
 vi.mock('../../commands/recordings', { spy: true })
@@ -190,6 +191,27 @@ describe('useTrimEditor', () => {
     expect(engine.getState().playing).toBe(true)
     act(() => press(' '))
     expect(engine.getState().playing).toBe(false)
+  })
+
+  it('hands only the write to the tracker, once the question is answered', async () => {
+    let answer!: (ok: boolean) => void
+    const { result } = await setup(() => new Promise<boolean>((resolve) => (answer = resolve)))
+    act(() => result.current.dispatch({ type: 'drag', handle: 'start', ms: 5000 }))
+    let tracked = 0
+    const track: TrackWork = (work) => {
+      tracked += 1
+      return work
+    }
+    let saved!: Promise<void>
+    act(() => {
+      saved = result.current.save(track)
+    })
+    await waitFor(() => expect(answer).toBeDefined())
+    expect(tracked).toBe(0)
+    answer(true)
+    await act(() => saved)
+    expect(tracked).toBe(1)
+    expect(vi.mocked(updateRecording)).toHaveBeenCalledTimes(1)
   })
 
   it('sends recording_trimmed once the trim is written', async () => {

@@ -55,7 +55,7 @@ export interface BulkEditOptions {
   /** True while the caller's write runs. */
   pending: boolean
   /** Hands the caller the patch; the caller writes it and closes the sheet. */
-  onApply: (patch: BulkPatch) => void
+  onApply: (patch: BulkPatch) => void | Promise<unknown>
   /** The sheet closed without applying anything. */
   onCancel: () => void
 }
@@ -76,7 +76,7 @@ export interface BulkEdit {
   touchedCount: number
   /** False until a field is touched, and while a write runs or the sheet is closing. */
   canSave: boolean
-  save: () => void
+  save: () => void | Promise<unknown>
   /** Starts the sheet closing; `dismissed` reports it once the sheet is gone. */
   cancel: () => void
   /** True from Cancel until the sheet is presented again. */
@@ -154,7 +154,7 @@ export function useBulkEdit({
   const save = () => {
     if (pending || closing || applied.current || touchedCount === 0) return
     applied.current = true
-    onApply(toPatch(touched))
+    return onApply(toPatch(touched))
   }
 
   const dismissed = () => {

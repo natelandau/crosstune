@@ -19,7 +19,7 @@ export function TrialCard({ startsAt, endsAt }: { startsAt: Date | null; endsAt:
   const percent = endsAt ? Math.round(trialProgress(startsAt, endsAt, now) * 100) : null
   const lastDay = endsAt !== null && calendarDaysLeft(endsAt, now) <= 0
   return (
-    <div className="bg-tint flex flex-col gap-1 rounded-(--radius-surface) p-4">
+    <div className="bg-tint flex flex-col gap-1 rounded-(--radius) p-4">
       <p className="t-secondary text-secondary font-semibold">{PLAN_TRIAL}</p>
       {endsAt && percent !== null && (
         <>

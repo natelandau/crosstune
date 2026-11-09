@@ -1,13 +1,21 @@
-import { expect, it, vi } from 'vitest'
+import * as Sentry from '@sentry/react'
+import { beforeEach, expect, it, vi } from 'vitest'
 import { fakeMapKit } from '../test/fakeMapKit'
 import {
   browserMapKitEnv,
   loadMapKit,
   MAPKIT_LIBRARIES,
   MAPKIT_SCRIPT_URL,
+  watchMapKit,
   type MapKit,
   type MapKitEnv,
 } from './mapkit'
+
+vi.mock('@sentry/react', { spy: true })
+
+beforeEach(() => {
+  vi.mocked(Sentry.captureMessage).mockClear()
+})
 
 /** A fresh environment per test, since a loaded MapKit is remembered per environment. */
 function setup(mapkit: MapKit | undefined | null = fakeMapKit().mapkit) {
@@ -147,23 +155,74 @@ it('waits through a throttled configuration, then resolves MapKit once it config
   expect(loadScript).toHaveBeenCalledTimes(1)
 })
 
-it('holds an ask made during a passing error until MapKit configures itself again', async () => {
-  for (const status of ['Network Error', 'Timeout', 'Too Many Requests']) {
-    const { mapkit, dispatch } = fakeMapKit()
-    const { env } = setup(mapkit)
-    await expect(loadMapKit(async () => 'jwt', env)).resolves.toBe(mapkit)
-    dispatch('error', { status })
-    const waiting = loadMapKit(async () => 'jwt', env)
-    dispatch('configuration-change', { status: 'Refreshed' })
-    await expect(waiting).resolves.toBe(mapkit)
-  }
-})
-
-it('resolves an ask held through a passing error with null once MapKit refuses its token', async () => {
+it('holds an ask made during a throttle until MapKit configures itself again', async () => {
   const { mapkit, dispatch } = fakeMapKit()
   const { env } = setup(mapkit)
   await expect(loadMapKit(async () => 'jwt', env)).resolves.toBe(mapkit)
-  dispatch('error', { status: 'Network Error' })
+  dispatch('error', { status: 'Too Many Requests' })
+  const waiting = loadMapKit(async () => 'jwt', env)
+  dispatch('configuration-change', { status: 'Refreshed' })
+  await expect(waiting).resolves.toBe(mapkit)
+})
+
+it('keeps MapKit usable through an error that neither refuses the token nor throttles', async () => {
+  const { mapkit, dispatch } = fakeMapKit()
+  const { env } = setup(mapkit)
+  await expect(loadMapKit(async () => 'jwt', env)).resolves.toBe(mapkit)
+  const onChange = vi.fn()
+  const stop = watchMapKit(mapkit, onChange)
+  for (const status of [
+    'Network Error',
+    'Timeout',
+    'Malformed Response',
+    'Bad Request',
+    'Unknown',
+  ]) {
+    dispatch('error', { status })
+  }
+  dispatch('error')
+  stop()
+  expect(onChange).not.toHaveBeenCalled()
+  await expect(loadMapKit(async () => 'jwt', env)).resolves.toBe(mapkit)
+})
+
+it('marks MapKit unusable when it refuses the token or throttles', () => {
+  for (const [status, refused] of [
+    ['Unauthorized', true],
+    ['Too Many Requests', false],
+  ] as const) {
+    const { mapkit, dispatch } = fakeMapKit()
+    const onChange = vi.fn()
+    watchMapKit(mapkit, onChange)
+    dispatch('error', { status })
+    expect(onChange).toHaveBeenCalledWith(false, refused)
+  }
+})
+
+it('resolves null when the first configuration fails for any reason', async () => {
+  const { mapkit } = fakeMapKit({ initError: 'Network Error' })
+  const { env } = setup(mapkit)
+  await expect(loadMapKit(async () => 'jwt', env)).resolves.toBeNull()
+})
+
+it('reports each MapKit error with its status and message', async () => {
+  const { mapkit, dispatch } = fakeMapKit()
+  const { env } = setup(mapkit)
+  await expect(loadMapKit(async () => 'jwt', env)).resolves.toBe(mapkit)
+  const message = '[MapKit] Initialization failed because of network error.'
+  dispatch('error', { status: 'Network Error', message })
+  await expect.poll(() => vi.mocked(Sentry.captureMessage).mock.calls.length).toBe(1)
+  expect(vi.mocked(Sentry.captureMessage).mock.calls[0]?.[1]).toMatchObject({
+    level: 'warning',
+    extra: { status: 'Network Error', message },
+  })
+})
+
+it('resolves an ask held through a throttle with null once MapKit refuses its token', async () => {
+  const { mapkit, dispatch } = fakeMapKit()
+  const { env } = setup(mapkit)
+  await expect(loadMapKit(async () => 'jwt', env)).resolves.toBe(mapkit)
+  dispatch('error', { status: 'Too Many Requests' })
   const waiting = loadMapKit(async () => 'jwt', env)
   dispatch('error', { status: 'Unauthorized' })
   await expect(waiting).resolves.toBeNull()
@@ -226,9 +285,10 @@ it('gives up when MapKit never answers its configuration, and stops listening fo
   wait.mockImplementationOnce(async () => {})
 
   await expect(loadMapKit(async () => 'jwt', env)).resolves.toBeNull()
-  // Only the watch that brings MapKit back once it configures itself still listens.
+  // Only the watch that brings MapKit back once it configures itself, and the error report,
+  // still listen.
   expect(listenerCount('configuration-change')).toBe(1)
-  expect(listenerCount('error')).toBe(1)
+  expect(listenerCount('error')).toBe(2)
   dispatch('configuration-change', { status: 'Initialized' })
   await expect(loadMapKit(async () => 'jwt', env)).resolves.toBe(mapkit)
 })

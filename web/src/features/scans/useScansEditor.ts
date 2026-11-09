@@ -113,7 +113,7 @@ export function useScansEditor(
     adding,
     full: scans.length >= MAX_SCANS,
     empty: scans.length === 0,
-    remove: (scan) => remove(scan, files.get(scan.id)),
+    remove: (scan) => void remove(scan, files.get(scan.id)),
     error: addError ?? deleteError ?? moveError,
     statusLabel: (scan) => {
       const file = files.get(scan.id)

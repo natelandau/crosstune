@@ -1,10 +1,17 @@
+import * as Sentry from '@sentry/react'
 import { act, renderHook } from '@testing-library/react'
 import type { ReactNode } from 'react'
-import { expect, it, vi } from 'vitest'
+import { beforeEach, expect, it, vi } from 'vitest'
 import type { MapKit } from '../../platform/mapkit'
 import { MapKitContext } from '../../platform/useMapKit'
 import { fakeMapKit, fakePlace, type FakeMapKitOptions } from '../../test/fakeMapKit'
-import { useNearbyPlaces } from './useNearbyPlaces'
+import { useNearbyLookup, useNearbyPlaces } from './useNearbyPlaces'
+
+vi.mock('@sentry/react', { spy: true })
+
+beforeEach(() => {
+  vi.mocked(Sentry.captureException).mockClear()
+})
 
 const CENTER = { lat: 36.66, lon: -80.92 }
 const M_PER_DEGREE = 111_320
@@ -91,6 +98,44 @@ it('is null when the search fails', async () => {
   await expect.poll(() => seen.searches.length).toBe(1)
   await act(async () => {})
   expect(result.current).toBeNull()
+})
+
+it('reports a failed search with its error', async () => {
+  const { seen } = setup(CENTER, { searchFails: true })
+  await expect.poll(() => seen.searches.length).toBe(1)
+  await expect.poll(() => vi.mocked(Sentry.captureException).mock.calls.length).toBe(1)
+  expect(vi.mocked(Sentry.captureException).mock.calls[0]?.[0]).toMatchObject({
+    message: 'Network Error',
+  })
+})
+
+function setupLookup(options: FakeMapKitOptions = {}) {
+  const fake = fakeMapKit(options)
+  const load = vi.fn(async (): Promise<MapKit | null> => fake.mapkit)
+  const wrapper = ({ children }: { children: ReactNode }) => (
+    <MapKitContext.Provider value={load}>{children}</MapKitContext.Provider>
+  )
+  const hook = renderHook(({ at }) => useNearbyLookup(at), {
+    wrapper,
+    initialProps: { at: CENTER },
+  })
+  return { ...hook, ...fake }
+}
+
+it('still searches after a MapKit error that does not stop MapKit', async () => {
+  const { result, rerender, dispatch, seen } = setupLookup({ places: [north('Hall', 10)] })
+  await expect.poll(() => result.current.status).toBe('found')
+  act(() => dispatch('error', { status: 'Network Error' }))
+  rerender({ at: { lat: 10, lon: 10 } })
+  await expect.poll(() => seen.searches.length).toBe(2)
+  await expect.poll(() => result.current.status).toBe('found')
+})
+
+it('is unavailable once MapKit refuses its token', async () => {
+  const { result, dispatch } = setupLookup({ places: [north('Hall', 10)] })
+  await expect.poll(() => result.current.status).toBe('found')
+  act(() => dispatch('error', { status: 'Unauthorized' }))
+  await expect.poll(() => result.current.status).toBe('unavailable')
 })
 
 it('is null when MapKit cannot load', async () => {

@@ -1,5 +1,9 @@
 import { useMemo } from 'react'
-import { isDefaultIsolate, type IsolateSetting } from '../player/isolate/isolateSetting'
+import {
+  isDefaultIsolate,
+  type IsolateEffect,
+  type IsolateSetting,
+} from '../player/isolate/isolateSetting'
 import { PITCH_BADGE, SPEED_BADGE } from '../player/transportCopy'
 import { PITCH } from './PitchPanel'
 import { SPEED } from './SpeedPanel'
@@ -14,13 +18,16 @@ export const MODE_NAMES: Record<Mode, string> = {
   isolate: ISOLATE_LABEL,
 }
 
+/** Each isolate effect's name, the Isolate mode's value once it is off default. */
+export const ISOLATE_EFFECT_NAMES: Record<IsolateEffect, string> = { solo: SOLO, mute: MUTE }
+
 /** Each mode's name, with Speed, Pitch, and Isolate carrying their value once it is off default. */
 export function useModeLabels(
   speedPercent: number,
   pitchCents: number,
   isolate: IsolateSetting,
 ): Record<Mode, string> {
-  const isolateValue = isDefaultIsolate(isolate) ? null : isolate.effect === 'mute' ? MUTE : SOLO
+  const isolateValue = isDefaultIsolate(isolate) ? null : ISOLATE_EFFECT_NAMES[isolate.effect]
   return useMemo(
     () => ({
       loops: LOOPS_LABEL,

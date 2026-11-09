@@ -1,4 +1,5 @@
 import { ChevronDown } from 'lucide-react'
+// eslint-disable-next-line no-restricted-imports -- Disclosure heading that shows or hides the list
 import { Button as AriaButton } from 'react-aria-components'
 import { ROW_PRESS } from '../../ui/press'
 import { recordingsLine } from './tuneScreenCopy'
@@ -20,7 +21,7 @@ export function RecordingsLine({
     <AriaButton
       aria-expanded={expanded}
       onPress={onToggle}
-      className={`t-body text-secondary -mx-3 flex min-h-(--target) w-[calc(100%+1.5rem)] items-center gap-3 rounded-(--radius-row) px-3 text-start ${ROW_PRESS}`}
+      className={`t-body text-secondary -mx-3 flex min-h-(--target) w-[calc(100%+1.5rem)] items-center gap-3 rounded-(--radius) px-3 text-start ${ROW_PRESS}`}
     >
       <span className="flex w-7 shrink-0 items-center">
         <ChevronDown

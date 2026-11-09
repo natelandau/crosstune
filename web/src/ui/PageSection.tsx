@@ -1,7 +1,7 @@
 import { ChevronRight, Plus, type LucideIcon } from 'lucide-react'
 import { useId, type ReactNode } from 'react'
 import { Button as AriaButton } from 'react-aria-components'
-import { Button } from './Button'
+import { IconButton } from './IconButton'
 import { TINT_HOVER } from './press'
 import { InSectionHeading } from './sectionHeading'
 import { HeadingLevelContext } from './headingLevel'
@@ -43,7 +43,7 @@ export function PageSection({
             <AriaButton
               aria-expanded={open}
               onPress={() => onOpenChange?.(!open)}
-              className={`-mx-2 flex min-h-(--target) items-center gap-1 rounded-(--radius-row) px-2 ${TINT_HOVER}`}
+              className={`-mx-2 flex min-h-(--target) items-center gap-1 rounded-(--radius) px-2 ${TINT_HOVER}`}
             >
               {title}
               <ChevronRight
@@ -57,9 +57,7 @@ export function PageSection({
         </h2>
         <InSectionHeading.Provider value={true}>
           {add ??
-            (addLabel && onAdd && (
-              <Button variant="plain" icon={addIcon} label={addLabel} iconOnly onPress={onAdd} />
-            ))}
+            (addLabel && onAdd && <IconButton icon={addIcon} label={addLabel} onPress={onAdd} />)}
         </InSectionHeading.Provider>
       </div>
       {children && (!disclosure || open) && (

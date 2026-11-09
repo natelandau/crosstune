@@ -15,7 +15,7 @@ import {
 import { aspectRatio, useScanImage } from './scanImages'
 import { useScanPager } from './useScanPager'
 import type { ScanViewer } from './useScanViewer'
-import { Button } from '../../ui/Button'
+import { IconButton } from '../../ui/IconButton'
 
 /**
  * A tune's scans side by side, one to a page: swipe, scroll, or the arrow keys page between
@@ -77,26 +77,24 @@ export function ScanPages({
         data-scan-controls
         className="flex shrink-0 items-center justify-center gap-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]"
       >
-        <Button
+        <IconButton
           icon={ChevronLeft}
           label={PREVIOUS_SCAN}
-          iconOnly
           // aria-disabled rather than disabled: a disabled control cannot hold focus, so a
           // keyboard reaching the first scan would be dropped to the document.
           aria-disabled={shown === 0}
           onPress={() => go(shown - 1)}
         />
-        <Button
+        <IconButton
           icon={zoomed ? ZoomOut : ZoomIn}
           label={ZOOM}
-          iconOnly
-          aria-pressed={zoomed !== null}
-          onPress={() => toggleZoom(shown)}
+          variant="toggle"
+          isSelected={zoomed !== null}
+          onChange={() => toggleZoom(shown)}
         />
-        <Button
+        <IconButton
           icon={ChevronRight}
           label={NEXT_SCAN}
-          iconOnly
           aria-disabled={shown === scans.length - 1}
           onPress={() => go(shown + 1)}
         />

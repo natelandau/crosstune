@@ -28,7 +28,7 @@ import { useFrame } from '../../platform/frame'
 import { RootBar } from '../../layout/RootBar'
 import { MediaList, RecordingRow } from '../tune/MediaRow'
 import { tunePick } from '../tune/tunePick'
-import { Button } from '../../ui/Button'
+import { IconButton } from '../../ui/IconButton'
 import { FiltersBarButton } from '../../ui/FiltersBarButton'
 import { Capsule } from '../../ui/Capsule'
 import { useConfirm } from '../../ui/Confirm'
@@ -322,10 +322,9 @@ function UploadControl({
   const picker = useRef<HTMLInputElement>(null)
   return (
     <>
-      <Button
+      <IconButton
         icon={Upload}
         label={UPLOAD_AUDIO}
-        iconOnly
         onPress={() => (onHeld ? onHeld() : picker.current?.click())}
       />
       {/* The native picker cannot be styled, so it hides behind the button, out of the tab

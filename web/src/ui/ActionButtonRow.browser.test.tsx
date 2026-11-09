@@ -24,8 +24,8 @@ const row = () => (
   <div className="px-4">
     <ActionButtonRow tight>
       <Button variant="primary" icon={Play} solidIcon label="Play" fullWidth />
-      <Button variant="tinted" icon={Gauge} label="Practice" fullWidth />
-      <Button variant="tinted" icon={TextQuote} label="Lyrics" fullWidth />
+      <Button variant="secondary" icon={Gauge} label="Practice" fullWidth />
+      <Button variant="secondary" icon={TextQuote} label="Lyrics" fullWidth />
     </ActionButtonRow>
   </div>
 )

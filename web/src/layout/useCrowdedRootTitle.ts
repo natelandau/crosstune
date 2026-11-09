@@ -2,6 +2,16 @@ import { useLayoutEffect, useState, type RefObject } from 'react'
 import { useLatest } from '../ui/useLatest'
 
 /**
+ * One icon button and the gap before it, as the bar spaces its buttons. The row's last control,
+ * the account button, is one icon button wide.
+ */
+function buttonSlot(row: HTMLElement): number {
+  const controls = row.querySelectorAll('button, a')
+  const button = controls[controls.length - 1]?.getBoundingClientRect().width ?? 0
+  return button + parseFloat(getComputedStyle(row).gap)
+}
+
+/**
  * Whether the phone row's title would truncate with one more icon button among its buttons. A
  * screen moves a button into its More menu while this holds. It measures against the room the
  * title would have with the button back, so moving the button out never frees enough room to
@@ -25,13 +35,10 @@ export function useCrowdedRootTitle(
     const measure = () => {
       const row = lane.parentElement
       if (!row) return
-      const style = getComputedStyle(row)
-      // One icon button and the gap before it, as the bar spaces its buttons.
-      const slot = parseFloat(style.getPropertyValue('--target-control')) + parseFloat(style.gap)
       const head = title.parentElement!
       // The title at full width, with the badge beside it.
       const needed = head.scrollWidth - title.clientWidth + title.scrollWidth
-      const room = lane.clientWidth - (crowdedRef.current ? slot : 0)
+      const room = lane.clientWidth - (crowdedRef.current ? buttonSlot(row) : 0)
       setCrowded(needed > room)
     }
     measure()

@@ -78,7 +78,7 @@ it('opens silent and on the words, whatever the last reading left', async () => 
 it('writes edited words, trimmed, and leaves the editor once they land', async () => {
   const { result } = setup()
   act(() => result.current.setEditing(true))
-  act(() => result.current.save('  Uncle Joe, Uncle Joe  \n'))
+  act(() => void result.current.save('  Uncle Joe, Uncle Joe  \n'))
   await expect.poll(() => result.current.editing).toBe(false)
   await expect.poll(async () => (await db.tunes.get(tuneId))?.lyrics).toBe('Uncle Joe, Uncle Joe')
   await expect.poll(() => result.current.error).toBeNull()
@@ -87,7 +87,7 @@ it('writes edited words, trimmed, and leaves the editor once they land', async (
 it('clears the words when the editor is emptied', async () => {
   const { result } = setup()
   act(() => result.current.setEditing(true))
-  act(() => result.current.save('   '))
+  act(() => void result.current.save('   '))
   await expect.poll(() => result.current.editing).toBe(false)
   await expect.poll(async () => (await db.tunes.get(tuneId))?.lyrics).toBeNull()
 })

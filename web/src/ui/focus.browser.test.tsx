@@ -1,4 +1,4 @@
-import { Pencil } from 'lucide-react'
+import { LayoutGrid, Pencil, Settings } from 'lucide-react'
 import { useState } from 'react'
 import { page, userEvent } from 'vitest/browser'
 import { expect, it } from 'vitest'
@@ -6,7 +6,9 @@ import { renderWithProviders } from '../test/render'
 import { Button } from './Button'
 import { Row } from './Row'
 import { RowList } from './RowList'
+import { SegmentedChoice } from './SegmentedChoice'
 import { Sheet } from './Sheet'
+import { Tabs } from './Tabs'
 
 const outline = (element: Element) => getComputedStyle(element).outlineStyle
 
@@ -82,3 +84,42 @@ it.each(['touch', 'pointer'] as const)(
       .toBe(padding(header, 'Top'))
   },
 )
+
+it('rings a focused tab and segment with the shared ring', async () => {
+  renderWithProviders(
+    <>
+      <SegmentedChoice
+        label="Letters"
+        segments={[
+          { id: 'a', label: 'Alpha' },
+          { id: 'b', label: 'Beta' },
+        ]}
+        selected="a"
+        onChange={() => {}}
+      />
+      <Tabs
+        label="Sections"
+        tabs={[
+          { id: 'one', label: 'One', icon: LayoutGrid },
+          { id: 'two', label: 'Two', icon: Settings },
+        ]}
+        selected="one"
+        onChange={() => {}}
+      >
+        {() => null}
+      </Tabs>
+    </>,
+  )
+  const ring = (element: Element) => {
+    const style = getComputedStyle(element)
+    return [style.outlineStyle, style.outlineWidth, style.outlineOffset]
+  }
+  await userEvent.keyboard('{Tab}')
+  const segment = page.getByRole('radio', { name: 'Alpha' })
+  await expect.element(segment).toHaveFocus()
+  await expect.poll(() => ring(segment.element())).toEqual(['solid', '2px', '2px'])
+  await userEvent.keyboard('{Tab}')
+  const tab = page.getByRole('tab', { name: 'One' })
+  await expect.element(tab).toHaveFocus()
+  await expect.poll(() => ring(tab.element())).toEqual(['solid', '2px', '2px'])
+})

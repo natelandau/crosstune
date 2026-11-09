@@ -1,4 +1,5 @@
 import { useId } from 'react'
+// eslint-disable-next-line no-restricted-imports -- Record control, in the record color
 import { Button as AriaButton } from 'react-aria-components'
 import { RECORD_LABEL, RECORD_TEXT } from '../layout/tabs'
 import { useShellCovered } from '../ui/overlayClaim'
@@ -33,7 +34,7 @@ export function RecordControl({ shape }: { shape: 'circle' | 'capsule' }) {
         className={`group ${
           circle
             ? `bg-surface border-default not-disabled:hover:bg-field inline-flex size-[62px] items-center justify-center rounded-full border ${PRESS}`
-            : `t-body bg-field text-primary not-disabled:hover:bg-field-hover flex min-h-(--target-control) w-full items-center justify-center gap-2 rounded-(--radius-capsule) px-4 disabled:opacity-60 ${PRESS}`
+            : `t-body bg-field text-primary not-disabled:hover:bg-field-hover flex min-h-(--size-regular) w-full items-center justify-center gap-2 rounded-(--radius-capsule) px-4 disabled:opacity-60 ${PRESS}`
         }`}
       >
         <span

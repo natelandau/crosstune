@@ -204,7 +204,7 @@ async function mount({
 }
 
 const mode = (name: string) =>
-  page.getByRole('radiogroup', { name: MODES_LABEL }).getByRole('radio', {
+  page.getByRole('tablist', { name: MODES_LABEL }).getByRole('tab', {
     name: new RegExp(`^${name}`),
   })
 
@@ -222,9 +222,9 @@ it("shows an unloaded recording's waveform without changing playback", async () 
 it('sets speed on an unloaded recording without touching the engine', async () => {
   const { db, engine, element, view } = await mount()
   await mode(SPEED).click()
-  const preset = page.getByRole('button', { name: SPEED_BADGE(75), exact: true })
+  const preset = page.getByRole('radio', { name: SPEED_BADGE(75), exact: true })
   await preset.click()
-  await expect.element(preset).toHaveAttribute('aria-pressed', 'true')
+  await expect.element(preset).toHaveAttribute('aria-checked', 'true')
   // Leaving writes the speed still settling at once.
   view.unmount()
   await expect.poll(async () => (await db.recordings.get('B'))?.speed_percent).toBe(75)

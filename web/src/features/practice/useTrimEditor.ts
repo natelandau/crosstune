@@ -14,6 +14,7 @@ import { useDb } from '../../db/DbProvider'
 import type { ConfirmQuestion } from '../../ui/confirmQuestion'
 import { isControl, isTextEntry } from '../../ui/keyTarget'
 import { useLatest } from '../../ui/useLatest'
+import type { TrackWork } from '../../ui/useWorking'
 import { TICK_MS, type PlaybackEngine } from '../player/playbackEngine'
 import { useEngineState } from '../player/PlaybackEngineProvider'
 import { usePlayheadClock, type FrameSource, type Moving } from '../player/playheadClock'
@@ -90,8 +91,8 @@ export interface TrimEditor {
   zoom: (direction: 'in' | 'out') => void
   canZoomIn: boolean
   canZoomOut: boolean
-  /** Asks first, then writes the trim. */
-  save: () => Promise<void>
+  /** Asks first, then writes the trim, handing the write to `track`. */
+  save: (track?: TrackWork) => Promise<void>
   saving: boolean
   error: string | null
   /** The detail waveform's box, which pinches and ctrl-scrolls zoom. */
@@ -239,7 +240,7 @@ export function useTrimEditor({
     },
   )
 
-  const save = () =>
+  const save = (track?: TrackWork) =>
     confirmAndWrite(
       {
         title: TRIM_CONFIRM_TITLE(trim.end - trim.start),
@@ -251,6 +252,7 @@ export function useTrimEditor({
         analytics.send('recording_trimmed', { recording_id: recording.id })
         onDone()
       },
+      track,
     )
 
   return {

@@ -1,10 +1,10 @@
 import { Plus } from 'lucide-react'
-import { Button as AriaButton } from 'react-aria-components'
 import { MODES, TUNE_LIMITS, type Instrument } from '../../api/vocabulary'
 import { CAPO_FRETS, CAPO_INSTRUMENTS, INSTRUMENT_LABELS, TUNINGS } from '../../constants'
 import { capoLabel, NO_CAPO, tuningLabel } from '../../domain/instruments'
 import { NOT_SET } from '../../ui/fieldCopy'
-import { FIELD_ROW_PRESSABLE } from '../../ui/form/FieldRow'
+import { Button } from '../../ui/Button'
+import { TEXT_BUTTON_ROW } from '../../ui/form/FieldRow'
 import { Picker } from '../../ui/form/Picker'
 import { asOptions } from '../../ui/form/pickerOptions'
 import { SuggestField } from '../../ui/form/SuggestField'
@@ -37,10 +37,9 @@ export function ModeRows({
         />
       ))}
       {canAddPartMode(modes) && (
-        <AriaButton onPress={onAdd} className={`${FIELD_ROW_PRESSABLE} text-primary font-medium`}>
-          <Plus className="size-5 shrink-0" aria-hidden />
-          {ADD_PART_MODE}
-        </AriaButton>
+        <div className={TEXT_BUTTON_ROW}>
+          <Button variant="text" icon={Plus} label={ADD_PART_MODE} onPress={onAdd} />
+        </div>
       )}
     </>
   )

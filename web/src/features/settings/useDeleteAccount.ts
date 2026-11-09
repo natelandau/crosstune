@@ -7,6 +7,7 @@ import { usePlanOrUnknown } from '../../billing/usePlan'
 import { useDb } from '../../db/DbProvider'
 import { useSyncEngine } from '../../sync/SyncProvider'
 import { useAction } from '../../ui/useAction'
+import { untracked, type TrackWork } from '../../ui/useWorking'
 import { useResetOnChange } from '../../ui/useResetOnChange'
 import { useAnalytics } from '../../usage/AnalyticsProvider'
 import { APP_STORE_SUBSCRIPTIONS_URL } from '../plan/planCopy'
@@ -76,9 +77,10 @@ export interface DeleteAccount {
   /**
    * Does nothing until the confirmation text matches and the counts and Apple's script have
    * settled. Cancelling Apple's popup stops the delete; any other Apple failure deletes without
-   * revoking, so an account can always be deleted.
+   * revoking, so an account can always be deleted. The delete goes to `track` after Apple's
+   * answer.
    */
-  run: () => void
+  run: (track?: TrackWork) => void
   error: string | null
   pending: boolean
   /** True once the sheet should close: after Cancel, or after the account is gone. */
@@ -99,7 +101,7 @@ export function useDeleteAccount(open: boolean): DeleteAccount {
   const analytics = useAnalytics()
   const { paidSources } = usePlanOrUnknown()
   const subscriptions = paidSources.map((source) => SUBSCRIPTIONS[source])
-  const { error, pending, runThen, clear } = useAction()
+  const { error, pending, attempt, clear } = useAction()
   const [text, setText] = useState('')
   const [closing, setClosing] = useState(false)
   // Set once the account is deleted or the sheet is closed. Read by `close`, which a second
@@ -145,29 +147,31 @@ export function useDeleteAccount(open: boolean): DeleteAccount {
 
   const confirmed = confirmMatches(text)
 
-  const run = () => {
+  const run = (track: TrackWork = untracked) => {
     if (!confirmed || pending || loading || !appleReady) return
     const confirmation = asksApple ? startAppleConfirmation(appleAuth ?? null) : null
     let cancelled = false
-    runThen(
+    void attempt(
       async () => {
         const answer = await confirmation
         if (answer === 'cancelled') {
           cancelled = true
           return
         }
-        await deleteAccountAndForget({
-          db,
-          userId,
-          engine,
-          signOut: () => signOut(),
-          analytics,
-          appleAuthorizationCode: typeof answer === 'object' && answer ? answer.code : undefined,
-        }).catch((cause: unknown) => {
-          throw new Error(deleteOutcomeUnknown(cause) ? DELETE_UNCONFIRMED : DELETE_FAILED, {
-            cause,
-          })
-        })
+        await track(
+          deleteAccountAndForget({
+            db,
+            userId,
+            engine,
+            signOut: () => signOut(),
+            analytics,
+            appleAuthorizationCode: typeof answer === 'object' && answer ? answer.code : undefined,
+          }).catch((cause: unknown) => {
+            throw new Error(deleteOutcomeUnknown(cause) ? DELETE_UNCONFIRMED : DELETE_FAILED, {
+              cause,
+            })
+          }),
+        )
       },
       () => {
         if (cancelled) return

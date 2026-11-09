@@ -37,6 +37,8 @@ export interface AttributeEditorFrame {
   gone?: boolean
   /** Opens as a sheet on every frame, for an editor too large for a popover. */
   forceSheet?: boolean
+  /** A touch sheet's height, part height when left out; full for a form taller than half the screen. */
+  sheetHeight?: SheetProps['height']
   /**
    * Adds a Cancel button beside Done, for an editor that stages several picks. It acts as
    * Escape does: back out of a step, else close with nothing saved. Sheet only.
@@ -45,9 +47,11 @@ export interface AttributeEditorFrame {
   /**
    * A step of its own the body shows: a Back control in the sheet's header, and `title` in
    * place of `label`. Escape goes back while it is set, and the edit goes on. `height` sets a
-   * touch sheet's height while the step shows, part height when left out.
+   * touch sheet's height while the step shows, `sheetHeight` when left out.
    */
   step?: { title?: string; back: () => void; height?: SheetProps['height'] }
+  /** Runs once the surface has finished closing and left the page. */
+  onClosed?: () => void
   /** The body, which reads its `AttributeEdit` from `useAttributeEdit`. */
   children: ReactNode
 }
@@ -111,8 +115,8 @@ const isTextEntry = (target: EventTarget): boolean =>
   target instanceof HTMLInputElement && ['text', 'search', ''].includes(target.type)
 
 /**
- * The surface an in-place attribute editor opens in: a part-height sheet on the phone frame or
- * when forced, a popover at its row elsewhere. Every way the edit ends saves the draft, so typed
+ * The surface an in-place attribute editor opens in: a sheet on the phone frame or when forced,
+ * part height unless the editor asks for more, a popover at its row elsewhere. Every way the edit ends saves the draft, so typed
  * text survives Enter, a tap outside, Done, a swipe down, or the editor going away with the
  * page; only Escape, and Cancel where shown, discards it.
  */
@@ -124,8 +128,10 @@ export function AttributeEditor<P extends object>(props: AttributeEditorProps<P>
     onOpenChange,
     gone = false,
     forceSheet = false,
+    sheetHeight = 'part',
     cancelable = false,
     step,
+    onClosed,
     children,
   } = props
   const frame = useFrame()
@@ -239,16 +245,23 @@ export function AttributeEditor<P extends object>(props: AttributeEditorProps<P>
         onOpenChange={change}
         title={step?.title ?? label}
         onBack={step?.back}
-        height={step?.height ?? 'part'}
+        height={step?.height ?? sheetHeight}
         primary={{ label: DONE, onPress: () => change(false) }}
         cancel={cancelable ? { label: CANCEL, onPress: () => cancel.current() } : null}
+        onClosed={onClosed}
       >
         {content}
       </Sheet>
     )
   }
   return (
-    <PopoverDialog label={label} triggerRef={triggerRef} isOpen={open} onOpenChange={change}>
+    <PopoverDialog
+      label={label}
+      triggerRef={triggerRef}
+      isOpen={open}
+      onOpenChange={change}
+      onClosed={onClosed}
+    >
       {content}
     </PopoverDialog>
   )

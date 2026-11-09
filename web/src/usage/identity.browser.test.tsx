@@ -295,7 +295,7 @@ describe('the delete sheet', () => {
     rerender({ open: true })
     await expect.poll(() => result.current.loading).toBe(false)
     act(() => result.current.setText(DELETE_CONFIRMATION_TEXT))
-    act(() => result.current.run())
+    act(() => void result.current.run())
     await expect.poll(() => result.current.closing).toBe(true)
     act(() => result.current.close())
     expect(types(analytics)).toEqual(['account_deletion_started', 'reset', 'account_deleted'])

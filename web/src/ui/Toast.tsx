@@ -231,14 +231,14 @@ export function ToastProvider({
               onBlur={(event) => {
                 if (!event.currentTarget.contains(event.relatedTarget)) hold('focus', false)
               }}
-              className={`bg-page text-primary t-body pointer-events-auto flex max-w-full items-center gap-3 rounded-(--radius-surface) py-2 ps-4 pe-2 shadow-(--shadow-float) ${
+              className={`bg-page text-primary t-body pointer-events-auto flex max-w-full items-center gap-3 rounded-(--radius) py-2 ps-4 pe-2 shadow-(--shadow-float) ${
                 reduceMotion
                   ? ''
                   : 'transition-[opacity,translate] duration-(--dur-base) ease-(--ease) data-[leaving]:opacity-0 starting:translate-y-4 starting:opacity-0'
               }`}
             >
               <span>{toast.message}</span>
-              {toast.undo && <Button variant="plain" label={UNDO} onPress={undo} />}
+              {toast.undo && <Button variant="text" label={UNDO} onPress={undo} />}
             </div>
           )}
         </div>,

@@ -3,7 +3,7 @@ import { useContext, useEffect, useId, useState, type ReactNode } from 'react'
 import { Button as AriaButton, GridListItem, type Key } from 'react-aria-components'
 import { useStampedDensity } from '../platform/density'
 import { useLatest } from './useLatest'
-import { Button, type ButtonVariant } from './Button'
+import { IconButton, type IconButtonVariant } from './IconButton'
 import { MenuAtPoint } from './Menu'
 import { ReorderContext } from './reorder'
 import { RowSwipe } from './RowSwipe'
@@ -30,9 +30,9 @@ const FOCUS_RESTORE_EVENT = 'react-aria-focus-scope-restore'
 
 const ACTION_VARIANT = {
   neutral: 'plain',
-  warning: 'warning',
+  warning: 'destructive',
   danger: 'destructive',
-} as const satisfies Record<NonNullable<RowAction['tone']>, ButtonVariant>
+} as const satisfies Record<NonNullable<RowAction['tone']>, IconButtonVariant>
 
 /**
  * A list row. Pointer actions lie over the trailing edge, transparent until hover or focus
@@ -212,7 +212,7 @@ export function Row({
       data-current={current || undefined}
       data-new={fresh || undefined}
       data-dimmed={dimmed || undefined}
-      className={`group relative flex min-h-(--target) cursor-default items-center rounded-(--radius-row) transition-[box-shadow,background-color] duration-(--dur-short) ease-(--ease) data-[lifted]:shadow-(--shadow-float) data-[reordering]:z-10 ${
+      className={`group relative flex min-h-(--target) cursor-default items-center rounded-(--radius) transition-[box-shadow,background-color] duration-(--dur-short) ease-(--ease) data-[lifted]:shadow-(--shadow-float) data-[reordering]:z-10 ${
         touch
           ? 'overflow-hidden'
           : `data-[selected]:bg-tint data-[current]:bg-tint data-[pressed]:bg-tint! data-[reordering]:bg-page! gap-3 px-3 py-0 data-[current]:[--row-tint:var(--tint)] data-[pressed]:[--row-tint:var(--tint)] data-[reordering]:bg-[linear-gradient(var(--row-tint),var(--row-tint))] data-[selected]:[--row-tint:var(--tint)] ${playing ? 'bg-(--tint-subtle) [--row-tint:var(--tint-subtle)]' : 'not-data-[selected]:not-data-[current]:hover:bg-tint-subtle [--row-tint:transparent] not-data-[selected]:not-data-[current]:hover:[--row-tint:var(--tint-subtle)]'}`
@@ -241,13 +241,12 @@ export function Row({
                 <div className="pointer-events-none absolute inset-y-0 end-full flex items-center gap-1 bg-[linear-gradient(to_right,transparent,var(--row-tint)_1.5rem),linear-gradient(to_right,transparent,var(--page-background)_1.5rem)] ps-8 pe-2 opacity-0 transition-opacity duration-(--dur-short) ease-(--ease) *:pointer-events-auto group-hover:opacity-100 focus-within:opacity-100">
                   {actions.map(
                     ({ id: actionId, label, icon, tone = 'neutral', disabled, onAction }) => (
-                      <Button
+                      <IconButton
                         key={actionId}
                         variant={ACTION_VARIANT[tone]}
                         icon={icon}
                         label={label}
                         description={disabled}
-                        iconOnly
                         // aria-disabled rather than disabled, so the tooltip with the reason
                         // still shows on hover.
                         aria-disabled={disabled !== undefined || undefined}

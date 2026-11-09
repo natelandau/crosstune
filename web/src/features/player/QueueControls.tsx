@@ -4,8 +4,7 @@ import type { RepeatMode } from './listQueue'
 import { NEXT_TUNE, PREVIOUS_TUNE, REPEAT_LIST, REPEAT_OFF, REPEAT_TUNE } from './playerCopy'
 import { useListPlayback } from './useListPlayback'
 import { isPlaying, usePlayer } from './usePlayer'
-import { PracticeButton } from '../practice/PracticeButton'
-import { Button } from '../../ui/Button'
+import { IconButton } from '../../ui/IconButton'
 
 const REPEAT_NAME: Record<RepeatMode, string> = {
   off: REPEAT_OFF,
@@ -25,9 +24,9 @@ interface Control {
 }
 
 /**
- * Shuffle, Previous tune, Next tune, and Repeat for the list that plays: in a bar, the dock or
- * the Details tab's play bar, or in practice's transport. Nothing shows while no list plays or
- * one has stopped, nor on a recording's page while the player holds another item.
+ * Shuffle, Previous tune, Next tune, and Repeat for the list that plays: in the dock's bar or
+ * practice's transport. Nothing shows while no list plays or one has stopped, nor on a
+ * recording's page while the player holds another item.
  */
 export function QueueControls({
   tone,
@@ -74,30 +73,19 @@ function ListControls({ tone }: { tone: Tone }) {
         tone === 'bar' ? 'flex shrink-0 items-center' : 'flex items-center justify-center gap-6'
       }
     >
-      {controls.map(({ id, icon, label, pressed, onPress }) =>
-        tone === 'bar' ? (
-          <Button
-            key={id}
-            icon={icon}
-            label={label}
-            iconOnly
-            // A toggle that is on takes the fill, so on and off read apart at a glance.
-            variant={pressed ? 'tinted' : 'plain'}
-            aria-pressed={pressed}
-            onPress={onPress}
-          />
-        ) : (
-          <PracticeButton
-            key={id}
-            data-focus-key={id}
-            icon={icon}
-            label={label}
-            iconClassName={`size-6 ${pressed === false ? 'text-secondary' : ''}`}
-            aria-pressed={pressed}
-            onPress={onPress}
-          />
-        ),
-      )}
+      {controls.map(({ id, icon, label, pressed, onPress }) => (
+        <IconButton
+          key={id}
+          data-focus-key={tone === 'practice' ? id : undefined}
+          icon={icon}
+          label={label}
+          size={tone === 'practice' ? 'large44' : undefined}
+          variant={pressed === undefined ? 'plain' : 'toggle'}
+          isSelected={pressed}
+          onChange={pressed === undefined ? undefined : () => onPress()}
+          onPress={pressed === undefined ? onPress : undefined}
+        />
+      ))}
     </div>
   )
 }

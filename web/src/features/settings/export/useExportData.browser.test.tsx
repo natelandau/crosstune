@@ -64,7 +64,7 @@ describe('useExportData', () => {
   it('downloads the export and closes', async () => {
     vi.mocked(createExport).mockResolvedValue(ZIP)
     const { result } = setup()
-    act(() => result.current.run())
+    act(() => void result.current.run())
     await expect.poll(() => result.current.closing).toBe(true)
     expect(downloadBlob).toHaveBeenCalledExactlyOnceWith(ZIP.blob, ZIP.fileName)
     expect(result.current.error).toBeNull()
@@ -73,7 +73,7 @@ describe('useExportData', () => {
   it('never downloads an export that finishes after Cancel', async () => {
     const held = heldExport()
     const { result } = setup()
-    act(() => result.current.run())
+    act(() => void result.current.run())
     expect(result.current.pending).toBe(true)
     act(() => result.current.close())
     await act(async () => held.finish(ZIP))
@@ -85,7 +85,7 @@ describe('useExportData', () => {
   it('says nothing went wrong when Cancel aborts the export', async () => {
     const held = heldExport()
     const { result } = setup()
-    act(() => result.current.run())
+    act(() => void result.current.run())
     act(() => result.current.close())
     await act(async () => held.fail(new DOMException('Aborted', 'AbortError')))
     await expect.poll(() => result.current.pending).toBe(false)
@@ -95,7 +95,7 @@ describe('useExportData', () => {
   it('reports a failed export and stays open', async () => {
     vi.mocked(createExport).mockRejectedValue(new Error('disk full'))
     const { result } = setup()
-    act(() => result.current.run())
+    act(() => void result.current.run())
     await expect.poll(() => result.current.error).not.toBeNull()
     expect(result.current.closing).toBe(false)
     expect(downloadBlob).not.toHaveBeenCalled()
@@ -104,7 +104,7 @@ describe('useExportData', () => {
   it('export_completed', async () => {
     vi.mocked(createExport).mockResolvedValue(ZIP)
     const { result, analytics } = setup()
-    act(() => result.current.run())
+    act(() => void result.current.run())
     await expect.poll(() => result.current.closing).toBe(true)
     expect(analytics.sends()).toEqual([{ name: 'export_completed', props: { format: 'zip' } }])
   })
@@ -112,14 +112,14 @@ describe('useExportData', () => {
   it('export_failed with other, and storage_full on QuotaExceededError', async () => {
     vi.mocked(createExport).mockRejectedValueOnce(new Error('boom'))
     const { result, analytics } = setup()
-    act(() => result.current.run())
+    act(() => void result.current.run())
     await expect.poll(() => result.current.error).not.toBeNull()
     expect(analytics.sends()).toEqual([
       { name: 'export_failed', props: { format: 'zip', failure_reason: 'other' } },
     ])
 
     vi.mocked(createExport).mockRejectedValueOnce(new DOMException('full', 'QuotaExceededError'))
-    act(() => result.current.run())
+    act(() => void result.current.run())
     await expect.poll(() => analytics.sends().length).toBe(2)
     expect(analytics.sends()[1]).toEqual({
       name: 'export_failed',
@@ -133,7 +133,7 @@ describe('useExportData', () => {
     const fetched = new Blob(['a'])
     const fetchFile = vi.fn(async () => fetched)
     const { result } = setup(recordingAnalytics(), fakeEngine({ fetchFile }))
-    act(() => result.current.run())
+    act(() => void result.current.run())
     await expect.poll(() => result.current.closing).toBe(true)
     const { fetchMissing } = vi.mocked(createExport).mock.calls[0]![2]
     await expect(fetchMissing('scan', 'p1')).resolves.toBe(fetched)
@@ -145,7 +145,7 @@ describe('useExportData', () => {
     await db.recordings.put(recordingRow('r1'))
     const { result } = setup()
     await expect.poll(() => result.current.note).toBe(exportNeedsConnection(1))
-    act(() => result.current.run())
+    act(() => void result.current.run())
     expect(result.current.pending).toBe(false)
     expect(createExport).not.toHaveBeenCalled()
   })
@@ -155,14 +155,14 @@ describe('useExportData', () => {
     vi.mocked(createExport).mockResolvedValue(ZIP)
     const { result } = setup()
     await expect.poll(() => result.current.note).toBe(EXPORT_COMPLETE_NOTE)
-    act(() => result.current.run())
+    act(() => void result.current.run())
     await expect.poll(() => result.current.closing).toBe(true)
   })
 
   it('reports nothing for an export abandoned with Cancel', async () => {
     const held = heldExport()
     const { result, analytics } = setup()
-    act(() => result.current.run())
+    act(() => void result.current.run())
     act(() => result.current.close())
     await act(async () => held.fail(new DOMException('Aborted', 'AbortError')))
     await expect.poll(() => result.current.pending).toBe(false)

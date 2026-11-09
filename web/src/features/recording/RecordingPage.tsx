@@ -1,4 +1,4 @@
-import { Ellipsis } from 'lucide-react'
+import { Ellipsis, Info, Play } from 'lucide-react'
 import {
   useEffect,
   useLayoutEffect,
@@ -9,7 +9,7 @@ import {
   type RefObject,
 } from 'react'
 import { createPortal } from 'react-dom'
-import { Dialog, Tab, TabList, TabPanel, Tabs } from 'react-aria-components'
+import { Dialog } from 'react-aria-components'
 import { useLocation, useNavigate } from 'react-router'
 import { useRecordingsPlayable } from '../../billing/usePlan'
 import { useLeaveTo, useLeaveWhenMissing } from '../../layout/backHistory'
@@ -21,10 +21,11 @@ import { useFrame } from '../../platform/frame'
 import { useWakeLock } from '../../platform/wakeLock'
 import { attributesLayout } from '../../ui/attributes/attributesLayout'
 import { Button } from '../../ui/Button'
+import { IconButton } from '../../ui/IconButton'
 import { useConfirm } from '../../ui/Confirm'
 import { ErrorLine } from '../../ui/ErrorLine'
 import { Menu } from '../../ui/Menu'
-import { SEGMENT, SEGMENTED_TRACK } from '../../ui/segmentedTrack'
+import { Tabs } from '../../ui/Tabs'
 import { MORE_ACTIONS } from '../../ui/menuCopy'
 import { isOverlayOpen, useOverlayClaim, useOverlayOpen } from '../../ui/overlayClaim'
 import { menuEntries } from '../../ui/sharedActions'
@@ -58,7 +59,6 @@ import { useRecordingActionsWith } from '../recordings/useRecordingActionsWith'
 import type { RecordingView } from '../recordings/useRecordings'
 import { useUploadLimits } from '../recordings/useUploadLimits'
 import { useUserTune } from '../tune/useUserTune'
-import { PlayBar } from './PlayBar'
 import { DETAILS, PRACTICE } from './recordingPageCopy'
 import { RecordingAttributes } from './recordingEditors'
 import { entryOf, reportedEntry } from './recordingPageState'
@@ -109,9 +109,8 @@ export function RecordingPage({
   const [keyScope] = useState<PracticeKeyScope>(() => ({ root, outside: [attributes] }))
   // Every page opens on Practice. Nothing carries the tab from one page to the next.
   const [tab, chooseTab] = useState<RecordingPageTab>('practice')
-  const shownTab = recordingsPlay ? tab : 'details'
   const editing = shows !== 'main'
-  const practiceShown = !editing && (wide || shownTab === 'practice')
+  const practiceShown = !editing && (wide || tab === 'practice')
   const practiceShownRef = useLatest(practiceShown)
   // Practice renders into one node that each layout's slot holds, so a tab switch or the fold
   // moves it rather than remounting it, and its zoom and selected loop hold.
@@ -126,7 +125,7 @@ export function RecordingPage({
   useOpenedReport({
     recordingId,
     source,
-    layout: wide ? 'wide' : shownTab,
+    layout: wide ? 'wide' : tab,
     ready: measured && view !== null && opening.reported !== true,
     // The entry keeps who opened it and from where, so Back and reload onto it neither report
     // it again nor reopen the tab this open asked for.
@@ -200,7 +199,7 @@ export function RecordingPage({
   const fills = (practiceShown || editing) && paneHeight > 0
   const fillHeight = `calc(${paneHeight}px - var(--float-clearance))`
   const error = actions.error ?? state.error
-  // Why practice and the play bar cannot play the recording yet, a plan that plays none first.
+  // Why practice cannot play the recording yet, a plan that plays none first.
   const blocked = view
     ? practiceDisabledReason(view.recording, view.file, state.audio, recordingsPlay)
     : undefined
@@ -224,11 +223,10 @@ export function RecordingPage({
               <Menu
                 label={MORE_ACTIONS}
                 trigger={
-                  <Button
+                  <IconButton
                     ref={moreRef}
                     icon={Ellipsis}
                     label={MORE_ACTIONS}
-                    iconOnly
                     isDisabled={!view}
                   />
                 }
@@ -249,30 +247,31 @@ export function RecordingPage({
               </div>
             ) : (
               <Tabs
-                selectedKey={shownTab}
-                onSelectionChange={(key) => chooseTab(key === 'practice' ? 'practice' : 'details')}
-                disabledKeys={recordingsPlay ? [] : ['practice']}
+                label={state.title}
+                tabs={[
+                  { id: 'practice', label: PRACTICE, icon: Play },
+                  { id: 'details', label: DETAILS, icon: Info },
+                ]}
+                selected={tab}
+                onChange={chooseTab}
+                container="page"
                 className={fills ? 'flex min-h-0 flex-1 flex-col' : undefined}
+                panelClassName={(id) =>
+                  id === 'details'
+                    ? 'flex flex-col gap-6 px-4 pb-12'
+                    : 'flex min-h-0 flex-1 flex-col'
+                }
               >
-                <TabList aria-label={state.title} className={`${SEGMENTED_TRACK} mx-4 mb-3`}>
-                  <PageTab id="practice">{PRACTICE}</PageTab>
-                  <PageTab id="details">{DETAILS}</PageTab>
-                </TabList>
-                <TabPanel id="details" className="flex flex-col gap-6 px-4 pb-12">
-                  <ErrorLine error={error} place="inline" />
-                  <PlayBar
-                    engine={recordingEngine.engine}
-                    title={state.title}
-                    lengthMs={state.rowLengthMs}
-                    blocked={blocked}
-                    playable={recordingsPlay}
-                    recordingId={recordingId}
-                  />
-                  <RecordingAttributes view={view} location={state.location} layout="card" />
-                </TabPanel>
-                <TabPanel id="practice" className="flex min-h-0 flex-1 flex-col">
-                  <PracticeSlot host={practiceHost} />
-                </TabPanel>
+                {(id) =>
+                  id === 'details' ? (
+                    <>
+                      <ErrorLine error={error} place="inline" />
+                      <RecordingAttributes view={view} location={state.location} layout="card" />
+                    </>
+                  ) : (
+                    <PracticeSlot host={practiceHost} />
+                  )
+                }
               </Tabs>
             ))}
         </>
@@ -289,6 +288,7 @@ export function RecordingPage({
             blocked={blocked}
             recordingsPlay={recordingsPlay}
             keyScope={keyScope}
+            modeLayout={wide ? 'toolbar' : 'tabs'}
             shownRef={practiceShownRef}
           />,
           practiceHost,
@@ -308,17 +308,6 @@ function PracticeSlot({ host }: { host: HTMLElement }) {
 }
 
 type RecordingPageTab = 'details' | 'practice'
-
-function PageTab({ id, children }: { id: RecordingPageTab; children: ReactNode }) {
-  return (
-    <Tab
-      id={id}
-      className={`t-body ${SEGMENT} flex min-h-(--target-control) flex-1 cursor-default items-center justify-center rounded-(--radius-capsule) px-3 outline-none data-[disabled]:opacity-50 data-[focus-visible]:outline-2 data-[focus-visible]:outline-(--accent)`}
-    >
-      {children}
-    </Tab>
-  )
-}
 
 /** Back, the recording's title over when it was recorded and how long it plays, and More. */
 function PageHeader({
@@ -366,6 +355,7 @@ function PracticeArea({
   blocked,
   recordingsPlay,
   keyScope,
+  modeLayout,
   shownRef,
 }: {
   state: RecordingPageView
@@ -373,6 +363,7 @@ function PracticeArea({
   error: string | null
   engine: ReturnType<typeof useRecordingEngine>
   keyScope: PracticeKeyScope
+  modeLayout: 'tabs' | 'toolbar'
   /** Whether practice shows now; hidden behind Details it hears no keys. */
   shownRef: RefObject<boolean>
   /** Why practice cannot play the recording yet. */
@@ -413,6 +404,7 @@ function PracticeArea({
         savedFocus={NO_SAVED_FOCUS}
         isTop={isTop}
         keyScope={keyScope}
+        modeLayout={modeLayout}
         onError={state.setError}
       />
     </div>

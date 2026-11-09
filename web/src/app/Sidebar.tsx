@@ -1,6 +1,7 @@
 import { Plus } from 'lucide-react'
 import { useId } from 'react'
 import { Link, useLocation } from 'react-router'
+// eslint-disable-next-line no-restricted-imports -- Navigation rows
 import { Button as AriaButton } from 'react-aria-components'
 import type { TuneStatus } from '../api/vocabulary'
 import { useCatalogFilters } from '../features/catalog/useCatalogFilters'
@@ -9,7 +10,7 @@ import { useActiveLists, useMembershipCounts } from '../features/lists/useLists'
 import { countTunes } from '../text/format'
 import { destination, type Destination } from '../layout/destinations'
 import { useDestination } from '../layout/useDestination'
-import { Button } from '../ui/Button'
+import { IconButton } from '../ui/IconButton'
 import { StatusGlyph } from '../ui/StatusGlyph'
 import { useListNameLauncher } from '../features/lists/listNameLauncher'
 import { DestinationLink } from '../layout/DestinationLink'
@@ -22,7 +23,7 @@ export const SIDEBAR = 'Sidebar'
 
 const STATUS_ROWS: TuneStatus[] = ['known', 'learning', 'want_to_learn']
 
-const ROW = `t-body flex min-h-(--target) w-full items-center gap-3 rounded-(--radius-row) px-3 text-start ${ROW_PRESS}`
+const ROW = `t-body flex min-h-(--target) w-full items-center gap-3 rounded-(--radius) px-3 text-start ${ROW_PRESS}`
 
 // A selected row keeps its tint under the pointer.
 const rowTone = (selected: boolean) => (selected ? 'bg-tint! text-primary' : 'text-primary')
@@ -114,7 +115,7 @@ export function Sidebar() {
   return (
     <nav
       aria-label={SIDEBAR}
-      className="bg-surface relative m-2 flex w-60 shrink-0 flex-col gap-4 overflow-y-auto rounded-(--radius-surface) p-3"
+      className="bg-surface relative m-2 flex w-60 shrink-0 flex-col gap-4 overflow-y-auto rounded-(--radius) p-3"
     >
       <div className="flex min-h-6 items-center px-3">
         <SyncBadge />
@@ -152,7 +153,7 @@ export function Sidebar() {
       </div>
       <section aria-labelledby={`${base}-lists`} className="flex flex-col gap-0.5">
         <div
-          className={`flex items-center justify-between rounded-(--radius-row) ps-3 ${listsSelected ? 'bg-tint' : ''}`}
+          className={`flex items-center justify-between rounded-(--radius) ps-3 ${listsSelected ? 'bg-tint' : ''}`}
         >
           <h2 id={`${base}-lists`} className="min-w-0 flex-1">
             <DestinationLink
@@ -164,7 +165,7 @@ export function Sidebar() {
               {destination('lists').label}
             </DestinationLink>
           </h2>
-          <Button iconOnly icon={Plus} label={NEW_LIST} onPress={listName.open} />
+          <IconButton icon={Plus} label={NEW_LIST} onPress={listName.open} />
         </div>
         {lists?.map((list) => {
           const selected = pathname.startsWith(`/lists/${list.id}`)

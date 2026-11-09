@@ -191,7 +191,7 @@ describe('useBulkActionsWith', () => {
     const { result, toast, onExit } = setup()
     act(() => result.current.setSheet('edit'))
     expect(result.current.sheet).toBe('edit')
-    act(() => result.current.edit.apply({ tune: { key: 'G' } }))
+    act(() => void result.current.edit.apply({ tune: { key: 'G' } }))
     await expect.poll(() => toast.mock.calls.length).toBe(1)
     expect(toast.mock.lastCall![0]).toBe(editedToast(3))
     await expect.poll(() => result.current.sheet).toBeNull()
@@ -244,7 +244,7 @@ describe('useBulkActionsWith', () => {
 
     it('reports an edit with the fields the patch writes', async () => {
       const { result, toast, analytics } = setup()
-      act(() => result.current.edit.apply({ tune: { key: 'G', modes: ['dorian'] } }))
+      act(() => void result.current.edit.apply({ tune: { key: 'G', modes: ['dorian'] } }))
       await expect.poll(() => toast.mock.calls.length).toBe(1)
       expect(analytics.sends()).toEqual([
         {

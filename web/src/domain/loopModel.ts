@@ -7,7 +7,6 @@ export const LOOP_COLOR_COUNT = 6
 /** Tie-break order for a new loop's color. Slot 0 is last: it is the blue closest to the accent hue. */
 export const LOOP_COLOR_ORDER: readonly number[] = [1, 2, 3, 4, 5, 0]
 const SNAP_PX = 8
-export const DRAG_THRESHOLD_PX = 8
 const NEW_LOOP_PAD_MS = 4000
 
 export type Span = { startMs: number; endMs: number }

@@ -11,9 +11,20 @@ that session needs.
   items", not "the catalog filters by key".
 - Less is more. Record a rule only when breaking it is likely and costly.
   Leave the rest to the agent's judgment.
+- A rule is a behavior every screen shares, so the app stays consistent
+  for its users: "every control comes from the shared library", "a
+  button that starts work shows a spinner, then a check". A decision made
+  for one feature or screen is documentation dressed as a rule. Cut it,
+  and let each screen decide its own case.
 - Never: a log of decisions or changes, what was tried, what a screen or
   module does, anything about one release (that goes in the pull
-  request), or a line that restates code or config.
+  request), a value such as a size, width, or duration, or a line that
+  restates what code, a token, a test, or a lint already enforces. Where
+  platforms differ, the code is the answer.
+- Gate every line before it stays: does it bind screens not built yet,
+  could a future change break it, and does nothing else enforce it? Any
+  "no" cuts the line. Framework gotchas are the one exception, in their
+  own section.
 - State what holds now. Why it changed belongs in the commit message.
 - Written for agents, not people: fragments, bullets, and tables in plain
   words. A reason only when it stops a future change from undoing the rule.

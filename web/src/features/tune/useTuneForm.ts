@@ -38,7 +38,8 @@ export interface TuneFormErrors {
   learned_on?: string
 }
 
-export type SaveStart = 'started' | 'invalid' | 'ignored'
+/** The save's work once it starts, or why it did not. */
+export type SaveStart = Promise<void> | 'invalid' | 'ignored'
 
 export interface TuneForm {
   /** False until the instruments and the edited tune have loaded; the form is then seeded. */
@@ -66,7 +67,10 @@ export interface TuneForm {
   errors: TuneFormErrors
   /** The last write's rejection. */
   error: string | null
-  /** Starts the save: 'invalid' when a field refuses it, 'ignored' while one is running. */
+  /**
+   * Starts the save and returns its work: 'invalid' when a field refuses it, 'ignored' while one
+   * is running.
+   */
   save: () => SaveStart
   /** Starts the form over from its tune, for a form that opens again without remounting. */
   reset: () => void
@@ -86,7 +90,7 @@ export function useTuneForm(options: UseTuneFormOptions): TuneForm {
   )
   const entry = catalog?.find((e) => e.tune.id === tuneId)
   const missing = entry === undefined && catalog !== undefined
-  const { error, pending, runThen, clear } = useAction()
+  const { error, pending, attempt, clear } = useAction()
 
   const [values, setValues] = useState<TuneFormValues>(emptyValues)
   const [tunings, setTunings] = useState<Instrument[]>([])
@@ -176,7 +180,7 @@ export function useTuneForm(options: UseTuneFormOptions): TuneForm {
     savingIn.current = opens
     setStartedIn(opens)
     setErrors({})
-    runThen(
+    return attempt(
       async () => {
         try {
           await updateTuneEntry(
@@ -194,7 +198,6 @@ export function useTuneForm(options: UseTuneFormOptions): TuneForm {
       },
       () => onSaved(entry.tune.id, { userTuneId: entry.userTune.id }),
     )
-    return 'started'
   }
 
   return {

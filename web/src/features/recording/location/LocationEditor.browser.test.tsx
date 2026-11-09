@@ -16,9 +16,12 @@ import { fakeMapKit, type FakeMapKitOptions } from '../../../test/fakeMapKit'
 import { dataProviders, fakeEngine } from '../../../test/providers'
 import { renderWithProviders } from '../../../test/render'
 import { placeRow, recordingRow } from '../../../test/rows'
+import { holdMotionClock, motionFrames } from '../../../test/motionClock'
 import { fillStill } from '../../../test/stillPoll'
 import { BACK, CANCEL, DONE } from '../../../ui/confirmCopy'
 import { SETTLE_MS } from '../../../ui/useSettled'
+import { WORKING } from '../../../ui/WorkingMark'
+import { WORKING_DELAY_MS } from '../../../ui/useWorking'
 import type { LocationPermission } from '../../../platform/locationPermission'
 import { recordingAnalytics } from '../../../usage/testing'
 import { mapsUrl } from '../../recordings/place'
@@ -28,10 +31,12 @@ import {
   LOCATION_ACCESS_OFF,
   LOCATION_LABEL,
   LOCATION_NAME_LABEL,
+  LOCATION_SEARCH_UNAVAILABLE,
   NAME_LOCATION_TITLE,
   NAME_THIS_LOCATION,
   NEARBY_LOCATIONS,
   NO_LOCATIONS_FOUND,
+  NO_NEARBY_LOCATIONS,
   OPEN_IN_MAPS,
   pickLocationName,
   RECENT_LOCATIONS,
@@ -39,6 +44,7 @@ import {
   SAVED_LOCATIONS,
 } from '../../recordings/recordingsCopy'
 import type { RecordingView } from '../../recordings/useRecordings'
+import { RecordingAttributes } from '../recordingEditors'
 import { LocationEditor } from './LocationEditor'
 import {
   CANT_FIND_IT,
@@ -138,6 +144,8 @@ async function setup({
   device = null,
   holdDevice = false,
   searchPlaces = async () => ({ kind: 'ok', results: [] }),
+  density,
+  inAttributes = false,
 }: {
   recording?: LocalRecording
   places?: LocalPlace[]
@@ -150,6 +158,9 @@ async function setup({
   /** Holds the device's answer until `releaseDevice`. */
   holdDevice?: boolean
   searchPlaces?: (q: string, near?: PlaceHint) => Promise<PlaceSearchOutcome>
+  density?: 'touch' | 'pointer'
+  /** Mounts the recording's attributes, closed, with the editor behind the Location row. */
+  inAttributes?: boolean
 } = {}) {
   fakeLocationPermissionForTest(permission)
   const releaseDevice = fakeGeolocation(device, holdDevice)
@@ -185,11 +196,16 @@ async function setup({
   renderWithProviders(
     <Data>
       <MapKitContext.Provider value={load}>
-        <Host />
+        {inAttributes ? (
+          <RecordingAttributes view={view} location={null} layout="card" />
+        ) : (
+          <Host />
+        )}
       </MapKitContext.Provider>
     </Data>,
+    { density },
   )
-  await expect.element(editor()).toBeVisible()
+  if (!inAttributes) await expect.element(editor()).toBeVisible()
   /** Waits for every write the editor started, then says how many it started. */
   const settledWrites = async () => {
     await Promise.all(writes)
@@ -201,6 +217,7 @@ async function setup({
 const editor = () => page.getByRole('dialog', { name: LOCATION_LABEL })
 const searchBox = () => editor().getByRole('searchbox', { name: FIND_A_PLACE })
 const row = (name: string) => page.getByRole('button', { name, exact: true })
+const option = (name: string) => page.getByRole('option', { name, exact: true })
 const section = (name: string) => editor().getByRole('region', { name })
 const done = async () => {
   await editor().getByRole('button', { name: DONE, exact: true }).click()
@@ -217,10 +234,37 @@ async function searchFor(text: string) {
 
 /** The names of the dialog's shown buttons in order, the footer's Done and Cancel left out. */
 const buttonNames = () =>
-  [...editor().element().querySelectorAll('button')]
+  [...editor().element().querySelectorAll('button, [role=option]')]
     .filter((button) => button.closest('[hidden]') === null)
     .map((button) => button.getAttribute('aria-label') ?? button.textContent ?? '')
     .filter((name) => name !== DONE && name !== CANCEL)
+
+it('opens at full height on touch, so the whole form shows without a drag', async () => {
+  await setup({ density: 'touch' })
+  // A part-height sheet rests at half the window; a full one sits just under its top margin.
+  await expect
+    .poll(() => editor().element().getBoundingClientRect().top)
+    .toBeLessThan(window.innerHeight / 4)
+})
+
+it('slides up from the window foot on open and back down on Done in the attributes', async () => {
+  holdMotionClock()
+  await setup({ density: 'touch', inAttributes: true })
+  await page.getByRole('button', { name: new RegExp(`^${LOCATION_LABEL},`) }).click()
+  await expect.element(editor()).toBeInTheDocument()
+  const top = () => editor().element().getBoundingClientRect().top
+  await expect.poll(top).toBeGreaterThanOrEqual(window.innerHeight - 1)
+  motionFrames(1000)
+  await expect.poll(top).toBeLessThan(window.innerHeight / 4)
+  const rest = top()
+  await editor().getByRole('button', { name: DONE, exact: true }).click()
+  motionFrames(50)
+  expect(editor().query()).not.toBeNull()
+  expect(top()).toBeGreaterThan(rest)
+  expect(top()).toBeLessThan(window.innerHeight)
+  motionFrames(1000)
+  await expect.element(editor()).not.toBeInTheDocument()
+})
 
 it('puts search first and labels it for new places', async () => {
   await setup()
@@ -288,6 +332,32 @@ it('Use current location says so when there is no fix, and clears on the next pr
   await expect.element(editor().getByText(NO_CURRENT_LOCATION)).not.toBeInTheDocument()
 })
 
+it.each([
+  ['while the browser asks for access', 'prompt', ''],
+  ['once access is granted', 'granted', WORKING],
+] as const)('Use current location shows its spinner only %s', async (_, permission, shown) => {
+  const { releaseDevice } = await setup({
+    recording: recordingRow('r1'),
+    permission,
+    device: { ...DEVICE, accuracy: 8 },
+    holdDevice: true,
+  })
+  const button = row(USE_CURRENT_LOCATION)
+  await expect.element(button).toBeEnabled()
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+  try {
+    ;(button.element() as HTMLElement).click()
+    // Past the working delay, inside act so any state its timer set has rendered before the read.
+    await act(() => vi.advanceTimersByTimeAsync(WORKING_DELAY_MS * 2))
+    expect(button.element().nextElementSibling?.textContent).toBe(shown)
+    expect(button.element().getAttribute('aria-busy')).toBe(shown ? 'true' : null)
+  } finally {
+    vi.useRealTimers()
+  }
+  releaseDevice()
+  await expect.element(section(CURRENT_LOCATION)).toBeVisible()
+})
+
 it('Use current location links a saved location the device is at', async () => {
   await setup({
     places: [placeRow('p1', 'The barn', north(10))],
@@ -313,6 +383,19 @@ it('Use current location links a saved location made while the fix is pending', 
   await expect.element(section(CURRENT_LOCATION).getByText('The barn')).toBeVisible()
 })
 
+it('Use current location says so when the saved locations cannot be read', async () => {
+  const { releaseDevice, settledWrites } = await setup({
+    permission: 'granted',
+    device: { ...north(5), accuracy: 8 },
+    holdDevice: true,
+  })
+  await row(USE_CURRENT_LOCATION).click()
+  vi.spyOn(db.places, 'toArray').mockRejectedValue(new Error('Database closed'))
+  releaseDevice()
+  await expect.element(editor().getByText(NO_CURRENT_LOCATION)).toBeVisible()
+  expect(await settledWrites()).toBe(0)
+})
+
 it('access off: current location is inert, Nearby empty, opens on Saved', async () => {
   const { seen } = await setup({
     recording: recordingRow('r1'),
@@ -322,11 +405,15 @@ it('access off: current location is inert, Nearby empty, opens on Saved', async 
   })
   await expect.element(row(USE_CURRENT_LOCATION)).toBeDisabled()
   await expect.element(editor().getByText(LOCATION_ACCESS_OFF)).toBeVisible()
-  await expect.element(editor().getByRole('radio', { name: SAVED_LOCATIONS })).toBeChecked()
-  await expect.element(row(pickLocationName('The barn'))).toBeVisible()
-  await editor().getByRole('radio', { name: NEARBY_LOCATIONS }).click()
-  await expect.element(editor().getByRole('radio', { name: NEARBY_LOCATIONS })).toBeChecked()
-  await expect.element(row(pickLocationName('The barn'))).not.toBeInTheDocument()
+  await expect
+    .element(editor().getByRole('tab', { name: SAVED_LOCATIONS }))
+    .toHaveAttribute('aria-selected', 'true')
+  await expect.element(option(pickLocationName('The barn'))).toBeVisible()
+  await editor().getByRole('tab', { name: NEARBY_LOCATIONS }).click()
+  await expect
+    .element(editor().getByRole('tab', { name: NEARBY_LOCATIONS }))
+    .toHaveAttribute('aria-selected', 'true')
+  await expect.element(option(pickLocationName('The barn'))).not.toBeInTheDocument()
   await expect.poll(() => seen!.searches).toEqual([])
 })
 
@@ -339,11 +426,11 @@ it("opens on Nearby while the device's fix is read, and stays there once it land
     holdDevice: true,
     mapkit: {},
   })
-  const nearby = editor().getByRole('radio', { name: NEARBY_LOCATIONS })
-  await expect.element(nearby).toBeChecked()
+  const nearby = editor().getByRole('tab', { name: NEARBY_LOCATIONS })
+  await expect.element(nearby).toHaveAttribute('aria-selected', 'true')
   releaseDevice()
   await expect.poll(() => seen!.searches.length).toBeGreaterThan(0)
-  await expect.element(nearby).toBeChecked()
+  await expect.element(nearby).toHaveAttribute('aria-selected', 'true')
 })
 
 it('falls to Saved when the device gives no fix', async () => {
@@ -353,8 +440,10 @@ it('falls to Saved when the device gives no fix', async () => {
     permission: 'granted',
     device: null,
   })
-  await expect.element(editor().getByRole('radio', { name: SAVED_LOCATIONS })).toBeChecked()
-  await expect.element(row(pickLocationName('The barn'))).toBeVisible()
+  await expect
+    .element(editor().getByRole('tab', { name: SAVED_LOCATIONS }))
+    .toHaveAttribute('aria-selected', 'true')
+  await expect.element(option(pickLocationName('The barn'))).toBeVisible()
 })
 
 it('keeps the list it opened on when a fix arrives after location access turns on', async () => {
@@ -364,22 +453,24 @@ it('keeps the list it opened on when a fix arrives after location access turns o
     permission: 'prompt',
     device: { ...DEVICE, accuracy: 8 },
   })
-  const saved = editor().getByRole('radio', { name: SAVED_LOCATIONS })
-  await expect.element(saved).toBeChecked()
+  const saved = editor().getByRole('tab', { name: SAVED_LOCATIONS })
+  await expect.element(saved).toHaveAttribute('aria-selected', 'true')
   fakeLocationPermissionForTest('granted')
   // A saved match shows its distance once the fix is the center.
   await searchFor('barn')
   await expect.element(editor().getByText('10 ft', { exact: true })).toBeVisible()
   await searchBox().clear()
-  await expect.element(saved).toBeChecked()
+  await expect.element(saved).toHaveAttribute('aria-selected', 'true')
 })
 
 it('keeps the chosen list across a search', async () => {
   await setup({ places: [placeRow('p1', 'The barn')] })
-  await editor().getByRole('radio', { name: RECENT_LOCATIONS }).click()
+  await editor().getByRole('tab', { name: RECENT_LOCATIONS }).click()
   await searchFor('barn')
   await searchBox().clear()
-  await expect.element(editor().getByRole('radio', { name: RECENT_LOCATIONS })).toBeChecked()
+  await expect
+    .element(editor().getByRole('tab', { name: RECENT_LOCATIONS }))
+    .toHaveAttribute('aria-selected', 'true')
 })
 
 it('Nearby rows show distance from the recording', async () => {
@@ -395,22 +486,45 @@ it('Nearby rows show distance from the recording', async () => {
       ],
     },
   })
-  await expect.element(editor().getByRole('radio', { name: NEARBY_LOCATIONS })).toBeChecked()
-  const rex = row(pickLocationName('Rex Theater'))
+  await expect
+    .element(editor().getByRole('tab', { name: NEARBY_LOCATIONS }))
+    .toHaveAttribute('aria-selected', 'true')
+  const rex = option(pickLocationName('Rex Theater'))
   await expect.element(rex).toBeVisible()
   await expect.element(rex.getByText('40 ft', { exact: true })).toBeVisible()
+})
+
+it('Nearby says so when no venue or saved location is within reach', async () => {
+  await setup({ mapkit: { places: [] } })
+  await expect.element(editor().getByText(NO_NEARBY_LOCATIONS)).toBeVisible()
+})
+
+it('Nearby says so when the venue search fails', async () => {
+  await setup({ mapkit: { searchFails: true } })
+  await expect.element(editor().getByText(LOCATION_SEARCH_UNAVAILABLE)).toBeVisible()
+})
+
+it('Nearby says so when MapKit is unavailable', async () => {
+  await setup()
+  await expect.element(editor().getByText(LOCATION_SEARCH_UNAVAILABLE)).toBeVisible()
+})
+
+it('Nearby shows nothing while MapKit loads', async () => {
+  await setup({ mapkitLoading: true })
+  await expect.element(editor().getByText(LOCATION_SEARCH_UNAVAILABLE)).not.toBeInTheDocument()
+  await expect.element(editor().getByText(NO_NEARBY_LOCATIONS)).not.toBeInTheDocument()
 })
 
 it('search results show distance, and replace the rest of the editor', async () => {
   await setup({ searchPlaces: async () => ({ kind: 'ok', results: [JALOPY] }) })
   await expect.element(row(USE_CURRENT_LOCATION)).toBeVisible()
   await searchFor('jalopy')
-  const jalopy = row(pickLocationName(JALOPY.title, JALOPY.subtitle))
+  const jalopy = option(pickLocationName(JALOPY.title, JALOPY.subtitle))
   await expect.element(jalopy).toBeVisible()
   await expect.element(jalopy.getByText('2.2 mi', { exact: true })).toBeVisible()
   await expect.element(row(USE_CURRENT_LOCATION)).not.toBeInTheDocument()
   await expect
-    .element(editor().getByRole('radio', { name: NEARBY_LOCATIONS }))
+    .element(editor().getByRole('tab', { name: NEARBY_LOCATIONS }))
     .not.toBeInTheDocument()
 })
 
@@ -427,7 +541,7 @@ it('keeps the map and the Nearby answer while a search shows', async () => {
       ],
     },
   })
-  const rex = row(pickLocationName('Rex Theater'))
+  const rex = option(pickLocationName('Rex Theater'))
   await expect.element(rex).toBeVisible()
   await expect.poll(() => seen!.maps.length).toBe(1)
   await searchFor('jalopy')
@@ -447,10 +561,10 @@ it('matching saved locations show under search results', async () => {
   await searchFor('barn')
   const saved = section(SAVED_LOCATIONS)
   await expect
-    .element(saved.getByRole('button', { name: pickLocationName('The Barn') }))
+    .element(saved.getByRole('option', { name: pickLocationName('The Barn') }))
     .toBeVisible()
   await expect
-    .element(saved.getByRole('button', { name: pickLocationName('Grange hall') }))
+    .element(saved.getByRole('option', { name: pickLocationName('Grange hall') }))
     .not.toBeInTheDocument()
   await expect
     .poll(() => buttonNames().slice(1))
@@ -459,7 +573,7 @@ it('matching saved locations show under search results', async () => {
       pickLocationName('The Barn'),
       PIN_ROW,
     ])
-  await saved.getByRole('button', { name: pickLocationName('The Barn') }).click()
+  await saved.getByRole('option', { name: pickLocationName('The Barn') }).click()
   await expect.element(section(CURRENT_LOCATION).getByText('The Barn')).toBeVisible()
   await done()
   await expect.poll(async () => (await db.recordings.get('r1'))?.place_id).toBe('p1')
@@ -469,7 +583,7 @@ it('every search ends with the pin row, and so does an empty search', async () =
   let results: PlaceResult[] = [JALOPY]
   await setup({ searchPlaces: async () => ({ kind: 'ok', results }) })
   await searchFor('jalopy')
-  await expect.element(row(pickLocationName(JALOPY.title, JALOPY.subtitle))).toBeVisible()
+  await expect.element(option(pickLocationName(JALOPY.title, JALOPY.subtitle))).toBeVisible()
   await expect.element(row(PIN_ROW)).toBeVisible()
   await expect.poll(() => buttonNames().at(-1)).toBe(PIN_ROW)
   results = []
@@ -484,7 +598,7 @@ it('escape after a pick writes nothing and creates no saved location', async () 
     searchPlaces: async () => ({ kind: 'ok', results: [JALOPY] }),
   })
   await searchFor('jalopy')
-  await row(pickLocationName(JALOPY.title, JALOPY.subtitle)).click()
+  await option(pickLocationName(JALOPY.title, JALOPY.subtitle)).click()
   await expect.element(section(CURRENT_LOCATION).getByText(JALOPY.name)).toBeVisible()
   await userEvent.keyboard('{Escape}')
   await expect.element(editor()).not.toBeInTheDocument()
@@ -500,7 +614,7 @@ it('Cancel after a pick writes nothing and creates no saved location', async () 
     searchPlaces: async () => ({ kind: 'ok', results: [JALOPY] }),
   })
   await searchFor('jalopy')
-  await row(pickLocationName(JALOPY.title, JALOPY.subtitle)).click()
+  await option(pickLocationName(JALOPY.title, JALOPY.subtitle)).click()
   await expect.element(section(CURRENT_LOCATION).getByText(JALOPY.name)).toBeVisible()
   await editor().getByRole('button', { name: CANCEL, exact: true }).click()
   await expect.element(editor()).not.toBeInTheDocument()
@@ -528,7 +642,7 @@ it('a search pick saves on dismissal, with the saved location it makes', async (
     searchPlaces: async () => ({ kind: 'ok', results: [JALOPY] }),
   })
   await searchFor('jalopy')
-  await row(pickLocationName(JALOPY.title, JALOPY.subtitle)).click()
+  await option(pickLocationName(JALOPY.title, JALOPY.subtitle)).click()
   await expect.element(searchBox()).toHaveValue('')
   await done()
   await expect.poll(() => db.places.count()).toBe(1)
@@ -680,8 +794,10 @@ it('centers Nearby on the saved location of a linked recording with no point of 
       ],
     },
   })
-  await expect.element(editor().getByRole('radio', { name: NEARBY_LOCATIONS })).toBeChecked()
-  const venue = row(pickLocationName('The shed'))
+  await expect
+    .element(editor().getByRole('tab', { name: NEARBY_LOCATIONS }))
+    .toHaveAttribute('aria-selected', 'true')
+  const venue = option(pickLocationName('The shed'))
   await expect.element(venue).toBeVisible()
   await expect.element(venue.getByText('40 ft', { exact: true })).toBeVisible()
   await expect
@@ -710,8 +826,8 @@ it.each([
 it('offers Rename, not Name, once a saved location is picked', async () => {
   await setup({ places: [BARN] })
   await expect.element(row(NAME_THIS_LOCATION)).toBeVisible()
-  await editor().getByRole('radio', { name: SAVED_LOCATIONS }).click()
-  await row(pickLocationName('The barn', BARN.address)).click()
+  await editor().getByRole('tab', { name: SAVED_LOCATIONS }).click()
+  await option(pickLocationName('The barn', BARN.address)).click()
   await expect.element(section(CURRENT_LOCATION).getByText('The barn')).toBeVisible()
   await expect.element(row(RENAME_THIS_LOCATION)).toBeVisible()
   await expect.element(row(NAME_THIS_LOCATION)).not.toBeInTheDocument()
@@ -895,7 +1011,7 @@ it('Escape on the naming step goes back with the pick kept, and a second discard
     searchPlaces: async () => ({ kind: 'ok', results: [JALOPY] }),
   })
   await searchFor('jalopy')
-  await row(pickLocationName(JALOPY.title, JALOPY.subtitle)).click()
+  await option(pickLocationName(JALOPY.title, JALOPY.subtitle)).click()
   await expect.element(section(CURRENT_LOCATION).getByText(JALOPY.name)).toBeVisible()
   await row(NAME_THIS_LOCATION).click()
   const naming = page.getByRole('dialog', { name: NAME_LOCATION_TITLE })
@@ -920,10 +1036,42 @@ it('a fix that arrives after a later pick never replaces it', async () => {
   })
   await row(USE_CURRENT_LOCATION).click()
   await searchFor('jalopy')
-  await row(pickLocationName(JALOPY.title, JALOPY.subtitle)).click()
+  await option(pickLocationName(JALOPY.title, JALOPY.subtitle)).click()
   await expect.element(section(CURRENT_LOCATION).getByText(JALOPY.name)).toBeVisible()
   releaseDevice()
   await expect.element(row(USE_CURRENT_LOCATION)).toBeEnabled()
+  await done()
+  await expect.poll(async () => (await db.recordings.get('r1'))?.place_name).toBe(JALOPY.name)
+  expect(await db.recordings.get('r1')).toMatchObject({ place_origin: 'picked' })
+})
+
+it('a fix whose saved locations are still being read never replaces a later pick', async () => {
+  const { releaseDevice } = await setup({
+    permission: 'granted',
+    device: { ...DEVICE, accuracy: 8 },
+    holdDevice: true,
+    searchPlaces: async () => ({ kind: 'ok', results: [JALOPY] }),
+  })
+  await row(USE_CURRENT_LOCATION).click()
+  let finishRead!: () => void
+  const read = new Promise<void>((resolve) => (finishRead = resolve))
+  let readDone = false
+  const toArray = db.places.toArray.bind(db.places)
+  const held = vi
+    .spyOn(db.places, 'toArray')
+    .mockImplementationOnce(
+      () =>
+        read.then(() => toArray()).finally(() => (readDone = true)) as ReturnType<typeof toArray>,
+    )
+  releaseDevice()
+  await expect.poll(() => held.mock.calls.length).toBeGreaterThan(0)
+  await searchFor('jalopy')
+  await option(pickLocationName(JALOPY.title, JALOPY.subtitle)).click()
+  await expect.element(section(CURRENT_LOCATION).getByText(JALOPY.name)).toBeVisible()
+  finishRead()
+  await expect.poll(() => readDone).toBe(true)
+  // A stage from the superseded lookup would land here, before Done saves the pick.
+  await expect.element(section(CURRENT_LOCATION).getByText(JALOPY.name)).toBeVisible()
   await done()
   await expect.poll(async () => (await db.recordings.get('r1'))?.place_name).toBe(JALOPY.name)
   expect(await db.recordings.get('r1')).toMatchObject({ place_origin: 'picked' })

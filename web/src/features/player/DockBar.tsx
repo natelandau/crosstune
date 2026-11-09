@@ -3,7 +3,7 @@ import { usePlayhead } from './playheadClock'
 import { formatDuration } from '../../text/format'
 import { ELAPSED, OPEN_RECORDING, REMAINING } from './transportCopy'
 import type { RecordingTransport } from './useRecordingTransport'
-import { Button } from '../../ui/Button'
+import { IconButton } from '../../ui/IconButton'
 import {
   CloseButton,
   MessageLine,
@@ -48,10 +48,9 @@ export function DockBar({
       {transport ? <Place transport={transport} title={title} /> : <span className="flex-1" />}
       <QueueControls tone="bar" />
       {(transport || onOpen) && (
-        <Button
+        <IconButton
           icon={Maximize2}
           label={OPEN_RECORDING(title)}
-          iconOnly
           isDisabled={!onOpen}
           onPress={() => onOpen?.()}
         />

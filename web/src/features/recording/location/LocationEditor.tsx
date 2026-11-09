@@ -1,6 +1,5 @@
-import { ArrowUpRight, LocateFixed } from 'lucide-react'
+import { Bookmark, History, LocateFixed, MapPin, type LucideIcon } from 'lucide-react'
 import { useRef, useState } from 'react'
-import { Button as AriaButton, ToggleButton } from 'react-aria-components'
 import type { PlaceHint } from '../../../api/types'
 import type { LocalPlace } from '../../../db/types'
 import { metersFrom } from '../../../domain/placeDistances'
@@ -11,14 +10,13 @@ import {
   type AttributeEditorFrame,
 } from '../../../ui/attributes/AttributeEditor'
 import { Button } from '../../../ui/Button'
-import { ActionRow } from '../../../ui/form/ActionRow'
-import { FIELD_ROW_PRESSABLE } from '../../../ui/form/FieldRow'
+import { ButtonRow } from '../../../ui/form/ButtonRow'
+import { PressableRow } from '../../../ui/PressableRow'
 import { Group } from '../../../ui/form/Group'
 import { LocationMap } from '../../../ui/LocationMap'
-import { PRESS } from '../../../ui/press'
-import { SegmentedChoice } from '../../../ui/SegmentedChoice'
+import { Tabs } from '../../../ui/Tabs'
 import { useAnalytics } from '../../../usage/AnalyticsProvider'
-import { LocationRow, PlaceSearch } from '../../recordings/LocationRows'
+import { LocationList, LocationRow, PlaceSearch } from '../../recordings/LocationRows'
 import { NameLocationForm } from '../../recordings/NameLocationForm'
 import { mapsUrl, samePlace, type PlaceChoice } from '../../recordings/place'
 import {
@@ -26,17 +24,20 @@ import {
   CURRENT_LOCATION,
   LOCATION_ACCESS_OFF,
   LOCATION_LABEL,
+  LOCATION_NAME_LABEL,
+  LOCATION_SEARCH_UNAVAILABLE,
   NAME_LOCATION_HELP,
   NAME_LOCATION_TITLE,
   NAME_THIS_LOCATION,
   NEARBY_LOCATIONS,
+  NO_NEARBY_LOCATIONS,
   OPEN_IN_MAPS,
   RECENT_LOCATIONS,
   RENAME_THIS_LOCATION,
   SAVED_LOCATIONS,
 } from '../../recordings/recordingsCopy'
 import { namingCandidates, nearbyRows } from '../../recordings/stagedPlace'
-import { useNearbyPlaces } from '../../recordings/useNearbyPlaces'
+import { useNearbyLookup } from '../../recordings/useNearbyPlaces'
 import { usePlaceSearch, type PlaceSearchState } from '../../recordings/usePlaceSearch'
 import type { RecordingView } from '../../recordings/useRecordings'
 import { SAVED_LOCATION_NAME_HELP } from '../../settings/settingsCopy'
@@ -60,33 +61,15 @@ import { useLocationEditor, type LocationEditorState, type PlaceList } from './u
 const MAP_HEIGHT = 280
 
 const LISTS: readonly PlaceList[] = ['nearby', 'saved', 'recent']
+const LIST_ICONS: Record<PlaceList, LucideIcon> = {
+  nearby: MapPin,
+  saved: Bookmark,
+  recent: History,
+}
 const LIST_NAMES: Record<PlaceList, string> = {
   nearby: NEARBY_LOCATIONS,
   saved: SAVED_LOCATIONS,
   recent: RECENT_LOCATIONS,
-}
-
-/**
- * The Location row's editor: a sheet on every frame, since it holds a map and lists. Search
- * comes first; picks are held while it shows, and every dismissal writes them, Done included,
- * with any saved location they make. A name typed on the naming or rename step and not yet
- * entered is kept the same way, as Enter would keep it. Only Escape and Cancel discard them.
- */
-export function LocationEditor({
-  view,
-  isOpen,
-  onOpenChange,
-  run,
-}: {
-  view: RecordingView
-  isOpen: boolean
-  onOpenChange: (open: boolean) => void
-  /** Runs the write a dismissal starts, so its refusal shows where the page shows its others. */
-  run: (save: () => Promise<void>) => void
-}) {
-  // Mounted only while open, so every opening starts with nothing picked.
-  if (!isOpen) return null
-  return <OpenLocationEditor view={view} onOpenChange={onOpenChange} run={run} />
 }
 
 /** The naming and rename steps hold the name typed, which every dismissal but Escape and Cancel keeps. */
@@ -105,13 +88,28 @@ const STEP_FRAMES: Record<
   pin: { height: 'full' },
 }
 
-function OpenLocationEditor({
+/**
+ * The Location row's editor: a sheet on every frame, since it holds a map and lists. Search
+ * comes first; picks are held while it shows, and every dismissal writes them, Done included,
+ * with any saved location they make. A name typed on the naming or rename step and not yet
+ * entered is kept the same way, as Enter would keep it. Only Escape and Cancel discard them.
+ */
+export function LocationEditor({
   view,
+  isOpen,
   onOpenChange,
+  onClosed,
   run,
 }: {
   view: RecordingView
+  isOpen: boolean
   onOpenChange: (open: boolean) => void
+  /**
+   * Runs once the sheet has finished closing. The caller mounts a fresh editor for each opening,
+   * so every one starts with nothing picked.
+   */
+  onClosed?: () => void
+  /** Runs the write a dismissal starts, so its refusal shows where the page shows its others. */
   run: (save: () => Promise<void>) => void
 }) {
   const editor = useLocationEditor(view)
@@ -152,11 +150,13 @@ function OpenLocationEditor({
     <AttributeEditor
       label={LOCATION_LABEL}
       triggerRef={noAnchor}
-      isOpen
+      isOpen={isOpen}
       onOpenChange={onOpenChange}
+      onClosed={onClosed}
       dirty={editor.changed || named !== null || renamed !== null}
       onSave={save}
       forceSheet
+      sheetHeight="full"
       cancelable={step?.kind !== 'pin'}
       step={step ? { ...STEP_FRAMES[step.kind], back } : undefined}
     >
@@ -336,26 +336,26 @@ function EditorBody({
         onPick={(result) => pickThenClear(() => editor.pickSearch(result))}
       >
         {savedMatches.length > 0 && (
-          <Group header={SAVED_LOCATIONS}>
+          <LocationList label={SAVED_LOCATIONS} showLabel selectedId={linkedId}>
             {savedMatches.map((place) => (
               <LocationRow
                 key={place.id}
+                id={place.id}
                 name={place.name}
                 detail={place.address}
                 distance={distanceOf(place)}
-                current={place.id === linkedId}
                 onPress={() => pickThenClear(() => editor.pickSaved(place))}
               />
             ))}
-          </Group>
+          </LocationList>
         )}
         <Group>
-          <AriaButton onPress={onDropPin} className={`${FIELD_ROW_PRESSABLE} py-2`}>
+          <PressableRow onPress={onDropPin} className="py-2">
             <span className="min-w-0 flex-1">
               <span className="text-secondary">{CANT_FIND_IT}</span>{' '}
               <span className="text-accent font-medium">{DROP_A_PIN}</span>
             </span>
-          </AriaButton>
+          </PressableRow>
         </Group>
       </PlaceSearch>
       {/* Hidden rather than unmounted while a search shows, so the map and Nearby's answer stay. */}
@@ -388,10 +388,10 @@ function PlaceDetails({
       >
         <div className="px-4">
           <Button
-            variant="bordered"
+            variant="secondary"
             icon={LocateFixed}
             label={USE_CURRENT_LOCATION}
-            isDisabled={editor.locationOff || editor.locating}
+            isDisabled={editor.locationOff}
             onPress={editor.pickCurrentLocation}
           />
         </div>
@@ -404,7 +404,7 @@ function PlaceDetails({
       {at && (
         <Group header={CURRENT_LOCATION}>
           {editor.place?.name && (
-            <div className="flex min-h-(--target) flex-col justify-center px-4 py-2">
+            <div className="flex min-h-(--size-row) flex-col justify-center px-4 py-2">
               <span className="t-body ph-no-capture">{editor.place.name}</span>
               {editor.placeAddress && (
                 <span className="t-secondary text-secondary ph-no-capture">
@@ -413,21 +413,32 @@ function PlaceDetails({
               )}
             </div>
           )}
-          {editor.canNamePlace && <ActionRow label={NAME_THIS_LOCATION} onPress={onName} />}
-          {editor.canRenamePlace && <ActionRow label={RENAME_THIS_LOCATION} onPress={onRename} />}
+          {editor.canNamePlace && (
+            <ButtonRow
+              title={LOCATION_NAME_LABEL}
+              description={NAME_LOCATION_HELP}
+              button={{ label: NAME_THIS_LOCATION, onPress: onName }}
+            />
+          )}
+          {editor.canRenamePlace && (
+            <ButtonRow
+              title={LOCATION_NAME_LABEL}
+              button={{ label: RENAME_THIS_LOCATION, onPress: onRename }}
+            />
+          )}
           {editor.mapsPoint && (
-            <a
+            <PressableRow
               href={mapsUrl(editor.mapsPoint, editor.place?.name ?? null)}
-              target="_blank"
-              rel="noopener noreferrer"
               onClick={() => analytics.send('location_opened_in_maps', {})}
-              className={`${FIELD_ROW_PRESSABLE} text-primary font-medium`}
+              className="text-primary font-medium"
             >
               <span className="min-w-0 flex-1">{OPEN_IN_MAPS}</span>
-              <ArrowUpRight className="size-4 shrink-0" aria-hidden />
-            </a>
+            </PressableRow>
           )}
-          <ActionRow label={CLEAR_LOCATION} onPress={editor.clearPlace} />
+          <ButtonRow
+            title={LOCATION_LABEL}
+            button={{ label: CLEAR_LOCATION, variant: 'destructive', onPress: editor.clearPlace }}
+          />
         </Group>
       )}
       <PlaceLists editor={editor} />
@@ -440,25 +451,22 @@ function PlaceLists({ editor }: { editor: LocationEditorState }) {
   const shown = editor.list
   return (
     <div className="pt-6">
-      <SegmentedChoice
+      <Tabs
         label={LOCATION_LABEL}
-        options={LISTS}
+        tabs={LISTS.map((list) => ({ id: list, label: LIST_NAMES[list], icon: LIST_ICONS[list] }))}
         selected={shown}
         onChange={editor.chooseList}
+        container="page"
+        panelClassName="pt-3"
       >
-        {LISTS.map((list) => (
-          <ToggleButton
-            key={list}
-            id={list}
-            className={`t-secondary text-secondary data-[selected]:bg-surface-raised data-[selected]:text-primary min-h-(--target-control) flex-1 rounded-(--radius-capsule) px-2 ${PRESS}`}
-          >
-            {LIST_NAMES[list]}
-          </ToggleButton>
-        ))}
-      </SegmentedChoice>
-      {shown === 'nearby' && <NearbyList editor={editor} />}
-      {shown === 'saved' && <SavedList editor={editor} />}
-      {shown === 'recent' && <RecentList editor={editor} />}
+        {(list) => (
+          <>
+            {list === 'nearby' && <NearbyList editor={editor} />}
+            {list === 'saved' && <SavedList editor={editor} />}
+            {list === 'recent' && <RecentList editor={editor} />}
+          </>
+        )}
+      </Tabs>
     </div>
   )
 }
@@ -466,24 +474,38 @@ function PlaceLists({ editor }: { editor: LocationEditorState }) {
 function NearbyList({ editor }: { editor: LocationEditorState }) {
   const { center } = editor
   const linkedId = editor.linkedPlace?.id ?? null
-  const venues = useNearbyPlaces(center && { lat: center.lat, lon: center.lon })
-  const rows = nearbyRows(center, editor.savedPlaces, venues)
-  if (rows.length === 0) return null
+  const lookup = useNearbyLookup(center && { lat: center.lat, lon: center.lon })
+  const rows = nearbyRows(
+    center,
+    editor.savedPlaces,
+    lookup.status === 'found' ? lookup.places : null,
+  )
+  if (lookup.status === 'loading') return null
+  if (lookup.status === 'unavailable' || rows.length === 0) {
+    return (
+      <div role="status">
+        <p className="t-secondary text-secondary px-4 pt-2">
+          {lookup.status === 'unavailable' ? LOCATION_SEARCH_UNAVAILABLE : NO_NEARBY_LOCATIONS}
+        </p>
+      </div>
+    )
+  }
   return (
-    <Group>
+    <LocationList label={NEARBY_LOCATIONS} selectedId={linkedId && `saved-${linkedId}`}>
       {rows.map((row) =>
         row.kind === 'saved' ? (
           <LocationRow
             key={`saved-${row.place.id}`}
+            id={`saved-${row.place.id}`}
             name={row.place.name}
             detail={row.place.address}
             distance={formatDistance(row.meters)}
-            current={row.place.id === linkedId}
             onPress={() => editor.pickNearby(row)}
           />
         ) : (
           <LocationRow
             key={`venue-${row.venue.applePlaceId ?? `${row.venue.lat},${row.venue.lon}`}`}
+            id={`venue-${row.venue.applePlaceId ?? `${row.venue.lat},${row.venue.lon}`}`}
             name={row.venue.name}
             detail={row.venue.address}
             distance={formatDistance(row.meters)}
@@ -491,7 +513,7 @@ function NearbyList({ editor }: { editor: LocationEditorState }) {
           />
         ),
       )}
-    </Group>
+    </LocationList>
   )
 }
 
@@ -499,17 +521,17 @@ function SavedList({ editor }: { editor: LocationEditorState }) {
   const linkedId = editor.linkedPlace?.id ?? null
   if (editor.savedPlaces.length === 0) return null
   return (
-    <Group>
+    <LocationList label={SAVED_LOCATIONS} selectedId={linkedId}>
       {editor.savedPlaces.map((place: LocalPlace) => (
         <LocationRow
           key={place.id}
+          id={place.id}
           name={place.name}
           detail={place.address}
-          current={place.id === linkedId}
           onPress={() => editor.pickSaved(place)}
         />
       ))}
-    </Group>
+    </LocationList>
   )
 }
 
@@ -518,16 +540,18 @@ function RecentList({ editor }: { editor: LocationEditorState }) {
     editor.linkedPlace === null && editor.place !== null && samePlace(editor.place, place)
   const places = editor.recentPlaces()
   if (places.length === 0) return null
+  const idOf = (place: PlaceChoice) => `${place.name}|${place.lat},${place.lon}`
+  const current = places.find(isCurrent)
   return (
-    <Group>
+    <LocationList label={RECENT_LOCATIONS} selectedId={current ? idOf(current) : null}>
       {places.map((place) => (
         <LocationRow
-          key={`${place.name}|${place.lat},${place.lon}`}
+          key={idOf(place)}
+          id={idOf(place)}
           name={place.name}
-          current={isCurrent(place)}
           onPress={() => editor.pickRecent(place)}
         />
       ))}
-    </Group>
+    </LocationList>
   )
 }

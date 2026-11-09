@@ -96,7 +96,7 @@ describe('useListPicker', () => {
     const { result, onAdded } = setup()
     act(() => result.current.setCreating(true))
     act(() => result.current.setName('  New set '))
-    act(() => result.current.create())
+    act(() => void result.current.create())
     await expect.poll(() => onAdded.mock.calls.length).toBe(1)
     expect(onAdded).toHaveBeenCalledWith(
       expect.objectContaining({ added: 3, listName: 'New set', created: true }),
@@ -117,7 +117,7 @@ describe('useListPicker', () => {
   it('reports a list made with tunes as one list_created and no tunes_added_to_list', async () => {
     const { result, onAdded, analytics } = setup()
     act(() => result.current.setName('New set'))
-    act(() => result.current.create())
+    act(() => void result.current.create())
     await expect.poll(() => onAdded.mock.calls.length).toBe(1)
     const created = (await db.lists.toArray()).find((list) => list.name === 'New set')!
     expect(analytics.sends()).toEqual([
@@ -128,7 +128,7 @@ describe('useListPicker', () => {
   it('reports nothing when the undo of a list made with tunes runs', async () => {
     const { result, onAdded, analytics } = setup()
     act(() => result.current.setName('New set'))
-    act(() => result.current.create())
+    act(() => void result.current.create())
     await expect.poll(() => onAdded.mock.calls.length).toBe(1)
     await act(async () => onAdded.mock.lastCall![0].undo())
     expect(analytics.sends().map((send) => send.name)).toEqual(['list_created'])
@@ -137,7 +137,7 @@ describe('useListPicker', () => {
   it('ignores a create with no name', async () => {
     const { result, onAdded } = setup()
     act(() => result.current.setName('  '))
-    act(() => result.current.create())
+    act(() => void result.current.create())
     expect(onAdded).not.toHaveBeenCalled()
     expect(result.current.pending).toBe(false)
   })
