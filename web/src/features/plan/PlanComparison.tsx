@@ -16,7 +16,7 @@ const PREMIUM_COLUMN = `${COLUMN} bg-tint-strong`
  */
 export function PlanComparison() {
   return (
-    <div className="bg-surface overflow-hidden rounded-(--radius-surface)">
+    <div className="bg-surface overflow-hidden rounded-(--radius)">
       <table className="t-secondary w-full border-collapse">
         <thead>
           <tr className="t-caption align-bottom">
@@ -26,7 +26,7 @@ export function PlanComparison() {
             </th>
             {/* Collapsed table cells ignore border-radius, so the tab is a block inside the cell. */}
             <th scope="col" className="w-20 px-0 pt-3 pb-0 text-center">
-              <span className="bg-brand text-on-brand block rounded-t-(--radius-row) py-1.5 font-semibold">
+              <span className="bg-brand text-on-brand block rounded-t-(--radius) py-1.5 font-semibold">
                 {COMPARE_PREMIUM}
               </span>
             </th>

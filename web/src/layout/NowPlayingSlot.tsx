@@ -148,7 +148,7 @@ export function NowPlayingSlot({
       hidden={context?.active !== host}
       className={
         floating
-          ? 'bg-surface border-default shrink-0 overflow-hidden rounded-(--radius-surface) border'
+          ? 'bg-surface border-default shrink-0 overflow-hidden rounded-(--radius) border'
           : 'bg-page border-default shrink-0 border-t'
       }
     />

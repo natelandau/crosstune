@@ -5,6 +5,7 @@ import { useFrame } from '../platform/frame'
 import { destination } from './destinations'
 import { initials } from './initials'
 import { ACCOUNT_BUTTON } from './tabs'
+import { TAP_AREA } from '../ui/tapArea'
 
 const SETTINGS = destination('settings')
 
@@ -24,7 +25,7 @@ export function AccountButton() {
       href={SETTINGS.root}
       current={false}
       label={ACCOUNT_BUTTON}
-      className="group flex size-(--target-control) shrink-0 items-center justify-center rounded-full"
+      className={`group flex size-(--size-regular) shrink-0 items-center justify-center rounded-full ${TAP_AREA}`}
     >
       <span
         aria-hidden

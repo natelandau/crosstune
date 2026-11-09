@@ -1,5 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useCallback, useEffect, useId, useState } from 'react'
+// eslint-disable-next-line no-restricted-imports -- Record control, in the record color
 import { Button as AriaButton } from 'react-aria-components'
 import {
   NavigationType,
@@ -152,7 +153,7 @@ function LocationNote({ note }: { note: LocationNoteState }) {
   return (
     <section
       aria-labelledby={titleId}
-      className="bg-surface flex flex-col gap-2 rounded-(--radius-surface) p-4"
+      className="bg-surface flex flex-col gap-2 rounded-(--radius) p-4"
     >
       <h3 id={titleId} className="t-heading">
         {LOCATION_NOTE_TITLE}

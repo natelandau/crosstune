@@ -21,7 +21,8 @@ export interface SyncSettings {
   lastSynced: string | null
   /** Names the changes the server rejected, or null when there are none. */
   rejectedMessage: string | null
-  syncNow: () => void
+  /** Resolves when the sync ends, for a button that shows it working; a failure lands in `error`. */
+  syncNow: () => Promise<void>
   error: string | null
   pending: boolean
 }
@@ -34,7 +35,7 @@ export function useSyncSettings(): SyncSettings {
   const transferStatus = useTransferStatus()
   const lastSynced = useLastSyncedAt()
   const rejected = useLiveQuery(() => getInvalidChangeCount(db), [db]) ?? 0
-  const { error, pending, run } = useAction()
+  const { error, pending, attempt } = useAction()
   return {
     status,
     statusLabel: SYNC_STATUS_LABELS[status],
@@ -42,7 +43,7 @@ export function useSyncSettings(): SyncSettings {
     transferLabel: TRANSFER_STATUS_LABELS[transferStatus],
     lastSynced,
     rejectedMessage: rejected > 0 ? rejectedChanges(rejected) : null,
-    syncNow: () => run(() => engine.sync()),
+    syncNow: () => attempt(() => engine.sync()),
     error,
     pending,
   }

@@ -47,7 +47,7 @@ export function ListNameSheet({
       primary={{
         label: form.renaming ? SAVE_LIST_NAME : CREATE_LIST,
         onPress: form.save,
-        isDisabled: form.pending || form.closing,
+        isDisabled: form.closing,
       }}
     >
       <form

@@ -40,7 +40,7 @@ export function PasteLinkSheet({
       primary={{
         label: ADD_LINK,
         onPress: paste.submit,
-        isDisabled: paste.pending || paste.closing,
+        isDisabled: paste.closing,
       }}
     >
       <form

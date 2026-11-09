@@ -22,9 +22,9 @@ export interface RecordingSettings {
   setKeepOffline: (on: boolean) => void
   keepError: string | null
   localBytesLabel: string
-  removeDownloads: () => void
+  /** Resolves once the downloads are gone, for a button that shows it working. */
+  removeDownloads: () => Promise<void>
   removeError: string | null
-  removePending: boolean
 }
 
 /**
@@ -86,8 +86,7 @@ export function useRecordingSettings(): RecordingSettings {
     },
     keepError: keepAction.error,
     localBytesLabel: audioOnDevice(localBytes ?? 0),
-    removeDownloads: () => removeAction.run(() => clearDownloadedBlobs(db)),
+    removeDownloads: () => removeAction.attempt(() => clearDownloadedBlobs(db)),
     removeError: removeAction.error,
-    removePending: removeAction.pending,
   }
 }

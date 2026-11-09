@@ -8,9 +8,10 @@ import {
   slideLabel,
   WELCOME_SLIDES,
 } from '../../auth/links'
-import { Button } from '../../ui/Button'
+import { IconButton } from '../../ui/IconButton'
 import { clamp } from '../../math'
 import { SLIDE_ART } from './slideArt'
+import { TAP_AREA } from '../../ui/tapArea'
 
 /** How far a finger moves before the carousel decides it is a swipe rather than a scroll. */
 const SLOP_PX = 8
@@ -141,7 +142,7 @@ export function WelcomeCarousel({
                     set and the headline lines up with the stage's edges. */}
                 <div
                   data-slide-stage
-                  className="bg-surface max-welcome:[@media(max-height:700px)]:py-[8px] flex items-center justify-center overflow-hidden rounded-(--radius-surface) py-[14px]"
+                  className="bg-surface max-welcome:[@media(max-height:700px)]:py-[8px] flex items-center justify-center overflow-hidden rounded-(--radius) py-[14px]"
                 >
                   <div className="[zoom:0.86]">
                     <Art />
@@ -158,6 +159,7 @@ export function WelcomeCarousel({
       <div className="flex w-full items-center justify-center gap-2 @min-[416px]:justify-start">
         <div className="flex @min-[416px]:-ms-2">
           {WELCOME_SLIDES.map((slide, n) => (
+            // eslint-disable-next-line no-restricted-syntax -- Carousel slide dots
             <button
               key={slide.id}
               ref={(dot) => {
@@ -168,7 +170,7 @@ export function WelcomeCarousel({
               aria-label={slideDotLabel(n + 1)}
               aria-current={n === index ? 'true' : undefined}
               onClick={() => show(n)}
-              className="group flex h-(--target-control) min-w-(--target-control) items-center justify-center rounded-full"
+              className={`group flex h-(--size-regular) min-w-(--size-regular) items-center justify-center rounded-full ${TAP_AREA}`}
             >
               {/* The current dot is longer as well as darker, so it never reads by color alone. */}
               <span
@@ -184,20 +186,18 @@ export function WelcomeCarousel({
         {/* An arrow with no slide past it hides but keeps its place, so its neighbor never shifts. */}
         <div className="ms-auto hidden gap-2 @min-[416px]:flex">
           <span className={index === 0 ? 'invisible' : undefined}>
-            <Button
+            <IconButton
               ref={previousRef}
-              iconOnly
-              variant="bordered"
+              variant="neutral"
               icon={ChevronLeft}
               label={PREVIOUS_SLIDE}
               onPress={() => show(index - 1)}
             />
           </span>
           <span className={index === last ? 'invisible' : undefined}>
-            <Button
+            <IconButton
               ref={nextRef}
-              iconOnly
-              variant="bordered"
+              variant="neutral"
               icon={ChevronRight}
               label={NEXT_SLIDE}
               onPress={() => show(index + 1)}

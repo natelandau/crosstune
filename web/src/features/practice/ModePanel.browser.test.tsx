@@ -45,21 +45,21 @@ function panel(isolate: IsolateControls | null, mode: Mode = 'loops', { pitchCen
 
 it('leaves Isolate out where nothing can isolate, such as a streaming link', async () => {
   renderWithProviders(panel(null))
-  const modes = page.getByRole('radiogroup', { name: MODES_LABEL })
-  await expect.poll(() => modes.getByRole('radio').all().length).toBe(3)
-  expect(modes.getByRole('radio', { name: new RegExp(`^${ISOLATE_LABEL}`) }).query()).toBeNull()
+  const modes = page.getByRole('tablist', { name: MODES_LABEL })
+  await expect.poll(() => modes.getByRole('tab').all().length).toBe(3)
+  expect(modes.getByRole('tab', { name: new RegExp(`^${ISOLATE_LABEL}`) }).query()).toBeNull()
 })
 
 it('offers Isolate for a recording, naming its effect once it is off the default', async () => {
   const { rerender } = renderWithProviders(panel(isolateControls()))
-  const modes = page.getByRole('radiogroup', { name: MODES_LABEL })
-  await expect.poll(() => modes.getByRole('radio').all().length).toBe(4)
+  const modes = page.getByRole('tablist', { name: MODES_LABEL })
+  await expect.poll(() => modes.getByRole('tab').all().length).toBe(4)
   await expect
-    .element(modes.getByRole('radio', { name: ISOLATE_LABEL, exact: true }))
+    .element(modes.getByRole('tab', { name: ISOLATE_LABEL, exact: true }))
     .toBeInTheDocument()
   rerender(panel(isolateControls({ value: { ...DEFAULT_ISOLATE, effect: 'mute' } })))
   await expect
-    .element(modes.getByRole('radio', { name: SEGMENT_LABEL(ISOLATE_LABEL, MUTE), exact: true }))
+    .element(modes.getByRole('tab', { name: SEGMENT_LABEL(ISOLATE_LABEL, MUTE), exact: true }))
     .toBeInTheDocument()
 })
 
@@ -82,15 +82,15 @@ const drawn = () => document.querySelectorAll('canvas[data-outline]').length
 it('shows plain mode names once a changed value label no longer fits', async () => {
   // Wide enough for every name and a short value, too narrow for Isolate's value.
   const narrow = (effect: 'solo' | 'mute') => (
-    <div style={{ width: 340 }}>
+    <div style={{ width: 300 }}>
       {panel(isolateControls({ value: { ...DEFAULT_ISOLATE, effect } }), 'loops', {
         pitchCents: 100,
       })}
     </div>
   )
-  const { rerender } = renderWithProviders(narrow('solo'))
+  const { rerender } = renderWithProviders(narrow('solo'), { density: 'touch' })
   const shown = () =>
-    [...document.querySelectorAll('[data-mode-selector] [role="radio"] span.relative')].map(
+    [...document.querySelectorAll('[data-mode-selector] [role="tab"] [data-tab-label]')].map(
       (label) => label.textContent,
     )
   await expect
@@ -100,7 +100,7 @@ it('shows plain mode names once a changed value label no longer fits', async () 
   rerender(narrow('mute'))
 
   await expect
-    .element(page.getByRole('radio', { name: SEGMENT_LABEL(ISOLATE_LABEL, MUTE), exact: true }))
+    .element(page.getByRole('tab', { name: SEGMENT_LABEL(ISOLATE_LABEL, MUTE), exact: true }))
     .toBeInTheDocument()
   await expect.poll(shown).toEqual([SPEED, PITCH, ISOLATE_LABEL, LOOPS_LABEL])
 })
@@ -108,9 +108,9 @@ it('shows plain mode names once a changed value label no longer fits', async () 
 it('names no effect on a mono recording whose only change is pan', async () => {
   const value = { ...DEFAULT_ISOLATE, panStart: -50, panEnd: 0 }
   renderWithProviders(panel(isolateControls({ value, isMono: true })))
-  const modes = page.getByRole('radiogroup', { name: MODES_LABEL })
+  const modes = page.getByRole('tablist', { name: MODES_LABEL })
   await expect
-    .element(modes.getByRole('radio', { name: ISOLATE_LABEL, exact: true }))
+    .element(modes.getByRole('tab', { name: ISOLATE_LABEL, exact: true }))
     .toBeInTheDocument()
 })
 

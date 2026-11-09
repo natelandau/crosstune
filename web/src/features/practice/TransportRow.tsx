@@ -3,7 +3,7 @@ import { TransportMark } from '../../ui/rowGlyphs'
 import { SKIP_BACK, SKIP_FORWARD, SKIP_MS } from '../player/playerCopy'
 import { PAUSE, PLAY, REPEAT_LOOP } from '../player/transportCopy'
 import { QueueControls } from '../player/QueueControls'
-import { PracticeButton } from './PracticeButton'
+import { IconButton } from '../../ui/IconButton'
 
 /**
  * Practice's transport: skip back, a 72px play and pause, and skip forward. The list's controls
@@ -34,19 +34,20 @@ export function TransportRow({
 }) {
   return (
     <>
-      <div data-practice-transport className="flex items-center justify-center gap-6">
-        <PracticeButton
+      <div data-practice-transport className="flex items-center justify-center gap-8">
+        <IconButton
+          size="transport"
           icon={RotateCcw}
           label={SKIP_BACK}
           data-focus-key="skip-back"
           aria-disabled={disabled}
           onPress={() => onSkip(-SKIP_MS)}
         />
-        <PracticeButton
-          size="large"
+        <IconButton
+          variant="feature"
+          size="feature"
           data-focus-key="play"
           icon={!playing && repeatName ? Repeat : undefined}
-          iconClassName="size-8"
           glyph={
             playing || !repeatName ? (
               <TransportMark shape={playing ? 'pause' : 'play'} className="size-7" />
@@ -56,7 +57,8 @@ export function TransportRow({
           aria-disabled={disabled}
           onPress={onTogglePlay}
         />
-        <PracticeButton
+        <IconButton
+          size="transport"
           icon={RotateCw}
           label={SKIP_FORWARD}
           data-focus-key="skip-forward"

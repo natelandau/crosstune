@@ -6,6 +6,7 @@ import { RETRY } from './playerCopy'
 import { CLOSE_PLAYER, PAUSE, PITCH_LABEL, PLAY, SPEED_LABEL } from './transportCopy'
 import type { RecordingTransport } from './useRecordingTransport'
 import { Button } from '../../ui/Button'
+import { IconButton } from '../../ui/IconButton'
 
 /** What both bars show: the loaded item, how to open its page, and how to close it. */
 export interface BarProps {
@@ -55,10 +56,9 @@ export function TrackTitle({
 export function PlayToggle({ transport }: { transport: RecordingTransport }) {
   const playing = transport.state.playing
   return (
-    <Button
+    <IconButton
       glyph={<TransportMark shape={playing ? 'pause' : 'play'} className="size-4" />}
       label={playing ? PAUSE : PLAY}
-      iconOnly
       // Nothing is loaded to play until the audio is here.
       isDisabled={transport.status !== null}
       onPress={transport.toggle}
@@ -76,7 +76,7 @@ export function MessageLine({ message }: { message: string }) {
 }
 
 export function CloseButton({ onClose }: { onClose: () => void }) {
-  return <Button icon={X} label={CLOSE_PLAYER} iconOnly onPress={onClose} />
+  return <IconButton icon={X} label={CLOSE_PLAYER} onPress={onClose} />
 }
 
 export function RetryButton({ transport }: { transport: RecordingTransport }) {

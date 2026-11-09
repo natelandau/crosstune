@@ -1,6 +1,6 @@
-import { ArrowUpRight, ChevronRight, ExternalLink } from 'lucide-react'
+import { ArrowUpRight, ExternalLink } from 'lucide-react'
 import { createContext, useContext, useLayoutEffect, useState, type ReactNode } from 'react'
-import { Button as AriaButton, type Key } from 'react-aria-components'
+import type { Key } from 'react-aria-components'
 import { closeLinkName, linkOutText, openOnProviderName } from '../links/linkNames'
 import { useLinkRow } from '../links/useLinkRow'
 import { openOn, SUBSCRIBE_TO_PLAY } from '../recordings/recordingCopy'
@@ -29,9 +29,11 @@ import { useOpenRecordingPage } from '../player/recordingPageOpener'
 import type { Source } from '../../usage/events'
 import { useLatest } from '../../ui/useLatest'
 import { useNewRecording } from '../capture/useNewRecording'
+import { Button } from '../../ui/Button'
 import { Row } from '../../ui/Row'
 import { RowList } from '../../ui/RowList'
 import { rowActions } from '../../ui/sharedActions'
+import { PressableRow } from '../../ui/PressableRow'
 
 // The row, its lines, and its slot answer different taps, so a line or slot that is its own
 // control keeps its press from reaching the row. Other keys still reach the list, so the
@@ -202,14 +204,14 @@ export function RecordingRow({
           )}
           {onOpenTune && view.tuneTitle && (
             <span {...keepPress} className="block">
-              <AriaButton
+              <PressableRow
+                variant="line"
                 aria-label={openTuneName(view.tuneTitle)}
                 onPress={onOpenTune}
-                className={`${LINE} min-h-(--target) text-start`}
+                chevron
               >
                 <span className="truncate">{view.tuneTitle}</span>
-                <ChevronRight className="size-4 shrink-0" aria-hidden />
-              </AriaButton>
+              </PressableRow>
             </span>
           )}
           {data.error && <span className="text-danger block">{data.error}</span>}
@@ -218,13 +220,7 @@ export function RecordingRow({
       action={
         retry ? (
           <ActionSlot {...keepPress} worded>
-            <AriaButton
-              aria-label={retryName(retry, title)}
-              onPress={() => onRetry(retry)}
-              className="t-body text-accent size-full px-2"
-            >
-              {RETRY}
-            </AriaButton>
+            <Button label={RETRY} name={retryName(retry, title)} onPress={() => onRetry(retry)} />
           </ActionSlot>
         ) : control === 'downloading' ? (
           <ActionSlot data-media-glyph role="status" aria-label={downloadingName(title)}>

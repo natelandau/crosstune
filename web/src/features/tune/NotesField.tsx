@@ -76,7 +76,7 @@ export function NotesField({ tuneId, notes }: { tuneId: string; notes: string | 
         if (!event.currentTarget.contains(event.relatedTarget)) setEditing(false)
       }}
     >
-      <div className="bg-surface rounded-(--radius-surface)">
+      <div className="bg-surface rounded-(--radius)">
         <TextField
           label={NOTES_SECTION}
           standalone

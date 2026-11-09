@@ -5,6 +5,7 @@ import { useListsScreen } from './useListsScreen'
 import { destination } from '../../layout/destinations'
 import { RootBar } from '../../layout/RootBar'
 import { Button } from '../../ui/Button'
+import { IconButton } from '../../ui/IconButton'
 import { useConfirm } from '../../ui/Confirm'
 import { EmptyState } from '../../ui/EmptyState'
 import { ErrorLine } from '../../ui/ErrorLine'
@@ -40,7 +41,7 @@ export function ListsScreen() {
     <>
       <RootBar
         title={LISTS.label}
-        actions={<Button icon={Plus} label={ADD_LIST} iconOnly onPress={add} />}
+        actions={<IconButton icon={Plus} label={ADD_LIST} onPress={add} />}
       />
       <ErrorLine error={error ?? played.error} place="bar" />
       {lists &&

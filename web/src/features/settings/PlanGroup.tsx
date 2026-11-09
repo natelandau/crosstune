@@ -1,10 +1,8 @@
-import { ChevronRight } from 'lucide-react'
 import { useId } from 'react'
-import { Button as AriaButton } from 'react-aria-components'
 import type { Plan } from '../../billing/plan'
 import { usePlan } from '../../billing/usePlan'
 import { Group } from '../../ui/form/Group'
-import { FIELD_ROW_PRESSABLE } from '../../ui/form/FieldRow'
+import { PressableRow } from '../../ui/PressableRow'
 import { useNow } from '../../ui/useNow'
 import { membership } from '../plan/membership'
 import {
@@ -53,20 +51,20 @@ export function PlanGroup() {
         header={PLAN_GROUP}
         help={plan.kind === 'free' ? FREE_HELP : undefined}
       >
-        <AriaButton
+        <PressableRow
           aria-describedby={hintId}
           onPress={() => premium.open('plan', 'plan_group')}
-          className={`${FIELD_ROW_PRESSABLE} py-2`}
+          chevron
+          className="py-2"
         >
           <span className="min-w-0 flex-1">
             <span className="block">{name}</span>
             {detail && <span className="t-secondary text-secondary block">{detail}</span>}
           </span>
-          <ChevronRight className="text-secondary size-4 shrink-0" aria-hidden />
           <span id={hintId} hidden>
             {SEE_PLAN}
           </span>
-        </AriaButton>
+        </PressableRow>
       </Group>
       <StorageSummary />
     </>

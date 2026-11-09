@@ -6,6 +6,7 @@ import type { LocalScan } from '../../db/types'
 import { DELETE } from '../../ui/confirmCopy'
 import type { ConfirmQuestion } from '../../ui/confirmQuestion'
 import { useAction } from '../../ui/useAction'
+import { untracked, type TrackWork } from '../../ui/useWorking'
 import { DELETE_SYNCED_NOTE, DELETE_UNSYNCED_NOTE } from '../recordings/recordingRow'
 import { DELETE_SCAN_TITLE } from './scanCopy'
 
@@ -17,9 +18,14 @@ export function useDeleteScan({
 }) {
   const db = useDb()
   const analytics = useAnalytics()
-  const { error, runThen, clear } = useAction()
+  const { error, attempt, clear } = useAction()
 
-  const remove = async (scan: LocalScan, file: ScanFile | undefined) => {
+  /** Asks, then deletes, handing the delete to `track`. A failure shows in `error`. */
+  const remove = async (
+    scan: LocalScan,
+    file: ScanFile | undefined,
+    track: TrackWork = untracked,
+  ) => {
     // A captured file is the only copy until it uploads.
     const unsynced = file?.origin === 'captured'
     const ok = await confirm({
@@ -27,17 +33,18 @@ export function useDeleteScan({
       message: unsynced ? DELETE_UNSYNCED_NOTE : DELETE_SYNCED_NOTE,
       action: DELETE,
     })
-    if (ok) {
-      runThen(
+    if (!ok) return
+    void track(
+      attempt(
         () => deleteScan(db, scan.id),
         () => analytics.send('scan_deleted', { scan_id: scan.id, tune_id: scan.tune_id }),
-      )
-    }
+      ),
+    )
   }
 
   return {
     error,
     clear,
-    remove: (scan: LocalScan, file: ScanFile | undefined) => void remove(scan, file),
+    remove,
   }
 }

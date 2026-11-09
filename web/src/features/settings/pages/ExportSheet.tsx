@@ -2,6 +2,7 @@ import { EXPORT_ACTION, EXPORT_TITLE } from '../export/exportCopy'
 import { useExportData } from '../export/useExportData'
 import { ErrorLine } from '../../../ui/ErrorLine'
 import { Sheet } from '../../../ui/Sheet'
+import { primaryDisabled } from '../../../ui/sheetPrimary'
 
 /** The export, in a sheet. Closing the sheet by any route abandons an export in progress. */
 export function ExportSheet({ open, onClosed }: { open: boolean; onClosed: () => void }) {
@@ -18,7 +19,11 @@ export function ExportSheet({ open, onClosed }: { open: boolean; onClosed: () =>
       // download.
       locked={pending}
       cancel={{ onPress: close }}
-      primary={{ label: EXPORT_ACTION, onPress: run, isDisabled: pending || !counts }}
+      primary={{
+        label: EXPORT_ACTION,
+        onPress: run,
+        isDisabled: primaryDisabled(counts !== undefined, pending),
+      }}
       onClosed={() => {
         abandon()
         onClosed()

@@ -14,6 +14,7 @@ import { useDeleteScan } from './useDeleteScan'
 import { useInvert } from './useInvert'
 import { useScans } from './useScans'
 import { useScanViewLog } from './useScanViewLog'
+import type { TrackWork } from '../../ui/useWorking'
 
 // Two taps closer together than this, in time and in distance, are one double tap.
 export const DOUBLE_TAP_MS = 300
@@ -50,8 +51,11 @@ export interface ScanViewer {
   isDoubleTap: (event: { clientX: number; clientY: number }) => boolean
   /** Reports a scan that could not be decoded, once per scan while the viewer is mounted. */
   reportBroken: (scanId: string) => void
-  /** Deletes the scan at `at`, the one shown by default, once the musician confirms. */
-  remove: (at?: number) => void
+  /**
+   * Deletes the scan at `at`, the one shown by default, once the musician confirms, handing the
+   * delete to `track`.
+   */
+  remove: (at?: number, track?: TrackWork) => void
   error: string | null
   /** Ends the view and hands off to `onClose`. */
   close: () => void
@@ -159,9 +163,9 @@ export function useScanViewer({
         extra: { scanId },
       })
     },
-    remove: (at = shown) => {
+    remove: (at = shown, track) => {
       const scan = scans[at]
-      if (scan) remove(scan, files.get(scan.id))
+      if (scan) void remove(scan, files.get(scan.id), track)
     },
     error,
     close,

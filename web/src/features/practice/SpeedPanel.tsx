@@ -1,26 +1,20 @@
-import { Minus, Plus } from 'lucide-react'
-import { useId } from 'react'
 import { RECORDING_RANGES } from '../../api/vocabulary'
 import { SPEED_BADGE, SPEED_LABEL } from '../player/transportCopy'
-import { BUTTON_CORNER } from '../../ui/buttonTone'
-import {
-  clampSpeed,
-  offWhen,
-  CHIP,
-  CHIP_CHOSEN,
-  PANEL_ICON_BUTTON,
-  PANEL_TEXT_BUTTON,
-  RESET,
-  SPEED_STEP,
-  stepSpeed,
-} from './panel'
+import { SegmentedChoice } from '../../ui/SegmentedChoice'
+import { Slider } from '../../ui/Slider'
+import { SPEED_STEP } from './panel'
+import { ResetButton } from './ResetButton'
 
 export const SPEED = SPEED_LABEL
 export const SLOWER = 'Slower'
 export const FASTER = 'Faster'
 
-const PRESETS = [50, 75, 100] as const
+const PRESET_SEGMENTS = [50, 75, 100].map((preset) => ({
+  id: String(preset),
+  label: SPEED_BADGE(preset),
+}))
 const DEFAULT_SPEED = 100
+const SPEED_LARGE_STEP = 25
 
 /** Playback speed with pitch held, applied live by whoever passes `onChange`. */
 export function SpeedPanel({
@@ -30,68 +24,35 @@ export function SpeedPanel({
   value: number
   onChange: (percent: number) => void
 }) {
-  const id = useId()
   const { min, max } = RECORDING_RANGES.speed_percent
-  const step = (by: number) => onChange(stepSpeed(value, by))
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-between">
-        <label htmlFor={id} className="t-secondary">
-          {SPEED}
-        </label>
-        <span className="t-secondary tabular-nums">{SPEED_BADGE(value)}</span>
-      </div>
-      <div className="flex items-center gap-3">
-        <button
-          type="button"
-          aria-label={SLOWER}
-          className={PANEL_ICON_BUTTON}
-          {...offWhen(value <= min, () => step(-SPEED_STEP))}
-        >
-          <Minus aria-hidden="true" className="size-5" />
-        </button>
-        <input
-          id={id}
-          type="range"
-          min={min}
-          max={max}
-          step={SPEED_STEP}
-          value={value}
-          aria-valuetext={SPEED_BADGE(value)}
-          className="accent-accent h-11 min-w-0 flex-1"
-          onChange={(event) => onChange(clampSpeed(Number(event.target.value)))}
-        />
-        <button
-          type="button"
-          aria-label={FASTER}
-          className={PANEL_ICON_BUTTON}
-          {...offWhen(value >= max, () => step(SPEED_STEP))}
-        >
-          <Plus aria-hidden="true" className="size-5" />
-        </button>
-      </div>
+      <Slider
+        label={SPEED}
+        value={value}
+        min={min}
+        max={max}
+        step={SPEED_STEP}
+        largeStep={SPEED_LARGE_STEP}
+        detent={DEFAULT_SPEED}
+        format={SPEED_BADGE}
+        decrementLabel={SLOWER}
+        incrementLabel={FASTER}
+        onChange={onChange}
+      />
       <div className="flex flex-wrap items-center gap-2">
-        {PRESETS.map((preset) => {
-          const chosen = value === preset
-          return (
-            <button
-              key={preset}
-              type="button"
-              aria-pressed={chosen}
-              className={`t-body min-h-11 ${BUTTON_CORNER} px-4 tabular-nums ${chosen ? CHIP_CHOSEN : CHIP}`}
-              onClick={() => onChange(preset)}
-            >
-              {SPEED_BADGE(preset)}
-            </button>
-          )
-        })}
-        <button
-          type="button"
-          className={`${PANEL_TEXT_BUTTON} ms-auto`}
-          {...offWhen(value === DEFAULT_SPEED, () => onChange(DEFAULT_SPEED))}
-        >
-          {RESET}
-        </button>
+        <SegmentedChoice
+          label={SPEED}
+          segments={PRESET_SEGMENTS}
+          selected={PRESET_SEGMENTS.find((preset) => preset.id === String(value))?.id ?? null}
+          onChange={(preset) => onChange(Number(preset))}
+        />
+        <div className="ms-auto flex">
+          <ResetButton
+            atDefault={value === DEFAULT_SPEED}
+            onReset={() => onChange(DEFAULT_SPEED)}
+          />
+        </div>
       </div>
     </div>
   )

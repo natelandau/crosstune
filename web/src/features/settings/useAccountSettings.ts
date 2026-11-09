@@ -16,7 +16,8 @@ export interface AccountSettings {
   offline: boolean
   error: string | null
   pending: boolean
-  signOut: () => void
+  /** Resolves once signed out, for a button that shows it working; a failure lands in `error`. */
+  signOut: () => Promise<void>
 }
 
 /**
@@ -31,7 +32,7 @@ export function useAccountSettings(): AccountSettings {
   const { signOut } = useAuth()
   const engine = useSyncEngine()
   const analytics = useAnalytics()
-  const { error, pending, run } = useAction()
+  const { error, pending, attempt } = useAction()
   const email = user?.primaryEmailAddress?.emailAddress ?? null
   const identity = user ? { name: user.fullName ?? null, email } : null
   return {
@@ -41,6 +42,6 @@ export function useAccountSettings(): AccountSettings {
     error,
     pending,
     signOut: () =>
-      run(() => signOutAndForget({ db, userId, engine, signOut: () => signOut(), analytics })),
+      attempt(() => signOutAndForget({ db, userId, engine, signOut: () => signOut(), analytics })),
   }
 }

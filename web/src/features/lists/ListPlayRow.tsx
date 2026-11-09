@@ -37,9 +37,8 @@ export function ListPlayRow({
   const nothingPlays = report?.playable.length === 0
   const disabled = !report || nothingPlays || recording
 
-  const start = (shuffle: boolean) => {
-    playback.start(listId, { shuffle }).catch((caught: unknown) => onError(messageFor(caught)))
-  }
+  const start = (shuffle: boolean) => playback.start(listId, { shuffle })
+  const failed = (caught: unknown) => onError(messageFor(caught))
 
   return (
     <div data-list-play className="flex flex-col gap-1 px-4 pb-2">
@@ -54,25 +53,30 @@ export function ListPlayRow({
               fullWidth
               // Until the next tune loads, the engine holds the one being left.
               isDisabled={run ? !run.settled || recording : disabled}
+              // Playing is its own confirmation.
+              showDone={false}
+              onFailed={failed}
               onPress={() => {
-                if (!active) start(false)
-                else if (pausing) engine.pause()
+                if (!active) return start(false)
+                if (pausing) engine.pause()
                 else engine.play()
               }}
             />
             <Button
-              variant="tinted"
+              variant="secondary"
               icon={Shuffle}
               label={SHUFFLE}
               fullWidth
               isDisabled={disabled}
+              showDone={false}
+              onFailed={failed}
               onPress={() => start(true)}
             />
           </ActionButtonRow>
         </div>
       )}
       {/* Held at its height while the sources read, so the rows under it do not shift. */}
-      <div className="flex min-h-(--target-control) items-center">
+      <div className="flex min-h-(--size-regular) items-center">
         {report && (
           <p className="t-secondary text-secondary">
             {report.playable.length === 0

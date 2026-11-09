@@ -75,7 +75,7 @@ function ActionButtons({
     buttons.push(
       <Button
         key="practice"
-        variant="tinted"
+        variant="secondary"
         icon={Gauge}
         label={PRACTICE}
         fullWidth
@@ -87,7 +87,7 @@ function ActionButtons({
     buttons.push(
       <Button
         key="lyrics"
-        variant="tinted"
+        variant="secondary"
         icon={TextQuote}
         label={LYRICS_SECTION}
         fullWidth
@@ -123,7 +123,7 @@ export function TuneActionButtons({
 
   // Held at the row's height while the source and plan read, so nothing shifts when they arrive.
   if (source === undefined || !planRead)
-    return <div className="min-h-(--target-control)" aria-hidden />
+    return <div className="min-h-(--size-regular)" aria-hidden />
 
   // Practice takes only a recording held on this device, as Play does.
   const practiceable = (view: RecordingView) => Boolean(view.file?.blob)

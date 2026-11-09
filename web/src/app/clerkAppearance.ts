@@ -19,7 +19,7 @@ export const APPEARANCE = {
     colorDanger: 'var(--danger)',
     colorNeutral: 'var(--text-primary)',
     fontFamily: 'var(--font-sans)',
-    borderRadius: 'var(--radius-row)',
+    borderRadius: 'var(--radius)',
   },
   elements: {
     rootBox: { width: '100%' },
@@ -27,10 +27,10 @@ export const APPEARANCE = {
       width: '100%',
       maxWidth: 'var(--container-auth)',
       boxShadow: 'none',
-      borderRadius: 'var(--radius-surface)',
+      borderRadius: 'var(--radius)',
       border: '1px solid var(--border)',
     },
-    card: { boxShadow: 'none', borderRadius: 'var(--radius-surface)' },
+    card: { boxShadow: 'none', borderRadius: 'var(--radius)' },
   },
 }
 

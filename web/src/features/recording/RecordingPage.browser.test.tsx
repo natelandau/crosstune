@@ -14,14 +14,7 @@ import { TAB_BAR } from '../../layout/tabs'
 import { AnalyticsProvider } from '../../usage/AnalyticsProvider'
 import { recordingAnalytics } from '../../usage/testing'
 import { NEXT_TUNE, PLAYER_REGION } from '../player/playerCopy'
-import {
-  CLOSE_PLAYER,
-  OPEN_RECORDING,
-  PAUSE,
-  PLAY,
-  PROGRESS,
-  REPEAT_LOOP,
-} from '../player/transportCopy'
+import { CLOSE_PLAYER, OPEN_RECORDING, PAUSE, PLAY, REPEAT_LOOP } from '../player/transportCopy'
 import { loopName } from '../../domain/loopModel'
 import { LOOPS_LABEL, MODES_LABEL, WAVEFORM_LABEL } from '../practice/practiceCopy'
 import { WAVEFORM_SLOT_PX } from '../practice/PracticeSurface'
@@ -104,6 +97,8 @@ async function mount(
 }
 
 const more = () => page.getByRole('main').getByRole('button', { name: MORE_ACTIONS })
+/** The page's Practice and Details tabs, not the practice modes' own. */
+const PAGE_TABLIST = '[role="tablist"]:not([data-mode-selector])'
 const tab = (name: string) => page.getByRole('tab', { name, exact: true })
 const showDetails = async () => {
   await tab(DETAILS).click()
@@ -132,10 +127,14 @@ function watchDockGhosts(): () => number {
   onTestFinished(() => observer.disconnect())
   return () => ghosts
 }
-const detailsPlay = () =>
-  page.getByRole('tabpanel', { name: DETAILS }).getByRole('button', { name: PLAY, exact: true })
-const detailsPause = () =>
-  page.getByRole('tabpanel', { name: DETAILS }).getByRole('button', { name: PAUSE, exact: true })
+const practicePanel = () => page.getByRole('tabpanel', { name: PRACTICE })
+const practicePause = () => practicePanel().getByRole('button', { name: PAUSE, exact: true })
+/** Presses practice's Play once its audio is ready. */
+async function playFromPractice() {
+  const play = practicePanel().getByRole('button', { name: PLAY, exact: true })
+  await expect.element(play).not.toHaveAttribute('aria-disabled', 'true')
+  await play.click()
+}
 const rowPlay = (label: string) =>
   page
     .getByRole('main', { name: TUNE })
@@ -159,7 +158,9 @@ it('compact: lists Practice first and opens on it, never on the tab used last', 
   const { router } = await mount(recordingPath(TUNE_PATH, 'rA'))
   await expect.element(tab(PRACTICE)).toHaveAttribute('aria-selected', 'true')
   const names = () =>
-    [...document.querySelectorAll('[role="tab"]')].map((element) => element.textContent)
+    [...document.querySelectorAll(`${PAGE_TABLIST} [role="tab"]`)].map(
+      (element) => element.textContent,
+    )
   await expect.poll(names).toEqual([PRACTICE, DETAILS])
   await showDetails()
 
@@ -172,7 +173,7 @@ it('compact: lists Practice first and opens on it, never on the tab used last', 
 it('wide: shows practice with the attributes column and no tabs', async () => {
   await mount(recordingPath(TUNE_PATH, 'rA'), WIDE)
   await expect.element(page.getByRole('complementary', { name: DETAILS })).toBeVisible()
-  await expect.element(page.getByRole('tablist')).not.toBeInTheDocument()
+  await expect.poll(() => document.querySelector(PAGE_TABLIST)).toBeNull()
   await expect.poll(() => document.querySelector('[data-practice-waveform]')).not.toBeNull()
 })
 
@@ -214,12 +215,13 @@ it("writes the play of what plays while another recording's wide page shows", as
     .toEqual(['rA'])
 })
 
-it("reports a play from the Details tab's play bar as from the recording's page", async () => {
+it("reports a play from practice as from the recording's page", async () => {
   const { analytics, engine, router } = await mount(recordingPath(TUNE_PATH, 'rA'))
-  await showDetails()
-  await detailsPlay().click()
+  await playFromPractice()
   await expect.poll(() => engine.getState().playing).toBe(true)
   await act(() => router.navigate(TUNE_PATH))
+  // Stopped only after practice hands its play back, so every report is in by then.
+  await expect.poll(() => engine.getState().playing).toBe(false)
   await expect
     .poll(() =>
       analytics
@@ -230,16 +232,15 @@ it("reports a play from the Details tab's play bar as from the recording's page"
     .toEqual(['recording_screen'])
 })
 
-it('plays on Details with no dock, and stops once the page goes', async () => {
+it('plays on practice with no dock, and stops once the page goes', async () => {
   const { engine, router } = await mount(recordingPath(TUNE_PATH, 'rA'))
-  await showDetails()
-  await detailsPlay().click()
+  await playFromPractice()
   await expect.poll(() => engine.getState().playing).toBe(true)
-  await expect.element(detailsPause()).toBeVisible()
+  await expect.element(practicePause()).toBeVisible()
   await expect.element(dock()).not.toBeInTheDocument()
-  // No list plays, so the play bar has no list controls.
+  // No list plays, so practice has no list controls.
   await expect
-    .element(page.getByRole('tabpanel', { name: DETAILS }).getByRole('button', { name: NEXT_TUNE }))
+    .element(practicePanel().getByRole('button', { name: NEXT_TUNE }))
     .not.toBeInTheDocument()
 
   const ghosts = watchDockGhosts()
@@ -267,8 +268,7 @@ it('stops its playback when Go to tune leaves the page', async () => {
 
 it('stops its playback when another tab opens', async () => {
   const { engine } = await mount(recordingPath(TUNE_PATH, 'rA'))
-  await showDetails()
-  await detailsPlay().click()
+  await playFromPractice()
   await expect.poll(() => engine.getState().playing).toBe(true)
   await page
     .getByRole('navigation', { name: TAB_BAR })
@@ -284,17 +284,16 @@ it('keeps its playback with no dock across a tab switch, Trim, and the fold', as
   localStorage.setItem('crosstune.columnWidth', '480')
   const { engine } = await mount(recordingPath(TUNE_PATH, 'rA'), { width: 1100, height: 800 })
   await tab(PRACTICE).click()
-  await page
-    .getByRole('tabpanel', { name: PRACTICE })
-    .getByRole('button', { name: PLAY, exact: true })
-    .click()
+  await playFromPractice()
   await expect.poll(() => engine.getState().playing).toBe(true)
   await expect.element(dock()).not.toBeInTheDocument()
   // An unload counts as a load, so an unchanged count says the recording stayed loaded.
   const loads = engine.loads
 
-  await tab(DETAILS).click()
-  await expect.element(detailsPause()).toBeVisible()
+  await showDetails()
+  await expect.element(dock()).not.toBeInTheDocument()
+  await tab(PRACTICE).click()
+  await expect.element(practicePause()).toBeVisible()
 
   await more().click()
   await page.getByRole('menuitem', { name: TRIM }).click()
@@ -319,12 +318,11 @@ it("hides the dock on the page of a row's playback, and plays on with the dock a
 
   await act(() => router.navigate(recordingPath(TUNE_PATH, 'rA')))
   await expect.element(heading(FAST)).toBeVisible()
-  await showDetails()
   await expect.element(dock()).not.toBeInTheDocument()
-  await expect.element(detailsPause()).toBeVisible()
+  await expect.element(practicePause()).toBeVisible()
   // Pausing and resuming on the page leaves the playback the row's.
-  await detailsPause().click()
-  await detailsPlay().click()
+  await practicePause().click()
+  await playFromPractice()
   await expect.poll(() => engine.getState().playing).toBe(true)
 
   await act(() => router.navigate(TUNE_PATH))
@@ -351,10 +349,10 @@ it('leaves when the recording is deleted', async () => {
 
 it("a lapsed account's page edits but does not play", async () => {
   const { analytics } = await mount(recordingPath(TUNE_PATH, 'rA'), PHONE, { lapsed: true })
-  const details = page.getByRole('tabpanel', { name: DETAILS })
-  await expect.element(details.getByRole('button', { name: PLAY, exact: true })).toBeDisabled()
-  await expect.element(tab(PRACTICE)).toHaveAttribute('aria-disabled', 'true')
-  await details.getByRole('button', { name: SUBSCRIBE_TO_PLAY }).click()
+  await expect
+    .element(practicePanel().getByRole('button', { name: PLAY, exact: true }))
+    .toHaveAttribute('aria-disabled', 'true')
+  await practicePanel().getByRole('button', { name: SUBSCRIBE_TO_PLAY }).click()
   await expect.element(planSheet()).toBeVisible()
   await expect.poll(() => planSheetShown(analytics)).toEqual([PAGE_PLAN_SHEET])
 })
@@ -373,31 +371,13 @@ it('offline, with no audio on this device, edits but shows why it cannot play', 
     .fill('Offline player')
   await userEvent.keyboard('{Enter}')
   await expect.poll(async () => (await db.recordings.get('rA'))?.players).toBe('Offline player')
-  await expect.element(details.getByRole('button', { name: PLAY, exact: true })).toBeDisabled()
-  await expect.element(details.getByRole('status')).toHaveTextContent(OFFLINE)
 
   await tab(PRACTICE).click()
-  const practice = page.getByRole('tabpanel', { name: PRACTICE })
+  const practice = practicePanel()
   await expect
     .element(practice.getByRole('button', { name: PLAY, exact: true }))
     .toHaveAttribute('aria-disabled', 'true')
   await expect.element(practice.getByText(OFFLINE, { exact: true })).toBeVisible()
-})
-
-it('keeps the place scrubbed on Details when Practice shows', async () => {
-  await mount(recordingPath(TUNE_PATH, 'rA'))
-  await showDetails()
-  const scrubber = page
-    .getByRole('tabpanel', { name: DETAILS })
-    .getByRole('slider', { name: PROGRESS(FAST) })
-  await expect.element(scrubber).toBeEnabled()
-  ;(scrubber.element() as HTMLElement).focus()
-  await userEvent.keyboard('{ArrowRight}{ArrowRight}')
-  await expect.element(scrubber).toHaveValue('10000')
-  await tab(PRACTICE).click()
-  await expect
-    .element(page.getByRole('slider', { name: WAVEFORM_LABEL }))
-    .toHaveAttribute('aria-valuenow', '10000')
 })
 
 it('back returns to the list it came from', async () => {
@@ -480,7 +460,7 @@ it('splits a recording that must be split to upload without touching what plays'
 it('folds by its own width in the split frame', async () => {
   await mount(recordingPath(TUNE_PATH, 'rA'), { width: 1050, height: 800 })
   await expect.element(page.getByRole('complementary', { name: DETAILS })).toBeVisible()
-  await expect.element(page.getByRole('tablist')).not.toBeInTheDocument()
+  await expect.poll(() => document.querySelector(PAGE_TABLIST)).toBeNull()
 })
 
 /** A row of the catalog list beside the page, holding focus. */
@@ -588,7 +568,7 @@ const repeatNewLoop = () =>
   page.getByRole('button', { name: REPEAT_LOOP(loopName(null, 0, 0)), exact: true })
 
 const modeRadio = (name: string) =>
-  page.getByRole('radiogroup', { name: MODES_LABEL }).getByRole('radio', { name, exact: true })
+  page.getByRole('tablist', { name: MODES_LABEL }).getByRole('tab', { name, exact: true })
 
 /** Zooms practice in and selects a new loop, and returns the zoomed scale. */
 async function zoomAndSelectLoop(): Promise<string | undefined> {
@@ -611,20 +591,19 @@ it('keeps the zoom and the selected loop from Practice to Details and back', asy
   await tab(PRACTICE).click()
   await expect.element(repeatNewLoop()).toBeVisible()
   await expect.poll(pxPerS).toBe(zoomed)
-  await expect.element(modeRadio(LOOPS_LABEL)).toBeChecked()
+  await expect.element(modeRadio(LOOPS_LABEL)).toHaveAttribute('aria-selected', 'true')
 })
 
 it("leaves practice's keys alone while Details shows", async () => {
   await mount(recordingPath(TUNE_PATH, 'rA'))
   await tab(PRACTICE).click()
   await waveformScaled()
-  await tab(DETAILS).click()
-  const scrubber = page
-    .getByRole('tabpanel', { name: DETAILS })
-    .getByRole('slider', { name: PROGRESS(FAST) })
-  await expect.element(scrubber).toBeEnabled()
+  await showDetails()
   expect(press('ArrowRight').defaultPrevented).toBe(false)
-  await expect.element(scrubber).toHaveValue('0')
+  await tab(PRACTICE).click()
+  await expect
+    .element(page.getByRole('slider', { name: WAVEFORM_LABEL }))
+    .toHaveAttribute('aria-valuenow', '0')
 })
 
 it('keeps the zoom, the selected loop, and the playhead across the fold', async () => {
@@ -649,18 +628,18 @@ it('keeps the zoom, the selected loop, and the playhead across the fold', async 
   await expect.element(repeatNewLoop()).toBeVisible()
   await expect.element(playhead).toHaveAttribute('aria-valuenow', at)
   await expect.poll(pxPerS).toBe(zoomed)
-  await expect.element(modeRadio(LOOPS_LABEL)).toBeChecked()
+  await expect.element(modeRadio(LOOPS_LABEL)).toHaveAttribute('aria-selected', 'true')
 })
 
 it('opens a page on Speed after Loops was used on the last one', async () => {
   const { router } = await mount(recordingPath(TUNE_PATH, 'rA'))
   await tab(PRACTICE).click()
   await modeRadio(LOOPS_LABEL).click()
-  await expect.element(modeRadio(LOOPS_LABEL)).toBeChecked()
+  await expect.element(modeRadio(LOOPS_LABEL)).toHaveAttribute('aria-selected', 'true')
   await act(() => router.navigate(recordingPath(TUNE_PATH, 'rB')))
   await expect.element(tab(PRACTICE)).toBeVisible()
   await tab(PRACTICE).click()
-  await expect.element(modeRadio('Speed')).toBeChecked()
+  await expect.element(modeRadio('Speed')).toHaveAttribute('aria-selected', 'true')
 })
 
 it("hears practice's keys at once after the dock's Expand opens it", async () => {
@@ -684,6 +663,26 @@ it("hears practice's keys after a press on the Practice tab", async () => {
   expect(router.state.location.pathname).toBe(recordingPath(TUNE_PATH, 'rA'))
 })
 
+it('compact: holds no play control on Details, and the way to subscribe on Practice', async () => {
+  await mount(recordingPath(TUNE_PATH, 'rA'), PHONE, { lapsed: true })
+  await expect.element(tab(PRACTICE)).toHaveAttribute('aria-selected', 'true')
+  await expect.element(tab(PRACTICE)).not.toHaveAttribute('aria-disabled', 'true')
+  await expect
+    .element(practicePanel().getByRole('button', { name: SUBSCRIBE_TO_PLAY }))
+    .toBeVisible()
+  await showDetails()
+  const details = page.getByRole('tabpanel', { name: DETAILS })
+  await expect
+    .element(details.getByRole('button', { name: new RegExp(`^${PLAYERS_LABEL}, `) }))
+    .toBeVisible()
+  await expect
+    .element(details.getByRole('button', { name: PLAY, exact: true }))
+    .not.toBeInTheDocument()
+  await expect
+    .element(details.getByRole('button', { name: SUBSCRIBE_TO_PLAY }))
+    .not.toBeInTheDocument()
+})
+
 it("says Subscribe to play once on a lapsed account's wide page", async () => {
   const { analytics } = await mount(recordingPath(TUNE_PATH, 'rA'), WIDE, { lapsed: true })
   const main = page.getByRole('main')
@@ -701,7 +700,7 @@ it('opens wide straight into its layout, never drawing the tabs first', async ()
   const observer = new MutationObserver((records) => {
     for (const node of records.flatMap((record) => [...record.addedNodes])) {
       if (!(node instanceof Element)) continue
-      if (node.matches('[role="tablist"]') || node.querySelector('[role="tablist"]')) {
+      if (node.matches(PAGE_TABLIST) || node.querySelector(PAGE_TABLIST)) {
         tabsDrawn = true
       }
     }

@@ -50,13 +50,13 @@ describe('useBulkEdit', () => {
   it('keeps Save off until a field is touched and writes only touched fields', () => {
     const { result, onApply } = setup()
     expect(result.current.canSave).toBe(false)
-    act(() => result.current.save())
+    act(() => void result.current.save())
     expect(onApply).not.toHaveBeenCalled()
 
     act(() => result.current.touch('genre', 'Old-time'))
     expect(result.current.touchedCount).toBe(1)
     expect(result.current.canSave).toBe(true)
-    act(() => result.current.save())
+    act(() => void result.current.save())
     expect(onApply).toHaveBeenCalledTimes(1)
     expect(onApply).toHaveBeenCalledWith({ tune: { genre: 'Old-time' }, userTune: {} })
   })
@@ -72,13 +72,13 @@ describe('useBulkEdit', () => {
   it('applies once until the caller reports the write settled', () => {
     const { result, rerender, onApply } = setup()
     act(() => result.current.touch('genre', 'Old-time'))
-    act(() => result.current.save())
-    act(() => result.current.save())
+    act(() => void result.current.save())
+    act(() => void result.current.save())
     expect(onApply).toHaveBeenCalledTimes(1)
     rerender({ open: true, pending: true })
     expect(result.current.canSave).toBe(false)
     rerender({ open: true, pending: false })
-    act(() => result.current.save())
+    act(() => void result.current.save())
     expect(onApply).toHaveBeenCalledTimes(2)
   })
 

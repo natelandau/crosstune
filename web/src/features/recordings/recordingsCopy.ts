@@ -18,6 +18,7 @@ export const NOTES_LABEL = 'Notes'
 export const RECORDING_NOTES_PLACEHOLDER = 'Tuning, who it came from, what to work on…'
 export const CLEAR_LOCATION = 'Clear location'
 export const NO_LOCATIONS_FOUND = 'No locations found'
+export const NO_NEARBY_LOCATIONS = 'No nearby locations found.'
 export const LOCATION_SEARCH_UNAVAILABLE = 'Location search is unavailable right now.'
 export const LOCATION_SEARCH_OFFLINE = 'Location search needs a connection.'
 /** Under the location field and on the recording settings while the browser denies location. */

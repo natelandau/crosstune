@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { DELETE_ACCOUNT } from '../deleteAccountCopy'
-import { ACCOUNT_OFFLINE, SIGN_OUT } from '../settingsCopy'
+import { CANNOT_UNDO, DELETE_ACCOUNT } from '../deleteAccountCopy'
+import { ACCOUNT, ACCOUNT_OFFLINE, SIGN_OUT } from '../settingsCopy'
 import { useAccountSettings } from '../useAccountSettings'
-import { ActionRow } from '../../../ui/form/ActionRow'
+import { ButtonRow } from '../../../ui/form/ButtonRow'
 import { Group } from '../../../ui/form/Group'
 import { PlanGroup } from '../PlanGroup'
 import { UsageSharingRow } from '../UsageSharingRow'
@@ -16,18 +16,26 @@ export function AccountPage() {
     <>
       <PlanGroup />
       <Group error={error ?? undefined} footer={offline ? ACCOUNT_OFFLINE : undefined}>
-        <div className="flex min-h-(--target) flex-col justify-center px-4 py-2">
-          <span className="t-body truncate">{identity?.name ?? label}</span>
-          {identity?.name && identity.email && (
-            <span className="t-secondary text-secondary truncate">{identity.email}</span>
-          )}
-        </div>
-        <ActionRow label={SIGN_OUT} destructive isDisabled={pending || offline} onPress={signOut} />
-        <ActionRow
-          label={DELETE_ACCOUNT}
-          destructive
-          isDisabled={pending || offline}
-          onPress={() => setDeleting(true)}
+        <ButtonRow
+          title={identity?.name ?? label}
+          description={identity?.name ? identity.email : undefined}
+          button={{
+            label: SIGN_OUT,
+            variant: 'destructive',
+            isDisabled: offline,
+            showDone: false,
+            onPress: signOut,
+          }}
+        />
+        <ButtonRow
+          title={ACCOUNT}
+          description={CANNOT_UNDO}
+          button={{
+            label: DELETE_ACCOUNT,
+            variant: 'destructive',
+            isDisabled: pending || offline,
+            onPress: () => setDeleting(true),
+          }}
         />
       </Group>
       <UsageSharingRow />

@@ -3,6 +3,7 @@ import { formatDuration } from '../../text/format'
 import { PROGRESS } from './transportCopy'
 import { clamp } from '../../math'
 import { usePlayhead, type Moving } from './playheadClock'
+import { TAP_HEIGHT } from '../../ui/tapArea'
 
 const KEY_STEP_MS = 5000
 const ARROW_STEP: Record<string, number> = {
@@ -49,7 +50,7 @@ export function Scrubber({
   return (
     <div
       data-scrubber
-      className="relative h-(--target-control) min-w-0 flex-1 rounded-(--radius-row) has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-(--accent)"
+      className="relative h-(--size-regular) min-w-0 flex-1 rounded-(--radius) has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-(--accent)"
     >
       <div aria-hidden className="bg-border absolute inset-x-0 top-1/2 h-0.5 -translate-y-1/2">
         <div ref={played} className="bg-text-secondary h-full" />
@@ -59,6 +60,7 @@ export function Scrubber({
           className="bg-playhead absolute top-1/2 h-3 w-0.5 -translate-x-1/2 -translate-y-1/2 rounded-full"
         />
       </div>
+      {/* eslint-disable-next-line no-restricted-syntax -- Media timeline */}
       <input
         ref={input}
         type="range"
@@ -77,7 +79,7 @@ export function Scrubber({
           event.preventDefault()
           onSeek(clamp(valueOf(playhead.get()) + by, 0, length))
         }}
-        className="absolute inset-0 size-full cursor-pointer opacity-0 outline-none disabled:cursor-default"
+        className={`absolute inset-x-0 top-1/2 h-full w-full -translate-y-1/2 cursor-pointer opacity-0 outline-none disabled:cursor-default ${TAP_HEIGHT}`}
       />
     </div>
   )

@@ -69,7 +69,7 @@ export interface BulkActionsState {
   /** Closes `which` if it is still the sheet open, so a late dismissal cannot close the next. */
   closeSheet: (which: Exclude<BulkSheet, null>) => void
   /** The edit sheet's write. A failure stays in the sheet, which holds the musician's work. */
-  edit: { error: string | null; pending: boolean; apply: (patch: BulkPatch) => void }
+  edit: { error: string | null; pending: boolean; apply: (patch: BulkPatch) => Promise<void> }
   /** The list picker added the tunes; it ran its own write, so this only reports it. */
   listAdded: (addition: ListAddition) => void
 }
@@ -110,7 +110,7 @@ export function useBulkActionsWith({
     work: () => Promise<{ undo: Undo; message: string }>,
     onDone: () => void,
   ) => {
-    action.runThen(async () => {
+    return action.attempt(async () => {
       const { undo, message } = await work()
       toast(message, undo)
     }, onDone)
@@ -119,7 +119,7 @@ export function useBulkActionsWith({
   const statusItems: MenuItem[] = STATUSES.map((status) => ({
     label: STATUS_LABELS[status],
     onPress: () =>
-      apply(
+      void apply(
         bar,
         async () => {
           const undo = await updateTunes(db, ids, { userTune: { status } })
@@ -142,7 +142,7 @@ export function useBulkActionsWith({
       label: archiveLabel(targets.length, archive),
       tone: 'warning',
       onPress: () =>
-        apply(
+        void apply(
           bar,
           async () => {
             const undo = await setArchivedMany(
@@ -165,7 +165,7 @@ export function useBulkActionsWith({
     const ok = await confirm({ ...(await deleteTunesQuestion(db, entries)), action: DELETE })
     if (!ok) return
     // No toast: this is the one bulk action with nothing to undo.
-    bar.runThen(async () => {
+    void bar.attempt(async () => {
       await deleteTunes(db, ids)
       analytics.send('bulk_edit_applied', {
         count_bucket: countBucket(ids.length),
@@ -183,7 +183,7 @@ export function useBulkActionsWith({
       label: removeFromListLabel(itemIds.length),
       tone: 'error',
       onPress: () =>
-        apply(
+        void apply(
           bar,
           async () => {
             const undo = await removeTunesFromList(db, itemIds)

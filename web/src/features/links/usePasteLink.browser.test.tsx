@@ -39,11 +39,11 @@ describe('usePasteLink', () => {
 
   it('refuses a blank link and an address that is not on the web, adding nothing', async () => {
     const { result, onInvalid } = setup()
-    act(() => result.current.submit())
+    act(() => void result.current.submit())
     expect(result.current.validation).toBe(LINK_REQUIRED)
     act(() => result.current.setUrl('ftp://example.com/tune'))
     expect(result.current.validation).toBeNull()
-    act(() => result.current.submit())
+    act(() => void result.current.submit())
     expect(result.current.validation).toBe(LINK_NOT_WEB)
     expect(onInvalid).toHaveBeenCalledTimes(2)
     expect(result.current.closing).toBe(false)
@@ -82,7 +82,7 @@ describe('usePasteLink', () => {
   it('reports the pasted link with its service and ids once it is saved', async () => {
     const { result, analytics } = setup()
     act(() => result.current.setUrl('https://youtu.be/dQw4w9WgXcQ'))
-    act(() => result.current.submit())
+    act(() => void result.current.submit())
     await expect.poll(() => analytics.sends()).toHaveLength(1)
     const [link] = await db.recording_links.toArray()
     expect(analytics.sends()).toEqual([
@@ -95,7 +95,7 @@ describe('usePasteLink', () => {
 
   it('reports nothing for a link that was refused', async () => {
     const { result, analytics } = setup()
-    act(() => result.current.submit())
+    act(() => void result.current.submit())
     await expect.poll(() => result.current.validation).toBe(LINK_REQUIRED)
     expect(analytics.sends()).toEqual([])
   })

@@ -63,7 +63,7 @@ export interface ImportSession {
   /** The rows Add would create: checked, with a title. */
   count: number
   canAdd: boolean
-  add: () => void
+  add: () => Promise<void> | undefined
   error: string | null
   pending: boolean
   closing: boolean
@@ -83,7 +83,7 @@ export function useImport(open: boolean, entry: ImportEntry): ImportSession {
   const db = useDb()
   const analytics = useAnalytics()
   const toast = useToast()
-  const { error, pending, runThen, clear } = useAction()
+  const { error, pending, attempt, clear } = useAction()
   const fileAction = useAction()
   const [closing, setClosing] = useState(false)
   const active = open && !closing
@@ -213,7 +213,7 @@ export function useImport(open: boolean, entry: ImportEntry): ImportSession {
     const titles = rows.filter(adds).map((row) => row.title.trim())
     const list = listChoice()
     const skipped = rows.length - titles.length
-    runThen(
+    return attempt(
       async () => {
         const result = await importTunes(db, {
           titles,

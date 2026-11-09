@@ -1,26 +1,14 @@
 import { useCallback, useEffect, useRef, type RefObject } from 'react'
-import { Button as AriaButton, Heading } from 'react-aria-components'
+import { Heading } from 'react-aria-components'
+import { Button } from '../../ui/Button'
 import { CANCEL } from '../../ui/confirmCopy'
 import { useOnTop } from '../../ui/overlayClaim'
-import { PRESS } from '../../ui/press'
 import { useEscapeCapture } from '../../ui/useEscapeCapture'
 import { useLatest } from '../../ui/useLatest'
-import { BUTTON_CORNER, BUTTON_TONE, UNFILLED_OFF } from '../../ui/buttonTone'
-import { CHIP } from './panel'
+import type { TrackWork } from '../../ui/useWorking'
 
 /** The controls under an editor's strips, capped so they stay in reach on a wide window. */
-export const EDITOR_CAPPED = 'mx-auto w-full max-w-xl'
-
-const TEXT_BUTTON = `t-body min-h-(--target) ${BUTTON_CORNER} disabled:opacity-40 ${PRESS}`
-
-/** An editor button's shape, for a button that takes its own colors. */
-export const EDITOR_BUTTON_SHAPE = `${TEXT_BUTTON} px-3`
-
-/** A text button with no fill, such as Cancel. */
-export const EDITOR_TEXT_BUTTON = `${EDITOR_BUTTON_SHAPE} ${BUTTON_TONE.plain} ${UNFILLED_OFF}`
-
-/** A text button on the panels' round fill, such as Split at 0:12. */
-export const EDITOR_FILLED_BUTTON = `${TEXT_BUTTON} px-4 font-semibold ${CHIP}`
+export const CONTROLS_CAPPED = 'mx-auto w-full max-w-xl'
 
 /**
  * An editor shown in place of practice, such as Trim or Split: Cancel, the title, and Save. Cancel
@@ -49,7 +37,8 @@ export function EditorHeader({
   canSave: boolean
   /** Cancelled. */
   onDone: () => void
-  onSave: () => void
+  /** The save, which hands its write to `track` and ends with the editor leaving. */
+  onSave: (track: TrackWork) => void
 }) {
   const top = useOnTop(isTop)
   const cancel = useRef<HTMLButtonElement>(null)
@@ -72,19 +61,17 @@ export function EditorHeader({
 
   return (
     <header data-editor-header className="flex items-center gap-2 px-2 py-2">
-      <AriaButton ref={cancel} className={EDITOR_TEXT_BUTTON} isDisabled={saving} onPress={onDone}>
-        {CANCEL}
-      </AriaButton>
+      <Button ref={cancel} label={CANCEL} isDisabled={saving} onPress={onDone} />
       <Heading slot="title" className="t-heading min-w-0 flex-1 truncate text-center">
         {title}
       </Heading>
-      <AriaButton
-        className={`${EDITOR_TEXT_BUTTON} font-semibold`}
-        isDisabled={!canSave || saving}
+      <Button
+        variant="primary"
+        label={saveLabel}
+        isDisabled={!canSave}
+        showDone={false}
         onPress={onSave}
-      >
-        {saveLabel}
-      </AriaButton>
+      />
     </header>
   )
 }

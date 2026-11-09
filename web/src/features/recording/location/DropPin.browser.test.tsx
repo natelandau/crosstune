@@ -151,6 +151,7 @@ async function setup({
 const editor = () => page.getByRole('dialog', { name: LOCATION_LABEL })
 const searchBox = () => editor().getByRole('searchbox', { name: FIND_A_PLACE })
 const row = (name: string) => page.getByRole('button', { name, exact: true })
+const option = (name: string) => page.getByRole('option', { name, exact: true })
 const spotButton = () => editor().getByRole('button', { name: USE_THIS_SPOT, exact: true })
 const nameField = () => editor().getByRole('textbox', { name: LOCATION_NAME_LABEL })
 const done = async () => {
@@ -203,7 +204,7 @@ it.each([
   [
     'the end of a result list',
     [COLUMBIA],
-    () => row(pickLocationName(COLUMBIA.title, COLUMBIA.subtitle)),
+    () => option(pickLocationName(COLUMBIA.title, COLUMBIA.subtitle)),
   ],
 ] as const)(
   'reaches the pin map from %s, moves it, and Use this spot writes the spot',
@@ -234,20 +235,19 @@ it.each([
   },
 )
 
-it('on touch, raises the sheet so the whole pin drop shows, and lowers it on Back', async () => {
+it('on touch, shows the whole pin drop and stays at full height on Back', async () => {
   await setup({ density: 'touch' })
   const top = () => editor().element().getBoundingClientRect().top
-  const partTop = window.innerHeight * (1 - SHEET.partRatio)
-  // Within a pixel, since the sheet's offset is fractional.
-  const atPart = () => Math.abs(top() - partTop) <= 1
-  await expect.poll(atPart).toBe(true)
+  // The location editor opens at full height, well above where a part-height sheet rests.
+  const atFull = () => top() < window.innerHeight * (1 - SHEET.partRatio) - 1
+  await expect.poll(atFull).toBe(true)
   await dropPin()
   // Settled within the window, the map, the address under the pin, and Use this spot all show.
   await expect
     .poll(() => spotButton().element().getBoundingClientRect().bottom)
     .toBeLessThanOrEqual(window.innerHeight)
   await editor().getByRole('button', { name: BACK, exact: true }).click()
-  await expect.poll(atPart).toBe(true)
+  await expect.poll(atFull).toBe(true)
 })
 
 it('shows the address under the pin once the map settles', async () => {
@@ -430,7 +430,7 @@ it('keeps the search and its results across the pin drop', async () => {
       ],
     }),
   })
-  const result = row(pickLocationName('315 Columbia St', 'Brooklyn, NY'))
+  const result = option(pickLocationName('315 Columbia St', 'Brooklyn, NY'))
   await searchFor('columbia')
   await expect.element(result).toBeVisible()
   const before = seen.maps.length
@@ -518,7 +518,7 @@ it('starts at the area of the typed search for a recording with no point', async
     searchPlaces: async () => ({ kind: 'ok', results: [jalopy] }),
   })
   await searchFor('jalopy')
-  await expect.element(row(pickLocationName(jalopy.title, jalopy.subtitle))).toBeVisible()
+  await expect.element(option(pickLocationName(jalopy.title, jalopy.subtitle))).toBeVisible()
   await row(PIN_ROW).click()
   await expect.poll(() => startedAt(seen)).toEqual(OTHER)
 })
@@ -540,7 +540,7 @@ it("starts again at the search's area after Back, with no second search", async 
       return { kind: 'ok', results: [jalopy] }
     },
   })
-  const result = row(pickLocationName(jalopy.title, jalopy.subtitle))
+  const result = option(pickLocationName(jalopy.title, jalopy.subtitle))
   await searchFor('jalopy')
   await expect.element(result).toBeVisible()
   await row(PIN_ROW).click()

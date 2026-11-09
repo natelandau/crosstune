@@ -38,7 +38,7 @@ export interface ListPicker {
   name: string
   setName: (name: string) => void
   add: (listId: string) => void
-  create: () => void
+  create: () => Promise<void> | undefined
   error: string | null
   pending: boolean
   /** Set by a successful pick or create; the sheet closes itself so a fast second tap has nothing to act on. */
@@ -70,7 +70,7 @@ export function useListPicker(
   const lists = (useActiveLists() ?? []).filter((list) => list.id !== excludeListId)
   const counts = useMembershipCounts(userTuneIds)
   const total = userTuneIds.length
-  const { error, pending, runThen, clear } = useAction()
+  const { error, pending, attempt, clear } = useAction()
   const [creating, setCreating] = useState(false)
   const [name, setName] = useState('')
   const [closing, setClosing] = useState(false)
@@ -113,7 +113,7 @@ export function useListPicker(
   const finish = (write: () => Promise<ListAddition>) => {
     busy.current = true
     let addition: ListAddition | null = null
-    runThen(
+    return attempt(
       async () => {
         try {
           addition = await write()
@@ -145,7 +145,7 @@ export function useListPicker(
   const create = () => {
     const listName = name.trim()
     if (busy.current || closing || !listName) return
-    finish(async () => {
+    return finish(async () => {
       const { undo, listId } = await createListWithTunes(db, listName, userTuneIds)
       // One action, reported only as the list made; the tunes it starts with are its count.
       analytics.send('list_created', {

@@ -368,7 +368,7 @@ it('announces a new count when the scope changes, never while typing', async () 
   await seed(db)
   await mount(db)
   const live = () =>
-    document.querySelector('[data-column="list"] [aria-live="polite"]')?.textContent
+    document.querySelector('[data-column="list"] p[aria-live="polite"]')?.textContent
   await expect.element(row('Soldier')).toBeVisible()
   expect(live()).toBe('')
   await search().fill('o')

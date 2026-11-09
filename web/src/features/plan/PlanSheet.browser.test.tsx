@@ -729,8 +729,12 @@ it('fits a narrow phone, wrapping the terms rather than scrolling sideways', asy
   const terms = planSheet().getByRole('link', { name: PRIVACY_POLICY })
   await expect.element(terms).toBeVisible()
   const sheet = planSheet().element()
+  // A control's touch tap area reaches past its box by design and holds no content.
+  const tapArea = (element: Element) =>
+    parseFloat(getComputedStyle(element, '::after').width) > element.clientWidth
   const overflowing = [sheet, ...sheet.querySelectorAll('*')].filter(
-    (element) => element.scrollWidth > element.clientWidth + 1 && element.clientWidth > 1,
+    (element) =>
+      element.scrollWidth > element.clientWidth + 1 && element.clientWidth > 1 && !tapArea(element),
   )
   expect(overflowing).toEqual([])
   expect(terms.element().getBoundingClientRect().right).toBeLessThanOrEqual(320)

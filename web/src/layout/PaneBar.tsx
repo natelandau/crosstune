@@ -5,6 +5,7 @@ import { useLeaveTo } from './backHistory'
 import { useFrame } from '../platform/frame'
 import { usePane, usePinnedBarClearance } from './pane'
 import { InBar } from '../ui/inBar'
+import { TAP_AREA } from '../ui/tapArea'
 
 /**
  * The bar over one pane: a leading control, the pane's title small once its column title has
@@ -138,7 +139,7 @@ export function BackLink({
   return (
     <Link
       to={to}
-      className="t-body text-primary flex min-h-(--target-control) items-center gap-1 pe-2"
+      className={`t-body text-primary flex min-h-(--size-regular) items-center gap-1 pe-2 ${TAP_AREA}`}
       onClick={(event) => {
         if (event.defaultPrevented || event.button !== 0) return
         if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return

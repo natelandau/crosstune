@@ -1,19 +1,16 @@
 import { Contrast, X } from 'lucide-react'
-import { AnimatePresence, motion } from 'motion/react'
+import { AnimatePresence } from 'motion/react'
 import { useState } from 'react'
-import { Dialog, Modal, ModalOverlay } from 'react-aria-components'
 import { deleteScanName, INVERT, scanCount } from './scanCopy'
 import type { ScanViewOrigin } from './scanViewLog'
 import { useScanViewer } from './useScanViewer'
 import { CLOSE, DELETE } from '../../ui/confirmCopy'
-import { DURATION, EASE } from '../../theme/motion'
 import { Button } from '../../ui/Button'
+import { FullScreenCover } from '../../ui/FullScreenCover'
+import { IconButton } from '../../ui/IconButton'
 import { useConfirm } from '../../ui/Confirm'
 import { ErrorLine } from '../../ui/ErrorLine'
-import { useOverlayClaim } from '../../ui/overlayClaim'
 import { ScanPages } from './ScanPages'
-
-const MotionModalOverlay = motion.create(ModalOverlay)
 
 interface Shown {
   tuneId: string
@@ -77,55 +74,38 @@ function ViewerSurface({
 }: Shown & { now?: () => number; onClose: () => void }) {
   const confirm = useConfirm()
   const viewer = useScanViewer({ tuneId, startIndex, origin, now, confirm, onClose })
-  useOverlayClaim({ coversShell: true, close: viewer.close })
   const { name, count, index, ready, invert, error } = viewer
   return (
-    // A fade only, under reduced motion too: nothing moves, so there is nothing to reduce.
-    <MotionModalOverlay
-      isOpen
-      onOpenChange={(open) => {
-        if (!open) viewer.close()
-      }}
-      className="bg-page fixed inset-0 z-50"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: DURATION.base, ease: EASE }}
-    >
-      <Modal className="h-full w-full">
-        <Dialog
-          aria-label={name}
-          className="flex h-full flex-col pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)] outline-none"
-        >
-          <header className="flex items-center gap-1 px-2 pt-[max(0.5rem,env(safe-area-inset-top))] pb-2">
-            <p className="t-heading t-num min-w-0 flex-1 px-2">
-              {count > 0 ? scanCount(index, count) : ''}
-            </p>
+    <FullScreenCover label={name} onClose={viewer.close}>
+      <header className="flex items-center gap-1 px-2 pt-[max(0.5rem,env(safe-area-inset-top))] pb-2">
+        <p className="t-heading t-num min-w-0 flex-1 px-2">
+          {count > 0 ? scanCount(index, count) : ''}
+        </p>
+        <IconButton
+          icon={Contrast}
+          label={INVERT}
+          variant="toggle"
+          isSelected={invert}
+          onChange={viewer.setInvert}
+        />
+        <IconButton icon={X} label={CLOSE} onPress={viewer.close} />
+      </header>
+      <ErrorLine error={error} place="bar" />
+      {ready && (
+        <ScanPages
+          viewer={viewer}
+          brokenAction={(at) => (
             <Button
-              icon={Contrast}
-              label={INVERT}
-              iconOnly
-              aria-pressed={invert}
-              onPress={() => viewer.setInvert(!invert)}
-            />
-            <Button icon={X} label={CLOSE} iconOnly onPress={viewer.close} />
-          </header>
-          <ErrorLine error={error} place="bar" />
-          {ready && (
-            <ScanPages
-              viewer={viewer}
-              brokenAction={(at) => (
-                <Button
-                  variant="destructive"
-                  label={DELETE}
-                  name={deleteScanName(at)}
-                  onPress={() => viewer.remove(at)}
-                />
-              )}
+              variant="destructive"
+              label={DELETE}
+              name={deleteScanName(at)}
+              // The scan leaving the viewer confirms it.
+              showDone={false}
+              onPress={(track) => viewer.remove(at, track)}
             />
           )}
-        </Dialog>
-      </Modal>
-    </MotionModalOverlay>
+        />
+      )}
+    </FullScreenCover>
   )
 }

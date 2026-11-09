@@ -2,11 +2,8 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 import type { LocalRecordingLoop } from '../../db/types'
 import { adjacent, loopName, placedLoop, type PlacedLoop, type Span } from '../../domain/loopModel'
 import { LOOP_SELECTED, NEXT_LOOP, NO_LOOP, PREVIOUS_LOOP } from './practiceCopy'
-import { offWhen } from './panel'
+import { IconButton } from '../../ui/IconButton'
 import type { LoopPlayback } from './useLoopPlayback'
-
-const ARROW =
-  'grid size-9 shrink-0 place-items-center rounded-full text-primary aria-disabled:opacity-40'
 
 /**
  * The selected loop's name between Previous and Next, under the play button. With no loop
@@ -61,25 +58,21 @@ export function LoopSwitcher({
       aria-hidden={empty ? 'true' : undefined}
       className={`flex items-center justify-center gap-1 ${empty ? 'invisible' : ''}`}
     >
-      <button
-        type="button"
-        aria-label={PREVIOUS_LOOP}
-        {...offWhen(disabled || !previous, () => step(previous))}
-        className={ARROW}
-      >
-        <ChevronLeft aria-hidden="true" className="size-5" />
-      </button>
+      <IconButton
+        icon={ChevronLeft}
+        label={PREVIOUS_LOOP}
+        aria-disabled={disabled || !previous}
+        onPress={() => step(previous)}
+      />
       <span className="t-secondary max-w-48 min-w-20 truncate text-center">
         {selected || NO_LOOP}
       </span>
-      <button
-        type="button"
-        aria-label={NEXT_LOOP}
-        {...offWhen(disabled || !next, () => step(next))}
-        className={ARROW}
-      >
-        <ChevronRight aria-hidden="true" className="size-5" />
-      </button>
+      <IconButton
+        icon={ChevronRight}
+        label={NEXT_LOOP}
+        aria-disabled={disabled || !next}
+        onPress={() => step(next)}
+      />
     </div>
   )
 }

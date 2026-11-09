@@ -15,6 +15,7 @@ import { isControl, isTextEntry } from '../../ui/keyTarget'
 import { SOMETHING_WENT_WRONG } from '../../ui/useAction'
 import { useElementSize } from '../../ui/useElementSize'
 import { useLatest } from '../../ui/useLatest'
+import type { TrackWork } from '../../ui/useWorking'
 import { useAnalytics } from '../../usage/AnalyticsProvider'
 import { countBucket } from '../../usage/buckets'
 import type { PlaybackEngine } from '../player/playbackEngine'
@@ -108,8 +109,8 @@ export interface SplitEditor {
   zoom: (direction: 'in' | 'out') => void
   canZoomIn: boolean
   canZoomOut: boolean
-  /** Asks first, then writes the split. */
-  save: () => Promise<void>
+  /** Asks first, then writes the split, handing the write to `track`. */
+  save: (track?: TrackWork) => Promise<void>
   saving: boolean
   error: string | null
 }
@@ -380,7 +381,7 @@ export function useSplitEditor({
     onTrimmedElsewhere,
     failure: SOMETHING_WENT_WRONG,
   })
-  const save = async () => {
+  const save = async (track?: TrackWork) => {
     const state = current.current
     if (!canSave(state)) return
     const count = state.cuts.length + 1
@@ -399,6 +400,7 @@ export function useSplitEditor({
         })
         onDone()
       },
+      track,
     )
   }
 

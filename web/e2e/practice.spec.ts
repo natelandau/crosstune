@@ -27,11 +27,11 @@ test.use({ reducedMotion: 'reduce' })
 /** Waits for `practice`, opens its Loops mode, and returns it. */
 async function onLoops(practice: Locator): Promise<Locator> {
   const loops = practice
-    .getByRole('radiogroup', { name: MODES_LABEL })
-    .getByRole('radio', { name: LOOPS_LABEL, exact: true })
-  // Practice waits while a second device fetches the audio.
+    .getByRole('tablist', { name: MODES_LABEL })
+    .getByRole('tab', { name: LOOPS_LABEL, exact: true })
+  // Practice waits until the audio is ready.
   await loops.click({ timeout: 30_000 })
-  await expect(loops).toBeChecked()
+  await expect(loops).toHaveAttribute('aria-selected', 'true')
   return practice
 }
 
@@ -90,9 +90,11 @@ test('adds a loop, names it, and another device sees the name', async ({ page, b
     await expect(row2).toBeVisible({ timeout: 30_000 })
     await expectSynced(page2)
 
-    const practice2 = await onLoops(await openPractice(row2, label))
+    // The desktop's modes are a toolbar, and the loop's name shows on the waveform without
+    // opening Loops. Practice waits while this device fetches the audio.
+    const practice2 = await openPractice(row2, label)
     await expect(practice2.locator('[data-name-tab]', { hasText: 'B part' })).toBeVisible({
-      timeout: 15_000,
+      timeout: 30_000,
     })
     expect(consoleErrors2, JSON.stringify(consoleErrors2)).toEqual([])
   } finally {

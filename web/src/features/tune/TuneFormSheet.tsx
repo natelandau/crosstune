@@ -35,6 +35,7 @@ import { Switch } from '../../ui/form/Switch'
 import { TextField } from '../../ui/form/TextField'
 import { KeyGrid } from '../../ui/KeyGrid'
 import { Sheet } from '../../ui/Sheet'
+import { primaryDisabled } from '../../ui/sheetPrimary'
 import { useResetOnChange } from '../../ui/useResetOnChange'
 import type { TuneFormOptions } from './formLauncher'
 
@@ -95,7 +96,9 @@ function TuneFormBody({ isOpen, onOpenChange, tuneId, focus }: TuneFormSheetProp
   }, [isOpen, form.missing, closeRef])
 
   const save = () => {
-    if (form.save() === 'invalid') setRefusals((count) => count + 1)
+    const started = form.save()
+    if (started === 'invalid') setRefusals((count) => count + 1)
+    return typeof started === 'string' ? undefined : started
   }
 
   const typed = Object.values(form.touched).some(Boolean)
@@ -109,7 +112,7 @@ function TuneFormBody({ isOpen, onOpenChange, tuneId, focus }: TuneFormSheetProp
       primary={{
         label: SAVE_TUNE,
         onPress: save,
-        isDisabled: !form.canSave,
+        isDisabled: primaryDisabled(form.canSave, form.pending),
       }}
     >
       {/* Shown while closing too, so the fields hold still as the sheet leaves. */}
@@ -123,6 +126,7 @@ function TuneFormBody({ isOpen, onOpenChange, tuneId, focus }: TuneFormSheetProp
           }}
         >
           {/* A form with several fields submits on Enter only when it has a submit button. */}
+          {/* eslint-disable-next-line no-restricted-syntax -- Hidden submit button so Enter submits the form; never seen or focused */}
           <button type="submit" tabIndex={-1} aria-hidden="true" className="sr-only" />
           <ErrorLine error={form.error} place="sheet" />
 

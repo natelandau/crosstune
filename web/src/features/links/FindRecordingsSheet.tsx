@@ -1,6 +1,5 @@
-import { ArrowUpRight, ChevronLeft, ChevronRight, SlidersHorizontal } from 'lucide-react'
+import { ArrowUpRight, ChevronLeft, SlidersHorizontal } from 'lucide-react'
 import { Fragment, useEffect, useRef } from 'react'
-import { Button as AriaButton } from 'react-aria-components'
 import { useNavigate } from 'react-router'
 import { useAnalytics } from '../../usage/AnalyticsProvider'
 import type { SearchGroup, SearchResult } from '../../api/types'
@@ -32,7 +31,8 @@ import { DONE } from '../../ui/confirmCopy'
 import { Button } from '../../ui/Button'
 import { EmptyState } from '../../ui/EmptyState'
 import { ErrorLine } from '../../ui/ErrorLine'
-import { FIELD_LABEL, FIELD_ROW_PRESSABLE } from '../../ui/form/FieldRow'
+import { FIELD_LABEL } from '../../ui/form/FieldRow'
+import { PressableRow } from '../../ui/PressableRow'
 import { Group } from '../../ui/form/Group'
 import { SearchField } from '../../ui/SearchField'
 import { Sheet } from '../../ui/Sheet'
@@ -109,15 +109,9 @@ export function FindRecordingsSheet({
   }
 
   const searchOnRow = (group: SearchGroup) => (
-    <a
-      className={`${FIELD_ROW_PRESSABLE} text-primary font-medium`}
-      href={group.search_url}
-      target="_blank"
-      rel="noopener noreferrer"
-    >
+    <PressableRow href={group.search_url} className="text-primary font-medium">
       <span className={`${FIELD_LABEL} flex-1`}>{searchOn(PROVIDER_LABELS[group.provider])}</span>
-      <ArrowUpRight className="size-4 shrink-0" aria-hidden />
-    </a>
+    </PressableRow>
   )
 
   /** One service's answer. Its own search page always closes the card, found or not. */
@@ -139,18 +133,14 @@ export function FindRecordingsSheet({
   const serviceRows = (chosen: ReadonlySet<Provider>) => (
     <Group error={find.notice ?? undefined}>
       {[...chosen].map((provider) => {
-        const Trailing = searchesInApp(provider) ? ChevronRight : ArrowUpRight
+        const inApp = searchesInApp(provider)
         return (
-          <AriaButton
-            key={provider}
-            onPress={() => find.pick(provider)}
-            className={FIELD_ROW_PRESSABLE}
-          >
+          <PressableRow key={provider} onPress={() => find.pick(provider)} chevron={inApp}>
             <span className={`${FIELD_LABEL} flex-1`}>
               {searchService(PROVIDER_LABELS[provider])}
             </span>
-            <Trailing className="text-secondary size-4 shrink-0" aria-hidden />
-          </AriaButton>
+            {!inApp && <ArrowUpRight className="text-secondary size-4 shrink-0" aria-hidden />}
+          </PressableRow>
         )
       })}
     </Group>

@@ -11,7 +11,7 @@ import { useDb } from '../../../db/DbProvider'
 import { getCountryCenter } from '../../../db/meta'
 import type { LocalPlace } from '../../../db/types'
 import { useLocationPermission } from '../../../platform/locationPermission'
-import { useLatest } from '../../../ui/useLatest'
+import { untracked, WORK_SUPERSEDED, type TrackWork } from '../../../ui/useWorking'
 import { useAnalytics } from '../../../usage/AnalyticsProvider'
 import type { PlaceMethod } from '../../../usage/events'
 import { devicePosition } from '../../capture/devicePosition'
@@ -31,6 +31,7 @@ import type { RecordingView } from '../../recordings/useRecordings'
 import type { PinSpot } from './DropPin'
 import { pinStart } from './pinStart'
 import { latestPlaced, searchHint } from './searchHint'
+import { NO_CURRENT_LOCATION } from './locationEditorCopy'
 
 export interface LocationEditorState {
   /** The location to show and save, its saved location's name when linked to one. */
@@ -63,12 +64,13 @@ export interface LocationEditorState {
   hint: PlaceHint | null
   /** Whether the browser refuses this site the device's location. */
   locationOff: boolean
-  /** True while the device's location is being read for Use current location. */
-  locating: boolean
   /** The last press of Use current location got no fix, and no pick has come since. */
   noFix: boolean
-  /** Reads the device's location and picks it, named by the server once saved. */
-  pickCurrentLocation: () => void
+  /**
+   * Reads the device's location and picks it, named by the server once saved. Once access is
+   * granted, the lookup goes to `track`; it fails when there is no fix, which `noFix` reports.
+   */
+  pickCurrentLocation: (track?: TrackWork) => void
   /** Picks a place used before. */
   pickRecent: (place: PlaceChoice) => void
   /** Picks a search result, which saves its venue or street address as a location. */
@@ -117,7 +119,6 @@ export function useLocationEditor(view: RecordingView): LocationEditorState {
   // The location picked or cleared here, null while the recording's own is kept.
   const [picked, setPicked] = useState<StagedPlace | null>(null)
   const [placeMethod, setPlaceMethod] = useState<PlaceMethod | null>(null)
-  const [locating, setLocating] = useState(false)
   const [noFix, setNoFix] = useState(false)
   // Counts picks, so a fix that arrives after a later pick never replaces it.
   const picks = useRef(0)
@@ -125,7 +126,6 @@ export function useLocationEditor(view: RecordingView): LocationEditorState {
   // Followed so a rename or a delete on another device shows; undefined until read.
   const places = useLiveQuery(() => db.places.toArray(), [db])
   const savedPlaces = useMemo(() => livePlacesByName(places ?? []), [places])
-  const savedPlacesRef = useLatest(savedPlaces)
   const placesBefore = useMemo(() => {
     let built: PlaceChoice[] | undefined
     return () =>
@@ -228,20 +228,25 @@ export function useLocationEditor(view: RecordingView): LocationEditorState {
     stage({ kind: 'create', draft, made: 'custom', over }, 'pin')
   }
 
-  const pickCurrentLocation = () => {
-    setLocating(true)
+  const pickCurrentLocation = (track: TrackWork = untracked) => {
     setNoFix(false)
     const asked = picks.current
-    void devicePosition(navigator.geolocation).then((at) => {
-      setLocating(false)
-      if (picks.current !== asked) return
-      if (!at) {
-        setNoFix(true)
-        return
-      }
-      const saved = savedPlaceAt(savedPlacesRef.current, at) ?? null
+    const lookup = devicePosition(navigator.geolocation).then(async (at) => {
+      if (picks.current !== asked) return WORK_SUPERSEDED
+      if (!at) throw new Error(NO_CURRENT_LOCATION)
+      // Read from the database, not the last render, so a location saved while the fix was
+      // pending links before the live query catches up.
+      const saved = savedPlaceAt(await db.places.toArray(), at) ?? null
+      if (picks.current !== asked) return WORK_SUPERSEDED
       stage({ kind: 'device', point: at, saved }, 'current_location')
     })
+    // `noFix` reports a failure: no fix, or saved locations that could not be read to link it.
+    lookup.catch(() => {
+      if (picks.current === asked) setNoFix(true)
+    })
+    // Before access is granted the lookup waits on the browser's prompt, the person's decision,
+    // so it shows no spinner.
+    if (permission === 'granted') void track(lookup)
   }
 
   const save = async (name?: string) => {
@@ -285,7 +290,6 @@ export function useLocationEditor(view: RecordingView): LocationEditorState {
     chooseList,
     hint,
     locationOff: permission === 'denied',
-    locating,
     noFix,
     pickCurrentLocation,
     pickRecent: (place) => stage({ kind: 'place', place }, 'suggestion'),

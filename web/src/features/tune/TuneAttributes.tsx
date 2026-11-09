@@ -1,9 +1,8 @@
-import { Button as AriaButton } from 'react-aria-components'
-import { Link } from 'react-router'
+import { Plus } from 'lucide-react'
 import type { Instrument } from '../../api/vocabulary'
 import { addedDay } from '../../text/format'
 import { AttributesColumn, COLUMN_HEADER } from '../../ui/attributes/AttributesColumn'
-import { CAPSULE_HIT } from '../../ui/Capsule'
+import { Capsule } from '../../ui/Capsule'
 import { ADD_TO_LIST } from '../lists/listPickerCopy'
 import { AttributeEditorBody } from './attributeEditors'
 import {
@@ -86,21 +85,14 @@ export function TuneLists({
     <ul className="flex flex-wrap items-center gap-2">
       {inLists.map((list) => (
         <li key={list.id}>
-          <Link
-            to={`/lists/${list.id}`}
-            className={`t-secondary bg-field text-primary inline-flex h-[min(2rem,var(--target-filter))] items-center rounded-(--radius-capsule) px-3 ${CAPSULE_HIT}`}
-          >
-            {list.name}
-          </Link>
+          <Capsule label={list.name} to={`/lists/${list.id}`} />
         </li>
       ))}
       <li>
-        <AriaButton
-          onPress={onAddToList}
-          className={`t-secondary text-secondary hover:bg-field inline-flex h-[min(2rem,var(--target-filter))] items-center rounded-(--radius-capsule) px-3 ${CAPSULE_HIT}`}
-        >
+        <Capsule label={ADD_TO_LIST} onPress={onAddToList}>
+          <Plus className="size-4" aria-hidden />
           {ADD_TO_LIST}
-        </AriaButton>
+        </Capsule>
       </li>
     </ul>
   )

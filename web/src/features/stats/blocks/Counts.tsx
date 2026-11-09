@@ -1,3 +1,4 @@
+// eslint-disable-next-line no-restricted-imports -- Chart blocks
 import { Button as AriaButton } from 'react-aria-components'
 import { STATUSES, type TuneStatus } from '../../../api/vocabulary'
 import { STATUS_LABELS } from '../../../constants'

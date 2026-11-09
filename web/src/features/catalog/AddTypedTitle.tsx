@@ -1,10 +1,9 @@
 import { Plus } from 'lucide-react'
 import { Link } from 'react-router'
-import { Button as AriaButton } from 'react-aria-components'
 import { OPEN, addTypedTitleLabel, hiddenMatchText, openTuneName } from './catalogCopy'
 import type { SearchOutcome } from './searchIntent'
 import { destination } from '../../layout/destinations'
-import { ROW_PRESS } from '../../ui/press'
+import { PressableRow } from '../../ui/PressableRow'
 
 const CATALOG = destination('catalog')
 
@@ -19,13 +18,10 @@ export function AddTypedTitle({
   if (outcome.kind !== 'create') return null
   return (
     <div className="px-2">
-      <AriaButton
-        onPress={() => onCreate(outcome.title)}
-        className={`t-body text-primary flex min-h-(--target) w-full items-center gap-3 rounded-(--radius-row) px-3 text-start ${ROW_PRESS}`}
-      >
+      <PressableRow variant="list" onPress={() => onCreate(outcome.title)}>
         <Plus className="size-5 shrink-0" aria-hidden />
         <span className="min-w-0 truncate">{addTypedTitleLabel(outcome)}</span>
-      </AriaButton>
+      </PressableRow>
     </div>
   )
 }

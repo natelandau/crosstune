@@ -41,6 +41,7 @@ import { newTuneState } from '../tune/newTuneState'
 import { NEW_TUNE_PATH } from '../../layout/tuneHome'
 import { tunePick } from '../tune/tunePick'
 import { Button } from '../../ui/Button'
+import { IconButton } from '../../ui/IconButton'
 import { useConfirm } from '../../ui/Confirm'
 import { EmptyState } from '../../ui/EmptyState'
 import { ErrorLine } from '../../ui/ErrorLine'
@@ -258,13 +259,13 @@ export function CatalogScreen() {
         }
         actions={
           <>
-            <Button icon={Plus} label={ADD_TUNE} iconOnly onPress={addNewTune} />
+            <IconButton icon={Plus} label={ADD_TUNE} onPress={addNewTune} />
             {barFilters && (
               <FiltersBarButton count={sheet.count} onPress={() => setSheetOpen(true)} />
             )}
             <Menu
               label={MORE_ACTIONS}
-              trigger={<Button ref={moreRef} icon={Ellipsis} label={MORE_ACTIONS} iconOnly />}
+              trigger={<IconButton ref={moreRef} icon={Ellipsis} label={MORE_ACTIONS} />}
               items={more}
             />
           </>
@@ -349,7 +350,7 @@ export function CatalogScreen() {
                   <div className="flex items-center gap-2">
                     <Button variant="primary" label={ADD_TUNE} onPress={addNewTune} />
                     <Button
-                      variant="plain"
+                      variant="text"
                       label={IMPORT_TUNES}
                       onPress={() => setImporting(true)}
                     />

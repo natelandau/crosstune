@@ -1,6 +1,6 @@
 import { page, userEvent } from 'vitest/browser'
 import { describe, expect, it, onTestFinished, vi } from 'vitest'
-import { render } from '@testing-library/react'
+import { act, render } from '@testing-library/react'
 import { deleteScan } from '../../commands/scans'
 import { sortScans } from '../../db/scans'
 import type { CrosstuneDb } from '../../db/schema'
@@ -22,6 +22,7 @@ import {
   SCANS,
   scanViewerName,
   SUBSCRIBE_TO_OPEN,
+  SCAN_UNREADABLE,
   ZOOM,
 } from './scanCopy'
 import { DOUBLE_TAP_MS } from './useScanViewer'
@@ -35,10 +36,11 @@ import { useEntitlement } from '../../billing/usePlan'
 import { AnalyticsProvider } from '../../usage/AnalyticsProvider'
 import { recordingAnalytics } from '../../usage/testing'
 import { CLOSE, DELETE } from '../../ui/confirmCopy'
+import { WORKING_DELAY_MS } from '../../ui/useWorking'
 
 import { swipeLeft, tap } from '../../test/gestures'
 import { stampAxes } from '../../test/render'
-import { pollStill } from '../../test/stillPoll'
+import { elementStill, pollStill } from '../../test/stillPoll'
 import { renderApp } from '../../test/renderApp'
 import { AppMotion } from '../../theme/motion'
 import { TUNE } from '../tune/tunePageCopy'
@@ -107,6 +109,31 @@ it('opens the viewer from a thumbnail at that scan, over the whole window', asyn
       return [box.left, box.top, box.width, box.height]
     })
     .toEqual([0, 0, PHONE.width, PHONE.height])
+})
+
+it("shows no spinner on a broken scan's Delete while the person decides", async () => {
+  const { db } = await mount('/catalog/t1', PHONE, 'pointer')
+  await db.scan_files.put(scanFile('p0', new Blob(['not an image'], { type: 'image/jpeg' })))
+  await thumbnail(0).click()
+  const remove = viewer().getByRole('button', { name: deleteScanName(0) })
+  await expect.element(viewer().getByText(SCAN_UNREADABLE)).toBeVisible()
+  await expect.element(remove).toBeVisible()
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+  try {
+    ;(remove.element() as HTMLElement).click()
+    const question = page.getByRole('alertdialog')
+    await elementStill(question).toBeVisible()
+    // Past the working delay, inside act so any state its timer set has rendered before the read.
+    await act(() => vi.advanceTimersByTimeAsync(WORKING_DELAY_MS * 2))
+    const region = remove.element().nextElementSibling!
+    expect(region.getAttribute('aria-live')).toBe('polite')
+    expect(region.textContent).toBe('')
+    expect(remove.element().getAttribute('aria-busy')).toBeNull()
+    ;(question.getByRole('button', { name: DELETE }).element() as HTMLElement).click()
+    await pollStill(async () => (await db.scans.get('p0'))?.deleted_at).not.toBeNull()
+  } finally {
+    vi.useRealTimers()
+  }
 })
 
 it('pages with Next scan and Previous scan on pointer', async () => {

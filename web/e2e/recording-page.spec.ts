@@ -5,6 +5,7 @@ import {
   playRecording,
   recordingAttribute,
   showDetails,
+  showPractice,
   recordingPage,
   recordUnfiled,
   renameRecording,
@@ -12,7 +13,8 @@ import {
   unique,
 } from './helpers'
 import { PLAYER_REGION } from '../src/features/player/playerCopy'
-import { ELAPSED_LABEL, PAUSE, PLAY } from '../src/features/player/transportCopy'
+import { PAUSE, PLAY } from '../src/features/player/transportCopy'
+import { WAVEFORM_LABEL } from '../src/features/practice/practiceCopy'
 import {
   CANT_FIND_IT,
   DROP_A_PIN,
@@ -95,7 +97,7 @@ test('opens a recording page from its row, edits it there, and plays from the sl
   const search = locationEditor.getByRole('searchbox', { name: FIND_A_PLACE, exact: true })
   await search.fill('Felts')
   await locationEditor
-    .getByRole('button', { name: pickLocationName(PARK.title, PARK.subtitle), exact: true })
+    .getByRole('option', { name: pickLocationName(PARK.title, PARK.subtitle), exact: true })
     .click()
   await locationEditor.getByRole('button', { name: DONE, exact: true }).click()
   await expect(locationEditor).toHaveCount(0)
@@ -127,17 +129,16 @@ test('opens a recording page from its row, edits it there, and plays from the sl
   await expect(page).toHaveURL(/\/recordings$/)
 
   // Opening the page of what plays leaves it playing, with the page as its only player: the
-  // page's elapsed time moves on and the player bar is gone.
+  // page's playhead moves on and the player bar is gone.
   await openRecordingPage(row, name)
   await expect(recordingPage(page).getByRole('heading', { name, level: 1 })).toBeVisible()
   await expect(player).toHaveCount(0)
-  // The elapsed time is on Details' play bar.
-  await showDetails(page)
-  const elapsed = recordingPage(page).getByRole('timer', {
-    name: new RegExp(`^${ELAPSED_LABEL}`),
+  const playhead = (await showPractice(page)).getByRole('slider', {
+    name: WAVEFORM_LABEL,
+    exact: true,
   })
-  const opened = await elapsed.textContent()
-  await expect.poll(() => elapsed.textContent()).not.toBe(opened)
+  const opened = await playhead.getAttribute('aria-valuenow')
+  await expect.poll(() => playhead.getAttribute('aria-valuenow')).not.toBe(opened)
 
   // Playback the row started outlives its page, and the player bar shows it again.
   await openTab(page, 'recordings')
@@ -152,7 +153,6 @@ test("plays on a recording's page with no player bar, and stops when the page cl
   const unfiled = await recordUnfiled(page, 5)
   const opened = await openRecordingPage(unfiled)
 
-  // Details' play bar on the phone, practice's transport on a wide page.
   await opened.getByRole('button', { name: PLAY, exact: true }).click()
   await expect(opened.getByRole('button', { name: PAUSE, exact: true })).toBeVisible()
   await expect(page.getByRole('region', { name: PLAYER_REGION })).toHaveCount(0)

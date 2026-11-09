@@ -21,7 +21,7 @@ import { SIDEBAR } from '../../app/Sidebar'
 
 import { DELETE_LOOP, LOOP_NAME_SUGGESTIONS, LOOPS_LABEL, NEW_LOOP } from './practiceCopy'
 import { TAB_BAR } from '../../layout/tabs'
-import { DETAILS } from '../recording/recordingPageCopy'
+import { PRACTICE } from '../recording/recordingPageCopy'
 
 const dialog = () => recordingPage()
 const box = (selector: string) =>
@@ -84,7 +84,7 @@ it.each([
     const { db } = await mountPlaying(frame, { density: 'touch' })
     await db.tunes.update('t1', { part_structure: 'AABB' })
     await openPractice()
-    await dialog().getByRole('radio', { name: LOOPS_LABEL, exact: true }).click()
+    await dialog().getByRole('tab', { name: LOOPS_LABEL, exact: true }).click()
     await dialog().getByRole('button', { name: NEW_LOOP, exact: true }).click()
     await expect.poll(() => practice()?.querySelector('button[data-name-tab]')).not.toBeNull()
     practice()!.querySelector<HTMLElement>('button[data-name-tab]')!.click()
@@ -115,7 +115,7 @@ it.each([
 it('scrolls the whole page, waveform included, on a phone too short for practice', async () => {
   await mountPlaying({ width: 390, height: 560 })
   await openPractice()
-  await dialog().getByRole('radio', { name: LOOPS_LABEL, exact: true }).click()
+  await dialog().getByRole('tab', { name: LOOPS_LABEL, exact: true }).click()
   await expect.poll(() => practice()?.querySelector('[data-mode-panel="loops"]')).not.toBeNull()
   const below = practice()!.querySelector<HTMLElement>('[data-practice-below]')!
   const scroller = practice()!.closest<HTMLElement>('[data-pane-scroller]')!
@@ -220,7 +220,7 @@ it('stays on its own recording when a playing list moves to the next tune', asyn
   await expect.element(title).toHaveTextContent(`${TITLES.t1} take`)
 })
 
-it("shows the list's controls on Details only while a list plays the page's recording", async () => {
+it("shows the list's controls in practice only while a list plays the page's recording", async () => {
   const db = openTestDb()
   await seedList(db, ['t1', 't2', 't3'])
   const engine = fakePlaybackEngine(new FakeAudioElement() as unknown as HTMLAudioElement)
@@ -229,9 +229,8 @@ it("shows the list's controls on Details only while a list plays the page's reco
   await expect.element(play).toBeEnabled()
   await play.click()
   await page.getByRole('button', { name: OPEN_RECORDING(`${TITLES.t1} take`) }).click()
-  await page.getByRole('tab', { name: DETAILS, exact: true }).click()
-  const details = page.getByRole('tabpanel', { name: DETAILS })
-  const next = details.getByRole('button', { name: NEXT_TUNE, exact: true })
+  const practice = page.getByRole('tabpanel', { name: PRACTICE })
+  const next = practice.getByRole('button', { name: NEXT_TUNE, exact: true })
   await expect.element(next).toBeVisible()
 
   // The list moves on, so the page's own recording is no longer the one it steps.

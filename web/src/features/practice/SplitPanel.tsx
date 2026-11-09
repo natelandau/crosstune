@@ -1,27 +1,22 @@
 import { RotateCcw, RotateCw, ZoomIn, ZoomOut } from 'lucide-react'
 import { useId, useMemo, type RefObject } from 'react'
-import { Button as AriaButton, ToggleButton } from 'react-aria-components'
 import { MAX_RECORDING_MS, MAX_SPLIT_PIECES } from '../../domain/recordingLimits'
 import type { Moving } from '../player/playheadClock'
 import { formatDuration, formatPreciseDuration } from '../../text/format'
+import { Button } from '../../ui/Button'
+import { Capsule } from '../../ui/Capsule'
 import { useConfirm } from '../../ui/Confirm'
 import { ErrorLine } from '../../ui/ErrorLine'
+import { IconButton } from '../../ui/IconButton'
 import { TransportMark } from '../../ui/rowGlyphs'
 import { usePlaybackEngine } from '../player/PlaybackEngineProvider'
 import { SKIP_BACK, SKIP_FORWARD, SKIP_MS } from '../player/playerCopy'
 import { PAUSE, PLAY } from '../player/transportCopy'
 import type { RecordingView } from '../recordings/useRecordings'
 import { CenterLineStrip } from './CenterLineStrip'
-import {
-  EDITOR_CAPPED,
-  EDITOR_BUTTON_SHAPE,
-  EDITOR_FILLED_BUTTON,
-  EDITOR_TEXT_BUTTON,
-  EditorHeader,
-} from './EditorHeader'
+import { CONTROLS_CAPPED, EditorHeader } from './EditorHeader'
 import { OverviewStrip } from './OverviewStrip'
-import { CHIP, ZOOM_IN, ZOOM_OUT } from './panel'
-import { PracticeButton } from './PracticeButton'
+import { ZOOM_IN, ZOOM_OUT } from './panel'
 import type { WaveformLoop } from './PracticeWaveform'
 import type { ShownPeaks } from './recordingRange'
 import {
@@ -99,7 +94,7 @@ export function SplitPanel({
         saving={saving}
         canSave={canSave(split)}
         onDone={onDone}
-        onSave={() => void editor.save()}
+        onSave={(track) => void editor.save(track)}
       />
       <div data-split className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-4 py-2">
         <ErrorLine error={editor.error} place="stack" />
@@ -135,11 +130,11 @@ export function SplitPanel({
           onPan={editor.panBy}
           pinches={editor.pinches}
         />
-        <div className={`${EDITOR_CAPPED} flex flex-col gap-5`}>
+        <div className={`${CONTROLS_CAPPED} flex flex-col gap-5`}>
           <div className="flex items-center gap-2">
-            <PracticeButton
+            <IconButton
+              size="large44"
               icon={ZoomOut}
-              iconClassName="size-5"
               label={ZOOM_OUT}
               isDisabled={!editor.canZoomOut}
               onPress={() => editor.zoom('out')}
@@ -152,23 +147,23 @@ export function SplitPanel({
               <span>{PIECE_OF(at + 1, all.length)}</span>
               <span>{formatDuration(pieceMs)}</span>
             </p>
-            <PracticeButton
+            <IconButton
+              size="large44"
               icon={ZoomIn}
-              iconClassName="size-5"
               label={ZOOM_IN}
               isDisabled={!editor.canZoomIn}
               onPress={() => editor.zoom('in')}
             />
           </div>
           <div className="flex flex-col items-center gap-2">
-            <AriaButton
-              className={`${EDITOR_FILLED_BUTTON} self-stretch`}
+            <Button
+              variant="secondary"
+              fullWidth
+              label={editor.removes ? REMOVE_CUT : SPLIT_AT(shownLineMs - low)}
               isDisabled={!loaded || (!editor.removes && !editor.canAdd)}
               aria-describedby={hint ? hintId : undefined}
               onPress={editor.pressMain}
-            >
-              {editor.removes ? REMOVE_CUT : SPLIT_AT(shownLineMs - low)}
-            </AriaButton>
+            />
             {hint && (
               <p id={hintId} className="t-secondary text-secondary m-0 text-center">
                 {hint}
@@ -176,53 +171,50 @@ export function SplitPanel({
             )}
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <AriaButton
-              className={EDITOR_TEXT_BUTTON}
+            <Button
+              label={PREVIOUS_CUT}
               isDisabled={!loaded || !stepped({ type: 'previous' })}
               onPress={editor.previous}
-            >
-              {PREVIOUS_CUT}
-            </AriaButton>
-            <AriaButton
-              className={EDITOR_TEXT_BUTTON}
+            />
+            <Button
+              label={NEXT_CUT}
               isDisabled={!loaded || !stepped({ type: 'next' })}
               onPress={editor.next}
-            >
-              {NEXT_CUT}
-            </AriaButton>
+            />
           </div>
           {split.cuts.length > 0 && (
             <ul className="m-0 flex list-none flex-wrap justify-center gap-2 p-0">
               {split.cuts.map((cut, index) => (
                 <li key={cut}>
-                  <ToggleButton
+                  <Capsule
                     data-split-cut
+                    label={formatPreciseDuration(cut - low)}
                     isSelected={index === split.selected}
                     isDisabled={!loaded}
                     onChange={() => editor.toggleCut(index)}
-                    className={`${EDITOR_BUTTON_SHAPE} t-num data-selected:font-semibold ${CHIP} data-selected:bg-tint data-selected:hover:bg-tint-strongest`}
-                  >
-                    {formatPreciseDuration(cut - low)}
-                  </ToggleButton>
+                  />
                 </li>
               ))}
             </ul>
           )}
-          <div data-split-transport className="flex items-center justify-center gap-6">
-            <PracticeButton
+          <div data-split-transport className="flex items-center justify-center gap-8">
+            <IconButton
+              size="transport"
               icon={RotateCcw}
               label={SKIP_BACK}
               isDisabled={!loaded}
               onPress={() => editor.skip(-SKIP_MS)}
             />
-            <PracticeButton
-              size="large"
+            <IconButton
+              variant="feature"
+              size="feature"
               glyph={<TransportMark shape={playing ? 'pause' : 'play'} className="size-7" />}
               label={playing ? PAUSE : PLAY}
               isDisabled={!loaded}
               onPress={editor.togglePlay}
             />
-            <PracticeButton
+            <IconButton
+              size="transport"
               icon={RotateCw}
               label={SKIP_FORWARD}
               isDisabled={!loaded}

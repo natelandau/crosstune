@@ -17,8 +17,10 @@ export interface ExportData {
   progress: { done: number; total: number; label: string } | null
   /** What the export will hold, or why it cannot run; null until the counts are read. */
   note: string | null
-  /** Starts the export, unless offline with files this device does not hold. */
-  run: () => void
+  /**
+   * Starts the export and returns its work, unless offline with files this device does not hold.
+   */
+  run: () => Promise<void> | undefined
   /** Stops an export in progress so it never downloads. */
   abandon: () => void
   error: string | null
@@ -40,7 +42,7 @@ export function useExportData(open: boolean): ExportData {
   const analytics = useAnalytics()
   const engine = useSyncEngine()
   const online = useOnline()
-  const { error, pending, runThen, clear } = useAction()
+  const { error, pending, attempt, clear } = useAction()
   const [closing, setClosing] = useState(false)
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
   const controller = useRef<AbortController | null>(null)
@@ -66,7 +68,7 @@ export function useExportData(open: boolean): ExportData {
     controller.current = abort
     setProgress(null)
     let finished = false
-    runThen(
+    return attempt(
       async () => {
         try {
           const { fileName, blob } = await createExport(db, userId, {

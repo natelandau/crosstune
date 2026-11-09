@@ -1,9 +1,8 @@
-import { Check } from 'lucide-react'
 import { useEffect, useId, useRef, type ReactNode } from 'react'
-import { Button as AriaButton } from 'react-aria-components'
 import type { PlaceResult } from '../../api/types'
-import { FIELD_ROW_PRESSABLE } from '../../ui/form/FieldRow'
 import { Group } from '../../ui/form/Group'
+import { Text } from 'react-aria-components'
+import { PressableList, PressableOption } from '../../ui/PressableRow'
 import { SearchField } from '../../ui/SearchField'
 import { pickLocationName } from './recordingsCopy'
 import type { PlaceSearchState } from './usePlaceSearch'
@@ -16,42 +15,63 @@ const MAX_QUERY = 100
  * and a check when it is the recording's now.
  */
 export function LocationRow({
+  id,
   name,
   detail,
   distance,
-  current = false,
   isDisabled = false,
   onPress,
 }: {
+  /** Unique among the list's rows. */
+  id: string
   name: string
   detail?: string | null
   /** How far the location is, as `formatDistance` writes it. */
   distance?: string | null
-  current?: boolean
   isDisabled?: boolean
   onPress: () => void
 }) {
-  const id = useId()
   return (
-    <AriaButton
+    <PressableOption
+      id={id}
       onPress={onPress}
       isDisabled={isDisabled}
-      aria-current={current || undefined}
-      aria-label={pickLocationName(name, detail)}
-      aria-describedby={detail ? `${id}-detail` : undefined}
-      className={`${FIELD_ROW_PRESSABLE} ph-no-capture py-2`}
+      name={pickLocationName(name, detail)}
+      className="ph-no-capture py-2"
     >
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="truncate">{name}</span>
         {detail && (
-          <span id={`${id}-detail`} className="t-secondary text-secondary truncate">
+          <Text slot="description" className="t-secondary text-secondary truncate">
             {detail}
-          </span>
+          </Text>
         )}
       </span>
       {distance && <span className="t-secondary text-secondary t-num shrink-0">{distance}</span>}
-      {current && <Check className="text-accent size-5 shrink-0" aria-hidden />}
-    </AriaButton>
+    </PressableOption>
+  )
+}
+
+/** A list of `LocationRow`s to pick one from, with `selectedId` the one the recording has now. */
+export function LocationList({
+  label,
+  showLabel = false,
+  selectedId,
+  children,
+}: {
+  /** The list's name. */
+  label: string
+  /** Shows the name as the group's heading. */
+  showLabel?: boolean
+  selectedId?: string | null
+  children: ReactNode
+}) {
+  return (
+    <Group header={showLabel ? label : undefined}>
+      <PressableList aria-label={label} selectedId={selectedId}>
+        {children}
+      </PressableList>
+    </Group>
   )
 }
 
@@ -107,17 +127,18 @@ export function PlaceSearch({
         {message && <p className="t-secondary text-secondary px-4 pt-2">{message}</p>}
       </div>
       {results.length > 0 && (
-        <Group>
+        <LocationList label={label}>
           {results.map((result, i) => (
             <LocationRow
               key={`${result.lat},${result.lon},${i}`}
+              id={`${result.lat},${result.lon},${i}`}
               name={result.title}
               detail={result.subtitle}
               distance={distanceOf?.(result)}
               onPress={() => onPick(result)}
             />
           ))}
-        </Group>
+        </LocationList>
       )}
       {query.trim() !== '' && children}
     </>

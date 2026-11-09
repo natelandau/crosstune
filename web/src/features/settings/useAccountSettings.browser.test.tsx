@@ -60,7 +60,7 @@ describe('useAccountSettings', () => {
     const { result } = renderHook(() => useAccountSettings(), {
       wrapper: dataProviders({ db, engine: fakeEngine() }),
     })
-    act(() => result.current.signOut())
+    act(() => void result.current.signOut())
     await expect.poll(() => result.current.error).toBe(UNSYNCED_RECORDINGS_ERROR)
     await expect.poll(() => result.current.pending).toBe(false)
     expect(clerk.signOut).not.toHaveBeenCalled()

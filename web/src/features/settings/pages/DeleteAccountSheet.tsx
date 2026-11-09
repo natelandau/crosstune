@@ -55,7 +55,7 @@ export function DeleteAccountSheet({ open, onClosed }: { open: boolean; onClosed
         label: pending ? DELETING : DELETE_ACCOUNT,
         tone: 'danger',
         onPress: run,
-        isDisabled: !confirmed || pending || loading || !appleReady,
+        isDisabled: !confirmed || loading || !appleReady,
       }}
       onClosed={onClosed}
     >
@@ -71,7 +71,7 @@ export function DeleteAccountSheet({ open, onClosed }: { open: boolean; onClosed
         </div>
       </div>
       {countLines && (
-        <ul className="bg-surface t-body marker:text-secondary mt-4 flex list-disc flex-col gap-1 rounded-(--radius-surface) py-3 ps-9 pe-4">
+        <ul className="bg-surface t-body marker:text-secondary mt-4 flex list-disc flex-col gap-1 rounded-(--radius) py-3 ps-9 pe-4">
           {countLines.map((line) => (
             <li key={line}>{line}</li>
           ))}

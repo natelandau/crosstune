@@ -3,6 +3,7 @@ import type { QuickFindItem } from './quickFindResults'
 import { ARCHIVED } from '../tune/archiveLabels'
 import { shortcutById } from '../keyboard/keymap'
 import { ShortcutKeys } from '../keyboard/ShortcutSheet'
+import { OPTION_ROW } from '../../ui/popoverClasses'
 
 /** The second line under a result, when it says something the title does not. */
 function detailOf(item: QuickFindItem): string | null {
@@ -27,11 +28,7 @@ export function ResultRow({ item }: { item: QuickFindItem }) {
       ? shortcutById(item.command.shortcut)
       : undefined
   return (
-    <ListBoxItem
-      id={item.key}
-      textValue={item.title}
-      className="t-body data-[focused]:bg-field flex min-h-(--target) cursor-default items-center gap-3 rounded-(--radius-row) px-3 py-1 outline-none"
-    >
+    <ListBoxItem id={item.key} textValue={item.title} className={`${OPTION_ROW} outline-none`}>
       <span className="flex min-w-0 flex-1 flex-col">
         <Text slot="label" className="truncate">
           {item.title}

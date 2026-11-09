@@ -1,3 +1,4 @@
+// eslint-disable-next-line no-restricted-imports -- Two-line pressable body that opens the playing recording, a row and not a button
 import { Button as AriaButton } from 'react-aria-components'
 import { OPEN_RECORDING } from './transportCopy'
 import {

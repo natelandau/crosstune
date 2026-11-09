@@ -168,7 +168,7 @@ test('hold a tune, set its status, and add it to a list', async ({ page }) => {
   const picker = page.getByRole('dialog', { name: addTunesToListTitle(1) })
   await expect(picker).toBeVisible()
   // A list that holds none of the selection carries no note.
-  await picker.getByRole('button', { name: listName, exact: true }).click()
+  await picker.getByRole('option', { name: listName, exact: true }).click()
   await expect(toast(page, addedToListToast(1, listName))).toBeVisible()
 
   await openTab(page, 'lists')

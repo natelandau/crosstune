@@ -29,7 +29,7 @@ import { isSettingsPage, SETTINGS_PAGES, type SettingsValues } from './settingsP
 
 const SETTINGS = destination('settings')
 const CATEGORIES = SETTINGS_PAGES.filter((page) => page.id !== 'account')
-const BLOCK = 'bg-surface block rounded-(--radius-surface) px-4 py-3'
+const BLOCK = 'bg-surface block rounded-(--radius) px-4 py-3'
 
 /**
  * The Settings root: the account and the catalog as blocks, then a row for each category, and

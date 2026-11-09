@@ -12,7 +12,7 @@ import { useSettingsRow } from '../settings/useSettingsRow'
 import { userSettingsRow } from '../../test/rows'
 import { YEAR_FORMAT } from '../../ui/partialDate'
 import { LEARNED_ON_INCOMPLETE, TITLE_REQUIRED } from './tuneFormValues'
-import { useTuneForm, type UseTuneFormOptions } from './useTuneForm'
+import { useTuneForm, type SaveStart, type UseTuneFormOptions } from './useTuneForm'
 
 let db: CrosstuneDb
 
@@ -89,11 +89,11 @@ describe('useTuneForm', () => {
     expect(result.current.form.canSave).toBe(false)
     act(() => result.current.form.set('title', '  Kesh Jig '))
     expect(result.current.form.canSave).toBe(true)
-    let started: string | undefined
+    let started: SaveStart | undefined
     act(() => {
       started = result.current.form.save()
     })
-    expect(started).toBe('started')
+    expect(started).toBeInstanceOf(Promise)
     expect(result.current.form.pending).toBe(true)
     expect(result.current.form.canSave).toBe(false)
     await expect.poll(() => onSaved.mock.calls.length).toBe(1)
@@ -105,7 +105,7 @@ describe('useTuneForm', () => {
     const { result, onSaved } = await setup()
     await ready(result)
     act(() => result.current.form.set('title', ''))
-    let started: string | undefined
+    let started: SaveStart | undefined
     act(() => {
       started = result.current.form.save()
     })
@@ -121,7 +121,7 @@ describe('useTuneForm', () => {
     await ready(result)
     act(() => result.current.form.set('learned_on', '19'))
     expect(result.current.form.canSave).toBe(false)
-    let started: string | undefined
+    let started: SaveStart | undefined
     act(() => {
       started = result.current.form.save()
     })
@@ -153,7 +153,7 @@ describe('useTuneForm', () => {
     await ready(result)
     expect(result.current.form.values.title).toBe('Old')
     act(() => result.current.form.set('title', 'New'))
-    let second: string | undefined
+    let second: SaveStart | undefined
     act(() => {
       result.current.form.save()
       second = result.current.form.save()
@@ -172,7 +172,7 @@ describe('useTuneForm', () => {
     await deleteTune(db, tuneId)
     await expect.poll(() => result.current.form.missing).toBe(true)
     expect(result.current.form.canSave).toBe(false)
-    let started: string | undefined
+    let started: SaveStart | undefined
     act(() => {
       started = result.current.form.save()
     })

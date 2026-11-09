@@ -197,7 +197,7 @@ it('moves Filters into More on a phone too narrow for the whole title', async ()
   await renderApp({
     path: '/catalog',
     db,
-    frame: { width: 320, height: 640 },
+    frame: { width: 280, height: 640 },
     density: 'touch',
     launcher: { open: () => {} },
   })

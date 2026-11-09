@@ -1,6 +1,5 @@
 import { Plus, Trash2 } from 'lucide-react'
 import { useEffect, useId, useRef, type ReactNode } from 'react'
-import { Button as AriaButton } from 'react-aria-components'
 import {
   ADD_SCANS,
   CHOOSE_SCAN_FILES,
@@ -21,12 +20,13 @@ import { DELETE, DONE } from '../../ui/confirmCopy'
 import { ScanViewer } from '../scans/ScanViewer'
 import { usePremiumSheet } from '../plan/PremiumSheetProvider'
 import { Button } from '../../ui/Button'
+import { IconButton } from '../../ui/IconButton'
 import { useConfirm } from '../../ui/Confirm'
 import { useReorderAnnouncer } from '../../ui/reorder'
 import { Row, type RowAction } from '../../ui/Row'
 import { RowList } from '../../ui/RowList'
 import { moveActions } from '../../ui/sharedActions'
-import { PRESS } from '../../ui/press'
+import { PressableRow } from '../../ui/PressableRow'
 import { ScanThumbnail } from './ScanThumbnail'
 
 const TUNE_PAGE: ScanViewOrigin = { context: 'tune' }
@@ -104,7 +104,7 @@ export function useTuneScans(tuneId: string): TuneScansParts {
           onPress={() => setEditing(!editingNow)}
         />
       )}
-      <Button icon={Plus} label={ADD_SCANS} iconOnly isDisabled={full || adding} onPress={start} />
+      <IconButton icon={Plus} label={ADD_SCANS} isDisabled={full || adding} onPress={start} />
     </span>
   )
 
@@ -141,7 +141,7 @@ export function useTuneScans(tuneId: string): TuneScansParts {
                   id={scan.id}
                   textValue={status ? `${scanName(at)}, ${status}` : scanName(at)}
                   leading={
-                    <span className="shrink-0 overflow-hidden rounded-(--radius-row)">
+                    <span className="shrink-0 overflow-hidden rounded-(--radius)">
                       <ScanThumbnail
                         scan={scan}
                         file={files.get(scan.id)}
@@ -163,20 +163,18 @@ export function useTuneScans(tuneId: string): TuneScansParts {
           <ul aria-label={SCANS} className="flex gap-3 overflow-x-auto pb-1">
             {scans.map((scan, index) => (
               <li key={scan.id} data-scan-id={scan.id} className="shrink-0">
-                <AriaButton
+                <PressableRow
+                  variant="tile"
                   aria-label={opens ? openScanName(index) : scanName(index)}
                   aria-describedby={opens ? undefined : lockedId}
                   onPress={() => {
                     if (opens) setViewing(index)
                     else premium.open('scans', 'scan')
                   }}
-                  data-lift
-                  className={`block overflow-hidden rounded-(--radius-row) ${PRESS} ${
-                    opens ? '' : 'opacity-60'
-                  }`}
+                  className={opens ? '' : 'opacity-60'}
                 >
                   <ScanThumbnail scan={scan} file={files.get(scan.id)} />
-                </AriaButton>
+                </PressableRow>
               </li>
             ))}
           </ul>

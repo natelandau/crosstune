@@ -1,14 +1,16 @@
 import { Pencil, Plus } from 'lucide-react'
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+// eslint-disable-next-line no-restricted-imports -- Key tile drawn in the key colors
 import { Button as AriaButton } from 'react-aria-components'
 import { TUNE_LIMITS } from '../../api/vocabulary'
 import { usePaneTitleLine } from '../../layout/ColumnTitle'
 import { useFrame } from '../../platform/frame'
 import { AttributeEditor } from '../../ui/attributes/AttributeEditor'
 import { ErrorLine } from '../../ui/ErrorLine'
+import { IconButton } from '../../ui/IconButton'
 import { pitchClass } from '../../ui/keyColor'
 import { KEY, spokenKey } from '../../ui/keyName'
-import { PRESS, TINT_HOVER } from '../../ui/press'
+import { PRESS } from '../../ui/press'
 import { useLatest } from '../../ui/useLatest'
 import { ARCHIVED } from './archiveLabels'
 import { takeKeyFocus } from './freshTune'
@@ -149,19 +151,17 @@ function KeyTile({
           </span>
         )}
       </AriaButton>
-      {open && (
-        <AttributeEditor
-          label={KEY}
-          triggerRef={trigger}
-          isOpen
-          onOpenChange={setOpen}
-          stored={{}}
-          gone={!view}
-          onCommit={write.write}
-        >
-          {view && <AttributeEditorBody id="key" view={view} write={write} />}
-        </AttributeEditor>
-      )}
+      <AttributeEditor
+        label={KEY}
+        triggerRef={trigger}
+        isOpen={open}
+        onOpenChange={setOpen}
+        stored={{}}
+        gone={!view}
+        onCommit={write.write}
+      >
+        {view && <AttributeEditorBody id="key" view={view} write={write} />}
+      </AttributeEditor>
     </>
   )
 }
@@ -273,21 +273,19 @@ function Title({
               }
             }}
             onBlur={() => finish(true, false)}
-            className="t-page-title bg-page-translucent -mx-1.5 min-w-0 rounded-(--radius-row) px-1.5 [grid-area:1/1]"
+            className="t-page-title bg-page-translucent -mx-1.5 min-w-0 rounded-(--radius) px-1.5 [grid-area:1/1]"
             // Over the field size the touch layout sets, so the field matches the title it covers.
             style={{ fontSize: 'inherit' }}
           />
         )}
       </div>
       {editable && title && !editing && (
-        <AriaButton
-          ref={rename}
-          aria-label={`${EDIT_TITLE} ${title}`}
-          onPress={start}
-          className={`text-secondary grid size-(--target) shrink-0 place-items-center rounded-full opacity-0 group-hover:opacity-100 focus-visible:opacity-100 in-[html[data-density=touch]]:opacity-100 ${TINT_HOVER} ${PRESS}`}
+        <span
+          data-rename
+          className="shrink-0 opacity-0 group-hover:opacity-100 in-[html[data-density=touch]]:opacity-100 has-focus-visible:opacity-100"
         >
-          <Pencil className="size-4" aria-hidden />
-        </AriaButton>
+          <IconButton ref={rename} icon={Pencil} label={`${EDIT_TITLE} ${title}`} onPress={start} />
+        </span>
       )}
       {trailing && (
         <div className="t-page-title ms-auto flex h-[1lh] shrink-0 items-center">{trailing}</div>

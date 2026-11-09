@@ -43,6 +43,12 @@ import { stubSystemDarkForTest } from '../../test/scheme'
 vi.mock('../../platform/appleTouch', { spy: true })
 vi.mock('../../commands/loops', { spy: true })
 
+/** A practice tool's button in the wide toolbar, named by its tool and value. */
+const tool = (name: string) =>
+  recordingPage()
+    .getByRole('group', { name: MODES_LABEL })
+    .getByRole('button', { name: new RegExp(`^${name}`) })
+
 const announced = () => practice()?.querySelector('[data-practice-announcer]')?.textContent ?? ''
 
 it.each(['light', 'dark'] as const)(
@@ -124,14 +130,20 @@ it("moves the selected loop's edges to the playhead with Set start and Set end",
   const { db, engine } = await mountPlaying(WIDE)
   await seedLoop(db, 'r1', 5000, 8000, { label: 'A part' })
   await openPractice()
-  await page.getByRole('radio', { name: LOOPS_LABEL, exact: true }).click()
   press(' ')
   await expect.poll(() => engine.getState().playing).toBe(false)
+  const loopsTool = tool(LOOPS_LABEL)
   const setStart = page.getByRole('button', { name: SET_START })
   const setEnd = page.getByRole('button', { name: SET_END })
+  await loopsTool.click()
   await expect.element(setStart).toHaveAttribute('aria-disabled', 'true')
   await expect.element(setEnd).toHaveAttribute('aria-disabled', 'true')
+  // Practice's keys wait while a popover covers it.
+  await userEvent.keyboard('{Escape}')
+  await expect.element(page.getByRole('dialog', { name: LOOPS_LABEL })).not.toBeInTheDocument()
   press('1')
+  await expect.poll(() => engine.getState().loop).not.toBeNull()
+  await loopsTool.click()
   await expect.element(setStart).not.toHaveAttribute('aria-disabled')
   engine.seek(6000)
   await setStart.click()
@@ -181,11 +193,11 @@ it('loop_set reports each loop newly selected, a created one too', async () => {
 })
 
 it('names a loop from a suggestion chip with one write, over a half-typed name', async () => {
-  const { db, engine } = await mountPlaying(WIDE)
+  const { db, engine } = await mountPlaying(PHONE)
   await db.tunes.update('t1', { part_structure: 'AABB' })
   const loop = await seedLoop(db, 'r1', 5000, 8000)
   await openPractice()
-  await page.getByRole('radio', { name: LOOPS_LABEL, exact: true }).click()
+  await page.getByRole('tab', { name: LOOPS_LABEL, exact: true }).click()
   press(' ')
   await expect.poll(() => engine.getState().playing).toBe(false)
   press('1')
@@ -236,11 +248,10 @@ it('holds the mode panel at one height across Loops, Speed, and Pitch', async ()
   await openPractice()
   const height = () =>
     practice()!.querySelector<HTMLElement>('[data-mode-panel-root]')!.getBoundingClientRect().height
-  const mode = (name: string) =>
-    recordingPage().getByRole('radio', { name: new RegExp(`^${name}`) })
+  const mode = (name: string) => recordingPage().getByRole('tab', { name: new RegExp(`^${name}`) })
 
   await mode(LOOPS_LABEL).click()
-  await expect.element(mode(LOOPS_LABEL)).toBeChecked()
+  await expect.element(mode(LOOPS_LABEL)).toHaveAttribute('aria-selected', 'true')
   // Settled once two reads a poll apart agree.
   let last = -1
   await expect
@@ -253,23 +264,23 @@ it('holds the mode panel at one height across Loops, Speed, and Pitch', async ()
     .toBe(true)
   const loops = last
   await mode(SPEED).click()
-  await expect.element(mode(SPEED)).toBeChecked()
+  await expect.element(mode(SPEED)).toHaveAttribute('aria-selected', 'true')
   await expect.poll(height).toBe(loops)
   await mode(PITCH).click()
-  await expect.element(mode(PITCH)).toBeChecked()
+  await expect.element(mode(PITCH)).toHaveAttribute('aria-selected', 'true')
   await expect.poll(height).toBe(loops)
   await mode(ISOLATE_LABEL).click()
-  await expect.element(mode(ISOLATE_LABEL)).toBeChecked()
+  await expect.element(mode(ISOLATE_LABEL)).toHaveAttribute('aria-selected', 'true')
   await expect.poll(height).toBe(loops)
 })
 
 it('offers four modes for a recording, the Isolate segment naming Mute while it mutes', async () => {
   await mountPlaying(PHONE, { recording: { isolate_effect: 'mute' } })
   await openPractice()
-  const modes = recordingPage().getByRole('radiogroup', { name: MODES_LABEL })
-  await expect.poll(() => modes.getByRole('radio').all().length).toBe(4)
+  const modes = recordingPage().getByRole('tablist', { name: MODES_LABEL })
+  await expect.poll(() => modes.getByRole('tab').all().length).toBe(4)
   await expect
-    .element(modes.getByRole('radio', { name: SEGMENT_LABEL(ISOLATE_LABEL, MUTE), exact: true }))
+    .element(modes.getByRole('tab', { name: SEGMENT_LABEL(ISOLATE_LABEL, MUTE), exact: true }))
     .toBeVisible()
 })
 
@@ -280,8 +291,7 @@ it('engages the isolate stage while the Isolate mode shows, and not after', asyn
   })
   const engaged = stage.setEngaged
   await openPractice()
-  const mode = (name: string) =>
-    recordingPage().getByRole('radio', { name: new RegExp(`^${name}`) })
+  const mode = (name: string) => recordingPage().getByRole('tab', { name: new RegExp(`^${name}`) })
   await mode(ISOLATE_LABEL).click()
   await expect.poll(() => engaged.mock.lastCall).toEqual([true])
   await mode(LOOPS_LABEL).click()
@@ -296,7 +306,7 @@ it('lets the isolate stage go when the page closes on the Isolate mode', async (
   const engaged = stage.setEngaged
   await openPractice()
   await recordingPage()
-    .getByRole('radio', { name: new RegExp(`^${ISOLATE_LABEL}`) })
+    .getByRole('tab', { name: new RegExp(`^${ISOLATE_LABEL}`) })
     .click()
   await expect.poll(() => engaged.mock.lastCall).toEqual([true])
   await router.navigate(-1)
@@ -310,34 +320,38 @@ const contentHeight = (mode: string) =>
     .querySelector<HTMLElement>(`[data-mode-panel="${mode}"]`)!
     .firstElementChild!.getBoundingClientRect().height
 
-it('the isolate panel fits the panel height', async () => {
+it('keeps the panel area the same height in every mode', async () => {
   await mountPlaying(PHONE)
   await openPractice()
-  await expect.poll(() => contentHeight('isolate')).toBeGreaterThan(0)
-  await expect
-    .poll(
-      () =>
-        Math.max(contentHeight('loops'), contentHeight('speed'), contentHeight('pitch')) -
-        contentHeight('isolate'),
-    )
-    .toBeGreaterThanOrEqual(0)
+  const area = () =>
+    practice()!.querySelector<HTMLElement>('[data-mode-controls]')!.getBoundingClientRect().height
+  const heights: number[] = []
+  for (const name of [SPEED, PITCH, ISOLATE_LABEL, LOOPS_LABEL]) {
+    const tab = recordingPage().getByRole('tab', { name: new RegExp(`^${name}`) })
+    await tab.click()
+    await expect.element(tab).toHaveAttribute('aria-selected', 'true')
+    heights.push(area())
+  }
+  expect(heights[0]).toBeGreaterThan(0)
+  expect(new Set(heights).size).toBe(1)
 })
 
 /** Every value off its default, so each segment's value label is its longest. */
 const VALUED = { speed_percent: 75, pitch_cents: -250, isolate_effect: 'mute' } as const
 
 const segments = () => [
-  ...practice()!.querySelectorAll<HTMLElement>('[data-mode-selector] [role="radio"]'),
+  ...practice()!.querySelectorAll<HTMLElement>('[data-mode-selector] [role="tab"]'),
 ]
-/** The label each segment shows, past its pill and its measuring copy. */
-const shownLabel = (segment: HTMLElement) => segment.querySelector<HTMLElement>('span.relative')!
+/** The label each segment shows, past its icon and its measuring copy. */
+const shownLabel = (segment: HTMLElement) => segment.querySelector<HTMLElement>('[data-tab-label]')!
 
 it('shows plain mode names where a value label would not fit, and the values where they do', async () => {
   document.documentElement.dataset.textSize = 'large'
   onTestFinished(() => {
     delete document.documentElement.dataset.textSize
   })
-  await mountPlaying({ width: 320, height: 568 }, { recording: VALUED })
+  // Only equal-width (touch) tabs can run out of room for a value.
+  await mountPlaying({ width: 320, height: 568 }, { recording: VALUED, density: 'touch' })
   await openPractice()
   await expect.poll(() => segments().length).toBe(4)
   const names = [SPEED, PITCH, ISOLATE_LABEL, LOOPS_LABEL]
@@ -367,8 +381,9 @@ it('shows plain mode names where a value label would not fit, and the values whe
       LOOPS_LABEL,
     ])
 
-  // Wide enough that practice, beside the list and the attributes, has room for the values.
-  await page.viewport(1920, 1080)
+  // Wide enough that the tabs have room for the values, and narrow enough that the page keeps
+  // practice in a tab, where the modes stay tabs.
+  await page.viewport(640, 1000)
   await expect
     .poll(() => segments().map((s) => shownLabel(s).textContent))
     .toEqual([
@@ -384,7 +399,7 @@ it('holds the panel height with one line in place of the isolate controls', asyn
   await mountPlaying(PHONE, { playbackEngine: engine })
   await openPractice()
   await recordingPage()
-    .getByRole('radio', { name: new RegExp(`^${ISOLATE_LABEL}`) })
+    .getByRole('tab', { name: new RegExp(`^${ISOLATE_LABEL}`) })
     .click()
   await expect
     .element(recordingPage().getByRole('status').filter({ hasText: ISOLATE_UNAVAILABLE }))
@@ -434,7 +449,7 @@ it('says pitch-shifted playback pauses when the screen locks, on an iPhone or iP
   await mountPlaying(PHONE)
   await openPractice()
   const dialog = recordingPage()
-  await dialog.getByRole('radio', { name: new RegExp(`^${PITCH}`) }).click()
+  await dialog.getByRole('tab', { name: new RegExp(`^${PITCH}`) }).click()
   await expect.element(dialog.getByText(PITCH_PAUSES_ON_LOCK)).toBeVisible()
 })
 
@@ -443,7 +458,45 @@ it('leaves the pitch lock notice out elsewhere', async () => {
   await mountPlaying(PHONE)
   await openPractice()
   const dialog = recordingPage()
-  await dialog.getByRole('radio', { name: new RegExp(`^${PITCH}`) }).click()
+  await dialog.getByRole('tab', { name: new RegExp(`^${PITCH}`) }).click()
   await expect.element(dialog.getByRole('slider', { name: CENTS })).toBeVisible()
   expect(dialog.getByText(PITCH_PAUSES_ON_LOCK).query()).toBeNull()
+})
+
+it('shows the modes as a toolbar of values on a wide page, with no tabs', async () => {
+  await mountPlaying(WIDE, { recording: { speed_percent: 85 } })
+  await openPractice()
+  const toolbar = recordingPage().getByRole('group', { name: MODES_LABEL })
+  await expect.poll(() => toolbar.getByRole('button').all().length).toBe(4)
+  for (const name of [
+    SEGMENT_LABEL(SPEED, SPEED_BADGE(85)),
+    SEGMENT_LABEL(PITCH, '0'),
+    ISOLATE_LABEL,
+    SEGMENT_LABEL(LOOPS_LABEL, '0'),
+  ]) {
+    await expect.element(toolbar.getByRole('button', { name, exact: true })).toBeVisible()
+  }
+  await expect.element(tool(SPEED)).toHaveAttribute('data-changed', 'true')
+  await expect.element(tool(PITCH)).not.toHaveAttribute('data-changed')
+  expect(recordingPage().getByRole('tablist', { name: MODES_LABEL }).query()).toBeNull()
+})
+
+it('shows the modes as tabs on a phone, with no toolbar', async () => {
+  await mountPlaying(PHONE)
+  await openPractice()
+  await expect.element(recordingPage().getByRole('tablist', { name: MODES_LABEL })).toBeVisible()
+  expect(recordingPage().getByRole('group', { name: MODES_LABEL }).query()).toBeNull()
+})
+
+it("updates a tool's value and changed state from its popover", async () => {
+  await mountPlaying(WIDE)
+  await openPractice()
+  const speed = tool(SPEED)
+  await expect.element(speed).toHaveAccessibleName(SEGMENT_LABEL(SPEED, SPEED_BADGE(100)))
+  await expect.element(speed).not.toHaveAttribute('data-changed')
+  await speed.click()
+  const popover = page.getByRole('dialog', { name: SPEED })
+  await popover.getByRole('radio', { name: SPEED_BADGE(75), exact: true }).click()
+  await expect.element(speed).toHaveAccessibleName(SEGMENT_LABEL(SPEED, SPEED_BADGE(75)))
+  await expect.element(speed).toHaveAttribute('data-changed', 'true')
 })

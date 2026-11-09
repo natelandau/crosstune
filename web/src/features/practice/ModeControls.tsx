@@ -32,6 +32,7 @@ export function ModeControls({
   lockNotice = false,
   isolate = null,
   loops,
+  only = false,
 }: {
   mode: Mode
   speedPercent: number
@@ -46,6 +47,8 @@ export function ModeControls({
   isolate?: IsolateControls | null
   /** The Loops mode's panel. */
   loops: ReactNode
+  /** Lays out only the chosen mode's controls, for a popover that holds one mode. */
+  only?: boolean
 }) {
   const panels: Record<Mode, ReactNode> = {
     loops,
@@ -69,6 +72,7 @@ export function ModeControls({
       />
     ) : null,
   }
+  if (only) return <div data-mode-panel={mode}>{panels[mode]}</div>
   return (
     <div data-mode-controls className="grid">
       {availableModes(isolate !== null).map((m) => (

@@ -1,9 +1,8 @@
 import { animate, useReducedMotionConfig, type AnimationPlaybackControls } from 'motion/react'
 import { useEffect, useMemo, useRef, type PointerEvent, type RefObject } from 'react'
 import type { PlaybackEngine } from '../player/playbackEngine'
-import { capturePointer } from '../../platform/pointer'
+import { capturePointer, dragTravel } from '../../platform/pointer'
 import { useLatest } from '../../ui/useLatest'
-import { DRAG_THRESHOLD_PX } from '../../domain/loopModel'
 import { MOMENTUM_TAU_MS, momentumScrollMs, scrubMs, unstretchedMs } from './practiceZoom'
 import { clamp } from '../../math'
 import { SPRING } from '../../theme/motion'
@@ -45,16 +44,6 @@ export function capturePress(event: PointerEvent<HTMLElement>): boolean {
   if (event.pointerType === 'mouse' && event.button !== 0) return false
   capturePointer(event.currentTarget, event.pointerId)
   return true
-}
-
-/** How far a press has moved sideways once it is a drag, or null while it is still within
- * the threshold that tells a drag from a tap. */
-export function dragTravel(
-  pressed: { startX: number; moved: boolean },
-  clientX: number,
-): number | null {
-  const dx = clientX - pressed.startX
-  return !pressed.moved && Math.abs(dx) < DRAG_THRESHOLD_PX ? null : dx
 }
 
 /**

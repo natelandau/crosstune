@@ -2,6 +2,7 @@ import { Ellipsis, ListChecks, ListPlus, SquarePen, Tag, type LucideIcon } from 
 import { animate, motion } from 'motion/react'
 import { useContext, useEffect, useLayoutEffect, useRef, type ReactElement } from 'react'
 import { createPortal } from 'react-dom'
+// eslint-disable-next-line no-restricted-imports -- Phone bar cell with an icon over a caption, like a tab
 import { Button as AriaButton, Toolbar } from 'react-aria-components'
 import type { Instrument } from '../../api/vocabulary'
 import { ADD_TO_LIST, addTunesToListTitle } from '../lists/listPickerCopy'
@@ -16,6 +17,7 @@ import { useFrame } from '../../platform/frame'
 import { PaneBar } from '../../layout/PaneBar'
 import { SelectionSlot } from '../../layout/selectionSlot'
 import { Button } from '../../ui/Button'
+import { IconButton } from '../../ui/IconButton'
 import { ErrorLine } from '../../ui/ErrorLine'
 import { Menu, type MenuTriggerProps } from '../../ui/Menu'
 import { menuEntries } from '../../ui/sharedActions'
@@ -50,7 +52,7 @@ function Cell({
       aria-label={caption === label ? undefined : label}
       isDisabled={isDisabled}
       onPress={onPress}
-      className={`t-caption text-primary flex min-h-14 w-full flex-col items-center justify-center gap-0.5 rounded-(--radius-row) disabled:opacity-40 ${PRESS} ${TINT_HOVER}`}
+      className={`t-caption text-primary flex min-h-14 w-full flex-col items-center justify-center gap-0.5 rounded-(--radius) disabled:opacity-40 ${PRESS} ${TINT_HOVER}`}
     >
       <Icon className="size-6" aria-hidden />
       {caption}
@@ -129,13 +131,7 @@ export function SelectionBar({
     phone ? (
       <Cell {...button} isDisabled={none} onPress={onPress} />
     ) : (
-      <Button
-        icon={button.icon}
-        label={button.label}
-        iconOnly
-        isDisabled={none}
-        onPress={onPress}
-      />
+      <IconButton icon={button.icon} label={button.label} isDisabled={none} onPress={onPress} />
     )
   const buttons = (
     <>
@@ -164,12 +160,11 @@ export function SelectionBar({
           <span ref={lead} className="contents">
             {/* An icon on pointer, like the buttons beside Done, so the count keeps its width in
                 the narrowest content column. */}
-            <Button
-              icon={phone ? undefined : ListChecks}
-              label={words.selectAllLabel}
-              iconOnly={!phone}
-              onPress={toggleAll}
-            />
+            {phone ? (
+              <Button label={words.selectAllLabel} onPress={toggleAll} />
+            ) : (
+              <IconButton icon={ListChecks} label={words.selectAllLabel} onPress={toggleAll} />
+            )}
           </span>
         }
         trailing={

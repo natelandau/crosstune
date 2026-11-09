@@ -31,6 +31,7 @@ import { asOptions } from '../../ui/form/pickerOptions'
 import { SuggestField } from '../../ui/form/SuggestField'
 import { KeyGrid } from '../../ui/KeyGrid'
 import { Sheet } from '../../ui/Sheet'
+import { primaryDisabled } from '../../ui/sheetPrimary'
 import { useEndOnClose } from '../../ui/useEndOnClose'
 import { useResetOnChange } from '../../ui/useResetOnChange'
 import type { CatalogEntry } from '../../db/types'
@@ -65,7 +66,7 @@ export function BulkEditSheet(props: {
   /** The sheet closed without applying anything. */
   onCancel: () => void
   /** Hands the caller the patch; the caller writes it and closes the sheet. */
-  onApply: (patch: BulkPatch) => void
+  onApply: (patch: BulkPatch) => void | Promise<unknown>
 }) {
   // Each open is a fresh body, so a date half typed in one open never reaches the next.
   const [opens, setOpens] = useState(props.isOpen ? 1 : 0)
@@ -99,7 +100,11 @@ function BulkEditBody({
       title={editTunesTitle(entries.length)}
       height="full"
       locked={bulk.touchedCount > 0 || dating || pending}
-      primary={{ label: SAVE_EDIT, onPress: bulk.save, isDisabled: !bulk.canSave }}
+      primary={{
+        label: SAVE_EDIT,
+        onPress: bulk.save,
+        isDisabled: primaryDisabled(bulk.canSave, pending),
+      }}
     >
       <div className="pb-4">
         <p className="t-secondary text-secondary px-4 pt-3">{EDIT_ONLY_CHANGED}</p>
