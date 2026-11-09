@@ -35,9 +35,6 @@ public enum PlaylistControlText {
 public struct PlaylistControls: View {
     private let playback: ListPlayback
 
-    @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
-    @Environment(\.colorScheme) private var colorScheme
-
     public init(playback: ListPlayback) {
         self.playback = playback
     }
@@ -46,10 +43,7 @@ public struct PlaylistControls: View {
         if playback.isActive {
             HStack(spacing: 0) {
                 Spacer(minLength: 0)
-                button(
-                    PlaylistControlText.shuffle, symbol: "shuffle", highlighted: playback.isShuffled,
-                    selected: playback.isShuffled
-                ) {
+                button(PlaylistControlText.shuffle, symbol: "shuffle", highlighted: playback.isShuffled) {
                     playback.setShuffled(!playback.isShuffled)
                 }
                 button(PlaylistControlText.previous, symbol: "backward.fill") { playback.previous() }
@@ -57,7 +51,7 @@ public struct PlaylistControls: View {
                 button(
                     PlaylistControlText.repeatLabel(playback.repeatMode),
                     symbol: PlaylistControlText.repeatSymbol(playback.repeatMode),
-                    highlighted: playback.repeatMode != .off, selected: playback.repeatMode != .off
+                    highlighted: playback.repeatMode != .off
                 ) {
                     playback.cycleRepeat()
                 }
@@ -68,25 +62,15 @@ public struct PlaylistControls: View {
         }
     }
 
+    /// A control of the row. `highlighted` marks a shuffle or repeat that is on.
     private func button(
-        _ title: String, symbol: String, highlighted: Bool = false, selected: Bool = false,
-        action: @escaping () -> Void
+        _ title: String, symbol: String, highlighted: Bool = false, action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
-            Image(systemName: symbol)
-                .imageScale(.large)
-                .foregroundStyle(highlighted ? AnyShapeStyle(Palette.accent) : .textSecondary)
-                // Off and on share a symbol, so without color a disc marks on.
-                .padding(6)
-                .background {
-                    if highlighted && differentiateWithoutColor { Circle().fill(Palette.tintStrong(colorScheme)) }
-                }
-                .frame(minWidth: minimumTapTarget, minHeight: minimumTapTarget)
-                .contentShape(.rect)
+            Image(systemName: symbol).imageScale(.large)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.icon(isOn: highlighted, macLook: .glyph))
         .accessibilityLabel(title)
-        .accessibilityAddTraits(selected ? .isSelected : [])
         .help(title)
     }
 }

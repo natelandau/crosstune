@@ -366,17 +366,6 @@ private func recording(_ id: String = "r1", label: String? = "Jam at Mike's") ->
     func saysTheAudioState(audio: RecordingAudio, failed: Bool, offline: Bool, expected: String?) {
         #expect(RecordingPlayerText.status(audio, hasFailed: failed, offline: offline) == expected)
     }
-
-    @Test func writesPositionsAsAPlayerDoes() {
-        #expect(PlayerTime.clock(0) == "0:00")
-        #expect(PlayerTime.clock(61.9) == "1:01")
-        #expect(PlayerTime.clock(3_725) == "1:02:05")
-        #expect(PlayerTime.clock(-3) == "0:00")
-        #expect(PlayerTime.remaining(60.2, of: 184) == "-2:04")
-        #expect(PlayerTime.remaining(184, of: 184) == "-0:00")
-        #expect(PlayerTime.spoken(62, of: 184) == "1:02 of 3:04")
-        #expect(PlayerTime.spoken(62, of: nil) == "1:02")
-    }
 }
 
 /// What the player asks of the audio to load a recording at its row's defaults, paused.

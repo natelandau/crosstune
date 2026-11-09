@@ -98,14 +98,8 @@ private struct NewRecordingHighlight: ViewModifier {
         if reduceMotion {
             isHighlighted = on
         } else {
-            withAnimation(.easeInOut(duration: duration.seconds)) { isHighlighted = on }
+            withAnimation(Motion.fade(over: duration)) { isHighlighted = on }
         }
-    }
-}
-
-extension Duration {
-    var seconds: Double {
-        Double(components.seconds) + Double(components.attoseconds) / 1e18
     }
 }
 

@@ -126,7 +126,7 @@ struct RowSlotButton<Label: View>: View {
                 .frame(maxWidth: .infinity)
                 .tapTarget()
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.labelOnly)
     }
 }
 
@@ -211,5 +211,129 @@ struct RowProgressRing: View {
                 .frame(width: size * 0.3, height: size * 0.3)
         }
         .frame(width: size, height: size)
+    }
+}
+
+/// Where a finished download's handoff is: the ring closed and held, then the finished glyph.
+enum RowDownloadPhase: Equatable {
+    case ringClosed
+    case ready
+
+    /// How long the closed ring holds before it becomes the finished glyph.
+    nonisolated static let ringHold: Duration = .milliseconds(200)
+
+    /// How long the finished symbol shows over the control while it replaces the ring.
+    nonisolated static let handoffHold: Duration = .milliseconds(250)
+}
+
+/// A row's download glyph and what replaces it. While `isDownloading`, the slot shows the turning
+/// ring, or one that fills with `progress`. When a download ends with a `readySymbol`, the ring
+/// closes to a full circle over the row's real control, holds, then the finished symbol replaces
+/// it, with a cross-fade under Reduce Motion. The control stays tappable throughout. An end with
+/// no `readySymbol`, a cancel or a failure, goes straight to `ready` with no close.
+struct RowDownloadGlyph<Ready: View>: View {
+    let isDownloading: Bool
+    var progress: Double?
+    /// The finished glyph's symbol, set only once the download succeeded.
+    var readySymbol: String?
+    /// The spoken name of the ring while it shows.
+    var ringLabel = ""
+    @ViewBuilder let ready: Ready
+
+    /// The handoff after a successful download: nil outside it.
+    @State private var phase: RowDownloadPhase?
+    @State private var fill = 0.25
+    /// Walks the handoff; held only while one runs, so a row at rest starts no work.
+    @State private var handoffTask: Task<Void, Never>?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    private let metrics = RowSlotMetrics()
+
+    init(
+        isDownloading: Bool, progress: Double? = nil, readySymbol: String? = nil, ringLabel: String = "",
+        @ViewBuilder ready: () -> Ready
+    ) {
+        self.isDownloading = isDownloading
+        self.progress = progress
+        self.readySymbol = readySymbol
+        self.ringLabel = ringLabel
+        self.ready = ready()
+    }
+
+    var body: some View {
+        Group {
+            if isDownloading {
+                RowActionSlot { ring.accessibilityElement().accessibilityLabel(ringLabel) }
+            } else {
+                // The real control stays in place and tappable; the handoff draws over it.
+                ready
+                    .opacity(phase == nil ? 1 : 0)
+                    .overlay { handoff.allowsHitTesting(false).accessibilityHidden(true) }
+            }
+        }
+        .animation(reduceMotion ? Motion.reducedFade : Motion.state, value: phase)
+        .onChange(of: isDownloading) { _, nowDownloading in
+            if nowDownloading {
+                stopHandoff()
+                phase = nil
+                fill = 0.25
+            } else if readySymbol != nil {
+                phase = .ringClosed
+                runHandoff()
+            }
+        }
+        // A handoff that a disappearance stopped picks up where it was.
+        .onAppear { if phase != nil { runHandoff() } }
+        .onDisappear(perform: stopHandoff)
+    }
+
+    /// Closes the ring and holds it, then shows the finished glyph and holds it, from `phase`.
+    private func runHandoff() {
+        stopHandoff()
+        handoffTask = Task {
+            if phase == .ringClosed {
+                withAnimation(reduceMotion ? nil : Motion.state) { fill = 1 }
+                do { try await Task.sleep(for: RowDownloadPhase.ringHold) } catch { return }
+                phase = .ready
+            }
+            do { try await Task.sleep(for: RowDownloadPhase.handoffHold) } catch { return }
+            phase = nil
+            handoffTask = nil
+        }
+    }
+
+    private func stopHandoff() {
+        handoffTask?.cancel()
+        handoffTask = nil
+    }
+
+    @ViewBuilder private var handoff: some View {
+        switch phase {
+        case .ringClosed?:
+            ring
+        case .ready?:
+            if let readySymbol {
+                RowGlyphImage(systemName: readySymbol)
+                    .foregroundStyle(.textPrimary)
+                    .contentTransition(reduceMotion ? .identity : .symbolEffect(.replace))
+            }
+        case nil:
+            EmptyView()
+        }
+    }
+
+    @ViewBuilder private var ring: some View {
+        if isDownloading, progress == nil {
+            RowProgressRing()
+        } else {
+            let size = metrics.glyph
+            ZStack {
+                Circle().stroke(.textSecondary, lineWidth: 1.5)
+                Circle()
+                    .trim(from: 0, to: isDownloading ? min(max(progress ?? 0, 0), 1) : fill)
+                    .stroke(.textPrimary, style: StrokeStyle(lineWidth: 1.5, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+            }
+            .frame(width: size, height: size)
+        }
     }
 }

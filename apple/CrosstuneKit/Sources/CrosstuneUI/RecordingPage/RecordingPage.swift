@@ -145,12 +145,8 @@ private struct RecordingPageBody: View {
                     }
                     if model.parent.showsClose {
                         ToolbarItem(placement: .cancellationAction) {
-                            Button {
-                                model.parent.leave()
-                            } label: {
-                                Label(RecordingScreenText.close, systemImage: "xmark")
-                            }
-                            .help(RecordingScreenText.close)
+                            SheetCloseButton { model.parent.leave() }
+                            .help(SheetCloseButton.close)
                             // Escape belongs to practice's chain, which closes the name field and
                             // deselects before it closes the page.
                             .keyboardShortcut(nil)
@@ -163,9 +159,9 @@ private struct RecordingPageBody: View {
                 .toolbar(removing: .title)
                 .paneBar {
                     if model.parent.showsClose {
-                        Button(RecordingScreenText.close) { model.parent.leave() }
+                        Button(SheetCloseButton.close) { model.parent.leave() }
                         .buttonStyle(.macSecondary)
-                        .help(RecordingScreenText.close)
+                        .help(SheetCloseButton.close)
                     }
                     menu
                 }
@@ -247,8 +243,7 @@ private struct RecordingPageBody: View {
                     practiceArea
                 } else {
                     RecordingDetailsTab(
-                        practice: practice, rows: rows, player: player, notice: model.pageNotice,
-                        blockedReason: blockedReason, unavailableReason: unavailableReason, onBlocked: offerPlan
+                        practice: practice, rows: rows, player: player, notice: model.pageNotice
                     ) {
                         attributes(.card)
                     }

@@ -125,11 +125,7 @@ struct TunerDisplay: View {
                 .foregroundStyle(Palette.onTunerSecondary)
             if opensSettings, let url = MicrophoneAccess.settingsURL {
                 Button(TunerText.openSettings) { openURL(url) }
-                    #if os(macOS)
-                        .buttonStyle(.macSecondary)
-                    #else
-                        .buttonStyle(.bordered)
-                    #endif
+                    .buttonStyle(.tinted)
                     .padding(.top, 8)
             }
         }

@@ -153,16 +153,15 @@ struct DropPinView: View {
                         .foregroundStyle(.textSecondary)
                     address
                     nameField
-                        .textFieldStyle(.roundedBorder)
-                    Button(action: use) {
-                        Text(DropPinText.useThisSpot)
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.accentProminent)
-                    .controlSize(.large)
-                    .disabled(model?.pin == nil)
+                        .textFieldStyle(.filled)
                 }
                 .padding()
+            }
+            .sheetActions {
+                Button(DropPinText.useThisSpot, action: use)
+                    .disabled(model?.pin == nil)
+            } secondary: {
+                EmptyView()
             }
             .navigationTitle(RecordingPageCopy.location)
             .navigationBarTitleDisplayMode(.inline)

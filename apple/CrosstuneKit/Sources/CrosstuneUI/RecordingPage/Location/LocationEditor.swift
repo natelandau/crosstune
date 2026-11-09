@@ -177,27 +177,16 @@ private struct LocationEditorPage: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(.rect)
         }
-        #if os(macOS)
-            .buttonStyle(.macPickRow)
-        #endif
+        .buttonStyle(.formPickRow)
         .disabled(model.isCurrentLocationOff || isBusy)
     }
 
-    @ViewBuilder private var listPicker: some View {
+    private var listPicker: some View {
         @Bindable var model = model
-        #if os(macOS)
-            MacSegmented(
-                selection: $model.list, options: LocationList.allCases, label: \.title,
-                title: RecordingPageCopy.location, fillsWidth: true)
-        #else
-            Picker(RecordingPageCopy.location, selection: $model.list) {
-                ForEach(LocationList.allCases, id: \.self) { list in
-                    Text(list.title).tag(list)
-                }
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-        #endif
+        return PaneTabs(
+            selection: $model.list,
+            tabs: LocationList.allCases.map { PaneTab($0, title: $0.title, systemImage: $0.systemImage) },
+            title: RecordingPageCopy.location)
     }
 
     @ViewBuilder private var listRows: some View {
@@ -217,10 +206,10 @@ private struct LocationEditorPage: View {
         } label: {
             LocationRow(name: name, address: address, distance: distance, isCurrent: isCurrent)
         }
-        #if os(macOS)
-            .buttonStyle(.macPickRow)
-        #else
-            .buttonStyle(.plain)
+        .buttonStyle(.formPickRow)
+        #if !os(macOS)
+            // The row's name keeps its text color rather than the form's accent.
+            .foregroundStyle(.textPrimary)
         #endif
         .disabled(isBusy)
         .accessibilityAddTraits(isCurrent ? .isSelected : [])
@@ -289,10 +278,9 @@ private struct LocationEditorPage: View {
             .accessibilityLabel(PlaceSearchText.pick(completion.title, detail: completion.subtitle))
             .accessibilityValue(distance ?? "")
         }
-        #if os(macOS)
-            .buttonStyle(.macPickRow)
-        #else
-            .buttonStyle(.plain)
+        .buttonStyle(.formPickRow)
+        #if !os(macOS)
+            .foregroundStyle(.textPrimary)
         #endif
         .disabled(isBusy)
     }
@@ -315,9 +303,7 @@ private struct LocationEditorPage: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(.rect)
         }
-        #if os(macOS)
-            .buttonStyle(.macPickRow)
-        #endif
+        .buttonStyle(.formPickRow)
         .disabled(isBusy)
     }
 
@@ -369,7 +355,7 @@ private struct LocationEditorPage: View {
     }
 
     private var clearPlaceButton: some View {
-        Button(PlaceSearchText.clearPlace) { _ = model.clear() }
+        Button(PlaceSearchText.clearPlace, role: .destructive) { _ = model.clear() }
             .disabled(isBusy)
     }
 
@@ -586,13 +572,7 @@ struct LocationRow: View {
                     .foregroundStyle(.textSecondary)
                     .monospacedDigit()
             }
-            #if os(iOS)
-                if isCurrent {
-                    Image(systemName: "checkmark")
-                        .foregroundStyle(Palette.accent)
-                        .accessibilityHidden(true)
-                }
-            #endif
+            SelectionMark(.single(isChosen: isCurrent))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(.rect)

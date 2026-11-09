@@ -78,7 +78,7 @@ struct MusicPlayerCard: View {
 }
 
 /// The position and controls for what MusicKit plays: skips back and forward, and, for an
-/// album, the previous and next track.
+/// album, the previous and next track. With play, the skips and play are one transport.
 struct MusicPlayerBody: View {
     let music: any MusicPlayback
     var showsPlay = false
@@ -87,20 +87,24 @@ struct MusicPlayerBody: View {
         VStack(spacing: 0) {
             // MusicKit does not announce its position, so it is read on a tick while shown.
             TimelineView(.periodic(from: .now, by: 0.5)) { context in
-                PlaybackScrubber(audio: music, tick: context.date)
+                TransportScrubber(audio: music, tick: context.date)
             }
             HStack(spacing: 4) {
                 if music.hasAlbum {
                     control(MusicPlayerText.previousTrack, "backward.end.fill") { music.skipTrack(forward: false) }
                 }
-                control(RecordingPlayerText.skipBack(AudioPlayer.skipInterval), "gobackward.15") {
-                    music.skip(by: -AudioPlayer.skipInterval)
-                }
                 if showsPlay {
-                    TransportToggle(transport: music, font: .platform(.title2))
-                }
-                control(RecordingPlayerText.skipForward(AudioPlayer.skipInterval), "goforward.15") {
-                    music.skip(by: AudioPlayer.skipInterval)
+                    Transport(
+                        isPlaying: music.isPlaying, size: .inline, onPlayPause: { music.toggle() },
+                        onBack: { music.skip(by: -AudioPlayer.skipInterval) },
+                        onForward: { music.skip(by: AudioPlayer.skipInterval) })
+                } else {
+                    control(RecordingPlayerText.skipBack(AudioPlayer.skipInterval), "gobackward.15") {
+                        music.skip(by: -AudioPlayer.skipInterval)
+                    }
+                    control(RecordingPlayerText.skipForward(AudioPlayer.skipInterval), "goforward.15") {
+                        music.skip(by: AudioPlayer.skipInterval)
+                    }
                 }
                 if music.hasAlbum {
                     control(MusicPlayerText.nextTrack, "forward.end.fill") { music.skipTrack(forward: true) }
@@ -115,11 +119,8 @@ struct MusicPlayerBody: View {
         Button(action: action) {
             Label(label, systemImage: symbol)
                 .labelStyle(.iconOnly)
-                .frame(minWidth: minimumTapTarget, minHeight: minimumTapTarget)
-                .contentShape(.rect)
         }
-        .buttonStyle(.plain)
-        .foregroundStyle(.tint)
+        .buttonStyle(.icon(macLook: .tintGlyph))
         .help(label)
     }
 }

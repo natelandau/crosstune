@@ -17,34 +17,14 @@ struct SettingsBadge: View {
     }
 }
 
-/// A small neutral capsule of figures, as "75% +2". The Mac dock shows the figures as plain
-/// secondary text.
+/// A badge of figures, as "75% +2".
 struct SettingsBadgeLabel: View {
     let text: String
 
     var body: some View {
-        #if os(macOS)
-            Text(text)
-                .font(MacStyle.secondary)
-                .monospacedDigit()
-                .foregroundStyle(Palette.textSecondary)
-                .frame(minHeight: PlayerBadge.macHeight)
-                .fixedSize()
-        #else
-            Text(text)
-                .font(.platform(.caption))
-                .monospacedDigit()
-                .padding(.horizontal, 8)
-                .frame(minHeight: 22)
-                .background(.neutralFill, in: .capsule)
-                .fixedSize()
-        #endif
+        Badge(text, macLook: .secondaryText)
+            .fixedSize()
     }
-}
-
-enum PlayerBadge {
-    /// A badge's line on the Mac dock.
-    static let macHeight: CGFloat = 20
 }
 
 /// While a loop repeats: "Repeating B part", which opens the recording's page, and a Repeat
@@ -62,50 +42,27 @@ struct RepeatBadge: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            Button {
-                player.openLoaded(recordingPage: openRecordingPage, tune: openTune, source: .dock)
-            } label: {
-                #if os(macOS)
-                    Text(PracticeText.repeating(name))
-                        .contentMask()
-                        .font(MacStyle.secondary)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                        .frame(maxWidth: maxTextWidth)
-                        .foregroundStyle(Palette.textSecondary)
-                        .frame(minHeight: PlayerBadge.macHeight)
-                        .contentShape(.rect)
-                #else
-                    Text(PracticeText.repeating(name))
-                        .contentMask()
-                        .font(.platform(.caption))
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                        .frame(maxWidth: maxTextWidth)
-                        .onAccentLabel()
-                        .padding(.horizontal, 8)
-                        .frame(minHeight: 22)
-                        .background(Palette.accentFill, in: .capsule)
-                        .frame(minWidth: minimumTapTarget, minHeight: minimumTapTarget)
-                        .contentShape(.rect)
-                #endif
-            }
-            .buttonStyle(.plain)
-            Button {
-                player.loops.select(nil)
-            } label: {
-                Label(PracticeText.repeatLoop(name), systemImage: "repeat")
+            Chip(.token, macLook: .secondaryText, action: open) {
+                Text(PracticeText.repeating(name))
                     .contentMask()
-                    .labelStyle(.iconOnly)
-                    .foregroundStyle(.tint)
-                    .frame(minWidth: minimumTapTarget, minHeight: minimumTapTarget)
-                    .contentShape(.rect)
+                    .truncationMode(.tail)
+                    .frame(maxWidth: maxTextWidth)
             }
-            .buttonStyle(.plain)
-            .accessibilityAddTraits(.isSelected)
-            .help(PracticeText.repeatLoop(name))
+            Button(PracticeText.repeatLoop(name), systemImage: "repeat", action: stopRepeating)
+                .contentMask()
+                .labelStyle(.iconOnly)
+                .buttonStyle(.icon(isOn: true, macLook: .tintGlyph))
+                .help(PracticeText.repeatLoop(name))
         }
         // The badge keeps its words up to its cap; the item's title beside it truncates first.
         .layoutPriority(1)
+    }
+
+    private func open() {
+        player.openLoaded(recordingPage: openRecordingPage, tune: openTune, source: .dock)
+    }
+
+    private func stopRepeating() {
+        player.loops.select(nil)
     }
 }

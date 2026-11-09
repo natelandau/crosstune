@@ -41,6 +41,10 @@
             #expect(RowProgressRing.angle(at: quarter, reduceMotion: true) == 0)
         }
 
+        @Test func downloadHandoffHoldsTheClosedRing() {
+            #expect(RowDownloadPhase.ringHold == .milliseconds(200))
+        }
+
         @Test func actionSlotAddsNoHeightToARow() {
             let tune = Tune(createdAt: noon, title: "Soldier's Joy", key: "D")
             let userTune = UserTune(createdAt: noon, tuneID: tune.id, status: "learning")

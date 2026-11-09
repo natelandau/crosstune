@@ -142,14 +142,12 @@ struct RecordingTuneEditor: View {
                 controls.done()
                 onGoToTune()
             }
-            #if os(macOS)
-                .buttonStyle(.mac(.plain, size: .small))
-            #endif
+            .buttonStyle(.text(macLook: .button(.plain, size: .small)))
         }
-        Button(RecordingRowActions.removeFromTune, systemImage: "folder.badge.minus") { controls.pick(nil) }
-            #if os(macOS)
-                .buttonStyle(.mac(.plain, size: .small))
-            #endif
+        Button(RecordingRowActions.removeFromTune, systemImage: "folder.badge.minus", role: .destructive) {
+            controls.pick(nil)
+        }
+        .buttonStyle(.text(macLook: .button(.plain, size: .small)))
     }
 
     private func search(_ model: RecordingTunePickerModel) -> some View {
@@ -195,13 +193,12 @@ struct RecordingTuneEditor: View {
                 TuneRow(tune: entry.tune, userTune: entry.userTune, instruments: model.instruments)
                     .foregroundStyle(.textPrimary)
                     .frame(maxWidth: .infinity, alignment: .leading)
+                SelectionMark(.single(isChosen: entry.tune.id == controls.draft.wrappedValue))
             }
             .contentShape(.rect)
         }
-        #if os(macOS)
-            .buttonStyle(.macPickRow)
-        #else
-            .buttonStyle(.plain)
+        .buttonStyle(.pickRow)
+        #if !os(macOS)
             .padding(.vertical, 4)
         #endif
         .accessibilityElement(children: .ignore)

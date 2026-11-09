@@ -174,7 +174,7 @@ public struct MediaRow: View {
         // A row that opens a page presses to open it, and its slot keeps the action.
         if let press = open ?? action {
             Button(action: press) { Color.clear.contentShape(.rect) }
-                .buttonStyle(.plain)
+                .buttonStyle(.labelOnly)
                 .accessibilityLabel(rowName)
         } else {
             Color.clear
@@ -258,7 +258,7 @@ public struct MediaRow: View {
             #endif
             .lineTarget(stacked: stacksLineControls, reach: 12)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.labelOnly)
         #if !os(macOS)
             .foregroundStyle(Palette.accent)
         #endif
@@ -286,7 +286,7 @@ public struct MediaRow: View {
             #endif
             .lineTarget(stacked: stacksLineControls, reach: 14)
         }
-        .buttonStyle(.borderless)
+        .buttonStyle(.rowLine)
         .accessibilityLabel(line.name)
     }
 
@@ -310,7 +310,7 @@ public struct MediaRow: View {
             #endif
             .lineTarget(stacked: stacksLineControls, reach: 14)
         }
-        .buttonStyle(.borderless)
+        .buttonStyle(.rowLine)
         .accessibilityLabel(line.name)
     }
 
@@ -324,13 +324,10 @@ public struct MediaRow: View {
         #else
             Button(action: retry.action) {
                 Text(MediaText.retry)
-                    .font(Self.lineFont.weight(.semibold))
                     // On the label, since a frame outside a Button never widens what it hit-tests.
                     .frame(minWidth: metrics.width)
-                    .tapTarget()
             }
-            .buttonStyle(.plain)
-            .foregroundStyle(Palette.accent)
+            .buttonStyle(.text(oneLine: true))
             .accessibilityLabel(retry.name)
         #endif
     }
@@ -375,10 +372,16 @@ public struct MediaRow: View {
         private static let smallFont = Font.footnote
     #endif
 
-    @ViewBuilder private var glyphSlot: some View {
+    private var glyphSlot: some View {
+        RowDownloadGlyph(isDownloading: glyph == .downloading, readySymbol: glyph == .play ? glyph.systemName : nil) {
+            settledGlyphSlot
+        }
+    }
+
+    @ViewBuilder private var settledGlyphSlot: some View {
         switch glyph {
         case .downloading:
-            RowActionSlot { RowProgressRing() }
+            RowActionSlot.empty(holdingGlyphHeight: false)
         case .none:
             // A row with no glyph keeps the slot, so its text ends on its neighbors' edge.
             RowActionSlot.empty(holdingGlyphHeight: false)
@@ -390,24 +393,30 @@ public struct MediaRow: View {
     }
 
     /// The action slot of a row that opens a page: the glyph is its own control, so a press on it
-    /// acts without opening the page.
-    @ViewBuilder private var slotControl: some View {
-        if slotIsControl, let action {
-            let name = slotName ?? title
-            RowActionSlot {
-                RowSlotButton(action: action) { symbol.foregroundStyle(.textPrimary) }
-                    .accessibilityLabel(name)
-                    #if os(macOS)
-                        .help(name)
-                    #endif
+    /// acts without opening the page. One download glyph holds both the control and the plain
+    /// glyph, so a finished download's handoff survives the switch from one to the other.
+    private var slotControl: some View {
+        RowDownloadGlyph(
+            isDownloading: glyph == .downloading, readySymbol: glyph == .play ? glyph.systemName : nil,
+            ringLabel: slotName ?? ""
+        ) {
+            if slotIsControl, let action {
+                let name = slotName ?? title
+                RowActionSlot {
+                    RowSlotButton(action: action) { symbol.foregroundStyle(.textPrimary) }
+                        .accessibilityLabel(name)
+                        #if os(macOS)
+                            .help(name)
+                        #endif
+                }
+            } else {
+                settledGlyphSlot
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(slotName ?? "")
             }
-        } else {
-            glyphSlot
-                .allowsHitTesting(false)
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel(slotName ?? "")
-                .accessibilityHidden(slotName == nil)
         }
+        .allowsHitTesting(slotIsControl)
+        .accessibilityHidden(!slotIsControl && slotName == nil)
     }
 
     @ViewBuilder private var symbol: some View {
@@ -465,7 +474,7 @@ extension View {
                     self.frame(minHeight: minimumTapTarget).contentShape(.rect)
                 #endif
             } else {
-                self.padding(.vertical, reach).contentShape(.rect).padding(.vertical, -reach)
+                self.hitOutset(.vertical, by: reach)
             }
         }
     }

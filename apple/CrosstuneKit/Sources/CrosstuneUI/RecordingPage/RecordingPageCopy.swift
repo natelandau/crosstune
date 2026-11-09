@@ -25,7 +25,4 @@ public enum RecordingPageCopy {
 
     /// What a row with no value reads.
     public static let notSet = TuneFieldLabels.notSet
-
-    /// The play bar's scrubber, for VoiceOver.
-    public static let playhead = "Playhead"
 }
