@@ -19,14 +19,12 @@ import { loopName } from '../../domain/loopModel'
 import { LOOPS_LABEL, MODES_LABEL, WAVEFORM_LABEL } from '../practice/practiceCopy'
 import { WAVEFORM_SLOT_PX } from '../practice/PracticeSurface'
 import { SUBSCRIBE_TO_PLAY } from '../recordings/recordingCopy'
-import { GO_TO_TUNE, playName } from '../recordings/recordingNames'
+import { playName } from '../recordings/recordingNames'
 import { TUNE } from '../tune/tunePageCopy'
 import { liveLoops } from '../../test/recordings'
 import { practice, press, waveform } from '../../test/practice'
 import { MORE_ACTIONS } from '../../ui/menuCopy'
-import { MAX_RECORDING_MS } from '../../domain/recordingLimits'
 import { NEW_TUNE_PATH } from '../../layout/tuneHome'
-import { SPLIT } from '../practice/splitCopy'
 import { TRIM } from '../practice/trimCopy'
 import { START_HANDLE } from '../practice/TrimStrip'
 import { CANCEL } from '../../ui/confirmCopy'
@@ -252,20 +250,6 @@ it('plays on practice with no dock, and stops once the page goes', async () => {
   expect(ghosts()).toBe(0)
 })
 
-it('stops its playback when Go to tune leaves the page', async () => {
-  const { engine, router } = await mount(recordingPath(TUNE_PATH, 'rA'), WIDE)
-  await page.getByRole('main').getByRole('button', { name: PLAY, exact: true }).click()
-  await expect.poll(() => engine.getState().playing).toBe(true)
-  const ghosts = watchDockGhosts()
-  await more().click()
-  await page.getByRole('menuitem', { name: GO_TO_TUNE }).click()
-  await expect.poll(() => router.state.location.pathname).toBe(TUNE_PATH)
-  await expect.poll(() => engine.getState().playing).toBe(false)
-  await expect.element(rowPlay(FAST)).toBeVisible()
-  await expect.element(dock()).not.toBeInTheDocument()
-  expect(ghosts()).toBe(0)
-})
-
 it('stops its playback when another tab opens', async () => {
   const { engine } = await mount(recordingPath(TUNE_PATH, 'rA'))
   await playFromPractice()
@@ -431,32 +415,6 @@ it("trims another recording's page without touching what plays", async () => {
   await expect.poll(() => engine.getState().playing).toBe(true)
 })
 
-it('splits a recording that must be split to upload without touching what plays', async () => {
-  const long = MAX_RECORDING_MS + 60_000
-  const { engine } = await mount(TUNE_PATH, WIDE, {
-    before: async (db) => {
-      await fastAtItsSettings(db)
-      await db.recordings.update('rB', { duration_ms: long, source_duration_ms: long })
-      await db.recording_files.update('rB', { local_duration_ms: long })
-    },
-  })
-  await playAtItsSettings(engine)
-  await page
-    .getByRole('main', { name: TUNE })
-    .getByRole('row', { name: new RegExp(SLOW) })
-    .first()
-    .getByText(SLOW, { exact: true })
-    .click()
-  await expect.element(heading(SLOW)).toBeVisible()
-  await more().click()
-  await page.getByRole('menuitem', { name: SPLIT }).click()
-  await expect.element(page.getByRole('dialog', { name: SPLIT })).toBeVisible()
-  await expect.element(dock().getByRole('button', { name: OPEN_RECORDING(FAST) })).toBeVisible()
-  await expect.poll(() => engine.getState().speedPercent).toBe(80)
-  await expect.poll(() => engine.getState().pitchCents).toBe(-200)
-  await expect.poll(() => engine.getState().playing).toBe(true)
-})
-
 it('folds by its own width in the split frame', async () => {
   await mount(recordingPath(TUNE_PATH, 'rA'), { width: 1050, height: 800 })
   await expect.element(page.getByRole('complementary', { name: DETAILS })).toBeVisible()
@@ -541,23 +499,6 @@ it('back still returns to the tune in Recordings after its row reopens the page'
   expect(entryOf(router.state.location.state).from).toBe(`${RECORDINGS.root}/t1`)
 })
 
-it('back onto the page neither reports it again nor reopens the tab its opener asked for', async () => {
-  const { router, analytics } = await mount(TUNE_PATH)
-  await playFromRow(SLOW)
-  await dock()
-    .getByRole('button', { name: OPEN_RECORDING(SLOW) })
-    .click()
-  await expect.element(tab(PRACTICE)).toHaveAttribute('aria-selected', 'true')
-  const opened = () => analytics.sends().filter((send) => send.name === 'recording_page_opened')
-  await expect.poll(opened).toHaveLength(1)
-
-  await act(() => router.navigate(-1))
-  await expect.element(tab(PRACTICE)).not.toBeInTheDocument()
-  await act(() => router.navigate(1))
-  await expect.element(tab(PRACTICE)).toHaveAttribute('aria-selected', 'true')
-  await expect.poll(opened).toHaveLength(1)
-})
-
 const waveformScaled = () =>
   expect
     .poll(() => document.querySelector<HTMLElement>('[data-practice-waveform]')?.dataset.pxPerS)
@@ -629,17 +570,6 @@ it('keeps the zoom, the selected loop, and the playhead across the fold', async 
   await expect.element(playhead).toHaveAttribute('aria-valuenow', at)
   await expect.poll(pxPerS).toBe(zoomed)
   await expect.element(modeRadio(LOOPS_LABEL)).toHaveAttribute('aria-selected', 'true')
-})
-
-it('opens a page on Speed after Loops was used on the last one', async () => {
-  const { router } = await mount(recordingPath(TUNE_PATH, 'rA'))
-  await tab(PRACTICE).click()
-  await modeRadio(LOOPS_LABEL).click()
-  await expect.element(modeRadio(LOOPS_LABEL)).toHaveAttribute('aria-selected', 'true')
-  await act(() => router.navigate(recordingPath(TUNE_PATH, 'rB')))
-  await expect.element(tab(PRACTICE)).toBeVisible()
-  await tab(PRACTICE).click()
-  await expect.element(modeRadio('Speed')).toHaveAttribute('aria-selected', 'true')
 })
 
 it("hears practice's keys at once after the dock's Expand opens it", async () => {

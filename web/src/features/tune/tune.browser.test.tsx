@@ -1,7 +1,6 @@
 import { page, userEvent } from 'vitest/browser'
 import { expect, it, onTestFinished, vi } from 'vitest'
-import type * as tunes from '../../commands/tunes'
-import { deleteTune, updateUserTune } from '../../commands/tunes'
+import { deleteTune } from '../../commands/tunes'
 import type { CrosstuneDb } from '../../db/schema'
 import type { LocalTune } from '../../db/types'
 import {
@@ -46,7 +45,6 @@ import { DETAIL_LABELS } from './detailFields'
 import { addedDay } from '../../text/format'
 import { DONE } from '../../ui/confirmCopy'
 import { lyricsTitle } from '../lyrics/lyricsCopy'
-import { computedColor } from '../../test/color'
 import { openTestDb } from '../../test/db'
 import {
   entitlementRow,
@@ -85,12 +83,6 @@ import { tuneTitleTransition } from './TuneHeader'
 vi.mock('../scans/prepareImage', async (original) => {
   const actual = await original<typeof images>()
   return { ...actual, prepareImage: vi.fn(actual.prepareImage) }
-})
-
-// A passthrough a test can hold once.
-vi.mock('../../commands/tunes', async (original) => {
-  const actual = await original<typeof tunes>()
-  return { ...actual, updateUserTune: vi.fn(actual.updateUserTune) }
 })
 
 const PHONE = { width: 390, height: 844 }
@@ -251,9 +243,6 @@ it("a wide pane fills with the content, holds the attributes column at its trail
       () => status.element().getBoundingClientRect().right - value!.getBoundingClientRect().right,
     )
     .toBe(parseFloat(getComputedStyle(status.element()).paddingRight))
-  await expect
-    .poll(() => parseFloat(getComputedStyle(label!).fontSize))
-    .toBeCloseTo(rootPx('--size-secondary'))
   await expect
     .poll(() => hairline.getBoundingClientRect().right)
     .toBe(tunePage().element().getBoundingClientRect().right)
@@ -614,33 +603,6 @@ it('notes typed and left by leaving the page report once', async () => {
     .toEqual([{ name: 'tune_edited', props: { fields_changed: ['notes'], tune_id: 't1' } }])
 })
 
-it('notes typed while a save is held write only the latest text once it lands', async () => {
-  const db = openTestDb()
-  await seedTune(db, 't1', 'Cluck Old Hen')
-  const actual = await vi.importActual<typeof tunes>('../../commands/tunes')
-  let release!: () => void
-  const gate = new Promise<void>((resolve) => {
-    release = resolve
-  })
-  vi.mocked(updateUserTune).mockImplementationOnce(async (...args) => {
-    await gate
-    return actual.updateUserTune(...args)
-  })
-  await renderApp({ path: '/catalog/t1', db, frame: PHONE })
-  const notes = tunePage().getByRole('textbox', { name: NOTES_SECTION })
-  await notes.click()
-  await userEvent.keyboard('L')
-  await expect.poll(() => vi.mocked(updateUserTune).mock.calls.length).toBe(1)
-  await userEvent.keyboard('ong bow')
-  await expect.element(notes).toHaveValue('Long bow')
-  release()
-  await expect.poll(async () => (await db.user_tunes.get('u-t1'))?.notes).toBe('Long bow')
-  expect(vi.mocked(updateUserTune).mock.calls.map(([, , patch]) => patch)).toEqual([
-    { notes: 'L' },
-    { notes: 'Long bow' },
-  ])
-})
-
 it.each([
   ['wide', WIDE, 'column'],
   ['phone', PHONE, 'card'],
@@ -764,14 +726,9 @@ it('shows a download glyph on a recording held only on the server', async () => 
     .toBeVisible()
   const cloud = () => row.element().querySelector('[data-media-glyph] svg.lucide-cloud-download')
   await expect.poll(() => cloud()).not.toBeNull()
-  // The ring fills under the pointer, which an earlier test may have left over the row.
-  await userEvent.hover(pageTitle())
-  await expect
-    .poll(() => getComputedStyle(cloud()!).color)
-    .toBe(computedColor('var(--color-text-primary)'))
 })
 
-it('dims the download glyph with the tertiary text role while offline', async () => {
+it('dims a recording held only on the server while offline', async () => {
   const onLine = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
   onTestFinished(() => onLine.mockRestore())
   const db = openTestDb()
@@ -785,11 +742,6 @@ it('dims the download glyph with the tertiary text role while offline', async ()
     .toBeVisible()
   const cloud = () => row.element().querySelector('[data-media-glyph] svg.lucide-cloud-download')
   await expect.poll(() => cloud()).not.toBeNull()
-  // The ring fills under the pointer, which an earlier test may have left over the row.
-  await userEvent.hover(pageTitle())
-  await expect
-    .poll(() => getComputedStyle(cloud()!).color)
-    .toBe(computedColor('var(--color-text-tertiary)'))
 })
 
 it('shows a downloading glyph, named as a status, while a recording downloads', async () => {

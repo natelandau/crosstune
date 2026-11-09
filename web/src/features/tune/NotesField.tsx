@@ -11,6 +11,7 @@ import { Button } from '../../ui/Button'
 import { DONE } from '../../ui/confirmCopy'
 import { NOTES_SAVE_HINT, NOTES_SECTION, WRITE_A_NOTE } from './tuneScreenCopy'
 import { blankToNull } from '../../text/blank'
+import { latestSaveQueue } from './latestSaveQueue'
 
 /**
  * A tune's notes, typed straight into the page. Changes save as they are typed; the edit is
@@ -31,10 +32,7 @@ export function NotesField({ tuneId, notes }: { tuneId: string; notes: string | 
     if (!focused) setTyped(null)
   }
   const atFocus = useRef<string | null>(null)
-  // One save runs at a time, so a slow one never lands over a later keystroke. Keystrokes made
-  // while one runs share a single save queued behind it, which writes the latest text.
-  const queue = useRef<Promise<unknown>>(Promise.resolve())
-  const pending = useRef<(() => Promise<void>) | null>(null)
+  const [enqueueSave] = useState(latestSaveQueue)
 
   const report = (text: string | null) => {
     const started = atFocus.current
@@ -49,21 +47,13 @@ export function NotesField({ tuneId, notes }: { tuneId: string; notes: string | 
 
   const change = (text: string) => {
     setTyped(text)
-    const queued = pending.current !== null
-    pending.current = async () => {
+    const next = enqueueSave(async () => {
       const userTune = await db.user_tunes.where('tune_id').equals(tuneId).first()
       if (userTune && !userTune.deleted_at) {
         await updateUserTune(db, userTune.id, { notes: blankToNull(text) })
       }
-    }
-    if (queued) return
-    const next = queue.current.then(() => {
-      const save = pending.current
-      pending.current = null
-      return save?.()
     })
-    queue.current = next.catch(() => {})
-    run(() => next)
+    if (next) run(() => next)
   }
 
   // Focus anywhere in the notes, Done included, so a keyboard reaching Done keeps the line.

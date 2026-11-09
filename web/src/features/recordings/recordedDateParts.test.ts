@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { RECORDED_DATE_FUTURE } from '../../commands/messages'
-import { datePatch, partsOf } from './recordedDateParts'
+import { dateDraft, datePatch, keptExactTime, partsOf } from './recordedDateParts'
 import { dayCount, NO_DATE, YEAR_FORMAT } from '../../ui/partialDate'
 
 // West of UTC, a local read of a partial date lands in the period before it.
@@ -101,5 +101,34 @@ describe('dayCount', () => {
   it('offers 31 days while the year is unfinished, and none without a month', () => {
     expect(dayCount({ year: '19', month: '4', day: '31' })).toBe(31)
     expect(dayCount({ year: '1998', month: '', day: '' })).toBe(0)
+  })
+})
+
+describe('dateDraft and keptExactTime', () => {
+  const at = '2026-01-01T12:00:00.000Z'
+  const opened = partsOf(at, 'time')
+
+  it('drafts nothing and keeps an exact time while the date is left alone', () => {
+    expect(dateDraft({ ...opened }, opened)).toBeNull()
+    expect(keptExactTime(at, 'time', { ...opened }, opened)).toBe(at)
+  })
+
+  it('drafts the new date and lets the exact time go once a part changes', () => {
+    const parts = { ...opened, day: '' }
+    expect(dateDraft(parts, opened)).toEqual({
+      recorded_at: '2026-01-01T00:00:00.000Z',
+      recorded_precision: 'month',
+    })
+    expect(keptExactTime(at, 'time', parts, opened)).toBeNull()
+  })
+
+  it('drafts nothing for a date that cannot be stored', () => {
+    expect(dateDraft({ year: '20', month: '', day: '' }, opened)).toBeNull()
+  })
+
+  it('keeps no time for a date less exact than a time', () => {
+    const day = partsOf(at, 'day')
+    expect(keptExactTime(at, 'day', day, day)).toBeNull()
+    expect(keptExactTime(null, 'time', NO_DATE, NO_DATE)).toBeNull()
   })
 })

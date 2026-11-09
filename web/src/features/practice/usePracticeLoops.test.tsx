@@ -80,6 +80,27 @@ describe('usePracticeLoops', () => {
     expect(result.current.loops.selected?.name).toBe('B part')
   })
 
+  it('picks a loop by its place in waveform order, and says so once', async () => {
+    const { id, view, engine, wrapper } = await setup()
+    const second = await seedLoop(db, id, 20_000, 24_000, { label: 'B part' })
+    const first = await seedLoop(db, id, 5000, 8000, { label: 'A part' })
+    const { result } = render(view, engine, wrapper)
+    await waitFor(() => expect(result.current.loops.rows).toHaveLength(2))
+
+    let start = 0
+    act(() => {
+      start = result.current.loops.keyActions.selectLoop(1)
+    })
+    expect(start).toBe(20_000)
+    await waitFor(() => expect(engine.getState().loop?.id).toBe(second))
+    await waitFor(() => expect(result.current.timeline.announcement).toBe(LOOP_SELECTED('B part')))
+    act(() => {
+      start = result.current.loops.keyActions.selectLoop(0)
+    })
+    expect(start).toBe(5000)
+    await waitFor(() => expect(engine.getState().loop?.id).toBe(first))
+  })
+
   it('returns why N made no loop where there is no room, and says it', async () => {
     const { id, view, engine, wrapper } = await setup()
     await seedLoop(db, id, 1_000, 5_000)

@@ -1,17 +1,13 @@
 import { expect, it, onTestFinished, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
-import { AnalyticsProvider } from '../../usage/AnalyticsProvider'
-import { recordingAnalytics } from '../../usage/testing'
 import { removeLoop, updateLoop } from '../../commands/loops'
 import { PAUSE, PITCH_BADGE, SPEED_BADGE } from '../player/transportCopy'
-import { ARROW_LARGE_STEP_MS, ARROW_STEP_MS } from './PracticeWaveform'
 import {
   ISOLATE_LABEL,
   ISOLATE_UNAVAILABLE,
   LOCKED_LOOPS_NOTICE,
   LOOP_CREATED,
   LOOP_NAME,
-  LOOP_SELECTED,
   LOOPS_LABEL,
   MODES_LABEL,
   MUTE,
@@ -19,7 +15,7 @@ import {
   SET_END,
   SET_START,
 } from './practiceCopy'
-import { CENTS, PITCH, PITCH_PAUSES_ON_LOCK } from './PitchPanel'
+import { PITCH, PITCH_PAUSES_ON_LOCK } from './PitchPanel'
 import { SPEED } from './SpeedPanel'
 import { TRIM } from './trimCopy'
 import { OFFLINE } from '../../sync/labels'
@@ -77,53 +73,12 @@ it('plays and pauses with Space', async () => {
   await expect.poll(() => engine.getState().playing).toBe(true)
 })
 
-it('nudges the playhead with the arrows, further with Shift', async () => {
-  const { engine } = await mountPlaying(WIDE)
-  await openPractice()
-  press(' ')
-  await expect.poll(() => engine.getState().playing).toBe(false)
-  engine.seek(10_000)
-  press('ArrowRight')
-  await expect.poll(() => engine.getState().positionMs).toBe(10_000 + ARROW_STEP_MS)
-  press('ArrowRight', { shiftKey: true })
-  await expect
-    .poll(() => engine.getState().positionMs)
-    .toBe(10_000 + ARROW_STEP_MS + ARROW_LARGE_STEP_MS)
-})
-
 it('creates a loop with N and says so', async () => {
   const { db } = await mountPlaying(WIDE)
   await openPractice()
   press('n')
   await expect.poll(announced).toBe(LOOP_CREATED)
   await expect.poll(async () => (await liveLoops(db, 'r1')).length).toBe(1)
-})
-
-it('adds a loop with L too', async () => {
-  const { db } = await mountPlaying(WIDE)
-  await openPractice()
-  press('L')
-  await expect.poll(announced).toBe(LOOP_CREATED)
-  await expect.poll(async () => (await liveLoops(db, 'r1')).length).toBe(1)
-})
-
-it('picks a loop by its number in waveform order, and a number past the last does nothing', async () => {
-  const { db, engine } = await mountPlaying(WIDE)
-  await seedLoop(db, 'r1', 5000, 8000, { label: 'A part' })
-  const second = await seedLoop(db, 'r1', 20_000, 24_000, { label: 'B part' })
-  await openPractice()
-  press(' ')
-  await expect.poll(() => engine.getState().playing).toBe(false)
-  press('2')
-  await expect.poll(() => engine.getState().loop?.id).toBe(second)
-  await expect.poll(announced).toBe(LOOP_SELECTED('B part'))
-  await expect.poll(() => engine.getState().positionMs).toBe(20_000)
-  expect(press('9', { cancelable: true }).defaultPrevented).toBe(false)
-  expect(engine.getState().loop?.id).toBe(second)
-  expect(engine.getState().positionMs).toBe(20_000)
-  press('1')
-  await expect.poll(announced).toBe(LOOP_SELECTED('A part'))
-  expect(engine.getState().positionMs).toBe(5000)
 })
 
 it("moves the selected loop's edges to the playhead with Set start and Set end", async () => {
@@ -164,32 +119,6 @@ it("moves the selected loop's edges to the playhead with Set start and Set end",
   await userEvent.keyboard('{Enter}')
   await expect.element(setEnd).toHaveFocus()
   expect(vi.mocked(updateLoop).mock.calls.length).toBe(writes)
-})
-
-it('loop_set reports each loop newly selected, a created one too', async () => {
-  const analytics = recordingAnalytics()
-  const { engine } = await mountPlaying(WIDE, {
-    wrap: (app) => <AnalyticsProvider client={analytics}>{app}</AnalyticsProvider>,
-  })
-  await openPractice()
-  const loopSets = () => analytics.sends().filter((send) => send.name === 'loop_set')
-  press('n')
-  await expect.poll(() => engine.getState().loop).not.toBeNull()
-  press('Escape')
-  await expect.poll(() => engine.getState().loop).toBeNull()
-  // Two presses before the selection renders are one choice.
-  press('1')
-  press('1')
-  await expect.poll(() => engine.getState().loop).not.toBeNull()
-  // Choosing the loop already selected sets nothing new.
-  press('1')
-  press('Escape')
-  await expect.poll(() => engine.getState().loop).toBeNull()
-
-  expect(loopSets()).toEqual([
-    { name: 'loop_set', props: { recording_id: 'r1' } },
-    { name: 'loop_set', props: { recording_id: 'r1' } },
-  ])
 })
 
 it('names a loop from a suggestion chip with one write, over a half-typed name', async () => {
@@ -243,17 +172,18 @@ it('shows Trim disabled in More while offline', async () => {
   await expect.element(trim).toHaveTextContent(OFFLINE)
 })
 
-it('holds the mode panel at one height across Loops, Speed, and Pitch', async () => {
+it('holds the mode panel and its controls area at one height in every mode', async () => {
   await mountPlaying(PHONE)
   await openPractice()
-  const height = () =>
-    practice()!.querySelector<HTMLElement>('[data-mode-panel-root]')!.getBoundingClientRect().height
+  const heightOf = (selector: string) =>
+    practice()!.querySelector<HTMLElement>(selector)!.getBoundingClientRect().height
+  const height = () => `${heightOf('[data-mode-panel-root]')} ${heightOf('[data-mode-controls]')}`
   const mode = (name: string) => recordingPage().getByRole('tab', { name: new RegExp(`^${name}`) })
 
   await mode(LOOPS_LABEL).click()
   await expect.element(mode(LOOPS_LABEL)).toHaveAttribute('aria-selected', 'true')
   // Settled once two reads a poll apart agree.
-  let last = -1
+  let last = ''
   await expect
     .poll(() => {
       const now = height()
@@ -263,6 +193,7 @@ it('holds the mode panel at one height across Loops, Speed, and Pitch', async ()
     })
     .toBe(true)
   const loops = last
+  expect(heightOf('[data-mode-controls]')).toBeGreaterThan(0)
   await mode(SPEED).click()
   await expect.element(mode(SPEED)).toHaveAttribute('aria-selected', 'true')
   await expect.poll(height).toBe(loops)
@@ -272,16 +203,6 @@ it('holds the mode panel at one height across Loops, Speed, and Pitch', async ()
   await mode(ISOLATE_LABEL).click()
   await expect.element(mode(ISOLATE_LABEL)).toHaveAttribute('aria-selected', 'true')
   await expect.poll(height).toBe(loops)
-})
-
-it('offers four modes for a recording, the Isolate segment naming Mute while it mutes', async () => {
-  await mountPlaying(PHONE, { recording: { isolate_effect: 'mute' } })
-  await openPractice()
-  const modes = recordingPage().getByRole('tablist', { name: MODES_LABEL })
-  await expect.poll(() => modes.getByRole('tab').all().length).toBe(4)
-  await expect
-    .element(modes.getByRole('tab', { name: SEGMENT_LABEL(ISOLATE_LABEL, MUTE), exact: true }))
-    .toBeVisible()
 })
 
 it('engages the isolate stage while the Isolate mode shows, and not after', async () => {
@@ -319,22 +240,6 @@ const contentHeight = (mode: string) =>
   practice()!
     .querySelector<HTMLElement>(`[data-mode-panel="${mode}"]`)!
     .firstElementChild!.getBoundingClientRect().height
-
-it('keeps the panel area the same height in every mode', async () => {
-  await mountPlaying(PHONE)
-  await openPractice()
-  const area = () =>
-    practice()!.querySelector<HTMLElement>('[data-mode-controls]')!.getBoundingClientRect().height
-  const heights: number[] = []
-  for (const name of [SPEED, PITCH, ISOLATE_LABEL, LOOPS_LABEL]) {
-    const tab = recordingPage().getByRole('tab', { name: new RegExp(`^${name}`) })
-    await tab.click()
-    await expect.element(tab).toHaveAttribute('aria-selected', 'true')
-    heights.push(area())
-  }
-  expect(heights[0]).toBeGreaterThan(0)
-  expect(new Set(heights).size).toBe(1)
-})
 
 /** Every value off its default, so each segment's value label is its longest. */
 const VALUED = { speed_percent: 75, pitch_cents: -250, isolate_effect: 'mute' } as const
@@ -451,16 +356,6 @@ it('says pitch-shifted playback pauses when the screen locks, on an iPhone or iP
   const dialog = recordingPage()
   await dialog.getByRole('tab', { name: new RegExp(`^${PITCH}`) }).click()
   await expect.element(dialog.getByText(PITCH_PAUSES_ON_LOCK)).toBeVisible()
-})
-
-it('leaves the pitch lock notice out elsewhere', async () => {
-  vi.mocked(isAppleTouch).mockReturnValue(false)
-  await mountPlaying(PHONE)
-  await openPractice()
-  const dialog = recordingPage()
-  await dialog.getByRole('tab', { name: new RegExp(`^${PITCH}`) }).click()
-  await expect.element(dialog.getByRole('slider', { name: CENTS })).toBeVisible()
-  expect(dialog.getByText(PITCH_PAUSES_ON_LOCK).query()).toBeNull()
 })
 
 it('shows the modes as a toolbar of values on a wide page, with no tabs', async () => {

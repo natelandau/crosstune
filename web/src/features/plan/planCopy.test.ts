@@ -4,12 +4,20 @@ import { describe, expect, it } from 'vitest'
 import { addedDay } from '../../text/format'
 import {
   MANAGE_SUBSCRIPTION,
+  PREMIUM_PITCH,
+  PREMIUM_PLAN_TITLE,
+  PREMIUM_RECORDINGS_BODY,
+  PREMIUM_RECORDINGS_TITLE,
+  PREMIUM_SCANS_BODY,
+  PREMIUM_SCANS_TITLE,
+  premiumCopy,
   renewalTerms,
   save,
   saving,
   TRIAL_ENDS_TODAY,
   trialDaysLeft,
   trialEnds,
+  trialEndsLine,
   trialLeft,
   WITHDRAW_LABEL,
   withdrawUntil,
@@ -61,6 +69,25 @@ describe('trialEnds', () => {
     const end = at(15, 9)
     const now = at(10, 20)
     expect(trialLeft(end, now)).toBe(`${trialEnds(end)}, ${trialDaysLeft(end, now)}`)
+  })
+})
+
+describe('trialEndsLine', () => {
+  it('names the end day, and drops on the last day', () => {
+    const end = at(15, 9)
+    expect(trialEndsLine(end, at(14, 20))).toBe(trialEnds(end))
+    expect(trialEndsLine(end, at(15, 8))).toBeNull()
+  })
+})
+
+describe('premiumCopy', () => {
+  it('leads with what opened the sheet', () => {
+    expect(premiumCopy('recordings')).toEqual({
+      title: PREMIUM_RECORDINGS_TITLE,
+      body: PREMIUM_RECORDINGS_BODY,
+    })
+    expect(premiumCopy('scans')).toEqual({ title: PREMIUM_SCANS_TITLE, body: PREMIUM_SCANS_BODY })
+    expect(premiumCopy('plan')).toEqual({ title: PREMIUM_PLAN_TITLE, body: PREMIUM_PITCH })
   })
 })
 

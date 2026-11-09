@@ -146,6 +146,20 @@ export function pieces(state: SplitState): { startMs: number; endMs: number }[] 
   return edges.slice(0, -1).map((startMs, i) => ({ startMs, endMs: edges[i + 1]! }))
 }
 
+/** Where Play starts: the selected piece's start, else the line. */
+export function playStartMs(state: SplitState, selectedPiece: number | null): number {
+  const piece = selectedPiece === null ? undefined : pieces(state)[selectedPiece]
+  return piece ? piece.startMs : state.lineMs
+}
+
+/**
+ * Where playback that started or landed at `fromMs` stops: the first cut after it, which ends
+ * its piece, else the end of the range.
+ */
+export function stopMs(state: SplitState, fromMs: number): number {
+  return state.cuts.find((cut) => cut > fromMs) ?? state.highMs
+}
+
 export function canSave(state: SplitState): boolean {
   if (state.cuts.length === 0) return false
   return pieceProblem([state.lowMs, ...state.cuts, state.highMs], state.overLimit) === null

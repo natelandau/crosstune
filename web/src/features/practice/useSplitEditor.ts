@@ -34,8 +34,9 @@ import {
   canAddCut,
   canSave,
   initialSplit,
-  pieces,
+  playStartMs,
   splitReducer,
+  stopMs,
   type SplitAction,
   type SplitState,
 } from './splitModel'
@@ -221,8 +222,7 @@ export function useSplitEditor({
       clock.subscribe(() => {
         const from = playFrom.current
         if (from === null || !engine.getState().playing || pausing.current) return
-        const state = current.current
-        const endMs = state.cuts.find((cut) => cut > from) ?? state.highMs
+        const endMs = stopMs(current.current, from)
         if (playMs() < endMs) return
         apply({ type: 'seek', ms: endMs })
         setPausing(true)
@@ -260,9 +260,7 @@ export function useSplitEditor({
       engine.pause()
       return
     }
-    const state = current.current
-    const piece = selectedPiece === null ? undefined : pieces(state)[selectedPiece]
-    const startMs = piece ? piece.startMs : state.lineMs
+    const startMs = playStartMs(current.current, selectedPiece)
     playFrom.current = startMs
     apply({ type: 'seek', ms: startMs })
     engine.play()

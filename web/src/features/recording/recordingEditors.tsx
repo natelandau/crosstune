@@ -16,10 +16,10 @@ import { PartialDateField } from '../../ui/form/PartialDateField'
 import { SuggestField } from '../../ui/form/SuggestField'
 import { TextField } from '../../ui/form/TextField'
 import { LocationMap } from '../../ui/LocationMap'
-import { sameParts, type DateParts } from '../../ui/partialDate'
+import type { DateParts } from '../../ui/partialDate'
 import { SEARCH_TUNES } from '../catalog/catalogCopy'
 import { recordingPlayers } from '../recordings/place'
-import { datePatch, partsOf } from '../recordings/recordedDateParts'
+import { dateDraft, datePatch, keptExactTime, partsOf } from '../recordings/recordedDateParts'
 import { RECORDING_NAME_LABEL, recordedAtNote } from '../recordings/recordingCopy'
 import {
   addToTuneName,
@@ -250,9 +250,8 @@ function RecordedBody({ view, edit }: BodyProps) {
   const [left, setLeft] = useState(false)
   const errorId = useId()
   const error = left ? refusalOf(parts) : null
-  const unchanged = sameParts(parts, opened)
-  // An exact time survives only while the date parts are left alone.
-  const timeNote = at && known === 'time' && unchanged ? recordedAtNote(recordedTime(at)) : null
+  const keptTime = keptExactTime(at, known, parts, opened)
+  const timeNote = keptTime ? recordedAtNote(recordedTime(keptTime)) : null
   // Enter on a date that cannot be saved says why and stays; a dismissal discards it.
   useEnterKey(() => {
     if (refusalOf(parts) === null) edit.done()
@@ -269,8 +268,7 @@ function RecordedBody({ view, edit }: BodyProps) {
         onChange={(next) => {
           setParts(next)
           setLeft(false)
-          const patch = datePatch(next)
-          edit.onDraft(sameParts(next, opened) || 'error' in patch ? null : patch)
+          edit.onDraft(dateDraft(next, opened))
         }}
       />
     </Group>

@@ -1,6 +1,6 @@
 import { addedDay, recordedTime } from '../../text/format'
 import { localDaysBetween } from '../../text/localDate'
-import type { PurchasePeriod } from '../../usage/events'
+import type { PremiumReason, PurchasePeriod } from '../../usage/events'
 
 export const PLAN_GROUP = 'Plan'
 export const PLAN_FREE = 'Free'
@@ -140,4 +140,21 @@ export function trialEnds(endsAt: Date): string {
 export function trialLeft(endsAt: Date, now: Date): string {
   if (calendarDaysLeft(endsAt, now) <= 0) return TRIAL_ENDS_TODAY
   return `${trialEnds(endsAt)}, ${trialDaysLeft(endsAt, now)}`
+}
+
+/** The Plan sheet's headline and the line under it, leading with what opened the sheet. */
+export function premiumCopy(reason: PremiumReason): { title: string; body: string } {
+  switch (reason) {
+    case 'recordings':
+      return { title: PREMIUM_RECORDINGS_TITLE, body: PREMIUM_RECORDINGS_BODY }
+    case 'scans':
+      return { title: PREMIUM_SCANS_TITLE, body: PREMIUM_SCANS_BODY }
+    case 'plan':
+      return { title: PREMIUM_PLAN_TITLE, body: PREMIUM_PITCH }
+  }
+}
+
+/** The trial card's date line, which drops on the trial's last day, when its headline says so. */
+export function trialEndsLine(endsAt: Date, now: Date): string | null {
+  return calendarDaysLeft(endsAt, now) <= 0 ? null : trialEnds(endsAt)
 }

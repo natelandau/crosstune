@@ -3,7 +3,6 @@ import { page, userEvent } from 'vitest/browser'
 import { createTune } from '../../commands/tunes'
 import type { CrosstuneDb } from '../../db/schema'
 import { recordingPath } from '../../layout/tuneHome'
-import { recordedTime } from '../../text/format'
 import { MapKitContext } from '../../platform/useMapKit'
 import { openTestDb } from '../../test/db'
 import { fakeMapKit, type FakeMapKitOptions } from '../../test/fakeMapKit'
@@ -24,7 +23,7 @@ import { MONTH_LABEL, MONTH_LABELS, YEAR_LABEL } from '../../ui/partialDate'
 import { AnalyticsProvider } from '../../usage/AnalyticsProvider'
 import { recordingAnalytics } from '../../usage/testing'
 import { addTypedTitleLabel, SEARCH_TUNES } from '../catalog/catalogCopy'
-import { RECORDING_NAME_LABEL, recordedAtNote } from '../recordings/recordingCopy'
+import { RECORDING_NAME_LABEL } from '../recordings/recordingCopy'
 import {
   addToTuneName,
   CLEAR_LOCATION,
@@ -233,19 +232,6 @@ it('sets a partial recorded date', async () => {
     .toBe('2019-03-01T00:00:00.000Z')
 })
 
-it('keeps the exact time of a date left alone, saying when it was', async () => {
-  const { db } = await mount()
-  await row(RECORDED_HEADER).click()
-  const date = editor(RECORDED_HEADER)
-  await expect
-    .element(date.getByText(recordedAtNote(recordedTime('2026-01-01T12:00:00.000Z'))))
-    .toBeVisible()
-  await pressOutside()
-  await expect.element(date).not.toBeInTheDocument()
-  await settleWrites(db)
-  expect((await db.recordings.get('rA'))?.recorded_precision).toBe('time')
-})
-
 it('offers the players named on other recordings, and saves a pick at once', async () => {
   const { db } = await mount(WIDE, {
     before: (db) => db.recordings.put(recordingRow('rB', { players: 'Tommy Jarrell' })),
@@ -306,19 +292,6 @@ it('draws the map for a device fix the server named, on the Details tab', async 
   await expect.poll(() => details.element().querySelector('[data-location-map] > div')).toBeTruthy()
 })
 
-it("draws the map at a linked saved location's point when the recording has none", async () => {
-  await mount(WIDE, {
-    before: async (db) => {
-      await db.places.put(placeRow('p1', 'The barn', { address: '12 Mill Rd, Galax, VA' }))
-      await db.recordings.update('rA', { place_id: 'p1' })
-    },
-    mapkit: {},
-  })
-  await expect.element(row(LOCATION_LABEL, 'The barn')).toBeVisible()
-  await expect.poll(drawnMap).toBeTruthy()
-  await expect.element(attributes().getByText('12 Mill Rd, Galax, VA')).toBeVisible()
-})
-
 it('renames a linked saved location from the editor, and the Location row follows', async () => {
   const { db } = await mount(WIDE, {
     before: async (db) => {
@@ -369,11 +342,6 @@ it('opens the location editor from a press on the map, and saves a pick on Done'
     .toEqual([{ name: 'recording_place_cleared', props: { recording_id: 'rA' } }])
 })
 
-it('an empty Location row reads Not set', async () => {
-  await mount()
-  await expect.element(row(LOCATION_LABEL, NOT_SET)).toBeVisible()
-})
-
 it('heads only the details group, since the Location and Notes rows name their own', async () => {
   await mount()
   await expect.element(row(NOTES_LABEL, NOT_SET)).toBeVisible()
@@ -383,11 +351,6 @@ it('heads only the details group, since the Location and Notes rows name their o
       .elements()
       .map((heading) => heading.textContent),
   ).toEqual([DETAILS])
-})
-
-it('an empty Players row reads Not set', async () => {
-  await mount()
-  await expect.element(row(PLAYERS_LABEL, NOT_SET)).toBeVisible()
 })
 
 it('Notes keeps line breaks', async () => {

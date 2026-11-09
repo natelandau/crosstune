@@ -1,6 +1,5 @@
 import { useEffect, useId, useState } from 'react'
 import { canSubscribe, planMode, type Plan } from '../../billing/plan'
-import type { StoreOffer } from '../../billing/store'
 import { storeConfig } from '../../billing/storeConfig'
 import { useStore } from '../../billing/StoreProvider'
 import { usePlanOrUnknown } from '../../billing/usePlan'
@@ -18,12 +17,7 @@ import { PeriodTiles } from './PeriodTiles'
 import { PlanComparison } from './PlanComparison'
 import {
   ON_PREMIUM,
-  PREMIUM_PITCH,
-  PREMIUM_PLAN_TITLE,
-  PREMIUM_RECORDINGS_BODY,
-  PREMIUM_RECORDINGS_TITLE,
-  PREMIUM_SCANS_BODY,
-  PREMIUM_SCANS_TITLE,
+  premiumCopy,
   SUBSCRIBE,
   SUBSCRIBE_OFFLINE,
   SUBSCRIBE_UNAVAILABLE_MESSAGE,
@@ -34,54 +28,8 @@ import {
 import { RenewalTerms } from './RenewalTerms'
 import { TrialCard } from './TrialCard'
 import { useWithdrawUntil } from './useWithdrawUntil'
-import { useOffers, type Offers } from './useOffers'
-
-const TITLES: Record<PremiumReason, string> = {
-  recordings: PREMIUM_RECORDINGS_TITLE,
-  scans: PREMIUM_SCANS_TITLE,
-  plan: PREMIUM_PLAN_TITLE,
-}
-
-/** The purchase options the sheet shows. */
-type PurchaseOptions =
-  /** Not purchasable here: no store, or a plan that cannot subscribe. No purchase controls. */
-  | { kind: 'notPurchasable' }
-  /** Asking the store: Subscribe holds its place, off, so the actions never move. */
-  | { kind: 'pending' }
-  /** The store answered with nothing to buy. */
-  | { kind: 'empty' }
-  /** The device is offline; its line takes the choice's place. */
-  | { kind: 'offline' }
-  /** The store could not answer while online, which an alert over the sheet says. */
-  | { kind: 'unavailable' }
-  /** Annual or Monthly, at the store's prices, and Subscribe. */
-  | { kind: 'choice'; offers: StoreOffer[] }
-  /** A purchase went through before the plan turned Premium; its line replaces the choice. */
-  | { kind: 'subscribed' }
-
-/** Purchasable only by an account that can subscribe, online, once the store has a price. */
-function purchaseOptionsFor({
-  hasStore,
-  plan,
-  online,
-  offers,
-  settled,
-}: {
-  /** Whether this build has a store to buy through. */
-  hasStore: boolean
-  plan: Plan
-  online: boolean
-  offers: Offers
-  settled: boolean
-}): PurchaseOptions {
-  if (!hasStore) return { kind: 'notPurchasable' }
-  if (settled) return { kind: 'subscribed' }
-  if (!canSubscribe(plan)) return { kind: 'notPurchasable' }
-  if (!online) return { kind: 'offline' }
-  if (offers.kind === 'failed') return { kind: 'unavailable' }
-  if (offers.kind === 'pending') return { kind: 'pending' }
-  return offers.offers.length > 0 ? { kind: 'choice', offers: offers.offers } : { kind: 'empty' }
-}
+import { useOffers } from './useOffers'
+import { chosenPeriod, purchaseOptionsFor, type PurchaseOptions } from './planSheetModel'
 
 /**
  * The account's plan: what Free and Premium each hold, purchasable by a free or trial account,
@@ -116,21 +64,15 @@ export function PlanSheet({
   useResetOnChange(open, () => {
     if (open) setPeriod('annual')
   })
-  const body =
-    reason === 'recordings'
-      ? PREMIUM_RECORDINGS_BODY
-      : reason === 'scans'
-        ? PREMIUM_SCANS_BODY
-        : reason === 'plan'
-          ? PREMIUM_PITCH
-          : null
+  const copy = reason ? premiumCopy(reason) : null
+  const body = copy?.body ?? null
   const options =
     mode === 'purchasable'
       ? purchaseOptionsFor({ hasStore: store !== null, plan, online, offers, settled })
       : ({ kind: 'notPurchasable' } as const)
   const choice = options.kind === 'choice' ? options.offers : null
   // Annual by default, or the one period the store sells when it sells only one.
-  const chosen = choice?.some((offer) => offer.period === period) ? period : choice?.[0]?.period
+  const chosen = choice ? chosenPeriod(choice, period) : undefined
   const chosenPrice = choice?.find((offer) => offer.period === chosen)?.price
   const line =
     options.kind === 'subscribed'
@@ -185,7 +127,7 @@ export function PlanSheet({
           <div className="flex flex-col items-center gap-1 text-center">
             <Mark className="mb-3 h-10" />
             <h4 id={headlineId} className="t-screen-title break-words">
-              {reason ? TITLES[reason] : ''}
+              {copy?.title ?? ''}
             </h4>
             {body && (
               <p id={bodyId} className="t-body text-secondary">

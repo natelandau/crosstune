@@ -56,6 +56,7 @@ import {
   USE_CURRENT_LOCATION,
 } from './locationEditorCopy'
 import { useLocationEditor, type LocationEditorState, type PlaceList } from './useLocationEditor'
+import { renameTo } from './renameTo'
 
 /** The map here is taller than the recording page's, so the spot reads before a pick. */
 const MAP_HEIGHT = 280
@@ -133,10 +134,8 @@ export function LocationEditor({
   const typed = step?.kind === 'naming' || step?.kind === 'renaming' ? step.name.trim() : ''
   const named = step?.kind === 'naming' && typed !== '' ? typed : null
   const linked = editor.linkedPlace
-  const renamed =
-    step?.kind === 'renaming' && linked && typed !== '' && typed !== linked.name
-      ? { id: linked.id, name: typed }
-      : null
+  const renamedTo = step?.kind === 'renaming' && linked ? renameTo(linked.name, step.name) : null
+  const renamed = linked && renamedTo !== null ? { id: linked.id, name: renamedTo } : null
   const save = () =>
     run(async () => {
       await Promise.all([

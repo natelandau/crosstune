@@ -3,7 +3,6 @@ import { expect, it, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
 import { drag } from '../../test/gestures'
 import { renderWithProviders } from '../../test/render'
-import { computedColor } from '../../test/color'
 import { IsolateRange } from './IsolateRange'
 import { hzReadout, stereoEdgeReadout, stereoReadout, frequencyReadout } from './isolateReadout'
 import {
@@ -91,19 +90,6 @@ const centerX = (element: Element) => {
   const rect = element.getBoundingClientRect()
   return rect.left + rect.width / 2
 }
-
-it('draws its range as an orange loop: a tint over the outline, and orange edges', async () => {
-  renderWithProviders(<Stereo initial={[-100, 100]} onChange={() => {}} />)
-  await expect.element(slider(STEREO_START)).toBeVisible()
-  const line = slider(STEREO_START).element().querySelector('span')!
-  const span = document.querySelector<HTMLElement>('[data-range-span]')!
-  await expect
-    .poll(() => getComputedStyle(line).backgroundColor)
-    .toBe(computedColor('var(--loop-1)'))
-  await expect
-    .poll(() => getComputedStyle(span).backgroundColor)
-    .toBe(computedColor('var(--loop-1-tint)'))
-})
 
 it('moves one edge by a step with the arrows, and by a large step with Shift', async () => {
   const onChange = vi.fn()

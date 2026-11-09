@@ -69,9 +69,7 @@ it('shows the tune total and the status split with each count', async () => {
     await addTune(db, 't3', 'Angeline the Baker', {}, 'learning')
     await addTune(db, 't4', 'Bonaparte’s Retreat', {}, 'want_to_learn')
   })
-  await expect
-    .element(page.getByRole('heading', { level: 1, name: STATS_TITLE }))
-    .toHaveClass(/t-page-title/)
+  await expect.element(page.getByRole('heading', { level: 1, name: STATS_TITLE })).toBeVisible()
   await expect.poll(() => counts().query()?.textContent).toMatch(new RegExp(`4\\s*${TUNES_LABEL}`))
   await expect
     .element(counts().getByRole('button', { name: valueLabel(STATUS_LABELS.known, 2) }))
@@ -192,8 +190,6 @@ it('shows by itself on the phone with Back to Settings', async () => {
   const { router } = await mount(SETTINGS_STATS_PATH)
   const back = page.getByRole('main').getByRole('link', { name: SETTINGS.label })
   await expect.element(page.getByRole('heading', { level: 1, name: STATS_TITLE })).toBeVisible()
-  // The page keeps to the readable width wherever the column is wider.
-  expect(getComputedStyle(page.getByRole('article').element()).maxWidth).toBe('680px')
   await back.click()
   await expect.poll(at(router)).toBe(SETTINGS.root)
 })

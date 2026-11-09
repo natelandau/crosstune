@@ -9,6 +9,8 @@ import { PlaybackEngineContext } from '../player/PlaybackEngineProvider'
 import type { RecordingView } from '../recordings/useRecordings'
 import { useLoopFollow } from './useLoopFollow'
 import { useLoopPlayback } from './useLoopPlayback'
+import { AnalyticsProvider } from '../../usage/AnalyticsProvider'
+import { recordingAnalytics } from '../../usage/testing'
 
 const quietClock: EngineClock = { every: () => () => {}, after: () => () => {} }
 
@@ -68,6 +70,32 @@ describe('useLoopPlayback', () => {
     act(() => result.current.select('a'))
     // An unlabeled loop is named for its start on the trimmed timeline.
     expect(engine.getState().loop).toEqual({ id: 'a', label: 'Loop 0:02' })
+  })
+
+  it('reports each loop newly selected once, a loop not read yet too', () => {
+    const { engine } = setup()
+    const analytics = recordingAnalytics()
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <AnalyticsProvider client={analytics}>
+        <PlaybackEngineContext.Provider value={engine}>{children}</PlaybackEngineContext.Provider>
+      </AnalyticsProvider>
+    )
+    const { result } = render(wrapper, { view: view(), loops: [aPart, bPart] })
+    const loopSets = () => analytics.sends().filter((send) => send.name === 'loop_set')
+
+    // Two selects before the selection renders are one choice.
+    act(() => {
+      result.current.select('b')
+      result.current.select('b')
+    })
+    // Choosing the loop already selected sets nothing new.
+    act(() => result.current.select('b'))
+    act(() => result.current.select(null))
+    act(() => result.current.select('new'))
+    expect(loopSets()).toEqual([
+      { name: 'loop_set', props: { recording_id: 'rec-1' } },
+      { name: 'loop_set', props: { recording_id: 'rec-1' } },
+    ])
   })
 
   it('keeps the selection when Practice is left and opened again', () => {

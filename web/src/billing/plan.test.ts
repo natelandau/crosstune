@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { LocalEntitlement } from '../db/types'
 import { entitlementRow } from '../test/rows'
 import {
+  canSubscribe,
   dueNotice,
   livePaidSources,
   nextPlanChange,
@@ -254,6 +255,18 @@ describe('planMode', () => {
     expect(mode({ premium_source: 'apple', premium_expires_at: at(DAY) })).toBe('member')
     expect(mode({ premium_source: 'comp', premium_expires_at: null })).toBe('member')
     expect(mode({ premium_source: 'stripe', premium_expires_at: at(-DAY) })).toBe('purchasable')
+  })
+})
+
+describe('canSubscribe', () => {
+  it('lets a free or trial account subscribe, and no paid or comped one', () => {
+    const can = (row: Parameters<typeof entitlementRow>[0] | null) =>
+      canSubscribe(planFrom(row === null ? null : entitlementRow(row), NOW))
+    expect(can({})).toBe(true)
+    expect(can({ premium_source: 'trial', premium_expires_at: at(DAY) })).toBe(true)
+    expect(can({ premium_source: 'stripe', premium_expires_at: null })).toBe(false)
+    expect(can({ premium_source: 'apple', premium_expires_at: at(DAY) })).toBe(false)
+    expect(can({ premium_source: 'comp', premium_expires_at: null })).toBe(false)
   })
 })
 

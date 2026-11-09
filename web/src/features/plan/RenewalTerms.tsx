@@ -1,11 +1,12 @@
 import { useEntitlement } from '../../billing/usePlan'
 import type { PurchasePeriod } from '../../usage/events'
+import { canWithdraw } from './planSheetModel'
 import { PRIVACY_POLICY, PRIVACY_URL, renewalTerms, TERMS_OF_USE, TERMS_URL } from './planCopy'
 
 /** The renewal and the legal pages, which every surface that sells shows beside its price. */
 export function RenewalTerms({ price, period }: { price: string; period: PurchasePeriod }) {
   const link = 'text-primary underline-offset-2 hover:underline'
-  const withdrawable = useEntitlement()?.withdrawal_used !== true
+  const withdrawable = canWithdraw(useEntitlement())
   return (
     <div className="t-caption text-secondary flex flex-col items-center gap-1 text-center">
       <p>{renewalTerms(price, period, withdrawable)}</p>

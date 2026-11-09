@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Instrument } from '../../api/vocabulary'
+import { withInstrumentLabel } from '../../domain/instruments'
 import { tuneRow as tune, userTuneRow as userTune } from '../../test/rows'
 import {
   catalogEntries,
@@ -260,8 +261,26 @@ describe('part modes', () => {
 })
 
 describe('normalizeFilters', () => {
-  it('keeps a stored time signature filter', () => {
-    expect(normalizeFilters({ time_signature: '6/8' }).time_signature).toBe('6/8')
+  it.each([
+    ['time_signature', '6/8'],
+    ['key', NO_KEY],
+    ['missing', 'composer'],
+  ] as const)('keeps a stored %s of %s', (field, value) => {
+    expect(normalizeFilters({ [field]: value })[field]).toBe(value)
+  })
+
+  it.each(['tune_type', 'missing', 'composer', 'learned_from'] as const)(
+    'reads a stored filter from before %s as every value',
+    (field) => {
+      expect(normalizeFilters({ key: 'D' })[field]).toBe('all')
+    },
+  )
+
+  it('reads the retired unheard flag as missing audio', () => {
+    expect(normalizeFilters({ unheard: true }).missing).toBe('audio')
+    expect(normalizeFilters({ unheard: true, missing: 'composer' }).missing).toBe('composer')
+    expect(normalizeFilters({ unheard: 'yes', missing: 'bogus' }).missing).toBe('all')
+    expect(normalizeFilters({ unheard: true })).not.toHaveProperty('unheard')
   })
 
   it('fills defaults for missing or malformed stored values', () => {
@@ -352,10 +371,6 @@ describe('type and composer', () => {
     expect(filterCatalog(entries, DEFAULT_FILTERS, 'reavy').map((e) => e.tune.id)).toEqual(['r2'])
   })
 
-  it('reads a stored filter from before Type as every type', () => {
-    expect(normalizeFilters({ key: 'D' }).tune_type).toBe('all')
-  })
-
   it('puts every visible facet in the sheet, Key first, and counts Status and Key', () => {
     const visible: Facet[] = ['key', 'tune_type', 'genre']
     expect(sheetFilters(DEFAULT_FILTERS, visible).facets).toEqual(['key', 'tune_type', 'genre'])
@@ -383,6 +398,21 @@ describe('type and composer', () => {
     )
     expect(sheet.tokens.map((t) => t.label)).toEqual(['reel'])
     expect(sheet.count).toBe(3)
+  })
+
+  it('names the instrument on a tuning token and the field on a composer token', () => {
+    const sheet = sheetFilters(
+      { ...DEFAULT_FILTERS, 'tuning:violin': 'Cross A (AEAE)', composer: 'Benny Thomasson' },
+      ['tuning:violin', 'composer'],
+    )
+    expect(sheet.tokens.map((t) => t.label)).toEqual([
+      withInstrumentLabel('violin', 'Cross A (AEAE)'),
+      `${FACET_LABELS.composer}: Benny Thomasson`,
+    ])
+    expect(sheet.tokens.map((t) => t.patch)).toEqual([
+      { 'tuning:violin': 'all' },
+      { composer: 'all' },
+    ])
   })
 })
 
@@ -465,10 +495,6 @@ describe('tunes with no key', () => {
     expect(facetValues(keyless).key).toEqual([])
     const keyed = catalogEntries([tune('n1', 'Keyed', { key: 'D' })], [userTune('nu1', 'n1')])
     expect(facetValues(keyed).key).toEqual(['D'])
-  })
-
-  it('keeps no key as a stored filter', () => {
-    expect(normalizeFilters({ key: NO_KEY }).key).toBe(NO_KEY)
   })
 })
 
@@ -556,21 +582,6 @@ describe('missing', () => {
   })
 })
 
-describe('stored filters without the new keys', () => {
-  it('stored filters without the new keys normalize to defaults', () => {
-    const filters = normalizeFilters({ key: 'D' })
-    expect(filters.missing).toBe('all')
-    expect(normalizeFilters({ missing: 'composer' }).missing).toBe('composer')
-    expect(normalizeFilters({ unheard: 'yes', missing: 'bogus' }).missing).toBe('all')
-  })
-
-  it('reads the retired unheard flag as missing audio', () => {
-    expect(normalizeFilters({ unheard: true }).missing).toBe('audio')
-    expect(normalizeFilters({ unheard: true, missing: 'composer' }).missing).toBe('composer')
-    expect(normalizeFilters({ unheard: true })).not.toHaveProperty('unheard')
-  })
-})
-
 describe('composer and learned from facets', () => {
   const entries = catalogEntries(
     [
@@ -620,20 +631,6 @@ describe('composer and learned from facets', () => {
     expect(visibleFacets(facetValues(entries), instruments)).toEqual(['composer', 'learned_from'])
     const bare = catalogEntries([tune('b', 'B', { genre: 'Old-time' })], [userTune('bu', 'b')])
     expect(visibleFacets(facetValues(bare), instruments)).toEqual(['genre'])
-  })
-
-  it('reads a stored filter from before these facets as Any', () => {
-    const filters = normalizeFilters({ key: 'D' })
-    expect(filters.composer).toBe('all')
-    expect(filters.learned_from).toBe('all')
-  })
-
-  it('lists both in the sheet', () => {
-    expect(sheetFilters(DEFAULT_FILTERS, ['key', 'composer', 'learned_from']).facets).toEqual([
-      'key',
-      'composer',
-      'learned_from',
-    ])
   })
 
   it('searches the learned from', () => {

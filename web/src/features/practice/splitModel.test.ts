@@ -8,7 +8,9 @@ import {
   pieceAt,
   pieceColor,
   pieces,
+  playStartMs,
   splitReducer,
+  stopMs,
   type SplitAction,
   type SplitState,
 } from './splitModel'
@@ -250,5 +252,27 @@ describe('canSave', () => {
   it('refuses more than 50 pieces', () => {
     const cuts = Array.from({ length: MAX_SPLIT_PIECES }, (_, i) => (i + 1) * 1000)
     expect(canSave(state({ highMs: 100_000, cuts }))).toBe(false)
+  })
+})
+
+describe('playStartMs and stopMs', () => {
+  const cut = state({ lineMs: 5000, cuts: [10_000, 20_000] })
+
+  it('plays from the line, and stops on the next cut', () => {
+    expect(playStartMs(cut, null)).toBe(5000)
+    expect(stopMs(cut, 5000)).toBe(10_000)
+  })
+
+  it('plays a selected piece from its start to its end', () => {
+    expect(playStartMs(cut, 1)).toBe(10_000)
+    expect(stopMs(cut, playStartMs(cut, 1))).toBe(20_000)
+  })
+
+  it('stops at the end of the range past the last cut', () => {
+    expect(stopMs(cut, 20_000)).toBe(60_000)
+  })
+
+  it('stops on a cut where it now is', () => {
+    expect(stopMs({ ...cut, cuts: [12_000, 20_000] }, 5000)).toBe(12_000)
   })
 })
