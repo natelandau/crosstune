@@ -1,8 +1,15 @@
 # Crosstune web design rules
 
 Web only. Read `design.md` first. This page wins on the web where they
-differ. Each pattern is one primitive in `web/src/ui/` or its feature
-folder. Compose it, never rebuild it.
+differ.
+
+## Shared components
+
+- The library is `web/src/ui`, reviewed on `/gallery`. A new kind of
+  control goes into both. A lint exception needs the owner's approval.
+- A button gets its working and done states by receiving its work: the
+  press returns the promise, or hands it to `track` once the musician
+  confirms. Never fire work and forget it.
 
 ## Principles
 
@@ -12,62 +19,18 @@ folder. Compose it, never rebuild it.
 
 ## Tokens
 
-- Colors: `web/src/theme/tokens.css`, mirrored in `tokens.ts` so tests
-  measure contrast. Change both together. Primitives, then roles, then
-  component tokens, as `design.md` sets out.
-- Each role registers in the Tailwind namespace of the property it
-  styles, so a class reads as its role and never doubles:
-  `--text-color-primary` gives `text-primary`, `--background-color-page`
-  gives `bg-page`, `--border-color-default` gives `border-default`. A
-  role several properties use stays in `--color-*` (`bg-accent`,
-  `text-accent`).
-- A role that mixes another (a tint, a hover) is computed where it is
-  declared. A scope that redeclares the base redeclares the mix too, or
-  the mix keeps the root's value.
-- `bg-surface` is the one way to paint a surface, and a test holds every
-  view to it. Inside it, `--field` becomes `--surface-raised` and a
-  `bg-field` control takes the `--field-border` edge.
-- A plain `Button` with words takes `accent`, and so does a plain glyph
-  button in a `PageSection` heading. A plain glyph button elsewhere stays
-  `text-primary`.
-- Literal colors outside the token files: only the browser's
-  `theme-color` meta and the PWA manifest, which load before any CSS.
-- Type: `web/src/theme/type.css`, one `t-*` class per role, defined once
-  for touch and a step smaller for pointer.
-- Radii, shadows, targets, timing: `web/src/theme/shape.css`.
-- A screen never types a color, text size, radius, or row height.
-- A control that draws its own shape takes its colors from the shared
-  tones: `web/src/ui/buttonTone.ts` and `web/src/ui/segmentedTrack.ts`.
+- A screen never types a color, text size, radius, or height.
 - Text quieter than secondary is `t-caption` in `text-secondary`, never
   `text-secondary` faded or `text-tertiary`, which fall under 4.5:1.
-- Geist is the one face, self-hosted so the service worker caches it.
 - Sizes in rem, so the text size setting scales every role. Page width
   caps in px, so it scales type, not the column.
 - Signed value: true minus (U+2212) in a fixed slot.
-- Radius follows hierarchy: capsules, pills, and toggle groups fully
-  round. A button with a fill or a label `--radius-control`
-  (`BUTTON_CORNER`); a bare glyph and a button in a bar round. The
-  transport (play, pause, skip) is the only round filled control.
-  Floating surfaces `--radius-surface`. Row highlights and
-  inputs `--radius-row`.
-- Only floating surfaces cast `--shadow-float`. In dark mode they also take
-  a faint light edge, since a black shadow vanishes on near-black.
 - 4px spacing grid.
 
 ## Frames
 
-| Frame | Structure                                                            |
-| ----- | -------------------------------------------------------------------- |
-| Phone | One pane, floating tab bar and Record button, now playing above them |
-| Split | Sidebar, one pane where list and page take turns                     |
-| Wide  | Sidebar, resizable content column, detail column                     |
-
 - `web/src/platform/` decides frame and density. No screen asks which
   device it is on.
-- `frame.ts` uses width and height together. A short window keeps the
-  phone frame, so a landscape phone has no panes.
-- Density: `(hover: hover) and (pointer: fine)`. A touch tablet on wide
-  keeps touch density.
 - Only the app root calls `useDensity`, which stamps `html[data-density]`.
   Everything else reads `useStampedDensity`.
 
@@ -77,143 +40,60 @@ folder. Compose it, never rebuild it.
   column on wide and pushes on phone and split. A refresh or shared link
   lands in the same place on every frame.
 - No overlay is a route. The URL never changes for a sheet or dialog.
-- Each destination remembers its last location. Choosing the current
-  destination again returns to its root.
-- Android back: closes the top overlay (a locked one stays or asks to
-  discard), then ends a screen state such as selection, then goes back in
-  history, or exits at the root.
-- Actions bar: on split and wide, the pane bar. Phone root screens use
-  `RootBar`, one row that replaces the pane bar and the column title.
-  A root screen's title never truncates. Where it would, the screen
+- A phone root screen's title never truncates. Where it would, the screen
   moves a bar button into More (`useCrowdedRootTitle`).
-- App-wide zone: bottom on phone, sidebar foot on split and wide.
-- The phone's tab bar and Record button float over the content, solid,
-  with a hairline edge and no glass. Panes pad their end by
-  `--float-clearance`, so the last row scrolls clear.
-- `PaneScroller` scroll-pads by its pinned bar and `--float-clearance`, so
-  focus never lands under chrome. A new scroll container under pinned or
-  floating chrome is a `PaneScroller`.
-- Pointer selection: bulk actions take the pane bar's trailing place.
-  Phone: they replace the tab bar.
-- Filter row: touch, one line that scrolls sideways and fades at its end.
-  Pointer, wraps.
-
-## Rows
-
-- `web/src/ui/Row.tsx` is the one row, `RowList.tsx` the one list.
-- Touch: details on a second secondary line. Pointer: one line.
-- Touch: left swipe shows actions, long press opens the menu. A swipe
-  starts only for a touch pointer, never a mouse drag.
-- Pointer: hover and focus show actions trailing.
-- Reorder: drag the whole row, after a long press on touch. Move is a drag
-  button named "Move" plus the title, hidden until focused.
-- Long press vibrates where supported once the hold takes. Release without
-  movement opens the menu. Movement after the hold drags.
+- A scroll container under pinned or floating chrome is a `PaneScroller`,
+  so focus never lands under the chrome.
 
 ## Pages
 
-- Action button row: touch gives each button an equal share of the width,
-  as iOS does. A pointer keeps each button's natural width, as the Mac
-  does.
-- Charts are styled elements, never SVG.
-- Only the row highlight reaches into the gutter.
+- Tabs that switch a panel are the header of that panel's card. Tabs that
+  switch a whole page or sheet sit at its top, with no card.
 
 ## Overlays
 
-`Sheet.tsx`, `Menu.tsx`, `Confirm.tsx`, `Toast.tsx` in `web/src/ui/`.
-`PointerOverlay` is the one centered pointer surface.
-
-| Overlay | Touch                                      | Pointer                                       |
-| ------- | ------------------------------------------ | --------------------------------------------- |
-| Sheet   | Bottom sheet, grabber, part or full height | Centered dialog, 480px                        |
-| Menu    | Bottom action sheet, fitted                | Popover at its control, or at the right-click |
-| Confirm | Action sheet, fitted                       | Alert dialog                                  |
-
-- Touch sheet follows the finger and settles with release velocity
-  (`sheetGeometry.ts`). Fitted: the sheet's height is its content's, up to
-  part height.
-- A sheet that can lose typed work sets `locked`.
-- Sheets, dialogs, and menus share one modal layer, and the page behind is
-  inert. The toast stays in reach behind a sheet, and holds while hovered
-  or focused.
-- Never name a source the web cannot play (full Apple Music tracks).
-- Capture offers no control the session cannot honor.
-
-### Sheets
-
-- A sheet that leads to a second page swaps its body for that page, with
-  Back in the header. Escape goes back before it closes. The URL does not
-  change.
-- Header: the title, leading. A sheet with no closing action closes from
-  an X trailing the title.
-- Footer: actions sit at the foot. A tertiary action (Reset, Back)
-  leading, then Cancel and the primary trailing, Cancel first.
-- A sheet that leads to one action has no Cancel and runs the primary
-  full width.
-- Weight: primary filled. Destructive primary filled red, cautionary
-  filled warning. Cancel bordered, so it never reads as a primary that is
-  off. Tertiary plain.
-- Touch: Cancel and the primary split the width. The footer stays at the
-  window's foot and above the on-screen keyboard.
-- A hairline sets the header or footer apart only while content scrolls
-  under it.
-- Alert: Cancel and the action in equal shares, focus on Cancel.
-- Failure alert (`useAlert`): OK alone, full width, focused.
+- A sheet, popover, or editor stays mounted and closes through `isOpen`,
+  never `{open && <Sheet />}`: unmounting skips its exit. State that must
+  start fresh each open remounts by key as it opens, or unmounts on
+  `onClosed`.
+- A sheet that leads to a second page swaps its own body and passes
+  `onBack`, never opens a second sheet.
 
 ## Forms
 
-- Closed choice opens an action sheet on touch, a popover list box on
-  pointer. Never a segmented control: it announces as a tab list and spends
-  width on unchosen values.
-- A settings group's action is a button in the row that states what it
-  acts on (`StatusRow`): trailing on pointer, full width under the text on
-  touch. Never a row of action-colored text, which reads as a label.
+- An action in a group is a button in a row that names what it acts on
+  (`ButtonRow`), never a row of action-colored text.
 
 ## Motion
 
 - One spring and one ease, from `web/src/theme/motion.ts` and `shape.css`.
-  150 to 350ms. Pointer runs faster than touch.
-- No entrance animation on load, no hover lift on rows.
-- Opening an item: phone and split push from the trailing edge, the row
-  title morphing into the page title. Wide cross-fades. A keyboard pick
-  swaps with no motion.
-- An overlay opened from a control grows from it and shrinks back into
-  it. A menu or popover scales from the point it hangs from. A closing one
-  takes no presses.
-- A list's rows move when a change adds, removes, or reorders them. First
-  paint and a resize move nothing. A list and the empty state that
-  replaces it fade into each other, never on load.
-- A touch row's press tint waits a beat, so a finger that scrolls never
-  flashes it.
+- No entrance animation on load.
 
 ## Keyboard
 
 - Single-key shortcuts only on pointer frames. A focused control or row
   keeps Space.
 - Never take a combination the browser owns (Cmd-N, Cmd-R).
-- Cmd-K works from a text field too, and is disabled while another overlay
-  is open.
-- Cmd-Z or Ctrl-Z presses the showing toast's Undo, never from a text
-  field, whose own undo keeps it.
-- Escape closes an open tooltip in the same press.
 - Tab crosses panes in DOM order.
 
 ## Accessibility
 
-- Focus ring: the accent, 2px outside, on `:focus-visible`, from
-  `web/src/ui/focus.css` only. A container that only passes focus on
-  (dialog, menu, grid) shows no ring.
-- Focus returns to the opener when an overlay closes.
+- The focus ring comes from `web/src/ui/focus.css` only. A screen never
+  draws its own.
 - Headings never skip a level. A page's title is h1, a sheet's or section's
   h2. A heading under one takes `useSubheadingLevel` from
   `web/src/ui/headingLevel.ts`.
-- Contrast also holds on `tuner-background` with the dark roles.
 - Forced colors: a glyph whose meaning is a fill paints in system colors.
 
 ## Framework limits
 
 Browser and library behavior that a new screen runs into.
 
+- A role that mixes another (a tint, a hover) is computed where it is
+  declared. A scope that redeclares the base redeclares the mix too, or
+  the mix keeps the root's value.
+- Inside `bg-surface`, `--field` becomes `--surface-raised`, so a
+  `bg-field` fill there is lighter than the card in light mode.
 - Geist's tabular width changes with weight, so a counting figure keeps
   one weight. Numbers that change or line up take `t-num`.
 - A fixed box for a number is sized in em. Never `ch` or figure spaces,
@@ -246,3 +126,6 @@ Browser and library behavior that a new screen runs into.
 - Neither React nor the browser honors reduced motion, so motion goes
   through Motion (turned off by `AppMotion`) or `shape.css` (which turns
   off view transitions).
+- MapKit JS answers a search through a callback, not the promise its
+  online documentation shows. Check a MapKit call against the shipped
+  version.

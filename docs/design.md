@@ -1,8 +1,8 @@
 # Crosstune design rules
 
-The design system and the rules every screen follows, on every platform.
-When a screen and a rule disagree, the screen is the bug. A platform page
-adds to this page and wins where the two differ:
+The rules every screen follows, on every platform, so the app behaves the
+same everywhere for the people who use it. A platform page adds to this
+page and wins where the two differ:
 
 - [Web](design-web.md)
 - [Mac](design-macos.md)
@@ -11,19 +11,25 @@ adds to this page and wins where the two differ:
 
 ## Writing these pages
 
-General rules for every doc: `CLAUDE.md`, Documentation. Here, only what
-a new screen must follow: tokens, patterns, placement, and words. Never
-how one screen behaves; its code says that.
+`CLAUDE.md`, Documentation, sets the gate. Here, only behaviors every
+screen shares. Never how one screen or feature works, never a value, and
+never what a shared component, token, or test already enforces.
 
 - A rule two or more platforms share goes here, once. A platform page
-  holds only what differs or exists on that platform, and never restates
-  a rule from this page.
+  holds only what differs or exists on that platform.
 - A platform difference that is unintended is a bug: fix the code or
   track it as a bug, never document it as a platform rule.
 - Gotchas (a framework limit, a crash, a workaround) go on the platform
   page, with the reason.
-- A component's location goes in a platform page only when it is the one
-  implementation every screen must reuse.
+
+## Shared components
+
+- Every control and shared pattern comes from the platform's shared
+  component library. A screen composes them and never builds or restyles
+  its own. A new kind of control joins the library.
+- A button that starts work shows a spinner while the work runs past a
+  moment, then a check when it succeeds. A failure returns the label and
+  shakes the button, and the screen says what went wrong.
 
 ## Principles
 
@@ -64,12 +70,14 @@ Decide any case the rules below do not name.
 - Relative date carries its verb: "Edited today", "Edited Mar 4". Year only
   when not the current one.
 - Same field, same label on every screen and platform.
+- Sizes truncate, never round. Durations `m:ss`.
+- Row title: the most specific name. Drop what the heading above already
+  says.
 
 ## Color
 
-Every color a screen paints comes from a role. This section says which
-role to take and how the roles change. Values live in the token files,
-never here.
+Every color a screen paints comes from a role. Values live in the token
+files, never here.
 
 ### The system
 
@@ -110,7 +118,7 @@ never here.
 | `border`                                                                      | Every rule and edge                                                                                         |                                                             |
 | `border-strong`                                                               | Dashed outlines, slider tracks                                                                              |                                                             |
 | `hover-overlay`                                                               | A hover over a fill that has no hover role                                                                  |                                                             |
-| `text-primary`                                                                | Body text and glyphs; menu items, row glyphs, form action rows                                              |                                                             |
+| `text-primary`                                                                | Body text and glyphs; menu items, row glyphs                                                                |                                                             |
 | `text-secondary`                                                              | Secondary text and glyphs, 4.5:1                                                                            | A system's translucent secondary                            |
 | `text-tertiary`                                                               | A glyph that cannot act, a mark for absence, an off switch's track, 3:1                                     | Text                                                        |
 | `disabled-border`, `on-disabled`                                              | A disabled filled control: no fill, a ring, a faint label                                                   | A fill, which reads as another filled control               |
@@ -141,15 +149,9 @@ A role only one platform has is on that platform's page.
 - Never color alone: a state shown in color also shows in shape or
   words. A glyph keeps its own color on a selected row, because the
   color is its meaning.
-- A menu tints its symbols, so a status glyph goes in as an image that
-  is already colored.
 - Status, key, loop, and heatmap colors are identical on every
   platform. A range handle takes the color of the range it bounds.
   Charts draw in text tones.
-- Every screen draws with the shared roles and control styles, never its
-  own, so a changed value reaches the whole app.
-- The tuner is the one exception: `tuner-background` and the dark roles
-  in every appearance.
 
 ### Changing the system
 
@@ -168,14 +170,7 @@ A role only one platform has is on that platform's page.
   - Its row in the table above.
 - A new palette changes primitives. A new pairing points a role at
   another primitive. Neither renames a role.
-- These tests guard the system. A failing one means the change is wrong,
-  never the test:
-
-  | Test                                                    | Fails on                                                    |
-  | ------------------------------------------------------- | ----------------------------------------------------------- |
-  | `web/src/theme/colorValues.test.ts`, `PaletteRoleTests` | A color value or a primitive outside the token files        |
-  | `web/src/theme/tokens.test.ts`, the Apple style tests   | A pair under its contrast floor, or `tokens.ts` out of step |
-  | `web/src/theme/roleParity.test.ts`                      | A role on one platform only, with no reason listed          |
+- A failing color test means the change is wrong, never the test.
 
 ## Type and depth
 
@@ -191,18 +186,16 @@ A role only one platform has is on that platform's page.
   no link home.
 - Icons: generated from `brand/` by `just web::icons`. Never hand-edit.
 
-## Input and density
+## Input
 
 - Density follows the pointer, never the screen size.
-- Touch: 44pt targets and rows, swipe actions, no hover reveals.
-- Pointer: 32pt rows, 28pt sidebar rows and pane controls, 24pt filter and
-  section-heading controls. Hover reveals, keyboard shortcuts.
+- Touch: swipe actions, no hover reveals.
+- Pointer: hover reveals, keyboard shortcuts.
 - Hover-revealed control: hidden by opacity, keeps its place, tab stop,
   and accessible name. Keyboard focus reveals it too.
 - Every gesture has a visible equivalent. Swipe actions are also menu
   items. A drag has Move.
-- Swipe left reveals one to three full-height, equal-width actions in their
-  tone. Full swipe only opens the row. No swipe is destructive.
+- No swipe is destructive.
 - Long press or right-click on a row opens its menu.
 - Shortcuts are disabled while a text field or overlay holds the keyboard.
 - Arrow keys walk rows, Enter opens, Escape steps out (top overlay, then
@@ -219,19 +212,16 @@ A role only one platform has is on that platform's page.
 | App-wide        | Tabs, Record, now playing, selection bar              | A screen's own actions |
 
 - At most two buttons in the bar. Select is never a toolbar button.
-- A screen's main actions on its item, such as Play, sit in one action button row
-  directly under its title, as page content, on every platform. Never in the bar.
+- A screen's main actions on its item, such as Play, sit in one action
+  button row directly under its title, as page content. Never in the bar.
 - A section's button sits trailing on that section's heading.
 - Screen-wide actions (Edit, Delete) live in More, never in a panel.
 - A control sits over the pane it acts on.
-- A column's title is its first line and scrolls with it. The bar shows it
-  only once scrolled away, so it never reads twice.
+- A column's title is its first line and scrolls with it.
 - Detail column: always a page or a placeholder, never a list. A
   placeholder names what it waits for and how to get one.
 - A resize, rotation, or frame change keeps selection, scroll, open
   destination, and the playing item.
-- Bottom chrome reserves its own room. Every column scrolls its last row
-  clear of it.
 - App-wide controls (Record, sheet-opening commands) are disabled behind
   every sheet, dialog, and file picker, and while a screen is selecting.
 - One action reached from several places opens one component, over the
@@ -241,13 +231,6 @@ A role only one platform has is on that platform's page.
 
 - Error beside its control. Row action: reports under its list. Screen
   action: above the rows.
-- Store failure: an alert with OK alone, never a line or a toast. The
-  store cannot answer, a purchase fails, or a restore fails. A line beside
-  the control reads as the sheet's own text.
-- Empty list: icon, title naming what is absent, optional hint, optional
-  action.
-- Loading is silence. The body shows nothing until its data is read.
-  Spinners only for sign-in and a transfer in progress.
 - A system permission is asked the first time a feature needs it, after an
   inline note saying why, with one button, Continue, that leads to the
   system prompt. No way past the note but the prompt (App Review 5.1.1).
@@ -257,43 +240,18 @@ A role only one platform has is on that platform's page.
 - Offline: a network control refuses on tap rather than disables, so its
   name survives and the reason lands on the row.
 
-## Lists and rows
+## Lists
 
-- One row component per platform for every list of tunes.
-- A row's leading slot says what the item is and never holds a control.
-  Its action slot, such as play, sits trailing, holds one control at
-  most, and always shows, on pointer platforms too. Row actions, such as
-  Edit, keep the hover reveal below.
-- No separators, and no chevron on a row that opens something. The
-  platforms add both by default.
-- The text sets a row's height. A control's tap target reaches past the
-  row and never adds height.
-- A row's title keeps its width first. Secondary details truncate, then
-  drop out, before the title shrinks.
-- Archived: all text in `text-secondary`. Glyphs keep their color.
-- Reorder: drag the whole row, no grip. The dragged row lifts, the others
-  slide aside, and a drop settles it. No drop line.
-- Playing row: `tint-subtle`.
-- Selected row: inset accent highlight.
 - At most three visible actions on a row. The rest in its menu.
 - An action that leaves the app is menu-only, never a swipe action.
-- A media row always answers a tap. A link row is itself the control.
-- Row title: the most specific name. Drop what the heading above already
-  says.
-- Sizes truncate, never round. Durations `m:ss`.
 - A row shown outside its parent's group adds a line naming the parent,
   which opens it.
 - A field that holds a value always shows, even where a setting would hide
   it, so data never becomes unreachable.
-
-## Search, filters, sorting
-
 - A search field is named for what it searches, and its placeholder
   repeats it.
 - Search matches stored names, never text composed for display. Ignores
   case and accents.
-- Escape in a search that holds text empties it first, so a picker never
-  closes on what was typed.
 - A picker never hides an item. One that cannot be picked shows, inert,
   with the reason.
 - Every list filters by every facet of its items. The filter sheet holds
@@ -304,15 +262,13 @@ A role only one platform has is on that platform's page.
 - Filters persist, so they announce themselves: the Filters control
   carries the count of set filters, and the header reads "11 of 84
   tunes" while narrowed.
-- Set filter: a removable capsule named for its value.
 - Filter choices apply at once. Reset clears them all.
 - Sort sits trailing in the list header and shows choice and direction.
-  One Sort menu: choosing the current choice again reverses it. Dates
-  start newest first, names at A. Unknown sorts last either way.
+  Choosing the current choice again reverses it. Dates start newest
+  first, names at A. Unknown sorts last either way.
 
 ## Selection
 
-- Component state, never a URL.
 - Enter from Select in More or a row's menu. Exit by the exit control,
   Escape, leaving the screen, or finishing an action.
 - Holds only visible items. An item hidden by search or a filter leaves
@@ -328,59 +284,36 @@ A role only one platform has is on that platform's page.
 - Every form is a sheet over the current screen. No form route, no save
   bar.
 - An in-place editor saves on every dismissal. Only Escape cancels.
-- Toolbar: `Cancel` leading, bold primary action trailing, named for what
-  it does.
-- Sections of related fields. The header names the group, and the footer
-  carries help. A validation message replaces the help, in red.
 - Every control has a visible label. An accessibility-only name is not a
   label.
-- Labeled row: label leading, value trailing, value elides first. Empty
-  reads "Not set".
 - Closed choice: a field row that opens a picker. A pill grid only where
   values carry color.
 - Open vocabulary: a text field with suggestions. Any typed value is kept,
   and empty means empty. Closed lists are only what the API validates.
 - A required field never clears: pressing the chosen value keeps it. An
   optional one clears.
-- A set of switches answered once (instruments, music services) lives in
-  Settings. Elsewhere, a row opens a sheet of the same switches.
 - Fields ranked by use. Rare ones last.
 - Reject as little as possible. Every limit that can be a typing cap is
   one.
 - Visible fields are decided at open. Nothing disappears mid-edit.
 - A sheet that can lose typed work refuses backdrop tap, drag down, and
   Escape. Cancel is the way out.
-- Settings: a new setting joins its category's page, never the root.
-  Every change saves at once. A group's help sits above its rows, so the
-  musician reads what a setting does before choosing. A category or group
-  takes the same name on every platform, and a link to a group lands on
-  that group.
+- A new setting joins its category's page, never the root. Every change
+  saves at once. A category or group takes the same name on every
+  platform.
 
 ## Overlays
 
-- Each overlay is one component per platform. Platform pages say how it
-  presents.
-- Sheet: part height, or full height for a long body. Its title names the
-  dialog.
 - Menu: destructive items last, red, after a separator.
 - A destructive action confirms through the app's own overlay. The title
   is the question and names the thing. The message lists only the
   consequences and says when data cannot come back.
 - Toast: only for Undo, or for an outcome that arrives after the musician
   left the screen. One at a time, above the bottom chrome.
-- A one-time notice is a sheet, one at a time, never during a capture and
-  never over another modal.
 - A gated control stays in place and answers a tap with the Plan sheet.
-- A purchase is never a sheet's default action or its first focus.
-  Subscribe shows only once the store has answered with a price it can
-  sell.
 
 ## Pages
 
-- Plain page background, no cards. Content at most 680 wide, except beside
-  the attributes column: the content then fills the width, and the column
-  holds the trailing edge. The attributes card and the tune page's start
-  card are the only cards.
 - Title in the content, selectable.
 - Section: heading with its controls trailing. Space separates sections,
   never a border.
@@ -391,17 +324,12 @@ A role only one platform has is on that platform's page.
   A button shows only when it can act now, and is never disabled.
 - Attributes: the same attributes in the same order on every item, so
   nothing moves between items.
-- Moving between items cross-fades. The current page stays until the next
-  has read, so the column never goes blank.
-- Mode panels: a segmented control under the main surface. The panel
-  keeps its tallest mode's height, so switching never moves anything.
 - Charts: the simplest one that shows the point. Every mark carries its
   value as text.
 
 ## Motion
 
 - Shows where a thing came from and went. Never decoration.
-- Moves on its own: only the record control, the live waveform, a
-  playing row's speaker, and a downloading row's progress ring. Native
-  Apple transitions and symbol effects are exempt.
+- Nothing moves on its own except to show something live: recording,
+  playback, or a transfer in progress.
 - Reduced motion: cross-fade or instant.
