@@ -97,7 +97,7 @@ it('snaps to the detent when dragged near it and pulses once', async () => {
   await pollStill(() => onChange.mock.calls.map(([v]) => v)).toEqual([60, 50])
   await elementStill(reading()).toHaveTextContent('50%')
   expect(pulses(animate)).toBe(1)
-  expect(document.querySelector('[data-detent-tick]')!.className).toContain('bg-accent')
+  expect(document.querySelector('[data-detent-tick]')!.getAttribute('data-snapped')).toBe('true')
 })
 
 it('does not snap away from the detent', async () => {
@@ -105,7 +105,7 @@ it('does not snap away from the detent', async () => {
   await elementStill(thumb()).toBeInTheDocument()
   drag(0.8)
   await elementStill(reading()).toHaveTextContent('80%')
-  expect(document.querySelector('[data-detent-tick]')!.className).not.toContain('bg-accent')
+  expect(document.querySelector('[data-detent-tick]')!.getAttribute('data-snapped')).toBe('false')
 })
 
 it('steps through the detent with the keyboard without pulsing', async () => {

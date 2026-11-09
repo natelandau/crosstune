@@ -222,6 +222,39 @@ against production, such as granting a comp or a trial.
   marketing shell, or a recipe, is `build`, never `feat`, so the
   changelog lists only what users see.
 
+## Tests
+
+Every module follows these rules: `api/`, `web/`, `site/`, and `apple/`.
+A test earns its place when it catches a bug no other test catches, at the
+cheapest layer that can see that bug.
+
+| The bug lives in                                                    | Test it with                                     |
+| ------------------------------------------------------------------- | ------------------------------------------------ |
+| Logic: parsing, sorting, filtering, formatting, a rule over data    | A unit test of the function                      |
+| Wiring: logic reaching a screen or route, real input, focus, layout | One integration, browser, or UI test per feature |
+| A flow across the API boundary                                      | An end-to-end test                               |
+
+- Logic that only a UI test reaches moves into a function with its own
+  unit test. The UI test keeps one case that shows the screen uses it.
+- One rule, one test. Before you add a test, search for a test of the
+  same rule and add a case to it.
+- Variants of one rule are one table: `it.each`,
+  `@pytest.mark.parametrize`, `@Test(arguments:)`.
+- A test asserts behavior and contracts: what a person sees and can do,
+  what is stored or sent, accessibility (touch targets, focus, contrast,
+  reduced motion, text size), and the token and shared-control rules.
+- Never a value a designer picks: a color, radius, size, weight, spacing,
+  duration, or class name. Screenshots and review check how things look.
+- Never a test that restates code: a constant's value, a copy string, a
+  call order a mock records when the order is not the behavior, or what
+  the type checker already rejects.
+- A refactor that changes no behavior changes no test. A test that fails
+  on one checks the implementation: rewrite it against the public surface.
+- A change that removes a behavior removes its tests.
+- A cleanup deletes a test only when another test checks the same rule,
+  or when the test pins a design value. Mutation testing or per-test
+  coverage is the evidence. A smaller count is never the goal.
+
 ## Web tests
 
 Browser tests share a slow CI runner, so a race a fast Mac never loses

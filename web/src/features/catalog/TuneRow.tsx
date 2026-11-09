@@ -14,20 +14,13 @@ import { tuneTitleTransition } from '../tune/TuneHeader'
 import { KeyPill } from '../../ui/KeyPill'
 import { Row, type RowAction } from '../../ui/Row'
 import { scansAction } from '../scans/scansAction'
+import { spokenRow } from './spokenRow'
 import { StatusGlyph } from '../../ui/StatusGlyph'
 import type { CatalogEntry } from '../../db/types'
 
 // Parts that sit apart only visually run together for a screen reader, so a hidden comma
 // marks each boundary.
 const Pause = () => <span className="sr-only">, </span>
-
-/**
- * What a row's name says, its parts joined by commas: the title first, so typing a title
- * still finds the row, then the key and mode in full, the status, and the secondary line.
- */
-function spokenRow(title: string, keyName: string | null, status: string, detail: string[]) {
-  return [title, keyName && `Key ${keyName}`, status, ...detail].filter(Boolean).join(', ')
-}
 
 /**
  * The one tune row: status glyph, title, the played instruments' tunings and "Archived" in

@@ -111,7 +111,31 @@ export default defineConfig((env) =>
                 'pwa.test.ts',
                 'headers.test.ts',
               ],
-              exclude: ['**/node_modules/**', 'src/**/*.browser.test.tsx'],
+              exclude: [
+                '**/node_modules/**',
+                'src/**/*.browser.test.tsx',
+                'src/**/*.visual.test.tsx',
+              ],
+            },
+          },
+          // Screenshots of the component library, compared with baselines made in CI's
+          // Playwright image on CI's platform, since font rendering differs by OS and CPU.
+          // `just web::test-visual` runs them there; a run on a Mac would fail every image.
+          {
+            extends: true,
+            test: {
+              name: 'visual',
+              include: ['src/**/*.visual.test.tsx'],
+              setupFiles: ['./src/test/setupBrowser.ts'],
+              browser: {
+                ...browserBase(),
+                expect: {
+                  toMatchScreenshot: {
+                    comparatorName: 'pixelmatch',
+                    comparatorOptions: { threshold: 0.1, allowedMismatchedPixelRatio: 0.0005 },
+                  },
+                },
+              },
             },
           },
           {

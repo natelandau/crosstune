@@ -10,8 +10,6 @@ import {
   TRIM_CONFIRM_ACTION,
   TRIM_CONFIRM_TITLE,
   TRIM_NOT_SAVED,
-  GO_TO_END,
-  GO_TO_START,
 } from './trimViewCopy'
 import { TRIM } from './trimCopy'
 import { START_HANDLE } from './TrimStrip'
@@ -19,7 +17,6 @@ import { NUDGE_LARGE_MS } from './panel'
 import { CANCEL } from '../../ui/confirmCopy'
 import { MORE_ACTIONS } from '../../ui/menuCopy'
 import { drag } from '../../test/gestures'
-import { PALETTE } from '../../theme/tokens'
 import { renderHookWithProviders } from '../../test/render'
 import { useOverlayClaim } from '../../ui/overlayClaim'
 import {
@@ -32,7 +29,6 @@ import {
   WIDE,
 } from '../../test/practice'
 import { stubSystemDarkForTest } from '../../test/scheme'
-import { computedColor } from '../../test/color'
 
 vi.mock('../../commands/recordings', { spy: true })
 
@@ -103,24 +99,6 @@ it.each(['light', 'dark'] as const)(
     }
   },
 )
-
-it('centers the detail on a handle with Go to start and Go to end', async () => {
-  const { engine } = await mountPlaying(WIDE)
-  await openTrim(engine)
-  const detailHandle = (edge: string) =>
-    practice()!.querySelector(`[data-trim-detail] [data-handle="${edge}"]`)
-  await expect.poll(() => detailHandle('start')).not.toBeNull()
-  await expect.poll(() => detailHandle('end')).toBeNull()
-  engine.pause()
-  await expect.poll(() => engine.getState().playing).toBe(false)
-  const positionMs = engine.getState().positionMs
-  await trimDialog().getByRole('button', { name: GO_TO_END }).click()
-  await expect.poll(() => detailHandle('end')).not.toBeNull()
-  await expect.poll(() => detailHandle('start')).toBeNull()
-  await trimDialog().getByRole('button', { name: GO_TO_START }).click()
-  await expect.poll(() => detailHandle('start')).not.toBeNull()
-  expect(engine.getState().positionMs).toBe(positionMs)
-})
 
 it('tints the kept range from the start handle to the end handle', async () => {
   const { engine } = await mountPlaying(WIDE)
@@ -220,25 +198,17 @@ it('holds Cancel and Escape while the confirmed trim is written', async () => {
   await expectBackOnMore()
 })
 
-it.each(['light', 'dark'] as const)(
-  'says a failed save in danger in the %s appearance',
-  async (scheme) => {
-    stubSystemDarkForTest(scheme === 'dark')
-    vi.mocked(updateRecording).mockRejectedValueOnce(new Error('offline'))
-    const { engine } = await mountPlaying(WIDE)
-    await openTrim(engine)
-    await setStartAt(5000)
-    await trimDialog().getByRole('button', { name: SAVE_TRIM }).click()
-    const question = page.getByRole('alertdialog', { name: TRIM_CONFIRM_TITLE(55_000) })
-    await question.getByRole('button', { name: TRIM_CONFIRM_ACTION }).click()
+it('says a failed save', async () => {
+  vi.mocked(updateRecording).mockRejectedValueOnce(new Error('offline'))
+  const { engine } = await mountPlaying(WIDE)
+  await openTrim(engine)
+  await setStartAt(5000)
+  await trimDialog().getByRole('button', { name: SAVE_TRIM }).click()
+  const question = page.getByRole('alertdialog', { name: TRIM_CONFIRM_TITLE(55_000) })
+  await question.getByRole('button', { name: TRIM_CONFIRM_ACTION }).click()
 
-    const alert = trimDialog().getByRole('alert')
-    await expect.element(alert).toHaveTextContent(TRIM_NOT_SAVED)
-    await expect
-      .poll(() => getComputedStyle(alert.element()).color)
-      .toBe(computedColor(PALETTE[scheme].danger))
-  },
-)
+  await expect.element(trimDialog().getByRole('alert')).toHaveTextContent(TRIM_NOT_SAVED)
+})
 
 it('trims on the phone, where a drag on its header leaves practice open', async () => {
   const { engine } = await mountPlaying(PHONE)

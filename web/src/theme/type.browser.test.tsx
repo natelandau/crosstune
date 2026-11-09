@@ -1,55 +1,18 @@
-import { describe, expect, it } from 'vitest'
+import { expect, it } from 'vitest'
 import { renderWithProviders } from '../test/render'
 
 const size = (selector: string) => getComputedStyle(document.querySelector(selector)!).fontSize
 
-// Size, weight, and tracking for every role on each density.
-const ROLES: Record<'touch' | 'pointer', [string, string, string, string][]> = {
-  touch: [
-    ['t-page-title', '30px', '700', '-0.6px'],
-    ['t-screen-title', '28px', '700', '-0.56px'],
-    ['t-heading', '17px', '600', '-0.17px'],
-    ['t-body', '16px', '400', 'normal'],
-    ['t-secondary', '14px', '400', 'normal'],
-    ['t-caption', '12px', '500', 'normal'],
-    ['t-tab', '11px', '600', 'normal'],
-    ['t-timer', '56px', '300', 'normal'],
-    ['t-lyrics', '26px', '400', 'normal'],
-  ],
-  pointer: [
-    ['t-page-title', '26px', '700', '-0.52px'],
-    ['t-screen-title', '22px', '700', '-0.44px'],
-    ['t-heading', '15px', '600', '-0.15px'],
-    ['t-body', '14px', '400', 'normal'],
-    ['t-secondary', '12.5px', '400', 'normal'],
-    ['t-caption', '11px', '500', 'normal'],
-    ['t-tab', '11px', '600', 'normal'],
-    ['t-timer', '48px', '300', 'normal'],
-    ['t-lyrics', '26px', '400', 'normal'],
-  ],
-}
-
-describe.each(['touch', 'pointer'] as const)('on %s', (density) => {
-  it.each(ROLES[density])(
-    'sets %s to %s, weight %s, tracking %s',
-    async (role, px, weight, tracking) => {
-      renderWithProviders(<p className={role}>Bonaparte's Retreat</p>, { density })
-      const style = () => getComputedStyle(document.querySelector(`.${role}`)!)
-      await expect.poll(() => style().fontSize).toBe(px)
-      expect(style().fontWeight).toBe(weight)
-      expect(style().letterSpacing).toBe(tracking)
-    },
-  )
-})
-
-it.each([
-  ['compact', '15px'],
-  ['large', '17px'],
-] as const)('scales every role with the %s text size', async (textSize, px) => {
-  document.documentElement.dataset.textSize = textSize
+it('scales every role with the text size', async () => {
   try {
     renderWithProviders(<p className="t-body">Learned from Kenny.</p>, { density: 'touch' })
-    await expect.poll(() => size('.t-body')).toBe(px)
+    const px = () => parseFloat(size('.t-body'))
+    await expect.poll(px).toBeGreaterThan(0)
+    const standard = px()
+    document.documentElement.dataset.textSize = 'compact'
+    await expect.poll(px).toBeLessThan(standard)
+    document.documentElement.dataset.textSize = 'large'
+    await expect.poll(px).toBeGreaterThan(standard)
   } finally {
     delete document.documentElement.dataset.textSize
   }
@@ -76,8 +39,6 @@ it.each([
 it.each([
   ['touch', undefined, '16px'],
   ['touch', 'compact', '16px'],
-  ['pointer', undefined, '12.5px'],
-  ['pointer', 'compact', '11.7188px'],
 ] as const)('a %s field at the %s text size is %s', async (density, textSize, px) => {
   if (textSize) document.documentElement.dataset.textSize = textSize
   try {

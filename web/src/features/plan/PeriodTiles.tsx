@@ -10,8 +10,8 @@ import {
   PERIOD_ANNUAL,
   PERIOD_MONTHLY,
   save,
-  saving,
 } from './planCopy'
+import { annualSaving } from './planSheetModel'
 
 const PERIODS: Record<PurchasePeriod, { label: string; price: (price: string) => string }> = {
   annual: { label: PERIOD_ANNUAL, price: annualPrice },
@@ -40,9 +40,7 @@ export function PeriodTiles({
 }) {
   const id = useId()
   const sold = soldPeriods(offers)
-  const annual = sold.find((offer) => offer.period === 'annual')
-  const monthly = sold.find((offer) => offer.period === 'monthly')
-  const percent = annual && monthly ? saving(annual.amountMicros, monthly.amountMicros) : null
+  const percent = annualSaving(sold)
   return (
     <RadioGroup
       aria-label={BILLING_PERIOD}

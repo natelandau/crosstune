@@ -23,18 +23,6 @@ async function expectShowing(n: number) {
   await expect.element(slide.getByRole('heading', { name: headline(n) })).toBeVisible()
 }
 
-/** The background a utility class paints under the scheme stamped on the page. */
-function resolvedBackground(className: string) {
-  const probe = document.createElement('div')
-  probe.className = className
-  document.body.append(probe)
-  try {
-    return getComputedStyle(probe).backgroundColor
-  } finally {
-    probe.remove()
-  }
-}
-
 const slides = () => [...document.querySelectorAll('[aria-roledescription="slide"]')]
 
 function renderCarousel(options?: Parameters<typeof renderWithProviders>[1]) {
@@ -278,9 +266,9 @@ describe('WelcomeCarousel', () => {
       .toBeLessThan(2)
   })
 
-  it.each(['light', 'dark'] as const)('draws every slide at phone width in %s', async (scheme) => {
+  it('draws every slide at phone width', async () => {
     await page.viewport(390, 844)
-    renderCarousel({ scheme })
+    renderCarousel()
     for (let n = 1; n <= SLIDE_COUNT; n++) {
       if (n > 1) await page.getByRole('button', { name: slideDotLabel(n) }).click()
       await expectShowing(n)
@@ -288,14 +276,5 @@ describe('WelcomeCarousel', () => {
       await expect.poll(() => art.getBoundingClientRect().height).toBeGreaterThan(100)
       await expect.poll(() => art.getBoundingClientRect().right <= window.innerWidth).toBe(true)
     }
-    // The first slide's phone is dark on the light page and lifts to surface-raised on the dark one.
-    const phone = slides()[0]!.querySelector('.bg-device-bezel')!
-    const raised = resolvedBackground('bg-surface-raised')
-    const pageColor = resolvedBackground('bg-page')
-    await expect
-      .poll(() => getComputedStyle(phone).backgroundColor)
-      .toSatisfy((color: string) =>
-        scheme === 'dark' ? color === raised : color !== raised && color !== pageColor,
-      )
   })
 })

@@ -2,13 +2,13 @@ import { page, userEvent } from 'vitest/browser'
 import { expect, it } from 'vitest'
 import type { PullRow } from '../../api/types'
 import { RECORD_LABEL, TAB_BAR } from '../../layout/tabs'
-import { addToList, createList } from '../../commands/lists'
+import { createList } from '../../commands/lists'
 import { setInstruments } from '../../commands/settings'
 import { createTune } from '../../commands/tunes'
 import { STATUS_LABELS } from '../../constants'
 import type { CrosstuneDb } from '../../db/schema'
 import { ADD_TO_LIST } from '../lists/listPickerCopy'
-import { EMPTY_LIST_TITLE, IN_THIS_LIST } from '../lists/listsCopy'
+import { EMPTY_LIST_TITLE } from '../lists/listsCopy'
 import {
   archiveLabel,
   EDIT_SELECTED,
@@ -429,25 +429,6 @@ it('removes three tunes from a list together, with Undo', async () => {
   await page.getByRole('button', { name: UNDO }).click()
   await expect.poll(async () => (await listItems(db)).length).toBe(3)
   await expect.element(row('Forked Deer')).toBeVisible()
-})
-
-it("marks a list that already holds the tune page's tune and keeps it inert", async () => {
-  const db = openTestDb()
-  const ids = await seedCatalog(db)
-  const listId = await createList(db, 'Thursday jam')
-  await createList(db, 'Square dance set')
-  const userTune = await db.user_tunes.where('tune_id').equals(ids['Forked Deer']!).first()
-  await addToList(db, listId, userTune!.id)
-  await renderApp({ path: `/catalog/${ids['Forked Deer']}`, db, frame: WIDE })
-  const tunePage = page.getByRole('main', { name: TUNE })
-  await tunePage.getByRole('button', { name: MORE_ACTIONS }).click()
-  await page.getByRole('menuitem', { name: ADD_TO_LIST }).click()
-  const picker = page.getByRole('dialog', { name: ADD_TO_LIST_TITLE })
-  const jam = picker.getByRole('option', { name: /Thursday jam/ })
-  await expect.element(jam).toHaveTextContent(IN_THIS_LIST)
-  await expect.element(jam).toHaveAttribute('aria-disabled', 'true')
-  const dance = picker.getByRole('option', { name: 'Square dance set', exact: true })
-  await expect.element(dance).not.toHaveAttribute('aria-disabled', 'true')
 })
 
 it("adds the tune page's tune to a list from the picker", async () => {

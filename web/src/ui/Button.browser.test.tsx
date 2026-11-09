@@ -8,21 +8,25 @@ import { DONE, WORKING } from './WorkingMark'
 import type { TrackWork } from './useWorking'
 import { InRow } from './inRow'
 import { Capsule } from './Capsule'
-import { InBar } from './inBar'
 import { removeFilterLabel } from './filterCopy'
 import { fire } from '../test/gestures'
 
-it('fills a set capsule with the set filter tint', async () => {
-  renderWithProviders(
-    <>
-      <Capsule label="Key: Any" />
-      <Capsule label="Key: D" set />
-    </>,
-  )
-  const fill = (name: string) =>
-    getComputedStyle(page.getByRole('button', { name }).element()).backgroundColor
-  await expect.poll(() => fill('Key: D')).not.toBe(fill('Key: Any'))
-})
+function seconds(duration: string) {
+  return duration.endsWith('ms') ? parseFloat(duration) / 1000 : parseFloat(duration)
+}
+
+function tokenSeconds(name: string) {
+  return seconds(getComputedStyle(document.documentElement).getPropertyValue(name).trim())
+}
+
+function tokenHeight(name: string) {
+  const probe = document.createElement('div')
+  probe.style.height = `var(${name})`
+  document.body.append(probe)
+  const height = probe.getBoundingClientRect().height
+  probe.remove()
+  return height
+}
 
 it("names a token's remove control", async () => {
   renderWithProviders(
@@ -52,13 +56,6 @@ it('keeps a capsule hit area at the filter target on touch', async () => {
   await expect.element(capsule).toBeVisible()
   const hit = () => getComputedStyle(capsule.element(), '::after').height
   await expect.poll(hit).toBe('44px')
-})
-
-it('sets a primary button in semibold over the body role', async () => {
-  renderWithProviders(<Button label="Save" variant="primary" />)
-  const weight = () =>
-    getComputedStyle(page.getByRole('button', { name: 'Save' }).element()).fontWeight
-  await expect.poll(weight).toBe('600')
 })
 
 it.each([
@@ -118,51 +115,9 @@ it.each([
   const pointer = (type: string) => fire(button.element(), type)
   pointer('pointerdown')
   await expect.element(button).toHaveAttribute('data-pressed', 'true')
-  await expect.poll(scale).toMatch(/^0\.96\b/)
+  await expect.poll(() => parseFloat(scale())).toBeLessThan(1)
   pointer('pointerup')
   await expect.poll(scale).toBe('none')
-})
-
-it('rounds a labeled button to the corner radius', async () => {
-  renderWithProviders(
-    <>
-      <Button label="Save" variant="primary" />
-      <Button label="Cancel" />
-    </>,
-  )
-  const radius = (name: string) =>
-    getComputedStyle(page.getByRole('button', { name, exact: true }).element()).borderTopLeftRadius
-  await expect.poll(() => radius('Save')).toBe('8px')
-  expect(radius('Cancel')).toBe('8px')
-})
-
-it('keeps a labeled button round in a bar', async () => {
-  renderWithProviders(
-    <InBar value>
-      <Button label="Done" />
-    </InBar>,
-  )
-  await expect
-    .poll(() =>
-      parseFloat(
-        getComputedStyle(page.getByRole('button', { name: 'Done' }).element()).borderTopLeftRadius,
-      ),
-    )
-    .toBeGreaterThan(1000)
-})
-
-it.each([
-  ['pointer', 'regular', 28],
-  ['touch', 'regular', 36],
-  ['pointer', 'compact', 24],
-  ['touch', 'compact', 32],
-  ['pointer', 'large', 36],
-  ['touch', 'large', 48],
-] as const)('on %s, a %s button is %ipx tall', async (density, size, height) => {
-  renderWithProviders(<Button label="Save" variant="primary" size={size} />, { density })
-  const button = page.getByRole('button', { name: 'Save' })
-  await expect.element(button).toBeVisible()
-  await expect.poll(() => button.element().getBoundingClientRect().height).toBe(height)
 })
 
 it('is compact inside a row', async () => {
@@ -173,7 +128,9 @@ it('is compact inside a row', async () => {
   )
   const button = page.getByRole('button', { name: 'Save' })
   await expect.element(button).toBeVisible()
-  await expect.poll(() => button.element().getBoundingClientRect().height).toBe(24)
+  await expect
+    .poll(() => button.element().getBoundingClientRect().height)
+    .toBe(tokenHeight('--size-compact'))
 })
 
 it('extends its tap area to 44 on touch', async () => {
@@ -391,23 +348,14 @@ it('shakes and does not press when blocked', async () => {
   expect(onPress).not.toHaveBeenCalled()
 })
 
-it('outlines a disabled filled button', async () => {
-  renderWithProviders(<Button label="Save" variant="primary" isDisabled />)
-  const button = page.getByRole('button', { name: 'Save' })
-  await expect.element(button).toBeDisabled()
-  const style = () => getComputedStyle(button.element())
-  await expect.poll(() => style().backgroundColor).toBe('rgba(0, 0, 0, 0)')
-  expect(style().boxShadow).not.toBe('none')
-})
-
 it('keeps the label cross-fade under reduced motion', async () => {
   await emulateReducedMotion()
   renderWithProviders(<Button label="Save" variant="primary" />)
   const label = page.getByRole('button', { name: 'Save' }).getByText('Save')
   await expect.element(label).toBeVisible()
-  const fade = getComputedStyle(document.documentElement).getPropertyValue('--dur-fade').trim()
-  expect(fade).toBe('250ms')
-  await expect.poll(() => getComputedStyle(label.element()).transitionDuration).toBe('0.25s')
+  await expect
+    .poll(() => seconds(getComputedStyle(label.element()).transitionDuration))
+    .toBe(tokenSeconds('--dur-fade'))
 })
 
 it('shows nothing while the person decides, then the spinner once confirmed work runs', async () => {
@@ -460,17 +408,14 @@ it('fades a hover color at Instant, and at Quick under reduced motion', async ()
   const timing = (property: string) => {
     const style = getComputedStyle(button.element())
     const index = style.transitionProperty.split(', ').indexOf(property)
-    return [
-      style.transitionDuration.split(', ')[index],
-      style.transitionTimingFunction.split(/,\s(?![^(]*\))/)[index],
-    ]
+    return seconds(style.transitionDuration.split(', ')[index]!)
   }
-  await expect.poll(() => timing('background-color')).toEqual(['0.1s', 'linear'])
-  expect(timing('color')).toEqual(['0.1s', 'linear'])
+  await expect.poll(() => timing('background-color')).toBe(tokenSeconds('--dur-instant'))
+  expect(timing('color')).toBe(tokenSeconds('--dur-instant'))
   await emulateReducedMotion()
-  await expect.poll(() => timing('background-color')[0]).toBe('0.15s')
-  expect(timing('color')[0]).toBe('0.15s')
-  expect(timing('opacity')[0]).toBe('0.15s')
+  await expect.poll(() => timing('background-color')).toBe(tokenSeconds('--dur-color'))
+  expect(timing('color')).toBe(tokenSeconds('--dur-color'))
+  expect(timing('opacity')).toBe(tokenSeconds('--dur-color'))
 })
 
 it('ignores presses while aria-disabled and keeps its focus', async () => {

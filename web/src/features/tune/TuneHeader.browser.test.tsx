@@ -2,7 +2,6 @@ import { page, userEvent } from 'vitest/browser'
 import { afterEach, expect, it, vi } from 'vitest'
 import * as tunes from '../../commands/tunes'
 import { createTune, setArchived } from '../../commands/tunes'
-import { computedColor } from '../../test/color'
 import { openTestDb } from '../../test/db'
 import { dataProviders } from '../../test/providers'
 import { renderWithProviders } from '../../test/render'
@@ -69,23 +68,10 @@ const rename = (title: string) => page.getByRole('button', { name: `${EDIT_TITLE
 const heading = () => page.getByRole('heading', { level: 1 })
 const field = () => page.getByRole('textbox', { name: TUNE_TITLE_LABEL })
 
-it("only the key tile takes the key's color", async () => {
-  await setup({ title: 'Sally Goodin', key: 'A', modes: ['major'] })
-  const tile = page.getByRole('button', { name: 'Key, A major' })
-  await expect.element(tile).toBeVisible()
-  const header = tile.element().closest('header')!
-  await expect.poll(() => getComputedStyle(header).backgroundImage).toBe('none')
-  await expect.poll(() => getComputedStyle(header).backgroundColor).toBe('rgba(0, 0, 0, 0)')
-  await expect
-    .poll(() => getComputedStyle(tile.element()).backgroundColor)
-    .toBe(computedColor('var(--key-9-background)'))
-})
-
 it('a tune with no key offers Add key', async () => {
   await setup({ title: 'Cluck Old Hen' })
   const tile = page.getByRole('button', { name: KEY_TILE_EMPTY })
   await expect.element(tile).toBeVisible()
-  await expect.poll(() => getComputedStyle(tile.element()).borderStyle).toBe('dashed')
   await tile.click()
   await expect.element(page.getByRole('dialog', { name: 'Key' })).toBeVisible()
 })

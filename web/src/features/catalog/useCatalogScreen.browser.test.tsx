@@ -2,11 +2,14 @@ import { act, renderHook } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { recordingAnalytics } from '../../usage/testing'
 import { type DebounceClock } from '../../usage/searchDebouncer'
+import { setInstruments } from '../../commands/settings'
 import { createTune, setArchived } from '../../commands/tunes'
+import { getMeta, setMeta } from '../../db/meta'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
-import { dataProviders } from '../../test/providers'
+import { dataProviders, testSession } from '../../test/providers'
 import { readSearchQuery, writeSearchQuery } from '../../ui/searchSession'
+import { DEFAULT_FILTERS, META_CATALOG_FILTERS, normalizeFilters } from './filters'
 import { useCatalogScreen } from './useCatalogScreen'
 
 let db: CrosstuneDb
@@ -165,12 +168,22 @@ describe('useCatalogScreen', () => {
     expect(result.current.query).toBe('joy')
   })
 
-  it('merges a filter write onto the effective filters', async () => {
+  it('merges a filter write onto the effective filters, clearing a hidden facet', async () => {
+    // A violin tuning saved while the violin was played, which mandolin alone hides.
+    await setMeta(db, META_CATALOG_FILTERS, {
+      ...DEFAULT_FILTERS,
+      'tuning:violin': 'Cross A (AEAE)',
+    })
+    await setInstruments(db, testSession.userId, ['mandolin'])
     const { result } = setup()
     await ready(result)
+    expect(result.current.effectiveFilters['tuning:violin']).toBe('all')
+    expect(result.current.tunes).toHaveLength(4)
     await act(() => result.current.setFilters({ archived: true }))
     await expect.poll(() => result.current.effectiveFilters.archived).toBe(true)
     expect(result.current.sheet.count).toBeGreaterThan(0)
+    const stored = normalizeFilters(await getMeta(db, META_CATALOG_FILTERS, null))
+    expect(stored).toMatchObject({ archived: true, 'tuning:violin': 'all' })
   })
 
   describe('analytics', () => {

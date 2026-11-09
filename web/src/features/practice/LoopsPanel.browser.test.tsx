@@ -96,16 +96,6 @@ async function expectHidden(element: HTMLElement) {
     .toBeLessThanOrEqual(1)
 }
 
-/** The color practice's danger resolves to. */
-function dangerColor(): string {
-  const probe = document.createElement('span')
-  probe.style.color = 'var(--danger)'
-  document.querySelector('[data-practice]')!.append(probe)
-  const color = getComputedStyle(probe).color
-  probe.remove()
-  return color
-}
-
 describe('LoopsPanel', () => {
   it('shows the empty hint with no loops', async () => {
     const t = setup()
@@ -243,20 +233,16 @@ describe('LoopsPanel', () => {
     expect(t.onError).not.toHaveBeenCalled()
   })
 
-  it('dims Delete loop with nothing selected', async () => {
+  it('disables Delete loop with nothing selected', async () => {
     const t = setup({ loops: [row('a', 1000, 5000)] })
     renderInPractice(t.ui('rec'), { db })
     await expect.element(button(DELETE_LOOP)).toHaveAttribute('aria-disabled', 'true')
-    await expect.poll(() => getComputedStyle(button(DELETE_LOOP).element()).opacity).toBe('0.4')
   })
 
-  it('shows Delete loop enabled and red with a loop selected', async () => {
+  it('enables Delete loop with a loop selected', async () => {
     const t = setup({ loops: [row('a', 1000, 5000)], selectedId: 'a' })
     renderInPractice(t.ui('rec'), { db })
     await expect.element(button(DELETE_LOOP)).not.toHaveAttribute('aria-disabled')
-    await expect
-      .poll(() => getComputedStyle(button(DELETE_LOOP).element()).color)
-      .toBe(dangerColor())
   })
 
   it('leaves stepping between loops to the switcher', async () => {
@@ -292,25 +278,6 @@ describe('LoopsPanel', () => {
       .poll(() => getComputedStyle(group.element()).maskImage)
       .toContain('linear-gradient')
   })
-
-  it.each(['light', 'dark'] as const)(
-    "draws the suggestions in the page's field and text in %s",
-    async (scheme) => {
-      stampAxes({ density: 'touch', scheme })
-      const t = setup({ loops: [row('a', 1000, 5000)], renamingId: 'a', partStructure: 'AB' })
-      renderInPractice(t.ui('rec'), { db })
-      const chip = page.getByRole('button', { name: 'A part', exact: true })
-      await expect.element(chip).toBeVisible()
-      const probe = document.createElement('span')
-      probe.style.background = 'var(--field)'
-      probe.style.color = 'var(--text-primary)'
-      document.querySelector('[data-practice]')!.append(probe)
-      const roles = getComputedStyle(probe)
-      const paint = (style: CSSStyleDeclaration) => [style.backgroundColor, style.color]
-      await expect.poll(() => paint(getComputedStyle(chip.element()))).toEqual(paint(roles))
-      probe.remove()
-    },
-  )
 
   it('keeps its height when a rename opens the suggestions', async () => {
     stampAxes({ density: 'pointer' })

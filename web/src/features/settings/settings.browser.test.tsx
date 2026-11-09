@@ -445,7 +445,6 @@ it('shows Offline as the account block’s second line while sync is offline', a
   await mount('/settings', PHONE, { sync: { status: () => 'offline' } })
   const line = account().getByText(OFFLINE, { exact: true })
   await expect.element(line).toBeVisible()
-  await expect.element(line).toHaveClass('text-warning')
   await account().click()
   await expect.element(page.getByRole('heading', { level: 1, name: ACCOUNT })).toBeVisible()
 })

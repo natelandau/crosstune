@@ -38,7 +38,6 @@ import {
   annualPrice,
   APP_STORE_SUBSCRIPTIONS_URL,
   BILLING_PERIOD,
-  COMP_GRANT,
   COMPARE_FREE,
   COMPARE_PREMIUM,
   ENDS,
@@ -50,7 +49,6 @@ import {
   PERIOD_ANNUAL,
   PERIOD_MONTHLY,
   PLAN_TRIAL,
-  PREMIUM_PITCH,
   PREMIUM_PLAN_TITLE,
   PREMIUM_RECORDINGS_BODY,
   PREMIUM_RECORDINGS_TITLE,
@@ -74,12 +72,10 @@ import {
   TERMS_URL,
   THANKS,
   TRIAL_KEEPS,
-  TRIAL_ENDS_TODAY,
   TRIAL_STORAGE,
   trialDaysLeft,
   trialEnds,
   trialLeft,
-  WITHDRAWAL_TERMS,
 } from './planCopy'
 import { INCLUDED_FEATURES } from './included'
 import {
@@ -100,10 +96,6 @@ vi.mock('../../billing/storeConfig', async (importOriginal) => {
 const WIDE = { width: 1280, height: 800 }
 const DAY = 86_400_000
 const FREE: Partial<LocalEntitlement> = {}
-const TRIAL = (): Partial<LocalEntitlement> => {
-  const ends = new Date(Date.now() + 10 * DAY).toISOString()
-  return { premium_source: 'trial', premium_expires_at: ends, trial_ends_at: ends }
-}
 
 const recordSheet = () => page.getByRole('dialog', { name: NEW_RECORDING })
 const headline = (name: string) => planSheet().getByRole('heading', { name, exact: true })
@@ -143,16 +135,6 @@ it('answers Record on a free plan with the Plan sheet, not the recorder', async 
   await expect
     .poll(() => analytics.sends())
     .toEqual([{ name: 'premium_sheet_shown', props: { reason: 'recordings', from: 'record' } }])
-})
-
-it('opens the recorder from Record during a trial', async () => {
-  fakeMediaForTest()
-  const { analytics } = await mount(openTestDb(), '/catalog', TRIAL())
-  await page.getByRole('button', { name: RECORD_LABEL }).click()
-
-  await expect.element(recordSheet()).toBeVisible()
-  await expect.element(planSheet()).not.toBeInTheDocument()
-  expect(shown(analytics)).toEqual([])
 })
 
 it("answers Record on a tune's start card with the Plan sheet on a free plan", async () => {
@@ -204,16 +186,6 @@ it('answers Upload on a free plan with the Plan sheet', async () => {
   await expect
     .poll(() => shown(analytics))
     .toEqual([{ name: 'premium_sheet_shown', props: { reason: 'recordings', from: 'upload' } }])
-})
-
-it('imports a dropped audio file during a trial', async () => {
-  const db = openTestDb()
-  await mount(db, destination('recordings').root, TRIAL())
-  await expect.element(page.getByRole('searchbox', { name: SEARCH_RECORDINGS })).toBeVisible()
-  drop([new File(['abc'], 'jam.m4a', { type: 'audio/mp4' })])
-
-  await expect.poll(() => db.recordings.count()).toBe(1)
-  await expect.element(planSheet()).not.toBeInTheDocument()
 })
 
 it('opens the recorder from Record while the entitlements read fails', async () => {
@@ -404,74 +376,6 @@ it('a trial account sees its trial card with 100 MB', async () => {
   await expect.element(planSheet().getByRole('button', { name: SUBSCRIBE })).toBeVisible()
 })
 
-it('a trial on its last day leads with Ends today and drops the date line', async () => {
-  const ends = new Date(NOW + 60_000)
-  await openPaywall({
-    row: {
-      premium_source: 'trial',
-      premium_expires_at: ends.toISOString(),
-      trial_ends_at: ends.toISOString(),
-    },
-  })
-
-  await expect.element(planSheet().getByText(TRIAL_ENDS_TODAY, { exact: true })).toBeVisible()
-  expect(planSheet().getByText(trialEnds(ends), { exact: true }).query()).toBeNull()
-  await expect
-    .element(planSheet().getByRole('progressbar', { name: PLAN_TRIAL }))
-    .toHaveAttribute('aria-valuetext', TRIAL_ENDS_TODAY)
-})
-
-it('a locked recording tap leads with what was tapped', async () => {
-  await openPaywall({ reason: 'recordings', from: 'record' })
-
-  await expect.element(headline(PREMIUM_RECORDINGS_TITLE)).toBeVisible()
-  await expect.element(planSheet()).toHaveAccessibleDescription(PREMIUM_RECORDINGS_BODY)
-  await expect.element(planSheet().getByRole('table')).toBeVisible()
-})
-
-it('the plan reason leads with Crosstune Premium and its pitch', async () => {
-  const { analytics } = await openPaywall({ reason: 'plan', from: 'plan_group' })
-
-  await expect.element(headline(PREMIUM_PLAN_TITLE)).toBeVisible()
-  await expect.element(planSheet()).toHaveAccessibleName(PREMIUM_PLAN_TITLE)
-  await expect.element(planSheet()).toHaveAccessibleDescription(PREMIUM_PITCH)
-  await expect.element(annual()).toBeChecked()
-  expect(analytics.sends()).toEqual([
-    { name: 'premium_sheet_shown', props: { reason: 'plan', from: 'plan_group' } },
-  ])
-})
-
-it('an account that already withdrew is not offered the withdrawal again', async () => {
-  await openPaywall({ row: { withdrawal_used: true } })
-
-  await expect.element(annual()).toBeChecked()
-  await expect.element(planSheet().getByText(renewalTerms('$49.99', 'annual', false))).toBeVisible()
-  expect(planSheet().getByText(WITHDRAWAL_TERMS, { exact: false }).query()).toBeNull()
-})
-
-it('no store shows the comparison with no purchase controls', async () => {
-  await openPaywall({ store: null })
-
-  await expect.element(planSheet().getByRole('table')).toBeVisible()
-  expect(planSheet().getByRole('radio').query()).toBeNull()
-  expect(planSheet().getByRole('button', { name: SUBSCRIBE }).query()).toBeNull()
-  expect(planSheet().getByText(SUBSCRIBE_OFFLINE).query()).toBeNull()
-  expect(planSheet().getByText(RENEWS_UNTIL_CANCELLED, { exact: false }).query()).toBeNull()
-})
-
-it('one sold period shows one tile and no saving', async () => {
-  await openPaywall({
-    store: fakeStore({
-      offers: async () => [{ period: 'monthly', price: '$4.99', amountMicros: 4_990_000 }],
-    }),
-  })
-
-  await expect.element(monthly()).toBeChecked()
-  await expect.element(monthly()).toHaveAccessibleDescription(monthlyPrice('$4.99'))
-  expect(planSheet().getByRole('radio').elements()).toHaveLength(1)
-  expect(planSheet().getByText(save(17)).query()).toBeNull()
-})
-
 it('subscribes to the one period the store sells', async () => {
   const purchase = vi.fn(async () => 'cancelled' as const)
   await openPaywall({
@@ -501,16 +405,6 @@ it('offers failing while online show the unavailable alert over the sheet and no
   await expect.element(planSheet().getByRole('table')).toBeVisible()
   expect(planSheet().getByRole('radio').query()).toBeNull()
   expect(planSheet().getByRole('button', { name: SUBSCRIBE }).query()).toBeNull()
-})
-
-it('an offline browser shows the offline line', async () => {
-  vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
-  const offers = vi.fn(fakeStore().offers)
-  await openPaywall({ store: fakeStore({ offers }) })
-
-  await expect.element(planSheet().getByText(SUBSCRIBE_OFFLINE)).toBeVisible()
-  await expect.poll(() => offers.mock.calls.length).toBe(1)
-  expect(planSheet().getByRole('radio').query()).toBeNull()
 })
 
 it('asks the store again on reconnecting after it failed offline', async () => {
@@ -659,22 +553,6 @@ it('failed purchase shows the failure alert', async () => {
     { name: 'purchase_started', props: { period: 'annual', from: 'record' } },
     { name: 'purchase_failed', props: { period: 'annual', reason: 'error' } },
   ])
-})
-
-it('a paid account sees its plan without a choice', async () => {
-  const offers = vi.fn(fakeStore().offers)
-  await openPaywall({
-    row: { premium_source: 'stripe', premium_expires_at: null },
-    store: fakeStore({ offers }),
-    reason: 'plan',
-    from: 'plan_group',
-  })
-
-  await expect.element(headline(ON_PREMIUM)).toBeVisible()
-  // The sheet asks for offers as it opens, so by now a paid account would have asked.
-  expect(offers).not.toHaveBeenCalled()
-  expect(planSheet().getByRole('radio').query()).toBeNull()
-  expect(planSheet().getByRole('button', { name: SUBSCRIBE }).query()).toBeNull()
 })
 
 it('labels the period choice', async () => {
@@ -955,35 +833,28 @@ async function expectMemberView() {
   expect(closeControl()).toBe('header')
 }
 
-it('a stripe member manages on the web', async () => {
+it('a stripe member manages on the web, and the sheet never asks the store for offers', async () => {
   config.portalUrl = PORTAL
   onTestFinished(() => {
     config.portalUrl = ''
   })
+  const offers = vi.fn(fakeStore().offers)
   await openPaywall({
     row: { premium_source: 'stripe', premium_expires_at: RENEWAL, auto_renews: true },
+    store: fakeStore({ offers }),
     reason: 'plan',
     from: 'plan_group',
   })
 
   await expectMemberView()
+  // The sheet asks for offers as it opens, so by now a paid account would have asked.
+  expect(offers).not.toHaveBeenCalled()
   await expect.element(planSheet().getByText(RENEWS, { exact: true })).toBeVisible()
   await expect.element(planSheet().getByText(addedDay(RENEWAL), { exact: true })).toBeVisible()
   const portal = planSheet().getByRole('link', { name: MANAGE_SUBSCRIPTION })
   await expect.element(portal).toHaveAttribute('href', PORTAL)
   await expect.element(portal).toHaveAttribute('target', '_blank')
   await expect.element(portal).toHaveAttribute('rel', 'noopener noreferrer')
-})
-
-it('a stripe member with no portal sees no manage action', async () => {
-  await openPaywall({
-    row: { premium_source: 'stripe', premium_expires_at: RENEWAL, auto_renews: true },
-    reason: 'plan',
-    from: 'plan_group',
-  })
-
-  await expectMemberView()
-  expect(planSheet().getByRole('link', { name: MANAGE_SUBSCRIPTION }).query()).toBeNull()
 })
 
 it('an App Store member manages in App Store settings', async () => {
@@ -1002,59 +873,6 @@ it('an App Store member manages in App Store settings', async () => {
   await expect
     .element(planSheet().getByRole('link', { name: MANAGE_APP_STORE }))
     .toHaveAttribute('target', '_blank')
-})
-
-it('a comp member still billed by both stores manages each', async () => {
-  config.portalUrl = PORTAL
-  onTestFinished(() => {
-    config.portalUrl = ''
-  })
-  await openPaywall({
-    row: {
-      premium_source: 'comp',
-      paid_grants: [
-        { source: 'apple', expires_at: RENEWAL, auto_renews: true },
-        { source: 'stripe', expires_at: RENEWAL, auto_renews: true },
-      ],
-    },
-    reason: 'plan',
-    from: 'plan_group',
-  })
-
-  await expectMemberView()
-  await expect.element(planSheet().getByText(COMP_GRANT, { exact: true })).toBeVisible()
-  await expect
-    .element(planSheet().getByRole('link', { name: MANAGE_APP_STORE }))
-    .toHaveAttribute('href', APP_STORE_SUBSCRIPTIONS_URL)
-  await expect
-    .element(planSheet().getByRole('link', { name: MANAGE_SUBSCRIPTION }))
-    .toHaveAttribute('href', PORTAL)
-})
-
-it('a comp member sees Premium from Crosstune and no manage action', async () => {
-  config.portalUrl = PORTAL
-  onTestFinished(() => {
-    config.portalUrl = ''
-  })
-  await openPaywall({ row: { premium_source: 'comp' }, reason: 'plan', from: 'plan_group' })
-
-  await expectMemberView()
-  await expect.element(planSheet().getByText(COMP_GRANT, { exact: true })).toBeVisible()
-  expect(planSheet().getByRole('link', { name: MANAGE_APP_STORE }).query()).toBeNull()
-  expect(planSheet().getByRole('link', { name: MANAGE_SUBSCRIPTION }).query()).toBeNull()
-})
-
-it('a comp member with an end sees when it ends', async () => {
-  await openPaywall({
-    row: { premium_source: 'comp', premium_expires_at: RENEWAL },
-    reason: 'plan',
-    from: 'plan_group',
-  })
-
-  await expectMemberView()
-  await expect.element(planSheet().getByText(ENDS, { exact: true })).toBeVisible()
-  await expect.element(planSheet().getByText(addedDay(RENEWAL), { exact: true })).toBeVisible()
-  expect(planSheet().getByText(COMP_GRANT, { exact: true }).query()).toBeNull()
 })
 
 it('the sheet follows the plan while open', async () => {

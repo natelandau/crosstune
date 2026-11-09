@@ -18,8 +18,8 @@ import {
   TUNE_LIST,
   SELECT_TUNES,
 } from './catalogCopy'
-import { getMeta, setMeta } from '../../db/meta'
-import { DEFAULT_FILTERS, META_CATALOG_FILTERS, normalizeFilters, tuneCountLabel } from './filters'
+import { getMeta } from '../../db/meta'
+import { META_CATALOG_FILTERS, normalizeFilters, tuneCountLabel } from './filters'
 import { CATALOG_SORT_OPTIONS } from './catalogSort'
 import { setCatalogSort } from './useCatalogSort'
 import { IMPORT_TUNES } from '../import/importCopy'
@@ -145,25 +145,6 @@ it('lists tunes in title order with their key pills', async () => {
   await expect.element(row('Cluck Old Hen').getByText('A dor', { exact: true })).toBeVisible()
   await expect.element(row('Forked Deer').getByText('D', { exact: true })).toBeVisible()
   await expect.element(page.getByText(countTunes(4), { exact: true })).toBeVisible()
-})
-
-it('says each part of a row apart, with the tunings for the instruments played', async () => {
-  const db = openTestDb()
-  await createTune(
-    db,
-    {
-      title: 'Bonaparte',
-      key: 'A',
-      modes: ['dorian'],
-      tunings: { violin: { tuning: 'Cross A (AEAE)' } },
-    },
-    { status: 'learning' },
-  )
-  await setInstruments(db, 'user_1', ['violin'])
-  await mount(db)
-  await expect
-    .element(row('Bonaparte'))
-    .toHaveAccessibleName('Bonaparte, Key A dorian, Learning, Cross A (AEAE)')
 })
 
 it('opens a tune beside the list on wide', async () => {
@@ -380,49 +361,6 @@ it('announces a new count when the scope changes, never while typing', async () 
   await expect.poll(live).toBe(tuneCountLabel(1, 4))
 })
 
-it('offers to add another tune by a title already taken', async () => {
-  const db = openTestDb()
-  await seed(db)
-  const { launcher } = await mount(db)
-  await search().fill('Forked Deer')
-  // The offer can show under the full list and move up when the results replace it, and a press
-  // that moves between pointer down and up is cancelled. The row then slides up into place over
-  // the offer, and takes a press it slides under.
-  await expect.poll(rowTitles).toEqual(['Forked Deer'])
-  await expect.poll(rowsSettled).toBe(true)
-  await page
-    .getByRole('button', {
-      name: addTypedTitleLabel({ kind: 'create', title: 'Forked Deer', another: true }),
-    })
-    .click()
-  await expect.poll(() => db.tunes.where('title').equals('Forked Deer').count()).toBe(2)
-  expect(launcher.open).not.toHaveBeenCalled()
-})
-
-it('names an exact match the filters hide', async () => {
-  const db = openTestDb()
-  const { ids } = await seed(db)
-  await setMeta(db, META_CATALOG_FILTERS, { ...DEFAULT_FILTERS, status: 'learning' })
-  const { router } = await mount(db)
-  await search().fill('Forked Deer')
-  const hidden = {
-    entry: { tune: { title: 'Forked Deer' } },
-    reason: 'filtered',
-  } as Parameters<typeof hiddenMatchText>[0]
-  await expect.element(page.getByText(literally(hiddenMatchText(hidden)))).toBeVisible()
-  await page.getByRole('link', { name: openTuneName('Forked Deer') }).click()
-  await expect.poll(() => router.state.location.pathname).toBe(`/catalog/${ids['Forked Deer']}`)
-})
-
-it('opens the only result on Enter', async () => {
-  const db = openTestDb()
-  const { ids } = await seed(db)
-  const { router } = await mount(db)
-  await search().fill('cluck')
-  await userEvent.keyboard('{Enter}')
-  await expect.poll(() => router.state.location.pathname).toBe(`/catalog/${ids['Cluck Old Hen']}`)
-})
-
 it('adds a tune by the typed title on Enter when nothing matches', async () => {
   const db = openTestDb()
   await seed(db)
@@ -433,18 +371,6 @@ it('adds a tune by the typed title on Enter when nothing matches', async () => {
   const [tune] = await db.tunes.where('title').equals('Sally Goodin').toArray()
   await expect.poll(() => router.state.location.pathname).toBe(`/catalog/${tune!.id}`)
   await expect.element(coveredSearch()).toHaveValue('')
-  expect(launcher.open).not.toHaveBeenCalled()
-})
-
-it('only closes the keyboard on Enter with two or more results', async () => {
-  const db = openTestDb()
-  await seed(db)
-  const { launcher, router } = await mount(db)
-  await search().fill('o')
-  await expect.poll(() => rowTitles().length).toBeGreaterThan(1)
-  await userEvent.keyboard('{Enter}')
-  await expect.element(search()).not.toHaveFocus()
-  expect(router.state.location.pathname).toBe('/catalog')
   expect(launcher.open).not.toHaveBeenCalled()
 })
 

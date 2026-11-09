@@ -101,6 +101,7 @@ export function OverviewStrip({
         <div
           key={loop.id}
           data-color={loop.color}
+          data-selected-loop={loop.id === selectedId || undefined}
           className={`loop-color pointer-events-none absolute bottom-0 h-1.5 rounded-full bg-(--loop) ${loop.id === selectedId ? '' : 'opacity-60'}`}
           style={{
             left: `${share(loop.startMs - trimStartMs)}%`,

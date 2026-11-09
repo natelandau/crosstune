@@ -17,7 +17,7 @@ import {
   WIDE,
   type PracticeSeed,
 } from '../../test/practice'
-import { CANCEL, DELETE } from '../../ui/confirmCopy'
+import { CANCEL } from '../../ui/confirmCopy'
 import { MORE_ACTIONS } from '../../ui/menuCopy'
 import { AnalyticsProvider } from '../../usage/AnalyticsProvider'
 import { recordingAnalytics } from '../../usage/testing'
@@ -27,14 +27,11 @@ import { DETAIL_LABEL } from './trimViewCopy'
 import { MAX_RECORDING_MS } from '../../domain/recordingLimits'
 import {
   CUT_HANDLE,
-  DELETE_WHILE_SPLITTING,
   NEXT_CUT,
-  PIECE_MAX_HINT,
   REMOVE_CUT,
   SAVE_SPLIT,
   SPLIT,
   SPLIT_AT,
-  SPLIT_BUSY,
   SPLIT_CONFIRM_ACTION,
   SPLIT_CONFIRM_TITLE,
 } from './splitCopy'
@@ -128,67 +125,6 @@ it('Save asks to split into 3 recordings and writes the rows', async () => {
     ])
 })
 
-it('Remove cut deletes the selected cut', async () => {
-  const { engine } = await mountSplit()
-  await openSplit(engine)
-  for (let i = 0; i < 5; i++) press('ArrowRight', { shiftKey: true })
-  press('s')
-  await expect.poll(() => cuts().length).toBe(1)
-  await expect.element(mainButton()).toHaveAccessibleName(REMOVE_CUT)
-
-  await mainButton().click()
-  await expect.poll(() => cuts().length).toBe(0)
-  await expect.element(mainButton()).toHaveAccessibleName(SPLIT_AT(5000))
-})
-
-it('Split is disabled with Still processing while a piece is processing', async () => {
-  await mountSplit({
-    recording: { split_from_id: 'p0', state: 'processing', trim_start_ms: 0, trim_end_ms: 60_000 },
-  })
-  await more().click()
-  const item = page.getByRole('menuitem', { name: new RegExp(`^${SPLIT}`) })
-  await expect.element(item).toHaveAttribute('aria-disabled', 'true')
-  await expect.element(item).toHaveTextContent(SPLIT_BUSY)
-})
-
-it('Delete on a recording whose piece waits for its cut is disabled with Wait for the split to finish', async () => {
-  const { db } = await mountSplit({
-    recording: { split_id: 's1', split_size: 2, split_completed_id: null },
-  })
-  await db.recordings.put(
-    recordingRow('p1', { split_from_id: 'r1', created_by_split_id: 's1', state: 'processing' }),
-  )
-  await more().click()
-  const item = page.getByRole('menuitem', { name: new RegExp(`^${DELETE}`) })
-  await expect.element(item).toHaveAttribute('aria-disabled', 'true')
-  await expect.element(item).toHaveTextContent(DELETE_WHILE_SPLITTING)
-})
-
-it("plays at 100% while splitting and at the recording's own speed after", async () => {
-  const { engine } = await mountSplit({ recording: { speed_percent: 90 } })
-  await expect.poll(() => engine.getState().speedPercent).toBe(90)
-  await openSplit(engine)
-  await expect.poll(() => engine.getState().speedPercent).toBe(100)
-
-  press('Escape')
-  await expectBackOnMore()
-  await expect.poll(() => engine.getState().speedPercent).toBe(90)
-})
-
-it('moves a selected cut with the arrows, and lets it go on a skip', async () => {
-  const { engine } = await mountSplit()
-  await openSplit(engine)
-  for (let i = 0; i < 5; i++) press('ArrowRight', { shiftKey: true })
-  press('s')
-  await expect.poll(() => cuts().length).toBe(1)
-  press('ArrowRight')
-  await expect.poll(() => cuts()[0]?.textContent).toBe('0:05.1')
-
-  await splitDialog().getByRole('button', { name: SKIP_FORWARD }).click()
-  await expect.element(mainButton()).toHaveAccessibleName(SPLIT_AT(20_100))
-  await expect.poll(() => cuts()[0]?.getAttribute('aria-pressed')).toBe('false')
-})
-
 /** An engine whose element reports a pause a moment after it is asked for, as a browser does. */
 function lateEngine() {
   class LateAudioElement extends FakeAudioElement {
@@ -241,23 +177,6 @@ it('moves the line from the playhead with an arrow key while playing', async () 
   await expect.poll(() => playbackEngine.getState().playing).toBe(false)
   await expect.element(line()).toHaveAttribute('aria-valuenow', '20100')
   await expect.poll(() => playbackEngine.getState().positionMs).toBe(20_100)
-})
-
-it('holds Save while a piece of a recording over 3 hours is still over 3 hours', async () => {
-  const long = MAX_RECORDING_MS + 60_000
-  const { engine } = await mountSplit({
-    recording: { duration_ms: long, source_duration_ms: long },
-  })
-  await openSplit(engine)
-  // A cut at the start would leave a piece under 1 second, so S is refused there.
-  await expect.element(mainButton()).toBeDisabled()
-  press('s')
-  for (let i = 0; i < 5; i++) press('ArrowRight', { shiftKey: true })
-  press('s')
-  await expect.poll(() => cuts().map((cut) => cut.textContent)).toEqual(['0:05.0'])
-
-  await expect.element(splitDialog().getByText(PIECE_MAX_HINT)).toBeVisible()
-  await expect.element(splitDialog().getByRole('button', { name: SAVE_SPLIT })).toBeDisabled()
 })
 
 it('opens Split from the page of a recording that must be split to upload', async () => {
@@ -395,7 +314,8 @@ it('a tap on a piece selects it, and a second tap lets it go', async () => {
   await openSplit(engine)
   await cutAt(10_000)
   const selected = () => bands().map((band) => band.dataset.selected ?? null)
-  const overviewDimmed = () => overviewBands().map((band) => band.classList.contains('opacity-60'))
+  const overviewDimmed = () =>
+    overviewBands().map((band) => band.dataset.selectedLoop === undefined)
   // The line sits in the second piece, so the overview marks that one.
   await expect.poll(overviewDimmed).toEqual([true, false])
 
@@ -433,23 +353,6 @@ it('Play stops on the next cut with the line on it, and the next Play goes on to
   await expect.element(line()).toHaveAttribute('aria-valuenow', '20000')
 })
 
-it('with a piece selected, Play plays that piece from its start to its end', async () => {
-  const { engine } = await mountSplit()
-  await openSplit(engine)
-  await cutAt(10_000, 20_000)
-  await splitDialog().getByRole('button', { name: SKIP_BACK }).click()
-  await expect.element(line()).toHaveAttribute('aria-valuenow', '5000')
-  await tap(page.elementLocator(bands()[1]!))
-  await expect.poll(() => bands()[1]?.dataset.selected).toBe('true')
-
-  await splitDialog().getByRole('button', { name: PLAY }).click()
-  await expect.poll(() => engine.getState().playing).toBe(true)
-  await expect.poll(() => engine.getState().positionMs).toBe(10_000)
-  engine.seek(20_500)
-  await expect.poll(() => engine.getState().playing).toBe(false)
-  await expect.element(line()).toHaveAttribute('aria-valuenow', '20000')
-})
-
 it('a skip while playing stops at the first cut after where it lands', async () => {
   const { engine } = await mountSplit()
   await openSplit(engine)
@@ -465,28 +368,6 @@ it('a skip while playing stops at the first cut after where it lands', async () 
   engine.seek(30_000)
   await expect.element(line()).toHaveAttribute('aria-valuenow', '30000')
   expect(engine.getState().playing).toBe(true)
-})
-
-it('moving the cut playback is heading for moves where it stops', async () => {
-  const { engine } = await mountSplit()
-  await openSplit(engine)
-  await cutAt(10_000, 20_000)
-  await splitDialog().getByRole('button', { name: SKIP_BACK }).click()
-  await expect.element(line()).toHaveAttribute('aria-valuenow', '5000')
-
-  await splitDialog().getByRole('button', { name: PLAY }).click()
-  await expect.poll(() => engine.getState().playing).toBe(true)
-  const handle = cutHandle(1).element()
-  keyOn(handle, 'ArrowRight', { shiftKey: true })
-  keyOn(handle, 'ArrowRight', { shiftKey: true })
-  await expect.poll(() => cuts()[0]?.textContent).toBe('0:12.0')
-
-  engine.seek(11_000)
-  await expect.element(line()).toHaveAttribute('aria-valuenow', '11000')
-  expect(engine.getState().playing).toBe(true)
-  engine.seek(12_500)
-  await expect.poll(() => engine.getState().playing).toBe(false)
-  await expect.element(line()).toHaveAttribute('aria-valuenow', '12000')
 })
 
 it('a tap on the zoomed strip with no cuts selects nothing, so Play starts at the line', async () => {

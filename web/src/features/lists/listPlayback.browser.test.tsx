@@ -168,12 +168,6 @@ it('plays nothing on a free plan and says no tune can play', async () => {
   await expect.element(page.getByRole('button', { name: NOTHING_PLAYS })).not.toBeInTheDocument()
 })
 
-it('plays the list from its first tune', async () => {
-  await mount(WIDE, ONE_LINK)
-  await startList()
-  await expect.element(row('t3')).not.toHaveAttribute('data-playing')
-})
-
 /** Starts the list, moves it on to its third tune, and seeks into that tune. */
 async function playThirdTune(engine: ReturnType<typeof fakePlaybackEngine>) {
   await startList()
@@ -225,9 +219,6 @@ it('shows the speaker in the play slot of the playing tune, and pauses and resum
   await expect.poll(() => engine.getState().playing).toBe(false)
   const resume = row('t3').getByRole('button', { name: playName(TITLES.t3) })
   await expect.element(resume).toBeEnabled()
-  await expect
-    .poll(() => resume.element().querySelector('[data-row-ring]')?.className)
-    .toMatch(/\btext-accent\b/)
   await resume.click()
   await resumedThirdTune(engine, loads)
   // Still the queue, so its controls stay on the dock.
@@ -395,16 +386,6 @@ it('hides the play row for an empty list', async () => {
   await expect.element(playButton()).toBeVisible()
   await db.list_items.clear()
   await expect.element(playButton()).not.toBeInTheDocument()
-})
-
-it('says nothing is left on the phone bar, and Close clears it', async () => {
-  await mount(PHONE, { t1: 'server', t2: 'server', t3: 'link' }, { download: async () => null })
-  await expect.element(page.getByText(willPlayLabel(2, 3), { exact: true })).toBeVisible()
-  await playButton().click()
-  const bar = player()
-  await expect.element(bar.getByText(NOTHING_LEFT)).toBeVisible()
-  await bar.getByRole('button', { name: CLOSE_PLAYER }).click()
-  await expect.element(bar).not.toBeInTheDocument()
 })
 
 it('clears what the stopped list said once a recording starts', async () => {

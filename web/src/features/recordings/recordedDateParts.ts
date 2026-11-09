@@ -1,7 +1,7 @@
 import type { RecordingPrecision } from '../../api/vocabulary'
 import { RECORDED_DATE_FUTURE } from '../../commands/messages'
 import { RECORDED_AT_LEEWAY_MS } from '../../commands/recordings'
-import { isFullYear, NO_DATE, YEAR_FORMAT, type DateParts } from '../../ui/partialDate'
+import { isFullYear, NO_DATE, sameParts, YEAR_FORMAT, type DateParts } from '../../ui/partialDate'
 
 export interface StoredDate {
   recorded_at: string | null
@@ -41,4 +41,23 @@ export function datePatch(parts: DateParts): StoredDate | { error: string } {
     recorded_at: start.toISOString(),
     recorded_precision: parts.day ? 'day' : parts.month ? 'month' : 'year',
   }
+}
+
+/**
+ * What a date edit drafts: nothing while the parts are those the editor opened with, so an exact
+ * time survives, or while the parts cannot be stored.
+ */
+export function dateDraft(parts: DateParts, opened: DateParts): StoredDate | null {
+  const patch = datePatch(parts)
+  return sameParts(parts, opened) || 'error' in patch ? null : patch
+}
+
+/** The exact time a recording keeps while its date parts are left alone, or null. */
+export function keptExactTime(
+  at: string | null,
+  precision: RecordingPrecision | null,
+  parts: DateParts,
+  opened: DateParts,
+): string | null {
+  return at && precision === 'time' && sameParts(parts, opened) ? at : null
 }

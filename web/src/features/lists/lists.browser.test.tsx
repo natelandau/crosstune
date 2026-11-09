@@ -526,21 +526,6 @@ function slotAfterKey(row: Element): Element | null | undefined {
   return row.querySelector('[data-pitch]')?.parentElement?.parentElement?.nextElementSibling
 }
 
-/**
- * What the row paints behind its title: the first background, color or image, between the
- * title and the row, read from the title outward.
- */
-function paintedBehindTitle(row: Element): string {
-  for (let node = row.querySelector('[data-row-title]'); node; node = node.parentElement) {
-    const style = getComputedStyle(node)
-    if (style.backgroundImage !== 'none' || style.backgroundColor !== 'rgba(0, 0, 0, 0)') {
-      return `${style.backgroundColor} ${style.backgroundImage}`
-    }
-    if (node === row) break
-  }
-  return 'none'
-}
-
 it.each(['pointer', 'touch'] as const)(
   'marks the row whose recording the player holds on %s',
   async (density) => {
@@ -554,7 +539,6 @@ it.each(['pointer', 'touch'] as const)(
     // shows the speaker.
     await expect.poll(() => row.element().querySelector('[data-shape="stop"]')).not.toBeNull()
     expect(row.element().querySelector('[data-playing-glyph]')).toBeNull()
-    expect(paintedBehindTitle(row.element())).not.toBe(paintedBehindTitle(other.element()))
     await row.getByRole('button', { name: closeRecordingName("Soldier's Joy") }).click()
     await expect.poll(() => player.close).toHaveBeenCalled()
   },

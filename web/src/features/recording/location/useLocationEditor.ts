@@ -109,6 +109,15 @@ export interface LocationEditorState {
 export type PlaceList = 'nearby' | 'saved' | 'recent'
 
 /**
+ * The list the editor opens on: Nearby around a known center, Saved when no center can come,
+ * and null while one still may.
+ */
+export function openingListFor(hasCenter: boolean, centerMayCome: boolean): PlaceList | null {
+  if (hasCenter) return 'nearby'
+  return centerMayCome ? null : 'saved'
+}
+
+/**
  * A recording's location as the location editor picks it, held until `save`. A place left alone
  * keeps its accuracy; a place picked by hand has none, and the device's location keeps its own.
  */
@@ -156,7 +165,7 @@ export function useLocationEditor(view: RecordingView): LocationEditorState {
   const [openingList, setOpeningList] = useState<PlaceList | null>(null)
   const centerMayCome =
     own === null && (ownMayCome || permission === null || (locationOn && device.reading))
-  const decided: PlaceList | null = center ? 'nearby' : centerMayCome ? null : 'saved'
+  const decided = openingListFor(Boolean(center), centerMayCome)
   // Decided once, so a fix that lands later never moves the musician off the list they see.
   if (openingList === null && decided !== null) setOpeningList(decided)
   const list = chosenList ?? openingList ?? decided ?? 'nearby'

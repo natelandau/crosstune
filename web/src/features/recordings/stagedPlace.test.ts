@@ -44,3 +44,31 @@ it("gives a recording's stored point as its own, else its saved location's", () 
   })
   expect(new LocationState(null, neither, places).storedPoint).toBeNull()
 })
+
+it('offers to name a place that is not a saved location, and to rename one that is', () => {
+  const places = [placeRow('p1', 'The barn', { lat: 36.65, lon: -80.93 })]
+  const precise = { place_lat: 40.67, place_lon: -73.96, place_accuracy_m: 12 }
+  const offers = (recording: ReturnType<typeof recordingRow>) => {
+    const state = new LocationState(null, recording, places)
+    return { canName: state.canName, canRename: state.canRename }
+  }
+  expect(offers(recordingRow('r1', precise))).toEqual({ canName: true, canRename: false })
+  expect(offers(recordingRow('r2', { place_id: 'p1' }))).toEqual({
+    canName: false,
+    canRename: true,
+  })
+  expect(offers(recordingRow('r3', { ...precise, place_id: 'p1' }))).toEqual({
+    canName: false,
+    canRename: true,
+  })
+})
+
+it('names nothing from a blank name, and trims the name given', () => {
+  const state = new LocationState(
+    null,
+    recordingRow('r1', { place_lat: 40.67, place_lon: -73.96, place_accuracy_m: 12 }),
+    [],
+  )
+  expect(state.namedDraft('  ')).toBeNull()
+  expect(state.namedDraft(' Tom’s kitchen ')?.name).toBe('Tom’s kitchen')
+})

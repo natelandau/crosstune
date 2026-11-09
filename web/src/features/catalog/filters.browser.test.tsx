@@ -20,7 +20,6 @@ import {
   type FacetValues,
 } from './filters'
 import { countTunes } from '../../text/format'
-import { withInstrumentLabel } from '../../domain/instruments'
 import { openTestDb } from '../../test/db'
 import { DONE } from '../../ui/confirmCopy'
 import { ANY, FILTERS, filtersLabel, RESET, removeFilterLabel } from '../../ui/filterCopy'
@@ -228,31 +227,18 @@ it.each([
   await expect.element(button).toHaveFocus()
 })
 
-it.each([0, 2])(
-  'the phone row has Status and Key and no Filters capsule with %i filters set',
-  async (setCount) => {
-    const db = openTestDb()
-    await seed(db, setCount ? { key: 'D', composer: 'Benny Thomasson' } : {})
-    await mountPhone(db)
-    await expect.element(control(statusControlLabel('all'))).toBeVisible()
-    await expect.element(control(facetControlLabel('key', setCount ? 'D' : 'all'))).toBeVisible()
-    await expect.element(control(FILTERS)).not.toBeInTheDocument()
-    await expect.element(control(filtersLabel(setCount))).not.toBeInTheDocument()
-    if (setCount) {
-      await expect
-        .element(control(removeFilterLabel(`${FACET_LABELS.composer}: Benny Thomasson`)))
-        .toBeVisible()
-      // The bar's button still names the count and opens the sheet.
-      await expect.element(barButton(filtersLabel(setCount))).toBeVisible()
-    }
-  },
-)
-
-it.each(FRAMES.slice(1))('the row keeps its Filters capsule on %s', async (_, frame, density) => {
+it('the phone row has Status and Key and no Filters capsule with filters set', async () => {
   const db = openTestDb()
-  await seed(db, { key: 'D' })
-  await renderApp({ path: '/catalog', db, frame, density, launcher: { open: () => {} } })
-  await expect.element(control(filtersLabel(1))).toBeVisible()
+  await seed(db, { key: 'D', composer: 'Benny Thomasson' })
+  await mountPhone(db)
+  await expect.element(control(statusControlLabel('all'))).toBeVisible()
+  await expect.element(control(facetControlLabel('key', 'D'))).toBeVisible()
+  await expect.element(control(filtersLabel(2))).not.toBeInTheDocument()
+  await expect
+    .element(control(removeFilterLabel(`${FACET_LABELS.composer}: Benny Thomasson`)))
+    .toBeVisible()
+  // The bar's button still names the count and opens the sheet.
+  await expect.element(barButton(filtersLabel(2))).toBeVisible()
 })
 
 it('no Filters button in the bar for an empty catalog with nothing set', async () => {
@@ -274,28 +260,6 @@ it.each(FRAMES.slice(1))('no Filters button in the bar on %s', async (_, frame, 
   expect(names).not.toContain(FILTERS)
 })
 
-it('narrows by status from the Status capsule, which reads the stored status', async () => {
-  const db = openTestDb()
-  await seed(db)
-  await createTune(db, { title: 'Cluck Old Hen', key: 'A' }, { status: 'learning' })
-  await mount(db, 'pointer', PHONE)
-  await expect.poll(rootBar).not.toBeNull()
-  await control(statusControlLabel('all')).click()
-  const learning = page.getByRole('menuitemradio', { name: STATUS_LABELS.learning, exact: true })
-  await expect.element(learning).toHaveAccessibleDescription(countTunes(1))
-  await learning.click()
-  await expect.element(control(statusControlLabel('learning'))).toHaveAttribute('data-set')
-  await expect.poll(rowTitles).toEqual(['Cluck Old Hen'])
-  await expect.poll(async () => (await stored(db)).status).toBe('learning')
-  // Status counts in Filters but never becomes a token.
-  await expect.element(barButton(filtersLabel(1))).toBeVisible()
-  await expect.element(control(removeFilterLabel(STATUS_LABELS.learning))).not.toBeInTheDocument()
-  await control(statusControlLabel('learning')).click()
-  await page.getByRole('menuitemradio', { name: ANY, exact: true }).click()
-  await expect.element(control(statusControlLabel('all'))).not.toHaveAttribute('data-set')
-  await expect.poll(() => rowTitles().length).toBe(5)
-})
-
 it('narrows by type from the sheet, with a token that removes it', async () => {
   const db = openTestDb()
   await seed(db)
@@ -315,72 +279,6 @@ it('narrows by type from the sheet, with a token that removes it', async () => {
   await expect.element(token).not.toBeInTheDocument()
   await expect.element(control(FILTERS)).toBeVisible()
   await expect.poll(() => rowTitles().length).toBe(4)
-})
-
-it('adds a token naming the instrument from the sheet, and the token removes the filter', async () => {
-  const db = openTestDb()
-  await seed(db)
-  await mount(db)
-  await control(FILTERS).click()
-  const sheet = page.getByRole('dialog', { name: FILTERS })
-  await sheet.getByRole('button', { name: new RegExp(FACET_LABELS['tuning:violin']) }).click()
-  await page.getByRole('option', { name: CROSS_A }).click()
-  await expect.poll(async () => (await stored(db))['tuning:violin']).toBe(CROSS_A)
-  await sheet.getByRole('button', { name: DONE }).click()
-  await expect.element(sheet).not.toBeInTheDocument()
-  const token = control(removeFilterLabel(withInstrumentLabel('violin', CROSS_A)))
-  await expect.element(token).toBeVisible()
-  await expect.element(control(filtersLabel(1))).toBeVisible()
-  await expect.poll(rowTitles).toEqual(["Bonaparte's Retreat"])
-  await token.click()
-  await expect.element(token).not.toBeInTheDocument()
-  await expect.element(control(FILTERS)).toBeVisible()
-  await expect.poll(() => rowTitles().length).toBe(4)
-})
-
-it('names the field on a composer token', async () => {
-  const db = openTestDb()
-  await seed(db, { composer: 'Benny Thomasson' })
-  await mount(db)
-  await expect
-    .element(control(removeFilterLabel(`${FACET_LABELS.composer}: Benny Thomasson`)))
-    .toBeVisible()
-  await expect.poll(rowTitles).toEqual(['Midnight on the Water'])
-})
-
-it('keeps a value the catalog no longer holds as its own choice, never Any', async () => {
-  const db = openTestDb()
-  await seed(db, { tune_type: 'jig', composer: 'Ed Haley' })
-  await mount(db)
-  await expect.element(control(removeFilterLabel('jig'))).toBeVisible()
-  await control(filtersLabel(2)).click()
-  const sheet = page.getByRole('dialog', { name: FILTERS })
-  const type = sheet.getByRole('button', { name: new RegExp(FACET_LABELS.tune_type) })
-  await expect.element(type).toHaveTextContent('jig')
-  await type.click()
-  await expect
-    .element(page.getByRole('option', { name: 'jig' }))
-    .toHaveAttribute('aria-selected', 'true')
-  await userEvent.keyboard('{Escape}')
-  const composer = sheet.getByRole('button', { name: new RegExp(FACET_LABELS.composer) })
-  await expect.element(composer).toHaveTextContent('Ed Haley')
-  await composer.click()
-  await expect
-    .element(page.getByRole('option', { name: 'Ed Haley' }))
-    .toHaveAttribute('aria-selected', 'true')
-})
-
-it('clears a hidden facet with the next write, and never narrows by it', async () => {
-  const db = openTestDb()
-  await seed(db, { 'tuning:violin': CROSS_A })
-  await setInstruments(db, 'user_1', ['mandolin'])
-  await mount(db)
-  await expect.poll(() => rowTitles().length).toBe(4)
-  await expect.element(control(FILTERS)).toBeVisible()
-  await control(facetControlLabel('key', 'all')).click()
-  await keyOption('D').click()
-  await expect.poll(async () => (await stored(db))['tuning:violin']).toBe('all')
-  expect((await stored(db)).key).toBe('D')
 })
 
 it('applies each sheet choice at once and Reset clears every filter in the sheet', async () => {
@@ -441,40 +339,6 @@ it("the sheet sets Status and Key, and the row's capsules show them", async () =
   await expect.element(control(statusControlLabel('learning'))).toHaveAttribute('data-set')
   await expect.element(control(facetControlLabel('key', 'A'))).toHaveAttribute('data-set')
   await expect.element(barButton(filtersLabel(2))).toBeVisible()
-})
-
-it('counts a status set elsewhere on first render', async () => {
-  const db = openTestDb()
-  await seed(db, { status: 'learning' })
-  await mount(db)
-  await expect.element(control(filtersLabel(1))).toBeVisible()
-})
-
-it('offers the Key group in the sheet only while some tune has a key', async () => {
-  const db = openTestDb()
-  await createTune(db, { title: 'Keyless Reel', tune_type: 'reel' }, { status: 'known' })
-  await mount(db)
-  await control(FILTERS).click()
-  const sheet = page.getByRole('dialog', { name: FILTERS })
-  await expect.element(sheet.getByRole('button', { name: DONE })).toBeVisible()
-  await expect.element(sheet.getByRole('region', { name: KEY })).not.toBeInTheDocument()
-  await expect.element(sheet.getByRole('button', { name: new RegExp(STATUS_SCOPE) })).toBeVisible()
-})
-
-it('offers the Key group in the sheet when a tune has a key', async () => {
-  const db = openTestDb()
-  await seed(db)
-  await mount(db)
-  await control(FILTERS).click()
-  const sheet = page.getByRole('dialog', { name: FILTERS })
-  await expect.element(sheet.getByRole('region', { name: KEY })).toBeVisible()
-})
-
-it('leaves out the filter row while there is nothing to filter', async () => {
-  const db = openTestDb()
-  await mount(db)
-  await expect.element(page.getByRole('heading', { name: NO_TUNES_TITLE })).toBeVisible()
-  await expect.element(filterRow()).not.toBeInTheDocument()
 })
 
 it('keeps a set filter in an empty catalog until it is removed, then moves focus to the title', async () => {

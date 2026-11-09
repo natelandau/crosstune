@@ -27,12 +27,11 @@ const dialog = () => recordingPage()
 const box = (selector: string) =>
   practice()?.querySelector<HTMLElement>(selector)?.getBoundingClientRect() ?? null
 
-it('shows the clock small and centered on a phone, with zoom over the waveform', async () => {
+it('shows the clock centered on a phone, with zoom over the waveform', async () => {
   await mountPlaying(PHONE)
   await openPractice()
   await expect.poll(() => box('[data-practice-clock]')?.width ?? 0).toBeGreaterThan(0)
   const clock = practice()!.querySelector<HTMLElement>('[data-practice-clock]')!
-  expect(clock.classList.contains('t-heading')).toBe(true)
   // How far the clock's words sit from practice's center.
   const offCenter = () => {
     const area = practice()!.getBoundingClientRect()

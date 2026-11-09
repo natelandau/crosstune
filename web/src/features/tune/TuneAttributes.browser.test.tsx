@@ -6,7 +6,6 @@ import * as tunes from '../../commands/tunes'
 import { createTune } from '../../commands/tunes'
 import { STATUS_LABELS } from '../../constants'
 import type { Instrument } from '../../api/vocabulary'
-import { computedColor } from '../../test/color'
 import { addedDay } from '../../text/format'
 import { openTestDb } from '../../test/db'
 import { dataProviders } from '../../test/providers'
@@ -180,26 +179,6 @@ it('card shows the main attributes, then More details reveals the rest', async (
 
 const bottomRounded = (name: string) =>
   parseFloat(getComputedStyle(row(name).element()).borderBottomLeftRadius) > 0
-
-it('the attributes column sits on the page, with rounded rows and labels in secondary text', async () => {
-  await setup('column')
-  const column = page.getByRole('complementary', { name: ATTRIBUTES_LABEL })
-  await expect.element(column).toBeVisible()
-  await expect
-    .poll(() => getComputedStyle(column.element()).backgroundColor)
-    .toBe('rgba(0, 0, 0, 0)')
-  const status = row(`Status, ${STATUS_LABELS.learning}`)
-  await expect
-    .poll(() => parseFloat(getComputedStyle(status.element()).borderTopLeftRadius))
-    .toBeGreaterThan(0)
-  const [label, value] = [...status.element().children] as HTMLElement[]
-  await expect
-    .poll(() => getComputedStyle(label!).color)
-    .toBe(computedColor('var(--text-secondary)'))
-  await expect
-    .poll(() => getComputedStyle(value!).color)
-    .toBe(computedColor('var(--color-text-primary)'))
-})
 
 it('a narrow attributes column sets each label over its value', async () => {
   await setup('column')

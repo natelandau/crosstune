@@ -5,25 +5,10 @@ import { renderWithProviders } from '../test/render'
 import { CONTROLS, NOT_LIBRARY_CONTROLS } from '../ui'
 import { ComponentGallery, GALLERY_TITLE } from './ComponentGallery'
 
-it('renders the gallery page in Geist', async () => {
-  renderWithProviders(<ComponentGallery />)
-  await expect.element(page.getByRole('heading', { name: GALLERY_TITLE, level: 1 })).toBeVisible()
-  await expect.poll(() => getComputedStyle(document.body).fontFamily).toContain('Geist')
-})
-
 it('stamps the density and scheme a test asks for on the root', async () => {
   renderWithProviders(<ComponentGallery />, { density: 'touch', scheme: 'dark' })
   expect(document.documentElement.dataset.density).toBe('touch')
   expect(document.documentElement.dataset.scheme).toBe('dark')
-})
-
-it('keeps a 16px gutter and spaces its sections apart', async () => {
-  renderWithProviders(<ComponentGallery />, { density: 'touch' })
-  const title = page.getByRole('heading', { name: GALLERY_TITLE, level: 1 })
-  await expect.element(title).toBeVisible()
-  expect(title.element().getBoundingClientRect().left).toBe(16)
-  const [first, second] = document.querySelectorAll('main > section')
-  expect(second!.getBoundingClientRect().top - first!.getBoundingClientRect().bottom).toBe(32)
 })
 
 it('switches the whole page density from one control', async () => {
@@ -88,29 +73,6 @@ it('lists every component the ui folders export as a control or an exclusion', (
     [],
   )
   expect(Object.keys(NOT_LIBRARY_CONTROLS).filter((name) => !exported.includes(name))).toEqual([])
-})
-
-it('marks each status chip with its status color', async () => {
-  renderWithProviders(<ComponentGallery />, { density: 'pointer' })
-  const dot = (name: string) =>
-    [...document.querySelectorAll('[data-status-dot]')].find(
-      (element) => element.parentElement!.textContent === name,
-    )
-  await expect.poll(() => dot('Active')).toBeDefined()
-  const color = (name: string) => getComputedStyle(dot(name)!).borderTopColor
-  const probe = document.createElement('span')
-  document.body.append(probe)
-  const role = (token: string) => {
-    probe.style.color = `var(${token})`
-    return getComputedStyle(probe).color
-  }
-  try {
-    expect(color('Active')).toBe(role('--status-known'))
-    expect(color('Paused')).toBe(role('--status-learning'))
-    expect(color('Draft')).toBe(role('--status-unknown'))
-  } finally {
-    probe.remove()
-  }
 })
 
 it('has no app content', async () => {

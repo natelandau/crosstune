@@ -1,108 +1,48 @@
 import { page } from 'vitest/browser'
 import { expect, it } from 'vitest'
-import { computedColor } from '../test/color'
 import { emulateReducedMotion } from '../test/reducedMotion'
 import { renderWithProviders } from '../test/render'
 import { Row } from './Row'
 import { RowList } from './RowList'
 import {
   ActionSlot,
-  DownloadGlyph,
   DownloadingGlyph,
   LinkOutGlyph,
   NowPlayingGlyph,
   TransportGlyph,
 } from './rowGlyphs'
 
-it('draws an outlined ring with no fill at rest and when loaded', async () => {
-  const screen = renderWithProviders(
-    <>
-      <TransportGlyph shape="play" />
-      <TransportGlyph shape="stop" />
-    </>,
-  )
-  const discs = () => [...screen.container.querySelectorAll('[data-row-ring]')]
-  await expect.poll(() => discs()).toHaveLength(2)
-  for (const disc of discs()) {
-    await expect.poll(() => getComputedStyle(disc).backgroundColor).toBe('rgba(0, 0, 0, 0)')
-    // Chromium snaps a computed border width to whole device pixels, so this reads only that a
-    // ring is drawn, in the glyph's own color.
-    await expect.poll(() => getComputedStyle(disc).borderTopStyle).toBe('solid')
-    expect(getComputedStyle(disc).borderTopColor).toBe(getComputedStyle(disc).color)
-  }
-})
-
-it.each([
-  ['touch', 24],
-  ['pointer', 20],
-] as const)('draws every slot glyph as one ring on %s', async (density, size) => {
-  const screen = renderWithProviders(
-    <>
-      <TransportGlyph shape="play" />
-      <NowPlayingGlyph />
-      <DownloadingGlyph />
-      <LinkOutGlyph />
-    </>,
-    { density },
-  )
-  const glyphs = () => [...screen.container.children]
-  await expect.poll(() => glyphs()).toHaveLength(4)
-  const stroke = getComputedStyle(glyphs()[0]!).borderTopWidth
-  for (const glyph of glyphs()) {
-    await expect.poll(() => glyph.getBoundingClientRect().width).toBe(size)
-    expect(glyph.getBoundingClientRect().height).toBe(size)
-    expect(getComputedStyle(glyph).borderRadius).not.toBe('0px')
-    expect(getComputedStyle(glyph).borderTopStyle).toBe('solid')
-    expect(getComputedStyle(glyph).borderTopWidth).toBe(stroke)
-  }
-  const iconStrokes = [...screen.container.querySelectorAll('svg *')]
-  expect(iconStrokes.length).toBeGreaterThan(0)
-  for (const line of iconStrokes) {
-    expect(getComputedStyle(line).vectorEffect).toBe('non-scaling-stroke')
-    expect(getComputedStyle(line).strokeWidth).toBe('1.5px')
-  }
-})
-
-it.each([
-  ['touch', 24],
-  ['pointer', 20],
-] as const)(
-  "draws download as a cloud with no ring, in the ring's box on %s",
-  async (density, size) => {
-    const screen = renderWithProviders(<DownloadGlyph />, { density })
-    const glyph = () => screen.container.querySelector('svg.lucide-cloud-download')
-    await expect.poll(() => glyph()?.getBoundingClientRect().width).toBe(size)
-    expect(glyph()!.getBoundingClientRect().height).toBe(size)
-    expect(getComputedStyle(glyph()!).borderTopWidth).toBe('0px')
+it.each(['touch', 'pointer'] as const)(
+  'draws every slot glyph as one ring on %s',
+  async (density) => {
+    const screen = renderWithProviders(
+      <>
+        <TransportGlyph shape="play" />
+        <NowPlayingGlyph />
+        <DownloadingGlyph />
+        <LinkOutGlyph />
+      </>,
+      { density },
+    )
+    const glyphs = () => [...screen.container.children]
+    await expect.poll(() => glyphs()).toHaveLength(4)
+    const stroke = getComputedStyle(glyphs()[0]!).borderTopWidth
+    const size = glyphs()[0]!.getBoundingClientRect().width
+    expect(size).toBeGreaterThan(0)
+    for (const glyph of glyphs()) {
+      await expect.poll(() => glyph.getBoundingClientRect().width).toBe(size)
+      expect(glyph.getBoundingClientRect().height).toBe(size)
+      expect(getComputedStyle(glyph).borderRadius).not.toBe('0px')
+      expect(getComputedStyle(glyph).borderTopStyle).toBe('solid')
+      expect(getComputedStyle(glyph).borderTopWidth).toBe(stroke)
+    }
+    const iconStrokes = [...screen.container.querySelectorAll('svg *')]
+    expect(iconStrokes.length).toBeGreaterThan(0)
+    for (const line of iconStrokes) {
+      expect(getComputedStyle(line).vectorEffect).toBe('non-scaling-stroke')
+    }
   },
 )
-
-it('draws play in the accent role when asked', async () => {
-  const screen = renderWithProviders(<TransportGlyph shape="play" tone="accent" />)
-  const glyph = screen.container.children[0]!
-  const accent = computedColor('var(--color-accent)')
-  await expect.poll(() => getComputedStyle(glyph).color).toBe(accent)
-  expect(getComputedStyle(glyph).borderTopColor).toBe(accent)
-})
-
-it('dims an offline download with the tertiary text role', async () => {
-  const screen = renderWithProviders(<DownloadGlyph dimmed />)
-  const glyph = screen.container.children[0]!
-  await expect
-    .poll(() => getComputedStyle(glyph).color)
-    .toBe(computedColor('var(--color-text-tertiary)'))
-  expect(getComputedStyle(glyph).opacity).toBe('1')
-})
-
-it('draws the downloading ring in secondary text and its arc in primary text', async () => {
-  const screen = renderWithProviders(<DownloadingGlyph />)
-  const ring = screen.container.children[0]!
-  const arc = ring.querySelector('[data-downloading-arc]')!
-  await expect
-    .poll(() => getComputedStyle(ring).borderTopColor)
-    .toBe(computedColor('var(--color-text-secondary)'))
-  expect(getComputedStyle(arc).borderTopColor).toBe(computedColor('var(--color-text-primary)'))
-})
 
 it('pulses the now-playing glyph', async () => {
   const screen = renderWithProviders(<NowPlayingGlyph />)

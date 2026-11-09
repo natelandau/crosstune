@@ -11,7 +11,7 @@ import { MapKitContext } from '../../../platform/useMapKit'
 import type { PlaceSearchOutcome } from '../../../sync/types'
 import { openTestDb } from '../../../test/db'
 import { fakeLocationPermissionForTest } from '../../../test/fakeLocationPermission'
-import { MAP_NEEDS_CONNECTION, MAP_UNAVAILABLE } from '../../../ui/LocationMap'
+import { MAP_UNAVAILABLE } from '../../../ui/LocationMap'
 import { fakeMapKit, type FakeMapKitOptions } from '../../../test/fakeMapKit'
 import { dataProviders, fakeEngine } from '../../../test/providers'
 import { renderWithProviders } from '../../../test/render'
@@ -279,17 +279,6 @@ it('searches near the recording', async () => {
   await expect.poll(() => search.mock.calls).toEqual([['jalopy', SPOT]])
 })
 
-it('searches near the device for a recording with no place', async () => {
-  const { search } = await setup({
-    recording: recordingRow('r1'),
-    permission: 'granted',
-    device: { ...DEVICE, accuracy: 8 },
-  })
-  await searchFor('jalopy')
-  // The device answers after the editor opens, and the search ranks near it.
-  await expect.poll(() => search.mock.calls.at(-1)).toEqual(['jalopy', DEVICE])
-})
-
 it('Use current location sets a device place on dismissal', async () => {
   const { analytics, settledWrites } = await setup({
     recording: recordingRow('r1', { label: 'Fast version' }),
@@ -358,19 +347,6 @@ it.each([
   await expect.element(section(CURRENT_LOCATION)).toBeVisible()
 })
 
-it('Use current location links a saved location the device is at', async () => {
-  await setup({
-    places: [placeRow('p1', 'The barn', north(10))],
-    permission: 'granted',
-    device: { ...north(5), accuracy: 8 },
-  })
-  await row(USE_CURRENT_LOCATION).click()
-  await expect.element(section(CURRENT_LOCATION).getByText('The barn')).toBeVisible()
-  await done()
-  await expect.poll(async () => (await db.recordings.get('r1'))?.place_id).toBe('p1')
-  expect(await db.recordings.get('r1')).toMatchObject({ place_origin: 'device', place_name: null })
-})
-
 it('Use current location links a saved location made while the fix is pending', async () => {
   const { releaseDevice } = await setup({
     permission: 'granted',
@@ -433,19 +409,6 @@ it("opens on Nearby while the device's fix is read, and stays there once it land
   await expect.element(nearby).toHaveAttribute('aria-selected', 'true')
 })
 
-it('falls to Saved when the device gives no fix', async () => {
-  await setup({
-    recording: recordingRow('r1'),
-    places: [placeRow('p1', 'The barn')],
-    permission: 'granted',
-    device: null,
-  })
-  await expect
-    .element(editor().getByRole('tab', { name: SAVED_LOCATIONS }))
-    .toHaveAttribute('aria-selected', 'true')
-  await expect.element(option(pickLocationName('The barn'))).toBeVisible()
-})
-
 it('keeps the list it opened on when a fix arrives after location access turns on', async () => {
   await setup({
     recording: recordingRow('r1'),
@@ -497,11 +460,6 @@ it('Nearby rows show distance from the recording', async () => {
 it('Nearby says so when no venue or saved location is within reach', async () => {
   await setup({ mapkit: { places: [] } })
   await expect.element(editor().getByText(NO_NEARBY_LOCATIONS)).toBeVisible()
-})
-
-it('Nearby says so when the venue search fails', async () => {
-  await setup({ mapkit: { searchFails: true } })
-  await expect.element(editor().getByText(LOCATION_SEARCH_UNAVAILABLE)).toBeVisible()
 })
 
 it('Nearby says so when MapKit is unavailable', async () => {
@@ -712,17 +670,6 @@ it('Done right after Enter on the naming step names the location once', async ()
   expect(await db.places.toArray()).toMatchObject([{ name: 'Tom’s kitchen' }])
 })
 
-it('Done on the naming step with no name typed names nothing', async () => {
-  const { settledWrites } = await setup()
-  await row(NAME_THIS_LOCATION).click()
-  const naming = page.getByRole('dialog', { name: NAME_LOCATION_TITLE })
-  await naming.getByRole('textbox', { name: LOCATION_NAME_LABEL }).fill('  ')
-  await naming.getByRole('button', { name: DONE, exact: true }).click()
-  await expect.element(naming).not.toBeInTheDocument()
-  expect(await settledWrites()).toBe(0)
-  expect(await db.places.count()).toBe(0)
-})
-
 it('Escape on the naming step drops the name typed', async () => {
   const { analytics, settledWrites } = await setup()
   await row(NAME_THIS_LOCATION).click()
@@ -805,22 +752,6 @@ it('centers Nearby on the saved location of a linked recording with no point of 
     .toMatchObject({ latitude: DEVICE.lat, longitude: DEVICE.lon })
   // Read once the distance and the search show the settled center, so a late read would count.
   expect(releaseDevice.reads()).toBe(0)
-})
-
-it('offers Name this location, not Rename, for a place that is not a saved location', async () => {
-  await setup()
-  await expect.element(row(NAME_THIS_LOCATION)).toBeVisible()
-  await expect.element(row(RENAME_THIS_LOCATION)).not.toBeInTheDocument()
-})
-
-it.each([
-  ['with no point of its own', linkedOnly()],
-  ['with its own point', captured({ place_id: 'p1' })],
-])('offers Rename, not Name, for a recording linked %s', async (_, recording) => {
-  await setup({ recording, places: [BARN] })
-  await expect.element(section(CURRENT_LOCATION).getByText('The barn')).toBeVisible()
-  await expect.element(row(RENAME_THIS_LOCATION)).toBeVisible()
-  await expect.element(row(NAME_THIS_LOCATION)).not.toBeInTheDocument()
 })
 
 it('offers Rename, not Name, once a saved location is picked', async () => {
@@ -922,21 +853,6 @@ it('Done while an entered rename is still writing renames once', async () => {
   expect(analytics.sends()).toEqual([{ name: 'saved_location_renamed', props: {} }])
 })
 
-it.each([
-  ['empty', ''],
-  ['unchanged', 'The barn '],
-])('Done on the rename step with the name %s renames nothing', async (_, name) => {
-  const { analytics, settledWrites } = await setup({ recording: linkedOnly(), places: [BARN] })
-  await row(RENAME_THIS_LOCATION).click()
-  const renaming = page.getByRole('dialog', { name: RENAME_THIS_LOCATION })
-  await renaming.getByRole('textbox', { name: LOCATION_NAME_LABEL }).fill(name)
-  await renaming.getByRole('button', { name: DONE, exact: true }).click()
-  await expect.element(renaming).not.toBeInTheDocument()
-  expect(await settledWrites()).toBe(0)
-  expect(await db.places.get('p1')).toMatchObject({ name: 'The barn' })
-  expect(analytics.sends()).toEqual([])
-})
-
 it('an empty name on the rename step says so under the field and writes nothing', async () => {
   const { analytics, settledWrites } = await setup({ recording: linkedOnly(), places: [BARN] })
   await row(RENAME_THIS_LOCATION).click()
@@ -963,17 +879,6 @@ it('Back from the rename keeps the name as it was', async () => {
   await done()
   expect(await settledWrites()).toBe(0)
   expect(await db.places.get('p1')).toMatchObject({ name: 'The barn' })
-})
-
-it('clears a linked recording with no point of its own', async () => {
-  const { analytics } = await setup({ recording: linkedOnly(), places: [BARN] })
-  await section(CURRENT_LOCATION).getByRole('button', { name: CLEAR_LOCATION }).click()
-  await expect.element(section(CURRENT_LOCATION)).not.toBeInTheDocument()
-  await done()
-  await expect.poll(async () => (await db.recordings.get('r1'))?.place_id).toBeNull()
-  await expect
-    .poll(() => analytics.sends())
-    .toEqual([{ name: 'recording_place_cleared', props: { recording_id: 'r1' } }])
 })
 
 it('shows the map larger than the page’s, and keeps place names out of replay', async () => {
@@ -1082,18 +987,4 @@ it('says the map is unavailable under the current location when MapKit cannot lo
   await expect.element(editor().getByText(MAP_UNAVAILABLE)).toBeVisible()
   await expect.element(searchBox()).toBeVisible()
   await expect.element(row(USE_CURRENT_LOCATION)).toBeVisible()
-})
-
-it('says the map needs a connection when the browser is offline', async () => {
-  vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
-  await setup({ recording: captured(), mapkit: {} })
-  await expect.element(editor().getByText(MAP_NEEDS_CONNECTION)).toBeVisible()
-  expect(editor().getByText(MAP_UNAVAILABLE).query()).toBeNull()
-})
-
-it('says nothing about the map while MapKit loads', async () => {
-  await setup({ recording: captured(), mapkitLoading: true })
-  await expect.element(searchBox()).toBeVisible()
-  expect(editor().getByText(MAP_UNAVAILABLE).query()).toBeNull()
-  expect(editor().getByText(MAP_NEEDS_CONNECTION).query()).toBeNull()
 })

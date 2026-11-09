@@ -16,7 +16,7 @@ import { useStampedDensity } from '../platform/density'
 import { Button } from './Button'
 import { PointerOverlay } from './PointerOverlay'
 import { Sheet } from './Sheet'
-import type { ActionTone } from './buttonTone'
+import { TONE_FILL, type ActionTone } from './buttonTone'
 
 export { CANCEL, DELETE, OK } from './confirmCopy'
 
@@ -104,7 +104,7 @@ function useAsk(hook: string): (options: Shown) => Promise<boolean> {
 }
 
 function PointerAlert({ options, onAnswer }: { options: Shown; onAnswer: (ok: boolean) => void }) {
-  const { title, message, action, alert = false } = options
+  const { title, message, action, alert = false, tone = 'danger' } = options
   const messageId = useId()
   return (
     <PointerOverlay
@@ -145,7 +145,7 @@ function PointerAlert({ options, onAnswer }: { options: Shown; onAnswer: (ok: bo
             </div>
             <div className="flex min-w-0 flex-1">
               <Button
-                variant="destructiveFill"
+                variant={TONE_FILL[tone]}
                 fullWidth
                 label={action}
                 onPress={() => onAnswer(true)}

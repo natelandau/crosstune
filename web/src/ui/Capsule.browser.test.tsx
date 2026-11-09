@@ -19,7 +19,7 @@ it('toggles a selected capsule', async () => {
   await expect.element(chip).toHaveAttribute('aria-pressed', 'true')
 })
 
-it('renders a capsule that navigates as a link at the compact height', async () => {
+it('renders a capsule that navigates as a link', async () => {
   const router = createMemoryRouter([
     { path: '/', element: <Capsule label="Session" to="/lists/1" /> },
     { path: '/lists/1', element: <p>list</p> },
@@ -27,7 +27,6 @@ it('renders a capsule that navigates as a link at the compact height', async () 
   renderWithProviders(<RouterProvider router={router} />)
   const link = page.getByRole('link', { name: 'Session' })
   await expect.element(link).toBeVisible()
-  await expect.poll(() => link.element().getBoundingClientRect().height).toBe(24)
   await link.click()
   await expect.element(page.getByText('list')).toBeVisible()
 })

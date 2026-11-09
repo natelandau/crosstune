@@ -13,7 +13,8 @@ import type { TrackWork } from './useWorking'
 import { isAriaDisabled, useWorkingControl } from './useWorkingControl'
 import { WorkingMark, WorkingStatus } from './WorkingMark'
 
-export type ButtonVariant = 'primary' | 'secondary' | 'text' | 'destructive' | 'destructiveFill'
+export type ButtonVariant =
+  'primary' | 'secondary' | 'text' | 'destructive' | 'destructiveFill' | 'warningFill'
 
 export interface ButtonProps extends Omit<
   AriaButtonProps,
@@ -54,6 +55,7 @@ const FILLED: Record<ButtonVariant, boolean> = {
   text: false,
   destructive: false,
   destructiveFill: true,
+  warningFill: true,
 }
 
 const SIZE: Record<ControlSize, { type: string; inset: string }> = {

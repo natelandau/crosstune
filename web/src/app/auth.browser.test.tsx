@@ -24,7 +24,6 @@ import {
 } from '../auth/session'
 import { readSearchQuery, writeSearchQuery } from '../ui/searchSession'
 import { CLERK_LOAD_GRACE_MS, useAuthGate, type GateClock } from '../auth/useAuthGate'
-import { computedColor } from '../test/color'
 import { renderWithProviders } from '../test/render'
 import { AuthGate } from './AuthGate'
 
@@ -436,13 +435,6 @@ describe('the sign-in layout', () => {
     await expect
       .poll(() => heading.getBoundingClientRect().bottom <= form.getBoundingClientRect().top)
       .toBe(true)
-  })
-
-  it("paints the lockup's T in coral", async () => {
-    await renderAt(390)
-    const t = document.querySelector('main svg path')!
-    const coral = getComputedStyle(document.documentElement).getPropertyValue('--brand').trim()
-    await expect.poll(() => getComputedStyle(t).stroke).toBe(computedColor(coral))
   })
 
   it('sets the account-deleted notice above the form, beside the carousel', async () => {
