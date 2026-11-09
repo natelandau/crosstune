@@ -28,7 +28,15 @@ const unstubRequests: BrowserCommand<[pattern: string]> = async (context, patter
   stubbed.delete(pattern)
   await context.page.unroute(pattern)
 }
-const commands = { stubRequests, stubbedRequests, unstubRequests }
+// Vitest's Playwright provider finds a file's iframe by name in Playwright's frame list, which
+// learns of the next file's iframe only from CDP events. The file's first click or key press
+// reaches Vitest over its own socket and can arrive before those events, so it lands on the
+// previous file's removed iframe and fails with "Frame was detached". A round trip on the
+// page's CDP session delivers the pending frame events.
+const awaitTestFrame: BrowserCommand<[url: string]> = async ({ page }, url) => {
+  while (page.frame('vitest-iframe')?.url() !== url) await page.mainFrame().evaluate(() => 0)
+}
+const commands = { stubRequests, stubbedRequests, unstubRequests, awaitTestFrame }
 
 // Each browser project runs headless at the phone viewport, in Chromium unless it names
 // another. A fresh object each, because Vitest names each project's instances in place.
