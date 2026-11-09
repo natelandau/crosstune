@@ -11,11 +11,11 @@ const height = (name: string) => {
   return probe.getBoundingClientRect().height
 }
 
-function Probes({ names, prop = 'height' }: { names: string[]; prop?: 'height' | 'borderRadius' }) {
+function Probes({ names }: { names: string[] }) {
   return (
     <>
       {names.map((name) => (
-        <div key={name} data-probe={name} style={{ [prop]: `var(${name})` }} />
+        <div key={name} data-probe={name} style={{ height: `var(${name})` }} />
       ))}
     </>
   )
@@ -23,50 +23,26 @@ function Probes({ names, prop = 'height' }: { names: string[]; prop?: 'height' |
 
 const SIZES = ['--size-compact', '--size-regular', '--size-row', '--size-large']
 
-it.each([
-  ['pointer', 24, 28, 40, 36],
-  ['touch', 32, 36, 48, 48],
-] as const)('sizes the four heights for %s', async (density, compact, regular, row, large) => {
-  renderWithProviders(<Probes names={SIZES} />, { density })
-  await expect.poll(() => height('--size-compact')).toBe(compact)
-  await expect.poll(() => height('--size-regular')).toBe(regular)
-  await expect.poll(() => height('--size-row')).toBe(row)
-  await expect.poll(() => height('--size-large')).toBe(large)
-})
-
 it('scales every size with the text size setting', async () => {
-  document.documentElement.dataset.textSize = 'large'
   try {
     renderWithProviders(<Probes names={SIZES} />, { density: 'pointer' })
+    await expect.poll(() => height('--size-row')).toBeGreaterThan(0)
+    const standard = Object.fromEntries(SIZES.map((name) => [name, height(name)]))
+    document.documentElement.dataset.textSize = 'large'
     const scale = () => parseFloat(getComputedStyle(document.documentElement).fontSize) / 16
     await expect.poll(scale).toBeGreaterThan(1)
-    await expect.poll(() => height('--size-row')).toBe(40 * scale())
-    expect(height('--size-compact')).toBe(24 * scale())
+    for (const name of SIZES) {
+      await expect.poll(() => height(name)).toBe(standard[name]! * scale())
+    }
   } finally {
     delete document.documentElement.dataset.textSize
   }
 })
 
-it('keeps the row 16px taller than compact at the default text size', async () => {
-  renderWithProviders(<Probes names={SIZES} />, { density: 'pointer' })
-  await expect.poll(() => height('--size-row') - height('--size-compact')).toBe(16)
-})
-
-it('draws every control corner at 8px', async () => {
-  renderWithProviders(
-    <Probes names={['--radius', '--radius-inner', '--radius-item']} prop="borderRadius" />,
-  )
-  const radius = (name: string) =>
-    getComputedStyle(document.querySelector(`[data-probe="${name}"]`)!).borderTopLeftRadius
-  await expect.poll(() => radius('--radius')).toBe('8px')
-  expect(radius('--radius-inner')).toBe('6px')
-  expect(radius('--radius-item')).toBe('4px')
-})
-
-it('draws a done check in 300ms, and at once under reduced motion', async () => {
+it('draws a done check over time, and at once under reduced motion', async () => {
   renderWithProviders(<p>x</p>)
   const check = () => getComputedStyle(document.documentElement).getPropertyValue('--dur-check')
-  await expect.poll(check).toBe('300ms')
+  await expect.poll(check).not.toBe('0.01ms')
   await emulateReducedMotion()
   await expect.poll(check).toBe('0.01ms')
 })

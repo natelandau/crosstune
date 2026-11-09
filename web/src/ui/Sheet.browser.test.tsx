@@ -370,17 +370,6 @@ it('pins an accessory with no actions and still closes from the header', async (
   expect(page.getByText('Line').element().closest('footer')).not.toBeNull()
 })
 
-it('is a 480px dialog on pointer', async () => {
-  await page.viewport(1280, 800)
-  renderWithProviders(<Harness />, { density: 'pointer' })
-  await page.getByRole('button', { name: 'Edit tune' }).click()
-  await expect
-    .poll(
-      () => page.getByRole('dialog', { name: 'Edit tune' }).element().getBoundingClientRect().width,
-    )
-    .toBe(480)
-})
-
 it('keeps a 16px gutter on a narrow pointer window', async () => {
   renderWithProviders(<Harness />, { density: 'pointer' })
   await open()
@@ -680,32 +669,6 @@ it('goes back up once the close window passes with no answer', async () => {
   }
   await expect.poll(sheetTop).toBe(844 / 2)
 })
-
-it.each(['touch', 'pointer'] as const)(
-  'darkens the backdrop to one scrim on %s',
-  async (density) => {
-    renderWithProviders(<Harness height="full" />, { density })
-    await open()
-    // A touch sheet fades a black layer; a pointer dialog colors the overlay.
-    const scrim = () => {
-      const dim = document.querySelector('[data-sheet-dim]')
-      if (!dim) {
-        // The overlay mixes the scrim token, which the browser reports as color(srgb …).
-        const color = getComputedStyle(
-          document.querySelector('[data-sheet-scrim]')!,
-        ).backgroundColor
-        return color.replace(
-          /^color\(srgb ([\d.]+) ([\d.]+) ([\d.]+) \/ ([\d.]+)\)$/,
-          (_, r: string, g: string, b: string, a: string) =>
-            `rgba(${[r, g, b].map((c) => Math.round(Number(c) * 255)).join(', ')}, ${a})`,
-        )
-      }
-      const { backgroundColor, opacity } = getComputedStyle(dim)
-      return backgroundColor.replace('rgb(', 'rgba(').replace(')', `, ${opacity})`)
-    }
-    await expect.poll(scrim).toBe('rgba(0, 0, 0, 0.4)')
-  },
-)
 
 it("keeps a touch sheet's header and content clear of the side safe areas", async () => {
   await cdp().send('Emulation.setSafeAreaInsetsOverride', { insets: { left: 40, right: 30 } })

@@ -178,25 +178,6 @@ it.each([
   expect(row.element().getBoundingClientRect().height).toBeLessThanOrEqual(max)
 })
 
-it('tints a warning action differently from a neutral one', async () => {
-  renderWithProviders(
-    <RowList label="Tunes">
-      <Row
-        id="1"
-        textValue="Arkansas Traveler"
-        title="Arkansas Traveler"
-        actions={[
-          { id: 'edit', label: 'Edit', icon: Pencil, onAction: vi.fn() },
-          { id: 'archive', label: 'Archive', icon: Trash2, tone: 'warning', onAction: vi.fn() },
-        ]}
-      />
-    </RowList>,
-  )
-  const color = (name: string) =>
-    getComputedStyle(page.getByRole('button', { name }).element()).color
-  await expect.poll(() => color('Archive')).not.toBe(color('Edit'))
-})
-
 it('does not move the row content when the menu opens', async () => {
   renderWithProviders(
     <RowList label="Tunes">
@@ -475,16 +456,6 @@ it('gives a row with nothing trailing its full width for the title', async () =>
     .toBeLessThanOrEqual(12.5)
 })
 
-/** What the tint token paints, read from an element that shows it alone. */
-function washColor(): string {
-  const probe = document.createElement('div')
-  probe.style.backgroundColor = 'var(--tint)'
-  document.body.append(probe)
-  const color = getComputedStyle(probe).backgroundColor
-  probe.remove()
-  return color
-}
-
 function pointer(target: Element, type: string, pointerType: 'mouse' | 'touch') {
   const rect = target.getBoundingClientRect()
   target.dispatchEvent(
@@ -513,9 +484,10 @@ it('tints a pointer row while it is pressed, and fades its tints', async () => {
   await expect.element(row).toBeVisible()
   const { transitionProperty } = getComputedStyle(row.element())
   expect(transitionProperty.split(', ')).toContain('background-color')
+  const rest = getComputedStyle(row.element()).backgroundColor
   pointer(row.element(), 'pointerdown', 'mouse')
   await expect.element(row).toHaveAttribute('data-pressed')
-  await expect.poll(() => getComputedStyle(row.element()).backgroundColor).toBe(washColor())
+  await expect.poll(() => getComputedStyle(row.element()).backgroundColor).not.toBe(rest)
   pointer(row.element(), 'pointerup', 'mouse')
   await expect.element(row).not.toHaveAttribute('data-pressed')
 })

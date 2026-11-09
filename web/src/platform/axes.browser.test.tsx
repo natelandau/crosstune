@@ -1,5 +1,6 @@
 import { page } from 'vitest/browser'
 import { afterEach, expect, it } from 'vitest'
+import { computedColor } from '../test/color'
 import { renderHookWithProviders, renderWithProviders } from '../test/render'
 import {
   flipSystemDark,
@@ -9,6 +10,7 @@ import {
 } from '../test/scheme'
 import type { Appearance } from '../theme/appearance'
 import { useSchemeSync } from '../theme/scheme'
+import { PALETTE } from '../theme/tokens'
 import { useDensity, useStampedDensity } from './density'
 import { useFrame } from './frame'
 
@@ -37,7 +39,9 @@ it('follows a system scheme change while appearance is System', async () => {
     flipSystemDark(true)
     await expect.poll(() => document.documentElement.dataset.scheme).toBe('dark')
     await expect.poll(() => document.documentElement.style.colorScheme).toBe('dark')
-    await expect.poll(() => getComputedStyle(document.body).backgroundColor).toBe('rgb(22, 24, 27)')
+    await expect
+      .poll(() => getComputedStyle(document.body).backgroundColor)
+      .toBe(computedColor(PALETTE.dark.pageBackground))
   } finally {
     restoreSystemDark()
     delete document.documentElement.dataset.scheme

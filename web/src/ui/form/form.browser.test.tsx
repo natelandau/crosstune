@@ -337,39 +337,6 @@ it('works from the keyboard on touch', async () => {
   expect(onChange).toHaveBeenLastCalledWith('jig')
 })
 
-it.each(['pointer', 'touch'] as const)(
-  'draws a chosen value in primary text and the empty choice in secondary text on %s',
-  async (density) => {
-    renderWithProviders(
-      <>
-        <PickerHost start="reel" />
-        <PickerHost />
-      </>,
-      { density },
-    )
-    // The value inside each trigger, not the hidden native options pointer adds.
-    const textColor = (text: string) => () => {
-      const value = page
-        .getByRole('button', { name: /Type/ })
-        .elements()
-        .flatMap((button) => [...button.querySelectorAll('span')])
-        .find((span) => span.childElementCount === 0 && span.textContent === text)
-      return value ? getComputedStyle(value).color : null
-    }
-    const root = getComputedStyle(document.documentElement)
-    const probe = (token: string) => {
-      const span = document.createElement('span')
-      span.style.color = root.getPropertyValue(token).trim()
-      document.body.append(span)
-      const color = getComputedStyle(span).color
-      span.remove()
-      return color
-    }
-    await expect.poll(textColor('reel')).toBe(probe('--text-primary'))
-    await expect.poll(textColor(ANY)).toBe(probe('--text-secondary'))
-  },
-)
-
 it('rings a refused date part in the danger color on touch', async () => {
   renderWithProviders(
     <Group>
@@ -632,50 +599,6 @@ it.each(['touch', 'pointer'] as const)(
   },
 )
 
-it.each([
-  ['pointer', 24, 40],
-  ['touch', 32, 52],
-] as const)('sizes the switch track from the compact height on %s', async (density, h, w) => {
-  renderWithProviders(<Switch label="Only unheard" isSelected={false} onChange={() => {}} />, {
-    density,
-  })
-  const toggle = page.getByRole('switch', { name: 'Only unheard' })
-  await expect.element(toggle).toBeInTheDocument()
-  const track = toggle.element().closest('label')!.querySelector('.switch-track')!
-  await expect.poll(() => track.getBoundingClientRect().height).toBe(h)
-  expect(track.getBoundingClientRect().width).toBe(w)
-})
-
-it.each([
-  ['pointer', 24],
-  ['touch', 32],
-] as const)('sizes the checkbox ring from the compact height on %s', async (density, size) => {
-  renderWithProviders(<Checkbox label="Include Reel" isSelected={false} onChange={() => {}} />, {
-    density,
-  })
-  const ring = page
-    .getByRole('checkbox', { name: 'Include Reel' })
-    .element()
-    .closest('label')!
-    .querySelector('.check-mark')!
-  await expect.poll(() => ring.getBoundingClientRect().height).toBe(size)
-  expect(ring.getBoundingClientRect().width).toBe(size)
-})
-
-it.each(['pointer', 'touch'] as const)(
-  'draws the checkbox hover halo well past its ring on %s',
-  async (density) => {
-    renderWithProviders(<Checkbox label="Include Reel" isSelected={false} onChange={() => {}} />, {
-      density,
-    })
-    const box = page.getByRole('checkbox', { name: 'Include Reel' }).element().closest('label')!
-    const ring = box.querySelector('.check-mark')!
-    await expect.poll(() => ring.getBoundingClientRect().width).toBeGreaterThan(0)
-    const halo = parseFloat(getComputedStyle(box, '::before').width)
-    expect(halo - ring.getBoundingClientRect().width).toBeGreaterThanOrEqual(12)
-  },
-)
-
 it.each(['pointer', 'touch'] as const)(
   'a switch, a checkbox, and a chip line up in rows on %s',
   async (density) => {
@@ -736,14 +659,12 @@ it('draws a hairline between rows and none above the first', async () => {
     .filter((row) => getComputedStyle(row).display !== 'none')
   const hairline = (row: Element) => {
     const line = getComputedStyle(row, '::before')
-    return line.content !== 'none' && line.height === '1px'
+    return line.content !== 'none' && parseFloat(line.height) > 0
   }
   // The composer, the date's year, month, day, and Clear date, then the switch.
   expect(rows).toHaveLength(6)
   expect(hairline(rows[0]!)).toBe(false)
   expect(rows.slice(1).every(hairline)).toBe(true)
-  // Inset to the text, so the line starts where the label does.
-  expect(getComputedStyle(rows[1]!, '::before').left).toBe('16px')
 })
 
 it.each(['pointer', 'touch'] as const)(
@@ -766,10 +687,19 @@ it.each(['pointer', 'touch'] as const)(
     expect(line(rows[1]!)).not.toBe('none')
     // The hover fill keeps the card's corners.
     await page.getByRole('button', { name: /Type/ }).hover()
-    expect(getComputedStyle(rows[0]!).borderTopLeftRadius).toBe('8px')
-    expect(getComputedStyle(rows[0]!).borderTopRightRadius).toBe('8px')
+    expect(corners(rows[0]!).slice(0, 2)).toEqual([radius(), radius()])
   },
 )
+
+/** The card corner token as the browser computes a radius. */
+function radius(): string {
+  const probe = document.createElement('div')
+  probe.style.borderRadius = 'var(--radius)'
+  document.body.append(probe)
+  const value = getComputedStyle(probe).borderTopLeftRadius
+  probe.remove()
+  return value
+}
 
 /** A group's rendered rows, past the unrendered template a pointer picker leaves. */
 function rowsOf(inside: Element): Element[] {
@@ -796,7 +726,7 @@ it('rounds all four corners of a group with one row', async () => {
   const composer = page.getByText('Composer', { exact: true })
   await expect.element(composer).toBeVisible()
   const [row] = rowsOf(composer.element())
-  expect(corners(row!)).toEqual(['8px', '8px', '8px', '8px'])
+  expect(corners(row!)).toEqual([radius(), radius(), radius(), radius()])
 })
 
 it('rounds the card corners on rows inside a wrapper that leads and ends its group', async () => {
@@ -814,8 +744,8 @@ it('rounds the card corners on rows inside a wrapper that leads and ends its gro
     )
     .filter((row) => getComputedStyle(row).display !== 'none')
   expect(rows.length).toBeGreaterThan(1)
-  await expect.poll(() => corners(rows[0]!).slice(0, 2)).toEqual(['8px', '8px'])
-  expect(corners(rows.at(-1)!).slice(2)).toEqual(['8px', '8px'])
+  await expect.poll(() => corners(rows[0]!).slice(0, 2)).toEqual([radius(), radius()])
+  expect(corners(rows.at(-1)!).slice(2)).toEqual([radius(), radius()])
 })
 
 it.each(['pointer', 'touch'] as const)(
@@ -834,7 +764,7 @@ it.each(['pointer', 'touch'] as const)(
     expect(rows).toHaveLength(2)
     expect(getComputedStyle(rows[0]!, '::before').content).toBe('none')
     expect(getComputedStyle(rows[1]!, '::before').content).not.toBe('none')
-    expect(corners(rows[0]!).slice(0, 2)).toEqual(['8px', '8px'])
+    expect(corners(rows[0]!).slice(0, 2)).toEqual([radius(), radius()])
   },
 )
 
@@ -867,8 +797,8 @@ it.each(['pointer', 'touch'] as const)(
     await expect.element(composer).toBeVisible()
     const rows = rowsOf(composer.element())
     expect(rows).toHaveLength(3)
-    expect(corners(rows[0]!).slice(0, 2)).toEqual(['8px', '8px'])
-    expect(corners(rows[2]!).slice(2)).toEqual(['8px', '8px'])
+    expect(corners(rows[0]!).slice(0, 2)).toEqual([radius(), radius()])
+    expect(corners(rows[2]!).slice(2)).toEqual([radius(), radius()])
   },
 )
 

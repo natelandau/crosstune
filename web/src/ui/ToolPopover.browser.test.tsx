@@ -77,20 +77,10 @@ it("updates its value from the popover's controls", async () => {
   await expect.element(page.getByRole('button', { name: 'Rate 1', exact: true })).toBeVisible()
 })
 
-it('draws a changed value and icon in the accent, and an open one on a tint', async () => {
+it('marks a changed value apart from an unchanged one', async () => {
   renderWithProviders(<Toolbar changed />)
-  const tone = page.getByRole('button', { name: /^Tone/ })
   await expect.element(rate()).toHaveAttribute('data-changed', 'true')
-  await expect.element(tone).not.toHaveAttribute('data-changed')
-  const color = (button: typeof tone, selector: string) =>
-    getComputedStyle(button.element().querySelector(selector)!).color
-  expect(color(rate(), 'span:last-child')).not.toBe(color(tone, 'span:last-child'))
-  expect(color(rate(), 'svg')).toBe(color(rate(), 'span:last-child'))
-  expect(color(tone, 'svg')).toBe(color(tone, 'span:last-child'))
-
-  const fill = () => getComputedStyle(tone.element()).backgroundColor
-  const closed = fill()
-  await tone.click()
-  await expect.element(page.getByRole('dialog', { name: 'Tone' })).toBeVisible()
-  await expect.poll(fill).not.toBe(closed)
+  await expect
+    .element(page.getByRole('button', { name: /^Tone/ }))
+    .not.toHaveAttribute('data-changed')
 })

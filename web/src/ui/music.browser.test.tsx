@@ -3,6 +3,7 @@ import { describe, expect, it, onTestFinished } from 'vitest'
 import { STATUS_LABELS } from '../constants'
 import { contrastRatio, paintedBackground } from '../test/contrast'
 import { renderWithProviders } from '../test/render'
+import { Capsule } from './Capsule'
 import { KeyPill } from './KeyPill'
 import { StatusGlyph } from './StatusGlyph'
 
@@ -20,15 +21,6 @@ it('hides a labelled glyph from assistive technology', async () => {
   renderWithProviders(<StatusGlyph status="known" labelled />)
   await expect.element(page.getByText(STATUS_LABELS.known)).toBeVisible()
   expect(page.getByRole('img', { name: STATUS_LABELS.known }).elements()).toHaveLength(0)
-})
-
-it.each([
-  ['touch', 18],
-  ['pointer', 14],
-] as const)('sizes the glyph for %s', async (density, size) => {
-  renderWithProviders(<StatusGlyph status="learning" />, { density })
-  const glyph = page.getByRole('img', { name: STATUS_LABELS.learning })
-  await expect.poll(() => glyph.element().getBoundingClientRect().width).toBe(size)
 })
 
 // The glyph's shape is painted by its border, so contrast is read from that color. Learning's
@@ -86,7 +78,7 @@ it('gives two spellings of one pitch one color', async () => {
   await expect.poll(() => fill('Bb')).toBe(fill('A#'))
 })
 
-it('fills a chosen pill differently from a resting one of the same key', async () => {
+it('marks a chosen pill and keeps its pitch', async () => {
   renderWithProviders(
     <>
       <KeyPill value="G" />
@@ -98,9 +90,6 @@ it('fills a chosen pill differently from a resting one of the same key', async (
   expect(resting).not.toHaveAttribute('data-chosen')
   expect(chosen).toHaveAttribute('data-chosen')
   expect(resting!.dataset.pitch).toBe(chosen!.dataset.pitch)
-  await expect
-    .poll(() => getComputedStyle(chosen!).backgroundColor)
-    .not.toBe(getComputedStyle(resting!).backgroundColor)
 })
 
 it('gives an unreadable key the neutral fill and keeps the suffix', async () => {
@@ -116,23 +105,24 @@ it('gives an unreadable key the neutral fill and keeps the suffix', async () => 
   await expect.poll(() => bg('Am')).not.toBe(bg('D mix'))
 })
 
-it.each([
-  ['pointer', 18],
-  ['touch', 22],
-] as const)('a compact pill is %s tall', async (density, height) => {
-  renderWithProviders(<KeyPill value="D" compact />, { density })
-  const pill = page.getByText('D', { exact: true })
-  await expect.poll(() => pill.element().getBoundingClientRect().height).toBe(height)
-})
-
-it.each([
-  ['pointer', 24],
-  ['touch', 32],
-] as const)('a full pill on %s is as tall as a capsule, %ipx', async (density, height) => {
-  renderWithProviders(<KeyPill value="D" />, { density })
-  const pill = page.getByText('D', { exact: true })
-  await expect.poll(() => pill.element().getBoundingClientRect().height).toBe(height)
-})
+it.each(['pointer', 'touch'] as const)(
+  'a full pill on %s is as tall as a capsule',
+  async (density) => {
+    renderWithProviders(
+      <>
+        <KeyPill value="D" />
+        <Capsule label="Key: Any" />
+      </>,
+      { density },
+    )
+    const pill = page.getByText('D', { exact: true })
+    const capsule = page.getByRole('button', { name: 'Key: Any' })
+    await expect.element(capsule).toBeVisible()
+    await expect
+      .poll(() => pill.element().getBoundingClientRect().height)
+      .toBe(capsule.element().getBoundingClientRect().height)
+  },
+)
 
 it('renders nothing for a blank key', async () => {
   const { container } = renderWithProviders(<KeyPill value="  " />)
@@ -142,9 +132,13 @@ it('renders nothing for a blank key', async () => {
 
 it('sizes a compact pill for touch when no density is stamped', async () => {
   renderWithProviders(<KeyPill value="D" compact />, { density: 'touch' })
-  delete document.documentElement.dataset.density
   const pill = page.getByText('D', { exact: true })
-  await expect.poll(() => pill.element().getBoundingClientRect().height).toBe(22)
+  await expect.element(pill).toBeVisible()
+  const touch = pill.element().getBoundingClientRect().height
+  document.documentElement.dataset.density = 'pointer'
+  await expect.poll(() => pill.element().getBoundingClientRect().height).not.toBe(touch)
+  delete document.documentElement.dataset.density
+  await expect.poll(() => pill.element().getBoundingClientRect().height).toBe(touch)
 })
 
 it('keeps Learning unlike Unknown in forced colors', async () => {

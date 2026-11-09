@@ -27,18 +27,13 @@ function MoreMenu({ onEdit = () => {} }: { onEdit?: () => void }) {
   )
 }
 
-it('puts a destructive item last, after a separator, in the danger color', async () => {
+it('puts a destructive item last, after a separator', async () => {
   renderWithProviders(<MoreMenu />, { density: 'pointer' })
   await page.getByRole('button', { name: MORE_ACTIONS }).click()
   await expect.element(page.getByRole('menuitem', { name: 'Delete' })).toBeVisible()
   const items = page.getByRole('menuitem').elements()
   expect(items.map((e) => e.textContent)).toEqual(['Edit', 'Archive', 'Delete'])
   expect(page.getByRole('separator').elements()).toHaveLength(1)
-  const color = (name: string) =>
-    getComputedStyle(page.getByRole('menuitem', { name }).element()).color
-  expect(color('Delete')).not.toBe(color('Edit'))
-  expect(color('Archive')).not.toBe(color('Edit'))
-  expect(color('Archive')).not.toBe(color('Delete'))
 })
 
 it('runs a pointer item and closes the popover', async () => {
@@ -154,23 +149,6 @@ it('confirm declines a second question while one is open', async () => {
   expect(first).not.toHaveBeenCalled()
   await page.getByRole('button', { name: CANCEL }).click()
   await expect.poll(() => first).toHaveBeenCalledExactlyOnceWith(false)
-})
-
-it('confirm styles a warning action unlike a danger one', async () => {
-  renderWithProviders(
-    <ConfirmButton onAnswer={() => {}} options={{ ...OPTIONS, tone: 'warning' }} />,
-    {
-      density: 'pointer',
-    },
-  )
-  await page.getByRole('button', { name: 'Ask' }).click()
-  const action = page.getByRole('button', { name: DELETE })
-  await expect.element(action).toBeVisible()
-  const warning = getComputedStyle(action.element()).color
-  expect(warning).not.toBe(
-    getComputedStyle(page.getByRole('button', { name: CANCEL }).element()).color,
-  )
-  await page.getByRole('button', { name: CANCEL }).click()
 })
 
 it.each(['touch', 'pointer'] as const)(

@@ -608,7 +608,6 @@ function TouchSheet(props: SheetProps) {
       {/* A layer that fades, since animating a color repaints the whole window each frame. */}
       <motion.div
         aria-hidden
-        data-sheet-dim
         className="absolute inset-0"
         style={{ opacity: backdrop, backgroundColor: SCRIM_COLOR }}
       />

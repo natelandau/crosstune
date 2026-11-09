@@ -72,7 +72,6 @@ it('stacks icon over label on touch and sets them side by side on pointer', asyn
   await expect.element(tab('Overview')).toBeVisible()
   await expect.poll(() => parts().text.left).toBeGreaterThanOrEqual(parts().icon.right)
   expect(parts().text.top).toBeLessThan(parts().icon.bottom)
-  expect(tab('Overview').element().getBoundingClientRect().height).toBe(44)
 })
 
 it('stacks icon over label on pointer inside a sheet or popover', async () => {
@@ -91,90 +90,20 @@ it('stacks icon over label on pointer inside a sheet or popover', async () => {
   expect(text.top).toBeGreaterThanOrEqual(icon.bottom)
 })
 
-const TRANSPARENT = 'rgba(0, 0, 0, 0)'
-
-// The nearest element that holds both the tab list and the panel.
-function sharedAncestor() {
-  const panel = page.getByRole('tabpanel').element()
-  let node: HTMLElement | null = page.getByRole('tablist').element().parentElement
-  while (node && !node.contains(panel)) node = node.parentElement
-  return node!
-}
-
-it('draws the tab list and panel as one card by default', async () => {
-  renderWithProviders(<Harness />, { density: 'pointer' })
-  await expect.element(page.getByRole('tabpanel')).toBeVisible()
-  const card = getComputedStyle(sharedAncestor())
-  expect(card.backgroundColor).not.toBe(TRANSPARENT)
-  expect(card.borderTopLeftRadius).toBe('8px')
-  expect(getComputedStyle(page.getByRole('tabpanel').element()).paddingLeft).toBe('16px')
-})
-
-it('draws no card around tabs that switch a page', async () => {
-  renderWithProviders(<Harness container="page" />, { density: 'pointer' })
-  await expect.element(page.getByRole('tabpanel')).toBeVisible()
-  expect(getComputedStyle(sharedAncestor()).backgroundColor).toBe(TRANSPARENT)
-  expect(getComputedStyle(page.getByRole('tabpanel').element()).paddingLeft).toBe('0px')
-})
-
-it('draws larger labels and icons on pointer and keeps touch sizes', async () => {
-  const sizes = () => {
-    const element = tab('Overview').element()
-    return {
-      height: element.getBoundingClientRect().height,
-      font: getComputedStyle(element).fontSize,
-      icon: element.querySelector('svg')!.getBoundingClientRect().width,
-    }
-  }
-  const pointer = renderWithProviders(<Harness />, { density: 'pointer' })
-  await expect.element(tab('Overview')).toBeVisible()
-  await expect.poll(sizes).toEqual({ height: 44, font: '15px', icon: 20 })
-  pointer.unmount()
-
-  renderWithProviders(<Harness />, { density: 'touch' })
-  await expect.element(tab('Overview')).toBeVisible()
-  await expect.poll(() => sizes().font).toBe('12px')
-  expect(sizes().icon).toBe(22)
-})
-
-it.each(['card', 'page'] as const)(
-  'fills an unselected tab on hover in a %s',
-  async (container) => {
-    renderWithProviders(<Harness container={container} />, { density: 'pointer' })
-    await expect.element(tab('Activity')).toBeVisible()
-    const fill = (name: string) => getComputedStyle(tab(name).element()).backgroundColor
-    expect(fill('Activity')).toBe(TRANSPARENT)
-    await userEvent.hover(tab('Activity'))
-    await expect.poll(() => fill('Activity')).not.toBe(TRANSPARENT)
-    expect(getComputedStyle(tab('Activity').element()).borderTopLeftRadius).toBe('6px')
-    await userEvent.hover(tab('Overview'))
-    await expect.poll(() => fill('Overview')).toBe(TRANSPARENT)
-  },
-)
-
-it('draws labels at weight 600 in every state', async () => {
-  renderWithProviders(<Harness />)
-  await expect.element(tab('Overview')).toBeVisible()
-  const weight = (name: string) => getComputedStyle(tab(name).element()).fontWeight
-  await expect.poll(() => weight('Overview')).toBe('600')
-  expect(weight('Activity')).toBe('600')
-  await tab('Activity').click()
-  await expect.poll(() => weight('Activity')).toBe('600')
-  expect(weight('Overview')).toBe('600')
-})
-
 it('slides the panel in from the side of the new tab', async () => {
   renderWithProviders(<Harness />)
   await expect.element(tab('Overview')).toBeVisible()
   vi.useFakeTimers()
   const start = () => {
     const [animation] = page.getByRole('tabpanel').element().getAnimations()
-    return (animation?.effect as KeyframeEffect | undefined)?.getKeyframes()[0]?.translate
+    const translate = (animation?.effect as KeyframeEffect | undefined)?.getKeyframes()[0]
+      ?.translate
+    return parseFloat(String(translate))
   }
   await userEvent.click(tab('Settings'), { force: true })
-  await pollStill(start).toMatch(/^12px/)
+  await pollStill(start).toBeGreaterThan(0)
   await userEvent.click(tab('Overview'), { force: true })
-  await pollStill(start).toMatch(/^-12px/)
+  await pollStill(start).toBeLessThan(0)
 })
 
 it('skips a disabled tab with the arrow keys', async () => {

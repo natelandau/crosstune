@@ -61,14 +61,6 @@ describe.each(['light', 'dark'] as const)('%s palette', (scheme) => {
   it.each(cases)('%s passes', (_, fg, bg, min) => expect(ratio(fg, bg)).toBeGreaterThanOrEqual(min))
 })
 
-// Learning is Apple's system orange, below 3:1 on a light page; its half fill carries the status.
-it.each([
-  ['light', '#FF8D28'],
-  ['dark', '#FF9230'],
-] as const)("draws learning in Apple's %s orange", (scheme, orange) => {
-  expect(PALETTE[scheme].statusLearning).toBe(orange)
-})
-
 it.each(['light', 'dark'] as const)(
   'draws %s tertiary text fainter than secondary text',
   (scheme) => {

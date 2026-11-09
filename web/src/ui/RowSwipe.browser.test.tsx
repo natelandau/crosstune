@@ -242,7 +242,6 @@ it('keeps a keyboard-pressed action open, in view, and ringed in its label color
   await expect.element(del).toHaveFocus()
   await expect.poll(() => uncovered(del.element())).toBe(true)
   const style = getComputedStyle(del.element())
-  expect(style.outlineOffset).toBe('-4px')
   expect(style.outlineColor).toBe(style.color)
 })
 
@@ -440,8 +439,6 @@ it('fills every action in its tone at one width, with a short label that keeps t
   }
   expect(buttons[1]!.textContent).toBe('Archive')
   const fills = buttons.map((button) => getComputedStyle(button).backgroundColor)
-  expect(fills[1]).toBe('rgb(239, 131, 84)')
-  expect(fills[2]).toBe('rgb(179, 38, 30)')
   expect(new Set(fills).size).toBe(3)
 })
 

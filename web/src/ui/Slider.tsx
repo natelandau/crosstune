@@ -150,6 +150,7 @@ export function Slider({
                 {detent !== undefined ? (
                   <i
                     data-detent-tick
+                    data-snapped={snapped}
                     className={`pointer-events-none absolute top-1/2 h-3 w-0.5 -translate-x-1/2 -translate-y-1/2 rounded-[1px] transition-colors duration-(--dur-short) ease-(--ease) ${snapped ? 'bg-accent' : 'bg-(--border-strong)'}`}
                     style={{ left: percent(detent) }}
                   />
