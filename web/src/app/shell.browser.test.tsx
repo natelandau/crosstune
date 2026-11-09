@@ -227,13 +227,6 @@ it('names why Record is unavailable outside the recorder, and disables it', asyn
   await expect.element(record).toHaveAccessibleDescription(RECORD_UNAVAILABLE)
 })
 
-it('keeps a disabled round Record button solid', async () => {
-  renderWithProviders(<RecordControl shape="circle" />)
-  const record = page.getByRole('button', { name: RECORD_LABEL })
-  await expect.element(record).toBeDisabled()
-  expect(getComputedStyle(record.element()).opacity).toBe('1')
-})
-
 it('marks the Lists heading selected on the Lists root', async () => {
   const db = openTestDb()
   await seed(db)
@@ -411,7 +404,7 @@ it.each([
   await page.getByRole('button', { name: 'Confirm delete' }).click()
   await expect.element(record).toHaveAttribute('aria-hidden', 'true')
   await expect.element(record).toHaveAttribute('inert')
-  await page.getByRole('button', { name: CANCEL }).click()
+  await page.getByRole('alertdialog').getByRole('button', { name: CANCEL }).click()
   await expect.element(record).not.toHaveAttribute('aria-hidden')
 })
 

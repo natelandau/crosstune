@@ -134,6 +134,21 @@ is set.
   `just web::e2e` in a second terminal. `just api::e2e-db-reset` empties
   it.
 
+### Web screenshots
+
+- `*.visual.test.tsx` files compare elements with PNG baselines beside
+  them. Baselines come from CI's Playwright image on `linux/amd64`, so
+  only `just web::test-visual` runs them, in Docker. Never run the
+  `visual` project natively: a Mac renders fonts differently and every
+  image fails.
+- A deliberate design change fails them. Remake the baselines with
+  `just web::test-visual --update`, then look at the changed images before
+  you commit them. A failed run leaves each diff in
+  `web/.vitest/attachments`.
+- A capture waits until no animation is running, so a cross-fade or a
+  spinner never lands in a baseline.
+- `just test` leaves the `visual` project out. CI runs it on one shard.
+
 ### In CI
 
 - A failed Playwright test reruns once. One that passed only on a rerun

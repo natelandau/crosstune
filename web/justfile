@@ -103,6 +103,12 @@ test-unit *args:
 test-browser *args:
     {{ gate }} web-test-browser --argc "$#" --file .env --tool 'node --version' pnpm vitest run --project browser --project browser-webkit "$@"
 
+# Compare the component library with its screenshots
+[group('test')]
+[arg("args", help="Arguments for vitest; --update remakes the screenshots")]
+test-visual *args:
+    scripts/visual.sh "$@"
+
 # Rerun tests shuffled to find a flaky one
 [group('test')]
 [arg("runs", pattern="[0-9]+", help="How many shuffled runs; SEED=<n> in the environment replays one")]

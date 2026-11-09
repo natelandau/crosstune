@@ -26,6 +26,10 @@ const TYPE_ROLES = [
   ['t-body', 'Body'],
   ['t-secondary', 'Secondary'],
   ['t-caption', 'Caption'],
+  ['t-tab', 'Tab label'],
+  ['t-timer', '1:05'],
+  ['t-lyrics', 'Reading text'],
+  ['t-num', 'Number 1,234.50'],
 ] as const
 
 const BY_NAME = Object.fromEntries(CONTROLS.map((control) => [control.name, control]))

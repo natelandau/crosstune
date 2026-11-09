@@ -111,6 +111,9 @@ jobs:
         env:
           COVERAGE_SHARD: "1"
       - run: just test --shard=${{ matrix.shard }}/3 --project browser-webkit --passWithNoTests
+      # The baselines are made in this image on this CPU, so only here do the pixels match.
+      - if: matrix.shard == 1
+        run: just test --project visual
       - uses: actions/upload-artifact@v7
         with:
           name: web-test-blob-${{ matrix.shard }}

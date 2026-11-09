@@ -21,6 +21,7 @@ import {
   Volume2,
   Hash,
   X,
+  ZoomIn,
   type LucideIcon,
 } from 'lucide-react'
 import { animate } from 'motion/react'
@@ -30,6 +31,7 @@ import { Button } from '../ui/Button'
 import { Capsule } from '../ui/Capsule'
 import { DELETE, useConfirm, type ConfirmOptions } from '../ui/Confirm'
 import { IconButton } from '../ui/IconButton'
+import { InBar } from '../ui/inBar'
 import { Menu } from '../ui/Menu'
 import { PressableList, PressableOption, PressableRow } from '../ui/PressableRow'
 import { RangeHandles } from '../ui/RangeHandles'
@@ -310,14 +312,21 @@ export function ActionsSection({ components }: { components: Record<string, { na
           <Button variant="secondary" label="Regular" />
           <Button variant="primary" size="large" label="Large" />
         </Demo>
+        <Demo label="In a bar: round, like the bar">
+          <InBar value>
+            <Button variant="secondary" label="Cancel" />
+            <Button variant="primary" label="Done" />
+          </InBar>
+        </Demo>
       </ControlSection>
       <ControlSection
         control={components.IconButton!}
-        purpose="An action shown only as an icon, always a circle. Plain for toolbar actions, Neutral on a busy surface, Toggle for on and off, Feature for the one main control of a media view."
+        purpose="An action shown only as an icon, always a circle. Plain for toolbar actions, Neutral on a busy surface, Toggle for on and off, Feature for the one main control of a media view, Destructive for deleting."
       >
-        <Demo label="Plain, neutral, disabled">
+        <Demo label="Plain, neutral, destructive, disabled">
           <IconButton icon={Ellipsis} label="More options" />
           <IconButton icon={Plus} label="Add" variant="neutral" />
+          <IconButton icon={Trash2} label="Delete" variant="destructive" />
           <IconButton icon={Ellipsis} label="Unavailable options" isDisabled />
         </Demo>
         <Demo label="Toggle">
@@ -338,6 +347,8 @@ export function ActionsSection({ components }: { components: Record<string, { na
         </Demo>
         <Demo label="Sizes">
           <IconButton icon={Plus} label="Add compact" size="compact" variant="neutral" />
+          <IconButton icon={Plus} label="Add regular" variant="neutral" />
+          <IconButton icon={Plus} label="Add in a sheet" size="large" variant="neutral" />
           <IconButton icon={Plus} label="Add large" size="large44" variant="neutral" />
           <IconButton icon={RotateCw} label="Skip forward" size="transport" />
           <IconButton icon={Plus} label="Add feature" size="feature" variant="feature" />
@@ -514,11 +525,7 @@ export function ChoicesSection({ components }: { components: Record<string, { na
               isSelected={status === id}
               onChange={() => setStatus(id)}
             >
-              <span
-                data-status-dot
-                aria-hidden
-                className={`size-2.5 rounded-full border-2 ${dot}`}
-              />
+              <span aria-hidden className={`size-2.5 rounded-full border-2 ${dot}`} />
               {name}
             </Capsule>
           ))}
@@ -567,6 +574,7 @@ export function ValuesSection({ components }: { components: Record<string, { nam
   const [volume, setVolume] = useState(65)
   const [balance, setBalance] = useState(-8)
   const [range, setRange] = useState<[number, number]>([0.25, 0.7])
+  const [zoom, setZoom] = useState(150)
   const signed = (value: number) => (value > 0 ? `+${value}` : String(value))
   return (
     <section aria-labelledby="gallery-values" className="flex flex-col gap-8">
@@ -702,6 +710,19 @@ export function ValuesSection({ components }: { components: Record<string, { nam
               onChange={setQuantity}
             />
           </ToolPopover>
+          <ToolPopover icon={ZoomIn} label="Zoom" value={`${zoom}%`} changed={zoom !== 100}>
+            <Stepper
+              label="Zoom"
+              value={zoom}
+              min={50}
+              max={200}
+              step={25}
+              format={(value) => `${value}%`}
+              decrementLabel="Zoom out"
+              incrementLabel="Zoom in"
+              onChange={setZoom}
+            />
+          </ToolPopover>
         </div>
       </ControlSection>
     </section>
@@ -718,6 +739,7 @@ export function FormsSection({ components }: { components: Record<string, { name
   const [name, setName] = useState('Untitled')
   const [notes, setNotes] = useState('')
   const [category, setCategory] = useState<string | null>('general')
+  const [folder, setFolder] = useState<string | null>(null)
   const [enabled, setEnabled] = useState(false)
   const [members, setMembers] = useState(['Member 1', 'Member 2'])
   const [query, setQuery] = useState('')
@@ -763,6 +785,13 @@ export function FormsSection({ components }: { components: Record<string, { name
       >
         <Group>
           <Picker label="Category" value={category} options={CATEGORIES} onChange={setCategory} />
+          <Picker
+            label="Folder"
+            value={folder}
+            emptyLabel="None"
+            options={CATEGORIES}
+            onChange={setFolder}
+          />
           <Switch label="Enabled" isSelected={enabled} onChange={setEnabled} />
         </Group>
       </ControlSection>
@@ -876,7 +905,11 @@ function MenuDemo() {
       <Menu
         label="More actions"
         trigger={<IconButton label="More actions" icon={Ellipsis} />}
-        items={[action('edit', 'Edit', Pencil), action('duplicate', 'Duplicate', Copy)]}
+        items={[
+          action('edit', 'Edit', Pencil),
+          action('duplicate', 'Duplicate', Copy),
+          { ...action('archive', 'Archive', Archive), tone: 'warning' },
+        ]}
         destructive={[action('delete', 'Delete', Trash2)]}
       />
       <Menu
