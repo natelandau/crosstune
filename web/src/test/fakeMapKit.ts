@@ -1,4 +1,4 @@
-import type { MapKit, MapKitEvent, MapKitPlace } from '../platform/mapkit'
+import type { MapKit, MapKitEvent, MapKitPlace, PointsOfInterestRequest } from '../platform/mapkit'
 
 export interface FakeMapKitOptions {
   /** What a points-of-interest search resolves with. */
@@ -141,15 +141,25 @@ export function fakeMapKit(options: FakeMapKitOptions = {}): {
     PointOfInterestCategory: { MusicVenue: 'MusicVenue', Cafe: 'Cafe', Restaurant: 'Restaurant' },
     PointOfInterestFilter: { including: (categories: string[]) => ({ including: categories }) },
     PointsOfInterestSearch: class {
-      async search(request: { center: unknown; radius: number; pointOfInterestFilter: unknown }) {
+      // MapKit JS 5 answers only through the callback, and a first argument that is not a
+      // function is taken as a delegate with no search region, which never answers here.
+      search(callback: unknown, request: Partial<PointsOfInterestRequest> = {}) {
+        if (typeof callback !== 'function') return undefined
+        const answer = callback as (
+          error: Error | null,
+          response?: { places: MapKitPlace[] },
+        ) => void
         seen.searches.push({
           center: request.center,
-          radius: request.radius,
+          radius: request.radius ?? 0,
           filter: request.pointOfInterestFilter,
         })
-        await options.holdSearch?.()
-        if (options.searchFails) throw new Error('search failed')
-        return { places: options.places ?? [] }
+        void Promise.resolve(options.holdSearch?.()).then(() =>
+          options.searchFails
+            ? answer(new Error('Network Error'))
+            : answer(null, { places: options.places ?? [] }),
+        )
+        return undefined
       }
     },
   }

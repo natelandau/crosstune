@@ -142,10 +142,18 @@ it('says the map is unavailable when MapKit reports Too Many Requests', async ()
   expect(seen.maps[0]!.destroyed).toBe(true)
 })
 
-it('draws the map again once MapKit configures itself after a passing error', async () => {
+it('keeps the map through an error that leaves MapKit usable', async () => {
   const { container, seen, dispatch } = setup({ accuracyM: 20 })
   await expect.poll(() => seen.maps.length).toBe(1)
   act(() => dispatch('error', { status: 'Network Error' }))
+  expect(drawn(container)).not.toBeNull()
+  expect(seen.maps[0]!.destroyed).toBe(false)
+})
+
+it('draws the map again once MapKit configures itself after a throttle', async () => {
+  const { container, seen, dispatch } = setup({ accuracyM: 20 })
+  await expect.poll(() => seen.maps.length).toBe(1)
+  act(() => dispatch('error', { status: 'Too Many Requests' }))
   await expect.poll(() => drawn(container)).toBeNull()
 
   act(() => dispatch('configuration-change', { status: 'Refreshed' }))

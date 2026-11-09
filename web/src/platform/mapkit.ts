@@ -1,3 +1,5 @@
+import * as Sentry from '@sentry/react'
+
 /** The slice of MapKit JS this app draws with, so no type package is needed. */
 export interface MapKitCoordinate {
   latitude: number
@@ -38,6 +40,7 @@ export interface MapKitMap {
 
 export interface MapKitEvent {
   status?: string
+  message?: string
 }
 
 export interface MapKit {
@@ -58,12 +61,18 @@ export interface MapKit {
   PointOfInterestCategory: Record<string, string>
   PointOfInterestFilter: { including(categories: string[]): unknown }
   PointsOfInterestSearch: new () => {
-    search(request: {
-      center: MapKitCoordinate
-      radius: number
-      pointOfInterestFilter: unknown
-    }): Promise<{ places: MapKitPlace[] }>
+    /** MapKit JS 5 answers only through `callback`: this `search` returns no promise. */
+    search(
+      callback: (error: Error | null, response?: { places: MapKitPlace[] }) => void,
+      request: PointsOfInterestRequest,
+    ): unknown
   }
+}
+
+export interface PointsOfInterestRequest {
+  center: MapKitCoordinate
+  radius: number
+  pointOfInterestFilter: unknown
 }
 
 /**
@@ -181,15 +190,22 @@ function within<T>(env: MapKitEnv, step: Promise<T>, onTimeout?: () => void): Pr
   ])
 }
 
+/**
+ * The error statuses that stop MapKit: a refused token, or the Maps ID over its daily limit.
+ * MapKit reports an error only when loading its configuration fails, and keeps the last one
+ * through any other status, such as a network error or timeout on a refresh.
+ */
+const STOPPING_ERRORS = new Set(['Unauthorized', 'Too Many Requests'])
 /** An error status after which MapKit never works again on this page: it refused the token. */
 const LASTING_ERRORS = new Set(['Unauthorized'])
 /** The configuration statuses that say MapKit works: first set up, or set up again. */
 const READY_STATUSES = new Set(['Initialized', 'Refreshed'])
 
 /**
- * Tells `onChange` whether MapKit can be used as it reports errors and configurations: an error
- * stops it, a later configuration brings it back, and a refused token stops it for good, since a
- * network error, timeout, or throttle passes and a refusal does not. Returns the unsubscribe.
+ * Tells `onChange` whether MapKit can be used as it reports errors and configurations: a refused
+ * token or a throttle stops it, a later configuration brings it back, and a refused token stops
+ * it for good, since a throttle passes and a refusal does not. Other errors leave it usable.
+ * Returns the unsubscribe.
  */
 export function watchMapKit(
   mapkit: MapKit,
@@ -197,7 +213,9 @@ export function watchMapKit(
 ): () => void {
   let refused = false
   const onError = (event: MapKitEvent) => {
-    if (LASTING_ERRORS.has(event.status ?? '')) refused = true
+    const status = event.status ?? ''
+    if (!STOPPING_ERRORS.has(status)) return
+    if (LASTING_ERRORS.has(status)) refused = true
     onChange(false, refused)
   }
   const onConfigured = (event: MapKitEvent) => {
@@ -211,16 +229,41 @@ export function watchMapKit(
   }
 }
 
-/** Resolves true once MapKit first answers with a configuration, false with an error. */
+/**
+ * Resolves true once MapKit first answers with a configuration, false with any error, since
+ * MapKit has nothing to work with until its first configuration loads.
+ */
 function configured(mapkit: MapKit): { answer: Promise<boolean>; stop: () => void } {
   let stop = () => {}
   const answer = new Promise<boolean>((resolve) => {
-    stop = watchMapKit(mapkit, (usable) => {
+    const onError = () => {
       stop()
-      resolve(usable)
-    })
+      resolve(false)
+    }
+    const onConfigured = (event: MapKitEvent) => {
+      if (!READY_STATUSES.has(event.status ?? '')) return
+      stop()
+      resolve(true)
+    }
+    mapkit.addEventListener('error', onError)
+    mapkit.addEventListener('configuration-change', onConfigured)
+    stop = () => {
+      mapkit.removeEventListener('error', onError)
+      mapkit.removeEventListener('configuration-change', onConfigured)
+    }
   })
   return { answer, stop }
+}
+
+function reportMapKitError(event: MapKitEvent): void {
+  Sentry.captureMessage('mapkit: configuration failed', {
+    level: 'warning',
+    extra: {
+      status: event.status,
+      message: event.message,
+      stopsMapKit: STOPPING_ERRORS.has(event.status ?? ''),
+    },
+  })
 }
 
 async function start(entry: Entry, env: MapKitEnv): Promise<MapKit | null> {
@@ -237,6 +280,7 @@ async function start(entry: Entry, env: MapKitEnv): Promise<MapKit | null> {
     if (!mapkit || !hasLibraries(mapkit)) return null
     // Listening before `init` so a fast answer is not missed.
     const ready = configured(mapkit)
+    mapkit.addEventListener('error', reportMapKitError)
     // Held open through a passing error, so a caller that asks then still gets MapKit back.
     let recover: ((value: MapKit | null) => void) | null = null
     let recovering: Promise<MapKit | null> | null = null
