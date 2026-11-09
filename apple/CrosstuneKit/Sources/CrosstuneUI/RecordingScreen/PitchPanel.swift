@@ -46,27 +46,19 @@ struct PitchSplit: Equatable {
     }
 }
 
-/// Pitch shift with the speed held: a semitone stepper, a cents slider, and Reset. Each change
-/// goes to `onChange` at once.
+/// Pitch shift with the speed held: a semitone stepper, a cents slider, and Reset, which clears
+/// both. Each change goes to `onChange` at once. The split lives with the caller, so it survives
+/// the panel being rebuilt; the caller follows `value` into it as the pitch changes elsewhere.
 struct PitchPanel: View {
     let value: Int
+    @Binding var split: PitchSplit
     let onChange: (Int) -> Void
-
-    @State private var split: PitchSplit
-
-    init(value: Int, onChange: @escaping (Int) -> Void) {
-        self.value = value
-        self.onChange = onChange
-        _split = State(initialValue: PitchSplit(cents: value))
-    }
 
     var body: some View {
         #if os(macOS)
             macBody
-                .onChange(of: value) { split.follow(value) }
         #else
             touchBody
-                .onChange(of: value) { split.follow(value) }
         #endif
     }
 
@@ -117,52 +109,28 @@ struct PitchPanel: View {
     #endif
 
     #if !os(macOS)
+        /// The semitone stepper, then the cents slider, whose Reset clears the whole shift.
         private var touchBody: some View {
-            VStack(spacing: 12) {
-                HStack(spacing: 12) {
-                    Text(RecordingScreenText.semitones)
-                        .font(.platform(.subheadline))
-                    Spacer()
-                    PanelStepButton(name: RecordingScreenText.pitchDown, systemImage: "minus") {
-                        choose(split.with(semitones: split.semitones - 1))
-                    }
-                    .disabled(split.semitones <= PitchSplit.semitoneRange.lowerBound)
-                    Text(Self.signed(split.semitones))
-                        .font(.platform(.headline))
-                        .monospacedDigit()
-                        .frame(minWidth: 40)
-                        .accessibilityLabel(RecordingScreenText.semitones)
-                        .accessibilityValue(Self.signed(split.semitones))
-                    PanelStepButton(name: RecordingScreenText.pitchUp, systemImage: "plus") {
-                        choose(split.with(semitones: split.semitones + 1))
-                    }
-                    .disabled(split.semitones >= PitchSplit.semitoneRange.upperBound)
+            VStack(alignment: .leading, spacing: 12) {
+                ValueLabelLine(RecordingScreenText.semitones) {
+                    ValueStepper(
+                        RecordingScreenText.semitones,
+                        value: Binding {
+                            split.semitones
+                        } set: {
+                            choose(split.with(semitones: $0))
+                        },
+                        in: PitchSplit.semitoneRange, format: Self.signed)
                 }
-                HStack {
-                    Text(RecordingScreenText.cents)
-                    Spacer()
-                    Text(Self.signed(split.cents))
-                        .monospacedDigit()
-                }
-                .font(.platform(.subheadline))
-                .accessibilityHidden(true)
-                Slider(
+                ValueSlider(
+                    RecordingScreenText.cents,
                     value: Binding {
-                        Double(split.cents)
+                        split.cents
                     } set: {
-                        choose(split.with(cents: Int($0.rounded())))
+                        choose(split.with(cents: $0))
                     },
-                    in: Double(PitchSplit.centsRange.lowerBound)...Double(PitchSplit.centsRange.upperBound),
-                    step: 1
-                )
-                .accessibilityLabel(RecordingScreenText.cents)
-                .accessibilityValue(Self.signed(split.cents))
-                HStack {
-                    Spacer()
-                    Button(RecordingScreenText.reset) { choose(PitchSplit(cents: 0)) }
-                        .disabled(value == 0)
-                        .frame(minHeight: PracticeLayout.target)
-                }
+                    in: PitchSplit.centsRange, step: 1, defaultValue: 0, canReset: value != 0,
+                    onReset: { choose(PitchSplit(cents: 0)) }, format: Self.signed)
             }
         }
     #endif

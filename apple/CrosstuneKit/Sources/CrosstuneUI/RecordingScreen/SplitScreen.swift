@@ -1,5 +1,4 @@
 import CrosstuneAudio
-import CrosstuneCommands
 import CrosstuneDesign
 import SwiftUI
 
@@ -16,7 +15,7 @@ struct SplitScreen: View {
     let onDone: () -> Void
 
     @State private var failure: String?
-    @FocusState private var focus: SplitFocus?
+    @FocusState private var isFocused: Bool
 
     var body: some View {
         let ready = player.isRecordingAudioReady
@@ -28,25 +27,14 @@ struct SplitScreen: View {
                 }
                 SplitOverviewStrip(model: model, peaks: peaks)
                     .contentMask()
-                CenterLineStrip(model: model, peaks: peaks, focus: $focus)
+                CenterLineStrip(model: model, peaks: peaks)
                     .contentMask()
                 VStack(spacing: 20) {
                     SplitReadout(model: model)
                     SplitMainButton(model: model, ready: ready)
-                    HStack(spacing: 12) {
-                        Button(action: model.previous) {
-                            Text(RecordingScreenText.previousCut).frame(maxWidth: .infinity)
-                        }
-                        .disabled(!model.canStepPrevious)
-                        Button(action: model.next) {
-                            Text(RecordingScreenText.nextCut).frame(maxWidth: .infinity)
-                        }
-                        .disabled(!model.canStepNext)
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.large)
+                    SplitCutSteps(model: model)
                     SplitCutList(model: model)
-                    SplitTransport(model: model)
+                    SplitTransport(model: model, ready: ready)
                 }
                 .controlsColumn()
             }
@@ -76,27 +64,22 @@ struct SplitScreen: View {
         #endif
         .focusable()
         .focusEffectDisabled()
-        .focused($focus, equals: .screen)
-        .defaultFocus($focus, .screen)
+        .focused($isFocused)
+        .defaultFocus($isFocused, true)
         // These are off while text is typed, and a focused button keeps them.
         .onKeyPress(.space, phases: .down) { _ in
             guard ready, !TextEntry.isActive else { return .ignored }
             model.togglePlay()
             return .handled
         }
-        // Held arrows repeat, sweeping the line, or a focused cut's handle, as a slider does.
-        .onKeyPress(keys: [.leftArrow, .rightArrow, .upArrow, .downArrow]) { press in
+        // Held arrows repeat, sweeping the line, as a slider does. A focused cut's handle takes
+        // its own arrows first.
+        .onKeyPress(keys: [.leftArrow, .rightArrow]) { press in
             guard ready, !TextEntry.isActive, press.modifiers.isDisjoint(with: .otherCommand) else {
                 return .ignored
             }
-            let back = press.key == .leftArrow || press.key == .downArrow
             let step = press.modifiers.contains(.shift) ? WaveformSteps.largeNudgeMs : WaveformSteps.nudgeMs
-            if case .cut(let index) = focus {
-                model.nudgeCut(index, by: back ? -step : step)
-                return .handled
-            }
-            guard press.key == .leftArrow || press.key == .rightArrow else { return .ignored }
-            model.nudge(by: back ? -step : step)
+            model.nudge(by: press.key == .leftArrow ? -step : step)
             return .handled
         }
         .onKeyPress(characters: CharacterSet(charactersIn: "sS"), phases: .down) { press in
@@ -120,60 +103,52 @@ struct SplitScreen: View {
     }
 
     private var saveButton: some View {
-        @Bindable var model = model
-        return Button(RecordingScreenText.save) { model.isConfirming = true }
-            .disabled(!model.state.canSave || model.isSaving)
-            .coversShell(model.isConfirming)
-            .confirmationDialog(
-                RecordingScreenText.splitConfirmTitle(count: model.state.cuts.count + 1),
-                isPresented: $model.isConfirming, titleVisibility: .visible
-            ) {
-                Button(RecordingScreenText.splitConfirmAction, role: .destructive) { Task { await save() } }
-                Button(RecordingScreenText.cancel, role: .cancel) {}
-            } message: {
-                Text(RecordingScreenText.splitConfirmMessage)
-            }
+        EditorSaveButton(
+            model: model, isDisabled: !model.canPressSave,
+            confirmTitle: RecordingScreenText.splitConfirmTitle(count: model.state.cuts.count + 1),
+            confirmAction: RecordingScreenText.splitConfirmAction,
+            confirmMessage: RecordingScreenText.splitConfirmMessage, failure: $failure,
+            failureText: failureMessage, onLeave: leave, onDone: onDone)
     }
 
     private func leave() {
         model.leave()
         onDone()
     }
+}
 
-    private func save() async {
-        failure = nil
-        do {
-            if try await model.save() { onDone() }
-        } catch CommandError.recordingNotFound {
-            // The recording is gone, and the player and this screen go with it.
-        } catch {
-            // A trim from elsewhere closes the screen, saying why, in place of this.
-            if !model.isStale { failure = failureMessage(error) }
-        }
+/// The zoom control around the time at the line, the piece it is in, and that piece's length.
+private struct SplitReadout: View {
+    let model: SplitModel
+
+    var body: some View {
+        ZoomControl(
+            canZoomOut: model.canZoomOut, canZoomIn: model.canZoomIn, canFit: model.canZoomOut, spacing: 12,
+            onZoomOut: { model.zoom(by: 1 / WaveformSteps.zoomStep) }, onFit: model.fit,
+            onZoomIn: { model.zoom(by: WaveformSteps.zoomStep) },
+            aroundReadouts: { SplitReadoutText(model: model) })
     }
 }
 
-/// The time at the line, the piece it is in, and that piece's length. Its own view, so the
-/// playback tick redraws it and not the screen around it.
-private struct SplitReadout: View {
+/// The readouts beside the zoom control. Its own view, so the playback tick redraws the texts
+/// and not the control around them.
+private struct SplitReadoutText: View {
     let model: SplitModel
 
     var body: some View {
         let lineMs = model.shownLineMs
         let pieces = model.state.pieces
         let index = min(model.state.pieceIndex(at: lineMs), pieces.count - 1)
-        ZoomButtons(spacing: 12, canZoomOut: model.canZoomOut, canZoomIn: model.canZoomIn, onZoom: model.zoom(by:)) {
-            HStack(spacing: 12) {
-                Text(RecordingScreenText.preciseTime(milliseconds: lineMs - model.bounds.lowerBound))
-                Text(RecordingScreenText.pieceOf(index + 1, count: pieces.count))
-                Text(RecordingText.duration(of: pieces[index].lengthMs))
-            }
-            .font(.platform(.footnote))
-            .monospacedDigit()
-            .foregroundStyle(.textSecondary)
-            .frame(maxWidth: .infinity)
-            .accessibilityElement(children: .combine)
+        HStack(spacing: 12) {
+            Text(RecordingScreenText.preciseTime(milliseconds: lineMs - model.bounds.lowerBound))
+            Text(RecordingScreenText.pieceOf(index + 1, count: pieces.count))
+            Text(RecordingText.duration(of: pieces[index].lengthMs))
         }
+        .font(.platform(.footnote))
+        .monospacedDigit()
+        .foregroundStyle(.textSecondary)
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -181,20 +156,14 @@ private struct SplitReadout: View {
 /// piece's start, and stops at the end of its piece.
 private struct SplitTransport: View {
     let model: SplitModel
+    let ready: Bool
 
     var body: some View {
-        let skip = AudioPlayer.skipInterval
-        EditorTransport(playing: model.isPlaying, playName: RecordingPlayerText.play, onToggle: model.togglePlay) {
-            Button(RecordingPlayerText.skipBack(skip), systemImage: "gobackward.15") {
-                model.skip(by: -Int64(skip * 1000))
-            }
-            .help(RecordingPlayerText.skipBack(skip))
-        } trailing: {
-            Button(RecordingPlayerText.skipForward(skip), systemImage: "goforward.15") {
-                model.skip(by: Int64(skip * 1000))
-            }
-            .help(RecordingPlayerText.skipForward(skip))
-        }
+        let skip = Int64(AudioPlayer.skipInterval * 1000)
+        Transport(
+            isPlaying: model.isPlaying, size: .feature, macLook: .glyphs, canPlay: ready, canGoBack: ready,
+            canGoForward: ready, onPlayPause: model.togglePlay, onBack: { model.skip(by: -skip) },
+            onForward: { model.skip(by: skip) })
     }
 }
 

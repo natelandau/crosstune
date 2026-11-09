@@ -2,48 +2,39 @@ import CrosstuneDesign
 import CrosstuneStore
 import SwiftUI
 
-/// What holds the keyboard on the Split screen: the screen itself, or cut `index`'s handle.
-enum SplitFocus: Hashable {
-    case screen
-    case cut(Int)
-}
-
 /// The recording at one scale under a fixed center line, which is the time a new cut lands at.
 /// A drag on the audio moves the line's time. Once there is a cut, each piece is a band in its
-/// loop color, and each cut between two bands is a loop edge handle that drags, or with the
-/// arrows and VoiceOver nudges, that cut alone. A tap on a band selects that piece. While audio
+/// loop color, and each cut between two bands is a range handle's end edge that drags, or with
+/// the arrows and VoiceOver steps, that cut alone. A tap on a band selects that piece. While audio
 /// plays the bars scroll on their own and the line stays the play position. The line is the
 /// adjustable element VoiceOver moves.
 struct CenterLineStrip: View {
     let model: SplitModel
     /// Peaks from the start of `model.bounds`.
     let peaks: ShownPeaks?
-    var focus: FocusState<SplitFocus?>.Binding
 
     @Environment(\.isEnabled) private var isEnabled
     @Environment(\.colorScheme) private var colorScheme
     @GestureState private var isPinching = false
     @GestureState private var scrubPressed = false
-    @GestureState private var handlePressed = false
     /// Whether the drag under way has begun scrubbing, so its first move holds playback.
     @State private var isScrubbing = false
 
     private static let height: CGFloat = 112
-    private static let space = "centerLineStrip"
     /// The selected piece's bars along its top and bottom edges.
     private static let selectedBarHeight: Double = 6
 
     var body: some View {
+        let view = model.zoomedView(centerMs: model.shownLineMs)
         ZStack(alignment: .topLeading) {
-            surface
-            if let view = model.zoomedView(centerMs: model.shownLineMs) {
-                ForEach(model.state.cuts.indices, id: \.self) { index in
+            surface(view)
+            if let view {
+                ForEach(model.state.identifiedCuts.enumerated(), id: \.element.id) { index, _ in
                     handle(index, view: view)
                 }
             }
         }
         .frame(height: Self.height)
-        .coordinateSpace(.named(Self.space))
         .onGeometryChange(for: Double.self) {
             Double($0.size.width)
         } action: {
@@ -76,25 +67,13 @@ struct CenterLineStrip: View {
         .onChange(of: scrubPressed) { _, pressed in
             if !pressed { endScrub() }
         }
-        .onChange(of: handlePressed) { _, pressed in
-            if !pressed { model.cancelCutDrag() }
-        }
-        .task(id: model.autoPan != 0) {
-            while model.autoPan != 0, !Task.isCancelled {
-                model.autoPanStep()
-                try? await Task.sleep(for: .milliseconds(16))
-            }
-        }
-        #if os(iOS)
-            .sensoryFeedback(.impact(weight: .light), trigger: model.cutSnaps)
-        #endif
         .opacity(isEnabled ? 1 : 0.5)
         .accessibilityElement(children: .contain)
     }
 
-    private var surface: some View {
+    private func surface(_ view: ZoomedWaveformView?) -> some View {
         Canvas { context, size in
-            draw(in: &context, size: size)
+            if let view { draw(in: &context, size: size, view: view) }
         }
         .contentShape(.rect)
         .onTapGesture { location in
@@ -134,25 +113,33 @@ struct CenterLineStrip: View {
         model.endScrub()
     }
 
+    /// Cut `index` as a range handle's end edge, in seconds from the start of `model.bounds`,
+    /// held inside the room that keeps both pieces beside it long enough.
     private func handle(_ index: Int, view: ZoomedWaveformView) -> some View {
-        LoopEdgeHandle(
-            edge: .end, color: Palette.loop(SplitModel.State.pieceColor(index), scheme: colorScheme),
-            x: view.x(ofSourceMs: Double(model.state.cuts[index])), width: view.width,
-            space: Self.space, snappedTo: model.cutDrag?.index == index ? model.cutDrag?.snappedTo : nil,
-            focus: focus, focusValue: .cut(index), pressed: $handlePressed,
-            label: RecordingScreenText.cutHandle(index + 1), valueText: model.cutValue(index),
-            onTap: { model.tapPiece(atX: $0) },
-            onDrag: { x, snapping in
-                if model.cutDrag == nil { model.beginCutDrag(index) }
-                model.dragCut(toX: x, snapping: snapping)
-            },
-            onDragEnd: { x, snapping in model.endCutDrag(atX: x, snapping: snapping) },
-            onStep: { model.nudgeCut(index, by: $0) },
-            onReveal: { model.reveal(model.state.cuts[index]) })
+        let low = model.bounds.lowerBound
+        let seconds = model.handleSeconds
+        let sourceMs = { model.sourceMs(handleSeconds: $0) }
+        let room = model.state.cutRoom(for: index)
+        let color = SplitModel.State.pieceColor(index)
+        return RangeHandles(
+            start: seconds(room.min), end: seconds(model.state.cuts[index]), duration: seconds(room.max),
+            color: Palette.loop(color, scheme: colorScheme), wash: Palette.loopTint(color, scheme: colorScheme),
+            scale: { CGFloat(view.x(ofSourceMs: Double(low) + $0 * 1000)) },
+            time: { (view.sourceMs(atX: Double($0)) - Double(low)) / 1000 },
+            snapPoints: [seconds(room.min), seconds(room.max)], playhead: seconds(model.shownLineMs),
+            minimumLength: 0, movesSpan: false, edges: .endOnly,
+            endLabel: RecordingScreenText.cutHandle(index + 1),
+            valueText: { RecordingScreenText.preciseTime(milliseconds: sourceMs($0) - low) },
+            onEdgeScroll: { model.scrollUnderCutHandle(depth: $0) },
+            // The target reaches past the cut, so a tap on it is a tap on the waveform.
+            onTap: { model.tapPiece(atMs: sourceMs($0)) },
+            onReveal: { model.reveal(sourceMs($0)) },
+            onChange: { _, end in model.moveCutHandle(index, to: sourceMs(end)) },
+            onCommit: { _, _ in model.commitCutHandle() }
+        )
     }
 
-    private func draw(in context: inout GraphicsContext, size: CGSize) {
-        guard let view = model.zoomedView(centerMs: model.shownLineMs) else { return }
+    private func draw(in context: inout GraphicsContext, size: CGSize, view: ZoomedWaveformView) {
         let width = Double(size.width)
         let height = Double(size.height)
         context.fillZoomedBars(

@@ -21,6 +21,23 @@ import Testing
     func neverSkipsAGridStep(percent: Int, delta: Int, expected: Int) {
         #expect(SpeedPanel.stepped(percent, by: delta) == expected)
     }
+
+    /// The slider's stepper and track hand the panel the value they want; one off the grid
+    /// still lands on the next grid step in that direction.
+    @Test(arguments: [
+        (72, 77, 75),
+        (72, 67, 70),
+        (72, 100, 100),
+        (75, 80, 80),
+        (148, 150, 150),
+    ])
+    func aMoveOffTheGridLandsOnIt(percent: Int, next: Int, expected: Int) {
+        #expect(SpeedPanel.moved(from: percent, to: next) == expected)
+    }
+
+    @Test func noMoveSetsNoSpeed() {
+        #expect(SpeedPanel.moved(from: 72, to: 72) == nil)
+    }
 }
 
 #if os(macOS)
@@ -36,7 +53,7 @@ import Testing
 
         @Test func wrapsWhenTheColumnIsNarrow() {
             let line = height(at: .large, width: 358)
-            #expect(height(at: .large, width: 200) > line)
+            #expect(height(at: .large, width: 120) > line)
         }
 
         @Test func staysOneLineAtTheDefaultSize() {

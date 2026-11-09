@@ -48,21 +48,41 @@ final class PracticeModel {
         var sent: [LoopSpan] = []
     }
 
-    /// A drag on one of the selected loop's handles.
+    /// A move of the selected loop by its handles, from a drag or a run of key steps, until it
+    /// is committed.
     struct HandleDrag {
+        /// The edge a move holds.
+        enum Part {
+            case start, end
+
+            /// The edge a move from `shown` to `proposed` holds; nil unless exactly one edge moved.
+            init?(from shown: LoopSpan, to proposed: LoopSpan) {
+                switch (proposed.startMs != shown.startMs, proposed.endMs != shown.endMs) {
+                case (true, false): self = .start
+                case (false, true): self = .end
+                default: return nil
+                }
+            }
+        }
+
         let id: String
-        let edge: LoopModel.Edge
-        /// The loop's span when the drag began.
+        let part: Part
+        /// The move is a run of arrow-key steps, which leaving the screen writes rather than drops.
+        var isKeySteps = false
+        /// The loop's span when the move began.
         let origin: LoopSpan
-        /// The free span around the loop, which the edge never leaves.
+        /// The free span around the loop, which the move never leaves.
         let room: LoopSpan
-        /// The pinch count when it began; a pinch since puts the loop back unwritten.
-        let pinch: Int
-        var lastX: Double = 0
-        var snapping = true
-        var moved = false
-        /// The time the last snap landed on, so each new snap plays one haptic.
-        var snappedTo: Int64?
+        /// A pinch took the move over: the loop went back unwritten and moves no more.
+        var isCancelled = false
+
+        /// The span the move makes with the handles at `proposed`, held to the room.
+        func placed(_ proposed: LoopSpan) -> LoopSpan {
+            switch part {
+            case .start: return LoopModel.resize(origin, edge: .start, to: proposed.startMs, bounds: room)
+            case .end: return LoopModel.resize(origin, edge: .end, to: proposed.endMs, bounds: room)
+            }
+        }
     }
 
     /// A released drag coasting from `from` to `to` over `runMs` from `start`. Its position is
@@ -124,8 +144,8 @@ final class PracticeModel {
     private(set) var renaming: String?
     /// Why the last loop write did not land.
     var failure: String?
-    /// Counts snaps, so each one can play a haptic.
-    var snaps = 0
+    /// The loop New loop just made, whose handles open from the playhead.
+    var insertedID: String?
 
     /// The view's width in points; 0 until measured.
     var width: Double = 0
@@ -141,9 +161,6 @@ final class PracticeModel {
         get { momentumScroll.map { $0.position(at: clock()) } ?? draggedMs }
         set { draggedMs = newValue }
     }
-    /// How deep a handle's drag is into either end's auto-pan zone, from -1 at the left edge to
-    /// 1 at the right; 0 outside both.
-    var autoPan: Double = 0
 
     @ObservationIgnored let writer: LoopWriter
     @ObservationIgnored let clock: () -> ContinuousClock.Instant
@@ -163,7 +180,6 @@ final class PracticeModel {
     /// The player's last reported position and when it came, which the playhead runs on from
     /// between the player's reports.
     @ObservationIgnored var reading: (elapsed: TimeInterval, at: ContinuousClock.Instant)?
-    @ObservationIgnored var nudging: (id: String, origin: LoopSpan)?
     /// A name field's text waiting to be written after the field lost focus.
     @ObservationIgnored private var blurred: Task<Void, Never>?
     @ObservationIgnored private var blurredText: String?
@@ -279,6 +295,7 @@ final class PracticeModel {
 
     /// Selects loop `id`, which then repeats, or none, which plays on.
     func select(_ id: String?) {
+        if id != insertedID { insertedID = nil }
         guard !isCurrent else {
             player.loops.select(id)
             return
@@ -531,19 +548,20 @@ final class PracticeModel {
         player.screenOpened(recording.id, recording: recording, by: screen)
     }
 
-    /// The screen is going: a nudge and a name field that lost focus are written, a scrub lands
-    /// where it was dragged, and a handle's drag comes to nothing.
+    /// The screen is going: a name field that lost focus is written, a scrub lands where it
+    /// was dragged, a run of key steps on a handle is written, and a handle's drag comes to
+    /// nothing.
     func leave() {
         flushOwnSettings()
         isPanelShown = false
         closePanel(mode)
-        commitNudge()
         flushBlur()
         if activeScrub != nil { settleScrub(at: scrubbingMs) }
+        commitHandleKeySteps()
         cancelHandleDrag()
+        handleDrag = nil
         renaming = nil
         activeKey = nil
-        autoPan = 0
     }
 
     /// The Isolate panel engages the isolate unit while it shows, so its outline is live and the

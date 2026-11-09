@@ -1,22 +1,18 @@
+import CrosstuneDesign
 import CrosstuneStore
 import CrosstuneSync
 import Foundation
 
 /// Words the recording screen and its tools show.
 public enum RecordingScreenText {
-    public static let close = "Close"
     public static let trim = "Trim"
     public static let speed = "Speed"
     /// The Mac's segmented speed presets, for VoiceOver.
     public static let speedPresets = "Speed presets"
     public static let pitch = "Pitch"
-    public static let reset = "Reset"
-    public static let slower = "Slower"
-    public static let faster = "Faster"
+    public static let reset = ValueSlider.resetName
     public static let semitones = "Semitones"
     public static let cents = "Cents"
-    public static let pitchDown = "Down a semitone"
-    public static let pitchUp = "Up a semitone"
     public static let trimBusy = "Trimming…"
     public static let trimWhileRecording = "Still recording"
     public static let trimWhileDownloading = RecordingText.downloading
@@ -59,12 +55,10 @@ public enum RecordingScreenText {
     public static let save = "Save"
     public static let playSelection = "Play selection"
     public static let previewEnd = "Preview end"
-    public static let goToStart = "Go to start"
-    public static let goToEnd = "Go to end"
-    public static let zoomIn = "Zoom in"
-    public static let zoomOut = "Zoom out"
-    public static let startHandle = "Start"
-    public static let endHandle = "End"
+    public static let zoomIn = ZoomControl.zoomIn
+    public static let zoomOut = ZoomControl.zoomOut
+    public static let startHandle = RangeHandles.startName
+    public static let endHandle = RangeHandles.endName
     public static let length = "Length"
     public static let trimNotSaved = "The trim could not be saved."
     public static let trimChangedElsewhere = "This recording's trim changed elsewhere."
@@ -109,9 +103,7 @@ public enum RecordingScreenText {
 
     /// `m:ss.t`, for placing a trim handle to the tenth of a second.
     public static func preciseTime(milliseconds: Int64) -> String {
-        let tenths = Int64((Double(max(0, milliseconds)) / 100).rounded())
-        let seconds = tenths % 600 / 10
-        return "\(tenths / 600):\(seconds < 10 ? "0" : "")\(seconds).\(tenths % 10)"
+        RangeEdit.tenthsText(Int64((Double(max(0, milliseconds)) / 100).rounded()))
     }
 
     /// `75%`, shown only away from the 100% default.

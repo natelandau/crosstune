@@ -21,6 +21,7 @@ struct SplitMainButton: View {
                 .monospacedDigit()
                 .frame(maxWidth: .infinity)
             }
+            // On the Mac, unlike `.filled`, the primary follows the control size.
             .buttonStyle(.accentProminent)
             .controlSize(.large)
             .disabled(!removes && !model.canAddCut)

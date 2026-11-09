@@ -94,6 +94,25 @@ private final class SplitHolds {
         #expect(model(row(trimStartMs: 5000, trimEndMs: 40_000)).bounds == 5000...40_000)
     }
 
+    @Test func handleSecondsCountFromTheStartOfTheBounds() {
+        let split = model(row(trimStartMs: 5000, trimEndMs: 40_000))
+        #expect(split.handleSeconds(7500) == 2.5)
+        #expect(split.sourceMs(handleSeconds: 2.5004) == 7500)
+        #expect(split.sourceMs(handleSeconds: split.handleSeconds(12_345)) == 12_345)
+    }
+
+    @Test func eachCutKeepsItsIDWhileCutsAreAddedAndRemovedAroundIt() {
+        let split = placed([30_000])
+        let kept = split.state.identifiedCuts[0].id
+        split.seek(to: 10_000)
+        split.addCut()
+        #expect(split.state.identifiedCuts.map(\.ms) == [10_000, 30_000])
+        #expect(split.state.identifiedCuts[1].id == kept)
+        #expect(split.state.identifiedCuts[0].id != kept)
+        split.pressMain()
+        #expect(split.state.identifiedCuts.map(\.id) == [kept])
+    }
+
     @Test func fallsBackToTheLocalFileThenThePlaybackFileLength() {
         let file = RecordingFile(id: "r1", localState: .captured, localDurationMs: 20_000)
         #expect(model(row(sourceDurationMs: nil), file: file).bounds.upperBound == 20_000)
@@ -370,61 +389,69 @@ private final class SplitHolds {
         #expect(two.applying(.moveCut(index: 5, ms: 15_000)) == two)
     }
 
-    @Test func aCutHandleNudgeMovesThatCutAlone() {
+    @Test func aCutHandleStepMovesThatCutAlone() {
         let split = placed([30_000], lineMs: 20_000)
-        split.nudgeCut(0, by: WaveformSteps.nudgeMs)
+        split.moveCutHandle(0, to: 30_100)
+        split.commitCutHandle()
         #expect(split.state.cuts == [30_100])
         #expect(split.state.lineMs == 20_000)
-        #expect(split.cutValue(0) == RecordingScreenText.preciseTime(milliseconds: 30_100))
+        #expect(split.cutDrag == nil)
     }
 
     @Test func draggingACutHandleMovesThatCutHeld1SecondPastTheCutBefore() {
         let split = placed([10_000, 22_000], lineMs: 22_000)
-        split.width = 300
-        // 10 points a second, 30 s across, centered on the line at 22 s.
-        split.beginCutDrag(1)
-        split.dragCut(toX: 0, snapping: true)
-        split.endCutDrag(atX: 0, snapping: true)
+        split.moveCutHandle(1, to: 5000)
+        split.commitCutHandle()
         #expect(split.state.cuts == [10_000, 11_000])
         #expect(split.state.lineMs == 22_000)
         #expect(split.state.selected == nil)
     }
 
-    @Test func aCutHandleDragSnapsToTheLine() {
-        let split = placed([30_000], lineMs: 20_000)
-        split.width = 300
-        // The line is at x 150; 152 is within the snap reach.
-        split.beginCutDrag(0)
-        split.dragCut(toX: 152, snapping: true)
-        #expect(split.state.cuts == [20_000])
-        split.dragCut(toX: 152, snapping: false)
-        #expect(split.state.cuts == [20_200])
-        split.endCutDrag(atX: 152, snapping: false)
-    }
-
     @Test func aPinchPutsBackTheCutHandleDragItTookOver() {
         let split = placed([30_000], lineMs: 20_000)
         split.width = 300
-        split.beginCutDrag(0)
-        split.dragCut(toX: 200, snapping: false)
+        split.moveCutHandle(0, to: 25_000)
         #expect(split.state.cuts == [25_000])
         split.pinch(2)
         #expect(split.state.cuts == [30_000])
-        split.dragCut(toX: 100, snapping: false)
+        split.moveCutHandle(0, to: 15_000)
         #expect(split.state.cuts == [30_000])
-        split.endCutDrag(atX: 100, snapping: false)
+        split.commitCutHandle()
         split.endPinch()
         #expect(split.state.cuts == [30_000])
     }
 
-    @Test func aCutHandleDragTheSystemTookAwayPutsTheCutBack() {
+    @Test func aHeldCutHandleScrollsTheStripUnderIt() {
         let split = placed([30_000], lineMs: 20_000)
         split.width = 300
-        split.beginCutDrag(0)
-        split.dragCut(toX: 200, snapping: false)
-        split.cancelCutDrag()
-        #expect(split.state.cuts == [30_000])
-        #expect(split.cutDrag == nil)
+        // 10 points a second, so a full-depth step pans by the most a step pans.
+        split.moveCutHandle(0, to: 31_000)
+        split.scrollUnderCutHandle(depth: 1)
+        let step = Int64((PracticeModel.autoPanMax * 1000 / 10).rounded())
+        #expect(split.state.lineMs == 20_000 + step)
+        split.commitCutHandle()
+        // With no handle held, nothing scrolls.
+        split.scrollUnderCutHandle(depth: 1)
+        #expect(split.state.lineMs == 20_000 + step)
+    }
+
+    @Test func aTapOnACutHandleIsATapOnItsPiece() {
+        let split = placed([10_000], lineMs: 20_000)
+        split.tapPiece(atMs: 9000)
+        #expect(split.selectedPiece == 0)
+        split.tapPiece(atMs: 9000)
+        #expect(split.selectedPiece == nil)
+        split.tapPiece(atMs: 70_000)
+        #expect(split.selectedPiece == nil)
+    }
+
+    @Test func fitZoomsOutToTheWholeRecording() {
+        let split = placed(lineMs: 20_000)
+        split.width = 300
+        #expect(split.canZoomOut)
+        split.fit()
+        #expect(split.pointsPerSecond == 5)
+        #expect(!split.canZoomOut)
     }
 
     // MARK: Selecting a piece
@@ -825,6 +852,25 @@ private final class SplitHolds {
         #expect(sink.captures.isEmpty)
         writes.refusal = nil
         #expect(try await split.save())
+    }
+
+    @Test func saveWithNoChangeCloses() {
+        let split = placed(lineMs: 20_000)
+        #expect(split.canPressSave)
+        #expect(split.pressSave() == .close)
+        #expect(!split.isConfirming)
+        split.addCut()
+        #expect(split.pressSave() == .confirm)
+        #expect(split.isConfirming)
+    }
+
+    @Test func saveIsRefusedOnlyForASplitThatCannotBeSaved() {
+        let split = placed([20_000])
+        #expect(split.canPressSave)
+        let limit = RecordingLimits.maxRecordingMs
+        let long = placed([10_000], highMs: limit + 20_000)
+        #expect(!long.canPressSave)
+        #expect(placed(highMs: limit + 20_000).canPressSave)
     }
 
     @Test func savesNothingWithoutACut() async throws {

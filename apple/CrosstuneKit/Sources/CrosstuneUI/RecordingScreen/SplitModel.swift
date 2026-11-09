@@ -18,6 +18,7 @@ final class SplitModel {
     /// Writes a split of recording `recordingID` at `cutsMs`.
     typealias Write = @MainActor (_ recordingID: String, _ cutsMs: [Int64]) async throws -> Void
     typealias Hold = TrimModel.Hold
+    typealias SaveAction = TrimModel.SaveAction
     /// Ends the player's playback exactly at a time on the source timeline, or at the trim end
     /// when nil.
     typealias EndPlayback = @MainActor (_ sourceMs: Int64?) -> Void
@@ -37,10 +38,6 @@ final class SplitModel {
     var width: Double = 0
     /// The piece Play plays alone, from its start to its end.
     private(set) var selectedPiece: Int?
-    /// How deep into either end of the strip a cut's drag is, -1 to 1, which scrolls it.
-    private(set) var autoPan: Double = 0
-    /// Counts each snap a cut's drag lands on, for one haptic each.
-    private(set) var cutSnaps = 0
     /// The cut handle drag under way.
     @ObservationIgnored private(set) var cutDrag: CutDrag?
     /// Where the playback under way stops, on the source timeline: the end of its piece.
@@ -72,13 +69,8 @@ final class SplitModel {
         let index: Int
         /// The cut when the drag began, which a pinch that takes over puts back.
         let originMs: Int64
-        var lastX: Double = 0
-        var snapping = true
-        var moved = false
         /// Set once a pinch has taken over, after which the drag moves nothing.
         var cancelled = false
-        /// The time the last snap landed on, so each new snap plays one haptic.
-        var snappedTo: Int64?
     }
 
     init(
@@ -147,7 +139,7 @@ final class SplitModel {
         lastPlayingElapsed = nil
         apply(.seek(ranOff ? end : bounds.lowerBound + Int64((elapsed * 1000).rounded())))
         // Even with the line already there, the player went back to the start.
-        if ranOff { transport?.seek(to: seconds(end)) }
+        if ranOff { transport?.seek(to: handleSeconds(end)) }
         apply(.rest)
     }
 
@@ -166,7 +158,7 @@ final class SplitModel {
         setStop(stopMs(after: startMs))
         believesPlaying = true
         lastPlayingElapsed = nil
-        transport.seek(to: seconds(startMs))
+        transport.seek(to: handleSeconds(startMs))
         transport.play()
     }
 
@@ -190,7 +182,7 @@ final class SplitModel {
     private func seekLine(to ms: Int64) {
         if let transport, transport.isPlaying {
             let clamped = min(max(ms, bounds.lowerBound), bounds.upperBound)
-            let to = seconds(clamped)
+            let to = handleSeconds(clamped)
             // Playback from here stops at the end of the piece it lands in. The player's end
             // must always lie past its position, or it would end at once.
             let stop = stopMs(after: clamped)
@@ -263,7 +255,11 @@ final class SplitModel {
     /// A tap at `x` points on the zoomed strip: toggles the piece there.
     func tapPiece(atX x: Double) {
         guard let view = zoomedView(centerMs: shownLineMs) else { return }
-        let ms = Int64(view.sourceMs(atX: x).rounded())
+        tapPiece(atMs: Int64(view.sourceMs(atX: x).rounded()))
+    }
+
+    /// A tap at `ms` on the source timeline: toggles the piece there.
+    func tapPiece(atMs ms: Int64) {
         guard bounds.contains(ms) else { return }
         togglePiece(state.pieceIndex(at: ms))
     }
@@ -278,25 +274,11 @@ final class SplitModel {
         if stopAtMs == was { setStop(state.cuts[index]) }
     }
 
-    /// Moves cut `index` by `deltaMs`, as the arrows and VoiceOver do on its handle, and brings it
-    /// into view.
-    func nudgeCut(_ index: Int, by deltaMs: Int64) {
-        guard state.cuts.indices.contains(index) else { return }
-        moveCut(index, to: state.cuts[index] + deltaMs)
-        reveal(state.cuts[index])
-    }
-
-    /// What VoiceOver reads for cut `index`'s handle: its precise time.
-    func cutValue(_ index: Int) -> String {
-        guard state.cuts.indices.contains(index) else { return "" }
-        return RecordingScreenText.preciseTime(milliseconds: state.cuts[index] - bounds.lowerBound)
-    }
-
     /// Moves the line just far enough to bring `sourceMs` into the strip's view, letting go of a
     /// selected cut.
     func reveal(_ sourceMs: Int64) {
         guard let pointsPerSecond else { return }
-        let reach = Int64((max(0, width / 2 - PracticeModel.autoPanZone) / pointsPerSecond * 1000).rounded())
+        let reach = Int64(PracticeModel.revealReachMs(width: width, pointsPerSecond: pointsPerSecond).rounded())
         let off = sourceMs - shownLineMs
         if off > reach {
             pan(byMs: off - reach)
@@ -307,56 +289,36 @@ final class SplitModel {
 
     // MARK: Cut handles
 
-    /// A drag on cut `index`'s handle has passed the threshold.
-    func beginCutDrag(_ index: Int) {
+    /// `sourceMs` as the handles place it: seconds from the start of `bounds`.
+    func handleSeconds(_ sourceMs: Int64) -> Double {
+        HandleTime.seconds(sourceMs, from: bounds.lowerBound)
+    }
+
+    /// A handle's place, in seconds from the start of `bounds`, as a time in the source.
+    func sourceMs(handleSeconds seconds: Double) -> Int64 {
+        HandleTime.sourceMs(seconds, from: bounds.lowerBound)
+    }
+
+    /// Cut `index`'s handle moved it to `ms`, by a drag or a step. The first move notes where the
+    /// cut was, for a pinch that takes over to put back; after that pinch, moves do nothing until
+    /// ``commitCutHandle()``.
+    func moveCutHandle(_ index: Int, to ms: Int64) {
         guard state.cuts.indices.contains(index) else { return }
-        cutDrag = CutDrag(index: index, originMs: state.cuts[index])
+        if cutDrag == nil { cutDrag = CutDrag(index: index, originMs: state.cuts[index]) }
+        guard let cutDrag, cutDrag.index == index, !cutDrag.cancelled else { return }
+        moveCut(index, to: ms)
     }
 
-    /// The handle's drag is now at `x` points from the strip's left edge. It snaps to the line
-    /// and to the ends of the cut's room unless `snapping` is off.
-    func dragCut(toX x: Double, snapping: Bool) {
-        guard var drag = cutDrag, !drag.cancelled, let view = zoomedView(centerMs: shownLineMs) else { return }
-        drag.lastX = x
-        drag.snapping = snapping
-        drag.moved = true
-        let room = state.cutRoom(for: drag.index)
-        let pointer = Int64(view.sourceMs(atX: x).rounded())
-        let targets = (snapping ? [shownLineMs] : []) + [room.min, room.max]
-        let snapped = LoopModel.snap(pointer, to: targets, msPerPoint: 1000 / view.pointsPerSecond)
-        let landed = snapping && (snapped != pointer || targets.contains(pointer)) ? snapped : nil
-        if let landed, landed != drag.snappedTo { cutSnaps += 1 }
-        drag.snappedTo = landed
-        cutDrag = drag
-        moveCut(drag.index, to: snapped)
-        let depth = autoPanDepth(atX: x)
-        if depth != autoPan { autoPan = depth }
-    }
-
-    func endCutDrag(atX x: Double, snapping: Bool) {
-        guard let drag = cutDrag else { return }
-        if drag.moved, !drag.cancelled { dragCut(toX: x, snapping: snapping) }
-        finishCutDrag()
-    }
-
-    /// A drag the system took away: the cut goes back to where the drag began.
-    func cancelCutDrag() {
-        guard let drag = cutDrag else { return }
-        finishCutDrag()
-        if !drag.cancelled { moveCut(drag.index, to: drag.originMs) }
-    }
-
-    /// One step of auto-pan, faster deeper into the zone, then the drag again against the view
-    /// that moved under it.
-    func autoPanStep() {
-        guard autoPan != 0, let drag = cutDrag, let pointsPerSecond else { return }
-        pan(byMs: Int64((autoPan * PracticeModel.autoPanMax * 1000 / pointsPerSecond).rounded()))
-        dragCut(toX: drag.lastX, snapping: drag.snapping)
-    }
-
-    private func finishCutDrag() {
+    /// The handle's drag or step has ended.
+    func commitCutHandle() {
         cutDrag = nil
-        if autoPan != 0 { autoPan = 0 }
+    }
+
+    /// Scrolls the strip under a held cut handle, by a depth from -1 to 1 into either end of it;
+    /// deeper is faster.
+    func scrollUnderCutHandle(depth: Double) {
+        guard cutDrag?.cancelled == false, let pointsPerSecond else { return }
+        pan(byMs: PracticeModel.autoPanMs(depth: depth, pointsPerSecond: pointsPerSecond))
     }
 
     /// Moves the line alone by `deltaMs`, as a handle dragged to the strip's edge does, letting go
@@ -364,14 +326,6 @@ final class SplitModel {
     private func pan(byMs deltaMs: Int64) {
         holdForEdit()
         apply(.seek(state.lineMs + deltaMs))
-    }
-
-    private func autoPanDepth(atX x: Double) -> Double {
-        let zone = PracticeModel.autoPanZone
-        guard width > 0 else { return 0 }
-        if x < zone { return -(zone - max(0, x)) / zone }
-        if x > width - zone { return (zone - max(0, width - x)) / zone }
-        return 0
     }
 
     func previous() {
@@ -429,6 +383,12 @@ final class SplitModel {
         chosenPointsPerSecond = PracticeZoom.zoomScale(pointsPerSecond, by: factor, frame: zoomFrame)
     }
 
+    /// Zooms out to the whole recording.
+    func fit() {
+        guard width > 0 else { return }
+        chosenPointsPerSecond = PracticeZoom.minPointsPerSecond(width: width, lengthMs: zoomFrame.lengthMs)
+    }
+
     /// Zooms to `magnification` of the scale the pinch began at. A pinch begins with one finger,
     /// which has already dragged by the time the second lands, so the first change puts that
     /// drag back and ends it.
@@ -438,7 +398,6 @@ final class SplitModel {
             if var drag = cutDrag, !drag.cancelled {
                 drag.cancelled = true
                 cutDrag = drag
-                if autoPan != 0 { autoPan = 0 }
                 moveCut(drag.index, to: drag.originMs)
             }
             if let scrubOrigin, !scrubCancelled {
@@ -502,6 +461,18 @@ final class SplitModel {
         return mustGiveWay
     }
 
+    /// Whether Save takes a press: only a split that cannot be saved refuses it, and no cut at
+    /// all is nothing to save, which closes the screen.
+    var canPressSave: Bool { !isSaving && (state.cuts.isEmpty || state.canSave) }
+
+    /// What a press on Save does. With a cut it asks before writing; with none there is nothing
+    /// to write, so the screen closes.
+    func pressSave() -> SaveAction {
+        guard !state.cuts.isEmpty else { return .close }
+        isConfirming = true
+        return .confirm
+    }
+
     /// Writes the split once, sends `recording_split`, and leaves, returning whether it wrote.
     /// Writes nothing without a valid split, after a trim from elsewhere, or once the screen has
     /// given way. A failed write stays to be tried again.
@@ -526,10 +497,6 @@ final class SplitModel {
     }
 
     // MARK: Private
-
-    private func seconds(_ ms: Int64) -> TimeInterval {
-        TimeInterval(ms - bounds.lowerBound) / 1000
-    }
 
     /// Pauses for an edit, which then starts from where playback was.
     private func holdForEdit() {
@@ -556,6 +523,6 @@ final class SplitModel {
     /// While paused the player is held at the line, so Play starts there.
     private func syncTransport() {
         guard let transport, !transport.isPlaying else { return }
-        transport.seek(to: seconds(state.lineMs))
+        transport.seek(to: handleSeconds(state.lineMs))
     }
 }

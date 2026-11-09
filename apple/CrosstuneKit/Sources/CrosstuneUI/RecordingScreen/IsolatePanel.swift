@@ -142,9 +142,7 @@ struct IsolatePanel: View {
                     }
                     .pickerStyle(.segmented)
                     .labelsHidden()
-                    .fixedSize()
-                    Spacer(minLength: 0)
-                    reset.frame(minHeight: PracticeLayout.target)
+                    reset.buttonStyle(.text(oneLine: true))
                 }
                 if showsMonoNotice {
                     Text(RecordingScreenText.monoNotice)

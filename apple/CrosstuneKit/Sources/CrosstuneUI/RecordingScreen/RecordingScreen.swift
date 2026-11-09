@@ -193,10 +193,8 @@ struct RecordingScreen: View {
         .defaultFocus($focus, .screen)
         .modifier(
             PracticeKeys(
-                model: practice, focus: $focus, isBlocked: disabledReason != nil, onDeleted: focusWaveform,
-                onClose: onClose)
+                model: practice, isBlocked: disabledReason != nil, onDeleted: focusWaveform, onClose: onClose)
         )
-        .onChange(of: focus) { _, _ in practice.commitNudge() }
     }
 
     /// The transport and the mode panels, under the waveform.
@@ -250,7 +248,7 @@ struct RecordingScreen: View {
     /// The waveform, which takes the height the rest of the page leaves, between its floor and its cap.
     private func waveform(_ practice: PracticeModel, disabledReason: String?) -> some View {
         PracticeWaveform(
-            model: practice, peaks: peaks, focus: $focus, accessibilityFocus: $waveformFocused
+            model: practice, peaks: peaks, accessibilityFocus: $waveformFocused
         )
         .dimmedWhenDisabled(disabledReason != nil)
         #if os(macOS)

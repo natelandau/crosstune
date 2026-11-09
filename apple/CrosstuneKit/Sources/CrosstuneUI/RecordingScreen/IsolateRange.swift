@@ -84,7 +84,7 @@ struct IsolateRangeBounds: Equatable {
     }
 }
 
-/// A range on one axis with a loop edge handle at each end: drag an edge to move it, or inside to
+/// A range on one axis with range handles at its ends: drag an edge to move it, or inside to
 /// move both. Each edge is an adjustable element and a keyboard stop the arrows nudge. A faint
 /// outline of the audio's level along the axis sits behind, decoration only.
 struct IsolateRange: View {
@@ -107,16 +107,6 @@ struct IsolateRange: View {
     let largeStepDown: String
     let onChange: (_ start: Int, _ end: Int) -> Void
 
-    private enum Grab: Equatable {
-        case edge(LoopModel.Edge)
-        case both
-    }
-
-    /// The range as a drag found it, which the drag's whole translation applies to.
-    @State private var dragOrigin: IsolateSpan?
-    /// Reset however the drag ends, cancelled included.
-    @GestureState private var dragging = false
-    @FocusState private var focused: LoopModel.Edge?
     @State private var outlineCache = IsolateOutlineCache()
     @Environment(\.colorScheme) private var colorScheme
 
@@ -124,116 +114,68 @@ struct IsolateRange: View {
     private static let color = 1
 
     var body: some View {
+        // The handles place the range in units from the lowest value, so it starts at 0.
+        let low = bounds.unit(bounds.min)
+        let length = bounds.unit(bounds.max) - low
+        let startUnits = bounds.unit(start) - low
+        let endUnits = bounds.unit(end) - low
+        let text = { (units: Double) in valueText(units == startUnits ? start : end) }
         GeometryReader { proxy in
             let width = proxy.size.width
-            let band = Swift.max(0, x(end, width) - x(start, width))
             ZStack(alignment: .leading) {
-                Rectangle()
-                    .fill(Palette.loopTint(Self.color, scheme: colorScheme))
-                    .frame(width: band)
-                    .contentShape(.rect)
-                    .offset(x: x(start, width))
-                    .highPriorityGesture(drag(.both, width: width))
+                if !RangeHandles.drawsWash {
+                    Rectangle()
+                        .fill(Palette.loopTint(Self.color, scheme: colorScheme))
+                        .frame(width: max(0, x(endUnits, length, width) - x(startUnits, length, width)))
+                        .offset(x: x(startUnits, length, width))
+                        .allowsHitTesting(false)
+                }
                 TimelineView(.animation(minimumInterval: 1.0 / 30, paused: !isLive)) { context in
                     IsolateOutline(levels: outlineCache.levels(outline(context.date), isLive: isLive))
                         .fill(Palette.borderStrong)
                 }
                 .allowsHitTesting(false)
                 .accessibilityHidden(true)
-                handle(.start, width: width, band: band)
-                handle(.end, width: width, band: band)
+                RangeHandles(
+                    start: startUnits, end: endUnits, duration: length,
+                    color: Palette.loop(Self.color, scheme: colorScheme),
+                    wash: Palette.loopTint(Self.color, scheme: colorScheme),
+                    scale: { x($0, length, width) },
+                    time: { width > 0 ? Double($0 / width) * length : 0 },
+                    snapPoints: [], playhead: nil, minimumLength: bounds.minSpan, movesSpan: true,
+                    macFocus: .ring, startLabel: startLabel, endLabel: endLabel,
+                    steps: RangeHandles.Steps(
+                        nudge: steps.step, largeNudge: steps.largeStep, largerName: largeStepUp,
+                        smallerName: largeStepDown),
+                    valueText: text, bubbleText: text,
+                    onChange: { newStart, newEnd in
+                        move(from: (startUnits, endUnits), to: (newStart, newEnd), low: low)
+                    },
+                    onCommit: { _, _ in }
+                )
             }
         }
         // Inset by the grip tabs, which sit outside the range even at either end.
-        .padding(.horizontal, LoopHandleMark.tabWidth)
+        .padding(.horizontal, RangeHandles.tabWidth)
         .frame(height: PracticeLayout.target)
-        .onChange(of: dragging) { _, isDragging in
-            if !isDragging { dragOrigin = nil }
-        }
         .accessibilityElement(children: .contain)
         .accessibilityLabel(label)
     }
 
-    private func x(_ value: Int, _ width: CGFloat) -> CGFloat {
-        let low = bounds.unit(bounds.min)
-        let span = bounds.unit(bounds.max) - low
-        return span > 0 ? CGFloat((bounds.unit(value) - low) / span) * width : 0
+    private func x(_ units: Double, _ length: Double, _ width: CGFloat) -> CGFloat {
+        length > 0 ? CGFloat(units / length) * width : 0
     }
 
-    /// An edge's mark and its press target. The target reaches past the grip tab on the outer
-    /// side, and at most a third of the band on the inner side, so a narrow band keeps its middle
-    /// for dragging the whole range.
-    private func handle(_ edge: LoopModel.Edge, width: CGFloat, band: CGFloat) -> some View {
-        let value = edge == .start ? start : end
-        let outer = Swift.max(PracticeLayout.target / 2, LoopHandleMark.tabWidth)
-        let inner = Swift.min(PracticeLayout.target / 2, band / 3)
-        let side: Alignment = edge == .start ? .leading : .trailing
-        return Color.clear
-            .frame(width: outer + inner)
-            .frame(maxHeight: .infinity)
-            .overlay(alignment: side) {
-                LoopHandleMark(
-                    edge: edge, color: Palette.loop(Self.color, scheme: colorScheme), gripHeight: PracticeLayout.target
-                )
-                .frame(width: 2 * outer)
-                // On the mark, which is centered on the edge, not the uneven press target.
-                #if os(macOS)
-                    .macFocusRing(focused == edge, cornerRadius: 4)
-                #endif
-                .allowsHitTesting(false)
+    /// Places the range where the handles moved it, in whole values: the edge that moved, or
+    /// both.
+    private func move(from shown: (Double, Double), to moved: (Double, Double), low: Double) {
+        let span =
+            switch (moved.0 != shown.0, moved.1 != shown.1) {
+            case (true, true): bounds.shifting(start: start, end: end, by: moved.0 - shown.0)
+            case (true, false): bounds.placing(.start, at: moved.0 + low, start: start, end: end)
+            case (false, true): bounds.placing(.end, at: moved.1 + low, start: start, end: end)
+            case (false, false): IsolateSpan(start: start, end: end)
             }
-            .contentShape(.rect)
-            .offset(x: x(value, width) - (edge == .start ? outer : inner))
-            .highPriorityGesture(drag(.edge(edge), width: width))
-            .focusable()
-            .focused($focused, equals: edge)
-            #if os(macOS)
-                .focusEffectDisabled()
-            #endif
-            .onKeyPress(keys: [.leftArrow, .rightArrow, .upArrow, .downArrow]) { press in
-                let up = ![.leftArrow, .downArrow].contains(press.key)
-                step(edge, up: up, large: press.modifiers.contains(.shift))
-                return .handled
-            }
-            .accessibilityElement()
-            .accessibilityLabel(edge == .start ? startLabel : endLabel)
-            .accessibilityValue(valueText(value))
-            .accessibilityAdjustableAction { direction in
-                switch direction {
-                case .increment: step(edge, up: true, large: false)
-                case .decrement: step(edge, up: false, large: false)
-                @unknown default: break
-                }
-            }
-            .accessibilityAction(named: largeStepUp) { step(edge, up: true, large: true) }
-            .accessibilityAction(named: largeStepDown) { step(edge, up: false, large: true) }
-    }
-
-    private func step(_ edge: LoopModel.Edge, up: Bool, large: Bool) {
-        let from = bounds.unit(edge == .start ? start : end)
-        change(bounds.placing(edge, at: from + steps.delta(up: up, large: large), start: start, end: end))
-    }
-
-    private func drag(_ grab: Grab, width: CGFloat) -> some Gesture {
-        DragGesture(minimumDistance: LoopModel.dragThreshold)
-            .updating($dragging) { _, dragging, _ in dragging = true }
-            .onChanged { drag in
-                guard width > 0 else { return }
-                let origin = dragOrigin ?? IsolateSpan(start: start, end: end)
-                dragOrigin = origin
-                let delta =
-                    Double(drag.translation.width / width) * (bounds.unit(bounds.max) - bounds.unit(bounds.min))
-                switch grab {
-                case .both:
-                    change(bounds.shifting(start: origin.start, end: origin.end, by: delta))
-                case .edge(let edge):
-                    let from = bounds.unit(edge == .start ? origin.start : origin.end)
-                    change(bounds.placing(edge, at: from + delta, start: origin.start, end: origin.end))
-                }
-            }
-    }
-
-    private func change(_ span: IsolateSpan) {
         guard span != IsolateSpan(start: start, end: end) else { return }
         onChange(span.start, span.end)
     }

@@ -414,6 +414,19 @@ private final class FakeLoops {
         #expect(spoken.said == [PracticeText.loopCreated, PracticeText.loopCreated])
     }
 
+    @Test func aNewLoopOpensFromThePlayheadUntilTheSelectionMovesOn() async throws {
+        try await load()
+        let model = practice()
+        audio.elapsed = 20
+        model.newLoop()
+        await model.settle()
+        #expect(model.insertedID == "n1")
+        model.select("n1")
+        #expect(model.insertedID == "n1")
+        model.select(nil)
+        #expect(model.insertedID == nil)
+    }
+
     @Test func newLoopIsDisabledWithEachReason() async throws {
         try await load()
         let model = practice()
@@ -564,35 +577,45 @@ private final class FakeLoops {
 
     // MARK: Handles
 
+    /// One move of the handles to `startMs`-`endMs`, committed where it ends.
+    private func moveHandles(_ model: PracticeModel, _ startMs: Int64, _ endMs: Int64) {
+        model.moveHandles(to: LoopSpan(startMs: startMs, endMs: endMs))
+        model.commitHandles(LoopSpan(startMs: startMs, endMs: endMs))
+    }
+
     @Test func aHandleStopsFlushAtTheNeighbor() async throws {
         try await load()
         let model = practice()
         store.put([loop("a", 5000, 10_000), loop("b", 12_000, 15_000)])
         model.select("a")
-        model.beginHandleDrag(.end)
-        model.dragHandle(toX: try x(model, 14_000), snapping: false)
+        model.moveHandles(to: LoopSpan(startMs: 5000, endMs: 14_000))
         #expect(model.shownSpan("a") == LoopSpan(startMs: 5000, endMs: 12_000))
         #expect(store.calls.isEmpty)
-        model.endHandleDrag(atX: try x(model, 14_000), snapping: false)
+        model.commitHandles(LoopSpan(startMs: 5000, endMs: 14_000))
         await model.settle()
         #expect(store.calls == ["update(a, 5000-12000)"])
     }
 
-    @Test func aHandleSnapsToThePlayheadUnlessSnappingIsOff() async throws {
+    @Test func theHandlesSnapToTheRoomAroundTheSelectedLoop() async throws {
         try await load()
         let model = practice()
-        store.put([loop("a", 5000, 10_000)])
+        store.put([loop("c", 1000, 3000), loop("a", 5000, 10_000), loop("b", 12_000, 15_000)])
+        #expect(model.handleSnapPointsMs.isEmpty)
         model.select("a")
-        audio.elapsed = 8
-        model.beginHandleDrag(.end)
-        model.dragHandle(toX: try x(model, 8300), snapping: true)
-        #expect(model.shownSpan("a")?.endMs == 8000)
-        #expect(model.snaps == 1)
-        model.dragHandle(toX: try x(model, 8300), snapping: false)
-        #expect(model.shownSpan("a")?.endMs == 8300)
-        model.endHandleDrag(atX: try x(model, 8300), snapping: false)
+        #expect(model.handleSnapPointsMs == [3000, 12_000])
+    }
+
+    @Test func aMoveCommittedWhereItBeganWritesNothing() async throws {
+        try await load()
+        let model = practice()
+        store.put([loop("a", 5000, 15_000)])
+        model.select("a")
+        model.moveHandles(to: LoopSpan(startMs: 5000, endMs: 12_000))
+        model.moveHandles(to: LoopSpan(startMs: 5000, endMs: 15_000))
+        model.commitHandles(LoopSpan(startMs: 5000, endMs: 15_000))
         await model.settle()
-        #expect(store.calls == ["update(a, 5000-8300)"])
+        #expect(store.calls.isEmpty)
+        #expect(model.shownSpan("a") == LoopSpan(startMs: 5000, endMs: 15_000))
     }
 
     @Test func aRepeatingLoopFollowsItsHandleWhileThePlayheadIsInside() async throws {
@@ -601,10 +624,9 @@ private final class FakeLoops {
         store.put([loop("a", 5000, 15_000)])
         model.select("a")
         audio.elapsed = 6
-        model.beginHandleDrag(.end)
-        model.dragHandle(toX: try x(model, 12_000), snapping: false)
+        model.moveHandles(to: LoopSpan(startMs: 5000, endMs: 12_000))
         #expect(audio.loop == window(5000, 12_000))
-        model.endHandleDrag(atX: try x(model, 12_000), snapping: false)
+        model.commitHandles(LoopSpan(startMs: 5000, endMs: 12_000))
         await model.settle()
         #expect(audio.loop == window(5000, 12_000))
     }
@@ -614,11 +636,13 @@ private final class FakeLoops {
         let model = practice()
         store.put([loop("a", 5000, 15_000)])
         model.select("a")
-        model.beginHandleDrag(.end)
-        model.dragHandle(toX: try x(model, 12_000), snapping: false)
+        model.moveHandles(to: LoopSpan(startMs: 5000, endMs: 12_000))
         model.pinch(1.5)
         model.endPinch()
-        model.endHandleDrag(atX: try x(model, 12_000), snapping: false)
+        #expect(model.shownSpan("a") == LoopSpan(startMs: 5000, endMs: 15_000))
+        model.moveHandles(to: LoopSpan(startMs: 5000, endMs: 11_000))
+        #expect(model.shownSpan("a") == LoopSpan(startMs: 5000, endMs: 15_000))
+        model.commitHandles(LoopSpan(startMs: 5000, endMs: 11_000))
         await model.settle()
         #expect(store.calls.isEmpty)
         #expect(model.shownSpan("a") == LoopSpan(startMs: 5000, endMs: 15_000))
@@ -629,55 +653,82 @@ private final class FakeLoops {
         let model = practice()
         store.put([loop("a", 5000, 15_000)])
         model.select("a")
-        func drag(to ms: Int64) throws {
-            model.beginHandleDrag(.end)
-            model.dragHandle(toX: try x(model, ms), snapping: false)
-            model.endHandleDrag(atX: try x(model, ms), snapping: false)
-        }
-        try drag(to: 14_000)
+        moveHandles(model, 5000, 14_000)
         await model.settle()
         #expect(model.shownSpan("a")?.endMs == 14_000)
 
         store.paused = true
-        try drag(to: 13_000)
+        moveHandles(model, 5000, 13_000)
         await model.settle()
         #expect(model.shownSpan("a")?.endMs == 13_000)
         store.resume()
         #expect(model.shownSpan("a")?.endMs == 13_000)
     }
 
-    @Test func aNudgeWritesOnceWhenTheKeyIsLetGo() async throws {
+    @Test func heldKeyStepsWriteOnceWhenTheKeyIsLetGo() async throws {
         try await load()
         let model = practice()
         store.put([loop("a", 5000, 15_000)])
         model.select("a")
-        model.nudge(.start, by: 100)
-        model.nudge(.start, by: 100)
+        model.moveHandles(to: LoopSpan(startMs: 5100, endMs: 15_000), byKeyStep: true)
+        model.moveHandles(to: LoopSpan(startMs: 5200, endMs: 15_000), byKeyStep: true)
         #expect(store.calls.isEmpty)
-        model.commitNudge()
+        model.commitHandles(LoopSpan(startMs: 5200, endMs: 15_000))
         await model.settle()
         #expect(store.calls == ["update(a, 5200-15000)"])
         #expect(model.handleValue(.start) == "Loop 0:05 start, 0:05.2")
     }
 
-    @Test func aSecondNudgeShowsItsOwnSpanUntilItsWriteLands() async throws {
+    @Test func leavingDuringARunOfKeyStepsWritesWhereItLeftTheLoop() async throws {
         try await load()
         let model = practice()
         store.put([loop("a", 5000, 15_000)])
         model.select("a")
-        model.nudge(.start, by: 100)
-        model.commitNudge()
+        model.moveHandles(to: LoopSpan(startMs: 5000, endMs: 14_900), byKeyStep: true)
+        model.moveHandles(to: LoopSpan(startMs: 5000, endMs: 14_800), byKeyStep: true)
+        model.leave()
+        // The handles' own commit on their way out comes after and finds nothing to write.
+        model.commitHandles(LoopSpan(startMs: 5000, endMs: 14_800))
+        await model.settle()
+        #expect(store.calls == ["update(a, 5000-14800)"])
+    }
+
+    @Test func leavingDuringAHandleDragWritesNothing() async throws {
+        try await load()
+        let model = practice()
+        store.put([loop("a", 5000, 15_000)])
+        model.select("a")
+        model.moveHandles(to: LoopSpan(startMs: 5000, endMs: 12_000))
+        model.leave()
+        model.commitHandles(LoopSpan(startMs: 5000, endMs: 12_000))
+        await model.settle()
+        #expect(store.calls.isEmpty)
+        #expect(model.shownSpan("a") == LoopSpan(startMs: 5000, endMs: 15_000))
+    }
+
+    @Test func aSecondStepShowsItsOwnSpanUntilItsWriteLands() async throws {
+        try await load()
+        let model = practice()
+        store.put([loop("a", 5000, 15_000)])
+        model.select("a")
+        moveHandles(model, 5100, 15_000)
         await model.settle()
         #expect(model.shownSpan("a") == LoopSpan(startMs: 5100, endMs: 15_000))
 
         store.paused = true
-        model.nudge(.start, by: 100)
-        model.commitNudge()
+        moveHandles(model, 5200, 15_000)
         await model.settle()
         #expect(model.shownSpan("a") == LoopSpan(startMs: 5200, endMs: 15_000))
         store.resume()
         #expect(model.shownSpan("a") == LoopSpan(startMs: 5200, endMs: 15_000))
         #expect(store.calls == ["update(a, 5100-15000)", "update(a, 5200-15000)"])
+    }
+
+    @Test func handleSecondsAreOnTheTrimmedTimeline() async throws {
+        try await load()
+        let model = practice()
+        #expect(model.sourceMs(handleSeconds: model.handleSeconds(5300)) == 5300)
+        #expect(model.handleSeconds(model.trimStartMs + 2500) == 2.5)
     }
 
     @Test func placedLoopsShowDraftsAndANewLoopAheadOfTheirRowsByStart() async throws {
@@ -710,11 +761,9 @@ private final class FakeLoops {
         store.put([loop("a", 5000, 15_000)])
         model.select("a")
         store.paused = true
-        model.nudge(.start, by: 100)
-        model.commitNudge()
+        moveHandles(model, 5100, 15_000)
         await model.settle()
-        model.nudge(.start, by: 100)
-        model.commitNudge()
+        moveHandles(model, 5200, 15_000)
         await model.settle()
         #expect(model.shownSpan("a") == LoopSpan(startMs: 5200, endMs: 15_000))
 
@@ -925,13 +974,17 @@ private final class FakeLoops {
         #expect(isolateCalls == ["setIsolateOutlineWanted(true)", "setIsolateOutlineWanted(false)"])
     }
 
-    @Test func theIsolateSegmentReadsItsEffectOnceOffItsDefault() {
+    @Test func theIsolateTabReadsItsEffectOnceOffItsDefault() {
         let muted = IsolateSetting(effect: .mute, panStart: -100, panEnd: 100, lowHz: 40, highHz: 16000)
         let soloed = IsolateSetting(effect: .solo, panStart: -40, panEnd: 0, lowHz: 40, highHz: 16000)
         #expect(PracticeMode.isolate.badge(speedPercent: 100, pitchCents: 0, isolate: muted) == "Mute")
-        #expect(PracticeMode.isolate.title(speedPercent: 100, pitchCents: 0, isolate: muted) == "Isolate Mute")
-        #expect(PracticeMode.isolate.title(speedPercent: 100, pitchCents: 0, isolate: soloed) == "Isolate Solo")
-        #expect(PracticeMode.isolate.title(speedPercent: 75, pitchCents: 200, isolate: .standard) == "Isolate")
+        func spoken(_ isolate: IsolateSetting, speedPercent: Int = 100, pitchCents: Int = 0) -> String {
+            let tab = PracticeMode.isolate.tab(speedPercent: speedPercent, pitchCents: pitchCents, isolate: isolate)
+            return PaneTab<PracticeMode>.label(title: tab.title, valueText: tab.valueText)
+        }
+        #expect(spoken(muted) == "Isolate Mute")
+        #expect(spoken(soloed) == "Isolate Solo")
+        #expect(spoken(.standard, speedPercent: 75, pitchCents: 200) == "Isolate")
         #expect(PracticeMode.speed.badge(speedPercent: 75, pitchCents: 0, isolate: muted) == "75%")
         #expect(PracticeMode.allCases == [.speed, .pitch, .isolate, .loops])
     }

@@ -10,6 +10,17 @@ extension PracticeModel {
     /// How far the waveform scrolls each step with the pointer at the very edge.
     static let autoPanMax: Double = 8
 
+    /// How far a held handle scrolls the waveform each step at `depth` from -1 to 1 into a
+    /// side's zone.
+    static func autoPanMs(depth: Double, pointsPerSecond: Double) -> Int64 {
+        Int64((depth * autoPanMax * 1000 / pointsPerSecond).rounded())
+    }
+
+    /// How far from the center, in ms, a time stays in view before a reveal moves to it.
+    static func revealReachMs(width: Double, pointsPerSecond: Double) -> Double {
+        max(0, width / 2 - autoPanZone) / pointsPerSecond * 1000
+    }
+
     /// Every loop as shown, drafts included, by start.
     var placedLoops: [PlacedLoop] {
         var rows = loops
@@ -50,6 +61,7 @@ extension PracticeModel {
         run { [self] in
             do {
                 let row = try await writer.add(recordingID, span)
+                insertedID = row.id
                 select(row)
                 announce(PracticeText.loopCreated)
             } catch {
@@ -112,35 +124,18 @@ extension PracticeModel {
         if next != span { write(row.id, next) }
     }
 
-    /// Moves the selected loop's `edge` by `deltaMs` ahead of its row; ``commitNudge()`` writes it.
-    func nudge(_ edge: LoopModel.Edge, by deltaMs: Int64) {
-        guard let row = selected, let current = shownSpan(row.id) else { return }
-        if nudging?.id != row.id { nudging = (row.id, Self.span(row)) }
-        let at = edge == .start ? current.startMs : current.endMs
-        let next = LoopModel.resize(current, edge: edge, to: at + deltaMs, bounds: room(around: current, of: row.id))
-        activeKey = row.id
-        putDraft(row.id, next)
-        reveal(edge == .start ? next.startMs : next.endMs)
-    }
-
-    /// Writes the nudged loop once, as the key that moved it is let go.
-    func commitNudge() {
-        guard let nudged = nudging else { return }
-        nudging = nil
-        if activeKey == nudged.id { activeKey = nil }
-        guard let span = drafts[nudged.id]?.span, span != nudged.origin else {
-            dropDraft(nudged.id)
-            return
-        }
-        write(nudged.id, span)
-    }
-
     /// What VoiceOver reads for a handle: "B part start, 0:58.3".
     func handleValue(_ edge: LoopModel.Edge) -> String {
         guard let row = selected, let span = shownSpan(row.id) else { return "" }
-        let ms = edge == .start ? span.startMs : span.endMs
-        return PracticeText.handle(
-            name(row), edge: edge == .start ? "start" : "end",
+        return Self.handleValue(
+            edge, of: name(row), atMs: edge == .start ? span.startMs : span.endMs, from: trimStartMs)
+    }
+
+    /// The value of loop `name`'s `edge` at `ms` in the source, timed from `trimStartMs`.
+    static func handleValue(_ edge: LoopModel.Edge, of name: String, atMs ms: Int64, from trimStartMs: Int64) -> String
+    {
+        PracticeText.handle(
+            name, edge: edge == .start ? "start" : "end",
             time: RecordingScreenText.preciseTime(milliseconds: ms - trimStartMs))
     }
 
@@ -151,47 +146,53 @@ extension PracticeModel {
 
     // MARK: Handles
 
-    /// A drag on one of the selected loop's handles has passed the threshold.
-    func beginHandleDrag(_ edge: LoopModel.Edge) {
-        saveOpenRename()
-        guard let row = selected, let span = shownSpan(row.id) else { return }
-        handleDrag = HandleDrag(
-            id: row.id, edge: edge, origin: span, room: room(around: span, of: row.id), pinch: pinches)
+    /// `sourceMs` as the handles place it: seconds on the trimmed timeline.
+    func handleSeconds(_ sourceMs: Int64) -> Double {
+        HandleTime.seconds(sourceMs, from: trimStartMs)
     }
 
-    /// The handle's drag is now at `x` points from the waveform's left edge. Shown as a draft,
-    /// and played while the playhead stays inside the loop; nothing is written until it ends.
-    func dragHandle(toX x: Double, snapping: Bool) {
-        guard var drag = handleDrag, drag.pinch == pinches, let view = zoomedWaveformView else { return }
-        drag.lastX = x
-        drag.snapping = snapping
-        drag.moved = true
-        let (span, snapped) = resized(drag, atX: x, in: view)
-        if let snapped, snapped != drag.snappedTo { snaps += 1 }
-        drag.snappedTo = snapped
-        handleDrag = drag
+    /// A handle's place, in seconds on the trimmed timeline, as a time in the source.
+    func sourceMs(handleSeconds seconds: Double) -> Int64 {
+        HandleTime.sourceMs(seconds, from: trimStartMs)
+    }
+
+    /// Where the selected loop's handles snap besides the playhead: the ends of the room around
+    /// it, its neighbors or the trim.
+    var handleSnapPointsMs: [Int64] {
+        guard let row = selected, let span = shownSpan(row.id) else { return [] }
+        let room = room(around: span, of: row.id)
+        return [room.startMs, room.endMs]
+    }
+
+    /// The handles have the selected loop at `proposed`, one edge moved by a drag or, with
+    /// `byKeyStep`, by an arrow-key step. Shown as a draft held to the room around it, and played
+    /// while the playhead stays inside; nothing is written until ``commitHandles(_:)``.
+    func moveHandles(to proposed: LoopSpan, byKeyStep: Bool = false) {
+        guard let row = selected, let shown = shownSpan(row.id) else { return }
+        if handleDrag == nil {
+            guard let part = HandleDrag.Part(from: shown, to: proposed) else { return }
+            saveOpenRename()
+            handleDrag = HandleDrag(
+                id: row.id, part: part, isKeySteps: byKeyStep, origin: shown, room: room(around: shown, of: row.id))
+        }
+        guard let drag = handleDrag, drag.id == row.id, !drag.isCancelled else { return }
+        let span = drag.placed(proposed)
         activeKey = drag.id
         putDraft(drag.id, span)
         // A loop dragged off the playhead takes it along on release instead.
-        if drag.id == selectedID, playheadMs >= span.startMs, playheadMs < span.endMs {
+        if playheadMs >= span.startMs, playheadMs < span.endMs {
             hold(drag.id, span)
         }
-        setAutoPan(autoPanDepth(atX: x))
     }
 
-    /// The handle's drag ends at `x`: a drag that moved writes its loop once; one a pinch took
-    /// over, or one that never moved, writes nothing.
-    func endHandleDrag(atX x: Double, snapping: Bool) {
-        guard var drag = handleDrag else { return }
-        guard drag.moved, drag.pinch == pinches, let view = zoomedWaveformView else {
-            cancelHandleDrag()
-            return
-        }
+    /// The handles let go with the loop at `proposed`: a move that changed it writes it once;
+    /// one a pinch took over, or one back where it began, writes nothing.
+    func commitHandles(_ proposed: LoopSpan) {
+        guard let drag = handleDrag else { return }
         handleDrag = nil
         activeKey = nil
-        setAutoPan(0)
-        drag.snapping = snapping
-        let (span, _) = resized(drag, atX: x, in: view)
+        guard !drag.isCancelled else { return }
+        let span = drag.placed(proposed)
         guard let row = row(drag.id), Self.span(row) != span else {
             letGo(drag.id)
             return
@@ -199,48 +200,33 @@ extension PracticeModel {
         write(drag.id, span)
     }
 
-    /// A handle's drag the system took away, or a pinch replaced: its loop goes back unwritten.
+    /// Writes a run of arrow-key steps where it has left the loop, as if the key were let go.
+    /// A drag is left alone.
+    func commitHandleKeySteps() {
+        guard let drag = handleDrag, drag.isKeySteps, !drag.isCancelled, let shown = shownSpan(drag.id) else {
+            return
+        }
+        commitHandles(shown)
+    }
+
+    /// A pinch took over the handles' move: the loop goes back unwritten, and the move takes no
+    /// more steps until the handles let go.
     func cancelHandleDrag() {
-        guard let drag = handleDrag else { return }
-        handleDrag = nil
+        guard let drag = handleDrag, !drag.isCancelled else { return }
+        handleDrag?.isCancelled = true
         activeKey = nil
-        setAutoPan(0)
         letGo(drag.id)
     }
 
-    /// One step of auto-pan, faster deeper into the zone, then the drag again against the
-    /// view that moved under it.
-    func autoPanStep() {
-        guard autoPan != 0, let drag = handleDrag, let scale else { return }
-        seek(byMs: Int64((autoPan * Self.autoPanMax * 1000 / scale).rounded()))
-        dragHandle(toX: drag.lastX, snapping: drag.snapping)
-    }
-
-    func setAutoPan(_ depth: Double) {
-        if depth != autoPan { autoPan = depth }
+    /// Scrolls the waveform under a held handle, `depth` from -1 to 1 into a side's zone, faster
+    /// deeper in.
+    func scrollUnderHandle(depth: Double) {
+        guard let scale else { return }
+        seek(byMs: Self.autoPanMs(depth: depth, pointsPerSecond: scale))
     }
 
     private func letGo(_ id: String) {
         dropDraft(id)
         if id == selectedID { hold(id, nil) }
-    }
-
-    private func autoPanDepth(atX x: Double) -> Double {
-        guard width > 0 else { return 0 }
-        if x < Self.autoPanZone { return -(Self.autoPanZone - max(0, x)) / Self.autoPanZone }
-        if x > width - Self.autoPanZone { return (Self.autoPanZone - max(0, width - x)) / Self.autoPanZone }
-        return 0
-    }
-
-    /// The span `drag` makes with the pointer at `x`, and the time it snapped to, if any. The
-    /// edge stops at the room's ends and snaps to them and, unless `snapping` is off, to the
-    /// playhead.
-    private func resized(_ drag: HandleDrag, atX x: Double, in view: ZoomedWaveformView) -> (LoopSpan, Int64?) {
-        let pointer = Int64(view.sourceMs(atX: x).rounded())
-        let targets = (drag.snapping ? [playheadMs] : []) + [drag.room.startMs, drag.room.endMs]
-        let snapped = LoopModel.snap(pointer, to: targets, msPerPoint: 1000 / view.pointsPerSecond)
-        let span = LoopModel.resize(drag.origin, edge: drag.edge, to: snapped, bounds: drag.room)
-        let landed = snapped != pointer || targets.contains(pointer)
-        return (span, drag.snapping && landed ? snapped : nil)
     }
 }

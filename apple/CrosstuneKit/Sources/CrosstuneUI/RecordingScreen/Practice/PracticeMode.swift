@@ -12,9 +12,11 @@ enum PracticeMode: String, CaseIterable, Identifiable, Sendable {
 
     var id: Self { self }
 
-    /// `Speed 75%`: the mode's name, with its value once that is off its default.
-    func title(speedPercent: Int, pitchCents: Int, isolate: IsolateSetting) -> String {
-        PracticeText.segment(name, value: badge(speedPercent: speedPercent, pitchCents: pitchCents, isolate: isolate))
+    /// The mode's tab, which shows its value once that is off its default (`Speed 75%`).
+    func tab(speedPercent: Int, pitchCents: Int, isolate: IsolateSetting) -> PaneTab<PracticeMode> {
+        PaneTab(
+            self, title: name, systemImage: systemImage,
+            valueText: badge(speedPercent: speedPercent, pitchCents: pitchCents, isolate: isolate))
     }
 
     var name: String {
@@ -23,6 +25,15 @@ enum PracticeMode: String, CaseIterable, Identifiable, Sendable {
         case .speed: RecordingScreenText.speed
         case .pitch: RecordingScreenText.pitch
         case .isolate: RecordingScreenText.isolate
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .loops: "repeat"
+        case .speed: "gauge.with.dots.needle.33percent"
+        case .pitch: "tuningfork"
+        case .isolate: "waveform"
         }
     }
 
@@ -39,66 +50,62 @@ enum PracticeMode: String, CaseIterable, Identifiable, Sendable {
     }
 }
 
-/// Speed, Pitch, Isolate, and Loops as one segmented control. The chosen mode's controls are
-/// ``ModeControls``; on iPhone and iPad the transport sits between the two, while the Mac sets
-/// the picker right over its panel, under the transport. Both read the mode from the model.
+/// Speed, Pitch, Isolate, and Loops as tabs. The chosen mode's controls are ``ModeControls``;
+/// on iPhone and iPad the transport sits between the two, while the Mac sets the tabs right over
+/// their panel, under the transport. Both read the mode from the model.
 struct ModePicker: View {
     let model: PracticeModel
 
     var body: some View {
         @Bindable var model = model
-        #if os(macOS)
-            MacSegmented(
-                selection: $model.mode, options: PracticeMode.allCases, label: \.name,
-                badge: {
-                    $0.badge(
-                        speedPercent: model.speedPercent, pitchCents: model.pitchCents,
-                        isolate: model.effectiveIsolate)
-                },
-                title: PracticeText.modes, fillsWidth: true)
-        #else
-            picker
-        #endif
-    }
-
-    private var picker: some View {
-        @Bindable var model = model
-        return Picker(PracticeText.modes, selection: $model.mode) {
-            ForEach(PracticeMode.allCases) { mode in
-                Text(
-                    mode.title(
-                        speedPercent: model.speedPercent, pitchCents: model.pitchCents,
-                        isolate: model.effectiveIsolate)
-                )
-                .monospacedDigit()
-                .tag(mode)
-            }
-        }
-        .pickerStyle(.segmented)
-        .labelsHidden()
+        PaneTabs(
+            selection: $model.mode,
+            tabs: PracticeMode.allCases.map {
+                $0.tab(speedPercent: model.speedPercent, pitchCents: model.pitchCents, isolate: model.effectiveIsolate)
+            },
+            title: PracticeText.modes)
     }
 }
 
-/// The chosen mode's own controls, under the transport. Every mode's panel is laid out in the
-/// same place and only the chosen one shows, so the block is always as tall as the tallest
-/// panel and changing mode never moves the waveform above it.
+/// The chosen mode's own controls, under the transport. Every mode's panel is laid out unseen in
+/// the same place, so the block is always as tall as the tallest panel and changing mode never
+/// moves the waveform above it.
 struct ModeControls: View {
     let model: PracticeModel
     /// Delete loop removed the selected loop, whose control goes disabled with it.
     let onDeleted: () -> Void
 
-    var body: some View {
-        ZStack(alignment: .top) {
-            panel(.loops) { LoopsPanel(model: model, onDeleted: onDeleted) }
-            panel(.speed) { SpeedPanel(value: model.speedPercent, onChange: model.setSpeed) }
-            panel(.pitch) { PitchPanel(value: model.pitchCents, onChange: model.setPitch) }
-            panel(.isolate) { LiveIsolatePanel(model: model, shown: model.mode == .isolate) }
-        }
+    /// Held here rather than in the Pitch panel, which a mode change rebuilds, so a shift on a
+    /// half semitone keeps the split it was given.
+    @State private var pitchSplit: PitchSplit
+
+    init(model: PracticeModel, onDeleted: @escaping () -> Void) {
+        self.model = model
+        self.onDeleted = onDeleted
+        _pitchSplit = State(initialValue: PitchSplit(cents: model.pitchCents))
     }
 
-    private func panel(_ mode: PracticeMode, @ViewBuilder content: () -> some View) -> some View {
-        content()
-            .frame(maxWidth: .infinity)
-            .reserved(shown: model.mode == mode)
+    var body: some View {
+        ZStack(alignment: .top) {
+            ForEach(PracticeMode.allCases) { mode in
+                panel(mode, isShown: false).reserved(shown: false)
+            }
+            PaneTabPanel(selection: model.mode, order: PracticeMode.allCases) {
+                panel(model.mode, isShown: true)
+            }
+        }
+        .onChange(of: model.pitchCents) { pitchSplit.follow(model.pitchCents) }
+    }
+
+    @ViewBuilder private func panel(_ mode: PracticeMode, isShown: Bool) -> some View {
+        Group {
+            switch mode {
+            case .loops: LoopsPanel(model: model, onDeleted: onDeleted)
+            case .speed: SpeedPanel(value: model.speedPercent, onChange: model.setSpeed)
+            case .pitch: PitchPanel(value: model.pitchCents, split: $pitchSplit, onChange: model.setPitch)
+            case .isolate: LiveIsolatePanel(model: model, shown: isShown)
+            }
+        }
+        .frame(maxWidth: .infinity)
     }
 }

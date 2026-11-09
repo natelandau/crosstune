@@ -135,7 +135,7 @@ extension PracticeModel {
         guard let scale else { return }
         let ms = Double(sourceMs - trimStartMs)
         let center = shownCenterMs(at: clock())
-        let reach = max(0, width / 2 - Self.autoPanZone) / scale * 1000
+        let reach = Self.revealReachMs(width: width, pointsPerSecond: scale)
         if ms < center - reach {
             seek(toMs: Int64((ms + reach).rounded()))
         } else if ms > center + reach {
