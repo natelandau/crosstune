@@ -1,4 +1,5 @@
 import CrosstuneCommands
+import CrosstuneDesign
 import CrosstuneTestSupport
 import CrosstuneVocabulary
 import Foundation
@@ -41,20 +42,30 @@ import Testing
         #expect(place.settingsPage == .account)
     }
 
-    /// Every root row keeps its own identity, so the iPad root lists each page once and opens
-    /// its own, and a row is rebuilt when the appearance changes.
-    @Test func rootRowsKeepTheirOwnIdentity() throws {
-        let pages = [SettingsPage.account, .stats] + SettingsCategory.allCases.map(SettingsPage.category)
-        for scheme in [ColorScheme.light, .dark] {
-            #expect(Set(pages.map { $0.rowIdentity(scheme) }).count == pages.count, "\(scheme)")
-        }
-        for page in pages {
-            #expect(page.rowIdentity(.light) != page.rowIdentity(.dark), "\(page)")
-        }
+    /// The iPad root's rows are a selection form's rows and draw no chevron or fill of their
+    /// own; a pushed row's chevron is the system's.
+    @Test func rootUsesTheSelectionFormAndDrawsNoChevronOrFill() throws {
         let root = SourceScan.withoutComments(
             try SourceScan.text(at: SourceScan.url(of: "Phone/SettingsRoot.swift")))
-        #expect(root.contains(".id(page.rowIdentity(colorScheme))"))
-        #expect(!root.contains(".id(colorScheme)"))
+        #expect(root.contains("GroupedSelectionForm("))
+        #expect(root.contains(".groupedSelectionRow(page, selection: opener.current)"))
+        #expect(!root.contains("chevron"))
+        #expect(!root.contains("listRowBackground"))
+    }
+
+    /// Every root row keeps its own identity in each appearance, so the iPad root lists each
+    /// page once and rebuilds a row when the appearance changes.
+    @Test func rootRowsKeepTheirOwnIdentity() {
+        let pages = [SettingsPage.account, .stats] + SettingsCategory.allCases.map(SettingsPage.category)
+        for scheme in [ColorScheme.light, .dark] {
+            let identities = pages.map { GroupedSelectionRowIdentity(value: $0, scheme: scheme) }
+            #expect(Set(identities).count == pages.count, "\(scheme)")
+        }
+        for page in pages {
+            #expect(
+                GroupedSelectionRowIdentity(value: page, scheme: .light)
+                    != GroupedSelectionRowIdentity(value: page, scheme: .dark), "\(page)")
+        }
     }
 
     @Test func tunesHoldsInstrumentsNewTunesAndServices() {

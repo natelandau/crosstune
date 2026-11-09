@@ -76,6 +76,8 @@ public struct RecordToolbarButton: View {
                     .foregroundStyle(Palette.record)
             }
         }
+        // The toolbar's own button, wherever the app places it.
+        .buttonStyle(.automatic)
         .symbolEffect(.bounce, value: reduceMotion ? 0 : presses)
         .accessibilityLabel(RecordControl.label)
         .help(RecordControl.label)

@@ -30,12 +30,12 @@ struct MusicServicesSheet: View {
                 .navigationTitle(SettingsModel.musicServices)
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
-                    ConfirmToolbarItem {
-                        Button(Self.done) { dismiss() }
+                    ToolbarItem(placement: .cancellationAction) {
+                        SheetCloseButton { dismiss() }
                     }
                 }
             }
-            .partHeightSheet()
+            .shellSheet()
         #endif
     }
 }

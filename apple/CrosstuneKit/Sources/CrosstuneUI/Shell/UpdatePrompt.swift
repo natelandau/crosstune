@@ -147,6 +147,7 @@ private struct UpdatePrompt: ViewModifier {
                 .alert(UpdatePromptText.title, isPresented: isPresented) {
                     if let appStoreURL {
                         Button(UpdatePromptText.update) { openURL(appStoreURL) }
+                        .keyboardShortcut(.defaultAction)
                     }
                     Button(UpdatePromptText.notNow, role: .cancel) {}
                 } message: {

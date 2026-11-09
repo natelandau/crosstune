@@ -7,7 +7,6 @@ import SwiftUI
 /// The account's plan: what Free and Premium each hold, purchasable for a free or trial account,
 /// or confirmed to a Premium one. A locked tap opens it naming what was tapped.
 struct PlanSheet: View {
-    nonisolated static let close = "Close"
 
     let reason: PremiumReason
     /// Where the sheet was opened from, which a purchase reports.
@@ -184,6 +183,17 @@ struct PlanSheet: View {
         sale != .subscribed
     }
 
+    /// Whether `sale` ends in a button the phone's action bar pins: Subscribe, its place while
+    /// the store answers, or Close once a purchase or restore settles. Where nothing is for sale,
+    /// the reason and Restore purchases stay on the page.
+    nonisolated static func pinsAction(_ sale: Sale, hasPurchase: Bool) -> Bool {
+        switch sale {
+        case .choice, .loading: hasPurchase
+        case .subscribed: true
+        case .offline, .unavailable, .notPurchasable: false
+        }
+    }
+
     /// `period` when the store sells it, otherwise the first period it does sell.
     nonisolated static func chosen(_ period: PurchasePeriod, in offers: [PurchaseOffer]) -> PurchasePeriod {
         offers.contains { $0.period == period } ? period : (choices(offers).first?.period ?? period)
@@ -243,12 +253,20 @@ struct PlanSheet: View {
                         .padding()
                     }
                     .planBackground()
+                    .sheetActions(
+                        line: Self.outcomeLine(sale, line: purchase?.line),
+                        isShown: mode == .purchasable && Self.pinsAction(sale, hasPurchase: purchase != nil)
+                    ) {
+                        barAction(sale)
+                    } secondary: {
+                        EmptyView()
+                    }
                     #if os(iOS)
                         .navigationBarTitleDisplayMode(.inline)
                     #endif
                     .toolbar {
                         ToolbarItem(placement: .cancellationAction) {
-                            SheetCloseButton(Self.close) { dismiss() }
+                            SheetCloseButton { dismiss() }
                         }
                     }
                 }
@@ -350,33 +368,21 @@ struct PlanSheet: View {
     }
 
     #if !os(macOS)
-        /// The choice, Subscribe, and disclosures, at the end of the sheet's scrolling page, where
-        /// they never cover the comparison.
+        /// The choice and its terms at the end of the sheet's scrolling page, and, where nothing is
+        /// for sale, why with Restore purchases. Only Subscribe or Close and the outcome pin to the
+        /// sheet's bottom edge in its action bar, so the terms and links scroll at any text size.
         private func inlineActions(_ sale: Sale) -> some View {
-            let line = Self.outcomeLine(sale, line: purchase?.line)
-            return VStack(alignment: .center, spacing: 16) {
+            VStack(alignment: .center, spacing: 16) {
                 switch (sale, purchase) {
                 case (.choice(let offers), let purchase?):
                     tiles(offers, purchase: purchase)
-                    subscribeButton(purchase)
-                    if let line {
-                        paragraph(line)
-                    }
                     terms(sale, purchase: purchase)
                 case (.loading, let purchase?):
-                    PrimaryAction { WaitingSubscribeButton() }
-                    if let line {
-                        paragraph(line)
-                    }
                     terms(sale, purchase: purchase)
-                case (.subscribed, _):
-                    if let line {
-                        paragraph(line)
-                    }
-                    // The phone's glass xmark is easy to miss, so Close also reads as a button.
-                    PrimaryAction { Button(Self.close) { dismiss() } }
-                case (.offline, _), (.unavailable, _), (.notPurchasable, _), (.choice, nil), (.loading, nil):
-                    if let line {
+                case (.loading, nil), (.subscribed, _), (.choice, nil):
+                    EmptyView()
+                case (.offline, _), (.unavailable, _), (.notPurchasable, _):
+                    if let line = Self.outcomeLine(sale, line: purchase?.line) {
                         paragraph(line).foregroundStyle(.textSecondary)
                     }
                     if let purchase {
@@ -388,6 +394,22 @@ struct PlanSheet: View {
             .padding(.top, 16)
         }
 
+        /// The bar's button for `sale`.
+        @ViewBuilder
+        private func barAction(_ sale: Sale) -> some View {
+            switch (sale, purchase) {
+            case (.choice, let purchase?):
+                subscribeButton(purchase)
+            case (.loading, _?):
+                WaitingSubscribeButton()
+            case (.subscribed, _):
+                // The phone's glass xmark is easy to miss, so Close also reads as a button.
+                Button(SheetCloseButton.close) { dismiss() }
+            default:
+                EmptyView()
+            }
+        }
+
         private func paragraph(_ text: String) -> some View {
             Text(text)
                 .font(.footnote)
@@ -396,12 +418,10 @@ struct PlanSheet: View {
         }
 
         private func subscribeButton(_ purchase: PurchaseModel) -> some View {
-            PrimaryAction {
-                Button(PlanText.subscribe) {
-                    Task { await Self.subscribe(purchase, from: entry) }
-                }
-                .disabled(purchase.isWorking)
+            Button(PlanText.subscribe) {
+                Task { await Self.subscribe(purchase, from: entry) }
             }
+            .disabled(purchase.isWorking)
         }
 
         /// The terms a sale shows, with Restore purchases beside the legal links; Restore alone
@@ -423,11 +443,7 @@ struct PlanSheet: View {
             Task { await purchase.restore() }
         }
         .disabled(purchase.isWorking)
-        #if os(macOS)
-            .buttonStyle(.macPlain)
-        #else
-            .buttonStyle(.borderless)
-        #endif
+        .buttonStyle(.text(macLook: .button(.plain)))
     }
 }
 
@@ -441,7 +457,7 @@ struct PlanSheet: View {
             _ sale: Sale, isWorking: Bool, close: @escaping @MainActor () -> Void,
             subscribe: @escaping @MainActor () -> Void
         ) -> MacSheetFooter {
-            var footer = MacSheetFooter(cancel: .cancel(Self.close, action: close))
+            var footer = MacSheetFooter(cancel: .cancel(SheetCloseButton.close, action: close))
             switch sale {
             case .choice:
                 footer.primary = .subscribe(title: PlanText.subscribe, isEnabled: !isWorking, action: subscribe)
@@ -455,7 +471,7 @@ struct PlanSheet: View {
 
         /// A member's footer: nothing to buy, so Close is the one primary, on Return and Escape.
         nonisolated static func macMemberFooter(close: @escaping @MainActor () -> Void) -> MacSheetFooter {
-            MacSheetFooter(primary: .init(Self.close, action: close), escape: close)
+            MacSheetFooter(primary: .init(SheetCloseButton.close, action: close), escape: close)
         }
 
         /// The Mac sheet's subtitle: the offline line while the device is offline, which says more
@@ -545,20 +561,6 @@ struct PlanSheet: View {
                     .foregroundStyle(Palette.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
-        }
-    }
-#endif
-
-#if !os(macOS)
-    /// The sheet's one prominent button: large, accent, and full width.
-    private struct PrimaryAction<Content: View>: View {
-        @ViewBuilder let content: Content
-
-        var body: some View {
-            content
-                .buttonStyle(SheetPrimaryButtonStyle())
-                .fontWeight(.semibold)
-                .controlSize(.large)
         }
     }
 #endif

@@ -4,7 +4,8 @@ import CrosstuneSync
 import SwiftUI
 
 /// The sync state, shown only when it needs attention: `Update required`, `Offline`, `Sign in
-/// again`, or `Sync failed`. A clean or running sync says nothing; Settings holds the full state.
+/// again`, or `Sync failed`, as a chip in the state's tone, which a press acts on when it takes
+/// an action. A clean or running sync says nothing; Settings holds the full state.
 public struct SyncBadge: View {
     private let status: SyncStatus
 
@@ -26,22 +27,22 @@ public struct SyncBadge: View {
         }
     }
 
-    public init(status: SyncStatus) {
+    private let action: (() -> Void)?
+
+    /// - Parameter action: What a press does, or nil for a badge that only shows the state.
+    public init(status: SyncStatus, action: (() -> Void)? = nil) {
         self.status = status
+        self.action = action
     }
 
     public var body: some View {
         let tone = Self.tone(status)
-        Text(status.label)
-            .font(.platform(.footnote).weight(.semibold))
-            .foregroundStyle(Palette.color(tone))
-            .padding(.horizontal, spacing(10))
-            .padding(.vertical, spacing(4))
-            .background(Palette.subtle(tone), in: .capsule)
-            .fixedSize()
+        if let action {
+            Chip(.tone(tone), action: action) { Text(status.label) }
+        } else {
+            ChipLabel(status.label, kind: .tone(tone))
+        }
     }
-
-    @Environment(\.spacing) private var spacing
 
     /// A warning while offline, which fixes itself, and while an update is required, which the
     /// store does for the musician; danger when the musician has to act.
@@ -92,12 +93,9 @@ struct SyncBadgeItem: View {
             updateRequired: session?.updateRequired ?? false)
         if let shown, !(hidesWhileSelecting && selecting?.isCovered == true) {
             if shown == .updateRequired, let session {
-                Button {
+                SyncBadge(status: shown) {
                     if let askForUpdate { askForUpdate() } else { session.showUpdatePrompt() }
-                } label: {
-                    SyncBadge(status: shown)
                 }
-                .buttonStyle(.plain)
                 .accessibilityLabel(shown.label)
             } else {
                 SyncBadge(status: shown)

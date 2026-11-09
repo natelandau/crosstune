@@ -100,8 +100,10 @@ public final class ImportModel {
     /// Whether the sheet holds work a dismissal would lose.
     public var isEdited: Bool { typed }
 
-    /// A file still being read would replace the text behind the review.
-    public var canContinue: Bool { step == .paste && isLoaded && typed && !isReadingFile && !isReviewing }
+    /// Whether there is text to review: typed or read, and no file still being read to replace it.
+    public var hasTextToReview: Bool { step == .paste && isLoaded && typed && !isReadingFile }
+
+    public var canContinue: Bool { hasTextToReview && !isReviewing }
 
     /// A file opened while Continue reads would replace the text behind the review.
     public var canOpenFile: Bool { !isReadingFile && !isReviewing }
@@ -111,11 +113,14 @@ public final class ImportModel {
 
     public var addLabel: String { ImportCopy.addTunes(count) }
 
-    public var canAdd: Bool {
-        guard step == .review, isAddArmed, count > 0, !isAdding else { return false }
+    /// Whether the review holds tunes to add and somewhere to put them: a new list needs a name.
+    public var hasTunesToAdd: Bool {
+        guard step == .review, count > 0 else { return false }
         if case .new(let name) = list { return !name.isEmpty }
         return true
     }
+
+    public var canAdd: Bool { hasTunesToAdd && isAddArmed && !isAdding }
 
     /// Whether the review shows the help: nothing was read, or the paste likely held more than
     /// the reader could use.

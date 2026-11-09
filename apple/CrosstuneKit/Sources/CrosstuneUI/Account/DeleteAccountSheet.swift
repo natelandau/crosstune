@@ -273,20 +273,22 @@ public struct DeleteAccountSheet: View {
                             .autocorrectionDisabled()
                             .disabled(pending)
                         ForEach(Self.appleLines(hasAppleSignIn: session.hasAppleSignIn), id: \.self) { Text($0) }
-                        Button(role: .destructive) {
-                            runDelete()
-                        } label: {
-                            Text(
-                                Self.buttonLabel(pending: pending, isConfirmingWithApple: session.isConfirmingWithApple)
-                            )
-                        }
-                        .disabled(!Self.deleteEnabled(counts, text: text, pending: pending))
                     } footer: {
                         if let failure {
                             Text(failure)
                                 .foregroundStyle(Palette.danger)
                         }
                     }
+                }
+                .sheetActions {
+                    Button(role: .destructive) {
+                        runDelete()
+                    } label: {
+                        Text(Self.buttonLabel(pending: pending, isConfirmingWithApple: session.isConfirmingWithApple))
+                    }
+                    .disabled(!Self.deleteEnabled(counts, text: text, pending: pending))
+                } secondary: {
+                    EmptyView()
                 }
                 .navigationTitle(Self.title)
                 .navigationBarTitleDisplayMode(.inline)

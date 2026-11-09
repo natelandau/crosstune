@@ -48,13 +48,13 @@ struct PadBottomBar: View {
                         Text(RecordControl.shortLabel)
                             .fontWeight(.semibold)
                     }
-                    // The plain style dims nothing, so the whole label dims while Record is disabled.
-                    .opacity(isEnabled ? 1 : 0.35)
+                    // The label-only style draws no disabled look, so the whole label dims while Record is disabled.
+                    .opacity(isEnabled ? 1 : ControlMetrics.disabledSurfaceOpacity)
                     .padding(.horizontal, PadStyle.bottomBarRecordPadding)
                     .frame(minHeight: minimumTapTarget)
                     .contentShape(.rect)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.labelOnly(hoverShape: .capsule))
                 .accessibilityLabel(RecordControl.label)
                 .disabled(!isEnabled)
             }

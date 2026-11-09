@@ -399,9 +399,26 @@ private func instrumentSummary(_ model: SettingsModel) -> String {
         let engine = SyncEngine(store: store, api: SilentSyncAPI(), isOffline: { false }, sleep: { _ in })
         let model = try await loadedModel(store, engine: engine)
         #expect(engine.lastSyncedAt == nil)
-        await model.syncNow()
+        #expect(await model.syncNow())
         #expect(!model.isSyncing)
         #expect(engine.lastSyncedAt != nil)
+    }
+
+    /// A sync never throws, so a run that ends offline reports itself as failed for Sync now.
+    @Test func aSyncThatEndsOfflineIsNotClean() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let engine = SyncEngine(store: store, api: SilentSyncAPI(), isOffline: { true }, sleep: { _ in })
+        let model = try await loadedModel(store, engine: engine)
+        #expect(await model.syncNow() == false)
+        #expect(engine.status == .offline)
+    }
+
+    @Test func onlyAFailedStatusEndsARunInFailure() {
+        for status in SyncStatus.allCases {
+            let failed = [SyncStatus.error, .offline, .unauthorized, .updateRequired].contains(status)
+            #expect(SettingsModel.endsInFailure(status) == failed, "\(status)")
+        }
     }
 
     @Test func reportsARefusedWriteAndShowsTheStoredValueAgain() async throws {

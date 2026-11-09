@@ -174,7 +174,6 @@ struct MembershipCard: View {
                         Divider().padding(.leading)
                     }
                     manageRow(place)
-                        .padding()
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -206,13 +205,32 @@ struct MembershipCard: View {
                 }
                 .disabled(managing)
                 .coversShell(managing)
+                .buttonStyle(.text)
+                .modifier(TextButtonRowInsets())
             case .onTheWeb(let url):
                 Link(PlanText.manageOnTheWeb, destination: url)
+                    .buttonStyle(.text)
+                    .modifier(TextButtonRowInsets())
             case .atWebsite:
                 Text(PlanText.manageAtWebsite)
                     .foregroundStyle(.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
+                    .padding()
             }
         }
     #endif
 }
+
+#if !os(macOS)
+    /// A card row's insets around a text button, whose own inset lines its words up with the
+    /// card's other rows.
+    private struct TextButtonRowInsets: ViewModifier {
+        @Environment(\.spacing) private var spacing
+
+        func body(content: Content) -> some View {
+            content
+                .padding(.vertical, 10)
+                .padding(.leading, spacing(16) - spacing(12))
+        }
+    }
+#endif

@@ -29,6 +29,7 @@ struct SettingsRoot: View {
     @State private var summary: LiveQuery<StatsSummary?>?
     @State private var summaries: LiveQuery<SettingsSummaries?>?
     @Environment(\.settingsPageShown) private var pageShown
+    @Environment(\.settingsPageOpener) private var opener
     @AppStorage(Appearance.storageKey) private var appearance: Appearance = .system
 
     /// - Parameter version: The app's marketing version, which the About page names.
@@ -37,36 +38,56 @@ struct SettingsRoot: View {
     }
 
     var body: some View {
-        GroupedForm {
-            if let session { accountCard(session) }
-            if store != nil { statsCard }
-            Section {
-                ForEach(SettingsCategory.allCases, id: \.self) { category in
-                    SettingsPageLink(SettingsPage.category(category)) {
-                        LabeledContent {
-                            Text(category.summary(summaries?.value ?? nil, appearance: appearance))
-                                .foregroundStyle(.textSecondary)
-                        } label: {
-                            Label {
-                                Text(category.title)
-                            } icon: {
-                                Image(systemName: category.systemImage).foregroundStyle(.textSecondary)
-                            }
+        form
+            // On the root, not the pages it opens, so opening a page never counts as another visit.
+            .screenView(.settings)
+            .navigationDestination(for: SettingsPage.self) { page in
+                SettingsPageScreen(page: page, version: version)
+                    .onAppear { pageShown?(page) }
+            }
+            .navigationTitle(Destination.settings.title)
+            .task(id: store.map(ObjectIdentifier.init)) {
+                summary = store.map(StatsSummary.live)
+                summaries = store.map(SettingsSummaries.live)
+            }
+    }
+
+    /// Rows that push their pages, or, beside a detail column, rows chosen as the column's
+    /// selection, the open page's row selected.
+    @ViewBuilder private var form: some View {
+        if let opener {
+            GroupedSelectionForm(
+                selection: Binding {
+                    opener.current
+                } set: {
+                    if let page = $0 { opener(page) }
+                }
+            ) {
+                rows
+            }
+        } else {
+            GroupedForm { rows }
+        }
+    }
+
+    @ViewBuilder private var rows: some View {
+        if let session { accountCard(session) }
+        if store != nil { statsCard }
+        Section {
+            ForEach(SettingsCategory.allCases, id: \.self) { category in
+                SettingsPageLink(SettingsPage.category(category)) {
+                    LabeledContent {
+                        Text(category.summary(summaries?.value ?? nil, appearance: appearance))
+                            .foregroundStyle(.textSecondary)
+                    } label: {
+                        Label {
+                            Text(category.title)
+                        } icon: {
+                            Image(systemName: category.systemImage).foregroundStyle(.textSecondary)
                         }
                     }
                 }
             }
-        }
-        // On the root, not the pages it opens, so opening a page never counts as another visit.
-        .screenView(.settings)
-        .navigationDestination(for: SettingsPage.self) { page in
-            SettingsPageScreen(page: page, version: version)
-                .onAppear { pageShown?(page) }
-        }
-        .navigationTitle(Destination.settings.title)
-        .task(id: store.map(ObjectIdentifier.init)) {
-            summary = store.map(StatsSummary.live)
-            summaries = store.map(SettingsSummaries.live)
         }
     }
 
@@ -83,7 +104,7 @@ struct SettingsRoot: View {
                             attention: attention, lastSynced: engine?.lastSyncedAt, now: context.date)
                         if let attention {
                             Text(line)
-                                .foregroundStyle(Palette.color(SyncBadge.tone(attention)))
+                                .foregroundStyle(.selectionAware(Palette.color(SyncBadge.tone(attention))))
                         } else {
                             Text(line).foregroundStyle(.textSecondary)
                         }
@@ -119,17 +140,6 @@ enum SettingsPage: Hashable {
     case account
     case stats
     case category(SettingsCategory)
-
-    /// The root row's identity: its page, so no two rows share one, and the appearance, so a
-    /// row is rebuilt when it changes.
-    struct RowIdentity: Hashable {
-        let page: SettingsPage
-        let scheme: ColorScheme
-    }
-
-    func rowIdentity(_ scheme: ColorScheme) -> RowIdentity {
-        RowIdentity(page: self, scheme: scheme)
-    }
 }
 
 /// Opens a Settings page somewhere other than the root's own stack, as the iPad's detail column.
@@ -179,13 +189,13 @@ extension EnvironmentValues {
     @Entry var settingsPageShown: SettingsPageRecorder?
 }
 
-/// A Settings root row that opens `page`: a push, or a press handed to the opener.
+/// A Settings root row that opens `page`: a push, or, where an opener takes the press, the
+/// row's place in the root's selection.
 private struct SettingsPageLink<RowLabel: View>: View {
     let page: SettingsPage
     @ViewBuilder let label: RowLabel
 
     @Environment(\.settingsPageOpener) private var opener
-    @Environment(\.colorScheme) private var colorScheme
 
     init(_ page: SettingsPage, @ViewBuilder label: () -> RowLabel) {
         self.page = page
@@ -194,30 +204,9 @@ private struct SettingsPageLink<RowLabel: View>: View {
 
     var body: some View {
         if let opener {
-            Button {
-                opener(page)
-            } label: {
-                HStack {
-                    label
-                    Image(systemName: "chevron.forward")
-                        .font(.footnote.weight(.semibold))
-                        .foregroundStyle(.textSecondary)
-                        .accessibilityHidden(true)
-                }
-                .contentShape(.rect)
-            }
-            .buttonStyle(.plain)
-            .accessibilityAddTraits(opener.current == page ? .isSelected : [])
-            #if os(iOS)
-                .listRowBackground(opener.current == page ? Palette.field : Palette.groupedSurface)
-                // A row's background keeps the appearance it first drew in, so the row is rebuilt
-                // when the appearance changes. The page keeps each row's identity its own: the
-                // grouped form lays its rows out by identity, and rows that share one draw as
-                // copies of the first.
-                .id(page.rowIdentity(colorScheme))
-            #endif
+            label.groupedSelectionRow(page, selection: opener.current)
         } else {
-            NavigationLink(value: page) { label }
+            NavigationLink(value: page) { label.groupedRowText() }
         }
     }
 }

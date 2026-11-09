@@ -221,7 +221,7 @@ import CrosstuneDesign
             {
                 RecordingPlayerStatus(player: player, message: message)
             } else {
-                PlaybackScrubber(audio: player.audio, inline: true)
+                TransportScrubber(audio: player.audio, timesBeside: true)
             }
         }
     }
@@ -297,60 +297,6 @@ import CrosstuneDesign
             .accessibilityLabel(title)
             .accessibilityAddTraits(highlighted ? .isSelected : [])
             .help(help ?? title)
-        }
-    }
-
-    /// The Mac scrubber's track: a hairline, filled in the primary text color to the position,
-    /// with a brand-color playhead. A click jumps there and a drag carries it along; `onEnd` gets
-    /// where it was let go.
-    struct ScrubberTrack: View {
-        /// How far along, from 0 to 1.
-        let fraction: Double
-        let onDrag: (Double) -> Void
-        let onEnd: (Double) -> Void
-
-        @State private var hovering = false
-        @State private var dragging = false
-
-        private static let lineHeight: CGFloat = 3
-        /// Taller than the line, so a pointer grabs it without aiming at three points.
-        private static let height: CGFloat = 20
-
-        var body: some View {
-            GeometryReader { proxy in
-                let width = proxy.size.width
-                let thumb: CGFloat = hovering || dragging ? 12 : 9
-                let x = width * min(max(fraction, 0), 1)
-                ZStack(alignment: .leading) {
-                    Capsule().fill(Palette.border)
-                        .frame(height: Self.lineHeight)
-                    Capsule().fill(Palette.textTertiary)
-                        .frame(width: x, height: Self.lineHeight)
-                    Circle()
-                        .fill(Palette.playhead)
-                        .frame(width: thumb, height: thumb)
-                        .offset(x: min(max(0, x - thumb / 2), width - thumb))
-                }
-                .frame(maxHeight: .infinity)
-                .contentShape(.rect)
-                .onHover { hovering = $0 }
-                .gesture(
-                    DragGesture(minimumDistance: 0)
-                        .onChanged { value in
-                            dragging = true
-                            onDrag(Self.fraction(at: value.location.x, width: width))
-                        }
-                        .onEnded { value in
-                            dragging = false
-                            onEnd(Self.fraction(at: value.location.x, width: width))
-                        }
-                )
-            }
-            .frame(height: Self.height)
-        }
-
-        private static func fraction(at x: CGFloat, width: CGFloat) -> Double {
-            width > 0 ? Double(min(max(x / width, 0), 1)) : 0
         }
     }
 

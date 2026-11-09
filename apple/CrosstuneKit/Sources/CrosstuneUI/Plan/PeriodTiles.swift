@@ -8,6 +8,10 @@ struct PeriodTiles: View {
     let options: [PlanSheet.PeriodOption]
     @Binding var period: PurchasePeriod
 
+    #if !os(macOS)
+        @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    #endif
+
     var body: some View {
         #if os(macOS)
             if options.count == 1, let only = options.first {
@@ -22,7 +26,12 @@ struct PeriodTiles: View {
                 .pickerStyle(.radioGroup)
             }
         #else
-            HStack(spacing: 8) {
+            // Side by side, or one above the other at the accessibility text sizes, where two
+            // tiles abreast break their words.
+            let layout =
+                dynamicTypeSize.isAccessibilitySize
+                ? AnyLayout(VStackLayout(spacing: 8)) : AnyLayout(HStackLayout(spacing: 8))
+            layout {
                 ForEach(options, id: \.period) { option in
                     tile(option, selected: option.period == period)
                 }
@@ -40,7 +49,7 @@ struct PeriodTiles: View {
                 HStack(spacing: 6) {
                     Text(option.label)
                     if let badge = option.badge {
-                        SaveBadge(text: badge)
+                        Badge(badge, kind: .brand)
                     }
                 }
                 Text(option.price)
@@ -50,9 +59,9 @@ struct PeriodTiles: View {
         }
     #else
         private func tile(_ option: PlanSheet.PeriodOption, selected: Bool) -> some View {
-            Button {
+            OptionCard(isChosen: selected) {
                 period = option.period
-            } label: {
+            } content: {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Image(systemName: selected ? "largecircle.fill.circle" : "circle")
                         .font(.body)
@@ -77,23 +86,9 @@ struct PeriodTiles: View {
                         }
                     }
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 12)
-                .background(
-                    Palette.groupedSurface, in: RoundedRectangle(cornerRadius: 12)
-                )
-                .overlay {
-                    RoundedRectangle(cornerRadius: 12)
-                        .strokeBorder(
-                            selected ? AnyShapeStyle(Palette.accent) : AnyShapeStyle(Palette.border),
-                            lineWidth: selected ? 2 : 1
-                        )
-                }
-                .contentShape(RoundedRectangle(cornerRadius: 12))
+                // Both cards take the taller one's height, with the content at the top.
+                .frame(maxHeight: .infinity, alignment: .topLeading)
             }
-            .buttonStyle(.plain)
-            .accessibilityAddTraits(selected ? .isSelected : [])
         }
 
         private func label(_ option: PlanSheet.PeriodOption) -> some View {
@@ -105,7 +100,7 @@ struct PeriodTiles: View {
         @ViewBuilder
         private func badge(_ option: PlanSheet.PeriodOption) -> some View {
             if let badge = option.badge {
-                SaveBadge(text: badge)
+                Badge(badge, kind: .brand)
             }
         }
 
@@ -120,20 +115,4 @@ struct PeriodTiles: View {
                 .foregroundStyle(.textSecondary)
         }
     #endif
-}
-
-/// Annual's saving: a brand-colored capsule with dark text, the mark of Premium on a sheet that sells it.
-private struct SaveBadge: View {
-    let text: String
-
-    var body: some View {
-        Text(text)
-            .font(.platform(.caption2).weight(.bold))
-            .monospacedDigit()
-            .foregroundStyle(Palette.onBrand)
-            .padding(.horizontal, 7)
-            .padding(.vertical, 2)
-            .background(Palette.brand, in: .capsule)
-            .fixedSize()
-    }
 }

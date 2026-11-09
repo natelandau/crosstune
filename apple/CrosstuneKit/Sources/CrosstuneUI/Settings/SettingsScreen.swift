@@ -80,6 +80,10 @@ public struct SettingsScreen: View {
     #else
         /// The saved locations, read only while the form shows their group.
         @State private var savedLocations: SavedLocationsModel?
+        #if DEBUG
+            /// The saved location a sample launch opens, which a row's own link opens otherwise.
+            @State private var sampleLocation: SavedLocationRoute?
+        #endif
     #endif
 
     /// - Parameters:
@@ -133,6 +137,14 @@ public struct SettingsScreen: View {
                 .navigationDestination(for: SavedLocationRoute.self) { route in
                     if let savedLocations { SavedLocationDetail(model: savedLocations, placeID: route.id) }
                 }
+                #if DEBUG
+                    .navigationDestination(item: $sampleLocation) { route in
+                        if let savedLocations { SavedLocationDetail(model: savedLocations, placeID: route.id) }
+                    }
+                    .opensForSample(.savedLocations, when: savedLocations?.rows?.isEmpty == false) {
+                        sampleLocation = savedLocations?.rows?.first.map { SavedLocationRoute(id: $0.id) }
+                    }
+                #endif
             #endif
             .navigationTitle(title)
             .task(id: ModelKey(store: store, engine: engine)) {
@@ -249,21 +261,21 @@ public struct SettingsScreen: View {
                 Picker(Appearance.title, selection: appearanceBinding) {
                     ForEach(Appearance.allCases) { Text($0.label).tag($0) }
                 }
-                Stepper(
-                    value: Binding {
-                        Self.stepperValue(offset: textSizeOffset, system: systemTextSize)
-                    } set: {
-                        guard $0 != textSizeOffset else { return }
-                        textSizeOffset = $0
-                        analytics.send(.settingChanged(.textSize($0)))
-                    },
-                    in: TextSize.offsetRange(system: systemTextSize)
-                ) {
-                    LabeledContent(
+                LabeledContent(TextSize.title) {
+                    ValueStepper(
                         TextSize.title,
-                        value: TextSize.valueLabel(system: systemTextSize, offset: textSizeOffset))
+                        value: Binding {
+                            Self.stepperValue(offset: textSizeOffset, system: systemTextSize)
+                        } set: {
+                            guard $0 != textSizeOffset else { return }
+                            textSizeOffset = $0
+                            analytics.send(.settingChanged(.textSize($0)))
+                        },
+                        in: TextSize.offsetRange(system: systemTextSize)
+                    ) {
+                        TextSize.valueLabel(system: systemTextSize, offset: $0)
+                    }
                 }
-                .accessibilityValue(TextSize.valueLabel(system: systemTextSize, offset: textSizeOffset))
             } header: {
                 SettingsHelp(SettingsModel.appearanceHelp)
             }
@@ -346,12 +358,12 @@ public struct SettingsScreen: View {
 
         private func tunerSection(_ model: SettingsModel) -> some View {
             Section {
-                let hz = Binding(get: { model.tunerA4Hz }, set: { model.setTunerA4Hz($0) })
-                Stepper(value: hz, in: Vocabulary.Ranges.UserSettings.tunerA4Hz) {
-                    LabeledContent(
-                        SettingsModel.referencePitch, value: SettingsModel.referencePitchLabel(model.tunerA4Hz))
+                LabeledContent(SettingsModel.referencePitch) {
+                    ValueStepper(
+                        SettingsModel.referencePitch,
+                        value: Binding(get: { model.tunerA4Hz }, set: { model.setTunerA4Hz($0) }),
+                        in: Vocabulary.Ranges.UserSettings.tunerA4Hz, format: SettingsModel.referencePitchLabel)
                 }
-                .accessibilityValue(SettingsModel.referencePitchLabel(model.tunerA4Hz))
             } header: {
                 SettingsHelp(nil, title: SettingsModel.tuner)
             } footer: {
@@ -372,11 +384,14 @@ public struct SettingsScreen: View {
             Section {
                 Text(SettingsModel.localAudioText(model.localAudioBytes))
                     .monospacedDigit()
-                // While every recording is kept offline, the next pass would only fetch them again.
-                Button(SettingsModel.removeDownloads) {
-                    model.removeDownloads()
+                AsyncButton {
+                    await model.removeDownloads().value
+                    if model.removeDownloadsFailure != nil { throw FailureShownElsewhere() }
+                } label: {
+                    Text(SettingsModel.removeDownloads)
                 }
-                .disabled(model.keepsOffline || model.isRemovingDownloads)
+                // While every recording is kept offline, the next pass would only fetch them again.
+                .disabled(model.keepsOffline)
             } header: {
                 SettingsHelp(SettingsModel.removeDownloadsHelp)
             } footer: {
@@ -412,10 +427,12 @@ public struct SettingsScreen: View {
                         .foregroundStyle(.textSecondary)
                 }
                 if engine != nil {
-                    Button(SettingsModel.syncNow) {
-                        Task { await model.syncNow() }
+                    AsyncButton {
+                        // The Status row above says why a run failed.
+                        guard await model.syncNow() else { throw FailureShownElsewhere() }
+                    } label: {
+                        Text(SettingsModel.syncNow)
                     }
-                    .disabled(model.isSyncing)
                 }
             }
         }

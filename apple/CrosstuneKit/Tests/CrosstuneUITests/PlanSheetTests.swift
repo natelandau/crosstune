@@ -1,5 +1,6 @@
 import CrosstuneAnalytics
 import CrosstuneBilling
+import CrosstuneDesign
 import CrosstuneStore
 import CrosstuneTestSupport
 import Foundation
@@ -257,12 +258,17 @@ private let portal = URL(string: "https://billing.example.com/portal")!
         #expect(PlanSheet.offersRestore(.subscribed) == false)
     }
 
-    /// Nothing pins on any platform, so the comparison is never covered; the choice and
-    /// Subscribe close the scrolling page.
-    @Test func thePlanSheetPinsNothing() throws {
-        let source = SourceScan.withoutComments(
-            try SourceScan.text(at: SourceScan.url(of: "Plan/PlanSheet.swift")))
-        #expect(!source.contains(".sheetActions("))
+    /// Subscribe, its place while the store answers, and Close pin to the sheet's bottom edge;
+    /// where nothing is for sale, nothing pins.
+    @Test func onlyAPurchaseDecisionPins() {
+        #expect(PlanSheet.pinsAction(.choice(offers), hasPurchase: true))
+        #expect(PlanSheet.pinsAction(.choice(offers), hasPurchase: false) == false)
+        #expect(PlanSheet.pinsAction(.loading, hasPurchase: true))
+        #expect(PlanSheet.pinsAction(.loading, hasPurchase: false) == false)
+        #expect(PlanSheet.pinsAction(.subscribed, hasPurchase: true))
+        for sale in [PlanSheet.Sale.offline, .unavailable, .notPurchasable] {
+            #expect(PlanSheet.pinsAction(sale, hasPurchase: true) == false, "\(sale)")
+        }
     }
 
     @Test func annualIsTheDefault() {
@@ -520,7 +526,7 @@ private let portal = URL(string: "https://billing.example.com/portal")!
     @Suite struct MacPlanFooterTests {
         @Test func subscribeTrailsCloseAndIsNeverDefault() {
             let footer = PlanSheet.macFooter(.choice(offers), isWorking: false, close: {}, subscribe: {})
-            #expect(footer.cancel?.title == PlanSheet.close)
+            #expect(footer.cancel?.title == SheetCloseButton.close)
             #expect(footer.primary?.title == PlanText.subscribe)
             #expect(footer.primary?.role == .primary)
             #expect(footer.primary?.isDefault == false)
@@ -540,7 +546,7 @@ private let portal = URL(string: "https://billing.example.com/portal")!
         @Test(arguments: [PlanSheet.Sale.offline, .unavailable])
         func unreachableShowsSubscribeDisabled(sale: PlanSheet.Sale) {
             let footer = PlanSheet.macFooter(sale, isWorking: false, close: {}, subscribe: {})
-            #expect(footer.cancel?.title == PlanSheet.close)
+            #expect(footer.cancel?.title == SheetCloseButton.close)
             #expect(footer.primary?.title == PlanText.subscribe)
             #expect(footer.primary?.isEnabled == false)
             #expect(footer.primary?.isPurchase == true)
@@ -550,7 +556,7 @@ private let portal = URL(string: "https://billing.example.com/portal")!
         @Test func aMemberClosesFromThePrimary() {
             let footer = PlanSheet.macMemberFooter(close: {})
             #expect(footer.cancel == nil)
-            #expect(footer.primary?.title == PlanSheet.close)
+            #expect(footer.primary?.title == SheetCloseButton.close)
             #expect(footer.primary?.role == .primary)
             #expect(footer.primary?.answersReturn == true)
             #expect(footer.escape != nil)
@@ -559,7 +565,7 @@ private let portal = URL(string: "https://billing.example.com/portal")!
         @Test func nothingToBuyLeavesCloseAlone() {
             for sale in [PlanSheet.Sale.notPurchasable, .subscribed] {
                 let footer = PlanSheet.macFooter(sale, isWorking: false, close: {}, subscribe: {})
-                #expect(footer.cancel?.title == PlanSheet.close, "\(sale)")
+                #expect(footer.cancel?.title == SheetCloseButton.close, "\(sale)")
                 #expect(footer.primary == nil, "\(sale)")
             }
         }

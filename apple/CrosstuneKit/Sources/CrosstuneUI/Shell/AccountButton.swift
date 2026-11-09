@@ -23,7 +23,6 @@ func showsAccountItem(showAccount: MenuAction?, isSelecting: Bool) -> Bool {
         let action: @MainActor () -> Void
 
         @Environment(AccountSession.self) private var session: AccountSession?
-        @Environment(\.colorScheme) private var colorScheme
 
         init(action: @escaping @MainActor () -> Void) {
             self.action = action
@@ -31,28 +30,14 @@ func showsAccountItem(showAccount: MenuAction?, isSelecting: Bool) -> Bool {
 
         var body: some View {
             Button(action: action) {
-                Group {
-                    if let letters = initials(from: session?.name) {
-                        Text(letters)
-                            .font(.footnote.weight(.semibold))
-                            .contentMask()
-                    } else {
-                        Image(systemName: "person.fill")
-                            .font(.footnote)
-                    }
+                if let letters = initials(from: session?.name) {
+                    Text(letters).contentMask()
+                } else {
+                    Image(systemName: "person.fill")
                 }
-                .foregroundStyle(Palette.onTint(colorScheme))
-                .frame(width: 32, height: 32)
-                .background(Palette.tint(colorScheme), in: .circle)
             }
-            // The disc does not grow, so its letters stop at the default size and a long press
-            // shows the button enlarged.
-            .dynamicTypeSize(...DynamicTypeSize.large)
-            .frame(minWidth: 44, minHeight: 44)
-            .contentShape(.rect)
-            .buttonStyle(.plain)
+            .buttonStyle(.icon(.tintDisc))
             .accessibilityLabel(Destination.settingsTitle)
-            .accessibilityShowsLargeContentViewer()
         }
     }
 
