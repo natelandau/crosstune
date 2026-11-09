@@ -176,7 +176,13 @@ struct CrosstuneApp: App {
                 SampleShell(
                     playing: CommandLine.arguments.contains("-SamplePlaying"),
                     playingRecording: CommandLine.arguments.contains("-SamplePlayingRecording"),
-                    plan: SamplePlan.fromArguments(), screen: SampleScreen.fromArguments())
+                    plan: SamplePlan.fromArguments(), screen: SampleScreen.fromArguments()
+                )
+                #if os(iOS)
+                    // Settings shows the account group only with a session, as the Mac's Settings
+                    // window has; any other sample screen keeps none, so nothing shows an account.
+                    .environment(SampleScreen.fromArguments() == .deleteAccount ? session : nil)
+                #endif
             } else {
                 root
             }
