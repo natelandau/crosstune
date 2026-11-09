@@ -52,10 +52,20 @@ import Testing
     /// Views that show their argument. One whose argument reads a content property is masked.
     static let displays: Set = [
         "Text", "Label", "Button", "Toggle", "LabeledContent", "NavigationLink", "Menu", "Section", "Link",
+        // A chip handed its title; `ChipLabel` masks its own text.
+        "Chip",
     ]
 
     /// Views the musician types into. Every one is masked, whatever it is bound to.
     static let inputs: Set = ["TextField", "TextEditor", "SecureField"]
+
+    /// The screens with a `.searchable` field, which ship unmasked: the system draws the field in
+    /// the navigation bar, where a mask on the screen never reaches. Replay must stay off while
+    /// any is listed.
+    static let unmaskedSearchFields: Set = [
+        "Catalog/CatalogScreen.swift", "Recordings/RecordingsScreen.swift", "Lists/TunePickerSheet.swift",
+        "Links/FindRecordingsSheet.swift",
+    ]
 
     struct Site: Equatable {
         let line: Int
@@ -446,5 +456,14 @@ import Testing
             // Text(tune.title)
             """
         #expect(Self.sites(in: text).isEmpty)
+    }
+
+    @Test func everySearchFieldIsListed() throws {
+        var found: Set<String> = []
+        for file in SourceScan.files() where file.path.contains("/CrosstuneUI/") {
+            let code = SourceScan.withoutComments(try SourceScan.text(at: file))
+            if code.contains(".searchable(") { found.insert(SourceScan.relative(file)) }
+        }
+        #expect(found == Self.unmaskedSearchFields, "A search field is drawn unmasked: list it here")
     }
 }
