@@ -14,7 +14,6 @@ public enum ScanCopy {
     public static let limitNote = "A tune holds up to \(maxScansPerTune) scans."
     public static let invert = "Invert"
     public static let zoom = "Zoom"
-    public static let close = "Close"
     public static let previousScan = "Previous scan"
     public static let nextScan = "Next scan"
     public static let delete = "Delete"

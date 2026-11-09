@@ -68,7 +68,6 @@ struct ScanHeaderControls: View {
                         .help(name)
                 #else
                     Button(editing ? ScanCopy.done : ScanCopy.edit) { editing.toggle() }
-                        .font(.platform(.body))
                         .accessibilityLabel(editing ? ScanCopy.doneEditingScans : ScanCopy.editScans)
                 #endif
             }
@@ -135,7 +134,7 @@ struct ScanStrip: View {
                     .scanThumbnailEdge(cornerRadius: 6)
                     .contentShape(.rect)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.labelOnly)
             .zoomSource(id: ScanScreens.sourceID(tuneID: tuneID, index: index), in: scanZoom)
             .disabled(!ScansSection.tileActs(opens: opens, actions: actions, premium: premium))
             .accessibilityLabel(ScanCopy.thumbnailName(index, opens: opens))
@@ -194,7 +193,7 @@ struct ScanEditRows: View {
                     .frame(minWidth: minimumTapTarget)
                     .tapTarget()
             }
-            .buttonStyle(.borderless)
+            .buttonStyle(.rowLine)
             #if os(macOS)
                 .help(ScanCopy.deleteScan(index))
             #endif
@@ -220,7 +219,7 @@ struct ScanEditRows: View {
                 .tapTarget()
         }
         .menuIndicator(.hidden)
-        .buttonStyle(.borderless)
+        .rowLineMenuAppearance()
         #if os(macOS)
             .help(ScanCopy.reorderScan(index))
         #endif

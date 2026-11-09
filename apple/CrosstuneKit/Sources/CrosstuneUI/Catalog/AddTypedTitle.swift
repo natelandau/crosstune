@@ -15,7 +15,7 @@ struct AddTypedTitleRow: View {
                 .frame(maxWidth: .infinity, minHeight: minimumTapTarget, alignment: .leading)
                 .contentShape(.rect)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.labelOnly)
     }
 }
 
@@ -33,14 +33,9 @@ struct HiddenMatchNote: View {
             Button {
                 onOpen(match.entry.tune.id)
             } label: {
-                // A 44 point target that does not grow the line: it reaches into the space around.
                 Text(SearchOutcome.open)
-                    .padding(12)
-                    .contentShape(.rect)
-                    .padding(-12)
             }
-            .buttonStyle(.plain)
-            .foregroundStyle(Palette.accent)
+            .buttonStyle(.text(macLook: .accentLabel))
             .accessibilityLabel(match.openName)
         }
         .font(.platform(.footnote))

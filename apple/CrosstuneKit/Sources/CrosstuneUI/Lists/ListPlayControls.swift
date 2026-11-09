@@ -75,12 +75,12 @@ struct ListPlayButtons: View {
                 Label(offer.playLabel, systemImage: offer.playSymbol)
                     .contentTransition(.symbolEffect(.replace))
             }
-            .actionButtonStyle(prominent: true)
+            .buttonStyle(.filled)
             .disabled(offer.isPlayDisabled)
             Button(action: offer.onShuffle) {
                 Label(ListPlayText.shuffle, systemImage: "shuffle")
             }
-            .actionButtonStyle(prominent: false)
+            .buttonStyle(.tinted)
             .disabled(offer.isShuffleDisabled)
         }
     }

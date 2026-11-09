@@ -114,8 +114,21 @@ struct CatalogFilterRow: View {
     var body: some View {
         let tokens = Self.setFilters(results.filters)
         VStack(alignment: .leading, spacing: 6) {
-            // The tokens trail the controls while the row has room, and wrap under them when it
-            // does not. At the largest text sizes the controls wrap too, rather than clipping.
+            arrangement(tokens)
+            ForEach(errors, id: \.self) { error in
+                Text(error)
+                    .font(PageStyle.secondary)
+                    .foregroundStyle(Palette.danger)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .phoneAnimation(value: tokens.map(\.id))
+    }
+
+    #if os(macOS)
+        // The Mac keeps its three arrangements: tokens trail the controls while the row has room,
+        // wrap under them when it does not, and at the largest text sizes the controls wrap too.
+        private func arrangement(_ tokens: [SetFilter]) -> some View {
             ViewThatFits(in: .horizontal) {
                 HStack(spacing: 6) {
                     controls
@@ -131,15 +144,22 @@ struct CatalogFilterRow: View {
                     wrappedTokens(tokens)
                 }
             }
-            ForEach(errors, id: \.self) { error in
-                Text(error)
-                    .font(PageStyle.secondary)
-                    .foregroundStyle(Palette.danger)
+        }
+
+        @ViewBuilder private func wrappedTokens(_ tokens: [SetFilter]) -> some View {
+            if !tokens.isEmpty {
+                FlowLayout(spacing: 6, lineSpacing: 6) { tokenViews(tokens) }
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .phoneAnimation(value: tokens.map(\.id))
-    }
+    #else
+        // One flow, so chips fill each line to the column edge and only the overflow wraps.
+        private func arrangement(_ tokens: [SetFilter]) -> some View {
+            FlowLayout(spacing: 6, lineSpacing: 6) {
+                controls
+                tokenViews(tokens)
+            }
+        }
+    #endif
 
     private var controls: some View {
         ForEach(Self.controls(results, showsStatus: statusChoices != nil), id: \.self) { control in
@@ -152,7 +172,7 @@ struct CatalogFilterRow: View {
 
     private var statusControl: some View {
         let selected = results.filters.status
-        return Menu {
+        return ChipMenu(isSet: selected != nil) {
             ForEach(statusChoices ?? []) { choice in
                 // A toggle, so the menu checks the chosen status and VoiceOver hears it, beside a
                 // glyph in the color the rows draw it.
@@ -175,22 +195,17 @@ struct CatalogFilterRow: View {
                 }
             }
         } label: {
-            PullDownLabel(text: Self.statusLabel(selected))
+            Text(Self.statusLabel(selected))
         }
-        .menuStyle(.button)
-        .menuIndicator(.hidden)
-        .buttonStyle(FilterControlStyle(isSet: selected != nil))
-        .fixedSize()
     }
 
     private var keyControl: some View {
         let selected = results.selected(.key)
-        return Button {
+        return Chip(.menu(isSet: selected != nil)) {
             choosingKey = true
         } label: {
-            PullDownLabel(text: Self.keyLabel(selected))
+            Text(Self.keyLabel(selected))
         }
-        .buttonStyle(FilterControlStyle(isSet: selected != nil))
         .popover(isPresented: $choosingKey, arrowEdge: PageStyle.popoverArrowEdge) {
             KeyFilterPopover(choices: results.choices(.key), selected: selected) { key in
                 choosingKey = false
@@ -203,12 +218,6 @@ struct CatalogFilterRow: View {
         #endif
     }
 
-    @ViewBuilder private func wrappedTokens(_ tokens: [SetFilter]) -> some View {
-        if !tokens.isEmpty {
-            FlowLayout(spacing: 6, lineSpacing: 6) { tokenViews(tokens) }
-        }
-    }
-
     private func tokenViews(_ tokens: [SetFilter]) -> some View {
         ForEach(tokens) { token in
             RemoveFilterCapsule(label: token.label) { onChange(token.remove) }
@@ -216,94 +225,3 @@ struct CatalogFilterRow: View {
         }
     }
 }
-
-/// A pull-down's label: its wording, then a small chevron saying it opens a choice.
-private struct PullDownLabel: View {
-    let text: String
-
-    var body: some View {
-        HStack(spacing: 4) {
-            Text(text)
-            Image(systemName: "chevron.down")
-                .font(PageStyle.pullDownChevron)
-                .foregroundStyle(.textSecondary)
-        }
-    }
-}
-
-/// A filter row control: quiet at rest, in the accent once it narrows the list, so a set
-/// filter reads at a glance. On the Mac it is a standalone ``MacChip``.
-struct FilterControlStyle: ButtonStyle {
-    var isSet = false
-
-    func makeBody(configuration: Configuration) -> some View {
-        #if os(macOS)
-            MacFilterControlBody(configuration: configuration, isSet: isSet)
-        #else
-            FilterControlBody(configuration: configuration, isSet: isSet)
-        #endif
-    }
-}
-
-#if os(macOS)
-    private struct MacFilterControlBody: View {
-        let configuration: ButtonStyle.Configuration
-        let isSet: Bool
-
-        @Environment(\.isEnabled) private var isEnabled
-        @State private var isHovered = false
-
-        var body: some View {
-            configuration.label
-                .macChip(
-                    state: isSet ? .set : .rest, size: .standalone,
-                    emphasis: configuration.isPressed || isHovered ? 1 : 0
-                )
-                .opacity(isEnabled ? 1 : MacButtonStyle.disabledOpacity)
-                .onHover { isHovered = $0 }
-        }
-    }
-#else
-    private struct FilterControlBody: View {
-        let configuration: ButtonStyle.Configuration
-        let isSet: Bool
-
-        @Environment(\.colorScheme) private var colorScheme
-        @Environment(\.isEnabled) private var isEnabled
-
-        /// How far the hit area reaches past the drawn capsule to make a touch target.
-        private static let hitOutset = max(0, (PageStyle.minTarget - PageStyle.filterControlHeight) / 2)
-
-        var body: some View {
-            let capsule = configuration.label
-                .font(PageStyle.body)
-                .lineLimit(1)
-                .foregroundStyle(foreground)
-                .padding(.horizontal, 10)
-                // Grows past its height only when the text size does, so a large label never clips.
-                .padding(.vertical, 3)
-                .frame(minHeight: PageStyle.filterControlHeight)
-                .background(fill, in: .capsule)
-                .phoneAnimation(value: isSet)
-                .contentShape(.capsule)
-                .opacity(configuration.isPressed ? 0.6 : 1)
-            if Self.hitOutset > 0 {
-                capsule
-                    .padding(Self.hitOutset)
-                    .contentShape(.rect)
-                    .padding(-Self.hitOutset)
-            } else {
-                capsule
-            }
-        }
-
-        private var foreground: AnyShapeStyle {
-            if !isEnabled { return .textSecondary }
-            return isSet ? AnyShapeStyle(Palette.onTint(colorScheme)) : AnyShapeStyle(.textPrimary)
-        }
-
-        private var fill: AnyShapeStyle {
-            isSet ? AnyShapeStyle(Palette.tint(colorScheme)) : AnyShapeStyle(.neutralFill)
-        }
-    }
-#endif

@@ -184,7 +184,7 @@ private struct ListPickerContent: View {
                                 }
                                 .contentShape(.rect)
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(.labelOnly)
                             .disabled(!row.isOffered || model.isPending)
                         }
                         newList

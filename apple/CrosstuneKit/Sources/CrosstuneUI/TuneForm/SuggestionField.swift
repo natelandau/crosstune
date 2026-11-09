@@ -95,22 +95,22 @@ struct SuggestionField: View {
         #if os(iOS)
             if isFocused.wrappedValue {
                 if let keep, !keep.kept {
-                    Button(keep.label) {
+                    SuggestionRow(outsideForm: outsideForm) {
                         keep.onKeep()
                         isFocused.wrappedValue = false
+                    } label: {
+                        Text(keep.label)
                     }
-                    .modifier(SuggestionRow(outsideForm: outsideForm))
                 }
                 ForEach(Self.matches(suggestions, typed: text.wrappedValue).prefix(Self.rowLimit), id: \.self) {
                     suggestion in
-                    Button {
+                    SuggestionRow(outsideForm: outsideForm) {
                         if let onPick { onPick(suggestion) } else { text.wrappedValue = suggestion }
                         isFocused.wrappedValue = false
                     } label: {
                         Text(suggestion)
                             .contentMask()
                     }
-                    .modifier(SuggestionRow(outsideForm: outsideForm))
                 }
             }
         #endif
@@ -176,28 +176,27 @@ struct SuggestionField: View {
     /// A suggestion row. In a form it is the form's own row; outside one it draws as a list row
     /// would, the full width pressable at a touch's height under a hairline, rather than as a
     /// bare button.
-    private struct SuggestionRow: ViewModifier {
+    private struct SuggestionRow<Label: View>: View {
         let outsideForm: Bool
+        let action: () -> Void
+        @ViewBuilder let label: Label
 
-        func body(content: Content) -> some View {
+        var body: some View {
             if outsideForm {
-                content.buttonStyle(SuggestionRowStyle())
+                VStack(spacing: 0) {
+                    Divider()
+                    Button(action: action) {
+                        label
+                            .foregroundStyle(.textPrimary)
+                            .frame(maxWidth: .infinity, minHeight: minimumTapTarget, alignment: .leading)
+                            .contentShape(.rect)
+                    }
+                    .buttonStyle(.labelOnly)
+                }
             } else {
-                content
+                Button(action: action) { label }
+                    .buttonStyle(.accentWords)
             }
-        }
-    }
-
-    private struct SuggestionRowStyle: ButtonStyle {
-        func makeBody(configuration: Configuration) -> some View {
-            VStack(spacing: 0) {
-                Divider()
-                configuration.label
-                    .foregroundStyle(.textPrimary)
-                    .frame(maxWidth: .infinity, minHeight: minimumTapTarget, alignment: .leading)
-                    .contentShape(.rect)
-            }
-            .opacity(configuration.isPressed ? 0.6 : 1)
         }
     }
 #endif

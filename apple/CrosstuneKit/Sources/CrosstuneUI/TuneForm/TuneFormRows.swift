@@ -3,8 +3,7 @@ import CrosstuneDesign
 import CrosstuneVocabulary
 import SwiftUI
 
-/// The status field's choices, one segment per word. A system segment shows an image or a
-/// word, never both, and the words are what a musician chooses by.
+/// The status field's choices, one per word, which are what a musician chooses by.
 enum StatusField {
     static var segments: [(value: String, label: String)] {
         Vocabulary.statuses.map { ($0, StatusStyle.label($0)) }
@@ -16,9 +15,14 @@ enum StatusField {
     }
 }
 
-/// The tune form's status field.
+/// The tune form's status field: a menu row in a form, and the segments in an editor of its
+/// own, where one press sets it.
 struct StatusPicker: View {
     @Binding var status: String
+
+    #if !os(macOS)
+        @Environment(\.rowsOutsideForm) private var outsideForm
+    #endif
 
     var body: some View {
         #if os(macOS)
@@ -35,23 +39,36 @@ struct StatusPicker: View {
         #endif
     }
 
-    private var picker: some View {
-        Picker(
-            TuneFieldLabels.status,
-            selection: Binding {
-                StatusField.chosen(status)
-            } set: {
-                status = $0
+    #if !os(macOS)
+        private var picker: some View {
+            Picker(
+                TuneFieldLabels.status,
+                selection: Binding {
+                    StatusField.chosen(status)
+                } set: {
+                    status = $0
+                }
+            ) {
+                ForEach(StatusField.segments, id: \.value) { segment in
+                    Text(segment.label).tag(segment.value)
+                }
             }
-        ) {
-            ForEach(StatusField.segments, id: \.value) { segment in
-                Text(segment.label).tag(segment.value)
+            .statusPickerStyle(outsideForm: outsideForm)
+        }
+    #endif
+}
+
+#if !os(macOS)
+    extension View {
+        @ViewBuilder fileprivate func statusPickerStyle(outsideForm: Bool) -> some View {
+            if outsideForm {
+                pickerStyle(.segmented).labelsHidden()
+            } else {
+                pickerStyle(.menu)
             }
         }
-        .pickerStyle(.segmented)
-        .labelsHidden()
     }
-}
+#endif
 
 /// The bulk edit sheet's status row. It shows the status every tune shares, and no segment when
 /// they disagree or none holds one. Only a segment that changes a tune touches the row.
@@ -135,9 +152,7 @@ struct ModeRows: View {
             Button(TuneFieldLabels.addPartMode, systemImage: "plus") {
                 values.addModeRow()
             }
-            #if os(macOS)
-                .buttonStyle(.macPlain)
-            #endif
+            .buttonStyle(.accentWords(macLook: .plain))
         }
     }
 }
@@ -237,13 +252,13 @@ struct LearnedOnRow: View {
                         }, displayedComponents: .date)
                     Button(TuneFieldLabels.clearDate, systemImage: "xmark.circle.fill") { day = "" }
                         .labelStyle(.iconOnly)
-                        .buttonStyle(.borderless)
+                        .buttonStyle(.rowLine)
                         .foregroundStyle(.textSecondary)
                 }
             } else {
                 LabeledContent(TuneFieldLabels.learnedOn) {
                     Button(TuneFieldLabels.notSet) { day = CalendarDay.day(.now) }
-                        .buttonStyle(.borderless)
+                        .buttonStyle(.rowLine)
                         .foregroundStyle(.textSecondary)
                         .accessibilityLabel("\(TuneFieldLabels.learnedOn), \(TuneFieldLabels.notSet)")
                         .accessibilityHint(TuneFieldLabels.setsToday)

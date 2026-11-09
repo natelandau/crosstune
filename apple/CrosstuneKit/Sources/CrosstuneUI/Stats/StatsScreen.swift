@@ -219,7 +219,7 @@ struct StatsDocument: View {
         case .months:
             PageSection(block.header) {
                 if stats.months.hasAllTime {
-                    ChoiceCapsule(chosen: allTime) {
+                    Chip(.choice(isChosen: allTime)) {
                         allTime.toggle()
                     } label: {
                         Text(StatsCopy.allTime)
@@ -321,12 +321,7 @@ struct StatsDocument: View {
             }
             if parts.hidden > 0 {
                 Button(StatsCopy.showAll(values.count)) { expanded.insert(id) }
-                    .font(PageStyle.secondary.weight(.semibold))
-                    .buttonStyle(.plain)
-                    .foregroundStyle(Palette.accent)
-                    .padding(.horizontal, 8)
-                    .frame(minHeight: PageStyle.minTarget, alignment: .leading)
-                    .contentShape(.rect)
+                    .buttonStyle(.text(macLook: .accentWords))
             }
         }
     }
@@ -338,7 +333,7 @@ struct StatsDocument: View {
             } label: {
                 ShareBarRow(value: value, max: max, link: true)
             }
-            .buttonStyle(PressedOpacityStyle())
+            .buttonStyle(.labelOnly(pressedOpacity: ControlMetrics.pressedOpacity))
         } else {
             ShareBarRow(value: value, max: max, link: false)
         }
@@ -360,7 +355,7 @@ struct StatsDocument: View {
             } label: {
                 chevronRow(label)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.labelOnly)
         } else if commands != nil {
             NavigationLink {
                 TuneScreen(tuneID: rarity.tuneID)
@@ -368,7 +363,7 @@ struct StatsDocument: View {
             } label: {
                 chevronRow(label)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.labelOnly)
         } else {
             // The Mac Settings window has no shell to show a tune in.
             label.accessibilityElement(children: .combine)
@@ -485,7 +480,7 @@ struct KeyGridView: View {
             } label: {
                 content.contentShape(.rect)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.labelOnly)
             .accessibilityLabel(label)
         } else {
             content

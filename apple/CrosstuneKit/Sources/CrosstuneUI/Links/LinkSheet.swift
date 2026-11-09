@@ -102,9 +102,9 @@ private struct LinkForm: View {
                         .disabled(model.isSaving)
                 }
                 ConfirmToolbarItem {
-                    Button(LinkSheet.add, action: save)
-                        .fontWeight(.semibold)
-                        .disabled(model.isSaving || model.isSaved)
+                    AsyncButton(closesOnSuccess: true, action: store) {
+                        Text(LinkSheet.add)
+                    }
                 }
             }
             .modifier(LinkFormLifecycle(model: model, linkFocused: $linkFocused))
@@ -152,13 +152,16 @@ private struct LinkForm: View {
     }
 
     private func save() {
-        Task {
-            guard await model.save() else {
-                if model.validation != nil { linkFocused = true }
-                return
-            }
-            dismiss()
+        Task { await store() }
+    }
+
+    /// Adds the link and closes, or keeps the sheet with the reason under the field.
+    private func store() async {
+        guard await model.save() else {
+            if model.validation != nil { linkFocused = true }
+            return
         }
+        dismiss()
     }
 }
 

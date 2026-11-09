@@ -432,8 +432,9 @@ private struct ListTunes: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .contentShape(.rect)
                 }
-                // Not the automatic style, so the play button beside the row keeps its own tap.
-                .buttonStyle(.plain)
+                // The automatic style takes the list's row highlight; the play button beside it
+                // keeps its own tap through its label-only style.
+                .buttonStyle(.automatic)
                 .modifier(MoveActions(reorderable: reorderable) { moveButtons(entry, moves) })
                 .matchedTransitionSource(id: entry.tune.id, in: zoom)
             }
@@ -521,7 +522,7 @@ private struct ListTunes: View {
                 Text(ListScreen.emptyHint)
             } actions: {
                 Button(ListScreen.addTunes) { picking = true }
-                    .buttonStyle(.accentProminent)
+                    .buttonStyle(.filled)
             }
         } else if rows.isEmpty {
             ContentUnavailableView {
@@ -530,7 +531,7 @@ private struct ListTunes: View {
                 Text(ListScreen.archivedHint)
             } actions: {
                 Button(ListScreen.showArchived) { Task { await model.setShowArchived(true) } }
-                    .buttonStyle(.accentProminent)
+                    .buttonStyle(.filled)
             }
         }
     }

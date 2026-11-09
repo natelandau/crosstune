@@ -341,14 +341,6 @@ private struct FindRecordingsForm: View {
                     noServices
                 } else if model.isLoaded {
                     Section {
-                        TextField(
-                            FindRecordingsSheet.searchFor, text: queryBinding,
-                            prompt: Text(FindRecordingsSheet.searchFor)
-                        )
-                        .contentMask()
-                        .autocorrectionDisabled()
-                        .submitLabel(.search)
-                        .onSubmit { Task { await model.submit() } }
                     } footer: {
                         status
                     }
@@ -359,6 +351,14 @@ private struct FindRecordingsForm: View {
                     }
                 }
             }
+            // Always present, so the form keeps its identity; a search with no services does
+            // nothing, and one typed before the services load runs once they do.
+            .searchable(
+                text: queryBinding, placement: .navigationBarDrawer(displayMode: .always),
+                prompt: Text(FindRecordingsSheet.searchFor)
+            )
+            .autocorrectionDisabled()
+            .onSubmit(of: .search) { Task { await model.submit() } }
             .toolbar {
                 if model.shown != nil && !model.isDirect {
                     ToolbarItem(placement: .cancellationAction) {
@@ -374,6 +374,9 @@ private struct FindRecordingsForm: View {
             .sheet(isPresented: $showsMusicServices) {
                 if let settings { MusicServicesSheet(model: settings) }
             }
+            #if DEBUG
+                .opensForSample(.musicServices, when: model.isLoaded) { openMusicServices() }
+            #endif
         }
 
         private var noServices: some View {
@@ -451,7 +454,7 @@ private struct FindRecordingsForm: View {
                     )
                     .disabled(linked)
                 }
-                .buttonStyle(.borderless)
+                .buttonStyle(.rowLine)
                 if expanded, let embed {
                     embedView(embed)
                 }
@@ -477,7 +480,6 @@ private struct FindRecordingsForm: View {
                 }
                 .contentShape(.rect)
             }
-            .buttonStyle(.plain)
         }
 
         private func searchOnRow(_ group: SearchGroup) -> some View {

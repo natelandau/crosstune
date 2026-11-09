@@ -1,4 +1,5 @@
 import CrosstuneAnalytics
+import CrosstuneDesign
 import SwiftUI
 
 /// Opens a list from the tune it holds: in the split view's content column, or pushed where
@@ -16,7 +17,7 @@ struct OpensList<Label: View>: View {
             } label: {
                 label(true)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.labelOnly)
         } else {
             NavigationLink {
                 ListScreen(listID: listID)

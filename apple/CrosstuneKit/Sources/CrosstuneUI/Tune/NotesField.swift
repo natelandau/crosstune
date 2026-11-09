@@ -83,11 +83,7 @@ struct NotesField: View {
             Spacer(minLength: 0)
             Button(Self.done) { focus = nil }
                 .focused($focus, equals: .done)
-                #if os(macOS)
-                    .buttonStyle(MacButtonStyle(.secondary, size: .small))
-                #else
-                    .buttonStyle(PageControlStyle())
-                #endif
+                .buttonStyle(.text(macLook: .button(.secondary, size: .small), oneLine: true))
         }
     }
 
@@ -102,38 +98,7 @@ struct NotesField: View {
     }
 
     private var editor: some View {
-        TextEditor(text: typed)
-            .contentMask()
+        MultilineTextField(TuneScreen.notesHeader, text: typed, prompt: Self.placeholder)
             .focused($focus, equals: .editor)
-            .accessibilityLabel(TuneScreen.notesHeader)
-            .scrollContentBackground(.hidden)
-            .overlay(alignment: .topLeading) {
-                if text.isEmpty {
-                    Text(Self.placeholder)
-                        .foregroundStyle(.textSecondary)
-                        .padding(Self.placeholderInset)
-                        .allowsHitTesting(false)
-                        .accessibilityHidden(true)
-                }
-            }
-            #if os(macOS)
-                // Grows with the notes, so its scroller has nothing to show.
-                .scrollIndicators(.never)
-                .macTextEditor(minLines: 3)
-            #else
-                .scrollDisabled(true)
-                .frame(minHeight: 96)
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-                .background(Palette.surface, in: .rect(cornerRadius: PageStyle.surfaceRadius))
-            #endif
     }
-
-    /// Where the placeholder sits so it starts where typing does, past the editor's own insets.
-    #if os(macOS)
-        private static let placeholderInset = EdgeInsets(top: 0, leading: 5, bottom: 0, trailing: 0)
-    #else
-        private static let placeholderInset = EdgeInsets(top: 8, leading: 5, bottom: 0, trailing: 0)
-    #endif
 }

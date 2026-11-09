@@ -182,7 +182,7 @@ struct TuneActionButtons: View {
         Button(action: action) {
             Label(title, systemImage: symbol)
         }
-        .actionButtonStyle(prominent: prominent)
+        .buttonStyle(LibraryButtonStyle(prominent ? .filled : .tinted))
     }
 
     /// What pressing the main button does: Stop for the item the player holds, else Play it, or

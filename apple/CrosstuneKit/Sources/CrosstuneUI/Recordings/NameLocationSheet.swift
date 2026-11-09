@@ -103,7 +103,7 @@ struct NameLocationSheet: View {
                                 } label: {
                                     LocationRow(name: place.name, address: place.address, isCurrent: false)
                                 }
-                                .buttonStyle(.plain)
+                                .foregroundStyle(.textPrimary)
                             }
                         }
                     }
@@ -121,7 +121,6 @@ struct NameLocationSheet: View {
                     }
                     ConfirmToolbarItem {
                         Button(ListNameSheet.save, action: save)
-                            .fontWeight(.semibold)
                             .disabled(isBlank)
                     }
                 }

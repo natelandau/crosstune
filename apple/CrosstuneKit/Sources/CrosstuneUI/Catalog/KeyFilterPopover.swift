@@ -17,7 +17,7 @@ struct KeyFilterPopover: View {
 
     /// A popover takes its content's ideal size, which for a flow layout is one long line,
     /// so a fixed width makes the pills wrap.
-    private static let width: CGFloat = 280
+    private static let width = PageStyle.keyPopoverWidth
 
     var body: some View {
         // Scrolls only when the pills outgrow the room the popover has, as at the largest text
@@ -48,7 +48,7 @@ struct KeyFilterPopover: View {
                     .accessibilityAddTraits(.isHeader)
             #endif
             FlowLayout(spacing: Self.gap, lineSpacing: 8) {
-                ChoiceCapsule(chosen: selected == nil) {
+                Chip(.choice(isChosen: selected == nil)) {
                     onChoose(nil)
                 } label: {
                     Text(CatalogFilterSheet.any)
@@ -68,13 +68,7 @@ struct KeyFilterPopover: View {
     @ViewBuilder private func keyChoice(_ key: String, chosen: Bool) -> some View {
         let action = { onChoose(Self.choice(picking: key, selected: selected)) }
         if key == CatalogFilters.noKey {
-            #if os(macOS)
-                ChoiceCapsule(chosen: chosen, action: action) { Text("?") }
-            #else
-                Button(action: action) { ChoiceCapsuleLabel(text: "?", chosen: chosen) }
-                    .buttonStyle(.plain)
-                    .accessibilityAddTraits(chosen ? .isSelected : [])
-            #endif
+            Chip(.choice(isChosen: chosen), action: action) { Text("?") }
         } else {
             KeyChipButton(key: key, chosen: chosen, action: action)
         }

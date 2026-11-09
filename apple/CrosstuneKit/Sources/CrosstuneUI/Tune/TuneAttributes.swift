@@ -116,8 +116,7 @@ struct TuneListTokens: View {
                     ListToken(model: model, membership: membership)
                 }
                 if let onAddToList {
-                    Button(TuneScreen.addToList, action: onAddToList)
-                        .buttonStyle(AddToListStyle())
+                    Chip(TuneScreen.addToList, kind: .token, action: onAddToList)
                 }
             }
             if let failure = model.failure(at: .lists) {
@@ -147,40 +146,3 @@ struct AddedOn: View {
         }
     }
 }
-
-/// The lists group's Add to list: quiet words beside the list tokens, at their height, on a
-/// token's fill on touch.
-private struct AddToListStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        #if os(macOS)
-            MacButtonStyle(.quiet, size: .small).makeBody(configuration: configuration)
-        #else
-            AddToListBody(configuration: configuration)
-        #endif
-    }
-}
-
-#if !os(macOS)
-    private struct AddToListBody: View {
-        let configuration: ButtonStyle.Configuration
-
-        @State private var isHovered = false
-
-        var body: some View {
-            configuration.label
-                .font(PageStyle.secondary)
-                .foregroundStyle(.textSecondary)
-                .lineLimit(1)
-                .padding(.horizontal, 10)
-                .frame(minHeight: PageStyle.smallControlHeight)
-                // A resting fill like a list token's, so touch reads it as a control beside them.
-                .background(.neutralFill, in: .capsule)
-                .overlay {
-                    if isHovered || configuration.isPressed { Capsule().fill(Palette.hoverOverlay) }
-                }
-                .contentShape(.capsule)
-                .onHover { isHovered = $0 }
-                .tapTarget(visibleHeight: PageStyle.smallControlHeight, minimum: PageStyle.minTarget)
-        }
-    }
-#endif

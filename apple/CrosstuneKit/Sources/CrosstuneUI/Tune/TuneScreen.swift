@@ -85,7 +85,7 @@ public struct TuneScreen: View {
         #if os(macOS)
             reduceMotion ? nil : .spring(duration: 0.25)
         #else
-            PhoneMotion.resolve(reduceMotion: reduceMotion).animation(.spring(duration: 0.25))
+            PhoneMotion.resolve(reduceMotion: reduceMotion).animation(Motion.state)
         #endif
     }
 
@@ -375,6 +375,9 @@ private struct TuneContent: View {
                 .opensForSample(.listPicker) { actions.addToList?(detail.userTune.id) }
                 .opensForSample(.link) { actions.addLink?(tuneID) }
                 .opensForSample(.findRecordings) { actions.findRecordings?(tuneID, nil) }
+                .opensForSample(
+                    .musicServices, step: "find recordings", when: SampleScreen.musicServicesFromFindRecordings
+                ) { actions.findRecordings?(tuneID, nil) }
                 .opensForSample(.lyrics) { actions.readLyrics?(tuneID, .section) }
                 .opensForSample(.scans) { actions.viewScans?(tuneID, 0, .tune) }
         }

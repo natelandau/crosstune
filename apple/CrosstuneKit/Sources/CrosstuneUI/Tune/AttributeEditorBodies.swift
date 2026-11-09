@@ -416,9 +416,9 @@ private struct CrookedToggle: View {
             Text(TuneFieldLabels.crookedHelp)
         }
         if let focus {
-            toggle.focused(focus)
+            toggle.focused(focus).phoneAccentSwitch()
         } else {
-            toggle
+            toggle.phoneAccentSwitch()
         }
     }
 }

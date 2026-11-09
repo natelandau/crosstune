@@ -49,7 +49,7 @@ struct KeyChooser: View {
         FlowLayout(spacing: spacing(6), lineSpacing: spacing(Self.lineSpacing)) {
             // A question mark is the shorthand a musician already writes on a tune list. It reads
             // as nothing aloud, so the choice is named in words.
-            ChoiceCapsule(chosen: chosen.isEmpty && !isMixed) {
+            Chip(.choice(isChosen: chosen.isEmpty && !isMixed)) {
                 key = ""
             } label: {
                 Text("?")
@@ -61,37 +61,13 @@ struct KeyChooser: View {
                 }
                 .accessibilityLabel(pill)
             }
-            Menu {
+            ChipMenu(isSet: false, macChevronColor: nil) {
                 ForEach(Self.more(chosen: chosen), id: \.self) { more in
                     Button(more) { key = more }
                 }
             } label: {
-                #if os(macOS)
-                    // A chevron marks the chip as a pop-up rather than another key.
-                    HStack(spacing: 4) {
-                        Text(Self.moreKeys)
-                        Image(systemName: "chevron.down")
-                            .font(.system(size: 9, weight: .semibold))
-                            .accessibilityHidden(true)
-                    }
-                #else
-                    Text(Self.moreKeys)
-                        .font(.platform(.subheadline))
-                        .foregroundStyle(.textPrimary)
-                        .padding(.horizontal, spacing(14))
-                        .padding(.vertical, spacing.chipVertical)
-                        .background(.neutralFill, in: .capsule)
-                        .tapTarget()
-                #endif
+                Text(Self.moreKeys)
             }
-            .menuStyle(.button)
-            #if os(macOS)
-                .buttonStyle(MacChipStyle(state: .rest, size: .standalone))
-            #else
-                .buttonStyle(.plain)
-            #endif
-            .menuIndicator(.hidden)
-            .fixedSize()
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel(TuneFieldLabels.key)

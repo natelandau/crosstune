@@ -75,7 +75,7 @@ struct TunePage: View {
         .pageBackground()
         .onAppear {
             // TuneScreen cross-fades the pages; the new title lifts into place as it does.
-            withAnimation(reduceMotion ? nil : .spring(duration: 0.25)) { risen = true }
+            withAnimation(reduceMotion ? nil : Motion.state) { risen = true }
         }
         .barTitle(detail.tune.title, shown: !titleShows)
         .modifier(
@@ -296,7 +296,6 @@ struct TunePageColumn: View {
                     .help(LyricsReader.editLyrics)
             #else
                 Button(ScanCopy.edit, action: onAddLyrics)
-                    .font(.platform(.body))
                     .accessibilityLabel(LyricsReader.editLyrics)
             #endif
             if let readLyrics = actions.readLyrics {
@@ -372,6 +371,8 @@ struct TunePageColumn: View {
                     ) {
                         Label(TuneScreen.addScanText, systemImage: "plus")
                     }
+                    .menuStyle(.button)
+                    .textButtonMenuAppearance(macRole: .quiet)
                     .accessibilityLabel(TuneScreen.addScan)
                 case .lyrics:
                     Button(action: onAddLyrics) {
@@ -384,8 +385,7 @@ struct TunePageColumn: View {
         .menuIndicator(.hidden)
         .menuStyle(.button)
         .modifier(AddLineStyle())
-        // The first action's plus starts at the column's text edge, past its button's inset.
-        .padding(.leading, -AddLineStyle.inset)
+        .textButtonAlignedToLeadingEdge()
         .accessibilityElement(children: .contain)
         .accessibilityLabel(TuneScreen.addToTune)
     }
@@ -438,19 +438,8 @@ private struct PageVerses: View {
 
 /// The add line's actions, in the platform's existing quiet styles.
 private struct AddLineStyle: ViewModifier {
-    /// How far each style draws its label in from the button's edge.
-    #if os(macOS)
-        static let inset: CGFloat = 0
-    #else
-        static let inset: CGFloat = 6
-    #endif
-
     func body(content: Content) -> some View {
-        #if os(macOS)
-            content.buttonStyle(MacButtonStyle(.quiet, size: .small))
-        #else
-            content.buttonStyle(PageControlStyle())
-        #endif
+        content.buttonStyle(.text(macLook: .button(.quiet, size: .small)))
     }
 }
 
@@ -461,36 +450,9 @@ struct ListToken: View {
 
     var body: some View {
         OpensList(listID: membership.list.id) { _ in
-            #if os(macOS)
-                Label(membership.list.name, systemImage: Destination.lists.systemImage)
-                    .contentMask()
-                    .labelStyle(TokenLabelStyle())
-                    .macChip(state: .rest, size: .standalone)
-            #else
-                Label(membership.list.name, systemImage: Destination.lists.systemImage)
-                    .contentMask()
-                    .labelStyle(TokenLabelStyle())
-                    .lineLimit(1)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 4)
-                    .frame(minHeight: PageStyle.smallControlHeight)
-                    .background(.neutralFill, in: .capsule)
-                    .contentShape(.capsule)
-                    .tapTarget(visibleHeight: PageStyle.smallControlHeight, minimum: PageStyle.minTarget)
-            #endif
+            ChipLabel(membership.list.name, kind: .token, systemImage: Destination.lists.systemImage)
+                .contentMask()
         }
         .contextMenu { RemoveFromListButton(model: model, membership: membership) }
-    }
-}
-
-private struct TokenLabelStyle: LabelStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        HStack(spacing: 5) {
-            configuration.icon
-                .font(PageStyle.secondary)
-                .foregroundStyle(.textSecondary)
-            configuration.title
-                .foregroundStyle(.textPrimary)
-        }
     }
 }
