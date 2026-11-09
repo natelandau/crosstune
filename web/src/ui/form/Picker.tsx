@@ -14,7 +14,14 @@ import { useRef } from 'react'
 import { useStampedDensity } from '../../platform/density'
 import { Menu } from '../Menu'
 import { OverlayClaim } from '../overlayClaim'
-import { FIELD_LABEL, FIELD_ROW_BARE, FIELD_VALUE_SHAPE, FIELD_ROW_PRESSABLE } from './FieldRow'
+import {
+  FIELD_LABEL,
+  FIELD_ROW_BARE,
+  FIELD_VALUE_SHAPE,
+  FIELD_ROW_PRESSABLE,
+  ROW_HOVER,
+} from './FieldRow'
+import { LISTBOX_SURFACE, OPTION_ROW } from '../popoverClasses'
 
 export interface PickerOption {
   id: string
@@ -26,7 +33,7 @@ export interface PickerOption {
 // No option id can be the empty choice's: ids are stored values, which never hold a NUL.
 const EMPTY = '\u0000empty'
 
-const INVALID = 'ring-danger rounded-(--radius-surface) ring-2 ring-inset'
+const INVALID = 'ring-danger rounded-(--radius) ring-2 ring-inset'
 
 /**
  * A closed choice as a field row: the label leads and the current value trails, eliding
@@ -135,22 +142,19 @@ export function Picker({
             picking.current = false
           })
       }}
-      className={`${FIELD_ROW_BARE} hover:bg-field relative transition-colors duration-(--dur-short) ease-(--ease) data-[disabled]:opacity-40 data-[disabled]:hover:bg-transparent ${invalid}`}
+      className={`${FIELD_ROW_BARE} ${ROW_HOVER} relative data-[disabled]:opacity-40 data-[disabled]:hover:bg-transparent ${invalid}`}
     >
       <Label className={`${FIELD_LABEL} ps-4`}>{label}</Label>
       {/* The button's hit area covers the whole row, so a press on the label opens it too. */}
       <AriaButton
         aria-describedby={isInvalid ? describedBy : undefined}
         data-invalid={isInvalid || undefined}
-        className="flex min-h-(--target) min-w-0 flex-1 items-center justify-end gap-1 pe-4 after:absolute after:inset-0 after:content-['']"
+        className="flex min-h-(--size-row) min-w-0 flex-1 items-center justify-end gap-1 pe-4 after:absolute after:inset-0 after:content-['']"
       >
         <SelectValue className={valueClass} />
         <ChevronsUpDown className="text-secondary size-4 shrink-0" aria-hidden />
       </AriaButton>
-      <Popover
-        placement="bottom end"
-        className="bg-page max-h-80 min-w-48 overflow-y-auto rounded-(--radius-surface) p-1 shadow-(--shadow-float)"
-      >
+      <Popover placement="bottom end" className={LISTBOX_SURFACE}>
         <OverlayClaim />
         {/* Escape always dismisses, even with a press still held on an option. */}
         <div
@@ -165,7 +169,7 @@ export function Picker({
                 textValue={option.label}
                 onPressStart={() => void (picking.current = true)}
                 onPressEnd={() => void setTimeout(() => void (picking.current = false))}
-                className="t-body data-[focused]:bg-field flex min-h-(--target) cursor-default items-center gap-3 rounded-(--radius-row) px-3 py-1"
+                className={OPTION_ROW}
               >
                 {({ isSelected }) => (
                   <>

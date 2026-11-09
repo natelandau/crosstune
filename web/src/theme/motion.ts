@@ -3,7 +3,13 @@ import { MotionConfig } from 'motion/react'
 
 export const SPRING = { type: 'spring', stiffness: 400, damping: 36 } as const
 export const EASE = [0.32, 0.72, 0, 1] as const
-export const DURATION = { short: 0.15, base: 0.25, long: 0.35 } as const
+export const DURATION = { instant: 0.1, short: 0.15, base: 0.25, long: 0.35 } as const
+
+/** `EASE` as a CSS easing, for the Web Animations API. */
+export const EASE_CSS = `cubic-bezier(${EASE.join(', ')})`
+
+/** The overshooting release curve, `--ease-pop` in CSS. */
+export const EASE_POP_CSS = 'cubic-bezier(0.34, 1.56, 0.64, 1)'
 
 /**
  * The spring as a CSS `linear()` easing over `DURATION.long`, for a transition CSS runs rather

@@ -1,5 +1,5 @@
 import { useLayoutEffect } from 'react'
-import { DURATION, EASE, springEasing } from '../theme/motion'
+import { DURATION, EASE_CSS, springEasing } from '../theme/motion'
 import { drawnOffset, rowsOf } from './reorder'
 import { useLatest } from './useLatest'
 
@@ -16,7 +16,6 @@ type Snapshot = Map<string, Placed>
 
 const SPRING_MS = DURATION.long * 1000
 const FADE_MS = DURATION.base * 1000
-const EASING = `cubic-bezier(${EASE.join(', ')})`
 
 /** Where the row is drawn, with any slide still under way counted in. */
 function drawnTop(row: HTMLElement, sliding: WeakMap<HTMLElement, Animation>): number {
@@ -188,7 +187,7 @@ function isPlacement(list: HTMLElement, record: MutationRecord): boolean {
 }
 
 function fadeIn(row: HTMLElement): void {
-  row.animate({ opacity: ['0', '1'] }, { duration: FADE_MS, easing: EASING })
+  row.animate({ opacity: ['0', '1'] }, { duration: FADE_MS, easing: EASE_CSS })
 }
 
 /**
@@ -216,7 +215,7 @@ function fadeOut(list: HTMLElement, { row, top, left, width, height }: Placed): 
   list.append(row)
   const fade = row.animate(
     { opacity: [getComputedStyle(row).opacity, '0'], transform: ['scale(1)', 'scale(0.98)'] },
-    { duration: FADE_MS, easing: EASING, fill: 'forwards' },
+    { duration: FADE_MS, easing: EASE_CSS, fill: 'forwards' },
   )
   fade.onfinish = fade.oncancel = () => row.remove()
 }

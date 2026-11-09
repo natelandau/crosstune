@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { expect, it, vi } from 'vitest'
+import { expect, it, onTestFinished, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
 import { contrastRatio } from '../../test/contrast'
 import { ANY } from '../filterCopy'
 import { DAY_LABEL, MONTH_LABEL, NO_DATE } from '../partialDate'
+import { holdMotionClock, motionFrames } from '../../test/motionClock'
 import { renderWithProviders } from '../../test/render'
 import { Sheet } from '../Sheet'
 import { FieldRow } from './FieldRow'
@@ -12,6 +13,10 @@ import { PartialDateField } from './PartialDateField'
 import { Picker } from './Picker'
 import { SuggestField } from './SuggestField'
 import { Switch } from './Switch'
+import { Checkbox } from './Checkbox'
+import { Capsule } from '../Capsule'
+import { Stepper } from '../Stepper'
+import { ButtonRow } from './ButtonRow'
 
 const OPTIONS = [
   { id: 'reel', label: 'reel' },
@@ -626,3 +631,322 @@ it.each(['touch', 'pointer'] as const)(
     await expect.element(page.getByRole('heading', { name: 'Details', level: 3 })).toBeVisible()
   },
 )
+
+it.each([
+  ['pointer', 24, 40],
+  ['touch', 32, 52],
+] as const)('sizes the switch track from the compact height on %s', async (density, h, w) => {
+  renderWithProviders(<Switch label="Only unheard" isSelected={false} onChange={() => {}} />, {
+    density,
+  })
+  const toggle = page.getByRole('switch', { name: 'Only unheard' })
+  await expect.element(toggle).toBeInTheDocument()
+  const track = toggle.element().closest('label')!.querySelector('.switch-track')!
+  await expect.poll(() => track.getBoundingClientRect().height).toBe(h)
+  expect(track.getBoundingClientRect().width).toBe(w)
+})
+
+it.each([
+  ['pointer', 24],
+  ['touch', 32],
+] as const)('sizes the checkbox ring from the compact height on %s', async (density, size) => {
+  renderWithProviders(<Checkbox label="Include Reel" isSelected={false} onChange={() => {}} />, {
+    density,
+  })
+  const ring = page
+    .getByRole('checkbox', { name: 'Include Reel' })
+    .element()
+    .closest('label')!
+    .querySelector('.check-mark')!
+  await expect.poll(() => ring.getBoundingClientRect().height).toBe(size)
+  expect(ring.getBoundingClientRect().width).toBe(size)
+})
+
+it.each(['pointer', 'touch'] as const)(
+  'draws the checkbox hover halo well past its ring on %s',
+  async (density) => {
+    renderWithProviders(<Checkbox label="Include Reel" isSelected={false} onChange={() => {}} />, {
+      density,
+    })
+    const box = page.getByRole('checkbox', { name: 'Include Reel' }).element().closest('label')!
+    const ring = box.querySelector('.check-mark')!
+    await expect.poll(() => ring.getBoundingClientRect().width).toBeGreaterThan(0)
+    const halo = parseFloat(getComputedStyle(box, '::before').width)
+    expect(halo - ring.getBoundingClientRect().width).toBeGreaterThanOrEqual(12)
+  },
+)
+
+it.each(['pointer', 'touch'] as const)(
+  'a switch, a checkbox, and a chip line up in rows on %s',
+  async (density) => {
+    renderWithProviders(
+      <Group>
+        <Switch label="Only unheard" isSelected={false} onChange={() => {}} />
+        <FieldRow label="Include">
+          <Checkbox label="Include Reel" isSelected={false} onChange={() => {}} />
+        </FieldRow>
+        <FieldRow label="Key">
+          <Capsule label="D" />
+        </FieldRow>
+      </Group>,
+      { density },
+    )
+    const sw = page.getByRole('switch', { name: 'Only unheard' })
+    await expect.element(sw).toBeInTheDocument()
+    // Each control against the whole row it sits in, the card's child that holds it.
+    const rowOf = (control: Element) =>
+      [...control.closest('section')!.lastElementChild!.children].find((row) =>
+        row.contains(control),
+      )!
+    const track = sw.element().closest('label')!.querySelector('.switch-track')!
+    const mark = page
+      .getByRole('checkbox', { name: 'Include Reel' })
+      .element()
+      .closest('label')!
+      .querySelector('.check-mark')!
+    const chip = page.getByRole('button', { name: 'D' }).element()
+    const cases = [track, mark, chip].map((control) => [control, rowOf(control)] as const)
+    const box = (e: Element) => e.getBoundingClientRect()
+    await expect.poll(() => new Set(cases.map(([c]) => box(c).height)).size).toBe(1)
+    for (const [control, row] of cases) {
+      expect(box(control).top + box(control).height / 2).toBeCloseTo(
+        box(row).top + box(row).height / 2,
+        0,
+      )
+    }
+  },
+)
+
+it('draws a hairline between rows and none above the first', async () => {
+  renderWithProviders(
+    <Group>
+      <FieldRow label="Composer" value="Ed Haley" />
+      <PartialDateField value={NO_DATE} onChange={() => {}} />
+      <Switch label="Only unheard" isSelected={false} onChange={() => {}} />
+    </Group>,
+  )
+  const composer = page.getByText('Composer', { exact: true })
+  await expect.element(composer).toBeVisible()
+  const card = composer.element().closest('section')!.lastElementChild!
+  const rows = [...card.children]
+    .flatMap((child) =>
+      getComputedStyle(child).display === 'contents' ? [...child.children] : [child],
+    )
+    // A picker leaves an unrendered template beside its row.
+    .filter((row) => getComputedStyle(row).display !== 'none')
+  const hairline = (row: Element) => {
+    const line = getComputedStyle(row, '::before')
+    return line.content !== 'none' && line.height === '1px'
+  }
+  // The composer, the date's year, month, day, and Clear date, then the switch.
+  expect(rows).toHaveLength(6)
+  expect(hairline(rows[0]!)).toBe(false)
+  expect(rows.slice(1).every(hairline)).toBe(true)
+  // Inset to the text, so the line starts where the label does.
+  expect(getComputedStyle(rows[1]!, '::before').left).toBe('16px')
+})
+
+it.each(['pointer', 'touch'] as const)(
+  'draws no hairline above a picker that leads its group, and rounds its top on %s',
+  async (density) => {
+    renderWithProviders(
+      <Group>
+        <Picker label="Type" value={null} options={OPTIONS} emptyLabel={ANY} onChange={() => {}} />
+        <FieldRow label="Composer" value="Ed Haley" />
+      </Group>,
+      { density },
+    )
+    const composer = page.getByText('Composer', { exact: true })
+    await expect.element(composer).toBeVisible()
+    const card = composer.element().closest('section')!.lastElementChild!
+    const rows = [...card.children].filter((row) => getComputedStyle(row).display !== 'none')
+    const line = (row: Element) => getComputedStyle(row, '::before').content
+    expect(rows).toHaveLength(2)
+    expect(line(rows[0]!)).toBe('none')
+    expect(line(rows[1]!)).not.toBe('none')
+    // The hover fill keeps the card's corners.
+    await page.getByRole('button', { name: /Type/ }).hover()
+    expect(getComputedStyle(rows[0]!).borderTopLeftRadius).toBe('8px')
+    expect(getComputedStyle(rows[0]!).borderTopRightRadius).toBe('8px')
+  },
+)
+
+/** A group's rendered rows, past the unrendered template a pointer picker leaves. */
+function rowsOf(inside: Element): Element[] {
+  const card = inside.closest('section')!.lastElementChild!
+  return [...card.children].filter((row) => getComputedStyle(row).display !== 'none')
+}
+
+const corners = (row: Element) => {
+  const style = getComputedStyle(row)
+  return [
+    style.borderTopLeftRadius,
+    style.borderTopRightRadius,
+    style.borderBottomRightRadius,
+    style.borderBottomLeftRadius,
+  ]
+}
+
+it('rounds all four corners of a group with one row', async () => {
+  renderWithProviders(
+    <Group>
+      <FieldRow label="Composer" value="Ed Haley" />
+    </Group>,
+  )
+  const composer = page.getByText('Composer', { exact: true })
+  await expect.element(composer).toBeVisible()
+  const [row] = rowsOf(composer.element())
+  expect(corners(row!)).toEqual(['8px', '8px', '8px', '8px'])
+})
+
+it('rounds the card corners on rows inside a wrapper that leads and ends its group', async () => {
+  renderWithProviders(
+    <Group>
+      <PartialDateField value={NO_DATE} onChange={() => {}} />
+    </Group>,
+  )
+  const month = page.getByText(MONTH_LABEL, { exact: true })
+  await expect.element(month).toBeVisible()
+  const card = month.element().closest('section')!.lastElementChild!
+  const rows = [...card.children]
+    .flatMap((child) =>
+      getComputedStyle(child).display === 'contents' ? [...child.children] : [child],
+    )
+    .filter((row) => getComputedStyle(row).display !== 'none')
+  expect(rows.length).toBeGreaterThan(1)
+  await expect.poll(() => corners(rows[0]!).slice(0, 2)).toEqual(['8px', '8px'])
+  expect(corners(rows.at(-1)!).slice(2)).toEqual(['8px', '8px'])
+})
+
+it.each(['pointer', 'touch'] as const)(
+  'draws no hairline above a suggested field that leads its group on %s',
+  async (density) => {
+    renderWithProviders(
+      <Group>
+        <SuggestField label="Type" value="" suggestions={['reel']} onChange={() => {}} />
+        <FieldRow label="Composer" value="Ed Haley" />
+      </Group>,
+      { density },
+    )
+    const composer = page.getByText('Composer', { exact: true })
+    await expect.element(composer).toBeVisible()
+    const rows = rowsOf(composer.element())
+    expect(rows).toHaveLength(2)
+    expect(getComputedStyle(rows[0]!, '::before').content).toBe('none')
+    expect(getComputedStyle(rows[1]!, '::before').content).not.toBe('none')
+    expect(corners(rows[0]!).slice(0, 2)).toEqual(['8px', '8px'])
+  },
+)
+
+it.each(['pointer', 'touch'] as const)(
+  'keeps the card corners on a refused picker first and last in its group on %s',
+  async (density) => {
+    renderWithProviders(
+      <Group>
+        <Picker
+          label="Type"
+          value={null}
+          options={OPTIONS}
+          emptyLabel={ANY}
+          isInvalid
+          onChange={() => {}}
+        />
+        <FieldRow label="Composer" value="Ed Haley" />
+        <Picker
+          label="Key"
+          value={null}
+          options={OPTIONS}
+          emptyLabel={ANY}
+          isInvalid
+          onChange={() => {}}
+        />
+      </Group>,
+      { density },
+    )
+    const composer = page.getByText('Composer', { exact: true })
+    await expect.element(composer).toBeVisible()
+    const rows = rowsOf(composer.element())
+    expect(rows).toHaveLength(3)
+    expect(corners(rows[0]!).slice(0, 2)).toEqual(['8px', '8px'])
+    expect(corners(rows[2]!).slice(2)).toEqual(['8px', '8px'])
+  },
+)
+
+function Members({ names }: { names: string[] }) {
+  return (
+    <Group animateRows>
+      {names.map((name) => (
+        <FieldRow key={name} label={name} />
+      ))}
+    </Group>
+  )
+}
+
+it('opens a new row and closes a removed one', async () => {
+  holdMotionClock()
+  const { rerender } = renderWithProviders(<Members names={['Member 1']} />)
+  await expect.element(page.getByText('Member 1')).toBeVisible()
+  rerender(<Members names={['Member 1', 'Member 2']} />)
+  const added = () => page.getByText('Member 2').element().parentElement!.parentElement!
+  await expect.element(page.getByText('Member 2')).toBeInTheDocument()
+  expect(added().getBoundingClientRect().height).toBe(0)
+  motionFrames(100)
+  const partway = added().getBoundingClientRect().height
+  expect(partway).toBeGreaterThan(0)
+  expect(partway).toBeLessThan(40)
+  motionFrames(500)
+  expect(added().getBoundingClientRect().height).toBe(40)
+  rerender(<Members names={['Member 1']} />)
+  motionFrames(140)
+  expect(page.getByText('Member 2').query()).not.toBeNull()
+  motionFrames(10)
+  await expect.element(page.getByText('Member 2')).not.toBeInTheDocument()
+})
+
+it('keeps compact controls centered in rows at the large text size', async () => {
+  const root = document.documentElement
+  root.dataset.textSize = 'large'
+  onTestFinished(() => void delete root.dataset.textSize)
+  renderWithProviders(
+    <Group>
+      <Switch label="Only unheard" isSelected={false} onChange={() => {}} />
+      <FieldRow label="Transpose">
+        <Stepper
+          label="Semitones"
+          value={0}
+          min={-12}
+          max={12}
+          format={String}
+          decrementLabel="Down"
+          incrementLabel="Up"
+          onChange={() => {}}
+        />
+      </FieldRow>
+      <ButtonRow
+        description="Save a copy of everything to a file."
+        button={{ label: 'Export', onPress: () => {} }}
+      />
+    </Group>,
+  )
+  const toggle = page.getByRole('switch', { name: 'Only unheard' })
+  await expect.element(toggle).toBeInTheDocument()
+  const card = toggle.element().closest('section')!.lastElementChild!
+  const rowOf = (el: Element) => {
+    let row = el
+    while (row.parentElement !== card) row = row.parentElement!
+    return row
+  }
+  const controls = [
+    toggle.element().closest('label')!.querySelector('.switch-track')!,
+    page.getByRole('group', { name: 'Semitones' }).element(),
+    page.getByRole('button', { name: 'Export' }).element(),
+  ]
+  const box = (e: Element) => e.getBoundingClientRect()
+  const center = (e: Element) => box(e).top + box(e).height / 2
+  await expect.poll(() => new Set(controls.map((c) => box(c).height)).size).toBe(1)
+  // The compact height scales with the text size.
+  expect(box(controls[0]!).height).toBeGreaterThan(24)
+  for (const control of controls) {
+    expect(center(control)).toBeCloseTo(center(rowOf(control)), 0)
+  }
+})

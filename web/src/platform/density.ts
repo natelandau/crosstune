@@ -32,3 +32,8 @@ export function useStampedDensity(): Density {
     document.documentElement.dataset.density === 'pointer' ? 'pointer' : 'touch',
   )
 }
+
+/** Whether the root is stamped for touch, read once. False before any density is stamped. */
+export function isStampedTouch(): boolean {
+  return document.documentElement.dataset.density === 'touch'
+}

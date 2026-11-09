@@ -13,7 +13,7 @@ export const ROW_SHAPE = `${ROW_PRESS} ${ROW_LAYOUT}`
  * first baseline, with the padding centering a single line in the target height.
  */
 const COLUMN_ROW_LAYOUT =
-  'mx-2 flex flex-col gap-px rounded-(--radius-row) px-2 py-1.5 text-start t-body @attributes-wide:min-h-(--target) @attributes-wide:flex-row @attributes-wide:items-baseline @attributes-wide:gap-3 @attributes-wide:py-[calc((var(--target)_-_1.45em)/2)]'
+  'mx-2 flex flex-col gap-px rounded-(--radius) px-2 py-1.5 text-start t-body @attributes-wide:min-h-(--target) @attributes-wide:flex-row @attributes-wide:items-baseline @attributes-wide:gap-3 @attributes-wide:py-[calc((var(--target)_-_1.45em)/2)]'
 const COLUMN_ROW_SHAPE = `${ROW_PRESS} ${COLUMN_ROW_LAYOUT}`
 /** Beside its value, the label takes `t-secondary`'s step. */
 const COLUMN_LABEL =
@@ -75,7 +75,10 @@ export function AttributeRowButton({
   )
 }
 
-/** A row that opens its editor on press, and the editor while it is open. */
+/**
+ * A row that opens its editor on press, and the editor, kept mounted and driven by `isOpen` so
+ * its surface animates in and out; its body mounts only while it shows.
+ */
 export function AttributeRowEditor<P extends object>({
   label,
   text,
@@ -88,7 +91,7 @@ export function AttributeRowEditor<P extends object>({
 }: RowFace & {
   isOpen: boolean
   onOpen: () => void
-  editor: Omit<AttributeEditorFrame, 'label' | 'triggerRef' | 'children'> & PatchSave<P>
+  editor: Omit<AttributeEditorFrame, 'label' | 'triggerRef' | 'isOpen' | 'children'> & PatchSave<P>
   children: ReactNode
 }) {
   const trigger = useRef<HTMLButtonElement>(null)
@@ -102,11 +105,9 @@ export function AttributeRowEditor<P extends object>({
         column={column}
         onPress={onOpen}
       />
-      {isOpen && (
-        <AttributeEditor {...editor} label={label} triggerRef={trigger}>
-          {children}
-        </AttributeEditor>
-      )}
+      <AttributeEditor {...editor} label={label} triggerRef={trigger} isOpen={isOpen}>
+        {children}
+      </AttributeEditor>
     </>
   )
 }

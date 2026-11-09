@@ -2,8 +2,10 @@ import { useState } from 'react'
 import { page, userEvent } from 'vitest/browser'
 import { afterAll, expect, it } from 'vitest'
 import { renderWithProviders } from '../../test/render'
+import { holdMotionClock, motionFrames } from '../../test/motionClock'
 import { DONE } from '../confirmCopy'
 import { NOT_SET } from '../fieldCopy'
+import { Sheet } from '../Sheet'
 import { useAttributeEdit } from './AttributeEditor'
 import { AttributesColumn, type AttributeColumnRow } from './AttributesColumn'
 
@@ -181,16 +183,26 @@ function OwnEditorCard() {
             label: 'Beta',
             text: null,
             group: 'second',
-            ownEditor: ({ onClose, onWrite }) => (
-              <button
-                onClick={() => {
-                  onWrite()
-                  setError('Refused')
-                  onClose()
+            ownEditor: ({ isOpen, onClose, onClosed, onWrite }) => (
+              <Sheet
+                isOpen={isOpen}
+                onOpenChange={(open) => {
+                  if (!open) onClose()
                 }}
+                onClosed={onClosed}
+                title="Beta"
+                cancel={null}
               >
-                Write now
-              </button>
+                <button
+                  onClick={() => {
+                    onWrite()
+                    setError('Refused')
+                    onClose()
+                  }}
+                >
+                  Write now
+                </button>
+              </Sheet>
             ),
           },
         ]}
@@ -224,3 +236,69 @@ it("opens a row's editor from outside the column", async () => {
   await page.getByRole('button', { name: 'Open Beta' }).click()
   await expect.element(page.getByRole('button', { name: 'Write now' })).toBeVisible()
 })
+
+/** A column with a row whose built-in editor is a sheet, and a row whose own editor is one. */
+function SheetEditorsColumn() {
+  return (
+    <AttributesColumn
+      label="Details"
+      layout="column"
+      groups={GROUPS}
+      rows={[
+        { id: 'name', label: 'Name', text: null, group: 'main' },
+        {
+          id: 'place',
+          label: 'Place',
+          text: null,
+          group: 'main',
+          ownEditor: ({ isOpen, onClose, onClosed }) => (
+            <Sheet
+              isOpen={isOpen}
+              onOpenChange={(open) => {
+                if (!open) onClose()
+              }}
+              onClosed={onClosed}
+              title="Place"
+              cancel={null}
+              primary={{ label: DONE, onPress: onClose }}
+            >
+              <p>Editing Place</p>
+            </Sheet>
+          ),
+        },
+      ]}
+      emptyText={NOT_SET}
+      stored={{}}
+      onCommit={() => {}}
+      editorFor={(row) => <p>{`Editing ${row.label}`}</p>}
+      sheetFor={() => true}
+    />
+  )
+}
+
+it.each([
+  ['built-in', 'Name'],
+  ['own', 'Place'],
+])(
+  'slides a %s editor sheet up from the window foot and back down on Done on touch',
+  async (_, label) => {
+    await page.viewport(390, 844)
+    holdMotionClock()
+    renderWithProviders(<SheetEditorsColumn />, { density: 'touch' })
+    await page.getByRole('button', { name: `${label}, ${NOT_SET}` }).click()
+    const sheet = page.getByRole('dialog', { name: label })
+    await expect.element(sheet).toBeInTheDocument()
+    const top = () => sheet.element().getBoundingClientRect().top
+    await expect.poll(top).toBeGreaterThanOrEqual(window.innerHeight - 1)
+    motionFrames(1000)
+    await expect.poll(top).toBe(window.innerHeight / 2)
+    await sheet.getByRole('button', { name: DONE }).click()
+    motionFrames(50)
+    // Still in the page partway down, rather than removed the moment it closed.
+    expect(sheet.query()).not.toBeNull()
+    expect(top()).toBeGreaterThan(window.innerHeight / 2)
+    expect(top()).toBeLessThan(window.innerHeight)
+    motionFrames(1000)
+    await expect.element(sheet).not.toBeInTheDocument()
+  },
+)

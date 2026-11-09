@@ -1,119 +1,136 @@
 import type { LucideIcon } from 'lucide-react'
 import { useContext, useId, type ReactNode, type Ref } from 'react'
 import { Button as AriaButton, type ButtonProps as AriaButtonProps } from 'react-aria-components'
-import { useStampedDensity } from '../platform/density'
 import { ControlDescription, descriptionProps } from './ControlDescription'
+import { shake } from './feedback'
 import { iconMotion } from './iconMotion'
+import { SIZE_CLASS, useControlSize, type ControlSize } from './inRow'
 import { PRESS } from './press'
-import { BUTTON_CORNER, BUTTON_TONE, PLAIN_GLYPH, UNFILLED_OFF } from './buttonTone'
+import { BUTTON_CORNER, BUTTON_TONE, UNFILLED_OFF } from './buttonTone'
 import { InBar } from './inBar'
-import { InSectionHeading } from './sectionHeading'
-import { Tip, TipTrigger } from './Tip'
+import { TAP_AREA } from './tapArea'
+import type { TrackWork } from './useWorking'
+import { isAriaDisabled, useWorkingControl } from './useWorkingControl'
+import { WorkingMark, WorkingStatus } from './WorkingMark'
 
-export type ButtonVariant =
-  | 'primary'
-  | 'plain'
-  | 'tinted'
-  | 'bordered'
-  | 'destructive'
-  | 'warning'
-  | 'destructiveFill'
-  | 'warningFill'
+export type ButtonVariant = 'primary' | 'secondary' | 'text' | 'destructive' | 'destructiveFill'
 
 export interface ButtonProps extends Omit<
   AriaButtonProps,
-  'children' | 'className' | 'aria-label'
+  'children' | 'className' | 'aria-label' | 'onPress'
 > {
   variant?: ButtonVariant
+  size?: ControlSize
   icon?: LucideIcon
-  /** The accessible name, and the pointer tooltip when `iconOnly`. */
+  /** The accessible name. */
   label: string
   /** The accessible name when it differs from the visible label, such as one naming its row. */
   name?: string
   /** Read after the name and shown under the label in the tooltip, such as why it is off. */
   description?: string
-  iconOnly?: boolean
+  /**
+   * Returned work shows a spinner while it runs past a moment, then a check, or a shake if it
+   * fails. Work that starts after the person answers, such as a confirmation, goes to `track`
+   * instead, so the spinner never shows while they decide.
+   */
+  onPress?: (track: TrackWork) => void | Promise<unknown>
+  /** The work `onPress` returned failed. The screen's own error line says why. */
+  onFailed?: (error: unknown) => void
+  /** False for a button that leaves the screen when its work ends, where leaving confirms it. */
+  showDone?: boolean
+  /** The press cannot go ahead, such as a form with errors: it shakes and does nothing. */
+  isBlocked?: boolean
   /** Fills the glyph, for a transport glyph such as Play that reads as a solid shape. */
   solidIcon?: boolean
   /** A drawn glyph in place of `icon`, such as play and pause that morph into each other. */
   glyph?: ReactNode
   fullWidth?: boolean
-  /** A taller target with a larger label, for the one action a page leads to. */
-  large?: boolean
   ref?: Ref<HTMLButtonElement>
 }
 
 const FILLED: Record<ButtonVariant, boolean> = {
   primary: true,
-  plain: false,
-  tinted: true,
-  bordered: false,
+  secondary: true,
+  text: false,
   destructive: false,
-  warning: false,
   destructiveFill: true,
-  warningFill: true,
 }
 
+const SIZE: Record<ControlSize, { type: string; inset: string }> = {
+  compact: { type: 't-secondary', inset: 'px-2.5' },
+  regular: { type: 't-body', inset: 'px-3' },
+  large: { type: 't-body', inset: 'px-5' },
+}
+
+const SOLID_ICON = { fill: 'currentColor', strokeWidth: 0 } as const
+
+/** A labeled control. `aria-disabled` dims it and ignores presses while leaving it able to hold focus. */
 export function Button({
-  variant = 'plain',
+  variant = 'text',
+  size,
   icon: Icon,
   label,
   name,
   description,
-  iconOnly,
+  onPress,
+  onFailed,
+  showDone = true,
+  isBlocked,
   solidIcon,
   glyph,
   fullWidth,
-  large,
+  ref,
   ...rest
 }: ButtonProps) {
-  const density = useStampedDensity()
-  const inHeading = useContext(InSectionHeading)
   const inBar = useContext(InBar)
+  const controlSize = useControlSize(size)
   const descriptionId = useId()
-  const tone = variant === 'plain' && iconOnly && !inHeading ? PLAIN_GLYPH : BUTTON_TONE[variant]
-  const button = (
-    <AriaButton
-      {...rest}
-      aria-label={iconOnly ? label : name}
-      {...descriptionProps(descriptionId, description)}
-      // A filled button rises under the pointer; controls.css holds the lift.
-      data-lift={FILLED[variant] || undefined}
-      className={`t-body inline-flex shrink-0 items-center justify-center gap-2 select-none ${PRESS} ${
-        // A filled or labeled button in content takes the control corner; a bare glyph, or any
-        // button in a bar, stays round.
-        (iconOnly && !FILLED[variant]) || inBar ? 'rounded-(--radius-capsule)' : BUTTON_CORNER
-      } ${
-        FILLED[variant] ? '' : `font-medium ${UNFILLED_OFF}`
-      } ${large ? 'min-h-14 text-lg!' : 'min-h-(--target-control)'} ${iconOnly ? 'min-w-(--target-control)' : large ? 'px-6' : 'px-4'} ${fullWidth ? 'w-full' : ''} ${tone}`}
-    >
-      {glyph}
-      {Icon &&
-        (solidIcon ? (
+  const off = isAriaDisabled(rest['aria-disabled'])
+  const { element, state, press, content } = useWorkingControl(onPress, {
+    showDone,
+    onFailed,
+    ref,
+  })
+  const tone = BUTTON_TONE[variant]
+  const { type, inset } = SIZE[controlSize]
+  const height = SIZE_CLASS[controlSize].minH
+  return (
+    <>
+      <AriaButton
+        {...descriptionProps(descriptionId, description)}
+        {...rest}
+        ref={element}
+        aria-label={name}
+        aria-disabled={off || undefined}
+        onPress={() => {
+          if (off) return
+          if (isBlocked) {
+            if (element.current) shake(element.current)
+            return
+          }
+          press()
+        }}
+        // A filled button rises under the pointer; controls.css holds the lift.
+        data-lift={FILLED[variant] || undefined}
+        className={`${type} inline-flex shrink-0 items-center justify-center gap-2 select-none ${TAP_AREA} ${PRESS} ${
+          // A button in a bar stays round.
+          inBar ? 'rounded-(--radius-capsule)' : BUTTON_CORNER
+        } ${FILLED[variant] ? '' : `font-medium ${UNFILLED_OFF}`} ${height} ${inset} ${fullWidth ? 'w-full' : ''} ${tone}`}
+      >
+        {glyph}
+        {Icon && (
           <Icon
-            className="size-4 shrink-0"
-            fill="currentColor"
-            strokeWidth={0}
+            className={`${solidIcon ? 'size-4' : 'size-5'} shrink-0 ${content}`}
+            {...(solidIcon ? SOLID_ICON : {})}
             data-motion={iconMotion(Icon)}
             aria-hidden
           />
-        ) : (
-          <Icon className="size-5 shrink-0" data-motion={iconMotion(Icon)} aria-hidden />
-        ))}
-      {!iconOnly && label}
-      <ControlDescription id={descriptionId} text={description} />
-    </AriaButton>
-  )
-  if (!iconOnly) return button
-  // Disabled on touch rather than left out, so a density change keeps the button, and its
-  // focus, in place.
-  return (
-    <TipTrigger isDisabled={density === 'touch'}>
-      {button}
-      <Tip>
-        {label}
-        {description && <span className="block">{description}</span>}
-      </Tip>
-    </TipTrigger>
+        )}
+        <span className={content}>{label}</span>
+        <WorkingMark state={state} />
+        <ControlDescription id={descriptionId} text={description} />
+      </AriaButton>
+      <WorkingStatus state={state} />
+    </>
   )
 }

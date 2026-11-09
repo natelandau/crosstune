@@ -16,7 +16,7 @@ import { useStampedDensity } from '../platform/density'
 import { Button } from './Button'
 import { PointerOverlay } from './PointerOverlay'
 import { Sheet } from './Sheet'
-import { TONE_VARIANT, type ActionTone } from './toneVariant'
+import type { ActionTone } from './buttonTone'
 
 export { CANCEL, DELETE, OK } from './confirmCopy'
 
@@ -104,14 +104,14 @@ function useAsk(hook: string): (options: Shown) => Promise<boolean> {
 }
 
 function PointerAlert({ options, onAnswer }: { options: Shown; onAnswer: (ok: boolean) => void }) {
-  const { title, message, action, tone = 'danger', alert = false } = options
+  const { title, message, action, alert = false } = options
   const messageId = useId()
   return (
     <PointerOverlay
       onOpenChange={(open) => {
         if (!open) onAnswer(false)
       }}
-      className="bg-page w-80 max-w-full rounded-(--radius-surface) p-4 shadow-(--shadow-float)"
+      className="bg-page w-80 max-w-full rounded-(--radius) p-4 shadow-(--shadow-float)"
     >
       <Dialog role="alertdialog" aria-describedby={messageId} className="flex flex-col">
         <Heading slot="title" level={2} className="t-heading pt-1">
@@ -136,7 +136,7 @@ function PointerAlert({ options, onAnswer }: { options: Shown; onAnswer: (ok: bo
             <div className="flex min-w-0 flex-1">
               {/* Focus starts on the safe choice. */}
               <Button
-                variant="bordered"
+                variant="secondary"
                 fullWidth
                 label={CANCEL}
                 autoFocus
@@ -145,7 +145,7 @@ function PointerAlert({ options, onAnswer }: { options: Shown; onAnswer: (ok: bo
             </div>
             <div className="flex min-w-0 flex-1">
               <Button
-                variant={TONE_VARIANT[tone]}
+                variant="destructiveFill"
                 fullWidth
                 label={action}
                 onPress={() => onAnswer(true)}

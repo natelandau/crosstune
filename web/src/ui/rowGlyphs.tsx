@@ -1,6 +1,7 @@
 import { ArrowUpRight, CloudDownload, Volume2 } from 'lucide-react'
 import type { ComponentProps, ReactNode } from 'react'
 import { Button as AriaButton } from 'react-aria-components'
+import { TAP_AREA } from './tapArea'
 
 // Every glyph in the slot takes this box, so a row's state change never moves its layout.
 const GLYPH_BOX = 'size-6 shrink-0 in-[html[data-density=pointer]]:size-5'
@@ -12,12 +13,13 @@ const ICON =
   'size-3.5 in-[html[data-density=pointer]]:size-3 [&_*]:[vector-effect:non-scaling-stroke]'
 
 // A full tap target that takes only its glyph's height in the layout, so the row's text sets
-// the row's height and the target reaches into the row's padding.
+// the row's height and the target reaches into the row's padding. The margin is half the
+// difference between the regular size and the glyph box.
 const SLOT_BOX =
-  'grid h-(--target-control) shrink-0 place-items-center -my-2.5 in-[html[data-density=pointer]]:-my-1'
+  'grid h-(--size-regular) shrink-0 place-items-center -my-[calc((var(--size-regular)-1.5rem)/2)] in-[html[data-density=pointer]]:-my-[calc((var(--size-regular)-1.25rem)/2)]'
 
-const ACTION_SLOT = `${SLOT_BOX} w-(--target-control)`
-const WORDED_SLOT = `${SLOT_BOX} min-w-(--target-control)`
+const ACTION_SLOT = `${SLOT_BOX} w-(--size-regular)`
+const WORDED_SLOT = `${SLOT_BOX} min-w-(--size-regular)`
 
 /** For a control holding a ring: the ring fills while the pointer is over the control. */
 const RING_HOVER =
@@ -55,7 +57,7 @@ export function SlotButton({
       aria-label={name}
       isDisabled={isDisabled}
       onPress={onPress}
-      className={`${ACTION_SLOT} rounded-full transition-[scale,opacity] duration-(--dur-short) ease-(--ease) data-[disabled]:opacity-40 data-[pressed]:scale-90 ${isDisabled ? '' : RING_HOVER}`}
+      className={`${ACTION_SLOT} ${TAP_AREA} rounded-full transition-[scale,opacity] duration-(--dur-short) ease-(--ease) data-[disabled]:opacity-40 data-[pressed]:scale-90 ${isDisabled ? '' : RING_HOVER}`}
     >
       {children}
     </AriaButton>

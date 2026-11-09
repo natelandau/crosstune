@@ -12,7 +12,8 @@ import {
 } from 'react-aria-components'
 import { containsText } from '../../text/fold'
 import { OverlayClaim } from '../overlayClaim'
-import { FIELD_LABEL, FIELD_ROW_BARE } from './FieldRow'
+import { FIELD_LABEL, FIELD_ROW_BARE, ROW_HOVER } from './FieldRow'
+import { LISTBOX_SURFACE, OPTION_ROW } from '../popoverClasses'
 
 // No suggestion can be this, so the choice never collides with a real value.
 const KEEP = '\u0000keep'
@@ -113,7 +114,7 @@ export function SuggestField({
       menuTrigger={pressElsewhere ? 'input' : 'focus'}
       // Keep alone has empty text, so it stays offered whatever is typed.
       defaultFilter={(text, input) => text === '' || containsText(text, input)}
-      className={`${FIELD_ROW_BARE} relative`}
+      className={`${FIELD_ROW_BARE} ${ROW_HOVER} relative`}
       // Capture, since the chevron's press handling stops the event from bubbling.
       onPointerDownCapture={(event) => {
         // The list is portaled, so a press on an option reaches this handler through React
@@ -144,16 +145,12 @@ export function SuggestField({
         autoFocus={autoFocus}
         maxLength={maxLength}
         placeholder={kept ? keep.label : undefined}
-        className="t-body text-primary placeholder:text-secondary min-h-(--target) min-w-0 flex-1 truncate bg-transparent text-end in-[html[data-density=touch]]:text-[max(16px,1rem)]"
+        className="t-body text-primary placeholder:text-secondary min-h-(--size-row) min-w-0 flex-1 truncate bg-transparent text-end in-[html[data-density=touch]]:text-[max(16px,1rem)]"
       />
-      <AriaButton className="text-secondary flex min-h-(--target) shrink-0 items-center pe-4">
+      <AriaButton className="text-secondary flex min-h-(--size-row) shrink-0 items-center pe-4">
         <ChevronsUpDown className="size-4" aria-hidden />
       </AriaButton>
-      <Popover
-        ref={list}
-        placement="bottom end"
-        className="bg-page max-h-80 min-w-48 overflow-y-auto rounded-(--radius-surface) p-1 shadow-(--shadow-float)"
-      >
+      <Popover ref={list} placement="bottom end" className={LISTBOX_SURFACE}>
         <OverlayClaim />
         <ListBox
           className="outline-none"
@@ -162,11 +159,7 @@ export function SuggestField({
           }}
         >
           {(item: (typeof items)[number]) => (
-            <ListBoxItem
-              id={item.id}
-              textValue={item.text}
-              className="t-body data-[focused]:bg-field flex min-h-(--target) cursor-default items-center gap-3 rounded-(--radius-row) px-3 py-1"
-            >
+            <ListBoxItem id={item.id} textValue={item.text} className={OPTION_ROW}>
               {({ isSelected }) => (
                 <>
                   <span className="min-w-0 flex-1 truncate">{item.label}</span>

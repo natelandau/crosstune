@@ -3,6 +3,14 @@ import { useState, type Ref } from 'react'
 import { Button, Input, SearchField as AriaSearchField } from 'react-aria-components'
 import { CLEAR_SEARCH } from './searchCopy'
 import { PRESS, TINT_HOVER } from './press'
+import { FIELD_INPUT_TAP_AREA, TAP_AREA } from './tapArea'
+
+/** A search capsule, for a search built on another field, such as one that drives a list. */
+export const SEARCH_BOX =
+  'bg-field flex min-h-(--size-regular) items-center rounded-(--radius-capsule) ps-3 pe-1'
+
+/** The input inside `SEARCH_BOX`. */
+export const SEARCH_INPUT = `t-body placeholder:text-secondary min-w-0 flex-1 bg-transparent px-2 in-[html[data-density=touch]]:text-[max(16px,1rem)] ${FIELD_INPUT_TAP_AREA}`
 
 /**
  * A search box named for what it searches, with the name as its placeholder. Clear shows only
@@ -30,7 +38,7 @@ export function SearchField({
   const [focused, setFocused] = useState(false)
   return (
     <AriaSearchField
-      data-search-field
+      data-focus-host
       aria-label={label}
       aria-describedby={describedBy}
       maxLength={maxLength}
@@ -38,18 +46,18 @@ export function SearchField({
       onChange={onChange}
       onSubmit={onSubmit}
       onFocusChange={setFocused}
-      className="bg-field relative flex min-h-(--target-control) items-center rounded-(--radius-capsule) ps-3 pe-1"
+      className={`${SEARCH_BOX} relative`}
     >
       <Search className="text-secondary size-4 shrink-0" aria-hidden />
       <Input
         ref={ref}
         placeholder={label}
-        className="t-body placeholder:text-secondary min-w-0 flex-1 bg-transparent px-2 in-[html[data-density=touch]]:text-[max(16px,1rem)] [&::-webkit-search-cancel-button]:hidden"
+        className={`${SEARCH_INPUT} [&::-webkit-search-cancel-button]:hidden`}
       />
       {focused && value !== '' && (
         <Button
           aria-label={CLEAR_SEARCH}
-          className={`text-secondary inline-flex size-(--target-control) shrink-0 items-center justify-center rounded-full ${PRESS} ${TINT_HOVER}`}
+          className={`text-secondary inline-flex size-(--size-regular) shrink-0 items-center justify-center rounded-full ${TAP_AREA} ${PRESS} ${TINT_HOVER}`}
         >
           <X className="size-4" aria-hidden />
         </Button>

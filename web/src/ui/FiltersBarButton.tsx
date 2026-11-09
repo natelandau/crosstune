@@ -1,5 +1,5 @@
 import { SlidersHorizontal } from 'lucide-react'
-import { Button } from './Button'
+import { IconButton } from './IconButton'
 import { filtersLabel } from './filterCopy'
 
 /**
@@ -10,7 +10,7 @@ import { filtersLabel } from './filterCopy'
 export function FiltersBarButton({ count, onPress }: { count: number; onPress: () => void }) {
   return (
     <span className="relative inline-flex">
-      <Button icon={SlidersHorizontal} label={filtersLabel(count)} iconOnly onPress={onPress} />
+      <IconButton icon={SlidersHorizontal} label={filtersLabel(count)} onPress={onPress} />
       {count > 0 && (
         <span
           data-set

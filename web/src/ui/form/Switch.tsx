@@ -35,9 +35,9 @@ export function Switch({
           </span>
         </span>
       ) : (
-        // Padding of half the target less a line keeps one line at a field row's height and
+        // Padding of half the row height less a line keeps one line at a field row's height and
         // holds a wrap off the row's edges, at either density.
-        <span className="min-w-0 shrink py-[calc((var(--target)-1lh)/2)]">{label}</span>
+        <span className="min-w-0 shrink py-[calc((var(--size-row)-1lh)/2)]">{label}</span>
       )}
       {/* Off, a track dark enough to contrast with the page; on, a thumb holding a check.
           The pairs are measured in tokens.test.ts. */}

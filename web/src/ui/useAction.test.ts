@@ -27,3 +27,44 @@ it('ends the wait after a rejection, with its message', async () => {
   await waitFor(() => expect(result.current.pending).toBe(false))
   expect(result.current.error).toBe('Offline')
 })
+
+it('returns the work, rejecting on failure with the error already shown', async () => {
+  const { result } = renderHook(() => useAction())
+  let work!: Promise<void>
+  act(() => {
+    work = result.current.attempt(() => Promise.reject(new Error('Offline')))
+  })
+  await expect(work).rejects.toThrow('Offline')
+  await waitFor(() => expect(result.current.error).toBe('Offline'))
+  expect(result.current.pending).toBe(false)
+})
+
+it('resolves the work once its success step has run', async () => {
+  const { result } = renderHook(() => useAction())
+  const steps: string[] = []
+  let work!: Promise<void>
+  act(() => {
+    work = result.current.attempt(
+      async () => steps.push('work'),
+      () => steps.push('success'),
+    )
+  })
+  await work
+  expect(steps).toEqual(['work', 'success'])
+})
+
+it('treats a synchronous throw as a failure and ends the wait', async () => {
+  const { result } = renderHook(() => useAction())
+  const fail = (): Promise<void> => {
+    throw new Error('Offline')
+  }
+  act(() => result.current.run(fail))
+  await waitFor(() => expect(result.current.error).toBe('Offline'))
+  expect(result.current.pending).toBe(false)
+  let work!: Promise<void>
+  act(() => {
+    work = result.current.attempt(fail)
+  })
+  await expect(work).rejects.toThrow('Offline')
+  await waitFor(() => expect(result.current.pending).toBe(false))
+})

@@ -18,6 +18,7 @@ import { useStampedDensity } from '../platform/density'
 import type { RowAction } from './Row'
 import { OverlayClaim } from './overlayClaim'
 import { Sheet } from './Sheet'
+import { OPTION_ROW, POPOVER_SURFACE } from './popoverClasses'
 
 type Tone = NonNullable<RowAction['tone']>
 
@@ -123,7 +124,7 @@ function MenuList({
       id={id}
       textValue={text}
       isDisabled={disabled}
-      className={`t-body data-[focused]:bg-field data-[disabled]:text-secondary flex min-h-(--target) cursor-default items-center gap-3 rounded-(--radius-row) px-3 py-1 ${TONE[tone]}`}
+      className={`${OPTION_ROW} data-[disabled]:text-secondary ${TONE[tone]}`}
     >
       {({ isSelected }) => (
         <>
@@ -175,10 +176,7 @@ function MenuList({
 
 function MenuPopover({ children, onClose, ...props }: PopoverProps & { onClose: () => void }) {
   return (
-    <Popover
-      {...props}
-      className="popover-surface bg-page rounded-(--radius-surface) p-1 shadow-(--shadow-float)"
-    >
+    <Popover {...props} className={`${POPOVER_SURFACE} p-1`}>
       {(renderProps) => (
         <>
           <OverlayClaim close={onClose} />

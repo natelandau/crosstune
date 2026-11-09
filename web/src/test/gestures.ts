@@ -3,9 +3,10 @@ import { vi } from 'vitest'
 import type { Locator } from 'vitest/browser'
 import { LONG_PRESS_MS, LONG_PRESS_SLOP_PX } from '../ui/RowSwipe'
 
-const POINTER_ID = 7
+/** The pointer id every gesture here fires with. */
+export const POINTER_ID = 7
 
-type PointerKind = 'touch' | 'mouse' | 'pen'
+export type PointerKind = 'touch' | 'mouse' | 'pen'
 
 function center(element: Element): { x: number; y: number } {
   const rect = element.getBoundingClientRect()
@@ -22,11 +23,16 @@ function touched(locator: Locator): { target: Element; at: { x: number; y: numbe
   return { target: document.elementFromPoint(at.x, at.y) ?? element, at }
 }
 
-function fire(
+/**
+ * Fires one native pointer event, which leaves a fake clock where the test put it. `init` adds
+ * to or overrides the event's fields.
+ */
+export function fire(
   target: EventTarget,
   type: string,
-  at: { x: number; y: number },
-  pointerType: PointerKind,
+  at: { x: number; y: number } = { x: 0, y: 0 },
+  pointerType: PointerKind = 'mouse',
+  init: PointerEventInit = {},
 ): void {
   target.dispatchEvent(
     new PointerEvent(type, {
@@ -40,6 +46,7 @@ function fire(
       buttons: type === 'pointerup' ? 0 : 1,
       clientX: at.x,
       clientY: at.y,
+      ...init,
     }),
   )
 }
