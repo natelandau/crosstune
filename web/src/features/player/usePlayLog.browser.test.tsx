@@ -1,4 +1,5 @@
 import { render } from '@testing-library/react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { describe, expect, it, onTestFinished } from 'vitest'
 import { AnalyticsProvider } from '../../usage/AnalyticsProvider'
 import type { AnalyticsClient } from '../../usage/client'
@@ -445,6 +446,53 @@ function ends(analytics: ReturnType<typeof recordingAnalytics>) {
     })
 }
 
+interface PageProps {
+  page: boolean
+  practice: boolean
+}
+
+/**
+ * A recording's page that owns the playback, as the player keeps it: practice on the page plays
+ * rec-1, and the page leaving unloads the recording in the render after practice closes.
+ */
+function pageHarness(
+  db: CrosstuneDb,
+  engine: PlaybackEngine,
+  now: () => number,
+  analytics: AnalyticsClient,
+) {
+  const overlay = fakeOverlay()
+  function Page({ onLeave, children }: { onLeave: () => void; children: ReactNode }) {
+    useEffect(() => onLeave, [onLeave])
+    return children
+  }
+  function Player({ page, practice }: PageProps) {
+    const [stopped, setStopped] = useState(false)
+    const stop = useCallback(() => setStopped(true), [])
+    const control = usePlayLog(engine, stopped ? null : REC, TUNE_ROW, { now })
+    return (
+      <PlayLogContext.Provider value={control}>
+        {page && (
+          <Page onLeave={stop}>
+            {practice && <Practice id="rec-1" overlay={overlay} now={now} />}
+          </Page>
+        )}
+      </PlayLogContext.Provider>
+    )
+  }
+  const tree = (props: PageProps) => (
+    <AnalyticsProvider client={analytics}>
+      <DbContext.Provider value={db}>
+        <PlaybackEngineContext.Provider value={engine}>
+          <Player {...props} />
+        </PlaybackEngineContext.Provider>
+      </DbContext.Provider>
+    </AnalyticsProvider>
+  )
+  const view = render(tree({ page: true, practice: true }))
+  return { rerender: (props: PageProps) => view.rerender(tree(props)) }
+}
+
 describe('usePlayLog reports', () => {
   it('reports a tune row play with its kind, tune, and listened time', async () => {
     const { db, engine, now, advance } = setup()
@@ -704,5 +752,45 @@ describe('usePlayLog reports', () => {
       ['recording_screen', '10-30s'],
       ['recording_screen', '10-30s'],
     ])
+  })
+
+  it('practice handing its play back as the page goes reports the play once', async () => {
+    const { db, engine } = setup()
+    // A clock that moves on with every read, so any play between hand-back and stop has length.
+    let t = Date.parse('2026-03-01T12:00:00.000Z')
+    const now = () => (t += 1)
+    await db.recordings.put(recordingRow('rec-1'))
+    const analytics = recordingAnalytics()
+    const { rerender } = pageHarness(db, engine, now, analytics)
+    loadAndPlay(engine)
+    t += 20_000
+    rerender({ page: false, practice: false })
+
+    await expect.poll(() => ends(analytics)).toEqual([['rec-1', 'closed', false]])
+    expect(analytics.sends().map((send) => send.name)).toEqual(['playback_ended'])
+  })
+
+  it('a play after practice hands back on a page that stays is a play of its own', async () => {
+    const { db, engine, now, advance } = setup()
+    await db.recordings.put(recordingRow('rec-1'))
+    const analytics = recordingAnalytics()
+    const { rerender } = pageHarness(db, engine, now, analytics)
+    loadAndPlay(engine)
+    advance(20_000)
+    rerender({ page: true, practice: false })
+    advance(3_000)
+    rerender({ page: false, practice: false })
+
+    await expect
+      .poll(() =>
+        analytics
+          .sends()
+          .map((send) => send.props as { source?: string; listened_bucket?: string })
+          .map((props) => [props.source, props.listened_bucket]),
+      )
+      .toEqual([
+        ['recording_screen', '10-30s'],
+        ['recording_screen', '<10s'],
+      ])
   })
 })

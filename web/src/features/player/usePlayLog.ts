@@ -1,4 +1,12 @@
-import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import { useAnalytics } from '../../usage/AnalyticsProvider'
 import {
   createPlaybackReporter,
@@ -141,9 +149,10 @@ export function usePlayLog(
   const openLink = useRef<{ linkId: string; origin: PlayOrigin } | null>(null)
   // How a playing list replays a recording at its natural end.
   const queueReplay = useRef<((recordingId: string) => PlayAttribution | null) | null>(null)
-  // Set while practice hands its play back only to take it again as the page goes away, so the
-  // instant between is no play of its own.
-  const handingOff = useRef(false)
+  // The recording practice handed back. Its next play opens a render later, so a page that
+  // unloads its recording as practice closes leaves no play for the instant between.
+  const handedBack = useRef<string | null>(null)
+  const [handBacks, setHandBacks] = useState(0)
 
   // A layout effect, so the log exists before practice's effects, which run first
   // as its descendants, reach it.
@@ -232,22 +241,29 @@ export function usePlayLog(
     log.start(recordingId, originRef.current)
   }, [recordingId, linkId, engine, itemRef, originRef])
 
-  return useMemo<PlayLogControl>(() => {
-    const resume = (log: PlayLog, id: string, playOrigin: PlayOrigin) => {
-      const state = engine.getState()
-      log.start(id, playOrigin, heardLengthMs(state.lengthMs, state.speedPercent))
-      log.playing(state.playing)
-    }
-    return {
+  // After the item effect, so a recording unloaded in this render has already left the log.
+  useEffect(() => {
+    const id = handedBack.current
+    handedBack.current = null
+    const log = logRef.current
+    const current = itemRef.current
+    if (id === null || !log || log.current !== null || practiceOwned.current !== null) return
+    if (current?.kind !== 'recording' || current.id !== id) return
+    const state = engine.getState()
+    log.start(id, PLAYED_ON_ORIGIN, heardLengthMs(state.lengthMs, state.speedPercent))
+    log.playing(state.playing)
+  }, [handBacks, engine, itemRef])
+
+  return useMemo<PlayLogControl>(
+    () => ({
       practiceOpened: (id) => {
         practiceOwned.current = id
         const log = logRef.current
         if (!log) return false
-        const loaded = log.current === id
+        const loaded = log.current === id || handedBack.current === id
+        handedBack.current = null
         // Opening practice closes the play under way; the visit is a play of its own.
-        if (handingOff.current) log.drop()
-        else log.end('closed')
-        handingOff.current = false
+        log.end('closed')
         if (loaded) {
           const state = engine.getState()
           log.start(id, PRACTICE_ORIGIN, heardLengthMs(state.lengthMs, state.speedPercent))
@@ -271,11 +287,10 @@ export function usePlayLog(
         if (!log) return
         if (keep) log.end(leaving ? leftAs(leaving) : 'closed')
         else log.drop()
-        handingOff.current = leaving !== undefined
         const current = itemRef.current
-        if (id !== null && current?.kind === 'recording' && current.id === id) {
-          resume(log, id, PLAYED_ON_ORIGIN)
-        }
+        if (id === null || current?.kind !== 'recording' || current.id !== id) return
+        handedBack.current = id
+        setHandBacks((n) => n + 1)
       },
       replayedByQueue: (replay) => {
         queueReplay.current = replay
@@ -283,6 +298,7 @@ export function usePlayLog(
           if (queueReplay.current === replay) queueReplay.current = null
         }
       },
-    }
-  }, [engine, itemRef])
+    }),
+    [engine, itemRef],
+  )
 }
