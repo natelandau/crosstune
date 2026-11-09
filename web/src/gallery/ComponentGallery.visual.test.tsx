@@ -51,6 +51,18 @@ function onScreen(locator: Locator): Locator {
 const section = (id: string) =>
   page.elementLocator(document.querySelector(`section[aria-labelledby="gallery-${id}"]`)!)
 
+/**
+ * Hides every gallery section but the one holding `locator`. A section's height above another
+ * moves it by a fraction of a pixel, which changes how its text rasterizes, so each image holds
+ * its section at one place whatever the sections above it draw.
+ */
+function showOnlySectionOf(locator: Locator) {
+  const own = locator.element().closest('main > section')
+  for (const other of document.querySelectorAll<HTMLElement>('main > section')) {
+    if (other !== own) other.style.display = 'none'
+  }
+}
+
 // Motion runs its springs and fades in its own frames, which `getAnimations` never lists, so
 // instant animations put each element where it settles.
 beforeEach(() => {
@@ -64,6 +76,7 @@ describe.each(['light', 'dark'] as const)('%s', (scheme) => {
   describe.each(['pointer', 'touch'] as const)('%s', (density) => {
     it.each(SECTIONS)('%s', async (id) => {
       await renderGallery(density, scheme)
+      showOnlySectionOf(section(id))
       await capture(section(id), `${id}-${scheme}-${density}`)
     })
   })
@@ -73,6 +86,7 @@ describe('states', () => {
   describe.each(['pointer', 'touch'] as const)('%s', (density) => {
     it('foundations with size guides', async () => {
       await renderGallery(density)
+      showOnlySectionOf(section('foundations'))
       await page.getByRole('button', { name: 'Show size guides' }).click()
       await expect.poll(() => document.querySelector('[data-size-guide]')).not.toBeNull()
       await capture(section('foundations'), `foundations-guides-light-${density}`)
@@ -80,6 +94,7 @@ describe('states', () => {
 
     it('menu open', async () => {
       await renderGallery(density)
+      showOnlySectionOf(page.getByRole('button', { name: 'More actions' }))
       await page.getByRole('button', { name: 'More actions' }).click()
       const menu =
         density === 'pointer'
@@ -94,6 +109,7 @@ describe('states', () => {
       ['caution', 'Confirm caution', 'Archive "Example"?'],
     ])('confirm %s open', async (kind, button, title) => {
       await renderGallery(density)
+      showOnlySectionOf(page.getByRole('button', { name: button }))
       await page.getByRole('button', { name: button }).click()
       // An action sheet on touch, an alert on pointer.
       const alert = page.getByRole(density === 'touch' ? 'dialog' : 'alertdialog', { name: title })
@@ -106,6 +122,7 @@ describe('states', () => {
     await page.viewport(1280, 800)
     onTestFinished(() => page.viewport(390, 844))
     await renderGallery('pointer')
+    showOnlySectionOf(section('sheets'))
     await page.getByRole('button', { name: 'Part-height sheet' }).click()
     const sheet = page.getByRole('dialog', { name: 'Sort items' })
     await expect.element(sheet).toBeVisible()
@@ -114,6 +131,7 @@ describe('states', () => {
 
   it('sheet open at touch', async () => {
     await renderGallery('touch')
+    showOnlySectionOf(section('sheets'))
     await page.getByRole('button', { name: 'Part-height sheet' }).click()
     const sheet = page.getByRole('dialog', { name: 'Sort items' })
     await expect.element(sheet).toBeVisible()
@@ -123,6 +141,7 @@ describe('states', () => {
   it('tab hovered', async () => {
     await renderGallery('pointer')
     const tabs = page.getByRole('tablist', { name: 'Sections' })
+    showOnlySectionOf(tabs)
     await userEvent.hover(tabs.getByRole('tab', { name: 'Activity' }))
     await capture(tabs, 'tab-hover-light-pointer')
   })
@@ -130,6 +149,7 @@ describe('states', () => {
   it('checkbox hovered', async () => {
     await renderGallery('pointer')
     const checkbox = page.getByRole('checkbox', { name: 'Item 1' })
+    showOnlySectionOf(checkbox)
     // The drawn mark lies over the native input, so the pointer rests on the label around both.
     await userEvent.hover(page.elementLocator(checkbox.element().closest('label')!))
     await capture(

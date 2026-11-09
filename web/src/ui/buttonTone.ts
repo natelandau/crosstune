@@ -1,8 +1,13 @@
 import type { ButtonVariant } from './Button'
 
-/** An action's tone: `danger` for a destructive action, `warning` for a cautionary one. Both
- * take the destructive fill. */
+/** An action's tone: `danger` for a destructive action, `warning` for a cautionary one. */
 export type ActionTone = 'danger' | 'warning'
+
+/** The filled button an action of each tone takes. */
+export const TONE_FILL: Record<ActionTone, ButtonVariant> = {
+  danger: 'destructiveFill',
+  warning: 'warningFill',
+}
 
 // A disabled filled button drops its fill for a ring and a faint label, so it reads as off and
 // never as another filled button.
@@ -19,6 +24,7 @@ export const BUTTON_TONE: Record<ButtonVariant, string> = {
   // The on-status label inverts with the scheme: white on red in light, dark on a lighter red in
   // dark. Hover mixes toward primary text, darker in light, lighter in dark.
   destructiveFill: `bg-danger font-semibold text-on-status hover:bg-danger-hover ${OFF}`,
+  warningFill: `bg-warning-fill font-semibold text-on-warning-fill hover:bg-warning-fill-hover ${OFF}`,
 }
 
 /** The corner of a button with a fill or a label. Only a bare glyph, a button in a bar, and the

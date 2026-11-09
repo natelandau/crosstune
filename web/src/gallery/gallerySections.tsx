@@ -278,7 +278,7 @@ export function ActionsSection({ components }: { components: Record<string, { na
       </h2>
       <ControlSection
         control={components.Button!}
-        purpose="Any action with a label. Primary for the one main action in a view, Secondary for the others beside it, Text for low-weight actions, Destructive for deleting."
+        purpose="Any action with a label. Primary for the one main action in a view, Secondary for the others beside it, Text for low-weight actions, Destructive for deleting, Warning fill for a cautionary action."
       >
         <Demo label="Styles">
           <Button variant="primary" label="Save" />
@@ -286,6 +286,7 @@ export function ActionsSection({ components }: { components: Record<string, { na
           <Button variant="text" label="Edit" />
           <Button variant="destructive" label="Delete" />
           <Button variant="destructiveFill" label="Remove" />
+          <Button variant="warningFill" label="Archive" />
         </Demo>
         <Demo label="Disabled">
           <Button variant="primary" label="Save" isDisabled />

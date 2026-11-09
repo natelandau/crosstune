@@ -30,7 +30,7 @@ import { IconButton } from './IconButton'
 import { InBar } from './inBar'
 import { InOverlay } from './inOverlay'
 import { HeadingLevelContext } from './headingLevel'
-import type { ActionTone } from './buttonTone'
+import { TONE_FILL, type ActionTone } from './buttonTone'
 import type { ControlSize } from './inRow'
 import { PointerOverlay } from './PointerOverlay'
 import { scaleBackground } from './backgroundScale'
@@ -310,7 +310,7 @@ function SheetActions({
 function PrimaryButton({ primary, size }: { primary: SheetPrimary; size?: ControlSize }) {
   return (
     <Button
-      variant={primary.tone ? 'destructiveFill' : 'primary'}
+      variant={primary.tone ? TONE_FILL[primary.tone] : 'primary'}
       fullWidth
       size={size}
       label={primary.label}
