@@ -50,8 +50,9 @@ public struct ListsScreen: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .contentShape(.rect)
                     }
-                    // Not the automatic style, so the slot beside the row keeps its own tap.
-                    .buttonStyle(.plain)
+                    // The automatic style takes the list's row highlight; the slot beside it
+                    // keeps its own tap through its label-only style.
+                    .buttonStyle(.automatic)
                     .matchedTransitionSource(id: summary.id, in: zoom)
                     // Only the playing list shows a control here; Play and Shuffle for the
                     // others are in the row's menu.
@@ -90,7 +91,7 @@ public struct ListsScreen: View {
                     Text(Self.noListsHint)
                 } actions: {
                     Button(Self.addList) { listSheets?.name(.new) }
-                        .buttonStyle(.accentProminent)
+                        .buttonStyle(.filled)
                         .disabled(listSheets == nil)
                 }
             }

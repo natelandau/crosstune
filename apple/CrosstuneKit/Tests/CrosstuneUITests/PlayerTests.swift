@@ -522,19 +522,6 @@ private func link(_ provider: String, _ providerRef: String?, url: String = "htt
     }
 #endif
 
-@Suite struct ScrubberStepTests {
-    @Test func movesByTheKeyStep() {
-        #expect(PlaybackScrubber.keyStep == 5)
-        #expect(PlaybackScrubber.stepped(60, by: PlaybackScrubber.keyStep, length: 184) == 65)
-        #expect(PlaybackScrubber.stepped(60, by: -PlaybackScrubber.keyStep, length: 184) == 55)
-    }
-
-    @Test func staysWithinTheRecording() {
-        #expect(PlaybackScrubber.stepped(2, by: -5, length: 184) == 0)
-        #expect(PlaybackScrubber.stepped(182, by: 5, length: 184) == 184)
-    }
-}
-
 @Suite struct MusicPlayerCardTests {
     @Test func fillsTheCardsHeightWithSquareArtwork() {
         #expect(MusicPlayerCard.artworkSide(height: 175) == 175 - 2 * MusicPlayerCard.inset)

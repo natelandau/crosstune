@@ -18,8 +18,10 @@ struct StatusBar: View {
             let room = max(0, proxy.size.width - Self.gap * Double(max(0, shown.count - 1)))
             HStack(spacing: Self.gap) {
                 ForEach(shown, id: \.status) { segment in
+                    // On a chosen row's accent fill the segments turn white; their widths and the
+                    // label still carry the counts.
                     Capsule()
-                        .fill(Self.color(segment.status))
+                        .fill(.selectionAware(Self.color(segment.status)))
                         .frame(width: room * Double(segment.count) / total)
                 }
             }

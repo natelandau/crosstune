@@ -2,20 +2,23 @@ import SwiftUI
 
 extension View {
     /// Pins a sheet's actions to its bottom edge where `PageStyle.pinsSheetActions` says so:
-    /// `line` centered above, each button in `primary` full width and prominent, each in
-    /// `secondary` full width and borderless, then `footer`. Elsewhere this adds nothing, and the
-    /// sheet keeps its actions in its own content.
+    /// `line` centered above, each button in `primary` the Large filled button, and each in
+    /// `secondary` a full-width text button. Elsewhere this adds nothing, and the
+    /// sheet keeps its actions in its own content. `isShown` false hides the bar without
+    /// rebuilding the sheet's content, for a sheet whose decision comes only in one step.
     @ViewBuilder
     package func sheetActions(
-        line: String? = nil, @ViewBuilder primary: () -> some View, @ViewBuilder secondary: () -> some View,
-        @ViewBuilder footer: () -> some View = { EmptyView() }
+        line: String? = nil, isShown: Bool = true, @ViewBuilder primary: () -> some View,
+        @ViewBuilder secondary: () -> some View
     ) -> some View {
         #if os(macOS)
             self
         #else
             if PageStyle.pinsSheetActions {
                 safeAreaBar(edge: .bottom) {
-                    SheetActionBar(line: line, primary: primary(), secondary: secondary(), footer: footer())
+                    if isShown {
+                        SheetActionBar(line: line, primary: primary(), secondary: secondary())
+                    }
                 }
             } else {
                 self
@@ -27,10 +30,13 @@ extension View {
 /// A sheet's Close: the system close button where `PageStyle.pinsSheetActions` says so, named
 /// `label` for VoiceOver, and otherwise a button that reads `label`.
 package struct SheetCloseButton: View {
+    /// The name of every control that closes a sheet or page, on every platform.
+    package nonisolated static let close = "Close"
+
     package let label: String
     package let action: @MainActor () -> Void
 
-    package init(_ label: String, action: @escaping @MainActor () -> Void) {
+    package init(_ label: String = SheetCloseButton.close, action: @escaping @MainActor () -> Void) {
         self.label = label
         self.action = action
     }
@@ -46,11 +52,10 @@ package struct SheetCloseButton: View {
 }
 
 #if !os(macOS)
-    private struct SheetActionBar<Primary: View, Secondary: View, Footer: View>: View {
+    private struct SheetActionBar<Primary: View, Secondary: View>: View {
         let line: String?
         let primary: Primary
         let secondary: Secondary
-        let footer: Footer
 
         @Environment(\.spacing) private var spacing
 
@@ -63,48 +68,17 @@ package struct SheetCloseButton: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 VStack(spacing: spacing(4)) {
-                    primary.buttonStyle(SheetPrimaryButtonStyle())
-                    secondary.buttonStyle(SheetSecondaryButtonStyle())
+                    primary.buttonStyle(.filled)
+                    secondary.buttonStyle(.text)
+                        .environment(\.libraryButtonFillsWidth, true)
                 }
-                .fontWeight(.semibold)
                 .controlSize(.large)
-                footer
+                // A bar's button is never a form row, even over a grouped form.
+                .environment(\.asyncButtonIsRow, false)
             }
             .frame(maxWidth: .infinity)
             .padding(.horizontal)
             .padding(.vertical, spacing.stackGap)
-        }
-    }
-
-    /// A sheet's primary button: full width and accent prominent.
-    package struct SheetPrimaryButtonStyle: PrimitiveButtonStyle {
-        package init() {}
-        package func makeBody(configuration: Configuration) -> some View {
-            Button(role: configuration.role, action: configuration.trigger) {
-                configuration.label.frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.accentProminent)
-        }
-    }
-
-    private struct SheetSecondaryButtonStyle: PrimitiveButtonStyle {
-        func makeBody(configuration: Configuration) -> some View {
-            SheetSecondaryButton(configuration: configuration)
-        }
-    }
-
-    private struct SheetSecondaryButton: View {
-        let configuration: PrimitiveButtonStyleConfiguration
-
-        @Environment(\.spacing) private var spacing
-
-        var body: some View {
-            Button(role: configuration.role, action: configuration.trigger) {
-                configuration.label
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, spacing.stackGap)
-            }
-            .buttonStyle(.borderless)
         }
     }
 #endif

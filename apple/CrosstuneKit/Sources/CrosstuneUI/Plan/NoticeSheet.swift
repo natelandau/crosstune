@@ -191,7 +191,7 @@ struct NoticeSheet: View {
             onComparePlans: @escaping @MainActor () -> Void, onSubscribe: @escaping @MainActor () -> Void
         ) -> MacSheetFooter {
             if offer.primary == .close {
-                return MacSheetFooter(primary: MacSheetAction(PlanSheet.close, action: onClose), escape: onClose)
+                return MacSheetFooter(primary: MacSheetAction(SheetCloseButton.close, action: onClose), escape: onClose)
             }
             let action = { (action: Action, role: MacButtonStyle.Role) -> MacSheetAction in
                 switch action {
@@ -203,11 +203,11 @@ struct NoticeSheet: View {
                     MacSheetAction(
                         PlanText.comparePlans, role: role, isDefault: action.isDefault, action: onComparePlans)
                 case .close:
-                    MacSheetAction(PlanSheet.close, role: role, isDefault: action.isDefault, action: onClose)
+                    MacSheetAction(SheetCloseButton.close, role: role, isDefault: action.isDefault, action: onClose)
                 }
             }
             return MacSheetFooter(
-                cancel: .cancel(PlanSheet.close, action: onClose),
+                cancel: .cancel(SheetCloseButton.close, action: onClose),
                 secondary: offer.secondary.map { action($0, .secondary) },
                 primary: action(offer.primary, .primary))
         }
@@ -290,13 +290,6 @@ struct NoticeSheet: View {
                         Text(message)
                             .fixedSize(horizontal: false, vertical: true)
                     }
-                    if !PageStyle.pinsSheetActions {
-                        HStack {
-                            seePlan
-                            Spacer()
-                            ok.buttonStyle(.accentProminent)
-                        }
-                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding()
@@ -352,8 +345,12 @@ struct NoticeSheet: View {
                         }
                         Text(NoticeText.keeps)
                             .fixedSize(horizontal: false, vertical: true)
-                        if !PageStyle.pinsSheetActions {
-                            inlineActions(offer, line: lineText)
+                        // The terms scroll with the page, so the pinned bar never outgrows the
+                        // sheet at large text sizes.
+                        if let price = offer.annualPrice {
+                            RenewalTerms(price: price, period: .annual)
+                                .frame(maxWidth: .infinity)
+                                .padding(.top, 16)
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -365,17 +362,13 @@ struct NoticeSheet: View {
                     if let secondary = offer.secondary {
                         button(secondary)
                     }
-                } footer: {
-                    if let price = offer.annualPrice {
-                        RenewalTerms(price: price, period: .annual)
-                    }
                 }
                 #if os(iOS)
                     .navigationBarTitleDisplayMode(.inline)
                 #endif
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
-                        SheetCloseButton(PlanSheet.close, action: onClose)
+                        SheetCloseButton(action: onClose)
                             .keyboardShortcut(.cancelAction)
                     }
                 }
@@ -384,28 +377,6 @@ struct NoticeSheet: View {
             .task(id: PlanSheet.OfferAsk(sells: sells, offline: purchase?.isOffline)) {
                 guard sells else { return }
                 await purchase?.loadOffers()
-            }
-        }
-
-        /// The actions in the sheet's own content, where they do not pin to its bottom edge. Once a
-        /// purchase settles, the toolbar's Close is the one way out.
-        @ViewBuilder
-        private func inlineActions(_ offer: Offer, line: String?) -> some View {
-            if let line {
-                Text(line).fixedSize(horizontal: false, vertical: true)
-            }
-            if offer.primary != .close {
-                HStack {
-                    if let secondary = offer.secondary {
-                        button(secondary)
-                    }
-                    Spacer()
-                    primary(offer.primary)
-                        .buttonStyle(.accentProminent)
-                }
-            }
-            if let price = offer.annualPrice {
-                RenewalTerms(price: price, period: .annual)
             }
         }
 
@@ -424,7 +395,7 @@ struct NoticeSheet: View {
             case .comparePlans:
                 Button(PlanText.comparePlans, action: onComparePlans)
             case .close:
-                Button(PlanSheet.close, action: onClose)
+                Button(SheetCloseButton.close, action: onClose)
             }
         }
 

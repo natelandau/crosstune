@@ -5,7 +5,7 @@ import SwiftUI
 
 /// The tune form's shared fields over many tunes at once. Each row shows the value every
 /// selected tune shares, Not set when none holds one, or Mixed when they disagree; only a row
-/// the musician touches is written, and Save stays dead until one is.
+/// the musician touches is written, and Save with nothing touched closes with no write.
 struct BulkEditSheet: View {
     let entries: [CatalogEntry]
     let bulk: BulkActions
@@ -29,7 +29,7 @@ struct BulkEditSheet: View {
             MacSheet(
                 title: BulkActionText.editTitle(entries.count), subtitle: BulkEditForm.footnote, size: .longForm,
                 cancel: .cancel(TuneFormSheet.cancel, isEnabled: !bulk.isPending) { dismiss() },
-                primary: .init(TuneFormSheet.save, isEnabled: form.isEdited && !bulk.isPending, action: save)
+                primary: .init(TuneFormSheet.save, isEnabled: !bulk.isPending, action: save)
             ) {
                 macForm
             }
@@ -120,9 +120,9 @@ struct BulkEditSheet: View {
                             .disabled(bulk.isPending)
                     }
                     ConfirmToolbarItem {
-                        Button(TuneFormSheet.save, action: save)
-                            .fontWeight(.semibold)
-                            .disabled(!form.isEdited || bulk.isPending)
+                        AsyncButton(closesOnSuccess: true, action: store) {
+                            Text(TuneFormSheet.save)
+                        }
                     }
                 }
             }
@@ -185,12 +185,15 @@ struct BulkEditSheet: View {
     }
 
     private func save() {
-        let patch = form.patch
-        Task {
-            guard await bulk.edit(entries, patch: patch) else { return }
-            onSaved()
-            dismiss()
-        }
+        Task { await store() }
+    }
+
+    /// Writes what a row changed and closes; with nothing changed it closes with no write.
+    private func store() async {
+        let edited = form.isEdited
+        guard await bulk.save(entries, form: form) else { return }
+        if edited { onSaved() }
+        dismiss()
     }
 }
 
@@ -204,7 +207,7 @@ private struct BulkEditLifecycle: ViewModifier {
         content
             // A touched row leaves only through Cancel, and nothing leaves while the save runs.
             .interactiveDismissDisabled(form.isEdited || bulk.isPending)
-            .onAppear { bulk.clearEditFailure() }
+            .onAppear { bulk.beginEditing() }
             .task {
                 let suggestions = await bulk.suggestions()
                 composers = suggestions.composers
@@ -222,29 +225,7 @@ private struct BulkChoiceRow: View {
     var emptyChoice: String?
 
     var body: some View {
-        #if os(macOS)
-            MacPullDown(field.label, value: form.shown(field)) { items }
-        #else
-            LabeledContent {
-                Menu {
-                    items
-                } label: {
-                    HStack(spacing: 4) {
-                        Text(form.shown(field))
-                        Image(systemName: "chevron.up.chevron.down")
-                            .imageScale(.small)
-                            .accessibilityHidden(true)
-                    }
-                    .foregroundStyle(.textSecondary)
-                }
-                // A plain menu keeps the value secondary, as the tune form shows its values, where
-                // the default style would tint it.
-                .buttonStyle(.plain)
-            } label: {
-                Text(field.label)
-            }
-            .accessibilityLabel(field.label)
-        #endif
+        MenuRow(field.label, value: form.shown(field)) { items }
     }
 
     @ViewBuilder private var items: some View {
@@ -345,13 +326,13 @@ private struct BulkDateRow: View {
                         }, displayedComponents: .date)
                     Button(TuneFieldLabels.clearDate, systemImage: "xmark.circle.fill") { form.touch(field, .clear) }
                         .labelStyle(.iconOnly)
-                        .buttonStyle(.borderless)
+                        .buttonStyle(.rowLine)
                         .foregroundStyle(.textSecondary)
                 }
             } else {
                 LabeledContent(field.label) {
                     Button(form.placeholder(field)) { form.touch(field, .text(CalendarDay.day(.now))) }
-                        .buttonStyle(.borderless)
+                        .buttonStyle(.rowLine)
                         .foregroundStyle(.textSecondary)
                         .accessibilityLabel("\(field.label), \(form.placeholder(field))")
                         .accessibilityHint(TuneFieldLabels.setsToday)

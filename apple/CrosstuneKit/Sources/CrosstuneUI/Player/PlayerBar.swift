@@ -109,10 +109,7 @@ public struct PlayerBar: View {
     private var closeButton: some View {
         PlayerCloseButton(player: player)
             .labelStyle(.iconOnly)
-            .buttonStyle(.plain)
-            .foregroundStyle(.textSecondary)
-            .frame(minWidth: minimumTapTarget, minHeight: minimumTapTarget)
-            .contentShape(.rect)
+            .buttonStyle(.icon)
     }
 
     @ViewBuilder private var loadedBar: some View {
@@ -132,7 +129,8 @@ public struct PlayerBar: View {
                     itemLabel(glyph: glyph)
                         .contentShape(.rect)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.labelOnly)
+                .foregroundStyle(.textPrimary)
                 .accessibilityLabel(Self.showLabel(player, playback: playback))
             }
             if isRecording, player.loops.isRepeating, let name = player.loops.selectedName {
@@ -141,9 +139,7 @@ public struct PlayerBar: View {
             if Self.showsNext(playback), let playback {
                 Button(PlaylistControlText.next, systemImage: "forward.fill") { playback.next() }
                     .labelStyle(.iconOnly)
-                    .buttonStyle(.plain)
-                    .frame(minWidth: minimumTapTarget, minHeight: minimumTapTarget)
-                    .contentShape(.rect)
+                    .buttonStyle(.icon)
                     .help(PlaylistControlText.next)
             }
             closeButton
@@ -208,7 +204,7 @@ public struct PlayerBar: View {
     }
 }
 
-/// Unloads the player: the bar's close control and the iPhone full player's.
+/// Unloads the player: the bar's close control.
 struct PlayerCloseButton: View {
     let player: PlayerModel
 
@@ -240,7 +236,7 @@ private struct AccessoryRise: ViewModifier {
             .scaleEffect(risen || motion != .full ? 1 : 0.92)
             .opacity(risen || motion == .none ? 1 : 0)
             .onAppear {
-                guard let animation = motion.animation(.spring(duration: 0.4, bounce: 0.25)) else { return }
+                guard let animation = motion.animation(Motion.spring) else { return }
                 withAnimation(animation) { risen = true }
             }
     }

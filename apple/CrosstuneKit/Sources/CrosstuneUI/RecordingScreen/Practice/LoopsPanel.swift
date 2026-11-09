@@ -77,37 +77,30 @@ struct LoopsPanel: View {
             .buttonStyle(.macPlain)
             .disabled(!canDelete)
         #else
-            textButton(PracticeText.newLoop, systemImage: "plus", action: model.newLoop)
+            Button(action: model.newLoop) { label(PracticeText.newLoop, systemImage: "plus") }
+                .buttonStyle(.tinted)
+                .controlSize(.small)
                 .disabled(reason != nil || !model.isLoaded)
                 .accessibilityHint(reason ?? "", isEnabled: reason != nil)
-            textButton(PracticeText.deleteLoop, systemImage: "trash", role: .destructive) {
+            Button(role: .destructive) {
                 if model.deleteSelected() { onDeleted() }
+            } label: {
+                label(PracticeText.deleteLoop, systemImage: "trash")
             }
-            // A plain button takes no color from its role.
-            .foregroundStyle(canDelete ? AnyShapeStyle(Palette.danger) : .textSecondary)
+            .buttonStyle(.tinted)
+            .controlSize(.small)
             .disabled(!canDelete)
         #endif
     }
 
     #if !os(macOS)
-        private func textButton(
-            _ title: String, systemImage: String, role: ButtonRole? = nil, action: @escaping () -> Void
-        ) -> some View {
-            Button(role: role, action: action) {
-                // An explicit row, because a Label stacks its icon over its title at accessibility sizes.
-                HStack(spacing: spacing(6)) {
-                    Image(systemName: systemImage).accessibilityHidden(true)
-                    Text(title).lineLimit(1)
-                }
-                .font(.subheadline)
-                .fixedSize()
-                .padding(.horizontal, spacing(12))
-                .padding(.vertical, spacing.chipVertical)
-                .frame(minHeight: minimumTapTarget)
-                .background(.neutralFill, in: .capsule)
-                .contentShape(.capsule)
+        /// An explicit row, because a Label stacks its icon over its title at accessibility sizes.
+        private func label(_ title: String, systemImage: String) -> some View {
+            HStack(spacing: spacing(6)) {
+                Image(systemName: systemImage).accessibilityHidden(true)
+                Text(title)
             }
-            .buttonStyle(.plain)
+            .fixedSize()
         }
     #endif
 }

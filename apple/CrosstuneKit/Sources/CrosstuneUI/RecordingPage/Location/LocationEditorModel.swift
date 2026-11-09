@@ -17,6 +17,14 @@ enum LocationList: CaseIterable, Hashable {
         case .recent: PlaceSearchText.recent
         }
     }
+
+    var systemImage: String {
+        switch self {
+        case .nearby: "location"
+        case .saved: "bookmark"
+        case .recent: "clock"
+        }
+    }
 }
 
 /// The location editor's state over its edit's: the search, the device's position, the recording's

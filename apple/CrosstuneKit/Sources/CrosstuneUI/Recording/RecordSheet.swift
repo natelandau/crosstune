@@ -42,6 +42,7 @@ public struct RecordSheet: View {
         #else
             NavigationStack {
                 RecordSheetBody(model: model)
+                    .modifier(LocationNoteActions(model: model))
                     .navigationTitle(RecordSheetModel.title)
                     .navigationBarTitleDisplayMode(.inline)
                     .toolbar {
@@ -159,7 +160,7 @@ struct RecordSheetBody: View {
                 #else
                     filing
                     Spacer(minLength: 0)
-                    LocationNoteCard(model: model)
+                    LocationNoteCard()
                     Spacer(minLength: 0)
                 #endif
             } else {
@@ -243,11 +244,7 @@ struct RecordSheetBody: View {
         }
         if model.recorder.permissionDenied, let url = MicrophoneAccess.settingsURL {
             Button(RecordSheetModel.openSettings) { openURL(url) }
-                #if os(macOS)
-                    .buttonStyle(.macSecondary)
-                #else
-                    .buttonStyle(.bordered)
-                #endif
+                .buttonStyle(.tinted)
         }
     }
 
@@ -285,12 +282,7 @@ struct RecordSheetBody: View {
     @ViewBuilder private var resume: some View {
         if model.canResume {
             Button(RecordSheetModel.resume, systemImage: "record.circle") { Task { await model.resume() } }
-                #if os(macOS)
-                    .buttonStyle(.mac(.secondary, size: .large))
-                #else
-                    .buttonStyle(.bordered)
-                    .controlSize(.large)
-                #endif
+                .buttonStyle(.tinted(macLook: .button(.secondary, size: .large)))
                 .transition(.opacity)
         }
     }
@@ -325,10 +317,26 @@ struct RecordSheetBody: View {
 #endif
 
 #if os(iOS)
-    /// Says why the recording will ask for location, ahead of the system prompt, which Continue shows.
-    private struct LocationNoteCard: View {
+    /// Continue, pinned to the sheet's foot while the note before the first recording shows.
+    private struct LocationNoteActions: ViewModifier {
         let model: RecordSheetModel
 
+        func body(content: Content) -> some View {
+            content.sheetActions(isShown: model.asksLocation) {
+                Button(RecordSheetModel.continueToLocation) {
+                    Task { await model.continueFromLocationNote() }
+                }
+                .keyboardShortcut(.defaultAction)
+                .disabled(model.isContinuing)
+            } secondary: {
+                EmptyView()
+            }
+        }
+    }
+
+    /// Says why the recording will ask for location, ahead of the system prompt, which Continue
+    /// in the sheet's action bar shows.
+    private struct LocationNoteCard: View {
         var body: some View {
             VStack(spacing: 12) {
                 Image(systemName: "location.fill")
@@ -342,14 +350,6 @@ struct RecordSheetBody: View {
                     .font(.platform(.subheadline))
                     .foregroundStyle(.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
-                Button(RecordSheetModel.continueToLocation) {
-                    Task { await model.continueFromLocationNote() }
-                }
-                .buttonStyle(.accentProminent)
-                .controlSize(.large)
-                .keyboardShortcut(.defaultAction)
-                .disabled(model.isContinuing)
-                .padding(.top, 4)
             }
             .multilineTextAlignment(.center)
             .frame(maxWidth: .infinity)
@@ -401,7 +401,7 @@ private struct StopButton: View {
     #if os(macOS)
         static let diameter = MacStyle.stopDiameter
     #else
-        static let diameter = PhoneStyle.stopDiameter
+        static let diameter = ControlMetrics.recordDiameter
     #endif
 
     let disabled: Bool

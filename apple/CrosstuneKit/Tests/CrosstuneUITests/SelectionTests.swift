@@ -478,6 +478,43 @@ private func with(_ entry: CatalogEntry, modes: [String]? = nil, timeSignature: 
         try await eventually { try await !names().contains("Irish") }
     }
 
+    @Test func saveWithNothingEditedCloses() async throws {
+        let store = try await SampleCatalog.copiedStore(root: root.url)
+        let bulk = BulkActions(store: store)
+        let entries = [sample("Tam Lin"), sample("Big Scioty")]
+        let form = BulkEditForm(entries: entries, instruments: [])
+        #expect(await bulk.save(entries, form: form), "the sheet closes")
+        #expect(bulk.undoBannerItem == nil, "nothing is written, so nothing is offered to undo")
+        #expect(bulk.editFailure == nil)
+    }
+
+    @Test func saveWithAnEditWritesIt() async throws {
+        let store = try await SampleCatalog.copiedStore(root: root.url)
+        let bulk = BulkActions(store: store)
+        let entries = [sample("Tam Lin"), sample("Big Scioty")]
+        var form = BulkEditForm(entries: entries, instruments: [])
+        form.touch(.genre, .text("Irish"))
+        #expect(await bulk.save(entries, form: form))
+        #expect(bulk.undoBannerItem?.message == "Edited 2 tunes")
+        #expect(try await tune(store, "Tam Lin").genre == "Irish")
+    }
+
+    @Test func aSecondSaveOfTheSameSheetWritesNothing() async throws {
+        let store = try await SampleCatalog.copiedStore(root: root.url)
+        let bulk = BulkActions(store: store)
+        let undoManager = UndoManager()
+        bulk.undoManager = undoManager
+        let entries = [sample("Tam Lin")]
+        var form = BulkEditForm(entries: entries, instruments: [])
+        form.touch(.genre, .text("Breton"))
+        #expect(await bulk.save(entries, form: form))
+        #expect(!(await bulk.save(entries, form: form)), "the sheet is already closing")
+        undoManager.undo()
+        try await eventually { try await tune(store, "Tam Lin").genre != "Breton" }
+        bulk.beginEditing()
+        #expect(await bulk.save(entries, form: form), "a sheet opened again saves")
+    }
+
     @Test func doesNothingWhenNoTuneWouldChange() async throws {
         let store = try await SampleCatalog.copiedStore(root: root.url)
         let bulk = BulkActions(store: store)

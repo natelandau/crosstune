@@ -228,7 +228,7 @@ private struct SelectionMode: ViewModifier {
                 // Command-A selects all and never clears, so it leaves with Deselect All.
                 .keyboardShortcut(allSelected ? nil : KeyboardShortcut("a"))
             }
-            ToolbarItem(placement: .topBarTrailing) { doneButton }
+            ConfirmToolbarItem { doneButton }
             // A split view's column is too narrow for four worded actions, so there they show
             // as glyphs, still named in words.
             let worded = detailTune == nil
@@ -302,7 +302,6 @@ private struct SelectionMode: ViewModifier {
     #if os(iOS)
         private var doneButton: some View {
             Button(TuneSelection.done) { selection.exit() }
-                .fontWeight(.semibold)
                 // Escape leaves the mode.
                 .keyboardShortcut(.cancelAction)
         }

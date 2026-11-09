@@ -19,11 +19,9 @@ public struct KeyPill: View {
     private let isChosen: Bool
 
     @Environment(\.colorScheme) private var colorScheme
-    @Environment(\.spacing) private var spacing
     #if os(macOS)
         @Environment(\.backgroundProminence) private var backgroundProminence
     #endif
-    @ScaledMetric(relativeTo: .footnote) private var compactHeight: CGFloat = 22
 
     /// `suffix` follows the key, such as a mode abbreviation; the hue still comes from the key
     /// alone. A chosen pill takes its own hue at full strength.
@@ -53,49 +51,21 @@ public struct KeyPill: View {
 
     #if !os(macOS)
         @ViewBuilder private var iOSBody: some View {
-            if !key.isEmpty, size == .full {
-                label
-                    .padding(.vertical, spacing.chipVertical)
-                    .background(fill, in: .capsule)
-                    .tapTarget()
-            } else if !key.isEmpty {
-                label
-                    .frame(minHeight: compactHeight)
-                    .background(fill, in: .capsule)
+            if !key.isEmpty {
+                ChipLabel(
+                    key + suffix, kind: pillColors == nil ? .choice(isChosen: isChosen) : .token,
+                    color: pillColors?.background.color, labelColor: pillColors?.text.color,
+                    isCompact: size == .compact)
             }
-        }
-
-        private var label: some View {
-            Text(key + suffix)
-                .font(.platform(size == .full ? .subheadline : .footnote, mac: .chip))
-                .fontWeight(.medium)
-                .monospacedDigit()
-                .lineLimit(1)
-                .fixedSize()
-                .foregroundStyle(textStyle)
-                .padding(.horizontal, spacing(size == .full ? 12 : 8))
         }
     #endif
 
     private var pillColors: KeyColor.PillColors? {
-        KeyColor.pitchClass(key).map { KeyColor.pillColors(pitchClass: $0, scheme: colorScheme, chosen: isChosen) }
+        KeyColor.pillColors(key: key, scheme: colorScheme, chosen: isChosen)
     }
-
-    #if !os(macOS)
-        private var fill: AnyShapeStyle {
-            if let pillColors { return AnyShapeStyle(pillColors.background.color) }
-            if isChosen { return AnyShapeStyle(Palette.accentFill) }
-            return AnyShapeStyle(.neutralFill)
-        }
-
-        private var textStyle: AnyShapeStyle {
-            if let pillColors { return AnyShapeStyle(pillColors.text.color) }
-            return isChosen ? AnyShapeStyle(Palette.onAccentFill) : AnyShapeStyle(.textPrimary)
-        }
-    #endif
 }
 
-/// A key as a pill that picks it: the pill itself off the Mac, and a hovering chip on it.
+/// A key as a choice chip in its pill's colors that picks it, and a hovering chip on the Mac.
 package struct KeyChipButton: View {
     package let key: String
     package let chosen: Bool
@@ -110,26 +80,11 @@ package struct KeyChipButton: View {
     @Environment(\.colorScheme) private var colorScheme
 
     package var body: some View {
-        #if os(macOS)
-            let pillColors = KeyColor.pitchClass(key).map {
-                KeyColor.pillColors(pitchClass: $0, scheme: colorScheme, chosen: chosen)
-            }
-            Button(action: action) {
-                Text(key)
-                    .monospacedDigit()
-                    .fixedSize()
-            }
-            .buttonStyle(
-                MacChipStyle(
-                    state: chosen ? .chosen : .rest, hue: pillColors?.background.color, hueText: pillColors?.text.color,
-                    size: .standalone)
-            )
-            .accessibilityAddTraits(chosen ? .isSelected : [])
-        #else
-            Button(action: action) { KeyPill(key, chosen: chosen) }
-                .buttonStyle(.plain)
-                .accessibilityAddTraits(chosen ? .isSelected : [])
-        #endif
+        let pillColors = KeyColor.pillColors(key: key, scheme: colorScheme, chosen: chosen)
+        Chip(
+            .choice(isChosen: chosen), color: pillColors?.background.color, labelColor: pillColors?.text.color,
+            action: action
+        ) { Text(key).monospacedDigit() }
     }
 }
 

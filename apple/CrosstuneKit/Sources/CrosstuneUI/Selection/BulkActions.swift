@@ -87,6 +87,8 @@ public final class BulkActions {
     /// The last failed save of the edit sheet, which stays open with it.
     public private(set) var editFailure: String?
     public private(set) var isPending = false
+    /// Whether the open edit sheet's edit has saved.
+    public private(set) var isEditSaved = false
     /// The last action's undo, for the banner.
     public var undoBannerItem: UndoBannerItem?
     /// The window's undo manager, which carries each action's undo for Command-Z, the Edit menu,
@@ -172,6 +174,17 @@ public final class BulkActions {
         }
     }
 
+    /// Saves the edit sheet: writes its patch when a row changes something. With nothing edited
+    /// there is nothing to write, and the sheet closes as after a save. Once an edit saves, a
+    /// second save before the sheet opens again writes nothing and returns false, so a press
+    /// while the sheet closes never writes the patch twice.
+    public func save(_ entries: [CatalogEntry], form: BulkEditForm) async -> Bool {
+        guard !isEditSaved else { return false }
+        guard form.isEdited else { return true }
+        isEditSaved = await edit(entries, patch: form.patch)
+        return isEditSaved
+    }
+
     /// What the edit sheet suggests for the open vocabularies, read from the whole catalog: live
     /// user tunes joined to live tunes, as the tune form reads it. Empty lists when the store
     /// cannot be read, so the sheet still works with its fixed choices.
@@ -193,9 +206,10 @@ public final class BulkActions {
         }
     }
 
-    /// Clears a failed save's reason as the edit sheet opens.
-    public func clearEditFailure() {
+    /// Readies the edit sheet as it opens: no failed save's reason, and nothing saved yet.
+    public func beginEditing() {
         editFailure = nil
+        isEditSaved = false
     }
 
     /// Shows the undo of a pick the list picker made, which ran its own write so a failure could

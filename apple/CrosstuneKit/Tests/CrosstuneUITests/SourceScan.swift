@@ -39,6 +39,12 @@ enum SourceScan {
         try String(contentsOf: url, encoding: .utf8)
     }
 
+    /// `text` with every one-line string literal emptied, so text that names code never counts
+    /// as code.
+    static func withoutStrings(_ text: String) -> String {
+        text.replacing(/"(?:[^"\\\n]|\\.)*"/, with: "\"\"")
+    }
+
     /// `text` with every `//` comment removed, so a comment that names a modifier never counts
     /// as a use. Line numbers are kept.
     static func withoutComments(_ text: String) -> String {
@@ -143,8 +149,9 @@ enum SourceScan {
         return (opens, closes)
     }
 
-    /// The call that opens at `open`, a `(`, through its closing parenthesis and any trailing
-    /// closures (`{ ... }`, or `label: { ... }` after the first), with strings skipped.
+    /// The call that opens at `open`, a `(` or a first trailing `{`, through its closing
+    /// parenthesis and any trailing closures (`{ ... }`, or `label: { ... }` after the first),
+    /// with strings skipped.
     static func call(in text: String, opening open: String.Index) -> Substring {
         let chars = Array(text[open...])
         var index = 0
@@ -170,7 +177,7 @@ enum SourceScan {
             }
         }
         func skipSpace() { while index < chars.count, chars[index].isWhitespace { index += 1 } }
-        skipBalanced("(", ")")
+        if chars.first == "(" { skipBalanced("(", ")") }
         var first = true
         while true {
             let mark = index

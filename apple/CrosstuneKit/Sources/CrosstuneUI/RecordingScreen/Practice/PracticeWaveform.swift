@@ -2,23 +2,21 @@ import CrosstuneDesign
 import CrosstuneStore
 import SwiftUI
 
-/// What holds the keyboard on the recording screen: the screen itself, or one of the selected
-/// loop's handles.
+/// What holds the keyboard on the recording screen when no control does: the screen itself.
 enum PracticeFocus: Hashable {
     case screen
-    case handle(LoopModel.Edge)
 }
 
 /// The recording at one scale with a time ruler, centered on a fixed playhead. A drag scrolls
 /// the audio under the playhead, which is the seek, and coasts on when let go; a tap selects
 /// the loop under it or deselects. Every loop shows as a tint with a name tab, and the selected
-/// loop's edges are handles that a drag, the arrow keys, and VoiceOver move. Before the start
-/// and after the end the view stays blank rather than clamping. Until the recording's length
-/// is known, a plain timeline bar shows instead.
+/// loop has range handles: a drag on an edge, the arrow keys, and VoiceOver move that edge,
+/// and a drag inside the loop scrubs. Before the start and after the end the view stays blank
+/// rather than clamping. Until the recording's length is known, a plain timeline bar shows
+/// instead.
 struct PracticeWaveform: View {
     let model: PracticeModel
     let peaks: ShownPeaks?
-    var focus: FocusState<PracticeFocus?>.Binding
     var accessibilityFocus: AccessibilityFocusState<Bool>.Binding
 
     @Environment(\.colorScheme) private var colorScheme
@@ -26,7 +24,6 @@ struct PracticeWaveform: View {
     @State private var isScrubbing = false
     /// Reset however a gesture ends, cancelled included, so each always lets go.
     @GestureState private var scrubPressed = false
-    @GestureState private var handlePressed = false
     @GestureState private var isPinching = false
     /// Laying out a label is the ruler's costliest step, and the same labels show frame after
     /// frame while the audio plays or scrolls.
@@ -50,7 +47,6 @@ struct PracticeWaveform: View {
     #else
         private static let rulerHeight: CGFloat = 16
     #endif
-    private static let space = "practiceWaveform"
 
     var body: some View {
         let player = model.player
@@ -75,21 +71,9 @@ struct PracticeWaveform: View {
         .onChange(of: scrubPressed) { _, pressed in
             if !pressed { endScrub(predictedDx: nil) }
         }
-        .onChange(of: handlePressed) { _, pressed in
-            if !pressed { model.cancelHandleDrag() }
-        }
         .onChange(of: isPinching) { _, pinching in
             if !pinching { model.endPinch() }
         }
-        .task(id: model.autoPan != 0) {
-            while model.autoPan != 0, !Task.isCancelled {
-                model.autoPanStep()
-                try? await Task.sleep(for: .milliseconds(16))
-            }
-        }
-        #if os(iOS)
-            .sensoryFeedback(.impact(weight: .light), trigger: model.snaps)
-        #endif
     }
 
     private var timelineBar: some View {
@@ -122,17 +106,20 @@ struct PracticeWaveform: View {
             ZStack(alignment: .topLeading) {
                 surface(view, placed: placed)
                 tabs(view, placed: placed)
-                if let row = model.selected, let span = model.shownSpan(row.id) {
-                    ForEach([LoopModel.Edge.start, .end], id: \.self) { edge in
-                        handle(
-                            edge, at: view.x(ofSourceMs: Double(edge == .start ? span.startMs : span.endMs)),
-                            view: view,
-                            color: Palette.loop(row.color, scheme: colorScheme))
-                    }
+                handles(view)
+                // Over the handles' dim, so the playhead reads at full strength outside the loop.
+                // Without a dim, the surface draws it under the handles.
+                if RangeHandles.drawsWash {
+                    // A shape with fixed inputs, so each frame leaves it as drawn.
+                    Rectangle()
+                        .fill(Palette.playhead)
+                        .frame(width: 2)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .allowsHitTesting(false)
+                        .accessibilityHidden(true)
                 }
             }
             .frame(maxHeight: .infinity)
-            .coordinateSpace(.named(Self.space))
         }
         .simultaneousGesture(
             MagnifyGesture()
@@ -185,6 +172,10 @@ struct PracticeWaveform: View {
         if let predictedDx { model.endScrub(predictedDx: predictedDx) } else { model.cancelScrub() }
     }
 
+    private static func playheadRect(in size: CGSize) -> CGRect {
+        CGRect(x: size.width / 2 - 1, y: 0, width: 2, height: size.height)
+    }
+
     private func draw(in context: inout GraphicsContext, size: CGSize, view: ZoomedWaveformView, placed: [PlacedLoop]) {
         let width = Double(size.width)
         let lengthMs = Double(model.lengthMs)
@@ -193,6 +184,8 @@ struct PracticeWaveform: View {
             placeholderOnMac: true)
         let selectedID = model.selectedID
         for loop in placed {
+            // The selected loop's handles wash it themselves where they draw a wash.
+            if loop.id == selectedID, RangeHandles.drawsWash { continue }
             let start = max(0, view.x(ofSourceMs: Double(loop.span.startMs)))
             let end = min(width, view.x(ofSourceMs: Double(loop.span.endMs)))
             guard end > start else { continue }
@@ -203,8 +196,7 @@ struct PracticeWaveform: View {
             context.fill(
                 Path(CGRect(x: start, y: 0, width: end - start, height: Double(size.height))), with: .color(tint))
         }
-        context.fillPlayhead(
-            CGRect(x: width / 2 - 1, y: 0, width: 2, height: Double(size.height)))
+        if !RangeHandles.drawsWash { context.fillPlayhead(Self.playheadRect(in: size)) }
     }
 
     private func drawRuler(in context: inout GraphicsContext, size: CGSize, view: ZoomedWaveformView) {
@@ -268,37 +260,53 @@ struct PracticeWaveform: View {
 
     // MARK: Handles
 
-    private func handle(_ edge: LoopModel.Edge, at x: Double, view: ZoomedWaveformView, color: Color) -> some View {
-        LoopEdgeHandle(
-            edge: edge, color: color, x: x, width: view.width, space: Self.space,
-            snappedTo: model.handleDrag?.snappedTo,
-            focus: focus, focusValue: .handle(edge), pressed: $handlePressed,
-            label: edge == .start ? PracticeText.loopStart : PracticeText.loopEnd,
-            valueText: model.handleValue(edge),
-            // The target reaches past the loop's edge, so a tap on it is a tap on the waveform.
-            onTap: { model.tap(atX: $0) },
-            onDrag: { x, snapping in
-                if model.handleDrag == nil { model.beginHandleDrag(edge) }
-                model.dragHandle(toX: x, snapping: snapping)
-            },
-            onDragEnd: { x, snapping in model.endHandleDrag(atX: x, snapping: snapping) },
-            onStep: { step(edge, by: $0) },
-            onReveal: {
-                if let row = model.selected { model.reveal(edge == .start ? row.startMs : row.endMs) }
-            })
-    }
-
-    /// One VoiceOver step: a change of its own, written at once.
-    private func step(_ edge: LoopModel.Edge, by deltaMs: Int64) {
-        model.nudge(edge, by: deltaMs)
-        model.commitNudge()
+    /// The selected loop's range handles, in seconds on the trimmed timeline.
+    @ViewBuilder
+    private func handles(_ view: ZoomedWaveformView) -> some View {
+        if let row = model.selected, let span = model.shownSpan(row.id) {
+            let start = model.handleSeconds(span.startMs)
+            let end = model.handleSeconds(span.endMs)
+            let x = { (seconds: Double) in view.x(ofSourceMs: Double(model.trimStartMs) + seconds * 1000) }
+            let name = model.name(row)
+            let spanOf = { (start: Double, end: Double) in
+                LoopSpan(startMs: model.sourceMs(handleSeconds: start), endMs: model.sourceMs(handleSeconds: end))
+            }
+            RangeHandles(
+                start: start, end: end, duration: Double(model.lengthMs) / 1000,
+                color: Palette.loop(row.color, scheme: colorScheme),
+                wash: Palette.loopTint(row.color, scheme: colorScheme),
+                scale: { CGFloat(x($0)) },
+                time: { (view.sourceMs(atX: Double($0)) - Double(model.trimStartMs)) / 1000 },
+                snapPoints: model.handleSnapPointsMs.map(model.handleSeconds),
+                playhead: Double(model.centerMs) / 1000,
+                minimumLength: Double(LoopModel.minLoopMs) / 1000, movesSpan: false,
+                insertionID: model.insertedID == row.id ? row.id : nil,
+                startLabel: PracticeText.loopStart, endLabel: PracticeText.loopEnd,
+                // Each edge's value names its loop and its side; the start is the lesser time.
+                valueText: {
+                    PracticeModel.handleValue(
+                        $0 == start ? .start : .end, of: name, atMs: model.sourceMs(handleSeconds: $0),
+                        from: model.trimStartMs)
+                },
+                onEdgeScroll: { model.scrollUnderHandle(depth: $0) },
+                // The target reaches past the loop's edge, so a tap on it is a tap on the waveform.
+                onTap: { model.tap(atX: x($0)) },
+                onReveal: { model.reveal(model.sourceMs(handleSeconds: $0)) },
+                onKeyStep: { start, end in model.moveHandles(to: spanOf(start, end), byKeyStep: true) },
+                onChange: { start, end in model.moveHandles(to: spanOf(start, end)) },
+                onCommit: { start, end in model.commitHandles(spanOf(start, end)) }
+            )
+            // A new loop gets new handles, so no drag, snap, or key step carries over.
+            .id(row.id)
+            // The opening plays once; a rebuilt view never replays it.
+            .onAppear { model.insertedID = nil }
+        }
     }
 }
 
 /// What sits over the waveform's bottom corners: the readout at the left, unless it sits under
-/// the waveform, and Zoom out, Fit, and Zoom in at the right. Each
-/// sits on a backing that blocks the waveform under it, so a press here never scrubs, taps, or
-/// grabs a handle; the gap between them stays the waveform's.
+/// the waveform, and the zoom control at the right. Each blocks the waveform under it, so a
+/// press here never scrubs, taps, or grabs a handle; the gap between them stays the waveform's.
 struct WaveformOverlay: View {
     let model: PracticeModel
     /// Why the waveform, transport, and modes cannot be used yet, shown in place of the readout.
@@ -317,63 +325,14 @@ struct WaveformOverlay: View {
                     .modifier(Backing())
             }
             Spacer(minLength: 0)
-            HStack(spacing: 0) {
-                iconButton(RecordingScreenText.zoomOut, systemImage: "minus.magnifyingglass") {
-                    model.zoom(by: 1 / WaveformSteps.zoomStep)
-                }
-                .keyboardShortcut("-", modifiers: .command)
-                .disabled(!model.canZoomOut)
-                #if os(macOS)
-                    iconButton(PracticeText.fit, systemImage: "arrow.left.and.right") { model.fit() }
-                        .disabled(model.scale == nil)
-                #else
-                    Button {
-                        model.fit()
-                    } label: {
-                        Text(PracticeText.fit)
-                            .font(.platform(.subheadline))
-                            .frame(minWidth: PracticeLayout.target, minHeight: PracticeLayout.target)
-                            .contentShape(.rect)
-                    }
-                    .disabled(model.scale == nil)
-                    .accessibilityShowsLargeContentViewer()
-                #endif
-                iconButton(RecordingScreenText.zoomIn, systemImage: "plus.magnifyingglass") {
-                    model.zoom(by: WaveformSteps.zoomStep)
-                }
-                .keyboardShortcut("=", modifiers: .command)
-                .disabled(!model.canZoomIn)
-            }
-            #if os(macOS)
-                .buttonStyle(.mac(.icon, size: .small))
-                .padding(2)
-            #else
-                .buttonStyle(.borderless)
-            #endif
+            ZoomControl(
+                canZoomOut: model.canZoomOut, canZoomIn: model.canZoomIn, canFit: model.scale != nil,
+                onZoomOut: { model.zoom(by: 1 / WaveformSteps.zoomStep) }, onFit: model.fit,
+                onZoomIn: { model.zoom(by: WaveformSteps.zoomStep) }
+            )
             .disabled(disabledReason != nil)
-            // Capped so the cluster stays a corner control that never reaches the playhead.
-            .dynamicTypeSize(...DynamicTypeSize.large)
-            .modifier(Backing())
         }
         .padding(4)
-    }
-
-    private func iconButton(_ name: String, systemImage: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            #if os(macOS)
-                Label(name, systemImage: systemImage)
-                    .labelStyle(.iconOnly)
-            #else
-                Label(name, systemImage: systemImage)
-                    .labelStyle(.iconOnly)
-                    .font(.platform(.body))
-                    .frame(minWidth: PracticeLayout.target, minHeight: PracticeLayout.target)
-                    .contentShape(.rect)
-            #endif
-        }
-        .help(name)
-        // Capped at the default text size, so a long press shows it enlarged.
-        .accessibilityShowsLargeContentViewer()
     }
 }
 

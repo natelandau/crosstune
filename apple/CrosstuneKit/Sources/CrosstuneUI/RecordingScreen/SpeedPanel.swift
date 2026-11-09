@@ -2,8 +2,8 @@ import CrosstuneDesign
 import CrosstuneVocabulary
 import SwiftUI
 
-/// Playback speed with the pitch held: a slider in steps of 5%, slower and faster, presets,
-/// and Reset. Each change goes to `onChange` at once.
+/// Playback speed with the pitch held: a slider in steps of 5% read from a stepper, Reset, and
+/// presets. Each change goes to `onChange` at once.
 struct SpeedPanel: View {
     let value: Int
     let onChange: (Int) -> Void
@@ -13,86 +13,41 @@ struct SpeedPanel: View {
     private static let range = Vocabulary.Ranges.Recording.speedPercent
 
     var body: some View {
-        #if os(macOS)
-            macBody
-        #else
-            VStack(spacing: 12) {
-                HStack {
-                    Text(RecordingScreenText.speed)
-                    Spacer()
-                    Text(RecordingScreenText.speedBadge(value))
-                        .monospacedDigit()
-                }
-                .font(.platform(.subheadline))
-                .accessibilityHidden(true)
-                HStack(spacing: 12) {
-                    PanelStepButton(name: RecordingScreenText.slower, systemImage: "minus") { step(by: -Self.step) }
-                        .disabled(value <= Self.range.lowerBound)
-                    Slider(
-                        value: Binding {
-                            Double(value)
-                        } set: {
-                            onChange(Self.clamped(Int($0.rounded())))
-                        },
-                        in: Double(Self.range.lowerBound)...Double(Self.range.upperBound),
-                        step: Double(Self.step)
-                    )
-                    .accessibilityLabel(RecordingScreenText.speed)
-                    .accessibilityValue(RecordingScreenText.speedBadge(value))
-                    PanelStepButton(name: RecordingScreenText.faster, systemImage: "plus") { step(by: Self.step) }
-                        .disabled(value >= Self.range.upperBound)
-                }
-                SpeedPresetRow(value: value, onChange: onChange)
-            }
-        #endif
+        VStack(alignment: .leading, spacing: 12) {
+            ValueSlider(
+                RecordingScreenText.speed,
+                value: Binding {
+                    value
+                } set: {
+                    if let speed = Self.moved(from: value, to: $0) { onChange(speed) }
+                },
+                in: Self.range, step: Self.step, defaultValue: 100, format: RecordingScreenText.speedBadge)
+            presets
+        }
     }
 
     #if os(macOS)
-        /// The label row with Reset, the control row's stepper beside a slider held to the 5%
-        /// grid with a detent at normal speed, and the presets.
-        private var macBody: some View {
-            VStack(alignment: .leading, spacing: 12) {
-                PanelLabelRow(title: RecordingScreenText.speed) {
-                    Button(RecordingScreenText.reset) { onChange(100) }
-                        .buttonStyle(.mac(.plain, size: .small))
-                        .disabled(value == 100)
-                }
-                PanelControlRow {
-                    MacStepper(
-                        value: RecordingScreenText.speedBadge(value), decrement: { step(by: -Self.step) },
-                        increment: { step(by: Self.step) }, canDecrement: value > Self.range.lowerBound,
-                        canIncrement: value < Self.range.upperBound, accessibilityLabel: RecordingScreenText.speed)
-                } slider: {
-                    MacSlider(
-                        value: Binding {
-                            Double(value)
-                        } set: {
-                            onChange(Self.clamped(Int(($0 / Double(Self.step)).rounded()) * Self.step))
-                        },
-                        in: Double(Self.range.lowerBound)...Double(Self.range.upperBound), detent: 100,
-                        accessibilityLabel: RecordingScreenText.speed, step: Double(Self.step),
-                        accessibilityValue: RecordingScreenText.speedBadge(value)
-                    )
-                    // The stepper beside it is the same control for VoiceOver.
-                    .accessibilityHidden(true)
-                } accessory: {
-                    EmptyView()
-                }
-                MacSegmented(
-                    selection: Binding<Int?> {
-                        Self.presets.contains(value) ? value : nil
-                    } set: {
-                        if let preset = $0 { onChange(preset) }
-                    },
-                    options: Self.presets.map(Optional.some),
-                    label: { RecordingScreenText.speedBadge($0 ?? 100) },
-                    title: RecordingScreenText.speedPresets)
-            }
+        private var presets: some View {
+            MacSegmented(
+                selection: Binding<Int?> {
+                    Self.presets.contains(value) ? value : nil
+                } set: {
+                    if let preset = $0 { onChange(preset) }
+                },
+                options: Self.presets.map(Optional.some),
+                label: { RecordingScreenText.speedBadge($0 ?? 100) },
+                title: RecordingScreenText.speedPresets)
+        }
+    #else
+        private var presets: some View {
+            SpeedPresetRow(value: value, onChange: onChange)
         }
     #endif
 
-    private func step(by delta: Int) {
-        onChange(Self.stepped(value, by: delta))
+    /// The speed a step or drag from `percent` to `next` sets, or nil when it sets none. A speed
+    /// off the 5% grid steps onto it rather than keeping its offset.
+    static func moved(from percent: Int, to next: Int) -> Int? {
+        next == percent ? nil : stepped(percent, by: next - percent)
     }
 
     /// `percent` moved by `delta` and clamped to the range. A speed off the 5% grid lands on
@@ -109,9 +64,8 @@ struct SpeedPanel: View {
     }
 }
 
-/// The iOS presets and Reset. One line while it fits, with Reset trailing; at larger text sizes
-/// the whole row wraps, so no capsule is squeezed and no label breaks inside itself. Compiles on
-/// every platform so a snapshot can draw it.
+/// The iOS presets, wrapping at larger text sizes so no capsule is squeezed and no label breaks
+/// inside itself. Compiles on every platform so a snapshot can draw it.
 struct SpeedPresetRow: View {
     let value: Int
     let onChange: (Int) -> Void
@@ -119,37 +73,17 @@ struct SpeedPresetRow: View {
     @Environment(\.spacing) private var spacing
 
     var body: some View {
-        // ViewThatFits picks the first layout whose ideal size fits, so the single line keeps
-        // Reset at the trailing edge, which a flow layout cannot.
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: spacing.chipGap) {
-                presets
-                Spacer(minLength: 0)
-                reset
-            }
-            FlowLayout(spacing: spacing.chipGap, lineSpacing: spacing(12)) {
-                presets
-                reset
+        FlowLayout(spacing: spacing.chipGap, lineSpacing: spacing(12)) {
+            ForEach(SpeedPanel.presets, id: \.self) { preset in
+                Chip(.choice(isChosen: value == preset)) {
+                    onChange(preset)
+                } label: {
+                    Text(RecordingScreenText.speedBadge(preset)).monospacedDigit()
+                }
             }
         }
         // A wrapped row is as wide as its longest line; without this the parent centers it.
         .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    @ViewBuilder private var presets: some View {
-        ForEach(SpeedPanel.presets, id: \.self) { preset in
-            ChoiceCapsule(chosen: value == preset) {
-                onChange(preset)
-            } label: {
-                Text(RecordingScreenText.speedBadge(preset)).monospacedDigit()
-            }
-        }
-    }
-
-    private var reset: some View {
-        Button(RecordingScreenText.reset) { onChange(100) }
-            .disabled(value == 100)
-            .frame(minHeight: PracticeLayout.target)
     }
 }
 
@@ -219,28 +153,6 @@ struct SpeedPresetRow: View {
                 .font(MacStyle.secondary)
                 .foregroundStyle(Palette.textSecondary)
                 .accessibilityHidden(true)
-        }
-    }
-#endif
-
-#if !os(macOS)
-    /// A minus or plus beside a panel's slider or count, round with a 44 point target.
-    struct PanelStepButton: View {
-        let name: String
-        let systemImage: String
-        let action: () -> Void
-
-        var body: some View {
-            Button(action: action) {
-                Label(name, systemImage: systemImage)
-                    .labelStyle(.iconOnly)
-                    .font(.platform(.body).weight(.semibold))
-                    .frame(width: minimumTapTarget, height: minimumTapTarget)
-                    .background(.neutralFill, in: .circle)
-                    .contentShape(.circle)
-            }
-            .buttonStyle(.plain)
-            .help(name)
         }
     }
 #endif

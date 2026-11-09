@@ -26,7 +26,7 @@ struct RecordingsLine: View {
             .frame(minHeight: PageStyle.lineButtonHeight)
             .contentShape(.rect)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.labelOnly)
         .accessibilityValue(
             isExpanded ? RecordingText.recordingsLineExpanded : RecordingText.recordingsLineCollapsed)
     }

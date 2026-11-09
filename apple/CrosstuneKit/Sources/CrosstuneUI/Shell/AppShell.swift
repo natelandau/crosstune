@@ -110,6 +110,7 @@ public struct AppShell: View {
                 .opensForSample(.record) { startRecording(tuneID: nil, source: .menu) }
                 .opensForSample(.plan, when: premium != nil) { premium?.present(.plan, from: .planGroup) }
                 .opensForSample(.planMember, when: premium != nil) { premium?.present(.plan, from: .planGroup) }
+                .opensSampleSettingsPage(place)
             #endif
             .modifier(
                 NoticeSheets(

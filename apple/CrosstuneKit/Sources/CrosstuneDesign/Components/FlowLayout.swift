@@ -46,16 +46,35 @@ public struct FlowLayout: Layout {
         return (origins, CGSize(width: width, height: lines.isEmpty ? 0 : y - lineSpacing))
     }
 
+    /// The width placing wraps at: the proposal when there is one, as measuring did, otherwise the
+    /// bounds. Never past the bounds, so an infinite proposal or a narrower placement keeps items
+    /// inside them.
+    public static func wrapWidth(proposal: CGFloat?, bounds: CGFloat) -> CGFloat {
+        min(proposal ?? bounds, bounds)
+    }
+
+    /// Each item's ideal size, narrowed to `width` so a long one truncates rather than overflowing.
+    public static func itemSizes(
+        count: Int, width: CGFloat?, measure: (_ index: Int, _ width: CGFloat?) -> CGSize
+    ) -> [CGSize] {
+        (0..<count).map { index in
+            let ideal = measure(index, nil)
+            guard let width, ideal.width > width else { return ideal }
+            return measure(index, width)
+        }
+    }
+
     public func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
         Self.arrange(
-            sizes: sizes(subviews, proposal: proposal), maxWidth: proposal.width, spacing: spacing,
+            sizes: sizes(subviews, width: proposal.width), maxWidth: proposal.width, spacing: spacing,
             lineSpacing: lineSpacing
         ).size
     }
 
     public func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        let sizes = sizes(subviews, proposal: proposal)
-        let origins = Self.arrange(sizes: sizes, maxWidth: bounds.width, spacing: spacing, lineSpacing: lineSpacing)
+        let width = Self.wrapWidth(proposal: proposal.width, bounds: bounds.width)
+        let sizes = sizes(subviews, width: width)
+        let origins = Self.arrange(sizes: sizes, maxWidth: width, spacing: spacing, lineSpacing: lineSpacing)
             .origins
         for (index, subview) in subviews.enumerated() {
             subview.place(
@@ -64,13 +83,9 @@ public struct FlowLayout: Layout {
         }
     }
 
-    /// Each subview's ideal size, narrowed to the available width so a long one truncates
-    /// rather than overflowing.
-    private func sizes(_ subviews: Subviews, proposal: ProposedViewSize) -> [CGSize] {
-        subviews.map { subview in
-            let ideal = subview.sizeThatFits(.unspecified)
-            guard let width = proposal.width, ideal.width > width else { return ideal }
-            return subview.sizeThatFits(ProposedViewSize(width: width, height: nil))
+    private func sizes(_ subviews: Subviews, width: CGFloat?) -> [CGSize] {
+        Self.itemSizes(count: subviews.count, width: width) { index, width in
+            subviews[index].sizeThatFits(ProposedViewSize(width: width, height: nil))
         }
     }
 }

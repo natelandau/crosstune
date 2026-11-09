@@ -349,13 +349,16 @@ private struct WelcomeContent: View {
                     }
                 }
                 .padding(.top, 24)
-                Button(WelcomeCopy.alreadyHaveAccount) { model.signIn() }
-                    .buttonStyle(.mac(.plain))
-                    .padding(.top, 16)
-                // The accent as on iPhone and iPad, a size down from the sign-in link.
-                Button(WelcomeCopy.whyLink) { model.openReason() }
-                    .buttonStyle(.mac(.plain, size: .small))
-                    .padding(.top, 4)
+                VStack(spacing: 4) {
+                    Button(WelcomeCopy.alreadyHaveAccount) { model.signIn() }
+                        .buttonStyle(.mac(.plain))
+                    // The accent as on iPhone and iPad, a size down from the sign-in link.
+                    Button(WelcomeCopy.whyLink) { model.openReason() }
+                        .buttonStyle(.mac(.plain, size: .small))
+                }
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity)
+                .padding(.top, 16)
             }
             .fixedSize(horizontal: false, vertical: true)
         }
@@ -517,12 +520,18 @@ private struct WelcomeContent: View {
                         signUpButtons(stacked: true)
                     }
                 }
+                // Each link keeps a full target's height, which the slides above are sized and
+                // placed around.
                 VStack(spacing: spacing.stackGap) {
                     Button(WelcomeCopy.alreadyHaveAccount) { model.signIn() }
-                        .buttonStyle(WelcomeLinkStyle(font: .subheadline.weight(.semibold)))
+                        .frame(minHeight: minimumTapTarget)
                     Button(WelcomeCopy.whyLink) { model.openReason() }
-                        .buttonStyle(WelcomeLinkStyle(font: .footnote))
+                        .controlSize(.small)
+                        .frame(minHeight: minimumTapTarget)
                 }
+                .buttonStyle(.text)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -773,26 +782,11 @@ private struct SignUpButtonStyle: ButtonStyle {
                 }
             }
             .contentShape(.rect(cornerRadius: Self.radius))
-            .opacity(isEnabled || isRunning ? (configuration.isPressed ? 0.6 : 1) : Self.disabledOpacity)
+            .opacity(
+                isEnabled || isRunning
+                    ? (configuration.isPressed ? ControlMetrics.pressedOpacity : 1) : Self.disabledOpacity)
     }
 }
-
-#if !os(macOS)
-    /// A worded link in the accent with a full touch target.
-    private struct WelcomeLinkStyle: ButtonStyle {
-        let font: Font
-
-        func makeBody(configuration: Configuration) -> some View {
-            configuration.label
-                .font(font)
-                .foregroundStyle(Palette.accent)
-                .multilineTextAlignment(.leading)
-                .frame(maxWidth: .infinity, minHeight: PageStyle.minTarget, alignment: .leading)
-                .contentShape(.rect)
-                .opacity(configuration.isPressed ? 0.6 : 1)
-        }
-    }
-#endif
 
 /// Scrolls its content when it runs taller than the space, and otherwise stretches it to the
 /// full height, so a spacer inside can push the account to the bottom.

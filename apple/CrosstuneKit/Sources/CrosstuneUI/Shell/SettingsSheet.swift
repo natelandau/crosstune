@@ -1,4 +1,5 @@
 #if os(iOS)
+    import CrosstuneDesign
     import SwiftUI
 
     /// Settings over a compact window, opened from the account button. Its stack lives in the
@@ -13,8 +14,8 @@
                 SettingsRoot()
                     .environment(\.settingsPageShown, SettingsPageRecorder(place: place))
                     .toolbar {
-                        ToolbarItem(placement: .topBarTrailing) {
-                            Button(role: .close) { dismiss() }
+                        ToolbarItem(placement: .cancellationAction) {
+                            SheetCloseButton { dismiss() }
                         }
                     }
             }

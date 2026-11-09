@@ -10,7 +10,6 @@ import SwiftUI
 public struct LyricsReader: View {
     public static let smallerText = "Smaller text"
     public static let largerText = "Larger text"
-    public static let close = "Close"
     public static let editLyrics = "Edit lyrics"
     public static let done = "Done"
 
@@ -147,7 +146,7 @@ private struct LyricsReaderPage: View {
                         // After the words, not in the toolbar: a musician who has read to the end is
                         // already here, and a scroll mid-tune never reaches it.
                         Button(LyricsReader.editLyrics) { editing = true }
-                            .buttonStyle(.bordered)
+                            .buttonStyle(.tinted)
                     }
                     .frame(maxWidth: PhoneStyle.lyricsMaxWidth, alignment: .leading)
                     .frame(maxWidth: .infinity)
@@ -165,7 +164,7 @@ private struct LyricsReaderPage: View {
                         larger
                     }
                     ToolbarItem(placement: .cancellationAction) {
-                        Button(LyricsReader.close) { dismiss() }
+                        SheetCloseButton { dismiss() }
                     }
                 }
                 .sheet(isPresented: $editing) {
@@ -213,6 +212,8 @@ private struct LyricsEditSheet: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var draft: String
+    /// Set once the write lands, so a press while the sheet closes writes nothing again.
+    @State private var isSaved = false
 
     init(model: LyricsReaderModel, lyrics: String) {
         self.model = model
@@ -266,9 +267,9 @@ private struct LyricsEditSheet: View {
                                 .disabled(model.isSaving)
                         }
                         ConfirmToolbarItem {
-                            Button(LyricsReader.done, action: save)
-                                .fontWeight(.semibold)
-                                .disabled(model.isSaving)
+                            AsyncButton(closesOnSuccess: true, action: store) {
+                                Text(LyricsReader.done)
+                            }
                         }
                     }
             }
@@ -277,9 +278,14 @@ private struct LyricsEditSheet: View {
     #endif
 
     private func save() {
-        Task {
-            if await model.save(draft) { dismiss() }
-        }
+        Task { await store() }
+    }
+
+    private func store() async {
+        guard !isSaved, !model.isSaving else { return }
+        guard await model.save(draft) else { return }
+        isSaved = true
+        dismiss()
     }
 }
 

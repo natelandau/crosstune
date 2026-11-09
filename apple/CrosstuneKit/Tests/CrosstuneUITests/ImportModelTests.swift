@@ -54,9 +54,11 @@ import Testing
         let model = await opened(store)
         #expect(model.step == .paste)
         #expect(!model.canContinue)
+        #expect(!model.hasTextToReview)
 
         model.text = "- soldier's joy\n1. Cluck Old Hen\nReels:\nRed Haired Boy"
         #expect(model.canContinue)
+        #expect(model.hasTextToReview)
         await model.continueToReview()
 
         #expect(model.step == .review)
@@ -133,9 +135,11 @@ import Testing
         await model.continueToReview()
         model.armAdd()
 
+        #expect(model.hasTunesToAdd)
         model.setIncluded(false, row: 0)
         #expect(model.count == 0)
         #expect(!model.canAdd)
+        #expect(!model.hasTunesToAdd)
         #expect(model.addLabel == ImportCopy.addTunes(0))
     }
 
@@ -148,6 +152,8 @@ import Testing
         await model.continueToReview()
 
         #expect(!model.canAdd)
+        // Add stays enabled while unarmed, so a press meant for Continue does nothing.
+        #expect(model.hasTunesToAdd)
         #expect(try await model.add() == 0)
         #expect(try await stored(store).isEmpty)
 

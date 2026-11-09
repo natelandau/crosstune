@@ -426,6 +426,8 @@ private struct CatalogContent: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .contentShape(.rect)
                 }
+                // The automatic style takes the list's row highlight.
+                .buttonStyle(.automatic)
                 .matchedTransitionSource(id: entry.tune.id, in: zoom)
             }
         }
@@ -472,11 +474,12 @@ private struct CatalogContent: View {
             if let label = results.outcome.addTypedTitleLabel, let typed = results.outcome.title {
                 Button(label) { createFromSearch(typed) }
                     .contentMask()
-                    .buttonStyle(.accentProminent)
+                    .buttonStyle(.filled)
             } else if noTunes {
                 Button(CatalogScreen.addTune, action: newTune)
-                    .buttonStyle(.accentProminent)
+                    .buttonStyle(.filled)
                 Button(ImportCopy.title) { showsImport = true }
+                    .buttonStyle(.tinted)
             }
         }
     }

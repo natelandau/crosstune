@@ -17,8 +17,22 @@ struct RecordingPracticeArea: View {
     /// Escape with no name field open and no loop selected.
     let onClose: () -> Void
 
+    /// What the practice area shows.
+    enum Shown: Equatable {
+        case controls
+        /// The plan's lock, with why it holds recordings back.
+        case blocked(String)
+        /// Nothing yet: the practice is still being made, as while the shell's commands arrive.
+        case waiting
+    }
+
+    static func shown(hasPractice: Bool, blockedReason: String?) -> Shown {
+        if let blockedReason { return .blocked(blockedReason) }
+        return hasPractice ? .controls : .waiting
+    }
+
     var body: some View {
-        switch RecordingPlayBar.shown(hasPractice: practice != nil, blockedReason: blockedReason) {
+        switch Self.shown(hasPractice: practice != nil, blockedReason: blockedReason) {
         case .controls:
             if let practice {
                 RecordingScreen(
@@ -43,9 +57,7 @@ private struct PracticeBlocked: View {
     var body: some View {
         VStack {
             Button(reason, action: onBlocked)
-                #if os(macOS)
-                    .buttonStyle(.mac(.quiet))
-                #endif
+                .buttonStyle(.text(macLook: .button(.quiet)))
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }

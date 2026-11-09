@@ -1,5 +1,6 @@
 import CrosstuneAnalytics
 import CrosstuneBilling
+import CrosstuneDesign
 import CrosstuneStore
 import CrosstuneTestSupport
 import Foundation
@@ -565,7 +566,7 @@ private let day: TimeInterval = 86_400
             let purchasable = NoticeSheet.macTrialFooter(
                 NoticeSheet.Offer(primary: .subscribe("$49.99"), secondary: .comparePlans), isWorking: false,
                 onClose: {}, onComparePlans: {}, onSubscribe: {})
-            #expect(purchasable.cancel?.title == PlanSheet.close)
+            #expect(purchasable.cancel?.title == SheetCloseButton.close)
             #expect(purchasable.secondary?.title == PlanText.comparePlans)
             #expect(purchasable.primary?.title == NoticeText.subscribeAnnual("$49.99"))
             #expect(purchasable.primary?.role == .primary)
@@ -587,7 +588,7 @@ private let day: TimeInterval = 86_400
             let footer = NoticeSheet.macTrialFooter(
                 NoticeSheet.Offer(primary: .comparePlans, secondary: nil), isWorking: false, onClose: {},
                 onComparePlans: {}, onSubscribe: {})
-            #expect(footer.cancel?.title == PlanSheet.close)
+            #expect(footer.cancel?.title == SheetCloseButton.close)
             #expect(footer.secondary == nil)
             #expect(footer.primary?.title == PlanText.comparePlans)
             #expect(footer.primary?.isDefault == true)
@@ -599,7 +600,7 @@ private let day: TimeInterval = 86_400
                 NoticeSheet.Offer(primary: .close, secondary: nil), isWorking: false, onClose: {},
                 onComparePlans: {}, onSubscribe: {})
             #expect(footer.cancel == nil)
-            #expect(footer.primary?.title == PlanSheet.close)
+            #expect(footer.primary?.title == SheetCloseButton.close)
             #expect(footer.primary?.isDefault == true)
             #expect(footer.escape != nil)
         }

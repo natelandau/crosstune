@@ -44,13 +44,17 @@
         case importTunes = "import"
         case export
         case deleteAccount = "delete-account"
-        /// The music services sheet Find recordings opens, shown over the Tunes tab.
+        /// The music services sheet: over the Mac Settings window's Tunes tab, and over Find
+        /// recordings on iPhone and iPad.
         case musicServices = "music-services"
         case stats
-        /// The first saved location's sheet over the Recordings tab.
+        /// The first saved location: its sheet over the Mac Settings window's Recordings tab, and
+        /// its page in Settings on iPhone and iPad.
         case savedLocations = "saved-locations"
         case welcome
         case signIn = "signin"
+        /// Every library control in every state, in place of the shell.
+        case controls
 
         /// The screen named after `-SampleScreen` in the launch arguments, nil without one.
         public static func fromArguments(_ arguments: [String] = CommandLine.arguments) -> SampleScreen? {
@@ -70,6 +74,9 @@
 
         /// Shows the signed-out welcome screen in place of the shell.
         var isSignedOut: Bool { self == .welcome || self == .signIn }
+
+        /// Shows a surface of its own in place of the shell, with no sample store.
+        var replacesShell: Bool { isSignedOut || self == .controls }
 
         /// Opens a store with no tunes, lists, or recordings.
         var isEmpty: Bool { self == .emptyCatalog }
@@ -99,10 +106,21 @@
         /// Shown from a tune's screen, so iPhone and iPad must open that tune first.
         private var opensFromTune: Bool {
             switch self {
-            case .tune, .tuneArchived, .tuneEdit, .deleteTune, .findRecordings, .link, .listPicker, .lyrics, .scans:
+            case .tune, .tuneArchived, .tuneEdit, .deleteTune, .findRecordings, .link, .listPicker, .lyrics, .scans,
+                .musicServices:
                 true
             default: false
             }
+        }
+
+        /// Whether the screen opens Find recordings over the tune first: the way to the music
+        /// services sheet on iPhone and iPad. The Mac opens that sheet from its Settings window.
+        static var musicServicesFromFindRecordings: Bool {
+            #if os(macOS)
+                false
+            #else
+                true
+            #endif
         }
 
         /// The plan a screen needs to show, used when no `-SamplePlan` names one.
@@ -126,33 +144,79 @@
     extension View {
         /// Runs `open` once per launch, when the launch asked for `screen` and `isReady` first
         /// holds, after a pause that lets the shell settle so a sheet is never refused for
-        /// another presentation still under way.
+        /// another presentation still under way. A screen reached through another surface names
+        /// each `step` on the way, so each opens once.
         func opensForSample(
-            _ screen: SampleScreen, when isReady: Bool = true, _ open: @escaping @MainActor () -> Void
+            _ screen: SampleScreen, step: String = "", when isReady: Bool = true,
+            _ open: @escaping @MainActor () -> Void
         ) -> some View {
-            modifier(OpensForSample(screen: screen, isReady: isReady, open: open))
+            modifier(OpensForSample(screen: screen, step: step, isReady: isReady, open: open))
+        }
+
+        /// Opens the Settings page the launch's screen shows on, once the shell knows the
+        /// window's size: in the Settings sheet on iPhone, on the Settings tab on iPad. The Mac
+        /// opens its Settings window instead.
+        func opensSampleSettingsPage(_ place: ShellPlace) -> some View {
+            modifier(OpensSampleSettingsPage(place: place))
         }
     }
 
     private struct OpensForSample: ViewModifier {
         /// Shared, since a view that is made again would otherwise open its surface again.
-        @MainActor private static var opened: Set<SampleScreen> = []
+        @MainActor private static var opened: Set<String> = []
 
         let screen: SampleScreen
+        let step: String
         let isReady: Bool
         let open: @MainActor () -> Void
 
         @Environment(\.sampleScreen) private var sampleScreen
 
         func body(content: Content) -> some View {
-            content.task(id: sampleScreen == screen && isReady) {
-                guard sampleScreen == screen, isReady, !Self.opened.contains(screen) else { return }
+            let key = "\(screen.rawValue)/\(step)"
+            return content.task(id: sampleScreen == screen && isReady) {
+                guard sampleScreen == screen, isReady, !Self.opened.contains(key) else { return }
                 try? await Task.sleep(for: .milliseconds(600))
-                guard !Task.isCancelled, Self.opened.insert(screen).inserted else { return }
+                guard !Task.isCancelled, Self.opened.insert(key).inserted else { return }
                 open()
             }
         }
     }
+
+    private struct OpensSampleSettingsPage: ViewModifier {
+        let place: ShellPlace
+
+        @Environment(\.sampleScreen) private var sampleScreen
+
+        func body(content: Content) -> some View {
+            #if os(macOS)
+                content
+            #else
+                if let sampleScreen, let page = sampleScreen.settingsPage {
+                    content.opensForSample(sampleScreen, step: "settings page", when: place.knowsSize) {
+                        place.showSettingsPage(page)
+                    }
+                } else {
+                    content
+                }
+            #endif
+        }
+    }
+
+    #if !os(macOS)
+        extension SampleScreen {
+            /// The Settings page a screen shows on, which the shell opens at launch.
+            var settingsPage: SettingsPage? {
+                switch self {
+                case .importTunes, .export: .category(.importExport)
+                case .deleteAccount: .account
+                case .stats: .stats
+                case .savedLocations: .category(.recordings)
+                default: nil
+                }
+            }
+        }
+    #endif
 
     #if os(macOS)
         extension SampleScreen {

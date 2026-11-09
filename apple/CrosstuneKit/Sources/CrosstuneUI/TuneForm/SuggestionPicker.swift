@@ -76,42 +76,26 @@ struct SuggestionPicker: View {
             .contentMask()
         }
 
-        /// The same choices as buttons, each of which writes its value whether or not it is shown.
+        /// The same choices as a menu row, each of which writes its value whether or not it is shown.
         private var menu: some View {
             let current = selection.wrappedValue
-            return LabeledContent {
-                Menu {
-                    choiceButton(emptyLabel, tag: Self.noneTag, current: current)
-                    ForEach(Self.choices(options, value: value), id: \.self) { choice in
-                        choiceButton(choice, tag: choice, current: current)
-                    }
-                } label: {
-                    HStack(spacing: 4) {
-                        Text(value.isEmpty ? emptyLabel : value)
-                            .contentMask()
-                        Image(systemName: "chevron.up.chevron.down")
-                            .imageScale(.small)
-                            .accessibilityHidden(true)
-                    }
-                    .foregroundStyle(.textSecondary)
+            return MenuRow(label, rowLabel: rowLabel, value: value.isEmpty ? emptyLabel : value) {
+                choice(emptyLabel, tag: Self.noneTag, current: current)
+                ForEach(Self.choices(options, value: value), id: \.self) { option in
+                    choice(option, tag: option, current: current)
                 }
-            } label: {
-                Text(rowLabel)
             }
-            .accessibilityLabel(label)
         }
 
-        @ViewBuilder
-        private func choiceButton(_ title: String, tag: String, current: String) -> some View {
-            Button {
-                selection.wrappedValue = tag
-            } label: {
-                if tag == current {
-                    Label(title, systemImage: "checkmark")
-                } else {
-                    Text(title)
-                }
-            }
+        /// A toggle, so the menu checks the current choice; turning it off picks it again.
+        private func choice(_ title: String, tag: String, current: String) -> some View {
+            Toggle(
+                title,
+                isOn: Binding {
+                    tag == current
+                } set: { _ in
+                    selection.wrappedValue = tag
+                })
         }
     #endif
 

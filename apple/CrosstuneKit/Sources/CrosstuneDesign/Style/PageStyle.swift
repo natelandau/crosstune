@@ -18,11 +18,11 @@ package enum PageStyle {
         package static let rowGlyphSize = MacStyle.bodySize
         /// The action glyph's point size in a media row, which always holds at least two lines.
         package static let mediaRowGlyphSize: CGFloat = 20
-        package static let filterControlHeight = MacStyle.smallControlHeight
         /// A pointer needs no hit area past a control's drawn edge.
         package static let minTarget: CGFloat = 0
         package static let pullDownChevron = Font.system(size: 9, weight: .semibold)
         package static let popoverArrowEdge = Edge.bottom
+        package static let keyPopoverWidth: CGFloat = 280
         package static let pageMargin = MacStyle.pageMargin
         package static let pageMaxWidth = MacStyle.pageMaxWidth
         /// A window has no bar title over the page, so a page with no title of its own heads itself.
@@ -69,11 +69,12 @@ package enum PageStyle {
         package static let smallControlHeight: CGFloat = 32
         package static let rowGlyphSize: CGFloat = 24
         package static let mediaRowGlyphSize: CGFloat = 24
-        package static let filterControlHeight = PhoneStyle.filterControlHeight
         package static let minTarget = minimumTapTarget
         package static let pullDownChevron = Font.caption2.weight(.semibold)
         /// The popover opens below its control, where a phone has the most room.
         package static let popoverArrowEdge = Edge.top
+        /// Wide enough for a first line of five key chips: Any, ?, A, Bb, C/G.
+        package static let keyPopoverWidth: CGFloat = 300
         package static let pageMargin: CGFloat = 20
         package static let pageMaxWidth: CGFloat = 680
         /// The navigation bar carries the title of a pushed page.

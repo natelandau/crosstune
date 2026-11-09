@@ -229,7 +229,6 @@ private struct TunePickerContent: View {
             .toolbar {
                 ConfirmToolbarItem {
                     Button(TunePickerSheet.done) { dismiss() }
-                        .fontWeight(.semibold)
                 }
             }
             .onAppear { searchFocused = true }
@@ -260,14 +259,15 @@ private struct TunePickerContent: View {
                 HStack(spacing: spacing(12)) {
                     Image(systemName: "plus.circle.fill")
                         .font(.platform(.title3))
-                        .foregroundStyle(.tint)
+                        .foregroundStyle(Palette.accent)
                     TuneRow(tune: row.entry.tune, userTune: row.entry.userTune, instruments: model.instruments)
                         .foregroundStyle(.textPrimary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(.rect)
             }
-            .buttonStyle(.plain)
+            // The automatic style takes the list's row highlight.
+            .buttonStyle(.automatic)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(row.name)
             .accessibilityAddTraits(.isButton)

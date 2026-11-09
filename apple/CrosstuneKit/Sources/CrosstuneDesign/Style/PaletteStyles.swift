@@ -3,18 +3,34 @@ import SwiftUI
 extension ShapeStyle where Self == AnyShapeStyle {
     /// Body text and glyphs in a shared view: `Palette.textPrimary`, turning white on an
     /// emphasized selection's accent fill, as the system's primary does.
-    package static var textPrimary: AnyShapeStyle { AnyShapeStyle(PrimaryText()) }
+    package static var textPrimary: AnyShapeStyle { AnyShapeStyle(SelectionAwareColor(Palette.textPrimary)) }
 
     /// Secondary text and glyphs in a shared view: `Palette.textSecondary`, which holds 4.5:1 on
     /// every background where the system's translucent secondary does not. It turns white on an
     /// emphasized selection's accent fill.
     package static var textSecondary: AnyShapeStyle { AnyShapeStyle(SecondaryText()) }
+
+    /// Tertiary text and glyphs in a shared view: `Palette.textTertiary`, turning white on an
+    /// emphasized selection's accent fill.
+    package static var textTertiary: AnyShapeStyle { AnyShapeStyle(SelectionAwareColor(Palette.textTertiary)) }
 }
 
-/// `textPrimary`, turning white where an emphasized selection raises the background.
-package struct PrimaryText: ShapeStyle {
+extension ShapeStyle where Self == SelectionAwareColor {
+    /// `color` at rest, white on an emphasized selection's accent fill, for a fixed color such as
+    /// a status tone that would not read on the fill.
+    package static func selectionAware(_ color: Color) -> SelectionAwareColor { SelectionAwareColor(color) }
+}
+
+/// A fixed color that turns white where an emphasized selection raises the background.
+package struct SelectionAwareColor: ShapeStyle {
+    package let color: Color
+
+    package init(_ color: Color) {
+        self.color = color
+    }
+
     package func resolve(in environment: EnvironmentValues) -> Color {
-        Palette.color(environment.backgroundProminence == .increased ? .onAccentFill : .textPrimary)
+        environment.backgroundProminence == .increased ? Palette.onAccentFill : color
     }
 }
 
@@ -102,20 +118,53 @@ package struct GroupedForm<Content: View>: View {
 
     package var body: some View {
         Form {
-            Group { content }
-                .groupedSurface()
-                .environment(\.onGroupedSurface, true)
+            Group { content }.groupedFormRows()
         }
         .formStyle(.grouped)
-        .toggleStyle(.accentSwitch)
-        .buttonStyle(.accentWords)
-        .groupedBackground()
+        .groupedFormList()
     }
 }
 
-/// The system's own button in the accent. A button that sets its own style keeps it.
+extension View {
+    /// A grouped form's rows: the grouped surface under each, and the context its controls read.
+    /// Every grouped form, ``GroupedForm`` and ``GroupedSelectionForm``, applies it to its content.
+    package func groupedFormRows() -> some View {
+        groupedSurface()
+            .environment(\.onGroupedSurface, true)
+            .environment(\.asyncButtonIsRow, true)
+    }
+
+    /// A grouped form's list: accent switches and buttons on the grouped background. Every
+    /// grouped form applies it to its `Form` or `List`.
+    package func groupedFormList() -> some View {
+        toggleStyle(.accentSwitch)
+            .buttonStyle(.accentWords)
+            .groupedBackground()
+    }
+}
+
+/// The system's own button in the accent. A button that sets its own style keeps it. On the
+/// Mac it draws the look `macLook` names.
 package struct AccentWordsButtonStyle: PrimitiveButtonStyle {
+    /// The Mac look drawn: `.system`, the system's own button in the accent, or `.plain`, the
+    /// Mac's plain button.
+    package enum MacLook: Equatable { case system, plain }
+
+    package var macLook: MacLook = .system
+
     package func makeBody(configuration: Configuration) -> some View {
+        #if os(macOS)
+            if macLook == .plain {
+                Button(configuration).buttonStyle(.macPlain)
+            } else {
+                accentWords(configuration)
+            }
+        #else
+            accentWords(configuration)
+        #endif
+    }
+
+    private func accentWords(_ configuration: Configuration) -> some View {
         // `.automatic` stops this style from applying to the button it makes.
         Button(configuration)
             .buttonStyle(.automatic)
@@ -125,4 +174,8 @@ package struct AccentWordsButtonStyle: PrimitiveButtonStyle {
 
 extension PrimitiveButtonStyle where Self == AccentWordsButtonStyle {
     package static var accentWords: Self { AccentWordsButtonStyle() }
+    /// The system's own button in the accent, and on the Mac the look `macLook` names.
+    package static func accentWords(macLook: AccentWordsButtonStyle.MacLook) -> Self {
+        AccentWordsButtonStyle(macLook: macLook)
+    }
 }

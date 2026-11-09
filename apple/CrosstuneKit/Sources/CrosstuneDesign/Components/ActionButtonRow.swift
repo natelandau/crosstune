@@ -2,8 +2,8 @@ import SwiftUI
 
 /// A page's main actions side by side: on iPhone and iPad each takes an equal share of the
 /// width, or the full width, stacked, where no labels fit side by side; on the Mac each keeps
-/// its natural width, as the Mac's buttons do everywhere. Each
-/// button takes `actionButtonStyle(prominent:)`, which sets its look and size.
+/// its natural width, as the Mac's buttons do everywhere. The main button takes `.filled` and
+/// the rest `.tinted`.
 package struct ActionButtonRow<Content: View>: View {
     @ViewBuilder package let content: Content
 
@@ -30,6 +30,7 @@ package struct ActionButtonRow<Content: View>: View {
                 VStack(spacing: spacing(10)) { content }
                     .labelStyle(.titleAndIcon)
             }
+            .environment(\.libraryButtonFillsWidth, true)
         #endif
     }
 
@@ -80,55 +81,12 @@ extension EnvironmentValues {
     @Entry package var tightActionButtonLabels = false
 }
 
-extension View {
-    /// The action button row's button look. On the Mac, the Mac's primary for the main button and its
-    /// secondary for the rest, as a list's Play and Shuffle. Elsewhere, an accent-filled capsule for
-    /// the main button and a tinted one for the rest. Never glass: the row sits in the page's
-    /// content, and glass capsules side by side shade into each other.
-    @ViewBuilder package func actionButtonStyle(prominent: Bool) -> some View {
-        #if os(macOS)
+#if os(macOS)
+    extension View {
+        /// The Mac's primary for the row's main button and its secondary for the rest, as a list's Play and
+        /// Shuffle.
+        @ViewBuilder package func actionButtonStyle(prominent: Bool) -> some View {
             buttonStyle(MacButtonStyle(prominent ? .primary : .secondary))
-        #else
-            buttonStyle(ActionButtonStyle(prominent: prominent))
-        #endif
-    }
-}
-
-#if !os(macOS)
-    private struct ActionButtonStyle: ButtonStyle {
-        let prominent: Bool
-
-        @Environment(\.isEnabled) private var isEnabled
-        @Environment(\.colorScheme) private var colorScheme
-        @Environment(\.tightActionButtonLabels) private var tight
-        @Environment(\.spacing) private var spacing
-        @ScaledMetric(relativeTo: .subheadline) private var height: CGFloat = 40
-
-        func makeBody(configuration: Configuration) -> some View {
-            configuration.label
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(label)
-                .lineLimit(1)
-                // Fills the button's share of the row, so its capsule spans it.
-                .frame(maxWidth: .infinity)
-                .padding(.horizontal, spacing(tight ? 6 : 14))
-                .frame(minHeight: height)
-                .background(fill, in: .capsule)
-                .disabledCapsuleRing(!isEnabled)
-                .opacity(configuration.isPressed ? 0.6 : 1)
-                .contentShape(.hoverEffect, .capsule)
-                .hoverEffect(.highlight)
-                .tapTarget(visibleHeight: height)
-        }
-
-        private var fill: Color {
-            guard isEnabled else { return .clear }
-            return prominent ? Palette.accentFill : Palette.tint(colorScheme)
-        }
-
-        private var label: Color {
-            guard isEnabled else { return Palette.onDisabled }
-            return prominent ? Palette.onAccentFill : Palette.onTint(colorScheme)
         }
     }
 #endif

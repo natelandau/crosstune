@@ -169,8 +169,8 @@ struct SortMenu<Sort: SortKind>: View {
                 .contentShape(.rect)
             }
             .menuStyle(.button)
-            // Borderless, so a list row holding it takes no tap of its own and the menu keeps its tint.
-            .buttonStyle(.borderless)
+            // A row line, so a list row holding it takes no tap of its own and the menu keeps its tint.
+            .rowLineMenuAppearance()
             .fixedSize()
             .accessibilityLabel(SortText.buttonLabel(choice))
             .help(SortText.sort)

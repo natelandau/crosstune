@@ -97,7 +97,7 @@ struct TuneHeader: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 if detail.isArchived {
-                    ArchivedCapsule()
+                    Badge(TuneRowText.archived)
                 }
             }
             if let failure = model.failure(at: .screen) {
@@ -117,7 +117,7 @@ struct TuneHeader: View {
                 TuneMoreMenu(model: model, detail: detail, onEditAll: more.editAll, onDelete: more.delete)
                     .menuIndicator(.hidden)
                     .menuStyle(.button)
-                    .buttonStyle(PageControlStyle())
+                    .textButtonMenuAppearance()
                     .fixedSize()
                     .disabled(leaving)
             }
@@ -195,7 +195,7 @@ private struct KeyTile: View {
                 }
                 .contentShape(shape)
         }
-        .buttonStyle(KeyTileStyle())
+        .buttonStyle(.labelOnly(pressedOpacity: ControlMetrics.tilePressedOpacity))
         .accessibilityLabel(TuneHeader.keyTileLabel(tileLabel))
         // The tile's type does not grow with the text size, so a long press shows it enlarged.
         .accessibilityShowsLargeContentViewer()
@@ -243,7 +243,7 @@ private struct KeyTile: View {
     }
 
     private func pillColors(_ key: String) -> KeyColor.PillColors? {
-        KeyColor.pitchClass(key).map { KeyColor.pillColors(pitchClass: $0, scheme: colorScheme, chosen: false) }
+        KeyColor.pillColors(key: key, scheme: colorScheme, chosen: false)
     }
 
     private func background(_ tileLabel: TuneHeader.KeyTileLabel) -> AnyShapeStyle {
@@ -254,13 +254,6 @@ private struct KeyTile: View {
 
     private func textStyle(_ key: String) -> AnyShapeStyle {
         pillColors(key).map { AnyShapeStyle($0.text.color) } ?? AnyShapeStyle(.textPrimary)
-    }
-}
-
-private struct KeyTileStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .opacity(configuration.isPressed ? 0.7 : 1)
     }
 }
 
@@ -311,7 +304,7 @@ private struct HeaderTitle: View {
                     #endif
             }
         }
-        .onHover { isHovered = $0 }
+        .revealsRenameOnHover($isHovered)
         .onChange(of: fieldFocused) { _, focused in
             if !focused { finish(.commit) }
         }
@@ -395,7 +388,7 @@ struct RenameButton: View {
             Label(TuneHeader.rename, systemImage: "pencil")
                 .labelStyle(.iconOnly)
         }
-        .buttonStyle(PageControlStyle())
+        .buttonStyle(.text)
         .accessibilityLabel("\(TuneHeader.rename) \(title)")
         #if os(macOS)
             .help(TuneHeader.rename)
@@ -418,19 +411,13 @@ extension EnvironmentValues {
     @Entry var focusesKeyTile = false
 }
 
-/// Archived, beside the title: a state the musician chose, so neutral rather than a warning.
-private struct ArchivedCapsule: View {
-    var body: some View {
+extension View {
+    /// Tracks the pointer over the title, which shows Rename on the Mac. Touch has no hover.
+    fileprivate func revealsRenameOnHover(_ isHovered: Binding<Bool>) -> some View {
         #if os(macOS)
-            Text(TuneRowText.archived)
-                .macChip(state: .rest, hueText: Palette.textSecondary, size: .row)
+            onHover { isHovered.wrappedValue = $0 }
         #else
-            Text(TuneRowText.archived)
-                .font(PageStyle.secondary.weight(.medium))
-                .foregroundStyle(.textSecondary)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 2)
-                .background(Palette.field, in: .capsule)
+            self
         #endif
     }
 }

@@ -104,8 +104,15 @@ final class ExportDataModel {
         return ExportDataSheet.progress(done: progress.done, total: progress.total)
     }
 
+    /// Whether the files to export are counted, so Export can take a press. It stays true while
+    /// an export runs and while its zip is handed off, so the button never reads as disabled
+    /// under its working state or its check.
+    var isReady: Bool {
+        exporter != nil && counts != nil
+    }
+
     var canStart: Bool {
-        exporter != nil && counts != nil && !isRunning && exported == nil
+        isReady && !isRunning && exported == nil
     }
 
     /// Keeps the counts current until the caller is cancelled, so what an export must fetch

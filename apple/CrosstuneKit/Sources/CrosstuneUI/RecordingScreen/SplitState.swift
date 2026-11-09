@@ -11,6 +11,13 @@ extension SplitModel {
         var lengthMs: Int64 { endMs - startMs }
     }
 
+    /// A cut with an id that stays with it while other cuts are added and removed, so a view
+    /// keyed on it keeps its focus and drag state on the same cut.
+    struct IdentifiedCut: Identifiable, Equatable {
+        let id: Int
+        let ms: Int64
+    }
+
     /// The cuts and the line, with the rules that move them.
     struct State: Equatable {
         /// The row's current trim, which the cuts cannot leave.
@@ -18,7 +25,10 @@ extension SplitModel {
         var highMs: Int64
         var lineMs: Int64
         /// Ascending.
-        var cuts: [Int64]
+        private(set) var cuts: [Int64]
+        /// One per cut, in the same order.
+        private var cutIDs: [Int]
+        private var nextCutID: Int
         /// Index into `cuts` of the cut the line moves.
         var selected: Int?
         /// The whole range is over the upload limit, so every piece must fit it.
@@ -32,6 +42,8 @@ extension SplitModel {
             self.highMs = highMs
             self.lineMs = lineMs
             self.cuts = cuts
+            cutIDs = Array(cuts.indices)
+            nextCutID = cuts.count
             self.selected = selected
             self.overLimit = overLimit
         }
@@ -56,6 +68,10 @@ extension SplitModel {
             guard selected == nil, cuts.count + 1 < RecordingLimits.maxSplitPieces else { return false }
             let room = cutRoom(for: nil)
             return lineMs >= room.min && lineMs <= room.max
+        }
+
+        var identifiedCuts: [IdentifiedCut] {
+            zip(cutIDs, cuts).map { IdentifiedCut(id: $0, ms: $1) }
         }
 
         var pieces: [Piece] {
@@ -90,11 +106,15 @@ extension SplitModel {
                 if selected == nil, let at = cuts.firstIndex(of: lineMs) { next.selected = at }
             case .addCut:
                 guard canAddCut else { return self }
-                next.cuts = (cuts + [lineMs]).sorted()
-                next.selected = next.cuts.firstIndex(of: lineMs)
+                let at = cuts.count { $0 < lineMs }
+                next.cuts.insert(lineMs, at: at)
+                next.cutIDs.insert(nextCutID, at: at)
+                next.nextCutID += 1
+                next.selected = at
             case .removeCut:
                 guard let selected else { return self }
                 next.cuts.remove(at: selected)
+                next.cutIDs.remove(at: selected)
                 next.selected = nil
             case .select(let index):
                 next.select(index)

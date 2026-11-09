@@ -22,20 +22,21 @@ struct RecordingPageTabPicker: View {
                 onBlocked()
             }
         }
-        return Picker(RecordingPageCopy.tabs, selection: selection) {
-            ForEach(RecordingPageTab.allCases) { tab in
-                Text(tab.label).tag(tab)
-            }
-        }
-        .pickerStyle(.segmented)
-        .labelsHidden()
-        .controlsColumn()
-        #if os(macOS)
-            .padding(.horizontal, MacStyle.pageMargin)
-            .padding(.top, MacStyle.headingGap)
-        #else
-            .padding(.horizontal, 16)
-            .padding(.top, 8)
-        #endif
+        return tabs(selection)
+            .controlsColumn()
+            #if os(macOS)
+                .padding(.horizontal, MacStyle.pageMargin)
+                .padding(.top, MacStyle.headingGap)
+            #else
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+            #endif
+    }
+
+    private func tabs(_ selection: Binding<RecordingPageTab>) -> some View {
+        PaneTabs(
+            selection: selection,
+            tabs: RecordingPageTab.allCases.map { PaneTab($0, title: $0.label, systemImage: $0.systemImage) },
+            title: RecordingPageCopy.tabs, macLook: .systemSegmented)
     }
 }

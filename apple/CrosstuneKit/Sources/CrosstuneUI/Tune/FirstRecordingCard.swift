@@ -90,15 +90,13 @@ struct FirstRecordingCard: View {
                 Label {
                     Text(Self.record)
                 } icon: {
-                    Circle()
-                        .fill(Palette.record)
-                        .frame(width: 10, height: 10)
+                    RecordDot()
                 }
             }
-            .modifier(StartCardButton())
+            .buttonStyle(.tinted)
         case .pasteLink:
             Button(Self.pasteLink) { actions.addLink?(detail.tune.id) }
-                .modifier(StartCardButton())
+                .buttonStyle(.tinted)
         case .find:
             Button(Self.findARecording) {
                 find.press()
@@ -106,18 +104,7 @@ struct FirstRecordingCard: View {
                     entry, for: detail, offline: offline, engine: engine, openSheet: actions.findRecordings,
                     open: { openURL($0) })
             }
-            .modifier(StartCardButton())
+            .buttonStyle(.tinted)
         }
-    }
-}
-
-/// The start card's buttons, in the platform's existing secondary style.
-private struct StartCardButton: ViewModifier {
-    func body(content: Content) -> some View {
-        #if os(macOS)
-            content.buttonStyle(.macSecondary)
-        #else
-            content.buttonStyle(.bordered)
-        #endif
     }
 }

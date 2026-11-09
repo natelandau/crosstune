@@ -22,6 +22,23 @@ final class TrimModel {
     /// Plays `settings` in place of the recording's own speed and pitch, or lets go with nil.
     typealias Hold = @MainActor (_ settings: PlaybackSettings?) -> Void
 
+    /// What Save does: closes the screen when nothing changed, or asks before writing.
+    enum SaveAction: Equatable {
+        case close
+        case confirm
+    }
+
+    /// A drag of the handles: where they were as it began, which a pinch that takes over puts
+    /// back, and the detail's window then, held while the drag is in the detail so the bars stay
+    /// still under the finger.
+    struct HandleDrag: Equatable {
+        let originStart: Int64
+        let originEnd: Int64
+        let heldWindow: ClosedRange<Double>?
+        /// Set once a pinch has taken over, after which the drag moves nothing.
+        var isCancelled = false
+    }
+
     /// The trim as written: an end of nil runs to the source end.
     struct Patch: Equatable {
         let trimStartMs: Int64
@@ -53,11 +70,11 @@ final class TrimModel {
     /// from the trim the screen opened on, so it writes nothing after, lest it cut the recording
     /// somewhere the musician did not choose or widen a trim made since.
     private(set) var isStale = false
-    /// Set when a pinch takes over a gesture begun with one finger, so that finger's drag or
-    /// seek comes to nothing.
-    private(set) var gestureCancelled = false
-    /// The handle the gesture under way drags, or nil when it seeks.
-    @ObservationIgnored private(set) var gestureHandle: Handle?
+    /// Set when a pinch takes over a seek begun with one finger, so that finger's seek comes to
+    /// nothing.
+    @ObservationIgnored private(set) var seekCancelled = false
+    /// The handle drag under way.
+    private(set) var handleDrag: HandleDrag?
 
     /// The row's trim when the screen opened.
     @ObservationIgnored private let opened: Patch
@@ -67,8 +84,7 @@ final class TrimModel {
     @ObservationIgnored private let hold: Hold
     @ObservationIgnored private let analytics: AnalyticsClient
     @ObservationIgnored private var isHolding = false
-    /// Where the handles were when the gesture under way began.
-    @ObservationIgnored private var gestureOrigin: (start: Int64, end: Int64)?
+    @ObservationIgnored private var isSeeking = false
     @ObservationIgnored private var pinchBase: Double?
 
     init(
@@ -128,6 +144,11 @@ final class TrimModel {
         zoom = clampedZoom(zoom * factor)
     }
 
+    /// Shows the whole range in the detail waveform.
+    func fit() {
+        zoom = 1
+    }
+
     /// The stretch of the source the detail waveform shows: centered on `center` (the focused
     /// handle by default), as wide as the zoom allows, and kept inside the bounds.
     func detailWindow(center: Double? = nil) -> ClosedRange<Double> {
@@ -139,33 +160,78 @@ final class TrimModel {
         return from...(from + width)
     }
 
-    // MARK: Gestures
-
-    /// Starts a gesture that drags `handle`, or seeks when nil, noting where the handles are
-    /// for a pinch that follows to put back.
-    func beginGesture(on handle: Handle?) {
-        gestureOrigin = (start, end)
-        gestureHandle = handle
-        gestureCancelled = false
-        if let handle { select(handle) }
+    /// The stretch the detail waveform shows now: the window a drag in it holds, or else
+    /// ``detailWindow(center:)``. A pinch that took the drag over lets go of the window, so the
+    /// detail follows the zoom.
+    var shownDetailWindow: ClosedRange<Double> {
+        guard let handleDrag, !handleDrag.isCancelled, let held = handleDrag.heldWindow else { return detailWindow() }
+        return held
     }
 
-    func endGesture() {
-        gestureOrigin = nil
-        gestureHandle = nil
+    /// `sourceMs` as the handles place it: seconds from the start of `bounds`.
+    func handleSeconds(_ sourceMs: Int64) -> Double {
+        HandleTime.seconds(sourceMs, from: bounds.lowerBound)
+    }
+
+    /// A handle's place, in seconds from the start of `bounds`, as a time in the source.
+    func sourceMs(handleSeconds seconds: Double) -> Int64 {
+        HandleTime.sourceMs(seconds, from: bounds.lowerBound)
+    }
+
+    // MARK: Gestures
+
+    /// Starts a press on the waveform that seeks where it ends.
+    func beginSeek() {
+        isSeeking = true
+        seekCancelled = false
+    }
+
+    func endSeek() {
+        isSeeking = false
+    }
+
+    /// The handles moved to `startMs` and `endMs` by a drag or a VoiceOver step. The first move
+    /// of a drag notes where the handles were, and with `holdsDetail` the detail's window, which
+    /// stays until ``commitHandles()``.
+    func moveHandles(startMs: Int64, endMs: Int64, holdsDetail: Bool) {
+        if handleDrag == nil {
+            handleDrag = HandleDrag(
+                originStart: start, originEnd: end, heldWindow: holdsDetail ? detailWindow() : nil)
+        }
+        guard handleDrag?.isCancelled == false else { return }
+        stepHandles(startMs: startMs, endMs: endMs)
+    }
+
+    /// The handles moved by an arrow key, which holds no window, so the detail follows the
+    /// handle it moves.
+    func stepHandles(startMs: Int64, endMs: Int64) {
+        if startMs != start { place(.start, startMs) }
+        if endMs != end { place(.end, endMs) }
+    }
+
+    /// The drag or the run of steps under way has ended where it left the handles.
+    func commitHandles() {
+        handleDrag = nil
+    }
+
+    /// Makes the handle nearer `ms` the one the detail follows, as a tap on a handle does.
+    func selectHandle(nearestMs ms: Int64) {
+        select(abs(ms - start) <= abs(ms - end) ? .start : .end)
     }
 
     /// Zooms to `magnification` of the zoom the pinch began at. A pinch begins with one finger,
-    /// which has already dragged a handle by the time the second lands, so the first change puts
-    /// the handles back and ends that finger's gesture.
+    /// which has already dragged a handle or begun a seek by the time the second lands, so the
+    /// first change puts the handles back and ends that finger's gesture.
     func pinch(_ magnification: Double) {
         if pinchBase == nil {
             pinchBase = zoom
-            if let gestureOrigin {
-                start = gestureOrigin.start
-                end = gestureOrigin.end
-                gestureCancelled = true
+            if var drag = handleDrag, !drag.isCancelled {
+                start = drag.originStart
+                end = drag.originEnd
+                drag.isCancelled = true
+                handleDrag = drag
             }
+            if isSeeking { seekCancelled = true }
         }
         zoom = clampedZoom((pinchBase ?? zoom) * magnification)
     }
@@ -204,6 +270,14 @@ final class TrimModel {
         let now = Patch(trimStartMs: row.trimStartMs, trimEndMs: row.trimEndMs)
         if now != opened && now != writing { isStale = true }
         return mustGiveWay
+    }
+
+    /// What a press on Save does. With a handle moved it asks before writing; with none moved
+    /// there is nothing to write, so the screen closes.
+    func pressSave() -> SaveAction {
+        guard isChanged else { return .close }
+        isConfirming = true
+        return .confirm
     }
 
     /// Writes the handles as they are, once, and leaves, returning whether it wrote. Writes

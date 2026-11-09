@@ -117,7 +117,7 @@ import Testing
             [
                 panelHeight(LoopsPanel(model: model, onDeleted: {})),
                 panelHeight(SpeedPanel(value: 100, onChange: { _ in })),
-                panelHeight(PitchPanel(value: 0, onChange: { _ in })),
+                panelHeight(PitchPanel(value: 0, split: .constant(PitchSplit(cents: 0)), onChange: { _ in })),
             ].max() ?? 0
         let narrowed = IsolateSetting(effect: .mute, panStart: -40, panEnd: -10, lowHz: 200, highHz: 4100)
         for isMono in [false, true] {

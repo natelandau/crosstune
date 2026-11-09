@@ -197,8 +197,24 @@ struct ListRowPlayButton: View {
                     playLabel: ListRowText.nowPlayingLabel(tuneTitle: entry.tune.title, isPlaying: false))
             }
         } else {
-            rowButton
+            RowDownloadGlyph(
+                isDownloading: isDownloading, readySymbol: readySymbol,
+                ringLabel: ListRowText.label(for: .downloading, tuneTitle: entry.tune.title, loaded: false) ?? ""
+            ) {
+                rowButton
+            }
         }
+    }
+
+    private var isDownloading: Bool {
+        if case .downloading? = action { true } else { false }
+    }
+
+    /// The symbol the row's button shows once a download ends.
+    private var readySymbol: String? {
+        guard let action, case .play = action else { return nil }
+        return ListRowPlay.symbol(
+            for: action, loaded: ListRowPlay.isLoaded(action) { player?.holds($0, id: $1) ?? false })
     }
 
     @ViewBuilder private var rowButton: some View {
@@ -206,12 +222,7 @@ struct ListRowPlayButton: View {
         case nil, .inert?:
             RowActionSlot.empty(holdingGlyphHeight: true)
         case .downloading?:
-            RowActionSlot {
-                RowProgressRing()
-                    .accessibilityElement()
-                    .accessibilityLabel(
-                        ListRowText.label(for: .downloading, tuneTitle: entry.tune.title, loaded: false) ?? "")
-            }
+            RowActionSlot.empty(holdingGlyphHeight: true)
         case let action?:
             let loaded = ListRowPlay.isLoaded(action) { player?.holds($0, id: $1) ?? false }
             if let symbol = ListRowPlay.symbol(for: action, loaded: loaded) {

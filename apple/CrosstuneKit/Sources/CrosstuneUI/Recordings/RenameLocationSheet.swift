@@ -80,9 +80,10 @@ struct RenameLocationSheet: View {
                             .disabled(isSaving)
                     }
                     ConfirmToolbarItem {
-                        Button(ListNameSheet.save, action: save)
-                            .fontWeight(.semibold)
-                            .disabled(isBlank || isSaving)
+                        AsyncButton(closesOnSuccess: true, action: store) {
+                            Text(ListNameSheet.save)
+                        }
+                        .disabled(isBlank)
                     }
                 }
                 .interactiveDismissDisabled(isSaving)
@@ -94,17 +95,20 @@ struct RenameLocationSheet: View {
     #endif
 
     private func save() {
-        guard !isBlank, !isSaving else { return }
+        Task { await store() }
+    }
+
+    /// Renames and closes, or keeps the sheet with the field focused to try again.
+    private func store() async {
+        guard !isBlank, !isSaving, !handled else { return }
         isSaving = true
-        Task {
-            let stored = await onRename(name)
-            isSaving = false
-            if stored {
-                handled = true
-                dismiss()
-            } else {
-                focused = true
-            }
+        let stored = await onRename(name)
+        isSaving = false
+        if stored {
+            handled = true
+            dismiss()
+        } else {
+            focused = true
         }
     }
 

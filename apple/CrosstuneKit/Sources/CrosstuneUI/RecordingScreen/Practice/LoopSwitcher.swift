@@ -34,22 +34,11 @@ struct LoopSwitcher: View {
         Button {
             model.step(direction)
         } label: {
-            #if os(macOS)
-                Label(name, systemImage: systemImage)
-                    .labelStyle(.iconOnly)
-            #else
-                Label(name, systemImage: systemImage)
-                    .labelStyle(.iconOnly)
-                    .font(.platform(.body))
-                    .frame(minWidth: PracticeLayout.target, minHeight: PracticeLayout.target)
-                    .contentShape(.rect)
-            #endif
+            Label(name, systemImage: systemImage)
+                .labelStyle(.iconOnly)
         }
-        #if os(macOS)
-            .buttonStyle(.mac(.icon, size: .small))
-        #else
-            .buttonStyle(.borderless)
-        #endif
+        .buttonStyle(.icon)
+        .controlSize(.small)
         .disabled(!model.canStep(direction) || disabledReason != nil)
         .help(name)
     }

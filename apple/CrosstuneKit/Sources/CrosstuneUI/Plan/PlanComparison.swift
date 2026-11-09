@@ -46,9 +46,12 @@ struct PlanComparison: View {
     private static let tabInset: CGFloat = 8
 
     @Environment(\.colorScheme) private var scheme
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     /// Grows with the text, so a value keeps one line at large sizes.
     @ScaledMetric(relativeTo: .subheadline) private var columnWidth: CGFloat = 84
     @ScaledMetric(relativeTo: .subheadline) private var tileSide: CGFloat = 26
+    /// The Premium column as laid out, which the tint band behind it matches.
+    @State private var premiumWidth: CGFloat?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -60,7 +63,7 @@ struct PlanComparison: View {
         }
         .background(alignment: .trailing) {
             premiumTint
-                .frame(width: columnWidth)
+                .frame(width: premiumWidth ?? columnWidth)
                 .padding(.top, Self.tabInset)
         }
         .planCard()
@@ -75,14 +78,21 @@ struct PlanComparison: View {
             Spacer(minLength: 0)
             Text(PlanText.compareFree)
                 .foregroundStyle(Palette.textSecondary)
-                .frame(width: columnWidth)
+                .modifier(ComparisonColumn(width: columnWidth))
                 .padding(.vertical, 6)
             Text(PlanText.comparePremium)
                 .foregroundStyle(Palette.onBrand)
-                .frame(width: columnWidth)
+                .modifier(ComparisonColumn(width: columnWidth))
                 .padding(.vertical, 6)
                 .background(Palette.brand, in: UnevenRoundedRectangle(topLeadingRadius: 8, topTrailingRadius: 8))
+                .onGeometryChange(for: CGFloat.self) { geometry in
+                    geometry.size.width
+                } action: { width in
+                    premiumWidth = width
+                }
         }
+        .lineLimit(1)
+        .minimumScaleFactor(0.5)
         .font(.platform(.footnote).weight(.semibold))
         .fixedSize(horizontal: false, vertical: true)
         .padding(.top, Self.tabInset)
@@ -90,26 +100,55 @@ struct PlanComparison: View {
         .accessibilityHidden(true)
     }
 
+    /// A feature beside its two cells, or at the accessibility text sizes, where the columns leave
+    /// the title too narrow to read, the title across the card over its cells.
+    @ViewBuilder
     private func row(_ feature: PlanSheet.Feature) -> some View {
-        HStack(spacing: 0) {
-            HStack(spacing: 10) {
-                FeatureTile(symbol: feature.symbol, side: tileSide, font: .platform(.footnote).weight(.semibold))
-                Text(feature.title)
-                    .font(.platform(.subheadline, mac: .body))
-                    .fixedSize(horizontal: false, vertical: true)
+        if dynamicTypeSize.isAccessibilitySize {
+            VStack(spacing: 0) {
+                featureTitle(feature)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    // Covers the Premium band, so the title reads on the card's own fill.
+                    .background(Palette.groupedSurface)
+                HStack(spacing: 0) {
+                    Spacer(minLength: 0)
+                    cells(feature)
+                }
+                .padding(.vertical, 8)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.leading, 12)
-            .padding(.vertical, 8)
-            cell(feature.free, column: PlanText.compareFree, premium: false)
-                .frame(width: columnWidth)
-                .frame(maxHeight: .infinity)
-            cell(feature.premium, column: PlanText.comparePremium, premium: true)
-                .frame(width: columnWidth)
-                .frame(maxHeight: .infinity)
+            .accessibilityElement(children: .combine)
+        } else {
+            HStack(spacing: 0) {
+                featureTitle(feature)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.leading, 12)
+                    .padding(.vertical, 8)
+                cells(feature)
+            }
+            .fixedSize(horizontal: false, vertical: true)
+            .accessibilityElement(children: .combine)
         }
-        .fixedSize(horizontal: false, vertical: true)
-        .accessibilityElement(children: .combine)
+    }
+
+    private func featureTitle(_ feature: PlanSheet.Feature) -> some View {
+        HStack(spacing: 10) {
+            FeatureTile(symbol: feature.symbol, side: tileSide, font: .platform(.footnote).weight(.semibold))
+            Text(feature.title)
+                .font(.platform(.subheadline, mac: .body))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    @ViewBuilder
+    private func cells(_ feature: PlanSheet.Feature) -> some View {
+        cell(feature.free, column: PlanText.compareFree, premium: false)
+            .modifier(ComparisonColumn(width: columnWidth))
+            .frame(maxHeight: .infinity)
+        cell(feature.premium, column: PlanText.comparePremium, premium: true)
+            .modifier(ComparisonColumn(width: columnWidth))
+            .frame(maxHeight: .infinity)
     }
 
     @ViewBuilder
@@ -133,8 +172,19 @@ struct PlanComparison: View {
                 .monospacedDigit()
                 .foregroundStyle(valueColor)
                 .multilineTextAlignment(.center)
+                .minimumScaleFactor(0.5)
                 .accessibilityLabel("\(column), \(amount)")
         }
+    }
+}
+
+/// A Free or Premium column: `width` wide while the row has room, and narrower at the largest
+/// text sizes, where two scaled columns would push the table past the screen's edge.
+private struct ComparisonColumn: ViewModifier {
+    let width: CGFloat
+
+    func body(content: Content) -> some View {
+        content.frame(minWidth: 0, idealWidth: width, maxWidth: width)
     }
 }
 
@@ -180,7 +230,7 @@ private struct PlanCard: ViewModifier {
         #else
             content
                 .background(fill)
-                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .clipShape(RoundedRectangle(cornerRadius: ControlMetrics.containerRadius))
         #endif
     }
 

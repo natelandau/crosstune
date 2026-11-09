@@ -227,13 +227,15 @@ private struct ImportContent: View {
                 ConfirmToolbarItem {
                     switch model.step {
                     case .paste:
-                        Button(ImportCopy.continueAction) { Task { await model.continueToReview() } }
-                            .fontWeight(.semibold)
-                            .disabled(!model.canContinue)
+                        AsyncButton(closesOnSuccess: true, action: model.continueToReview) {
+                            Text(ImportCopy.continueAction)
+                        }
+                        .disabled(!model.hasTextToReview)
                     case .review:
-                        Button(model.addLabel, action: add)
-                            .fontWeight(.semibold)
-                            .disabled(!model.canAdd)
+                        AsyncButton(closesOnSuccess: true, action: addTunes) {
+                            Text(model.addLabel)
+                        }
+                        .disabled(!model.hasTunesToAdd)
                     }
                 }
             }
@@ -259,7 +261,7 @@ private struct ImportContent: View {
                     }
             }
             Section {
-                Button(ImportCopy.openFile, systemImage: "folder") { importing = true }
+                Button(ImportCopy.openFile) { importing = true }
                     .disabled(!model.canOpenFile)
             }
             Section {
@@ -334,11 +336,15 @@ private struct ImportContent: View {
     }
 
     private func add() {
-        Task {
-            guard let added = try? await model.add(), added > 0 else { return }
-            dismiss()
-            AccessibilityNotification.Announcement(ImportCopy.addedTunes(added)).post()
-        }
+        Task { try? await addTunes() }
+    }
+
+    /// Adds the checked rows and closes, or keeps the sheet with the reason at its top.
+    private func addTunes() async throws {
+        let added = try await model.add()
+        guard added > 0 else { return }
+        dismiss()
+        AccessibilityNotification.Announcement(ImportCopy.addedTunes(added)).post()
     }
 
     #if os(macOS)
@@ -410,21 +416,13 @@ private struct ImportReviewRow: View {
     var body: some View {
         let title = row.title.trimmingCharacters(in: .whitespacesAndNewlines)
         HStack(alignment: .firstTextBaseline, spacing: 12) {
-            Toggle(
-                ImportCopy.include(title.isEmpty ? row.source : title),
+            IncludedCheck(
+                label: ImportCopy.include(title.isEmpty ? row.source : title),
                 isOn: Binding {
                     row.included
                 } set: {
                     model.setIncluded($0, row: row.id)
-                }
-            )
-            .contentMask()
-            .labelsHidden()
-            #if os(macOS)
-                .toggleStyle(.macCheckbox)
-            #else
-                .toggleStyle(CheckSquareToggleStyle())
-            #endif
+                })
             VStack(alignment: .leading, spacing: 2) {
                 TextField(
                     TuneFieldLabels.title,
@@ -458,24 +456,34 @@ private struct ImportReviewRow: View {
     }
 }
 
-#if os(iOS)
-    /// A square check, so an included row never reads as a status, whose glyphs are circles.
-    private struct CheckSquareToggleStyle: ToggleStyle {
-        func makeBody(configuration: Configuration) -> some View {
+/// Whether a candidate is added: the Mac's checkbox, or a selection mark in a full touch target.
+private struct IncludedCheck: View {
+    let label: String
+    @Binding var isOn: Bool
+
+    var body: some View {
+        #if os(macOS)
+            Toggle(label, isOn: $isOn)
+                .contentMask()
+                .labelsHidden()
+                .toggleStyle(.macCheckbox)
+        #else
             Button {
-                configuration.isOn.toggle()
+                isOn.toggle()
             } label: {
-                Image(systemName: configuration.isOn ? "checkmark.square.fill" : "square")
-                    .imageScale(.large)
-                    .foregroundStyle(configuration.isOn ? AnyShapeStyle(Palette.accent) : .textSecondary)
-                    // A borderless button takes taps only within its label, so the label fills the target.
-                    .frame(minWidth: minimumTapTarget, minHeight: minimumTapTarget)
-                    .contentShape(.rect)
+                ZStack {
+                    // Gives the mark the body text's baseline, so it lines up with the title.
+                    Text(verbatim: " ").hidden()
+                    SelectionMark(.multiple(isOn: isOn))
+                }
+                .frame(minWidth: minimumTapTarget, minHeight: minimumTapTarget)
+                .contentShape(.rect)
             }
-            .buttonStyle(.borderless)
+            .buttonStyle(.labelOnly)
             .accessibilityRepresentation {
-                Toggle(isOn: configuration.$isOn) { configuration.label }
+                Toggle(label, isOn: $isOn)
             }
-        }
+            .contentMask()
+        #endif
     }
-#endif
+}

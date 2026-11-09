@@ -237,11 +237,11 @@ private let noLoopWrites = LoopWriter(
     /// A page whose practice is still being made shows neither the controls nor the plan's
     /// lock, so a paying musician never sees Subscribe to play while the page opens.
     @Test func aPageWaitingForItsPracticeShowsNoLock() {
-        #expect(RecordingPlayBar.shown(hasPractice: false, blockedReason: nil) == .waiting)
-        #expect(RecordingPlayBar.shown(hasPractice: true, blockedReason: nil) == .controls)
+        #expect(RecordingPracticeArea.shown(hasPractice: false, blockedReason: nil) == .waiting)
+        #expect(RecordingPracticeArea.shown(hasPractice: true, blockedReason: nil) == .controls)
         let reason = RecordingText.subscribeToPlay
-        #expect(RecordingPlayBar.shown(hasPractice: false, blockedReason: reason) == .blocked(reason))
-        #expect(RecordingPlayBar.shown(hasPractice: true, blockedReason: reason) == .blocked(reason))
+        #expect(RecordingPracticeArea.shown(hasPractice: false, blockedReason: reason) == .blocked(reason))
+        #expect(RecordingPracticeArea.shown(hasPractice: true, blockedReason: reason) == .blocked(reason))
     }
 
     @Test func aRefusedPracticePickSelectsNothing() {
@@ -370,10 +370,6 @@ private let noLoopWrites = LoopWriter(
         var elsewhere = ready
         elsewhere.state = "pending_upload"
         #expect(reason(elsewhere, file: nil) != nil)
-
-        let model = practice("b")
-        #expect(RecordingPlayBar.canPlay(model, unavailableReason: nil))
-        #expect(!RecordingPlayBar.canPlay(model, unavailableReason: SyncStatus.offlineLabel))
     }
 
     // MARK: Playback on the page
@@ -391,7 +387,7 @@ private let noLoopWrites = LoopWriter(
         PracticeModel(player: player, recording: pageRecording(id), file: nil, writer: noLoopWrites, page: page.screen)
     }
 
-    /// Plays `id` from its page, as the Details play bar and the practice transport do.
+    /// Plays `id` from its page, as the practice transport does.
     private func playOnPage(_ id: String) async throws -> (RecordingPageModel, PracticeModel) {
         let page = shownPage(id)
         let model = practice(id, on: page)
@@ -439,9 +435,9 @@ private let noLoopWrites = LoopWriter(
     }
 
     @Test func detailsCarryListControlsOnlyWhileThePageRecordingIsLoaded() async throws {
-        #expect(!RecordingPlayBar.showsListControls(isCurrent: false))
+        #expect(!RecordingPageArrangement.showsListControls(isCurrent: false))
         let (page, _) = try await playOnPage("b")
-        #expect(RecordingPlayBar.showsListControls(isCurrent: practice("b", on: page).isCurrent))
+        #expect(RecordingPageArrangement.showsListControls(isCurrent: practice("b", on: page).isCurrent))
     }
 
     @Test func leavingThePageStopsThePlaybackStartedOnIt() async throws {

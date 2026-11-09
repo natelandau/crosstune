@@ -581,7 +581,7 @@ private struct RecordingsContent: View {
             .frame(minHeight: PageStyle.lineButtonHeight)
             .contentShape(.rect)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.labelOnly)
         .matchedTransitionSource(id: tune.tuneID, in: zoom)
         .accessibilityAddTraits(.isHeader)
         .selectionDisabled()

@@ -99,10 +99,11 @@ final class FeatureCaptures: CaptureTestCase {
         let app = launchMarketing()
         openPractice(app)
         button(app, startingWith: "Pitch").tap()
-        let up = shown(app.buttons["Up a semitone"])
+        let semitones = shown(app.descendants(matching: .any)["Semitones"])
+        // The center of the stepper's 44 point plus half, at its trailing end.
         let timeline = sceneStart()
-        timeline.tap(up)
-        timeline.tap(up)
+        timeline.tap(semitones, trailingInset: 22)
+        timeline.tap(semitones, trailingInset: 22)
         sceneEnd(timeline)
     }
 

@@ -35,8 +35,8 @@ public struct AccountView: View {
                 }
                 .navigationTitle(AccountSections.title)
                 .toolbar {
-                    ConfirmToolbarItem {
-                        Button(Self.done) { dismiss() }
+                    ToolbarItem(placement: .cancellationAction) {
+                        SheetCloseButton { dismiss() }
                     }
                 }
             }

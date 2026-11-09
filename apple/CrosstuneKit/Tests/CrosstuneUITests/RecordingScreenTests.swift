@@ -1,5 +1,6 @@
 import CrosstuneAudio
 import CrosstuneCommands
+import CrosstuneDesign
 import CrosstuneStore
 import CrosstuneTestSupport
 import CrosstuneVocabulary
@@ -539,14 +540,18 @@ private final class Writes {
         #expect(trimmedRows.trimmedLengthMs == 184_000)
     }
 
-    @Test func theSpeedAndPitchSegmentsNameTheirValuesOffDefault() {
+    @Test func theSpeedAndPitchTabsNameTheirValuesOffDefault() {
         #expect(PracticeMode.allCases == [.speed, .pitch, .isolate, .loops])
-        #expect(PracticeMode.loops.title(speedPercent: 75, pitchCents: 200, isolate: .standard) == "Loops")
-        #expect(PracticeMode.speed.title(speedPercent: 100, pitchCents: 0, isolate: .standard) == "Speed")
-        #expect(PracticeMode.speed.title(speedPercent: 75, pitchCents: 0, isolate: .standard) == "Speed 75%")
-        #expect(PracticeMode.pitch.title(speedPercent: 100, pitchCents: 0, isolate: .standard) == "Pitch")
-        #expect(PracticeMode.pitch.title(speedPercent: 100, pitchCents: 200, isolate: .standard) == "Pitch +2")
-        #expect(PracticeText.segment("Speed", value: nil) == "Speed")
+        #expect(spokenTab(.loops, speedPercent: 75, pitchCents: 200) == "Loops")
+        #expect(spokenTab(.speed, speedPercent: 100, pitchCents: 0) == "Speed")
+        #expect(spokenTab(.speed, speedPercent: 75, pitchCents: 0) == "Speed 75%")
+        #expect(spokenTab(.pitch, speedPercent: 100, pitchCents: 0) == "Pitch")
+        #expect(spokenTab(.pitch, speedPercent: 100, pitchCents: 200) == "Pitch +2")
+    }
+
+    private func spokenTab(_ mode: PracticeMode, speedPercent: Int, pitchCents: Int) -> String {
+        let tab = mode.tab(speedPercent: speedPercent, pitchCents: pitchCents, isolate: .standard)
+        return PaneTab<PracticeMode>.label(title: tab.title, valueText: tab.valueText)
     }
 
     @Test func aRecordingStillCapturingDisablesTheWaveformTransportAndModesWithTheReason() {
@@ -643,6 +648,20 @@ private final class Writes {
         #expect(split.semitones == -3 && split.cents == -50)
         #expect(PitchSplit(cents: 1200).with(semitones: 13).value == 1200)
         #expect(PitchSplit(cents: 1180).with(cents: 50).value == 1200)
+    }
+
+    /// A mode change rebuilds the Pitch panel, so the split lives in the mode controls, which
+    /// stay, and the panel only binds to it.
+    @Test func thePitchSplitOutlivesTheRebuiltPitchPanel() throws {
+        let modes = SourceScan.withoutComments(
+            try SourceScan.text(at: SourceScan.url(of: "RecordingScreen/Practice/PracticeMode.swift")))
+        let panel = SourceScan.withoutComments(
+            try SourceScan.text(at: SourceScan.url(of: "RecordingScreen/PitchPanel.swift")))
+        #expect(modes.contains("@State private var pitchSplit: PitchSplit"))
+        #expect(modes.contains("pitchSplit.follow(model.pitchCents)"))
+        #expect(modes.contains("split: $pitchSplit"))
+        #expect(panel.contains("@Binding var split: PitchSplit"))
+        #expect(!panel.contains("@State"))
     }
 
     @Test func saysWhyTrimCannotBeUsed() {

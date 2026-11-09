@@ -324,7 +324,7 @@ private struct ScanViewerBody: View {
                     toggle(ScanCopy.zoom, systemImage: "plus.magnifyingglass", isOn: zoomed)
                     toggle(ScanCopy.invert, systemImage: "circle.lefthalf.filled", isOn: $invert)
                 }
-                Button(ScanCopy.close, action: close)
+                Button(SheetCloseButton.close, action: close)
                     .buttonStyle(.macSecondary)
                     .padding(.leading, 4)
             } content: {
@@ -388,17 +388,15 @@ private struct ScanViewerBody: View {
                     .accessibilityLabel("\(title) \(ScanCopy.scans.lowercased())")
                     .toolbar {
                         ToolbarItem(placement: .cancellationAction) {
-                            Button(role: .close) { dismiss() }
+                            SheetCloseButton { dismiss() }
                         }
                         ToolbarItemGroup(placement: .primaryAction) {
                             Toggle(isOn: zoomed) {
                                 Label(ScanCopy.zoom, systemImage: "plus.magnifyingglass")
                             }
-                            .toggleStyle(.button)
                             Toggle(isOn: $invert) {
                                 Label(ScanCopy.invert, systemImage: "circle.lefthalf.filled")
                             }
-                            .toggleStyle(.button)
                         }
                     }
             }
@@ -542,11 +540,7 @@ struct ScanSlide: View {
                 .foregroundStyle(invert ? Color.white : Palette.textPrimary)
             if let onDelete {
                 Button(ScanCopy.delete, role: .destructive, action: onDelete)
-                    #if os(macOS)
-                        .buttonStyle(.macDestructive)
-                    #else
-                        .buttonStyle(.bordered)
-                    #endif
+                    .buttonStyle(.tinted)
                     .accessibilityLabel(ScanCopy.deleteScan(index))
             }
         }

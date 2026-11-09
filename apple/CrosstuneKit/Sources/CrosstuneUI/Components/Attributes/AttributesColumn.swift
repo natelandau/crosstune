@@ -392,8 +392,9 @@ private struct AttributesCard<ID: Hashable, Row: View, Failure: View>: View {
                     .rotationEffect(.degrees(expanded ? 180 : 0))
                     .accessibilityHidden(true)
             }
+            .attributeRowInsets(column: false)
         }
-        .buttonStyle(AttributeRowStyle(column: false))
+        .attributeRowButton(column: false)
         .accessibilityValue(MoreDetailsText.state(expanded: expanded))
     }
 }
@@ -428,8 +429,9 @@ struct AttributeRowButton<ID: Hashable>: View {
     var body: some View {
         Button(action: action) {
             AttributeRowContent(row: row, layout: layout, arrangement: arrangement, emptyText: emptyText)
+                .attributeRowInsets(column: layout == .column)
         }
-        .buttonStyle(AttributeRowStyle(column: layout == .column))
+        .attributeRowButton(column: layout == .column)
         .accessibilityLabel(row.accessibilityLabel(emptyText: emptyText))
     }
 }
@@ -443,7 +445,8 @@ private struct AttributeRowText<ID: Hashable>: View {
 
     var body: some View {
         AttributeRowContent(row: row, layout: layout, arrangement: arrangement, emptyText: emptyText)
-            .modifier(AttributeRowFrame(column: layout == .column))
+            .attributeRowInsets(column: layout == .column)
+            .attributeRowMargin(column: layout == .column)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(row.accessibilityLabel(emptyText: emptyText))
     }
@@ -566,49 +569,23 @@ private struct AttributeColumnRowText<ID: Hashable>: View {
     }
 }
 
-/// An attribute row: label leading, value trailing, and a tint under the pointer or the press. A
-/// column row is inset, so its tint reads as a rounded shape on the open page background; a card
-/// row fills the card's width.
-private struct AttributeRowStyle: ButtonStyle {
-    let column: Bool
-
-    func makeBody(configuration: Configuration) -> some View {
-        AttributeRowBody(configuration: configuration, column: column)
-    }
-}
-
-private struct AttributeRowBody: View {
-    let configuration: ButtonStyle.Configuration
-    let column: Bool
-
-    @State private var isHovered = false
-
-    var body: some View {
-        configuration.label
-            .modifier(
-                AttributeRowFrame(
-                    column: column, isTinted: isHovered || configuration.isPressed,
-                    onHover: {
-                        isHovered = $0
-                    }))
-    }
-}
-
-/// A row's insets, height, and the tint it takes under the pointer or the press.
-private struct AttributeRowFrame: ViewModifier {
-    let column: Bool
-    var isTinted = false
-    var onHover: ((Bool) -> Void)?
-
-    func body(content: Content) -> some View {
-        let shape = RoundedRectangle(cornerRadius: column ? PageStyle.attributeRowRadius : 0)
-        content
-            .padding(.horizontal, column ? AttributesLayout.columnRowPadding : PageStyle.attributesCardInset)
+extension View {
+    /// An attribute row's insets and height. A column row is inset, so the tint a press draws
+    /// reads as a rounded shape on the open page background; a card row fills the card's width.
+    fileprivate func attributeRowInsets(column: Bool) -> some View {
+        padding(.horizontal, column ? AttributesLayout.columnRowPadding : PageStyle.attributesCardInset)
             .frame(maxWidth: .infinity, minHeight: PageStyle.attributeRowHeight, alignment: .leading)
-            .background(isTinted ? Palette.field : .clear, in: shape)
-            .contentShape(shape)
-            .onHover { onHover?($0) }
-            .padding(.horizontal, column ? AttributesLayout.columnRowMargin : 0)
+    }
+
+    /// The margin around a column row, outside its tint.
+    fileprivate func attributeRowMargin(column: Bool) -> some View {
+        padding(.horizontal, column ? AttributesLayout.columnRowMargin : 0)
+    }
+
+    /// A row that opens something: its insets, the row highlight, and its margin.
+    fileprivate func attributeRowButton(column: Bool) -> some View {
+        buttonStyle(.rowHighlight(radius: column ? PageStyle.attributeRowRadius : 0))
+            .attributeRowMargin(column: column)
     }
 }
 

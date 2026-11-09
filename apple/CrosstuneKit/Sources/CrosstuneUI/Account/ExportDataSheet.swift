@@ -116,10 +116,19 @@ public struct ExportDataSheet: View {
                                 .foregroundStyle(Palette.danger)
                         }
                     }
-                    Section {
-                        Button(Self.action) { model.start() }
-                            .disabled(!model.canStart)
+                }
+                .sheetActions {
+                    AsyncButton {
+                        // A refused start, such as one that needs a connection, is told by the note.
+                        guard let run = model.start() else { throw FailureShownElsewhere() }
+                        await run.value
+                        if model.failure != nil { throw FailureShownElsewhere() }
+                    } label: {
+                        Text(Self.action)
                     }
+                    .disabled(!model.isReady)
+                } secondary: {
+                    EmptyView()
                 }
                 .navigationTitle(Self.title)
                 .navigationBarTitleDisplayMode(.inline)

@@ -225,7 +225,7 @@
             #expect(Self.purchaseViolations("MacSheetAction(PlanText.go, action: onSubscribe)") == 1)
             #expect(Self.purchaseViolations("secondary: .init(\"Go\", isDefault: false) {\n    macSubscribe()\n}") == 1)
             #expect(Self.purchaseViolations(".subscribe(title: PlanText.subscribe, action: subscribe)") == 0)
-            #expect(Self.purchaseViolations("primary: .init(PlanSheet.close, action: close)") == 0)
+            #expect(Self.purchaseViolations("primary: .init(SheetCloseButton.close, action: close)") == 0)
             #expect(
                 Self.purchaseViolations("MacSheetAction(PlanText.restore) { Task { await purchase.restore() } }") == 0)
         }

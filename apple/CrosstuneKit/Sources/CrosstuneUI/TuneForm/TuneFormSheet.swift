@@ -210,9 +210,10 @@ private struct TuneFormContent: View {
                     }
                     if model.phase == .ready {
                         ConfirmToolbarItem {
-                            Button(TuneFormSheet.save) { save() }
-                                .fontWeight(.semibold)
-                                .disabled(!model.canSave)
+                            AsyncButton(closesOnSuccess: true, action: store) {
+                                Text(TuneFormSheet.save)
+                            }
+                            .disabled(!model.hasTitle)
                         }
                     }
                 }
@@ -344,13 +345,16 @@ private struct TuneFormContent: View {
     }
 
     private func save() {
-        Task {
-            guard let tuneID = await model.save() else {
-                if model.validation != nil { titleFocused = true }
-                return
-            }
-            onSaved(tuneID)
-            dismiss()
+        Task { await store() }
+    }
+
+    /// Saves and closes, or keeps the form with the reason shown.
+    private func store() async {
+        guard let tuneID = await model.save() else {
+            if model.validation != nil { titleFocused = true }
+            return
         }
+        onSaved(tuneID)
+        dismiss()
     }
 }

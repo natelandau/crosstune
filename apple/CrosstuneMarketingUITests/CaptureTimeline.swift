@@ -45,6 +45,16 @@ final class CaptureTimeline {
         Thread.sleep(forTimeInterval: Self.pause)
     }
 
+    /// Logs and taps a point `inset` points in from the element's trailing edge, centered
+    /// vertically, for a control whose parts are not elements of their own.
+    func tap(_ element: XCUIElement, trailingInset inset: CGFloat) {
+        let frame = element.frame
+        log(frame.maxX - inset, frame.midY)
+        element.coordinate(withNormalizedOffset: CGVector(dx: 1, dy: 0.5)).withOffset(CGVector(dx: -inset, dy: 0))
+            .tap()
+        Thread.sleep(forTimeInterval: Self.pause)
+    }
+
     /// Logs where a press-and-drag starts, then drags between two points in the element's frame.
     func drag(_ element: XCUIElement, from: CGVector, to: CGVector, hold: TimeInterval = 0.05) {
         let frame = element.frame

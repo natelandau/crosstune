@@ -72,8 +72,12 @@ public final class TuneFormModel {
 
     /// Whether the primary action can run: nothing pending, and a title to save.
     public var canSave: Bool {
-        phase == .ready && !isSaving && !isSaved
-            && !values.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        phase == .ready && !isSaving && !isSaved && hasTitle
+    }
+
+    /// Whether the form holds a title, the one input whose absence disables Save.
+    public var hasTitle: Bool {
+        !values.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     /// Type suggestions for the genre the form holds.

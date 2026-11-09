@@ -11,9 +11,7 @@ struct ImportHelp: View {
                 .font(MacStyle.body)
                 .foregroundStyle(Palette.accent)
         #else
-            Link(destination: Self.destination) {
-                Label(ImportCopy.whatCanIPaste, systemImage: "questionmark.circle")
-            }
+            Link(ImportCopy.whatCanIPaste, destination: Self.destination)
         #endif
     }
 }

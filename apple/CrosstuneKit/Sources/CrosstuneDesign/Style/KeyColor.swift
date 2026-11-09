@@ -72,6 +72,11 @@ public enum KeyColor {
         }
     }
 
+    /// The pill colors for `key`'s pitch class, or nil for a key with none.
+    public static func pillColors(key: String, scheme: ColorScheme, chosen: Bool) -> PillColors? {
+        pitchClass(key).map { pillColors(pitchClass: $0, scheme: scheme, chosen: chosen) }
+    }
+
     /// The pill's colors for a pitch class. Choosing a key changes only the weight, never the
     /// hue, so a key never looks like a different key when it is chosen.
     public static func pillColors(pitchClass: Int, scheme: ColorScheme, chosen: Bool) -> PillColors {

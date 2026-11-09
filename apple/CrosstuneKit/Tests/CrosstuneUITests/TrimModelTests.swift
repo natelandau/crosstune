@@ -83,6 +83,13 @@ private final class Holds {
         #expect(trim.focus == .start)
     }
 
+    @Test func handleSecondsCountFromTheStartOfTheBounds() {
+        let trim = model(row(trimStartMs: 5000, trimEndMs: 40_000))
+        #expect(trim.handleSeconds(7500) == 2.5)
+        #expect(trim.sourceMs(handleSeconds: 2.5004) == 7500)
+        #expect(trim.sourceMs(handleSeconds: trim.handleSeconds(12_345)) == 12_345)
+    }
+
     @Test func startsATrimmedRowOnItsCurrentTrim() {
         let trim = model(row(trimStartMs: 5000, trimEndMs: 40_000))
         #expect(trim.bounds == 5000...40_000)
@@ -208,6 +215,15 @@ private final class Holds {
         #expect(writes.made.count == 1)
     }
 
+    @Test func saveWithNoChangeCloses() {
+        let trim = model()
+        #expect(trim.pressSave() == .close)
+        #expect(!trim.isConfirming)
+        trim.drag(.start, to: 4000)
+        #expect(trim.pressSave() == .confirm)
+        #expect(trim.isConfirming)
+    }
+
     @Test func saveWritesNothingUntilAHandleMoves() async throws {
         let trim = model()
         try await trim.save()
@@ -298,28 +314,104 @@ private final class Holds {
     @Test func aPinchPutsBackWhatItsFirstFingerMoved() {
         let trim = model()
         trim.select(.end)
-        trim.beginGesture(on: .start)
-        #expect(trim.gestureHandle == .start)
+        trim.moveHandles(startMs: 8000, endMs: 60_000, holdsDetail: true)
         #expect(trim.focus == .start)
-        trim.drag(.start, to: 8000)
-        #expect(!trim.gestureCancelled)
+        #expect(trim.start == 8000)
         trim.pinch(2)
         #expect(trim.start == 0)
-        #expect(trim.gestureCancelled)
         #expect(trim.zoom == 12)
+        // The finger's later moves come to nothing until its drag ends.
+        trim.moveHandles(startMs: 9000, endMs: 60_000, holdsDetail: true)
+        #expect(trim.start == 0)
         trim.pinch(0.5)
         #expect(trim.zoom == 3)
         trim.endPinch()
-        trim.endGesture()
-        #expect(trim.gestureHandle == nil)
+        trim.commitHandles()
+        #expect(trim.handleDrag == nil)
 
         // A pinch with no finger on a handle, as a trackpad makes, moves no handle.
         trim.drag(.start, to: 5000)
         trim.pinch(2)
         #expect(trim.start == 5000)
         trim.endPinch()
-        trim.beginGesture(on: nil)
-        #expect(!trim.gestureCancelled)
+    }
+
+    @Test func theDetailFollowsTheZoomOnceAPinchEndsADrag() {
+        let trim = model()
+        trim.moveHandles(startMs: 8000, endMs: 60_000, holdsDetail: true)
+        let held = trim.shownDetailWindow
+        #expect(held == trim.handleDrag?.heldWindow)
+        trim.pinch(2)
+        #expect(trim.shownDetailWindow == trim.detailWindow())
+        #expect(trim.shownDetailWindow != held)
+        trim.endPinch()
+    }
+
+    @Test func aPinchCancelsTheSeekItsFirstFingerBegan() {
+        let trim = model()
+        trim.beginSeek()
+        #expect(!trim.seekCancelled)
+        trim.pinch(2)
+        #expect(trim.seekCancelled)
+        trim.endPinch()
+        trim.endSeek()
+        trim.beginSeek()
+        #expect(!trim.seekCancelled)
+    }
+
+    @Test func aDragInTheDetailHoldsItsWindowUntilItEnds() {
+        let trim = model()
+        let opening = trim.detailWindow()
+        trim.moveHandles(startMs: 0, endMs: 55_000, holdsDetail: true)
+        #expect(trim.focus == .end)
+        #expect(trim.shownDetailWindow == opening)
+        trim.commitHandles()
+        #expect(trim.shownDetailWindow == trim.detailWindow())
+        #expect(trim.shownDetailWindow != opening)
+    }
+
+    @Test func aDragInTheOverviewLetsTheDetailFollow() {
+        let trim = model()
+        trim.moveHandles(startMs: 0, endMs: 55_000, holdsDetail: false)
+        #expect(trim.shownDetailWindow == trim.detailWindow(center: 55_000))
+        trim.commitHandles()
+    }
+
+    @Test func keyStepsMoveTheHandleWithoutHoldingTheDetail() {
+        let trim = model()
+        trim.stepHandles(startMs: 100, endMs: 60_000)
+        #expect(trim.start == 100)
+        #expect(trim.handleDrag == nil)
+        trim.stepHandles(startMs: 100, endMs: 59_900)
+        #expect(trim.end == 59_900)
+        #expect(trim.focus == .end)
+    }
+
+    @Test func aDragTheSystemTookAwayPutsTheHandleBack() {
+        let trim = model()
+        trim.moveHandles(startMs: 7000, endMs: 60_000, holdsDetail: false)
+        // The handles report the span the drag began with.
+        trim.moveHandles(startMs: 0, endMs: 60_000, holdsDetail: false)
+        trim.commitHandles()
+        #expect(trim.start == 0)
+        #expect(!trim.isChanged)
+    }
+
+    @Test func aTapOnAHandleMakesItTheOneTheDetailFollows() {
+        let trim = placed(start: 10_000, end: 40_000)
+        trim.selectHandle(nearestMs: 39_000)
+        #expect(trim.focus == .end)
+        trim.selectHandle(nearestMs: 11_000)
+        #expect(trim.focus == .start)
+    }
+
+    @Test func fitShowsTheWholeRangeInTheDetail() {
+        let trim = model()
+        #expect(trim.canZoomOut)
+        trim.fit()
+        #expect(trim.zoom == 1)
+        #expect(!trim.canZoomOut)
+        #expect(trim.detailWindow() == 0...60_000)
     }
 
     @Test func formatsTheReadoutsAndTheQuestion() {

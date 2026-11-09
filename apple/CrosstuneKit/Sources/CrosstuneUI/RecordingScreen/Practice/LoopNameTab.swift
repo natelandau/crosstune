@@ -124,7 +124,7 @@ struct LoopSuggestions: View {
             ScrollView(.horizontal) {
                 HStack(spacing: spacing.chipGap) {
                     ForEach(suggestions, id: \.self) { label in
-                        ChoiceCapsule(chosen: false) {
+                        Chip(.choice(isChosen: false)) {
                             model.commitRename(label, for: id)
                         } label: {
                             Text(label)
@@ -137,7 +137,7 @@ struct LoopSuggestions: View {
             .scrollIndicators(.never)
             .accessibilityLabel(PracticeText.suggestions)
         } else {
-            ChoiceCapsule(chosen: false) {
+            Chip(.choice(isChosen: false)) {
             } label: {
                 Text(PracticeText.suggestions)
             }

@@ -1,14 +1,12 @@
-import CrosstuneDesign
-
 #if os(macOS)
     import SwiftUI
 
     /// A stepper pill, `[ − | value | + ]`, on the field fill. One keyboard stop whose arrows
     /// step the value, and one VoiceOver element that is adjustable; the halves take the pointer.
-    struct MacStepper: View {
-        static let height: CGFloat = 28
-        static let halfWidth: CGFloat = 28
-        static let valueMinWidth: CGFloat = 44
+    package struct MacStepper: View {
+        package static let height: CGFloat = 28
+        package static let halfWidth: CGFloat = 28
+        package static let valueMinWidth: CGFloat = 44
 
         private let value: String
         private let decrement: () -> Void
@@ -19,7 +17,7 @@ import CrosstuneDesign
 
         @FocusState private var focused: Bool
 
-        init(
+        package init(
             value: String, decrement: @escaping () -> Void, increment: @escaping () -> Void, canDecrement: Bool,
             canIncrement: Bool, accessibilityLabel: String
         ) {
@@ -31,7 +29,7 @@ import CrosstuneDesign
             self.accessibilityLabel = accessibilityLabel
         }
 
-        var body: some View {
+        package var body: some View {
             HStack(spacing: 0) {
                 MacStepperHalf(systemImage: "minus", isEnabled: canDecrement, action: decrement)
                 divider

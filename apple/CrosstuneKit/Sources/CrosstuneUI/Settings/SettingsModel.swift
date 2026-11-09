@@ -464,13 +464,14 @@ public final class SettingsModel {
     }
 
     /// Deletes the downloaded audio of every ready recording. A recording not yet on the server
-    /// keeps its audio.
-    public func removeDownloads() {
-        guard !isRemovingDownloads else { return }
+    /// keeps its audio. Returns the write, which settles once the failure, if any, is set.
+    @discardableResult
+    public func removeDownloads() -> Task<Void, Never> {
+        guard !isRemovingDownloads else { return lastWrite ?? Task {} }
         removeDownloadsFailure = nil
         isRemovingDownloads = true
         let store = store
-        enqueue {
+        return enqueue {
             try await Commands(store: store).clearDownloadedAudio()
         } settled: { model, error in
             model.isRemovingDownloads = false
@@ -493,12 +494,23 @@ public final class SettingsModel {
         }
     }
 
-    /// Runs a sync now, or once more after the one in flight.
-    public func syncNow() async {
-        guard let engine, !isSyncing else { return }
+    /// Runs a sync now, or once more after the one in flight. Returns whether the run ended
+    /// clean: a sync never throws, so a failure shows only in the status it leaves.
+    @discardableResult
+    public func syncNow() async -> Bool {
+        guard let engine, !isSyncing else { return false }
         isSyncing = true
         defer { isSyncing = false }
         await engine.sync()
+        return !Self.endsInFailure(engine.status)
+    }
+
+    /// Whether a run that leaves `status` failed, as the Status row then says.
+    nonisolated static func endsInFailure(_ status: SyncStatus) -> Bool {
+        switch status {
+        case .error, .offline, .unauthorized, .updateRequired: true
+        case .idle, .syncing: false
+        }
     }
 
     /// What the Status row says. A required update outlasts every run, which ends offline.
@@ -537,12 +549,13 @@ public final class SettingsModel {
     // MARK: Writes
 
     /// Runs writes one after another, so two quick choices land in the order they were made.
+    @discardableResult
     private func enqueue(
         _ write: @escaping @Sendable () async throws -> Void,
         settled: @escaping @MainActor (SettingsModel, (any Error)?) -> Void
-    ) {
+    ) -> Task<Void, Never> {
         let previous = lastWrite
-        lastWrite = Task { [weak self] in
+        let task = Task { [weak self] in
             await previous?.value
             var failure: (any Error)?
             do {
@@ -553,6 +566,8 @@ public final class SettingsModel {
             guard let self else { return }
             settled(self, failure)
         }
+        lastWrite = task
+        return task
     }
 
     private func storeChanged() {

@@ -63,10 +63,3 @@ struct RowChevron: View {
             .accessibilityHidden(true)
     }
 }
-
-/// A plain button that dims while pressed, so a row that opens something answers the touch.
-struct PressedOpacityStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label.opacity(configuration.isPressed ? 0.6 : 1)
-    }
-}

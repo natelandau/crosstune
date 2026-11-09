@@ -506,6 +506,20 @@ private func entry(_ tuning: String? = nil, capo: Int64? = nil) -> JSONValue {
         #expect(model.canSave)
     }
 
+    @Test func confirmDisablesOnlyWithoutATitle() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let stored = tune("Angeline")
+        try await seed(store, tunes: [stored])
+        let model = try await editing(store, stored.id)
+
+        #expect(model.hasTitle)
+        model.setTitle(" ")
+        #expect(!model.hasTitle)
+        model.setTitle("Angeline the Baker")
+        #expect(model.hasTitle)
+    }
+
     @Test func savesAnEditOnceAndNeverCreatesATune() async throws {
         let root = TemporaryRoot()
         let store = try root.open()

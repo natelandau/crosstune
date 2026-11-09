@@ -3,14 +3,14 @@ import CrosstuneStore
 import SwiftUI
 
 /// The recording screen's keys while it holds the keyboard and no field does: Space plays and
-/// pauses; the arrows move the playhead a second (five with Shift), or nudge a focused handle;
-/// `[` and `]` set the selected loop's edges at the playhead; N adds a loop; Delete removes the
-/// selected loop and Return names it; Escape closes a name field, then deselects, then closes
-/// the screen. Every key but Escape is off while a name field is being typed in, and a
-/// focused slider or button keeps these keys too. While the screen cannot be used yet, only Escape works.
+/// pauses; the arrows move the playhead a second (five with Shift), unless a focused handle
+/// takes them; `[` and `]` set the selected loop's edges at the playhead; N adds a loop; Delete
+/// removes the selected loop and Return names it; Escape closes a name field, then deselects,
+/// then closes the screen. Every key but Escape is off while a name field is being typed in,
+/// and a focused slider or button keeps these keys too. While the screen cannot be used yet,
+/// only Escape works.
 struct PracticeKeys: ViewModifier {
     let model: PracticeModel
-    var focus: FocusState<PracticeFocus?>.Binding
     let isBlocked: Bool
     /// Delete removed the selected loop.
     let onDeleted: () -> Void
@@ -34,27 +34,10 @@ struct PracticeKeys: ViewModifier {
                 }
                 return .handled
             }
-            // Held arrows repeat, sweeping the handle, as a slider does; letting go writes it once.
-            .onKeyPress(keys: [.leftArrow, .rightArrow, .upArrow, .downArrow], phases: .all) { press in
-                guard !isBlocked, !TextEntry.isActive, press.modifiers.isDisjoint(with: .otherCommand) else {
-                    return .ignored
-                }
-                let back = press.key == .leftArrow || press.key == .downArrow
-                let large = press.modifiers.contains(.shift)
-                if case .handle(let edge) = focus.wrappedValue {
-                    if press.phase == .up {
-                        model.commitNudge()
-                    } else {
-                        let step = large ? WaveformSteps.largeNudgeMs : WaveformSteps.nudgeMs
-                        model.nudge(edge, by: back ? -step : step)
-                    }
-                    return .handled
-                }
-                guard press.phase != .up, press.key == .leftArrow || press.key == .rightArrow, isReady else {
-                    return .ignored
-                }
-                let step = large ? PracticeModel.arrowLargeStepMs : PracticeModel.arrowStepMs
-                model.seek(byMs: back ? -step : step)
+            .onKeyPress(keys: [.leftArrow, .rightArrow]) { press in
+                guard isReady, press.modifiers.isDisjoint(with: .otherCommand) else { return .ignored }
+                let step = press.modifiers.contains(.shift) ? PracticeModel.arrowLargeStepMs : PracticeModel.arrowStepMs
+                model.seek(byMs: press.key == .leftArrow ? -step : step)
                 return .handled
             }
             .onKeyPress(keys: [.delete, .deleteForward], phases: .down) { press in

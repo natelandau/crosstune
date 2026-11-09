@@ -223,9 +223,9 @@ private struct ListNameForm: View {
                         .disabled(model.isSaving)
                 }
                 ConfirmToolbarItem {
-                    Button(model.isNew ? ListNameSheet.create : ListNameSheet.save, action: save)
-                        .fontWeight(.semibold)
-                        .disabled(model.isSaving || model.isSaved)
+                    AsyncButton(closesOnSuccess: true, action: store) {
+                        Text(model.isNew ? ListNameSheet.create : ListNameSheet.save)
+                    }
                 }
             }
             .interactiveDismissDisabled(model.isEdited || model.isSaving)
@@ -234,13 +234,16 @@ private struct ListNameForm: View {
     #endif
 
     private func save() {
-        Task {
-            guard let listID = await model.save() else {
-                focused = true
-                return
-            }
-            onSaved(listID)
-            dismiss()
+        Task { await store() }
+    }
+
+    /// Saves and closes, or keeps the sheet with the reason under the field.
+    private func store() async {
+        guard let listID = await model.save() else {
+            focused = true
+            return
         }
+        onSaved(listID)
+        dismiss()
     }
 }

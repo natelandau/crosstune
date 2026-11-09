@@ -1,4 +1,5 @@
 import CrosstuneAnalytics
+import CrosstuneDesign
 import SwiftUI
 
 /// The iPhone's full player for a loaded link: its provider's player, the link out to the
@@ -7,6 +8,7 @@ struct LinkPlayerSheet: View {
     let player: PlayerModel
     let stage: EmbedStage
     @Environment(\.openURL) private var openURL
+    @Environment(ListPlayback.self) private var playback: ListPlayback?
 
     var body: some View {
         NavigationStack {
@@ -32,7 +34,7 @@ struct LinkPlayerSheet: View {
                         } label: {
                             Label(PlayerBar.openIn(link.providerName), systemImage: "arrow.up.right")
                         }
-                        .buttonStyle(.bordered)
+                        .buttonStyle(.tinted)
                     }
                 }
                 PlaylistControlsRow()
@@ -46,7 +48,7 @@ struct LinkPlayerSheet: View {
             #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    PlayerCloseButton(player: player)
+                    SheetCloseButton(PlayerBar.close) { PlayerBar.closePlayer(player, playback) }
                 }
             }
         }

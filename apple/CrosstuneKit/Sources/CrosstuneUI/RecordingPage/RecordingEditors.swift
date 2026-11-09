@@ -192,9 +192,7 @@ struct RecordingDateEditor: View {
             monthPicker(draft)
             dayPicker(draft)
             Button(RecordingEditorText.clearDate) { controls.draft.wrappedValue.clear() }
-                #if os(macOS)
-                    .buttonStyle(.mac(.plain, size: .small))
-                #endif
+                .buttonStyle(.text(macLook: .button(.plain, size: .small)))
                 .disabled(draft.isEmpty)
             if let refused {
                 Text(refused)
@@ -306,11 +304,9 @@ struct RecordingLocationMap: View {
                 .clipShape(.rect(cornerRadius: PageStyle.attributeRowRadius))
                 .overlay {
                     // The row above names the location and opens the same editor for VoiceOver.
-                    Button(action: onOpen) {
-                        Color.clear.contentShape(.rect)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityHidden(true)
+                    Button(action: onOpen) { Color.clear.contentShape(.rect) }
+                        .buttonStyle(.labelOnly)
+                        .accessibilityHidden(true)
                 }
             if let address {
                 Text(address)

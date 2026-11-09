@@ -16,6 +16,13 @@ public enum RecordingPageTab: String, CaseIterable, Identifiable, Sendable {
         case .practice: RecordingPageCopy.practice
         }
     }
+
+    var systemImage: String {
+        switch self {
+        case .details: "info.circle"
+        case .practice: "waveform"
+        }
+    }
 }
 
 /// How the recording page lays itself out for the width of the column it sits in.
@@ -45,12 +52,16 @@ enum RecordingPageArrangement {
         tab == .details || recordingsPlay
     }
 
+    /// Whether the Details tab carries the list controls: while the page's recording is the
+    /// loaded one. The row draws only while a list plays.
+    static func showsListControls(isCurrent: Bool) -> Bool { isCurrent }
+
     /// The tab a pick selects, or nil when the plan refuses it, so a refused pick never writes.
     static func pick(_ chosen: RecordingPageTab, recordingsPlay: Bool) -> RecordingPageTab? {
         isEnabled(chosen, recordingsPlay: recordingsPlay) ? chosen : nil
     }
 
-    /// Why the play bar, the Practice tab, and the practice area are disabled, or nil while they
+    /// Why the Practice tab and the practice area are disabled, or nil while they
     /// can be used.
     static func playBlockedReason(recordingsPlay: Bool) -> String? {
         recordingsPlay ? nil : RecordingText.subscribeToPlay

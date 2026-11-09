@@ -1,5 +1,7 @@
 #if DEBUG
     import CrosstuneAudio
+    import CrosstuneBilling
+    import CrosstuneDesign
     import CrosstuneStore
     import CrosstuneSync
     import Foundation
@@ -24,6 +26,8 @@
         @State private var plan: PlanModel?
         @State private var noticeClaim = NoticeClaim()
         @State private var place: ShellPlace
+        @State private var samplePurchases = SamplePurchases.fromArguments()
+        @Environment(\.purchases) private var purchases
         #if os(macOS)
             @Environment(\.openSettings) private var openSettings
         #endif
@@ -61,7 +65,9 @@
             ZStack {
                 // An empty body would never start the task that opens the store.
                 Color.clear
-                if screen?.isSignedOut == true {
+                if screen == .controls {
+                    ControlGallery()
+                } else if screen?.isSignedOut == true {
                     WelcomeView(notice: nil)
                 } else if let store {
                     AppShell(
@@ -73,6 +79,7 @@
                     .environment(\.reviewPrompt, nil)
                     .environment(\.plan, plan)
                     .environment(\.noticeClaim, noticeClaim)
+                    .environment(\.purchases, samplePurchases ?? purchases)
                 } else if let failure {
                     ContentUnavailableView(
                         "The sample catalog did not open", systemImage: "exclamationmark.triangle",
@@ -81,7 +88,7 @@
             }
             .environment(\.sampleScreen, screen)
             .task {
-                guard screen?.isSignedOut != true else { return }
+                guard screen?.replacesShell != true else { return }
                 do {
                     let empty = screen?.isEmpty == true
                     let opened = try await SampleCatalog.makeStore(withAudio: true, empty: empty)

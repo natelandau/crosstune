@@ -57,10 +57,13 @@ extension View {
     /// Makes a control `visibleHeight` tall take taps across `minimum` points without taking that
     /// height in the layout.
     package func tapTarget(visibleHeight: CGFloat, minimum: CGFloat = minimumTapTarget) -> some View {
-        let outset = tapOutset(visibleHeight: visibleHeight, minimum: minimum)
-        return padding(.vertical, outset)
-            .contentShape(.rect)
-            .padding(.vertical, -outset)
+        hitOutset(.vertical, by: tapOutset(visibleHeight: visibleHeight, minimum: minimum))
+    }
+
+    /// Takes presses `length` past `edges` without taking that room in the layout. The hit
+    /// shape sits between the two paddings, so it covers the outset.
+    package func hitOutset(_ edges: Edge.Set, by length: CGFloat) -> some View {
+        padding(edges, length).contentShape(.rect).padding(edges, -length)
     }
 
     /// ``tapTarget(visibleHeight:)`` for a control that measures its own height.

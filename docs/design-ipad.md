@@ -4,8 +4,6 @@ iPad at regular width. Read `design.md`, then `design-ios.md`. This page
 wins at regular width. A compact iPad window (Slide Over, narrow) takes
 only `design-ios.md`. The Mac and iPhone never take a rule from here.
 
-- iPad-only views: `apple/CrosstuneKit/Sources/CrosstuneUI/Pad/`.
-
 ## Principles
 
 - iPhone's rows, zones, and tokens. The Mac's composition and tab order.
@@ -29,18 +27,14 @@ only `design-ios.md`. The Mac and iPhone never take a rule from here.
   phone lacks.
 - iPadOS 27 and later: Record is the iPhone's prominent slot. iPadOS 26
   has no prominent role, so Record sits in the bottom bar there.
-- A form change keeps every destination's state.
 
 ## Bottom bar
 
 - `PadBottomBar`: our own glass capsule, centered at the window's bottom
   edge in every form.
-- Holds the iPhone's player accessory while something is loaded, up to
-  `PadStyle.bottomBarMaxWidth`. Hidden while a recording's page shows the
-  loaded recording.
-- Columns leave `PadStyle.bottomBarClearance` under the last row only
-  while the capsule shows.
-- Fixed height, so its text stops growing at the first accessibility size.
+- Holds the iPhone's player accessory while something is loaded. Hidden
+  while a recording's page shows the loaded recording.
+- Columns leave room under the last row only while the capsule shows.
 
 ## Columns
 
@@ -65,10 +59,6 @@ only `design-ios.md`. The Mac and iPhone never take a rule from here.
 
 - Every `.shellSheet()` sheet is a centered `.form` sheet. Part-height
   sheets keep their detents. Full-screen readers stay full screen.
-
-## Accessibility
-
-- Every target at least 44pt.
 
 ## Framework limits
 

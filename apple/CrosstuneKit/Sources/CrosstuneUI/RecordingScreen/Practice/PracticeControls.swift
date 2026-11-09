@@ -35,146 +35,20 @@ struct PracticeControls: View {
 
     var body: some View {
         let ready = model.isLoaded && disabledReason == nil
+        let playLabel = PlayButtonLabel(isPlaying: model.isPlaying, repeating: model.selected.map(model.name))
         VStack(spacing: spacing.stackGap) {
-            Transport(model: model)
-                .disabled(!ready)
-                #if os(iOS)
-                    // The transport keeps its size at every text size, as the waveform's overlay
-                    // does, and leaves the route picker's width clear on each side so the skips
-                    // never meet it.
-                    .dynamicTypeSize(...DynamicTypeSize.large)
-                    .frame(maxWidth: .infinity)
-                    .padding(.horizontal, minimumTapTarget)
-                    .overlay(alignment: .trailing) {
-                        AudioRoutePicker().dynamicTypeSize(...DynamicTypeSize.large)
-                    }
-                #else
-                    .frame(maxWidth: .infinity)
-                #endif
+            Transport(
+                isPlaying: model.isPlaying, size: .feature, playName: playLabel.label,
+                playGlyph: playLabel.systemImage, canPlay: ready, canGoBack: ready, canGoForward: ready,
+                onPlayPause: model.togglePlay,
+                onBack: { model.skip(by: -AudioPlayer.skipInterval) },
+                onForward: { model.skip(by: AudioPlayer.skipInterval) }
+            )
+            .frame(maxWidth: .infinity)
+            .audioRoutePicker()
             #if !os(macOS)
                 LoopSwitcher(model: model, disabledReason: disabledReason)
             #endif
         }
     }
 }
-
-/// Skip back, play, and skip forward. Its own view so its spacing reads the text size the
-/// transport is held to.
-private struct Transport: View {
-    let model: PracticeModel
-
-    @Environment(\.spacing) private var spacing
-    @Environment(\.practiceIsFullPage) private var isFullPage
-
-    var body: some View {
-        #if os(macOS)
-            HStack(spacing: 20) { buttons }
-        #else
-            HStack(spacing: spacing(32)) { buttons }
-        #endif
-    }
-
-    @ViewBuilder private var buttons: some View {
-        skip(-AudioPlayer.skipInterval, systemImage: "gobackward.15", name: RecordingPlayerText.skipBack)
-        playButton
-        skip(AudioPlayer.skipInterval, systemImage: "goforward.15", name: RecordingPlayerText.skipForward)
-    }
-
-    private var playButton: some View {
-        let playLabel = PlayButtonLabel(isPlaying: model.isPlaying, repeating: model.selected.map(model.name))
-        return Button {
-            model.togglePlay()
-        } label: {
-            #if os(macOS)
-                MacPlayButtonLabel(playLabel: playLabel)
-            #else
-                if isFullPage {
-                    PracticePlayButtonLabel(playLabel: playLabel)
-                } else {
-                    standardPlayButtonLabel(playLabel)
-                }
-            #endif
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(playLabel.label)
-        .help(playLabel.label)
-        // Capped at the default text size, so a long press shows it enlarged.
-        .accessibilityShowsLargeContentViewer()
-    }
-
-    #if !os(macOS)
-        private func standardPlayButtonLabel(_ playLabel: PlayButtonLabel) -> some View {
-            Image(systemName: playLabel.systemImage)
-                .font(.largeTitle)
-                .contentTransition(.symbolEffect(.replace))
-                .frame(minWidth: 64, minHeight: 64)
-                .contentShape(.rect)
-        }
-    #endif
-
-    private func skip(_ seconds: TimeInterval, systemImage: String, name: (TimeInterval) -> String) -> some View {
-        Button {
-            model.skip(by: seconds)
-        } label: {
-            #if os(macOS)
-                Label(name(abs(seconds)), systemImage: systemImage)
-                    .labelStyle(.iconOnly)
-                    .font(.system(size: 15))
-            #else
-                Label(name(abs(seconds)), systemImage: systemImage)
-                    .labelStyle(.iconOnly)
-                    .font(.title2)
-                    .frame(minWidth: PracticeLayout.target, minHeight: PracticeLayout.target)
-                    .contentShape(.rect)
-            #endif
-        }
-        #if os(macOS)
-            .buttonStyle(.mac(.icon, size: .large))
-        #else
-            .buttonStyle(.plain)
-        #endif
-        .help(name(abs(seconds)))
-        // Capped at the default text size, so a long press shows it enlarged.
-        .accessibilityShowsLargeContentViewer()
-    }
-}
-
-/// Play on a full page: the primary action's fill, as on the Mac, at a fixed size so the transport
-/// stays put as its labels scale.
-private struct PracticePlayButtonLabel: View {
-    let playLabel: PlayButtonLabel
-
-    @Environment(\.isEnabled) private var isEnabled
-
-    var body: some View {
-        Image(systemName: playLabel.systemImage)
-            .font(.system(size: 30, weight: .semibold))
-            .contentTransition(.symbolEffect(.replace))
-            .foregroundStyle(Palette.onAccentFill)
-            .frame(width: PhoneStyle.transportPlayDiameter, height: PhoneStyle.transportPlayDiameter)
-            .background(Palette.accentFill, in: .circle)
-            .opacity(isEnabled ? 1 : 0.4)
-            .contentShape(.circle)
-    }
-}
-
-#if os(macOS)
-    /// Play on the Mac: a white glyph on an accent fill disc, the practice view's one primary
-    /// action. It keeps its fill in an inactive window.
-    private struct MacPlayButtonLabel: View {
-        let playLabel: PlayButtonLabel
-
-        @Environment(\.isEnabled) private var isEnabled
-
-        var body: some View {
-            Image(systemName: playLabel.systemImage)
-                .font(.system(size: 18, weight: .semibold))
-                .contentTransition(.symbolEffect(.replace))
-                .foregroundStyle(Palette.onAccentFill)
-                .frame(width: MacStyle.transportDiameter, height: MacStyle.transportDiameter)
-                .background(Palette.accentFill, in: .circle)
-                .opacity(isEnabled ? 1 : MacButtonStyle.disabledOpacity)
-                .contentShape(.circle)
-        }
-    }
-#endif
