@@ -14,7 +14,7 @@ package enum PhoneMotion: Equatable {
 
     /// `full` under full motion, a short ease-in-out under Reduce Motion, or `reduced` when a
     /// cross-fade would still move something.
-    package func animation(_ full: Animation, reduced: Animation? = .easeInOut(duration: 0.2)) -> Animation? {
+    package func animation(_ full: Animation, reduced: Animation? = Motion.reducedFade) -> Animation? {
         switch self {
         case .none: nil
         case .crossFade: reduced
@@ -42,7 +42,7 @@ extension View {
     /// Animates changes of `value` as the platform and Reduce Motion allow. Pass `reduced: nil`
     /// when the change is a movement that a cross-fade cannot replace.
     package func phoneAnimation<Value: Equatable>(
-        _ animation: Animation = .default, reduced: Animation? = .easeInOut(duration: 0.2), value: Value
+        _ animation: Animation = .default, reduced: Animation? = Motion.reducedFade, value: Value
     ) -> some View {
         modifier(PhoneAnimation(animation: animation, reduced: reduced, value: value))
     }

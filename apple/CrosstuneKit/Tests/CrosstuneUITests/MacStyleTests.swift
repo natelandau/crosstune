@@ -169,11 +169,11 @@
             }
         }
 
-        /// The dock's scrubber: a border track, a tertiary text fill, and a brand thumb.
+        /// The Mac scrubber: a border track, a tertiary text fill, and a brand thumb.
         @Test func scrubberDrawsInTokens() throws {
-            let file = SourceScan.url(of: "Mac/PlayerDock.swift")
+            let file = SourceScan.url(of: "Phone/Controls/PlaybackScrubber.swift")
             let text = SourceScan.withoutComments(try SourceScan.text(at: file))
-            let track = try #require(text.range(of: "struct ScrubberTrack"))
+            let track = try #require(text.range(of: "struct MacScrubberBar"))
             let body = text[track.lowerBound...]
             #expect(body.contains("Palette.border"))
             #expect(body.contains("Palette.textTertiary"))

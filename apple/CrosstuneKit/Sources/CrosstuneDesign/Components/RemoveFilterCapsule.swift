@@ -21,15 +21,9 @@ package struct RemoveFilterCapsule: View {
         self.action = action
     }
 
-    @Environment(\.spacing) private var spacing
-    @Environment(\.colorScheme) private var colorScheme
-    #if os(iOS)
-        @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    #endif
-
     package var body: some View {
-        Button(action: action) {
-            #if os(macOS)
+        #if os(macOS)
+            Button(action: action) {
                 // A token in the filter row, worn as a set filter control is.
                 HStack(spacing: 4) {
                     Text(label)
@@ -39,25 +33,14 @@ package struct RemoveFilterCapsule: View {
                         .font(.system(size: 8, weight: .bold))
                 }
                 .macChip(state: .set, size: .standalone)
-            #else
-                HStack(spacing: spacing(6)) {
-                    // A long label wraps at the accessibility sizes rather than truncating.
-                    Text(label)
-                        .contentMask()
-                        .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Image(systemName: "xmark")
-                        .font(.caption.weight(.semibold))
-                }
-                .font(.subheadline)
-                .foregroundStyle(Palette.onTint(colorScheme))
-                .padding(.horizontal, spacing(12))
-                .padding(.vertical, spacing.chipVertical)
-                .background(Palette.tint(colorScheme), in: .capsule)
-                .tapTarget()
-            #endif
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(Self.name(label))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(Self.name(label))
+        #else
+            Chip(.removable, action: action) {
+                Text(label).contentMask()
+            }
+            .accessibilityLabel(Self.name(label))
+        #endif
     }
 }

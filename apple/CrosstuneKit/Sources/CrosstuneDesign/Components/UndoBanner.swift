@@ -129,6 +129,12 @@ extension EnvironmentValues {
 }
 
 extension View {
+    /// How a row that Undo restores arrives in a list: from the leading edge, fading in. The
+    /// list closes the space it left with `Motion.state`.
+    package func restoredRow() -> some View {
+        phoneTransition(.move(edge: .leading).combined(with: .opacity))
+    }
+
     /// Shows `item` in a banner at the bottom of this view until the musician takes it, the
     /// banner times out, or a newer item replaces it.
     /// - Parameter timesOut: False for an owner that ends the item on its own deadline.
@@ -145,6 +151,12 @@ private struct UndoBannerModifier: ViewModifier {
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOver
     @Environment(\.spacing) private var spacing
 
+    #if !os(macOS)
+        private var restoreMotion: Animation? {
+            PhoneMotion.resolve(reduceMotion: reduceMotion).animation(Motion.state)
+        }
+    #endif
+
     func body(content: Content) -> some View {
         content
             .overlay(alignment: .bottom) {
@@ -153,8 +165,17 @@ private struct UndoBannerModifier: ViewModifier {
                         message: current.message,
                         onUndo: current.undo.map { undo in
                             {
-                                item = nil
-                                undo()
+                                #if os(macOS)
+                                    item = nil
+                                    undo()
+                                #else
+                                    // The list's removal and the restored row animate in this
+                                    // transaction, so the row returns to where it was.
+                                    withAnimation(restoreMotion) {
+                                        item = nil
+                                        undo()
+                                    }
+                                #endif
                             }
                         }
                     )

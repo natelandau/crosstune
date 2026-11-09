@@ -18,10 +18,11 @@ extension View {
     }
 }
 
-/// A sheet's confirm button in its toolbar, on the accent fill. Every confirm item is one of
-/// these, never a bare `ToolbarItem(placement: .confirmationAction)`. On iPhone and iPad it
-/// draws the accent prominent style, which sets the label white on the fill rather than leaving
-/// it to the system. The Mac keeps its own toolbar button.
+/// A sheet's confirm button in its toolbar. Every confirm item is one of these, never a bare
+/// `ToolbarItem(placement: .confirmationAction)`.
+///
+/// On iPhone and iPad it draws the accent glass prominent style in semibold. The Mac keeps its
+/// own toolbar button.
 package struct ConfirmToolbarItem<Content: View>: ToolbarContent {
     @ViewBuilder package let content: Content
 
@@ -34,7 +35,7 @@ package struct ConfirmToolbarItem<Content: View>: ToolbarContent {
             #if os(macOS)
                 content
             #else
-                content.buttonStyle(.accentGlassProminent)
+                content.fontWeight(.semibold).buttonStyle(.accentGlassProminent)
             #endif
         }
     }
@@ -51,4 +52,16 @@ package struct AccentSwitchStyle: ToggleStyle {
 
 extension ToggleStyle where Self == AccentSwitchStyle {
     package static var accentSwitch: Self { AccentSwitchStyle() }
+}
+
+extension View {
+    /// The accent switch on iPhone and iPad. The Mac keeps the toggle style around it, a checkbox
+    /// outside a form.
+    package func phoneAccentSwitch() -> some View {
+        #if os(macOS)
+            self
+        #else
+            toggleStyle(.accentSwitch)
+        #endif
+    }
 }

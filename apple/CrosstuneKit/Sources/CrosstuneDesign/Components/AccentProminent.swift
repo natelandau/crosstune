@@ -17,7 +17,8 @@ package struct AccentProminentButtonStyle: PrimitiveButtonStyle {
 extension PrimitiveButtonStyle where Self == AccentProminentButtonStyle {
     /// The bordered prominent style with a legible label on the accent fill.
     package static var accentProminent: Self { AccentProminentButtonStyle() }
-    /// The glass prominent style with a legible label on the accent fill.
+    /// The glass prominent style with a legible label on the accent fill. Disabled, it draws the
+    /// system's own dimmed look, not the ring.
     package static var accentGlassProminent: Self { AccentProminentButtonStyle(glass: true) }
 }
 
@@ -30,30 +31,20 @@ private struct AccentProminentButton: View {
 
         /// Glass never draws on a Mac content button, so both styles take the one primary.
         var body: some View {
-            Button(role: configuration.role, action: configuration.trigger) { configuration.label }
-                .buttonStyle(.mac(.primary, size: size))
-        }
-
-        private var size: MacButtonStyle.Size {
-            switch controlSize {
-            case .mini, .small: .small
-            case .large, .extraLarge: .large
-            default: .regular
-            }
+            Button(configuration)
+                .buttonStyle(.mac(.primary, size: MacButtonStyle.Size(controlSize)))
         }
     #else
-        @Environment(\.isEnabled) private var isEnabled
-
         var body: some View {
-            let button = Button(role: configuration.role, action: configuration.trigger) {
-                configuration.label.foregroundStyle(isEnabled ? Palette.onAccentFill : Palette.onDisabled)
-            }
-            .buttonBorderShape(isEnabled ? .automatic : .capsule)
-            .disabledCapsuleRing(!isEnabled)
             if glass {
-                button.buttonStyle(.glassProminent).tint(isEnabled ? Palette.accentFill : .clear)
+                // The system dims a disabled glass prominent button itself, accent tint included.
+                Button(role: configuration.role, action: configuration.trigger) {
+                    configuration.label.foregroundStyle(Palette.onAccentFill)
+                }
+                .buttonStyle(.glassProminent).tint(Palette.accentFill)
             } else {
-                button.buttonStyle(.borderedProminent).tint(isEnabled ? Palette.accentFill : .clear)
+                Button(configuration)
+                    .buttonStyle(.filled)
             }
         }
     #endif
@@ -68,10 +59,5 @@ extension View {
                 Capsule().strokeBorder(Palette.disabledBorder, lineWidth: 1).allowsHitTesting(false)
             }
         }
-    }
-
-    /// Colors this label for an accent fill.
-    package func onAccentLabel() -> some View {
-        foregroundStyle(Palette.onAccentFill)
     }
 }

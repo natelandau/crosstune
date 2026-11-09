@@ -17,6 +17,14 @@ import Testing
         #expect(size == CGSize(width: 88, height: 44))
     }
 
+    @Test func fillsALineToTheExactWidthBeforeWrapping() {
+        let half = CGSize(width: 46, height: 20)
+        let fits = FlowLayout.arrange(sizes: [half, half], maxWidth: 100, spacing: 8, lineSpacing: 4)
+        #expect(fits.origins == [CGPoint(x: 0, y: 0), CGPoint(x: 54, y: 0)])
+        let wraps = FlowLayout.arrange(sizes: [half, half], maxWidth: 99.5, spacing: 8, lineSpacing: 4)
+        #expect(wraps.origins == [CGPoint(x: 0, y: 0), CGPoint(x: 0, y: 24)])
+    }
+
     @Test func centersShorterItemsOnTheirLine() {
         let (origins, size) = FlowLayout.arrange(
             sizes: [CGSize(width: 40, height: 44), pill], maxWidth: nil, spacing: 8, lineSpacing: 4)
@@ -32,6 +40,38 @@ import Testing
 
     @Test func isEmptyWithNothingToLayOut() {
         #expect(FlowLayout.arrange(sizes: [], maxWidth: 100, spacing: 8, lineSpacing: 8).size == .zero)
+    }
+
+    /// A label whose ideal width is 300 and that wraps to two lines of 100 when narrowed.
+    private func label(at width: CGFloat?) -> CGSize {
+        guard let width, width < 300 else { return CGSize(width: 300, height: 20) }
+        return CGSize(width: min(width, 100), height: 40)
+    }
+
+    private func measured(proposal: CGFloat?) -> (origins: [CGPoint], size: CGSize) {
+        let sizes = FlowLayout.itemSizes(count: 3, width: proposal) { index, width in
+            index == 1 ? label(at: width) : pill
+        }
+        return FlowLayout.arrange(sizes: sizes, maxWidth: proposal, spacing: 8, lineSpacing: 4)
+    }
+
+    @Test func placesAtTheWidthItMeasuredWith() {
+        for proposal: CGFloat? in [nil, 120, 100, 200] {
+            let measuredResult = measured(proposal: proposal)
+            // The parent places at the size it was given, and may pass no proposal.
+            for placementProposal in [nil, measuredResult.size.width] {
+                let width = FlowLayout.wrapWidth(proposal: placementProposal, bounds: measuredResult.size.width)
+                let placed = measured(proposal: width)
+                #expect(placed.size == measuredResult.size, "proposal \(String(describing: proposal))")
+            }
+        }
+    }
+
+    @Test func neverWrapsPastTheBounds() {
+        #expect(FlowLayout.wrapWidth(proposal: 100, bounds: 150) == 100)
+        #expect(FlowLayout.wrapWidth(proposal: 100, bounds: 80) == 80)
+        #expect(FlowLayout.wrapWidth(proposal: .infinity, bounds: 120) == 120)
+        #expect(FlowLayout.wrapWidth(proposal: nil, bounds: 120) == 120)
     }
 }
 

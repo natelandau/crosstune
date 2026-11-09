@@ -37,12 +37,12 @@ package struct PageSection<Content: View, Accessory: View>: View {
                 accessory
                     .menuIndicator(.hidden)
                     .menuStyle(.button)
-                    .buttonStyle(PageControlStyle())
+                    .textButtonMenuAppearance()
                     .fixedSize()
             }
             // A heading keeps the same height with or without its controls, so the rhythm
             // between sections holds.
-            .frame(minHeight: PageControlStyle.height)
+            .frame(minHeight: PageStyle.headingControlHeight)
             content
         }
         .frame(maxWidth: maxWidth, alignment: .leading)
@@ -67,7 +67,7 @@ package struct PageSection<Content: View, Accessory: View>: View {
                     .rotationEffect(.degrees(expanded.wrappedValue ? 90 : 0))
                     .accessibilityHidden(true)
             }
-            .frame(minHeight: PageControlStyle.height)
+            .frame(minHeight: PageStyle.headingControlHeight)
             .contentShape(.rect)
         }
         .buttonStyle(.plain)

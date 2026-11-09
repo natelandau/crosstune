@@ -34,6 +34,8 @@
         public static let timerTracking: CGFloat = -1
 
         public static let rowHeight: CGFloat = 32
+        /// A badge's line on the player dock.
+        public static let badgeHeight: CGFloat = 20
         /// The corners of a row's hover tint where the row sits on the page background, not in a
         /// list.
         public static let rowRadius: CGFloat = 7
@@ -168,6 +170,15 @@
         package func macColumnList() -> some View {
             listStyle(.inset)
                 .scrollContentBackground(.hidden)
+        }
+    }
+
+    extension View {
+        /// Plain secondary words on the player dock's badge line.
+        package func macBadgeLineText() -> some View {
+            font(MacStyle.secondary)
+                .foregroundStyle(Palette.textSecondary)
+                .frame(minHeight: MacStyle.badgeHeight)
         }
     }
 #endif

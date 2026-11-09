@@ -1,4 +1,6 @@
+import CrosstuneDesign
 import Foundation
+import SwiftUI
 import Testing
 
 @Suite struct GroupedFormTests {
@@ -61,6 +63,55 @@ import Testing
                 try SourceScan.text(at: SourceScan.url(of: screen)))
             #expect(code.contains(".unselectedRowBackground("), "\(screen) rows clear their background")
         }
+    }
+
+    /// A selection form's chosen row draws its title, value, and icon in white on the accent
+    /// selection, at the same contrast in both appearances.
+    @Test(arguments: [ColorScheme.light, .dark])
+    func chosenSelectionRowTextPassesContrastOnItsFill(scheme: ColorScheme) throws {
+        let fill = GroupedSelectionRowColors.background(isSelected: true)
+        #expect(contrastRatio(Palette.hex(.onAccentFill, scheme), Palette.hex(fill, scheme)) >= 4.5)
+        var environment = EnvironmentValues()
+        environment.colorScheme = scheme
+        environment.backgroundProminence = .increased
+        for level in [SelectionAwareColor(Palette.textPrimary), SelectionAwareColor(Palette.textTertiary)] {
+            #expect(level.resolve(in: environment) == Palette.onAccentFill)
+        }
+        #expect(SecondaryText.token(in: environment) == .onAccentFill)
+    }
+
+    /// The chosen row sets every hierarchical level and raises the background prominence, so a
+    /// value in the system's secondary or in `.textSecondary` turns white with the title. One
+    /// branch draws both states, so choosing a row never rebuilds it.
+    @Test func chosenSelectionRowOverridesEveryForegroundLevel() throws {
+        let code = SourceScan.iOSCompiled(
+            SourceScan.withoutComments(
+                try SourceScan.text(at: SourceScan.url(of: "Phone/Controls/GroupedSelectionForm.swift"))))
+        #expect(code.contains(".groupedRowText()"))
+        let styles = SourceScan.withoutComments(
+            try SourceScan.text(at: SourceScan.url(of: "Phone/Controls/GroupedSelectionForm.swift")))
+        #expect(styles.contains("foregroundStyle(.textPrimary, .textSecondary, .textTertiary)"))
+        #expect(code.contains(".environment(\\.backgroundProminence, isSelected ? .increased : .standard)"))
+    }
+
+    /// A fixed color keeps its value at rest and turns white on an emphasized selection.
+    @Test func selectionAwareColorTurnsWhiteOnlyOnAnEmphasizedSelection() {
+        var environment = EnvironmentValues()
+        environment.backgroundProminence = .standard
+        #expect(SelectionAwareColor(.red).resolve(in: environment) == .red)
+        environment.backgroundProminence = .increased
+        #expect(SelectionAwareColor(.red).resolve(in: environment) == Palette.onAccentFill)
+    }
+
+    /// The Settings root's rows that a selection can fill draw their fixed colors through
+    /// `selectionAware`: the account row's sync line and the stats card's status bar.
+    @Test func settingsRootFixedColorsTurnWhiteOnTheSelection() throws {
+        let root = SourceScan.withoutComments(
+            try SourceScan.text(at: SourceScan.url(of: "Phone/SettingsRoot.swift")))
+        #expect(root.contains(".foregroundStyle(.selectionAware(Palette.color(SyncBadge.tone(attention))))"))
+        let bar = SourceScan.withoutComments(
+            try SourceScan.text(at: SourceScan.url(of: "Phone/StatusBar.swift")))
+        #expect(bar.contains(".fill(.selectionAware(Self.color(segment.status)))"))
     }
 
     /// Whether a `listRowBackground(...)` call, as written across its lines, passes `nil` for the

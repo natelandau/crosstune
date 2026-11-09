@@ -6,7 +6,12 @@ there where they differ. Regular-width iPad reads this page, then
 
 - Apple's Human Interface Guidelines: native SwiftUI controls, SF Symbols,
   system materials and fonts, Dynamic Type.
-- iPhone-only views: `apple/CrosstuneKit/Sources/CrosstuneUI/Phone/`.
+
+## Shared components
+
+- The library is `CrosstuneDesign/Phone/Controls/`, reviewed in its
+  gallery (`-SampleScreen controls`). A new kind of control goes into
+  both.
 
 ## Tokens
 
@@ -18,36 +23,19 @@ there where they differ. Regular-width iPad reads this page, then
 | `PageStyle`  | What a shared view draws with, resolved per platform: text styles, sizes, drawing choices |
 | `PhoneStyle` | iPhone and iPad waveform, touch sizes, timing                                             |
 
-- A view never types a color, text size, or row height. Outside `Style/`
-  it names a `Palette` role, never a system color or style, `Color(…)`,
-  or a color's `.opacity`. `PaletteRoleTests` enforces it; its allowlist
-  names each exception.
-- A value that differs by platform is a `PageStyle` value, never an
-  `#if os` branch in a shared view's body.
+- A view never types a text size or row height. A value that differs by
+  platform is a `PageStyle` value, never an `#if os` branch in a shared
+  view's body. A control's Mac look lives in its library control.
 - A list or vertical scroll root draws `pageBackground()`, never the system's
   white or black. System bars, the tab bar, and the iPad sidebar keep
   their system materials.
-- A grouped form is a `GroupedForm`, never a raw grouped `Form` or a
-  system grouped fill. `groupedBackground` under `groupedSurface` cards:
-  `surface` under `pageBackground` in light, the reverse in dark, so a
-  card always contrasts with the page. A test enforces both.
-- A switch outside a `GroupedForm`, which sets it, takes
-  `.toggleStyle(.accentSwitch)`.
-- A chip with no color of its own fills with `.neutralFill`, which reads
-  its container. `GroupedForm` marks its cards, and a sheet's root clears
-  the mark.
-- SF Pro text styles under Dynamic Type. Page title: large title bold.
-  Section heading: title 3 semibold. Row title: regular.
 - Glass for controls only. Never content, never behind a text field.
 - Touch density always.
 
 ## Shell
 
-- The tab bar never minimizes, so Record stays one tap away.
-- Record is the bar's separated trailing slot, and never stays selected.
-- The account button is `AccountToolbarItem`, the last item in each root
-  screen's toolbar, so it is outermost trailing. About 32pt in a 44pt
-  target, no glass, masked because it shows the user's name.
+- Each root screen's toolbar ends with `AccountToolbarItem`, so the
+  account button is outermost trailing.
 - Filters is an icon-only toolbar item, its glyph filled once any filter
   is set.
 - A control that cannot sit in a navigation subtitle goes in the toolbar,
@@ -57,8 +45,6 @@ there where they differ. Regular-width iPad reads this page, then
 
 ## Rows and lists
 
-- Accessibility text sizes: the key pill moves under the title, controls
-  wrap instead of clipping, and token labels wrap instead of truncating.
 - A row on a page takes a context menu and reorders through a move menu.
 - List reorder: long press and drag.
 - Search: the system search field, pinned under the title. Escape follows
@@ -66,36 +52,20 @@ there where they differ. Regular-width iPad reads this page, then
 - The filter row is the list's first row and scrolls with it.
 - A row on the page background clears its row background
   (`unselectedRowBackground`). A selected row keeps the system fill.
-- Grouped lists take plain headings, never cards. A section header has no
-  top padding; the space between sections separates groups.
+- Grouped lists take plain headings, never cards.
 
 ## Pages and forms
 
-- An action button row is `ActionButtonRow`: the main button an
-  accent-filled capsule, the others `tint` capsules with an `on-tint`
-  label, in equal shares.
 - A form keeps the native inset grouped style. A screen that only reads is
   a document page.
-- Open vocabulary: matching suggestions show as rows under the field while
-  it has focus, at most six. A pick ends editing.
-- Settings category row: SF Symbol in `textSecondary`, name, value summary
-  where one exists. No colored tiles.
 - A page clears its failure footers on open, so an old failure never reads
   as new.
 
 ## Sheets
 
-- A sheet's actions pin to its bottom edge: a full-width prominent primary
-  over centered borderless secondaries.
-- Close is the system close button, the glass xmark.
+- A sheet's actions pin to its bottom edge through `sheetActions`.
 - A compact width or a compact height takes a sheet where a regular window
   takes a popover, so an iPhone in landscape does too.
-
-## Player and recording
-
-- Transport keeps its size at every text size. A practice value keeps its
-  label on one line. A row of them wraps rather than squeezing a capsule.
-- A Stop that cannot run dims as a whole button, never only its label.
 
 ## Motion
 
@@ -104,24 +74,11 @@ there where they differ. Regular-width iPad reads this page, then
   `PageStyle.animatesPhoneMotion`. The Mac gets none of it.
 - Reduce Motion: a zoom becomes the plain presentation.
 
-## Haptics
-
-- Light impact in two moments only: a waveform handle snaps, or the
-  player skips a tune.
-- Every other haptic is the system's own. `HapticsPolicyTests` fails on
-  any other.
-
 ## Accessibility
 
-- Contrast also holds for `onTunerSecondary`, `onTuner`, and `brand` on
-  `tunerBackground`.
-- SwiftUI draws a swipe action's label white, so a warning action takes
-  `warningFillStrong` and a danger action `dangerFillStrong`, never the
-  lighter `warningFill` or `danger`.
 - Spacing scales with Dynamic Type. A control out of room wraps, never
-  clips. Exception: a fixed-size tile, such as the key tile, caps its
-  type at the default size and shows the Large Content Viewer.
-- System alerts and confirmation dialogs follow the system size.
+  clips. A fixed-size tile instead caps its type and shows the Large
+  Content Viewer.
 
 ## Framework limits
 
@@ -134,14 +91,12 @@ SwiftUI and UIKit behavior that a new screen runs into.
   `Palette.accent`, never `.tint`. UIKit-drawn pieces (list selection,
   focus rings, default buttons, alerts, menus) ignore tint and take the
   `AccentColor` asset, which carries the accent.
-- An accent-filled button takes `.accentProminent`,
-  `.accentGlassProminent`, or `actionButtonStyle(prominent: true)`, never
-  a system prominent style, which fills with the tint (primary text)
-  instead of `accentFill`.
+- A system prominent style fills with the tint (primary text), not
+  `accentFill`, so it never draws a filled button.
 - The system fills a confirm toolbar button and a focused list selection
   with the tint behind white, which primary text makes unreadable in dark
   mode. So a confirm item is a `ConfirmToolbarItem`, and a list that
-  takes a selection carries `.accentSelectionTint()`. A test enforces both.
+  takes a selection carries `.accentSelectionTint()`.
 - More is an explicit `Menu`. Loose overflow items lose a destructive
   item's separator and red role.
 - SwiftUI runs swipe actions only on a `List`'s rows. Rows that swipe
@@ -149,9 +104,6 @@ SwiftUI and UIKit behavior that a new screen runs into.
   scrolls and takes its rows' height.
 - A system picker shows the chosen value inline, so its options carry no
   counts, which would read as part of the value.
-- Section heading control: plain glyph or accent word in a 44pt frame, no
-  glass. A menu draws glass at its label's full frame, so glass cannot
-  stay smaller than its tap frame.
 - A system segment shows an image or a word, never both.
 - A tab item cannot be a zoom source, so a sheet opened from the tab bar
   is a standard sheet.

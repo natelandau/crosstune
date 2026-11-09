@@ -36,6 +36,15 @@
             /// An icon button's hover circle, never under 26pt so a glyph keeps a pointer-sized
             /// target even at the small size.
             package var iconDiameter: CGFloat { max(height, 26) }
+
+            /// The size a control size stands for.
+            package init(_ controlSize: ControlSize) {
+                switch controlSize {
+                case .mini, .small: self = .small
+                case .large, .extraLarge: self = .large
+                default: self = .regular
+                }
+            }
         }
 
         package static let radius: CGFloat = 7
