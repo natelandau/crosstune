@@ -112,6 +112,7 @@ function StubForm({
             <span style={{ fontSize: '0.8125rem', fontWeight: 500 }}>Email address</span>
             <input style={field} placeholder="Enter your email address" />
           </label>
+          {/* eslint-disable-next-line no-restricted-syntax -- Test fixture standing in for the sign-in provider UI */}
           <button
             type="button"
             style={{
