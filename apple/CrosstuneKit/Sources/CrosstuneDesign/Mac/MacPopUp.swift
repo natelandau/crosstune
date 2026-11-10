@@ -129,7 +129,9 @@
 
         package var body: some View {
             Menu {
-                items
+                // A form card's switch style would reach a toggle item, and a menu draws a
+                // custom-styled toggle as a disabled item.
+                items.toggleStyle(.automatic)
             } label: {
                 label
             }
