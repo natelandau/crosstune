@@ -158,7 +158,7 @@ package struct ToolPanel<Value: Hashable, Content: View, Between: View>: View {
             else { return }
             focusReturnsTo = nil
             // A turn later, so the window has settled the focus it restores on taking the keyboard.
-            DispatchQueue.main.async { focusedTool = tool }
+            Task { focusedTool = tool }
         }
 
         private var open: Value? {
