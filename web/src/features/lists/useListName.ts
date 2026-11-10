@@ -15,6 +15,8 @@ export interface ListName {
   /** Whether the open sheet renames a list; holds its last value while the sheet animates closed. */
   renaming: boolean
   name: string
+  /** Whether the name holds more than spaces, the one input whose absence disables the save. */
+  hasName: boolean
   setName: (name: string) => void
   /** Why the name cannot be saved yet. */
   invalid: string | null
@@ -103,6 +105,7 @@ export function useListName(
     // The last target, so the title does not flip while the sheet animates closed.
     renaming: sheet.shown?.kind === 'rename',
     name,
+    hasName: name.trim() !== '',
     setName,
     invalid,
     error,

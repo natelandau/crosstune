@@ -50,6 +50,9 @@ public final class ListNameModel {
     /// Whether the sheet holds a name a dismissal would lose.
     public var isEdited: Bool { name != opened }
 
+    /// Whether the name holds more than spaces, the one input whose absence disables the save.
+    public var hasName: Bool { !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+
     public func setName(_ name: String) {
         self.name = name
         validation = nil
@@ -169,7 +172,7 @@ private struct ListNameForm: View {
                 cancel: .cancel(TuneFormSheet.cancel, isEnabled: !model.isSaving) { dismiss() },
                 primary: .init(
                     model.isNew ? ListNameSheet.create : ListNameSheet.save,
-                    isEnabled: !model.isSaving && !model.isSaved, action: save),
+                    isEnabled: model.hasName && !model.isSaving && !model.isSaved, action: save),
                 openingFocus: .firstField
             ) {
                 VStack(alignment: .leading, spacing: 6) {
@@ -227,6 +230,7 @@ private struct ListNameForm: View {
                     AsyncButton(closesOnSuccess: true, action: store) {
                         Text(model.isNew ? ListNameSheet.create : ListNameSheet.save)
                     }
+                    .disabled(!model.hasName)
                 }
             }
             .interactiveDismissDisabled(model.isEdited || model.isSaving)
