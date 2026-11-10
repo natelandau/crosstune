@@ -348,7 +348,7 @@ struct HeaderTitleField: View {
         TextField(TuneFieldLabels.title, text: oneLine, axis: .vertical)
             .contentMask()
             #if os(macOS)
-                .textFieldStyle(.macTitleField)
+                .textFieldStyle(.macTitleField(.page))
             #else
                 .textFieldStyle(.plain)
                 .font(PageStyle.pageTitle)

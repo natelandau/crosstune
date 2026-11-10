@@ -1110,6 +1110,12 @@
                                 .textFieldStyle(.macTitleField)
                                 .frame(width: 180)
                         }
+                        MacStates(states: [.rest, .focus]) {
+                            TextField("Untitled", text: $title)
+                                .contentMask()
+                                .textFieldStyle(.macTitleField(.page))
+                                .frame(width: 320)
+                        }
                     }
                     GalleryItem(heading: "Text area: MacTextArea") {
                         MacStates(states: [.rest, .focus, .disabled]) {
