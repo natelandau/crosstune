@@ -207,6 +207,7 @@ import CrosstuneDesign
         }
 
         var body: some View {
+            let fittedHeight = size.maxHeight.flatMap(fitted.height(max:))
             VStack(spacing: 0) {
                 header
                     .onGeometryChange(for: CGFloat.self, of: \.size.height) { fitted.header = $0 }
@@ -216,14 +217,13 @@ import CrosstuneDesign
                         .onGeometryChange(for: CGFloat.self, of: \.size.height) { fitted.footer = $0 }
                 }
             }
-            // A fitted sheet's window takes the height the sheet opens at and keeps it unless the
-            // frame says otherwise, so content that arrives later sets the frame.
-            .frame(height: size.maxHeight.flatMap(fitted.height(max:)))
+            // A fitted sheet's window keeps the height it opened at, so content that arrives
+            // later, such as the store's offers, sets both the frame and the window's height, or it
+            // would clip top and bottom.
+            .frame(height: fittedHeight)
             .background {
-                // The sheet's window keeps the height it opened at, so content that arrives
-                // later, such as the store's offers, would overflow and clip top and bottom.
-                if let height = size.maxHeight.flatMap(fitted.height(max:)) {
-                    SheetWindowHeight(height: height)
+                if let fittedHeight {
+                    SheetWindowHeight(height: fittedHeight)
                 }
             }
             .background(Palette.pageBackground)
@@ -441,9 +441,12 @@ import CrosstuneDesign
 
         private func resizeWindow() {
             guard let window, height > 0 else { return }
-            let size = window.contentLayoutRect.size
-            guard abs(size.height - height) >= 1 else { return }
-            window.setContentSize(CGSize(width: size.width, height: height))
+            let layout = window.contentLayoutRect.size
+            guard abs(layout.height - height) >= 1 else { return }
+            // A title bar over a full-size content view is part of the content size but not of the
+            // layout area the sheet fills.
+            let content = window.contentView?.frame.size ?? layout
+            window.setContentSize(CGSize(width: content.width, height: height + content.height - layout.height))
         }
     }
 #endif
