@@ -62,10 +62,12 @@ private final class FakeResolver {
         let store = try await SampleCatalog.copiedStore(root: root.url)
         let resolver = FakeResolver()
         let sleep = ManualSleep()
-        let model = LinkSheetModel(store: store, tuneID: tuneID, resolve: resolver.resolve, sleep: sleep.sleep)
+        let pause = Duration.milliseconds(250)
+        let model = LinkSheetModel(
+            store: store, tuneID: tuneID, resolve: resolver.resolve, debounce: pause, sleep: sleep.sleep)
 
         model.setURL("https://youtu.be/dQw4w9WgXcQ")
-        try await eventually { sleep.pending == [.milliseconds(400)] }
+        try await eventually { sleep.pending == [pause] }
         #expect(resolver.asked.isEmpty)
         sleep.wake()
         try await eventually { resolver.asked == ["https://youtu.be/dQw4w9WgXcQ"] }

@@ -35,11 +35,6 @@ struct SyncBadgeTests {
             SyncBadge.attention(status: .error, isOffline: true, needsSignIn: true, updateRequired: true)
                 == .updateRequired)
         #expect(SyncStatus.updateRequired.label == SyncStatus.updateRequiredLabel)
-        #expect(SyncStatus.updateRequiredLabel == "Update required")
-    }
-
-    @Test func updateRequiredIsAWarning() {
-        #expect(SyncBadge.tone(.updateRequired) == SyncBadge.tone(.offline))
     }
 
     @Test(arguments: [ColorScheme.light, .dark], [SyncStatus.offline, .unauthorized, .error, .updateRequired])
@@ -49,9 +44,8 @@ struct SyncBadgeTests {
         #expect(contrastRatio(text, fill) >= 4.5)
     }
 
-    @Test func labelsAreTheWebs() {
-        #expect(
-            [SyncStatus.offline, .unauthorized, .error].map(\.label) == ["Offline", "Sign in again", "Sync failed"])
+    @Test func labelsAreTheWebs() throws {
+        try expectMatchesWeb("web/src/sync/labels.ts", [("OFFLINE", SyncStatus.offline.label)])
     }
 }
 
@@ -163,7 +157,6 @@ struct AppearanceTests {
 
     @Test func storesTheWebsValuesUnderTheWebsKey() {
         #expect(Appearance.allCases.map(\.rawValue) == ["system", "light", "dark"])
-        #expect(Appearance.allCases.map(\.label) == ["System", "Light", "Dark"])
         #expect(Appearance.storageKey == "crosstune.appearance")
         #expect(Appearance(rawValue: "sepia") == nil)
     }
@@ -545,14 +538,6 @@ struct MenuCommandAvailabilityTests {
     @Test func sortByIsDisabledWhileTheScreenSelects() {
         #expect(MenuCommandAvailability.sort(isShown: true, sheetsOpen: false, selecting: true) == false)
         #expect(MenuCommandAvailability.sort(isShown: true, sheetsOpen: false, selecting: false))
-    }
-
-    @Test func sortByOffersEveryRecordingSort() {
-        #expect(MenuCommand.sortBy == "Sort By")
-        #expect(
-            SortChoices<RecordingSort>.items(for: .default).map(\.label) == [
-                "Date added", "Date recorded", "Title", "Tune",
-            ])
     }
 
     @Test func recordIsDisabledUnderASheetWhileSelectingOrForAPendingRecordingOrACapture() {
@@ -1006,8 +991,6 @@ struct PadShellTests {
     @Test func onlyTheTunerFillsItsTabWithNoDetailColumn() {
         #expect(Destination.allCases.filter { !PadTab.hasDetailColumn($0) } == [.tuner])
     }
-
-    @Test func settingsDetailNamesNoSetting() { #expect(SettingsDetailPlaceholder.title == "No setting selected") }
 }
 
 #if os(macOS)

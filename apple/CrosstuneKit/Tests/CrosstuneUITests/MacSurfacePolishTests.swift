@@ -14,16 +14,17 @@
         /// The title a form types sits under the sheet's title, so it never outranks it.
         @Test func formTitleSitsUnderTheSheetTitle() {
             #expect(MacStyle.formTitleSize < MacStyle.sheetTitleSize)
-            #expect(MacStyle.formTitleSize >= 17)
         }
 
         /// A form's rows share one label column as wide as their widest label, within bounds, so
         /// fields and pop-ups start on one edge.
         @Test func formLabelColumnFitsItsWidestLabel() {
-            #expect(MacForm.labelColumn([40, 90]) == MacForm.labelMinWidth)
-            #expect(MacForm.labelColumn([60, 131.2]) == 132)
-            #expect(MacForm.labelColumn([400]) == MacForm.labelMaxWidth)
-            #expect(MacForm.labelColumn([]) == MacForm.labelMinWidth)
+            let (low, high) = (MacForm.labelMinWidth, MacForm.labelMaxWidth)
+            let between = ((low + high) / 2).rounded(.down) + 0.2
+            #expect(MacForm.labelColumn([low / 2, low - 1]) == low)
+            #expect(MacForm.labelColumn([low / 2, between]) == between.rounded(.up))
+            #expect(MacForm.labelColumn([high * 2]) == high)
+            #expect(MacForm.labelColumn([]) == low)
         }
 
         /// A tune already in the list says so to VoiceOver; on screen its check says it, so the

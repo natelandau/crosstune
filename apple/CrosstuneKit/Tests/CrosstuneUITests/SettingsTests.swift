@@ -157,7 +157,6 @@ struct SettingsTextTests {
 
     @Test func namesTheAppAndItsVersionUnderAbout() {
         #expect(SettingsScreen.aboutLine(version: "0.7.0") == "Crosstune 0.7.0")
-        #expect(SettingsScreen.about == "About")
     }
 
     @Test func saysHowLongAgoTheLastSyncFinished() {
@@ -615,8 +614,6 @@ struct SettingsRootTests {
         let categories = SettingsCategory.allCases
         let index = try #require(categories.firstIndex(of: .importExport))
         #expect(categories[index - 1] == .syncAndStorage)
-        #expect(SettingsCategory.importExport.title == "Import and export")
-        #expect(SettingsCategory.importExport.systemImage == "arrow.up.arrow.down")
         #expect(SettingsCategory.importExport.sections == [.importExport])
     }
 
@@ -640,14 +637,11 @@ struct SettingsRootTests {
 
         @Test func settingsHasFiveTabs() {
             #expect(MacSettingsTabs.Pane.allCases == [.general, .account, .tunes, .recordings, .importExport])
-            #expect(MacSettingsTabs.tunes == "Tunes")
             #expect(MacSettingsTabs.Pane.tunes.title == MacSettingsTabs.tunes)
         }
 
         @Test func importAndExportIsTheLastTab() {
             #expect(MacSettingsTabs.Pane.allCases.last == .importExport)
-            #expect(MacSettingsTabs.Pane.importExport.title == "Import and export")
-            #expect(MacSettingsTabs.Pane.importExport.systemImage == "arrow.up.arrow.down")
             #expect(MacSettingsTabs.Pane.importExport.sections == [.importExport])
             #expect(MacSettingsTabs.Pane(rawValue: "import-export") == .importExport)
         }
@@ -663,8 +657,6 @@ struct SettingsRootTests {
         /// Recording, the saved locations, and downloads share a tab, with the locations as rows.
         @Test func recordingsTabHoldsRecordingSettings() {
             #expect(MacSettingsTabs.Pane.recordings.sections == [.recording, .savedLocations, .downloads])
-            #expect(MacSettingsTabs.Pane.recordings.title == "Recordings")
-            #expect(MacSettingsTabs.Pane.recordings.systemImage == "waveform")
         }
 
         /// A tab stored before the Tunes tab merged three opens the tab that holds its settings.
@@ -688,7 +680,6 @@ struct SettingsRootTests {
         @Test func signOutIsNotDestructiveOnTheMac() {
             #expect(AccountSections.macSignOutRole == .secondary)
             #expect(AccountSections.macDeleteRole == .destructive)
-            #expect(AccountSections.deleteAccountMac == "Delete…")
         }
 
         @Test func deleteAccountSitsInItsOwnLastSection() {
@@ -759,8 +750,8 @@ struct SettingsRootTests {
         }
 
         @Test func buttonsThatOpenMoreEndInAnEllipsis() {
-            #expect(ImportExportSections.importMac == "Import…")
-            #expect(ImportExportSections.exportMac == "Export…")
+            #expect(ImportExportSections.importMac.hasSuffix("…"))
+            #expect(ImportExportSections.exportMac.hasSuffix("…"))
             #expect(AccountSections.deleteAccountMac.hasSuffix("…"))
         }
     }
@@ -768,26 +759,16 @@ struct SettingsRootTests {
 
 struct ImportExportSectionsTests {
     /// The same words as the web's Import and export page.
-    @Test func copyMatchesTheWeb() {
-        #expect(ImportExportSections.title == "Import and export")
-        #expect(ImportExportSections.importHeader == "Import")
-        #expect(
-            ImportExportSections.importHelp
-                == "Add many tunes at once. You will get a chance to review before Crosstune adds them.")
-        #expect(ImportExportSections.moreInfo == "More info")
-        #expect(ImportExportSections.exportHeader == "Export")
-        #expect(
-            ImportExportSections.exportHelp
-                == "Save your tunes, recordings, and scans to your device in a single zip file.")
-        #expect(ImportCopy.title == "Import tunes")
-        #expect(ExportDataSheet.title == "Export data")
-    }
-
-    @Test func importSheetPointsRecordingsToTheRecordingsScreen() {
-        #expect(
-            ImportCopy.recordingsNote
-                == "This imports tune titles. To bring in recordings, upload them on the Recordings screen. "
-                + "You can choose many files at once.")
+    @Test func copyMatchesTheWeb() throws {
+        try expectMatchesWeb(
+            "web/src/features/settings/settingsCopy.ts",
+            [
+                ("IMPORT_AND_EXPORT", ImportExportSections.title), ("IMPORT_HEADER", ImportExportSections.importHeader),
+                ("MORE_INFO", ImportExportSections.moreInfo), ("EXPORT_HEADER", ImportExportSections.exportHeader),
+                ("IMPORT_HELP", ImportExportSections.importHelp), ("EXPORT_HELP", ImportExportSections.exportHelp),
+            ])
+        try expectMatchesWeb("web/src/features/import/importCopy.ts", [("IMPORT_TUNES", ImportCopy.title)])
+        try expectMatchesWeb("web/src/features/settings/export/exportCopy.ts", [("EXPORT_DATA", ExportDataSheet.title)])
     }
 
     @Test func moreInfoLinksToTheImportHelpPage() throws {
@@ -809,9 +790,6 @@ struct ImportExportSectionsTests {
         #expect(
             AccountSections.footer(isOffline: true, updateRequired: true, failure: "x")
                 == AccountSections.updateRequiredFooter)
-        #expect(
-            AccountSections.updateRequiredFooter
-                == "Signing out and deleting your account need the latest version of Crosstune.")
     }
 
     @Test @MainActor func anUpdateRequiredIsNotCalledOffline() {

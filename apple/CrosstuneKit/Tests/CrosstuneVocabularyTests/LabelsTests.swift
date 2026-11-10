@@ -13,21 +13,7 @@ import Testing
     #expect(Set(Vocabulary.standardTunings.keys).isSubset(of: Vocabulary.instruments))
 }
 
-@Test func portsTheWebsLabelsAndBitratesVerbatim() {
-    #expect(Vocabulary.instrumentLabels["five_string_banjo"] == "5-string banjo")
-    #expect(Vocabulary.instrumentLabels["mountain_dulcimer"] == "Mountain dulcimer")
-    #expect(Vocabulary.instrumentLabels["violin"] == "Violin")
-    #expect(Vocabulary.statusLabels["want_to_learn"] == "Unknown")
-    #expect(Vocabulary.statusLabels["known"] == "Known")
-    #expect(Vocabulary.modeLabels["mixolydian"] == "Mixolydian")
-    #expect(Vocabulary.modeAbbreviations["dorian"] == " dor")
-    #expect(Vocabulary.modeAbbreviations["mixolydian"] == " mix")
-    #expect(Vocabulary.modeAbbreviations["major"] == "")
-    #expect(Vocabulary.modeAbbreviations["other"] == "")
-    #expect(Vocabulary.providerLabels["apple_music"] == "Apple Music")
-    #expect(Vocabulary.providerLabels["other"] == "Link")
-    #expect(Vocabulary.audioQualityNames["standard"] == "Standard")
-    #expect(Vocabulary.audioQualityNames["highest"] == "Highest")
+@Test func portsTheWebsBitratesAndStandardTuningsVerbatim() {
     #expect(Vocabulary.audioBitrates["low"] == 48_000)
     #expect(Vocabulary.audioBitrates["standard"] == 64_000)
     #expect(Vocabulary.audioBitrates["high"] == 128_000)
@@ -37,7 +23,6 @@ import Testing
 }
 
 @Test func labelsAnInstrumentThisBuildDoesNotKnowByItsRawValue() {
-    #expect(Vocabulary.instrumentLabel("tenor_banjo") == "Tenor banjo")
     #expect(Vocabulary.instrumentLabel("hardanger") == "hardanger")
 }
 

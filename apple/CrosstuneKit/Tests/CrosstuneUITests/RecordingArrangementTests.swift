@@ -294,15 +294,9 @@ struct SortChoiceTests {
         #expect(SortText.direction(choice(.recorded, false)) == SortText.oldestFirst)
         #expect(SortText.direction(choice(.title, false)) == SortText.aToZ)
         #expect(SortText.direction(choice(.tune, true)) == SortText.zToA)
-        #expect(SortText.newestFirst == "Newest first")
-        #expect(SortText.oldestFirst == "Oldest first")
-        #expect(SortText.aToZ == "A to Z")
-        #expect(SortText.zToA == "Z to A")
     }
 
-    @Test func labelsEachSort() {
-        #expect(
-            RecordingSort.allCases.map(\.label) == ["Date added", "Date recorded", "Title", "Tune"])
+    @Test func namesTheOpenTuneAction() {
         #expect(RecordingsListText.openTune("Banks") == "Open Banks")
     }
 }
@@ -310,17 +304,13 @@ struct SortChoiceTests {
 struct RecordingSortChoicesTests {
     @Test func showsTheDirectionOnTheCheckedItemOnly() {
         let items = SortChoices<RecordingSort>.items(for: .default)
-        #expect(items.map(\.label) == ["Date added", "Date recorded", "Title", "Tune"])
         #expect(items.map(\.isChecked) == [true, false, false, false])
         #expect(items.map(\.direction) == [SortText.newestFirst, nil, nil, nil])
-        #expect(items.map(\.directionSymbol) == ["arrow.down", nil, nil, nil])
 
         let title = SortChoices<RecordingSort>.items(for: choice(.title, false))
         #expect(title.map(\.direction) == [nil, nil, SortText.aToZ, nil])
-        #expect(title.map(\.directionSymbol) == [nil, nil, "arrow.up", nil])
         let oldest = SortChoices<RecordingSort>.items(for: choice(.recorded, false))
         #expect(oldest.map(\.direction) == [nil, SortText.oldestFirst, nil, nil])
-        #expect(oldest.map(\.directionSymbol) == [nil, "arrow.up", nil, nil])
     }
 
     @Test func reChoosingTheCheckedItemReversesItsSort() {

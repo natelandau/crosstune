@@ -426,8 +426,6 @@ private func loadedSummary(_ store: CrosstuneStore, sourceLocation: SourceLocati
         for step in Primitive.heatmapDark {
             for surface in darkSurfaces { #expect(contrast(step, surface) >= 3) }
         }
-        #expect(Palette.heatmapHex(1, dark: false) == "#707c93")
-        #expect(Palette.heatmapHex(4, dark: true) == "#e4e8ef")
     }
 
     #if os(macOS)

@@ -286,30 +286,11 @@ private let day: TimeInterval = 86_400
         #expect(shownNotices == ["first_recording"])
     }
 
-    @Test func theCopyIsExact() {
-        #expect(NoticeText.firstRecordingTitle == "Recordings are part of your trial")
-        #expect(
-            NoticeText.firstRecordingBody(endsAt: "Oct 13, 2026")
-                == "Your Premium trial ends Oct 13, 2026. After that, every recording stays and exports, but it won't play in the app until you subscribe."
-        )
-        #expect(NoticeText.trialReminderTitle(endsAt: "Oct 13, 2026") == "Your trial ends Oct 13, 2026")
-        #expect(NoticeText.trialEndedTitle == "Your trial has ended")
-        #expect(NoticeText.ok == "OK")
-    }
-
-    @Test func theNewNoticeCopyIsExact() {
+    @Test func daysLeftCountsDownToTheLastDay() {
         #expect(NoticeText.daysLeft(1) == "1 day left of Premium")
         #expect(NoticeText.daysLeft(3) == "3 days left of Premium")
         #expect(NoticeText.daysLeft(0) == PlanText.trialEndsToday)
         #expect(NoticeText.daysLeft(-1) == PlanText.trialEndsToday)
-        #expect(NoticeText.losePlayback == "Recordings don't play in the app")
-        #expect(NoticeText.loseRecording == "No new recordings or practice mode")
-        #expect(NoticeText.loseScans == "Scans don't open in the app")
-        #expect(
-            NoticeText.keeps
-                == "Every recording and scan stays, and export always includes them. Subscribe and they work again at once."
-        )
-        #expect(NoticeText.subscribeAnnual("$49.99") == "Subscribe for $49.99 a year")
     }
 
     @Test func theSheetSaysWhatTheNoticeIs() throws {

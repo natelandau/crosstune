@@ -98,9 +98,6 @@ struct RecordingDeleteMessageTests {
 
 struct RecordingsFilterTests {
     @Test func labelsTheFilterAndItsChoices() {
-        #expect(RecordingsListText.source == "Source")
-        #expect(RecordingsListText.all == "All")
-        #expect(RecordingsListText.mine == "Mine")
         #expect(RecordingsFilterSheet.label(for: RecordingsModel.allChoice) == "All")
         #expect(RecordingsFilterSheet.label(for: "own") == "Mine")
         #expect(RecordingsFilterSheet.label(for: "slippery_hill") == "Slippery-Hill")
@@ -1727,7 +1724,6 @@ struct RecordingDateDraftTests {
         #expect(throws: RecordingDateDraft.Problem.yearFormat) { try short.resolved(now: now) }
         short.setYear("0999")
         #expect(throws: RecordingDateDraft.Problem.yearFormat) { try short.resolved(now: now) }
-        #expect(RecordingDateDraft.Problem.yearFormat.message == "Enter the year as four digits.")
     }
 
     @Test func refusesAYearAfterThisOneAndAMonthNotYetBegun() {
@@ -1847,14 +1843,6 @@ struct RecordingDateDraftTests {
         #expect(date.year == "1998")
         #expect(refused == nil)
     }
-
-    @Test func namesTheDateEditorsFields() {
-        #expect(
-            [RecordingEditorText.year, RecordingEditorText.month, RecordingEditorText.day]
-                == ["Year", "Month", "Day"])
-        #expect(RecordingEditorText.any == "Any")
-        #expect(RecordingEditorText.clearDate == "Clear date")
-    }
 }
 
 struct RecordingsSectionOrderTests {
@@ -1899,8 +1887,9 @@ struct RecordingRowPremiumTests {
         #expect(row.tap == .premium)
     }
 
-    @Test func theGatedRowsWordsMatchTheWeb() {
-        #expect(RecordingText.subscribeToPlay == "Subscribe to play")
+    @Test func theGatedRowsWordsMatchTheWeb() throws {
+        try expectMatchesWeb(
+            "web/src/features/recordings/recordingCopy.ts", [("SUBSCRIBE_TO_PLAY", RecordingText.subscribeToPlay)])
     }
 
     @MainActor
@@ -1945,8 +1934,6 @@ struct RecordingRowPremiumTests {
     @Test func theRecordingsLineCountsTheRecordings() {
         #expect(RecordingText.recordingsLine(count: 1) == "1 recording, subscribe to play")
         #expect(RecordingText.recordingsLine(count: 3) == "3 recordings, subscribe to play")
-        #expect(RecordingText.recordingsLineExpanded == "Expanded")
-        #expect(RecordingText.recordingsLineCollapsed == "Collapsed")
     }
 }
 

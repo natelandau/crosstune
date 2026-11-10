@@ -97,15 +97,12 @@ import Testing
         #expect(sink.captures.isEmpty)
     }
 
-    @Test func deleteWaitsOnTheConfirmationAndSaysRecordingsKeepTheirLocation() async throws {
+    @Test func deleteWaitsOnTheConfirmation() async throws {
         let store = try root.open()
         let hall = try await place(store, "Town Hall")
         let model = try await loaded(store)
         try await eventually { model.rows?.count == 1 }
         #expect(SavedLocationsText.deleteTitle("Town Hall") == "Delete \"Town Hall\"?")
-        #expect(SavedLocationsText.delete == "Delete")
-        #expect(SavedLocationsText.deleteMessage.contains("keep their location"))
-        #expect(SavedLocationsText.deleteMessage.contains("street address"))
 
         // Confirming with nothing asked deletes nothing.
         #expect(await model.confirmDelete().value == false)

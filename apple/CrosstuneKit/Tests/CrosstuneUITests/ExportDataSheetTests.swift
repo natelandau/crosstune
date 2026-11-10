@@ -118,7 +118,6 @@ private func countsOnce(_ onDevice: Int, _ total: Int, missing: Int = 0)
     }
 
     @Test func aFailedFetchSaysSoInExportWords() async throws {
-        #expect(ExportText.fetchFailed == "Couldn't download a file. Try exporting again.")
         let root = TemporaryRoot()
         let store = try root.open()
         let tune = Tune(title: "Cluck Old Hen")

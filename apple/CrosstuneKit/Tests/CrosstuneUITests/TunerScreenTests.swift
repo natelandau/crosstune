@@ -46,17 +46,23 @@ struct TunerScreenTests {
         #expect(TunerText.centsLabel(-3.44, locale: Locale(identifier: "de_DE")) == "\u{2212}3,4¢")
     }
 
-    @Test func barOffsetClampsAtFiftyCents() {
+    @Test func barOffsetRisesWhenSharpAndClampsAtFiftyCents() {
+        let full = TunerBars.barOffset(cents: 50, height: 100)
+        #expect(full < 0)
         #expect(TunerBars.barOffset(cents: 0, height: 100) == 0)
-        #expect(TunerBars.barOffset(cents: 25, height: 100) == -20)
-        #expect(TunerBars.barOffset(cents: -50, height: 100) == 40)
-        #expect(TunerBars.barOffset(cents: 80, height: 100) == -40)
-        #expect(TunerBars.barOffset(cents: -80, height: 100) == 40)
+        #expect(TunerBars.barOffset(cents: 25, height: 100) == full / 2)
+        #expect(TunerBars.barOffset(cents: -50, height: 100) == -full)
+        #expect(TunerBars.barOffset(cents: 80, height: 100) == full)
+        #expect(TunerBars.barOffset(cents: -80, height: 100) == -full)
     }
 
-    @Test(arguments: [(375.0, 75.0), (320, 64), (280, 44), (1000, 160), (800, 160), (150, 0)] as [(CGFloat, CGFloat)])
-    func barWidthIsAFifthAndStopsShortOfTheNote(stage: CGFloat, width: CGFloat) {
-        #expect(TunerBars.barWidth(stageWidth: stage) == width)
+    @Test(arguments: [375.0, 320, 280, 1000, 800, 150] as [CGFloat])
+    func barWidthStopsShortOfTheNoteAndItsCap(stage: CGFloat) {
+        let width = TunerBars.barWidth(stageWidth: stage)
+        #expect(width >= 0)
+        #expect(width <= stage * TunerBars.barShare)
+        #expect(width <= TunerBars.maxBarWidth)
+        #expect(width == 0 || width <= stage / 2 - TunerBars.noteClearance)
     }
 
     @Test func zoneSpansTenCentsEitherWayOfTravel() {

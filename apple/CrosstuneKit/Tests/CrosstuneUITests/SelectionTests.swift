@@ -78,7 +78,6 @@ struct BatchEditSummaryTests {
 
     @Test func labelsEachFieldAsTheTuneFormDoes() {
         #expect(EditField.partStructure.label == TuneFieldLabels.partStructure)
-        #expect(EditField.mode.label == "Mode")
         #expect(EditField.tuning("violin").label == "Violin tuning")
     }
 

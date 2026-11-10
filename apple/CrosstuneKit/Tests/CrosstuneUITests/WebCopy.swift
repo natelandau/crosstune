@@ -1,4 +1,5 @@
 import Foundation
+import Testing
 
 /// The web's string constants by name, read from one of its copy files, `path` relative to the
 /// repository root. Only plain quoted strings are read; template literals and functions are not.
@@ -17,4 +18,16 @@ func webCopy(_ path: String) throws -> [String: String] {
         }
     }
     return found
+}
+
+/// Expects each Apple string to equal the web constant it names in the copy file at `path`, so
+/// both clients say the same words whatever the wording becomes.
+func expectMatchesWeb(
+    _ path: String, _ pairs: [(name: String, value: String)], sourceLocation: SourceLocation = #_sourceLocation
+) throws {
+    let web = try webCopy(path)
+    for (name, value) in pairs {
+        let expected = try #require(web[name], "\(path) has no constant \(name)", sourceLocation: sourceLocation)
+        #expect(value == expected, "\(name)", sourceLocation: sourceLocation)
+    }
 }

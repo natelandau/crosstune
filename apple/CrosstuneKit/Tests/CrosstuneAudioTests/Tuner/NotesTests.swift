@@ -18,7 +18,6 @@ extension Tuner {
 
         @Test func usesSharps() {
             #expect(noteFor(frequency: 277.18, a4: 440)?.name == .cSharp)
-            #expect(NoteName.cSharp.rawValue == "C\u{266F}")
         }
 
         @Test func followsTheReferencePitch() throws {

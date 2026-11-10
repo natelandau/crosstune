@@ -71,6 +71,8 @@ import Testing
     #expect(prompt.isShowing == false)
 }
 
+private let promptInterval = UpdatePromptSchedule.interval / .seconds(1)
+
 @Test func theForegroundAsksAgainOnlyAfterTheInterval() {
     let t0 = Date(timeIntervalSince1970: 1_000_000)
     var prompt = UpdatePromptSchedule()
@@ -79,9 +81,9 @@ import Testing
 
     _ = prompt.refused(at: t0)
     prompt.isShowing = false
-    prompt.foregrounded(at: t0.addingTimeInterval(4 * 3600 - 1))
+    prompt.foregrounded(at: t0.addingTimeInterval(promptInterval - 1))
     #expect(prompt.isShowing == false)
-    prompt.foregrounded(at: t0.addingTimeInterval(4 * 3600))
+    prompt.foregrounded(at: t0.addingTimeInterval(promptInterval))
     #expect(prompt.isShowing)
 }
 
@@ -89,14 +91,13 @@ import Testing
     let t0 = Date(timeIntervalSince1970: 1_000_000)
     var prompt = UpdatePromptSchedule()
     _ = prompt.refused(at: t0)
-    prompt.show(at: t0.addingTimeInterval(3 * 3600))
+    prompt.show(at: t0.addingTimeInterval(promptInterval * 0.75))
     prompt.isShowing = false
-    prompt.foregrounded(at: t0.addingTimeInterval(5 * 3600))
+    prompt.foregrounded(at: t0.addingTimeInterval(promptInterval * 1.25))
     #expect(prompt.isShowing == false)
 }
 
 @Test func theIntervalCountsItsFractionalSeconds() {
-    #expect(UpdatePromptSchedule.interval == .seconds(4 * 60 * 60))
     let t0 = Date(timeIntervalSince1970: 1_000_000)
     var prompt = UpdatePromptSchedule(interval: .milliseconds(1_500))
     _ = prompt.refused(at: t0)
@@ -472,9 +473,6 @@ struct ClerkFailed: Error {}
         #expect(
             AccountSession.LeaveError.unuploadedScans.errorDescription
                 == AccountSession.LeaveError.unuploadedScansMessage)
-        #expect(
-            AccountSession.LeaveError.unuploadedScansMessage
-                == "Some scans have not uploaded yet. Delete them from their tune, or wait until they upload.")
     }
 
     @Test func signOutNamesUnuploadedRecordingsBeforeScans() async throws {

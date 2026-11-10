@@ -115,29 +115,22 @@ private func jpeg(width: Int, height: Int) -> Data {
 
     // Literal on purpose: these pin the words to web/src/features/scans/scanCopy.ts, which
     // the web's end-to-end specs query by name, so the two clients never drift apart.
-    @Test func labelsMatchTheWebClient() {
-        #expect(ScanCopy.scans == "Scans")
-        #expect(ScanCopy.addScans == "Add scans")
-        #expect(ScanCopy.emptyTitle == "No scans yet")
-        #expect(ScanCopy.emptyHint == "Add a photo of written music, lyrics, or notes.")
-        #expect(ScanCopy.deleteTitle == "Delete this scan?")
-        #expect(ScanCopy.unreadableScan == "This scan cannot be shown")
+    @Test func labelsMatchTheWebClient() throws {
+        try expectMatchesWeb(
+            "web/src/features/scans/scanCopy.ts",
+            [
+                ("SCANS", ScanCopy.scans), ("ADD_SCANS", ScanCopy.addScans),
+                ("DELETE_SCAN_TITLE", ScanCopy.deleteTitle), ("SCAN_UNREADABLE", ScanCopy.unreadableScan),
+                ("INVERT", ScanCopy.invert), ("SCAN_STORAGE_FULL", ScanCopy.storageFull),
+                ("SCAN_REFUSED", ScanCopy.refused), ("SCAN_WAITING", ScanCopy.waiting),
+                ("SCAN_NOT_UPLOADED", ScanCopy.notUploaded),
+            ])
+    }
+
+    @Test func numbersScansFromOne() {
         #expect(ScanCopy.scan(0) == "Scan 1")
         #expect(ScanCopy.moveScan(0) == "Move scan 1")
         #expect(ScanCopy.deleteScan(0) == "Delete scan 1")
-        #expect(ScanCopy.invert == "Invert")
-        #expect(ScanCopy.limitNote == "A tune holds up to 20 scans.")
-        #expect(ScanCopy.storageFull == "Not uploaded, storage full")
-        #expect(ScanCopy.refused == "Could not upload. Delete this scan and add it again.")
-        #expect(ScanCopy.waiting == "Waiting for upload from another device")
-        #expect(ScanCopy.notUploaded == "Not uploaded yet")
-    }
-
-    // The web adds scans through one file picker, so these choices have no web counterpart.
-    @Test func addChoiceLabels() {
-        #expect(ScanAddChoice.scan.label == "Scan")
-        #expect(ScanAddChoice.photo.label == "Choose Photo")
-        #expect(ScanAddChoice.file.label == "Choose File")
     }
 
     @Test func numberedAndCountedCopy() {
@@ -245,12 +238,10 @@ private func jpeg(width: Int, height: Int) -> Data {
 
     @Test func regularWidthScansGrow() {
         #if os(iOS)
-            #expect(ScansSection.thumbnailHeight(regular: true) == PadStyle.scanThumbnailHeight)
             #expect(ScansSection.thumbnailHeight(regular: true) > ScansSection.thumbnailHeight(regular: false))
         #else
-            #expect(ScansSection.thumbnailHeight(regular: true) == 120)
+            #expect(ScansSection.thumbnailHeight(regular: true) == ScansSection.thumbnailHeight(regular: false))
         #endif
-        #expect(ScansSection.thumbnailHeight(regular: false) == 120)
     }
 
     @Test func thumbnailsDecodeAtTheirPixelHeightAndNeverUpscale() throws {
@@ -565,7 +556,6 @@ private struct ScannedTunes {
 
     @Test func aLockedThumbnailNamesPremiumAndNoActionLabel() {
         #expect(ScanCopy.thumbnailName(0, opens: true) == ScanCopy.openScan(0))
-        #expect(ScanCopy.subscribeToOpen == "Subscribe to open")
         #expect(ScanCopy.thumbnailName(1, opens: false) == "Scan 2, \(ScanCopy.subscribeToOpen)")
     }
 }

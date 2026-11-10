@@ -20,7 +20,6 @@ import Testing
                 SettingsCategory.syncAndStorageTitle,
                 ImportExportSections.title, SettingsScreen.about,
             ])
-        #expect(SettingsModel.tunes == "Tunes")
     }
 
     @MainActor
@@ -87,8 +86,6 @@ import Testing
         #expect(
             SettingsCategory.recordings.summary(summaries, appearance: .system) == Vocabulary.audioQualityNames["high"])
         #expect(SettingsCategory.tuner.summary(summaries, appearance: .system) == "A4 = 442 Hz")
-        #expect(SettingsCategory.tuner.title == "Tuner")
-        #expect(SettingsCategory.tuner.systemImage == "gauge.with.needle")
         for category in [SettingsCategory.syncAndStorage, .importExport, .about] {
             #expect(category.summary(summaries, appearance: .system) == "", "\(category)")
         }

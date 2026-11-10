@@ -172,11 +172,13 @@ struct TuneAttributesTests {
         #expect(column.learned.map(\.id) == [.learnedFrom, .learnedOn])
     }
 
-    @Test func theColumnGroupHeadingsMatchTheWebClient() {
-        #expect(AttributeCopy.detailsGroup == "Details")
-        #expect(AttributeCopy.aboutGroup == "About")
-        #expect(AttributeCopy.learnedGroup == "Learned")
-        #expect(AttributeCopy.listsGroup == "Lists")
+    @Test func theColumnGroupHeadingsMatchTheWebClient() throws {
+        try expectMatchesWeb(
+            "web/src/features/tune/attributeCopy.ts",
+            [
+                ("DETAILS_GROUP", AttributeCopy.detailsGroup), ("ABOUT_GROUP", AttributeCopy.aboutGroup),
+                ("LEARNED_GROUP", AttributeCopy.learnedGroup), ("LISTS_GROUP", AttributeCopy.listsGroup),
+            ])
     }
 
     @Test func theColumnRowsSitUnderTheirGroupsHeadings() {

@@ -49,20 +49,16 @@ private let portal = URL(string: "https://billing.example.com/portal")!
     }
 
     @Test func theComparisonListsTheSpecsRowsInOrder() {
+        let rows = PlanSheet.comparison
         #expect(
-            PlanSheet.comparison == [
-                .init(title: PlanText.featureCatalog, free: .included, premium: .included, symbol: "music.note.list"),
-                .init(
-                    title: PlanText.featureSync, free: .included, premium: .included,
-                    symbol: "arrow.triangle.2.circlepath"),
-                .init(title: PlanText.featureRecord, free: .excluded, premium: .included, symbol: "record.circle"),
-                .init(title: PlanText.featurePlay, free: .excluded, premium: .included, symbol: "play"),
-                .init(
-                    title: PlanText.featurePractice, free: .excluded, premium: .included, symbol: "slider.horizontal.3"),
-                .init(title: PlanText.featureScans, free: .excluded, premium: .included, symbol: "doc.richtext"),
-                .init(
-                    title: PlanText.featureStorage, free: .excluded, premium: .value(PlanText.storagePremium),
-                    symbol: "icloud"),
+            rows.map(\.title) == [
+                PlanText.featureCatalog, PlanText.featureSync, PlanText.featureRecord, PlanText.featurePlay,
+                PlanText.featurePractice, PlanText.featureScans, PlanText.featureStorage,
+            ])
+        #expect(rows.map(\.free) == [.included, .included, .excluded, .excluded, .excluded, .excluded, .excluded])
+        #expect(
+            rows.map(\.premium) == [
+                .included, .included, .included, .included, .included, .included, .value(PlanText.storagePremium),
             ])
     }
 
@@ -568,10 +564,6 @@ private let portal = URL(string: "https://billing.example.com/portal")!
             let footer = PlanSheet.macFooter(sale, isWorking: false, close: {}, subscribe: {})
             #expect(footer.cancel?.title == SheetCloseButton.close)
             #expect(footer.primary == nil)
-        }
-
-        @Test func aMemberManagesFromTheRenewalRow() {
-            #expect(MembershipCard.macManage == "Manage\u{2026}")
         }
 
         /// Offline, the Mac sheet says why nothing is purchasable in its subtitle, never in a line floating

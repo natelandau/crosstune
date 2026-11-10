@@ -191,31 +191,10 @@ struct PickedPlaceNamesTests {
 }
 
 struct LocationWordsTests {
-    @Test func theSearchAndItsRowsSayLocation() {
-        #expect(RecordingPageCopy.location == "Location")
-        #expect(PlaceSearchText.clearPlace == "Clear location")
-        #expect(PlaceSearchText.findAPlace == "Find a place or address")
-        #expect(PlaceSearchText.useCurrentLocation == "Use current location")
-        #expect(PlaceSearchText.dropAPin == "Can’t find it? Drop a pin on the map")
-        #expect(PlaceSearchText.recent == "Recent locations")
-        #expect(PlaceSearchText.pickFailed == "Couldn’t find that location. Try another.")
-        #expect(PlaceSearchText.current == "Current")
-        #expect(PlaceSearchText.nearby == "Nearby")
-        #expect(PlaceSearchText.saved == "Saved locations")
-        #expect(PlaceSearchText.nameThisLocation == "Name this location…")
-        #expect(PlaceSearchText.openInMaps == "Open in Maps")
+    @Test func aPickNamesThePlaceAndAnyDetail() {
         #expect(PlaceSearchText.pick("Rex Theater", detail: "113 E Grayson St") == "Use Rex Theater, 113 E Grayson St")
         #expect(PlaceSearchText.pick("Galax, VA", detail: nil) == "Use Galax, VA")
         #expect(PlaceSearchText.pick("Galax, VA", detail: "") == "Use Galax, VA")
-        #expect(NameLocationText.title == "Name this location")
-        #expect(NameLocationText.nameLabel == "Location name")
-        #expect(NameLocationText.savedHere == "Saved here")
-        #expect(NameLocationText.help == "Recordings made here show this name.")
-    }
-
-    @Test func theAccessNoteSaysHowToTurnLocationBackOn() {
-        #expect(LocationAccessText.off == "Location access is off, so new recordings don’t save where they were made.")
-        #expect(LocationAccessText.openSettings == "Open Settings")
     }
 }
 

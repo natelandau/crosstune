@@ -172,7 +172,6 @@ struct RecordingMetaTests {
     }
 
     @Test func saysALocalOnlyRecordingSyncsOnSubscribingInPlaceOfItsStatus() {
-        #expect(RecordingText.isLocalUntilSubscribed == "On this device only. Syncs when you subscribe.")
         var waiting = file(.captured)
         waiting.uploadAttempts = 2
         let localOnly = RecordingText.meta(

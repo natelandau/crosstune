@@ -510,7 +510,6 @@ struct PlayerItemLinkTests {
 #if os(macOS)
     struct PlayerDockTests {
         @Test func dockEmbedStaysWithinShare() {
-            #expect(PlayerDock.chrome == MacStyle.dockHeight + PlayerDock.inset)
             let height = PlayerDock.embedHeight(columnHeight: 500, wanted: 400)
             #expect(height == 500 * PlayerDock.maxShare - PlayerDock.chrome)
             #expect(height + PlayerDock.chrome <= 500 * PlayerDock.maxShare)
@@ -570,9 +569,7 @@ private final class QuietTrackCommands: TrackCommands {
         #expect(PlaylistControlText.repeatLabel(.off) == "Repeat off")
         #expect(PlaylistControlText.repeatLabel(.list) == "Repeat list")
         #expect(PlaylistControlText.repeatLabel(.one) == "Repeat tune")
-        #expect(PlaylistControlText.repeatSymbol(.off) == "repeat")
-        #expect(PlaylistControlText.repeatSymbol(.list) == "repeat")
-        #expect(PlaylistControlText.repeatSymbol(.one) == "repeat.1")
+        #expect(PlaylistControlText.repeatSymbol(.one) != PlaylistControlText.repeatSymbol(.list))
     }
 
     @Test func offersNextOnlyWhilePlayingAList() {
@@ -623,11 +620,12 @@ private final class QuietTrackCommands: TrackCommands {
 
 struct AccessorySwipeTests {
     @Test func swipeSkipsOnlyPastTheThresholdWhileAListPlays() {
-        #expect(AccessorySwipe.skip(translation: -61, isPlayingList: true) == .next)
-        #expect(AccessorySwipe.skip(translation: 61, isPlayingList: true) == .previous)
-        #expect(AccessorySwipe.skip(translation: -59, isPlayingList: true) == nil)
-        #expect(AccessorySwipe.skip(translation: 59, isPlayingList: true) == nil)
-        #expect(AccessorySwipe.skip(translation: -200, isPlayingList: false) == nil)
+        let threshold = PhoneStyle.swipeSkipThreshold
+        #expect(AccessorySwipe.skip(translation: -(threshold + 1), isPlayingList: true) == .next)
+        #expect(AccessorySwipe.skip(translation: threshold + 1, isPlayingList: true) == .previous)
+        #expect(AccessorySwipe.skip(translation: -(threshold - 1), isPlayingList: true) == nil)
+        #expect(AccessorySwipe.skip(translation: threshold - 1, isPlayingList: true) == nil)
+        #expect(AccessorySwipe.skip(translation: -(threshold * 4), isPlayingList: false) == nil)
     }
 
     @Test func swipeSkipsOnlyWhereTheListHasATuneToGoTo() {

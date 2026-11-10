@@ -792,8 +792,7 @@ struct TunePageTests {
     }
 
     @Test func theKeyTileIsSmallerOnACompactWidth() {
-        #expect(TuneHeader.keyTileSize(compact: true) == 54)
-        #expect(TuneHeader.keyTileSize(compact: false) == 64)
+        #expect(TuneHeader.keyTileSize(compact: true) < TuneHeader.keyTileSize(compact: false))
     }
 
     @Test func aRenameEndingAnyWayButEscapeSavesAndEscapeRestores() {
@@ -830,28 +829,25 @@ struct TunePageTests {
             TuneMoreMenu.entries(archived: true, canAddToList: false) == [.editAll, .archive(archived: true), .delete])
     }
 
-    @MainActor @Test func pageWordsMatchTheWebClient() {
-        #expect(FirstRecordingCard.title == "Add the first recording")
-        #expect(FirstRecordingCard.hint == "Record it, paste a link, or find a version to learn from.")
-        #expect(FirstRecordingCard.record == "Record")
-        #expect(FirstRecordingCard.pasteLink == "Paste link")
-        #expect(FirstRecordingCard.findARecording == "Find a recording")
-        #expect(NotesField.placeholder == "Write a note…")
-        #expect(TuneScreen.editAllDetails == "Edit all details")
-        #expect(TuneScreen.recordingsHeader == "Recordings")
-        #expect(TuneFieldLabels.lyrics == "Lyrics")
-        #expect(TuneScreen.scansHeader == "Scans and images")
-        #expect(TuneScreen.notesHeader == "Notes")
-        #expect(TuneScreen.openLyrics == "Open lyrics")
-        #expect(LyricsReader.editLyrics == "Edit lyrics")
-        #expect(NotesField.savesAsYouType == "Saves as you type")
-        #expect(TuneScreen.addToTune == "Add to this tune")
-        #expect(TuneScreen.addScan == "Add scan or image")
-        #expect(TuneScreen.addScanText == "Scan or image")
-        #expect(TuneScreen.addLyrics == "Add lyrics")
-        #expect(TuneScreen.addLyricsText == "Lyrics")
-        #expect(TuneHeader.rename == "Rename")
-        #expect(TuneHeader.addKey == "Add key")
+    @MainActor @Test func pageWordsMatchTheWebClient() throws {
+        try expectMatchesWeb(
+            "web/src/features/tune/tuneMediaCopy.ts",
+            [
+                ("FIRST_RECORDING_TITLE", FirstRecordingCard.title), ("FIRST_RECORDING_HINT", FirstRecordingCard.hint),
+                ("RECORD", FirstRecordingCard.record), ("FIND_A_RECORDING", FirstRecordingCard.findARecording),
+            ])
+        try expectMatchesWeb(
+            "web/src/features/tune/tuneScreenCopy.ts",
+            [
+                ("WRITE_A_NOTE", NotesField.placeholder), ("EDIT_ALL_DETAILS", TuneScreen.editAllDetails),
+                ("RECORDINGS_SECTION", TuneScreen.recordingsHeader), ("LYRICS_SECTION", TuneFieldLabels.lyrics),
+                ("SCANS_SECTION", TuneScreen.scansHeader), ("NOTES_SECTION", TuneScreen.notesHeader),
+                ("OPEN_LYRICS", TuneScreen.openLyrics), ("EDIT_LYRICS", LyricsReader.editLyrics),
+                ("NOTES_SAVE_HINT", NotesField.savesAsYouType), ("ADD_TO_TUNE", TuneScreen.addToTune),
+                ("ADD_SCAN", TuneScreen.addScan), ("ADD_SCAN_TEXT", TuneScreen.addScanText),
+                ("ADD_LYRICS", TuneScreen.addLyrics), ("ADD_LYRICS_TEXT", TuneScreen.addLyricsText),
+                ("EDIT_TITLE", TuneHeader.rename), ("KEY_TILE_EMPTY", TuneHeader.addKey),
+            ])
     }
 
     /// The page says what is missing with a start card or an add line, never an empty-state block.

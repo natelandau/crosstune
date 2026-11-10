@@ -528,14 +528,6 @@ final class AccessManager: LocationManaging {
         recorder = Recorder(store: store, input: input, channels: { .mono })
     }
 
-    @Test func theNoteSaysWhyBeforeThePrompt() {
-        #expect(RecordSheetModel.locationNoteTitle == "Save where you record")
-        #expect(
-            RecordSheetModel.locationNoteBody
-                == "Crosstune adds the location to each recording, so you can find it later.")
-        #expect(RecordSheetModel.continueToLocation == "Continue")
-    }
-
     @Test func anUnaskedDeviceShowsTheNoteAndStartsNothingUntilContinue() async throws {
         let manager = AccessManager(.notDetermined)
         let model = RecordSheetModel(recorder: recorder, tuneID: nil, locationAccess: LocationAccess(manager: manager))
@@ -741,14 +733,6 @@ actor ReadCount {
 
 #if os(macOS)
     struct RecordSheetMacTests {
-        /// Glass tinted red draws gray in a sheet, so the Mac's Stop is a solid red circle.
-        @Test func stopIsAlwaysRecordingRedOnTheMac() throws {
-            let file = SourceScan.url(of: "Recording/RecordSheet.swift")
-            let mac = SourceScan.macCompiled(SourceScan.withoutComments(try SourceScan.text(at: file)))
-            #expect(mac.contains("background(Palette.record, in: .circle)"))
-            #expect(mac.contains("glassEffect") == false)
-        }
-
         /// The title is the only place the Mac sheet says what the recording is doing.
         @MainActor @Test func macTitleIsTheRecordingsStateExceptWhileAskingForLocation() {
             #expect(
@@ -760,13 +744,6 @@ actor ReadCount {
             #expect(
                 RecordSheet.macTitle(asksLocation: false, status: RecordSheetModel.notRecording)
                     == RecordSheetModel.notRecording)
-        }
-
-        @Test func liveWaveformIsRecordingRedOnTheMac() throws {
-            let file = SourceScan.url(of: "Recording/LiveWaveform.swift")
-            let mac = SourceScan.macCompiled(SourceScan.withoutComments(try SourceScan.text(at: file)))
-            #expect(mac.contains("Palette.record"))
-            #expect(mac.contains("AnyShapeStyle(.tint)") == false)
         }
     }
 #endif

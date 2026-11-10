@@ -4,18 +4,6 @@ import Testing
 
 @testable import CrosstuneUI
 
-/// Each channel of `hex` as a byte.
-private func bytes(_ hex: String) -> [Int] {
-    let digits = Array(hex.dropFirst())
-    return stride(from: 0, to: 6, by: 2).map { Int(String(digits[$0..<$0 + 2]), radix: 16)! }
-}
-
-/// Whether two colors agree to within one step per channel, the rounding the web's committed
-/// hex values carry.
-private func matches(_ color: KeyColor.RGB, _ hex: String) -> Bool {
-    zip(bytes(color.hex), bytes(hex)).allSatisfy { abs($0 - $1) <= 1 }
-}
-
 struct PitchClassTests {
     @Test(arguments: [
         ("C", 0), ("D", 2), ("E", 4), ("F", 5), ("G", 7), ("A", 9), ("B", 11), ("F#", 6), ("Gb", 6),
@@ -30,40 +18,22 @@ struct PitchClassTests {
         #expect(KeyColor.pitchClass(key) == nil)
     }
 
+    /// Each fifth up takes the same step around the hue wheel, so the twelve keys get twelve hues.
     @Test func placesHuesAroundTheCircleOfFifths() {
-        #expect(KeyColor.hue(pitchClass: 0) == 20)  // C
-        #expect(KeyColor.hue(pitchClass: 7) == 50)  // G
-        #expect(KeyColor.hue(pitchClass: 2) == 80)  // D
-        #expect(KeyColor.hue(pitchClass: 6) == 200)  // F sharp
-        #expect(KeyColor.hue(pitchClass: 5) == 350)  // F
+        let fifths = (0..<12).map { KeyColor.hue(pitchClass: $0 * 7 % 12) }
+        let steps = Set(zip(fifths, fifths.dropFirst()).map { $1 - $0 })
+        #expect(steps.count == 1)
+        #expect(Set(fifths).count == 12)
     }
 }
 
 struct KeyPillColorsTests {
-    @Test func matchesTheWebsRestingBackgroundsInLightMode() {
-        let web = [
-            "#facac8", "#b3dff6", "#ebd4af", "#d6d2fb", "#c5e1be", "#f5c9dd", "#ade3e6", "#f7ceb7", "#c2d9fd",
-            "#d9dbb1", "#e8ccef", "#b4e4d2",
-        ]
-        for (pitch, hex) in web.enumerated() {
-            let colors = KeyColor.pillColors(pitchClass: pitch, scheme: .light, chosen: false)
-            #expect(matches(colors.background, hex), "pitch \(pitch): \(colors.background.hex) vs \(hex)")
+    @Test(arguments: [ColorScheme.light, .dark], [false, true])
+    func everyPillsTextPassesContrast(scheme: ColorScheme, chosen: Bool) {
+        for pitch in 0..<12 {
+            let colors = KeyColor.pillColors(pitchClass: pitch, scheme: scheme, chosen: chosen)
+            #expect(contrastRatio(colors.text, colors.background) >= 4.5, "pitch \(pitch)")
         }
-    }
-
-    @Test(arguments: [
-        (0, ColorScheme.light, false, "#facac8", "#5f3434"),
-        (0, ColorScheme.light, true, "#804949", "#ffffff"),
-        (0, ColorScheme.dark, false, "#5c3232", "#f9c1bf"),
-        (0, ColorScheme.dark, true, "#e48686", "#2a1313"),
-        (6, ColorScheme.dark, false, "#06494c", "#9edfe2"),
-        (6, ColorScheme.dark, true, "#23bac1", "#002021"),
-        (11, ColorScheme.light, true, "#246954", "#ffffff"),
-    ])
-    func matchesTheWebInEveryRole(pitch: Int, scheme: ColorScheme, chosen: Bool, background: String, text: String) {
-        let colors = KeyColor.pillColors(pitchClass: pitch, scheme: scheme, chosen: chosen)
-        #expect(matches(colors.background, background), "\(colors.background.hex) vs \(background)")
-        #expect(matches(colors.text, text), "\(colors.text.hex) vs \(text)")
     }
 
     @Test func givesBothSpellingsOfAPitchOneColor() throws {

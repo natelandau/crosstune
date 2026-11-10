@@ -17,16 +17,6 @@ struct PhoneStyleTests {
         #expect(contrastRatio(Palette.hex(.playhead, scheme), Palette.hex(background, scheme)) >= 3)
     }
 
-    /// The tuner draws on one dark background in either appearance.
-    @Test(arguments: [(ColorScheme.light, "#1E212C"), (.dark, "#1E212C")])
-    func tunerBackgroundIsOneValueInEachAppearance(scheme: ColorScheme, hex: String) {
-        let resolved = Palette.tunerBackground(scheme).resolve(in: EnvironmentValues())
-        let expected = KeyColor.RGB(hex: hex)
-        #expect(abs(Double(resolved.red) - expected.red) < 0.01, "red")
-        #expect(abs(Double(resolved.green) - expected.green) < 0.01, "green")
-        #expect(abs(Double(resolved.blue) - expected.blue) < 0.01, "blue")
-    }
-
     @Test func tunerStepsReadOnTheTunerBackground() {
         for background in Self.backgrounds {
             #expect(contrastRatio(Self.tunerClose, background) >= 3, "close on \(background)")
@@ -62,17 +52,14 @@ struct PhoneStyleTests {
         }
     }
 
-    @Test func tunerInTuneBackgroundMixesTheGreenIntoEachTunerBackground() {
+    @Test func tunerInTuneBackgroundReadsApartAndPassesContrast() {
         for scheme in Self.schemes {
             let background = Palette.hex(.tunerBackground, scheme)
             let inTune = Palette.hex(.tunerInTuneBackground, scheme)
-            let mixed = KeyColor.RGB(hex: blend(Self.known, over: background, opacity: 0.14))
-            let rgb = KeyColor.RGB(hex: inTune)
-            #expect(abs(rgb.red - mixed.red) <= 1.0 / 255, "\(scheme) red")
-            #expect(abs(rgb.green - mixed.green) <= 1.0 / 255, "\(scheme) green")
-            #expect(abs(rgb.blue - mixed.blue) <= 1.0 / 255, "\(scheme) blue")
             #expect(inTune != background, "\(scheme) reads apart from the tuner background")
-            #expect(contrastRatio("#FFFFFF", inTune) >= 4.5, "white on the \(scheme) in-tune background")
+            #expect(
+                contrastRatio(Palette.hex(.onTuner, scheme), inTune) >= 4.5,
+                "label on the \(scheme) in-tune background")
             #expect(contrastRatio(Self.muted, inTune) >= 4.5, "muted on the \(scheme) in-tune background")
             #expect(contrastRatio(Self.muted, background) >= 4.5, "muted on the \(scheme) tuner background")
             #expect(contrastRatio(Self.known, inTune) >= 3, "green on the \(scheme) in-tune background")

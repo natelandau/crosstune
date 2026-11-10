@@ -93,7 +93,6 @@ private func stored(_ store: CrosstuneStore, _ id: String = "r1", sourceLocation
     }
 
     @Test func searchIsFirstAndNamedForNewPlaces() throws {
-        #expect(PlaceSearchText.findAPlace == "Find a place or address")
         let text = SourceScan.withoutComments(
             try SourceScan.text(at: SourceScan.url(of: "RecordingPage/Location/LocationEditor.swift")))
         #expect(text.contains("PlaceSearchText.findAPlace"))
@@ -335,7 +334,6 @@ private func stored(_ store: CrosstuneStore, _ id: String = "r1", sourceLocation
         editor.query = "Gx"
         await editor.refresh()
         #expect(searchRows(editor) == ["pin"])
-        #expect(PlaceSearchText.dropAPin == "Can’t find it? Drop a pin on the map")
     }
 
     @Test func escapeAfterAPickWritesNothing() async throws {
@@ -410,7 +408,6 @@ private func stored(_ store: CrosstuneStore, _ id: String = "r1", sourceLocation
             store, placedRecording(), locationAccess: access(.authorizedAlways), device: FakeLocation())
         #expect((await editor.useCurrentLocation()) == false)
         #expect(editor.failure == PlaceSearchText.noCurrentLocation)
-        #expect(PlaceSearchText.noCurrentLocation == "Couldn’t find your location.")
         #expect(edit.isEdited == false)
     }
 
@@ -463,7 +460,6 @@ private func stored(_ store: CrosstuneStore, _ id: String = "r1", sourceLocation
         #expect(searches.search.resolves == ["Globe Bar"])
         #expect(searches.search.localQueries == ["globe"])
         #expect(editor.completions.map { editor.distance(to: editor.point(of: $0)) } == ["40 ft"])
-        #expect(LocationEditorModel.settleDelay == .milliseconds(400))
     }
 
     @Test func localPlacesComeFirstWithDistancesAndDropTheirSuggestions() async throws {

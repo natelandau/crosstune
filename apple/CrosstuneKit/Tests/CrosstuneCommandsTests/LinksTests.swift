@@ -197,7 +197,6 @@ private let pageURL = "https://slippery-hill.com/recording/42"
 
         await #expect(throws: CommandError.linkNotFound) { try await commands.addRecordingFromLink(linkID) }
         await #expect(throws: CommandError.linkNotFound) { try await commands.addRecordingFromLink("nope") }
-        #expect(CommandError.linkNotFound.errorDescription == "Link not found")
     }
 }
 

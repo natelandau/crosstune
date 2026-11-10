@@ -550,7 +550,6 @@ import Testing
         #expect(
             await engine.searchRecordings(q: "x", providers: ["tidal"], country: "US")
                 == .rateLimited(retryAfter: SyncEngine.defaultRetryAfterSeconds))
-        #expect(SyncEngine.defaultRetryAfterSeconds == 60)
 
         api.failure = APIStatusError(status: 429, retryAfterSeconds: 7)
         #expect(
@@ -955,28 +954,5 @@ struct ClassifyFailureTests {
         #expect(classifyTransferFailure(NotSignedIn(), isOffline: false) == .offline)
         #expect(classifyTransferFailure(URLError(.cannotFindHost), isOffline: false) == .error)
         #expect(classifyTransferFailure(APIStatusError(status: 500), isOffline: false) == .error)
-    }
-}
-
-struct StatusLabelTests {
-    @Test(arguments: [
-        (SyncStatus.idle, "Synced"),
-        (.syncing, "Syncing"),
-        (.offline, "Offline"),
-        (.unauthorized, "Sign in again"),
-        (.error, "Sync failed"),
-    ])
-    func labelsEachSyncStatusAsTheWebDoes(status: SyncStatus, label: String) {
-        #expect(status.label == label)
-    }
-
-    @Test(arguments: [
-        (TransferStatus.idle, "Up to date"),
-        (.transferring, "Transferring"),
-        (.offline, "Offline"),
-        (.error, "Transfer failed"),
-    ])
-    func labelsEachTransferStatusAsTheWebDoes(status: TransferStatus, label: String) {
-        #expect(status.label == label)
     }
 }

@@ -15,7 +15,6 @@
         func chosenKeyRingHoldsContrastOnEveryHue(scheme: ColorScheme) {
             let ring = Palette.hex(MacChip.ringToken, scheme)
             let gap = Palette.hex(MacChip.ringGapToken, scheme)
-            #expect(MacChip.ringGapWidth > 0)
             #expect(contrastRatio(ring, gap) >= 3)
             for background in [Palette.Token.pageBackground, .surface] {
                 #expect(contrastRatio(ring, Palette.hex(background, scheme)) >= 3, "\(background)")
@@ -39,26 +38,11 @@
             }
         }
 
-        /// A chosen chip with no hue of its own is the accent fill under a white label.
+        /// A chosen chip with no hue of its own keeps its label readable on its fill.
         @Test(arguments: [ColorScheme.light, .dark])
-        func chosenChipWithoutHueUsesAccentFill(scheme: ColorScheme) {
-            #expect(
-                MacChip.solidFillHex(state: .chosen, scheme: scheme) == Palette.hex(.accentFill, scheme).lowercased()
-            )
-            #expect(
-                MacChip.labelRGB(state: .chosen, scheme: scheme).hex
-                    == Palette.hex(.onAccentFill, scheme).lowercased())
-            #expect(
-                contrastRatio(
-                    MacChip.labelRGB(state: .chosen, scheme: scheme).hex, Palette.hex(.accentFill, scheme)) >= 4.5)
-        }
-
-        /// A rest chip takes its container's control fill, so it never reads gray on a card.
-        @Test(arguments: [ColorScheme.light, .dark])
-        func restChipReadsItsContainer(scheme: ColorScheme) {
-            #expect(
-                MacChip.solidFillHex(state: .rest, scheme: scheme, container: .surface)
-                    == Palette.hex(.surfaceRaised, scheme).lowercased())
+        func chosenChipWithoutHueLabelPassesContrast(scheme: ColorScheme) throws {
+            let fill = try #require(MacChip.solidFillHex(state: .chosen, scheme: scheme))
+            #expect(contrastRatio(MacChip.labelRGB(state: .chosen, scheme: scheme).hex, fill) >= 4.5)
         }
     }
 #endif

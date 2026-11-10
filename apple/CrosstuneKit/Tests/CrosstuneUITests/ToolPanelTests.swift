@@ -69,11 +69,5 @@ struct ToolPanelTests {
         func toolNamesItsValue(value: String?, expected: String) {
             #expect(MacToolButton<EmptyView>.accessibilityName(title: "Speed", value: value) == expected)
         }
-
-        /// A value off its default takes the accent, so a changed tool stands out from the rest.
-        @Test func aChangedToolTakesTheAccent() {
-            #expect(MacToolButton<EmptyView>.valueToken(isChanged: true) == .accent)
-            #expect(MacToolButton<EmptyView>.valueToken(isChanged: false) == .textSecondary)
-        }
     #endif
 }

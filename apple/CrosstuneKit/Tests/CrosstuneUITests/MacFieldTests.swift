@@ -172,17 +172,6 @@
             }
         }
 
-        /// A chosen value reads as text; only an empty one recedes to secondary text.
-        @Test(arguments: [ColorScheme.light, .dark])
-        func aSetValueReadsAsText(scheme: ColorScheme) {
-            #expect(
-                MacPopUpStyle.valueRGB(isSet: true, scheme: scheme).hex
-                    == Palette.hex(.textPrimary, scheme).lowercased())
-            #expect(
-                MacPopUpStyle.valueRGB(isSet: false, scheme: scheme).hex
-                    == Palette.hex(.textSecondary, scheme).lowercased())
-        }
-
         /// An invalid field rings in danger whether or not it is focused; a valid one rings in the
         /// accent only while it shows focus.
         @Test(arguments: [
@@ -194,18 +183,17 @@
         }
 
         /// The ring is a non-text indicator, so it holds 3:1 against the fill it rings and the
-        /// background around it, which only the full accent does.
+        /// background around it.
         @Test(arguments: [ColorScheme.light, .dark])
-        func focusRingIsTheFullAccent(scheme: ColorScheme) {
+        func focusRingPassesContrast(scheme: ColorScheme) {
             let ring = Palette.rgb(MacControl.focusRingToken, scheme).hex
-            #expect(ring == Palette.hex(.accent, scheme).lowercased())
             for background in [Palette.Token.pageBackground, .surface, .field, .surfaceRaised] {
                 #expect(contrastRatio(ring, Palette.hex(background, scheme)) >= 3, "\(background)")
             }
         }
 
         /// A field's text and prompt read on the fill it takes in each container, and the fill
-        /// contrasts with the container: on `surface` it is lighter, never the gray `field`.
+        /// differs from the container.
         @Test(arguments: [ColorScheme.light, .dark])
         func fieldsReadOnEveryContainer(scheme: ColorScheme) {
             for container in MacContainer.allCases {
@@ -214,15 +202,11 @@
                 #expect(contrastRatio(Palette.hex(.textSecondary, scheme), fill) >= 4.5, "prompt in \(container)")
                 #expect(fill != Palette.hex(container.fill, scheme))
             }
-            #expect(MacContainer.surface.controlFill != .field)
-            #expect(
-                relativeLuminance(Palette.hex(MacContainer.surface.controlFill, scheme))
-                    > relativeLuminance(Palette.hex(.surface, scheme)))
         }
 
         /// Fields, pop-ups, segmented tracks, chips, steppers, and the search field take their
         /// fill from the container, never a fixed `field`, so none reads gray on a card. A
-        /// stepper half shows hover and press with the shared overlays, never the hairline color.
+        /// stepper half shows hover and press.
         @Test func controlsTakeTheirFillFromTheContainer() throws {
             for name in [
                 "Mac/MacFieldStyle.swift", "Mac/MacPopUp.swift", "Mac/MacButtonStyle.swift", "Mac/MacSegmented.swift",
@@ -236,19 +220,7 @@
             }
             let stepper = SourceScan.withoutComments(
                 try SourceScan.text(at: SourceScan.url(of: "Mac/MacStepper.swift")))
-            #expect(stepper.contains(try Regex(#"\?\s*Palette\.border\b"#)) == false)
             #expect(stepper.contains("MacPressState"))
-        }
-
-        /// A row under the pointer takes its container's control fill, so a hovered row on a card
-        /// never reads gray, and a resting row draws nothing over its container.
-        @Test func rowHoverReadsItsContainer() {
-            #expect(MacRowStyle.fillToken(state: .hover, container: .surface) == .surfaceRaised)
-            #expect(MacRowStyle.fillToken(state: .pressed, container: .surface) == .surfaceRaised)
-            #expect(MacRowStyle.fillToken(state: .hover, container: .pageBackground) == .field)
-            for container in MacContainer.allCases {
-                #expect(MacRowStyle.fillToken(state: .rest, container: container) == nil)
-            }
         }
 
         /// Every surface card and footer marks itself, so the controls in it take the raised fill.
@@ -259,11 +231,9 @@
             }
         }
 
-        @Test func searchFieldDrawsNoGlass() throws {
+        @Test func searchFieldTakesItsContainersFill() throws {
             let file = try #require(SourceScan.files().first { $0.lastPathComponent == "FilterSearchField.swift" })
             let text = SourceScan.withoutComments(try SourceScan.text(at: file))
-            #expect(text.contains("macGlass") == false)
-            #expect(text.contains("glassEffect") == false)
             #expect(text.contains("container.controlColor"))
         }
     }

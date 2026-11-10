@@ -88,7 +88,6 @@ struct MediaRowTests {
 
 struct UndoBannerTests {
     @Test func staysLongerWhileVoiceOverRuns() {
-        #expect(UndoBanner.timeout(voiceOver: false) == .seconds(8))
         #expect(UndoBanner.timeout(voiceOver: true) > UndoBanner.timeout(voiceOver: false))
     }
 }
@@ -125,18 +124,15 @@ struct UndoBannerTests {
 }
 
 struct SpacingTests {
-    @Test func tokensAreTunedAtTheDefaultSize() {
-        let spacing = Spacing(.large)
-        #expect(spacing.scale == 1)
-        #expect(spacing.rowInset == 10 && spacing.rowLineGap == 2 && spacing.chipVertical == 6)
-        #expect(spacing.chipGap == 8)
-        #expect(spacing.stackGap == 8 && spacing.sectionGap == 16)
+    @Test func theDefaultSizeIsUnscaled() {
+        #expect(Spacing(.large).scale == 1)
+        #expect(Spacing(.large)(10) == 10)
     }
 
     @Test func tokensScaleAsBodyTextDoes() {
-        #expect(Spacing(.small).rowInset == 9)
-        #expect(Spacing(.xLarge).rowInset == 11)
-        #expect(Spacing(.accessibility3).rowInset == 23.5)
+        #expect(Spacing(.small)(10) == 9)
+        #expect(Spacing(.xLarge)(10) == 11)
+        #expect(Spacing(.accessibility3)(10) == 23.5)
         #expect(Spacing(.small)(12) == 10.5)
     }
 

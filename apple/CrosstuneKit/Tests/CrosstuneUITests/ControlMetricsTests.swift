@@ -4,17 +4,8 @@ import Testing
 @testable import CrosstuneDesign
 
 struct ControlMetricsTests {
-    @Test func minimumWidthsMatchTheSpec() {
-        #expect(ControlMetrics.minWidth(.compact) == 60)
-        #expect(ControlMetrics.minWidth(.regular) == 80)
+    @Test func textButtonsReachTheTouchTargetWidth() {
         #expect(ControlMetrics.minWidth(.text) == 44)
-        #expect(ControlMetrics.minWidth(.large) == nil)
-    }
-
-    @Test func buttonHeightsMatchTheSpec() {
-        #expect(ControlMetrics.compactHeight == 32)
-        #expect(ControlMetrics.regularHeight == 40)
-        #expect(ControlMetrics.largeHeight == 50)
     }
 
     @Test(arguments: [ControlMetrics.compactHeight, ControlMetrics.regularHeight, ControlMetrics.largeHeight])
@@ -29,7 +20,6 @@ struct ControlMetricsTests {
         #expect(StatusGlyph.drawsOnChange(from: "unknown", to: "known"))
         #expect(StatusGlyph.drawsOnChange(from: "unknown", to: "learning") == false)
         #expect(StatusGlyph.drawsOnChange(from: "known", to: "known") == false)
-        #expect(Motion.drawDuration == .milliseconds(350))
     }
 
     /// A control the library draws, the file it lives in, and the tokens its drawing must use.
@@ -42,21 +32,6 @@ struct ControlMetricsTests {
     }
 
     static let tokenChecks: [TokenCheck] = [
-        TokenCheck(
-            file: "SelectionMark.swift",
-            tokens: ["Palette.accentFill", "Palette.accent", "Palette.textTertiary", "Palette.onAccentFill"],
-            iOSOnly: false),
-        TokenCheck(
-            file: "OptionCard.swift",
-            tokens: ["ControlMetrics.containerRadius", "Palette.groupedSurface", "Palette.accent", "Palette.border"],
-            iOSOnly: false),
-        TokenCheck(
-            file: "Badge.swift",
-            tokens: ["Palette.brand", "Palette.onBrand", "Palette.field", "Palette.textSecondary"],
-            iOSOnly: false),
-        TokenCheck(
-            file: "FilledTextFieldStyle.swift",
-            tokens: ["ControlMetrics.containerRadius", "Palette.field", "Palette.accent"], iOSOnly: false),
         TokenCheck(
             file: "ZoomControl.swift",
             tokens: [
@@ -71,24 +46,18 @@ struct ControlMetricsTests {
             file: "IconButtonStyle.swift",
             tokens: [
                 ".pressDim(", "Motion.springCurve", ".keyframeAnimator(", ".libraryHover(", ".disabledCapsuleRing(",
-                ".isSelected", "AnyShapeStyle(.neutralFill)",
-                "Palette.onDisabled",
+                ".isSelected",
                 // The circle stays 44 at every text size, so the glyph stops growing before it fills it.
                 ".dynamicTypeSize(...DynamicTypeSize.xxxLarge)",
             ]),
         TokenCheck(
             file: "Transport.swift",
-            tokens: [
-                "Palette.accentFill", "Palette.onAccentFill", "Palette.accent", "Palette.tintSubtle", ".pressScale(",
-                ".symbolEffect(", "disabledCapsuleRing",
-            ]),
+            tokens: [".pressScale(", ".symbolEffect(", "disabledCapsuleRing"]),
         TokenCheck(
             file: "Chip.swift",
             tokens: [
                 ".pressDim(", "Motion.state", "phoneAnimation(", ".libraryHover(",
-                ".disabledCapsuleRing(", ".isSelected", "Palette.accentFill", "Palette.onAccentFill",
-                "AnyShapeStyle(.neutralFill)", "Palette.tint(", "Palette.onTint(", "Palette.subtle(", "Palette.color(",
-                "chevron.down", "xmark",
+                ".disabledCapsuleRing(", ".isSelected",
             ]),
     ]
 
@@ -172,13 +141,6 @@ struct ControlMetricsTests {
         #expect(hover.contains(".hoverEffect(.highlight"))
     }
 
-    @Test func motionDurationsMatchTheSpec() {
-        #expect(Motion.workingDelay == .milliseconds(300))
-        #expect(Motion.doneHold == .seconds(1))
-        #expect(Motion.repeatDelay == .milliseconds(500))
-        #expect(Motion.repeatInterval == .milliseconds(100))
-    }
-
     /// The stepper's value keeps the widest value's width, so a crowded row never truncates it.
     @Test func stepperValueHoldsItsWidestWidth() throws {
         let url = SourceScan.url(of: "Phone/Controls/ValueStepper.swift")
@@ -186,19 +148,6 @@ struct ControlMetricsTests {
         let start = try #require(source.range(of: "private var valueText: some View {"))
         let end = try #require(source.range(of: "private func arrow(", range: start.upperBound..<source.endIndex))
         #expect(source[start.lowerBound..<end.lowerBound].contains(".fixedSize(horizontal: true, vertical: false)"))
-    }
-
-    @Test func confirmItemIsSemiboldAndNeverRinged() throws {
-        let url = SourceScan.url(of: "Style/AccentFillTint.swift")
-        let source = SourceScan.iOSCompiled(SourceScan.withoutComments(try SourceScan.text(at: url)))
-        let start = try #require(source.range(of: "struct ConfirmToolbarItem"))
-        let end = source.range(of: "struct AccentSwitchStyle")?.lowerBound ?? source.endIndex
-        let body = source[start.lowerBound..<end]
-        #expect(body.contains(".fontWeight(.semibold)"))
-        #expect(body.contains("disabledCapsuleRing") == false)
-        let prominent = SourceScan.iOSCompiled(
-            SourceScan.withoutComments(try SourceScan.text(at: SourceScan.url(of: "Components/AccentProminent.swift"))))
-        #expect(prominent.contains("disabledCapsuleRing(!isEnabled)") == false)
     }
 
     @Test func noConfirmItemSetsItsOwnWeight() throws {

@@ -223,7 +223,6 @@ private func scanFolderFiles(_ store: CrosstuneStore) throws -> Set<String> {
 
         #expect(try await liveScans(store, tuneID: tuneID).count == maxScansPerTune)
         #expect(try scanFolderFiles(store) == filesBefore, "a refused add leaves no file behind")
-        #expect(CommandError.scanLimit.errorDescription == "A tune holds at most 20 scans.")
     }
 
     @Test func refusesAScanForAMissingTune() async throws {

@@ -492,7 +492,6 @@ private final class Writes {
                     .pin(pinned: true), .goToTune, .trim(disabledReason: RecordingScreenText.trimBusy),
                     .split(disabledReason: nil), .delete(disabledReason: nil),
                 ])
-        #expect(RecordingMenuItem.trim(disabledReason: nil).label == "Trim")
         #expect(RecordingMenuItem.delete(disabledReason: nil).label == RecordingRowActions.delete)
     }
 
@@ -572,15 +571,9 @@ private final class Writes {
     }
 
     @Test func thePlayButtonNamesTheRepeat() {
-        #expect(
-            PlayButtonLabel(isPlaying: false, repeating: nil)
-                == PlayButtonLabel(label: "Play", systemImage: "play.fill"))
-        #expect(
-            PlayButtonLabel(isPlaying: false, repeating: "B part")
-                == PlayButtonLabel(label: "Repeat B part", systemImage: "repeat"))
-        #expect(
-            PlayButtonLabel(isPlaying: true, repeating: "B part")
-                == PlayButtonLabel(label: "Pause", systemImage: "pause.fill"))
+        #expect(PlayButtonLabel(isPlaying: false, repeating: nil).label == "Play")
+        #expect(PlayButtonLabel(isPlaying: false, repeating: "B part").label == "Repeat B part")
+        #expect(PlayButtonLabel(isPlaying: true, repeating: "B part").label == "Pause")
     }
 
     @Test func theWaveformReadsThePlayheadAgainstTheLength() {

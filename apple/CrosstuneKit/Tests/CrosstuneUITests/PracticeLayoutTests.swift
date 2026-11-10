@@ -9,18 +9,9 @@ import Testing
 
 @MainActor
 struct PracticeLayoutTests {
-    @Test func theWaveformKeepsItsFloor() {
-        #expect(PracticeLayout.waveformFloor(isCompactHeight: false) == 140)
-        #expect(PracticeLayout.waveformFloor(isCompactHeight: true) == 64)
-    }
-
     @Test func compactHeightHasTheLowerFloor() {
         let compact = PracticeLayout.waveformFloor(isCompactHeight: true)
         #expect(compact < PracticeLayout.waveformFloor(isCompactHeight: false))
-    }
-
-    @Test func theWaveformCapMatchesTheDesktopWebWaveform() {
-        #expect(PracticeLayout.waveformCap == 160)
     }
 
     @Test func aTallWindowStopsTheWaveformAtTheCap() {

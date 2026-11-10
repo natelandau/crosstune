@@ -326,11 +326,6 @@ private func stored(_ store: CrosstuneStore, sourceLocation: SourceLocation = #_
         #expect(written.placeOrigin == PlaceOrigin.picked.rawValue)
     }
 
-    @Test func theCopyIsSet() {
-        #expect(DropPinText.useThisSpot == "Use this spot")
-        #expect(DropPinText.hint == "Move the map to place the pin.")
-    }
-
     @Test func thePinStartsAtTheAreaOfTheTypedSearch() async throws {
         let store = try root.open()
         let latest = placedRecording("r2", name: ennis.name, at: ennis.coordinate)

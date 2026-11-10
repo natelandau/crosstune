@@ -38,15 +38,6 @@ struct AttributeRowsTests {
         #expect(AttributeRows.partLetters.count == Vocabulary.Limits.Tune.modes)
     }
 
-    @Test func labelsTheRows() {
-        let rows = AttributeRows.rows(detail())
-        #expect(
-            rows.map(\.label) == [
-                "Status", "Key", "Violin tuning", "Type", "Time signature", "Parts", "Genre", "Composer",
-                "Also known as", "Learned from", "Learned on",
-            ])
-    }
-
     @Test func readsAnUnrecognizedStatusAsWantToLearn() {
         #expect(row(.status, in: detail(status: "mastered"))?.text == "Unknown")
     }

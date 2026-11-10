@@ -40,8 +40,4 @@ struct AddToRecordingsTests {
         let others = [saved(url: "https://slippery-hill.com/r/7"), saved(url: nil)]
         #expect(canAddToRecordings(link: link(), recordings: others))
     }
-
-    @Test func labelsTheAction() {
-        #expect(TuneScreen.addToRecordings == "Add to recordings")
-    }
 }

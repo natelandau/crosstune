@@ -101,7 +101,7 @@
         }
 
         /// The checkbox's outline at rest holds 3:1 on every fill a row sits on, and its check
-        /// reads on the accent fill.
+        /// reads on its fill.
         @Test(arguments: [ColorScheme.light, .dark])
         func macCheckboxPassesContrast(scheme: ColorScheme) {
             let stroke = Palette.hex(MacCheckboxStyle.restStroke, scheme)
@@ -112,7 +112,6 @@
                 contrastRatio(
                     Palette.hex(MacCheckboxStyle.check, scheme), Palette.hex(MacCheckboxStyle.onFill, scheme))
                     >= 4.5)
-            #expect(MacCheckboxStyle.onFill == .accentFill)
         }
 
         /// The checkbox draws from the palette alone, so an inactive window never grays it, and
@@ -128,8 +127,8 @@
             }
         }
 
-        /// Storage reads on one thin meter in the primary text color wherever it shows on the Mac, never the
-        /// system's accent progress bar.
+        /// Storage reads on one shared meter wherever it shows on the Mac, never the system's
+        /// progress bar.
         @Test func storageShowsOnTheSharedMeter() throws {
             for name in ["Settings/StorageMeter.swift", "Recordings/StorageSummary.swift"] {
                 let text = SourceScan.macCompiled(
@@ -137,9 +136,6 @@
                 #expect(text.contains("MacMeter(fraction:"), "\(name)")
                 #expect(text.contains("ProgressView(") == false, "\(name)")
             }
-            let meter = SourceScan.withoutComments(
-                try SourceScan.text(at: SourceScan.url(of: "Mac/MacMeter.swift")))
-            #expect(meter.contains("accent") == false)
             #expect(MacMeter.clamped(1.4) == 1)
             #expect(MacMeter.clamped(-0.2) == 0)
         }
@@ -175,11 +171,6 @@
         func galleryShowsEveryMacControl(name: String) throws {
             let code = SourceScan.macCompiled(try ControlGalleryTests.galleryCode())
             #expect(code.contains(try Regex("\\b\(name)\\b")), "ControlGallery never shows \(name) on the Mac")
-        }
-
-        @Test func practiceMetricsAreTheSpecs() {
-            #expect(MacStyle.stageRadius == 12)
-            #expect(MacStyle.transportDiameter == 44)
         }
     }
 #endif

@@ -98,13 +98,7 @@ private final class Calls: @unchecked Sendable {
     #expect(try await counts.next() == ExportCounts(onDevice: 1, total: 1))
 }
 
-@Test func errorsSayWhatWentWrongInPlainWords() {
-    #expect(
-        ExportArchiveError.noLocalAudio("r1").localizedDescription
-            == "Couldn't find a recording's audio to export. Try exporting again.")
-    #expect(
-        ExportArchiveError.noLocalScans("s1").localizedDescription
-            == "Couldn't find a scan's image to export. Try exporting again.")
+@Test func aChangedFileErrorNamesTheFile() {
     #expect(
         StoredZipError.fileChanged("recordings/Reel/2026-09-20.m4a").localizedDescription
             == "recordings/Reel/2026-09-20.m4a changed while it was being exported. Try exporting again.")

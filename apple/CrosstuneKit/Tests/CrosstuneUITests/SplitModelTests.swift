@@ -197,7 +197,7 @@ private final class SplitHolds {
         drag(split, to: -5)
         #expect(split.state.lineMs == 0)
         split.nudge(by: WaveformSteps.nudgeMs)
-        #expect(split.state.lineMs == 100)
+        #expect(split.state.lineMs == WaveformSteps.nudgeMs)
     }
 
     @Test func addsACutAtTheLineAndSelectsItSoRemoveCutUndoesIt() {
@@ -328,7 +328,7 @@ private final class SplitHolds {
         #expect(early.state.cuts == [1000, 30_000])
         let nudged = selected()
         nudged.nudge(by: WaveformSteps.nudgeMs)
-        #expect(nudged.state.cuts == [10_100, 30_000])
+        #expect(nudged.state.cuts == [10_000 + WaveformSteps.nudgeMs, 30_000])
     }
 
     @Test func removesOnlyASelectedCut() {
@@ -703,7 +703,7 @@ private final class SplitHolds {
         let split = playing(audio, at: 7.5)
         split.nudge(by: WaveformSteps.nudgeMs)
         #expect(audio.isPlaying == false)
-        #expect(split.state.lineMs == 7600)
+        #expect(split.state.lineMs == 7500 + WaveformSteps.nudgeMs)
     }
 
     @Test func thePausesOwnReportCannotUndoAnEdit() {
@@ -712,7 +712,7 @@ private final class SplitHolds {
         split.nudge(by: WaveformSteps.nudgeMs)
         // The player's reading of the pause arrives after the edit.
         split.follow(playing: false, elapsed: 7.5)
-        #expect(split.state.lineMs == 7600)
+        #expect(split.state.lineMs == 7500 + WaveformSteps.nudgeMs)
     }
 
     @Test func aPauseFromElsewhereLeavesTheLineWherePlaybackGotTo() {
@@ -981,7 +981,6 @@ private final class SplitHolds {
                 .delete(disabledReason: RecordingScreenText.deleteWhileSplitting),
             ])
         #expect(RecordingMenuItem.split(disabledReason: nil).label == RecordingScreenText.split)
-        #expect(RecordingMenuItem.split(disabledReason: nil).systemImage == "rectangle.split.3x1")
         #expect(items.last?.disabledReason == RecordingScreenText.deleteWhileSplitting)
     }
 }

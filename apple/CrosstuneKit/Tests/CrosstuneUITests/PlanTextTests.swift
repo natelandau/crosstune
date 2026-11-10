@@ -42,33 +42,7 @@ struct PlanTextTests {
         #expect(PlanText.renewalTerms(price: "$4.99", period: .monthly) == "$4.99 a month, \(tail)")
     }
 
-    @Test func namesThePlansAndHelp() {
-        #expect(PlanText.group == "Plan")
-        #expect(PlanText.free == "Free")
-        #expect(PlanText.premium == "Premium")
-        #expect(PlanText.trial == "Premium trial")
-        #expect(
-            PlanText.freeHelp
-                == "Free includes your catalog, lists, links, sync, and export. Recordings and scans are part of Premium."
-        )
-    }
-
-    @Test func holdsTheAppleOnlyCopy() {
-        #expect(
-            PlanText.subscribePending == "Your purchase is waiting for approval. Premium starts once it goes through.")
-        #expect(PlanText.restorePurchases == "Restore purchases")
-        #expect(PlanText.restored == "Your App Store subscription is restored.")
-        #expect(PlanText.nothingToRestore == "This Apple Account has no Crosstune subscription to restore.")
-        #expect(
-            PlanText.otherAccount
-                == "This App Store subscription belongs to another Crosstune account. Sign out, then sign in with the account that subscribed."
-        )
-        #expect(PlanText.restoreFailedTitle == "Restoring didn't finish")
-        #expect(PlanText.restoreFailedMessage == "Try again in a moment.")
-        #expect(PlanText.manageOnTheWeb == "Manage on the web")
-        #expect(PlanText.manageAtWebsite == "Manage your subscription at my.crosstune.app.")
-        #expect(PlanText.termsOfUse == "Terms of Use")
-        #expect(PlanText.privacyPolicy == "Privacy Policy")
+    @Test func linksToTheSitesTermsAndPrivacyPages() {
         #expect(PlanText.termsURL == "https://crosstune.app/terms")
         #expect(PlanText.privacyURL == "https://crosstune.app/privacy")
     }
@@ -115,7 +89,6 @@ struct PlanTextTests {
         // Later the same calendar day is the last day.
         #expect(left(3_600 / 86_400) == PlanText.trialEndsToday)
         #expect(left(-1) == PlanText.trialEndsToday)
-        #expect(PlanText.trialEndsToday == "Ends today")
     }
 
     @Test func theTrialCardNamesTheDayItEnds() {

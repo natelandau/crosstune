@@ -345,8 +345,6 @@ private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-
         #expect(FindRecordingsSheet.footer(searchOnly) == nil)
         #expect(FindRecordingsSheet.searchOn("Spotify") == "Search on Spotify")
         #expect(FindRecordingsSheet.searchService("TIDAL") == "Search TIDAL")
-        #expect(FindRecordingsSheet.noResults == "No results")
-        #expect(FindRecordingsSheet.back == "Back")
     }
 
     @Test func titlesTheListAndEachServicesResults() {
@@ -394,7 +392,6 @@ private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-
         #expect(model.hasNoServices)
         await model.submit()
         #expect(search.calls.isEmpty)
-        #expect(FindRecordingsSheet.noServices == "No services selected")
     }
 
     // MARK: Going back

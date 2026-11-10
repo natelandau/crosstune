@@ -71,9 +71,8 @@
 
         // MARK: Sheets
 
-        /// In light the scan background is the field gray, so a white page contrasts with it.
+        /// In light a white page contrasts with the scan background.
         @Test func scanBackgroundSetsThePageApart() {
-            #expect(ScanViewer.scanBackgroundHex(.light) == Palette.hex(.field, .light))
             #expect(contrastRatio("#FFFFFF", ScanViewer.scanBackgroundHex(.light)) > 1.2)
         }
 
@@ -122,7 +121,6 @@
             let text = try Self.macSource("Mac/PlayerDock.swift")
             #expect(text.contains("DockGlyph") == false)
             #expect(text.contains("Image(systemName: PlayerDockBar.nowPlayingSymbol)"))
-            #expect(PlayerDockBar.nowPlayingSymbol == "waveform")
         }
     }
 #endif

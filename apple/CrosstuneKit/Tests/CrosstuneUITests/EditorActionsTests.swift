@@ -30,8 +30,8 @@ struct EditorActionsTests {
     /// Save presents inherits no Return.
     @Test func editorKeysReachOnlyCancelAndSaveButtons() throws {
         let actions = SourceScan.macOSRegions(of: try Self.code("Phone/Controls/EditorActions.swift"))
-        let cancelKey = #"\bcancel\s*\.buttonStyle\(\.tinted\)\s*\.keyboardShortcut\(\.cancelAction\)"#
-        let saveKey = #"\bsave\s*\.buttonStyle\(\.filled\)\s*\.environment\(\\\.editorSaveShortcut, \.defaultAction\)"#
+        let cancelKey = #"\bcancel\s*\.buttonStyle\(\.\w+\)\s*\.keyboardShortcut\(\.cancelAction\)"#
+        let saveKey = #"\bsave\s*\.buttonStyle\(\.\w+\)\s*\.environment\(\\\.editorSaveShortcut, \.defaultAction\)"#
         #expect(actions.contains(try Regex(cancelKey)))
         #expect(actions.contains(try Regex(saveKey)))
         #expect(actions.contains(".keyboardShortcut(.defaultAction)") == false)

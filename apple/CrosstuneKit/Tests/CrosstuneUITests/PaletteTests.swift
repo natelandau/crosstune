@@ -130,20 +130,20 @@ struct PaletteTests {
         #expect(StatusBar.color("want_to_learn") == Palette.statusUnknown)
     }
 
-    @Test func statusGlyphShapes() {
-        #expect(StatusGlyph.symbol(for: "known") == "checkmark.circle.fill")
-        #expect(StatusGlyph.symbol(for: "learning") == "circle.lefthalf.filled")
-        #expect(StatusGlyph.symbol(for: "want_to_learn") == "circle")
-        #expect(StatusGlyph.symbol(for: "bogus") == "circle")
+    /// Each status has a glyph of its own, so status never reads by color alone, and a status
+    /// this client does not know reads as want to learn.
+    @Test func eachStatusHasItsOwnGlyph() {
+        let symbols = ["known", "learning", "want_to_learn"].map { StatusGlyph.symbol(for: $0) }
+        #expect(Set(symbols).count == symbols.count)
+        #expect(StatusGlyph.symbol(for: "bogus") == StatusGlyph.symbol(for: "want_to_learn"))
     }
 
     @Test(arguments: [ColorScheme.light, .dark])
     func brandAccentIsThePaletteAccent(scheme: ColorScheme) {
         #expect(hex(of: Palette.accent, scheme) == Palette.hex(.accent, scheme).lowercased())
-        #expect(hex(of: Palette.onAccentFill, scheme) == "#ffffff")
         #expect(
             hex(of: Palette.onTint(scheme), scheme)
-                == Palette.hex(scheme == .dark ? .textPrimary : .accent, scheme).lowercased())
+                == Palette.hex(Palette.onTintIsAccent(scheme) ? .accent : .textPrimary, scheme).lowercased())
     }
 
     private func hex(of color: Color, _ scheme: ColorScheme) -> String? {

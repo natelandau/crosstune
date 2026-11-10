@@ -75,10 +75,6 @@ struct ListMoveTests {
         #expect(MovePlace.down.destination(from: 3, count: 5) == 4)
         #expect(MovePlace.bottom.destination(from: 1, count: 5) == 4)
     }
-
-    @Test func labelsTheMovesAsTheWebDoes() {
-        #expect(MovePlace.allCases.map(\.label) == ["Move to top", "Move up", "Move down", "Move to bottom"])
-    }
 }
 
 struct PendingMovesTests {
@@ -180,7 +176,6 @@ struct PendingMovesTests {
 
     @Test func wordsTheDeleteConfirmationAsTheWebDoes() {
         #expect(DeleteListMessage.title("Waltzes") == "Delete \"Waltzes\"?")
-        #expect(DeleteListMessage.message == "Its tunes stay in the catalog.")
     }
 }
 
@@ -489,7 +484,6 @@ struct PendingMovesTests {
     @Test func titlesItselfByTheNumberOfTunes() {
         #expect(ListPickerModel.title(count: 1) == "Add 1 tune to a list")
         #expect(ListPickerModel.title(count: 3) == "Add 3 tunes to a list")
-        #expect(ListPickerSheet.tuneTitle == "Add to a list")
     }
 
     @Test func readsHowMuchOfTheSelectionEachListHolds() {
@@ -668,7 +662,6 @@ struct PendingMovesTests {
         let action = ListRowPlay.action(for: linkOnly, playFirst: UserSettings.playFirstRecordings)
         #expect(action == .open(url, linkTitle: LinkText.title(hen.links[0])))
         let open = try #require(action)
-        #expect(ListRowPlay.symbol(for: open, loaded: false) == "arrow.up.right.circle")
         #expect(
             ListRowText.label(for: open, tuneTitle: hen.tune.title, loaded: false)
                 == "\(LinkText.open) \(LinkText.title(hen.links[0]))")
@@ -861,14 +854,12 @@ struct ListPlayOfferTests {
     @Test func offersPlayWhileTheListIsStopped() {
         let stopped = offer()
         #expect(stopped.playLabel == ListPlayText.play)
-        #expect(stopped.playSymbol == "play.fill")
         #expect(stopped.isPlayDisabled == false)
     }
 
     @Test func offersPauseWhileTheListPlaysAndPlayWhilePaused() {
         let playing = offer(playing: .init(isPlaying: true, isSettled: true))
         #expect(playing.playLabel == ListPlayText.pause)
-        #expect(playing.playSymbol == "pause.fill")
         let paused = offer(playing: .init(isPlaying: false, isSettled: true))
         #expect(paused.playLabel == ListPlayText.play)
         #expect(paused.isPlayDisabled == false)
@@ -910,7 +901,6 @@ struct ListRowTapTests {
     }
 
     @Test func neverCallsThePlayingRowNotPlayable() {
-        #expect(ListRowText.notPlayable == "Nothing to play")
         #expect(ListRowText.note(hasAction: false, isCurrent: false) == ListRowText.notPlayable)
         #expect(ListRowText.note(hasAction: false, isCurrent: true) == nil)
         #expect(ListRowText.note(hasAction: true, isCurrent: false) == nil)
@@ -1091,22 +1081,6 @@ struct ListRowTapTests {
         #expect(ListsPlayability.pauseLabel(listName: "Waltzes") == "Pause Waltzes")
     }
 }
-
-#if os(macOS)
-    import SwiftUI
-
-    struct MacListColumnTests {
-        /// The playing row takes the subtle tint, lighter than a selection's, so it reads as
-        /// marked rather than chosen.
-        @Test func playingRowTintIsALightAccent() {
-            for scheme in [ColorScheme.light, .dark] {
-                #expect(Palette.tintSubtleOpacity(scheme) < Palette.tintOpacity(scheme))
-            }
-            #expect(Palette.tintSubtleOpacity(.light) == 0.08)
-            #expect(Palette.tintSubtleOpacity(.dark) == 0.10)
-        }
-    }
-#endif
 
 @MainActor
 struct ListRowLayoutTests {

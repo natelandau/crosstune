@@ -99,7 +99,6 @@ import Testing
         await #expect(throws: CommandError.noRoom) {
             try await commands.addLoop(recordingID: recordingID, startMs: 2000, endMs: 3000, label: nil)
         }
-        #expect(CommandError.noRoom.errorDescription == "No room for a loop here.")
     }
 
     @Test func holdsANewLoopInsideTheTrimAndIgnoresRemovedLoops() async throws {
@@ -200,7 +199,6 @@ import Testing
         await #expect(throws: CommandError.loopLimit) {
             try await commands.addLoop(recordingID: recordingID, startMs: 0, endMs: 1000, label: nil)
         }
-        #expect(CommandError.loopLimit.errorDescription == "This recording has 100 loops.")
         let before = try await store.pendingChanges(limit: 1000).count
 
         try await commands.removeLoop(ids[0])

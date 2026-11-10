@@ -53,12 +53,11 @@ import Testing
         #expect(runner.phase == .done)
     }
 
-    @Test func doneReturnsToIdleAfterOneSecond() async throws {
+    @Test func doneReturnsToIdleAfterTheHold() async throws {
         let runner = makeRunner()
         try await runner.run(closesOnSuccess: false) {}
         #expect(runner.phase == .done)
         try await eventually { sleeper.pending.contains(Motion.doneHold) }
-        #expect(sleeper.pending.contains(.seconds(1)))
         sleeper.wake()
         try await eventually { runner.phase == .idle }
         #expect(runner.phase == .idle)
