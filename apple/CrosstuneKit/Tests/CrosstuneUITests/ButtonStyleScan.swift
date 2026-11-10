@@ -8,7 +8,8 @@ import Foundation
 ///
 /// A style set in another file counts only where it reaches the button's own closure:
 /// - The library containers that style what they hold: everything in a grouped form, a page
-///   section's accessory (never its content), and a sheet action bar's primary and secondary.
+///   section's accessory (never its content), a sheet action bar's primary and secondary, and a
+///   pane bar's controls.
 /// - A modifier in the button's chain, or a container's, whose every declaration of that name
 ///   applies `buttonStyle` to what it modifies.
 /// - A call the closure is passed to whose every declaration of that name puts that closure
@@ -16,6 +17,26 @@ import Foundation
 /// A name declared more than once must hold for every declaration, so a name that collides can
 /// only flag more buttons, never fewer. Generic names such as `body` never resolve.
 struct ButtonStyleScan {
+    /// What a search counts as reaching a control: any button style, or only the shared icon
+    /// button, or a label style that shows the glyph alone.
+    enum Look {
+        case anyStyle, iconButton, glyphOnlyLabel
+
+        /// Whether `chain` applies the look itself.
+        func isApplied(in chain: String) -> Bool {
+            switch self {
+            case .anyStyle: chain.contains(".buttonStyle(") || chain.contains(".hidden()")
+            case .iconButton:
+                ButtonStyleScan.contains(
+                    #"\.buttonStyle\(\s*\.icon\b|\.iconButton(?:Menu)?Appearance\b|\.hidden\(\)"#, in: chain)
+            case .glyphOnlyLabel: ButtonStyleScan.contains(#"\.labelStyle\(\s*\.iconOnly\b"#, in: chain)
+            }
+        }
+
+        /// Whether the system's places, such as a menu's items or a toolbar, count as the look.
+        var countsSystemPlaces: Bool { self != .glyphOnlyLabel }
+    }
+
     struct File {
         let path: String
         /// The code as the iOS build compiles it, without comments or string text.
@@ -44,8 +65,8 @@ struct ButtonStyleScan {
     private struct Placement {
         let callee: String
         let label: String?
-        /// An unlabeled closure followed by a `content:` closure, as a page section's accessory is.
-        let precedesContent: Bool
+        /// The label of the closure after this one, as `content` after a page section's accessory.
+        let nextLabel: String?
     }
 
     /// How deep the scan follows uses and declarations before it gives up on a button.
@@ -85,7 +106,7 @@ struct ButtonStyleScan {
                 let start = match.range.lowerBound
                 let end = Self.endOfCall(match.range.upperBound - 1, in: file)
                 if file.text(start..<end).contains("role: .close") { continue }
-                if !isStyled(in: file, from: start, to: end, within: nil, depth: 0, seen: []) {
+                if !isStyled(in: file, from: start, to: end, within: nil, look: .anyStyle, depth: 0, seen: []) {
                     found[file.path, default: []].append(Self.line(at: start, in: file))
                 }
             }
@@ -93,48 +114,118 @@ struct ButtonStyleScan {
         return found
     }
 
+    /// The lines of every button or menu that shows a glyph alone without the shared icon
+    /// button, by file. A glyph alone is a label of one `Image(systemName:)`, or a `Label` the
+    /// icon-only label style reaches. The system's places pass, as for ``unstyledButtons()``.
+    func glyphActionsWithoutIconButton() -> [String: [String]] {
+        var found: [String: [String]] = [:]
+        for file in screens {
+            for match in Self.matches(#"(?<![\w.])(?:Button|Menu)\b\s*[({]"#, in: file.code) {
+                let start = match.range.lowerBound
+                let end = Self.endOfCall(match.range.upperBound - 1, in: file)
+                guard isGlyphOnly(in: file, from: start, to: end, opening: match.range.upperBound - 1) else { continue }
+                if !isStyled(in: file, from: start, to: end, within: nil, look: .iconButton, depth: 0, seen: []) {
+                    found[file.path, default: []].append(Self.line(at: start, in: file))
+                }
+            }
+        }
+        return found
+    }
+
+    /// Whether the button or menu from `start` to `end`, whose call opens at `opening`, shows a
+    /// glyph alone: its label closure holds only a glyph, or with no label closure, it takes a
+    /// title and a symbol and the icon-only label style reaches it.
+    private func isGlyphOnly(in file: File, from start: Int, to end: Int, opening: Int) -> Bool {
+        var cursor = opening
+        var arguments = ""
+        if file.bytes[cursor] == UInt8(ascii: "(") {
+            let close = Self.closing(cursor, in: file)
+            arguments = file.text(cursor..<close)
+            cursor = close
+        } else {
+            cursor = file.text(start..<opening).hasPrefix("Menu") ? start + 4 : start + 6
+        }
+        var closures: [(label: String?, body: String)] = []
+        while let brace = Self.trailingClosure(after: cursor, in: file) {
+            let label = Self.firstMatch(#"(\w+):\s*$"#, in: file.text(cursor..<brace))
+            let close = Self.closing(brace, in: file)
+            closures.append((label, file.text((brace + 1)..<(close - 1))))
+            cursor = close
+        }
+        let isMenu = file.text(start..<opening).hasPrefix("Menu")
+        let label: String? =
+            closures.first { $0.label == "label" }?.body
+            ?? (!isMenu && arguments.contains("action:") ? closures.first?.body : nil)
+        if let label { return Self.isGlyph(label) }
+        guard Self.contains(#"\bsystemImage:"#, in: arguments) else { return false }
+        return isStyled(in: file, from: start, to: end, within: nil, look: .glyphOnlyLabel, depth: 0, seen: [])
+    }
+
+    /// Whether a label closure's body is one glyph: an `Image(systemName:)`, or a `Label` with a
+    /// symbol shown icon only, each with nothing after its modifiers.
+    private static func isGlyph(_ body: String) -> Bool {
+        let trimmed = body.trimmingCharacters(in: .whitespacesAndNewlines)
+        let probe = File(path: "", code: trimmed)
+        guard let head = firstMatch(#"^(Image|Label)\s*\("#, in: trimmed) else { return false }
+        let open = trimmed.utf8.count - trimmed.drop { $0 != "(" }.utf8.count
+        let arguments = probe.text(open..<closing(open, in: probe))
+        let end = endOfCall(open, in: probe)
+        let modifiers = chain(after: end, in: probe)
+        guard probe.text((end + modifiers.utf8.count)..<probe.bytes.count).allSatisfy(\.isWhitespace) else {
+            return false
+        }
+        if head == "Image" { return arguments.contains("systemName:") }
+        return arguments.contains("systemImage:") && Look.glyphOnlyLabel.isApplied(in: modifiers)
+    }
+
     /// Whether the view that runs from `start` to `end` takes a button style from its own chain,
     /// a container around it, or every place its enclosing declaration is used. With `bounds`,
     /// the search stays inside that declaration body and fails at its edge.
     private func isStyled(
-        in file: File, from start: Int, to end: Int, within bounds: Range<Int>?, depth: Int, seen: Set<String>
+        in file: File, from start: Int, to end: Int, within bounds: Range<Int>?, look: Look, depth: Int,
+        seen: Set<String>
     ) -> Bool {
         guard depth < Self.maxDepth else { return false }
-        if chainStyles(Self.chain(after: end, in: file), depth: depth) { return true }
+        if chainStyles(Self.chain(after: end, in: file), look: look, depth: depth) { return true }
         if let uses = Self.localUses(after: start, before: bounds?.upperBound ?? file.bytes.count, in: file) {
             return !uses.isEmpty
                 && uses.allSatisfy {
-                    isStyled(in: file, from: $0.start, to: $0.end, within: bounds, depth: depth + 1, seen: seen)
+                    isStyled(
+                        in: file, from: $0.start, to: $0.end, within: bounds, look: look, depth: depth + 1, seen: seen)
                 }
         }
         for index in Self.enclosingOpeners(of: start, in: file, above: bounds?.lowerBound) {
             let placement = Self.placement(of: index, in: file)
-            if Self.isSystemStyled(placement) || Self.isLibraryStyled(placement) { return true }
-            if placesInSystem(placement, depth: depth) { return true }
+            if Self.isLibraryStyled(placement, look: look) { return true }
+            if look.countsSystemPlaces {
+                if Self.isSystemStyled(placement) || placesInSystem(placement, depth: depth) { return true }
+            }
             if file.bytes[index] == UInt8(ascii: "{"), bounds == nil {
                 let opener = Self.lineHead(at: index, in: file)
                 if let type = Self.firstMatch(#"\b(?:struct|class|enum|actor)\s+(\w+)"#, in: opener) {
-                    return areStyled(typeUses(type), depth, seen, type)
+                    return areStyled(typeUses(type), look, depth, seen, type)
                 }
                 if Self.contains(#"\bextension\s"#, in: opener) { return false }
                 if let name = Self.firstMatch(#"\b(?:var|func)\s+(\w+)[^{]*$"#, in: opener), name != "body" {
                     return areStyled(
-                        declarationUses(name, in: file, isFunction: opener.contains("func ")), depth, seen, name)
+                        declarationUses(name, in: file, isFunction: opener.contains("func ")), look, depth, seen, name)
                 }
             }
-            if chainStyles(Self.chain(after: Self.closing(index, in: file), in: file), depth: depth) {
+            if chainStyles(Self.chain(after: Self.closing(index, in: file), in: file), look: look, depth: depth) {
                 return true
             }
         }
         return false
     }
 
-    private func areStyled(_ uses: [(File, Int, Int)], _ depth: Int, _ seen: Set<String>, _ name: String) -> Bool {
+    private func areStyled(
+        _ uses: [(File, Int, Int)], _ look: Look, _ depth: Int, _ seen: Set<String>, _ name: String
+    ) -> Bool {
         guard !uses.isEmpty, !seen.contains(name) else { return false }
         return uses.allSatisfy { file, start, nameEnd in
             isStyled(
-                in: file, from: start, to: Self.endOfCall(nameEnd, in: file), within: nil, depth: depth + 1,
-                seen: seen.union([name]))
+                in: file, from: start, to: Self.endOfCall(nameEnd, in: file), within: nil, look: look,
+                depth: depth + 1, seen: seen.union([name]))
         }
     }
 
@@ -150,11 +241,28 @@ struct ButtonStyleScan {
         }
     }
 
-    private static func isLibraryStyled(_ placement: Placement) -> Bool {
-        switch placement.callee {
+    /// Whether a library container gives what it holds `look`. Only a page section's accessory
+    /// draws the icon button, and the pane bar draws its glass controls in place of it.
+    private static func isLibraryStyled(_ placement: Placement, look: Look) -> Bool {
+        switch look {
+        case .glyphOnlyLabel: return false
+        case .iconButton:
+            return switch placement.callee {
+            case "PageSection":
+                placement.label == "accessory" || (placement.label == nil && placement.nextLabel == "content")
+            case "paneBar": placement.label == "_" || (placement.label == nil && placement.nextLabel == nil)
+            default: false
+            }
+        case .anyStyle: break
+        }
+        return switch placement.callee {
         case "GroupedForm", "GroupedSelectionForm": true
-        case "PageSection": placement.label == "accessory" || (placement.label == nil && placement.precedesContent)
+        case "PageSection":
+            placement.label == "accessory" || (placement.label == nil && placement.nextLabel == "content")
+        // The pane bar's controls: its only closure, or the one after its leading views.
+        case "paneBar": placement.label == "_" || (placement.label == nil && placement.nextLabel == nil)
         case "sheetActions": placement.label == nil || placement.label == "primary" || placement.label == "secondary"
+        case "editorActions": placement.label == nil || placement.label == "cancel" || placement.label == "save"
         default: false
         }
     }
@@ -275,20 +383,20 @@ struct ButtonStyleScan {
 
     /// Whether `chain` applies a button style: `.buttonStyle` itself, a hidden button, or a
     /// modifier whose every declaration styles what it modifies.
-    private func chainStyles(_ chain: String, depth: Int) -> Bool {
-        if chain.contains(".buttonStyle(") || chain.contains(".hidden()") { return true }
+    private func chainStyles(_ chain: String, look: Look, depth: Int) -> Bool {
+        if look.isApplied(in: chain) { return true }
         let names =
-            Self.matches(#"\.(\w+)\("#, in: chain).map { chain.substring($0.range(at: 1)) }
+            Self.matches(#"\.(\w+)\s*[({]"#, in: chain).map { chain.substring($0.range(at: 1)) }
             + Self.matches(#"\.modifier\(\s*(\w+)"#, in: chain).map { chain.substring($0.range(at: 1)) }
         return names.contains { name in
             guard let found = declarations[name], !found.isEmpty, depth < Self.maxDepth else { return false }
-            return found.allSatisfy { stylesWhatItModifies($0, depth: depth + 1) }
+            return found.allSatisfy { stylesWhatItModifies($0, look: look, depth: depth + 1) }
         }
     }
 
     /// Whether a view extension's body, or a view modifier's `body(content:)`, starts with a chain
     /// on what it modifies that applies a button style.
-    private func stylesWhatItModifies(_ declaration: Declaration, depth: Int) -> Bool {
+    private func stylesWhatItModifies(_ declaration: Declaration, look: Look, depth: Int) -> Bool {
         let file = declaration.file
         var bodyText: String
         if declaration.isFunction {
@@ -307,7 +415,7 @@ struct ButtonStyleScan {
         }
         if !bodyText.hasPrefix(".") { bodyText = "." + bodyText }
         let probe = File(path: "", code: bodyText)
-        return chainStyles(Self.chain(after: 0, in: probe), depth: depth)
+        return chainStyles(Self.chain(after: 0, in: probe), look: look, depth: depth)
     }
 
     // MARK: Uses
@@ -347,34 +455,33 @@ struct ButtonStyleScan {
     private static func placement(of index: Int, in file: File) -> Placement {
         let head = lineHead(at: index, in: file)
         if file.bytes[index] == UInt8(ascii: "("), let callee = firstMatch(#"(\w+)\s*$"#, in: head) {
-            return Placement(callee: callee, label: nil, precedesContent: false)
+            return Placement(callee: callee, label: nil, nextLabel: nil)
         }
         // A labeled trailing closure belongs to the call that opens the first closure.
         if let label = firstMatch(#"^\s*\}\s*(\w+):\s*$"#, in: head), let close = head.lastIndex(of: "}") {
             let closeIndex = index - head.utf8.count + head.utf8.distance(from: head.startIndex, to: close)
             let first = placement(of: opening(closeIndex, in: file), in: file)
-            return Placement(callee: first.callee, label: label, precedesContent: false)
+            return Placement(callee: first.callee, label: label, nextLabel: nil)
         }
         var before = index
         while before > 0, spaces.contains(file.bytes[before - 1]) { before -= 1 }
-        let precedesContent =
-            trailingClosure(after: closing(index, in: file), in: file).map {
-                contains(#"^\s*content:"#, in: file.text(closing(index, in: file)..<($0 + 1)))
-            } ?? false
+        let nextLabel = trailingClosure(after: closing(index, in: file), in: file).flatMap {
+            firstMatch(#"^\s*(\w+):"#, in: file.text(closing(index, in: file)..<($0 + 1)))
+        }
         // A closure passed as a labeled argument belongs to the call whose parentheses hold it.
         if let label = firstMatch(#"(\w+):\s*$"#, in: file.text(max(0, before - 60)..<before)),
             let open = unmatchedParenthesis(before: before, in: file)
         {
             let callee = firstMatch(#"(\w+)\s*$"#, in: file.text(max(0, open - 60)..<open)) ?? ""
-            return Placement(callee: callee, label: label, precedesContent: false)
+            return Placement(callee: callee, label: label, nextLabel: nil)
         }
         if before > 0, file.bytes[before - 1] == UInt8(ascii: ")") {
             let open = opening(before - 1, in: file)
             let callee = firstMatch(#"(\w+)\s*$"#, in: file.text(max(0, open - 60)..<open)) ?? ""
-            return Placement(callee: callee, label: nil, precedesContent: precedesContent)
+            return Placement(callee: callee, label: nil, nextLabel: nextLabel)
         }
         let callee = firstMatch(#"(\w+)\s*$"#, in: file.text(max(0, before - 60)..<before)) ?? ""
-        return Placement(callee: callee, label: nil, precedesContent: precedesContent)
+        return Placement(callee: callee, label: nil, nextLabel: nextLabel)
     }
 
     /// The offset of the nearest `(` before `index` that is still open there.
@@ -455,7 +562,7 @@ struct ButtonStyleScan {
     }
 
     /// The offset of a closure's brace right after `index`, labeled or not.
-    private static func trailingClosure(after index: Int, in file: File) -> Int? {
+    static func trailingClosure(after index: Int, in file: File) -> Int? {
         let rest = file.text(index..<min(file.bytes.count, index + 80))
         guard let match = matches(#"^\s*(?:\w+:\s*)?\{"#, in: rest).first else { return nil }
         return index + match.range.upperBound - 1
@@ -476,14 +583,22 @@ struct ButtonStyleScan {
                 next += 1
             }
             guard next > dot + 1 else { break }
-            while next < file.bytes.count,
-                file.bytes[next] == UInt8(ascii: "(") || file.bytes[next] == UInt8(ascii: "{")
-            {
-                next = closing(next, in: file)
+            while let open = argumentsOrClosure(at: next, in: file) {
+                next = closing(open, in: file)
             }
             index = next
         }
         return file.text(end..<index)
+    }
+
+    /// The offset of the `(` or `{` that opens a modifier's arguments or trailing closure at
+    /// `index`, past any spaces before a closure on the same line.
+    private static func argumentsOrClosure(at index: Int, in file: File) -> Int? {
+        guard index < file.bytes.count else { return nil }
+        if file.bytes[index] == UInt8(ascii: "(") || file.bytes[index] == UInt8(ascii: "{") { return index }
+        var next = index
+        while next < file.bytes.count, file.bytes[next] == UInt8(ascii: " ") { next += 1 }
+        return next < file.bytes.count && file.bytes[next] == UInt8(ascii: "{") ? next : nil
     }
 
     // MARK: Patterns
@@ -493,7 +608,7 @@ struct ButtonStyleScan {
         return regex.matches(in: text, range: NSRange(location: 0, length: text.utf16.count))
     }
 
-    private static func contains(_ pattern: String, in text: String) -> Bool {
+    fileprivate static func contains(_ pattern: String, in text: String) -> Bool {
         !matches(pattern, in: text).isEmpty
     }
 

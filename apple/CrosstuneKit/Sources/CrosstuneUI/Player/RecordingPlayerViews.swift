@@ -27,9 +27,11 @@ public enum RecordingPlayerText {
 }
 
 /// Play or pause for the loaded recording or the Apple Music link MusicKit plays, or what shows
-/// instead while a recording's audio is fetched or missing.
+/// instead while a recording's audio is fetched or missing. With `onNext`, next track sits
+/// beside it.
 struct RecordingPlayButton: View {
     let player: PlayerModel
+    var onNext: (() -> Void)?
 
     @Environment(AccountSession.self) private var session: AccountSession?
 
@@ -37,9 +39,12 @@ struct RecordingPlayButton: View {
         if let transport = player.transport {
             Transport(
                 isPlaying: transport.isPlaying, size: .inline, sides: .hidden,
-                onPlayPause: { transport.toggle() })
+                onPlayPause: { transport.toggle() }, onNext: onNext)
         } else {
-            placeholder
+            HStack(spacing: Transport.spacing(.inline)) {
+                placeholder
+                if let onNext { TransportTrackButton(.next, size: .inline, action: onNext) }
+            }
         }
     }
 
@@ -105,7 +110,7 @@ struct RecordingPlayerStatus: View {
             // Offline refuses the retry by not offering it, rather than a control that cannot work.
             if player.recordingAudio == .unavailable && session?.isOffline != true {
                 Button(MediaText.retry) { player.retryAudio() }
-                    .buttonStyle(.tinted(macLook: .bordered))
+                    .buttonStyle(.tinted)
             }
         }
         .frame(minHeight: minimumTapTarget)

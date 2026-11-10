@@ -44,7 +44,9 @@ const activeNames = async () =>
 describe('useListName', () => {
   it('refuses an empty name and says why', async () => {
     const { result, onSaved, onInvalid } = setup({ kind: 'new' })
+    expect(result.current.hasName).toBe(false)
     act(() => result.current.setName('   '))
+    expect(result.current.hasName).toBe(false)
     act(() => void result.current.save())
     expect(result.current.invalid).toBe(LIST_NAME_REQUIRED)
     expect(onInvalid).toHaveBeenCalledOnce()
@@ -52,6 +54,7 @@ describe('useListName', () => {
     expect(await activeNames()).toEqual([])
     act(() => result.current.setName('Tuesday jam'))
     expect(result.current.invalid).toBeNull()
+    expect(result.current.hasName).toBe(true)
   })
 
   it('creates a list from a trimmed name and reports its id', async () => {

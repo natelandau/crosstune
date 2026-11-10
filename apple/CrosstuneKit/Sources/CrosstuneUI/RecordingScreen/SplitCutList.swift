@@ -1,8 +1,7 @@
 import CrosstuneDesign
 import SwiftUI
 
-/// Every cut as a choice chip; a tap selects it, and a tap on the selected one lets it go. The
-/// Mac draws each as a button toggle.
+/// Every cut as a choice chip; a tap selects it, and a tap on the selected one lets it go.
 struct SplitCutList: View {
     @Bindable var model: SplitModel
 
@@ -11,17 +10,11 @@ struct SplitCutList: View {
             FlowLayout(spacing: 8) {
                 ForEach(model.state.identifiedCuts.enumerated(), id: \.element.id) { index, cut in
                     let time = RecordingScreenText.preciseTime(milliseconds: cut.ms - model.bounds.lowerBound)
-                    #if os(macOS)
-                        Toggle(time, isOn: $model[cutSelected: index])
-                            .toggleStyle(.button)
-                            .monospacedDigit()
-                    #else
-                        Chip(.choice(isChosen: model.state.selected == index)) {
-                            model.select(index)
-                        } label: {
-                            Text(time).monospacedDigit()
-                        }
-                    #endif
+                    Chip(.choice(isChosen: model.state.selected == index)) {
+                        model.select(index)
+                    } label: {
+                        Text(time).monospacedDigit()
+                    }
                 }
             }
         }
@@ -43,7 +36,7 @@ struct SplitCutSteps: View {
             }
             .disabled(!model.canStepNext)
         }
-        .buttonStyle(.tinted(macLook: .bordered))
+        .buttonStyle(.tinted)
         .controlSize(.large)
     }
 }

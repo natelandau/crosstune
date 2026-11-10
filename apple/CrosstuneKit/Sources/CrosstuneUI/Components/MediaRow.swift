@@ -315,21 +315,16 @@ public struct MediaRow: View {
     }
 
     private func retryButton(_ retry: Retry) -> some View {
-        #if os(macOS)
-            Button(MediaText.retry, action: retry.action)
-                .buttonStyle(.mac(.plain, size: .small))
-                .accessibilityLabel(retry.name)
-                // A minimum, since the word may need more than the slot's width.
+        Button(action: retry.action) {
+            Text(MediaText.retry)
+                // On the label, since a frame outside a Button never widens what it hit-tests.
                 .frame(minWidth: metrics.width)
-        #else
-            Button(action: retry.action) {
-                Text(MediaText.retry)
-                    // On the label, since a frame outside a Button never widens what it hit-tests.
-                    .frame(minWidth: metrics.width)
-            }
-            .buttonStyle(.text(oneLine: true))
-            .accessibilityLabel(retry.name)
+        }
+        .buttonStyle(.text(oneLine: true))
+        #if os(macOS)
+            .controlSize(.small)
         #endif
+        .accessibilityLabel(retry.name)
     }
 
     /// The spoken names of the row's control and of each control inside it, in reading order.
@@ -428,38 +423,6 @@ extension EnvironmentValues {
     /// True where a section says its rows' notice once, so each row only speaks it.
     @Entry var mediaNoticeInHeading = false
 }
-
-#if os(macOS)
-    /// A link line's text color: secondary at rest, the accent under the pointer, so the accent
-    /// stays for what the musician is about to act on. A selected row's lines follow the
-    /// selection's secondary text instead, since the accent holds 4.5:1 on neither the emphasized
-    /// fill nor the dark gray one.
-    struct MacHoverAccent: ViewModifier {
-        @State private var isHovered = false
-        @Environment(\.backgroundProminence) private var prominence
-        @Environment(\.macRowSelected) private var rowSelected
-
-        nonisolated static func token(hovered: Bool, emphasized: Bool, rowSelected: Bool) -> Palette.Token {
-            if hovered, !emphasized, !rowSelected { return .accent }
-            return SecondaryText.token(emphasized: emphasized, rowSelected: rowSelected)
-        }
-
-        func body(content: Content) -> some View {
-            content
-                .foregroundStyle(
-                    Palette.color(
-                        Self.token(hovered: isHovered, emphasized: prominence == .increased, rowSelected: rowSelected))
-                )
-                .onHover { isHovered = $0 }
-        }
-    }
-
-    extension View {
-        fileprivate func macHoverAccent() -> some View {
-            modifier(MacHoverAccent())
-        }
-    }
-#endif
 
 extension View {
     /// A 44 point hit area for a line inside a row. Alone, it reaches `reach` past the text into

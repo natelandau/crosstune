@@ -143,7 +143,7 @@ struct IsolateRange: View {
                     scale: { x($0, length, width) },
                     time: { width > 0 ? Double($0 / width) * length : 0 },
                     snapPoints: [], playhead: nil, minimumLength: bounds.minSpan, movesSpan: true,
-                    macFocus: .ring, startLabel: startLabel, endLabel: endLabel,
+                    startLabel: startLabel, endLabel: endLabel,
                     steps: RangeHandles.Steps(
                         nudge: steps.step, largeNudge: steps.largeStep, largerName: largeStepUp,
                         smallerName: largeStepDown),

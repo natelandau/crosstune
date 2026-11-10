@@ -3,106 +3,48 @@ import SwiftUI
 /// The iPhone button styles: a filled accent capsule, a tinted capsule, and words alone. The
 /// size follows `controlSize`: small is Compact, regular is Regular, large is a full-width
 /// Large button. The text style ignores the size and, at the accessibility sizes, wraps its words
-/// rather than truncate them, as the Large button does; a one-word label takes `oneLine`. On the Mac each draws the Mac
-/// button it stands for, and a destructive tinted button draws the Mac's destructive one, unless
-/// `macLook` names another.
+/// rather than truncate them, as the Large button does; a one-word label takes `oneLine`. On the
+/// Mac each draws the Mac button it stands for at the control size: Filled, Tinted, or Text, and
+/// a destructive tinted button draws the Mac's destructive one.
 package struct LibraryButtonStyle: PrimitiveButtonStyle {
     package enum Kind { case filled, tinted, text }
-    /// The Mac look drawn: `.byKind`, the Mac button the kind stands for; `.button`, the Mac
-    /// button of another role and size; `.accentLabel`, the label alone in the accent, as a plain
-    /// button draws it, taking presses 12 pt past its words; `.accentWords`, plain semibold words in the accent in a full-height target,
-    /// as a breakdown's Show all draws them; `.bordered`, the system's bordered button, as the
-    /// player's Retry draws it; or `.system`, the system's own button.
-    package enum MacLook: Equatable {
-        case byKind
-        case button(MacRole, size: MacSize = .regular)
-        case accentLabel
-        case accentWords
-        case bordered
-        case system
-    }
-
-    /// The roles of the Mac's content buttons a Mac look can name.
-    package enum MacRole: Equatable { case secondary, plain, quiet, icon }
-    package enum MacSize: Equatable { case small, regular, large }
 
     package let kind: Kind
-    package let macLook: MacLook
     /// Keeps iPhone and iPad words on one line at every size. A Mac button never wraps.
     package let oneLine: Bool
 
-    package init(_ kind: Kind, macLook: MacLook = .byKind, oneLine: Bool = false) {
+    package init(_ kind: Kind, oneLine: Bool = false) {
         self.kind = kind
-        self.macLook = macLook
         self.oneLine = oneLine
     }
 
     package func makeBody(configuration: Configuration) -> some View {
         #if os(macOS)
-            switch macLook {
-            case .byKind:
-                Button(configuration)
-                    .buttonStyle(macStyle(destructive: configuration.role == .destructive))
-            case .button(let role, let size):
-                Button(configuration)
-                    .buttonStyle(MacButtonStyle(role.macRole, size: size.macSize))
-            case .accentLabel:
-                // A plain Mac button takes presses only on its label.
-                Button(role: configuration.role, action: configuration.trigger) {
-                    configuration.label.hitOutset(.all, by: 12)
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(Palette.accent)
-            case .accentWords:
-                Button(configuration)
-                    .font(PageStyle.secondary.weight(.semibold))
-                    .buttonStyle(.plain)
-                    .foregroundStyle(Palette.accent)
-                    .padding(.horizontal, 8)
-                    .frame(minHeight: PageStyle.minTarget, alignment: .leading)
-                    .contentShape(.rect)
-            case .bordered:
-                Button(configuration)
-                    .buttonStyle(.bordered)
-            case .system:
-                Button(configuration)
-                    .buttonStyle(.automatic)
-            }
+            MacLibraryButton(kind: kind, configuration: configuration)
         #else
             Button(configuration)
                 .buttonStyle(LibraryButtonAppearance(kind: kind, oneLine: oneLine))
         #endif
     }
-
-    #if os(macOS)
-        private func macStyle(destructive: Bool) -> MacButtonStyle {
-            switch kind {
-            case .filled: MacButtonStyle(.primary)
-            case .tinted: destructive ? MacButtonStyle(.destructive) : MacButtonStyle(.secondary)
-            case .text: MacButtonStyle(.icon, size: .small)
-            }
-        }
-    #endif
 }
 
 #if os(macOS)
-    extension LibraryButtonStyle.MacRole {
-        fileprivate var macRole: MacButtonStyle.Role {
-            switch self {
-            case .secondary: MacButtonStyle.Role.secondary
-            case .plain: MacButtonStyle.Role.plain
-            case .quiet: MacButtonStyle.Role.quiet
-            case .icon: MacButtonStyle.Role.icon
-            }
-        }
-    }
+    private struct MacLibraryButton: View {
+        let kind: LibraryButtonStyle.Kind
+        let configuration: PrimitiveButtonStyleConfiguration
 
-    extension LibraryButtonStyle.MacSize {
-        fileprivate var macSize: MacButtonStyle.Size {
-            switch self {
-            case .small: .small
-            case .regular: .regular
-            case .large: .large
+        @Environment(\.controlSize) private var controlSize
+
+        var body: some View {
+            Button(configuration)
+                .buttonStyle(MacButtonStyle(role, size: MacButtonStyle.Size(controlSize)))
+        }
+
+        private var role: MacButtonStyle.Role {
+            switch kind {
+            case .filled: .primary
+            case .tinted: configuration.role == .destructive ? .destructive : MacButtonStyle.Role.secondary
+            case .text: .plain
             }
         }
     }
@@ -113,26 +55,23 @@ extension PrimitiveButtonStyle where Self == LibraryButtonStyle {
     package static var filled: Self { LibraryButtonStyle(.filled) }
     /// The tinted capsule.
     package static var tinted: Self { LibraryButtonStyle(.tinted) }
-    /// The tinted capsule, and on the Mac the look `macLook` names.
-    package static func tinted(macLook: LibraryButtonStyle.MacLook) -> Self {
-        LibraryButtonStyle(.tinted, macLook: macLook)
-    }
     /// Words in the accent, with no capsule at rest.
     package static var text: Self { LibraryButtonStyle(.text) }
-    /// Words in the accent, with no capsule at rest, on one line at every size when `oneLine`,
-    /// and on the Mac the look `macLook` names.
-    package static func text(macLook: LibraryButtonStyle.MacLook = .byKind, oneLine: Bool = false) -> Self {
-        LibraryButtonStyle(.text, macLook: macLook, oneLine: oneLine)
+    /// Words in the accent, with no capsule at rest, on one line at every size when `oneLine`.
+    package static func text(oneLine: Bool) -> Self {
+        LibraryButtonStyle(.text, oneLine: oneLine)
     }
 }
 
 extension View {
-    /// Draws a `Link` as the text button. The Mac keeps the system link.
-    package func textLinkStyle() -> some View {
+    /// A form row's button that sets or clears the row's value, such as Not set or Clear date.
+    /// On iPhone and iPad it is a borderless line in secondary text, a glyph alone where its
+    /// label has one; on the Mac it is a Text button in words.
+    package func formValueButtonStyle() -> some View {
         #if os(macOS)
-            self
+            labelStyle(.titleOnly).buttonStyle(.text)
         #else
-            buttonStyle(.text)
+            labelStyle(.iconOnly).buttonStyle(.rowLine).foregroundStyle(.textSecondary)
         #endif
     }
 }
@@ -259,16 +198,14 @@ extension View {
 }
 
 extension View {
-    /// Gives a menu the text button's look, and the buttons beside it too. A menu takes its look
-    /// only from a plain button style, never from `.text`, which is a primitive one. On the Mac it
-    /// draws the Mac button of `macRole` and `macSize`, by default the one `.text` draws.
-    package func textButtonMenuAppearance(
-        macRole: LibraryButtonStyle.MacRole = .icon, macSize: LibraryButtonStyle.MacSize = .small
-    ) -> some View {
+    /// Gives a menu the text button's look as a button menu, and the buttons beside it too. A menu
+    /// takes its look only from a plain button style, never from `.text`, which is a primitive
+    /// one. On the Mac it draws the Mac's Text button at the control size.
+    package func textButtonMenuAppearance() -> some View {
         #if os(macOS)
-            buttonStyle(MacButtonStyle(macRole.macRole, size: macSize.macSize))
+            macMenuAppearance(.plain)
         #else
-            buttonStyle(LibraryButtonAppearance(kind: .text, oneLine: false))
+            menuStyle(.button).buttonStyle(LibraryButtonAppearance(kind: .text, oneLine: false))
         #endif
     }
 }

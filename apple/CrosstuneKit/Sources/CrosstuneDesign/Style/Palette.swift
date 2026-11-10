@@ -124,7 +124,11 @@ public enum Palette {
     /// Dashed outlines and slider tracks.
     public static let borderStrong = translucent(.textPrimary, 0.22)
     /// Laid over a fill that has no hover or press of its own.
-    public static let hoverOverlay = translucent(.textPrimary, 0.06)
+    package static let hoverOverlayOpacity = 0.06
+    public static let hoverOverlay = translucent(.textPrimary, hoverOverlayOpacity)
+    /// Laid over a fill while it is pressed, Mac only.
+    package static let pressedOverlayOpacity = 0.12
+    public static let pressedOverlay = translucent(.textPrimary, pressedOverlayOpacity)
     /// Behind a tooltip or the undo banner: the other appearance's page.
     public static let inverseSurface = color(.textPrimary)
     public static let onInverseSurface = color(.pageBackground)
@@ -274,9 +278,25 @@ public enum Palette {
         return dynamic(light: (KeyColor.RGB(hex: light), opacity), dark: (KeyColor.RGB(hex: dark), opacity))
     }
 
+    /// Each role resolved once, since a view body asks for the same role on every render.
+    private static let resolved: [Token: (light: KeyColor.RGB, dark: KeyColor.RGB, color: Color)] =
+        Dictionary(
+            uniqueKeysWithValues: Token.allCases.map { token in
+                let (light, dark) = pair(token)
+                let rgb = (KeyColor.RGB(hex: light), KeyColor.RGB(hex: dark))
+                return (token, (rgb.0, rgb.1, dynamic(light: (rgb.0, 1), dark: (rgb.1, 1))))
+            })
+
     package static func color(_ token: Token) -> Color {
+        if let resolved = resolved[token] { return resolved.color }
         let (light, dark) = pair(token)
         return dynamic(light: (KeyColor.RGB(hex: light), 1), dark: (KeyColor.RGB(hex: dark), 1))
+    }
+
+    /// `token`'s value in `scheme`, for working out a blend or a contrast.
+    package static func rgb(_ token: Token, _ scheme: ColorScheme) -> KeyColor.RGB {
+        guard let resolved = resolved[token] else { return KeyColor.RGB(hex: hex(token, scheme)) }
+        return scheme == .dark ? resolved.dark : resolved.light
     }
 
     /// A fixed sRGB color from a `#rrggbb` string, for a value already chosen for one appearance.

@@ -443,7 +443,7 @@ struct PlanSheet: View {
             Task { await purchase.restore() }
         }
         .disabled(purchase.isWorking)
-        .buttonStyle(.text(macLook: .button(.plain)))
+        .buttonStyle(.text)
     }
 }
 
@@ -565,17 +565,19 @@ struct PlanSheet: View {
     }
 #endif
 
-/// Subscribe's place while the store answers: disabled, and named Subscribe for VoiceOver.
-struct WaitingSubscribeButton: View {
-    var body: some View {
-        Button {
-        } label: {
-            ProgressView().controlSize(.small)
+#if !os(macOS)
+    /// Subscribe's place while the store answers: disabled, and named Subscribe for VoiceOver.
+    struct WaitingSubscribeButton: View {
+        var body: some View {
+            Button {
+            } label: {
+                ProgressView().controlSize(.small)
+            }
+            .disabled(true)
+            .accessibilityLabel(PlanText.subscribe)
         }
-        .disabled(true)
-        .accessibilityLabel(PlanText.subscribe)
     }
-}
+#endif
 
 /// The CT mark heading the sheet: a slate C on light, a white C on dark, and the brand-colored T on both.
 private struct PlanMark: View {

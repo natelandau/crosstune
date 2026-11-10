@@ -144,7 +144,8 @@ private struct FindRecordingsForm: View {
                     FilterSearchField.escape(clearing: queryBinding) {
                         if canGoBack { model.back() } else { dismiss() }
                     }
-                }
+                },
+                openingFocus: .firstField
             ) {
                 VStack(alignment: .leading, spacing: 0) {
                     if model.hasNoServices {
@@ -152,7 +153,7 @@ private struct FindRecordingsForm: View {
                     } else if model.isLoaded {
                         FilterSearchField(
                             prompt: FindRecordingsSheet.searchFor, query: queryBinding, isFocused: $searchFocused,
-                            filterCount: nil, onSubmit: { Task { await model.submit() } }
+                            onSubmit: { Task { await model.submit() } }
                         )
                         .padding(.horizontal, MacStyle.sheetMargin)
                         .padding(.top, 4)
@@ -177,12 +178,12 @@ private struct FindRecordingsForm: View {
                                         Text(footer)
                                             .font(MacStyle.secondary)
                                             .foregroundStyle(Palette.textSecondary)
-                                            .padding(.horizontal, 8)
+                                            .padding(.horizontal, MacRowStyle.labelInset)
                                             .padding(.top, 4)
                                     }
                                 }
                             }
-                            .padding(.horizontal, MacStyle.sheetMargin - 8)
+                            .padding(.horizontal, MacStyle.sheetMargin - MacRowStyle.labelInset)
                             .padding(.bottom, 12)
                         }
                         .scrollBounceBehavior(.basedOnSize)
@@ -242,7 +243,7 @@ private struct FindRecordingsForm: View {
                     macTrailingMark(inApp ? "chevron.forward" : "arrow.up.right")
                 }
             }
-            .buttonStyle(.macPickRow)
+            .buttonStyle(.macRow)
         }
 
         private func macSearchOnRow(_ group: SearchGroup) -> some View {
@@ -256,7 +257,7 @@ private struct FindRecordingsForm: View {
                     macTrailingMark("arrow.up.right")
                 }
             }
-            .buttonStyle(.macPickRow)
+            .buttonStyle(.macRow)
         }
 
         private func macResultRow(_ result: SearchResult) -> some View {
@@ -281,7 +282,8 @@ private struct FindRecordingsForm: View {
                     if embed != nil {
                         Button(FindRecordingsSheet.play, systemImage: "play.fill") { model.play(result) }
                             .labelStyle(.iconOnly)
-                            .buttonStyle(.mac(.icon, size: .small))
+                            .buttonStyle(.icon)
+                            .controlSize(.small)
                             .help(FindRecordingsSheet.play)
                             .accessibilityLabel("\(FindRecordingsSheet.play) \(result.title)")
                             .accessibilityAddTraits(expanded ? .isSelected : [])
@@ -297,15 +299,16 @@ private struct FindRecordingsForm: View {
                             Text(linkTitle)
                         }
                     }
-                    .buttonStyle(MacChipStyle(state: linked ? .rest : .set, size: .row))
+                    .buttonStyle(.tinted)
+                    .controlSize(.small)
                     .accessibilityLabel("\(linkTitle) \(result.title)")
                     .disabled(linked)
                 }
-                .padding(.horizontal, 8)
-                .frame(minHeight: MacPickRowStyle.minHeight)
+                .padding(.horizontal, MacRowStyle.labelInset)
+                .frame(minHeight: MacControl.rowMinHeight)
                 if expanded, let embed {
                     embedView(embed)
-                        .padding(.horizontal, 8)
+                        .padding(.horizontal, MacRowStyle.labelInset)
                 }
             }
             .padding(.vertical, 2)

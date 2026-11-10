@@ -39,10 +39,12 @@ describe('usePasteLink', () => {
 
   it('refuses a blank link and an address that is not on the web, adding nothing', async () => {
     const { result, onInvalid } = setup()
+    expect(result.current.hasUrl).toBe(false)
     act(() => void result.current.submit())
     expect(result.current.validation).toBe(LINK_REQUIRED)
     act(() => result.current.setUrl('ftp://example.com/tune'))
     expect(result.current.validation).toBeNull()
+    expect(result.current.hasUrl).toBe(true)
     act(() => void result.current.submit())
     expect(result.current.validation).toBe(LINK_NOT_WEB)
     expect(onInvalid).toHaveBeenCalledTimes(2)

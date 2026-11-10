@@ -67,7 +67,7 @@ it('shows one popover at a time', async () => {
   await userEvent.click(document.body, { position: { x: 5, y: 5 } })
   await page.getByRole('button', { name: /^Tone/ }).click()
   await expect.element(page.getByRole('dialog', { name: 'Tone' })).toBeVisible()
-  expect(page.getByRole('dialog').elements()).toHaveLength(1)
+  await expect.poll(() => page.getByRole('dialog').elements()).toHaveLength(1)
 })
 
 it("updates its value from the popover's controls", async () => {

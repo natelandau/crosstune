@@ -167,7 +167,8 @@ A role only one platform has is on that platform's page.
     parity test's platform-only list.
   - Its `tokens.ts` twin on the web.
   - A contrast test for every pair it carries.
-  - Its row in the table above.
+  - Its row in the table above, or on its platform's page when one
+    platform has it.
 - A new palette changes primitives. A new pairing points a role at
   another primitive. Neither renames a role.
 - A failing color test means the change is wrong, never the test.
@@ -310,6 +311,8 @@ A role only one platform has is on that platform's page.
   consequences and says when data cannot come back.
 - Toast: only for Undo, or for an outcome that arrives after the musician
   left the screen. One at a time, above the bottom chrome.
+- Apple: system undo (Cmd-Z, or shake on iPhone) plus a short banner with
+  Undo replaces the toast.
 - A gated control stays in place and answers a tap with the Plan sheet.
 
 ## Pages

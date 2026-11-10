@@ -19,11 +19,8 @@ struct SplitMainButton: View {
                         : RecordingScreenText.splitAt(milliseconds: model.shownLineMs - model.bounds.lowerBound)
                 )
                 .monospacedDigit()
-                .frame(maxWidth: .infinity)
             }
-            // On the Mac, unlike `.filled`, the primary follows the control size.
-            .buttonStyle(.accentProminent)
-            .controlSize(.large)
+            .editorMainAction()
             .disabled(!removes && !model.canAddCut)
             .accessibilityHint(hint ?? "", isEnabled: hint != nil)
             if let hint {

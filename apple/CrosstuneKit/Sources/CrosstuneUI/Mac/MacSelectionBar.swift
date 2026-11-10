@@ -33,7 +33,7 @@ import CrosstuneDesign
         }
 
         private var actionsMenu: some View {
-            Menu {
+            MacPullDown(TuneSelection.actions, value: TuneSelection.actions, size: .regular) {
                 let statuses = actions.compactMap { action -> String? in
                     if case .status(let status) = action { status } else { nil }
                 }
@@ -58,17 +58,9 @@ import CrosstuneDesign
                         .disabled(action == .addToList && !canAddToList)
                     }
                 }
-            } label: {
-                HStack(spacing: 4) {
-                    Text(TuneSelection.actions)
-                    Image(systemName: "chevron.down")
-                        .imageScale(.small)
-                        .accessibilityHidden(true)
-                }
             }
-            .menuStyle(.button)
-            .menuIndicator(.hidden)
-            .buttonStyle(.macSecondary)
+            // The menu's word names it, so the pull-down draws no label beside it.
+            .labeledContentStyle(MacControlOnlyStyle())
             .fixedSize()
             .disabled(count == 0 || isPending)
         }

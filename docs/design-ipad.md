@@ -19,27 +19,9 @@ only `design-ios.md`. The Mac and iPhone never take a rule from here.
 - Layout reads size class, available width, and the shell's environment,
   never `userInterfaceIdiom`.
 
-## Shell
-
-- Root: `TabView` with `.sidebarAdaptable`. iPadOS picks sidebar or top-bar
-  form, and the person's toggle wins.
-- Settings is a tab at regular width, since the bar has the room the
-  phone lacks.
-- iPadOS 27 and later: Record is the iPhone's prominent slot. iPadOS 26
-  has no prominent role, so Record sits in the bottom bar there.
-
-## Bottom bar
-
-- `PadBottomBar`: our own glass capsule, centered at the window's bottom
-  edge in every form.
-- Holds the iPhone's player accessory while something is loaded. Hidden
-  while a recording's page shows the loaded recording.
-- Columns leave room under the last row only while the capsule shows.
-
 ## Columns
 
-- Each tab: a content column (the iPhone screen for that tab) plus a
-  detail column.
+- Columns leave room under the last row only while `PadBottomBar` shows.
 - Choosing a row never pushes over the content column. It replaces the
   detail page.
 
@@ -54,11 +36,6 @@ only `design-ios.md`. The Mac and iPhone never take a rule from here.
 
 - Images decode at their drawn size.
 - A page fading out takes no taps.
-
-## Sheets
-
-- Every `.shellSheet()` sheet is a centered `.form` sheet. Part-height
-  sheets keep their detents. Full-screen readers stay full screen.
 
 ## Framework limits
 

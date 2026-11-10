@@ -185,7 +185,7 @@ struct RecordSheetBody: View {
         .padding(.horizontal, 20)
         .padding(.vertical, 16)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .animation(reduceMotion ? nil : .default, value: model.phase)
+        .animation(Motion.stateChange(phone: .default, reduceMotion: reduceMotion), value: model.phase)
     }
 
     #if os(iOS)
@@ -271,6 +271,7 @@ struct RecordSheetBody: View {
                     stop
                     resume
                 }
+                .controlSize(.large)
             #endif
         }
     }
@@ -282,7 +283,7 @@ struct RecordSheetBody: View {
     @ViewBuilder private var resume: some View {
         if model.canResume {
             Button(RecordSheetModel.resume, systemImage: "record.circle") { Task { await model.resume() } }
-                .buttonStyle(.tinted(macLook: .button(.secondary, size: .large)))
+                .buttonStyle(.tinted)
                 .transition(.opacity)
         }
     }
@@ -390,7 +391,7 @@ private struct RecordTimerLabel: View, Equatable {
                 .font(.system(size: timerSize, weight: .light).monospacedDigit())
             #endif
             .contentTransition(reduceMotion ? .identity : .numericText(countsDown: false))
-            .animation(reduceMotion ? nil : .snappy, value: second)
+            .animation(Motion.stateChange(phone: .snappy, reduceMotion: reduceMotion), value: second)
             .lineLimit(1)
             .minimumScaleFactor(0.5)
     }
@@ -445,7 +446,7 @@ private struct StopButton: View {
     }
 
     #if os(macOS)
-        private static let dimmed = 0.4
+        private static let dimmed = MacControl.disabledOpacity
     #else
         private static let dimmed = 0.5
     #endif

@@ -122,7 +122,7 @@ struct DropPinView: View {
                 title: RecordingPageCopy.location, size: LocationEditor.macSize,
                 cancel: .cancel(FindRecordingsSheet.back) { onBack() },
                 primary: .init(DropPinText.useThisSpot, isEnabled: model?.pin != nil, isDefault: false) { use() },
-                escape: onCancel
+                escape: onCancel, openingFocus: .firstField
             ) {
                 VStack(alignment: .leading, spacing: MacForm.sectionGap) {
                     map

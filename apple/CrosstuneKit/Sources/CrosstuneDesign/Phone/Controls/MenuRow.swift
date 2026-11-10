@@ -9,18 +9,26 @@ package struct MenuRow<Items: View>: View {
     private let label: String
     private let rowLabel: String
     private let value: String
+    private let isSet: Bool
     private let items: Items
 
-    package init(_ label: String, rowLabel: String? = nil, value: String, @ViewBuilder items: () -> Items) {
+    /// - Parameter isSet: False while `value` is a placeholder for no value. Only the Mac draws
+    ///   the difference.
+    package init(
+        _ label: String, rowLabel: String? = nil, value: String, isSet: Bool = true, @ViewBuilder items: () -> Items
+    ) {
         self.label = label
         self.rowLabel = rowLabel ?? label
         self.value = value
+        self.isSet = isSet
         self.items = items()
     }
 
     package var body: some View {
         #if os(macOS)
-            MacPullDown(rowLabel, value: value) { items }
+            MacPullDown(rowLabel, value: value, isSet: isSet, kind: .value) { items }
+                .accessibilityLabel(label)
+                .contentMask()
         #else
             LabeledContent {
                 Menu {

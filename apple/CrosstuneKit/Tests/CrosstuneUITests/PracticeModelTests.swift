@@ -904,6 +904,36 @@ private final class FakeLoops {
         #expect(closed == 1)
     }
 
+    @Test func theScreensEscapeClosesAnOpenToolPopoverBeforeTheScreen() async throws {
+        try await load()
+        let model = practice()
+        store.put([loop("a", 5000, 15_000)])
+        model.select("a")
+        model.openTool = .speed
+        var closed = 0
+        model.escape { closed += 1 }
+        #expect(model.openTool == nil)
+        #expect(model.selectedID == "a")
+        #expect(closed == 0)
+        model.escape { closed += 1 }
+        #expect(model.selectedID == nil)
+        model.escape { closed += 1 }
+        #expect(closed == 1)
+    }
+
+    @Test func theScreensEscapeClosesANameFieldBeforeTheToolPopover() async throws {
+        try await load()
+        let model = practice()
+        store.put([loop("a", 5000, 15_000)])
+        model.openTool = .loops
+        model.beginRename("a")
+        #expect(model.escape())
+        #expect(model.renaming == nil)
+        #expect(model.openTool == .loops)
+        #expect(model.escape())
+        #expect(model.openTool == nil)
+    }
+
     // MARK: Isolate mode
 
     private var isolateCalls: [String] { audio.calls.filter { $0.hasPrefix("setIsolateOutlineWanted") } }
@@ -924,6 +954,39 @@ private final class FakeLoops {
         model.mode = .isolate
         model.leave()
         #expect(isolateCalls.suffix(2) == ["setIsolateOutlineWanted(true)", "setIsolateOutlineWanted(false)"])
+    }
+
+    /// A mode whose controls open in a popover holds the unit only while its popover is open.
+    @Test func closingTheIsolatePopoverReleasesTheUnit() async throws {
+        try await load()
+        let model = practice()
+        model.openVisit()
+        model.showPanel()
+        model.mode = .isolate
+        #expect(isolateCalls == ["setIsolateOutlineWanted(true)"])
+
+        model.modeControlsShown(false)
+        #expect(isolateCalls == ["setIsolateOutlineWanted(true)", "setIsolateOutlineWanted(false)"])
+
+        model.modeControlsShown(true)
+        #expect(isolateCalls.suffix(1) == ["setIsolateOutlineWanted(true)"])
+        model.leave()
+        #expect(isolateCalls.suffix(1) == ["setIsolateOutlineWanted(false)"])
+    }
+
+    /// Popovers that start closed hold nothing until one opens, whether the screen or the row
+    /// of tools appears first.
+    @Test func aClosedPopoverFromTheStartHoldsNoUnit() async throws {
+        try await load()
+        let model = PracticeModel(
+            player: player, recording: recording(), file: nil, writer: store.writer, mode: .isolate,
+            modeControlsShown: false, announce: { _ in })
+        model.openVisit()
+        model.showPanel()
+        model.modeControlsShown(false)
+        #expect(isolateCalls.isEmpty)
+        model.leave()
+        #expect(isolateCalls.isEmpty)
     }
 
     @Test func arrivingOnIsolateEngagesTheUnit() async throws {

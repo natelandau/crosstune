@@ -2,11 +2,6 @@ import CrosstuneDesign
 import CrosstuneStore
 import SwiftUI
 
-/// What holds the keyboard on the recording screen when no control does: the screen itself.
-enum PracticeFocus: Hashable {
-    case screen
-}
-
 /// The recording at one scale with a time ruler, centered on a fixed playhead. A drag scrolls
 /// the audio under the playhead, which is the seek, and coasts on when let go; a tap selects
 /// the loop under it or deselects. Every loop shows as a tint with a name tab, and the selected

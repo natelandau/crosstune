@@ -38,54 +38,32 @@ package enum PaneSlide {
 
 /// Equal-width tabs, an icon over a caption, with the current one on an accent-tinted pill that
 /// slides to the choice. Arrow keys move the choice while the row holds focus. On the Mac it
-/// draws the segmented control `macLook` names.
+/// draws the Mac tab bar.
 package struct PaneTabs<Value: Hashable>: View {
-    /// The Mac segmented control drawn: `.macSegmented`, the app's own, with each tab's value,
-    /// or `.systemSegmented`, the system's segmented picker of the titles.
-    package enum MacLook { case macSegmented, systemSegmented }
-
     @Binding private var selection: Value
     private let tabs: [PaneTab<Value>]
     private let title: String
-    private let macLook: MacLook
 
     /// - Parameter title: What VoiceOver names the row of tabs.
-    package init(
-        selection: Binding<Value>, tabs: [PaneTab<Value>], title: String = "", macLook: MacLook = .macSegmented
-    ) {
+    package init(selection: Binding<Value>, tabs: [PaneTab<Value>], title: String = "") {
         _selection = selection
         self.tabs = tabs
         self.title = title
-        self.macLook = macLook
     }
 
     package var body: some View {
         #if os(macOS)
-            if macLook == .systemSegmented {
-                Picker(title, selection: $selection) {
-                    ForEach(tabs) { tab in
-                        Text(tab.title).contentMask().tag(tab.value)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-            } else {
-                macSegmented
-            }
+            MacTabBar(
+                selection: $selection,
+                tabs: tabs.map {
+                    MacTabBar.Tab(
+                        value: $0.value, title: $0.title, systemImage: $0.systemImage, valueText: $0.valueText)
+                },
+                title: title)
         #else
             PhonePaneTabs(selection: $selection, tabs: tabs, title: title)
         #endif
     }
-
-    #if os(macOS)
-        private var macSegmented: some View {
-            MacSegmented(
-                selection: $selection, options: tabs.map(\.value),
-                label: { value in tabs.first { $0.value == value }?.title ?? "" },
-                badge: { value in tabs.first { $0.value == value }?.valueText },
-                title: title, fillsWidth: true)
-        }
-    #endif
 }
 
 /// Shows the content for `selection`. A change fades the old content out over 0.1 s and slides

@@ -33,7 +33,6 @@ import CrosstuneDesign
         let columnHeight: CGFloat
 
         @Environment(\.appearsActive) private var appearsActive
-        @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
         var body: some View {
             VStack(spacing: 0) {
@@ -46,7 +45,7 @@ import CrosstuneDesign
             .overlay(alignment: .top) {
                 Palette.border.frame(height: 1)
             }
-            .animation(reduceMotion ? nil : .spring(duration: 0.35, bounce: 0.15), value: upperKind)
+            .macAnimation(MacMotion.spring, value: upperKind)
         }
 
         /// What grows above the bar, so a change of it springs and a window resize does not.
@@ -121,25 +120,7 @@ import CrosstuneDesign
         private var listPlays: Bool { playback?.isActive == true }
 
         @ViewBuilder private var loaded: some View {
-            HStack(spacing: 0) {
-                if listPlays, let playback {
-                    DockButton(PlaylistControlText.previous, systemImage: "backward.fill") { playback.previous() }
-                }
-                if player.playsInBar {
-                    DockPlayButton(player: player)
-                } else if PlayerBar.showsGlyph(player) {
-                    // The embed's own controls play and pause; this only marks what is playing,
-                    // so it never looks like a play button.
-                    Image(systemName: Self.nowPlayingSymbol)
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(Palette.textSecondary)
-                        .frame(width: MacStyle.dockPlayDiameter, height: MacStyle.dockPlayDiameter)
-                        .accessibilityHidden(true)
-                }
-                if listPlays, let playback {
-                    DockButton(PlaylistControlText.next, systemImage: "forward.fill") { playback.next() }
-                }
-            }
+            DockPlayGroup(player: player, previous: previousTune, next: nextTune)
             // A recording's title keeps its natural width, so a short one leaves the scrubber the
             // room and a long one truncates at no more than half of it.
             titleBlock
@@ -156,14 +137,14 @@ import CrosstuneDesign
             HStack(spacing: 0) {
                 if listPlays, let playback {
                     DockButton(
-                        PlaylistControlText.shuffle, systemImage: "shuffle", highlighted: playback.isShuffled
+                        PlaylistControlText.shuffle, systemImage: "shuffle", isOn: playback.isShuffled
                     ) {
                         playback.setShuffled(!playback.isShuffled)
                     }
                     DockButton(
                         PlaylistControlText.repeatLabel(playback.repeatMode),
                         systemImage: PlaylistControlText.repeatSymbol(playback.repeatMode),
-                        highlighted: playback.repeatMode != .off
+                        isOn: playback.repeatMode != .off
                     ) {
                         playback.cycleRepeat()
                     }
@@ -183,6 +164,16 @@ import CrosstuneDesign
                 }
                 close
             }
+        }
+
+        private var previousTune: (() -> Void)? {
+            guard listPlays, let playback else { return nil }
+            return { playback.previous() }
+        }
+
+        private var nextTune: (() -> Void)? {
+            guard listPlays, let playback else { return nil }
+            return { playback.next() }
         }
 
         private var close: some View {
@@ -226,59 +217,78 @@ import CrosstuneDesign
         }
     }
 
-    /// Play or pause as a filled disc, or what replaces it while a recording's audio is
-    /// fetched or missing, each the disc's size.
-    private struct DockPlayButton: View {
+    /// Play and pause between previous and next while a list plays. While no transport plays
+    /// the item, what shows in its place stays between the track buttons. Its own view, so a play
+    /// or pause redraws only this group.
+    private struct DockPlayGroup: View {
         let player: PlayerModel
+        let previous: (() -> Void)?
+        let next: (() -> Void)?
 
         var body: some View {
-            if let transport = player.transport {
-                let playing = transport.isPlaying
-                Button {
-                    transport.toggle()
-                } label: {
-                    Image(systemName: playing ? "pause.fill" : "play.fill")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(Palette.pageBackground)
-                        .contentTransition(.symbolEffect(.replace))
-                        .frame(width: MacStyle.dockPlayDiameter, height: MacStyle.dockPlayDiameter)
-                        .background(Palette.textPrimary, in: .circle)
-                        .contentShape(.circle)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(playing ? RecordingPlayerText.pause : RecordingPlayerText.play)
-                .help(playing ? RecordingPlayerText.pause : RecordingPlayerText.play)
-            } else if player.recordingAudio == .fetching {
-                ProgressView()
-                    .controlSize(.small)
-                    .frame(width: MacStyle.dockPlayDiameter, height: MacStyle.dockPlayDiameter)
-                    .accessibilityLabel(RecordingText.downloading)
+            if player.playsInBar, let transport = player.transport {
+                Transport(
+                    isPlaying: transport.isPlaying, size: .inline, sides: .hidden,
+                    onPlayPause: { transport.toggle() }, onPrevious: previous, onNext: next)
             } else {
-                Image(systemName: "exclamationmark.circle")
-                    .font(.system(size: 15))
-                    .foregroundStyle(Palette.textSecondary)
-                    .frame(width: MacStyle.dockPlayDiameter, height: MacStyle.dockPlayDiameter)
-                    .accessibilityHidden(true)
+                HStack(spacing: Transport.spacing(.inline)) {
+                    if let previous { TransportTrackButton(.previous, size: .inline, action: previous) }
+                    DockPlayPlaceholder(player: player)
+                    if let next { TransportTrackButton(.next, size: .inline, action: next) }
+                }
             }
         }
     }
 
-    /// A glyph-only dock control: the Mac icon button, its glyph in the accent while the
-    /// setting it toggles is on.
+    /// What shows where play would be while no transport plays the item: a spinner while a
+    /// recording's audio is fetched, a mark while it is missing, and a mark of what plays while an
+    /// embed's own controls play it, so it never looks like a play button.
+    private struct DockPlayPlaceholder: View {
+        let player: PlayerModel
+
+        var body: some View {
+            if player.playsInBar {
+                if player.recordingAudio == .fetching {
+                    ProgressView()
+                        .controlSize(.small)
+                        .frame(width: MacStyle.dockPlayDiameter, height: MacStyle.dockPlayDiameter)
+                        .accessibilityLabel(RecordingText.downloading)
+                } else {
+                    mark(Image(systemName: "exclamationmark.circle"), font: MacStyle.lead)
+                }
+            } else if PlayerBar.showsGlyph(player) {
+                mark(Image(systemName: PlayerDockBar.nowPlayingSymbol), font: MacStyle.body.weight(.medium))
+            }
+        }
+
+        private func mark(_ image: Image, font: Font) -> some View {
+            image
+                .font(font)
+                .foregroundStyle(Palette.textSecondary)
+                .frame(width: MacStyle.dockPlayDiameter, height: MacStyle.dockPlayDiameter)
+                .accessibilityHidden(true)
+        }
+    }
+
+    // MARK: Dock buttons
+
+    /// A glyph-only dock control: the Mac icon button, drawn on while the setting it toggles
+    /// is on.
     private struct DockButton: View {
         let title: String
         let systemImage: String
-        var highlighted = false
+        /// Whether the setting it toggles is on; false for a button that only acts.
+        var isOn: Bool
         var help: String?
         let action: () -> Void
 
         init(
-            _ title: String, systemImage: String, highlighted: Bool = false, help: String? = nil,
+            _ title: String, systemImage: String, isOn: Bool = false, help: String? = nil,
             action: @escaping () -> Void
         ) {
             self.title = title
             self.systemImage = systemImage
-            self.highlighted = highlighted
+            self.isOn = isOn
             self.help = help
             self.action = action
         }
@@ -286,19 +296,14 @@ import CrosstuneDesign
         var body: some View {
             Button(action: action) {
                 Image(systemName: systemImage)
-                    // One size for every glyph, so repeat and its repeat-one form match.
-                    .font(.system(size: 13, weight: .medium))
-                    .imageScale(.medium)
-                    // On the label, which wins over the icon style's secondary text.
-                    .foregroundStyle(highlighted ? Palette.accent : Palette.textSecondary)
-                    .frame(width: 16, height: 16)
             }
-            .buttonStyle(.mac(.icon))
+            .buttonStyle(.icon(isOn: isOn))
             .accessibilityLabel(title)
-            .accessibilityAddTraits(highlighted ? .isSelected : [])
             .help(help ?? title)
         }
     }
+
+    // MARK: Dock modifier
 
     extension View {
         /// Docks the player across the foot of this detail column while something is loaded.
@@ -332,7 +337,7 @@ import CrosstuneDesign
                 } action: {
                     columnHeight = $0
                 }
-                .animation(reduceMotion ? nil : .spring(duration: 0.35, bounce: 0.1), value: shown)
+                .macAnimation(MacMotion.spring, value: shown)
         }
     }
 #endif

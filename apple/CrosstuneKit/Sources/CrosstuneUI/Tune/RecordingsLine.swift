@@ -11,7 +11,7 @@ struct RecordingsLine: View {
 
     var body: some View {
         Button {
-            withAnimation(reduceMotion ? nil : .default) { isExpanded.toggle() }
+            withAnimation(Motion.stateChange(phone: .default, reduceMotion: reduceMotion)) { isExpanded.toggle() }
         } label: {
             HStack(spacing: 6) {
                 Text(RecordingText.recordingsLine(count: count))

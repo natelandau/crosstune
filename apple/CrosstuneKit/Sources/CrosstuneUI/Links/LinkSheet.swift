@@ -76,7 +76,9 @@ private struct LinkForm: View {
             MacSheet(
                 title: LinkSheet.pasteTitle, size: Self.size,
                 cancel: .cancel(TuneFormSheet.cancel, isEnabled: !model.isSaving) { dismiss() },
-                primary: .init(LinkSheet.add, isEnabled: !model.isSaving && !model.isSaved, action: save)
+                primary: .init(
+                    LinkSheet.add, isEnabled: model.hasLink && !model.isSaving && !model.isSaved, action: save),
+                openingFocus: .firstField
             ) {
                 VStack(alignment: .leading, spacing: 6) {
                     field
@@ -105,6 +107,7 @@ private struct LinkForm: View {
                     AsyncButton(closesOnSuccess: true, action: store) {
                         Text(LinkSheet.add)
                     }
+                    .disabled(!model.hasLink)
                 }
             }
             .modifier(LinkFormLifecycle(model: model, linkFocused: $linkFocused))

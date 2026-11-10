@@ -8,6 +8,16 @@ import Testing
     private static let saving: [Ending] = [.picked, .dismissed, .done, .swipedDown, .unmounted]
     private static let discarding: [Ending] = [.escaped]
 
+    /// An editor with no text field opens with focus on a stop of its own, so Escape reaches it.
+    @Test(arguments: [
+        (AttributeID.status, false, false), (.key, false, false), (.timeSignature, false, false),
+        (.isCrooked, false, false), (.learnedOn, false, false), (.learnedOn, true, true),
+        (.tuning("violin"), false, true), (.genre, false, true), (.alternateTitles, false, true),
+    ])
+    func anEditorOpensOnATextFieldOnlyWhenItHasOne(id: AttributeID, learnedOnIsSet: Bool, expected: Bool) {
+        #expect(id.editorOpensOnTextField(learnedOnIsSet: learnedOnIsSet) == expected)
+    }
+
     @Test func everyEndingButEscapeIsListed() {
         #expect(Set(Self.saving + Self.discarding) == Set(Ending.allCases))
     }

@@ -147,6 +147,16 @@ private final class FakeResolver {
         #expect(row.title == "Tune")
     }
 
+    @Test func addIsDisabledOnlyWhileTheLinkIsBlank() async throws {
+        let store = try await SampleCatalog.copiedStore(root: root.url)
+        let model = LinkSheetModel(store: store, tuneID: tuneID, resolve: nil)
+        #expect(!model.hasLink)
+        model.setURL("  ")
+        #expect(!model.hasLink)
+        model.setURL("ftp://example.com/tune")
+        #expect(model.hasLink, "a link that is not a web address is refused on Add, with the reason")
+    }
+
     @Test func refusesAnEmptyLinkOrOneThatIsNotAWebAddress() async throws {
         let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = LinkSheetModel(store: store, tuneID: tuneID, resolve: nil)

@@ -10,6 +10,10 @@ struct RecordingPageMenu: View {
     let recordingsPlay: Bool
     let onChoose: (RecordingMenuItem) -> Void
 
+    /// Read here rather than on the page: on the Mac the action changes on every update while an
+    /// editor is pushed over the page, so a page that read it would redraw without end.
+    @Environment(\.openURL) private var openURL
+
     var body: some View {
         Menu {
             ForEach(
@@ -23,7 +27,7 @@ struct RecordingPageMenu: View {
             ) { item in
                 if case .delete = item { Divider() }
                 Button(role: item.isDelete ? .destructive : nil) {
-                    onChoose(item)
+                    choose(item)
                 } label: {
                     Label {
                         Text(item.label)
@@ -39,5 +43,10 @@ struct RecordingPageMenu: View {
                 .labelStyle(.iconOnly)
         }
         .help(TuneScreen.moreActions)
+    }
+
+    private func choose(_ item: RecordingMenuItem) {
+        onChoose(item)
+        if case .openOrigin(_, let page) = item { openURL(page) }
     }
 }

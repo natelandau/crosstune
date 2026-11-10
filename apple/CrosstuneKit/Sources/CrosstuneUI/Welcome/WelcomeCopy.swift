@@ -188,19 +188,4 @@ enum WelcomeLayout {
 
     /// The space a carousel pane measures its slides' top in, which the account pane matches.
     static let slidesSpace = "welcomeSlides"
-
-    /// Whether the carousel draws its focus ring: only in the key window, and only once the
-    /// person reaches it by keyboard, since focus set at launch or after a click means nothing
-    /// to them. Full Keyboard Access alone draws no ring, or it would show at rest.
-    static func showsFocusRing(focused: Bool, windowIsKey: Bool, byKeyboard: Bool) -> Bool {
-        focused && windowIsKey && byKeyboard
-    }
-
-    #if os(macOS)
-        /// Whether focus reaching the carousel came from a key, such as Tab, rather than from a
-        /// click or from the screen giving it the arrow keys (`quietly`).
-        static func focusArrivedByKeyboard(focused: Bool, quietly: Bool, event: NSEvent.EventType?) -> Bool {
-            focused && !quietly && event == .keyDown
-        }
-    #endif
 }

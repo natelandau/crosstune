@@ -17,6 +17,8 @@ export interface PasteLink {
   /** Cancel or an add asked the sheet to close; it reports that once dismissal ends. */
   closing: boolean
   url: string
+  /** Whether the link holds more than spaces, the one input whose absence disables Add. */
+  hasUrl: boolean
   /** Sets the typed link and drops the last refusal. */
   setUrl: (url: string) => void
   /** Why the typed link was refused before anything was saved. */
@@ -115,6 +117,7 @@ export function usePasteLink(
     open: sheet.open,
     closing: sheet.closing,
     url,
+    hasUrl: url.trim() !== '',
     setUrl: (next) => {
       setUrlState(next)
       setValidation(null)

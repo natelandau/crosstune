@@ -45,7 +45,7 @@ package enum SliderThumb {
 /// with Reset and the stepper trailing, and the slider takes the full width below. The stepper
 /// is the readout, so a drag and a step move one value. A drag settles on the default, with a
 /// tick on the track marking it. VoiceOver reads the stepper as the one adjustable element.
-/// On the Mac it draws the Mac stepper beside a Mac slider.
+/// On the Mac Reset shows only while it can act, and the Mac slider runs under the label line.
 package struct ValueSlider: View {
     nonisolated package static let resetName = "Reset"
 
@@ -57,14 +57,23 @@ package struct ValueSlider: View {
     private let canReset: Bool?
     private let onReset: (() -> Void)?
     private let format: (Int) -> String
+    private let showsTitle: Bool
+
+    #if os(macOS)
+        private enum MacFocusStop { case reset, stepper }
+        @FocusState private var macFocus: MacFocusStop?
+    #endif
 
     /// - Parameters:
     ///   - canReset: Whether Reset is enabled, for a screen whose Reset clears more than this
     ///     value. Nil enables it while the value is off its default.
     ///   - onReset: What Reset does in place of setting the default.
+    ///   - showsTitle: Whether the Mac label line shows the title, false where a heading above
+    ///     already names the value. VoiceOver reads the title either way.
     package init(
         _ title: String, value: Binding<Int>, in range: ClosedRange<Int>, step: Int, defaultValue: Int,
-        canReset: Bool? = nil, onReset: (() -> Void)? = nil, format: @escaping (Int) -> String
+        canReset: Bool? = nil, onReset: (() -> Void)? = nil, showsTitle: Bool = true,
+        format: @escaping (Int) -> String
     ) {
         self.title = title
         _value = value
@@ -74,10 +83,15 @@ package struct ValueSlider: View {
         self.canReset = canReset
         self.onReset = onReset
         self.format = format
+        self.showsTitle = showsTitle
     }
 
     private var resetButton: some View {
         Button(Self.resetName) {
+            #if os(macOS)
+                // Reset hides once it has acted, so its keyboard focus moves to the stepper.
+                if macFocus == .reset { macFocus = .stepper }
+            #endif
             if let onReset { onReset() } else { value = defaultValue }
         }
         .disabled(!(canReset ?? (value != defaultValue)))
@@ -85,24 +99,28 @@ package struct ValueSlider: View {
 
     package var body: some View {
         #if os(macOS)
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(spacing: 8) {
-                    Text(title)
-                        .font(MacStyle.label)
-                        .foregroundStyle(Palette.textSecondary)
-                        .accessibilityHidden(true)
-                    Spacer(minLength: 0)
-                    resetButton.buttonStyle(.mac(.plain, size: .small))
-                }
-                .frame(minHeight: MacStyle.smallControlHeight)
-                HStack(spacing: 16) {
+            VStack(alignment: .leading, spacing: 8) {
+                ValueLabelLine(showsTitle ? title : "") {
+                    if canReset ?? (value != defaultValue) {
+                        resetButton.buttonStyle(.text)
+                            .focused($macFocus, equals: .reset)
+                    }
+                } control: {
                     ValueStepper(title, value: $value, in: range, step: step, format: format)
-                    MacValueTrack(
-                        value: $value, range: range, step: step, defaultValue: defaultValue
-                    )
-                    // The stepper beside it is the same control for VoiceOver.
-                    .accessibilityHidden(true)
+                        .focused($macFocus, equals: .stepper)
                 }
+                MacSlider(
+                    value: Binding {
+                        Double(value)
+                    } set: {
+                        value = Int($0.rounded())
+                    },
+                    in: Double(range.lowerBound)...Double(range.upperBound), detent: Double(defaultValue),
+                    accessibilityLabel: title, step: Double(step), snapsToStep: true,
+                    detentReach: DefaultSnap.reach
+                )
+                // The stepper above is the same control for VoiceOver.
+                .accessibilityHidden(true)
             }
         #else
             PhoneValueSlider(
@@ -185,79 +203,6 @@ package struct ValueSlider: View {
             }
         }
 
-    }
-#else
-    /// The Mac slider: a 4 point track with a mark at the default, an accent stretch between the
-    /// default and the value, and a 16 point thumb. A drag near the default settles on it.
-    private struct MacValueTrack: View {
-        @Binding var value: Int
-        let range: ClosedRange<Int>
-        let step: Int
-        let defaultValue: Int
-
-        @FocusState private var focused: Bool
-        @Environment(\.colorScheme) private var scheme
-        @Environment(\.isEnabled) private var isEnabled
-
-        private static let height: CGFloat = 20
-        private static let trackHeight: CGFloat = 4
-        private static let thumbDiameter: CGFloat = 16
-
-        var body: some View {
-            GeometryReader { proxy in
-                let width = proxy.size.width
-                let thumbX = x(of: value, width: width)
-                let anchorX = x(of: defaultValue, width: width)
-                ZStack(alignment: .leading) {
-                    Capsule().fill(Palette.borderStrong).frame(height: Self.trackHeight)
-                    Capsule()
-                        .fill(Palette.accent)
-                        .frame(width: abs(thumbX - anchorX), height: Self.trackHeight)
-                        .offset(x: min(thumbX, anchorX))
-                    Capsule()
-                        .fill(Palette.textSecondary)
-                        .frame(width: 2, height: 10)
-                        .offset(x: anchorX - 1)
-                    Circle()
-                        .fill(scheme == .dark ? Palette.textPrimary : Palette.surfaceRaised)
-                        .overlay { Circle().strokeBorder(Palette.border) }
-                        .elevation(.control)
-                        .frame(width: Self.thumbDiameter, height: Self.thumbDiameter)
-                        .macFocusRing(focused, cornerRadius: Self.thumbDiameter / 2)
-                        .offset(x: thumbX - Self.thumbDiameter / 2)
-                }
-                .frame(maxHeight: .infinity)
-                .contentShape(.rect)
-                .gesture(
-                    DragGesture(minimumDistance: 0).onChanged { drag in
-                        let usable = max(1, width - Self.thumbDiameter)
-                        let share = Double((drag.location.x - Self.thumbDiameter / 2) / usable)
-                        let span = Double(range.upperBound - range.lowerBound)
-                        let raw = Double(range.lowerBound) + share * span
-                        let gridded = (raw / Double(step)).rounded() * Double(step)
-                        value = DefaultSnap.snapped(gridded, toward: defaultValue, in: range)
-                    }
-                )
-            }
-            .frame(height: Self.height)
-            .opacity(isEnabled ? 1 : MacButtonStyle.disabledOpacity)
-            .focusable(interactions: .activate)
-            .focused($focused)
-            .focusEffectDisabled()
-            .onMoveCommand { direction in
-                switch direction {
-                case .left, .down: value = StepperModel.stepped(value, by: -step, in: range)
-                case .right, .up: value = StepperModel.stepped(value, by: step, in: range)
-                @unknown default: break
-                }
-            }
-        }
-
-        private func x(of value: Int, width: CGFloat) -> CGFloat {
-            let span = range.upperBound - range.lowerBound
-            let share = span > 0 ? Double(value - range.lowerBound) / Double(span) : 0
-            return Self.thumbDiameter / 2 + CGFloat(share) * max(0, width - Self.thumbDiameter)
-        }
     }
 #endif
 

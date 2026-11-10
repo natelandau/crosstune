@@ -142,7 +142,7 @@ private struct SelectionMode: ViewModifier {
                     if selection.isActive {
                         Button(TuneSelection.done) { selection.exit() }
                         .keyboardShortcut(.cancelAction)
-                        .opacity(0)
+                        .hidden()
                         .frame(width: 0, height: 0)
                         .accessibilityHidden(true)
                     }

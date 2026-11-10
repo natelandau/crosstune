@@ -3,13 +3,17 @@ import SwiftUI
 /// A whole-number value changed one step at a time: one capsule with a minus half, the value,
 /// and a plus half. Holding a half repeats the step until the value reaches its bound. The
 /// capsule is one focus stop whose arrow keys step, and one adjustable element for VoiceOver.
-/// On the Mac it draws the Mac stepper.
+/// On the Mac it draws the Mac stepper at the control size.
 package struct ValueStepper: View {
     private let title: String
     @Binding private var value: Int
     private let range: ClosedRange<Int>
     private let step: Int
     private let format: (Int) -> String
+
+    #if os(macOS)
+        @Environment(\.controlSize) private var controlSize
+    #endif
 
     package init(
         _ title: String, value: Binding<Int>, in range: ClosedRange<Int>, step: Int = 1,
@@ -34,7 +38,8 @@ package struct ValueStepper: View {
         #if os(macOS)
             MacStepper(
                 value: format(value), decrement: { move(-1) }, increment: { move(1) },
-                canDecrement: canStep(-1), canIncrement: canStep(1), accessibilityLabel: title)
+                canDecrement: canStep(-1), canIncrement: canStep(1), accessibilityLabel: title,
+                size: MacButtonStyle.Size(controlSize))
         #else
             PhoneValueStepper(
                 title: title, value: format(value), lowerText: format(range.lowerBound),

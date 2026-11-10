@@ -577,10 +577,13 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
 
     @Test func requiresAName() async throws {
         let model = ListNameModel(store: try await SampleCatalog.copiedStore(root: root.url), target: .new)
+        #expect(!model.hasName, "Create opens disabled on a new list")
         model.setName("   ")
+        #expect(!model.hasName)
         #expect(await model.save() == nil)
         #expect(model.validation == "A list needs a name")
         model.setName("J")
+        #expect(model.hasName)
         #expect(model.validation == nil)
     }
 

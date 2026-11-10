@@ -6,7 +6,7 @@ import CrosstuneDesign
     import SwiftUI
 
     /// The Mac sidebar: the catalog with its statuses under it, Recordings, and Tuner, then the lists,
-    /// each with a count, and the record capsule at its foot.
+    /// each with a count, and the record button at its foot.
     struct MacSidebar: View {
         /// The shell's selection, whose setter turns a status row into the catalog's filter.
         @Binding var selection: SidebarItem?

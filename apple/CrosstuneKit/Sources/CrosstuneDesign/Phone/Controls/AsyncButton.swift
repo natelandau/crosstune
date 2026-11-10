@@ -1,8 +1,8 @@
 import SwiftUI
 
 extension EnvironmentValues {
-    /// Set by a grouped form: the button sits in a row, so its label stays and the spinner and
-    /// check sit at the trailing edge instead of replacing it.
+    /// Set by an iPhone or iPad grouped form: the button sits in a row, so its label stays and the
+    /// spinner and check sit at the trailing edge instead of replacing it.
     @Entry package var asyncButtonIsRow = false
 }
 
@@ -10,7 +10,7 @@ extension EnvironmentValues {
 /// label, and on success a check shows for `Motion.doneHold`. A failure goes to `onFailure`,
 /// for the caller to show beside the control; a caller that shows it elsewhere leaves it out.
 /// Every failure shakes the button, including a `FailureShownElsewhere`, as the web button does,
-/// and Reduce Motion leaves it still. The environment's button style draws it. On the Mac it is a plain button that runs the action with no working or done states.
+/// and Reduce Motion leaves it still. The environment's button style draws it.
 package struct AsyncButton<Label: View>: View {
     private let role: ButtonRole?
     private let closesOnSuccess: Bool
@@ -32,45 +32,29 @@ package struct AsyncButton<Label: View>: View {
         self.label = label()
     }
 
-    #if os(macOS)
-        /// Set while the action runs, so a second click starts no second run.
-        @State private var isRunning = false
+    /// Made on the first press, so a parent that rebuilds this button makes no runner.
+    @State private var runner: WorkRunner?
 
-        package var body: some View {
-            Button(role: role) {
-                guard !isRunning else { return }
-                isRunning = true
-                Task {
-                    defer { isRunning = false }
-                    do { try await action() } catch { onFailure(error) }
-                }
-            } label: {
-                label
+    package var body: some View {
+        let phase = runner?.phase ?? .idle
+        Button(role: role, action: run) {
+            WorkingLabel(phase: phase) { label }
+        }
+        .workState(runner)
+        .onDisappear { runner?.cancel() }
+    }
+
+    private func run() {
+        let runner = runner ?? WorkRunner()
+        self.runner = runner
+        Task {
+            do {
+                try await runner.run(closesOnSuccess: closesOnSuccess, action)
+            } catch {
+                onFailure(error)
             }
         }
-    #else
-        /// Made on the first press, so a parent that rebuilds this button makes no runner.
-        @State private var runner: WorkRunner?
-
-        package var body: some View {
-            let phase = runner?.phase ?? .idle
-            Button(role: role) {
-                let runner = runner ?? WorkRunner()
-                self.runner = runner
-                Task {
-                    do {
-                        try await runner.run(closesOnSuccess: closesOnSuccess, action)
-                    } catch {
-                        onFailure(error)
-                    }
-                }
-            } label: {
-                WorkingLabel(phase: phase) { label }
-            }
-            .workState(runner)
-            .onDisappear { runner?.cancel() }
-        }
-    #endif
+    }
 }
 
 /// Thrown by an `AsyncButton` action whose failure the screen already shows, such as in a
@@ -104,15 +88,12 @@ extension View {
 /// A button's label through the phases of its work: a spinner while working and a check once
 /// done, over the hidden label so the button keeps its width, or at the trailing edge in a
 /// grouped form's row. `AsyncButton` draws its label with it, and a button whose work runs
-/// elsewhere, such as a write after a question, passes its own `WorkRunner`'s phase. The Mac
-/// shows the label alone, as `AsyncButton` there has no working state.
+/// elsewhere, such as a write after a question, passes its own `WorkRunner`'s phase.
 package struct WorkingLabel<Label: View>: View {
     private let phase: WorkPhase
     private let label: Label
 
-    #if !os(macOS)
-        @Environment(\.asyncButtonIsRow) private var isRow
-    #endif
+    @Environment(\.asyncButtonIsRow) private var isRow
 
     package init(phase: WorkPhase, @ViewBuilder label: () -> Label) {
         self.phase = phase
@@ -121,41 +102,45 @@ package struct WorkingLabel<Label: View>: View {
 
     package var body: some View {
         #if os(macOS)
-            label
+            content
+                .macAnimation(MacMotion.state, value: phase)
         #else
             content
                 .phoneAnimation(Motion.state, value: phase)
         #endif
     }
 
-    #if !os(macOS)
-        private var showsIndicator: Bool { phase == .working || phase == .done }
+    private var showsIndicator: Bool { phase == .working || phase == .done }
 
-        @ViewBuilder private var content: some View {
-            if isRow {
-                HStack {
-                    label
-                    Spacer(minLength: 0)
-                    indicator
-                }
-            } else {
+    @ViewBuilder private var content: some View {
+        if isRow {
+            HStack {
                 label
-                    .opacity(showsIndicator ? 0 : 1)
-                    .overlay { indicator }
+                Spacer(minLength: 0)
+                indicator
             }
+        } else {
+            label
+                .opacity(showsIndicator ? 0 : 1)
+                .overlay { indicator }
         }
+    }
 
-        @ViewBuilder private var indicator: some View {
-            switch phase {
-            case .working:
+    @ViewBuilder private var indicator: some View {
+        switch phase {
+        case .working:
+            #if os(macOS)
+                // The regular spinner is taller than a Mac button's label.
+                ProgressView().controlSize(.small)
+            #else
                 ProgressView()
-            case .done:
-                DoneCheck()
-            case .idle, .pending:
-                EmptyView()
-            }
+            #endif
+        case .done:
+            DoneCheck()
+        case .idle, .pending:
+            EmptyView()
         }
-    #endif
+    }
 }
 
 extension AsyncButton where Label == SwiftUI.Label<Text, Image> {
@@ -187,19 +172,17 @@ extension AsyncButton where Label == Text {
     }
 }
 
-#if !os(macOS)
-    /// A checkmark that draws itself on when it appears.
-    private struct DoneCheck: View {
-        @State private var drawn = false
-        @Environment(\.accessibilityReduceMotion) private var reduceMotion
+/// A checkmark that draws itself on when it appears.
+private struct DoneCheck: View {
+    @State private var drawn = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-        var body: some View {
-            Image(systemName: "checkmark")
-                .symbolEffect(.drawOn, isActive: !drawn && !reduceMotion)
-                .onAppear { drawn = true }
-        }
+    var body: some View {
+        Image(systemName: "checkmark")
+            .symbolEffect(.drawOn, isActive: !drawn && !reduceMotion)
+            .onAppear { drawn = true }
     }
-#endif
+}
 
 #Preview("Async buttons") {
     HStack {

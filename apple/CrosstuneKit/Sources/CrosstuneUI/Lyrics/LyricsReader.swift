@@ -105,7 +105,7 @@ private struct LyricsReaderPage: View {
                     larger.help(LyricsReader.largerText)
                 }
                 .labelStyle(.iconOnly)
-                .buttonStyle(.macIcon)
+                .buttonStyle(.icon)
                 Button(LyricsReader.done) { dismiss() }
                     .buttonStyle(.macSecondary)
                     .padding(.leading, 4)
@@ -226,7 +226,8 @@ private struct LyricsEditSheet: View {
             MacSheet(
                 title: LyricsReader.editLyrics, size: .longForm,
                 cancel: .cancel(TuneFormSheet.cancel, isEnabled: !model.isSaving) { dismiss() },
-                primary: .init(LyricsReader.done, isEnabled: !model.isSaving, action: save)
+                primary: .init(LyricsReader.done, isEnabled: !model.isSaving, action: save),
+                openingFocus: .firstField
             ) {
                 VStack(alignment: .leading, spacing: 6) {
                     MacTextArea(

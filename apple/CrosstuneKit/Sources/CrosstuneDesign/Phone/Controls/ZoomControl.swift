@@ -1,11 +1,12 @@
 import SwiftUI
 
 /// Zoom out, Fit, and Zoom in on a translucent capsule. The shortcuts match the Practice
-/// waveform's: Cmd-minus, Cmd-0, Cmd-equals. On the Mac the three are small icon buttons on a
-/// raised card.
+/// waveform's: Cmd-minus, Cmd-0, Cmd-equals. On the Mac zoom out and zoom in are small icon
+/// buttons with Fit a Text button between them, on a raised backing.
 ///
 /// Built with `aroundReadouts`, it leads with the readouts it zooms; on the Mac that form draws
-/// a borderless zoom-out glyph, the readouts, and a zoom-in glyph, with no Fit and no card.
+/// the zoom-out icon button, the readouts, and the zoom-in icon button, with no Fit and no
+/// backing.
 package struct ZoomControl: View {
     nonisolated package static let zoomOut = "Zoom out"
     nonisolated package static let fit = "Fit"
@@ -54,17 +55,13 @@ package struct ZoomControl: View {
         if let readouts {
             #if os(macOS)
                 HStack(spacing: spacing) {
-                    Button(Self.zoomOut, systemImage: "minus.magnifyingglass", action: onZoomOut)
-                        .help(Self.zoomOut)
+                    macButton(Self.zoomOut, systemImage: "minus.magnifyingglass", action: onZoomOut)
                         .disabled(!canZoomOut)
                     readouts
-                    Button(Self.zoomIn, systemImage: "plus.magnifyingglass", action: onZoomIn)
-                        .help(Self.zoomIn)
+                    macButton(Self.zoomIn, systemImage: "plus.magnifyingglass", action: onZoomIn)
                         .disabled(!canZoomIn)
                 }
-                .labelStyle(.iconOnly)
-                .buttonStyle(.borderless)
-                .font(.platform(.title3))
+                .buttonStyle(.mac(.icon))
             #else
                 HStack(spacing: spacing) {
                     readouts
@@ -82,7 +79,8 @@ package struct ZoomControl: View {
                 macButton(Self.zoomOut, systemImage: "minus.magnifyingglass", action: onZoomOut)
                     .keyboardShortcut("-", modifiers: .command)
                     .disabled(!canZoomOut)
-                macButton(Self.fit, systemImage: "arrow.left.and.right", action: onFit)
+                Button(Self.fit, action: onFit)
+                    .buttonStyle(.mac(.plain, size: .small))
                     .keyboardShortcut("0", modifiers: .command)
                     .disabled(!canFit)
                 macButton(Self.zoomIn, systemImage: "plus.magnifyingglass", action: onZoomIn)
@@ -91,14 +89,13 @@ package struct ZoomControl: View {
             }
             .buttonStyle(.mac(.icon, size: .small))
             .padding(2)
-            .dynamicTypeSize(...DynamicTypeSize.large)
             .background {
-                RoundedRectangle(cornerRadius: 8)
+                RoundedRectangle(cornerRadius: MacControl.radius)
                     .fill(Palette.surfaceRaised)
                     .elevation(.control)
             }
-            // Takes every press on the card, so none falls through to the waveform under it.
-            .contentShape(.rect(cornerRadius: 8))
+            // Takes every press on the backing, so none falls through to the waveform under it.
+            .contentShape(.rect(cornerRadius: MacControl.radius))
         #else
             HStack(spacing: 0) {
                 Button(Self.zoomOut, systemImage: "minus.magnifyingglass", action: onZoomOut)

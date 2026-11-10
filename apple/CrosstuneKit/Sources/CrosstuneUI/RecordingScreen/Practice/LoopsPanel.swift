@@ -56,51 +56,27 @@ struct LoopsPanel: View {
     @ViewBuilder private var actions: some View {
         let reason = model.newLoopReason
         let canDelete = model.canDeleteSelected
-        #if os(macOS)
-            Button(action: model.newLoop) {
-                Label {
-                    Text(PracticeText.newLoop)
-                } icon: {
-                    Image(systemName: "plus").foregroundStyle(Palette.accent)
-                }
-            }
-            .buttonStyle(.macSecondary)
-            .disabled(reason != nil || !model.isLoaded)
-            .accessibilityHint(reason ?? "", isEnabled: reason != nil)
-            Button(role: .destructive) {
-                if model.deleteSelected() { onDeleted() }
-            } label: {
-                // On the label, which wins over the plain style's accent.
-                Label(PracticeText.deleteLoop, systemImage: "trash")
-                    .foregroundStyle(Palette.danger)
-            }
-            .buttonStyle(.macPlain)
-            .disabled(!canDelete)
-        #else
-            Button(action: model.newLoop) { label(PracticeText.newLoop, systemImage: "plus") }
-                .buttonStyle(.tinted)
-                .controlSize(.small)
-                .disabled(reason != nil || !model.isLoaded)
-                .accessibilityHint(reason ?? "", isEnabled: reason != nil)
-            Button(role: .destructive) {
-                if model.deleteSelected() { onDeleted() }
-            } label: {
-                label(PracticeText.deleteLoop, systemImage: "trash")
-            }
+        Button(action: model.newLoop) { label(PracticeText.newLoop, systemImage: "plus") }
             .buttonStyle(.tinted)
             .controlSize(.small)
-            .disabled(!canDelete)
-        #endif
+            .disabled(reason != nil || !model.isLoaded)
+            .accessibilityHint(reason ?? "", isEnabled: reason != nil)
+        Button(role: .destructive) {
+            if model.deleteSelected() { onDeleted() }
+        } label: {
+            label(PracticeText.deleteLoop, systemImage: "trash")
+        }
+        .buttonStyle(.tinted)
+        .controlSize(.small)
+        .disabled(!canDelete)
     }
 
-    #if !os(macOS)
-        /// An explicit row, because a Label stacks its icon over its title at accessibility sizes.
-        private func label(_ title: String, systemImage: String) -> some View {
-            HStack(spacing: spacing(6)) {
-                Image(systemName: systemImage).accessibilityHidden(true)
-                Text(title)
-            }
-            .fixedSize()
+    /// An explicit row, because a Label stacks its icon over its title at accessibility sizes.
+    private func label(_ title: String, systemImage: String) -> some View {
+        HStack(spacing: spacing(6)) {
+            Image(systemName: systemImage).accessibilityHidden(true)
+            Text(title)
         }
-    #endif
+        .fixedSize()
+    }
 }

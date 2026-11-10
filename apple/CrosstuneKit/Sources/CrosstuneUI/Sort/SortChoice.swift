@@ -136,22 +136,11 @@ struct SortMenu<Sort: SortKind>: View {
 
     var body: some View {
         #if os(macOS)
-            Menu {
+            MacPopUpMenu(style: MacInlinePopUpStyle(symbol: SortText.macDirectionSymbol(choice))) {
                 SortChoices(choice: $choice)
             } label: {
-                HStack(spacing: 3) {
-                    Text(choice.sort.label)
-                    Image(systemName: SortText.macDirectionSymbol(choice))
-                        .font(.system(size: 8, weight: .bold))
-                }
-                .font(MacStyle.secondary.weight(.medium))
-                .foregroundStyle(Palette.textSecondary)
-                .contentShape(.rect)
+                Text(choice.sort.label)
             }
-            .menuStyle(.button)
-            .menuIndicator(.hidden)
-            // Plain, so the label keeps its secondary text rather than the accent.
-            .buttonStyle(.plain)
             .fixedSize()
             .accessibilityLabel(SortText.buttonLabel(choice))
             .help(SortText.sort)

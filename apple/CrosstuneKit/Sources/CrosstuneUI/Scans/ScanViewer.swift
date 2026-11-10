@@ -204,7 +204,7 @@ private struct ScanViewerBody: View {
     private func turn(by step: Int, ids: [String]) {
         let index = (shown.flatMap { ids.firstIndex(of: $0) } ?? 0) + step
         guard ids.indices.contains(index) else { return }
-        withAnimation(reduceMotion ? nil : .snappy) { shown = ids[index] }
+        withAnimation(Motion.stateChange(phone: .snappy, reduceMotion: reduceMotion)) { shown = ids[index] }
     }
 
     init(model: ScanViewerModel, title: String, scans: [Scan], startIndex: Int, onShow: @escaping (Int) -> Void) {
@@ -222,7 +222,9 @@ private struct ScanViewerBody: View {
         Binding {
             scale > ScanZoom.fit
         } set: { zoomed in
-            withAnimation(reduceMotion ? nil : .snappy) { scale = zoomed ? ScanZoom.double : ScanZoom.fit }
+            withAnimation(Motion.stateChange(phone: .snappy, reduceMotion: reduceMotion)) {
+                scale = zoomed ? ScanZoom.double : ScanZoom.fit
+            }
         }
     }
 
@@ -352,25 +354,23 @@ private struct ScanViewerBody: View {
             dismiss()
         }
 
-        /// An icon toggle: secondary text when off, the accent while on.
+        /// An icon button that toggles `isOn`.
         private func toggle(_ title: String, systemImage: String, isOn: Binding<Bool>) -> some View {
             Button {
                 isOn.wrappedValue.toggle()
             } label: {
                 Image(systemName: systemImage)
-                    .foregroundStyle(isOn.wrappedValue ? Palette.accent : Palette.textSecondary)
             }
-            .buttonStyle(.macIcon)
+            .buttonStyle(.icon(isOn: isOn.wrappedValue))
             .help(title)
             .accessibilityLabel(title)
-            .accessibilityAddTraits(isOn.wrappedValue ? .isSelected : [])
         }
 
         /// A mouse has no swipe, so the Mac turns scans with these and the arrow keys.
         private func edgeButton(_ title: String, systemImage: String, key: KeyEquivalent, step: Int) -> some View {
             Button(title, systemImage: systemImage) { turn(by: step, ids: ids) }
                 .labelStyle(.iconOnly)
-                .buttonStyle(.macIcon)
+                .buttonStyle(.icon)
                 .background(Palette.surfaceRaised, in: .circle)
                 .keyboardShortcut(key, modifiers: [])
                 .help(title)
@@ -479,7 +479,9 @@ struct ScanSlide: View {
             .accessibilityAddTraits(.isImage)
             .contentShape(.rect)
             .onTapGesture(count: 2) {
-                withAnimation(reduceMotion ? nil : .snappy) { scale = ScanZoom.toggled(scale) }
+                withAnimation(Motion.stateChange(phone: .snappy, reduceMotion: reduceMotion)) {
+                    scale = ScanZoom.toggled(scale)
+                }
             }
             // After the double tap, so a single tap waits until it is not the first of two.
             .modifier(SlideTap(onTap: onTap))

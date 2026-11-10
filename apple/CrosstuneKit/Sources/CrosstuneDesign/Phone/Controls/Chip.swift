@@ -14,74 +14,46 @@ package enum ChipKind: Equatable {
     case tone(Palette.Token)
 }
 
-/// A Mac look a chip or badge draws in place of its kind's: `.byKind` keeps the kind's, and
-/// `.secondaryText` draws plain secondary words on the Mac player dock's badge line.
-package enum BadgeLineMacLook: Equatable { case byKind, secondaryText }
-
 /// The iPhone chip: one capsule for a choice, a menu of values, a removable filter, a token, or
 /// a tone state. Compact height with a 44pt target, subheadline medium, tabular digits. A chip
-/// holds a value; an action is a button. On the Mac it draws the Mac chip, except a token, which
-/// draws the Mac's small quiet button, and a tone, which draws the Mac's tone capsule.
+/// holds a value; an action is a button. On the Mac every kind draws the Mac chip.
 package struct Chip<Label: View>: View {
     package typealias Kind = ChipKind
 
     private let kind: Kind
     private let color: Color?
     private let labelColor: Color?
-    private let macLook: BadgeLineMacLook
     private let action: () -> Void
     private let label: Label
 
     package init(
-        _ kind: Kind, color: Color? = nil, labelColor: Color? = nil, macLook: BadgeLineMacLook = .byKind,
-        action: @escaping () -> Void, @ViewBuilder label: () -> Label
+        _ kind: Kind, color: Color? = nil, labelColor: Color? = nil, action: @escaping () -> Void,
+        @ViewBuilder label: () -> Label
     ) {
         self.kind = kind
         self.color = color
         self.labelColor = labelColor
-        self.macLook = macLook
         self.action = action
         self.label = label()
     }
 
     package var body: some View {
         #if os(macOS)
-            if macLook == .secondaryText {
-                Button(action: action) {
-                    label
-                        .lineLimit(1)
-                        .macBadgeLineText()
-                        .contentShape(.rect)
-                }
-                .buttonStyle(.plain)
-            } else {
-                macChip
+            Button(action: action) {
+                MacChipContent(kind: kind) { label }
             }
+            .buttonStyle(
+                MacChipStyle(
+                    state: kind.macState, hue: color ?? kind.macHue, hueText: labelColor ?? kind.macHueText,
+                    size: .standalone)
+            )
+            .accessibilityAddTraits(kind == .choice(isChosen: true) ? .isSelected : [])
         #else
             Button(action: action) { label }
                 .buttonStyle(ChipButtonStyle(kind: kind, color: color, labelColor: labelColor))
                 .accessibilityAddTraits(kind == .choice(isChosen: true) ? .isSelected : [])
         #endif
     }
-
-    #if os(macOS)
-        @ViewBuilder private var macChip: some View {
-            switch kind {
-            case .token:
-                Button(action: action) { label }
-                    .buttonStyle(MacButtonStyle(.quiet, size: .small))
-            case .tone(let token):
-                Button(action: action) { MacToneCapsule(token: token) { label } }
-                    .buttonStyle(.plain)
-            default:
-                Button(action: action) {
-                    MacChipContent(kind: kind) { label }
-                }
-                .buttonStyle(MacChipStyle(state: kind.macState, hue: color, hueText: labelColor, size: .standalone))
-                .accessibilityAddTraits(kind == .choice(isChosen: true) ? .isSelected : [])
-            }
-        }
-    #endif
 }
 
 #if os(macOS)
@@ -94,31 +66,22 @@ package struct Chip<Label: View>: View {
             case .token, .tone: .rest
             }
         }
-    }
 
-    /// A state in its tone on the Mac: footnote semibold in the tone's color on its subtle fill.
-    private struct MacToneCapsule<Label: View>: View {
-        let token: Palette.Token
-        @ViewBuilder let label: Label
+        /// A tone's subtle fill, which the chip takes as its hue; nil for every other kind.
+        fileprivate var macHue: Color? {
+            if case .tone(let token) = self { Palette.subtle(token) } else { nil }
+        }
 
-        @Environment(\.spacing) private var spacing
-
-        var body: some View {
-            label
-                .font(.platform(.footnote).weight(.semibold))
-                .foregroundStyle(Palette.color(token))
-                .padding(.horizontal, spacing(10))
-                .padding(.vertical, spacing(4))
-                .background(Palette.subtle(token), in: .capsule)
-                .fixedSize()
+        /// A tone's own color for its label; nil for every other kind.
+        fileprivate var macHueText: Color? {
+            if case .tone(let token) = self { Palette.color(token) } else { nil }
         }
     }
 
     /// A Mac chip's label: the value, then the chevron a menu chip opens with or the x a removable
-    /// one takes. A nil `chevronColor` takes the label's color.
+    /// one takes.
     private struct MacChipContent<Label: View>: View {
         let kind: ChipKind
-        var chevronColor: Color? = Palette.textSecondary
         @ViewBuilder let label: Label
 
         var body: some View {
@@ -127,7 +90,7 @@ package struct Chip<Label: View>: View {
                 if case .menu = kind {
                     Image(systemName: "chevron.down")
                         .font(PageStyle.pullDownChevron)
-                        .foregroundStyle(chevronColor.map(AnyShapeStyle.init) ?? AnyShapeStyle(.foreground))
+                        .foregroundStyle(Palette.textSecondary)
                         .accessibilityHidden(true)
                 }
                 if kind == .removable {
@@ -140,20 +103,27 @@ package struct Chip<Label: View>: View {
 #endif
 
 /// A menu chip that opens a menu of choices rather than acting: the chip's look with its chevron,
-/// in the tint once `isSet`. On the Mac it draws the Mac chip, its chevron in `macChevronColor`,
-/// or in the label's color when nil.
+/// in the tint once `isSet`. On the Mac a filter draws the Mac chip with its chevron, and a menu
+/// of more choices beside a row of chips draws the Mac pull-down.
 package struct ChipMenu<Items: View, Label: View>: View {
+    /// What the menu holds.
+    package enum Purpose {
+        /// A filter's values.
+        case filter
+        /// The choices a row of chips leaves out.
+        case moreChoices
+    }
+
     private let isSet: Bool
-    private let macChevronColor: Color?
+    private let purpose: Purpose
     private let items: Items
     private let label: Label
 
     package init(
-        isSet: Bool, macChevronColor: Color? = Palette.textSecondary, @ViewBuilder items: () -> Items,
-        @ViewBuilder label: () -> Label
+        isSet: Bool, purpose: Purpose = .filter, @ViewBuilder items: () -> Items, @ViewBuilder label: () -> Label
     ) {
         self.isSet = isSet
-        self.macChevronColor = macChevronColor
+        self.purpose = purpose
         self.items = items()
         self.label = label()
     }
@@ -161,15 +131,22 @@ package struct ChipMenu<Items: View, Label: View>: View {
     package var body: some View {
         let kind = ChipKind.menu(isSet: isSet)
         #if os(macOS)
-            Menu {
-                items
-            } label: {
-                MacChipContent(kind: kind, chevronColor: macChevronColor) { label }
+            switch purpose {
+            case .filter:
+                MacPopUpMenu(style: MacMenuChipStyle(state: kind.macState, size: .standalone)) {
+                    items
+                } label: {
+                    MacChipContent(kind: kind) { label }
+                }
+                .fixedSize()
+            case .moreChoices:
+                MacPopUpMenu(style: MacPopUpStyle(size: .small, kind: .actions)) {
+                    items
+                } label: {
+                    label
+                }
+                .fixedSize()
             }
-            .menuStyle(.button)
-            .menuIndicator(.hidden)
-            .buttonStyle(MacChipStyle(state: kind.macState, size: .standalone))
-            .fixedSize()
         #else
             Menu {
                 items
@@ -218,11 +195,7 @@ package struct ChipLabel: View {
 
     package var body: some View {
         #if os(macOS)
-            if case .tone(let token) = kind {
-                MacToneCapsule(token: token) { Text(text).contentMask() }
-            } else {
-                macChip
-            }
+            macChip
         #else
             ChipFace(
                 kind: kind, color: color, labelColor: labelColor, isCompact: isCompact,
@@ -237,7 +210,8 @@ package struct ChipLabel: View {
             content
                 .fixedSize(horizontal: systemImage == nil, vertical: systemImage == nil)
                 .macChip(
-                    state: kind == .choice(isChosen: true) ? .chosen : .rest, hue: color, hueText: labelColor,
+                    state: kind == .choice(isChosen: true) ? .chosen : .rest, hue: color ?? kind.macHue,
+                    hueText: labelColor ?? kind.macHueText,
                     size: isCompact ? .row : .standalone,
                     minWidth: isCompact ? MacChip.minRowWidth : nil)
         }

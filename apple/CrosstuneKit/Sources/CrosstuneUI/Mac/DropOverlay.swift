@@ -23,7 +23,7 @@ import CrosstuneDesign
                         .foregroundStyle(Palette.accent)
                         .padding(.horizontal, 10)
                         .frame(height: MacStyle.smallControlHeight)
-                        .background(.regularMaterial, in: .capsule)
+                        .modifier(GlassCapsule())
                 }
                 .padding(6)
                 .allowsHitTesting(false)

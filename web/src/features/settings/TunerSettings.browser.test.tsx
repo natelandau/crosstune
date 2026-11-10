@@ -7,7 +7,7 @@ import { userSettingsRow } from '../../test/rows'
 import { AnalyticsProvider } from '../../usage/AnalyticsProvider'
 import { recordingAnalytics } from '../../usage/testing'
 import {
-  a4Label,
+  a4Value,
   LOWER_REFERENCE_PITCH,
   RAISE_REFERENCE_PITCH,
   REFERENCE_PITCH,
@@ -36,11 +36,11 @@ const lower = () => page.getByRole('button', { name: LOWER_REFERENCE_PITCH })
 it('steps the reference pitch and stops at the ends', async () => {
   await mount()
   await expect.element(page.getByText(REFERENCE_PITCH, { exact: true })).toBeVisible()
-  await expect.element(reading(a4Label(440))).toBeVisible()
+  await expect.element(reading(a4Value(440))).toBeVisible()
   await raise().click()
-  await expect.element(reading(a4Label(441))).toBeVisible()
+  await expect.element(reading(a4Value(441))).toBeVisible()
   await lower().click()
-  await expect.element(reading(a4Label(440))).toBeVisible()
+  await expect.element(reading(a4Value(440))).toBeVisible()
 })
 
 it.each([
@@ -48,7 +48,7 @@ it.each([
   [430, lower, raise],
 ])('disables the step past %s Hz and leaves the other', async (hz, past, back) => {
   await mount(hz)
-  await expect.element(reading(a4Label(hz))).toBeVisible()
+  await expect.element(reading(a4Value(hz))).toBeVisible()
   await expect.element(past()).toHaveAttribute('aria-disabled', 'true')
   await expect.element(back()).not.toHaveAttribute('aria-disabled')
 })
@@ -56,7 +56,7 @@ it.each([
 it('names the reading with its row label', async () => {
   await mount()
   const group = page.getByRole('group', { name: REFERENCE_PITCH, exact: true })
-  await expect.element(group.getByRole('status')).toHaveTextContent(a4Label(440))
+  await expect.element(group.getByRole('status')).toHaveTextContent(a4Value(440))
 })
 
 it.each([
@@ -64,7 +64,7 @@ it.each([
   [431, lower],
 ])('keeps focus on a step as it reaches its bound from %s Hz', async (hz, step) => {
   await mount(hz)
-  await expect.element(reading(a4Label(hz))).toBeVisible()
+  await expect.element(reading(a4Value(hz))).toBeVisible()
   await step().click()
   await expect.element(step()).toHaveAttribute('aria-disabled', 'true')
   await expect.element(step()).toHaveFocus()
@@ -72,7 +72,7 @@ it.each([
 
 it('sends setting_changed and stores the value', async () => {
   const { db, analytics } = await mount()
-  await expect.element(reading(a4Label(440))).toBeVisible()
+  await expect.element(reading(a4Value(440))).toBeVisible()
   await raise().click()
   await expect
     .poll(() => analytics.sends())

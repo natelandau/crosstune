@@ -121,13 +121,7 @@ private struct WelcomeContent: View {
     /// panes start at one height.
     @State private var slidesTop: CGFloat = 0
     #if os(macOS)
-        @Environment(\.accessibilityReduceMotion) private var reduceMotion
-        @Environment(\.controlActiveState) private var controlActiveState
         @FocusState private var carouselFocused: Bool
-        /// Whether focus last reached the carousel by keyboard rather than by the screen itself.
-        @State private var focusedByKeyboard = false
-        /// Set while the screen moves focus to the carousel, so that arrival draws no ring.
-        @State private var focusingQuietly = false
     #else
         /// The phone column's lockup height, and the height of everything under it but the
         /// stage, which together leave the stage its height. Unmeasured, the stage draws at its
@@ -228,41 +222,20 @@ private struct WelcomeContent: View {
                 }
                 .scrollBounceBehavior(.basedOnSize)
             }
-            .focusable()
-            .focused($carouselFocused)
-            // The pane would take the system ring; the dots draw the Mac's own instead.
-            .focusEffectDisabled()
+            // The pane takes the keys with no ring of its own; the dots draw the ring.
+            .keySurface($carouselFocused)
             .onKeyPress(.leftArrow) {
-                focusedByKeyboard = true
                 model.carousel.previous()
                 return .handled
             }
             .onKeyPress(.rightArrow) {
-                focusedByKeyboard = true
                 model.carousel.next()
                 return .handled
             }
-            .onChange(of: carouselFocused) {
-                focusedByKeyboard = WelcomeLayout.focusArrivedByKeyboard(
-                    focused: carouselFocused, quietly: focusingQuietly, event: NSApp.currentEvent?.type)
-                focusingQuietly = false
-            }
-            .onAppear { focusCarousel() }
+            .onAppear { carouselFocused = true }
             // Focus goes back to the carousel when a sheet closes, so the arrow keys still page it.
-            .onChange(of: model.authMode) { if model.authMode == nil { focusCarousel() } }
-            .onChange(of: model.showsReason) { if !model.showsReason { focusCarousel() } }
-        }
-
-        /// Gives the carousel the keys without a ring, which waits for the person to use them.
-        private func focusCarousel() {
-            guard !carouselFocused else { return }
-            focusingQuietly = true
-            carouselFocused = true
-        }
-
-        private var showsFocusRing: Bool {
-            WelcomeLayout.showsFocusRing(
-                focused: carouselFocused, windowIsKey: controlActiveState == .key, byKeyboard: focusedByKeyboard)
+            .onChange(of: model.authMode) { if model.authMode == nil { carouselFocused = true } }
+            .onChange(of: model.showsReason) { if !model.showsReason { carouselFocused = true } }
         }
 
         private func macSlides(unit: CGFloat) -> some View {
@@ -277,7 +250,7 @@ private struct WelcomeContent: View {
                         .id(model.carousel.current)
                         .transition(.opacity)
                 }
-                .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: model.carousel.current)
+                .macAnimation(MacMotion.state, value: model.carousel.current)
                 HStack(spacing: 8) {
                     let current = model.carousel.current
                     arrow(WelcomeCopy.previousSlide, symbol: "chevron.left", shows: current != .intro) {
@@ -287,7 +260,7 @@ private struct WelcomeContent: View {
                     // leaves an empty side inside it.
                     CarouselDots(current: current) { model.carousel.show($0) }
                         .padding(2)
-                        .macFocusRing(showsFocusRing, cornerRadius: MacButtonStyle.radius)
+                        .macFocusRing(carouselFocused, cornerRadius: MacButtonStyle.radius)
                     arrow(
                         WelcomeCopy.nextSlide, symbol: "chevron.right",
                         shows: current != WelcomeSlide.allCases.last
@@ -306,12 +279,12 @@ private struct WelcomeContent: View {
             Button {
                 action()
                 // An arrow that reaches its end turns off, which would drop keyboard focus.
-                focusCarousel()
+                carouselFocused = true
             } label: {
                 Label(label, systemImage: symbol)
             }
             .labelStyle(.iconOnly)
-            .buttonStyle(.mac(.icon))
+            .buttonStyle(.icon)
             .help(label)
             .opacity(shows ? 1 : 0)
             .disabled(!shows)

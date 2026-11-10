@@ -188,8 +188,7 @@ struct CatalogFilterSheet: View {
         }
         #if os(macOS)
             MacPopUp(
-                Self.missing, selection: missing, options: [nil] + results.missingOptions.map(Optional.some),
-                label: { $0?.label ?? Self.any }, isSet: results.filters.missing != nil)
+                Self.missing, selection: missing, choices: results.missingOptions, label: { $0?.label ?? Self.any })
         #else
             Picker(Self.missing, selection: missing) {
                 Text(Self.any).tag(MissingAttribute?.none)

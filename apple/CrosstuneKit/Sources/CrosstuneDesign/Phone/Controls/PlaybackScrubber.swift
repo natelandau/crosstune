@@ -84,16 +84,16 @@ package struct PlaybackScrubber: View {
         #endif
     }
 
-    private func keyHandling(_ content: some View) -> some View {
-        content
-            .focusable(canStep, interactions: .activate)
-            .focused($focused)
-            #if !os(macOS)
+    #if !os(macOS)
+        private func keyHandling(_ content: some View) -> some View {
+            content
+                .focusable(canStep, interactions: .activate)
+                .focused($focused)
                 .focusEffectDisabled()
-            #endif
-            .onKeyPress(.leftArrow) { arrow(-1) }
-            .onKeyPress(.rightArrow) { arrow(1) }
-    }
+                .onKeyPress(.leftArrow) { arrow(-1) }
+                .onKeyPress(.rightArrow) { arrow(1) }
+        }
+    #endif
 
     @ViewBuilder private var layout: some View {
         if timesBeside {
@@ -134,7 +134,13 @@ package struct PlaybackScrubber: View {
 
     @ViewBuilder private var track: some View {
         #if os(macOS)
-            keyHandling(trackBar)
+            trackBar
+                .macFocusRing(focused, shape: Capsule())
+                .macFocusable()
+                .focused($focused)
+                .disabled(!canStep)
+                .onKeyPress(.leftArrow) { arrow(-1) }
+                .onKeyPress(.rightArrow) { arrow(1) }
         #else
             trackBar
         #endif
@@ -240,16 +246,16 @@ package struct PlaybackScrubber: View {
 }
 
 /// The scrubber's times: tabular, so they hold still as they count. On iPhone and iPad they are
-/// caption semibold and brighten while dragged; the Mac's are its caption in secondary text.
+/// caption semibold and brighten while dragged; the Mac's are its secondary text.
 private struct TimesStyle: ViewModifier {
     let isActive: Bool
 
     func body(content: Content) -> some View {
         #if os(macOS)
             content
-                .font(.platform(.caption))
+                .font(MacStyle.secondary)
                 .monospacedDigit()
-                .foregroundStyle(.textSecondary)
+                .foregroundStyle(Palette.textSecondary)
                 .accessibilityHidden(true)
         #else
             content
@@ -283,6 +289,7 @@ private struct TimesStyle: ViewModifier {
                     Capsule().fill(Palette.textTertiary).frame(width: x, height: 3)
                     Circle().fill(Palette.playhead).frame(width: thumb, height: thumb)
                         .offset(x: min(max(0, x - thumb / 2), width - thumb))
+                        .macAnimation(MacMotion.hover, value: thumb)
                 }
                 .frame(maxHeight: .infinity)
                 .onHover { hovering = $0 }

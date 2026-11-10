@@ -696,28 +696,38 @@ private func instrumentSummary(_ model: SettingsModel) -> String {
             #expect(AccountSections.macGroups.first == .identity)
         }
 
-        /// The Settings window opens with focus on an invisible stop beside the tab's content, so
-        /// no row wears a ring until the keyboard moves to it. Only the stop turns its ring off,
-        /// so every control in the tab keeps the system's.
+        /// A Settings tab opens through the library's unfocused opening, so no row wears a ring
+        /// until the keyboard moves to it, and the Settings rows own no focus or ring of their own.
         @Test func noSettingsTabOpensWithFocusOnARow() throws {
             let tabs = SourceScan.withoutComments(
                 try SourceScan.text(at: SourceScan.url(of: "Mac/MacSettingsTabs.swift")))
-            #expect(tabs.contains(".macSettingsOpensUnfocused()"))
-            let rows = SourceScan.withoutComments(
-                try SourceScan.text(at: SourceScan.url(of: "Mac/MacSettingsRow.swift")))
-            let start = try #require(rows.range(of: "struct MacSettingsOpensUnfocused"))
-            let modifier = String(rows[start.upperBound...])
+            #expect(tabs.contains(".macOpensUnfocused()"))
+            for name in ["Mac/MacSettingsRow.swift", "Settings/SavedLocationsPage.swift"] {
+                let rows = SourceScan.withoutComments(try SourceScan.text(at: SourceScan.url(of: name)))
+                for focus in [
+                    ".focusEffectDisabled(", ".focusable(", ".defaultFocus(", "@FocusState", ".macFocusRing(",
+                ] {
+                    #expect(!rows.contains(focus), "\(name) holds \(focus)")
+                }
+            }
+        }
+
+        /// The library's opening stop turns off only its own ring: nothing it adds touches the
+        /// focus of the content it opens.
+        @Test func theOpeningStopLeavesTheContentsFocusAlone() throws {
+            let focus = SourceScan.withoutComments(
+                try SourceScan.text(at: SourceScan.url(of: "Mac/MacFocus.swift")))
+            let start = try #require(focus.range(of: "struct MacOpensUnfocused"))
+            let modifier = String(focus[start.upperBound...])
             let content = try #require(modifier.range(of: "content\n"))
-            let stop = try #require(modifier.range(of: ".background {"))
-            let close = try #require(modifier.range(of: ".defaultFocus($holdsFocus, true)"))
-            // Nothing between `content` and the stop's background touches the tab's own focus.
+            let stop = try #require(modifier.range(of: ".background("))
+            let close = try #require(modifier.range(of: ".defaultFocus("))
             let onContent = modifier[content.upperBound..<stop.lowerBound]
             #expect(!onContent.contains(".focusEffectDisabled()"))
             #expect(!onContent.contains(".focusable("))
             let inStop = modifier[stop.upperBound..<close.lowerBound]
-            #expect(inStop.contains(".focusable()"))
+            #expect(inStop.contains(".focusable("))
             #expect(inStop.contains(".focusEffectDisabled()"))
-            #expect(inStop.contains(".focused($holdsFocus)"))
             #expect(inStop.contains(".accessibilityHidden(true)"))
         }
 
@@ -738,12 +748,12 @@ private func instrumentSummary(_ model: SettingsModel) -> String {
             }
         }
 
-        /// A Settings row's button is a ``MacButtonStyle`` button, so the card's container decides
+        /// A Settings row's button is a Small ``MacButtonStyle`` button, so the card's container decides
         /// its fill as it does for every other control on a card.
         @Test func settingsButtonsUseTheMacButtonStyle() throws {
             let text = SourceScan.withoutComments(
                 try SourceScan.text(at: SourceScan.url(of: "Mac/MacSettingsRow.swift")))
-            #expect(text.contains(".buttonStyle(.mac(role))"))
+            #expect(text.contains(".buttonStyle(.mac(role, size: .small))"))
             #expect(!text.contains("MacCardButtonStyle"))
         }
 

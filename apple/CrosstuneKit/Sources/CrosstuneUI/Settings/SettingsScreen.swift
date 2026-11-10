@@ -362,7 +362,7 @@ public struct SettingsScreen: View {
                     ValueStepper(
                         SettingsModel.referencePitch,
                         value: Binding(get: { model.tunerA4Hz }, set: { model.setTunerA4Hz($0) }),
-                        in: Vocabulary.Ranges.UserSettings.tunerA4Hz, format: SettingsModel.referencePitchLabel)
+                        in: Vocabulary.Ranges.UserSettings.tunerA4Hz, format: SettingsModel.referencePitchValue)
                 }
             } header: {
                 SettingsHelp(nil, title: SettingsModel.tuner)
@@ -577,12 +577,12 @@ public struct SettingsScreen: View {
             return MacFormSection(SettingsModel.tuner, failure: model.tunerA4HzFailure) {
                 MacSettingsRow(SettingsModel.referencePitch) {
                     MacStepper(
-                        value: SettingsModel.referencePitchLabel(model.tunerA4Hz),
+                        value: SettingsModel.referencePitchValue(model.tunerA4Hz),
                         decrement: { model.setTunerA4Hz(model.tunerA4Hz - 1) },
                         increment: { model.setTunerA4Hz(model.tunerA4Hz + 1) },
                         canDecrement: model.tunerA4Hz > range.lowerBound,
                         canIncrement: model.tunerA4Hz < range.upperBound,
-                        accessibilityLabel: SettingsModel.referencePitch)
+                        accessibilityLabel: SettingsModel.referencePitch, size: .small)
                 }
             }
         }

@@ -61,10 +61,10 @@ struct IsolatePanel: View {
     }
 
     #if os(macOS)
-        /// Solo or Mute and Reset, then a row per range: its name, the range, and its readout in
-        /// a column as wide as the widest readout, so the range keeps its length as it moves.
+        /// Solo or Mute and Reset, then each range under a label line of its name and readout, so
+        /// the range spans the popover's full width.
         private var macBody: some View {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: 8) {
                     MacSegmented(
                         selection: Binding {
@@ -74,52 +74,37 @@ struct IsolatePanel: View {
                         }, options: Self.effects,
                         label: Self.effectName, title: RecordingScreenText.isolateEffect)
                     Spacer(minLength: 0)
-                    reset.buttonStyle(.mac(.plain, size: .small))
+                    reset.controlSize(.small)
                 }
                 .frame(minHeight: PracticeLayout.target)
-                Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 8) {
-                    if showsMonoNotice {
-                        GridRow {
-                            Text(RecordingScreenText.monoNotice)
-                                .font(MacStyle.secondary)
-                                .foregroundStyle(Palette.textSecondary)
-                                .gridCellColumns(3)
-                                .frame(minHeight: PracticeLayout.target)
-                        }
-                    } else {
-                        macRangeRow(RecordingScreenText.stereo, range: stereoRange, readout: stereoReadout)
-                    }
-                    macRangeRow(RecordingScreenText.frequency, range: frequencyRange, readout: frequencyReadout)
+                if showsMonoNotice {
+                    Text(RecordingScreenText.monoNotice)
+                        .font(MacStyle.secondary)
+                        .foregroundStyle(Palette.textSecondary)
+                        .frame(maxWidth: .infinity, minHeight: PracticeLayout.target, alignment: .leading)
+                } else {
+                    macRangeRow(RecordingScreenText.stereo, range: stereoRange, readout: stereoReadout)
                 }
+                macRangeRow(RecordingScreenText.frequency, range: frequencyRange, readout: frequencyReadout)
             }
         }
 
         private func macRangeRow(_ name: String, range: some View, readout: String) -> some View {
-            GridRow {
-                // Both names hold the column's width, so a mono recording's range starts where a
-                // stereo one's does.
-                ZStack(alignment: .leading) {
-                    Text(RecordingScreenText.stereo).hidden()
-                    Text(RecordingScreenText.frequency).hidden()
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
                     Text(name)
+                        .font(MacStyle.label)
+                        .foregroundStyle(Palette.textSecondary)
+                    Spacer(minLength: 8)
+                    Text(readout)
+                        .lineLimit(1)
+                        .font(MacStyle.body)
+                        .monospacedDigit()
+                        .foregroundStyle(Palette.textPrimary)
                 }
-                .font(MacStyle.label)
-                .foregroundStyle(Palette.textSecondary)
                 .accessibilityHidden(true)
                 range
-                ZStack(alignment: .trailing) {
-                    ForEach(IsolateReadout.stereoReadouts + [IsolateReadout.widestFrequency], id: \.self) {
-                        Text($0).hidden()
-                    }
-                    Text(readout)
-                }
-                .lineLimit(1)
-                .fixedSize()
-                .font(MacStyle.body)
-                .monospacedDigit()
-                .foregroundStyle(Palette.textPrimary)
-                .gridColumnAlignment(.trailing)
-                .accessibilityHidden(true)
+                    .frame(maxWidth: .infinity)
             }
         }
     #endif
@@ -142,7 +127,7 @@ struct IsolatePanel: View {
                     }
                     .pickerStyle(.segmented)
                     .labelsHidden()
-                    reset.buttonStyle(.text(oneLine: true))
+                    reset
                 }
                 if showsMonoNotice {
                     Text(RecordingScreenText.monoNotice)
@@ -173,6 +158,7 @@ struct IsolatePanel: View {
 
     private var reset: some View {
         Button(RecordingScreenText.reset) { onChange(.standard) }
+            .buttonStyle(.text(oneLine: true))
             .disabled(value.effective(isMono: isMono == true).isDefault)
     }
 
@@ -244,7 +230,7 @@ final class IsolateOutlineReader {
 /// outline to show.
 struct LiveIsolatePanel: View {
     let model: PracticeModel
-    let shown: Bool
+    @Environment(\.isToolShown) private var shown
 
     var body: some View {
         let audio = model.player.audio

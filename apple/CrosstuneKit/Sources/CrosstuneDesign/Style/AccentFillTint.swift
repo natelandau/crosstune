@@ -55,11 +55,11 @@ extension ToggleStyle where Self == AccentSwitchStyle {
 }
 
 extension View {
-    /// The accent switch on iPhone and iPad. The Mac keeps the toggle style around it, a checkbox
-    /// outside a form.
-    package func phoneAccentSwitch() -> some View {
+    /// A setting's switch: the accent switch on iPhone and iPad, and on the Mac the small switch
+    /// at the end of its label's row.
+    package func settingSwitch() -> some View {
         #if os(macOS)
-            self
+            toggleStyle(.macFormSwitch)
         #else
             toggleStyle(.accentSwitch)
         #endif

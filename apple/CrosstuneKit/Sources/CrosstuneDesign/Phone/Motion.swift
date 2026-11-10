@@ -22,6 +22,17 @@ package enum Motion {
     package static let shakeOffsets: [CGFloat] = [-4, 4, -3, 2, 0]
     package static let shakeDuration: Duration = .milliseconds(250)
 
+    /// A screen's state change: ``MacMotion/state`` on the Mac and `phone` elsewhere, or none
+    /// under Reduce Motion.
+    package static func stateChange(phone: Animation, reduceMotion: Bool) -> Animation? {
+        guard !reduceMotion else { return nil }
+        #if os(macOS)
+            return MacMotion.state
+        #else
+            return phone
+        #endif
+    }
+
     /// A fade over `duration`, for a mark whose timing its caller sets, such as a row's highlight.
     package static func fade(over duration: Duration) -> Animation {
         .easeInOut(duration: duration.seconds)

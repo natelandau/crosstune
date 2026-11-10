@@ -8,8 +8,7 @@ struct ImportHelp: View {
     var body: some View {
         #if os(macOS)
             Link(ImportCopy.whatCanIPaste, destination: Self.destination)
-                .font(MacStyle.body)
-                .foregroundStyle(Palette.accent)
+                .buttonStyle(.text)
         #else
             Link(ImportCopy.whatCanIPaste, destination: Self.destination)
         #endif

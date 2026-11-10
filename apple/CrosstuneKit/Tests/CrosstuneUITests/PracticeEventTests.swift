@@ -86,6 +86,20 @@ private func recording(_ id: String = "r1", isMono: Bool? = nil) -> Recording {
             ])
     }
 
+    /// Where a mode's controls open in a popover, closing it reports the setting, once.
+    @Test func reportsOneSpeedAsThePopoverCloses() async throws {
+        let model = try await opened()
+        model.mode = .speed
+        player.setSpeed(80)
+
+        model.modeControlsShown(false)
+        #expect(captures(named: "speed_changed").count == 1)
+
+        model.modeControlsShown(true)
+        model.leave()
+        #expect(captures(named: "speed_changed").count == 1)
+    }
+
     @Test func reportsNoSpeedPutBackWhereItWas() async throws {
         let model = try await opened()
         model.mode = .speed

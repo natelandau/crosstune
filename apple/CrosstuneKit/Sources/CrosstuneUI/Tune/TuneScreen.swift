@@ -83,7 +83,7 @@ public struct TuneScreen: View {
 
     private var arrivalAnimation: Animation? {
         #if os(macOS)
-            reduceMotion ? nil : .spring(duration: 0.25)
+            MacMotion.animation(MacMotion.spring, reduceMotion: reduceMotion)
         #else
             PhoneMotion.resolve(reduceMotion: reduceMotion).animation(Motion.state)
         #endif

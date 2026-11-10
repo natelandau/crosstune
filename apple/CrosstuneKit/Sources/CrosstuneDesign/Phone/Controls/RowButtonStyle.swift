@@ -3,10 +3,10 @@ import SwiftUI
 /// A list row's own buttons. A line of text inside a row that acts on its own, as a row's tune
 /// line, takes `.rowLine`, a borderless button, never the system's default style, which in a
 /// `List` makes the whole row fire every button in it. `.rowHighlight(radius:)` is a row that
-/// opens something: `field` behind it in a rounded rectangle while pressed, and under the pointer
-/// on the Mac; an iPad's pointer takes the system highlight. `.pickRow` is a row that picks a
-/// value, its label alone on iPhone and iPad; `.formPickRow` is one in a grouped form, in the
-/// form's accent words. Both draw the Mac's pick row.
+/// opens something: `field` behind it in a rounded rectangle while pressed; an iPad's pointer
+/// takes the system highlight. `.pickRow` is a row that picks a value, its label alone on iPhone
+/// and iPad; `.formPickRow` is one in a grouped form, in the form's accent words. Every whole row
+/// draws the Mac's row style; a row line is a control inside a row and stays borderless there.
 package struct RowButtonStyle: PrimitiveButtonStyle {
     package enum Kind: Equatable {
         case line
@@ -25,16 +25,21 @@ package struct RowButtonStyle: PrimitiveButtonStyle {
         let button = Button(configuration)
         switch kind {
         case .line: button.buttonStyle(.borderless)
-        case .highlight(let radius): button.buttonStyle(RowHighlightAppearance(radius: radius))
+        #if os(macOS)
+            // The label holds its own insets, so it lines up with the read-only rows.
+            case .highlight: button.buttonStyle(MacRowStyle(padsLabel: false))
+        #else
+            case .highlight(let radius): button.buttonStyle(RowHighlightAppearance(radius: radius))
+        #endif
         case .pick:
             #if os(macOS)
-                button.buttonStyle(.macPickRow)
+                button.buttonStyle(.macRow)
             #else
                 button.buttonStyle(.plain)
             #endif
         case .formPick:
             #if os(macOS)
-                button.buttonStyle(.macPickRow)
+                button.buttonStyle(.macRow)
             #else
                 button.buttonStyle(.accentWords)
             #endif
@@ -45,11 +50,11 @@ package struct RowButtonStyle: PrimitiveButtonStyle {
 extension PrimitiveButtonStyle where Self == RowButtonStyle {
     /// A borderless press, for a line of text inside a row that acts on its own.
     package static var rowLine: Self { RowButtonStyle(.line) }
-    /// The `field` tint while pressed, and under the Mac's pointer, in corners of `radius`.
+    /// The `field` tint while pressed in corners of `radius`, and the Mac's row style.
     package static func rowHighlight(radius: CGFloat) -> Self { RowButtonStyle(.highlight(radius: radius)) }
-    /// A row that picks a value: its label alone, and the Mac's pick row.
+    /// A row that picks a value: its label alone, and the Mac's row style.
     package static var pickRow: Self { RowButtonStyle(.pick) }
-    /// A grouped form's row that picks a value: the form's accent words, and the Mac's pick row.
+    /// A grouped form's row that picks a value: the form's accent words, and the Mac's row style.
     package static var formPickRow: Self { RowButtonStyle(.formPick) }
 }
 
@@ -61,33 +66,28 @@ extension View {
     }
 }
 
-private struct RowHighlightAppearance: ButtonStyle {
-    let radius: CGFloat
+#if !os(macOS)
+    private struct RowHighlightAppearance: ButtonStyle {
+        let radius: CGFloat
 
-    func makeBody(configuration: Configuration) -> some View {
-        RowHighlightBody(configuration: configuration, radius: radius)
+        func makeBody(configuration: Configuration) -> some View {
+            RowHighlightBody(configuration: configuration, radius: radius)
+        }
     }
-}
 
-private struct RowHighlightBody: View {
-    let configuration: ButtonStyleConfiguration
-    let radius: CGFloat
+    private struct RowHighlightBody: View {
+        let configuration: ButtonStyleConfiguration
+        let radius: CGFloat
 
-    @State private var isHovered = false
-
-    var body: some View {
-        let shape = RoundedRectangle(cornerRadius: radius)
-        configuration.label
-            .background(isHovered || configuration.isPressed ? Palette.field : .clear, in: shape)
-            #if os(macOS)
-                .contentShape(shape)
-                .onHover { isHovered = $0 }
-            #else
+        var body: some View {
+            let shape = RoundedRectangle(cornerRadius: radius)
+            configuration.label
+                .background(configuration.isPressed ? Palette.field : .clear, in: shape)
                 .libraryHover(shape)
                 .contentShape(shape)
-            #endif
+        }
     }
-}
+#endif
 
 #Preview("Row buttons") {
     VStack(spacing: 0) {

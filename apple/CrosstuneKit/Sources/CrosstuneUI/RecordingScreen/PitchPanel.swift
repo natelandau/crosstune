@@ -54,86 +54,30 @@ struct PitchPanel: View {
     @Binding var split: PitchSplit
     let onChange: (Int) -> Void
 
+    /// The semitone stepper, then the cents slider, whose Reset clears the whole shift.
     var body: some View {
-        #if os(macOS)
-            macBody
-        #else
-            touchBody
-        #endif
-    }
-
-    #if os(macOS)
-        /// The label row with Reset, then the control row: the semitone stepper beside a cents
-        /// slider with a detent at no shift, its value trailing, each named by a caption under it.
-        private var macBody: some View {
-            VStack(alignment: .leading, spacing: 12) {
-                PanelLabelRow(title: RecordingScreenText.pitch) {
-                    Button(RecordingScreenText.reset) { choose(PitchSplit(cents: 0)) }
-                        .buttonStyle(.mac(.plain, size: .small))
-                        .disabled(value == 0)
-                }
-                PanelControlRow(stepperCaption: RecordingScreenText.semitones, sliderCaption: RecordingScreenText.cents)
-                {
-                    MacStepper(
-                        value: Self.signed(split.semitones),
-                        decrement: { choose(split.with(semitones: split.semitones - 1)) },
-                        increment: { choose(split.with(semitones: split.semitones + 1)) },
-                        canDecrement: split.semitones > PitchSplit.semitoneRange.lowerBound,
-                        canIncrement: split.semitones < PitchSplit.semitoneRange.upperBound,
-                        accessibilityLabel: RecordingScreenText.semitones
-                    )
-                    .help(RecordingScreenText.semitones)
-                } slider: {
-                    MacSlider(
-                        value: Binding {
-                            Double(split.cents)
-                        } set: {
-                            choose(split.with(cents: Int($0.rounded())))
-                        },
-                        in: Double(PitchSplit.centsRange.lowerBound)...Double(PitchSplit.centsRange.upperBound),
-                        detent: 0, accessibilityLabel: RecordingScreenText.cents,
-                        accessibilityValue: Self.signed(split.cents)
-                    )
-                    .help(RecordingScreenText.cents)
-                } accessory: {
-                    // Wide enough for -50, so the slider keeps its length as the value changes.
-                    Text(Self.signed(split.cents))
-                        .font(MacStyle.body)
-                        .monospacedDigit()
-                        .foregroundStyle(Palette.textPrimary)
-                        .frame(minWidth: 28, alignment: .trailing)
-                        .accessibilityHidden(true)
-                }
-            }
-        }
-    #endif
-
-    #if !os(macOS)
-        /// The semitone stepper, then the cents slider, whose Reset clears the whole shift.
-        private var touchBody: some View {
-            VStack(alignment: .leading, spacing: 12) {
-                ValueLabelLine(RecordingScreenText.semitones) {
-                    ValueStepper(
-                        RecordingScreenText.semitones,
-                        value: Binding {
-                            split.semitones
-                        } set: {
-                            choose(split.with(semitones: $0))
-                        },
-                        in: PitchSplit.semitoneRange, format: Self.signed)
-                }
-                ValueSlider(
-                    RecordingScreenText.cents,
+        VStack(alignment: .leading, spacing: 12) {
+            ValueLabelLine(RecordingScreenText.semitones) {
+                ValueStepper(
+                    RecordingScreenText.semitones,
                     value: Binding {
-                        split.cents
+                        split.semitones
                     } set: {
-                        choose(split.with(cents: $0))
+                        choose(split.with(semitones: $0))
                     },
-                    in: PitchSplit.centsRange, step: 1, defaultValue: 0, canReset: value != 0,
-                    onReset: { choose(PitchSplit(cents: 0)) }, format: Self.signed)
+                    in: PitchSplit.semitoneRange, format: Self.signed)
             }
+            ValueSlider(
+                RecordingScreenText.cents,
+                value: Binding {
+                    split.cents
+                } set: {
+                    choose(split.with(cents: $0))
+                },
+                in: PitchSplit.centsRange, step: 1, defaultValue: 0, canReset: value != 0,
+                onReset: { choose(PitchSplit(cents: 0)) }, format: Self.signed)
         }
-    #endif
+    }
 
     private func choose(_ next: PitchSplit) {
         split = next

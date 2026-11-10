@@ -97,7 +97,8 @@ private struct TuneFormContent: View {
                 cancel: .cancel(TuneFormSheet.cancel, isEnabled: !model.isSaving) { dismiss() },
                 primary: model.phase == .ready
                     ? .init(TuneFormSheet.save, isEnabled: model.canSave, action: save)
-                    : nil
+                    : nil,
+                openingFocus: .firstField
             ) {
                 phaseContent
             }
@@ -166,24 +167,17 @@ private struct TuneFormContent: View {
         }
 
         /// The tune's title as the form's large heading: no label, since the prompt and the size
-        /// name it, and a hairline under it that takes the accent while typing.
+        /// name it.
         private var titleField: some View {
             VStack(alignment: .leading, spacing: 6) {
                 TextField(TuneFieldLabels.title, text: titleBinding, prompt: Text(TuneFieldLabels.title))
                     .contentMask()
                     .labelsHidden()
-                    .textFieldStyle(.plain)
-                    .font(MacStyle.formTitle)
+                    .textFieldStyle(.macTitleField)
                     .foregroundStyle(Palette.textPrimary)
-                    // A plain field sizes to its body line, which clips the larger title's descenders.
-                    .frame(minHeight: MacStyle.formTitleSize + 8)
-                    .focusEffectDisabled()
                     .characterLimit(Vocabulary.Limits.Tune.title, text: $model.values.title)
                     .focused($titleFocused)
                     .onSubmit(save)
-                Rectangle()
-                    .fill(titleFocused ? Palette.accent : Palette.border)
-                    .frame(height: titleFocused ? 2 : 1)
                 if let validation = model.validation {
                     FailureText(validation)
                 }

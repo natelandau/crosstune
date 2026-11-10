@@ -62,6 +62,9 @@ public final class LinkSheetModel {
     /// Whether the sheet holds typing a dismissal would lose.
     public var isEdited: Bool { !url.isEmpty }
 
+    /// Whether the field holds more than spaces, the one input whose absence disables Add.
+    public var hasLink: Bool { !url.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+
     /// Takes the link as typed or pasted, and looks it up once typing pauses.
     public func setURL(_ url: String) {
         self.url = url

@@ -3,7 +3,7 @@ import { FIELD_LABEL, FIELD_ROW } from '../../ui/form/FieldRow'
 import { Group } from '../../ui/form/Group'
 import { Stepper } from '../../ui/Stepper'
 import {
-  a4Label,
+  a4Value,
   LOWER_REFERENCE_PITCH,
   RAISE_REFERENCE_PITCH,
   REFERENCE_PITCH,
@@ -25,7 +25,7 @@ export function TunerSettings() {
             value={a4}
             min={MIN_HZ}
             max={MAX_HZ}
-            format={a4Label}
+            format={a4Value}
             decrementLabel={LOWER_REFERENCE_PITCH}
             incrementLabel={RAISE_REFERENCE_PITCH}
             onChange={setA4}

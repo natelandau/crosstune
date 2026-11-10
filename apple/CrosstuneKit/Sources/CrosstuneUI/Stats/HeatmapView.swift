@@ -11,7 +11,9 @@ struct HeatmapView: View {
 
     @State private var chosen: Int?
     @State private var gridSize = CGSize.zero
-    @FocusState private var focused: Bool
+    #if !os(macOS)
+        @FocusState private var focused: Bool
+    #endif
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOverEnabled
     @Environment(\.spacing) private var spacing
 
@@ -52,8 +54,12 @@ struct HeatmapView: View {
             .onContinuousHover { phase in
                 if case .active(let location) = phase { choose(at: location) }
             }
-            .focusable()
-            .focused($focused)
+            #if os(macOS)
+                .macFocusStop(shape: .rect)
+            #else
+                .focusable()
+                .focused($focused)
+            #endif
             .onKeyPress(keys: [.leftArrow, .rightArrow, .upArrow, .downArrow, .home, .end]) { press in
                 move(press.key) ? .handled : .ignored
             }

@@ -29,12 +29,7 @@
             self == .surface && scheme == .light
         }
 
-        package var controlColor: Color {
-            switch self {
-            case .pageBackground: Palette.field
-            case .surface: Palette.surfaceRaised
-            }
-        }
+        package var controlColor: Color { Palette.color(controlFill) }
     }
 
     extension EnvironmentValues {
@@ -42,11 +37,13 @@
     }
 
     extension View {
-        /// The hairline edge a filled control takes in `container`, if any.
-        package func macControlEdge(_ container: MacContainer, scheme: ColorScheme, cornerRadius: CGFloat) -> some View
-        {
+        /// The hairline edge a filled control takes in `container`, if any. `isShown` false
+        /// draws none, for a state that does not sit on the control fill.
+        package func macControlEdge(
+            _ container: MacContainer, scheme: ColorScheme, cornerRadius: CGFloat, isShown: Bool = true
+        ) -> some View {
             overlay {
-                if container.strokesControls(scheme) {
+                if isShown, container.strokesControls(scheme) {
                     RoundedRectangle(cornerRadius: cornerRadius)
                         .strokeBorder(Palette.border, lineWidth: 1)
                         .allowsHitTesting(false)

@@ -381,7 +381,7 @@ private struct AttributesCard<ID: Hashable, Row: View, Failure: View>: View {
 
     private var moreDetails: some View {
         Button {
-            withAnimation(reduceMotion ? nil : .default) { expanded.toggle() }
+            withAnimation(Motion.stateChange(phone: .default, reduceMotion: reduceMotion)) { expanded.toggle() }
         } label: {
             HStack(spacing: 12) {
                 Text(AttributeCopy.moreDetails)

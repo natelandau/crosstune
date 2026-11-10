@@ -92,9 +92,11 @@ public final class SettingsModel {
     nonisolated public static let newTunes = "New tunes"
     nonisolated public static let newTunesHelp = "Every new tune starts with these. Change them on the tune."
     nonisolated public static let tuner = "Tuner"
-    nonisolated public static let referencePitch = "Reference pitch"
-    /// How the reference pitch reads, such as `A4 = 442 Hz`.
+    nonisolated public static let referencePitch = "Reference A4 pitch"
+    /// How the reference pitch reads on its own, such as `A4 = 442 Hz`.
     nonisolated public static func referencePitchLabel(_ hz: Int) -> String { "A4 = \(hz) Hz" }
+    /// The reference pitch beside a label that already names A4, such as `442 Hz`.
+    nonisolated public static func referencePitchValue(_ hz: Int) -> String { "\(hz) Hz" }
     nonisolated public static let recording = "Recording"
     nonisolated public static let quality = "Quality"
     nonisolated public static let qualityHelp = "Higher quality makes larger files."

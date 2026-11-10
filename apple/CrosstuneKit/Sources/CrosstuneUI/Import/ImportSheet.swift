@@ -103,7 +103,8 @@ private struct ImportContent: View {
     #if os(macOS)
         var body: some View {
             MacSheet(
-                title: ImportCopy.title, size: ImportSheet.macSize, cancel: macCancel, primary: macPrimary
+                title: ImportCopy.title, size: ImportSheet.macSize, cancel: macCancel, primary: macPrimary,
+                openingFocus: .firstField
             ) {
                 if model.step == .paste {
                     Text(ImportCopy.recordingsNote)
@@ -308,7 +309,8 @@ private struct ImportContent: View {
         #if os(macOS)
             MacPopUp(
                 ImportCopy.listLabel, selection: $model.listKey,
-                options: [ImportModel.ListKey.none, .new] + model.lists.map { .existing($0.id) }, label: listLabel
+                options: [ImportModel.ListKey.none, .new] + model.lists.map { .existing($0.id) }, label: listLabel,
+                isSet: model.listKey != .none
             )
             .contentMask()
         #else

@@ -78,7 +78,6 @@ private struct RecordingPageBody: View {
     @Environment(\.plan) private var plan
     @Environment(\.premium) private var premium
     @Environment(\.inPadSplit) private var inPadSplit
-    @Environment(\.openURL) private var openURL
     @Environment(\.openTune) private var openTune
     @Environment(\.openRecordingPage) private var openRecordingPage
     @Environment(\.playerWindow) private var window
@@ -220,6 +219,9 @@ private struct RecordingPageBody: View {
                 player.flushSettings()
                 model.hidden(.page)
             }
+            #if DEBUG
+                .modifier(opensEditorsForSample)
+            #endif
             .coversShell(model.deleting != nil)
             .confirmationDialog(
                 RecordingsModel.deleteTitle, item: $model.deleting, titleVisibility: .visible
@@ -302,6 +304,13 @@ private struct RecordingPageBody: View {
         _ = premium?.gate(.recordings, from: RecordingPage.planEntry)
     }
 
+    /// Under tabs the mode's controls always show; the Mac's tool popovers start closed.
+    #if os(macOS)
+        private static let modeControlsShownAtStart = false
+    #else
+        private static let modeControlsShownAtStart = true
+    #endif
+
     /// Makes the page's practice once the commands it writes through are at hand and the plan
     /// lets recordings play; a plan that stops them takes it away.
     private func makePractice() {
@@ -314,7 +323,7 @@ private struct RecordingPageBody: View {
         guard practice == nil, let commands else { return }
         let made = PracticeModel(
             player: player, recording: rows.recording, file: rows.file, writer: .commands(commands),
-            page: model.screen)
+            page: model.screen, modeControlsShown: Self.modeControlsShownAtStart)
         practice = made
         follow(rows)
         model.openVisit(made)
@@ -357,6 +366,14 @@ private struct RecordingPageBody: View {
         }
     }
 
+    #if DEBUG
+        private var opensEditorsForSample: OpensEditorsForSample {
+            OpensEditorsForSample(
+                canTrim: commands != nil && trimDisabledReason == nil,
+                canSplit: commands != nil && splitDisabledReason == nil, choose: choose)
+        }
+    #endif
+
     private func choose(_ item: RecordingMenuItem) {
         switch item {
         case .trim:
@@ -369,11 +386,26 @@ private struct RecordingPageBody: View {
                 player: player)
         case .pin(let pinned): model.togglePin(pinned: pinned, rows: rows, commands: commands)
         case .goToTune: goToTune?()
-        case .openOrigin(_, let page): openURL(page)
+        // The menu opens the origin itself, as only it reads `openURL`.
+        case .openOrigin: break
         case .delete: model.deleting = rows.view
         }
     }
 }
+
+#if DEBUG
+    private struct OpensEditorsForSample: ViewModifier {
+        let canTrim: Bool
+        let canSplit: Bool
+        let choose: (RecordingMenuItem) -> Void
+
+        func body(content: Content) -> some View {
+            content
+                .opensForSample(.trim, when: canTrim) { choose(.trim(disabledReason: nil)) }
+                .opensForSample(.split, when: canSplit) { choose(.split(disabledReason: nil)) }
+        }
+    }
+#endif
 
 extension EnvironmentValues {
     /// Whether the practice view fills the page, as in the Practice tab, rather than sitting

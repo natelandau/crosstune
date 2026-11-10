@@ -48,7 +48,8 @@ struct RenameLocationSheet: View {
             MacSheet(
                 title: PlaceSearchText.renameThisLocation, size: Self.macSize,
                 cancel: .cancel(TuneFormSheet.cancel, isEnabled: !isSaving, action: cancel),
-                primary: .init(ListNameSheet.save, isEnabled: !isBlank && !isSaving, action: save)
+                primary: .init(ListNameSheet.save, isEnabled: !isBlank && !isSaving, action: save),
+                openingFocus: .firstField
             ) {
                 VStack(alignment: .leading, spacing: 6) {
                     field

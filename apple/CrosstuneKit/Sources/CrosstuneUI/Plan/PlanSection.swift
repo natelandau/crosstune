@@ -69,7 +69,7 @@ struct PlanSection: View {
         #if os(macOS)
             MacSettingsLinkRow(value: detail, hint: Self.hint, action: openPlan) {
                 if plan.kind == .premium {
-                    PremiumChip(name)
+                    Badge(name, kind: .brand)
                 } else {
                     Text(name)
                 }
@@ -82,27 +82,3 @@ struct PlanSection: View {
         #endif
     }
 }
-
-#if os(macOS)
-    /// A Premium plan's name as a small brand-colored chip, the mark of Premium.
-    struct PremiumChip: View {
-        /// Between a row chip and a standalone one, so it sits on a row's text line.
-        static let height: CGFloat = 20
-
-        private let name: String
-
-        init(_ name: String) {
-            self.name = name
-        }
-
-        var body: some View {
-            Text(name)
-                .font(MacStyle.chip)
-                .foregroundStyle(Palette.onBrand)
-                .lineLimit(1)
-                .padding(.horizontal, 8)
-                .frame(height: Self.height)
-                .background(Palette.brand, in: .capsule)
-        }
-    }
-#endif

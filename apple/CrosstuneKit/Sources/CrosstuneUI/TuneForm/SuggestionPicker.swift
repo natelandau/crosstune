@@ -23,9 +23,10 @@ struct SuggestionPicker: View {
     ///   - rowLabel: The row's visible label, for a row under a header that already carries half
     ///     the name. Defaults to `label`.
     ///   - emptyLabel: The empty choice, "Not set" unless the field names its own.
-    ///   - reportsRepicks: Writes `value` even when the choice already shown is picked again, for
-    ///     a field where picking a value is itself the musician's decision. A system picker skips
-    ///     that write, so the choices become a menu of buttons instead.
+    ///   - reportsRepicks: On iPhone and iPad, writes `value` even when the choice already shown
+    ///     is picked again, for a field where picking a value is itself the musician's decision.
+    ///     A system picker skips that write, so the choices become a menu of buttons instead. The
+    ///     Mac always draws that menu.
     init(
         _ label: String, rowLabel: String? = nil, value: Binding<String>, options: [String],
         emptyLabel: String = TuneFieldLabels.notSet, reportsRepicks: Bool = false
@@ -45,12 +46,7 @@ struct SuggestionPicker: View {
 
     var body: some View {
         #if os(macOS)
-            MacPopUp(
-                rowLabel, selection: selection, options: [Self.noneTag] + Self.choices(options, value: value),
-                label: { $0 == Self.noneTag ? emptyLabel : $0 }, reportsRepicks: reportsRepicks
-            )
-            .accessibilityLabel(label)
-            .contentMask()
+            menu
         #else
             // Outside a form a system picker shows its value without its label, so the row draws
             // its own.
@@ -75,29 +71,29 @@ struct SuggestionPicker: View {
             .accessibilityLabel(label)
             .contentMask()
         }
+    #endif
 
-        /// The same choices as a menu row, each of which writes its value whether or not it is shown.
-        private var menu: some View {
-            let current = selection.wrappedValue
-            return MenuRow(label, rowLabel: rowLabel, value: value.isEmpty ? emptyLabel : value) {
-                choice(emptyLabel, tag: Self.noneTag, current: current)
-                ForEach(Self.choices(options, value: value), id: \.self) { option in
-                    choice(option, tag: option, current: current)
-                }
+    /// The same choices as a menu row, each of which writes its value whether or not it is shown.
+    private var menu: some View {
+        let current = selection.wrappedValue
+        return MenuRow(label, rowLabel: rowLabel, value: value.isEmpty ? emptyLabel : value, isSet: !value.isEmpty) {
+            choice(emptyLabel, tag: Self.noneTag, current: current)
+            ForEach(Self.choices(options, value: value), id: \.self) { option in
+                choice(option, tag: option, current: current)
             }
         }
+    }
 
-        /// A toggle, so the menu checks the current choice; turning it off picks it again.
-        private func choice(_ title: String, tag: String, current: String) -> some View {
-            Toggle(
-                title,
-                isOn: Binding {
-                    tag == current
-                } set: { _ in
-                    selection.wrappedValue = tag
-                })
-        }
-    #endif
+    /// A toggle, so the menu checks the current choice; turning it off picks it again.
+    private func choice(_ title: String, tag: String, current: String) -> some View {
+        Toggle(
+            title,
+            isOn: Binding {
+                tag == current
+            } set: { _ in
+                selection.wrappedValue = tag
+            })
+    }
 
     private var selection: Binding<String> {
         Binding {

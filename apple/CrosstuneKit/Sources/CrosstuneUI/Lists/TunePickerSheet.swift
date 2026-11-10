@@ -85,12 +85,12 @@ private struct TunePickerContent: View {
             MacSheet(
                 title: TunePickerSheet.title, size: .picker, cancel: nil,
                 primary: .init(TunePickerSheet.done, isDefault: false) { dismiss() },
-                escape: { FilterSearchField.escape(clearing: $model.query) { dismiss() } }
+                escape: { FilterSearchField.escape(clearing: $model.query) { dismiss() } },
+                openingFocus: .firstField
             ) {
                 VStack(spacing: 0) {
                     FilterSearchField(
                         prompt: CatalogScreen.searchPrompt, query: $model.query, isFocused: $searchFocused,
-                        filterCount: nil,
                         onSubmit: submitSearch
                     )
                     .padding(.horizontal, MacStyle.sheetMargin)
@@ -100,14 +100,14 @@ private struct TunePickerContent: View {
                         LazyVStack(alignment: .leading, spacing: 2) {
                             if let failure = model.failure {
                                 FailureText(failure)
-                                    .padding(.horizontal, 8)
+                                    .padding(.horizontal, MacRowStyle.labelInset)
                             }
                             if model.isIdle {
                                 if model.showsHint {
                                     Text(TunePickerSheet.hint)
                                         .font(MacStyle.secondary)
                                         .foregroundStyle(Palette.textSecondary)
-                                        .padding(.horizontal, 8)
+                                        .padding(.horizontal, MacRowStyle.labelInset)
                                 }
                                 ForEach(model.idleResults ?? []) { macRow($0) }
                             } else if let results = model.results {
@@ -117,7 +117,7 @@ private struct TunePickerContent: View {
                                         .contentMask()
                                         .font(MacStyle.secondary)
                                         .foregroundStyle(Palette.textSecondary)
-                                        .padding(.horizontal, 8)
+                                        .padding(.horizontal, MacRowStyle.labelInset)
                                         .padding(.vertical, 4)
                                 }
                                 if let label = results.outcome.addTypedTitleLabel, let title = results.outcome.title {
@@ -130,11 +130,11 @@ private struct TunePickerContent: View {
                                                 .contentMask()
                                         }
                                     }
-                                    .buttonStyle(.macPickRow)
+                                    .buttonStyle(.macRow)
                                 }
                             }
                         }
-                        .padding(.horizontal, MacStyle.sheetMargin - 8)
+                        .padding(.horizontal, MacStyle.sheetMargin - MacRowStyle.labelInset)
                         .padding(.bottom, 12)
                     }
                     .scrollBounceBehavior(.basedOnSize)
@@ -159,8 +159,8 @@ private struct TunePickerContent: View {
                     MacPickGlyph(kind: .done)
                     TuneRow(tune: row.entry.tune, userTune: row.entry.userTune, instruments: model.instruments)
                 }
-                .padding(.horizontal, 8)
-                .frame(maxWidth: .infinity, minHeight: MacPickRowStyle.minHeight, alignment: .leading)
+                .padding(.horizontal, MacRowStyle.labelInset)
+                .frame(maxWidth: .infinity, minHeight: MacControl.rowMinHeight, alignment: .leading)
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(TunePickerSheet.takenLabel(row.entry, instruments: model.instruments))
             } else {
@@ -174,7 +174,7 @@ private struct TunePickerContent: View {
                         TuneRow(tune: row.entry.tune, userTune: row.entry.userTune, instruments: model.instruments)
                     }
                 }
-                .buttonStyle(.macPickRow)
+                .buttonStyle(.macRow)
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(row.name)
                 .accessibilityAddTraits(.isButton)

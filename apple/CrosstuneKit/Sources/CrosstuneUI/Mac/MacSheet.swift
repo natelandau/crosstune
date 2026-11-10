@@ -34,18 +34,9 @@ import CrosstuneDesign
             self.action = action
         }
 
-        /// Whether Return presses it in the primary slot.
-        var answersReturn: Bool { isDefault && !isPurchase }
-
-        /// Whether the sheet opens focused on it, so Space presses it: only an enabled default
-        /// action, never a purchase.
-        var takesDefaultFocus: Bool { answersReturn && isEnabled }
-
-        /// Where a sheet with `primary` opens its focus: on the primary when it takes it, else on
-        /// an anchor that draws nothing, so no other control opens wearing a ring.
-        static func openingFocus(primary: Self?) -> MacSheetOpeningFocus {
-            primary?.takesDefaultFocus == true ? .primary : .anchor
-        }
+        /// Whether Return presses it in the primary slot: never a purchase or a destructive
+        /// confirm.
+        var answersReturn: Bool { isDefault && !isPurchase && role != .destructiveFilled }
 
         /// Cancel or Close: a secondary button that Escape presses.
         static func cancel(_ title: String, isEnabled: Bool = true, action: @escaping @MainActor () -> Void) -> Self {
@@ -98,9 +89,11 @@ import CrosstuneDesign
         }
     }
 
-    /// Where a ``MacSheet`` opens its keyboard focus.
+    /// Where a ``MacSheet`` opens its keyboard focus. No button opens holding focus, so none opens
+    /// wearing a ring and Space presses nothing the musician did not reach.
     enum MacSheetOpeningFocus: Hashable {
-        case primary
+        /// The first text field, where the system puts focus.
+        case firstField
         /// A stop that draws nothing and VoiceOver skips; Tab moves on from it to the first
         /// control.
         case anchor
@@ -116,10 +109,9 @@ import CrosstuneDesign
         var escape: (@MainActor () -> Void)?
     }
 
-    /// Every Mac sheet's frame: an in-content title over a body on `pageBackground`, and a footer on
-    /// `surface` holding the leading slot, then Cancel, an optional secondary, and the primary
-    /// trailing. It draws no toolbar band, so it never sits in a `NavigationStack` unless the
-    /// sheet pushes. The call site keeps `.shellSheet()` on its root.
+    /// Every Mac sheet's frame: an in-content title over a body on `pageBackground`, and a
+    /// ``MacActionBar`` footer. It draws no toolbar band, so it never sits in a `NavigationStack`
+    /// unless the sheet pushes. The call site keeps `.shellSheet()` on its root.
     ///
     /// A ``MacSheetSize/fitted(max:)`` sheet scrolls its body itself and grows to fit it; at any
     /// other size the body fills the frame edge to edge and brings its own scrolling and margins,
@@ -190,14 +182,17 @@ import CrosstuneDesign
         let accessory: Accessory
         let content: Content
 
-        @FocusState private var openingFocus: MacSheetOpeningFocus?
+        /// Where focus starts. A sheet that shows a text field opens in it.
+        let openingFocus: MacSheetOpeningFocus
         /// A fitted sheet's parts as last laid out, so its frame holds its whole content.
         @State private var fitted = MacSheetFittedParts()
 
         fileprivate init(
             title: String, subtitle: String?, size: MacSheetSize, cancel: Action?, secondary: Action?, primary: Action?,
-            escape: (@MainActor () -> Void)?, style: Style, leading: Leading, accessory: Accessory, content: Content
+            escape: (@MainActor () -> Void)?, openingFocus: MacSheetOpeningFocus, style: Style, leading: Leading,
+            accessory: Accessory, content: Content
         ) {
+            self.openingFocus = openingFocus
             self.style = style
             self.title = title
             self.subtitle = subtitle
@@ -212,6 +207,7 @@ import CrosstuneDesign
         }
 
         var body: some View {
+            let fittedHeight = size.maxHeight.flatMap(fitted.height(max:))
             VStack(spacing: 0) {
                 header
                     .onGeometryChange(for: CGFloat.self, of: \.size.height) { fitted.header = $0 }
@@ -221,9 +217,15 @@ import CrosstuneDesign
                         .onGeometryChange(for: CGFloat.self, of: \.size.height) { fitted.footer = $0 }
                 }
             }
-            // A fitted sheet's window takes the height the sheet opens at and keeps it unless the
-            // frame says otherwise, so content that arrives later sets the frame.
-            .frame(height: size.maxHeight.flatMap(fitted.height(max:)))
+            // A fitted sheet's window keeps the height it opened at, so content that arrives
+            // later, such as the store's offers, sets both the frame and the window's height, or it
+            // would clip top and bottom.
+            .frame(height: fittedHeight)
+            .background {
+                if let fittedHeight {
+                    SheetWindowHeight(height: fittedHeight)
+                }
+            }
             .background(Palette.pageBackground)
             .background {
                 if let escape {
@@ -233,18 +235,8 @@ import CrosstuneDesign
                         .accessibilityHidden(true)
                 }
             }
-            .background(alignment: .topLeading) {
-                Color.clear
-                    .frame(width: 1, height: 1)
-                    .focusable()
-                    .focusEffectDisabled()
-                    .focused($openingFocus, equals: .anchor)
-                    .accessibilityHidden(true)
-            }
-            .defaultFocus($openingFocus, Action.openingFocus(primary: primary))
-            // A sheet takes its presenter's environment, so one opened from a card would draw its
-            // controls for the card's surface; the footer marks its own.
-            .environment(\.macContainer, .pageBackground)
+            .macOpensUnfocused(openingFocus == .anchor)
+            .resetsSurfaceEnvironment()
             .macSheetFrame(size)
         }
 
@@ -329,31 +321,19 @@ import CrosstuneDesign
 
         private var footer: some View {
             let keys = Action.keyboardRoles(cancel: cancel, primary: primary, ownEscape: escape != nil)
-            return HStack(spacing: 8) {
+            return MacActionBar(
+                cancel: cancel.map { Self.item($0, key: keys.cancel) },
+                secondary: secondary.map { Self.item($0, key: nil) },
+                primary: primary.map { Self.item($0, key: keys.primary) }
+            ) {
                 leading
-                Spacer(minLength: 12)
-                if let cancel { button(cancel, key: keys.cancel) }
-                if let secondary { button(secondary, key: nil) }
-                if let primary {
-                    button(primary, key: keys.primary)
-                        .focused($openingFocus, equals: .primary)
-                }
-            }
-            .padding(.horizontal, MacStyle.sheetMargin)
-            .padding(.vertical, 12)
-            .frame(maxWidth: .infinity)
-            .background(Palette.surface)
-            .macSurfaceContainer()
-            .overlay(alignment: .top) {
-                Rectangle().fill(Palette.border).frame(height: 1)
             }
         }
 
-        private func button(_ action: Action, key: Action.KeyRole?) -> some View {
-            Button(action.title, action: action.action)
-                .buttonStyle(.mac(action.role))
-                .disabled(!action.isEnabled)
-                .keyboardShortcut(key?.shortcut)
+        private static func item(_ action: Action, key: Action.KeyRole?) -> MacActionBar<Leading>.Item {
+            .init(
+                action.title, role: action.role, isEnabled: action.isEnabled, shortcut: key?.shortcut,
+                action: action.action)
         }
     }
 
@@ -361,11 +341,13 @@ import CrosstuneDesign
         init(
             title: String, subtitle: String? = nil, style: Style = .sheet, size: MacSheetSize, cancel: Action?,
             secondary: Action? = nil, primary: Action?, escape: (@MainActor () -> Void)? = nil,
+            openingFocus: MacSheetOpeningFocus = .anchor,
             @ViewBuilder leading: () -> Leading, @ViewBuilder content: () -> Content
         ) {
             self.init(
                 title: title, subtitle: subtitle, size: size, cancel: cancel, secondary: secondary, primary: primary,
-                escape: escape, style: style, leading: leading(), accessory: EmptyView(), content: content())
+                escape: escape, openingFocus: openingFocus, style: style, leading: leading(), accessory: EmptyView(),
+                content: content())
         }
     }
 
@@ -374,12 +356,14 @@ import CrosstuneDesign
         /// body comes first, so its trailing closures never read as a leading slot's.
         init(
             title: String, subtitle: String? = nil, size: MacSheetSize, cancel: Action?, secondary: Action? = nil,
-            primary: Action?, escape: (@MainActor () -> Void)? = nil, @ViewBuilder content: () -> Content,
+            primary: Action?, escape: (@MainActor () -> Void)? = nil,
+            openingFocus: MacSheetOpeningFocus = .anchor, @ViewBuilder content: () -> Content,
             @ViewBuilder accessory: () -> Accessory
         ) {
             self.init(
                 title: title, subtitle: subtitle, size: size, cancel: cancel, secondary: secondary, primary: primary,
-                escape: escape, style: .sheet, leading: EmptyView(), accessory: accessory(), content: content())
+                escape: escape, openingFocus: openingFocus, style: .sheet, leading: EmptyView(), accessory: accessory(),
+                content: content())
         }
 
         /// A reading sheet, such as the lyrics or the scans: `title` is user content, drawn as a
@@ -387,11 +371,13 @@ import CrosstuneDesign
         init(
             reading title: String, subtitle: String? = nil, size: MacSheetSize,
             cancel: Action? = nil, primary: Action? = nil, escape: (@MainActor () -> Void)? = nil,
+            openingFocus: MacSheetOpeningFocus = .anchor,
             @ViewBuilder accessory: () -> Accessory, @ViewBuilder content: () -> Content
         ) {
             self.init(
                 title: title, subtitle: subtitle, size: size, cancel: cancel, secondary: nil, primary: primary,
-                escape: escape, style: .reading, leading: EmptyView(), accessory: accessory(), content: content())
+                escape: escape, openingFocus: openingFocus, style: .reading, leading: EmptyView(),
+                accessory: accessory(), content: content())
         }
     }
 
@@ -399,11 +385,13 @@ import CrosstuneDesign
         init(
             title: String, subtitle: String? = nil, style: Style = .sheet, size: MacSheetSize, cancel: Action?,
             secondary: Action? = nil, primary: Action?, escape: (@MainActor () -> Void)? = nil,
+            openingFocus: MacSheetOpeningFocus = .anchor,
             @ViewBuilder content: () -> Content
         ) {
             self.init(
                 title: title, subtitle: subtitle, size: size, cancel: cancel, secondary: secondary, primary: primary,
-                escape: escape, style: style, leading: EmptyView(), accessory: EmptyView(), content: content())
+                escape: escape, openingFocus: openingFocus, style: style, leading: EmptyView(), accessory: EmptyView(),
+                content: content())
         }
     }
 
@@ -427,6 +415,38 @@ import CrosstuneDesign
                     .font(.system(size: MacStyle.sheetTitleSize, weight: .semibold))
                     .foregroundStyle(Palette.danger)
             }
+        }
+    }
+
+    /// Sizes the window it sits in to `height` of content, keeping its width.
+    private struct SheetWindowHeight: NSViewRepresentable {
+        let height: CGFloat
+
+        func makeNSView(context: Context) -> SheetWindowHeightView { SheetWindowHeightView() }
+
+        func updateNSView(_ view: SheetWindowHeightView, context: Context) {
+            view.height = height
+        }
+    }
+
+    private final class SheetWindowHeightView: NSView {
+        var height: CGFloat = 0 {
+            didSet { if height != oldValue { resizeWindow() } }
+        }
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            resizeWindow()
+        }
+
+        private func resizeWindow() {
+            guard let window, height > 0 else { return }
+            let layout = window.contentLayoutRect.size
+            guard abs(layout.height - height) >= 1 else { return }
+            // A title bar over a full-size content view is part of the content size but not of the
+            // layout area the sheet fills.
+            let content = window.contentView?.frame.size ?? layout
+            window.setContentSize(CGSize(width: content.width, height: height + content.height - layout.height))
         }
     }
 #endif
