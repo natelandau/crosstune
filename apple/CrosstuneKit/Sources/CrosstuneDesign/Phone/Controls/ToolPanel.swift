@@ -178,6 +178,8 @@ package struct ToolPanel<Value: Hashable, Content: View, Between: View>: View {
             let leaves = Self.focusLeaves(availability: isAvailable, open: open, focused: focusedTool)
             let after = Self.openAfter(availability: isAvailable, open: open)
             if after != open { closesHere = true }
+            // A disabled tool never takes focus back from Escape.
+            if !isAvailable { focusReturnsTo = nil }
             open = after
             if leaves { focusOutside() }
         }
