@@ -6,7 +6,7 @@ import Testing
 
 @testable import CrosstuneUI
 
-@Suite struct AttributeRowsTests {
+struct AttributeRowsTests {
     private func detail(
         _ tune: Tune = Tune(createdAt: noon, title: "Test"), status: String = "learning",
         learnedFrom: String? = nil, learnedOn: String? = nil, instruments: Set<String> = ["violin"]

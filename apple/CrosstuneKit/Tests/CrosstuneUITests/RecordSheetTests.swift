@@ -14,7 +14,7 @@ import Testing
 @testable import CrosstuneRecording
 @testable import CrosstuneUI
 
-@Suite struct WaveformBarsTests {
+struct WaveformBarsTests {
     private let step = WaveformBars.step
 
     @Test func fitsOneBarPerStepAcrossTheWidth() {
@@ -82,7 +82,7 @@ import Testing
     }
 }
 
-@Suite struct WaveformFeedTests {
+struct WaveformFeedTests {
     private let frame = 1 / WaveformFeed.rate
 
     @Test func drawsLevelsAtTheRateTheyWereMeasured() {
@@ -191,7 +191,7 @@ final class ToneInput: AudioInput {
 }
 
 @MainActor
-@Suite struct RecordSheetFilingTests {
+struct RecordSheetFilingTests {
     @Test func filingLineNamesTheTune() {
         #expect(RecordSheet.filingUnder("Soldier's Joy") == "Filing under Soldier's Joy")
     }
@@ -270,7 +270,7 @@ final class ToneInput: AudioInput {
 }
 
 @MainActor
-@Suite struct RecordSheetModelTests {
+struct RecordSheetModelTests {
     private let root = TemporaryRoot()
     private let input = ToneInput()
     private let store: CrosstuneStore
@@ -518,7 +518,7 @@ final class AccessManager: LocationManaging {
 }
 
 @MainActor
-@Suite struct RecordSheetLocationNoteTests {
+struct RecordSheetLocationNoteTests {
     private let root = TemporaryRoot()
     private let input = ToneInput()
     private let store: CrosstuneStore
@@ -693,7 +693,7 @@ actor ReadCount {
 }
 
 @MainActor
-@Suite struct RecorderHostTests {
+struct RecorderHostTests {
     private let root = TemporaryRoot()
 
     @Test func sharesOneRecorderPerStore() throws {
@@ -741,7 +741,7 @@ actor ReadCount {
 }
 
 #if os(macOS)
-    @Suite struct RecordSheetMacTests {
+    struct RecordSheetMacTests {
         /// Glass tinted red draws gray in a sheet, so the Mac's Stop is a solid red circle.
         @Test func stopIsAlwaysRecordingRedOnTheMac() throws {
             let file = SourceScan.url(of: "Recording/RecordSheet.swift")

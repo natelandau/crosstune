@@ -11,7 +11,7 @@ import Testing
 #endif
 
 @MainActor
-@Suite struct PaletteTests {
+struct PaletteTests {
     /// The system draws a swipe action's label white, so every swipe fill holds 4.5:1 under it.
     @Test(arguments: [ColorScheme.light, .dark])
     func whiteSwipeLabelPassesContrastOnEverySwipeFill(scheme: ColorScheme) {

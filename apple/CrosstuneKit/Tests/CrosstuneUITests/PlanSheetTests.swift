@@ -18,7 +18,7 @@ private let instant = noon.date
 private let portal = URL(string: "https://billing.example.com/portal")!
 
 @MainActor
-@Suite struct PlanSheetTests {
+struct PlanSheetTests {
     private let root = TemporaryRoot()
     private let sink = RecordingAnalyticsSink()
 
@@ -523,7 +523,7 @@ private let portal = URL(string: "https://billing.example.com/portal")!
 
 #if os(macOS)
     @MainActor
-    @Suite struct MacPlanFooterTests {
+    struct MacPlanFooterTests {
         @Test func subscribeTrailsCloseAndIsNeverDefault() {
             let footer = PlanSheet.macFooter(.choice(offers), isWorking: false, close: {}, subscribe: {})
             #expect(footer.cancel?.title == SheetCloseButton.close)

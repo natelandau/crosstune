@@ -3,7 +3,7 @@ import Testing
 
 @testable import CrosstuneUI
 
-@Suite struct ResolvedCacheTests {
+struct ResolvedCacheTests {
     private final class Counter {
         var made = 0
     }

@@ -102,7 +102,7 @@ private func column(_ name: String, sourceLocation: SourceLocation = #_sourceLoc
     try #require(tunesHeader.firstIndex(of: name), sourceLocation: sourceLocation)
 }
 
-@Suite struct DecimalTextTests {
+struct DecimalTextTests {
     @Test(arguments: [
         (36.661_234_567, "36.661234567"), (-80.923_912_345, "-80.923912345"), (36, "36"), (-0.0, "0"),
         (0.000_012, "0.000012"), (-1.5e-7, "-0.00000015"), (1e21, "1000000000000000000000"),
@@ -112,7 +112,7 @@ private func column(_ name: String, sourceLocation: SourceLocation = #_sourceLoc
     }
 }
 
-@Suite struct BuildExportTests {
+struct BuildExportTests {
     @Test func matchesTheGoldenFixtureByteForByte() throws {
         let plan = buildExport(try fixtureInput())
         #expect(Array(plan.tunesCSV.utf8) == (try fixtureBytes("tunes.csv")))

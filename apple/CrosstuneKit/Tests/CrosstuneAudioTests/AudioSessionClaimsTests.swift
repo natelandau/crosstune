@@ -2,7 +2,7 @@ import Testing
 
 @testable import CrosstuneAudio
 
-@Suite struct AudioSessionClaimsTests {
+struct AudioSessionClaimsTests {
     private let claims = AudioSessionClaims()
     private let tuner = AudioSessionOwner()
     private let recorder = AudioSessionOwner()

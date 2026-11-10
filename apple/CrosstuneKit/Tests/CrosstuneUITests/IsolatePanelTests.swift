@@ -5,7 +5,7 @@
 
     @testable import CrosstuneUI
 
-    @MainActor @Suite struct IsolatePanelTests {
+    @MainActor struct IsolatePanelTests {
         private func height(isAvailable: Bool) -> CGFloat {
             let panel = IsolatePanel(
                 value: .standard, isMono: false, isAvailable: isAvailable, outline: { nil }, isLive: false,

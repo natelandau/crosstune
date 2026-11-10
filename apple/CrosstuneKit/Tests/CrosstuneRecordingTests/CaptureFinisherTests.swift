@@ -27,7 +27,7 @@ private func beginTone(
     return id
 }
 
-@Suite struct CaptureFinisherTests {
+struct CaptureFinisherTests {
     @Test func finishingExportsAnM4AAndWritesTheRecordingAndItsFile() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -118,7 +118,7 @@ private func beginTone(
     }
 }
 
-@Suite struct CaptureRecoveryTests {
+struct CaptureRecoveryTests {
     @Test func aCaptureCutShortIsFinishedUnderItsTuneAndStart() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -260,7 +260,7 @@ private func beginTone(
     }
 }
 
-@Suite struct CaptureRecoveryCutoffTests {
+struct CaptureRecoveryCutoffTests {
     @Test func aCaptureBegunAfterRecoveryStartedIsLeftAlone() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -273,7 +273,7 @@ private func beginTone(
     }
 }
 
-@Suite struct CaptureRecoveryFailureTests {
+struct CaptureRecoveryFailureTests {
     @Test func anUnreadableCaptureStaysAndDoesNotBlockTheOthers() async throws {
         let root = TemporaryRoot()
         let store = try root.open()

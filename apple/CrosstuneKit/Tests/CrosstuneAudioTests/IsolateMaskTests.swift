@@ -88,7 +88,7 @@ private func mask(
     return mask
 }
 
-@Suite struct IsolateMaskTests {
+struct IsolateMaskTests {
     @Test func binGainMatchesEveryParityCase() throws {
         let cases = try JSONDecoder().decode([GainCase].self, from: Data(contentsOf: gainCasesURL))
         #expect(cases.isEmpty == false)

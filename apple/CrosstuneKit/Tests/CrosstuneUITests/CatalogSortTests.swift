@@ -22,7 +22,7 @@ private func choice(_ sort: CatalogSort, _ descending: Bool) -> CatalogSortChoic
     CatalogSortChoice(sort: sort, descending: descending)
 }
 
-@Suite struct CatalogSortChoiceTests {
+struct CatalogSortChoiceTests {
     @Test func offersTitleThenTheThreeDatesWithTitleCheckedAToZ() {
         let items = SortChoices<CatalogSort>.items(for: .default)
         #expect(items.map(\.label) == ["Title", "Date added", "Date modified", "Last played"])
@@ -49,7 +49,7 @@ private func choice(_ sort: CatalogSort, _ descending: Bool) -> CatalogSortChoic
     }
 }
 
-@Suite struct CatalogSortingTests {
+struct CatalogSortingTests {
     private let none: [String: Timestamp] = [:]
 
     @Test func sortsByTitleIgnoringCaseAndAccentsAndReversesForZToA() {
@@ -155,7 +155,7 @@ private func choice(_ sort: CatalogSort, _ descending: Bool) -> CatalogSortChoic
 }
 
 @MainActor
-@Suite struct CatalogModelSortTests {
+struct CatalogModelSortTests {
     @Test func ordersByTitleUntilAnotherSortIsChosen() async throws {
         let root = TemporaryRoot()
         let model = CatalogModel(store: try await SampleCatalog.copiedStore(root: root.url))

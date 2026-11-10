@@ -27,7 +27,7 @@ private let plainListCases: [PlainListCase] =
 /// A string's scalars, since `==` on `String` calls canonically equivalent spellings equal.
 private func scalars(_ text: String) -> [UInt32] { text.unicodeScalars.map(\.value) }
 
-@Suite struct PlainListReaderTests {
+struct PlainListReaderTests {
     @Test func findsTheSharedFixture() {
         #expect(plainListCases.count >= 18)
     }

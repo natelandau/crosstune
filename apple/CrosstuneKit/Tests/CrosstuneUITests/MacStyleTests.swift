@@ -7,7 +7,7 @@
     @testable import CrosstuneUI
 
     @MainActor
-    @Suite struct MacStyleTests {
+    struct MacStyleTests {
         /// `color` as `#rrggbb` once drawn in `scheme`.
         private func resolved(_ color: Color, in scheme: ColorScheme) -> String? {
             var hex: String?

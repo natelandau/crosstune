@@ -55,7 +55,7 @@ private final class Writes {
 }
 
 @MainActor
-@Suite struct RecordingScreenTests {
+struct RecordingScreenTests {
     private let audio = FakeAudio()
     private let writes = Writes()
     private let monos = MonoWrites()
@@ -717,7 +717,7 @@ private final class Writes {
     }
 }
 
-@Suite struct ShownPeaksGridTests {
+struct ShownPeaksGridTests {
     @Test func aGridBarTakesTheLoudestPointItCoversWhereverTheGridStarts() throws {
         let values = (0..<200).map { UInt8($0 % 256) }
         // The trim keeps points 50 to 149, the loudest point in the file is 199.

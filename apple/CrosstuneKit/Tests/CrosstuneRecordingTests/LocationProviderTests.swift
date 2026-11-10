@@ -54,7 +54,7 @@ final class HeldSleep {
 }
 
 @MainActor
-@Suite struct LocationProviderTests {
+struct LocationProviderTests {
     let clock = HeldSleep()
     let now = Date(timeIntervalSince1970: 1_800_000_000)
 
@@ -323,7 +323,7 @@ final class HeldSleep {
 }
 
 @MainActor
-@Suite struct LocationAccessTests {
+struct LocationAccessTests {
     @Test(arguments: [
         (CLAuthorizationStatus.notDetermined, LocationAccess.Status.notDetermined),
         (.denied, .off), (.restricted, .off), (.authorizedAlways, .allowed),

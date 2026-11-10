@@ -85,7 +85,7 @@ private func sine(_ frequency: Double, seconds: Double, sampleRate: Double) -> [
 
 extension Tuner {
     @MainActor
-    @Suite struct TunerInputTests {
+    struct TunerInputTests {
         private let registry = TunerRegistry(claims: AudioSessionClaims())
         private let engine: FakeTunerEngine
         private let heard = Heard()
@@ -277,7 +277,7 @@ extension Tuner {
         }
     }
 
-    @Suite struct TunerTapTests {
+    struct TunerTapTests {
         private let sampleRate = 48_000.0
         private let frames = 1024
 
@@ -335,7 +335,7 @@ extension Tuner {
         func tearDown() { steps.withLock { $0.append("tearDown") } }
     }
 
-    @Suite struct TunerRunnerTests {
+    struct TunerRunnerTests {
         private let claims = AudioSessionClaims()
         private let session = FakeSession()
         private let player = AudioSessionOwner()

@@ -22,7 +22,7 @@ private func row(
         trialEndSeenAt: trialEndSeenAt)
 }
 
-@Suite struct PlanFromTests {
+struct PlanFromTests {
     @Test func carriesAutoRenewsForAPremiumRowOnly() {
         #expect(Plan.from(row(source: "apple", expiresAt: at(day), autoRenews: true), now: now).autoRenews)
         #expect(Plan.from(row(source: "apple", expiresAt: at(day), autoRenews: false), now: now).autoRenews == false)
@@ -94,7 +94,7 @@ private func row(
     }
 }
 
-@Suite struct DueNoticeTests {
+struct DueNoticeTests {
     @Test func isTrialEndedForAFreeAccountWhoseTrialHasEndedAndWasNotSeen() {
         #expect(PlanRules.dueNotice(row(trialEndsAt: at(-1)), now: now, holdsRecordings: false) == .trialEnded)
         let seen = row(trialEndsAt: at(-1), trialEndSeenAt: at(-0.5))
@@ -156,7 +156,7 @@ private func row(
     }
 }
 
-@Suite struct NextChangeTests {
+struct NextChangeTests {
     @Test func isNilWithNoRowACompOrNothingAhead() {
         #expect(PlanRules.nextChange(nil, now: now) == nil)
         #expect(PlanRules.nextChange(row(source: "comp"), now: now) == nil)
@@ -191,7 +191,7 @@ private func row(
     }
 }
 
-@Suite struct CurrentEntitlementTests {
+struct CurrentEntitlementTests {
     @Test func readsTheLiveRowAndIgnoresADeletedOne() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -210,7 +210,7 @@ private func row(
     }
 }
 
-@Suite struct PlanCanSubscribeTests {
+struct PlanCanSubscribeTests {
     @Test func isTrueForFreeAndForATrial() {
         #expect(Plan(kind: .free).canSubscribe)
         #expect(Plan(kind: .premium, source: .trial).canSubscribe)
@@ -225,7 +225,7 @@ private func row(
     }
 }
 
-@Suite struct PlanIsTrialTests {
+struct PlanIsTrialTests {
     @Test func isTrueOnlyForAPremiumTrial() {
         #expect(Plan(kind: .premium, source: .trial).isTrial)
         #expect(Plan(kind: .premium, source: .apple).isTrial == false)
@@ -237,7 +237,7 @@ private func row(
     }
 }
 
-@Suite struct PaidSourcesTests {
+struct PaidSourcesTests {
     private func comp(over grants: [PaidGrant]) -> Entitlement {
         var entitlement = row(source: "comp")
         entitlement.paidGrants = grants

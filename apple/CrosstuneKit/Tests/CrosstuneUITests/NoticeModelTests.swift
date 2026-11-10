@@ -12,7 +12,7 @@ import Testing
 private let day: TimeInterval = 86_400
 
 @MainActor
-@Suite struct NoticeModelTests {
+struct NoticeModelTests {
     private let root = TemporaryRoot()
     private let sink = RecordingAnalyticsSink()
     private let clock = PlanClock()
@@ -549,7 +549,7 @@ private let day: TimeInterval = 86_400
 
 #if os(macOS)
     @MainActor
-    @Suite struct MacNoticeFooterTests {
+    struct MacNoticeFooterTests {
         @Test func firstRecordingNoticeDefaultsToOK() {
             let footer = NoticeSheet.macFirstRecordingFooter(onClose: {}, onSeePlan: {})
             #expect(footer.cancel == nil)

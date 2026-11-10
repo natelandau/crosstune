@@ -8,7 +8,7 @@ import Testing
 
 @testable import CrosstuneUI
 
-@Suite struct SettingsCategoryTests {
+struct SettingsCategoryTests {
     @Test func rootListsSubjectsInOrder() {
         #expect(
             SettingsCategory.allCases == [
@@ -124,7 +124,7 @@ import Testing
     }
 }
 
-@Suite struct SettingsModelAnalyticsTests {
+struct SettingsModelAnalyticsTests {
     /// A settings model built without the environment's client sends no `settingChanged`, so
     /// the same toggle would report in one place and not another.
     @Test func everySettingsModelReportsToTheEnvironmentsClient() throws {

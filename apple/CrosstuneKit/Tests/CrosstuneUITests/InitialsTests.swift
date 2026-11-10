@@ -2,7 +2,7 @@ import Testing
 
 @testable import CrosstuneUI
 
-@Suite struct InitialsTests {
+struct InitialsTests {
     @Test(arguments: [("Ada Lovelace", "AL"), ("Cher", "C"), ("  mary  ann  smith ", "MS")])
     func readsTheFirstAndLastWords(name: String, expected: String) {
         #expect(initials(from: name) == expected)

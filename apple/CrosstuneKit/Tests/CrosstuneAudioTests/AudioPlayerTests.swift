@@ -8,7 +8,7 @@ import Testing
 
 @testable import CrosstuneAudio
 
-@Suite struct PlaybackPositionTests {
+struct PlaybackPositionTests {
     @Test func keepsAPositionWithinTheAudio() {
         #expect(clampedPosition(-4, duration: 10) == 0)
         #expect(clampedPosition(4, duration: 10) == 4)
@@ -17,7 +17,7 @@ import Testing
     }
 }
 
-@Suite struct OutputPortTests {
+struct OutputPortTests {
     private let speaker = OutputPort(type: "Speaker", uid: "Built-In Speaker")
     private let headphones = OutputPort(type: "Headphones", uid: "Wired Headphones")
     private let airPlay = OutputPort(type: "AirPlay", uid: "Kitchen")
@@ -37,7 +37,7 @@ import Testing
 }
 
 @MainActor
-@Suite struct AudioPlayerTests {
+struct AudioPlayerTests {
     @Test func loadsAFileAndLearnsItsLengthThenLetsItGo() async throws {
         let root = TemporaryRoot()
         try FileManager.default.createDirectory(at: root.url, withIntermediateDirectories: true)

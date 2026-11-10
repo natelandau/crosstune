@@ -59,7 +59,7 @@ private func row(_ id: Int, warnings: [ImportWarning] = []) -> ImportRow {
         id: id, title: "Tune \(id)", source: "Tune \(id)", duplicate: false, included: true, warnings: warnings)
 }
 
-@Suite struct ImportReviewTests {
+struct ImportReviewTests {
     @Test func findsTheSharedFixture() {
         #expect(reviewCases.count >= 7)
     }
@@ -104,7 +104,7 @@ private func row(_ id: Int, warnings: [ImportWarning] = []) -> ImportRow {
     }
 }
 
-@Suite struct ImportReviewHelpTests {
+struct ImportReviewHelpTests {
     @Test func aWarningSuggestsHelp() {
         #expect(review([row(0), row(1, warnings: [.shortened])]).suggestsHelp)
     }
@@ -126,7 +126,7 @@ private func row(_ id: Int, warnings: [ImportWarning] = []) -> ImportRow {
     }
 }
 
-@Suite struct ImportDuplicateTests {
+struct ImportDuplicateTests {
     let catalog = foldedTitles([Tune(title: "F\u{EA}te")])
 
     @Test func followsAnEditedTitle() {

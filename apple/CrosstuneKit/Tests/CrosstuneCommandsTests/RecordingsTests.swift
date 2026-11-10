@@ -6,7 +6,7 @@ import Testing
 
 @testable import CrosstuneCommands
 
-@Suite struct DefaultRecordingLabelTests {
+struct DefaultRecordingLabelTests {
     @Test func namesARecordingForItsLocalStartTimeToTheMinute() throws {
         let denver = try #require(TimeZone(identifier: "America/Denver"))
         var calendar = Calendar(identifier: .gregorian)
@@ -25,7 +25,7 @@ import Testing
     }
 }
 
-@Suite struct UpdateRecordingTests {
+struct UpdateRecordingTests {
     @Test func updatesLabelAndTuneAndQueuesTheRow() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -254,7 +254,7 @@ import Testing
     }
 }
 
-@Suite struct DeleteRecordingTests {
+struct DeleteRecordingTests {
     @Test func deletesWithATombstoneAndDropsTheLocalFile() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -290,7 +290,7 @@ import Testing
     }
 }
 
-@Suite struct ActiveRecordingsForTuneTests {
+struct ActiveRecordingsForTuneTests {
     @Test func returnsALivesTunesRecordingsInPositionOrderOnly() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -309,7 +309,7 @@ import Testing
     }
 }
 
-@Suite struct CaptureCommandsTests {
+struct CaptureCommandsTests {
     @Test func beginningACaptureWritesOnlyTheLocalFileRow() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -567,7 +567,7 @@ import Testing
     }
 }
 
-@Suite struct RecordingDateTests {
+struct RecordingDateTests {
     private func capturedRecording(_ store: CrosstuneStore) async throws -> String {
         let commands = Commands(store: store)
         try await commands.beginCapture("r1", fileName: "r1.aac", tuneID: nil, recordedAt: noon)
@@ -713,7 +713,7 @@ import Testing
     }
 }
 
-@Suite struct DeletingAudioTests {
+struct DeletingAudioTests {
     /// A finished recording under `tuneID` with a file of audio in the user's folder.
     private func recordingWithAudio(_ store: CrosstuneStore, tuneID: String?) async throws -> URL {
         let commands = Commands(store: store)
@@ -792,7 +792,7 @@ import Testing
     }
 }
 
-@Suite struct DownloadedAudioTests {
+struct DownloadedAudioTests {
     let root = TemporaryRoot()
     let store: CrosstuneStore
 

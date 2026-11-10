@@ -24,7 +24,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     return CatalogEntry(tune: entry.tune, userTune: entry.userTune)
 }
 
-@Suite struct ListMoveTests {
+struct ListMoveTests {
     private let ids = ["a", "b", "c", "d", "e"]
 
     @Test func sendsARowAfterATargetBelowAndBeforeATargetAbove() {
@@ -81,7 +81,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 }
 
-@Suite struct PendingMovesTests {
+struct PendingMovesTests {
     private let stored = ["a", "b", "c", "d"]
 
     @Test func showsAMoveAtOnceWhileItIsWritten() throws {
@@ -147,7 +147,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 }
 
-@Suite struct ListSummaryTests {
+struct ListSummaryTests {
     private let root = TemporaryRoot()
 
     @Test func countsLiveItemsAndDatesTheListByItsNewestEdit() async throws {
@@ -184,7 +184,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 }
 
-@Suite @MainActor struct ListModelTests {
+@MainActor struct ListModelTests {
     private let root = TemporaryRoot()
 
     private func model(
@@ -296,7 +296,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 }
 
-@Suite @MainActor struct TunePickerModelTests {
+@MainActor struct TunePickerModelTests {
     private let root = TemporaryRoot()
 
     private func picker(
@@ -469,7 +469,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 }
 
-@Suite @MainActor struct ListPickerModelTests {
+@MainActor struct ListPickerModelTests {
     private let root = TemporaryRoot()
 
     private func picker(
@@ -572,7 +572,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 }
 
-@Suite @MainActor struct ListNameModelTests {
+@MainActor struct ListNameModelTests {
     private let root = TemporaryRoot()
 
     @Test func createsAListWithATrimmedName() async throws {
@@ -608,7 +608,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 }
 
-@Suite struct ListRowPlayTests {
+struct ListRowPlayTests {
     private let root = TemporaryRoot()
     private let now = SampleCatalog.now
 
@@ -798,7 +798,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 }
 
-@Suite struct PlaylistRecordingsTests {
+struct PlaylistRecordingsTests {
     private func recording(_ id: String, state: String = "ready") -> Recording {
         Recording(id: id, tuneID: "t", source: "microphone", addedAt: noon, state: state)
     }
@@ -836,7 +836,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 }
 
-@Suite struct ListPlayTextTests {
+struct ListPlayTextTests {
     @Test func countsTheTunesThatWillPlay() {
         #expect(ListPlayText.count(playable: 14, total: 20) == "14 of 20 tunes will play")
     }
@@ -849,7 +849,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 }
 
-@Suite struct ListPlayOfferTests {
+struct ListPlayOfferTests {
     private func offer(
         report: PlaylistReport = PlaylistReport(playable: ["a"], total: 1), canStart: Bool = true,
         playing: ListPlayAvailability.Playing? = nil
@@ -903,7 +903,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 }
 
-@Suite struct ListRowTapTests {
+struct ListRowTapTests {
     @Test func jumpsWithinThePlayingListAndPlaysAloneOtherwise() {
         #expect(ListRowPlay.tap(listPlaying: true) == .jump)
         #expect(ListRowPlay.tap(listPlaying: false) == .single)
@@ -928,7 +928,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
 }
 
 @MainActor
-@Suite struct PlaylistResolverTests {
+struct PlaylistResolverTests {
     private let root = TemporaryRoot()
     private let session = "sample_list_session"
 
@@ -1037,7 +1037,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 }
 
-@Suite struct ListsPlayabilityTests {
+struct ListsPlayabilityTests {
     private let root = TemporaryRoot()
 
     private func reports(
@@ -1095,7 +1095,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
 #if os(macOS)
     import SwiftUI
 
-    @Suite struct MacListColumnTests {
+    struct MacListColumnTests {
         /// The playing row takes the subtle tint, lighter than a selection's, so it reads as
         /// marked rather than chosen.
         @Test func playingRowTintIsALightAccent() {
@@ -1109,7 +1109,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
 #endif
 
 @MainActor
-@Suite struct ListRowLayoutTests {
+struct ListRowLayoutTests {
     private let tune = Tune(createdAt: noon, title: "Soldier's Joy", key: "D")
     private var userTune: UserTune { UserTune(createdAt: noon, tuneID: tune.id, status: "learning") }
 
@@ -1212,7 +1212,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     #endif
 }
 
-@Suite struct ListsScreenRowTests {
+struct ListsScreenRowTests {
     @Test func listsScreenRowsHaveNoChevronOrSeparator() throws {
         let source = SourceScan.withoutComments(try SourceScan.text(at: SourceScan.url(of: "Lists/ListsScreen.swift")))
         #expect(source.contains("NavigationLink") == false)

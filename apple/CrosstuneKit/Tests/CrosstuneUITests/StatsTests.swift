@@ -137,7 +137,7 @@ private func loadedSummary(_ store: CrosstuneStore, sourceLocation: SourceLocati
 }
 
 @MainActor
-@Suite struct StatsTests {
+struct StatsTests {
     @Test func summaryRowShowsCountsAndTime() async throws {
         let root = TemporaryRoot()
         let store = try root.open()

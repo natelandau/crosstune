@@ -57,7 +57,7 @@ private let appleTrack = result("https://music.apple.com/us/album/soldiers-joy/1
 private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-joy/1?i=3", title: "Soldier's Joy 2")
 
 @MainActor
-@Suite struct FindRecordingsModelTests {
+struct FindRecordingsModelTests {
     private let root = TemporaryRoot()
 
     /// Waits until the model has acted on the store's answer and any search that started has

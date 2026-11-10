@@ -4,7 +4,7 @@
 
     @testable import CrosstuneUI
 
-    @Suite struct MacTypeTests {
+    struct MacTypeTests {
         /// Files, and folders ending in `/`, that only the iPhone and iPad drawing reaches. Each is
         /// checked against its use, since a file with no `#if` is compiled for the Mac too.
         static let iOSOnly = [

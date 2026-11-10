@@ -10,7 +10,7 @@ import Testing
 /// Each row of a recording's page edits its own field: an editor saves on every dismissal but
 /// Escape, and each save is one write that reports the change once it lands.
 @MainActor
-@Suite struct RecordingEditorsTests {
+struct RecordingEditorsTests {
     private let root = TemporaryRoot()
     private let sink = RecordingAnalyticsSink()
 

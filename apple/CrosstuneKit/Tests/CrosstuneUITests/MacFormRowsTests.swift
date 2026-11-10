@@ -21,7 +21,7 @@
         }
     }
 
-    @MainActor @Suite struct MacFormRowsTests {
+    @MainActor struct MacFormRowsTests {
         private func edges(_ rows: (LeadingEdges) -> some View) -> [String: CGFloat] {
             let box = LeadingEdges()
             let root = MacFormSection { rows(box) }

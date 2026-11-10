@@ -76,7 +76,7 @@ private func stored(_ store: CrosstuneStore, _ id: String = "r1", sourceLocation
 }
 
 @MainActor
-@Suite struct LocationEditorTests {
+struct LocationEditorTests {
     private let root = TemporaryRoot()
 
     @Test func theEditorOpensOnTheStoredRecordingAndNotOnAGoneOne() async throws {
@@ -639,7 +639,7 @@ private func stored(_ store: CrosstuneStore, _ id: String = "r1", sourceLocation
     }
 }
 
-@Suite struct LocationNameEndTests {
+struct LocationNameEndTests {
     @Test func everyEndButEscapeCommitsATypedName() {
         #expect(LocationNameEnd.result(.commit, draft: " Kitchen ", stored: nil) == "Kitchen")
         #expect(LocationNameEnd.result(.commit, draft: "Barn", stored: "Kitchen") == "Barn")
@@ -661,7 +661,7 @@ private func stored(_ store: CrosstuneStore, _ id: String = "r1", sourceLocation
     }
 }
 
-@Suite struct SearchHintTests {
+struct SearchHintTests {
     private let recorded = Coordinate(lat: 1, lon: 1)
     private let device = Coordinate(lat: 2, lon: 2, accuracyM: 10)
     private let latest = Coordinate(lat: 3, lon: 3)
@@ -691,7 +691,7 @@ private func stored(_ store: CrosstuneStore, _ id: String = "r1", sourceLocation
     }
 }
 
-@Suite struct DistanceTextTests {
+struct DistanceTextTests {
     private let us = Locale(identifier: "en_US")
     private let france = Locale(identifier: "fr_FR")
 
@@ -736,7 +736,7 @@ private func stored(_ store: CrosstuneStore, _ id: String = "r1", sourceLocation
 }
 
 @MainActor
-@Suite struct LocationEditorPickTests {
+struct LocationEditorPickTests {
     private let root = TemporaryRoot()
 
     @Test func listsTheRecentPlacesUntilTextIsTyped() async throws {
@@ -863,7 +863,7 @@ private func stored(_ store: CrosstuneStore, _ id: String = "r1", sourceLocation
 }
 
 @MainActor
-@Suite struct LocationEditorPlaceTests {
+struct LocationEditorPlaceTests {
     private let root = TemporaryRoot()
     private let spot = Coordinate(lat: 36.66, lon: -80.92, accuracyM: 12)
 

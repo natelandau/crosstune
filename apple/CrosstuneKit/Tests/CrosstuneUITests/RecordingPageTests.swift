@@ -30,7 +30,7 @@ private let noLoopWrites = LoopWriter(
     add: { _, _ in throw CancellationError() }, update: { _, _, _ in }, remove: { _ in })
 
 @MainActor
-@Suite struct RecordingPageTests {
+struct RecordingPageTests {
     private let audio = FakeAudio()
     private let writes = PageWrites()
     private let player: PlayerModel

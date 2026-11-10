@@ -10,7 +10,7 @@
     @testable import CrosstuneUI
 
     @MainActor
-    @Suite struct MacSurfacePolishTests {
+    struct MacSurfacePolishTests {
         /// The title a form types sits under the sheet's title, so it never outranks it.
         @Test func formTitleSitsUnderTheSheetTitle() {
             #expect(MacStyle.formTitleSize < MacStyle.sheetTitleSize)

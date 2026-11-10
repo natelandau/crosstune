@@ -29,7 +29,7 @@ private func file(_ state: LocalFileState, fileName: String? = "r1.m4a", error: 
     RecordingFile(id: "r1", localState: state, fileName: fileName, error: error)
 }
 
-@Suite struct DurationAndSizeTests {
+struct DurationAndSizeTests {
     @Test(arguments: [(0, "0:00"), (42_000, "0:42"), (61_499, "1:01"), (61_500, "1:02"), (3_600_000, "60:00")])
     func readsMinutesAndPaddedSeconds(milliseconds: Int64, text: String) {
         #expect(RecordingText.duration(milliseconds: milliseconds) == text)
@@ -57,7 +57,7 @@ private func file(_ state: LocalFileState, fileName: String? = "r1.m4a", error: 
     }
 }
 
-@Suite struct RecordingTitleTests {
+struct RecordingTitleTests {
     @Test func prefersTheLabelThenTheTuneThenTheDate() {
         #expect(RecordingText.title(recording(label: "Jam"), tuneTitle: "Cluck Old Hen") == "Jam")
         #expect(RecordingText.title(recording(), tuneTitle: "Cluck Old Hen") == "Cluck Old Hen")
@@ -92,7 +92,7 @@ private func file(_ state: LocalFileState, fileName: String? = "r1.m4a", error: 
     }
 }
 
-@Suite struct RecordingMetaTests {
+struct RecordingMetaTests {
     @Test func namesNoSiteForAnImportedRecording() {
         let imported = recording(durationMs: 192_000, origin: "slippery_hill", source: "import")
         #expect(RecordingText.meta(imported, file: file(.downloaded), dateInTitle: true) == ["3:12"])
@@ -246,7 +246,7 @@ private func file(_ state: LocalFileState, fileName: String? = "r1.m4a", error: 
     }
 }
 
-@Suite struct RecordingDateTextTests {
+struct RecordingDateTextTests {
     @Test func formatsAPartialDateAtItsPrecision() {
         #expect(RecordingText.recordedDate(at("1937-01-01T00:00:00Z"), precision: .year, locale: locale) == "1937")
         #expect(
@@ -302,7 +302,7 @@ private func file(_ state: LocalFileState, fileName: String? = "r1.m4a", error: 
     }
 }
 
-@Suite struct RecordingSourceLineTests {
+struct RecordingSourceLineTests {
     private func imported(_ url: String?, origin: String = "slippery_hill") -> Recording {
         Recording(id: "r1", tuneID: nil, source: "import", origin: origin, originURL: url, addedAt: at(takenAt))
     }
@@ -322,7 +322,7 @@ private func file(_ state: LocalFileState, fileName: String? = "r1.m4a", error: 
     }
 }
 
-@Suite struct RecordingControlTests {
+struct RecordingControlTests {
     @Test func closeBeatsPlayForALoadedItem() {
         #expect(RecordingText.control(recording(), file: nil, loaded: true, downloading: false) == .close)
     }
@@ -366,7 +366,7 @@ private func file(_ state: LocalFileState, fileName: String? = "r1.m4a", error: 
     }
 }
 
-@Suite struct RecordingRowContentTests {
+struct RecordingRowContentTests {
     @Test func namesTheRowByItsActionLabelAndShowsTheMatchingGlyph() {
         let row = RecordingRowContent(
             recording: recording(label: "Jam"), file: file(.downloaded), uploadLimits: nil, tuneTitle: nil)
@@ -449,7 +449,7 @@ private func file(_ state: LocalFileState, fileName: String? = "r1.m4a", error: 
     }
 }
 
-@Suite struct LinkRowContentTests {
+struct LinkRowContentTests {
     private let youtube = RecordingLink(
         tuneID: "t1", url: "https://www.youtube.com/watch?v=x", provider: "youtube", title: "Tommy Jarrell")
 
@@ -482,7 +482,7 @@ private func file(_ state: LocalFileState, fileName: String? = "r1.m4a", error: 
     }
 }
 
-@Suite struct LinkTextTests {
+struct LinkTextTests {
     private func link(
         url: String = "https://www.youtube.com/watch?v=x", provider: String = "youtube", title: String? = nil
     ) -> RecordingLink {

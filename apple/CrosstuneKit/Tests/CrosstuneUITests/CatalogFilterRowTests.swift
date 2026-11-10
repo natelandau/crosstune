@@ -3,7 +3,7 @@ import Testing
 @testable import CrosstuneUI
 
 @MainActor
-@Suite struct CatalogFilterRowTests {
+struct CatalogFilterRowTests {
     @Test func statusLabelNamesTheChosenStatusOrAny() {
         #expect(CatalogFilterRow.statusLabel(nil) == "Status: Any")
         #expect(CatalogFilterRow.statusLabel("want_to_learn") == "Status: Unknown")

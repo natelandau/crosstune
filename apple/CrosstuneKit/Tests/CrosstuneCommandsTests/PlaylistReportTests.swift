@@ -30,7 +30,7 @@ private func report(
         entries: entries, playFirst: UserSettings.playFirstRecordings, fullTracks: fullTracks, online: online)
 }
 
-@Suite struct PlaylistReportTests {
+struct PlaylistReportTests {
     @Test func listsPlayableTunesInListOrder() {
         let result = report([
             entry("c", recordings: 1), entry("a", links: [("apple_music", song)]), entry("b", recordings: 2),

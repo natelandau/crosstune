@@ -8,7 +8,7 @@ private func placed(_ id: String, _ start: Int64, _ end: Int64, _ color: Int = 0
     PlacedLoop(id: id, span: span(start, end), color: color)
 }
 
-@Suite struct LoopModelTests {
+struct LoopModelTests {
     struct ClampCase: Sendable {
         let input: LoopSpan
         let expected: LoopSpan?

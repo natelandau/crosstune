@@ -643,7 +643,7 @@ final class ChannelSetting {
 }
 
 @MainActor
-@Suite struct RecorderStartTests {
+struct RecorderStartTests {
     @Test func aSecondStartWhileTheFirstIsUnderWayBeginsNoSecondRecording() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -660,7 +660,7 @@ final class ChannelSetting {
 }
 
 @MainActor
-@Suite struct UnfinishedCaptureTests {
+struct UnfinishedCaptureTests {
     @Test func discardsALeftoverCaptureButNeverOneBeingRecorded() async throws {
         let root = TemporaryRoot()
         let store = try root.open()

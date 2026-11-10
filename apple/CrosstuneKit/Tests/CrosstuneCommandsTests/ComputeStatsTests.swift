@@ -22,7 +22,7 @@ private struct Fixture: Decodable {
     let expected: Stats
 }
 
-@Suite struct ComputeStatsTests {
+struct ComputeStatsTests {
     @Test func findsTheSharedFixtures() {
         #expect(fixtureNames.count >= 14)
     }
@@ -41,7 +41,7 @@ private struct Fixture: Decodable {
     }
 }
 
-@Suite struct FormatRecordedTests {
+struct FormatRecordedTests {
     @Test(arguments: [
         (0, "0 min"),
         (59_999, "0 min"),
@@ -53,7 +53,7 @@ private struct Fixture: Decodable {
     }
 }
 
-@Suite struct EquivalenceTextTests {
+struct EquivalenceTextTests {
     @Test func everyEquivalenceHasItsText() {
         for entry in equivalences {
             #expect(
@@ -75,7 +75,7 @@ private struct Fixture: Decodable {
     }
 }
 
-@Suite struct HeatmapBoundsTests {
+struct HeatmapBoundsTests {
     @Test func heatmapBoundsPadTheShownWeeksByTwoDays() throws {
         let bounds = try #require(heatmapInstantBounds(today: "2026-10-04"))
         #expect(bounds.from == "2025-10-03")

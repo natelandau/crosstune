@@ -7,7 +7,7 @@ import Testing
 
 @testable import CrosstuneUI
 
-@Suite struct TuneAttributesTests {
+struct TuneAttributesTests {
     private func detail(
         _ tune: Tune = Tune(createdAt: noon, title: "Test"), learnedFrom: String? = nil
     ) -> TuneDetail {

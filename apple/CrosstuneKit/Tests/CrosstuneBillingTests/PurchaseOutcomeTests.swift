@@ -35,7 +35,7 @@ func everyOtherErrorFails(_ code: ErrorCode) {
 }
 
 @MainActor
-@Suite struct PurchaseDiagnosticsTests {
+struct PurchaseDiagnosticsTests {
     private let sink = RecordingDiagnosticsSink()
 
     @Test(arguments: [ErrorCode.purchaseCancelledError, .paymentPendingError, .receiptAlreadyInUseError])

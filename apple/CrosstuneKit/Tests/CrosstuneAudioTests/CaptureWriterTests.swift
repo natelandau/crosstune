@@ -5,7 +5,7 @@ import Testing
 
 @testable import CrosstuneAudio
 
-@Suite struct CaptureWriterTests {
+struct CaptureWriterTests {
     @Test func convertsAStereoInputToMono48kHzAAC() async throws {
         let root = TemporaryRoot()
         let folder = try root.folder()
@@ -118,7 +118,7 @@ import Testing
     }
 }
 
-@Suite struct InputLevelsTests {
+struct InputLevelsTests {
     @Test func measuresSixtyLevelsASecondAsRootMeanSquare() {
         var meter = LevelMeter()
 

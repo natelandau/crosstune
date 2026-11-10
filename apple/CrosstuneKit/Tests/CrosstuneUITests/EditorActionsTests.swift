@@ -2,7 +2,7 @@ import Testing
 
 /// The trim and split editors end through one library action bar, which draws each platform's
 /// place for Cancel and Save, so neither screen forks its actions by platform.
-@Suite struct EditorActionsTests {
+struct EditorActionsTests {
     private static let editors = ["RecordingScreen/TrimScreen.swift", "RecordingScreen/SplitScreen.swift"]
 
     private static func code(_ path: String) throws -> String {

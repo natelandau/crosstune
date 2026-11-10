@@ -8,7 +8,7 @@ import Testing
 @testable import CrosstuneUI
 
 @MainActor
-@Suite struct PracticeLayoutTests {
+struct PracticeLayoutTests {
     @Test func theWaveformKeepsItsFloor() {
         #expect(PracticeLayout.waveformFloor(isCompactHeight: false) == 140)
         #expect(PracticeLayout.waveformFloor(isCompactHeight: true) == 64)

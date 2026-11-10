@@ -9,7 +9,7 @@ import Testing
 @testable import CrosstuneUI
 
 @MainActor
-@Suite struct ImportModelTests {
+struct ImportModelTests {
     private func seed(
         _ store: CrosstuneStore, titles: [String] = [], newTuneGenre: String? = nil,
         newTuneStatus: String = UserSettings.defaultNewTuneStatus

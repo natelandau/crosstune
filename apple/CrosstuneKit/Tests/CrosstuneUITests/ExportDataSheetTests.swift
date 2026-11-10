@@ -50,7 +50,7 @@ private func countsOnce(_ onDevice: Int, _ total: Int, missing: Int = 0)
 }
 
 @MainActor
-@Suite struct ExportDataSheetTests {
+struct ExportDataSheetTests {
     /// A zip in a folder of its own, as `ExportArchive.make` leaves it.
     private func makeZip() throws -> URL {
         let folder = FileManager.default.temporaryDirectory.appending(path: "export-sheet-\(UUID().uuidString)")
@@ -327,7 +327,7 @@ struct ExportZipTests {
 
 #if os(macOS)
     @MainActor
-    @Suite struct MacExportSheetTests {
+    struct MacExportSheetTests {
         /// The export note always names what the zip holds, as the subtitle; the body adds only
         /// what differs from it.
         @Test func exportNoteIsTheSubtitle() {

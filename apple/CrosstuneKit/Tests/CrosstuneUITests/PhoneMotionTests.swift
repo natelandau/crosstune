@@ -2,7 +2,7 @@ import CrosstuneDesign
 import SwiftUI
 import Testing
 
-@Suite struct PhoneMotionTests {
+struct PhoneMotionTests {
     @Test func theMacNeverMoves() {
         #expect(PhoneMotion.resolve(reduceMotion: false, animatesPhoneMotion: false) == .none)
         #expect(PhoneMotion.resolve(reduceMotion: true, animatesPhoneMotion: false) == .none)

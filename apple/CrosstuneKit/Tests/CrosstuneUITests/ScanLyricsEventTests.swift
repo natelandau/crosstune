@@ -21,7 +21,7 @@ private let preparedOnce = Result { () throws -> PreparedScan in
 /// Scans report each one stored with how it came in, and each opening of the viewer; the lyrics
 /// reader reports each opening on words.
 @MainActor
-@Suite struct ScanLyricsEventTests {
+struct ScanLyricsEventTests {
     private let root = TemporaryRoot()
     private let sink = RecordingAnalyticsSink()
 

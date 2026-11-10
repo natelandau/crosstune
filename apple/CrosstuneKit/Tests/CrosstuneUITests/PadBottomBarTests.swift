@@ -3,7 +3,7 @@ import Testing
 @testable import CrosstuneUI
 
 @MainActor
-@Suite struct PadBottomBarTests {
+struct PadBottomBarTests {
     @Test func idleShowsRecordOnly() {
         #expect(PadBottomBar.showsPlayer(PlayerModel(), nil, in: nil) == false)
     }

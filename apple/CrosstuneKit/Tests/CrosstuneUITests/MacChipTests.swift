@@ -6,7 +6,7 @@
 
     @testable import CrosstuneUI
 
-    @Suite struct MacChipTests {
+    struct MacChipTests {
         /// The chosen key's ring is an indicator, so it holds 3:1 on both its sides for every
         /// key's hue: the accent sits too near a chosen hue's lightness, so a line of the page
         /// background parts the two, and outside the ring is the page background or surface the

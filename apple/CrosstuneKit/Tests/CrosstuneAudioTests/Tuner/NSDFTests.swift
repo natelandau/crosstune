@@ -24,7 +24,7 @@ private func estimate(_ samples: [Float]) -> PitchEstimate? {
 private func cents(_ frequency: Double, _ target: Double) -> Double { 1200 * log2(frequency / target) }
 
 extension Tuner {
-    @Suite struct NSDFTests {
+    struct NSDFTests {
         @Test func readsAPureToneToATenthOfACent() throws {
             let estimate = try #require(estimate(tone(440, [(1, 1)], amplitude: 0.2)))
 

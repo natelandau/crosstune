@@ -16,7 +16,7 @@ private func matches(_ color: KeyColor.RGB, _ hex: String) -> Bool {
     zip(bytes(color.hex), bytes(hex)).allSatisfy { abs($0 - $1) <= 1 }
 }
 
-@Suite struct PitchClassTests {
+struct PitchClassTests {
     @Test(arguments: [
         ("C", 0), ("D", 2), ("E", 4), ("F", 5), ("G", 7), ("A", 9), ("B", 11), ("F#", 6), ("Gb", 6),
         ("Bb", 10), ("A#", 10), ("bb", 10), ("b", 11), ("C♯", 1), ("E♭", 3), ("Cb", 11), (" D ", 2),
@@ -39,7 +39,7 @@ private func matches(_ color: KeyColor.RGB, _ hex: String) -> Bool {
     }
 }
 
-@Suite struct KeyPillColorsTests {
+struct KeyPillColorsTests {
     @Test func matchesTheWebsRestingBackgroundsInLightMode() {
         let web = [
             "#facac8", "#b3dff6", "#ebd4af", "#d6d2fb", "#c5e1be", "#f5c9dd", "#ade3e6", "#f7ceb7", "#c2d9fd",
@@ -75,7 +75,7 @@ private func matches(_ color: KeyColor.RGB, _ hex: String) -> Bool {
     }
 }
 
-@Suite struct StatusStyleTests {
+struct StatusStyleTests {
     @Test func labelsAndDotsFollowTheStatus() {
         #expect(StatusStyle.label("known") == "Known")
         #expect(StatusStyle.label("learning") == "Learning")

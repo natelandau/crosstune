@@ -5,7 +5,7 @@ import Testing
 
 @testable import CrosstuneUI
 
-@Suite struct KeyModeTextTests {
+struct KeyModeTextTests {
     @Test(arguments: [
         ("D", "major", "D", "D major"),
         ("D", "minor", "Dm", "D minor"),
@@ -40,7 +40,7 @@ import Testing
     }
 }
 
-@Suite struct TuningTextTests {
+struct TuningTextTests {
     let tunings: JSONObject = [
         "violin": .object(["tuning": .string("Standard (GDAE)")]),
         "five_string_banjo": .object(["tuning": .string("Open G (gDGBD)"), "capo": .integer(2)]),
@@ -69,7 +69,7 @@ import Testing
     }
 }
 
-@Suite struct TuneRowTextTests {
+struct TuneRowTextTests {
     private func text(
         key: String? = "E", modes: [String] = ["dorian"], status: String = "learning", archived: Bool = false,
         tunings: JSONObject = [:], instruments: Set<String> = []
@@ -112,7 +112,7 @@ import Testing
     }
 }
 
-@Suite struct EditedTextTests {
+struct EditedTextTests {
     let calendar: Calendar = {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(identifier: "America/New_York")!

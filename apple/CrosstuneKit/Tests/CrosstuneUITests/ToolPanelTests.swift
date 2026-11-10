@@ -2,7 +2,7 @@ import CrosstuneDesign
 import SwiftUI
 import Testing
 
-@Suite struct ToolPanelTests {
+struct ToolPanelTests {
     enum Tool: Hashable { case speed, pitch }
 
     /// Choosing a tool opens it and closes any other; choosing the open tool closes it.

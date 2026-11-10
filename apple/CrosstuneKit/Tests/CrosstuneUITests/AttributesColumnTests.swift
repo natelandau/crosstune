@@ -2,7 +2,7 @@ import Testing
 
 @testable import CrosstuneUI
 
-@Suite struct AttributesColumnTests {
+struct AttributesColumnTests {
     private typealias Row = AttributeColumnRow<String>
     private typealias Entry = AttributeColumnEntry<String>
 

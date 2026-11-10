@@ -10,7 +10,7 @@ import Testing
 /// A persistent sync or transfer failure is reported to diagnostics by area, unless it only means
 /// the session has expired.
 @MainActor
-@Suite struct SyncDiagnosticsTests {
+struct SyncDiagnosticsTests {
     let root = TemporaryRoot()
     let store: CrosstuneStore
     let api = FakeSyncAPI()

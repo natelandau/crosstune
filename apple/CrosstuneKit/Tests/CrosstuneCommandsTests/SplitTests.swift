@@ -7,7 +7,7 @@ import Testing
 
 @testable import CrosstuneCommands
 
-@Suite struct SplitTests {
+struct SplitTests {
     private let root = TemporaryRoot()
 
     private func seeded(_ parent: Recording? = nil) async throws -> (CrosstuneStore, Commands) {

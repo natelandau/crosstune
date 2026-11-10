@@ -8,7 +8,7 @@ private func near(_ a: Double, _ b: Double) -> Bool {
     abs(a - b) < 0.001
 }
 
-@Suite struct PracticeZoomTests {
+struct PracticeZoomTests {
     @Test(arguments: [
         (Int64(10_000), 100.0, Int64(9000)),
         (500, 100.0, 0),

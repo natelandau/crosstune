@@ -68,7 +68,7 @@ private func glide(_ partials: [[Double]], from: Double, to: Double, sampleRate:
 }
 
 extension Tuner {
-    @Suite struct PitchTrackerTests {
+    struct PitchTrackerTests {
         @Test(arguments: try IndexedClip.all)
         func readsEveryClip(clip indexed: IndexedClip) throws {
             let clip = indexed.clip

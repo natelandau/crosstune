@@ -75,7 +75,7 @@ private func stored(_ store: CrosstuneStore, sourceLocation: SourceLocation = #_
 }
 
 @MainActor
-@Suite struct DropPinTests {
+struct DropPinTests {
     private let root = TemporaryRoot()
 
     @Test func theAddressFollowsTheMapWhenItSettles() async throws {
@@ -373,7 +373,7 @@ private func stored(_ store: CrosstuneStore, sourceLocation: SourceLocation = #_
     }
 }
 
-@Suite struct PinStartTests {
+struct PinStartTests {
     private let recorded = Coordinate(lat: 1, lon: 1)
     private let device = Coordinate(lat: 2, lon: 2, accuracyM: 10)
     private let area = Coordinate(lat: 3, lon: 3)

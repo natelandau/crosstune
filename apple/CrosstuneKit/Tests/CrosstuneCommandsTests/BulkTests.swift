@@ -22,7 +22,7 @@ private func activeItems(_ store: CrosstuneStore, _ listID: String) async throws
     activeByPosition(try await store.read { db in try ListItem.filter(Column("list_id") == listID).fetchAll(db) })
 }
 
-@Suite struct UpdateTunesTests {
+struct UpdateTunesTests {
     @Test func writesTuneAndUserTuneFieldsOnEverySelectedTune() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -238,7 +238,7 @@ private func activeItems(_ store: CrosstuneStore, _ listID: String) async throws
     }
 }
 
-@Suite struct SetArchivedManyTests {
+struct SetArchivedManyTests {
     @Test func archivesTheSelectedTunesAndUndoRestoresEachOne() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -273,7 +273,7 @@ private func activeItems(_ store: CrosstuneStore, _ listID: String) async throws
     }
 }
 
-@Suite struct DeleteTunesTests {
+struct DeleteTunesTests {
     @Test func tombstonesEachSelectedTuneWithItsUserTuneListEntriesAndRecordings() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -336,7 +336,7 @@ private func activeItems(_ store: CrosstuneStore, _ listID: String) async throws
     }
 }
 
-@Suite struct AddTunesToListTests {
+struct AddTunesToListTests {
     @Test func appendsMissingTunesInTheGivenOrderAndSkipsMembers() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -381,7 +381,7 @@ private func activeItems(_ store: CrosstuneStore, _ listID: String) async throws
     }
 }
 
-@Suite struct CreateListWithTunesTests {
+struct CreateListWithTunesTests {
     @Test func createsAListHoldingTheTunesAndUndoDeletesIt() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -426,7 +426,7 @@ private func activeItems(_ store: CrosstuneStore, _ listID: String) async throws
     }
 }
 
-@Suite struct RemoveTunesFromListTests {
+struct RemoveTunesFromListTests {
     @Test func removesTheItemsAndUndoPutsThemBackInTheirPlaces() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -556,7 +556,7 @@ private func activeItems(_ store: CrosstuneStore, _ listID: String) async throws
     }
 }
 
-@Suite struct RestoreFieldsTests {
+struct RestoreFieldsTests {
     @Test func restoringAnEmptyListQueuesNothing() async throws {
         let root = TemporaryRoot()
         let store = try root.open()

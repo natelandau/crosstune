@@ -3,7 +3,7 @@ import Testing
 
 @testable import CrosstuneAudio
 
-@Suite struct PlaybackWindowTests {
+struct PlaybackWindowTests {
     @Test func neverEndsBeforeItStarts() {
         #expect(PlaybackWindow(from: 3, to: 1) == PlaybackWindow(from: 3, to: 3))
         #expect(PlaybackWindow(from: -1, to: 2) == PlaybackWindow(from: 0, to: 2))
@@ -32,7 +32,7 @@ import Testing
     }
 }
 
-@Suite struct LoopScheduleTests {
+struct LoopScheduleTests {
     /// Seconds 1 to 4 of a 4-second file at 1000 frames a second, looping 1 to 2 into it,
     /// which is frames 2000 to 3000.
     private let window = PlaybackWindow(from: 1, to: 4)

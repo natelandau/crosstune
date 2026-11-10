@@ -11,7 +11,7 @@ import Testing
 /// Lists and selections report once their write lands, with counts in buckets and field names
 /// only.
 @MainActor
-@Suite struct ListEventTests {
+struct ListEventTests {
     private let root = TemporaryRoot()
     private let sink = RecordingAnalyticsSink()
 

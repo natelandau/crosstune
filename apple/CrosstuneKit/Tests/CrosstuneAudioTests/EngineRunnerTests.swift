@@ -6,7 +6,7 @@ import Testing
 @testable import CrosstuneAudio
 
 @MainActor
-@Suite struct EngineRunnerTests {
+struct EngineRunnerTests {
     @Test func queuesWorkInTheOrderTheMainActorAskedForIt() async throws {
         let log = Mutex<[String]>([])
         let queue = DispatchQueue(label: "engine-runner-test")

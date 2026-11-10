@@ -5,7 +5,7 @@
 
     @testable import CrosstuneUI
 
-    @Suite struct MacControlsTests {
+    struct MacControlsTests {
         /// A segment's label and its badge read on the chosen token and on the bare track, on
         /// every container.
         @Test(arguments: [ColorScheme.light, .dark])

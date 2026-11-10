@@ -35,7 +35,7 @@ private struct ScanViewFixture {
 }
 
 @MainActor
-@Suite struct ScanViewLogTests {
+struct ScanViewLogTests {
     @Test func aLookUnderThreeSecondsWritesNothing() {
         let fixture = ScanViewFixture()
         fixture.log.start(tuneID: "t1", origin: .tune)
@@ -158,7 +158,7 @@ private struct ScanViewFixture {
 
 /// The viewer's presentation, and the row actions that ask for it, logging where it was opened.
 @MainActor
-@Suite struct ScanViewWiringTests {
+struct ScanViewWiringTests {
     private let root = TemporaryRoot()
 
     @Test func presentingAndDismissingTheViewerLogsOneView() throws {

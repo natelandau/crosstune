@@ -7,7 +7,7 @@ import Testing
 
 private let t0 = Date(timeIntervalSince1970: 0)
 
-@Suite struct ConsecutiveFailuresTests {
+struct ConsecutiveFailuresTests {
     @Test func reportsOnceTheFailuresPersist() {
         var failures = ConsecutiveFailures(persistsFor: .seconds(300))
 
@@ -66,7 +66,7 @@ func aConnectivityFailureIsNotReportable(_ code: URLError.Code) {
 
 /// A run loop reports consecutive failures once they persist, whatever the backoff in between.
 @MainActor
-@Suite struct SyncLoopPersistentFailureTests {
+struct SyncLoopPersistentFailureTests {
     enum Outcome {
         case success, failure, unreportable, offline, stopped
     }

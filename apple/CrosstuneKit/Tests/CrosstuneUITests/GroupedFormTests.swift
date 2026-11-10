@@ -3,7 +3,7 @@ import Foundation
 import SwiftUI
 import Testing
 
-@Suite struct GroupedFormTests {
+struct GroupedFormTests {
     /// A row's own background (the iPad's open Settings page draws `field`) must win over the
     /// card's. Rebuilding the form's sections drops a row's own list modifiers, so `GroupedForm`
     /// keeps its sections as written.

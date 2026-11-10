@@ -22,7 +22,7 @@ private struct FoldCase: Decodable, CustomTestStringConvertible, Sendable {
 private let foldCases: [FoldCase] =
     (try? JSONDecoder().decode([FoldCase].self, from: Data(contentsOf: foldFixture))) ?? []
 
-@Suite struct TextFoldTests {
+struct TextFoldTests {
     @Test func findsTheSharedFixture() {
         #expect(foldCases.count >= 30)
     }

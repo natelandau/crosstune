@@ -9,7 +9,7 @@
     @testable import CrosstuneUI
 
     @MainActor
-    @Suite struct RowActionSlotTests {
+    struct RowActionSlotTests {
         @Test func glyphsAreOneCircleFamily() throws {
             let item = sampleRecordingItem()
             let open = ListRowPlay.Action.open(try #require(URL(string: "https://example.com")), linkTitle: "x")

@@ -82,7 +82,7 @@ private struct RefusingSyncAPI: SyncAPI {
     func getObject(_ url: URL, to destination: URL) async throws { throw URLError(.badURL) }
 }
 
-@Suite struct RecordingDeleteMessageTests {
+struct RecordingDeleteMessageTests {
     @Test func warnsThatARecordingNeverUploadedCannotComeBack() {
         let waiting = RecordingView(
             recording: Recording(id: "r", tuneID: nil, source: "microphone", addedAt: noon, state: "pending_upload"),
@@ -96,7 +96,7 @@ private struct RefusingSyncAPI: SyncAPI {
     }
 }
 
-@Suite struct RecordingsFilterTests {
+struct RecordingsFilterTests {
     @Test func labelsTheFilterAndItsChoices() {
         #expect(RecordingsListText.source == "Source")
         #expect(RecordingsListText.all == "All")
@@ -123,7 +123,7 @@ private struct RefusingSyncAPI: SyncAPI {
 }
 
 @MainActor
-@Suite struct RecordingsModelTests {
+struct RecordingsModelTests {
     @Test func readsLiveRecordingsGroupedWithUnfinishedCapturesAndStorage() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -475,7 +475,7 @@ private struct RefusingSyncAPI: SyncAPI {
 }
 
 @MainActor
-@Suite struct RecordingsScreenPartsTests {
+struct RecordingsScreenPartsTests {
     #if os(macOS)
         @Test func recordingsColumnUsesTheColumnList() throws {
             let file = SourceScan.url(of: "Recordings/RecordingsScreen.swift")
@@ -548,7 +548,7 @@ private struct RefusingSyncAPI: SyncAPI {
 }
 
 @MainActor
-@Suite struct RecordingFieldWriteTests {
+struct RecordingFieldWriteTests {
     @Test func savesATrimmedNameAndClearsItWhenLeftBlank() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -924,7 +924,7 @@ private struct RefusingSyncAPI: SyncAPI {
 
 /// The location editor's picks, which its edit holds until it saves and writes in one go.
 @MainActor
-@Suite struct LocationPickTests {
+struct LocationPickTests {
     private let spot = Coordinate(lat: 36.66, lon: -80.92, accuracyM: 12)
     private let street = "1 Main St, Galax, VA"
 
@@ -1403,7 +1403,7 @@ private struct RefusingSyncAPI: SyncAPI {
 }
 
 @MainActor
-@Suite struct RecordingImportTests {
+struct RecordingImportTests {
     private func write(_ name: String, bytes: Int, in root: TemporaryRoot) throws -> URL {
         let folder = root.url.appending(path: "picked", directoryHint: .isDirectory)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
@@ -1554,7 +1554,7 @@ private struct RefusingSyncAPI: SyncAPI {
 }
 
 @MainActor
-@Suite struct RecordingTransferTests {
+struct RecordingTransferTests {
     @Test func remembersADownloadThatFetchedNothing() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -1636,7 +1636,7 @@ private struct RefusingSyncAPI: SyncAPI {
 }
 
 @MainActor
-@Suite struct RecorderHostCaptureTests {
+struct RecorderHostCaptureTests {
     @Test func holdsPlaybackBackWhileARecordSheetHasTheRecorder() throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -1651,7 +1651,7 @@ private struct RefusingSyncAPI: SyncAPI {
 
 /// A recording's date, read and written west of UTC, where a local read of a partial date
 /// lands in the period before it.
-@Suite struct RecordingDateDraftTests {
+struct RecordingDateDraftTests {
     private let now = Timestamp(iso: "2026-10-04T12:00:00.000Z")!
 
     private func at(_ iso: String) -> Timestamp { Timestamp(iso: iso)! }
@@ -1857,7 +1857,7 @@ private struct RefusingSyncAPI: SyncAPI {
     }
 }
 
-@Suite struct RecordingsSectionOrderTests {
+struct RecordingsSectionOrderTests {
     @Test func storageSummaryFollowsTheGroups() {
         #expect(
             RecordingArrangement.sectionOrder(hasUnfinished: true, hasUnfiled: true, tuneCount: 2)
@@ -1888,7 +1888,7 @@ private struct RefusingSyncAPI: SyncAPI {
     }
 }
 
-@Suite struct RecordingRowPremiumTests {
+struct RecordingRowPremiumTests {
     private let recording = Recording(id: "r1", tuneID: nil, source: "microphone", addedAt: noon, state: "ready")
     private let held = RecordingFile(id: "r1", localState: .downloaded, fileName: "r1.m4a")
 
@@ -1950,7 +1950,7 @@ private struct RefusingSyncAPI: SyncAPI {
     }
 }
 
-@Suite struct RecordingSuggestionsTests {
+struct RecordingSuggestionsTests {
     private func placed(
         _ id: String, _ name: String?, minutes: Int64, lat: Double = 36.66, lon: Double = -80.92,
         accuracyM: Int? = nil, deleted: Bool = false

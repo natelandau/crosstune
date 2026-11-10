@@ -334,7 +334,7 @@ final class LeaveLog: LeavingSync {
 struct ClerkFailed: Error {}
 
 @MainActor
-@Suite struct LeaveTests {
+struct LeaveTests {
     let root = TemporaryRoot()
     let store: CrosstuneStore
     let log = LeaveLog()
@@ -690,7 +690,7 @@ private final class AssistiveTechInUse {
 private let signedUpAt = Date(timeIntervalSince1970: 1_791_374_400)
 
 @MainActor
-@Suite struct AnalyticsIdentityTests {
+struct AnalyticsIdentityTests {
     let sink = RecordingAnalyticsSink()
 
     @Test func theFirstIdentifyCarriesWhatTheDeviceKnows() {
@@ -1169,7 +1169,7 @@ final class Offline {
 }
 
 @MainActor
-@Suite struct SessionSyncTests {
+struct SessionSyncTests {
     let root = TemporaryRoot()
     let store: CrosstuneStore
     let api = CountingSyncAPI()

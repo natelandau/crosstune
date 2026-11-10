@@ -5,7 +5,7 @@ import Testing
 @testable import CrosstuneUI
 
 @MainActor
-@Suite struct PadTabTests {
+struct PadTabTests {
     private let root = TemporaryRoot()
 
     private func loadedCatalog(status: String? = nil, sourceLocation: SourceLocation = #_sourceLocation) async throws

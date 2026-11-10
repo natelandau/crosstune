@@ -8,7 +8,7 @@ import Testing
 
 private let noon = Timestamp.now
 
-@Suite struct LoopsTests {
+struct LoopsTests {
     private let root = TemporaryRoot()
 
     private func seeded() async throws -> (CrosstuneStore, Commands, String) {

@@ -5,7 +5,7 @@ import Testing
 
 @testable import CrosstuneUI
 
-@MainActor @Suite struct TuneActionButtonsTests {
+@MainActor struct TuneActionButtonsTests {
     private let tune = Tune(createdAt: noon, title: "Test")
 
     private var userTune: UserTune { UserTune(createdAt: noon, tuneID: tune.id, status: "learning") }

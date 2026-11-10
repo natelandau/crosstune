@@ -6,7 +6,7 @@ import Testing
 
 @testable import CrosstuneCommands
 
-@Suite struct CreateTuneTests {
+struct CreateTuneTests {
     @Test func writesTheTuneAndTheUserTuneWithDefaultsAndQueuesBoth() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -93,7 +93,7 @@ import Testing
     }
 }
 
-@Suite struct UpdateTuneTests {
+struct UpdateTuneTests {
     @Test func bumpsUpdatedAtKeepsOneOutboxEntryPerRowAndIgnoresKeep() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -225,7 +225,7 @@ import Testing
     }
 }
 
-@Suite struct UpdateTuneEntryTests {
+struct UpdateTuneEntryTests {
     @Test func savesTheTuneAndTheUserTuneTogether() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -281,7 +281,7 @@ import Testing
     }
 }
 
-@Suite struct DeleteTuneTests {
+struct DeleteTuneTests {
     @Test func tombstonesTheTuneAndItsDependentsLocallyQueuingOnlyTheTuneDelete() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -323,7 +323,7 @@ import Testing
     }
 }
 
-@Suite struct PatchEmptinessTests {
+struct PatchEmptinessTests {
     /// Each field set on its own. A field added to a patch without joining `isEmpty` fails the
     /// count check here, which is the reminder to add it to both.
     @Test func countsEveryTuneFieldAsAChange() {

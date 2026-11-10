@@ -2,7 +2,7 @@ import Testing
 
 @testable import CrosstuneDesign
 
-@Suite struct ScrubDragTests {
+struct ScrubDragTests {
     @Test func aTouchNeverJumps() {
         #expect(ScrubDrag.position(from: 42, dx: 0, dy: 0, width: 300, duration: 195) == 42)
     }

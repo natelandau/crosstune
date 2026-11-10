@@ -8,7 +8,7 @@ import Testing
 @testable import CrosstuneSync
 
 @MainActor
-@Suite struct SyncEngineTests {
+struct SyncEngineTests {
     let root = TemporaryRoot()
     let store: CrosstuneStore
     let api = FakeSyncAPI()
@@ -922,7 +922,7 @@ import Testing
     }
 }
 
-@Suite struct ClassifyFailureTests {
+struct ClassifyFailureTests {
     @Test func aPlanRefusalIsNotAnAuthFailure() {
         let premium = APIStatusError(status: 403, problemType: premiumRequiredProblem)
         #expect(isPlanRefusal(premium))
@@ -958,7 +958,7 @@ import Testing
     }
 }
 
-@Suite struct StatusLabelTests {
+struct StatusLabelTests {
     @Test(arguments: [
         (SyncStatus.idle, "Synced"),
         (.syncing, "Syncing"),

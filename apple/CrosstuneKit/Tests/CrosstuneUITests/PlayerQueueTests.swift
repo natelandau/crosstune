@@ -48,7 +48,7 @@ private func recordingItem() -> PlayerItem {
 private let queuedNowPlaying = NowPlaying(title: "Jam", tuneTitle: "Kitchen Girl")
 
 @MainActor
-@Suite struct PlayerQueueTests {
+struct PlayerQueueTests {
     private struct Fixture {
         let player: PlayerModel
         let audio: FakeAudio

@@ -6,7 +6,7 @@ import Testing
 
 @testable import CrosstuneCommands
 
-@Suite struct SavedPlacesTests {
+struct SavedPlacesTests {
     private let root = TemporaryRoot()
 
     private func recording(_ store: CrosstuneStore, _ id: String, sourceLocation: SourceLocation = #_sourceLocation)

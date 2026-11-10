@@ -17,7 +17,7 @@ private func saved(url: String?, deleted: Bool = false) -> Recording {
 }
 
 @MainActor
-@Suite struct AddToRecordingsTests {
+struct AddToRecordingsTests {
     @Test func offersAnImportableLinkWithARef() {
         #expect(canAddToRecordings(link: link(), recordings: []))
         #expect(FindRecordingsModel.importable == ["slippery_hill"])

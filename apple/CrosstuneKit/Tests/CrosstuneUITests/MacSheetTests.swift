@@ -40,7 +40,7 @@
     }
 
     @MainActor
-    @Suite struct MacSheetTests {
+    struct MacSheetTests {
         /// The sheets drawn on ``MacSheet`` on the Mac, by path under its module's folder. A
         /// sheet joins this list in the change that moves it onto the scaffold.
         static let migratedSheets = [

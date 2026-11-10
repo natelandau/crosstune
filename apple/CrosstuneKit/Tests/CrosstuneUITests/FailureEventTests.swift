@@ -16,7 +16,7 @@ private struct DiskFull: Error {
 /// A failed export reports its kind of reason and never the error's text, and the delete account
 /// sheet reports being opened and, when it closes without deleting, being cancelled.
 @MainActor
-@Suite struct FailureEventTests {
+struct FailureEventTests {
     private let sink = RecordingAnalyticsSink()
 
     private func exportFailing(with error: any Error) async throws -> ExportDataModel {
@@ -106,7 +106,7 @@ private struct GenericFailure: Error {}
 
 /// A failed export reaches diagnostics under the export area; a cancelled one does not.
 @MainActor
-@Suite struct ExportDiagnosticsTests {
+struct ExportDiagnosticsTests {
     private let sink = RecordingDiagnosticsSink()
 
     private func run(throwing error: any Error, sourceLocation: SourceLocation = #_sourceLocation) async throws {

@@ -56,7 +56,7 @@ private let blankAndSentinel = CatalogSearch.entries(
     ],
     userTunes: [userTune("ub1", "b1"), userTune("ub2", "b2"), userTune("ub3", "b3")])
 
-@Suite struct CatalogFilteringTests {
+struct CatalogFilteringTests {
     @Test func joinsActivePairsAndSortsByTitleIgnoringCase() {
         #expect(ids(catalog) == ["s4", "s2", "s1"])
     }
@@ -280,7 +280,7 @@ private let blankAndSentinel = CatalogSearch.entries(
     }
 }
 
-@Suite struct ComposerAndLearnedFromTests {
+struct ComposerAndLearnedFromTests {
     private let entries = CatalogSearch.entries(
         tunes: [
             tune("c1", "Sally Ann", composer: "Ed Haley"), tune("c2", "Lucy Farr", composer: "ed haley"),
@@ -353,7 +353,7 @@ private let blankAndSentinel = CatalogSearch.entries(
     }
 }
 
-@Suite struct MissingFilterTests {
+struct MissingFilterTests {
     private let entries = CatalogSearch.entries(
         tunes: [
             tune(
@@ -502,7 +502,7 @@ private let blankAndSentinel = CatalogSearch.entries(
     }
 }
 
-@Suite struct CatalogFilterStorageTests {
+struct CatalogFilterStorageTests {
     @Test func readsDefaultsForMissingOrMalformedValues() {
         #expect(CatalogFilters(stored: nil) == .default)
         #expect(CatalogFilters(stored: .string("nonsense")) == .default)
@@ -541,7 +541,7 @@ private let blankAndSentinel = CatalogSearch.entries(
     }
 }
 
-@Suite struct SearchIntentTests {
+struct SearchIntentTests {
     private let entries = CatalogSearch.entries(
         tunes: [
             tune("s1", "Soldier's Joy"),
@@ -611,7 +611,7 @@ private let blankAndSentinel = CatalogSearch.entries(
     }
 }
 
-@Suite struct TunesWithAudioTests {
+struct TunesWithAudioTests {
     @Test func readsAudioFromLiveRecordingsAndLinksOnly() async throws {
         let root = TemporaryRoot()
         let store = try await SampleCatalog.copiedStore(root: root.url)
@@ -638,7 +638,7 @@ private let blankAndSentinel = CatalogSearch.entries(
 }
 
 @MainActor
-@Suite struct CatalogModelTests {
+struct CatalogModelTests {
     private func sampleStore(_ root: TemporaryRoot) async throws -> CrosstuneStore {
         try await SampleCatalog.copiedStore(root: root.url)
     }
@@ -865,7 +865,7 @@ private let blankAndSentinel = CatalogSearch.entries(
     import AppKit
     import SwiftUI
 
-    @Suite struct MacCatalogColumnTests {
+    struct MacCatalogColumnTests {
         /// One chevron says both that the sort opens a menu and which way it runs, as Finder's
         /// column headers do.
         @Test func macSortShowsOneChevronForItsDirection() {

@@ -13,7 +13,7 @@ private func plan(
     ImportPlan(titles: titles, status: status, genre: genre, list: list)
 }
 
-@Suite struct ImportTunesTests {
+struct ImportTunesTests {
     @Test func createsATuneAndUserTunePerTitleWithBatchStatusAndGenre() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -140,7 +140,7 @@ private func plan(
     }
 }
 
-@Suite struct ImportTextTests {
+struct ImportTextTests {
     private static let text = "Soldier's Joy\nFête"
 
     private func utf16(_ text: String, littleEndian: Bool) -> Data {

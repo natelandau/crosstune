@@ -3,7 +3,7 @@ import Testing
 
 @testable import CrosstuneDesign
 
-@Suite struct PaneTabsTests {
+struct PaneTabsTests {
     private enum Mode: CaseIterable { case speed, pitch, isolate, loops }
 
     @Test func slidesTowardTheChosenSide() {

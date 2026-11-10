@@ -31,7 +31,7 @@ private func entry(_ tuning: String? = nil, capo: Int64? = nil) -> JSONValue {
     return .object(object)
 }
 
-@Suite struct TuneFormValuesTests {
+struct TuneFormValuesTests {
     @Test func startsANewTuneAsWantToLearnIn44() {
         let values = TuneFormValues()
         #expect(values.status == "want_to_learn")
@@ -213,7 +213,7 @@ private func entry(_ tuning: String? = nil, capo: Int64? = nil) -> JSONValue {
     }
 }
 
-@Suite struct TypeTimeSignatureTests {
+struct TypeTimeSignatureTests {
     @Test func keepsAnEditedTunesStoredTimeSignature() {
         var values = TuneFormValues()
         values.setType("Jig")
@@ -250,7 +250,7 @@ private func entry(_ tuning: String? = nil, capo: Int64? = nil) -> JSONValue {
     }
 }
 
-@Suite struct TuneSuggestionsTests {
+struct TuneSuggestionsTests {
     @Test func putsAGenresOwnTypesFirstThenTheRestAlphabetically() {
         let types = TuneSuggestions.types(genre: "Irish", tunes: [])
         #expect(Array(types.prefix(3)) == ["Reel", "Jig", "Slip jig"])
@@ -306,7 +306,7 @@ private func entry(_ tuning: String? = nil, capo: Int64? = nil) -> JSONValue {
     }
 }
 
-@Suite struct TuneFormControlTests {
+struct TuneFormControlTests {
     @Test func showsTheQuickKeysAndAChosenKeyTheyLack() {
         #expect(KeyChooser.shown(chosen: "") == Vocabulary.quickKeys)
         #expect(KeyChooser.shown(chosen: "D") == Vocabulary.quickKeys)
@@ -378,7 +378,7 @@ private func entry(_ tuning: String? = nil, capo: Int64? = nil) -> JSONValue {
 }
 
 @MainActor
-@Suite struct TuneFormModelTests {
+struct TuneFormModelTests {
     private func seed(
         _ store: CrosstuneStore, instruments: [String] = ["violin"], tunes: [Tune] = [],
         newTuneGenre: String? = nil, newTuneStatus: String = UserSettings.defaultNewTuneStatus
@@ -605,7 +605,7 @@ private func entry(_ tuning: String? = nil, capo: Int64? = nil) -> JSONValue {
     }
 }
 
-@Suite struct StatusFieldTests {
+struct StatusFieldTests {
     @Test func statusSegmentsAreTheThreeWordsInOrder() {
         let segments = StatusField.segments
         #expect(segments.map(\.value) == Vocabulary.statuses)
@@ -644,7 +644,7 @@ private func entry(_ tuning: String? = nil, capo: Int64? = nil) -> JSONValue {
 }
 
 #if os(macOS)
-    @Suite struct MacTuneFormTests {
+    struct MacTuneFormTests {
         /// The Mac title field is the sheet's large heading, so no label beside it names it again.
         @Test func macTuneFormTitleFieldHasNoLabel() throws {
             let file = SourceScan.url(of: "TuneForm/TuneFormSheet.swift")

@@ -8,7 +8,7 @@ import Testing
 /// The catalog reports a search once it has settled and is done with, never per keystroke, and a
 /// filter once its write lands, by kind alone.
 @MainActor
-@Suite struct CatalogEventTests {
+struct CatalogEventTests {
     private let root = TemporaryRoot()
     private let sink = RecordingAnalyticsSink()
 

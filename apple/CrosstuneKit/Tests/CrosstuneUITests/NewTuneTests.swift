@@ -13,7 +13,7 @@ import Testing
 /// The new-tune draft: a title alone makes the tune, Return opens it, leaving the page with a
 /// title makes it without opening it, and a draft left blank makes nothing.
 @MainActor
-@Suite struct NewTuneTests {
+struct NewTuneTests {
     private let sink = RecordingAnalyticsSink()
     /// Held for the test, since the store's folder goes with it.
     private let root = TemporaryRoot()

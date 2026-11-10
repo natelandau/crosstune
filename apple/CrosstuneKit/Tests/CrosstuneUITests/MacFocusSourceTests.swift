@@ -3,7 +3,7 @@
     import CrosstuneDesign
     import Testing
 
-    @Suite struct MacFocusSourceTests {
+    struct MacFocusSourceTests {
         @Test func tabSetsKeyboardSource() {
             for start in [MacFocusSource.none, .pointer, .keyboard] {
                 #expect(MacFocusSource.next(after: .tab, from: start) == .keyboard)

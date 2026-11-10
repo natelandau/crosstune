@@ -6,7 +6,7 @@ import Testing
 /// The shell's actions compare by the hosts that supplied them, so a host redrawing leaves the
 /// screens that read them alone, while actions from different hosts never pass for each other.
 @MainActor
-@Suite struct TuneScreenActionsTests {
+struct TuneScreenActionsTests {
     @Test func actionsFromTheSameHostsAreEqual() {
         let outer = UUID()
         let inner = UUID()

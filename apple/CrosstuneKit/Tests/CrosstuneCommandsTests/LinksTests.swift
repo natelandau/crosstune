@@ -8,7 +8,7 @@ import Testing
 
 private let pageURL = "https://slippery-hill.com/recording/42"
 
-@Suite struct LinksTests {
+struct LinksTests {
     @Test func appendsLinksInPositionOrderWithNullableMetadata() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -201,7 +201,7 @@ private let pageURL = "https://slippery-hill.com/recording/42"
     }
 }
 
-@Suite struct ClippedRecordingLabelTests {
+struct ClippedRecordingLabelTests {
     @Test func keepsAShortLabelWhole() {
         #expect(clippedRecordingLabel("Sligo Session") == "Sligo Session")
     }

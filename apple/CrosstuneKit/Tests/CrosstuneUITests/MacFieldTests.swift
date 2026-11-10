@@ -6,7 +6,7 @@
 
     @testable import CrosstuneUI
 
-    @Suite struct MacFieldTests {
+    struct MacFieldTests {
         /// The Mac-compiled text of every file the Mac draws, by its path.
         private static func macDrawn() throws -> [(name: String, text: String)] {
             try SourceScan.files().compactMap { file in

@@ -6,7 +6,7 @@
     @testable import CrosstuneUI
 
     /// The Mac's practice view, recordings, record sheet, media sheets, and dock.
-    @Suite struct MacPracticeSurfaceTests {
+    struct MacPracticeSurfaceTests {
         private static func macSource(_ path: String) throws -> String {
             SourceScan.macCompiled(
                 SourceScan.withoutComments(try SourceScan.text(at: SourceScan.url(of: path))))

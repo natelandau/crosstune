@@ -10,7 +10,7 @@ import Testing
 @testable import CrosstuneUI
 
 /// The same cases as the API's `test_place_names.py`, so every platform names a place alike.
-@Suite struct PlaceNamesTests {
+struct PlaceNamesTests {
     @Test func aUSPlaceUsesItsStateCode() {
         let name = PlaceNames.name(
             locality: "Galax", administrativeAreaCode: "VA", countryCode: "US", country: "United States",
@@ -66,7 +66,7 @@ import Testing
 }
 
 /// The picked-name rule the API applies to web search suggestions in `places/names.py`.
-@Suite struct PickedPlaceNamesTests {
+struct PickedPlaceNamesTests {
     private func picked(
         _ name: String?, poi: Bool = false, street: String? = nil, locality: String?, area: String? = nil,
         code: String? = "US", country: String? = "United States"
@@ -190,7 +190,7 @@ import Testing
     }
 }
 
-@Suite struct LocationWordsTests {
+struct LocationWordsTests {
     @Test func theSearchAndItsRowsSayLocation() {
         #expect(RecordingPageCopy.location == "Location")
         #expect(PlaceSearchText.clearPlace == "Clear location")
@@ -220,7 +220,7 @@ import Testing
 }
 
 @MainActor
-@Suite struct MapKitPlaceSearchTests {
+struct MapKitPlaceSearchTests {
     @Test func theFullSearchRegionCentersOnTheHintAndSpansHalfADegree() throws {
         let hint = Coordinate(lat: 40.678, lon: -73.944, accuracyM: 12)
         let region = try #require(MapKitPlaceSearch.region(near: hint))

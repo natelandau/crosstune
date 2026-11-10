@@ -3,7 +3,7 @@ import Testing
 
 @testable import CrosstuneUI
 
-@Suite struct PadStyleTests {
+struct PadStyleTests {
     @Test func contentColumnTakesHalfAboveItsFloor() {
         #expect(PadStyle.contentColumnWidth(in: 1376) == 688)
         #expect(PadStyle.contentColumnWidth(in: 900) == 450)

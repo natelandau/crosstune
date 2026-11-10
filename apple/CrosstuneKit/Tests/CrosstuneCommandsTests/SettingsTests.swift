@@ -6,7 +6,7 @@ import Testing
 
 @testable import CrosstuneCommands
 
-@Suite struct SettingsIDTests {
+struct SettingsIDTests {
     @Test func isStableForOneUserAndDistinctAcrossUsers() {
         #expect(settingsID(clerkUserID: "user_1") == settingsID(clerkUserID: "user_1"))
         #expect(settingsID(clerkUserID: "user_1") != settingsID(clerkUserID: "user_2"))
@@ -20,7 +20,7 @@ import Testing
     }
 }
 
-@Suite struct SetInstrumentsTests {
+struct SetInstrumentsTests {
     @Test func writesOneRowAndQueuesIt() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -75,7 +75,7 @@ import Testing
     }
 }
 
-@Suite struct ToggleInstrumentSettingTests {
+struct ToggleInstrumentSettingTests {
     @Test func preservesAnInstrumentThisClientDoesNotRecognize() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -169,7 +169,7 @@ import Testing
     }
 }
 
-@Suite struct FiveStringBanjoTests {
+struct FiveStringBanjoTests {
     @Test func isStoredAndPushedUnderItsOwnName() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -185,7 +185,7 @@ import Testing
     }
 }
 
-@Suite struct CaptureBitrateTests {
+struct CaptureBitrateTests {
     @Test func followsTheAudioQualitySetting() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -205,7 +205,7 @@ private let everyService = [
     "apple_music", "tidal", "internet_archive", "slippery_hill", "youtube", "spotify", "bandcamp", "soundcloud",
 ]
 
-@Suite struct SearchableProvidersTests {
+struct SearchableProvidersTests {
     @Test func isEveryProviderButOtherInResultGroupOrder() {
         #expect(searchableProviders == everyService)
         #expect(Set(searchableProviders) == Set(Vocabulary.providers).subtracting(["other"]))
@@ -214,7 +214,7 @@ private let everyService = [
     }
 }
 
-@Suite struct ToggleSearchProviderTests {
+struct ToggleSearchProviderTests {
     private func row(_ store: CrosstuneStore, sourceLocation: SourceLocation = #_sourceLocation) async throws
         -> UserSettings
     {
@@ -303,7 +303,7 @@ private let everyService = [
     }
 }
 
-@Suite struct SettingsWritesKeepOtherFieldsTests {
+struct SettingsWritesKeepOtherFieldsTests {
     @Test func settingInstrumentsKeepsSearchProvidersAndFieldsThisBuildDoesNotModel() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -414,7 +414,7 @@ private let everyService = [
     }
 }
 
-@Suite struct NewTuneDefaultsTests {
+struct NewTuneDefaultsTests {
     @Test func aNewRowStartsWithNoGenreAndWantToLearn() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -478,7 +478,7 @@ private let everyService = [
     }
 }
 
-@Suite struct ReferencePitchTests {
+struct ReferencePitchTests {
     private func stored(_ store: CrosstuneStore, sourceLocation: SourceLocation = #_sourceLocation) async throws
         -> UserSettings
     {

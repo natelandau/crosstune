@@ -9,7 +9,7 @@ import Testing
 /// one with `let` or `var` in the same file. A value that arrives as a parameter or a stored
 /// property, such as `Text(title)` in a row that is handed its title, passes unseen, so a view
 /// like that is masked by hand.
-@Suite struct ContentMaskTests {
+struct ContentMaskTests {
     /// Properties that hold user content. A new content property belongs in this list, so every
     /// view that shows it must be masked.
     static let contentProperties: Set = [

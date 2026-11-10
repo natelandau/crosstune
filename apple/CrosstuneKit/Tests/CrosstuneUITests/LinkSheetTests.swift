@@ -23,7 +23,7 @@ private final class FakeResolver {
 }
 
 @MainActor
-@Suite struct LinkSheetModelTests {
+struct LinkSheetModelTests {
     private let root = TemporaryRoot()
     private let tuneID = SampleCatalog.entries[2].tune.id
 

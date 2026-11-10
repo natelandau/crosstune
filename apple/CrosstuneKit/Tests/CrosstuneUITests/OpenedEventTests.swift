@@ -8,7 +8,7 @@ import Testing
 
 /// The export reports once its zip is made.
 @MainActor
-@Suite struct OpenedEventTests {
+struct OpenedEventTests {
     private let sink = RecordingAnalyticsSink()
 
     private func zip() throws -> URL {

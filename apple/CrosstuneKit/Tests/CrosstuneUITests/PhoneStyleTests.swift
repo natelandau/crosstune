@@ -4,7 +4,7 @@ import Testing
 
 @testable import CrosstuneUI
 
-@Suite struct PhoneStyleTests {
+struct PhoneStyleTests {
     private static let schemes: [ColorScheme] = [.light, .dark]
     private static let backgrounds = schemes.map { Palette.hex(.tunerBackground, $0) }
     private static let brand = Palette.hex(.brand, .light)

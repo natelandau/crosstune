@@ -8,7 +8,7 @@ import Testing
 @testable import CrosstuneAuth
 @testable import CrosstuneUI
 
-@Suite struct WelcomeTests {
+struct WelcomeTests {
     @Test func theHeadlineNamesTheDevice() {
         #expect(WelcomeCopy.headline(for: .phone) == "The tune list in your case, rebuilt for your phone.")
         #expect(WelcomeCopy.headline(for: .pad) == "The tune list in your case, rebuilt for your iPad.")
@@ -157,7 +157,7 @@ private final class SuspendingClerkCalls: ClerkSignUpCalls, @unchecked Sendable 
 }
 
 @MainActor
-@Suite struct WelcomeModelTests {
+struct WelcomeModelTests {
     private let sink = RecordingAnalyticsSink()
 
     private func model(_ calls: StubClerkSignUpCalls = StubClerkSignUpCalls()) -> WelcomeModel {
@@ -277,7 +277,7 @@ private final class SuspendingClerkCalls: ClerkSignUpCalls, @unchecked Sendable 
     import ClerkKitUI
 
     @MainActor
-    @Suite struct MacClerkThemeTests {
+    struct MacClerkThemeTests {
         /// `color`'s sRGB hex and alpha as drawn in `appearance`.
         private func resolved(_ color: Color, in appearance: NSAppearance.Name) -> (hex: String, alpha: Double)? {
             var result: (String, Double)?

@@ -61,7 +61,7 @@ private func storedSettings(_ store: CrosstuneStore) async throws -> UserSetting
     try await store.read { db in try UserSettings.fetchOne(db, key: settingsID(clerkUserID: store.userID)) }
 }
 
-@Suite struct PendingWriteTests {
+struct PendingWriteTests {
     @Test func coversTheStoredValueUntilTheStoreReadsTheWrite() {
         var pending = PendingWrite<Bool>()
         let token = pending.begin(true)
@@ -106,14 +106,14 @@ private func storedSettings(_ store: CrosstuneStore) async throws -> UserSetting
     }
 }
 
-@Suite struct TextSizeStepperTests {
+struct TextSizeStepperTests {
     @Test func theStepperBindingClampsIntoTheRange() {
         #expect(SettingsScreen.stepperValue(offset: -9, system: .small) == -1)
         #expect(SettingsScreen.stepperValue(offset: 2, system: .large) == 2)
     }
 }
 
-@Suite struct SettingsTextTests {
+struct SettingsTextTests {
     @Test func namesInstrumentsInVocabularyOrderOrNotSet() {
         #expect(SettingsModel.summary(["violin", "five_string_banjo"]) == "Violin, 5-string banjo")
         #expect(SettingsModel.summary(["retired_banjo"]) == "Not set")
@@ -178,7 +178,7 @@ private func instrumentSummary(_ model: SettingsModel) -> String {
 }
 
 @MainActor
-@Suite struct SettingsModelTests {
+struct SettingsModelTests {
     @Test func readsTheMusiciansInstrumentsAndQuality() async throws {
         let root = TemporaryRoot()
         let store = try await SampleCatalog.copiedStore(root: root.url)
@@ -538,7 +538,7 @@ private func instrumentSummary(_ model: SettingsModel) -> String {
     }
 }
 
-@Suite struct AppleMusicRowTests {
+struct AppleMusicRowTests {
     @Test(
         arguments: [
             (AppleMusicAccessState.notAsked, "Previews", AppleMusicRowAction.request),
@@ -559,7 +559,7 @@ private func instrumentSummary(_ model: SettingsModel) -> String {
     }
 }
 
-@Suite struct SettingsRootTests {
+struct SettingsRootTests {
     @Test func everySettingsSectionHasOneHomeOnPhone() {
         // The two cards, then what each category's page declares.
         var homes: [SettingsScreen.Sections] = SettingsCategory.allCases.map(\.sections)
@@ -629,7 +629,7 @@ private func instrumentSummary(_ model: SettingsModel) -> String {
 }
 
 #if os(macOS)
-    @Suite struct MacSettingsTabsTests {
+    struct MacSettingsTabsTests {
         @Test func everySectionShowsInExactlyOneTab() {
             var seen: SettingsScreen.Sections = []
             for pane in MacSettingsTabs.Pane.allCases {
@@ -767,7 +767,7 @@ private func instrumentSummary(_ model: SettingsModel) -> String {
     }
 #endif
 
-@Suite struct ImportExportSectionsTests {
+struct ImportExportSectionsTests {
     /// The same words as the web's Import and export page.
     @Test func copyMatchesTheWeb() {
         #expect(ImportExportSections.title == "Import and export")

@@ -13,7 +13,7 @@ private func loop(_ id: String, _ startMs: Int64, _ endMs: Int64, deleted: Bool 
 }
 
 @MainActor
-@Suite struct LoopPlaybackTests {
+struct LoopPlaybackTests {
     private let audio = FakeAudio()
     private let loops: LoopPlayback
 

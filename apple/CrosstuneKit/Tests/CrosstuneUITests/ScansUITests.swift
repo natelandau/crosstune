@@ -53,7 +53,7 @@ private func jpeg(width: Int, height: Int) -> Data {
 }
 
 @MainActor
-@Suite struct ScansUITests {
+struct ScansUITests {
     // MARK: Section
 
     @Test func sectionShowsAddWithNoScans() {
@@ -432,7 +432,7 @@ extension Database {
 }
 
 @MainActor
-@Suite struct ScanZoomSourceTests {
+struct ScanZoomSourceTests {
     @Test func theViewerClosesIntoTheThumbnailOfTheScanShowingNow() {
         let request = ScanRequest(tuneID: "t1", startIndex: 1, origin: .tune)
         #expect(ScanScreens.zoomSourceID(request, shownIndex: nil) == ScanScreens.sourceID(tuneID: "t1", index: 1))
@@ -478,7 +478,7 @@ private struct ScannedTunes {
 }
 
 @MainActor
-@Suite struct ScansPlanTests {
+struct ScansPlanTests {
     @Test func aFreePlanOpensNoScan() async throws {
         let fixture = try await ScannedTunes(source: nil)
         let a = fixture.model(fixture.tuneA)
@@ -571,7 +571,7 @@ private struct ScannedTunes {
 }
 
 @MainActor
-@Suite struct ScansPlanFollowTests {
+struct ScansPlanFollowTests {
     @Test func followsThePlanItIsGiven() async throws {
         let fixture = try await ScannedTunes(source: nil)
         let b = TuneModel(store: fixture.store, tuneID: fixture.tuneB)

@@ -7,7 +7,7 @@ import Testing
 
 @testable import CrosstuneUI
 
-@Suite struct FlowLayoutTests {
+struct FlowLayoutTests {
     private let pill = CGSize(width: 40, height: 20)
 
     @Test func wrapsWhenTheNextItemWouldNotFit() {
@@ -75,7 +75,7 @@ import Testing
     }
 }
 
-@Suite struct MediaRowTests {
+struct MediaRowTests {
     @Test func namesTheRowByItsActionLabelAndItsLines() {
         #expect(
             MediaRow.accessibilityName(actionLabel: "Play", title: "Jam", details: ["0:42 · Mar 14"])
@@ -87,14 +87,14 @@ import Testing
     }
 }
 
-@Suite struct UndoBannerTests {
+struct UndoBannerTests {
     @Test func staysLongerWhileVoiceOverRuns() {
         #expect(UndoBanner.timeout(voiceOver: false) == .seconds(8))
         #expect(UndoBanner.timeout(voiceOver: true) > UndoBanner.timeout(voiceOver: false))
     }
 }
 
-@Suite struct SampleCatalogTests {
+struct SampleCatalogTests {
     @Test func fillsAStoreWithEveryKindOfRow() async throws {
         let store = try await SampleCatalog.makeStore()
         defer { try? FileManager.default.removeItem(at: store.folder.deletingLastPathComponent()) }
@@ -125,7 +125,7 @@ import Testing
     }
 }
 
-@Suite struct SpacingTests {
+struct SpacingTests {
     @Test func tokensAreTunedAtTheDefaultSize() {
         let spacing = Spacing(.large)
         #expect(spacing.scale == 1)
@@ -155,7 +155,7 @@ import Testing
     }
 }
 
-@Suite struct CharacterLimitTests {
+struct CharacterLimitTests {
     @Test func countsCodePointsAsTheServerDoes() {
         // Each flag is one character of two code points.
         let flags = String(repeating: "🇺🇸", count: 3)

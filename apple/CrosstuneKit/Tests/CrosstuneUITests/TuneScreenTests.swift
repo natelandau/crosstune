@@ -13,7 +13,7 @@ private func file(_ state: LocalFileState) -> RecordingFile {
     RecordingFile(id: UUID().uuidString, localState: state, updatedAt: noon)
 }
 
-@Suite struct DeleteTuneMessageTests {
+struct DeleteTuneMessageTests {
     @Test func namesOnlyLinksAndListEntriesWhenThereAreNoRecordings() {
         #expect(
             DeleteTuneMessage.one(files: [])
@@ -100,7 +100,7 @@ private func file(_ state: LocalFileState) -> RecordingFile {
     }
 }
 
-@Suite struct TuneDetailTests {
+struct TuneDetailTests {
     private func detail(
         _ tune: Tune, status: String = "known", learnedFrom: String? = nil, learnedOn: String? = nil,
         notes: String? = nil, archived: Bool = false, instruments: Set<String> = []
@@ -186,7 +186,7 @@ private func file(_ state: LocalFileState) -> RecordingFile {
 }
 
 @MainActor
-@Suite struct TuneModelTests {
+struct TuneModelTests {
     private let soldiersJoy = SampleCatalog.entries[0]
 
     @Test func readsTheTuneWithItsMediaListsAndInstruments() async throws {
@@ -617,7 +617,7 @@ private func file(_ state: LocalFileState) -> RecordingFile {
     }
 }
 
-@Suite struct PlayerItemTests {
+struct PlayerItemTests {
     private let tuneID = "t1"
 
     private func recording(label: String?) -> Recording {
@@ -644,7 +644,7 @@ private func file(_ state: LocalFileState) -> RecordingFile {
     }
 }
 
-@Suite struct TunePageTests {
+struct TunePageTests {
     private let entry = SampleCatalog.entries[0]
 
     private func detail(

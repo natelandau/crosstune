@@ -99,7 +99,7 @@ final class FakeTunerInput: TunerListening {
 private let reading = Reading(frequency: 440, note: Note(name: .a, octave: 4, cents: 0), atMs: 100)
 
 @MainActor
-@Suite struct TunerModelTests {
+struct TunerModelTests {
     private let root = TemporaryRoot()
     private let input = FakeTunerInput()
     private let recorders = RecorderHost(makeInput: { ToneInput() })

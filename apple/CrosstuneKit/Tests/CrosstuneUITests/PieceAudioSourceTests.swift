@@ -15,7 +15,7 @@ private final class Asked: Sendable {
     func add(_ id: String) { list.withLock { $0.append(id) } }
 }
 
-@Suite struct PieceAudioSourceTests {
+struct PieceAudioSourceTests {
     private let root = TemporaryRoot()
 
     /// A parent with audio on disk starting 5 s into the source, and a piece cut from it.

@@ -5,7 +5,7 @@ import Testing
 @testable import CrosstuneUI
 
 @MainActor
-@Suite struct TunerScreenTests {
+struct TunerScreenTests {
     private static func a4(cents: Double) -> Note { Note(name: .a, octave: 4, cents: cents) }
 
     private static func reading(_ name: NoteName, cents: Double, atMs: Double) -> Reading {

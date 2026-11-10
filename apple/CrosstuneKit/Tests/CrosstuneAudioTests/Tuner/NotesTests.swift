@@ -3,7 +3,7 @@ import Testing
 @testable import CrosstuneAudio
 
 extension Tuner {
-    @Suite struct NotesTests {
+    struct NotesTests {
         @Test func namesA440AsA4() {
             #expect(noteFor(frequency: 440, a4: 440) == Note(name: .a, octave: 4, cents: 0))
         }

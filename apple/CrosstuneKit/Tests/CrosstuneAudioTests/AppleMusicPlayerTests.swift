@@ -3,7 +3,7 @@ import Testing
 
 @testable import CrosstuneAudio
 
-@Suite struct GuardMoveTests {
+struct GuardMoveTests {
     @Test func aMoveForwardNearTheEndIsTheSongFinishing() {
         #expect(trackEnd(fromIndex: 1, toIndex: 2, positionBefore: 197, duration: 200) == .finished)
         #expect(trackEnd(fromIndex: 1, toIndex: 2, positionBefore: 199.6, duration: 200) == .finished)
@@ -25,7 +25,7 @@ import Testing
     }
 }
 
-@Suite struct SongPositionTests {
+struct SongPositionTests {
     @Test func followsReadingsThatMoveOn() {
         var position = SongPosition()
         for reading in [0.25, 0.5, 0.75, 10, 10.25] { position.reading(reading) }
@@ -66,7 +66,7 @@ import Testing
     }
 }
 
-@Suite struct SongPositionSeekTests {
+struct SongPositionSeekTests {
     @Test func aSeekBackIsTakenAtOnceAndTheNextReadingFollowsIt() {
         var position = SongPosition()
         position.reading(100)
@@ -86,7 +86,7 @@ import Testing
     }
 }
 
-@Suite struct UnrequestedPlaysTests {
+struct UnrequestedPlaysTests {
     private let start = ContinuousClock.now
 
     @Test func aPlayStillReportedFromBeforeThePauseIsPausedButNotCounted() {
@@ -118,7 +118,7 @@ import Testing
     }
 }
 
-@Suite struct PreviousSettleTests {
+struct PreviousSettleTests {
     private let start = ContinuousClock.now
 
     @Test func waitsWhileNoUnrequestedPlayHasBeenPaused() {

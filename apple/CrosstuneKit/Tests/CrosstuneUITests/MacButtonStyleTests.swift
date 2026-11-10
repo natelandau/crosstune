@@ -7,7 +7,7 @@
     @testable import CrosstuneUI
 
     @MainActor
-    @Suite struct MacButtonStyleTests {
+    struct MacButtonStyleTests {
         private static let filledRoles: [MacButtonStyle.Role] = [.primary, .secondary, .destructiveFilled]
 
         /// The primary's fill depends only on the role and the press, never on the window.

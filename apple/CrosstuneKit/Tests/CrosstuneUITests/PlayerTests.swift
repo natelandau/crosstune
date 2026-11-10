@@ -35,7 +35,7 @@ private func link(_ provider: String, _ providerRef: String?, url: String = "htt
     RecordingLink(id: "l1", tuneID: "t1", url: url, provider: provider, providerRef: providerRef)
 }
 
-@Suite struct EmbedTests {
+struct EmbedTests {
     @Test(arguments: [
         (
             link("youtube", "dQw4w9WgXcQ"),
@@ -247,7 +247,7 @@ private func link(_ provider: String, _ providerRef: String?, url: String = "htt
     }
 }
 
-@Suite struct PlayerItemLinkTests {
+struct PlayerItemLinkTests {
     @Test func loadsALinkWithItsPlayerStartingAndItsProviderPage() throws {
         var youtube = link("youtube", "dQw4w9WgXcQ", url: "https://youtu.be/dQw4w9WgXcQ")
         youtube.title = "Soldier's Joy"
@@ -269,7 +269,7 @@ private func link(_ provider: String, _ providerRef: String?, url: String = "htt
 }
 
 @MainActor
-@Suite struct PlayerModelTests {
+struct PlayerModelTests {
     private func youtube(title: String? = "Soldier's Joy") -> RecordingLink {
         var row = link("youtube", "dQw4w9WgXcQ")
         row.title = title
@@ -430,7 +430,7 @@ private func link(_ provider: String, _ providerRef: String?, url: String = "htt
 
 #if os(macOS)
     @MainActor
-    @Suite struct EmbedStageTests {
+    struct EmbedStageTests {
         private let embed: Embed
 
         init() throws {
@@ -508,7 +508,7 @@ private func link(_ provider: String, _ providerRef: String?, url: String = "htt
 #endif
 
 #if os(macOS)
-    @Suite struct PlayerDockTests {
+    struct PlayerDockTests {
         @Test func dockEmbedStaysWithinShare() {
             #expect(PlayerDock.chrome == MacStyle.dockHeight + PlayerDock.inset)
             let height = PlayerDock.embedHeight(columnHeight: 500, wanted: 400)
@@ -527,7 +527,7 @@ private func link(_ provider: String, _ providerRef: String?, url: String = "htt
     }
 #endif
 
-@Suite struct MusicPlayerCardTests {
+struct MusicPlayerCardTests {
     @Test func fillsTheCardsHeightWithSquareArtwork() {
         #expect(MusicPlayerCard.artworkSide(height: 175) == 175 - 2 * MusicPlayerCard.inset)
     }
@@ -543,7 +543,7 @@ private final class QuietTrackCommands: TrackCommands {
 }
 
 @MainActor
-@Suite final class PlaylistControlsTests {
+final class PlaylistControlsTests {
     private let suite = TemporaryDefaults("PlaylistControlsTests")
     private var defaults: UserDefaults { suite.defaults }
 
@@ -621,7 +621,7 @@ private final class QuietTrackCommands: TrackCommands {
     }
 }
 
-@Suite struct AccessorySwipeTests {
+struct AccessorySwipeTests {
     @Test func swipeSkipsOnlyPastTheThresholdWhileAListPlays() {
         #expect(AccessorySwipe.skip(translation: -61, isPlayingList: true) == .next)
         #expect(AccessorySwipe.skip(translation: 61, isPlayingList: true) == .previous)

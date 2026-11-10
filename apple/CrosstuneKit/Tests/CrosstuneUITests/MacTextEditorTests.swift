@@ -7,7 +7,7 @@
     @testable import CrosstuneUI
 
     @MainActor
-    @Suite struct MacTextEditorTests {
+    struct MacTextEditorTests {
         private static func views<T: NSView>(_ type: T.Type, in view: NSView) -> [T] {
             (view as? T).map { [$0] } ?? [] + view.subviews.flatMap { views(type, in: $0) }
         }

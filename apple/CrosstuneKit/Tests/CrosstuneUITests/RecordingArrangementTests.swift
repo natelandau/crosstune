@@ -42,7 +42,7 @@ private func groups(_ filed: FiledRecordings, sourceLocation: SourceLocation = #
     return groups
 }
 
-@Suite struct RecordingArrangementByAddedTests {
+struct RecordingArrangementByAddedTests {
     let views = [
         view("u1", minutes: 1), view("u2", minutes: 3), view("u3", minutes: 2),
         view("f1", tune: "t", title: "T", minutes: 4), view("f2", tune: "t", title: "T", minutes: 6),
@@ -83,7 +83,7 @@ private func groups(_ filed: FiledRecordings, sourceLocation: SourceLocation = #
     }
 }
 
-@Suite struct RecordingArrangementByRecordedTests {
+struct RecordingArrangementByRecordedTests {
     let views = [
         view("time", minutes: 1, recorded: ("1998-10-03T16:12:00Z", "time")),
         view("day", minutes: 2, recorded: ("1937-05-12T00:00:00Z", "day")),
@@ -135,7 +135,7 @@ private func groups(_ filed: FiledRecordings, sourceLocation: SourceLocation = #
     }
 }
 
-@Suite struct RecordingArrangementByTitleTests {
+struct RecordingArrangementByTitleTests {
     let views = [
         view("b", label: "banjo", minutes: 1), view("a", label: "Álpha", minutes: 2),
         view("c", label: "cello", minutes: 3), view("n1", minutes: 4), view("n2", minutes: 5),
@@ -164,7 +164,7 @@ private func groups(_ filed: FiledRecordings, sourceLocation: SourceLocation = #
     }
 }
 
-@Suite struct RecordingArrangementByTuneTests {
+struct RecordingArrangementByTuneTests {
     let views = [
         view("b1", tune: "tb", title: "Banks", minutes: 1), view("b2", tune: "tb", title: "Banks", minutes: 3),
         view("a1", tune: "ta", title: "Arkansas", minutes: 2), view("a2", tune: "ta", title: "Arkansas", minutes: 4),
@@ -210,7 +210,7 @@ private func groups(_ filed: FiledRecordings, sourceLocation: SourceLocation = #
     }
 }
 
-@Suite struct RecordingArrangementFilingTests {
+struct RecordingArrangementFilingTests {
     @Test func leavesARecordingWhoseTuneIsGoneUnfiled() {
         let result = RecordingArrangement.arrange(
             [view("r", tune: nil, stale: "deleted", minutes: 1)], choice: .default, query: "")
@@ -219,7 +219,7 @@ private func groups(_ filed: FiledRecordings, sourceLocation: SourceLocation = #
     }
 }
 
-@Suite struct RecordingArrangementSearchTests {
+struct RecordingArrangementSearchTests {
     let views = [
         view("s", label: "fast", tune: "t", title: "Soldier's Joy", minutes: 1),
         view("a", label: "Álpha", minutes: 2), view("n", minutes: 3),
@@ -258,7 +258,7 @@ private func groups(_ filed: FiledRecordings, sourceLocation: SourceLocation = #
     }
 }
 
-@Suite struct SortChoiceTests {
+struct SortChoiceTests {
     @Test func defaultsToDateAddedNewestFirst() {
         #expect(RecordingSortChoice.default == choice(.added, true))
         let storedUnder = "recordingsSort.v2"  // gitleaks:allow -- a defaults key, not a secret
@@ -309,7 +309,7 @@ private func groups(_ filed: FiledRecordings, sourceLocation: SourceLocation = #
     }
 }
 
-@Suite struct RecordingSortChoicesTests {
+struct RecordingSortChoicesTests {
     @Test func showsTheDirectionOnTheCheckedItemOnly() {
         let items = SortChoices<RecordingSort>.items(for: .default)
         #expect(items.map(\.label) == ["Date added", "Date recorded", "Title", "Tune"])
@@ -336,7 +336,7 @@ private func groups(_ filed: FiledRecordings, sourceLocation: SourceLocation = #
     }
 }
 
-@Suite struct RecordingArrangementCountTests {
+struct RecordingArrangementCountTests {
     let views = [
         view("u1", minutes: 1), view("f1", tune: "t", title: "T", minutes: 2),
         view("f2", tune: "s", title: "S", minutes: 3),
@@ -356,7 +356,7 @@ private func groups(_ filed: FiledRecordings, sourceLocation: SourceLocation = #
     }
 }
 
-@Suite struct RecordingSearchByLocationTests {
+struct RecordingSearchByLocationTests {
     private func located(_ id: String, shown: String?) -> RecordingView {
         RecordingView(
             recording: Recording(id: id, tuneID: nil, source: "microphone", addedAt: later(1_000), state: "ready"),

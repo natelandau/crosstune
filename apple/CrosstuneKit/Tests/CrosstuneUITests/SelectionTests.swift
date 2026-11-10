@@ -42,7 +42,7 @@ private func with(_ entry: CatalogEntry, modes: [String]? = nil, timeSignature: 
     return CatalogEntry(tune: tune, userTune: userTune)
 }
 
-@Suite struct BatchEditSummaryTests {
+struct BatchEditSummaryTests {
     @Test func reportsSharedMixedAndEmptyFields() {
         let summary = BatchEdit.summarize([a, b])
         #expect(summary[.key] == .shared(.text("A")))
@@ -93,7 +93,7 @@ private func with(_ entry: CatalogEntry, modes: [String]? = nil, timeSignature: 
     }
 }
 
-@Suite struct BatchEditFieldTests {
+struct BatchEditFieldTests {
     private let violin: Set<String> = ["violin"]
 
     @Test func showsATuningForAPlayedInstrumentOrOneASelectedTuneHolds() {
@@ -121,7 +121,7 @@ private func with(_ entry: CatalogEntry, modes: [String]? = nil, timeSignature: 
     }
 }
 
-@Suite struct BatchEditPatchTests {
+struct BatchEditPatchTests {
     @Test func splitsTouchedFieldsBetweenTuneAndUserTuneTrimmingAndClearing() {
         let patch = BatchEdit.patch([
             .tuning("violin"): .text(" Cross A (AEAE) "),
@@ -167,7 +167,7 @@ private func with(_ entry: CatalogEntry, modes: [String]? = nil, timeSignature: 
     }
 }
 
-@Suite struct BulkEditFormTests {
+struct BulkEditFormTests {
     @Test func showsTheSharedValueNotSetOrMixed() {
         let form = BulkEditForm(entries: [a, b], instruments: ["violin"])
         #expect(form.shown(.key) == "A")
@@ -219,7 +219,7 @@ private func with(_ entry: CatalogEntry, modes: [String]? = nil, timeSignature: 
     }
 }
 
-@Suite struct TuneSelectionTests {
+struct TuneSelectionTests {
     private let visible = ["a", "b", "c", "d", "e"]
 
     @Test func entersFromARowWithThatRowSelected() {
@@ -310,7 +310,7 @@ private func with(_ entry: CatalogEntry, modes: [String]? = nil, timeSignature: 
 }
 
 #if os(macOS)
-    @Suite struct MacSelectionTests {
+    struct MacSelectionTests {
         private static func source(_ name: String, sourceLocation: SourceLocation = #_sourceLocation) throws -> String {
             let file = try #require(
                 SourceScan.files().first { $0.lastPathComponent == name }, sourceLocation: sourceLocation)
@@ -371,7 +371,7 @@ private func with(_ entry: CatalogEntry, modes: [String]? = nil, timeSignature: 
     }
 #endif
 
-@Suite struct BulkActionTextTests {
+struct BulkActionTextTests {
     @Test func carriesTheCountInEveryLabelAndMessage() {
         #expect(BulkActionText.archive(true, count: 3) == "Archive 3 tunes")
         #expect(BulkActionText.archive(false, count: 1) == "Unarchive 1 tune")
@@ -386,7 +386,7 @@ private func with(_ entry: CatalogEntry, modes: [String]? = nil, timeSignature: 
     }
 }
 
-@Suite @MainActor struct BulkActionsTests {
+@MainActor struct BulkActionsTests {
     private let root = TemporaryRoot()
 
     private func sample(_ title: String) -> CatalogEntry {

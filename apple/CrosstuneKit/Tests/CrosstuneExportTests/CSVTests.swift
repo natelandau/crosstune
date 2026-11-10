@@ -4,7 +4,7 @@ import Testing
 
 private let bom = "\u{FEFF}"
 
-@Suite struct CSVTests {
+struct CSVTests {
     @Test func quotesOnlyFieldsThatNeedItAndDoublesInnerQuotes() {
         #expect(csvDocument([["a", "b,c", "say \"hi\"", "x\ny"]]) == "\(bom)a,\"b,c\",\"say \"\"hi\"\"\",\"x\ny\"\r\n")
     }

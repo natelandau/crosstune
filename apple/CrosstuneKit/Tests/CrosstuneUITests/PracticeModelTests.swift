@@ -100,7 +100,7 @@ private final class FakeLoops {
 }
 
 @MainActor
-@Suite struct PracticeModelTests {
+struct PracticeModelTests {
     private let audio = FakeAudio()
     private let player: PlayerModel
     private let store: FakeLoops

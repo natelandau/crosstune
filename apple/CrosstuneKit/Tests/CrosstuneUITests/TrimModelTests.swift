@@ -49,7 +49,7 @@ private final class Holds {
 }
 
 @MainActor
-@Suite struct TrimModelTests {
+struct TrimModelTests {
     private let writes = TrimWrites()
     private let holds = Holds()
 
@@ -424,7 +424,7 @@ private final class Holds {
 }
 
 @MainActor
-@Suite struct SelectionStopTests {
+struct SelectionStopTests {
     /// Plays a stop through `readings` of (playing, elapsed), with the end handle at `end` of a
     /// window `length` long, and returns what it asked for.
     private func run(
@@ -475,7 +475,7 @@ private final class Holds {
 }
 
 @MainActor
-@Suite struct TrimHoldTests {
+struct TrimHoldTests {
     private let audio = FakeAudio()
     private let player: PlayerModel
 

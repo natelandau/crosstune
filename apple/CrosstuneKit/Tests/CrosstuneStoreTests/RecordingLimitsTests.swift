@@ -2,7 +2,7 @@ import Testing
 
 @testable import CrosstuneStore
 
-@Suite struct RecordingLimitsTests {
+struct RecordingLimitsTests {
     private let limits = StorageUsage(
         usedBytes: 0, quotaBytes: 0, maxFileBytes: 500, splitParentMaxFileBytes: 2_000)
 

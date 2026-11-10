@@ -3,7 +3,7 @@ import Testing
 
 /// A screen draws its controls from the shared library, never its own. A screen that builds a
 /// control itself fails, unless `allowed` names that file and that rule.
-@Suite struct ControlLibraryTests {
+struct ControlLibraryTests {
     /// The passes an exception holds in, so one platform's exception never widens the other's.
     enum Pass: CaseIterable {
         case iOS, mac

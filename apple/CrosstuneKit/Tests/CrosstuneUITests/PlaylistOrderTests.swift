@@ -17,7 +17,7 @@ struct SplitMix64: RandomNumberGenerator {
     }
 }
 
-@Suite struct PlaylistOrderTests {
+struct PlaylistOrderTests {
     let ids = ["a", "b", "c", "d", "e"]
 
     private func order(

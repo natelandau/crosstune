@@ -123,7 +123,7 @@ private let linkTap = PlayAttribution(
     source: .dock, queue: .single, trigger: .tap, kind: .link, service: .youtube, tune: .known("t1"))
 
 @MainActor
-@Suite struct PlayLogTests {
+struct PlayLogTests {
     private let clock = ActivityClock()
     private let recorded = ActivityRecorded()
     private let recording = PlaySubject(kind: .recording, id: "rec-1")
@@ -284,7 +284,7 @@ private let linkTap = PlayAttribution(
 }
 
 @MainActor
-@Suite struct PlayerPlayLogTests {
+struct PlayerPlayLogTests {
     private let suite = TemporaryDefaults("PlayLogTests")
 
     @Test func aRecordingPlayedFromARowIsLogged() async throws {
@@ -530,7 +530,7 @@ private final class NoTrackCommands: TrackCommands {
 }
 
 @MainActor
-@Suite struct StoreActivityWriterTests {
+struct StoreActivityWriterTests {
     private let root = TemporaryRoot()
 
     @Test func recordsAPlayUnderItsRecordingsTuneWithoutStartingASync() async throws {
@@ -572,7 +572,7 @@ private final class EndedPlays {
 /// Every play that sounded reports once as it ends, however short, beside the plays the log
 /// writes.
 @MainActor
-@Suite struct PlaybackEndedTests {
+struct PlaybackEndedTests {
     @Test func aSkipAfterThreeSecondsStillReportsAnEnd() async throws {
         let fixture = ActivityFixture()
         try await fixture.playRecording("r1")
@@ -732,7 +732,7 @@ private final class EndedPlays {
 /// The play and visit open as the Mac app quits are reported at once, so the flush that
 /// follows sends them.
 @MainActor
-@Suite struct AppQuitReportTests {
+struct AppQuitReportTests {
     /// The names of the captures and flushes the sink has heard, in order.
     private func heard(_ fixture: ActivityFixture) -> [String] {
         fixture.sink.calls.compactMap {
@@ -846,7 +846,7 @@ private final class OpenedURLs {
 /// The loaded link followed out to its provider reports once, from the bar, the dock, or the
 /// embed's own link to its site.
 @MainActor
-@Suite struct LoadedLinkOpenTests {
+struct LoadedLinkOpenTests {
     private let video = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
 
     @Test func openingTheLoadedLinkInItsProviderReportsOnce() async throws {

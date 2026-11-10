@@ -3,7 +3,7 @@ import Testing
 
 @testable import CrosstuneDesign
 
-@Suite struct ControlMetricsTests {
+struct ControlMetricsTests {
     @Test func minimumWidthsMatchTheSpec() {
         #expect(ControlMetrics.minWidth(.compact) == 60)
         #expect(ControlMetrics.minWidth(.regular) == 80)

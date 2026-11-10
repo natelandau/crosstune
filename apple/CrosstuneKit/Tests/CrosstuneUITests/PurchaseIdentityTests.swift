@@ -6,7 +6,7 @@ import Testing
 /// A purchase lands on whichever account RevenueCat holds, so each store names its user before
 /// anything for that store can buy.
 @MainActor
-@Suite struct PurchaseIdentityTests {
+struct PurchaseIdentityTests {
     @Test func eachStoreIdentifiesItsUserBeforeBindReturns() throws {
         let root = TemporaryRoot()
         let player = PlayerModel()

@@ -13,7 +13,7 @@ import Testing
 /// lands, never its name. A link saved as a recording from the archive is an archive save, not
 /// an import.
 @MainActor
-@Suite struct RecordingReportTests {
+struct RecordingReportTests {
     private let root = TemporaryRoot()
     private let sink = RecordingAnalyticsSink()
 

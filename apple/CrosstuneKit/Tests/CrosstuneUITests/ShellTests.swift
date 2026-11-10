@@ -8,7 +8,7 @@ import Testing
 
 @testable import CrosstuneUI
 
-@Suite struct SyncBadgeTests {
+struct SyncBadgeTests {
     @Test func showsOnlyTheStatesThatNeedAttention() {
         let shown = SyncStatus.allCases.map {
             SyncBadge.attention(status: $0, isOffline: false, needsSignIn: false, updateRequired: false)
@@ -58,7 +58,7 @@ import Testing
     }
 }
 
-@Suite struct UpdatePromptTests {
+struct UpdatePromptTests {
     @Test func appStoreURLForEachPlatform() {
         #expect(UpdatePromptText.appStoreURL(id: nil) == nil)
         #expect(UpdatePromptText.appStoreURL(id: "") == nil)
@@ -72,7 +72,7 @@ import Testing
 }
 
 @MainActor
-@Suite struct UpdatePromptClaimTests {
+struct UpdatePromptClaimTests {
     /// Held for the whole test, so no two windows ever share an identifier.
     private let windows = (0..<2).map { _ in Window() }
     private final class Window {}
@@ -157,7 +157,7 @@ import Testing
     }
 }
 
-@Suite struct AppearanceTests {
+struct AppearanceTests {
     @Test func systemFollowsTheDeviceAndTheOthersForceAScheme() {
         #expect(Appearance.system.colorScheme == nil)
         #expect(Appearance.light.colorScheme == .light)
@@ -172,7 +172,7 @@ import Testing
     }
 }
 
-@Suite struct TextSizeTests {
+struct TextSizeTests {
     @Test func bodySizesFollowApplesTable() {
         #expect(
             DynamicTypeSize.allCases.map(TextSize.bodyPointSize) == [14, 15, 16, 17, 19, 21, 23, 28, 33, 40, 47, 53])
@@ -211,7 +211,7 @@ import Testing
     }
 }
 
-@Suite struct TabSlotTests {
+struct TabSlotTests {
     @Test @MainActor func theRecordSlotIsDisabledOnlyWhileTheShellIsCovered() {
         #expect(TabSlot.recordIsEnabled(cover: nil))
         let cover = ShellCover()
@@ -232,7 +232,7 @@ import Testing
     }
 }
 
-@Suite struct SidebarTests {
+struct SidebarTests {
     private let root = TemporaryRoot()
 
     #if os(macOS)
@@ -344,7 +344,7 @@ import Testing
 
 #if os(macOS)
     @MainActor
-    @Suite struct SidebarSyncTests {
+    struct SidebarSyncTests {
         private let root = TemporaryRoot()
 
         private func storedFilters(_ store: CrosstuneStore) async throws -> CatalogFilters {
@@ -476,7 +476,7 @@ import Testing
 #endif
 
 @MainActor
-@Suite struct ShellCoverTests {
+struct ShellCoverTests {
     @Test func staysCoveredUntilEveryClaimIsReleased() {
         let cover = ShellCover()
         #expect(cover.isCovered == false)
@@ -496,7 +496,7 @@ import Testing
     }
 }
 
-@Suite struct CoverClaimTests {
+struct CoverClaimTests {
     @Test func claimsOnlyWhileShownAndCovering() {
         var claim = CoverClaim(isCovering: true)
         #expect(claim.update(isShown: true) == .claim)
@@ -521,7 +521,7 @@ import Testing
     }
 }
 
-@Suite struct MenuCommandAvailabilityTests {
+struct MenuCommandAvailabilityTests {
     @Test func newTuneIsDisabledUnderASheetOrWhileSelecting() {
         #expect(MenuCommandAvailability.newTune(sheetsOpen: false, selecting: false))
         #expect(MenuCommandAvailability.newTune(sheetsOpen: true, selecting: false) == false)
@@ -583,7 +583,7 @@ import Testing
 }
 
 @MainActor
-@Suite struct ShellPlaceTests {
+struct ShellPlaceTests {
     @Test func aTunePushedOverOneListLeavesWithIt() {
         let place = ShellPlace()
         place.tabList = "list-1"
@@ -990,7 +990,7 @@ import Testing
 }
 
 @MainActor
-@Suite struct PadShellTests {
+struct PadShellTests {
     @Test func bothFormsShowTheSameListTuneAndScrollPlace() {
         // Both iOS shells read the same tab fields, so nothing converts on a size or form change.
         let place = ShellPlace()
@@ -1014,7 +1014,7 @@ import Testing
 }
 
 #if os(macOS)
-    @Suite struct MacUpdatePromptTests {
+    struct MacUpdatePromptTests {
         /// The prompt is a notice sheet: Update the primary, pressed by Return, Not Now beside it
         /// on Escape.
         @Test func updateIsThePrimaryAndNotNowCancels() {
@@ -1039,7 +1039,7 @@ import Testing
     }
 #endif
 
-@Suite struct AccountItemTests {
+struct AccountItemTests {
     @Test func showsOnlyWithTheShellsActionAndNotWhileSelecting() {
         let action = MenuAction {}
         #expect(showsAccountItem(showAccount: action, isSelecting: false))

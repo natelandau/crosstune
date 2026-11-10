@@ -10,7 +10,7 @@ import Testing
 /// A sync that fails, a recording that hits the storage limit, and an upload that is refused each
 /// report once as they enter that state, by a reason that is never the error's text.
 @MainActor
-@Suite struct SyncFailureEventTests {
+struct SyncFailureEventTests {
     let root = TemporaryRoot()
     let store: CrosstuneStore
     let api = FakeSyncAPI()

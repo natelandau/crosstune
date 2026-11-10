@@ -5,7 +5,7 @@ import Testing
 
 @testable import CrosstuneUI
 
-@Suite struct LyricLinesTests {
+struct LyricLinesTests {
     @Test func splitsVersesOnABlankLineAndKeepsEachLine() {
         #expect(LyricLines.lines("one\ntwo\n\nthree") == [["one", "two"], ["three"]])
     }
@@ -28,7 +28,7 @@ import Testing
     }
 }
 
-@Suite struct LyricOpeningTests {
+struct LyricOpeningTests {
     @Test func takesTheFirstLinesAcrossVerses() {
         #expect(LyricLines.opening("one\ntwo\n\nthree", count: 2) == ["one", "two"])
         #expect(LyricLines.opening("one\n\ntwo\nthree", count: 3) == ["one", "two", "three"])
@@ -43,7 +43,7 @@ import Testing
     }
 }
 
-@Suite struct LyricsSizeTests {
+struct LyricsSizeTests {
     @Test func clampsAStepToTheEndsOfTheScale() {
         #expect(LyricsSize.clamp(0) == 1)
         #expect(LyricsSize.clamp(1) == 1)
@@ -80,7 +80,7 @@ import Testing
 }
 
 @MainActor
-@Suite struct LyricsReaderModelTests {
+struct LyricsReaderModelTests {
     private let soldiersJoy = SampleCatalog.entries[0]
 
     @Test func savesOnlyTheLyricsFieldAndQueuesOneChange() async throws {

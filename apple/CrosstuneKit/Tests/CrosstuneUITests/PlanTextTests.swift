@@ -4,7 +4,7 @@ import Testing
 
 @testable import CrosstuneUI
 
-@Suite struct PlanTextTests {
+struct PlanTextTests {
     private static let locale = Locale(identifier: "en_US")
     private static let calendar: Calendar = {
         var calendar = Calendar(identifier: .gregorian)
