@@ -72,12 +72,12 @@ private func recording(_ tune: String) -> PlayerItem {
     return .recording(row, tuneTitle: "Tune \(tune)")
 }
 
-private func song(_ tune: String) throws -> PlayerItem {
+private func song(_ tune: String, sourceLocation: SourceLocation = #_sourceLocation) throws -> PlayerItem {
     let track = ["a": "1440833091", "b": "1440833092", "c": "1440833093"][tune] ?? "1440833099"
     let url = "https://music.apple.com/us/album/the-silver-spear/1440833081?i=\(track)"
     let link = RecordingLink(
         id: "l\(tune)", tuneID: tune, url: url, provider: "apple_music", providerRef: detectProvider(url).providerRef)
-    return try #require(PlayerItem.link(link))
+    return try #require(PlayerItem.link(link), sourceLocation: sourceLocation)
 }
 
 private func audioFile(_ recordingID: String) -> RecordingAudioFile {
@@ -85,12 +85,12 @@ private func audioFile(_ recordingID: String) -> RecordingAudioFile {
         url: URL(filePath: "/tmp/\(recordingID).m4a"), file: RecordingFile(id: recordingID, localState: .downloaded))
 }
 
-private func songKind(_ tune: String) throws -> AppleMusicItem {
-    try #require(try song(tune).link?.appleMusic)
+private func songKind(_ tune: String, sourceLocation: SourceLocation = #_sourceLocation) throws -> AppleMusicItem {
+    try #require(try song(tune, sourceLocation: sourceLocation).link?.appleMusic, sourceLocation: sourceLocation)
 }
 
 @MainActor
-@Suite final class ListPlaybackTests {
+@Suite(.timeLimit(.minutes(1))) final class ListPlaybackTests {
     private struct Fixture {
         let player: PlayerModel
         let audio: FakeAudio
@@ -125,8 +125,12 @@ private func songKind(_ tune: String) throws -> AppleMusicItem {
         fixture.playback.start(listID: "list1", name: listName, tuneIDs: tuneIDs, shuffled: false, at: tuneID)
     }
 
-    private func playing(_ fixture: Fixture, _ itemID: String) async throws {
-        try await eventually { fixture.player.item?.id == itemID && fixture.player.transport?.isPlaying == true }
+    private func playing(_ fixture: Fixture, _ itemID: String, sourceLocation: SourceLocation = #_sourceLocation)
+        async throws
+    {
+        try await eventually(sourceLocation: sourceLocation) {
+            fixture.player.item?.id == itemID && fixture.player.transport?.isPlaying == true
+        }
     }
 
     private func loads(_ fixture: Fixture) -> Int {
@@ -159,8 +163,8 @@ private func songKind(_ tune: String) throws -> AppleMusicItem {
         try await eventually { !fixture.playback.isActive }
         #expect(fixture.player.item?.id == "rc")
         #expect(fixture.player.queue == nil)
-        #expect(!fixture.audio.isPlaying)
-        #expect(!fixture.commands.isEnabled)
+        #expect(fixture.audio.isPlaying == false)
+        #expect(fixture.commands.isEnabled == false)
         #expect(fixture.playback.endMessage == nil)
         #expect(fixture.resolver.asked == ["a", "b", "c"])
     }
@@ -217,9 +221,9 @@ private func songKind(_ tune: String) throws -> AppleMusicItem {
         try await eventually { !fixture.playback.isActive }
         #expect(fixture.playback.endMessage == ListPlaybackText.nothingLeft)
         #expect(fixture.resolver.asked == ["b", "c", "a"])
-        #expect(!fixture.player.isLoaded)
+        #expect(fixture.player.isLoaded == false)
         #expect(fixture.player.queue == nil)
-        #expect(!fixture.commands.isEnabled)
+        #expect(fixture.commands.isEnabled == false)
     }
 
     @Test func failingTunesAfterOneThatPlayedStopWithTheMessage() async throws {
@@ -232,7 +236,7 @@ private func songKind(_ tune: String) throws -> AppleMusicItem {
         try await eventually { !fixture.playback.isActive }
         #expect(fixture.playback.endMessage == ListPlaybackText.nothingLeft)
         #expect(fixture.resolver.asked == ["a", "b", "c", "a"])
-        #expect(!fixture.player.isLoaded)
+        #expect(fixture.player.isLoaded == false)
     }
 
     @Test func aStaleResolveNeverPlays() async throws {
@@ -401,13 +405,13 @@ private func songKind(_ tune: String) throws -> AppleMusicItem {
         start(fixture)
         try await playing(fixture, "ra")
         fixture.player.close()
-        #expect(!fixture.playback.isActive)
+        #expect(fixture.playback.isActive == false)
         #expect(fixture.playback.listID == nil)
         #expect(fixture.playback.currentTuneID == nil)
         #expect(fixture.playback.count == 0)
         #expect(fixture.playback.endMessage == nil)
-        #expect(!fixture.commands.isEnabled)
-        #expect(!fixture.player.isLoaded)
+        #expect(fixture.commands.isEnabled == false)
+        #expect(fixture.player.isLoaded == false)
     }
 
     @Test func endLeavesTheLoadedTune() async throws {
@@ -415,8 +419,8 @@ private func songKind(_ tune: String) throws -> AppleMusicItem {
         start(fixture)
         try await playing(fixture, "ra")
         fixture.playback.end()
-        #expect(!fixture.playback.isActive)
-        #expect(!fixture.commands.isEnabled)
+        #expect(fixture.playback.isActive == false)
+        #expect(fixture.commands.isEnabled == false)
         #expect(fixture.player.queue == nil)
         #expect(fixture.player.item?.id == "ra")
         // The tune's end no longer reaches the playlist.
@@ -505,8 +509,8 @@ private func songKind(_ tune: String) throws -> AppleMusicItem {
         fixture.playback.next()
         try await eventually { fixture.resolver.isHolding("b") }
         fixture.playback.next()
-        #expect(!fixture.playback.isActive)
-        #expect(!fixture.audio.isPlaying)
+        #expect(fixture.playback.isActive == false)
+        #expect(fixture.audio.isPlaying == false)
         fixture.resolver.release("b")
         try await eventually { fixture.resolver.answered.contains("b") }
         #expect(fixture.player.item?.id == "ra")
@@ -544,7 +548,7 @@ private func songKind(_ tune: String) throws -> AppleMusicItem {
         #expect(fixture.playback.isSettled)
         fixture.resolver.holding = ["b"]
         fixture.playback.next()
-        #expect(!fixture.playback.isSettled)
+        #expect(fixture.playback.isSettled == false)
         try await eventually { fixture.resolver.isHolding("b") }
         fixture.resolver.release("b")
         try await playing(fixture, "rb")
@@ -577,7 +581,7 @@ private func songKind(_ tune: String) throws -> AppleMusicItem {
             listID: "list1", name: listName, tuneIDs: ["a", "b", "c", "d", "e"], shuffled: true, at: "c")
         try await playing(fixture, "rc")
         fixture.playback.setShuffled(false)
-        #expect(!fixture.playback.isShuffled)
+        #expect(fixture.playback.isShuffled == false)
         #expect(fixture.playback.position == 3)
         #expect(self.loads(fixture) == 1)
         fixture.playback.next()
@@ -621,7 +625,7 @@ private func songKind(_ tune: String) throws -> AppleMusicItem {
 /// A list played through reports its start once, and each track as it ends with how it was
 /// reached.
 @MainActor
-@Suite struct PlaylistEventTests {
+@Suite(.timeLimit(.minutes(1))) struct PlaylistEventTests {
     private let suite = TemporaryDefaults("PlaylistEventTests")
     private let commands = FakeTrackCommands()
 
@@ -637,8 +641,12 @@ private func songKind(_ tune: String) throws -> AppleMusicItem {
     }
 
     /// Waits until recording `id` plays and the play log has heard it.
-    private func playing(_ fixture: ActivityFixture, _ id: String) async throws {
-        try await eventually { fixture.audio.isPlaying && fixture.player.item?.id == id }
+    private func playing(_ fixture: ActivityFixture, _ id: String, sourceLocation: SourceLocation = #_sourceLocation)
+        async throws
+    {
+        try await eventually(sourceLocation: sourceLocation) {
+            fixture.audio.isPlaying && fixture.player.item?.id == id
+        }
         try await fixture.fed { $0.loaded == PlaySubject(kind: .recording, id: id) && $0.playing }
     }
 

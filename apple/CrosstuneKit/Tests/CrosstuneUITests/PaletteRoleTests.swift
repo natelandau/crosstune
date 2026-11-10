@@ -6,7 +6,7 @@
 
     /// Every color outside `Style/` is a `Palette` role, so a retheme changes `Style/` and nothing
     /// else, and a contrast test there covers every color a view draws.
-    @Suite struct PaletteRoleTests {
+    struct PaletteRoleTests {
         /// Files that draw their own colors on purpose, with the reason.
         static let exemptFiles: [String: String] = [
             "Welcome/WelcomeIllustration.swift": "The welcome illustrations draw their own art.",

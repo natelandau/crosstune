@@ -7,7 +7,7 @@ import Testing
 
 private let t0 = Date(timeIntervalSince1970: 0)
 
-@Suite struct ConsecutiveFailuresTests {
+struct ConsecutiveFailuresTests {
     @Test func reportsOnceTheFailuresPersist() {
         var failures = ConsecutiveFailures(persistsFor: .seconds(300))
 
@@ -45,28 +45,28 @@ private let t0 = Date(timeIntervalSince1970: 0)
     .dnsLookupFailed, .dataNotAllowed, .internationalRoamingOff,
 ])
 func aConnectivityFailureIsNotReportable(_ code: URLError.Code) {
-    #expect(!isReportableFailure(URLError(code)))
+    #expect(isReportableFailure(URLError(code)) == false)
 }
 
 @Test func otherFailuresAreReportable() {
     #expect(isReportableFailure(URLError(.badServerResponse)))
     #expect(isReportableFailure(TransferError(status: 500)))
-    #expect(!isReportableFailure(APIStatusError(status: 401)))
+    #expect(isReportableFailure(APIStatusError(status: 401)) == false)
 }
 
 /// A stopped engine, a device known to be offline, and a connection failure the API client
 /// wraps are not defects either.
 @Test func aStoppedOfflineOrWrappedConnectionFailureIsNotReportable() {
-    #expect(!isReportableFailure(RunStopped()))
-    #expect(!isReportableFailure(DeviceOffline()))
+    #expect(isReportableFailure(RunStopped()) == false)
+    #expect(isReportableFailure(DeviceOffline()) == false)
     let wrapped = ClientError(
         operationID: "downloadURL", operationInput: (), causeDescription: "", underlyingError: URLError(.timedOut))
-    #expect(!isReportableFailure(wrapped))
+    #expect(isReportableFailure(wrapped) == false)
 }
 
 /// A run loop reports consecutive failures once they persist, whatever the backoff in between.
 @MainActor
-@Suite struct SyncLoopPersistentFailureTests {
+@Suite(.timeLimit(.minutes(1))) struct SyncLoopPersistentFailureTests {
     enum Outcome {
         case success, failure, unreportable, offline, stopped
     }
@@ -103,19 +103,21 @@ func aConnectivityFailureIsNotReportable(_ code: URLError.Code) {
 
     /// Runs once at `seconds` past the start: by releasing the pending retry when there is one,
     /// or by a trigger when the last run left none.
-    private func run(_ outcome: Outcome, at seconds: Int) async throws {
+    private func run(_ outcome: Outcome, at seconds: Int, sourceLocation: SourceLocation = #_sourceLocation)
+        async throws
+    {
         clock.now = t0 + TimeInterval(seconds)
         state.outcome = outcome
         let before = state.finished
         if sleeper.pendingCount > 0 {
             sleeper.fire()
-            try await eventually { state.finished == before + 1 }
+            try await eventually(sourceLocation: sourceLocation) { state.finished == before + 1 }
         } else {
             await loop.trigger()
         }
         // The retry's wait starts on its own task; waiting here makes the next run release it.
         if outcome != .success && outcome != .stopped {
-            try await eventually { sleeper.pendingCount == 1 }
+            try await eventually(sourceLocation: sourceLocation) { sleeper.pendingCount == 1 }
         }
     }
 

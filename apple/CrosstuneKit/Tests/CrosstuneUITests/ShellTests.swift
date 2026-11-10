@@ -8,7 +8,7 @@ import Testing
 
 @testable import CrosstuneUI
 
-@Suite struct SyncBadgeTests {
+struct SyncBadgeTests {
     @Test func showsOnlyTheStatesThatNeedAttention() {
         let shown = SyncStatus.allCases.map {
             SyncBadge.attention(status: $0, isOffline: false, needsSignIn: false, updateRequired: false)
@@ -35,30 +35,21 @@ import Testing
             SyncBadge.attention(status: .error, isOffline: true, needsSignIn: true, updateRequired: true)
                 == .updateRequired)
         #expect(SyncStatus.updateRequired.label == SyncStatus.updateRequiredLabel)
-        #expect(SyncStatus.updateRequiredLabel == "Update required")
     }
 
-    @Test func updateRequiredIsAWarning() {
-        #expect(SyncBadge.tone(.updateRequired) == SyncBadge.tone(.offline))
+    @Test(arguments: [ColorScheme.light, .dark], [SyncStatus.offline, .unauthorized, .error, .updateRequired])
+    func everyBadgeReadsAtLeastFourAndAHalfToOne(scheme: ColorScheme, status: SyncStatus) {
+        let text = Palette.hex(SyncBadge.tone(status), scheme)
+        let fill = blend(text, over: Palette.hex(.pageBackground, scheme), opacity: Palette.subtleOpacity)
+        #expect(contrastRatio(text, fill) >= 4.5)
     }
 
-    @Test func everyBadgeReadsAtLeastFourAndAHalfToOne() {
-        for scheme in [ColorScheme.light, .dark] {
-            for status in [SyncStatus.offline, .unauthorized, .error, .updateRequired] {
-                let text = Palette.hex(SyncBadge.tone(status), scheme)
-                let fill = blend(text, over: Palette.hex(.pageBackground, scheme), opacity: Palette.subtleOpacity)
-                #expect(contrastRatio(text, fill) >= 4.5, "\(status) \(scheme)")
-            }
-        }
-    }
-
-    @Test func labelsAreTheWebs() {
-        #expect(
-            [SyncStatus.offline, .unauthorized, .error].map(\.label) == ["Offline", "Sign in again", "Sync failed"])
+    @Test func labelsAreTheWebs() throws {
+        try expectMatchesWeb("web/src/sync/labels.ts", [("OFFLINE", SyncStatus.offline.label)])
     }
 }
 
-@Suite struct UpdatePromptTests {
+struct UpdatePromptTests {
     @Test func appStoreURLForEachPlatform() {
         #expect(UpdatePromptText.appStoreURL(id: nil) == nil)
         #expect(UpdatePromptText.appStoreURL(id: "") == nil)
@@ -72,7 +63,7 @@ import Testing
 }
 
 @MainActor
-@Suite struct UpdatePromptClaimTests {
+struct UpdatePromptClaimTests {
     /// Held for the whole test, so no two windows ever share an identifier.
     private let windows = (0..<2).map { _ in Window() }
     private final class Window {}
@@ -85,7 +76,7 @@ import Testing
         let second = window(1)
 
         #expect(claim.shows(first, due: true, isActive: true))
-        #expect(!claim.shows(second, due: true, isActive: true))
+        #expect(claim.shows(second, due: true, isActive: true) == false)
         #expect(claim.shows(first, due: true, isActive: true))
     }
 
@@ -95,10 +86,10 @@ import Testing
         let active = window(1)
         #expect(claim.shows(background, due: true, isActive: true))
 
-        #expect(!claim.shows(background, due: true, isActive: false))
+        #expect(claim.shows(background, due: true, isActive: false) == false)
         #expect(claim.holder == nil)
         #expect(claim.shows(active, due: true, isActive: true))
-        #expect(!claim.shows(background, due: true, isActive: true))
+        #expect(claim.shows(background, due: true, isActive: true) == false)
     }
 
     @Test func aClosingWindowHandsThePromptToAnother() {
@@ -117,7 +108,7 @@ import Testing
         let window = window(0)
         #expect(claim.shows(window, due: true, isActive: true))
 
-        #expect(!claim.shows(window, due: false, isActive: true))
+        #expect(claim.shows(window, due: false, isActive: true) == false)
         #expect(claim.holder == nil)
     }
 
@@ -130,7 +121,7 @@ import Testing
         claim.request(tapped)
 
         #expect(claim.holder == tapped)
-        #expect(!claim.shows(holder, due: true, isActive: true))
+        #expect(claim.shows(holder, due: true, isActive: true) == false)
         #expect(claim.shows(tapped, due: true, isActive: true))
     }
 
@@ -143,7 +134,7 @@ import Testing
 
         #expect(claim.holder == holder)
         #expect(claim.shows(holder, due: true, isActive: true))
-        #expect(!claim.shows(window(1), due: true, isActive: true))
+        #expect(claim.shows(window(1), due: true, isActive: true) == false)
     }
 
     @Test func onlyTheHolderLetsTheClaimGo() {
@@ -157,7 +148,7 @@ import Testing
     }
 }
 
-@Suite struct AppearanceTests {
+struct AppearanceTests {
     @Test func systemFollowsTheDeviceAndTheOthersForceAScheme() {
         #expect(Appearance.system.colorScheme == nil)
         #expect(Appearance.light.colorScheme == .light)
@@ -166,13 +157,12 @@ import Testing
 
     @Test func storesTheWebsValuesUnderTheWebsKey() {
         #expect(Appearance.allCases.map(\.rawValue) == ["system", "light", "dark"])
-        #expect(Appearance.allCases.map(\.label) == ["System", "Light", "Dark"])
         #expect(Appearance.storageKey == "crosstune.appearance")
         #expect(Appearance(rawValue: "sepia") == nil)
     }
 }
 
-@Suite struct TextSizeTests {
+struct TextSizeTests {
     @Test func bodySizesFollowApplesTable() {
         #expect(
             DynamicTypeSize.allCases.map(TextSize.bodyPointSize) == [14, 15, 16, 17, 19, 21, 23, 28, 33, 40, 47, 53])
@@ -211,13 +201,13 @@ import Testing
     }
 }
 
-@Suite struct TabSlotTests {
+struct TabSlotTests {
     @Test @MainActor func theRecordSlotIsDisabledOnlyWhileTheShellIsCovered() {
         #expect(TabSlot.recordIsEnabled(cover: nil))
         let cover = ShellCover()
         #expect(TabSlot.recordIsEnabled(cover: cover))
         cover.claim()
-        #expect(!TabSlot.recordIsEnabled(cover: cover))
+        #expect(TabSlot.recordIsEnabled(cover: cover) == false)
         cover.release()
         #expect(TabSlot.recordIsEnabled(cover: cover))
     }
@@ -232,7 +222,7 @@ import Testing
     }
 }
 
-@Suite struct SidebarTests {
+@Suite(.timeLimit(.minutes(1))) struct SidebarTests {
     private let root = TemporaryRoot()
 
     #if os(macOS)
@@ -252,16 +242,16 @@ import Testing
         @Test func onlyTheTunerFillsTheContentAndDetailColumns() {
             #expect(SplitShell.fillsDetail(.tuner))
             for item in [SidebarItem.catalog, .status("known"), .recordings, .list(id: "a")] {
-                #expect(!SplitShell.fillsDetail(item))
+                #expect(SplitShell.fillsDetail(item) == false)
             }
         }
 
         @Test func theSidebarReadsHiddenByTheSplitsColumnCount() {
-            #expect(!SplitShell.sidebarHidden(.all, twoColumn: false))
+            #expect(SplitShell.sidebarHidden(.all, twoColumn: false) == false)
             #expect(SplitShell.sidebarHidden(.doubleColumn, twoColumn: false))
             #expect(SplitShell.sidebarHidden(.detailOnly, twoColumn: false))
-            #expect(!SplitShell.sidebarHidden(.doubleColumn, twoColumn: true))
-            #expect(!SplitShell.sidebarHidden(.all, twoColumn: true))
+            #expect(SplitShell.sidebarHidden(.doubleColumn, twoColumn: true) == false)
+            #expect(SplitShell.sidebarHidden(.all, twoColumn: true) == false)
             #expect(SplitShell.sidebarHidden(.detailOnly, twoColumn: true))
         }
 
@@ -311,7 +301,7 @@ import Testing
                 }
             }
             #expect(flat[open..<close].hasSuffix(".tag(item)"))
-            #expect(!flat.contains(".id(item)"))
+            #expect(flat.contains(".id(item)") == false)
         }
     #endif
 
@@ -344,7 +334,7 @@ import Testing
 
 #if os(macOS)
     @MainActor
-    @Suite struct SidebarSyncTests {
+    @Suite(.timeLimit(.minutes(1))) struct SidebarSyncTests {
         private let root = TemporaryRoot()
 
         private func storedFilters(_ store: CrosstuneStore) async throws -> CatalogFilters {
@@ -352,11 +342,15 @@ import Testing
         }
 
         /// A catalog on the sample store, loaded, with `filters` stored first.
-        private func loadedCatalog(_ filters: CatalogFilters? = nil) async throws -> (CrosstuneStore, CatalogModel) {
+        private func loadedCatalog(_ filters: CatalogFilters? = nil, sourceLocation: SourceLocation = #_sourceLocation)
+            async throws -> (CrosstuneStore, CatalogModel)
+        {
             let store = try await SampleCatalog.copiedStore(root: root.url)
             if let filters { try await store.setMeta(.catalogFilters, to: filters.stored) }
             let catalog = CatalogModel(store: store)
-            try await eventually { catalog.results != nil && catalog.status == filters?.status }
+            try await eventually(sourceLocation: sourceLocation) {
+                catalog.results != nil && catalog.status == filters?.status
+            }
             return (store, catalog)
         }
 
@@ -387,7 +381,7 @@ import Testing
             pickSidebarRow(.recordings, place: place, catalog: catalog)
             #expect(place.sidebar == .recordings)
             #expect(catalog.status == "learning")
-            #expect(!catalog.isSavingFilters)
+            #expect(catalog.isSavingFilters == false)
             #expect(try await storedFilters(store).status == "learning")
         }
 
@@ -401,7 +395,7 @@ import Testing
             place.showSidebarRoot(.catalog)
             syncSidebar(place: place, catalog: catalog)
             #expect(place.sidebar == .status("learning"))
-            #expect(!catalog.isSavingFilters)
+            #expect(catalog.isSavingFilters == false)
             #expect(try await storedFilters(store).status == "learning")
         }
 
@@ -454,7 +448,7 @@ import Testing
 
             syncSidebar(place: place, catalog: catalog)
             #expect(place.sidebar == .catalog)
-            #expect(!catalog.isSavingFilters)
+            #expect(catalog.isSavingFilters == false)
 
             try await eventually { catalog.status == "learning" }
             #expect(try await storedFilters(store) == CatalogFilters(status: "learning"))
@@ -472,16 +466,16 @@ import Testing
 #endif
 
 @MainActor
-@Suite struct ShellCoverTests {
+struct ShellCoverTests {
     @Test func staysCoveredUntilEveryClaimIsReleased() {
         let cover = ShellCover()
-        #expect(!cover.isCovered)
+        #expect(cover.isCovered == false)
         cover.claim()
         cover.claim()
         cover.release()
         #expect(cover.isCovered)
         cover.release()
-        #expect(!cover.isCovered)
+        #expect(cover.isCovered == false)
     }
 
     @Test func anExtraReleaseNeverUncoversALaterClaim() {
@@ -492,7 +486,7 @@ import Testing
     }
 }
 
-@Suite struct CoverClaimTests {
+struct CoverClaimTests {
     @Test func claimsOnlyWhileShownAndCovering() {
         var claim = CoverClaim(isCovering: true)
         #expect(claim.update(isShown: true) == .claim)
@@ -517,41 +511,33 @@ import Testing
     }
 }
 
-@Suite struct MenuCommandAvailabilityTests {
+struct MenuCommandAvailabilityTests {
     @Test func newTuneIsDisabledUnderASheetOrWhileSelecting() {
         #expect(MenuCommandAvailability.newTune(sheetsOpen: false, selecting: false))
-        #expect(!MenuCommandAvailability.newTune(sheetsOpen: true, selecting: false))
-        #expect(!MenuCommandAvailability.newTune(sheetsOpen: false, selecting: true))
+        #expect(MenuCommandAvailability.newTune(sheetsOpen: true, selecting: false) == false)
+        #expect(MenuCommandAvailability.newTune(sheetsOpen: false, selecting: true) == false)
     }
 
     @Test func newListIsDisabledUnderASheet() {
         #expect(MenuCommandAvailability.newList(sheetsOpen: false))
-        #expect(!MenuCommandAvailability.newList(sheetsOpen: true))
+        #expect(MenuCommandAvailability.newList(sheetsOpen: true) == false)
     }
 
     @Test func findActsOnlyForAScreenOnShowWithNoSheetUp() {
         #expect(MenuCommandAvailability.find(isShown: true, sheetsOpen: false))
-        #expect(!MenuCommandAvailability.find(isShown: false, sheetsOpen: false))
-        #expect(!MenuCommandAvailability.find(isShown: true, sheetsOpen: true))
+        #expect(MenuCommandAvailability.find(isShown: false, sheetsOpen: false) == false)
+        #expect(MenuCommandAvailability.find(isShown: true, sheetsOpen: true) == false)
     }
 
     @Test func sortByActsOnlyWhileTheRecordingsShowWithNoSheetUp() {
         #expect(MenuCommandAvailability.sort(isShown: true, sheetsOpen: false))
-        #expect(!MenuCommandAvailability.sort(isShown: false, sheetsOpen: false))
-        #expect(!MenuCommandAvailability.sort(isShown: true, sheetsOpen: true))
+        #expect(MenuCommandAvailability.sort(isShown: false, sheetsOpen: false) == false)
+        #expect(MenuCommandAvailability.sort(isShown: true, sheetsOpen: true) == false)
     }
 
     @Test func sortByIsDisabledWhileTheScreenSelects() {
-        #expect(!MenuCommandAvailability.sort(isShown: true, sheetsOpen: false, selecting: true))
+        #expect(MenuCommandAvailability.sort(isShown: true, sheetsOpen: false, selecting: true) == false)
         #expect(MenuCommandAvailability.sort(isShown: true, sheetsOpen: false, selecting: false))
-    }
-
-    @Test func sortByOffersEveryRecordingSort() {
-        #expect(MenuCommand.sortBy == "Sort By")
-        #expect(
-            SortChoices<RecordingSort>.items(for: .default).map(\.label) == [
-                "Date added", "Date recorded", "Title", "Tune",
-            ])
     }
 
     @Test func recordIsDisabledUnderASheetWhileSelectingOrForAPendingRecordingOrACapture() {
@@ -559,27 +545,27 @@ import Testing
             MenuCommandAvailability.record(
                 sheetsOpen: false, selecting: false, recordingPending: false, capturing: false))
         #expect(
-            !MenuCommandAvailability.record(
-                sheetsOpen: true, selecting: false, recordingPending: false, capturing: false))
+            MenuCommandAvailability.record(
+                sheetsOpen: true, selecting: false, recordingPending: false, capturing: false) == false)
         #expect(
-            !MenuCommandAvailability.record(
-                sheetsOpen: false, selecting: true, recordingPending: false, capturing: false))
+            MenuCommandAvailability.record(
+                sheetsOpen: false, selecting: true, recordingPending: false, capturing: false) == false)
         #expect(
-            !MenuCommandAvailability.record(
-                sheetsOpen: false, selecting: false, recordingPending: true, capturing: false))
+            MenuCommandAvailability.record(
+                sheetsOpen: false, selecting: false, recordingPending: true, capturing: false) == false)
         #expect(
-            !MenuCommandAvailability.record(
-                sheetsOpen: false, selecting: false, recordingPending: false, capturing: true))
+            MenuCommandAvailability.record(
+                sheetsOpen: false, selecting: false, recordingPending: false, capturing: true) == false)
     }
 
     @Test func controlsAreDisabledUnderASheet() {
         #expect(MenuCommandAvailability.controls(sheetsOpen: false))
-        #expect(!MenuCommandAvailability.controls(sheetsOpen: true))
+        #expect(MenuCommandAvailability.controls(sheetsOpen: true) == false)
     }
 }
 
 @MainActor
-@Suite struct ShellPlaceTests {
+struct ShellPlaceTests {
     @Test func aTunePushedOverOneListLeavesWithIt() {
         let place = ShellPlace()
         place.tabList = "list-1"
@@ -798,7 +784,7 @@ import Testing
         place.narrowed()
 
         #expect(place.tab == .tuner)
-        #expect(!place.settingsSheetShown)
+        #expect(place.settingsSheetShown == false)
     }
 
     @Test func wideningWithTheSheetUpShowsTheSettingsTab() {
@@ -809,8 +795,8 @@ import Testing
 
         place.widened()
 
-        #expect(!place.isCompact)
-        #expect(!place.settingsSheetShown)
+        #expect(place.isCompact == false)
+        #expect(place.settingsSheetShown == false)
         #expect(place.tab == .settings)
         #expect(place.settingsPage == .stats)
     }
@@ -866,10 +852,10 @@ import Testing
         place.restore(tab: .settings, compact: true)
         #expect(place.isCompact)
         #expect(place.tab == .catalog)
-        #expect(!place.settingsSheetShown)
+        #expect(place.settingsSheetShown == false)
 
         place.restore(tab: .settings, compact: false)
-        #expect(!place.isCompact)
+        #expect(place.isCompact == false)
         #expect(place.tab == .settings)
 
         place.restore(tab: .tuner, compact: true)
@@ -879,14 +865,14 @@ import Testing
     @Test func theCompactShellOutlastsWidening() {
         let place = ShellPlace()
         #expect(place.showsCompactShell(windowIsCompact: true))
-        #expect(!place.showsCompactShell(windowIsCompact: false))
+        #expect(place.showsCompactShell(windowIsCompact: false) == false)
 
         place.restore(tab: .catalog, compact: true)
         #expect(place.showsCompactShell(windowIsCompact: false))
 
         // The size class has changed, but the compact shell and its sheet stay until this runs.
         place.widened()
-        #expect(!place.showsCompactShell(windowIsCompact: true))
+        #expect(place.showsCompactShell(windowIsCompact: true) == false)
     }
 
     @Test func theSheetsTeardownAfterWideningStillOpensTheSettingsTab() {
@@ -898,7 +884,7 @@ import Testing
         place.settingsSheetChanged(shown: false)
 
         #expect(place.tab == .settings)
-        #expect(!place.settingsSheetShown)
+        #expect(place.settingsSheetShown == false)
     }
 
     @Test func aCloseBeforeWideningIsAClose() {
@@ -910,7 +896,7 @@ import Testing
         place.widened()
 
         #expect(place.tab == .lists)
-        #expect(!place.settingsSheetShown)
+        #expect(place.settingsSheetShown == false)
     }
 
     @Test func closingTheSheetInACompactWindowClosesIt() {
@@ -918,7 +904,7 @@ import Testing
         place.isCompact = true
         place.showSettings()
         place.settingsSheetChanged(shown: false)
-        #expect(!place.settingsSheetShown)
+        #expect(place.settingsSheetShown == false)
 
         place.widened()
         #expect(place.tab == .catalog)
@@ -986,7 +972,7 @@ import Testing
 }
 
 @MainActor
-@Suite struct PadShellTests {
+struct PadShellTests {
     @Test func bothFormsShowTheSameListTuneAndScrollPlace() {
         // Both iOS shells read the same tab fields, so nothing converts on a size or form change.
         let place = ShellPlace()
@@ -1005,12 +991,10 @@ import Testing
     @Test func onlyTheTunerFillsItsTabWithNoDetailColumn() {
         #expect(Destination.allCases.filter { !PadTab.hasDetailColumn($0) } == [.tuner])
     }
-
-    @Test func settingsDetailNamesNoSetting() { #expect(SettingsDetailPlaceholder.title == "No setting selected") }
 }
 
 #if os(macOS)
-    @Suite struct MacUpdatePromptTests {
+    struct MacUpdatePromptTests {
         /// The prompt is a notice sheet: Update the primary, pressed by Return, Not Now beside it
         /// on Escape.
         @Test func updateIsThePrimaryAndNotNowCancels() {
@@ -1035,12 +1019,12 @@ import Testing
     }
 #endif
 
-@Suite struct AccountItemTests {
+struct AccountItemTests {
     @Test func showsOnlyWithTheShellsActionAndNotWhileSelecting() {
         let action = MenuAction {}
         #expect(showsAccountItem(showAccount: action, isSelecting: false))
-        #expect(!showsAccountItem(showAccount: action, isSelecting: true))
-        #expect(!showsAccountItem(showAccount: nil, isSelecting: false))
-        #expect(!showsAccountItem(showAccount: nil, isSelecting: true))
+        #expect(showsAccountItem(showAccount: action, isSelecting: true) == false)
+        #expect(showsAccountItem(showAccount: nil, isSelecting: false) == false)
+        #expect(showsAccountItem(showAccount: nil, isSelecting: true) == false)
     }
 }

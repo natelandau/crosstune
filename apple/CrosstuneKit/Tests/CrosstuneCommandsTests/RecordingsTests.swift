@@ -6,7 +6,7 @@ import Testing
 
 @testable import CrosstuneCommands
 
-@Suite struct DefaultRecordingLabelTests {
+struct DefaultRecordingLabelTests {
     @Test func namesARecordingForItsLocalStartTimeToTheMinute() throws {
         let denver = try #require(TimeZone(identifier: "America/Denver"))
         var calendar = Calendar(identifier: .gregorian)
@@ -25,7 +25,7 @@ import Testing
     }
 }
 
-@Suite struct UpdateRecordingTests {
+@Suite(.timeLimit(.minutes(1))) struct UpdateRecordingTests {
     @Test func updatesLabelAndTuneAndQueuesTheRow() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -236,11 +236,11 @@ import Testing
         #expect(data["trim_end_ms"] == .integer(9000))
         #expect(data["speed_percent"] == .integer(120))
         #expect(data["pitch_cents"] == .integer(-200))
-        #expect(!data.keys.contains("source_duration_ms"))
-        #expect(!data.keys.contains("playback_start_ms"))
-        #expect(!data.keys.contains("playback_end_ms"))
-        #expect(!data.keys.contains("playback_rev"))
-        #expect(!data.keys.contains("peaks_rev"))
+        #expect(data.keys.contains("source_duration_ms") == false)
+        #expect(data.keys.contains("playback_start_ms") == false)
+        #expect(data.keys.contains("playback_end_ms") == false)
+        #expect(data.keys.contains("playback_rev") == false)
+        #expect(data.keys.contains("peaks_rev") == false)
     }
 
     @Test func rejectsAMissingOrDeletedRecording() async throws {
@@ -254,7 +254,7 @@ import Testing
     }
 }
 
-@Suite struct DeleteRecordingTests {
+@Suite(.timeLimit(.minutes(1))) struct DeleteRecordingTests {
     @Test func deletesWithATombstoneAndDropsTheLocalFile() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -290,7 +290,7 @@ import Testing
     }
 }
 
-@Suite struct ActiveRecordingsForTuneTests {
+@Suite(.timeLimit(.minutes(1))) struct ActiveRecordingsForTuneTests {
     @Test func returnsALivesTunesRecordingsInPositionOrderOnly() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -309,7 +309,7 @@ import Testing
     }
 }
 
-@Suite struct CaptureCommandsTests {
+@Suite(.timeLimit(.minutes(1))) struct CaptureCommandsTests {
     @Test func beginningACaptureWritesOnlyTheLocalFileRow() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -461,7 +461,7 @@ import Testing
         try await commands.updateRecording("r1", place: .value(nil), at: later(500))
 
         let fix = Coordinate(lat: 39.7392364, lon: -104.984862, accuracyM: 14)
-        #expect(try await !commands.addLateFix("r1", coordinate: fix, savedAt: savedAt, at: later(1_000)))
+        #expect(try await commands.addLateFix("r1", coordinate: fix, savedAt: savedAt, at: later(1_000)) == false)
 
         let row = try #require(try await store.read { db in try Recording.fetchOne(db, key: "r1") })
         #expect(row.placeLat == nil)
@@ -489,7 +489,7 @@ import Testing
 
         for id in ["named", "located", "deleted", "missing"] {
             let savedAt = try await store.read { db in try Recording.fetchOne(db, key: id)?.updatedAt } ?? noon
-            #expect(try await !commands.addLateFix(id, coordinate: fix, savedAt: savedAt), "\(id)")
+            #expect(try await commands.addLateFix(id, coordinate: fix, savedAt: savedAt) == false, "\(id)")
         }
 
         let named = try #require(try await store.read { db in try Recording.fetchOne(db, key: "named") })
@@ -567,7 +567,7 @@ import Testing
     }
 }
 
-@Suite struct RecordingDateTests {
+@Suite(.timeLimit(.minutes(1))) struct RecordingDateTests {
     private func capturedRecording(_ store: CrosstuneStore) async throws -> String {
         let commands = Commands(store: store)
         try await commands.beginCapture("r1", fileName: "r1.aac", tuneID: nil, recordedAt: noon)
@@ -575,8 +575,10 @@ import Testing
         return "r1"
     }
 
-    private func row(_ store: CrosstuneStore, _ id: String) async throws -> Recording {
-        try #require(try await store.read { db in try Recording.fetchOne(db, key: id) })
+    private func row(_ store: CrosstuneStore, _ id: String, sourceLocation: SourceLocation = #_sourceLocation)
+        async throws -> Recording
+    {
+        try #require(try await store.read { db in try Recording.fetchOne(db, key: id) }, sourceLocation: sourceLocation)
     }
 
     @Test func thePrecisionsAreTheAPIsOwn() {
@@ -631,35 +633,38 @@ import Testing
         #expect(CommandError.recordedDateMismatch.errorDescription == CommandError.recordedDateMismatchMessage)
     }
 
-    @Test func refusesAPartialDateOffTheStartOfItsPeriod() async throws {
+    @Test(arguments: [
+        ("1937-05-01T00:00:00.000Z", RecordingPrecision.year),
+        ("1998-05-02T00:00:00.000Z", .month),
+        ("1998-10-03T04:00:00.000Z", .day),
+        ("1998-10-03T00:00:00.001Z", .day),
+    ])
+    func refusesAPartialDateOffTheStartOfItsPeriod(iso: String, precision: RecordingPrecision) async throws {
         let root = TemporaryRoot()
         let store = try root.open()
         let id = try await capturedRecording(store)
         let commands = Commands(store: store)
-
-        for (iso, precision) in [
-            ("1937-05-01T00:00:00.000Z", RecordingPrecision.year),
-            ("1998-05-02T00:00:00.000Z", .month),
-            ("1998-10-03T04:00:00.000Z", .day),
-            ("1998-10-03T00:00:00.001Z", .day),
-        ] {
-            let at = try #require(Timestamp(iso: iso))
-            await #expect(throws: CommandError.recordedDateOffPeriod) {
-                try await commands.updateRecordingDate(id, recordedAt: at, precision: precision)
-            }
+        let at = try #require(Timestamp(iso: iso))
+        await #expect(throws: CommandError.recordedDateOffPeriod) {
+            try await commands.updateRecordingDate(id, recordedAt: at, precision: precision)
         }
         #expect(try await row(store, id).recordedAt == noon)
+    }
 
-        for (iso, precision) in [
-            ("1937-01-01T00:00:00.000Z", RecordingPrecision.year),
-            ("1998-05-01T00:00:00.000Z", .month),
-            ("1998-10-03T00:00:00.000Z", .day),
-            ("1998-10-03T04:12:30.500Z", .time),
-        ] {
-            let at = try #require(Timestamp(iso: iso))
-            try await commands.updateRecordingDate(id, recordedAt: at, precision: precision)
-            #expect(try await row(store, id).recordedAt == at)
-        }
+    @Test(arguments: [
+        ("1937-01-01T00:00:00.000Z", RecordingPrecision.year),
+        ("1998-05-01T00:00:00.000Z", .month),
+        ("1998-10-03T00:00:00.000Z", .day),
+        ("1998-10-03T04:12:30.500Z", .time),
+    ])
+    func acceptsAPartialDateOnTheStartOfItsPeriod(iso: String, precision: RecordingPrecision) async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let id = try await capturedRecording(store)
+        let commands = Commands(store: store)
+        let at = try #require(Timestamp(iso: iso))
+        try await commands.updateRecordingDate(id, recordedAt: at, precision: precision)
+        #expect(try await row(store, id).recordedAt == at)
     }
 
     @Test func acceptsADateExactlyADayAhead() async throws {
@@ -711,7 +716,7 @@ import Testing
     }
 }
 
-@Suite struct DeletingAudioTests {
+@Suite(.timeLimit(.minutes(1))) struct DeletingAudioTests {
     /// A finished recording under `tuneID` with a file of audio in the user's folder.
     private func recordingWithAudio(_ store: CrosstuneStore, tuneID: String?) async throws -> URL {
         let commands = Commands(store: store)
@@ -733,7 +738,7 @@ import Testing
 
         try await commands.deleteRecording("r1")
 
-        #expect(!FileManager.default.fileExists(atPath: peaks.path()))
+        #expect(FileManager.default.fileExists(atPath: peaks.path()) == false)
     }
 
     @Test func deletingARecordingDeletesItsAudio() async throws {
@@ -743,7 +748,7 @@ import Testing
 
         try await Commands(store: store).deleteRecording("r1")
 
-        #expect(!FileManager.default.fileExists(atPath: audio.path()))
+        #expect(FileManager.default.fileExists(atPath: audio.path()) == false)
         #expect(try await store.read { db in try RecordingFile.fetchCount(db) } == 0)
     }
 
@@ -756,7 +761,7 @@ import Testing
 
         try await commands.deleteTune(tuneID)
 
-        #expect(!FileManager.default.fileExists(atPath: audio.path()))
+        #expect(FileManager.default.fileExists(atPath: audio.path()) == false)
         #expect(try await store.read { db in try RecordingFile.fetchCount(db) } == 0)
     }
 
@@ -770,7 +775,7 @@ import Testing
 
         try await commands.deleteTunes([userTuneID])
 
-        #expect(!FileManager.default.fileExists(atPath: audio.path()))
+        #expect(FileManager.default.fileExists(atPath: audio.path()) == false)
     }
 
     @Test func aFailedDeleteKeepsTheAudio() async throws {
@@ -790,7 +795,7 @@ import Testing
     }
 }
 
-@Suite struct DownloadedAudioTests {
+@Suite(.timeLimit(.minutes(1))) struct DownloadedAudioTests {
     let root = TemporaryRoot()
     let store: CrosstuneStore
 
@@ -828,8 +833,8 @@ import Testing
 
         try await Commands(store: store).clearDownloadedAudio()
 
-        #expect(!exists(downloaded))
-        #expect(!exists(uploaded))
+        #expect(exists(downloaded) == false)
+        #expect(exists(uploaded) == false)
         #expect(exists(processing))
         #expect(exists(waiting))
         let cleared = try #require(try await file("d1"))

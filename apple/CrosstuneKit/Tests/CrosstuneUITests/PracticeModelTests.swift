@@ -100,7 +100,7 @@ private final class FakeLoops {
 }
 
 @MainActor
-@Suite struct PracticeModelTests {
+@Suite(.timeLimit(.minutes(1))) struct PracticeModelTests {
     private let audio = FakeAudio()
     private let player: PlayerModel
     private let store: FakeLoops
@@ -117,12 +117,12 @@ private final class FakeLoops {
         store = FakeLoops(player: player)
     }
 
-    private func load(_ row: Recording = recording()) async throws {
+    private func load(_ row: Recording = recording(), sourceLocation: SourceLocation = #_sourceLocation) async throws {
         player.audioSource = { _ in
             RecordingAudioFile(url: audioURL, file: RecordingFile(id: "r1", localState: .downloaded))
         }
         player.play(.recording(row, tuneTitle: nil))
-        try await eventually { player.recordingAudio == .loaded }
+        try await eventually(sourceLocation: sourceLocation) { player.recordingAudio == .loaded }
     }
 
     /// Practice 300 points wide, which opens on 30 seconds: 10 points a second.
@@ -140,8 +140,10 @@ private final class FakeLoops {
     }
 
     /// Where `sourceMs` sits on the waveform now.
-    private func x(_ model: PracticeModel, _ sourceMs: Int64) throws -> Double {
-        try #require(model.zoomedWaveformView).x(ofSourceMs: Double(sourceMs))
+    private func x(_ model: PracticeModel, _ sourceMs: Int64, sourceLocation: SourceLocation = #_sourceLocation) throws
+        -> Double
+    {
+        try #require(model.zoomedWaveformView, sourceLocation: sourceLocation).x(ofSourceMs: Double(sourceMs))
     }
 
     // MARK: Scrolling the audio
@@ -152,7 +154,7 @@ private final class FakeLoops {
         audio.elapsed = 10
         #expect(audio.isPlaying)
         model.beginScrub()
-        #expect(!audio.isPlaying)
+        #expect(audio.isPlaying == false)
         model.scrub(dx: -50)
         #expect(model.scrubbingMs == 15_000)
         #expect(model.centerMs == 15_000)
@@ -174,7 +176,7 @@ private final class FakeLoops {
         try await eventually { model.scrubbingMs == nil }
         #expect(audio.elapsed == 60)
         // A momentum scroll to the end ends playback there rather than starting over.
-        #expect(!audio.isPlaying)
+        #expect(audio.isPlaying == false)
 
         audio.play()
         model.beginScrub()
@@ -211,7 +213,7 @@ private final class FakeLoops {
         #expect(spoken.said == [PracticeText.loopSelected("B part")])
         #expect(audio.elapsed == 12)
         // A tap never holds or resumes playback.
-        #expect(!audio.calls[calls...].contains("pause"))
+        #expect(audio.calls[calls...].contains("pause") == false)
         #expect(audio.isPlaying)
 
         model.tap(atX: try x(model, 25_000))
@@ -357,8 +359,8 @@ private final class FakeLoops {
         store.rows["a"]?.deletedAt = noon
         store.feed()
         #expect(model.selectedID == nil)
-        #expect(!model.isRepeating)
-        #expect(!audio.isRepeating)
+        #expect(model.isRepeating == false)
+        #expect(audio.isRepeating == false)
         #expect(audio.loop == nil)
         #expect(audio.isPlaying)
     }
@@ -382,7 +384,7 @@ private final class FakeLoops {
 
         player.close()
         #expect(player.loops.selectedID == nil)
-        #expect(!player.loops.isRepeating)
+        #expect(player.loops.isRepeating == false)
     }
 
     @Test func aFailedRecordingDeleteKeepsRepeatOn() async throws {
@@ -524,33 +526,33 @@ private final class FakeLoops {
         #expect(model.selectedID == "b")
         #expect(audio.elapsed == 20)
         #expect(model.canStep(.previous))
-        #expect(!model.canStep(.next))
+        #expect(model.canStep(.next) == false)
         audio.hasFailed = true
-        #expect(!model.canStep(.previous))
+        #expect(model.canStep(.previous) == false)
     }
 
     @Test func deleteLoopIsOffUntilALoopIsSelected() async throws {
         try await load()
         let model = practice()
         store.put([loop("a", 5000, 15_000)])
-        #expect(!model.canDeleteSelected)
+        #expect(model.canDeleteSelected == false)
         model.select("a")
         #expect(model.canDeleteSelected)
         audio.hasFailed = true
-        #expect(!model.canDeleteSelected)
+        #expect(model.canDeleteSelected == false)
     }
 
     @Test func deleteRemovesTheSelectedLoopAtOnceAndPlaysOn() async throws {
         try await load()
         let model = practice()
         store.put([loop("a", 5000, 15_000)])
-        #expect(!model.deleteSelected())
+        #expect(model.deleteSelected() == false)
         model.select("a")
         #expect(model.deleteSelected())
         await model.settle()
         #expect(store.calls == ["remove(a)"])
         #expect(model.selectedID == nil)
-        #expect(!audio.isRepeating)
+        #expect(audio.isRepeating == false)
         #expect(audio.isPlaying)
     }
 
@@ -796,7 +798,7 @@ private final class FakeLoops {
 
         model.beginRename("a")
         #expect(model.cancelRename())
-        #expect(!model.cancelRename())
+        #expect(model.cancelRename() == false)
     }
 
     @Test func theNameFieldOpensOnTheStoredLabelAndLeavesAnUnnamedLoopUnnamed() async throws {
@@ -881,7 +883,7 @@ private final class FakeLoops {
         #expect(model.selectedID == "a")
         #expect(model.escape())
         #expect(model.selectedID == nil)
-        #expect(!model.escape())
+        #expect(model.escape() == false)
         await model.settle()
         #expect(store.calls.isEmpty)
     }
@@ -1205,11 +1207,11 @@ private final class FakeLoops {
         store.put([loop("a", 5000, 15_000), loop("b", 40_000, 45_000)])
         model.select("a")
         audio.hasFailed = true
-        #expect(!model.isLoaded)
+        #expect(model.isLoaded == false)
         model.newLoop()
         model.setEdge(.end)
         model.step(.next)
-        #expect(!model.deleteSelected())
+        #expect(model.deleteSelected() == false)
         await model.settle()
         #expect(store.calls.isEmpty)
         #expect(model.selectedID == "a")

@@ -6,19 +6,23 @@ import Testing
 
 @testable import CrosstuneCommands
 
-private func fetchTune(_ store: CrosstuneStore, _ id: String) async throws -> Tune {
-    try #require(try await store.read { db in try Tune.fetchOne(db, key: id) })
+private func fetchTune(_ store: CrosstuneStore, _ id: String, sourceLocation: SourceLocation = #_sourceLocation)
+    async throws -> Tune
+{
+    try #require(try await store.read { db in try Tune.fetchOne(db, key: id) }, sourceLocation: sourceLocation)
 }
 
-private func fetchUserTune(_ store: CrosstuneStore, _ id: String) async throws -> UserTune {
-    try #require(try await store.read { db in try UserTune.fetchOne(db, key: id) })
+private func fetchUserTune(_ store: CrosstuneStore, _ id: String, sourceLocation: SourceLocation = #_sourceLocation)
+    async throws -> UserTune
+{
+    try #require(try await store.read { db in try UserTune.fetchOne(db, key: id) }, sourceLocation: sourceLocation)
 }
 
 private func activeItems(_ store: CrosstuneStore, _ listID: String) async throws -> [ListItem] {
     activeByPosition(try await store.read { db in try ListItem.filter(Column("list_id") == listID).fetchAll(db) })
 }
 
-@Suite struct UpdateTunesTests {
+@Suite(.timeLimit(.minutes(1))) struct UpdateTunesTests {
     @Test func writesTuneAndUserTuneFieldsOnEverySelectedTune() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -234,7 +238,7 @@ private func activeItems(_ store: CrosstuneStore, _ listID: String) async throws
     }
 }
 
-@Suite struct SetArchivedManyTests {
+@Suite(.timeLimit(.minutes(1))) struct SetArchivedManyTests {
     @Test func archivesTheSelectedTunesAndUndoRestoresEachOne() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -269,7 +273,7 @@ private func activeItems(_ store: CrosstuneStore, _ listID: String) async throws
     }
 }
 
-@Suite struct DeleteTunesTests {
+@Suite(.timeLimit(.minutes(1))) struct DeleteTunesTests {
     @Test func tombstonesEachSelectedTuneWithItsUserTuneListEntriesAndRecordings() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -332,7 +336,7 @@ private func activeItems(_ store: CrosstuneStore, _ listID: String) async throws
     }
 }
 
-@Suite struct AddTunesToListTests {
+@Suite(.timeLimit(.minutes(1))) struct AddTunesToListTests {
     @Test func appendsMissingTunesInTheGivenOrderAndSkipsMembers() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -377,7 +381,7 @@ private func activeItems(_ store: CrosstuneStore, _ listID: String) async throws
     }
 }
 
-@Suite struct CreateListWithTunesTests {
+@Suite(.timeLimit(.minutes(1))) struct CreateListWithTunesTests {
     @Test func createsAListHoldingTheTunesAndUndoDeletesIt() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -422,7 +426,7 @@ private func activeItems(_ store: CrosstuneStore, _ listID: String) async throws
     }
 }
 
-@Suite struct RemoveTunesFromListTests {
+@Suite(.timeLimit(.minutes(1))) struct RemoveTunesFromListTests {
     @Test func removesTheItemsAndUndoPutsThemBackInTheirPlaces() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -552,7 +556,7 @@ private func activeItems(_ store: CrosstuneStore, _ listID: String) async throws
     }
 }
 
-@Suite struct RestoreFieldsTests {
+@Suite(.timeLimit(.minutes(1))) struct RestoreFieldsTests {
     @Test func restoringAnEmptyListQueuesNothing() async throws {
         let root = TemporaryRoot()
         let store = try root.open()

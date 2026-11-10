@@ -6,7 +6,7 @@ import Testing
 
 @testable import CrosstuneStore
 
-@Test func storesTheRowAndQueuesItsChangeTogether() async throws {
+@Test(.timeLimit(.minutes(1))) func storesTheRowAndQueuesItsChangeTogether() async throws {
     let root = TemporaryRoot()
     let store = try root.open()
     let tune = Tune(createdAt: noon, title: "Soldier's Joy", modes: ["major"])
@@ -23,7 +23,7 @@ import Testing
     #expect(changes[0].data?["title"] == .string("Soldier's Joy"))
 }
 
-@Test func aFailedWriteStoresNothing() async throws {
+@Test(.timeLimit(.minutes(1))) func aFailedWriteStoresNothing() async throws {
     let root = TemporaryRoot()
     let store = try root.open()
 
@@ -38,7 +38,7 @@ import Testing
     #expect(try await store.pendingChangeCount() == 0)
 }
 
-@Test func aSecondWriteReplacesTheChangeAndKeepsItsPlace() async throws {
+@Test(.timeLimit(.minutes(1))) func aSecondWriteReplacesTheChangeAndKeepsItsPlace() async throws {
     let root = TemporaryRoot()
     let store = try root.open()
     let first = Tune(title: "Sally Goodin")
@@ -60,7 +60,7 @@ import Testing
     #expect(changes[0].updatedAt == later(5))
 }
 
-@Test func twoWritesInOneMillisecondGetDistinctTimes() async throws {
+@Test(.timeLimit(.minutes(1))) func twoWritesInOneMillisecondGetDistinctTimes() async throws {
     let root = TemporaryRoot()
     let store = try root.open()
     let tune = Tune(title: "Forked Deer")
@@ -74,7 +74,7 @@ import Testing
     #expect(earlier.updatedAt == later(2))
 }
 
-@Test func clearingAFieldStoresAndSendsNull() async throws {
+@Test(.timeLimit(.minutes(1))) func clearingAFieldStoresAndSendsNull() async throws {
     let root = TemporaryRoot()
     let store = try root.open()
     let tune = Tune(title: "Bonaparte's Retreat", composer: "Traditional")
@@ -88,7 +88,7 @@ import Testing
     #expect(try await store.pendingChanges(limit: 1)[0].data?["composer"] == .null)
 }
 
-@Test func aFieldThisBuildDoesNotKnowSurvivesAnEdit() async throws {
+@Test(.timeLimit(.minutes(1))) func aFieldThisBuildDoesNotKnowSurvivesAnEdit() async throws {
     let root = TemporaryRoot()
     let store = try root.open()
     let pulled = Tune(title: "Old Joe Clark", extra: ["tempo": .integer(120), "region": .string("Kentucky")])
@@ -127,11 +127,11 @@ import Testing
 
     let data = try recording.changeData()
 
-    #expect(!data.keys.contains("source_duration_ms"))
-    #expect(!data.keys.contains("playback_start_ms"))
-    #expect(!data.keys.contains("playback_end_ms"))
-    #expect(!data.keys.contains("playback_rev"))
-    #expect(!data.keys.contains("peaks_rev"))
+    #expect(data.keys.contains("source_duration_ms") == false)
+    #expect(data.keys.contains("playback_start_ms") == false)
+    #expect(data.keys.contains("playback_end_ms") == false)
+    #expect(data.keys.contains("playback_rev") == false)
+    #expect(data.keys.contains("peaks_rev") == false)
 }
 
 @Test func changeDataCarriesOnlyEditableFields() throws {
@@ -169,7 +169,7 @@ import Testing
     #expect(data["split_size"] == .integer(3))
 }
 
-@Test func aTombstoneQueuesADelete() async throws {
+@Test(.timeLimit(.minutes(1))) func aTombstoneQueuesADelete() async throws {
     let root = TemporaryRoot()
     let store = try root.open()
     let link = RecordingLink(tuneID: newID(), url: "https://example.com", provider: "other")
@@ -186,7 +186,7 @@ import Testing
     #expect(change.updatedAt == later(1))
 }
 
-@Test func aCascadedTombstoneDropsThePendingChange() async throws {
+@Test(.timeLimit(.minutes(1))) func aCascadedTombstoneDropsThePendingChange() async throws {
     let root = TemporaryRoot()
     let store = try root.open()
     let item = ListItem(listID: newID(), userTuneID: newID())
@@ -200,7 +200,7 @@ import Testing
     #expect(try await store.pendingChangeCount() == 0)
 }
 
-@Test func aRecordingFileRoundTripsItsBlobAndPeaksFields() async throws {
+@Test(.timeLimit(.minutes(1))) func aRecordingFileRoundTripsItsBlobAndPeaksFields() async throws {
     let root = TemporaryRoot()
     let store = try root.open()
     let file = RecordingFile(
@@ -216,7 +216,7 @@ import Testing
     #expect(stored.peaksRev == "def67890")
 }
 
-@Test func everyTableRoundTrips() async throws {
+@Test(.timeLimit(.minutes(1))) func everyTableRoundTrips() async throws {
     let root = TemporaryRoot()
     let store = try root.open()
     let tune = Tune(
@@ -253,7 +253,7 @@ import Testing
     #expect(try await store.pendingChangeCount() == 7)
 }
 
-@Test func aMetaWriteThatChangesNothingNotifiesNoObserver() async throws {
+@Test(.timeLimit(.minutes(1))) func aMetaWriteThatChangesNothingNotifiesNoObserver() async throws {
     let root = TemporaryRoot()
     let store = try root.open()
     let commits = Mutex(0)

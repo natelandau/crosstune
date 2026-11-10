@@ -32,8 +32,8 @@ final class ChannelSetting {
             sleep: { [clock] in await clock.sleep($0) })
     }
 
-    private func savedRow(_ id: String) async throws -> Recording {
-        try #require(try await store.read { db in try Recording.fetchOne(db, key: id) })
+    private func savedRow(_ id: String, sourceLocation: SourceLocation = #_sourceLocation) async throws -> Recording {
+        try #require(try await store.read { db in try Recording.fetchOne(db, key: id) }, sourceLocation: sourceLocation)
     }
 
     private func channelCount(of recordingID: String) throws -> AVAudioChannelCount {
@@ -99,7 +99,7 @@ final class ChannelSetting {
 
         input.send(.interrupted)
         #expect(recorder.state == .paused)
-        #expect(!recorder.resumeAvailable)
+        #expect(recorder.resumeAvailable == false)
         await recorder.resume()
         #expect(input.resumed == 0)
 
@@ -111,7 +111,7 @@ final class ChannelSetting {
         try input.play(seconds: 1)
         #expect(input.resumed == 1)
         #expect(recorder.state == .recording)
-        #expect(!recorder.resumeAvailable)
+        #expect(recorder.resumeAvailable == false)
         #expect(abs(recorder.elapsed - 2) < 0.01)
     }
 
@@ -380,7 +380,7 @@ final class ChannelSetting {
         await recorder.discard()
 
         #expect(recorder.state == .idle)
-        #expect(!fileExists(CaptureFinisher(store: store).captureURL(id)))
+        #expect(fileExists(CaptureFinisher(store: store).captureURL(id)) == false)
         #expect(try await store.read { db in try RecordingFile.fetchCount(db) } == 0)
         #expect(try await store.read { db in try Recording.fetchCount(db) } == 0)
     }
@@ -402,7 +402,7 @@ final class ChannelSetting {
         await recorder.start(tuneID: nil)
 
         #expect(recorder.state == .idle)
-        #expect(!recorder.permissionDenied)
+        #expect(recorder.permissionDenied == false)
         #expect(recorder.errorMessage == Recorder.microphoneFailed)
         #expect(input.stopped)
         #expect(try await store.read { db in try RecordingFile.fetchCount(db) } == 0)
@@ -464,7 +464,6 @@ final class ChannelSetting {
         #expect(row.placeName == nil)
         #expect(recorder.errorMessage == nil)
         #expect(recorder.lateFixes.isEmpty)
-        for _ in 0..<10 { await Task.yield() }
         #expect(clock.requested.isEmpty)
     }
 
@@ -599,7 +598,7 @@ final class ChannelSetting {
 
         await recorder.discard()
         await location.answer()
-        for _ in 0..<10 { await Task.yield() }
+        await recorder.locatingEnded()
 
         #expect(recorder.settledCoordinate == nil)
         #expect(recorder.lateFixes.isEmpty)
@@ -613,7 +612,7 @@ final class ChannelSetting {
         await recorder.start(tuneID: nil)
         #expect(location.requests == 1)
         await location.answer()
-        for _ in 0..<10 { await Task.yield() }
+        await recorder.locatingEnded()
 
         #expect(recorder.state == .idle)
         #expect(recorder.settledCoordinate == nil)
@@ -628,7 +627,6 @@ final class ChannelSetting {
 
         #expect(try await savedRow(saved).placeLat == nil)
         #expect(recorder.lateFixes.isEmpty)
-        for _ in 0..<10 { await Task.yield() }
         #expect(clock.requested.isEmpty)
     }
 
@@ -645,7 +643,7 @@ final class ChannelSetting {
 }
 
 @MainActor
-@Suite struct RecorderStartTests {
+@Suite(.timeLimit(.minutes(1))) struct RecorderStartTests {
     @Test func aSecondStartWhileTheFirstIsUnderWayBeginsNoSecondRecording() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -662,7 +660,7 @@ final class ChannelSetting {
 }
 
 @MainActor
-@Suite struct UnfinishedCaptureTests {
+@Suite(.timeLimit(.minutes(1))) struct UnfinishedCaptureTests {
     @Test func discardsALeftoverCaptureButNeverOneBeingRecorded() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -680,9 +678,9 @@ final class ChannelSetting {
         #expect(fileExists(capture))
 
         Recorder.active.remove(id)
-        #expect(!Recorder.isRecording(id))
+        #expect(Recorder.isRecording(id) == false)
         try await Recorder.discardUnfinishedCapture(id, in: store)
         #expect(try await row() == nil)
-        #expect(!fileExists(capture))
+        #expect(fileExists(capture) == false)
     }
 }

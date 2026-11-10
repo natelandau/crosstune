@@ -7,7 +7,7 @@ import Testing
 
 @testable import CrosstuneUI
 
-@Suite struct TuneAttributesTests {
+struct TuneAttributesTests {
     private func detail(
         _ tune: Tune = Tune(createdAt: noon, title: "Test"), learnedFrom: String? = nil
     ) -> TuneDetail {
@@ -124,9 +124,9 @@ import Testing
         let status = Key(owner: "a", layout: .column, id: AttributeID.status)
         state.set(status, shown: true)
         #expect(state.isPresented(status))
-        #expect(!state.isPresented(Key(owner: "a", layout: .column, id: AttributeID.key)))
-        #expect(!state.isPresented(Key(owner: "b", layout: .column, id: AttributeID.status)))
-        #expect(!state.isPresented(Key(owner: "a", layout: .card, id: AttributeID.status)))
+        #expect(state.isPresented(Key(owner: "a", layout: .column, id: AttributeID.key)) == false)
+        #expect(state.isPresented(Key(owner: "b", layout: .column, id: AttributeID.status)) == false)
+        #expect(state.isPresented(Key(owner: "a", layout: .card, id: AttributeID.status)) == false)
     }
 
     @Test func anotherRowClosingLeavesTheOpenOneAlone() {
@@ -136,7 +136,7 @@ import Testing
         state.set(Key(owner: "a", layout: .column, id: AttributeID.key), shown: false)
         #expect(state.isPresented(status))
         state.set(status, shown: false)
-        #expect(!state.isPresented(status))
+        #expect(state.isPresented(status) == false)
     }
 
     @Test func anotherTuneOrLayoutClosesTheEditor() {
@@ -145,13 +145,13 @@ import Testing
         swapped.set(status, shown: true)
         swapped.keep(owner: "b", layout: .column)
         swapped.keep(owner: "a", layout: .column)
-        #expect(!swapped.isPresented(status), "a return to the tune never reopens it")
+        #expect(swapped.isPresented(status) == false, "a return to the tune never reopens it")
 
         var flipped = AttributesOpenState()
         flipped.set(status, shown: true)
         flipped.keep(owner: "a", layout: .card)
         flipped.keep(owner: "a", layout: .column)
-        #expect(!flipped.isPresented(status))
+        #expect(flipped.isPresented(status) == false)
 
         var same = AttributesOpenState()
         same.set(status, shown: true)
@@ -172,11 +172,13 @@ import Testing
         #expect(column.learned.map(\.id) == [.learnedFrom, .learnedOn])
     }
 
-    @Test func theColumnGroupHeadingsMatchTheWebClient() {
-        #expect(AttributeCopy.detailsGroup == "Details")
-        #expect(AttributeCopy.aboutGroup == "About")
-        #expect(AttributeCopy.learnedGroup == "Learned")
-        #expect(AttributeCopy.listsGroup == "Lists")
+    @Test func theColumnGroupHeadingsMatchTheWebClient() throws {
+        try expectMatchesWeb(
+            "web/src/features/tune/attributeCopy.ts",
+            [
+                ("DETAILS_GROUP", AttributeCopy.detailsGroup), ("ABOUT_GROUP", AttributeCopy.aboutGroup),
+                ("LEARNED_GROUP", AttributeCopy.learnedGroup), ("LISTS_GROUP", AttributeCopy.listsGroup),
+            ])
     }
 
     @Test func theColumnRowsSitUnderTheirGroupsHeadings() {

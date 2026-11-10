@@ -2,7 +2,7 @@ import Testing
 
 @testable import CrosstuneAudio
 
-@Suite struct AudioSessionClaimsTests {
+struct AudioSessionClaimsTests {
     private let claims = AudioSessionClaims()
     private let tuner = AudioSessionOwner()
     private let recorder = AudioSessionOwner()
@@ -22,18 +22,18 @@ import Testing
         claims.claim(tuner)
         claims.claim(recorder)
 
-        #expect(!releases(tuner))
+        #expect(releases(tuner) == false)
         #expect(releases(recorder))
     }
 
     @Test func deactivatesOncePerClaim() {
         claims.claim(tuner)
         #expect(releases(tuner))
-        #expect(!releases(tuner))
+        #expect(releases(tuner) == false)
     }
 
     @Test func nothingDeactivatesBeforeAnyClaim() {
-        #expect(!releases(tuner))
+        #expect(releases(tuner) == false)
     }
 
     @Test func aClaimAskedForBeforeAYieldThrowsAndNeverActivates() {
@@ -45,7 +45,7 @@ import Testing
         #expect(throws: YieldedToPlayback.self) {
             try claims.claim(tuner, unlessYieldedSince: asked) { activated = true }
         }
-        #expect(!activated)
+        #expect(activated == false)
         #expect(releases(recorder))
     }
 
@@ -56,8 +56,8 @@ import Testing
         var ran = false
         claims.release(tuner, unlessYieldedSince: asked) { ran = true }
 
-        #expect(!ran)
-        #expect(!releases(tuner))
+        #expect(ran == false)
+        #expect(releases(tuner) == false)
     }
 
     @Test func noYieldSinceTheClaimDeactivates() throws {
@@ -77,7 +77,7 @@ import Testing
         #expect(throws: YieldedToPlayback.self) {
             try claims.claim(tuner, unlessYieldedSince: asked) { activated = true }
         }
-        #expect(!activated)
+        #expect(activated == false)
         #expect(releases(recorder))
     }
 

@@ -2,7 +2,7 @@ import Testing
 
 @testable import CrosstuneDesign
 
-@Suite struct ScrubDragTests {
+struct ScrubDragTests {
     @Test func aTouchNeverJumps() {
         #expect(ScrubDrag.position(from: 42, dx: 0, dy: 0, width: 300, duration: 195) == 42)
     }
@@ -56,9 +56,9 @@ import Testing
     }
 
     @Test func aKeyStepClampsAtTheEnds() {
-        #expect(ScrubDrag.keyStepped(60, by: PlaybackScrubber.keyStep, duration: 195) == 65)
-        #expect(ScrubDrag.keyStepped(2, by: -PlaybackScrubber.keyStep, duration: 195) == 0)
-        #expect(ScrubDrag.keyStepped(193, by: PlaybackScrubber.keyStep, duration: 195) == 195)
+        #expect(ScrubDrag.keyStepped(60, by: PlaybackScrubber.keyStep, duration: 195) == 60 + PlaybackScrubber.keyStep)
+        #expect(ScrubDrag.keyStepped(0.5, by: -PlaybackScrubber.keyStep, duration: 195) == 0)
+        #expect(ScrubDrag.keyStepped(194.5, by: PlaybackScrubber.keyStep, duration: 195) == 195)
     }
 
     @Test func aKeyStepWithAnUnknownLengthNeverSeeks() {

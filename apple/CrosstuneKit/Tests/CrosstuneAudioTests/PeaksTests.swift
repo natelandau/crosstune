@@ -7,7 +7,7 @@ import Testing
 @testable import CrosstuneAudio
 
 @MainActor
-@Suite struct PeaksTests {
+@Suite(.timeLimit(.minutes(1))) struct PeaksTests {
     @Test func roundTripsThroughEncodedBytes() throws {
         let peaks = Peaks(values: (0..<10).map { UInt8($0 * 20) })
 
@@ -58,7 +58,7 @@ import Testing
     }
 }
 
-@Suite struct PeakMeterTests {
+struct PeakMeterTests {
     @Test func carriesPartialWindowsAcrossBuffersAt48kHz() {
         var meter = PeakMeter()
         var count = 0

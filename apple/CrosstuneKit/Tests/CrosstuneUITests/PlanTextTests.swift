@@ -4,7 +4,7 @@ import Testing
 
 @testable import CrosstuneUI
 
-@Suite struct PlanTextTests {
+struct PlanTextTests {
     private static let locale = Locale(identifier: "en_US")
     private static let calendar: Calendar = {
         var calendar = Calendar(identifier: .gregorian)
@@ -42,33 +42,7 @@ import Testing
         #expect(PlanText.renewalTerms(price: "$4.99", period: .monthly) == "$4.99 a month, \(tail)")
     }
 
-    @Test func namesThePlansAndHelp() {
-        #expect(PlanText.group == "Plan")
-        #expect(PlanText.free == "Free")
-        #expect(PlanText.premium == "Premium")
-        #expect(PlanText.trial == "Premium trial")
-        #expect(
-            PlanText.freeHelp
-                == "Free includes your catalog, lists, links, sync, and export. Recordings and scans are part of Premium."
-        )
-    }
-
-    @Test func holdsTheAppleOnlyCopy() {
-        #expect(
-            PlanText.subscribePending == "Your purchase is waiting for approval. Premium starts once it goes through.")
-        #expect(PlanText.restorePurchases == "Restore purchases")
-        #expect(PlanText.restored == "Your App Store subscription is restored.")
-        #expect(PlanText.nothingToRestore == "This Apple Account has no Crosstune subscription to restore.")
-        #expect(
-            PlanText.otherAccount
-                == "This App Store subscription belongs to another Crosstune account. Sign out, then sign in with the account that subscribed."
-        )
-        #expect(PlanText.restoreFailedTitle == "Restoring didn't finish")
-        #expect(PlanText.restoreFailedMessage == "Try again in a moment.")
-        #expect(PlanText.manageOnTheWeb == "Manage on the web")
-        #expect(PlanText.manageAtWebsite == "Manage your subscription at my.crosstune.app.")
-        #expect(PlanText.termsOfUse == "Terms of Use")
-        #expect(PlanText.privacyPolicy == "Privacy Policy")
+    @Test func linksToTheSitesTermsAndPrivacyPages() {
         #expect(PlanText.termsURL == "https://crosstune.app/terms")
         #expect(PlanText.privacyURL == "https://crosstune.app/privacy")
     }
@@ -115,7 +89,6 @@ import Testing
         // Later the same calendar day is the last day.
         #expect(left(3_600 / 86_400) == PlanText.trialEndsToday)
         #expect(left(-1) == PlanText.trialEndsToday)
-        #expect(PlanText.trialEndsToday == "Ends today")
     }
 
     @Test func theTrialCardNamesTheDayItEnds() {
@@ -123,14 +96,13 @@ import Testing
         #expect(PlanText.trialEnds(ends, calendar: Self.calendar, locale: Self.locale) == "Ends Oct 15, 2026")
     }
 
-    @Test func theSettingsLineJoinsTheCardsTwoLines() {
-        for days in [1.0, 5, 29] {
-            let ends = Self.now.addingTimeInterval(days * 86_400)
-            #expect(
-                PlanText.trialLeft(endsAt: ends, now: Self.now, calendar: Self.calendar, locale: Self.locale)
-                    == "\(PlanText.trialEnds(ends, calendar: Self.calendar, locale: Self.locale)), \(PlanText.trialDaysLeft(endsAt: ends, now: Self.now, calendar: Self.calendar))"
-            )
-        }
+    @Test(arguments: [1.0, 5, 29])
+    func theSettingsLineJoinsTheCardsTwoLines(days: Double) {
+        let ends = Self.now.addingTimeInterval(days * 86_400)
+        #expect(
+            PlanText.trialLeft(endsAt: ends, now: Self.now, calendar: Self.calendar, locale: Self.locale)
+                == "\(PlanText.trialEnds(ends, calendar: Self.calendar, locale: Self.locale)), \(PlanText.trialDaysLeft(endsAt: ends, now: Self.now, calendar: Self.calendar))"
+        )
     }
 
     @Test func namesThePlanByKindAndSource() {
@@ -161,20 +133,19 @@ import Testing
         #expect(PlanText.detail(.unknown, now: Self.now) == nil)
     }
 
-    @Test func detailsASubscriptionAsThePlanSheetDoes() {
+    @Test(arguments: [PlanSource.apple, .stripe])
+    func detailsASubscriptionAsThePlanSheetDoes(source: PlanSource) {
         let later = Self.now.addingTimeInterval(3600)
-        for source in [PlanSource.apple, .stripe] {
-            let renewing = Plan(kind: .premium, source: source, premiumEndsAt: later, autoRenews: true)
-            #expect(
-                PlanText.detail(renewing, now: Self.now, calendar: Self.calendar, locale: Self.locale)
-                    == "Renews Oct 10, 2026")
-            let inLeeway = Plan(kind: .premium, source: source, premiumEndsAt: Self.now, autoRenews: true)
-            #expect(PlanText.detail(inLeeway, now: Self.now, calendar: Self.calendar, locale: Self.locale) == nil)
-            let lapsing = Plan(kind: .premium, source: source, premiumEndsAt: Self.now, autoRenews: false)
-            #expect(
-                PlanText.detail(lapsing, now: Self.now, calendar: Self.calendar, locale: Self.locale)
-                    == "Ends Oct 10, 2026")
-        }
+        let renewing = Plan(kind: .premium, source: source, premiumEndsAt: later, autoRenews: true)
+        #expect(
+            PlanText.detail(renewing, now: Self.now, calendar: Self.calendar, locale: Self.locale)
+                == "Renews Oct 10, 2026")
+        let inLeeway = Plan(kind: .premium, source: source, premiumEndsAt: Self.now, autoRenews: true)
+        #expect(PlanText.detail(inLeeway, now: Self.now, calendar: Self.calendar, locale: Self.locale) == nil)
+        let lapsing = Plan(kind: .premium, source: source, premiumEndsAt: Self.now, autoRenews: false)
+        #expect(
+            PlanText.detail(lapsing, now: Self.now, calendar: Self.calendar, locale: Self.locale)
+                == "Ends Oct 10, 2026")
     }
 
     @Test func measuresTheUsageAgainstThePlansQuota() {

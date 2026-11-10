@@ -102,12 +102,12 @@ struct RangeEditTests {
         let practice = try code("RecordingScreen/Practice/PracticeWaveform.swift")
         #expect(practice.contains("RangeHandles("))
         #expect(practice.contains("movesSpan: false"))
-        #expect(!practice.contains("movesSpan: true"))
+        #expect(practice.contains("movesSpan: true") == false)
         #expect(practice.contains("insertionID: model.insertedID == row.id ? row.id : nil"))
         let isolate = try code("RecordingScreen/IsolateRange.swift")
         #expect(isolate.contains("RangeHandles("))
         #expect(isolate.contains("movesSpan: true"))
-        #expect(!isolate.contains("LoopHandleMark"))
+        #expect(isolate.contains("LoopHandleMark") == false)
     }
 
     /// Every handle starts a drag only past the waveform's own drag distance, so a click on the
@@ -117,7 +117,7 @@ struct RangeEditTests {
         let source = SourceScan.withoutComments(
             try SourceScan.text(at: SourceScan.url(of: "Phone/Controls/RangeHandles.swift")))
         let distances = source.matches(of: /DragGesture\(minimumDistance: *([\w.]+)/).map { String($0.1) }
-        #expect(!distances.isEmpty)
+        #expect(distances.isEmpty == false)
         #expect(distances.allSatisfy { $0 == "ControlMetrics.dragThreshold" }, "\(distances)")
     }
 
@@ -138,7 +138,7 @@ struct RangeEditTests {
         let trim = try code("RecordingScreen/TrimScreen.swift")
         #expect(try has(trim, #"RangeHandles\("#))
         #expect(try has(trim, #"movesSpan:\s*false"#))
-        #expect(try !has(trim, #"movesSpan:\s*true"#))
+        #expect(try has(trim, #"movesSpan:\s*true"#) == false)
         #expect(try has(trim, #"isFocusable:\s*!isDetail"#))
         #expect(try has(trim, #"onFocus:\s*\{\s*model\.selectHandle\(\s*nearestMs:"#))
         #expect(try has(trim, closesUnchanged))
@@ -168,7 +168,7 @@ struct RangeEditTests {
             bodies[owner, default: ""] += line + "\n"
             if line.contains("@Environment(\\.rangeClosing)") { readers.append(owner) }
         }
-        #expect(!readers.isEmpty)
+        #expect(readers.isEmpty == false)
         for reader in readers {
             #expect(reader != "RangeHandles")
             #expect(

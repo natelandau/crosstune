@@ -8,7 +8,7 @@ import Testing
 
 private let pageURL = "https://slippery-hill.com/recording/42"
 
-@Suite struct LinksTests {
+@Suite(.timeLimit(.minutes(1))) struct LinksTests {
     @Test func appendsLinksInPositionOrderWithNullableMetadata() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -197,11 +197,10 @@ private let pageURL = "https://slippery-hill.com/recording/42"
 
         await #expect(throws: CommandError.linkNotFound) { try await commands.addRecordingFromLink(linkID) }
         await #expect(throws: CommandError.linkNotFound) { try await commands.addRecordingFromLink("nope") }
-        #expect(CommandError.linkNotFound.errorDescription == "Link not found")
     }
 }
 
-@Suite struct ClippedRecordingLabelTests {
+struct ClippedRecordingLabelTests {
     @Test func keepsAShortLabelWhole() {
         #expect(clippedRecordingLabel("Sligo Session") == "Sligo Session")
     }

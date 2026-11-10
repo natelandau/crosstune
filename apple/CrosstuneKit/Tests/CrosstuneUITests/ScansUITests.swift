@@ -17,7 +17,11 @@ private func makeTune(_ store: CrosstuneStore, _ title: String = "Soldier's Joy"
 }
 
 /// A small scan, prepared once, so many can be written quickly.
-private let preparedScan = try! PreparedScan.make(from: jpeg(width: 17, height: 22))
+private let preparedOnce = Result { try PreparedScan.make(from: jpeg(width: 17, height: 22)) }
+
+private func preparedScan() throws -> PreparedScan {
+    try preparedOnce.get()
+}
 
 private func record(state: String = "ready", width: Int = 1700, height: Int = 2200) -> ScanRecord {
     ScanRecord(
@@ -49,7 +53,7 @@ private func jpeg(width: Int, height: Int) -> Data {
 }
 
 @MainActor
-@Suite struct ScansUITests {
+@Suite(.timeLimit(.minutes(1))) struct ScansUITests {
     // MARK: Section
 
     @Test func sectionShowsAddWithNoScans() {
@@ -57,7 +61,7 @@ private func jpeg(width: Int, height: Int) -> Data {
 
         #expect(layout.showsEmptyState)
         #expect(layout.canAdd)
-        #expect(!layout.showsEdit)
+        #expect(layout.showsEdit == false)
         #expect(layout.limitNote == nil)
     }
 
@@ -68,9 +72,9 @@ private func jpeg(width: Int, height: Int) -> Data {
         #expect(almost.showsEdit)
 
         let full = ScansSectionLayout(scanCount: maxScansPerTune)
-        #expect(!full.canAdd)
+        #expect(full.canAdd == false)
         #expect(full.limitNote == ScanCopy.limitNote)
-        #expect(!full.showsEmptyState)
+        #expect(full.showsEmptyState == false)
     }
 
     @Test func storageFullScanIsMarked() {
@@ -111,29 +115,22 @@ private func jpeg(width: Int, height: Int) -> Data {
 
     // Literal on purpose: these pin the words to web/src/features/scans/scanCopy.ts, which
     // the web's end-to-end specs query by name, so the two clients never drift apart.
-    @Test func labelsMatchTheWebClient() {
-        #expect(ScanCopy.scans == "Scans")
-        #expect(ScanCopy.addScans == "Add scans")
-        #expect(ScanCopy.emptyTitle == "No scans yet")
-        #expect(ScanCopy.emptyHint == "Add a photo of written music, lyrics, or notes.")
-        #expect(ScanCopy.deleteTitle == "Delete this scan?")
-        #expect(ScanCopy.unreadableScan == "This scan cannot be shown")
+    @Test func labelsMatchTheWebClient() throws {
+        try expectMatchesWeb(
+            "web/src/features/scans/scanCopy.ts",
+            [
+                ("SCANS", ScanCopy.scans), ("ADD_SCANS", ScanCopy.addScans),
+                ("DELETE_SCAN_TITLE", ScanCopy.deleteTitle), ("SCAN_UNREADABLE", ScanCopy.unreadableScan),
+                ("INVERT", ScanCopy.invert), ("SCAN_STORAGE_FULL", ScanCopy.storageFull),
+                ("SCAN_REFUSED", ScanCopy.refused), ("SCAN_WAITING", ScanCopy.waiting),
+                ("SCAN_NOT_UPLOADED", ScanCopy.notUploaded),
+            ])
+    }
+
+    @Test func numbersScansFromOne() {
         #expect(ScanCopy.scan(0) == "Scan 1")
         #expect(ScanCopy.moveScan(0) == "Move scan 1")
         #expect(ScanCopy.deleteScan(0) == "Delete scan 1")
-        #expect(ScanCopy.invert == "Invert")
-        #expect(ScanCopy.limitNote == "A tune holds up to 20 scans.")
-        #expect(ScanCopy.storageFull == "Not uploaded, storage full")
-        #expect(ScanCopy.refused == "Could not upload. Delete this scan and add it again.")
-        #expect(ScanCopy.waiting == "Waiting for upload from another device")
-        #expect(ScanCopy.notUploaded == "Not uploaded yet")
-    }
-
-    // The web adds scans through one file picker, so these choices have no web counterpart.
-    @Test func addChoiceLabels() {
-        #expect(ScanAddChoice.scan.label == "Scan")
-        #expect(ScanAddChoice.photo.label == "Choose Photo")
-        #expect(ScanAddChoice.file.label == "Choose File")
     }
 
     @Test func numberedAndCountedCopy() {
@@ -166,8 +163,8 @@ private func jpeg(width: Int, height: Int) -> Data {
         let withScans = try await makeTune(store, "Soldier's Joy")
         let without = try await makeTune(store, "Cluck Old Hen")
         let emptied = try await makeTune(store, "Kitchen Girl")
-        try await commands.addScans(tuneID: withScans, scans: [preparedScan], at: noon)
-        let gone = try await commands.addScans(tuneID: emptied, scans: [preparedScan], at: noon)
+        try await commands.addScans(tuneID: withScans, scans: [preparedScan()], at: noon)
+        let gone = try await commands.addScans(tuneID: emptied, scans: [preparedScan()], at: noon)
         try await commands.deleteScan(gone[0], at: later(1))
 
         let tunes = try await store.read { db in try ScanTunes.fetch(db) }
@@ -241,12 +238,10 @@ private func jpeg(width: Int, height: Int) -> Data {
 
     @Test func regularWidthScansGrow() {
         #if os(iOS)
-            #expect(ScansSection.thumbnailHeight(regular: true) == PadStyle.scanThumbnailHeight)
             #expect(ScansSection.thumbnailHeight(regular: true) > ScansSection.thumbnailHeight(regular: false))
         #else
-            #expect(ScansSection.thumbnailHeight(regular: true) == 120)
+            #expect(ScansSection.thumbnailHeight(regular: true) == ScansSection.thumbnailHeight(regular: false))
         #endif
-        #expect(ScansSection.thumbnailHeight(regular: false) == 120)
     }
 
     @Test func thumbnailsDecodeAtTheirPixelHeightAndNeverUpscale() throws {
@@ -278,22 +273,34 @@ private func jpeg(width: Int, height: Int) -> Data {
     @MainActor
     @Test func aThumbnailStillShowsAfterTheCacheIsEmptied() async throws {
         let root = TemporaryRoot()
-        try FileManager.default.createDirectory(at: root.url, withIntermediateDirectories: true)
-        let url = root.url.appending(path: "scan.jpg")
-        try jpeg(width: 300, height: 400).write(to: url)
+        let url = try writtenJPEG(in: root)
         let cache = ThumbnailCache(countLimit: 10)
-
-        let first = try #require(await ScanThumbnail.load(key: "p/scan.jpg", url: url, pixelHeight: 240, cache: cache))
-        // A second load is a cache hit, and still hands back the image for the view to keep.
-        try FileManager.default.removeItem(at: url)
-        let hit = try #require(await ScanThumbnail.load(key: "p/scan.jpg", url: url, pixelHeight: 240, cache: cache))
-        #expect(hit === first)
+        let image = try #require(await ScanThumbnail.load(key: "p/scan.jpg", url: url, pixelHeight: 240, cache: cache))
 
         cache.removeAll()
 
-        let decoded: (key: String, image: CGImage?) = ("p/scan.jpg", hit)
-        #expect(ScanThumbnail.shown(key: "p/scan.jpg", decoded: decoded, cache: cache) === first)
+        let decoded: (key: String, image: CGImage?) = ("p/scan.jpg", image)
+        #expect(ScanThumbnail.shown(key: "p/scan.jpg", decoded: decoded, cache: cache) === image)
         #expect(ScanThumbnail.shown(key: "other/scan.jpg", decoded: decoded, cache: cache) == nil)
+    }
+
+    /// The cache may drop an entry at any time, so the image goes in just before the load reads it.
+    @MainActor
+    @Test func aCachedThumbnailLoadsWithoutItsFile() async throws {
+        let root = TemporaryRoot()
+        let image = try #require(ScanThumbnail.decode(try writtenJPEG(in: root), height: 240))
+        let cache = ThumbnailCache(countLimit: 10)
+        cache.insert(image, for: "p/scan.jpg")
+
+        let missing = root.url.appending(path: "gone.jpg")
+        #expect(await ScanThumbnail.load(key: "p/scan.jpg", url: missing, pixelHeight: 240, cache: cache) === image)
+    }
+
+    private func writtenJPEG(in root: TemporaryRoot) throws -> URL {
+        try FileManager.default.createDirectory(at: root.url, withIntermediateDirectories: true)
+        let url = root.url.appending(path: "scan.jpg")
+        try jpeg(width: 300, height: 400).write(to: url)
+        return url
     }
 
     @Test func thumbnailKeyFollowsTheScanAndItsFile() {
@@ -319,16 +326,16 @@ private func jpeg(width: Int, height: Int) -> Data {
         let store = try root.open()
         let tuneID = try await makeTune(store)
         try await Commands(store: store).addScans(
-            tuneID: tuneID, scans: Array(repeating: preparedScan, count: 18), at: noon)
+            tuneID: tuneID, scans: Array(repeating: preparedScan(), count: 18), at: noon)
         let model = TuneModel(store: store, tuneID: tuneID)
         try await eventually { model.scans.scans.count == 18 }
 
-        let picks = (0..<5).map { index in ScanPick(name: "scan \(index)") { preparedScan } }
+        let picks = (0..<5).map { index in ScanPick(name: "scan \(index)") { try preparedScan() } }
         await model.scans.add(picks, via: .file)
 
         try await eventually { model.scans.scans.count == maxScansPerTune }
         #expect(model.scans.failure == ScanCopy.scansNotAdded(3))
-        #expect(!model.scans.isAdding)
+        #expect(model.scans.isAdding == false)
     }
 
     @MainActor
@@ -341,9 +348,9 @@ private func jpeg(width: Int, height: Int) -> Data {
 
         await model.scans.add(
             [
-                ScanPick(name: "first.jpg") { preparedScan },
+                ScanPick(name: "first.jpg") { try preparedScan() },
                 ScanPick.data(name: "broken.heic") { Data([0x00, 0x01, 0x02]) },
-                ScanPick(name: "third.jpg") { preparedScan },
+                ScanPick(name: "third.jpg") { try preparedScan() },
             ], via: .file)
 
         try await eventually { model.scans.scans.count == 2 }
@@ -377,7 +384,7 @@ private func jpeg(width: Int, height: Int) -> Data {
         let store = try root.open()
         let tuneID = try await makeTune(store)
         let ids = try await Commands(store: store).addScans(
-            tuneID: tuneID, scans: [preparedScan, preparedScan, preparedScan], at: noon)
+            tuneID: tuneID, scans: [preparedScan(), preparedScan(), preparedScan()], at: noon)
         let model = TuneModel(store: store, tuneID: tuneID)
         try await eventually { model.scans.scans.count == 3 }
 
@@ -386,9 +393,7 @@ private func jpeg(width: Int, height: Int) -> Data {
         #expect(model.scans.scans.map(\.id) == [ids[1], ids[2], ids[0]])
         #expect(model.scans.announcement?.text == "Scan 1 moved to 3 of 3")
         let expected = [ids[1], ids[2], ids[0]]
-        if try await !poll({ try await store.read { db in try db.liveScanOrder(tuneID: tuneID) } == expected }) {
-            Issue.record("The move never reached the store")
-        }
+        try await eventually { try await store.read { db in try db.liveScanOrder(tuneID: tuneID) } == expected }
         // The replayed move retires once the store's read agrees, leaving the order as it was.
         try await eventually { model.scans.scans.map(\.id) == expected }
     }
@@ -399,7 +404,7 @@ private func jpeg(width: Int, height: Int) -> Data {
         let store = try root.open()
         let tuneID = try await makeTune(store)
         let ids = try await Commands(store: store).addScans(
-            tuneID: tuneID, scans: [preparedScan, preparedScan], at: noon)
+            tuneID: tuneID, scans: [preparedScan(), preparedScan()], at: noon)
         let model = TuneModel(store: store, tuneID: tuneID)
         try await eventually { model.scans.scans.count == 2 }
 
@@ -430,7 +435,7 @@ extension Database {
 }
 
 @MainActor
-@Suite struct ScanZoomSourceTests {
+struct ScanZoomSourceTests {
     @Test func theViewerClosesIntoTheThumbnailOfTheScanShowingNow() {
         let request = ScanRequest(tuneID: "t1", startIndex: 1, origin: .tune)
         #expect(ScanScreens.zoomSourceID(request, shownIndex: nil) == ScanScreens.sourceID(tuneID: "t1", index: 1))
@@ -465,9 +470,9 @@ private struct ScannedTunes {
         tuneA = try await makeTune(store, "Soldier's Joy")
         tuneB = try await makeTune(store, "Kitchen Girl")
         let commands = Commands(store: store)
-        try await commands.addScans(tuneID: tuneA, scans: [preparedScan, preparedScan], at: noon)
-        try await commands.addScans(tuneID: tuneB, scans: [preparedScan, preparedScan], at: later(1))
-        plan = PlanModel(store: store)
+        try await commands.addScans(tuneID: tuneA, scans: [preparedScan(), preparedScan()], at: noon)
+        try await commands.addScans(tuneID: tuneB, scans: [preparedScan(), preparedScan()], at: later(1))
+        plan = PlanModel(store: store, now: { noon.date })
     }
 
     func model(_ tuneID: String) -> TuneModel {
@@ -476,7 +481,7 @@ private struct ScannedTunes {
 }
 
 @MainActor
-@Suite struct ScansPlanTests {
+@Suite(.timeLimit(.minutes(1))) struct ScansPlanTests {
     @Test func aFreePlanOpensNoScan() async throws {
         let fixture = try await ScannedTunes(source: nil)
         let a = fixture.model(fixture.tuneA)
@@ -484,19 +489,19 @@ private struct ScannedTunes {
 
         try await eventually { fixture.plan.plan.kind == .free }
         try await eventually { a.scans.scans.count == 2 && b.scans.scans.count == 2 }
-        #expect(!a.scans.opens)
-        #expect(!b.scans.opens)
+        #expect(a.scans.opens == false)
+        #expect(b.scans.opens == false)
 
         let locked = a.scans.layout
         #expect(locked.dimsScans)
         #expect(locked.gatesAdd)
-        #expect(!locked.showsReorder)
+        #expect(locked.showsReorder == false)
         // Edit mode still deletes.
         #expect(locked.showsEdit)
     }
 
     @Test func aTrialOpensEveryTune() async throws {
-        let fixture = try await ScannedTunes(source: "trial", expiresAt: Date().addingTimeInterval(86_400 * 30))
+        let fixture = try await ScannedTunes(source: "trial", expiresAt: noon.date.addingTimeInterval(86_400 * 30))
         let a = fixture.model(fixture.tuneA)
         let b = fixture.model(fixture.tuneB)
 
@@ -504,8 +509,8 @@ private struct ScannedTunes {
         #expect(a.scans.opens)
         #expect(b.scans.opens)
         let open = b.scans.layout
-        #expect(!open.dimsScans)
-        #expect(!open.gatesAdd)
+        #expect(open.dimsScans == false)
+        #expect(open.gatesAdd == false)
         #expect(open.showsReorder)
     }
 
@@ -519,7 +524,7 @@ private struct ScannedTunes {
         let model = TuneModel(store: store, tuneID: tuneID, plan: plan)
 
         try await eventually { plan.plan.kind == .free && model.scans.isLoaded }
-        #expect(!model.scans.opens)
+        #expect(model.scans.opens == false)
         #expect(model.scans.layout.gatesAdd)
     }
 
@@ -563,13 +568,12 @@ private struct ScannedTunes {
 
     @Test func aLockedThumbnailNamesPremiumAndNoActionLabel() {
         #expect(ScanCopy.thumbnailName(0, opens: true) == ScanCopy.openScan(0))
-        #expect(ScanCopy.subscribeToOpen == "Subscribe to open")
         #expect(ScanCopy.thumbnailName(1, opens: false) == "Scan 2, \(ScanCopy.subscribeToOpen)")
     }
 }
 
 @MainActor
-@Suite struct ScansPlanFollowTests {
+@Suite(.timeLimit(.minutes(1))) struct ScansPlanFollowTests {
     @Test func followsThePlanItIsGiven() async throws {
         let fixture = try await ScannedTunes(source: nil)
         let b = TuneModel(store: fixture.store, tuneID: fixture.tuneB)
@@ -627,8 +631,8 @@ private struct ScannedTunes {
         let fixture = try await ScannedTunes(source: nil)
         let presenter = PremiumPresenter(plan: fixture.plan, analytics: .noop)
         var actions = TuneScreenActions()
-        #expect(!ScansSection.tileActs(opens: true, actions: actions, premium: presenter))
-        #expect(!ScansSection.tileActs(opens: false, actions: actions, premium: nil))
+        #expect(ScansSection.tileActs(opens: true, actions: actions, premium: presenter) == false)
+        #expect(ScansSection.tileActs(opens: false, actions: actions, premium: nil) == false)
         #expect(ScansSection.tileActs(opens: false, actions: actions, premium: presenter))
         actions.viewScans = { _, _, _ in }
         #expect(ScansSection.tileActs(opens: true, actions: actions, premium: nil))

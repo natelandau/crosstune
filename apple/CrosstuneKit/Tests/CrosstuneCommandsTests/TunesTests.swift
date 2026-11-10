@@ -6,7 +6,7 @@ import Testing
 
 @testable import CrosstuneCommands
 
-@Suite struct CreateTuneTests {
+@Suite(.timeLimit(.minutes(1))) struct CreateTuneTests {
     @Test func writesTheTuneAndTheUserTuneWithDefaultsAndQueuesBoth() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -93,7 +93,7 @@ import Testing
     }
 }
 
-@Suite struct UpdateTuneTests {
+@Suite(.timeLimit(.minutes(1))) struct UpdateTuneTests {
     @Test func bumpsUpdatedAtKeepsOneOutboxEntryPerRowAndIgnoresKeep() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -225,7 +225,7 @@ import Testing
     }
 }
 
-@Suite struct UpdateTuneEntryTests {
+@Suite(.timeLimit(.minutes(1))) struct UpdateTuneEntryTests {
     @Test func savesTheTuneAndTheUserTuneTogether() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -255,7 +255,7 @@ import Testing
 
         #expect(try await store.pendingChanges(limit: 10).queuedOps == [QueuedOp(table: .userTunes, op: .upsert)])
         #expect(TunePatch().isEmpty && UserTunePatch().isEmpty)
-        #expect(!TunePatch(key: .value(nil)).isEmpty)
+        #expect(TunePatch(key: .value(nil)).isEmpty == false)
     }
 
     @Test func writesNeitherRowWhenTheUserTuneWriteFails() async throws {
@@ -281,7 +281,7 @@ import Testing
     }
 }
 
-@Suite struct DeleteTuneTests {
+@Suite(.timeLimit(.minutes(1))) struct DeleteTuneTests {
     @Test func tombstonesTheTuneAndItsDependentsLocallyQueuingOnlyTheTuneDelete() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -323,7 +323,7 @@ import Testing
     }
 }
 
-@Suite struct PatchEmptinessTests {
+struct PatchEmptinessTests {
     /// Each field set on its own. A field added to a patch without joining `isEmpty` fails the
     /// count check here, which is the reminder to add it to both.
     @Test func countsEveryTuneFieldAsAChange() {

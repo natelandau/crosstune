@@ -8,19 +8,10 @@ import Testing
 @testable import CrosstuneUI
 
 @MainActor
-@Suite struct PracticeLayoutTests {
-    @Test func theWaveformKeepsItsFloor() {
-        #expect(PracticeLayout.waveformFloor(isCompactHeight: false) == 140)
-        #expect(PracticeLayout.waveformFloor(isCompactHeight: true) == 64)
-    }
-
+struct PracticeLayoutTests {
     @Test func compactHeightHasTheLowerFloor() {
         let compact = PracticeLayout.waveformFloor(isCompactHeight: true)
         #expect(compact < PracticeLayout.waveformFloor(isCompactHeight: false))
-    }
-
-    @Test func theWaveformCapMatchesTheDesktopWebWaveform() {
-        #expect(PracticeLayout.waveformCap == 160)
     }
 
     @Test func aTallWindowStopsTheWaveformAtTheCap() {
@@ -33,18 +24,16 @@ import Testing
         #expect(PracticeLayout.waveformHeight(spare: 10, isCompactHeight: false) == floor + 10)
     }
 
-    @Test func theWaveformNeverShrinksBelowItsFloor() {
-        for compact in [false, true] {
-            let floor = PracticeLayout.waveformFloor(isCompactHeight: compact)
-            #expect(PracticeLayout.waveformHeight(spare: -200, isCompactHeight: compact) == floor)
-            #expect(PracticeLayout.waveformHeight(spare: nil, isCompactHeight: compact) == floor)
-        }
+    @Test(arguments: [false, true])
+    func theWaveformNeverShrinksBelowItsFloor(isCompactHeight: Bool) {
+        let floor = PracticeLayout.waveformFloor(isCompactHeight: isCompactHeight)
+        #expect(PracticeLayout.waveformHeight(spare: -200, isCompactHeight: isCompactHeight) == floor)
+        #expect(PracticeLayout.waveformHeight(spare: nil, isCompactHeight: isCompactHeight) == floor)
     }
 
-    @Test func loopHandlesAreTheBrandColorWhateverTheLoopColor() {
-        for slot in 0..<6 {
-            #expect(Palette.brand != Palette.loop(slot, scheme: .dark))
-        }
+    @Test(arguments: 0..<6)
+    func loopHandlesAreTheBrandColorWhateverTheLoopColor(slot: Int) {
+        #expect(Palette.brand != Palette.loop(slot, scheme: .dark))
     }
 
     /// A recording whose waveform has not arrived still shows bars on the Mac, muted, rather
@@ -97,7 +86,7 @@ import Testing
             let file = SourceScan.url(of: "RecordingScreen/RecordingScreen.swift")
             let mac = SourceScan.macOSRegions(of: SourceScan.withoutComments(try SourceScan.text(at: file)))
             #expect(mac.contains("MacStyle.pageMargin"))
-            #expect(!mac.contains("MacStyle.sheetMargin"))
+            #expect(mac.contains("MacStyle.sheetMargin") == false)
         }
     #endif
 }

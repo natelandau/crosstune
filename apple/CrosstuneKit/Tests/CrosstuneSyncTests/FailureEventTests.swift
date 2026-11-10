@@ -10,7 +10,7 @@ import Testing
 /// A sync that fails, a recording that hits the storage limit, and an upload that is refused each
 /// report once as they enter that state, by a reason that is never the error's text.
 @MainActor
-@Suite struct SyncFailureEventTests {
+@Suite(.timeLimit(.minutes(1))) struct SyncFailureEventTests {
     let root = TemporaryRoot()
     let store: CrosstuneStore
     let api = FakeSyncAPI()
@@ -59,9 +59,9 @@ import Testing
         api.failure = APIStatusError(status: 500)
 
         await engine.sync()
-        #expect(try await poll { sleeper.pendingCount == 1 })
+        try await eventually { sleeper.pendingCount == 1 }
         sleeper.fire()
-        #expect(try await poll { sleeper.requested.count == 2 })
+        try await eventually { sleeper.requested.count == 2 }
 
         #expect(sink.captures == [failed("server_error")])
         engine.stop()

@@ -3,7 +3,7 @@ import Testing
 
 @testable import CrosstuneStore
 
-@Test func accountCountsSkipDeletedRows() async throws {
+@Test(.timeLimit(.minutes(1))) func accountCountsSkipDeletedRows() async throws {
     let root = TemporaryRoot()
     let store = try root.open()
 

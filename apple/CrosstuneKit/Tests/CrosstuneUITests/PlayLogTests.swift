@@ -65,8 +65,10 @@ struct ActivityFixture {
     }
 
     /// Waits until the player's activity has been told of a state that meets `condition`.
-    func fed(_ condition: @MainActor (ActivitySnapshot) -> Bool) async throws {
-        try await eventually { player.activity.lastFed.map(condition) ?? false }
+    func fed(_ condition: @MainActor (ActivitySnapshot) -> Bool, sourceLocation: SourceLocation = #_sourceLocation)
+        async throws
+    {
+        try await eventually(sourceLocation: sourceLocation) { player.activity.lastFed.map(condition) ?? false }
     }
 
     /// Waits until the play log has heard the player start or stop.
@@ -75,9 +77,12 @@ struct ActivityFixture {
     }
 
     /// Plays recording `id` from `origin` and waits until its audio plays and is being timed.
-    func playRecording(_ id: String = "r1", tuneID: String? = "t1", origin: PlayOrigin = .row) async throws {
+    func playRecording(
+        _ id: String = "r1", tuneID: String? = "t1", origin: PlayOrigin = .row,
+        sourceLocation: SourceLocation = #_sourceLocation
+    ) async throws {
         player.play(.recording(loggedRecording(id, tuneID: tuneID), tuneTitle: nil), origin: origin)
-        try await eventually { audio.isPlaying }
+        try await eventually(sourceLocation: sourceLocation) { audio.isPlaying }
         try await heard(playing: true)
     }
 
@@ -118,7 +123,7 @@ private let linkTap = PlayAttribution(
     source: .dock, queue: .single, trigger: .tap, kind: .link, service: .youtube, tune: .known("t1"))
 
 @MainActor
-@Suite struct PlayLogTests {
+struct PlayLogTests {
     private let clock = ActivityClock()
     private let recorded = ActivityRecorded()
     private let recording = PlaySubject(kind: .recording, id: "rec-1")
@@ -279,7 +284,7 @@ private let linkTap = PlayAttribution(
 }
 
 @MainActor
-@Suite struct PlayerPlayLogTests {
+@Suite(.timeLimit(.minutes(1))) struct PlayerPlayLogTests {
     private let suite = TemporaryDefaults("PlayLogTests")
 
     @Test func aRecordingPlayedFromARowIsLogged() async throws {
@@ -525,7 +530,7 @@ private final class NoTrackCommands: TrackCommands {
 }
 
 @MainActor
-@Suite struct StoreActivityWriterTests {
+@Suite(.timeLimit(.minutes(1))) struct StoreActivityWriterTests {
     private let root = TemporaryRoot()
 
     @Test func recordsAPlayUnderItsRecordingsTuneWithoutStartingASync() async throws {
@@ -567,7 +572,7 @@ private final class EndedPlays {
 /// Every play that sounded reports once as it ends, however short, beside the plays the log
 /// writes.
 @MainActor
-@Suite struct PlaybackEndedTests {
+@Suite(.timeLimit(.minutes(1))) struct PlaybackEndedTests {
     @Test func aSkipAfterThreeSecondsStillReportsAnEnd() async throws {
         let fixture = ActivityFixture()
         try await fixture.playRecording("r1")
@@ -727,7 +732,7 @@ private final class EndedPlays {
 /// The play and visit open as the Mac app quits are reported at once, so the flush that
 /// follows sends them.
 @MainActor
-@Suite struct AppQuitReportTests {
+@Suite(.timeLimit(.minutes(1))) struct AppQuitReportTests {
     /// The names of the captures and flushes the sink has heard, in order.
     private func heard(_ fixture: ActivityFixture) -> [String] {
         fixture.sink.calls.compactMap {
@@ -841,7 +846,7 @@ private final class OpenedURLs {
 /// The loaded link followed out to its provider reports once, from the bar, the dock, or the
 /// embed's own link to its site.
 @MainActor
-@Suite struct LoadedLinkOpenTests {
+@Suite(.timeLimit(.minutes(1))) struct LoadedLinkOpenTests {
     private let video = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
 
     @Test func openingTheLoadedLinkInItsProviderReportsOnce() async throws {

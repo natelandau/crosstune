@@ -5,7 +5,7 @@ import Testing
 /// slot and the menu commands are disabled. A sheet's root view marks itself with
 /// `.shellSheet()` or `.partHeightSheet()`; a dialog, alert, file picker, or share sheet has no
 /// root view of its own, so the view presenting it carries `.coversShell(_:)` on the line before.
-@Suite struct PresentationClaimTests {
+struct PresentationClaimTests {
     /// Presentations nested inside a sheet that already covers the shell, by file, modifier, and
     /// text on the modifier's line or the next that names the one presentation.
     private static let nested: [(file: String, modifier: String, marker: String)] = [

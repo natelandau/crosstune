@@ -4,7 +4,7 @@ import Testing
 @testable import CrosstuneUI
 
 @MainActor
-@Suite struct SpeedStepTests {
+struct SpeedStepTests {
     @Test(arguments: [
         (70, -5, 65),
         (70, 5, 75),
@@ -44,7 +44,7 @@ import Testing
     import AppKit
 
     @MainActor
-    @Suite struct SpeedPresetRowTests {
+    struct SpeedPresetRowTests {
         private func height(at size: DynamicTypeSize, width: CGFloat) -> CGFloat {
             let host = NSHostingController(
                 rootView: SpeedPresetRow(value: 100, onChange: { _ in }).environment(\.dynamicTypeSize, size))

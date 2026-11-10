@@ -9,19 +9,24 @@ struct PrivacyManifestTests {
         let purposes: Set<String>
     }
 
-    static func declared() throws -> [String: Declared] {
+    static func declared(sourceLocation: SourceLocation = #_sourceLocation) throws -> [String: Declared] {
         let url = URL(filePath: #filePath)
             .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
             .deletingLastPathComponent().appending(path: "Crosstune/PrivacyInfo.xcprivacy")
         let plist = try PropertyListSerialization.propertyList(from: Data(contentsOf: url), format: nil)
-        let types = try #require((plist as? [String: Any])?["NSPrivacyCollectedDataTypes"] as? [[String: Any]])
+        let types = try #require(
+            (plist as? [String: Any])?["NSPrivacyCollectedDataTypes"] as? [[String: Any]],
+            sourceLocation: sourceLocation)
         var declared: [String: Declared] = [:]
         for type in types {
-            let name = try #require(type["NSPrivacyCollectedDataType"] as? String)
+            let name = try #require(type["NSPrivacyCollectedDataType"] as? String, sourceLocation: sourceLocation)
             declared[name] = Declared(
-                linked: try #require(type["NSPrivacyCollectedDataTypeLinked"] as? Bool),
-                tracking: try #require(type["NSPrivacyCollectedDataTypeTracking"] as? Bool),
-                purposes: Set(try #require(type["NSPrivacyCollectedDataTypePurposes"] as? [String])))
+                linked: try #require(type["NSPrivacyCollectedDataTypeLinked"] as? Bool, sourceLocation: sourceLocation),
+                tracking: try #require(
+                    type["NSPrivacyCollectedDataTypeTracking"] as? Bool, sourceLocation: sourceLocation),
+                purposes: Set(
+                    try #require(
+                        type["NSPrivacyCollectedDataTypePurposes"] as? [String], sourceLocation: sourceLocation)))
         }
         return declared
     }

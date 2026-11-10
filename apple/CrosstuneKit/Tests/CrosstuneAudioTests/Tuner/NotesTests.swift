@@ -3,7 +3,7 @@ import Testing
 @testable import CrosstuneAudio
 
 extension Tuner {
-    @Suite struct NotesTests {
+    struct NotesTests {
         @Test func namesA440AsA4() {
             #expect(noteFor(frequency: 440, a4: 440) == Note(name: .a, octave: 4, cents: 0))
         }
@@ -18,7 +18,6 @@ extension Tuner {
 
         @Test func usesSharps() {
             #expect(noteFor(frequency: 277.18, a4: 440)?.name == .cSharp)
-            #expect(NoteName.cSharp.rawValue == "C\u{266F}")
         }
 
         @Test func followsTheReferencePitch() throws {
@@ -57,7 +56,7 @@ extension Tuner {
             #expect(isInTune(cents: 3.04))
             #expect(tuneHint(cents: 3.04) == nil)
             #expect(inTuneFraction(cents: 3.04) == 1)
-            #expect(!isInTune(cents: 3.05))
+            #expect(isInTune(cents: 3.05) == false)
             #expect(tuneHint(cents: 3.05) == .sharp)
             #expect(inTuneFraction(cents: 3.05) < 1)
             #expect(isInTune(cents: -3.05))

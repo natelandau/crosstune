@@ -5,7 +5,7 @@ import Testing
 
 @testable import CrosstuneStore
 
-@Test func eachUserHasTheirOwnFolder() async throws {
+@Test(.timeLimit(.minutes(1))) func eachUserHasTheirOwnFolder() async throws {
     let root = TemporaryRoot()
     let alice = try root.open("user_a")
     let bob = try root.open("user_b")
@@ -35,21 +35,21 @@ func refusesAUserIDThatIsNotAPlainName(_ userID: String) {
     try CrosstuneStore.delete(userID: "user_a", root: root.url)
     try CrosstuneStore.delete(userID: "user_a", root: root.url)
 
-    #expect(!FileManager.default.fileExists(atPath: store.folder.path()))
+    #expect(FileManager.default.fileExists(atPath: store.folder.path()) == false)
 }
 
-@Test func deletingAUserMovesTheirFolderAsideThenRemovesIt() async throws {
+@Test(.timeLimit(.minutes(1))) func deletingAUserMovesTheirFolderAsideThenRemovesIt() async throws {
     let root = TemporaryRoot()
     let store = try root.open("user_a")
     try store.close()
 
     try CrosstuneStore.delete(userID: "user_a", root: root.url)
 
-    #expect(!FileManager.default.fileExists(atPath: store.folder.path()))
-    #expect(try await poll { try folderNames(in: root.url).isEmpty })
+    #expect(FileManager.default.fileExists(atPath: store.folder.path()) == false)
+    try await eventually { try folderNames(in: root.url).isEmpty }
 }
 
-@Test func deletingOthersClearsAFolderLeftHalfDeleted() async throws {
+@Test(.timeLimit(.minutes(1))) func deletingOthersClearsAFolderLeftHalfDeleted() async throws {
     let root = TemporaryRoot()
     let kept = try root.open("user_a")
     let trash = root.url.appending(path: "\(CrosstuneStore.trashPrefix)left", directoryHint: .isDirectory)
@@ -57,11 +57,11 @@ func refusesAUserIDThatIsNotAPlainName(_ userID: String) {
 
     try CrosstuneStore.deleteOthers(keeping: "user_a", root: root.url)
 
-    #expect(try await poll { try folderNames(in: root.url) == ["user_a"] })
+    try await eventually { try folderNames(in: root.url) == ["user_a"] }
     #expect(FileManager.default.fileExists(atPath: kept.folder.path()))
 }
 
-@Test func removingTrashLeavesEveryUserFolder() async throws {
+@Test(.timeLimit(.minutes(1))) func removingTrashLeavesEveryUserFolder() async throws {
     let root = TemporaryRoot()
     let kept = try root.open("user_a")
     let other = try root.open("user_b")
@@ -71,7 +71,7 @@ func refusesAUserIDThatIsNotAPlainName(_ userID: String) {
 
     CrosstuneStore.removeTrash(root: root.url)
 
-    #expect(try await poll { try folderNames(in: root.url).sorted() == ["user_a", "user_b"] })
+    try await eventually { try folderNames(in: root.url).sorted() == ["user_a", "user_b"] }
     #expect(FileManager.default.fileExists(atPath: kept.folder.path()))
 }
 
@@ -88,7 +88,7 @@ private func folderNames(in root: URL) throws -> [String] {
     try CrosstuneStore.deleteOthers(keeping: "user_a", root: root.url)
 
     #expect(FileManager.default.fileExists(atPath: kept.folder.path()))
-    #expect(!FileManager.default.fileExists(atPath: stale.folder.path()))
+    #expect(FileManager.default.fileExists(atPath: stale.folder.path()) == false)
 }
 
 @Test func deletingOthersKeepsEveryListedUser() throws {
@@ -102,7 +102,7 @@ private func folderNames(in root: URL) throws -> [String] {
 
     #expect(FileManager.default.fileExists(atPath: first.folder.path()))
     #expect(FileManager.default.fileExists(atPath: second.folder.path()))
-    #expect(!FileManager.default.fileExists(atPath: stale.folder.path()))
+    #expect(FileManager.default.fileExists(atPath: stale.folder.path()) == false)
 }
 
 private func migrator(plus identifier: String, _ body: @escaping @Sendable (Database) throws -> Void)
@@ -113,7 +113,7 @@ private func migrator(plus identifier: String, _ body: @escaping @Sendable (Data
     return migrator
 }
 
-@Test func aNewerStoreIsDeleted() async throws {
+@Test(.timeLimit(.minutes(1))) func aNewerStoreIsDeleted() async throws {
     let root = TemporaryRoot()
     let newer = try root.open(
         migrator: migrator(plus: "future") { db in
@@ -136,7 +136,7 @@ private func migrator(plus identifier: String, _ body: @escaping @Sendable (Data
         ])
 }
 
-@Test func aNewMigrationKeepsRowsOutboxAndPreferences() async throws {
+@Test(.timeLimit(.minutes(1))) func aNewMigrationKeepsRowsOutboxAndPreferences() async throws {
     let root = TemporaryRoot()
     let old = try root.open()
     try await old.write { writer in
@@ -157,7 +157,7 @@ private func migrator(plus identifier: String, _ body: @escaping @Sendable (Data
     #expect(try await store.meta(.keepOffline, as: Bool.self) == true)
 }
 
-@Test func aFailingMigrationKeepsTheStore() async throws {
+@Test(.timeLimit(.minutes(1))) func aFailingMigrationKeepsTheStore() async throws {
     struct Refused: Error {}
     let root = TemporaryRoot()
     let old = try root.open()
@@ -186,7 +186,7 @@ private func migrator(plus identifier: String, _ body: @escaping @Sendable (Data
     #expect(FileManager.default.fileExists(atPath: store.audioFolder.appending(path: audio).path()))
 }
 
-@Test func repullForgetsOnlyThePullCursor() async throws {
+@Test(.timeLimit(.minutes(1))) func repullForgetsOnlyThePullCursor() async throws {
     let root = TemporaryRoot()
     let store = try root.open()
     try await store.write { writer in
@@ -203,7 +203,7 @@ private func migrator(plus identifier: String, _ body: @escaping @Sendable (Data
     #expect(try await store.pendingChangeCount() == 1)
 }
 
-@Test func reopeningTheCurrentVersionKeepsEverything() async throws {
+@Test(.timeLimit(.minutes(1))) func reopeningTheCurrentVersionKeepsEverything() async throws {
     let root = TemporaryRoot()
     let first = try root.open()
     try await first.write { writer in
@@ -219,7 +219,7 @@ private func migrator(plus identifier: String, _ body: @escaping @Sendable (Data
     #expect(try await store.meta(.pullCursor, as: Int.self) == 7)
 }
 
-@Test func theSweepDeletesOnlyUnnamedAudioThatWasThereAtOpen() async throws {
+@Test(.timeLimit(.minutes(1))) func theSweepDeletesOnlyUnnamedAudioThatWasThereAtOpen() async throws {
     let root = TemporaryRoot()
     let first = try root.open()
     let kept = "\(newID()).m4a"
@@ -246,7 +246,7 @@ private func migrator(plus identifier: String, _ body: @escaping @Sendable (Data
         "a capture, a capturing row's finished file, and a file written after open stay")
 }
 
-@Test func theSweepKeepsAPeaksFileItsRowNamesAndDropsAnOrphanOne() async throws {
+@Test(.timeLimit(.minutes(1))) func theSweepKeepsAPeaksFileItsRowNamesAndDropsAnOrphanOne() async throws {
     let root = TemporaryRoot()
     let first = try root.open()
     let id = newID()
@@ -271,7 +271,7 @@ private func migrator(plus identifier: String, _ body: @escaping @Sendable (Data
 }
 
 @MainActor
-@Test func aLiveQueryFollowsWrites() async throws {
+@Test(.timeLimit(.minutes(1))) func aLiveQueryFollowsWrites() async throws {
     let root = TemporaryRoot()
     let store = try root.open()
     let titles = LiveQuery(store, initial: [String]()) { db in
@@ -294,7 +294,7 @@ private func migrator(plus identifier: String, _ body: @escaping @Sendable (Data
         }
         withExtendedLifetime(statement) {
             #expect(throws: DatabaseError.self) { try store.close() }
-            #expect(!store.isClosed)
+            #expect(store.isClosed == false)
         }
     }
 

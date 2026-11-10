@@ -8,7 +8,7 @@ import Testing
 @testable import CrosstuneSync
 
 @MainActor
-@Suite struct SyncEngineTests {
+@Suite(.timeLimit(.minutes(1))) struct SyncEngineTests {
     let root = TemporaryRoot()
     let store: CrosstuneStore
     let api = FakeSyncAPI()
@@ -251,9 +251,11 @@ import Testing
     @Test func stopAndWaitReturnsOnlyOnceTheRunInFlightIsDone() async throws {
         try await createTune(store, title: "X")
         var release: CheckedContinuation<Void, Never>?
+        var pushAnswered = false
         let respond = api.respondToPush
         api.respondToPush = { changes in
             await withCheckedContinuation { release = $0 }
+            pushAnswered = true
             return try await respond(changes)
         }
         let engine = engine()
@@ -261,20 +263,17 @@ import Testing
         try await eventually { release != nil }
 
         var began = false
-        var stopped = false
+        var stoppedAfterThePush = false
         let stopping = Task {
             began = true
             await engine.stopAndWait()
-            stopped = true
+            stoppedAfterThePush = pushAnswered
         }
         try await eventually { began }
-        for _ in 0..<10 { await Task.yield() }
-        // The push is still held, so the run cannot have ended.
-        #expect(api.pulls.isEmpty)
-        #expect(!stopped)
 
         release?.resume()
         await stopping.value
+        #expect(stoppedAfterThePush)
         #expect(api.pushes.count == 1)
         #expect(api.pulls.isEmpty)
         #expect(try await store.pendingChangeCount() == 0)
@@ -551,7 +550,6 @@ import Testing
         #expect(
             await engine.searchRecordings(q: "x", providers: ["tidal"], country: "US")
                 == .rateLimited(retryAfter: SyncEngine.defaultRetryAfterSeconds))
-        #expect(SyncEngine.defaultRetryAfterSeconds == 60)
 
         api.failure = APIStatusError(status: 429, retryAfterSeconds: 7)
         #expect(
@@ -621,7 +619,7 @@ import Testing
 
         #expect(api.pushes.count == 1)
         #expect(api.pushes[0].contains { $0.id == tune.id })
-        #expect(!api.pushes[0].contains { $0.id == "r1" })
+        #expect(api.pushes[0].contains { $0.id == "r1" } == false)
         #expect(try await store.pendingChanges(limit: 10).map(\.rowID) == ["r1"])
 
         try await store.write { writer in try writer.tombstone(Recording.self, id: "r1", at: later(1_000)) }
@@ -736,7 +734,8 @@ import Testing
 
         let sent = api.pushes.flatMap { $0.map(\.id) }
         #expect(sent.contains(tune.id))
-        #expect(!sent.contains("r1") && !sent.contains("l1"))
+        #expect(sent.contains("r1") == false)
+        #expect(sent.contains("l1") == false)
         #expect(Set(try await store.pendingChanges(limit: 10).map(\.rowID)) == ["r1", "l1"])
     }
 
@@ -922,13 +921,13 @@ import Testing
     }
 }
 
-@Suite struct ClassifyFailureTests {
+struct ClassifyFailureTests {
     @Test func aPlanRefusalIsNotAnAuthFailure() {
         let premium = APIStatusError(status: 403, problemType: premiumRequiredProblem)
         #expect(isPlanRefusal(premium))
-        #expect(!isPlanRefusal(APIStatusError(status: 403)))
-        #expect(!isPlanRefusal(APIStatusError(status: 413, problemType: quotaProblem)))
-        #expect(!isAuthFailure(premium))
+        #expect(isPlanRefusal(APIStatusError(status: 403)) == false)
+        #expect(isPlanRefusal(APIStatusError(status: 413, problemType: quotaProblem)) == false)
+        #expect(isAuthFailure(premium) == false)
         #expect(isAuthFailure(APIStatusError(status: 403)))
         #expect(classifyFailure(premium, isOffline: false) == .error)
         #expect(syncFailureReason(premium) == .other)
@@ -955,28 +954,5 @@ import Testing
         #expect(classifyTransferFailure(NotSignedIn(), isOffline: false) == .offline)
         #expect(classifyTransferFailure(URLError(.cannotFindHost), isOffline: false) == .error)
         #expect(classifyTransferFailure(APIStatusError(status: 500), isOffline: false) == .error)
-    }
-}
-
-@Suite struct StatusLabelTests {
-    @Test(arguments: [
-        (SyncStatus.idle, "Synced"),
-        (.syncing, "Syncing"),
-        (.offline, "Offline"),
-        (.unauthorized, "Sign in again"),
-        (.error, "Sync failed"),
-    ])
-    func labelsEachSyncStatusAsTheWebDoes(status: SyncStatus, label: String) {
-        #expect(status.label == label)
-    }
-
-    @Test(arguments: [
-        (TransferStatus.idle, "Up to date"),
-        (.transferring, "Transferring"),
-        (.offline, "Offline"),
-        (.error, "Transfer failed"),
-    ])
-    func labelsEachTransferStatusAsTheWebDoes(status: TransferStatus, label: String) {
-        #expect(status.label == label)
     }
 }

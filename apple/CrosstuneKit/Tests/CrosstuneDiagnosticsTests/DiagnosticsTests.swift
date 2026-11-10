@@ -53,6 +53,6 @@ import Testing
 @Test func sessionsAreOff() {
     let options = Options()
     SentrySink.configure(options, dsn: "https://key@o0.ingest.sentry.io/0")
-    #expect(!options.enableAutoSessionTracking)
-    #expect(!options.sendDefaultPii)
+    #expect(options.enableAutoSessionTracking == false)
+    #expect(options.sendDefaultPii == false)
 }

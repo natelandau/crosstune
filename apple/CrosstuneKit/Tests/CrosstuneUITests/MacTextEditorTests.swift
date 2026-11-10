@@ -7,14 +7,16 @@
     @testable import CrosstuneUI
 
     @MainActor
-    @Suite struct MacTextEditorTests {
+    struct MacTextEditorTests {
         private static func views<T: NSView>(_ type: T.Type, in view: NSView) -> [T] {
             (view as? T).map { [$0] } ?? [] + view.subviews.flatMap { views(type, in: $0) }
         }
 
         /// Whether the text area's editor carries a scroller once laid out in a window. A legacy
         /// scroller (a mouse attached, or "always show scroll bars") shows whenever it is there.
-        private func showsScroller(text: String, minLines: Int, maxLines: Int?) throws -> Bool {
+        private func showsScroller(
+            text: String, minLines: Int, maxLines: Int?, sourceLocation: SourceLocation = #_sourceLocation
+        ) throws -> Bool {
             let area = MacTextArea(
                 "Notes", text: .constant(text), placeholder: "", minLines: minLines, maxLines: maxLines
             )
@@ -29,17 +31,17 @@
                 host.layoutSubtreeIfNeeded()
                 RunLoop.main.run(until: .now)
             }
-            let scroll = try #require(Self.views(NSScrollView.self, in: host).first)
+            let scroll = try #require(Self.views(NSScrollView.self, in: host).first, sourceLocation: sourceLocation)
             return scroll.hasVerticalScroller && !scroll.autohidesScrollers
         }
 
         /// An editor holding no more lines than it shows never draws a scroller.
         @Test(arguments: [1, 3])
         func editorWithRoomShowsNoScroller(minLines: Int) throws {
-            #expect(try !showsScroller(text: "", minLines: minLines, maxLines: 8))
-            #expect(try !showsScroller(text: "One line", minLines: minLines, maxLines: 8))
+            #expect(try showsScroller(text: "", minLines: minLines, maxLines: 8) == false)
+            #expect(try showsScroller(text: "One line", minLines: minLines, maxLines: 8) == false)
             let full = Array(repeating: "Line", count: minLines).joined(separator: "\n")
-            #expect(try !showsScroller(text: full, minLines: minLines, maxLines: 8))
+            #expect(try showsScroller(text: full, minLines: minLines, maxLines: 8) == false)
         }
 
         @Test func editorPastItsLastLineShowsItsScroller() throws {
@@ -49,13 +51,13 @@
 
         @Test func overflowCountsWrappedAndTrailingLines() {
             let lineHeight = MacTextEditorBackground.lineHeight
-            #expect(!MacTextArea.overflows("", width: 200, height: lineHeight))
-            #expect(!MacTextArea.overflows("One", width: 200, height: lineHeight))
+            #expect(MacTextArea.overflows("", width: 200, height: lineHeight) == false)
+            #expect(MacTextArea.overflows("One", width: 200, height: lineHeight) == false)
             #expect(MacTextArea.overflows("One\nTwo", width: 200, height: lineHeight))
             #expect(MacTextArea.overflows("One\n", width: 200, height: lineHeight))
             let wraps = String(repeating: "word ", count: 40)
             #expect(MacTextArea.overflows(wraps, width: 200, height: 3 * lineHeight))
-            #expect(!MacTextArea.overflows("One\nTwo\nThree", width: 200, height: 3 * lineHeight))
+            #expect(MacTextArea.overflows("One\nTwo\nThree", width: 200, height: 3 * lineHeight) == false)
         }
     }
 #endif

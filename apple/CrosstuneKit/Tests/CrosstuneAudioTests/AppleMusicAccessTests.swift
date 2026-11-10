@@ -3,7 +3,7 @@ import Testing
 
 @testable import CrosstuneAudio
 
-@Suite struct AppleMusicAccessStateTests {
+struct AppleMusicAccessStateTests {
     @Test(
         arguments: [
             (MusicAuthorization.Status.notDetermined, false, AppleMusicAccessState.notAsked),

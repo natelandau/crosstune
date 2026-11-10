@@ -17,7 +17,7 @@ struct SplitMix64: RandomNumberGenerator {
     }
 }
 
-@Suite struct PlaylistOrderTests {
+struct PlaylistOrderTests {
     let ids = ["a", "b", "c", "d", "e"]
 
     private func order(
@@ -49,12 +49,12 @@ struct SplitMix64: RandomNumberGenerator {
         #expect(order.next(repeat: .off, using: &rng) == "d")
     }
 
-    @Test func aShuffledStartWithoutATuneBeginsAtARandomOneAndPlaysEveryTuneOnce() {
+    @Test func aShuffledStartWithoutATuneBeginsAtARandomOneAndPlaysEveryTuneOnce() throws {
         var rng = SplitMix64(seed: 3)
         var starts = Set<String>()
         for seed in 0..<40 as Range<UInt64> {
             var order = order(ids, shuffled: true, seed: seed)
-            starts.insert(order.current!)
+            starts.insert(try #require(order.current))
             #expect(drain(&order, rng: &rng).sorted() == ids)
         }
         #expect(starts.count > 1)
@@ -112,17 +112,16 @@ struct SplitMix64: RandomNumberGenerator {
         #expect(order.position == 1)
     }
 
-    @Test func aShuffledWrapReshufflesAndNeverLeadsWithTheTuneThatJustPlayed() {
-        for seed in 0..<200 as Range<UInt64> {
-            var rng = SplitMix64(seed: seed)
-            var order = order(["a", "b", "c"], shuffled: true, seed: seed)
-            for _ in 0..<2 { _ = order.next(repeat: .list, using: &rng) }
-            let last = order.current!
-            let first = order.next(repeat: .list, using: &rng)!
-            #expect(first != last)
-            #expect(order.position == 1)
-            #expect(order.count == 3)
-        }
+    @Test(arguments: 0..<200 as Range<UInt64>)
+    func aShuffledWrapReshufflesAndNeverLeadsWithTheTuneThatJustPlayed(seed: UInt64) throws {
+        var rng = SplitMix64(seed: seed)
+        var order = order(["a", "b", "c"], shuffled: true, seed: seed)
+        for _ in 0..<2 { _ = order.next(repeat: .list, using: &rng) }
+        let last = try #require(order.current)
+        let first = try #require(order.next(repeat: .list, using: &rng))
+        #expect(first != last)
+        #expect(order.position == 1)
+        #expect(order.count == 3)
     }
 
     @Test func aOneTuneShuffledListRepeatsItself() {
@@ -144,15 +143,14 @@ struct SplitMix64: RandomNumberGenerator {
         #expect(order.previous() == "a")
     }
 
-    @Test func turningShuffleOnNeverReplaysAPlayedTune() {
-        for seed in 0..<40 as Range<UInt64> {
-            var rng = SplitMix64(seed: seed)
-            var order = order(ids, startAt: "c")
-            order.setShuffled(true, using: &rng)
-            let played = drain(&order, rng: &rng)
-            #expect(played.first == "c")
-            #expect(played.dropFirst().sorted() == ["d", "e"])
-        }
+    @Test(arguments: 0..<40 as Range<UInt64>)
+    func turningShuffleOnNeverReplaysAPlayedTune(seed: UInt64) {
+        var rng = SplitMix64(seed: seed)
+        var order = order(ids, startAt: "c")
+        order.setShuffled(true, using: &rng)
+        let played = drain(&order, rng: &rng)
+        #expect(played.first == "c")
+        #expect(played.dropFirst().sorted() == ["d", "e"])
     }
 
     @Test func turningShuffleOnMovesTheTunesAhead() {
@@ -167,17 +165,16 @@ struct SplitMix64: RandomNumberGenerator {
         #expect(orders.allSatisfy { $0.first == "a" && $0.sorted() == ids })
     }
 
-    @Test func aShuffledTwoTuneListWrapsToTheOtherTune() {
-        for seed in 0..<40 as Range<UInt64> {
-            var rng = SplitMix64(seed: seed)
-            var order = order(["a", "b"], shuffled: true, seed: seed)
-            _ = order.next(repeat: .list, using: &rng)
-            let last = order.current!
-            let first = order.next(repeat: .list, using: &rng)!
-            #expect(first != last)
-            #expect(order.position == 1)
-            #expect(order.next(repeat: .list, using: &rng) == last)
-        }
+    @Test(arguments: 0..<40 as Range<UInt64>)
+    func aShuffledTwoTuneListWrapsToTheOtherTune(seed: UInt64) throws {
+        var rng = SplitMix64(seed: seed)
+        var order = order(["a", "b"], shuffled: true, seed: seed)
+        _ = order.next(repeat: .list, using: &rng)
+        let last = try #require(order.current)
+        let first = try #require(order.next(repeat: .list, using: &rng))
+        #expect(first != last)
+        #expect(order.position == 1)
+        #expect(order.next(repeat: .list, using: &rng) == last)
     }
 
     @Test func turningShuffleOffContinuesInListOrderAfterTheCurrentTune() {
@@ -199,7 +196,7 @@ struct SplitMix64: RandomNumberGenerator {
         #expect(order.current == "d")
         #expect(order.next(repeat: .off, using: &rng) == "e")
         let strayed = order.jump(to: "zzz")
-        #expect(!strayed)
+        #expect(strayed == false)
         #expect(order.current == "e")
     }
 

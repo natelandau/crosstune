@@ -5,7 +5,7 @@ import Testing
 
 @testable import CrosstuneStore
 
-@Test func lockingWritesRefusesEveryLaterWrite() async throws {
+@Test(.timeLimit(.minutes(1))) func lockingWritesRefusesEveryLaterWrite() async throws {
     let root = TemporaryRoot()
     let store = try root.open()
 
@@ -19,18 +19,18 @@ import Testing
     #expect(try await store.read { db in try Tune.fetchCount(db) } == 0)
 }
 
-@Test func lockingWritesIsDisabledWhileWorkIsOnlyHere() async throws {
+@Test(.timeLimit(.minutes(1))) func lockingWritesIsDisabledWhileWorkIsOnlyHere() async throws {
     let root = TemporaryRoot()
     let store = try root.open()
     try await store.write { writer in try writer.put(Tune(createdAt: noon, title: "Unsent")) }
 
     #expect(try await store.lockWritesUnlessUnsent() == false)
 
-    #expect(!store.isClosed)
+    #expect(store.isClosed == false)
     try await store.write { writer in try OutboxEntry.deleteAll(writer.db) }
 }
 
-@Test func lockingWritesCountsARecordingOrScanNotYetUploaded() async throws {
+@Test(.timeLimit(.minutes(1))) func lockingWritesCountsARecordingOrScanNotYetUploaded() async throws {
     let root = TemporaryRoot()
     let recording = try root.open("user_a")
     try await recording.write { writer in try RecordingFile(id: "r1", localState: .captured).insert(writer.db) }

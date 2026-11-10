@@ -5,7 +5,7 @@ import Testing
 
 @testable import CrosstuneAudio
 
-@Suite struct CaptureChannelsTests {
+struct CaptureChannelsTests {
     private func withDefaults(_ body: (UserDefaults) -> Void) {
         let suite = TemporaryDefaults("CaptureChannelsTests")
         body(suite.defaults)

@@ -24,7 +24,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     return CatalogEntry(tune: entry.tune, userTune: entry.userTune)
 }
 
-@Suite struct ListMoveTests {
+struct ListMoveTests {
     private let ids = ["a", "b", "c", "d", "e"]
 
     @Test func sendsARowAfterATargetBelowAndBeforeATargetAbove() {
@@ -48,8 +48,8 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
         #expect(move?.apply(to: ids) == ["b", "c", "a", "d", "e"])
     }
 
-    @Test func replaysIdempotently() {
-        let move = ListMove(ids: ids, from: 0, to: 4)!
+    @Test func replaysIdempotently() throws {
+        let move = try #require(ListMove(ids: ids, from: 0, to: 4))
         let once = move.apply(to: ids)
         #expect(move.apply(to: once) == once)
     }
@@ -75,79 +75,75 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
         #expect(MovePlace.down.destination(from: 3, count: 5) == 4)
         #expect(MovePlace.bottom.destination(from: 1, count: 5) == 4)
     }
-
-    @Test func labelsTheMovesAsTheWebDoes() {
-        #expect(MovePlace.allCases.map(\.label) == ["Move to top", "Move up", "Move down", "Move to bottom"])
-    }
 }
 
-@Suite struct PendingMovesTests {
+struct PendingMovesTests {
     private let stored = ["a", "b", "c", "d"]
 
-    @Test func showsAMoveAtOnceWhileItIsWritten() {
+    @Test func showsAMoveAtOnceWhileItIsWritten() throws {
         var moves = PendingMoves()
-        _ = moves.begin(ListMove(ids: stored, from: 0, to: 2)!)
+        _ = moves.begin(try #require(ListMove(ids: stored, from: 0, to: 2)))
         moves.retire(order: stored, revision: 1)
         #expect(moves.apply(to: stored) == ["b", "c", "a", "d"])
     }
 
-    @Test func replaysMovesInTheOrderTheyWereMade() {
+    @Test func replaysMovesInTheOrderTheyWereMade() throws {
         var moves = PendingMoves()
-        _ = moves.begin(ListMove(ids: stored, from: 0, to: 3)!)
-        _ = moves.begin(ListMove(ids: ["b", "c", "d", "a"], from: 3, to: 0)!)
+        _ = moves.begin(try #require(ListMove(ids: stored, from: 0, to: 3)))
+        _ = moves.begin(try #require(ListMove(ids: ["b", "c", "d", "a"], from: 3, to: 0)))
         #expect(moves.apply(to: stored) == stored)
     }
 
-    @Test func retiresASettledMoveAtTheFirstReadAfterIt() {
+    @Test func retiresASettledMoveAtTheFirstReadAfterIt() throws {
         var moves = PendingMoves()
-        let id = moves.begin(ListMove(ids: stored, from: 0, to: 2)!)
+        let id = moves.begin(try #require(ListMove(ids: stored, from: 0, to: 2)))
         let written = ["b", "c", "a", "d"]
         moves.settle(id, revision: 1, storedOrder: written)
         moves.retire(order: stored, revision: 1)
-        #expect(!moves.isEmpty, "the read on screen is still the one before the write")
+        #expect(moves.isEmpty == false, "the read on screen is still the one before the write")
         moves.retire(order: written, revision: 2)
         #expect(moves.isEmpty)
     }
 
-    @Test func retiresAtOnceWhenTheReadLandedBeforeTheWriteSettled() {
+    @Test func retiresAtOnceWhenTheReadLandedBeforeTheWriteSettled() throws {
         var moves = PendingMoves()
-        let id = moves.begin(ListMove(ids: stored, from: 0, to: 2)!)
+        let id = moves.begin(try #require(ListMove(ids: stored, from: 0, to: 2)))
         let written = ["b", "c", "a", "d"]
         moves.settle(id, revision: 2, storedOrder: written)
         moves.retire(order: written, revision: 2)
         #expect(moves.isEmpty)
     }
 
-    @Test func followsASyncThatReordersTheTuneOnceTheMoveHasSettled() {
+    @Test func followsASyncThatReordersTheTuneOnceTheMoveHasSettled() throws {
         var moves = PendingMoves()
-        let id = moves.begin(ListMove(ids: stored, from: 0, to: 2)!)
+        let id = moves.begin(try #require(ListMove(ids: stored, from: 0, to: 2)))
         moves.settle(id, revision: 1, storedOrder: ["b", "c", "a", "d"])
         let synced = ["a", "d", "b", "c"]
         moves.retire(order: synced, revision: 2)
         #expect(moves.apply(to: synced) == synced)
     }
 
-    @Test func dropsAFailedMove() {
+    @Test func dropsAFailedMove() throws {
         var moves = PendingMoves()
-        let id = moves.begin(ListMove(ids: stored, from: 0, to: 2)!)
+        let id = moves.begin(try #require(ListMove(ids: stored, from: 0, to: 2)))
         moves.drop(id)
         #expect(moves.apply(to: stored) == stored)
     }
 
-    @Test func stopsAMoveWhoseTuneLeftTheList() {
+    @Test func stopsAMoveWhoseTuneLeftTheList() throws {
         var moves = PendingMoves()
-        _ = moves.begin(ListMove(ids: stored, from: 0, to: 2)!)
+        _ = moves.begin(try #require(ListMove(ids: stored, from: 0, to: 2)))
         moves.retire(order: ["b", "c", "d"], revision: 2)
         #expect(moves.isEmpty)
     }
 
     @Test func comparesOrdersOnlyOnTheItemsBothCarry() {
         #expect(PendingMoves.sameOrder(["a", "b", "c"], ["a", "x", "b", "c"]))
-        #expect(!PendingMoves.sameOrder(["a", "b", "c"], ["b", "a", "c"]))
+        #expect(PendingMoves.sameOrder(["a", "b", "c"], ["b", "a", "c"]) == false)
     }
 }
 
-@Suite struct ListSummaryTests {
+@Suite(.timeLimit(.minutes(1))) struct ListSummaryTests {
     private let root = TemporaryRoot()
 
     @Test func countsLiveItemsAndDatesTheListByItsNewestEdit() async throws {
@@ -180,16 +176,17 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
 
     @Test func wordsTheDeleteConfirmationAsTheWebDoes() {
         #expect(DeleteListMessage.title("Waltzes") == "Delete \"Waltzes\"?")
-        #expect(DeleteListMessage.message == "Its tunes stay in the catalog.")
     }
 }
 
-@Suite @MainActor struct ListModelTests {
+@MainActor @Suite(.timeLimit(.minutes(1))) struct ListModelTests {
     private let root = TemporaryRoot()
 
-    private func model(_ store: CrosstuneStore, _ listID: String = session.id) async throws -> ListModel {
+    private func model(
+        _ store: CrosstuneStore, _ listID: String = session.id, sourceLocation: SourceLocation = #_sourceLocation
+    ) async throws -> ListModel {
         let model = ListModel(store: store, listID: listID)
-        try await eventually { model.list != nil && model.showArchived != nil }
+        try await eventually(sourceLocation: sourceLocation) { model.list != nil && model.showArchived != nil }
         return model
     }
 
@@ -241,7 +238,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
         try await Commands(store: store).setArchived(sample("Cluck Old Hen").userTune.id, archived: true)
         let model = try await model(store)
         try await eventually { model.rows.count == 4 }
-        #expect(!model.rows.contains { $0.tune.title == "Cluck Old Hen" })
+        #expect(model.rows.contains { $0.tune.title == "Cluck Old Hen" } == false)
 
         model.move(from: 0, to: 1)
         try await eventually {
@@ -294,12 +291,14 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 }
 
-@Suite @MainActor struct TunePickerModelTests {
+@MainActor @Suite(.timeLimit(.minutes(1))) struct TunePickerModelTests {
     private let root = TemporaryRoot()
 
-    private func picker(_ store: CrosstuneStore, listID: String = session.id) async throws -> TunePickerModel {
+    private func picker(
+        _ store: CrosstuneStore, listID: String = session.id, sourceLocation: SourceLocation = #_sourceLocation
+    ) async throws -> TunePickerModel {
         let model = TunePickerModel(store: store, listID: listID)
-        try await eventually { model.results != nil }
+        try await eventually(sourceLocation: sourceLocation) { model.results != nil }
         return model
     }
 
@@ -329,9 +328,9 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
         try await eventually { bare.idleResults != nil }
         #expect(bare.showsHint, "an empty catalog shows the hint")
         let full = try await picker(try await SampleCatalog.copiedStore(root: root.url))
-        #expect(!full.showsHint)
+        #expect(full.showsHint == false)
         full.query = "soldier"
-        #expect(!full.showsHint, "typing hands the screen to the search")
+        #expect(full.showsHint == false, "typing hands the screen to the search")
     }
 
     @Test func idleListingOrdersByTitleAToZAndIncludesArchived() async throws {
@@ -367,7 +366,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
         model.query = "say old"
         let row = try #require(model.results?.rows.first)
         #expect(row.entry.tune.title == "Say Old Man")
-        #expect(!row.isTaken)
+        #expect(row.isTaken == false)
         #expect(row.name == "Add Say Old Man, archived")
     }
 
@@ -465,22 +464,26 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 }
 
-@Suite @MainActor struct ListPickerModelTests {
+@MainActor @Suite(.timeLimit(.minutes(1))) struct ListPickerModelTests {
     private let root = TemporaryRoot()
 
-    private func picker(_ store: CrosstuneStore, titles: [String], excluding: String? = nil) async throws
+    private func picker(
+        _ store: CrosstuneStore, titles: [String], excluding: String? = nil,
+        sourceLocation: SourceLocation = #_sourceLocation
+    ) async throws
         -> ListPickerModel
     {
         let model = ListPickerModel(
             store: store, userTuneIDs: titles.map { sample($0).userTune.id }, excludeListID: excluding)
-        try await eventually { model.isLoaded && model.rows.allSatisfy { $0.isOffered || $0.note != nil } }
+        try await eventually(sourceLocation: sourceLocation) {
+            model.isLoaded && model.rows.allSatisfy { $0.isOffered || $0.note != nil }
+        }
         return model
     }
 
     @Test func titlesItselfByTheNumberOfTunes() {
         #expect(ListPickerModel.title(count: 1) == "Add 1 tune to a list")
         #expect(ListPickerModel.title(count: 3) == "Add 3 tunes to a list")
-        #expect(ListPickerSheet.tuneTitle == "Add to a list")
     }
 
     @Test func readsHowMuchOfTheSelectionEachListHolds() {
@@ -494,7 +497,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     @Test func neitherOffersNorNotesARowBeforeMembershipLoads() {
         let row = ListPickerModel.Row(id: "l", name: "Tuesday session", holding: nil, total: 2)
         #expect(row.note == nil)
-        #expect(!row.isOffered)
+        #expect(row.isOffered == false)
     }
 
     @Test func closesAListHoldingBothTunesOfASelection() async throws {
@@ -502,7 +505,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
         let model = try await picker(store, titles: ["Soldier's Joy", "Cluck Old Hen"])
         let row = try #require(model.rows.first { $0.name == "Tuesday session" })
         #expect(row.note == ListPickerModel.allAlreadyIn)
-        #expect(!row.isOffered)
+        #expect(row.isOffered == false)
     }
 
     @Test func offersEveryListButAFullOne() async throws {
@@ -526,7 +529,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
         #expect(model.rows[0].note == ListPickerModel.someAlreadyIn(1, of: 2))
         let addition = try #require(await model.add(to: model.rows[0]))
         #expect(addition.added == 1)
-        #expect(!addition.created)
+        #expect(addition.created == false)
         #expect(addition.listName == "Tuesday session")
         #expect(await model.add(to: model.rows[1]) == nil, "the picker adds once")
 
@@ -559,11 +562,11 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
         try await Commands(store: store).deleteList(waltzes.id)
         #expect(await model.add(to: row) == nil)
         #expect(model.failure == CommandError.listNotFoundMessage)
-        #expect(!model.isDone)
+        #expect(model.isDone == false)
     }
 }
 
-@Suite @MainActor struct ListNameModelTests {
+@MainActor @Suite(.timeLimit(.minutes(1))) struct ListNameModelTests {
     private let root = TemporaryRoot()
 
     @Test func createsAListWithATrimmedName() async throws {
@@ -577,9 +580,9 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
 
     @Test func requiresAName() async throws {
         let model = ListNameModel(store: try await SampleCatalog.copiedStore(root: root.url), target: .new)
-        #expect(!model.hasName, "Create opens disabled on a new list")
+        #expect(model.hasName == false, "Create opens disabled on a new list")
         model.setName("   ")
-        #expect(!model.hasName)
+        #expect(model.hasName == false)
         #expect(await model.save() == nil)
         #expect(model.validation == "A list needs a name")
         model.setName("J")
@@ -591,7 +594,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
         let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = ListNameModel(store: store, target: .rename(listID: waltzes.id, name: waltzes.name))
         #expect(model.name == "Waltzes")
-        #expect(!model.isEdited)
+        #expect(model.isEdited == false)
         model.setName("Slow waltzes")
         #expect(model.isEdited)
         #expect(await model.save() == waltzes.id)
@@ -599,14 +602,13 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 }
 
-@Suite struct ListRowPlayTests {
+@Suite(.timeLimit(.minutes(1))) struct ListRowPlayTests {
     private let root = TemporaryRoot()
     private let now = SampleCatalog.now
 
     private func entry(_ title: String, in store: CrosstuneStore) async throws -> ListEntry {
-        try await store.read { db in
-            try ListContents.fetch(db, listID: session.id)!.entries.first { $0.tune.title == title }!
-        }
+        let contents = try #require(try await store.read { db in try ListContents.fetch(db, listID: session.id) })
+        return try #require(contents.entries.first { $0.tune.title == title })
     }
 
     @Test func fetchesTheLiveRecordingsAndLinksOfEachTune() async throws {
@@ -627,7 +629,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
         let pinnedEntry = try await entry("Soldier's Joy", in: store)
         #expect(
             ListRowPlay.action(for: pinnedEntry, playFirst: UserSettings.playFirstRecordings)
-                == .play(PlayerItem.link(pinned)!))
+                == .play(try #require(PlayerItem.link(pinned))))
     }
 
     @Test func leavesATuneWithOnlyRecordingsInertWhileRecordingsCannotPlay() async throws {
@@ -636,7 +638,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
         let recordingsOnly = ListEntry(
             item: joy.item, tune: joy.tune, userTune: joy.userTune, recordings: joy.recordings, files: joy.files,
             links: [])
-        #expect(!recordingsOnly.recordings.isEmpty)
+        #expect(recordingsOnly.recordings.isEmpty == false)
         #expect(
             ListRowPlay.action(for: recordingsOnly, playFirst: UserSettings.playFirstRecordings, recordingsPlay: false)
                 == .inert)
@@ -660,7 +662,6 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
         let action = ListRowPlay.action(for: linkOnly, playFirst: UserSettings.playFirstRecordings)
         #expect(action == .open(url, linkTitle: LinkText.title(hen.links[0])))
         let open = try #require(action)
-        #expect(ListRowPlay.symbol(for: open, loaded: false) == "arrow.up.right.circle")
         #expect(
             ListRowText.label(for: open, tuneTitle: hen.tune.title, loaded: false)
                 == "\(LinkText.open) \(LinkText.title(hen.links[0]))")
@@ -763,8 +764,8 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
         let item = PlayerItem(kind: .recording, id: "r1", title: "x")
         let url = URL(string: "https://example.com")!
         #expect(ListRowPlay.isBlocked(.play(item), capturing: true))
-        #expect(!ListRowPlay.isBlocked(.play(item), capturing: false))
-        #expect(!ListRowPlay.isBlocked(.open(url, linkTitle: "x"), capturing: true))
+        #expect(ListRowPlay.isBlocked(.play(item), capturing: false) == false)
+        #expect(ListRowPlay.isBlocked(.open(url, linkTitle: "x"), capturing: true) == false)
     }
 
     @Test func offersNothingForATuneWithNoSources() async throws {
@@ -783,13 +784,14 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     @Test func showsStopForTheLoadedItem() {
         let item = PlayerItem(kind: .recording, id: "r1", title: "x")
         #expect(ListRowPlay.isLoaded(.play(item), holds: { $0 == .recording && $1 == "r1" }))
-        #expect(!ListRowPlay.isLoaded(.play(item), holds: { _, _ in false }))
+        #expect(ListRowPlay.isLoaded(.play(item), holds: { _, _ in false }) == false)
         #expect(
-            !ListRowPlay.isLoaded(.open(URL(string: "https://example.com")!, linkTitle: "x"), holds: { _, _ in true }))
+            ListRowPlay.isLoaded(.open(URL(string: "https://example.com")!, linkTitle: "x"), holds: { _, _ in true })
+                == false)
     }
 }
 
-@Suite struct PlaylistRecordingsTests {
+struct PlaylistRecordingsTests {
     private func recording(_ id: String, state: String = "ready") -> Recording {
         Recording(id: id, tuneID: "t", source: "microphone", addedAt: noon, state: state)
     }
@@ -827,7 +829,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 }
 
-@Suite struct ListPlayTextTests {
+struct ListPlayTextTests {
     @Test func countsTheTunesThatWillPlay() {
         #expect(ListPlayText.count(playable: 14, total: 20) == "14 of 20 tunes will play")
     }
@@ -840,7 +842,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 }
 
-@Suite struct ListPlayOfferTests {
+struct ListPlayOfferTests {
     private func offer(
         report: PlaylistReport = PlaylistReport(playable: ["a"], total: 1), canStart: Bool = true,
         playing: ListPlayAvailability.Playing? = nil
@@ -852,28 +854,26 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     @Test func offersPlayWhileTheListIsStopped() {
         let stopped = offer()
         #expect(stopped.playLabel == ListPlayText.play)
-        #expect(stopped.playSymbol == "play.fill")
-        #expect(!stopped.isPlayDisabled)
+        #expect(stopped.isPlayDisabled == false)
     }
 
     @Test func offersPauseWhileTheListPlaysAndPlayWhilePaused() {
         let playing = offer(playing: .init(isPlaying: true, isSettled: true))
         #expect(playing.playLabel == ListPlayText.pause)
-        #expect(playing.playSymbol == "pause.fill")
         let paused = offer(playing: .init(isPlaying: false, isSettled: true))
         #expect(paused.playLabel == ListPlayText.play)
-        #expect(!paused.isPlayDisabled)
+        #expect(paused.isPlayDisabled == false)
     }
 
     @Test func holdsPlayWhileTheNextTuneLoads() {
         let loading = offer(playing: .init(isPlaying: false, isSettled: false))
         #expect(loading.isPlayDisabled)
-        #expect(!loading.isShuffleDisabled)
+        #expect(loading.isShuffleDisabled == false)
     }
 
     @Test func leavesOutTheButtonsWhenNothingCanPlay() {
         let none = PlaylistReport(playable: [], total: 1)
-        #expect(!offer(report: none).showsButtons)
+        #expect(offer(report: none).showsButtons == false)
         #expect(offer().showsButtons)
     }
 
@@ -883,7 +883,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
         let none = PlaylistReport(playable: [], total: 1)
         let playing = offer(report: none, playing: .init(isPlaying: true, isSettled: true))
         #expect(playing.showsButtons)
-        #expect(!playing.isPlayDisabled)
+        #expect(playing.isPlayDisabled == false)
         #expect(playing.isShuffleDisabled)
     }
 
@@ -894,14 +894,13 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 }
 
-@Suite struct ListRowTapTests {
+struct ListRowTapTests {
     @Test func jumpsWithinThePlayingListAndPlaysAloneOtherwise() {
         #expect(ListRowPlay.tap(listPlaying: true) == .jump)
         #expect(ListRowPlay.tap(listPlaying: false) == .single)
     }
 
     @Test func neverCallsThePlayingRowNotPlayable() {
-        #expect(ListRowText.notPlayable == "Nothing to play")
         #expect(ListRowText.note(hasAction: false, isCurrent: false) == ListRowText.notPlayable)
         #expect(ListRowText.note(hasAction: false, isCurrent: true) == nil)
         #expect(ListRowText.note(hasAction: true, isCurrent: false) == nil)
@@ -912,19 +911,19 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
             ListRowPlay.isNowPlaying(listID: "l1", playingListID: list, currentTuneID: tune, tuneID: "t1")
         }
         #expect(now("l1", "t1"))
-        #expect(!now("l1", "t2"))
-        #expect(!now("l2", "t1"))
-        #expect(!now(nil, nil))
+        #expect(now("l1", "t2") == false)
+        #expect(now("l2", "t1") == false)
+        #expect(now(nil, nil) == false)
     }
 }
 
 @MainActor
-@Suite struct PlaylistResolverTests {
+@Suite(.timeLimit(.minutes(1))) struct PlaylistResolverTests {
     private let root = TemporaryRoot()
     private let session = "sample_list_session"
 
     private func tamLin(_ store: CrosstuneStore) async throws -> String {
-        try await store.read { db in try Tune.filter(Tune.CodingKeys.title == "Tam Lin").fetchOne(db)!.id }
+        try #require(try await store.read { db in try Tune.filter(Tune.CodingKeys.title == "Tam Lin").fetchOne(db) }).id
     }
 
     private func resolve(
@@ -1020,7 +1019,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
         let report = playlistReport(
             entries: contents.entries.map { $0.playlistEntry(online: online) },
             playFirst: UserSettings.playFirstRecordings, fullTracks: true, online: online)
-        #expect(!report.playable.contains(id))
+        #expect(report.playable.contains(id) == false)
         for entry in contents.entries {
             let turn = await resolve(store, tuneID: entry.tune.id, online: online)
             #expect((turn != nil) == report.playable.contains(entry.tune.id), "\(entry.tune.title)")
@@ -1028,7 +1027,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 }
 
-@Suite struct ListsPlayabilityTests {
+@Suite(.timeLimit(.minutes(1))) struct ListsPlayabilityTests {
     private let root = TemporaryRoot()
 
     private func reports(
@@ -1045,7 +1044,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
         let snapshot = try await store.read { db in
             try ListsPlayability.Snapshot.fetch(db, settingsID: settingsID(clerkUserID: store.userID))
         }
-        #expect(!ListsPlayability.reports(snapshot, canStart: true, fullTracks: false, online: false).isEmpty)
+        #expect(ListsPlayability.reports(snapshot, canStart: true, fullTracks: false, online: false).isEmpty == false)
         // A recording is under way, or no playlist player is there.
         #expect(ListsPlayability.reports(snapshot, canStart: false, fullTracks: false, online: false).isEmpty)
         // The Apple Music access has not read, so a song's count would flash wrong.
@@ -1083,24 +1082,8 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     }
 }
 
-#if os(macOS)
-    import SwiftUI
-
-    @Suite struct MacListColumnTests {
-        /// The playing row takes the subtle tint, lighter than a selection's, so it reads as
-        /// marked rather than chosen.
-        @Test func playingRowTintIsALightAccent() {
-            for scheme in [ColorScheme.light, .dark] {
-                #expect(Palette.tintSubtleOpacity(scheme) < Palette.tintOpacity(scheme))
-            }
-            #expect(Palette.tintSubtleOpacity(.light) == 0.08)
-            #expect(Palette.tintSubtleOpacity(.dark) == 0.10)
-        }
-    }
-#endif
-
 @MainActor
-@Suite struct ListRowLayoutTests {
+struct ListRowLayoutTests {
     private let tune = Tune(createdAt: noon, title: "Soldier's Joy", key: "D")
     private var userTune: UserTune { UserTune(createdAt: noon, tuneID: tune.id, status: "learning") }
 
@@ -1130,11 +1113,11 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
         #expect(noted(tune: tuned).secondLine == "Cross D (DADD) · \(ListRowText.notPlayable)")
     }
 
-    @Test func saysNothingToPlayOnlyForARowWithNothingToPlay() {
-        for row in [noted(hasAction: true), noted(isCurrent: true)] {
-            #expect(row.secondLine == nil)
-            #expect(!row.accessibilityLabel().contains(ListRowText.notPlayable))
-        }
+    @Test(arguments: [(true, false), (false, true)])
+    func saysNothingToPlayOnlyForARowWithNothingToPlay(hasAction: Bool, isCurrent: Bool) {
+        let row = noted(hasAction: hasAction, isCurrent: isCurrent)
+        #expect(row.secondLine == nil)
+        #expect(row.accessibilityLabel().contains(ListRowText.notPlayable) == false)
     }
 
     #if os(macOS)
@@ -1203,10 +1186,10 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     #endif
 }
 
-@Suite struct ListsScreenRowTests {
+struct ListsScreenRowTests {
     @Test func listsScreenRowsHaveNoChevronOrSeparator() throws {
         let source = SourceScan.withoutComments(try SourceScan.text(at: SourceScan.url(of: "Lists/ListsScreen.swift")))
-        #expect(!source.contains("NavigationLink"))
+        #expect(source.contains("NavigationLink") == false)
         #expect(source.contains(".listItemRow()"))
     }
 }

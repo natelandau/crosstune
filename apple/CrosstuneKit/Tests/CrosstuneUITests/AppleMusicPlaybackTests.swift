@@ -183,7 +183,7 @@ private func appleLink(url: String = songURL) -> RecordingLink {
 }
 
 @MainActor
-@Suite struct AppleMusicPlaybackTests {
+@Suite(.timeLimit(.minutes(1))) struct AppleMusicPlaybackTests {
     private func model(
         _ state: AppleMusicAccessState, found: Bool = true
     ) -> (PlayerModel, FakeAccess, FakeMusic) {
@@ -198,14 +198,16 @@ private func appleLink(url: String = songURL) -> RecordingLink {
         return (player, access, music)
     }
 
-    private func play(_ player: PlayerModel, _ row: RecordingLink = appleLink()) async throws {
-        player.play(try #require(PlayerItem.link(row)))
-        try await eventually { player.linkAudio != .deciding }
+    private func play(
+        _ player: PlayerModel, _ row: RecordingLink = appleLink(), sourceLocation: SourceLocation = #_sourceLocation
+    ) async throws {
+        player.play(try #require(PlayerItem.link(row), sourceLocation: sourceLocation))
+        try await eventually(sourceLocation: sourceLocation) { player.linkAudio != .deciding }
     }
 
     /// Ends the decision deadline on `sleep` once it is waiting.
-    private func passDeadline(_ sleep: ManualSleep) async throws {
-        try await eventually { !sleep.pending.isEmpty }
+    private func passDeadline(_ sleep: ManualSleep, sourceLocation: SourceLocation = #_sourceLocation) async throws {
+        try await eventually(sourceLocation: sourceLocation) { !sleep.pending.isEmpty }
         sleep.wake()
     }
 
@@ -215,7 +217,7 @@ private func appleLink(url: String = songURL) -> RecordingLink {
         #expect(player.linkAudio == .native)
         #expect(music.loaded == [.song(id: "1440833090")])
         #expect(music.calls == ["load", "play"])
-        #expect(!player.isExpanded)
+        #expect(player.isExpanded == false)
         #expect(player.playsInBar)
         #expect(player.embed == nil)
         #expect(player.music === music)
@@ -229,7 +231,7 @@ private func appleLink(url: String = songURL) -> RecordingLink {
         #expect(player.linkAudio == .embed)
         #expect(player.isExpanded)
         #expect(player.embed != nil)
-        #expect(!player.playsInBar)
+        #expect(player.playsInBar == false)
         #expect(player.music == nil)
         #expect(player.transport == nil)
         #expect(music.calls.isEmpty)
@@ -296,8 +298,8 @@ private func appleLink(url: String = songURL) -> RecordingLink {
         player.close()
         music.release()
         await decision?.value
-        #expect(!music.calls.contains("play"))
-        #expect(!player.isLoaded)
+        #expect(music.calls.contains("play") == false)
+        #expect(player.isLoaded == false)
         #expect(player.linkAudio == nil)
     }
 
@@ -311,7 +313,7 @@ private func appleLink(url: String = songURL) -> RecordingLink {
         capturing.withLock { $0 = true }
         music.release()
         try await eventually { !player.isLoaded }
-        #expect(!music.calls.contains("play"))
+        #expect(music.calls.contains("play") == false)
         #expect(music.calls.last == "stop")
     }
 
@@ -349,7 +351,7 @@ private func appleLink(url: String = songURL) -> RecordingLink {
         deleted.deletedAt = .now
         player.linkChanged(id: "l1", to: deleted)
         #expect(music.calls.last == "stop")
-        #expect(!player.isLoaded)
+        #expect(player.isLoaded == false)
     }
 
     @Test func aRetitledLinkKeepsPlaying() async throws {
@@ -407,8 +409,8 @@ private func appleLink(url: String = songURL) -> RecordingLink {
         player.close()
         access.releaseRequest()
         await decision?.value
-        #expect(!music.calls.contains("load"))
-        #expect(!player.isLoaded)
+        #expect(music.calls.contains("load") == false)
+        #expect(player.isLoaded == false)
     }
 
     @Test func aFailedLoadEmptiesTheQueueBeforeTheEmbed() async throws {
@@ -443,7 +445,7 @@ private func appleLink(url: String = songURL) -> RecordingLink {
         music.release()
         await decision?.value
         #expect(music.loadResults == [false])
-        #expect(!music.calls.contains("play"))
+        #expect(music.calls.contains("play") == false)
         #expect(player.linkAudio == .embed)
     }
 
@@ -479,7 +481,7 @@ private func appleLink(url: String = songURL) -> RecordingLink {
         try await eventually { player.linkAudio == .native }
         #expect(music.loaded.last == .song(id: "1440833095"))
         #expect(music.calls.count(where: { $0 == "play" }) == 1)
-        #expect(!player.isExpanded)
+        #expect(player.isExpanded == false)
     }
 
     @Test func aSyncedAddressChangeThatFallsBackLeavesTheCollapsedPlayerCollapsed() async throws {
@@ -489,7 +491,7 @@ private func appleLink(url: String = songURL) -> RecordingLink {
         player.linkChanged(
             id: "l1", to: appleLink(url: "https://music.apple.com/us/song/the-mason-s-apron/1440833095"))
         try await eventually { player.linkAudio == .embed }
-        #expect(!player.isExpanded)
+        #expect(player.isExpanded == false)
         #expect(player.embed != nil)
     }
 
@@ -507,7 +509,7 @@ private func appleLink(url: String = songURL) -> RecordingLink {
         player.linkChanged(id: "l1", to: appleLink())
         try await eventually { player.linkAudio == .embed }
         #expect(access.requests == 0)
-        #expect(!music.calls.contains("load"))
+        #expect(music.calls.contains("load") == false)
     }
 
     @Test func aDecidingBarShowsOnlyTheTitle() async throws {
@@ -515,8 +517,8 @@ private func appleLink(url: String = songURL) -> RecordingLink {
         music.holdsLoads = true
         player.play(try #require(PlayerItem.link(appleLink())))
         try await eventually { music.isHoldingLoad }
-        #expect(!PlayerBar.showsGlyph(player))
-        #expect(!PlayerBar.canExpand(player))
+        #expect(PlayerBar.showsGlyph(player) == false)
+        #expect(PlayerBar.canExpand(player) == false)
         music.release()
         try await eventually { player.linkAudio == .native }
         #expect(PlayerBar.canExpand(player))
@@ -543,8 +545,8 @@ private func appleLink(url: String = songURL) -> RecordingLink {
         try await passDeadline(sleep)
         try await eventually { player.linkAudio == .embed }
         #expect(access.requests == 1)
-        #expect(!music.calls.contains("load"))
-        #expect(!music.calls.contains("play"))
+        #expect(music.calls.contains("load") == false)
+        #expect(music.calls.contains("play") == false)
     }
 
     @Test func aTrackThatStartsAfterTheDeadlineIsStoppedAgain() async throws {
@@ -559,6 +561,6 @@ private func appleLink(url: String = songURL) -> RecordingLink {
         music.releaseStart()
         try await eventually { music.calls.last == "stop" && music.calls.contains("play") }
         #expect(player.linkAudio == .embed)
-        #expect(!music.isPlaying)
+        #expect(music.isPlaying == false)
     }
 }

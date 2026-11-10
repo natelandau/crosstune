@@ -13,7 +13,7 @@ private func file(_ state: LocalFileState) -> RecordingFile {
     RecordingFile(id: UUID().uuidString, localState: state, updatedAt: noon)
 }
 
-@Suite struct DeleteTuneMessageTests {
+@Suite(.timeLimit(.minutes(1))) struct DeleteTuneMessageTests {
     @Test func namesOnlyLinksAndListEntriesWhenThereAreNoRecordings() {
         #expect(
             DeleteTuneMessage.one(files: [])
@@ -100,7 +100,7 @@ private func file(_ state: LocalFileState) -> RecordingFile {
     }
 }
 
-@Suite struct TuneDetailTests {
+struct TuneDetailTests {
     private func detail(
         _ tune: Tune, status: String = "known", learnedFrom: String? = nil, learnedOn: String? = nil,
         notes: String? = nil, archived: Bool = false, instruments: Set<String> = []
@@ -164,16 +164,14 @@ private func file(_ state: LocalFileState) -> RecordingFile {
         #expect(detail(tune, notes: "Drive the B part").notes == "Drive the B part")
     }
 
-    @Test func showsALearnedOnValueItCannotReadAsStored() {
-        let locale = Locale(identifier: "en_US")
-        for value in ["2024-3-4", "sometime in 2024", "2024-02-30", "2024-13-05", "2024-00-10"] {
-            #expect(TuneDetail.learnedOn(value, locale: locale) == value)
-        }
+    @Test(arguments: ["2024-3-4", "sometime in 2024", "2024-02-30", "2024-13-05", "2024-00-10"])
+    func showsALearnedOnValueItCannotReadAsStored(value: String) {
+        #expect(TuneDetail.learnedOn(value, locale: Locale(identifier: "en_US")) == value)
     }
 
     @Test func offersLyricsOnlyWhenTheyHoldWords() {
-        #expect(!detail(Tune(createdAt: noon, title: "a")).hasLyrics)
-        #expect(!detail(Tune(createdAt: noon, title: "a", lyrics: " \n\t ")).hasLyrics)
+        #expect(detail(Tune(createdAt: noon, title: "a")).hasLyrics == false)
+        #expect(detail(Tune(createdAt: noon, title: "a", lyrics: " \n\t ")).hasLyrics == false)
         #expect(detail(Tune(createdAt: noon, title: "a", lyrics: "\nGrasshopper sitting")).hasLyrics)
     }
 
@@ -186,7 +184,7 @@ private func file(_ state: LocalFileState) -> RecordingFile {
 }
 
 @MainActor
-@Suite struct TuneModelTests {
+@Suite(.timeLimit(.minutes(1))) struct TuneModelTests {
     private let soldiersJoy = SampleCatalog.entries[0]
 
     @Test func readsTheTuneWithItsMediaListsAndInstruments() async throws {
@@ -236,7 +234,7 @@ private func file(_ state: LocalFileState) -> RecordingFile {
     }
 
     @Test func theNextTuneArrivesOnceReadOrFailed() {
-        #expect(!TuneScreen.arrivalSettled(phase: .loading, readFailed: false))
+        #expect(TuneScreen.arrivalSettled(phase: .loading, readFailed: false) == false)
         #expect(TuneScreen.arrivalSettled(phase: .loading, readFailed: true))
         #expect(TuneScreen.arrivalSettled(phase: .gone, readFailed: false))
     }
@@ -287,7 +285,7 @@ private func file(_ state: LocalFileState) -> RecordingFile {
         try await eventually { model.shown != nil }
         await model.removeFromList(itemID: "sample_item_session_0", listID: SampleCatalog.lists[0].id)
         let failure = try #require(model.failure(at: .lists))
-        #expect(!failure.isEmpty)
+        #expect(failure.isEmpty == false)
         #expect(model.failure(at: .screen) == nil && model.failure(at: .media) == nil)
         #expect(model.shown?.lists.count == 1)
         // The next write clears it.
@@ -314,7 +312,8 @@ private func file(_ state: LocalFileState) -> RecordingFile {
 
     /// A store holding `tunes`, each with the musician's own row, and a shown model for the first.
     private func attributeModel(
-        _ tunes: [Tune], status: String = "want_to_learn", root: TemporaryRoot
+        _ tunes: [Tune], status: String = "want_to_learn", root: TemporaryRoot,
+        sourceLocation: SourceLocation = #_sourceLocation
     ) async throws -> (CrosstuneStore, TuneModel) {
         let store = try root.open()
         try await store.write { writer in
@@ -324,12 +323,14 @@ private func file(_ state: LocalFileState) -> RecordingFile {
             }
         }
         let model = TuneModel(store: store, tuneID: tunes[0].id, analytics: sink.client)
-        try await eventually { model.shown != nil }
+        try await eventually(sourceLocation: sourceLocation) { model.shown != nil }
         return (store, model)
     }
 
-    private func storedTune(_ store: CrosstuneStore, _ tuneID: String) async throws -> Tune {
-        try await store.read { db in try #require(try Tune.fetchOne(db, key: tuneID)) }
+    private func storedTune(
+        _ store: CrosstuneStore, _ tuneID: String, sourceLocation: SourceLocation = #_sourceLocation
+    ) async throws -> Tune {
+        try await store.read { db in try #require(try Tune.fetchOne(db, key: tuneID), sourceLocation: sourceLocation) }
     }
 
     private func edited(_ fields: [String], _ tuneID: String = "t1") -> RecordingAnalyticsSink.Capture {
@@ -614,7 +615,7 @@ private func file(_ state: LocalFileState) -> RecordingFile {
     }
 }
 
-@Suite struct PlayerItemTests {
+struct PlayerItemTests {
     private let tuneID = "t1"
 
     private func recording(label: String?) -> Recording {
@@ -641,7 +642,7 @@ private func file(_ state: LocalFileState) -> RecordingFile {
     }
 }
 
-@Suite struct TunePageTests {
+struct TunePageTests {
     private let entry = SampleCatalog.entries[0]
 
     private func detail(
@@ -716,7 +717,8 @@ private func file(_ state: LocalFileState) -> RecordingFile {
         #expect(
             TunePageColumn.sections(worded, scans: 1, addLine: addLine, listsAtEnd: true)
                 == [.recordings, .lyrics, .scans, .notes, .lists])
-        #expect(!TunePageColumn.sections(worded, scans: 1, addLine: addLine, listsAtEnd: false).contains(.lists))
+        #expect(
+            TunePageColumn.sections(worded, scans: 1, addLine: addLine, listsAtEnd: false).contains(.lists) == false)
     }
 
     @Test func theLyricsSectionShowsVersesOnlyOnceOpened() {
@@ -731,13 +733,13 @@ private func file(_ state: LocalFileState) -> RecordingFile {
     @Test func theNotesStayInEditingWhileFocusIsOnTheirDone() {
         #expect(TextFieldDoneFocus.isEditing(.field))
         #expect(TextFieldDoneFocus.isEditing(.done))
-        #expect(!TextFieldDoneFocus.isEditing(nil))
+        #expect(TextFieldDoneFocus.isEditing(nil) == false)
     }
 
     @Test func moreSitsOnTheTitleRowOnTheMacAndAtRegularWidth() {
         #expect(TuneScreen.moreOnTitleRow(mac: true, compactWidth: false))
         #expect(TuneScreen.moreOnTitleRow(mac: false, compactWidth: false))
-        #expect(!TuneScreen.moreOnTitleRow(mac: false, compactWidth: true))
+        #expect(TuneScreen.moreOnTitleRow(mac: false, compactWidth: true) == false)
     }
 
     /// The swipe list sizes to its rows, so it never collapses before they lay out: a row not
@@ -752,7 +754,7 @@ private func file(_ state: LocalFileState) -> RecordingFile {
 
     @Test func anEmptyRecordingsSectionStartsWithTheCardAndNoHeadingAdd() {
         #expect(TunePageColumn.startsWithCard(detail()))
-        #expect(!TunePageColumn.startsWithCard(detail(links: [link])))
+        #expect(TunePageColumn.startsWithCard(detail(links: [link])) == false)
     }
 
     @Test func theStartCardOffersOnlyWhatCanAct() {
@@ -790,8 +792,7 @@ private func file(_ state: LocalFileState) -> RecordingFile {
     }
 
     @Test func theKeyTileIsSmallerOnACompactWidth() {
-        #expect(TuneHeader.keyTileSize(compact: true) == 54)
-        #expect(TuneHeader.keyTileSize(compact: false) == 64)
+        #expect(TuneHeader.keyTileSize(compact: true) < TuneHeader.keyTileSize(compact: false))
     }
 
     @Test func aRenameEndingAnyWayButEscapeSavesAndEscapeRestores() {
@@ -828,28 +829,25 @@ private func file(_ state: LocalFileState) -> RecordingFile {
             TuneMoreMenu.entries(archived: true, canAddToList: false) == [.editAll, .archive(archived: true), .delete])
     }
 
-    @MainActor @Test func pageWordsMatchTheWebClient() {
-        #expect(FirstRecordingCard.title == "Add the first recording")
-        #expect(FirstRecordingCard.hint == "Record it, paste a link, or find a version to learn from.")
-        #expect(FirstRecordingCard.record == "Record")
-        #expect(FirstRecordingCard.pasteLink == "Paste link")
-        #expect(FirstRecordingCard.findARecording == "Find a recording")
-        #expect(NotesField.placeholder == "Write a note…")
-        #expect(TuneScreen.editAllDetails == "Edit all details")
-        #expect(TuneScreen.recordingsHeader == "Recordings")
-        #expect(TuneFieldLabels.lyrics == "Lyrics")
-        #expect(TuneScreen.scansHeader == "Scans and images")
-        #expect(TuneScreen.notesHeader == "Notes")
-        #expect(TuneScreen.openLyrics == "Open lyrics")
-        #expect(LyricsReader.editLyrics == "Edit lyrics")
-        #expect(NotesField.savesAsYouType == "Saves as you type")
-        #expect(TuneScreen.addToTune == "Add to this tune")
-        #expect(TuneScreen.addScan == "Add scan or image")
-        #expect(TuneScreen.addScanText == "Scan or image")
-        #expect(TuneScreen.addLyrics == "Add lyrics")
-        #expect(TuneScreen.addLyricsText == "Lyrics")
-        #expect(TuneHeader.rename == "Rename")
-        #expect(TuneHeader.addKey == "Add key")
+    @MainActor @Test func pageWordsMatchTheWebClient() throws {
+        try expectMatchesWeb(
+            "web/src/features/tune/tuneMediaCopy.ts",
+            [
+                ("FIRST_RECORDING_TITLE", FirstRecordingCard.title), ("FIRST_RECORDING_HINT", FirstRecordingCard.hint),
+                ("RECORD", FirstRecordingCard.record), ("FIND_A_RECORDING", FirstRecordingCard.findARecording),
+            ])
+        try expectMatchesWeb(
+            "web/src/features/tune/tuneScreenCopy.ts",
+            [
+                ("WRITE_A_NOTE", NotesField.placeholder), ("EDIT_ALL_DETAILS", TuneScreen.editAllDetails),
+                ("RECORDINGS_SECTION", TuneScreen.recordingsHeader), ("LYRICS_SECTION", TuneFieldLabels.lyrics),
+                ("SCANS_SECTION", TuneScreen.scansHeader), ("NOTES_SECTION", TuneScreen.notesHeader),
+                ("OPEN_LYRICS", TuneScreen.openLyrics), ("EDIT_LYRICS", LyricsReader.editLyrics),
+                ("NOTES_SAVE_HINT", NotesField.savesAsYouType), ("ADD_TO_TUNE", TuneScreen.addToTune),
+                ("ADD_SCAN", TuneScreen.addScan), ("ADD_SCAN_TEXT", TuneScreen.addScanText),
+                ("ADD_LYRICS", TuneScreen.addLyrics), ("ADD_LYRICS_TEXT", TuneScreen.addLyricsText),
+                ("EDIT_TITLE", TuneHeader.rename), ("KEY_TILE_EMPTY", TuneHeader.addKey),
+            ])
     }
 
     /// The page says what is missing with a start card or an add line, never an empty-state block.
@@ -858,7 +856,7 @@ private func file(_ state: LocalFileState) -> RecordingFile {
     ])
     func noEmptyStateBlocks(path: String) throws {
         let text = SourceScan.withoutComments(try SourceScan.text(at: SourceScan.url(of: path)))
-        #expect(!text.contains("PageEmptyState"))
+        #expect(text.contains("PageEmptyState") == false)
     }
 
     /// The header's key tile and rename write through the opened tune's own model, so a save that

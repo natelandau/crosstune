@@ -1,13 +1,14 @@
 import Testing
 
-/// Waits for `condition` to hold, and records an issue at the caller's line if it never does.
+/// Waits for `condition` to hold. If it never does, records an issue at the caller's line and
+/// stops the test, since every later step assumes it held.
 public func eventually(
     isolation: isolated (any Actor)? = #isolation,
-    _ condition: () async throws -> Bool,
-    sourceLocation: SourceLocation = #_sourceLocation
+    sourceLocation: SourceLocation = #_sourceLocation,
+    _ condition: () async throws -> Bool
 ) async throws {
-    if try await poll(isolation: isolation, condition) { return }
-    Issue.record("The condition never held", sourceLocation: sourceLocation)
+    let held = try await poll(isolation: isolation, condition)
+    try #require(held, "The condition never held", sourceLocation: sourceLocation)
 }
 
 /// Checks `condition` until it holds or `timeout` has passed, and says whether it held. The

@@ -9,7 +9,7 @@ import Testing
 @testable import CrosstuneUI
 
 @MainActor
-@Suite struct ImportModelTests {
+@Suite(.timeLimit(.minutes(1))) struct ImportModelTests {
     private func seed(
         _ store: CrosstuneStore, titles: [String] = [], newTuneGenre: String? = nil,
         newTuneStatus: String = UserSettings.defaultNewTuneStatus
@@ -53,8 +53,8 @@ import Testing
         try await seed(store, titles: ["Soldier's Joy"])
         let model = await opened(store)
         #expect(model.step == .paste)
-        #expect(!model.canContinue)
-        #expect(!model.hasTextToReview)
+        #expect(model.canContinue == false)
+        #expect(model.hasTextToReview == false)
 
         model.text = "- soldier's joy\n1. Cluck Old Hen\nReels:\nRed Haired Boy"
         #expect(model.canContinue)
@@ -138,8 +138,8 @@ import Testing
         #expect(model.hasTunesToAdd)
         model.setIncluded(false, row: 0)
         #expect(model.count == 0)
-        #expect(!model.canAdd)
-        #expect(!model.hasTunesToAdd)
+        #expect(model.canAdd == false)
+        #expect(model.hasTunesToAdd == false)
         #expect(model.addLabel == ImportCopy.addTunes(0))
     }
 
@@ -151,7 +151,7 @@ import Testing
         model.text = "Cluck Old Hen"
         await model.continueToReview()
 
-        #expect(!model.canAdd)
+        #expect(model.canAdd == false)
         // Add stays enabled while unarmed, so a press meant for Continue does nothing.
         #expect(model.hasTunesToAdd)
         #expect(try await model.add() == 0)
@@ -161,7 +161,7 @@ import Testing
         #expect(model.canAdd)
         model.back()
         await model.continueToReview()
-        #expect(!model.canAdd)
+        #expect(model.canAdd == false)
     }
 
     @Test func aSecondContinueOnTheReviewDoesNothing() async throws {
@@ -172,7 +172,7 @@ import Testing
         model.text = "Cluck Old Hen"
         await model.continueToReview()
 
-        #expect(!model.canContinue)
+        #expect(model.canContinue == false)
     }
 
     @Test func backThenContinueKeepsTheReviewWhenTheTextIsUnchanged() async throws {
@@ -296,7 +296,7 @@ import Testing
         model.armAdd()
 
         model.list = .new(name: "  ")
-        #expect(!model.canAdd)
+        #expect(model.canAdd == false)
     }
 
     @Test func anOpenedFileReplacesTheText() async throws {
@@ -371,7 +371,7 @@ import Testing
         try await seed(store)
         let model = ImportModel(store: store, analytics: .noop, entry: .settings)
         model.text = "Cluck Old Hen"
-        #expect(!model.canContinue)
+        #expect(model.canContinue == false)
 
         await model.load()
         #expect(model.canContinue)
@@ -392,10 +392,10 @@ import Testing
         let reading = Task { await model.load(file: root.url.appending(path: "tunes.txt")) }
         // Opened on every way out, so a failed expectation never leaves the read waiting.
         defer { gate.open() }
-        #expect(try await poll { gate.isWaiting })
+        try await eventually { gate.isWaiting }
         #expect(model.isReadingFile)
-        #expect(!model.canContinue)
-        #expect(!model.canOpenFile)
+        #expect(model.canContinue == false)
+        #expect(model.canOpenFile == false)
 
         gate.open()
         await reading.value
@@ -417,7 +417,7 @@ import Testing
 
         #expect(sink.captures.count(where: { $0.name == "import_reviewed" }) == 1)
         #expect(model.step == .review)
-        #expect(!model.isReviewing)
+        #expect(model.isReviewing == false)
     }
 
     @Test func aFileThatCannotBeReadSaysWhyAndKeepsTheText() async throws {
@@ -432,7 +432,7 @@ import Testing
 
         #expect(model.text == "Typed")
         #expect(model.failure != nil)
-        #expect(!model.isReadingFile)
+        #expect(model.isReadingFile == false)
     }
 
     @Test func aRowsNoteNamesTheSourceTheDuplicateAndTheCut() {

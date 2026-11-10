@@ -11,7 +11,7 @@ import Testing
 /// The tune form reports a tune edited once its save lands, naming only which fields
 /// changed and never what they hold.
 @MainActor
-@Suite struct TuneEventTests {
+@Suite(.timeLimit(.minutes(1))) struct TuneEventTests {
     private let sink = RecordingAnalyticsSink()
 
     private func seed(_ store: CrosstuneStore, tune: Tune? = nil, status: String = "want_to_learn") async throws {
@@ -28,9 +28,9 @@ import Testing
     }
 
     private func editing(_ store: CrosstuneStore, _ tune: Tune) async throws -> TuneFormModel {
-        let userTuneID = try await store.read { db in
-            try UserTune.filter(UserTune.CodingKeys.tuneID == tune.id).fetchOne(db)!.id
-        }
+        let userTuneID = try #require(
+            try await store.read { db in try UserTune.filter(UserTune.CodingKeys.tuneID == tune.id).fetchOne(db) }
+        ).id
         let model = TuneFormModel(
             store: store, target: .edit(tuneID: tune.id, userTuneID: userTuneID), analytics: sink.client)
         await model.load()
@@ -118,9 +118,11 @@ import Testing
         #expect(sink.calls.isEmpty)
     }
 
-    private func shown(_ store: CrosstuneStore, tuneID: String) async throws -> TuneModel {
+    private func shown(_ store: CrosstuneStore, tuneID: String, sourceLocation: SourceLocation = #_sourceLocation)
+        async throws -> TuneModel
+    {
         let model = TuneModel(store: store, tuneID: tuneID, analytics: sink.client)
-        #expect(try await poll { model.shown != nil })
+        try await eventually(sourceLocation: sourceLocation) { model.shown != nil }
         return model
     }
 

@@ -3,7 +3,7 @@ import Testing
 
 @testable import CrosstuneCommands
 
-@Suite struct SetTuningTests {
+struct SetTuningTests {
     @Test func replacesOneEntryAndKeepsEveryOtherKey() {
         let stored: JSONObject = [
             "hardanger": .object(["tuning": .string("x")]),
@@ -25,7 +25,7 @@ import Testing
     }
 }
 
-@Suite struct TuningDisplayTests {
+struct TuningDisplayTests {
     let tunings: JSONObject = [
         "violin": .object(["tuning": .string("Standard (GDAE)")]),
         "five_string_banjo": .object(["tuning": .string("Open G (gDGBD)"), "capo": .integer(2)]),

@@ -8,14 +8,16 @@ import Testing
 /// The catalog reports a search once it has settled and is done with, never per keystroke, and a
 /// filter once its write lands, by kind alone.
 @MainActor
-@Suite struct CatalogEventTests {
+@Suite(.timeLimit(.minutes(1))) struct CatalogEventTests {
     private let root = TemporaryRoot()
     private let sink = RecordingAnalyticsSink()
 
-    private func loadedCatalog(settleDelay: Duration = .zero) async throws -> (CrosstuneStore, CatalogModel) {
+    private func loadedCatalog(settleDelay: Duration = .zero, sourceLocation: SourceLocation = #_sourceLocation)
+        async throws -> (CrosstuneStore, CatalogModel)
+    {
         let store = try await SampleCatalog.copiedStore(root: root.url)
         let catalog = CatalogModel(store: store, analytics: sink.client, searchSettleDelay: settleDelay)
-        #expect(try await poll { catalog.results != nil })
+        try await eventually(sourceLocation: sourceLocation) { catalog.results != nil }
         return (store, catalog)
     }
 
@@ -26,9 +28,11 @@ import Testing
     }
 
     /// Types `text` a keystroke at a time and waits until it has settled.
-    private func type(_ text: String, into catalog: CatalogModel) async throws {
+    private func type(_ text: String, into catalog: CatalogModel, sourceLocation: SourceLocation = #_sourceLocation)
+        async throws
+    {
         for end in text.indices { catalog.query = String(text[...end]) }
-        #expect(try await poll { catalog.settledSearch?.query == text })
+        try await eventually(sourceLocation: sourceLocation) { catalog.settledSearch?.query == text }
     }
 
     @Test func reportsNothingUntilASearchHasSettledAndIsDone() async throws {
@@ -76,7 +80,7 @@ import Testing
         let (store, catalog) = try await loadedCatalog()
         try await type("farewell", into: catalog)
         try await store.setMeta(.catalogFilters, to: CatalogFilters(status: "known").stored)
-        #expect(try await poll { catalog.status == "known" })
+        try await eventually { catalog.status == "known" }
 
         catalog.query = ""
 
@@ -114,7 +118,7 @@ import Testing
             $0.missing = .audio
         }
 
-        #expect(try await poll { !catalog.isSavingFilters })
+        try await eventually { !catalog.isSavingFilters }
         #expect(
             sink.captures == [
                 .init(name: "catalog_filtered", properties: ["filter": .string("status")]),
@@ -126,11 +130,11 @@ import Testing
     @Test func reportsNoFilterForOneCleared() async throws {
         let (store, catalog) = try await loadedCatalog()
         try await store.setMeta(.catalogFilters, to: CatalogFilters(status: "known").stored)
-        #expect(try await poll { catalog.status == "known" })
+        try await eventually { catalog.status == "known" }
 
         catalog.updateFilters { $0.status = nil }
 
-        #expect(try await poll { !catalog.isSavingFilters })
+        try await eventually { !catalog.isSavingFilters }
         #expect(sink.calls.isEmpty)
     }
 
@@ -139,7 +143,7 @@ import Testing
 
         catalog.replaceFilters(with: CatalogFilters(facets: [.genre: "Irish"]))
 
-        #expect(try await poll { !catalog.isSavingFilters })
+        try await eventually { !catalog.isSavingFilters }
         #expect(sink.captures == [.init(name: "catalog_filtered", properties: ["filter": .string("genre")])])
     }
 

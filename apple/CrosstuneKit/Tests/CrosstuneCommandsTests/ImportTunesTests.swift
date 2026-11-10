@@ -13,7 +13,7 @@ private func plan(
     ImportPlan(titles: titles, status: status, genre: genre, list: list)
 }
 
-@Suite struct ImportTunesTests {
+@Suite(.timeLimit(.minutes(1))) struct ImportTunesTests {
     @Test func createsATuneAndUserTunePerTitleWithBatchStatusAndGenre() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -24,7 +24,7 @@ private func plan(
 
         #expect(result.userTuneIDs.count == 2)
         #expect(result.listID == nil)
-        #expect(!result.listCreated)
+        #expect(result.listCreated == false)
         let tunes = try await store.read { db in try Tune.fetchAll(db) }
         #expect(tunes.map(\.genre) == ["Old-time", "Old-time"])
         let userTunes = try await store.read { db in try UserTune.fetchAll(db) }
@@ -75,7 +75,7 @@ private func plan(
         let result = try await commands.importTunes(plan(["A", "B"], list: .existing(listID: listID)))
 
         #expect(result.listID == listID)
-        #expect(!result.listCreated)
+        #expect(result.listCreated == false)
         let items = try await store.read { db in try ListItem.filter(Column("list_id") == listID).fetchAll(db) }
         #expect(activeByPosition(items).map(\.userTuneID) == [first] + result.userTuneIDs)
         #expect(items.filter { $0.userTuneID == first } == before)
@@ -140,7 +140,7 @@ private func plan(
     }
 }
 
-@Suite struct ImportTextTests {
+struct ImportTextTests {
     private static let text = "Soldier's Joy\nFête"
 
     private func utf16(_ text: String, littleEndian: Bool) -> Data {

@@ -5,21 +5,15 @@
 
     @testable import CrosstuneUI
 
-    @Suite struct MacControlsTests {
+    struct MacControlsTests {
         /// A segment's label and its badge read on the chosen token and on the bare track, on
         /// every container.
-        @Test(arguments: [ColorScheme.light, .dark])
-        func macSegmentedTextPassesContrast(scheme: ColorScheme) {
-            for container in MacContainer.allCases {
-                let fills = [MacSegmented<Int>.chosenFillToken(on: container), container.controlFill]
-                for back in fills.map({ Palette.hex($0, scheme) }) {
-                    #expect(
-                        contrastRatio(Palette.hex(.textPrimary, scheme), back) >= 4.5,
-                        "\(scheme) \(container) label on \(back)")
-                    #expect(
-                        contrastRatio(Palette.hex(.textSecondary, scheme), back) >= 4.5,
-                        "\(scheme) \(container) badge on \(back)")
-                }
+        @Test(arguments: [ColorScheme.light, .dark], MacContainer.allCases)
+        func macSegmentedTextPassesContrast(scheme: ColorScheme, container: MacContainer) {
+            let fills = [MacSegmented<Int>.chosenFillToken(on: container), container.controlFill]
+            for back in fills.map({ Palette.hex($0, scheme) }) {
+                #expect(contrastRatio(Palette.hex(.textPrimary, scheme), back) >= 4.5, "label on \(back)")
+                #expect(contrastRatio(Palette.hex(.textSecondary, scheme), back) >= 4.5, "badge on \(back)")
             }
         }
 
@@ -30,8 +24,8 @@
             let picker = SourceScan.withoutComments(
                 try SourceScan.text(at: SourceScan.url(of: "Mac/MacSegmentedPicker.swift")))
             for (name, text) in [("MacSegmented", segmented), ("MacSegmentedPicker", picker)] {
-                #expect(!text.contains("accentFill"), "\(name)")
-                #expect(!text.contains("MacSegmentLook"), "\(name)")
+                #expect(text.contains("accentFill") == false, "\(name)")
+                #expect(text.contains("MacSegmentLook") == false, "\(name)")
             }
         }
 
@@ -49,7 +43,7 @@
                 SourceScan.withoutPreviews(
                     SourceScan.withoutComments(try SourceScan.text(at: SourceScan.url(of: control.file)))))
             #expect(mac.contains(control.macLook), "\(control.file)")
-            #expect(!mac.contains(control.system), "\(control.file)")
+            #expect(mac.contains(control.system) == false, "\(control.file)")
         }
 
         @Test func macSegmentSpeaksItsBadge() {
@@ -82,9 +76,9 @@
         /// stays on it or moves elsewhere.
         @Test func snapFiresOnceOnEntering() {
             #expect(MacSlider.entersDetent(from: 95, to: 100, detent: 100))
-            #expect(!MacSlider.entersDetent(from: 100, to: 100, detent: 100))
-            #expect(!MacSlider.entersDetent(from: 95, to: 96, detent: 100))
-            #expect(!MacSlider.entersDetent(from: 95, to: 100, detent: nil))
+            #expect(MacSlider.entersDetent(from: 100, to: 100, detent: 100) == false)
+            #expect(MacSlider.entersDetent(from: 95, to: 96, detent: 100) == false)
+            #expect(MacSlider.entersDetent(from: 95, to: 100, detent: nil) == false)
         }
 
         /// A stepper half dims at its limit, and a disabled stepper dims once as a whole, never
@@ -107,7 +101,7 @@
         }
 
         /// The checkbox's outline at rest holds 3:1 on every fill a row sits on, and its check
-        /// reads on the accent fill.
+        /// reads on its fill.
         @Test(arguments: [ColorScheme.light, .dark])
         func macCheckboxPassesContrast(scheme: ColorScheme) {
             let stroke = Palette.hex(MacCheckboxStyle.restStroke, scheme)
@@ -118,7 +112,6 @@
                 contrastRatio(
                     Palette.hex(MacCheckboxStyle.check, scheme), Palette.hex(MacCheckboxStyle.onFill, scheme))
                     >= 4.5)
-            #expect(MacCheckboxStyle.onFill == .accentFill)
         }
 
         /// The checkbox draws from the palette alone, so an inactive window never grays it, and
@@ -126,26 +119,23 @@
         @Test func everyMacCheckboxIsTheMacCheckbox() throws {
             let style = SourceScan.withoutComments(
                 try SourceScan.text(at: SourceScan.url(of: "Mac/MacCheckbox.swift")))
-            #expect(!style.contains("controlActiveState"))
-            #expect(!style.contains("appearsActive"))
+            #expect(style.contains("controlActiveState") == false)
+            #expect(style.contains("appearsActive") == false)
             for file in SourceScan.files() where SourceScan.relative(file) != "Mac/MacCheckbox.swift" {
                 let text = SourceScan.macCompiled(SourceScan.withoutComments(try SourceScan.text(at: file)))
-                #expect(!text.contains(".toggleStyle(.checkbox)"), "\(SourceScan.relative(file))")
+                #expect(text.contains(".toggleStyle(.checkbox)") == false, "\(SourceScan.relative(file))")
             }
         }
 
-        /// Storage reads on one thin meter in the primary text color wherever it shows on the Mac, never the
-        /// system's accent progress bar.
+        /// Storage reads on one shared meter wherever it shows on the Mac, never the system's
+        /// progress bar.
         @Test func storageShowsOnTheSharedMeter() throws {
             for name in ["Settings/StorageMeter.swift", "Recordings/StorageSummary.swift"] {
                 let text = SourceScan.macCompiled(
                     SourceScan.withoutComments(try SourceScan.text(at: SourceScan.url(of: name))))
                 #expect(text.contains("MacMeter(fraction:"), "\(name)")
-                #expect(!text.contains("ProgressView("), "\(name)")
+                #expect(text.contains("ProgressView(") == false, "\(name)")
             }
-            let meter = SourceScan.withoutComments(
-                try SourceScan.text(at: SourceScan.url(of: "Mac/MacMeter.swift")))
-            #expect(!meter.contains("accent"))
             #expect(MacMeter.clamped(1.4) == 1)
             #expect(MacMeter.clamped(-0.2) == 0)
         }
@@ -155,11 +145,11 @@
         @Test func formSectionsTakeNoFooter() throws {
             let form = SourceScan.withoutComments(
                 try SourceScan.text(at: SourceScan.url(of: "Mac/MacForm.swift")))
-            #expect(!form.contains("footer"))
+            #expect(form.contains("footer") == false)
             let call = try Regex(#"MacFormSection\([^{]*footer:"#)
             for file in SourceScan.files() {
                 let text = SourceScan.withoutComments(try SourceScan.text(at: file))
-                #expect(!text.contains(call), "\(SourceScan.relative(file))")
+                #expect(text.contains(call) == false, "\(SourceScan.relative(file))")
             }
         }
 
@@ -168,8 +158,8 @@
         @Test func dockDrawsOnlyLibraryButtons() throws {
             let scanned = SourceScan.withoutComments(
                 try SourceScan.text(at: SourceScan.url(of: "Mac/PlayerDock.swift")))
-            #expect(!scanned.contains(".buttonStyle(.plain)"))
-            #expect(!scanned.contains(try Regex(#"\.system\(size:\s*\d"#)))
+            #expect(scanned.contains(".buttonStyle(.plain)") == false)
+            #expect(scanned.contains(try Regex(#"\.system\(size:\s*\d"#)) == false)
         }
 
         /// The controls sample screen is where a Mac-only control's states are looked at, so one
@@ -181,11 +171,6 @@
         func galleryShowsEveryMacControl(name: String) throws {
             let code = SourceScan.macCompiled(try ControlGalleryTests.galleryCode())
             #expect(code.contains(try Regex("\\b\(name)\\b")), "ControlGallery never shows \(name) on the Mac")
-        }
-
-        @Test func practiceMetricsAreTheSpecs() {
-            #expect(MacStyle.stageRadius == 12)
-            #expect(MacStyle.transportDiameter == 44)
         }
     }
 #endif

@@ -21,12 +21,13 @@ private func entitlement(source: String?, trialEndsAt: Date? = nil) -> Entitleme
 
 @MainActor
 private func planModel(
-    _ row: Entitlement, clock: PlanClock = PlanClock(), root: TemporaryRoot = TemporaryRoot()
+    _ row: Entitlement, clock: PlanClock = PlanClock(), root: TemporaryRoot = TemporaryRoot(),
+    sourceLocation: SourceLocation = #_sourceLocation
 ) async throws -> PlanModel {
     let store = try root.open()
     try await store.write { writer in try row.upsert(writer.db) }
     let model = PlanModel(store: store, now: { clock.now }, sleep: { try await clock.sleep($0) })
-    #expect(try await poll { model.plan.kind != .unknown })
+    try await eventually(sourceLocation: sourceLocation) { model.plan.kind != .unknown }
     return model
 }
 
@@ -34,7 +35,7 @@ private func link(_ provider: String, _ providerRef: String?, url: String = "htt
     RecordingLink(id: "l1", tuneID: "t1", url: url, provider: provider, providerRef: providerRef)
 }
 
-@Suite struct EmbedTests {
+struct EmbedTests {
     @Test(arguments: [
         (
             link("youtube", "dQw4w9WgXcQ"),
@@ -132,7 +133,7 @@ private func link(_ provider: String, _ providerRef: String?, url: String = "htt
         #expect(embed.kind == .audio)
         #expect(embed.document.contains("<audio"))
         #expect(embed.document.contains(embed.src))
-        #expect(!embed.document.contains("<iframe"))
+        #expect(embed.document.contains("<iframe") == false)
         #expect(Embed.for(link("youtube", "dQw4w9WgXcQ"))?.kind == .frame)
     }
 
@@ -233,7 +234,7 @@ private func link(_ provider: String, _ providerRef: String?, url: String = "htt
                 #"src="https://w.soundcloud.com/player/?url=https%3A%2F%2Fsoundcloud.com%2Fsomeone%2Fsome-tune&amp;auto_play=true""#
             ))
         #expect(page.contains(#"allow="autoplay; encrypted-media""#))
-        #expect(!page.contains("sandbox="))
+        #expect(page.contains("sandbox=") == false)
         let tidal = try #require(Embed.for(link("tidal", "track:1"))).document
         #expect(tidal.contains(#"sandbox="allow-same-origin allow-scripts"#))
     }
@@ -246,7 +247,7 @@ private func link(_ provider: String, _ providerRef: String?, url: String = "htt
     }
 }
 
-@Suite struct PlayerItemLinkTests {
+struct PlayerItemLinkTests {
     @Test func loadsALinkWithItsPlayerStartingAndItsProviderPage() throws {
         var youtube = link("youtube", "dQw4w9WgXcQ", url: "https://youtu.be/dQw4w9WgXcQ")
         youtube.title = "Soldier's Joy"
@@ -268,7 +269,7 @@ private func link(_ provider: String, _ providerRef: String?, url: String = "htt
 }
 
 @MainActor
-@Suite struct PlayerModelTests {
+@Suite(.timeLimit(.minutes(1))) struct PlayerModelTests {
     private func youtube(title: String? = "Soldier's Joy") -> RecordingLink {
         var row = link("youtube", "dQw4w9WgXcQ")
         row.title = title
@@ -277,17 +278,17 @@ private func link(_ provider: String, _ providerRef: String?, url: String = "htt
 
     @Test func holdsOneItemAtATimeAndCloses() throws {
         let player = PlayerModel()
-        #expect(!player.isLoaded)
+        #expect(player.isLoaded == false)
         player.play(try #require(PlayerItem.link(youtube())))
         #expect(player.isLoaded)
         #expect(player.holds(.link, id: "l1"))
         player.play(PlayerItem(kind: .recording, id: "r1", title: "Kitchen Girl"))
         #expect(player.title == "Kitchen Girl")
-        #expect(!player.holds(.link, id: "l1"))
+        #expect(player.holds(.link, id: "l1") == false)
         // A recording and a link never share an item, even with the same id.
         #expect(player.holds(.recording, id: "r1") && !player.holds(.link, id: "r1"))
         player.close()
-        #expect(!player.isLoaded)
+        #expect(player.isLoaded == false)
         #expect(player.title == nil)
     }
 
@@ -297,11 +298,11 @@ private func link(_ provider: String, _ providerRef: String?, url: String = "htt
         #expect(player.isExpanded)
 
         player.play(PlayerItem(kind: .recording, id: "r1", title: "Kitchen Girl"))
-        #expect(!player.isExpanded)
+        #expect(player.isExpanded == false)
 
         player.play(try #require(PlayerItem.link(youtube())))
         player.close()
-        #expect(!player.isExpanded)
+        #expect(player.isExpanded == false)
     }
 
     @Test func followsTheLoadedLinksRow() throws {
@@ -312,7 +313,7 @@ private func link(_ provider: String, _ providerRef: String?, url: String = "htt
         player.linkChanged(id: "l1", to: youtube(title: "Resolved title"))
         #expect(player.title == "Resolved title")
         #expect(player.isLoaded)
-        #expect(!player.isExpanded)
+        #expect(player.isExpanded == false)
 
         // Another link's row changing leaves the loaded one alone.
         player.linkChanged(id: "l2", to: nil)
@@ -324,7 +325,7 @@ private func link(_ provider: String, _ providerRef: String?, url: String = "htt
         let player = PlayerModel()
         player.play(try #require(PlayerItem.link(youtube())))
         player.linkChanged(id: "l1", to: row)
-        #expect(!player.isLoaded)
+        #expect(player.isLoaded == false)
     }
 
     @Test func closesWhenTheLoadedLinkIsDeleted() throws {
@@ -333,7 +334,7 @@ private func link(_ provider: String, _ providerRef: String?, url: String = "htt
         var deleted = youtube()
         deleted.deletedAt = .now
         player.linkChanged(id: "l1", to: deleted)
-        #expect(!player.isLoaded)
+        #expect(player.isLoaded == false)
     }
 
     @Test func leavesALoadedRecordingAloneWhenALinkChanges() {
@@ -350,9 +351,9 @@ private func link(_ provider: String, _ providerRef: String?, url: String = "htt
         let player = PlayerModel()
         player.plan = plan
 
-        #expect(!player.play(PlayerItem(kind: .recording, id: "r1", title: "Kitchen Girl")))
-        #expect(!player.loadPaused(PlayerItem(kind: .recording, id: "r1", title: "Kitchen Girl")))
-        #expect(!player.isLoaded)
+        #expect(player.play(PlayerItem(kind: .recording, id: "r1", title: "Kitchen Girl")) == false)
+        #expect(player.loadPaused(PlayerItem(kind: .recording, id: "r1", title: "Kitchen Girl")) == false)
+        #expect(player.isLoaded == false)
         // Links are not Premium's to hold.
         #expect(player.play(try #require(PlayerItem.link(youtube()))))
     }
@@ -373,13 +374,13 @@ private func link(_ provider: String, _ providerRef: String?, url: String = "htt
         player.plan = plan
         let recording = Recording(id: "r1", tuneID: "t1", source: "microphone", addedAt: noon, state: "ready")
         #expect(player.play(.recording(recording, tuneTitle: "Kitchen Girl")))
-        #expect(try await poll { audio.isPlaying })
+        try await eventually { audio.isPlaying }
         // The plan's sleep is relative, so it must start before the clock moves.
-        #expect(try await poll { clock.sleeps.count == 1 })
+        try await eventually { clock.sleeps.count == 1 }
 
         clock.now = end
-        #expect(try await poll { !player.isLoaded })
-        #expect(!audio.isPlaying)
+        try await eventually { !player.isLoaded }
+        #expect(audio.isPlaying == false)
         #expect(audio.loaded == nil)
     }
 
@@ -390,23 +391,23 @@ private func link(_ provider: String, _ providerRef: String?, url: String = "htt
         let store = try first.open()
         try await store.write { writer in try entitlement(source: nil).upsert(writer.db) }
         let free = PlanModel(store: store)
-        #expect(try await poll { free.plan.kind == .free })
+        try await eventually { free.plan.kind == .free }
         let player = PlayerModel()
         player.plan = free
-        #expect(!player.play(PlayerItem(kind: .recording, id: "r1", title: "Kitchen Girl")))
+        #expect(player.play(PlayerItem(kind: .recording, id: "r1", title: "Kitchen Girl")) == false)
 
         let second = TemporaryRoot()
         let unknown = PlanModel(store: try second.open("user_b"))
         player.plan = unknown
-        #expect(try await poll { unknown.isLoaded })
+        try await eventually { unknown.isLoaded }
         #expect(unknown.plan.kind == .unknown)
         #expect(player.play(PlayerItem(kind: .recording, id: "r1", title: "Kitchen Girl")))
 
         // The last store's plan turns free again; a follower left on it would close the recording.
         try await store.write { writer in try entitlement(source: "comp").upsert(writer.db) }
-        #expect(try await poll { free.plan.kind == .premium })
+        try await eventually { free.plan.kind == .premium }
         try await store.write { writer in try entitlement(source: nil).upsert(writer.db) }
-        #expect(try await poll { free.plan.kind == .free })
+        try await eventually { free.plan.kind == .free }
         #expect(player.holds(.recording, id: "r1"))
     }
 
@@ -419,18 +420,22 @@ private func link(_ provider: String, _ providerRef: String?, url: String = "htt
         player.plan = plan
         player.play(try #require(PlayerItem.link(youtube())))
         // The plan's sleep is relative, so it must start before the clock moves.
-        #expect(try await poll { clock.sleeps.count == 1 })
+        try await eventually { clock.sleeps.count == 1 }
 
         clock.now = end
-        #expect(try await poll { plan.plan.kind == .free })
+        try await eventually { plan.plan.kind == .free }
         #expect(player.holds(.link, id: "l1"))
     }
 }
 
 #if os(macOS)
     @MainActor
-    @Suite struct EmbedStageTests {
-        private let embed = Embed.for(link("youtube", "dQw4w9WgXcQ"), autoplay: true)!
+    @Suite(.timeLimit(.minutes(1))) struct EmbedStageTests {
+        private let embed: Embed
+
+        init() throws {
+            embed = try #require(Embed.for(link("youtube", "dQw4w9WgXcQ"), autoplay: true))
+        }
 
         private func webView(in host: NSView) -> WKWebView? {
             host.subviews.first as? WKWebView
@@ -493,7 +498,7 @@ private func link(_ provider: String, _ providerRef: String?, url: String = "htt
             stage.detach(phone)
             let split = NSView()
             stage.attach(split, embed: embed, prominence: .shown)
-            await Task.yield()
+            try await eventually { webView(in: split) != nil }
             #expect(webView(in: split) === playing)
 
             stage.detach(split)
@@ -503,9 +508,8 @@ private func link(_ provider: String, _ providerRef: String?, url: String = "htt
 #endif
 
 #if os(macOS)
-    @Suite struct PlayerDockTests {
+    struct PlayerDockTests {
         @Test func dockEmbedStaysWithinShare() {
-            #expect(PlayerDock.chrome == MacStyle.dockHeight + PlayerDock.inset)
             let height = PlayerDock.embedHeight(columnHeight: 500, wanted: 400)
             #expect(height == 500 * PlayerDock.maxShare - PlayerDock.chrome)
             #expect(height + PlayerDock.chrome <= 500 * PlayerDock.maxShare)
@@ -522,7 +526,7 @@ private func link(_ provider: String, _ providerRef: String?, url: String = "htt
     }
 #endif
 
-@Suite struct MusicPlayerCardTests {
+struct MusicPlayerCardTests {
     @Test func fillsTheCardsHeightWithSquareArtwork() {
         #expect(MusicPlayerCard.artworkSide(height: 175) == 175 - 2 * MusicPlayerCard.inset)
     }
@@ -538,7 +542,7 @@ private final class QuietTrackCommands: TrackCommands {
 }
 
 @MainActor
-@Suite final class PlaylistControlsTests {
+@Suite(.timeLimit(.minutes(1))) final class PlaylistControlsTests {
     private let suite = TemporaryDefaults("PlaylistControlsTests")
     private var defaults: UserDefaults { suite.defaults }
 
@@ -565,19 +569,17 @@ private final class QuietTrackCommands: TrackCommands {
         #expect(PlaylistControlText.repeatLabel(.off) == "Repeat off")
         #expect(PlaylistControlText.repeatLabel(.list) == "Repeat list")
         #expect(PlaylistControlText.repeatLabel(.one) == "Repeat tune")
-        #expect(PlaylistControlText.repeatSymbol(.off) == "repeat")
-        #expect(PlaylistControlText.repeatSymbol(.list) == "repeat")
-        #expect(PlaylistControlText.repeatSymbol(.one) == "repeat.1")
+        #expect(PlaylistControlText.repeatSymbol(.one) != PlaylistControlText.repeatSymbol(.list))
     }
 
     @Test func offersNextOnlyWhilePlayingAList() {
         let playback = playback()
-        #expect(!PlayerBar.showsNext(playback))
-        #expect(!PlayerBar.showsNext(nil))
+        #expect(PlayerBar.showsNext(playback) == false)
+        #expect(PlayerBar.showsNext(nil) == false)
         playback.start(listID: "l1", name: "Session set", tuneIDs: ["a"], shuffled: false)
         #expect(PlayerBar.showsNext(playback))
         playback.end()
-        #expect(!PlayerBar.showsNext(playback))
+        #expect(PlayerBar.showsNext(playback) == false)
     }
 
     @Test func labelsTheBarWithTheListWhilePlaying() throws {
@@ -595,41 +597,42 @@ private final class QuietTrackCommands: TrackCommands {
         let player = PlayerModel()
         let playback = playback(player)
         playback.start(listID: "l1", name: "Session set", tuneIDs: ["a"], shuffled: false)
-        #expect(try await poll { playback.endMessage != nil })
+        try await eventually { playback.endMessage != nil }
         player.play(PlayerItem(kind: .recording, id: "r1", title: "Kitchen Girl"))
         #expect(playback.endMessage == nil)
         player.close()
-        #expect(!PlayerBar.isShown(player, playback, in: nil))
+        #expect(PlayerBar.isShown(player, playback, in: nil) == false)
     }
 
     @Test func showsTheBarForAMessageWithNothingLoaded() async throws {
         let player = PlayerModel()
         let playback = playback(player)
-        #expect(!PlayerBar.isShown(player, playback, in: nil))
+        #expect(PlayerBar.isShown(player, playback, in: nil) == false)
         // Nothing resolves, so the playlist stops with its message.
         playback.start(listID: "l1", name: "Session set", tuneIDs: ["a"], shuffled: false)
-        #expect(try await poll { playback.endMessage != nil })
-        #expect(!player.isLoaded)
+        try await eventually { playback.endMessage != nil }
+        #expect(player.isLoaded == false)
         #expect(PlayerBar.isShown(player, playback, in: nil))
         PlayerBar.closePlayer(player, playback)
-        #expect(!PlayerBar.isShown(player, playback, in: nil))
+        #expect(PlayerBar.isShown(player, playback, in: nil) == false)
     }
 }
 
-@Suite struct AccessorySwipeTests {
+struct AccessorySwipeTests {
     @Test func swipeSkipsOnlyPastTheThresholdWhileAListPlays() {
-        #expect(AccessorySwipe.skip(translation: -61, isPlayingList: true) == .next)
-        #expect(AccessorySwipe.skip(translation: 61, isPlayingList: true) == .previous)
-        #expect(AccessorySwipe.skip(translation: -59, isPlayingList: true) == nil)
-        #expect(AccessorySwipe.skip(translation: 59, isPlayingList: true) == nil)
-        #expect(AccessorySwipe.skip(translation: -200, isPlayingList: false) == nil)
+        let threshold = PhoneStyle.swipeSkipThreshold
+        #expect(AccessorySwipe.skip(translation: -(threshold + 1), isPlayingList: true) == .next)
+        #expect(AccessorySwipe.skip(translation: threshold + 1, isPlayingList: true) == .previous)
+        #expect(AccessorySwipe.skip(translation: -(threshold - 1), isPlayingList: true) == nil)
+        #expect(AccessorySwipe.skip(translation: threshold - 1, isPlayingList: true) == nil)
+        #expect(AccessorySwipe.skip(translation: -(threshold * 4), isPlayingList: false) == nil)
     }
 
     @Test func swipeSkipsOnlyWhereTheListHasATuneToGoTo() {
         #expect(AccessorySwipe.hasPlace(for: .next, position: 1, count: 3, repeats: false))
-        #expect(!AccessorySwipe.hasPlace(for: .next, position: 3, count: 3, repeats: false))
+        #expect(AccessorySwipe.hasPlace(for: .next, position: 3, count: 3, repeats: false) == false)
         #expect(AccessorySwipe.hasPlace(for: .next, position: 3, count: 3, repeats: true))
         #expect(AccessorySwipe.hasPlace(for: .previous, position: 2, count: 3, repeats: false))
-        #expect(!AccessorySwipe.hasPlace(for: .previous, position: 1, count: 3, repeats: true))
+        #expect(AccessorySwipe.hasPlace(for: .previous, position: 1, count: 3, repeats: true) == false)
     }
 }

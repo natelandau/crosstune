@@ -4,7 +4,7 @@
     import Testing
 
     @MainActor
-    @Suite struct MacControlTokensTests {
+    struct MacControlTokensTests {
         @Test(arguments: [MacMotion.hover, MacMotion.state, MacMotion.spring])
         func reduceMotionTurnsEveryAnimationOff(_ animation: Animation) {
             #expect(MacMotion.animation(animation, reduceMotion: true) == nil)

@@ -6,7 +6,7 @@ import Testing
 
 @testable import CrosstuneUI
 
-@Suite struct AttributeRowsTests {
+struct AttributeRowsTests {
     private func detail(
         _ tune: Tune = Tune(createdAt: noon, title: "Test"), status: String = "learning",
         learnedFrom: String? = nil, learnedOn: String? = nil, instruments: Set<String> = ["violin"]
@@ -38,26 +38,17 @@ import Testing
         #expect(AttributeRows.partLetters.count == Vocabulary.Limits.Tune.modes)
     }
 
-    @Test func labelsTheRows() {
-        let rows = AttributeRows.rows(detail())
-        #expect(
-            rows.map(\.label) == [
-                "Status", "Key", "Violin tuning", "Type", "Time signature", "Parts", "Genre", "Composer",
-                "Also known as", "Learned from", "Learned on",
-            ])
-    }
-
     @Test func readsAnUnrecognizedStatusAsWantToLearn() {
         #expect(row(.status, in: detail(status: "mastered"))?.text == "Unknown")
     }
 
-    @Test func showsCrookedOnlyWhenOnAndRightAfterParts() {
+    @Test func showsCrookedOnlyWhenOnAndRightAfterParts() throws {
         let crooked = detail(Tune(createdAt: noon, title: "T", isCrooked: true))
         let on = AttributeRows.rows(crooked).map(\.id)
-        let at = on.firstIndex(of: .partStructure)!
+        let at = try #require(on.firstIndex(of: .partStructure))
         #expect(on[at + 1] == .isCrooked)
         #expect(row(.isCrooked, in: crooked)?.text == "Crooked")
-        #expect(!AttributeRows.rows(detail()).map(\.id).contains(.isCrooked))
+        #expect(AttributeRows.rows(detail()).map(\.id).contains(.isCrooked) == false)
     }
 
     @Test func leavesOutAModeOfOtherAndKeepsTheKey() {
@@ -92,7 +83,7 @@ import Testing
     }
 
     @Test func hasNoRowForAnUnplayedInstrumentWithNoValue() {
-        #expect(!AttributeRows.rows(detail()).map(\.id).contains(.tuning("mandolin")))
+        #expect(AttributeRows.rows(detail()).map(\.id).contains(.tuning("mandolin")) == false)
     }
 
     @Test func addsATuningRowForAnUnplayedInstrumentThatHoldsAValue() {

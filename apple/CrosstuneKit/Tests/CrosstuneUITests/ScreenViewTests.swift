@@ -10,7 +10,7 @@ import Testing
 /// Each destination's root view reports one screen view, so the analytics funnel sees every
 /// place the musician can open. The scan reads the source because the modifier fires from
 /// `onAppear`, which a unit test cannot drive without the full shell.
-@Suite struct ScreenViewTests {
+struct ScreenViewTests {
     private static let expected: [(file: String, screen: String)] = [
         ("Catalog/CatalogScreen.swift", "catalog"),
         ("Tune/TuneScreen.swift", "tune"),
@@ -100,7 +100,7 @@ import Testing
     }
 
     @MainActor
-    @Suite(.enabled(if: hasWindowServer, "Needs a window server to run onAppear"))
+    @Suite(.timeLimit(.minutes(1)), .enabled(if: hasWindowServer, "Needs a window server to run onAppear"))
     struct ScreenViewEnvironmentTests {
         private func host(_ view: some View) -> NSWindow {
             let window = hiddenWindow(
@@ -155,7 +155,7 @@ import Testing
 
 #if os(macOS)
     @MainActor
-    @Suite(.enabled(if: hasWindowServer, "Needs a window server to run onAppear"))
+    @Suite(.timeLimit(.minutes(1)), .enabled(if: hasWindowServer, "Needs a window server to run onAppear"))
     struct HostedAnalyticsWiringTests {
         private func host(_ view: some View) -> NSWindow {
             let window = hiddenWindow(

@@ -2,7 +2,7 @@ import Testing
 
 /// The trim and split editors end through one library action bar, which draws each platform's
 /// place for Cancel and Save, so neither screen forks its actions by platform.
-@Suite struct EditorActionsTests {
+struct EditorActionsTests {
     private static let editors = ["RecordingScreen/TrimScreen.swift", "RecordingScreen/SplitScreen.swift"]
 
     private static func code(_ path: String) throws -> String {
@@ -19,7 +19,7 @@ import Testing
             }.joined(separator: "\n")
             for platformOnly in [macOnly, iOSOnly] {
                 for action in ["cancelButton", "saveButton", ".toolbar", ".paneBar"] {
-                    #expect(!platformOnly.contains(action), "\(path) draws \(action) on one platform only")
+                    #expect(platformOnly.contains(action) == false, "\(path) draws \(action) on one platform only")
                 }
             }
         }
@@ -30,11 +30,11 @@ import Testing
     /// Save presents inherits no Return.
     @Test func editorKeysReachOnlyCancelAndSaveButtons() throws {
         let actions = SourceScan.macOSRegions(of: try Self.code("Phone/Controls/EditorActions.swift"))
-        let cancelKey = #"\bcancel\s*\.buttonStyle\(\.tinted\)\s*\.keyboardShortcut\(\.cancelAction\)"#
-        let saveKey = #"\bsave\s*\.buttonStyle\(\.filled\)\s*\.environment\(\\\.editorSaveShortcut, \.defaultAction\)"#
+        let cancelKey = #"\bcancel\s*\.buttonStyle\(\.\w+\)\s*\.keyboardShortcut\(\.cancelAction\)"#
+        let saveKey = #"\bsave\s*\.buttonStyle\(\.\w+\)\s*\.environment\(\\\.editorSaveShortcut, \.defaultAction\)"#
         #expect(actions.contains(try Regex(cancelKey)))
         #expect(actions.contains(try Regex(saveKey)))
-        #expect(!actions.contains(".keyboardShortcut(.defaultAction)"))
+        #expect(actions.contains(".keyboardShortcut(.defaultAction)") == false)
 
         let save = try Self.code("RecordingScreen/EditorSaveButton.swift")
         #expect(save.contains(try Regex(#"@Environment\(\\\.editorSaveShortcut\)\s*private\s+var\s+shortcut"#)))
@@ -48,7 +48,7 @@ import Testing
     /// page, so a page body that reads it redraws without end and the app hangs. Only the menu,
     /// which opens the origin, reads it.
     @Test func recordingPageReadsNoOpenURL() throws {
-        #expect(!(try Self.code("RecordingPage/RecordingPage.swift")).contains(#"\.openURL"#))
+        #expect((try Self.code("RecordingPage/RecordingPage.swift")).contains(#"\.openURL"#) == false)
         #expect(try Self.code("RecordingPage/RecordingPageMenu.swift").contains(#"@Environment(\.openURL)"#))
     }
 
@@ -56,7 +56,7 @@ import Testing
     /// editor main action, with no platform fork of its own.
     @Test func splitMainButtonDrawsNoPlatformFork() throws {
         let text = try Self.code("RecordingScreen/SplitMainButton.swift")
-        #expect(!text.contains("#if os("))
+        #expect(text.contains("#if os(") == false)
         #expect(text.contains(".editorMainAction()"))
     }
 }

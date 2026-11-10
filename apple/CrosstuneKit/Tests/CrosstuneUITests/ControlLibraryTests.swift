@@ -3,7 +3,7 @@ import Testing
 
 /// A screen draws its controls from the shared library, never its own. A screen that builds a
 /// control itself fails, unless `allowed` names that file and that rule.
-@Suite struct ControlLibraryTests {
+struct ControlLibraryTests {
     /// The passes an exception holds in, so one platform's exception never widens the other's.
     enum Pass: CaseIterable {
         case iOS, mac
@@ -249,15 +249,14 @@ import Testing
         return ButtonStyleScan(screens: files, library: files).unstyledButtons().values.flatMap { $0 }.sorted()
     }
 
-    @Test func anUnstyledButtonIsFlaggedHoweverDeepItSits() {
-        for nested in [
-            "VStack { Button(x) {} }", "if shows { Button(x) {} }", "ForEach(items) { _ in Button(x) {} }",
-            "switch mode {\ncase .a:\nButton(x) {}\ndefault: EmptyView()\n}", "Group { Button(x) {} }",
-            "Section { Button(x) {} }",
-        ] {
-            let code = "struct A: View {\nvar body: some View {\n\(nested)\n}\n}"
-            #expect(Self.unstyled(["A": code]).count == 1, "\(nested)")
-        }
+    @Test(arguments: [
+        "VStack { Button(x) {} }", "if shows { Button(x) {} }", "ForEach(items) { _ in Button(x) {} }",
+        "switch mode {\ncase .a:\nButton(x) {}\ndefault: EmptyView()\n}", "Group { Button(x) {} }",
+        "Section { Button(x) {} }",
+    ])
+    func anUnstyledButtonIsFlaggedHoweverDeepItSits(nested: String) {
+        let code = "struct A: View {\nvar body: some View {\n\(nested)\n}\n}"
+        #expect(Self.unstyled(["A": code]).count == 1)
     }
 
     @Test func aButtonInAHelperIsJudgedWhereTheHelperIsPlaced() {
@@ -294,18 +293,16 @@ import Testing
         #expect(Self.unstyled(["Row": row, "A": inStack]) == ["var body: some View { Button(x) {} }"])
     }
 
-    @Test func systemPlacesAndHiddenButtonsPass() {
-        for code in [
-            "Menu { Button(x) {} } label: { Text(x) }", "Text(x).contextMenu { Button(x) {} }",
-            "Text(x).confirmationDialog(x, isPresented: $shows) { Button(x) {} }",
-            "Text(x).background { Button(x) {}.keyboardShortcut(.cancelAction).hidden() }",
-            "VStack { Button(x) {} }.buttonStyle(.text)", "Text(x).rowActions { Button(x) {} }",
-        ] {
-            let view = "struct A: View {\nvar body: some View {\n\(code)\n}\n}"
-            let placer =
-                "extension View {\nfunc rowActions(_ c: () -> some View) -> some View { swipeActions { c() } }\n}"
-            #expect(Self.unstyled(["A": view, "B": placer]).isEmpty, "\(code)")
-        }
+    @Test(arguments: [
+        "Menu { Button(x) {} } label: { Text(x) }", "Text(x).contextMenu { Button(x) {} }",
+        "Text(x).confirmationDialog(x, isPresented: $shows) { Button(x) {} }",
+        "Text(x).background { Button(x) {}.keyboardShortcut(.cancelAction).hidden() }",
+        "VStack { Button(x) {} }.buttonStyle(.text)", "Text(x).rowActions { Button(x) {} }",
+    ])
+    func systemPlacesAndHiddenButtonsPass(code: String) {
+        let view = "struct A: View {\nvar body: some View {\n\(code)\n}\n}"
+        let placer = "extension View {\nfunc rowActions(_ c: () -> some View) -> some View { swipeActions { c() } }\n}"
+        #expect(Self.unstyled(["A": view, "B": placer]).isEmpty)
     }
 
     @Test func aButtonInAViewModifierBodyIsFlagged() {
@@ -350,13 +347,12 @@ import Testing
         #expect(Self.unstyled(["P": placer, "C": collider, "A": view]).count == 1)
     }
 
-    @Test func aTypedCurveIsFlaggedHoweverItIsWritten() {
-        for code in [
-            "withAnimation(Animation.easeOut(duration: 1)) {}", ".animation(Animation.linear, value: x)",
-            ".animation(.spring(response: 0.3), value: x)",
-        ] {
-            #expect(Self.violations(in: code).map(\.rule).contains("own animation"), "\(code)")
-        }
+    @Test(arguments: [
+        "withAnimation(Animation.easeOut(duration: 1)) {}", ".animation(Animation.linear, value: x)",
+        ".animation(.spring(response: 0.3), value: x)",
+    ])
+    func aTypedCurveIsFlaggedHoweverItIsWritten(code: String) {
+        #expect(Self.violations(in: code).map(\.rule).contains("own animation"))
     }
 
     @Test func countsALibraryForkOnTheIOSSide() {
@@ -388,7 +384,9 @@ import Testing
     /// library's primitive styles, so a menu given one draws the system's look. The library's
     /// `…MenuAppearance()` modifiers give a menu its look. Flags a primitive style in a `Menu`'s
     /// chain, or after a `.menuStyle` in any chain.
-    static func menusGivenIgnoredStyles(in files: [ButtonStyleScan.File]) -> [String] {
+    static func menusGivenIgnoredStyles(
+        in files: [ButtonStyleScan.File], sourceLocation: SourceLocation = #_sourceLocation
+    ) -> [String] {
         var primitive = Set<String>()
         for file in files {
             for match in nsMatches(#"\bstruct\s+(\w+)\s*:\s*PrimitiveButtonStyle\b"#, in: file.code) {
@@ -485,10 +483,10 @@ import Testing
             """
         #expect(flagged(modifier + "accessory\n.menuStyle(.button)\n.modifier(Look())"))
         #expect(flagged(modifier + "Menu { items } label: { x }\n.modifier(Look())"))
-        #expect(!flagged(modifier + "Button(x) {}\n.modifier(Look())"))
-        #expect(!flagged("Menu { items } label: { x }\n.buttonStyle(.borderless)"))
-        #expect(!flagged("Button(x) {}\n.buttonStyle(.words)"))
-        #expect(!flagged("accessory\n.menuStyle(.button)\n.textButtonMenuAppearance()"))
+        #expect(flagged(modifier + "Button(x) {}\n.modifier(Look())") == false)
+        #expect(flagged("Menu { items } label: { x }\n.buttonStyle(.borderless)") == false)
+        #expect(flagged("Button(x) {}\n.buttonStyle(.words)") == false)
+        #expect(flagged("accessory\n.menuStyle(.button)\n.textButtonMenuAppearance()") == false)
     }
 
     // MARK: - The Mac pass
@@ -522,7 +520,7 @@ import Testing
         SourceScan.withoutStrings(SourceScan.macCompiled(try uncommented(file)))
     }
 
-    static func macViolations(in code: String) -> Set<Violation> {
+    static func macViolations(in code: String, sourceLocation: SourceLocation = #_sourceLocation) -> Set<Violation> {
         var found = violations(in: code)
         for (rule, regex) in macPatterns {
             for match in code.matches(of: regex) {

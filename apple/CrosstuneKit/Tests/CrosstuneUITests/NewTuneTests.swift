@@ -13,7 +13,7 @@ import Testing
 /// The new-tune draft: a title alone makes the tune, Return opens it, leaving the page with a
 /// title makes it without opening it, and a draft left blank makes nothing.
 @MainActor
-@Suite struct NewTuneTests {
+@Suite(.timeLimit(.minutes(1))) struct NewTuneTests {
     private let sink = RecordingAnalyticsSink()
     /// Held for the test, since the store's folder goes with it.
     private let root = TemporaryRoot()
@@ -64,7 +64,7 @@ import Testing
 
         let created = try #require(await draft.leave())
 
-        #expect(!created.byReturn)
+        #expect(created.byReturn == false)
         #expect(try await liveTitles(store) == ["Angeline"])
         #expect(added.undoBannerItem?.message == AddedTuneUndo.added("Angeline"))
     }
@@ -151,10 +151,10 @@ import Testing
         draft.title = "Angeline"
 
         let searched = Task { await added.add(title: "Rove Riley", source: .searchOffer) }
-        #expect(try await poll { landSearch != nil })
+        try await eventually { landSearch != nil }
         #expect(added.isAddRunning)
         let leaving = Task { await draft.leave() }
-        #expect(try await poll { added.waitingAddCount == 1 })
+        try await eventually { added.waitingAddCount == 1 }
         #expect(try await liveTitles(store).isEmpty)
 
         landSearch?.resume()
@@ -203,7 +203,7 @@ import Testing
 
         #expect(drafts.holdsQuit { replied = true })
 
-        #expect(try await poll { replied })
+        try await eventually { replied }
         #expect(try await liveTitles(store) == ["Angeline"])
         #expect(sink.captures.first?.properties["source"] == .string("menu"))
     }
@@ -218,10 +218,10 @@ import Testing
         var replies = 0
 
         #expect(drafts.holdsQuit { replies += 1 })
-        #expect(try await poll { passDeadline != nil && landAdd != nil })
+        try await eventually { passDeadline != nil && landAdd != nil }
         passDeadline?.resume()
 
-        #expect(try await poll { replies == 1 })
+        try await eventually { replies == 1 }
         // The draft landing late replies nothing more.
         landAdd?.resume(returning: "t1")
         await drafts.quitting?.value
@@ -237,7 +237,7 @@ import Testing
         drafts.opened(draft)
         // The page comes back before the leave of its last showing lands.
         drafts.opened(draft)
-        #expect(!drafts.closed(draft))
+        #expect(drafts.closed(draft) == false)
         #expect(drafts.open.count == 1)
 
         #expect(drafts.closed(draft))
@@ -245,7 +245,7 @@ import Testing
     }
 
     @Test func aQuitWithNoDraftOpenGoesAtOnce() {
-        #expect(!OpenDrafts().holdsQuit {})
+        #expect(OpenDrafts().holdsQuit {} == false)
     }
 
     // MARK: Where the draft opens
@@ -326,7 +326,7 @@ import Testing
 
     /// The draft as the detail column shows it, through `TuneScreen`.
     @MainActor
-    @Suite(.enabled(if: hasWindowServer, "Needs a window server to run onAppear"))
+    @Suite(.timeLimit(.minutes(1)), .enabled(if: hasWindowServer, "Needs a window server to run onAppear"))
     struct NewTuneScreenTests {
         private let root = TemporaryRoot()
 
@@ -365,15 +365,15 @@ import Testing
             let column = Column(NewTuneDraft.id(source: .catalog))
             let window = host(column, store: store, drafts: drafts)
             defer { window.close() }
-            #expect(try await poll { drafts.open.map(\.source) == [.catalog] })
+            try await eventually { drafts.open.map(\.source) == [.catalog] }
             drafts.open.first?.title = "Angel"
 
             column.tuneID = NewTuneDraft.id(source: .menu)
 
-            #expect(try await poll { drafts.open.map(\.source) == [.menu] })
+            try await eventually { drafts.open.map(\.source) == [.menu] }
             #expect(drafts.open.first?.title == "")
             // The catalog's draft, left with a title, made its tune and left the menu's draft be.
-            #expect(try await poll { try await store.read { db in try Tune.fetchCount(db) } == 1 })
+            try await eventually { try await store.read { db in try Tune.fetchCount(db) } == 1 }
             #expect(column.tuneID == NewTuneDraft.id(source: .menu))
         }
 
@@ -384,16 +384,17 @@ import Testing
             var held: [HeldDraft?] = []
             let window = host(column, store: store, drafts: drafts) { held.append($0) }
             defer { window.close() }
-            let draft = try #require(try await poll { drafts.open.count == 1 } ? drafts.open.first : nil)
+            try await eventually { drafts.open.count == 1 }
+            let draft = try #require(drafts.open.first)
             draft.title = "Angeline"
             let created = try #require(await draft.submit())
-            #expect(try await poll { column.tuneID == created.tuneID && held.last??.tuneID == created.tuneID })
+            try await eventually { column.tuneID == created.tuneID && held.last??.tuneID == created.tuneID }
 
             column.tuneID = "another-tune"
-            #expect(try await poll { held.last == .some(nil) })
+            try await eventually { held.last == .some(nil) }
             column.tuneID = created.tuneID
 
-            #expect(try await poll { held.last == .some(nil) })
+            try await eventually { held.last == .some(nil) }
         }
 
         @Test func returnPutsTheTuneInTheDraftsPlace() async throws {
@@ -402,13 +403,14 @@ import Testing
             let column = Column(NewTuneDraft.id(source: .catalog))
             let window = host(column, store: store, drafts: drafts)
             defer { window.close() }
-            let draft = try #require(try await poll { drafts.open.count == 1 } ? drafts.open.first : nil)
+            try await eventually { drafts.open.count == 1 }
+            let draft = try #require(drafts.open.first)
             draft.title = "Angeline"
 
             let created = try #require(await draft.submit())
 
-            #expect(try await poll { column.tuneID == created.tuneID })
-            #expect(try await poll { drafts.isEmpty })
+            try await eventually { column.tuneID == created.tuneID }
+            try await eventually { drafts.isEmpty }
             #expect(try await store.read { db in try Tune.fetchCount(db) } == 1)
         }
     }

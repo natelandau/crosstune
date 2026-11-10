@@ -27,7 +27,7 @@ private func beginTone(
     return id
 }
 
-@Suite struct CaptureFinisherTests {
+@Suite(.timeLimit(.minutes(1))) struct CaptureFinisherTests {
     @Test func finishingExportsAnM4AAndWritesTheRecordingAndItsFile() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -39,7 +39,7 @@ private func beginTone(
         #expect(try await finisher.finish(id) != nil)
 
         let finished = finisher.finishedURL(id)
-        #expect(!fileExists(finisher.captureURL(id)))
+        #expect(fileExists(finisher.captureURL(id)) == false)
         #expect(abs(try await duration(of: finished) - 2) < 0.1)
         let row = try #require(try await recording(store, id))
         #expect(row.tuneID == tuneID)
@@ -56,7 +56,7 @@ private func beginTone(
         #expect(try await store.pendingChanges(limit: 10).contains { $0.rowID == id })
         let peaksName = try #require(local.peaksFileName)
         let peaks = try Peaks(file: Data(contentsOf: store.audioFolder.appending(path: peaksName)))
-        #expect(!peaks.values.isEmpty)
+        #expect(peaks.values.isEmpty == false)
     }
 
     @Test func finishingWithLiveMeteredValuesFitsThemToTheExportedDuration() async throws {
@@ -95,7 +95,7 @@ private func beginTone(
 
         try await finisher.discard(id)
 
-        #expect(!fileExists(finisher.captureURL(id)))
+        #expect(fileExists(finisher.captureURL(id)) == false)
         #expect(try await file(store, id) == nil)
         #expect(try await recording(store, id) == nil)
         #expect(try await store.pendingChangeCount() == 0)
@@ -112,13 +112,13 @@ private func beginTone(
 
         #expect(try await finisher.finish(id) == nil)
 
-        #expect(!fileExists(finisher.captureURL(id)))
+        #expect(fileExists(finisher.captureURL(id)) == false)
         #expect(try await file(store, id) == nil)
         #expect(try await recording(store, id) == nil)
     }
 }
 
-@Suite struct CaptureRecoveryTests {
+@Suite(.timeLimit(.minutes(1))) struct CaptureRecoveryTests {
     @Test func aCaptureCutShortIsFinishedUnderItsTuneAndStart() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -142,7 +142,7 @@ private func beginTone(
         #expect(row.label == defaultRecordingLabel(recordedAt: noon))
         #expect(try await file(store, id)?.localState == .captured)
         #expect(try await duration(of: finisher.finishedURL(id)) > 1.5)
-        #expect(!fileExists(finisher.captureURL(id)))
+        #expect(fileExists(finisher.captureURL(id)) == false)
     }
 
     @Test func aCaptureFileWithNoRowBecomesAnUnfiledRecording() async throws {
@@ -236,7 +236,7 @@ private func beginTone(
 
         await finisher.recoverLeftovers()
 
-        #expect(!fileExists(finisher.captureURL(id)))
+        #expect(fileExists(finisher.captureURL(id)) == false)
         #expect(try await store.read { db in try Recording.fetchCount(db) } == 1)
     }
 
@@ -260,7 +260,7 @@ private func beginTone(
     }
 }
 
-@Suite struct CaptureRecoveryCutoffTests {
+@Suite(.timeLimit(.minutes(1))) struct CaptureRecoveryCutoffTests {
     @Test func aCaptureBegunAfterRecoveryStartedIsLeftAlone() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -273,7 +273,7 @@ private func beginTone(
     }
 }
 
-@Suite struct CaptureRecoveryFailureTests {
+@Suite(.timeLimit(.minutes(1))) struct CaptureRecoveryFailureTests {
     @Test func anUnreadableCaptureStaysAndDoesNotBlockTheOthers() async throws {
         let root = TemporaryRoot()
         let store = try root.open()

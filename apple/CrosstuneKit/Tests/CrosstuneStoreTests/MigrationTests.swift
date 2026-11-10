@@ -73,7 +73,7 @@ private struct V4Fixture {
     }
 }
 
-@Test func migratingFromV4KeepsDeviceOnlyData() async throws {
+@Test(.timeLimit(.minutes(1))) func migratingFromV4KeepsDeviceOnlyData() async throws {
     let root = TemporaryRoot()
     let fixture = try V4Fixture(root: root)
 
@@ -707,7 +707,7 @@ private struct V4Fixture {
     let after = try await store.read { db in try Row.fetchAll(db, sql: outbox).map { Array($0.databaseValues) } }
     // Every column but the table name stays as it was, `seq` included, so the queue keeps its order.
     #expect(after.map { $0.dropLast() } == before.map { $0.dropLast() })
-    #expect(after.map { String.fromDatabaseValue($0.last!) } == ["tunes", "scans", "scans", "lists"])
+    #expect(after.map { $0.last.flatMap(String.fromDatabaseValue) } == ["tunes", "scans", "scans", "lists"])
     let queued = try await store.pendingChanges(limit: 10)
     #expect(queued.map(\.tableName) == [.tunes, .scans, .scans, .lists])
 }
@@ -1252,7 +1252,7 @@ private let v16Schema = """
 
     try queue.read { db in
         let columns = try db.columns(in: "entitlements").map(\.name)
-        #expect(!columns.contains("free_quota_bytes"))
+        #expect(columns.contains("free_quota_bytes") == false)
         #expect(try String.fetchOne(db, sql: "SELECT value FROM meta WHERE key = 'pull_cursor'") == "40")
         #expect(try String.fetchOne(db, sql: "SELECT value FROM meta WHERE key = 'scan_requeues'") == nil)
         let stored = try Entitlement.fetchOne(db, key: "e-1")

@@ -15,7 +15,7 @@ private func file(blobStartMs: Int64 = 0) -> RecordingFile {
     RecordingFile(id: "r1", localState: .downloaded, blobStartMs: blobStartMs)
 }
 
-@Suite struct PlaybackWindowRecordingTests {
+struct PlaybackWindowRecordingTests {
     @Test func aCapturedFileOffsetsTheTrimFromItsOwnStart() {
         let window = PlaybackWindow.make(
             recording: recording(trimStartMs: 1000, trimEndMs: 3000), file: file(), fileDuration: 4)

@@ -54,7 +54,7 @@ final class Flag: Sendable {
 let request = HTTPRequest(method: .get, scheme: "https", authority: "api.example.test", path: "/v1/me")
 let baseURL = URL(string: "https://api.example.test")!
 
-@Test func signsTheRequestWithTheTokenAndTheClientVersion() async throws {
+@Test(.timeLimit(.minutes(1))) func signsTheRequestWithTheTokenAndTheClientVersion() async throws {
     let server = ScriptedServer(.ok)
     let middleware = AuthMiddleware(tokens: CountingTokens(), clientVersion: "0.7.0")
 
@@ -65,7 +65,7 @@ let baseURL = URL(string: "https://api.example.test")!
     #expect(sent.headerFields[HTTPField.Name("X-Client-Version")!] == "0.7.0")
 }
 
-@Test func sendsNothingWithoutASignedInUser() async throws {
+@Test(.timeLimit(.minutes(1))) func sendsNothingWithoutASignedInUser() async throws {
     let server = ScriptedServer(.ok)
     let middleware = AuthMiddleware(tokens: CountingTokens(signedIn: false), clientVersion: "0.7.0")
 
@@ -75,7 +75,7 @@ let baseURL = URL(string: "https://api.example.test")!
     #expect(server.seen.isEmpty)
 }
 
-@Test func retriesAnUnauthorizedRequestOnceWithAFreshToken() async throws {
+@Test(.timeLimit(.minutes(1))) func retriesAnUnauthorizedRequestOnceWithAFreshToken() async throws {
     let server = ScriptedServer(.unauthorized, .ok)
     let tokens = CountingTokens()
     let flag = Flag()
@@ -87,10 +87,10 @@ let baseURL = URL(string: "https://api.example.test")!
     #expect(response.status == .ok)
     #expect(tokens.refreshes == [false, true])
     #expect(server.seen.map { $0.headerFields[.authorization] } == ["Bearer token-1", "Bearer token-2"])
-    #expect(!flag.isRaised)
+    #expect(flag.isRaised == false)
 }
 
-@Test func reportsASessionTheAPIKeepsRejecting() async throws {
+@Test(.timeLimit(.minutes(1))) func reportsASessionTheAPIKeepsRejecting() async throws {
     let server = ScriptedServer(.unauthorized, .unauthorized)
     let flag = Flag()
     let middleware = AuthMiddleware(tokens: CountingTokens(), clientVersion: "0.7.0", onUnauthorized: { flag.raise() })
@@ -103,7 +103,7 @@ let baseURL = URL(string: "https://api.example.test")!
     #expect(flag.isRaised)
 }
 
-@Test func doesNotResendABodyThatCanBeReadOnlyOnce() async throws {
+@Test(.timeLimit(.minutes(1))) func doesNotResendABodyThatCanBeReadOnlyOnce() async throws {
     let server = ScriptedServer(.unauthorized)
     let flag = Flag()
     let middleware = AuthMiddleware(tokens: CountingTokens(), clientVersion: "0.7.0", onUnauthorized: { flag.raise() })
@@ -128,7 +128,7 @@ func problemServer(type: String) -> @Sendable (HTTPRequest, HTTPBody?, URL) asyn
     }
 }
 
-@Test func reportsADeletedAccountWithoutRetryingOrAskingForSignIn() async throws {
+@Test(.timeLimit(.minutes(1))) func reportsADeletedAccountWithoutRetryingOrAskingForSignIn() async throws {
     let deleted = Flag()
     let rejected = Flag()
     let tokens = CountingTokens()
@@ -142,14 +142,14 @@ func problemServer(type: String) -> @Sendable (HTTPRequest, HTTPBody?, URL) asyn
 
     #expect(response.status == .unauthorized)
     #expect(deleted.isRaised)
-    #expect(!rejected.isRaised)
+    #expect(rejected.isRaised == false)
     #expect(tokens.refreshes == [false])
     // The body is handed on intact, so the generated client still decodes the problem.
     let text = try await String(collecting: try #require(body), upTo: 1024)
     #expect(text.contains(AuthMiddleware.accountDeletedProblem))
 }
 
-@Test func anOtherUnauthorizedProblemIsNotADeletedAccount() async throws {
+@Test(.timeLimit(.minutes(1))) func anOtherUnauthorizedProblemIsNotADeletedAccount() async throws {
     let deleted = Flag()
     let rejected = Flag()
     let middleware = AuthMiddleware(
@@ -159,13 +159,13 @@ func problemServer(type: String) -> @Sendable (HTTPRequest, HTTPBody?, URL) asyn
     _ = try await middleware.intercept(
         request, body: nil, baseURL: baseURL, operationID: "me", next: problemServer(type: "about:blank"))
 
-    #expect(!deleted.isRaised)
+    #expect(deleted.isRaised == false)
     #expect(rejected.isRaised)
 }
 
 struct StreamBroke: Error {}
 
-@Test func anOversizedUnauthorizedBodyIsAPlainUnauthorizedAndStopsBeingRead() async throws {
+@Test(.timeLimit(.minutes(1))) func anOversizedUnauthorizedBodyIsAPlainUnauthorizedAndStopsBeingRead() async throws {
     let chunkSize = 1024
     let chunkCount = AuthMiddleware.maxProblemBytes / chunkSize * 4
     let served = Mutex(0)
@@ -182,21 +182,21 @@ struct StreamBroke: Error {}
 
     let (response, accountDeleted) = await AuthMiddleware.readingProblem((HTTPResponse(status: .unauthorized), body))
 
-    #expect(!accountDeleted)
+    #expect(accountDeleted == false)
     #expect(response.0.status == .unauthorized)
     #expect(served.withLock { $0 } < chunkCount / 2)
 }
 
-@Test func anOversizedBodyOfKnownLengthIsNotRead() async throws {
+@Test(.timeLimit(.minutes(1))) func anOversizedBodyOfKnownLengthIsNotRead() async throws {
     let body = HTTPBody(Data(count: AuthMiddleware.maxProblemBytes + 1))
 
     let (response, accountDeleted) = await AuthMiddleware.readingProblem((HTTPResponse(status: .unauthorized), body))
 
-    #expect(!accountDeleted)
+    #expect(accountDeleted == false)
     #expect(response.1 === body)
 }
 
-@Test func anUnreadableUnauthorizedBodyIsAPlainUnauthorized() async throws {
+@Test(.timeLimit(.minutes(1))) func anUnreadableUnauthorizedBodyIsAPlainUnauthorized() async throws {
     let stream = AsyncThrowingStream<ArraySlice<UInt8>, any Error> { continuation in
         continuation.yield(ArraySlice(#"{"type":"#.utf8))
         continuation.finish(throwing: StreamBroke())
@@ -205,7 +205,7 @@ struct StreamBroke: Error {}
 
     let (response, accountDeleted) = await AuthMiddleware.readingProblem((HTTPResponse(status: .unauthorized), body))
 
-    #expect(!accountDeleted)
+    #expect(accountDeleted == false)
     #expect(response.0.status == .unauthorized)
 }
 
@@ -215,7 +215,7 @@ final class Counter: Sendable {
     func increment() { value.withLock { $0 += 1 } }
 }
 
-@Test func signsRequestsWithThePlatform() async throws {
+@Test(.timeLimit(.minutes(1))) func signsRequestsWithThePlatform() async throws {
     let server = ScriptedServer(.ok)
     let middleware = AuthMiddleware(tokens: CountingTokens(), clientVersion: "0.7.0")
 
@@ -225,7 +225,7 @@ final class Counter: Sendable {
     #expect(sent.headerFields[HTTPField.Name("X-Client-Platform")!] == AuthMiddleware.platform)
 }
 
-@Test(arguments: ["me", "searchLinks"])
+@Test(.timeLimit(.minutes(1)), arguments: ["me", "searchLinks"])
 func a426ReportsUpdateRequiredWithoutRetrying(operationID: String) async throws {
     let server = ScriptedServer(.upgradeRequired)
     let tokens = CountingTokens()
@@ -241,11 +241,11 @@ func a426ReportsUpdateRequiredWithoutRetrying(operationID: String) async throws 
     #expect(response.status == .upgradeRequired)
     #expect(server.seen.count == 1)
     #expect(required.count == 1)
-    #expect(!rejected.isRaised)
+    #expect(rejected.isRaised == false)
     #expect(tokens.refreshes == [false])
 }
 
-@Test func a426AfterAFreshTokenResendReportsUpdateRequired() async throws {
+@Test(.timeLimit(.minutes(1))) func a426AfterAFreshTokenResendReportsUpdateRequired() async throws {
     let server = ScriptedServer(.unauthorized, .upgradeRequired)
     let required = Counter()
     let rejected = Flag()
@@ -259,5 +259,5 @@ func a426ReportsUpdateRequiredWithoutRetrying(operationID: String) async throws 
     #expect(response.status == .upgradeRequired)
     #expect(server.seen.count == 2)
     #expect(required.count == 1)
-    #expect(!rejected.isRaised)
+    #expect(rejected.isRaised == false)
 }

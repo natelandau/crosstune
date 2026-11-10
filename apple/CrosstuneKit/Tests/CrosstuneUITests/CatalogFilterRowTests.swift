@@ -3,7 +3,7 @@ import Testing
 @testable import CrosstuneUI
 
 @MainActor
-@Suite struct CatalogFilterRowTests {
+struct CatalogFilterRowTests {
     @Test func statusLabelNamesTheChosenStatusOrAny() {
         #expect(CatalogFilterRow.statusLabel(nil) == "Status: Any")
         #expect(CatalogFilterRow.statusLabel("want_to_learn") == "Status: Unknown")
@@ -40,7 +40,7 @@ import Testing
     /// search field holds no count.
     @Test func filtersStayOutOfTheRowOnIOS() {
         #if os(iOS)
-            #expect(!CatalogFilterRow.filtersInSearch)
+            #expect(CatalogFilterRow.filtersInSearch == false)
         #endif
     }
 
@@ -48,26 +48,29 @@ import Testing
         let empty = emptied(full)
         let set = withFilters(empty, CatalogFilters(status: "learning"))
         #expect(CatalogScreen.showsBarFilters(entries: set.entries, filters: set.filters, isSelecting: false))
-        #expect(!CatalogScreen.showsBarFilters(entries: set.entries, filters: set.filters, isSelecting: true))
-        #expect(!CatalogScreen.showsBarFilters(entries: empty.entries, filters: empty.filters, isSelecting: false))
+        #expect(CatalogScreen.showsBarFilters(entries: set.entries, filters: set.filters, isSelecting: true) == false)
+        #expect(
+            CatalogScreen.showsBarFilters(entries: empty.entries, filters: empty.filters, isSelecting: false) == false)
         #expect(CatalogScreen.showsBarFilters(entries: full.entries, filters: full.filters, isSelecting: false))
-        #expect(!CatalogScreen.showsBarFilters(entries: full.entries, filters: full.filters, isSelecting: true))
+        #expect(CatalogScreen.showsBarFilters(entries: full.entries, filters: full.filters, isSelecting: true) == false)
     }
 
     @Test func emptyCatalogHidesTheFilterRow() {
         #expect(CatalogFilterRow.isShownOnPhoneAndPad(full, hasErrors: false))
         let empty = emptied(full)
-        #expect(!CatalogFilterRow.isShownOnPhoneAndPad(empty, hasErrors: false))
+        #expect(CatalogFilterRow.isShownOnPhoneAndPad(empty, hasErrors: false) == false)
         // An error still needs a place to read.
         #expect(CatalogFilterRow.isShownOnPhoneAndPad(empty, hasErrors: true))
-        // A stored filter stays reachable so it can be cleared.
-        for filters in [
-            CatalogFilters(status: "learning"), CatalogFilters(facets: [.key: "D"]),
-            CatalogFilters(facets: [.genre: "Old-time"]), CatalogFilters(archived: true),
-            CatalogFilters(missing: .facet(.key)), CatalogFilters(missing: .audio),
-        ] {
-            #expect(CatalogFilterRow.isShownOnPhoneAndPad(withFilters(empty, filters), hasErrors: false))
-        }
+    }
+
+    /// A stored filter stays reachable so it can be cleared.
+    @Test(arguments: [
+        CatalogFilters(status: "learning"), CatalogFilters(facets: [.key: "D"]),
+        CatalogFilters(facets: [.genre: "Old-time"]), CatalogFilters(archived: true),
+        CatalogFilters(missing: .facet(.key)), CatalogFilters(missing: .audio),
+    ])
+    func emptyCatalogWithAStoredFilterShowsTheFilterRow(filters: CatalogFilters) {
+        #expect(CatalogFilterRow.isShownOnPhoneAndPad(withFilters(emptied(full), filters), hasErrors: false))
     }
 
     #if os(macOS)
@@ -91,28 +94,28 @@ import Testing
         @Test func filterRowHiddenWhenCatalogIsEmpty() {
             #expect(CatalogFilterRow.isShownOnMac(full, hasErrors: false))
             let empty = emptied(full)
-            #expect(!CatalogFilterRow.isShownOnMac(empty, hasErrors: false))
+            #expect(CatalogFilterRow.isShownOnMac(empty, hasErrors: false) == false)
             // An error still needs a place to read.
             #expect(CatalogFilterRow.isShownOnMac(empty, hasErrors: true))
             // A catalog with no key to filter by and nothing set has nothing to show either.
-            #expect(!CatalogFilterRow.isShownOnMac(results(full, facets: []), hasErrors: false))
+            #expect(CatalogFilterRow.isShownOnMac(results(full, facets: []), hasErrors: false) == false)
         }
 
         @Test func emptyCatalogIsNoTunesWithNoSearch() {
-            #expect(!CatalogScreen.isEmptyCatalog(full, query: ""))
+            #expect(CatalogScreen.isEmptyCatalog(full, query: "") == false)
             #expect(CatalogScreen.isEmptyCatalog(emptied(full), query: ""))
             #expect(CatalogScreen.isEmptyCatalog(emptied(full), query: "  "))
-            #expect(!CatalogScreen.isEmptyCatalog(emptied(full), query: "Soldier"))
-            #expect(!CatalogScreen.isEmptyCatalog(nil, query: ""))
+            #expect(CatalogScreen.isEmptyCatalog(emptied(full), query: "Soldier") == false)
+            #expect(CatalogScreen.isEmptyCatalog(nil, query: "") == false)
         }
 
         /// The search field's filters button is disabled with nothing to filter, as it does while
         /// selecting, and stays up while the catalog loads so it never flickers.
         @Test func filtersAreDisabledForAnEmptyCatalogOrASelection() {
-            #expect(!CatalogScreen.filtersAreDisabled(full, isSelecting: false))
+            #expect(CatalogScreen.filtersAreDisabled(full, isSelecting: false) == false)
             #expect(CatalogScreen.filtersAreDisabled(full, isSelecting: true))
             #expect(CatalogScreen.filtersAreDisabled(emptied(full), isSelecting: false))
-            #expect(!CatalogScreen.filtersAreDisabled(nil, isSelecting: false))
+            #expect(CatalogScreen.filtersAreDisabled(nil, isSelecting: false) == false)
         }
     #endif
 

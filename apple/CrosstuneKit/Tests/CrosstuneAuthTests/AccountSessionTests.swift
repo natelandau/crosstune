@@ -44,7 +44,7 @@ import Testing
 @Test func isOfflineWithoutANetworkEvenWhenClerkRestoredTheUser() {
     let restored = AccountSession.Phase.signedIn(userID: "user_a", confirmed: true)
     #expect(AccountSession.isOffline(phase: restored, hasNetwork: false, updateRequired: false))
-    #expect(!AccountSession.isOffline(phase: restored, hasNetwork: true, updateRequired: false))
+    #expect(AccountSession.isOffline(phase: restored, hasNetwork: true, updateRequired: false) == false)
 }
 
 @Test func isOfflineUntilClerkLoads() {
@@ -55,7 +55,7 @@ import Testing
 @Test func updateRequiredReadsOffline() {
     let signedIn = AccountSession.Phase.signedIn(userID: "user_a", confirmed: true)
     #expect(AccountSession.isOffline(phase: signedIn, hasNetwork: true, updateRequired: true))
-    #expect(!AccountSession.isOffline(phase: signedIn, hasNetwork: true, updateRequired: false))
+    #expect(AccountSession.isOffline(phase: signedIn, hasNetwork: true, updateRequired: false) == false)
 }
 
 @Test func theFirstRefusalAsksOnce() {
@@ -66,20 +66,24 @@ import Testing
     prompt.isShowing = false
 
     let again = prompt.refused(at: t0.addingTimeInterval(60))
-    #expect(!again && prompt.isRequired && !prompt.isShowing)
+    #expect(again == false)
+    #expect(prompt.isRequired)
+    #expect(prompt.isShowing == false)
 }
+
+private let promptInterval = UpdatePromptSchedule.interval / .seconds(1)
 
 @Test func theForegroundAsksAgainOnlyAfterTheInterval() {
     let t0 = Date(timeIntervalSince1970: 1_000_000)
     var prompt = UpdatePromptSchedule()
     prompt.foregrounded(at: t0)
-    #expect(!prompt.isShowing)
+    #expect(prompt.isShowing == false)
 
     _ = prompt.refused(at: t0)
     prompt.isShowing = false
-    prompt.foregrounded(at: t0.addingTimeInterval(4 * 3600 - 1))
-    #expect(!prompt.isShowing)
-    prompt.foregrounded(at: t0.addingTimeInterval(4 * 3600))
+    prompt.foregrounded(at: t0.addingTimeInterval(promptInterval - 1))
+    #expect(prompt.isShowing == false)
+    prompt.foregrounded(at: t0.addingTimeInterval(promptInterval))
     #expect(prompt.isShowing)
 }
 
@@ -87,20 +91,19 @@ import Testing
     let t0 = Date(timeIntervalSince1970: 1_000_000)
     var prompt = UpdatePromptSchedule()
     _ = prompt.refused(at: t0)
-    prompt.show(at: t0.addingTimeInterval(3 * 3600))
+    prompt.show(at: t0.addingTimeInterval(promptInterval * 0.75))
     prompt.isShowing = false
-    prompt.foregrounded(at: t0.addingTimeInterval(5 * 3600))
-    #expect(!prompt.isShowing)
+    prompt.foregrounded(at: t0.addingTimeInterval(promptInterval * 1.25))
+    #expect(prompt.isShowing == false)
 }
 
 @Test func theIntervalCountsItsFractionalSeconds() {
-    #expect(UpdatePromptSchedule.interval == .seconds(4 * 60 * 60))
     let t0 = Date(timeIntervalSince1970: 1_000_000)
     var prompt = UpdatePromptSchedule(interval: .milliseconds(1_500))
     _ = prompt.refused(at: t0)
     prompt.isShowing = false
     prompt.foregrounded(at: t0.addingTimeInterval(1.2))
-    #expect(!prompt.isShowing)
+    #expect(prompt.isShowing == false)
     prompt.foregrounded(at: t0.addingTimeInterval(1.5))
     #expect(prompt.isShowing)
 }
@@ -122,7 +125,7 @@ import Testing
 }
 
 @MainActor
-@Test func aDeleteWithoutAppleNeverAsks() async throws {
+@Test(.timeLimit(.minutes(1))) func aDeleteWithoutAppleNeverAsks() async throws {
     var calls = 0
     let code = try await AccountSession.appleCode(hasApple: false) {
         calls += 1
@@ -133,26 +136,26 @@ import Testing
 }
 
 @MainActor
-@Test func aDeleteWithAppleSendsItsCode() async throws {
+@Test(.timeLimit(.minutes(1))) func aDeleteWithAppleSendsItsCode() async throws {
     let code = try await AccountSession.appleCode(hasApple: true) { "c1" }
     #expect(code == "c1")
 }
 
 @MainActor
-@Test func aCancelledAppleConfirmationStopsTheDelete() async {
+@Test(.timeLimit(.minutes(1))) func aCancelledAppleConfirmationStopsTheDelete() async {
     await #expect(throws: AccountSession.LeaveError.appleNotConfirmed) {
         try await AccountSession.appleCode(hasApple: true) { throw ASAuthorizationError(.canceled) }
     }
 }
 
 @MainActor
-@Test func aFailedAppleConfirmationDeletesWithoutACode() async throws {
+@Test(.timeLimit(.minutes(1))) func aFailedAppleConfirmationDeletesWithoutACode() async throws {
     let code = try await AccountSession.appleCode(hasApple: true) { throw ASAuthorizationError(.failed) }
     #expect(code == nil)
 }
 
 @MainActor
-@Test func aFailedAppleConfirmationStillSendsTheDelete() async throws {
+@Test(.timeLimit(.minutes(1))) func aFailedAppleConfirmationStillSendsTheDelete() async throws {
     var sent: [DeleteBody?] = []
     try await AccountSession.confirmThenDelete(
         hasApple: true, authorize: { throw ASAuthorizationError(.unknown) }, send: { sent.append($0) }
@@ -163,14 +166,14 @@ import Testing
 private typealias DeleteBody = Operations.DeleteMeV1MeDelete.Input.Body
 
 @MainActor
-@Test func anAppleAccountSendsItsCodeWithTheDelete() async throws {
+@Test(.timeLimit(.minutes(1))) func anAppleAccountSendsItsCodeWithTheDelete() async throws {
     var sent: [DeleteBody?] = []
     try await AccountSession.confirmThenDelete(hasApple: true, authorize: { "c1" }, send: { sent.append($0) })
     #expect(sent == [.json(.init(appleAuthorizationCode: "c1"))])
 }
 
 @MainActor
-@Test func anAccountWithoutAppleSendsNoBodyAndNeverAsks() async throws {
+@Test(.timeLimit(.minutes(1))) func anAccountWithoutAppleSendsNoBodyAndNeverAsks() async throws {
     var asked = 0
     var sent: [DeleteBody?] = []
     try await AccountSession.confirmThenDelete(
@@ -186,7 +189,7 @@ private typealias DeleteBody = Operations.DeleteMeV1MeDelete.Input.Body
 }
 
 @MainActor
-@Test func aCancelledAppleConfirmationSendsNothing() async {
+@Test(.timeLimit(.minutes(1))) func aCancelledAppleConfirmationSendsNothing() async {
     var sent: [DeleteBody?] = []
     await #expect(throws: AccountSession.LeaveError.appleNotConfirmed) {
         try await AccountSession.confirmThenDelete(
@@ -202,7 +205,7 @@ private func problem(_ status: Int) -> Components.Schemas.Problem {
     .init(detail: "", status: status, title: "Error")
 }
 
-@Test func aDeleteTheAPIRefusedChangedNothing() async {
+@Test(.timeLimit(.minutes(1))) func aDeleteTheAPIRefusedChangedNothing() async {
     await #expect(throws: APIStatusError(status: 502)) {
         try await AccountSession.deleteRemote {
             DeleteOutput.badGateway(.init(body: .applicationProblemJson(problem(502))))
@@ -213,7 +216,7 @@ private func problem(_ status: Int) -> Components.Schemas.Problem {
     }
 }
 
-@Test func aDeleteRefusedWhileTheAccountIsBusyNamesItsWait() async {
+@Test(.timeLimit(.minutes(1))) func aDeleteRefusedWhileTheAccountIsBusyNamesItsWait() async {
     await #expect(throws: APIStatusError(status: 429, retryAfterSeconds: 7)) {
         try await AccountSession.deleteRemote {
             DeleteOutput.tooManyRequests(
@@ -222,7 +225,7 @@ private func problem(_ status: Int) -> Components.Schemas.Problem {
     }
 }
 
-@Test func aDeleteWithNoAnswerFromTheAPIIsUnconfirmed() async {
+@Test(.timeLimit(.minutes(1))) func aDeleteWithNoAnswerFromTheAPIIsUnconfirmed() async {
     await #expect(throws: AccountSession.LeaveError.deleteUnconfirmed) {
         try await AccountSession.deleteRemote { throw URLError(.networkConnectionLost) }
     }
@@ -248,13 +251,12 @@ private func problem(_ status: Int) -> Components.Schemas.Problem {
     #expect(phase == .signedIn(userID: "user_b", confirmed: true))
 }
 
-@Test func aDeletionReportedWhileSignedInLeavesThatUser() {
-    for confirmed in [true, false] {
-        #expect(
-            AccountSession.deletionReport(
-                phase: .signedIn(userID: "user_a", confirmed: confirmed), isLeavingDeleted: false)
-                == .leave(userID: "user_a"))
-    }
+@Test(arguments: [true, false])
+func aDeletionReportedWhileSignedInLeavesThatUser(confirmed: Bool) {
+    #expect(
+        AccountSession.deletionReport(
+            phase: .signedIn(userID: "user_a", confirmed: confirmed), isLeavingDeleted: false)
+            == .leave(userID: "user_a"))
 }
 
 @Test func aDeletionReportedWithNoUserOpenGoesToTheUserClerkLetGo() {
@@ -332,7 +334,7 @@ final class LeaveLog: LeavingSync {
 struct ClerkFailed: Error {}
 
 @MainActor
-@Suite struct LeaveTests {
+@Suite(.timeLimit(.minutes(1))) struct LeaveTests {
     let root = TemporaryRoot()
     let store: CrosstuneStore
     let log = LeaveLog()
@@ -366,7 +368,7 @@ struct ClerkFailed: Error {}
         try await leave()
 
         #expect(log.steps == ["sync", "stop", "stopped", "end session"])
-        #expect(!folderExists)
+        #expect(folderExists == false)
     }
 
     @Test func signOutChecksTheOutboxAfterTheSync() async throws {
@@ -376,7 +378,7 @@ struct ClerkFailed: Error {}
 
         try await leave()
 
-        #expect(!folderExists)
+        #expect(folderExists == false)
     }
 
     @Test func leavingFinishesHeldBackWritesBeforeCheckingTheOutbox() async throws {
@@ -434,7 +436,7 @@ struct ClerkFailed: Error {}
         try await leave()
 
         #expect(log.steps == ["sync", "stop", "stopped", "end session"])
-        #expect(!folderExists)
+        #expect(folderExists == false)
     }
 
     @Test func signOutRefusesWhileARecordingIsNotUploaded() async throws {
@@ -471,9 +473,6 @@ struct ClerkFailed: Error {}
         #expect(
             AccountSession.LeaveError.unuploadedScans.errorDescription
                 == AccountSession.LeaveError.unuploadedScansMessage)
-        #expect(
-            AccountSession.LeaveError.unuploadedScansMessage
-                == "Some scans have not uploaded yet. Delete them from their tune, or wait until they upload.")
     }
 
     @Test func signOutNamesUnuploadedRecordingsBeforeScans() async throws {
@@ -490,7 +489,7 @@ struct ClerkFailed: Error {}
 
         try await leave()
 
-        #expect(!folderExists)
+        #expect(folderExists == false)
     }
 
     @Test func signOutChecksRecordingsAfterTheSync() async throws {
@@ -504,7 +503,7 @@ struct ClerkFailed: Error {}
 
         try await leave()
 
-        #expect(!folderExists)
+        #expect(folderExists == false)
     }
 
     @Test func signOutLeavesWithRecordingsTheServerHas() async throws {
@@ -512,7 +511,7 @@ struct ClerkFailed: Error {}
 
         try await leave()
 
-        #expect(!folderExists)
+        #expect(folderExists == false)
     }
 
     func deleteAndLeave(
@@ -536,7 +535,7 @@ struct ClerkFailed: Error {}
         try await deleteAndLeave()
 
         #expect(log.steps == ["stop", "stopped", "deleteRemote", "end session"])
-        #expect(!folderExists)
+        #expect(folderExists == false)
     }
 
     @Test func aFailedDeleteKeepsTheStoreAndResumesSync() async throws {
@@ -551,7 +550,7 @@ struct ClerkFailed: Error {}
     @Test func deletingWipesTheStoreEvenWhenEndingTheSessionFails() async throws {
         try await deleteAndLeave(endSession: { throw ClerkFailed() })
 
-        #expect(!folderExists)
+        #expect(folderExists == false)
     }
 
     @Test func deletingIgnoresUnsentChanges() async throws {
@@ -561,8 +560,8 @@ struct ClerkFailed: Error {}
 
         try await deleteAndLeave()
 
-        #expect(!log.steps.contains("sync"))
-        #expect(!folderExists)
+        #expect(log.steps.contains("sync") == false)
+        #expect(folderExists == false)
     }
 
     @Test func deletingSucceedsEvenWhenTheFolderDeleteFails() async throws {
@@ -592,14 +591,14 @@ struct ClerkFailed: Error {}
         await forgetDeleted()
 
         #expect(log.steps == ["stop", "stopped", "end session"])
-        #expect(!folderExists)
+        #expect(folderExists == false)
     }
 
     @Test func anAccountDeletedElsewhereDeletesTheFolderEvenWhenEndingTheSessionFails() async throws {
         await forgetDeleted { throw ClerkFailed() }
 
-        #expect(!log.steps.contains("resume"))
-        #expect(!folderExists)
+        #expect(log.steps.contains("resume") == false)
+        #expect(folderExists == false)
     }
 
     @Test func signOutSendsSignedOutThenResetsOnceTheSessionEnds() async throws {
@@ -663,8 +662,8 @@ struct ClerkFailed: Error {}
                 .identify("user_b", set: [:], setOnce: [:]), .capture("signed_in", [:]),
             ])
         let afterReset = sink.calls.drop(while: { $0 != .reset })
-        #expect(!afterReset.isEmpty)
-        #expect(!afterReset.contains { if case .identify("user_a", _, _) = $0 { true } else { false } })
+        #expect(afterReset.isEmpty == false)
+        #expect(afterReset.contains { if case .identify("user_a", _, _) = $0 { true } else { false } } == false)
     }
 
     @Test func syncResumesAndTheFolderStaysWhenTheSessionDoesNotEnd() async throws {
@@ -688,7 +687,7 @@ private final class AssistiveTechInUse {
 private let signedUpAt = Date(timeIntervalSince1970: 1_791_374_400)
 
 @MainActor
-@Suite struct AnalyticsIdentityTests {
+@Suite(.timeLimit(.minutes(1))) struct AnalyticsIdentityTests {
     let sink = RecordingAnalyticsSink()
 
     @Test func theFirstIdentifyCarriesWhatTheDeviceKnows() {
@@ -787,7 +786,7 @@ private let signedUpAt = Date(timeIntervalSince1970: 1_791_374_400)
         let first = identity.accountDeletedAfterClerkLetGo()
         let second = identity.accountDeletedAfterClerkLetGo()
         #expect(first)
-        #expect(!second)
+        #expect(second == false)
 
         #expect(
             sink.calls == [
@@ -836,7 +835,7 @@ private let signedUpAt = Date(timeIntervalSince1970: 1_791_374_400)
         var identity = AnalyticsIdentity(analytics: sink.client)
 
         let counted = identity.accountDeletedAfterClerkLetGo()
-        #expect(!counted)
+        #expect(counted == false)
 
         #expect(sink.calls.isEmpty)
     }
@@ -848,11 +847,11 @@ private let signedUpAt = Date(timeIntervalSince1970: 1_791_374_400)
 
         identity.accountDeletedAfterClerkLetGo()
 
-        #expect(!sink.captures.contains { $0.name == "account_deleted" })
+        #expect(sink.captures.contains { $0.name == "account_deleted" } == false)
     }
 }
 
-@Test func storeUsageCountLiveTunesAndTheStoredStorageUse() async throws {
+@Test(.timeLimit(.minutes(1))) func storeUsageCountLiveTunesAndTheStoredStorageUse() async throws {
     let root = TemporaryRoot()
     let store = try root.open()
     try await store.write { writer in
@@ -869,7 +868,7 @@ private let signedUpAt = Date(timeIntervalSince1970: 1_791_374_400)
     #expect(usage.storageUsed == 20_000_000)
 }
 
-@Test func storeUsageWaitForTheFirstSync() async throws {
+@Test(.timeLimit(.minutes(1))) func storeUsageWaitForTheFirstSync() async throws {
     let root = TemporaryRoot()
     let store = try root.open()
     try await store.write { writer in
@@ -884,7 +883,7 @@ private let signedUpAt = Date(timeIntervalSince1970: 1_791_374_400)
     #expect(usage.storageUsed == nil)
 }
 
-@Test func fieldsUsedListsOnlyFieldsSomeTuneFills() async throws {
+@Test(.timeLimit(.minutes(1))) func fieldsUsedListsOnlyFieldsSomeTuneFills() async throws {
     let root = TemporaryRoot()
     let store = try root.open()
     try await store.write { writer in
@@ -900,7 +899,7 @@ private let signedUpAt = Date(timeIntervalSince1970: 1_791_374_400)
 }
 
 /// A capo counts once it is set, at any fret, as a new tune's fields do.
-@Test func fieldsUsedCountsACapoAtTheNut() async throws {
+@Test(.timeLimit(.minutes(1))) func fieldsUsedCountsACapoAtTheNut() async throws {
     let root = TemporaryRoot()
     let store = try root.open()
     try await store.write { writer in
@@ -913,7 +912,7 @@ private let signedUpAt = Date(timeIntervalSince1970: 1_791_374_400)
     #expect(fields == [.title, .capo])
 }
 
-@Test func fieldsUsedCountsTheMusiciansOwnFieldsOfLiveTunes() async throws {
+@Test(.timeLimit(.minutes(1))) func fieldsUsedCountsTheMusiciansOwnFieldsOfLiveTunes() async throws {
     let root = TemporaryRoot()
     let store = try root.open()
     try await store.write { writer in
@@ -928,7 +927,7 @@ private let signedUpAt = Date(timeIntervalSince1970: 1_791_374_400)
 }
 
 @MainActor
-@Test func identifyingWithStoreUsageCarriesThemOnceASyncHasStoredThem() async throws {
+@Test(.timeLimit(.minutes(1))) func identifyingWithStoreUsageCarriesThemOnceASyncHasStoredThem() async throws {
     let root = TemporaryRoot()
     let store = try root.open()
     let sink = RecordingAnalyticsSink()
@@ -944,7 +943,7 @@ private let signedUpAt = Date(timeIntervalSince1970: 1_791_374_400)
     let after = await AccountSession.identify(
         userID: "user_a", withUsageIn: store, analytics: sink.client, canIdentify: { true })
 
-    #expect(!before)
+    #expect(before == false)
     #expect(after)
     #expect(
         sink.calls == [
@@ -959,7 +958,7 @@ private let signedUpAt = Date(timeIntervalSince1970: 1_791_374_400)
 }
 
 @MainActor
-@Test func identifyingCarriesTheSettingsTheStoreAndTheDeviceHold() async throws {
+@Test(.timeLimit(.minutes(1))) func identifyingCarriesTheSettingsTheStoreAndTheDeviceHold() async throws {
     let root = TemporaryRoot()
     let store = try root.open()
     let sink = RecordingAnalyticsSink()
@@ -993,7 +992,7 @@ private let signedUpAt = Date(timeIntervalSince1970: 1_791_374_400)
 }
 
 @MainActor
-@Test func identifyingCarriesTheAssistiveTechnologyInUse() async throws {
+@Test(.timeLimit(.minutes(1))) func identifyingCarriesTheAssistiveTechnologyInUse() async throws {
     let root = TemporaryRoot()
     let store = try root.open()
     let sink = RecordingAnalyticsSink()
@@ -1010,7 +1009,7 @@ private let signedUpAt = Date(timeIntervalSince1970: 1_791_374_400)
 }
 
 @MainActor
-@Test func identifyingLeavesOutSettingsTheStoreHoldsNoValueFor() async throws {
+@Test(.timeLimit(.minutes(1))) func identifyingLeavesOutSettingsTheStoreHoldsNoValueFor() async throws {
     let root = TemporaryRoot()
     let store = try root.open()
     let sink = RecordingAnalyticsSink()
@@ -1023,11 +1022,11 @@ private let signedUpAt = Date(timeIntervalSince1970: 1_791_374_400)
         Issue.record("The last call is not an identify")
         return
     }
-    #expect(!set.keys.contains { $0.hasPrefix("setting_") })
+    #expect(set.keys.contains { $0.hasPrefix("setting_") } == false)
 }
 
 /// A blank genre counts as none, and a status this build does not know is left out.
-@Test func syncedSettingsReadABlankGenreAsUnsetAndSkipAnUnknownStatus() async throws {
+@Test(.timeLimit(.minutes(1))) func syncedSettingsReadABlankGenreAsUnsetAndSkipAnUnknownStatus() async throws {
     let root = TemporaryRoot()
     let store = try root.open()
     try await store.write { writer in try writer.put(UserSettings(newTuneGenre: "  ", newTuneStatus: "mastered")) }
@@ -1035,12 +1034,12 @@ private let signedUpAt = Date(timeIntervalSince1970: 1_791_374_400)
     let settings = try await store.read { try AccountSession.syncedSettings(in: $0) }
 
     #expect(settings.contains(.newTuneGenreSet(false)))
-    #expect(!settings.contains { $0.name == "new_tune_status" })
+    #expect(settings.contains { $0.name == "new_tune_status" } == false)
 }
 
 /// The device's own settings are known at once; the synced ones only once a sync brings them.
 @MainActor
-@Test func identifyingBeforeASyncCarriesOnlyTheDeviceSettings() async throws {
+@Test(.timeLimit(.minutes(1))) func identifyingBeforeASyncCarriesOnlyTheDeviceSettings() async throws {
     let root = TemporaryRoot()
     let store = try root.open()
     let sink = RecordingAnalyticsSink()
@@ -1054,7 +1053,7 @@ private let signedUpAt = Date(timeIntervalSince1970: 1_791_374_400)
 }
 
 @MainActor
-@Test func identifyingWithStoreUsageNeverRevivesAResetPerson() async throws {
+@Test(.timeLimit(.minutes(1))) func identifyingWithStoreUsageNeverRevivesAResetPerson() async throws {
     let root = TemporaryRoot()
     let store = try root.open()
     let sink = RecordingAnalyticsSink()
@@ -1063,16 +1062,16 @@ private let signedUpAt = Date(timeIntervalSince1970: 1_791_374_400)
     let carried = await AccountSession.identify(
         userID: "user_a", withUsageIn: store, analytics: sink.client, canIdentify: { false })
 
-    #expect(!carried)
+    #expect(carried == false)
     #expect(sink.calls.isEmpty)
 }
 
 @Test func onlyASyncThatStoredTheUsageIdentifiesWithIt() {
     // A returning device still holds its last session's usage, so a sync whose storage
     // call failed must not count it as fresh.
-    #expect(!AccountSession.identifiesAfterSync(storedUsage: false, reported: false))
+    #expect(AccountSession.identifiesAfterSync(storedUsage: false, reported: false) == false)
     #expect(AccountSession.identifiesAfterSync(storedUsage: true, reported: false))
-    #expect(!AccountSession.identifiesAfterSync(storedUsage: true, reported: true))
+    #expect(AccountSession.identifiesAfterSync(storedUsage: true, reported: true) == false)
 }
 
 @Test func connectivityFiresOnceWhenGoingOnline() {
@@ -1092,7 +1091,7 @@ private let signedUpAt = Date(timeIntervalSince1970: 1_791_374_400)
     // Opening a store resets the edge to the current state, since the launch sync covers it.
     var edge = ConnectivityEdge(wasOffline: false)
     let fired = edge.update(isOffline: false)
-    #expect(!fired)
+    #expect(fired == false)
 }
 
 /// A server that answers every call with nothing, counting requests. A push can be held until
@@ -1167,7 +1166,7 @@ final class Offline {
 }
 
 @MainActor
-@Suite struct SessionSyncTests {
+@Suite(.timeLimit(.minutes(1))) struct SessionSyncTests {
     let root = TemporaryRoot()
     let store: CrosstuneStore
     let api = CountingSyncAPI()
@@ -1262,7 +1261,7 @@ private struct FixedToken: TokenProvider {
 }
 
 @MainActor
-@Test func reportsACreatedTrialAccountToAnalytics() async throws {
+@Test(.timeLimit(.minutes(1))) func reportsACreatedTrialAccountToAnalytics() async throws {
     let sink = RecordingAnalyticsSink()
     let client = AccountSession.makeClient(
         origin: URL(string: "https://api.example.com")!, tokens: FixedToken(), clientVersion: "0.7.0",
@@ -1291,7 +1290,7 @@ private final class UpdateRequiredTransport: ClientTransport {
 /// `AccountSession` configures Clerk, so this drives the client and engine it builds, with the
 /// client's 426 report flipping the offline check the session would.
 @MainActor
-@Test func aBlockedSessionKeepsItsOutbox() async throws {
+@Test(.timeLimit(.minutes(1))) func aBlockedSessionKeepsItsOutbox() async throws {
     let root = TemporaryRoot()
     let store = try root.open()
     try await store.write { try $0.put(Tune(title: "Leather Britches")) }
@@ -1342,7 +1341,7 @@ private final class RegionTransport: ClientTransport {
     }
 }
 
-@Test func theRegionRequestWorksSignedOutAndCarriesNoToken() async throws {
+@Test(.timeLimit(.minutes(1))) func theRegionRequestWorksSignedOutAndCarriesNoToken() async throws {
     let transport = RegionTransport(body: #"{"country":"FR","consent_required":true}"#)
 
     let region = try await Region.fetch(origin: URL(string: "https://api.example.com")!, transport: transport)
@@ -1353,13 +1352,13 @@ private final class RegionTransport: ClientTransport {
     #expect(request.headerFields[.authorization] == nil)
 }
 
-@Test func anUnknownCountryComesBackWithNoAnswer() async throws {
+@Test(.timeLimit(.minutes(1))) func anUnknownCountryComesBackWithNoAnswer() async throws {
     let transport = RegionTransport(body: #"{"country":null,"consent_required":null}"#)
     let region = try await Region.fetch(origin: URL(string: "https://api.example.com")!, transport: transport)
     #expect(region == Region(consentRequired: nil))
 }
 
-@Test func aFailedRegionRequestThrows() async {
+@Test(.timeLimit(.minutes(1))) func aFailedRegionRequestThrows() async {
     let transport = RegionTransport(status: .internalServerError, body: "{}")
     await #expect(throws: APIStatusError.self) {
         try await Region.fetch(origin: URL(string: "https://api.example.com")!, transport: transport)

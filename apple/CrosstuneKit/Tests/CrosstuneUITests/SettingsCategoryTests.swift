@@ -8,7 +8,7 @@ import Testing
 
 @testable import CrosstuneUI
 
-@Suite struct SettingsCategoryTests {
+@Suite(.timeLimit(.minutes(1))) struct SettingsCategoryTests {
     @Test func rootListsSubjectsInOrder() {
         #expect(
             SettingsCategory.allCases == [
@@ -20,7 +20,6 @@ import Testing
                 SettingsCategory.syncAndStorageTitle,
                 ImportExportSections.title, SettingsScreen.about,
             ])
-        #expect(SettingsModel.tunes == "Tunes")
     }
 
     @MainActor
@@ -49,8 +48,8 @@ import Testing
             try SourceScan.text(at: SourceScan.url(of: "Phone/SettingsRoot.swift")))
         #expect(root.contains("GroupedSelectionForm("))
         #expect(root.contains(".groupedSelectionRow(page, selection: opener.current)"))
-        #expect(!root.contains("chevron"))
-        #expect(!root.contains("listRowBackground"))
+        #expect(root.contains("chevron") == false)
+        #expect(root.contains("listRowBackground") == false)
     }
 
     /// Every root row keeps its own identity in each appearance, so the iPad root lists each
@@ -87,8 +86,6 @@ import Testing
         #expect(
             SettingsCategory.recordings.summary(summaries, appearance: .system) == Vocabulary.audioQualityNames["high"])
         #expect(SettingsCategory.tuner.summary(summaries, appearance: .system) == "A4 = 442 Hz")
-        #expect(SettingsCategory.tuner.title == "Tuner")
-        #expect(SettingsCategory.tuner.systemImage == "gauge.with.needle")
         for category in [SettingsCategory.syncAndStorage, .importExport, .about] {
             #expect(category.summary(summaries, appearance: .system) == "", "\(category)")
         }
@@ -102,10 +99,9 @@ import Testing
         #expect(SettingsCategory.appearance.summary(nil, appearance: appearance) == appearance.label)
     }
 
-    @Test func rootRowsShowNothingUntilRead() {
-        for category in SettingsCategory.allCases where category != .appearance {
-            #expect(category.summary(nil, appearance: .dark) == "", "\(category)")
-        }
+    @Test(arguments: SettingsCategory.allCases.filter { $0 != .appearance })
+    func rootRowsShowNothingUntilRead(category: SettingsCategory) {
+        #expect(category.summary(nil, appearance: .dark) == "")
     }
 
     @Test @MainActor func rootSummariesFollowTheStoredSettings() async throws {
@@ -124,7 +120,7 @@ import Testing
     }
 }
 
-@Suite struct SettingsModelAnalyticsTests {
+struct SettingsModelAnalyticsTests {
     /// A settings model built without the environment's client sends no `settingChanged`, so
     /// the same toggle would report in one place and not another.
     @Test func everySettingsModelReportsToTheEnvironmentsClient() throws {

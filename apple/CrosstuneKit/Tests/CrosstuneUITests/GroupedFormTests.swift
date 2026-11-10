@@ -3,15 +3,15 @@ import Foundation
 import SwiftUI
 import Testing
 
-@Suite struct GroupedFormTests {
+struct GroupedFormTests {
     /// A row's own background (the iPad's open Settings page draws `field`) must win over the
     /// card's. Rebuilding the form's sections drops a row's own list modifiers, so `GroupedForm`
     /// keeps its sections as written.
     @Test func groupedFormKeepsItsSectionsAsWritten() throws {
         let code = SourceScan.withoutComments(
             try SourceScan.text(at: SourceScan.url(of: "Style/PaletteStyles.swift")))
-        #expect(!code.contains("ForEach(sections:"))
-        #expect(!code.contains("Group(sections:"))
+        #expect(code.contains("ForEach(sections:") == false)
+        #expect(code.contains("Group(sections:") == false)
         #expect(code.contains("Group { content }"))
     }
 
@@ -43,10 +43,10 @@ import Testing
         #expect(Self.unselectedBranchIsNil("listRowBackground(\n  isCurrent\n  ? tint\n  : nil\n)"))
         #expect(Self.unselectedBranchIsNil("listRowBackground(row ?? nil)"))
         #expect(Self.unselectedBranchIsNil("listRowBackground(\n  row\n  ??\n  nil\n)"))
-        #expect(!Self.unselectedBranchIsNil("listRowBackground(isSelected ? nil : Color.clear)"))
-        #expect(!Self.unselectedBranchIsNil("listRowBackground(\n  isSelected\n  ? nil\n  : AnyView(tint)\n)"))
-        #expect(!Self.unselectedBranchIsNil("listRowBackground(Palette.groupedSurface)"))
-        #expect(!Self.unselectedBranchIsNil("listRowBackground(nilFill)"))
+        #expect(Self.unselectedBranchIsNil("listRowBackground(isSelected ? nil : Color.clear)") == false)
+        #expect(Self.unselectedBranchIsNil("listRowBackground(\n  isSelected\n  ? nil\n  : AnyView(tint)\n)") == false)
+        #expect(Self.unselectedBranchIsNil("listRowBackground(Palette.groupedSurface)") == false)
+        #expect(Self.unselectedBranchIsNil("listRowBackground(nilFill)") == false)
     }
 
     /// The shared modifier clears an unselected row and leaves a selected one to the system,

@@ -7,7 +7,7 @@ import Testing
 
 @testable import CrosstuneCommands
 
-@Suite struct SplitTests {
+@Suite(.timeLimit(.minutes(1))) struct SplitTests {
     private let root = TemporaryRoot()
 
     private func seeded(_ parent: Recording? = nil) async throws -> (CrosstuneStore, Commands) {
@@ -18,8 +18,10 @@ import Testing
         return (store, Commands(store: store))
     }
 
-    private func recording(_ store: CrosstuneStore, _ id: String) async throws -> Recording {
-        try #require(try await store.read { db in try Recording.fetchOne(db, key: id) })
+    private func recording(_ store: CrosstuneStore, _ id: String, sourceLocation: SourceLocation = #_sourceLocation)
+        async throws -> Recording
+    {
+        try #require(try await store.read { db in try Recording.fetchOne(db, key: id) }, sourceLocation: sourceLocation)
     }
 
     private func loops(_ store: CrosstuneStore) async throws -> [RecordingLoop] {
@@ -215,9 +217,11 @@ import Testing
         #expect(try await recording(store, pieceID).deletedAt == nil)
     }
 
-    private func filePiece(_ store: CrosstuneStore, _ pieceID: String, tuneID: String) async throws {
+    private func filePiece(
+        _ store: CrosstuneStore, _ pieceID: String, tuneID: String, sourceLocation: SourceLocation = #_sourceLocation
+    ) async throws {
         try await store.write { writer in
-            var piece = try #require(try Recording.fetchOne(writer.db, key: pieceID))
+            var piece = try #require(try Recording.fetchOne(writer.db, key: pieceID), sourceLocation: sourceLocation)
             piece.tuneID = tuneID
             try writer.put(piece)
         }
@@ -232,23 +236,21 @@ import Testing
         #expect(try await recording(store, pieceID).deletedAt != nil)
     }
 
-    @Test func deletingTunesTogetherDeletesAParentWhoseWaitingPieceIsInAnotherOfThem() async throws {
-        for parentFirst in [true, false] {
-            let (store, commands) = try await seeded()
-            let (tuneID, pieceID) = try await filedParent(store, commands: commands)
-            let other = try await commands.createTune(
-                TuneInput(title: "Y"), userTune: UserTuneInput(status: "learning"))
-            try await filePiece(store, pieceID, tuneID: other.tuneID)
-            let parentUserTune = try #require(
-                try await store.read { db in
-                    try UserTune.filter(Column("tune_id") == tuneID).fetchOne(db)
-                })
-            let ids = [parentUserTune.id, other.userTuneID]
-            try await commands.deleteTunes(parentFirst ? ids : ids.reversed())
-            #expect(try await recording(store, "rec-5").deletedAt != nil)
-            #expect(try await recording(store, pieceID).deletedAt != nil)
-            try await store.write { writer in try writer.db.execute(sql: "DELETE FROM recordings") }
-        }
+    @Test(arguments: [true, false])
+    func deletingTunesTogetherDeletesAParentWhoseWaitingPieceIsInAnotherOfThem(parentFirst: Bool) async throws {
+        let (store, commands) = try await seeded()
+        let (tuneID, pieceID) = try await filedParent(store, commands: commands)
+        let other = try await commands.createTune(
+            TuneInput(title: "Y"), userTune: UserTuneInput(status: "learning"))
+        try await filePiece(store, pieceID, tuneID: other.tuneID)
+        let parentUserTune = try #require(
+            try await store.read { db in
+                try UserTune.filter(Column("tune_id") == tuneID).fetchOne(db)
+            })
+        let ids = [parentUserTune.id, other.userTuneID]
+        try await commands.deleteTunes(parentFirst ? ids : ids.reversed())
+        #expect(try await recording(store, "rec-5").deletedAt != nil)
+        #expect(try await recording(store, pieceID).deletedAt != nil)
     }
 
     @Test func deletingATuneUnfilesAHeldParentAndLeavesItsLoopsAlone() async throws {
@@ -262,31 +264,29 @@ import Testing
         try await commands.deleteTune(tuneID)
         #expect(try await loops(store).first { $0.id == "live" } == before)
         let entries = try await store.read { db in try OutboxEntry.order(Column("seq")).fetchAll(db) }
-        #expect(!entries.contains { $0.tableName == .recordingLoops })
+        #expect(entries.contains { $0.tableName == .recordingLoops } == false)
         let parentEntry = try #require(entries.last { $0.tableName == .recordings && $0.rowID == "rec-5" })
         #expect(parentEntry.op == .upsert)
     }
 
-    @Test func deletingATuneDeletesASplitParentWhosePiecesAreCutOrWhichFailed() async throws {
-        for parentState in ["ready", "failed"] {
-            let (store, commands) = try await seeded()
-            let (tuneID, pieceID) = try await filedParent(store, commands: commands)
-            try await store.write { writer in
-                if parentState == "failed" {
-                    var parent = try #require(try Recording.fetchOne(writer.db, key: "rec-5"))
-                    parent.state = "failed"
-                    try writer.put(parent)
-                } else {
-                    var piece = try #require(try Recording.fetchOne(writer.db, key: pieceID))
-                    piece.state = "ready"
-                    try writer.put(piece)
-                }
+    @Test(arguments: ["ready", "failed"])
+    func deletingATuneDeletesASplitParentWhosePiecesAreCutOrWhichFailed(parentState: String) async throws {
+        let (store, commands) = try await seeded()
+        let (tuneID, pieceID) = try await filedParent(store, commands: commands)
+        try await store.write { writer in
+            if parentState == "failed" {
+                var parent = try #require(try Recording.fetchOne(writer.db, key: "rec-5"))
+                parent.state = "failed"
+                try writer.put(parent)
+            } else {
+                var piece = try #require(try Recording.fetchOne(writer.db, key: pieceID))
+                piece.state = "ready"
+                try writer.put(piece)
             }
-            try await commands.deleteTune(tuneID)
-            #expect(try await recording(store, "rec-5").deletedAt != nil)
-            #expect(try await store.read { db in try RecordingFile.fetchOne(db, key: "rec-5") } == nil)
-            try await store.write { writer in try writer.db.execute(sql: "DELETE FROM recordings") }
         }
+        try await commands.deleteTune(tuneID)
+        #expect(try await recording(store, "rec-5").deletedAt != nil)
+        #expect(try await store.read { db in try RecordingFile.fetchOne(db, key: "rec-5") } == nil)
     }
 
     @Test func refusesToDeleteASplitParentWhilePieceWaits() async throws {

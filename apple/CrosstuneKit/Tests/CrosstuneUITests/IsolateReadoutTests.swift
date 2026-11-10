@@ -2,7 +2,7 @@ import Testing
 
 @testable import CrosstuneUI
 
-@Suite struct IsolateReadoutTests {
+struct IsolateReadoutTests {
     @Test(arguments: [
         (-100, 100, "Everything"),
         (-40, -10, "Left of center, medium"),

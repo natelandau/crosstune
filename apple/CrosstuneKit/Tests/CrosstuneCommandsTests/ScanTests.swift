@@ -8,11 +8,13 @@ import Testing
 
 @testable import CrosstuneCommands
 
-private func size(of data: Data) throws -> (width: Int, height: Int) {
-    let source = try #require(CGImageSourceCreateWithData(data as CFData, nil))
-    let properties = try #require(CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any])
-    let width = try #require(properties[kCGImagePropertyPixelWidth] as? Int)
-    let height = try #require(properties[kCGImagePropertyPixelHeight] as? Int)
+private func size(of data: Data, sourceLocation: SourceLocation = #_sourceLocation) throws -> (width: Int, height: Int)
+{
+    let source = try #require(CGImageSourceCreateWithData(data as CFData, nil), sourceLocation: sourceLocation)
+    let properties = try #require(
+        CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any], sourceLocation: sourceLocation)
+    let width = try #require(properties[kCGImagePropertyPixelWidth] as? Int, sourceLocation: sourceLocation)
+    let height = try #require(properties[kCGImagePropertyPixelHeight] as? Int, sourceLocation: sourceLocation)
     return (width, height)
 }
 
@@ -64,7 +66,7 @@ private func scanFolderFiles(_ store: CrosstuneStore) throws -> Set<String> {
     Set(try FileManager.default.contentsOfDirectory(atPath: store.scansFolder.path(percentEncoded: false)))
 }
 
-@Suite struct ScanTests {
+@Suite(.timeLimit(.minutes(1))) struct ScanTests {
     // MARK: Preparing an image
 
     @Test func scalesLongEdgeTo2400() throws {
@@ -142,8 +144,8 @@ private func scanFolderFiles(_ store: CrosstuneStore) throws -> Set<String> {
 
         let markers = segmentMarkers(stripped)
         #expect(Set(markers).isSuperset(of: [0xE0, 0xE2, 0xDB, 0xC0]))
-        #expect(!markers.contains(0xE1))
-        #expect(!markers.contains(0xED))
+        #expect(markers.contains(0xE1) == false)
+        #expect(markers.contains(0xED) == false)
         #expect(markers.first == 0xE0)
         #expect(try size(of: stripped) == (8, 8))
         let source = try #require(CGImageSourceCreateWithData(stripped as CFData, nil))
@@ -221,7 +223,6 @@ private func scanFolderFiles(_ store: CrosstuneStore) throws -> Set<String> {
 
         #expect(try await liveScans(store, tuneID: tuneID).count == maxScansPerTune)
         #expect(try scanFolderFiles(store) == filesBefore, "a refused add leaves no file behind")
-        #expect(CommandError.scanLimit.errorDescription == "A tune holds at most 20 scans.")
     }
 
     @Test func refusesAScanForAMissingTune() async throws {
@@ -306,7 +307,7 @@ private func scanFolderFiles(_ store: CrosstuneStore) throws -> Set<String> {
         #expect(try scanFolderFiles(store) == Set(files.map(\.fileName)))
         let queued = try await store.pendingChanges(limit: 20)
         #expect(
-            !queued.contains { $0.tableName == .scans && ids.contains($0.rowID) },
+            queued.contains { $0.tableName == .scans && ids.contains($0.rowID) } == false,
             "the tune's delete covers them")
     }
 

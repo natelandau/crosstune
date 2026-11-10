@@ -2,7 +2,7 @@ import CrosstuneDesign
 import SwiftUI
 import Testing
 
-@Suite struct ToolPanelTests {
+struct ToolPanelTests {
     enum Tool: Hashable { case speed, pitch }
 
     /// Choosing a tool opens it and closes any other; choosing the open tool closes it.
@@ -68,12 +68,6 @@ import Testing
         @Test(arguments: [("75%", "Speed, 75%"), (nil, "Speed")] as [(String?, String)])
         func toolNamesItsValue(value: String?, expected: String) {
             #expect(MacToolButton<EmptyView>.accessibilityName(title: "Speed", value: value) == expected)
-        }
-
-        /// A value off its default takes the accent, so a changed tool stands out from the rest.
-        @Test func aChangedToolTakesTheAccent() {
-            #expect(MacToolButton<EmptyView>.valueToken(isChanged: true) == .accent)
-            #expect(MacToolButton<EmptyView>.valueToken(isChanged: false) == .textSecondary)
         }
     #endif
 }

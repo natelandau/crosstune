@@ -5,15 +5,17 @@ import Testing
 @testable import CrosstuneUI
 
 @MainActor
-@Suite struct PadTabTests {
+@Suite(.timeLimit(.minutes(1))) struct PadTabTests {
     private let root = TemporaryRoot()
 
-    private func loadedCatalog(status: String? = nil) async throws -> CatalogModel {
+    private func loadedCatalog(status: String? = nil, sourceLocation: SourceLocation = #_sourceLocation) async throws
+        -> CatalogModel
+    {
         let store = try await SampleCatalog.copiedStore(root: root.url)
         let filters = CatalogFilters(status: status)
         if status != nil { try await store.setMeta(.catalogFilters, to: filters.stored) }
         let catalog = CatalogModel(store: store)
-        #expect(try await poll { catalog.results != nil && catalog.status == status })
+        try await eventually(sourceLocation: sourceLocation) { catalog.results != nil && catalog.status == status }
         return catalog
     }
 
@@ -54,7 +56,7 @@ import Testing
         PadTab.choose(.status("known"), place: place, catalog: catalog, inSidebar: true)
         #expect(place.tab == .catalog)
         #expect(catalog.status == "known")
-        #expect(try await poll { !catalog.isSavingFilters })
+        try await eventually { !catalog.isSavingFilters }
     }
 
     @Test func choosingCatalogInTheSidebarClearsTheStatus() async throws {
@@ -64,7 +66,7 @@ import Testing
         PadTab.choose(.destination(.catalog), place: place, catalog: catalog, inSidebar: true)
         #expect(place.tab == .catalog)
         #expect(catalog.status == nil)
-        #expect(try await poll { !catalog.isSavingFilters })
+        try await eventually { !catalog.isSavingFilters }
     }
 
     @Test func catalogTabInTheTopBarKeepsTheStatus() async throws {
@@ -105,7 +107,7 @@ import Testing
         place.tabPaths = [.catalog: PagePath(tune: "t1"), .lists: PagePath(tune: "t2")]
         PadTab.choose(.status("known"), place: place, catalog: catalog, inSidebar: true)
         #expect(place.tabPaths == [.catalog: PagePath(tune: "t1"), .lists: PagePath(tune: "t2")])
-        #expect(try await poll { !catalog.isSavingFilters })
+        try await eventually { !catalog.isSavingFilters }
     }
 
     @Test func aNewStatusDropsTheCatalogsScrollPlace() async throws {
@@ -119,7 +121,7 @@ import Testing
         place.scrollAnchors[.catalog] = "ut-4"
         PadTab.choose(.destination(.catalog), place: place, catalog: catalog, inSidebar: true)
         #expect(place.scrollAnchors[.catalog] == nil)
-        #expect(try await poll { !catalog.isSavingFilters })
+        try await eventually { !catalog.isSavingFilters }
     }
 
     @Test func aDeletedListClosesOnceTheListsHaveRead() {

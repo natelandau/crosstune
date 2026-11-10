@@ -10,6 +10,9 @@
     func hiddenWindow(
         size: CGSize, styleMask: NSWindow.StyleMask, appearance: NSAppearance.Name, reportsKey: Bool = false
     ) -> NSWindow {
+        // A focused field makes AppKit's password AutoFill open a remote view, whose reply can run
+        // the input method's one-time setup off the main thread, which aborts the test process.
+        UserDefaults.standard.register(defaults: ["NSAutoFillHeuristicsEnabled": false])
         let rect = CGRect(origin: .zero, size: size)
         let window =
             reportsKey

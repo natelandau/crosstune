@@ -23,7 +23,7 @@ private final class FakeResolver {
 }
 
 @MainActor
-@Suite struct LinkSheetModelTests {
+@Suite(.timeLimit(.minutes(1))) struct LinkSheetModelTests {
     private let root = TemporaryRoot()
     private let tuneID = SampleCatalog.entries[2].tune.id
 
@@ -62,10 +62,12 @@ private final class FakeResolver {
         let store = try await SampleCatalog.copiedStore(root: root.url)
         let resolver = FakeResolver()
         let sleep = ManualSleep()
-        let model = LinkSheetModel(store: store, tuneID: tuneID, resolve: resolver.resolve, sleep: sleep.sleep)
+        let pause = Duration.milliseconds(250)
+        let model = LinkSheetModel(
+            store: store, tuneID: tuneID, resolve: resolver.resolve, debounce: pause, sleep: sleep.sleep)
 
         model.setURL("https://youtu.be/dQw4w9WgXcQ")
-        try await eventually { sleep.pending == [.milliseconds(400)] }
+        try await eventually { sleep.pending == [pause] }
         #expect(resolver.asked.isEmpty)
         sleep.wake()
         try await eventually { resolver.asked == ["https://youtu.be/dQw4w9WgXcQ"] }
@@ -150,9 +152,9 @@ private final class FakeResolver {
     @Test func addIsDisabledOnlyWhileTheLinkIsBlank() async throws {
         let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = LinkSheetModel(store: store, tuneID: tuneID, resolve: nil)
-        #expect(!model.hasLink)
+        #expect(model.hasLink == false)
         model.setURL("  ")
-        #expect(!model.hasLink)
+        #expect(model.hasLink == false)
         model.setURL("ftp://example.com/tune")
         #expect(model.hasLink, "a link that is not a web address is refused on Add, with the reason")
     }
@@ -168,7 +170,7 @@ private final class FakeResolver {
         #expect(await model.save() == false)
         #expect(model.validation == LinkSheetModel.linkNotWeb)
         #expect(try await links(store).isEmpty)
-        #expect(!model.isSaved)
+        #expect(model.isSaved == false)
     }
 
     @Test func addsOnceWhenSavedTwice() async throws {
@@ -193,7 +195,7 @@ private final class FakeResolver {
     @Test func holdsTypingADismissalWouldLose() async throws {
         let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = LinkSheetModel(store: store, tuneID: tuneID, resolve: nil)
-        #expect(!model.isEdited)
+        #expect(model.isEdited == false)
         model.setURL("h")
         #expect(model.isEdited)
     }

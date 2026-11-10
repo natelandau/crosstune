@@ -7,7 +7,7 @@ import Testing
 @testable import CrosstuneSync
 
 @MainActor
-@Suite struct SyncTriggersTests {
+@Suite(.timeLimit(.minutes(1))) struct SyncTriggersTests {
     let root = TemporaryRoot()
     let store: CrosstuneStore
     let sleeper = ManualSleeper()
@@ -29,9 +29,11 @@ import Testing
     }
 
     /// Starts the triggers and waits for the store's first answer to both watches.
-    func started(_ triggers: SyncTriggers) async throws {
+    func started(_ triggers: SyncTriggers, sourceLocation: SourceLocation = #_sourceLocation) async throws {
         triggers.start()
-        try await eventually { triggers.outboxCount != nil && triggers.processing != nil }
+        try await eventually(sourceLocation: sourceLocation) {
+            triggers.outboxCount != nil && triggers.processing != nil
+        }
     }
 
     @Test func syncsOnLaunchOnReturningToTheForegroundAndOnComingOnline() async throws {
@@ -81,7 +83,7 @@ import Testing
 
         sleeper.fire()
         try await eventually { syncs.count == 2 }
-        #expect(!triggers.isDebouncing)
+        #expect(triggers.isDebouncing == false)
         #expect(sleeper.pendingCount == 0)
         triggers.stop()
     }
@@ -90,7 +92,7 @@ import Testing
         let triggers = triggers()
         try await started(triggers)
         #expect(triggers.outboxCount == 0)
-        #expect(!triggers.isDebouncing)
+        #expect(triggers.isDebouncing == false)
         triggers.stop()
     }
 
@@ -102,7 +104,7 @@ import Testing
 
         triggers.stop()
 
-        #expect(!triggers.isDebouncing)
+        #expect(triggers.isDebouncing == false)
         try await eventually { sleeper.pendingCount == 0 }
         #expect(syncs.count == 1)
     }
@@ -186,7 +188,7 @@ import Testing
         let triggers = triggers()
         try await started(triggers)
         #expect(triggers.processing == false)
-        #expect(!triggers.isPolling)
+        #expect(triggers.isPolling == false)
         triggers.stop()
     }
 
@@ -196,14 +198,14 @@ import Testing
         let triggers = triggers(isActive: false)
         try await started(triggers)
         #expect(triggers.processing == true)
-        #expect(!triggers.isPolling)
+        #expect(triggers.isPolling == false)
 
         triggers.setActive(true)
         #expect(triggers.isPolling)
         try await eventually { sleeper.pendingDurations == [SyncTriggers.processingPoll] }
 
         triggers.setActive(false)
-        #expect(!triggers.isPolling)
+        #expect(triggers.isPolling == false)
         try await eventually { sleeper.pendingCount == 0 }
         triggers.stop()
     }

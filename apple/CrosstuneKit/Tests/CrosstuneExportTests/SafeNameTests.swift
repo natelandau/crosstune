@@ -2,7 +2,7 @@ import Testing
 
 @testable import CrosstuneExport
 
-@Suite struct SafeNameTests {
+struct SafeNameTests {
     @Test(arguments: [
         ("Jam: Ray/Sue", "Jam Ray Sue"),
         ("  spaced   out  ", "spaced out"),

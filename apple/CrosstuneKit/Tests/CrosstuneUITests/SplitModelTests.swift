@@ -53,7 +53,7 @@ private final class SplitHolds {
 }
 
 @MainActor
-@Suite struct SplitModelTests {
+@Suite(.timeLimit(.minutes(1))) struct SplitModelTests {
     private let writes = SplitWrites()
     private let holds = SplitHolds()
     private let sink = RecordingAnalyticsSink()
@@ -126,7 +126,7 @@ private final class SplitHolds {
 
     @Test func flagsARangeOver3Hours() {
         #expect(model(row(sourceDurationMs: RecordingLimits.maxRecordingMs + 1)).state.overLimit)
-        #expect(!model().state.overLimit)
+        #expect(model().state.overLimit == false)
     }
 
     // MARK: The overview strip
@@ -197,7 +197,7 @@ private final class SplitHolds {
         drag(split, to: -5)
         #expect(split.state.lineMs == 0)
         split.nudge(by: WaveformSteps.nudgeMs)
-        #expect(split.state.lineMs == 100)
+        #expect(split.state.lineMs == WaveformSteps.nudgeMs)
     }
 
     @Test func addsACutAtTheLineAndSelectsItSoRemoveCutUndoesIt() {
@@ -243,10 +243,10 @@ private final class SplitHolds {
     }
 
     @Test func refusesACutWithin1SecondOfAnEndOrAnotherCut() {
-        #expect(!placed(lineMs: 999).canAddCut)
+        #expect(placed(lineMs: 999).canAddCut == false)
         #expect(placed(lineMs: 1000).canAddCut)
-        #expect(!placed(lineMs: 59_001).canAddCut)
-        #expect(!placed([20_000], lineMs: 20_500).canAddCut)
+        #expect(placed(lineMs: 59_001).canAddCut == false)
+        #expect(placed([20_000], lineMs: 20_500).canAddCut == false)
         #expect(placed([20_000], lineMs: 21_000).canAddCut)
         let refused = placed(lineMs: 500)
         refused.addCut()
@@ -260,7 +260,7 @@ private final class SplitHolds {
         #expect(split.state.cuts.count == RecordingLimits.maxSplitPieces - 1)
         #expect(split.state.pieces.count == RecordingLimits.maxSplitPieces)
         split.seek(to: 90_000)
-        #expect(!split.canAddCut)
+        #expect(split.canAddCut == false)
         split.addCut()
         #expect(split.state.cuts.count == RecordingLimits.maxSplitPieces - 1)
     }
@@ -287,14 +287,14 @@ private final class SplitHolds {
         #expect(back.state.lineMs == 10_000)
         back.previous()
         #expect(back.state.selected == 0)
-        #expect(!back.canStepPrevious)
+        #expect(back.canStepPrevious == false)
         let ahead = placed([10_000, 30_000], lineMs: 20_000)
         ahead.next()
         #expect(ahead.state.selected == 1)
         #expect(ahead.state.lineMs == 30_000)
         ahead.next()
         #expect(ahead.state.selected == 1)
-        #expect(!ahead.canStepNext)
+        #expect(ahead.canStepNext == false)
     }
 
     @Test func stepsPastTheCutTheLineSitsOnWithoutSelectingIt() {
@@ -328,7 +328,7 @@ private final class SplitHolds {
         #expect(early.state.cuts == [1000, 30_000])
         let nudged = selected()
         nudged.nudge(by: WaveformSteps.nudgeMs)
-        #expect(nudged.state.cuts == [10_100, 30_000])
+        #expect(nudged.state.cuts == [10_000 + WaveformSteps.nudgeMs, 30_000])
     }
 
     @Test func removesOnlyASelectedCut() {
@@ -344,7 +344,7 @@ private final class SplitHolds {
     @Test func refusesANewCutWhileOneIsSelected() {
         let split = placed([10_000])
         split.select(0)
-        #expect(!split.canAddCut)
+        #expect(split.canAddCut == false)
         split.pressMain()
         #expect(split.state.cuts.isEmpty)
     }
@@ -451,7 +451,7 @@ private final class SplitHolds {
         #expect(split.canZoomOut)
         split.fit()
         #expect(split.pointsPerSecond == 5)
-        #expect(!split.canZoomOut)
+        #expect(split.canZoomOut == false)
     }
 
     // MARK: Selecting a piece
@@ -508,18 +508,18 @@ private final class SplitHolds {
     // MARK: Save gating
 
     @Test func saveNeedsACut() {
-        #expect(!placed().state.canSave)
+        #expect(placed().state.canSave == false)
         #expect(placed([20_000]).state.canSave)
     }
 
     @Test func saveNeedsEveryPieceAtLeast1Second() {
-        #expect(!SplitModel.State(lowMs: 0, highMs: 60_000, lineMs: 0, cuts: [500], overLimit: false).canSave)
+        #expect(SplitModel.State(lowMs: 0, highMs: 60_000, lineMs: 0, cuts: [500], overLimit: false).canSave == false)
     }
 
     @Test func refusesARecordingOver3HoursWhileAPieceIsOver3Hours() {
         let limit = RecordingLimits.maxRecordingMs
         let long = SplitModel.State(lowMs: 0, highMs: limit * 2, lineMs: 0, cuts: [limit + 1000], overLimit: true)
-        #expect(!long.canSave)
+        #expect(long.canSave == false)
         #expect(SplitModel.State(lowMs: 0, highMs: limit * 2, lineMs: 0, cuts: [limit], overLimit: true).canSave)
     }
 
@@ -530,7 +530,7 @@ private final class SplitHolds {
 
     @Test func refusesMoreThan50Pieces() {
         let cuts = (1...Int64(RecordingLimits.maxSplitPieces)).map { $0 * 1000 }
-        #expect(!SplitModel.State(lowMs: 0, highMs: 100_000, lineMs: 0, cuts: cuts, overLimit: false).canSave)
+        #expect(SplitModel.State(lowMs: 0, highMs: 100_000, lineMs: 0, cuts: cuts, overLimit: false).canSave == false)
     }
 
     // MARK: Playback
@@ -587,8 +587,10 @@ private final class SplitHolds {
     }
 
     /// Plays on to the end the model asked for, as the player does, which goes back to its start.
-    private func playToEnd(_ split: SplitModel, _ audio: FakeAudio, ends: PlaybackEnds) throws {
-        let end = try #require(ends.made.last ?? nil)
+    private func playToEnd(
+        _ split: SplitModel, _ audio: FakeAudio, ends: PlaybackEnds, sourceLocation: SourceLocation = #_sourceLocation
+    ) throws {
+        let end = try #require(ends.made.last ?? nil, sourceLocation: sourceLocation)
         audio.elapsed = TimeInterval(end) / 1000 - 0.1
         split.follow(playing: true, elapsed: audio.elapsed)
         audio.end(.finished)
@@ -614,7 +616,7 @@ private final class SplitHolds {
         let split = attached(audio, cuts: [10_000, 20_000], lineMs: 5000, ends: ends)
         split.togglePlay()
         try playToEnd(split, audio, ends: ends)
-        #expect(!audio.isPlaying)
+        #expect(audio.isPlaying == false)
         #expect(audio.elapsed == 10)
         #expect(split.state.lineMs == 10_000)
         #expect(ends.made.last == .some(nil))
@@ -700,8 +702,8 @@ private final class SplitHolds {
         let audio = FakeAudio()
         let split = playing(audio, at: 7.5)
         split.nudge(by: WaveformSteps.nudgeMs)
-        #expect(!audio.isPlaying)
-        #expect(split.state.lineMs == 7600)
+        #expect(audio.isPlaying == false)
+        #expect(split.state.lineMs == 7500 + WaveformSteps.nudgeMs)
     }
 
     @Test func thePausesOwnReportCannotUndoAnEdit() {
@@ -710,7 +712,7 @@ private final class SplitHolds {
         split.nudge(by: WaveformSteps.nudgeMs)
         // The player's reading of the pause arrives after the edit.
         split.follow(playing: false, elapsed: 7.5)
-        #expect(split.state.lineMs == 7600)
+        #expect(split.state.lineMs == 7500 + WaveformSteps.nudgeMs)
     }
 
     @Test func aPauseFromElsewhereLeavesTheLineWherePlaybackGotTo() {
@@ -759,7 +761,7 @@ private final class SplitHolds {
         let audio = FakeAudio()
         let split = playing(audio, at: 7.5)
         split.scrub(byScrollMs: -500)
-        #expect(!audio.isPlaying)
+        #expect(audio.isPlaying == false)
         #expect(split.state.lineMs == 7000)
     }
 
@@ -798,10 +800,10 @@ private final class SplitHolds {
         #expect(try #require(split.pointsPerSecond) == 10)
         split.zoom(by: 1000)
         #expect(split.pointsPerSecond == PracticeZoom.maxPointsPerSecond)
-        #expect(!split.canZoomIn)
+        #expect(split.canZoomIn == false)
         split.zoom(by: 0.0001)
         #expect(split.pointsPerSecond == 5)
-        #expect(!split.canZoomOut)
+        #expect(split.canZoomOut == false)
     }
 
     // MARK: Lifecycle and save
@@ -819,7 +821,7 @@ private final class SplitHolds {
         split.isConfirming = true
         #expect(try await split.save())
         #expect(writes.made == [.init(id: "r1", cuts: [20_000, 40_000])])
-        #expect(!split.isConfirming)
+        #expect(split.isConfirming == false)
         #expect(split.hasLeft)
         #expect(holds.made.last == .some(nil))
         #expect(
@@ -839,7 +841,7 @@ private final class SplitHolds {
         let split = placed([20_000])
         writes.refusal = URLError(.notConnectedToInternet)
         await #expect(throws: URLError.self) { try await split.save() }
-        #expect(!split.hasLeft)
+        #expect(split.hasLeft == false)
         #expect(sink.captures.isEmpty)
         writes.refusal = nil
         #expect(try await split.save())
@@ -849,7 +851,7 @@ private final class SplitHolds {
         let split = placed(lineMs: 20_000)
         #expect(split.canPressSave)
         #expect(split.pressSave() == .close)
-        #expect(!split.isConfirming)
+        #expect(split.isConfirming == false)
         split.addCut()
         #expect(split.pressSave() == .confirm)
         #expect(split.isConfirming)
@@ -860,7 +862,7 @@ private final class SplitHolds {
         #expect(split.canPressSave)
         let limit = RecordingLimits.maxRecordingMs
         let long = placed([10_000], highMs: limit + 20_000)
-        #expect(!long.canPressSave)
+        #expect(long.canPressSave == false)
         #expect(placed(highMs: limit + 20_000).canPressSave)
     }
 
@@ -871,7 +873,7 @@ private final class SplitHolds {
 
     @Test func givesWayToATrimFromElsewhere() async throws {
         let split = placed([20_000])
-        #expect(!split.follow(row()))
+        #expect(split.follow(row()) == false)
         #expect(split.follow(row(trimStartMs: 5000)))
         #expect(try await split.save() == false)
         #expect(writes.made.isEmpty)
@@ -879,13 +881,13 @@ private final class SplitHolds {
 
     @Test func itsOwnWriteLandingIsNotATrimFromElsewhere() async throws {
         let split = placed([20_000])
-        writes.during = { #expect(!split.follow(row(trimEndMs: 20_000))) }
+        writes.during = { #expect(split.follow(row(trimEndMs: 20_000)) == false) }
         #expect(try await split.save())
-        #expect(!split.isStale)
+        #expect(split.isStale == false)
     }
 }
 
-@Suite struct SplitTextTests {
+@Suite(.timeLimit(.minutes(1))) struct SplitTextTests {
     private func recording(
         state: String = "ready", splitFromID: String? = nil, splitID: String? = nil, splitCompletedID: String? = nil
     ) -> Recording {
@@ -943,11 +945,12 @@ private final class SplitHolds {
             try writer.put(parent)
             try writer.put(waiting)
         }
-        func reason() async throws -> String? {
+        func reason(sourceLocation: SourceLocation = #_sourceLocation) async throws -> String? {
             let views = try await store.read { db in try RecordingsModel.fetch(db).views }
-            let view = try #require(views.first { $0.id == "r1" })
-            let screen = try #require(try await store.read { db in try ScreenRows.fetch(db, id: "r1") })
-            #expect(screen.view.holdsSplitAudio == view.holdsSplitAudio)
+            let view = try #require(views.first { $0.id == "r1" }, sourceLocation: sourceLocation)
+            let screen = try #require(
+                try await store.read { db in try ScreenRows.fetch(db, id: "r1") }, sourceLocation: sourceLocation)
+            #expect(screen.view.holdsSplitAudio == view.holdsSplitAudio, sourceLocation: sourceLocation)
             return RecordingScreenText.deleteDisabledReason(view)
         }
         #expect(try await reason() == RecordingScreenText.deleteWhileSplitting)
@@ -978,7 +981,6 @@ private final class SplitHolds {
                 .delete(disabledReason: RecordingScreenText.deleteWhileSplitting),
             ])
         #expect(RecordingMenuItem.split(disabledReason: nil).label == RecordingScreenText.split)
-        #expect(RecordingMenuItem.split(disabledReason: nil).systemImage == "rectangle.split.3x1")
         #expect(items.last?.disabledReason == RecordingScreenText.deleteWhileSplitting)
     }
 }

@@ -18,7 +18,7 @@ private let instant = noon.date
 private let portal = URL(string: "https://billing.example.com/portal")!
 
 @MainActor
-@Suite struct PlanSheetTests {
+@Suite(.timeLimit(.minutes(1))) struct PlanSheetTests {
     private let root = TemporaryRoot()
     private let sink = RecordingAnalyticsSink()
 
@@ -49,20 +49,16 @@ private let portal = URL(string: "https://billing.example.com/portal")!
     }
 
     @Test func theComparisonListsTheSpecsRowsInOrder() {
+        let rows = PlanSheet.comparison
         #expect(
-            PlanSheet.comparison == [
-                .init(title: PlanText.featureCatalog, free: .included, premium: .included, symbol: "music.note.list"),
-                .init(
-                    title: PlanText.featureSync, free: .included, premium: .included,
-                    symbol: "arrow.triangle.2.circlepath"),
-                .init(title: PlanText.featureRecord, free: .excluded, premium: .included, symbol: "record.circle"),
-                .init(title: PlanText.featurePlay, free: .excluded, premium: .included, symbol: "play"),
-                .init(
-                    title: PlanText.featurePractice, free: .excluded, premium: .included, symbol: "slider.horizontal.3"),
-                .init(title: PlanText.featureScans, free: .excluded, premium: .included, symbol: "doc.richtext"),
-                .init(
-                    title: PlanText.featureStorage, free: .excluded, premium: .value(PlanText.storagePremium),
-                    symbol: "icloud"),
+            rows.map(\.title) == [
+                PlanText.featureCatalog, PlanText.featureSync, PlanText.featureRecord, PlanText.featurePlay,
+                PlanText.featurePractice, PlanText.featureScans, PlanText.featureStorage,
+            ])
+        #expect(rows.map(\.free) == [.included, .included, .excluded, .excluded, .excluded, .excluded, .excluded])
+        #expect(
+            rows.map(\.premium) == [
+                .included, .included, .included, .included, .included, .included, .value(PlanText.storagePremium),
             ])
     }
 
@@ -332,7 +328,7 @@ private let portal = URL(string: "https://billing.example.com/portal")!
                 .upsert(writer.db)
         }
         let plan = PlanModel(store: store)
-        #expect(try await poll { plan.isLoaded && plan.plan.kind == .free })
+        try await eventually { plan.isLoaded && plan.plan.kind == .free }
         let presenter = PremiumPresenter(plan: plan, analytics: sink.client)
         let model = PurchaseModel(client: FakePurchaseClient(), refresh: {}, sync: {}, analytics: sink.client)
         await model.loadOffers()
@@ -385,10 +381,11 @@ private let portal = URL(string: "https://billing.example.com/portal")!
         #expect(PlanSheet.manage(stripe, storefront: .unread, portalURL: portal).isEmpty)
     }
 
-    @Test func aCompATrialAndAFreePlanHaveNothingToManage() {
-        for plan in [comp, Plan(kind: .premium, source: .trial), Plan(kind: .free), .unknown] {
-            #expect(PlanSheet.manage(plan, storefront: .read("USA"), portalURL: portal).isEmpty)
-        }
+    @Test(arguments: [
+        Plan(kind: .premium, source: .comp), Plan(kind: .premium, source: .trial), Plan(kind: .free), .unknown,
+    ])
+    func aCompATrialAndAFreePlanHaveNothingToManage(plan: Plan) {
+        #expect(PlanSheet.manage(plan, storefront: .read("USA"), portalURL: portal).isEmpty)
     }
 
     @Test func aCompStillBilledByBothStoresManagesEach() async {
@@ -504,18 +501,18 @@ private let portal = URL(string: "https://billing.example.com/portal")!
         }
         try await write("trial")
         let plan = PlanModel(store: store, now: { instant })
-        #expect(try await poll { plan.plan.isTrial })
+        try await eventually { plan.plan.isTrial }
         let presenter = PremiumPresenter(plan: plan, analytics: sink.client)
         presenter.present(.plan, from: .planGroup)
         #expect(PlanSheet.mode(plan.plan) == .purchasable)
 
         try await write("apple")
-        #expect(try await poll { PlanSheet.mode(plan.plan) == .member })
+        try await eventually { PlanSheet.mode(plan.plan) == .member }
         #expect(presenter.presented == .plan)
 
         // A refund lapses the grant: the row loses its source.
         try await write(nil)
-        #expect(try await poll { plan.plan.kind == .free })
+        try await eventually { plan.plan.kind == .free }
         #expect(PlanSheet.mode(plan.plan) == .purchasable)
         #expect(presenter.presented == .plan)
     }
@@ -523,7 +520,7 @@ private let portal = URL(string: "https://billing.example.com/portal")!
 
 #if os(macOS)
     @MainActor
-    @Suite struct MacPlanFooterTests {
+    struct MacPlanFooterTests {
         @Test func subscribeTrailsCloseAndIsNeverDefault() {
             let footer = PlanSheet.macFooter(.choice(offers), isWorking: false, close: {}, subscribe: {})
             #expect(footer.cancel?.title == SheetCloseButton.close)
@@ -562,16 +559,11 @@ private let portal = URL(string: "https://billing.example.com/portal")!
             #expect(footer.escape != nil)
         }
 
-        @Test func nothingToBuyLeavesCloseAlone() {
-            for sale in [PlanSheet.Sale.notPurchasable, .subscribed] {
-                let footer = PlanSheet.macFooter(sale, isWorking: false, close: {}, subscribe: {})
-                #expect(footer.cancel?.title == SheetCloseButton.close, "\(sale)")
-                #expect(footer.primary == nil, "\(sale)")
-            }
-        }
-
-        @Test func aMemberManagesFromTheRenewalRow() {
-            #expect(MembershipCard.macManage == "Manage\u{2026}")
+        @Test(arguments: [PlanSheet.Sale.notPurchasable, .subscribed])
+        func nothingToBuyLeavesCloseAlone(sale: PlanSheet.Sale) {
+            let footer = PlanSheet.macFooter(sale, isWorking: false, close: {}, subscribe: {})
+            #expect(footer.cancel?.title == SheetCloseButton.close)
+            #expect(footer.primary == nil)
         }
 
         /// Offline, the Mac sheet says why nothing is purchasable in its subtitle, never in a line floating

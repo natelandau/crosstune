@@ -15,7 +15,7 @@ import Testing
 @Test func mutedOrNarrowedIsolateSettingIsNotTheDefault() {
     var setting = IsolateSetting.standard
     setting.effect = .mute
-    #expect(!setting.isDefault)
+    #expect(setting.isDefault == false)
     for change in [
         { (s: inout IsolateSetting) in s.panStart = -50 },
         { (s: inout IsolateSetting) in s.panEnd = 0 },
@@ -24,7 +24,7 @@ import Testing
     ] {
         var narrowed = IsolateSetting.standard
         change(&narrowed)
-        #expect(!narrowed.isDefault)
+        #expect(narrowed.isDefault == false)
     }
 }
 

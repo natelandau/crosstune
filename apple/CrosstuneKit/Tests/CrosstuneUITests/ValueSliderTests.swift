@@ -33,8 +33,8 @@ struct ValueSliderTests {
     }
 
     @Test func staysOnTheDefaultWithoutFiring() {
-        #expect(!DefaultSnap.entered(from: 100, to: 100, defaultValue: 100))
-        #expect(!DefaultSnap.entered(from: 100, to: 95, defaultValue: 100))
+        #expect(DefaultSnap.entered(from: 100, to: 100, defaultValue: 100) == false)
+        #expect(DefaultSnap.entered(from: 100, to: 95, defaultValue: 100) == false)
     }
 }
 

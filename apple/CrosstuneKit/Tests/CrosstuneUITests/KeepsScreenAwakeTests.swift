@@ -3,7 +3,7 @@ import Testing
 
 @testable import CrosstuneUI
 
-@Suite struct KeepsScreenAwakeTests {
+struct KeepsScreenAwakeTests {
     @Test(arguments: [ScenePhase.active, .inactive, .background], [true, false])
     func holdsOnlyWhileActiveInTheForeground(phase: ScenePhase, active: Bool) {
         #expect(KeepsScreenAwake.holds(active: active, phase: phase) == (active && phase == .active))

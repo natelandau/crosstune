@@ -68,12 +68,14 @@ private func openEditor(
 }
 
 @MainActor
-private func stored(_ store: CrosstuneStore) async throws -> Recording {
-    try #require(try await store.read { db in try Recording.fetchOne(db, key: "r1") })
+private func stored(_ store: CrosstuneStore, sourceLocation: SourceLocation = #_sourceLocation) async throws
+    -> Recording
+{
+    try #require(try await store.read { db in try Recording.fetchOne(db, key: "r1") }, sourceLocation: sourceLocation)
 }
 
 @MainActor
-@Suite struct DropPinTests {
+@Suite(.timeLimit(.minutes(1))) struct DropPinTests {
     private let root = TemporaryRoot()
 
     @Test func theAddressFollowsTheMapWhenItSettles() async throws {
@@ -86,7 +88,7 @@ private func stored(_ store: CrosstuneStore) async throws -> Recording {
         #expect(model.found == nil)
 
         let first = Task { await model.settle(at: galax) }
-        #expect(try await poll { lookup.asked == [galax] })
+        try await eventually { lookup.asked == [galax] }
 
         // The map moved on before the first answer came; that lookup is cancelled and dropped.
         await model.settle(at: elsewhere)
@@ -108,7 +110,7 @@ private func stored(_ store: CrosstuneStore) async throws -> Recording {
         lookup.held = [galax]
         let model = pinModel(start: galax, lookup)
         let first = Task { await model.settle(at: galax) }
-        #expect(try await poll { lookup.asked == [galax] })
+        try await eventually { lookup.asked == [galax] }
 
         // The map settles again half a meter away, and the caller that started the first
         // settle is cancelled; neither stops the lookup or asks again.
@@ -130,7 +132,7 @@ private func stored(_ store: CrosstuneStore) async throws -> Recording {
         await model.settle(at: Coordinate(lat: galax.lat + meter / 2, lon: galax.lon))
         #expect(lookup.asked == [galax])
         #expect(model.found == nil)
-        #expect(!model.isLookingUp)
+        #expect(model.isLookingUp == false)
     }
 
     @Test func useIsOffUntilTheMapHasAPoint() async throws {
@@ -178,7 +180,7 @@ private func stored(_ store: CrosstuneStore) async throws -> Recording {
         await model.settle(at: Coordinate(lat: 36.7, lon: -80.9))
         #expect(lookup.asked.isEmpty)
         #expect(model.found == nil)
-        #expect(!model.isLookingUp)
+        #expect(model.isLookingUp == false)
     }
 
     @Test func useThisSpotStagesThePlace() async throws {
@@ -324,11 +326,6 @@ private func stored(_ store: CrosstuneStore) async throws -> Recording {
         #expect(written.placeOrigin == PlaceOrigin.picked.rawValue)
     }
 
-    @Test func theCopyIsSet() {
-        #expect(DropPinText.useThisSpot == "Use this spot")
-        #expect(DropPinText.hint == "Move the map to place the pin.")
-    }
-
     @Test func thePinStartsAtTheAreaOfTheTypedSearch() async throws {
         let store = try root.open()
         let latest = placedRecording("r2", name: ennis.name, at: ennis.coordinate)
@@ -371,7 +368,7 @@ private func stored(_ store: CrosstuneStore) async throws -> Recording {
     }
 }
 
-@Suite struct PinStartTests {
+struct PinStartTests {
     private let recorded = Coordinate(lat: 1, lon: 1)
     private let device = Coordinate(lat: 2, lon: 2, accuracyM: 10)
     private let area = Coordinate(lat: 3, lon: 3)

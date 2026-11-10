@@ -26,7 +26,7 @@ private func isExcludedFromBackup(_ url: URL) throws -> Bool? {
     return try url.resourceValues(forKeys: [.isExcludedFromBackupKey]).isExcludedFromBackup
 }
 
-@Test func theV10MigrationPullsEveryRowAgain() async throws {
+@Test(.timeLimit(.minutes(1))) func theV10MigrationPullsEveryRowAgain() async throws {
     let root = TemporaryRoot()
     let folder = try CrosstuneStore.folder(for: "user_a", in: root.url)
     try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
@@ -51,7 +51,7 @@ private func isExcludedFromBackup(_ url: URL) throws -> Bool? {
     #expect(FileManager.default.fileExists(atPath: store.scansFolder.path(percentEncoded: false)))
 }
 
-@Test func droppingAScanFileRowRemovesItsFileAfterCommit() async throws {
+@Test(.timeLimit(.minutes(1))) func droppingAScanFileRowRemovesItsFileAfterCommit() async throws {
     let root = TemporaryRoot()
     let store = try root.open()
     let url = try await scanWithFile(store)
@@ -61,10 +61,10 @@ private func isExcludedFromBackup(_ url: URL) throws -> Bool? {
         _ = try ScanFile.deleteOne(writer.db, key: "p1")
     }
 
-    #expect(!FileManager.default.fileExists(atPath: url.path(percentEncoded: false)))
+    #expect(FileManager.default.fileExists(atPath: url.path(percentEncoded: false)) == false)
 }
 
-@Test func aFailedWriteKeepsTheScanFile() async throws {
+@Test(.timeLimit(.minutes(1))) func aFailedWriteKeepsTheScanFile() async throws {
     let root = TemporaryRoot()
     let store = try root.open()
     let url = try await scanWithFile(store)
@@ -80,7 +80,7 @@ private func isExcludedFromBackup(_ url: URL) throws -> Bool? {
     #expect(try await store.read { db in try ScanFile.fetchCount(db) } == 1)
 }
 
-@Test func theSweepDeletesOnlyUnnamedScanFilesThatWereThereAtOpen() async throws {
+@Test(.timeLimit(.minutes(1))) func theSweepDeletesOnlyUnnamedScanFilesThatWereThereAtOpen() async throws {
     let root = TemporaryRoot()
     let first = try root.open()
     try await scanWithFile(first)
@@ -97,7 +97,7 @@ private func isExcludedFromBackup(_ url: URL) throws -> Bool? {
     #expect(Set(left) == ["p1.jpg", later], "a named scan and one written after open stay")
 }
 
-@Test func aDownloadedScanStaysOutOfBackups() async throws {
+@Test(.timeLimit(.minutes(1))) func aDownloadedScanStaysOutOfBackups() async throws {
     let root = TemporaryRoot()
     let store = try root.open()
     let url = try await scanWithFile(store, origin: .downloaded)
@@ -107,7 +107,7 @@ private func isExcludedFromBackup(_ url: URL) throws -> Bool? {
     #expect(try isExcludedFromBackup(url) == true)
 }
 
-@Test func aCapturedScanStaysInBackups() async throws {
+@Test(.timeLimit(.minutes(1))) func aCapturedScanStaysInBackups() async throws {
     let root = TemporaryRoot()
     let store = try root.open()
     let url = try await scanWithFile(store, origin: .downloaded)
@@ -118,10 +118,10 @@ private func isExcludedFromBackup(_ url: URL) throws -> Bool? {
 
     // macOS writes an exclusion again shortly after setResourceValues returns, so clearing one
     // just set can read as excluded until the clear's own deferred write lands.
-    #expect(try await poll { try isExcludedFromBackup(url) == false })
+    try await eventually { try isExcludedFromBackup(url) == false }
 }
 
-@Test func aCapturedScanCountsAsNotUploadedUntilTheServerHasIt() async throws {
+@Test(.timeLimit(.minutes(1))) func aCapturedScanCountsAsNotUploadedUntilTheServerHasIt() async throws {
     let root = TemporaryRoot()
     let store = try root.open()
     try await scanWithFile(store)
@@ -140,7 +140,7 @@ private func isExcludedFromBackup(_ url: URL) throws -> Bool? {
     #expect(try await store.notUploadedScanCount() == 0, "a deleted scan never holds up a sign-out")
 }
 
-@Test func aCapturedScanWhoseTuneIsGoneNeverHoldsUpASignOut() async throws {
+@Test(.timeLimit(.minutes(1))) func aCapturedScanWhoseTuneIsGoneNeverHoldsUpASignOut() async throws {
     let root = TemporaryRoot()
     let store = try root.open()
     try await scanWithFile(store)
@@ -154,7 +154,7 @@ private func isExcludedFromBackup(_ url: URL) throws -> Bool? {
     #expect(try await store.notUploadedScanCount() == 0, "a scan with no tune here is gone too")
 }
 
-@Test func aDownloadedScanIsNeverNotUploaded() async throws {
+@Test(.timeLimit(.minutes(1))) func aDownloadedScanIsNeverNotUploaded() async throws {
     let root = TemporaryRoot()
     let store = try root.open()
     try await scanWithFile(store, origin: .downloaded)
@@ -171,7 +171,7 @@ private func isExcludedFromBackup(_ url: URL) throws -> Bool? {
     #expect(Set(data.keys) == ["created_at", "tune_id", "position", "width", "height"])
 }
 
-@Test func aPulledScanDecodesAndKeepsUnknownFields() async throws {
+@Test(.timeLimit(.minutes(1))) func aPulledScanDecodesAndKeepsUnknownFields() async throws {
     let root = TemporaryRoot()
     let store = try root.open()
     let wire: JSONObject = [

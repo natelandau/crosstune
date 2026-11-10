@@ -3,9 +3,9 @@ import Testing
 @testable import CrosstuneUI
 
 @MainActor
-@Suite struct PadBottomBarTests {
+struct PadBottomBarTests {
     @Test func idleShowsRecordOnly() {
-        #expect(!PadBottomBar.showsPlayer(PlayerModel(), nil, in: nil))
+        #expect(PadBottomBar.showsPlayer(PlayerModel(), nil, in: nil) == false)
     }
 
     @Test func playingShowsThePlayerBesideRecord() {
@@ -19,12 +19,12 @@ import Testing
         #expect(PadBottomBar.recordIsEnabled(cover: nil))
         #expect(PadBottomBar.recordIsEnabled(cover: cover))
         cover.claim()
-        #expect(!PadBottomBar.recordIsEnabled(cover: cover))
+        #expect(PadBottomBar.recordIsEnabled(cover: cover) == false)
     }
 
     @Test func bottomBarShowsOnlyWithSomethingInIt() {
         let player = PlayerModel()
-        #expect(!PadBottomBar.isShown(showsRecord: false, player, nil, in: nil))
+        #expect(PadBottomBar.isShown(showsRecord: false, player, nil, in: nil) == false)
         player.play(PlayerItem(kind: .link, id: "l", title: "Soldier's Joy"))
         #expect(PadBottomBar.isShown(showsRecord: false, player, nil, in: nil))
     }

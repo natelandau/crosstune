@@ -7,11 +7,11 @@ import Testing
 @testable import CrosstuneUI
 
 @MainActor
-@Suite struct PlanSectionTests {
+@Suite(.timeLimit(.minutes(1))) struct PlanSectionTests {
     private let root = TemporaryRoot()
 
     /// A plan model over a store holding an entitlements row from `source`, once it has judged it.
-    private func plan(source: String?) async throws -> PlanModel {
+    private func plan(source: String?, sourceLocation: SourceLocation = #_sourceLocation) async throws -> PlanModel {
         let store = try root.open()
         let ends = noon.date.addingTimeInterval(30 * 86_400)
         let row = Entitlement(
@@ -20,7 +20,7 @@ import Testing
             trialEndsAt: source == "trial" ? Timestamp(ends) : nil, premiumQuotaBytes: 10_000)
         try await store.write { writer in try row.upsert(writer.db) }
         let model = PlanModel(store: store, now: { noon.date })
-        #expect(try await poll { model.isLoaded && model.plan.kind != .unknown })
+        try await eventually(sourceLocation: sourceLocation) { model.isLoaded && model.plan.kind != .unknown }
         return model
     }
 

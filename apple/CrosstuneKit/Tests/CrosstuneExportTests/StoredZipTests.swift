@@ -192,7 +192,7 @@ private let regularFileAttributes: UInt32 = 0o100644 << 16
     #expect(calls == [1, 2])
 }
 
-@Test func stopsBeforeTheNextEntryWhenCancelled() async throws {
+@Test(.timeLimit(.minutes(1))) func stopsBeforeTheNextEntryWhenCancelled() async throws {
     let scratch = try ScratchFolder()
     let second = try scratch.file("b", Data("y".utf8))
     let zipURL = scratch.url.appending(path: "out.zip")
@@ -247,7 +247,9 @@ private let regularFileAttributes: UInt32 = 0o100644 << 16
         #expect(try Data(contentsOf: extracted) == bytes)
     }
 
-    func run(_ executable: String, _ arguments: [String]) throws -> Data {
+    func run(_ executable: String, _ arguments: [String], sourceLocation: SourceLocation = #_sourceLocation) throws
+        -> Data
+    {
         let process = Process()
         process.executableURL = URL(filePath: executable)
         process.arguments = arguments
@@ -256,7 +258,7 @@ private let regularFileAttributes: UInt32 = 0o100644 << 16
         try process.run()
         let output = pipe.fileHandleForReading.readDataToEndOfFile()
         process.waitUntilExit()
-        #expect(process.terminationStatus == 0, "\(executable) \(arguments)")
+        #expect(process.terminationStatus == 0, "\(executable) \(arguments)", sourceLocation: sourceLocation)
         return output
     }
 
@@ -287,7 +289,7 @@ private let regularFileAttributes: UInt32 = 0o100644 << 16
 
 #if canImport(Darwin)
     /// The memory this process holds now, as the system counts it against an app's limit.
-    private func footprint() throws -> UInt64 {
+    private func footprint(sourceLocation: SourceLocation = #_sourceLocation) throws -> UInt64 {
         var info = task_vm_info_data_t()
         var count = mach_msg_type_number_t(MemoryLayout<task_vm_info_data_t>.size / MemoryLayout<natural_t>.size)
         let result = withUnsafeMutablePointer(to: &info) {
@@ -295,7 +297,7 @@ private let regularFileAttributes: UInt32 = 0o100644 << 16
                 task_info(mach_task_self_, task_flavor_t(TASK_VM_INFO), $0, &count)
             }
         }
-        try #require(result == KERN_SUCCESS)
+        try #require(result == KERN_SUCCESS, sourceLocation: sourceLocation)
         return info.phys_footprint
     }
 

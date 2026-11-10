@@ -10,7 +10,7 @@ import Testing
 /// A link reports its service, how it came in, and its ID once it is stored, and a search in Find
 /// recordings reports its service and how much it found once it answers. Never the link itself.
 @MainActor
-@Suite struct LinkEventTests {
+@Suite(.timeLimit(.minutes(1))) struct LinkEventTests {
     private let root = TemporaryRoot()
     private let sink = RecordingAnalyticsSink()
     private let tuneID = SampleCatalog.entries[0].tune.id
@@ -29,11 +29,13 @@ import Testing
     }
 
     /// The ID of the link stored at `url`.
-    private func linkID(_ url: String, in store: CrosstuneStore) async throws -> String {
+    private func linkID(_ url: String, in store: CrosstuneStore, sourceLocation: SourceLocation = #_sourceLocation)
+        async throws -> String
+    {
         try #require(
             try await store.read { db in
                 try RecordingLink.fetchAll(db).first { $0.url == url }?.id
-            })
+            }, sourceLocation: sourceLocation)
     }
 
     @Test func reportsAPastedLinkByItsService() async throws {
@@ -60,7 +62,7 @@ import Testing
         let model = LinkSheetModel(store: store, tuneID: tuneID, resolve: nil, analytics: sink.client)
         model.setURL("not a link")
 
-        #expect(!(await model.save()))
+        #expect((await model.save()) == false)
 
         #expect(sink.calls.isEmpty)
     }
@@ -70,7 +72,7 @@ import Testing
         let outcome = found(3)
         let model = FindRecordingsModel(
             store: store, tuneID: tuneID, service: "tidal", search: { _, _, _ in outcome }, analytics: sink.client)
-        #expect(try await poll { model.group != nil })
+        try await eventually { model.group != nil }
 
         let result = try #require(model.group?.results.first)
         await model.link(result)
@@ -94,7 +96,7 @@ import Testing
         let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = FindRecordingsModel(
             store: store, tuneID: tuneID, service: "tidal", search: { _, _, _ in .offline }, analytics: sink.client)
-        #expect(try await poll { model.failure != nil })
+        try await eventually { model.failure != nil }
 
         #expect(sink.calls.isEmpty)
     }

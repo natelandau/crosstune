@@ -22,7 +22,7 @@ private func choice(_ sort: CatalogSort, _ descending: Bool) -> CatalogSortChoic
     CatalogSortChoice(sort: sort, descending: descending)
 }
 
-@Suite struct CatalogSortChoiceTests {
+struct CatalogSortChoiceTests {
     @Test func offersTitleThenTheThreeDatesWithTitleCheckedAToZ() {
         let items = SortChoices<CatalogSort>.items(for: .default)
         #expect(items.map(\.label) == ["Title", "Date added", "Date modified", "Last played"])
@@ -40,16 +40,18 @@ private func choice(_ sort: CatalogSort, _ descending: Bool) -> CatalogSortChoic
         #expect(CatalogSortChoice.storageKey != RecordingSortChoice.storageKey)
     }
 
-    @Test func startsEveryDateSortNewestFirst() {
-        for sort in [CatalogSort.added, .modified, .played] {
-            #expect(CatalogSortChoice.default.picking(sort) == choice(sort, true))
-            #expect(SortText.direction(choice(sort, true)) == SortText.newestFirst)
-        }
+    @Test(arguments: [CatalogSort.added, .modified, .played])
+    func startsEveryDateSortNewestFirst(sort: CatalogSort) {
+        #expect(CatalogSortChoice.default.picking(sort) == choice(sort, true))
+        #expect(SortText.direction(choice(sort, true)) == SortText.newestFirst)
+    }
+
+    @Test func pickingTitleReturnsToTheDefault() {
         #expect(choice(.played, true).picking(.title) == .default)
     }
 }
 
-@Suite struct CatalogSortingTests {
+@Suite(.timeLimit(.minutes(1))) struct CatalogSortingTests {
     private let none: [String: Timestamp] = [:]
 
     @Test func sortsByTitleIgnoringCaseAndAccentsAndReversesForZToA() {
@@ -98,17 +100,16 @@ private func choice(_ sort: CatalogSort, _ descending: Bool) -> CatalogSortChoic
             ])
     }
 
-    @Test func breaksADateTieByTitleAToZInEitherDirection() {
+    @Test(arguments: [true, false])
+    func breaksADateTieByTitleAToZInEitherDirection(descending: Bool) {
         let entries = [
             entry("a", "Cotton Eyed Joe", added: "2026-03-01T00:00:00Z"),
             entry("b", "Arkansas Traveler", added: "2026-03-01T00:00:00Z"),
         ]
-        for descending in [true, false] {
-            #expect(
-                titles(CatalogSearch.sorted(entries, by: choice(.added, descending), lastPlayed: none)) == [
-                    "Arkansas Traveler", "Cotton Eyed Joe",
-                ])
-        }
+        #expect(
+            titles(CatalogSearch.sorted(entries, by: choice(.added, descending), lastPlayed: none)) == [
+                "Arkansas Traveler", "Cotton Eyed Joe",
+            ])
     }
 
     @Test func sortsByLastPlayedWithNeverPlayedTunesLastInEitherDirection() {
@@ -155,7 +156,7 @@ private func choice(_ sort: CatalogSort, _ descending: Bool) -> CatalogSortChoic
 }
 
 @MainActor
-@Suite struct CatalogModelSortTests {
+@Suite(.timeLimit(.minutes(1))) struct CatalogModelSortTests {
     @Test func ordersByTitleUntilAnotherSortIsChosen() async throws {
         let root = TemporaryRoot()
         let model = CatalogModel(store: try await SampleCatalog.copiedStore(root: root.url))

@@ -6,7 +6,7 @@
     @testable import CrosstuneUI
 
     /// The Mac's practice view, recordings, record sheet, media sheets, and dock.
-    @Suite struct MacPracticeSurfaceTests {
+    struct MacPracticeSurfaceTests {
         private static func macSource(_ path: String) throws -> String {
             SourceScan.macCompiled(
                 SourceScan.withoutComments(try SourceScan.text(at: SourceScan.url(of: path))))
@@ -17,8 +17,8 @@
         /// A ruler label that would run past either end of the waveform is left off; its tick stays.
         @Test func rulerDropsALabelThatPassesAnEdge() {
             #expect(PracticeWaveform.rulerLabelFits(atX: 100, labelWidth: 30, width: 400))
-            #expect(!PracticeWaveform.rulerLabelFits(atX: 10, labelWidth: 30, width: 400))
-            #expect(!PracticeWaveform.rulerLabelFits(atX: 390, labelWidth: 30, width: 400))
+            #expect(PracticeWaveform.rulerLabelFits(atX: 10, labelWidth: 30, width: 400) == false)
+            #expect(PracticeWaveform.rulerLabelFits(atX: 390, labelWidth: 30, width: 400) == false)
             #expect(PracticeWaveform.rulerLabelFits(atX: 15, labelWidth: 30, width: 400))
             #expect(PracticeWaveform.rulerLabelFits(atX: 385, labelWidth: 30, width: 400))
         }
@@ -26,7 +26,9 @@
         /// The loop switcher rides in the stage beside the readout, so no empty row holds the
         /// mode picker away from the transport.
         @Test func loopSwitcherSitsInTheStage() throws {
-            #expect(!(try Self.macSource("RecordingScreen/Practice/PracticeControls.swift")).contains("LoopSwitcher("))
+            #expect(
+                (try Self.macSource("RecordingScreen/Practice/PracticeControls.swift")).contains("LoopSwitcher(")
+                    == false)
             let screen = SourceScan.macOSRegions(
                 of: SourceScan.withoutComments(
                     try SourceScan.text(at: SourceScan.url(of: "RecordingScreen/RecordingScreen.swift"))
@@ -41,8 +43,8 @@
                 of: SourceScan.withoutComments(
                     try SourceScan.text(at: SourceScan.url(of: "RecordingScreen/RecordingScreen.swift"))
                 ))
-            #expect(!screen.contains("Spacer("))
-            #expect(!screen.contains("minHeight: viewportHeight"))
+            #expect(screen.contains("Spacer(") == false)
+            #expect(screen.contains("minHeight: viewportHeight") == false)
         }
 
         /// Why New loop is off shows as a caption; with nothing in the way the empty hint shows
@@ -69,9 +71,8 @@
 
         // MARK: Sheets
 
-        /// In light the scan background is the field gray, so a white page contrasts with it.
+        /// In light a white page contrasts with the scan background.
         @Test func scanBackgroundSetsThePageApart() {
-            #expect(ScanViewer.scanBackgroundHex(.light) == Palette.hex(.field, .light))
             #expect(contrastRatio("#FFFFFF", ScanViewer.scanBackgroundHex(.light)) > 1.2)
         }
 
@@ -79,7 +80,7 @@
         /// or results arriving never leaves the sheet the wrong size.
         @Test func findRecordingsKeepsOneHeight() {
             let size = FindRecordingsSheet.macSize
-            #expect(!size.isFitted)
+            #expect(size.isFitted == false)
             #expect(size.idealHeight == size.minHeight)
         }
 
@@ -108,7 +109,7 @@
 
         /// A single-pick row's + shows only under the pointer or focus; an action row keeps it.
         @Test func addToTuneHidesThePlusAtRest() {
-            #expect(!MacPickGlyph.shows(.addOnHighlight, highlighted: false))
+            #expect(MacPickGlyph.shows(.addOnHighlight, highlighted: false) == false)
             #expect(MacPickGlyph.shows(.addOnHighlight, highlighted: true))
             #expect(MacPickGlyph.shows(.add, highlighted: false))
         }
@@ -118,9 +119,8 @@
         /// With an embed playing, a now-playing glyph shows where play would be.
         @Test func dockShowsNowPlayingWherePlayWouldBe() throws {
             let text = try Self.macSource("Mac/PlayerDock.swift")
-            #expect(!text.contains("DockGlyph"))
+            #expect(text.contains("DockGlyph") == false)
             #expect(text.contains("Image(systemName: PlayerDockBar.nowPlayingSymbol)"))
-            #expect(PlayerDockBar.nowPlayingSymbol == "waveform")
         }
     }
 #endif

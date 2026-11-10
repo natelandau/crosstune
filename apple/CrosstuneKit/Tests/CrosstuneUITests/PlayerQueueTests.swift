@@ -32,10 +32,12 @@ private let queuedSong = "https://music.apple.com/us/album/the-silver-spear/1440
 private let queuedAlbum = "https://music.apple.com/us/album/the-silver-spear/1440833081"
 private let queuedAudio = URL(filePath: "/tmp/queued.m4a")
 
-private func songItem(_ url: String = queuedSong) throws -> PlayerItem {
+private func songItem(_ url: String = queuedSong, sourceLocation: SourceLocation = #_sourceLocation) throws
+    -> PlayerItem
+{
     let link = RecordingLink(
         id: "l1", tuneID: "t1", url: url, provider: "apple_music", providerRef: detectProvider(url).providerRef)
-    return try #require(PlayerItem.link(link))
+    return try #require(PlayerItem.link(link), sourceLocation: sourceLocation)
 }
 
 private func recordingItem() -> PlayerItem {
@@ -46,7 +48,7 @@ private func recordingItem() -> PlayerItem {
 private let queuedNowPlaying = NowPlaying(title: "Jam", tuneTitle: "Kitchen Girl")
 
 @MainActor
-@Suite struct PlayerQueueTests {
+@Suite(.timeLimit(.minutes(1))) struct PlayerQueueTests {
     private struct Fixture {
         let player: PlayerModel
         let audio: FakeAudio
@@ -70,20 +72,21 @@ private let queuedNowPlaying = NowPlaying(title: "Jam", tuneTitle: "Kitchen Girl
         return Fixture(player: player, audio: audio, music: music, queue: queue)
     }
 
-    private func queueRecording(_ fixture: Fixture) async throws {
+    private func queueRecording(_ fixture: Fixture, sourceLocation: SourceLocation = #_sourceLocation) async throws {
         fixture.player.playQueued(recordingItem(), nowPlaying: queuedNowPlaying, trigger: .autoAdvance)
-        try await eventually { fixture.player.recordingAudio == .loaded }
+        try await eventually(sourceLocation: sourceLocation) { fixture.player.recordingAudio == .loaded }
     }
 
-    private func queueSong(_ fixture: Fixture) async throws {
-        fixture.player.playQueued(try songItem(), nowPlaying: queuedNowPlaying, trigger: .autoAdvance)
-        try await eventually { fixture.player.linkAudio == .native }
+    private func queueSong(_ fixture: Fixture, sourceLocation: SourceLocation = #_sourceLocation) async throws {
+        fixture.player.playQueued(
+            try songItem(sourceLocation: sourceLocation), nowPlaying: queuedNowPlaying, trigger: .autoAdvance)
+        try await eventually(sourceLocation: sourceLocation) { fixture.player.linkAudio == .native }
     }
 
     @Test func aQueuedRecordingTurnsOffIntervalSkips() async throws {
         let fixture = fixture()
         try await queueRecording(fixture)
-        #expect(!fixture.audio.skipsByInterval)
+        #expect(fixture.audio.skipsByInterval == false)
         fixture.player.close()
         #expect(fixture.audio.skipsByInterval)
     }
@@ -92,9 +95,9 @@ private let queuedNowPlaying = NowPlaying(title: "Jam", tuneTitle: "Kitchen Girl
         let fixture = fixture()
         try await queueRecording(fixture)
         #expect(fixture.audio.holdsSession)
-        #expect(!fixture.audio.calls.contains("releaseSession"))
+        #expect(fixture.audio.calls.contains("releaseSession") == false)
         fixture.player.close()
-        #expect(!fixture.audio.holdsSession)
+        #expect(fixture.audio.holdsSession == false)
         #expect(fixture.audio.calls.last == "releaseSession")
     }
 
@@ -110,7 +113,7 @@ private let queuedNowPlaying = NowPlaying(title: "Jam", tuneTitle: "Kitchen Girl
         #expect(fixture.music.loaded == [.song(id: "1440833090")])
         #expect(fixture.music.guardedLoads == [true])
         #expect(fixture.music.calls == ["load", "play"])
-        #expect(!fixture.player.isExpanded)
+        #expect(fixture.player.isExpanded == false)
     }
 
     @Test func aQueuedSongLoadedPausedTellsTheTunerItYieldedForNothing() async throws {
@@ -122,7 +125,7 @@ private let queuedNowPlaying = NowPlaying(title: "Jam", tuneTitle: "Kitchen Girl
         try await eventually { fixture.player.linkAudio == .native }
 
         #expect(fixture.audio.calls == ["yieldSessionToMusic"])
-        #expect(!fixture.music.calls.contains("play"))
+        #expect(fixture.music.calls.contains("play") == false)
         #expect(told == 1)
     }
 
@@ -191,10 +194,10 @@ private let queuedNowPlaying = NowPlaying(title: "Jam", tuneTitle: "Kitchen Girl
         try await eventually { fixture.queue.calls == ["couldNotPlay"] }
         #expect(fixture.player.linkAudio == nil)
         #expect(fixture.player.embed == nil)
-        #expect(!fixture.player.isLoaded)
-        #expect(!fixture.player.isExpanded)
+        #expect(fixture.player.isLoaded == false)
+        #expect(fixture.player.isExpanded == false)
         #expect(fixture.music.loaded.isEmpty)
-        #expect(!fixture.music.calls.contains("play"))
+        #expect(fixture.music.calls.contains("play") == false)
     }
 
     @Test func aQueuedSongThatIsNotFoundReportsCouldNotPlay() async throws {
@@ -203,8 +206,8 @@ private let queuedNowPlaying = NowPlaying(title: "Jam", tuneTitle: "Kitchen Girl
         try await eventually { fixture.queue.calls == ["couldNotPlay"] }
         #expect(fixture.player.linkAudio == nil)
         #expect(fixture.player.embed == nil)
-        #expect(!fixture.player.isLoaded)
-        #expect(!fixture.player.isExpanded)
+        #expect(fixture.player.isLoaded == false)
+        #expect(fixture.player.isExpanded == false)
     }
 
     @Test func aQueuedSongThatDoesNotStartReportsCouldNotPlay() async throws {
@@ -213,7 +216,7 @@ private let queuedNowPlaying = NowPlaying(title: "Jam", tuneTitle: "Kitchen Girl
         fixture.player.playQueued(try songItem(), nowPlaying: queuedNowPlaying, trigger: .autoAdvance)
         try await eventually { fixture.queue.calls == ["couldNotPlay"] }
         #expect(fixture.player.linkAudio == nil)
-        #expect(!fixture.player.isLoaded)
+        #expect(fixture.player.isLoaded == false)
     }
 
     @Test func aQueuedAlbumReportsCouldNotPlayWithoutLoading() async throws {
@@ -230,7 +233,7 @@ private let queuedNowPlaying = NowPlaying(title: "Jam", tuneTitle: "Kitchen Girl
         fixture.player.audioSource = { _ in nil }
         fixture.player.playQueued(recordingItem(), nowPlaying: queuedNowPlaying, trigger: .autoAdvance)
         try await eventually { fixture.queue.calls == ["couldNotPlay"] }
-        #expect(!fixture.player.isLoaded)
+        #expect(fixture.player.isLoaded == false)
         #expect(fixture.player.recordingAudio == nil)
         #expect(fixture.audio.holdsSession)
     }
@@ -246,9 +249,9 @@ private let queuedNowPlaying = NowPlaying(title: "Jam", tuneTitle: "Kitchen Girl
         try await queueRecording(fixture)
         #expect(fixture.audio.keptLoop == false)
         #expect(fixture.audio.loop == nil)
-        #expect(!fixture.audio.calls.contains("setLoop"))
-        #expect(!fixture.audio.calls.contains("setRepeat(true)"))
-        #expect(!fixture.audio.isRepeating)
+        #expect(fixture.audio.calls.contains("setLoop") == false)
+        #expect(fixture.audio.calls.contains("setRepeat(true)") == false)
+        #expect(fixture.audio.isRepeating == false)
         #expect(fixture.player.loops.selectedID == nil)
         #expect(fixture.audio.isPlaying)
     }
@@ -283,7 +286,7 @@ private let queuedNowPlaying = NowPlaying(title: "Jam", tuneTitle: "Kitchen Girl
         fixture.player.close()
         #expect(fixture.queue.calls == ["leftQueue"])
         #expect(fixture.player.queue == nil)
-        #expect(!fixture.audio.holdsSession)
+        #expect(fixture.audio.holdsSession == false)
         #expect(fixture.audio.skipsByInterval)
 
         fixture.player.queue = fixture.queue
@@ -291,7 +294,7 @@ private let queuedNowPlaying = NowPlaying(title: "Jam", tuneTitle: "Kitchen Girl
         fixture.player.play(recordingItem())
         #expect(fixture.queue.calls == ["leftQueue", "leftQueue"])
         #expect(fixture.player.queue == nil)
-        #expect(!fixture.audio.holdsSession)
+        #expect(fixture.audio.holdsSession == false)
         #expect(fixture.audio.skipsByInterval)
         try await eventually { fixture.player.recordingAudio == .loaded }
         // The recording just loaded no longer reports to a queue.
@@ -316,7 +319,7 @@ private let queuedNowPlaying = NowPlaying(title: "Jam", tuneTitle: "Kitchen Girl
         #expect(fixture.player.recordingAudio == .loaded)
         #expect(fixture.player.queue == nil)
         #expect(fixture.queue.calls.isEmpty)
-        #expect(!fixture.audio.holdsSession)
+        #expect(fixture.audio.holdsSession == false)
         #expect(fixture.audio.skipsByInterval)
         #expect(fixture.audio.calls.last == "releaseSession")
         fixture.audio.end(.finished)
@@ -333,8 +336,8 @@ private let queuedNowPlaying = NowPlaying(title: "Jam", tuneTitle: "Kitchen Girl
         capturing.withLock { $0 = true }
         fixture.music.release()
         try await eventually { fixture.queue.calls == ["leftQueue"] }
-        #expect(!fixture.music.calls.contains("play"))
-        #expect(!fixture.player.isLoaded)
+        #expect(fixture.music.calls.contains("play") == false)
+        #expect(fixture.player.isLoaded == false)
         #expect(fixture.player.queue == nil)
         #expect(fixture.audio.calls.last == "releaseSession")
     }
@@ -347,9 +350,9 @@ private let queuedNowPlaying = NowPlaying(title: "Jam", tuneTitle: "Kitchen Girl
         // Before the decision's access lookup returns, as a tuner or recording can start meanwhile.
         capturing.withLock { $0 = true }
         try await eventually { fixture.queue.calls == ["leftQueue"] }
-        #expect(!fixture.audio.calls.contains("yieldSessionToMusic"))
+        #expect(fixture.audio.calls.contains("yieldSessionToMusic") == false)
         #expect(fixture.music.loaded.isEmpty)
-        #expect(!fixture.player.isLoaded)
+        #expect(fixture.player.isLoaded == false)
     }
 
     @Test func aSongNotDecidedByTheTimeoutReportsCouldNotPlay() async throws {
@@ -359,7 +362,7 @@ private let queuedNowPlaying = NowPlaying(title: "Jam", tuneTitle: "Kitchen Girl
         fixture.player.playQueued(try songItem(), nowPlaying: queuedNowPlaying, trigger: .autoAdvance)
         try await eventually { fixture.music.isHoldingLoad }
         try await eventually { fixture.queue.calls == ["couldNotPlay"] }
-        #expect(!fixture.player.isLoaded)
+        #expect(fixture.player.isLoaded == false)
         #expect(fixture.player.embed == nil)
         fixture.music.release()
     }
@@ -381,7 +384,7 @@ private let queuedNowPlaying = NowPlaying(title: "Jam", tuneTitle: "Kitchen Girl
         let told = fixture.queue.calls
         try await eventually { fixture.music.loaded.count == 2 && fixture.player.linkAudio == .native }
         #expect(fixture.music.guardedLoads == [true, false])
-        #expect(!fixture.music.isPlaying)
+        #expect(fixture.music.isPlaying == false)
 
         // The bar's play button.
         fixture.player.transport?.play()
@@ -402,9 +405,9 @@ private let queuedNowPlaying = NowPlaying(title: "Jam", tuneTitle: "Kitchen Girl
         fixture.music.holdsLoads = false
         fixture.music.release()
         try await eventually { fixture.music.guardedLoads.last == false && fixture.player.linkAudio == .native }
-        #expect(!fixture.music.isPlaying)
-        #expect(!fixture.music.calls.contains("play"))
-        #expect(!fixture.music.calls.contains("stop"))
+        #expect(fixture.music.isPlaying == false)
+        #expect(fixture.music.calls.contains("play") == false)
+        #expect(fixture.music.calls.contains("stop") == false)
     }
 
     @Test func releasingASongKeepsTheOpenPlayerAndTheBar() async throws {
@@ -417,7 +420,7 @@ private let queuedNowPlaying = NowPlaying(title: "Jam", tuneTitle: "Kitchen Girl
         #expect(fixture.player.linkAudio == .native)
         #expect(fixture.player.isExpanded)
         #expect(fixture.player.transport === fixture.music)
-        #expect(!fixture.music.calls.contains("stop"))
+        #expect(fixture.music.calls.contains("stop") == false)
         fixture.music.holdsLoads = false
         fixture.music.release()
         try await eventually { fixture.music.guardedLoads == [true, false] }
@@ -484,7 +487,7 @@ private let queuedNowPlaying = NowPlaying(title: "Jam", tuneTitle: "Kitchen Girl
         fixture.music.release()
         try await eventually { fixture.player.linkAudio == .embed }
         #expect(fixture.player.isLoaded)
-        #expect(!fixture.player.isExpanded)
+        #expect(fixture.player.isExpanded == false)
         #expect(fixture.queue.calls.isEmpty)
     }
 
@@ -512,7 +515,7 @@ private let queuedNowPlaying = NowPlaying(title: "Jam", tuneTitle: "Kitchen Girl
         fixture.player.audioSource = { _ in nil }
         await fixture.player.deleteLoadedRecording { throw Refused() }
         try await eventually { fixture.queue.calls == ["couldNotPlay"] }
-        #expect(!fixture.player.isLoaded)
+        #expect(fixture.player.isLoaded == false)
     }
 
     @Test func aFetchThatFailsAfterTheQueueLeftShowsUnavailable() async throws {
@@ -536,8 +539,9 @@ private let queuedNowPlaying = NowPlaying(title: "Jam", tuneTitle: "Kitchen Girl
     @Test func aQueuedTrackIsRefusedDuringARecording() async throws {
         let fixture = fixture()
         fixture.player.isCapturing = { true }
-        #expect(!fixture.player.playQueued(recordingItem(), nowPlaying: queuedNowPlaying, trigger: .autoAdvance))
-        #expect(!fixture.player.isLoaded)
+        #expect(
+            fixture.player.playQueued(recordingItem(), nowPlaying: queuedNowPlaying, trigger: .autoAdvance) == false)
+        #expect(fixture.player.isLoaded == false)
         #expect(fixture.queue.calls.isEmpty)
     }
 
@@ -567,7 +571,7 @@ private let queuedNowPlaying = NowPlaying(title: "Jam", tuneTitle: "Kitchen Girl
         fixture.player.linkChanged(id: "l1", to: row)
         try await eventually { fixture.music.loaded.count == 2 && fixture.player.linkAudio == .native }
         #expect(fixture.music.guardedLoads == [true, true])
-        #expect(!fixture.music.isPlaying)
+        #expect(fixture.music.isPlaying == false)
     }
 
     @Test func aSyncedSongAddressKeepsAPlayingQueuedSongPlaying() async throws {
@@ -589,7 +593,7 @@ private let queuedNowPlaying = NowPlaying(title: "Jam", tuneTitle: "Kitchen Girl
             providerRef: detectProvider(queuedAlbum).providerRef)
         fixture.player.linkChanged(id: "l1", to: row)
         #expect(fixture.queue.calls == ["couldNotPlay"])
-        #expect(!fixture.player.isLoaded)
+        #expect(fixture.player.isLoaded == false)
         #expect(fixture.music.loaded.count == 1)
         #expect(fixture.player.queue === fixture.queue)
     }
@@ -601,7 +605,7 @@ private let queuedNowPlaying = NowPlaying(title: "Jam", tuneTitle: "Kitchen Girl
         row.deletedAt = noon
         fixture.player.recordingChanged(id: "r1", to: row, audioFile: nil, tuneTitle: "Kitchen Girl")
         #expect(fixture.queue.calls == ["couldNotPlay"])
-        #expect(!fixture.player.isLoaded)
+        #expect(fixture.player.isLoaded == false)
         #expect(fixture.player.queue === fixture.queue)
     }
 
@@ -610,7 +614,7 @@ private let queuedNowPlaying = NowPlaying(title: "Jam", tuneTitle: "Kitchen Girl
         try await queueSong(fixture)
         fixture.player.linkChanged(id: "l1", to: nil)
         #expect(fixture.queue.calls == ["couldNotPlay"])
-        #expect(!fixture.player.isLoaded)
+        #expect(fixture.player.isLoaded == false)
         #expect(fixture.player.queue === fixture.queue)
     }
 

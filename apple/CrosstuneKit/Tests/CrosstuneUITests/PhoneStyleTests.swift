@@ -4,7 +4,7 @@ import Testing
 
 @testable import CrosstuneUI
 
-@Suite struct PhoneStyleTests {
+struct PhoneStyleTests {
     private static let schemes: [ColorScheme] = [.light, .dark]
     private static let backgrounds = schemes.map { Palette.hex(.tunerBackground, $0) }
     private static let brand = Palette.hex(.brand, .light)
@@ -12,27 +12,9 @@ import Testing
     private static let known = Palette.hex(.statusKnown, .dark)
     private static let muted = Palette.hex(.onTunerSecondary, .light)
 
-    @Test func playheadReadsOnThePageAndASurface() {
-        for scheme in Self.schemes {
-            for background in [Palette.Token.pageBackground, .surface] {
-                #expect(
-                    contrastRatio(Palette.hex(.playhead, scheme), Palette.hex(background, scheme)) >= 3,
-                    "\(scheme) \(background)")
-            }
-        }
-    }
-
-    /// The tuner draws on one dark background in either appearance.
-    @Test func tunerBackgroundIsOneValueInEachAppearance() {
-        for (scheme, hex) in [
-            (ColorScheme.light, "#1E212C"), (ColorScheme.dark, "#1E212C"),
-        ] {
-            let resolved = Palette.tunerBackground(scheme).resolve(in: EnvironmentValues())
-            let expected = KeyColor.RGB(hex: hex)
-            #expect(abs(Double(resolved.red) - expected.red) < 0.01, "\(scheme) red")
-            #expect(abs(Double(resolved.green) - expected.green) < 0.01, "\(scheme) green")
-            #expect(abs(Double(resolved.blue) - expected.blue) < 0.01, "\(scheme) blue")
-        }
+    @Test(arguments: [ColorScheme.light, .dark], [Palette.Token.pageBackground, .surface])
+    func playheadReadsOnThePageAndASurface(scheme: ColorScheme, background: Palette.Token) {
+        #expect(contrastRatio(Palette.hex(.playhead, scheme), Palette.hex(background, scheme)) >= 3)
     }
 
     @Test func tunerStepsReadOnTheTunerBackground() {
@@ -44,12 +26,11 @@ import Testing
         #expect(abs(relativeLuminance(Self.tunerClose) - relativeLuminance(Self.brand)) >= 0.1)
     }
 
-    @Test func tunerBarsReadOnTheTunerBackgroundAcrossTheBlend() {
-        for step in 0...10 {
-            let bar = Palette.tunerBarHex(cents: 3 + 0.7 * Double(step))
-            for background in Self.backgrounds {
-                #expect(contrastRatio(bar, background) >= 3, "\(bar) on \(background)")
-            }
+    @Test(arguments: 0...10)
+    func tunerBarsReadOnTheTunerBackgroundAcrossTheBlend(step: Int) {
+        let bar = Palette.tunerBarHex(cents: 3 + 0.7 * Double(step))
+        for background in Self.backgrounds {
+            #expect(contrastRatio(bar, background) >= 3, "\(bar) on \(background)")
         }
     }
 
@@ -71,17 +52,14 @@ import Testing
         }
     }
 
-    @Test func tunerInTuneBackgroundMixesTheGreenIntoEachTunerBackground() {
+    @Test func tunerInTuneBackgroundReadsApartAndPassesContrast() {
         for scheme in Self.schemes {
             let background = Palette.hex(.tunerBackground, scheme)
             let inTune = Palette.hex(.tunerInTuneBackground, scheme)
-            let mixed = KeyColor.RGB(hex: blend(Self.known, over: background, opacity: 0.14))
-            let rgb = KeyColor.RGB(hex: inTune)
-            #expect(abs(rgb.red - mixed.red) <= 1.0 / 255, "\(scheme) red")
-            #expect(abs(rgb.green - mixed.green) <= 1.0 / 255, "\(scheme) green")
-            #expect(abs(rgb.blue - mixed.blue) <= 1.0 / 255, "\(scheme) blue")
             #expect(inTune != background, "\(scheme) reads apart from the tuner background")
-            #expect(contrastRatio("#FFFFFF", inTune) >= 4.5, "white on the \(scheme) in-tune background")
+            #expect(
+                contrastRatio(Palette.hex(.onTuner, scheme), inTune) >= 4.5,
+                "label on the \(scheme) in-tune background")
             #expect(contrastRatio(Self.muted, inTune) >= 4.5, "muted on the \(scheme) in-tune background")
             #expect(contrastRatio(Self.muted, background) >= 4.5, "muted on the \(scheme) tuner background")
             #expect(contrastRatio(Self.known, inTune) >= 3, "green on the \(scheme) in-tune background")

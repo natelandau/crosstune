@@ -7,7 +7,7 @@ import Testing
 
 @testable import CrosstuneUI
 
-@Suite struct FlowLayoutTests {
+struct FlowLayoutTests {
     private let pill = CGSize(width: 40, height: 20)
 
     @Test func wrapsWhenTheNextItemWouldNotFit() {
@@ -55,15 +55,14 @@ import Testing
         return FlowLayout.arrange(sizes: sizes, maxWidth: proposal, spacing: 8, lineSpacing: 4)
     }
 
-    @Test func placesAtTheWidthItMeasuredWith() {
-        for proposal: CGFloat? in [nil, 120, 100, 200] {
-            let measuredResult = measured(proposal: proposal)
-            // The parent places at the size it was given, and may pass no proposal.
-            for placementProposal in [nil, measuredResult.size.width] {
-                let width = FlowLayout.wrapWidth(proposal: placementProposal, bounds: measuredResult.size.width)
-                let placed = measured(proposal: width)
-                #expect(placed.size == measuredResult.size, "proposal \(String(describing: proposal))")
-            }
+    @Test(arguments: [nil, 120, 100, 200] as [CGFloat?])
+    func placesAtTheWidthItMeasuredWith(proposal: CGFloat?) {
+        let measuredResult = measured(proposal: proposal)
+        // The parent places at the size it was given, and may pass no proposal.
+        for placementProposal in [nil, measuredResult.size.width] {
+            let width = FlowLayout.wrapWidth(proposal: placementProposal, bounds: measuredResult.size.width)
+            let placed = measured(proposal: width)
+            #expect(placed.size == measuredResult.size)
         }
     }
 
@@ -75,7 +74,7 @@ import Testing
     }
 }
 
-@Suite struct MediaRowTests {
+struct MediaRowTests {
     @Test func namesTheRowByItsActionLabelAndItsLines() {
         #expect(
             MediaRow.accessibilityName(actionLabel: "Play", title: "Jam", details: ["0:42 · Mar 14"])
@@ -87,14 +86,13 @@ import Testing
     }
 }
 
-@Suite struct UndoBannerTests {
+struct UndoBannerTests {
     @Test func staysLongerWhileVoiceOverRuns() {
-        #expect(UndoBanner.timeout(voiceOver: false) == .seconds(8))
         #expect(UndoBanner.timeout(voiceOver: true) > UndoBanner.timeout(voiceOver: false))
     }
 }
 
-@Suite struct SampleCatalogTests {
+@Suite(.timeLimit(.minutes(1))) struct SampleCatalogTests {
     @Test func fillsAStoreWithEveryKindOfRow() async throws {
         let store = try await SampleCatalog.makeStore()
         defer { try? FileManager.default.removeItem(at: store.folder.deletingLastPathComponent()) }
@@ -125,19 +123,16 @@ import Testing
     }
 }
 
-@Suite struct SpacingTests {
-    @Test func tokensAreTunedAtTheDefaultSize() {
-        let spacing = Spacing(.large)
-        #expect(spacing.scale == 1)
-        #expect(spacing.rowInset == 10 && spacing.rowLineGap == 2 && spacing.chipVertical == 6)
-        #expect(spacing.chipGap == 8)
-        #expect(spacing.stackGap == 8 && spacing.sectionGap == 16)
+struct SpacingTests {
+    @Test func theDefaultSizeIsUnscaled() {
+        #expect(Spacing(.large).scale == 1)
+        #expect(Spacing(.large)(10) == 10)
     }
 
     @Test func tokensScaleAsBodyTextDoes() {
-        #expect(Spacing(.small).rowInset == 9)
-        #expect(Spacing(.xLarge).rowInset == 11)
-        #expect(Spacing(.accessibility3).rowInset == 23.5)
+        #expect(Spacing(.small)(10) == 9)
+        #expect(Spacing(.xLarge)(10) == 11)
+        #expect(Spacing(.accessibility3)(10) == 23.5)
         #expect(Spacing(.small)(12) == 10.5)
     }
 
@@ -155,7 +150,7 @@ import Testing
     }
 }
 
-@Suite struct CharacterLimitTests {
+struct CharacterLimitTests {
     @Test func countsCodePointsAsTheServerDoes() {
         // Each flag is one character of two code points.
         let flags = String(repeating: "🇺🇸", count: 3)

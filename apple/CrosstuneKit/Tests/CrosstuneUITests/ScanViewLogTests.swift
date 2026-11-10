@@ -35,7 +35,7 @@ private struct ScanViewFixture {
 }
 
 @MainActor
-@Suite struct ScanViewLogTests {
+struct ScanViewLogTests {
     @Test func aLookUnderThreeSecondsWritesNothing() {
         let fixture = ScanViewFixture()
         fixture.log.start(tuneID: "t1", origin: .tune)
@@ -158,7 +158,7 @@ private struct ScanViewFixture {
 
 /// The viewer's presentation, and the row actions that ask for it, logging where it was opened.
 @MainActor
-@Suite struct ScanViewWiringTests {
+@Suite(.timeLimit(.minutes(1))) struct ScanViewWiringTests {
     private let root = TemporaryRoot()
 
     @Test func presentingAndDismissingTheViewerLogsOneView() throws {
@@ -298,7 +298,7 @@ private struct ScanViewFixture {
         let writer = ScanViewWriter.store(store)
         writer.write(ScanView(tuneID: "t1", context: "tune", startedAt: noon, viewedMs: 3_000))
         let stored = { try await store.read { db in try ScanView.fetchAll(db) } }
-        if try await !poll({ try await stored().count == 1 }) { Issue.record("The view was never stored") }
+        try await eventually { try await stored().count == 1 }
         #expect(try await stored().map(\.tuneID) == ["t1"])
         #expect(try await store.pendingEditCount() == 0)
         #expect(try await store.pendingChangeCount() == 1)

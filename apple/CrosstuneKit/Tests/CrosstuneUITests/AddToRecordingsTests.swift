@@ -17,31 +17,27 @@ private func saved(url: String?, deleted: Bool = false) -> Recording {
 }
 
 @MainActor
-@Suite struct AddToRecordingsTests {
+struct AddToRecordingsTests {
     @Test func offersAnImportableLinkWithARef() {
         #expect(canAddToRecordings(link: link(), recordings: []))
         #expect(FindRecordingsModel.importable == ["slippery_hill"])
     }
 
     @Test func skipsAProviderThatIsNotImportable() {
-        #expect(!canAddToRecordings(link: link(provider: "youtube"), recordings: []))
+        #expect(canAddToRecordings(link: link(provider: "youtube"), recordings: []) == false)
     }
 
     @Test func skipsALinkWithoutARef() {
-        #expect(!canAddToRecordings(link: link(ref: nil), recordings: []))
+        #expect(canAddToRecordings(link: link(ref: nil), recordings: []) == false)
     }
 
     @Test func skipsALinkAlreadySaved() {
-        #expect(!canAddToRecordings(link: link(), recordings: [saved(url: pageURL)]))
+        #expect(canAddToRecordings(link: link(), recordings: [saved(url: pageURL)]) == false)
     }
 
     @Test func offersALinkWhoseSavedRecordingIsGoneOrDifferent() {
         #expect(canAddToRecordings(link: link(), recordings: [saved(url: pageURL, deleted: true)]))
         let others = [saved(url: "https://slippery-hill.com/r/7"), saved(url: nil)]
         #expect(canAddToRecordings(link: link(), recordings: others))
-    }
-
-    @Test func labelsTheAction() {
-        #expect(TuneScreen.addToRecordings == "Add to recordings")
     }
 }

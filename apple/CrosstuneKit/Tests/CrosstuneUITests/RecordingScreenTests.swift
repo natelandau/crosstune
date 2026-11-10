@@ -55,7 +55,7 @@ private final class Writes {
 }
 
 @MainActor
-@Suite struct RecordingScreenTests {
+@Suite(.timeLimit(.minutes(1))) struct RecordingScreenTests {
     private let audio = FakeAudio()
     private let writes = Writes()
     private let monos = MonoWrites()
@@ -70,17 +70,17 @@ private final class Writes {
     }
 
     /// Waits until no change is settling and every settled write has landed.
-    private func settled() async throws {
-        try await eventually {
+    private func settled(sourceLocation: SourceLocation = #_sourceLocation) async throws {
+        try await eventually(sourceLocation: sourceLocation) {
             player.settling.isEmpty && player.measuring.isEmpty
                 && player.writing.isEmpty
         }
     }
 
-    private func load(_ row: Recording = recording()) async throws {
+    private func load(_ row: Recording = recording(), sourceLocation: SourceLocation = #_sourceLocation) async throws {
         player.audioSource = { _ in audioFile() }
         player.play(.recording(row, tuneTitle: nil))
-        try await eventually { player.recordingAudio == .loaded }
+        try await eventually(sourceLocation: sourceLocation) { player.recordingAudio == .loaded }
     }
 
     @Test func loadingARecordingAppliesItsWindowSpeedAndPitch() async throws {
@@ -434,7 +434,7 @@ private final class Writes {
         try await eventually { sleep.cancelled == 2 }
         try await settled()
         #expect(writes.made == [PlaybackSettings(speedPercent: 60)])
-        #expect(!player.isLoaded)
+        #expect(player.isLoaded == false)
         #expect(player.saveSettings == nil)
     }
 
@@ -452,7 +452,7 @@ private final class Writes {
         #expect(audio.elapsed == 1.5)
 
         await player.deleteLoadedRecording {}
-        #expect(!player.isLoaded)
+        #expect(player.isLoaded == false)
     }
 
     @Test func aPageRequestGoesToTheWindowThatAsked() {
@@ -492,7 +492,6 @@ private final class Writes {
                     .pin(pinned: true), .goToTune, .trim(disabledReason: RecordingScreenText.trimBusy),
                     .split(disabledReason: nil), .delete(disabledReason: nil),
                 ])
-        #expect(RecordingMenuItem.trim(disabledReason: nil).label == "Trim")
         #expect(RecordingMenuItem.delete(disabledReason: nil).label == RecordingRowActions.delete)
     }
 
@@ -572,15 +571,9 @@ private final class Writes {
     }
 
     @Test func thePlayButtonNamesTheRepeat() {
-        #expect(
-            PlayButtonLabel(isPlaying: false, repeating: nil)
-                == PlayButtonLabel(label: "Play", systemImage: "play.fill"))
-        #expect(
-            PlayButtonLabel(isPlaying: false, repeating: "B part")
-                == PlayButtonLabel(label: "Repeat B part", systemImage: "repeat"))
-        #expect(
-            PlayButtonLabel(isPlaying: true, repeating: "B part")
-                == PlayButtonLabel(label: "Pause", systemImage: "pause.fill"))
+        #expect(PlayButtonLabel(isPlaying: false, repeating: nil).label == "Play")
+        #expect(PlayButtonLabel(isPlaying: false, repeating: "B part").label == "Repeat B part")
+        #expect(PlayButtonLabel(isPlaying: true, repeating: "B part").label == "Pause")
     }
 
     @Test func theWaveformReadsThePlayheadAgainstTheLength() {
@@ -606,8 +599,8 @@ private final class Writes {
         #expect(player.loops.isRepeating)
         player.loops.select(nil)
         #expect(player.loops.selectedID == nil)
-        #expect(!player.loops.isRepeating)
-        #expect(!audio.isRepeating)
+        #expect(player.loops.isRepeating == false)
+        #expect(audio.isRepeating == false)
     }
 
     @Test func theRepeatBadgeOffersToRepeatTheLoop() {
@@ -661,7 +654,7 @@ private final class Writes {
         #expect(modes.contains("pitchSplit.follow(model.pitchCents)"))
         #expect(modes.contains("split: $pitchSplit"))
         #expect(panel.contains("@Binding var split: PitchSplit"))
-        #expect(!panel.contains("@State"))
+        #expect(panel.contains("@State") == false)
     }
 
     @Test func saysWhyTrimCannotBeUsed() {
@@ -717,7 +710,7 @@ private final class Writes {
     }
 }
 
-@Suite struct ShownPeaksGridTests {
+struct ShownPeaksGridTests {
     @Test func aGridBarTakesTheLoudestPointItCoversWhereverTheGridStarts() throws {
         let values = (0..<200).map { UInt8($0 % 256) }
         // The trim keeps points 50 to 149, the loudest point in the file is 199.

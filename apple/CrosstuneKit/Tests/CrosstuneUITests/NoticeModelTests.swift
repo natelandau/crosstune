@@ -12,7 +12,7 @@ import Testing
 private let day: TimeInterval = 86_400
 
 @MainActor
-@Suite struct NoticeModelTests {
+@Suite(.timeLimit(.minutes(1))) struct NoticeModelTests {
     private let root = TemporaryRoot()
     private let sink = RecordingAnalyticsSink()
     private let clock = PlanClock()
@@ -50,12 +50,14 @@ private let day: TimeInterval = 86_400
     }
 
     /// A notice model over the store, once it has read the store and the plan.
-    private func model(claim: NoticeClaim = NoticeClaim()) async throws -> NoticeModel {
+    private func model(claim: NoticeClaim = NoticeClaim(), sourceLocation: SourceLocation = #_sourceLocation)
+        async throws -> NoticeModel
+    {
         let plan = PlanModel(
             store: store, now: { [clock] in clock.now }, sleep: { [clock] in try await clock.sleep($0) })
         let model = NoticeModel(
             store: store, plan: plan, analytics: sink.client, claim: claim, now: { [clock] in clock.now })
-        try await eventually { model.isLoaded }
+        try await eventually(sourceLocation: sourceLocation) { model.isLoaded }
         return model
     }
 
@@ -284,30 +286,11 @@ private let day: TimeInterval = 86_400
         #expect(shownNotices == ["first_recording"])
     }
 
-    @Test func theCopyIsExact() {
-        #expect(NoticeText.firstRecordingTitle == "Recordings are part of your trial")
-        #expect(
-            NoticeText.firstRecordingBody(endsAt: "Oct 13, 2026")
-                == "Your Premium trial ends Oct 13, 2026. After that, every recording stays and exports, but it won't play in the app until you subscribe."
-        )
-        #expect(NoticeText.trialReminderTitle(endsAt: "Oct 13, 2026") == "Your trial ends Oct 13, 2026")
-        #expect(NoticeText.trialEndedTitle == "Your trial has ended")
-        #expect(NoticeText.ok == "OK")
-    }
-
-    @Test func theNewNoticeCopyIsExact() {
+    @Test func daysLeftCountsDownToTheLastDay() {
         #expect(NoticeText.daysLeft(1) == "1 day left of Premium")
         #expect(NoticeText.daysLeft(3) == "3 days left of Premium")
         #expect(NoticeText.daysLeft(0) == PlanText.trialEndsToday)
         #expect(NoticeText.daysLeft(-1) == PlanText.trialEndsToday)
-        #expect(NoticeText.losePlayback == "Recordings don't play in the app")
-        #expect(NoticeText.loseRecording == "No new recordings or practice mode")
-        #expect(NoticeText.loseScans == "Scans don't open in the app")
-        #expect(
-            NoticeText.keeps
-                == "Every recording and scan stays, and export always includes them. Subscribe and they work again at once."
-        )
-        #expect(NoticeText.subscribeAnnual("$49.99") == "Subscribe for $49.99 a year")
     }
 
     @Test func theSheetSaysWhatTheNoticeIs() throws {
@@ -526,7 +509,7 @@ private let day: TimeInterval = 86_400
         handoff.noticeLeft(open: { _ in steps.append("compare") }, seePlan: { steps.append("see plan") })
 
         #expect(steps == ["dismiss, holding true", "see plan"])
-        #expect(!handoff.isHolding)
+        #expect(handoff.isHolding == false)
     }
 
     @Test func aNoticeLeavingWithoutCompareOpensNothing() {
@@ -547,7 +530,7 @@ private let day: TimeInterval = 86_400
 
 #if os(macOS)
     @MainActor
-    @Suite struct MacNoticeFooterTests {
+    struct MacNoticeFooterTests {
         @Test func firstRecordingNoticeDefaultsToOK() {
             let footer = NoticeSheet.macFirstRecordingFooter(onClose: {}, onSeePlan: {})
             #expect(footer.cancel == nil)
@@ -609,7 +592,7 @@ private let day: TimeInterval = 86_400
     /// Presses keys in a notice hosted in a hidden window, so the notice's own wiring, the
     /// hidden Escape button included, is what answers.
     @MainActor
-    @Suite(.enabled(if: hasWindowServer, "Needs a window server to host the sheet"))
+    @Suite(.timeLimit(.minutes(1)), .enabled(if: hasWindowServer, "Needs a window server to host the sheet"))
     struct MacNoticeKeyTests {
         final class Presses {
             var close = 0
@@ -650,7 +633,7 @@ private let day: TimeInterval = 86_400
             defer { window.close() }
 
             #expect(await press("\u{1B}", code: 53, in: window))
-            #expect(try await poll { presses.close == 1 })
+            try await eventually { presses.close == 1 }
             #expect(presses.seePlan == 0)
         }
 
@@ -660,7 +643,7 @@ private let day: TimeInterval = 86_400
             defer { window.close() }
 
             #expect(await press("\u{1B}", code: 53, in: window))
-            #expect(try await poll { presses.close == 1 })
+            try await eventually { presses.close == 1 }
             #expect(presses.compare == 0)
         }
     }

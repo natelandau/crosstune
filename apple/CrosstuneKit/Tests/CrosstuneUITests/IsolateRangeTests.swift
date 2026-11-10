@@ -12,7 +12,7 @@ private func step(
     bounds.placing(edge, at: bounds.unit(edge == .start ? start : end) + delta, start: start, end: end)
 }
 
-@Suite struct IsolateRangeTests {
+struct IsolateRangeTests {
     private let stereo = IsolateRangeBounds(min: -100, max: 100, scale: .linear, minSpan: 10)
     private let frequency = IsolateRangeBounds(min: 40, max: 16000, scale: .log, minSpan: 1.0 / 3)
 
@@ -70,9 +70,9 @@ private func step(
             IsolatePanel(value: .standard, isMono: isMono, outline: { nil }, isLive: false, onChange: { _ in })
         }
         #expect(panel(isMono: true).showsMonoNotice)
-        #expect(!panel(isMono: false).showsMonoNotice)
+        #expect(panel(isMono: false).showsMonoNotice == false)
         // Until the recording is measured, the stereo row shows.
-        #expect(!panel(isMono: nil).showsMonoNotice)
+        #expect(panel(isMono: nil).showsMonoNotice == false)
     }
 
     @Test func aLargeStepMovesAnEdgeByTheLargeStepWithinTheEndsAndTheShortestSpan() {

@@ -24,7 +24,7 @@ private func estimate(_ samples: [Float]) -> PitchEstimate? {
 private func cents(_ frequency: Double, _ target: Double) -> Double { 1200 * log2(frequency / target) }
 
 extension Tuner {
-    @Suite struct NSDFTests {
+    struct NSDFTests {
         @Test func readsAPureToneToATenthOfACent() throws {
             let estimate = try #require(estimate(tone(440, [(1, 1)], amplitude: 0.2)))
 
@@ -51,11 +51,11 @@ extension Tuner {
             #expect(estimate(tone(50, hum, amplitude: 0.0316)) == nil)
         }
 
-        @Test func readsNothingBelowTheLowestPitchInAnyWindowOfTheClips() {
+        @Test func readsNothingBelowTheLowestPitchInAnyWindowOfTheClips() throws {
             var lowest: [Double] = []
-            for indexed in IndexedClip.all {
+            for indexed in try IndexedClip.all {
                 let clip = indexed.clip
-                let samples = synthesize(clip, index: indexed.index)
+                let samples = try synthesize(clip, index: indexed.index)
                 let window = Int((clip.sampleRate * Tracker.longWindowSeconds).rounded())
                 let hop = Int((clip.sampleRate * Tracker.hopSeconds).rounded())
                 // Windows end where a tracker's analyses do.

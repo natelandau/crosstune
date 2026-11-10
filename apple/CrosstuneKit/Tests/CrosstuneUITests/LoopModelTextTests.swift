@@ -5,7 +5,7 @@ import Testing
 
 @testable import CrosstuneUI
 
-@Suite struct LoopModelTextTests {
+struct LoopModelTextTests {
     @Test func nameUsesOffsetIntoTrim() {
         #expect(LoopModel.name(label: nil, startMs: 85_000, trimStartMs: 1000) == "Loop 1:24")
         #expect(LoopModel.name(label: "  ", startMs: 85_000, trimStartMs: 1000) == "Loop 1:24")

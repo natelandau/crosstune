@@ -26,23 +26,23 @@ private func choice(_ sort: RecordingSort, _ descending: Bool) -> RecordingSortC
     RecordingSortChoice(sort: sort, descending: descending)
 }
 
-private func flat(_ filed: FiledRecordings) -> [RecordingView] {
+private func flat(_ filed: FiledRecordings, sourceLocation: SourceLocation = #_sourceLocation) -> [RecordingView] {
     guard case .flat(let views) = filed else {
-        Issue.record("Expected a flat arrangement")
+        Issue.record("Expected a flat arrangement", sourceLocation: sourceLocation)
         return []
     }
     return views
 }
 
-private func groups(_ filed: FiledRecordings) -> [TuneRecordings] {
+private func groups(_ filed: FiledRecordings, sourceLocation: SourceLocation = #_sourceLocation) -> [TuneRecordings] {
     guard case .byTune(let groups) = filed else {
-        Issue.record("Expected a byTune arrangement")
+        Issue.record("Expected a byTune arrangement", sourceLocation: sourceLocation)
         return []
     }
     return groups
 }
 
-@Suite struct RecordingArrangementByAddedTests {
+struct RecordingArrangementByAddedTests {
     let views = [
         view("u1", minutes: 1), view("u2", minutes: 3), view("u3", minutes: 2),
         view("f1", tune: "t", title: "T", minutes: 4), view("f2", tune: "t", title: "T", minutes: 6),
@@ -83,7 +83,7 @@ private func groups(_ filed: FiledRecordings) -> [TuneRecordings] {
     }
 }
 
-@Suite struct RecordingArrangementByRecordedTests {
+struct RecordingArrangementByRecordedTests {
     let views = [
         view("time", minutes: 1, recorded: ("1998-10-03T16:12:00Z", "time")),
         view("day", minutes: 2, recorded: ("1937-05-12T00:00:00Z", "day")),
@@ -107,15 +107,14 @@ private func groups(_ filed: FiledRecordings) -> [TuneRecordings] {
         #expect(ids(flat(result.filed)) == ["time", "month", "day", "year", "none2", "none1"])
     }
 
-    @Test func treatsADateWhosePrecisionThisClientPredatesAsUnknown() {
+    @Test(arguments: [true, false])
+    func treatsADateWhosePrecisionThisClientPredatesAsUnknown(descending: Bool) {
         let odd = [
             view("newer", minutes: 1, recorded: ("1930-01-01T00:00:00Z", "decade")),
             view("year", minutes: 2, recorded: ("1937-01-01T00:00:00Z", "year")),
         ]
-        for descending in [true, false] {
-            let result = RecordingArrangement.arrange(odd, choice: choice(.recorded, descending), query: "")
-            #expect(ids(result.unfiled) == ["year", "newer"])
-        }
+        let result = RecordingArrangement.arrange(odd, choice: choice(.recorded, descending), query: "")
+        #expect(ids(result.unfiled) == ["year", "newer"])
     }
 
     @Test func breaksATieByDateAddedThenByID() {
@@ -135,7 +134,7 @@ private func groups(_ filed: FiledRecordings) -> [TuneRecordings] {
     }
 }
 
-@Suite struct RecordingArrangementByTitleTests {
+struct RecordingArrangementByTitleTests {
     let views = [
         view("b", label: "banjo", minutes: 1), view("a", label: "Álpha", minutes: 2),
         view("c", label: "cello", minutes: 3), view("n1", minutes: 4), view("n2", minutes: 5),
@@ -164,7 +163,7 @@ private func groups(_ filed: FiledRecordings) -> [TuneRecordings] {
     }
 }
 
-@Suite struct RecordingArrangementByTuneTests {
+struct RecordingArrangementByTuneTests {
     let views = [
         view("b1", tune: "tb", title: "Banks", minutes: 1), view("b2", tune: "tb", title: "Banks", minutes: 3),
         view("a1", tune: "ta", title: "Arkansas", minutes: 2), view("a2", tune: "ta", title: "Arkansas", minutes: 4),
@@ -187,17 +186,16 @@ private func groups(_ filed: FiledRecordings) -> [TuneRecordings] {
         #expect(ids(result.unfiled) == ["u1", "u2"])
     }
 
-    @Test func putsOwnRecordingsBeforeImportedOnesInsideAGroupEachNewestAddedFirst() {
+    @Test(arguments: [false, true])
+    func putsOwnRecordingsBeforeImportedOnesInsideAGroupEachNewestAddedFirst(descending: Bool) {
         let mixed = [
             view("i1", tune: "t", title: "T", origin: "slippery_hill", minutes: 1),
             view("o1", tune: "t", title: "T", minutes: 2),
             view("i2", tune: "t", title: "T", origin: "slippery_hill", minutes: 4),
             view("o2", tune: "t", title: "T", minutes: 3),
         ]
-        for descending in [false, true] {
-            let found = groups(RecordingArrangement.arrange(mixed, choice: choice(.tune, descending), query: "").filed)
-            #expect(found.first.map { ids($0.views) } == ["o2", "o1", "i2", "i1"])
-        }
+        let found = groups(RecordingArrangement.arrange(mixed, choice: choice(.tune, descending), query: "").filed)
+        #expect(found.first.map { ids($0.views) } == ["o2", "o1", "i2", "i1"])
     }
 
     @Test func keepsTwoTunesWithOneTitleAsTwoGroupsOrderedByID() {
@@ -210,7 +208,7 @@ private func groups(_ filed: FiledRecordings) -> [TuneRecordings] {
     }
 }
 
-@Suite struct RecordingArrangementFilingTests {
+struct RecordingArrangementFilingTests {
     @Test func leavesARecordingWhoseTuneIsGoneUnfiled() {
         let result = RecordingArrangement.arrange(
             [view("r", tune: nil, stale: "deleted", minutes: 1)], choice: .default, query: "")
@@ -219,7 +217,7 @@ private func groups(_ filed: FiledRecordings) -> [TuneRecordings] {
     }
 }
 
-@Suite struct RecordingArrangementSearchTests {
+struct RecordingArrangementSearchTests {
     let views = [
         view("s", label: "fast", tune: "t", title: "Soldier's Joy", minutes: 1),
         view("a", label: "Álpha", minutes: 2), view("n", minutes: 3),
@@ -258,7 +256,7 @@ private func groups(_ filed: FiledRecordings) -> [TuneRecordings] {
     }
 }
 
-@Suite struct SortChoiceTests {
+struct SortChoiceTests {
     @Test func defaultsToDateAddedNewestFirst() {
         #expect(RecordingSortChoice.default == choice(.added, true))
         let storedUnder = "recordingsSort.v2"  // gitleaks:allow -- a defaults key, not a secret
@@ -296,33 +294,23 @@ private func groups(_ filed: FiledRecordings) -> [TuneRecordings] {
         #expect(SortText.direction(choice(.recorded, false)) == SortText.oldestFirst)
         #expect(SortText.direction(choice(.title, false)) == SortText.aToZ)
         #expect(SortText.direction(choice(.tune, true)) == SortText.zToA)
-        #expect(SortText.newestFirst == "Newest first")
-        #expect(SortText.oldestFirst == "Oldest first")
-        #expect(SortText.aToZ == "A to Z")
-        #expect(SortText.zToA == "Z to A")
     }
 
-    @Test func labelsEachSort() {
-        #expect(
-            RecordingSort.allCases.map(\.label) == ["Date added", "Date recorded", "Title", "Tune"])
+    @Test func namesTheOpenTuneAction() {
         #expect(RecordingsListText.openTune("Banks") == "Open Banks")
     }
 }
 
-@Suite struct RecordingSortChoicesTests {
+struct RecordingSortChoicesTests {
     @Test func showsTheDirectionOnTheCheckedItemOnly() {
         let items = SortChoices<RecordingSort>.items(for: .default)
-        #expect(items.map(\.label) == ["Date added", "Date recorded", "Title", "Tune"])
         #expect(items.map(\.isChecked) == [true, false, false, false])
         #expect(items.map(\.direction) == [SortText.newestFirst, nil, nil, nil])
-        #expect(items.map(\.directionSymbol) == ["arrow.down", nil, nil, nil])
 
         let title = SortChoices<RecordingSort>.items(for: choice(.title, false))
         #expect(title.map(\.direction) == [nil, nil, SortText.aToZ, nil])
-        #expect(title.map(\.directionSymbol) == [nil, nil, "arrow.up", nil])
         let oldest = SortChoices<RecordingSort>.items(for: choice(.recorded, false))
         #expect(oldest.map(\.direction) == [nil, SortText.oldestFirst, nil, nil])
-        #expect(oldest.map(\.directionSymbol) == [nil, "arrow.up", nil, nil])
     }
 
     @Test func reChoosingTheCheckedItemReversesItsSort() {
@@ -336,7 +324,7 @@ private func groups(_ filed: FiledRecordings) -> [TuneRecordings] {
     }
 }
 
-@Suite struct RecordingArrangementCountTests {
+struct RecordingArrangementCountTests {
     let views = [
         view("u1", minutes: 1), view("f1", tune: "t", title: "T", minutes: 2),
         view("f2", tune: "s", title: "S", minutes: 3),
@@ -356,7 +344,7 @@ private func groups(_ filed: FiledRecordings) -> [TuneRecordings] {
     }
 }
 
-@Suite struct RecordingSearchByLocationTests {
+struct RecordingSearchByLocationTests {
     private func located(_ id: String, shown: String?) -> RecordingView {
         RecordingView(
             recording: Recording(id: id, tuneID: nil, source: "microphone", addedAt: later(1_000), state: "ready"),

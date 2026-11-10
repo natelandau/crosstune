@@ -6,7 +6,7 @@ import Testing
 
 @testable import CrosstuneCommands
 
-@Suite struct SettingsIDTests {
+struct SettingsIDTests {
     @Test func isStableForOneUserAndDistinctAcrossUsers() {
         #expect(settingsID(clerkUserID: "user_1") == settingsID(clerkUserID: "user_1"))
         #expect(settingsID(clerkUserID: "user_1") != settingsID(clerkUserID: "user_2"))
@@ -20,7 +20,7 @@ import Testing
     }
 }
 
-@Suite struct SetInstrumentsTests {
+@Suite(.timeLimit(.minutes(1))) struct SetInstrumentsTests {
     @Test func writesOneRowAndQueuesIt() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -75,7 +75,7 @@ import Testing
     }
 }
 
-@Suite struct ToggleInstrumentSettingTests {
+@Suite(.timeLimit(.minutes(1))) struct ToggleInstrumentSettingTests {
     @Test func preservesAnInstrumentThisClientDoesNotRecognize() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -169,7 +169,7 @@ import Testing
     }
 }
 
-@Suite struct FiveStringBanjoTests {
+@Suite(.timeLimit(.minutes(1))) struct FiveStringBanjoTests {
     @Test func isStoredAndPushedUnderItsOwnName() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -185,7 +185,7 @@ import Testing
     }
 }
 
-@Suite struct CaptureBitrateTests {
+@Suite(.timeLimit(.minutes(1))) struct CaptureBitrateTests {
     @Test func followsTheAudioQualitySetting() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -205,7 +205,7 @@ private let everyService = [
     "apple_music", "tidal", "internet_archive", "slippery_hill", "youtube", "spotify", "bandcamp", "soundcloud",
 ]
 
-@Suite struct SearchableProvidersTests {
+struct SearchableProvidersTests {
     @Test func isEveryProviderButOtherInResultGroupOrder() {
         #expect(searchableProviders == everyService)
         #expect(Set(searchableProviders) == Set(Vocabulary.providers).subtracting(["other"]))
@@ -214,10 +214,13 @@ private let everyService = [
     }
 }
 
-@Suite struct ToggleSearchProviderTests {
-    private func row(_ store: CrosstuneStore) async throws -> UserSettings {
+@Suite(.timeLimit(.minutes(1))) struct ToggleSearchProviderTests {
+    private func row(_ store: CrosstuneStore, sourceLocation: SourceLocation = #_sourceLocation) async throws
+        -> UserSettings
+    {
         let id = settingsID(clerkUserID: "user_1")
-        return try #require(try await store.read { db in try UserSettings.fetchOne(db, key: id) })
+        return try #require(
+            try await store.read { db in try UserSettings.fetchOne(db, key: id) }, sourceLocation: sourceLocation)
     }
 
     private func seed(_ store: CrosstuneStore, _ providers: [String]) async throws {
@@ -300,7 +303,7 @@ private let everyService = [
     }
 }
 
-@Suite struct SettingsWritesKeepOtherFieldsTests {
+@Suite(.timeLimit(.minutes(1))) struct SettingsWritesKeepOtherFieldsTests {
     @Test func settingInstrumentsKeepsSearchProvidersAndFieldsThisBuildDoesNotModel() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -335,7 +338,7 @@ private let everyService = [
         let row = try #require(try await store.read { db in try UserSettings.fetchOne(db, key: id) })
         #expect(row.instruments == ["guitar"])
         #expect(row.audioQuality == "high")
-        #expect(!row.searchProviders.contains("tidal"))
+        #expect(row.searchProviders.contains("tidal") == false)
     }
 
     @Test func everySettingsEditKeepsPlayFirst() async throws {
@@ -411,7 +414,7 @@ private let everyService = [
     }
 }
 
-@Suite struct NewTuneDefaultsTests {
+@Suite(.timeLimit(.minutes(1))) struct NewTuneDefaultsTests {
     @Test func aNewRowStartsWithNoGenreAndWantToLearn() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -475,10 +478,13 @@ private let everyService = [
     }
 }
 
-@Suite struct ReferencePitchTests {
-    private func stored(_ store: CrosstuneStore) async throws -> UserSettings {
+@Suite(.timeLimit(.minutes(1))) struct ReferencePitchTests {
+    private func stored(_ store: CrosstuneStore, sourceLocation: SourceLocation = #_sourceLocation) async throws
+        -> UserSettings
+    {
         let id = settingsID(clerkUserID: "user_1")
-        return try #require(try await store.read { db in try UserSettings.fetchOne(db, key: id) })
+        return try #require(
+            try await store.read { db in try UserSettings.fetchOne(db, key: id) }, sourceLocation: sourceLocation)
     }
 
     @Test func setTunerA4HzWritesTheValueAndKeepsEveryOtherField() async throws {

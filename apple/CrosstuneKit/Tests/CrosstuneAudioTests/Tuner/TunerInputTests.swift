@@ -85,7 +85,7 @@ private func sine(_ frequency: Double, seconds: Double, sampleRate: Double) -> [
 
 extension Tuner {
     @MainActor
-    @Suite struct TunerInputTests {
+    @Suite(.timeLimit(.minutes(1))) struct TunerInputTests {
         private let registry = TunerRegistry(claims: AudioSessionClaims())
         private let engine: FakeTunerEngine
         private let heard = Heard()
@@ -109,7 +109,7 @@ extension Tuner {
             await #expect(throws: TunerStartOvertaken.self) { try await start() }
 
             #expect(heard.ended == 0)
-            #expect(!input.holdsMicrophone)
+            #expect(input.holdsMicrophone == false)
             #expect(engine.log == ["activate"])
         }
 
@@ -204,18 +204,18 @@ extension Tuner {
         }
 
         @Test func holdsTheMicrophoneFromStartUntilStop() async throws {
-            #expect(!input.holdsMicrophone)
+            #expect(input.holdsMicrophone == false)
             try await start()
             #expect(input.holdsMicrophone)
             await input.stop()
-            #expect(!input.holdsMicrophone)
+            #expect(input.holdsMicrophone == false)
         }
 
         @Test func yieldingToPlaybackLetsGoAtOnceAndIgnoresTheSessionChange() async throws {
             try await start()
             engine.deliver(a4Reading)
             registry.yieldToPlayback()
-            #expect(!input.holdsMicrophone)
+            #expect(input.holdsMicrophone == false)
 
             engine.deliver(a4Reading)
             engine.state.withLock { $0.failStart = true }
@@ -277,7 +277,7 @@ extension Tuner {
         }
     }
 
-    @Suite struct TunerTapTests {
+    struct TunerTapTests {
         private let sampleRate = 48_000.0
         private let frames = 1024
 
@@ -335,7 +335,7 @@ extension Tuner {
         func tearDown() { steps.withLock { $0.append("tearDown") } }
     }
 
-    @Suite struct TunerRunnerTests {
+    @Suite(.timeLimit(.minutes(1))) struct TunerRunnerTests {
         private let claims = AudioSessionClaims()
         private let session = FakeSession()
         private let player = AudioSessionOwner()

@@ -50,7 +50,7 @@ struct ReviewPromptTests {
 
     @Test func isDueOnceEveryMilestoneOpensAndAWeekHaveCome() {
         let prompt = almostReady()
-        #expect(!prompt.isDue)
+        #expect(prompt.isDue == false)
 
         prompt.note(practiceEnded)
 
@@ -62,7 +62,7 @@ struct ReviewPromptTests {
         open(prompt, times: ReviewPrompt.opensNeeded - 1)
         clock.now = clock.now.addingTimeInterval(8 * 86_400)
         for event in [tuneCreated, recordingSaved, practiceEnded] { prompt.note(event) }
-        #expect(!prompt.isDue)
+        #expect(prompt.isDue == false)
 
         open(prompt, times: 1)
         prompt.note(practiceEnded)
@@ -77,14 +77,14 @@ struct ReviewPromptTests {
         prompt.opened()
         for event in [tuneCreated, recordingSaved, practiceEnded] { prompt.note(event) }
 
-        #expect(!prompt.isDue)
+        #expect(prompt.isDue == false)
     }
 
     @Test func aMilestoneOnTheWayOutCountsButDoesNotMakeItDue() {
         let prompt = almostReady()
         prompt.leftForeground()
         prompt.note(practiceEnded)
-        #expect(!prompt.isDue)
+        #expect(prompt.isDue == false)
 
         prompt.opened()
         prompt.note(tuneCreated)
@@ -97,7 +97,7 @@ struct ReviewPromptTests {
         open(prompt, times: ReviewPrompt.opensNeeded)
         clock.now = clock.now.addingTimeInterval(6 * 86_400)
         for event in [tuneCreated, recordingSaved, practiceEnded] { prompt.note(event) }
-        #expect(!prompt.isDue)
+        #expect(prompt.isDue == false)
 
         clock.now = clock.now.addingTimeInterval(86_400)
         prompt.note(practiceEnded)
@@ -112,7 +112,7 @@ struct ReviewPromptTests {
         clock.now = clock.now.addingTimeInterval(8 * 86_400)
         open(prompt, times: ReviewPrompt.opensNeeded - 1)
         prompt.note(.searchPerformed(resultCount: 3, tookOffer: false))
-        #expect(!prompt.isDue)
+        #expect(prompt.isDue == false)
 
         prompt.note(recordingSaved)
 
@@ -123,13 +123,13 @@ struct ReviewPromptTests {
         let prompt = almostReady()
         prompt.note(practiceEnded)
         prompt.asked()
-        #expect(!prompt.isDue)
+        #expect(prompt.isDue == false)
 
         let relaunched = self.prompt()
         open(relaunched, times: 20)
         relaunched.note(practiceEnded)
 
-        #expect(!relaunched.isDue)
+        #expect(relaunched.isDue == false)
     }
 
     @Test func countsAnImportThatAddedTunesAndAnImportedRecording() {
@@ -140,7 +140,7 @@ struct ReviewPromptTests {
         prompt.note(.importCompleted(reader: .plain, added: 0, skipped: 2, list: .none))
         prompt.note(.audioImported(fileCount: 1, format: .flac))
         prompt.note(practiceEnded)
-        #expect(!prompt.isDue)
+        #expect(prompt.isDue == false)
 
         prompt.note(.importCompleted(reader: .plain, added: 4, skipped: 0, list: .none))
 

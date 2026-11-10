@@ -19,6 +19,6 @@ struct PresentedItemTests {
 
         isPresented.wrappedValue = false
         #expect(holder.item == nil)
-        #expect(!isPresented.wrappedValue)
+        #expect(isPresented.wrappedValue == false)
     }
 }

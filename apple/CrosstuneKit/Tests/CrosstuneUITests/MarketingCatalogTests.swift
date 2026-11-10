@@ -29,7 +29,7 @@ private func count(_ table: SyncTable, in store: CrosstuneStore) async throws ->
     }
 }
 
-@Suite struct MarketingCatalogTests {
+@Suite(.timeLimit(.minutes(1))) struct MarketingCatalogTests {
     @Test func opensEveryRow() async throws {
         let root = TemporaryRoot()
         let store = try await MarketingCatalog.makeStore(fixture: fixture, root: root.url)
@@ -103,7 +103,7 @@ private func count(_ table: SyncTable, in store: CrosstuneStore) async throws ->
         await #expect(throws: MarketingCatalog.FixtureError.self) {
             _ = try await MarketingCatalog.makeStore(fixture: copied, root: root.url)
         }
-        #expect(!FileManager.default.fileExists(atPath: root.url.path))
+        #expect(FileManager.default.fileExists(atPath: root.url.path) == false)
     }
 
     @Test func holdsTheNamedTunes() async throws {
@@ -123,8 +123,8 @@ private func count(_ table: SyncTable, in store: CrosstuneStore) async throws ->
         let titles = rows(.tunes, in: try fixtureObject()).compactMap { row -> String? in
             if case .string(let title) = row["title"] ?? .null { title } else { nil }
         }
-        #expect(!titles.isEmpty)
-        #expect(!titles.contains { $0.localizedCaseInsensitiveContains("no key yet") })
+        #expect(titles.isEmpty == false)
+        #expect(titles.contains { $0.localizedCaseInsensitiveContains("no key yet") } == false)
     }
 
     @Test func hasPlayableAudio() async throws {
@@ -148,18 +148,22 @@ private func count(_ table: SyncTable, in store: CrosstuneStore) async throws ->
 
     /// The tune's recording, after checking it is ready and its audio is on disk.
     @discardableResult
-    private func expectDownloadedRecording(of title: String, in store: CrosstuneStore) async throws -> Recording {
+    private func expectDownloadedRecording(
+        of title: String, in store: CrosstuneStore, sourceLocation: SourceLocation = #_sourceLocation
+    ) async throws -> Recording {
         let (recording, file) = try await store.read { db -> (Recording?, RecordingFile?) in
             let tune = try Tune.filter(Tune.CodingKeys.title == title).fetchOne(db)
             let recording = try Recording.filter(Recording.CodingKeys.tuneID == tune?.id).fetchOne(db)
             return (recording, try recording.flatMap { try RecordingFile.fetchOne(db, key: $0.id) })
         }
-        let ready = try #require(recording, "\(title) has no recording")
-        #expect(ready.state == "ready")
-        let local = try #require(file, "\(title) has no local file")
-        #expect(local.localState == .downloaded)
-        let name = try #require(local.fileName)
-        #expect(FileManager.default.fileExists(atPath: store.audioFolder.appending(path: name).path))
+        let ready = try #require(recording, "\(title) has no recording", sourceLocation: sourceLocation)
+        #expect(ready.state == "ready", sourceLocation: sourceLocation)
+        let local = try #require(file, "\(title) has no local file", sourceLocation: sourceLocation)
+        #expect(local.localState == .downloaded, sourceLocation: sourceLocation)
+        let name = try #require(local.fileName, sourceLocation: sourceLocation)
+        #expect(
+            FileManager.default.fileExists(atPath: store.audioFolder.appending(path: name).path),
+            sourceLocation: sourceLocation)
         return ready
     }
 
@@ -168,7 +172,7 @@ private func count(_ table: SyncTable, in store: CrosstuneStore) async throws ->
             Issue.record("the fixture has no files map")
             return
         }
-        #expect(!files.isEmpty)
+        #expect(files.isEmpty == false)
         for (id, value) in files {
             guard case .string(let path) = value else {
                 Issue.record("\(id) has no path")

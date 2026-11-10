@@ -4,7 +4,7 @@
 
     @testable import CrosstuneUI
 
-    @Suite struct HierarchicalStyleTests {
+    struct HierarchicalStyleTests {
         /// Lines whose hierarchical style is proven to hold where it draws, by file. Each entry
         /// covers one line, so a second line with the same text still fails. A new entry names the
         /// background it sits on and why `textSecondary` cannot replace it.

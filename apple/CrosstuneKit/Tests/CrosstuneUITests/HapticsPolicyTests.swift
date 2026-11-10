@@ -3,7 +3,7 @@ import Testing
 
 /// The app makes a haptic only for slider and loop-handle snaps and track skips from the
 /// now-playing accessory. Every other control leaves feedback to the system.
-@Suite struct HapticsPolicyTests {
+struct HapticsPolicyTests {
     /// Each file allowed a haptic, by its path under its module, and why.
     static let allowed: [String: String] = [
         "Player/PlayerBar.swift": "track skip from the now-playing accessory",
@@ -20,7 +20,7 @@ import Testing
 
     @Test func onlySnapsAndTrackSkipsMakeHaptics() throws {
         let files = SourceScan.files()
-        #expect(!files.isEmpty)
+        #expect(files.isEmpty == false)
         let violations = try files.filter { file in
             let source = try String(contentsOf: file, encoding: .utf8)
             return Self.hapticMarkers.contains { source.contains($0) }

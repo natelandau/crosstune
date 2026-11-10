@@ -45,7 +45,7 @@ private func choice(
         playFirst: playFirst, fullTracks: fullTracks, online: online, recordingsPlay: recordingsPlay)
 }
 
-@Suite struct RowSourceTests {
+struct RowSourceTests {
     @Test func aValidRecordingPinWinsOverPlayFirst() {
         let r2 = rec("r2")
         let result = row(
@@ -155,7 +155,7 @@ private func choice(
     }
 }
 
-@Suite struct PlaylistSourceTests {
+struct PlaylistSourceTests {
     @Test func aRecordingPlaysOffline() {
         let r1 = rec("r1")
         #expect(choice(recordings: [r1], fullTracks: false, online: false) == .recording(r1))

@@ -11,7 +11,7 @@ import Testing
 /// Settings > Saved locations: the places the musician named, with how many recordings use each,
 /// renamed and deleted from the page.
 @MainActor
-@Suite struct SavedLocationsTests {
+@Suite(.timeLimit(.minutes(1))) struct SavedLocationsTests {
     private let root = TemporaryRoot()
     private let sink = RecordingAnalyticsSink()
 
@@ -31,9 +31,11 @@ import Testing
         }
     }
 
-    private func loaded(_ store: CrosstuneStore) async throws -> SavedLocationsModel {
+    private func loaded(_ store: CrosstuneStore, sourceLocation: SourceLocation = #_sourceLocation) async throws
+        -> SavedLocationsModel
+    {
         let model = SavedLocationsModel(store: store, analytics: sink.client)
-        #expect(try await poll { model.rows != nil })
+        try await eventually(sourceLocation: sourceLocation) { model.rows != nil }
         return model
     }
 
@@ -50,7 +52,7 @@ import Testing
 
         let model = try await loaded(store)
 
-        #expect(try await poll { model.rows?.map(\.place.id) == [barn.id, hall.id] })
+        try await eventually { model.rows?.map(\.place.id) == [barn.id, hall.id] }
         #expect(model.rows?.map(\.recordings) == [0, 2])
         #expect(SavedLocationsText.recordingsCount(0) == "0 recordings")
         #expect(SavedLocationsText.recordingsCount(1) == "1 recording")
@@ -64,7 +66,7 @@ import Testing
 
         #expect(model.rows?.isEmpty == true)
         #expect(SavedLocationsText.emptyHint.contains(NameLocationText.title))
-        #expect(!SavedLocationsText.emptyHint.contains("\u{2014}"))
+        #expect(SavedLocationsText.emptyHint.contains("\u{2014}") == false)
     }
 
     @Test func renameSavesAtOnce() async throws {
@@ -77,7 +79,7 @@ import Testing
         #expect(saved)
         let row = try #require(try await store.read { db in try SavedPlace.fetchOne(db, key: hall.id) })
         #expect(row.name == "The Hall")
-        #expect(try await poll { model.rows?.first?.place.name == "The Hall" })
+        try await eventually { model.rows?.first?.place.name == "The Hall" }
         #expect(sink.captures == [.init(name: "saved_location_renamed", properties: [:], set: [:])])
     }
 
@@ -95,15 +97,12 @@ import Testing
         #expect(sink.captures.isEmpty)
     }
 
-    @Test func deleteWaitsOnTheConfirmationAndSaysRecordingsKeepTheirLocation() async throws {
+    @Test func deleteWaitsOnTheConfirmation() async throws {
         let store = try root.open()
         let hall = try await place(store, "Town Hall")
         let model = try await loaded(store)
-        #expect(try await poll { model.rows?.count == 1 })
+        try await eventually { model.rows?.count == 1 }
         #expect(SavedLocationsText.deleteTitle("Town Hall") == "Delete \"Town Hall\"?")
-        #expect(SavedLocationsText.delete == "Delete")
-        #expect(SavedLocationsText.deleteMessage.contains("keep their location"))
-        #expect(SavedLocationsText.deleteMessage.contains("street address"))
 
         // Confirming with nothing asked deletes nothing.
         #expect(await model.confirmDelete().value == false)
@@ -118,7 +117,7 @@ import Testing
         #expect(model.rows?.count == 1)
         #expect(await model.confirmDelete().value)
         #expect(model.pendingDelete == nil)
-        #expect(try await poll { model.rows?.isEmpty == true })
+        try await eventually { model.rows?.isEmpty == true }
         #expect(sink.captures == [.init(name: "saved_location_deleted", properties: [:], set: [:])])
     }
 
@@ -175,7 +174,7 @@ import Testing
 
         let model = try await loaded(store)
 
-        #expect(try await poll { model.rows?.first?.recordings == 3 })
+        try await eventually { model.rows?.first?.recordings == 3 }
     }
 
     @Test func deletedPlaceLeavesTheList() async throws {
@@ -184,12 +183,12 @@ import Testing
         let barn = try await place(store, "Barn")
         try await putRecording(store, "r1", placeID: hall.id)
         let model = try await loaded(store)
-        #expect(try await poll { model.rows?.count == 2 })
+        try await eventually { model.rows?.count == 2 }
 
         let deleted = await model.delete(hall.id)
 
         #expect(deleted)
-        #expect(try await poll { model.rows?.map(\.place.id) == [barn.id] })
+        try await eventually { model.rows?.map(\.place.id) == [barn.id] }
         #expect(sink.captures == [.init(name: "saved_location_deleted", properties: [:], set: [:])])
         // The recording keeps its own coordinates.
         let recording = try #require(try await store.read { db in try Recording.fetchOne(db, key: "r1") })

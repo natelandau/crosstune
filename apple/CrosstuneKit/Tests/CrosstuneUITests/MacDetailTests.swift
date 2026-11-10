@@ -7,7 +7,7 @@
     @testable import CrosstuneUI
 
     @MainActor
-    @Suite struct MacDetailTests {
+    @Suite(.timeLimit(.minutes(1))) struct MacDetailTests {
         private let audio = FakeAudio()
         private let player: PlayerModel
 

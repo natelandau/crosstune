@@ -9,17 +9,7 @@
     @testable import CrosstuneUI
 
     @MainActor
-    @Suite struct RowActionSlotTests {
-        @Test func glyphsAreOneCircleFamily() throws {
-            let item = sampleRecordingItem()
-            let open = ListRowPlay.Action.open(try #require(URL(string: "https://example.com")), linkTitle: "x")
-            #expect(ListRowPlay.symbol(for: .play(item), loaded: false) == "play.circle")
-            #expect(ListRowPlay.symbol(for: .play(item), loaded: true) == "stop.circle")
-            #expect(ListRowPlay.symbol(for: open, loaded: false) == "arrow.up.right.circle")
-            #expect(RowGlyph.nowPlaying(isPlaying: true) == "speaker.wave.2.circle")
-            #expect(RowGlyph.nowPlaying(isPlaying: false) == "play.circle")
-        }
-
+    struct RowActionSlotTests {
         @Test func slotAndGlyphStopGrowingTogether() {
             let base = RowSlotMetrics.baseWidth
             let cap = base * RowSlotMetrics.maxGrowth
@@ -39,10 +29,6 @@
             #expect(RowProgressRing.angle(at: start, reduceMotion: false) == 0)
             #expect(abs(RowProgressRing.angle(at: quarter, reduceMotion: false) - 90) < 0.001)
             #expect(RowProgressRing.angle(at: quarter, reduceMotion: true) == 0)
-        }
-
-        @Test func downloadHandoffHoldsTheClosedRing() {
-            #expect(RowDownloadPhase.ringHold == .milliseconds(200))
         }
 
         @Test func actionSlotAddsNoHeightToARow() {

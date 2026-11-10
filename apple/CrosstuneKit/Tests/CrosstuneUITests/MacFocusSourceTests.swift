@@ -3,13 +3,12 @@
     import CrosstuneDesign
     import Testing
 
-    @Suite struct MacFocusSourceTests {
-        @Test func tabSetsKeyboardSource() {
-            for start in [MacFocusSource.none, .pointer, .keyboard] {
-                #expect(MacFocusSource.next(after: .tab, from: start) == .keyboard)
-                #expect(MacFocusSource.next(after: .backTab, from: start) == .keyboard)
-                #expect(MacFocusSource.next(after: .arrow, from: start) == .keyboard)
-            }
+    struct MacFocusSourceTests {
+        @Test(arguments: [MacFocusSource.none, .pointer, .keyboard])
+        func tabSetsKeyboardSource(start: MacFocusSource) {
+            #expect(MacFocusSource.next(after: .tab, from: start) == .keyboard)
+            #expect(MacFocusSource.next(after: .backTab, from: start) == .keyboard)
+            #expect(MacFocusSource.next(after: .arrow, from: start) == .keyboard)
         }
 
         @Test func clickClearsKeyboardSource() {
@@ -17,25 +16,23 @@
             #expect(MacFocusSource.next(after: .pointerDown, from: .none) == .pointer)
         }
 
-        @Test func windowOpeningClearsTheSource() {
-            for start in [MacFocusSource.none, .pointer, .keyboard] {
-                #expect(MacFocusSource.next(after: .windowOpened, from: start) == .none)
-            }
+        @Test(arguments: [MacFocusSource.none, .pointer, .keyboard])
+        func windowOpeningClearsTheSource(start: MacFocusSource) {
+            #expect(MacFocusSource.next(after: .windowOpened, from: start) == .none)
         }
 
-        @Test func typingKeepsTheSource() {
-            for start in [MacFocusSource.none, .pointer, .keyboard] {
-                #expect(MacFocusSource.next(after: .otherKey, from: start) == start)
-            }
+        @Test(arguments: [MacFocusSource.none, .pointer, .keyboard])
+        func typingKeepsTheSource(start: MacFocusSource) {
+            #expect(MacFocusSource.next(after: .otherKey, from: start) == start)
         }
 
         @Test func ringShowsOnlyForKeyboardOrAField() {
-            #expect(!MacFocusSource.showsRing(isFocused: true, source: .pointer, isTextField: false))
+            #expect(MacFocusSource.showsRing(isFocused: true, source: .pointer, isTextField: false) == false)
             #expect(MacFocusSource.showsRing(isFocused: true, source: .keyboard, isTextField: false))
             #expect(MacFocusSource.showsRing(isFocused: true, source: .pointer, isTextField: true))
-            #expect(!MacFocusSource.showsRing(isFocused: false, source: .keyboard, isTextField: false))
-            #expect(!MacFocusSource.showsRing(isFocused: true, source: .none, isTextField: false))
-            #expect(!MacFocusSource.showsRing(isFocused: false, source: .pointer, isTextField: true))
+            #expect(MacFocusSource.showsRing(isFocused: false, source: .keyboard, isTextField: false) == false)
+            #expect(MacFocusSource.showsRing(isFocused: true, source: .none, isTextField: false) == false)
+            #expect(MacFocusSource.showsRing(isFocused: false, source: .pointer, isTextField: true) == false)
         }
 
         struct KeyCase: Sendable, CustomTestStringConvertible {
@@ -67,14 +64,14 @@
             let windows = [NSObject(), NSObject()]
             let first = ObjectIdentifier(windows[0])
             let second = ObjectIdentifier(windows[1])
-            #expect(!MacFocusSource.opensWindow(becameKey: first, lastResignedKey: first))
+            #expect(MacFocusSource.opensWindow(becameKey: first, lastResignedKey: first) == false)
             #expect(MacFocusSource.opensWindow(becameKey: second, lastResignedKey: first))
             #expect(MacFocusSource.opensWindow(becameKey: first, lastResignedKey: nil))
             #expect(MacFocusSource.opensWindow(becameKey: nil, lastResignedKey: nil))
         }
 
         @Test func customControlsJoinTabOrderOnlyWithKeyboardNavigation() {
-            #expect(!MacFocusSource.joinsTabOrder(isTextField: false, keyboardNavigation: false))
+            #expect(MacFocusSource.joinsTabOrder(isTextField: false, keyboardNavigation: false) == false)
             #expect(MacFocusSource.joinsTabOrder(isTextField: false, keyboardNavigation: true))
             #expect(MacFocusSource.joinsTabOrder(isTextField: true, keyboardNavigation: false))
         }

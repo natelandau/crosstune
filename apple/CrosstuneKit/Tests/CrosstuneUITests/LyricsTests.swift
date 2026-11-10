@@ -5,7 +5,7 @@ import Testing
 
 @testable import CrosstuneUI
 
-@Suite struct LyricLinesTests {
+struct LyricLinesTests {
     @Test func splitsVersesOnABlankLineAndKeepsEachLine() {
         #expect(LyricLines.lines("one\ntwo\n\nthree") == [["one", "two"], ["three"]])
     }
@@ -28,7 +28,7 @@ import Testing
     }
 }
 
-@Suite struct LyricOpeningTests {
+struct LyricOpeningTests {
     @Test func takesTheFirstLinesAcrossVerses() {
         #expect(LyricLines.opening("one\ntwo\n\nthree", count: 2) == ["one", "two"])
         #expect(LyricLines.opening("one\n\ntwo\nthree", count: 3) == ["one", "two", "three"])
@@ -43,7 +43,7 @@ import Testing
     }
 }
 
-@Suite struct LyricsSizeTests {
+struct LyricsSizeTests {
     @Test func clampsAStepToTheEndsOfTheScale() {
         #expect(LyricsSize.clamp(0) == 1)
         #expect(LyricsSize.clamp(1) == 1)
@@ -60,8 +60,8 @@ import Testing
     @Test func lyricsReaderOffersLargerAndSmallerText() throws {
         #expect(LyricsSize.canShrink(LyricsSize.defaultStep))
         #expect(LyricsSize.canGrow(LyricsSize.defaultStep))
-        #expect(!LyricsSize.canShrink(1))
-        #expect(!LyricsSize.canGrow(LyricsSize.steps))
+        #expect(LyricsSize.canShrink(1) == false)
+        #expect(LyricsSize.canGrow(LyricsSize.steps) == false)
         #if os(macOS)
             // Both sit in the reader's own header, where a toolbar overflow can never hide one.
             let file = SourceScan.url(of: "Lyrics/LyricsReader.swift")
@@ -69,7 +69,7 @@ import Testing
             #expect(mac.contains("LyricsReader.smallerText"))
             #expect(mac.contains("LyricsReader.largerText"))
             #expect(mac.contains("MacSheet("))
-            #expect(!mac.contains("ToolbarItem"))
+            #expect(mac.contains("ToolbarItem") == false)
         #endif
     }
 
@@ -80,7 +80,7 @@ import Testing
 }
 
 @MainActor
-@Suite struct LyricsReaderModelTests {
+@Suite(.timeLimit(.minutes(1))) struct LyricsReaderModelTests {
     private let soldiersJoy = SampleCatalog.entries[0]
 
     @Test func savesOnlyTheLyricsFieldAndQueuesOneChange() async throws {

@@ -48,6 +48,8 @@ public final class SyncEngine {
     @ObservationIgnored private(set) var queuedTurns = 0
     @ObservationIgnored private var inFlightDownloads: [String: Task<URL?, any Error>] = [:]
     @ObservationIgnored private var inFlightPeaks: [String: Task<Data?, any Error>] = [:]
+    /// How many callers have waited on a download or peaks fetch already in flight.
+    @ObservationIgnored private(set) var joinedFetches = 0
 
     // Lazy so their closures can capture self, which they reach only once init has finished.
     @ObservationIgnored private lazy var syncLoop = SyncLoop<SyncStatus>(
@@ -308,7 +310,10 @@ public final class SyncEngine {
     }
 
     private func fetchOne(_ recordingID: String) async throws -> URL? {
-        if let running = inFlightDownloads[recordingID] { return try await running.value }
+        if let running = inFlightDownloads[recordingID] {
+            joinedFetches += 1
+            return try await running.value
+        }
         let transfers = transfers
         let task = Task { try await transfers.downloadOne(recordingID) }
         inFlightDownloads[recordingID] = task
@@ -322,7 +327,10 @@ public final class SyncEngine {
 
     /// One fetch per recording at a time, whether the download pass or a caller asks.
     private func fetchPeaksOnce(_ recordingID: String) async throws -> Data? {
-        if let running = inFlightPeaks[recordingID] { return try await running.value }
+        if let running = inFlightPeaks[recordingID] {
+            joinedFetches += 1
+            return try await running.value
+        }
         let transfers = transfers
         let task = Task { try await transfers.fetchPeaks(recordingID) }
         inFlightPeaks[recordingID] = task

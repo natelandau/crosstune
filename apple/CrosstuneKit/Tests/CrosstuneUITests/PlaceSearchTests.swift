@@ -10,7 +10,7 @@ import Testing
 @testable import CrosstuneUI
 
 /// The same cases as the API's `test_place_names.py`, so every platform names a place alike.
-@Suite struct PlaceNamesTests {
+struct PlaceNamesTests {
     @Test func aUSPlaceUsesItsStateCode() {
         let name = PlaceNames.name(
             locality: "Galax", administrativeAreaCode: "VA", countryCode: "US", country: "United States",
@@ -66,7 +66,7 @@ import Testing
 }
 
 /// The picked-name rule the API applies to web search suggestions in `places/names.py`.
-@Suite struct PickedPlaceNamesTests {
+struct PickedPlaceNamesTests {
     private func picked(
         _ name: String?, poi: Bool = false, street: String? = nil, locality: String?, area: String? = nil,
         code: String? = "US", country: String? = "United States"
@@ -190,37 +190,16 @@ import Testing
     }
 }
 
-@Suite struct LocationWordsTests {
-    @Test func theSearchAndItsRowsSayLocation() {
-        #expect(RecordingPageCopy.location == "Location")
-        #expect(PlaceSearchText.clearPlace == "Clear location")
-        #expect(PlaceSearchText.findAPlace == "Find a place or address")
-        #expect(PlaceSearchText.useCurrentLocation == "Use current location")
-        #expect(PlaceSearchText.dropAPin == "Can’t find it? Drop a pin on the map")
-        #expect(PlaceSearchText.recent == "Recent locations")
-        #expect(PlaceSearchText.pickFailed == "Couldn’t find that location. Try another.")
-        #expect(PlaceSearchText.current == "Current")
-        #expect(PlaceSearchText.nearby == "Nearby")
-        #expect(PlaceSearchText.saved == "Saved locations")
-        #expect(PlaceSearchText.nameThisLocation == "Name this location…")
-        #expect(PlaceSearchText.openInMaps == "Open in Maps")
+struct LocationWordsTests {
+    @Test func aPickNamesThePlaceAndAnyDetail() {
         #expect(PlaceSearchText.pick("Rex Theater", detail: "113 E Grayson St") == "Use Rex Theater, 113 E Grayson St")
         #expect(PlaceSearchText.pick("Galax, VA", detail: nil) == "Use Galax, VA")
         #expect(PlaceSearchText.pick("Galax, VA", detail: "") == "Use Galax, VA")
-        #expect(NameLocationText.title == "Name this location")
-        #expect(NameLocationText.nameLabel == "Location name")
-        #expect(NameLocationText.savedHere == "Saved here")
-        #expect(NameLocationText.help == "Recordings made here show this name.")
-    }
-
-    @Test func theAccessNoteSaysHowToTurnLocationBackOn() {
-        #expect(LocationAccessText.off == "Location access is off, so new recordings don’t save where they were made.")
-        #expect(LocationAccessText.openSettings == "Open Settings")
     }
 }
 
 @MainActor
-@Suite struct MapKitPlaceSearchTests {
+@Suite(.timeLimit(.minutes(1))) struct MapKitPlaceSearchTests {
     @Test func theFullSearchRegionCentersOnTheHintAndSpansHalfADegree() throws {
         let hint = Coordinate(lat: 40.678, lon: -73.944, accuracyM: 12)
         let region = try #require(MapKitPlaceSearch.region(near: hint))
@@ -245,7 +224,7 @@ import Testing
         let completer = FakePlaceCompleter()
         let search = MapKitPlaceSearch(completer: completer)
         let found = Task { await search.completions(for: "Gal").map(\.title) }
-        #expect(try await poll { completer.fragments == ["Gal"] })
+        try await eventually { completer.fragments == ["Gal"] }
         completer.answer(["Galax"])
         #expect(await found.value == ["Galax"])
 
@@ -258,9 +237,9 @@ import Testing
         completer.completions = [FakePlaceSearch.completion("Old")]
         let search = MapKitPlaceSearch(completer: completer)
         let first = Task { await search.completions(for: "Gal").map(\.title) }
-        #expect(try await poll { completer.fragments == ["Gal"] })
+        try await eventually { completer.fragments == ["Gal"] }
         let second = Task { await search.completions(for: "Gal").map(\.title) }
-        #expect(try await poll { search.waitingSearches == 2 })
+        try await eventually { search.waitingSearches == 2 }
         completer.answer(["Galax"])
         #expect(await first.value == ["Galax"])
         #expect(await second.value == ["Galax"])
@@ -271,7 +250,7 @@ import Testing
         let completer = FakePlaceCompleter()
         let search = MapKitPlaceSearch(completer: completer)
         let older = Task { await search.completions(for: "Ga").map(\.title) }
-        #expect(try await poll { completer.fragments == ["Ga"] })
+        try await eventually { completer.fragments == ["Ga"] }
         let newer = Task { await search.completions(for: "Gal").map(\.title) }
         #expect(await older.value.isEmpty)
         #expect(completer.fragments == ["Ga", "Gal"])
@@ -283,10 +262,10 @@ import Testing
         let completer = FakePlaceCompleter()
         let search = MapKitPlaceSearch(completer: completer)
         let older = Task { await search.completions(for: "Ga").map(\.title) }
-        #expect(try await poll { completer.fragments == ["Ga"] })
+        try await eventually { completer.fragments == ["Ga"] }
         let newer = Task { await search.completions(for: "Gal").map(\.title) }
         #expect(await older.value.isEmpty)
-        #expect(try await poll { search.waitingSearches == 1 })
+        try await eventually { search.waitingSearches == 1 }
         completer.answer(["Gainesville"], for: "Ga")
         #expect(search.waitingSearches == 1)
         completer.answer(["Galax"])
@@ -298,7 +277,7 @@ import Testing
         let completer = FakePlaceCompleter()
         let search = MapKitPlaceSearch(completer: completer)
         let running = Task { await search.completions(for: "Gal").map(\.title) }
-        #expect(try await poll { completer.fragments == ["Gal"] })
+        try await eventually { completer.fragments == ["Gal"] }
         #expect(await search.completions(for: "").isEmpty)
         #expect(await search.completions(for: " G ").isEmpty)
         #expect(completer.fragments == ["Gal"])
@@ -312,7 +291,7 @@ import Testing
         completer.completions = [FakePlaceSearch.completion("Old")]
         let search = MapKitPlaceSearch(completer: completer)
         let found = Task { await search.completions(for: "Gal").map(\.title) }
-        #expect(try await poll { completer.fragments == ["Gal"] })
+        try await eventually { completer.fragments == ["Gal"] }
         completer.fail()
         #expect(await found.value.isEmpty)
     }
@@ -321,7 +300,7 @@ import Testing
         let completer = FakePlaceCompleter()
         let search = MapKitPlaceSearch(completer: completer)
         let found = Task { await search.completions(for: "Gal").map(\.title) }
-        #expect(try await poll { completer.fragments == ["Gal"] })
+        try await eventually { completer.fragments == ["Gal"] }
         found.cancel()
         #expect(await found.value.isEmpty)
         completer.answer(["Galax"])

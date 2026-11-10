@@ -50,16 +50,23 @@ struct ClipFile: Decodable, Sendable {
     let seed: Int
     let clips: [ClipRecipe]
 
-    static let shared: ClipFile = {
+    struct FixturesMissing: Error {}
+
+    /// Read once; a missing or broken fixture fails each test that uses it rather than the run.
+    private static let loaded = Result { () throws -> ClipFile in
         var folder = URL(filePath: #filePath).deletingLastPathComponent()
         while !FileManager.default.fileExists(atPath: folder.appending(path: "fixtures/tuner").path()) {
             // The root's parent is the root, so the walk would never end.
-            guard folder.path() != "/" else { fatalError("No fixtures/tuner folder above \(#filePath)") }
+            guard folder.path() != "/" else { throw FixturesMissing() }
             folder = folder.deletingLastPathComponent()
         }
-        let data = try! Data(contentsOf: folder.appending(path: "fixtures/tuner/clips.json"))
-        return try! JSONDecoder().decode(ClipFile.self, from: data)
-    }()
+        let data = try Data(contentsOf: folder.appending(path: "fixtures/tuner/clips.json"))
+        return try JSONDecoder().decode(ClipFile.self, from: data)
+    }
+
+    static var shared: ClipFile {
+        get throws { try loaded.get() }
+    }
 }
 
 /// A clip with its position in the file, which seeds its noise.
@@ -70,7 +77,7 @@ struct IndexedClip: Sendable, CustomTestStringConvertible {
     var testDescription: String { clip.id }
 
     static var all: [IndexedClip] {
-        ClipFile.shared.clips.enumerated().map { IndexedClip(index: $0.offset, clip: $0.element) }
+        get throws { try ClipFile.shared.clips.enumerated().map { IndexedClip(index: $0.offset, clip: $0.element) } }
     }
 }
 
@@ -91,7 +98,8 @@ struct Mulberry32 {
 private func level(_ dbfs: Double) -> Double { pow(10, dbfs / 20) }
 
 /// Renders a recipe sample by sample in double precision, as `fixtures/tuner/README.md` lays out.
-func synthesize(_ clip: ClipRecipe, index: Int, seed: Int = ClipFile.shared.seed) -> [Float] {
+func synthesize(_ clip: ClipRecipe, index: Int, seed: Int? = nil) throws -> [Float] {
+    let seed = try seed ?? ClipFile.shared.seed
     let count = Int((clip.seconds * clip.sampleRate).rounded())
     var out = [Float](repeating: 0, count: count)
     var random = Mulberry32(seed: seed + index)

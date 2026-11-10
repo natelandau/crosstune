@@ -13,7 +13,7 @@ import Testing
 /// lands, never its name. A link saved as a recording from the archive is an archive save, not
 /// an import.
 @MainActor
-@Suite struct RecordingReportTests {
+@Suite(.timeLimit(.minutes(1))) struct RecordingReportTests {
     private let root = TemporaryRoot()
     private let sink = RecordingAnalyticsSink()
 
@@ -121,7 +121,7 @@ import Testing
         let tuneID = try await tune("Kitchen Girl", in: store)
         try await put(recording("r2", tuneID: tuneID), in: store)
         let model = RecordingsModel(store: store, analytics: sink.client)
-        #expect(try await poll { model.view("r2") != nil })
+        try await eventually { model.view("r2") != nil }
 
         await model.delete("r2")
 
@@ -137,7 +137,7 @@ import Testing
         let store = try root.open()
         try await put(recording("r1"), in: store)
         let model = RecordingsModel(store: store, analytics: sink.client)
-        #expect(try await poll { model.view("r1") != nil })
+        try await eventually { model.view("r1") != nil }
         try store.close()
 
         await model.delete("r1")
@@ -193,7 +193,7 @@ import Testing
         let repicked = RecordingLocationEdit(store: store, recording: placed, analytics: sink.client)
         repicked.setPlace(
             RecordingPlace(name: "Galax, VA", coordinate: Coordinate(lat: 36.66, lon: -80.92)), method: .suggestion)
-        #expect(!repicked.isEdited)
+        #expect(repicked.isEdited == false)
         #expect(await repicked.save())
         let cleared = RecordingLocationEdit(store: store, recording: placed, analytics: sink.client)
         cleared.clearPlace()
@@ -216,13 +216,15 @@ import Testing
         let edit = RecordingLocationEdit(store: store, recording: opened, analytics: sink.client)
         edit.setPlace(
             RecordingPlace(name: "Galax, VA", coordinate: Coordinate(lat: 36.66, lon: -80.92)), method: .search)
-        #expect(!(await edit.save()))
+        #expect((await edit.save()) == false)
         #expect(sink.calls.isEmpty)
     }
 
-    private func loadedTune(_ id: String, in store: CrosstuneStore) async throws -> TuneModel {
+    private func loadedTune(_ id: String, in store: CrosstuneStore, sourceLocation: SourceLocation = #_sourceLocation)
+        async throws -> TuneModel
+    {
         let model = TuneModel(store: store, tuneID: id, analytics: sink.client)
-        #expect(try await poll { model.shown != nil })
+        try await eventually(sourceLocation: sourceLocation) { model.shown != nil }
         return model
     }
 

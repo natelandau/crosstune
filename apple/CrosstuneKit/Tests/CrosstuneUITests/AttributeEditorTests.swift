@@ -2,7 +2,7 @@ import Testing
 
 @testable import CrosstuneUI
 
-@Suite struct AttributeEditorTests {
+struct AttributeEditorTests {
     typealias Ending = AttributeEditSession<String>.Ending
 
     private static let saving: [Ending] = [.picked, .dismissed, .done, .swipedDown, .unmounted]

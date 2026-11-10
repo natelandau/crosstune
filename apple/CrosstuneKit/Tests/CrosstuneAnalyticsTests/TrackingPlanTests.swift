@@ -264,14 +264,13 @@ func eachValueMatchesItsPlanType(event: AnalyticsEvent) throws {
     }
 }
 
-@Test func theScreenEventCarriesThePlansProperties() throws {
+@Test(arguments: Screen.allCases)
+func theScreenEventCarriesThePlansProperties(screen: Screen) throws {
     let properties = try #require(plan.events["$screen"]?.properties)
-    for screen in Screen.allCases {
-        let sent = PostHogSink.screenProperties(for: screen)
-        #expect(Set(sent.keys) == Set(properties.keys))
-        for (key, value) in sent {
-            #expect(plan.allows(value, as: try #require(properties[key])))
-        }
+    let sent = PostHogSink.screenProperties(for: screen)
+    #expect(Set(sent.keys) == Set(properties.keys))
+    for (key, value) in sent {
+        #expect(plan.allows(value, as: try #require(properties[key])))
     }
 }
 

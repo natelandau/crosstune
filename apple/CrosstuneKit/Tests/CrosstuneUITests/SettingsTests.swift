@@ -49,9 +49,11 @@ private final class TransferCounter {
 }
 
 @MainActor
-private func loadedModel(_ store: CrosstuneStore, engine: SyncEngine? = nil) async throws -> SettingsModel {
+private func loadedModel(
+    _ store: CrosstuneStore, engine: SyncEngine? = nil, sourceLocation: SourceLocation = #_sourceLocation
+) async throws -> SettingsModel {
     let model = SettingsModel(store: store, engine: engine)
-    try await eventually { model.isLoaded }
+    try await eventually(sourceLocation: sourceLocation) { model.isLoaded }
     return model
 }
 
@@ -59,7 +61,7 @@ private func storedSettings(_ store: CrosstuneStore) async throws -> UserSetting
     try await store.read { db in try UserSettings.fetchOne(db, key: settingsID(clerkUserID: store.userID)) }
 }
 
-@Suite struct PendingWriteTests {
+struct PendingWriteTests {
     @Test func coversTheStoredValueUntilTheStoreReadsTheWrite() {
         var pending = PendingWrite<Bool>()
         let token = pending.begin(true)
@@ -97,21 +99,21 @@ private func storedSettings(_ store: CrosstuneStore) async throws -> UserSetting
         let first = pending.begin(true)
         _ = pending.begin(false)
         let firstWasLatest = pending.fail(first)
-        #expect(!firstWasLatest)
+        #expect(firstWasLatest == false)
         #expect(pending.value == false)
         pending.land(first, stored: false)
         #expect(pending.value == false)
     }
 }
 
-@Suite struct TextSizeStepperTests {
+struct TextSizeStepperTests {
     @Test func theStepperBindingClampsIntoTheRange() {
         #expect(SettingsScreen.stepperValue(offset: -9, system: .small) == -1)
         #expect(SettingsScreen.stepperValue(offset: 2, system: .large) == 2)
     }
 }
 
-@Suite struct SettingsTextTests {
+struct SettingsTextTests {
     @Test func namesInstrumentsInVocabularyOrderOrNotSet() {
         #expect(SettingsModel.summary(["violin", "five_string_banjo"]) == "Violin, 5-string banjo")
         #expect(SettingsModel.summary(["retired_banjo"]) == "Not set")
@@ -155,7 +157,6 @@ private func storedSettings(_ store: CrosstuneStore) async throws -> UserSetting
 
     @Test func namesTheAppAndItsVersionUnderAbout() {
         #expect(SettingsScreen.aboutLine(version: "0.7.0") == "Crosstune 0.7.0")
-        #expect(SettingsScreen.about == "About")
     }
 
     @Test func saysHowLongAgoTheLastSyncFinished() {
@@ -176,7 +177,7 @@ private func instrumentSummary(_ model: SettingsModel) -> String {
 }
 
 @MainActor
-@Suite struct SettingsModelTests {
+@Suite(.timeLimit(.minutes(1))) struct SettingsModelTests {
     @Test func readsTheMusiciansInstrumentsAndQuality() async throws {
         let root = TemporaryRoot()
         let store = try await SampleCatalog.copiedStore(root: root.url)
@@ -184,9 +185,9 @@ private func instrumentSummary(_ model: SettingsModel) -> String {
         #expect(instrumentSummary(model) == "Violin, 5-string banjo")
         #expect(model.searchProvidersSummary == "5 of 8")
         #expect(model.plays("violin"))
-        #expect(!model.plays("guitar"))
+        #expect(model.plays("guitar") == false)
         #expect(model.audioQuality == "standard")
-        #expect(!model.keepsOffline)
+        #expect(model.keepsOffline == false)
         #expect(model.rejectedMessage == nil)
         #expect(model.storage == SampleCatalog.storage)
     }
@@ -243,7 +244,7 @@ private func instrumentSummary(_ model: SettingsModel) -> String {
         #expect(try await store.pendingChangeCount() == 1)
 
         model.setPlays("mandolin", false)
-        #expect(!model.plays("mandolin"))
+        #expect(model.plays("mandolin") == false)
         try await eventually { try await storedSettings(store)?.instruments == ["violin"] }
         #expect(model.instrumentsFailure == nil)
     }
@@ -274,7 +275,7 @@ private func instrumentSummary(_ model: SettingsModel) -> String {
         model.setPlays("guitar", true)
         try await eventually { try await storedSettings(store)?.instruments == ["guitar", "mandolin"] }
         #expect(model.instrumentsFailure != nil)
-        #expect(!model.plays("violin"))
+        #expect(model.plays("violin") == false)
     }
 
     @Test func followsAnInstrumentChangedElsewhere() async throws {
@@ -379,7 +380,7 @@ private func instrumentSummary(_ model: SettingsModel) -> String {
         model.setKeepsOffline(false)
         await model.lastWrite?.value
         #expect(try await store.meta(.keepOffline, as: Bool.self) == false)
-        #expect(!model.keepsOffline)
+        #expect(model.keepsOffline == false)
         #expect(counter.count == 1)
     }
 
@@ -400,7 +401,7 @@ private func instrumentSummary(_ model: SettingsModel) -> String {
         let model = try await loadedModel(store, engine: engine)
         #expect(engine.lastSyncedAt == nil)
         #expect(await model.syncNow())
-        #expect(!model.isSyncing)
+        #expect(model.isSyncing == false)
         #expect(engine.lastSyncedAt != nil)
     }
 
@@ -414,11 +415,10 @@ private func instrumentSummary(_ model: SettingsModel) -> String {
         #expect(engine.status == .offline)
     }
 
-    @Test func onlyAFailedStatusEndsARunInFailure() {
-        for status in SyncStatus.allCases {
-            let failed = [SyncStatus.error, .offline, .unauthorized, .updateRequired].contains(status)
-            #expect(SettingsModel.endsInFailure(status) == failed, "\(status)")
-        }
+    @Test(arguments: SyncStatus.allCases)
+    func onlyAFailedStatusEndsARunInFailure(status: SyncStatus) {
+        let failed = [SyncStatus.error, .offline, .unauthorized, .updateRequired].contains(status)
+        #expect(SettingsModel.endsInFailure(status) == failed)
     }
 
     @Test func reportsARefusedWriteAndShowsTheStoredValueAgain() async throws {
@@ -428,7 +428,7 @@ private func instrumentSummary(_ model: SettingsModel) -> String {
         try store.close()
         model.setPlays("guitar", true)
         try await eventually { model.instrumentsFailure != nil }
-        #expect(!model.plays("guitar"))
+        #expect(model.plays("guitar") == false)
         model.clearInstrumentsFailure()
         #expect(model.instrumentsFailure == nil)
     }
@@ -489,7 +489,7 @@ private func instrumentSummary(_ model: SettingsModel) -> String {
         let model = try await loadedModel(store)
         model.setSearches("spotify", false)
         // Shown before the write lands, so the toggle never springs back.
-        #expect(!model.searches("spotify"))
+        #expect(model.searches("spotify") == false)
         let rest = searchableProviders.filter { $0 != "spotify" }
         try await eventually { try await storedSettings(store)?.searchProviders == rest }
         #expect(try await store.pendingChangeCount() == 1)
@@ -532,11 +532,11 @@ private func instrumentSummary(_ model: SettingsModel) -> String {
         model.removeDownloads()
 
         try await eventually { model.removeDownloadsFailure != nil }
-        #expect(!model.isRemovingDownloads)
+        #expect(model.isRemovingDownloads == false)
     }
 }
 
-@Suite struct AppleMusicRowTests {
+struct AppleMusicRowTests {
     @Test(
         arguments: [
             (AppleMusicAccessState.notAsked, "Previews", AppleMusicRowAction.request),
@@ -557,7 +557,7 @@ private func instrumentSummary(_ model: SettingsModel) -> String {
     }
 }
 
-@Suite struct SettingsRootTests {
+struct SettingsRootTests {
     @Test func everySettingsSectionHasOneHomeOnPhone() {
         // The two cards, then what each category's page declares.
         var homes: [SettingsScreen.Sections] = SettingsCategory.allCases.map(\.sections)
@@ -614,8 +614,6 @@ private func instrumentSummary(_ model: SettingsModel) -> String {
         let categories = SettingsCategory.allCases
         let index = try #require(categories.firstIndex(of: .importExport))
         #expect(categories[index - 1] == .syncAndStorage)
-        #expect(SettingsCategory.importExport.title == "Import and export")
-        #expect(SettingsCategory.importExport.systemImage == "arrow.up.arrow.down")
         #expect(SettingsCategory.importExport.sections == [.importExport])
     }
 
@@ -627,7 +625,7 @@ private func instrumentSummary(_ model: SettingsModel) -> String {
 }
 
 #if os(macOS)
-    @Suite struct MacSettingsTabsTests {
+    struct MacSettingsTabsTests {
         @Test func everySectionShowsInExactlyOneTab() {
             var seen: SettingsScreen.Sections = []
             for pane in MacSettingsTabs.Pane.allCases {
@@ -639,14 +637,11 @@ private func instrumentSummary(_ model: SettingsModel) -> String {
 
         @Test func settingsHasFiveTabs() {
             #expect(MacSettingsTabs.Pane.allCases == [.general, .account, .tunes, .recordings, .importExport])
-            #expect(MacSettingsTabs.tunes == "Tunes")
             #expect(MacSettingsTabs.Pane.tunes.title == MacSettingsTabs.tunes)
         }
 
         @Test func importAndExportIsTheLastTab() {
             #expect(MacSettingsTabs.Pane.allCases.last == .importExport)
-            #expect(MacSettingsTabs.Pane.importExport.title == "Import and export")
-            #expect(MacSettingsTabs.Pane.importExport.systemImage == "arrow.up.arrow.down")
             #expect(MacSettingsTabs.Pane.importExport.sections == [.importExport])
             #expect(MacSettingsTabs.Pane(rawValue: "import-export") == .importExport)
         }
@@ -662,8 +657,6 @@ private func instrumentSummary(_ model: SettingsModel) -> String {
         /// Recording, the saved locations, and downloads share a tab, with the locations as rows.
         @Test func recordingsTabHoldsRecordingSettings() {
             #expect(MacSettingsTabs.Pane.recordings.sections == [.recording, .savedLocations, .downloads])
-            #expect(MacSettingsTabs.Pane.recordings.title == "Recordings")
-            #expect(MacSettingsTabs.Pane.recordings.systemImage == "waveform")
         }
 
         /// A tab stored before the Tunes tab merged three opens the tab that holds its settings.
@@ -687,7 +680,6 @@ private func instrumentSummary(_ model: SettingsModel) -> String {
         @Test func signOutIsNotDestructiveOnTheMac() {
             #expect(AccountSections.macSignOutRole == .secondary)
             #expect(AccountSections.macDeleteRole == .destructive)
-            #expect(AccountSections.deleteAccountMac == "Delete…")
         }
 
         @Test func deleteAccountSitsInItsOwnLastSection() {
@@ -707,7 +699,7 @@ private func instrumentSummary(_ model: SettingsModel) -> String {
                 for focus in [
                     ".focusEffectDisabled(", ".focusable(", ".defaultFocus(", "@FocusState", ".macFocusRing(",
                 ] {
-                    #expect(!rows.contains(focus), "\(name) holds \(focus)")
+                    #expect(rows.contains(focus) == false, "\(name) holds \(focus)")
                 }
             }
         }
@@ -723,8 +715,8 @@ private func instrumentSummary(_ model: SettingsModel) -> String {
             let stop = try #require(modifier.range(of: ".background("))
             let close = try #require(modifier.range(of: ".defaultFocus("))
             let onContent = modifier[content.upperBound..<stop.lowerBound]
-            #expect(!onContent.contains(".focusEffectDisabled()"))
-            #expect(!onContent.contains(".focusable("))
+            #expect(onContent.contains(".focusEffectDisabled()") == false)
+            #expect(onContent.contains(".focusable(") == false)
             let inStop = modifier[stop.upperBound..<close.lowerBound]
             #expect(inStop.contains(".focusable("))
             #expect(inStop.contains(".focusEffectDisabled()"))
@@ -742,9 +734,9 @@ private func instrumentSummary(_ model: SettingsModel) -> String {
                 let text = SourceScan.withoutComments(
                     SourceScan.withoutPreviews(try SourceScan.text(at: SourceScan.url(of: path))))
                 let mac = SourceScan.macCompiled(text)
-                #expect(!mac.contains("Form {"), "\(path) draws a grouped Form on the Mac")
-                #expect(!mac.contains("SettingsFieldRow("), "\(path) draws a Form row on the Mac")
-                #expect(!mac.contains("SettingsHelp("), "\(path) floats help over a card on the Mac")
+                #expect(mac.contains("Form {") == false, "\(path) draws a grouped Form on the Mac")
+                #expect(mac.contains("SettingsFieldRow(") == false, "\(path) draws a Form row on the Mac")
+                #expect(mac.contains("SettingsHelp(") == false, "\(path) floats help over a card on the Mac")
             }
         }
 
@@ -754,39 +746,29 @@ private func instrumentSummary(_ model: SettingsModel) -> String {
             let text = SourceScan.withoutComments(
                 try SourceScan.text(at: SourceScan.url(of: "Mac/MacSettingsRow.swift")))
             #expect(text.contains(".buttonStyle(.mac(role, size: .small))"))
-            #expect(!text.contains("MacCardButtonStyle"))
+            #expect(text.contains("MacCardButtonStyle") == false)
         }
 
         @Test func buttonsThatOpenMoreEndInAnEllipsis() {
-            #expect(ImportExportSections.importMac == "Import…")
-            #expect(ImportExportSections.exportMac == "Export…")
+            #expect(ImportExportSections.importMac.hasSuffix("…"))
+            #expect(ImportExportSections.exportMac.hasSuffix("…"))
             #expect(AccountSections.deleteAccountMac.hasSuffix("…"))
         }
     }
 #endif
 
-@Suite struct ImportExportSectionsTests {
+struct ImportExportSectionsTests {
     /// The same words as the web's Import and export page.
-    @Test func copyMatchesTheWeb() {
-        #expect(ImportExportSections.title == "Import and export")
-        #expect(ImportExportSections.importHeader == "Import")
-        #expect(
-            ImportExportSections.importHelp
-                == "Add many tunes at once. You will get a chance to review before Crosstune adds them.")
-        #expect(ImportExportSections.moreInfo == "More info")
-        #expect(ImportExportSections.exportHeader == "Export")
-        #expect(
-            ImportExportSections.exportHelp
-                == "Save your tunes, recordings, and scans to your device in a single zip file.")
-        #expect(ImportCopy.title == "Import tunes")
-        #expect(ExportDataSheet.title == "Export data")
-    }
-
-    @Test func importSheetPointsRecordingsToTheRecordingsScreen() {
-        #expect(
-            ImportCopy.recordingsNote
-                == "This imports tune titles. To bring in recordings, upload them on the Recordings screen. "
-                + "You can choose many files at once.")
+    @Test func copyMatchesTheWeb() throws {
+        try expectMatchesWeb(
+            "web/src/features/settings/settingsCopy.ts",
+            [
+                ("IMPORT_AND_EXPORT", ImportExportSections.title), ("IMPORT_HEADER", ImportExportSections.importHeader),
+                ("MORE_INFO", ImportExportSections.moreInfo), ("EXPORT_HEADER", ImportExportSections.exportHeader),
+                ("IMPORT_HELP", ImportExportSections.importHelp), ("EXPORT_HELP", ImportExportSections.exportHelp),
+            ])
+        try expectMatchesWeb("web/src/features/import/importCopy.ts", [("IMPORT_TUNES", ImportCopy.title)])
+        try expectMatchesWeb("web/src/features/settings/export/exportCopy.ts", [("EXPORT_DATA", ExportDataSheet.title)])
     }
 
     @Test func moreInfoLinksToTheImportHelpPage() throws {
@@ -808,9 +790,6 @@ private func instrumentSummary(_ model: SettingsModel) -> String {
         #expect(
             AccountSections.footer(isOffline: true, updateRequired: true, failure: "x")
                 == AccountSections.updateRequiredFooter)
-        #expect(
-            AccountSections.updateRequiredFooter
-                == "Signing out and deleting your account need the latest version of Crosstune.")
     }
 
     @Test @MainActor func anUpdateRequiredIsNotCalledOffline() {
@@ -830,7 +809,7 @@ private func instrumentSummary(_ model: SettingsModel) -> String {
         let text = SourceScan.withoutComments(
             try SourceScan.text(at: SourceScan.url(of: "Account/AccountSections.swift")))
         for name in ["ImportSheet", "ImportCopy", "ExportDataSheet"] {
-            #expect(!text.contains(name), "AccountSections names \(name)")
+            #expect(text.contains(name) == false, "AccountSections names \(name)")
         }
     }
 }

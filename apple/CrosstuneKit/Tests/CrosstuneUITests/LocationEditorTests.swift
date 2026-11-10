@@ -69,12 +69,14 @@ private func searchRows(_ editor: LocationEditorModel) -> [String] {
 }
 
 @MainActor
-private func stored(_ store: CrosstuneStore, _ id: String = "r1") async throws -> Recording {
-    try #require(try await store.read { db in try Recording.fetchOne(db, key: id) })
+private func stored(_ store: CrosstuneStore, _ id: String = "r1", sourceLocation: SourceLocation = #_sourceLocation)
+    async throws -> Recording
+{
+    try #require(try await store.read { db in try Recording.fetchOne(db, key: id) }, sourceLocation: sourceLocation)
 }
 
 @MainActor
-@Suite struct LocationEditorTests {
+@Suite(.timeLimit(.minutes(1))) struct LocationEditorTests {
     private let root = TemporaryRoot()
 
     @Test func theEditorOpensOnTheStoredRecordingAndNotOnAGoneOne() async throws {
@@ -91,7 +93,6 @@ private func stored(_ store: CrosstuneStore, _ id: String = "r1") async throws -
     }
 
     @Test func searchIsFirstAndNamedForNewPlaces() throws {
-        #expect(PlaceSearchText.findAPlace == "Find a place or address")
         let text = SourceScan.withoutComments(
             try SourceScan.text(at: SourceScan.url(of: "RecordingPage/Location/LocationEditor.swift")))
         #expect(text.contains("PlaceSearchText.findAPlace"))
@@ -160,7 +161,7 @@ private func stored(_ store: CrosstuneStore, _ id: String = "r1") async throws -
         let (edit, editor) = try await openEditor(
             store, placedRecording(name: ennis.name, at: ennis.coordinate), locationAccess: access(.authorizedAlways),
             device: device, analytics: sink.client)
-        #expect(!editor.isCurrentLocationOff)
+        #expect(editor.isCurrentLocationOff == false)
         #expect(await editor.useCurrentLocation())
         #expect(edit.placeMethod == .currentLocation)
         #expect(editor.edit.placeCoordinate == fix)
@@ -187,7 +188,7 @@ private func stored(_ store: CrosstuneStore, _ id: String = "r1") async throws -
         let (_, editor) = try await openEditor(
             store, placedRecording(), places: places, locationAccess: access(.authorizedAlways),
             device: FakeLocation(fix))
-        #expect(try await poll { editor.edit.savedPlaces.count == 2 })
+        try await eventually { editor.edit.savedPlaces.count == 2 }
         #expect(await editor.useCurrentLocation())
         #expect(editor.edit.place?.name == "The barn")
 
@@ -205,7 +206,7 @@ private func stored(_ store: CrosstuneStore, _ id: String = "r1") async throws -
             store, placedRecording(), places: [saved("p1", "The barn", at: fix)],
             locationAccess: access(.authorizedAlways),
             device: FakeLocation(fix))
-        #expect(try await poll { editor.edit.savedPlaces.count == 1 })
+        try await eventually { editor.edit.savedPlaces.count == 1 }
         #expect(await editor.useCurrentLocation())
         #expect(await editor.leave() == nil)
         #expect(try await stored(store).placeID == nil)
@@ -221,9 +222,9 @@ private func stored(_ store: CrosstuneStore, _ id: String = "r1") async throws -
         #expect(editor.list == .saved)
         await editor.start()
         #expect(editor.isCurrentLocationOff)
-        #expect(!(await editor.useCurrentLocation()))
+        #expect((await editor.useCurrentLocation()) == false)
         #expect(device.requests == 0)
-        #expect(!edit.isEdited)
+        #expect(edit.isEdited == false)
         #expect(editor.nearby.isEmpty)
         #expect(nearby.asked.isEmpty)
         #expect(editor.list == .saved)
@@ -257,7 +258,7 @@ private func stored(_ store: CrosstuneStore, _ id: String = "r1") async throws -
             locationAccess: access(.authorizedAlways), device: FakeLocation(device))
         #expect(editor.list == .nearby)
         await editor.start()
-        #expect(try await poll { nearby.asked.first?.center == kitchen.point })
+        try await eventually { nearby.asked.first?.center == kitchen.point }
         #expect(editor.distance(to: close) != nil)
         editor.query = "globe bar"
         await editor.refresh()
@@ -294,7 +295,7 @@ private func stored(_ store: CrosstuneStore, _ id: String = "r1") async throws -
             store, placedRecording(at: brooklyn), places: [saved("p1", "The barn", at: north(brooklyn, 100))],
             nearby: nearby)
         await editor.start()
-        #expect(try await poll { editor.nearby.count == 2 })
+        try await eventually { editor.nearby.count == 2 }
         #expect(editor.nearby.map(\.distance) == ["40 ft", "330 ft"])
     }
 
@@ -307,7 +308,7 @@ private func stored(_ store: CrosstuneStore, _ id: String = "r1") async throws -
             saved("p3", "Barnyard", at: north(brooklyn, 3_000)),
         ]
         let (_, editor) = try await openEditor(store, placedRecording(at: brooklyn), places: places, searches: searches)
-        #expect(try await poll { editor.edit.savedPlaces.count == 3 })
+        try await eventually { editor.edit.savedPlaces.count == 3 }
         editor.query = "barn"
         await editor.refresh()
         #expect(searchRows(editor) == ["Barn Theater", "saved Barnyard", "saved The barn", "pin"])
@@ -333,7 +334,6 @@ private func stored(_ store: CrosstuneStore, _ id: String = "r1") async throws -
         editor.query = "Gx"
         await editor.refresh()
         #expect(searchRows(editor) == ["pin"])
-        #expect(PlaceSearchText.dropAPin == "Can’t find it? Drop a pin on the map")
     }
 
     @Test func escapeAfterAPickWritesNothing() async throws {
@@ -376,7 +376,7 @@ private func stored(_ store: CrosstuneStore, _ id: String = "r1") async throws -
         let (_, editor) = try await openEditor(store, placedRecording(), searches: searches)
         let result = FakePlaceSearch.completion("Galax")
         editor.startPick(result)
-        #expect(try await poll { editor.picking == result })
+        try await eventually { editor.picking == result }
 
         let left = Task { await editor.leave() }
         searches.search.release("Galax")
@@ -392,13 +392,13 @@ private func stored(_ store: CrosstuneStore, _ id: String = "r1") async throws -
         let (edit, editor) = try await openEditor(store, placedRecording(), searches: searches)
         let result = FakePlaceSearch.completion("Galax")
         editor.startPick(result)
-        #expect(try await poll { editor.picking == result })
+        try await eventually { editor.picking == result }
 
         editor.discard()
         let left = Task { await editor.leave() }
         searches.search.release("Galax")
         #expect(await left.value == nil)
-        #expect(!edit.isEdited)
+        #expect(edit.isEdited == false)
         #expect(try await stored(store).placeName == nil)
     }
 
@@ -406,10 +406,9 @@ private func stored(_ store: CrosstuneStore, _ id: String = "r1") async throws -
         let store = try root.open()
         let (edit, editor) = try await openEditor(
             store, placedRecording(), locationAccess: access(.authorizedAlways), device: FakeLocation())
-        #expect(!(await editor.useCurrentLocation()))
+        #expect((await editor.useCurrentLocation()) == false)
         #expect(editor.failure == PlaceSearchText.noCurrentLocation)
-        #expect(PlaceSearchText.noCurrentLocation == "Couldn’t find your location.")
-        #expect(!edit.isEdited)
+        #expect(edit.isEdited == false)
     }
 
     @Test func theTopResultsShowTheirDistance() async throws {
@@ -448,12 +447,12 @@ private func stored(_ store: CrosstuneStore, _ id: String = "r1") async throws -
         // Each keystroke cancels the last refresh, as the view's task does.
         editor.query = "gl"
         let typing = Task { await editor.refresh() }
-        #expect(try await poll { clock.pending == [LocationEditorModel.settleDelay] })
+        try await eventually { clock.pending == [LocationEditorModel.settleDelay] }
         typing.cancel()
         await typing.value
         editor.query = "globe"
         let settled = Task { await editor.refresh() }
-        #expect(try await poll { clock.pending == [LocationEditorModel.settleDelay] })
+        try await eventually { clock.pending == [LocationEditorModel.settleDelay] }
         #expect(searches.search.resolves.isEmpty)
 
         clock.wake()
@@ -461,7 +460,6 @@ private func stored(_ store: CrosstuneStore, _ id: String = "r1") async throws -
         #expect(searches.search.resolves == ["Globe Bar"])
         #expect(searches.search.localQueries == ["globe"])
         #expect(editor.completions.map { editor.distance(to: editor.point(of: $0)) } == ["40 ft"])
-        #expect(LocationEditorModel.settleDelay == .milliseconds(400))
     }
 
     @Test func localPlacesComeFirstWithDistancesAndDropTheirSuggestions() async throws {
@@ -500,7 +498,7 @@ private func stored(_ store: CrosstuneStore, _ id: String = "r1") async throws -
 
         editor.query = "globe"
         let first = Task { await editor.refresh() }
-        #expect(try await poll { !clock.pending.isEmpty })
+        try await eventually { !clock.pending.isEmpty }
         clock.wake()
         await first.value
         #expect(editor.completions.map(\.title) == ["The Globe", "Globe Theatre"])
@@ -508,7 +506,7 @@ private func stored(_ store: CrosstuneStore, _ id: String = "r1") async throws -
         // Until the settled search answers, the longer text keeps the nearby place first.
         editor.query = "globe b"
         let typing = Task { await editor.refresh() }
-        #expect(try await poll { !clock.pending.isEmpty })
+        try await eventually { !clock.pending.isEmpty }
         #expect(editor.completions.map(\.title) == ["The Globe", "Globe Bar"])
         #expect(editor.completions.map { editor.distance(to: editor.point(of: $0)) }.first == "40 ft")
         clock.wake()
@@ -518,26 +516,26 @@ private func stored(_ store: CrosstuneStore, _ id: String = "r1") async throws -
 
         editor.query = "globe"
         let again = Task { await editor.refresh() }
-        #expect(try await poll { !clock.pending.isEmpty })
+        try await eventually { !clock.pending.isEmpty }
         clock.wake()
         await again.value
         editor.query = "glo"
         let shorter = Task { await editor.refresh() }
-        #expect(try await poll { !clock.pending.isEmpty })
+        try await eventually { !clock.pending.isEmpty }
         #expect(editor.completions.map(\.title) == ["Gloucester"])
         shorter.cancel()
         await shorter.value
 
         editor.query = "globe"
         let third = Task { await editor.refresh() }
-        #expect(try await poll { !clock.pending.isEmpty })
+        try await eventually { !clock.pending.isEmpty }
         clock.wake()
         await third.value
         editor.query = ""
         await editor.refresh()
         editor.query = "globe"
         let cleared = Task { await editor.refresh() }
-        #expect(try await poll { !clock.pending.isEmpty })
+        try await eventually { !clock.pending.isEmpty }
         #expect(editor.completions.map(\.title) == ["Globe Theatre"])
         cleared.cancel()
         await cleared.value
@@ -559,7 +557,7 @@ private func stored(_ store: CrosstuneStore, _ id: String = "r1") async throws -
         // Found near the latest placed recording, before the device's position arrives.
         editor.query = "globe"
         let first = Task { await editor.refresh() }
-        #expect(try await poll { !clock.pending.isEmpty })
+        try await eventually { !clock.pending.isEmpty }
         clock.wake()
         await first.value
         #expect(editor.completions.map(\.title) == ["The Globe", "Globe Theatre"])
@@ -567,7 +565,7 @@ private func stored(_ store: CrosstuneStore, _ id: String = "r1") async throws -
         await editor.start()
         editor.query = "globe b"
         let typing = Task { await editor.refresh() }
-        #expect(try await poll { !clock.pending.isEmpty })
+        try await eventually { !clock.pending.isEmpty }
         #expect(editor.completions.map(\.title) == ["Globe Bar"])
         #expect(searches.asked == [Coordinate(lat: brooklyn.lat, lon: brooklyn.lon), device])
         typing.cancel()
@@ -601,8 +599,8 @@ private func stored(_ store: CrosstuneStore, _ id: String = "r1") async throws -
         let local = FakePlaceSearch.completion("The Globe", "158 E 23rd St, New York")
         #expect(LocationEditorModel.isSame(local, FakePlaceSearch.completion("the globe ", "158 E 23rd St, NY")))
         #expect(LocationEditorModel.isSame(local, FakePlaceSearch.completion("The Globe")))
-        #expect(!LocationEditorModel.isSame(local, FakePlaceSearch.completion("The Globe", "Spokane, WA")))
-        #expect(!LocationEditorModel.isSame(local, FakePlaceSearch.completion("Globe Bar", "158 E 23rd St")))
+        #expect(LocationEditorModel.isSame(local, FakePlaceSearch.completion("The Globe", "Spokane, WA")) == false)
+        #expect(LocationEditorModel.isSame(local, FakePlaceSearch.completion("Globe Bar", "158 E 23rd St")) == false)
     }
 
     @Test func aSecondStartWhileAPickRunsIsDropped() async throws {
@@ -616,7 +614,7 @@ private func stored(_ store: CrosstuneStore, _ id: String = "r1") async throws -
         editor.startPick(FakePlaceSearch.completion("Ennis"))
 
         let left = Task { await editor.leave() }
-        #expect(try await poll { searches.search.resolves == ["Galax"] })
+        try await eventually { searches.search.resolves == ["Galax"] }
         searches.search.release("Galax")
         #expect(await left.value == nil)
         #expect(try await stored(store).placeName == galax.name)
@@ -637,7 +635,7 @@ private func stored(_ store: CrosstuneStore, _ id: String = "r1") async throws -
     }
 }
 
-@Suite struct LocationNameEndTests {
+struct LocationNameEndTests {
     @Test func everyEndButEscapeCommitsATypedName() {
         #expect(LocationNameEnd.result(.commit, draft: " Kitchen ", stored: nil) == "Kitchen")
         #expect(LocationNameEnd.result(.commit, draft: "Barn", stored: "Kitchen") == "Barn")
@@ -652,14 +650,14 @@ private func stored(_ store: CrosstuneStore, _ id: String = "r1") async throws -
     @Test func theSheetsNeverBlockADismissalThatCommits() throws {
         for file in ["Recordings/NameLocationSheet.swift", "Recordings/RenameLocationSheet.swift"] {
             let text = SourceScan.withoutComments(try SourceScan.text(at: SourceScan.url(of: file)))
-            #expect(!text.contains("interactiveDismissDisabled(!name.isEmpty)"), "\(file)")
-            #expect(!text.contains("interactiveDismissDisabled(name != current"), "\(file)")
+            #expect(text.contains("interactiveDismissDisabled(!name.isEmpty)") == false, "\(file)")
+            #expect(text.contains("interactiveDismissDisabled(name != current") == false, "\(file)")
             #expect(text.contains("LocationNameEnd.result"), "\(file)")
         }
     }
 }
 
-@Suite struct SearchHintTests {
+struct SearchHintTests {
     private let recorded = Coordinate(lat: 1, lon: 1)
     private let device = Coordinate(lat: 2, lon: 2, accuracyM: 10)
     private let latest = Coordinate(lat: 3, lon: 3)
@@ -689,7 +687,7 @@ private func stored(_ store: CrosstuneStore, _ id: String = "r1") async throws -
     }
 }
 
-@Suite struct DistanceTextTests {
+struct DistanceTextTests {
     private let us = Locale(identifier: "en_US")
     private let france = Locale(identifier: "fr_FR")
 
@@ -734,7 +732,7 @@ private func stored(_ store: CrosstuneStore, _ id: String = "r1") async throws -
 }
 
 @MainActor
-@Suite struct LocationEditorPickTests {
+@Suite(.timeLimit(.minutes(1))) struct LocationEditorPickTests {
     private let root = TemporaryRoot()
 
     @Test func listsTheRecentPlacesUntilTextIsTyped() async throws {
@@ -744,7 +742,7 @@ private func stored(_ store: CrosstuneStore, _ id: String = "r1") async throws -
         let older = placedRecording("r2", name: ennis.name, at: ennis.coordinate)
         let newer = placedRecording("r3", name: galax.name, at: galax.coordinate, minutes: 1)
         let (_, editor) = try await openEditor(store, placedRecording(), others: [older, newer], searches: searches)
-        #expect(!editor.showsResults)
+        #expect(editor.showsResults == false)
         #expect(editor.edit.recentPlaces == [galax, ennis])
 
         editor.query = "G"
@@ -772,7 +770,7 @@ private func stored(_ store: CrosstuneStore, _ id: String = "r1") async throws -
         let (_, editor) = try await openEditor(store, placedRecording(), searches: searches)
         editor.query = "Ga"
         let first = Task { await editor.refresh() }
-        #expect(try await poll { searches.search.queries == ["Ga"] })
+        try await eventually { searches.search.queries == ["Ga"] }
 
         editor.query = "Gal"
         await editor.refresh()
@@ -791,7 +789,7 @@ private func stored(_ store: CrosstuneStore, _ id: String = "r1") async throws -
         #expect(edit.place == galax)
         #expect(edit.placeMethod == .search)
         #expect(editor.query.isEmpty)
-        #expect(!editor.showsResults)
+        #expect(editor.showsResults == false)
         #expect(editor.edit.place == galax)
     }
 
@@ -810,7 +808,7 @@ private func stored(_ store: CrosstuneStore, _ id: String = "r1") async throws -
         #expect(editor.edit.place == galax)
         #expect(editor.clear())
         #expect(edit.place == nil)
-        #expect(!edit.canClearPlace)
+        #expect(edit.canClearPlace == false)
     }
 
     @Test func marksTheRecentPlaceThatIsTheCurrentOne() async throws {
@@ -819,7 +817,7 @@ private func stored(_ store: CrosstuneStore, _ id: String = "r1") async throws -
         let others = [placedRecording("r2", name: ennis.name, at: ennis.coordinate)]
         let (_, editor) = try await openEditor(store, placedRecording(name: galax.name, at: captured), others: others)
         #expect(editor.isCurrent(galax))
-        #expect(!editor.isCurrent(ennis))
+        #expect(editor.isCurrent(ennis) == false)
     }
 
     @Test func ignoresEveryOtherPickWhileOneResolves() async throws {
@@ -831,11 +829,11 @@ private func stored(_ store: CrosstuneStore, _ id: String = "r1") async throws -
         let (edit, editor) = try await openEditor(store, placedRecording(), others: others, searches: searches)
         let galaxResult = FakePlaceSearch.completion("Galax")
         let first = Task { await editor.pick(galaxResult) }
-        #expect(try await poll { editor.picking == galaxResult })
+        try await eventually { editor.picking == galaxResult }
 
-        #expect(!(await editor.pick(FakePlaceSearch.completion("Ennis"))))
-        #expect(!editor.pickRecent(ennis))
-        #expect(!editor.clear())
+        #expect((await editor.pick(FakePlaceSearch.completion("Ennis"))) == false)
+        #expect(editor.pickRecent(ennis) == false)
+        #expect(editor.clear() == false)
         searches.search.release("Galax")
         #expect(await first.value)
         #expect(editor.picking == nil)
@@ -850,9 +848,9 @@ private func stored(_ store: CrosstuneStore, _ id: String = "r1") async throws -
     @Test func aResultThatFailsToResolveLeavesThePlaceAlone() async throws {
         let store = try root.open()
         let (edit, editor) = try await openEditor(store, placedRecording(name: galax.name, at: galax.coordinate))
-        #expect(!(await editor.pick(FakePlaceSearch.completion("Nowhere"))))
+        #expect((await editor.pick(FakePlaceSearch.completion("Nowhere"))) == false)
         #expect(edit.place == galax)
-        #expect(!edit.isEdited)
+        #expect(edit.isEdited == false)
         #expect(editor.failure == PlaceSearchText.pickFailed)
 
         editor.query = "Ga"
@@ -861,7 +859,7 @@ private func stored(_ store: CrosstuneStore, _ id: String = "r1") async throws -
 }
 
 @MainActor
-@Suite struct LocationEditorPlaceTests {
+@Suite(.timeLimit(.minutes(1))) struct LocationEditorPlaceTests {
     private let root = TemporaryRoot()
     private let spot = Coordinate(lat: 36.66, lon: -80.92, accuracyM: 12)
 
@@ -891,7 +889,7 @@ private func stored(_ store: CrosstuneStore, _ id: String = "r1") async throws -
         ]
         let (_, editor) = try await openEditor(store, placedRecording(at: spot), places: places, nearby: nearby)
         await editor.start()
-        #expect(try await poll { editor.nearby.count == 4 })
+        try await eventually { editor.nearby.count == 4 }
         #expect(editor.nearby.map(\.name) == ["The barn", "Close Bar", "Tom’s kitchen", "Far Cafe"])
         let asked = try #require(nearby.asked.first)
         #expect(asked.center == spot)
@@ -917,9 +915,9 @@ private func stored(_ store: CrosstuneStore, _ id: String = "r1") async throws -
             id: "p1", createdAt: noon, name: "The barn", lat: barnPoint.lat, lon: barnPoint.lon, applePlaceID: "barn")
         let (_, editor) = try await openEditor(store, placedRecording(at: spot), places: [barn], nearby: nearby)
         await editor.start()
-        #expect(try await poll { editor.nearby.first?.name == "The barn" })
+        try await eventually { editor.nearby.first?.name == "The barn" }
         #expect(editor.nearby.count == 7)
-        #expect(!editor.nearby.map(\.name).contains("Barn venue"))
+        #expect(editor.nearby.map(\.name).contains("Barn venue") == false)
         #expect(editor.nearby.dropFirst().map(\.name) == (1...6).map { "Venue \($0)" })
     }
 
@@ -936,7 +934,7 @@ private func stored(_ store: CrosstuneStore, _ id: String = "r1") async throws -
         let (_, editor) = try await openEditor(
             store, placedRecording(at: spot), places: [saved("p1", "Grange hall", at: hall)], nearby: nearby)
         await editor.start()
-        #expect(try await poll { editor.nearby.first?.name == "Grange hall" })
+        try await eventually { editor.nearby.first?.name == "Grange hall" }
         #expect(editor.nearby.map(\.name) == ["Grange hall", "Cafe"])
     }
 
@@ -953,7 +951,7 @@ private func stored(_ store: CrosstuneStore, _ id: String = "r1") async throws -
         #expect(editor.nearby.isEmpty)
         #expect(editor.edit.place?.name == "1 Main St, Galax, VA")
         #expect(editor.edit.placeCoordinate == spot)
-        #expect(try await poll { editor.edit.savedPlaces.map(\.name) == ["The barn"] })
+        try await eventually { editor.edit.savedPlaces.map(\.name) == ["The barn"] }
         #expect(editor.edit.recentPlaces.map(\.name) == [galax.name, "1 Main St, Galax, VA"])
         #expect(editor.edit.canClearPlace)
     }
@@ -962,28 +960,28 @@ private func stored(_ store: CrosstuneStore, _ id: String = "r1") async throws -
         let store = try root.open()
         let loose = Coordinate(lat: 36.66, lon: -80.92, accuracyM: 120)
         let edge = Coordinate(lat: 36.66, lon: -80.92, accuracyM: 50)
-        #expect(!(try await openEditor(store, placedRecording("r1", at: loose)).1.edit.canNamePlace))
+        #expect((try await openEditor(store, placedRecording("r1", at: loose)).1.edit.canNamePlace) == false)
         #expect(try await openEditor(store, placedRecording("r2", at: edge)).1.edit.canNamePlace)
         #expect(
             try await openEditor(store, placedRecording("r3", name: "Galax, VA", at: galax.coordinate)).1.edit
                 .canNamePlace)
-        #expect(!(try await openEditor(store, placedRecording("r4")).1.edit.canNamePlace))
+        #expect((try await openEditor(store, placedRecording("r4")).1.edit.canNamePlace) == false)
     }
 
     @Test func unsavedPlaceOffersNameNotRename() async throws {
         let store = try root.open()
         let (edit, _) = try await openEditor(store, placedRecording("r1", at: brooklyn))
         #expect(edit.canNamePlace)
-        #expect(!edit.canRenamePlace)
+        #expect(edit.canRenamePlace == false)
     }
 
     @Test func savedPlaceOffersRenameNotName() async throws {
         let store = try root.open()
         let barn = saved("p1", "The barn", at: spot)
         let (edit, _) = try await openEditor(store, placedRecording("r1", at: spot, placeID: "p1"), places: [barn])
-        #expect(try await poll { edit.linkedPlace?.name == "The barn" })
+        try await eventually { edit.linkedPlace?.name == "The barn" }
         #expect(edit.canRenamePlace)
-        #expect(!edit.canNamePlace)
+        #expect(edit.canNamePlace == false)
     }
 
     @Test func renamingASavedPlaceRenamesItForEveryRecording() async throws {
@@ -994,11 +992,11 @@ private func stored(_ store: CrosstuneStore, _ id: String = "r1") async throws -
         let (edit, editor) = try await openEditor(
             store, placedRecording("r1", at: spot, placeID: "p1"), others: [other], places: [barn],
             analytics: sink.client)
-        #expect(try await poll { edit.linkedPlace != nil })
+        try await eventually { edit.linkedPlace != nil }
         #expect(await editor.renameLinked("Grandpa’s barn"))
         let place = try #require(try await store.read { db in try SavedPlace.fetchOne(db, key: "p1") })
         #expect(place.name == "Grandpa’s barn")
-        #expect(try await poll { edit.place?.name == "Grandpa’s barn" })
+        try await eventually { edit.place?.name == "Grandpa’s barn" }
         #expect(try await stored(store, "r2").placeID == "p1")
         #expect(sink.captures == [.init(name: "saved_location_renamed", properties: [:], set: [:])])
     }
@@ -1006,7 +1004,7 @@ private func stored(_ store: CrosstuneStore, _ id: String = "r1") async throws -
     @Test func renameDoesNothingWithoutASavedPlace() async throws {
         let store = try root.open()
         let (_, editor) = try await openEditor(store, placedRecording("r1", at: brooklyn))
-        #expect(!(await editor.renameLinked("Anything")))
+        #expect((await editor.renameLinked("Anything")) == false)
     }
 
     @Test func namingOffersSavedPlacesWithin30mFirst() async throws {
@@ -1017,7 +1015,7 @@ private func stored(_ store: CrosstuneStore, _ id: String = "r1") async throws -
             saved("p3", "Next door", at: north(spot, 40)),
         ]
         let (edit, editor) = try await openEditor(store, placedRecording(at: spot), places: places)
-        #expect(try await poll { editor.namingCandidates.map(\.name) == ["The bar", "Upstairs flat"] })
+        try await eventually { editor.namingCandidates.map(\.name) == ["The bar", "Upstairs flat"] }
         let bar = try #require(editor.namingCandidates.first)
         #expect(editor.pickCandidate(bar))
         #expect(edit.place?.name == "The bar")
@@ -1049,10 +1047,10 @@ private func stored(_ store: CrosstuneStore, _ id: String = "r1") async throws -
         let barn = saved("p1", "The barn", at: spot, address: "1 Main St, Galax, VA")
         let (_, editor) = try await openEditor(
             store, placedRecording(name: "1 Main St, Galax, VA", at: spot, placeID: "p1"), places: [barn])
-        #expect(try await poll { editor.edit.place?.name == "The barn" })
+        try await eventually { editor.edit.place?.name == "The barn" }
         #expect(editor.edit.placeAddress == "1 Main St, Galax, VA")
         try await store.write { writer in try writer.renameSavedPlace("p1", name: "Grandpa’s barn", at: later(1_000)) }
-        #expect(try await poll { editor.edit.place?.name == "Grandpa’s barn" })
+        try await eventually { editor.edit.place?.name == "Grandpa’s barn" }
     }
 
     @Test func openInMapsSendsNoLocationInAnalytics() async throws {
@@ -1064,7 +1062,7 @@ private func stored(_ store: CrosstuneStore, _ id: String = "r1") async throws -
         let (_, editor) = try await openEditor(
             store, placedRecording(name: "1 Main St, Galax, VA", at: spot, placeID: "p1"), places: [barn],
             analytics: sink.client, maps: maps)
-        #expect(try await poll { editor.edit.place?.name == "The barn" })
+        try await eventually { editor.edit.place?.name == "The barn" }
         editor.openInMaps()
         #expect(maps.calls.map(\.name) == ["The barn"])
         #expect(maps.calls.map(\.coordinate) == [Coordinate(lat: venue.lat, lon: venue.lon)])

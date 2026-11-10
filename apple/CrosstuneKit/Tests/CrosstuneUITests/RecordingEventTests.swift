@@ -11,7 +11,7 @@ import Testing
 /// The record sheet reports a recording once the microphone is capturing, and how it ended with its
 /// length in a bucket. A recording that never captured reports nothing.
 @MainActor
-@Suite struct RecordingEventTests {
+@Suite(.timeLimit(.minutes(1))) struct RecordingEventTests {
     private let root = TemporaryRoot()
     private let input = ToneInput()
     private let sink = RecordingAnalyticsSink()
@@ -98,7 +98,7 @@ import Testing
         input.holdsPermission = true
         let model = sheet()
         let begin = Task { await model.begin() }
-        #expect(try await poll { recorder.isStarting })
+        try await eventually { recorder.isStarting }
 
         await model.cancel()
         input.answerPermission()
@@ -123,7 +123,7 @@ import Testing
         await model.begin()
         try input.play(seconds: 0.5)
         input.send(.writeFailed)
-        #expect(try await poll { model.phase == .saved })
+        try await eventually { model.phase == .saved }
 
         model.settle()
         model.finish()

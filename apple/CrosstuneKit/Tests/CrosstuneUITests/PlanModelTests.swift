@@ -18,7 +18,7 @@ private func pull(_ row: Entitlement, into store: CrosstuneStore) async throws {
 }
 
 @MainActor
-@Suite struct PlanModelTests {
+@Suite(.timeLimit(.minutes(1))) struct PlanModelTests {
     @Test func turnsFreeWhenATrialEndsWithNoStoreWrite() async throws {
         let root = TemporaryRoot()
         let store = try root.open()

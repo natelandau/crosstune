@@ -1,5 +1,6 @@
 import CoreLocation
 import CrosstuneStore
+import CrosstuneTestSupport
 import CrosstuneVocabulary
 import Testing
 
@@ -28,26 +29,32 @@ final class FakeLocationManager: LocationManaging {
 final class HeldSleep {
     private(set) var requested: [Duration] = []
     private var pending: CheckedContinuation<Void, Never>?
+    private var woken = 0
 
     func sleep(_ duration: Duration) async {
         requested.append(duration)
         await withCheckedContinuation { pending = $0 }
+        woken += 1
     }
 
     func hasText() async {
         while pending == nil { await Task.yield() }
     }
 
-    /// Ends the held sleep, as when its time is up.
+    /// Ends the held sleep, as when its time is up, and returns once the sleeper has run on to
+    /// its next wait or its end. The sleeper runs on the main actor, so it cannot stop between
+    /// noting the wake and that point.
     func elapse() async {
         await hasText()
+        let before = woken
         pending?.resume()
         pending = nil
+        while woken == before { await Task.yield() }
     }
 }
 
 @MainActor
-@Suite struct LocationProviderTests {
+@Suite(.timeLimit(.minutes(1))) struct LocationProviderTests {
     let clock = HeldSleep()
     let now = Date(timeIntervalSince1970: 1_800_000_000)
 
@@ -208,7 +215,7 @@ final class HeldSleep {
         #expect(await request.value == nil)
     }
 
-    @Test func aSecondCallerJoinsTheRequestInFlight() async {
+    @Test func aSecondCallerJoinsTheRequestInFlight() async throws {
         let manager = FakeLocationManager(status: .authorizedAlways)
         let provider = provider(manager)
 
@@ -216,7 +223,7 @@ final class HeldSleep {
         await fixRequested(manager)
         let second = Task { await provider.currentLocation() }
         await clock.hasText()
-        for _ in 0..<10 { await Task.yield() }
+        try await eventually { provider.waitingCount == 2 }
         provider.received([fix()])
         // A late duplicate callback resumes no one twice.
         provider.received([fix()])
@@ -245,8 +252,7 @@ final class HeldSleep {
 
         let request = Task { await provider.currentLocation() }
         while manager.prompts == 0 { await Task.yield() }
-        for _ in 0..<10 { await Task.yield() }
-        #expect(clock.requested.isEmpty)
+        #expect(provider.hasDeadline == false)
 
         manager.authorizationStatus = .authorizedAlways
         provider.authorizationChanged()
@@ -284,7 +290,6 @@ final class HeldSleep {
         while manager.prompts == 0 { await Task.yield() }
         // The first request's deadline running out must not answer the second.
         await clock.elapse()
-        for _ in 0..<10 { await Task.yield() }
         manager.authorizationStatus = .authorizedAlways
         provider.authorizationChanged()
         await fixRequested(manager, count: 2)
@@ -318,7 +323,7 @@ final class HeldSleep {
 }
 
 @MainActor
-@Suite struct LocationAccessTests {
+@Suite(.timeLimit(.minutes(1))) struct LocationAccessTests {
     @Test(arguments: [
         (CLAuthorizationStatus.notDetermined, LocationAccess.Status.notDetermined),
         (.denied, .off), (.restricted, .off), (.authorizedAlways, .allowed),
@@ -341,14 +346,13 @@ final class HeldSleep {
         #expect(access.isOff)
     }
 
-    @Test func asksOnceAndWaitsForTheAnswer() async {
+    @Test func asksOnceAndWaitsForTheAnswer() async throws {
         let manager = FakeLocationManager(status: .notDetermined)
         let access = LocationAccess(manager: manager)
 
         let first = Task { await access.requestAccess() }
         let second = Task { await access.requestAccess() }
-        while manager.prompts == 0 { await Task.yield() }
-        for _ in 0..<10 { await Task.yield() }
+        try await eventually { access.waitingCount == 2 }
         // The call made as the delegate is set, before the prompt is answered.
         access.authorizationChanged()
         manager.authorizationStatus = .denied
@@ -375,14 +379,13 @@ final class HeldSleep {
         #expect(access.status == .notDetermined)
     }
 
-    @Test func locationServicesTurnedOffWhileThePromptIsUpReleasesTheWaiters() async {
+    @Test func locationServicesTurnedOffWhileThePromptIsUpReleasesTheWaiters() async throws {
         let services = ServicesSetting(enabled: true)
         let manager = FakeLocationManager(status: .notDetermined)
         let access = LocationAccess(manager: manager, servicesEnabled: { await services.enabled })
         let first = Task { await access.requestAccess() }
         let second = Task { await access.requestAccess() }
-        while manager.prompts == 0 { await Task.yield() }
-        for _ in 0..<10 { await Task.yield() }
+        try await eventually { access.waitingCount == 2 }
 
         await services.set(false)
         await access.refresh()

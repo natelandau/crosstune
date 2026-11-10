@@ -9,7 +9,7 @@ import Testing
 private struct RefreshFailed: Error {}
 
 @MainActor
-@Suite struct PurchaseModelTests {
+@Suite(.timeLimit(.minutes(1))) struct PurchaseModelTests {
     private let client = FakePurchaseClient()
     private let sink = RecordingAnalyticsSink()
     private let calls = Calls()

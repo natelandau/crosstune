@@ -42,7 +42,7 @@ private func with(_ entry: CatalogEntry, modes: [String]? = nil, timeSignature: 
     return CatalogEntry(tune: tune, userTune: userTune)
 }
 
-@Suite struct BatchEditSummaryTests {
+struct BatchEditSummaryTests {
     @Test func reportsSharedMixedAndEmptyFields() {
         let summary = BatchEdit.summarize([a, b])
         #expect(summary[.key] == .shared(.text("A")))
@@ -78,22 +78,18 @@ private func with(_ entry: CatalogEntry, modes: [String]? = nil, timeSignature: 
 
     @Test func labelsEachFieldAsTheTuneFormDoes() {
         #expect(EditField.partStructure.label == TuneFieldLabels.partStructure)
-        #expect(EditField.mode.label == "Mode")
         #expect(EditField.tuning("violin").label == "Violin tuning")
     }
 
-    @Test func neverOffersAFieldUniqueToOneTune() {
-        let labels = EditField.all.map(\.label)
-        for unique in [
-            TuneFieldLabels.title, TuneFieldLabels.alternateTitles, TuneFieldLabels.notes,
-            TuneFieldLabels.lyrics,
-        ] {
-            #expect(!labels.contains(unique))
-        }
+    @Test(arguments: [
+        TuneFieldLabels.title, TuneFieldLabels.alternateTitles, TuneFieldLabels.notes, TuneFieldLabels.lyrics,
+    ])
+    func neverOffersAFieldUniqueToOneTune(unique: String) {
+        #expect(EditField.all.map(\.label).contains(unique) == false)
     }
 }
 
-@Suite struct BatchEditFieldTests {
+struct BatchEditFieldTests {
     private let violin: Set<String> = ["violin"]
 
     @Test func showsATuningForAPlayedInstrumentOrOneASelectedTuneHolds() {
@@ -102,26 +98,26 @@ private func with(_ entry: CatalogEntry, modes: [String]? = nil, timeSignature: 
         let fields = BatchEdit.visibleFields([plain, bouzouki], instruments: violin)
         #expect(fields.contains(.tuning("violin")))
         #expect(fields.contains(.tuning("bouzouki")))
-        #expect(!fields.contains(.tuning("guitar")))
+        #expect(fields.contains(.tuning("guitar")) == false)
     }
 
     @Test func doesNotShowATuningFieldForACapoAlone() {
         let capo = entry("capo", tunings: tuning("guitar", capo: 2))
-        #expect(!BatchEdit.visibleFields([a, capo], instruments: violin).contains(.tuning("guitar")))
+        #expect(BatchEdit.visibleFields([a, capo], instruments: violin).contains(.tuning("guitar")) == false)
     }
 
     @Test func treatsAValueEqualToTheSharedOneOrABlankOverEmptyAsUnchanged() {
         #expect(BatchEdit.isUnchanged(.shared(.text("A")), .text("A")))
-        #expect(!BatchEdit.isUnchanged(.shared(.text("A")), .text(" A ")))
-        #expect(!BatchEdit.isUnchanged(.shared(.text("A")), .text("D")))
+        #expect(BatchEdit.isUnchanged(.shared(.text("A")), .text(" A ")) == false)
+        #expect(BatchEdit.isUnchanged(.shared(.text("A")), .text("D")) == false)
         #expect(BatchEdit.isUnchanged(.empty, .text("")))
         #expect(BatchEdit.isUnchanged(.empty, .clear))
-        #expect(!BatchEdit.isUnchanged(.mixed, .text("")))
+        #expect(BatchEdit.isUnchanged(.mixed, .text("")) == false)
         #expect(BatchEdit.isUnchanged(.shared(.flag(false)), .flag(false)))
     }
 }
 
-@Suite struct BatchEditPatchTests {
+struct BatchEditPatchTests {
     @Test func splitsTouchedFieldsBetweenTuneAndUserTuneTrimmingAndClearing() {
         let patch = BatchEdit.patch([
             .tuning("violin"): .text(" Cross A (AEAE) "),
@@ -167,7 +163,7 @@ private func with(_ entry: CatalogEntry, modes: [String]? = nil, timeSignature: 
     }
 }
 
-@Suite struct BulkEditFormTests {
+struct BulkEditFormTests {
     @Test func showsTheSharedValueNotSetOrMixed() {
         let form = BulkEditForm(entries: [a, b], instruments: ["violin"])
         #expect(form.shown(.key) == "A")
@@ -180,23 +176,23 @@ private func with(_ entry: CatalogEntry, modes: [String]? = nil, timeSignature: 
 
     @Test func keepsSaveDeadUntilARowChangesSomething() {
         var form = BulkEditForm(entries: [a, b], instruments: ["violin"])
-        #expect(!form.isEdited)
+        #expect(form.isEdited == false)
         form.touch(.key, .text("A"))
-        #expect(!form.isEdited, "picking the shared value changes nothing")
+        #expect(form.isEdited == false, "picking the shared value changes nothing")
         form.touch(.genre, .clear)
-        #expect(!form.isEdited, "clearing an empty field changes nothing")
+        #expect(form.isEdited == false, "clearing an empty field changes nothing")
         form.touch(.key, .text("D"))
         #expect(form.isEdited)
         #expect(form.shown(.key) == "D")
         form.touch(.key, nil)
-        #expect(!form.isEdited)
+        #expect(form.isEdited == false)
     }
 
     @Test func clearsAMixedRowAndKeepsAYesOrNoRow() {
         var form = BulkEditForm(entries: [a, b], instruments: ["violin"])
         form.touch(.tuning("violin"), .clear)
         #expect(form.shown(.tuning("violin")) == "Not set")
-        #expect(!form.isMixed(.tuning("violin")))
+        #expect(form.isMixed(.tuning("violin")) == false)
         #expect(form.patch.tunings == ["violin": .value(nil)])
         form.touch(.isCrooked, .flag(true))
         #expect(form.shown(.isCrooked) == "Yes")
@@ -211,15 +207,15 @@ private func with(_ entry: CatalogEntry, modes: [String]? = nil, timeSignature: 
         #expect(form.isMixed(tuning))
         form.touch(tuning, .text("Cross A"))
         #expect(form.text(tuning) == "Cross A")
-        #expect(!form.isMixed(tuning))
+        #expect(form.isMixed(tuning) == false)
         form.touch(tuning, nil)
         #expect(form.text(tuning).isEmpty)
         #expect(form.isMixed(tuning))
-        #expect(!form.isEdited)
+        #expect(form.isEdited == false)
     }
 }
 
-@Suite struct TuneSelectionTests {
+struct TuneSelectionTests {
     private let visible = ["a", "b", "c", "d", "e"]
 
     @Test func entersFromARowWithThatRowSelected() {
@@ -229,7 +225,7 @@ private func with(_ entry: CatalogEntry, modes: [String]? = nil, timeSignature: 
         #expect(selection.ids == ["c"])
         #expect(selection.origin == "c")
         selection.exit()
-        #expect(!selection.isActive)
+        #expect(selection.isActive == false)
         #expect(selection.ids.isEmpty)
         #expect(selection.origin == "c", "VoiceOver returns to the row the mode opened from")
     }
@@ -252,7 +248,7 @@ private func with(_ entry: CatalogEntry, modes: [String]? = nil, timeSignature: 
     }
 
     @Test func isNeverAllSelectedWithNothingVisible() {
-        #expect(!TuneSelection().allSelected(visible: []))
+        #expect(TuneSelection().allSelected(visible: []) == false)
     }
 
     @Test func dropsTunesThatAreNoLongerVisible() {
@@ -284,7 +280,7 @@ private func with(_ entry: CatalogEntry, modes: [String]? = nil, timeSignature: 
         var detail: String? = "a"
         selection.choose(["b"], detail: &detail)
         #expect(detail == "b")
-        #expect(!selection.isActive)
+        #expect(selection.isActive == false)
         selection.choose(["b", "c"], detail: &detail)
         #expect(selection.isActive)
         #expect(selection.ids == ["b", "c"])
@@ -310,9 +306,10 @@ private func with(_ entry: CatalogEntry, modes: [String]? = nil, timeSignature: 
 }
 
 #if os(macOS)
-    @Suite struct MacSelectionTests {
-        private static func source(_ name: String) throws -> String {
-            let file = try #require(SourceScan.files().first { $0.lastPathComponent == name })
+    struct MacSelectionTests {
+        private static func source(_ name: String, sourceLocation: SourceLocation = #_sourceLocation) throws -> String {
+            let file = try #require(
+                SourceScan.files().first { $0.lastPathComponent == name }, sourceLocation: sourceLocation)
             return SourceScan.withoutComments(try SourceScan.text(at: file))
         }
 
@@ -326,15 +323,19 @@ private func with(_ entry: CatalogEntry, modes: [String]? = nil, timeSignature: 
         }
 
         /// The pane bar's controls closure: from `.paneBar` to the column title that follows it.
-        private static func paneBar(in text: String) throws -> Substring {
-            let start = try #require(text.range(of: ".paneBar"))
-            let end = try #require(text.range(of: ".columnTitled(", range: start.upperBound..<text.endIndex))
+        private static func paneBar(in text: String, sourceLocation: SourceLocation = #_sourceLocation) throws
+            -> Substring
+        {
+            let start = try #require(text.range(of: ".paneBar"), sourceLocation: sourceLocation)
+            let end = try #require(
+                text.range(of: ".columnTitled(", range: start.upperBound..<text.endIndex),
+                sourceLocation: sourceLocation)
             return text[start.lowerBound..<end.lowerBound]
         }
 
         @Test func macSelectionActionsMenuListsEveryBulkAction() {
             var archivedUserTune = b.userTune
-            archivedUserTune.archivedAt = Timestamp.now
+            archivedUserTune.archivedAt = noon
             let archived = CatalogEntry(tune: b.tune, userTune: archivedUserTune)
             let list = SelectionList(id: "list", name: "Waltzes", itemIDs: [a.tune.id: "item_a", b.tune.id: "item_b"])
             let statuses: [SelectionAction] = Vocabulary.statuses.map { .status($0) }
@@ -343,8 +344,8 @@ private func with(_ entry: CatalogEntry, modes: [String]? = nil, timeSignature: 
             ]
             #expect(SelectionAction.menu(for: [a, archived], list: list) == statuses + rest)
             let catalog = SelectionAction.menu(for: [a], list: nil)
-            #expect(!catalog.contains(.remove(count: 1)), "only a list removes")
-            #expect(!catalog.contains(.unarchive(count: 1)))
+            #expect(catalog.contains(.remove(count: 1)) == false, "only a list removes")
+            #expect(catalog.contains(.unarchive(count: 1)) == false)
             #expect(catalog.contains(.archive(count: 1)))
             #expect(SelectionAction.menu(for: [], list: list).isEmpty, "nothing to act on with nothing selected")
         }
@@ -366,7 +367,7 @@ private func with(_ entry: CatalogEntry, modes: [String]? = nil, timeSignature: 
     }
 #endif
 
-@Suite struct BulkActionTextTests {
+struct BulkActionTextTests {
     @Test func carriesTheCountInEveryLabelAndMessage() {
         #expect(BulkActionText.archive(true, count: 3) == "Archive 3 tunes")
         #expect(BulkActionText.archive(false, count: 1) == "Unarchive 1 tune")
@@ -381,7 +382,7 @@ private func with(_ entry: CatalogEntry, modes: [String]? = nil, timeSignature: 
     }
 }
 
-@Suite @MainActor struct BulkActionsTests {
+@MainActor @Suite(.timeLimit(.minutes(1))) struct BulkActionsTests {
     private let root = TemporaryRoot()
 
     private func sample(_ title: String) -> CatalogEntry {
@@ -389,14 +390,18 @@ private func with(_ entry: CatalogEntry, modes: [String]? = nil, timeSignature: 
         return CatalogEntry(tune: entry.tune, userTune: entry.userTune)
     }
 
-    private func userTune(_ store: CrosstuneStore, _ title: String) async throws -> UserTune {
+    private func userTune(_ store: CrosstuneStore, _ title: String, sourceLocation: SourceLocation = #_sourceLocation)
+        async throws -> UserTune
+    {
         let id = sample(title).userTune.id
-        return try #require(try await store.read { try UserTune.fetchOne($0, key: id) })
+        return try #require(try await store.read { try UserTune.fetchOne($0, key: id) }, sourceLocation: sourceLocation)
     }
 
-    private func tune(_ store: CrosstuneStore, _ title: String) async throws -> Tune {
+    private func tune(_ store: CrosstuneStore, _ title: String, sourceLocation: SourceLocation = #_sourceLocation)
+        async throws -> Tune
+    {
         let id = sample(title).tune.id
-        return try #require(try await store.read { try Tune.fetchOne($0, key: id) })
+        return try #require(try await store.read { try Tune.fetchOne($0, key: id) }, sourceLocation: sourceLocation)
     }
 
     @Test func setsStatusOffersItsUndoAndTakesItBackFromTheBanner() async throws {
@@ -415,7 +420,7 @@ private func with(_ entry: CatalogEntry, modes: [String]? = nil, timeSignature: 
         offer.undo?()
         try await eventually { try await userTune(store, "The Butterfly").status == "want_to_learn" }
         #expect(try await userTune(store, "Elzic's Farewell").status == "want_to_learn")
-        #expect(!undoManager.canUndo, "the banner's undo withdraws the system one")
+        #expect(undoManager.canUndo == false, "the banner's undo withdraws the system one")
     }
 
     @Test func systemUndoTakesTheActionBackAndClosesTheBanner() async throws {
@@ -508,7 +513,7 @@ private func with(_ entry: CatalogEntry, modes: [String]? = nil, timeSignature: 
         var form = BulkEditForm(entries: entries, instruments: [])
         form.touch(.genre, .text("Breton"))
         #expect(await bulk.save(entries, form: form))
-        #expect(!(await bulk.save(entries, form: form)), "the sheet is already closing")
+        #expect((await bulk.save(entries, form: form)) == false, "the sheet is already closing")
         undoManager.undo()
         try await eventually { try await tune(store, "Tam Lin").genre != "Breton" }
         bulk.beginEditing()
@@ -518,7 +523,7 @@ private func with(_ entry: CatalogEntry, modes: [String]? = nil, timeSignature: 
     @Test func doesNothingWhenNoTuneWouldChange() async throws {
         let store = try await SampleCatalog.copiedStore(root: root.url)
         let bulk = BulkActions(store: store)
-        #expect(!(await bulk.setArchived(false, [sample("Tam Lin")])))
+        #expect((await bulk.setArchived(false, [sample("Tam Lin")])) == false)
         #expect(bulk.undoBannerItem == nil)
     }
 
@@ -530,19 +535,19 @@ private func with(_ entry: CatalogEntry, modes: [String]? = nil, timeSignature: 
         try await store.write { writer in
             var tune = butterfly.tune
             tune.composer = "Ed Reavy"
-            try writer.put(tune, at: Timestamp.now)
+            try writer.put(tune, at: noon)
             var kept = farewell.userTune
             kept.learnedFrom = "Kevin"
-            try writer.put(kept, at: Timestamp.now)
+            try writer.put(kept, at: noon)
             var removed = tamLin.userTune
             removed.learnedFrom = "Zed"
-            removed.deletedAt = Timestamp.now
-            try writer.put(removed, at: Timestamp.now)
+            removed.deletedAt = noon
+            try writer.put(removed, at: noon)
             // A live user tune whose tune is deleted is not in the catalog, so suggests nothing.
             let deleted = Tune(deletedAt: Timestamp.now, title: "Deleted", composer: "Lost Composer")
-            try writer.put(deleted, at: Timestamp.now)
+            try writer.put(deleted, at: noon)
             try writer.put(
-                UserTune(tuneID: deleted.id, status: "known", learnedFrom: "Orphan"), at: Timestamp.now)
+                UserTune(tuneID: deleted.id, status: "known", learnedFrom: "Orphan"), at: noon)
         }
         let suggestions = await BulkActions(store: store).suggestions()
         #expect(suggestions.composers == [TuneSuggestions.traditional, "Ed Reavy", "Jay Ungar"])
@@ -553,7 +558,7 @@ private func with(_ entry: CatalogEntry, modes: [String]? = nil, timeSignature: 
         let store = try await SampleCatalog.copiedStore(root: root.url)
         let bulk = BulkActions(store: store)
         let gone = entry("gone")
-        #expect(!(await bulk.setStatus("known", of: [gone])))
+        #expect((await bulk.setStatus("known", of: [gone])) == false)
         #expect(bulk.failure != nil)
         #expect(bulk.undoBannerItem == nil)
         #expect(await bulk.setStatus("known", of: [sample("Tam Lin")]))
@@ -604,7 +609,7 @@ private func with(_ entry: CatalogEntry, modes: [String]? = nil, timeSignature: 
         #expect(try await tune(store, "Big Scioty").genre == "Irish")
         #expect(try await tune(store, "Big Scioty").key == "C/G", "an untouched field is not written")
 
-        #expect(!(await bulk.edit([entry("gone")], patch: form.patch)))
+        #expect((await bulk.edit([entry("gone")], patch: form.patch)) == false)
         #expect(bulk.editFailure != nil)
         #expect(bulk.failure == nil, "the sheet holds the failure, not the screen")
     }

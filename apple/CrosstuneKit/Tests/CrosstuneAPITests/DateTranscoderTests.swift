@@ -3,7 +3,7 @@ import Testing
 
 @testable import CrosstuneAPI
 
-@Suite struct APIDateTranscoderTests {
+struct APIDateTranscoderTests {
     @Test func writesEveryMillisecondAsStamped() throws {
         let transcoder = APIDateTranscoder()
         let start: Int64 = 1_790_000_000_000

@@ -7,7 +7,7 @@ import Testing
 
 @testable import CrosstuneUI
 
-struct UsageDataTests {
+@Suite(.timeLimit(.minutes(1))) struct UsageDataTests {
     private let sink = RecordingAnalyticsSink()
     private let suite = TemporaryDefaults("UsageDataTests")
 
@@ -16,14 +16,14 @@ struct UsageDataTests {
     }
 
     @Test func isOffUntilAChoiceExists() throws {
-        #expect(!UsageData.isEnabled(defaults: defaults()))
+        #expect(UsageData.isEnabled(defaults: defaults()) == false)
         #expect(UsageData.storedChoice(defaults: defaults()) == nil)
     }
 
     @Test func readsTheStoredChoice() throws {
         let store = defaults()
         store.set(false, forKey: UsageData.storageKey)
-        #expect(!UsageData.isEnabled(defaults: store))
+        #expect(UsageData.isEnabled(defaults: store) == false)
     }
 
     @Test func turningItOffStopsSending() {
@@ -55,8 +55,8 @@ struct UsageDataTests {
 
         toggle.wrappedValue = false
 
-        #expect(!stored.value)
-        #expect(!toggle.wrappedValue)
+        #expect(stored.value == false)
+        #expect(toggle.wrappedValue == false)
         #expect(
             sink.calls == [.capture("usage_sharing_disabled", [:]), .flush, .setEnabled(false, rememberedUserID: nil)])
     }
@@ -113,7 +113,7 @@ struct UsageDataTests {
 
     @Test func launchWithNoChoiceStaysOffWhereConsentIsRequired() async {
         await UsageData.launch(sink.client, defaults: defaults(), region: Self.answering(true))?.value
-        #expect(!sink.calls.contains(.setEnabled(true, rememberedUserID: nil)))
+        #expect(sink.calls.contains(.setEnabled(true, rememberedUserID: nil)) == false)
         #expect(sink.calls == [.deferDecision, .setEnabled(false, rememberedUserID: nil)])
         #expect(UsageData.storedChoice(defaults: defaults()) == false)
     }
@@ -134,7 +134,7 @@ struct UsageDataTests {
     @Test func aStoredChoiceOutranksTheRegion() async {
         defaults().set(false, forKey: UsageData.storageKey)
         let enabled = await UsageData.resolveDefault(defaults: defaults(), region: Self.answering(false))
-        #expect(!enabled)
+        #expect(enabled == false)
         #expect(UsageData.storedChoice(defaults: defaults()) == false)
     }
 
@@ -146,7 +146,7 @@ struct UsageDataTests {
                 store.set(false, forKey: UsageData.storageKey)
                 return Region(consentRequired: false)
             })
-        #expect(!enabled)
+        #expect(enabled == false)
         #expect(UsageData.storedChoice(defaults: store) == false)
     }
 

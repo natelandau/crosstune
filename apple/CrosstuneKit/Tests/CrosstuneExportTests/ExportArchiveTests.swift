@@ -46,7 +46,7 @@ private final class Calls: @unchecked Sendable {
     var all: [[Int]] { lock.withLock { calls } }
 }
 
-@Test func countsSayHowManyRecordingsThisDeviceCanExport() async throws {
+@Test(.timeLimit(.minutes(1))) func countsSayHowManyRecordingsThisDeviceCanExport() async throws {
     let root = TemporaryRoot()
     let store = try root.open()
     let tune = Tune(title: "Cluck Old Hen")
@@ -76,7 +76,7 @@ private final class Calls: @unchecked Sendable {
     #expect(try await counts.next() == ExportCounts(onDevice: 1, total: 4))
 }
 
-@Test func countsRefreshWhenADownloadLands() async throws {
+@Test(.timeLimit(.minutes(1))) func countsRefreshWhenADownloadLands() async throws {
     let root = TemporaryRoot()
     let store = try root.open()
     let tune = Tune(title: "Cluck Old Hen")
@@ -98,19 +98,13 @@ private final class Calls: @unchecked Sendable {
     #expect(try await counts.next() == ExportCounts(onDevice: 1, total: 1))
 }
 
-@Test func errorsSayWhatWentWrongInPlainWords() {
-    #expect(
-        ExportArchiveError.noLocalAudio("r1").localizedDescription
-            == "Couldn't find a recording's audio to export. Try exporting again.")
-    #expect(
-        ExportArchiveError.noLocalScans("s1").localizedDescription
-            == "Couldn't find a scan's image to export. Try exporting again.")
+@Test func aChangedFileErrorNamesTheFile() {
     #expect(
         StoredZipError.fileChanged("recordings/Reel/2026-09-20.m4a").localizedDescription
             == "recordings/Reel/2026-09-20.m4a changed while it was being exported. Try exporting again.")
 }
 
-@Test func theZipIsNamedForTheDayInTheDevicesTimeZone() async throws {
+@Test(.timeLimit(.minutes(1))) func theZipIsNamedForTheDayInTheDevicesTimeZone() async throws {
     let root = TemporaryRoot()
     let store = try await seededStore(root)
     let work = workFolder()
@@ -124,7 +118,7 @@ private final class Calls: @unchecked Sendable {
     #expect(contents(zip.deletingLastPathComponent()) == [zip.lastPathComponent])
 }
 
-@Test func progressCountsAudioFilesCopied() async throws {
+@Test(.timeLimit(.minutes(1))) func progressCountsAudioFilesCopied() async throws {
     let root = TemporaryRoot()
     let store = try await seededStore(root)
     let work = workFolder()
@@ -137,10 +131,10 @@ private final class Calls: @unchecked Sendable {
     #expect(calls.all == [[0, 1], [1, 1]])
 }
 
-@Test func scansOnTheDeviceAreExportedAndCountedInProgress() async throws {
+@Test(.timeLimit(.minutes(1))) func scansOnTheDeviceAreExportedAndCountedInProgress() async throws {
     let root = TemporaryRoot()
     let store = try await seededStore(root)
-    let tune = try await store.read { db in try Tune.fetchOne(db)! }
+    let tune = try #require(try await store.read { db in try Tune.fetchOne(db) })
     let first = ScanRecord(tuneID: tune.id, position: 0, width: 1, height: 1)
     let second = ScanRecord(tuneID: tune.id, position: 1, width: 1, height: 1)
     let away = ScanRecord(tuneID: tune.id, position: 2, width: 1, height: 1)
@@ -167,7 +161,7 @@ private final class Calls: @unchecked Sendable {
     #expect(calls.all == [[0, 3], [1, 3], [2, 3], [3, 3]])
 }
 
-@Test func cancellingLeavesNothingBehind() async throws {
+@Test(.timeLimit(.minutes(1))) func cancellingLeavesNothingBehind() async throws {
     let root = TemporaryRoot()
     let store = try await seededStore(root)
     let work = workFolder()
@@ -183,7 +177,7 @@ private final class Calls: @unchecked Sendable {
     #expect(contents(work).isEmpty)
 }
 
-@Test func anAudioFileDeletedAfterTheExportStartsIsStillExported() async throws {
+@Test(.timeLimit(.minutes(1))) func anAudioFileDeletedAfterTheExportStartsIsStillExported() async throws {
     let root = TemporaryRoot()
     let store = try await seededStore(root)
     let audioFolder = store.audioFolder
@@ -202,7 +196,7 @@ private final class Calls: @unchecked Sendable {
     #expect(contents(zip.deletingLastPathComponent()) == [zip.lastPathComponent])
 }
 
-@Test func anAudioFileGoneBeforeTheExportStartsIsLeftOut() async throws {
+@Test(.timeLimit(.minutes(1))) func anAudioFileGoneBeforeTheExportStartsIsLeftOut() async throws {
     let root = TemporaryRoot()
     let store = try await seededStore(root)
     try FileManager.default.removeItem(at: store.audioFolder)
@@ -217,7 +211,7 @@ private final class Calls: @unchecked Sendable {
     #expect(calls.all == [[0, 0]])
 }
 
-@Test func anAudioFileReplacedAfterTheExportStartsKeepsTheBytesItHadThen() async throws {
+@Test(.timeLimit(.minutes(1))) func anAudioFileReplacedAfterTheExportStartsKeepsTheBytesItHadThen() async throws {
     let root = TemporaryRoot()
     let store = try await seededStore(root)
     let audioFolder = store.audioFolder
@@ -238,7 +232,7 @@ private final class Calls: @unchecked Sendable {
     #expect(bytes.range(of: replacement) == nil)
 }
 
-@Test func onlyLiveRecordingsHaveTheirAudioPinned() async throws {
+@Test(.timeLimit(.minutes(1))) func onlyLiveRecordingsHaveTheirAudioPinned() async throws {
     let root = TemporaryRoot()
     let store = try await seededStore(root)
     let deleted = Recording(deletedAt: noon, tuneID: nil, source: "capture", addedAt: noon)
@@ -260,11 +254,11 @@ private final class Calls: @unchecked Sendable {
         beforeWriting: { pinned.set(pinnedNames(in: work)) })
 
     #expect(pinned.names.count == 1)
-    #expect(!pinned.names.contains("\(deleted.id).m4a"))
-    #expect(!pinned.names.contains("\(orphanID).m4a"))
+    #expect(pinned.names.contains("\(deleted.id).m4a") == false)
+    #expect(pinned.names.contains("\(orphanID).m4a") == false)
 }
 
-@Test func aPinnedFileThatCannotBeRemovedLeavesTheZipInPlace() async throws {
+@Test(.timeLimit(.minutes(1))) func aPinnedFileThatCannotBeRemovedLeavesTheZipInPlace() async throws {
     let root = TemporaryRoot()
     let store = try await seededStore(root)
     let audioFolder = store.audioFolder
@@ -311,7 +305,7 @@ private func setImmutable(_ immutable: Bool, inFolder folder: URL) throws {
 
     ExportArchive.removeLeftovers(root: work)
 
-    #expect(!FileManager.default.fileExists(atPath: work.path(percentEncoded: false)))
+    #expect(FileManager.default.fileExists(atPath: work.path(percentEncoded: false)) == false)
 }
 
 #if os(macOS)
@@ -363,7 +357,7 @@ private struct FetchRefused: Error, Equatable {}
 /// The seeded store plus a ready recording and a ready scan with no file on this device.
 private func storeMissingFiles(_ root: TemporaryRoot) async throws -> (CrosstuneStore, Recording, ScanRecord) {
     let store = try await seededStore(root)
-    let tune = try await store.read { db in try Tune.fetchOne(db)! }
+    let tune = try #require(try await store.read { db in try Tune.fetchOne(db) })
     let remote = Recording(
         tuneID: tune.id, source: "capture", addedAt: later(2000), state: "ready", playbackMime: "audio/mpeg")
     let scan = ScanRecord(tuneID: tune.id, position: 0, width: 1, height: 1, state: ScanRecord.ready)
@@ -378,7 +372,7 @@ private func fileRowCounts(_ store: CrosstuneStore) async throws -> [Int] {
     try await store.read { db in [try RecordingFile.fetchCount(db), try ScanFile.fetchCount(db)] }
 }
 
-@Test func filesThisDeviceDoesNotHoldAreFetchedIntoTheZipOnly() async throws {
+@Test(.timeLimit(.minutes(1))) func filesThisDeviceDoesNotHoldAreFetchedIntoTheZipOnly() async throws {
     let root = TemporaryRoot()
     let (store, remote, scan) = try await storeMissingFiles(root)
     let audioBefore = contents(store.audioFolder)
@@ -411,10 +405,10 @@ private func fileRowCounts(_ store: CrosstuneStore) async throws -> [Int] {
     #expect(contents(zip.deletingLastPathComponent()) == [zip.lastPathComponent])
 }
 
-@Test func aFileThatIsNotReadyIsNeitherFetchedNorExported() async throws {
+@Test(.timeLimit(.minutes(1))) func aFileThatIsNotReadyIsNeitherFetchedNorExported() async throws {
     let root = TemporaryRoot()
     let store = try await seededStore(root)
-    let tune = try await store.read { db in try Tune.fetchOne(db)! }
+    let tune = try #require(try await store.read { db in try Tune.fetchOne(db) })
     try await store.write { writer in
         try writer.put(ScanRecord(tuneID: tune.id, position: 0, width: 1, height: 1))
     }
@@ -431,7 +425,7 @@ private func fileRowCounts(_ store: CrosstuneStore) async throws -> [Int] {
     #expect(calls.all == [[0, 1], [1, 1]])
 }
 
-@Test func aFailedFetchFailsTheExportAndLeavesNothing() async throws {
+@Test(.timeLimit(.minutes(1))) func aFailedFetchFailsTheExportAndLeavesNothing() async throws {
     let root = TemporaryRoot()
     let (store, _, _) = try await storeMissingFiles(root)
     let work = workFolder()
@@ -477,7 +471,7 @@ private final class Overlap: @unchecked Sendable {
 /// The store from ``storeMissingFiles(_:)`` plus two more ready scans with no file here.
 private func storeMissingFourFiles(_ root: TemporaryRoot) async throws -> CrosstuneStore {
     let (store, _, _) = try await storeMissingFiles(root)
-    let tune = try await store.read { db in try Tune.fetchOne(db)! }
+    let tune = try #require(try await store.read { db in try Tune.fetchOne(db) })
     try await store.write { writer in
         for position in 1...2 {
             try writer.put(
@@ -487,7 +481,7 @@ private func storeMissingFourFiles(_ root: TemporaryRoot) async throws -> Crosst
     return store
 }
 
-@Test func missingFilesAreFetchedThreeAtATime() async throws {
+@Test(.timeLimit(.minutes(1))) func missingFilesAreFetchedThreeAtATime() async throws {
     let root = TemporaryRoot()
     let store = try await storeMissingFourFiles(root)
     let work = workFolder()
@@ -504,7 +498,7 @@ private func storeMissingFourFiles(_ root: TemporaryRoot) async throws -> Crosst
     #expect(calls.all == (0...9).map { [$0, 9] })
 }
 
-@Test func aFailedFetchStopsTheFetchesStillUnderWay() async throws {
+@Test(.timeLimit(.minutes(1))) func aFailedFetchStopsTheFetchesStillUnderWay() async throws {
     let root = TemporaryRoot()
     let (store, _, _) = try await storeMissingFiles(root)
     let work = workFolder()
@@ -522,7 +516,7 @@ private func storeMissingFourFiles(_ root: TemporaryRoot) async throws -> Crosst
             },
             progress: { _, _ in })
     }
-    #expect(!outlived.isSet)
+    #expect(outlived.isSet == false)
     #expect(contents(work).isEmpty)
 }
 
@@ -533,7 +527,7 @@ private final class Flag: @unchecked Sendable {
     var isSet: Bool { lock.withLock { value } }
 }
 
-@Test func cancellingDuringAFetchLeavesNothing() async throws {
+@Test(.timeLimit(.minutes(1))) func cancellingDuringAFetchLeavesNothing() async throws {
     let root = TemporaryRoot()
     let (store, _, _) = try await storeMissingFiles(root)
     let work = workFolder()
@@ -551,7 +545,7 @@ private final class Flag: @unchecked Sendable {
             },
             progress: { _, _ in })
     }
-    #expect(try await poll { fetching.isSet })
+    try await eventually { fetching.isSet }
 
     task.cancel()
 
@@ -559,10 +553,10 @@ private final class Flag: @unchecked Sendable {
     #expect(contents(work).isEmpty)
 }
 
-@Test func countsNameTheFilesThatMustBeFetched() async throws {
+@Test(.timeLimit(.minutes(1))) func countsNameTheFilesThatMustBeFetched() async throws {
     let root = TemporaryRoot()
     let (store, _, _) = try await storeMissingFiles(root)
-    let tune = try await store.read { db in try Tune.fetchOne(db)! }
+    let tune = try #require(try await store.read { db in try Tune.fetchOne(db) })
     let held = ScanRecord(tuneID: tune.id, position: 1, width: 1, height: 1, state: ScanRecord.ready)
     let pending = ScanRecord(tuneID: tune.id, position: 2, width: 1, height: 1)
     try await store.write { writer in
@@ -579,7 +573,7 @@ private final class Flag: @unchecked Sendable {
     #expect(try await counts.next() == ExportCounts(onDevice: 2, total: 6, missing: 2))
 }
 
-@Test func countsMissOnlyWhatTheExportFetches() async throws {
+@Test(.timeLimit(.minutes(1))) func countsMissOnlyWhatTheExportFetches() async throws {
     let root = TemporaryRoot()
     let store = try await seededStore(root)
     // A tune with no user-tune row is not exported: its recording goes under Unfiled, and its

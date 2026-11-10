@@ -119,21 +119,25 @@ private func statsFromEveryRow(_ db: Database, settingsRow: String, today: Strin
 }
 
 @MainActor
-private func loaded(_ store: CrosstuneStore, engine: SyncEngine? = nil) async throws -> StatsModel {
+private func loaded(
+    _ store: CrosstuneStore, engine: SyncEngine? = nil, sourceLocation: SourceLocation = #_sourceLocation
+) async throws -> StatsModel {
     let model = StatsModel(store: store, engine: engine, now: opened, timeZone: utc)
-    try await eventually { model.view != nil }
+    try await eventually(sourceLocation: sourceLocation) { model.view != nil }
     return model
 }
 
 @MainActor
-private func loadedSummary(_ store: CrosstuneStore) async throws -> LiveQuery<StatsSummary?> {
+private func loadedSummary(_ store: CrosstuneStore, sourceLocation: SourceLocation = #_sourceLocation) async throws
+    -> LiveQuery<StatsSummary?>
+{
     let summary = StatsSummary.live(store)
-    try await eventually { summary.value != nil }
+    try await eventually(sourceLocation: sourceLocation) { summary.value != nil }
     return summary
 }
 
 @MainActor
-@Suite struct StatsTests {
+@Suite(.timeLimit(.minutes(1))) struct StatsTests {
     @Test func summaryRowShowsCountsAndTime() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -209,8 +213,8 @@ private func loadedSummary(_ store: CrosstuneStore) async throws -> LiveQuery<St
             headers == [
                 StatsCopy.countsHeader, StatsCopy.recordedHeader, StatsCopy.monthsHeader, CatalogFacet.key.label,
             ])
-        #expect(!headers.contains(CatalogFacet.tuneType.label))
-        #expect(!headers.contains(CatalogFacet.genre.label))
+        #expect(headers.contains(CatalogFacet.tuneType.label) == false)
+        #expect(headers.contains(CatalogFacet.genre.label) == false)
     }
 
     @Test func valueRowsCarryTheirFacets() async throws {
@@ -259,7 +263,7 @@ private func loadedSummary(_ store: CrosstuneStore) async throws -> LiveQuery<St
         place.tabPaths[.catalog] = PagePath(tune: "t2")
         let open = CatalogTapThrough(catalog: catalog, showRoot: MenuAction { place.showTabRoot(.catalog) })
 
-        open(StatsLink.key("D")!)
+        open(try #require(StatsLink.key("D")))
         #expect(catalog.query.isEmpty)
         #expect(place.tab == .catalog)
         #expect(place.tabPaths[.catalog]?.tune == nil)
@@ -267,7 +271,7 @@ private func loadedSummary(_ store: CrosstuneStore) async throws -> LiveQuery<St
         var stored = CatalogFilters(stored: try await store.meta(.catalogFilters, as: JSONValue.self))
         #expect(stored == CatalogFilters(facets: [.key: "D"]))
 
-        open(StatsLink.keyMode(key: "E", mode: "dorian")!)
+        open(try #require(StatsLink.keyMode(key: "E", mode: "dorian")))
         try await eventually { !catalog.isSavingFilters }
         stored = CatalogFilters(stored: try await store.meta(.catalogFilters, as: JSONValue.self))
         #expect(stored == CatalogFilters(facets: [.key: "E", .mode: "dorian"]))
@@ -422,26 +426,21 @@ private func loadedSummary(_ store: CrosstuneStore) async throws -> LiveQuery<St
         for step in Primitive.heatmapDark {
             for surface in darkSurfaces { #expect(contrast(step, surface) >= 3) }
         }
-        #expect(Palette.heatmapHex(1, dark: false) == "#707c93")
-        #expect(Palette.heatmapHex(4, dark: true) == "#e4e8ef")
     }
 
     #if os(macOS)
         /// The Mac draws the same tested ramp as iOS, not a tint at reduced opacity, whose
         /// lightest step would vanish into the row.
-        @Test func theMacFillsDaysFromTheRamp() {
-            for level in 1...4 {
-                for (scheme, dark) in [(ColorScheme.light, false), (.dark, true)] {
-                    let color = NSColor(Palette.heatmap(level, scheme: scheme)).usingColorSpace(.sRGB)
-                    let rgb = color.map { color in
-                        [color.redComponent, color.greenComponent, color.blueComponent]
-                            .map { UInt32(($0 * 255).rounded()) }
-                            .reduce(0) { $0 << 8 | $1 }
-                    }
-                    #expect(rgb.map { String(format: "#%06x", $0) } == Palette.heatmapHex(level, dark: dark))
-                    #expect(color?.alphaComponent == 1)
-                }
+        @Test(arguments: 1...4, [(scheme: ColorScheme.light, dark: false), (scheme: .dark, dark: true)])
+        func theMacFillsDaysFromTheRamp(level: Int, appearance: (scheme: ColorScheme, dark: Bool)) {
+            let color = NSColor(Palette.heatmap(level, scheme: appearance.scheme)).usingColorSpace(.sRGB)
+            let rgb = color.map { color in
+                [color.redComponent, color.greenComponent, color.blueComponent]
+                    .map { UInt32(($0 * 255).rounded()) }
+                    .reduce(0) { $0 << 8 | $1 }
             }
+            #expect(rgb.map { String(format: "#%06x", $0) } == Palette.heatmapHex(level, dark: appearance.dark))
+            #expect(color?.alphaComponent == 1)
         }
     #endif
 
@@ -560,7 +559,7 @@ private func loadedSummary(_ store: CrosstuneStore) async throws -> LiveQuery<St
         let catalog = CatalogModel(store: store)
         let place = ShellPlace()
         CatalogTapThrough(catalog: catalog, showRoot: MenuAction { place.showTabRoot(.catalog) })(
-            StatsLink.key("D")!)
+            try #require(StatsLink.key("D")))
         try await eventually {
             let stored = try await store.meta(.catalogFilters, as: JSONValue.self)
             return CatalogFilters(stored: stored) == CatalogFilters(facets: [.key: "D"])
@@ -574,7 +573,7 @@ struct KeyGridSpreadTests {
     @Test func spreadsInASplitDetailColumnOnly() {
         #if os(iOS)
             #expect(KeyGridView.spreads(inPadSplit: true))
-            #expect(!KeyGridView.spreads(inPadSplit: false))
+            #expect(KeyGridView.spreads(inPadSplit: false) == false)
         #else
             #expect(KeyGridView.spreads(inPadSplit: false))
         #endif

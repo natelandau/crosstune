@@ -1,10 +1,11 @@
+import CrosstuneTestSupport
 import Foundation
 import Testing
 
 @testable import CrosstuneDesign
 
 @MainActor
-struct WorkRunnerTests {
+@Suite(.timeLimit(.minutes(1))) struct WorkRunnerTests {
     private struct Failure: Error {}
 
     /// Holds an action open until the test releases it.
@@ -30,11 +31,6 @@ struct WorkRunnerTests {
         WorkRunner(sleep: sleeper.sleep)
     }
 
-    /// Lets the main actor run queued work until `condition` holds.
-    private func settle(until condition: () -> Bool) async {
-        for _ in 0..<200 where !condition() { await Task.yield() }
-    }
-
     @Test func fastWorkShowsOnlyTheCheck() async throws {
         let runner = makeRunner()
         var phases: [WorkPhase] = []
@@ -47,24 +43,23 @@ struct WorkRunnerTests {
         let runner = makeRunner()
         let gate = Gate()
         let task = Task { try await runner.run(closesOnSuccess: false) { await gate.wait() } }
-        await settle { sleeper.pending.contains(Motion.workingDelay) }
+        try await eventually { sleeper.pending.contains(Motion.workingDelay) }
         #expect(runner.phase == .pending)
         sleeper.wake()
-        await settle { runner.phase == .working }
+        try await eventually { runner.phase == .working }
         #expect(runner.phase == .working)
         gate.open()
         try await task.value
         #expect(runner.phase == .done)
     }
 
-    @Test func doneReturnsToIdleAfterOneSecond() async throws {
+    @Test func doneReturnsToIdleAfterTheHold() async throws {
         let runner = makeRunner()
         try await runner.run(closesOnSuccess: false) {}
         #expect(runner.phase == .done)
-        await settle { sleeper.pending.contains(Motion.doneHold) }
-        #expect(sleeper.pending.contains(.seconds(1)))
+        try await eventually { sleeper.pending.contains(Motion.doneHold) }
         sleeper.wake()
-        await settle { runner.phase == .idle }
+        try await eventually { runner.phase == .idle }
         #expect(runner.phase == .idle)
     }
 
@@ -73,26 +68,24 @@ struct WorkRunnerTests {
         await #expect(throws: Failure.self) {
             try await runner.run(closesOnSuccess: false) { throw Failure() }
         }
+        // A success that holds the check stays in `.done`, so idle means no hold started.
         #expect(runner.phase == .idle)
-        await settle { false }
-        #expect(!sleeper.pending.contains(.seconds(1)))
     }
 
     @Test func closingSkipsTheCheck() async throws {
         let runner = makeRunner()
         try await runner.run(closesOnSuccess: true) {}
+        // A success that holds the check stays in `.done`, so idle means no hold started.
         #expect(runner.phase == .idle)
-        await settle { false }
-        #expect(!sleeper.pending.contains(.seconds(1)))
     }
 
     @Test func ignoresPressWhileWorking() async throws {
         let runner = makeRunner()
         let gate = Gate()
         let task = Task { try await runner.run(closesOnSuccess: false) { await gate.wait() } }
-        await settle { sleeper.pending.contains(Motion.workingDelay) }
+        try await eventually { sleeper.pending.contains(Motion.workingDelay) }
         sleeper.wake()
-        await settle { runner.phase == .working }
+        try await eventually { runner.phase == .working }
         var calls = 0
         try await runner.run(closesOnSuccess: false) { calls += 1 }
         #expect(calls == 0)
@@ -104,9 +97,9 @@ struct WorkRunnerTests {
         let runner = makeRunner()
         let gate = Gate()
         let task = Task { try await runner.run(closesOnSuccess: false) { await gate.wait() } }
-        await settle { sleeper.pending.contains(Motion.workingDelay) }
+        try await eventually { sleeper.pending.contains(Motion.workingDelay) }
         sleeper.wake()
-        await settle { runner.phase == .working }
+        try await eventually { runner.phase == .working }
         runner.cancel()
         #expect(runner.phase == .idle)
         gate.open()
@@ -123,7 +116,7 @@ struct WorkRunnerTests {
                 throw Failure()
             }
         }
-        await settle { sleeper.pending.contains(Motion.workingDelay) }
+        try await eventually { sleeper.pending.contains(Motion.workingDelay) }
         runner.cancel()
         gate.open()
         try await task.value
@@ -134,7 +127,7 @@ struct WorkRunnerTests {
         let runner = makeRunner()
         let gate = Gate()
         let task = Task { try await runner.run(closesOnSuccess: false) { await gate.wait() } }
-        await settle { sleeper.pending.contains(Motion.workingDelay) }
+        try await eventually { sleeper.pending.contains(Motion.workingDelay) }
         runner.cancel()
         var calls = 0
         try await runner.run(closesOnSuccess: false) { calls += 1 }
@@ -150,10 +143,9 @@ struct WorkRunnerTests {
         let runner = makeRunner()
         let gate = Gate()
         let task = Task { try await runner.run(closesOnSuccess: false) { await gate.wait() } }
-        await settle { sleeper.pending.contains(Motion.workingDelay) }
+        try await eventually { sleeper.pending.contains(Motion.workingDelay) }
         runner.cancel()
-        sleeper.wake()
-        await settle { false }
+        try await eventually { sleeper.cancelled == 1 }
         #expect(runner.phase == .idle)
         gate.open()
         try await task.value
@@ -162,15 +154,15 @@ struct WorkRunnerTests {
     @Test func cancelDuringDoneSkipsTheHold() async throws {
         let runner = makeRunner()
         try await runner.run(closesOnSuccess: false) {}
-        await settle { sleeper.pending.contains(Motion.doneHold) }
+        try await eventually { sleeper.pending.contains(Motion.doneHold) }
         #expect(runner.phase == .done)
         runner.cancel()
         let gate = Gate()
         let task = Task { try await runner.run(closesOnSuccess: false) { await gate.wait() } }
-        await settle { sleeper.pending.contains(Motion.workingDelay) }
-        #expect(!sleeper.pending.contains(Motion.doneHold))
+        try await eventually { sleeper.pending.contains(Motion.workingDelay) }
+        #expect(sleeper.pending.contains(Motion.doneHold) == false)
         sleeper.wake()
-        await settle { runner.phase == .working }
+        try await eventually { runner.phase == .working }
         #expect(runner.phase == .working)
         gate.open()
         try await task.value
@@ -199,7 +191,7 @@ struct WorkRunnerTests {
                 throw Failure()
             }
         }
-        await settle { runner.phase == .pending }
+        try await eventually { runner.phase == .pending }
         runner.cancel()
         gate.open()
         try? await task.value

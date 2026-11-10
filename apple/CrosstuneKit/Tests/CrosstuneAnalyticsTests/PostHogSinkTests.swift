@@ -160,7 +160,7 @@ struct PostHogSinkTests {
         sink.capture("Application Opened", [:], set: [:])
 
         #expect(backend.captures.allSatisfy { $0.as == "user_a" })
-        #expect(!backend.calls.contains(.reset))
+        #expect(backend.calls.contains(.reset) == false)
     }
 
     @Test func nobodyRememberedForgetsTheStoredUserBeforeAnythingIsSent() {
@@ -174,7 +174,7 @@ struct PostHogSinkTests {
                 .setup, .reset, .register, .optIn, .capture(update, as: "anon-1"),
                 .capture("tune_created", as: "anon-1"),
             ])
-        #expect(!backend.captures.contains { $0.as == "user_a" })
+        #expect(backend.captures.contains { $0.as == "user_a" } == false)
     }
 
     @Test func anotherRememberedUserForgetsTheStoredOne() {
@@ -183,7 +183,7 @@ struct PostHogSinkTests {
         sink.setEnabled(true, rememberedUserID: "user_b")
 
         #expect(backend.calls.contains(.reset))
-        #expect(!backend.captures.contains { $0.as == "user_a" })
+        #expect(backend.captures.contains { $0.as == "user_a" } == false)
     }
 
     /// A deletion clears the remembered user, so after an update and a relaunch with sharing
@@ -195,7 +195,7 @@ struct PostHogSinkTests {
         sink.setEnabled(true, rememberedUserID: nil)
 
         #expect(backend.captures.map(\.name) == [update])
-        #expect(!backend.captures.contains { $0.as == "user_deleted" })
+        #expect(backend.captures.contains { $0.as == "user_deleted" } == false)
     }
 
     @Test func aFreshInstallSetsUpAndOptsIn() {
@@ -246,7 +246,7 @@ struct PostHogSinkTests {
 
         sink.setEnabled(true, rememberedUserID: nil)
 
-        #expect(!backend.captures.contains { $0.as == "user_a" })
+        #expect(backend.captures.contains { $0.as == "user_a" } == false)
         #expect(backend.calls.contains(.reset))
     }
 
@@ -428,17 +428,17 @@ struct PostHogSinkTests {
     let config = LivePostHog.config(token: "phc_test", host: URL(string: "https://relay.example.com")!)
 
     #expect(config.optOut)
-    #expect(!config.persistOptOut)
-    #expect(!config.captureScreenViews)
+    #expect(config.persistOptOut == false)
+    #expect(config.captureScreenViews == false)
     #expect(config.captureApplicationLifecycleEvents)
-    #expect(!config.preloadFeatureFlags)
-    #expect(!config.capturePushNotificationSubscriptions)
-    #expect(!config.capturePushNotificationOpened)
+    #expect(config.preloadFeatureFlags == false)
+    #expect(config.capturePushNotificationSubscriptions == false)
+    #expect(config.capturePushNotificationOpened == false)
     #if os(iOS)
-        #expect(!config.sessionReplay)
-        #expect(!config.rageClickConfig.enabled)
-        #expect(!config.captureAutocaptureElementText)
-        #expect(!config.captureElementInteractions)
-        #expect(!config.surveys)
+        #expect(config.sessionReplay == false)
+        #expect(config.rageClickConfig.enabled == false)
+        #expect(config.captureAutocaptureElementText == false)
+        #expect(config.captureElementInteractions == false)
+        #expect(config.surveys == false)
     #endif
 }

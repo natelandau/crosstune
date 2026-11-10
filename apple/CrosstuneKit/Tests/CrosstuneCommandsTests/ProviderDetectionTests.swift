@@ -2,7 +2,7 @@ import Testing
 
 @testable import CrosstuneCommands
 
-@Suite struct DetectProviderTests {
+struct DetectProviderTests {
     @Test(
         arguments: [
             ("https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=10", "youtube", "dQw4w9WgXcQ"),
@@ -77,14 +77,14 @@ import Testing
     }
 }
 
-@Suite struct YoutubeIDTests {
+struct YoutubeIDTests {
     @Test func extractsAPlayableIDOnlyForYoutubeLinks() {
         #expect(youtubeID(provider: "youtube", providerRef: "dQw4w9WgXcQ") == "dQw4w9WgXcQ")
         #expect(youtubeID(provider: "spotify", providerRef: "track:x") == nil)
     }
 }
 
-@Suite struct AppleMusicKindTests {
+struct AppleMusicKindTests {
     @Test(
         arguments: [
             ("https://music.apple.com/us/album/the-silver-spear/1440833081?i=1440833090", .song(id: "1440833090")),

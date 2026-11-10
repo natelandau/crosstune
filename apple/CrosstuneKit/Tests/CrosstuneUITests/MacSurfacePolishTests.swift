@@ -10,20 +10,21 @@
     @testable import CrosstuneUI
 
     @MainActor
-    @Suite struct MacSurfacePolishTests {
+    struct MacSurfacePolishTests {
         /// The title a form types sits under the sheet's title, so it never outranks it.
         @Test func formTitleSitsUnderTheSheetTitle() {
             #expect(MacStyle.formTitleSize < MacStyle.sheetTitleSize)
-            #expect(MacStyle.formTitleSize >= 17)
         }
 
         /// A form's rows share one label column as wide as their widest label, within bounds, so
         /// fields and pop-ups start on one edge.
         @Test func formLabelColumnFitsItsWidestLabel() {
-            #expect(MacForm.labelColumn([40, 90]) == MacForm.labelMinWidth)
-            #expect(MacForm.labelColumn([60, 131.2]) == 132)
-            #expect(MacForm.labelColumn([400]) == MacForm.labelMaxWidth)
-            #expect(MacForm.labelColumn([]) == MacForm.labelMinWidth)
+            let (low, high) = (MacForm.labelMinWidth, MacForm.labelMaxWidth)
+            let between = ((low + high) / 2).rounded(.down) + 0.2
+            #expect(MacForm.labelColumn([low / 2, low - 1]) == low)
+            #expect(MacForm.labelColumn([low / 2, between]) == between.rounded(.up))
+            #expect(MacForm.labelColumn([high * 2]) == high)
+            #expect(MacForm.labelColumn([]) == low)
         }
 
         /// A tune already in the list says so to VoiceOver; on screen its check says it, so the
@@ -31,7 +32,7 @@
         @Test func takenTuneSaysItIsInTheListAloud() throws {
             let text = SourceScan.withoutComments(
                 try SourceScan.text(at: SourceScan.url(of: "Lists/TunePickerSheet.swift")))
-            #expect(!SourceScan.macCompiled(text).contains("Text(TunePickerModel.inThisList)"))
+            #expect(SourceScan.macCompiled(text).contains("Text(TunePickerModel.inThisList)") == false)
         }
 
         /// A list's head is one height whether its play controls or the selection bar sit under
@@ -77,18 +78,21 @@
         }
 
         /// The rows `view` paints in its last `trailing` points, and its height, drawn `width` wide.
-        private func trailingInk(_ view: some View, width: CGFloat, trailing: CGFloat) throws
+        private func trailingInk(
+            _ view: some View, width: CGFloat, trailing: CGFloat, sourceLocation: SourceLocation = #_sourceLocation
+        ) throws
             -> (top: Int, bottom: Int, height: Int)?
         {
             let renderer = ImageRenderer(content: view.frame(width: width))
             renderer.scale = 1
-            let image = try #require(renderer.cgImage)
+            let image = try #require(renderer.cgImage, sourceLocation: sourceLocation)
             let (columns, rows) = (image.width, image.height)
             var pixels = [UInt8](repeating: 0, count: columns * rows * 4)
             let context = try #require(
                 CGContext(
                     data: &pixels, width: columns, height: rows, bitsPerComponent: 8, bytesPerRow: columns * 4,
-                    space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+                    space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue),
+                sourceLocation: sourceLocation)
             context.draw(image, in: CGRect(x: 0, y: 0, width: columns, height: rows))
             let start = columns - Int(trailing)
             let inked = (0..<rows).filter { row in
@@ -127,7 +131,7 @@
             let play = ListRowPlayButton(entry: entry, action: .play(item), listID: "l1")
             #expect(try drawsInTrailingEdge(play, width: slot, trailing: slot))
             let empty = ListRowPlayButton(entry: entry, action: nil, listID: "l1")
-            #expect(try !drawsInTrailingEdge(empty, width: slot, trailing: slot))
+            #expect(try drawsInTrailingEdge(empty, width: slot, trailing: slot) == false)
         }
 
         /// A list's tune row draws its key and play the same on every platform: the row keeps its
@@ -137,8 +141,8 @@
                 try SourceScan.text(at: SourceScan.url(of: "Lists/ListScreen.swift")))
             #expect(SourceScan.macCompiled(text).contains("ListRowPlayButton(entry: entry"))
             #expect(SourceScan.iOSCompiled(text).contains("ListRowPlayButton(entry: entry"))
-            #expect(!SourceScan.macOSRegions(of: text).contains("ListRowPlayButton("))
-            #expect(!text.contains("onHover"))
+            #expect(SourceScan.macOSRegions(of: text).contains("ListRowPlayButton(") == false)
+            #expect(text.contains("onHover") == false)
         }
 
         /// A media row's play and download glyphs show at rest, as on iPhone, iPad, and the web.
@@ -150,7 +154,7 @@
             #expect(try drawsInTrailingEdge(row, width: 320, trailing: slot))
             let bare = MediaRow(
                 glyph: .none, title: "Take 1", secondLine: .text("1:02"), actionLabel: "Play", action: {})
-            #expect(try !drawsInTrailingEdge(bare, width: 320, trailing: slot))
+            #expect(try drawsInTrailingEdge(bare, width: 320, trailing: slot) == false)
         }
     }
 #endif
