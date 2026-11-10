@@ -273,22 +273,34 @@ private func jpeg(width: Int, height: Int) -> Data {
     @MainActor
     @Test func aThumbnailStillShowsAfterTheCacheIsEmptied() async throws {
         let root = TemporaryRoot()
-        try FileManager.default.createDirectory(at: root.url, withIntermediateDirectories: true)
-        let url = root.url.appending(path: "scan.jpg")
-        try jpeg(width: 300, height: 400).write(to: url)
+        let url = try writtenJPEG(in: root)
         let cache = ThumbnailCache(countLimit: 10)
-
-        let first = try #require(await ScanThumbnail.load(key: "p/scan.jpg", url: url, pixelHeight: 240, cache: cache))
-        // A second load is a cache hit, and still hands back the image for the view to keep.
-        try FileManager.default.removeItem(at: url)
-        let hit = try #require(await ScanThumbnail.load(key: "p/scan.jpg", url: url, pixelHeight: 240, cache: cache))
-        #expect(hit === first)
+        let image = try #require(await ScanThumbnail.load(key: "p/scan.jpg", url: url, pixelHeight: 240, cache: cache))
 
         cache.removeAll()
 
-        let decoded: (key: String, image: CGImage?) = ("p/scan.jpg", hit)
-        #expect(ScanThumbnail.shown(key: "p/scan.jpg", decoded: decoded, cache: cache) === first)
+        let decoded: (key: String, image: CGImage?) = ("p/scan.jpg", image)
+        #expect(ScanThumbnail.shown(key: "p/scan.jpg", decoded: decoded, cache: cache) === image)
         #expect(ScanThumbnail.shown(key: "other/scan.jpg", decoded: decoded, cache: cache) == nil)
+    }
+
+    /// The cache may drop an entry at any time, so the image goes in just before the load reads it.
+    @MainActor
+    @Test func aCachedThumbnailLoadsWithoutItsFile() async throws {
+        let root = TemporaryRoot()
+        let image = try #require(ScanThumbnail.decode(try writtenJPEG(in: root), height: 240))
+        let cache = ThumbnailCache(countLimit: 10)
+        cache.insert(image, for: "p/scan.jpg")
+
+        let missing = root.url.appending(path: "gone.jpg")
+        #expect(await ScanThumbnail.load(key: "p/scan.jpg", url: missing, pixelHeight: 240, cache: cache) === image)
+    }
+
+    private func writtenJPEG(in root: TemporaryRoot) throws -> URL {
+        try FileManager.default.createDirectory(at: root.url, withIntermediateDirectories: true)
+        let url = root.url.appending(path: "scan.jpg")
+        try jpeg(width: 300, height: 400).write(to: url)
+        return url
     }
 
     @Test func thumbnailKeyFollowsTheScanAndItsFile() {
