@@ -36,7 +36,13 @@ package struct PageSection<Content: View, Accessory: View>: View {
                 Spacer(minLength: 0)
                 accessory
                     .menuIndicator(.hidden)
-                    .textButtonMenuAppearance()
+                    // The Mac's heading actions are glyphs, drawn as icon buttons so they read
+                    // as actions; iPhone and iPad name theirs in words.
+                    #if os(macOS)
+                        .iconButtonMenuAppearance()
+                    #else
+                        .textButtonMenuAppearance()
+                    #endif
                     .fixedSize()
             }
             // A heading keeps the same height with or without its controls, so the rhythm
