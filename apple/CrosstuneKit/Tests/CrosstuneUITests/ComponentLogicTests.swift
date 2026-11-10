@@ -55,15 +55,14 @@ struct FlowLayoutTests {
         return FlowLayout.arrange(sizes: sizes, maxWidth: proposal, spacing: 8, lineSpacing: 4)
     }
 
-    @Test func placesAtTheWidthItMeasuredWith() {
-        for proposal: CGFloat? in [nil, 120, 100, 200] {
-            let measuredResult = measured(proposal: proposal)
-            // The parent places at the size it was given, and may pass no proposal.
-            for placementProposal in [nil, measuredResult.size.width] {
-                let width = FlowLayout.wrapWidth(proposal: placementProposal, bounds: measuredResult.size.width)
-                let placed = measured(proposal: width)
-                #expect(placed.size == measuredResult.size, "proposal \(String(describing: proposal))")
-            }
+    @Test(arguments: [nil, 120, 100, 200] as [CGFloat?])
+    func placesAtTheWidthItMeasuredWith(proposal: CGFloat?) {
+        let measuredResult = measured(proposal: proposal)
+        // The parent places at the size it was given, and may pass no proposal.
+        for placementProposal in [nil, measuredResult.size.width] {
+            let width = FlowLayout.wrapWidth(proposal: placementProposal, bounds: measuredResult.size.width)
+            let placed = measured(proposal: width)
+            #expect(placed.size == measuredResult.size)
         }
     }
 

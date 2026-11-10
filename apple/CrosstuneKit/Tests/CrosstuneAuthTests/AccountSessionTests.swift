@@ -250,13 +250,12 @@ private func problem(_ status: Int) -> Components.Schemas.Problem {
     #expect(phase == .signedIn(userID: "user_b", confirmed: true))
 }
 
-@Test func aDeletionReportedWhileSignedInLeavesThatUser() {
-    for confirmed in [true, false] {
-        #expect(
-            AccountSession.deletionReport(
-                phase: .signedIn(userID: "user_a", confirmed: confirmed), isLeavingDeleted: false)
-                == .leave(userID: "user_a"))
-    }
+@Test(arguments: [true, false])
+func aDeletionReportedWhileSignedInLeavesThatUser(confirmed: Bool) {
+    #expect(
+        AccountSession.deletionReport(
+            phase: .signedIn(userID: "user_a", confirmed: confirmed), isLeavingDeleted: false)
+            == .leave(userID: "user_a"))
 }
 
 @Test func aDeletionReportedWithNoUserOpenGoesToTheUserClerkLetGo() {

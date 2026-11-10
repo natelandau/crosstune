@@ -61,14 +61,16 @@ struct CatalogFilterRowTests {
         #expect(CatalogFilterRow.isShownOnPhoneAndPad(empty, hasErrors: false) == false)
         // An error still needs a place to read.
         #expect(CatalogFilterRow.isShownOnPhoneAndPad(empty, hasErrors: true))
-        // A stored filter stays reachable so it can be cleared.
-        for filters in [
-            CatalogFilters(status: "learning"), CatalogFilters(facets: [.key: "D"]),
-            CatalogFilters(facets: [.genre: "Old-time"]), CatalogFilters(archived: true),
-            CatalogFilters(missing: .facet(.key)), CatalogFilters(missing: .audio),
-        ] {
-            #expect(CatalogFilterRow.isShownOnPhoneAndPad(withFilters(empty, filters), hasErrors: false))
-        }
+    }
+
+    /// A stored filter stays reachable so it can be cleared.
+    @Test(arguments: [
+        CatalogFilters(status: "learning"), CatalogFilters(facets: [.key: "D"]),
+        CatalogFilters(facets: [.genre: "Old-time"]), CatalogFilters(archived: true),
+        CatalogFilters(missing: .facet(.key)), CatalogFilters(missing: .audio),
+    ])
+    func emptyCatalogWithAStoredFilterShowsTheFilterRow(filters: CatalogFilters) {
+        #expect(CatalogFilterRow.isShownOnPhoneAndPad(withFilters(emptied(full), filters), hasErrors: false))
     }
 
     #if os(macOS)

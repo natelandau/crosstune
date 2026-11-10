@@ -4,12 +4,11 @@
     import Testing
 
     struct MacFocusSourceTests {
-        @Test func tabSetsKeyboardSource() {
-            for start in [MacFocusSource.none, .pointer, .keyboard] {
-                #expect(MacFocusSource.next(after: .tab, from: start) == .keyboard)
-                #expect(MacFocusSource.next(after: .backTab, from: start) == .keyboard)
-                #expect(MacFocusSource.next(after: .arrow, from: start) == .keyboard)
-            }
+        @Test(arguments: [MacFocusSource.none, .pointer, .keyboard])
+        func tabSetsKeyboardSource(start: MacFocusSource) {
+            #expect(MacFocusSource.next(after: .tab, from: start) == .keyboard)
+            #expect(MacFocusSource.next(after: .backTab, from: start) == .keyboard)
+            #expect(MacFocusSource.next(after: .arrow, from: start) == .keyboard)
         }
 
         @Test func clickClearsKeyboardSource() {
@@ -17,16 +16,14 @@
             #expect(MacFocusSource.next(after: .pointerDown, from: .none) == .pointer)
         }
 
-        @Test func windowOpeningClearsTheSource() {
-            for start in [MacFocusSource.none, .pointer, .keyboard] {
-                #expect(MacFocusSource.next(after: .windowOpened, from: start) == .none)
-            }
+        @Test(arguments: [MacFocusSource.none, .pointer, .keyboard])
+        func windowOpeningClearsTheSource(start: MacFocusSource) {
+            #expect(MacFocusSource.next(after: .windowOpened, from: start) == .none)
         }
 
-        @Test func typingKeepsTheSource() {
-            for start in [MacFocusSource.none, .pointer, .keyboard] {
-                #expect(MacFocusSource.next(after: .otherKey, from: start) == start)
-            }
+        @Test(arguments: [MacFocusSource.none, .pointer, .keyboard])
+        func typingKeepsTheSource(start: MacFocusSource) {
+            #expect(MacFocusSource.next(after: .otherKey, from: start) == start)
         }
 
         @Test func ringShowsOnlyForKeyboardOrAField() {

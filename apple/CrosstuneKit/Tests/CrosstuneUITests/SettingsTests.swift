@@ -416,11 +416,10 @@ private func instrumentSummary(_ model: SettingsModel) -> String {
         #expect(engine.status == .offline)
     }
 
-    @Test func onlyAFailedStatusEndsARunInFailure() {
-        for status in SyncStatus.allCases {
-            let failed = [SyncStatus.error, .offline, .unauthorized, .updateRequired].contains(status)
-            #expect(SettingsModel.endsInFailure(status) == failed, "\(status)")
-        }
+    @Test(arguments: SyncStatus.allCases)
+    func onlyAFailedStatusEndsARunInFailure(status: SyncStatus) {
+        let failed = [SyncStatus.error, .offline, .unauthorized, .updateRequired].contains(status)
+        #expect(SettingsModel.endsInFailure(status) == failed)
     }
 
     @Test func reportsARefusedWriteAndShowsTheStoredValueAgain() async throws {

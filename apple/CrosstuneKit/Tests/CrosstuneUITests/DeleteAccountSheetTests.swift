@@ -65,11 +65,13 @@ struct DeleteAccountSheetTests {
         #expect(
             DeleteAccountSheet.subscriptionLines(Plan(kind: .premium, source: .comp, paidSources: [.apple, .stripe]))
                 == [DeleteAccountSheet.appleSubscriptionLine, DeleteAccountSheet.stripeSubscriptionLine])
-        for plan in [
-            Plan(kind: .free), Plan(kind: .premium, source: .trial), Plan(kind: .premium, source: .comp), .unknown,
-        ] {
-            #expect(DeleteAccountSheet.subscriptionLines(plan).isEmpty)
-        }
+    }
+
+    @Test(arguments: [
+        Plan(kind: .free), Plan(kind: .premium, source: .trial), Plan(kind: .premium, source: .comp), .unknown,
+    ])
+    func aPlanWithNoPaidSourceHasNoSubscriptionLines(plan: Plan) {
+        #expect(DeleteAccountSheet.subscriptionLines(plan).isEmpty)
     }
 
     @Test func onlyAnAppStoreSubscriberIsSentToAppStoreSettings() {

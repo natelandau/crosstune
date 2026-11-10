@@ -433,19 +433,16 @@ private func loadedSummary(_ store: CrosstuneStore, sourceLocation: SourceLocati
     #if os(macOS)
         /// The Mac draws the same tested ramp as iOS, not a tint at reduced opacity, whose
         /// lightest step would vanish into the row.
-        @Test func theMacFillsDaysFromTheRamp() {
-            for level in 1...4 {
-                for (scheme, dark) in [(ColorScheme.light, false), (.dark, true)] {
-                    let color = NSColor(Palette.heatmap(level, scheme: scheme)).usingColorSpace(.sRGB)
-                    let rgb = color.map { color in
-                        [color.redComponent, color.greenComponent, color.blueComponent]
-                            .map { UInt32(($0 * 255).rounded()) }
-                            .reduce(0) { $0 << 8 | $1 }
-                    }
-                    #expect(rgb.map { String(format: "#%06x", $0) } == Palette.heatmapHex(level, dark: dark))
-                    #expect(color?.alphaComponent == 1)
-                }
+        @Test(arguments: 1...4, [(scheme: ColorScheme.light, dark: false), (scheme: .dark, dark: true)])
+        func theMacFillsDaysFromTheRamp(level: Int, appearance: (scheme: ColorScheme, dark: Bool)) {
+            let color = NSColor(Palette.heatmap(level, scheme: appearance.scheme)).usingColorSpace(.sRGB)
+            let rgb = color.map { color in
+                [color.redComponent, color.greenComponent, color.blueComponent]
+                    .map { UInt32(($0 * 255).rounded()) }
+                    .reduce(0) { $0 << 8 | $1 }
             }
+            #expect(rgb.map { String(format: "#%06x", $0) } == Palette.heatmapHex(level, dark: appearance.dark))
+            #expect(color?.alphaComponent == 1)
         }
     #endif
 

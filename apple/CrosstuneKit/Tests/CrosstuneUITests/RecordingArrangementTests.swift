@@ -107,15 +107,14 @@ struct RecordingArrangementByRecordedTests {
         #expect(ids(flat(result.filed)) == ["time", "month", "day", "year", "none2", "none1"])
     }
 
-    @Test func treatsADateWhosePrecisionThisClientPredatesAsUnknown() {
+    @Test(arguments: [true, false])
+    func treatsADateWhosePrecisionThisClientPredatesAsUnknown(descending: Bool) {
         let odd = [
             view("newer", minutes: 1, recorded: ("1930-01-01T00:00:00Z", "decade")),
             view("year", minutes: 2, recorded: ("1937-01-01T00:00:00Z", "year")),
         ]
-        for descending in [true, false] {
-            let result = RecordingArrangement.arrange(odd, choice: choice(.recorded, descending), query: "")
-            #expect(ids(result.unfiled) == ["year", "newer"])
-        }
+        let result = RecordingArrangement.arrange(odd, choice: choice(.recorded, descending), query: "")
+        #expect(ids(result.unfiled) == ["year", "newer"])
     }
 
     @Test func breaksATieByDateAddedThenByID() {
@@ -187,17 +186,16 @@ struct RecordingArrangementByTuneTests {
         #expect(ids(result.unfiled) == ["u1", "u2"])
     }
 
-    @Test func putsOwnRecordingsBeforeImportedOnesInsideAGroupEachNewestAddedFirst() {
+    @Test(arguments: [false, true])
+    func putsOwnRecordingsBeforeImportedOnesInsideAGroupEachNewestAddedFirst(descending: Bool) {
         let mixed = [
             view("i1", tune: "t", title: "T", origin: "slippery_hill", minutes: 1),
             view("o1", tune: "t", title: "T", minutes: 2),
             view("i2", tune: "t", title: "T", origin: "slippery_hill", minutes: 4),
             view("o2", tune: "t", title: "T", minutes: 3),
         ]
-        for descending in [false, true] {
-            let found = groups(RecordingArrangement.arrange(mixed, choice: choice(.tune, descending), query: "").filed)
-            #expect(found.first.map { ids($0.views) } == ["o2", "o1", "i2", "i1"])
-        }
+        let found = groups(RecordingArrangement.arrange(mixed, choice: choice(.tune, descending), query: "").filed)
+        #expect(found.first.map { ids($0.views) } == ["o2", "o1", "i2", "i1"])
     }
 
     @Test func keepsTwoTunesWithOneTitleAsTwoGroupsOrderedByID() {

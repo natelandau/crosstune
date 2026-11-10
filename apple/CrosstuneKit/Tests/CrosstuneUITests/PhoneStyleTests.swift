@@ -12,27 +12,19 @@ struct PhoneStyleTests {
     private static let known = Palette.hex(.statusKnown, .dark)
     private static let muted = Palette.hex(.onTunerSecondary, .light)
 
-    @Test func playheadReadsOnThePageAndASurface() {
-        for scheme in Self.schemes {
-            for background in [Palette.Token.pageBackground, .surface] {
-                #expect(
-                    contrastRatio(Palette.hex(.playhead, scheme), Palette.hex(background, scheme)) >= 3,
-                    "\(scheme) \(background)")
-            }
-        }
+    @Test(arguments: [ColorScheme.light, .dark], [Palette.Token.pageBackground, .surface])
+    func playheadReadsOnThePageAndASurface(scheme: ColorScheme, background: Palette.Token) {
+        #expect(contrastRatio(Palette.hex(.playhead, scheme), Palette.hex(background, scheme)) >= 3)
     }
 
     /// The tuner draws on one dark background in either appearance.
-    @Test func tunerBackgroundIsOneValueInEachAppearance() {
-        for (scheme, hex) in [
-            (ColorScheme.light, "#1E212C"), (ColorScheme.dark, "#1E212C"),
-        ] {
-            let resolved = Palette.tunerBackground(scheme).resolve(in: EnvironmentValues())
-            let expected = KeyColor.RGB(hex: hex)
-            #expect(abs(Double(resolved.red) - expected.red) < 0.01, "\(scheme) red")
-            #expect(abs(Double(resolved.green) - expected.green) < 0.01, "\(scheme) green")
-            #expect(abs(Double(resolved.blue) - expected.blue) < 0.01, "\(scheme) blue")
-        }
+    @Test(arguments: [(ColorScheme.light, "#1E212C"), (.dark, "#1E212C")])
+    func tunerBackgroundIsOneValueInEachAppearance(scheme: ColorScheme, hex: String) {
+        let resolved = Palette.tunerBackground(scheme).resolve(in: EnvironmentValues())
+        let expected = KeyColor.RGB(hex: hex)
+        #expect(abs(Double(resolved.red) - expected.red) < 0.01, "red")
+        #expect(abs(Double(resolved.green) - expected.green) < 0.01, "green")
+        #expect(abs(Double(resolved.blue) - expected.blue) < 0.01, "blue")
     }
 
     @Test func tunerStepsReadOnTheTunerBackground() {
@@ -44,12 +36,11 @@ struct PhoneStyleTests {
         #expect(abs(relativeLuminance(Self.tunerClose) - relativeLuminance(Self.brand)) >= 0.1)
     }
 
-    @Test func tunerBarsReadOnTheTunerBackgroundAcrossTheBlend() {
-        for step in 0...10 {
-            let bar = Palette.tunerBarHex(cents: 3 + 0.7 * Double(step))
-            for background in Self.backgrounds {
-                #expect(contrastRatio(bar, background) >= 3, "\(bar) on \(background)")
-            }
+    @Test(arguments: 0...10)
+    func tunerBarsReadOnTheTunerBackgroundAcrossTheBlend(step: Int) {
+        let bar = Palette.tunerBarHex(cents: 3 + 0.7 * Double(step))
+        for background in Self.backgrounds {
+            #expect(contrastRatio(bar, background) >= 3, "\(bar) on \(background)")
         }
     }
 

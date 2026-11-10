@@ -82,14 +82,11 @@ struct BatchEditSummaryTests {
         #expect(EditField.tuning("violin").label == "Violin tuning")
     }
 
-    @Test func neverOffersAFieldUniqueToOneTune() {
-        let labels = EditField.all.map(\.label)
-        for unique in [
-            TuneFieldLabels.title, TuneFieldLabels.alternateTitles, TuneFieldLabels.notes,
-            TuneFieldLabels.lyrics,
-        ] {
-            #expect(labels.contains(unique) == false)
-        }
+    @Test(arguments: [
+        TuneFieldLabels.title, TuneFieldLabels.alternateTitles, TuneFieldLabels.notes, TuneFieldLabels.lyrics,
+    ])
+    func neverOffersAFieldUniqueToOneTune(unique: String) {
+        #expect(EditField.all.map(\.label).contains(unique) == false)
     }
 }
 

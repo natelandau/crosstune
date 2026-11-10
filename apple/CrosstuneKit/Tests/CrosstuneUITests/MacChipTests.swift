@@ -30,14 +30,12 @@
 
         /// A set chip's label on its tint at rest, hover, and press, over the backgrounds a chip
         /// sits on.
-        @Test(arguments: [ColorScheme.light, .dark])
-        func setChipLabelPassesContrastOnItsTint(scheme: ColorScheme) {
+        @Test(arguments: [ColorScheme.light, .dark], [Palette.Token.pageBackground, .surface])
+        func setChipLabelPassesContrastOnItsTint(scheme: ColorScheme, background: Palette.Token) {
             let label = MacChip.labelRGB(state: .set, scheme: scheme).hex
-            for background in [Palette.Token.pageBackground, .surface] {
-                for press in [MacPressState.rest, .hover, .pressed] {
-                    let tint = MacChip.setTintHex(over: Palette.hex(background, scheme), scheme: scheme, press: press)
-                    #expect(contrastRatio(label, tint) >= 4.5, "\(scheme) \(press) on \(background)")
-                }
+            for press in [MacPressState.rest, .hover, .pressed] {
+                let tint = MacChip.setTintHex(over: Palette.hex(background, scheme), scheme: scheme, press: press)
+                #expect(contrastRatio(label, tint) >= 4.5, "\(press)")
             }
         }
 

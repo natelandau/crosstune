@@ -385,10 +385,11 @@ private let portal = URL(string: "https://billing.example.com/portal")!
         #expect(PlanSheet.manage(stripe, storefront: .unread, portalURL: portal).isEmpty)
     }
 
-    @Test func aCompATrialAndAFreePlanHaveNothingToManage() {
-        for plan in [comp, Plan(kind: .premium, source: .trial), Plan(kind: .free), .unknown] {
-            #expect(PlanSheet.manage(plan, storefront: .read("USA"), portalURL: portal).isEmpty)
-        }
+    @Test(arguments: [
+        Plan(kind: .premium, source: .comp), Plan(kind: .premium, source: .trial), Plan(kind: .free), .unknown,
+    ])
+    func aCompATrialAndAFreePlanHaveNothingToManage(plan: Plan) {
+        #expect(PlanSheet.manage(plan, storefront: .read("USA"), portalURL: portal).isEmpty)
     }
 
     @Test func aCompStillBilledByBothStoresManagesEach() async {
@@ -562,12 +563,11 @@ private let portal = URL(string: "https://billing.example.com/portal")!
             #expect(footer.escape != nil)
         }
 
-        @Test func nothingToBuyLeavesCloseAlone() {
-            for sale in [PlanSheet.Sale.notPurchasable, .subscribed] {
-                let footer = PlanSheet.macFooter(sale, isWorking: false, close: {}, subscribe: {})
-                #expect(footer.cancel?.title == SheetCloseButton.close, "\(sale)")
-                #expect(footer.primary == nil, "\(sale)")
-            }
+        @Test(arguments: [PlanSheet.Sale.notPurchasable, .subscribed])
+        func nothingToBuyLeavesCloseAlone(sale: PlanSheet.Sale) {
+            let footer = PlanSheet.macFooter(sale, isWorking: false, close: {}, subscribe: {})
+            #expect(footer.cancel?.title == SheetCloseButton.close)
+            #expect(footer.primary == nil)
         }
 
         @Test func aMemberManagesFromTheRenewalRow() {

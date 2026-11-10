@@ -253,14 +253,13 @@ final class ToneInput: AudioInput {
         #expect(cleared)
     }
 
-    @Test func aHighlightCutShortFadesOutRatherThanSnappingOff() async {
-        for cancelAt in [0, 1] {
-            let (steps, cleared) = await highlight(cancelAt: cancelAt)
-            #expect(steps.last?.0 == false)
-            #expect(steps.last?.1 == HighlightTiming.fadeOut)
-            // A newer recording or an expired mark is not this row's to clear.
-            #expect(cleared == false)
-        }
+    @Test(arguments: [0, 1])
+    func aHighlightCutShortFadesOutRatherThanSnappingOff(cancelAt: Int) async {
+        let (steps, cleared) = await highlight(cancelAt: cancelAt)
+        #expect(steps.last?.0 == false)
+        #expect(steps.last?.1 == HighlightTiming.fadeOut)
+        // A newer recording or an expired mark is not this row's to clear.
+        #expect(cleared == false)
     }
 
     @Test func theHighlightPhasesSumToTheConstant() {

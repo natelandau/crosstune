@@ -8,18 +8,12 @@
     struct MacControlsTests {
         /// A segment's label and its badge read on the chosen token and on the bare track, on
         /// every container.
-        @Test(arguments: [ColorScheme.light, .dark])
-        func macSegmentedTextPassesContrast(scheme: ColorScheme) {
-            for container in MacContainer.allCases {
-                let fills = [MacSegmented<Int>.chosenFillToken(on: container), container.controlFill]
-                for back in fills.map({ Palette.hex($0, scheme) }) {
-                    #expect(
-                        contrastRatio(Palette.hex(.textPrimary, scheme), back) >= 4.5,
-                        "\(scheme) \(container) label on \(back)")
-                    #expect(
-                        contrastRatio(Palette.hex(.textSecondary, scheme), back) >= 4.5,
-                        "\(scheme) \(container) badge on \(back)")
-                }
+        @Test(arguments: [ColorScheme.light, .dark], MacContainer.allCases)
+        func macSegmentedTextPassesContrast(scheme: ColorScheme, container: MacContainer) {
+            let fills = [MacSegmented<Int>.chosenFillToken(on: container), container.controlFill]
+            for back in fills.map({ Palette.hex($0, scheme) }) {
+                #expect(contrastRatio(Palette.hex(.textPrimary, scheme), back) >= 4.5, "label on \(back)")
+                #expect(contrastRatio(Palette.hex(.textSecondary, scheme), back) >= 4.5, "badge on \(back)")
             }
         }
 

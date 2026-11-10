@@ -80,13 +80,12 @@ struct AttributesColumnTests {
         #expect(closed[1].rows.map(\.id) == ["location"])
     }
 
-    @Test func aCardWithNothingHeldBackHasNoMoreDetails() {
-        for upFront in [nil, Set(Self.rows.map(\.id))] as [Set<String>?] {
-            let sections = Section.sections(
-                groups: ["Details", "Place"], rows: Self.rows, beforeMoreDetails: upFront, expanded: false)
-            #expect(sections.map(\.heading) == [nil, "Place"])
-            #expect(sections.allSatisfy { !$0.hasMoreDetails && $0.more.isEmpty })
-            #expect(sections[0].rows.map(\.id) == ["name", "players", "added"])
-        }
+    @Test(arguments: [nil, Set(Self.rows.map(\.id))] as [Set<String>?])
+    func aCardWithNothingHeldBackHasNoMoreDetails(upFront: Set<String>?) {
+        let sections = Section.sections(
+            groups: ["Details", "Place"], rows: Self.rows, beforeMoreDetails: upFront, expanded: false)
+        #expect(sections.map(\.heading) == [nil, "Place"])
+        #expect(sections.allSatisfy { !$0.hasMoreDetails && $0.more.isEmpty })
+        #expect(sections[0].rows.map(\.id) == ["name", "players", "added"])
     }
 }

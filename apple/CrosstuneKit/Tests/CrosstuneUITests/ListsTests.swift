@@ -1139,11 +1139,11 @@ struct ListRowLayoutTests {
         #expect(noted(tune: tuned).secondLine == "Cross D (DADD) · \(ListRowText.notPlayable)")
     }
 
-    @Test func saysNothingToPlayOnlyForARowWithNothingToPlay() {
-        for row in [noted(hasAction: true), noted(isCurrent: true)] {
-            #expect(row.secondLine == nil)
-            #expect(row.accessibilityLabel().contains(ListRowText.notPlayable) == false)
-        }
+    @Test(arguments: [(true, false), (false, true)])
+    func saysNothingToPlayOnlyForARowWithNothingToPlay(hasAction: Bool, isCurrent: Bool) {
+        let row = noted(hasAction: hasAction, isCurrent: isCurrent)
+        #expect(row.secondLine == nil)
+        #expect(row.accessibilityLabel().contains(ListRowText.notPlayable) == false)
     }
 
     #if os(macOS)

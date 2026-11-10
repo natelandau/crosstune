@@ -102,10 +102,9 @@ import Testing
         #expect(SettingsCategory.appearance.summary(nil, appearance: appearance) == appearance.label)
     }
 
-    @Test func rootRowsShowNothingUntilRead() {
-        for category in SettingsCategory.allCases where category != .appearance {
-            #expect(category.summary(nil, appearance: .dark) == "", "\(category)")
-        }
+    @Test(arguments: SettingsCategory.allCases.filter { $0 != .appearance })
+    func rootRowsShowNothingUntilRead(category: SettingsCategory) {
+        #expect(category.summary(nil, appearance: .dark) == "")
     }
 
     @Test @MainActor func rootSummariesFollowTheStoredSettings() async throws {

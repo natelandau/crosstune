@@ -249,15 +249,14 @@ struct ControlLibraryTests {
         return ButtonStyleScan(screens: files, library: files).unstyledButtons().values.flatMap { $0 }.sorted()
     }
 
-    @Test func anUnstyledButtonIsFlaggedHoweverDeepItSits() {
-        for nested in [
-            "VStack { Button(x) {} }", "if shows { Button(x) {} }", "ForEach(items) { _ in Button(x) {} }",
-            "switch mode {\ncase .a:\nButton(x) {}\ndefault: EmptyView()\n}", "Group { Button(x) {} }",
-            "Section { Button(x) {} }",
-        ] {
-            let code = "struct A: View {\nvar body: some View {\n\(nested)\n}\n}"
-            #expect(Self.unstyled(["A": code]).count == 1, "\(nested)")
-        }
+    @Test(arguments: [
+        "VStack { Button(x) {} }", "if shows { Button(x) {} }", "ForEach(items) { _ in Button(x) {} }",
+        "switch mode {\ncase .a:\nButton(x) {}\ndefault: EmptyView()\n}", "Group { Button(x) {} }",
+        "Section { Button(x) {} }",
+    ])
+    func anUnstyledButtonIsFlaggedHoweverDeepItSits(nested: String) {
+        let code = "struct A: View {\nvar body: some View {\n\(nested)\n}\n}"
+        #expect(Self.unstyled(["A": code]).count == 1)
     }
 
     @Test func aButtonInAHelperIsJudgedWhereTheHelperIsPlaced() {
@@ -294,18 +293,16 @@ struct ControlLibraryTests {
         #expect(Self.unstyled(["Row": row, "A": inStack]) == ["var body: some View { Button(x) {} }"])
     }
 
-    @Test func systemPlacesAndHiddenButtonsPass() {
-        for code in [
-            "Menu { Button(x) {} } label: { Text(x) }", "Text(x).contextMenu { Button(x) {} }",
-            "Text(x).confirmationDialog(x, isPresented: $shows) { Button(x) {} }",
-            "Text(x).background { Button(x) {}.keyboardShortcut(.cancelAction).hidden() }",
-            "VStack { Button(x) {} }.buttonStyle(.text)", "Text(x).rowActions { Button(x) {} }",
-        ] {
-            let view = "struct A: View {\nvar body: some View {\n\(code)\n}\n}"
-            let placer =
-                "extension View {\nfunc rowActions(_ c: () -> some View) -> some View { swipeActions { c() } }\n}"
-            #expect(Self.unstyled(["A": view, "B": placer]).isEmpty, "\(code)")
-        }
+    @Test(arguments: [
+        "Menu { Button(x) {} } label: { Text(x) }", "Text(x).contextMenu { Button(x) {} }",
+        "Text(x).confirmationDialog(x, isPresented: $shows) { Button(x) {} }",
+        "Text(x).background { Button(x) {}.keyboardShortcut(.cancelAction).hidden() }",
+        "VStack { Button(x) {} }.buttonStyle(.text)", "Text(x).rowActions { Button(x) {} }",
+    ])
+    func systemPlacesAndHiddenButtonsPass(code: String) {
+        let view = "struct A: View {\nvar body: some View {\n\(code)\n}\n}"
+        let placer = "extension View {\nfunc rowActions(_ c: () -> some View) -> some View { swipeActions { c() } }\n}"
+        #expect(Self.unstyled(["A": view, "B": placer]).isEmpty)
     }
 
     @Test func aButtonInAViewModifierBodyIsFlagged() {
@@ -350,13 +347,12 @@ struct ControlLibraryTests {
         #expect(Self.unstyled(["P": placer, "C": collider, "A": view]).count == 1)
     }
 
-    @Test func aTypedCurveIsFlaggedHoweverItIsWritten() {
-        for code in [
-            "withAnimation(Animation.easeOut(duration: 1)) {}", ".animation(Animation.linear, value: x)",
-            ".animation(.spring(response: 0.3), value: x)",
-        ] {
-            #expect(Self.violations(in: code).map(\.rule).contains("own animation"), "\(code)")
-        }
+    @Test(arguments: [
+        "withAnimation(Animation.easeOut(duration: 1)) {}", ".animation(Animation.linear, value: x)",
+        ".animation(.spring(response: 0.3), value: x)",
+    ])
+    func aTypedCurveIsFlaggedHoweverItIsWritten(code: String) {
+        #expect(Self.violations(in: code).map(\.rule).contains("own animation"))
     }
 
     @Test func countsALibraryForkOnTheIOSSide() {

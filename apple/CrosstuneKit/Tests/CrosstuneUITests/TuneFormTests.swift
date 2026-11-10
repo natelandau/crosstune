@@ -359,13 +359,15 @@ struct TuneFormControlTests {
         #expect(SuggestionField.edit(SuggestionField.keepToken, kept: false) == .keep)
     }
 
-    @Test func storesACalendarDayAndReadsItBackUnchanged() throws {
+    @Test(arguments: ["Pacific/Kiritimati", "Pacific/Pago_Pago", "UTC"])
+    func storesACalendarDayAndReadsItBackUnchanged(zone: String) throws {
         var calendar = Calendar(identifier: .gregorian)
-        for zone in ["Pacific/Kiritimati", "Pacific/Pago_Pago", "UTC"] {
-            calendar.timeZone = try #require(TimeZone(identifier: zone))
-            let date = try #require(CalendarDay.date("2024-03-04", calendar: calendar))
-            #expect(CalendarDay.day(date, calendar: calendar) == "2024-03-04")
-        }
+        calendar.timeZone = try #require(TimeZone(identifier: zone))
+        let date = try #require(CalendarDay.date("2024-03-04", calendar: calendar))
+        #expect(CalendarDay.day(date, calendar: calendar) == "2024-03-04")
+    }
+
+    @Test func readsNoDayFromTextThatIsNotACalendarDay() {
         #expect(CalendarDay.date("2024-02-30") == nil)
         #expect(CalendarDay.date("March 4") == nil)
         #expect(CalendarDay.date("") == nil)

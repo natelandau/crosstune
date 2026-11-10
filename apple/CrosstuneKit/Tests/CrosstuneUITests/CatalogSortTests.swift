@@ -40,11 +40,13 @@ struct CatalogSortChoiceTests {
         #expect(CatalogSortChoice.storageKey != RecordingSortChoice.storageKey)
     }
 
-    @Test func startsEveryDateSortNewestFirst() {
-        for sort in [CatalogSort.added, .modified, .played] {
-            #expect(CatalogSortChoice.default.picking(sort) == choice(sort, true))
-            #expect(SortText.direction(choice(sort, true)) == SortText.newestFirst)
-        }
+    @Test(arguments: [CatalogSort.added, .modified, .played])
+    func startsEveryDateSortNewestFirst(sort: CatalogSort) {
+        #expect(CatalogSortChoice.default.picking(sort) == choice(sort, true))
+        #expect(SortText.direction(choice(sort, true)) == SortText.newestFirst)
+    }
+
+    @Test func pickingTitleReturnsToTheDefault() {
         #expect(choice(.played, true).picking(.title) == .default)
     }
 }
@@ -98,17 +100,16 @@ struct CatalogSortChoiceTests {
             ])
     }
 
-    @Test func breaksADateTieByTitleAToZInEitherDirection() {
+    @Test(arguments: [true, false])
+    func breaksADateTieByTitleAToZInEitherDirection(descending: Bool) {
         let entries = [
             entry("a", "Cotton Eyed Joe", added: "2026-03-01T00:00:00Z"),
             entry("b", "Arkansas Traveler", added: "2026-03-01T00:00:00Z"),
         ]
-        for descending in [true, false] {
-            #expect(
-                titles(CatalogSearch.sorted(entries, by: choice(.added, descending), lastPlayed: none)) == [
-                    "Arkansas Traveler", "Cotton Eyed Joe",
-                ])
-        }
+        #expect(
+            titles(CatalogSearch.sorted(entries, by: choice(.added, descending), lastPlayed: none)) == [
+                "Arkansas Traveler", "Cotton Eyed Joe",
+            ])
     }
 
     @Test func sortsByLastPlayedWithNeverPlayedTunesLastInEitherDirection() {

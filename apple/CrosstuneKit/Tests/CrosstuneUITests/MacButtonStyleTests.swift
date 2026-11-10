@@ -32,16 +32,16 @@
             KeyColor.RGB(hex: Palette.hex(token, scheme))
         }
 
-        @Test(arguments: [ColorScheme.light, .dark])
-        func everyRoleLabelPassesContrastOnItsFillInEveryContainer(scheme: ColorScheme) throws {
-            for container in MacContainer.allCases {
-                for role in Self.filledRoles + [.destructive] {
-                    let label = MacButtonStyle.labelRGB(for: role, scheme: scheme)
-                    for state in Self.states {
-                        let fill = try #require(
-                            MacButtonStyle.fillRGB(for: role, scheme: scheme, container: container, state: state))
-                        #expect(contrastRatio(label, fill) >= 4.5, "\(role) in \(container) \(state)")
-                    }
+        @Test(arguments: [ColorScheme.light, .dark], MacContainer.allCases)
+        func everyRoleLabelPassesContrastOnItsFillInEveryContainer(
+            scheme: ColorScheme, container: MacContainer
+        ) throws {
+            for role in Self.filledRoles + [.destructive] {
+                let label = MacButtonStyle.labelRGB(for: role, scheme: scheme)
+                for state in Self.states {
+                    let fill = try #require(
+                        MacButtonStyle.fillRGB(for: role, scheme: scheme, container: container, state: state))
+                    #expect(contrastRatio(label, fill) >= 4.5, "\(role) \(state)")
                 }
             }
         }
@@ -93,63 +93,53 @@
         /// Tinted destructive sits on the container's control fill, with its edge, and takes the
         /// danger role's subtle fill under the pointer and a press, where an overlay would leave
         /// its red label short of 4.5:1.
-        @Test(arguments: [ColorScheme.light, .dark])
-        func destructiveSitsOnTheControlFill(scheme: ColorScheme) throws {
-            for container in MacContainer.allCases {
-                let rest = try #require(
-                    MacButtonStyle.fillRGB(for: .destructive, scheme: scheme, container: container, state: .rest))
-                #expect(rest == Self.rgb(container.controlFill, scheme), "\(container)")
-                let subtle = blend(
-                    Palette.hex(.danger, scheme), over: Palette.hex(container.fill, scheme),
-                    opacity: Palette.subtleOpacity)
-                for state in [MacPressState.hover, .pressed] {
-                    let fill = try #require(
-                        MacButtonStyle.fillRGB(for: .destructive, scheme: scheme, container: container, state: state))
-                    #expect(fill.hex == subtle, "\(container) \(state)")
-                }
+        @Test(arguments: [ColorScheme.light, .dark], MacContainer.allCases)
+        func destructiveSitsOnTheControlFill(scheme: ColorScheme, container: MacContainer) throws {
+            let rest = try #require(
+                MacButtonStyle.fillRGB(for: .destructive, scheme: scheme, container: container, state: .rest))
+            #expect(rest == Self.rgb(container.controlFill, scheme))
+            let subtle = blend(
+                Palette.hex(.danger, scheme), over: Palette.hex(container.fill, scheme),
+                opacity: Palette.subtleOpacity)
+            for state in [MacPressState.hover, .pressed] {
+                let fill = try #require(
+                    MacButtonStyle.fillRGB(for: .destructive, scheme: scheme, container: container, state: state))
+                #expect(fill.hex == subtle, "\(state)")
             }
         }
 
         /// A filled role lays the hover overlay under the pointer and the pressed overlay on a
         /// press, each straight over the rest fill; an icon's circle takes the pressed overlay
         /// on the control fill.
-        @Test(arguments: [ColorScheme.light, .dark])
-        func pressIsTheOverlayNotAMix(scheme: ColorScheme) throws {
+        @Test(arguments: [ColorScheme.light, .dark], MacContainer.allCases)
+        func pressIsTheOverlayNotAMix(scheme: ColorScheme, container: MacContainer) throws {
             let text = Palette.hex(.textPrimary, scheme)
-            for container in MacContainer.allCases {
-                let rests: [(MacButtonStyle.Role, String)] = [
-                    (.primary, Palette.hex(.accentFill, scheme)),
-                    (.destructiveFilled, Palette.hex(.danger, scheme)),
-                ]
-                for (role, rest) in rests {
-                    func fill(_ state: MacPressState, sourceLocation: SourceLocation = #_sourceLocation) throws
-                        -> String
-                    {
-                        try #require(
-                            MacButtonStyle.fillRGB(for: role, scheme: scheme, container: container, state: state),
-                            sourceLocation: sourceLocation
-                        ).hex
-                    }
-                    #expect(try fill(.rest) == rest.lowercased(), "\(role)")
-                    #expect(
-                        try fill(.hover) == blend(text, over: rest, opacity: Palette.hoverOverlayOpacity), "\(role)")
-                    #expect(
-                        try fill(.pressed) == blend(text, over: rest, opacity: Palette.pressedOverlayOpacity),
-                        "\(role)")
+            let rests: [(MacButtonStyle.Role, String)] = [
+                (.primary, Palette.hex(.accentFill, scheme)),
+                (.destructiveFilled, Palette.hex(.danger, scheme)),
+            ]
+            for (role, rest) in rests {
+                func fill(_ state: MacPressState, sourceLocation: SourceLocation = #_sourceLocation) throws
+                    -> String
+                {
+                    try #require(
+                        MacButtonStyle.fillRGB(for: role, scheme: scheme, container: container, state: state),
+                        sourceLocation: sourceLocation
+                    ).hex
                 }
-            }
-            for container in MacContainer.allCases {
-                let control = Palette.hex(container.controlFill, scheme)
-                let hover = MacButtonStyle.fillRGB(for: .icon, scheme: scheme, container: container, state: .hover)
-                let pressed = MacButtonStyle.fillRGB(
-                    for: .icon, scheme: scheme, container: container, state: .pressed)
-                #expect(hover?.hex == control.lowercased(), "\(container)")
+                #expect(try fill(.rest) == rest.lowercased(), "\(role)")
                 #expect(
-                    pressed?.hex == blend(text, over: control, opacity: Palette.pressedOverlayOpacity), "\(container)")
+                    try fill(.hover) == blend(text, over: rest, opacity: Palette.hoverOverlayOpacity), "\(role)")
+                #expect(
+                    try fill(.pressed) == blend(text, over: rest, opacity: Palette.pressedOverlayOpacity),
+                    "\(role)")
             }
-            #expect(
-                MacButtonStyle.fillRGB(for: .primary, scheme: scheme, state: .pressed)
-                    == MacButtonStyle.fillRGB(for: .primary, scheme: scheme, state: .pressed))
+            let control = Palette.hex(container.controlFill, scheme)
+            let hover = MacButtonStyle.fillRGB(for: .icon, scheme: scheme, container: container, state: .hover)
+            let pressed = MacButtonStyle.fillRGB(
+                for: .icon, scheme: scheme, container: container, state: .pressed)
+            #expect(hover?.hex == control.lowercased())
+            #expect(pressed?.hex == blend(text, over: control, opacity: Palette.pressedOverlayOpacity))
         }
 
         /// A disabled Filled button, plain or destructive, drops its fill for the outline; every
@@ -163,38 +153,34 @@
 
         /// A toggle that is on shows it in shape: the tint circle at rest, `tintStrong` under
         /// the pointer. Off, or not a toggle, draws no circle at rest.
-        @Test(arguments: [ColorScheme.light, .dark])
-        func aToggleOnShowsInShape(scheme: ColorScheme) throws {
+        @Test(arguments: [ColorScheme.light, .dark], MacContainer.allCases)
+        func aToggleOnShowsInShape(scheme: ColorScheme, container: MacContainer) throws {
             let accent = Palette.hex(.accent, scheme)
-            for container in MacContainer.allCases {
-                let base = Palette.hex(container.fill, scheme)
-                for state in Self.states {
-                    let on = try #require(
-                        MacButtonStyle.iconFillRGB(isOn: true, state: state, scheme: scheme, container: container))
-                    let opacity = state == .rest ? Palette.tintOpacity(scheme) : Palette.tintStrongOpacity(scheme)
-                    #expect(on.hex == blend(accent, over: base, opacity: opacity), "\(container) \(state)")
-                }
-                for isOn in [false, nil] as [Bool?] {
-                    #expect(
-                        MacButtonStyle.iconFillRGB(isOn: isOn, state: .rest, scheme: scheme, container: container)
-                            == nil)
-                }
+            let base = Palette.hex(container.fill, scheme)
+            for state in Self.states {
+                let on = try #require(
+                    MacButtonStyle.iconFillRGB(isOn: true, state: state, scheme: scheme, container: container))
+                let opacity = state == .rest ? Palette.tintOpacity(scheme) : Palette.tintStrongOpacity(scheme)
+                #expect(on.hex == blend(accent, over: base, opacity: opacity), "\(state)")
+            }
+            for isOn in [false, nil] as [Bool?] {
+                #expect(
+                    MacButtonStyle.iconFillRGB(isOn: isOn, state: .rest, scheme: scheme, container: container)
+                        == nil)
             }
         }
 
         /// An icon's glyph holds 3:1 on whatever it sits on in every state, on or off.
-        @Test(arguments: [ColorScheme.light, .dark])
-        func iconGlyphPassesContrastInEveryState(scheme: ColorScheme) {
-            for container in MacContainer.allCases {
-                for isOn in [true, false, nil] as [Bool?] {
-                    for state in Self.states {
-                        let fill =
-                            MacButtonStyle.iconFillRGB(isOn: isOn, state: state, scheme: scheme, container: container)
-                            ?? Self.rgb(container.fill, scheme)
-                        let glyph = MacButtonStyle.iconLabelRGB(isOn: isOn, state: state, scheme: scheme)
-                        let name = "\(container) on: \(String(describing: isOn)) \(state)"
-                        #expect(contrastRatio(glyph, fill) >= 3, "\(name)")
-                    }
+        @Test(arguments: [ColorScheme.light, .dark], MacContainer.allCases)
+        func iconGlyphPassesContrastInEveryState(scheme: ColorScheme, container: MacContainer) {
+            for isOn in [true, false, nil] as [Bool?] {
+                for state in Self.states {
+                    let fill =
+                        MacButtonStyle.iconFillRGB(isOn: isOn, state: state, scheme: scheme, container: container)
+                        ?? Self.rgb(container.fill, scheme)
+                    let glyph = MacButtonStyle.iconLabelRGB(isOn: isOn, state: state, scheme: scheme)
+                    let name = "on: \(String(describing: isOn)) \(state)"
+                    #expect(contrastRatio(glyph, fill) >= 3, "\(name)")
                 }
             }
         }

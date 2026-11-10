@@ -103,14 +103,12 @@
         }
 
         /// A set filter's label on its accent tint, over the backgrounds a filter row sits on.
-        @Test(arguments: [ColorScheme.light, .dark])
-        func setLabelPassesContrastOnItsTint(scheme: ColorScheme) {
+        @Test(arguments: [ColorScheme.light, .dark], [Palette.Token.pageBackground, .surface])
+        func setLabelPassesContrastOnItsTint(scheme: ColorScheme, background: Palette.Token) {
             let accent = Palette.hex(.accent, scheme)
             let label = Palette.onTintIsAccent(scheme) ? accent : Palette.hex(.textPrimary, scheme)
-            for background in [Palette.Token.pageBackground, .surface] {
-                let tint = blend(accent, over: Palette.hex(background, scheme), opacity: Palette.tintOpacity(scheme))
-                #expect(contrastRatio(label, tint) >= 4.5, "\(scheme) on \(background)")
-            }
+            let tint = blend(accent, over: Palette.hex(background, scheme), opacity: Palette.tintOpacity(scheme))
+            #expect(contrastRatio(label, tint) >= 4.5)
         }
 
         /// The dock's play is a circle that fits the dock's slot, never a frame padded to a touch target.
@@ -137,13 +135,11 @@
         }
 
         /// The baseline holds whatever the title's size: the column's 26 points or the page's 34.
-        @Test func titleRoomPutsEveryTitleSizeOnTheBaseline() {
-            for size: CGFloat in [26, 34] {
-                let ascender = NSFont.systemFont(ofSize: size, weight: .bold).ascender
-                #expect(
-                    abs(MacStyle.titleTop(size: size, container: .page) + ascender - MacStyle.columnTitleBaseline)
-                        < 0.01)
-            }
+        @Test(arguments: [CGFloat(26), 34])
+        func titleRoomPutsEveryTitleSizeOnTheBaseline(size: CGFloat) {
+            let ascender = NSFont.systemFont(ofSize: size, weight: .bold).ascender
+            #expect(
+                abs(MacStyle.titleTop(size: size, container: .page) + ascender - MacStyle.columnTitleBaseline) < 0.01)
         }
 
         /// The undo banner is the primary text color with the page background's color for its

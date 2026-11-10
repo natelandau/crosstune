@@ -164,11 +164,9 @@ struct TuneDetailTests {
         #expect(detail(tune, notes: "Drive the B part").notes == "Drive the B part")
     }
 
-    @Test func showsALearnedOnValueItCannotReadAsStored() {
-        let locale = Locale(identifier: "en_US")
-        for value in ["2024-3-4", "sometime in 2024", "2024-02-30", "2024-13-05", "2024-00-10"] {
-            #expect(TuneDetail.learnedOn(value, locale: locale) == value)
-        }
+    @Test(arguments: ["2024-3-4", "sometime in 2024", "2024-02-30", "2024-13-05", "2024-00-10"])
+    func showsALearnedOnValueItCannotReadAsStored(value: String) {
+        #expect(TuneDetail.learnedOn(value, locale: Locale(identifier: "en_US")) == value)
     }
 
     @Test func offersLyricsOnlyWhenTheyHoldWords() {

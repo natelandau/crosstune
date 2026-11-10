@@ -633,35 +633,38 @@ struct DefaultRecordingLabelTests {
         #expect(CommandError.recordedDateMismatch.errorDescription == CommandError.recordedDateMismatchMessage)
     }
 
-    @Test func refusesAPartialDateOffTheStartOfItsPeriod() async throws {
+    @Test(arguments: [
+        ("1937-05-01T00:00:00.000Z", RecordingPrecision.year),
+        ("1998-05-02T00:00:00.000Z", .month),
+        ("1998-10-03T04:00:00.000Z", .day),
+        ("1998-10-03T00:00:00.001Z", .day),
+    ])
+    func refusesAPartialDateOffTheStartOfItsPeriod(iso: String, precision: RecordingPrecision) async throws {
         let root = TemporaryRoot()
         let store = try root.open()
         let id = try await capturedRecording(store)
         let commands = Commands(store: store)
-
-        for (iso, precision) in [
-            ("1937-05-01T00:00:00.000Z", RecordingPrecision.year),
-            ("1998-05-02T00:00:00.000Z", .month),
-            ("1998-10-03T04:00:00.000Z", .day),
-            ("1998-10-03T00:00:00.001Z", .day),
-        ] {
-            let at = try #require(Timestamp(iso: iso))
-            await #expect(throws: CommandError.recordedDateOffPeriod) {
-                try await commands.updateRecordingDate(id, recordedAt: at, precision: precision)
-            }
+        let at = try #require(Timestamp(iso: iso))
+        await #expect(throws: CommandError.recordedDateOffPeriod) {
+            try await commands.updateRecordingDate(id, recordedAt: at, precision: precision)
         }
         #expect(try await row(store, id).recordedAt == noon)
+    }
 
-        for (iso, precision) in [
-            ("1937-01-01T00:00:00.000Z", RecordingPrecision.year),
-            ("1998-05-01T00:00:00.000Z", .month),
-            ("1998-10-03T00:00:00.000Z", .day),
-            ("1998-10-03T04:12:30.500Z", .time),
-        ] {
-            let at = try #require(Timestamp(iso: iso))
-            try await commands.updateRecordingDate(id, recordedAt: at, precision: precision)
-            #expect(try await row(store, id).recordedAt == at)
-        }
+    @Test(arguments: [
+        ("1937-01-01T00:00:00.000Z", RecordingPrecision.year),
+        ("1998-05-01T00:00:00.000Z", .month),
+        ("1998-10-03T00:00:00.000Z", .day),
+        ("1998-10-03T04:12:30.500Z", .time),
+    ])
+    func acceptsAPartialDateOnTheStartOfItsPeriod(iso: String, precision: RecordingPrecision) async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let id = try await capturedRecording(store)
+        let commands = Commands(store: store)
+        let at = try #require(Timestamp(iso: iso))
+        try await commands.updateRecordingDate(id, recordedAt: at, precision: precision)
+        #expect(try await row(store, id).recordedAt == at)
     }
 
     @Test func acceptsADateExactlyADayAhead() async throws {

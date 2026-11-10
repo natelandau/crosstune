@@ -164,14 +164,11 @@
             #expect(contrastRatio(Palette.hex(.textSecondary, scheme), field) >= 3)
         }
 
-        @Test(arguments: [ColorScheme.light, .dark])
-        func popUpValuePassesContrastOnEveryBackground(scheme: ColorScheme) {
-            for isSet in [false, true] {
-                let value = MacPopUpStyle.valueRGB(isSet: isSet, scheme: scheme).hex
-                for background in [Palette.Token.pageBackground, .surface, .field, .surfaceRaised] {
-                    #expect(
-                        contrastRatio(value, Palette.hex(background, scheme)) >= 4.5, "set \(isSet) on \(background)")
-                }
+        @Test(arguments: [ColorScheme.light, .dark], [false, true])
+        func popUpValuePassesContrastOnEveryBackground(scheme: ColorScheme, isSet: Bool) {
+            let value = MacPopUpStyle.valueRGB(isSet: isSet, scheme: scheme).hex
+            for background in [Palette.Token.pageBackground, .surface, .field, .surfaceRaised] {
+                #expect(contrastRatio(value, Palette.hex(background, scheme)) >= 4.5, "\(background)")
             }
         }
 

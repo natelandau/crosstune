@@ -123,14 +123,13 @@ struct PlanTextTests {
         #expect(PlanText.trialEnds(ends, calendar: Self.calendar, locale: Self.locale) == "Ends Oct 15, 2026")
     }
 
-    @Test func theSettingsLineJoinsTheCardsTwoLines() {
-        for days in [1.0, 5, 29] {
-            let ends = Self.now.addingTimeInterval(days * 86_400)
-            #expect(
-                PlanText.trialLeft(endsAt: ends, now: Self.now, calendar: Self.calendar, locale: Self.locale)
-                    == "\(PlanText.trialEnds(ends, calendar: Self.calendar, locale: Self.locale)), \(PlanText.trialDaysLeft(endsAt: ends, now: Self.now, calendar: Self.calendar))"
-            )
-        }
+    @Test(arguments: [1.0, 5, 29])
+    func theSettingsLineJoinsTheCardsTwoLines(days: Double) {
+        let ends = Self.now.addingTimeInterval(days * 86_400)
+        #expect(
+            PlanText.trialLeft(endsAt: ends, now: Self.now, calendar: Self.calendar, locale: Self.locale)
+                == "\(PlanText.trialEnds(ends, calendar: Self.calendar, locale: Self.locale)), \(PlanText.trialDaysLeft(endsAt: ends, now: Self.now, calendar: Self.calendar))"
+        )
     }
 
     @Test func namesThePlanByKindAndSource() {
@@ -161,20 +160,19 @@ struct PlanTextTests {
         #expect(PlanText.detail(.unknown, now: Self.now) == nil)
     }
 
-    @Test func detailsASubscriptionAsThePlanSheetDoes() {
+    @Test(arguments: [PlanSource.apple, .stripe])
+    func detailsASubscriptionAsThePlanSheetDoes(source: PlanSource) {
         let later = Self.now.addingTimeInterval(3600)
-        for source in [PlanSource.apple, .stripe] {
-            let renewing = Plan(kind: .premium, source: source, premiumEndsAt: later, autoRenews: true)
-            #expect(
-                PlanText.detail(renewing, now: Self.now, calendar: Self.calendar, locale: Self.locale)
-                    == "Renews Oct 10, 2026")
-            let inLeeway = Plan(kind: .premium, source: source, premiumEndsAt: Self.now, autoRenews: true)
-            #expect(PlanText.detail(inLeeway, now: Self.now, calendar: Self.calendar, locale: Self.locale) == nil)
-            let lapsing = Plan(kind: .premium, source: source, premiumEndsAt: Self.now, autoRenews: false)
-            #expect(
-                PlanText.detail(lapsing, now: Self.now, calendar: Self.calendar, locale: Self.locale)
-                    == "Ends Oct 10, 2026")
-        }
+        let renewing = Plan(kind: .premium, source: source, premiumEndsAt: later, autoRenews: true)
+        #expect(
+            PlanText.detail(renewing, now: Self.now, calendar: Self.calendar, locale: Self.locale)
+                == "Renews Oct 10, 2026")
+        let inLeeway = Plan(kind: .premium, source: source, premiumEndsAt: Self.now, autoRenews: true)
+        #expect(PlanText.detail(inLeeway, now: Self.now, calendar: Self.calendar, locale: Self.locale) == nil)
+        let lapsing = Plan(kind: .premium, source: source, premiumEndsAt: Self.now, autoRenews: false)
+        #expect(
+            PlanText.detail(lapsing, now: Self.now, calendar: Self.calendar, locale: Self.locale)
+                == "Ends Oct 10, 2026")
     }
 
     @Test func measuresTheUsageAgainstThePlansQuota() {

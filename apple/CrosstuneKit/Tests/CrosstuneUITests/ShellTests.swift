@@ -42,14 +42,11 @@ struct SyncBadgeTests {
         #expect(SyncBadge.tone(.updateRequired) == SyncBadge.tone(.offline))
     }
 
-    @Test func everyBadgeReadsAtLeastFourAndAHalfToOne() {
-        for scheme in [ColorScheme.light, .dark] {
-            for status in [SyncStatus.offline, .unauthorized, .error, .updateRequired] {
-                let text = Palette.hex(SyncBadge.tone(status), scheme)
-                let fill = blend(text, over: Palette.hex(.pageBackground, scheme), opacity: Palette.subtleOpacity)
-                #expect(contrastRatio(text, fill) >= 4.5, "\(status) \(scheme)")
-            }
-        }
+    @Test(arguments: [ColorScheme.light, .dark], [SyncStatus.offline, .unauthorized, .error, .updateRequired])
+    func everyBadgeReadsAtLeastFourAndAHalfToOne(scheme: ColorScheme, status: SyncStatus) {
+        let text = Palette.hex(SyncBadge.tone(status), scheme)
+        let fill = blend(text, over: Palette.hex(.pageBackground, scheme), opacity: Palette.subtleOpacity)
+        #expect(contrastRatio(text, fill) >= 4.5)
     }
 
     @Test func labelsAreTheWebs() {
