@@ -63,7 +63,9 @@ public final class AudioPlayer: AudioPlayback {
     /// The offline renderer has no device to play back to, so it reports rendered data instead.
     @ObservationIgnored private let segmentEnd: AVAudioPlayerNodeCompletionCallbackType
     /// Segment ends the node has reported that the main actor has not handled yet.
-    @ObservationIgnored let segmentEndsInFlight = Atomic<Int>(0)
+    @ObservationIgnored private let segmentEndsInFlight = Atomic<Int>(0)
+    /// Segment ends of the current schedule that have reached the main actor.
+    @ObservationIgnored private var segmentEndsArrived = 0
     @ObservationIgnored private var nowPlaying: NowPlaying?
     @ObservationIgnored private var controls: NowPlayingControls?
     #if DEBUG
@@ -377,6 +379,7 @@ public final class AudioPlayer: AudioPlayback {
     /// nothing of the window is left.
     private func schedule(from position: TimeInterval) -> Bool {
         segmentID += 1
+        segmentEndsArrived = 0
         node.stop()
         // The node starts somewhere new, so audio the units after it still hold is from before.
         isolate?.reset()
@@ -417,6 +420,22 @@ public final class AudioPlayer: AudioPlayback {
         }
     }
 
+    /// Whether every segment end the node has rendered past, and every end it has reported, has
+    /// reached the main actor. The node reports an end from its own thread, after the render
+    /// that passed it may already have returned.
+    var hasHandledRenderedSegmentEnds: Bool {
+        guard segmentEndsInFlight.load(ordering: .relaxed) == 0 else { return false }
+        guard isPlaying, engine.isRunning, let nodeTime = node.lastRenderTime, nodeTime.isSampleTimeValid,
+            nodeTime.sampleTime != renderBeforeSchedule,
+            let playerTime = node.playerTime(forNodeTime: nodeTime)
+        else { return true }
+        let played = playerTime.sampleTime
+        guard played >= run.leadFrames else { return true }
+        var due = 1
+        if let loop = run.loop, loop.frames > 0 { due += Int((played - run.leadFrames) / loop.frames) }
+        return segmentEndsArrived >= due
+    }
+
     private func rescheduleIfPlaying() {
         guard isPlaying else { return }
         if schedule(from: elapsed) { node.play() } else { reachedEnd() }
@@ -425,6 +444,7 @@ public final class AudioPlayer: AudioPlayback {
     /// Stops the node and lets the output hardware rest, keeping the file loaded.
     private func stopPlayback() {
         segmentID += 1
+        segmentEndsArrived = 0
         node.stop()
         ticker?.cancel()
         ticker = nil
@@ -435,6 +455,7 @@ public final class AudioPlayer: AudioPlayback {
     /// A segment also ends when the system stops the engine; the interruption and
     /// configuration handlers pick that up from where it stopped, so only a running engine ends.
     private func segmentEnded(_ id: Int, then pass: PlaybackSegment?) {
+        if id == segmentID { segmentEndsArrived += 1 }
         guard id == segmentID, isPlaying, engine.isRunning else { return }
         guard let pass, let file else {
             reachedEnd()

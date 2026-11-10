@@ -119,16 +119,16 @@ struct AudioPlayerTests {
         player.unload()
     }
 
-    /// A player on the offline renderer, with a 4-second tone loaded.
-    /// Waits until the main actor has handled every segment end the node has reported.
+    /// Waits until the main actor has handled every segment end the node has rendered past.
     private func segmentEndsHandled(_ player: AudioPlayer, sourceLocation: SourceLocation = #_sourceLocation)
         async throws
     {
         try await eventually(sourceLocation: sourceLocation) {
-            player.segmentEndsInFlight.load(ordering: .relaxed) == 0
+            player.hasHandledRenderedSegmentEnds
         }
     }
 
+    /// A player on the offline renderer, with a 4-second tone loaded.
     private func offlinePlayer(_ root: TemporaryRoot, channels: Int = 1) throws -> AudioPlayer {
         try FileManager.default.createDirectory(at: root.url, withIntermediateDirectories: true)
         let url = root.url.appending(path: "tone.aac")
