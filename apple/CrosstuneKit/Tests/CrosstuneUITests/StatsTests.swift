@@ -263,7 +263,7 @@ private func loadedSummary(_ store: CrosstuneStore, sourceLocation: SourceLocati
         place.tabPaths[.catalog] = PagePath(tune: "t2")
         let open = CatalogTapThrough(catalog: catalog, showRoot: MenuAction { place.showTabRoot(.catalog) })
 
-        open(StatsLink.key("D")!)
+        open(try #require(StatsLink.key("D")))
         #expect(catalog.query.isEmpty)
         #expect(place.tab == .catalog)
         #expect(place.tabPaths[.catalog]?.tune == nil)
@@ -271,7 +271,7 @@ private func loadedSummary(_ store: CrosstuneStore, sourceLocation: SourceLocati
         var stored = CatalogFilters(stored: try await store.meta(.catalogFilters, as: JSONValue.self))
         #expect(stored == CatalogFilters(facets: [.key: "D"]))
 
-        open(StatsLink.keyMode(key: "E", mode: "dorian")!)
+        open(try #require(StatsLink.keyMode(key: "E", mode: "dorian")))
         try await eventually { !catalog.isSavingFilters }
         stored = CatalogFilters(stored: try await store.meta(.catalogFilters, as: JSONValue.self))
         #expect(stored == CatalogFilters(facets: [.key: "E", .mode: "dorian"]))
@@ -564,7 +564,7 @@ private func loadedSummary(_ store: CrosstuneStore, sourceLocation: SourceLocati
         let catalog = CatalogModel(store: store)
         let place = ShellPlace()
         CatalogTapThrough(catalog: catalog, showRoot: MenuAction { place.showTabRoot(.catalog) })(
-            StatsLink.key("D")!)
+            try #require(StatsLink.key("D")))
         try await eventually {
             let stored = try await store.meta(.catalogFilters, as: JSONValue.self)
             return CatalogFilters(stored: stored) == CatalogFilters(facets: [.key: "D"])

@@ -28,9 +28,9 @@ import Testing
     }
 
     private func editing(_ store: CrosstuneStore, _ tune: Tune) async throws -> TuneFormModel {
-        let userTuneID = try await store.read { db in
-            try UserTune.filter(UserTune.CodingKeys.tuneID == tune.id).fetchOne(db)!.id
-        }
+        let userTuneID = try #require(
+            try await store.read { db in try UserTune.filter(UserTune.CodingKeys.tuneID == tune.id).fetchOne(db) }
+        ).id
         let model = TuneFormModel(
             store: store, target: .edit(tuneID: tune.id, userTuneID: userTuneID), analytics: sink.client)
         await model.load()

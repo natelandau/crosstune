@@ -51,10 +51,10 @@ import Testing
         #expect(row(.status, in: detail(status: "mastered"))?.text == "Unknown")
     }
 
-    @Test func showsCrookedOnlyWhenOnAndRightAfterParts() {
+    @Test func showsCrookedOnlyWhenOnAndRightAfterParts() throws {
         let crooked = detail(Tune(createdAt: noon, title: "T", isCrooked: true))
         let on = AttributeRows.rows(crooked).map(\.id)
-        let at = on.firstIndex(of: .partStructure)!
+        let at = try #require(on.firstIndex(of: .partStructure))
         #expect(on[at + 1] == .isCrooked)
         #expect(row(.isCrooked, in: crooked)?.text == "Crooked")
         #expect(AttributeRows.rows(detail()).map(\.id).contains(.isCrooked) == false)

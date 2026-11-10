@@ -48,8 +48,8 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
         #expect(move?.apply(to: ids) == ["b", "c", "a", "d", "e"])
     }
 
-    @Test func replaysIdempotently() {
-        let move = ListMove(ids: ids, from: 0, to: 4)!
+    @Test func replaysIdempotently() throws {
+        let move = try #require(ListMove(ids: ids, from: 0, to: 4))
         let once = move.apply(to: ids)
         #expect(move.apply(to: once) == once)
     }
@@ -84,23 +84,23 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
 @Suite struct PendingMovesTests {
     private let stored = ["a", "b", "c", "d"]
 
-    @Test func showsAMoveAtOnceWhileItIsWritten() {
+    @Test func showsAMoveAtOnceWhileItIsWritten() throws {
         var moves = PendingMoves()
-        _ = moves.begin(ListMove(ids: stored, from: 0, to: 2)!)
+        _ = moves.begin(try #require(ListMove(ids: stored, from: 0, to: 2)))
         moves.retire(order: stored, revision: 1)
         #expect(moves.apply(to: stored) == ["b", "c", "a", "d"])
     }
 
-    @Test func replaysMovesInTheOrderTheyWereMade() {
+    @Test func replaysMovesInTheOrderTheyWereMade() throws {
         var moves = PendingMoves()
-        _ = moves.begin(ListMove(ids: stored, from: 0, to: 3)!)
-        _ = moves.begin(ListMove(ids: ["b", "c", "d", "a"], from: 3, to: 0)!)
+        _ = moves.begin(try #require(ListMove(ids: stored, from: 0, to: 3)))
+        _ = moves.begin(try #require(ListMove(ids: ["b", "c", "d", "a"], from: 3, to: 0)))
         #expect(moves.apply(to: stored) == stored)
     }
 
-    @Test func retiresASettledMoveAtTheFirstReadAfterIt() {
+    @Test func retiresASettledMoveAtTheFirstReadAfterIt() throws {
         var moves = PendingMoves()
-        let id = moves.begin(ListMove(ids: stored, from: 0, to: 2)!)
+        let id = moves.begin(try #require(ListMove(ids: stored, from: 0, to: 2)))
         let written = ["b", "c", "a", "d"]
         moves.settle(id, revision: 1, storedOrder: written)
         moves.retire(order: stored, revision: 1)
@@ -109,34 +109,34 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
         #expect(moves.isEmpty)
     }
 
-    @Test func retiresAtOnceWhenTheReadLandedBeforeTheWriteSettled() {
+    @Test func retiresAtOnceWhenTheReadLandedBeforeTheWriteSettled() throws {
         var moves = PendingMoves()
-        let id = moves.begin(ListMove(ids: stored, from: 0, to: 2)!)
+        let id = moves.begin(try #require(ListMove(ids: stored, from: 0, to: 2)))
         let written = ["b", "c", "a", "d"]
         moves.settle(id, revision: 2, storedOrder: written)
         moves.retire(order: written, revision: 2)
         #expect(moves.isEmpty)
     }
 
-    @Test func followsASyncThatReordersTheTuneOnceTheMoveHasSettled() {
+    @Test func followsASyncThatReordersTheTuneOnceTheMoveHasSettled() throws {
         var moves = PendingMoves()
-        let id = moves.begin(ListMove(ids: stored, from: 0, to: 2)!)
+        let id = moves.begin(try #require(ListMove(ids: stored, from: 0, to: 2)))
         moves.settle(id, revision: 1, storedOrder: ["b", "c", "a", "d"])
         let synced = ["a", "d", "b", "c"]
         moves.retire(order: synced, revision: 2)
         #expect(moves.apply(to: synced) == synced)
     }
 
-    @Test func dropsAFailedMove() {
+    @Test func dropsAFailedMove() throws {
         var moves = PendingMoves()
-        let id = moves.begin(ListMove(ids: stored, from: 0, to: 2)!)
+        let id = moves.begin(try #require(ListMove(ids: stored, from: 0, to: 2)))
         moves.drop(id)
         #expect(moves.apply(to: stored) == stored)
     }
 
-    @Test func stopsAMoveWhoseTuneLeftTheList() {
+    @Test func stopsAMoveWhoseTuneLeftTheList() throws {
         var moves = PendingMoves()
-        _ = moves.begin(ListMove(ids: stored, from: 0, to: 2)!)
+        _ = moves.begin(try #require(ListMove(ids: stored, from: 0, to: 2)))
         moves.retire(order: ["b", "c", "d"], revision: 2)
         #expect(moves.isEmpty)
     }
@@ -613,9 +613,8 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     private let now = SampleCatalog.now
 
     private func entry(_ title: String, in store: CrosstuneStore) async throws -> ListEntry {
-        try await store.read { db in
-            try ListContents.fetch(db, listID: session.id)!.entries.first { $0.tune.title == title }!
-        }
+        let contents = try #require(try await store.read { db in try ListContents.fetch(db, listID: session.id) })
+        return try #require(contents.entries.first { $0.tune.title == title })
     }
 
     @Test func fetchesTheLiveRecordingsAndLinksOfEachTune() async throws {
@@ -636,7 +635,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
         let pinnedEntry = try await entry("Soldier's Joy", in: store)
         #expect(
             ListRowPlay.action(for: pinnedEntry, playFirst: UserSettings.playFirstRecordings)
-                == .play(PlayerItem.link(pinned)!))
+                == .play(try #require(PlayerItem.link(pinned))))
     }
 
     @Test func leavesATuneWithOnlyRecordingsInertWhileRecordingsCannotPlay() async throws {
@@ -934,7 +933,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     private let session = "sample_list_session"
 
     private func tamLin(_ store: CrosstuneStore) async throws -> String {
-        try await store.read { db in try Tune.filter(Tune.CodingKeys.title == "Tam Lin").fetchOne(db)!.id }
+        try #require(try await store.read { db in try Tune.filter(Tune.CodingKeys.title == "Tam Lin").fetchOne(db) }).id
     }
 
     private func resolve(

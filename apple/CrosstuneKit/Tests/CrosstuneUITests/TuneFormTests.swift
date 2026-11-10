@@ -415,9 +415,9 @@ private func entry(_ tuning: String? = nil, capo: Int64? = nil) -> JSONValue {
     private func editing(_ store: CrosstuneStore, _ tuneID: String, focus: TuneFormFocus? = nil) async throws
         -> TuneFormModel
     {
-        let userTuneID = try await store.read { db in
-            try UserTune.filter(UserTune.CodingKeys.tuneID == tuneID).fetchOne(db)!.id
-        }
+        let userTuneID = try #require(
+            try await store.read { db in try UserTune.filter(UserTune.CodingKeys.tuneID == tuneID).fetchOne(db) }
+        ).id
         let model = TuneFormModel(store: store, target: .edit(tuneID: tuneID, userTuneID: userTuneID, focus: focus))
         await model.load()
         return model
@@ -567,9 +567,9 @@ private func entry(_ tuning: String? = nil, capo: Int64? = nil) -> JSONValue {
             "Sally Ann", key: "A", modes: ["major"], timeSignature: "7/8",
             tunings: ["guitar": entry("DADGAD", capo: 2), "hardanger": entry("x")])
         try await seed(store, instruments: ["violin"], tunes: [stored])
-        let userTuneID = try await store.read { db in
-            try UserTune.filter(UserTune.CodingKeys.tuneID == stored.id).fetchOne(db)!.id
-        }
+        let userTuneID = try #require(
+            try await store.read { db in try UserTune.filter(UserTune.CodingKeys.tuneID == stored.id).fetchOne(db) }
+        ).id
         let model = TuneFormModel(store: store, target: .edit(tuneID: stored.id, userTuneID: userTuneID))
         await model.load()
         #expect(model.tuningInstruments == ["violin", "guitar"])

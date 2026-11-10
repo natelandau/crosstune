@@ -66,9 +66,11 @@ private func matches(_ color: KeyColor.RGB, _ hex: String) -> Bool {
         #expect(matches(colors.text, text), "\(colors.text.hex) vs \(text)")
     }
 
-    @Test func givesBothSpellingsOfAPitchOneColor() {
-        let sharp = KeyColor.pillColors(pitchClass: KeyColor.pitchClass("F#")!, scheme: .light, chosen: false)
-        let flat = KeyColor.pillColors(pitchClass: KeyColor.pitchClass("Gb")!, scheme: .light, chosen: false)
+    @Test func givesBothSpellingsOfAPitchOneColor() throws {
+        let sharp = KeyColor.pillColors(
+            pitchClass: try #require(KeyColor.pitchClass("F#")), scheme: .light, chosen: false)
+        let flat = KeyColor.pillColors(
+            pitchClass: try #require(KeyColor.pitchClass("Gb")), scheme: .light, chosen: false)
         #expect(sharp == flat)
     }
 }

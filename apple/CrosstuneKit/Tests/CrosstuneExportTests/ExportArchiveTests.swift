@@ -140,7 +140,7 @@ private final class Calls: @unchecked Sendable {
 @Test func scansOnTheDeviceAreExportedAndCountedInProgress() async throws {
     let root = TemporaryRoot()
     let store = try await seededStore(root)
-    let tune = try await store.read { db in try Tune.fetchOne(db)! }
+    let tune = try #require(try await store.read { db in try Tune.fetchOne(db) })
     let first = ScanRecord(tuneID: tune.id, position: 0, width: 1, height: 1)
     let second = ScanRecord(tuneID: tune.id, position: 1, width: 1, height: 1)
     let away = ScanRecord(tuneID: tune.id, position: 2, width: 1, height: 1)
@@ -363,7 +363,7 @@ private struct FetchRefused: Error, Equatable {}
 /// The seeded store plus a ready recording and a ready scan with no file on this device.
 private func storeMissingFiles(_ root: TemporaryRoot) async throws -> (CrosstuneStore, Recording, ScanRecord) {
     let store = try await seededStore(root)
-    let tune = try await store.read { db in try Tune.fetchOne(db)! }
+    let tune = try #require(try await store.read { db in try Tune.fetchOne(db) })
     let remote = Recording(
         tuneID: tune.id, source: "capture", addedAt: later(2000), state: "ready", playbackMime: "audio/mpeg")
     let scan = ScanRecord(tuneID: tune.id, position: 0, width: 1, height: 1, state: ScanRecord.ready)
@@ -414,7 +414,7 @@ private func fileRowCounts(_ store: CrosstuneStore) async throws -> [Int] {
 @Test func aFileThatIsNotReadyIsNeitherFetchedNorExported() async throws {
     let root = TemporaryRoot()
     let store = try await seededStore(root)
-    let tune = try await store.read { db in try Tune.fetchOne(db)! }
+    let tune = try #require(try await store.read { db in try Tune.fetchOne(db) })
     try await store.write { writer in
         try writer.put(ScanRecord(tuneID: tune.id, position: 0, width: 1, height: 1))
     }
@@ -477,7 +477,7 @@ private final class Overlap: @unchecked Sendable {
 /// The store from ``storeMissingFiles(_:)`` plus two more ready scans with no file here.
 private func storeMissingFourFiles(_ root: TemporaryRoot) async throws -> CrosstuneStore {
     let (store, _, _) = try await storeMissingFiles(root)
-    let tune = try await store.read { db in try Tune.fetchOne(db)! }
+    let tune = try #require(try await store.read { db in try Tune.fetchOne(db) })
     try await store.write { writer in
         for position in 1...2 {
             try writer.put(
@@ -562,7 +562,7 @@ private final class Flag: @unchecked Sendable {
 @Test func countsNameTheFilesThatMustBeFetched() async throws {
     let root = TemporaryRoot()
     let (store, _, _) = try await storeMissingFiles(root)
-    let tune = try await store.read { db in try Tune.fetchOne(db)! }
+    let tune = try #require(try await store.read { db in try Tune.fetchOne(db) })
     let held = ScanRecord(tuneID: tune.id, position: 1, width: 1, height: 1, state: ScanRecord.ready)
     let pending = ScanRecord(tuneID: tune.id, position: 2, width: 1, height: 1)
     try await store.write { writer in

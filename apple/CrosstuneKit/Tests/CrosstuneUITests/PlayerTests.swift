@@ -431,7 +431,11 @@ private func link(_ provider: String, _ providerRef: String?, url: String = "htt
 #if os(macOS)
     @MainActor
     @Suite struct EmbedStageTests {
-        private let embed = Embed.for(link("youtube", "dQw4w9WgXcQ"), autoplay: true)!
+        private let embed: Embed
+
+        init() throws {
+            embed = try #require(Embed.for(link("youtube", "dQw4w9WgXcQ"), autoplay: true))
+        }
 
         private func webView(in host: NSView) -> WKWebView? {
             host.subviews.first as? WKWebView

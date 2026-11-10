@@ -43,8 +43,12 @@ private func median(_ values: [Double]) -> Double {
 
 private func centsBetween(_ frequency: Double, _ target: Double) -> Double { 1200 * log2(frequency / target) }
 
-private let violinIndex = ClipFile.shared.clips.firstIndex { $0.id == "violin-a4-flat-2.2" }!
-private let violin = ClipFile.shared.clips[violinIndex]
+/// The held violin note the single-clip tests play.
+private func violinClip(sourceLocation: SourceLocation = #_sourceLocation) throws -> (index: Int, clip: ClipRecipe) {
+    let clips = try ClipFile.shared.clips
+    let index = try #require(clips.firstIndex { $0.id == "violin-a4-flat-2.2" }, sourceLocation: sourceLocation)
+    return (index, clips[index])
+}
 
 /// Half a second at `from`, then half a second at `to`, with no break in phase, as a string
 /// sounds while its peg turns.
@@ -65,13 +69,13 @@ private func glide(_ partials: [[Double]], from: Double, to: Double, sampleRate:
 
 extension Tuner {
     @Suite struct PitchTrackerTests {
-        @Test(arguments: IndexedClip.all)
+        @Test(arguments: try IndexedClip.all)
         func readsEveryClip(clip indexed: IndexedClip) throws {
             let clip = indexed.clip
             let tracker = PitchTracker(sampleRate: clip.sampleRate, a4: clip.a4)
 
             let readings = readings(
-                of: feed(tracker, synthesize(clip, index: indexed.index), sampleRate: clip.sampleRate))
+                of: feed(tracker, try synthesize(clip, index: indexed.index), sampleRate: clip.sampleRate))
 
             guard let expected = clip.expect else {
                 #expect(readings.isEmpty)
@@ -92,18 +96,20 @@ extension Tuner {
             #expect(abs(cents - expected.cents) <= tolerance)
         }
 
-        @Test func holdsSteadyOnAHeldNote() {
+        @Test func holdsSteadyOnAHeldNote() throws {
+            let (violinIndex, violin) = try violinClip()
             let tracker = PitchTracker(sampleRate: violin.sampleRate, a4: violin.a4)
 
             let cents = readings(
-                of: feed(tracker, synthesize(violin, index: violinIndex), sampleRate: violin.sampleRate)
+                of: feed(tracker, try synthesize(violin, index: violinIndex), sampleRate: violin.sampleRate)
             ).map(\.note.cents)
 
             #expect(cents.isEmpty == false)
-            #expect(cents.max()! - cents.min()! < 1.0)
+            #expect(try #require(cents.max()) - #require(cents.min()) < 1.0)
         }
 
         @Test func followsAPegTurnAtOnce() throws {
+            let (_, violin) = try violinClip()
             let sampleRate = violin.sampleRate
             let turned = 440 * pow(2, 25.0 / 1200)
             let tracker = PitchTracker(sampleRate: sampleRate, a4: 440)
@@ -137,7 +143,8 @@ extension Tuner {
         }
 
         @Test(arguments: [(440.0, true), (100, false)])
-        func keepsANoteHeldBetweenTheWindowThresholdsOnItsWindow(from: Double, short: Bool) {
+        func keepsANoteHeldBetweenTheWindowThresholdsOnItsWindow(from: Double, short: Bool) throws {
+            let (_, violin) = try violinClip()
             let sampleRate = violin.sampleRate
             let between = 195.0
             let tracker = PitchTracker(sampleRate: sampleRate, a4: 440)
@@ -155,11 +162,12 @@ extension Tuner {
         }
 
         @Test func fadesAfterTheNoteStops() throws {
+            let (_, violin) = try violinClip()
             let sampleRate = violin.sampleRate
             let tracker = PitchTracker(sampleRate: sampleRate, a4: 440)
 
             let held = feed(
-                tracker, synthesize(violin.at(frequency: 440, seconds: 0.5), index: 0), sampleRate: sampleRate)
+                tracker, try synthesize(violin.at(frequency: 440, seconds: 0.5), index: 0), sampleRate: sampleRate)
             let silence = feed(
                 tracker, [Float](repeating: 0, count: Int(sampleRate / 2)), sampleRate: sampleRate, startMs: 500)
 
@@ -169,15 +177,16 @@ extension Tuner {
             #expect(silence[faded...].allSatisfy { $0.reading == nil })
         }
 
-        @Test func setA4MovesTheCents() {
+        @Test func setA4MovesTheCents() throws {
+            let (_, violin) = try violinClip()
             let sampleRate = violin.sampleRate
             let tracker = PitchTracker(sampleRate: sampleRate, a4: 440)
-            _ = feed(tracker, synthesize(violin.at(frequency: 440, seconds: 0.5), index: 0), sampleRate: sampleRate)
+            _ = feed(tracker, try synthesize(violin.at(frequency: 440, seconds: 0.5), index: 0), sampleRate: sampleRate)
 
             tracker.setA4(442)
             let readings = readings(
                 of: feed(
-                    tracker, synthesize(violin.at(frequency: 440, seconds: 0.5), index: 1), sampleRate: sampleRate,
+                    tracker, try synthesize(violin.at(frequency: 440, seconds: 0.5), index: 1), sampleRate: sampleRate,
                     startMs: 500))
 
             #expect(readings.isEmpty == false)
@@ -189,13 +198,15 @@ extension Tuner {
         }
 
         @Test func startsOverAfterReset() throws {
+            let (_, violin) = try violinClip()
             let sampleRate = violin.sampleRate
             let tracker = PitchTracker(sampleRate: sampleRate, a4: 440)
-            _ = feed(tracker, synthesize(violin.at(frequency: 440, seconds: 0.5), index: 0), sampleRate: sampleRate)
+            _ = feed(tracker, try synthesize(violin.at(frequency: 440, seconds: 0.5), index: 0), sampleRate: sampleRate)
 
             tracker.reset()
             let readings = readings(
-                of: feed(tracker, synthesize(violin.at(frequency: 440, seconds: 0.3), index: 1), sampleRate: sampleRate)
+                of: feed(
+                    tracker, try synthesize(violin.at(frequency: 440, seconds: 0.3), index: 1), sampleRate: sampleRate)
             )
 
             let first = try #require(readings.first)

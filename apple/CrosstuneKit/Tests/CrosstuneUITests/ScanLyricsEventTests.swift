@@ -9,14 +9,14 @@ import Testing
 @testable import CrosstuneUI
 
 /// A small JPEG, so a pick prepares quickly.
-private let prepared: PreparedScan = {
+private let preparedOnce = Result { () throws -> PreparedScan in
     let context = CGContext(
         data: nil, width: 17, height: 22, bitsPerComponent: 8, bytesPerRow: 0,
         space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue)!
     context.setFillColor(gray: 0.5, alpha: 1)
     context.fill(CGRect(x: 0, y: 0, width: 17, height: 22))
-    return try! PreparedScan.make(from: context.makeImage()!)
-}()
+    return try PreparedScan.make(from: context.makeImage()!)
+}
 
 /// Scans report each one stored with how it came in, and each opening of the viewer; the lyrics
 /// reader reports each opening on words.
@@ -49,9 +49,9 @@ private let prepared: PreparedScan = {
 
         await model.scans.add(
             [
-                ScanPick(name: "page 1") { prepared },
+                ScanPick(name: "page 1") { try preparedOnce.get() },
                 ScanPick.data(name: "broken.heic") { Data([0x00, 0x01]) },
-                ScanPick(name: "page 2") { prepared },
+                ScanPick(name: "page 2") { try preparedOnce.get() },
             ], via: .documentScanner)
 
         let expected = try await added("document_scanner", tuneID: tuneID, in: store)
@@ -64,7 +64,7 @@ private let prepared: PreparedScan = {
         let tuneID = try await tune(store)
         let model = TuneModel(store: store, tuneID: tuneID, analytics: sink.client)
 
-        await model.scans.add([ScanPick(name: "Photo 1") { prepared }], via: .photoLibrary)
+        await model.scans.add([ScanPick(name: "Photo 1") { try preparedOnce.get() }], via: .photoLibrary)
 
         let expected = try await added("photo_library", tuneID: tuneID, in: store)
         #expect(expected.count == 1)
@@ -101,7 +101,7 @@ private let prepared: PreparedScan = {
         let store = try root.open()
         let tuneID = try await tune(store)
         let adding = TuneModel(store: store, tuneID: tuneID)
-        await adding.scans.add([ScanPick(name: "page 1") { prepared }], via: .photoLibrary)
+        await adding.scans.add([ScanPick(name: "page 1") { try preparedOnce.get() }], via: .photoLibrary)
         let scanID = try #require(try await store.read { try Scan.fetch($0, tuneID: tuneID) }.first?.id)
         let model = TuneModel(store: store, tuneID: tuneID, analytics: sink.client)
 
@@ -117,7 +117,7 @@ private let prepared: PreparedScan = {
         let store = try root.open()
         let tuneID = try await tune(store)
         let adding = TuneModel(store: store, tuneID: tuneID)
-        await adding.scans.add([ScanPick(name: "page 1") { prepared }], via: .photoLibrary)
+        await adding.scans.add([ScanPick(name: "page 1") { try preparedOnce.get() }], via: .photoLibrary)
         let scanID = try #require(try await store.read { try Scan.fetch($0, tuneID: tuneID) }.first?.id)
         let viewer = ScanViewerModel(store: store, tuneID: tuneID, analytics: sink.client)
 
@@ -134,7 +134,8 @@ private let prepared: PreparedScan = {
         let tuneID = try await tune(store)
         let adding = TuneModel(store: store, tuneID: tuneID)
         await adding.scans.add(
-            [ScanPick(name: "page 1") { prepared }, ScanPick(name: "page 2") { prepared }], via: .photoLibrary)
+            [ScanPick(name: "page 1") { try preparedOnce.get() }, ScanPick(name: "page 2") { try preparedOnce.get() }],
+            via: .photoLibrary)
         let model = TuneModel(store: store, tuneID: tuneID, analytics: sink.client)
         try await eventually { model.scans.scans.count == 2 }
 

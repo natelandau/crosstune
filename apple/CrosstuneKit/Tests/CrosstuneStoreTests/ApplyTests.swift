@@ -258,7 +258,7 @@ private func createTune(_ store: CrosstuneStore, title: String, status: String =
         #expect(pending?.data?["title"] == .string("v2"))
         // The server takes only a strictly newer write, so the retry must not tie the first.
         let tuneSent = sent.first { $0.rowID == tune.id }
-        #expect(pending!.updatedAt > tuneSent!.updatedAt)
+        #expect(try #require(pending).updatedAt > #require(tuneSent).updatedAt)
     }
 
     // MARK: Plan refusals

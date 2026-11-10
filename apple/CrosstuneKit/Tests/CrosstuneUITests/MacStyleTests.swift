@@ -40,7 +40,7 @@
         }
 
         @Test(arguments: [ColorScheme.light, .dark])
-        func everyTokenResolvesToItsHex(scheme: ColorScheme) {
+        func everyTokenResolvesToItsHex(scheme: ColorScheme) throws {
             let colors: [Palette.Token: Color] = [
                 .accent: Palette.accent, .accentFill: Palette.accentFill,
                 .onAccentFill: Palette.onAccentFill, .pageBackground: Palette.pageBackground, .surface: Palette.surface,
@@ -64,7 +64,9 @@
                 .onStatusStrong: Palette.onStatusStrong,
             ]
             for token in Palette.Token.allCases {
-                #expect(resolved(colors[token]!, in: scheme) == Palette.hex(token, scheme).lowercased(), "\(token)")
+                #expect(
+                    resolved(try #require(colors[token]), in: scheme) == Palette.hex(token, scheme).lowercased(),
+                    "\(token)")
             }
         }
 

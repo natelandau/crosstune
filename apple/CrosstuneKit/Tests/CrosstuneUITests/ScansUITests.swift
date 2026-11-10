@@ -17,7 +17,11 @@ private func makeTune(_ store: CrosstuneStore, _ title: String = "Soldier's Joy"
 }
 
 /// A small scan, prepared once, so many can be written quickly.
-private let preparedScan = try! PreparedScan.make(from: jpeg(width: 17, height: 22))
+private let preparedOnce = Result { try PreparedScan.make(from: jpeg(width: 17, height: 22)) }
+
+private func preparedScan() throws -> PreparedScan {
+    try preparedOnce.get()
+}
 
 private func record(state: String = "ready", width: Int = 1700, height: Int = 2200) -> ScanRecord {
     ScanRecord(
@@ -166,8 +170,8 @@ private func jpeg(width: Int, height: Int) -> Data {
         let withScans = try await makeTune(store, "Soldier's Joy")
         let without = try await makeTune(store, "Cluck Old Hen")
         let emptied = try await makeTune(store, "Kitchen Girl")
-        try await commands.addScans(tuneID: withScans, scans: [preparedScan], at: noon)
-        let gone = try await commands.addScans(tuneID: emptied, scans: [preparedScan], at: noon)
+        try await commands.addScans(tuneID: withScans, scans: [preparedScan()], at: noon)
+        let gone = try await commands.addScans(tuneID: emptied, scans: [preparedScan()], at: noon)
         try await commands.deleteScan(gone[0], at: later(1))
 
         let tunes = try await store.read { db in try ScanTunes.fetch(db) }
@@ -319,11 +323,11 @@ private func jpeg(width: Int, height: Int) -> Data {
         let store = try root.open()
         let tuneID = try await makeTune(store)
         try await Commands(store: store).addScans(
-            tuneID: tuneID, scans: Array(repeating: preparedScan, count: 18), at: noon)
+            tuneID: tuneID, scans: Array(repeating: preparedScan(), count: 18), at: noon)
         let model = TuneModel(store: store, tuneID: tuneID)
         try await eventually { model.scans.scans.count == 18 }
 
-        let picks = (0..<5).map { index in ScanPick(name: "scan \(index)") { preparedScan } }
+        let picks = (0..<5).map { index in ScanPick(name: "scan \(index)") { try preparedScan() } }
         await model.scans.add(picks, via: .file)
 
         try await eventually { model.scans.scans.count == maxScansPerTune }
@@ -341,9 +345,9 @@ private func jpeg(width: Int, height: Int) -> Data {
 
         await model.scans.add(
             [
-                ScanPick(name: "first.jpg") { preparedScan },
+                ScanPick(name: "first.jpg") { try preparedScan() },
                 ScanPick.data(name: "broken.heic") { Data([0x00, 0x01, 0x02]) },
-                ScanPick(name: "third.jpg") { preparedScan },
+                ScanPick(name: "third.jpg") { try preparedScan() },
             ], via: .file)
 
         try await eventually { model.scans.scans.count == 2 }
@@ -377,7 +381,7 @@ private func jpeg(width: Int, height: Int) -> Data {
         let store = try root.open()
         let tuneID = try await makeTune(store)
         let ids = try await Commands(store: store).addScans(
-            tuneID: tuneID, scans: [preparedScan, preparedScan, preparedScan], at: noon)
+            tuneID: tuneID, scans: [preparedScan(), preparedScan(), preparedScan()], at: noon)
         let model = TuneModel(store: store, tuneID: tuneID)
         try await eventually { model.scans.scans.count == 3 }
 
@@ -397,7 +401,7 @@ private func jpeg(width: Int, height: Int) -> Data {
         let store = try root.open()
         let tuneID = try await makeTune(store)
         let ids = try await Commands(store: store).addScans(
-            tuneID: tuneID, scans: [preparedScan, preparedScan], at: noon)
+            tuneID: tuneID, scans: [preparedScan(), preparedScan()], at: noon)
         let model = TuneModel(store: store, tuneID: tuneID)
         try await eventually { model.scans.scans.count == 2 }
 
@@ -463,8 +467,8 @@ private struct ScannedTunes {
         tuneA = try await makeTune(store, "Soldier's Joy")
         tuneB = try await makeTune(store, "Kitchen Girl")
         let commands = Commands(store: store)
-        try await commands.addScans(tuneID: tuneA, scans: [preparedScan, preparedScan], at: noon)
-        try await commands.addScans(tuneID: tuneB, scans: [preparedScan, preparedScan], at: later(1))
+        try await commands.addScans(tuneID: tuneA, scans: [preparedScan(), preparedScan()], at: noon)
+        try await commands.addScans(tuneID: tuneB, scans: [preparedScan(), preparedScan()], at: later(1))
         plan = PlanModel(store: store)
     }
 

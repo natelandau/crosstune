@@ -707,7 +707,7 @@ private struct V4Fixture {
     let after = try await store.read { db in try Row.fetchAll(db, sql: outbox).map { Array($0.databaseValues) } }
     // Every column but the table name stays as it was, `seq` included, so the queue keeps its order.
     #expect(after.map { $0.dropLast() } == before.map { $0.dropLast() })
-    #expect(after.map { String.fromDatabaseValue($0.last!) } == ["tunes", "scans", "scans", "lists"])
+    #expect(after.map { $0.last.flatMap(String.fromDatabaseValue) } == ["tunes", "scans", "scans", "lists"])
     let queued = try await store.pendingChanges(limit: 10)
     #expect(queued.map(\.tableName) == [.tunes, .scans, .scans, .lists])
 }

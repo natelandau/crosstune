@@ -98,7 +98,9 @@ private func tuneRows(_ plan: ExportPlan) -> [[String]] {
     return lines.dropFirst().dropLast().map { $0.components(separatedBy: ",") }
 }
 
-private func column(_ name: String) -> Int { tunesHeader.firstIndex(of: name)! }
+private func column(_ name: String, sourceLocation: SourceLocation = #_sourceLocation) throws -> Int {
+    try #require(tunesHeader.firstIndex(of: name), sourceLocation: sourceLocation)
+}
 
 @Suite struct DecimalTextTests {
     @Test(arguments: [
@@ -150,7 +152,7 @@ private func column(_ name: String) -> Int { tunesHeader.firstIndex(of: name)! }
         #expect(plan.totalRecordings - plan.audio.count == 1)
     }
 
-    @Test func writesTheLocationARecordingShowsItsSavedLocationsNameWhileThatIsLive() {
+    @Test func writesTheLocationARecordingShowsItsSavedLocationsNameWhileThatIsLive() throws {
         var input = emptyInput()
         func placed(_ id: String, name: String?, placeID: String) -> Recording {
             var placed = recording(id)
@@ -171,7 +173,7 @@ private func column(_ name: String) -> Int { tunesHeader.firstIndex(of: name)! }
                 id: "p2", createdAt: newYearsDay, deletedAt: Timestamp(iso: "2026-02-01T00:00:00Z"), name: "Old barn",
                 lat: 0, lon: 0),
         ]
-        let place = recordingsHeader.firstIndex(of: "place")!
+        let place = try #require(recordingsHeader.firstIndex(of: "place"))
         let lines = buildExport(input).recordingsCSV.dropFirst().components(separatedBy: "\r\n")
         let names = lines.dropFirst().dropLast().map { $0.components(separatedBy: ",")[place] }
         #expect(names.sorted() == ["1 Main St", "Town Hall", "Town Hall"])
@@ -186,20 +188,20 @@ private func column(_ name: String) -> Int { tunesHeader.firstIndex(of: name)! }
         #expect(plan.totalRecordings == 0)
     }
 
-    @Test func writesAStatusOrModeThisClientDoesNotKnowAsStored() {
+    @Test func writesAStatusOrModeThisClientDoesNotKnowAsStored() throws {
         var input = emptyInput()
         input.tunes = [tune("t1", "Reel", modes: ["lydian", "major"])]
         input.userTunes = [userTune("u1", "t1", status: "retired")]
         let row = tuneRows(buildExport(input))[0]
-        #expect(row[column("status")] == "retired")
-        #expect(row[column("modes")] == "A: lydian; B: Major")
+        #expect(try row[column("status")] == "retired")
+        #expect(try row[column("modes")] == "A: lydian; B: Major")
     }
 
-    @Test func lettersPartsPastZAsJavaScriptDoes() {
+    @Test func lettersPartsPastZAsJavaScriptDoes() throws {
         var input = emptyInput()
         input.tunes = [tune("t1", "Reel", modes: Array(repeating: "major", count: 200))]
         input.userTunes = [userTune("u1", "t1")]
-        let modes = tuneRows(buildExport(input))[0][column("modes")].components(separatedBy: "; ")
+        let modes = try tuneRows(buildExport(input))[0][column("modes")].components(separatedBy: "; ")
         #expect(modes.first == "A: Major")
         #expect(modes[26] == "[: Major")
         #expect(modes[199] == "\u{108}: Major")
@@ -212,7 +214,7 @@ private func column(_ name: String) -> Int { tunesHeader.firstIndex(of: name)! }
         #expect(buildExport(input).audio.map(\.path) == ["recordings/Unfiled/2026-01-01.audio"])
     }
 
-    @Test func writesEveryStoredTuningWhenNoInstrumentsAreSet() {
+    @Test func writesEveryStoredTuningWhenNoInstrumentsAreSet() throws {
         var input = emptyInput()
         input.tunes = [
             tune(
@@ -223,15 +225,15 @@ private func column(_ name: String) -> Int { tunesHeader.firstIndex(of: name)! }
                 ])
         ]
         input.userTunes = [userTune("u1", "t1")]
-        #expect(tuneRows(buildExport(input))[0][column("tunings")] == "Violin: AEAE; Guitar: DADGAD")
+        #expect(try tuneRows(buildExport(input))[0][column("tunings")] == "Violin: AEAE; Guitar: DADGAD")
     }
 
-    @Test func writesEveryStoredTuningWhenNoInstrumentSetIsKnown() {
+    @Test func writesEveryStoredTuningWhenNoInstrumentSetIsKnown() throws {
         var input = emptyInput()
         input.instruments = ["harp", "hurdy_gurdy"]
         input.tunes = [tune("t1", "Reel", tunings: ["guitar": .object(["tuning": .string("DADGAD")])])]
         input.userTunes = [userTune("u1", "t1")]
-        #expect(tuneRows(buildExport(input))[0][column("tunings")] == "Guitar: DADGAD")
+        #expect(try tuneRows(buildExport(input))[0][column("tunings")] == "Guitar: DADGAD")
     }
 
     @Test func ordersTunesWithEqualTitlesAndDatesByUserTuneIDCodeUnits() {

@@ -43,10 +43,10 @@ import Testing
         #expect(RecordingLimits.mustSplitToUpload(row, file: atTwelveHours, uploadLimits: limits))
     }
 
-    @Test func aCaptureStoppedPastItsStopByABufferIsStillHeldAsMustSplit() {
+    @Test func aCaptureStoppedPastItsStopByABufferIsStillHeldAsMustSplit() throws {
         let row = Recording(tuneID: nil, source: "microphone")
         let overshot = file(RecordingLimits.captureStopMs + 5_000, bytes: 1)
-        #expect(overshot.localDurationMs! < RecordingLimits.maxSplitSourceMs)
+        #expect(try #require(overshot.localDurationMs) < RecordingLimits.maxSplitSourceMs)
         #expect(RecordingLimits.mustSplitToUpload(row, file: overshot, uploadLimits: limits))
     }
 
