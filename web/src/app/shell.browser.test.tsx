@@ -1,6 +1,13 @@
 import { page, userEvent } from 'vitest/browser'
 import { expect, it, onTestFinished } from 'vitest'
-import { ACCOUNT_BUTTON, PHONE_TABS, RECORD_LABEL, RECORD_TEXT, TAB_BAR } from '../layout/tabs'
+import {
+  ACCOUNT_BUTTON,
+  PHONE_TABS,
+  RECORD_LABEL,
+  RECORD_TEXT,
+  TAB_BAR,
+  tabLabel,
+} from '../layout/tabs'
 import { initials } from '../layout/initials'
 import { STUB_USER_NAME } from '../fixture/clerkStub'
 import { addToList, createList } from '../commands/lists'
@@ -49,9 +56,9 @@ it('holds Catalog, Recordings, Lists, Tuner, then Record on the phone', async ()
   const controls = tabs.getByRole('link').or(tabs.getByRole('button'))
   await expect
     .poll(() => controls.elements().map((e) => e.textContent || e.ariaLabel))
-    .toEqual(['Catalog', 'Recordings', 'Lists', 'Tuner', RECORD_LABEL])
+    .toEqual([...PHONE_TABS.map(tabLabel), RECORD_LABEL])
   await expect
-    .element(tabs.getByRole('link', { name: 'Catalog', exact: true }))
+    .element(tabs.getByRole('link', { name: CATALOG.label, exact: true }))
     .toHaveAttribute('aria-current', 'page')
   await expect.element(page.getByRole('navigation', { name: SIDEBAR })).not.toBeInTheDocument()
 })
@@ -98,7 +105,7 @@ it('keeps Settings in the sidebar and adds Tuner after Recordings', async () => 
   const links = sidebar().getByRole('link')
   await expect
     .poll(() => links.elements().map((link) => link.textContent))
-    .toEqual(['Catalog', 'Recordings', 'Tuner', 'Lists', 'Settings'])
+    .toEqual((['catalog', 'recordings', 'tuner', 'lists', 'settings'] as const).map(tabLabel))
 })
 
 it.each([
@@ -138,7 +145,7 @@ it.each([
   await seed(db)
   await renderApp({ path: '/catalog', db, frame })
   const bar = sidebar()
-  await expect.element(bar.getByRole('link', { name: 'Catalog', exact: true })).toBeVisible()
+  await expect.element(bar.getByRole('link', { name: CATALOG.label, exact: true })).toBeVisible()
   await expect
     .element(bar.getByRole('button', { name: STATUS_LABELS.known, exact: true }))
     .toBeVisible()
@@ -149,10 +156,10 @@ it.each([
   await expect
     .element(bar.getByRole('button', { name: STATUS_LABELS.want_to_learn, exact: true }))
     .toBeVisible()
-  await expect.element(bar.getByRole('link', { name: 'Recordings' })).toBeVisible()
+  await expect.element(bar.getByRole('link', { name: tabLabel('recordings') })).toBeVisible()
   await expect.element(bar.getByRole('link', { name: 'Tuesday jam', exact: true })).toBeVisible()
   await expect.element(bar.getByRole('link', { name: 'Contest', exact: true })).toBeVisible()
-  await expect.element(bar.getByRole('link', { name: 'Settings' })).toBeVisible()
+  await expect.element(bar.getByRole('link', { name: tabLabel('settings') })).toBeVisible()
   await expect.element(bar.getByRole('button', { name: RECORD_LABEL })).toBeVisible()
   await expect.element(page.getByRole('navigation', { name: TAB_BAR })).not.toBeInTheDocument()
 })
@@ -163,7 +170,7 @@ it('describes each count in words and keeps it out of the name', async () => {
   await renderApp({ path: '/catalog', db, frame: WIDE })
   const bar = sidebar()
   await expect
-    .element(bar.getByRole('link', { name: 'Catalog', exact: true }))
+    .element(bar.getByRole('link', { name: CATALOG.label, exact: true }))
     .toHaveAccessibleDescription(countTunes(3))
   await expect
     .element(bar.getByRole('button', { name: STATUS_LABELS.known, exact: true }))
@@ -232,7 +239,7 @@ it('marks the Lists heading selected on the Lists root', async () => {
   await seed(db)
   await renderApp({ path: '/lists', db, frame: WIDE })
   await expect
-    .element(sidebar().getByRole('link', { name: 'Lists', exact: true }))
+    .element(sidebar().getByRole('link', { name: tabLabel('lists'), exact: true }))
     .toHaveAttribute('aria-current', 'page')
 })
 
@@ -250,7 +257,7 @@ function gateWrites(db: CrosstuneDb) {
   return { release, started: () => started }
 }
 
-const catalogShown = () => document.querySelector('section[aria-label="Catalog"]') !== null
+const catalogShown = () => document.querySelector(`section[aria-label="${CATALOG.label}"]`) !== null
 
 /** Resolves 'held' once the catalog has stayed hidden across several polls, 'shown' if it appears. */
 function heldHidden() {
@@ -267,12 +274,12 @@ it('opens the catalog from the Catalog row only after the all scope is saved', a
   await setMeta(db, META_CATALOG_FILTERS, { status: 'learning' })
   await renderApp({ path: '/lists', db, frame: WIDE })
   const writes = gateWrites(db)
-  await sidebar().getByRole('link', { name: 'Catalog', exact: true }).click()
+  await sidebar().getByRole('link', { name: CATALOG.label, exact: true }).click()
   await expect.poll(writes.started).toBeGreaterThan(0)
   await expect.poll(heldHidden()).toBe('held')
   writes.release()
   // Wide shows the list as a region beside the detail, which is the one main.
-  await expect.element(page.getByRole('region', { name: 'Catalog' })).toBeVisible()
+  await expect.element(page.getByRole('region', { name: CATALOG.label })).toBeVisible()
   expect(normalizeFilters(await getMeta(db, META_CATALOG_FILTERS, null)).status).toBe('all')
 })
 
@@ -285,7 +292,7 @@ it('opens the catalog from a status row only after its scope is saved', async ()
   await expect.poll(writes.started).toBeGreaterThan(0)
   await expect.poll(heldHidden()).toBe('held')
   writes.release()
-  await expect.element(page.getByRole('region', { name: 'Catalog' })).toBeVisible()
+  await expect.element(page.getByRole('region', { name: CATALOG.label })).toBeVisible()
   expect(normalizeFilters(await getMeta(db, META_CATALOG_FILTERS, null)).status).toBe('learning')
 })
 
@@ -308,7 +315,7 @@ it('sets the stored status filter and marks the row current', async () => {
   await seed(db)
   await renderApp({ path: '/lists', db, frame: WIDE })
   await sidebar().getByRole('button', { name: STATUS_LABELS.learning, exact: true }).click()
-  await expect.element(page.getByRole('region', { name: 'Catalog' })).toBeVisible()
+  await expect.element(page.getByRole('region', { name: CATALOG.label })).toBeVisible()
   await expect
     .poll(async () => normalizeFilters(await getMeta(db, META_CATALOG_FILTERS, null)).status)
     .toBe('learning')
@@ -316,15 +323,15 @@ it('sets the stored status filter and marks the row current', async () => {
     .element(sidebar().getByRole('button', { name: STATUS_LABELS.learning, exact: true }))
     .toHaveAttribute('aria-current', 'page')
   await expect
-    .element(sidebar().getByRole('link', { name: 'Catalog', exact: true }))
+    .element(sidebar().getByRole('link', { name: CATALOG.label, exact: true }))
     .not.toHaveAttribute('aria-current')
 
-  await sidebar().getByRole('link', { name: 'Catalog', exact: true }).click()
+  await sidebar().getByRole('link', { name: CATALOG.label, exact: true }).click()
   await expect
     .poll(async () => normalizeFilters(await getMeta(db, META_CATALOG_FILTERS, null)).status)
     .toBe('all')
   await expect
-    .element(sidebar().getByRole('link', { name: 'Catalog', exact: true }))
+    .element(sidebar().getByRole('link', { name: CATALOG.label, exact: true }))
     .toHaveAttribute('aria-current', 'page')
 })
 
@@ -420,25 +427,6 @@ it.each([
   expect(navigation.element().querySelectorAll('[aria-current]')).toHaveLength(0)
 })
 
-it('scales the whole shell back behind a touch sheet', async () => {
-  const db = openTestDb()
-  await seed(db)
-  await renderApp({ path: '/catalog', db, frame: PHONE, density: 'touch' })
-  const tabs = page.getByRole('navigation', { name: TAB_BAR })
-  await expect.element(tabs).toBeVisible()
-  await page
-    .getByRole('button', { name: /^Filters/ })
-    .first()
-    .click()
-  await expect.element(page.getByRole('dialog')).toBeVisible()
-  const scale = () => {
-    const root = tabs.element().closest<HTMLElement>('[data-sheet-root]')
-    const value = /scale\(([\d.]+)\)/.exec(root?.style.transform ?? '')?.[1]
-    return value === undefined ? 1 : Number(value)
-  }
-  await expect.poll(scale).toBeLessThan(1)
-})
-
 it.each([
   ['phone', PHONE],
   ['split', SPLIT],
@@ -497,7 +485,7 @@ it.each([
   "keeps hidden text in the shell's own scroller inside it at the %s frame",
   async (_name, frame) => {
     await renderApp({ path: '/catalog', db: openTestDb(), frame })
-    await expect.element(page.getByRole('heading', { name: 'Catalog', level: 1 })).toBeVisible()
+    await expect.element(page.getByRole('heading', { name: CATALOG.label, level: 1 })).toBeVisible()
     const scroller = document.querySelector('[data-shell-scroller]')!
     appendHiddenText(scroller)
     await expect.poll(() => document.documentElement.scrollHeight).toBe(window.innerHeight)

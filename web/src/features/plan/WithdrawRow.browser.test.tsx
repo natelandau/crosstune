@@ -19,6 +19,7 @@ import {
   WITHDRAW_FAILED,
   WITHDRAW_LABEL,
   WITHDRAW_ALREADY,
+  WITHDRAW_CONFIRM_ACTION,
   WITHDRAW_REFUSED,
   WITHDRAW_WINDOW_CLOSED,
   withdrawUntil,
@@ -37,7 +38,7 @@ const OPEN: Partial<LocalEntitlement> = {
 }
 
 const withdrawRow = () => planSheet().getByRole('button', { name: WITHDRAW_LABEL, exact: true })
-const confirmButton = () => page.getByRole('button', { name: 'Withdraw', exact: true })
+const confirmButton = () => page.getByRole('button', { name: WITHDRAW_CONFIRM_ACTION, exact: true })
 
 async function showPlan(row: Partial<LocalEntitlement>, engine: SyncEngine = fakeEngine()) {
   const db = openTestDb()

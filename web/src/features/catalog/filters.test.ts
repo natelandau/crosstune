@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Instrument } from '../../api/vocabulary'
-import { withInstrumentLabel } from '../../domain/instruments'
+import { tuningLabel, withInstrumentLabel } from '../../domain/instruments'
 import { tuneRow as tune, userTuneRow as userTune } from '../../test/rows'
 import {
   catalogEntries,
@@ -467,7 +467,7 @@ describe('tuning facets', () => {
   })
 
   it('labels a tuning facet by its instrument', () => {
-    expect(FACET_LABELS['tuning:tenor_banjo']).toBe('Tenor banjo tuning')
+    expect(FACET_LABELS['tuning:tenor_banjo']).toBe(tuningLabel('tenor_banjo'))
   })
 })
 

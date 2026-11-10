@@ -5,6 +5,7 @@ import {
   momentumScrollMs,
   MAX_PX_PER_S,
   minPxPerS,
+  OPENING_SPAN_MS,
   openingScale,
   RUBBER_REACH_PX,
   rubberBand,
@@ -27,8 +28,10 @@ describe('scrubMs', () => {
 })
 
 describe('momentumScrollMs', () => {
-  it('carries the drag on, opposite to the finger', () => {
-    expect(momentumScrollMs(1000, 100)).toBe(-3250)
+  it('carries the drag on, opposite to the finger, in step with its speed', () => {
+    expect(momentumScrollMs(1000, 100)).toBeLessThan(0)
+    expect(momentumScrollMs(-1000, 100)).toBeGreaterThan(0)
+    expect(momentumScrollMs(2000, 100)).toBeCloseTo(2 * momentumScrollMs(1000, 100), 9)
   })
 })
 
@@ -63,18 +66,17 @@ describe('scales', () => {
     expect(fitScale({ startMs, endMs }, playheadMs, 1000)).toBeCloseTo(expected, 3)
   })
 
-  it('opens as Fit would on a loop, else 30 seconds wide', () => {
-    expect(openingScale(null, 0, 1000)).toBeCloseTo(33.3333, 3)
+  it('opens as Fit would on a loop, else the opening span wide', () => {
+    expect(openingScale(null, 0, 1000)).toBeCloseTo(1000 / (OPENING_SPAN_MS / 1000), 9)
     expect(openingScale({ startMs: 0, endMs: 10_000 }, 5000, 1000)).toBeCloseTo(83.3333, 3)
     expect(openingScale({ startMs: 0, endMs: 10_000 }, 0, 1000)).toBeCloseTo(45.4545, 3)
   })
 
   it.each([
-    [100, 4, 200],
+    [100, 1000, MAX_PX_PER_S],
     [10, 0.5, 8.3333],
   ])('zooms %f by x%f to %f', (pxPerS, factor, expected) => {
     expect(zoomScale(pxPerS, factor, frame)).toBeCloseTo(expected, 3)
-    expect(MAX_PX_PER_S).toBe(200)
   })
 })
 

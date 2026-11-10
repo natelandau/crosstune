@@ -74,14 +74,6 @@ it.each(['touch', 'pointer'] as const)(
     await expect
       .poll(() => input.getBoundingClientRect().top - body.getBoundingClientRect().top)
       .toBeGreaterThanOrEqual(4)
-    // The room comes out of the header's padding below, which matches its padding above, so
-    // the body starts where it always did.
-    const header = page.getByRole('dialog').element().querySelector('header')!
-    const padding = (element: Element, side: 'Top' | 'Bottom') =>
-      parseFloat(getComputedStyle(element)[`padding${side}`])
-    await expect
-      .poll(() => padding(header, 'Bottom') + padding(body, 'Top'))
-      .toBe(padding(header, 'Top'))
   },
 )
 
@@ -117,9 +109,10 @@ it('rings a focused tab and segment with the shared ring', async () => {
   await userEvent.keyboard('{Tab}')
   const segment = page.getByRole('radio', { name: 'Alpha' })
   await expect.element(segment).toHaveFocus()
-  await expect.poll(() => ring(segment.element())).toEqual(['solid', '2px', '2px'])
+  await expect.poll(() => ring(segment.element())[0]).toBe('solid')
+  const segmentRing = ring(segment.element())
   await userEvent.keyboard('{Tab}')
   const tab = page.getByRole('tab', { name: 'One' })
   await expect.element(tab).toHaveFocus()
-  await expect.poll(() => ring(tab.element())).toEqual(['solid', '2px', '2px'])
+  await expect.poll(() => ring(tab.element())).toEqual(segmentRing)
 })

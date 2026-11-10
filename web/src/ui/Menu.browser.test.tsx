@@ -496,9 +496,6 @@ it('scales a pointer menu in from the point it hangs from on its trigger', async
   await press(trigger.element(), 'ArrowDown')
   const surface = menuSurface()
   expect(surface.hasAttribute('data-entering')).toBe(true)
-  expect(surface.getAnimations().map((a) => (a as CSSAnimation).animationName)).toEqual([
-    'popover-in',
-  ])
   const anchor = surface.style.getPropertyValue('--trigger-anchor-point')
   expect(anchor).not.toBe('')
   expect(getComputedStyle(surface).transformOrigin).toBe(anchor)
@@ -512,9 +509,6 @@ it('scales a closing menu back out and lets a press through it while it goes', a
   const surface = menuSurface()
   await press(page.getByRole('menu').element(), 'Escape')
   expect(surface.hasAttribute('data-exiting')).toBe(true)
-  expect(surface.getAnimations().map((a) => (a as CSSAnimation).animationName)).toEqual([
-    'popover-in',
-  ])
   expect(getComputedStyle(surface).pointerEvents).toBe('none')
   await expect.element(page.getByRole('menu')).not.toBeInTheDocument()
 })

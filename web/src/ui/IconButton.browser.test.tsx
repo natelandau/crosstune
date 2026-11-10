@@ -6,6 +6,10 @@ import { renderWithProviders } from '../test/render'
 import { elementStill, pollStill } from '../test/stillPoll'
 import { IconButton, type IconButtonProps } from './IconButton'
 import { DONE, WORKING } from './WorkingMark'
+import { WORKING_DELAY_MS } from './useWorking'
+
+/** Work that runs past the working delay. */
+const WORK_MS = WORKING_DELAY_MS + 150
 
 const box = (name: string) => page.getByRole('button', { name }).element().getBoundingClientRect()
 
@@ -141,7 +145,7 @@ it('shows the working state and announces it beside the button', async () => {
       <IconButton
         icon={Plus}
         label="Add tune"
-        onPress={() => new Promise((resolve) => setTimeout(resolve, 450))}
+        onPress={() => new Promise((resolve) => setTimeout(resolve, WORK_MS))}
       />,
     )
     const button = page.getByRole('button', { name: 'Add tune' })
@@ -150,9 +154,9 @@ it('shows the working state and announces it beside the button', async () => {
     expect(region().getAttribute('aria-live')).toBe('polite')
     // A press without a browser action, which would move the fake clock.
     ;(button.element() as HTMLElement).click()
-    await vi.advanceTimersByTimeAsync(300)
+    await vi.advanceTimersByTimeAsync(WORKING_DELAY_MS)
     await pollStill(() => region().textContent).toBe(WORKING)
-    await vi.advanceTimersByTimeAsync(150)
+    await vi.advanceTimersByTimeAsync(WORK_MS - WORKING_DELAY_MS)
     await pollStill(() => region().textContent).toBe(DONE)
   } finally {
     vi.useRealTimers()
@@ -166,13 +170,13 @@ it('marks itself busy while its work runs past the delay', async () => {
       <IconButton
         icon={Plus}
         label="Add tune"
-        onPress={() => new Promise((resolve) => setTimeout(resolve, 450))}
+        onPress={() => new Promise((resolve) => setTimeout(resolve, WORK_MS))}
       />,
     )
     const button = page.getByRole('button', { name: 'Add tune' })
     await elementStill(button).toBeVisible()
     ;(button.element() as HTMLElement).click()
-    await vi.advanceTimersByTimeAsync(300)
+    await vi.advanceTimersByTimeAsync(WORKING_DELAY_MS)
     await elementStill(button).toHaveAttribute('aria-busy', 'true')
   } finally {
     vi.useRealTimers()

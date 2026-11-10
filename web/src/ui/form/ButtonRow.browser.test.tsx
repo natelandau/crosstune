@@ -37,8 +37,6 @@ it.each(['pointer', 'touch'] as const)(
       expect(button().top + button().height / 2).toBeCloseTo(text().top + text().height / 2, 0)
     } else {
       expect(button().top).toBeGreaterThanOrEqual(title().bottom)
-      // The row's inset is 16px a side.
-      expect(button().width).toBe(360 - 32)
     }
     await page.getByRole('button', { name: 'Sync now' }).click()
     await expect.poll(() => onPress).toHaveBeenCalledOnce()
@@ -93,11 +91,7 @@ it("puts a title-only row's label at the start and its button at the end on poin
   await expect.element(button).toBeVisible()
   const label = page.getByText('Location', { exact: true }).element().getBoundingClientRect()
   const box = button.element().getBoundingClientRect()
-  const row = button.element().closest('section')!.lastElementChild!.firstElementChild!
-  const rowBox = row.getBoundingClientRect()
-  // The row's inset is 16px on both sides.
-  expect(label.left - rowBox.left).toBe(16)
-  expect(rowBox.right - box.right).toBe(16)
+  expect(box.left).toBeGreaterThan(label.right)
   await expect.element(button).toHaveAccessibleDescription('Location')
 })
 

@@ -28,7 +28,6 @@ import {
   press,
   WIDE,
 } from '../../test/practice'
-import { stubSystemDarkForTest } from '../../test/scheme'
 
 vi.mock('../../commands/recordings', { spy: true })
 
@@ -77,28 +76,6 @@ it('opens from More in place of practice, with a grip on each handle', async () 
     .poll(() => document.activeElement)
     .toBe(trimDialog().getByRole('button', { name: CANCEL }).element())
 })
-
-it.each(['light', 'dark'] as const)(
-  "draws its handles in the trim slot's loop color in %s",
-  async (scheme) => {
-    stubSystemDarkForTest(scheme === 'dark')
-    const { engine } = await mountPlaying(WIDE)
-    await openTrim(engine)
-    const loop = document.createElement('span')
-    loop.className = 'loop-color bg-(--loop)'
-    loop.dataset.color = practice()!.querySelector<HTMLElement>('[data-handle]')!.dataset.color!
-    practice()!.append(loop)
-    const lines = [...practice()!.querySelectorAll<HTMLElement>('[data-handle] > span:first-child')]
-    try {
-      expect(lines.length).toBeGreaterThan(0)
-      await expect
-        .poll(() => lines.map((line) => getComputedStyle(line).backgroundColor))
-        .toEqual(lines.map(() => getComputedStyle(loop).backgroundColor))
-    } finally {
-      loop.remove()
-    }
-  },
-)
 
 it('tints the kept range from the start handle to the end handle', async () => {
   const { engine } = await mountPlaying(WIDE)

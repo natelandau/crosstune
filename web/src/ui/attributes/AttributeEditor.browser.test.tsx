@@ -4,6 +4,7 @@ import { afterAll, expect, it, vi, type Mock } from 'vitest'
 import { dragDown } from '../../test/gestures'
 import { renderWithProviders } from '../../test/render'
 import { DONE } from '../confirmCopy'
+import { SHEET } from '../sheetGeometry'
 import { AttributeEditor, useAttributeEdit } from './AttributeEditor'
 
 const LABEL = 'Composer'
@@ -119,7 +120,7 @@ it('saves typed text on swipe down', async () => {
   // Off the field, which keeps a drag for its text, once the sheet rests at part height.
   await expect
     .poll(() => dialog().element().getBoundingClientRect().top)
-    .toBe(FRAMES.phone.height / 2)
+    .toBe(FRAMES.phone.height * (1 - SHEET.partRatio))
   await dragDown(page.getByRole('heading', { name: LABEL }), 400)
   await expect.element(dialog()).not.toBeInTheDocument()
   await expect.poll(() => onCommit.mock.calls).toEqual([[{ composer: 'Kenny Baker' }]])

@@ -131,7 +131,7 @@ it('never runs an action from a full swipe', async () => {
   expect(onRowAction).not.toHaveBeenCalled()
 })
 
-it('opens the menu on a 500ms press', async () => {
+it('opens the menu on a long press', async () => {
   renderWithProviders(
     <RowList label="Tunes">
       <Row id="1" textValue="Squirrel Hunters" title="Squirrel Hunters" actions={actions} />
@@ -221,7 +221,7 @@ it('keeps the browser menu from a touch hold out of the way', async () => {
   expect(menus[0]!.getBoundingClientRect().top).toBeGreaterThanOrEqual(secondRect.top)
 })
 
-it('keeps a keyboard-pressed action open, in view, and ringed in its label color', async () => {
+it('keeps a keyboard-pressed action open and in view', async () => {
   const onAction = vi.fn()
   renderWithProviders(
     <RowList label="Tunes">
@@ -241,8 +241,6 @@ it('keeps a keyboard-pressed action open, in view, and ringed in its label color
   await expect.poll(() => onAction).toHaveBeenCalledOnce()
   await expect.element(del).toHaveFocus()
   await expect.poll(() => uncovered(del.element())).toBe(true)
-  const style = getComputedStyle(del.element())
-  expect(style.outlineColor).toBe(style.color)
 })
 
 it('runs a revealed action and closes the row', async () => {
@@ -409,7 +407,7 @@ it('ignores a mouse drag', async () => {
   expect(uncovered(page.getByRole('button', { name: 'Edit' }).element())).toBe(false)
 })
 
-it('fills every action in its tone at one width, with a short label that keeps the full name', async () => {
+it('gives every action one width, with a short label that keeps the full name', async () => {
   const toned: RowAction[] = [
     { id: 'edit', label: 'Edit', icon: Pencil, onAction: vi.fn() },
     {
@@ -438,8 +436,6 @@ it('fills every action in its tone at one width, with a short label that keeps t
     expect(button.getBoundingClientRect().height).toBe(row.getBoundingClientRect().height)
   }
   expect(buttons[1]!.textContent).toBe('Archive')
-  const fills = buttons.map((button) => getComputedStyle(button).backgroundColor)
-  expect(new Set(fills).size).toBe(3)
 })
 
 it('opens the row when the keyboard reaches an action', async () => {

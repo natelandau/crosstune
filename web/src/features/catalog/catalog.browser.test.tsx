@@ -636,11 +636,16 @@ async function seedMany(db: CrosstuneDb, count: number): Promise<void> {
 }
 
 const MANY = 200
-// A pointer row's height, which every row in these lists has.
-const ROW_PX = 32
 
-/** Waits until the list has measured its rows, so a scroll lands where it would for a person. */
-const settled = () => expect.poll(() => tunes().element().clientHeight).toBe(MANY * ROW_PX)
+/**
+ * Waits until the list has measured its rows, so a scroll lands where it would for a person.
+ * Resolves to the height every row in these lists has.
+ */
+async function settled(): Promise<number> {
+  const rowPx = row('Tune 000').element().getBoundingClientRect().height
+  await expect.poll(() => tunes().element().clientHeight).toBe(Math.round(MANY * rowPx))
+  return rowPx
+}
 
 it('mounts only the rows near the window in a long catalog', async () => {
   const db = openTestDb()
@@ -677,9 +682,9 @@ it('mounts the rows a scroll of the pane brings into view', async () => {
   await seedMany(db, MANY)
   await mount(db)
   await expect.element(row('Tune 000')).toBeVisible()
-  await settled()
+  const rowPx = await settled()
   const pane = tunes().element().closest<HTMLElement>('[data-pane-scroller]')!
-  pane.scrollTop = 100 * ROW_PX
+  pane.scrollTop = 100 * rowPx
   await expect.element(row('Tune 100')).toBeInTheDocument()
   await expect.element(row('Tune 000')).not.toBeInTheDocument()
 })
@@ -689,9 +694,9 @@ it('comes back from a pushed tune to the same place in a long catalog', async ()
   await seedMany(db, MANY)
   const { router } = await mount(db)
   await expect.element(row('Tune 000')).toBeVisible()
-  await settled()
+  const rowPx = await settled()
   const pane = tunes().element().closest<HTMLElement>('[data-pane-scroller]')!
-  pane.scrollTop = 100 * ROW_PX
+  pane.scrollTop = 100 * rowPx
   await expect.element(row('Tune 100')).toBeInTheDocument()
   await expect.element(row('Tune 000')).not.toBeInTheDocument()
   const opened = tunes()

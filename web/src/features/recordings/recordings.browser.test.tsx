@@ -5,6 +5,7 @@ import { META_RECORDINGS_ORIGIN, setStorage } from '../../db/meta'
 import type { CrosstuneDb } from '../../db/schema'
 import { providerLabel } from '../links/display'
 import { NOT_AUDIO_ERROR } from './addAudioFiles'
+import { recordingCountLabel } from './arrangeRecordings'
 import { openTuneName, playName } from './recordingNames'
 import {
   FILED_HEADER,
@@ -102,7 +103,7 @@ it('shows no Filters while loading, nor with only own recordings', async () => {
   release()
   await expect.element(filters()).toBeEnabled()
   await db.recordings.put(recordingRow('r1', { label: 'Jam recording' }))
-  await expect.element(column().getByText('1 recording', { exact: true })).toBeVisible()
+  await expect.element(column().getByText(recordingCountLabel(1, 1), { exact: true })).toBeVisible()
   await expect.element(filters()).not.toBeInTheDocument()
 })
 
@@ -450,11 +451,13 @@ it('outlines the column right under the pinned phone bar once the list has scrol
   drag('dragenter', [new File(['abc'], 'jam.m4a', { type: 'audio/mp4' })])
   const overlay = column().getByText(DROP_TO_IMPORT)
   await expect.element(overlay).toBeVisible()
-  const box = () => overlay.element().closest('[data-drop-overlay]')!.firstElementChild!
-  // The outline is inset 8px from its anchor, which sits at the bar's visible bottom.
+  const anchor = () => overlay.element().closest('[data-drop-overlay]')!
+  // The outline hangs from an anchor that sits at the bar's visible bottom.
   await expect
-    .poll(() => Math.round(box().getBoundingClientRect().top - bar.getBoundingClientRect().bottom))
-    .toBe(8)
+    .poll(() =>
+      Math.round(anchor().getBoundingClientRect().top - bar.getBoundingClientRect().bottom),
+    )
+    .toBe(0)
   drag('dragleave', [], document.body)
   await expect.element(overlay).not.toBeInTheDocument()
 })

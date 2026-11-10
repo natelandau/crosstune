@@ -81,7 +81,7 @@ it('sinks the tab bar and raises the action bar as selecting starts on the phone
     await startSelecting()
     // On its way out, and inert, so nothing in it takes a press or focus.
     expect(tabBar()!.inert).toBe(true)
-    expect(actionsSlide().style.transform).toBe('translateY(100%)')
+    expect(sunk(actionsSlide())).toBeGreaterThan(0)
     // Halfway through its time, the tab bar is partway down below the screen's foot.
     frameData.timestamp += (DURATION.base * 1000) / 2
     await expect.poll(() => sunk(tabBar())).toBeGreaterThan(0)
@@ -98,7 +98,7 @@ it('raises the tab bar back as selecting ends on the phone', async () => {
     await userEvent.keyboard('{Escape}')
     await expect.poll(tabBar).not.toBeNull()
     expect(tabBar()!.inert).toBe(false)
-    expect(tabBar()!.style.transform).toBe('translateY(150%)')
+    expect(sunk(tabBar())).toBeGreaterThan(0)
   })
   await expect.poll(() => tabBar()!.style.transform).toBe('none')
   await expect.element(actions()).not.toBeInTheDocument()

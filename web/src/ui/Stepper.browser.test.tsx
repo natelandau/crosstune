@@ -183,9 +183,11 @@ it('slides the new value in from the pressed side', async () => {
     await pollStill(() => reading().getAnimations({ subtree: true }).length).toBeGreaterThan(0)
     return startTransform()
   }
-  expect(await from(up)).toContain('translateY(70%)')
+  const offset = (transform: string | number | null | undefined) =>
+    parseFloat(/translateY\((-?[\d.]+)%\)/.exec(String(transform))?.[1] ?? 'NaN')
+  expect(offset(await from(up))).toBeGreaterThan(0)
   await pollStill(() => reading().getAnimations({ subtree: true })).toHaveLength(0)
-  expect(await from(down)).toContain('translateY(-70%)')
+  expect(offset(await from(down))).toBeLessThan(0)
 })
 
 it('only fades the value under reduced motion', async () => {

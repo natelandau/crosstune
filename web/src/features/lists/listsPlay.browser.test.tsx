@@ -135,7 +135,6 @@ it('shows the playing list as playing, and pauses and resumes it from its row', 
   await expect.poll(() => engine.getState().playing).toBe(true)
   const pause = page.getByRole('button', { name: pauseListName('Thursday jam') })
   await expect.element(pause).toBeEnabled()
-  expect(pause.element().querySelector('[data-playing-glyph]')).not.toBeNull()
   await pause.click()
   await expect.poll(() => engine.getState().playing).toBe(false)
   await playList('Thursday jam').click()

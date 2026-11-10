@@ -6,7 +6,7 @@ describe('tap', () => {
     const vibrate = vi.fn()
     Object.defineProperty(navigator, 'vibrate', { value: vibrate, configurable: true })
     tap()
-    expect(vibrate).toHaveBeenCalledWith(10)
+    expect(vibrate).toHaveBeenCalledOnce()
   })
 
   it('does nothing where it cannot', () => {

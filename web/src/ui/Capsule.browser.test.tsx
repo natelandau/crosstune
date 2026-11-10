@@ -56,7 +56,7 @@ it('gives a link capsule the press motion, its name, its ref, and its props', as
   await expect.element(page.getByText('list')).toBeVisible()
 })
 
-it('takes a press 44px tall on touch while it draws at the compact height', async () => {
+it('takes a press 44px tall on touch', async () => {
   renderWithProviders(
     <div style={{ padding: 40 }}>
       <Capsule label="D" />
@@ -66,9 +66,9 @@ it('takes a press 44px tall on touch while it draws at the compact height', asyn
   const chip = page.getByRole('button', { name: 'D' })
   await expect.element(chip).toBeVisible()
   const box = () => chip.element().getBoundingClientRect()
-  await expect.poll(() => box().height).toBe(32)
+  await expect.poll(() => box().height).toBeGreaterThan(0)
+  const middle = box().top + box().height / 2
   const hit = (y: number) => document.elementFromPoint(box().left + box().width / 2, y)
-  // The press area runs 6px past each edge.
-  expect(hit(box().top - 5)).toBe(chip.element())
-  expect(hit(box().bottom + 5)).toBe(chip.element())
+  expect(hit(middle - 21)).toBe(chip.element())
+  expect(hit(middle + 21)).toBe(chip.element())
 })

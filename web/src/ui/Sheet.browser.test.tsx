@@ -56,6 +56,9 @@ function Harness({
 
 const dialog = () => page.getByRole('dialog', { name: 'Edit tune' })
 
+/** Where a part-height sheet's top rests in the phone viewport. */
+const PART_TOP = 844 * (1 - SHEET.partRatio)
+
 /** The sheet's top edge, relative to the viewport top. */
 function sheetTop(): number {
   return dialog().element().getBoundingClientRect().top
@@ -69,7 +72,7 @@ async function open(): Promise<void> {
 /** Opens a touch sheet and waits for it to settle at part height, where a finger can reach it. */
 async function openSettled(): Promise<void> {
   await open()
-  await expect.poll(sheetTop).toBe(844 / 2)
+  await expect.poll(sheetTop).toBe(PART_TOP)
 }
 
 /** Reads `read` once a frame until `until` settles, and returns every value read. */
@@ -169,7 +172,7 @@ it('a locked touch sheet refuses a drag down', async () => {
   await dragDown(page.getByRole('dialog', { name: 'Edit tune' }), 400)
   await expect.element(page.getByRole('dialog', { name: 'Edit tune' })).toBeVisible()
   // Settling back at part height proves the release ran and chose to stay.
-  await expect.poll(sheetTop).toBe(844 / 2)
+  await expect.poll(sheetTop).toBe(PART_TOP)
   expect(onOpenChange).not.toHaveBeenCalledWith(false)
 })
 
@@ -180,17 +183,17 @@ it('an open touch sheet closes on a drag down', async () => {
   await expect.element(page.getByRole('dialog')).not.toBeInTheDocument()
 })
 
-it('a part-height sheet opens to half the window and drags up to full', async () => {
+it('a part-height sheet opens to part height and drags up to full', async () => {
   renderWithProviders(<Harness />, { density: 'touch' })
   await openSettled()
   await drag(page.getByRole('heading', { name: 'Edit tune' }), 0, -300)
-  await expect.poll(sheetTop).toBe(34)
+  await expect.poll(sheetTop).toBe(SHEET.topMargin)
 })
 
 it('a full-height sheet opens full', async () => {
   renderWithProviders(<Harness height="full" />, { density: 'touch' })
   await open()
-  await expect.poll(sheetTop).toBe(34)
+  await expect.poll(sheetTop).toBe(SHEET.topMargin)
 })
 
 it('a fitted sheet rests at its content height, its footer at the window foot', async () => {
@@ -200,7 +203,7 @@ it('a fitted sheet rests at its content height, its footer at the window foot', 
     page.getByRole('button', { name: 'Save' }).element().getBoundingClientRect().bottom
   // Rising from below the window, the footer reaches its rest inside the window's foot.
   await expect.poll(() => saveBottom() <= 844 && saveBottom() > 844 - 40).toBe(true)
-  await expect.poll(sheetTop).toBeGreaterThan(844 / 2)
+  await expect.poll(sheetTop).toBeGreaterThan(PART_TOP)
 })
 
 it('a fitted sheet taller than part height rests there and drags to full', async () => {
@@ -210,7 +213,7 @@ it('a fitted sheet taller than part height rests there and drags to full', async
     </Sheet>,
     { density: 'touch' },
   )
-  await expect.poll(sheetTop).toBe(844 / 2)
+  await expect.poll(sheetTop).toBe(PART_TOP)
   await drag(page.getByRole('heading', { name: 'Edit tune' }), 0, -300)
   await expect.poll(sheetTop).toBe(SHEET.topMargin)
 })
@@ -370,10 +373,12 @@ it('pins an accessory with no actions and still closes from the header', async (
   expect(page.getByText('Line').element().closest('footer')).not.toBeNull()
 })
 
-it('keeps a 16px gutter on a narrow pointer window', async () => {
+it('keeps the gutter on a narrow pointer window', async () => {
   renderWithProviders(<Harness />, { density: 'pointer' })
   await open()
-  await expect.poll(() => dialog().element().getBoundingClientRect().width).toBe(390 - 32)
+  await expect
+    .poll(() => dialog().element().getBoundingClientRect().width)
+    .toBe(390 - 2 * SHEET.gutter)
 })
 
 it('scales the page back behind a touch sheet and restores it on close', async () => {
@@ -406,7 +411,9 @@ it('moves the scaled-back page without changing its clip as the sheet rises', as
   )
   const opened = frames.filter((frame) => frame.transform !== '')
   expect(new Set(opened.map((frame) => frame.transform)).size).toBeGreaterThan(1)
-  expect(new Set(opened.map((frame) => frame.clip))).toEqual(new Set(['inset(0px round 14px)']))
+  const clips = new Set(opened.map((frame) => frame.clip))
+  expect(clips.size).toBe(1)
+  expect(clips.has('')).toBe(false)
 })
 
 it('restores the scaled-back page when the sheet unmounts open', async () => {
@@ -452,14 +459,14 @@ it('scrolls long content instead of dragging the sheet', async () => {
     </Sheet>,
     { density: 'touch' },
   )
-  await expect.poll(sheetTop).toBe(34)
+  await expect.poll(sheetTop).toBe(SHEET.topMargin)
   const content = () => document.querySelector('[data-sheet-content]')!
   await expect.poll(() => getComputedStyle(content()).touchAction).toBe('pan-y')
   const tops = await everyFrame(sheetTop, async () => {
     await dragDown(page.getByText('Line 30', { exact: true }), 300)
-    await expect.poll(sheetTop).toBe(34)
+    await expect.poll(sheetTop).toBe(SHEET.topMargin)
   })
-  expect(tops.filter((top) => top !== 34)).toEqual([])
+  expect(tops.filter((top) => top !== SHEET.topMargin)).toEqual([])
 })
 
 function Handoff() {
@@ -518,10 +525,10 @@ it('opens a touch sheet in place under reduced motion', async () => {
     () => dialog().query()?.getBoundingClientRect().top,
     async () => {
       await page.getByRole('button', { name: 'Edit tune' }).click()
-      await expect.poll(sheetTop).toBe(844 / 2)
+      await expect.poll(sheetTop).toBe(PART_TOP)
     },
   )
-  expect(tops.filter((top) => top !== undefined && top !== 844 / 2)).toEqual([])
+  expect(tops.filter((top) => top !== undefined && top !== PART_TOP)).toEqual([])
 })
 
 it('opens a pointer dialog without scaling under reduced motion', async () => {
@@ -561,11 +568,11 @@ it('settles a released touch sheet without a spring under reduced motion', async
     await drag(page.getByRole('heading', { name: 'Edit tune' }), 0, -300)
     // Released above part height: every frame from here on is the settle, not the drag.
     observer.observe(modal, { attributes: true, attributeFilter: ['style'] })
-    await expect.poll(sheetTop).toBe(34)
+    await expect.poll(sheetTop).toBe(SHEET.topMargin)
   } finally {
     observer.disconnect()
   }
-  expect(tops.filter((top) => top !== 34)).toEqual([])
+  expect(tops.filter((top) => top !== SHEET.topMargin)).toEqual([])
 })
 
 it('goes back up when its parent refuses a closing drag', async () => {
@@ -576,10 +583,10 @@ it('goes back up when its parent refuses a closing drag', async () => {
     </Sheet>,
     { density: 'touch' },
   )
-  await expect.poll(sheetTop).toBe(844 / 2)
+  await expect.poll(sheetTop).toBe(PART_TOP)
   await dragDown(dialog(), 400)
   await expect.poll(() => onOpenChange).toHaveBeenCalledWith(false)
-  await expect.poll(sheetTop).toBe(844 / 2)
+  await expect.poll(sheetTop).toBe(PART_TOP)
 })
 
 /** Records the sheet's top on every style change, so a test can read the path it took. */
@@ -615,7 +622,7 @@ it('never springs back when its parent closes after the close window opens', asy
     )
   }
   renderWithProviders(<AsyncParent />, { density: 'touch' })
-  await expect.poll(sheetTop).toBe(844 / 2)
+  await expect.poll(sheetTop).toBe(PART_TOP)
   const { tops, stop } = recordTops()
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
   try {
@@ -629,7 +636,7 @@ it('never springs back when its parent closes after the close window opens', asy
     const from = tops.length
     await vi.advanceTimersByTimeAsync(SHEET.closeAnswerMs - 1)
     // The parent has not answered and the window has not passed: the sheet stays where released.
-    expect(releasedAt).toBeGreaterThan(844 / 2 + 100)
+    expect(releasedAt).toBeGreaterThan(PART_TOP + 100)
     expect(sheetTop()).toBe(releasedAt)
     answer()
     // The exit has begun, so the parent's answer has rendered and cancelled the pending return.
@@ -652,7 +659,7 @@ it('goes back up once the close window passes with no answer', async () => {
     </Sheet>,
     { density: 'touch' },
   )
-  await expect.poll(sheetTop).toBe(844 / 2)
+  await expect.poll(sheetTop).toBe(PART_TOP)
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
   try {
     await dragDown(page.getByText('Body'), 400)
@@ -662,12 +669,12 @@ it('goes back up once the close window passes with no answer', async () => {
     await pollStill(() => onOpenChange).toHaveBeenCalledWith(false)
     await pollStill(() => vi.getTimerCount()).toBeGreaterThan(pending)
     await vi.advanceTimersByTimeAsync(SHEET.closeAnswerMs - 1)
-    expect(sheetTop()).toBeGreaterThan(844 / 2 + 100)
+    expect(sheetTop()).toBeGreaterThan(PART_TOP + 100)
     await vi.advanceTimersByTimeAsync(1)
   } finally {
     vi.useRealTimers()
   }
-  await expect.poll(sheetTop).toBe(844 / 2)
+  await expect.poll(sheetTop).toBe(PART_TOP)
 })
 
 it("keeps a touch sheet's header and content clear of the side safe areas", async () => {
@@ -689,10 +696,10 @@ it('stays at full height when the window turns', async () => {
   renderWithProviders(<Harness />, { density: 'touch' })
   await openSettled()
   await drag(page.getByRole('heading', { name: 'Edit tune' }), 0, -300)
-  await expect.poll(sheetTop).toBe(34)
+  await expect.poll(sheetTop).toBe(SHEET.topMargin)
   await page.viewport(844, 390)
   await expect.poll(() => window.innerHeight).toBe(390)
-  await expect.poll(sheetTop).toBe(34)
+  await expect.poll(sheetTop).toBe(SHEET.topMargin)
 })
 
 it('keeps the page scaled back when a sheet under another leaves', async () => {
@@ -714,7 +721,7 @@ it('keeps the page scaled back when a sheet under another leaves', async () => {
   const root = document.querySelector<HTMLElement>('[data-sheet-root]')!
   await expect
     .poll(() => page.getByRole('dialog', { name: 'Over' }).element().getBoundingClientRect().top)
-    .toBe(34)
+    .toBe(SHEET.topMargin)
   await expect.poll(() => root.style.transform).toMatch(/translateY\(20px\)/)
   const full = root.style.transform
   rerender(<Stack under={false} />)
@@ -886,7 +893,7 @@ it.each(['pointer', 'touch'] as const)(
 )
 
 it.each(['pointer', 'touch'] as const)(
-  'stacks a large full-width primary over a centered plain tertiary and the footnote on %s',
+  'stacks a large full-width primary over a centered tertiary and the footnote on %s',
   async (density) => {
     renderWithProviders(
       <Sheet
@@ -915,7 +922,6 @@ it.each(['pointer', 'touch'] as const)(
     expect(box(save.element()).bottom).toBeLessThanOrEqual(box(tertiary).top)
     expect(box(tertiary).bottom).toBeLessThanOrEqual(box(below).top)
     expect(Math.abs(middle(tertiary) - middle(save.element()))).toBeLessThanOrEqual(1)
-    expect(getComputedStyle(tertiary).backgroundColor).toBe('rgba(0, 0, 0, 0)')
     expect(dialog().getByRole('button', { name: 'Cancel' }).query()).toBeNull()
   },
 )

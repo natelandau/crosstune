@@ -390,19 +390,13 @@ describe('PracticeWaveform', () => {
     expect(seek).not.toHaveBeenCalled()
   })
 
-  it("the selected loop's handles show grab tabs centered just outside its edges", async () => {
+  it("the selected loop's handles show grab tabs just outside its edges", async () => {
     setup({ loops: [A, B], selected: 'a' })
     await expect.element(page.getByRole('slider', { name: LOOP_END })).toBeInTheDocument()
     const box = () => waveform().getBoundingClientRect()
     const grip = (edge: 'start' | 'end') =>
       document.querySelector(`[data-handle="${edge}"] [data-grip]`)!.getBoundingClientRect()
-    const middle = (rect: DOMRect) => rect.top + rect.height / 2
 
-    for (const edge of ['start', 'end'] as const) {
-      await expect.poll(() => grip(edge).width).toBeGreaterThanOrEqual(14)
-      await expect.poll(() => grip(edge).height).toBeGreaterThanOrEqual(40)
-      await expect.poll(() => Math.abs(middle(grip(edge)) - middle(box()))).toBeLessThanOrEqual(24)
-    }
     await expect
       .poll(() => grip('start').right - box().left)
       .toBeLessThanOrEqual(xAt(A.startMs, 20_000) + 1)

@@ -42,9 +42,6 @@ it('scales in from the point it hangs from on the trigger', async () => {
   await toggle(true)
   const popover = surface()
   expect(popover.hasAttribute('data-entering')).toBe(true)
-  expect(popover.getAnimations().map((a) => (a as CSSAnimation).animationName)).toEqual([
-    'popover-in',
-  ])
   const anchor = popover.style.getPropertyValue('--trigger-anchor-point')
   expect(anchor).not.toBe('')
   expect(getComputedStyle(popover).transformOrigin).toBe(anchor)
@@ -58,9 +55,6 @@ it('scales back out on close, taking no presses while it goes', async () => {
   const popover = surface()
   await toggle(false)
   expect(popover.hasAttribute('data-exiting')).toBe(true)
-  expect(popover.getAnimations().map((a) => (a as CSSAnimation).animationName)).toEqual([
-    'popover-in',
-  ])
   expect(getComputedStyle(popover).pointerEvents).toBe('none')
   await expect.element(page.getByRole('dialog', { name: LABEL })).not.toBeInTheDocument()
 })

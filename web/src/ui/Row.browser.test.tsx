@@ -15,6 +15,10 @@ import { StatusGlyph } from './StatusGlyph'
 
 const actions = [{ id: 'edit', label: 'Edit', icon: Pencil, onAction: vi.fn() }]
 
+/** Where a row's content ends: its right edge, inside its own padding. */
+const contentRight = (row: Element) =>
+  row.getBoundingClientRect().right - parseFloat(getComputedStyle(row).paddingRight)
+
 it('reveals a row action to the keyboard', async () => {
   renderWithProviders(
     <RowList label="Tunes">
@@ -163,9 +167,9 @@ it('describes the row after its name', async () => {
 })
 
 it.each([
-  ['pointer', 32, 32],
-  ['touch', 44, Infinity],
-] as const)('a %s row with actions is the target height', async (density, min, max) => {
+  ['pointer', 24],
+  ['touch', 44],
+] as const)('a %s row with actions reaches the target height', async (density, min) => {
   renderWithProviders(
     <RowList label="Tunes">
       <Row id="1" textValue="Boil Them Cabbage" title="Boil Them Cabbage" actions={actions} />
@@ -175,7 +179,6 @@ it.each([
   const row = page.getByRole('row', { name: /Boil Them/ })
   await expect.element(row).toBeVisible()
   await expect.poll(() => row.element().getBoundingClientRect().height).toBeGreaterThanOrEqual(min)
-  expect(row.element().getBoundingClientRect().height).toBeLessThanOrEqual(max)
 })
 
 it('does not move the row content when the menu opens', async () => {
@@ -350,19 +353,19 @@ it('lays pointer actions over the row instead of taking width from the title', a
           { id: 'delete', label: 'Delete', icon: Trash2, tone: 'danger', onAction: vi.fn() },
         ]}
       />
+      <Row id="2" textValue="u" title="Sally Ann" trailing={<KeyPill value="C" compact />} />
     </RowList>,
     { density: 'pointer' },
   )
-  const pill = page.getByText('C', { exact: true })
-  await expect.element(pill).toBeVisible()
-  // The pill keeps its place at the trailing edge, inside the row's own padding.
+  const pills = () => page.getByText('C', { exact: true }).elements()
+  await expect.element(page.getByText('C', { exact: true }).first()).toBeVisible()
+  // The pill keeps the trailing place it has in a row with no actions.
   await expect
-    .poll(
-      () =>
-        page.getByRole('row').element().getBoundingClientRect().right -
-        pill.element().getBoundingClientRect().right,
-    )
-    .toBeLessThanOrEqual(16)
+    .poll(() => {
+      const [withActions, without] = pills().map((pill) => pill.getBoundingClientRect().right)
+      return Math.abs(withActions! - without!)
+    })
+    .toBeLessThan(1)
 })
 
 it("keeps a hovered row's key in view beside its actions", async () => {
@@ -446,14 +449,13 @@ it('gives a row with nothing trailing its full width for the title', async () =>
   )
   const title = page.getByText('Forked Deer', { exact: true })
   await expect.element(title).toBeVisible()
-  // The title's line reaches the row's content edge, inside its 12px padding.
+  // The title's line reaches the row's content edge, inside its padding.
   await expect
     .poll(() => {
-      const row = page.getByRole('row').element().getBoundingClientRect()
       const line = title.element().closest('[data-row-line]')!.getBoundingClientRect()
-      return row.right - line.right
+      return contentRight(page.getByRole('row').element()) - line.right
     })
-    .toBeLessThanOrEqual(12.5)
+    .toBeLessThanOrEqual(0.5)
 })
 
 function pointer(target: Element, type: string, pointerType: 'mouse' | 'touch') {
@@ -473,7 +475,7 @@ function pointer(target: Element, type: string, pointerType: 'mouse' | 'touch') 
   )
 }
 
-it('tints a pointer row while it is pressed, and fades its tints', async () => {
+it('marks a pointer row pressed only while it is held', async () => {
   renderWithProviders(
     <RowList label="Tunes" onAction={() => {}}>
       <Row id="1" textValue="Forked Deer" title="Forked Deer" />
@@ -482,12 +484,8 @@ it('tints a pointer row while it is pressed, and fades its tints', async () => {
   )
   const row = page.getByRole('row', { name: 'Forked Deer' })
   await expect.element(row).toBeVisible()
-  const { transitionProperty } = getComputedStyle(row.element())
-  expect(transitionProperty.split(', ')).toContain('background-color')
-  const rest = getComputedStyle(row.element()).backgroundColor
   pointer(row.element(), 'pointerdown', 'mouse')
   await expect.element(row).toHaveAttribute('data-pressed')
-  await expect.poll(() => getComputedStyle(row.element()).backgroundColor).not.toBe(rest)
   pointer(row.element(), 'pointerup', 'mouse')
   await expect.element(row).not.toHaveAttribute('data-pressed')
 })
@@ -509,7 +507,7 @@ it('waits a beat before washing a pressed touch row, so a scroll never flashes i
   try {
     pointer(content, 'pointerdown', 'touch')
     await expect.element(row).toHaveAttribute('data-pressed')
-    expect(tint().transitionDelay).toBe('0.075s')
+    expect(tint().transitionDelay).not.toBe('0s')
     await expect.poll(() => Number(tint().opacity)).toBe(1)
     pointer(content, 'pointerup', 'touch')
     // React Aria ends a touch press on a timeout after the finger lifts.

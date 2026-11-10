@@ -3,7 +3,7 @@ import { expect, it, vi } from 'vitest'
 import { renderWithProviders } from '../../test/render'
 import { pollStill } from '../../test/stillPoll'
 import { WORKING } from '../../ui/WorkingMark'
-import type { TrackWork } from '../../ui/useWorking'
+import { DONE_HOLD_MS, WORKING_DELAY_MS, type TrackWork } from '../../ui/useWorking'
 import { EditorHeader } from './EditorHeader'
 import { useEditorSave } from './useEditorSave'
 
@@ -36,14 +36,14 @@ it('shows Save working only once the question is answered, and no check after', 
     await expect.element(save).toBeVisible()
     ;(save.element() as HTMLElement).click()
     await pollStill(() => onSave).toHaveBeenCalledTimes(1)
-    await vi.advanceTimersByTimeAsync(2000)
+    await vi.advanceTimersByTimeAsync(2 * WORKING_DELAY_MS)
     expect(announced()).toBe('')
     answer()
-    await vi.advanceTimersByTimeAsync(300)
+    await vi.advanceTimersByTimeAsync(WORKING_DELAY_MS)
     await pollStill(announced).toBe(WORKING)
     land()
     await pollStill(announced).toBe('')
-    await vi.advanceTimersByTimeAsync(1200)
+    await vi.advanceTimersByTimeAsync(DONE_HOLD_MS)
     expect(announced()).toBe('')
   } finally {
     vi.useRealTimers()

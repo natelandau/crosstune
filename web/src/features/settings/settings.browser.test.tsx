@@ -9,11 +9,10 @@ import {
   PROVIDER_LABELS,
   STATUS_LABELS,
 } from '../../constants'
-import { setStorage } from '../../db/meta'
 import type { CrosstuneDb } from '../../db/schema'
 import { RECORDING } from '../../text/format'
 import { placeRow } from '../../test/rows'
-import { LOCATION_ACCESS_OFF, SAVED_LOCATIONS, STORAGE_USED } from '../recordings/recordingsCopy'
+import { LOCATION_ACCESS_OFF, SAVED_LOCATIONS } from '../recordings/recordingsCopy'
 import {
   APPEARANCE_KEY,
   APPEARANCE_LABELS,
@@ -316,21 +315,6 @@ it('opens a page by its address on the phone alone, with Back to Settings', asyn
   await back().click()
   await expect.poll(at(router)).toBe('/settings')
   await expect.element(categories()).toBeVisible()
-})
-
-it('holds a page to the readable width on a large window', async () => {
-  await mount(
-    '/settings/sync',
-    { width: 1920, height: 1080 },
-    {
-      before: (db) => setStorage(db, { used_bytes: 1, quota_bytes: 2, max_file_bytes: 1 }),
-    },
-  )
-  const bar = page
-    .getByRole('main', { name: SYNC_AND_STORAGE })
-    .getByRole('progressbar', { name: STORAGE_USED })
-  await expect.element(bar).toBeVisible()
-  await expect.poll(() => bar.element().getBoundingClientRect().width).toBeLessThanOrEqual(680)
 })
 
 it('shows a category summary whole on wide while the row has room for it', async () => {

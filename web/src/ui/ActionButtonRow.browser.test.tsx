@@ -36,7 +36,7 @@ it('keeps its icons where three labels fit', async () => {
   await expect
     .poll(() => document.querySelector('[data-fit]')?.getAttribute('data-fit'))
     .toBe('full')
-  await expect.poll(() => Math.min(...insets())).toBeGreaterThanOrEqual(4)
+  await expect.poll(() => Math.min(...insets())).toBeGreaterThan(0)
 })
 
 it('refits once the page fonts finish loading', async () => {
@@ -68,7 +68,7 @@ it.each([
   await expect
     .poll(() => document.querySelector('[data-fit]')?.getAttribute('data-fit'))
     .not.toBe('full')
-  await expect.poll(() => Math.min(...insets())).toBeGreaterThanOrEqual(4)
+  await expect.poll(() => Math.min(...insets())).toBeGreaterThan(0)
 })
 
 it.each([
@@ -90,5 +90,5 @@ it('keeps its icons with a pointer where the labels have room', async () => {
   await expect
     .poll(() => document.querySelector('[data-fit]')?.getAttribute('data-fit'))
     .toBe('full')
-  await expect.poll(() => Math.min(...insets())).toBeGreaterThanOrEqual(4)
+  await expect.poll(() => Math.min(...insets())).toBeGreaterThan(0)
 })

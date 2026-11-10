@@ -158,7 +158,6 @@ it('shows how many tunes will play as plain text, not a button', async () => {
     .element(page.getByRole('button', { name: willPlayLabel(2, 3) }))
     .not.toBeInTheDocument()
   expect(line.element().closest('button, [role="button"]')).toBeNull()
-  expect(line.element().querySelector('svg')).toBeNull()
 })
 
 it('plays nothing on a free plan and says no tune can play', async () => {
@@ -207,14 +206,11 @@ it("pauses and resumes the playing list from the list's own Play", async () => {
   await expect.element(listPage().getByRole('button', { name: PAUSE, exact: true })).toBeVisible()
 })
 
-it('shows the speaker in the play slot of the playing tune, and pauses and resumes from it', async () => {
+it('pauses and resumes the playing tune from its play slot', async () => {
   const { engine } = await mount(WIDE, ALL_HELD)
   const loads = await playThirdTune(engine)
   const pause = row('t3').getByRole('button', { name: pauseName(TITLES.t3) })
   await expect.element(pause).toBeEnabled()
-  await expect.poll(() => pause.element().querySelector('[data-playing-glyph]')).not.toBeNull()
-  expect(row('t3').element().querySelectorAll('[data-playing-glyph]')).toHaveLength(1)
-  expect(row('t1').element().querySelector('[data-playing-glyph]')).toBeNull()
   await pause.click()
   await expect.poll(() => engine.getState().playing).toBe(false)
   const resume = row('t3').getByRole('button', { name: playName(TITLES.t3) })

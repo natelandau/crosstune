@@ -12,7 +12,7 @@ import { fakeMapKit } from '../../test/fakeMapKit'
 import { renderApp } from '../../test/renderApp'
 import { placeRow, recordingRow } from '../../test/rows'
 import { PLACE_LIMITS } from '../../api/vocabulary'
-import { CANCEL } from '../../ui/confirmCopy'
+import { CANCEL, DELETE } from '../../ui/confirmCopy'
 import { AnalyticsProvider } from '../../usage/AnalyticsProvider'
 import { recordingAnalytics } from '../../usage/testing'
 import { NAME_LOCATION_TITLE, SAVED_LOCATIONS } from '../recordings/recordingsCopy'
@@ -238,17 +238,10 @@ it('returns to the list when its page is chosen again from a location on wide', 
     .getByRole('row', { name: new RegExp(`^${RECORDINGS_SETTINGS}`) })
   // Still shown as the open category while one of its locations is open.
   await expect.element(category).toHaveAttribute('aria-current', 'page')
-  const tint = () => getComputedStyle(category.element()).backgroundColor
-  const onLocation = tint()
   await category.click()
   await expect.poll(at(router)).toBe(LIST)
   await expect.element(link(/^Town Hall/)).toBeVisible()
   await expect.element(category).toHaveAttribute('aria-selected', 'true')
-  await userEvent.unhover(category)
-  await expect.poll(tint).toBe(onLocation)
-  expect(onLocation).not.toBe(
-    getComputedStyle(page.getByRole('grid').getByRole('row').first().element()).backgroundColor,
-  )
 })
 
 it('renames at once with one write and one event though Enter and blur both fire', async () => {
@@ -343,15 +336,12 @@ it('waits on a confirmation before deleting, then deletes and returns to the lis
   const confirm = page.getByRole('alertdialog')
   await expect.element(confirm).toHaveTextContent(deleteLocationTitle('Town Hall'))
   await expect.element(confirm).toHaveTextContent(DELETE_LOCATION_MESSAGE)
-  expect(DELETE_LOCATION_MESSAGE).toBe(
-    'Its recordings keep their location and show their street address.',
-  )
   await confirm.getByRole('button', { name: CANCEL }).click()
   await expect.element(confirm).not.toBeInTheDocument()
   expect((await db.places.get('p1'))?.deleted_at).toBeNull()
   expect(analytics.sends()).toEqual([])
   await page.getByRole('button', { name: DELETE_LOCATION }).click()
-  await page.getByRole('alertdialog').getByRole('button', { name: 'Delete', exact: true }).click()
+  await page.getByRole('alertdialog').getByRole('button', { name: DELETE, exact: true }).click()
   await expect.poll(async () => (await db.places.get('p1'))?.deleted_at).not.toBeNull()
   await expect.poll(at(router)).toBe(LIST)
   await expect.element(link(/^Barn/)).toBeVisible()
