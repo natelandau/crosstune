@@ -27,8 +27,7 @@ struct RecordingPageMenu: View {
             ) { item in
                 if case .delete = item { Divider() }
                 Button(role: item.isDelete ? .destructive : nil) {
-                    onChoose(item)
-                    if case .openOrigin(_, let page) = item { openURL(page) }
+                    choose(item)
                 } label: {
                     Label {
                         Text(item.label)
@@ -44,5 +43,10 @@ struct RecordingPageMenu: View {
                 .labelStyle(.iconOnly)
         }
         .help(TuneScreen.moreActions)
+    }
+
+    private func choose(_ item: RecordingMenuItem) {
+        onChoose(item)
+        if case .openOrigin(_, let page) = item { openURL(page) }
     }
 }
