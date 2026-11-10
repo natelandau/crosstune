@@ -50,12 +50,14 @@ private let day: TimeInterval = 86_400
     }
 
     /// A notice model over the store, once it has read the store and the plan.
-    private func model(claim: NoticeClaim = NoticeClaim()) async throws -> NoticeModel {
+    private func model(claim: NoticeClaim = NoticeClaim(), sourceLocation: SourceLocation = #_sourceLocation)
+        async throws -> NoticeModel
+    {
         let plan = PlanModel(
             store: store, now: { [clock] in clock.now }, sleep: { [clock] in try await clock.sleep($0) })
         let model = NoticeModel(
             store: store, plan: plan, analytics: sink.client, claim: claim, now: { [clock] in clock.now })
-        try await eventually { model.isLoaded }
+        try await eventually(sourceLocation: sourceLocation) { model.isLoaded }
         return model
     }
 
@@ -650,7 +652,7 @@ private let day: TimeInterval = 86_400
             defer { window.close() }
 
             #expect(await press("\u{1B}", code: 53, in: window))
-            #expect(try await poll { presses.close == 1 })
+            try await eventually { presses.close == 1 }
             #expect(presses.seePlan == 0)
         }
 
@@ -660,7 +662,7 @@ private let day: TimeInterval = 86_400
             defer { window.close() }
 
             #expect(await press("\u{1B}", code: 53, in: window))
-            #expect(try await poll { presses.close == 1 })
+            try await eventually { presses.close == 1 }
             #expect(presses.compare == 0)
         }
     }

@@ -32,8 +32,8 @@ final class ChannelSetting {
             sleep: { [clock] in await clock.sleep($0) })
     }
 
-    private func savedRow(_ id: String) async throws -> Recording {
-        try #require(try await store.read { db in try Recording.fetchOne(db, key: id) })
+    private func savedRow(_ id: String, sourceLocation: SourceLocation = #_sourceLocation) async throws -> Recording {
+        try #require(try await store.read { db in try Recording.fetchOne(db, key: id) }, sourceLocation: sourceLocation)
     }
 
     private func channelCount(of recordingID: String) throws -> AVAudioChannelCount {

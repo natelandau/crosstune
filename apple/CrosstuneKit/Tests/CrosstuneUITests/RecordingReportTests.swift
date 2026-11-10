@@ -121,7 +121,7 @@ import Testing
         let tuneID = try await tune("Kitchen Girl", in: store)
         try await put(recording("r2", tuneID: tuneID), in: store)
         let model = RecordingsModel(store: store, analytics: sink.client)
-        #expect(try await poll { model.view("r2") != nil })
+        try await eventually { model.view("r2") != nil }
 
         await model.delete("r2")
 
@@ -137,7 +137,7 @@ import Testing
         let store = try root.open()
         try await put(recording("r1"), in: store)
         let model = RecordingsModel(store: store, analytics: sink.client)
-        #expect(try await poll { model.view("r1") != nil })
+        try await eventually { model.view("r1") != nil }
         try store.close()
 
         await model.delete("r1")
@@ -220,9 +220,11 @@ import Testing
         #expect(sink.calls.isEmpty)
     }
 
-    private func loadedTune(_ id: String, in store: CrosstuneStore) async throws -> TuneModel {
+    private func loadedTune(_ id: String, in store: CrosstuneStore, sourceLocation: SourceLocation = #_sourceLocation)
+        async throws -> TuneModel
+    {
         let model = TuneModel(store: store, tuneID: id, analytics: sink.client)
-        #expect(try await poll { model.shown != nil })
+        try await eventually(sourceLocation: sourceLocation) { model.shown != nil }
         return model
     }
 

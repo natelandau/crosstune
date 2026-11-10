@@ -32,10 +32,12 @@ private let queuedSong = "https://music.apple.com/us/album/the-silver-spear/1440
 private let queuedAlbum = "https://music.apple.com/us/album/the-silver-spear/1440833081"
 private let queuedAudio = URL(filePath: "/tmp/queued.m4a")
 
-private func songItem(_ url: String = queuedSong) throws -> PlayerItem {
+private func songItem(_ url: String = queuedSong, sourceLocation: SourceLocation = #_sourceLocation) throws
+    -> PlayerItem
+{
     let link = RecordingLink(
         id: "l1", tuneID: "t1", url: url, provider: "apple_music", providerRef: detectProvider(url).providerRef)
-    return try #require(PlayerItem.link(link))
+    return try #require(PlayerItem.link(link), sourceLocation: sourceLocation)
 }
 
 private func recordingItem() -> PlayerItem {
@@ -70,14 +72,15 @@ private let queuedNowPlaying = NowPlaying(title: "Jam", tuneTitle: "Kitchen Girl
         return Fixture(player: player, audio: audio, music: music, queue: queue)
     }
 
-    private func queueRecording(_ fixture: Fixture) async throws {
+    private func queueRecording(_ fixture: Fixture, sourceLocation: SourceLocation = #_sourceLocation) async throws {
         fixture.player.playQueued(recordingItem(), nowPlaying: queuedNowPlaying, trigger: .autoAdvance)
-        try await eventually { fixture.player.recordingAudio == .loaded }
+        try await eventually(sourceLocation: sourceLocation) { fixture.player.recordingAudio == .loaded }
     }
 
-    private func queueSong(_ fixture: Fixture) async throws {
-        fixture.player.playQueued(try songItem(), nowPlaying: queuedNowPlaying, trigger: .autoAdvance)
-        try await eventually { fixture.player.linkAudio == .native }
+    private func queueSong(_ fixture: Fixture, sourceLocation: SourceLocation = #_sourceLocation) async throws {
+        fixture.player.playQueued(
+            try songItem(sourceLocation: sourceLocation), nowPlaying: queuedNowPlaying, trigger: .autoAdvance)
+        try await eventually(sourceLocation: sourceLocation) { fixture.player.linkAudio == .native }
     }
 
     @Test func aQueuedRecordingTurnsOffIntervalSkips() async throws {

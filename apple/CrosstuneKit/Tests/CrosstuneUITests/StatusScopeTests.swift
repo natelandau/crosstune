@@ -8,11 +8,15 @@ import Testing
 @Suite struct StatusScopeTests {
     private let root = TemporaryRoot()
 
-    private func loadedCatalog(_ filters: CatalogFilters? = nil) async throws -> (CrosstuneStore, CatalogModel) {
+    private func loadedCatalog(_ filters: CatalogFilters? = nil, sourceLocation: SourceLocation = #_sourceLocation)
+        async throws -> (CrosstuneStore, CatalogModel)
+    {
         let store = try await SampleCatalog.copiedStore(root: root.url)
         if let filters { try await store.setMeta(.catalogFilters, to: filters.stored) }
         let catalog = CatalogModel(store: store)
-        #expect(try await poll { catalog.results != nil && catalog.status == filters?.status })
+        try await eventually(sourceLocation: sourceLocation) {
+            catalog.results != nil && catalog.status == filters?.status
+        }
         return (store, catalog)
     }
 
@@ -37,12 +41,12 @@ import Testing
 
         StatusScope.choose("known", in: catalog)
         #expect(catalog.status == "known")
-        #expect(try await poll { !catalog.isSavingFilters })
+        try await eventually { !catalog.isSavingFilters }
         #expect(try await storedFilters(store) == CatalogFilters(status: "known", facets: [.key: "D"]))
         #expect(catalog.query == "reel")
 
         StatusScope.choose(nil, in: catalog)
-        #expect(try await poll { !catalog.isSavingFilters })
+        try await eventually { !catalog.isSavingFilters }
         #expect(try await storedFilters(store) == CatalogFilters(facets: [.key: "D"]))
     }
 

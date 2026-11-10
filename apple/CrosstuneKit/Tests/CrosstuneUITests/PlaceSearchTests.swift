@@ -245,7 +245,7 @@ import Testing
         let completer = FakePlaceCompleter()
         let search = MapKitPlaceSearch(completer: completer)
         let found = Task { await search.completions(for: "Gal").map(\.title) }
-        #expect(try await poll { completer.fragments == ["Gal"] })
+        try await eventually { completer.fragments == ["Gal"] }
         completer.answer(["Galax"])
         #expect(await found.value == ["Galax"])
 
@@ -258,9 +258,9 @@ import Testing
         completer.completions = [FakePlaceSearch.completion("Old")]
         let search = MapKitPlaceSearch(completer: completer)
         let first = Task { await search.completions(for: "Gal").map(\.title) }
-        #expect(try await poll { completer.fragments == ["Gal"] })
+        try await eventually { completer.fragments == ["Gal"] }
         let second = Task { await search.completions(for: "Gal").map(\.title) }
-        #expect(try await poll { search.waitingSearches == 2 })
+        try await eventually { search.waitingSearches == 2 }
         completer.answer(["Galax"])
         #expect(await first.value == ["Galax"])
         #expect(await second.value == ["Galax"])
@@ -271,7 +271,7 @@ import Testing
         let completer = FakePlaceCompleter()
         let search = MapKitPlaceSearch(completer: completer)
         let older = Task { await search.completions(for: "Ga").map(\.title) }
-        #expect(try await poll { completer.fragments == ["Ga"] })
+        try await eventually { completer.fragments == ["Ga"] }
         let newer = Task { await search.completions(for: "Gal").map(\.title) }
         #expect(await older.value.isEmpty)
         #expect(completer.fragments == ["Ga", "Gal"])
@@ -283,10 +283,10 @@ import Testing
         let completer = FakePlaceCompleter()
         let search = MapKitPlaceSearch(completer: completer)
         let older = Task { await search.completions(for: "Ga").map(\.title) }
-        #expect(try await poll { completer.fragments == ["Ga"] })
+        try await eventually { completer.fragments == ["Ga"] }
         let newer = Task { await search.completions(for: "Gal").map(\.title) }
         #expect(await older.value.isEmpty)
-        #expect(try await poll { search.waitingSearches == 1 })
+        try await eventually { search.waitingSearches == 1 }
         completer.answer(["Gainesville"], for: "Ga")
         #expect(search.waitingSearches == 1)
         completer.answer(["Galax"])
@@ -298,7 +298,7 @@ import Testing
         let completer = FakePlaceCompleter()
         let search = MapKitPlaceSearch(completer: completer)
         let running = Task { await search.completions(for: "Gal").map(\.title) }
-        #expect(try await poll { completer.fragments == ["Gal"] })
+        try await eventually { completer.fragments == ["Gal"] }
         #expect(await search.completions(for: "").isEmpty)
         #expect(await search.completions(for: " G ").isEmpty)
         #expect(completer.fragments == ["Gal"])
@@ -312,7 +312,7 @@ import Testing
         completer.completions = [FakePlaceSearch.completion("Old")]
         let search = MapKitPlaceSearch(completer: completer)
         let found = Task { await search.completions(for: "Gal").map(\.title) }
-        #expect(try await poll { completer.fragments == ["Gal"] })
+        try await eventually { completer.fragments == ["Gal"] }
         completer.fail()
         #expect(await found.value.isEmpty)
     }
@@ -321,7 +321,7 @@ import Testing
         let completer = FakePlaceCompleter()
         let search = MapKitPlaceSearch(completer: completer)
         let found = Task { await search.completions(for: "Gal").map(\.title) }
-        #expect(try await poll { completer.fragments == ["Gal"] })
+        try await eventually { completer.fragments == ["Gal"] }
         found.cancel()
         #expect(await found.value.isEmpty)
         completer.answer(["Galax"])

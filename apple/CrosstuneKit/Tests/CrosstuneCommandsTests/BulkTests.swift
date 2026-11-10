@@ -6,12 +6,16 @@ import Testing
 
 @testable import CrosstuneCommands
 
-private func fetchTune(_ store: CrosstuneStore, _ id: String) async throws -> Tune {
-    try #require(try await store.read { db in try Tune.fetchOne(db, key: id) })
+private func fetchTune(_ store: CrosstuneStore, _ id: String, sourceLocation: SourceLocation = #_sourceLocation)
+    async throws -> Tune
+{
+    try #require(try await store.read { db in try Tune.fetchOne(db, key: id) }, sourceLocation: sourceLocation)
 }
 
-private func fetchUserTune(_ store: CrosstuneStore, _ id: String) async throws -> UserTune {
-    try #require(try await store.read { db in try UserTune.fetchOne(db, key: id) })
+private func fetchUserTune(_ store: CrosstuneStore, _ id: String, sourceLocation: SourceLocation = #_sourceLocation)
+    async throws -> UserTune
+{
+    try #require(try await store.read { db in try UserTune.fetchOne(db, key: id) }, sourceLocation: sourceLocation)
 }
 
 private func activeItems(_ store: CrosstuneStore, _ listID: String) async throws -> [ListItem] {

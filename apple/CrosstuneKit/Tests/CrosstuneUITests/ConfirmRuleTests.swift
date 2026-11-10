@@ -6,7 +6,7 @@ import Testing
 struct ConfirmRuleTests {
     /// The iOS-compiled code of every `ConfirmToolbarItem { ... }` in `path`, with all whitespace
     /// removed, so line breaks and indentation never decide a match.
-    static func confirmBlocks(in path: String) throws -> [String] {
+    static func confirmBlocks(in path: String, sourceLocation: SourceLocation = #_sourceLocation) throws -> [String] {
         let code = try ControlLibraryTests.code(of: SourceScan.url(of: path))
         var blocks: [String] = []
         var searchStart = code.startIndex

@@ -195,17 +195,18 @@ import Testing
     /// Starts an events pull whose request is held, then a sync, and returns once the sync waits
     /// behind it.
     func syncQueuedBehindAHeldEventsPull(
-        _ engine: SyncEngine
+        _ engine: SyncEngine,
+        sourceLocation: SourceLocation = #_sourceLocation
     ) async throws -> (
         release: CheckedContinuation<Void, Never>, pulling: Task<Void, Never>, syncing: Task<Void, Never>
     ) {
         var held: CheckedContinuation<Void, Never>?
         api.onEvents = { await withCheckedContinuation { held = $0 } }
         let pulling = Task { await engine.pullEvents() }
-        try await eventually { held != nil }
+        try await eventually(sourceLocation: sourceLocation) { held != nil }
         let syncing = Task { await engine.sync() }
-        try await eventually { engine.queuedTurns == 2 }
-        return (try #require(held), pulling, syncing)
+        try await eventually(sourceLocation: sourceLocation) { engine.queuedTurns == 2 }
+        return (try #require(held, sourceLocation: sourceLocation), pulling, syncing)
     }
 
     @Test func aSyncWaitsForAnEventsPullInFlight() async throws {

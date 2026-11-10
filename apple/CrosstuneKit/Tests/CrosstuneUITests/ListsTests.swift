@@ -187,9 +187,11 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
 @Suite @MainActor struct ListModelTests {
     private let root = TemporaryRoot()
 
-    private func model(_ store: CrosstuneStore, _ listID: String = session.id) async throws -> ListModel {
+    private func model(
+        _ store: CrosstuneStore, _ listID: String = session.id, sourceLocation: SourceLocation = #_sourceLocation
+    ) async throws -> ListModel {
         let model = ListModel(store: store, listID: listID)
-        try await eventually { model.list != nil && model.showArchived != nil }
+        try await eventually(sourceLocation: sourceLocation) { model.list != nil && model.showArchived != nil }
         return model
     }
 
@@ -297,9 +299,11 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
 @Suite @MainActor struct TunePickerModelTests {
     private let root = TemporaryRoot()
 
-    private func picker(_ store: CrosstuneStore, listID: String = session.id) async throws -> TunePickerModel {
+    private func picker(
+        _ store: CrosstuneStore, listID: String = session.id, sourceLocation: SourceLocation = #_sourceLocation
+    ) async throws -> TunePickerModel {
         let model = TunePickerModel(store: store, listID: listID)
-        try await eventually { model.results != nil }
+        try await eventually(sourceLocation: sourceLocation) { model.results != nil }
         return model
     }
 
@@ -468,12 +472,17 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
 @Suite @MainActor struct ListPickerModelTests {
     private let root = TemporaryRoot()
 
-    private func picker(_ store: CrosstuneStore, titles: [String], excluding: String? = nil) async throws
+    private func picker(
+        _ store: CrosstuneStore, titles: [String], excluding: String? = nil,
+        sourceLocation: SourceLocation = #_sourceLocation
+    ) async throws
         -> ListPickerModel
     {
         let model = ListPickerModel(
             store: store, userTuneIDs: titles.map { sample($0).userTune.id }, excludeListID: excluding)
-        try await eventually { model.isLoaded && model.rows.allSatisfy { $0.isOffered || $0.note != nil } }
+        try await eventually(sourceLocation: sourceLocation) {
+            model.isLoaded && model.rows.allSatisfy { $0.isOffered || $0.note != nil }
+        }
         return model
     }
 

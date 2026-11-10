@@ -701,7 +701,7 @@ private struct RefusingSyncAPI: SyncAPI {
         let synced = named
         try await store.write { writer in try writer.put(synced, at: later(1_000)) }
 
-        #expect(try await poll { edit.place?.name == "Galax, VA" })
+        try await eventually { edit.place?.name == "Galax, VA" }
         #expect(edit.isEdited == false)
         #expect(edit.canClearPlace)
         #expect(await edit.save())
@@ -728,7 +728,7 @@ private struct RefusingSyncAPI: SyncAPI {
         let synced = named
         try await store.write { writer in try writer.put(synced, at: later(1_000)) }
 
-        #expect(try await poll { search.edit.place?.name == "Galax, VA" })
+        try await eventually { search.edit.place?.name == "Galax, VA" }
         #expect(search.isCurrent(galax))
     }
 
@@ -752,7 +752,7 @@ private struct RefusingSyncAPI: SyncAPI {
         let synced = named
         try await store.write { writer in try writer.put(synced, at: later(1_000)) }
         let watcher = RecordingLocationEdit(store: store, recording: recording)
-        #expect(try await poll { watcher.place?.name == "Galax, VA" })
+        try await eventually { watcher.place?.name == "Galax, VA" }
 
         #expect(picked.place == spot)
         #expect(cleared.place == nil)
@@ -942,8 +942,10 @@ private struct RefusingSyncAPI: SyncAPI {
             placeOrigin: "device")
     }
 
-    private func stored(_ store: CrosstuneStore, _ id: String = "r1") async throws -> Recording {
-        try #require(try await store.read { db in try Recording.fetchOne(db, key: id) })
+    private func stored(_ store: CrosstuneStore, _ id: String = "r1", sourceLocation: SourceLocation = #_sourceLocation)
+        async throws -> Recording
+    {
+        try #require(try await store.read { db in try Recording.fetchOne(db, key: id) }, sourceLocation: sourceLocation)
     }
 
     private func savedPlaces(_ store: CrosstuneStore) async throws -> [SavedPlace] {
@@ -990,7 +992,7 @@ private struct RefusingSyncAPI: SyncAPI {
         try await put(store, [recording, captured("r2", name: street, placeID: "p1")], places: [barn])
         let edit = RecordingLocationEdit(store: store, recording: recording)
         await edit.load()
-        #expect(try await poll { edit.place?.name == "The barn" })
+        try await eventually { edit.place?.name == "The barn" }
         edit.nameLocation("Upstairs flat")
         #expect(await edit.save())
         let places = try await savedPlaces(store)
@@ -1100,7 +1102,7 @@ private struct RefusingSyncAPI: SyncAPI {
         try await put(store, [recording], places: [barn])
         let edit = RecordingLocationEdit(store: store, recording: recording)
         await edit.load()
-        #expect(try await poll { edit.place?.name == "The barn" })
+        try await eventually { edit.place?.name == "The barn" }
         #expect(edit.placeAddress == street)
         #expect(edit.canClearPlace)
         #expect(edit.isEdited == false)
@@ -1166,7 +1168,7 @@ private struct RefusingSyncAPI: SyncAPI {
         try await put(store, [recording], places: [existing])
         let edit = RecordingLocationEdit(store: store, recording: recording)
         await edit.load()
-        #expect(try await poll { !edit.savedPlaces.isEmpty })
+        try await eventually { !edit.savedPlaces.isEmpty }
         edit.pickSearch(
             PickedPlace(
                 place: jalopy,
@@ -1220,9 +1222,9 @@ private struct RefusingSyncAPI: SyncAPI {
         let edit = RecordingLocationEdit(store: store, recording: recording)
         await edit.load()
         edit.pickSaved(barn)
-        #expect(try await poll { edit.place?.name == "The barn" })
+        try await eventually { edit.place?.name == "The barn" }
         try await store.write { writer in try writer.deleteSavedPlace("p1", at: later(1_000)) }
-        #expect(try await poll { edit.place?.name == street })
+        try await eventually { edit.place?.name == street }
         #expect(edit.isEdited == false)
         #expect(await edit.save())
         let saved = try await stored(store)
@@ -1260,9 +1262,9 @@ private struct RefusingSyncAPI: SyncAPI {
         await edit.load()
         edit.pickSearch(PickedPlace(place: jalopy, saving: nil))
         edit.pickNearby(.saved(barn))
-        #expect(try await poll { edit.place?.name == "The barn" })
+        try await eventually { edit.place?.name == "The barn" }
         try await store.write { writer in try writer.deleteSavedPlace("p1", at: later(1_000)) }
-        #expect(try await poll { edit.place == jalopy })
+        try await eventually { edit.place == jalopy }
         #expect(edit.isEdited)
         #expect(await edit.save())
         let saved = try await stored(store)
@@ -1282,16 +1284,16 @@ private struct RefusingSyncAPI: SyncAPI {
         try await put(store, [recording], places: [existing])
         let edit = RecordingLocationEdit(store: store, recording: recording, analytics: sink.client)
         await edit.load()
-        #expect(try await poll { !edit.savedPlaces.isEmpty })
+        try await eventually { !edit.savedPlaces.isEmpty }
         edit.pickSearch(
             PickedPlace(
                 place: jalopy,
                 saving: SavedPlaceDraft(
                     name: "Jalopy Theatre", address: "315 Columbia St, Brooklyn, NY", lat: 40.684_5, lon: -74.001_9,
                     applePlaceID: "J1")))
-        #expect(try await poll { edit.linkedPlace?.id == "p1" })
+        try await eventually { edit.linkedPlace?.id == "p1" }
         try await store.write { writer in try writer.deleteSavedPlace("p1", at: later(1_000)) }
-        #expect(try await poll { edit.linkedPlace == nil })
+        try await eventually { edit.linkedPlace == nil }
         #expect(edit.place == jalopy)
         #expect(await edit.save())
         let made = try #require(try await savedPlaces(store).first { $0.deletedAt == nil })
@@ -1380,7 +1382,7 @@ private struct RefusingSyncAPI: SyncAPI {
         named.placeLon = spot.lon
         let synced = named
         try await store.write { writer in try writer.put(synced, at: later(1_000)) }
-        #expect(try await poll { edit.place?.name == street })
+        try await eventually { edit.place?.name == street }
         edit.pickSearch(PickedPlace(place: jalopy, saving: nil))
         #expect(await edit.save())
         #expect(sink.captures.first { $0.name == "recording_place_set" }?.properties["replaced"] == .bool(true))

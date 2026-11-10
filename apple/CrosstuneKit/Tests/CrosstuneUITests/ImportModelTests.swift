@@ -392,7 +392,7 @@ import Testing
         let reading = Task { await model.load(file: root.url.appending(path: "tunes.txt")) }
         // Opened on every way out, so a failed expectation never leaves the read waiting.
         defer { gate.open() }
-        #expect(try await poll { gate.isWaiting })
+        try await eventually { gate.isWaiting }
         #expect(model.isReadingFile)
         #expect(model.canContinue == false)
         #expect(model.canOpenFile == false)

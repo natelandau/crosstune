@@ -98,7 +98,7 @@ import Testing
         input.holdsPermission = true
         let model = sheet()
         let begin = Task { await model.begin() }
-        #expect(try await poll { recorder.isStarting })
+        try await eventually { recorder.isStarting }
 
         await model.cancel()
         input.answerPermission()
@@ -123,7 +123,7 @@ import Testing
         await model.begin()
         try input.play(seconds: 0.5)
         input.send(.writeFailed)
-        #expect(try await poll { model.phase == .saved })
+        try await eventually { model.phase == .saved }
 
         model.settle()
         model.finish()

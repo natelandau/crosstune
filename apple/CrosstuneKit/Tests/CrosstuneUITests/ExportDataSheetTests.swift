@@ -131,7 +131,7 @@ private func countsOnce(_ onDevice: Int, _ total: Int, missing: Int = 0)
         let model = ExportDataModel(exporter: .live(store, engine: nil), isOffline: { false })
         let following = Task { await model.followCounts() }
         defer { following.cancel() }
-        #expect(try await poll { model.counts != nil })
+        try await eventually { model.counts != nil }
         let run = try #require(model.start())
         await run.value
         #expect(model.failure == ExportText.fetchFailed)
@@ -175,11 +175,11 @@ private func countsOnce(_ onDevice: Int, _ total: Int, missing: Int = 0)
         let following = Task { await model.followCounts() }
 
         continuation.yield(ExportCounts(onDevice: 1, total: 3, missing: 2))
-        #expect(try await poll { model.counts != nil })
+        try await eventually { model.counts != nil }
         #expect(model.counts == ExportCounts(onDevice: 1, total: 3, missing: 2))
 
         continuation.yield(ExportCounts(onDevice: 3, total: 3))
-        #expect(try await poll { model.counts?.missing == 0 })
+        try await eventually { model.counts?.missing == 0 }
         #expect(model.counts == ExportCounts(onDevice: 3, total: 3))
 
         continuation.finish()

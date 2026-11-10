@@ -311,8 +311,9 @@ private func with(_ entry: CatalogEntry, modes: [String]? = nil, timeSignature: 
 
 #if os(macOS)
     @Suite struct MacSelectionTests {
-        private static func source(_ name: String) throws -> String {
-            let file = try #require(SourceScan.files().first { $0.lastPathComponent == name })
+        private static func source(_ name: String, sourceLocation: SourceLocation = #_sourceLocation) throws -> String {
+            let file = try #require(
+                SourceScan.files().first { $0.lastPathComponent == name }, sourceLocation: sourceLocation)
             return SourceScan.withoutComments(try SourceScan.text(at: file))
         }
 
@@ -326,9 +327,13 @@ private func with(_ entry: CatalogEntry, modes: [String]? = nil, timeSignature: 
         }
 
         /// The pane bar's controls closure: from `.paneBar` to the column title that follows it.
-        private static func paneBar(in text: String) throws -> Substring {
-            let start = try #require(text.range(of: ".paneBar"))
-            let end = try #require(text.range(of: ".columnTitled(", range: start.upperBound..<text.endIndex))
+        private static func paneBar(in text: String, sourceLocation: SourceLocation = #_sourceLocation) throws
+            -> Substring
+        {
+            let start = try #require(text.range(of: ".paneBar"), sourceLocation: sourceLocation)
+            let end = try #require(
+                text.range(of: ".columnTitled(", range: start.upperBound..<text.endIndex),
+                sourceLocation: sourceLocation)
             return text[start.lowerBound..<end.lowerBound]
         }
 
@@ -389,14 +394,18 @@ private func with(_ entry: CatalogEntry, modes: [String]? = nil, timeSignature: 
         return CatalogEntry(tune: entry.tune, userTune: entry.userTune)
     }
 
-    private func userTune(_ store: CrosstuneStore, _ title: String) async throws -> UserTune {
+    private func userTune(_ store: CrosstuneStore, _ title: String, sourceLocation: SourceLocation = #_sourceLocation)
+        async throws -> UserTune
+    {
         let id = sample(title).userTune.id
-        return try #require(try await store.read { try UserTune.fetchOne($0, key: id) })
+        return try #require(try await store.read { try UserTune.fetchOne($0, key: id) }, sourceLocation: sourceLocation)
     }
 
-    private func tune(_ store: CrosstuneStore, _ title: String) async throws -> Tune {
+    private func tune(_ store: CrosstuneStore, _ title: String, sourceLocation: SourceLocation = #_sourceLocation)
+        async throws -> Tune
+    {
         let id = sample(title).tune.id
-        return try #require(try await store.read { try Tune.fetchOne($0, key: id) })
+        return try #require(try await store.read { try Tune.fetchOne($0, key: id) }, sourceLocation: sourceLocation)
     }
 
     @Test func setsStatusOffersItsUndoAndTakesItBackFromTheBanner() async throws {

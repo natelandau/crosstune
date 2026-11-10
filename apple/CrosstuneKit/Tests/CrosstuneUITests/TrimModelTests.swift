@@ -484,13 +484,13 @@ private final class Holds {
         audio.duration = 60
     }
 
-    private func load(_ recording: Recording = row()) async throws {
+    private func load(_ recording: Recording = row(), sourceLocation: SourceLocation = #_sourceLocation) async throws {
         player.audioSource = { id in
             RecordingAudioFile(
                 url: URL(filePath: "/tmp/\(id).m4a"), file: RecordingFile(id: id, localState: .downloaded))
         }
         player.play(.recording(recording, tuneTitle: nil))
-        #expect(try await poll { player.recordingAudio == .loaded })
+        try await eventually(sourceLocation: sourceLocation) { player.recordingAudio == .loaded }
     }
 
     private func trim(write: @escaping TrimModel.Write = { _, _, _ in }) -> TrimModel {

@@ -118,7 +118,7 @@ private func isExcludedFromBackup(_ url: URL) throws -> Bool? {
 
     // macOS writes an exclusion again shortly after setResourceValues returns, so clearing one
     // just set can read as excluded until the clear's own deferred write lands.
-    #expect(try await poll { try isExcludedFromBackup(url) == false })
+    try await eventually { try isExcludedFromBackup(url) == false }
 }
 
 @Test func aCapturedScanCountsAsNotUploadedUntilTheServerHasIt() async throws {

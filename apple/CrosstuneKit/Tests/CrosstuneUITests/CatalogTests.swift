@@ -897,14 +897,16 @@ private let blankAndSentinel = CatalogSearch.entries(
 
         /// The gray a selection takes in an inactive window or an unfocused list, over the
         /// column's page background.
-        @MainActor private static func inactiveSelectionHex(_ scheme: ColorScheme) throws -> String {
+        @MainActor private static func inactiveSelectionHex(
+            _ scheme: ColorScheme, sourceLocation: SourceLocation = #_sourceLocation
+        ) throws -> String {
             let name: NSAppearance.Name = scheme == .dark ? .darkAqua : .aqua
-            let appearance = try #require(NSAppearance(named: name))
+            let appearance = try #require(NSAppearance(named: name), sourceLocation: sourceLocation)
             var resolved: NSColor?
             appearance.performAsCurrentDrawingAppearance {
                 resolved = NSColor.unemphasizedSelectedContentBackgroundColor.usingColorSpace(.sRGB)
             }
-            let fill = try #require(resolved)
+            let fill = try #require(resolved, sourceLocation: sourceLocation)
             let rgb = KeyColor.RGB(red: fill.redComponent, green: fill.greenComponent, blue: fill.blueComponent)
             return blend(rgb.hex, over: Palette.hex(.pageBackground, scheme), opacity: fill.alphaComponent)
         }

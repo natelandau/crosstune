@@ -8,11 +8,13 @@ import Testing
 
 @testable import CrosstuneCommands
 
-private func size(of data: Data) throws -> (width: Int, height: Int) {
-    let source = try #require(CGImageSourceCreateWithData(data as CFData, nil))
-    let properties = try #require(CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any])
-    let width = try #require(properties[kCGImagePropertyPixelWidth] as? Int)
-    let height = try #require(properties[kCGImagePropertyPixelHeight] as? Int)
+private func size(of data: Data, sourceLocation: SourceLocation = #_sourceLocation) throws -> (width: Int, height: Int)
+{
+    let source = try #require(CGImageSourceCreateWithData(data as CFData, nil), sourceLocation: sourceLocation)
+    let properties = try #require(
+        CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any], sourceLocation: sourceLocation)
+    let width = try #require(properties[kCGImagePropertyPixelWidth] as? Int, sourceLocation: sourceLocation)
+    let height = try #require(properties[kCGImagePropertyPixelHeight] as? Int, sourceLocation: sourceLocation)
     return (width, height)
 }
 

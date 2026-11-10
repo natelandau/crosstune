@@ -59,9 +59,9 @@ import Testing
         api.failure = APIStatusError(status: 500)
 
         await engine.sync()
-        #expect(try await poll { sleeper.pendingCount == 1 })
+        try await eventually { sleeper.pendingCount == 1 }
         sleeper.fire()
-        #expect(try await poll { sleeper.requested.count == 2 })
+        try await eventually { sleeper.requested.count == 2 }
 
         #expect(sink.captures == [failed("server_error")])
         engine.stop()

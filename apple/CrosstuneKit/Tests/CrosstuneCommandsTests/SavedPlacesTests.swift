@@ -9,8 +9,10 @@ import Testing
 @Suite struct SavedPlacesTests {
     private let root = TemporaryRoot()
 
-    private func recording(_ store: CrosstuneStore, _ id: String) async throws -> Recording {
-        try #require(try await store.read { db in try Recording.fetchOne(db, key: id) })
+    private func recording(_ store: CrosstuneStore, _ id: String, sourceLocation: SourceLocation = #_sourceLocation)
+        async throws -> Recording
+    {
+        try #require(try await store.read { db in try Recording.fetchOne(db, key: id) }, sourceLocation: sourceLocation)
     }
 
     private func seededRecording(_ store: CrosstuneStore) async throws {

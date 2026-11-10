@@ -109,7 +109,7 @@ private struct GenericFailure: Error {}
 @Suite struct ExportDiagnosticsTests {
     private let sink = RecordingDiagnosticsSink()
 
-    private func run(throwing error: any Error) async throws {
+    private func run(throwing error: any Error, sourceLocation: SourceLocation = #_sourceLocation) async throws {
         let model = ExportDataModel(
             exporter: Exporter(
                 counts: {
@@ -121,7 +121,7 @@ private struct GenericFailure: Error {}
                 make: { _ in throw error }),
             diagnostics: sink.client)
         await model.followCounts()
-        try await #require(model.start()).value
+        try await #require(model.start(), sourceLocation: sourceLocation).value
     }
 
     @Test func failedExportReportsExportArea() async throws {

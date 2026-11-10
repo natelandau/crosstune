@@ -26,17 +26,17 @@ private func choice(_ sort: RecordingSort, _ descending: Bool) -> RecordingSortC
     RecordingSortChoice(sort: sort, descending: descending)
 }
 
-private func flat(_ filed: FiledRecordings) -> [RecordingView] {
+private func flat(_ filed: FiledRecordings, sourceLocation: SourceLocation = #_sourceLocation) -> [RecordingView] {
     guard case .flat(let views) = filed else {
-        Issue.record("Expected a flat arrangement")
+        Issue.record("Expected a flat arrangement", sourceLocation: sourceLocation)
         return []
     }
     return views
 }
 
-private func groups(_ filed: FiledRecordings) -> [TuneRecordings] {
+private func groups(_ filed: FiledRecordings, sourceLocation: SourceLocation = #_sourceLocation) -> [TuneRecordings] {
     guard case .byTune(let groups) = filed else {
-        Issue.record("Expected a byTune arrangement")
+        Issue.record("Expected a byTune arrangement", sourceLocation: sourceLocation)
         return []
     }
     return groups

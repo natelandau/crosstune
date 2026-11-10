@@ -117,12 +117,12 @@ private final class FakeLoops {
         store = FakeLoops(player: player)
     }
 
-    private func load(_ row: Recording = recording()) async throws {
+    private func load(_ row: Recording = recording(), sourceLocation: SourceLocation = #_sourceLocation) async throws {
         player.audioSource = { _ in
             RecordingAudioFile(url: audioURL, file: RecordingFile(id: "r1", localState: .downloaded))
         }
         player.play(.recording(row, tuneTitle: nil))
-        try await eventually { player.recordingAudio == .loaded }
+        try await eventually(sourceLocation: sourceLocation) { player.recordingAudio == .loaded }
     }
 
     /// Practice 300 points wide, which opens on 30 seconds: 10 points a second.
@@ -140,8 +140,10 @@ private final class FakeLoops {
     }
 
     /// Where `sourceMs` sits on the waveform now.
-    private func x(_ model: PracticeModel, _ sourceMs: Int64) throws -> Double {
-        try #require(model.zoomedWaveformView).x(ofSourceMs: Double(sourceMs))
+    private func x(_ model: PracticeModel, _ sourceMs: Int64, sourceLocation: SourceLocation = #_sourceLocation) throws
+        -> Double
+    {
+        try #require(model.zoomedWaveformView, sourceLocation: sourceLocation).x(ofSourceMs: Double(sourceMs))
     }
 
     // MARK: Scrolling the audio

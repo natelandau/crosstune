@@ -46,9 +46,9 @@ private let noLoopWrites = LoopWriter(
         }
     }
 
-    private func playA() async throws {
+    private func playA(sourceLocation: SourceLocation = #_sourceLocation) async throws {
         player.play(.recording(pageRecording("a"), tuneTitle: nil))
-        try await eventually { player.recordingAudio == .loaded }
+        try await eventually(sourceLocation: sourceLocation) { player.recordingAudio == .loaded }
     }
 
     private func practice(_ id: String) -> PracticeModel {
@@ -388,11 +388,15 @@ private let noLoopWrites = LoopWriter(
     }
 
     /// Plays `id` from its page, as the practice transport does.
-    private func playOnPage(_ id: String) async throws -> (RecordingPageModel, PracticeModel) {
+    private func playOnPage(_ id: String, sourceLocation: SourceLocation = #_sourceLocation) async throws -> (
+        RecordingPageModel, PracticeModel
+    ) {
         let page = shownPage(id)
         let model = practice(id, on: page)
         model.togglePlay()
-        try await eventually { player.holds(.recording, id: id) && player.recordingAudio == .loaded }
+        try await eventually(sourceLocation: sourceLocation) {
+            player.holds(.recording, id: id) && player.recordingAudio == .loaded
+        }
         return (page, model)
     }
 

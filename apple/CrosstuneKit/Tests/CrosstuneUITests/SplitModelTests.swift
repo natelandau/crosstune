@@ -587,8 +587,10 @@ private final class SplitHolds {
     }
 
     /// Plays on to the end the model asked for, as the player does, which goes back to its start.
-    private func playToEnd(_ split: SplitModel, _ audio: FakeAudio, ends: PlaybackEnds) throws {
-        let end = try #require(ends.made.last ?? nil)
+    private func playToEnd(
+        _ split: SplitModel, _ audio: FakeAudio, ends: PlaybackEnds, sourceLocation: SourceLocation = #_sourceLocation
+    ) throws {
+        let end = try #require(ends.made.last ?? nil, sourceLocation: sourceLocation)
         audio.elapsed = TimeInterval(end) / 1000 - 0.1
         split.follow(playing: true, elapsed: audio.elapsed)
         audio.end(.finished)
@@ -943,11 +945,12 @@ private final class SplitHolds {
             try writer.put(parent)
             try writer.put(waiting)
         }
-        func reason() async throws -> String? {
+        func reason(sourceLocation: SourceLocation = #_sourceLocation) async throws -> String? {
             let views = try await store.read { db in try RecordingsModel.fetch(db).views }
-            let view = try #require(views.first { $0.id == "r1" })
-            let screen = try #require(try await store.read { db in try ScreenRows.fetch(db, id: "r1") })
-            #expect(screen.view.holdsSplitAudio == view.holdsSplitAudio)
+            let view = try #require(views.first { $0.id == "r1" }, sourceLocation: sourceLocation)
+            let screen = try #require(
+                try await store.read { db in try ScreenRows.fetch(db, id: "r1") }, sourceLocation: sourceLocation)
+            #expect(screen.view.holdsSplitAudio == view.holdsSplitAudio, sourceLocation: sourceLocation)
             return RecordingScreenText.deleteDisabledReason(view)
         }
         #expect(try await reason() == RecordingScreenText.deleteWhileSplitting)

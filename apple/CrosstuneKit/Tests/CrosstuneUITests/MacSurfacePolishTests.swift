@@ -77,18 +77,21 @@
         }
 
         /// The rows `view` paints in its last `trailing` points, and its height, drawn `width` wide.
-        private func trailingInk(_ view: some View, width: CGFloat, trailing: CGFloat) throws
+        private func trailingInk(
+            _ view: some View, width: CGFloat, trailing: CGFloat, sourceLocation: SourceLocation = #_sourceLocation
+        ) throws
             -> (top: Int, bottom: Int, height: Int)?
         {
             let renderer = ImageRenderer(content: view.frame(width: width))
             renderer.scale = 1
-            let image = try #require(renderer.cgImage)
+            let image = try #require(renderer.cgImage, sourceLocation: sourceLocation)
             let (columns, rows) = (image.width, image.height)
             var pixels = [UInt8](repeating: 0, count: columns * rows * 4)
             let context = try #require(
                 CGContext(
                     data: &pixels, width: columns, height: rows, bitsPerComponent: 8, bytesPerRow: columns * 4,
-                    space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+                    space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue),
+                sourceLocation: sourceLocation)
             context.draw(image, in: CGRect(x: 0, y: 0, width: columns, height: rows))
             let start = columns - Int(trailing)
             let inked = (0..<rows).filter { row in

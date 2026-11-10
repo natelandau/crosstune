@@ -19,11 +19,13 @@ private func entitlement(source: String?, expiresAt: Date? = nil) -> Entitlement
     private let sink = RecordingAnalyticsSink()
 
     /// A plan model over a store holding `row`, once it has judged the row.
-    private func plan(_ row: Entitlement?, kind: PlanKind) async throws -> PlanModel {
+    private func plan(_ row: Entitlement?, kind: PlanKind, sourceLocation: SourceLocation = #_sourceLocation)
+        async throws -> PlanModel
+    {
         let store = try root.open()
         if let row { try await store.write { writer in try row.upsert(writer.db) } }
         let model = PlanModel(store: store)
-        try await eventually { model.isLoaded && model.plan.kind == kind }
+        try await eventually(sourceLocation: sourceLocation) { model.isLoaded && model.plan.kind == kind }
         return model
     }
 

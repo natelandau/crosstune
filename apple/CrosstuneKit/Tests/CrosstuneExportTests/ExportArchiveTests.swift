@@ -551,7 +551,7 @@ private final class Flag: @unchecked Sendable {
             },
             progress: { _, _ in })
     }
-    #expect(try await poll { fetching.isSet })
+    try await eventually { fetching.isSet }
 
     task.cancel()
 

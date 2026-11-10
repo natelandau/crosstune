@@ -386,9 +386,7 @@ private func jpeg(width: Int, height: Int) -> Data {
         #expect(model.scans.scans.map(\.id) == [ids[1], ids[2], ids[0]])
         #expect(model.scans.announcement?.text == "Scan 1 moved to 3 of 3")
         let expected = [ids[1], ids[2], ids[0]]
-        if try await !poll({ try await store.read { db in try db.liveScanOrder(tuneID: tuneID) } == expected }) {
-            Issue.record("The move never reached the store")
-        }
+        try await eventually { try await store.read { db in try db.liveScanOrder(tuneID: tuneID) } == expected }
         // The replayed move retires once the store's read agrees, leaving the order as it was.
         try await eventually { model.scans.scans.map(\.id) == expected }
     }

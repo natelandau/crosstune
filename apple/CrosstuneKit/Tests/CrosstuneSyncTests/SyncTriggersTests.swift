@@ -29,9 +29,11 @@ import Testing
     }
 
     /// Starts the triggers and waits for the store's first answer to both watches.
-    func started(_ triggers: SyncTriggers) async throws {
+    func started(_ triggers: SyncTriggers, sourceLocation: SourceLocation = #_sourceLocation) async throws {
         triggers.start()
-        try await eventually { triggers.outboxCount != nil && triggers.processing != nil }
+        try await eventually(sourceLocation: sourceLocation) {
+            triggers.outboxCount != nil && triggers.processing != nil
+        }
     }
 
     @Test func syncsOnLaunchOnReturningToTheForegroundAndOnComingOnline() async throws {

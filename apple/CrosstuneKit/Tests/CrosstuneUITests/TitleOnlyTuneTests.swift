@@ -187,9 +187,9 @@ import Testing
 
         undo()
 
-        #expect(try await poll { try await stored(store, tuneID) == nil })
-        #expect(try await poll { added.undone == tuneID })
-        #expect(try await poll { sink.captures.map(\.name) == ["tune_created", "tune_deleted"] })
+        try await eventually { try await stored(store, tuneID) == nil }
+        try await eventually { added.undone == tuneID }
+        try await eventually { sink.captures.map(\.name) == ["tune_created", "tune_deleted"] }
         #expect(
             sink.captures.last?.properties["recordings_count"]
                 == AnalyticsEvent.tuneDeleted(
@@ -210,7 +210,7 @@ import Testing
                 defaults: NewTuneDefaults(nil)),
             in: store)
 
-        #expect(try await poll { added.undoBannerItem != nil && added.undoBannerItem?.undo == nil })
+        try await eventually { added.undoBannerItem != nil && added.undoBannerItem?.undo == nil }
         #expect(added.undoBannerItem?.message == AddedTuneUndo.added("Angeline"))
     }
 
@@ -233,7 +233,7 @@ import Testing
             in: store)
         undo()
 
-        #expect(try await poll { added.undoBannerItem?.message == AddedTuneUndo.kept("Angeline") })
+        try await eventually { added.undoBannerItem?.message == AddedTuneUndo.kept("Angeline") }
         #expect(added.undoBannerItem?.undo == nil)
         #expect(try await stored(store, tuneID) != nil)
         #expect(added.undone == nil)
@@ -252,7 +252,7 @@ import Testing
         undoManager.undo()
 
         #expect(added.undoBannerItem == nil)
-        #expect(try await poll { try await stored(store, tuneID) == nil })
+        try await eventually { try await stored(store, tuneID) == nil }
         #expect(undoManager.canUndo == false)
     }
 
@@ -269,7 +269,7 @@ import Testing
                 tuneID: tuneID, userTuneID: created.1.id, title: created.0.title, defaults: NewTuneDefaults(nil)),
             in: store)
 
-        #expect(try await poll { added.undoBannerItem?.undo == nil })
+        try await eventually { added.undoBannerItem?.undo == nil }
         #expect(undoManager.canUndo == false)
     }
 
@@ -280,11 +280,11 @@ import Testing
         added.undoManager = undoManager
         let tuneID = try #require(await added.add(title: "Angeline", source: .searchOffer))
         // A press is a later event than the add, whose undo group has closed by then.
-        #expect(try await poll { undoManager.groupingLevel == 0 })
+        try await eventually { undoManager.groupingLevel == 0 }
 
         added.undoBannerItem?.undo?()
 
-        #expect(try await poll { try await stored(store, tuneID) == nil })
+        try await eventually { try await stored(store, tuneID) == nil }
         #expect(undoManager.canUndo == false)
     }
 
@@ -309,7 +309,7 @@ import Testing
 
         try await Commands(store: store).deleteTune(tuneID)
 
-        #expect(try await poll { added.undoBannerItem != nil && added.undoBannerItem?.undo == nil })
+        try await eventually { added.undoBannerItem != nil && added.undoBannerItem?.undo == nil }
         #expect(undoManager.canUndo == false)
         await added.undo(tuneID: tuneID, title: "Angeline", pressedAt: added.shownCount)
         #expect(added.undoBannerItem?.message == AddedTuneUndo.added("Angeline"))
@@ -326,11 +326,11 @@ import Testing
         let tuneID = try #require(await added.add(title: "Angeline", source: .searchOffer))
         #expect(undoManager.canUndo)
         // The time runs out in a later event than the add, whose undo group has closed by then.
-        #expect(try await poll { undoManager.groupingLevel == 0 && deadline.started == 1 })
+        try await eventually { undoManager.groupingLevel == 0 && deadline.started == 1 }
 
         deadline.pass()
 
-        #expect(try await poll { added.undoBannerItem == nil })
+        try await eventually { added.undoBannerItem == nil }
         #expect(undoManager.canUndo == false)
         #expect(try await stored(store, tuneID) != nil)
     }
@@ -373,15 +373,14 @@ import Testing
         let store = try await seeded()
         let model = TunePickerModel(store: store, listID: "set", analytics: sink.client)
         model.query = "Angeline"
-        #expect(try await poll { model.results?.outcome.title == "Angeline" })
+        try await eventually { model.results?.outcome.title == "Angeline" }
 
         await model.create("Angeline")
 
         #expect(model.failure == nil)
-        #expect(
-            try await poll {
-                model.results?.rows.contains { $0.entry.tune.title == "Angeline" && $0.isTaken } == true
-            })
+        try await eventually {
+            model.results?.rows.contains { $0.entry.tune.title == "Angeline" && $0.isTaken } == true
+        }
         #expect(sink.captures.map(\.name) == ["tune_created"])
         #expect(sink.captures.first?.properties["source"] == .string("list"))
     }

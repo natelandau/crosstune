@@ -103,19 +103,21 @@ func aConnectivityFailureIsNotReportable(_ code: URLError.Code) {
 
     /// Runs once at `seconds` past the start: by releasing the pending retry when there is one,
     /// or by a trigger when the last run left none.
-    private func run(_ outcome: Outcome, at seconds: Int) async throws {
+    private func run(_ outcome: Outcome, at seconds: Int, sourceLocation: SourceLocation = #_sourceLocation)
+        async throws
+    {
         clock.now = t0 + TimeInterval(seconds)
         state.outcome = outcome
         let before = state.finished
         if sleeper.pendingCount > 0 {
             sleeper.fire()
-            try await eventually { state.finished == before + 1 }
+            try await eventually(sourceLocation: sourceLocation) { state.finished == before + 1 }
         } else {
             await loop.trigger()
         }
         // The retry's wait starts on its own task; waiting here makes the next run release it.
         if outcome != .success && outcome != .stopped {
-            try await eventually { sleeper.pendingCount == 1 }
+            try await eventually(sourceLocation: sourceLocation) { sleeper.pendingCount == 1 }
         }
     }
 

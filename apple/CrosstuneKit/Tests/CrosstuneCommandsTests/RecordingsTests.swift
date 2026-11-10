@@ -575,8 +575,10 @@ import Testing
         return "r1"
     }
 
-    private func row(_ store: CrosstuneStore, _ id: String) async throws -> Recording {
-        try #require(try await store.read { db in try Recording.fetchOne(db, key: id) })
+    private func row(_ store: CrosstuneStore, _ id: String, sourceLocation: SourceLocation = #_sourceLocation)
+        async throws -> Recording
+    {
+        try #require(try await store.read { db in try Recording.fetchOne(db, key: id) }, sourceLocation: sourceLocation)
     }
 
     @Test func thePrecisionsAreTheAPIsOwn() {

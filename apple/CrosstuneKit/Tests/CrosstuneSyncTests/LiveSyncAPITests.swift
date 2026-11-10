@@ -67,8 +67,8 @@ private func api(
         session: session, storageOrigin: storageOrigin)
 }
 
-private func json(_ data: Data?) throws -> JSONObject {
-    try JSONDecoder().decode(JSONObject.self, from: try #require(data))
+private func json(_ data: Data?, sourceLocation: SourceLocation = #_sourceLocation) throws -> JSONObject {
+    try JSONDecoder().decode(JSONObject.self, from: try #require(data, sourceLocation: sourceLocation))
 }
 
 @Suite struct LiveSyncAPITests {

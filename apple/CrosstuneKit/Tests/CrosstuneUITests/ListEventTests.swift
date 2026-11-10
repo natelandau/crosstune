@@ -20,10 +20,14 @@ import Testing
         return CatalogEntry(tune: entry.tune, userTune: entry.userTune)
     }
 
-    private func picker(_ store: CrosstuneStore, titles: [String]) async throws -> ListPickerModel {
+    private func picker(_ store: CrosstuneStore, titles: [String], sourceLocation: SourceLocation = #_sourceLocation)
+        async throws -> ListPickerModel
+    {
         let model = ListPickerModel(
             store: store, userTuneIDs: titles.map { entry($0).userTune.id }, analytics: sink.client)
-        #expect(try await poll { model.isLoaded && model.rows.allSatisfy { $0.isOffered || $0.note != nil } })
+        try await eventually(sourceLocation: sourceLocation) {
+            model.isLoaded && model.rows.allSatisfy { $0.isOffered || $0.note != nil }
+        }
         return model
     }
 
@@ -73,9 +77,11 @@ import Testing
         #expect(sink.calls.isEmpty)
     }
 
-    private func listModel(_ store: CrosstuneStore) async throws -> ListModel {
+    private func listModel(_ store: CrosstuneStore, sourceLocation: SourceLocation = #_sourceLocation) async throws
+        -> ListModel
+    {
         let model = ListModel(store: store, listID: SampleCatalog.lists[0].id, analytics: sink.client)
-        #expect(try await poll { model.list != nil && !model.rows.isEmpty })
+        try await eventually(sourceLocation: sourceLocation) { model.list != nil && !model.rows.isEmpty }
         return model
     }
 
@@ -139,12 +145,11 @@ import Testing
 
         model.move(from: 0, to: 1)
 
-        #expect(
-            try await poll {
-                sink.captures == [
-                    .init(name: "list_reordered", properties: ["list_id": .string(SampleCatalog.lists[0].id)])
-                ]
-            })
+        try await eventually {
+            sink.captures == [
+                .init(name: "list_reordered", properties: ["list_id": .string(SampleCatalog.lists[0].id)])
+            ]
+        }
     }
 
     @Test func reportsTunesAddedToAListByThePicker() async throws {
@@ -179,7 +184,7 @@ import Testing
     @Test func reportsTheTunesPickedIntoAListOnceThePickerCloses() async throws {
         let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = TunePickerModel(store: store, listID: SampleCatalog.lists[1].id, analytics: sink.client)
-        #expect(try await poll { model.results != nil })
+        try await eventually { model.results != nil }
 
         await model.pick(entry("Soldier's Joy"))
         await model.pick(entry("Tam Lin"))
@@ -197,7 +202,7 @@ import Testing
     @Test func reportsNothingForATunePickerClosedEmpty() async throws {
         let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = TunePickerModel(store: store, listID: SampleCatalog.lists[1].id, analytics: sink.client)
-        #expect(try await poll { model.results != nil })
+        try await eventually { model.results != nil }
 
         model.close()
 

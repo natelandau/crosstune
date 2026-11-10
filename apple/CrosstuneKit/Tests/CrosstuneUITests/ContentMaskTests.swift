@@ -148,7 +148,7 @@ import Testing
     /// Names bound with `let` or `var`, or later assigned, to an expression that reads content,
     /// followed through locals bound from those. The whole file is one scope, so a name reused for
     /// the app's own words is treated as content too.
-    static func contentLocals(in text: String) -> Set<String> {
+    static func contentLocals(in text: String, sourceLocation: SourceLocation = #_sourceLocation) -> Set<String> {
         let declared = text.matches(of: /\b(?:let|var)\s+([A-Za-z_]\w*)\s*=\s*([^\n]*)/)
             .map { (name: String($0.1), expression: String($0.2)) }
         // An assignment starts a line or follows a brace; `==` and `!=` are comparisons.
@@ -181,9 +181,11 @@ import Testing
     }
 
     /// The names of the modifiers chained onto the view whose arguments close at `close`.
-    private static func modifiers(in chars: [Character], after close: Int) -> [String] {
+    private static func modifiers(
+        in chars: [Character], after close: Int, sourceLocation: SourceLocation = #_sourceLocation
+    ) -> [String] {
         var names: [String] = []
-        var index = skippingTrailingClosures(in: chars, from: close + 1)
+        var index = skippingTrailingClosures(in: chars, from: close + 1, sourceLocation: sourceLocation)
         while true {
             while index < chars.count, chars[index].isWhitespace { index += 1 }
             guard index < chars.count, chars[index] == "." else { return names }
@@ -220,7 +222,9 @@ import Testing
     }
 
     /// The index past any trailing closures, labeled or not, that follow a call ending at `index`.
-    private static func skippingTrailingClosures(in chars: [Character], from index: Int) -> Int {
+    private static func skippingTrailingClosures(
+        in chars: [Character], from index: Int, sourceLocation: SourceLocation = #_sourceLocation
+    ) -> Int {
         var index = index
         while true {
             var next = index

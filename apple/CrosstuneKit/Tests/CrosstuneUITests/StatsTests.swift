@@ -119,16 +119,20 @@ private func statsFromEveryRow(_ db: Database, settingsRow: String, today: Strin
 }
 
 @MainActor
-private func loaded(_ store: CrosstuneStore, engine: SyncEngine? = nil) async throws -> StatsModel {
+private func loaded(
+    _ store: CrosstuneStore, engine: SyncEngine? = nil, sourceLocation: SourceLocation = #_sourceLocation
+) async throws -> StatsModel {
     let model = StatsModel(store: store, engine: engine, now: opened, timeZone: utc)
-    try await eventually { model.view != nil }
+    try await eventually(sourceLocation: sourceLocation) { model.view != nil }
     return model
 }
 
 @MainActor
-private func loadedSummary(_ store: CrosstuneStore) async throws -> LiveQuery<StatsSummary?> {
+private func loadedSummary(_ store: CrosstuneStore, sourceLocation: SourceLocation = #_sourceLocation) async throws
+    -> LiveQuery<StatsSummary?>
+{
     let summary = StatsSummary.live(store)
-    try await eventually { summary.value != nil }
+    try await eventually(sourceLocation: sourceLocation) { summary.value != nil }
     return summary
 }
 

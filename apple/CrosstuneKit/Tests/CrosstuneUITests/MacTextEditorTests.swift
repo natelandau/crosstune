@@ -14,7 +14,9 @@
 
         /// Whether the text area's editor carries a scroller once laid out in a window. A legacy
         /// scroller (a mouse attached, or "always show scroll bars") shows whenever it is there.
-        private func showsScroller(text: String, minLines: Int, maxLines: Int?) throws -> Bool {
+        private func showsScroller(
+            text: String, minLines: Int, maxLines: Int?, sourceLocation: SourceLocation = #_sourceLocation
+        ) throws -> Bool {
             let area = MacTextArea(
                 "Notes", text: .constant(text), placeholder: "", minLines: minLines, maxLines: maxLines
             )
@@ -29,7 +31,7 @@
                 host.layoutSubtreeIfNeeded()
                 RunLoop.main.run(until: .now)
             }
-            let scroll = try #require(Self.views(NSScrollView.self, in: host).first)
+            let scroll = try #require(Self.views(NSScrollView.self, in: host).first, sourceLocation: sourceLocation)
             return scroll.hasVerticalScroller && !scroll.autohidesScrollers
         }
 

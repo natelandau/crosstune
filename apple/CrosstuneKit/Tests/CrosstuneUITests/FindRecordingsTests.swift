@@ -62,8 +62,8 @@ private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-
 
     /// Waits until the model has acted on the store's answer and any search that started has
     /// answered, so a test can check what it did not do.
-    private func settled(_ model: FindRecordingsModel) async throws {
-        try await eventually { model.hasHandledStore }
+    private func settled(_ model: FindRecordingsModel, sourceLocation: SourceLocation = #_sourceLocation) async throws {
+        try await eventually(sourceLocation: sourceLocation) { model.hasHandledStore }
         await model.deferred?.value
     }
 

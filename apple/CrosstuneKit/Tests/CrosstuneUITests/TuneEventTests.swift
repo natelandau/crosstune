@@ -118,9 +118,11 @@ import Testing
         #expect(sink.calls.isEmpty)
     }
 
-    private func shown(_ store: CrosstuneStore, tuneID: String) async throws -> TuneModel {
+    private func shown(_ store: CrosstuneStore, tuneID: String, sourceLocation: SourceLocation = #_sourceLocation)
+        async throws -> TuneModel
+    {
         let model = TuneModel(store: store, tuneID: tuneID, analytics: sink.client)
-        #expect(try await poll { model.shown != nil })
+        try await eventually(sourceLocation: sourceLocation) { model.shown != nil }
         return model
     }
 

@@ -68,8 +68,10 @@ private func openEditor(
 }
 
 @MainActor
-private func stored(_ store: CrosstuneStore) async throws -> Recording {
-    try #require(try await store.read { db in try Recording.fetchOne(db, key: "r1") })
+private func stored(_ store: CrosstuneStore, sourceLocation: SourceLocation = #_sourceLocation) async throws
+    -> Recording
+{
+    try #require(try await store.read { db in try Recording.fetchOne(db, key: "r1") }, sourceLocation: sourceLocation)
 }
 
 @MainActor
@@ -86,7 +88,7 @@ private func stored(_ store: CrosstuneStore) async throws -> Recording {
         #expect(model.found == nil)
 
         let first = Task { await model.settle(at: galax) }
-        #expect(try await poll { lookup.asked == [galax] })
+        try await eventually { lookup.asked == [galax] }
 
         // The map moved on before the first answer came; that lookup is cancelled and dropped.
         await model.settle(at: elsewhere)
@@ -108,7 +110,7 @@ private func stored(_ store: CrosstuneStore) async throws -> Recording {
         lookup.held = [galax]
         let model = pinModel(start: galax, lookup)
         let first = Task { await model.settle(at: galax) }
-        #expect(try await poll { lookup.asked == [galax] })
+        try await eventually { lookup.asked == [galax] }
 
         // The map settles again half a meter away, and the caller that started the first
         // settle is cancelled; neither stops the lookup or asks again.

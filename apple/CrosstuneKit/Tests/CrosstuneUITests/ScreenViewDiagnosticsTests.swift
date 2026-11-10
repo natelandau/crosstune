@@ -19,7 +19,7 @@
             window.orderFrontRegardless()
             defer { window.close() }
 
-            #expect(try await poll { !sink.screens.isEmpty })
+            try await eventually { !sink.screens.isEmpty }
             #expect(sink.screens == [.tune])
         }
     }

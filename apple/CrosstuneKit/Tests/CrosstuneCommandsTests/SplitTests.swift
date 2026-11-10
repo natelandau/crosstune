@@ -18,8 +18,10 @@ import Testing
         return (store, Commands(store: store))
     }
 
-    private func recording(_ store: CrosstuneStore, _ id: String) async throws -> Recording {
-        try #require(try await store.read { db in try Recording.fetchOne(db, key: id) })
+    private func recording(_ store: CrosstuneStore, _ id: String, sourceLocation: SourceLocation = #_sourceLocation)
+        async throws -> Recording
+    {
+        try #require(try await store.read { db in try Recording.fetchOne(db, key: id) }, sourceLocation: sourceLocation)
     }
 
     private func loops(_ store: CrosstuneStore) async throws -> [RecordingLoop] {
@@ -215,9 +217,11 @@ import Testing
         #expect(try await recording(store, pieceID).deletedAt == nil)
     }
 
-    private func filePiece(_ store: CrosstuneStore, _ pieceID: String, tuneID: String) async throws {
+    private func filePiece(
+        _ store: CrosstuneStore, _ pieceID: String, tuneID: String, sourceLocation: SourceLocation = #_sourceLocation
+    ) async throws {
         try await store.write { writer in
-            var piece = try #require(try Recording.fetchOne(writer.db, key: pieceID))
+            var piece = try #require(try Recording.fetchOne(writer.db, key: pieceID), sourceLocation: sourceLocation)
             piece.tuneID = tuneID
             try writer.put(piece)
         }

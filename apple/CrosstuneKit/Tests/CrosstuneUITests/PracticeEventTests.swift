@@ -45,11 +45,13 @@ private func recording(_ id: String = "r1", isMono: Bool? = nil) -> Recording {
     }
 
     /// The recording loaded paused on its screen.
-    private func opened(isMono: Bool? = nil) async throws -> PracticeModel {
+    private func opened(isMono: Bool? = nil, sourceLocation: SourceLocation = #_sourceLocation) async throws
+        -> PracticeModel
+    {
         let row = recording(isMono: isMono)
         player.loadPaused(.recording(row, tuneTitle: nil))
         RecordingPageOpener.shell(ShellPlace(), player: player)(row.id, source: .recordingsList)
-        #expect(try await poll { player.recordingAudio == .loaded })
+        try await eventually(sourceLocation: sourceLocation) { player.recordingAudio == .loaded }
         let model = PracticeModel(player: player, recording: row, file: nil, writer: writer, announce: { _ in })
         model.openVisit()
         model.showPanel()
@@ -197,10 +199,14 @@ private func recording(_ id: String = "r1", isMono: Bool? = nil) -> Recording {
     }
 
     /// The screen on the next recording, which shows before the last one's has gone.
-    private func switched(to id: String, mode: PracticeMode) async throws -> PracticeModel {
+    private func switched(to id: String, mode: PracticeMode, sourceLocation: SourceLocation = #_sourceLocation)
+        async throws -> PracticeModel
+    {
         player.loadPaused(.recording(recording(id), tuneTitle: nil))
         RecordingPageOpener.shell(ShellPlace(), player: player)(id, source: .recordingsList)
-        #expect(try await poll { player.recordingAudio == .loaded && player.holds(.recording, id: id) })
+        try await eventually(sourceLocation: sourceLocation) {
+            player.recordingAudio == .loaded && player.holds(.recording, id: id)
+        }
         let model = PracticeModel(
             player: player, recording: recording(id), file: nil, writer: writer, mode: mode, announce: { _ in })
         model.openVisit()

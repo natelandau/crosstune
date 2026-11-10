@@ -22,8 +22,10 @@ struct FixtureTransport: ClientTransport {
     }
 }
 
-func fixture(_ name: String) throws -> Data {
-    let url = try #require(Bundle.module.url(forResource: name, withExtension: "json", subdirectory: "Fixtures"))
+func fixture(_ name: String, sourceLocation: SourceLocation = #_sourceLocation) throws -> Data {
+    let url = try #require(
+        Bundle.module.url(forResource: name, withExtension: "json", subdirectory: "Fixtures"),
+        sourceLocation: sourceLocation)
     return try Data(contentsOf: url)
 }
 

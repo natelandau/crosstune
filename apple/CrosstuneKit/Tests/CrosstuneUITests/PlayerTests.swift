@@ -21,12 +21,13 @@ private func entitlement(source: String?, trialEndsAt: Date? = nil) -> Entitleme
 
 @MainActor
 private func planModel(
-    _ row: Entitlement, clock: PlanClock = PlanClock(), root: TemporaryRoot = TemporaryRoot()
+    _ row: Entitlement, clock: PlanClock = PlanClock(), root: TemporaryRoot = TemporaryRoot(),
+    sourceLocation: SourceLocation = #_sourceLocation
 ) async throws -> PlanModel {
     let store = try root.open()
     try await store.write { writer in try row.upsert(writer.db) }
     let model = PlanModel(store: store, now: { clock.now }, sleep: { try await clock.sleep($0) })
-    #expect(try await poll { model.plan.kind != .unknown })
+    try await eventually(sourceLocation: sourceLocation) { model.plan.kind != .unknown }
     return model
 }
 
@@ -373,12 +374,12 @@ private func link(_ provider: String, _ providerRef: String?, url: String = "htt
         player.plan = plan
         let recording = Recording(id: "r1", tuneID: "t1", source: "microphone", addedAt: noon, state: "ready")
         #expect(player.play(.recording(recording, tuneTitle: "Kitchen Girl")))
-        #expect(try await poll { audio.isPlaying })
+        try await eventually { audio.isPlaying }
         // The plan's sleep is relative, so it must start before the clock moves.
-        #expect(try await poll { clock.sleeps.count == 1 })
+        try await eventually { clock.sleeps.count == 1 }
 
         clock.now = end
-        #expect(try await poll { !player.isLoaded })
+        try await eventually { !player.isLoaded }
         #expect(audio.isPlaying == false)
         #expect(audio.loaded == nil)
     }
@@ -390,7 +391,7 @@ private func link(_ provider: String, _ providerRef: String?, url: String = "htt
         let store = try first.open()
         try await store.write { writer in try entitlement(source: nil).upsert(writer.db) }
         let free = PlanModel(store: store)
-        #expect(try await poll { free.plan.kind == .free })
+        try await eventually { free.plan.kind == .free }
         let player = PlayerModel()
         player.plan = free
         #expect(player.play(PlayerItem(kind: .recording, id: "r1", title: "Kitchen Girl")) == false)
@@ -398,15 +399,15 @@ private func link(_ provider: String, _ providerRef: String?, url: String = "htt
         let second = TemporaryRoot()
         let unknown = PlanModel(store: try second.open("user_b"))
         player.plan = unknown
-        #expect(try await poll { unknown.isLoaded })
+        try await eventually { unknown.isLoaded }
         #expect(unknown.plan.kind == .unknown)
         #expect(player.play(PlayerItem(kind: .recording, id: "r1", title: "Kitchen Girl")))
 
         // The last store's plan turns free again; a follower left on it would close the recording.
         try await store.write { writer in try entitlement(source: "comp").upsert(writer.db) }
-        #expect(try await poll { free.plan.kind == .premium })
+        try await eventually { free.plan.kind == .premium }
         try await store.write { writer in try entitlement(source: nil).upsert(writer.db) }
-        #expect(try await poll { free.plan.kind == .free })
+        try await eventually { free.plan.kind == .free }
         #expect(player.holds(.recording, id: "r1"))
     }
 
@@ -419,10 +420,10 @@ private func link(_ provider: String, _ providerRef: String?, url: String = "htt
         player.plan = plan
         player.play(try #require(PlayerItem.link(youtube())))
         // The plan's sleep is relative, so it must start before the clock moves.
-        #expect(try await poll { clock.sleeps.count == 1 })
+        try await eventually { clock.sleeps.count == 1 }
 
         clock.now = end
-        #expect(try await poll { plan.plan.kind == .free })
+        try await eventually { plan.plan.kind == .free }
         #expect(player.holds(.link, id: "l1"))
     }
 }
@@ -595,7 +596,7 @@ private final class QuietTrackCommands: TrackCommands {
         let player = PlayerModel()
         let playback = playback(player)
         playback.start(listID: "l1", name: "Session set", tuneIDs: ["a"], shuffled: false)
-        #expect(try await poll { playback.endMessage != nil })
+        try await eventually { playback.endMessage != nil }
         player.play(PlayerItem(kind: .recording, id: "r1", title: "Kitchen Girl"))
         #expect(playback.endMessage == nil)
         player.close()
@@ -608,7 +609,7 @@ private final class QuietTrackCommands: TrackCommands {
         #expect(PlayerBar.isShown(player, playback, in: nil) == false)
         // Nothing resolves, so the playlist stops with its message.
         playback.start(listID: "l1", name: "Session set", tuneIDs: ["a"], shuffled: false)
-        #expect(try await poll { playback.endMessage != nil })
+        try await eventually { playback.endMessage != nil }
         #expect(player.isLoaded == false)
         #expect(PlayerBar.isShown(player, playback, in: nil))
         PlayerBar.closePlayer(player, playback)

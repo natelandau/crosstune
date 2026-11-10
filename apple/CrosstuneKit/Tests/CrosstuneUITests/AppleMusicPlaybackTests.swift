@@ -198,14 +198,16 @@ private func appleLink(url: String = songURL) -> RecordingLink {
         return (player, access, music)
     }
 
-    private func play(_ player: PlayerModel, _ row: RecordingLink = appleLink()) async throws {
-        player.play(try #require(PlayerItem.link(row)))
-        try await eventually { player.linkAudio != .deciding }
+    private func play(
+        _ player: PlayerModel, _ row: RecordingLink = appleLink(), sourceLocation: SourceLocation = #_sourceLocation
+    ) async throws {
+        player.play(try #require(PlayerItem.link(row), sourceLocation: sourceLocation))
+        try await eventually(sourceLocation: sourceLocation) { player.linkAudio != .deciding }
     }
 
     /// Ends the decision deadline on `sleep` once it is waiting.
-    private func passDeadline(_ sleep: ManualSleep) async throws {
-        try await eventually { !sleep.pending.isEmpty }
+    private func passDeadline(_ sleep: ManualSleep, sourceLocation: SourceLocation = #_sourceLocation) async throws {
+        try await eventually(sourceLocation: sourceLocation) { !sleep.pending.isEmpty }
         sleep.wake()
     }
 

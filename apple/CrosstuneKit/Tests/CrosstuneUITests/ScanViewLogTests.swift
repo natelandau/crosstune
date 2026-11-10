@@ -298,7 +298,7 @@ private struct ScanViewFixture {
         let writer = ScanViewWriter.store(store)
         writer.write(ScanView(tuneID: "t1", context: "tune", startedAt: noon, viewedMs: 3_000))
         let stored = { try await store.read { db in try ScanView.fetchAll(db) } }
-        if try await !poll({ try await stored().count == 1 }) { Issue.record("The view was never stored") }
+        try await eventually { try await stored().count == 1 }
         #expect(try await stored().map(\.tuneID) == ["t1"])
         #expect(try await store.pendingEditCount() == 0)
         #expect(try await store.pendingChangeCount() == 1)

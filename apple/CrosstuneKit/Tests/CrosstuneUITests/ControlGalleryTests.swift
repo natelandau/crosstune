@@ -37,7 +37,7 @@ struct ControlGalleryTests {
 
     /// The shorthands a style declares for itself, such as `filled` for `LibraryButtonStyle`:
     /// each `static var` or `static func` in an extension `where Self ==` the style.
-    static func shorthands(of style: String) throws -> [String] {
+    static func shorthands(of style: String, sourceLocation: SourceLocation = #_sourceLocation) throws -> [String] {
         let member = /static\s+(?:var|func)\s+(\w+)/
         return try SourceScan.files().filter { $0.path.contains("/CrosstuneDesign/") }.flatMap { file in
             try SourceScan.withoutComments(SourceScan.text(at: file))

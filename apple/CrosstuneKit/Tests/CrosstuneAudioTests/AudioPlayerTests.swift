@@ -121,8 +121,12 @@ import Testing
 
     /// A player on the offline renderer, with a 4-second tone loaded.
     /// Waits until the main actor has handled every segment end the node has reported.
-    private func segmentEndsHandled(_ player: AudioPlayer) async throws {
-        try await eventually { player.segmentEndsInFlight.load(ordering: .relaxed) == 0 }
+    private func segmentEndsHandled(_ player: AudioPlayer, sourceLocation: SourceLocation = #_sourceLocation)
+        async throws
+    {
+        try await eventually(sourceLocation: sourceLocation) {
+            player.segmentEndsInFlight.load(ordering: .relaxed) == 0
+        }
     }
 
     private func offlinePlayer(_ root: TemporaryRoot, channels: Int = 1) throws -> AudioPlayer {

@@ -16,9 +16,11 @@ import Testing
     private let root = TemporaryRoot()
     private let sink = RecordingAnalyticsSink()
 
-    private func loaded(_ store: CrosstuneStore) async throws -> SettingsModel {
+    private func loaded(_ store: CrosstuneStore, sourceLocation: SourceLocation = #_sourceLocation) async throws
+        -> SettingsModel
+    {
         let model = SettingsModel(store: store, engine: nil, analytics: sink.client)
-        #expect(try await poll { model.isLoaded })
+        try await eventually(sourceLocation: sourceLocation) { model.isLoaded }
         return model
     }
 
@@ -34,7 +36,7 @@ import Testing
 
         model.setAudioQuality("high")
 
-        #expect(try await poll { sink.captures.count == 1 })
+        try await eventually { sink.captures.count == 1 }
         #expect(sink.captures == [changed("audio_quality", .string("high"))])
     }
 
@@ -47,7 +49,7 @@ import Testing
         model.setKeepsOffline(false)
         model.setAudioQuality("low")
 
-        #expect(try await poll { sink.captures.count == 1 })
+        try await eventually { sink.captures.count == 1 }
         #expect(sink.captures == [changed("audio_quality", .string("low"))])
     }
 
@@ -60,7 +62,7 @@ import Testing
         model.setPlays("mandolin", true)
         model.setPlays("violin", true)
 
-        #expect(try await poll { sink.captures.count == 4 })
+        try await eventually { sink.captures.count == 4 }
         #expect(
             sink.captures == [
                 changed("play_first", .string("apple_music")), changed("download_all", .bool(true)),
@@ -79,7 +81,7 @@ import Testing
         model.setNewTuneStatus("learning")
         model.setAudioQuality("low")
 
-        #expect(try await poll { sink.captures.count == 2 })
+        try await eventually { sink.captures.count == 2 }
         #expect(
             sink.captures == [
                 changed("new_tune_status", .string("learning")), changed("audio_quality", .string("low")),
@@ -95,7 +97,7 @@ import Testing
         model.setTunerA4Hz(442)
         model.setTunerA4Hz(442)
 
-        #expect(try await poll { model.tunerA4Hz == 442 && sink.captures.count == 1 })
+        try await eventually { model.tunerA4Hz == 442 && sink.captures.count == 1 }
         #expect(sink.captures == [changed("tuner_a4_hz", .int(442))])
     }
 
@@ -106,7 +108,7 @@ import Testing
         for typed in ["R", "Re", "Reel", "Reels", "Reels "] { model.setNewTuneGenre(typed) }
         model.setAudioQuality("low")
 
-        #expect(try await poll { sink.captures.count == 2 })
+        try await eventually { sink.captures.count == 2 }
         #expect(
             sink.captures == [
                 changed("new_tune_genre_set", .bool(true)), changed("audio_quality", .string("low")),
@@ -120,7 +122,7 @@ import Testing
         for typed in ["Reel", "Ree", "", " "] { model.setNewTuneGenre(typed) }
         model.setAudioQuality("low")
 
-        #expect(try await poll { sink.captures.count == 3 })
+        try await eventually { sink.captures.count == 3 }
         #expect(
             sink.captures == [
                 changed("new_tune_genre_set", .bool(true)), changed("new_tune_genre_set", .bool(false)),
@@ -145,7 +147,7 @@ import Testing
         model.setNewTuneGenre("Re")
         model.setAudioQuality("low")
 
-        #expect(try await poll { sink.captures.count == 2 })
+        try await eventually { sink.captures.count == 2 }
         #expect(
             sink.captures == [
                 changed("new_tune_genre_set", .bool(true)), changed("audio_quality", .string("low")),
@@ -159,7 +161,7 @@ import Testing
 
         model.setSearches("youtube", false)
 
-        #expect(try await poll { sink.captures.count == 1 })
+        try await eventually { sink.captures.count == 1 }
         let services = try #require(sink.captures.first?.properties["value"])
         guard case .strings(let names) = services else {
             Issue.record("The value is not a list of services")
@@ -178,11 +180,11 @@ import Testing
         let model = try await loaded(store)
 
         InstrumentsChoices.binding("mandolin", model: model).wrappedValue = true
-        #expect(try await poll { sink.captures.count == 1 })
+        try await eventually { sink.captures.count == 1 }
         #expect(sink.captures == [changed("instruments", .strings(["mandolin"]))])
 
         MusicServicesChoices.binding("youtube", model: model).wrappedValue = false
-        #expect(try await poll { sink.captures.count == 2 })
+        try await eventually { sink.captures.count == 2 }
         #expect(sink.captures.last?.name == "setting_changed")
         #expect(sink.captures.last?.properties["setting"] == .string("search_providers"))
         #expect(InstrumentsChoices.binding("mandolin", model: model).wrappedValue)
@@ -196,7 +198,7 @@ import Testing
         try await Commands(store: store).setAudioQuality(clerkUserID: store.userID, quality: "highest")
         try await store.setMeta(.keepOffline, to: true)
 
-        #expect(try await poll { model.audioQuality == "highest" && model.keepsOffline })
+        try await eventually { model.audioQuality == "highest" && model.keepsOffline }
         #expect(sink.calls.isEmpty)
     }
 
@@ -207,7 +209,7 @@ import Testing
         try store.close()
         model.setAudioQuality("high")
 
-        #expect(try await poll { model.qualityFailure != nil })
+        try await eventually { model.qualityFailure != nil }
         #expect(sink.calls.isEmpty)
     }
 
@@ -219,7 +221,7 @@ import Testing
         model.setNewTuneStatus("known")
         model.setNewTuneGenre("Reel")
 
-        #expect(try await poll { model.newTuneStatusFailure != nil && model.newTuneGenreFailure != nil })
+        try await eventually { model.newTuneStatusFailure != nil && model.newTuneGenreFailure != nil }
         #expect(sink.calls.isEmpty)
     }
 

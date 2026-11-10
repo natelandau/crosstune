@@ -72,12 +72,12 @@ private func recording(_ tune: String) -> PlayerItem {
     return .recording(row, tuneTitle: "Tune \(tune)")
 }
 
-private func song(_ tune: String) throws -> PlayerItem {
+private func song(_ tune: String, sourceLocation: SourceLocation = #_sourceLocation) throws -> PlayerItem {
     let track = ["a": "1440833091", "b": "1440833092", "c": "1440833093"][tune] ?? "1440833099"
     let url = "https://music.apple.com/us/album/the-silver-spear/1440833081?i=\(track)"
     let link = RecordingLink(
         id: "l\(tune)", tuneID: tune, url: url, provider: "apple_music", providerRef: detectProvider(url).providerRef)
-    return try #require(PlayerItem.link(link))
+    return try #require(PlayerItem.link(link), sourceLocation: sourceLocation)
 }
 
 private func audioFile(_ recordingID: String) -> RecordingAudioFile {
@@ -85,8 +85,8 @@ private func audioFile(_ recordingID: String) -> RecordingAudioFile {
         url: URL(filePath: "/tmp/\(recordingID).m4a"), file: RecordingFile(id: recordingID, localState: .downloaded))
 }
 
-private func songKind(_ tune: String) throws -> AppleMusicItem {
-    try #require(try song(tune).link?.appleMusic)
+private func songKind(_ tune: String, sourceLocation: SourceLocation = #_sourceLocation) throws -> AppleMusicItem {
+    try #require(try song(tune, sourceLocation: sourceLocation).link?.appleMusic, sourceLocation: sourceLocation)
 }
 
 @MainActor
@@ -125,8 +125,12 @@ private func songKind(_ tune: String) throws -> AppleMusicItem {
         fixture.playback.start(listID: "list1", name: listName, tuneIDs: tuneIDs, shuffled: false, at: tuneID)
     }
 
-    private func playing(_ fixture: Fixture, _ itemID: String) async throws {
-        try await eventually { fixture.player.item?.id == itemID && fixture.player.transport?.isPlaying == true }
+    private func playing(_ fixture: Fixture, _ itemID: String, sourceLocation: SourceLocation = #_sourceLocation)
+        async throws
+    {
+        try await eventually(sourceLocation: sourceLocation) {
+            fixture.player.item?.id == itemID && fixture.player.transport?.isPlaying == true
+        }
     }
 
     private func loads(_ fixture: Fixture) -> Int {
@@ -637,8 +641,12 @@ private func songKind(_ tune: String) throws -> AppleMusicItem {
     }
 
     /// Waits until recording `id` plays and the play log has heard it.
-    private func playing(_ fixture: ActivityFixture, _ id: String) async throws {
-        try await eventually { fixture.audio.isPlaying && fixture.player.item?.id == id }
+    private func playing(_ fixture: ActivityFixture, _ id: String, sourceLocation: SourceLocation = #_sourceLocation)
+        async throws
+    {
+        try await eventually(sourceLocation: sourceLocation) {
+            fixture.audio.isPlaying && fixture.player.item?.id == id
+        }
         try await fixture.fed { $0.loaded == PlaySubject(kind: .recording, id: id) && $0.playing }
     }
 

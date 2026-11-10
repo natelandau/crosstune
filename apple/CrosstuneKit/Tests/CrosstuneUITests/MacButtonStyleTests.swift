@@ -122,9 +122,12 @@
                     (.destructiveFilled, Palette.hex(.danger, scheme)),
                 ]
                 for (role, rest) in rests {
-                    func fill(_ state: MacPressState) throws -> String {
+                    func fill(_ state: MacPressState, sourceLocation: SourceLocation = #_sourceLocation) throws
+                        -> String
+                    {
                         try #require(
-                            MacButtonStyle.fillRGB(for: role, scheme: scheme, container: container, state: state)
+                            MacButtonStyle.fillRGB(for: role, scheme: scheme, container: container, state: state),
+                            sourceLocation: sourceLocation
                         ).hex
                     }
                     #expect(try fill(.rest) == rest.lowercased(), "\(role)")

@@ -70,17 +70,17 @@ private final class Writes {
     }
 
     /// Waits until no change is settling and every settled write has landed.
-    private func settled() async throws {
-        try await eventually {
+    private func settled(sourceLocation: SourceLocation = #_sourceLocation) async throws {
+        try await eventually(sourceLocation: sourceLocation) {
             player.settling.isEmpty && player.measuring.isEmpty
                 && player.writing.isEmpty
         }
     }
 
-    private func load(_ row: Recording = recording()) async throws {
+    private func load(_ row: Recording = recording(), sourceLocation: SourceLocation = #_sourceLocation) async throws {
         player.audioSource = { _ in audioFile() }
         player.play(.recording(row, tuneTitle: nil))
-        try await eventually { player.recordingAudio == .loaded }
+        try await eventually(sourceLocation: sourceLocation) { player.recordingAudio == .loaded }
     }
 
     @Test func loadingARecordingAppliesItsWindowSpeedAndPitch() async throws {

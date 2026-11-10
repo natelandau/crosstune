@@ -314,7 +314,8 @@ private func file(_ state: LocalFileState) -> RecordingFile {
 
     /// A store holding `tunes`, each with the musician's own row, and a shown model for the first.
     private func attributeModel(
-        _ tunes: [Tune], status: String = "want_to_learn", root: TemporaryRoot
+        _ tunes: [Tune], status: String = "want_to_learn", root: TemporaryRoot,
+        sourceLocation: SourceLocation = #_sourceLocation
     ) async throws -> (CrosstuneStore, TuneModel) {
         let store = try root.open()
         try await store.write { writer in
@@ -324,12 +325,14 @@ private func file(_ state: LocalFileState) -> RecordingFile {
             }
         }
         let model = TuneModel(store: store, tuneID: tunes[0].id, analytics: sink.client)
-        try await eventually { model.shown != nil }
+        try await eventually(sourceLocation: sourceLocation) { model.shown != nil }
         return (store, model)
     }
 
-    private func storedTune(_ store: CrosstuneStore, _ tuneID: String) async throws -> Tune {
-        try await store.read { db in try #require(try Tune.fetchOne(db, key: tuneID)) }
+    private func storedTune(
+        _ store: CrosstuneStore, _ tuneID: String, sourceLocation: SourceLocation = #_sourceLocation
+    ) async throws -> Tune {
+        try await store.read { db in try #require(try Tune.fetchOne(db, key: tuneID), sourceLocation: sourceLocation) }
     }
 
     private func edited(_ fields: [String], _ tuneID: String = "t1") -> RecordingAnalyticsSink.Capture {

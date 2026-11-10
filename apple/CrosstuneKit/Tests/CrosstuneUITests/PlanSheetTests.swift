@@ -332,7 +332,7 @@ private let portal = URL(string: "https://billing.example.com/portal")!
                 .upsert(writer.db)
         }
         let plan = PlanModel(store: store)
-        #expect(try await poll { plan.isLoaded && plan.plan.kind == .free })
+        try await eventually { plan.isLoaded && plan.plan.kind == .free }
         let presenter = PremiumPresenter(plan: plan, analytics: sink.client)
         let model = PurchaseModel(client: FakePurchaseClient(), refresh: {}, sync: {}, analytics: sink.client)
         await model.loadOffers()
@@ -504,18 +504,18 @@ private let portal = URL(string: "https://billing.example.com/portal")!
         }
         try await write("trial")
         let plan = PlanModel(store: store, now: { instant })
-        #expect(try await poll { plan.plan.isTrial })
+        try await eventually { plan.plan.isTrial }
         let presenter = PremiumPresenter(plan: plan, analytics: sink.client)
         presenter.present(.plan, from: .planGroup)
         #expect(PlanSheet.mode(plan.plan) == .purchasable)
 
         try await write("apple")
-        #expect(try await poll { PlanSheet.mode(plan.plan) == .member })
+        try await eventually { PlanSheet.mode(plan.plan) == .member }
         #expect(presenter.presented == .plan)
 
         // A refund lapses the grant: the row loses its source.
         try await write(nil)
-        #expect(try await poll { plan.plan.kind == .free })
+        try await eventually { plan.plan.kind == .free }
         #expect(PlanSheet.mode(plan.plan) == .purchasable)
         #expect(presenter.presented == .plan)
     }

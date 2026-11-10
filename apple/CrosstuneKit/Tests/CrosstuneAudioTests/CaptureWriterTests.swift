@@ -62,9 +62,9 @@ import Testing
         try file.read(into: buffer)
         // Skips the encoder's priming, which leaves the start quiet.
         let start = 4_800
-        func rms(_ channel: Int) throws -> Float {
-            let data = try #require(buffer.floatChannelData)
-            try #require(Int(buffer.frameLength) > start)
+        func rms(_ channel: Int, sourceLocation: SourceLocation = #_sourceLocation) throws -> Float {
+            let data = try #require(buffer.floatChannelData, sourceLocation: sourceLocation)
+            try #require(Int(buffer.frameLength) > start, sourceLocation: sourceLocation)
             let samples = data[channel]
             let count = Int(buffer.frameLength) - start
             var sum: Float = 0

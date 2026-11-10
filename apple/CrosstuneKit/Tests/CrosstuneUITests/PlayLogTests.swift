@@ -65,8 +65,10 @@ struct ActivityFixture {
     }
 
     /// Waits until the player's activity has been told of a state that meets `condition`.
-    func fed(_ condition: @MainActor (ActivitySnapshot) -> Bool) async throws {
-        try await eventually { player.activity.lastFed.map(condition) ?? false }
+    func fed(_ condition: @MainActor (ActivitySnapshot) -> Bool, sourceLocation: SourceLocation = #_sourceLocation)
+        async throws
+    {
+        try await eventually(sourceLocation: sourceLocation) { player.activity.lastFed.map(condition) ?? false }
     }
 
     /// Waits until the play log has heard the player start or stop.
@@ -75,9 +77,12 @@ struct ActivityFixture {
     }
 
     /// Plays recording `id` from `origin` and waits until its audio plays and is being timed.
-    func playRecording(_ id: String = "r1", tuneID: String? = "t1", origin: PlayOrigin = .row) async throws {
+    func playRecording(
+        _ id: String = "r1", tuneID: String? = "t1", origin: PlayOrigin = .row,
+        sourceLocation: SourceLocation = #_sourceLocation
+    ) async throws {
         player.play(.recording(loggedRecording(id, tuneID: tuneID), tuneTitle: nil), origin: origin)
-        try await eventually { audio.isPlaying }
+        try await eventually(sourceLocation: sourceLocation) { audio.isPlaying }
         try await heard(playing: true)
     }
 

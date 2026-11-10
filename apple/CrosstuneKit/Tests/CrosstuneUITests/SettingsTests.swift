@@ -49,9 +49,11 @@ private final class TransferCounter {
 }
 
 @MainActor
-private func loadedModel(_ store: CrosstuneStore, engine: SyncEngine? = nil) async throws -> SettingsModel {
+private func loadedModel(
+    _ store: CrosstuneStore, engine: SyncEngine? = nil, sourceLocation: SourceLocation = #_sourceLocation
+) async throws -> SettingsModel {
     let model = SettingsModel(store: store, engine: engine)
-    try await eventually { model.isLoaded }
+    try await eventually(sourceLocation: sourceLocation) { model.isLoaded }
     return model
 }
 

@@ -352,11 +352,15 @@ import Testing
         }
 
         /// A catalog on the sample store, loaded, with `filters` stored first.
-        private func loadedCatalog(_ filters: CatalogFilters? = nil) async throws -> (CrosstuneStore, CatalogModel) {
+        private func loadedCatalog(_ filters: CatalogFilters? = nil, sourceLocation: SourceLocation = #_sourceLocation)
+            async throws -> (CrosstuneStore, CatalogModel)
+        {
             let store = try await SampleCatalog.copiedStore(root: root.url)
             if let filters { try await store.setMeta(.catalogFilters, to: filters.stored) }
             let catalog = CatalogModel(store: store)
-            try await eventually { catalog.results != nil && catalog.status == filters?.status }
+            try await eventually(sourceLocation: sourceLocation) {
+                catalog.results != nil && catalog.status == filters?.status
+            }
             return (store, catalog)
         }
 

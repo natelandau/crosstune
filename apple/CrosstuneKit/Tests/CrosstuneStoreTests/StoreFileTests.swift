@@ -46,7 +46,7 @@ func refusesAUserIDThatIsNotAPlainName(_ userID: String) {
     try CrosstuneStore.delete(userID: "user_a", root: root.url)
 
     #expect(FileManager.default.fileExists(atPath: store.folder.path()) == false)
-    #expect(try await poll { try folderNames(in: root.url).isEmpty })
+    try await eventually { try folderNames(in: root.url).isEmpty }
 }
 
 @Test func deletingOthersClearsAFolderLeftHalfDeleted() async throws {
@@ -57,7 +57,7 @@ func refusesAUserIDThatIsNotAPlainName(_ userID: String) {
 
     try CrosstuneStore.deleteOthers(keeping: "user_a", root: root.url)
 
-    #expect(try await poll { try folderNames(in: root.url) == ["user_a"] })
+    try await eventually { try folderNames(in: root.url) == ["user_a"] }
     #expect(FileManager.default.fileExists(atPath: kept.folder.path()))
 }
 
@@ -71,7 +71,7 @@ func refusesAUserIDThatIsNotAPlainName(_ userID: String) {
 
     CrosstuneStore.removeTrash(root: root.url)
 
-    #expect(try await poll { try folderNames(in: root.url).sorted() == ["user_a", "user_b"] })
+    try await eventually { try folderNames(in: root.url).sorted() == ["user_a", "user_b"] }
     #expect(FileManager.default.fileExists(atPath: kept.folder.path()))
 }
 

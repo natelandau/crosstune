@@ -89,7 +89,7 @@ private let prepared: PreparedScan = {
         let store = try root.open()
         let tuneID = try await tune(store)
         let model = LyricsReaderModel(store: store, tuneID: tuneID, analytics: sink.client)
-        #expect(try await poll { model.phase != .loading })
+        try await eventually { model.phase != .loading }
 
         model.shown()
         model.shown()
@@ -136,13 +136,12 @@ private let prepared: PreparedScan = {
         await adding.scans.add(
             [ScanPick(name: "page 1") { prepared }, ScanPick(name: "page 2") { prepared }], via: .photoLibrary)
         let model = TuneModel(store: store, tuneID: tuneID, analytics: sink.client)
-        #expect(try await poll { model.scans.scans.count == 2 })
+        try await eventually { model.scans.scans.count == 2 }
 
         model.scans.move(from: 0, to: 1)
 
-        #expect(
-            try await poll {
-                sink.captures == [.init(name: "scans_reordered", properties: ["tune_id": .string(tuneID)])]
-            })
+        try await eventually {
+            sink.captures == [.init(name: "scans_reordered", properties: ["tune_id": .string(tuneID)])]
+        }
     }
 }

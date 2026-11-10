@@ -215,9 +215,12 @@ private let everyService = [
 }
 
 @Suite struct ToggleSearchProviderTests {
-    private func row(_ store: CrosstuneStore) async throws -> UserSettings {
+    private func row(_ store: CrosstuneStore, sourceLocation: SourceLocation = #_sourceLocation) async throws
+        -> UserSettings
+    {
         let id = settingsID(clerkUserID: "user_1")
-        return try #require(try await store.read { db in try UserSettings.fetchOne(db, key: id) })
+        return try #require(
+            try await store.read { db in try UserSettings.fetchOne(db, key: id) }, sourceLocation: sourceLocation)
     }
 
     private func seed(_ store: CrosstuneStore, _ providers: [String]) async throws {
@@ -476,9 +479,12 @@ private let everyService = [
 }
 
 @Suite struct ReferencePitchTests {
-    private func stored(_ store: CrosstuneStore) async throws -> UserSettings {
+    private func stored(_ store: CrosstuneStore, sourceLocation: SourceLocation = #_sourceLocation) async throws
+        -> UserSettings
+    {
         let id = settingsID(clerkUserID: "user_1")
-        return try #require(try await store.read { db in try UserSettings.fetchOne(db, key: id) })
+        return try #require(
+            try await store.read { db in try UserSettings.fetchOne(db, key: id) }, sourceLocation: sourceLocation)
     }
 
     @Test func setTunerA4HzWritesTheValueAndKeepsEveryOtherField() async throws {
