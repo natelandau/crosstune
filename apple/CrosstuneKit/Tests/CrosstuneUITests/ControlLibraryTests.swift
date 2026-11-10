@@ -603,7 +603,25 @@ import Testing
         for (path, lines) in scan.unstyledButtons() {
             for line in lines { result[path, default: []].insert(Violation(rule: "unstyled button", line: line)) }
         }
+        for (path, found) in glyphViolations(scan) { result[path, default: []].formUnion(found) }
         return result
+    }
+
+    /// A button or menu that shows a glyph alone draws the shared icon button, from its own chain,
+    /// a container around it, a page section's accessory, or a modifier that applies it. The pane
+    /// bar's glass controls and the system's places, such as a menu's items, pass.
+    static func glyphViolations(_ scan: ButtonStyleScan) -> [String: Set<Violation>] {
+        scan.glyphActionsWithoutIconButton().mapValues { lines in
+            Set(lines.map { Violation(rule: "glyph action without the icon button", line: $0) })
+        }
+    }
+
+    /// What a Mac sample breaks: the file's own rules, and the glyph rule with the sample as the
+    /// only file.
+    static func macSampleViolations(in code: String) -> Set<Violation> {
+        let file = ButtonStyleScan.File(path: "Sample", code: code)
+        let glyphs = glyphViolations(ButtonStyleScan(screens: [file], library: [file]))
+        return macViolations(in: code).union(glyphs.values.flatMap { $0 })
     }
 
     @Test func macScreensDrawNoControlOfTheirOwn() throws {
@@ -621,7 +639,8 @@ import Testing
             """
             Mac code that builds its own control or handles its own focus. Use the library \
             control, `macFocusable` and `macFocusRing` for a control's focus, `keySurface` for a \
-            view that takes a screen's keys, and the `MacMotion` tokens for motion.
+            view that takes a screen's keys, the `MacMotion` tokens for motion, and `.icon`, \
+            `iconButtonMenuAppearance()`, or `iconButtonAppearance(phone:)` for a glyph alone.
             \(report.joined(separator: "\n"))
             """)
     }
@@ -664,11 +683,49 @@ import Testing
         ("DatePicker(x, selection: $d)", nil),
         ("SuggestionPicker(x, value: $v)", nil),
         ("Button(x) {}.buttonStyle(.link)", "system button style"),
+        (
+            "Button(x, systemImage: y) {}\n.labelStyle(.iconOnly)\n.buttonStyle(.text)",
+            "glyph action without the icon button"
+        ),
+        ("Button(x, systemImage: y) {}\n.labelStyle(.iconOnly)\n.buttonStyle(.icon)", nil),
+        ("Button(x, systemImage: y) {}.buttonStyle(.text)", nil),
+        ("Button {} label: { Image(systemName: y) }.buttonStyle(.labelOnly)", "glyph action without the icon button"),
+        (
+            "Button(action: a) {\nImage(systemName: y)\n.imageScale(.small)\n}\n.buttonStyle(.rowLine)",
+            "glyph action without the icon button"
+        ),
+        ("Button {} label: { Image(systemName: y) }.buttonStyle(.icon(isOn: on))", nil),
+        ("Button {} label: { HStack { Text(x)\nImage(systemName: y) } }.buttonStyle(.text)", nil),
+        ("Button {} label: { Label(x, systemImage: y) }.buttonStyle(.text)", nil),
+        (
+            "Menu { items } label: { Label(x, systemImage: y).labelStyle(.iconOnly) }\n.textButtonMenuAppearance()",
+            "glyph action without the icon button"
+        ),
+        ("Menu { items } label: { Label(x, systemImage: y).labelStyle(.iconOnly) }\n.iconButtonMenuAppearance()", nil),
+        ("Menu(x, systemImage: y) { items }\n.labelStyle(.iconOnly)", "glyph action without the icon button"),
+        (
+            "Button {} label: { Label(x, systemImage: y).labelStyle(.iconOnly) }\n.iconButtonAppearance { $0.buttonStyle(.text) }",
+            nil
+        ),
+        (
+            "HStack { Button(x, systemImage: y) {} }\n.labelStyle(.iconOnly)\n.buttonStyle(.text)",
+            "glyph action without the icon button"
+        ),
+        ("HStack { Button(x, systemImage: y) {} }\n.labelStyle(.iconOnly)\n.buttonStyle(.icon)", nil),
+        (
+            "struct A: View {\nvar body: some View { PageSection(x) {\nButton(x, systemImage: y) {}.labelStyle(.iconOnly)\n} content: { Text(x) } }\n}",
+            nil
+        ),
+        (
+            "struct A: View {\nvar body: some View { Text(x).paneBar {\nButton {} label: { Image(systemName: y) }\n} }\n}",
+            nil
+        ),
+        ("Menu { Button {} label: { Image(systemName: y) } } label: { Text(x) }", nil),
     ]
 
     @Test(arguments: macSamples)
     func aMacRuleFlagsItsSample(_ sample: (code: String, rule: String?)) {
-        let rules = Set(Self.macViolations(in: sample.code).map(\.rule))
+        let rules = Set(Self.macSampleViolations(in: sample.code).map(\.rule))
         #expect(rules == Set([sample.rule].compactMap { $0 }), "\(sample.code)")
     }
 

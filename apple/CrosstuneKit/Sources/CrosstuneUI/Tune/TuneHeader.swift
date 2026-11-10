@@ -116,7 +116,7 @@ struct TuneHeader: View {
             .overlay {
                 TuneMoreMenu(model: model, detail: detail, onEditAll: more.editAll, onDelete: more.delete)
                     .menuIndicator(.hidden)
-                    .textButtonMenuAppearance()
+                    .iconButtonAppearance { $0.textButtonMenuAppearance() }
                     .fixedSize()
                     .disabled(leaving)
             }
@@ -394,7 +394,7 @@ struct RenameButton: View {
             Label(TuneHeader.rename, systemImage: "pencil")
                 .labelStyle(.iconOnly)
         }
-        .buttonStyle(.text)
+        .iconButtonAppearance { $0.buttonStyle(.text) }
         .accessibilityLabel("\(TuneHeader.rename) \(title)")
         #if os(macOS)
             .help(TuneHeader.rename)

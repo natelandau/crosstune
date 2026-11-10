@@ -105,7 +105,7 @@ private struct LyricsReaderPage: View {
                     larger.help(LyricsReader.largerText)
                 }
                 .labelStyle(.iconOnly)
-                .buttonStyle(.macIcon)
+                .buttonStyle(.icon)
                 Button(LyricsReader.done) { dismiss() }
                     .buttonStyle(.macSecondary)
                     .padding(.leading, 4)

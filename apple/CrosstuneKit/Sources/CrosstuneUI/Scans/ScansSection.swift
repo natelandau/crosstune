@@ -189,11 +189,13 @@ struct ScanEditRows: View {
             } label: {
                 Label(ScanCopy.deleteScan(index), systemImage: "trash")
                     .labelStyle(.iconOnly)
-                    .foregroundStyle(Palette.danger)
+                    #if !os(macOS)
+                        .foregroundStyle(Palette.danger)
+                    #endif
                     .frame(minWidth: minimumTapTarget)
                     .tapTarget()
             }
-            .buttonStyle(.rowLine)
+            .iconButtonAppearance { $0.buttonStyle(.rowLine) }
             #if os(macOS)
                 .help(ScanCopy.deleteScan(index))
             #endif
@@ -214,12 +216,14 @@ struct ScanEditRows: View {
         } label: {
             Label(ScanCopy.reorderScan(index), systemImage: "arrow.up.arrow.down")
                 .labelStyle(.iconOnly)
-                .foregroundStyle(.tint)
+                #if !os(macOS)
+                    .foregroundStyle(.tint)
+                #endif
                 .frame(minWidth: minimumTapTarget)
                 .tapTarget()
         }
         .menuIndicator(.hidden)
-        .rowLineMenuAppearance()
+        .iconButtonAppearance { $0.rowLineMenuAppearance() }
         #if os(macOS)
             .help(ScanCopy.reorderScan(index))
         #endif

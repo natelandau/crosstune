@@ -354,25 +354,23 @@ private struct ScanViewerBody: View {
             dismiss()
         }
 
-        /// An icon toggle: secondary text when off, the accent while on.
+        /// An icon button that toggles `isOn`.
         private func toggle(_ title: String, systemImage: String, isOn: Binding<Bool>) -> some View {
             Button {
                 isOn.wrappedValue.toggle()
             } label: {
                 Image(systemName: systemImage)
-                    .foregroundStyle(isOn.wrappedValue ? Palette.accent : Palette.textSecondary)
             }
-            .buttonStyle(.macIcon)
+            .buttonStyle(.icon(isOn: isOn.wrappedValue))
             .help(title)
             .accessibilityLabel(title)
-            .accessibilityAddTraits(isOn.wrappedValue ? .isSelected : [])
         }
 
         /// A mouse has no swipe, so the Mac turns scans with these and the arrow keys.
         private func edgeButton(_ title: String, systemImage: String, key: KeyEquivalent, step: Int) -> some View {
             Button(title, systemImage: systemImage) { turn(by: step, ids: ids) }
                 .labelStyle(.iconOnly)
-                .buttonStyle(.macIcon)
+                .buttonStyle(.icon)
                 .background(Palette.surfaceRaised, in: .circle)
                 .keyboardShortcut(key, modifiers: [])
                 .help(title)

@@ -284,7 +284,7 @@ private struct WelcomeContent: View {
                 Label(label, systemImage: symbol)
             }
             .labelStyle(.iconOnly)
-            .buttonStyle(.mac(.icon))
+            .buttonStyle(.icon)
             .help(label)
             .opacity(shows ? 1 : 0)
             .disabled(!shows)

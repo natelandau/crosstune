@@ -19,8 +19,6 @@ import SwiftUI
         package let onSubmit: () -> Void
         package var onFilters: () -> Void = {}
 
-        private let hitTarget: CGFloat = 24
-
         package init(
             prompt: String, query: Binding<String>, isFocused: FocusState<Bool>.Binding, filterCount: Int? = nil,
             filtersDisabled: Bool = false, onSubmit: @escaping () -> Void = {}, onFilters: @escaping () -> Void = {}
@@ -73,13 +71,10 @@ import SwiftUI
                         query = ""
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(Palette.textSecondary)
-                            .frame(minWidth: hitTarget, minHeight: hitTarget)
-                            .contentShape(.rect)
                     }
-                    // A borderless button tints its glyph with the accent, which a glyph at rest
-                    // never takes.
-                    .buttonStyle(.plain)
+                    .buttonStyle(.icon)
+                    // Small, to fit inside the field's height.
+                    .controlSize(.small)
                     .accessibilityLabel(Self.clearSearch)
                     .help(Self.clearSearch)
                 }
@@ -100,9 +95,9 @@ import SwiftUI
         }
     }
 
-    /// The search field's filters control: a glyph in secondary text at rest, and once a filter
-    /// is set, a set chip carrying the count, so a narrowed list reads from the field. It wraps
-    /// the button so the system focus effect is off.
+    /// The search field's filters control: a Small icon button at rest, and once a filter is set,
+    /// a set chip carrying the count, so a narrowed list reads from the field. The chip wraps the
+    /// button so the system focus effect is off.
     package struct SearchFiltersStyle: PrimitiveButtonStyle {
         /// What the set chip's tint lands on. The field under it is too dark for the accent label
         /// to hold 4.5:1 through the tint, so the chip carries the column's page background, as the
@@ -111,49 +106,42 @@ import SwiftUI
 
         package let isSet: Bool
 
-        package func makeBody(configuration: Configuration) -> some View {
-            Button(configuration)
-                .buttonStyle(SearchFiltersBodyStyle(isSet: isSet))
-                .focusEffectDisabled()
-                .macButtonFocus()
+        @ViewBuilder package func makeBody(configuration: Configuration) -> some View {
+            if isSet {
+                Button(configuration)
+                    .buttonStyle(SearchFiltersChipStyle())
+                    .focusEffectDisabled()
+                    .macButtonFocus()
+            } else {
+                Button(configuration)
+                    .buttonStyle(.icon)
+                    .controlSize(.small)
+            }
         }
     }
 
-    private struct SearchFiltersBodyStyle: ButtonStyle {
-        let isSet: Bool
-
+    private struct SearchFiltersChipStyle: ButtonStyle {
         func makeBody(configuration: Configuration) -> some View {
-            SearchFiltersBody(configuration: configuration, isSet: isSet)
+            SearchFiltersChip(configuration: configuration)
         }
     }
 
-    private struct SearchFiltersBody: View {
+    private struct SearchFiltersChip: View {
         let configuration: ButtonStyle.Configuration
-        let isSet: Bool
 
         @Environment(\.isEnabled) private var isEnabled
         @Environment(\.macButtonFocused) private var isFocused
         private var pointer = MacPointer()
 
         var body: some View {
-            Group {
-                if isSet {
-                    configuration.label
-                        .macChip(state: .set, size: .row, press: state)
-                        .background(Palette.color(SearchFiltersStyle.chipBackground), in: .capsule)
-                        .macFocusRing(isFocused, shape: Capsule())
-                } else {
-                    configuration.label
-                        .foregroundStyle(state == .rest ? Palette.textSecondary : Palette.textPrimary)
-                        .frame(width: MacChip.Size.row.height + 4, height: MacChip.Size.row.height + 4)
-                        .background(state.overlay, in: .rect(cornerRadius: MacControl.innerRadius))
-                        .macFocusRing(isFocused, cornerRadius: MacControl.innerRadius)
-                }
-            }
-            .frame(minHeight: 22)
-            .contentShape(.rect)
-            .opacity(isEnabled ? 1 : MacControl.disabledOpacity)
-            .macPointer(pointer, state: state)
+            configuration.label
+                .macChip(state: .set, size: .row, press: state)
+                .background(Palette.color(SearchFiltersStyle.chipBackground), in: .capsule)
+                .macFocusRing(isFocused, shape: Capsule())
+                .frame(minHeight: 22)
+                .contentShape(.rect)
+                .opacity(isEnabled ? 1 : MacControl.disabledOpacity)
+                .macPointer(pointer, state: state)
         }
 
         private var state: MacPressState {

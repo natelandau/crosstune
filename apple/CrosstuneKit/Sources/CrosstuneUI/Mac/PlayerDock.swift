@@ -297,7 +297,7 @@ import CrosstuneDesign
             Button(action: action) {
                 Image(systemName: systemImage)
             }
-            .buttonStyle(.mac(.icon, isOn: isOn))
+            .buttonStyle(.icon(isOn: isOn ?? false))
             .accessibilityLabel(title)
             .help(help ?? title)
         }

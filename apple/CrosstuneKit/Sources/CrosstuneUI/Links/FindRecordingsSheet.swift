@@ -282,7 +282,8 @@ private struct FindRecordingsForm: View {
                     if embed != nil {
                         Button(FindRecordingsSheet.play, systemImage: "play.fill") { model.play(result) }
                             .labelStyle(.iconOnly)
-                            .buttonStyle(.mac(.icon, size: .small))
+                            .buttonStyle(.icon)
+                            .controlSize(.small)
                             .help(FindRecordingsSheet.play)
                             .accessibilityLabel("\(FindRecordingsSheet.play) \(result.title)")
                             .accessibilityAddTraits(expanded ? .isSelected : [])

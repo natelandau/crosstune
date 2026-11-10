@@ -4,7 +4,9 @@ import SwiftUI
 /// Compact disc of the tint holding a glyph or initials, for a button whose disc is its whole look.
 /// A button that holds a state passes `isOn`, which tints the circle and the glyph and marks it
 /// selected for VoiceOver. On the Mac it draws the Mac icon button at the control size, a Toggle
-/// when it holds a state.
+/// when it holds a state. It is the Mac's one look for a glyph with no words: a button takes
+/// `.icon`, a menu `iconButtonMenuAppearance()`, and a glyph whose iPhone and iPad look is another
+/// style takes `iconButtonAppearance(phone:)`.
 package struct IconButtonStyle: PrimitiveButtonStyle {
     package enum Shape { case plain, circled, tintDisc }
 
@@ -42,6 +44,18 @@ extension View {
     /// never from `.icon`, which is a primitive one. On the Mac it draws the Mac icon button.
     package func iconButtonMenuAppearance(_ shape: IconButtonStyle.Shape = .plain) -> some View {
         modifier(IconButtonMenuAppearance(shape: shape))
+    }
+}
+
+extension View {
+    /// Gives a glyph-only button or menu the Mac icon button at the control size, and on iPhone
+    /// and iPad the look `phone` gives it, where a glyph takes the look of what it sits in.
+    package func iconButtonAppearance<Phone: View>(@ViewBuilder phone: (Self) -> Phone) -> some View {
+        #if os(macOS)
+            iconButtonMenuAppearance()
+        #else
+            phone(self)
+        #endif
     }
 }
 

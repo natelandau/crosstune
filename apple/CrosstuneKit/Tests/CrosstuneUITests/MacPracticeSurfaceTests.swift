@@ -115,12 +115,10 @@
 
         // MARK: Recordings and dock
 
-        /// Every dock glyph control is the Mac icon button; with an embed playing, a now-playing
-        /// glyph shows where play would be.
-        @Test func dockControlsAreIconButtons() throws {
+        /// With an embed playing, a now-playing glyph shows where play would be.
+        @Test func dockShowsNowPlayingWherePlayWouldBe() throws {
             let text = try Self.macSource("Mac/PlayerDock.swift")
             #expect(!text.contains("DockGlyph"))
-            #expect(text.contains(".mac(.icon"))
             #expect(text.contains("Image(systemName: PlayerDockBar.nowPlayingSymbol)"))
             #expect(PlayerDockBar.nowPlayingSymbol == "waveform")
         }
