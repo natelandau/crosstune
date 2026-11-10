@@ -277,13 +277,13 @@ import CrosstuneDesign
     private struct DockButton: View {
         let title: String
         let systemImage: String
-        /// Nil for a button that only acts; a toggle passes whether it is on.
-        var isOn: Bool?
+        /// Whether the setting it toggles is on; false for a button that only acts.
+        var isOn: Bool
         var help: String?
         let action: () -> Void
 
         init(
-            _ title: String, systemImage: String, isOn: Bool? = nil, help: String? = nil,
+            _ title: String, systemImage: String, isOn: Bool = false, help: String? = nil,
             action: @escaping () -> Void
         ) {
             self.title = title
@@ -297,7 +297,7 @@ import CrosstuneDesign
             Button(action: action) {
                 Image(systemName: systemImage)
             }
-            .buttonStyle(.icon(isOn: isOn ?? false))
+            .buttonStyle(.icon(isOn: isOn))
             .accessibilityLabel(title)
             .help(help ?? title)
         }
