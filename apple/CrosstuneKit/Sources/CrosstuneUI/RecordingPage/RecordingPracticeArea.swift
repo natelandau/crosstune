@@ -57,7 +57,7 @@ private struct PracticeBlocked: View {
     var body: some View {
         VStack {
             Button(reason, action: onBlocked)
-                .buttonStyle(.text(macLook: .button(.quiet)))
+                .buttonStyle(.text)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }

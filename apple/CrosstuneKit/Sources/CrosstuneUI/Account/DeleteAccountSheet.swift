@@ -162,7 +162,8 @@ public struct DeleteAccountSheet: View {
                 cancel: .cancel(TuneFormSheet.cancel, isEnabled: !pending) { dismiss() },
                 primary: Self.macDelete(
                     title: Self.buttonLabel(pending: pending, isConfirmingWithApple: session.isConfirmingWithApple),
-                    isEnabled: Self.deleteEnabled(counts, text: text, pending: pending), action: runDelete)
+                    isEnabled: Self.deleteEnabled(counts, text: text, pending: pending), action: runDelete),
+                openingFocus: .firstField
             ) {
                 VStack(alignment: .leading, spacing: MacForm.sectionGap) {
                     macWarning

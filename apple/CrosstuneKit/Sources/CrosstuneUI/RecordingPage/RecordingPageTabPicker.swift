@@ -37,6 +37,6 @@ struct RecordingPageTabPicker: View {
         PaneTabs(
             selection: selection,
             tabs: RecordingPageTab.allCases.map { PaneTab($0, title: $0.label, systemImage: $0.systemImage) },
-            title: RecordingPageCopy.tabs, macLook: .systemSegmented)
+            title: RecordingPageCopy.tabs)
     }
 }

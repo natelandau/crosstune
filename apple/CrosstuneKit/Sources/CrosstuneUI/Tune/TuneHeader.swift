@@ -116,7 +116,6 @@ struct TuneHeader: View {
             .overlay {
                 TuneMoreMenu(model: model, detail: detail, onEditAll: more.editAll, onDelete: more.delete)
                     .menuIndicator(.hidden)
-                    .menuStyle(.button)
                     .textButtonMenuAppearance()
                     .fixedSize()
                     .disabled(leaving)
@@ -176,7 +175,9 @@ private struct KeyTile: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.focusesKeyTile) private var focusesKeyTile
     @State private var editing = false
-    @FocusState private var focused: Bool
+    #if !os(macOS)
+        @FocusState private var focused: Bool
+    #endif
     @AccessibilityFocusState private var accessibilityFocused: Bool
 
     var body: some View {
@@ -199,11 +200,15 @@ private struct KeyTile: View {
         .accessibilityLabel(TuneHeader.keyTileLabel(tileLabel))
         // The tile's type does not grow with the text size, so a long press shows it enlarged.
         .accessibilityShowsLargeContentViewer()
-        .focused($focused)
+        #if !os(macOS)
+            .focused($focused)
+        #endif
         .accessibilityFocused($accessibilityFocused)
         .onAppear {
             guard focusesKeyTile else { return }
-            focused = true
+            #if !os(macOS)
+                focused = true
+            #endif
             accessibilityFocused = true
         }
         .attributeEditor(
@@ -268,11 +273,7 @@ private struct HeaderTitle: View {
     @Environment(\.tunePageLeaving) private var leaving
     /// The title being typed, or nil while it is not being renamed.
     @State private var draft: String?
-    @State private var isHovered = false
     @FocusState private var fieldFocused: Bool
-    #if os(macOS)
-        @FocusState private var renameFocused: Bool
-    #endif
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 4) {
@@ -299,12 +300,13 @@ private struct HeaderTitle: View {
                     #if os(macOS)
                         // A pointer finds it on the title and the keyboard by focus; touch has no
                         // hover, so it always shows there.
-                        .focused($renameFocused)
-                        .opacity(isHovered || renameFocused ? 1 : 0.001)
+                        .macRevealedOnHoverOrFocus()
                     #endif
             }
         }
-        .revealsRenameOnHover($isHovered)
+        #if os(macOS)
+            .macRevealRegion()
+        #endif
         .onChange(of: fieldFocused) { _, focused in
             if !focused { finish(.commit) }
         }
@@ -345,9 +347,13 @@ struct HeaderTitleField: View {
         // Vertical, so a long title wraps as the heading it covers does.
         TextField(TuneFieldLabels.title, text: oneLine, axis: .vertical)
             .contentMask()
-            .textFieldStyle(.plain)
-            .font(PageStyle.pageTitle)
-            .tracking(PageStyle.pageTitleTracking)
+            #if os(macOS)
+                .textFieldStyle(.macTitleField)
+            #else
+                .textFieldStyle(.plain)
+                .font(PageStyle.pageTitle)
+                .tracking(PageStyle.pageTitleTracking)
+            #endif
             .characterLimit(Vocabulary.Limits.Tune.title, text: oneLine)
             .focused(focused)
             .submitLabel(.done)
@@ -407,17 +413,6 @@ extension View {
 
 extension EnvironmentValues {
     /// True on a page that replaces the new-tune draft its tune was made on by Return, whose
-    /// key tile then takes focus.
+    /// key tile then takes VoiceOver's focus, and the keyboard's on iPhone and iPad.
     @Entry var focusesKeyTile = false
-}
-
-extension View {
-    /// Tracks the pointer over the title, which shows Rename on the Mac. Touch has no hover.
-    fileprivate func revealsRenameOnHover(_ isHovered: Binding<Bool>) -> some View {
-        #if os(macOS)
-            onHover { isHovered.wrappedValue = $0 }
-        #else
-            self
-        #endif
-    }
 }

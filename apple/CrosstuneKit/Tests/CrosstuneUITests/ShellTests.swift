@@ -1011,12 +1011,11 @@ import Testing
 
 #if os(macOS)
     @Suite struct MacUpdatePromptTests {
-        /// The prompt is a notice sheet: Update the primary, pressed by Return and focused, Not
-        /// Now beside it on Escape.
+        /// The prompt is a notice sheet: Update the primary, pressed by Return, Not Now beside it
+        /// on Escape.
         @Test func updateIsThePrimaryAndNotNowCancels() {
             let footer = UpdatePromptSheet.footer(canUpdate: true, update: {}, notNow: {})
             #expect(footer.primary?.title == UpdatePromptText.update)
-            #expect(footer.primary?.takesDefaultFocus == true)
             #expect(footer.cancel?.title == UpdatePromptText.notNow)
             let keys = MacSheetAction.keyboardRoles(
                 cancel: footer.cancel, primary: footer.primary)

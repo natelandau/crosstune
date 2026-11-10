@@ -18,7 +18,6 @@ struct TrimScreen: View {
     @State private var stop = SelectionStop()
     @State private var failure: String?
     @GestureState private var isPinching = false
-    @FocusState private var isFocused: Bool
 
     /// Where the playhead is on the source, in ms: the start of the bounds until audio loads.
     fileprivate static func playheadMs(_ player: PlayerModel, in model: TrimModel) -> Double {
@@ -58,7 +57,7 @@ struct TrimScreen: View {
                     Button(RecordingScreenText.previewEnd) {
                         play(from: max(model.start, model.end - TrimModel.previewMs))
                     }
-                    .buttonStyle(.text(macLook: .system))
+                    .buttonStyle(.text)
                 }
                 .controlsColumn()
             }
@@ -70,26 +69,12 @@ struct TrimScreen: View {
             .navigationBarTitleDisplayMode(.inline)
         #endif
         .navigationBarBackButtonHidden()
-        #if os(iOS)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) { cancelButton }
-                ConfirmToolbarItem { saveButton }
-            }
-        #else
-            .paneBar {
-                cancelButton
-                .buttonStyle(.macSecondary)
-                .keyboardShortcut(.cancelAction)
-                .help(RecordingScreenText.cancel)
-                saveButton
-                .buttonStyle(.macPrimary)
-                .help(RecordingScreenText.save)
-            }
-        #endif
-        .focusable()
-        .focusEffectDisabled()
-        .focused($isFocused)
-        .defaultFocus($isFocused, true)
+        .editorActions {
+            cancelButton
+        } save: {
+            saveButton
+        }
+        .keySurface()
         // These are off while text is typed, and a focused button keeps them.
         .onKeyPress(.space, phases: .down) { _ in
             guard ready, !TextEntry.isActive else { return .ignored }
@@ -158,7 +143,7 @@ struct TrimScreen: View {
     private func transport(playing: Bool) -> some View {
         let ready = player.isRecordingAudioReady
         return Transport(
-            isPlaying: playing, size: .feature, sides: .edges, macLook: .glyphs,
+            isPlaying: playing, size: .feature, sides: .edges,
             playName: RecordingScreenText.playSelection, canPlay: ready, canGoBack: ready, canGoForward: ready,
             onPlayPause: toggle, onBack: { model.select(.start) }, onForward: { model.select(.end) })
     }

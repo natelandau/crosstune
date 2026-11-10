@@ -112,12 +112,21 @@ public struct PlayerBar: View {
             .buttonStyle(.icon)
     }
 
+    /// Next tune while a list plays, which leads the bar beside play or what shows in its place.
+    private var nextTune: (() -> Void)? {
+        guard Self.showsNext(playback), let playback else { return nil }
+        return { playback.next() }
+    }
+
     @ViewBuilder private var loadedBar: some View {
         let isRecording = player.item?.kind == .recording
         let glyph = Self.showsGlyph(player)
         HStack(spacing: 4) {
             if player.playsInBar {
-                RecordingPlayButton(player: player)
+                RecordingPlayButton(player: player, onNext: nextTune)
+                    .dynamicTypeSize(...DynamicTypeSize.large)
+            } else if let nextTune {
+                TransportTrackButton(.next, size: .inline, action: nextTune)
                     .dynamicTypeSize(...DynamicTypeSize.large)
             }
             if !Self.canExpand(player) {
@@ -136,15 +145,9 @@ public struct PlayerBar: View {
             if isRecording, player.loops.isRepeating, let name = player.loops.selectedName {
                 RepeatBadge(player: player, name: name)
             }
-            if Self.showsNext(playback), let playback {
-                Button(PlaylistControlText.next, systemImage: "forward.fill") { playback.next() }
-                    .labelStyle(.iconOnly)
-                    .buttonStyle(.icon)
-                    .help(PlaylistControlText.next)
-            }
             closeButton
         }
-        .padding(.leading, player.playsInBar ? 6 : 16)
+        .padding(.leading, player.playsInBar || nextTune != nil ? 6 : 16)
         .padding(.trailing, 4)
         .contentShape(.rect)
         // Ahead of the title's button, so a swipe skips without also opening the player; the

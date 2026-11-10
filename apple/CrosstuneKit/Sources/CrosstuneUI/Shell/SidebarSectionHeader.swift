@@ -28,8 +28,8 @@ import CrosstuneDesign
                 Spacer(minLength: 0)
                 Button(add, systemImage: "plus", action: onAdd)
                     .labelStyle(.iconOnly)
-                    .buttonStyle(.plain)
-                    .foregroundStyle(Palette.textSecondary)
+                    .buttonStyle(.icon)
+                    .controlSize(.small)
                     .help(add)
             }
             .padding(.leading, Self.leadingInset)

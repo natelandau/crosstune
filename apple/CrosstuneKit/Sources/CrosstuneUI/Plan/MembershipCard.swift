@@ -119,7 +119,7 @@ struct MembershipCard: View {
                 }
                 ForEach(rest.enumerated(), id: \.element) { index, place in
                     if membership != nil || index > 0 {
-                        Rectangle().fill(Palette.border).frame(height: 1).padding(.horizontal, MacForm.rowInset)
+                        Rectangle().fill(Palette.border).frame(height: 1).padding(.horizontal, MacForm.textInset)
                     }
                     macManageRow(place).macPlanRow()
                 }

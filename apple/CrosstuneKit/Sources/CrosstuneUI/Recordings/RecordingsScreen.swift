@@ -544,10 +544,10 @@ private struct RecordingsContent: View {
                 } label: {
                     Color.clear.contentShape(.rect)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.labelOnly)
                 .accessibilityHidden(true)
                 // The row's own button takes the same press, so keyboard focus stops there alone.
-                .focusable(false)
+                .leavesFocusOnPress()
             }
             .listItemRow()
         #else

@@ -9,7 +9,7 @@ public enum RecordControl {
     public static let label = "Start a new recording"
     /// The short name, for menus and toolbars. It says the press starts recording at once.
     public static let title = "Start recording"
-    /// The shortest name, for the Mac sidebar's capsule, the iPad's Record tab, and the
+    /// The shortest name, for the Mac sidebar's record button, the iPad's Record tab, and the
     /// iPadOS 26 bottom bar, whose help tag or VoiceOver name gives the full one.
     public static let shortLabel = "Record"
     public static let systemImage = "record.circle"
@@ -86,45 +86,34 @@ public struct RecordToolbarButton: View {
 
 #if os(macOS)
     /// The record button pinned to the foot of the Mac sidebar, as in Voice Memos: always in
-    /// view, whatever the content column shows. A compact capsule, so it never truncates in a
-    /// narrow sidebar.
+    /// view, whatever the content column shows. A Tinted button led by the record dot, which
+    /// bounces once on a press.
     struct SidebarRecordButton: View {
         let action: @MainActor () -> Void
 
         @Environment(\.accessibilityReduceMotion) private var reduceMotion
-        @Environment(\.isEnabled) private var isEnabled
         @State private var presses = 0
 
-        /// The sidebar list's inset from its edges, so the capsule lines up with the rows'
+        /// The sidebar list's inset from its edges, so the button lines up with the rows'
         /// selection.
         static let rowInset: CGFloat = 10
         private static let dotDiameter: CGFloat = 10
-        /// Centers the dot under the rows' glyphs.
-        private static let dotInset: CGFloat = 11
 
         var body: some View {
             Button {
                 presses += 1
                 action()
             } label: {
-                HStack(spacing: 7) {
+                HStack(spacing: 6) {
                     Image(systemName: "circle.fill")
                         .font(.system(size: Self.dotDiameter))
                         .foregroundStyle(Palette.record)
                         .symbolEffect(.bounce, value: reduceMotion ? 0 : presses)
+                        .accessibilityHidden(true)
                     Text(RecordControl.shortLabel)
-                        .font(MacStyle.body.weight(.medium))
-                        .foregroundStyle(Palette.textPrimary)
                 }
-                .padding(.leading, Self.dotInset)
-                .padding(.trailing, 14)
-                .frame(height: MacStyle.paneControlHeight)
-                .background(Palette.field, in: .capsule)
-                .overlay { Capsule().strokeBorder(Palette.border) }
-                .contentShape(.capsule)
-                .opacity(isEnabled ? 1 : 0.5)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.tinted)
             .accessibilityLabel(RecordControl.label)
             .help("\(RecordControl.label) (⌘R)")
         }

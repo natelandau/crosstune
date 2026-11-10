@@ -47,7 +47,8 @@ struct NameLocationSheet: View {
             MacSheet(
                 title: NameLocationText.title, size: Self.macSize,
                 cancel: .cancel(TuneFormSheet.cancel, action: cancel),
-                primary: .init(ListNameSheet.save, isEnabled: !isBlank, action: save)
+                primary: .init(ListNameSheet.save, isEnabled: !isBlank, action: save),
+                openingFocus: candidates.isEmpty ? .firstField : .anchor
             ) {
                 VStack(alignment: .leading, spacing: MacForm.sectionGap) {
                     if !candidates.isEmpty {
@@ -59,7 +60,7 @@ struct NameLocationSheet: View {
                                     } label: {
                                         LocationRow(name: place.name, address: place.address, isCurrent: false)
                                     }
-                                    .buttonStyle(.macPickRow)
+                                    .buttonStyle(.macRow)
                                 }
                             }
                         }

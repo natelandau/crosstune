@@ -52,7 +52,7 @@ struct RenewalTerms<Leading: View>: View {
                     .accessibilityHidden(true)
             }
             Link(link.label, destination: link.url)
-                .textLinkStyle()
+                .buttonStyle(.text)
         }
     }
 }

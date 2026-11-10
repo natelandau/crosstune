@@ -113,24 +113,6 @@ import Testing
         #expect(!WelcomeLayout.splits(CGSize(width: 440, height: 956)))
         #expect(!WelcomeLayout.splits(CGSize(width: 956, height: 440)))
     }
-
-    @Test func theFocusRingWaitsForTheKeyboardInTheKeyWindow() {
-        #expect(WelcomeLayout.showsFocusRing(focused: true, windowIsKey: true, byKeyboard: true))
-        #expect(!WelcomeLayout.showsFocusRing(focused: true, windowIsKey: true, byKeyboard: false))
-        #expect(!WelcomeLayout.showsFocusRing(focused: true, windowIsKey: false, byKeyboard: true))
-        #expect(!WelcomeLayout.showsFocusRing(focused: false, windowIsKey: true, byKeyboard: true))
-    }
-
-    #if os(macOS)
-        @Test func onlyAKeyBringsTheCarouselItsRing() {
-            #expect(WelcomeLayout.focusArrivedByKeyboard(focused: true, quietly: false, event: .keyDown))
-            // A click, the screen handing over the arrow keys, or focus with no event at all.
-            #expect(!WelcomeLayout.focusArrivedByKeyboard(focused: true, quietly: false, event: .leftMouseDown))
-            #expect(!WelcomeLayout.focusArrivedByKeyboard(focused: true, quietly: true, event: .keyDown))
-            #expect(!WelcomeLayout.focusArrivedByKeyboard(focused: true, quietly: false, event: nil))
-            #expect(!WelcomeLayout.focusArrivedByKeyboard(focused: false, quietly: false, event: .keyDown))
-        }
-    #endif
 }
 
 /// Replaces Clerk with an Apple flow that holds until `finish()`, as Apple's sheet stays up
@@ -332,7 +314,7 @@ private final class SuspendingClerkCalls: ClerkSignUpCalls, @unchecked Sendable 
             // The 4pt halo Clerk draws around a field is the input border; it stays clear.
             #expect(resolved(colors.inputBorder, in: appearance)?.alpha == 0)
             // Pressed follows the Mac primary button's pressed fill in each appearance.
-            let pressed = MacButtonStyle.fillRGB(for: .primary, scheme: scheme, isPressed: true)
+            let pressed = MacButtonStyle.fillRGB(for: .primary, scheme: scheme, state: .pressed)
             #expect(resolved(colors.primaryPressed, in: appearance)?.hex == pressed?.hex)
             #expect(theme.design.borderRadius == 8)
         }

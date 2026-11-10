@@ -2,8 +2,8 @@ import CrosstuneAnalytics
 import CrosstuneDesign
 import SwiftUI
 
-/// Annual or Monthly, each with its price and Annual with its saving: radio buttons on the Mac,
-/// two selectable tiles elsewhere, since a system segment holds a word but not a price beside it.
+/// Annual or Monthly, each with its price and Annual with its saving: a segmented control with
+/// every period's price under it on the Mac, two selectable tiles elsewhere.
 struct PeriodTiles: View {
     let options: [PlanSheet.PeriodOption]
     @Binding var period: PurchasePeriod
@@ -15,15 +15,26 @@ struct PeriodTiles: View {
     var body: some View {
         #if os(macOS)
             if options.count == 1, let only = options.first {
-                // Nothing to choose: the one period reads as text, not a lone radio button.
+                // Nothing to choose: the one period reads as text, not a lone segment.
                 LabeledContent(PlanText.billingPeriod) { macLabel(only) }
             } else {
-                Picker(PlanText.billingPeriod, selection: $period) {
-                    ForEach(options, id: \.period) { option in
-                        macLabel(option).tag(option.period)
+                LabeledContent(PlanText.billingPeriod) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        MacSegmented(
+                            selection: $period, options: options.map(\.period),
+                            label: { period in options.first { $0.period == period }?.label ?? "" },
+                            badge: { period in options.first { $0.period == period }?.badge }, badgeKind: .brand,
+                            title: PlanText.billingPeriod)
+                        // In segment order, so each price reads beside the others before a choice.
+                        HStack(spacing: 12) {
+                            ForEach(options, id: \.period) { option in
+                                Text(option.price)
+                            }
+                        }
+                        .monospacedDigit()
+                        .foregroundStyle(Palette.textSecondary)
                     }
                 }
-                .pickerStyle(.radioGroup)
             }
         #else
             // Side by side, or one above the other at the accessibility text sizes, where two

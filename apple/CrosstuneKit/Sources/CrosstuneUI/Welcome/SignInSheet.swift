@@ -26,8 +26,8 @@ struct SignInSheet: View {
         /// Clerk's flow in the Mac palette.
         static var mac: AuthPalette {
             let pressed = { (scheme: ColorScheme) in
-                MacButtonStyle.fillRGB(for: .primary, scheme: scheme, isPressed: true)
-                    ?? KeyColor.RGB(hex: Palette.hex(.accentFill, scheme))
+                MacButtonStyle.fillRGB(for: .primary, scheme: scheme, state: .pressed)
+                    ?? Palette.rgb(.accentFill, scheme)
             }
             return AuthPalette(
                 accent: Palette.accent, accentFill: Palette.accentFill,

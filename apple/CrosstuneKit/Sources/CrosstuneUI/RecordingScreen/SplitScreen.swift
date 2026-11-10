@@ -15,7 +15,6 @@ struct SplitScreen: View {
     let onDone: () -> Void
 
     @State private var failure: String?
-    @FocusState private var isFocused: Bool
 
     var body: some View {
         let ready = player.isRecordingAudioReady
@@ -46,26 +45,12 @@ struct SplitScreen: View {
             .navigationBarTitleDisplayMode(.inline)
         #endif
         .navigationBarBackButtonHidden()
-        #if os(iOS)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) { cancelButton }
-                ConfirmToolbarItem { saveButton }
-            }
-        #else
-            .paneBar {
-                cancelButton
-                .buttonStyle(.macSecondary)
-                .keyboardShortcut(.cancelAction)
-                .help(RecordingScreenText.cancel)
-                saveButton
-                .buttonStyle(.macPrimary)
-                .help(RecordingScreenText.save)
-            }
-        #endif
-        .focusable()
-        .focusEffectDisabled()
-        .focused($isFocused)
-        .defaultFocus($isFocused, true)
+        .editorActions {
+            cancelButton
+        } save: {
+            saveButton
+        }
+        .keySurface()
         // These are off while text is typed, and a focused button keeps them.
         .onKeyPress(.space, phases: .down) { _ in
             guard ready, !TextEntry.isActive else { return .ignored }
@@ -161,7 +146,7 @@ private struct SplitTransport: View {
     var body: some View {
         let skip = Int64(AudioPlayer.skipInterval * 1000)
         Transport(
-            isPlaying: model.isPlaying, size: .feature, macLook: .glyphs, canPlay: ready, canGoBack: ready,
+            isPlaying: model.isPlaying, size: .feature, canPlay: ready, canGoBack: ready,
             canGoForward: ready, onPlayPause: model.togglePlay, onBack: { model.skip(by: -skip) },
             onForward: { model.skip(by: skip) })
     }

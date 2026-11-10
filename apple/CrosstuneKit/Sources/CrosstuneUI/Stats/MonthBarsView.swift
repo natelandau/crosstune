@@ -33,7 +33,7 @@ struct MonthBarsView: View {
             }
         }
         // Only the All time choice moves the bars; the ones on arrival are already in place.
-        .animation(reduceMotion ? nil : .default, value: allTime)
+        .animation(Motion.stateChange(phone: .default, reduceMotion: reduceMotion), value: allTime)
     }
 
     private func strip(_ label: String, count: KeyPath<Stats.Month, Int>) -> some View {

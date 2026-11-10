@@ -246,8 +246,6 @@ struct SavedLocationRoute: Hashable {
         let row: SavedLocationRow
         let open: () -> Void
 
-        @FocusState private var focused: Bool
-
         var body: some View {
             Button(action: open) {
                 HStack(spacing: 12) {
@@ -277,10 +275,7 @@ struct SavedLocationRoute: Hashable {
                 .padding(.vertical, 6)
                 .contentShape(.rect)
             }
-            .buttonStyle(.plain)
-            .focusEffectDisabled()
-            .focused($focused)
-            .macSettingsRowRing(focused)
+            .buttonStyle(.macRow)
         }
     }
 #endif

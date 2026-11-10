@@ -321,7 +321,7 @@ struct StatsDocument: View {
             }
             if parts.hidden > 0 {
                 Button(StatsCopy.showAll(values.count)) { expanded.insert(id) }
-                    .buttonStyle(.text(macLook: .accentWords))
+                    .buttonStyle(.text)
             }
         }
     }

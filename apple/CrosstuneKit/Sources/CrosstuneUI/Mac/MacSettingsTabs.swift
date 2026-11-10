@@ -108,7 +108,7 @@
         /// A tab's form.
         static func content(_ pane: Pane, version: String?) -> some View {
             SettingsScreen(version: version, sections: pane.sections, title: pane.title, opensStatsInSheet: true)
-                .macSettingsOpensUnfocused()
+                .macOpensUnfocused()
                 .frame(
                     minWidth: size.width, maxWidth: maxWidth, minHeight: size.height, maxHeight: .infinity)
         }

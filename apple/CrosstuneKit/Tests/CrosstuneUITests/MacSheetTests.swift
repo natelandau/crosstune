@@ -118,41 +118,97 @@
             #expect(MacSheetAction.keyboardRoles(cancel: nil, primary: subscribe).primary == nil)
         }
 
-        /// A purchase in the primary slot answers neither Return nor the sheet's opening focus,
-        /// so neither a stray Return nor Space starts one in a sheet that opened unasked.
-        @Test func aPurchaseNeverTakesReturnOrTheOpeningFocus() {
+        /// A purchase or a destructive confirm in the primary slot never answers Return, so a stray
+        /// Return in a sheet that opened unasked never buys or deletes.
+        @Test func aPurchaseOrADestructiveConfirmNeverTakesReturn() {
             let subscribe = MacSheetAction.subscribe(title: "Subscribe") {}
             #expect(subscribe.isPurchase)
             #expect(subscribe.answersReturn == false)
-            #expect(subscribe.takesDefaultFocus == false)
             #expect(MacSheetAction.keyboardRoles(cancel: nil, primary: subscribe).primary == nil)
+
+            let delete = MacSheetAction("Delete", role: .destructiveFilled) {}
+            #expect(delete.answersReturn == false)
 
             let ok = MacSheetAction("OK") {}
             #expect(ok.isPurchase == false)
-            #expect(ok.takesDefaultFocus)
+            #expect(ok.answersReturn)
             let quiet = MacSheetAction("Done", isDefault: false) {}
-            #expect(quiet.takesDefaultFocus == false)
+            #expect(quiet.answersReturn == false)
         }
 
-        /// The scaffold opens on a default primary, and otherwise on an anchor that draws nothing,
-        /// so no control (a disabled Save's neighbor, a purchase) opens wearing a ring.
-        @Test func macSheetOpensOnTheDefaultPrimaryOrTheAnchor() throws {
-            #expect(MacSheetAction.openingFocus(primary: .init("Save") {}) == .primary)
-            #expect(MacSheetAction.openingFocus(primary: .init("Save", isEnabled: false) {}) == .anchor)
-            #expect(MacSheetAction.openingFocus(primary: .init("Done", isDefault: false) {}) == .anchor)
-            #expect(MacSheetAction.openingFocus(primary: .subscribe(title: "Subscribe") {}) == .anchor)
-            #expect(MacSheetAction.openingFocus(primary: nil) == .anchor)
+        /// What marks a text field the musician types into in Mac drawing.
+        private static let fieldMarkers = [
+            "TextField(", "TextEditor(", "FilterSearchField(", "MacTextArea(", ".macField", ".macTitleField",
+        ]
 
-            let text = SourceScan.withoutComments(
+        /// Mac sheet calls that show a field yet do not open in it, by file and a piece of the call.
+        private static let opensElsewhere: [(file: String, call: String, reason: String)] = [
+            ("Lists/ListPickerSheet.swift", "openingFocus: .anchor", "the field shows on demand and focuses itself"),
+            (
+                "RecordingPage/Location/LocationEditor.swift", "canClearPlace ? .anchor",
+                "search first only with no place"
+            ),
+            (
+                "Recordings/NameLocationSheet.swift", "candidates.isEmpty ?",
+                "saved places come first when there are any"
+            ),
+            ("Lyrics/LyricsReader.swift", "(reading: title", "the reader shows no field"),
+            ("Import/ImportSheet.swift", "primary: nil", "the loading sheet shows no field"),
+        ]
+
+        /// Shared views that draw a field, so a sheet that shows one through a shared row still
+        /// counts as showing a field.
+        private static let sharedFieldViews = ["SuggestionField(", "BulkSuggestionRow("]
+
+        /// A sheet opens with focus in its first text field when it shows one, and otherwise on an
+        /// anchor that draws nothing. Every Mac sheet call in a file that shows a field opens on
+        /// it unless listed above with its reason, and no other call names an opening focus. No
+        /// button, a purchase included, ever opens holding focus.
+        @Test func sheetOpensOnAFieldOrNothing() throws {
+            let files = try SourceScan.files().map { file in
+                (
+                    path: SourceScan.relative(file),
+                    text: SourceScan.macCompiled(
+                        SourceScan.withoutComments(SourceScan.withoutPreviews(try SourceScan.text(at: file))))
+                )
+            }
+            let markers = Self.fieldMarkers + Self.sharedFieldViews
+            var checked = 0
+            for (path, text) in files where !path.hasSuffix("Mac/MacSheet.swift") {
+                let showsField = markers.contains { text.contains($0) }
+                for range in text.ranges(of: "MacSheet(") {
+                    let call = SourceScan.call(in: text, opening: text.index(before: range.upperBound))
+                    let allowed = Self.opensElsewhere.contains { $0.file == path && call.contains($0.call) }
+                    if showsField && !allowed {
+                        #expect(call.contains("openingFocus: .firstField"), "\(path) shows a field: \(call.prefix(60))")
+                    } else if !showsField {
+                        #expect(!call.contains("openingFocus:"), "\(path) shows no field: \(call.prefix(60))")
+                    }
+                    checked += 1
+                }
+            }
+            #expect(checked > 20)
+            for view in Self.sharedFieldViews {
+                let name = String(view.dropLast())
+                let declared = try #require(files.first { $0.text.contains("struct \(name)") }, "\(name)")
+                let draws = Self.fieldMarkers + Self.sharedFieldViews.filter { $0 != view }
+                #expect(draws.contains { declared.text.contains($0) }, "\(name) draws no field")
+            }
+            for entry in Self.opensElsewhere {
+                let text = try #require(files.first { $0.path == entry.file }?.text, "\(entry.file)")
+                #expect(text.contains(entry.call), "\(entry.file) no longer holds \(entry.call)")
+            }
+
+            let scaffold = SourceScan.withoutComments(
                 try SourceScan.text(at: SourceScan.url(of: "Mac/MacSheet.swift")))
-            #expect(text.contains(".defaultFocus($openingFocus, Action.openingFocus(primary: primary))"))
-            #expect(text.contains(".focused($openingFocus, equals: .anchor)"))
-            #expect(text.contains(".focused($openingFocus, equals: .primary)"))
+            #expect(scaffold.contains(".macOpensUnfocused(openingFocus == .anchor)"))
+            #expect(!scaffold.contains(".defaultFocus("))
+            #expect(!scaffold.contains(".focused("))
         }
 
         /// A fitted sheet whose content arrives after it shows, such as lists that load, grows to
-        /// hold it: the sheet's frame can no longer be squeezed under its content, so the sheet's
-        /// window follows.
+        /// hold it: the sheet's frame can no longer be squeezed under its content, and the sheet's
+        /// window takes the new height rather than keep the one it opened at.
         @Test func fittedSheetGrowsWhenItsContentArrivesLate() throws {
             let model = LateLines()
             let sheet = MacSheet(
@@ -161,6 +217,9 @@
                 LateLinesView(model: model)
             }
             let host = NSHostingController(rootView: sheet)
+            // A presented sheet's window keeps its opening size; the hosting controller would
+            // otherwise resize this window itself.
+            host.sizingOptions = []
             let window = hiddenWindow(size: CGSize(width: 480, height: 300), styleMask: [], appearance: .aqua)
             defer { window.close() }
             window.contentViewController = host
@@ -176,6 +235,7 @@
             model.lines = 6
             settle()
             #expect(squeezed() - opened == 120)
+            #expect(window.contentLayoutRect.height == squeezed())
             model.lines = 100
             settle()
             #expect(squeezed() == 600)

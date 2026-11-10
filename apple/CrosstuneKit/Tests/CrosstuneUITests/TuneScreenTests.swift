@@ -729,9 +729,9 @@ private func file(_ state: LocalFileState) -> RecordingFile {
     }
 
     @Test func theNotesStayInEditingWhileFocusIsOnTheirDone() {
-        #expect(NotesField.editing(.editor))
-        #expect(NotesField.editing(.done))
-        #expect(!NotesField.editing(nil))
+        #expect(TextFieldDoneFocus.isEditing(.field))
+        #expect(TextFieldDoneFocus.isEditing(.done))
+        #expect(!TextFieldDoneFocus.isEditing(nil))
     }
 
     @Test func moreSitsOnTheTitleRowOnTheMacAndAtRegularWidth() {

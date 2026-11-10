@@ -29,7 +29,11 @@ struct LoopNameTab: View {
                     .frame(minHeight: minimumTapTarget, alignment: .top)
                     .contentShape(.rect)
             }
-            .buttonStyle(.plain)
+            #if os(macOS)
+                .buttonStyle(.labelOnly)
+            #else
+                .buttonStyle(.plain)
+            #endif
             .accessibilityLabel(name)
             .accessibilityHint(PracticeText.rename)
         } else {
@@ -69,6 +73,7 @@ struct LoopNameField: View {
     @FocusState private var focused: Bool
 
     private static let width: CGFloat = 180
+    private static let shape = UnevenRoundedRectangle(bottomLeadingRadius: 5, bottomTrailingRadius: 5)
 
     init(model: PracticeModel, id: String, color: Color) {
         self.model = model
@@ -80,15 +85,20 @@ struct LoopNameField: View {
     var body: some View {
         TextField(PracticeText.loopName, text: $text)
             .contentMask()
-            .textFieldStyle(.plain)
-            .font(.platform(.footnote))
+            #if os(macOS)
+                .textFieldStyle(.macTitleField)
+            #else
+                .textFieldStyle(.plain)
+                .font(.platform(.footnote))
+            #endif
             .padding(.horizontal, 8)
             .frame(width: Self.width)
             .frame(minHeight: 32)
-            .background(.background, in: UnevenRoundedRectangle(bottomLeadingRadius: 5, bottomTrailingRadius: 5))
-            .overlay {
-                UnevenRoundedRectangle(bottomLeadingRadius: 5, bottomTrailingRadius: 5).strokeBorder(color)
-            }
+            // The field sits over the waveform, so it takes a fill of its own.
+            .background(.background, in: Self.shape)
+            #if !os(macOS)
+                .overlay { Self.shape.strokeBorder(color) }
+            #endif
             .submitLabel(.done)
             .focused($focused)
             .onSubmit { model.commitRename(text, for: id) }
@@ -130,7 +140,7 @@ struct LoopSuggestions: View {
                             Text(label)
                         }
                         // A press keeps the field's focus, so its text is not saved first.
-                        .focusable(false)
+                        .leavesFocusOnPress()
                     }
                 }
             }

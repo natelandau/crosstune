@@ -121,6 +121,18 @@ struct KeyModes: Equatable, Sendable {
     }
 }
 
+extension AttributeID {
+    /// Whether the attribute's editor opens holding a text field, which takes focus as it opens.
+    /// Learned on holds its date field only once a day is set.
+    func editorOpensOnTextField(learnedOnIsSet: Bool) -> Bool {
+        switch self {
+        case .status, .key, .timeSignature, .isCrooked: false
+        case .learnedOn: learnedOnIsSet
+        case .tuning, .tuneType, .partStructure, .genre, .composer, .alternateTitles, .learnedFrom: true
+        }
+    }
+}
+
 extension View {
     /// Edits one of the tune's attributes in place with that attribute's editor, saving through `write`.
     ///
@@ -210,8 +222,10 @@ private struct AttributeEditing: ViewModifier {
         @ViewBuilder body: @escaping (AttributeEditorControls<Value>) -> Body
     ) -> some View {
         let write = write
+        let learnedOnIsSet = CalendarDay.date(AttributeEdit.learnedOn(detail).session.draft) != nil
         return content.attributeEditor(
             isPresented: $isPresented, anchor: anchor, label: label, session: edit.session,
+            opensOnTextField: id.editorOpensOnTextField(learnedOnIsSet: learnedOnIsSet),
             onCommit: { write(edit.patch($0)) },
             content: { controls in AttributeEditorStack { body(controls) } })
     }
@@ -248,7 +262,7 @@ private struct StatusEditor: View {
                 controls.pick($0)
             }
         )
-        .focused(controls.firstField)
+        .openingFocus(controls.firstField)
     }
 }
 
@@ -275,7 +289,7 @@ private struct KeyEditor: View {
                 controls.apply(KeyModes.choosing(key: $0, in: draft.wrappedValue))
             }
         )
-        .focused(controls.firstField)
+        .openingFocus(controls.firstField)
         ModeRows(
             values: Binding {
                 draft.wrappedValue.rows
@@ -323,7 +337,7 @@ private struct TimeSignatureEditor: View {
             },
             options: Vocabulary.timeSignatures, reportsRepicks: true
         )
-        .focused(controls.firstField)
+        .openingFocus(controls.firstField)
     }
 }
 
@@ -416,9 +430,9 @@ private struct CrookedToggle: View {
             Text(TuneFieldLabels.crookedHelp)
         }
         if let focus {
-            toggle.focused(focus).phoneAccentSwitch()
+            toggle.openingFocus(focus).settingSwitch()
         } else {
-            toggle.phoneAccentSwitch()
+            toggle.settingSwitch()
         }
     }
 }
@@ -460,7 +474,9 @@ struct LearnedOnEditor: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             LearnedOnRow(day: controls.draft)
-                .focused(controls.firstField)
+                // A set day is a date field the Mac edits as text; Not set is a button.
+                .openingFocus(
+                    controls.firstField, isTextField: CalendarDay.date(controls.draft.wrappedValue) != nil)
             if let refused {
                 Text(refused)
                     .font(.platform(.footnote))

@@ -54,21 +54,6 @@
             #expect(LoopsPanel.macCaption(reason: nil, hasLoops: true) == nil)
         }
 
-        /// The trim and split screens put Cancel and Save in the pane bar, never in a window
-        /// toolbar the detail column does not show, and Escape presses Cancel.
-        @Test func editorScreensPutCancelAndSaveInThePaneBar() throws {
-            for path in ["RecordingScreen/TrimScreen.swift", "RecordingScreen/SplitScreen.swift"] {
-                let text = SourceScan.withoutComments(try SourceScan.text(at: SourceScan.url(of: path)))
-                let mac = SourceScan.macOSRegions(of: text)
-                let bar = try #require(mac.range(of: ".paneBar {"), "\(path) has a pane bar")
-                let controls = mac[bar.upperBound...]
-                #expect(controls.contains("cancelButton"), "\(path)'s pane bar has Cancel")
-                #expect(controls.contains(".keyboardShortcut(.cancelAction)"), "\(path): Escape presses Cancel")
-                #expect(controls.contains("saveButton"), "\(path)'s pane bar has Save")
-                #expect(!SourceScan.macCompiled(text).contains(".toolbar {"), "\(path) has no Mac toolbar")
-            }
-        }
-
         // MARK: Record sheet
 
         /// Before the first recording Continue is the footer's primary and Return presses it; once
@@ -136,7 +121,7 @@
             let text = try Self.macSource("Mac/PlayerDock.swift")
             #expect(!text.contains("DockGlyph"))
             #expect(text.contains(".mac(.icon"))
-            #expect(text.contains("Image(systemName: Self.nowPlayingSymbol)"))
+            #expect(text.contains("Image(systemName: PlayerDockBar.nowPlayingSymbol)"))
             #expect(PlayerDockBar.nowPlayingSymbol == "waveform")
         }
     }

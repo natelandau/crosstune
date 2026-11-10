@@ -790,15 +790,6 @@ private final class SplitHolds {
         split.endScrub()
     }
 
-    @Test func aToggleBoundToACutSelectsAndLetsGo() {
-        let split = placed([20_000], lineMs: 40_000)
-        #expect(!split[cutSelected: 0])
-        split[cutSelected: 0] = true
-        #expect(split[cutSelected: 0])
-        split[cutSelected: 0] = false
-        #expect(!split[cutSelected: 0])
-    }
-
     @Test func zoomsBetweenTheWholeRangeAndThePeaksResolution() throws {
         let split = model()
         #expect(split.pointsPerSecond == nil)

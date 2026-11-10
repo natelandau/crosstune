@@ -155,7 +155,7 @@ struct SavedLocationDetail: View {
             let close: @MainActor () -> Void = { onDone() }
             return MacSheet(
                 title: row?.place.name ?? SavedLocationsText.title, size: Self.macSize, cancel: nil,
-                primary: .init(AccountView.done, action: close), escape: close
+                primary: .init(AccountView.done, action: close), escape: close, openingFocus: .firstField
             ) {
                 if let row {
                     MacFormScroll {

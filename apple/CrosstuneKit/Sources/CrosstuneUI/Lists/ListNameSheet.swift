@@ -169,7 +169,8 @@ private struct ListNameForm: View {
                 cancel: .cancel(TuneFormSheet.cancel, isEnabled: !model.isSaving) { dismiss() },
                 primary: .init(
                     model.isNew ? ListNameSheet.create : ListNameSheet.save,
-                    isEnabled: !model.isSaving && !model.isSaved, action: save)
+                    isEnabled: !model.isSaving && !model.isSaved, action: save),
+                openingFocus: .firstField
             ) {
                 VStack(alignment: .leading, spacing: 6) {
                     field

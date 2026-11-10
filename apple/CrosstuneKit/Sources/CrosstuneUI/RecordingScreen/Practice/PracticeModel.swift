@@ -132,11 +132,14 @@ final class PracticeModel {
     /// a page opens on Speed. Leaving a mode closes its panel.
     var mode: PracticeMode {
         didSet {
-            guard mode != oldValue, isPanelShown else { return }
+            guard mode != oldValue, isPanelShown, areModeControlsShown else { return }
             closePanel(oldValue)
             openPanel()
         }
     }
+    /// The mode whose popover shows where the controls open in one, which the mode panel reads
+    /// and sets, so the screen's Escape can close the popover rather than the screen.
+    var openTool: PracticeMode?
     private(set) var drafts: [String: Draft] = [:]
     /// The draft a gesture or a held key is still drawing, which waits for it to end.
     var activeKey: String?
@@ -197,12 +200,15 @@ final class PracticeModel {
     @ObservationIgnored private var panelOpenedOn: PlayedSettings?
     /// Whether the practice view shows, so its panel reports and holds the outline.
     @ObservationIgnored private var isPanelShown = false
+    /// Whether the mode's controls show: always under tabs, and only while its popover is
+    /// open where the controls open in one.
+    @ObservationIgnored private var areModeControlsShown: Bool
     /// This screen's hold on the isolate outline while its Isolate panel shows.
     @ObservationIgnored private let panelRequester = UUID()
 
     init(
         player: PlayerModel, recording: Recording, file: RecordingFile?, writer: LoopWriter,
-        mode: PracticeMode = .speed, page: UUID? = nil,
+        mode: PracticeMode = .speed, page: UUID? = nil, modeControlsShown: Bool = true,
         clock: @escaping () -> ContinuousClock.Instant = { .now },
         announce: @escaping (String) -> Void = { AccessibilityNotification.Announcement($0).post() }
     ) {
@@ -212,6 +218,7 @@ final class PracticeModel {
         self.writer = writer
         self.mode = mode
         self.page = page
+        areModeControlsShown = modeControlsShown
         self.clock = clock
         self.announce = announce
     }
@@ -531,13 +538,22 @@ final class PracticeModel {
     func showPanel() {
         guard !isPanelShown else { return }
         isPanelShown = true
-        openPanel()
+        if areModeControlsShown { openPanel() }
+    }
+
+    /// The mode's popover opened or closed. Closing reports the mode's setting and lets the
+    /// isolate outline go, as leaving the mode does; opening starts the panel again.
+    func modeControlsShown(_ shown: Bool) {
+        guard shown != areModeControlsShown else { return }
+        if isPanelShown, !shown { closePanel(mode) }
+        areModeControlsShown = shown
+        if isPanelShown, shown { openPanel() }
     }
 
     /// The player has taken this recording or let it go: the Isolate panel holds the isolate
     /// outline only while the player holds the recording it shows.
     func currentChanged() {
-        guard isPanelShown, mode == .isolate else { return }
+        guard isPanelShown, areModeControlsShown, mode == .isolate else { return }
         player.requestIsolateOutline(isCurrent, by: panelRequester)
     }
 
@@ -554,7 +570,7 @@ final class PracticeModel {
     func leave() {
         flushOwnSettings()
         isPanelShown = false
-        closePanel(mode)
+        if areModeControlsShown { closePanel(mode) }
         flushBlur()
         if activeScrub != nil { settleScrub(at: scrubbingMs) }
         commitHandleKeySteps()
@@ -606,17 +622,21 @@ final class PracticeModel {
         }
     }
 
-    /// The screen's Escape and exit command: closes the name field, else deselects, and only
-    /// with neither left runs `close`.
+    /// The screen's Escape and exit command: closes the name field, else the open tool's
+    /// popover, else deselects, and only with none of them left runs `close`.
     func escape(orClose close: () -> Void) {
         if !escape() { close() }
     }
 
-    /// Escape: closes the name field, else deselects; false when there was neither, and Escape
-    /// then closes the screen.
+    /// Escape: closes the name field, else the open tool's popover, else deselects; false when
+    /// there was none of them, and Escape then closes the screen.
     func escape() -> Bool {
         if renaming != nil {
             cancelRename()
+            return true
+        }
+        if openTool != nil {
+            openTool = nil
             return true
         }
         if selectedID != nil {

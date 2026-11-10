@@ -150,16 +150,27 @@ private struct LocationEditorPage: View {
 
     private var isBusy: Bool { model.picking != nil || model.isLocating }
 
+    #if os(macOS)
+        /// Escape empties a search that holds text before it cancels the editor.
+        private func escape() {
+            @Bindable var model = model
+            FilterSearchField.escape(clearing: $model.query) { onCancel() }
+        }
+    #endif
+
     private var searchField: some View {
         @Bindable var model = model
-        return TextField(PlaceSearchText.findAPlace, text: $model.query, prompt: Text(PlaceSearchText.findAPlace))
+        #if os(macOS)
+            return FilterSearchField(
+                prompt: PlaceSearchText.findAPlace, query: $model.query, isFocused: $focused)
+        #else
+            return TextField(
+                PlaceSearchText.findAPlace, text: $model.query, prompt: Text(PlaceSearchText.findAPlace)
+            )
             .contentMask()
-            #if os(macOS)
-                .labelsHidden()
-                .textFieldStyle(.macField)
-            #endif
             .autocorrectionDisabled()
             .focused($focused)
+        #endif
     }
 
     private var currentLocationRow: some View {
@@ -366,7 +377,10 @@ private struct LocationEditorPage: View {
             MacSheet(
                 title: RecordingPageCopy.location, size: LocationEditor.macSize,
                 cancel: .cancel(TuneFormSheet.cancel) { onCancel() },
-                primary: .init(AttributeCopy.done, isDefault: false) { onDone() }
+                primary: .init(AttributeCopy.done, isDefault: false) { onDone() },
+                escape: escape,
+                // With no place to show, the search is the editor's first thing.
+                openingFocus: model.edit.canClearPlace ? .anchor : .firstField
             ) {
                 MacFormScroll {
                     VStack(alignment: .leading, spacing: 6) {

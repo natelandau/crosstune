@@ -582,7 +582,7 @@ public struct SettingsScreen: View {
                         increment: { model.setTunerA4Hz(model.tunerA4Hz + 1) },
                         canDecrement: model.tunerA4Hz > range.lowerBound,
                         canIncrement: model.tunerA4Hz < range.upperBound,
-                        accessibilityLabel: SettingsModel.referencePitch)
+                        accessibilityLabel: SettingsModel.referencePitch, size: .small)
                 }
             }
         }

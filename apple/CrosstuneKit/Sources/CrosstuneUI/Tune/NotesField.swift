@@ -17,7 +17,6 @@ struct NotesField: View {
     /// What the field shows: the stored notes, except while being edited, when it keeps what was
     /// typed so a save echoing back never moves the caret.
     @State private var text = ""
-    @FocusState private var focus: Focus?
     @State private var session = Session()
 
     /// The notes' editing session, opened on focus and closed once on blur or as the field
@@ -33,24 +32,12 @@ struct NotesField: View {
         }
     }
 
-    /// Where focus sits while the notes are being edited: the field, or its Done, which keyboard
-    /// navigation can reach without ending the edit.
-    enum Focus: Hashable {
-        case editor, done
-    }
-
-    /// Whether the notes are being edited, with focus on the field or on its Done.
-    nonisolated static func editing(_ focus: Focus?) -> Bool {
-        focus != nil
-    }
-
-    private var editing: Bool { Self.editing(focus) }
-
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            field
-            if editing {
-                editingLine
+            TextFieldDoneGroup(doneTitle: Self.done, spacing: 6, onEditingChange: editingChanged) { editing in
+                field(editing: editing)
+            } line: { done in
+                editingLine(done)
             }
             if let failure = model.failure(at: .notes) {
                 FailureText(failure)
@@ -58,7 +45,7 @@ struct NotesField: View {
         }
     }
 
-    private var field: some View {
+    private func field(editing: Bool) -> some View {
         editor
             .characterLimit(Vocabulary.Limits.Tune.notes, text: typed)
             .onAppear { text = stored ?? "" }
@@ -66,24 +53,23 @@ struct NotesField: View {
             .onChange(of: stored) { _, notes in
                 if !editing { text = notes ?? "" }
             }
-            .onChange(of: editing) { _, isEditing in
-                if let began = session.focus(isEditing) { model.noteEditing(began: began) }
-            }
             // Leaving the page with the field focused ends the session without a blur.
             .onDisappear {
                 if let began = session.focus(false) { model.noteEditing(began: began) }
             }
     }
 
-    private var editingLine: some View {
+    private func editingChanged(_ isEditing: Bool) {
+        if let began = session.focus(isEditing) { model.noteEditing(began: began) }
+    }
+
+    private func editingLine(_ done: TextFieldDoneButton) -> some View {
         HStack(spacing: 8) {
             Text(Self.savesAsYouType)
                 .font(PageStyle.secondary)
                 .foregroundStyle(.textSecondary)
             Spacer(minLength: 0)
-            Button(Self.done) { focus = nil }
-                .focused($focus, equals: .done)
-                .buttonStyle(.text(macLook: .button(.secondary, size: .small), oneLine: true))
+            done
         }
     }
 
@@ -99,6 +85,5 @@ struct NotesField: View {
 
     private var editor: some View {
         MultilineTextField(TuneScreen.notesHeader, text: typed, prompt: Self.placeholder)
-            .focused($focus, equals: .editor)
     }
 }

@@ -61,7 +61,7 @@ struct KeyChooser: View {
                 }
                 .accessibilityLabel(pill)
             }
-            ChipMenu(isSet: false, macChevronColor: nil) {
+            ChipMenu(isSet: false, purpose: .moreChoices) {
                 ForEach(Self.more(chosen: chosen), id: \.self) { more in
                     Button(more) { key = more }
                 }

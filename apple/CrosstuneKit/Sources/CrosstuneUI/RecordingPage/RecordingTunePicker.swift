@@ -142,29 +142,31 @@ struct RecordingTuneEditor: View {
                 controls.done()
                 onGoToTune()
             }
-            .buttonStyle(.text(macLook: .button(.plain, size: .small)))
+            .buttonStyle(.text)
         }
         Button(RecordingRowActions.removeFromTune, systemImage: "folder.badge.minus", role: .destructive) {
             controls.pick(nil)
         }
-        .buttonStyle(.text(macLook: .button(.plain, size: .small)))
+        .buttonStyle(.text)
     }
 
     private func search(_ model: RecordingTunePickerModel) -> some View {
         @Bindable var model = model
         return VStack(alignment: .leading, spacing: 8) {
-            TextField(
-                RecordingTunePickerModel.searchPrompt, text: $model.query,
-                prompt: Text(RecordingTunePickerModel.searchPrompt)
-            )
-            .contentMask()
             #if os(macOS)
-                .labelsHidden()
-                .textFieldStyle(.macField)
+                FilterSearchField(
+                    prompt: RecordingTunePickerModel.searchPrompt, query: $model.query,
+                    isFocused: controls.firstField, onSubmit: { submit(model) })
+            #else
+                TextField(
+                    RecordingTunePickerModel.searchPrompt, text: $model.query,
+                    prompt: Text(RecordingTunePickerModel.searchPrompt)
+                )
+                .contentMask()
+                .autocorrectionDisabled()
+                .focused(controls.firstField)
+                .onSubmit { submit(model) }
             #endif
-            .autocorrectionDisabled()
-            .focused(controls.firstField)
-            .onSubmit { submit(model) }
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 2) {
                     if model.isIdle {
@@ -217,7 +219,7 @@ struct RecordingTuneEditor: View {
                         .contentMask()
                 }
             }
-            .buttonStyle(.macPickRow)
+            .buttonStyle(.macRow)
         #else
             AddTypedTitleRow(label: label) { create(title) }
         #endif

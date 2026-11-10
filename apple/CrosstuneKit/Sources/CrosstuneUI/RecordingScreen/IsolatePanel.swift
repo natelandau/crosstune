@@ -74,7 +74,7 @@ struct IsolatePanel: View {
                         }, options: Self.effects,
                         label: Self.effectName, title: RecordingScreenText.isolateEffect)
                     Spacer(minLength: 0)
-                    reset.buttonStyle(.mac(.plain, size: .small))
+                    reset.controlSize(.small)
                 }
                 .frame(minHeight: PracticeLayout.target)
                 Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 8) {
@@ -142,7 +142,7 @@ struct IsolatePanel: View {
                     }
                     .pickerStyle(.segmented)
                     .labelsHidden()
-                    reset.buttonStyle(.text(oneLine: true))
+                    reset
                 }
                 if showsMonoNotice {
                     Text(RecordingScreenText.monoNotice)
@@ -173,6 +173,7 @@ struct IsolatePanel: View {
 
     private var reset: some View {
         Button(RecordingScreenText.reset) { onChange(.standard) }
+            .buttonStyle(.text(oneLine: true))
             .disabled(value.effective(isMono: isMono == true).isDefault)
     }
 
@@ -244,7 +245,7 @@ final class IsolateOutlineReader {
 /// outline to show.
 struct LiveIsolatePanel: View {
     let model: PracticeModel
-    let shown: Bool
+    @Environment(\.isToolShown) private var shown
 
     var body: some View {
         let audio = model.player.audio

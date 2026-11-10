@@ -204,7 +204,7 @@ private struct ScanViewerBody: View {
     private func turn(by step: Int, ids: [String]) {
         let index = (shown.flatMap { ids.firstIndex(of: $0) } ?? 0) + step
         guard ids.indices.contains(index) else { return }
-        withAnimation(reduceMotion ? nil : .snappy) { shown = ids[index] }
+        withAnimation(Motion.stateChange(phone: .snappy, reduceMotion: reduceMotion)) { shown = ids[index] }
     }
 
     init(model: ScanViewerModel, title: String, scans: [Scan], startIndex: Int, onShow: @escaping (Int) -> Void) {
@@ -222,7 +222,9 @@ private struct ScanViewerBody: View {
         Binding {
             scale > ScanZoom.fit
         } set: { zoomed in
-            withAnimation(reduceMotion ? nil : .snappy) { scale = zoomed ? ScanZoom.double : ScanZoom.fit }
+            withAnimation(Motion.stateChange(phone: .snappy, reduceMotion: reduceMotion)) {
+                scale = zoomed ? ScanZoom.double : ScanZoom.fit
+            }
         }
     }
 
@@ -479,7 +481,9 @@ struct ScanSlide: View {
             .accessibilityAddTraits(.isImage)
             .contentShape(.rect)
             .onTapGesture(count: 2) {
-                withAnimation(reduceMotion ? nil : .snappy) { scale = ScanZoom.toggled(scale) }
+                withAnimation(Motion.stateChange(phone: .snappy, reduceMotion: reduceMotion)) {
+                    scale = ScanZoom.toggled(scale)
+                }
             }
             // After the double tap, so a single tap waits until it is not the first of two.
             .modifier(SlideTap(onTap: onTap))

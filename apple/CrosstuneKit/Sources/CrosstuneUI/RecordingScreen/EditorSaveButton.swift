@@ -32,6 +32,7 @@ struct EditorSaveButton<Model: RecordingEditorSaving>: View {
 
     /// Made on the first confirmed save, so a parent that rebuilds this button makes no runner.
     @State private var saving: WorkRunner?
+    @Environment(\.editorSaveShortcut) private var shortcut
 
     var body: some View {
         let phase = saving?.phase ?? .idle
@@ -40,6 +41,7 @@ struct EditorSaveButton<Model: RecordingEditorSaving>: View {
         } label: {
             WorkingLabel(phase: phase) { Text(RecordingScreenText.save) }
         }
+        .keyboardShortcut(shortcut)
         .disabled(isDisabled)
         .workState(saving)
         .coversShell(model.isConfirming)

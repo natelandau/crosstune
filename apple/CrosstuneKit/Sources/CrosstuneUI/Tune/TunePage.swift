@@ -371,8 +371,7 @@ struct TunePageColumn: View {
                     ) {
                         Label(TuneScreen.addScanText, systemImage: "plus")
                     }
-                    .menuStyle(.button)
-                    .textButtonMenuAppearance(macRole: .quiet)
+                    .textButtonMenuAppearance()
                     .accessibilityLabel(TuneScreen.addScan)
                 case .lyrics:
                     Button(action: onAddLyrics) {
@@ -436,10 +435,10 @@ private struct PageVerses: View {
     }
 }
 
-/// The add line's actions, in the platform's existing quiet styles.
+/// The add line's actions, as text buttons.
 private struct AddLineStyle: ViewModifier {
     func body(content: Content) -> some View {
-        content.buttonStyle(.text(macLook: .button(.quiet, size: .small)))
+        content.buttonStyle(.text)
     }
 }
 

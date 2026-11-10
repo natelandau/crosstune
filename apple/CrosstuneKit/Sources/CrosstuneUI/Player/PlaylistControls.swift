@@ -6,8 +6,8 @@ import SwiftUI
 /// Words the playlist controls show. A tune is never a song here.
 public enum PlaylistControlText {
     public static let shuffle = ListPlayText.shuffle
-    public static let previous = "Previous tune"
-    public static let next = "Next tune"
+    public static let previous = Transport.previousName
+    public static let next = Transport.nextName
     public static let repeatOff = "Repeat off"
     public static let repeatList = "Repeat list"
     public static let repeatOne = "Repeat tune"
@@ -69,7 +69,7 @@ public struct PlaylistControls: View {
         Button(action: action) {
             Image(systemName: symbol).imageScale(.large)
         }
-        .buttonStyle(.icon(isOn: highlighted, macLook: .glyph))
+        .buttonStyle(.icon(isOn: highlighted))
         .accessibilityLabel(title)
         .help(title)
     }

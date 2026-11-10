@@ -78,7 +78,9 @@ private struct ListPickerContent: View {
         var body: some View {
             MacSheet(
                 title: title, size: Self.size,
-                cancel: .cancel(ListPickerSheet.cancel, isEnabled: !model.isPending) { dismiss() }, primary: nil
+                cancel: .cancel(ListPickerSheet.cancel, isEnabled: !model.isPending) { dismiss() }, primary: nil,
+                // The new list field shows only once asked for, and focuses itself then.
+                openingFocus: .anchor
             ) {
                 VStack(alignment: .leading, spacing: 2) {
                     if model.isLoaded {
@@ -100,7 +102,7 @@ private struct ListPickerContent: View {
                                     }
                                 }
                             }
-                            .buttonStyle(.macPickRow)
+                            .buttonStyle(.macRow)
                             .disabled(!row.isOffered || model.isPending)
                         }
                         macNewList
@@ -130,7 +132,7 @@ private struct ListPickerContent: View {
                         .disabled(
                             model.newName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || model.isPending)
                 }
-                .padding(.horizontal, 8)
+                .padding(.horizontal, MacRowStyle.labelInset)
                 .padding(.top, 4)
                 .onAppear { nameFocused = true }
             } else {
@@ -142,7 +144,7 @@ private struct ListPickerContent: View {
                         Text(ListPickerSheet.newListItem)
                     }
                 }
-                .buttonStyle(.macPickRow)
+                .buttonStyle(.macRow)
                 .disabled(model.isPending)
             }
         }

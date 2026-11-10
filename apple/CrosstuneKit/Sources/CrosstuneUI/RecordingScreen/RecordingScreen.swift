@@ -99,7 +99,8 @@ struct RecordingScreen: View {
         @State private var pageHeight: CGFloat?
         @State private var waveformHeight: CGFloat?
     #endif
-    @FocusState private var focus: PracticeFocus?
+    /// Whether the screen itself holds the keyboard, as it does when no control does.
+    @FocusState private var screenFocused: Bool
     @AccessibilityFocusState private var waveformFocused: Bool
 
     /// The narrowest the practice view lays out its waveform and controls.
@@ -187,10 +188,7 @@ struct RecordingScreen: View {
         // The keyboard covers the controls rather than squeezing the waveform, so opening a name
         // field leaves the waveform as it is.
         .ignoresSafeArea(.keyboard)
-        .focusable()
-        .focusEffectDisabled()
-        .focused($focus, equals: .screen)
-        .defaultFocus($focus, .screen)
+        .keySurface($screenFocused)
         .modifier(
             PracticeKeys(
                 model: practice, isBlocked: disabledReason != nil, onDeleted: focusWaveform, onClose: onClose)
@@ -200,15 +198,12 @@ struct RecordingScreen: View {
     /// The transport and the mode panels, under the waveform.
     private func controls(_ practice: PracticeModel, disabledReason: String?) -> some View {
         #if os(macOS)
-            // The transport right under the stage it plays, then the mode picker over
-            // its panel, so the two read as one unit.
+            // The transport right under the stage it plays, then the mode tools.
             VStack(spacing: MacStyle.sectionGap) {
                 PracticeControls(model: practice, disabledReason: disabledReason)
-                VStack(spacing: 16) {
-                    ModePicker(model: practice)
-                    ModeControls(model: practice, onDeleted: focusWaveform)
-                }
-                .dimmedWhenDisabled(disabledReason != nil)
+                ModePanel(
+                    model: practice, isAvailable: disabledReason == nil, onDeleted: focusWaveform,
+                    focusScreen: { screenFocused = true }, between: {})
             }
             .padding(.top, MacStyle.headingGap)
             .controlsColumn()
@@ -218,13 +213,11 @@ struct RecordingScreen: View {
                 if isFullPage {
                     PracticeControls(model: practice, disabledReason: disabledReason)
                 }
-                ModePicker(model: practice)
-                    .dimmedWhenDisabled(disabledReason != nil)
-                if !isFullPage {
-                    PracticeControls(model: practice, disabledReason: disabledReason)
+                ModePanel(model: practice, isAvailable: disabledReason == nil, onDeleted: focusWaveform) {
+                    if !isFullPage {
+                        PracticeControls(model: practice, disabledReason: disabledReason)
+                    }
                 }
-                ModeControls(model: practice, onDeleted: focusWaveform)
-                    .dimmedWhenDisabled(disabledReason != nil)
             }
             .controlsColumn()
         #endif
@@ -295,19 +288,12 @@ struct RecordingScreen: View {
     /// Delete loop went disabled with the loop it removed, so focus goes to the waveform rather than
     /// to nothing.
     private func focusWaveform() {
-        focus = .screen
+        screenFocused = true
         waveformFocused = true
     }
 
     private var screenUnavailableReason: String? {
         RecordingScreenText.screenUnavailableReason(
             file: rows.file, downloading: transfers?.isDownloading(rows.recording.id) == true)
-    }
-}
-
-extension View {
-    /// Disables the view and dims it, so a blocked control reads as unavailable.
-    func dimmedWhenDisabled(_ isDisabled: Bool) -> some View {
-        disabled(isDisabled).opacity(isDisabled ? 0.5 : 1)
     }
 }

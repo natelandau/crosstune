@@ -78,7 +78,7 @@ struct MusicPlayerCard: View {
 }
 
 /// The position and controls for what MusicKit plays: skips back and forward, and, for an
-/// album, the previous and next track. With play, the skips and play are one transport.
+/// album, the previous and next track, as one transport.
 struct MusicPlayerBody: View {
     let music: any MusicPlayback
     var showsPlay = false
@@ -89,39 +89,17 @@ struct MusicPlayerBody: View {
             TimelineView(.periodic(from: .now, by: 0.5)) { context in
                 TransportScrubber(audio: music, tick: context.date)
             }
-            HStack(spacing: 4) {
-                if music.hasAlbum {
-                    control(MusicPlayerText.previousTrack, "backward.end.fill") { music.skipTrack(forward: false) }
-                }
-                if showsPlay {
-                    Transport(
-                        isPlaying: music.isPlaying, size: .inline, onPlayPause: { music.toggle() },
-                        onBack: { music.skip(by: -AudioPlayer.skipInterval) },
-                        onForward: { music.skip(by: AudioPlayer.skipInterval) })
-                } else {
-                    control(RecordingPlayerText.skipBack(AudioPlayer.skipInterval), "gobackward.15") {
-                        music.skip(by: -AudioPlayer.skipInterval)
-                    }
-                    control(RecordingPlayerText.skipForward(AudioPlayer.skipInterval), "goforward.15") {
-                        music.skip(by: AudioPlayer.skipInterval)
-                    }
-                }
-                if music.hasAlbum {
-                    control(MusicPlayerText.nextTrack, "forward.end.fill") { music.skipTrack(forward: true) }
-                }
-            }
+            Transport(
+                isPlaying: music.isPlaying, size: .inline, onPlayPause: showsPlay ? { music.toggle() } : nil,
+                onBack: { music.skip(by: -AudioPlayer.skipInterval) },
+                onForward: { music.skip(by: AudioPlayer.skipInterval) },
+                onPrevious: music.hasAlbum ? { music.skipTrack(forward: false) } : nil,
+                onNext: music.hasAlbum ? { music.skipTrack(forward: true) } : nil,
+                previousName: MusicPlayerText.previousTrack, nextName: MusicPlayerText.nextTrack
+            )
             .frame(maxWidth: .infinity)
             .dynamicTypeSize(...DynamicTypeSize.large)
         }
-    }
-
-    private func control(_ label: String, _ symbol: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Label(label, systemImage: symbol)
-                .labelStyle(.iconOnly)
-        }
-        .buttonStyle(.icon(macLook: .tintGlyph))
-        .help(label)
     }
 }
 

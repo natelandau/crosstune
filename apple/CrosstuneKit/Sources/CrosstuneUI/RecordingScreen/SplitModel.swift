@@ -239,12 +239,6 @@ final class SplitModel {
         if state.selected == index { apply(.seek(state.lineMs)) } else { apply(.select(index)) }
     }
 
-    /// Whether cut `index` is selected, for a toggle bound to it.
-    subscript(cutSelected index: Int) -> Bool {
-        get { state.selected == index }
-        set { if newValue != (state.selected == index) { select(index) } }
-    }
-
     /// Selects piece `index`, or lets it go when it is already selected. One piece is the whole
     /// recording, which shows no band to select.
     func togglePiece(_ index: Int) {

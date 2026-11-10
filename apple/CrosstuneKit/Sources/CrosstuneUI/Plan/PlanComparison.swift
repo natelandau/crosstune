@@ -262,7 +262,7 @@ extension View {
         /// A row's inset and height in a Mac plan card, as a form card's rows have. A button fits
         /// the row's height, so a Manage… that arrives late never grows a fitted sheet.
         func macPlanRow() -> some View {
-            padding(.horizontal, MacForm.rowInset)
+            padding(.horizontal, MacForm.textInset)
                 .padding(.vertical, 4)
                 .frame(minHeight: MacForm.rowMinHeight)
         }

@@ -29,7 +29,8 @@ struct BulkEditSheet: View {
             MacSheet(
                 title: BulkActionText.editTitle(entries.count), subtitle: BulkEditForm.footnote, size: .longForm,
                 cancel: .cancel(TuneFormSheet.cancel, isEnabled: !bulk.isPending) { dismiss() },
-                primary: .init(TuneFormSheet.save, isEnabled: !bulk.isPending, action: save)
+                primary: .init(TuneFormSheet.save, isEnabled: !bulk.isPending, action: save),
+                openingFocus: .firstField
             ) {
                 macForm
             }
@@ -225,7 +226,7 @@ private struct BulkChoiceRow: View {
     var emptyChoice: String?
 
     var body: some View {
-        MenuRow(field.label, value: form.shown(field)) { items }
+        MenuRow(field.label, value: form.shown(field), isSet: form.value(field) != nil) { items }
     }
 
     @ViewBuilder private var items: some View {
@@ -302,42 +303,8 @@ private struct BulkDateRow: View {
     @Binding var form: BulkEditForm
 
     var body: some View {
-        #if os(macOS)
-            LabeledContent(field.label) {
-                MacDateValue(
-                    label: field.label, day: form.text(field), placeholder: form.placeholder(field),
-                    onSet: { form.touch(field, .text($0)) }, onClear: { form.touch(field, .clear) })
-            }
-        #else
-            phoneBody
-        #endif
+        DateValueRow(
+            label: field.label, day: form.text(field), placeholder: form.placeholder(field),
+            onSet: { form.touch(field, .text($0)) }, onClear: { form.touch(field, .clear) })
     }
-
-    #if !os(macOS)
-        @ViewBuilder private var phoneBody: some View {
-            if let date = CalendarDay.date(form.text(field)) {
-                HStack {
-                    DatePicker(
-                        field.label,
-                        selection: Binding {
-                            date
-                        } set: {
-                            form.touch(field, .text(CalendarDay.day($0)))
-                        }, displayedComponents: .date)
-                    Button(TuneFieldLabels.clearDate, systemImage: "xmark.circle.fill") { form.touch(field, .clear) }
-                        .labelStyle(.iconOnly)
-                        .buttonStyle(.rowLine)
-                        .foregroundStyle(.textSecondary)
-                }
-            } else {
-                LabeledContent(field.label) {
-                    Button(form.placeholder(field)) { form.touch(field, .text(CalendarDay.day(.now))) }
-                        .buttonStyle(.rowLine)
-                        .foregroundStyle(.textSecondary)
-                        .accessibilityLabel("\(field.label), \(form.placeholder(field))")
-                        .accessibilityHint(TuneFieldLabels.setsToday)
-                }
-            }
-        }
-    #endif
 }

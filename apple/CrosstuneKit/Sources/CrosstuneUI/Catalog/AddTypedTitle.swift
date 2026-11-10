@@ -35,7 +35,7 @@ struct HiddenMatchNote: View {
             } label: {
                 Text(SearchOutcome.open)
             }
-            .buttonStyle(.text(macLook: .accentLabel))
+            .buttonStyle(.text)
             .accessibilityLabel(match.openName)
         }
         .font(.platform(.footnote))

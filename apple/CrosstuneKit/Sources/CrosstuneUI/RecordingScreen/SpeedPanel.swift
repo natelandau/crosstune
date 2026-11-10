@@ -21,9 +21,19 @@ struct SpeedPanel: View {
                 } set: {
                     if let speed = Self.moved(from: value, to: $0) { onChange(speed) }
                 },
-                in: Self.range, step: Self.step, defaultValue: 100, format: RecordingScreenText.speedBadge)
+                in: Self.range, step: Self.step, defaultValue: 100, showsTitle: Self.showsSliderTitle,
+                format: RecordingScreenText.speedBadge)
             presets
         }
+    }
+
+    /// The Mac draws the panel in a popover headed "Speed", so the slider does not repeat it.
+    private static var showsSliderTitle: Bool {
+        #if os(macOS)
+            false
+        #else
+            true
+        #endif
     }
 
     #if os(macOS)
@@ -86,73 +96,3 @@ struct SpeedPresetRow: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
-
-#if os(macOS)
-    /// A Mac practice panel's label row: its name in secondary text, with a quiet control such as
-    /// Reset at the trailing end.
-    struct PanelLabelRow<Trailing: View>: View {
-        let title: String
-        @ViewBuilder let trailing: Trailing
-
-        var body: some View {
-            HStack(spacing: 8) {
-                Text(title)
-                    .font(MacStyle.label)
-                    .foregroundStyle(Palette.textSecondary)
-                    .accessibilityHidden(true)
-                Spacer(minLength: 0)
-                trailing
-            }
-            .frame(minHeight: MacStyle.smallControlHeight)
-        }
-    }
-
-    /// A Mac practice panel's control row, under its label row: the stepper beside a slider
-    /// that takes the rest of the width, with an optional value trailing the slider. Where the
-    /// two show different units, as Pitch's semitones and cents do, a caption under each names it.
-    struct PanelControlRow<Stepper: View, Slider: View, Accessory: View>: View {
-        let stepperCaption: String?
-        let sliderCaption: String?
-        let stepper: Stepper
-        let slider: Slider
-        let accessory: Accessory
-
-        init(
-            stepperCaption: String? = nil, sliderCaption: String? = nil, @ViewBuilder stepper: () -> Stepper,
-            @ViewBuilder slider: () -> Slider, @ViewBuilder accessory: () -> Accessory
-        ) {
-            self.stepperCaption = stepperCaption
-            self.sliderCaption = sliderCaption
-            self.stepper = stepper()
-            self.slider = slider()
-            self.accessory = accessory()
-        }
-
-        var body: some View {
-            Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 4) {
-                GridRow {
-                    stepper
-                    HStack(spacing: 16) {
-                        slider
-                        accessory
-                    }
-                }
-                if stepperCaption != nil || sliderCaption != nil {
-                    GridRow {
-                        caption(stepperCaption)
-                            .gridCellAnchor(.center)
-                        caption(sliderCaption)
-                    }
-                }
-            }
-        }
-
-        /// The controls carry these names for VoiceOver already.
-        private func caption(_ text: String?) -> some View {
-            Text(text ?? "")
-                .font(MacStyle.secondary)
-                .foregroundStyle(Palette.textSecondary)
-                .accessibilityHidden(true)
-        }
-    }
-#endif

@@ -302,6 +302,13 @@ private struct RecordingPageBody: View {
         _ = premium?.gate(.recordings, from: RecordingPage.planEntry)
     }
 
+    /// Under tabs the mode's controls always show; the Mac's tool popovers start closed.
+    #if os(macOS)
+        private static let modeControlsShownAtStart = false
+    #else
+        private static let modeControlsShownAtStart = true
+    #endif
+
     /// Makes the page's practice once the commands it writes through are at hand and the plan
     /// lets recordings play; a plan that stops them takes it away.
     private func makePractice() {
@@ -314,7 +321,7 @@ private struct RecordingPageBody: View {
         guard practice == nil, let commands else { return }
         let made = PracticeModel(
             player: player, recording: rows.recording, file: rows.file, writer: .commands(commands),
-            page: model.screen)
+            page: model.screen, modeControlsShown: Self.modeControlsShownAtStart)
         practice = made
         follow(rows)
         model.openVisit(made)

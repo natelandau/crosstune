@@ -650,7 +650,7 @@ private func entry(_ tuning: String? = nil, capo: Int64? = nil) -> JSONValue {
             let file = SourceScan.url(of: "TuneForm/TuneFormSheet.swift")
             let text = SourceScan.withoutComments(SourceScan.withoutPreviews(try SourceScan.text(at: file)))
             let mac = SourceScan.macOSRegions(of: text, in: file)
-            let titleField = MacFieldTests.textFieldChains(in: mac).first { $0.contains("MacStyle.formTitle") }
+            let titleField = MacFieldTests.textFieldChains(in: mac).first { $0.contains(".macTitleField") }
             let chain = try #require(titleField, "the Mac tune form draws no large title field")
             #expect(chain.contains(".labelsHidden()"))
             #expect(chain.contains("TuneFieldLabels.title"))
@@ -658,11 +658,11 @@ private func entry(_ tuning: String? = nil, capo: Int64? = nil) -> JSONValue {
 
         @Test func segmentedArrowsMoveTheChoiceAndStopAtTheEnds() {
             let values = ["a", "b", "c"]
-            #expect(MacSegmentedPicker<String>.moved(values, from: "b", by: 1) == "c")
-            #expect(MacSegmentedPicker<String>.moved(values, from: "c", by: 1) == "c")
-            #expect(MacSegmentedPicker<String>.moved(values, from: "a", by: -1) == "a")
-            #expect(MacSegmentedPicker<String>.moved(values, from: nil, by: 1) == "a")
-            #expect(MacSegmentedPicker<String>.moved(values, from: nil, by: -1) == "c")
+            #expect(MacSegmentTrack<String>.moved(values, from: "b", by: 1) == "c")
+            #expect(MacSegmentTrack<String>.moved(values, from: "c", by: 1) == "c")
+            #expect(MacSegmentTrack<String>.moved(values, from: "a", by: -1) == "a")
+            #expect(MacSegmentTrack<String>.moved(values, from: nil, by: 1) == "a")
+            #expect(MacSegmentTrack<String>.moved(values, from: nil, by: -1) == "c")
         }
     }
 #endif

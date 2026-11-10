@@ -192,7 +192,7 @@ struct RecordingDateEditor: View {
             monthPicker(draft)
             dayPicker(draft)
             Button(RecordingEditorText.clearDate) { controls.draft.wrappedValue.clear() }
-                .buttonStyle(.text(macLook: .button(.plain, size: .small)))
+                .buttonStyle(.text)
                 .disabled(draft.isEmpty)
             if let refused {
                 Text(refused)
@@ -254,7 +254,7 @@ struct RecordingDateEditor: View {
         let month = controls.draft.month
         #if os(macOS)
             MacPopUp(
-                RecordingEditorText.month, selection: month, options: [nil] + Self.months.map(Optional.some),
+                RecordingEditorText.month, selection: month, choices: Self.months,
                 label: { $0.map(monthName) ?? RecordingEditorText.any }
             )
             .disabled(!draft.isMonthEnabled)
@@ -274,7 +274,7 @@ struct RecordingDateEditor: View {
         let days = Array(stride(from: 1, through: draft.dayCount, by: 1))
         #if os(macOS)
             MacPopUp(
-                RecordingEditorText.day, selection: day, options: [nil] + days.map(Optional.some),
+                RecordingEditorText.day, selection: day, choices: days,
                 label: { $0.map(String.init) ?? RecordingEditorText.any }
             )
             .disabled(!draft.isDayEnabled)

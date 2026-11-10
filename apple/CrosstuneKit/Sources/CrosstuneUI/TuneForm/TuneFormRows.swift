@@ -100,23 +100,25 @@ struct BulkStatusPicker: View {
         #endif
     }
 
-    private var picker: some View {
-        Picker(
-            TuneFieldLabels.status,
-            selection: Binding<String?> {
-                BulkStatusField.chosen(form)
-            } set: { choice in
-                // Every segment is tagged with a status, so the picker never sets none.
-                if let choice { BulkStatusField.choose(choice, in: &form) }
+    #if !os(macOS)
+        private var picker: some View {
+            Picker(
+                TuneFieldLabels.status,
+                selection: Binding<String?> {
+                    BulkStatusField.chosen(form)
+                } set: { choice in
+                    // Every segment is tagged with a status, so the picker never sets none.
+                    if let choice { BulkStatusField.choose(choice, in: &form) }
+                }
+            ) {
+                ForEach(StatusField.segments, id: \.value) { segment in
+                    Text(segment.label).tag(Optional(segment.value))
+                }
             }
-        ) {
-            ForEach(StatusField.segments, id: \.value) { segment in
-                Text(segment.label).tag(Optional(segment.value))
-            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
         }
-        .pickerStyle(.segmented)
-        .labelsHidden()
-    }
+    #endif
 }
 
 /// One mode row per part, closed to the modes the API knows, with a row to add the next part's.
@@ -152,7 +154,7 @@ struct ModeRows: View {
             Button(TuneFieldLabels.addPartMode, systemImage: "plus") {
                 values.addModeRow()
             }
-            .buttonStyle(.accentWords(macLook: .plain))
+            .buttonStyle(.accentWords)
         }
     }
 }
@@ -196,7 +198,7 @@ struct TuningRows: View {
                 #if os(macOS)
                     MacPopUp(
                         TuneFieldLabels.capo(instrument), selection: capo,
-                        options: [nil] + Vocabulary.capoFrets.map(Optional.some),
+                        choices: Vocabulary.capoFrets,
                         label: { $0.map { "\($0)" } ?? TuneFieldLabels.noCapo })
                 #else
                     if outsideForm {
@@ -228,79 +230,59 @@ struct LearnedOnRow: View {
     @Binding var day: String
 
     var body: some View {
-        #if os(macOS)
-            LabeledContent(TuneFieldLabels.learnedOn) {
-                MacDateValue(
-                    label: TuneFieldLabels.learnedOn, day: day, placeholder: TuneFieldLabels.notSet,
-                    onSet: { day = $0 }, onClear: { day = "" })
-            }
-        #else
-            phoneBody
-        #endif
+        DateValueRow(
+            label: TuneFieldLabels.learnedOn, day: day, placeholder: TuneFieldLabels.notSet,
+            onSet: { day = $0 }, onClear: { day = "" })
     }
-
-    #if !os(macOS)
-        @ViewBuilder private var phoneBody: some View {
-            if let date = CalendarDay.date(day) {
-                HStack {
-                    DatePicker(
-                        TuneFieldLabels.learnedOn,
-                        selection: Binding {
-                            date
-                        } set: {
-                            day = CalendarDay.day($0)
-                        }, displayedComponents: .date)
-                    Button(TuneFieldLabels.clearDate, systemImage: "xmark.circle.fill") { day = "" }
-                        .labelStyle(.iconOnly)
-                        .buttonStyle(.rowLine)
-                        .foregroundStyle(.textSecondary)
-                }
-            } else {
-                LabeledContent(TuneFieldLabels.learnedOn) {
-                    Button(TuneFieldLabels.notSet) { day = CalendarDay.day(.now) }
-                        .buttonStyle(.rowLine)
-                        .foregroundStyle(.textSecondary)
-                        .accessibilityLabel("\(TuneFieldLabels.learnedOn), \(TuneFieldLabels.notSet)")
-                        .accessibilityHint(TuneFieldLabels.setsToday)
-                }
-            }
-        }
-    #endif
 }
 
-#if os(macOS)
-    /// A calendar day as a form row's value: a date field with a control that clears it, or a
-    /// placeholder that a press sets to today.
-    struct MacDateValue: View {
-        let label: String
-        let day: String
-        let placeholder: String
-        let onSet: (String) -> Void
-        let onClear: () -> Void
+/// A calendar day as a form row: a date picker with a button that clears it, or a placeholder
+/// that a press sets to today.
+struct DateValueRow: View {
+    let label: String
+    let day: String
+    let placeholder: String
+    let onSet: (String) -> Void
+    let onClear: () -> Void
 
-        var body: some View {
-            if let date = CalendarDay.date(day) {
-                HStack(spacing: 4) {
-                    DatePicker(
-                        label,
-                        selection: Binding {
-                            date
-                        } set: {
-                            onSet(CalendarDay.day($0))
-                        }, displayedComponents: .date
-                    )
-                    .labelsHidden()
-                    Button(TuneFieldLabels.clearDate, systemImage: "xmark.circle.fill", action: onClear)
-                        .labelStyle(.iconOnly)
-                        .buttonStyle(.macIcon)
-                        .help(TuneFieldLabels.clearDate)
+    var body: some View {
+        if let date = CalendarDay.date(day) {
+            #if os(macOS)
+                // The row names the day, so the picker draws only its value.
+                LabeledContent(label) {
+                    HStack(spacing: 4) {
+                        picker(date).labelsHidden()
+                        clear
+                    }
                 }
-            } else {
+            #else
+                HStack {
+                    picker(date)
+                    clear
+                }
+            #endif
+        } else {
+            LabeledContent(label) {
                 Button(placeholder) { onSet(CalendarDay.day(.now)) }
-                    .buttonStyle(.macQuiet)
+                    .formValueButtonStyle()
                     .accessibilityLabel("\(label), \(placeholder)")
                     .accessibilityHint(TuneFieldLabels.setsToday)
             }
         }
     }
-#endif
+
+    private func picker(_ date: Date) -> some View {
+        DatePicker(
+            label,
+            selection: Binding {
+                date
+            } set: {
+                onSet(CalendarDay.day($0))
+            }, displayedComponents: .date)
+    }
+
+    private var clear: some View {
+        Button(TuneFieldLabels.clearDate, systemImage: "xmark.circle.fill", action: onClear)
+            .formValueButtonStyle()
+    }
+}

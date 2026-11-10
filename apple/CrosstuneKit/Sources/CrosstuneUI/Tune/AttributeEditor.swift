@@ -162,13 +162,14 @@ extension View {
         anchor: PopoverAttachmentAnchor = .rect(.bounds),
         label: String,
         session: AttributeEditSession<Value>,
+        opensOnTextField: Bool = true,
         onCommit: @escaping (Value) -> Void,
         @ViewBuilder content: @escaping (AttributeEditorControls<Value>) -> Body
     ) -> some View {
         modifier(
             AttributeEditorPresenter(
-                isPresented: isPresented, anchor: anchor, label: label, session: session, onCommit: onCommit,
-                editorBody: content))
+                isPresented: isPresented, anchor: anchor, label: label, session: session,
+                opensOnTextField: opensOnTextField, onCommit: onCommit, editorBody: content))
     }
 }
 
@@ -177,6 +178,7 @@ private struct AttributeEditorPresenter<Value: Equatable, Body: View>: ViewModif
     let anchor: PopoverAttachmentAnchor
     let label: String
     let session: AttributeEditSession<Value>
+    let opensOnTextField: Bool
     let onCommit: (Value) -> Void
     let editorBody: (AttributeEditorControls<Value>) -> Body
 
@@ -197,15 +199,15 @@ private struct AttributeEditorPresenter<Value: Equatable, Body: View>: ViewModif
         content
             .popover(isPresented: shown(!asSheet), attachmentAnchor: anchor, arrowEdge: PageStyle.popoverArrowEdge) {
                 AttributeEditorSurface(
-                    style: .popover, isPresented: $isPresented, label: label, session: session, onCommit: onCommit,
-                    editorBody: editorBody
+                    style: .popover, isPresented: $isPresented, label: label, session: session,
+                    opensOnTextField: opensOnTextField, onCommit: onCommit, editorBody: editorBody
                 )
                 .presentationCompactAdaptation(.popover)
             }
             .sheet(isPresented: shown(asSheet)) {
                 AttributeEditorSurface(
-                    style: .sheet, isPresented: $isPresented, label: label, session: session, onCommit: onCommit,
-                    editorBody: editorBody)
+                    style: .sheet, isPresented: $isPresented, label: label, session: session,
+                    opensOnTextField: opensOnTextField, onCommit: onCommit, editorBody: editorBody)
             }
     }
 
@@ -229,6 +231,7 @@ private struct AttributeEditorSurface<Value: Equatable, Body: View>: View {
     let style: Style
     @Binding var isPresented: Bool
     let label: String
+    let opensOnTextField: Bool
     let onCommit: (Value) -> Void
     let editorBody: (AttributeEditorControls<Value>) -> Body
 
@@ -237,11 +240,13 @@ private struct AttributeEditorSurface<Value: Equatable, Body: View>: View {
 
     init(
         style: Style, isPresented: Binding<Bool>, label: String, session: AttributeEditSession<Value>,
-        onCommit: @escaping (Value) -> Void, editorBody: @escaping (AttributeEditorControls<Value>) -> Body
+        opensOnTextField: Bool, onCommit: @escaping (Value) -> Void,
+        editorBody: @escaping (AttributeEditorControls<Value>) -> Body
     ) {
         self.style = style
         _isPresented = isPresented
         self.label = label
+        self.opensOnTextField = opensOnTextField
         self.onCommit = onCommit
         self.editorBody = editorBody
         _session = State(initialValue: session)
@@ -249,8 +254,12 @@ private struct AttributeEditorSurface<Value: Equatable, Body: View>: View {
 
     var body: some View {
         surface
-            .defaultFocus($firstFieldFocused, true)
-            .onAppear { firstFieldFocused = true }
+            #if os(macOS)
+                // With no text field, focus opens on a stop that draws nothing, so Escape reaches
+                // the editor and discards the draft rather than the popover closing and saving it.
+                .macOpensUnfocused(!opensOnTextField)
+            #endif
+            .opensFocused(on: $firstFieldFocused)
             // Every way the editor leaves ends here, the explicit endings included; those have
             // already ended the session, so this one saves only a draft nothing else ended.
             .onDisappear {

@@ -42,14 +42,6 @@ import CrosstuneDesign
         }
     }
 
-    /// Draws a `LabeledContent` as its content alone, for a control whose row already names it.
-    /// The automatic style ignores `.labelsHidden()` outside a `Form`.
-    private struct MacControlOnlyStyle: LabeledContentStyle {
-        func makeBody(configuration: Configuration) -> some View {
-            configuration.content
-        }
-    }
-
     /// A row's value that only reads, in secondary text.
     struct MacSettingsValue: View {
         private let text: String
@@ -83,14 +75,12 @@ import CrosstuneDesign
         }
     }
 
-    /// A row's trailing button, such as Sign out or Import…, in a ``MacButtonStyle`` role. It
-    /// draws its own ring under keyboard focus, hugging the button, never the system's.
+    /// A row's trailing button, such as Sign out or Import…, at the size of a control at a row's
+    /// end, in a ``MacButtonStyle`` role.
     struct MacSettingsButton: View {
         private let title: String
         private let role: MacButtonStyle.Role
         private let action: () -> Void
-
-        @FocusState private var focused: Bool
 
         init(_ title: String, role: MacButtonStyle.Role = .secondary, action: @escaping () -> Void) {
             self.title = title
@@ -100,23 +90,17 @@ import CrosstuneDesign
 
         var body: some View {
             Button(title, action: action)
-                .buttonStyle(.mac(role))
-                .focusEffectDisabled()
-                .focused($focused)
-                .macFocusRing(focused, cornerRadius: MacButtonStyle.radius)
+                .buttonStyle(.mac(role, size: .small))
         }
     }
 
-    /// A row that opens more, such as the plan or the stats: the label leading, an optional value
-    /// in secondary text, and a chevron, as one button. Under keyboard focus it draws a ring inset
-    /// in its card rather than the system's, which would wrap the whole card.
+    /// A Settings row that opens more, such as the plan or the stats: the library's opens-more row
+    /// with an optional value.
     struct MacSettingsLinkRow<Label: View>: View {
         private let value: String?
         private let hint: String?
         private let action: () -> Void
         private let label: Label
-
-        @FocusState private var focused: Bool
 
         init(value: String?, hint: String? = nil, action: @escaping () -> Void, @ViewBuilder label: () -> Label) {
             self.value = value
@@ -126,31 +110,15 @@ import CrosstuneDesign
         }
 
         var body: some View {
-            Button(action: action) {
-                MacFormRow(placement: .trailing) {
-                    HStack(spacing: 6) {
-                        if let value, !value.isEmpty {
-                            Text(value)
-                                .font(MacStyle.body)
-                                .foregroundStyle(Palette.textSecondary)
-                                .monospacedDigit()
-                                .lineLimit(1)
-                                .truncationMode(.middle)
-                        }
-                        Image(systemName: "chevron.forward")
-                            .font(MacStyle.rowChevron)
-                            .foregroundStyle(Palette.textSecondary)
-                            .accessibilityHidden(true)
+            DisclosureRowButton(action: action) {
+                LabeledContent {
+                    if let value, !value.isEmpty {
+                        Text(value).foregroundStyle(Palette.textSecondary)
                     }
                 } label: {
                     label
                 }
-                .contentShape(.rect)
             }
-            .buttonStyle(.plain)
-            .focusEffectDisabled()
-            .focused($focused)
-            .macSettingsRowRing(focused)
             .accessibilityHint(hint ?? "", isEnabled: hint != nil)
         }
     }
@@ -158,46 +126,6 @@ import CrosstuneDesign
     extension MacSettingsLinkRow where Label == Text {
         init(_ title: String, value: String?, hint: String? = nil, action: @escaping () -> Void) {
             self.init(value: value, hint: hint, action: action) { Text(title) }
-        }
-    }
-
-    extension View {
-        /// The ring of a row that is one button, inset in its card: out to just inside the
-        /// card's edges, so it reads as the row's and never as the card's.
-        func macSettingsRowRing(_ isFocused: Bool) -> some View {
-            overlay {
-                if isFocused {
-                    RoundedRectangle(cornerRadius: MacButtonStyle.radius)
-                        .strokeBorder(Palette.accent, lineWidth: MacFieldStyle.focusRingWidth)
-                        .padding(.horizontal, -(MacForm.rowInset - 4))
-                        .padding(.vertical, -2)
-                        .allowsHitTesting(false)
-                }
-            }
-        }
-
-        /// Opens a Settings tab with focus on an invisible stop beside its content, not its first
-        /// row, so no row wears a ring until the keyboard moves to it. Only the stop turns its ring
-        /// off: every control in the tab keeps the system's.
-        func macSettingsOpensUnfocused() -> some View {
-            modifier(MacSettingsOpensUnfocused())
-        }
-    }
-
-    private struct MacSettingsOpensUnfocused: ViewModifier {
-        @FocusState private var holdsFocus: Bool
-
-        func body(content: Content) -> some View {
-            content
-                .background {
-                    Color.clear
-                        .frame(width: 1, height: 1)
-                        .focusable()
-                        .focusEffectDisabled()
-                        .focused($holdsFocus)
-                        .accessibilityHidden(true)
-                }
-                .defaultFocus($holdsFocus, true)
         }
     }
 #endif
