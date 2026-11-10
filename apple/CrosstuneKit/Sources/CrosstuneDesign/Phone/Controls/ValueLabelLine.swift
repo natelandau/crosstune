@@ -2,7 +2,9 @@ import SwiftUI
 
 /// A value control's label line: the title leading, then an optional quiet action such as Reset
 /// and the control trailing. At accessibility sizes the title takes its own line and the action
-/// and control go under it, so neither clips. The control carries the name for VoiceOver.
+/// and control go under it, so neither clips. The control carries the name for VoiceOver. On the
+/// Mac the title is the small secondary label, an empty title draws none, and the action and
+/// control are Small.
 package struct ValueLabelLine<Action: View, Control: View>: View {
     private let title: String
     private let action: Action
@@ -17,6 +19,26 @@ package struct ValueLabelLine<Action: View, Control: View>: View {
     }
 
     package var body: some View {
+        #if os(macOS)
+            HStack(spacing: 8) {
+                if !title.isEmpty {
+                    Text(title)
+                        .font(MacStyle.label)
+                        .foregroundStyle(Palette.textSecondary)
+                        .accessibilityHidden(true)
+                }
+                Spacer(minLength: 0)
+                action
+                control
+            }
+            .controlSize(.small)
+            .frame(minHeight: MacControl.smallHeight)
+        #else
+            phoneBody
+        #endif
+    }
+
+    @ViewBuilder private var phoneBody: some View {
         if dynamicTypeSize.isAccessibilitySize {
             VStack(alignment: .leading, spacing: 8) {
                 titleText

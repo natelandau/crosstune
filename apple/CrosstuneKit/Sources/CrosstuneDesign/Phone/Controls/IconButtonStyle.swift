@@ -3,30 +3,22 @@ import SwiftUI
 /// The iPhone icon button: a 44pt circle holding one glyph, bare or on a neutral fill, or a
 /// Compact disc of the tint holding a glyph or initials, for a button whose disc is its whole look.
 /// A button that holds a state passes `isOn`, which tints the circle and the glyph and marks it
-/// selected for VoiceOver. On the Mac it draws the Mac look `macLook` names.
+/// selected for VoiceOver. On the Mac it draws the Mac icon button at the control size, a Toggle
+/// when it holds a state.
 package struct IconButtonStyle: PrimitiveButtonStyle {
     package enum Shape { case plain, circled, tintDisc }
 
-    /// The Mac icon button drawn: `.iconButton`, the Mac icon button at the control size;
-    /// `.glyph`, a bare glyph in a 44pt target, in secondary text and in the accent while on,
-    /// with a disc under an on glyph when Differentiate Without Color is on, as the playlist row
-    /// draws it; or `.tintGlyph`, a bare glyph in the tint in a 44pt target, as the music
-    /// player's skips and the repeat badge draw it.
-    package enum MacLook { case iconButton, glyph, tintGlyph }
-
     package let shape: Shape
     package let isOn: Bool
-    package let macLook: MacLook
 
-    package init(_ shape: Shape = .plain, isOn: Bool = false, macLook: MacLook = .iconButton) {
+    package init(_ shape: Shape = .plain, isOn: Bool = false) {
         self.shape = shape
         self.isOn = isOn
-        self.macLook = macLook
     }
 
     package func makeBody(configuration: Configuration) -> some View {
         #if os(macOS)
-            MacIconButton(macLook: macLook, isOn: isOn, configuration: configuration)
+            MacIconButton(isOn: isOn, configuration: configuration)
         #else
             Button(configuration)
                 .buttonStyle(IconButtonAppearance(shape: shape, isOn: isOn))
@@ -40,10 +32,8 @@ extension PrimitiveButtonStyle where Self == IconButtonStyle {
 
     /// A glyph in a 44pt circle, circled on a fill when `shape` is `.circled`, and tinted while
     /// `isOn` is true.
-    package static func icon(
-        _ shape: IconButtonStyle.Shape = .plain, isOn: Bool = false, macLook: IconButtonStyle.MacLook = .iconButton
-    ) -> Self {
-        IconButtonStyle(shape, isOn: isOn, macLook: macLook)
+    package static func icon(_ shape: IconButtonStyle.Shape = .plain, isOn: Bool = false) -> Self {
+        IconButtonStyle(shape, isOn: isOn)
     }
 }
 
@@ -59,10 +49,8 @@ private struct IconButtonMenuAppearance: ViewModifier {
     let shape: IconButtonStyle.Shape
 
     #if os(macOS)
-        @Environment(\.controlSize) private var controlSize
-
         func body(content: Content) -> some View {
-            content.buttonStyle(MacButtonStyle(.icon, size: MacButtonStyle.Size(controlSize)))
+            content.macMenuAppearance(.icon)
         }
     #else
         func body(content: Content) -> some View {
@@ -73,43 +61,14 @@ private struct IconButtonMenuAppearance: ViewModifier {
 
 #if os(macOS)
     private struct MacIconButton: View {
-        let macLook: IconButtonStyle.MacLook
         let isOn: Bool
         let configuration: PrimitiveButtonStyleConfiguration
 
         @Environment(\.controlSize) private var controlSize
-        @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
-        @Environment(\.colorScheme) private var colorScheme
 
         var body: some View {
-            switch macLook {
-            case .iconButton:
-                Button(configuration)
-                    .buttonStyle(MacButtonStyle(.icon, size: MacButtonStyle.Size(controlSize)))
-            case .glyph:
-                Button(role: configuration.role, action: configuration.trigger) {
-                    configuration.label
-                        .foregroundStyle(isOn ? AnyShapeStyle(Palette.accent) : .textSecondary)
-                        // Off and on share a symbol, so without color a disc marks on.
-                        .padding(6)
-                        .background {
-                            if isOn && differentiateWithoutColor { Circle().fill(Palette.tintStrong(colorScheme)) }
-                        }
-                        .frame(minWidth: minimumTapTarget, minHeight: minimumTapTarget)
-                        .contentShape(.rect)
-                }
-                .buttonStyle(.plain)
-                .accessibilityAddTraits(isOn ? .isSelected : [])
-            case .tintGlyph:
-                Button(role: configuration.role, action: configuration.trigger) {
-                    configuration.label
-                        .frame(minWidth: minimumTapTarget, minHeight: minimumTapTarget)
-                        .contentShape(.rect)
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(.tint)
-                .accessibilityAddTraits(isOn ? .isSelected : [])
-            }
+            Button(configuration)
+                .buttonStyle(MacButtonStyle(.icon, size: MacButtonStyle.Size(controlSize), isOn: isOn))
         }
     }
 #endif

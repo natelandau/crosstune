@@ -115,6 +115,46 @@ import Testing
         }
     }
 
+    /// Each library control draws one Mac look, so a screen sets a size at most, never a look.
+    @Test func noScreenPicksAMacLook() throws {
+        let screens = SourceScan.files().filter { $0.path.contains("/CrosstuneUI/") }
+        #expect(!screens.isEmpty)
+        for file in screens {
+            let source = SourceScan.withoutComments(try SourceScan.text(at: file))
+            #expect(!source.contains("macLook:"), "\(SourceScan.relative(file)) picks a Mac look")
+            #expect(!source.contains("macRole:"), "\(SourceScan.relative(file)) picks a Mac role")
+            #expect(!source.contains("macFocus:"), "\(SourceScan.relative(file)) picks a Mac focus look")
+        }
+        let screenLooks = [
+            "Tune/AttributeEditorBodies.swift": "toggleStyle(.checkbox)",
+            "Links/FindRecordingsSheet.swift": "MacChipStyle(",
+            "TuneForm/KeyChooser.swift": "macChevronColor:",
+        ]
+        for (path, look) in screenLooks {
+            let source = SourceScan.withoutComments(try SourceScan.text(at: SourceScan.url(of: path)))
+            #expect(!source.contains(look), "\(path) picks a Mac look: \(look)")
+        }
+        let controls = SourceScan.files().filter { SourceScan.relative($0).hasPrefix("Phone/Controls/") }
+        #expect(!controls.isEmpty)
+        for file in controls + [SourceScan.url(of: "Style/PaletteStyles.swift")] {
+            let source = SourceScan.withoutComments(try SourceScan.text(at: file))
+            #expect(
+                source.firstMatch(of: /enum +(\w*MacLook|Mac(Role|Focus))\b/) == nil, "\(SourceScan.relative(file))")
+            #expect(!source.contains("macLook"), "\(SourceScan.relative(file)) takes a Mac look")
+        }
+    }
+
+    /// Working then done is one rule on every platform: the Mac shares the one async button,
+    /// with no branch of its own, and it shows its work through the shared label.
+    @Test func macAsyncButtonShowsItsWork() throws {
+        let source = try Self.controlCode("AsyncButton.swift", iOSOnly: false)
+        let start = try #require(source.range(of: "package struct AsyncButton<"))
+        let end = try #require(source.range(of: "\n}\n", range: start.upperBound..<source.endIndex))
+        let button = source[start.lowerBound..<end.upperBound]
+        #expect(!button.contains("#if"), "AsyncButton forks by platform")
+        #expect(button.contains("WorkingLabel("), "AsyncButton shows no working label")
+    }
+
     @Test func iconButtonsStartNoTask() throws {
         let source = try Self.controlCode("IconButtonStyle.swift")
         #expect(!source.contains("Task {") && !source.contains("Task.yield"))
@@ -197,18 +237,6 @@ import Testing
                 source.contains(".accessibilityShowsLargeContentViewer"),
                 "\(file.lastPathComponent) caps its text size without the Large Content Viewer")
         }
-    }
-
-    @Test func transportNamesItsButtons() {
-        #expect(Transport.backName == "Back 15 seconds")
-        #expect(Transport.forwardName == "Forward 15 seconds")
-        #expect(Transport.playName == "Play")
-        #expect(Transport.pauseName == "Pause")
-    }
-
-    @Test func transportNamesItsEdgeButtons() {
-        #expect(Transport.startName == "Go to start")
-        #expect(Transport.endName == "Go to end")
     }
 
     @Test func chipIsTheOnlyCapsuleFillInDesign() throws {

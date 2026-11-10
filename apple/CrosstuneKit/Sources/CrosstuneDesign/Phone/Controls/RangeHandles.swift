@@ -27,7 +27,8 @@ import SwiftUI
 /// itself: the end edge alone, with no wash, dim, or closing motion. `start` and `minimumLength`
 /// keep the end that far after `start`, and `duration` is as late as it goes.
 ///
-/// On the Mac it draws the Mac handle mark, with no wash, dim, lift, or time bubble.
+/// On the Mac it draws the Mac grip, which widens under the pointer, shows the resize pointer,
+/// and rings on keyboard focus, with no wash, dim, lift, or time bubble.
 package struct RangeHandles: View {
     nonisolated package static let startName = "Start"
     nonisolated package static let endName = "End"
@@ -71,15 +72,13 @@ package struct RangeHandles: View {
         case endOnly
     }
 
-    /// How a focused edge shows focus on the Mac.
-    package enum MacFocus {
-        /// The system's focus effect around the edge's press target.
-        case system
-        /// The Mac focus ring around the edge's mark, for a strip too short for the system's.
-        case ring
-    }
     package static let tabWidth: CGFloat = 16
-    static let tabHeight: CGFloat = 44
+    #if os(macOS)
+        package static let macGrip = (width: tabWidth, height: CGFloat(28), radius: CGFloat(4))
+        static let tabHeight = macGrip.height
+    #else
+        static let tabHeight: CGFloat = 44
+    #endif
     private static let targetWidth: CGFloat = 44
     /// How near the view's side a held finger scrolls the waveform under it.
     private static let edgeScrollZone: Double = 24
@@ -102,7 +101,6 @@ package struct RangeHandles: View {
     private let edges: Edges
     private let isEnabled: Bool
     private let isFocusable: Bool
-    private let macFocus: MacFocus
     private let insertionID: AnyHashable?
     private let startLabel: String
     private let endLabel: String
@@ -121,8 +119,6 @@ package struct RangeHandles: View {
     ///   - wash: The span's tint, drawn inside it.
     ///   - isFocusable: False for handles that repeat another set's for touch and the pointer
     ///     alone, so each edge is one keyboard stop.
-    ///   - macFocus: How a focused edge shows focus on the Mac; the iPhone and iPad always draw
-    ///     their own ring.
     ///   - playhead: Where a new span opens from, and a snap point; nil for a span with no
     ///     playhead, which opens from its center.
     ///   - insertionID: Set for a span just made, so it opens from the playhead.
@@ -143,7 +139,7 @@ package struct RangeHandles: View {
         scale: @escaping (Double) -> CGFloat, time: @escaping (CGFloat) -> Double,
         snapPoints: @autoclosure @escaping () -> [Double], playhead: @autoclosure @escaping () -> Double?,
         minimumLength: Double, movesSpan: Bool,
-        edges: Edges = .both, isEnabled: Bool = true, isFocusable: Bool = true, macFocus: MacFocus = .system,
+        edges: Edges = .both, isEnabled: Bool = true, isFocusable: Bool = true,
         insertionID: AnyHashable? = nil,
         startLabel: String = RangeHandles.startName, endLabel: String = RangeHandles.endName,
         steps: Steps = .seconds,
@@ -169,7 +165,6 @@ package struct RangeHandles: View {
         self.edges = edges
         self.isEnabled = isEnabled
         self.isFocusable = isFocusable
-        self.macFocus = macFocus
         self.insertionID = insertionID
         self.startLabel = startLabel
         self.endLabel = endLabel
@@ -224,6 +219,9 @@ package struct RangeHandles: View {
     @State private var keySteps = RangeKeySteps()
     @State private var opensOnAppear: Bool
     @FocusState private var focused: Part?
+    #if os(macOS)
+        @State private var hovered: Part?
+    #endif
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var motion: PhoneMotion { PhoneMotion.resolve(reduceMotion: reduceMotion) }
@@ -291,6 +289,8 @@ package struct RangeHandles: View {
         }
         #if os(iOS)
             .sensoryFeedback(.impact(weight: .light), trigger: startSnaps + endSnaps)
+        #elseif os(macOS)
+            .sensoryFeedback(.alignment, trigger: startSnaps + endSnaps)
         #endif
         .accessibilityElement(children: .contain)
         .transition(.asymmetric(insertion: .identity, removal: removal))
@@ -361,6 +361,14 @@ package struct RangeHandles: View {
         held == part || held == .span
     }
 
+    private func isHovered(_ part: Part) -> Bool {
+        #if os(macOS)
+            hovered == part || held == part
+        #else
+            false
+        #endif
+    }
+
     /// An edge's mark and its press target. The target reaches past the tab on the outer side
     /// and at most a third of the span on the inner side, so a narrow span keeps its middle for
     /// moving the whole span.
@@ -376,14 +384,10 @@ package struct RangeHandles: View {
             .overlay(alignment: isStart ? .leading : .trailing) {
                 HandleMark(
                     isStart: isStart, color: color, tabHeight: min(Self.tabHeight, size.height),
-                    isLifted: isLifted(part), isFocused: focused == part,
+                    isLifted: isLifted(part), isFocused: focused == part, isHovered: isHovered(part),
                     snaps: isStart ? startSnaps : endSnaps, time: edge, bubbleText: bubbleText
                 )
                 .frame(width: 2 * outer)
-                // On the mark, which is centered on the edge, not the uneven press target.
-                #if os(macOS)
-                    .macFocusRing(macFocus == .ring && focused == part, cornerRadius: 4)
-                #endif
                 .allowsHitTesting(false)
             }
             .contentShape(.rect)
@@ -392,11 +396,16 @@ package struct RangeHandles: View {
             .allowsHitTesting(inView)
             .gesture(tap, including: onTap == nil ? .none : .all)
             .highPriorityGesture(drag(part))
-            .focusable(isEnabled && isFocusable)
-            .focused($focused, equals: part)
             #if os(macOS)
-                .focusEffectDisabled(macFocus == .ring)
+                .onHover { inside in
+                    if inside { hovered = part } else if hovered == part { hovered = nil }
+                }
+                .pointerStyle(.columnResize)
+                .macFocusable(isEnabled: isEnabled && isFocusable)
+                .focused($focused, equals: part)
             #else
+                .focusable(isEnabled && isFocusable)
+                .focused($focused, equals: part)
                 .focusEffectDisabled()
             #endif
             // Held arrows repeat, sweeping the edge as a slider does; letting go commits once.
@@ -612,6 +621,8 @@ private struct HandleMark: View {
     let tabHeight: CGFloat
     let isLifted: Bool
     let isFocused: Bool
+    /// Under the pointer or held, which widens the Mac's grip.
+    let isHovered: Bool
     /// Counts the snaps the edge has entered; each change pops the tab once.
     let snaps: Int
     let time: Double
@@ -620,7 +631,12 @@ private struct HandleMark: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private static let radius: CGFloat = 6
+    #if os(macOS)
+        private static let radius = RangeHandles.macGrip.radius
+        private static let hoveredWidth: CGFloat = 1.15
+    #else
+        private static let radius: CGFloat = 6
+    #endif
     private static let liftedScale: CGFloat = 1.15
     /// The pop's peak, relative to the lifted tab, so a snapped tab reaches 130%.
     private static let snapScale: CGFloat = 1.3 / 1.15
@@ -631,8 +647,16 @@ private struct HandleMark: View {
             : UnevenRoundedRectangle(bottomTrailingRadius: Self.radius, topTrailingRadius: Self.radius)
     }
 
+    private var tabWidth: CGFloat {
+        #if os(macOS)
+            RangeHandles.macGrip.width * (isHovered ? Self.hoveredWidth : 1)
+        #else
+            RangeHandles.tabWidth
+        #endif
+    }
+
     private var tabOffset: CGFloat {
-        isStart ? -RangeHandles.tabWidth / 2 : RangeHandles.tabWidth / 2
+        isStart ? -tabWidth / 2 : tabWidth / 2
     }
 
     var body: some View {
@@ -646,10 +670,12 @@ private struct HandleMark: View {
                     .fill(color)
                     // A centered stroke shows its outer half, a point outside the tab.
                     .background { shape.stroke(Palette.surface, lineWidth: 2) }
-                    .frame(width: RangeHandles.tabWidth, height: tabHeight)
+                    .frame(width: tabWidth, height: tabHeight)
                     .overlay { grip }
+                    .macFocusRing(isFocused, shape: shape)
                     .offset(x: tabOffset)
             }
+            .macAnimation(MacMotion.hover, value: isHovered)
         #else
             ZStack {
                 Rectangle().fill(color).frame(width: 2)

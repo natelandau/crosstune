@@ -94,8 +94,7 @@ struct RangeEditTests {
     }
 
     /// A practice loop moves only by its handles, so a drag inside it scrubs; an isolate band
-    /// moves whole and keeps the Mac ring its short strip needs; a new loop opens from the
-    /// playhead.
+    /// moves whole; a new loop opens from the playhead.
     @Test func screensUseRangeHandlesForLoopsAndBands() throws {
         func code(_ path: String) throws -> String {
             SourceScan.withoutComments(try SourceScan.text(at: SourceScan.url(of: path)))
@@ -108,8 +107,18 @@ struct RangeEditTests {
         let isolate = try code("RecordingScreen/IsolateRange.swift")
         #expect(isolate.contains("RangeHandles("))
         #expect(isolate.contains("movesSpan: true"))
-        #expect(isolate.contains("macFocus: .ring"))
         #expect(!isolate.contains("LoopHandleMark"))
+    }
+
+    /// Every handle starts a drag only past the waveform's own drag distance, so a click on the
+    /// waveform near a handle still moves the playhead.
+    @Test func everyHandleStartsADragAtTheWaveformsDistance() throws {
+        #expect(ControlMetrics.dragThreshold == LoopModel.dragThreshold)
+        let source = SourceScan.withoutComments(
+            try SourceScan.text(at: SourceScan.url(of: "Phone/Controls/RangeHandles.swift")))
+        let distances = source.matches(of: /DragGesture\(minimumDistance: *([\w.]+)/).map { String($0.1) }
+        #expect(!distances.isEmpty)
+        #expect(distances.allSatisfy { $0 == "ControlMetrics.dragThreshold" }, "\(distances)")
     }
 
     /// The trim's kept range and Split's cuts also move only by their handles; a cut is one

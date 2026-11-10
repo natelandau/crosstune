@@ -27,6 +27,9 @@
                             FormsSection()
                             StatusSection()
                             MotionSection()
+                            #if os(macOS)
+                                MacOnlySection()
+                            #endif
                         }
                         .padding(16)
                         .frame(maxWidth: 680)
@@ -243,7 +246,7 @@
                     }
                 }
                 GalleryItem(heading: "Row buttons: RowButtonStyle") {
-                    VStack(spacing: 0) {
+                    VStack(alignment: .leading, spacing: 0) {
                         Button {
                         } label: {
                             Text("Opens an editor")
@@ -267,8 +270,6 @@
                         .buttonStyle(.formPickRow)
                         Button("Accent words") {}
                             .buttonStyle(.accentWords)
-                        Button("Accent words, the Mac's plain button") {}
-                            .buttonStyle(.accentWords(macLook: .plain))
                     }
                 }
                 GalleryItem(heading: "Label only: LabelOnlyButtonStyle") {
@@ -322,7 +323,7 @@
                     )
                     .frame(maxWidth: .infinity)
                     Transport(
-                        isPlaying: edgesPlaying, size: .feature, sides: .edges, macLook: .glyphs,
+                        isPlaying: edgesPlaying, size: .feature, sides: .edges,
                         onPlayPause: { edgesPlaying.toggle() }, onBack: {}, onForward: {}
                     )
                     .frame(maxWidth: .infinity)
@@ -332,6 +333,21 @@
                         isPlaying: inlinePlaying, size: .inline,
                         onPlayPause: { inlinePlaying.toggle() }, onBack: {}, onForward: {}
                     )
+                    .frame(maxWidth: .infinity)
+                }
+                GalleryItem(heading: "Transport, inline, with track buttons") {
+                    Transport(
+                        isPlaying: inlinePlaying, size: .inline, sides: .hidden,
+                        onPlayPause: { inlinePlaying.toggle() }, onPrevious: {}, onNext: {}
+                    )
+                    .frame(maxWidth: .infinity)
+                }
+                GalleryItem(heading: "Track buttons around a loading play") {
+                    HStack {
+                        TransportTrackButton(.previous, size: .inline) {}
+                        ProgressView()
+                        TransportTrackButton(.next, size: .inline) {}
+                    }
                     .frame(maxWidth: .infinity)
                 }
                 GalleryItem(heading: "Transport, inline, play only") {
@@ -364,6 +380,7 @@
 
     private struct NavigationSection: View {
         @State private var mode = Mode.speed
+        @State private var tool = Mode.speed
         @State private var place = Place.saved
         @State private var solo = 0
         @State private var channel = 1
@@ -389,18 +406,27 @@
                             PaneTab(.recent, title: "Recent", systemImage: "clock"),
                         ])
                 }
+                GalleryItem(heading: "Tools: ToolPanel") {
+                    ToolPanel(
+                        selection: $tool,
+                        tools: [
+                            PaneTab(
+                                .speed, title: "Speed", systemImage: "gauge.with.dots.needle.33percent",
+                                valueText: "75%"),
+                            PaneTab(.pitch, title: "Pitch", systemImage: "tuningfork"),
+                        ],
+                        isChanged: { $0 == .speed }, isAvailable: true, title: "Tools"
+                    ) { tool in
+                        Text(verbatim: "\(tool) controls".capitalized)
+                            .foregroundStyle(Palette.textPrimary)
+                            .frame(maxWidth: .infinity, minHeight: 44)
+                    }
+                }
                 GalleryItem(heading: "Segmented control") {
-                    Picker("Mode", selection: $solo) {
-                        Text("Solo").tag(0)
-                        Text("Mute").tag(1)
+                    SegmentedControl("Mode", selection: $solo, options: [0, 1]) { ["Solo", "Mute"][$0] }
+                    SegmentedControl("Channel", selection: $channel, options: [0, 1, 2]) {
+                        ["Left", "Both", "Right"][$0]
                     }
-                    .pickerStyle(.segmented)
-                    Picker("Channel", selection: $channel) {
-                        Text("Left").tag(0)
-                        Text("Both").tag(1)
-                        Text("Right").tag(2)
-                    }
-                    .pickerStyle(.segmented)
                 }
             }
         }
@@ -680,11 +706,11 @@
                             LabeledContent("Name") {
                                 TextField("Name", text: $text, prompt: Text("Not set"))
                                     .contentMask()
+                                    .labelsHidden()
                                     .multilineTextAlignment(.trailing)
                             }
-                            Picker("Picker", selection: $choice) {
-                                Text("Choice").tag(0)
-                                Text("Other choice").tag(1)
+                            PopUpPicker("Picker", selection: $choice, options: [0, 1]) {
+                                ["Choice", "Other choice"][$0]
                             }
                             Toggle("Setting", isOn: $setting)
                             MenuRow("Menu row", value: meter) {
@@ -907,6 +933,367 @@
             }
         }
     }
+
+    #if os(macOS)
+        // MARK: - Mac only
+
+        private enum MacGalleryContainer: Hashable {
+            case page, card
+        }
+
+        /// The states a Mac control draws, each pinned so a capture shows it without a pointer.
+        private enum MacGalleryState: Hashable, CaseIterable {
+            case rest, hover, pressed, focus, disabled
+
+            var caption: String {
+                switch self {
+                case .rest: "Rest"
+                case .hover: "Hover"
+                case .pressed: "Pressed"
+                case .focus: "Focus"
+                case .disabled: "Disabled"
+                }
+            }
+
+            var pressState: MacPressState {
+                switch self {
+                case .hover: .hover
+                case .pressed: .pressed
+                default: .rest
+                }
+            }
+        }
+
+        private struct MacOnlySection: View {
+            @State private var container = MacGalleryContainer.page
+
+            var body: some View {
+                GallerySection(heading: "Mac only") {
+                    MacSegmented(
+                        selection: $container, options: [.page, .card],
+                        label: { $0 == .page ? "On the page" : "On a card" }, title: "Container")
+                    MacOnlyControls()
+                        .modifier(MacGalleryCard(isShown: container == .card))
+                    MacFormRows()
+                    MacFooters()
+                }
+            }
+        }
+
+        /// Draws its content on a `surface` card, where controls take the raised fill.
+        private struct MacGalleryCard: ViewModifier {
+            let isShown: Bool
+
+            func body(content: Content) -> some View {
+                if isShown {
+                    content
+                        .padding(16)
+                        .background(Palette.surface, in: .rect(cornerRadius: MacControl.cardRadius))
+                        .macSurfaceContainer()
+                } else {
+                    content
+                }
+            }
+        }
+
+        /// One copy of a control per state, captioned.
+        private struct MacStates<Content: View>: View {
+            var states: [MacGalleryState] = MacGalleryState.allCases
+            @ViewBuilder let content: () -> Content
+
+            var body: some View {
+                FlowLayout(spacing: 16, lineSpacing: 12) {
+                    ForEach(states, id: \.self) { state in
+                        VStack(alignment: .leading, spacing: 6) {
+                            content()
+                                .environment(\.macPreviewState, state.pressState)
+                                .environment(\.macPreviewFocused, state == .focus)
+                                .disabled(state == .disabled)
+                            Text(state.caption)
+                                .font(.caption)
+                                .foregroundStyle(Palette.textSecondary)
+                        }
+                    }
+                }
+            }
+        }
+
+        private struct MacOnlyControls: View {
+            @State private var level = "Medium"
+            @State private var filter = "Any"
+            @State private var sort = "Name"
+            @State private var field = ""
+            @State private var filled = "Value"
+            @State private var title = ""
+            @State private var notes = ""
+            @State private var firstItem = false
+            @State private var secondItem = true
+            @State private var off = false
+            @State private var on = true
+            @State private var cents = 12.0
+            @State private var count = 4
+            @State private var segment = 1
+            @State private var openTool: Int?
+
+            var body: some View {
+                VStack(alignment: .leading, spacing: 24) {
+                    GalleryItem(heading: "Pop-up: MacPopUp") {
+                        MacStates {
+                            MacPopUp("Level", selection: $level, options: ["Easy", "Medium", "Hard"], label: { $0 })
+                                .labelsHidden()
+                        }
+                        HStack(spacing: 16) {
+                            MacPopUp(
+                                "Filter", selection: $filter, options: ["Any", "First", "Second"], label: { $0 },
+                                isSet: filter != "Any")
+                            MacPopUp(
+                                "Level", selection: $level, options: ["Easy", "Medium", "Hard"], label: { $0 },
+                                size: .regular)
+                        }
+                        .fixedSize()
+                    }
+                    GalleryItem(heading: "Pull-down: MacPullDown") {
+                        MacStates {
+                            MacPullDown("Actions", value: "Actions", size: .regular) {
+                                Button("Rename") {}
+                                Button("Duplicate") {}
+                                Divider()
+                                Button("Delete", role: .destructive) {}
+                            }
+                            .labelsHidden()
+                        }
+                    }
+                    GalleryItem(heading: "Inline pop-up: MacInlinePopUpStyle") {
+                        MacStates {
+                            MacPopUpMenu(style: .macInlinePopUp) {
+                                ForEach(["Name", "Date added", "Last played"], id: \.self) { choice in
+                                    Toggle(
+                                        choice,
+                                        isOn: Binding {
+                                            sort == choice
+                                        } set: { _ in
+                                            sort = choice
+                                        })
+                                }
+                            } label: {
+                                Text(sort)
+                            }
+                            .fixedSize()
+                        }
+                    }
+                    GalleryItem(heading: "Text field: macField") {
+                        MacStates(states: [.rest, .focus, .disabled]) {
+                            TextField("Placeholder", text: $field)
+                                .contentMask()
+                                .textFieldStyle(.macField)
+                                .frame(width: 180)
+                        }
+                        HStack(alignment: .top, spacing: 16) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                TextField("Name", text: $filled)
+                                    .contentMask()
+                                    .textFieldStyle(.macField(isInvalid: true))
+                                Text("That name is already in use.")
+                                    .font(MacStyle.secondary)
+                                    .foregroundStyle(Palette.danger)
+                            }
+                            TextField("Link", text: $field)
+                                .contentMask()
+                                .textFieldStyle(.macField(leadingSymbol: "link"))
+                        }
+                        .frame(maxWidth: 400)
+                    }
+                    GalleryItem(heading: "Title field: macTitleField") {
+                        MacStates(states: [.rest, .focus, .disabled]) {
+                            TextField("Untitled", text: $title)
+                                .contentMask()
+                                .textFieldStyle(.macTitleField)
+                                .frame(width: 180)
+                        }
+                    }
+                    GalleryItem(heading: "Text area: MacTextArea") {
+                        MacStates(states: [.rest, .focus, .disabled]) {
+                            MacTextArea("Notes", text: $notes, placeholder: "Several lines", minLines: 3, maxLines: 6)
+                                .frame(width: 180)
+                        }
+                    }
+                    GalleryItem(heading: "Checkbox: macCheckbox") {
+                        MacStates {
+                            HStack(spacing: 8) {
+                                Toggle("First item", isOn: $firstItem)
+                                Toggle("Second item", isOn: $secondItem)
+                            }
+                            .toggleStyle(.macCheckbox)
+                        }
+                    }
+                    GalleryItem(heading: "Switch: macSwitch") {
+                        MacStates(states: [.rest, .disabled]) {
+                            HStack(spacing: 12) {
+                                Toggle("Off", isOn: $off).macSwitch(isOn: off)
+                                Toggle("On", isOn: $on).macSwitch(isOn: on)
+                            }
+                        }
+                    }
+                    GalleryItem(heading: "Slider: MacSlider") {
+                        MacStates {
+                            MacSlider(value: $cents, in: -50...50, detent: 0, accessibilityLabel: "Cents")
+                                .frame(width: 160)
+                        }
+                    }
+                    GalleryItem(heading: "Stepper: MacStepper") {
+                        MacStates {
+                            stepper(size: .regular)
+                        }
+                        HStack(spacing: 16) {
+                            stepper(size: .small)
+                            MacStepper(
+                                value: "-12", decrement: {}, increment: {}, canDecrement: false, canIncrement: true,
+                                accessibilityLabel: "At a limit")
+                        }
+                    }
+                    GalleryItem(heading: "Segmented on this container: MacSegmented") {
+                        MacStates(states: [.rest, .hover, .focus, .disabled]) {
+                            MacSegmented(
+                                selection: $segment, options: [0, 1, 2], label: { ["One", "Two", "Three"][$0] },
+                                title: "Choice")
+                        }
+                    }
+                    GalleryItem(heading: "Tool button: MacToolButton") {
+                        MacStates {
+                            MacToolButton(
+                                "Speed", systemImage: "gauge.with.dots.needle.33percent", value: nil, isChanged: false,
+                                isPresented: .constant(false)
+                            ) {}
+                        }
+                        HStack(spacing: 8) {
+                            tool(0, title: "Speed", systemImage: "gauge.with.dots.needle.33percent", value: "75%")
+                            tool(1, title: "Pitch", systemImage: "tuningfork", value: nil)
+                        }
+                    }
+                    GalleryItem(heading: "Row: MacRowStyle") {
+                        MacStates {
+                            Button {
+                            } label: {
+                                MacGalleryRowLabel(title: "Opens more", value: "Summary")
+                            }
+                            .buttonStyle(.macRow)
+                            .frame(width: 220)
+                        }
+                    }
+                }
+            }
+
+            /// A tool that opens a popover; one with a value shows it changed.
+            private func tool(_ id: Int, title: String, systemImage: String, value: String?) -> some View {
+                MacToolButton(
+                    title, systemImage: systemImage, value: value, isChanged: value != nil,
+                    isPresented: Binding {
+                        openTool == id
+                    } set: {
+                        openTool = $0 ? id : nil
+                    }
+                ) {
+                    Text(verbatim: "\(title) controls")
+                        .foregroundStyle(Palette.textPrimary)
+                }
+            }
+
+            private func stepper(size: MacButtonStyle.Size) -> some View {
+                MacStepper(
+                    value: "\(count)", decrement: { count -= 1 }, increment: { count += 1 }, canDecrement: count > 0,
+                    canIncrement: count < 12, accessibilityLabel: "Count", size: size)
+            }
+        }
+
+        private struct MacGalleryRowLabel: View {
+            let title: String
+            let value: String
+
+            var body: some View {
+                HStack(spacing: 8) {
+                    Text(title)
+                    Spacer(minLength: 8)
+                    Text(value)
+                        .foregroundStyle(Palette.textSecondary)
+                    Image(systemName: "chevron.forward")
+                        .font(MacStyle.rowChevron)
+                        .foregroundStyle(Palette.textSecondary)
+                        .accessibilityHidden(true)
+                }
+            }
+        }
+
+        /// A form card's rows: values at their ends, rows that open more, and a disabled one, so
+        /// a hovered row's fill and its hidden hairlines show against its neighbors.
+        private struct MacFormRows: View {
+            @State private var isOn = true
+            @State private var choice = "Medium"
+            @State private var count = 2
+
+            var body: some View {
+                GalleryItem(heading: "Rows in a card: MacFormSection and MacRowStyle") {
+                    MacFormSection("Group heading", subtitle: "Help for the group: one or two sentences.") {
+                        Toggle("Setting", isOn: $isOn)
+                        MacPopUp("Choice", selection: $choice, options: ["Easy", "Medium", "Hard"], label: { $0 })
+                        LabeledContent("Count") {
+                            MacStepper(
+                                value: "\(count)", decrement: { count -= 1 }, increment: { count += 1 },
+                                canDecrement: count > 0, canIncrement: count < 12, accessibilityLabel: "Count",
+                                size: .small)
+                        }
+                        Button {
+                        } label: {
+                            MacGalleryRowLabel(title: "Opens more", value: "Summary")
+                        }
+                        .buttonStyle(.macRow)
+                        Button {
+                        } label: {
+                            MacGalleryRowLabel(title: "Opens more, hovered", value: "Summary")
+                        }
+                        .buttonStyle(.macRow)
+                        .environment(\.macPreviewState, .hover)
+                        Button {
+                        } label: {
+                            MacGalleryRowLabel(title: "Opens more, focused", value: "Summary")
+                        }
+                        .buttonStyle(.macRow)
+                        .environment(\.macPreviewFocused, true)
+                        Button {
+                        } label: {
+                            MacGalleryRowLabel(title: "Opens more, disabled", value: "Summary")
+                        }
+                        .buttonStyle(.macRow)
+                        .disabled(true)
+                    }
+                    .frame(maxWidth: 480)
+                }
+            }
+        }
+
+        private struct MacFooters: View {
+            var body: some View {
+                GalleryItem(heading: "Sheet footer: MacActionBar") {
+                    VStack(spacing: 16) {
+                        MacActionBar(
+                            cancel: .init("Cancel", role: .secondary) {},
+                            primary: .init("Create", role: .primary) {}
+                        ) {
+                            Button("Reset") {}.buttonStyle(.macPlain)
+                        }
+                        MacActionBar(
+                            cancel: .init("Cancel", role: .secondary) {},
+                            primary: .init("Save", role: .primary, isEnabled: false) {}
+                        ) {
+                            Text("Name the item to save it.")
+                                .font(MacStyle.secondary)
+                                .foregroundStyle(Palette.textSecondary)
+                        }
+                    }
+                    .clipShape(.rect(cornerRadius: MacControl.cardRadius))
+                }
+            }
+        }
+    #endif
 
     extension View {
         fileprivate func galleryRow() -> some View {
