@@ -403,6 +403,21 @@ import Testing
                 }
             }
         }
+        var modifierBodies: [String: String] = [:]
+        for file in files {
+            for match in nsMatches(#"\bstruct\s+(\w+)\s*:\s*ViewModifier\b[^{]*\{"#, in: file.code) {
+                let open = match.range.upperBound - 1
+                let close = ButtonStyleScan.closing(open, in: file)
+                modifierBodies[file.text(match.range(at: 1))] = file.text(open..<close)
+            }
+        }
+        // A `.modifier(Name())` applies whatever styles the modifier's own body does.
+        func expanded(_ chain: String) -> String {
+            let names = nsMatches(#"\.modifier\(\s*(\w+)"#, in: chain).map {
+                (chain as NSString).substring(with: $0.range(at: 1))
+            }
+            return ([chain] + names.compactMap { modifierBodies[$0] }).joined(separator: "\n")
+        }
         var found: [String] = []
         for file in files {
             var chains: [(start: Int, chain: String)] = []
@@ -415,8 +430,8 @@ import Testing
                 chains.append((match.range.location, ButtonStyleScan.chain(after: end, in: file)))
             }
             for (start, chain) in chains {
-                let styles = nsMatches(#"\.buttonStyle\(\s*\.?(\w+)"#, in: chain).map {
-                    (chain as NSString).substring(with: $0.range(at: 1))
+                let styles = nsMatches(#"\.buttonStyle\(\s*\.?(\w+)"#, in: expanded(chain)).map {
+                    (expanded(chain) as NSString).substring(with: $0.range(at: 1))
                 }
                 if styles.contains(where: primitive.contains) {
                     let line = file.text(0..<start).count { $0 == "\n" } + 1
@@ -462,6 +477,15 @@ import Testing
         #expect(flagged("Menu { items } label: { x }\n.buttonStyle(.words)"))
         #expect(flagged("Menu { items } label: { x }.buttonStyle(Words())"))
         #expect(flagged("accessory\n.menuStyle(.button)\n.buttonStyle(.words)"))
+        let modifier = """
+            struct Look: ViewModifier {
+            func body(content: Content) -> some View { content.buttonStyle(.words) }
+            }
+
+            """
+        #expect(flagged(modifier + "accessory\n.menuStyle(.button)\n.modifier(Look())"))
+        #expect(flagged(modifier + "Menu { items } label: { x }\n.modifier(Look())"))
+        #expect(!flagged(modifier + "Button(x) {}\n.modifier(Look())"))
         #expect(!flagged("Menu { items } label: { x }\n.buttonStyle(.borderless)"))
         #expect(!flagged("Button(x) {}\n.buttonStyle(.words)"))
         #expect(!flagged("accessory\n.menuStyle(.button)\n.textButtonMenuAppearance()"))

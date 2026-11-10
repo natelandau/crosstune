@@ -377,13 +377,12 @@ struct TunePageColumn: View {
                     Button(action: onAddLyrics) {
                         Label(TuneScreen.addLyricsText, systemImage: "plus")
                     }
+                    .buttonStyle(.text)
                     .accessibilityLabel(TuneScreen.addLyrics)
                 }
             }
         }
         .menuIndicator(.hidden)
-        .menuStyle(.button)
-        .modifier(AddLineStyle())
         .textButtonAlignedToLeadingEdge()
         .accessibilityElement(children: .contain)
         .accessibilityLabel(TuneScreen.addToTune)
@@ -432,13 +431,6 @@ private struct PageVerses: View {
             }
         }
         .contentMask()
-    }
-}
-
-/// The add line's actions, as text buttons.
-private struct AddLineStyle: ViewModifier {
-    func body(content: Content) -> some View {
-        content.buttonStyle(.text)
     }
 }
 
