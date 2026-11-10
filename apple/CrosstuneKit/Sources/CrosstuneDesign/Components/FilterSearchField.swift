@@ -96,8 +96,8 @@ import SwiftUI
     }
 
     /// The search field's filters control: a Small icon button at rest, and once a filter is set,
-    /// a set chip carrying the count, so a narrowed list reads from the field. The chip wraps the
-    /// button so the system focus effect is off.
+    /// a set chip carrying the count, so a narrowed list reads from the field. One button draws
+    /// both looks, so it keeps its focus as a filter is set.
     package struct SearchFiltersStyle: PrimitiveButtonStyle {
         /// What the set chip's tint lands on. The field under it is too dark for the accent label
         /// to hold 4.5:1 through the tint, so the chip carries the column's page background, as the
@@ -106,23 +106,23 @@ import SwiftUI
 
         package let isSet: Bool
 
-        @ViewBuilder package func makeBody(configuration: Configuration) -> some View {
-            if isSet {
-                Button(configuration)
-                    .buttonStyle(SearchFiltersChipStyle())
-                    .focusEffectDisabled()
-                    .macButtonFocus()
-            } else {
-                Button(configuration)
-                    .buttonStyle(.icon)
-                    .controlSize(.small)
-            }
+        package func makeBody(configuration: Configuration) -> some View {
+            Button(configuration)
+                .buttonStyle(SearchFiltersBodyStyle(isSet: isSet))
+                .focusEffectDisabled()
+                .macButtonFocus()
         }
     }
 
-    private struct SearchFiltersChipStyle: ButtonStyle {
-        func makeBody(configuration: Configuration) -> some View {
-            SearchFiltersChip(configuration: configuration)
+    private struct SearchFiltersBodyStyle: ButtonStyle {
+        let isSet: Bool
+
+        @ViewBuilder func makeBody(configuration: Configuration) -> some View {
+            if isSet {
+                SearchFiltersChip(configuration: configuration)
+            } else {
+                MacMenuButtonStyle(.icon, size: .small).makeBody(configuration: configuration)
+            }
         }
     }
 
