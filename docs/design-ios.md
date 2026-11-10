@@ -25,7 +25,7 @@ there where they differ. Regular-width iPad reads this page, then
 
 - A view never types a text size or row height. A value that differs by
   platform is a `PageStyle` value, never an `#if os` branch in a shared
-  view's body. A control's Mac look lives in its library control.
+  view's body.
 - A list or vertical scroll root draws `pageBackground()`, never the system's
   white or black. System bars, the tab bar, and the iPad sidebar keep
   their system materials.
@@ -40,15 +40,12 @@ there where they differ. Regular-width iPad reads this page, then
   is set.
 - A control that cannot sit in a navigation subtitle goes in the toolbar,
   named for its action.
-- System undo (shake or Cmd-Z) plus a short banner with Undo replaces the
-  toast.
 
 ## Rows and lists
 
 - A row on a page takes a context menu and reorders through a move menu.
 - List reorder: long press and drag.
-- Search: the system search field, pinned under the title. Escape follows
-  the system field, not the empty-first order in `design.md`.
+- Search: the system search field, pinned under the title.
 - The filter row is the list's first row and scrolls with it.
 - A row on the page background clears its row background
   (`unselectedRowBackground`). A selected row keeps the system fill.
