@@ -44,6 +44,14 @@ import Testing
         #expect(button.upperBound < shortcut.lowerBound && shortcut.upperBound < dialog.lowerBound)
     }
 
+    /// On the Mac, `openURL` changes on every update while an editor is pushed over the recording
+    /// page, so a page body that reads it redraws without end and the app hangs. Only the menu,
+    /// which opens the origin, reads it.
+    @Test func recordingPageReadsNoOpenURL() throws {
+        #expect(!(try Self.code("RecordingPage/RecordingPage.swift")).contains(#"\.openURL"#))
+        #expect(try Self.code("RecordingPage/RecordingPageMenu.swift").contains(#"@Environment(\.openURL)"#))
+    }
+
     /// Split at never takes the one Filled look away from Save, so it draws through the library's
     /// editor main action, with no platform fork of its own.
     @Test func splitMainButtonDrawsNoPlatformFork() throws {

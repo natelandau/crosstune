@@ -78,7 +78,6 @@ private struct RecordingPageBody: View {
     @Environment(\.plan) private var plan
     @Environment(\.premium) private var premium
     @Environment(\.inPadSplit) private var inPadSplit
-    @Environment(\.openURL) private var openURL
     @Environment(\.openTune) private var openTune
     @Environment(\.openRecordingPage) private var openRecordingPage
     @Environment(\.playerWindow) private var window
@@ -376,7 +375,7 @@ private struct RecordingPageBody: View {
                 player: player)
         case .pin(let pinned): model.togglePin(pinned: pinned, rows: rows, commands: commands)
         case .goToTune: goToTune?()
-        case .openOrigin(_, let page): openURL(page)
+        case .openOrigin: break
         case .delete: model.deleting = rows.view
         }
     }
