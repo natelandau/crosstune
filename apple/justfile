@@ -75,6 +75,11 @@ _deadcode: build
 fix:
     just _sources | xargs swift format --in-place
 
+# Build the package tests without running them
+[group('test')]
+build-tests:
+    {{ swift }} build --package-path CrosstuneKit --build-tests
+
 # Run the package tests on the Mac
 [group('test')]
 [arg("args", help="Arguments for swift test")]

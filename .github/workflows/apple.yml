@@ -50,7 +50,7 @@ jobs:
     # The image with the Xcode the app is built and shipped with. The `macos-*` images
     # default to an older Xcode.
     runs-on: xcode-27
-    timeout-minutes: 30
+    timeout-minutes: 40
     defaults:
       run:
         working-directory: apple
@@ -81,8 +81,12 @@ jobs:
             apple/CrosstuneKit/.build/workspace-state.json
           key: apple-kit-packages-${{ steps.swift.outputs.version }}-${{ hashFiles('apple/CrosstuneKit/Package.resolved') }}
           restore-keys: apple-kit-packages-${{ steps.swift.outputs.version }}-
+      # Built in its own step so a slow compile and a slow test run each have their own limit;
+      # `just test` then reuses the build.
+      - run: just build-tests
+        timeout-minutes: 20
       - run: just test
-        timeout-minutes: 15
+        timeout-minutes: 10
       - uses: actions/cache/save@v6
         if: ${{ github.ref == 'refs/heads/main' && steps.kit-restore.outputs.cache-hit != 'true' }}
         with:
