@@ -64,7 +64,7 @@ import Testing
 
         #expect(model.rows?.isEmpty == true)
         #expect(SavedLocationsText.emptyHint.contains(NameLocationText.title))
-        #expect(!SavedLocationsText.emptyHint.contains("\u{2014}"))
+        #expect(SavedLocationsText.emptyHint.contains("\u{2014}") == false)
     }
 
     @Test func renameSavesAtOnce() async throws {

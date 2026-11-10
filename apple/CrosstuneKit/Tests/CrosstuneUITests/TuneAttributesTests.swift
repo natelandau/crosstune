@@ -124,9 +124,9 @@ import Testing
         let status = Key(owner: "a", layout: .column, id: AttributeID.status)
         state.set(status, shown: true)
         #expect(state.isPresented(status))
-        #expect(!state.isPresented(Key(owner: "a", layout: .column, id: AttributeID.key)))
-        #expect(!state.isPresented(Key(owner: "b", layout: .column, id: AttributeID.status)))
-        #expect(!state.isPresented(Key(owner: "a", layout: .card, id: AttributeID.status)))
+        #expect(state.isPresented(Key(owner: "a", layout: .column, id: AttributeID.key)) == false)
+        #expect(state.isPresented(Key(owner: "b", layout: .column, id: AttributeID.status)) == false)
+        #expect(state.isPresented(Key(owner: "a", layout: .card, id: AttributeID.status)) == false)
     }
 
     @Test func anotherRowClosingLeavesTheOpenOneAlone() {
@@ -136,7 +136,7 @@ import Testing
         state.set(Key(owner: "a", layout: .column, id: AttributeID.key), shown: false)
         #expect(state.isPresented(status))
         state.set(status, shown: false)
-        #expect(!state.isPresented(status))
+        #expect(state.isPresented(status) == false)
     }
 
     @Test func anotherTuneOrLayoutClosesTheEditor() {
@@ -145,13 +145,13 @@ import Testing
         swapped.set(status, shown: true)
         swapped.keep(owner: "b", layout: .column)
         swapped.keep(owner: "a", layout: .column)
-        #expect(!swapped.isPresented(status), "a return to the tune never reopens it")
+        #expect(swapped.isPresented(status) == false, "a return to the tune never reopens it")
 
         var flipped = AttributesOpenState()
         flipped.set(status, shown: true)
         flipped.keep(owner: "a", layout: .card)
         flipped.keep(owner: "a", layout: .column)
-        #expect(!flipped.isPresented(status))
+        #expect(flipped.isPresented(status) == false)
 
         var same = AttributesOpenState()
         same.set(status, shown: true)

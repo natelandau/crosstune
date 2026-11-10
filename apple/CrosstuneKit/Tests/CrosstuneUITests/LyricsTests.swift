@@ -60,8 +60,8 @@ import Testing
     @Test func lyricsReaderOffersLargerAndSmallerText() throws {
         #expect(LyricsSize.canShrink(LyricsSize.defaultStep))
         #expect(LyricsSize.canGrow(LyricsSize.defaultStep))
-        #expect(!LyricsSize.canShrink(1))
-        #expect(!LyricsSize.canGrow(LyricsSize.steps))
+        #expect(LyricsSize.canShrink(1) == false)
+        #expect(LyricsSize.canGrow(LyricsSize.steps) == false)
         #if os(macOS)
             // Both sit in the reader's own header, where a toolbar overflow can never hide one.
             let file = SourceScan.url(of: "Lyrics/LyricsReader.swift")
@@ -69,7 +69,7 @@ import Testing
             #expect(mac.contains("LyricsReader.smallerText"))
             #expect(mac.contains("LyricsReader.largerText"))
             #expect(mac.contains("MacSheet("))
-            #expect(!mac.contains("ToolbarItem"))
+            #expect(mac.contains("ToolbarItem") == false)
         #endif
     }
 

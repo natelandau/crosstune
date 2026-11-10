@@ -191,7 +191,7 @@ import Testing
 
         await engine().transfer()
 
-        #expect(try !isExcludedFromBackup(image))
+        #expect(try isExcludedFromBackup(image) == false)
     }
 
     @Test func settlesAScanPastPendingAsUploaded() async throws {
@@ -233,7 +233,7 @@ import Testing
 
         #expect(api.transfers == ["scan-slot p1", "put p1", "scan-confirm p1"])
         #expect(try await file("p1") == nil)
-        #expect(!exists(image))
+        #expect(exists(image) == false)
         #expect(engine.transferStatus == .idle)
     }
 
@@ -310,7 +310,7 @@ import Testing
         await engine.transfer()
 
         #expect(try await self.file("p1") == nil)
-        #expect(!exists(image))
+        #expect(exists(image) == false)
     }
 
     @Test func uploadsARefusedScanOnceTheServerHasStoredItsRow() async throws {
@@ -438,8 +438,8 @@ import Testing
 
         #expect(try await file("p1") == nil)
         #expect(try await file("p2") == nil)
-        #expect(!exists(uploaded))
-        #expect(!exists(captured))
+        #expect(exists(uploaded) == false)
+        #expect(exists(captured) == false)
         #expect(api.transfers.isEmpty)
     }
 
@@ -456,7 +456,7 @@ import Testing
         await engine().transfer()
 
         #expect(try await file("p1") == nil)
-        #expect(!exists(image))
+        #expect(exists(image) == false)
         #expect(try await store.notUploadedScanCount() == 0)
     }
 
@@ -467,7 +467,7 @@ import Testing
         await engine().transfer()
 
         #expect(try await file("p1") == nil)
-        #expect(!exists(image))
+        #expect(exists(image) == false)
         #expect(api.transfers.isEmpty)
     }
 
@@ -496,7 +496,7 @@ import Testing
         await engine().transfer()
 
         #expect(try await file("orphan") == nil)
-        #expect(!exists(url))
+        #expect(exists(url) == false)
     }
 
     // MARK: Download
@@ -633,7 +633,7 @@ import Testing
         try await storeEntitlement(store, source: nil)
         await engine.sync()
         #expect(pushesOfP1() == 1)
-        #expect(!api.transfers.contains { $0.hasSuffix(" p1") })
+        #expect(api.transfers.contains { $0.hasSuffix(" p1") } == false)
 
         api.respondToPush = { changes in changes.map { PushResult(table: $0.table, id: $0.id, status: .applied) } }
         try await storeEntitlement(store, source: "comp")

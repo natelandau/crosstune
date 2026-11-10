@@ -91,7 +91,7 @@ import Testing
         let row = text(key: nil, status: "known")
         #expect(row.key == nil)
         #expect(row.tunings == nil)
-        #expect(!row.isArchived)
+        #expect(row.isArchived == false)
         #expect(row.accessibilityLabel() == "Elzic's Farewell, Known")
     }
 

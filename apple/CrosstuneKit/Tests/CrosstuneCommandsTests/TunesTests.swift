@@ -255,7 +255,7 @@ import Testing
 
         #expect(try await store.pendingChanges(limit: 10).queuedOps == [QueuedOp(table: .userTunes, op: .upsert)])
         #expect(TunePatch().isEmpty && UserTunePatch().isEmpty)
-        #expect(!TunePatch(key: .value(nil)).isEmpty)
+        #expect(TunePatch(key: .value(nil)).isEmpty == false)
     }
 
     @Test func writesNeitherRowWhenTheUserTuneWriteFails() async throws {

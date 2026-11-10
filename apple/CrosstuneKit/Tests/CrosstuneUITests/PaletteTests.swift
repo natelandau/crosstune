@@ -39,7 +39,7 @@ import Testing
     /// goes through the accent styles that color them.
     @Test func everyProminentButtonUsesTheAccentStyle() throws {
         let files = SourceScan.files()
-        #expect(!files.isEmpty)
+        #expect(files.isEmpty == false)
         let violations = try files.filter { file in
             let source = try String(contentsOf: file, encoding: .utf8)
             return source.contains(".borderedProminent") || source.contains(".glassProminent")

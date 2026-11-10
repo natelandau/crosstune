@@ -132,7 +132,7 @@ private func link(_ provider: String, _ providerRef: String?, url: String = "htt
         #expect(embed.kind == .audio)
         #expect(embed.document.contains("<audio"))
         #expect(embed.document.contains(embed.src))
-        #expect(!embed.document.contains("<iframe"))
+        #expect(embed.document.contains("<iframe") == false)
         #expect(Embed.for(link("youtube", "dQw4w9WgXcQ"))?.kind == .frame)
     }
 
@@ -233,7 +233,7 @@ private func link(_ provider: String, _ providerRef: String?, url: String = "htt
                 #"src="https://w.soundcloud.com/player/?url=https%3A%2F%2Fsoundcloud.com%2Fsomeone%2Fsome-tune&amp;auto_play=true""#
             ))
         #expect(page.contains(#"allow="autoplay; encrypted-media""#))
-        #expect(!page.contains("sandbox="))
+        #expect(page.contains("sandbox=") == false)
         let tidal = try #require(Embed.for(link("tidal", "track:1"))).document
         #expect(tidal.contains(#"sandbox="allow-same-origin allow-scripts"#))
     }
@@ -277,17 +277,17 @@ private func link(_ provider: String, _ providerRef: String?, url: String = "htt
 
     @Test func holdsOneItemAtATimeAndCloses() throws {
         let player = PlayerModel()
-        #expect(!player.isLoaded)
+        #expect(player.isLoaded == false)
         player.play(try #require(PlayerItem.link(youtube())))
         #expect(player.isLoaded)
         #expect(player.holds(.link, id: "l1"))
         player.play(PlayerItem(kind: .recording, id: "r1", title: "Kitchen Girl"))
         #expect(player.title == "Kitchen Girl")
-        #expect(!player.holds(.link, id: "l1"))
+        #expect(player.holds(.link, id: "l1") == false)
         // A recording and a link never share an item, even with the same id.
         #expect(player.holds(.recording, id: "r1") && !player.holds(.link, id: "r1"))
         player.close()
-        #expect(!player.isLoaded)
+        #expect(player.isLoaded == false)
         #expect(player.title == nil)
     }
 
@@ -297,11 +297,11 @@ private func link(_ provider: String, _ providerRef: String?, url: String = "htt
         #expect(player.isExpanded)
 
         player.play(PlayerItem(kind: .recording, id: "r1", title: "Kitchen Girl"))
-        #expect(!player.isExpanded)
+        #expect(player.isExpanded == false)
 
         player.play(try #require(PlayerItem.link(youtube())))
         player.close()
-        #expect(!player.isExpanded)
+        #expect(player.isExpanded == false)
     }
 
     @Test func followsTheLoadedLinksRow() throws {
@@ -312,7 +312,7 @@ private func link(_ provider: String, _ providerRef: String?, url: String = "htt
         player.linkChanged(id: "l1", to: youtube(title: "Resolved title"))
         #expect(player.title == "Resolved title")
         #expect(player.isLoaded)
-        #expect(!player.isExpanded)
+        #expect(player.isExpanded == false)
 
         // Another link's row changing leaves the loaded one alone.
         player.linkChanged(id: "l2", to: nil)
@@ -324,7 +324,7 @@ private func link(_ provider: String, _ providerRef: String?, url: String = "htt
         let player = PlayerModel()
         player.play(try #require(PlayerItem.link(youtube())))
         player.linkChanged(id: "l1", to: row)
-        #expect(!player.isLoaded)
+        #expect(player.isLoaded == false)
     }
 
     @Test func closesWhenTheLoadedLinkIsDeleted() throws {
@@ -333,7 +333,7 @@ private func link(_ provider: String, _ providerRef: String?, url: String = "htt
         var deleted = youtube()
         deleted.deletedAt = .now
         player.linkChanged(id: "l1", to: deleted)
-        #expect(!player.isLoaded)
+        #expect(player.isLoaded == false)
     }
 
     @Test func leavesALoadedRecordingAloneWhenALinkChanges() {
@@ -350,9 +350,9 @@ private func link(_ provider: String, _ providerRef: String?, url: String = "htt
         let player = PlayerModel()
         player.plan = plan
 
-        #expect(!player.play(PlayerItem(kind: .recording, id: "r1", title: "Kitchen Girl")))
-        #expect(!player.loadPaused(PlayerItem(kind: .recording, id: "r1", title: "Kitchen Girl")))
-        #expect(!player.isLoaded)
+        #expect(player.play(PlayerItem(kind: .recording, id: "r1", title: "Kitchen Girl")) == false)
+        #expect(player.loadPaused(PlayerItem(kind: .recording, id: "r1", title: "Kitchen Girl")) == false)
+        #expect(player.isLoaded == false)
         // Links are not Premium's to hold.
         #expect(player.play(try #require(PlayerItem.link(youtube()))))
     }
@@ -379,7 +379,7 @@ private func link(_ provider: String, _ providerRef: String?, url: String = "htt
 
         clock.now = end
         #expect(try await poll { !player.isLoaded })
-        #expect(!audio.isPlaying)
+        #expect(audio.isPlaying == false)
         #expect(audio.loaded == nil)
     }
 
@@ -393,7 +393,7 @@ private func link(_ provider: String, _ providerRef: String?, url: String = "htt
         #expect(try await poll { free.plan.kind == .free })
         let player = PlayerModel()
         player.plan = free
-        #expect(!player.play(PlayerItem(kind: .recording, id: "r1", title: "Kitchen Girl")))
+        #expect(player.play(PlayerItem(kind: .recording, id: "r1", title: "Kitchen Girl")) == false)
 
         let second = TemporaryRoot()
         let unknown = PlanModel(store: try second.open("user_b"))
@@ -572,12 +572,12 @@ private final class QuietTrackCommands: TrackCommands {
 
     @Test func offersNextOnlyWhilePlayingAList() {
         let playback = playback()
-        #expect(!PlayerBar.showsNext(playback))
-        #expect(!PlayerBar.showsNext(nil))
+        #expect(PlayerBar.showsNext(playback) == false)
+        #expect(PlayerBar.showsNext(nil) == false)
         playback.start(listID: "l1", name: "Session set", tuneIDs: ["a"], shuffled: false)
         #expect(PlayerBar.showsNext(playback))
         playback.end()
-        #expect(!PlayerBar.showsNext(playback))
+        #expect(PlayerBar.showsNext(playback) == false)
     }
 
     @Test func labelsTheBarWithTheListWhilePlaying() throws {
@@ -599,20 +599,20 @@ private final class QuietTrackCommands: TrackCommands {
         player.play(PlayerItem(kind: .recording, id: "r1", title: "Kitchen Girl"))
         #expect(playback.endMessage == nil)
         player.close()
-        #expect(!PlayerBar.isShown(player, playback, in: nil))
+        #expect(PlayerBar.isShown(player, playback, in: nil) == false)
     }
 
     @Test func showsTheBarForAMessageWithNothingLoaded() async throws {
         let player = PlayerModel()
         let playback = playback(player)
-        #expect(!PlayerBar.isShown(player, playback, in: nil))
+        #expect(PlayerBar.isShown(player, playback, in: nil) == false)
         // Nothing resolves, so the playlist stops with its message.
         playback.start(listID: "l1", name: "Session set", tuneIDs: ["a"], shuffled: false)
         #expect(try await poll { playback.endMessage != nil })
-        #expect(!player.isLoaded)
+        #expect(player.isLoaded == false)
         #expect(PlayerBar.isShown(player, playback, in: nil))
         PlayerBar.closePlayer(player, playback)
-        #expect(!PlayerBar.isShown(player, playback, in: nil))
+        #expect(PlayerBar.isShown(player, playback, in: nil) == false)
     }
 }
 
@@ -627,9 +627,9 @@ private final class QuietTrackCommands: TrackCommands {
 
     @Test func swipeSkipsOnlyWhereTheListHasATuneToGoTo() {
         #expect(AccessorySwipe.hasPlace(for: .next, position: 1, count: 3, repeats: false))
-        #expect(!AccessorySwipe.hasPlace(for: .next, position: 3, count: 3, repeats: false))
+        #expect(AccessorySwipe.hasPlace(for: .next, position: 3, count: 3, repeats: false) == false)
         #expect(AccessorySwipe.hasPlace(for: .next, position: 3, count: 3, repeats: true))
         #expect(AccessorySwipe.hasPlace(for: .previous, position: 2, count: 3, repeats: false))
-        #expect(!AccessorySwipe.hasPlace(for: .previous, position: 1, count: 3, repeats: true))
+        #expect(AccessorySwipe.hasPlace(for: .previous, position: 1, count: 3, repeats: true) == false)
     }
 }

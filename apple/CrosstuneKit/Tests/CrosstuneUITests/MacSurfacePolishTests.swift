@@ -31,7 +31,7 @@
         @Test func takenTuneSaysItIsInTheListAloud() throws {
             let text = SourceScan.withoutComments(
                 try SourceScan.text(at: SourceScan.url(of: "Lists/TunePickerSheet.swift")))
-            #expect(!SourceScan.macCompiled(text).contains("Text(TunePickerModel.inThisList)"))
+            #expect(SourceScan.macCompiled(text).contains("Text(TunePickerModel.inThisList)") == false)
         }
 
         /// A list's head is one height whether its play controls or the selection bar sit under
@@ -127,7 +127,7 @@
             let play = ListRowPlayButton(entry: entry, action: .play(item), listID: "l1")
             #expect(try drawsInTrailingEdge(play, width: slot, trailing: slot))
             let empty = ListRowPlayButton(entry: entry, action: nil, listID: "l1")
-            #expect(try !drawsInTrailingEdge(empty, width: slot, trailing: slot))
+            #expect(try drawsInTrailingEdge(empty, width: slot, trailing: slot) == false)
         }
 
         /// A list's tune row draws its key and play the same on every platform: the row keeps its
@@ -137,8 +137,8 @@
                 try SourceScan.text(at: SourceScan.url(of: "Lists/ListScreen.swift")))
             #expect(SourceScan.macCompiled(text).contains("ListRowPlayButton(entry: entry"))
             #expect(SourceScan.iOSCompiled(text).contains("ListRowPlayButton(entry: entry"))
-            #expect(!SourceScan.macOSRegions(of: text).contains("ListRowPlayButton("))
-            #expect(!text.contains("onHover"))
+            #expect(SourceScan.macOSRegions(of: text).contains("ListRowPlayButton(") == false)
+            #expect(text.contains("onHover") == false)
         }
 
         /// A media row's play and download glyphs show at rest, as on iPhone, iPad, and the web.
@@ -150,7 +150,7 @@
             #expect(try drawsInTrailingEdge(row, width: 320, trailing: slot))
             let bare = MediaRow(
                 glyph: .none, title: "Take 1", secondLine: .text("1:02"), actionLabel: "Play", action: {})
-            #expect(try !drawsInTrailingEdge(bare, width: 320, trailing: slot))
+            #expect(try drawsInTrailingEdge(bare, width: 320, trailing: slot) == false)
         }
     }
 #endif

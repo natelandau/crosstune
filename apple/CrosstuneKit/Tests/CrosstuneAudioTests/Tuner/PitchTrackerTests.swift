@@ -84,7 +84,7 @@ extension Tuner {
                 #expect(reading.note.octave == expected.octave)
             }
             let lastHalf = readings.filter { $0.atMs >= clip.seconds * 1000 / 2 }
-            try #require(!lastHalf.isEmpty)
+            try #require(lastHalf.isEmpty == false)
             // A clip may loosen the bound only so far that the two platforms still agree in cents.
             #expect((clip.toleranceCents ?? 0) <= 1.5)
             let tolerance = clip.vibrato != nil ? 2 : (clip.toleranceCents ?? 0.5)
@@ -99,7 +99,7 @@ extension Tuner {
                 of: feed(tracker, synthesize(violin, index: violinIndex), sampleRate: violin.sampleRate)
             ).map(\.note.cents)
 
-            #expect(!cents.isEmpty)
+            #expect(cents.isEmpty == false)
             #expect(cents.max()! - cents.min()! < 1.0)
         }
 
@@ -150,7 +150,7 @@ extension Tuner {
                 guard push.endMs > 700, let reading = push.reading else { return false }
                 return abs(centsBetween(reading.frequency, between)) <= 5
             }
-            #expect(!settled.isEmpty)
+            #expect(settled.isEmpty == false)
             #expect(tracker.usesShortWindow == short)
         }
 
@@ -180,7 +180,7 @@ extension Tuner {
                     tracker, synthesize(violin.at(frequency: 440, seconds: 0.5), index: 1), sampleRate: sampleRate,
                     startMs: 500))
 
-            #expect(!readings.isEmpty)
+            #expect(readings.isEmpty == false)
             for reading in readings {
                 #expect(reading.note.name == .a)
                 #expect(reading.note.octave == 4)

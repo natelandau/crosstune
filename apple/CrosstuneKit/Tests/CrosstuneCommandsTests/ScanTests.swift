@@ -142,8 +142,8 @@ private func scanFolderFiles(_ store: CrosstuneStore) throws -> Set<String> {
 
         let markers = segmentMarkers(stripped)
         #expect(Set(markers).isSuperset(of: [0xE0, 0xE2, 0xDB, 0xC0]))
-        #expect(!markers.contains(0xE1))
-        #expect(!markers.contains(0xED))
+        #expect(markers.contains(0xE1) == false)
+        #expect(markers.contains(0xED) == false)
         #expect(markers.first == 0xE0)
         #expect(try size(of: stripped) == (8, 8))
         let source = try #require(CGImageSourceCreateWithData(stripped as CFData, nil))
@@ -306,7 +306,7 @@ private func scanFolderFiles(_ store: CrosstuneStore) throws -> Set<String> {
         #expect(try scanFolderFiles(store) == Set(files.map(\.fileName)))
         let queued = try await store.pendingChanges(limit: 20)
         #expect(
-            !queued.contains { $0.tableName == .scans && ids.contains($0.rowID) },
+            queued.contains { $0.tableName == .scans && ids.contains($0.rowID) } == false,
             "the tune's delete covers them")
     }
 

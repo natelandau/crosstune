@@ -35,7 +35,7 @@ func refusesAUserIDThatIsNotAPlainName(_ userID: String) {
     try CrosstuneStore.delete(userID: "user_a", root: root.url)
     try CrosstuneStore.delete(userID: "user_a", root: root.url)
 
-    #expect(!FileManager.default.fileExists(atPath: store.folder.path()))
+    #expect(FileManager.default.fileExists(atPath: store.folder.path()) == false)
 }
 
 @Test func deletingAUserMovesTheirFolderAsideThenRemovesIt() async throws {
@@ -45,7 +45,7 @@ func refusesAUserIDThatIsNotAPlainName(_ userID: String) {
 
     try CrosstuneStore.delete(userID: "user_a", root: root.url)
 
-    #expect(!FileManager.default.fileExists(atPath: store.folder.path()))
+    #expect(FileManager.default.fileExists(atPath: store.folder.path()) == false)
     #expect(try await poll { try folderNames(in: root.url).isEmpty })
 }
 
@@ -88,7 +88,7 @@ private func folderNames(in root: URL) throws -> [String] {
     try CrosstuneStore.deleteOthers(keeping: "user_a", root: root.url)
 
     #expect(FileManager.default.fileExists(atPath: kept.folder.path()))
-    #expect(!FileManager.default.fileExists(atPath: stale.folder.path()))
+    #expect(FileManager.default.fileExists(atPath: stale.folder.path()) == false)
 }
 
 @Test func deletingOthersKeepsEveryListedUser() throws {
@@ -102,7 +102,7 @@ private func folderNames(in root: URL) throws -> [String] {
 
     #expect(FileManager.default.fileExists(atPath: first.folder.path()))
     #expect(FileManager.default.fileExists(atPath: second.folder.path()))
-    #expect(!FileManager.default.fileExists(atPath: stale.folder.path()))
+    #expect(FileManager.default.fileExists(atPath: stale.folder.path()) == false)
 }
 
 private func migrator(plus identifier: String, _ body: @escaping @Sendable (Database) throws -> Void)
@@ -294,7 +294,7 @@ private func migrator(plus identifier: String, _ body: @escaping @Sendable (Data
         }
         withExtendedLifetime(statement) {
             #expect(throws: DatabaseError.self) { try store.close() }
-            #expect(!store.isClosed)
+            #expect(store.isClosed == false)
         }
     }
 

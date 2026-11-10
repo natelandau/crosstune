@@ -434,7 +434,7 @@ private final class Writes {
         try await eventually { sleep.cancelled == 2 }
         try await settled()
         #expect(writes.made == [PlaybackSettings(speedPercent: 60)])
-        #expect(!player.isLoaded)
+        #expect(player.isLoaded == false)
         #expect(player.saveSettings == nil)
     }
 
@@ -452,7 +452,7 @@ private final class Writes {
         #expect(audio.elapsed == 1.5)
 
         await player.deleteLoadedRecording {}
-        #expect(!player.isLoaded)
+        #expect(player.isLoaded == false)
     }
 
     @Test func aPageRequestGoesToTheWindowThatAsked() {
@@ -606,8 +606,8 @@ private final class Writes {
         #expect(player.loops.isRepeating)
         player.loops.select(nil)
         #expect(player.loops.selectedID == nil)
-        #expect(!player.loops.isRepeating)
-        #expect(!audio.isRepeating)
+        #expect(player.loops.isRepeating == false)
+        #expect(audio.isRepeating == false)
     }
 
     @Test func theRepeatBadgeOffersToRepeatTheLoop() {
@@ -661,7 +661,7 @@ private final class Writes {
         #expect(modes.contains("pitchSplit.follow(model.pitchCents)"))
         #expect(modes.contains("split: $pitchSplit"))
         #expect(panel.contains("@Binding var split: PitchSplit"))
-        #expect(!panel.contains("@State"))
+        #expect(panel.contains("@State") == false)
     }
 
     @Test func saysWhyTrimCannotBeUsed() {

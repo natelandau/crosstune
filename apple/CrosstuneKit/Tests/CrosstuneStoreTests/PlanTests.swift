@@ -25,10 +25,11 @@ private func row(
 @Suite struct PlanFromTests {
     @Test func carriesAutoRenewsForAPremiumRowOnly() {
         #expect(Plan.from(row(source: "apple", expiresAt: at(day), autoRenews: true), now: now).autoRenews)
-        #expect(!Plan.from(row(source: "apple", expiresAt: at(day), autoRenews: false), now: now).autoRenews)
-        #expect(!Plan.from(row(source: "apple", expiresAt: at(-30 * day), autoRenews: true), now: now).autoRenews)
-        #expect(!Plan.from(row(), now: now).autoRenews)
-        #expect(!Plan.from(nil, now: now).autoRenews)
+        #expect(Plan.from(row(source: "apple", expiresAt: at(day), autoRenews: false), now: now).autoRenews == false)
+        #expect(
+            Plan.from(row(source: "apple", expiresAt: at(-30 * day), autoRenews: true), now: now).autoRenews == false)
+        #expect(Plan.from(row(), now: now).autoRenews == false)
+        #expect(Plan.from(nil, now: now).autoRenews == false)
     }
 
     @Test func isUnknownWithNoRowAndGatesNothing() {
@@ -55,8 +56,8 @@ private func row(
         #expect(plan.kind == .free)
         #expect(plan.source == nil)
         #expect(plan.quotaBytes == nil)
-        #expect(!plan.recordingsPlay)
-        #expect(!plan.scansOpen)
+        #expect(plan.recordingsPlay == false)
+        #expect(plan.scansOpen == false)
     }
 
     @Test func isFreeAtTheVeryInstantAGrantExpires() {

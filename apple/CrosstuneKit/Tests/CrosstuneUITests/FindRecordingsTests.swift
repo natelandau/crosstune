@@ -101,10 +101,10 @@ private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-
         #expect(model.query == "Soldier's Joy Reel")
         #expect(model.providers == SampleCatalog.searchProviders)
         #expect(model.shown == nil)
-        #expect(!model.isDirect)
+        #expect(model.isDirect == false)
         try await settled(model)
         #expect(search.calls.isEmpty)
-        #expect(!model.isSearching)
+        #expect(model.isSearching == false)
     }
 
     @Test func prefillsTheTitleAloneForATuneWithNoType() async throws {
@@ -155,7 +155,7 @@ private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-
     @Test func searchesOnlyTheAppsOwnServicesInPlace() {
         #expect(FindRecordingsModel.inlineSearch == ["apple_music", "tidal", "internet_archive"])
         #expect(FindRecordingsModel.searchesInApp("tidal"))
-        #expect(!FindRecordingsModel.searchesInApp("spotify"))
+        #expect(FindRecordingsModel.searchesInApp("spotify") == false)
     }
 
     // MARK: Picking a service
@@ -305,14 +305,14 @@ private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-
         search.holds = true
         let model = model(store, search: search)
         try await eventually { model.isLoaded }
-        #expect(!model.isSearching)
+        #expect(model.isSearching == false)
 
         let picking = Task { await model.pick("apple_music") }
         try await eventually { search.waitingCount == 1 }
         #expect(model.isSearching)
         search.answer(0, with: .ok([group([appleTrack])]))
         _ = await picking.value
-        #expect(!model.isSearching)
+        #expect(model.isSearching == false)
         #expect(model.group == group([appleTrack]))
     }
 
@@ -427,13 +427,13 @@ private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-
         try await eventually { search.waitingCount == 1 }
 
         model.back()
-        #expect(!model.isSearching)
+        #expect(model.isSearching == false)
         search.answer(0, with: .ok([group([appleTrack])]))
         _ = await picking.value
 
         #expect(model.shown == nil)
         #expect(model.group == nil)
-        #expect(!model.isSearching)
+        #expect(model.isSearching == false)
     }
 
     @Test func ignoresASearchPageThatArrivesAfterTheSheetCloses() async throws {
@@ -503,7 +503,7 @@ private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-
         try await eventually { model.isLoaded }
         try await settled(model)
         #expect(search.calls.isEmpty)
-        #expect(!model.isSearching)
+        #expect(model.isSearching == false)
     }
 
     @Test(arguments: [
@@ -520,8 +520,8 @@ private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-
 
     @Test func disablesOnlyASheetItemWithNoSheetToOpen() {
         #expect(FindRecordingsEntry.sheet(service: nil).isDisabled(sheetAvailable: false))
-        #expect(!FindRecordingsEntry.sheet(service: nil).isDisabled(sheetAvailable: true))
-        #expect(!FindRecordingsEntry.searchPage("spotify").isDisabled(sheetAvailable: false))
+        #expect(FindRecordingsEntry.sheet(service: nil).isDisabled(sheetAvailable: true) == false)
+        #expect(FindRecordingsEntry.searchPage("spotify").isDisabled(sheetAvailable: false) == false)
     }
 
     @Test func doesNothingOfflineWhenFindRecordingsIsChosen() async throws {
@@ -590,7 +590,7 @@ private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-
         _ = await first.value
 
         #expect(model.group == group([otherAppleTrack]))
-        #expect(!model.isSearching)
+        #expect(model.isSearching == false)
     }
 
     @Test func ignoresAnAnswerThatArrivesAfterTheSheetCloses() async throws {
@@ -619,7 +619,7 @@ private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-
         try await eventually { model.isLoaded }
         try await settled(model)
         #expect(search.calls.isEmpty)
-        #expect(!model.isSearching)
+        #expect(model.isSearching == false)
     }
 
     @Test func dropsAReturnPressedBeforeTheTuneLoadedOnceTheSheetHasClosed() async throws {
@@ -633,7 +633,7 @@ private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-
         try await eventually { model.isLoaded }
         try await settled(model)
         #expect(search.calls.isEmpty)
-        #expect(!model.isSearching)
+        #expect(model.isSearching == false)
     }
 
     @Test func stopsShowingSearchingOnceTheSheetCloses() async throws {
@@ -644,7 +644,7 @@ private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-
         try await eventually { model.isSearching && search.waitingCount == 1 }
 
         model.cancel()
-        #expect(!model.isSearching)
+        #expect(model.isSearching == false)
         search.answer(0, with: .failed)
     }
 
@@ -767,6 +767,6 @@ private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-
         await model.link(appleTrack)
 
         #expect(model.linkFailure != nil)
-        #expect(!model.linkedURLs.contains(appleTrack.url))
+        #expect(model.linkedURLs.contains(appleTrack.url) == false)
     }
 }

@@ -182,7 +182,7 @@
                     if showsField && !allowed {
                         #expect(call.contains("openingFocus: .firstField"), "\(path) shows a field: \(call.prefix(60))")
                     } else if !showsField {
-                        #expect(!call.contains("openingFocus:"), "\(path) shows no field: \(call.prefix(60))")
+                        #expect(call.contains("openingFocus:") == false, "\(path) shows no field: \(call.prefix(60))")
                     }
                     checked += 1
                 }
@@ -202,8 +202,8 @@
             let scaffold = SourceScan.withoutComments(
                 try SourceScan.text(at: SourceScan.url(of: "Mac/MacSheet.swift")))
             #expect(scaffold.contains(".macOpensUnfocused(openingFocus == .anchor)"))
-            #expect(!scaffold.contains(".defaultFocus("))
-            #expect(!scaffold.contains(".focused("))
+            #expect(scaffold.contains(".defaultFocus(") == false)
+            #expect(scaffold.contains(".focused(") == false)
         }
 
         /// A fitted sheet whose content arrives after it shows, such as lists that load, grows to
@@ -346,7 +346,7 @@
                     SourceScan.withoutComments(SourceScan.withoutPreviews(try SourceScan.text(at: file))))
                 for call in Self.fittedSheetCalls(in: text) {
                     for container in ["Form {", "List {", "List(", "MacFormScroll {", "ScrollView {"] {
-                        #expect(!call.contains(container), "\(path) puts \(container) in a fitted sheet")
+                        #expect(call.contains(container) == false, "\(path) puts \(container) in a fitted sheet")
                     }
                 }
             }
@@ -368,7 +368,7 @@
                     mac.contains("MacSheet("),
                     "\(path) draws no MacSheet on the Mac")
                 if !Self.pushingSheets.contains(path) {
-                    #expect(!mac.contains("NavigationStack"), "\(path) keeps a NavigationStack on the Mac")
+                    #expect(mac.contains("NavigationStack") == false, "\(path) keeps a NavigationStack on the Mac")
                 }
             }
         }

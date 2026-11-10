@@ -97,7 +97,7 @@ private func storedSettings(_ store: CrosstuneStore) async throws -> UserSetting
         let first = pending.begin(true)
         _ = pending.begin(false)
         let firstWasLatest = pending.fail(first)
-        #expect(!firstWasLatest)
+        #expect(firstWasLatest == false)
         #expect(pending.value == false)
         pending.land(first, stored: false)
         #expect(pending.value == false)
@@ -184,9 +184,9 @@ private func instrumentSummary(_ model: SettingsModel) -> String {
         #expect(instrumentSummary(model) == "Violin, 5-string banjo")
         #expect(model.searchProvidersSummary == "5 of 8")
         #expect(model.plays("violin"))
-        #expect(!model.plays("guitar"))
+        #expect(model.plays("guitar") == false)
         #expect(model.audioQuality == "standard")
-        #expect(!model.keepsOffline)
+        #expect(model.keepsOffline == false)
         #expect(model.rejectedMessage == nil)
         #expect(model.storage == SampleCatalog.storage)
     }
@@ -243,7 +243,7 @@ private func instrumentSummary(_ model: SettingsModel) -> String {
         #expect(try await store.pendingChangeCount() == 1)
 
         model.setPlays("mandolin", false)
-        #expect(!model.plays("mandolin"))
+        #expect(model.plays("mandolin") == false)
         try await eventually { try await storedSettings(store)?.instruments == ["violin"] }
         #expect(model.instrumentsFailure == nil)
     }
@@ -274,7 +274,7 @@ private func instrumentSummary(_ model: SettingsModel) -> String {
         model.setPlays("guitar", true)
         try await eventually { try await storedSettings(store)?.instruments == ["guitar", "mandolin"] }
         #expect(model.instrumentsFailure != nil)
-        #expect(!model.plays("violin"))
+        #expect(model.plays("violin") == false)
     }
 
     @Test func followsAnInstrumentChangedElsewhere() async throws {
@@ -379,7 +379,7 @@ private func instrumentSummary(_ model: SettingsModel) -> String {
         model.setKeepsOffline(false)
         await model.lastWrite?.value
         #expect(try await store.meta(.keepOffline, as: Bool.self) == false)
-        #expect(!model.keepsOffline)
+        #expect(model.keepsOffline == false)
         #expect(counter.count == 1)
     }
 
@@ -400,7 +400,7 @@ private func instrumentSummary(_ model: SettingsModel) -> String {
         let model = try await loadedModel(store, engine: engine)
         #expect(engine.lastSyncedAt == nil)
         #expect(await model.syncNow())
-        #expect(!model.isSyncing)
+        #expect(model.isSyncing == false)
         #expect(engine.lastSyncedAt != nil)
     }
 
@@ -428,7 +428,7 @@ private func instrumentSummary(_ model: SettingsModel) -> String {
         try store.close()
         model.setPlays("guitar", true)
         try await eventually { model.instrumentsFailure != nil }
-        #expect(!model.plays("guitar"))
+        #expect(model.plays("guitar") == false)
         model.clearInstrumentsFailure()
         #expect(model.instrumentsFailure == nil)
     }
@@ -489,7 +489,7 @@ private func instrumentSummary(_ model: SettingsModel) -> String {
         let model = try await loadedModel(store)
         model.setSearches("spotify", false)
         // Shown before the write lands, so the toggle never springs back.
-        #expect(!model.searches("spotify"))
+        #expect(model.searches("spotify") == false)
         let rest = searchableProviders.filter { $0 != "spotify" }
         try await eventually { try await storedSettings(store)?.searchProviders == rest }
         #expect(try await store.pendingChangeCount() == 1)
@@ -532,7 +532,7 @@ private func instrumentSummary(_ model: SettingsModel) -> String {
         model.removeDownloads()
 
         try await eventually { model.removeDownloadsFailure != nil }
-        #expect(!model.isRemovingDownloads)
+        #expect(model.isRemovingDownloads == false)
     }
 }
 
@@ -707,7 +707,7 @@ private func instrumentSummary(_ model: SettingsModel) -> String {
                 for focus in [
                     ".focusEffectDisabled(", ".focusable(", ".defaultFocus(", "@FocusState", ".macFocusRing(",
                 ] {
-                    #expect(!rows.contains(focus), "\(name) holds \(focus)")
+                    #expect(rows.contains(focus) == false, "\(name) holds \(focus)")
                 }
             }
         }
@@ -723,8 +723,8 @@ private func instrumentSummary(_ model: SettingsModel) -> String {
             let stop = try #require(modifier.range(of: ".background("))
             let close = try #require(modifier.range(of: ".defaultFocus("))
             let onContent = modifier[content.upperBound..<stop.lowerBound]
-            #expect(!onContent.contains(".focusEffectDisabled()"))
-            #expect(!onContent.contains(".focusable("))
+            #expect(onContent.contains(".focusEffectDisabled()") == false)
+            #expect(onContent.contains(".focusable(") == false)
             let inStop = modifier[stop.upperBound..<close.lowerBound]
             #expect(inStop.contains(".focusable("))
             #expect(inStop.contains(".focusEffectDisabled()"))
@@ -742,9 +742,9 @@ private func instrumentSummary(_ model: SettingsModel) -> String {
                 let text = SourceScan.withoutComments(
                     SourceScan.withoutPreviews(try SourceScan.text(at: SourceScan.url(of: path))))
                 let mac = SourceScan.macCompiled(text)
-                #expect(!mac.contains("Form {"), "\(path) draws a grouped Form on the Mac")
-                #expect(!mac.contains("SettingsFieldRow("), "\(path) draws a Form row on the Mac")
-                #expect(!mac.contains("SettingsHelp("), "\(path) floats help over a card on the Mac")
+                #expect(mac.contains("Form {") == false, "\(path) draws a grouped Form on the Mac")
+                #expect(mac.contains("SettingsFieldRow(") == false, "\(path) draws a Form row on the Mac")
+                #expect(mac.contains("SettingsHelp(") == false, "\(path) floats help over a card on the Mac")
             }
         }
 
@@ -754,7 +754,7 @@ private func instrumentSummary(_ model: SettingsModel) -> String {
             let text = SourceScan.withoutComments(
                 try SourceScan.text(at: SourceScan.url(of: "Mac/MacSettingsRow.swift")))
             #expect(text.contains(".buttonStyle(.mac(role, size: .small))"))
-            #expect(!text.contains("MacCardButtonStyle"))
+            #expect(text.contains("MacCardButtonStyle") == false)
         }
 
         @Test func buttonsThatOpenMoreEndInAnEllipsis() {
@@ -830,7 +830,7 @@ private func instrumentSummary(_ model: SettingsModel) -> String {
         let text = SourceScan.withoutComments(
             try SourceScan.text(at: SourceScan.url(of: "Account/AccountSections.swift")))
         for name in ["ImportSheet", "ImportCopy", "ExportDataSheet"] {
-            #expect(!text.contains(name), "AccountSections names \(name)")
+            #expect(text.contains(name) == false, "AccountSections names \(name)")
         }
     }
 }

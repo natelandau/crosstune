@@ -49,6 +49,6 @@ import Testing
     @Test func choosingTheStatusInForceWritesNothing() async throws {
         let (_, catalog) = try await loadedCatalog(CatalogFilters(status: "learning"))
         StatusScope.choose("learning", in: catalog)
-        #expect(!catalog.isSavingFilters)
+        #expect(catalog.isSavingFilters == false)
     }
 }

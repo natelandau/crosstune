@@ -99,7 +99,7 @@ final class ChannelSetting {
 
         input.send(.interrupted)
         #expect(recorder.state == .paused)
-        #expect(!recorder.resumeAvailable)
+        #expect(recorder.resumeAvailable == false)
         await recorder.resume()
         #expect(input.resumed == 0)
 
@@ -111,7 +111,7 @@ final class ChannelSetting {
         try input.play(seconds: 1)
         #expect(input.resumed == 1)
         #expect(recorder.state == .recording)
-        #expect(!recorder.resumeAvailable)
+        #expect(recorder.resumeAvailable == false)
         #expect(abs(recorder.elapsed - 2) < 0.01)
     }
 
@@ -380,7 +380,7 @@ final class ChannelSetting {
         await recorder.discard()
 
         #expect(recorder.state == .idle)
-        #expect(!fileExists(CaptureFinisher(store: store).captureURL(id)))
+        #expect(fileExists(CaptureFinisher(store: store).captureURL(id)) == false)
         #expect(try await store.read { db in try RecordingFile.fetchCount(db) } == 0)
         #expect(try await store.read { db in try Recording.fetchCount(db) } == 0)
     }
@@ -402,7 +402,7 @@ final class ChannelSetting {
         await recorder.start(tuneID: nil)
 
         #expect(recorder.state == .idle)
-        #expect(!recorder.permissionDenied)
+        #expect(recorder.permissionDenied == false)
         #expect(recorder.errorMessage == Recorder.microphoneFailed)
         #expect(input.stopped)
         #expect(try await store.read { db in try RecordingFile.fetchCount(db) } == 0)
@@ -678,9 +678,9 @@ final class ChannelSetting {
         #expect(fileExists(capture))
 
         Recorder.active.remove(id)
-        #expect(!Recorder.isRecording(id))
+        #expect(Recorder.isRecording(id) == false)
         try await Recorder.discardUnfinishedCapture(id, in: store)
         #expect(try await row() == nil)
-        #expect(!fileExists(capture))
+        #expect(fileExists(capture) == false)
     }
 }

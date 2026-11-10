@@ -620,7 +620,7 @@ import Testing
 
         #expect(api.pushes.count == 1)
         #expect(api.pushes[0].contains { $0.id == tune.id })
-        #expect(!api.pushes[0].contains { $0.id == "r1" })
+        #expect(api.pushes[0].contains { $0.id == "r1" } == false)
         #expect(try await store.pendingChanges(limit: 10).map(\.rowID) == ["r1"])
 
         try await store.write { writer in try writer.tombstone(Recording.self, id: "r1", at: later(1_000)) }
@@ -735,7 +735,8 @@ import Testing
 
         let sent = api.pushes.flatMap { $0.map(\.id) }
         #expect(sent.contains(tune.id))
-        #expect(!sent.contains("r1") && !sent.contains("l1"))
+        #expect(sent.contains("r1") == false)
+        #expect(sent.contains("l1") == false)
         #expect(Set(try await store.pendingChanges(limit: 10).map(\.rowID)) == ["r1", "l1"])
     }
 
@@ -925,9 +926,9 @@ import Testing
     @Test func aPlanRefusalIsNotAnAuthFailure() {
         let premium = APIStatusError(status: 403, problemType: premiumRequiredProblem)
         #expect(isPlanRefusal(premium))
-        #expect(!isPlanRefusal(APIStatusError(status: 403)))
-        #expect(!isPlanRefusal(APIStatusError(status: 413, problemType: quotaProblem)))
-        #expect(!isAuthFailure(premium))
+        #expect(isPlanRefusal(APIStatusError(status: 403)) == false)
+        #expect(isPlanRefusal(APIStatusError(status: 413, problemType: quotaProblem)) == false)
+        #expect(isAuthFailure(premium) == false)
         #expect(isAuthFailure(APIStatusError(status: 403)))
         #expect(classifyFailure(premium, isOffline: false) == .error)
         #expect(syncFailureReason(premium) == .other)

@@ -70,9 +70,9 @@ private func step(
             IsolatePanel(value: .standard, isMono: isMono, outline: { nil }, isLive: false, onChange: { _ in })
         }
         #expect(panel(isMono: true).showsMonoNotice)
-        #expect(!panel(isMono: false).showsMonoNotice)
+        #expect(panel(isMono: false).showsMonoNotice == false)
         // Until the recording is measured, the stereo row shows.
-        #expect(!panel(isMono: nil).showsMonoNotice)
+        #expect(panel(isMono: nil).showsMonoNotice == false)
     }
 
     @Test func aLargeStepMovesAnEdgeByTheLargeStepWithinTheEndsAndTheShortestSpan() {

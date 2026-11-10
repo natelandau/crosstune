@@ -62,7 +62,7 @@ extension AttributeEditorTests {
         #expect(TuningRows.takesCapo("guitar"))
         #expect(TuningRows.takesCapo("five_string_banjo"))
         #expect(TuningRows.takesCapo("mandolin"))
-        #expect(!TuningRows.takesCapo("violin"))
+        #expect(TuningRows.takesCapo("violin") == false)
     }
 
     @Test func aTuningPickStaysOpenForTheCapoOnlyWhereThereIsOne() {

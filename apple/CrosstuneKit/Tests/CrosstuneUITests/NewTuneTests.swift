@@ -64,7 +64,7 @@ import Testing
 
         let created = try #require(await draft.leave())
 
-        #expect(!created.byReturn)
+        #expect(created.byReturn == false)
         #expect(try await liveTitles(store) == ["Angeline"])
         #expect(added.undoBannerItem?.message == AddedTuneUndo.added("Angeline"))
     }
@@ -237,7 +237,7 @@ import Testing
         drafts.opened(draft)
         // The page comes back before the leave of its last showing lands.
         drafts.opened(draft)
-        #expect(!drafts.closed(draft))
+        #expect(drafts.closed(draft) == false)
         #expect(drafts.open.count == 1)
 
         #expect(drafts.closed(draft))
@@ -245,7 +245,7 @@ import Testing
     }
 
     @Test func aQuitWithNoDraftOpenGoesAtOnce() {
-        #expect(!OpenDrafts().holdsQuit {})
+        #expect(OpenDrafts().holdsQuit {} == false)
     }
 
     // MARK: Where the draft opens

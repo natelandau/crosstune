@@ -237,7 +237,7 @@ import Testing
         #expect(added.undoBannerItem?.undo == nil)
         #expect(try await stored(store, tuneID) != nil)
         #expect(added.undone == nil)
-        #expect(!sink.captures.map(\.name).contains("tune_deleted"))
+        #expect(sink.captures.map(\.name).contains("tune_deleted") == false)
     }
 
     @Test func systemUndoCarriesTheSameUndoAndLeavesWithTheBanners() async throws {
@@ -253,7 +253,7 @@ import Testing
 
         #expect(added.undoBannerItem == nil)
         #expect(try await poll { try await stored(store, tuneID) == nil })
-        #expect(!undoManager.canUndo)
+        #expect(undoManager.canUndo == false)
     }
 
     @Test func systemUndoIsWithdrawnWithTheBannersOnceWorkAttaches() async throws {
@@ -270,7 +270,7 @@ import Testing
             in: store)
 
         #expect(try await poll { added.undoBannerItem?.undo == nil })
-        #expect(!undoManager.canUndo)
+        #expect(undoManager.canUndo == false)
     }
 
     @Test func theBannersUndoTakesTheSystemUndoWithIt() async throws {
@@ -285,7 +285,7 @@ import Testing
         added.undoBannerItem?.undo?()
 
         #expect(try await poll { try await stored(store, tuneID) == nil })
-        #expect(!undoManager.canUndo)
+        #expect(undoManager.canUndo == false)
     }
 
     @Test func anUndoOnATuneAlreadyDeletedReportsNothingMore() async throws {
@@ -310,7 +310,7 @@ import Testing
         try await Commands(store: store).deleteTune(tuneID)
 
         #expect(try await poll { added.undoBannerItem != nil && added.undoBannerItem?.undo == nil })
-        #expect(!undoManager.canUndo)
+        #expect(undoManager.canUndo == false)
         await added.undo(tuneID: tuneID, title: "Angeline", pressedAt: added.shownCount)
         #expect(added.undoBannerItem?.message == AddedTuneUndo.added("Angeline"))
         #expect(added.undone == nil)
@@ -331,7 +331,7 @@ import Testing
         deadline.pass()
 
         #expect(try await poll { added.undoBannerItem == nil })
-        #expect(!undoManager.canUndo)
+        #expect(undoManager.canUndo == false)
         #expect(try await stored(store, tuneID) != nil)
     }
 

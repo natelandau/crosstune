@@ -117,9 +117,9 @@
             #expect(MacStyle.dockPlayDiameter <= MacStyle.paneIconWidth)
             let file = SourceScan.url(of: "Mac/PlayerDock.swift")
             let dock = SourceScan.macOSRegions(of: SourceScan.withoutComments(try SourceScan.text(at: file)), in: file)
-            #expect(!dock.contains("minimumTapTarget"))
+            #expect(dock.contains("minimumTapTarget") == false)
             // The shared play button frames itself to the touch target.
-            #expect(!dock.contains("RecordingPlayButton("))
+            #expect(dock.contains("RecordingPlayButton(") == false)
             #expect(dock.contains("MacStyle.dockPlayDiameter"))
         }
 
@@ -163,9 +163,9 @@
             for path in ["Mac/MacSidebar.swift", "Shell/SidebarSectionHeader.swift"] {
                 let file = SourceScan.url(of: path)
                 let text = SourceScan.withoutComments(try SourceScan.text(at: file))
-                #expect(!text.contains(".tint"), "\(path)")
-                #expect(!text.contains("Palette.brand"), "\(path)")
-                #expect(!text.contains("plus.circle"), "\(path)")
+                #expect(text.contains(".tint") == false, "\(path)")
+                #expect(text.contains("Palette.brand") == false, "\(path)")
+                #expect(text.contains("plus.circle") == false, "\(path)")
             }
         }
 
@@ -177,7 +177,7 @@
             let body = text[track.lowerBound...]
             #expect(body.contains("Palette.border"))
             #expect(body.contains("Palette.textTertiary"))
-            #expect(!body.contains(".quaternary"))
+            #expect(body.contains(".quaternary") == false)
         }
 
         @Test func glassFallsBackToAnOpaqueFillBeforeAnyMaterial() {

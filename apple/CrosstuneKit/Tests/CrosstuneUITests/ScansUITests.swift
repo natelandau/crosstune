@@ -57,7 +57,7 @@ private func jpeg(width: Int, height: Int) -> Data {
 
         #expect(layout.showsEmptyState)
         #expect(layout.canAdd)
-        #expect(!layout.showsEdit)
+        #expect(layout.showsEdit == false)
         #expect(layout.limitNote == nil)
     }
 
@@ -68,9 +68,9 @@ private func jpeg(width: Int, height: Int) -> Data {
         #expect(almost.showsEdit)
 
         let full = ScansSectionLayout(scanCount: maxScansPerTune)
-        #expect(!full.canAdd)
+        #expect(full.canAdd == false)
         #expect(full.limitNote == ScanCopy.limitNote)
-        #expect(!full.showsEmptyState)
+        #expect(full.showsEmptyState == false)
     }
 
     @Test func storageFullScanIsMarked() {
@@ -328,7 +328,7 @@ private func jpeg(width: Int, height: Int) -> Data {
 
         try await eventually { model.scans.scans.count == maxScansPerTune }
         #expect(model.scans.failure == ScanCopy.scansNotAdded(3))
-        #expect(!model.scans.isAdding)
+        #expect(model.scans.isAdding == false)
     }
 
     @MainActor
@@ -484,13 +484,13 @@ private struct ScannedTunes {
 
         try await eventually { fixture.plan.plan.kind == .free }
         try await eventually { a.scans.scans.count == 2 && b.scans.scans.count == 2 }
-        #expect(!a.scans.opens)
-        #expect(!b.scans.opens)
+        #expect(a.scans.opens == false)
+        #expect(b.scans.opens == false)
 
         let locked = a.scans.layout
         #expect(locked.dimsScans)
         #expect(locked.gatesAdd)
-        #expect(!locked.showsReorder)
+        #expect(locked.showsReorder == false)
         // Edit mode still deletes.
         #expect(locked.showsEdit)
     }
@@ -504,8 +504,8 @@ private struct ScannedTunes {
         #expect(a.scans.opens)
         #expect(b.scans.opens)
         let open = b.scans.layout
-        #expect(!open.dimsScans)
-        #expect(!open.gatesAdd)
+        #expect(open.dimsScans == false)
+        #expect(open.gatesAdd == false)
         #expect(open.showsReorder)
     }
 
@@ -519,7 +519,7 @@ private struct ScannedTunes {
         let model = TuneModel(store: store, tuneID: tuneID, plan: plan)
 
         try await eventually { plan.plan.kind == .free && model.scans.isLoaded }
-        #expect(!model.scans.opens)
+        #expect(model.scans.opens == false)
         #expect(model.scans.layout.gatesAdd)
     }
 
@@ -627,8 +627,8 @@ private struct ScannedTunes {
         let fixture = try await ScannedTunes(source: nil)
         let presenter = PremiumPresenter(plan: fixture.plan, analytics: .noop)
         var actions = TuneScreenActions()
-        #expect(!ScansSection.tileActs(opens: true, actions: actions, premium: presenter))
-        #expect(!ScansSection.tileActs(opens: false, actions: actions, premium: nil))
+        #expect(ScansSection.tileActs(opens: true, actions: actions, premium: presenter) == false)
+        #expect(ScansSection.tileActs(opens: false, actions: actions, premium: nil) == false)
         #expect(ScansSection.tileActs(opens: false, actions: actions, premium: presenter))
         actions.viewScans = { _, _, _ in }
         #expect(ScansSection.tileActs(opens: true, actions: actions, premium: nil))

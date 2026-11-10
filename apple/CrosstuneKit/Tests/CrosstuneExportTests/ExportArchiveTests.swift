@@ -260,8 +260,8 @@ private final class Calls: @unchecked Sendable {
         beforeWriting: { pinned.set(pinnedNames(in: work)) })
 
     #expect(pinned.names.count == 1)
-    #expect(!pinned.names.contains("\(deleted.id).m4a"))
-    #expect(!pinned.names.contains("\(orphanID).m4a"))
+    #expect(pinned.names.contains("\(deleted.id).m4a") == false)
+    #expect(pinned.names.contains("\(orphanID).m4a") == false)
 }
 
 @Test func aPinnedFileThatCannotBeRemovedLeavesTheZipInPlace() async throws {
@@ -311,7 +311,7 @@ private func setImmutable(_ immutable: Bool, inFolder folder: URL) throws {
 
     ExportArchive.removeLeftovers(root: work)
 
-    #expect(!FileManager.default.fileExists(atPath: work.path(percentEncoded: false)))
+    #expect(FileManager.default.fileExists(atPath: work.path(percentEncoded: false)) == false)
 }
 
 #if os(macOS)
@@ -522,7 +522,7 @@ private func storeMissingFourFiles(_ root: TemporaryRoot) async throws -> Crosst
             },
             progress: { _, _ in })
     }
-    #expect(!outlived.isSet)
+    #expect(outlived.isSet == false)
     #expect(contents(work).isEmpty)
 }
 

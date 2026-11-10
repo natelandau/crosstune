@@ -22,8 +22,8 @@
         @Test func styleNeverReadsWindowActiveState() throws {
             let file = SourceScan.files().first { $0.lastPathComponent == "MacButtonStyle.swift" }
             let text = SourceScan.withoutComments(try SourceScan.text(at: try #require(file)))
-            #expect(!text.contains("controlActiveState"))
-            #expect(!text.contains("appearsActive"))
+            #expect(text.contains("controlActiveState") == false)
+            #expect(text.contains("appearsActive") == false)
         }
 
         private static let states: [MacPressState] = [.rest, .hover, .pressed]
@@ -209,9 +209,9 @@
         /// the control fill take a hairline edge there; dark and the page background draw none.
         @Test func onlyALightSurfaceEdgesItsControls() {
             #expect(MacContainer.surface.strokesControls(.light))
-            #expect(!MacContainer.surface.strokesControls(.dark))
-            #expect(!MacContainer.pageBackground.strokesControls(.light))
-            #expect(!MacContainer.pageBackground.strokesControls(.dark))
+            #expect(MacContainer.surface.strokesControls(.dark) == false)
+            #expect(MacContainer.pageBackground.strokesControls(.light) == false)
+            #expect(MacContainer.pageBackground.strokesControls(.dark) == false)
             for role in MacButtonStyle.Role.allCases {
                 #expect(MacButtonStyle.strokesOn(role) == (role == .destructive), "\(role)")
             }

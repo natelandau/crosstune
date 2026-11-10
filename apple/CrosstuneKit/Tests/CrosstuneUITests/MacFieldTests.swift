@@ -100,7 +100,7 @@
             let chains = Self.textFieldChains(in: text)
             #expect(chains.count == 2)
             #expect(chains[0].contains(".labelsHidden()"))
-            #expect(!chains[1].contains(".labelsHidden()"))
+            #expect(chains[1].contains(".labelsHidden()") == false)
         }
 
         /// The system search field draws apart from the app's own, so a Mac sheet searches with
@@ -137,7 +137,7 @@
             let width: CGFloat = 300
             let slot = PaneBarLayout.slotWidth(icons: 2)
             let wide = PaneBarLayout.leadingRoom(width: width, slot: slot, trailing: 260, count: 1)
-            #expect(!wide.sharesLine)
+            #expect(wide.sharesLine == false)
             #expect(wide.each == width - slot - PaneBarLayout.spacing)
         }
 
@@ -147,7 +147,7 @@
             let room = PaneBarLayout.leadingRoom(
                 width: width, slot: PaneBarLayout.slotWidth(icons: 2), trailing: 36, count: 1)
             #expect(room.each == width)
-            #expect(!room.sharesLine)
+            #expect(room.sharesLine == false)
         }
 
         /// The filters control at rest is a glyph in secondary text; set, it is a set chip whose
@@ -233,13 +233,13 @@
                 "Mac/MacStepper.swift", "Mac/MacRowStyle.swift", "Components/FilterSearchField.swift",
             ] {
                 let text = SourceScan.withoutComments(try SourceScan.text(at: SourceScan.url(of: name)))
-                #expect(!text.contains("Palette.field"), "\(name)")
+                #expect(text.contains("Palette.field") == false, "\(name)")
                 #expect(text.contains("@Environment(\\.macContainer)"), "\(name)")
                 #expect(text.contains(".macControlEdge("), "\(name)")
             }
             let stepper = SourceScan.withoutComments(
                 try SourceScan.text(at: SourceScan.url(of: "Mac/MacStepper.swift")))
-            #expect(!stepper.contains(try Regex(#"\?\s*Palette\.border\b"#)))
+            #expect(stepper.contains(try Regex(#"\?\s*Palette\.border\b"#)) == false)
             #expect(stepper.contains("MacPressState"))
         }
 
@@ -265,8 +265,8 @@
         @Test func searchFieldDrawsNoGlass() throws {
             let file = try #require(SourceScan.files().first { $0.lastPathComponent == "FilterSearchField.swift" })
             let text = SourceScan.withoutComments(try SourceScan.text(at: file))
-            #expect(!text.contains("macGlass"))
-            #expect(!text.contains("glassEffect"))
+            #expect(text.contains("macGlass") == false)
+            #expect(text.contains("glassEffect") == false)
             #expect(text.contains("container.controlColor"))
         }
     }

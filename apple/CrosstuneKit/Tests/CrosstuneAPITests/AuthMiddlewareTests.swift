@@ -87,7 +87,7 @@ let baseURL = URL(string: "https://api.example.test")!
     #expect(response.status == .ok)
     #expect(tokens.refreshes == [false, true])
     #expect(server.seen.map { $0.headerFields[.authorization] } == ["Bearer token-1", "Bearer token-2"])
-    #expect(!flag.isRaised)
+    #expect(flag.isRaised == false)
 }
 
 @Test func reportsASessionTheAPIKeepsRejecting() async throws {
@@ -142,7 +142,7 @@ func problemServer(type: String) -> @Sendable (HTTPRequest, HTTPBody?, URL) asyn
 
     #expect(response.status == .unauthorized)
     #expect(deleted.isRaised)
-    #expect(!rejected.isRaised)
+    #expect(rejected.isRaised == false)
     #expect(tokens.refreshes == [false])
     // The body is handed on intact, so the generated client still decodes the problem.
     let text = try await String(collecting: try #require(body), upTo: 1024)
@@ -159,7 +159,7 @@ func problemServer(type: String) -> @Sendable (HTTPRequest, HTTPBody?, URL) asyn
     _ = try await middleware.intercept(
         request, body: nil, baseURL: baseURL, operationID: "me", next: problemServer(type: "about:blank"))
 
-    #expect(!deleted.isRaised)
+    #expect(deleted.isRaised == false)
     #expect(rejected.isRaised)
 }
 
@@ -182,7 +182,7 @@ struct StreamBroke: Error {}
 
     let (response, accountDeleted) = await AuthMiddleware.readingProblem((HTTPResponse(status: .unauthorized), body))
 
-    #expect(!accountDeleted)
+    #expect(accountDeleted == false)
     #expect(response.0.status == .unauthorized)
     #expect(served.withLock { $0 } < chunkCount / 2)
 }
@@ -192,7 +192,7 @@ struct StreamBroke: Error {}
 
     let (response, accountDeleted) = await AuthMiddleware.readingProblem((HTTPResponse(status: .unauthorized), body))
 
-    #expect(!accountDeleted)
+    #expect(accountDeleted == false)
     #expect(response.1 === body)
 }
 
@@ -205,7 +205,7 @@ struct StreamBroke: Error {}
 
     let (response, accountDeleted) = await AuthMiddleware.readingProblem((HTTPResponse(status: .unauthorized), body))
 
-    #expect(!accountDeleted)
+    #expect(accountDeleted == false)
     #expect(response.0.status == .unauthorized)
 }
 
@@ -241,7 +241,7 @@ func a426ReportsUpdateRequiredWithoutRetrying(operationID: String) async throws 
     #expect(response.status == .upgradeRequired)
     #expect(server.seen.count == 1)
     #expect(required.count == 1)
-    #expect(!rejected.isRaised)
+    #expect(rejected.isRaised == false)
     #expect(tokens.refreshes == [false])
 }
 
@@ -259,5 +259,5 @@ func a426ReportsUpdateRequiredWithoutRetrying(operationID: String) async throws 
     #expect(response.status == .upgradeRequired)
     #expect(server.seen.count == 2)
     #expect(required.count == 1)
-    #expect(!rejected.isRaised)
+    #expect(rejected.isRaised == false)
 }

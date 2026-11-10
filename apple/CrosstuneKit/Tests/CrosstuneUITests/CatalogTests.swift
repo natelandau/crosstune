@@ -102,10 +102,10 @@ private let blankAndSentinel = CatalogSearch.entries(
 
     @Test func tellsWhichValuesCanBeAFilter() {
         #expect(CatalogSearch.isFilterValue("Irish", for: .genre))
-        #expect(!CatalogSearch.isFilterValue(" ALL ", for: .genre))
-        #expect(!CatalogSearch.isFilterValue("\u{300}", for: .genre))
+        #expect(CatalogSearch.isFilterValue(" ALL ", for: .genre) == false)
+        #expect(CatalogSearch.isFilterValue("\u{300}", for: .genre) == false)
         #expect(CatalogSearch.isFilterValue("None", for: .genre))
-        #expect(!CatalogSearch.isFilterValue("n\u{F3}ne", for: .key))
+        #expect(CatalogSearch.isFilterValue("n\u{F3}ne", for: .key) == false)
     }
 
     @Test func filtersByStatusAndEachFacet() {
@@ -229,7 +229,7 @@ private let blankAndSentinel = CatalogSearch.entries(
         set[0].remove(&removed)
         #expect(removed == CatalogFilters(status: "known", facets: [.key: "D", .genre: "Irish"], archived: true))
         set[2].remove(&removed)
-        #expect(!removed.archived)
+        #expect(removed.archived == false)
     }
 
     @Test func namesTheFieldOnAComposerOrLearnedFromCapsuleSoOnePersonStaysApart() {
@@ -313,7 +313,7 @@ private let blankAndSentinel = CatalogSearch.entries(
     }
 
     @Test func neverOffersAllAsALearnedFrom() {
-        #expect(!CatalogSearch.isFilterValue("All", for: .learnedFrom))
+        #expect(CatalogSearch.isFilterValue("All", for: .learnedFrom) == false)
         let all = CatalogSearch.entries(tunes: [tune("x", "X")], userTunes: [userTune("xu", "x", learnedFrom: "All")])
         #expect(CatalogSearch.facetValues(all)[.learnedFrom] == [])
     }
@@ -322,7 +322,8 @@ private let blankAndSentinel = CatalogSearch.entries(
         #expect(CatalogFacet.all.suffix(4) == [.genre, .timeSignature, .composer, .learnedFrom])
         let values = CatalogSearch.facetValues(entries)
         #expect(CatalogSearch.visibleFacets(values, instruments: []) == [.composer, .learnedFrom])
-        #expect(!CatalogFacet.onScreen.contains(.composer) && !CatalogFacet.onScreen.contains(.learnedFrom))
+        #expect(CatalogFacet.onScreen.contains(.composer) == false)
+        #expect(CatalogFacet.onScreen.contains(.learnedFrom) == false)
         #expect(CatalogFacet.composer.label == TuneFieldLabels.composer)
         #expect(CatalogFacet.learnedFrom.label == TuneFieldLabels.learnedFrom)
     }
@@ -347,7 +348,7 @@ private let blankAndSentinel = CatalogSearch.entries(
 
     @Test func missingLearnedFromReadsTheUsersRow() {
         let held = CatalogSearch.entries(tunes: [tune("m", "M")], userTunes: [userTune("mu", "m", learnedFrom: "Sam")])
-        #expect(!MissingAttribute.facet(.learnedFrom).isMissing(in: held[0]))
+        #expect(MissingAttribute.facet(.learnedFrom).isMissing(in: held[0]) == false)
         #expect(MissingAttribute.facet(.learnedFrom).isMissing(in: catalog[0]))
     }
 }
@@ -387,13 +388,13 @@ private let blankAndSentinel = CatalogSearch.entries(
                     .facet(.key), .facet(.mode), .facet(.genre), .facet(.composer), .facet(.tuning("violin")), .audio,
                 ])
         let silent = CatalogSearch.entries(tunes: [tune("a", "A")], userTunes: [userTune("ua", "a")], withAudio: [])
-        #expect(!CatalogSearch.missingChoices(silent).contains(.audio))
+        #expect(CatalogSearch.missingChoices(silent).contains(.audio) == false)
     }
 
     @Test func offersAMissingTuningOnlyForAPlayedInstrument() {
         let violin = CatalogOverview(entries: catalog, instruments: ["violin"]).missingChoices
         #expect(violin.contains(.facet(.tuning("violin"))))
-        #expect(!violin.contains(.facet(.tuning("five_string_banjo"))))
+        #expect(violin.contains(.facet(.tuning("five_string_banjo"))) == false)
         #expect(CatalogOverview(entries: catalog, instruments: []).missingChoices.allSatisfy { $0.tuningFacet == nil })
     }
 
@@ -414,7 +415,7 @@ private let blankAndSentinel = CatalogSearch.entries(
 
     @Test func neverOffersOrMatchesAudioOnEntriesReadWithoutIt() {
         let unread = CatalogSearch.entries(tunes: [tune("a", "A")], userTunes: [userTune("ua", "a")])
-        #expect(!CatalogSearch.missingChoices(unread).contains(.audio))
+        #expect(CatalogSearch.missingChoices(unread).contains(.audio) == false)
         #expect(CatalogSearch.filter(unread, by: CatalogFilters(missing: .audio)).isEmpty)
     }
 
@@ -769,7 +770,8 @@ private let blankAndSentinel = CatalogSearch.entries(
 
         model.updateFilters { $0.status = "learning" }
         let learning = try #require(model.results?.visible)
-        #expect(!learning.isEmpty && learning.count < all.count)
+        #expect(learning.isEmpty == false)
+        #expect(learning.count < all.count)
         #expect(learning.allSatisfy { $0.userTune.status == "learning" })
         #expect(try learning.map(\.tune.id) == fresh())
         model.query = "a"
@@ -935,10 +937,10 @@ private let blankAndSentinel = CatalogSearch.entries(
         /// A row draws selected for the selection while it lasts, else for the detail column's tune.
         @MainActor @Test func aRowKnowsItIsSelected() {
             var selection = TuneSelection()
-            #expect(!TuneSelection.rowIsSelected("a", selection: selection, detailTune: nil))
+            #expect(TuneSelection.rowIsSelected("a", selection: selection, detailTune: nil) == false)
             selection.enter(with: "a")
             #expect(TuneSelection.rowIsSelected("a", selection: selection, detailTune: nil))
-            #expect(!TuneSelection.rowIsSelected("b", selection: selection, detailTune: nil))
+            #expect(TuneSelection.rowIsSelected("b", selection: selection, detailTune: nil) == false)
         }
     }
 #endif

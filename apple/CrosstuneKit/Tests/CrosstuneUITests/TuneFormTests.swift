@@ -123,14 +123,14 @@ private func entry(_ tuning: String? = nil, capo: Int64? = nil) -> JSONValue {
 
     @Test func addsAPartRowOnlyOnceTheLastHoldsAModeAndUpToTheLimit() {
         var values = TuneFormValues()
-        #expect(!values.canAddModeRow)
+        #expect(values.canAddModeRow == false)
         values.setMode("major", part: 0)
         #expect(values.canAddModeRow)
         values.addModeRow()
         #expect(values.modeRows == ["major", ""])
-        #expect(!values.canAddModeRow)
+        #expect(values.canAddModeRow == false)
         values.modes = ["major", "minor", "dorian", "major"]
-        #expect(!values.canAddModeRow)
+        #expect(values.canAddModeRow == false)
     }
 
     @Test func removesAPartRowAndKeepsTheRest() {
@@ -271,7 +271,7 @@ private func entry(_ tuning: String? = nil, capo: Int64? = nil) -> JSONValue {
         let types = TuneSuggestions.types(genre: "", tunes: [tune("a", type: "polka")])
         #expect(types.first == "Polka")
         #expect(types.count(where: { $0 == "Polka" }) == 1)
-        #expect(!types.contains("polka"))
+        #expect(types.contains("polka") == false)
     }
 
     @Test func keepsACustomTypeTheCatalogUses() {
@@ -316,7 +316,7 @@ private func entry(_ tuning: String? = nil, capo: Int64? = nil) -> JSONValue {
 
     @Test func offersEveryOtherKeyUnderMoreKeysInOrder() {
         #expect(KeyChooser.more(chosen: "") == ["A#", "Ab", "C#", "D#", "Db", "F#", "G#", "Gb"])
-        #expect(!KeyChooser.more(chosen: "F#").contains("F#"))
+        #expect(KeyChooser.more(chosen: "F#").contains("F#") == false)
     }
 
     @Test func clearsTheKeyWhenTheChosenPillIsPressed() {
@@ -494,10 +494,10 @@ private func entry(_ tuning: String? = nil, capo: Int64? = nil) -> JSONValue {
         try await seed(store, tunes: [stored])
         let model = try await editing(store, stored.id)
 
-        #expect(!model.isEdited)
+        #expect(model.isEdited == false)
         #expect(model.canSave)
         model.setTitle(" ")
-        #expect(!model.canSave)
+        #expect(model.canSave == false)
         #expect(await model.save() == nil)
         #expect(model.validation == TuneFormModel.titleRequired)
         model.setTitle("Angeline the Baker")
@@ -515,7 +515,7 @@ private func entry(_ tuning: String? = nil, capo: Int64? = nil) -> JSONValue {
 
         #expect(model.hasTitle)
         model.setTitle(" ")
-        #expect(!model.hasTitle)
+        #expect(model.hasTitle == false)
         model.setTitle("Angeline the Baker")
         #expect(model.hasTitle)
     }
@@ -532,7 +532,7 @@ private func entry(_ tuning: String? = nil, capo: Int64? = nil) -> JSONValue {
 
         #expect(await model.save() == stored.id)
         #expect(await model.save() == nil)
-        #expect(!model.canSave)
+        #expect(model.canSave == false)
 
         let saved = try await store.read { db in
             (try Tune.fetchAll(db), try UserTune.fetchAll(db))
@@ -555,7 +555,7 @@ private func entry(_ tuning: String? = nil, capo: Int64? = nil) -> JSONValue {
         let model = try await editing(store, stored.id)
         model.values.tunings["guitar"] = TuningValues(tuning: "", capo: nil)
         model.values.composer = ""
-        #expect(!model.isEdited)
+        #expect(model.isEdited == false)
         model.values.tunings["guitar"]?.capo = 2
         #expect(model.isEdited)
     }
@@ -573,7 +573,7 @@ private func entry(_ tuning: String? = nil, capo: Int64? = nil) -> JSONValue {
         let model = TuneFormModel(store: store, target: .edit(tuneID: stored.id, userTuneID: userTuneID))
         await model.load()
         #expect(model.tuningInstruments == ["violin", "guitar"])
-        #expect(!model.isEdited)
+        #expect(model.isEdited == false)
 
         // Written from elsewhere while the form is open: a field the form leaves alone keeps it.
         try await store.write { writer in try writer.updateTune(stored.id, patch: TunePatch(genre: .value("Irish"))) }
@@ -595,7 +595,7 @@ private func entry(_ tuning: String? = nil, capo: Int64? = nil) -> JSONValue {
         let model = TuneFormModel(store: store, target: .edit(tuneID: "missing", userTuneID: "missing"))
         await model.load()
         #expect(model.phase == .gone)
-        #expect(!model.canSave)
+        #expect(model.canSave == false)
     }
 
     @Test func showsATuningRowForAnUnplayedInstrumentOnlyWhenTheTuneHoldsOne() {
@@ -625,13 +625,13 @@ private func entry(_ tuning: String? = nil, capo: Int64? = nil) -> JSONValue {
         #expect(BulkStatusField.chosen(form) == "known")
         let same = BulkEditForm(entries: [bulkEntry(status: "known")], instruments: [])
         #expect(BulkStatusField.chosen(same) == "known")
-        #expect(!same.isEdited)
+        #expect(same.isEdited == false)
     }
 
     @Test func aBulkChoiceIsTouchedOnlyWhenItChangesATune() {
         var form = BulkEditForm(entries: [bulkEntry(status: "known")], instruments: [])
         BulkStatusField.choose("known", in: &form)
-        #expect(!form.isEdited)
+        #expect(form.isEdited == false)
         BulkStatusField.choose("learning", in: &form)
         #expect(form.touched[.status] == .text("learning"))
     }

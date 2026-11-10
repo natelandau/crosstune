@@ -153,7 +153,7 @@ private struct RefusingSyncAPI: SyncAPI {
         #expect(arrangement.filed == .flat(filedViews(arrangement)))
         #expect(filedViews(arrangement).map(\.id) == ["filed"])
         #expect(filedViews(arrangement).first?.tuneTitle == "Kitchen Girl")
-        #expect(!model.hasNoRecordings)
+        #expect(model.hasNoRecordings == false)
         #expect(model.unfinished.map(\.id) == ["stuck"])
         // The header counts every live recording, whatever the source or search narrows it to.
         #expect(model.countLabel(arrangement) == "3 recordings")
@@ -236,7 +236,7 @@ private struct RefusingSyncAPI: SyncAPI {
         let model = RecordingsModel(store: store)
         try await eventually { model.arrangement(.default) != nil }
         #expect(model.sourceOptions == ["all", "own"])
-        #expect(!model.showsFilters)
+        #expect(model.showsFilters == false)
         await model.setChoice("own")
         #expect(model.showsFilters)
         #expect(model.filterCount == 1)
@@ -246,10 +246,10 @@ private struct RefusingSyncAPI: SyncAPI {
         let root = TemporaryRoot()
         let store = try root.open()
         let model = RecordingsModel(store: store)
-        #expect(!model.showsFilters)
+        #expect(model.showsFilters == false)
         try await eventually { model.arrangement(.default) != nil }
-        #expect(!model.showsFilters)
-        #expect(!model.showsNothingMatches(model.arrangement(.default)))
+        #expect(model.showsFilters == false)
+        #expect(model.showsNothingMatches(model.arrangement(.default)) == false)
     }
 
     @Test func saysNothingMatchesWhenASearchNarrowsToNothing() async throws {
@@ -258,7 +258,7 @@ private struct RefusingSyncAPI: SyncAPI {
         try await putRecording(store, "mine", label: "Waltz")
         let model = RecordingsModel(store: store)
         try await eventually { model.arrangement(.default) != nil }
-        #expect(!model.showsNothingMatches(model.arrangement(.default)))
+        #expect(model.showsNothingMatches(model.arrangement(.default)) == false)
         model.query = "reel"
         #expect(model.showsNothingMatches(model.arrangement(.default)))
     }
@@ -273,7 +273,7 @@ private struct RefusingSyncAPI: SyncAPI {
         let model = RecordingsModel(store: store)
         try await eventually { model.arrangement(.default) != nil }
         #expect(model.hasNoRecordings)
-        #expect(!model.showsNothingMatches(model.arrangement(.default)))
+        #expect(model.showsNothingMatches(model.arrangement(.default)) == false)
         model.query = "waltz"
         #expect(model.showsNothingMatches(model.arrangement(.default)))
         model.query = ""
@@ -295,14 +295,14 @@ private struct RefusingSyncAPI: SyncAPI {
         await model.setChoice("own")
         #expect(model.showsUnfinished)
         // Captures are the musician's own, and match no search.
-        #expect(!model.showsNothingMatches(model.arrangement(.default)))
+        #expect(model.showsNothingMatches(model.arrangement(.default)) == false)
         model.query = "  "
         #expect(model.showsUnfinished)
         model.query = "waltz"
-        #expect(!model.showsUnfinished)
+        #expect(model.showsUnfinished == false)
         model.query = ""
         await model.setChoice("slippery_hill")
-        #expect(!model.showsUnfinished)
+        #expect(model.showsUnfinished == false)
     }
 
     @Test func opensOnlyWebPagesOfAnImport() {
@@ -372,7 +372,7 @@ private struct RefusingSyncAPI: SyncAPI {
         await model.discard(try #require(model.unfinished.first))
         #expect(model.failure == nil)
         try await eventually { model.unfinished.isEmpty }
-        #expect(!FileManager.default.fileExists(atPath: audio.path(percentEncoded: false)))
+        #expect(FileManager.default.fileExists(atPath: audio.path(percentEncoded: false)) == false)
     }
 
     @Test func deletesARecording() async throws {
@@ -481,7 +481,7 @@ private struct RefusingSyncAPI: SyncAPI {
             let file = SourceScan.url(of: "Recordings/RecordingsScreen.swift")
             let mac = SourceScan.macOSRegions(of: SourceScan.withoutComments(try SourceScan.text(at: file)))
             #expect(mac.contains(".macColumnList()"))
-            #expect(!mac.contains(".listStyle(.plain)"))
+            #expect(mac.contains(".listStyle(.plain)") == false)
         }
     #endif
 
@@ -537,11 +537,11 @@ private struct RefusingSyncAPI: SyncAPI {
             glyph: .play, title: "Take 1", secondLine: .text("1:02"), actionLabel: "Play", action: {},
             sourceLine: MediaRow.SourceLine(title: "Slippery-Hill", url: page),
             retry: MediaRow.Retry(name: "Retry Take 1", action: {}))
-        #expect(!sourceOnly.stacksLineControls, "one line reaches into the row's space without growing it")
+        #expect(sourceOnly.stacksLineControls == false, "one line reaches into the row's space without growing it")
         let tuneOnly = MediaRow(
             glyph: .play, title: "Take 1", secondLine: .text("1:02"), actionLabel: "Play", action: {},
             tuneLine: MediaRow.TuneLine(title: "Soldier's Joy", action: {}))
-        #expect(!tuneOnly.stacksLineControls)
+        #expect(tuneOnly.stacksLineControls == false)
         #expect(
             MediaRow.SourceLine(title: "Slippery-Hill", url: page).name == RecordingRowActions.openOn("Slippery-Hill"))
     }
@@ -628,7 +628,7 @@ private struct RefusingSyncAPI: SyncAPI {
             placeLat: 36.66, placeLon: -80.92, placeAccuracyM: 12)
         try await store.write { writer in try writer.put(captured, at: noon) }
         let edit = RecordingLocationEdit(store: store, recording: captured)
-        #expect(!edit.isEdited)
+        #expect(edit.isEdited == false)
         #expect(await edit.save())
         let saved = try await store.read { db in try Recording.fetchOne(db, key: "r1") }
         #expect(saved?.placeAccuracyM == 12)
@@ -644,9 +644,9 @@ private struct RefusingSyncAPI: SyncAPI {
         let edit = RecordingLocationEdit(store: store, recording: captured)
         #expect(edit.place == nil)
         #expect(edit.canClearPlace)
-        #expect(!edit.isEdited)
+        #expect(edit.isEdited == false)
         edit.clearPlace()
-        #expect(!edit.canClearPlace)
+        #expect(edit.canClearPlace == false)
         #expect(edit.isEdited)
         #expect(await edit.save())
         let saved = try #require(try await store.read { db in try Recording.fetchOne(db, key: "r1") })
@@ -659,7 +659,7 @@ private struct RefusingSyncAPI: SyncAPI {
         let root = TemporaryRoot()
         let store = try root.open()
         let bare = Recording(id: "r1", tuneID: nil, source: "microphone", addedAt: noon, state: "ready")
-        #expect(!RecordingLocationEdit(store: store, recording: bare).canClearPlace)
+        #expect(RecordingLocationEdit(store: store, recording: bare).canClearPlace == false)
         let named = Recording(
             id: "r2", tuneID: nil, source: "microphone", addedAt: noon, state: "ready", placeName: "Galax, VA",
             placeLat: 36.66, placeLon: -80.92)
@@ -702,7 +702,7 @@ private struct RefusingSyncAPI: SyncAPI {
         try await store.write { writer in try writer.put(synced, at: later(1_000)) }
 
         #expect(try await poll { edit.place?.name == "Galax, VA" })
-        #expect(!edit.isEdited)
+        #expect(edit.isEdited == false)
         #expect(edit.canClearPlace)
         #expect(await edit.save())
         let saved = try #require(try await store.read { db in try Recording.fetchOne(db, key: "r1") })
@@ -721,7 +721,7 @@ private struct RefusingSyncAPI: SyncAPI {
         let galax = RecordingPlace(name: "Galax, VA", coordinate: Coordinate(lat: 36.66, lon: -80.92))
         let search = LocationEditorModel(edit: edit, search: { FakePlaceSearch(near: $0) })
         #expect(search.edit.place == nil)
-        #expect(!search.isCurrent(galax))
+        #expect(search.isCurrent(galax) == false)
 
         var named = recording
         named.placeName = "Galax, VA"
@@ -756,7 +756,7 @@ private struct RefusingSyncAPI: SyncAPI {
 
         #expect(picked.place == spot)
         #expect(cleared.place == nil)
-        #expect(!cleared.canClearPlace)
+        #expect(cleared.canClearPlace == false)
         #expect(cleared.isEdited)
     }
 
@@ -792,7 +792,7 @@ private struct RefusingSyncAPI: SyncAPI {
         let edit = RecordingLocationEdit(store: store, recording: opened)
         let galax = RecordingPlace(name: "Galax, VA", coordinate: Coordinate(lat: 36.66, lon: -80.92))
         edit.setPlace(galax, method: .search)
-        #expect(!(await edit.save()))
+        #expect((await edit.save()) == false)
         #expect(edit.failure == CatalogModel.actionFailed)
         edit.clearPlace()
         #expect(edit.failure == nil)
@@ -1103,7 +1103,7 @@ private struct RefusingSyncAPI: SyncAPI {
         #expect(try await poll { edit.place?.name == "The barn" })
         #expect(edit.placeAddress == street)
         #expect(edit.canClearPlace)
-        #expect(!edit.isEdited)
+        #expect(edit.isEdited == false)
         #expect(await edit.save())
         let saved = try await stored(store)
         #expect(saved.placeID == "p1")
@@ -1223,7 +1223,7 @@ private struct RefusingSyncAPI: SyncAPI {
         #expect(try await poll { edit.place?.name == "The barn" })
         try await store.write { writer in try writer.deleteSavedPlace("p1", at: later(1_000)) }
         #expect(try await poll { edit.place?.name == street })
-        #expect(!edit.isEdited)
+        #expect(edit.isEdited == false)
         #expect(await edit.save())
         let saved = try await stored(store)
         #expect(saved.placeID == nil)
@@ -1343,7 +1343,7 @@ private struct RefusingSyncAPI: SyncAPI {
         named.nameLocation(" THE BARN ")
         #expect(await named.save())
         #expect(try await savedPlaces(store).map(\.id) == ["p1"])
-        #expect(!sink.captures.map(\.name).contains("saved_location_created"))
+        #expect(sink.captures.map(\.name).contains("saved_location_created") == false)
     }
 
     @Test func aSearchPickBeforeTheSavedPlacesAreReadStillLinksASavedVenue() async throws {
@@ -1364,7 +1364,7 @@ private struct RefusingSyncAPI: SyncAPI {
         #expect(await edit.save())
         #expect(try await savedPlaces(store).map(\.id) == ["p1"])
         #expect(try await stored(store).placeID == "p1")
-        #expect(!sink.captures.map(\.name).contains("saved_location_created"))
+        #expect(sink.captures.map(\.name).contains("saved_location_created") == false)
     }
 
     @Test func replacedReadsTheCurrentLocation() async throws {
@@ -1460,7 +1460,7 @@ private struct RefusingSyncAPI: SyncAPI {
         let name = try #require(file.peaksFileName)
         let peaks = try Peaks(file: Data(contentsOf: store.audioFolder.appending(path: name)))
         #expect(peaks.pointsPerSecond == Peaks.pointsPerSecond)
-        #expect(!peaks.values.isEmpty)
+        #expect(peaks.values.isEmpty == false)
     }
 
     @Test func aFailureAfterWritingBothFilesRemovesBoth() async throws {
@@ -1562,7 +1562,7 @@ private struct RefusingSyncAPI: SyncAPI {
 
         await transfers.download("r1")
         #expect(transfers.failedDownloads == ["r1"])
-        #expect(!transfers.isDownloading("r1"))
+        #expect(transfers.isDownloading("r1") == false)
 
         await transfers.download("r1")
         #expect(transfers.failedDownloads == ["r1"])
@@ -1578,7 +1578,8 @@ private struct RefusingSyncAPI: SyncAPI {
         // The tap stays, and the player refuses it.
         #expect(blocked.tap == .play)
         let free = RecordingRowContent(recording: recording, file: held, uploadLimits: nil, tuneTitle: nil)
-        #expect(!free.isDimmed && free.notice == nil)
+        #expect(free.isDimmed == false)
+        #expect(free.notice == nil)
         // Only a play is refused; a download row carries on as it was.
         let download = RecordingRowContent(
             recording: recording, file: nil, uploadLimits: nil, tuneTitle: nil, playBlocked: true)
@@ -1589,7 +1590,8 @@ private struct RefusingSyncAPI: SyncAPI {
         let linkRow = LinkRowContent(link: link, embeddable: true, playBlocked: true)
         #expect(linkRow.isDimmed && linkRow.notice == MediaText.stopRecordingToPlay && linkRow.tap == .play)
         let opened = LinkRowContent(link: link, embeddable: false, playBlocked: true)
-        #expect(!opened.isDimmed && opened.notice == nil)
+        #expect(opened.isDimmed == false)
+        #expect(opened.notice == nil)
     }
 
     /// The group heading's note asks this of each row, so it shows only where a row has it.
@@ -1597,8 +1599,8 @@ private struct RefusingSyncAPI: SyncAPI {
         let recording = Recording(id: "r1", tuneID: nil, source: "microphone", addedAt: noon, state: "ready")
         let held = RecordingFile(id: "r1", localState: .downloaded, fileName: "r1.m4a")
         #expect(RecordingRowContent.blocksPlay(recording, file: held, loaded: false, downloading: false))
-        #expect(!RecordingRowContent.blocksPlay(recording, file: held, loaded: true, downloading: false))
-        #expect(!RecordingRowContent.blocksPlay(recording, file: nil, loaded: false, downloading: false))
+        #expect(RecordingRowContent.blocksPlay(recording, file: held, loaded: true, downloading: false) == false)
+        #expect(RecordingRowContent.blocksPlay(recording, file: nil, loaded: false, downloading: false) == false)
         // The row and the heading agree.
         let row = RecordingRowContent(
             recording: recording, file: held, uploadLimits: nil, tuneTitle: nil, playBlocked: true)
@@ -1637,11 +1639,11 @@ private struct RefusingSyncAPI: SyncAPI {
         let root = TemporaryRoot()
         let store = try root.open()
         let host = RecorderHost()
-        #expect(!host.isCapturing)
+        #expect(host.isCapturing == false)
         _ = try #require(host.claim(for: store))
         #expect(host.isCapturing)
         host.release()
-        #expect(!host.isCapturing)
+        #expect(host.isCapturing == false)
     }
 }
 
@@ -1668,7 +1670,7 @@ private struct RefusingSyncAPI: SyncAPI {
         #expect(parts(draft("1937-01-01T00:00:00.000Z", .year)) == ["1937", "", ""])
         #expect(parts(draft("1998-05-01T00:00:00.000Z", .month)) == ["1998", "5", ""])
         #expect(parts(draft("1998-10-03T00:00:00.000Z", .day)) == ["1998", "10", "3"])
-        #expect(!draft("1937-01-01T00:00:00.000Z", .year).keepsTime)
+        #expect(draft("1937-01-01T00:00:00.000Z", .year).keepsTime == false)
     }
 
     @Test func opensARecordingAsTheLocalDayItShowsAndKeepsItsTime() {
@@ -1683,7 +1685,7 @@ private struct RefusingSyncAPI: SyncAPI {
         let unknown = draft()
         #expect(parts(unknown) == ["", "", ""])
         #expect(unknown.isEmpty)
-        #expect(!unknown.isChanged)
+        #expect(unknown.isChanged == false)
     }
 
     @Test func storesAYearAsUTCMidnightOnJanuaryFirst() throws {
@@ -1754,13 +1756,13 @@ private struct RefusingSyncAPI: SyncAPI {
 
     @Test func enablesMonthOnceAYearIsSetAndDayOnceAMonthIs() {
         var date = draft()
-        #expect(!date.isMonthEnabled)
-        #expect(!date.isDayEnabled)
+        #expect(date.isMonthEnabled == false)
+        #expect(date.isDayEnabled == false)
         date.setYear("199")
-        #expect(!date.isMonthEnabled)
+        #expect(date.isMonthEnabled == false)
         date.setYear("1998")
         #expect(date.isMonthEnabled)
-        #expect(!date.isDayEnabled)
+        #expect(date.isDayEnabled == false)
         date.setMonth(5)
         #expect(date.isDayEnabled)
     }
@@ -1811,19 +1813,19 @@ private struct RefusingSyncAPI: SyncAPI {
         #expect(kept.precision == .time)
         timed.setDay(2)
         #expect(timed.isChanged)
-        #expect(!timed.keepsTime)
+        #expect(timed.keepsTime == false)
         #expect(timed.keptTime == nil)
         let moved = try timed.resolved(now: now)
         #expect(moved.at == at("2026-10-02T00:00:00.000Z"))
         #expect(moved.precision == .day)
         timed.setDay(3)
-        #expect(!timed.isChanged)
+        #expect(timed.isChanged == false)
         #expect(timed.keepsTime)
     }
 
     @Test func clearsEveryPart() {
         var date = draft("1998-10-03T00:00:00.000Z", .day)
-        #expect(!date.isEmpty)
+        #expect(date.isEmpty == false)
         date.clear()
         #expect(parts(date) == ["", "", ""])
         #expect(date.isEmpty)
@@ -1934,7 +1936,7 @@ private struct RefusingSyncAPI: SyncAPI {
     @Test func aPlanThatPlaysLeavesTheRowAsItWas() {
         let row = RecordingRowContent(
             recording: recording, file: held, uploadLimits: nil, tuneTitle: nil, recordingsPlay: true)
-        #expect(!row.isDimmed)
+        #expect(row.isDimmed == false)
         #expect(row.tap == .play)
     }
 

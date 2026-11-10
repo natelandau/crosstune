@@ -37,7 +37,7 @@ private let presigned = "https://r2.example/a/b.m4a?X-Amz-Signature=abc&X-Amz-Da
 @Test func scrubsASingleBreadcrumb() {
     let crumb = Breadcrumb(level: .info, category: "navigation")
     crumb.message = presigned
-    #expect(!(scrub(crumb).message ?? "").contains("X-Amz-Signature"))
+    #expect((scrub(crumb).message ?? "").contains("X-Amz-Signature") == false)
 }
 
 @Test func keepsOnlyTheInstallID() {
@@ -90,7 +90,7 @@ private let presigned = "https://r2.example/a/b.m4a?X-Amz-Signature=abc&X-Amz-Da
 
     let json = try JSONSerialization.data(withJSONObject: scrub(event).serialize())
 
-    #expect(!String(decoding: json, as: UTF8.self).contains("X-Amz-Signature"))
+    #expect(String(decoding: json, as: UTF8.self).contains("X-Amz-Signature") == false)
 }
 
 @Test func scrubsAnUnderlyingErrorAndExtraInTheContext() throws {
@@ -102,7 +102,7 @@ private let presigned = "https://r2.example/a/b.m4a?X-Amz-Signature=abc&X-Amz-Da
 
     let json = try JSONSerialization.data(withJSONObject: scrub(event).serialize())
 
-    #expect(!String(decoding: json, as: UTF8.self).contains("X-Amz-Signature"))
+    #expect(String(decoding: json, as: UTF8.self).contains("X-Amz-Signature") == false)
 }
 
 @Test func scrubsTheMacUserNameFromAFilePath() throws {
@@ -124,7 +124,7 @@ private let presigned = "https://r2.example/a/b.m4a?X-Amz-Signature=abc&X-Amz-Da
     let data = try JSONSerialization.data(withJSONObject: scrub(event).serialize(), options: .withoutEscapingSlashes)
     let json = String(decoding: data, as: UTF8.self)
 
-    #expect(!json.contains("someone"))
+    #expect(json.contains("someone") == false)
     #expect(json.contains("/Users/…/Library/Containers"))
 }
 
@@ -163,7 +163,7 @@ private let presigned = "https://r2.example/a/b.m4a?X-Amz-Signature=abc&X-Amz-Da
     let data = try JSONSerialization.data(withJSONObject: scrubbed.serialize(), options: .withoutEscapingSlashes)
     let json = String(decoding: data, as: UTF8.self)
 
-    #expect(!json.contains("someone"))
+    #expect(json.contains("someone") == false)
     #expect(scrubbed.debugMeta?.first?.codeFile == "/Users/…/Downloads/Crosstune.app/Contents/MacOS/Crosstune")
     #expect(scrubbed.debugMeta?.first?.debugID == "8A2D3A6C-0D1B-3F3B-9C7E-3E4D5F6A7B8C")
     #expect(scrubbed.debugMeta?.first?.imageAddress == "0x0000000100000000")

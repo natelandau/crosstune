@@ -83,10 +83,10 @@ struct ControlGalleryTests {
     }
 
     @Test func aNameInsideAnotherNameIsNotAUse() {
-        #expect(!Self.uses("Chip", in: "ChipLabel(\"\", kind: .token)"))
+        #expect(Self.uses("Chip", in: "ChipLabel(\"\", kind: .token)") == false)
         #expect(Self.uses("Chip", in: "Chip(\"\", kind: .token) {}"))
         #expect(Self.uses("PaneTabs", in: "PaneTabs<Mode>(selection: $mode, tabs: [])"))
-        #expect(!Self.uses("IconButtonStyle", in: "Text(\"\")", shorthands: ["icon"]))
+        #expect(Self.uses("IconButtonStyle", in: "Text(\"\")", shorthands: ["icon"]) == false)
         #expect(Self.uses("IconButtonStyle", in: "Button {}.buttonStyle(.icon(.circled))", shorthands: ["icon"]))
     }
 

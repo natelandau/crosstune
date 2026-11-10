@@ -172,8 +172,8 @@ private func file(_ state: LocalFileState) -> RecordingFile {
     }
 
     @Test func offersLyricsOnlyWhenTheyHoldWords() {
-        #expect(!detail(Tune(createdAt: noon, title: "a")).hasLyrics)
-        #expect(!detail(Tune(createdAt: noon, title: "a", lyrics: " \n\t ")).hasLyrics)
+        #expect(detail(Tune(createdAt: noon, title: "a")).hasLyrics == false)
+        #expect(detail(Tune(createdAt: noon, title: "a", lyrics: " \n\t ")).hasLyrics == false)
         #expect(detail(Tune(createdAt: noon, title: "a", lyrics: "\nGrasshopper sitting")).hasLyrics)
     }
 
@@ -236,7 +236,7 @@ private func file(_ state: LocalFileState) -> RecordingFile {
     }
 
     @Test func theNextTuneArrivesOnceReadOrFailed() {
-        #expect(!TuneScreen.arrivalSettled(phase: .loading, readFailed: false))
+        #expect(TuneScreen.arrivalSettled(phase: .loading, readFailed: false) == false)
         #expect(TuneScreen.arrivalSettled(phase: .loading, readFailed: true))
         #expect(TuneScreen.arrivalSettled(phase: .gone, readFailed: false))
     }
@@ -287,7 +287,7 @@ private func file(_ state: LocalFileState) -> RecordingFile {
         try await eventually { model.shown != nil }
         await model.removeFromList(itemID: "sample_item_session_0", listID: SampleCatalog.lists[0].id)
         let failure = try #require(model.failure(at: .lists))
-        #expect(!failure.isEmpty)
+        #expect(failure.isEmpty == false)
         #expect(model.failure(at: .screen) == nil && model.failure(at: .media) == nil)
         #expect(model.shown?.lists.count == 1)
         // The next write clears it.
@@ -716,7 +716,8 @@ private func file(_ state: LocalFileState) -> RecordingFile {
         #expect(
             TunePageColumn.sections(worded, scans: 1, addLine: addLine, listsAtEnd: true)
                 == [.recordings, .lyrics, .scans, .notes, .lists])
-        #expect(!TunePageColumn.sections(worded, scans: 1, addLine: addLine, listsAtEnd: false).contains(.lists))
+        #expect(
+            TunePageColumn.sections(worded, scans: 1, addLine: addLine, listsAtEnd: false).contains(.lists) == false)
     }
 
     @Test func theLyricsSectionShowsVersesOnlyOnceOpened() {
@@ -731,13 +732,13 @@ private func file(_ state: LocalFileState) -> RecordingFile {
     @Test func theNotesStayInEditingWhileFocusIsOnTheirDone() {
         #expect(TextFieldDoneFocus.isEditing(.field))
         #expect(TextFieldDoneFocus.isEditing(.done))
-        #expect(!TextFieldDoneFocus.isEditing(nil))
+        #expect(TextFieldDoneFocus.isEditing(nil) == false)
     }
 
     @Test func moreSitsOnTheTitleRowOnTheMacAndAtRegularWidth() {
         #expect(TuneScreen.moreOnTitleRow(mac: true, compactWidth: false))
         #expect(TuneScreen.moreOnTitleRow(mac: false, compactWidth: false))
-        #expect(!TuneScreen.moreOnTitleRow(mac: false, compactWidth: true))
+        #expect(TuneScreen.moreOnTitleRow(mac: false, compactWidth: true) == false)
     }
 
     /// The swipe list sizes to its rows, so it never collapses before they lay out: a row not
@@ -752,7 +753,7 @@ private func file(_ state: LocalFileState) -> RecordingFile {
 
     @Test func anEmptyRecordingsSectionStartsWithTheCardAndNoHeadingAdd() {
         #expect(TunePageColumn.startsWithCard(detail()))
-        #expect(!TunePageColumn.startsWithCard(detail(links: [link])))
+        #expect(TunePageColumn.startsWithCard(detail(links: [link])) == false)
     }
 
     @Test func theStartCardOffersOnlyWhatCanAct() {
@@ -858,7 +859,7 @@ private func file(_ state: LocalFileState) -> RecordingFile {
     ])
     func noEmptyStateBlocks(path: String) throws {
         let text = SourceScan.withoutComments(try SourceScan.text(at: SourceScan.url(of: path)))
-        #expect(!text.contains("PageEmptyState"))
+        #expect(text.contains("PageEmptyState") == false)
     }
 
     /// The header's key tile and rename write through the opened tune's own model, so a save that

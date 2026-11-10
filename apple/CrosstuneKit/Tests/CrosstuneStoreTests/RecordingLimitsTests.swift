@@ -13,31 +13,32 @@ import Testing
     @Test func mustSplitOnlyWhenOverTheLimitAndNotSplitOrUploaded() {
         let row = Recording(tuneID: nil, source: "microphone")
         #expect(RecordingLimits.mustSplitToUpload(row, file: file(10_800_001), uploadLimits: nil))
-        #expect(!RecordingLimits.mustSplitToUpload(row, file: file(10_800_000), uploadLimits: nil))
-        #expect(!RecordingLimits.mustSplitToUpload(row, file: file(nil), uploadLimits: nil))
-        #expect(!RecordingLimits.mustSplitToUpload(row, file: nil, uploadLimits: nil))
-        #expect(!RecordingLimits.mustSplitToUpload(row, file: file(10_800_001, .uploaded), uploadLimits: nil))
+        #expect(RecordingLimits.mustSplitToUpload(row, file: file(10_800_000), uploadLimits: nil) == false)
+        #expect(RecordingLimits.mustSplitToUpload(row, file: file(nil), uploadLimits: nil) == false)
+        #expect(RecordingLimits.mustSplitToUpload(row, file: nil, uploadLimits: nil) == false)
+        #expect(RecordingLimits.mustSplitToUpload(row, file: file(10_800_001, .uploaded), uploadLimits: nil) == false)
         let split = Recording(tuneID: nil, source: "microphone", splitID: "s1")
-        #expect(!RecordingLimits.mustSplitToUpload(split, file: file(10_800_001), uploadLimits: nil))
+        #expect(RecordingLimits.mustSplitToUpload(split, file: file(10_800_001), uploadLimits: nil) == false)
     }
 
     @Test func mustSplitAnUnsplitFileOverThePerFileLimitEvenUnderThreeHours() {
         let row = Recording(tuneID: nil, source: "microphone")
         #expect(RecordingLimits.mustSplitToUpload(row, file: file(60_000, bytes: 501), uploadLimits: limits))
-        #expect(!RecordingLimits.mustSplitToUpload(row, file: file(60_000, bytes: 500), uploadLimits: limits))
-        #expect(!RecordingLimits.mustSplitToUpload(row, file: file(60_000, bytes: 501), uploadLimits: nil))
+        #expect(RecordingLimits.mustSplitToUpload(row, file: file(60_000, bytes: 500), uploadLimits: limits) == false)
+        #expect(RecordingLimits.mustSplitToUpload(row, file: file(60_000, bytes: 501), uploadLimits: nil) == false)
         #expect(
-            !RecordingLimits.mustSplitToUpload(row, file: file(60_000, .uploaded, bytes: 501), uploadLimits: limits))
+            RecordingLimits.mustSplitToUpload(row, file: file(60_000, .uploaded, bytes: 501), uploadLimits: limits)
+                == false)
         let split = Recording(tuneID: nil, source: "microphone", splitID: "s1")
-        #expect(!RecordingLimits.mustSplitToUpload(split, file: file(60_000, bytes: 501), uploadLimits: limits))
+        #expect(RecordingLimits.mustSplitToUpload(split, file: file(60_000, bytes: 501), uploadLimits: limits) == false)
     }
 
     @Test func aFileThatCouldNeverUploadEvenSplitIsNotHeld() {
         let row = Recording(tuneID: nil, source: "microphone")
-        #expect(!RecordingLimits.mustSplitToUpload(row, file: file(60_000, bytes: 2_001), uploadLimits: limits))
+        #expect(RecordingLimits.mustSplitToUpload(row, file: file(60_000, bytes: 2_001), uploadLimits: limits) == false)
         let overTwelveHours = file(RecordingLimits.maxSplitSourceMs + 1, bytes: 1)
-        #expect(!RecordingLimits.mustSplitToUpload(row, file: overTwelveHours, uploadLimits: limits))
-        #expect(!RecordingLimits.mustSplitToUpload(row, file: overTwelveHours, uploadLimits: nil))
+        #expect(RecordingLimits.mustSplitToUpload(row, file: overTwelveHours, uploadLimits: limits) == false)
+        #expect(RecordingLimits.mustSplitToUpload(row, file: overTwelveHours, uploadLimits: nil) == false)
         let atTwelveHours = file(RecordingLimits.maxSplitSourceMs, bytes: 2_000)
         #expect(RecordingLimits.mustSplitToUpload(row, file: atTwelveHours, uploadLimits: limits))
     }
@@ -50,14 +51,14 @@ import Testing
     }
 
     @Test func aSplitIsIncompleteUntilTheServerMarksItComplete() {
-        #expect(!RecordingLimits.splitIncomplete(Recording(tuneID: nil, source: "microphone")))
+        #expect(RecordingLimits.splitIncomplete(Recording(tuneID: nil, source: "microphone")) == false)
         #expect(RecordingLimits.splitIncomplete(Recording(tuneID: nil, source: "microphone", splitID: "s1")))
         #expect(
             RecordingLimits.splitIncomplete(
                 Recording(tuneID: nil, source: "microphone", splitID: "s2", splitCompletedID: "s1")))
         #expect(
-            !RecordingLimits.splitIncomplete(
-                Recording(tuneID: nil, source: "microphone", splitID: "s1", splitCompletedID: "s1")))
+            RecordingLimits.splitIncomplete(
+                Recording(tuneID: nil, source: "microphone", splitID: "s1", splitCompletedID: "s1")) == false)
     }
 
     @Test func pieceLabelFallsBackForABlankLabel() {

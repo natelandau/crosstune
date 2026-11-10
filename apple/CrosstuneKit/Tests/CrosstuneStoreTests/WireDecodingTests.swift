@@ -309,5 +309,5 @@ private func wire(_ json: String) throws -> JSONObject {
     #expect(row.trialEndSeenAt == nil)
     #expect(row.extra == ["storage_addon": .bool(true)])
     #expect(Entitlement.table == .entitlements)
-    #expect(!SyncTable.entitlements.isEvent)
+    #expect(SyncTable.entitlements.isEvent == false)
 }

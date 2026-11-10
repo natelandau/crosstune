@@ -103,7 +103,7 @@ private func count(_ table: SyncTable, in store: CrosstuneStore) async throws ->
         await #expect(throws: MarketingCatalog.FixtureError.self) {
             _ = try await MarketingCatalog.makeStore(fixture: copied, root: root.url)
         }
-        #expect(!FileManager.default.fileExists(atPath: root.url.path))
+        #expect(FileManager.default.fileExists(atPath: root.url.path) == false)
     }
 
     @Test func holdsTheNamedTunes() async throws {
@@ -123,8 +123,8 @@ private func count(_ table: SyncTable, in store: CrosstuneStore) async throws ->
         let titles = rows(.tunes, in: try fixtureObject()).compactMap { row -> String? in
             if case .string(let title) = row["title"] ?? .null { title } else { nil }
         }
-        #expect(!titles.isEmpty)
-        #expect(!titles.contains { $0.localizedCaseInsensitiveContains("no key yet") })
+        #expect(titles.isEmpty == false)
+        #expect(titles.contains { $0.localizedCaseInsensitiveContains("no key yet") } == false)
     }
 
     @Test func hasPlayableAudio() async throws {
@@ -168,7 +168,7 @@ private func count(_ table: SyncTable, in store: CrosstuneStore) async throws ->
             Issue.record("the fixture has no files map")
             return
         }
-        #expect(!files.isEmpty)
+        #expect(files.isEmpty == false)
         for (id, value) in files {
             guard case .string(let path) = value else {
                 Issue.record("\(id) has no path")

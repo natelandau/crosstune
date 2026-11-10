@@ -97,7 +97,7 @@ import Testing
             let file = SourceScan.url(of: "RecordingScreen/RecordingScreen.swift")
             let mac = SourceScan.macOSRegions(of: SourceScan.withoutComments(try SourceScan.text(at: file)))
             #expect(mac.contains("MacStyle.pageMargin"))
-            #expect(!mac.contains("MacStyle.sheetMargin"))
+            #expect(mac.contains("MacStyle.sheetMargin") == false)
         }
     #endif
 }

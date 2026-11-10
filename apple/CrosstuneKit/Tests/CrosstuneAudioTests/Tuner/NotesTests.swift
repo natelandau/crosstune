@@ -57,7 +57,7 @@ extension Tuner {
             #expect(isInTune(cents: 3.04))
             #expect(tuneHint(cents: 3.04) == nil)
             #expect(inTuneFraction(cents: 3.04) == 1)
-            #expect(!isInTune(cents: 3.05))
+            #expect(isInTune(cents: 3.05) == false)
             #expect(tuneHint(cents: 3.05) == .sharp)
             #expect(inTuneFraction(cents: 3.05) < 1)
             #expect(isInTune(cents: -3.05))

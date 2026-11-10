@@ -262,7 +262,7 @@ import Testing
         try await commands.deleteTune(tuneID)
         #expect(try await loops(store).first { $0.id == "live" } == before)
         let entries = try await store.read { db in try OutboxEntry.order(Column("seq")).fetchAll(db) }
-        #expect(!entries.contains { $0.tableName == .recordingLoops })
+        #expect(entries.contains { $0.tableName == .recordingLoops } == false)
         let parentEntry = try #require(entries.last { $0.tableName == .recordings && $0.rowID == "rec-5" })
         #expect(parentEntry.op == .upsert)
     }

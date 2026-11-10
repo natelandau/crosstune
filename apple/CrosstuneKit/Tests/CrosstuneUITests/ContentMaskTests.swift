@@ -378,7 +378,7 @@ import Testing
         for (file, marker) in Self.handMasks {
             let text = try SourceScan.text(at: SourceScan.url(of: file))
             let masks = Self.masks(of: marker, in: text)
-            #expect(!masks.isEmpty, "\(file) no longer has \(marker)")
+            #expect(masks.isEmpty == false, "\(file) no longer has \(marker)")
             #expect(masks.allSatisfy { $0 }, "\(file): add .contentMask() to every \(marker)")
         }
     }

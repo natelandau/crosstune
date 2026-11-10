@@ -127,11 +127,11 @@ import Testing
 
     let data = try recording.changeData()
 
-    #expect(!data.keys.contains("source_duration_ms"))
-    #expect(!data.keys.contains("playback_start_ms"))
-    #expect(!data.keys.contains("playback_end_ms"))
-    #expect(!data.keys.contains("playback_rev"))
-    #expect(!data.keys.contains("peaks_rev"))
+    #expect(data.keys.contains("source_duration_ms") == false)
+    #expect(data.keys.contains("playback_start_ms") == false)
+    #expect(data.keys.contains("playback_end_ms") == false)
+    #expect(data.keys.contains("playback_rev") == false)
+    #expect(data.keys.contains("peaks_rev") == false)
 }
 
 @Test func changeDataCarriesOnlyEditableFields() throws {

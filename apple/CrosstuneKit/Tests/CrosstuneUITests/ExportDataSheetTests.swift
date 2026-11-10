@@ -102,7 +102,7 @@ private func countsOnce(_ onDevice: Int, _ total: Int, missing: Int = 0)
         #expect(model.canStart)
         #expect(model.start() == nil)
         #expect(model.failure == nil)
-        #expect(!model.isRunning)
+        #expect(model.isRunning == false)
         #expect(await gate.starts == 0)
     }
 
@@ -135,7 +135,7 @@ private func countsOnce(_ onDevice: Int, _ total: Int, missing: Int = 0)
         let run = try #require(model.start())
         await run.value
         #expect(model.failure == ExportText.fetchFailed)
-        #expect(!model.isRunning)
+        #expect(model.isRunning == false)
     }
 
     @Test func offlineWithEverythingOnTheDeviceExportStillRuns() async throws {
@@ -191,8 +191,8 @@ private func countsOnce(_ onDevice: Int, _ total: Int, missing: Int = 0)
             exporter: Exporter(
                 counts: { AsyncThrowingStream { $0.finish(throwing: DiskFull()) } }, make: { _ in throw DiskFull() }))
         await model.followCounts()
-        #expect(!model.canStart)
-        #expect(!model.isReady)
+        #expect(model.canStart == false)
+        #expect(model.isReady == false)
         #expect(model.failure == "The disk is full.")
         #expect(model.start() == nil)
     }
@@ -207,13 +207,13 @@ private func countsOnce(_ onDevice: Int, _ total: Int, missing: Int = 0)
         await gate.finish(.success(zip))
         await run.value
         #expect(model.exported == zip)
-        #expect(!model.isRunning)
+        #expect(model.isRunning == false)
         #expect(model.isReady)
-        #expect(!model.canStart)
+        #expect(model.canStart == false)
         #expect(model.start() == nil)
         model.finishHandOff()
         #expect(model.exported == nil)
-        #expect(!exists(zip.deletingLastPathComponent()))
+        #expect(exists(zip.deletingLastPathComponent()) == false)
     }
 
     @Test func aSecondStartWhileRunningDoesNothing() async throws {
@@ -234,12 +234,12 @@ private func countsOnce(_ onDevice: Int, _ total: Int, missing: Int = 0)
         let zip = try makeZip()
         let run = try #require(model.start())
         model.cancel()
-        #expect(!model.isRunning)
+        #expect(model.isRunning == false)
         await gate.finish(.success(zip))
         await run.value
         #expect(model.exported == nil)
         #expect(model.failure == nil)
-        #expect(!exists(zip.deletingLastPathComponent()))
+        #expect(exists(zip.deletingLastPathComponent()) == false)
     }
 
     @Test func aFailureShowsAndAllowsAnotherTry() async throws {
@@ -249,7 +249,7 @@ private func countsOnce(_ onDevice: Int, _ total: Int, missing: Int = 0)
         await gate.finish(.failure(DiskFull()))
         await run.value
         #expect(model.failure == "The disk is full.")
-        #expect(!model.isRunning)
+        #expect(model.isRunning == false)
         #expect(model.canStart)
     }
 
@@ -285,7 +285,7 @@ private func countsOnce(_ onDevice: Int, _ total: Int, missing: Int = 0)
         model.cancel()
         await run.value
         #expect(model.failure == nil)
-        #expect(!model.isRunning)
+        #expect(model.isRunning == false)
         #expect(model.canStart)
     }
 
@@ -300,7 +300,7 @@ private func countsOnce(_ onDevice: Int, _ total: Int, missing: Int = 0)
         weak let gone = model
         model = nil
         try await eventually { gone == nil }
-        #expect(!exists(zip.deletingLastPathComponent()))
+        #expect(exists(zip.deletingLastPathComponent()) == false)
     }
 
     @Test func cancellingDeletesAZipNotYetHandedOff() async throws {
@@ -312,7 +312,7 @@ private func countsOnce(_ onDevice: Int, _ total: Int, missing: Int = 0)
         await run.value
         model.cancel()
         #expect(model.exported == nil)
-        #expect(!exists(zip.deletingLastPathComponent()))
+        #expect(exists(zip.deletingLastPathComponent()) == false)
     }
 }
 

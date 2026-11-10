@@ -86,9 +86,9 @@ private func file(_ state: LocalFileState, fileName: String? = "r1.m4a", error: 
 
     @Test func isADateOnlyWhenItFallsThroughToOne() {
         #expect(RecordingText.titleIsDate(recording(), tuneTitle: nil))
-        #expect(!RecordingText.titleIsDate(recording(), tuneTitle: "Cluck Old Hen"))
+        #expect(RecordingText.titleIsDate(recording(), tuneTitle: "Cluck Old Hen") == false)
         #expect(RecordingText.titleIsDate(recording(), tuneTitle: "Cluck Old Hen", tuneNamedAbove: true))
-        #expect(!RecordingText.titleIsDate(recording(label: "Jam"), tuneTitle: nil))
+        #expect(RecordingText.titleIsDate(recording(label: "Jam"), tuneTitle: nil) == false)
     }
 }
 
@@ -190,7 +190,7 @@ private func file(_ state: LocalFileState, fileName: String? = "r1.m4a", error: 
             recording: recording(state: "pending_upload"), file: file(.captured), uploadLimits: nil, tuneTitle: nil,
             isLocalUntilSubscribed: true,
             recordingsPlay: true)
-        #expect(!row.meta.contains(RecordingText.isLocalUntilSubscribed))
+        #expect(row.meta.contains(RecordingText.isLocalUntilSubscribed) == false)
     }
 
     @Test func saysOfflineForADownloadThatCannotStart() {

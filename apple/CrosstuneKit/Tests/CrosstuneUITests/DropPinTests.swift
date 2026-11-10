@@ -130,7 +130,7 @@ private func stored(_ store: CrosstuneStore) async throws -> Recording {
         await model.settle(at: Coordinate(lat: galax.lat + meter / 2, lon: galax.lon))
         #expect(lookup.asked == [galax])
         #expect(model.found == nil)
-        #expect(!model.isLookingUp)
+        #expect(model.isLookingUp == false)
     }
 
     @Test func useIsOffUntilTheMapHasAPoint() async throws {
@@ -178,7 +178,7 @@ private func stored(_ store: CrosstuneStore) async throws -> Recording {
         await model.settle(at: Coordinate(lat: 36.7, lon: -80.9))
         #expect(lookup.asked.isEmpty)
         #expect(model.found == nil)
-        #expect(!model.isLookingUp)
+        #expect(model.isLookingUp == false)
     }
 
     @Test func useThisSpotStagesThePlace() async throws {

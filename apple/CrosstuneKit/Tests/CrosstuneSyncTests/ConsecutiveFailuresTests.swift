@@ -45,23 +45,23 @@ private let t0 = Date(timeIntervalSince1970: 0)
     .dnsLookupFailed, .dataNotAllowed, .internationalRoamingOff,
 ])
 func aConnectivityFailureIsNotReportable(_ code: URLError.Code) {
-    #expect(!isReportableFailure(URLError(code)))
+    #expect(isReportableFailure(URLError(code)) == false)
 }
 
 @Test func otherFailuresAreReportable() {
     #expect(isReportableFailure(URLError(.badServerResponse)))
     #expect(isReportableFailure(TransferError(status: 500)))
-    #expect(!isReportableFailure(APIStatusError(status: 401)))
+    #expect(isReportableFailure(APIStatusError(status: 401)) == false)
 }
 
 /// A stopped engine, a device known to be offline, and a connection failure the API client
 /// wraps are not defects either.
 @Test func aStoppedOfflineOrWrappedConnectionFailureIsNotReportable() {
-    #expect(!isReportableFailure(RunStopped()))
-    #expect(!isReportableFailure(DeviceOffline()))
+    #expect(isReportableFailure(RunStopped()) == false)
+    #expect(isReportableFailure(DeviceOffline()) == false)
     let wrapped = ClientError(
         operationID: "downloadURL", operationInput: (), causeDescription: "", underlyingError: URLError(.timedOut))
-    #expect(!isReportableFailure(wrapped))
+    #expect(isReportableFailure(wrapped) == false)
 }
 
 /// A run loop reports consecutive failures once they persist, whatever the backoff in between.

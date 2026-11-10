@@ -236,11 +236,11 @@ import Testing
         #expect(data["trim_end_ms"] == .integer(9000))
         #expect(data["speed_percent"] == .integer(120))
         #expect(data["pitch_cents"] == .integer(-200))
-        #expect(!data.keys.contains("source_duration_ms"))
-        #expect(!data.keys.contains("playback_start_ms"))
-        #expect(!data.keys.contains("playback_end_ms"))
-        #expect(!data.keys.contains("playback_rev"))
-        #expect(!data.keys.contains("peaks_rev"))
+        #expect(data.keys.contains("source_duration_ms") == false)
+        #expect(data.keys.contains("playback_start_ms") == false)
+        #expect(data.keys.contains("playback_end_ms") == false)
+        #expect(data.keys.contains("playback_rev") == false)
+        #expect(data.keys.contains("peaks_rev") == false)
     }
 
     @Test func rejectsAMissingOrDeletedRecording() async throws {
@@ -461,7 +461,7 @@ import Testing
         try await commands.updateRecording("r1", place: .value(nil), at: later(500))
 
         let fix = Coordinate(lat: 39.7392364, lon: -104.984862, accuracyM: 14)
-        #expect(try await !commands.addLateFix("r1", coordinate: fix, savedAt: savedAt, at: later(1_000)))
+        #expect(try await commands.addLateFix("r1", coordinate: fix, savedAt: savedAt, at: later(1_000)) == false)
 
         let row = try #require(try await store.read { db in try Recording.fetchOne(db, key: "r1") })
         #expect(row.placeLat == nil)
@@ -489,7 +489,7 @@ import Testing
 
         for id in ["named", "located", "deleted", "missing"] {
             let savedAt = try await store.read { db in try Recording.fetchOne(db, key: id)?.updatedAt } ?? noon
-            #expect(try await !commands.addLateFix(id, coordinate: fix, savedAt: savedAt), "\(id)")
+            #expect(try await commands.addLateFix(id, coordinate: fix, savedAt: savedAt) == false, "\(id)")
         }
 
         let named = try #require(try await store.read { db in try Recording.fetchOne(db, key: "named") })
@@ -733,7 +733,7 @@ import Testing
 
         try await commands.deleteRecording("r1")
 
-        #expect(!FileManager.default.fileExists(atPath: peaks.path()))
+        #expect(FileManager.default.fileExists(atPath: peaks.path()) == false)
     }
 
     @Test func deletingARecordingDeletesItsAudio() async throws {
@@ -743,7 +743,7 @@ import Testing
 
         try await Commands(store: store).deleteRecording("r1")
 
-        #expect(!FileManager.default.fileExists(atPath: audio.path()))
+        #expect(FileManager.default.fileExists(atPath: audio.path()) == false)
         #expect(try await store.read { db in try RecordingFile.fetchCount(db) } == 0)
     }
 
@@ -756,7 +756,7 @@ import Testing
 
         try await commands.deleteTune(tuneID)
 
-        #expect(!FileManager.default.fileExists(atPath: audio.path()))
+        #expect(FileManager.default.fileExists(atPath: audio.path()) == false)
         #expect(try await store.read { db in try RecordingFile.fetchCount(db) } == 0)
     }
 
@@ -770,7 +770,7 @@ import Testing
 
         try await commands.deleteTunes([userTuneID])
 
-        #expect(!FileManager.default.fileExists(atPath: audio.path()))
+        #expect(FileManager.default.fileExists(atPath: audio.path()) == false)
     }
 
     @Test func aFailedDeleteKeepsTheAudio() async throws {
@@ -828,8 +828,8 @@ import Testing
 
         try await Commands(store: store).clearDownloadedAudio()
 
-        #expect(!exists(downloaded))
-        #expect(!exists(uploaded))
+        #expect(exists(downloaded) == false)
+        #expect(exists(uploaded) == false)
         #expect(exists(processing))
         #expect(exists(waiting))
         let cleared = try #require(try await file("d1"))

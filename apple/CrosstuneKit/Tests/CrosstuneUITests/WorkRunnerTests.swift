@@ -161,7 +161,7 @@ struct WorkRunnerTests {
         let gate = Gate()
         let task = Task { try await runner.run(closesOnSuccess: false) { await gate.wait() } }
         try await eventually { sleeper.pending.contains(Motion.workingDelay) }
-        #expect(!sleeper.pending.contains(Motion.doneHold))
+        #expect(sleeper.pending.contains(Motion.doneHold) == false)
         sleeper.wake()
         try await eventually { runner.phase == .working }
         #expect(runner.phase == .working)

@@ -373,7 +373,7 @@ import Testing
         #expect(api.transfers.first?.hasPrefix("slot") == true)
         // Left for the next pass, which retries a file left uploading.
         let states = try await store.read { db in try RecordingFile.fetchAll(db).map(\.localState) }
-        #expect(!states.contains(.uploaded))
+        #expect(states.contains(.uploaded) == false)
     }
 
     @Test func aStopDuringThePutSendsNoConfirm() async throws {
@@ -441,7 +441,7 @@ import Testing
         await engine().transfer()
 
         #expect(try await file("r1") == nil)
-        #expect(!exists(audio))
+        #expect(exists(audio) == false)
     }
 
     @Test func keepsTheFileOfASplitParentDeletedElsewhereWhileAPieceWaits() async throws {
@@ -463,7 +463,7 @@ import Testing
         try await store.write { [cut] writer in try writer.put(cut) }
         await engine().transfer()
         #expect(try await file("r1") == nil)
-        #expect(!exists(audio))
+        #expect(exists(audio) == false)
     }
 
     @Test func restoresARecordingDeletedElsewhereBeforeItsAudioUploaded() async throws {
@@ -509,7 +509,7 @@ import Testing
         await engine().transfer()
 
         #expect(try await file("orphan") == nil)
-        #expect(!exists(url))
+        #expect(exists(url) == false)
     }
 
     @Test func leavesACaptureInProgressAlone() async throws {
@@ -930,7 +930,7 @@ import Testing
 
         #expect(url.lastPathComponent == "d1-new.m4a")
         #expect(try Data(contentsOf: url) == api.objectData)
-        #expect(!FileManager.default.fileExists(atPath: oldURL.path(percentEncoded: false)))
+        #expect(FileManager.default.fileExists(atPath: oldURL.path(percentEncoded: false)) == false)
         #expect(try await file("d1")?.fileName == "d1-new.m4a")
     }
 
@@ -949,7 +949,7 @@ import Testing
         #expect(file.fileName == "d1-rev1.m4a")
         #expect(try Data(contentsOf: store.audioFolder.appending(path: "d1-rev1.m4a")) == api.objectData)
         let oldPath = store.audioFolder.appending(path: "d1.m4a").path(percentEncoded: false)
-        #expect(!FileManager.default.fileExists(atPath: oldPath))
+        #expect(FileManager.default.fileExists(atPath: oldPath) == false)
     }
 
     @Test func aRowWithNoPeaksRevisionNeverFetchesPeaks() async throws {
@@ -958,7 +958,7 @@ import Testing
 
         await engine().transfer()
 
-        #expect(!api.transfers.contains { $0.hasPrefix("peaks") })
+        #expect(api.transfers.contains { $0.hasPrefix("peaks") } == false)
         #expect(try await file("d1")?.peaksRev == nil)
     }
 
@@ -1033,7 +1033,7 @@ import Testing
         let data = await engine().peaks("d1")
 
         #expect(data == api.peaksData)
-        #expect(!FileManager.default.fileExists(atPath: localPeaksURL.path(percentEncoded: false)))
+        #expect(FileManager.default.fileExists(atPath: localPeaksURL.path(percentEncoded: false)) == false)
         let file = try #require(try await file("d1"))
         #expect(file.peaksFileName == "d1-p1.peaks")
         #expect(file.peaksRev == "p1")

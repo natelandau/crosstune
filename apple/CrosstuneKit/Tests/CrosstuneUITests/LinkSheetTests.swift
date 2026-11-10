@@ -150,9 +150,9 @@ private final class FakeResolver {
     @Test func addIsDisabledOnlyWhileTheLinkIsBlank() async throws {
         let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = LinkSheetModel(store: store, tuneID: tuneID, resolve: nil)
-        #expect(!model.hasLink)
+        #expect(model.hasLink == false)
         model.setURL("  ")
-        #expect(!model.hasLink)
+        #expect(model.hasLink == false)
         model.setURL("ftp://example.com/tune")
         #expect(model.hasLink, "a link that is not a web address is refused on Add, with the reason")
     }
@@ -168,7 +168,7 @@ private final class FakeResolver {
         #expect(await model.save() == false)
         #expect(model.validation == LinkSheetModel.linkNotWeb)
         #expect(try await links(store).isEmpty)
-        #expect(!model.isSaved)
+        #expect(model.isSaved == false)
     }
 
     @Test func addsOnceWhenSavedTwice() async throws {
@@ -193,7 +193,7 @@ private final class FakeResolver {
     @Test func holdsTypingADismissalWouldLose() async throws {
         let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = LinkSheetModel(store: store, tuneID: tuneID, resolve: nil)
-        #expect(!model.isEdited)
+        #expect(model.isEdited == false)
         model.setURL("h")
         #expect(model.isEdited)
     }

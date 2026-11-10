@@ -60,8 +60,8 @@ private func loop(_ id: String, _ startMs: Int64, _ endMs: Int64, deleted: Bool 
         audio.elapsed = 9
         loops.select(nil)
         #expect(loops.selectedID == nil)
-        #expect(!loops.isRepeating)
-        #expect(!audio.isRepeating)
+        #expect(loops.isRepeating == false)
+        #expect(audio.isRepeating == false)
         #expect(audio.loop == nil)
         #expect(audio.elapsed == 9)
     }
@@ -71,8 +71,8 @@ private func loop(_ id: String, _ startMs: Int64, _ endMs: Int64, deleted: Bool 
         audio.elapsed = 9
         loops.follow([loop("a", 5000, 15_000, deleted: true), loop("b", 20_000, 25_000)])
         #expect(loops.selectedID == nil)
-        #expect(!loops.isRepeating)
-        #expect(!audio.isRepeating)
+        #expect(loops.isRepeating == false)
+        #expect(audio.isRepeating == false)
         #expect(audio.loop == nil)
         #expect(audio.elapsed == 9)
     }

@@ -60,7 +60,7 @@ import Testing
         let model = LinkSheetModel(store: store, tuneID: tuneID, resolve: nil, analytics: sink.client)
         model.setURL("not a link")
 
-        #expect(!(await model.save()))
+        #expect((await model.save()) == false)
 
         #expect(sink.calls.isEmpty)
     }

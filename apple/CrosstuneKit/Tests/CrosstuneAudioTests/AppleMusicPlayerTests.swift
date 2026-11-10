@@ -122,12 +122,13 @@ import Testing
     private let start = ContinuousClock.now
 
     @Test func waitsWhileNoUnrequestedPlayHasBeenPaused() {
-        #expect(!previousHasSettled(waitingSince: start, unrequestedPausedAt: nil, now: start + .seconds(1.4)))
+        #expect(previousHasSettled(waitingSince: start, unrequestedPausedAt: nil, now: start + .seconds(1.4)) == false)
     }
 
     @Test func goesAheadOnceAnUnrequestedPlayWasPausedAQuarterSecondAgo() {
         let paused = start + .seconds(0.5)
-        #expect(!previousHasSettled(waitingSince: start, unrequestedPausedAt: paused, now: paused + .seconds(0.2)))
+        #expect(
+            previousHasSettled(waitingSince: start, unrequestedPausedAt: paused, now: paused + .seconds(0.2)) == false)
         #expect(previousHasSettled(waitingSince: start, unrequestedPausedAt: paused, now: paused + .seconds(0.25)))
     }
 

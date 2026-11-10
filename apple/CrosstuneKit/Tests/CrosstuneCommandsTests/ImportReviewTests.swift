@@ -118,11 +118,11 @@ private func row(_ id: Int, warnings: [ImportWarning] = []) -> ImportRow {
     }
 
     @Test func oneRowFrom20LinesDoesNot() {
-        #expect(!review([row(0)], lineCount: 20).suggestsHelp)
+        #expect(review([row(0)], lineCount: 20).suggestsHelp == false)
     }
 
     @Test func aCleanListOfSeveralRowsDoesNot() {
-        #expect(!review([row(0), row(1), row(2)], lineCount: 30).suggestsHelp)
+        #expect(review([row(0), row(1), row(2)], lineCount: 30).suggestsHelp == false)
     }
 }
 
@@ -131,13 +131,13 @@ private func row(_ id: Int, warnings: [ImportWarning] = []) -> ImportRow {
 
     @Test func followsAnEditedTitle() {
         #expect(ImportReviewBuilder.isDuplicate("Fete", titles: catalog))
-        #expect(!ImportReviewBuilder.isDuplicate("Other", titles: catalog))
+        #expect(ImportReviewBuilder.isDuplicate("Other", titles: catalog) == false)
     }
 
     @Test func aBlankTitleIsNeverADuplicate() {
-        #expect(!ImportReviewBuilder.isDuplicate("", titles: catalog))
-        #expect(!ImportReviewBuilder.isDuplicate("   ", titles: catalog))
-        #expect(!ImportReviewBuilder.isDuplicate("", titles: foldedTitles([Tune(title: "")])))
+        #expect(ImportReviewBuilder.isDuplicate("", titles: catalog) == false)
+        #expect(ImportReviewBuilder.isDuplicate("   ", titles: catalog) == false)
+        #expect(ImportReviewBuilder.isDuplicate("", titles: foldedTitles([Tune(title: "")])) == false)
     }
 
     @Test func matchesAnAlternateTitle() {

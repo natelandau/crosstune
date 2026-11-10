@@ -85,7 +85,7 @@ import Testing
         let second = window(1)
 
         #expect(claim.shows(first, due: true, isActive: true))
-        #expect(!claim.shows(second, due: true, isActive: true))
+        #expect(claim.shows(second, due: true, isActive: true) == false)
         #expect(claim.shows(first, due: true, isActive: true))
     }
 
@@ -95,10 +95,10 @@ import Testing
         let active = window(1)
         #expect(claim.shows(background, due: true, isActive: true))
 
-        #expect(!claim.shows(background, due: true, isActive: false))
+        #expect(claim.shows(background, due: true, isActive: false) == false)
         #expect(claim.holder == nil)
         #expect(claim.shows(active, due: true, isActive: true))
-        #expect(!claim.shows(background, due: true, isActive: true))
+        #expect(claim.shows(background, due: true, isActive: true) == false)
     }
 
     @Test func aClosingWindowHandsThePromptToAnother() {
@@ -117,7 +117,7 @@ import Testing
         let window = window(0)
         #expect(claim.shows(window, due: true, isActive: true))
 
-        #expect(!claim.shows(window, due: false, isActive: true))
+        #expect(claim.shows(window, due: false, isActive: true) == false)
         #expect(claim.holder == nil)
     }
 
@@ -130,7 +130,7 @@ import Testing
         claim.request(tapped)
 
         #expect(claim.holder == tapped)
-        #expect(!claim.shows(holder, due: true, isActive: true))
+        #expect(claim.shows(holder, due: true, isActive: true) == false)
         #expect(claim.shows(tapped, due: true, isActive: true))
     }
 
@@ -143,7 +143,7 @@ import Testing
 
         #expect(claim.holder == holder)
         #expect(claim.shows(holder, due: true, isActive: true))
-        #expect(!claim.shows(window(1), due: true, isActive: true))
+        #expect(claim.shows(window(1), due: true, isActive: true) == false)
     }
 
     @Test func onlyTheHolderLetsTheClaimGo() {
@@ -217,7 +217,7 @@ import Testing
         let cover = ShellCover()
         #expect(TabSlot.recordIsEnabled(cover: cover))
         cover.claim()
-        #expect(!TabSlot.recordIsEnabled(cover: cover))
+        #expect(TabSlot.recordIsEnabled(cover: cover) == false)
         cover.release()
         #expect(TabSlot.recordIsEnabled(cover: cover))
     }
@@ -252,16 +252,16 @@ import Testing
         @Test func onlyTheTunerFillsTheContentAndDetailColumns() {
             #expect(SplitShell.fillsDetail(.tuner))
             for item in [SidebarItem.catalog, .status("known"), .recordings, .list(id: "a")] {
-                #expect(!SplitShell.fillsDetail(item))
+                #expect(SplitShell.fillsDetail(item) == false)
             }
         }
 
         @Test func theSidebarReadsHiddenByTheSplitsColumnCount() {
-            #expect(!SplitShell.sidebarHidden(.all, twoColumn: false))
+            #expect(SplitShell.sidebarHidden(.all, twoColumn: false) == false)
             #expect(SplitShell.sidebarHidden(.doubleColumn, twoColumn: false))
             #expect(SplitShell.sidebarHidden(.detailOnly, twoColumn: false))
-            #expect(!SplitShell.sidebarHidden(.doubleColumn, twoColumn: true))
-            #expect(!SplitShell.sidebarHidden(.all, twoColumn: true))
+            #expect(SplitShell.sidebarHidden(.doubleColumn, twoColumn: true) == false)
+            #expect(SplitShell.sidebarHidden(.all, twoColumn: true) == false)
             #expect(SplitShell.sidebarHidden(.detailOnly, twoColumn: true))
         }
 
@@ -311,7 +311,7 @@ import Testing
                 }
             }
             #expect(flat[open..<close].hasSuffix(".tag(item)"))
-            #expect(!flat.contains(".id(item)"))
+            #expect(flat.contains(".id(item)") == false)
         }
     #endif
 
@@ -387,7 +387,7 @@ import Testing
             pickSidebarRow(.recordings, place: place, catalog: catalog)
             #expect(place.sidebar == .recordings)
             #expect(catalog.status == "learning")
-            #expect(!catalog.isSavingFilters)
+            #expect(catalog.isSavingFilters == false)
             #expect(try await storedFilters(store).status == "learning")
         }
 
@@ -401,7 +401,7 @@ import Testing
             place.showSidebarRoot(.catalog)
             syncSidebar(place: place, catalog: catalog)
             #expect(place.sidebar == .status("learning"))
-            #expect(!catalog.isSavingFilters)
+            #expect(catalog.isSavingFilters == false)
             #expect(try await storedFilters(store).status == "learning")
         }
 
@@ -454,7 +454,7 @@ import Testing
 
             syncSidebar(place: place, catalog: catalog)
             #expect(place.sidebar == .catalog)
-            #expect(!catalog.isSavingFilters)
+            #expect(catalog.isSavingFilters == false)
 
             try await eventually { catalog.status == "learning" }
             #expect(try await storedFilters(store) == CatalogFilters(status: "learning"))
@@ -475,13 +475,13 @@ import Testing
 @Suite struct ShellCoverTests {
     @Test func staysCoveredUntilEveryClaimIsReleased() {
         let cover = ShellCover()
-        #expect(!cover.isCovered)
+        #expect(cover.isCovered == false)
         cover.claim()
         cover.claim()
         cover.release()
         #expect(cover.isCovered)
         cover.release()
-        #expect(!cover.isCovered)
+        #expect(cover.isCovered == false)
     }
 
     @Test func anExtraReleaseNeverUncoversALaterClaim() {
@@ -520,29 +520,29 @@ import Testing
 @Suite struct MenuCommandAvailabilityTests {
     @Test func newTuneIsDisabledUnderASheetOrWhileSelecting() {
         #expect(MenuCommandAvailability.newTune(sheetsOpen: false, selecting: false))
-        #expect(!MenuCommandAvailability.newTune(sheetsOpen: true, selecting: false))
-        #expect(!MenuCommandAvailability.newTune(sheetsOpen: false, selecting: true))
+        #expect(MenuCommandAvailability.newTune(sheetsOpen: true, selecting: false) == false)
+        #expect(MenuCommandAvailability.newTune(sheetsOpen: false, selecting: true) == false)
     }
 
     @Test func newListIsDisabledUnderASheet() {
         #expect(MenuCommandAvailability.newList(sheetsOpen: false))
-        #expect(!MenuCommandAvailability.newList(sheetsOpen: true))
+        #expect(MenuCommandAvailability.newList(sheetsOpen: true) == false)
     }
 
     @Test func findActsOnlyForAScreenOnShowWithNoSheetUp() {
         #expect(MenuCommandAvailability.find(isShown: true, sheetsOpen: false))
-        #expect(!MenuCommandAvailability.find(isShown: false, sheetsOpen: false))
-        #expect(!MenuCommandAvailability.find(isShown: true, sheetsOpen: true))
+        #expect(MenuCommandAvailability.find(isShown: false, sheetsOpen: false) == false)
+        #expect(MenuCommandAvailability.find(isShown: true, sheetsOpen: true) == false)
     }
 
     @Test func sortByActsOnlyWhileTheRecordingsShowWithNoSheetUp() {
         #expect(MenuCommandAvailability.sort(isShown: true, sheetsOpen: false))
-        #expect(!MenuCommandAvailability.sort(isShown: false, sheetsOpen: false))
-        #expect(!MenuCommandAvailability.sort(isShown: true, sheetsOpen: true))
+        #expect(MenuCommandAvailability.sort(isShown: false, sheetsOpen: false) == false)
+        #expect(MenuCommandAvailability.sort(isShown: true, sheetsOpen: true) == false)
     }
 
     @Test func sortByIsDisabledWhileTheScreenSelects() {
-        #expect(!MenuCommandAvailability.sort(isShown: true, sheetsOpen: false, selecting: true))
+        #expect(MenuCommandAvailability.sort(isShown: true, sheetsOpen: false, selecting: true) == false)
         #expect(MenuCommandAvailability.sort(isShown: true, sheetsOpen: false, selecting: false))
     }
 
@@ -559,22 +559,22 @@ import Testing
             MenuCommandAvailability.record(
                 sheetsOpen: false, selecting: false, recordingPending: false, capturing: false))
         #expect(
-            !MenuCommandAvailability.record(
-                sheetsOpen: true, selecting: false, recordingPending: false, capturing: false))
+            MenuCommandAvailability.record(
+                sheetsOpen: true, selecting: false, recordingPending: false, capturing: false) == false)
         #expect(
-            !MenuCommandAvailability.record(
-                sheetsOpen: false, selecting: true, recordingPending: false, capturing: false))
+            MenuCommandAvailability.record(
+                sheetsOpen: false, selecting: true, recordingPending: false, capturing: false) == false)
         #expect(
-            !MenuCommandAvailability.record(
-                sheetsOpen: false, selecting: false, recordingPending: true, capturing: false))
+            MenuCommandAvailability.record(
+                sheetsOpen: false, selecting: false, recordingPending: true, capturing: false) == false)
         #expect(
-            !MenuCommandAvailability.record(
-                sheetsOpen: false, selecting: false, recordingPending: false, capturing: true))
+            MenuCommandAvailability.record(
+                sheetsOpen: false, selecting: false, recordingPending: false, capturing: true) == false)
     }
 
     @Test func controlsAreDisabledUnderASheet() {
         #expect(MenuCommandAvailability.controls(sheetsOpen: false))
-        #expect(!MenuCommandAvailability.controls(sheetsOpen: true))
+        #expect(MenuCommandAvailability.controls(sheetsOpen: true) == false)
     }
 }
 
@@ -798,7 +798,7 @@ import Testing
         place.narrowed()
 
         #expect(place.tab == .tuner)
-        #expect(!place.settingsSheetShown)
+        #expect(place.settingsSheetShown == false)
     }
 
     @Test func wideningWithTheSheetUpShowsTheSettingsTab() {
@@ -809,8 +809,8 @@ import Testing
 
         place.widened()
 
-        #expect(!place.isCompact)
-        #expect(!place.settingsSheetShown)
+        #expect(place.isCompact == false)
+        #expect(place.settingsSheetShown == false)
         #expect(place.tab == .settings)
         #expect(place.settingsPage == .stats)
     }
@@ -866,10 +866,10 @@ import Testing
         place.restore(tab: .settings, compact: true)
         #expect(place.isCompact)
         #expect(place.tab == .catalog)
-        #expect(!place.settingsSheetShown)
+        #expect(place.settingsSheetShown == false)
 
         place.restore(tab: .settings, compact: false)
-        #expect(!place.isCompact)
+        #expect(place.isCompact == false)
         #expect(place.tab == .settings)
 
         place.restore(tab: .tuner, compact: true)
@@ -879,14 +879,14 @@ import Testing
     @Test func theCompactShellOutlastsWidening() {
         let place = ShellPlace()
         #expect(place.showsCompactShell(windowIsCompact: true))
-        #expect(!place.showsCompactShell(windowIsCompact: false))
+        #expect(place.showsCompactShell(windowIsCompact: false) == false)
 
         place.restore(tab: .catalog, compact: true)
         #expect(place.showsCompactShell(windowIsCompact: false))
 
         // The size class has changed, but the compact shell and its sheet stay until this runs.
         place.widened()
-        #expect(!place.showsCompactShell(windowIsCompact: true))
+        #expect(place.showsCompactShell(windowIsCompact: true) == false)
     }
 
     @Test func theSheetsTeardownAfterWideningStillOpensTheSettingsTab() {
@@ -898,7 +898,7 @@ import Testing
         place.settingsSheetChanged(shown: false)
 
         #expect(place.tab == .settings)
-        #expect(!place.settingsSheetShown)
+        #expect(place.settingsSheetShown == false)
     }
 
     @Test func aCloseBeforeWideningIsAClose() {
@@ -910,7 +910,7 @@ import Testing
         place.widened()
 
         #expect(place.tab == .lists)
-        #expect(!place.settingsSheetShown)
+        #expect(place.settingsSheetShown == false)
     }
 
     @Test func closingTheSheetInACompactWindowClosesIt() {
@@ -918,7 +918,7 @@ import Testing
         place.isCompact = true
         place.showSettings()
         place.settingsSheetChanged(shown: false)
-        #expect(!place.settingsSheetShown)
+        #expect(place.settingsSheetShown == false)
 
         place.widened()
         #expect(place.tab == .catalog)
@@ -1039,8 +1039,8 @@ import Testing
     @Test func showsOnlyWithTheShellsActionAndNotWhileSelecting() {
         let action = MenuAction {}
         #expect(showsAccountItem(showAccount: action, isSelecting: false))
-        #expect(!showsAccountItem(showAccount: action, isSelecting: true))
-        #expect(!showsAccountItem(showAccount: nil, isSelecting: false))
-        #expect(!showsAccountItem(showAccount: nil, isSelecting: true))
+        #expect(showsAccountItem(showAccount: action, isSelecting: true) == false)
+        #expect(showsAccountItem(showAccount: nil, isSelecting: false) == false)
+        #expect(showsAccountItem(showAccount: nil, isSelecting: true) == false)
     }
 }

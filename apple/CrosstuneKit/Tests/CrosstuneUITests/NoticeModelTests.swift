@@ -526,7 +526,7 @@ private let day: TimeInterval = 86_400
         handoff.noticeLeft(open: { _ in steps.append("compare") }, seePlan: { steps.append("see plan") })
 
         #expect(steps == ["dismiss, holding true", "see plan"])
-        #expect(!handoff.isHolding)
+        #expect(handoff.isHolding == false)
     }
 
     @Test func aNoticeLeavingWithoutCompareOpensNothing() {

@@ -1252,7 +1252,7 @@ private let v16Schema = """
 
     try queue.read { db in
         let columns = try db.columns(in: "entitlements").map(\.name)
-        #expect(!columns.contains("free_quota_bytes"))
+        #expect(columns.contains("free_quota_bytes") == false)
         #expect(try String.fetchOne(db, sql: "SELECT value FROM meta WHERE key = 'pull_cursor'") == "40")
         #expect(try String.fetchOne(db, sql: "SELECT value FROM meta WHERE key = 'scan_requeues'") == nil)
         let stored = try Entitlement.fetchOne(db, key: "e-1")

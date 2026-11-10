@@ -209,8 +209,8 @@ private func loadedSummary(_ store: CrosstuneStore) async throws -> LiveQuery<St
             headers == [
                 StatsCopy.countsHeader, StatsCopy.recordedHeader, StatsCopy.monthsHeader, CatalogFacet.key.label,
             ])
-        #expect(!headers.contains(CatalogFacet.tuneType.label))
-        #expect(!headers.contains(CatalogFacet.genre.label))
+        #expect(headers.contains(CatalogFacet.tuneType.label) == false)
+        #expect(headers.contains(CatalogFacet.genre.label) == false)
     }
 
     @Test func valueRowsCarryTheirFacets() async throws {
@@ -574,7 +574,7 @@ struct KeyGridSpreadTests {
     @Test func spreadsInASplitDetailColumnOnly() {
         #if os(iOS)
             #expect(KeyGridView.spreads(inPadSplit: true))
-            #expect(!KeyGridView.spreads(inPadSplit: false))
+            #expect(KeyGridView.spreads(inPadSplit: false) == false)
         #else
             #expect(KeyGridView.spreads(inPadSplit: false))
         #endif

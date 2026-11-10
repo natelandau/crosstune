@@ -76,8 +76,8 @@ import Testing
             #expect(shape.contains(CGPoint(x: rect.midX, y: rect.midY)))
             #expect(shape.contains(CGPoint(x: rect.midX, y: rect.minY + 0.1)))
             #expect(shape.contains(CGPoint(x: rect.midX, y: rect.maxY - 0.1)))
-            #expect(!shape.contains(CGPoint(x: rect.midX, y: rect.minY - 0.1)))
-            #expect(!shape.contains(CGPoint(x: rect.maxX + WaveformBars.barGap / 2, y: rect.midY)))
+            #expect(shape.contains(CGPoint(x: rect.midX, y: rect.minY - 0.1)) == false)
+            #expect(shape.contains(CGPoint(x: rect.maxX + WaveformBars.barGap / 2, y: rect.midY)) == false)
         }
     }
 }
@@ -259,7 +259,7 @@ final class ToneInput: AudioInput {
             #expect(steps.last?.0 == false)
             #expect(steps.last?.1 == HighlightTiming.fadeOut)
             // A newer recording or an expired mark is not this row's to clear.
-            #expect(!cleared)
+            #expect(cleared == false)
         }
     }
 
@@ -297,7 +297,7 @@ final class ToneInput: AudioInput {
         #expect(model.phase == .starting)
         #expect(model.status == RecordSheetModel.startingMicrophone)
         #expect(model.isLive)
-        #expect(!model.hasStarted)
+        #expect(model.hasStarted == false)
         #expect(model.message == nil)
     }
 
@@ -336,7 +336,7 @@ final class ToneInput: AudioInput {
         #expect(model.outcome == nil)
         #expect(model.status == RecordSheetModel.saved)
         #expect(model.message == Recorder.partialSave)
-        #expect(!model.isLive)
+        #expect(model.isLive == false)
 
         model.finish()
         let saved = try #require(try await recordings().first)
@@ -369,7 +369,7 @@ final class ToneInput: AudioInput {
         input.answerPermission()
         await begin.value
 
-        #expect(!model.confirmsDiscard)
+        #expect(model.confirmsDiscard == false)
         #expect(model.outcome == .dropped)
         #expect(recorder.state == .idle)
     }
@@ -383,7 +383,7 @@ final class ToneInput: AudioInput {
         #expect(model.phase == .interrupted)
         #expect(model.status == RecordSheetModel.interrupted)
         #expect(model.isLive)
-        #expect(!model.canResume)
+        #expect(model.canResume == false)
 
         input.send(.interruptionEnded)
         #expect(model.canResume)
@@ -399,7 +399,7 @@ final class ToneInput: AudioInput {
         #expect(model.phase == .notRecording)
         #expect(model.status == RecordSheetModel.notRecording)
         #expect(model.message == Recorder.microphoneDenied)
-        #expect(!model.isLive)
+        #expect(model.isLive == false)
         #expect(recorder.permissionDenied)
 
         await model.cancel()
@@ -433,10 +433,10 @@ final class ToneInput: AudioInput {
         #expect(model.isPending)
         await model.open(claim: { false })
 
-        #expect(!model.isPending)
+        #expect(model.isPending == false)
         #expect(model.outcome == .dropped)
-        #expect(!model.holdsRecorder)
-        #expect(!model.releaseRecorder())
+        #expect(model.holdsRecorder == false)
+        #expect(model.releaseRecorder() == false)
         #expect(recorder.state == .idle)
     }
 
@@ -445,7 +445,7 @@ final class ToneInput: AudioInput {
         await model.open(claim: { true })
         #expect(model.phase == .recording)
         #expect(model.releaseRecorder())
-        #expect(!model.releaseRecorder())
+        #expect(model.releaseRecorder() == false)
         await model.discard()
     }
 
@@ -453,7 +453,7 @@ final class ToneInput: AudioInput {
         let model = RecordSheetModel(recorder: recorder, tuneID: nil)
         await model.begin()
         try input.play(seconds: 0.5)
-        #expect(!model.landsOnRecordings)
+        #expect(model.landsOnRecordings == false)
         input.send(.writeFailed)
         try await eventually { model.phase == .saved }
         model.settle()
@@ -471,14 +471,14 @@ final class ToneInput: AudioInput {
         try input.play(seconds: 0.5)
         await filed.stop()
         #expect(filed.outcome != nil)
-        #expect(!filed.landsOnRecordings)
+        #expect(filed.landsOnRecordings == false)
 
         let dropped = RecordSheetModel(recorder: recorder, tuneID: nil)
         await dropped.begin()
         try input.play(seconds: 0.5)
         await dropped.discard()
         #expect(dropped.outcome == .dropped)
-        #expect(!dropped.landsOnRecordings)
+        #expect(dropped.landsOnRecordings == false)
     }
 
     @Test func mayAskForARecordingOnlyOverNoneOrOneThatNeverShowed() async {
@@ -487,7 +487,7 @@ final class ToneInput: AudioInput {
         #expect(RecordSheetItem.mayReplace(pending))
         let shown = RecordSheetItem(model: RecordSheetModel(recorder: recorder, tuneID: nil))
         await shown.model.open(claim: { false })
-        #expect(!RecordSheetItem.mayReplace(shown))
+        #expect(RecordSheetItem.mayReplace(shown) == false)
     }
 
     @Test func aSheetThatGoesAwayLiveKeepsTheRecording() async throws {
@@ -564,7 +564,7 @@ final class AccessManager: LocationManaging {
         access.authorizationChanged()
         await continued.value
 
-        #expect(!model.asksLocation)
+        #expect(model.asksLocation == false)
         #expect(model.phase == .recording)
         await model.discard()
     }
@@ -577,7 +577,7 @@ final class AccessManager: LocationManaging {
 
         await model.open(claim: { true })
 
-        #expect(!model.asksLocation)
+        #expect(model.asksLocation == false)
         #expect(model.phase == .recording)
         #expect(manager.prompts == 0)
         await model.discard()
@@ -591,7 +591,7 @@ final class AccessManager: LocationManaging {
 
         await model.open(claim: { true })
 
-        #expect(!model.asksLocation)
+        #expect(model.asksLocation == false)
         #expect(model.phase == .recording)
         #expect(manager.prompts == 0)
         await model.discard()
@@ -618,7 +618,7 @@ final class AccessManager: LocationManaging {
         await model.open(claim: { true })
         #expect(model.asksLocation)
         #expect(model.isLive)
-        #expect(!model.blocksSwipeDismiss)
+        #expect(model.blocksSwipeDismiss == false)
 
         let continued = Task { await model.continueFromLocationNote() }
         try await eventually { manager.prompts == 1 }
@@ -678,7 +678,7 @@ final class AccessManager: LocationManaging {
         await continued.value
 
         #expect(recorder.state == .idle)
-        #expect(!recorder.isStarting)
+        #expect(recorder.isStarting == false)
     }
 }
 
@@ -711,7 +711,7 @@ actor ReadCount {
 
         #expect(host.isFree(for: store))
         _ = host.claim(for: store)
-        #expect(!host.isFree(for: store))
+        #expect(host.isFree(for: store) == false)
         host.release()
         #expect(host.isFree(for: store))
     }
@@ -747,7 +747,7 @@ actor ReadCount {
             let file = SourceScan.url(of: "Recording/RecordSheet.swift")
             let mac = SourceScan.macCompiled(SourceScan.withoutComments(try SourceScan.text(at: file)))
             #expect(mac.contains("background(Palette.record, in: .circle)"))
-            #expect(!mac.contains("glassEffect"))
+            #expect(mac.contains("glassEffect") == false)
         }
 
         /// The title is the only place the Mac sheet says what the recording is doing.
@@ -767,7 +767,7 @@ actor ReadCount {
             let file = SourceScan.url(of: "Recording/LiveWaveform.swift")
             let mac = SourceScan.macCompiled(SourceScan.withoutComments(try SourceScan.text(at: file)))
             #expect(mac.contains("Palette.record"))
-            #expect(!mac.contains("AnyShapeStyle(.tint)"))
+            #expect(mac.contains("AnyShapeStyle(.tint)") == false)
         }
     }
 #endif

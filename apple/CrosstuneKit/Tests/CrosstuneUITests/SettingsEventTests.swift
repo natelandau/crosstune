@@ -165,7 +165,8 @@ import Testing
             Issue.record("The value is not a list of services")
             return
         }
-        #expect(!names.contains("youtube") && !names.contains("tidal"))
+        #expect(names.contains("youtube") == false)
+        #expect(names.contains("tidal") == false)
         #expect(names.contains("spotify"))
         #expect(sink.captures.first?.set["setting_search_providers"] == services)
     }
@@ -185,7 +186,7 @@ import Testing
         #expect(sink.captures.last?.name == "setting_changed")
         #expect(sink.captures.last?.properties["setting"] == .string("search_providers"))
         #expect(InstrumentsChoices.binding("mandolin", model: model).wrappedValue)
-        #expect(!MusicServicesChoices.binding("youtube", model: model).wrappedValue)
+        #expect(MusicServicesChoices.binding("youtube", model: model).wrappedValue == false)
     }
 
     @Test func aChangeFromAnotherDeviceReportsNothing() async throws {

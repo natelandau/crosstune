@@ -26,7 +26,7 @@ import Testing
 
     #expect(try await store.lockWritesUnlessUnsent() == false)
 
-    #expect(!store.isClosed)
+    #expect(store.isClosed == false)
     try await store.write { writer in try OutboxEntry.deleteAll(writer.db) }
 }
 

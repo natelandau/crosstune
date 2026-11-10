@@ -81,7 +81,7 @@ import Testing
 
         sleeper.fire()
         try await eventually { syncs.count == 2 }
-        #expect(!triggers.isDebouncing)
+        #expect(triggers.isDebouncing == false)
         #expect(sleeper.pendingCount == 0)
         triggers.stop()
     }
@@ -90,7 +90,7 @@ import Testing
         let triggers = triggers()
         try await started(triggers)
         #expect(triggers.outboxCount == 0)
-        #expect(!triggers.isDebouncing)
+        #expect(triggers.isDebouncing == false)
         triggers.stop()
     }
 
@@ -102,7 +102,7 @@ import Testing
 
         triggers.stop()
 
-        #expect(!triggers.isDebouncing)
+        #expect(triggers.isDebouncing == false)
         try await eventually { sleeper.pendingCount == 0 }
         #expect(syncs.count == 1)
     }
@@ -186,7 +186,7 @@ import Testing
         let triggers = triggers()
         try await started(triggers)
         #expect(triggers.processing == false)
-        #expect(!triggers.isPolling)
+        #expect(triggers.isPolling == false)
         triggers.stop()
     }
 
@@ -196,14 +196,14 @@ import Testing
         let triggers = triggers(isActive: false)
         try await started(triggers)
         #expect(triggers.processing == true)
-        #expect(!triggers.isPolling)
+        #expect(triggers.isPolling == false)
 
         triggers.setActive(true)
         #expect(triggers.isPolling)
         try await eventually { sleeper.pendingDurations == [SyncTriggers.processingPoll] }
 
         triggers.setActive(false)
-        #expect(!triggers.isPolling)
+        #expect(triggers.isPolling == false)
         try await eventually { sleeper.pendingCount == 0 }
         triggers.stop()
     }

@@ -9,8 +9,8 @@ struct StepperModelTests {
     }
 
     @Test func cannotStepPastABound() {
-        #expect(!StepperModel.canStep(12, by: 1, in: -12...12))
-        #expect(!StepperModel.canStep(-12, by: -1, in: -12...12))
+        #expect(StepperModel.canStep(12, by: 1, in: -12...12) == false)
+        #expect(StepperModel.canStep(-12, by: -1, in: -12...12) == false)
         #expect(StepperModel.canStep(11, by: 1, in: -12...12))
     }
 

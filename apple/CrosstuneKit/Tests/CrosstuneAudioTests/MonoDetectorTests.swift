@@ -37,7 +37,7 @@ import Testing
         let url = try file()
         try writeTone(to: url, seconds: 1, bitrate: 128_000, channels: 2, frequency: 440, rightFrequency: 660)
 
-        #expect(try !MonoDetector.isMono(url: url))
+        #expect(try MonoDetector.isMono(url: url) == false)
     }
 
     @Test func theSameToneOneDecibelQuieterOnTheRightIsMono() throws {
@@ -94,18 +94,18 @@ import Testing
         let over = Double(frames) * 1e-10 * 1.01
 
         #expect(MonoDetector.isMono(left: under, right: under, cross: 0, frames: frames))
-        #expect(!MonoDetector.isMono(left: over, right: over, cross: 0, frames: frames))
+        #expect(MonoDetector.isMono(left: over, right: over, cross: 0, frames: frames) == false)
     }
 
     @Test func aChannelMoreThanFortyDecibelsUnderIsMono() {
         #expect(MonoDetector.isMono(left: 1, right: 1e-4 * 0.99, cross: 0, frames: 1000))
-        #expect(!MonoDetector.isMono(left: 1, right: 1e-4 * 1.01, cross: 0, frames: 1000))
+        #expect(MonoDetector.isMono(left: 1, right: 1e-4 * 1.01, cross: 0, frames: 1000) == false)
     }
 
     @Test func aCorrelationOfAtLeastPointNineNineNineIsMono() {
         #expect(MonoDetector.isMono(left: 1, right: 1, cross: 0.999, frames: 1000))
         #expect(MonoDetector.isMono(left: 1, right: 1, cross: 0.9991, frames: 1000))
-        #expect(!MonoDetector.isMono(left: 1, right: 1, cross: 0.9989, frames: 1000))
+        #expect(MonoDetector.isMono(left: 1, right: 1, cross: 0.9989, frames: 1000) == false)
     }
 
     @Test func aFileWithNoFramesIsMono() {

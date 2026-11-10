@@ -10,9 +10,9 @@ import Testing
         #expect(DeleteAccountSheet.confirmationMatches(" delete "))
         #expect(DeleteAccountSheet.confirmationMatches("DELETE"))
         #expect(DeleteAccountSheet.confirmationMatches("Delete"))
-        #expect(!DeleteAccountSheet.confirmationMatches(String(DeleteAccountSheet.confirmationText.dropLast())))
-        #expect(!DeleteAccountSheet.confirmationMatches("\(DeleteAccountSheet.confirmationText) IT"))
-        #expect(!DeleteAccountSheet.confirmationMatches(""))
+        #expect(DeleteAccountSheet.confirmationMatches(String(DeleteAccountSheet.confirmationText.dropLast())) == false)
+        #expect(DeleteAccountSheet.confirmationMatches("\(DeleteAccountSheet.confirmationText) IT") == false)
+        #expect(DeleteAccountSheet.confirmationMatches("") == false)
     }
 
     @Test func countLinesOmitZerosAndPluralize() {
@@ -36,14 +36,14 @@ import Testing
     }
 
     @Test func theUnsyncedLineHidesOnlyWhileLoading() {
-        #expect(!DeleteAccountSheet.showsUnsyncedLine(.loading))
+        #expect(DeleteAccountSheet.showsUnsyncedLine(.loading) == false)
         #expect(DeleteAccountSheet.showsUnsyncedLine(.unavailable))
         let state = DeleteAccountSheet.CountsState.available(AccountCounts(tunes: 0, lists: 0, recordings: 0))
         #expect(DeleteAccountSheet.showsUnsyncedLine(state))
     }
 
     @Test func deleteIsDisabledWhileCountsAreLoading() {
-        #expect(!DeleteAccountSheet.deleteEnabled(.loading, text: "DELETE", pending: false))
+        #expect(DeleteAccountSheet.deleteEnabled(.loading, text: "DELETE", pending: false) == false)
     }
 
     @Test func deleteIsEnabledOnceConfirmedEvenWithUnavailableCounts() {
@@ -121,8 +121,8 @@ import Testing
     }
 
     @Test func deleteStaysDisabledWithoutConfirmationOrWhilePending() {
-        #expect(!DeleteAccountSheet.deleteEnabled(.unavailable, text: "", pending: false))
-        #expect(!DeleteAccountSheet.deleteEnabled(.unavailable, text: "DELETE", pending: true))
+        #expect(DeleteAccountSheet.deleteEnabled(.unavailable, text: "", pending: false) == false)
+        #expect(DeleteAccountSheet.deleteEnabled(.unavailable, text: "DELETE", pending: true) == false)
     }
 
     #if os(macOS)
@@ -130,8 +130,8 @@ import Testing
         @Test func theMacDeleteIsFilledDangerAndNeverTheDefault() {
             let action = DeleteAccountSheet.macDelete(title: DeleteAccountSheet.title, isEnabled: false) {}
             #expect(action.role == .destructiveFilled)
-            #expect(!action.isDefault)
-            #expect(!action.isEnabled)
+            #expect(action.isDefault == false)
+            #expect(action.isEnabled == false)
             #expect(MacSheetAction.keyboardRoles(cancel: nil, primary: action).primary == nil)
         }
 

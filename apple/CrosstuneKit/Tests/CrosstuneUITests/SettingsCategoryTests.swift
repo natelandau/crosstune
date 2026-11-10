@@ -49,8 +49,8 @@ import Testing
             try SourceScan.text(at: SourceScan.url(of: "Phone/SettingsRoot.swift")))
         #expect(root.contains("GroupedSelectionForm("))
         #expect(root.contains(".groupedSelectionRow(page, selection: opener.current)"))
-        #expect(!root.contains("chevron"))
-        #expect(!root.contains("listRowBackground"))
+        #expect(root.contains("chevron") == false)
+        #expect(root.contains("listRowBackground") == false)
     }
 
     /// Every root row keeps its own identity in each appearance, so the iPad root lists each

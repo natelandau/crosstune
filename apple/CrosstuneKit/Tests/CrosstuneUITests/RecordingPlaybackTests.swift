@@ -256,7 +256,7 @@ private func recording(_ id: String = "r1", label: String? = "Jam at Mike's") ->
 
         player.quietForTuner()
 
-        #expect(!audio.isPlaying)
+        #expect(audio.isPlaying == false)
         #expect(player.isLoaded)
     }
 
@@ -270,7 +270,7 @@ private func recording(_ id: String = "r1", label: String? = "Jam at Mike's") ->
 
         player.quietForTuner()
 
-        #expect(!player.isLoaded)
+        #expect(player.isLoaded == false)
     }
 
     @Test func playsOneThingAtATime() async throws {
@@ -292,7 +292,7 @@ private func recording(_ id: String = "r1", label: String? = "Jam at Mike's") ->
         try await eventually { player.recordingAudio == .loaded }
         player.close()
         #expect(audio.calls.last == "unload")
-        #expect(!audio.isPlaying)
+        #expect(audio.isPlaying == false)
         #expect(player.recordingAudio == nil)
     }
 
@@ -303,11 +303,11 @@ private func recording(_ id: String = "r1", label: String? = "Jam at Mike's") ->
         let capturing = Mutex(true)
         player.isCapturing = { capturing.withLock { $0 } }
 
-        #expect(!player.play(.recording(recording(), tuneTitle: nil)))
+        #expect(player.play(.recording(recording(), tuneTitle: nil)) == false)
         var link = RecordingLink(id: "l1", tuneID: "t1", url: "https://example.com/x", provider: "youtube")
         link.providerRef = "dQw4w9WgXcQ"
-        #expect(!player.play(try #require(PlayerItem.link(link))))
-        #expect(!player.isLoaded)
+        #expect(player.play(try #require(PlayerItem.link(link))) == false)
+        #expect(player.isLoaded == false)
         #expect(audio.calls.isEmpty)
 
         capturing.withLock { $0 = false }
@@ -329,7 +329,7 @@ private func recording(_ id: String = "r1", label: String? = "Jam at Mike's") ->
         source.answer("r1", with: audioURL)
         try await eventually { player.recordingAudio == .loaded }
         #expect(audio.calls == Array(loadAndPlay.dropLast()))
-        #expect(!audio.isPlaying)
+        #expect(audio.isPlaying == false)
     }
 
     @Test func followsTheLoadedRecordingsRowAndClosesOnceItIsDeleted() async throws {
@@ -352,7 +352,7 @@ private func recording(_ id: String = "r1", label: String? = "Jam at Mike's") ->
         var deleted = recording(label: "Take 2")
         deleted.deletedAt = .now
         player.recordingChanged(id: "r1", to: deleted, audioFile: nil, tuneTitle: nil)
-        #expect(!player.isLoaded)
+        #expect(player.isLoaded == false)
         #expect(audio.calls.last == "unload")
     }
 
@@ -386,8 +386,8 @@ private let loadPaused = ["load", "setWindow", "setRate(100)", "setPitch(0)", "s
         #expect(player.loadPaused(.recording(recording(), tuneTitle: nil)))
         try await eventually { player.recordingAudio == .loaded }
         #expect(audio.calls == loadPaused)
-        #expect(!audio.isPlaying)
-        #expect(!player.isExpanded)
+        #expect(audio.isPlaying == false)
+        #expect(player.isExpanded == false)
     }
 
     @Test func playStartsAtThePositionAskedFor() async throws {
@@ -410,7 +410,7 @@ private let loadPaused = ["load", "setWindow", "setRate(100)", "setPitch(0)", "s
         #expect(player.holds(.recording, id: "r1"))
         #expect(player.failure != nil)
         try await eventually { player.recordingAudio == .loaded }
-        #expect(!audio.isPlaying)
+        #expect(audio.isPlaying == false)
     }
 
     @Test func retryingAPausedLoadStaysPaused() async throws {
@@ -424,14 +424,14 @@ private let loadPaused = ["load", "setWindow", "setRate(100)", "setPitch(0)", "s
         found.withLock { $0 = true }
         player.retryAudio()
         try await eventually { player.recordingAudio == .loaded }
-        #expect(!audio.isPlaying)
+        #expect(audio.isPlaying == false)
     }
 
     @Test func refusesAPausedLoadWhileARecordingIsRecorded() {
         let player = player(FakeAudio())
         player.isCapturing = { true }
 
-        #expect(!player.loadPaused(.recording(recording(), tuneTitle: nil)))
-        #expect(!player.isLoaded)
+        #expect(player.loadPaused(.recording(recording(), tuneTitle: nil)) == false)
+        #expect(player.isLoaded == false)
     }
 }

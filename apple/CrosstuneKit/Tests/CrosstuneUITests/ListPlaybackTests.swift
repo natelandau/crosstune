@@ -159,8 +159,8 @@ private func songKind(_ tune: String) throws -> AppleMusicItem {
         try await eventually { !fixture.playback.isActive }
         #expect(fixture.player.item?.id == "rc")
         #expect(fixture.player.queue == nil)
-        #expect(!fixture.audio.isPlaying)
-        #expect(!fixture.commands.isEnabled)
+        #expect(fixture.audio.isPlaying == false)
+        #expect(fixture.commands.isEnabled == false)
         #expect(fixture.playback.endMessage == nil)
         #expect(fixture.resolver.asked == ["a", "b", "c"])
     }
@@ -217,9 +217,9 @@ private func songKind(_ tune: String) throws -> AppleMusicItem {
         try await eventually { !fixture.playback.isActive }
         #expect(fixture.playback.endMessage == ListPlaybackText.nothingLeft)
         #expect(fixture.resolver.asked == ["b", "c", "a"])
-        #expect(!fixture.player.isLoaded)
+        #expect(fixture.player.isLoaded == false)
         #expect(fixture.player.queue == nil)
-        #expect(!fixture.commands.isEnabled)
+        #expect(fixture.commands.isEnabled == false)
     }
 
     @Test func failingTunesAfterOneThatPlayedStopWithTheMessage() async throws {
@@ -232,7 +232,7 @@ private func songKind(_ tune: String) throws -> AppleMusicItem {
         try await eventually { !fixture.playback.isActive }
         #expect(fixture.playback.endMessage == ListPlaybackText.nothingLeft)
         #expect(fixture.resolver.asked == ["a", "b", "c", "a"])
-        #expect(!fixture.player.isLoaded)
+        #expect(fixture.player.isLoaded == false)
     }
 
     @Test func aStaleResolveNeverPlays() async throws {
@@ -401,13 +401,13 @@ private func songKind(_ tune: String) throws -> AppleMusicItem {
         start(fixture)
         try await playing(fixture, "ra")
         fixture.player.close()
-        #expect(!fixture.playback.isActive)
+        #expect(fixture.playback.isActive == false)
         #expect(fixture.playback.listID == nil)
         #expect(fixture.playback.currentTuneID == nil)
         #expect(fixture.playback.count == 0)
         #expect(fixture.playback.endMessage == nil)
-        #expect(!fixture.commands.isEnabled)
-        #expect(!fixture.player.isLoaded)
+        #expect(fixture.commands.isEnabled == false)
+        #expect(fixture.player.isLoaded == false)
     }
 
     @Test func endLeavesTheLoadedTune() async throws {
@@ -415,8 +415,8 @@ private func songKind(_ tune: String) throws -> AppleMusicItem {
         start(fixture)
         try await playing(fixture, "ra")
         fixture.playback.end()
-        #expect(!fixture.playback.isActive)
-        #expect(!fixture.commands.isEnabled)
+        #expect(fixture.playback.isActive == false)
+        #expect(fixture.commands.isEnabled == false)
         #expect(fixture.player.queue == nil)
         #expect(fixture.player.item?.id == "ra")
         // The tune's end no longer reaches the playlist.
@@ -505,8 +505,8 @@ private func songKind(_ tune: String) throws -> AppleMusicItem {
         fixture.playback.next()
         try await eventually { fixture.resolver.isHolding("b") }
         fixture.playback.next()
-        #expect(!fixture.playback.isActive)
-        #expect(!fixture.audio.isPlaying)
+        #expect(fixture.playback.isActive == false)
+        #expect(fixture.audio.isPlaying == false)
         fixture.resolver.release("b")
         try await eventually { fixture.resolver.answered.contains("b") }
         #expect(fixture.player.item?.id == "ra")
@@ -544,7 +544,7 @@ private func songKind(_ tune: String) throws -> AppleMusicItem {
         #expect(fixture.playback.isSettled)
         fixture.resolver.holding = ["b"]
         fixture.playback.next()
-        #expect(!fixture.playback.isSettled)
+        #expect(fixture.playback.isSettled == false)
         try await eventually { fixture.resolver.isHolding("b") }
         fixture.resolver.release("b")
         try await playing(fixture, "rb")
@@ -577,7 +577,7 @@ private func songKind(_ tune: String) throws -> AppleMusicItem {
             listID: "list1", name: listName, tuneIDs: ["a", "b", "c", "d", "e"], shuffled: true, at: "c")
         try await playing(fixture, "rc")
         fixture.playback.setShuffled(false)
-        #expect(!fixture.playback.isShuffled)
+        #expect(fixture.playback.isShuffled == false)
         #expect(fixture.playback.position == 3)
         #expect(self.loads(fixture) == 1)
         fixture.playback.next()

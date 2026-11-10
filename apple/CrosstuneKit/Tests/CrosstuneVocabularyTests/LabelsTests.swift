@@ -50,7 +50,7 @@ import Testing
 
 @Test func offersACapoOnlyOnFrettedInstruments() {
     #expect(Vocabulary.capoInstruments.isSubset(of: Vocabulary.instruments))
-    #expect(!Vocabulary.capoInstruments.contains("violin"))
+    #expect(Vocabulary.capoInstruments.contains("violin") == false)
     #expect(Vocabulary.capoInstruments.count == Vocabulary.instruments.count - 1)
     #expect(Vocabulary.capoFrets == Array(1...12))
 }

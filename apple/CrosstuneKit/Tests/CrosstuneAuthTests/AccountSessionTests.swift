@@ -44,7 +44,7 @@ import Testing
 @Test func isOfflineWithoutANetworkEvenWhenClerkRestoredTheUser() {
     let restored = AccountSession.Phase.signedIn(userID: "user_a", confirmed: true)
     #expect(AccountSession.isOffline(phase: restored, hasNetwork: false, updateRequired: false))
-    #expect(!AccountSession.isOffline(phase: restored, hasNetwork: true, updateRequired: false))
+    #expect(AccountSession.isOffline(phase: restored, hasNetwork: true, updateRequired: false) == false)
 }
 
 @Test func isOfflineUntilClerkLoads() {
@@ -55,7 +55,7 @@ import Testing
 @Test func updateRequiredReadsOffline() {
     let signedIn = AccountSession.Phase.signedIn(userID: "user_a", confirmed: true)
     #expect(AccountSession.isOffline(phase: signedIn, hasNetwork: true, updateRequired: true))
-    #expect(!AccountSession.isOffline(phase: signedIn, hasNetwork: true, updateRequired: false))
+    #expect(AccountSession.isOffline(phase: signedIn, hasNetwork: true, updateRequired: false) == false)
 }
 
 @Test func theFirstRefusalAsksOnce() {
@@ -66,19 +66,21 @@ import Testing
     prompt.isShowing = false
 
     let again = prompt.refused(at: t0.addingTimeInterval(60))
-    #expect(!again && prompt.isRequired && !prompt.isShowing)
+    #expect(again == false)
+    #expect(prompt.isRequired)
+    #expect(prompt.isShowing == false)
 }
 
 @Test func theForegroundAsksAgainOnlyAfterTheInterval() {
     let t0 = Date(timeIntervalSince1970: 1_000_000)
     var prompt = UpdatePromptSchedule()
     prompt.foregrounded(at: t0)
-    #expect(!prompt.isShowing)
+    #expect(prompt.isShowing == false)
 
     _ = prompt.refused(at: t0)
     prompt.isShowing = false
     prompt.foregrounded(at: t0.addingTimeInterval(4 * 3600 - 1))
-    #expect(!prompt.isShowing)
+    #expect(prompt.isShowing == false)
     prompt.foregrounded(at: t0.addingTimeInterval(4 * 3600))
     #expect(prompt.isShowing)
 }
@@ -90,7 +92,7 @@ import Testing
     prompt.show(at: t0.addingTimeInterval(3 * 3600))
     prompt.isShowing = false
     prompt.foregrounded(at: t0.addingTimeInterval(5 * 3600))
-    #expect(!prompt.isShowing)
+    #expect(prompt.isShowing == false)
 }
 
 @Test func theIntervalCountsItsFractionalSeconds() {
@@ -100,7 +102,7 @@ import Testing
     _ = prompt.refused(at: t0)
     prompt.isShowing = false
     prompt.foregrounded(at: t0.addingTimeInterval(1.2))
-    #expect(!prompt.isShowing)
+    #expect(prompt.isShowing == false)
     prompt.foregrounded(at: t0.addingTimeInterval(1.5))
     #expect(prompt.isShowing)
 }
@@ -366,7 +368,7 @@ struct ClerkFailed: Error {}
         try await leave()
 
         #expect(log.steps == ["sync", "stop", "stopped", "end session"])
-        #expect(!folderExists)
+        #expect(folderExists == false)
     }
 
     @Test func signOutChecksTheOutboxAfterTheSync() async throws {
@@ -376,7 +378,7 @@ struct ClerkFailed: Error {}
 
         try await leave()
 
-        #expect(!folderExists)
+        #expect(folderExists == false)
     }
 
     @Test func leavingFinishesHeldBackWritesBeforeCheckingTheOutbox() async throws {
@@ -434,7 +436,7 @@ struct ClerkFailed: Error {}
         try await leave()
 
         #expect(log.steps == ["sync", "stop", "stopped", "end session"])
-        #expect(!folderExists)
+        #expect(folderExists == false)
     }
 
     @Test func signOutRefusesWhileARecordingIsNotUploaded() async throws {
@@ -490,7 +492,7 @@ struct ClerkFailed: Error {}
 
         try await leave()
 
-        #expect(!folderExists)
+        #expect(folderExists == false)
     }
 
     @Test func signOutChecksRecordingsAfterTheSync() async throws {
@@ -504,7 +506,7 @@ struct ClerkFailed: Error {}
 
         try await leave()
 
-        #expect(!folderExists)
+        #expect(folderExists == false)
     }
 
     @Test func signOutLeavesWithRecordingsTheServerHas() async throws {
@@ -512,7 +514,7 @@ struct ClerkFailed: Error {}
 
         try await leave()
 
-        #expect(!folderExists)
+        #expect(folderExists == false)
     }
 
     func deleteAndLeave(
@@ -536,7 +538,7 @@ struct ClerkFailed: Error {}
         try await deleteAndLeave()
 
         #expect(log.steps == ["stop", "stopped", "deleteRemote", "end session"])
-        #expect(!folderExists)
+        #expect(folderExists == false)
     }
 
     @Test func aFailedDeleteKeepsTheStoreAndResumesSync() async throws {
@@ -551,7 +553,7 @@ struct ClerkFailed: Error {}
     @Test func deletingWipesTheStoreEvenWhenEndingTheSessionFails() async throws {
         try await deleteAndLeave(endSession: { throw ClerkFailed() })
 
-        #expect(!folderExists)
+        #expect(folderExists == false)
     }
 
     @Test func deletingIgnoresUnsentChanges() async throws {
@@ -561,8 +563,8 @@ struct ClerkFailed: Error {}
 
         try await deleteAndLeave()
 
-        #expect(!log.steps.contains("sync"))
-        #expect(!folderExists)
+        #expect(log.steps.contains("sync") == false)
+        #expect(folderExists == false)
     }
 
     @Test func deletingSucceedsEvenWhenTheFolderDeleteFails() async throws {
@@ -592,14 +594,14 @@ struct ClerkFailed: Error {}
         await forgetDeleted()
 
         #expect(log.steps == ["stop", "stopped", "end session"])
-        #expect(!folderExists)
+        #expect(folderExists == false)
     }
 
     @Test func anAccountDeletedElsewhereDeletesTheFolderEvenWhenEndingTheSessionFails() async throws {
         await forgetDeleted { throw ClerkFailed() }
 
-        #expect(!log.steps.contains("resume"))
-        #expect(!folderExists)
+        #expect(log.steps.contains("resume") == false)
+        #expect(folderExists == false)
     }
 
     @Test func signOutSendsSignedOutThenResetsOnceTheSessionEnds() async throws {
@@ -663,8 +665,8 @@ struct ClerkFailed: Error {}
                 .identify("user_b", set: [:], setOnce: [:]), .capture("signed_in", [:]),
             ])
         let afterReset = sink.calls.drop(while: { $0 != .reset })
-        #expect(!afterReset.isEmpty)
-        #expect(!afterReset.contains { if case .identify("user_a", _, _) = $0 { true } else { false } })
+        #expect(afterReset.isEmpty == false)
+        #expect(afterReset.contains { if case .identify("user_a", _, _) = $0 { true } else { false } } == false)
     }
 
     @Test func syncResumesAndTheFolderStaysWhenTheSessionDoesNotEnd() async throws {
@@ -787,7 +789,7 @@ private let signedUpAt = Date(timeIntervalSince1970: 1_791_374_400)
         let first = identity.accountDeletedAfterClerkLetGo()
         let second = identity.accountDeletedAfterClerkLetGo()
         #expect(first)
-        #expect(!second)
+        #expect(second == false)
 
         #expect(
             sink.calls == [
@@ -836,7 +838,7 @@ private let signedUpAt = Date(timeIntervalSince1970: 1_791_374_400)
         var identity = AnalyticsIdentity(analytics: sink.client)
 
         let counted = identity.accountDeletedAfterClerkLetGo()
-        #expect(!counted)
+        #expect(counted == false)
 
         #expect(sink.calls.isEmpty)
     }
@@ -848,7 +850,7 @@ private let signedUpAt = Date(timeIntervalSince1970: 1_791_374_400)
 
         identity.accountDeletedAfterClerkLetGo()
 
-        #expect(!sink.captures.contains { $0.name == "account_deleted" })
+        #expect(sink.captures.contains { $0.name == "account_deleted" } == false)
     }
 }
 
@@ -944,7 +946,7 @@ private let signedUpAt = Date(timeIntervalSince1970: 1_791_374_400)
     let after = await AccountSession.identify(
         userID: "user_a", withUsageIn: store, analytics: sink.client, canIdentify: { true })
 
-    #expect(!before)
+    #expect(before == false)
     #expect(after)
     #expect(
         sink.calls == [
@@ -1023,7 +1025,7 @@ private let signedUpAt = Date(timeIntervalSince1970: 1_791_374_400)
         Issue.record("The last call is not an identify")
         return
     }
-    #expect(!set.keys.contains { $0.hasPrefix("setting_") })
+    #expect(set.keys.contains { $0.hasPrefix("setting_") } == false)
 }
 
 /// A blank genre counts as none, and a status this build does not know is left out.
@@ -1035,7 +1037,7 @@ private let signedUpAt = Date(timeIntervalSince1970: 1_791_374_400)
     let settings = try await store.read { try AccountSession.syncedSettings(in: $0) }
 
     #expect(settings.contains(.newTuneGenreSet(false)))
-    #expect(!settings.contains { $0.name == "new_tune_status" })
+    #expect(settings.contains { $0.name == "new_tune_status" } == false)
 }
 
 /// The device's own settings are known at once; the synced ones only once a sync brings them.
@@ -1063,16 +1065,16 @@ private let signedUpAt = Date(timeIntervalSince1970: 1_791_374_400)
     let carried = await AccountSession.identify(
         userID: "user_a", withUsageIn: store, analytics: sink.client, canIdentify: { false })
 
-    #expect(!carried)
+    #expect(carried == false)
     #expect(sink.calls.isEmpty)
 }
 
 @Test func onlyASyncThatStoredTheUsageIdentifiesWithIt() {
     // A returning device still holds its last session's usage, so a sync whose storage
     // call failed must not count it as fresh.
-    #expect(!AccountSession.identifiesAfterSync(storedUsage: false, reported: false))
+    #expect(AccountSession.identifiesAfterSync(storedUsage: false, reported: false) == false)
     #expect(AccountSession.identifiesAfterSync(storedUsage: true, reported: false))
-    #expect(!AccountSession.identifiesAfterSync(storedUsage: true, reported: true))
+    #expect(AccountSession.identifiesAfterSync(storedUsage: true, reported: true) == false)
 }
 
 @Test func connectivityFiresOnceWhenGoingOnline() {
@@ -1092,7 +1094,7 @@ private let signedUpAt = Date(timeIntervalSince1970: 1_791_374_400)
     // Opening a store resets the edge to the current state, since the launch sync covers it.
     var edge = ConnectivityEdge(wasOffline: false)
     let fired = edge.update(isOffline: false)
-    #expect(!fired)
+    #expect(fired == false)
 }
 
 /// A server that answers every call with nothing, counting requests. A push can be held until

@@ -39,8 +39,8 @@ private let foldCases: [FoldCase] =
     }
 
     @Test func keepsDifferentLettersApart() {
-        #expect(!sameText("Stra\u{DF}e", "Strasse"))
-        #expect(!sameText("\u{131}", "i"))
+        #expect(sameText("Stra\u{DF}e", "Strasse") == false)
+        #expect(sameText("\u{131}", "i") == false)
     }
 
     @Test func findsAFoldedNeedleAnywhereInTheHaystack() {
@@ -49,7 +49,7 @@ private let foldCases: [FoldCase] =
 
     @Test func trimsTheNeedleSoInnerSpacesStillCount() {
         #expect(containsText("Ete Waltz", "  ete  "))
-        #expect(!containsText("Ete Waltz", "ete  waltz"))
+        #expect(containsText("Ete Waltz", "ete  waltz") == false)
     }
 
     @Test func findsAWordEndingInSigmaAtTheStartOfALongerWord() {

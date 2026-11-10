@@ -24,15 +24,15 @@ private func saved(url: String?, deleted: Bool = false) -> Recording {
     }
 
     @Test func skipsAProviderThatIsNotImportable() {
-        #expect(!canAddToRecordings(link: link(provider: "youtube"), recordings: []))
+        #expect(canAddToRecordings(link: link(provider: "youtube"), recordings: []) == false)
     }
 
     @Test func skipsALinkWithoutARef() {
-        #expect(!canAddToRecordings(link: link(ref: nil), recordings: []))
+        #expect(canAddToRecordings(link: link(ref: nil), recordings: []) == false)
     }
 
     @Test func skipsALinkAlreadySaved() {
-        #expect(!canAddToRecordings(link: link(), recordings: [saved(url: pageURL)]))
+        #expect(canAddToRecordings(link: link(), recordings: [saved(url: pageURL)]) == false)
     }
 
     @Test func offersALinkWhoseSavedRecordingIsGoneOrDifferent() {

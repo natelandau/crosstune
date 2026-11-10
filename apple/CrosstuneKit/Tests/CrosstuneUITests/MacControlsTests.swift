@@ -30,8 +30,8 @@
             let picker = SourceScan.withoutComments(
                 try SourceScan.text(at: SourceScan.url(of: "Mac/MacSegmentedPicker.swift")))
             for (name, text) in [("MacSegmented", segmented), ("MacSegmentedPicker", picker)] {
-                #expect(!text.contains("accentFill"), "\(name)")
-                #expect(!text.contains("MacSegmentLook"), "\(name)")
+                #expect(text.contains("accentFill") == false, "\(name)")
+                #expect(text.contains("MacSegmentLook") == false, "\(name)")
             }
         }
 
@@ -49,7 +49,7 @@
                 SourceScan.withoutPreviews(
                     SourceScan.withoutComments(try SourceScan.text(at: SourceScan.url(of: control.file)))))
             #expect(mac.contains(control.macLook), "\(control.file)")
-            #expect(!mac.contains(control.system), "\(control.file)")
+            #expect(mac.contains(control.system) == false, "\(control.file)")
         }
 
         @Test func macSegmentSpeaksItsBadge() {
@@ -82,9 +82,9 @@
         /// stays on it or moves elsewhere.
         @Test func snapFiresOnceOnEntering() {
             #expect(MacSlider.entersDetent(from: 95, to: 100, detent: 100))
-            #expect(!MacSlider.entersDetent(from: 100, to: 100, detent: 100))
-            #expect(!MacSlider.entersDetent(from: 95, to: 96, detent: 100))
-            #expect(!MacSlider.entersDetent(from: 95, to: 100, detent: nil))
+            #expect(MacSlider.entersDetent(from: 100, to: 100, detent: 100) == false)
+            #expect(MacSlider.entersDetent(from: 95, to: 96, detent: 100) == false)
+            #expect(MacSlider.entersDetent(from: 95, to: 100, detent: nil) == false)
         }
 
         /// A stepper half dims at its limit, and a disabled stepper dims once as a whole, never
@@ -126,11 +126,11 @@
         @Test func everyMacCheckboxIsTheMacCheckbox() throws {
             let style = SourceScan.withoutComments(
                 try SourceScan.text(at: SourceScan.url(of: "Mac/MacCheckbox.swift")))
-            #expect(!style.contains("controlActiveState"))
-            #expect(!style.contains("appearsActive"))
+            #expect(style.contains("controlActiveState") == false)
+            #expect(style.contains("appearsActive") == false)
             for file in SourceScan.files() where SourceScan.relative(file) != "Mac/MacCheckbox.swift" {
                 let text = SourceScan.macCompiled(SourceScan.withoutComments(try SourceScan.text(at: file)))
-                #expect(!text.contains(".toggleStyle(.checkbox)"), "\(SourceScan.relative(file))")
+                #expect(text.contains(".toggleStyle(.checkbox)") == false, "\(SourceScan.relative(file))")
             }
         }
 
@@ -141,11 +141,11 @@
                 let text = SourceScan.macCompiled(
                     SourceScan.withoutComments(try SourceScan.text(at: SourceScan.url(of: name))))
                 #expect(text.contains("MacMeter(fraction:"), "\(name)")
-                #expect(!text.contains("ProgressView("), "\(name)")
+                #expect(text.contains("ProgressView(") == false, "\(name)")
             }
             let meter = SourceScan.withoutComments(
                 try SourceScan.text(at: SourceScan.url(of: "Mac/MacMeter.swift")))
-            #expect(!meter.contains("accent"))
+            #expect(meter.contains("accent") == false)
             #expect(MacMeter.clamped(1.4) == 1)
             #expect(MacMeter.clamped(-0.2) == 0)
         }
@@ -155,11 +155,11 @@
         @Test func formSectionsTakeNoFooter() throws {
             let form = SourceScan.withoutComments(
                 try SourceScan.text(at: SourceScan.url(of: "Mac/MacForm.swift")))
-            #expect(!form.contains("footer"))
+            #expect(form.contains("footer") == false)
             let call = try Regex(#"MacFormSection\([^{]*footer:"#)
             for file in SourceScan.files() {
                 let text = SourceScan.withoutComments(try SourceScan.text(at: file))
-                #expect(!text.contains(call), "\(SourceScan.relative(file))")
+                #expect(text.contains(call) == false, "\(SourceScan.relative(file))")
             }
         }
 
@@ -168,8 +168,8 @@
         @Test func dockDrawsOnlyLibraryButtons() throws {
             let scanned = SourceScan.withoutComments(
                 try SourceScan.text(at: SourceScan.url(of: "Mac/PlayerDock.swift")))
-            #expect(!scanned.contains(".buttonStyle(.plain)"))
-            #expect(!scanned.contains(try Regex(#"\.system\(size:\s*\d"#)))
+            #expect(scanned.contains(".buttonStyle(.plain)") == false)
+            #expect(scanned.contains(try Regex(#"\.system\(size:\s*\d"#)) == false)
         }
 
         /// The controls sample screen is where a Mac-only control's states are looked at, so one

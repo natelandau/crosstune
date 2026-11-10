@@ -27,12 +27,12 @@ import Testing
     }
 
     @Test func nothingRemovedIsNot() {
-        #expect(!lostAnOutput(recorded: [headphones], current: [headphones]))
-        #expect(!lostAnOutput(recorded: [], current: [speaker]))
+        #expect(lostAnOutput(recorded: [headphones], current: [headphones]) == false)
+        #expect(lostAnOutput(recorded: [], current: [speaker]) == false)
     }
 
     @Test func aPortAddedIsNot() {
-        #expect(!lostAnOutput(recorded: [speaker], current: [speaker, airPlay]))
+        #expect(lostAnOutput(recorded: [speaker], current: [speaker, airPlay]) == false)
     }
 }
 
@@ -49,8 +49,8 @@ import Testing
         try await eventually { player.duration != nil }
         let duration = try #require(player.duration)
         #expect(abs(duration - 2) < 0.2)
-        #expect(!player.isPlaying)
-        #expect(!player.hasFailed)
+        #expect(player.isPlaying == false)
+        #expect(player.hasFailed == false)
 
         player.seek(to: -3)
         #expect(player.elapsed == 0)
@@ -62,7 +62,7 @@ import Testing
         player.unload()
         #expect(player.duration == nil)
         #expect(player.elapsed == 0)
-        #expect(!player.isPlaying)
+        #expect(player.isPlaying == false)
     }
 
     @Test func offersIntervalSkipsAgainWhenTheyAreTurnedBackOnWhileLoaded() throws {
@@ -75,14 +75,14 @@ import Testing
         player.skipsByInterval = false
         player.load(
             root.url.appending(path: "tone.aac"), nowPlaying: NowPlaying(title: "Take", tuneTitle: nil))
-        #expect(!center.skipForwardCommand.isEnabled)
-        #expect(!center.skipBackwardCommand.isEnabled)
+        #expect(center.skipForwardCommand.isEnabled == false)
+        #expect(center.skipBackwardCommand.isEnabled == false)
 
         player.skipsByInterval = true
         #expect(center.skipForwardCommand.isEnabled)
         #expect(center.skipBackwardCommand.isEnabled)
         player.unload()
-        #expect(!center.skipForwardCommand.isEnabled)
+        #expect(center.skipForwardCommand.isEnabled == false)
     }
 
     @Test func everyRemoteCommandTellsThePlayerItCameFromTheSystem() throws {
@@ -150,7 +150,7 @@ import Testing
 
         // Past the end while playing is the end: paused, back at the start.
         player.seek(to: 60)
-        #expect(!player.isPlaying)
+        #expect(player.isPlaying == false)
         #expect(player.elapsed == 0)
         player.unload()
     }
@@ -292,7 +292,7 @@ import Testing
         try player.render(seconds: 1)
         try await eventually { ends.count == 1 }
         #expect(ends == [.finished])
-        #expect(!player.isPlaying)
+        #expect(player.isPlaying == false)
 
         player.play()
         try player.render(seconds: 0.5)
@@ -312,7 +312,7 @@ import Testing
         player.seek(to: 60)
 
         #expect(ends == [.finished])
-        #expect(!player.isPlaying)
+        #expect(player.isPlaying == false)
         player.unload()
     }
 
@@ -416,7 +416,7 @@ import Testing
         player.seek(to: 1.2)
         player.play()
         player.setRepeat(false)
-        #expect(!player.isRepeating)
+        #expect(player.isRepeating == false)
         #expect(abs(player.elapsed - 1.2) < 0.05)
         try await renderInSteps(player, seconds: 1)
         #expect(player.elapsed > 1.9)
@@ -479,7 +479,7 @@ import Testing
         try Data("not audio".utf8).write(to: broken)
         player.load(broken, nowPlaying: NowPlaying(title: "Broken", tuneTitle: nil), keepLoop: true)
         #expect(player.hasFailed)
-        #expect(!player.isRepeating)
+        #expect(player.isRepeating == false)
         player.unload()
     }
 
@@ -490,7 +490,7 @@ import Testing
         player.setLoop(PlaybackWindow(from: 1, to: 1.5))
         player.setRepeat(true)
         player.load(url, nowPlaying: NowPlaying(title: "Take", tuneTitle: nil))
-        #expect(!player.isRepeating)
+        #expect(player.isRepeating == false)
         player.play()
         try await renderInSteps(player, seconds: 2)
         #expect(player.elapsed > 1.7)
@@ -535,7 +535,7 @@ import Testing
         let player = AudioPlayer(isCapturing: { true })
         player.load(url, nowPlaying: NowPlaying(title: "Take", tuneTitle: nil))
         player.play()
-        #expect(!player.isPlaying)
+        #expect(player.isPlaying == false)
         player.unload()
     }
 
@@ -553,7 +553,7 @@ import Testing
         // Refused while a recording is recorded.
         published = []
         player.play()
-        #expect(!player.isPlaying)
+        #expect(player.isPlaying == false)
         #expect(published.map(\.isPlaying) == [false])
 
         // Refused for a file that failed.
@@ -584,16 +584,16 @@ import Testing
         let root = TemporaryRoot()
         let player = try offlinePlayer(root)
         let isolate = try #require(player.isolate)
-        #expect(!isolate.isEngaged)
+        #expect(isolate.isEngaged == false)
         #expect(player.isolateOutline == nil)
         player.setIsolate(highBand, isMono: false)
         #expect(isolate.isEngaged)
         player.setIsolate(.standard, isMono: false)
-        #expect(!isolate.isEngaged)
+        #expect(isolate.isEngaged == false)
         player.setIsolateOutlineWanted(true)
         #expect(isolate.isEngaged)
         player.setIsolateOutlineWanted(false)
-        #expect(!isolate.isEngaged)
+        #expect(isolate.isEngaged == false)
         player.unload()
     }
 
@@ -603,7 +603,7 @@ import Testing
         let isolate = try #require(player.isolate)
         let leftHalf = IsolateSetting(effect: .solo, panStart: -100, panEnd: 0, lowHz: 40, highHz: 16000)
         player.setIsolate(leftHalf, isMono: true)
-        #expect(!isolate.isEngaged)
+        #expect(isolate.isEngaged == false)
         player.setIsolate(leftHalf, isMono: false)
         #expect(isolate.isEngaged)
         player.unload()
@@ -616,8 +616,8 @@ import Testing
         player.load(root.url.appending(path: "tone.aac"), nowPlaying: NowPlaying(title: "Take", tuneTitle: nil))
         let isolate = try #require(player.isolate)
         #expect(isolate.setting == .standard)
-        #expect(!isolate.isMono)
-        #expect(!isolate.isEngaged)
+        #expect(isolate.isMono == false)
+        #expect(isolate.isEngaged == false)
         player.unload()
     }
 
@@ -762,9 +762,9 @@ import Testing
         player.load(url, nowPlaying: NowPlaying(title: "Broken", tuneTitle: nil))
         try await eventually { player.hasFailed }
         player.play()
-        #expect(!player.isPlaying)
+        #expect(player.isPlaying == false)
         player.unload()
-        #expect(!player.hasFailed)
+        #expect(player.hasFailed == false)
     }
 }
 

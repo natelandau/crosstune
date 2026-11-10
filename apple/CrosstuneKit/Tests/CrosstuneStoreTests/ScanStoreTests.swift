@@ -61,7 +61,7 @@ private func isExcludedFromBackup(_ url: URL) throws -> Bool? {
         _ = try ScanFile.deleteOne(writer.db, key: "p1")
     }
 
-    #expect(!FileManager.default.fileExists(atPath: url.path(percentEncoded: false)))
+    #expect(FileManager.default.fileExists(atPath: url.path(percentEncoded: false)) == false)
 }
 
 @Test func aFailedWriteKeepsTheScanFile() async throws {

@@ -157,7 +157,7 @@ private func json(_ data: Data?) throws -> JSONObject {
 
         #expect(page.rows.map(\.table) == [.entitlements, .lists])
         #expect(page.nextSince == 52)
-        #expect(!page.hasMore)
+        #expect(page.hasMore == false)
     }
 
     @Test func readsAnEventsPageAndKeepsATableThisBuildDoesNotKnow() async throws {
@@ -177,7 +177,7 @@ private func json(_ data: Data?) throws -> JSONObject {
 
         #expect(transport.requests.first?.request.path == "/v1/sync/events?since=3")
         #expect(page.nextSince == 9)
-        #expect(!page.hasMore)
+        #expect(page.hasMore == false)
         #expect(page.rows.map(\.table) == ["play_events", "tempo_marks"])
         let play = try PlayEvent(wire: try #require(page.rows.first?.row))
         #expect(play.context == "dock")
@@ -679,6 +679,6 @@ final class StubObjectStore: URLProtocol {
             try await api(RecordingTransport(), session: StubObjectStore.session(host: host, status: 404)).getObject(
                 URL(string: "https://\(host)/get/d1")!, to: destination)
         }
-        #expect(!FileManager.default.fileExists(atPath: destination.path(percentEncoded: false)))
+        #expect(FileManager.default.fileExists(atPath: destination.path(percentEncoded: false)) == false)
     }
 }

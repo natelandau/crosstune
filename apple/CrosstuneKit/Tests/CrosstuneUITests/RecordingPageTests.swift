@@ -87,7 +87,7 @@ private let noLoopWrites = LoopWriter(
         try await eventually { !writes.made.isEmpty }
         #expect(writes.made.map(\.id) == ["b"])
         #expect(writes.made.first?.change == PlaybackSettings(speedPercent: 70))
-        #expect(!audio.calls.contains("setRate(70)"))
+        #expect(audio.calls.contains("setRate(70)") == false)
         #expect(player.item?.id == "a")
     }
 
@@ -104,7 +104,7 @@ private let noLoopWrites = LoopWriter(
     @Test func regularWidthShowsTheAttributesColumnAndNoTabs() {
         let layout = RecordingPageArrangement.layout(width: 1000, allowsWide: true, tab: .details, recordingsPlay: true)
         #expect(layout == .wide)
-        #expect(!RecordingPageArrangement.showsTabs(layout))
+        #expect(RecordingPageArrangement.showsTabs(layout) == false)
         // A width that would fit the column never shows it where the page is pushed full screen.
         #expect(
             RecordingPageArrangement.layout(width: 1000, allowsWide: false, tab: .details, recordingsPlay: true)
@@ -142,7 +142,7 @@ private let noLoopWrites = LoopWriter(
     @Test func practiceLayoutIgnoresTheAppearance() throws {
         let text = SourceScan.withoutComments(
             try SourceScan.text(at: SourceScan.url(of: "RecordingScreen/RecordingScreen.swift")))
-        #expect(!text.contains("colorScheme"))
+        #expect(text.contains("colorScheme") == false)
     }
 
     /// The tuner draws dark in every appearance, so it takes light bars. Practice, trim, and split
@@ -154,8 +154,8 @@ private let noLoopWrites = LoopWriter(
         let page = SourceScan.iOSCompiled(
             SourceScan.withoutComments(
                 try SourceScan.text(at: SourceScan.url(of: "RecordingPage/RecordingPage.swift"))))
-        #expect(!page.contains(".darkBars("))
-        #expect(!page.contains("Palette.tunerBackground"))
+        #expect(page.contains(".darkBars(") == false)
+        #expect(page.contains("Palette.tunerBackground") == false)
     }
 
     /// A pushed screen takes the stack's environment, so the tune pushed over a recording page is
@@ -164,7 +164,7 @@ private let noLoopWrites = LoopWriter(
         func text(_ path: String) throws -> String {
             SourceScan.withoutComments(try SourceScan.text(at: SourceScan.url(of: path)))
         }
-        #expect(!(try text("RecordingPage/PushesRecordingPage.swift")).contains("@Environment(\\.stackPath)"))
+        #expect((try text("RecordingPage/PushesRecordingPage.swift")).contains("@Environment(\\.stackPath)") == false)
         let catalog = try text("Catalog/CatalogScreen.swift")
         #expect(catalog.matches(of: /PushesRecordingPage\(path: stackPath/).count == 2)
         #expect(try text("Lists/ListsScreen.swift").contains(".environment(\\.stackPath, stackPath)"))
@@ -200,7 +200,7 @@ private let noLoopWrites = LoopWriter(
         try await eventually { player.recordingAudio == .loaded }
 
         page.closeEditors()
-        #expect(!player.isLoaded)
+        #expect(player.isLoaded == false)
     }
 
     @Test func anEditorClosedAfterAPlayKeepsTheRecordingLoaded() async throws {
@@ -231,7 +231,7 @@ private let noLoopWrites = LoopWriter(
         try await eventually { player.recordingAudio == .loaded }
 
         page = nil
-        #expect(!player.isLoaded)
+        #expect(player.isLoaded == false)
     }
 
     /// A page whose practice is still being made shows neither the controls nor the plan's
@@ -253,7 +253,7 @@ private let noLoopWrites = LoopWriter(
     @Test func aLapsedAccountsPageDisablesPlayAndPractice() {
         #expect(RecordingPageArrangement.playBlockedReason(recordingsPlay: false) == RecordingText.subscribeToPlay)
         #expect(RecordingPageArrangement.playBlockedReason(recordingsPlay: true) == nil)
-        #expect(!RecordingPageArrangement.isEnabled(.practice, recordingsPlay: false))
+        #expect(RecordingPageArrangement.isEnabled(.practice, recordingsPlay: false) == false)
         #expect(RecordingPageArrangement.isEnabled(.details, recordingsPlay: false))
         // A remembered Practice opens on Details while it cannot be used.
         #expect(
@@ -326,7 +326,7 @@ private let noLoopWrites = LoopWriter(
         let model = PracticeModel(
             player: player, recording: pageRecording("b"), file: nil, writer: noLoopWrites, mode: .isolate)
         model.showPanel()
-        #expect(!audio.calls.contains("setIsolateOutlineWanted(true)"))
+        #expect(audio.calls.contains("setIsolateOutlineWanted(true)") == false)
 
         model.togglePlay()
         try await eventually { player.item?.id == "b" && player.recordingAudio == .loaded }
@@ -338,7 +338,7 @@ private let noLoopWrites = LoopWriter(
         try await playA()
         let model = PracticeModel(player: player, recording: pageRecording("a"), file: nil, writer: noLoopWrites)
         model.mode = .isolate
-        #expect(!audio.calls.contains("setIsolateOutlineWanted(true)"))
+        #expect(audio.calls.contains("setIsolateOutlineWanted(true)") == false)
 
         model.showPanel()
         #expect(audio.calls.last { $0.hasPrefix("setIsolateOutlineWanted") } == "setIsolateOutlineWanted(true)")
@@ -429,13 +429,13 @@ private let noLoopWrites = LoopWriter(
         let model = practice("b", on: page)
         model.togglePlay()
         try await eventually { player.item?.id == "b" && player.recordingAudio == .loaded }
-        #expect(!PlayerBar.isShown(player, nil, in: window))
-        #expect(!PlayerBar.isShown(player, nil, in: otherWindow))
-        #expect(!PadBottomBar.showsPlayer(player, nil, in: window))
+        #expect(PlayerBar.isShown(player, nil, in: window) == false)
+        #expect(PlayerBar.isShown(player, nil, in: otherWindow) == false)
+        #expect(PadBottomBar.showsPlayer(player, nil, in: window) == false)
     }
 
     @Test func detailsCarryListControlsOnlyWhileThePageRecordingIsLoaded() async throws {
-        #expect(!RecordingPageArrangement.showsListControls(isCurrent: false))
+        #expect(RecordingPageArrangement.showsListControls(isCurrent: false) == false)
         let (page, _) = try await playOnPage("b")
         #expect(RecordingPageArrangement.showsListControls(isCurrent: practice("b", on: page).isCurrent))
     }
@@ -443,8 +443,8 @@ private let noLoopWrites = LoopWriter(
     @Test func leavingThePageStopsThePlaybackStartedOnIt() async throws {
         let (page, _) = try await playOnPage("b")
         await pageLeft(page)
-        #expect(!player.isLoaded)
-        #expect(!PlayerBar.isShown(player, nil, in: window))
+        #expect(player.isLoaded == false)
+        #expect(PlayerBar.isShown(player, nil, in: window) == false)
     }
 
     @Test func aPageGoneStopsThePlaybackStartedOnIt() async throws {
@@ -453,13 +453,13 @@ private let noLoopWrites = LoopWriter(
         try await eventually { player.recordingAudio == .loaded }
         page = nil
         await player.pageLeaving?.value
-        #expect(!player.isLoaded)
+        #expect(player.isLoaded == false)
     }
 
     @Test func aPageOnPlaybackFromElsewhereHidesOnlyItsWindowsDock() async throws {
         try await playA()
         let page = shownPage("a")
-        #expect(!PlayerBar.isShown(player, nil, in: window))
+        #expect(PlayerBar.isShown(player, nil, in: window) == false)
         #expect(PlayerBar.isShown(player, nil, in: otherWindow))
 
         await pageLeft(page)
@@ -489,10 +489,10 @@ private let noLoopWrites = LoopWriter(
         model.leave()
         model.showPanel()
         #expect(player.item?.id == "b")
-        #expect(!PlayerBar.isShown(player, nil, in: window))
+        #expect(PlayerBar.isShown(player, nil, in: window) == false)
 
         await pageLeft(page)
-        #expect(!player.isLoaded)
+        #expect(player.isLoaded == false)
     }
 
     /// A fold that swaps the shell makes the page again, in the same window.
@@ -502,10 +502,10 @@ private let noLoopWrites = LoopWriter(
         let again = shownPage("b")
         await settle(player)
         #expect(player.item?.id == "b")
-        #expect(!PlayerBar.isShown(player, nil, in: otherWindow))
+        #expect(PlayerBar.isShown(player, nil, in: otherWindow) == false)
 
         await pageLeft(again)
-        #expect(!player.isLoaded)
+        #expect(player.isLoaded == false)
     }
 
     /// An app tab switch with the trim or split screen pushed takes the editor off screen too.
@@ -515,7 +515,7 @@ private let noLoopWrites = LoopWriter(
         page.shown(.editor, on: player, window: window)
         page.hidden(.page)
         await settle(player)
-        #expect(!PlayerBar.isShown(player, nil, in: window))
+        #expect(PlayerBar.isShown(player, nil, in: window) == false)
 
         page.hidden(.editor)
         await settle(player)
@@ -532,7 +532,7 @@ private let noLoopWrites = LoopWriter(
 
         page.hidden(.editor)
         await settle(player)
-        #expect(!player.isLoaded)
+        #expect(player.isLoaded == false)
     }
 
     /// A push to the editor keeps the page on show, whichever of the page's disappear and the
@@ -543,7 +543,7 @@ private let noLoopWrites = LoopWriter(
         pushEditor(over: page, on: player, order)
         await settle(player)
         #expect(player.item?.id == "b")
-        #expect(!PlayerBar.isShown(player, nil, in: window))
+        #expect(PlayerBar.isShown(player, nil, in: window) == false)
     }
 
     // MARK: The practice visit across the page and its editor
@@ -609,7 +609,7 @@ private let noLoopWrites = LoopWriter(
         let (page, _) = try await playOnPage("b")
         _ = shownPage("b", in: otherWindow)
         await pageLeft(page)
-        #expect(!player.isLoaded)
+        #expect(player.isLoaded == false)
     }
 
     @Test func aLoadFromElsewhereEndsThePagesClaim() async throws {
@@ -627,7 +627,7 @@ private let noLoopWrites = LoopWriter(
         player.play(.recording(pageRecording("b"), tuneTitle: nil))
         try await eventually { player.recordingAudio == .loaded }
         // The page still shows the loaded recording.
-        #expect(!PlayerBar.isShown(player, nil, in: window))
+        #expect(PlayerBar.isShown(player, nil, in: window) == false)
         #expect(PlayerBar.isShown(player, nil, in: otherWindow))
 
         await pageLeft(page)
@@ -650,10 +650,10 @@ private let noLoopWrites = LoopWriter(
         player.audio.play()
         try await eventually { !player.loadedUnplayed }
         page.closeEditors()
-        #expect(!PlayerBar.isShown(player, nil, in: window))
+        #expect(PlayerBar.isShown(player, nil, in: window) == false)
 
         await pageLeft(page)
-        #expect(!player.isLoaded)
+        #expect(player.isLoaded == false)
     }
 
     /// The open is reported once per request for the page, in the layout it first showed: a

@@ -41,11 +41,11 @@ struct ConfirmRuleTests {
     @Test(arguments: savingSheets)
     func aSavingConfirmNeverDisablesWhileItSaves(path: String) throws {
         let blocks = try Self.confirmBlocks(in: path)
-        #expect(!blocks.isEmpty, "\(path) has no confirm button")
+        #expect(blocks.isEmpty == false, "\(path) has no confirm button")
         for block in blocks {
             for condition in Self.disabledConditions(in: block) {
-                #expect(!condition.contains("isSaving"), "\(path) disables its confirm while saving")
-                #expect(!condition.contains("isPending"), "\(path) disables its confirm while saving")
+                #expect(condition.contains("isSaving") == false, "\(path) disables its confirm while saving")
+                #expect(condition.contains("isPending") == false, "\(path) disables its confirm while saving")
             }
         }
     }
@@ -58,9 +58,9 @@ struct ConfirmRuleTests {
 
     @Test func bulkEditSaveStaysEnabledWithNothingEdited() throws {
         let blocks = try Self.confirmBlocks(in: "Selection/BulkEditSheet.swift")
-        #expect(!blocks.isEmpty)
+        #expect(blocks.isEmpty == false)
         for block in blocks {
-            #expect(!Self.disabledConditions(in: block).contains { $0.contains("isEdited") })
+            #expect(Self.disabledConditions(in: block).contains { $0.contains("isEdited") } == false)
         }
     }
 

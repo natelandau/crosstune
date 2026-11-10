@@ -30,7 +30,7 @@ import Testing
     }
 
     @Test func aCompactWidthOrHeightPresentsAsASheet() {
-        #expect(!AttributeEditorPresentation.presentsAsSheet(compactWidth: false, compactHeight: false))
+        #expect(AttributeEditorPresentation.presentsAsSheet(compactWidth: false, compactHeight: false) == false)
         #expect(AttributeEditorPresentation.presentsAsSheet(compactWidth: true, compactHeight: false))
         #expect(AttributeEditorPresentation.presentsAsSheet(compactWidth: false, compactHeight: true))
     }

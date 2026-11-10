@@ -193,7 +193,7 @@ import Testing
         let repicked = RecordingLocationEdit(store: store, recording: placed, analytics: sink.client)
         repicked.setPlace(
             RecordingPlace(name: "Galax, VA", coordinate: Coordinate(lat: 36.66, lon: -80.92)), method: .suggestion)
-        #expect(!repicked.isEdited)
+        #expect(repicked.isEdited == false)
         #expect(await repicked.save())
         let cleared = RecordingLocationEdit(store: store, recording: placed, analytics: sink.client)
         cleared.clearPlace()
@@ -216,7 +216,7 @@ import Testing
         let edit = RecordingLocationEdit(store: store, recording: opened, analytics: sink.client)
         edit.setPlace(
             RecordingPlace(name: "Galax, VA", coordinate: Coordinate(lat: 36.66, lon: -80.92)), method: .search)
-        #expect(!(await edit.save()))
+        #expect((await edit.save()) == false)
         #expect(sink.calls.isEmpty)
     }
 

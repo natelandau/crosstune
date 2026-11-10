@@ -57,7 +57,7 @@ import Testing
         let at = on.firstIndex(of: .partStructure)!
         #expect(on[at + 1] == .isCrooked)
         #expect(row(.isCrooked, in: crooked)?.text == "Crooked")
-        #expect(!AttributeRows.rows(detail()).map(\.id).contains(.isCrooked))
+        #expect(AttributeRows.rows(detail()).map(\.id).contains(.isCrooked) == false)
     }
 
     @Test func leavesOutAModeOfOtherAndKeepsTheKey() {
@@ -92,7 +92,7 @@ import Testing
     }
 
     @Test func hasNoRowForAnUnplayedInstrumentWithNoValue() {
-        #expect(!AttributeRows.rows(detail()).map(\.id).contains(.tuning("mandolin")))
+        #expect(AttributeRows.rows(detail()).map(\.id).contains(.tuning("mandolin")) == false)
     }
 
     @Test func addsATuningRowForAnUnplayedInstrumentThatHoldsAValue() {

@@ -199,7 +199,7 @@ struct SplitMix64: RandomNumberGenerator {
         #expect(order.current == "d")
         #expect(order.next(repeat: .off, using: &rng) == "e")
         let strayed = order.jump(to: "zzz")
-        #expect(!strayed)
+        #expect(strayed == false)
         #expect(order.current == "e")
     }
 

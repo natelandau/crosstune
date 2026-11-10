@@ -91,7 +91,7 @@ private func mask(
 @Suite struct IsolateMaskTests {
     @Test func binGainMatchesEveryParityCase() throws {
         let cases = try JSONDecoder().decode([GainCase].self, from: Data(contentsOf: gainCasesURL))
-        #expect(!cases.isEmpty)
+        #expect(cases.isEmpty == false)
         for c in cases {
             let gain = binGain(pan: c.pan, hz: c.hz, setting: c.isolateSetting, isMono: c.isMono)
             #expect(abs(gain - c.gain) < 1e-6, "pan \(c.pan) hz \(c.hz) \(c.setting)")
@@ -239,7 +239,7 @@ private func mask(
         #expect(skipped.outline().pan.allSatisfy { $0 == 0 })
 
         skipped.measuresOutline = true
-        #expect(!skipped.outlineIsCurrent)
+        #expect(skipped.outlineIsCurrent == false)
         #expect(run(skipped, right, left) == run(measured, right, left))
         #expect(skipped.outlineIsCurrent)
         #expect(skipped.outline() == measured.outline())

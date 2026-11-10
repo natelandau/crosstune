@@ -485,10 +485,10 @@ import Testing
             """
         #expect(flagged(modifier + "accessory\n.menuStyle(.button)\n.modifier(Look())"))
         #expect(flagged(modifier + "Menu { items } label: { x }\n.modifier(Look())"))
-        #expect(!flagged(modifier + "Button(x) {}\n.modifier(Look())"))
-        #expect(!flagged("Menu { items } label: { x }\n.buttonStyle(.borderless)"))
-        #expect(!flagged("Button(x) {}\n.buttonStyle(.words)"))
-        #expect(!flagged("accessory\n.menuStyle(.button)\n.textButtonMenuAppearance()"))
+        #expect(flagged(modifier + "Button(x) {}\n.modifier(Look())") == false)
+        #expect(flagged("Menu { items } label: { x }\n.buttonStyle(.borderless)") == false)
+        #expect(flagged("Button(x) {}\n.buttonStyle(.words)") == false)
+        #expect(flagged("accessory\n.menuStyle(.button)\n.textButtonMenuAppearance()") == false)
     }
 
     // MARK: - The Mac pass

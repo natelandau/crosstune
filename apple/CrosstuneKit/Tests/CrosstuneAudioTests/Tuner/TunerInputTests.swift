@@ -109,7 +109,7 @@ extension Tuner {
             await #expect(throws: TunerStartOvertaken.self) { try await start() }
 
             #expect(heard.ended == 0)
-            #expect(!input.holdsMicrophone)
+            #expect(input.holdsMicrophone == false)
             #expect(engine.log == ["activate"])
         }
 
@@ -204,18 +204,18 @@ extension Tuner {
         }
 
         @Test func holdsTheMicrophoneFromStartUntilStop() async throws {
-            #expect(!input.holdsMicrophone)
+            #expect(input.holdsMicrophone == false)
             try await start()
             #expect(input.holdsMicrophone)
             await input.stop()
-            #expect(!input.holdsMicrophone)
+            #expect(input.holdsMicrophone == false)
         }
 
         @Test func yieldingToPlaybackLetsGoAtOnceAndIgnoresTheSessionChange() async throws {
             try await start()
             engine.deliver(a4Reading)
             registry.yieldToPlayback()
-            #expect(!input.holdsMicrophone)
+            #expect(input.holdsMicrophone == false)
 
             engine.deliver(a4Reading)
             engine.state.withLock { $0.failStart = true }

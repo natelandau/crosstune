@@ -335,7 +335,7 @@ private let everyService = [
         let row = try #require(try await store.read { db in try UserSettings.fetchOne(db, key: id) })
         #expect(row.instruments == ["guitar"])
         #expect(row.audioQuality == "high")
-        #expect(!row.searchProviders.contains("tidal"))
+        #expect(row.searchProviders.contains("tidal") == false)
     }
 
     @Test func everySettingsEditKeepsPlayFirst() async throws {

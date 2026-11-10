@@ -144,7 +144,7 @@ private final class Holds {
         trim.select(.end)
         #expect(trim.focus == .end)
         #expect([trim.start, trim.end] == [0, 60_000])
-        #expect(!trim.isChanged)
+        #expect(trim.isChanged == false)
     }
 
     @Test func zoomStaysBetweenTheWholeRangeAndTheShortestDetail() {
@@ -155,15 +155,16 @@ private final class Holds {
         #expect(trim.zoom == 6)
         trim.zoom(by: 0.1)
         #expect(trim.zoom == 1)
-        #expect(!trim.canZoomOut)
+        #expect(trim.canZoomOut == false)
         trim.zoom(by: 1000)
         #expect(trim.zoom == 60_000 / Double(TrimModel.minDetailMs))
-        #expect(!trim.canZoomIn)
+        #expect(trim.canZoomIn == false)
     }
 
     @Test func aShortRangeCannotZoomAtAll() {
         let trim = model(row(sourceDurationMs: 1500))
-        #expect(!trim.canZoomIn && !trim.canZoomOut)
+        #expect(trim.canZoomIn == false)
+        #expect(trim.canZoomOut == false)
         #expect(trim.detailWindow() == 0...1500)
     }
 
@@ -176,13 +177,13 @@ private final class Holds {
 
     @Test func isChangedIsFalseUntilAHandleMoves() {
         let trim = model()
-        #expect(!trim.isChanged)
+        #expect(trim.isChanged == false)
         trim.drag(.start, to: 0)
-        #expect(!trim.isChanged)
+        #expect(trim.isChanged == false)
         trim.nudge(.start, by: 100)
         #expect(trim.isChanged)
         trim.nudge(.start, by: -100)
-        #expect(!trim.isChanged)
+        #expect(trim.isChanged == false)
         trim.drag(.end, to: 59_000)
         #expect(trim.isChanged)
     }
@@ -207,7 +208,7 @@ private final class Holds {
         try await trim.save()
         #expect(writes.made == [.init(id: "r1", start: 12_345, end: 50_001)])
         #expect(trim.hasLeft)
-        #expect(!trim.isConfirming)
+        #expect(trim.isConfirming == false)
         #expect(holds.made.last == .some(nil))
 
         // A second press, or a Trim tapped once the screen has gone, writes nothing more.
@@ -218,7 +219,7 @@ private final class Holds {
     @Test func saveWithNoChangeCloses() {
         let trim = model()
         #expect(trim.pressSave() == .close)
-        #expect(!trim.isConfirming)
+        #expect(trim.isConfirming == false)
         trim.drag(.start, to: 4000)
         #expect(trim.pressSave() == .confirm)
         #expect(trim.isConfirming)
@@ -236,8 +237,8 @@ private final class Holds {
         trim.drag(.start, to: 3000)
         writes.refusal = URLError(.cannotOpenFile)
         await #expect(throws: URLError.self) { try await trim.save() }
-        #expect(!trim.isSaving)
-        #expect(!trim.hasLeft)
+        #expect(trim.isSaving == false)
+        #expect(trim.hasLeft == false)
         #expect(holds.made.count == 1)
         writes.refusal = nil
         try await trim.save()
@@ -255,14 +256,14 @@ private final class Holds {
 
     @Test func aTrimFromElsewhereIsSeenButNotItsOwnWrite() async throws {
         let trim = model(row(trimStartMs: 1000, trimEndMs: 30_000))
-        #expect(!trim.follow(row(trimStartMs: 1000, trimEndMs: 30_000, speedPercent: 50)))
+        #expect(trim.follow(row(trimStartMs: 1000, trimEndMs: 30_000, speedPercent: 50)) == false)
         // Another recording's row says nothing about this one.
-        #expect(!trim.follow(row(id: "r2", trimStartMs: 2000, trimEndMs: 30_000)))
-        #expect(!trim.mustGiveWay)
+        #expect(trim.follow(row(id: "r2", trimStartMs: 2000, trimEndMs: 30_000)) == false)
+        #expect(trim.mustGiveWay == false)
 
         trim.drag(.start, to: 4000)
         try await trim.save()
-        #expect(!trim.follow(row(trimStartMs: 4000, trimEndMs: 30_000)))
+        #expect(trim.follow(row(trimStartMs: 4000, trimEndMs: 30_000)) == false)
 
         let other = model(row(trimStartMs: 1000, trimEndMs: 30_000))
         other.drag(.end, to: 20_000)
@@ -296,7 +297,7 @@ private final class Holds {
         writes.during = { _ = trim.follow(row(trimStartMs: 4000, trimEndMs: 30_000)) }
         writes.refusal = URLError(.cannotOpenFile)
         await #expect(throws: URLError.self) { try await trim.save() }
-        #expect(!trim.mustGiveWay)
+        #expect(trim.mustGiveWay == false)
     }
 
     @Test func leavingForATrimFromElsewhereDismissesTheQuestionAndWritesNothing() async throws {
@@ -305,7 +306,7 @@ private final class Holds {
         trim.drag(.start, to: 4000)
         trim.isConfirming = true
         trim.leave()
-        #expect(!trim.isConfirming)
+        #expect(trim.isConfirming == false)
         try await trim.save()
         #expect(writes.made.isEmpty)
         #expect(holds.made.last == .some(nil))
@@ -350,13 +351,13 @@ private final class Holds {
     @Test func aPinchCancelsTheSeekItsFirstFingerBegan() {
         let trim = model()
         trim.beginSeek()
-        #expect(!trim.seekCancelled)
+        #expect(trim.seekCancelled == false)
         trim.pinch(2)
         #expect(trim.seekCancelled)
         trim.endPinch()
         trim.endSeek()
         trim.beginSeek()
-        #expect(!trim.seekCancelled)
+        #expect(trim.seekCancelled == false)
     }
 
     @Test func aDragInTheDetailHoldsItsWindowUntilItEnds() {
@@ -394,7 +395,7 @@ private final class Holds {
         trim.moveHandles(startMs: 0, endMs: 60_000, holdsDetail: false)
         trim.commitHandles()
         #expect(trim.start == 0)
-        #expect(!trim.isChanged)
+        #expect(trim.isChanged == false)
     }
 
     @Test func aTapOnAHandleMakesItTheOneTheDetailFollows() {
@@ -410,7 +411,7 @@ private final class Holds {
         #expect(trim.canZoomOut)
         trim.fit()
         #expect(trim.zoom == 1)
-        #expect(!trim.canZoomOut)
+        #expect(trim.canZoomOut == false)
         #expect(trim.detailWindow() == 0...60_000)
     }
 
@@ -444,7 +445,7 @@ private final class Holds {
         stop.arm()
         #expect(stop.observe(playing: true, elapsed: 9.9, end: 12, length: 60) == .none)
         #expect(stop.observe(playing: true, elapsed: 9.9, end: 10, length: 60) == .stop(at: 10))
-        #expect(!stop.isArmed)
+        #expect(stop.isArmed == false)
     }
 
     @Test func putsThePlayheadBackOnAnEndHandleThePlayerRanOff() {
@@ -464,7 +465,7 @@ private final class Holds {
         stop.arm()
         _ = stop.observe(playing: true, elapsed: 1, end: 10, length: 60)
         _ = stop.observe(playing: false, elapsed: 1, end: 10, length: 60)
-        #expect(!stop.isArmed)
+        #expect(stop.isArmed == false)
         #expect(stop.observe(playing: true, elapsed: 9.9, end: 10, length: 60) == .none)
     }
 
