@@ -386,6 +386,7 @@ private struct RecordingPageBody: View {
                 player: player)
         case .pin(let pinned): model.togglePin(pinned: pinned, rows: rows, commands: commands)
         case .goToTune: goToTune?()
+        // The menu opens the origin itself, as only it reads `openURL`.
         case .openOrigin: break
         case .delete: model.deleting = rows.view
         }
