@@ -75,6 +75,8 @@ public final class Recorder {
     @ObservationIgnored private var fix: Task<Coordinate?, Never>?
     /// Notes the fix as the recording's while it records.
     @ObservationIgnored private var locating: Task<Void, Never>?
+    /// The last ``locating`` a recording's end let go of, which runs on until its request answers.
+    @ObservationIgnored private var endedLocating: Task<Void, Never>?
     private var capture: (id: String, writer: CaptureWriter)?
     private var inputLevels = InputLevels()
     /// Set by a stop or discard that arrives while a start is still under way: the start
@@ -324,6 +326,7 @@ public final class Recorder {
     /// returns neither.
     private func endLocating() -> (settled: Coordinate?, pending: Task<Coordinate?, Never>?) {
         locating?.cancel()
+        endedLocating = locating
         locating = nil
         let pending = fix
         fix = nil
@@ -332,6 +335,12 @@ public final class Recorder {
             isFixSettled = false
         }
         return isFixSettled ? (settledCoordinate, nil) : (nil, pending)
+    }
+
+    /// Returns once the location request a recording's end let go of has answered and been
+    /// dropped.
+    func locatingEnded() async {
+        await endedLocating?.value
     }
 
     /// Cancels `pending` once ``lateFixWindow`` has passed.

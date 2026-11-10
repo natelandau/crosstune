@@ -55,6 +55,11 @@ public final class DeviceLocationProvider: NSObject, LocationProvider {
     private var awaitingAuthorization = false
     private var deadline: Task<Void, Never>?
 
+    /// How many callers wait on the request in flight.
+    var waitingCount: Int { waiting.count }
+    /// Whether a granted request's timeout is running.
+    var hasDeadline: Bool { deadline != nil }
+
     override public convenience init() {
         self.init(manager: CLLocationManager(), servicesEnabled: LocationServices.enabled)
     }
@@ -222,6 +227,9 @@ public final class LocationAccess {
     /// Held here, since the manager holds its delegate weakly.
     @ObservationIgnored private var delegate: AuthorizationDelegate?
     @ObservationIgnored private var waiting: [CheckedContinuation<Void, Never>] = []
+
+    /// How many callers wait on the prompt's answer.
+    var waitingCount: Int { waiting.count }
 
     public convenience init() {
         self.init(manager: CLLocationManager(), servicesEnabled: LocationServices.enabled)

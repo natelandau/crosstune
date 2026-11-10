@@ -264,11 +264,7 @@ private func countsOnce(_ onDevice: Int, _ total: Int, missing: Int = 0)
                 }))
         await model.followCounts()
         let run = try #require(model.start())
-        var turns = 0
-        while model.progressText == nil, turns < 1000 {
-            await Task.yield()
-            turns += 1
-        }
+        try await eventually { model.progressText != nil }
         #expect(model.progressText == ExportDataSheet.progress(done: 1, total: 2))
         await gate.finish(.success(try makeZip()))
         await run.value
@@ -303,8 +299,7 @@ private func countsOnce(_ onDevice: Int, _ total: Int, missing: Int = 0)
         #expect(model?.exported == zip)
         weak let gone = model
         model = nil
-        for _ in 0..<1000 where gone != nil { await Task.yield() }
-        #expect(gone == nil)
+        try await eventually { gone == nil }
         #expect(!exists(zip.deletingLastPathComponent()))
     }
 

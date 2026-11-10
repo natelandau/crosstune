@@ -120,6 +120,11 @@ import Testing
     }
 
     /// A player on the offline renderer, with a 4-second tone loaded.
+    /// Waits until the main actor has handled every segment end the node has reported.
+    private func segmentEndsHandled(_ player: AudioPlayer) async throws {
+        try await eventually { player.segmentEndsInFlight.load(ordering: .relaxed) == 0 }
+    }
+
     private func offlinePlayer(_ root: TemporaryRoot, channels: Int = 1) throws -> AudioPlayer {
         try FileManager.default.createDirectory(at: root.url, withIntermediateDirectories: true)
         let url = root.url.appending(path: "tone.aac")
@@ -199,7 +204,7 @@ import Testing
         player.seek(to: 0)
         // Past where the first segment, 4 s from the start, would have ended.
         try player.render(seconds: 3.2)
-        for _ in 0..<20 { await Task.yield() }
+        try await segmentEndsHandled(player)
         #expect(player.isPlaying)
         #expect(player.elapsed > 2.9 && player.elapsed < 3.6)
         player.unload()
@@ -212,7 +217,7 @@ import Testing
         try player.render(seconds: 1)
         let before = player.elapsed
         player.engine.stop()
-        try await Task.sleep(for: .milliseconds(200))
+        try await segmentEndsHandled(player)
         #expect(player.isPlaying)
         #expect(player.elapsed == before)
         player.unload()
@@ -292,7 +297,7 @@ import Testing
         player.play()
         try player.render(seconds: 0.5)
         player.unload()
-        for _ in 0..<20 { await Task.yield() }
+        try await segmentEndsHandled(player)
         #expect(ends == [.finished])
     }
 
@@ -345,7 +350,7 @@ import Testing
         while left > 0 {
             try player.render(seconds: min(left, 0.25))
             left -= 0.25
-            for _ in 0..<20 { await Task.yield() }
+            try await segmentEndsHandled(player)
         }
     }
 

@@ -251,9 +251,11 @@ import Testing
     @Test func stopAndWaitReturnsOnlyOnceTheRunInFlightIsDone() async throws {
         try await createTune(store, title: "X")
         var release: CheckedContinuation<Void, Never>?
+        var pushAnswered = false
         let respond = api.respondToPush
         api.respondToPush = { changes in
             await withCheckedContinuation { release = $0 }
+            pushAnswered = true
             return try await respond(changes)
         }
         let engine = engine()
@@ -261,20 +263,17 @@ import Testing
         try await eventually { release != nil }
 
         var began = false
-        var stopped = false
+        var stoppedAfterThePush = false
         let stopping = Task {
             began = true
             await engine.stopAndWait()
-            stopped = true
+            stoppedAfterThePush = pushAnswered
         }
         try await eventually { began }
-        for _ in 0..<10 { await Task.yield() }
-        // The push is still held, so the run cannot have ended.
-        #expect(api.pulls.isEmpty)
-        #expect(!stopped)
 
         release?.resume()
         await stopping.value
+        #expect(stoppedAfterThePush)
         #expect(api.pushes.count == 1)
         #expect(api.pulls.isEmpty)
         #expect(try await store.pendingChangeCount() == 0)

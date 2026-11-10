@@ -493,7 +493,7 @@ private func link(_ provider: String, _ providerRef: String?, url: String = "htt
             stage.detach(phone)
             let split = NSView()
             stage.attach(split, embed: embed, prominence: .shown)
-            await Task.yield()
+            try await eventually { webView(in: split) != nil }
             #expect(webView(in: split) === playing)
 
             stage.detach(split)

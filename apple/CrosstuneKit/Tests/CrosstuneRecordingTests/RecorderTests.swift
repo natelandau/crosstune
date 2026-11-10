@@ -464,7 +464,6 @@ final class ChannelSetting {
         #expect(row.placeName == nil)
         #expect(recorder.errorMessage == nil)
         #expect(recorder.lateFixes.isEmpty)
-        for _ in 0..<10 { await Task.yield() }
         #expect(clock.requested.isEmpty)
     }
 
@@ -599,7 +598,7 @@ final class ChannelSetting {
 
         await recorder.discard()
         await location.answer()
-        for _ in 0..<10 { await Task.yield() }
+        await recorder.locatingEnded()
 
         #expect(recorder.settledCoordinate == nil)
         #expect(recorder.lateFixes.isEmpty)
@@ -613,7 +612,7 @@ final class ChannelSetting {
         await recorder.start(tuneID: nil)
         #expect(location.requests == 1)
         await location.answer()
-        for _ in 0..<10 { await Task.yield() }
+        await recorder.locatingEnded()
 
         #expect(recorder.state == .idle)
         #expect(recorder.settledCoordinate == nil)
@@ -628,7 +627,6 @@ final class ChannelSetting {
 
         #expect(try await savedRow(saved).placeLat == nil)
         #expect(recorder.lateFixes.isEmpty)
-        for _ in 0..<10 { await Task.yield() }
         #expect(clock.requested.isEmpty)
     }
 

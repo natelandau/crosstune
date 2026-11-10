@@ -789,7 +789,7 @@ import Testing
         try await eventually { gate.isWaiting }
         #expect(engine.downloading == ["d1"])
         async let second = engine.download("d1")
-        await Task.yield()
+        try await eventually { engine.joinedFetches == 1 }
         gate.open()
         let urls = await [first, second]
 
@@ -859,17 +859,20 @@ import Testing
         let download = Task { await engine.download("d1") }
         try await eventually { gate.isWaiting }
 
-        let finished = Toggle(false)
+        var began = false
+        var opened = false
+        var finishedAfterTheDownload = false
         let stopping = Task {
+            began = true
             await engine.stopAndWait()
-            finished.isOn = true
+            finishedAfterTheDownload = opened
         }
-        for _ in 0..<20 { await Task.yield() }
-        #expect(!finished.isOn)
+        try await eventually { began }
 
+        opened = true
         gate.open()
         await stopping.value
-        #expect(finished.isOn)
+        #expect(finishedAfterTheDownload)
         _ = await download.value
     }
 
@@ -1000,7 +1003,7 @@ import Testing
         async let first = engine.peaks("d1")
         try await eventually { gate.isWaiting }
         async let second = engine.peaks("d1")
-        await Task.yield()
+        try await eventually { engine.joinedFetches == 1 }
         gate.open()
         let results = await [first, second]
 

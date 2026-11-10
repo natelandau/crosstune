@@ -2,6 +2,7 @@
 import CrosstuneVocabulary
 import Foundation
 import Observation
+import Synchronization
 import os
 
 private let logger = Logger(subsystem: "app.crosstune.Crosstune", category: "playback")
@@ -61,6 +62,8 @@ public final class AudioPlayer: AudioPlayback {
     @ObservationIgnored private var segmentID = 0
     /// The offline renderer has no device to play back to, so it reports rendered data instead.
     @ObservationIgnored private let segmentEnd: AVAudioPlayerNodeCompletionCallbackType
+    /// Segment ends the node has reported that the main actor has not handled yet.
+    @ObservationIgnored let segmentEndsInFlight = Atomic<Int>(0)
     @ObservationIgnored private var nowPlaying: NowPlaying?
     @ObservationIgnored private var controls: NowPlayingControls?
     #if DEBUG
@@ -406,7 +409,11 @@ public final class AudioPlayer: AudioPlayback {
             file, startingFrame: segment.startFrame, frameCount: segment.frameCount, at: nil,
             completionCallbackType: segmentEnd
         ) { [weak self] _ in
-            Task { @MainActor in self?.segmentEnded(id, then: pass) }
+            self?.segmentEndsInFlight.add(1, ordering: .relaxed)
+            Task { @MainActor in
+                self?.segmentEnded(id, then: pass)
+                self?.segmentEndsInFlight.subtract(1, ordering: .relaxed)
+            }
         }
     }
 
