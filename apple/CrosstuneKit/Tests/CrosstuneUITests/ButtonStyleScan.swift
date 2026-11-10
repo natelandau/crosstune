@@ -8,7 +8,8 @@ import Foundation
 ///
 /// A style set in another file counts only where it reaches the button's own closure:
 /// - The library containers that style what they hold: everything in a grouped form, a page
-///   section's accessory (never its content), and a sheet action bar's primary and secondary.
+///   section's accessory (never its content), a sheet action bar's primary and secondary, and a
+///   pane bar's controls.
 /// - A modifier in the button's chain, or a container's, whose every declaration of that name
 ///   applies `buttonStyle` to what it modifies.
 /// - A call the closure is passed to whose every declaration of that name puts that closure
@@ -44,8 +45,8 @@ struct ButtonStyleScan {
     private struct Placement {
         let callee: String
         let label: String?
-        /// An unlabeled closure followed by a `content:` closure, as a page section's accessory is.
-        let precedesContent: Bool
+        /// The label of the closure after this one, as `content` after a page section's accessory.
+        let nextLabel: String?
     }
 
     /// How deep the scan follows uses and declarations before it gives up on a button.
@@ -153,8 +154,12 @@ struct ButtonStyleScan {
     private static func isLibraryStyled(_ placement: Placement) -> Bool {
         switch placement.callee {
         case "GroupedForm", "GroupedSelectionForm": true
-        case "PageSection": placement.label == "accessory" || (placement.label == nil && placement.precedesContent)
+        case "PageSection":
+            placement.label == "accessory" || (placement.label == nil && placement.nextLabel == "content")
+        // The pane bar's controls: its only closure, or the one after its leading views.
+        case "paneBar": placement.label == "_" || (placement.label == nil && placement.nextLabel == nil)
         case "sheetActions": placement.label == nil || placement.label == "primary" || placement.label == "secondary"
+        case "editorActions": placement.label == nil || placement.label == "cancel" || placement.label == "save"
         default: false
         }
     }
@@ -347,34 +352,33 @@ struct ButtonStyleScan {
     private static func placement(of index: Int, in file: File) -> Placement {
         let head = lineHead(at: index, in: file)
         if file.bytes[index] == UInt8(ascii: "("), let callee = firstMatch(#"(\w+)\s*$"#, in: head) {
-            return Placement(callee: callee, label: nil, precedesContent: false)
+            return Placement(callee: callee, label: nil, nextLabel: nil)
         }
         // A labeled trailing closure belongs to the call that opens the first closure.
         if let label = firstMatch(#"^\s*\}\s*(\w+):\s*$"#, in: head), let close = head.lastIndex(of: "}") {
             let closeIndex = index - head.utf8.count + head.utf8.distance(from: head.startIndex, to: close)
             let first = placement(of: opening(closeIndex, in: file), in: file)
-            return Placement(callee: first.callee, label: label, precedesContent: false)
+            return Placement(callee: first.callee, label: label, nextLabel: nil)
         }
         var before = index
         while before > 0, spaces.contains(file.bytes[before - 1]) { before -= 1 }
-        let precedesContent =
-            trailingClosure(after: closing(index, in: file), in: file).map {
-                contains(#"^\s*content:"#, in: file.text(closing(index, in: file)..<($0 + 1)))
-            } ?? false
+        let nextLabel = trailingClosure(after: closing(index, in: file), in: file).flatMap {
+            firstMatch(#"^\s*(\w+):"#, in: file.text(closing(index, in: file)..<($0 + 1)))
+        }
         // A closure passed as a labeled argument belongs to the call whose parentheses hold it.
         if let label = firstMatch(#"(\w+):\s*$"#, in: file.text(max(0, before - 60)..<before)),
             let open = unmatchedParenthesis(before: before, in: file)
         {
             let callee = firstMatch(#"(\w+)\s*$"#, in: file.text(max(0, open - 60)..<open)) ?? ""
-            return Placement(callee: callee, label: label, precedesContent: false)
+            return Placement(callee: callee, label: label, nextLabel: nil)
         }
         if before > 0, file.bytes[before - 1] == UInt8(ascii: ")") {
             let open = opening(before - 1, in: file)
             let callee = firstMatch(#"(\w+)\s*$"#, in: file.text(max(0, open - 60)..<open)) ?? ""
-            return Placement(callee: callee, label: nil, precedesContent: precedesContent)
+            return Placement(callee: callee, label: nil, nextLabel: nextLabel)
         }
         let callee = firstMatch(#"(\w+)\s*$"#, in: file.text(max(0, before - 60)..<before)) ?? ""
-        return Placement(callee: callee, label: nil, precedesContent: precedesContent)
+        return Placement(callee: callee, label: nil, nextLabel: nextLabel)
     }
 
     /// The offset of the nearest `(` before `index` that is still open there.

@@ -4,23 +4,36 @@ import Testing
 /// A screen draws its controls from the shared library, never its own. A screen that builds a
 /// control itself fails, unless `allowed` names that file and that rule.
 @Suite struct ControlLibraryTests {
-    /// Files that keep drawing their own control for good: the rules each breaks, and the control
-    /// that does.
-    static let allowed: [String: (rules: Set<String>, reason: String)] = [
+    /// The passes an exception holds in, so one platform's exception never widens the other's.
+    enum Pass: CaseIterable {
+        case iOS, mac
+
+        static let both = Set(allCases)
+    }
+
+    /// Files that keep drawing their own control for good: the passes and rules each breaks, and
+    /// the control that does.
+    static let allowed: [String: (passes: Set<Pass>, rules: Set<String>, reason: String)] = [
         "Welcome/WelcomeView.swift": (
+            Pass.both,
             [
                 "style conformance", "own press state", "system button style", "capsule or circle in button label",
             ],
             "sign-up buttons and carousel page dots"
         ),
-        "Recording/RecordSheet.swift": (["system button style"], "the stop button"),
-        "Tuner/TunerScreen.swift": (["own animation"], "the tuner display's bars and background"),
+        "Recording/RecordSheet.swift": (Pass.both, ["system button style"], "the stop button"),
+        "Tuner/TunerScreen.swift": (Pass.both, ["own animation"], "the tuner display's bars and background"),
         "RecordingScreen/Practice/LoopNameTab.swift": (
-            ["system button style"],
-            "the loop name field and the selected tab's plain button: the handle's own shape and color, "
-                + "which no library control fits"
+            [.iOS], ["system button style"],
+            "the selected tab's plain button: the handle's own shape and color, which no library control fits"
         ),
     ]
+
+    /// Whether `allowed` excuses `violation` in `path` on `pass`.
+    static func isAllowed(_ violation: Violation, in path: String, on pass: Pass) -> Bool {
+        guard let entry = allowed[path], entry.passes.contains(pass) else { return false }
+        return entry.rules.contains(violation.rule)
+    }
 
     struct Violation: Hashable {
         let rule: String
@@ -49,7 +62,7 @@ import Testing
         ("button toggle style", #"\.toggleStyle\(\s*\.button\b"#),
         ("rounded border text field", #"\.textFieldStyle\(\s*\.roundedBorder\b"#),
         ("own press state", #"configuration\.isPressed"#),
-        ("own hover state", #"\.(?:hoverEffect|onHover)\b"#),
+        ("own hover state", #"(?:^|\W)(?:hoverEffect|onHover)\b"#),
         ("own animation", #"withAnimation\(\s*\."#),
         ("own animation", #"\.animation\(\s*\.(?:\#(curves))\b"#),
         ("own animation", #"\.spring\((?:duration|response)"#),
@@ -128,7 +141,7 @@ import Testing
         let all = try Self.screenViolations()
         var offenders: [String: Set<Violation>] = [:]
         for (path, found) in all {
-            let kept = found.filter { Self.allowed[path]?.rules.contains($0.rule) != true }
+            let kept = found.filter { !Self.isAllowed($0, in: path, on: .iOS) }
             if !kept.isEmpty { offenders[path] = kept }
         }
         let report = offenders.keys.sorted().flatMap { path in
@@ -149,7 +162,6 @@ import Testing
     /// own look in its place, with how many blocks and why. A Mac look belongs in its control's
     /// Mac branch, so a new block fails and this list only shrinks.
     static let allowedForks: [String: (blocks: Int, reason: String)] = [
-        "Components/MediaRow.swift": (1, "Retry: the Mac's small plain button widens from outside its label"),
         "Import/ImportSheet.swift": (
             2, "the Mac's review step, and its checkbox, whose style lives with the app's Mac views"
         ),
@@ -159,20 +171,13 @@ import Testing
         "Lists/ListPickerSheet.swift": (1, "the sheet's body, drawn per platform"),
         "Lyrics/LyricsReader.swift": (2, "the reader and its editor, drawn per platform"),
         "Plan/MembershipCard.swift": (1, "the card, drawn per platform"),
-        "Plan/PeriodTiles.swift": (1, "the Mac's radio group in place of the tiles"),
+        "Plan/PeriodTiles.swift": (1, "the Mac's segmented control and price line in place of the tiles"),
         "RecordingPage/Location/DropPinView.swift": (1, "the sheet, drawn per platform"),
-        "RecordingScreen/IsolatePanel.swift": (1, "owner ruling: the Mac panel keeps its rows"),
-        "RecordingScreen/PitchPanel.swift": (1, "owner ruling: the Mac panel keeps its slider"),
-        "RecordingScreen/Practice/LoopsPanel.swift": (1, "owner ruling: the Mac panel keeps its actions"),
-        "RecordingScreen/SplitCutList.swift": (1, "owner ruling: the Mac keeps its cut list"),
         "Recordings/RenameLocationSheet.swift": (1, "the sheet's field and save, drawn per platform"),
-        "Selection/BulkEditSheet.swift": (2, "the sheet's rows, drawn per platform"),
-        "Settings/SettingsFieldRow.swift": (1, "the Mac draws its own settings link row"),
+        "Selection/BulkEditSheet.swift": (1, "the sheet's rows, drawn per platform"),
         "Settings/SettingsScreen.swift": (1, "the Mac's settings cards in place of the grouped form"),
         "Shell/AccountButton.swift": (1, "the account button exists only on iPhone and iPad"),
         "TuneForm/SuggestionField.swift": (1, "suggestion rows exist only on iPhone and iPad"),
-        "TuneForm/SuggestionPicker.swift": (1, "the Mac's own picker"),
-        "TuneForm/TuneFormRows.swift": (1, "the date row, drawn per platform"),
         "TuneForm/TuneFormSheet.swift": (1, "the sheet's fields and save, drawn per platform"),
         "Welcome/WelcomeView.swift": (1, "the welcome layout, drawn per platform"),
     ]
@@ -326,6 +331,17 @@ import Testing
         #expect(Self.unstyled(["A": only]).count == 1)
     }
 
+    @Test func onlyAPaneBarsControlsAreStyled() {
+        let only = "struct A: View {\nvar body: some View { Text(x).paneBar { Button(x) {} } }\n}"
+        let controls =
+            "struct A: View {\nvar body: some View { Text(x).paneBar(slot: 1) {\nText(x)\n} _: {\nButton(x) {}\n} }\n}"
+        let leading =
+            "struct A: View {\nvar body: some View { Text(x).paneBar(slot: 1) {\nButton(x) {}\n} _: {\nText(x)\n} }\n}"
+        #expect(Self.unstyled(["A": only]).isEmpty)
+        #expect(Self.unstyled(["A": controls]).isEmpty)
+        #expect(Self.unstyled(["A": leading]).count == 1)
+    }
+
     @Test func aNameThatCollidesWithAPlacerIsFlagged() {
         let placer = "extension View {\nfunc rowActions(_ c: () -> some View) -> some View { swipeActions { c() } }\n}"
         let collider = "extension Text {\nfunc rowActions(_ c: () -> some View) -> some View { VStack { c() } }\n}"
@@ -355,10 +371,14 @@ import Testing
     }
 
     @Test func allowedHoldsOnlyRealViolations() throws {
-        let all = try Self.screenViolations()
+        let found: [Pass: [String: Set<Violation>]] = [
+            .iOS: try Self.screenViolations(), .mac: try Self.macScreenViolations(),
+        ]
         let stale = Self.allowed.flatMap { path, entry in
-            let broken = Set((all[path] ?? []).map(\.rule))
-            return entry.rules.subtracting(broken).map { "\(path): \($0)" }
+            entry.passes.flatMap { pass in
+                let broken = Set((found[pass]?[path] ?? []).map(\.rule))
+                return entry.rules.subtracting(broken).map { "\(path) (\(pass)): \($0)" }
+            }
         }
         .sorted()
         #expect(stale.isEmpty, "Remove from allowed, no longer violating: \(stale.joined(separator: ", "))")
@@ -445,5 +465,215 @@ import Testing
         #expect(!flagged("Menu { items } label: { x }\n.buttonStyle(.borderless)"))
         #expect(!flagged("Button(x) {}\n.buttonStyle(.words)"))
         #expect(!flagged("accessory\n.menuStyle(.button)\n.textButtonMenuAppearance()"))
+    }
+
+    // MARK: - The Mac pass
+
+    /// Rules only the Mac build can break, matched like ``patterns``.
+    nonisolated(unsafe) private static let macPatterns: [(rule: String, regex: Regex<AnyRegexOutput>)] = [
+        ("checkbox toggle style", #"\.toggleStyle\(\s*\.checkbox\b|\bCheckboxToggleStyle\(\)"#),
+        ("radio group picker style", #"\.pickerStyle\(\s*\.radioGroup\b|\bRadioGroupPickerStyle\(\)"#),
+        ("segmented picker style", #"\.pickerStyle\(\s*\.segmented\b|\bSegmentedPickerStyle\(\)"#),
+        // A system picker draws AppKit's pop-up; the library's draws the Mac one.
+        ("system picker", #"(?:^|[^\w.])Picker\s*[({]"#),
+        ("system button style", #"\.buttonStyle\(\s*\.link\b|\bLinkButtonStyle\(\)"#),
+        ("own focus handling", #"(?:^|\W)(?:focusable|defaultFocus|focusEffectDisabled)\("#),
+        // A curve picked by a condition, such as Reduce Motion's nil or the curve, or stored.
+        ("own animation", #"\s\?\s*(?:nil\s*:\s*)?\.(?:\#(curves))\b"#),
+        ("own animation", #"(?::|=)\s*\.(?:\#(curves))\("#),
+        // A color that is the accent only while focused: a ring, an outline, or an underline.
+        ("own focus ring", #"[Ff]ocus\w*[^?\n]*\?\s*(?:Palette\.color\(\s*)?(?:Palette)?\.accent(?!\w)"#),
+    ].map { ($0.0, try! Regex($0.1)) }
+
+    nonisolated(unsafe) private static let focusCondition = /\bif\b[^{\n]*[Ff]ocus[^{\n]*\{/
+    nonisolated(unsafe) private static let accentStroke =
+        /\.(?:stroke|strokeBorder|fill|border|overlay|background)\([^)]*?\.accent(?!\w)/
+    nonisolated(unsafe) private static let focused = /(?:^|\W)focused\(/
+    /// The views a `.focused` binding may sit on: the system's text fields and the library's.
+    nonisolated(unsafe) private static let textField =
+        /^(?:TextField|SecureField|TextEditor|MacTextArea|MultilineTextField)$/
+
+    /// The file's code as the Mac build sees it, without previews, comments, or string literals.
+    static func macCode(of file: URL) throws -> String {
+        SourceScan.withoutStrings(SourceScan.macCompiled(try uncommented(file)))
+    }
+
+    static func macViolations(in code: String) -> Set<Violation> {
+        var found = violations(in: code)
+        for (rule, regex) in macPatterns {
+            for match in code.matches(of: regex) {
+                found.insert(Violation(rule: rule, line: line(of: match.range, in: code)))
+            }
+        }
+        // A `Link` draws the system's link unless a style in its chain gives it a button's look.
+        let file = ButtonStyleScan.File(path: "", code: code)
+        for match in nsMatches(#"(?:^|[^\w.])Link\s*[({]"#, in: file.code) {
+            let end = ButtonStyleScan.endOfCall(match.range.upperBound - 1, in: file)
+            let chain = ButtonStyleScan.chain(after: end, in: file)
+            if !chain.contains(".buttonStyle(") {
+                let range = Range(match.range, in: file.code)!
+                found.insert(Violation(rule: "system link", line: line(of: range, in: file.code)))
+            }
+        }
+        // The accent drawn only while something is focused is a ring of its own.
+        for match in code.matches(of: focusCondition) {
+            let body = SourceScan.call(in: code, opening: code.index(before: match.range.upperBound))
+            if body.contains(accentStroke) {
+                found.insert(Violation(rule: "own focus ring", line: line(of: match.range, in: code)))
+            }
+        }
+        // A focus state bound to a control other than a text field, read or set.
+        for match in code.matches(of: focused)
+        where !chainRoot(before: match.range.lowerBound, in: code)
+            .contains(textField)
+        {
+            found.insert(Violation(rule: "focus on a control", line: line(of: match.range, in: code)))
+        }
+        return found
+    }
+
+    /// The name that starts the modifier chain ending at `index`, walking back over modifiers,
+    /// their arguments, and closures.
+    static func chainRoot(before index: String.Index, in code: String) -> String {
+        var cursor = index
+        func skipSpace() {
+            while cursor > code.startIndex, code[code.index(before: cursor)].isWhitespace {
+                cursor = code.index(before: cursor)
+            }
+        }
+        while true {
+            skipSpace()
+            guard cursor > code.startIndex else { return "" }
+            let previous = code[code.index(before: cursor)]
+            // A trailing closure's label, such as `action:`, belongs to the call before it.
+            if previous == ":" {
+                cursor = code.index(before: cursor)
+                skipSpace()
+                while cursor > code.startIndex, code[code.index(before: cursor)].isLetter {
+                    cursor = code.index(before: cursor)
+                }
+                continue
+            }
+            if previous == ")" || previous == "}" {
+                let open: Character = previous == ")" ? "(" : "{"
+                var depth = 0
+                repeat {
+                    cursor = code.index(before: cursor)
+                    if code[cursor] == previous { depth += 1 }
+                    if code[cursor] == open { depth -= 1 }
+                } while depth > 0 && cursor > code.startIndex
+                continue
+            }
+            var start = cursor
+            while start > code.startIndex,
+                code[code.index(before: start)].isLetter || code[code.index(before: start)].isNumber
+                    || code[code.index(before: start)] == "_"
+            {
+                start = code.index(before: start)
+            }
+            guard start < cursor else { return "" }
+            let name = String(code[start..<cursor])
+            cursor = start
+            skipSpace()
+            guard cursor > code.startIndex, code[code.index(before: cursor)] == "." else { return name }
+            cursor = code.index(before: cursor)
+        }
+    }
+
+    /// Whether `file` is code the Mac pass checks: every file under `CrosstuneUI`.
+    static func isMacScreen(_ file: URL) -> Bool {
+        file.path.contains("/CrosstuneUI/")
+    }
+
+    /// Every file the Mac pass checks, with what its Mac-compiled code violates.
+    static func macScreenViolations() throws -> [String: Set<Violation>] {
+        var result: [String: Set<Violation>] = [:]
+        var screens: [ButtonStyleScan.File] = []
+        var library: [ButtonStyleScan.File] = []
+        for file in SourceScan.files() {
+            let path = SourceScan.relative(file)
+            let source = ButtonStyleScan.File(path: path, code: try macCode(of: file))
+            library.append(source)
+            guard Self.isMacScreen(file) else { continue }
+            screens.append(source)
+            let found = macViolations(in: source.code)
+            if !found.isEmpty { result[path] = found }
+        }
+        let scan = ButtonStyleScan(screens: screens, library: library)
+        for (path, lines) in scan.unstyledButtons() {
+            for line in lines { result[path, default: []].insert(Violation(rule: "unstyled button", line: line)) }
+        }
+        return result
+    }
+
+    @Test func macScreensDrawNoControlOfTheirOwn() throws {
+        var offenders: [String: Set<Violation>] = [:]
+        for (path, found) in try Self.macScreenViolations() {
+            let kept = found.filter { !Self.isAllowed($0, in: path, on: .mac) }
+            if !kept.isEmpty { offenders[path] = kept }
+        }
+        let report = offenders.keys.sorted().flatMap { path in
+            offenders[path]!.sorted { ($0.rule, $0.line) < ($1.rule, $1.line) }
+                .map { "\(path): \($0.rule): \($0.line)" }
+        }
+        #expect(
+            offenders.isEmpty,
+            """
+            Mac code that builds its own control or handles its own focus. Use the library \
+            control, `macFocusable` and `macFocusRing` for a control's focus, `keySurface` for a \
+            view that takes a screen's keys, and the `MacMotion` tokens for motion.
+            \(report.joined(separator: "\n"))
+            """)
+    }
+
+    /// Each Mac rule's sample, and the rule it breaks, or nil for one that passes.
+    static let macSamples: [(code: String, rule: String?)] = [
+        (".overlay { if isFocused { shape.stroke(Palette.accent, lineWidth: 2) } }", "own focus ring"),
+        ("if showsRing && isFocused {\nshape.strokeBorder(Palette.accent)\n}", "own focus ring"),
+        ("if (x && self.isFocused) { Color.clear.fill(Palette.accent) }", "own focus ring"),
+        ("if focused { Text(x).border(Palette.color(.accent), width: 2) }", "own focus ring"),
+        ("if focused { Text(x).background(Palette.accent) }", "own focus ring"),
+        ("if focused { Text(x).overlay(Palette.accent) }", "own focus ring"),
+        ("Rectangle().fill(titleFocused ? Palette.accent : Palette.border)", "own focus ring"),
+        ("Rectangle().fill((x && isFocused) ? .accent : .clear)", "own focus ring"),
+        ("Rectangle().fill(self.focused ? Palette.color(.accent) : .clear)", "own focus ring"),
+        ("if isFocused { Text(x).foregroundStyle(Palette.accent) }", nil),
+        ("Rectangle().fill(isHovered ? Palette.accent : .clear)", nil),
+        ("Button(x) {}.focused($focused)", "focus on a control"),
+        ("toggle.focused(focus)", "focus on a control"),
+        ("func ring() -> some View { focused(isOn) }", "focus on a control"),
+        ("TextField(x, text: $t).labelsHidden()\n.focused($focused)", nil),
+        ("Grid {}.focusable()", "own focus handling"),
+        ("func stop() -> some View { focusable() }", "own focus handling"),
+        ("Text(x).defaultFocus($f, true)", "own focus handling"),
+        ("func row() -> some View { onHover { hovered = $0 } }", "own hover state"),
+        ("withAnimation(reduceMotion ? nil : .easeOut(duration: 1)) {}", "own animation"),
+        (".animation(reduceMotion ? nil : .interpolatingSpring(stiffness: 1, damping: 1), value: x)", "own animation"),
+        (".animation(isOn ? .default : nil, value: x)", "own animation"),
+        ("let sort = stored ?? .default", nil),
+        ("let curve = style?.linear", nil),
+        ("let sort = choice?.default ?? fallback", nil),
+        ("let move: Animation = .easeInOut(duration: 1)", "own animation"),
+        (".macAnimation(MacMotion.spring, value: x)", nil),
+        ("Link(x, destination: url)", "system link"),
+        ("Link(x, destination: url)\n.buttonStyle(.text)", nil),
+        ("Toggle(x, isOn: $on).toggleStyle(.checkbox)", "checkbox toggle style"),
+        ("choices.pickerStyle(.radioGroup)", "radio group picker style"),
+        ("choices.pickerStyle(.segmented)", "segmented picker style"),
+        ("Picker(x, selection: $s) {}", "system picker"),
+        ("DatePicker(x, selection: $d)", nil),
+        ("SuggestionPicker(x, value: $v)", nil),
+        ("Button(x) {}.buttonStyle(.link)", "system button style"),
+    ]
+
+    @Test(arguments: macSamples)
+    func aMacRuleFlagsItsSample(_ sample: (code: String, rule: String?)) {
+        let rules = Set(Self.macViolations(in: sample.code).map(\.rule))
+        #expect(rules == Set([sample.rule].compactMap { $0 }), "\(sample.code)")
+    }
+
+    @Test func chainRootSkipsModifiersAndClosures() {
+        let code = "TextField(x, text: $t) {\n}\n.onGeometryChange(for: Int.self) { $0 } action: { _ in }\n.focused(f)"
+        #expect(Self.chainRoot(before: code.range(of: ".focused")!.lowerBound, in: code) == "TextField")
     }
 }
