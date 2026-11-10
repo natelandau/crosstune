@@ -136,6 +136,12 @@ package struct ToolPanel<Value: Hashable, Content: View, Between: View>: View {
             .accessibilityElement(children: .contain)
             .accessibilityLabel(title)
             .onAppear { onOpenChange(open) }
+            // A caller's `open` outlives the row, and a popover whose row is gone never writes back
+            // its close.
+            .onDisappear {
+                if open != nil { closesHere = true }
+                open = nil
+            }
             .onChange(of: open) { old, open in
                 onOpenChange(open)
                 if open != nil {
