@@ -339,7 +339,7 @@ struct TuneSelectionTests {
 
         @Test func macSelectionActionsMenuListsEveryBulkAction() {
             var archivedUserTune = b.userTune
-            archivedUserTune.archivedAt = Timestamp.now
+            archivedUserTune.archivedAt = noon
             let archived = CatalogEntry(tune: b.tune, userTune: archivedUserTune)
             let list = SelectionList(id: "list", name: "Waltzes", itemIDs: [a.tune.id: "item_a", b.tune.id: "item_b"])
             let statuses: [SelectionAction] = Vocabulary.statuses.map { .status($0) }
@@ -539,19 +539,19 @@ struct BulkActionTextTests {
         try await store.write { writer in
             var tune = butterfly.tune
             tune.composer = "Ed Reavy"
-            try writer.put(tune, at: Timestamp.now)
+            try writer.put(tune, at: noon)
             var kept = farewell.userTune
             kept.learnedFrom = "Kevin"
-            try writer.put(kept, at: Timestamp.now)
+            try writer.put(kept, at: noon)
             var removed = tamLin.userTune
             removed.learnedFrom = "Zed"
-            removed.deletedAt = Timestamp.now
-            try writer.put(removed, at: Timestamp.now)
+            removed.deletedAt = noon
+            try writer.put(removed, at: noon)
             // A live user tune whose tune is deleted is not in the catalog, so suggests nothing.
             let deleted = Tune(deletedAt: Timestamp.now, title: "Deleted", composer: "Lost Composer")
-            try writer.put(deleted, at: Timestamp.now)
+            try writer.put(deleted, at: noon)
             try writer.put(
-                UserTune(tuneID: deleted.id, status: "known", learnedFrom: "Orphan"), at: Timestamp.now)
+                UserTune(tuneID: deleted.id, status: "known", learnedFrom: "Orphan"), at: noon)
         }
         let suggestions = await BulkActions(store: store).suggestions()
         #expect(suggestions.composers == [TuneSuggestions.traditional, "Ed Reavy", "Jay Ungar"])

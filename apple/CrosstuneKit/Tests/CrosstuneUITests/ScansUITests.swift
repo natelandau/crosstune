@@ -469,7 +469,7 @@ private struct ScannedTunes {
         let commands = Commands(store: store)
         try await commands.addScans(tuneID: tuneA, scans: [preparedScan(), preparedScan()], at: noon)
         try await commands.addScans(tuneID: tuneB, scans: [preparedScan(), preparedScan()], at: later(1))
-        plan = PlanModel(store: store)
+        plan = PlanModel(store: store, now: { noon.date })
     }
 
     func model(_ tuneID: String) -> TuneModel {
@@ -498,7 +498,7 @@ private struct ScannedTunes {
     }
 
     @Test func aTrialOpensEveryTune() async throws {
-        let fixture = try await ScannedTunes(source: "trial", expiresAt: Date().addingTimeInterval(86_400 * 30))
+        let fixture = try await ScannedTunes(source: "trial", expiresAt: noon.date.addingTimeInterval(86_400 * 30))
         let a = fixture.model(fixture.tuneA)
         let b = fixture.model(fixture.tuneB)
 

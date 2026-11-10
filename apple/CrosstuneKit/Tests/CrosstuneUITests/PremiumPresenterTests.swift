@@ -24,7 +24,7 @@ private func entitlement(source: String?, expiresAt: Date? = nil) -> Entitlement
     {
         let store = try root.open()
         if let row { try await store.write { writer in try row.upsert(writer.db) } }
-        let model = PlanModel(store: store)
+        let model = PlanModel(store: store, now: { noon.date })
         try await eventually(sourceLocation: sourceLocation) { model.isLoaded && model.plan.kind == kind }
         return model
     }
@@ -83,7 +83,7 @@ private func entitlement(source: String?, expiresAt: Date? = nil) -> Entitlement
     }
 
     @Test func aTrialActsAndSendsNothing() async throws {
-        let ends = Date().addingTimeInterval(86_400)
+        let ends = noon.date.addingTimeInterval(86_400)
         let presenter = PremiumPresenter(
             plan: try await plan(entitlement(source: "trial", expiresAt: ends), kind: .premium), analytics: sink.client)
 

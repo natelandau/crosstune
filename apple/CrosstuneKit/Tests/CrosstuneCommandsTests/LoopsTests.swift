@@ -6,8 +6,6 @@ import Testing
 
 @testable import CrosstuneCommands
 
-private let noon = Timestamp.now
-
 @Suite(.timeLimit(.minutes(1))) struct LoopsTests {
     private let root = TemporaryRoot()
 
