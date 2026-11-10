@@ -7,10 +7,19 @@
         package static let sectionGap: CGFloat = 22
         /// Space between a section's heading and its card.
         package static let headingGap: CGFloat = 8
-        package static let cardRadius: CGFloat = 10
-        package static let rowInset: CGFloat = 12
-        /// A row holding a 28pt field with 4pt above and below.
-        package static let rowMinHeight: CGFloat = 36
+        package static let cardRadius = MacControl.cardRadius
+        /// A row's own padding at its sides.
+        package static let rowInset: CGFloat = 10
+        /// A row's padding above and below its content.
+        package static let rowVerticalInset: CGFloat = 4
+        package static let rowMinHeight: CGFloat = MacControl.rowMinHeight
+        /// Room inside a card around its rows, so a highlighted row sits inside the card's corners.
+        package static let cardPadding: CGFloat = 4
+        /// How far a row's text sits from its card's edge.
+        package static let textInset: CGFloat = cardPadding + rowInset
+        /// The padding a card puts around each row.
+        package static let rowPadding = EdgeInsets(
+            top: rowVerticalInset, leading: rowInset, bottom: rowVerticalInset, trailing: rowInset)
         /// The narrowest a row's label runs, so short labels in one card line their controls up.
         package static let labelMinWidth: CGFloat = 112
         /// The widest a form's label column grows for a long label; a longer one wraps.
@@ -80,6 +89,9 @@
         private let accessory: Accessory
         private let content: Content
 
+        /// The row under the pointer, whose hairlines hide.
+        @State private var hoveredRow: Subview.ID?
+
         package init(
             _ title: String? = nil, caption: String? = nil, subtitle: String? = nil, failure: String? = nil,
             card: Bool = true, @ViewBuilder content: () -> Content, @ViewBuilder accessory: () -> Accessory
@@ -115,7 +127,7 @@
                 if let failure {
                     FailureText(failure)
                         .fixedSize(horizontal: false, vertical: true)
-                        .padding(.horizontal, MacForm.rowInset)
+                        .padding(.horizontal, MacForm.textInset)
                 }
             }
         }
@@ -141,15 +153,23 @@
         private var rows: some View {
             VStack(spacing: 0) {
                 Group(subviews: content) { subviews in
+                    let ids = subviews.map(\.id)
+                    let rowAbove = Dictionary(uniqueKeysWithValues: zip(ids.dropFirst(), ids))
                     // Identified by the subview rather than its place, so a row that comes or goes
                     // above leaves the rows below their own state.
                     ForEach(subviews) { row in
                         row
+                            .padding(MacForm.rowPadding)
                             .frame(maxWidth: .infinity, minHeight: MacForm.rowMinHeight, alignment: .leading)
-                            .padding(.horizontal, MacForm.rowInset)
-                            .padding(.vertical, 4)
+                            .onPreferenceChange(MacRowHovered.self) { isHovered in
+                                if isHovered {
+                                    hoveredRow = row.id
+                                } else if hoveredRow == row.id {
+                                    hoveredRow = nil
+                                }
+                            }
                             .overlay(alignment: .top) {
-                                if row.id != subviews.first?.id {
+                                if let above = rowAbove[row.id], hoveredRow != row.id, hoveredRow != above {
                                     Rectangle()
                                         .fill(Palette.border)
                                         .frame(height: 1)
@@ -159,6 +179,10 @@
                     }
                 }
             }
+            // On the stack, not on each row: a resolved subview never reads an environment value
+            // set on it.
+            .environment(\.macFormRowPadding, MacForm.rowPadding)
+            .padding(MacForm.cardPadding)
             .modifier(MacFormLabelColumnReader())
             .labeledContentStyle(.macFormRow)
             .toggleStyle(.macFormSwitch)
@@ -343,187 +367,6 @@
                 .environment(\.macFormValues, .leading)
             }
             .scrollBounceBehavior(.basedOnSize)
-        }
-    }
-
-    /// Multiline text on the field fill with a placeholder where typing starts.
-    package struct MacTextArea: View {
-        /// TextEditor's own padding at each end of a line.
-        package static let lineFragmentPadding: CGFloat = 5
-
-        private let label: String
-        @Binding private var text: String
-        private let placeholder: String
-        private let minLines: Int
-        private let maxLines: Int?
-
-        /// The editor's own size, which its text is measured against.
-        @State private var editorSize: CGSize = .zero
-
-        package init(_ label: String, text: Binding<String>, placeholder: String, minLines: Int, maxLines: Int? = nil) {
-            self.label = label
-            _text = text
-            self.placeholder = placeholder
-            self.minLines = minLines
-            self.maxLines = maxLines
-        }
-
-        /// Whether `text` needs more room than `height` at `width`. The editor's scroll view never
-        /// hides its scroller on its own, so a legacy scroller would show with nothing to scroll.
-        package static func overflows(_ text: String, width: CGFloat, height: CGFloat) -> Bool {
-            // A trailing newline starts a line the measure would not count.
-            let measured = text.hasSuffix("\n") ? text + " " : text
-            let bounds = NSAttributedString(
-                string: measured, attributes: [.font: NSFont.systemFont(ofSize: MacStyle.bodySize)]
-            )
-            .boundingRect(
-                with: CGSize(width: max(width - 2 * lineFragmentPadding, 1), height: .greatestFiniteMagnitude),
-                options: [.usesLineFragmentOrigin, .usesFontLeading])
-            let lines = (bounds.height / MacTextEditorBackground.lineHeight).rounded()
-            return lines * MacTextEditorBackground.lineHeight > height + 0.5
-        }
-
-        package var body: some View {
-            TextEditor(text: $text)
-                .contentMask()
-                .accessibilityLabel(label)
-                .scrollIndicators(
-                    Self.overflows(text, width: editorSize.width, height: editorSize.height) ? .automatic : .never
-                )
-                .onGeometryChange(for: CGSize.self, of: \.size) { editorSize = $0 }
-                .overlay(alignment: .topLeading) {
-                    if text.isEmpty {
-                        Text(placeholder)
-                            .font(MacStyle.body)
-                            .foregroundStyle(Palette.textSecondary)
-                            // TextEditor's own line fragment inset, so the prompt sits where typing
-                            // starts.
-                            .padding(.leading, 5)
-                            .allowsHitTesting(false)
-                            .accessibilityHidden(true)
-                    }
-                }
-                // After the placeholder, so the inset moves it with the text.
-                .macTextEditor(minLines: minLines, maxLines: maxLines)
-        }
-    }
-
-    /// A segmented choice drawn in the Mac's own colors: the chosen segment on the accent fill,
-    /// which the system segment's chosen fill ignores, and the rest in the primary text color on
-    /// the field fill. Like the system control it is one keyboard stop whose arrows move the
-    /// choice, and VoiceOver reads it as the system's segmented picker.
-    package struct MacSegmentedPicker<Value: Hashable>: View {
-        private let title: String
-        @Binding private var selection: Value?
-        private let options: [(value: Value, label: String)]
-
-        /// A nil `selection` shows no segment chosen, for a value the items disagree on.
-        package init(_ title: String, selection: Binding<Value?>, options: [(value: Value, label: String)]) {
-            self.title = title
-            _selection = selection
-            self.options = options
-        }
-
-        package nonisolated static func moved(_ values: [Value], from chosen: Value?, by step: Int) -> Value? {
-            MacSegmentTrack<Value>.moved(values, from: chosen, by: step)
-        }
-
-        package var body: some View {
-            MacSegmentTrack(
-                title: title, chosen: selection,
-                options: options.map { MacSegmentTrack.Option(value: $0.value, label: $0.label) }, look: .accent
-            ) { selection = $0 }
-        }
-    }
-
-    /// A row in a Mac picker sheet: a leading glyph slot, then the row's own content, on the
-    /// page background with a field fill under the pointer.
-    package struct MacPickRowStyle: ButtonStyle {
-        package static let radius = MacStyle.rowRadius
-        package static let minHeight: CGFloat = 32
-
-        package func makeBody(configuration: Configuration) -> some View {
-            MacPickRowBody(configuration: configuration)
-        }
-    }
-
-    extension ButtonStyle where Self == MacPickRowStyle {
-        package static var macPickRow: Self { MacPickRowStyle() }
-    }
-
-    private struct MacPickRowBody: View {
-        let configuration: ButtonStyle.Configuration
-
-        @Environment(\.isEnabled) private var isEnabled
-        @Environment(\.isFocused) private var isFocused
-        @State private var isHovered = false
-
-        var body: some View {
-            configuration.label
-                .environment(\.macPickRowHighlighted, isEnabled && (isHovered || isFocused))
-                .font(MacStyle.body)
-                .foregroundStyle(isEnabled ? Palette.textPrimary : Palette.textSecondary)
-                .padding(.horizontal, 8)
-                .frame(maxWidth: .infinity, minHeight: MacPickRowStyle.minHeight, alignment: .leading)
-                .background(fill, in: .rect(cornerRadius: MacPickRowStyle.radius))
-                .contentShape(.rect(cornerRadius: MacPickRowStyle.radius))
-                .onHover { isHovered = $0 }
-        }
-
-        private var fill: Color {
-            guard isEnabled else { return .clear }
-            return isHovered || configuration.isPressed ? Palette.field : .clear
-        }
-    }
-
-    extension EnvironmentValues {
-        /// Whether the pick row around a view is under the pointer or holds focus.
-        @Entry package var macPickRowHighlighted = false
-    }
-
-    /// A picker row's leading glyph: + for a choice that adds, an accent check for one already
-    /// made, or an empty slot of the same width.
-    package struct MacPickGlyph: View {
-        package enum Kind {
-            case add
-            /// A + that shows only while its row is under the pointer or focused, for a list
-            /// where every row adds, so a column of them never shows at rest.
-            case addOnHighlight
-            case done
-            case none
-        }
-
-        package static let width: CGFloat = 18
-
-        package let kind: Kind
-
-        package init(kind: Kind) {
-            self.kind = kind
-        }
-
-        @Environment(\.macPickRowHighlighted) private var highlighted
-
-        package nonisolated static func shows(_ kind: Kind, highlighted: Bool) -> Bool {
-            kind != .addOnHighlight || highlighted
-        }
-
-        package var body: some View {
-            Group {
-                switch kind {
-                case .add, .addOnHighlight:
-                    Image(systemName: "plus")
-                        .foregroundStyle(Palette.textSecondary)
-                        .opacity(Self.shows(kind, highlighted: highlighted) ? 1 : 0)
-                case .done:
-                    Image(systemName: "checkmark")
-                        .foregroundStyle(Palette.accent)
-                case .none:
-                    Color.clear
-                }
-            }
-            .font(.system(size: 12, weight: .semibold))
-            .frame(width: Self.width)
-            .accessibilityHidden(true)
         }
     }
 #endif

@@ -36,7 +36,6 @@ package struct PageSection<Content: View, Accessory: View>: View {
                 Spacer(minLength: 0)
                 accessory
                     .menuIndicator(.hidden)
-                    .menuStyle(.button)
                     .textButtonMenuAppearance()
                     .fixedSize()
             }

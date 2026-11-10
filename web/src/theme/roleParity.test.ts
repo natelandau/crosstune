@@ -35,6 +35,7 @@ const APPLE_ONLY: Record<string, string> = {
   groupedSurface: "iOS's grouped form",
   neutralFill: 'a swipe action under the white label SwiftUI draws',
   onTintSecondary: "the Plan sheet card, where Apple's secondary text falls short",
+  pressedOverlay: 'a Mac press over a fill; the web presses by scale',
 }
 
 const css = readFileSync(new URL('./tokens.css', import.meta.url), 'utf8')
@@ -89,7 +90,7 @@ it('lists only platform-only roles that one platform still lacks', () => {
     expect(appleRoles).not.toContain(camel(role))
   }
   for (const role of Object.keys(APPLE_ONLY)) {
-    expect(tokenCases).toContain(role)
+    expect(appleRoles).toContain(role)
     expect(webRoles.map(camel)).not.toContain(role)
   }
 })

@@ -47,7 +47,7 @@ package enum PageStyle {
         package static let attributesCardRadius = surfaceRadius
         package static let startCardPadding: CGFloat = 16
         /// Where an attributes card's row text starts from the card's edge.
-        package static let attributesCardInset = MacForm.rowInset
+        package static let attributesCardInset = MacForm.textInset
         /// A line of text that acts as a button, such as a group's label that opens its tune.
         package static let lineButtonHeight = MacStyle.smallControlHeight
         /// The label over one group of rows.

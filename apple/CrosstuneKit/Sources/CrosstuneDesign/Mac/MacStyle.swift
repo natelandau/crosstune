@@ -33,22 +33,21 @@
         public static let pageTitleTracking: CGFloat = -0.7
         public static let timerTracking: CGFloat = -1
 
-        public static let rowHeight: CGFloat = 32
-        /// A badge's line on the player dock.
-        public static let badgeHeight: CGFloat = 20
+        public static let rowHeight = MacControl.rowMinHeight
+        public static let badgeHeight: CGFloat = 18
         /// The corners of a row's hover tint where the row sits on the page background, not in a
         /// list.
-        public static let rowRadius: CGFloat = 7
+        public static let rowRadius = MacControl.radius
         public static let sidebarRowHeight: CGFloat = 28
         /// A column's header line: its count and sort.
         public static let headerRowHeight: CGFloat = 28
-        public static let paneControlHeight: CGFloat = 28
+        public static let paneControlHeight = MacControl.regularHeight
         /// The width every glyph-only pane control shares.
         public static let paneIconWidth: CGFloat = 36
         /// A small control's height, a step below the pane bar's so the bar stays the column's
         /// chrome: a filter control, a section heading's control, a row's own control, and a
         /// group's heading line.
-        public static let smallControlHeight: CGFloat = 24
+        public static let smallControlHeight = MacControl.smallHeight
         /// The least height a media row takes.
         public static let mediaRowMinHeight: CGFloat = 28
         public static let pageMaxWidth: CGFloat = 680
@@ -59,17 +58,17 @@
         public static let sectionGap: CGFloat = 28
         public static let headingGap: CGFloat = 8
         public static let dockHeight: CGFloat = 48
-        /// The dock's play and pause disc, inside the dock's glyph slot.
+        /// The inline transport's play disc, which fits the dock's glyph slot.
         public static let dockPlayDiameter: CGFloat = 28
         /// The dock's inset from the column's edges and around what grows above its bar.
         public static let dockInset: CGFloat = 16
         public static let undoBannerHeight: CGFloat = 36
         /// The practice stage's corners: the card holding the overview, waveform, and readout.
         public static let stageRadius: CGFloat = 12
-        /// The practice transport's play disc; its skips take the large icon circle.
+        /// The feature transport's play disc.
         public static let transportDiameter: CGFloat = 44
         public static let recordPanelWidth: CGFloat = 360
-        public static let stopDiameter: CGFloat = 80
+        public static let stopDiameter: CGFloat = 72
         /// The inset around a sheet's content, as Mac sheets lay out.
         public static let sheetMargin: CGFloat = 20
         /// Puts a sidebar status row's glyph under the Catalog row's name, the row it narrows.
@@ -173,12 +172,4 @@
         }
     }
 
-    extension View {
-        /// Plain secondary words on the player dock's badge line.
-        package func macBadgeLineText() -> some View {
-            font(MacStyle.secondary)
-                .foregroundStyle(Palette.textSecondary)
-                .frame(minHeight: MacStyle.badgeHeight)
-        }
-    }
 #endif

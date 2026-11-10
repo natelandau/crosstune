@@ -107,8 +107,10 @@ extension View {
 
 /// A grouped `Form`: the page takes ``Palette/groupedBackground`` and every row, in any section,
 /// takes ``Palette/groupedSurface`` unless it sets its own background. Its switches take the
-/// accent track, and its buttons the accent, since the app's tint is primary text. The sections stay as written: rebuilding them (`ForEach(sections:)`) drops a
-/// row's own list modifiers, such as the open Settings page's `field` background.
+/// accent track, and its buttons the accent, since the app's tint is primary text; on the Mac
+/// its buttons are Small Tinted buttons. The sections stay as written: rebuilding them
+/// (`ForEach(sections:)`) drops a row's own list modifiers, such as the open Settings page's
+/// `field` background.
 package struct GroupedForm<Content: View>: View {
     @ViewBuilder package let content: Content
 
@@ -129,36 +131,49 @@ extension View {
     /// A grouped form's rows: the grouped surface under each, and the context its controls read.
     /// Every grouped form, ``GroupedForm`` and ``GroupedSelectionForm``, applies it to its content.
     package func groupedFormRows() -> some View {
-        groupedSurface()
-            .environment(\.onGroupedSurface, true)
-            .environment(\.asyncButtonIsRow, true)
+        #if os(macOS)
+            // A Mac form's action is a button in its row, never the row, so its spinner and check
+            // replace its label as on any button.
+            environment(\.onGroupedSurface, true)
+        #else
+            groupedSurface()
+                .environment(\.onGroupedSurface, true)
+                .environment(\.asyncButtonIsRow, true)
+        #endif
     }
 
-    /// A grouped form's list: accent switches and buttons on the grouped background. Every
-    /// grouped form applies it to its `Form` or `List`.
+    /// A grouped form's list: accent switches and buttons on the grouped background, and on the
+    /// Mac its actions as Small Tinted buttons. Every grouped form applies it to its `Form` or
+    /// `List`.
     package func groupedFormList() -> some View {
         toggleStyle(.accentSwitch)
-            .buttonStyle(.accentWords)
+            #if os(macOS)
+                .buttonStyle(MacFormActionStyle())
+            #else
+                .buttonStyle(.accentWords)
+            #endif
             .groupedBackground()
     }
 }
 
+#if os(macOS)
+    /// An action in a Mac form row: a Small Tinted button, the destructive one for a destructive
+    /// role. A button that sets its own style keeps it.
+    private struct MacFormActionStyle: PrimitiveButtonStyle {
+        func makeBody(configuration: Configuration) -> some View {
+            Button(configuration)
+                .buttonStyle(.tinted)
+                .controlSize(.small)
+        }
+    }
+#endif
+
 /// The system's own button in the accent. A button that sets its own style keeps it. On the
-/// Mac it draws the look `macLook` names.
+/// Mac it draws the Mac's Text button.
 package struct AccentWordsButtonStyle: PrimitiveButtonStyle {
-    /// The Mac look drawn: `.system`, the system's own button in the accent, or `.plain`, the
-    /// Mac's plain button.
-    package enum MacLook: Equatable { case system, plain }
-
-    package var macLook: MacLook = .system
-
     package func makeBody(configuration: Configuration) -> some View {
         #if os(macOS)
-            if macLook == .plain {
-                Button(configuration).buttonStyle(.macPlain)
-            } else {
-                accentWords(configuration)
-            }
+            Button(configuration).buttonStyle(.macPlain)
         #else
             accentWords(configuration)
         #endif
@@ -174,8 +189,4 @@ package struct AccentWordsButtonStyle: PrimitiveButtonStyle {
 
 extension PrimitiveButtonStyle where Self == AccentWordsButtonStyle {
     package static var accentWords: Self { AccentWordsButtonStyle() }
-    /// The system's own button in the accent, and on the Mac the look `macLook` names.
-    package static func accentWords(macLook: AccentWordsButtonStyle.MacLook) -> Self {
-        AccentWordsButtonStyle(macLook: macLook)
-    }
 }

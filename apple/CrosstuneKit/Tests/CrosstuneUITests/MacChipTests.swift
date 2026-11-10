@@ -28,13 +28,16 @@
             }
         }
 
-        /// A set chip's label on its tint, over the backgrounds a chip sits on.
+        /// A set chip's label on its tint at rest, hover, and press, over the backgrounds a chip
+        /// sits on.
         @Test(arguments: [ColorScheme.light, .dark])
         func setChipLabelPassesContrastOnItsTint(scheme: ColorScheme) {
             let label = MacChip.labelRGB(state: .set, scheme: scheme).hex
             for background in [Palette.Token.pageBackground, .surface] {
-                let tint = MacChip.setTintHex(over: Palette.hex(background, scheme), scheme: scheme)
-                #expect(contrastRatio(label, tint) >= 4.5, "\(scheme) on \(background)")
+                for press in [MacPressState.rest, .hover, .pressed] {
+                    let tint = MacChip.setTintHex(over: Palette.hex(background, scheme), scheme: scheme, press: press)
+                    #expect(contrastRatio(label, tint) >= 4.5, "\(scheme) \(press) on \(background)")
+                }
             }
         }
 
@@ -52,10 +55,12 @@
                     MacChip.labelRGB(state: .chosen, scheme: scheme).hex, Palette.hex(.accentFill, scheme)) >= 4.5)
         }
 
-        @Test func rowKeyPillHasMinimumWidth() {
-            #expect(MacChip.minRowWidth == 28)
-            #expect(MacChip.Size.row.height == 18)
-            #expect(MacChip.Size.standalone.height == 26)
+        /// A rest chip takes its container's control fill, so it never reads gray on a card.
+        @Test(arguments: [ColorScheme.light, .dark])
+        func restChipReadsItsContainer(scheme: ColorScheme) {
+            #expect(
+                MacChip.solidFillHex(state: .rest, scheme: scheme, container: .surface)
+                    == Palette.hex(.surfaceRaised, scheme).lowercased())
         }
     }
 #endif

@@ -6,24 +6,50 @@
     @testable import CrosstuneUI
 
     @Suite struct MacControlsTests {
-        /// The chosen segment reads raised, lighter than the field track, in both appearances.
-        /// Its fill takes only the appearance, so an inactive window draws it the same.
-        @Test(arguments: [ColorScheme.light, .dark])
-        func macSegmentedKeepsSelectionVisibleWhenInactive(scheme: ColorScheme) {
-            // Lighter means further from black.
-            let chosen = contrastRatio(Palette.hex(MacSegmented<Int>.chosenFillToken, scheme), "#000000")
-            let track = contrastRatio(Palette.hex(.field, scheme), "#000000")
-            #expect(chosen > track, "\(scheme)")
-        }
-
-        /// A segment's label and its badge read on the chosen token and on the bare track.
+        /// A segment's label and its badge read on the chosen token and on the bare track, on
+        /// every container.
         @Test(arguments: [ColorScheme.light, .dark])
         func macSegmentedTextPassesContrast(scheme: ColorScheme) {
-            for back in [Palette.hex(MacSegmented<Int>.chosenFillToken, scheme), Palette.hex(.field, scheme)] {
-                #expect(contrastRatio(Palette.hex(.textPrimary, scheme), back) >= 4.5, "\(scheme) label on \(back)")
-                #expect(
-                    contrastRatio(Palette.hex(.textSecondary, scheme), back) >= 4.5, "\(scheme) badge on \(back)")
+            for container in MacContainer.allCases {
+                let fills = [MacSegmented<Int>.chosenFillToken(on: container), container.controlFill]
+                for back in fills.map({ Palette.hex($0, scheme) }) {
+                    #expect(
+                        contrastRatio(Palette.hex(.textPrimary, scheme), back) >= 4.5,
+                        "\(scheme) \(container) label on \(back)")
+                    #expect(
+                        contrastRatio(Palette.hex(.textSecondary, scheme), back) >= 4.5,
+                        "\(scheme) \(container) badge on \(back)")
+                }
             }
+        }
+
+        /// One segmented look everywhere: no segmented control draws the accent fill.
+        @Test func noSegmentedControlDrawsTheAccentLook() throws {
+            let segmented = SourceScan.withoutComments(
+                try SourceScan.text(at: SourceScan.url(of: "Mac/MacSegmented.swift")))
+            let picker = SourceScan.withoutComments(
+                try SourceScan.text(at: SourceScan.url(of: "Mac/MacSegmentedPicker.swift")))
+            for (name, text) in [("MacSegmented", segmented), ("MacSegmentedPicker", picker)] {
+                #expect(!text.contains("accentFill"), "\(name)")
+                #expect(!text.contains("MacSegmentLook"), "\(name)")
+            }
+        }
+
+        /// A shared control draws its Mac look on the Mac, never the system control it draws on
+        /// iPhone and iPad.
+        @Test(arguments: [
+            (
+                file: "Phone/Controls/SegmentedControl.swift", macLook: "MacSegmented(",
+                system: ".pickerStyle(.segmented)"
+            ),
+            (file: "Phone/Controls/FilledTextFieldStyle.swift", macLook: "MacFieldStyle(", system: "Palette.field"),
+        ])
+        func sharedControlDrawsItsMacLook(_ control: (file: String, macLook: String, system: String)) throws {
+            let mac = SourceScan.macCompiled(
+                SourceScan.withoutPreviews(
+                    SourceScan.withoutComments(try SourceScan.text(at: SourceScan.url(of: control.file)))))
+            #expect(mac.contains(control.macLook), "\(control.file)")
+            #expect(!mac.contains(control.system), "\(control.file)")
         }
 
         @Test func macSegmentSpeaksItsBadge() {
@@ -40,6 +66,38 @@
             let speed = 25.0...200.0
             #expect(MacSlider.snapped(101.5, in: speed, detent: 100) == 100)
             #expect(MacSlider.snapped(103, in: speed, detent: 100) == 103)
+        }
+
+        /// A slider of whole steps lands a drag on the grid from its start, and settles on the
+        /// default from as far as its reach.
+        @Test func macSliderOnAStepGridSnapsToStepsAndTheDefault() {
+            let speed = 50.0...125.0
+            #expect(MacSlider.snapped(93, in: speed, detent: 100, step: 5, reach: 0.04) == 95)
+            #expect(MacSlider.snapped(97, in: speed, detent: 100, step: 5, reach: 0.04) == 100)
+            #expect(MacSlider.snapped(104, in: speed, detent: 100, step: 5, reach: 0.04) == 105)
+            #expect(MacSlider.snapped(200, in: speed, detent: 100, step: 5, reach: 0.04) == 125)
+        }
+
+        /// The snap haptic fires on the change that reaches the default, never while the value
+        /// stays on it or moves elsewhere.
+        @Test func snapFiresOnceOnEntering() {
+            #expect(MacSlider.entersDetent(from: 95, to: 100, detent: 100))
+            #expect(!MacSlider.entersDetent(from: 100, to: 100, detent: 100))
+            #expect(!MacSlider.entersDetent(from: 95, to: 96, detent: 100))
+            #expect(!MacSlider.entersDetent(from: 95, to: 100, detent: nil))
+        }
+
+        /// A stepper half dims at its limit, and a disabled stepper dims once as a whole, never
+        /// again in its halves.
+        @Test(arguments: [
+            (atLimit: false, isControlEnabled: true, dims: false),
+            (atLimit: true, isControlEnabled: true, dims: true),
+            (atLimit: false, isControlEnabled: false, dims: false),
+            (atLimit: true, isControlEnabled: false, dims: false),
+        ])
+        func stepperHalfDimsOnlyAtItsLimit(atLimit: Bool, isControlEnabled: Bool, dims: Bool) {
+            let opacity = MacStepper.glyphOpacity(atLimit: atLimit, isControlEnabled: isControlEnabled)
+            #expect((opacity < 1) == dims)
         }
 
         @Test func macSliderStepsWithinItsRange() {
@@ -103,6 +161,26 @@
                 let text = SourceScan.withoutComments(try SourceScan.text(at: file))
                 #expect(!text.contains(call), "\(SourceScan.relative(file))")
             }
+        }
+
+        /// Every dock button draws with the library's button styles or the transport, and every
+        /// glyph takes its size from a token.
+        @Test func dockDrawsOnlyLibraryButtons() throws {
+            let scanned = SourceScan.withoutComments(
+                try SourceScan.text(at: SourceScan.url(of: "Mac/PlayerDock.swift")))
+            #expect(!scanned.contains(".buttonStyle(.plain)"))
+            #expect(!scanned.contains(try Regex(#"\.system\(size:\s*\d"#)))
+        }
+
+        /// The controls sample screen is where a Mac-only control's states are looked at, so one
+        /// missing from it goes unseen. A style counts by the shorthand that applies it.
+        @Test(arguments: [
+            "MacPopUp", "MacPullDown", "macInlinePopUp", "macField", "macTitleField", "MacTextArea", "macCheckbox",
+            "macSwitch", "MacSlider", "MacStepper", "macRow", "MacActionBar", "MacToolButton",
+        ])
+        func galleryShowsEveryMacControl(name: String) throws {
+            let code = SourceScan.macCompiled(try ControlGalleryTests.galleryCode())
+            #expect(code.contains(try Regex("\\b\(name)\\b")), "ControlGallery never shows \(name) on the Mac")
         }
 
         @Test func practiceMetricsAreTheSpecs() {

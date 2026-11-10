@@ -2,26 +2,18 @@
     import AppKit
     import SwiftUI
 
-    /// How a Mac segmented control marks its chosen segment.
-    package enum MacSegmentLook {
-        /// The accent fill under a white label: a form's choice, which is a selection.
-        case accent
-        /// A token raised off the field track under a primary text label: a control that switches
-        /// what a view shows, such as practice's modes, where the accent would shout.
-        case token
-    }
-
-    /// A token segmented control: the chosen segment a raised token on the field track, each
-    /// segment's label in the primary text color with an optional badge after it in secondary text.
-    /// It keeps its fills in an inactive window, unlike the system control, so the choice in use
-    /// stays plain. One keyboard stop whose arrows move the choice; VoiceOver reads it as the
-    /// system's segmented picker.
+    /// A token segmented control: the chosen segment a raised token on the container's control
+    /// fill, each segment's label in the primary text color with an optional ``Badge`` after it. It keeps its fills in an inactive window, unlike the system control, so the
+    /// choice in use stays plain. One keyboard stop whose arrows move the choice; VoiceOver reads
+    /// it as the system's segmented picker.
     package struct MacSegmented<Value: Hashable>: View {
         @Binding private var selection: Value
         private let options: [Value]
         private let label: (Value) -> String
         private let badge: (Value) -> String?
+        private let badgeKind: Badge.Kind
         private let title: String
+        private let size: MacButtonStyle.Size
         private let fillsWidth: Bool
 
         /// - Parameters:
@@ -30,27 +22,36 @@
         ///     with a panel under it, rather than hugging their labels.
         package init(
             selection: Binding<Value>, options: [Value], label: @escaping (Value) -> String,
-            badge: @escaping (Value) -> String? = { _ in nil }, title: String = "", fillsWidth: Bool = false
+            badge: @escaping (Value) -> String? = { _ in nil }, badgeKind: Badge.Kind = .neutral, title: String = "",
+            size: MacButtonStyle.Size = .regular, fillsWidth: Bool = false
         ) {
             _selection = selection
             self.options = options
             self.label = label
             self.badge = badge
+            self.badgeKind = badgeKind
             self.title = title
+            self.size = size
             self.fillsWidth = fillsWidth
         }
 
-        /// The chosen token's fill, lighter than the field track in both appearances so it reads
-        /// raised. It reads only the appearance, never whether the window is key, so the choice in
-        /// use stays plain in an inactive window.
-        package static var chosenFillToken: Palette.Token { .surfaceRaised }
-        package static var chosenFill: Color { Palette.color(chosenFillToken) }
+        /// The chosen token's fill, which with the token's shadow raises it off the track. It
+        /// reads only the appearance and the container, never whether the window is key, so the
+        /// choice in use stays plain in an inactive window.
+        package static func chosenFillToken(on container: MacContainer) -> Palette.Token {
+            switch container {
+            case .pageBackground: .surfaceRaised
+            case .surface: .pageBackground
+            }
+        }
 
         package var body: some View {
             MacSegmentTrack(
                 title: title, chosen: selection,
-                options: options.map { MacSegmentTrack.Option(value: $0, label: label($0), badge: badge($0)) },
-                look: .token, fillsWidth: fillsWidth
+                options: options.map {
+                    MacSegmentTrack.Option(value: $0, label: label($0), badge: badge($0), badgeKind: badgeKind)
+                },
+                size: size, fillsWidth: fillsWidth
             ) { selection = $0 }
         }
     }
@@ -62,21 +63,28 @@
             package let value: Value
             package let label: String
             package var badge: String?
+            package var badgeKind: Badge.Kind = .neutral
         }
 
-        package static var height: CGFloat { 28 }
-        package static var radius: CGFloat { 7 }
+        package static var radius: CGFloat { MacControl.radius }
         package static var inset: CGFloat { 2 }
-        package static var segmentRadius: CGFloat { 5 }
+        package static var segmentRadius: CGFloat { MacControl.innerRadius }
 
         package let title: String
         package let chosen: Value?
         package let options: [Option]
-        package let look: MacSegmentLook
+        package var size: MacButtonStyle.Size = .regular
         package var fillsWidth = false
         package let choose: (Value) -> Void
 
+        @Environment(\.macContainer) private var container
+        @Environment(\.colorScheme) private var scheme
+        @Environment(\.isEnabled) private var isEnabled
+        @Environment(\.macPreviewFocused) private var previewFocused
         @FocusState private var focused: Bool
+        @Namespace private var token
+
+        private var isFocused: Bool { focused || previewFocused }
 
         /// A segment's spoken name: its label, then its badge when it has one.
         package nonisolated static func spokenName(_ label: String, badge: String?) -> String {
@@ -97,31 +105,27 @@
             HStack(spacing: Self.inset) {
                 ForEach(options, id: \.value) { option in
                     MacSegment(
-                        label: option.label, badge: option.badge, isChosen: option.value == chosen, look: look,
-                        showsRing: focused && option.value == chosen
+                        label: option.label, badge: option.badge, badgeKind: option.badgeKind,
+                        isChosen: option.value == chosen, size: size,
+                        chosenFill: Palette.color(MacSegmented<Value>.chosenFillToken(on: container)), token: token,
+                        showsRing: isFocused && option.value == chosen
                     ) {
                         choose(option.value)
                     }
                 }
             }
             .padding(Self.inset)
-            .frame(height: Self.height)
-            .background(Palette.field, in: .rect(cornerRadius: Self.radius))
+            .frame(height: size.height)
+            .background(container.controlColor, in: .rect(cornerRadius: Self.radius))
+            .macControlEdge(container, scheme: scheme, cornerRadius: Self.radius)
+            .macAnimation(MacMotion.spring, value: chosen)
             // With no segment chosen the ring goes round the whole control.
-            .macFocusRing(focused && chosen == nil, cornerRadius: Self.radius)
+            .macFocusRing(isFocused && chosen == nil, cornerRadius: Self.radius)
             .fixedSize(horizontal: !fillsWidth, vertical: true)
-            // Activate only: a click chooses a segment without taking focus, so the ring shows
-            // only under keyboard navigation, as on the system control.
-            .focusable(interactions: .activate)
+            .macFocusable()
             .focused($focused)
-            .focusEffectDisabled()
-            .onMoveCommand { direction in
-                let step: Int
-                switch direction {
-                case .left: step = -1
-                case .right: step = 1
-                default: return
-                }
+            .opacity(isEnabled ? 1 : MacControl.disabledOpacity)
+            .macStepCommands(isAdjustable: false) { step in
                 if let next = Self.moved(options.map(\.value), from: chosen, by: step), next != chosen {
                     choose(next)
                 }
@@ -147,60 +151,81 @@
     private struct MacSegment: View {
         let label: String
         let badge: String?
+        let badgeKind: Badge.Kind
         let isChosen: Bool
-        let look: MacSegmentLook
+        let size: MacButtonStyle.Size
+        let chosenFill: Color
+        let token: Namespace.ID
         let showsRing: Bool
         let action: () -> Void
 
-        @State private var isHovered = false
+        var body: some View {
+            Button(action: action) {
+                HStack(spacing: 5) {
+                    MacSteadyWidthLabel(isSemibold: isChosen) { weight in
+                        Text(label)
+                            .font(weight == .semibold ? font.weight(.semibold) : font)
+                            .foregroundStyle(Palette.textPrimary)
+                    }
+                    if let badge {
+                        Badge(badge, kind: badgeKind)
+                    }
+                }
+            }
+            .buttonStyle(MacSegmentStyle(isChosen: isChosen, size: size, chosenFill: chosenFill, token: token))
+            // The track is the one focus stop; a segment never takes focus on its own.
+            .focusable(false)
+            .macFocusRing(showsRing, cornerRadius: MacSegmentTrack<Int>.segmentRadius)
+        }
+
+        private var font: Font { size == .small ? MacStyle.label.weight(.regular) : MacStyle.body }
+    }
+
+    private struct MacSegmentStyle: ButtonStyle {
+        let isChosen: Bool
+        let size: MacButtonStyle.Size
+        let chosenFill: Color
+        let token: Namespace.ID
+
+        func makeBody(configuration: Configuration) -> some View {
+            MacSegmentBody(
+                configuration: configuration, isChosen: isChosen, size: size, chosenFill: chosenFill, token: token)
+        }
+    }
+
+    private struct MacSegmentBody: View {
+        let configuration: ButtonStyle.Configuration
+        let isChosen: Bool
+        let size: MacButtonStyle.Size
+        let chosenFill: Color
+        let token: Namespace.ID
+
+        private var pointer = MacPointer()
 
         private static var radius: CGFloat { MacSegmentTrack<Int>.segmentRadius }
 
         var body: some View {
-            HStack(spacing: 5) {
-                ZStack {
-                    // The semibold label's width is held under the regular one, so choosing a
-                    // segment never shifts its neighbors.
-                    Text(label)
-                        .font(MacStyle.body.weight(.semibold))
-                        .hidden()
-                    Text(label)
-                        .font(isChosen ? MacStyle.body.weight(.semibold) : MacStyle.body)
-                        .foregroundStyle(labelColor)
+            configuration.label
+                .lineLimit(1)
+                .padding(.horizontal, size == .small ? 10 : 14)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background {
+                    if isChosen {
+                        RoundedRectangle(cornerRadius: Self.radius)
+                            .fill(chosenFill)
+                            .elevation(.control)
+                            .matchedGeometryEffect(id: "token", in: token)
+                    } else {
+                        RoundedRectangle(cornerRadius: Self.radius)
+                            .fill(state.overlay)
+                    }
                 }
-                if let badge {
-                    Text(badge)
-                        .font(MacStyle.label)
-                        .monospacedDigit()
-                        .foregroundStyle(
-                            look == .accent && isChosen ? Palette.onAccentFill : Palette.textSecondary)
-                }
-            }
-            .lineLimit(1)
-            .padding(.horizontal, 14)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background {
-                RoundedRectangle(cornerRadius: Self.radius)
-                    .fill(fill)
-                    .elevation(.control, isShown: raised)
-            }
-            .contentShape(.rect(cornerRadius: Self.radius))
-            .macFocusRing(showsRing, cornerRadius: Self.radius)
-            .onTapGesture(perform: action)
-            .onHover { isHovered = $0 }
+                .contentShape(.rect(cornerRadius: Self.radius))
+                .macPointer(pointer, state: state)
         }
 
-        private var raised: Bool { look == .token && isChosen }
-
-        private var labelColor: Color {
-            look == .accent && isChosen ? Palette.onAccentFill : Palette.textPrimary
-        }
-
-        private var fill: Color {
-            if isChosen {
-                return look == .accent ? Palette.accentFill : MacSegmented<Int>.chosenFill
-            }
-            return isHovered ? Palette.border : .clear
+        private var state: MacPressState {
+            pointer.state(isPressed: configuration.isPressed)
         }
     }
 #endif

@@ -22,8 +22,8 @@ import SwiftUI
         private let hitTarget: CGFloat = 24
 
         package init(
-            prompt: String, query: Binding<String>, isFocused: FocusState<Bool>.Binding, filterCount: Int?,
-            filtersDisabled: Bool = false, onSubmit: @escaping () -> Void, onFilters: @escaping () -> Void = {}
+            prompt: String, query: Binding<String>, isFocused: FocusState<Bool>.Binding, filterCount: Int? = nil,
+            filtersDisabled: Bool = false, onSubmit: @escaping () -> Void = {}, onFilters: @escaping () -> Void = {}
         ) {
             self.prompt = prompt
             self._query = query
@@ -62,6 +62,7 @@ import SwiftUI
                     .contentMask()
                     .focused(isFocused)
                     .submitLabel(.search)
+                    .autocorrectionDisabled()
                     .accessibilityAddTraits(.isSearchField)
                     .onSubmit(onSubmit)
                     .onKeyPress(.escape) { Self.clearOnEscape($query) ? .handled : .ignored }
@@ -95,13 +96,14 @@ import SwiftUI
             .frame(height: MacStyle.paneControlHeight)
             .background(container.controlColor, in: .rect(cornerRadius: MacFieldStyle.radius))
             .macControlEdge(container, scheme: scheme, cornerRadius: MacFieldStyle.radius)
-            .macFocusRing(isFocused.wrappedValue, cornerRadius: MacFieldStyle.radius)
+            .macFocusRing(isFocused.wrappedValue, cornerRadius: MacFieldStyle.radius, isTextField: true)
         }
     }
 
     /// The search field's filters control: a glyph in secondary text at rest, and once a filter
-    /// is set, a set chip carrying the count, so a narrowed list reads from the field.
-    package struct SearchFiltersStyle: ButtonStyle {
+    /// is set, a set chip carrying the count, so a narrowed list reads from the field. It wraps
+    /// the button so the system focus effect is off.
+    package struct SearchFiltersStyle: PrimitiveButtonStyle {
         /// What the set chip's tint lands on. The field under it is too dark for the accent label
         /// to hold 4.5:1 through the tint, so the chip carries the column's page background, as the
         /// set tokens under the field do.
@@ -110,6 +112,17 @@ import SwiftUI
         package let isSet: Bool
 
         package func makeBody(configuration: Configuration) -> some View {
+            Button(configuration)
+                .buttonStyle(SearchFiltersBodyStyle(isSet: isSet))
+                .focusEffectDisabled()
+                .macButtonFocus()
+        }
+    }
+
+    private struct SearchFiltersBodyStyle: ButtonStyle {
+        let isSet: Bool
+
+        func makeBody(configuration: Configuration) -> some View {
             SearchFiltersBody(configuration: configuration, isSet: isSet)
         }
     }
@@ -119,29 +132,32 @@ import SwiftUI
         let isSet: Bool
 
         @Environment(\.isEnabled) private var isEnabled
-        @State private var isHovered = false
+        @Environment(\.macButtonFocused) private var isFocused
+        private var pointer = MacPointer()
 
         var body: some View {
-            let emphasis: Double = configuration.isPressed || isHovered ? 1 : 0
             Group {
                 if isSet {
                     configuration.label
-                        .macChip(state: .set, size: .row, emphasis: emphasis)
+                        .macChip(state: .set, size: .row, press: state)
                         .background(Palette.color(SearchFiltersStyle.chipBackground), in: .capsule)
+                        .macFocusRing(isFocused, shape: Capsule())
                 } else {
                     configuration.label
-                        .foregroundStyle(isHovered ? Palette.textPrimary : Palette.textSecondary)
+                        .foregroundStyle(state == .rest ? Palette.textSecondary : Palette.textPrimary)
                         .frame(width: MacChip.Size.row.height + 4, height: MacChip.Size.row.height + 4)
-                        .background {
-                            RoundedRectangle(cornerRadius: 5).fill(Palette.hoverOverlay)
-                                .opacity(emphasis)
-                        }
+                        .background(state.overlay, in: .rect(cornerRadius: MacControl.innerRadius))
+                        .macFocusRing(isFocused, cornerRadius: MacControl.innerRadius)
                 }
             }
             .frame(minHeight: 22)
             .contentShape(.rect)
-            .opacity(isEnabled ? 1 : MacButtonStyle.disabledOpacity)
-            .onHover { isHovered = $0 }
+            .opacity(isEnabled ? 1 : MacControl.disabledOpacity)
+            .macPointer(pointer, state: state)
+        }
+
+        private var state: MacPressState {
+            pointer.state(isPressed: configuration.isPressed)
         }
     }
 #endif

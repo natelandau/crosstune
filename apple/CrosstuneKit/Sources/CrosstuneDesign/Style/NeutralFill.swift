@@ -41,3 +41,18 @@ extension EnvironmentValues {
     /// Whether this view sits on a grouped form's card, which ``GroupedForm`` sets.
     @Entry package var onGroupedSurface = false
 }
+
+extension View {
+    /// Draws this view as a new page: what a card or a tinted or selected row set for its
+    /// controls, chips, and rings goes back to the page's values. A sheet takes its presenter's
+    /// environment, so its root carries this.
+    package func resetsSurfaceEnvironment() -> some View {
+        environment(\.onGroupedSurface, false)
+            .environment(\.statusRingOnFill, false)
+            #if os(macOS)
+                .environment(\.macRowSelected, false)
+                .environment(\.macContainer, .pageBackground)
+                .environment(\.macFormRowPadding, nil)
+            #endif
+    }
+}

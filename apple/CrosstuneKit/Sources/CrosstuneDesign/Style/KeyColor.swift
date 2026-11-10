@@ -113,6 +113,14 @@ public enum KeyColor {
 }
 
 extension KeyColor.RGB {
+    /// This color drawn at `alpha` over `base`, as the opaque 8-bit color a display draws.
+    package func over(_ base: Self, alpha: Double) -> Self {
+        func mix(_ upper: Double, _ lower: Double) -> Double {
+            ((upper * alpha + lower * (1 - alpha)) * 255).rounded() / 255
+        }
+        return Self(red: mix(red, base.red), green: mix(green, base.green), blue: mix(blue, base.blue))
+    }
+
     /// `#rrggbb`; anything unreadable is black.
     package init(hex: String) {
         let value = UInt32(hex.dropFirst(), radix: 16) ?? 0
