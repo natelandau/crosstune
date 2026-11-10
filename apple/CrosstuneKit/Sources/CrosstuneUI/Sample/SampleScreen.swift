@@ -12,6 +12,8 @@
         /// An archived tune with few sections: no recordings, scans, lyrics, or lists.
         case tuneArchived = "tune-archived"
         case practice
+        case trim
+        case split
         case emptyCatalog = "empty-catalog"
         case tuneNew = "tune-new"
         case tuneEdit = "tune-edit"

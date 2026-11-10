@@ -219,6 +219,9 @@ private struct RecordingPageBody: View {
                 player.flushSettings()
                 model.hidden(.page)
             }
+            #if DEBUG
+                .modifier(opensEditorsForSample)
+            #endif
             .coversShell(model.deleting != nil)
             .confirmationDialog(
                 RecordingsModel.deleteTitle, item: $model.deleting, titleVisibility: .visible
@@ -363,6 +366,14 @@ private struct RecordingPageBody: View {
         }
     }
 
+    #if DEBUG
+        private var opensEditorsForSample: OpensEditorsForSample {
+            OpensEditorsForSample(
+                canTrim: commands != nil && trimDisabledReason == nil,
+                canSplit: commands != nil && splitDisabledReason == nil, choose: choose)
+        }
+    #endif
+
     private func choose(_ item: RecordingMenuItem) {
         switch item {
         case .trim:
@@ -380,6 +391,20 @@ private struct RecordingPageBody: View {
         }
     }
 }
+
+#if DEBUG
+    private struct OpensEditorsForSample: ViewModifier {
+        let canTrim: Bool
+        let canSplit: Bool
+        let choose: (RecordingMenuItem) -> Void
+
+        func body(content: Content) -> some View {
+            content
+                .opensForSample(.trim, when: canTrim) { choose(.trim(disabledReason: nil)) }
+                .opensForSample(.split, when: canSplit) { choose(.split(disabledReason: nil)) }
+        }
+    }
+#endif
 
 extension EnvironmentValues {
     /// Whether the practice view fills the page, as in the Practice tab, rather than sitting
