@@ -45,20 +45,4 @@ enum IsolateReadout {
     static func frequency(low: Int, high: Int) -> String {
         "\(hz(low)) to \(hz(high))"
     }
-
-    /// Every stereo readout but Everything, which is shorter than the longest of them, so a
-    /// column can hold the width of the widest.
-    static let stereoReadouts: [String] = {
-        let positions = [
-            RecordingScreenText.stereoCenter, RecordingScreenText.stereoLeft, RecordingScreenText.stereoRight,
-            RecordingScreenText.stereoLeftOfCenter, RecordingScreenText.stereoRightOfCenter,
-        ]
-        let widths = [
-            RecordingScreenText.stereoNarrow, RecordingScreenText.stereoMedium, RecordingScreenText.stereoWide,
-        ]
-        return positions.flatMap { position in widths.map { "\(position), \($0)" } }
-    }()
-
-    /// A frequency readout with the most characters any has, for the same purpose.
-    static let widestFrequency = frequency(low: 15_900, high: 15_900)
 }
