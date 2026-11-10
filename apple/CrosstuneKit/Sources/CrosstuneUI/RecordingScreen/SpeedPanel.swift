@@ -21,19 +21,12 @@ struct SpeedPanel: View {
                 } set: {
                     if let speed = Self.moved(from: value, to: $0) { onChange(speed) }
                 },
-                in: Self.range, step: Self.step, defaultValue: 100, showsTitle: Self.showsSliderTitle,
+                // The Mac draws the panel in a popover headed "Speed", so the slider does not
+                // repeat it.
+                in: Self.range, step: Self.step, defaultValue: 100, showsTitle: false,
                 format: RecordingScreenText.speedBadge)
             presets
         }
-    }
-
-    /// The Mac draws the panel in a popover headed "Speed", so the slider does not repeat it.
-    private static var showsSliderTitle: Bool {
-        #if os(macOS)
-            false
-        #else
-            true
-        #endif
     }
 
     #if os(macOS)
