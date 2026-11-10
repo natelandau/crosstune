@@ -124,7 +124,7 @@ import Testing
 }
 
 @MainActor
-@Test func aDeleteWithoutAppleNeverAsks() async throws {
+@Test(.timeLimit(.minutes(1))) func aDeleteWithoutAppleNeverAsks() async throws {
     var calls = 0
     let code = try await AccountSession.appleCode(hasApple: false) {
         calls += 1
@@ -135,26 +135,26 @@ import Testing
 }
 
 @MainActor
-@Test func aDeleteWithAppleSendsItsCode() async throws {
+@Test(.timeLimit(.minutes(1))) func aDeleteWithAppleSendsItsCode() async throws {
     let code = try await AccountSession.appleCode(hasApple: true) { "c1" }
     #expect(code == "c1")
 }
 
 @MainActor
-@Test func aCancelledAppleConfirmationStopsTheDelete() async {
+@Test(.timeLimit(.minutes(1))) func aCancelledAppleConfirmationStopsTheDelete() async {
     await #expect(throws: AccountSession.LeaveError.appleNotConfirmed) {
         try await AccountSession.appleCode(hasApple: true) { throw ASAuthorizationError(.canceled) }
     }
 }
 
 @MainActor
-@Test func aFailedAppleConfirmationDeletesWithoutACode() async throws {
+@Test(.timeLimit(.minutes(1))) func aFailedAppleConfirmationDeletesWithoutACode() async throws {
     let code = try await AccountSession.appleCode(hasApple: true) { throw ASAuthorizationError(.failed) }
     #expect(code == nil)
 }
 
 @MainActor
-@Test func aFailedAppleConfirmationStillSendsTheDelete() async throws {
+@Test(.timeLimit(.minutes(1))) func aFailedAppleConfirmationStillSendsTheDelete() async throws {
     var sent: [DeleteBody?] = []
     try await AccountSession.confirmThenDelete(
         hasApple: true, authorize: { throw ASAuthorizationError(.unknown) }, send: { sent.append($0) }
@@ -165,14 +165,14 @@ import Testing
 private typealias DeleteBody = Operations.DeleteMeV1MeDelete.Input.Body
 
 @MainActor
-@Test func anAppleAccountSendsItsCodeWithTheDelete() async throws {
+@Test(.timeLimit(.minutes(1))) func anAppleAccountSendsItsCodeWithTheDelete() async throws {
     var sent: [DeleteBody?] = []
     try await AccountSession.confirmThenDelete(hasApple: true, authorize: { "c1" }, send: { sent.append($0) })
     #expect(sent == [.json(.init(appleAuthorizationCode: "c1"))])
 }
 
 @MainActor
-@Test func anAccountWithoutAppleSendsNoBodyAndNeverAsks() async throws {
+@Test(.timeLimit(.minutes(1))) func anAccountWithoutAppleSendsNoBodyAndNeverAsks() async throws {
     var asked = 0
     var sent: [DeleteBody?] = []
     try await AccountSession.confirmThenDelete(
@@ -188,7 +188,7 @@ private typealias DeleteBody = Operations.DeleteMeV1MeDelete.Input.Body
 }
 
 @MainActor
-@Test func aCancelledAppleConfirmationSendsNothing() async {
+@Test(.timeLimit(.minutes(1))) func aCancelledAppleConfirmationSendsNothing() async {
     var sent: [DeleteBody?] = []
     await #expect(throws: AccountSession.LeaveError.appleNotConfirmed) {
         try await AccountSession.confirmThenDelete(
@@ -204,7 +204,7 @@ private func problem(_ status: Int) -> Components.Schemas.Problem {
     .init(detail: "", status: status, title: "Error")
 }
 
-@Test func aDeleteTheAPIRefusedChangedNothing() async {
+@Test(.timeLimit(.minutes(1))) func aDeleteTheAPIRefusedChangedNothing() async {
     await #expect(throws: APIStatusError(status: 502)) {
         try await AccountSession.deleteRemote {
             DeleteOutput.badGateway(.init(body: .applicationProblemJson(problem(502))))
@@ -215,7 +215,7 @@ private func problem(_ status: Int) -> Components.Schemas.Problem {
     }
 }
 
-@Test func aDeleteRefusedWhileTheAccountIsBusyNamesItsWait() async {
+@Test(.timeLimit(.minutes(1))) func aDeleteRefusedWhileTheAccountIsBusyNamesItsWait() async {
     await #expect(throws: APIStatusError(status: 429, retryAfterSeconds: 7)) {
         try await AccountSession.deleteRemote {
             DeleteOutput.tooManyRequests(
@@ -224,7 +224,7 @@ private func problem(_ status: Int) -> Components.Schemas.Problem {
     }
 }
 
-@Test func aDeleteWithNoAnswerFromTheAPIIsUnconfirmed() async {
+@Test(.timeLimit(.minutes(1))) func aDeleteWithNoAnswerFromTheAPIIsUnconfirmed() async {
     await #expect(throws: AccountSession.LeaveError.deleteUnconfirmed) {
         try await AccountSession.deleteRemote { throw URLError(.networkConnectionLost) }
     }
@@ -334,7 +334,7 @@ final class LeaveLog: LeavingSync {
 struct ClerkFailed: Error {}
 
 @MainActor
-struct LeaveTests {
+@Suite(.timeLimit(.minutes(1))) struct LeaveTests {
     let root = TemporaryRoot()
     let store: CrosstuneStore
     let log = LeaveLog()
@@ -690,7 +690,7 @@ private final class AssistiveTechInUse {
 private let signedUpAt = Date(timeIntervalSince1970: 1_791_374_400)
 
 @MainActor
-struct AnalyticsIdentityTests {
+@Suite(.timeLimit(.minutes(1))) struct AnalyticsIdentityTests {
     let sink = RecordingAnalyticsSink()
 
     @Test func theFirstIdentifyCarriesWhatTheDeviceKnows() {
@@ -854,7 +854,7 @@ struct AnalyticsIdentityTests {
     }
 }
 
-@Test func storeUsageCountLiveTunesAndTheStoredStorageUse() async throws {
+@Test(.timeLimit(.minutes(1))) func storeUsageCountLiveTunesAndTheStoredStorageUse() async throws {
     let root = TemporaryRoot()
     let store = try root.open()
     try await store.write { writer in
@@ -871,7 +871,7 @@ struct AnalyticsIdentityTests {
     #expect(usage.storageUsed == 20_000_000)
 }
 
-@Test func storeUsageWaitForTheFirstSync() async throws {
+@Test(.timeLimit(.minutes(1))) func storeUsageWaitForTheFirstSync() async throws {
     let root = TemporaryRoot()
     let store = try root.open()
     try await store.write { writer in
@@ -886,7 +886,7 @@ struct AnalyticsIdentityTests {
     #expect(usage.storageUsed == nil)
 }
 
-@Test func fieldsUsedListsOnlyFieldsSomeTuneFills() async throws {
+@Test(.timeLimit(.minutes(1))) func fieldsUsedListsOnlyFieldsSomeTuneFills() async throws {
     let root = TemporaryRoot()
     let store = try root.open()
     try await store.write { writer in
@@ -902,7 +902,7 @@ struct AnalyticsIdentityTests {
 }
 
 /// A capo counts once it is set, at any fret, as a new tune's fields do.
-@Test func fieldsUsedCountsACapoAtTheNut() async throws {
+@Test(.timeLimit(.minutes(1))) func fieldsUsedCountsACapoAtTheNut() async throws {
     let root = TemporaryRoot()
     let store = try root.open()
     try await store.write { writer in
@@ -915,7 +915,7 @@ struct AnalyticsIdentityTests {
     #expect(fields == [.title, .capo])
 }
 
-@Test func fieldsUsedCountsTheMusiciansOwnFieldsOfLiveTunes() async throws {
+@Test(.timeLimit(.minutes(1))) func fieldsUsedCountsTheMusiciansOwnFieldsOfLiveTunes() async throws {
     let root = TemporaryRoot()
     let store = try root.open()
     try await store.write { writer in
@@ -930,7 +930,7 @@ struct AnalyticsIdentityTests {
 }
 
 @MainActor
-@Test func identifyingWithStoreUsageCarriesThemOnceASyncHasStoredThem() async throws {
+@Test(.timeLimit(.minutes(1))) func identifyingWithStoreUsageCarriesThemOnceASyncHasStoredThem() async throws {
     let root = TemporaryRoot()
     let store = try root.open()
     let sink = RecordingAnalyticsSink()
@@ -961,7 +961,7 @@ struct AnalyticsIdentityTests {
 }
 
 @MainActor
-@Test func identifyingCarriesTheSettingsTheStoreAndTheDeviceHold() async throws {
+@Test(.timeLimit(.minutes(1))) func identifyingCarriesTheSettingsTheStoreAndTheDeviceHold() async throws {
     let root = TemporaryRoot()
     let store = try root.open()
     let sink = RecordingAnalyticsSink()
@@ -995,7 +995,7 @@ struct AnalyticsIdentityTests {
 }
 
 @MainActor
-@Test func identifyingCarriesTheAssistiveTechnologyInUse() async throws {
+@Test(.timeLimit(.minutes(1))) func identifyingCarriesTheAssistiveTechnologyInUse() async throws {
     let root = TemporaryRoot()
     let store = try root.open()
     let sink = RecordingAnalyticsSink()
@@ -1012,7 +1012,7 @@ struct AnalyticsIdentityTests {
 }
 
 @MainActor
-@Test func identifyingLeavesOutSettingsTheStoreHoldsNoValueFor() async throws {
+@Test(.timeLimit(.minutes(1))) func identifyingLeavesOutSettingsTheStoreHoldsNoValueFor() async throws {
     let root = TemporaryRoot()
     let store = try root.open()
     let sink = RecordingAnalyticsSink()
@@ -1029,7 +1029,7 @@ struct AnalyticsIdentityTests {
 }
 
 /// A blank genre counts as none, and a status this build does not know is left out.
-@Test func syncedSettingsReadABlankGenreAsUnsetAndSkipAnUnknownStatus() async throws {
+@Test(.timeLimit(.minutes(1))) func syncedSettingsReadABlankGenreAsUnsetAndSkipAnUnknownStatus() async throws {
     let root = TemporaryRoot()
     let store = try root.open()
     try await store.write { writer in try writer.put(UserSettings(newTuneGenre: "  ", newTuneStatus: "mastered")) }
@@ -1042,7 +1042,7 @@ struct AnalyticsIdentityTests {
 
 /// The device's own settings are known at once; the synced ones only once a sync brings them.
 @MainActor
-@Test func identifyingBeforeASyncCarriesOnlyTheDeviceSettings() async throws {
+@Test(.timeLimit(.minutes(1))) func identifyingBeforeASyncCarriesOnlyTheDeviceSettings() async throws {
     let root = TemporaryRoot()
     let store = try root.open()
     let sink = RecordingAnalyticsSink()
@@ -1056,7 +1056,7 @@ struct AnalyticsIdentityTests {
 }
 
 @MainActor
-@Test func identifyingWithStoreUsageNeverRevivesAResetPerson() async throws {
+@Test(.timeLimit(.minutes(1))) func identifyingWithStoreUsageNeverRevivesAResetPerson() async throws {
     let root = TemporaryRoot()
     let store = try root.open()
     let sink = RecordingAnalyticsSink()
@@ -1169,7 +1169,7 @@ final class Offline {
 }
 
 @MainActor
-struct SessionSyncTests {
+@Suite(.timeLimit(.minutes(1))) struct SessionSyncTests {
     let root = TemporaryRoot()
     let store: CrosstuneStore
     let api = CountingSyncAPI()
@@ -1264,7 +1264,7 @@ private struct FixedToken: TokenProvider {
 }
 
 @MainActor
-@Test func reportsACreatedTrialAccountToAnalytics() async throws {
+@Test(.timeLimit(.minutes(1))) func reportsACreatedTrialAccountToAnalytics() async throws {
     let sink = RecordingAnalyticsSink()
     let client = AccountSession.makeClient(
         origin: URL(string: "https://api.example.com")!, tokens: FixedToken(), clientVersion: "0.7.0",
@@ -1293,7 +1293,7 @@ private final class UpdateRequiredTransport: ClientTransport {
 /// `AccountSession` configures Clerk, so this drives the client and engine it builds, with the
 /// client's 426 report flipping the offline check the session would.
 @MainActor
-@Test func aBlockedSessionKeepsItsOutbox() async throws {
+@Test(.timeLimit(.minutes(1))) func aBlockedSessionKeepsItsOutbox() async throws {
     let root = TemporaryRoot()
     let store = try root.open()
     try await store.write { try $0.put(Tune(title: "Leather Britches")) }
@@ -1344,7 +1344,7 @@ private final class RegionTransport: ClientTransport {
     }
 }
 
-@Test func theRegionRequestWorksSignedOutAndCarriesNoToken() async throws {
+@Test(.timeLimit(.minutes(1))) func theRegionRequestWorksSignedOutAndCarriesNoToken() async throws {
     let transport = RegionTransport(body: #"{"country":"FR","consent_required":true}"#)
 
     let region = try await Region.fetch(origin: URL(string: "https://api.example.com")!, transport: transport)
@@ -1355,13 +1355,13 @@ private final class RegionTransport: ClientTransport {
     #expect(request.headerFields[.authorization] == nil)
 }
 
-@Test func anUnknownCountryComesBackWithNoAnswer() async throws {
+@Test(.timeLimit(.minutes(1))) func anUnknownCountryComesBackWithNoAnswer() async throws {
     let transport = RegionTransport(body: #"{"country":null,"consent_required":null}"#)
     let region = try await Region.fetch(origin: URL(string: "https://api.example.com")!, transport: transport)
     #expect(region == Region(consentRequired: nil))
 }
 
-@Test func aFailedRegionRequestThrows() async {
+@Test(.timeLimit(.minutes(1))) func aFailedRegionRequestThrows() async {
     let transport = RegionTransport(status: .internalServerError, body: "{}")
     await #expect(throws: APIStatusError.self) {
         try await Region.fetch(origin: URL(string: "https://api.example.com")!, transport: transport)

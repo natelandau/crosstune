@@ -66,7 +66,7 @@ private func scanFolderFiles(_ store: CrosstuneStore) throws -> Set<String> {
     Set(try FileManager.default.contentsOfDirectory(atPath: store.scansFolder.path(percentEncoded: false)))
 }
 
-struct ScanTests {
+@Suite(.timeLimit(.minutes(1))) struct ScanTests {
     // MARK: Preparing an image
 
     @Test func scalesLongEdgeTo2400() throws {

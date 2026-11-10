@@ -7,7 +7,7 @@ import Testing
 @testable import CrosstuneStore
 
 @MainActor
-struct LiveQueryTests {
+@Suite(.timeLimit(.minutes(1))) struct LiveQueryTests {
     /// Counts how often `query` tells its observers that `value` changed. Counts and watches
     /// again inside `onChange`, which runs on the main actor as `value` is set, so no change can
     /// land between one watch and the next.

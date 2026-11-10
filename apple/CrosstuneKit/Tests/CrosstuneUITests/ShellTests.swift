@@ -232,7 +232,7 @@ struct TabSlotTests {
     }
 }
 
-struct SidebarTests {
+@Suite(.timeLimit(.minutes(1))) struct SidebarTests {
     private let root = TemporaryRoot()
 
     #if os(macOS)
@@ -344,7 +344,7 @@ struct SidebarTests {
 
 #if os(macOS)
     @MainActor
-    struct SidebarSyncTests {
+    @Suite(.timeLimit(.minutes(1))) struct SidebarSyncTests {
         private let root = TemporaryRoot()
 
         private func storedFilters(_ store: CrosstuneStore) async throws -> CatalogFilters {

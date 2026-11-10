@@ -25,7 +25,7 @@ struct DefaultRecordingLabelTests {
     }
 }
 
-struct UpdateRecordingTests {
+@Suite(.timeLimit(.minutes(1))) struct UpdateRecordingTests {
     @Test func updatesLabelAndTuneAndQueuesTheRow() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -254,7 +254,7 @@ struct UpdateRecordingTests {
     }
 }
 
-struct DeleteRecordingTests {
+@Suite(.timeLimit(.minutes(1))) struct DeleteRecordingTests {
     @Test func deletesWithATombstoneAndDropsTheLocalFile() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -290,7 +290,7 @@ struct DeleteRecordingTests {
     }
 }
 
-struct ActiveRecordingsForTuneTests {
+@Suite(.timeLimit(.minutes(1))) struct ActiveRecordingsForTuneTests {
     @Test func returnsALivesTunesRecordingsInPositionOrderOnly() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -309,7 +309,7 @@ struct ActiveRecordingsForTuneTests {
     }
 }
 
-struct CaptureCommandsTests {
+@Suite(.timeLimit(.minutes(1))) struct CaptureCommandsTests {
     @Test func beginningACaptureWritesOnlyTheLocalFileRow() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -567,7 +567,7 @@ struct CaptureCommandsTests {
     }
 }
 
-struct RecordingDateTests {
+@Suite(.timeLimit(.minutes(1))) struct RecordingDateTests {
     private func capturedRecording(_ store: CrosstuneStore) async throws -> String {
         let commands = Commands(store: store)
         try await commands.beginCapture("r1", fileName: "r1.aac", tuneID: nil, recordedAt: noon)
@@ -713,7 +713,7 @@ struct RecordingDateTests {
     }
 }
 
-struct DeletingAudioTests {
+@Suite(.timeLimit(.minutes(1))) struct DeletingAudioTests {
     /// A finished recording under `tuneID` with a file of audio in the user's folder.
     private func recordingWithAudio(_ store: CrosstuneStore, tuneID: String?) async throws -> URL {
         let commands = Commands(store: store)
@@ -792,7 +792,7 @@ struct DeletingAudioTests {
     }
 }
 
-struct DownloadedAudioTests {
+@Suite(.timeLimit(.minutes(1))) struct DownloadedAudioTests {
     let root = TemporaryRoot()
     let store: CrosstuneStore
 

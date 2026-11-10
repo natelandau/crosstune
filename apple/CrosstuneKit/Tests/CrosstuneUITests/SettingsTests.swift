@@ -178,7 +178,7 @@ private func instrumentSummary(_ model: SettingsModel) -> String {
 }
 
 @MainActor
-struct SettingsModelTests {
+@Suite(.timeLimit(.minutes(1))) struct SettingsModelTests {
     @Test func readsTheMusiciansInstrumentsAndQuality() async throws {
         let root = TemporaryRoot()
         let store = try await SampleCatalog.copiedStore(root: root.url)

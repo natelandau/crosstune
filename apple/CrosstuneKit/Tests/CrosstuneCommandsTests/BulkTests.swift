@@ -22,7 +22,7 @@ private func activeItems(_ store: CrosstuneStore, _ listID: String) async throws
     activeByPosition(try await store.read { db in try ListItem.filter(Column("list_id") == listID).fetchAll(db) })
 }
 
-struct UpdateTunesTests {
+@Suite(.timeLimit(.minutes(1))) struct UpdateTunesTests {
     @Test func writesTuneAndUserTuneFieldsOnEverySelectedTune() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -238,7 +238,7 @@ struct UpdateTunesTests {
     }
 }
 
-struct SetArchivedManyTests {
+@Suite(.timeLimit(.minutes(1))) struct SetArchivedManyTests {
     @Test func archivesTheSelectedTunesAndUndoRestoresEachOne() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -273,7 +273,7 @@ struct SetArchivedManyTests {
     }
 }
 
-struct DeleteTunesTests {
+@Suite(.timeLimit(.minutes(1))) struct DeleteTunesTests {
     @Test func tombstonesEachSelectedTuneWithItsUserTuneListEntriesAndRecordings() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -336,7 +336,7 @@ struct DeleteTunesTests {
     }
 }
 
-struct AddTunesToListTests {
+@Suite(.timeLimit(.minutes(1))) struct AddTunesToListTests {
     @Test func appendsMissingTunesInTheGivenOrderAndSkipsMembers() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -381,7 +381,7 @@ struct AddTunesToListTests {
     }
 }
 
-struct CreateListWithTunesTests {
+@Suite(.timeLimit(.minutes(1))) struct CreateListWithTunesTests {
     @Test func createsAListHoldingTheTunesAndUndoDeletesIt() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -426,7 +426,7 @@ struct CreateListWithTunesTests {
     }
 }
 
-struct RemoveTunesFromListTests {
+@Suite(.timeLimit(.minutes(1))) struct RemoveTunesFromListTests {
     @Test func removesTheItemsAndUndoPutsThemBackInTheirPlaces() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -556,7 +556,7 @@ struct RemoveTunesFromListTests {
     }
 }
 
-struct RestoreFieldsTests {
+@Suite(.timeLimit(.minutes(1))) struct RestoreFieldsTests {
     @Test func restoringAnEmptyListQueuesNothing() async throws {
         let root = TemporaryRoot()
         let store = try root.open()

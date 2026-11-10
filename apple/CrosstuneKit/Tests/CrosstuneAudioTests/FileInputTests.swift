@@ -17,7 +17,7 @@
     }
 
     @MainActor
-    struct FileInputTests {
+    @Suite(.timeLimit(.minutes(1))) struct FileInputTests {
         private let root = FileManager.default.temporaryDirectory
             .appending(path: "FileInputTests-\(UUID().uuidString)", directoryHint: .isDirectory)
 

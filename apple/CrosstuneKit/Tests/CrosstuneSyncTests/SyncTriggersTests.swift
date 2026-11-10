@@ -7,7 +7,7 @@ import Testing
 @testable import CrosstuneSync
 
 @MainActor
-struct SyncTriggersTests {
+@Suite(.timeLimit(.minutes(1))) struct SyncTriggersTests {
     let root = TemporaryRoot()
     let store: CrosstuneStore
     let sleeper = ManualSleeper()

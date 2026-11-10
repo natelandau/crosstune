@@ -7,7 +7,7 @@ import Testing
 
 @testable import CrosstuneCommands
 
-struct SplitTests {
+@Suite(.timeLimit(.minutes(1))) struct SplitTests {
     private let root = TemporaryRoot()
 
     private func seeded(_ parent: Recording? = nil) async throws -> (CrosstuneStore, Commands) {

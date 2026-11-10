@@ -5,7 +5,7 @@ import Testing
 
 @testable import CrosstuneAudio
 
-struct MonoDetectorTests {
+@Suite(.timeLimit(.minutes(1))) struct MonoDetectorTests {
     private let root = TemporaryRoot()
 
     private func file() throws -> URL {

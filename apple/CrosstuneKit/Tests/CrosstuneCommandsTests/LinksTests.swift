@@ -8,7 +8,7 @@ import Testing
 
 private let pageURL = "https://slippery-hill.com/recording/42"
 
-struct LinksTests {
+@Suite(.timeLimit(.minutes(1))) struct LinksTests {
     @Test func appendsLinksInPositionOrderWithNullableMetadata() async throws {
         let root = TemporaryRoot()
         let store = try root.open()

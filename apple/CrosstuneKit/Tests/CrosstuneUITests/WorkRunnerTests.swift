@@ -5,7 +5,7 @@ import Testing
 @testable import CrosstuneDesign
 
 @MainActor
-struct WorkRunnerTests {
+@Suite(.timeLimit(.minutes(1))) struct WorkRunnerTests {
     private struct Failure: Error {}
 
     /// Holds an action open until the test releases it.

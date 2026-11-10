@@ -386,7 +386,7 @@ struct BulkActionTextTests {
     }
 }
 
-@MainActor struct BulkActionsTests {
+@MainActor @Suite(.timeLimit(.minutes(1))) struct BulkActionsTests {
     private let root = TemporaryRoot()
 
     private func sample(_ title: String) -> CatalogEntry {

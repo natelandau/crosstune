@@ -4,32 +4,32 @@ import Testing
 
 @testable import CrosstuneAuth
 
-@Test(arguments: [SignUpProvider.apple, .google])
+@Test(.timeLimit(.minutes(1)), arguments: [SignUpProvider.apple, .google])
 func aSessionAfterTheCallIsSignedIn(provider: SignUpProvider) async throws {
     let signUp = NativeSignUp(calls: StubClerkSignUpCalls())
     #expect(try await signUp.run(provider) == .signedIn)
 }
 
-@Test func anExistingAccountAlsoSignsIn() async throws {
+@Test(.timeLimit(.minutes(1))) func anExistingAccountAlsoSignsIn() async throws {
     // Clerk transfers a sign-up for an existing account to a sign-in, which ends with a session
     // just as a new account does.
     let signUp = NativeSignUp(calls: StubClerkSignUpCalls(sessionAfterCall: true))
     #expect(try await signUp.run(.apple) == .signedIn)
 }
 
-@Test(arguments: [SignUpProvider.apple, .google])
+@Test(.timeLimit(.minutes(1)), arguments: [SignUpProvider.apple, .google])
 func noSessionAfterTheCallNeedsTheForm(provider: SignUpProvider) async throws {
     let signUp = NativeSignUp(calls: StubClerkSignUpCalls(sessionAfterCall: false))
     #expect(try await signUp.run(provider) == .needsForm)
 }
 
-@Test func cancellingApplesSheetIsCancelled() async throws {
+@Test(.timeLimit(.minutes(1))) func cancellingApplesSheetIsCancelled() async throws {
     let signUp = NativeSignUp(
         calls: StubClerkSignUpCalls(error: ASAuthorizationError(.canceled), sessionAfterCall: false))
     #expect(try await signUp.run(.apple) == .cancelled)
 }
 
-@Test func cancellingGooglesWebSessionIsCancelled() async throws {
+@Test(.timeLimit(.minutes(1))) func cancellingGooglesWebSessionIsCancelled() async throws {
     let closed = NativeSignUp(
         calls: StubClerkSignUpCalls(error: ASWebAuthenticationSessionError(.canceledLogin), sessionAfterCall: false))
     #expect(try await closed.run(.google) == .cancelled)
@@ -41,7 +41,7 @@ func noSessionAfterTheCallNeedsTheForm(provider: SignUpProvider) async throws {
     #expect(try await stopped.run(.google) == .cancelled)
 }
 
-@Test func otherErrorsThrowRatherThanOpenTheForm() async {
+@Test(.timeLimit(.minutes(1))) func otherErrorsThrowRatherThanOpenTheForm() async {
     // A failed verification ends with no session, and must surface its error, not the form.
     let signUp = NativeSignUp(
         calls: StubClerkSignUpCalls(error: URLError(.notConnectedToInternet), sessionAfterCall: false))

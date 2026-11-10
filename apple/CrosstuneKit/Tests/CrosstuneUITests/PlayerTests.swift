@@ -269,7 +269,7 @@ struct PlayerItemLinkTests {
 }
 
 @MainActor
-struct PlayerModelTests {
+@Suite(.timeLimit(.minutes(1))) struct PlayerModelTests {
     private func youtube(title: String? = "Soldier's Joy") -> RecordingLink {
         var row = link("youtube", "dQw4w9WgXcQ")
         row.title = title
@@ -430,7 +430,7 @@ struct PlayerModelTests {
 
 #if os(macOS)
     @MainActor
-    struct EmbedStageTests {
+    @Suite(.timeLimit(.minutes(1))) struct EmbedStageTests {
         private let embed: Embed
 
         init() throws {
@@ -543,7 +543,7 @@ private final class QuietTrackCommands: TrackCommands {
 }
 
 @MainActor
-final class PlaylistControlsTests {
+@Suite(.timeLimit(.minutes(1))) final class PlaylistControlsTests {
     private let suite = TemporaryDefaults("PlaylistControlsTests")
     private var defaults: UserDefaults { suite.defaults }
 

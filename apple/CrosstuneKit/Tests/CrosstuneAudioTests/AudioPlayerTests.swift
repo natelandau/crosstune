@@ -37,7 +37,7 @@ struct OutputPortTests {
 }
 
 @MainActor
-struct AudioPlayerTests {
+@Suite(.timeLimit(.minutes(1))) struct AudioPlayerTests {
     @Test func loadsAFileAndLearnsItsLengthThenLetsItGo() async throws {
         let root = TemporaryRoot()
         try FileManager.default.createDirectory(at: root.url, withIntermediateDirectories: true)

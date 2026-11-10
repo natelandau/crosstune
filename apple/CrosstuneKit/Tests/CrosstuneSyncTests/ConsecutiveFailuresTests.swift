@@ -66,7 +66,7 @@ func aConnectivityFailureIsNotReportable(_ code: URLError.Code) {
 
 /// A run loop reports consecutive failures once they persist, whatever the backoff in between.
 @MainActor
-struct SyncLoopPersistentFailureTests {
+@Suite(.timeLimit(.minutes(1))) struct SyncLoopPersistentFailureTests {
     enum Outcome {
         case success, failure, unreportable, offline, stopped
     }

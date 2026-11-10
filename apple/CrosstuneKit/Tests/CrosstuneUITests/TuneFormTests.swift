@@ -378,7 +378,7 @@ struct TuneFormControlTests {
 }
 
 @MainActor
-struct TuneFormModelTests {
+@Suite(.timeLimit(.minutes(1))) struct TuneFormModelTests {
     private func seed(
         _ store: CrosstuneStore, instruments: [String] = ["violin"], tunes: [Tune] = [],
         newTuneGenre: String? = nil, newTuneStatus: String = UserSettings.defaultNewTuneStatus

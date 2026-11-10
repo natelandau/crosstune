@@ -6,7 +6,7 @@ import Testing
 
 @testable import CrosstuneCommands
 
-struct EventsTests {
+@Suite(.timeLimit(.minutes(1))) struct EventsTests {
     private let root = TemporaryRoot()
 
     @Test func recordEventWritesTheRowAndOneUpsert() async throws {

@@ -20,7 +20,7 @@ struct SettingsIDTests {
     }
 }
 
-struct SetInstrumentsTests {
+@Suite(.timeLimit(.minutes(1))) struct SetInstrumentsTests {
     @Test func writesOneRowAndQueuesIt() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -75,7 +75,7 @@ struct SetInstrumentsTests {
     }
 }
 
-struct ToggleInstrumentSettingTests {
+@Suite(.timeLimit(.minutes(1))) struct ToggleInstrumentSettingTests {
     @Test func preservesAnInstrumentThisClientDoesNotRecognize() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -169,7 +169,7 @@ struct ToggleInstrumentSettingTests {
     }
 }
 
-struct FiveStringBanjoTests {
+@Suite(.timeLimit(.minutes(1))) struct FiveStringBanjoTests {
     @Test func isStoredAndPushedUnderItsOwnName() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -185,7 +185,7 @@ struct FiveStringBanjoTests {
     }
 }
 
-struct CaptureBitrateTests {
+@Suite(.timeLimit(.minutes(1))) struct CaptureBitrateTests {
     @Test func followsTheAudioQualitySetting() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -214,7 +214,7 @@ struct SearchableProvidersTests {
     }
 }
 
-struct ToggleSearchProviderTests {
+@Suite(.timeLimit(.minutes(1))) struct ToggleSearchProviderTests {
     private func row(_ store: CrosstuneStore, sourceLocation: SourceLocation = #_sourceLocation) async throws
         -> UserSettings
     {
@@ -303,7 +303,7 @@ struct ToggleSearchProviderTests {
     }
 }
 
-struct SettingsWritesKeepOtherFieldsTests {
+@Suite(.timeLimit(.minutes(1))) struct SettingsWritesKeepOtherFieldsTests {
     @Test func settingInstrumentsKeepsSearchProvidersAndFieldsThisBuildDoesNotModel() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -414,7 +414,7 @@ struct SettingsWritesKeepOtherFieldsTests {
     }
 }
 
-struct NewTuneDefaultsTests {
+@Suite(.timeLimit(.minutes(1))) struct NewTuneDefaultsTests {
     @Test func aNewRowStartsWithNoGenreAndWantToLearn() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -478,7 +478,7 @@ struct NewTuneDefaultsTests {
     }
 }
 
-struct ReferencePitchTests {
+@Suite(.timeLimit(.minutes(1))) struct ReferencePitchTests {
     private func stored(_ store: CrosstuneStore, sourceLocation: SourceLocation = #_sourceLocation) async throws
         -> UserSettings
     {

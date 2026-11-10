@@ -73,7 +73,7 @@ private struct V4Fixture {
     }
 }
 
-@Test func migratingFromV4KeepsDeviceOnlyData() async throws {
+@Test(.timeLimit(.minutes(1))) func migratingFromV4KeepsDeviceOnlyData() async throws {
     let root = TemporaryRoot()
     let fixture = try V4Fixture(root: root)
 

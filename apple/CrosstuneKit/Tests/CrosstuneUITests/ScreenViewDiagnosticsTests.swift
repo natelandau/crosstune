@@ -8,7 +8,7 @@
     @testable import CrosstuneUI
 
     @MainActor
-    @Suite(.enabled(if: hasWindowServer, "Needs a window server to run onAppear"))
+    @Suite(.timeLimit(.minutes(1)), .enabled(if: hasWindowServer, "Needs a window server to run onAppear"))
     struct ScreenViewDiagnosticsTests {
         @Test func screenViewSendsBreadcrumbWithAnalyticsNoop() async throws {
             let sink = RecordingDiagnosticsSink()

@@ -5,7 +5,7 @@ import Testing
 @testable import CrosstuneUI
 
 @MainActor
-struct StatusScopeTests {
+@Suite(.timeLimit(.minutes(1))) struct StatusScopeTests {
     private let root = TemporaryRoot()
 
     private func loadedCatalog(_ filters: CatalogFilters? = nil, sourceLocation: SourceLocation = #_sourceLocation)

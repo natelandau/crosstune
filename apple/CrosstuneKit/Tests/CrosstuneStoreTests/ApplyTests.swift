@@ -71,7 +71,7 @@ private func createTune(_ store: CrosstuneStore, title: String, status: String =
     return (tune, userTune)
 }
 
-struct ApplyPushResultsTests {
+@Suite(.timeLimit(.minutes(1))) struct ApplyPushResultsTests {
     @Test func storesTheServerRowAndClearsTheEntryOnApplied() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -412,7 +412,7 @@ struct ApplyPushResultsTests {
     }
 }
 
-struct ApplyPullPageTests {
+@Suite(.timeLimit(.minutes(1))) struct ApplyPullPageTests {
     @Test func keepsALoopFieldThisBuildDoesNotKnow() async throws {
         let root = TemporaryRoot()
         let store = try root.open()

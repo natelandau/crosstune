@@ -43,32 +43,32 @@ private func intercept(_ sent: HTTPResponse, reports: AccountCreatedReports) asy
     return received
 }
 
-@Test func reportsATrialAccount() async throws {
+@Test(.timeLimit(.minutes(1))) func reportsATrialAccount() async throws {
     let reports = AccountCreatedReports()
     _ = try await intercept(response(accountCreated: "trial"), reports: reports)
     #expect(reports.trials == [true])
 }
 
-@Test func reportsACompAccount() async throws {
+@Test(.timeLimit(.minutes(1))) func reportsACompAccount() async throws {
     let reports = AccountCreatedReports()
     _ = try await intercept(response(accountCreated: "comp"), reports: reports)
     #expect(reports.trials == [false])
 }
 
-@Test(arguments: [nil, "", "yes", "Trial"])
+@Test(.timeLimit(.minutes(1)), arguments: [nil, "", "yes", "Trial"])
 func reportsNothingWithoutAKnownValue(_ value: String?) async throws {
     let reports = AccountCreatedReports()
     _ = try await intercept(response(accountCreated: value), reports: reports)
     #expect(reports.trials.isEmpty)
 }
 
-@Test func passesTheResponseThroughUnchanged() async throws {
+@Test(.timeLimit(.minutes(1))) func passesTheResponseThroughUnchanged() async throws {
     let sent = response(.created, accountCreated: "trial")
     let received = try await intercept(sent, reports: AccountCreatedReports())
     #expect(received == sent)
 }
 
-@Test func crosstuneClientReadsTheResponseAfterAGatewayRetry() async throws {
+@Test(.timeLimit(.minutes(1))) func crosstuneClientReadsTheResponseAfterAGatewayRetry() async throws {
     let server = ResponseServer(
         response(.badGateway, accountCreated: "trial"), response(.noContent, accountCreated: "comp"))
     let reports = AccountCreatedReports()

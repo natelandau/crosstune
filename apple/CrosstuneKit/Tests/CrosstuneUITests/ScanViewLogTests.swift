@@ -158,7 +158,7 @@ struct ScanViewLogTests {
 
 /// The viewer's presentation, and the row actions that ask for it, logging where it was opened.
 @MainActor
-struct ScanViewWiringTests {
+@Suite(.timeLimit(.minutes(1))) struct ScanViewWiringTests {
     private let root = TemporaryRoot()
 
     @Test func presentingAndDismissingTheViewerLogsOneView() throws {

@@ -191,7 +191,7 @@ struct NextChangeTests {
     }
 }
 
-struct CurrentEntitlementTests {
+@Suite(.timeLimit(.minutes(1))) struct CurrentEntitlementTests {
     @Test func readsTheLiveRowAndIgnoresADeletedOne() async throws {
         let root = TemporaryRoot()
         let store = try root.open()

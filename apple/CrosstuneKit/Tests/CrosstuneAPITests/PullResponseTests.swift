@@ -29,7 +29,7 @@ func fixture(_ name: String, sourceLocation: SourceLocation = #_sourceLocation) 
     return try Data(contentsOf: url)
 }
 
-@Test func decodesAPullPageThroughTheGeneratedClient() async throws {
+@Test(.timeLimit(.minutes(1))) func decodesAPullPageThroughTheGeneratedClient() async throws {
     let client = Client(
         serverURL: URL(string: "https://api.example.test")!,
         configuration: .crosstune,
@@ -46,7 +46,7 @@ func fixture(_ name: String, sourceLocation: SourceLocation = #_sourceLocation) 
     #expect(tune?["title"] as? String == "Cluck Old Hen")
 }
 
-@Test func decodesAPullPageFromANewerServer() async throws {
+@Test(.timeLimit(.minutes(1))) func decodesAPullPageFromANewerServer() async throws {
     let newer = """
         {
           "rows": [

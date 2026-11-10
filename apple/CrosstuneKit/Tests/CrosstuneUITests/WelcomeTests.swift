@@ -157,7 +157,7 @@ private final class SuspendingClerkCalls: ClerkSignUpCalls, @unchecked Sendable 
 }
 
 @MainActor
-struct WelcomeModelTests {
+@Suite(.timeLimit(.minutes(1))) struct WelcomeModelTests {
     private let sink = RecordingAnalyticsSink()
 
     private func model(_ calls: StubClerkSignUpCalls = StubClerkSignUpCalls()) -> WelcomeModel {

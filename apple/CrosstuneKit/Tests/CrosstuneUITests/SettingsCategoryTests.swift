@@ -8,7 +8,7 @@ import Testing
 
 @testable import CrosstuneUI
 
-struct SettingsCategoryTests {
+@Suite(.timeLimit(.minutes(1))) struct SettingsCategoryTests {
     @Test func rootListsSubjectsInOrder() {
         #expect(
             SettingsCategory.allCases == [

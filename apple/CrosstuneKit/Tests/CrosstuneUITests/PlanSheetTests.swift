@@ -18,7 +18,7 @@ private let instant = noon.date
 private let portal = URL(string: "https://billing.example.com/portal")!
 
 @MainActor
-struct PlanSheetTests {
+@Suite(.timeLimit(.minutes(1))) struct PlanSheetTests {
     private let root = TemporaryRoot()
     private let sink = RecordingAnalyticsSink()
 

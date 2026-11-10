@@ -192,7 +192,7 @@ private let regularFileAttributes: UInt32 = 0o100644 << 16
     #expect(calls == [1, 2])
 }
 
-@Test func stopsBeforeTheNextEntryWhenCancelled() async throws {
+@Test(.timeLimit(.minutes(1))) func stopsBeforeTheNextEntryWhenCancelled() async throws {
     let scratch = try ScratchFolder()
     let second = try scratch.file("b", Data("y".utf8))
     let zipURL = scratch.url.appending(path: "out.zip")

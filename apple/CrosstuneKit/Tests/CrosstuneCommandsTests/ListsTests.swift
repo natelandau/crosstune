@@ -13,7 +13,7 @@ private func threeTunes(_ commands: Commands) async throws -> (a: String, b: Str
     return (a, b, c)
 }
 
-struct ListsTests {
+@Suite(.timeLimit(.minutes(1))) struct ListsTests {
     @Test func createsListsInPositionOrderAndRenamesThem() async throws {
         let root = TemporaryRoot()
         let store = try root.open()

@@ -220,7 +220,7 @@ struct LocationWordsTests {
 }
 
 @MainActor
-struct MapKitPlaceSearchTests {
+@Suite(.timeLimit(.minutes(1))) struct MapKitPlaceSearchTests {
     @Test func theFullSearchRegionCentersOnTheHintAndSpansHalfADegree() throws {
         let hint = Coordinate(lat: 40.678, lon: -73.944, accuracyM: 12)
         let region = try #require(MapKitPlaceSearch.region(near: hint))

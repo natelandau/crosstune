@@ -53,7 +53,7 @@ private func jpeg(width: Int, height: Int) -> Data {
 }
 
 @MainActor
-struct ScansUITests {
+@Suite(.timeLimit(.minutes(1))) struct ScansUITests {
     // MARK: Section
 
     @Test func sectionShowsAddWithNoScans() {
@@ -478,7 +478,7 @@ private struct ScannedTunes {
 }
 
 @MainActor
-struct ScansPlanTests {
+@Suite(.timeLimit(.minutes(1))) struct ScansPlanTests {
     @Test func aFreePlanOpensNoScan() async throws {
         let fixture = try await ScannedTunes(source: nil)
         let a = fixture.model(fixture.tuneA)
@@ -571,7 +571,7 @@ struct ScansPlanTests {
 }
 
 @MainActor
-struct ScansPlanFollowTests {
+@Suite(.timeLimit(.minutes(1))) struct ScansPlanFollowTests {
     @Test func followsThePlanItIsGiven() async throws {
         let fixture = try await ScannedTunes(source: nil)
         let b = TuneModel(store: fixture.store, tuneID: fixture.tuneB)

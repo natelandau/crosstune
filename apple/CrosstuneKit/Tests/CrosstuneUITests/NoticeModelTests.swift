@@ -12,7 +12,7 @@ import Testing
 private let day: TimeInterval = 86_400
 
 @MainActor
-struct NoticeModelTests {
+@Suite(.timeLimit(.minutes(1))) struct NoticeModelTests {
     private let root = TemporaryRoot()
     private let sink = RecordingAnalyticsSink()
     private let clock = PlanClock()
@@ -611,7 +611,7 @@ struct NoticeModelTests {
     /// Presses keys in a notice hosted in a hidden window, so the notice's own wiring, the
     /// hidden Escape button included, is what answers.
     @MainActor
-    @Suite(.enabled(if: hasWindowServer, "Needs a window server to host the sheet"))
+    @Suite(.timeLimit(.minutes(1)), .enabled(if: hasWindowServer, "Needs a window server to host the sheet"))
     struct MacNoticeKeyTests {
         final class Presses {
             var close = 0

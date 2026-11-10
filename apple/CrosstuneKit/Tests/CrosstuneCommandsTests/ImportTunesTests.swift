@@ -13,7 +13,7 @@ private func plan(
     ImportPlan(titles: titles, status: status, genre: genre, list: list)
 }
 
-struct ImportTunesTests {
+@Suite(.timeLimit(.minutes(1))) struct ImportTunesTests {
     @Test func createsATuneAndUserTunePerTitleWithBatchStatusAndGenre() async throws {
         let root = TemporaryRoot()
         let store = try root.open()

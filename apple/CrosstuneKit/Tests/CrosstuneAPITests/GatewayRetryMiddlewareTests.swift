@@ -28,7 +28,7 @@ struct ScriptedTransport: ClientTransport {
     }
 }
 
-@Test func retriesABadGatewayThenSucceeds() async throws {
+@Test(.timeLimit(.minutes(1))) func retriesABadGatewayThenSucceeds() async throws {
     let server = ScriptedServer(.badGateway, .gatewayTimeout, .ok)
     let sleep = RecordingSleep()
     let middleware = GatewayRetryMiddleware(sleep: sleep.sleep)
@@ -41,7 +41,7 @@ struct ScriptedTransport: ClientTransport {
     #expect(sleep.slept == [.milliseconds(500), .seconds(1)])
 }
 
-@Test func givesUpAfterTheLastDelay() async throws {
+@Test(.timeLimit(.minutes(1))) func givesUpAfterTheLastDelay() async throws {
     let server = ScriptedServer(.badGateway, .badGateway, .badGateway, .badGateway, .badGateway, .badGateway)
     let sleep = RecordingSleep()
     let middleware = GatewayRetryMiddleware(sleep: sleep.sleep)
@@ -54,7 +54,7 @@ struct ScriptedTransport: ClientTransport {
     #expect(sleep.slept == GatewayRetryMiddleware.defaultDelays)
 }
 
-@Test func doesNotRetryServiceUnavailable() async throws {
+@Test(.timeLimit(.minutes(1))) func doesNotRetryServiceUnavailable() async throws {
     let server = ScriptedServer(.serviceUnavailable)
     let sleep = RecordingSleep()
     let middleware = GatewayRetryMiddleware(sleep: sleep.sleep)
@@ -67,7 +67,7 @@ struct ScriptedTransport: ClientTransport {
     #expect(sleep.slept.isEmpty)
 }
 
-@Test func doesNotRetryASinglePassBody() async throws {
+@Test(.timeLimit(.minutes(1))) func doesNotRetryASinglePassBody() async throws {
     let server = ScriptedServer(.badGateway)
     let sleep = RecordingSleep()
     let middleware = GatewayRetryMiddleware(sleep: sleep.sleep)
@@ -89,7 +89,7 @@ struct ScriptedTransport: ClientTransport {
         ])
 }
 
-@Test func crosstuneClientOrdersAuthBeforeRetry() async throws {
+@Test(.timeLimit(.minutes(1))) func crosstuneClientOrdersAuthBeforeRetry() async throws {
     let server = ScriptedServer(.badGateway, .noContent)
     let tokens = CountingTokens()
     let client = Client.crosstune(
@@ -104,7 +104,7 @@ struct ScriptedTransport: ClientTransport {
     #expect(server.seen.map { $0.headerFields[.authorization] } == ["Bearer token-1", "Bearer token-1"])
 }
 
-@Test func crosstuneClientStillRefreshesAnUnauthorizedRequest() async throws {
+@Test(.timeLimit(.minutes(1))) func crosstuneClientStillRefreshesAnUnauthorizedRequest() async throws {
     let server = ScriptedServer(.unauthorized, .noContent)
     let tokens = CountingTokens()
     let client = Client.crosstune(

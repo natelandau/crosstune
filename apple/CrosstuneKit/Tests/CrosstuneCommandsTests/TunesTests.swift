@@ -6,7 +6,7 @@ import Testing
 
 @testable import CrosstuneCommands
 
-struct CreateTuneTests {
+@Suite(.timeLimit(.minutes(1))) struct CreateTuneTests {
     @Test func writesTheTuneAndTheUserTuneWithDefaultsAndQueuesBoth() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -93,7 +93,7 @@ struct CreateTuneTests {
     }
 }
 
-struct UpdateTuneTests {
+@Suite(.timeLimit(.minutes(1))) struct UpdateTuneTests {
     @Test func bumpsUpdatedAtKeepsOneOutboxEntryPerRowAndIgnoresKeep() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -225,7 +225,7 @@ struct UpdateTuneTests {
     }
 }
 
-struct UpdateTuneEntryTests {
+@Suite(.timeLimit(.minutes(1))) struct UpdateTuneEntryTests {
     @Test func savesTheTuneAndTheUserTuneTogether() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -281,7 +281,7 @@ struct UpdateTuneEntryTests {
     }
 }
 
-struct DeleteTuneTests {
+@Suite(.timeLimit(.minutes(1))) struct DeleteTuneTests {
     @Test func tombstonesTheTuneAndItsDependentsLocallyQueuingOnlyTheTuneDelete() async throws {
         let root = TemporaryRoot()
         let store = try root.open()

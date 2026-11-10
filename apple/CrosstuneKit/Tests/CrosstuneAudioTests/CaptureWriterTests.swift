@@ -5,7 +5,7 @@ import Testing
 
 @testable import CrosstuneAudio
 
-struct CaptureWriterTests {
+@Suite(.timeLimit(.minutes(1))) struct CaptureWriterTests {
     @Test func convertsAStereoInputToMono48kHzAAC() async throws {
         let root = TemporaryRoot()
         let folder = try root.folder()

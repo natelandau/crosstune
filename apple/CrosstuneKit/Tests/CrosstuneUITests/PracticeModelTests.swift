@@ -100,7 +100,7 @@ private final class FakeLoops {
 }
 
 @MainActor
-struct PracticeModelTests {
+@Suite(.timeLimit(.minutes(1))) struct PracticeModelTests {
     private let audio = FakeAudio()
     private let player: PlayerModel
     private let store: FakeLoops

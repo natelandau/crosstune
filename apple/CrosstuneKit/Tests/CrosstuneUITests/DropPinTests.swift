@@ -75,7 +75,7 @@ private func stored(_ store: CrosstuneStore, sourceLocation: SourceLocation = #_
 }
 
 @MainActor
-struct DropPinTests {
+@Suite(.timeLimit(.minutes(1))) struct DropPinTests {
     private let root = TemporaryRoot()
 
     @Test func theAddressFollowsTheMapWhenItSettles() async throws {

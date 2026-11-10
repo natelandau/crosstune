@@ -90,7 +90,7 @@ private func songKind(_ tune: String, sourceLocation: SourceLocation = #_sourceL
 }
 
 @MainActor
-final class ListPlaybackTests {
+@Suite(.timeLimit(.minutes(1))) final class ListPlaybackTests {
     private struct Fixture {
         let player: PlayerModel
         let audio: FakeAudio
@@ -625,7 +625,7 @@ final class ListPlaybackTests {
 /// A list played through reports its start once, and each track as it ends with how it was
 /// reached.
 @MainActor
-struct PlaylistEventTests {
+@Suite(.timeLimit(.minutes(1))) struct PlaylistEventTests {
     private let suite = TemporaryDefaults("PlaylistEventTests")
     private let commands = FakeTrackCommands()
 

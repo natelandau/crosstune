@@ -11,7 +11,7 @@ import Testing
 /// Settings > Saved locations: the places the musician named, with how many recordings use each,
 /// renamed and deleted from the page.
 @MainActor
-struct SavedLocationsTests {
+@Suite(.timeLimit(.minutes(1))) struct SavedLocationsTests {
     private let root = TemporaryRoot()
     private let sink = RecordingAnalyticsSink()
 

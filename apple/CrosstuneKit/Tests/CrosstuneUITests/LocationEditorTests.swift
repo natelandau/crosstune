@@ -76,7 +76,7 @@ private func stored(_ store: CrosstuneStore, _ id: String = "r1", sourceLocation
 }
 
 @MainActor
-struct LocationEditorTests {
+@Suite(.timeLimit(.minutes(1))) struct LocationEditorTests {
     private let root = TemporaryRoot()
 
     @Test func theEditorOpensOnTheStoredRecordingAndNotOnAGoneOne() async throws {
@@ -736,7 +736,7 @@ struct DistanceTextTests {
 }
 
 @MainActor
-struct LocationEditorPickTests {
+@Suite(.timeLimit(.minutes(1))) struct LocationEditorPickTests {
     private let root = TemporaryRoot()
 
     @Test func listsTheRecentPlacesUntilTextIsTyped() async throws {
@@ -863,7 +863,7 @@ struct LocationEditorPickTests {
 }
 
 @MainActor
-struct LocationEditorPlaceTests {
+@Suite(.timeLimit(.minutes(1))) struct LocationEditorPlaceTests {
     private let root = TemporaryRoot()
     private let spot = Coordinate(lat: 36.66, lon: -80.92, accuracyM: 12)
 

@@ -13,7 +13,7 @@ import Testing
 /// The new-tune draft: a title alone makes the tune, Return opens it, leaving the page with a
 /// title makes it without opening it, and a draft left blank makes nothing.
 @MainActor
-struct NewTuneTests {
+@Suite(.timeLimit(.minutes(1))) struct NewTuneTests {
     private let sink = RecordingAnalyticsSink()
     /// Held for the test, since the store's folder goes with it.
     private let root = TemporaryRoot()
@@ -326,7 +326,7 @@ struct NewTuneTests {
 
     /// The draft as the detail column shows it, through `TuneScreen`.
     @MainActor
-    @Suite(.enabled(if: hasWindowServer, "Needs a window server to run onAppear"))
+    @Suite(.timeLimit(.minutes(1)), .enabled(if: hasWindowServer, "Needs a window server to run onAppear"))
     struct NewTuneScreenTests {
         private let root = TemporaryRoot()
 

@@ -71,7 +71,7 @@ private func json(_ data: Data?, sourceLocation: SourceLocation = #_sourceLocati
     try JSONDecoder().decode(JSONObject.self, from: try #require(data, sourceLocation: sourceLocation))
 }
 
-struct LiveSyncAPITests {
+@Suite(.timeLimit(.minutes(1))) struct LiveSyncAPITests {
     @Test func sendsChangesAndReadsTheServersRows() async throws {
         let transport = RecordingTransport(
             body: """

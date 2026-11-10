@@ -80,7 +80,7 @@ struct LyricsSizeTests {
 }
 
 @MainActor
-struct LyricsReaderModelTests {
+@Suite(.timeLimit(.minutes(1))) struct LyricsReaderModelTests {
     private let soldiersJoy = SampleCatalog.entries[0]
 
     @Test func savesOnlyTheLyricsFieldAndQueuesOneChange() async throws {

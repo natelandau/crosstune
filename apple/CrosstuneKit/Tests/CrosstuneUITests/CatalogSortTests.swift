@@ -49,7 +49,7 @@ struct CatalogSortChoiceTests {
     }
 }
 
-struct CatalogSortingTests {
+@Suite(.timeLimit(.minutes(1))) struct CatalogSortingTests {
     private let none: [String: Timestamp] = [:]
 
     @Test func sortsByTitleIgnoringCaseAndAccentsAndReversesForZToA() {
@@ -155,7 +155,7 @@ struct CatalogSortingTests {
 }
 
 @MainActor
-struct CatalogModelSortTests {
+@Suite(.timeLimit(.minutes(1))) struct CatalogModelSortTests {
     @Test func ordersByTitleUntilAnotherSortIsChosen() async throws {
         let root = TemporaryRoot()
         let model = CatalogModel(store: try await SampleCatalog.copiedStore(root: root.url))

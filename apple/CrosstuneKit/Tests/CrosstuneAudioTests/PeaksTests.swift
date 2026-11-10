@@ -7,7 +7,7 @@ import Testing
 @testable import CrosstuneAudio
 
 @MainActor
-struct PeaksTests {
+@Suite(.timeLimit(.minutes(1))) struct PeaksTests {
     @Test func roundTripsThroughEncodedBytes() throws {
         let peaks = Peaks(values: (0..<10).map { UInt8($0 * 20) })
 

@@ -53,7 +53,7 @@ private final class SplitHolds {
 }
 
 @MainActor
-struct SplitModelTests {
+@Suite(.timeLimit(.minutes(1))) struct SplitModelTests {
     private let writes = SplitWrites()
     private let holds = SplitHolds()
     private let sink = RecordingAnalyticsSink()
@@ -887,7 +887,7 @@ struct SplitModelTests {
     }
 }
 
-struct SplitTextTests {
+@Suite(.timeLimit(.minutes(1))) struct SplitTextTests {
     private func recording(
         state: String = "ready", splitFromID: String? = nil, splitID: String? = nil, splitCompletedID: String? = nil
     ) -> Recording {

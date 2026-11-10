@@ -9,7 +9,7 @@ import Testing
 @testable import CrosstuneSync
 
 @MainActor
-struct TransfersTests {
+@Suite(.timeLimit(.minutes(1))) struct TransfersTests {
     let root = TemporaryRoot()
     let store: CrosstuneStore
     let api = FakeSyncAPI()

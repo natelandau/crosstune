@@ -14,7 +14,7 @@ private func entitlement(source: String?, expiresAt: Date? = nil) -> Entitlement
 }
 
 @MainActor
-struct PremiumPresenterTests {
+@Suite(.timeLimit(.minutes(1))) struct PremiumPresenterTests {
     private let root = TemporaryRoot()
     private let sink = RecordingAnalyticsSink()
 

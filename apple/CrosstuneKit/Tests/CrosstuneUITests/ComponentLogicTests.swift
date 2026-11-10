@@ -94,7 +94,7 @@ struct UndoBannerTests {
     }
 }
 
-struct SampleCatalogTests {
+@Suite(.timeLimit(.minutes(1))) struct SampleCatalogTests {
     @Test func fillsAStoreWithEveryKindOfRow() async throws {
         let store = try await SampleCatalog.makeStore()
         defer { try? FileManager.default.removeItem(at: store.folder.deletingLastPathComponent()) }

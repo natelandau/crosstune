@@ -10,7 +10,7 @@ import Testing
 /// A link reports its service, how it came in, and its ID once it is stored, and a search in Find
 /// recordings reports its service and how much it found once it answers. Never the link itself.
 @MainActor
-struct LinkEventTests {
+@Suite(.timeLimit(.minutes(1))) struct LinkEventTests {
     private let root = TemporaryRoot()
     private let sink = RecordingAnalyticsSink()
     private let tuneID = SampleCatalog.entries[0].tune.id
