@@ -114,6 +114,10 @@
                     let entry = SampleCatalog.playable
                     player.play(.recording(entry.recording, tuneTitle: entry.tuneTitle))
                 }
+                if screen == .recordingLoaded {
+                    let entry = SampleCatalog.playable
+                    player.loadPaused(.recording(entry.recording, tuneTitle: entry.tuneTitle))
+                }
                 if screen == .practice || screen == .trim || screen == .split {
                     let entry = SampleCatalog.playable
                     player.loadPaused(.recording(entry.recording, tuneTitle: entry.tuneTitle))

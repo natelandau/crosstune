@@ -12,6 +12,9 @@
         /// An archived tune with few sections: no recordings, scans, lyrics, or lists.
         case tuneArchived = "tune-archived"
         case practice
+        /// The sample recording loaded and paused in the Mac dock or the iPhone and iPad player
+        /// bar, over the catalog.
+        case recordingLoaded = "recording-loaded"
         case trim
         case split
         case emptyCatalog = "empty-catalog"
