@@ -115,6 +115,11 @@ struct RecordingTuneEditor: View {
 
     @Environment(\.store) private var store
     @State private var model: RecordingTunePickerModel?
+    #if os(iOS)
+        /// The search's own focus rather than the editor's opening focus, so the keyboard waits
+        /// for a tap and leaves the catalog in view.
+        @FocusState private var searchFocused: Bool
+    #endif
 
     /// Tall enough for a few rows in a popover, so the catalog scrolls inside the editor.
     private static let listHeight: CGFloat = 280
@@ -164,7 +169,7 @@ struct RecordingTuneEditor: View {
                 )
                 .contentMask()
                 .autocorrectionDisabled()
-                .focused(controls.firstField)
+                .focused($searchFocused)
                 .onSubmit { submit(model) }
             #endif
             ScrollView {
@@ -182,6 +187,7 @@ struct RecordingTuneEditor: View {
             .frame(height: Self.listHeight)
             .scrollBounceBehavior(.basedOnSize)
         }
+        .scrollDismissesKeyboard(.immediately)
     }
 
     private func row(_ entry: CatalogEntry, model: RecordingTunePickerModel) -> some View {
@@ -230,7 +236,12 @@ struct RecordingTuneEditor: View {
         case .nothing: break
         case .pick(let tuneID): controls.pick(tuneID)
         case .create(let title): create(title)
-        case .dismissKeyboard: controls.firstField.wrappedValue = false
+        case .dismissKeyboard:
+            #if os(macOS)
+                controls.firstField.wrappedValue = false
+            #else
+                searchFocused = false
+            #endif
         }
     }
 

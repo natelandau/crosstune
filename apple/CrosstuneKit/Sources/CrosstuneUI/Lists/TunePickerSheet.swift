@@ -186,7 +186,9 @@ private struct TunePickerContent: View {
         Task {
             switch await model.submit() {
             case .nothing: searchFocused = true
-            case .create(let title): create(title)
+            case .create(let title):
+                searchFocused = true
+                create(title)
             case .dismissKeyboard: searchFocused = false
             }
         }
@@ -226,12 +228,12 @@ private struct TunePickerContent: View {
             .searchable(text: $model.query, placement: Self.searchPlacement, prompt: CatalogScreen.searchPrompt)
             .searchFocused($searchFocused)
             .onSubmit(of: .search, submitSearch)
+            .scrollDismissesKeyboard(.immediately)
             .toolbar {
                 ConfirmToolbarItem {
                     Button(TunePickerSheet.done) { dismiss() }
                 }
             }
-            .onAppear { searchFocused = true }
             // The screen under this sheet disables its Find, so Command-F reaches this search.
             .focusedSceneValue(\.findAction, MenuAction { searchFocused = true })
         }
@@ -252,8 +254,6 @@ private struct TunePickerContent: View {
 
         private func offered(_ row: TunePickerModel.Row) -> some View {
             Button {
-                // The field keeps focus, so the next tune can be typed straight away.
-                searchFocused = true
                 Task { await model.pick(row.entry) }
             } label: {
                 HStack(spacing: spacing(12)) {
@@ -292,7 +292,9 @@ private struct TunePickerContent: View {
 
     /// Creates and stays, since a musician often adds several tunes to a set list in a row.
     private func create(_ title: String) {
-        searchFocused = true
+        #if os(macOS)
+            searchFocused = true
+        #endif
         Task { await model.create(title) }
     }
 }

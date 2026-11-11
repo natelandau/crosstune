@@ -242,6 +242,7 @@ private struct RecordingsContent: View {
             )
             .searchFocused($searchFocused)
             .onSubmit(of: .search) { searchFocused = false }
+            .scrollDismissesKeyboard(.immediately)
             .textInputAutocapitalization(.never)
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {

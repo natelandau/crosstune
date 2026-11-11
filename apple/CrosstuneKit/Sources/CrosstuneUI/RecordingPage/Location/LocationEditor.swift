@@ -142,10 +142,12 @@ private struct LocationEditorPage: View {
                 current: model.edit.linkedPlace?.name ?? "", onRename: { await model.renameLinked($0) })
         }
         .task(id: model.query) { await model.refresh() }
-        .onAppear {
-            // With no place to show, the search is the editor's first thing.
-            if !model.edit.canClearPlace { focused = true }
-        }
+        #if os(macOS)
+            .onAppear {
+                // With no place to show, the search is the editor's first thing.
+                if !model.edit.canClearPlace { focused = true }
+            }
+        #endif
     }
 
     private var isBusy: Bool { model.picking != nil || model.isLocating }
@@ -493,6 +495,7 @@ private struct LocationEditorPage: View {
                         }
                     }
                 }
+                .scrollDismissesKeyboard(.immediately)
                 .navigationTitle(RecordingPageCopy.location)
                 .navigationBarTitleDisplayMode(.inline)
                 .navigationDestination(isPresented: $droppingPin) { pinMap }
