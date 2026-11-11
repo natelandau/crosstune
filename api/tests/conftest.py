@@ -30,6 +30,7 @@ from crosstune.geo import NoCountryReader
 from crosstune.http import PublicOnlyTransport
 from crosstune.main import create_app
 from crosstune.ops import local_storage
+from tests import fake_media as fake_media_module
 from tests.fakes import (
     FakeAnalyticsPersons,
     FakeAppleSignIn,
@@ -217,6 +218,22 @@ def media_fixtures(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Path]:
     )
     paths["m4a_art"] = art_path
     return paths
+
+
+@pytest.fixture
+def fake_media(
+    monkeypatch: pytest.MonkeyPatch, tmp_path_factory: pytest.TempPathFactory
+) -> dict[str, Path]:
+    """Fake every ffprobe and ffmpeg call the jobs make, for a test of what the jobs decide.
+
+    Args:
+        monkeypatch: Undoes the fakes after the test.
+        tmp_path_factory: Holds the fake sources apart from the test's own `tmp_path`.
+
+    Returns:
+        dict[str, Path]: Fake sources named as in `media_fixtures`.
+    """
+    return fake_media_module.install(monkeypatch, tmp_path_factory.mktemp("fake_media"))
 
 
 @pytest.fixture(scope="session")

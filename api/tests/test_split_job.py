@@ -32,10 +32,9 @@ from crosstune.sync.push import cascade_delete
 from crosstune.sync.tables import TABLES
 from crosstune.vocabulary import SPLIT_FAILED, JobKind
 from tests.fakes import FakeObjectStore
-from tests.helpers import GAPPED_STALL_MS
+from tests.helpers import GAPPED_STALL_MS, make_tone
 from tests.test_jobs import (
     add_recording,
-    make_tone,
     make_uploaded,
     make_user,
     probe_key,

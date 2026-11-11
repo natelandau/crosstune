@@ -5,12 +5,15 @@ from __future__ import annotations
 import base64
 import hashlib
 import hmac
+import subprocess
 import time
 import uuid
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     import httpx2
 
 GAPPED_WEBM_GAP_MS = 59
@@ -85,3 +88,25 @@ def sign(
 
 def og_html(title: str) -> str:
     return f'<html><head><meta property="og:title" content="{title}" /></head></html>'
+
+
+def make_tone(path: Path, seconds: int) -> None:
+    """Encode a sine tone of `seconds` to an AAC M4A at `path`, for a test that needs real audio."""
+    subprocess.run(  # noqa: S603 -- fixed argv, no shell
+        [  # noqa: S607 -- resolved from PATH, no shell
+            "ffmpeg",
+            "-v",
+            "error",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            f"sine=frequency=440:duration={seconds}",
+            "-c:a",
+            "aac",
+            "-f",
+            "mp4",
+            str(path),
+        ],
+        check=True,
+    )

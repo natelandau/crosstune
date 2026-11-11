@@ -213,6 +213,13 @@ is set.
   To decline one update in a grouped PR, comment
   `@dependabot ignore <dependency>`. Closing a grouped PR declines all of
   it. A PR that bumps `packageManager` needs the pnpm step under Release.
+- `just update` upgrades the uv, pnpm, and Swift packages and the hook
+  versions. It never touches the Docker image tags in `api/Dockerfile` and
+  `compose.yml` or the GitHub Actions versions. Only Dependabot PRs move
+  those, so a full update is `just update` plus those PRs.
+- To run Dependabot off schedule: **Insights**, **Dependency graph**,
+  **Dependabot**, then **Check for updates** beside a manifest. On an open
+  PR, `@dependabot recreate` rebuilds it against the newest releases.
 - A change to `.github/dependabot.yml` closes every grouped PR the old
   config built. Merge the open ones first.
 - An idle Railway environment shows the API as sleeping within 10 minutes.
