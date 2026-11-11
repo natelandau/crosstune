@@ -601,14 +601,12 @@ private struct RecordingsContent: View {
         .contextMenu { discard(role: .destructive) }
         .coversShell(discarding?.id == capture.id)
         .confirmationDialog(
-            RecordingsModel.deleteTitle,
-            isPresented: $discarding.matching(capture.id).isPresent(),
-            titleVisibility: .visible
-        ) {
+            RecordingsModel.deleteTitle, item: $discarding.matching(capture.id), titleVisibility: .visible
+        ) { capture in
             Button(RecordingRowActions.delete, role: .destructive) {
                 Task { await model.discard(capture) }
             }
-        } message: {
+        } message: { _ in
             Text(RecordingsModel.deleteUnsyncedNote)
         }
     }

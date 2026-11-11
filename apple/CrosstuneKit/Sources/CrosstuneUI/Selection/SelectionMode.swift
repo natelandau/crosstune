@@ -430,8 +430,7 @@ private struct ConfirmsBulkDelete: ViewModifier {
         content
             .coversShell(question != nil)
             .confirmationDialog(
-                question?.title ?? "", isPresented: $question.isPresent(), titleVisibility: .visible,
-                presenting: question
+                question?.title ?? "", item: $question, titleVisibility: .visible
             ) { question in
                 Button(DeleteTuneMessage.delete, role: .destructive) {
                     Task {

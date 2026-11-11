@@ -205,14 +205,12 @@ struct ScanEditRows: View {
         }
         .coversShell(deleting?.id == scan.id)
         .confirmationDialog(
-            ScanCopy.deleteTitle,
-            isPresented: $deleting.matching(scan.id).isPresent(),
-            titleVisibility: .visible
-        ) {
+            ScanCopy.deleteTitle, item: $deleting.matching(scan.id), titleVisibility: .visible
+        ) { scan in
             Button(ScanCopy.delete, role: .destructive) {
                 Task { await model.delete(scan.id) }
             }
-        } message: {
+        } message: { scan in
             Text(ScanCopy.deleteMessage(scan))
         }
     }

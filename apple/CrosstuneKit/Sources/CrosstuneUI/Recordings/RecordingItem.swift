@@ -170,9 +170,7 @@ extension View {
         self
             .coversShell(deleting.wrappedValue != nil)
             .confirmationDialog(
-                RecordingsModel.deleteTitle,
-                isPresented: deleting.isPresent(),
-                titleVisibility: .visible, presenting: deleting.wrappedValue
+                RecordingsModel.deleteTitle, item: deleting, titleVisibility: .visible
             ) { view in
                 Button(RecordingRowActions.delete, role: .destructive) { delete(view) }
             } message: { view in

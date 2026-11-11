@@ -8,25 +8,11 @@ private struct Item: Identifiable, Equatable {
 }
 
 @MainActor @Observable private final class Holder {
-    var item: String? = "tune"
     var row: Item? = Item(id: "a")
 }
 
 @MainActor
 struct PresentedItemTests {
-    @Test func showsWhileTheItemIsSetAndDismissingClearsIt() {
-        let holder = Holder()
-        let isPresented = Bindable(holder).item.isPresent()
-        #expect(isPresented.wrappedValue)
-
-        isPresented.wrappedValue = true
-        #expect(holder.item == "tune")
-
-        isPresented.wrappedValue = false
-        #expect(holder.item == nil)
-        #expect(isPresented.wrappedValue == false)
-    }
-
     @Test func aRowSeesOnlyItsOwnItemAndClearsOnlyItsOwn() {
         let holder = Holder()
         let own = Bindable(holder).row.matching("a")

@@ -50,7 +50,7 @@ public struct RecordSheet: View {
                             if model.isLive || model.phase == .saving {
                                 Button(RecordSheetModel.cancel) { Task { await model.cancel() } }
                                     .disabled(!model.isLive)
-                                    .modifier(AsksDiscard(model: model))
+                                    .modifier(ConfirmsDiscard(model: model))
                             } else {
                                 Button(RecordSheetModel.done) { model.finish() }
                             }
@@ -107,7 +107,7 @@ private struct RecordSheetLifecycle: ViewModifier {
         content
             .interactiveDismissDisabled(model.blocksSwipeDismiss)
             #if os(macOS)
-                .modifier(AsksDiscard(model: model))
+                .modifier(ConfirmsDiscard(model: model))
             #endif
             .task { await model.open(claim: claim) }
             .onChange(of: model.recorder.savedRecordingID) { model.settle() }
@@ -123,7 +123,7 @@ private struct RecordSheetLifecycle: ViewModifier {
 }
 
 /// Asks before throwing the recording away. On iOS it sits on Cancel, so the question points at it.
-private struct AsksDiscard: ViewModifier {
+private struct ConfirmsDiscard: ViewModifier {
     let model: RecordSheetModel
 
     func body(content: Content) -> some View {
