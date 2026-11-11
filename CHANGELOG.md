@@ -1,3 +1,22 @@
+## v1.4.0 (2026-11-11)
+
+### Feat
+
+- **apple**: match the iOS player bar to the Mac dock (#299)
+- **apple**: give the Mac app one shared control library (#295)
+- **apple**: move every iOS screen onto a shared control library (#293)
+- **web**: move screens onto a shared control library (#292)
+- **practice**: use the shared design system (#291)
+- **recordings**: add a page for each recording and a location editor (#289)
+- **rows**: give every list screen one row layout (#287)
+- **nav**: put Recordings second in the phone tab bar (#279)
+- **plan**: show store failures in an alert (#277)
+
+### Fix
+
+- **isolate**: clamp the outline pan bin at both ends (#290)
+- **diagnostics**: track app and player events in crash reports (#280)
+
 ## v1.3.0 (2026-11-05)
 
 ### Feat
