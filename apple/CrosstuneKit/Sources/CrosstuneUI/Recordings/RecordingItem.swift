@@ -173,7 +173,9 @@ struct RecordingRowHandlers {
     @ViewBuilder func button(_ action: RecordingRowAction, short: Bool) -> some View {
         switch action {
         case .delete:
-            Button(role: .destructive, action: onDelete) {
+            // Delete only asks, so a swipe action has no destructive role: with one, SwiftUI
+            // removes the row at once.
+            Button(role: short ? nil : .destructive, action: onDelete) {
                 Label {
                     Text(action.title)
                     if !short, let deleteDisabledReason { Text(deleteDisabledReason) }

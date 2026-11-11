@@ -603,8 +603,10 @@ private struct RecordingsContent: View {
 
     private func unfinishedRow(_ capture: RecordingFile) -> some View {
         let row = UnfinishedCaptureRowContent(capture: capture)
-        let discard = Button(RecordingRowActions.delete, systemImage: "trash", role: .destructive) {
-            discarding = capture
+        // Discard only asks, so the swipe action has no destructive role: with one, SwiftUI
+        // removes the row at once.
+        func discard(role: ButtonRole?) -> some View {
+            Button(RecordingRowActions.delete, systemImage: "trash", role: role) { discarding = capture }
         }
         return MediaRow(
             glyph: .attention, title: row.title, secondLine: .text(UnfinishedCaptureRowContent.note),
@@ -612,8 +614,10 @@ private struct RecordingsContent: View {
         )
         .listItemRow(macVerticalInset: Self.macRowInset)
         .unselectedRowBackground(isSelected: false)
-        .swipeActions(edge: .trailing, allowsFullSwipe: false) { discard.tint(Palette.dangerFillStrong) }
-        .contextMenu { discard }
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            discard(role: nil).tint(Palette.dangerFillStrong)
+        }
+        .contextMenu { discard(role: .destructive) }
     }
 
     private func retry(_ recordingID: String, _ kind: RecordingText.Retry) {

@@ -92,11 +92,10 @@ private struct ListRowSwipeButtons: View {
     let onDelete: () -> Void
 
     var body: some View {
-        // The first action sits at the trailing edge, so Edit reads first from the left.
-        Button(ListRowActions.delete, systemImage: ListRowActions.deleteSystemImage, role: .destructive) {
-            onDelete()
-        }
-        .tint(Palette.dangerFillStrong)
+        // The first action sits at the trailing edge, so Edit reads first from the left. Delete
+        // only asks, so it has no destructive role: with one, SwiftUI removes the row at once.
+        Button(ListRowActions.delete, systemImage: ListRowActions.deleteSystemImage, action: onDelete)
+            .tint(Palette.dangerFillStrong)
         Button(ListRowActions.edit, systemImage: TuneRowActions.editSystemImage, action: onEdit)
             .tint(Palette.neutralFill)
     }
