@@ -22,11 +22,7 @@ struct TunePage: View {
     @State private var barInset: CGFloat = 0
     @State private var columnWidth = PageStyle.attributesColumnWidth
     // periphery:ignore - read through its binding
-    @State private var deleting: RecordingView?
-    // periphery:ignore - read through its binding
     @State private var addingScans: ScanAddChoice?
-    // periphery:ignore - read through its binding
-    @State private var deletingScan: Scan?
 
     /// Whether the page replaces the new-tune draft its tune was made on.
     private let replacesDraft: Bool
@@ -50,7 +46,7 @@ struct TunePage: View {
             TunePageColumn(
                 model: model, detail: detail, layout: attributesLayout ?? .card,
                 columnWidth: columnWidth, pinnedTop: barInset + Self.columnPinGap,
-                deleting: $deleting, addingScans: $addingScans, deletingScan: $deletingScan,
+                addingScans: $addingScans,
                 more: more, onAddLyrics: onAddLyrics,
                 // The title a draft became is already in its place.
                 titleRise: risen || reduceMotion || replacesDraft ? 0 : PageStyle.titleRise,
@@ -79,8 +75,7 @@ struct TunePage: View {
         }
         .barTitle(detail.tune.title, shown: !titleShows)
         .modifier(
-            TunePresentations(
-                model: model, deleting: $deleting, addingScans: $addingScans, deletingScan: $deletingScan))
+            TunePresentations(model: model, addingScans: $addingScans))
     }
 
     /// Air between the bar and the pinned attributes column's first row.
@@ -97,9 +92,7 @@ struct TunePageColumn: View {
     var columnWidth = PageStyle.attributesColumnWidth
     /// How far below the scroll view's top edge the attributes column pins.
     var pinnedTop: CGFloat = 0
-    @Binding var deleting: RecordingView?
     @Binding var addingScans: ScanAddChoice?
-    @Binding var deletingScan: Scan?
     /// More's items the screen carries out; nil leaves More off the title's row.
     var more: TuneMoreHandlers?
     /// Opens the whole tune form on its lyrics field, where lyrics are written and edited.
@@ -258,7 +251,7 @@ struct TunePageColumn: View {
                 if startsWithCard {
                     FirstRecordingCard(model: model, detail: detail)
                 } else {
-                    TuneMediaRows(model: model, detail: detail, deleting: $deleting)
+                    TuneMediaRows(model: model, detail: detail)
                         #if os(macOS)
                             .environment(\.mediaNoticeInHeading, true)
                         #endif
@@ -322,7 +315,7 @@ struct TunePageColumn: View {
             VStack(alignment: .leading, spacing: 6) {
                 if !layout.showsEmptyState {
                     if editingScans {
-                        ScanEditRows(model: scans, deleting: $deletingScan)
+                        ScanEditRows(model: scans)
                     } else {
                         ScanStrip(model: scans, tuneID: detail.tune.id)
                     }

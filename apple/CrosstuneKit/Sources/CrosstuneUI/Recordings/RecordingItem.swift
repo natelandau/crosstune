@@ -161,6 +161,22 @@ extension View {
                 }
             }
     }
+
+    /// Asks before deleting the recording `deleting` holds, then runs `delete`. Put it on the
+    /// row with `deleting` narrowed to that row, so the question points at the row.
+    func confirmsRecordingDelete(
+        _ deleting: Binding<RecordingView?>, delete: @escaping (RecordingView) -> Void
+    ) -> some View {
+        self
+            .coversShell(deleting.wrappedValue != nil)
+            .confirmationDialog(
+                RecordingsModel.deleteTitle, item: deleting, titleVisibility: .visible
+            ) { view in
+                Button(RecordingRowActions.delete, role: .destructive) { delete(view) }
+            } message: { view in
+                Text(RecordingsModel.deleteMessage(view))
+            }
+    }
 }
 
 /// What a recording row's actions do.

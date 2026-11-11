@@ -216,18 +216,6 @@ private struct ListTunes: View {
             #if DEBUG
                 .opensForSample(.tunePicker) { picking = true }
             #endif
-            .coversShell(confirmsDelete)
-            .confirmationDialog(
-                DeleteListMessage.title(list.name), isPresented: $confirmsDelete, titleVisibility: .visible
-            ) {
-                Button(DeleteListMessage.delete, role: .destructive) {
-                    Task {
-                        if await model.delete() { onDeleted() }
-                    }
-                }
-            } message: {
-                Text(DeleteListMessage.message)
-            }
             .onChange(of: model.announcement) { _, announcement in
                 if let announcement { AccessibilityNotification.Announcement(announcement.text).post() }
             }
@@ -365,12 +353,25 @@ private struct ListTunes: View {
         Button(ListScreen.addTunes, systemImage: "plus") { picking = true }
     }
 
+    /// More, which also asks before deleting the list, so the question points at it.
     private func moreMenu(_ rows: [ListEntry], showArchived: Bool) -> some View {
         Menu {
             moreItems(rows, showArchived: showArchived)
         } label: {
             Label(TuneScreen.moreActions, systemImage: "ellipsis")
                 .labelStyle(.iconOnly)
+        }
+        .coversShell(confirmsDelete)
+        .confirmationDialog(
+            DeleteListMessage.title(list.name), isPresented: $confirmsDelete, titleVisibility: .visible
+        ) {
+            Button(DeleteListMessage.delete, role: .destructive) {
+                Task {
+                    if await model.delete() { onDeleted() }
+                }
+            }
+        } message: {
+            Text(DeleteListMessage.message)
         }
     }
 

@@ -66,7 +66,8 @@ extension View {
     }
 
     /// Asks before deleting `list`, naming what stays, then deletes it. A failed delete shows in
-    /// an alert, since the row that asked has no line of its own to show it on.
+    /// an alert, since the row that asked has no line of its own to show it on. On a row, pass
+    /// `list` narrowed to that row, so the question points at it.
     func confirmsListDelete(_ list: Binding<ListSummary?>) -> some View {
         modifier(ConfirmsListDelete(list: list))
     }
@@ -126,9 +127,7 @@ private struct ConfirmsListDelete: ViewModifier {
         content
             .coversShell(list != nil)
             .confirmationDialog(
-                list.map { DeleteListMessage.title($0.name) } ?? "",
-                isPresented: $list.isPresent(),
-                titleVisibility: .visible, presenting: list
+                list.map { DeleteListMessage.title($0.name) } ?? "", item: $list, titleVisibility: .visible
             ) { list in
                 Button(DeleteListMessage.delete, role: .destructive) {
                     Task { await delete(list) }
@@ -137,12 +136,9 @@ private struct ConfirmsListDelete: ViewModifier {
                 Text(DeleteListMessage.message)
             }
             .coversShell(failure != nil)
-            .alert(
-                CatalogModel.actionFailed,
-                isPresented: $failure.isPresent()
-            ) {
-            } message: {
-                Text(failure ?? "")
+            .alert(CatalogModel.actionFailed, item: $failure) { _ in
+            } message: { failure in
+                Text(failure)
             }
     }
 

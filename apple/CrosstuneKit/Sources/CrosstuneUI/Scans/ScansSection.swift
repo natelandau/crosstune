@@ -156,9 +156,9 @@ struct ScanStrip: View {
 /// A row per scan to reorder and delete, in edit mode. Scans the plan does not open only delete.
 struct ScanEditRows: View {
     let model: ScansModel
-    @Binding var deleting: Scan?
 
     @Environment(\.spacing) private var spacing
+    @State private var deleting: Scan?
 
     var body: some View {
         let scans = model.scans
@@ -202,6 +202,9 @@ struct ScanEditRows: View {
             if count > 1 && layout.showsReorder {
                 moveMenu(scan, index: index)
             }
+        }
+        .confirmsScanDelete($deleting.matching(scan.id)) { scan in
+            Task { await model.delete(scan.id) }
         }
     }
 
@@ -253,5 +256,17 @@ extension View {
     /// Rounds a scan thumbnail, `cornerRadius` off the Mac.
     fileprivate func scanThumbnailEdge(cornerRadius: CGFloat) -> some View {
         modifier(ScanThumbnailEdge(cornerRadius: cornerRadius))
+    }
+
+    /// Asks before deleting the scan `deleting` holds, then runs `delete`. Put it on the row or
+    /// button that asked, with `deleting` narrowed to it, so the question points there.
+    func confirmsScanDelete(_ deleting: Binding<Scan?>, delete: @escaping (Scan) -> Void) -> some View {
+        self
+            .coversShell(deleting.wrappedValue != nil)
+            .confirmationDialog(ScanCopy.deleteTitle, item: deleting, titleVisibility: .visible) { scan in
+                Button(ScanCopy.delete, role: .destructive) { delete(scan) }
+            } message: { scan in
+                Text(ScanCopy.deleteMessage(scan))
+            }
     }
 }

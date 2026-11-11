@@ -285,16 +285,6 @@ private struct RecordingsContent: View {
             .opensForSample(.recordingsFilters) { showsFilters = true }
             .opensForSample(.recordingsSetFilters) { Task { await model.setChoice(RecordingText.ownOrigin) } }
         #endif
-        .coversShell(deleting != nil)
-        .confirmationDialog(
-            RecordingsModel.deleteTitle,
-            isPresented: $deleting.isPresent(),
-            titleVisibility: .visible, presenting: deleting
-        ) { view in
-            Button(RecordingRowActions.delete, role: .destructive) { delete(view) }
-        } message: { view in
-            Text(RecordingsModel.deleteMessage(view))
-        }
         .onAppear { isShown = true }
         .onDisappear {
             isShown = false
@@ -312,18 +302,6 @@ private struct RecordingsContent: View {
             MenuCommandAvailability.find(isShown: isShown, sheetsOpen: sheetsOpen)
                 ? MenuAction { searchFocused = true } : nil
         )
-        .coversShell(discarding != nil)
-        .confirmationDialog(
-            RecordingsModel.deleteTitle,
-            isPresented: $discarding.isPresent(),
-            titleVisibility: .visible, presenting: discarding
-        ) { capture in
-            Button(RecordingRowActions.delete, role: .destructive) {
-                Task { await model.discard(capture) }
-            }
-        } message: { _ in
-            Text(RecordingsModel.deleteUnsyncedNote)
-        }
     }
 
     /// How many tune groups or flat filed rows the filed section shows.
@@ -356,7 +334,7 @@ private struct RecordingsContent: View {
 
     private var unfinishedSection: some View {
         recordingGroup {
-            ForEach(model.unfinished, id: \.id) { capture in
+            ForEach(model.unfinished) { capture in
                 // A capture shares its recording's id, so it must never replace that row.
                 unfinishedRow(capture)
                     .selectionDisabled()
@@ -560,7 +538,9 @@ private struct RecordingsContent: View {
         #endif
         .tag(view.id)
         .recordingRowActions(
-            onDelete: { deleting = view }, deleteDisabledReason: RecordingScreenText.deleteDisabledReason(view))
+            onDelete: { deleting = view }, deleteDisabledReason: RecordingScreenText.deleteDisabledReason(view)
+        )
+        .confirmsRecordingDelete($deleting.matching(view.id), delete: delete)
     }
 
     /// The line over one tune's recordings under Tune sort. The whole line opens the tune.
@@ -619,6 +599,16 @@ private struct RecordingsContent: View {
             discard(role: nil).tint(Palette.dangerFillStrong)
         }
         .contextMenu { discard(role: .destructive) }
+        .coversShell(discarding?.id == capture.id)
+        .confirmationDialog(
+            RecordingsModel.deleteTitle, item: $discarding.matching(capture.id), titleVisibility: .visible
+        ) { capture in
+            Button(RecordingRowActions.delete, role: .destructive) {
+                Task { await model.discard(capture) }
+            }
+        } message: { _ in
+            Text(RecordingsModel.deleteUnsyncedNote)
+        }
     }
 
     private func retry(_ recordingID: String, _ kind: RecordingText.Retry) {

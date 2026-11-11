@@ -22,7 +22,7 @@ public enum LocalFileState: String, Codable, Hashable, Sendable, CaseIterable, D
 
 /// A recording's local audio file: never synced, since the server never sees where a device
 /// keeps or how it names a file.
-public struct RecordingFile: Codable, Hashable, Sendable, FetchableRecord, PersistableRecord {
+public struct RecordingFile: Codable, Hashable, Identifiable, Sendable, FetchableRecord, PersistableRecord {
     public static let databaseTableName = "recording_files"
 
     /// The recording this file belongs to.

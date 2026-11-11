@@ -299,16 +299,6 @@ private struct TuneContent: View {
             .sheet(item: $form) { target in
                 TuneFormSheet(target: target) { _ in }
             }
-            .coversShell(confirmsDelete)
-            .confirmationDialog(detail.deleteTitle, isPresented: $confirmsDelete, titleVisibility: .visible) {
-                Button(DeleteTuneMessage.delete, role: .destructive) {
-                    Task {
-                        if await model.delete() { leave() }
-                    }
-                }
-            } message: {
-                Text(detail.deleteMessage)
-            }
             #if DEBUG
                 .modifier(
                     OpensTuneSurfaces(detail: detail, actions: actions, edit: { edit(detail) }) {
@@ -327,14 +317,15 @@ private struct TuneContent: View {
     }
 
     private func moreHandlers(_ detail: TuneDetail) -> TuneMoreHandlers {
-        TuneMoreHandlers(editAll: { edit(detail) }, delete: { confirmsDelete = true })
+        TuneMoreHandlers(editAll: { edit(detail) }, confirmsDelete: $confirmsDelete, delete: delete)
     }
 
     #if os(iOS)
         @ToolbarContentBuilder private func toolbar(_ detail: TuneDetail) -> some ToolbarContent {
             ToolbarItem(placement: .primaryAction) {
                 TuneMoreMenu(
-                    model: model, detail: detail, onEditAll: { edit(detail) }, onDelete: { confirmsDelete = true }
+                    model: model, detail: detail, onEditAll: { edit(detail) }, confirmsDelete: $confirmsDelete,
+                    onDelete: delete
                 )
                 .disabled(leaving)
             }
@@ -347,6 +338,12 @@ private struct TuneContent: View {
 
     private func addLyrics(_ detail: TuneDetail) {
         form = TuneScreen.formTarget(detail, focus: .lyrics)
+    }
+
+    private func delete() {
+        Task {
+            if await model.delete() { leave() }
+        }
     }
 
     /// Leaves a deleted tune: back to the screen that pushed it, or an empty detail column.
@@ -390,6 +387,9 @@ struct TuneMoreMenu: View {
     let model: TuneModel
     let detail: TuneDetail
     let onEditAll: () -> Void
+    /// Whether the menu asks before deleting the tune. The question points at the menu.
+    @Binding var confirmsDelete: Bool
+    /// Deletes the tune, once the person confirms.
     let onDelete: () -> Void
 
     @Environment(\.tuneScreenActions) private var actions
@@ -426,7 +426,9 @@ struct TuneMoreMenu: View {
                     }
                 case .delete:
                     Divider()
-                    Button(DeleteTuneMessage.delete, systemImage: "trash", role: .destructive, action: onDelete)
+                    Button(DeleteTuneMessage.delete, systemImage: "trash", role: .destructive) {
+                        confirmsDelete = true
+                    }
                 }
             }
         } label: {
@@ -437,63 +439,40 @@ struct TuneMoreMenu: View {
         #if os(macOS)
             .help(TuneScreen.moreActions)
         #endif
+        .coversShell(confirmsDelete)
+        .confirmationDialog(detail.deleteTitle, isPresented: $confirmsDelete, titleVisibility: .visible) {
+            Button(DeleteTuneMessage.delete, role: .destructive, action: onDelete)
+        } message: {
+            Text(detail.deleteMessage)
+        }
     }
 }
 
 /// More's items the screen carries out, for a More drawn on the page.
 struct TuneMoreHandlers {
     let editAll: () -> Void
+    /// Whether More asks before deleting the tune; the question points at More.
+    let confirmsDelete: Binding<Bool>
+    /// Deletes the tune, once the person confirms.
     let delete: () -> Void
 }
 
-/// The tune page's sheets and confirmations, presented from the page's own state.
+/// The tune page's scan import, presented from the page's own state.
 struct TunePresentations: ViewModifier {
     let model: TuneModel
-    @Binding var deleting: RecordingView?
     @Binding var addingScans: ScanAddChoice?
-    @Binding var deletingScan: Scan?
-
-    @Environment(PlayerModel.self) private var player: PlayerModel?
 
     func body(content: Content) -> some View {
         content
-            .coversShell(deleting != nil)
-            .confirmationDialog(
-                RecordingsModel.deleteTitle,
-                isPresented: $deleting.isPresent(),
-                titleVisibility: .visible, presenting: deleting
-            ) { view in
-                Button(RecordingRowActions.delete, role: .destructive) { delete(view) }
-            } message: { view in
-                Text(RecordingsModel.deleteMessage(view))
-            }
             .modifier(
                 ScanImport(
                     choice: $addingScans,
                     onPick: { picks, via in Task { await model.scans.add(picks, via: via) } },
                     onFailure: { model.scans.report($0) })
             )
-            .coversShell(deletingScan != nil)
-            .confirmationDialog(
-                ScanCopy.deleteTitle,
-                isPresented: $deletingScan.isPresent(),
-                titleVisibility: .visible, presenting: deletingScan
-            ) { scan in
-                Button(ScanCopy.delete, role: .destructive) {
-                    Task { await model.scans.delete(scan.id) }
-                }
-            } message: { scan in
-                Text(ScanCopy.deleteMessage(scan))
-            }
             .onChange(of: model.scans.announcement) { _, announcement in
                 if let announcement { AccessibilityNotification.Announcement(announcement.text).post() }
             }
-    }
-
-    private func delete(_ view: RecordingView) {
-        // The player lets go of the audio before its file goes.
-        if player?.holds(.recording, id: view.id) == true { player?.close() }
-        Task { await model.deleteRecording(view.recording) }
     }
 }
 
@@ -554,7 +533,6 @@ struct TuneMediaAddMenu: View {
 struct TuneMediaRows: View {
     let model: TuneModel
     let detail: TuneDetail
-    @Binding var deleting: RecordingView?
 
     @Environment(PlayerModel.self) private var player: PlayerModel?
     @Environment(RecordingTransferActions.self) private var transfers: RecordingTransferActions?
@@ -564,6 +542,7 @@ struct TuneMediaRows: View {
     @Environment(\.plan) private var plan
     /// Whether a free plan's recordings line is open to the rows below it, for this visit only.
     @State private var showsRecordings = false
+    @State private var deleting: RecordingView?
 
     var body: some View {
         let collapses = !plan.recordingsPlay && !detail.recordings.isEmpty
@@ -628,7 +607,15 @@ struct TuneMediaRows: View {
         }
         .newRecordingHighlight(view.id)
         .recordingRowActions(
-            onDelete: { deleting = view }, deleteDisabledReason: RecordingScreenText.deleteDisabledReason(view))
+            onDelete: { deleting = view }, deleteDisabledReason: RecordingScreenText.deleteDisabledReason(view)
+        )
+        .confirmsRecordingDelete($deleting.matching(view.id), delete: delete)
+    }
+
+    private func delete(_ view: RecordingView) {
+        // The player lets go of the audio before its file goes.
+        if player?.holds(.recording, id: view.id) == true { player?.close() }
+        Task { await model.deleteRecording(view.recording) }
     }
 
     /// A recording's row on the page. A free plan shows it only under the recordings line, so

@@ -114,11 +114,14 @@ struct TuneHeader: View {
             .headerTitleType()
             .hidden()
             .overlay {
-                TuneMoreMenu(model: model, detail: detail, onEditAll: more.editAll, onDelete: more.delete)
-                    .menuIndicator(.hidden)
-                    .iconButtonAppearance { $0.textButtonMenuAppearance() }
-                    .fixedSize()
-                    .disabled(leaving)
+                TuneMoreMenu(
+                    model: model, detail: detail, onEditAll: more.editAll, confirmsDelete: more.confirmsDelete,
+                    onDelete: more.delete
+                )
+                .menuIndicator(.hidden)
+                .iconButtonAppearance { $0.textButtonMenuAppearance() }
+                .fixedSize()
+                .disabled(leaving)
             }
     }
 

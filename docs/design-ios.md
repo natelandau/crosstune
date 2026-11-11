@@ -96,6 +96,11 @@ SwiftUI and UIKit behavior that a new screen runs into.
   takes a selection carries `.accentSelectionTint()`.
 - More is an explicit `Menu`. Loose overflow items lose a destructive
   item's separator and red role.
+- A confirmation dialog's popover points at the view that carries it. So
+  the dialog goes on the row, button, or menu that asked, never the
+  screen. A row among many reads the screen's item through
+  `matching(_:)`. A sidebar `Tab` cannot carry a dialog, so a sidebar
+  row's question comes from the shell.
 - SwiftUI runs swipe actions only on a `List`'s rows. Rows that swipe
   inside a page's scroll view sit in `SwipeRows`, a `List` that never
   scrolls and takes its rows' height.

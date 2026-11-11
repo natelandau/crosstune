@@ -3,22 +3,27 @@ import Testing
 
 @testable import CrosstuneUI
 
+private struct Item: Identifiable, Equatable {
+    let id: String
+}
+
 @MainActor @Observable private final class Holder {
-    var item: String? = "tune"
+    var row: Item? = Item(id: "a")
 }
 
 @MainActor
 struct PresentedItemTests {
-    @Test func showsWhileTheItemIsSetAndDismissingClearsIt() {
+    @Test func aRowSeesOnlyItsOwnItemAndClearsOnlyItsOwn() {
         let holder = Holder()
-        let isPresented = Bindable(holder).item.isPresent()
-        #expect(isPresented.wrappedValue)
+        let own = Bindable(holder).row.matching("a")
+        let other = Bindable(holder).row.matching("b")
+        #expect(own.wrappedValue == Item(id: "a"))
+        #expect(other.wrappedValue == nil)
 
-        isPresented.wrappedValue = true
-        #expect(holder.item == "tune")
+        other.wrappedValue = nil
+        #expect(holder.row == Item(id: "a"))
 
-        isPresented.wrappedValue = false
-        #expect(holder.item == nil)
-        #expect(isPresented.wrappedValue == false)
+        own.wrappedValue = nil
+        #expect(holder.row == nil)
     }
 }
