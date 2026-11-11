@@ -203,15 +203,8 @@ struct ScanEditRows: View {
                 moveMenu(scan, index: index)
             }
         }
-        .coversShell(deleting?.id == scan.id)
-        .confirmationDialog(
-            ScanCopy.deleteTitle, item: $deleting.matching(scan.id), titleVisibility: .visible
-        ) { scan in
-            Button(ScanCopy.delete, role: .destructive) {
-                Task { await model.delete(scan.id) }
-            }
-        } message: { scan in
-            Text(ScanCopy.deleteMessage(scan))
+        .confirmsScanDelete($deleting.matching(scan.id)) { scan in
+            Task { await model.delete(scan.id) }
         }
     }
 
@@ -263,5 +256,17 @@ extension View {
     /// Rounds a scan thumbnail, `cornerRadius` off the Mac.
     fileprivate func scanThumbnailEdge(cornerRadius: CGFloat) -> some View {
         modifier(ScanThumbnailEdge(cornerRadius: cornerRadius))
+    }
+
+    /// Asks before deleting the scan `deleting` holds, then runs `delete`. Put it on the row or
+    /// button that asked, with `deleting` narrowed to it, so the question points there.
+    func confirmsScanDelete(_ deleting: Binding<Scan?>, delete: @escaping (Scan) -> Void) -> some View {
+        self
+            .coversShell(deleting.wrappedValue != nil)
+            .confirmationDialog(ScanCopy.deleteTitle, item: deleting, titleVisibility: .visible) { scan in
+                Button(ScanCopy.delete, role: .destructive) { delete(scan) }
+            } message: { scan in
+                Text(ScanCopy.deleteMessage(scan))
+            }
     }
 }

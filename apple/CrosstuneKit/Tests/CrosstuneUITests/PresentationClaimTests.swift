@@ -129,7 +129,7 @@ struct PresentationClaimTests {
         #expect(viewer.text.contains("struct ScanViewer: View"))
         #expect(viewer.text.contains(".shellSheet()"))
         // A broken scan's Delete confirms first, since a captured scan is the only copy.
-        #expect(viewer.lines.contains { $0.trimmingCharacters(in: .whitespaces).hasPrefix(".confirmationDialog(") })
+        #expect(viewer.lines.contains { $0.trimmingCharacters(in: .whitespaces).hasPrefix(".confirmsScanDelete(") })
         let scanner = try #require(sources.first { $0.name == "DocumentScanner.swift" })
         #expect(scanner.text.contains(".shellSheet()"))
     }

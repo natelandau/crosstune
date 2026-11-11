@@ -334,7 +334,7 @@ private struct RecordingsContent: View {
 
     private var unfinishedSection: some View {
         recordingGroup {
-            ForEach(model.unfinished, id: \.id) { capture in
+            ForEach(model.unfinished) { capture in
                 // A capture shares its recording's id, so it must never replace that row.
                 unfinishedRow(capture)
                     .selectionDisabled()

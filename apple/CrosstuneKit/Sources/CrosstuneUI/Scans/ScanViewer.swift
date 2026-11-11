@@ -411,7 +411,7 @@ struct ScanSlide: View {
     @State private var decoded: (key: String, image: CGImage?)?
     @State private var pinchStart: CGFloat?
     @State private var offset: CGSize = .zero
-    @State private var asksDelete = false
+    @State private var deleting: Scan?
     @State private var dragStart: CGSize?
     @State private var size: CGSize = .zero
 
@@ -530,15 +530,10 @@ struct ScanSlide: View {
                 .font(.platform(.headline))
                 .foregroundStyle(invert ? Color.white : Palette.textPrimary)
             if let onDelete {
-                Button(ScanCopy.delete, role: .destructive) { asksDelete = true }
+                Button(ScanCopy.delete, role: .destructive) { deleting = scan }
                     .buttonStyle(.tinted)
                     .accessibilityLabel(ScanCopy.deleteScan(index))
-                    .coversShell(asksDelete)
-                    .confirmationDialog(ScanCopy.deleteTitle, isPresented: $asksDelete, titleVisibility: .visible) {
-                        Button(ScanCopy.delete, role: .destructive, action: onDelete)
-                    } message: {
-                        Text(ScanCopy.deleteMessage(scan))
-                    }
+                    .confirmsScanDelete($deleting) { _ in onDelete() }
             }
         }
         .padding(32)
