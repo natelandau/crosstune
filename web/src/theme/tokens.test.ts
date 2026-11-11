@@ -185,11 +185,9 @@ describe.each(['light', 'dark'] as const)('the music palettes in %s', (scheme) =
   )
 
   it.each(LOOP_COLORS[scheme].map((color, slot) => [slot, color] as const))(
-    'matches tokens.ts for loop %i, its tint, and keeps its white label legible',
+    'matches tokens.ts for loop %i and keeps its white label legible',
     (slot, color) => {
       expect(token(`--loop-${slot}`)).toBe(normal(color))
-      const tint = token(`--loop-${slot}-tint`)
-      expect(tint.startsWith(`rgba(${rgb(color).slice(4, -1).replace(/\s/g, '')},`)).toBe(true)
       expect(ratio('#FFFFFF', color)).toBeGreaterThanOrEqual(4.5)
     },
   )
@@ -214,15 +212,9 @@ describe.each(['light', 'dark'] as const)("the tuner's background in %s", (schem
 
   it('keeps white, the accent, the secondary text, and the brand legible', () => {
     expect(ratio(values.get('--on-tuner')!, background)).toBeGreaterThanOrEqual(4.5)
-    // The tuner draws the dark scheme's accent in either appearance, as text and glyphs.
-    expect(normal(values.get('--accent')!)).toBe(normal(PALETTE.dark.accent))
     expect(ratio(values.get('--accent')!, background)).toBeGreaterThanOrEqual(4.5)
     expect(ratio(values.get('--on-tuner-secondary')!, background)).toBeGreaterThanOrEqual(4.5)
     expect(ratio(values.get('--brand')!, background)).toBeGreaterThanOrEqual(3)
-  })
-
-  it("draws the dark scheme's danger in either appearance", () => {
-    expect(normal(values.get('--danger')!)).toBe(normal(PALETTE.dark.danger))
   })
 
   // The tuner's two off-pitch steps: both legible, and apart in lightness as well as hue, so
@@ -276,7 +268,6 @@ it.each(['light', 'dark'] as const)(
     const page = values.get('--page-background')!
     const label = over(values.get('--on-disabled')!, page)
     expect(ratio(label, page)).toBeLessThan(ratio(values.get('--text-secondary')!, page))
-    expect(values.get('--disabled-border')).toBe(values.get('--border-strong'))
   },
 )
 

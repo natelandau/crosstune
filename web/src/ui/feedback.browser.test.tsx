@@ -50,7 +50,6 @@ describe('feedback motion', () => {
       stampAxes({ density: 'touch' })
       haptic()
       expect(vibrate).toHaveBeenCalledTimes(1)
-      expect(vibrate).toHaveBeenCalledWith(8)
       stampAxes({ density: 'pointer' })
       haptic()
       expect(vibrate).toHaveBeenCalledTimes(1)

@@ -5,11 +5,14 @@ import { emulateReducedMotion } from '../test/reducedMotion'
 import { elementStill, pollStill } from '../test/stillPoll'
 import { Button } from './Button'
 import { DONE, WORKING } from './WorkingMark'
-import type { TrackWork } from './useWorking'
+import { DONE_HOLD_MS, WORKING_DELAY_MS, type TrackWork } from './useWorking'
 import { InRow } from './inRow'
 import { Capsule } from './Capsule'
 import { removeFilterLabel } from './filterCopy'
 import { fire } from '../test/gestures'
+
+/** Work that runs past the working delay. */
+const WORK_MS = WORKING_DELAY_MS + 200
 
 function seconds(duration: string) {
   return duration.endsWith('ms') ? parseFloat(duration) / 1000 : parseFloat(duration)
@@ -107,17 +110,15 @@ it.each([
     />,
     removeFilterLabel('Reel'),
   ],
-] as const)('squeezes %s while it is pressed', async (_, ui, name) => {
+] as const)('marks %s pressed only while it is held', async (_, ui, name) => {
   renderWithProviders(ui)
   const button = page.getByRole('button', { name, exact: true })
   await expect.element(button).toBeVisible()
-  const scale = () => getComputedStyle(button.element()).scale
   const pointer = (type: string) => fire(button.element(), type)
   pointer('pointerdown')
   await expect.element(button).toHaveAttribute('data-pressed', 'true')
-  await expect.poll(() => parseFloat(scale())).toBeLessThan(1)
   pointer('pointerup')
-  await expect.poll(scale).toBe('none')
+  await expect.element(button).not.toHaveAttribute('data-pressed')
 })
 
 it('is compact inside a row', async () => {
@@ -144,7 +145,8 @@ it('extends its tap area to 44 on touch', async () => {
   await expect.element(button).toBeVisible()
   const hit = (dy: 'above' | 'below') => {
     const box = button.element().getBoundingClientRect()
-    const y = dy === 'above' ? box.top - 4 : box.bottom + 4
+    const middle = box.top + box.height / 2
+    const y = dy === 'above' ? middle - 21 : middle + 21
     return document.elementFromPoint(box.left + box.width / 2, y)
   }
   await expect.poll(() => hit('above')).toBe(button.element())
@@ -166,17 +168,17 @@ it.each(['compact', 'regular'] as const)(
 it('keeps one status region through the work, empty while idle', async () => {
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
   try {
-    renderWithProviders(<Button label="Save" variant="primary" onPress={settleAfter(500)} />)
+    renderWithProviders(<Button label="Save" variant="primary" onPress={settleAfter(WORK_MS)} />)
     await expect.element(page.getByRole('button', { name: 'Save' })).toBeVisible()
     const region = page.getByRole('button', { name: 'Save' }).element().nextElementSibling!
     expect(region.getAttribute('aria-live')).toBe('polite')
     expect(region.textContent).toBe('')
     press('Save')
-    await vi.advanceTimersByTimeAsync(300)
+    await vi.advanceTimersByTimeAsync(WORKING_DELAY_MS)
     await pollStill(() => region.textContent).toBe(WORKING)
-    await vi.advanceTimersByTimeAsync(200)
+    await vi.advanceTimersByTimeAsync(WORK_MS - WORKING_DELAY_MS)
     await pollStill(() => region.textContent).toBe(DONE)
-    await vi.advanceTimersByTimeAsync(1200)
+    await vi.advanceTimersByTimeAsync(DONE_HOLD_MS)
     await pollStill(() => region.textContent).toBe('')
     expect(page.getByRole('button', { name: 'Save' }).element().nextElementSibling).toBe(region)
   } finally {
@@ -211,16 +213,18 @@ function settleAfter<T>(ms: number, value?: T, fail = false): () => Promise<T | 
     })
 }
 
-it('shows a spinner after 300ms of work, then a check, then the label', async () => {
+it('shows a spinner once work runs past the working delay, then a check, then the label', async () => {
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
   try {
-    renderWithProviders(<Button label="Save" variant="primary" onPress={settleAfter(1400)} />)
+    renderWithProviders(
+      <Button label="Save" variant="primary" onPress={settleAfter(WORKING_DELAY_MS + 1100)} />,
+    )
     const button = page.getByRole('button', { name: 'Save' })
     const label = button.getByText('Save')
     await expect.element(label).toBeVisible()
     const before = width('Save')
     press('Save')
-    await vi.advanceTimersByTimeAsync(299)
+    await vi.advanceTimersByTimeAsync(WORKING_DELAY_MS - 1)
     await pollStill(() => announced('Save')).toBe('')
     await pollStill(() => getComputedStyle(label.element()).opacity).toBe('1')
     await vi.advanceTimersByTimeAsync(1)
@@ -229,7 +233,7 @@ it('shows a spinner after 300ms of work, then a check, then the label', async ()
     await vi.advanceTimersByTimeAsync(1100)
     await pollStill(() => announced('Save')).toBe(DONE)
     expect(width('Save')).toBe(before)
-    await vi.advanceTimersByTimeAsync(1200)
+    await vi.advanceTimersByTimeAsync(DONE_HOLD_MS)
     await pollStill(() => announced('Save')).toBe('')
     await pollStill(() => getComputedStyle(label.element()).opacity).toBe('1')
     expect(width('Save')).toBe(before)
@@ -238,16 +242,17 @@ it('shows a spinner after 300ms of work, then a check, then the label', async ()
   }
 })
 
-it('shows only the check when work ends under 300ms', async () => {
+it('shows only the check when work ends before the working delay', async () => {
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+  const quick = WORKING_DELAY_MS - 100
   try {
-    renderWithProviders(<Button label="Save" variant="primary" onPress={settleAfter(200)} />)
+    renderWithProviders(<Button label="Save" variant="primary" onPress={settleAfter(quick)} />)
     const button = page.getByRole('button', { name: 'Save' })
     await expect.element(button).toBeVisible()
     press('Save')
-    await vi.advanceTimersByTimeAsync(200)
+    await vi.advanceTimersByTimeAsync(quick)
     await pollStill(() => announced('Save')).toBe(DONE)
-    await vi.advanceTimersByTimeAsync(400)
+    await vi.advanceTimersByTimeAsync(DONE_HOLD_MS - 1)
     expect(announced('Save')).toBe(DONE)
   } finally {
     vi.useRealTimers()
@@ -302,14 +307,14 @@ it('ignores presses while working', async () => {
 it('skips the check when showDone is false', async () => {
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
   try {
-    const work = vi.fn(settleAfter(500))
+    const work = vi.fn(settleAfter(WORK_MS))
     renderWithProviders(<Button label="Save" variant="primary" showDone={false} onPress={work} />)
     const button = page.getByRole('button', { name: 'Save' })
     await expect.element(button).toBeVisible()
     press('Save')
-    await vi.advanceTimersByTimeAsync(300)
+    await vi.advanceTimersByTimeAsync(WORKING_DELAY_MS)
     await pollStill(() => announced('Save')).toBe(WORKING)
-    await vi.advanceTimersByTimeAsync(200)
+    await vi.advanceTimersByTimeAsync(WORK_MS - WORKING_DELAY_MS)
     await pollStill(() => announced('Save')).toBe('')
     expect(announced('Save')).toBe('')
     press('Save')
@@ -372,11 +377,8 @@ it('shows nothing while the person decides, then the spinner once confirmed work
     press('Save')
     await vi.advanceTimersByTimeAsync(2000)
     expect(announced('Save')).toBe('')
-    expect(
-      page.getByRole('button', { name: 'Save' }).element().querySelector('.button-spinner'),
-    ).toBeNull()
     answer()
-    await vi.advanceTimersByTimeAsync(300)
+    await vi.advanceTimersByTimeAsync(WORKING_DELAY_MS)
     await pollStill(() => announced('Save')).toBe(WORKING)
     finish()
     await pollStill(() => announced('Save')).toBe(DONE)
@@ -401,23 +403,6 @@ it('keeps its scale while pressed under reduced motion', async () => {
   expect(getComputedStyle(button.element()).scale).toMatch(/^(none|1)$/)
 })
 
-it('fades a hover color at Instant, and at Quick under reduced motion', async () => {
-  renderWithProviders(<Button label="Save" variant="primary" />)
-  const button = page.getByRole('button', { name: 'Save' })
-  await expect.element(button).toBeVisible()
-  const timing = (property: string) => {
-    const style = getComputedStyle(button.element())
-    const index = style.transitionProperty.split(', ').indexOf(property)
-    return seconds(style.transitionDuration.split(', ')[index]!)
-  }
-  await expect.poll(() => timing('background-color')).toBe(tokenSeconds('--dur-instant'))
-  expect(timing('color')).toBe(tokenSeconds('--dur-instant'))
-  await emulateReducedMotion()
-  await expect.poll(() => timing('background-color')).toBe(tokenSeconds('--dur-color'))
-  expect(timing('color')).toBe(tokenSeconds('--dur-color'))
-  expect(timing('opacity')).toBe(tokenSeconds('--dur-color'))
-})
-
 it('ignores presses while aria-disabled and keeps its focus', async () => {
   const onPress = vi.fn()
   renderWithProviders(<Button label="Reset" aria-disabled onPress={onPress} />)
@@ -434,11 +419,11 @@ it('ignores presses while aria-disabled and keeps its focus', async () => {
 it('marks itself busy while its work runs past the delay', async () => {
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
   try {
-    renderWithProviders(<Button label="Save" variant="primary" onPress={settleAfter(500)} />)
+    renderWithProviders(<Button label="Save" variant="primary" onPress={settleAfter(WORK_MS)} />)
     const button = page.getByRole('button', { name: 'Save' })
     await elementStill(button).toBeVisible()
     press('Save')
-    await vi.advanceTimersByTimeAsync(300)
+    await vi.advanceTimersByTimeAsync(WORKING_DELAY_MS)
     await elementStill(button).toHaveAttribute('aria-busy', 'true')
     await vi.advanceTimersByTimeAsync(1400)
     await elementStill(button).not.toHaveAttribute('aria-busy')

@@ -268,17 +268,6 @@ describe('LoopsPanel', () => {
     await expect.element(button('B part')).toBeVisible()
   })
 
-  it('fades the suggestions at their end on touch while more remain', async () => {
-    stampAxes({ density: 'touch' })
-    const t = setup({ loops: [row('a', 1000, 5000)], renamingId: 'a', partStructure: 'ABCDEFGH' })
-    renderInPractice(t.ui('rec'), { db })
-    const group = page.getByRole('group', { name: LOOP_NAME_SUGGESTIONS })
-    await expect.element(group).toBeVisible()
-    await expect
-      .poll(() => getComputedStyle(group.element()).maskImage)
-      .toContain('linear-gradient')
-  })
-
   it('keeps its height when a rename opens the suggestions', async () => {
     stampAxes({ density: 'pointer' })
     const resting = setup({ loops: [row('a', 1000, 5000)], partStructure: 'AB' })

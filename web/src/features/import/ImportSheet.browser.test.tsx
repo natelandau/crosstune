@@ -32,6 +32,7 @@ import {
   includeLabel,
 } from './importCopy'
 import { ImportSheet } from './ImportSheet'
+import { IMPORT_LIMIT } from './review'
 
 const dialog = () => page.getByRole('dialog', { name: IMPORT_TUNES })
 const pasteField = () => dialog().getByRole('textbox', { name: PASTE_LABEL })
@@ -238,11 +239,11 @@ it('adds to an existing list after its items', async () => {
   expect(sent(analytics, 'import_completed')[0]?.props).toMatchObject({ list: 'existing' })
 })
 
-it('shows only the first 500 tunes', async () => {
+it('shows only the tunes up to the import limit', async () => {
   await mount()
-  await review(Array.from({ length: 501 }, (_, index) => `Tune ${index + 1}`))
+  await review(Array.from({ length: IMPORT_LIMIT + 1 }, (_, index) => `Tune ${index + 1}`))
   await expect.element(dialog().getByText(OVER_LIMIT_NOTE)).toBeVisible()
-  await expect.element(button(addTunesLabel(500))).toBeEnabled()
+  await expect.element(button(addTunesLabel(IMPORT_LIMIT))).toBeEnabled()
 })
 
 it('links the help page from the paste step', async () => {

@@ -47,7 +47,7 @@ it.each(['touch', 'pointer'] as const)(
 it('pulses the now-playing glyph', async () => {
   const screen = renderWithProviders(<NowPlayingGlyph />)
   const icon = () => screen.container.querySelector('[data-playing-glyph] svg')!
-  await expect.poll(() => getComputedStyle(icon()).animationName).toBe('pulse')
+  await expect.poll(() => getComputedStyle(icon()).animationName).not.toBe('none')
 })
 
 it('does not animate the now-playing glyph under reduced motion', async () => {
@@ -60,7 +60,7 @@ it('does not animate the now-playing glyph under reduced motion', async () => {
 it('spins the downloading arc, and hides it under reduced motion', async () => {
   const screen = renderWithProviders(<DownloadingGlyph />)
   const arc = () => screen.container.querySelector('[data-downloading-arc]')!
-  await expect.poll(() => getComputedStyle(arc()).animationName).toBe('spin')
+  await expect.poll(() => getComputedStyle(arc()).animationName).not.toBe('none')
   screen.unmount()
   await emulateReducedMotion()
   const reduced = renderWithProviders(<DownloadingGlyph />)

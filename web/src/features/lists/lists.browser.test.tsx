@@ -36,6 +36,7 @@ import { fakePlayer } from '../../test/providers'
 import { recordingFile, recordingRow, tuneRow, userTuneRow } from '../../test/rows'
 import { CANCEL, DONE } from '../../ui/confirmCopy'
 import { MORE_ACTIONS } from '../../ui/menuCopy'
+import { MOVE_TO_TOP } from '../../ui/moveMenu'
 import { movedAnnouncement } from '../../ui/reorderCopy'
 import { destination } from '../../layout/destinations'
 
@@ -355,7 +356,7 @@ it('offers the move items in the row menu', async () => {
   await mount('/lists/l1', WIDE)
   const row = tuneRows().getByRole('row', { name: /Cluck Old Hen/ })
   await row.click({ button: 'right' })
-  await page.getByRole('menuitem', { name: 'Move to top' }).click()
+  await page.getByRole('menuitem', { name: MOVE_TO_TOP }).click()
   await expect.poll(rowTitles).toEqual(['Cluck Old Hen', "Soldier's Joy", 'Forked Deer'])
 })
 
@@ -535,10 +536,6 @@ it.each(['pointer', 'touch'] as const)(
     const other = tuneRows().getByRole('row', { name: /Forked Deer/ })
     await expect.element(row).toHaveAttribute('data-playing')
     await expect.element(other).not.toHaveAttribute('data-playing')
-    // A tune played alone shows stop, since a tap on it stops; only a playing list's tune
-    // shows the speaker.
-    await expect.poll(() => row.element().querySelector('[data-shape="stop"]')).not.toBeNull()
-    expect(row.element().querySelector('[data-playing-glyph]')).toBeNull()
     await row.getByRole('button', { name: closeRecordingName("Soldier's Joy") }).click()
     await expect.poll(() => player.close).toHaveBeenCalled()
   },

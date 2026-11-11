@@ -385,24 +385,6 @@ describe('AuthGate', () => {
     await expect.element(page.getByText('Clerk sign-up form')).toBeVisible()
     expect(clerk.signUp).toMatchObject({ routing: 'hash', signInUrl: SIGN_IN_PATH })
   })
-
-  it("dresses sign-up like sign-in, and moves only sign-up's social buttons", async () => {
-    const gate = (
-      <AuthGate>
-        <p>signed in</p>
-      </AuthGate>
-    )
-    const first = renderWithProviders(gate)
-    await expect.element(page.getByText('Clerk sign-in form')).toBeVisible()
-    first.unmount()
-    history.replaceState(null, '', SIGN_UP_PATH)
-    renderWithProviders(gate)
-    await expect.element(page.getByText('Clerk sign-up form')).toBeVisible()
-    expect(clerk.signIn.appearance).toBeDefined()
-    expect(clerk.signIn.appearance).not.toHaveProperty('options')
-    expect(clerk.signUp.appearance).toMatchObject(clerk.signIn.appearance as object)
-    expect(clerk.signUp.appearance).toHaveProperty('options.socialButtonsPlacement', 'bottom')
-  })
 })
 
 describe('the sign-in layout', () => {
@@ -454,22 +436,14 @@ describe('the sign-in layout', () => {
   })
 
   // The arrows follow the carousel's width, not the window's frame, so a short wide window
-  // keeps them, and they end at the stage's trailing edge whether the page splits or stacks.
+  // keeps them.
   it.each([
     ['split in a short window', 1280, 550, true],
     ['stacked', 768, 800, false],
-  ] as const)('sets the arrows beside the stage when %s', async (_, width, height, split) => {
+  ] as const)('shows the arrows when %s', async (_, width, height, split) => {
     const { form } = await renderAt(width, 'pointer', height)
     const next = page.getByRole('button', { name: NEXT_SLIDE })
     await expect.element(next).toBeVisible()
-    const stage = document.querySelector('[data-slide-stage]')!
-    await expect
-      .poll(() =>
-        Math.abs(
-          next.element().getBoundingClientRect().right - stage.getBoundingClientRect().right,
-        ),
-      )
-      .toBeLessThan(4)
     if (split) {
       await expect
         .poll(

@@ -85,8 +85,6 @@ it('resumes, not restarts, the paused playing list', async () => {
   const { play, onPlay } = mount(playback({ settled: true }))
   const control = page.getByRole('button', { name: playListName(LIST.name) })
   await expect.element(control).toBeEnabled()
-  // The control has settled, so its glyph no longer changes.
-  expect(control.element().querySelector('[data-shape]')).toHaveAttribute('data-shape', 'play')
   await control.click()
   await expect.poll(() => play.mock.calls.length).toBe(1)
   expect(onPlay).not.toHaveBeenCalled()

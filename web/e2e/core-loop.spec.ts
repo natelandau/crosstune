@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test'
 import { addTune, escapeRegExp, expectSynced, openTab, signIn, tunePage, unique } from './helpers'
 import { ADD_LINK, LINK_FIELD, PASTE_LINK } from '../src/features/links/pasteLinkCopy'
 import { PLAYER_REGION } from '../src/features/player/playerCopy'
+import { VIDEO_HEIGHT_PX } from '../src/features/player/playerHeight'
 import { RECORDINGS_SECTION } from '../src/features/tune/tuneScreenCopy'
 import { TUNE_LIST } from '../src/features/catalog/catalogCopy'
 import { KEY } from '../src/ui/keyName'
@@ -53,5 +54,5 @@ test('add a tune, link a recording, find it by key, and play it in the player', 
   // A collapsed player would still count as visible.
   await expect
     .poll(async () => (await frame.boundingBox())?.height ?? 0)
-    .toBeGreaterThanOrEqual(199)
+    .toBeGreaterThanOrEqual(VIDEO_HEIGHT_PX - 1)
 })

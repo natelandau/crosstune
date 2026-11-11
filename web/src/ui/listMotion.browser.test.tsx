@@ -129,8 +129,12 @@ it('moves no row as a virtualized list scrolls rows in and out', async () => {
   tick()
   const scroller = document.querySelector<HTMLElement>('[data-scroller]')!
   try {
-    // Tune 40 at the top, on 32px pointer rows.
-    scroller.scrollTop = 40 * 32
+    // Tune 40 at the top.
+    const rowHeight = page
+      .getByRole('row', { name: 'Tune 00' })
+      .element()
+      .getBoundingClientRect().height
+    scroller.scrollTop = 40 * rowHeight
     await expect.element(page.getByRole('row', { name: 'Tune 40' })).toBeInTheDocument()
     await expect.element(page.getByRole('row', { name: 'Tune 00' })).not.toBeInTheDocument()
   } finally {

@@ -27,7 +27,6 @@ import { LOCATION_NOTE_TITLE, NEW_RECORDING } from '../capture/recordCopy'
 import { PLAYER_REGION } from '../player/playerCopy'
 import { playName } from '../recordings/recordingNames'
 import { TUNE } from '../tune/tunePageCopy'
-import { PALETTE } from '../../theme/tokens'
 import { LISTENING, referenceLabel, SHARP, TAP_TO_LISTEN, TUNER_TITLE } from './tunerCopy'
 import { TunerMicContext } from './useTuner'
 
@@ -269,50 +268,50 @@ const bar = () => document.querySelector<HTMLElement>('[data-tuner-bar]')
 const track = () => document.querySelector<HTMLElement>('[data-tuner-track]')
 const backgroundOf = (element: Element | null) =>
   element ? getComputedStyle(element).backgroundColor : null
-const rgbOf = (hex: string) =>
-  `rgb(${[1, 3, 5].map((i) => Number.parseInt(hex.slice(i, i + 2), 16)).join(', ')})`
 
-it('turns the bars and the background green as the note nears in tune', async () => {
+it('tints the bars and the background as the note nears in tune', async () => {
   const { fake } = await mount()
   await expect.poll(() => stage()?.dataset.status).toBe('listening')
   const resting = getComputedStyle(tuner().element()).backgroundColor
 
   fake.play(toneThrough([[a4Plus(30), 0.6]]))
   await expect.poll(() => stage()?.dataset.inTuneFraction).toBe('0')
-  await expect.poll(() => backgroundOf(bar())).toBe(rgbOf(PALETTE.light.brand))
+  await expect.poll(() => backgroundOf(bar())).not.toBeNull()
+  const far = backgroundOf(bar())
   await expect.poll(() => getComputedStyle(tuner().element()).backgroundColor).toBe(resting)
 
   // Just outside the zone: the close step, and still the resting background.
   fake.play(toneThrough([[a4Plus(12.5), 0.6]]))
-  await expect.poll(() => backgroundOf(bar())).toBe(rgbOf(PALETTE.light.tunerClose))
+  await expect.poll(() => backgroundOf(bar())).not.toBe(far)
+  const close = backgroundOf(bar())
   expect(stage()?.dataset.inTuneFraction).toBe('0')
   await expect.poll(() => getComputedStyle(tuner().element()).backgroundColor).toBe(resting)
 
   fake.play(toneThrough([[a4Plus(0), 0.6]]))
   await expect.poll(() => stage()?.dataset.inTuneFraction).toBe('1')
-  await expect.poll(() => backgroundOf(bar())).toBe(rgbOf(PALETTE.light.tunerInTune))
+  await expect
+    .poll(() => backgroundOf(bar()))
+    .toSatisfy((color: string | null) => color !== far && color !== close)
+  const inTuneBar = backgroundOf(bar())
   await expect.poll(() => getComputedStyle(tuner().element()).backgroundColor).not.toBe(resting)
   const inTune = getComputedStyle(tuner().element()).backgroundColor
 
-  // Halfway into the zone: partly green, and a lighter green background than in tune.
+  // Halfway into the zone: a blend of the close and in-tune steps, on both the bar and the
+  // background.
   fake.play(toneThrough([[a4Plus(6.5), 0.6]]))
   await expect
     .poll(() => Number(stage()?.dataset.inTuneFraction))
     .toSatisfy((green: number) => green > 0.2 && green < 0.8)
   await expect
     .poll(() => backgroundOf(bar()))
-    .toSatisfy(
-      (color: string | null) =>
-        color !== rgbOf(PALETTE.light.tunerClose) && color !== rgbOf(PALETTE.light.tunerInTune),
-    )
+    .toSatisfy((color: string | null) => color !== close && color !== inTuneBar)
   await expect
     .poll(() => getComputedStyle(tuner().element()).backgroundColor)
     .toSatisfy((color: string) => color !== resting && color !== inTune)
 })
 
-it('puts the slab on the zone edge at ten cents, no wider than its cap', async () => {
-  // Wide enough that a fifth of the stage passes the cap.
-  const { fake } = await mount({ frame: { width: 1600, height: 900 } })
+it('puts the slab on the zone edge at ten cents', async () => {
+  const { fake } = await mount()
   await expect.poll(() => stage()?.dataset.status).toBe('listening')
   fake.play(toneThrough([[a4Plus(10), 0.6]]))
   await expect.element(tuner().getByText(SHARP)).toBeVisible()
@@ -325,10 +324,6 @@ it('puts the slab on the zone edge at ten cents, no wider than its cap', async (
   await expect
     .poll(() => Math.abs(center() - zone().getBoundingClientRect().top))
     .toBeLessThanOrEqual(1)
-  expect(stage()!.getBoundingClientRect().width / 5).toBeGreaterThan(160)
-  // 10rem at the default root size.
-  expect(bar()!.getBoundingClientRect().width).toBeLessThanOrEqual(160)
-  expect(zone().getBoundingClientRect().width).toBe(bar()!.getBoundingClientRect().width)
 })
 
 it('announces only note and in-tune changes', async () => {

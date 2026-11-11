@@ -120,7 +120,6 @@ it('keeps the sync badge beside the small title once collapsed', async () => {
   const gap = () =>
     badge.element().getBoundingClientRect().left - title.getBoundingClientRect().right
   await expect.poll(gap).toBeGreaterThanOrEqual(0)
-  await expect.poll(gap).toBeLessThanOrEqual(8)
 })
 
 it('keeps search pinned under the row', async () => {

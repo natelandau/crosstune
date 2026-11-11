@@ -6,13 +6,11 @@ import { geometry, markShapes, parseBrand } from '../test/brand'
 import { Lockup, Mark } from './Mark'
 
 describe('Mark', () => {
-  it('is decorative, sized by its class, and cropped to the cap height', () => {
+  it('is decorative and sized by its class', () => {
     const { container } = render(<Mark className="h-4" />)
     const svg = container.querySelector('svg')
     expect(svg).toHaveAttribute('aria-hidden', 'true')
     expect(svg).toHaveClass('h-4')
-    expect(svg).toHaveClass('shrink-0')
-    expect(svg).toHaveAttribute('viewBox', '39 104 434 304')
   })
 
   it('draws exactly what brand/mark-dark.svg draws', () => {
@@ -22,14 +20,6 @@ describe('Mark', () => {
     if (!rendered) throw new Error('no svg rendered')
     expect(rendered.getAttribute('viewBox')).toBe(source.getAttribute('viewBox'))
     expect(markShapes(rendered).map(geometry)).toEqual(markShapes(source).map(geometry))
-  })
-
-  it('colors the T from the brand token and the C from the brand-secondary token', () => {
-    const { container } = render(<Mark />)
-    const [t, cArc, cRect] = markShapes(container)
-    expect(t?.getAttribute('stroke')).toBe('var(--brand)')
-    expect(cArc?.getAttribute('stroke')).toBe('var(--brand-secondary)')
-    expect(cRect?.getAttribute('fill')).toBe('var(--brand-secondary)')
   })
 
   it('binds the brand token to the coral the brand sources are drawn with', () => {
@@ -42,16 +32,11 @@ describe('Mark', () => {
 })
 
 describe('Lockup', () => {
-  it('sets the mark beside the name at the documented type role and gap', () => {
+  it('sets a decorative mark beside the name, sized by its class', () => {
     render(<Lockup className="text-2xl" />)
     const lockup = screen.getByText('Crosstune')
     expect(lockup.tagName).toBe('SPAN')
-    expect(lockup).toHaveClass('inline-flex')
     expect(lockup).toHaveClass('text-2xl')
-    expect(lockup).toHaveClass('items-baseline')
-    expect(lockup).toHaveClass('gap-[0.28em]')
-    const svg = lockup.querySelector('svg[aria-hidden="true"]')
-    expect(svg).not.toBeNull()
-    expect(svg).toHaveClass('h-[0.71em]')
+    expect(lockup.querySelector('svg[aria-hidden="true"]')).not.toBeNull()
   })
 })

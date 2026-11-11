@@ -46,7 +46,7 @@ function setup({
 }
 
 describe('usePracticeTimeline', () => {
-  it('opens on 30 seconds around the playhead', () => {
+  it('opens on the opening span around the playhead', () => {
     const { result } = setup()
     expect(result.current.pxPerS).toBe(WIDTH_PX / (OPENING_SPAN_MS / 1000))
     expect(result.current.bounds).toEqual({ startMs: 10_000, endMs: 190_000 })

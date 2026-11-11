@@ -10,7 +10,8 @@ import { openTestDb } from '../../test/db'
 import { dataProviders } from '../../test/providers'
 import { SHOW_ARCHIVED } from '../catalog/catalogCopy'
 import { DELETE_LIST_MESSAGE } from './deleteListMessage'
-import { DELETE_LIST, HIDE_ARCHIVED } from './listsCopy'
+import { SELECT } from '../selection/selectionCopy'
+import { DELETE_LIST, HIDE_ARCHIVED, RENAME } from './listsCopy'
 import { useListScreen } from './useListScreen'
 
 vi.mock('../../commands/lists', { spy: true })
@@ -140,10 +141,10 @@ describe('useListScreen', () => {
     const { result } = setup()
     await expect.poll(() => result.current.ready).toBe(true)
     const plain = result.current.menuItems({})
-    expect(plain.map((item) => item.label)).toEqual(['Rename', SHOW_ARCHIVED, DELETE_LIST])
+    expect(plain.map((item) => item.label)).toEqual([RENAME, SHOW_ARCHIVED, DELETE_LIST])
     const onSelect = vi.fn()
     const selectable = result.current.menuItems({ onSelect })
-    expect(selectable[0]!.label).toBe('Select')
+    expect(selectable[0]!.label).toBe(SELECT)
     selectable[0]!.onPress()
     expect(onSelect).toHaveBeenCalledOnce()
     await act(() => result.current.setShowArchived(true))
@@ -158,7 +159,7 @@ describe('useListScreen', () => {
     act(() =>
       result.current
         .menuItems({})
-        .find((item) => item.label === 'Rename')!
+        .find((item) => item.label === RENAME)!
         .onPress(),
     )
     expect(result.current.naming).toEqual({ kind: 'rename', listId, name: 'Tuesday jam' })

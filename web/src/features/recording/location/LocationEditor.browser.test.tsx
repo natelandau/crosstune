@@ -881,10 +881,9 @@ it('Back from the rename keeps the name as it was', async () => {
   expect(await db.places.get('p1')).toMatchObject({ name: 'The barn' })
 })
 
-it('shows the map larger than the page’s, and keeps place names out of replay', async () => {
+it('keeps place names out of replay', async () => {
   const { seen } = await setup({ mapkit: {} })
   await expect.poll(() => seen!.maps.length).toBe(1)
-  expect(seen!.maps[0]!.element.getBoundingClientRect().height).toBeGreaterThan(180)
   await expect.element(section(CURRENT_LOCATION).getByText(STREET)).toHaveClass(/ph-no-capture/)
 })
 

@@ -4,6 +4,7 @@ import type { RouteObject } from 'react-router'
 import { openTestDb } from '../test/db'
 import { renderApp } from '../test/renderApp'
 import { appRoutes } from './routes'
+import { destination } from '../layout/destinations'
 import { GALLERY_TITLE } from '../gallery/ComponentGallery'
 
 it('mounts the gallery at /gallery', async () => {
@@ -21,12 +22,12 @@ it('leaves /gallery out of the route table outside a dev server', () => {
 
 it('mounts the catalog landmark at /catalog', async () => {
   await renderApp({ path: '/catalog', db: openTestDb() })
-  await expect.element(page.getByRole('main', { name: 'Catalog' })).toBeVisible()
+  await expect.element(page.getByRole('main', { name: destination('catalog').label })).toBeVisible()
 })
 
 it('redirects the root to the catalog', async () => {
   await renderApp({ path: '/', db: openTestDb() })
-  await expect.element(page.getByRole('main', { name: 'Catalog' })).toBeVisible()
+  await expect.element(page.getByRole('main', { name: destination('catalog').label })).toBeVisible()
 })
 
 it('stamps the density the test asks for on the root', async () => {

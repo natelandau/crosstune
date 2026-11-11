@@ -83,6 +83,7 @@ const trialRow = (): Partial<LocalEntitlement> => {
   return { premium_source: 'trial', premium_expires_at: ends, trial_ends_at: ends }
 }
 const row = (name: string) => page.getByRole('button', { name })
+const DATED = new RegExp(`^(${ENDS}|${RENEWS}) `)
 
 describe('PlanGroup', () => {
   it('shows a trial with its days left', async () => {
@@ -108,7 +109,7 @@ describe('PlanGroup', () => {
   it('shows a comp with no end as Premium with no detail', async () => {
     await mount({ premium_source: 'comp' })
     await expect.element(page.getByText(PLAN_PREMIUM, { exact: true })).toBeVisible()
-    expect(page.getByText(/^(Ends|Renews) /).elements()).toHaveLength(0)
+    expect(page.getByText(DATED).elements()).toHaveLength(0)
     expect(page.getByText(FREE_HELP).elements()).toHaveLength(0)
   })
 
@@ -144,7 +145,7 @@ describe('PlanGroup', () => {
       auto_renews: true,
     })
     await expect.element(page.getByText(PLAN_PREMIUM, { exact: true })).toBeVisible()
-    expect(page.getByText(/^(Ends|Renews) /).elements()).toHaveLength(0)
+    expect(page.getByText(DATED).elements()).toHaveLength(0)
   })
 
   it('takes a premium quota from the row over the stored server quota', async () => {
@@ -173,7 +174,7 @@ describe('PlanGroup', () => {
       const { analytics } = await mount(entitlement)
       const planRow = page
         .getByRole('region', { name: PLAN_GROUP })
-        .getByRole('button', { name: /^(Free|Premium)/ })
+        .getByRole('button', { name: new RegExp(`^(${PLAN_FREE}|${PLAN_PREMIUM})`) })
       await expect.element(planRow).toHaveAccessibleDescription(SEE_PLAN)
       await planRow.click()
       await expect

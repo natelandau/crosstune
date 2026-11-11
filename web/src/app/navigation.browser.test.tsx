@@ -10,6 +10,7 @@ import { RecordStateProvider } from '../features/capture/RecordState'
 import { APPEARANCE } from '../features/settings/settingsCopy'
 import { ACCOUNT_BUTTON, RECORD_LABEL, TAB_BAR } from '../layout/tabs'
 import { STATS_TITLE } from '../features/stats/copy'
+import { TUNE } from '../features/tune/tunePageCopy'
 import { openTestDb } from '../test/db'
 import { dataProviders } from '../test/providers'
 import { tuneRow, userTuneRow } from '../test/rows'
@@ -141,7 +142,7 @@ const go = (to: Destination) => act(() => probe.dest?.go(to))
 
 it('returns to where a destination last was, then to its root', async () => {
   const router = await mount('/catalog/t1')
-  await expect.element(page.getByRole('main', { name: 'Tune' })).toBeVisible()
+  await expect.element(page.getByRole('main', { name: TUNE })).toBeVisible()
   await go('lists')
   await expect.poll(at(router)).toBe('/lists')
   // The router moves before React commits the screen that follows it.
@@ -156,7 +157,7 @@ it('a second tap on a destination opens its root before the first tap has render
   const router = await mount('/settings/appearance')
   await expect.element(page.getByRole('main', { name: APPEARANCE })).toBeVisible()
   await router.navigate('/catalog/t1')
-  await expect.element(page.getByRole('main', { name: 'Tune' })).toBeVisible()
+  await expect.element(page.getByRole('main', { name: TUNE })).toBeVisible()
   holdRender('/settings')
   // Both taps read the destination the screen still shows, as a double tap on the bar does.
   const { go: tap } = probe.dest!
@@ -172,7 +173,7 @@ it('a second tap on a destination opens its root before the first tap has render
 
 it('a quick switch back keeps the place the screen still shows', async () => {
   const router = await mount('/catalog/t1')
-  await expect.element(page.getByRole('main', { name: 'Tune' })).toBeVisible()
+  await expect.element(page.getByRole('main', { name: TUNE })).toBeVisible()
   holdRender('/settings')
   const { go: tap } = probe.dest!
   await act(async () => {
@@ -182,7 +183,7 @@ it('a quick switch back keeps the place the screen still shows', async () => {
   })
   await expect.poll(at(router)).toBe('/catalog/t1')
   await act(async () => hold.release?.())
-  await expect.element(page.getByRole('main', { name: 'Tune' })).toBeVisible()
+  await expect.element(page.getByRole('main', { name: TUNE })).toBeVisible()
 })
 
 it('a second tap lands on the root while the first tap is still loading', async () => {
@@ -343,7 +344,7 @@ it('reports the destination of the current path', async () => {
 it('Back from a tune opened in a list returns to the list', async () => {
   const router = await mount('/lists/l1')
   await router.navigate('/lists/l1/tunes/t1')
-  await expect.element(page.getByRole('main', { name: 'Tune' })).toBeVisible()
+  await expect.element(page.getByRole('main', { name: TUNE })).toBeVisible()
   await router.navigate(-1)
   await expect.poll(at(router)).toBe('/lists/l1')
 })
@@ -357,7 +358,7 @@ it('mounts the app on its first entry, settled, without moving history', async (
 
 it('redirects /tunes/:id to the tune home path in place', async () => {
   const app = await renderApp({ path: '/tunes/t1', db: await seededDb() })
-  await expect.element(page.getByRole('main', { name: 'Tune' })).toBeVisible()
+  await expect.element(page.getByRole('main', { name: TUNE })).toBeVisible()
   await expect.poll(at(app.router)).toBe('/catalog/t1')
   expect(app.router.state.historyAction).toBe('REPLACE')
 })

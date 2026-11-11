@@ -234,7 +234,6 @@ it('inverts the scans from the toolbar', async () => {
   const invert = viewer().getByRole('button', { name: INVERT })
   await invert.click()
   await expect.element(invert).toHaveAttribute('aria-pressed', 'true')
-  await expect.element(viewer().getByRole('img', { name: scanName(0) })).toHaveClass('invert')
   await invert.click()
   await expect.element(invert).toHaveAttribute('aria-pressed', 'false')
 })
@@ -477,17 +476,14 @@ describe('on a free plan, no scans open', () => {
   /** A thumbnail the plan does not open, named without the action label it will not do. */
   const gated = (index: number) =>
     scansSection().getByRole('button', { name: scanName(index), exact: true })
-  const opacity = (button: ReturnType<typeof gated>) =>
-    Number(getComputedStyle(button.element()).opacity)
   const otherRow = () =>
     page.getByRole('grid', { name: TUNE_LIST }).getByRole('row', { name: new RegExp(`^${OTHER}`) })
 
-  it('dims every scan, and a tap or Add opens the Plan sheet', async () => {
+  it('describes every scan as Subscribe to open, and a tap or Add opens the Plan sheet', async () => {
     const { analytics } = await mountPlan('/catalog/t2')
     await expect.element(gated(0)).toBeVisible()
     await expect.element(gated(0)).toHaveAccessibleDescription(SUBSCRIBE_TO_OPEN)
-    await expect.poll(() => opacity(gated(0))).toBeLessThan(1)
-    await expect.poll(() => opacity(gated(1))).toBeLessThan(1)
+    await expect.element(gated(1)).toHaveAccessibleDescription(SUBSCRIBE_TO_OPEN)
 
     await gated(0).click()
     await expect

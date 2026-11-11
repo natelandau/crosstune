@@ -1,4 +1,4 @@
-import { page, userEvent, type Locator } from 'vitest/browser'
+import { page, userEvent } from 'vitest/browser'
 import { expect, it } from 'vitest'
 import { createTune, deleteTune } from '../../commands/tunes'
 import type { CrosstuneDb } from '../../db/schema'
@@ -150,9 +150,6 @@ it('refuses a learned-on year that is not four digits once the date is left', as
   await expect.element(year).not.toHaveAttribute('aria-invalid', 'true')
 })
 
-/** The danger ring a refused picker row draws, or none. The row holds the trigger. */
-const ring = (trigger: Locator) => getComputedStyle(trigger.element().parentElement!).boxShadow
-
 it('saves learned on only as a whole date, asking for the part left out', async () => {
   const db = openTestDb()
   const { tuneId } = await editTune(db, { title: 'Angeline the Baker' })
@@ -163,8 +160,8 @@ it('saves learned on only as a whole date, asking for the part left out', async 
   await titleField(EDIT_TUNE_TITLE).click()
   await expect.element(form.getByRole('alert')).toHaveTextContent(LEARNED_ON_INCOMPLETE)
   await expect.element(month).toHaveAccessibleDescription(LEARNED_ON_INCOMPLETE)
-  await expect.poll(() => ring(month)).not.toBe('none')
-  expect(ring(day)).toBe('none')
+  await expect.element(month).toHaveAttribute('data-invalid')
+  await expect.element(day).not.toHaveAttribute('data-invalid')
 
   await month.click()
   await page.getByRole('option', { name: MONTH_LABELS[2] }).click()
@@ -174,8 +171,8 @@ it('saves learned on only as a whole date, asking for the part left out', async 
   await expect.element(form.getByRole('alert')).toHaveTextContent(LEARNED_ON_INCOMPLETE)
   await expect.element(day).toHaveFocus()
   await expect.element(day).toHaveAccessibleDescription(LEARNED_ON_INCOMPLETE)
-  await expect.poll(() => ring(day)).not.toBe('none')
-  expect(ring(month)).toBe('none')
+  await expect.element(day).toHaveAttribute('data-invalid')
+  await expect.element(month).not.toHaveAttribute('data-invalid')
 
   await day.click()
   await page.getByRole('option', { name: '14', exact: true }).click()

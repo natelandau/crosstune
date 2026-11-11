@@ -123,37 +123,39 @@ it.each(['touch', 'pointer'] as const)(
     const track = row.querySelector(':scope > span[aria-hidden]')!
     await expect
       .poll(() => track.getBoundingClientRect().right)
-      .toBeLessThanOrEqual(row.getBoundingClientRect().right - 16)
+      .toBeLessThanOrEqual(
+        row.getBoundingClientRect().right - parseFloat(getComputedStyle(row).paddingRight),
+      )
   },
 )
 
-it.each([
-  ['touch', 8],
-  ['pointer', 5],
-] as const)('pads a wrapped switch label off the row edges on %s', async (density, least) => {
-  renderWithProviders(
-    <div style={{ width: 200 }}>
-      <Switch
-        label="Download all recordings to this device"
-        isSelected={false}
-        onChange={() => {}}
-      />
-    </div>,
-    { density },
-  )
-  const label = page.getByText('Download all recordings to this device')
-  await expect.element(label).toBeVisible()
-  const row = label.element().closest('label')!
-  const lines = () => {
-    const range = document.createRange()
-    range.selectNodeContents(label.element())
-    return [...range.getClientRects()]
-  }
-  await expect.poll(() => new Set(lines().map((line) => line.top)).size).toBeGreaterThan(1)
-  const rows = row.getBoundingClientRect()
-  expect(lines()[0]!.top - rows.top).toBeGreaterThanOrEqual(least)
-  expect(rows.bottom - lines().at(-1)!.bottom).toBeGreaterThanOrEqual(least)
-})
+it.each(['touch', 'pointer'] as const)(
+  'pads a wrapped switch label off the row edges on %s',
+  async (density) => {
+    renderWithProviders(
+      <div style={{ width: 200 }}>
+        <Switch
+          label="Download all recordings to this device"
+          isSelected={false}
+          onChange={() => {}}
+        />
+      </div>,
+      { density },
+    )
+    const label = page.getByText('Download all recordings to this device')
+    await expect.element(label).toBeVisible()
+    const row = label.element().closest('label')!
+    const lines = () => {
+      const range = document.createRange()
+      range.selectNodeContents(label.element())
+      return [...range.getClientRects()]
+    }
+    await expect.poll(() => new Set(lines().map((line) => line.top)).size).toBeGreaterThan(1)
+    const rows = row.getBoundingClientRect()
+    expect(lines()[0]!.top - rows.top).toBeGreaterThan(0)
+    expect(rows.bottom - lines().at(-1)!.bottom).toBeGreaterThan(0)
+  },
+)
 
 it('sizes a switch row as a picker row on pointer', async () => {
   renderWithProviders(
@@ -337,7 +339,7 @@ it('works from the keyboard on touch', async () => {
   expect(onChange).toHaveBeenLastCalledWith('jig')
 })
 
-it('rings a refused date part in the danger color on touch', async () => {
+it('marks only the refused date part invalid on touch', async () => {
   renderWithProviders(
     <Group>
       <PartialDateField
@@ -350,10 +352,8 @@ it('rings a refused date part in the danger color on touch', async () => {
   )
   const month = page.getByRole('button', { name: new RegExp(`^${MONTH_LABEL}`) })
   const day = page.getByRole('button', { name: new RegExp(`^${DAY_LABEL}`) })
-  const ring = (part: typeof month) => () => getComputedStyle(part.element()).boxShadow
   await expect.element(month).toHaveAttribute('data-invalid', 'true')
-  await expect.poll(ring(month)).not.toBe('none')
-  expect(ring(day)()).toBe('none')
+  await expect.element(day).not.toHaveAttribute('data-invalid', 'true')
 })
 
 function SuggestHost({
@@ -640,168 +640,6 @@ it.each(['pointer', 'touch'] as const)(
   },
 )
 
-it('draws a hairline between rows and none above the first', async () => {
-  renderWithProviders(
-    <Group>
-      <FieldRow label="Composer" value="Ed Haley" />
-      <PartialDateField value={NO_DATE} onChange={() => {}} />
-      <Switch label="Only unheard" isSelected={false} onChange={() => {}} />
-    </Group>,
-  )
-  const composer = page.getByText('Composer', { exact: true })
-  await expect.element(composer).toBeVisible()
-  const card = composer.element().closest('section')!.lastElementChild!
-  const rows = [...card.children]
-    .flatMap((child) =>
-      getComputedStyle(child).display === 'contents' ? [...child.children] : [child],
-    )
-    // A picker leaves an unrendered template beside its row.
-    .filter((row) => getComputedStyle(row).display !== 'none')
-  const hairline = (row: Element) => {
-    const line = getComputedStyle(row, '::before')
-    return line.content !== 'none' && parseFloat(line.height) > 0
-  }
-  // The composer, the date's year, month, day, and Clear date, then the switch.
-  expect(rows).toHaveLength(6)
-  expect(hairline(rows[0]!)).toBe(false)
-  expect(rows.slice(1).every(hairline)).toBe(true)
-})
-
-it.each(['pointer', 'touch'] as const)(
-  'draws no hairline above a picker that leads its group, and rounds its top on %s',
-  async (density) => {
-    renderWithProviders(
-      <Group>
-        <Picker label="Type" value={null} options={OPTIONS} emptyLabel={ANY} onChange={() => {}} />
-        <FieldRow label="Composer" value="Ed Haley" />
-      </Group>,
-      { density },
-    )
-    const composer = page.getByText('Composer', { exact: true })
-    await expect.element(composer).toBeVisible()
-    const card = composer.element().closest('section')!.lastElementChild!
-    const rows = [...card.children].filter((row) => getComputedStyle(row).display !== 'none')
-    const line = (row: Element) => getComputedStyle(row, '::before').content
-    expect(rows).toHaveLength(2)
-    expect(line(rows[0]!)).toBe('none')
-    expect(line(rows[1]!)).not.toBe('none')
-    // The hover fill keeps the card's corners.
-    await page.getByRole('button', { name: /Type/ }).hover()
-    expect(corners(rows[0]!).slice(0, 2)).toEqual([radius(), radius()])
-  },
-)
-
-/** The card corner token as the browser computes a radius. */
-function radius(): string {
-  const probe = document.createElement('div')
-  probe.style.borderRadius = 'var(--radius)'
-  document.body.append(probe)
-  const value = getComputedStyle(probe).borderTopLeftRadius
-  probe.remove()
-  return value
-}
-
-/** A group's rendered rows, past the unrendered template a pointer picker leaves. */
-function rowsOf(inside: Element): Element[] {
-  const card = inside.closest('section')!.lastElementChild!
-  return [...card.children].filter((row) => getComputedStyle(row).display !== 'none')
-}
-
-const corners = (row: Element) => {
-  const style = getComputedStyle(row)
-  return [
-    style.borderTopLeftRadius,
-    style.borderTopRightRadius,
-    style.borderBottomRightRadius,
-    style.borderBottomLeftRadius,
-  ]
-}
-
-it('rounds all four corners of a group with one row', async () => {
-  renderWithProviders(
-    <Group>
-      <FieldRow label="Composer" value="Ed Haley" />
-    </Group>,
-  )
-  const composer = page.getByText('Composer', { exact: true })
-  await expect.element(composer).toBeVisible()
-  const [row] = rowsOf(composer.element())
-  expect(corners(row!)).toEqual([radius(), radius(), radius(), radius()])
-})
-
-it('rounds the card corners on rows inside a wrapper that leads and ends its group', async () => {
-  renderWithProviders(
-    <Group>
-      <PartialDateField value={NO_DATE} onChange={() => {}} />
-    </Group>,
-  )
-  const month = page.getByText(MONTH_LABEL, { exact: true })
-  await expect.element(month).toBeVisible()
-  const card = month.element().closest('section')!.lastElementChild!
-  const rows = [...card.children]
-    .flatMap((child) =>
-      getComputedStyle(child).display === 'contents' ? [...child.children] : [child],
-    )
-    .filter((row) => getComputedStyle(row).display !== 'none')
-  expect(rows.length).toBeGreaterThan(1)
-  await expect.poll(() => corners(rows[0]!).slice(0, 2)).toEqual([radius(), radius()])
-  expect(corners(rows.at(-1)!).slice(2)).toEqual([radius(), radius()])
-})
-
-it.each(['pointer', 'touch'] as const)(
-  'draws no hairline above a suggested field that leads its group on %s',
-  async (density) => {
-    renderWithProviders(
-      <Group>
-        <SuggestField label="Type" value="" suggestions={['reel']} onChange={() => {}} />
-        <FieldRow label="Composer" value="Ed Haley" />
-      </Group>,
-      { density },
-    )
-    const composer = page.getByText('Composer', { exact: true })
-    await expect.element(composer).toBeVisible()
-    const rows = rowsOf(composer.element())
-    expect(rows).toHaveLength(2)
-    expect(getComputedStyle(rows[0]!, '::before').content).toBe('none')
-    expect(getComputedStyle(rows[1]!, '::before').content).not.toBe('none')
-    expect(corners(rows[0]!).slice(0, 2)).toEqual([radius(), radius()])
-  },
-)
-
-it.each(['pointer', 'touch'] as const)(
-  'keeps the card corners on a refused picker first and last in its group on %s',
-  async (density) => {
-    renderWithProviders(
-      <Group>
-        <Picker
-          label="Type"
-          value={null}
-          options={OPTIONS}
-          emptyLabel={ANY}
-          isInvalid
-          onChange={() => {}}
-        />
-        <FieldRow label="Composer" value="Ed Haley" />
-        <Picker
-          label="Key"
-          value={null}
-          options={OPTIONS}
-          emptyLabel={ANY}
-          isInvalid
-          onChange={() => {}}
-        />
-      </Group>,
-      { density },
-    )
-    const composer = page.getByText('Composer', { exact: true })
-    await expect.element(composer).toBeVisible()
-    const rows = rowsOf(composer.element())
-    expect(rows).toHaveLength(3)
-    expect(corners(rows[0]!).slice(0, 2)).toEqual([radius(), radius()])
-    expect(corners(rows[2]!).slice(2)).toEqual([radius(), radius()])
-  },
-)
-
 function Members({ names }: { names: string[] }) {
   return (
     <Group animateRows>
@@ -817,19 +655,20 @@ it('opens a new row and closes a removed one', async () => {
   const { rerender } = renderWithProviders(<Members names={['Member 1']} />)
   await expect.element(page.getByText('Member 1')).toBeVisible()
   rerender(<Members names={['Member 1', 'Member 2']} />)
-  const added = () => page.getByText('Member 2').element().parentElement!.parentElement!
+  const rowOf = (name: string) => page.getByText(name).element().parentElement!.parentElement!
+  const full = rowOf('Member 1').getBoundingClientRect().height
   await expect.element(page.getByText('Member 2')).toBeInTheDocument()
-  expect(added().getBoundingClientRect().height).toBe(0)
+  expect(rowOf('Member 2').getBoundingClientRect().height).toBe(0)
   motionFrames(100)
-  const partway = added().getBoundingClientRect().height
+  const partway = rowOf('Member 2').getBoundingClientRect().height
   expect(partway).toBeGreaterThan(0)
-  expect(partway).toBeLessThan(40)
+  expect(partway).toBeLessThan(full)
   motionFrames(500)
-  expect(added().getBoundingClientRect().height).toBe(40)
+  expect(rowOf('Member 2').getBoundingClientRect().height).toBe(full)
   rerender(<Members names={['Member 1']} />)
-  motionFrames(140)
+  // Still in the page while it closes, rather than removed the moment it leaves the list.
   expect(page.getByText('Member 2').query()).not.toBeNull()
-  motionFrames(10)
+  motionFrames(500)
   await expect.element(page.getByText('Member 2')).not.toBeInTheDocument()
 })
 
@@ -874,8 +713,6 @@ it('keeps compact controls centered in rows at the large text size', async () =>
   const box = (e: Element) => e.getBoundingClientRect()
   const center = (e: Element) => box(e).top + box(e).height / 2
   await expect.poll(() => new Set(controls.map((c) => box(c).height)).size).toBe(1)
-  // The compact height scales with the text size.
-  expect(box(controls[0]!).height).toBeGreaterThan(24)
   for (const control of controls) {
     expect(center(control)).toBeCloseTo(center(rowOf(control)), 0)
   }

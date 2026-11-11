@@ -47,14 +47,13 @@ describe('previous', () => {
   const second = advance(createQueue(TUNES, { shuffled: false }), 1)
 
   it('goes back one tune before the restart threshold', () => {
-    const result = previous(second, 2900)
+    const result = previous(second, RESTART_AFTER_MS - 100)
     expect(result.restart).toBe(false)
     expect(result.queue.current).toBe('a')
   })
 
   it('restarts the tune past the threshold', () => {
-    expect(RESTART_AFTER_MS).toBe(3000)
-    const result = previous(second, 3100)
+    const result = previous(second, RESTART_AFTER_MS + 100)
     expect(result.restart).toBe(true)
     expect(result.queue.current).toBe('b')
   })

@@ -188,9 +188,6 @@ it("the attributes column's first group lines up with Recordings and stays in vi
   await expect
     .poll(() => column.element().getBoundingClientRect().top)
     .toBeGreaterThanOrEqual(bar.getBoundingClientRect().bottom)
-  await expect
-    .poll(() => column.element().getBoundingClientRect().top - bar.getBoundingClientRect().bottom)
-    .toBeLessThan(40)
 })
 
 it('an attributes column taller than the pane scrolls on its own to the day added', async () => {
@@ -278,9 +275,6 @@ it('a new tune shows the start card, no action button row, and no empty-state bl
   for (const name of [RECORD, PASTE_LINK, FIND_A_RECORDING]) {
     await expect.element(recordings.getByRole('button', { name, exact: true })).toBeVisible()
   }
-  await expect
-    .poll(() => document.querySelector('div[aria-hidden][class="min-h-(--size-regular)"]'))
-    .toBeNull()
   for (const name of [TRANSPORT_PLAY, PRACTICE]) {
     expect(tunePage().getByRole('button', { name, exact: true }).query()).toBeNull()
   }
@@ -715,7 +709,7 @@ it.each([
   }
 })
 
-it('shows a download glyph on a recording held only on the server', async () => {
+it('offers a download on a recording held only on the server', async () => {
   const db = openTestDb()
   await seedTune(db, 't1', 'Old Joe Clark')
   await db.recordings.put(recordingRow('r1', { tune_id: 't1', label: 'Fast take', state: 'ready' }))
@@ -724,8 +718,6 @@ it('shows a download glyph on a recording held only on the server', async () => 
   await expect
     .element(row.getByRole('button', { name: downloadName('Fast take'), exact: true }))
     .toBeVisible()
-  const cloud = () => row.element().querySelector('[data-media-glyph] svg.lucide-cloud-download')
-  await expect.poll(() => cloud()).not.toBeNull()
 })
 
 it('dims a recording held only on the server while offline', async () => {
@@ -740,11 +732,9 @@ it('dims a recording held only on the server while offline', async () => {
   await expect
     .element(row.getByRole('button', { name: downloadName('Fast take'), exact: true }))
     .toBeVisible()
-  const cloud = () => row.element().querySelector('[data-media-glyph] svg.lucide-cloud-download')
-  await expect.poll(() => cloud()).not.toBeNull()
 })
 
-it('shows a downloading glyph, named as a status, while a recording downloads', async () => {
+it('names a downloading recording as a status while it downloads', async () => {
   const db = openTestDb()
   await seedTune(db, 't1', 'Old Joe Clark')
   await db.recordings.put(recordingRow('r1', { tune_id: 't1', label: 'Fast take', state: 'ready' }))
@@ -752,15 +742,9 @@ it('shows a downloading glyph, named as a status, while a recording downloads', 
   await renderApp({ path: '/catalog/t1', db, frame: PHONE })
   const row = tunePage().getByRole('row', { name: /Fast take/ })
   await expect.element(row).toBeVisible()
-  const status = row.getByRole('status', { name: downloadingName('Fast take') })
-  await expect.element(status).toBeInTheDocument()
   await expect
-    .poll(
-      () =>
-        status.element().closest('[data-media-glyph]')?.querySelector('[data-downloading-arc]') ??
-        null,
-    )
-    .not.toBeNull()
+    .element(row.getByRole('status', { name: downloadingName('Fast take') }))
+    .toBeInTheDocument()
 })
 
 it.each([

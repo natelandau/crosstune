@@ -3,7 +3,9 @@ import type { Instrument } from '../../api/vocabulary'
 import { createTune } from '../../commands/tunes'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
+import { STATUS_LABELS } from '../../constants'
 import { cardRows, attributeRows } from './attributeRows'
+import { DETAIL_LABELS } from './detailFields'
 import type { TuneView } from './useTune'
 
 let db: CrosstuneDb
@@ -39,7 +41,7 @@ describe('attributeRows', () => {
       'learned_from',
       'learned_on',
     ])
-    expect(rows.find((r) => r.id === 'status')?.text).toBe('Learning')
+    expect(rows.find((r) => r.id === 'status')?.text).toBe(STATUS_LABELS.learning)
   })
 
   it('groups the rows as the attributes column heads them', async () => {
@@ -63,7 +65,7 @@ describe('attributeRows', () => {
     const on = attributeRows(base, violin)
     const ids = on.map((r) => r.id)
     expect(ids[ids.indexOf('part_structure') + 1]).toBe('is_crooked')
-    expect(on.find((r) => r.id === 'is_crooked')?.text).toBe('Crooked')
+    expect(on.find((r) => r.id === 'is_crooked')?.text).toBe(DETAIL_LABELS.is_crooked)
     const off = attributeRows({ ...base, tune: { ...base.tune, is_crooked: false } }, violin)
     expect(off.map((r) => r.id)).not.toContain('is_crooked')
   })

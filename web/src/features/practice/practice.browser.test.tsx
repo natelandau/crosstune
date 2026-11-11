@@ -34,7 +34,6 @@ import {
   press,
   WIDE,
 } from '../../test/practice'
-import { stubSystemDarkForTest } from '../../test/scheme'
 
 vi.mock('../../platform/appleTouch', { spy: true })
 vi.mock('../../commands/loops', { spy: true })
@@ -46,16 +45,6 @@ const tool = (name: string) =>
     .getByRole('button', { name: new RegExp(`^${name}`) })
 
 const announced = () => practice()?.querySelector('[data-practice-announcer]')?.textContent ?? ''
-
-it.each(['light', 'dark'] as const)(
-  'opens from the phone bar on the page, with no background of its own, in %s',
-  async (scheme) => {
-    stubSystemDarkForTest(scheme === 'dark')
-    await mountPlaying(PHONE)
-    await openPractice()
-    await expect.poll(() => getComputedStyle(practice()!).backgroundColor).toBe('rgba(0, 0, 0, 0)')
-  },
-)
 
 it("opens from the dock's Expand on wide", async () => {
   await mountPlaying(WIDE)

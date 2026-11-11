@@ -139,7 +139,7 @@ describe('titleIsDate', () => {
 
 describe('originLabel', () => {
   it('names an import source and leaves an own recording unnamed', () => {
-    expect(originLabel('slippery_hill')).toBe('Slippery-Hill')
+    expect(originLabel('slippery_hill')).toBe(PROVIDER_LABELS.slippery_hill)
     expect(originLabel('own')).toBeNull()
     expect(originLabel('future_site')).toBe(PROVIDER_LABELS.other)
   })

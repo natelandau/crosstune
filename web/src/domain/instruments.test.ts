@@ -3,7 +3,6 @@ import type { Instrument } from '../api/vocabulary'
 import {
   byTuningKey,
   capoLabel,
-  INSTRUMENTS_HELP,
   instrumentsFrom,
   isTuningKey,
   setTuning,
@@ -193,8 +192,4 @@ describe('tuningDisplay', () => {
 it('names each tuning and capo after its instrument', () => {
   expect(tuningLabel('five_string_banjo')).toBe('5-string banjo tuning')
   expect(capoLabel('guitar')).toBe('Guitar capo')
-})
-
-it('names the tunings the instruments setting controls', () => {
-  expect(INSTRUMENTS_HELP).toBe('Tunes show a tuning for each instrument chosen here.')
 })

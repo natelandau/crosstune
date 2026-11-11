@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { LOOP_COLOR_COUNT } from '../../domain/loopModel'
 import { MAX_RECORDING_MS, MAX_SPLIT_PIECES } from '../../domain/recordingLimits'
 import {
   canAddCut,
@@ -203,9 +204,9 @@ describe('moveCut and cutRoom', () => {
 
 describe('pieceColor', () => {
   it('cycles through every loop color, so neighbors differ', () => {
-    const colors = Array.from({ length: 12 }, (_, i) => pieceColor(i))
-    expect(new Set(colors.slice(0, 6)).size).toBe(6)
-    expect(colors.slice(6)).toEqual(colors.slice(0, 6))
+    const colors = Array.from({ length: 2 * LOOP_COLOR_COUNT }, (_, i) => pieceColor(i))
+    expect(new Set(colors.slice(0, LOOP_COLOR_COUNT)).size).toBe(LOOP_COLOR_COUNT)
+    expect(colors.slice(LOOP_COLOR_COUNT)).toEqual(colors.slice(0, LOOP_COLOR_COUNT))
     for (let i = 1; i < colors.length; i++) expect(colors[i]).not.toBe(colors[i - 1])
   })
 })

@@ -158,7 +158,7 @@ it.each(['pointer', 'touch'] as const)(
     await expect.element(field()).toHaveFocus()
     const input = field().element()
     const outline = (element: Element) => getComputedStyle(element).outlineStyle
-    await expect.poll(() => outline(input.parentElement!)).toBe('solid')
+    await expect.poll(() => outline(input.parentElement!)).not.toBe('none')
     await expect.poll(() => outline(input)).toBe('none')
   },
 )

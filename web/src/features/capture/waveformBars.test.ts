@@ -5,6 +5,7 @@ import {
   barCount,
   createLevels,
   eachBar,
+  MIN_BAR,
   pushLevel,
   rmsLevel,
   type Bar,
@@ -61,7 +62,7 @@ describe('waveform bars', () => {
     pushLevel(state, 0, 3)
     pushLevel(state, 1, 3)
     const [quiet, loud] = layout(state, 100, 40)
-    expect(quiet).toMatchObject({ height: 2, y: 19 })
+    expect(quiet).toMatchObject({ height: MIN_BAR, y: (40 - MIN_BAR) / 2 })
     expect(loud).toMatchObject({ height: 40, y: 0 })
   })
 })

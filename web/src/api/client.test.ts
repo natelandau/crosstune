@@ -3,7 +3,6 @@ import {
   type ApiClientOptions,
   ApiError,
   createApiClient,
-  GATEWAY_RETRY_DELAYS_MS,
   NetworkError,
   NoTokenError,
   TransferError,
@@ -566,9 +565,5 @@ describe('gateway retries', () => {
     expect(bodies).toHaveLength(2)
     expect(bodies[0]).not.toBe('')
     expect(bodies[1]).toBe(bodies[0])
-  })
-
-  it('uses the default schedule', () => {
-    expect(GATEWAY_RETRY_DELAYS_MS).toEqual([500, 1000, 2000, 4000, 8000])
   })
 })

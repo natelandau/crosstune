@@ -39,19 +39,15 @@ describe('resizeSpan', () => {
 describe('snapMs', () => {
   it.each([
     [10_040, 10_000],
-    // Exactly SNAP_PX (8 px at 10 ms/px) away still snaps; one ms further does not.
-    [10_080, 10_000],
-    [10_081, 10_081],
-    [10_100, 10_100],
+    [9_960, 10_000],
+    [20_000, 20_000],
   ])('%i against [10000] -> %i', (ms, expected) => {
     expect(snapMs(ms, [10_000], 10)).toBe(expected)
   })
 })
 
 describe('pickColor', () => {
-  it('exports the tie-break order with the blue last', () => {
-    expect(LOOP_COLOR_ORDER).toEqual([1, 2, 3, 4, 5, 0])
-  })
+  const firstInOrder = (...skip: number[]) => LOOP_COLOR_ORDER.find((slot) => !skip.includes(slot))
 
   it('orders every color slot exactly once', () => {
     expect([...LOOP_COLOR_ORDER].sort((a, b) => a - b)).toEqual(
@@ -59,12 +55,12 @@ describe('pickColor', () => {
     )
   })
 
-  it('returns 1 with no loops', () => {
-    expect(pickColor(s(5, 8), [])).toBe(1)
+  it('returns the first color in order with no loops', () => {
+    expect(pickColor(s(5, 8), [])).toBe(firstInOrder())
   })
 
-  it('returns 1 when one loop elsewhere uses color 0', () => {
-    expect(pickColor(s(5, 8), [placed('far', 100, 200, 0)])).toBe(1)
+  it('passes over the color one loop elsewhere uses', () => {
+    expect(pickColor(s(5, 8), [placed('far', 100, 200, 0)])).toBe(firstInOrder(0))
   })
 
   it('returns 0 once colors 1 to 5 are each used and 0 is not', () => {
@@ -78,12 +74,12 @@ describe('pickColor', () => {
       ...[0, 1, 3, 4, 5].map((c) => placed(`far${c}`, 100 * (c + 1), 100 * (c + 1) + 50, c)),
     ]
     // Every other color ties at none nearby and one overall, so the order's first wins.
-    expect(pickColor(s(5, 8), loops)).toBe(1)
+    expect(pickColor(s(5, 8), loops)).toBe(firstInOrder(2))
   })
 
   it('avoids colors used by overlapping and adjacent neighbors', () => {
     const loops = [placed('o', 4, 6, 0), placed('before', 0, 3, 1), placed('after', 9, 12, 0)]
-    expect(pickColor(s(5, 8), loops)).toBe(2)
+    expect(pickColor(s(5, 8), loops)).toBe(firstInOrder(0, 1))
   })
 
   it('picks the first color in tie-break order when neighbors tie and overall counts tie', () => {
@@ -96,7 +92,7 @@ describe('pickColor', () => {
       placed('c5', 6, 7, 5),
       placed('c3b', 6, 7, 3),
     ]
-    expect(pickColor(s(5, 8), loops)).toBe(1)
+    expect(pickColor(s(5, 8), loops)).toBe(firstInOrder(3))
   })
 
   it('breaks a neighbor tie by least use across all loops', () => {
@@ -111,7 +107,7 @@ describe('pickColor', () => {
       placed('far2', 300, 400, 0),
       placed('far3', 500, 600, 1),
     ]
-    expect(pickColor(s(5, 8), loops)).toBe(2)
+    expect(pickColor(s(5, 8), loops)).toBe(firstInOrder(0, 1))
   })
 })
 

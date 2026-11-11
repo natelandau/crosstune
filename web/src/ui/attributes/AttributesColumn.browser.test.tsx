@@ -6,6 +6,7 @@ import { holdMotionClock, motionFrames } from '../../test/motionClock'
 import { DONE } from '../confirmCopy'
 import { NOT_SET } from '../fieldCopy'
 import { Sheet } from '../Sheet'
+import { SHEET } from '../sheetGeometry'
 import { useAttributeEdit } from './AttributeEditor'
 import { AttributesColumn, type AttributeColumnRow } from './AttributesColumn'
 
@@ -289,14 +290,15 @@ it.each([
     const sheet = page.getByRole('dialog', { name: label })
     await expect.element(sheet).toBeInTheDocument()
     const top = () => sheet.element().getBoundingClientRect().top
+    const partTop = window.innerHeight * (1 - SHEET.partRatio)
     await expect.poll(top).toBeGreaterThanOrEqual(window.innerHeight - 1)
     motionFrames(1000)
-    await expect.poll(top).toBe(window.innerHeight / 2)
+    await expect.poll(top).toBe(partTop)
     await sheet.getByRole('button', { name: DONE }).click()
     motionFrames(50)
     // Still in the page partway down, rather than removed the moment it closed.
     expect(sheet.query()).not.toBeNull()
-    expect(top()).toBeGreaterThan(window.innerHeight / 2)
+    expect(top()).toBeGreaterThan(partTop)
     expect(top()).toBeLessThan(window.innerHeight)
     motionFrames(1000)
     await expect.element(sheet).not.toBeInTheDocument()

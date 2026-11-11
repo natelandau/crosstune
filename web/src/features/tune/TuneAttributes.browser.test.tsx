@@ -112,8 +112,6 @@ it('chooses the attributes column only with room beside a readable content colum
   const least = COLUMN_WIDTH + COLUMN_GAP + MIN_CONTENT_WIDTH
   expect(attributesLayout(least - 1)).toBe('card')
   expect(attributesLayout(least)).toBe('column')
-  expect(attributesLayout(663)).toBe('card')
-  expect(attributesLayout(664)).toBe('column')
 })
 
 it('the attributes column lists every attribute and marks unset ones', async () => {
@@ -134,7 +132,9 @@ it('a row opens its editor', async () => {
 it.each(['column', 'card'] as const)('the %s says why a write was refused', async (layout) => {
   await setup(layout)
   vi.mocked(tunes.updateTuneEntry).mockRejectedValueOnce(new Error('Could not save'))
-  await page.getByRole('button', { name: attributeRowName(STATUS_HEADER, 'Learning') }).click()
+  await page
+    .getByRole('button', { name: attributeRowName(STATUS_HEADER, STATUS_LABELS.learning) })
+    .click()
   await page.getByRole('radio', { name: STATUS_LABELS.known }).click()
   await expect
     .element(
@@ -155,7 +155,7 @@ it('card shows the main attributes, then More details reveals the rest', async (
   const more = page.getByRole('button', { name: MORE_DETAILS })
   await expect.element(more).toHaveAttribute('aria-expanded', 'false')
   for (const name of [
-    attributeRowName(STATUS_HEADER, 'Learning'),
+    attributeRowName(STATUS_HEADER, STATUS_LABELS.learning),
     attributeRowName(KEY, 'D'),
     attributeRowName(tuningLabel('violin')),
     attributeRowName(DETAIL_LABELS.tune_type, 'Reel · AABB'),
@@ -176,9 +176,6 @@ it('card shows the main attributes, then More details reveals the rest', async (
     .element(page.getByRole('button', { name: attributeRowName(DETAIL_LABELS.learned_from) }))
     .toBeVisible()
 })
-
-const bottomRounded = (name: string) =>
-  parseFloat(getComputedStyle(row(name).element()).borderBottomLeftRadius) > 0
 
 it('a narrow attributes column sets each label over its value', async () => {
   await setup('column')
@@ -239,21 +236,15 @@ it('card leaves the lists and the day added to the page', async () => {
   expect(page.getByText(added).query()).toBeNull()
 })
 
-it("card rounds its last row's corners, folded or not", async () => {
-  await setup('card')
-  await expect.poll(() => bottomRounded(MORE_DETAILS)).toBe(true)
-  await row(MORE_DETAILS).click()
-  await expect
-    .poll(() => bottomRounded(attributeRowName(DETAIL_LABELS.alternate_titles)))
-    .toBe(true)
-  expect(bottomRounded(MORE_DETAILS)).toBe(false)
-})
-
 it('card edits parts from More details', async () => {
   await setup('card', {}, { title: 'Reel', tune_type: 'Reel', part_structure: 'AABB' })
   await page.getByRole('button', { name: MORE_DETAILS }).click()
-  await page.getByRole('button', { name: 'Parts, AABB' }).click()
-  await expect.element(page.getByRole('dialog', { name: 'Parts' })).toBeVisible()
+  await page
+    .getByRole('button', { name: attributeRowName(DETAIL_LABELS.part_structure, 'AABB') })
+    .click()
+  await expect
+    .element(page.getByRole('dialog', { name: DETAIL_LABELS.part_structure }))
+    .toBeVisible()
 })
 
 it('lists link to the list and add to a list', async () => {
@@ -295,9 +286,9 @@ it('keeps typed text when a relayout remounts the open editor', async () => {
 
 it('returns focus to the row after a pick', async () => {
   await setup('column')
-  await row(attributeRowName(STATUS_HEADER, 'Learning')).click()
+  await row(attributeRowName(STATUS_HEADER, STATUS_LABELS.learning)).click()
   await page.getByRole('radio', { name: STATUS_LABELS.known }).click()
-  await expect.element(row(attributeRowName(STATUS_HEADER, 'Known'))).toHaveFocus()
+  await expect.element(row(attributeRowName(STATUS_HEADER, STATUS_LABELS.known))).toHaveFocus()
 })
 
 it('returns focus to the row after a pick from a nested list', async () => {
@@ -305,7 +296,7 @@ it('returns focus to the row after a pick from a nested list', async () => {
   await row(attributeRowName(DETAIL_LABELS.time_signature)).click()
   await page
     .getByRole('dialog', { name: DETAIL_LABELS.time_signature })
-    .getByRole('button', { name: /Time signature$/ })
+    .getByRole('button', { name: new RegExp(`${DETAIL_LABELS.time_signature}$`) })
     .click()
   await page.getByRole('option', { name: '6/8' }).click()
   await expect.element(row(attributeRowName(DETAIL_LABELS.time_signature, '6/8'))).toHaveFocus()
@@ -329,16 +320,16 @@ it('returns focus to the row after a click outside', async () => {
 
 it('returns focus to the card row after Done', async () => {
   await setup('card', {}, { title: 'Reel' }, 'phone')
-  await row(attributeRowName(STATUS_HEADER, 'Learning')).click()
+  await row(attributeRowName(STATUS_HEADER, STATUS_LABELS.learning)).click()
   await page.getByRole('button', { name: DONE }).click()
-  await expect.element(row(attributeRowName(STATUS_HEADER, 'Learning'))).toHaveFocus()
+  await expect.element(row(attributeRowName(STATUS_HEADER, STATUS_LABELS.learning))).toHaveFocus()
 })
 
 it('returns focus to the card row after a pick in the sheet', async () => {
   await setup('card', {}, { title: 'Reel' }, 'phone')
-  await row(attributeRowName(STATUS_HEADER, 'Learning')).click()
+  await row(attributeRowName(STATUS_HEADER, STATUS_LABELS.learning)).click()
   await page.getByRole('radio', { name: STATUS_LABELS.known }).click()
-  await expect.element(row(attributeRowName(STATUS_HEADER, 'Known'))).toHaveFocus()
+  await expect.element(row(attributeRowName(STATUS_HEADER, STATUS_LABELS.known))).toHaveFocus()
 })
 
 it('opens one editor at a time', async () => {

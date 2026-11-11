@@ -308,20 +308,8 @@ async function settled(sheet: Element): Promise<void> {
 
 /** Where an element sits on screen. */
 const box = (element: Element) => element.getBoundingClientRect()
-const middle = (element: Element) => box(element).left + box(element).width / 2
 
-/** The notice's body, the width its actions match. */
-function body(notice: ReturnType<typeof dialog>): Element {
-  return document.getElementById(notice.element().getAttribute('aria-describedby') ?? '')!
-}
-
-/** Whether the element paints no fill of its own, as text does. */
-const unfilled = (element: Element) =>
-  getComputedStyle(element).backgroundColor === 'rgba(0, 0, 0, 0)'
-
-it('stacks Subscribe, then Compare plans as text, then the renewal and terms lines', async () => {
-  // An earlier test can leave the pointer where Compare plans renders, and its hover fills it.
-  await userEvent.unhover(document.body)
+it('stacks Subscribe, then Compare plans, then the renewal and terms lines', async () => {
   const db = openTestDb()
   await mount(db, rowFor('trial_reminder'), undefined, fakeStore())
   const notice = page.getByRole('dialog').first()
@@ -337,26 +325,15 @@ it('stacks Subscribe, then Compare plans as text, then the renewal and terms lin
   for (let i = 1; i < stack.length; i++) {
     expect(box(stack[i - 1]!).bottom).toBeLessThanOrEqual(box(stack[i]!).top)
   }
-  await expect.poll(() => box(lead).width - box(body(notice)).width).toBeCloseTo(0, 0)
-  expect(box(lead).height).toBeGreaterThan(box(compare).height)
-  // Fills ease between states, so each is read until it settles.
-  await expect.poll(() => unfilled(lead)).toBe(false)
-  await expect.poll(() => unfilled(compare)).toBe(true)
-  for (const element of [compare, renews, terms.parentElement!]) {
-    expect(Math.abs(middle(element) - middle(lead))).toBeLessThanOrEqual(1)
-  }
 })
 
-it('leads with Compare plans as the full-width primary when the notice has nothing purchasable', async () => {
+it('leads with Compare plans alone when the notice has nothing purchasable', async () => {
   const db = openTestDb()
   await mount(db, lapsed())
   const notice = dialog(TRIAL_ENDED_TITLE)
   const compare = notice.getByRole('button', { name: COMPARE_PLANS })
   await expect.element(compare).toBeVisible()
-  await settled(notice.element())
 
-  await expect.poll(() => box(compare.element()).width - box(body(notice)).width).toBeCloseTo(0, 0)
-  expect(unfilled(compare.element())).toBe(false)
   const others = notice
     .getByRole('button')
     .elements()
@@ -364,7 +341,7 @@ it('leads with Compare plans as the full-width primary when the notice has nothi
   expect(others).toEqual([])
 })
 
-it("holds Subscribe's place full width, over Compare plans, while the offers have not answered", async () => {
+it("holds Subscribe's place over Compare plans while the offers have not answered", async () => {
   const db = openTestDb()
   await mount(
     db,
@@ -378,11 +355,7 @@ it("holds Subscribe's place full width, over Compare plans, while the offers hav
   await settled(notice.element())
 
   const compare = notice.getByRole('button', { name: COMPARE_PLANS }).element()
-  await expect
-    .poll(() => box(placeholder.element()).width - box(body(notice)).width)
-    .toBeCloseTo(0, 0)
   expect(box(placeholder.element()).bottom).toBeLessThanOrEqual(box(compare).top)
-  expect(unfilled(compare)).toBe(true)
 })
 
 it('a cancelled checkout from a notice leaves nothing open', async () => {

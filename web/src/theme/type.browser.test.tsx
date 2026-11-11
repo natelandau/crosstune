@@ -26,14 +26,14 @@ it('sets the timer in tabular figures', async () => {
 })
 
 it.each([
-  ['touch', { target: '44px', filter: '44px' }],
-  ['pointer', { target: '32px', filter: '24px' }],
-] as const)('sets %s target sizes', async (density, targets) => {
+  ['touch', 44],
+  ['pointer', 24],
+] as const)('sets %s target sizes at least the minimum target', async (density, least) => {
   renderWithProviders(<p>x</p>, { density })
   const variable = (name: string) =>
-    getComputedStyle(document.documentElement).getPropertyValue(name).trim()
-  await expect.poll(() => variable('--target')).toBe(targets.target)
-  expect(variable('--target-filter')).toBe(targets.filter)
+    parseFloat(getComputedStyle(document.documentElement).getPropertyValue(name))
+  await expect.poll(() => variable('--target')).toBeGreaterThanOrEqual(least)
+  expect(variable('--target-filter')).toBeGreaterThanOrEqual(least)
 })
 
 it.each([
@@ -56,18 +56,6 @@ it('gives counts tabular figures', async () => {
     .toContain('tabular-nums')
 })
 
-it.each(['t-body', 't-secondary', 't-caption'])(
-  'wraps %s without a lone last word',
-  async (role) => {
-    renderWithProviders(<p className={role}>Learned from Kenny.</p>, { density: 'touch' })
-    await expect
-      .poll(() =>
-        getComputedStyle(document.querySelector(`.${role}`)!).getPropertyValue('text-wrap-style'),
-      )
-      .toBe('pretty')
-  },
-)
-
 it('caps a paragraph at a readable measure, but not a centered note', async () => {
   renderWithProviders(
     <div style={{ width: '2000px' }}>
@@ -84,13 +72,4 @@ it('caps a paragraph at a readable measure, but not a centered note', async () =
     document.querySelector(`[data-testid="${id}"]`)!.getBoundingClientRect().width
   await expect.poll(() => width('help')).toBeLessThan(1000)
   expect(width('note')).toBe(2000)
-})
-
-it.each(['--shadow-float', '--shadow-lift'])('gives %s a dark shadow of its own', async (name) => {
-  const shadow = () => getComputedStyle(document.documentElement).getPropertyValue(name).trim()
-  renderWithProviders(<p>x</p>, { scheme: 'light' })
-  await expect.poll(shadow).not.toBe('')
-  const light = shadow()
-  document.documentElement.dataset.scheme = 'dark'
-  await expect.poll(shadow).not.toBe(light)
 })

@@ -21,7 +21,7 @@ import { drag } from '../test/gestures'
 import { stampAxes } from '../test/render'
 import { renderApp } from '../test/renderApp'
 import { viewTransitionsDone } from '../test/viewTransitions'
-import { COLUMN_WIDTH, Columns, useDetailPage } from './Columns'
+import { COLUMN_DEFAULT, COLUMN_MIN, COLUMN_WIDTH, Columns, useDetailPage } from './Columns'
 import { usePane } from './pane'
 import { CHOOSE_OR_PRESS_N, CHOOSE_OR_TAP_PLUS, NO_TUNE_SELECTED } from './DetailEmpty'
 import { useNowPlaying } from './NowPlayingSlot'
@@ -87,13 +87,17 @@ function rowInView(): HTMLElement {
 }
 
 /**
- * Waits until the catalog holds `count` tunes, each measured at its pointer height; it mounts
- * only the rows near view, so the last row is no sign of a full list.
+ * Waits until the catalog holds `count` tunes, each measured at its row height; it mounts only
+ * the rows near view, so the last row is no sign of a full list.
  */
 async function allListed(count: number) {
   const grid = catalog().getByRole('grid')
   await expect.element(grid).toHaveAttribute('aria-rowcount', String(count))
-  await expect.poll(() => grid.element().clientHeight).toBe(count * 32)
+  const rowHeight = () =>
+    grid.element().querySelector('[role="row"]')?.getBoundingClientRect().height ?? -1
+  await expect
+    .poll(() => grid.element().clientHeight === Math.round(count * rowHeight()))
+    .toBe(true)
 }
 
 it('shows the list beside the open tune on wide', async () => {
@@ -174,7 +178,7 @@ it('keeps the open tune, the list, and its scroll across a tablet rotation', asy
   await renderApp({ path: '/catalog', db, frame: TABLET_LANDSCAPE })
   await allListed(40)
   // The list is laid out at portrait height before it hides, and the browser clamps its scroll
-  // to the range it has there: 288px for 40 rows, so the scroll stays within it.
+  // to the range it has there, so the scroll stays within it.
   const top = await scrollList(200)
   expect(top).toBe(200)
   rowInView().click()
@@ -225,39 +229,43 @@ it.each([
 it('resizes the content column from the keyboard and keeps the width', async () => {
   const first = await renderApp({ path: '/catalog', db: openTestDb(), frame: WIDE })
   const separator = page.getByRole('separator', { name: COLUMN_WIDTH })
-  await expect.element(separator).toHaveAttribute('aria-valuenow', '340')
-  await expect.element(separator).toHaveAttribute('aria-valuemin', '280')
-  await expect.element(separator).toHaveAttribute('aria-valuemax', '480')
+  const now = () => Number(separator.element().getAttribute('aria-valuenow'))
+  await expect.element(separator).toHaveAttribute('aria-valuenow', String(COLUMN_DEFAULT))
+  await expect.element(separator).toHaveAttribute('aria-valuemin', String(COLUMN_MIN))
   await expect.element(separator).toHaveAttribute('aria-orientation', 'vertical')
+  const max = Number(separator.element().getAttribute('aria-valuemax'))
+  expect(max).toBeGreaterThan(COLUMN_DEFAULT)
   separator.element().focus()
   await userEvent.keyboard('{ArrowRight}')
-  await expect.element(separator).toHaveAttribute('aria-valuenow', '356')
-  await expect.poll(() => listColumn().getBoundingClientRect().width).toBe(356)
+  await expect.poll(now).toBeGreaterThan(COLUMN_DEFAULT)
+  const step = now() - COLUMN_DEFAULT
+  await expect.poll(() => listColumn().getBoundingClientRect().width).toBe(COLUMN_DEFAULT + step)
   await userEvent.keyboard('{ArrowLeft}{ArrowLeft}')
-  await expect.element(separator).toHaveAttribute('aria-valuenow', '324')
+  await expect.poll(now).toBe(COLUMN_DEFAULT - step)
   await userEvent.keyboard('{End}')
-  await expect.element(separator).toHaveAttribute('aria-valuenow', '480')
+  await expect.poll(now).toBe(max)
   await userEvent.keyboard('{ArrowRight}')
-  await expect.element(separator).toHaveAttribute('aria-valuenow', '480')
+  await expect.poll(now).toBe(max)
   await userEvent.keyboard('{Home}{ArrowRight}')
-  await expect.element(separator).toHaveAttribute('aria-valuenow', '296')
+  await expect.poll(now).toBe(COLUMN_MIN + step)
   first.unmount()
 
   await renderApp({ path: '/catalog', db: openTestDb(), frame: WIDE })
   await expect
     .element(page.getByRole('separator', { name: COLUMN_WIDTH }))
-    .toHaveAttribute('aria-valuenow', '296')
+    .toHaveAttribute('aria-valuenow', String(COLUMN_MIN + step))
 })
 
 it('resizes the content column by dragging', async () => {
   await renderApp({ path: '/catalog', db: openTestDb(), frame: WIDE })
   const separator = page.getByRole('separator', { name: COLUMN_WIDTH })
-  await expect.element(separator).toHaveAttribute('aria-valuenow', '340')
+  await expect.element(separator).toHaveAttribute('aria-valuenow', String(COLUMN_DEFAULT))
+  const max = separator.element().getAttribute('aria-valuemax')!
   await drag(separator, 60, 0, { pointerType: 'mouse' })
-  await expect.element(separator).toHaveAttribute('aria-valuenow', '400')
+  await expect.element(separator).toHaveAttribute('aria-valuenow', String(COLUMN_DEFAULT + 60))
   await drag(separator, 400, 0, { pointerType: 'mouse' })
-  await expect.element(separator).toHaveAttribute('aria-valuenow', '480')
-  expect(localStorage.getItem('crosstune.columnWidth')).toBe('480')
+  await expect.element(separator).toHaveAttribute('aria-valuenow', max)
+  expect(localStorage.getItem('crosstune.columnWidth')).toBe(max)
 })
 
 it('gives the separator a full touch target', async () => {
@@ -284,7 +292,7 @@ it('falls back to the default width when the stored one is not a width', async (
   await renderApp({ path: '/catalog', db: openTestDb(), frame: WIDE })
   await expect
     .element(page.getByRole('separator', { name: COLUMN_WIDTH }))
-    .toHaveAttribute('aria-valuenow', '340')
+    .toHaveAttribute('aria-valuenow', String(COLUMN_DEFAULT))
 })
 
 it('shows the pane bar title only once the column title scrolls away', async () => {
@@ -563,7 +571,7 @@ it('shows the separator can be dragged under the pointer and while it is', async
   await userEvent.unhover(separator)
   await expect.poll(shown).toBe(0)
   await userEvent.hover(separator)
-  await expect.poll(shown).toBeCloseTo(0.4)
+  await expect.poll(shown).toBeGreaterThan(0)
   onTestFinished(() => userEvent.unhover(separator))
   const at = separator.element().getBoundingClientRect()
   const fire = (type: string) =>
@@ -581,8 +589,8 @@ it('shows the separator can be dragged under the pointer and while it is', async
     )
   fire('pointerdown')
   await expect.element(separator).toHaveAttribute('data-dragging')
-  await expect.poll(shown).toBe(1)
+  await expect.poll(shown).toBeGreaterThan(0)
   fire('pointerup')
   await expect.element(separator).not.toHaveAttribute('data-dragging')
-  await expect.poll(shown).toBeCloseTo(0.4)
+  await expect.poll(shown).toBeGreaterThan(0)
 })

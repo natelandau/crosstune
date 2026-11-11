@@ -73,7 +73,7 @@ it('a tune with no key offers Add key', async () => {
   const tile = page.getByRole('button', { name: KEY_TILE_EMPTY })
   await expect.element(tile).toBeVisible()
   await tile.click()
-  await expect.element(page.getByRole('dialog', { name: 'Key' })).toBeVisible()
+  await expect.element(page.getByRole('dialog', { name: KEY })).toBeVisible()
 })
 
 it('renaming saves on Enter', async () => {

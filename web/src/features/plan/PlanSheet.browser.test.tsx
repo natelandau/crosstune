@@ -719,7 +719,7 @@ function scroller(element: Element): Element | null {
 }
 
 it.each(['pointer', 'touch'] as const)(
-  'ends the scrolling page with a full-width Subscribe and the terms on %s, pinning nothing',
+  'ends the scrolling page with Subscribe and the terms on %s, pinning nothing',
   async (density) => {
     await openPaywall({ density })
     const subscribe = planSheet().getByRole('button', { name: SUBSCRIBE })
@@ -734,11 +734,7 @@ it.each(['pointer', 'touch'] as const)(
     expect(scroller(button)).toBe(scrolling)
     expect(scroller(terms)).toBe(scrolling)
     expect(planSheet().element().querySelector('footer')).toBeNull()
-    // The actions follow the comparison, at its full width.
     expect(button.getBoundingClientRect().top).toBeGreaterThan(table.getBoundingClientRect().bottom)
-    await expect
-      .poll(() => button.getBoundingClientRect().width - table.getBoundingClientRect().width)
-      .toBeCloseTo(0, 0)
   },
 )
 

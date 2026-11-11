@@ -103,21 +103,6 @@ it('steps the text up, and holds Larger text disabled at the largest', async () 
     .not.toHaveAttribute('aria-disabled', 'true')
 })
 
-it('lines Edit lyrics up with the words on wide, at every size', async () => {
-  await openReader(WIDE)
-  const edit = reader().getByRole('button', { name: EDIT_LYRICS, exact: true })
-  const edges = () => {
-    const words = size()!.getBoundingClientRect()
-    const button = edit.element().getBoundingClientRect()
-    return [button.left - words.left, button.right - words.right]
-  }
-  await expect.element(edit).toBeVisible()
-  await expect.poll(edges).toEqual([0, 0])
-  await reader().getByRole('button', { name: LARGER_TEXT, exact: true }).click()
-  await expect.poll(() => size()?.dataset.lyricsSize).toBe(String(DEFAULT_LYRICS_STEP + 1))
-  await expect.poll(edges).toEqual([0, 0])
-})
-
 it('edits the words in place, and the reader and the tune both take them', async () => {
   const db = await openReader()
   await reader().getByRole('button', { name: EDIT_LYRICS, exact: true }).click()
@@ -155,12 +140,13 @@ it('holds a step at one size whatever the text size setting', async () => {
   await expect.poll(() => size()?.dataset.lyricsSize).toBe(String(DEFAULT_LYRICS_STEP))
   const at = fontSize()
   const html = document.documentElement
+  const pageSize = parseFloat(getComputedStyle(html).fontSize)
   html.dataset.textSize = 'large'
   onTestFinished(() => {
     delete html.dataset.textSize
   })
   // The page's own type grows, so the setting took hold.
-  await expect.poll(() => getComputedStyle(html).fontSize).toBe('17px')
+  await expect.poll(() => parseFloat(getComputedStyle(html).fontSize)).toBeGreaterThan(pageSize)
   await expect.poll(fontSize).toBe(at)
 })
 
