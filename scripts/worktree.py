@@ -298,11 +298,16 @@ def remove(
     git = Git(main)
     if not git.succeeds("fetch", "--quiet", "origin", "main"):
         print("could not fetch origin; checking the merge against the last fetch", file=sys.stderr)
-    tip = git.output("rev-parse", branch)
-    if is_merged(git=git, branch=branch, tip=tip, pull_request_heads=pull_request_heads):
-        git.run("branch", "-D", branch)
-    else:
-        print(f"kept branch {branch}: neither main nor origin/main holds its work", file=sys.stderr)
+    # A detached worktree, such as the screenshot base, has no branch to delete.
+    if git.succeeds("show-ref", "--verify", "--quiet", f"refs/heads/{branch}"):
+        tip = git.output("rev-parse", branch)
+        if is_merged(git=git, branch=branch, tip=tip, pull_request_heads=pull_request_heads):
+            git.run("branch", "-D", branch)
+        else:
+            print(
+                f"kept branch {branch}: neither main nor origin/main holds its work",
+                file=sys.stderr,
+            )
     for recipe in (
         "api::prune-worktree-dbs",
         "apple::prune",

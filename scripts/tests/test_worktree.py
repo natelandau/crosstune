@@ -133,6 +133,17 @@ def test_remove_keeps_an_unmerged_branch(main, capfd):
     assert len(just.calls) == 2
 
 
+def test_remove_finishes_a_detached_worktree(main):
+    path = main / ".worktrees" / "shots-base"
+    git(main, "worktree", "add", "-q", "--detach", str(path), "main")
+
+    status, just = remove(main, "shots-base")
+
+    assert status == 0
+    assert not path.exists()
+    assert len(just.calls) == 2
+
+
 def test_remove_trusts_a_merged_pull_request_whose_head_is_the_tip(main):
     path = add_worktree(main, "feat")
     tip = git(path, "rev-parse", "HEAD")
