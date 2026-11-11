@@ -40,6 +40,13 @@ public struct PlayerBar: View {
         return PlaylistControlText.subtitle(listName: name, position: playback.position, count: playback.count)
     }
 
+    /// The line under the title: where a playing list is, an album's track, a link's artist, or
+    /// the tune a recording belongs to unless the recording already takes the tune's name.
+    static func detailLine(_ player: PlayerModel, _ playback: ListPlayback?) -> String? {
+        playlistSubtitle(playback) ?? subtitle(player) ?? player.music?.artistName
+            ?? player.item.flatMap { $0.tuneTitle == $0.title ? nil : $0.tuneTitle }
+    }
+
     /// The bar's title: the tune a playing list is on, otherwise the loaded item's name.
     static func title(_ player: PlayerModel, _ playback: ListPlayback?) -> String {
         if let playback, playback.isActive, let title = playback.title { return title }
@@ -78,7 +85,7 @@ public struct PlayerBar: View {
         let badge =
             player.item?.kind == .recording
             ? RecordingScreenText.badgeLabel(speedPercent: player.speedPercent, pitchCents: player.pitchCents) : nil
-        return [show, title(player, playback), playlistSubtitle(playback) ?? subtitle(player), badge, player.failure]
+        return [show, title(player, playback), detailLine(player, playback), badge, player.failure]
             .compactMap(\.self)
             .joined(separator: ", ")
     }
@@ -126,8 +133,7 @@ public struct PlayerBar: View {
                 RecordingPlayButton(player: player, onNext: nextTune)
                     .dynamicTypeSize(...DynamicTypeSize.large)
             } else if let nextTune {
-                TransportTrackButton(.next, size: .inline, action: nextTune)
-                    .dynamicTypeSize(...DynamicTypeSize.large)
+                Transport(isPlaying: false, size: .inline, sides: .hidden, onPlayPause: nil, onNext: nextTune)
             }
             if !Self.canExpand(player) {
                 itemLabel(glyph: glyph)
@@ -188,8 +194,8 @@ public struct PlayerBar: View {
                     .contentMask()
                     .font(.subheadline.weight(.medium))
                     .lineLimit(1)
-                if let subtitle = Self.playlistSubtitle(playback) ?? Self.subtitle(player) {
-                    Text(subtitle)
+                if let detail = Self.detailLine(player, playback) {
+                    Text(detail)
                         .contentMask()
                         .font(.caption)
                         .foregroundStyle(.textSecondary)

@@ -92,6 +92,8 @@ package struct Transport: View {
     fileprivate var forwardLabel: String { skips ? Self.forwardName : Self.endName }
     fileprivate var backGlyph: String { skips ? "gobackward.15" : Self.startGlyph }
     fileprivate var forwardGlyph: String { skips ? "goforward.15" : Self.endGlyph }
+    fileprivate static let previousGlyph = "backward.end.fill"
+    fileprivate static let nextGlyph = "forward.end.fill"
     fileprivate var playLabel: String { isPlaying ? Self.pauseName : pausedPlayName }
     fileprivate var playGlyph: String { isPlaying ? "pause.fill" : pausedPlayGlyph }
 
@@ -115,37 +117,6 @@ package struct Transport: View {
             }
         }
     #endif
-}
-
-/// Previous or next track in a transport's side look, for a bar that shows a track button with
-/// no transport beside it.
-package struct TransportTrackButton: View {
-    package enum Direction { case previous, next }
-
-    private let direction: Direction
-    private let size: Transport.Size
-    private let name: String
-    private let action: () -> Void
-
-    package init(_ direction: Direction, size: Transport.Size, name: String? = nil, action: @escaping () -> Void) {
-        self.direction = direction
-        self.size = size
-        self.name = name ?? (direction == .previous ? Transport.previousName : Transport.nextName)
-        self.action = action
-    }
-
-    fileprivate static func glyph(_ direction: Direction) -> String {
-        direction == .previous ? "backward.end.fill" : "forward.end.fill"
-    }
-
-    package var body: some View {
-        let side = TransportSide(label: name, glyph: Self.glyph(direction), action: action)
-        #if os(macOS)
-            MacTransportSide(side: side, size: size)
-        #else
-            PhoneTransportSide(side: side, size: size)
-        #endif
-    }
 }
 
 /// A side or track button for a platform to draw.
@@ -176,7 +147,7 @@ private struct TransportRow<Side: View, Play: View>: View {
             if let onPrevious = transport.onPrevious {
                 side(
                     TransportSide(
-                        label: transport.previousName, glyph: TransportTrackButton.glyph(.previous),
+                        label: transport.previousName, glyph: Transport.previousGlyph,
                         isEnabled: transport.canGoPrevious, action: onPrevious))
             }
             if transport.hasSides {
@@ -208,7 +179,7 @@ private struct TransportRow<Side: View, Play: View>: View {
             if let onNext = transport.onNext {
                 side(
                     TransportSide(
-                        label: transport.nextName, glyph: TransportTrackButton.glyph(.next),
+                        label: transport.nextName, glyph: Transport.nextGlyph,
                         isEnabled: transport.canGoNext, action: onNext))
             }
         }
@@ -371,37 +342,26 @@ private struct SkipTurn: ViewModifier {
             }
         }
 
-        @ViewBuilder private func playButton(_ onPlayPause: @escaping () -> Void) -> some View {
-            if isFeature {
-                Button(action: onPlayPause) {
-                    Label(transport.playLabel, systemImage: transport.playGlyph)
-                        .labelStyle(.iconOnly)
-                        .font(.system(size: 30, weight: .semibold))
-                        .contentTransition(.symbolEffect(.replace))
-                        // The play glyph sits optically left of center in its box.
-                        .offset(x: transport.playGlyph == Transport.defaultPlayGlyph ? 1.5 : 0)
-                        .foregroundStyle(transport.canPlay ? Palette.onAccentFill : Palette.onDisabled)
-                        .frame(width: ControlMetrics.featureDiameter, height: ControlMetrics.featureDiameter)
-                        .background(transport.canPlay ? Palette.accentFill : .clear, in: .circle)
-                        .disabledCapsuleRing(!transport.canPlay)
-                        .contentShape(.circle)
-                }
-                .buttonStyle(TransportButtonStyle(kind: .disc))
-                .disabled(!transport.canPlay)
-                .accessibilityShowsLargeContentViewer()
-            } else {
-                Button(action: onPlayPause) {
-                    Label(transport.playLabel, systemImage: transport.playGlyph)
-                        .labelStyle(.iconOnly)
-                        .font(.system(size: 28))
-                        .contentTransition(.symbolEffect(.replace))
-                        .frame(width: target, height: target)
-                }
-                .buttonStyle(TransportButtonStyle(kind: .side))
-                .foregroundStyle(transport.canPlay ? Palette.accent : Palette.onDisabled)
-                .disabled(!transport.canPlay)
-                .accessibilityShowsLargeContentViewer()
+        private func playButton(_ onPlayPause: @escaping () -> Void) -> some View {
+            let diameter = isFeature ? ControlMetrics.featureDiameter : ControlMetrics.inlinePlayDiameter
+            return Button(action: onPlayPause) {
+                Label(transport.playLabel, systemImage: transport.playGlyph)
+                    .labelStyle(.iconOnly)
+                    .font(.system(size: isFeature ? 30 : 14, weight: .semibold))
+                    .contentTransition(.symbolEffect(.replace))
+                    // The play glyph sits optically left of center in its box.
+                    .offset(x: transport.playGlyph == Transport.defaultPlayGlyph ? (isFeature ? 1.5 : 1) : 0)
+                    .foregroundStyle(transport.canPlay ? Palette.onAccentFill : Palette.onDisabled)
+                    .frame(width: diameter, height: diameter)
+                    .background(transport.canPlay ? Palette.accentFill : .clear, in: .circle)
+                    .disabledCapsuleRing(!transport.canPlay)
+                    // A small disc still takes a full touch target.
+                    .frame(width: max(diameter, target), height: max(diameter, target))
+                    .contentShape(.circle)
             }
+            .buttonStyle(TransportButtonStyle(kind: .disc))
+            .disabled(!transport.canPlay)
+            .accessibilityShowsLargeContentViewer()
         }
     }
 

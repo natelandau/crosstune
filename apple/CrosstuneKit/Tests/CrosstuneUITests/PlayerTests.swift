@@ -593,6 +593,19 @@ private final class QuietTrackCommands: TrackCommands {
         playback.end()
     }
 
+    /// The Mac dock and the iPhone and iPad bar show the same line under the title.
+    @Test func showsARecordingsTuneUnderItsNameUntilAListPlays() {
+        let player = PlayerModel()
+        let playback = playback(player)
+        player.play(PlayerItem(kind: .recording, id: "r1", title: "Jam at Mike's", tuneTitle: "Kitchen Girl"))
+        #expect(PlayerBar.detailLine(player, playback) == "Kitchen Girl")
+        playback.start(listID: "l1", name: "Session set", tuneIDs: ["a", "b"], shuffled: false)
+        #expect(PlayerBar.detailLine(player, playback) == "Session set \u{B7} 1 of 2")
+        playback.end()
+        player.play(PlayerItem(kind: .recording, id: "r2", title: "Kitchen Girl", tuneTitle: "Kitchen Girl"))
+        #expect(PlayerBar.detailLine(player, playback) == nil)
+    }
+
     @Test func dropsTheMessageWhenSomethingElsePlays() async throws {
         let player = PlayerModel()
         let playback = playback(player)

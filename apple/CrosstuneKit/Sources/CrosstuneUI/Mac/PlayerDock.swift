@@ -190,20 +190,14 @@ import CrosstuneDesign
                         .font(MacStyle.secondary)
                         .foregroundStyle(Palette.danger)
                         .lineLimit(1)
-                } else if let subtitle {
-                    Text(subtitle)
+                } else if let detail = PlayerBar.detailLine(player, playback) {
+                    Text(detail)
                         .font(MacStyle.secondary)
                         .foregroundStyle(.textSecondary)
                         .lineLimit(1)
                 }
             }
             .padding(.leading, 4)
-        }
-
-        /// Where a playing list is, an album's track, the artist, or a recording's tune.
-        private var subtitle: String? {
-            PlayerBar.playlistSubtitle(playback) ?? PlayerBar.subtitle(player) ?? player.music?.artistName
-                ?? player.item?.tuneTitle
         }
 
         @ViewBuilder private var recordingBody: some View {

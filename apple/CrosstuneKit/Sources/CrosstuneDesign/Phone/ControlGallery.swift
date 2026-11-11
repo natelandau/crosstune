@@ -343,11 +343,11 @@
                     .frame(maxWidth: .infinity)
                 }
                 GalleryItem(heading: "Track buttons around a loading play") {
-                    HStack {
-                        TransportTrackButton(.previous, size: .inline) {}
-                        ProgressView()
-                        TransportTrackButton(.next, size: .inline) {}
-                    }
+                    Transport(
+                        isPlaying: false, size: .inline, sides: .hidden, onPlayPause: nil, onPrevious: {},
+                        onNext: {}
+                    )
+                    .playPlaceholder { ProgressView() }
                     .frame(maxWidth: .infinity)
                 }
                 GalleryItem(heading: "Transport, inline, play only") {
