@@ -130,17 +130,37 @@ private struct TransportSide {
     let action: () -> Void
 }
 
+/// How many times each skip arrow has turned. Each platform's transport holds it, so a key
+/// press it handles turns the arrow as a tap does.
+private struct SkipTurns {
+    var back = 0
+    var forward = 0
+}
+
+extension Transport {
+    /// Skips back, turning the arrow unless Reduce Motion is on.
+    fileprivate func skipBack(_ turns: inout SkipTurns, reduceMotion: Bool) {
+        if !reduceMotion, skips { turns.back += 1 }
+        onBack()
+    }
+
+    /// Skips forward, turning the arrow unless Reduce Motion is on.
+    fileprivate func skipForward(_ turns: inout SkipTurns, reduceMotion: Bool) {
+        if !reduceMotion, skips { turns.forward += 1 }
+        onForward()
+    }
+}
+
 /// Previous track, back, play, forward, and next track in that order, each only where the
 /// transport offers it. Each platform draws the side buttons and play.
 private struct TransportRow<Side: View, Play: View>: View {
     let transport: Transport
     let spacing: CGFloat
+    @Binding var turns: SkipTurns
     @ViewBuilder let side: (TransportSide) -> Side
     @ViewBuilder let play: (_ onPlayPause: @escaping () -> Void) -> Play
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var backTurns = 0
-    @State private var forwardTurns = 0
 
     var body: some View {
         HStack(spacing: spacing) {
@@ -154,11 +174,8 @@ private struct TransportRow<Side: View, Play: View>: View {
                 side(
                     TransportSide(
                         label: transport.backLabel, glyph: transport.backGlyph, isEnabled: transport.canGoBack,
-                        turns: transport.skips ? backTurns : nil, clockwise: false
-                    ) {
-                        if !reduceMotion, transport.skips { backTurns += 1 }
-                        transport.onBack()
-                    })
+                        turns: transport.skips ? turns.back : nil, clockwise: false
+                    ) { transport.skipBack(&turns, reduceMotion: reduceMotion) })
             }
             if let onPlayPause = transport.onPlayPause {
                 play(onPlayPause)
@@ -169,12 +186,9 @@ private struct TransportRow<Side: View, Play: View>: View {
                 side(
                     TransportSide(
                         label: transport.forwardLabel, glyph: transport.forwardGlyph,
-                        isEnabled: transport.canGoForward, turns: transport.skips ? forwardTurns : nil,
+                        isEnabled: transport.canGoForward, turns: transport.skips ? turns.forward : nil,
                         clockwise: true
-                    ) {
-                        if !reduceMotion, transport.skips { forwardTurns += 1 }
-                        transport.onForward()
-                    })
+                    ) { transport.skipForward(&turns, reduceMotion: reduceMotion) })
             }
             if let onNext = transport.onNext {
                 side(
@@ -205,9 +219,11 @@ private struct SkipTurn: ViewModifier {
     private struct MacTransport: View {
         let transport: Transport
 
+        @State private var turns = SkipTurns()
+
         var body: some View {
             let metrics = Transport.macMetrics(transport.size)
-            TransportRow(transport: transport, spacing: metrics.spacing) { side in
+            TransportRow(transport: transport, spacing: metrics.spacing, turns: $turns) { side in
                 MacTransportSide(side: side, size: transport.size)
             } play: { onPlayPause in
                 Button(action: onPlayPause) {
@@ -311,13 +327,15 @@ private struct SkipTurn: ViewModifier {
     private struct PhoneTransport: View {
         let transport: Transport
 
+        @Environment(\.accessibilityReduceMotion) private var reduceMotion
         @FocusState private var containerFocused: Bool
+        @State private var turns = SkipTurns()
 
         private var isFeature: Bool { transport.size == .feature }
         private var target: CGFloat { isFeature ? 56 : minimumTapTarget }
 
         var body: some View {
-            TransportRow(transport: transport, spacing: isFeature ? 20 : 12) { side in
+            TransportRow(transport: transport, spacing: isFeature ? 20 : 12, turns: $turns) { side in
                 PhoneTransportSide(side: side, size: transport.size)
             } play: { onPlayPause in
                 playButton(onPlayPause)
@@ -332,12 +350,12 @@ private struct SkipTurn: ViewModifier {
             )
             .onKeyPress(.leftArrow) {
                 guard containerFocused, transport.hasSides, transport.canGoBack else { return .ignored }
-                transport.onBack()
+                transport.skipBack(&turns, reduceMotion: reduceMotion)
                 return .handled
             }
             .onKeyPress(.rightArrow) {
                 guard containerFocused, transport.hasSides, transport.canGoForward else { return .ignored }
-                transport.onForward()
+                transport.skipForward(&turns, reduceMotion: reduceMotion)
                 return .handled
             }
         }
