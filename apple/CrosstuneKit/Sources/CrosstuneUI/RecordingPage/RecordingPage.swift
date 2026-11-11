@@ -222,16 +222,6 @@ private struct RecordingPageBody: View {
             #if DEBUG
                 .modifier(opensEditorsForSample)
             #endif
-            .coversShell(model.deleting != nil)
-            .confirmationDialog(
-                RecordingsModel.deleteTitle, item: $model.deleting, titleVisibility: .visible
-            ) { view in
-                Button(RecordingRowActions.delete, role: .destructive) {
-                    model.delete(view, commands: commands, player: player)
-                }
-            } message: { view in
-                Text(RecordingsModel.deleteMessage(view))
-            }
     }
 
     @ViewBuilder private func arranged(_ layout: RecordingPageLayout) -> some View {
@@ -356,6 +346,7 @@ private struct RecordingPageBody: View {
             rows.recording, file: rows.file, audio: audio, offline: session?.isOffline == true)
     }
 
+    /// The page's menu, which also asks before deleting the recording, so the question points at it.
     private var menu: some View {
         RecordingPageMenu(
             rows: rows, goesToTune: goToTune != nil, trimDisabledReason: trimDisabledReason,
@@ -363,6 +354,16 @@ private struct RecordingPageBody: View {
         ) { item in
             model.trimNotice = nil
             choose(item)
+        }
+        .coversShell(model.deleting != nil)
+        .confirmationDialog(
+            RecordingsModel.deleteTitle, item: $model.deleting, titleVisibility: .visible
+        ) { view in
+            Button(RecordingRowActions.delete, role: .destructive) {
+                model.delete(view, commands: commands, player: player)
+            }
+        } message: { view in
+            Text(RecordingsModel.deleteMessage(view))
         }
     }
 

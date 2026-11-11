@@ -70,6 +70,7 @@ public struct ListsScreen: View {
                     onEdit: { listSheets?.name(.rename(listID: summary.id, name: summary.name)) },
                     onDelete: { deleting = summary }
                 )
+                .confirmsListDelete($deleting.matching(summary.id))
                 .playingRowBackground(isPlaying: isPlaying)
             }
         }
@@ -108,7 +109,6 @@ public struct ListsScreen: View {
             #endif
         }
         .modifier(RefreshesBySync(engine: engine))
-        .confirmsListDelete($deleting)
         .task(id: store.map(ObjectIdentifier.init)) {
             guard let store else { return }
             self.lists = LiveQuery(store, initial: nil) { db in try ListSummary.fetchAll(db) }

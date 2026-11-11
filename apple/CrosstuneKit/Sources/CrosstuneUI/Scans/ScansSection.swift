@@ -156,9 +156,9 @@ struct ScanStrip: View {
 /// A row per scan to reorder and delete, in edit mode. Scans the plan does not open only delete.
 struct ScanEditRows: View {
     let model: ScansModel
-    @Binding var deleting: Scan?
 
     @Environment(\.spacing) private var spacing
+    @State private var deleting: Scan?
 
     var body: some View {
         let scans = model.scans
@@ -202,6 +202,18 @@ struct ScanEditRows: View {
             if count > 1 && layout.showsReorder {
                 moveMenu(scan, index: index)
             }
+        }
+        .coversShell(deleting?.id == scan.id)
+        .confirmationDialog(
+            ScanCopy.deleteTitle,
+            isPresented: $deleting.matching(scan.id).isPresent(),
+            titleVisibility: .visible
+        ) {
+            Button(ScanCopy.delete, role: .destructive) {
+                Task { await model.delete(scan.id) }
+            }
+        } message: {
+            Text(ScanCopy.deleteMessage(scan))
         }
     }
 

@@ -50,6 +50,7 @@ public struct RecordSheet: View {
                             if model.isLive || model.phase == .saving {
                                 Button(RecordSheetModel.cancel) { Task { await model.cancel() } }
                                     .disabled(!model.isLive)
+                                    .modifier(AsksDiscard(model: model))
                             } else {
                                 Button(RecordSheetModel.done) { model.finish() }
                             }
@@ -94,8 +95,8 @@ public struct RecordSheet: View {
     #endif
 }
 
-/// What the sheet does around its recording on both platforms: the discard question, the claim on
-/// the recorder, and closing once the recording has an outcome.
+/// What the sheet does around its recording on both platforms: the discard question on the Mac,
+/// the claim on the recorder, and closing once the recording has an outcome.
 private struct RecordSheetLifecycle: ViewModifier {
     let model: RecordSheetModel
     let claim: @MainActor () -> Bool
@@ -105,13 +106,9 @@ private struct RecordSheetLifecycle: ViewModifier {
     func body(content: Content) -> some View {
         content
             .interactiveDismissDisabled(model.blocksSwipeDismiss)
-            .confirmationDialog(
-                RecordSheetModel.discardTitle, isPresented: Bindable(model).confirmsDiscard, titleVisibility: .visible
-            ) {
-                Button(RecordSheetModel.discard, role: .destructive) { Task { await model.discard() } }
-            } message: {
-                Text(RecordSheetModel.discardMessage)
-            }
+            #if os(macOS)
+                .modifier(AsksDiscard(model: model))
+            #endif
             .task { await model.open(claim: claim) }
             .onChange(of: model.recorder.savedRecordingID) { model.settle() }
             .onChange(of: model.outcome) {
@@ -122,6 +119,22 @@ private struct RecordSheetLifecycle: ViewModifier {
                 Task { await model.abandon() }
             }
             .shellSheet()
+    }
+}
+
+/// Asks before throwing the recording away. On iOS it sits on Cancel, so the question points at it.
+private struct AsksDiscard: ViewModifier {
+    let model: RecordSheetModel
+
+    func body(content: Content) -> some View {
+        content
+            .confirmationDialog(
+                RecordSheetModel.discardTitle, isPresented: Bindable(model).confirmsDiscard, titleVisibility: .visible
+            ) {
+                Button(RecordSheetModel.discard, role: .destructive) { Task { await model.discard() } }
+            } message: {
+                Text(RecordSheetModel.discardMessage)
+            }
     }
 }
 

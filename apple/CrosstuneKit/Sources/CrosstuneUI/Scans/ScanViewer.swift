@@ -197,7 +197,6 @@ private struct ScanViewerBody: View {
     @AppStorage(ScanViewer.invertStorageKey) private var invert = false
     @State private var shown: String?
     @State private var scale = ScanZoom.fit
-    @State private var deleting: Scan?
     /// The side safe areas the pager runs under, given back to each page as padding.
     @State private var sideInsets = EdgeInsets()
 
@@ -241,7 +240,7 @@ private struct ScanViewerBody: View {
                         isNear: abs(index - shownIndex) <= 1,
                         scale: scan.id == shown ? $scale : .constant(ScanZoom.fit),
                         onBroken: { model.reportBroken(scan.id) },
-                        onDelete: { deleting = scan }
+                        onDelete: { Task { await model.delete(scan.id) } }
                     )
                     #if os(macOS)
                         // The page sits on the scan background with room for its shadow and the edge buttons.
@@ -300,18 +299,6 @@ private struct ScanViewerBody: View {
     var body: some View {
         content
             .modifier(KeepsScreenAwake())
-            .coversShell(deleting != nil)
-            .confirmationDialog(
-                ScanCopy.deleteTitle,
-                isPresented: $deleting.isPresent(),
-                titleVisibility: .visible, presenting: deleting
-            ) { scan in
-                Button(ScanCopy.delete, role: .destructive) {
-                    Task { await model.delete(scan.id) }
-                }
-            } message: { scan in
-                Text(ScanCopy.deleteMessage(scan))
-            }
     }
 
     #if os(macOS)
@@ -406,7 +393,8 @@ private struct ScanViewerBody: View {
 
 /// One scan at full size: fitted to its container, zoomed by a pinch or a double tap, and panned
 /// while zoomed. A scan whose file has not arrived shows its placeholder; one that will not
-/// decode says so, and offers Delete where there is `onDelete`.
+/// decode says so, and offers Delete where there is `onDelete`, which runs once the person
+/// confirms.
 struct ScanSlide: View {
     let scan: Scan
     let index: Int
@@ -423,6 +411,7 @@ struct ScanSlide: View {
     @State private var decoded: (key: String, image: CGImage?)?
     @State private var pinchStart: CGFloat?
     @State private var offset: CGSize = .zero
+    @State private var asksDelete = false
     @State private var dragStart: CGSize?
     @State private var size: CGSize = .zero
 
@@ -541,9 +530,15 @@ struct ScanSlide: View {
                 .font(.platform(.headline))
                 .foregroundStyle(invert ? Color.white : Palette.textPrimary)
             if let onDelete {
-                Button(ScanCopy.delete, role: .destructive, action: onDelete)
+                Button(ScanCopy.delete, role: .destructive) { asksDelete = true }
                     .buttonStyle(.tinted)
                     .accessibilityLabel(ScanCopy.deleteScan(index))
+                    .coversShell(asksDelete)
+                    .confirmationDialog(ScanCopy.deleteTitle, isPresented: $asksDelete, titleVisibility: .visible) {
+                        Button(ScanCopy.delete, role: .destructive, action: onDelete)
+                    } message: {
+                        Text(ScanCopy.deleteMessage(scan))
+                    }
             }
         }
         .padding(32)

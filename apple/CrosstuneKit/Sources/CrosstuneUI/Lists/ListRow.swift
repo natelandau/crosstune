@@ -66,7 +66,8 @@ extension View {
     }
 
     /// Asks before deleting `list`, naming what stays, then deletes it. A failed delete shows in
-    /// an alert, since the row that asked has no line of its own to show it on.
+    /// an alert, since the row that asked has no line of its own to show it on. On a row, pass
+    /// `list` narrowed to that row, so the question points at it.
     func confirmsListDelete(_ list: Binding<ListSummary?>) -> some View {
         modifier(ConfirmsListDelete(list: list))
     }

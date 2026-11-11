@@ -183,18 +183,9 @@ private struct SelectionMode: ViewModifier {
                     }
                 }
             }
-            .coversShell(deleting != nil)
-            .confirmationDialog(
-                deleting?.title ?? "", isPresented: isDeleting, titleVisibility: .visible, presenting: deleting
-            ) { question in
-                Button(DeleteTuneMessage.delete, role: .destructive) {
-                    Task {
-                        if await bulk?.delete(question) == true { selection.exit() }
-                    }
-                }
-            } message: { question in
-                Text(question.message)
-            }
+            #if os(macOS)
+                .modifier(confirmsBulkDelete)
+            #endif
             .undoBanner(undoBannerItem)
             #if DEBUG
                 .opensForSample(.bulkEdit, when: bulk != nil && rows.count >= 3) {
@@ -258,6 +249,8 @@ private struct SelectionMode: ViewModifier {
             ToolbarItem(placement: .bottomBar) {
                 moreMenu(bulk) { actionLabel(BulkActionText.more, "ellipsis", worded: worded) }
                     .disabled(count == 0)
+                    // On More, which offers Delete, so the question points at it.
+                    .modifier(confirmsBulkDelete)
             }
         }
 
@@ -414,8 +407,8 @@ private struct SelectionMode: ViewModifier {
         }
     }
 
-    private var isDeleting: Binding<Bool> {
-        $deleting.isPresent()
+    private var confirmsBulkDelete: ConfirmsBulkDelete {
+        ConfirmsBulkDelete(question: $deleting, bulk: bulk) { selection.exit() }
     }
 
     private var undoBannerItem: Binding<UndoBannerItem?> {
@@ -424,6 +417,30 @@ private struct SelectionMode: ViewModifier {
         } set: {
             bulk?.undoBannerItem = $0
         }
+    }
+}
+
+/// Asks before deleting the selected tunes, then deletes them and runs `onDeleted`.
+private struct ConfirmsBulkDelete: ViewModifier {
+    @Binding var question: BulkDeleteQuestion?
+    let bulk: BulkActions?
+    let onDeleted: () -> Void
+
+    func body(content: Content) -> some View {
+        content
+            .coversShell(question != nil)
+            .confirmationDialog(
+                question?.title ?? "", isPresented: $question.isPresent(), titleVisibility: .visible,
+                presenting: question
+            ) { question in
+                Button(DeleteTuneMessage.delete, role: .destructive) {
+                    Task {
+                        if await bulk?.delete(question) == true { onDeleted() }
+                    }
+                }
+            } message: { question in
+                Text(question.message)
+            }
     }
 }
 
