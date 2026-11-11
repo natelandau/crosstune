@@ -1,3 +1,11 @@
+## v1.4.1 (2026-11-11)
+
+### Fix
+
+- **apple**: point delete confirmations at the row or button that asked (#302)
+- **apple**: open iOS search sheets with the keyboard down (#301)
+- **apple**: stop swipe-to-delete with a confirmation from crashing (#300)
+
 ## v1.4.0 (2026-11-11)
 
 ### Feat
