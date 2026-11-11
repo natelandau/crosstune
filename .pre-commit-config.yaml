@@ -139,6 +139,13 @@ repos:
         pass_filenames: false
         files: ^web/.*\.(ts|tsx)$
 
+      - id: web-contract-check
+        name: contract check
+        entry: just web::contract-check
+        language: system
+        pass_filenames: false
+        files: ^(api/openapi\.json|web/scripts/vocabulary\.ts)$|^web/src/api/
+
       - id: web-vitest
         name: vitest
         entry: just web::test
