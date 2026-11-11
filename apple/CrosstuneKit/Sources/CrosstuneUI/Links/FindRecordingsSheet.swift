@@ -362,6 +362,7 @@ private struct FindRecordingsForm: View {
             )
             .autocorrectionDisabled()
             .onSubmit(of: .search) { Task { await model.submit() } }
+            .scrollDismissesKeyboard(.immediately)
             .toolbar {
                 if model.shown != nil && !model.isDirect {
                     ToolbarItem(placement: .cancellationAction) {
