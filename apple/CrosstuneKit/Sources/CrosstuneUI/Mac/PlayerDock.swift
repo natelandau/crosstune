@@ -226,17 +226,13 @@ import CrosstuneDesign
         let next: (() -> Void)?
 
         var body: some View {
-            if player.playsInBar, let transport = player.transport {
-                Transport(
-                    isPlaying: transport.isPlaying, size: .inline, sides: .hidden,
-                    onPlayPause: { transport.toggle() }, onPrevious: previous, onNext: next)
-            } else {
-                HStack(spacing: Transport.spacing(.inline)) {
-                    if let previous { TransportTrackButton(.previous, size: .inline, action: previous) }
-                    DockPlayPlaceholder(player: player)
-                    if let next { TransportTrackButton(.next, size: .inline, action: next) }
-                }
-            }
+            let transport = player.playsInBar ? player.transport : nil
+            Transport(
+                isPlaying: transport?.isPlaying ?? false, size: .inline, sides: .hidden,
+                onPlayPause: transport.map { transport in { transport.toggle() } }, onPrevious: previous,
+                onNext: next
+            )
+            .playPlaceholder { DockPlayPlaceholder(player: player) }
         }
     }
 
