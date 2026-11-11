@@ -4,7 +4,7 @@ import SwiftUI
 /// where a screen plays a list. `.feature` is the large practice transport with a filled play
 /// disc; `.inline` is the small one for a bar. Sides `.hidden` leaves play and pause alone, for a
 /// bar with room for one control. No play action draws no play button, for a group whose play
-/// is elsewhere on the screen.
+/// is elsewhere on the screen, or `playPlaceholder` in its place.
 package struct Transport: View {
     package enum Size { case feature, inline }
     package enum Sides { case skip15, edges, hidden }
@@ -41,6 +41,7 @@ package struct Transport: View {
     package let canGoNext: Bool
     package let previousName: String
     package let nextName: String
+    fileprivate var placeholder: AnyView?
 
     package init(
         isPlaying: Bool, size: Size, sides: Sides = .skip15, playName: String = Transport.playName,
@@ -69,20 +70,30 @@ package struct Transport: View {
         self.nextName = nextName
     }
 
-    /// The gap between the group's buttons, for a bar that sets a track button beside what
-    /// shows in place of play.
-    package static func spacing(_ size: Size) -> CGFloat {
-        #if os(macOS)
-            macMetrics(size).spacing
-        #else
-            size == .feature ? 20 : 12
-        #endif
+    /// What shows where play would be while there is no play action, such as a spinner while
+    /// the audio loads.
+    package func playPlaceholder(@ViewBuilder _ placeholder: () -> some View) -> Transport {
+        var transport = self
+        transport.placeholder = AnyView(placeholder())
+        return transport
     }
 
-    fileprivate var backLabel: String { sides == .skip15 ? Self.backName : Self.startName }
-    fileprivate var forwardLabel: String { sides == .skip15 ? Self.forwardName : Self.endName }
-    fileprivate var backGlyph: String { sides == .skip15 ? "gobackward.15" : "backward.end.fill" }
-    fileprivate var forwardGlyph: String { sides == .skip15 ? "goforward.15" : "forward.end.fill" }
+    #if os(macOS)
+        private static let startGlyph = "arrow.left.to.line"
+        private static let endGlyph = "arrow.right.to.line"
+    #else
+        private static let startGlyph = "backward.end.fill"
+        private static let endGlyph = "forward.end.fill"
+    #endif
+
+    fileprivate var hasSides: Bool { sides != .hidden }
+    fileprivate var skips: Bool { sides == .skip15 }
+    fileprivate var backLabel: String { skips ? Self.backName : Self.startName }
+    fileprivate var forwardLabel: String { skips ? Self.forwardName : Self.endName }
+    fileprivate var backGlyph: String { skips ? "gobackward.15" : Self.startGlyph }
+    fileprivate var forwardGlyph: String { skips ? "goforward.15" : Self.endGlyph }
+    fileprivate static let previousGlyph = "backward.end.fill"
+    fileprivate static let nextGlyph = "forward.end.fill"
     fileprivate var playLabel: String { isPlaying ? Self.pauseName : pausedPlayName }
     fileprivate var playGlyph: String { isPlaying ? "pause.fill" : pausedPlayGlyph }
 
@@ -108,33 +119,84 @@ package struct Transport: View {
     #endif
 }
 
-/// Previous or next track in a transport's side look, for a bar that offers the track buttons
-/// while something other than its transport shows where play would be.
-package struct TransportTrackButton: View {
-    package enum Direction { case previous, next }
+/// A side or track button for a platform to draw.
+private struct TransportSide {
+    let label: String
+    let glyph: String
+    var isEnabled = true
+    /// How many times a skip has turned its arrow; nil for a button that never turns.
+    var turns: Int?
+    var clockwise = true
+    let action: () -> Void
+}
 
-    private let direction: Direction
-    private let size: Transport.Size
-    private let name: String
-    private let action: () -> Void
+/// How many times each skip arrow has turned. Each platform's transport holds it, so a key
+/// press it handles turns the arrow as a tap does.
+private struct SkipTurns {
+    var back = 0
+    var forward = 0
+}
 
-    package init(_ direction: Direction, size: Transport.Size, name: String? = nil, action: @escaping () -> Void) {
-        self.direction = direction
-        self.size = size
-        self.name = name ?? (direction == .previous ? Transport.previousName : Transport.nextName)
-        self.action = action
+extension Transport {
+    /// Skips back, turning the arrow unless Reduce Motion is on.
+    fileprivate func skipBack(_ turns: inout SkipTurns, reduceMotion: Bool) {
+        if !reduceMotion, skips { turns.back += 1 }
+        onBack()
     }
 
-    fileprivate static func glyph(_ direction: Direction) -> String {
-        direction == .previous ? "backward.end.fill" : "forward.end.fill"
+    /// Skips forward, turning the arrow unless Reduce Motion is on.
+    fileprivate func skipForward(_ turns: inout SkipTurns, reduceMotion: Bool) {
+        if !reduceMotion, skips { turns.forward += 1 }
+        onForward()
     }
+}
 
-    package var body: some View {
-        #if os(macOS)
-            MacTransportSide(name: name, glyph: Self.glyph(direction), size: size, action: action)
-        #else
-            PhoneTransportSide(name: name, glyph: Self.glyph(direction), size: size, action: action)
-        #endif
+/// Previous track, back, play, forward, and next track in that order, each only where the
+/// transport offers it. Each platform draws the side buttons and play.
+private struct TransportRow<Side: View, Play: View>: View {
+    let transport: Transport
+    let spacing: CGFloat
+    @Binding var turns: SkipTurns
+    @ViewBuilder let side: (TransportSide) -> Side
+    @ViewBuilder let play: (_ onPlayPause: @escaping () -> Void) -> Play
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        HStack(spacing: spacing) {
+            if let onPrevious = transport.onPrevious {
+                side(
+                    TransportSide(
+                        label: transport.previousName, glyph: Transport.previousGlyph,
+                        isEnabled: transport.canGoPrevious, action: onPrevious))
+            }
+            if transport.hasSides {
+                side(
+                    TransportSide(
+                        label: transport.backLabel, glyph: transport.backGlyph, isEnabled: transport.canGoBack,
+                        turns: transport.skips ? turns.back : nil, clockwise: false
+                    ) { transport.skipBack(&turns, reduceMotion: reduceMotion) })
+            }
+            if let onPlayPause = transport.onPlayPause {
+                play(onPlayPause)
+            } else if let placeholder = transport.placeholder {
+                placeholder
+            }
+            if transport.hasSides {
+                side(
+                    TransportSide(
+                        label: transport.forwardLabel, glyph: transport.forwardGlyph,
+                        isEnabled: transport.canGoForward, turns: transport.skips ? turns.forward : nil,
+                        clockwise: true
+                    ) { transport.skipForward(&turns, reduceMotion: reduceMotion) })
+            }
+            if let onNext = transport.onNext {
+                side(
+                    TransportSide(
+                        label: transport.nextName, glyph: Transport.nextGlyph,
+                        isEnabled: transport.canGoNext, action: onNext))
+            }
+        }
     }
 }
 
@@ -157,59 +219,22 @@ private struct SkipTurn: ViewModifier {
     private struct MacTransport: View {
         let transport: Transport
 
-        @Environment(\.accessibilityReduceMotion) private var reduceMotion
-        @State private var backTurns = 0
-        @State private var forwardTurns = 0
-
-        private var hasSides: Bool { transport.sides != .hidden }
-        private var skips: Bool { transport.sides == .skip15 }
-        private var backGlyph: String { transport.sides == .skip15 ? transport.backGlyph : "arrow.left.to.line" }
-        private var forwardGlyph: String {
-            transport.sides == .skip15 ? transport.forwardGlyph : "arrow.right.to.line"
-        }
+        @State private var turns = SkipTurns()
 
         var body: some View {
             let metrics = Transport.macMetrics(transport.size)
-            HStack(spacing: metrics.spacing) {
-                if let onPrevious = transport.onPrevious {
-                    MacTransportSide(
-                        name: transport.previousName, glyph: TransportTrackButton.glyph(.previous),
-                        size: transport.size, isEnabled: transport.canGoPrevious, action: onPrevious)
+            TransportRow(transport: transport, spacing: metrics.spacing, turns: $turns) { side in
+                MacTransportSide(side: side, size: transport.size)
+            } play: { onPlayPause in
+                Button(action: onPlayPause) {
+                    Label(transport.playLabel, systemImage: transport.playGlyph)
+                        .labelStyle(.iconOnly)
+                        .font(.system(size: metrics.glyph, weight: .semibold))
+                        .contentTransition(.symbolEffect(.replace))
                 }
-                if hasSides {
-                    MacTransportSide(
-                        name: transport.backLabel, glyph: backGlyph, size: transport.size,
-                        isEnabled: transport.canGoBack, turns: skips ? backTurns : nil, clockwise: false
-                    ) {
-                        if !reduceMotion, skips { backTurns += 1 }
-                        transport.onBack()
-                    }
-                }
-                if let onPlayPause = transport.onPlayPause {
-                    Button(action: onPlayPause) {
-                        Label(transport.playLabel, systemImage: transport.playGlyph)
-                            .labelStyle(.iconOnly)
-                            .font(.system(size: metrics.glyph, weight: .semibold))
-                            .contentTransition(.symbolEffect(.replace))
-                    }
-                    .buttonStyle(MacFocusEffectOff(MacTransportButtonBody(kind: .disc, diameter: metrics.disc)))
-                    .help(transport.playLabel)
-                    .disabled(!transport.canPlay)
-                }
-                if hasSides {
-                    MacTransportSide(
-                        name: transport.forwardLabel, glyph: forwardGlyph, size: transport.size,
-                        isEnabled: transport.canGoForward, turns: skips ? forwardTurns : nil, clockwise: true
-                    ) {
-                        if !reduceMotion, skips { forwardTurns += 1 }
-                        transport.onForward()
-                    }
-                }
-                if let onNext = transport.onNext {
-                    MacTransportSide(
-                        name: transport.nextName, glyph: TransportTrackButton.glyph(.next), size: transport.size,
-                        isEnabled: transport.canGoNext, action: onNext)
-                }
+                .buttonStyle(MacFocusEffectOff(MacTransportButtonBody(kind: .disc, diameter: metrics.disc)))
+                .help(transport.playLabel)
+                .disabled(!transport.canPlay)
             }
         }
     }
@@ -217,26 +242,20 @@ private struct SkipTurn: ViewModifier {
     /// A side or track button: an `accent` glyph in a circle that takes the tint under the
     /// pointer.
     private struct MacTransportSide: View {
-        let name: String
-        let glyph: String
+        let side: TransportSide
         let size: Transport.Size
-        var isEnabled = true
-        /// How many times a skip has turned its arrow; nil for a button that never turns.
-        var turns: Int?
-        var clockwise = true
-        let action: () -> Void
 
         var body: some View {
             let metrics = Transport.macMetrics(size)
-            Button(action: action) {
-                Label(name, systemImage: glyph)
+            Button(action: side.action) {
+                Label(side.label, systemImage: side.glyph)
                     .labelStyle(.iconOnly)
                     .font(.system(size: metrics.sideGlyph))
-                    .modifier(SkipTurn(turns: turns, clockwise: clockwise))
+                    .modifier(SkipTurn(turns: side.turns, clockwise: side.clockwise))
             }
             .buttonStyle(MacFocusEffectOff(MacTransportButtonBody(kind: .side, diameter: metrics.side)))
-            .help(name)
-            .disabled(!isEnabled)
+            .help(side.label)
+            .disabled(!side.isEnabled)
         }
     }
 
@@ -310,127 +329,79 @@ private struct SkipTurn: ViewModifier {
 
         @Environment(\.accessibilityReduceMotion) private var reduceMotion
         @FocusState private var containerFocused: Bool
-        @State private var backTurns = 0
-        @State private var forwardTurns = 0
+        @State private var turns = SkipTurns()
 
         private var isFeature: Bool { transport.size == .feature }
         private var target: CGFloat { isFeature ? 56 : minimumTapTarget }
-        private var hasSides: Bool { transport.sides != .hidden }
-        private var skips: Bool { transport.sides == .skip15 }
 
         var body: some View {
-            HStack(spacing: Transport.spacing(transport.size)) {
-                if let onPrevious = transport.onPrevious {
-                    PhoneTransportSide(
-                        name: transport.previousName, glyph: TransportTrackButton.glyph(.previous),
-                        size: transport.size, isEnabled: transport.canGoPrevious, action: onPrevious)
-                }
-                if hasSides {
-                    PhoneTransportSide(
-                        name: transport.backLabel, glyph: transport.backGlyph, size: transport.size,
-                        isEnabled: transport.canGoBack, turns: skips ? backTurns : nil, clockwise: false
-                    ) {
-                        if !reduceMotion, skips { backTurns += 1 }
-                        transport.onBack()
-                    }
-                }
-                play
-                if hasSides {
-                    PhoneTransportSide(
-                        name: transport.forwardLabel, glyph: transport.forwardGlyph, size: transport.size,
-                        isEnabled: transport.canGoForward, turns: skips ? forwardTurns : nil, clockwise: true
-                    ) {
-                        if !reduceMotion, skips { forwardTurns += 1 }
-                        transport.onForward()
-                    }
-                }
-                if let onNext = transport.onNext {
-                    PhoneTransportSide(
-                        name: transport.nextName, glyph: TransportTrackButton.glyph(.next), size: transport.size,
-                        isEnabled: transport.canGoNext, action: onNext)
-                }
+            TransportRow(transport: transport, spacing: isFeature ? 20 : 12, turns: $turns) { side in
+                PhoneTransportSide(side: side, size: transport.size)
+            } play: { onPlayPause in
+                playButton(onPlayPause)
             }
             .dynamicTypeSize(...DynamicTypeSize.large)
             // Arrows skip only while the container itself holds focus; a focused button or field
-            // inside it keeps the system's arrow handling.
-            .libraryFocus($containerFocused, shape: Capsule())
+            // inside it keeps the system's arrow handling. A placeholder alone with the track
+            // buttons is no focus stop, since nothing in it answers the arrows or play.
+            .libraryFocus(
+                $containerFocused, isFocusable: transport.hasSides || transport.onPlayPause != nil,
+                shape: Capsule()
+            )
             .onKeyPress(.leftArrow) {
-                guard containerFocused, hasSides, transport.canGoBack else { return .ignored }
-                transport.onBack()
+                guard containerFocused, transport.hasSides, transport.canGoBack else { return .ignored }
+                transport.skipBack(&turns, reduceMotion: reduceMotion)
                 return .handled
             }
             .onKeyPress(.rightArrow) {
-                guard containerFocused, hasSides, transport.canGoForward else { return .ignored }
-                transport.onForward()
+                guard containerFocused, transport.hasSides, transport.canGoForward else { return .ignored }
+                transport.skipForward(&turns, reduceMotion: reduceMotion)
                 return .handled
             }
         }
 
-        @ViewBuilder private var play: some View {
-            if let onPlayPause = transport.onPlayPause {
-                playButton(onPlayPause)
+        private func playButton(_ onPlayPause: @escaping () -> Void) -> some View {
+            let diameter = isFeature ? ControlMetrics.featureDiameter : ControlMetrics.inlinePlayDiameter
+            return Button(action: onPlayPause) {
+                Label(transport.playLabel, systemImage: transport.playGlyph)
+                    .labelStyle(.iconOnly)
+                    .font(.system(size: isFeature ? 30 : 14, weight: .semibold))
+                    .contentTransition(.symbolEffect(.replace))
+                    // The play glyph sits optically left of center in its box.
+                    .offset(x: transport.playGlyph == Transport.defaultPlayGlyph ? (isFeature ? 1.5 : 1) : 0)
+                    .foregroundStyle(transport.canPlay ? Palette.onAccentFill : Palette.onDisabled)
+                    .frame(width: diameter, height: diameter)
+                    .background(transport.canPlay ? Palette.accentFill : .clear, in: .circle)
+                    .disabledCapsuleRing(!transport.canPlay)
+                    // A small disc still takes a full touch target.
+                    .frame(width: max(diameter, target), height: max(diameter, target))
+                    .contentShape(.circle)
             }
-        }
-
-        @ViewBuilder private func playButton(_ onPlayPause: @escaping () -> Void) -> some View {
-            if isFeature {
-                Button(action: onPlayPause) {
-                    Label(transport.playLabel, systemImage: transport.playGlyph)
-                        .labelStyle(.iconOnly)
-                        .font(.system(size: 30, weight: .semibold))
-                        .contentTransition(.symbolEffect(.replace))
-                        // The play glyph sits optically left of center in its box.
-                        .offset(x: transport.playGlyph == Transport.defaultPlayGlyph ? 1.5 : 0)
-                        .foregroundStyle(transport.canPlay ? Palette.onAccentFill : Palette.onDisabled)
-                        .frame(width: ControlMetrics.featureDiameter, height: ControlMetrics.featureDiameter)
-                        .background(transport.canPlay ? Palette.accentFill : .clear, in: .circle)
-                        .disabledCapsuleRing(!transport.canPlay)
-                        .contentShape(.circle)
-                }
-                .buttonStyle(TransportButtonStyle(kind: .disc))
-                .disabled(!transport.canPlay)
-                .accessibilityShowsLargeContentViewer()
-            } else {
-                Button(action: onPlayPause) {
-                    Label(transport.playLabel, systemImage: transport.playGlyph)
-                        .labelStyle(.iconOnly)
-                        .font(.system(size: 28))
-                        .contentTransition(.symbolEffect(.replace))
-                        .frame(width: target, height: target)
-                }
-                .buttonStyle(TransportButtonStyle(kind: .side))
-                .foregroundStyle(transport.canPlay ? Palette.accent : Palette.onDisabled)
-                .disabled(!transport.canPlay)
-                .accessibilityShowsLargeContentViewer()
-            }
+            .buttonStyle(TransportButtonStyle(kind: .disc))
+            .disabled(!transport.canPlay)
+            .accessibilityShowsLargeContentViewer()
         }
     }
 
     /// A side or track button: an `accent` glyph at the side's size.
     private struct PhoneTransportSide: View {
-        let name: String
-        let glyph: String
+        let side: TransportSide
         let size: Transport.Size
-        var isEnabled = true
-        /// How many times a skip has turned its arrow; nil for a button that never turns.
-        var turns: Int?
-        var clockwise = true
-        let action: () -> Void
 
         private var isFeature: Bool { size == .feature }
         private var target: CGFloat { isFeature ? 56 : minimumTapTarget }
 
         var body: some View {
-            Button(action: action) {
-                Label(name, systemImage: glyph)
+            Button(action: side.action) {
+                Label(side.label, systemImage: side.glyph)
                     .labelStyle(.iconOnly)
                     .font(.system(size: isFeature ? 38 : 28))
-                    .modifier(SkipTurn(turns: turns, clockwise: clockwise))
+                    .modifier(SkipTurn(turns: side.turns, clockwise: side.clockwise))
                     .frame(width: target, height: target)
             }
             .buttonStyle(TransportButtonStyle(kind: .side))
-            .foregroundStyle(isEnabled ? Palette.accent : Palette.onDisabled)
-            .disabled(!isEnabled)
+            .foregroundStyle(side.isEnabled ? Palette.accent : Palette.onDisabled)
+            .disabled(!side.isEnabled)
             .accessibilityShowsLargeContentViewer()
         }
     }

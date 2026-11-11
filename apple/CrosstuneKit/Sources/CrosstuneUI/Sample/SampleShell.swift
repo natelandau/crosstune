@@ -114,10 +114,12 @@
                     let entry = SampleCatalog.playable
                     player.play(.recording(entry.recording, tuneTitle: entry.tuneTitle))
                 }
-                if screen == .practice || screen == .trim || screen == .split {
+                if screen == .recordingLoaded || screen == .practice || screen == .trim || screen == .split {
                     let entry = SampleCatalog.playable
                     player.loadPaused(.recording(entry.recording, tuneTitle: entry.tuneTitle))
-                    place.openRecordingPage(entry.recording.id, tab: .practice, source: .dock)
+                    if screen != .recordingLoaded {
+                        place.openRecordingPage(entry.recording.id, tab: .practice, source: .dock)
+                    }
                 }
                 #if os(macOS)
                     if let tab = SampleScreen.settingsTab() ?? screen?.settingsTab {

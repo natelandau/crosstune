@@ -36,16 +36,12 @@ struct RecordingPlayButton: View {
     @Environment(AccountSession.self) private var session: AccountSession?
 
     var body: some View {
-        if let transport = player.transport {
-            Transport(
-                isPlaying: transport.isPlaying, size: .inline, sides: .hidden,
-                onPlayPause: { transport.toggle() }, onNext: onNext)
-        } else {
-            HStack(spacing: Transport.spacing(.inline)) {
-                placeholder
-                if let onNext { TransportTrackButton(.next, size: .inline, action: onNext) }
-            }
-        }
+        let transport = player.transport
+        Transport(
+            isPlaying: transport?.isPlaying ?? false, size: .inline, sides: .hidden,
+            onPlayPause: transport.map { transport in { transport.toggle() } }, onNext: onNext
+        )
+        .playPlaceholder { placeholder }
     }
 
     @ViewBuilder private var placeholder: some View {

@@ -13,6 +13,8 @@ package enum ControlMetrics {
     package static let rowHeight: CGFloat = 44
     package static let tabHeight: CGFloat = 52
     package static let featureDiameter: CGFloat = 72
+    /// The play disc of a transport in a bar.
+    package static let inlinePlayDiameter: CGFloat = 32
     package static let recordDiameter: CGFloat = 80
     package static let containerRadius: CGFloat = 12
     /// How far a text button draws its words in from its sides at the default text size.
