@@ -58,7 +58,6 @@ import SwiftUI
                     .accessibilityHidden(true)
                 TextField(prompt, text: $query)
                     .contentMask()
-                    .textEntry(.search)
                     .focused(isFocused)
                     .submitLabel(.search)
                     .autocorrectionDisabled()

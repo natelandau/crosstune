@@ -26,9 +26,9 @@
         }
 
         func gestureRecognizer(_ recognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
-            guard let field = TextEntry.editingInput, let view = touch.view, !Self.isInTextInput(view) else {
-                return false
-            }
+            guard let field = TextEntry.editingInput, let view = touch.view,
+                !sequence(first: view, next: \.superview).contains(where: TextEntry.isEditableText)
+            else { return false }
             editing = field
             return true
         }
@@ -37,15 +37,6 @@
             _ recognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer
         ) -> Bool {
             true
-        }
-
-        /// Whether `view` is part of a text field or an editable text view, its clear button
-        /// included.
-        private static func isInTextInput(_ view: UIView) -> Bool {
-            sequence(first: view, next: \.superview).contains { view in
-                if let textView = view as? UITextView { return textView.isEditable }
-                return view is UITextField
-            }
         }
     }
 #endif

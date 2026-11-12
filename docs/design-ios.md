@@ -45,7 +45,8 @@ there where they differ. Regular-width iPad reads this page, then
 
 - A row on a page takes a context menu and reorders through a move menu.
 - List reorder: long press and drag.
-- Search: the system search field, pinned under the title.
+- Search: the system search field through `listSearch`, pinned under the
+  title.
 - The filter row is the list's first row and scrolls with it.
 - A row on the page background clears its row background
   (`unselectedRowBackground`). A selected row keeps the system fill.

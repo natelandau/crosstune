@@ -5,8 +5,6 @@
     /// the edit. Only the edited field shows it, so a screen of such fields never shows two, and
     /// a field that offers its own Done skips it.
     struct KeyboardDoneButton: ViewModifier {
-        static let title = "Done"
-
         let isShown: Bool
 
         @Environment(\.fieldOffersDone) private var fieldOffersDone
@@ -20,7 +18,7 @@
                         if focused {
                             ToolbarItemGroup(placement: .keyboard) {
                                 Spacer()
-                                Button(Self.title) { focused = false }
+                                Button("Done") { focused = false }
                             }
                         }
                     }

@@ -1089,7 +1089,6 @@
                         MacStates(states: [.rest, .focus, .disabled]) {
                             TextField("Placeholder", text: $field)
                                 .contentMask()
-                                .textEntry(.name)
                                 .textFieldStyle(.macField)
                                 .frame(width: 180)
                         }
@@ -1097,7 +1096,6 @@
                             VStack(alignment: .leading, spacing: 4) {
                                 TextField("Name", text: $filled)
                                     .contentMask()
-                                    .textEntry(.name)
                                     .textFieldStyle(.macField(isInvalid: true))
                                 Text("That name is already in use.")
                                     .font(MacStyle.secondary)
@@ -1105,7 +1103,6 @@
                             }
                             TextField("Link", text: $field)
                                 .contentMask()
-                                .textEntry(.url)
                                 .textFieldStyle(.macField(leadingSymbol: "link"))
                         }
                         .frame(maxWidth: 400)
@@ -1114,14 +1111,12 @@
                         MacStates(states: [.rest, .focus, .disabled]) {
                             TextField("Untitled", text: $title)
                                 .contentMask()
-                                .textEntry(.name)
                                 .textFieldStyle(.macTitleField)
                                 .frame(width: 180)
                         }
                         MacStates(states: [.rest, .focus]) {
                             TextField("Untitled", text: $title)
                                 .contentMask()
-                                .textEntry(.name)
                                 .textFieldStyle(.macTitleField(.page))
                                 .frame(width: 320)
                         }

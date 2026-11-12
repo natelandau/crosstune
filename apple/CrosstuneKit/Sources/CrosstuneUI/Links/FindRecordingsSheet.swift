@@ -356,13 +356,8 @@ private struct FindRecordingsForm: View {
             }
             // Always present, so the form keeps its identity; a search with no services does
             // nothing, and one typed before the services load runs once they do.
-            .searchable(
-                text: queryBinding, placement: .navigationBarDrawer(displayMode: .always),
-                prompt: Text(FindRecordingsSheet.searchFor)
-            )
-            .textEntry(.search)
+            .listSearch(text: queryBinding, prompt: FindRecordingsSheet.searchFor)
             .onSubmit(of: .search) { Task { await model.submit() } }
-            .scrollDismissesKeyboard(.immediately)
             .toolbar {
                 if model.shown != nil && !model.isDirect {
                     ToolbarItem(placement: .cancellationAction) {

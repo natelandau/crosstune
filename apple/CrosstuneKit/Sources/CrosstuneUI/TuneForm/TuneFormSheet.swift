@@ -178,7 +178,6 @@ private struct TuneFormContent: View {
             VStack(alignment: .leading, spacing: 6) {
                 TextField(TuneFieldLabels.title, text: titleBinding, prompt: Text(TuneFieldLabels.title))
                     .contentMask()
-                    .textEntry(.name)
                     .labelsHidden()
                     .textFieldStyle(.macTitleField)
                     .foregroundStyle(Palette.textPrimary)

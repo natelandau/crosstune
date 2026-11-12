@@ -293,14 +293,9 @@ private struct TunePickerContent<Model: TunePickerSource, Header: View>: View {
             }
             .listStyle(.plain)
             .pageBackground()
-            .searchable(
-                text: $model.query, placement: .navigationBarDrawer(displayMode: .always),
-                prompt: CatalogScreen.searchPrompt
-            )
-            .textEntry(.search)
+            .listSearch(text: $model.query, prompt: CatalogScreen.searchPrompt)
             .searchFocused($searchFocused)
             .onSubmit(of: .search, submitSearch)
-            .scrollDismissesKeyboard(.immediately)
             .toolbar {
                 ConfirmToolbarItem {
                     Button(TunePickerText.done) { dismiss() }

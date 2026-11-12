@@ -22,8 +22,14 @@ package enum TextEntry {
     #if os(iOS)
         /// The text field or editable text view that holds the keyboard, if any.
         package static var editingInput: UIResponder? {
-            guard let input = FirstResponder.current, input is UITextInput else { return nil }
-            return (input as? UITextView)?.isEditable == false ? nil : input
+            FirstResponder.current.flatMap { isEditableText($0) ? $0 : nil }
+        }
+
+        /// Whether `responder` takes typing: a text field, or a text view that is editable rather
+        /// than only selectable.
+        package static func isEditableText(_ responder: UIResponder) -> Bool {
+            if let textView = responder as? UITextView { return textView.isEditable }
+            return responder is UITextInput
         }
     #endif
 }

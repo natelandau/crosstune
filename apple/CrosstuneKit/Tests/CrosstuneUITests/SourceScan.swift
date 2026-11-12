@@ -307,3 +307,70 @@ enum SourceScan {
         branches(of: text).filter { !$0.stack.contains(.other) }.map(\.line).joined(separator: "\n")
     }
 }
+
+/// Reading the modifier chain of a view call.
+extension SourceScan {
+    static func isWordCharacter(_ character: Character) -> Bool {
+        character.isLetter || character.isNumber || character == "_"
+    }
+
+    /// The index of the bracket that closes the one at `open`, or the end of the text.
+    static func matching(_ chars: [Character], from open: Int) -> Int {
+        var depth = 0
+        var index = open
+        while index < chars.count {
+            switch chars[index] {
+            case "(", "[", "{": depth += 1
+            case ")", "]", "}":
+                depth -= 1
+                if depth == 0 { return index }
+            default: break
+            }
+            index += 1
+        }
+        return chars.count
+    }
+
+    /// The names of the modifiers chained onto the view whose arguments close at `close`.
+    static func modifiers(
+        in chars: [Character], after close: Int
+    ) -> [String] {
+        var names: [String] = []
+        var index = skippingTrailingClosures(in: chars, from: close + 1)
+        while true {
+            while index < chars.count, chars[index].isWhitespace { index += 1 }
+            guard index < chars.count, chars[index] == "." else { return names }
+            index += 1
+            let start = index
+            while index < chars.count, isWordCharacter(chars[index]) { index += 1 }
+            names.append(String(chars[start..<index]))
+            // The modifier's arguments, then any trailing closures.
+            while true {
+                var next = index
+                while next < chars.count, chars[next] == " " { next += 1 }
+                guard next < chars.count, chars[next] == "(" || chars[next] == "{" else { break }
+                index = matching(chars, from: next) + 1
+            }
+        }
+    }
+
+    /// The index past any trailing closures, labeled or not, that follow a call ending at `index`.
+    private static func skippingTrailingClosures(
+        in chars: [Character], from index: Int
+    ) -> Int {
+        var index = index
+        while true {
+            var next = index
+            while next < chars.count, chars[next].isWhitespace { next += 1 }
+            var label = next
+            while label < chars.count, isWordCharacter(chars[label]) { label += 1 }
+            // `label: {` after the first closure, as in `Button { } label: { }`.
+            if label > next, label < chars.count, chars[label] == ":" {
+                next = label + 1
+                while next < chars.count, chars[next].isWhitespace { next += 1 }
+            }
+            guard next < chars.count, chars[next] == "{" else { return index }
+            index = matching(chars, from: next) + 1
+        }
+    }
+}

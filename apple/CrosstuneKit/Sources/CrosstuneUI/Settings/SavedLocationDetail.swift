@@ -169,7 +169,6 @@ struct SavedLocationDetail: View {
                                     prompt: Text(SavedLocationsText.nameLabel)
                                 )
                                 .contentMask()
-                                .textEntry(.name)
                                 .labelsHidden()
                                 .textFieldStyle(.macField)
                                 .characterLimit(Vocabulary.Limits.Place.name, text: $name)

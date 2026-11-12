@@ -217,7 +217,6 @@ public struct DeleteAccountSheet: View {
                 // The label above names the field, so it shows no prompt of its own.
                 TextField(Self.confirmLabel, text: $text, prompt: Text(verbatim: ""))
                     .contentMask()
-                    .textEntry(.verbatim)
                     .labelsHidden()
                     .textFieldStyle(.macField)
                     .autocorrectionDisabled()
