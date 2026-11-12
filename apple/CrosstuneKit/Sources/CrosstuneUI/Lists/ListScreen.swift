@@ -17,25 +17,14 @@ public struct ListScreen: View {
     public static let rename = "Rename"
     public static let showArchived = CatalogFilterSheet.showArchived
     public static let deleteList = "Delete list"
-    public static let remove = TuneScreen.remove
     public static let emptyTitle = "Nothing in this list"
     public static let emptyHint = "Add tunes to start this list."
     public static let allArchivedTitle = "Every tune here is archived"
     /// Names the toggle, so the hint follows a rename of it.
     public static let archivedHint = "Turn on \(showArchived) to see them."
 
-    /// The move button's spoken name.
-    public static func reorder(_ title: String) -> String {
-        "Reorder \(title)"
-    }
-
     /// The context menu's submenu that holds the move menu's places.
     public static let moveSubmenu = "Move"
-
-    /// The move menu's title.
-    public static func move(_ title: String) -> String {
-        "Move \(title)"
-    }
 
     private let listID: String
 
@@ -447,19 +436,14 @@ private struct ListTunes: View {
         // a wrapper around them hides them from the list.
         .scrollAnchorRow(entry.id)
         .selectableRowActions(isSelecting: selection.isActive) {
-            Button(ListScreen.remove, systemImage: "text.badge.xmark", role: .destructive) { remove() }
-                .tint(Palette.dangerFillStrong)
-            Button(TuneRowActions.edit, systemImage: TuneRowActions.editSystemImage, action: edit)
-                .tint(Palette.neutralFill)
-            if let scans { ScansRowAction(action: scans) }
-            #if os(iOS)
-                if reorderable { moveMenu(entry, moves) }
-            #endif
+            SwipeActionButton(.removeFromList, perform: remove)
+            SwipeActionButton(.edit, perform: edit)
+            if let scans { SwipeActionButton(.scans, perform: scans) }
         } menu: {
-            if let scans { ScansRowAction(action: scans) }
-            Button(TuneRowActions.edit, systemImage: TuneRowActions.editSystemImage, action: edit)
+            if let scans { RowMenuButton(.scans, perform: scans) }
+            RowMenuButton(.edit, perform: edit)
             if reorderable { moveItems(entry, moves) }
-            Button(ListScreen.remove, systemImage: "text.badge.xmark", role: .destructive) { remove() }
+            RowMenuButton(.removeFromList, perform: remove)
             Divider()
             Button(TuneRowActions.select, systemImage: "checkmark.circle") { selection.enter(with: entry.tune.id) }
         } preview: {
@@ -480,20 +464,6 @@ private struct ListTunes: View {
         .tag(entry.tune.id)
         .moveDisabled(!reorderable)
     }
-
-    #if os(iOS)
-        /// Move as a menu on the row's swipe, since the row carries no move button.
-        private func moveMenu(_ entry: ListEntry, _ moves: [MovePlace]) -> some View {
-            Menu {
-                Section(ListScreen.move(entry.tune.title)) {
-                    moveButtons(entry, moves)
-                }
-            } label: {
-                Label(ListScreen.reorder(entry.tune.title), systemImage: "arrow.up.arrow.down")
-            }
-            .tint(Palette.neutralFill)
-        }
-    #endif
 
     /// The row's moves, from its place among the rows the list draws, so building them never
     /// reads the whole list again.

@@ -104,6 +104,7 @@ private struct CatalogContent: View {
     @State private var showsImport = false
     @State private var isShown = false
     @State private var selection = TuneSelection()
+    @State private var deleting: TuneDeleteQuestion?
     #if os(macOS)
         /// This screen's own Select tunes, never taken for another window's.
         @State private var selectActionID = UUID()
@@ -439,11 +440,20 @@ private struct CatalogContent: View {
             entry, instruments: instruments, isSelecting: selection.isActive,
             onEdit: { open(entry.tune.id) },
             onArchive: { Task { await model.setArchived(entry, archived: !entry.isArchived) } },
+            onDelete: { Task { deleting = await model.deleteQuestion(entry) } },
             onScans: TuneRowActions.scansAction(
                 tuneID: entry.tune.id, tunesWithScans: scanTunes, premium: premium, origin: .row,
                 actions: tuneScreenActions),
             onSelect: { selection.enter(with: entry.tune.id) }
         )
+        .coversShell(deleting?.id == entry.id)
+        .confirmationDialog(
+            deleting?.title ?? "", item: $deleting.matching(entry.id), titleVisibility: .visible
+        ) { question in
+            Button(DeleteTuneMessage.delete, role: .destructive) { delete(question) }
+        } message: { question in
+            Text(question.message)
+        }
         .unselectedRowBackground(
             isSelected: TuneSelection.rowIsSelected(entry.tune.id, selection: selection, detailTune: detailTune)
         )
@@ -453,6 +463,13 @@ private struct CatalogContent: View {
             .macRowSelected(TuneSelection.rowIsSelected(entry.tune.id, selection: selection, detailTune: detailTune))
         #endif
         .tag(entry.tune.id)
+    }
+
+    private func delete(_ question: TuneDeleteQuestion) {
+        Task {
+            // The detail column lets go of a tune that is gone.
+            if await model.delete(question), detailTune?.value == question.tuneID { detailTune?.value = nil }
+        }
     }
 
     private func emptyState(_ results: CatalogResults) -> some View {

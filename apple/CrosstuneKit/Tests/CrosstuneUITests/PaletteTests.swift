@@ -22,10 +22,10 @@ struct PaletteTests {
         }
     }
 
-    /// A recording row's swipe actions take only the swipe fills.
-    @Test func recordingSwipeActionsTakeOnlyTheSwipeFills() {
-        for action in RecordingRowAction.swipe {
-            #expect(Palette.swipeFills.contains(action.swipeFill), "\(action)")
+    /// Every row action's swipe takes only the swipe fills.
+    @Test func swipeActionsTakeOnlyTheSwipeFills() {
+        for action in RowAction.all {
+            #expect(Palette.swipeFills.contains(action.swipeFill), "\(action.title)")
         }
     }
 

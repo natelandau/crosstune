@@ -181,4 +181,15 @@ import Testing
                 .init(name: "tune_unarchived", properties: ["tune_id": .string(entry.tune.id)]),
             ])
     }
+
+    @Test func deletingARowReportsTheTune() async throws {
+        let (_, catalog) = try await loadedCatalog()
+        let entry = try #require(catalog.results?.visible.first)
+        let question = try #require(await catalog.deleteQuestion(entry))
+
+        await catalog.delete(question)
+
+        #expect(sink.captures.map(\.name) == ["tune_deleted"])
+        #expect(sink.captures.first?.properties["tune_id"] == .string(entry.tune.id))
+    }
 }
