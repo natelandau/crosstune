@@ -160,20 +160,18 @@ private struct LocationEditorPage: View {
         }
     #endif
 
-    private var searchField: some View {
-        @Bindable var model = model
-        #if os(macOS)
+    #if os(macOS)
+        private var searchField: some View {
+            @Bindable var model = model
             return FilterSearchField(
                 prompt: PlaceSearchText.findAPlace, query: $model.query, isFocused: $focused)
-        #else
-            return TextField(
-                PlaceSearchText.findAPlace, text: $model.query, prompt: Text(PlaceSearchText.findAPlace)
-            )
-            .contentMask()
-            .autocorrectionDisabled()
-            .focused($focused)
-        #endif
-    }
+        }
+    #else
+        private var query: Binding<String> {
+            @Bindable var model = model
+            return $model.query
+        }
+    #endif
 
     private var currentLocationRow: some View {
         Button {
@@ -460,10 +458,9 @@ private struct LocationEditorPage: View {
         private var page: some View {
             NavigationStack {
                 GroupedForm {
-                    Section {
-                        searchField
-                    } footer: {
-                        if let failure = model.failure {
+                    if let failure = model.failure {
+                        Section {
+                        } footer: {
                             Text(failure)
                                 .foregroundStyle(Palette.danger)
                         }
@@ -495,6 +492,11 @@ private struct LocationEditorPage: View {
                         }
                     }
                 }
+                .searchable(
+                    text: query, placement: .navigationBarDrawer(displayMode: .always),
+                    prompt: Text(PlaceSearchText.findAPlace)
+                )
+                .autocorrectionDisabled()
                 .scrollDismissesKeyboard(.immediately)
                 .navigationTitle(RecordingPageCopy.location)
                 .navigationBarTitleDisplayMode(.inline)

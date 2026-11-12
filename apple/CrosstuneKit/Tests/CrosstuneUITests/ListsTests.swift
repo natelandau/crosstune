@@ -361,26 +361,29 @@ struct PendingMovesTests {
         #expect(model.query == "soldier", "an inert row changes nothing")
     }
 
-    @Test func findsArchivedTunesAndSaysSoInTheRowName() async throws {
+    /// A row names its action, then reads the whole row, so an archived tune says so and two
+    /// tunes with one title sound apart.
+    @Test func findsArchivedTunesAndReadsTheWholeRowAloud() async throws {
         let model = try await picker(try await SampleCatalog.copiedStore(root: root.url))
         model.query = "say old"
         let row = try #require(model.results?.rows.first)
         #expect(row.entry.tune.title == "Say Old Man")
         #expect(row.isTaken == false)
-        #expect(row.name == "Add Say Old Man, archived")
+        let spoken = TuneRowText(tune: row.entry.tune, userTune: row.entry.userTune, instruments: model.instruments)
+        #expect(row.name == "Add \(spoken.accessibilityLabel(position: nil))")
+        #expect(row.name.hasSuffix(TuneRowText.archived))
     }
 
-    @Test func addsAPickedTuneAndClearsTheSearchForTheNext() async throws {
+    @Test func addsAPickedTuneAndKeepsTheSearch() async throws {
         let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = try await picker(store)
         model.query = "butterfly"
         await model.pick(catalogEntry("The Butterfly"))
-        #expect(model.query.isEmpty)
+        #expect(model.query == "butterfly", "the search stays until the musician clears it")
         let members = try await store.read { db in
             try ListContents.fetch(db, listID: session.id)?.entries.map(\.tune.title)
         }
         #expect(members?.last == "The Butterfly")
-        model.query = "butterfly"
         try await eventually { model.results?.rows.first?.isTaken == true }
     }
 
@@ -420,8 +423,8 @@ struct PendingMovesTests {
         let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = try await picker(store)
         model.query = "Ashokan"
-        #expect(await model.submit() == .nothing)
-        #expect(model.query.isEmpty)
+        #expect(await model.submit() == .picked)
+        #expect(model.query == "Ashokan")
         let titles = try await store.read { db in
             try ListContents.fetch(db, listID: session.id)?.entries.map(\.tune.title)
         }

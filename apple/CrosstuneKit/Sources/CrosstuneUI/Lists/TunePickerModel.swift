@@ -11,46 +11,14 @@ import os
 /// title.
 @MainActor
 @Observable
-public final class TunePickerModel {
+public final class TunePickerModel: TunePickerSource {
     public static let inThisList = "In this list"
     /// How many results show at once; a longer query narrows them.
     public static let maxResults = 8
 
-    /// One search result.
-    public struct Row: Identifiable, Equatable {
-        public let entry: CatalogEntry
-        /// Already in the list: shown, marked, and inert, so the picker never hides a tune.
-        public let isTaken: Bool
-
-        public var id: String { entry.id }
-
-        /// The offered row's spoken name. Pickers search archived tunes on purpose, so the name
-        /// says which ones they are.
-        public var name: String {
-            let add = "Add \(entry.tune.title)"
-            return entry.isArchived ? "\(add), archived" : add
-        }
-    }
-
-    /// What the search shows for the current query.
-    public struct Results: Equatable {
-        public let rows: [Row]
-        /// Every match, beyond the rows shown.
-        public let matches: [CatalogEntry]
-        public let outcome: SearchOutcome
-        /// `No tune called "query"`, when nothing carries the typed title.
-        public var noTuneCalled: String? {
-            guard matches.isEmpty, case .create(let title, false, _) = outcome else { return nil }
-            return CatalogScreen.noTuneCalled(title)
-        }
-    }
-
-    /// What Return in the search field asks the sheet to do, beyond a pick the model makes.
-    public enum Submit: Equatable {
-        case nothing
-        case create(title: String)
-        case dismissKeyboard
-    }
+    public typealias Row = TunePickerRow
+    public typealias Results = TunePickerResults
+    public typealias Submit = TunePickerSubmit
 
     public let listID: String
     public var query = ""
@@ -102,7 +70,7 @@ public final class TunePickerModel {
         guard let members = members.value, let found = search.find(query) else { return nil }
         let matches = found.matches
         return Results(
-            rows: matches.prefix(Self.maxResults).map { Row(entry: $0.entry, isTaken: members.contains($0.id)) },
+            rows: matches.prefix(Self.maxResults).map { row($0.entry, members: members) },
             matches: matches.map(\.entry), outcome: found.outcome)
     }
 
@@ -112,14 +80,21 @@ public final class TunePickerModel {
     public var idleResults: [Row]? {
         guard let entries = search.entries, let members = members.value else { return nil }
         guard isIdle else { return [] }
-        return entries.map { Row(entry: $0, isTaken: members.contains($0.id)) }
+        return entries.map { row($0, members: members) }
+    }
+
+    /// A tune in the list shows, marked and inert, so the picker never hides a tune.
+    private func row(_ entry: CatalogEntry, members: Set<String>) -> Row {
+        Row(
+            entry: entry, state: members.contains(entry.id) ? .taken : .open, action: "Add",
+            instruments: instruments)
     }
 
     /// Whether the idle picker has nothing to list, so its sheet says what it is for.
     public var showsHint: Bool { isIdle && members.value != nil && search.entries?.isEmpty == true }
 
-    /// Adds a tune to the list and clears the search for the next. A tune already in the list,
-    /// or one whose add is running, is left alone.
+    /// Adds a tune to the list. The search stays as typed, so the next tune can be picked from
+    /// the same results. A tune already in the list, or one whose add is running, is left alone.
     public func pick(_ entry: CatalogEntry) async {
         let userTuneID = entry.userTune.id
         guard members.value?.contains(userTuneID) == false, adding.insert(userTuneID).inserted else { return }
@@ -127,7 +102,6 @@ public final class TunePickerModel {
             adding.remove(userTuneID)
             reportIfDone()
         }
-        query = ""
         failure = nil
         let listID = listID
         do {
@@ -165,15 +139,18 @@ public final class TunePickerModel {
         }
     }
 
-    /// Return opens the only match by adding it, or creates when nothing matches. Every match
-    /// counts, the taken ones included, so Return never creates a title that exists; a lone
-    /// taken match does nothing.
+    /// Return adds the only match, or creates when nothing matches. Every match counts, the
+    /// taken ones included, so Return never creates a title that exists; a lone taken match
+    /// does nothing.
     public func submit() async -> Submit {
         guard let results else { return .nothing }
         switch SearchSubmit(query: query, visible: results.matches, outcome: results.outcome) {
         case .open(let tuneID):
-            if let entry = results.matches.first(where: { $0.tune.id == tuneID }) { await pick(entry) }
-            return .nothing
+            guard let entry = results.matches.first(where: { $0.tune.id == tuneID }),
+                members.value?.contains(entry.userTune.id) == false
+            else { return .nothing }
+            await pick(entry)
+            return .picked
         case .create(let title):
             return .create(title: title)
         case .dismiss:

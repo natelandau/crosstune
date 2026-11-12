@@ -63,8 +63,8 @@ struct ContentMaskTests {
     /// the navigation bar, where a mask on the screen never reaches. Replay must stay off while
     /// any is listed.
     static let unmaskedSearchFields: Set = [
-        "Catalog/CatalogScreen.swift", "Recordings/RecordingsScreen.swift", "Lists/TunePickerSheet.swift",
-        "Links/FindRecordingsSheet.swift",
+        "Catalog/CatalogScreen.swift", "Recordings/RecordingsScreen.swift", "Catalog/TunePicker.swift",
+        "Links/FindRecordingsSheet.swift", "RecordingPage/Location/LocationEditor.swift",
     ]
 
     struct Site: Equatable {
