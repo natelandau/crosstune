@@ -37,14 +37,6 @@ enum RecordingPageRows {
         ]
     }
 
-    /// The footnote that ends the attributes: the day the recording was added, which no editor
-    /// changes.
-    nonisolated static func dateAdded(
-        _ rows: ScreenRows, locale: Locale = .current, timeZone: TimeZone = .current
-    ) -> String {
-        RecordingPageCopy.dateAdded(RecordingText.addedDay(rows.recording.addedAt, locale: locale, timeZone: timeZone))
-    }
-
     /// The point the Location group's map shows: the recording's own, else its saved
     /// location's. Nil for a recording with no place.
     nonisolated static func mapPoint(_ rows: ScreenRows) -> Coordinate? {

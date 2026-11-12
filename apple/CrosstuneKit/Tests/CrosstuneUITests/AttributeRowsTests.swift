@@ -131,7 +131,7 @@ struct AttributeRowsTests {
         #expect(shown.first { $0.id == .tuneType }?.text == nil)
     }
 
-    @Test func wordsTheAddedDayAsTheDayItJoinedTheCatalog() {
+    @Test func wordsTheDayAdded() {
         let locale = Locale(identifier: "en_US")
         let date = Date(timeIntervalSince1970: 1_709_640_000)
         #expect(AttributeCopy.addedOn(date, locale: locale, timeZone: .gmt) == "Date added: Mar 5, 2024")

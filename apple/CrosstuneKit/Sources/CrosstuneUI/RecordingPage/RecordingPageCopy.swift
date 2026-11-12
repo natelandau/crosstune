@@ -22,9 +22,6 @@ public enum RecordingPageCopy {
     public static let locationGroup = location
     public static let notesGroup = notes
 
-    /// "Date added: Oct 3, 2026", the footnote under the attributes.
-    public static func dateAdded(_ day: String) -> String { "Date added: \(day)" }
-
     /// What a row with no value reads.
     public static let notSet = TuneFieldLabels.notSet
 }

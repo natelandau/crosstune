@@ -2,8 +2,9 @@ import { useId, useMemo, useState, type Ref } from 'react'
 import { RECORDING_LIMITS } from '../../api/vocabulary'
 import { isRecordingPrecision } from '../../db/types'
 import { blankToNull } from '../../text/blank'
-import { addedDay, recordedTime } from '../../text/format'
+import { recordedTime } from '../../text/format'
 import { AttributesColumn } from '../../ui/attributes/AttributesColumn'
+import { DateAddedLine } from '../../ui/attributes/DateAddedLine'
 import {
   useAttributeEdit,
   useEnterKey,
@@ -33,7 +34,7 @@ import { useAllRecordings } from '../recordings/useAllRecordings'
 import { useFileRecording } from '../recordings/useFileRecording'
 import type { RecordingView } from '../recordings/useRecordings'
 import { LocationEditor } from './location/LocationEditor'
-import { DATE_ADDED, DETAILS, LINKED_TUNE_LABEL, REMOVE_FROM_TUNE } from './recordingPageCopy'
+import { DETAILS, LINKED_TUNE_LABEL, REMOVE_FROM_TUNE } from './recordingPageCopy'
 import { RECORDING_GROUPS, recordingRows, type RecordingAttributeId } from './recordingRows'
 import { useRecordingAttributeWrite, type RecordingPatch } from './useRecordingAttributeWrite'
 import type { RecordingLocation } from './useRecordingPageView'
@@ -74,7 +75,6 @@ export function RecordingAttributes({
 }) {
   const write = useRecordingAttributeWrite(view.recording.id)
   const [openId, setOpenId] = useState<string | null>(null)
-  const dateAdded = DATE_ADDED(addedDay(view.recording.added_at))
   const attributes = (
     <AttributesColumn
       ref={ref}
@@ -108,22 +108,18 @@ export function RecordingAttributes({
       error={write.error}
       openId={openId}
       onOpenIdChange={setOpenId}
-      footer={<DateAddedLine text={dateAdded} className="px-4 pt-6" />}
+      footer={<DateAddedLine at={view.recording.added_at} className="px-4 pt-6" />}
     />
   )
   // The card leaves its footer to the page, so the line follows it here.
   return layout === 'card' ? (
     <>
       {attributes}
-      <DateAddedLine text={dateAdded} className="px-4" />
+      <DateAddedLine at={view.recording.added_at} className="px-4" />
     </>
   ) : (
     attributes
   )
-}
-
-function DateAddedLine({ text, className }: { text: string; className: string }) {
-  return <p className={`t-caption text-secondary font-normal ${className}`}>{text}</p>
 }
 
 /**

@@ -1,14 +1,13 @@
 import { Plus } from 'lucide-react'
 import type { Instrument } from '../../api/vocabulary'
-import { addedDay } from '../../text/format'
 import { AttributesColumn, COLUMN_HEADER } from '../../ui/attributes/AttributesColumn'
+import { DateAddedLine } from '../../ui/attributes/DateAddedLine'
 import { Capsule } from '../../ui/Capsule'
 import { ADD_TO_LIST } from '../lists/listPickerCopy'
 import { AttributeEditorBody } from './attributeEditors'
 import {
   ABOUT_GROUP,
   ADD_VALUE,
-  ADDED_ON,
   DETAILS_GROUP,
   ATTRIBUTES_LABEL,
   LEARNED_GROUP,
@@ -66,7 +65,7 @@ export function TuneAttributes({
           <div className="px-4 pt-1">
             <TuneLists inLists={inLists} onAddToList={onAddToList} />
           </div>
-          <AddedLine createdAt={createdAt} className="px-4 pt-6" />
+          <DateAddedLine at={createdAt} className="px-4 pt-6" />
         </>
       }
     />
@@ -95,14 +94,5 @@ export function TuneLists({
         </Capsule>
       </li>
     </ul>
-  )
-}
-
-/** The footnote that ends a tune's attributes: the day it joined the catalog. */
-export function AddedLine({ createdAt, className }: { createdAt: string; className: string }) {
-  return (
-    <p className={`t-caption text-secondary font-normal ${className}`}>
-      {ADDED_ON(addedDay(createdAt))}
-    </p>
   )
 }

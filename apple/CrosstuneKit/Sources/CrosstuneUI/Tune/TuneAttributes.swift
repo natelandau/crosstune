@@ -94,7 +94,7 @@ struct TuneAttributes: View {
                     .padding(.horizontal, layout.textInset)
                     .padding(.top, 4)
             }
-            AddedOn(detail: detail)
+            AddedOn(date: detail.tune.createdAt.date)
                 .padding(.horizontal, layout.textInset)
                 .padding(.top, AttributesLayout.columnGroupGap)
         }
@@ -126,9 +126,10 @@ struct TuneListTokens: View {
     }
 }
 
-/// "Date added: <date>", the quiet line that ends the attributes column or the page.
+/// "Date added: <date>", the quiet line that ends the attributes column or the page, for a tune
+/// or a recording.
 struct AddedOn: View {
-    let detail: TuneDetail
+    let date: Date
     /// Where it ends the page rather than the column, under a hairline.
     var endsPage = false
 
@@ -140,7 +141,7 @@ struct AddedOn: View {
             if endsPage {
                 Rectangle().fill(Palette.border).frame(height: 1)
             }
-            Text(AttributeCopy.addedOn(detail.tune.createdAt.date, locale: locale, timeZone: timeZone))
+            Text(AttributeCopy.addedOn(date, locale: locale, timeZone: timeZone))
                 .font(.platform(.caption))
                 .foregroundStyle(.textSecondary)
         }

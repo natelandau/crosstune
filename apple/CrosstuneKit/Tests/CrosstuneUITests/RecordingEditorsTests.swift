@@ -159,12 +159,9 @@ import Testing
         #expect(sink.calls.isEmpty)
     }
 
-    @Test func theDayAddedEndsTheAttributesRatherThanFillingARow() {
+    @Test func theDayAddedIsNotARow() {
         let opened = rows(recording(label: "Take 1"))
         #expect(RecordingPageRows.rows(opened).map(\.id) == [.name, .players, .recorded, .tune, .location, .notes])
-        #expect(
-            RecordingPageRows.dateAdded(opened, locale: Locale(identifier: "en_US"), timeZone: .gmt)
-                == "Date added: Sep 25, 2026")
     }
 
     @Test func anEmptyRowReadsNotSet() throws {

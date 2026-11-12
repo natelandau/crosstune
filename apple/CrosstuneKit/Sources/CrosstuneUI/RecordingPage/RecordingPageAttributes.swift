@@ -43,22 +43,8 @@ struct RecordingPageAttributes: View {
     }
 
     private var dateAdded: some View {
-        RecordingDateAdded(rows: rows)
-            .padding(.horizontal, layout.textInset)
-    }
-}
-
-/// "Date added: <day>", the quiet line under the attributes. Text only, since nothing edits it.
-private struct RecordingDateAdded: View {
-    let rows: ScreenRows
-
-    @Environment(\.locale) private var locale
-    @Environment(\.timeZone) private var timeZone
-
-    var body: some View {
-        Text(RecordingPageRows.dateAdded(rows, locale: locale, timeZone: timeZone))
-            .font(.platform(.caption))
-            .foregroundStyle(.textSecondary)
+        AddedOn(date: rows.recording.addedAt.date)
             .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, layout.textInset)
     }
 }

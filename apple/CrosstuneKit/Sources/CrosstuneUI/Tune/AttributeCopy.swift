@@ -14,8 +14,8 @@ public enum AttributeCopy {
     /// The attributes' accessible name, as a column or a card.
     public static let attributesLabel = "Tune details"
 
-    /// "Date added: Mar 5, 2024": the day the musician added the tune, in their own time zone.
-    /// Worded as the recording page's footnote is, so both pages read alike.
+    /// "Date added: Mar 5, 2024": the day the musician added a tune or a recording, in their own
+    /// time zone.
     public static func addedOn(_ date: Date, locale: Locale = .current, timeZone: TimeZone = .current) -> String {
         let day = date.formatted(
             Date.FormatStyle(date: .abbreviated, time: .omitted, locale: locale, timeZone: timeZone))
