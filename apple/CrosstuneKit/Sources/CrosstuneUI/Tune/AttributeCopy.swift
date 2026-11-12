@@ -14,11 +14,11 @@ public enum AttributeCopy {
     /// The attributes' accessible name, as a column or a card.
     public static let attributesLabel = "Tune details"
 
-    /// "Added to catalog Mar 5, 2024": the day the musician added the tune, in their own time
-    /// zone. "to catalog" keeps it from reading as the day the tune joined a list.
+    /// "Date added: Mar 5, 2024": the day the musician added the tune, in their own time zone.
+    /// Worded as the recording page's footnote is, so both pages read alike.
     public static func addedOn(_ date: Date, locale: Locale = .current, timeZone: TimeZone = .current) -> String {
         let day = date.formatted(
             Date.FormatStyle(date: .abbreviated, time: .omitted, locale: locale, timeZone: timeZone))
-        return "Added to catalog \(day)"
+        return "Date added: \(day)"
     }
 }

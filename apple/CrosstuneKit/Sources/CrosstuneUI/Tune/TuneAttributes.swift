@@ -126,7 +126,7 @@ struct TuneListTokens: View {
     }
 }
 
-/// "Added <date>", the quiet line that ends the attributes column or the page.
+/// "Date added: <date>", the quiet line that ends the attributes column or the page.
 struct AddedOn: View {
     let detail: TuneDetail
     /// Where it ends the page rather than the column, under a hairline.

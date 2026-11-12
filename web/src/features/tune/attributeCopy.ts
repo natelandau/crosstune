@@ -6,5 +6,5 @@ export const DETAILS_GROUP = 'Details'
 export const ABOUT_GROUP = 'About'
 export const LEARNED_GROUP = 'Learned'
 export const LISTS_GROUP = 'Lists'
-export const ADDED_ON = (date: string) => `Added to catalog ${date}`
+export const ADDED_ON = (date: string) => `Date added: ${date}`
 export const ATTRIBUTES_LABEL = 'Tune details'
