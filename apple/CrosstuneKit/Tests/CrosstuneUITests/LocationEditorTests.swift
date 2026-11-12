@@ -96,14 +96,17 @@ private func stored(_ store: CrosstuneStore, _ id: String = "r1", sourceLocation
         let text = SourceScan.withoutComments(
             try SourceScan.text(at: SourceScan.url(of: "RecordingPage/Location/LocationEditor.swift")))
         #expect(text.contains("PlaceSearchText.findAPlace"))
-        for compiled in [SourceScan.iOSCompiled(text), SourceScan.macCompiled(text)] {
-            let page = try #require(compiled.range(of: "private var page: some View {"))
-            let body = compiled[page.upperBound...]
-            let search = try #require(body.range(of: "searchField"))
-            for later in ["currentLocationRow", "LocationMap(", "listPicker"] {
-                let other = try #require(body.range(of: later), "\(later) is missing")
-                #expect(search.lowerBound < other.lowerBound, "\(later) comes before the search")
-            }
+        // On iPhone and iPad the system search field sits in the navigation bar, above the form.
+        let phone = SourceScan.iOSCompiled(text)
+        let phonePage = try #require(phone.range(of: "private var page: some View {"))
+        #expect(phone[phonePage.upperBound...].contains(".searchable("))
+        let mac = SourceScan.macCompiled(text)
+        let page = try #require(mac.range(of: "private var page: some View {"))
+        let body = mac[page.upperBound...]
+        let search = try #require(body.range(of: "searchField"))
+        for later in ["currentLocationRow", "LocationMap(", "listPicker"] {
+            let other = try #require(body.range(of: later), "\(later) is missing")
+            #expect(search.lowerBound < other.lowerBound, "\(later) comes before the search")
         }
     }
 
