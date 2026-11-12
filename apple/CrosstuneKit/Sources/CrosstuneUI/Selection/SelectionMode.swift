@@ -408,7 +408,13 @@ private struct SelectionMode: ViewModifier {
     }
 
     private var confirmsBulkDelete: ConfirmsBulkDelete {
-        ConfirmsBulkDelete(question: $deleting, bulk: bulk) { selection.exit() }
+        ConfirmsBulkDelete(question: $deleting, bulk: bulk) { question in
+            selection.exit()
+            // The detail column lets go of a tune that is gone.
+            if let detailTune, let tuneID = detailTune.value, question.tuneIDs.contains(tuneID) {
+                detailTune.value = nil
+            }
+        }
     }
 
     private var undoBannerItem: Binding<UndoBannerItem?> {
@@ -424,7 +430,7 @@ private struct SelectionMode: ViewModifier {
 private struct ConfirmsBulkDelete: ViewModifier {
     @Binding var question: BulkDeleteQuestion?
     let bulk: BulkActions?
-    let onDeleted: () -> Void
+    let onDeleted: (BulkDeleteQuestion) -> Void
 
     func body(content: Content) -> some View {
         content
@@ -434,7 +440,7 @@ private struct ConfirmsBulkDelete: ViewModifier {
             ) { question in
                 Button(DeleteTuneMessage.delete, role: .destructive) {
                     Task {
-                        if await bulk?.delete(question) == true { onDeleted() }
+                        if await bulk?.delete(question) == true { onDeleted(question) }
                     }
                 }
             } message: { question in

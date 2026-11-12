@@ -858,6 +858,20 @@ struct SearchIntentTests {
         await model.setArchived(gone, archived: true)
         #expect(model.actionError == CommandError.tuneNotFoundMessage)
     }
+
+    @Test func aRowsDeleteAsksAboutItsTuneThenDeletesIt() async throws {
+        let root = TemporaryRoot()
+        let model = CatalogModel(store: try await sampleStore(root))
+        try await eventually { model.results != nil }
+        let entry = try #require(model.results?.visible.first)
+        let question = try #require(await model.deleteQuestion(entry))
+        #expect(question.id == entry.id)
+        #expect(question.title == DeleteTuneMessage.title(for: entry.tune.title))
+
+        #expect(await model.delete(question))
+        try await eventually { model.results?.entries.contains { $0.tune.id == entry.tune.id } == false }
+        #expect(model.actionError == nil)
+    }
 }
 
 #if os(macOS)

@@ -36,13 +36,6 @@ public struct ListRow: View {
     }
 }
 
-/// The actions a list row offers, on every screen that offers them.
-public enum ListRowActions {
-    public static let edit = TuneRowActions.edit
-    public static let delete = DeleteListMessage.delete
-    public static let deleteSystemImage = "trash"
-}
-
 extension View {
     /// Gives a list row its actions: Edit, which renames it, and Delete, as trailing swipe
     /// actions and as context menu items, Delete after a separator. With `onPlay`, the menu
@@ -93,12 +86,9 @@ private struct ListRowSwipeButtons: View {
     let onDelete: () -> Void
 
     var body: some View {
-        // The first action sits at the trailing edge, so Edit reads first from the left. Delete
-        // only asks, so it has no destructive role: with one, SwiftUI removes the row at once.
-        Button(ListRowActions.delete, systemImage: ListRowActions.deleteSystemImage, action: onDelete)
-            .tint(Palette.dangerFillStrong)
-        Button(ListRowActions.edit, systemImage: TuneRowActions.editSystemImage, action: onEdit)
-            .tint(Palette.neutralFill)
+        // The first action sits at the trailing edge, so Edit reads first from the left.
+        SwipeActionButton(.delete, perform: onDelete)
+        SwipeActionButton(.edit, perform: onEdit)
     }
 }
 
@@ -107,12 +97,9 @@ private struct ListRowMenuItems: View {
     let onDelete: () -> Void
 
     var body: some View {
-        Button(ListRowActions.edit, systemImage: TuneRowActions.editSystemImage, action: onEdit)
+        RowMenuButton(.edit, perform: onEdit)
         Divider()
-        Button(ListRowActions.delete, systemImage: ListRowActions.deleteSystemImage, role: .destructive) {
-            onDelete()
-        }
-        .tint(Palette.dangerFillStrong)
+        RowMenuButton(.delete, perform: onDelete)
     }
 }
 

@@ -37,7 +37,7 @@ public struct TuneScreen: View {
     public static let addLyrics = "Add lyrics"
     public static let addLyricsText = "Lyrics"
     public static let moreActions = "More actions"
-    public static let remove = "Remove"
+    public static let remove = RowActionText.remove
     public static let addToRecordings = "Add to recordings"
 
     /// Wide layouts put More on the title's row, as the tune's own control; the phone keeps it

@@ -119,15 +119,20 @@ public final class TuneModel {
     public func delete() async -> Bool {
         guard let title = shown?.tune.title, deletingTitle == nil else { return false }
         deletingTitle = title
-        let tuneID = tuneID
-        let counts = await Result { try await store.read { db in try Self.deletionCounts(db, tuneID: tuneID) } }
-        let deleted = await run(.screen) { try await $0.deleteTune(tuneID) }
-        if deleted {
-            if let event = Self.deletedEvent(tuneID: tuneID, counts: counts) { analytics.send(event) }
-        } else {
-            deletingTitle = nil
+        let deleted = await run(.screen) {
+            try await Self.deleteTune(tuneID, commands: $0, store: store, analytics: analytics)
         }
+        if !deleted { deletingTitle = nil }
         return deleted
+    }
+
+    /// Deletes the tune and reports it with what went along, counted before the delete.
+    static func deleteTune(
+        _ tuneID: String, commands: Commands, store: CrosstuneStore, analytics: AnalyticsClient
+    ) async throws {
+        let counts = await Result { try await store.read { db in try deletionCounts(db, tuneID: tuneID) } }
+        try await commands.deleteTune(tuneID)
+        if let event = deletedEvent(tuneID: tuneID, counts: counts) { analytics.send(event) }
     }
 
     /// What a delete takes along: the tune's live recordings, links, and scans.

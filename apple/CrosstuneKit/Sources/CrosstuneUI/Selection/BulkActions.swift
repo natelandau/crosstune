@@ -72,6 +72,8 @@ public struct BulkDeleteQuestion: Identifiable, Sendable {
     public let message: String
     /// The user tunes the delete takes.
     public let userTuneIDs: [String]
+    /// The same tunes by tune, which the detail column names.
+    public let tuneIDs: Set<String>
 }
 
 /// What a selection can do to its tunes, and the one place each action is defined: what it
@@ -243,7 +245,7 @@ public final class BulkActions {
             title: only.map { DeleteTuneMessage.title(for: $0.tune.title) }
                 ?? "\(BulkActionText.delete(entries.count))?",
             message: only == nil ? DeleteTuneMessage.many(files: files) : DeleteTuneMessage.one(files: files),
-            userTuneIDs: entries.map(\.userTune.id))
+            userTuneIDs: entries.map(\.userTune.id), tuneIDs: Set(tuneIDs))
     }
 
     /// Deletes the tunes the question named. There is nothing to undo.

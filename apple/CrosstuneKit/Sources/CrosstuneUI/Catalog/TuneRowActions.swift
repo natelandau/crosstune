@@ -46,25 +46,17 @@ public enum TuneRowActions {
     }
 }
 
-/// The Scans action as a row's swipe action or menu item.
-struct ScansRowAction: View {
-    let action: @MainActor () -> Void
-
-    var body: some View {
-        Button(TuneRowActions.scans, systemImage: TuneRowActions.scansSystemImage, action: action)
-            .tint(Palette.neutralFill)
-    }
-}
-
 extension View {
     /// Gives a catalog row its actions: Edit and Archive as trailing swipe actions and as context
-    /// menu items, the menu with a preview of the tune. `onScans` adds Scans to both, for a
-    /// tune with scans. `onSelect` adds Select to the menu, which enters selection with this row.
+    /// menu items, and Delete in the menu alone, after a separator, the menu with a preview of
+    /// the tune. `onScans` adds Scans to both, for a tune with scans. `onSelect` adds Select to
+    /// the menu, which enters selection with this row.
     /// A row that is selecting has none of them. The condition sits inside each builder, since
     /// an empty menu shows nothing and the row keeps one shape either way.
     func catalogRowActions(
         _ entry: CatalogEntry, instruments: Set<String>, isSelecting: Bool = false, onEdit: @escaping () -> Void,
-        onArchive: @escaping () -> Void, onScans: (@MainActor () -> Void)? = nil, onSelect: (() -> Void)? = nil
+        onArchive: @escaping () -> Void, onDelete: @escaping () -> Void, onScans: (@MainActor () -> Void)? = nil,
+        onSelect: (() -> Void)? = nil
     ) -> some View {
         let archived = entry.isArchived
         // A long swipe only reveals the actions: SwiftUI's full swipe would run the edge action,
@@ -72,23 +64,18 @@ extension View {
         return swipeActions(edge: .trailing, allowsFullSwipe: false) {
             if !isSelecting {
                 // The first action sits at the trailing edge, so Edit reads first from the left.
-                Button(
-                    TuneRowActions.archiveLabel(archived: archived),
-                    systemImage: TuneRowActions.archiveSystemImage(archived: archived), action: onArchive
-                )
-                .tint(Palette.warningFillStrong)
-                Button(TuneRowActions.edit, systemImage: TuneRowActions.editSystemImage, action: onEdit)
-                    .tint(Palette.neutralFill)
-                if let onScans { ScansRowAction(action: onScans) }
+                SwipeActionButton(.archive(archived: archived), perform: onArchive)
+                SwipeActionButton(.edit, perform: onEdit)
+                if let onScans { SwipeActionButton(.scans, perform: onScans) }
             }
         }
         .contextMenu {
             if !isSelecting {
-                if let onScans { ScansRowAction(action: onScans) }
-                Button(TuneRowActions.edit, systemImage: TuneRowActions.editSystemImage, action: onEdit)
-                Button(
-                    TuneRowActions.archiveLabel(archived: archived),
-                    systemImage: TuneRowActions.archiveSystemImage(archived: archived), action: onArchive)
+                if let onScans { RowMenuButton(.scans, perform: onScans) }
+                RowMenuButton(.edit, perform: onEdit)
+                RowMenuButton(.archive(archived: archived), perform: onArchive)
+                Divider()
+                RowMenuButton(.delete, perform: onDelete)
                 if let onSelect {
                     Divider()
                     Button(TuneRowActions.select, systemImage: "checkmark.circle", action: onSelect)

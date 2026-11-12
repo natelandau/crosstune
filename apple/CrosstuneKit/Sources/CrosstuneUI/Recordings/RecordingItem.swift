@@ -94,7 +94,7 @@ struct RecordingItem: View {
 /// Words the recording row actions and the recording page's menu show.
 public enum RecordingRowActions {
     public static let removeFromTune = "Remove from tune"
-    public static let delete = "Delete"
+    public static let delete = RowActionText.delete
 
     /// Opens an imported recording on the site it came from.
     public static func openOn(_ site: String) -> String { "Open on \(site)" }
@@ -118,47 +118,17 @@ extension MediaRow.SourceLine {
     }
 }
 
-/// One of a recording row's actions. Every other action on a recording lives on its page.
-enum RecordingRowAction: Hashable {
-    case delete
-
-    var title: String {
-        switch self {
-        case .delete: RecordingRowActions.delete
-        }
-    }
-
-    /// The context menu's actions, top to bottom.
-    static let menu: [Self] = [.delete]
-
-    /// The swipe actions, from the trailing edge in.
-    static let swipe: [Self] = [.delete]
-
-    /// The swipe action's fill, as the web's row swipe tones.
-    var swipeFill: Palette.Token {
-        switch self {
-        case .delete: .dangerFillStrong
-        }
-    }
-}
-
 extension View {
     /// Swipe actions and a context menu for a recording row, which hold Delete alone. Delete
     /// shows disabled with `deleteDisabledReason` while it cannot be used.
     func recordingRowActions(onDelete: @escaping () -> Void, deleteDisabledReason: String? = nil) -> some View {
-        let handlers = RecordingRowHandlers(onDelete: onDelete, deleteDisabledReason: deleteDisabledReason)
-        return
-            self
+        self
             // A long swipe only reveals the actions; no swipe acts on its own.
             .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                ForEach(RecordingRowAction.swipe, id: \.self) { action in
-                    handlers.button(action, short: true).tint(Palette.color(action.swipeFill))
-                }
+                SwipeActionButton(.delete, disabledReason: deleteDisabledReason, perform: onDelete)
             }
             .contextMenu {
-                ForEach(RecordingRowAction.menu, id: \.self) { action in
-                    handlers.button(action, short: false)
-                }
+                RowMenuButton(.delete, disabledReason: deleteDisabledReason, perform: onDelete)
             }
     }
 
@@ -176,32 +146,5 @@ extension View {
             } message: { view in
                 Text(RecordingsModel.deleteMessage(view))
             }
-    }
-}
-
-/// What a recording row's actions do.
-@MainActor
-struct RecordingRowHandlers {
-    let onDelete: () -> Void
-    /// Why Delete cannot be used now; it shows disabled with this reason.
-    var deleteDisabledReason: String?
-
-    @ViewBuilder func button(_ action: RecordingRowAction, short: Bool) -> some View {
-        switch action {
-        case .delete:
-            // Delete only asks, so a swipe action has no destructive role: with one, SwiftUI
-            // removes the row at once.
-            Button(role: short ? nil : .destructive, action: onDelete) {
-                Label {
-                    Text(action.title)
-                    if !short, let deleteDisabledReason { Text(deleteDisabledReason) }
-                } icon: {
-                    Image(systemName: "trash")
-                }
-            }
-            .disabled(deleteDisabledReason != nil)
-            // VoiceOver reads the reason where a swipe action is too narrow to show it.
-            .accessibilityHint(deleteDisabledReason ?? "", isEnabled: deleteDisabledReason != nil)
-        }
     }
 }

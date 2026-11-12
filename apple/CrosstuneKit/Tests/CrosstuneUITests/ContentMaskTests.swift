@@ -241,25 +241,12 @@ struct ContentMaskTests {
         }
     }
 
-    /// Swipe-action labels, by file and text on the label's line. SwiftUI builds a swipe action's
-    /// label into a UIKit button, which takes no SwiftUI overlay; the replay masks that button's
-    /// title by type.
-    static let swipeLabels: [(file: String, marker: String)] = [
-        ("Lists/ListScreen.swift", "Label(ListScreen.reorder("),
-        ("Lists/ListScreen.swift", "Section(ListScreen.move("),
-    ]
-
     @Test func everyViewOfUserContentIsMasked() throws {
         var unmasked: [String] = []
         for file in SourceScan.files() {
             let relative = SourceScan.relative(file)
             let text = try SourceScan.text(at: file)
-            let lines = text.components(separatedBy: "\n")
             for site in Self.sites(in: text) where !site.masked {
-                let isSwipeLabel = Self.swipeLabels.contains {
-                    $0.file == relative && lines[site.line - 1].contains($0.marker)
-                }
-                if isSwipeLabel { continue }
                 unmasked.append("\(relative):\(site.line) \(site.view)")
             }
         }

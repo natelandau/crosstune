@@ -445,4 +445,43 @@ public final class CatalogModel {
             actionError = failureMessage(error)
         }
     }
+
+    /// The question a row's Delete asks: what else goes with the tune, and a warning when a
+    /// recording that goes has not reached the server. Nil when it could not be read.
+    public func deleteQuestion(_ entry: CatalogEntry) async -> TuneDeleteQuestion? {
+        actionError = nil
+        let tuneID = entry.tune.id
+        do {
+            let files = try await store.read { db in try BulkActions.recordingFiles(db, tuneIDs: [tuneID]) }
+            return TuneDeleteQuestion(
+                id: entry.id, tuneID: tuneID, title: DeleteTuneMessage.title(for: entry.tune.title),
+                message: DeleteTuneMessage.one(files: files))
+        } catch {
+            actionError = failureMessage(error)
+            return nil
+        }
+    }
+
+    /// Deletes the tune the question named, with its links, list entries, and recordings. True
+    /// once the delete has landed.
+    @discardableResult
+    public func delete(_ question: TuneDeleteQuestion) async -> Bool {
+        actionError = nil
+        do {
+            try await TuneModel.deleteTune(
+                question.tuneID, commands: Commands(store: store), store: store, analytics: analytics)
+            return true
+        } catch {
+            actionError = failureMessage(error)
+            return false
+        }
+    }
+}
+
+/// A row's question before it deletes its tune, keyed by the row so the dialog points at it.
+public struct TuneDeleteQuestion: Identifiable, Sendable {
+    public let id: String
+    let tuneID: String
+    let title: String
+    let message: String
 }
