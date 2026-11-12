@@ -62,18 +62,6 @@ struct AttributeColumnRow<ID: Hashable>: Hashable, Identifiable {
     let text: String?
     /// The heading of the group the row sits under.
     let group: String
-    /// A read-only row shows its value as text, with no editor to open.
-    let isReadOnly: Bool
-
-    init(id: ID, label: String, text: String?, group: String, isReadOnly: Bool = false) {
-        self.id = id
-        self.label = label
-        self.text = text
-        self.group = group
-        self.isReadOnly = isReadOnly
-    }
-
-    var control: AttributeRowControl { isReadOnly ? .text : .button }
 
     /// The row's value, or `emptyText` while the attribute holds none.
     func value(emptyText: String) -> String {
@@ -86,12 +74,6 @@ struct AttributeColumnRow<ID: Hashable>: Hashable, Identifiable {
 }
 
 extension AttributeColumnRow: Sendable where ID: Sendable {}
-
-/// What a row draws as: a button that opens its editor, or text.
-enum AttributeRowControl: Equatable, Sendable {
-    case button
-    case text
-}
 
 /// What an attributes column draws, in order: each group's heading, then each of its rows
 /// followed by the content that goes below that row.
@@ -265,17 +247,12 @@ struct AttributesColumn<ID: Hashable, Editor: View, Below: View, Footer: View>: 
     }
 
     @ViewBuilder private func attributeRow(_ row: AttributeColumnRow<ID>) -> some View {
-        switch row.control {
-        case .text:
-            AttributeRowText(row: row, layout: layout, arrangement: rowArrangement, emptyText: emptyText)
-        case .button:
-            let isPresented = presented(row.id)
-            editor(
-                row, isPresented,
-                AttributeRowButton(row: row, layout: layout, arrangement: rowArrangement, emptyText: emptyText) {
-                    isPresented.wrappedValue = true
-                })
-        }
+        let isPresented = presented(row.id)
+        editor(
+            row, isPresented,
+            AttributeRowButton(row: row, layout: layout, arrangement: rowArrangement, emptyText: emptyText) {
+                isPresented.wrappedValue = true
+            })
     }
 
     private func presented(_ id: ID) -> Binding<Bool> {
@@ -433,22 +410,6 @@ struct AttributeRowButton<ID: Hashable>: View {
         }
         .attributeRowButton(column: layout == .column)
         .accessibilityLabel(row.accessibilityLabel(emptyText: emptyText))
-    }
-}
-
-/// A read-only row: a button's label and frame with no tint and nothing to open.
-private struct AttributeRowText<ID: Hashable>: View {
-    let row: AttributeColumnRow<ID>
-    let layout: AttributesLayout
-    let arrangement: AttributeRowArrangement
-    let emptyText: String
-
-    var body: some View {
-        AttributeRowContent(row: row, layout: layout, arrangement: arrangement, emptyText: emptyText)
-            .attributeRowInsets(column: layout == .column)
-            .attributeRowMargin(column: layout == .column)
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(row.accessibilityLabel(emptyText: emptyText))
     }
 }
 

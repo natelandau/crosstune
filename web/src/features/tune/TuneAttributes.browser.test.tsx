@@ -18,14 +18,13 @@ import { DETAIL_LABELS } from './detailFields'
 import { STATUS_HEADER } from './tuneFormCopy'
 import {
   ABOUT_GROUP,
-  ADDED_ON,
   DETAILS_GROUP,
   attributeRowName,
   ATTRIBUTES_LABEL,
   LEARNED_GROUP,
   LISTS_GROUP,
 } from './attributeCopy'
-import { MORE_DETAILS } from '../../ui/attributes/attributesCopy'
+import { DATE_ADDED, MORE_DETAILS } from '../../ui/attributes/attributesCopy'
 import {
   attributesLayout,
   COLUMN_GAP,
@@ -204,7 +203,7 @@ it('the attributes column heads its groups in order and ends with the day the tu
       .elements()
       .map((h) => h.textContent)
   await expect.poll(headers).toEqual([DETAILS_GROUP, ABOUT_GROUP, LEARNED_GROUP, LISTS_GROUP])
-  const added = ADDED_ON(addedDay((await db.tunes.get(tuneId))!.created_at))
+  const added = DATE_ADDED(addedDay((await db.tunes.get(tuneId))!.created_at))
   expect(column.element().lastElementChild?.textContent).toBe(added)
   await expect.element(column.getByRole('button', { name: ADD_TO_LIST })).toBeVisible()
 })
@@ -216,7 +215,7 @@ it('an attributes column taller than the window scrolls on its own to its last l
   await expect
     .poll(() => column.element().scrollHeight - column.element().clientHeight)
     .toBeGreaterThan(0)
-  const added = page.getByText(ADDED_ON(addedDay((await db.tunes.get(tuneId))!.created_at)))
+  const added = page.getByText(DATE_ADDED(addedDay((await db.tunes.get(tuneId))!.created_at)))
   await expect
     .poll(() => added.element().getBoundingClientRect().top)
     .toBeGreaterThan(window.innerHeight)
@@ -229,7 +228,7 @@ it('an attributes column taller than the window scrolls on its own to its last l
 
 it('card leaves the lists and the day added to the page', async () => {
   const { db, tuneId } = await setup('card')
-  const added = ADDED_ON(addedDay((await db.tunes.get(tuneId))!.created_at))
+  const added = DATE_ADDED(addedDay((await db.tunes.get(tuneId))!.created_at))
   await row(MORE_DETAILS).click()
   await expect.element(row(attributeRowName(DETAIL_LABELS.alternate_titles))).toBeVisible()
   expect(page.getByRole('button', { name: ADD_TO_LIST }).query()).toBeNull()

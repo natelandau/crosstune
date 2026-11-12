@@ -346,7 +346,7 @@ struct TunePageColumn: View {
                     TuneListTokens(model: model, detail: detail, onAddToList: addToList)
                 }
             }
-            AddedOn(detail: detail, endsPage: true)
+            AddedOn(date: detail.tune.createdAt.date, endsPage: true)
                 .frame(maxWidth: sectionMaxWidth, alignment: .leading)
         }
     }

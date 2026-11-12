@@ -105,8 +105,6 @@ private struct RecordingEditing: ViewModifier {
                 .sheet(isPresented: $isPresented) {
                     LocationEditor(recordingID: recording.id, onFailure: model.report)
                 }
-        case .added:
-            content
         }
     }
 

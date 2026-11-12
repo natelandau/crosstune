@@ -189,7 +189,6 @@ struct TuneAttributesTests {
         }
         #expect(headings == [AttributeCopy.detailsGroup, AttributeCopy.aboutGroup, AttributeCopy.learnedGroup])
         #expect(rows.map(\.id) == AttributeRows.rows(detail()).map(\.id))
-        #expect(rows.allSatisfy { !$0.isReadOnly })
     }
 
     @Test func anUnsetValueReadsAdd() {

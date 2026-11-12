@@ -40,19 +40,6 @@ function renderColumn(
 
 const LAYOUTS = ['column', 'card'] as const
 
-it.each(LAYOUTS)(
-  'renders a read-only row with no button and no disclosure in the %s',
-  async (layout) => {
-    renderColumn(
-      [{ id: 'added', label: 'Added', text: 'Jan 1', group: 'main', readOnly: true }],
-      undefined,
-      layout,
-    )
-    await expect.element(page.getByRole('group', { name: 'Added, Jan 1' })).toBeVisible()
-    await expect.element(page.getByRole('button', { name: /Added/ })).not.toBeInTheDocument()
-  },
-)
-
 it.each(LAYOUTS)("renders a row's below content under it in the %s", async (layout) => {
   renderColumn(
     [{ id: 'where', label: 'Location', text: 'Barn', group: 'main', below: <p>map</p> }],

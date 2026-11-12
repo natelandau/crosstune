@@ -14,7 +14,6 @@ public enum RecordingPageCopy {
     public static let tune = "Linked Tune"
     public static let players = "Players"
     public static let recorded = "Recorded"
-    public static let added = "Added"
     public static let location = "Location"
     public static let notes = "Notes"
 

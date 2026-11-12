@@ -34,7 +34,6 @@ import {
 } from './tuneScreenCopy'
 import {
   ABOUT_GROUP,
-  ADDED_ON,
   DETAILS_GROUP,
   attributeRowName,
   ATTRIBUTES_LABEL,
@@ -43,6 +42,7 @@ import {
 } from './attributeCopy'
 import { DETAIL_LABELS } from './detailFields'
 import { addedDay } from '../../text/format'
+import { DATE_ADDED } from '../../ui/attributes/attributesCopy'
 import { DONE } from '../../ui/confirmCopy'
 import { lyricsTitle } from '../lyrics/lyricsCopy'
 import { openTestDb } from '../../test/db'
@@ -203,7 +203,7 @@ it('an attributes column taller than the pane scrolls on its own to the day adde
     .poll(() => column.element().scrollHeight - column.element().clientHeight)
     .toBeGreaterThan(0)
   const scroller = tunePage().element().closest<HTMLElement>('[data-pane-scroller]')!
-  const added = column.getByText(ADDED_ON(addedDay((await db.tunes.get('t1'))!.created_at)))
+  const added = column.getByText(DATE_ADDED(addedDay((await db.tunes.get('t1'))!.created_at)))
   added.element().scrollIntoView({ block: 'nearest' })
   await expect.poll(() => column.element().scrollTop).toBeGreaterThan(0)
   await expect
@@ -414,7 +414,7 @@ it('orders the sections on the phone, ending with Lists and the day added', asyn
   await expect.element(lists.getByRole('button', { name: ADD_TO_LIST })).toBeVisible()
   const card = tunePage().getByRole('region', { name: ATTRIBUTES_LABEL })
   expect(card.getByRole('link').query()).toBeNull()
-  const added = tunePage().getByText(ADDED_ON(addedDay((await db.tunes.get('t1'))!.created_at)), {
+  const added = tunePage().getByText(DATE_ADDED(addedDay((await db.tunes.get('t1'))!.created_at)), {
     exact: true,
   })
   await expect.element(added).toBeVisible()
@@ -452,7 +452,7 @@ it('leaves Lists and the day added to the attributes column on wide', async () =
       LEARNED_GROUP,
       LISTS_GROUP,
     ])
-  const added = ADDED_ON(addedDay((await db.tunes.get('t1'))!.created_at))
+  const added = DATE_ADDED(addedDay((await db.tunes.get('t1'))!.created_at))
   expect(tunePage().getByText(added, { exact: true }).elements()).toHaveLength(1)
   await expect.element(column.getByText(added, { exact: true })).toBeVisible()
 })

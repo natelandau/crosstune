@@ -66,7 +66,8 @@ import { NotesField } from './NotesField'
 import { FirstRecordingCard } from './FirstRecordingCard'
 import { PageSection } from '../../ui/PageSection'
 import { TuneHeader } from './TuneHeader'
-import { AddedLine, TuneAttributes, TuneLists } from './TuneAttributes'
+import { TuneAttributes, TuneLists } from './TuneAttributes'
+import { DateAddedLine } from '../../ui/attributes/DateAddedLine'
 import { isQuietPick } from './tunePick'
 import { useTuneScans, type TuneScansParts } from './useTuneScans'
 import { TuneActionButtons } from './TuneActionButtons'
@@ -280,8 +281,8 @@ function TuneDocument({
               <TuneLists inLists={screen.inLists} onAddToList={addToList} />
             </PageSection>
             {/* A hairline, unlike between sections, so the date reads as the tune's, not the lists'. */}
-            <AddedLine
-              createdAt={view.tune.created_at}
+            <DateAddedLine
+              at={view.tune.created_at}
               className="border-default mt-8 border-t pt-3"
             />
           </>

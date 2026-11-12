@@ -4,6 +4,7 @@ import { isRecordingPrecision } from '../../db/types'
 import { blankToNull } from '../../text/blank'
 import { recordedTime } from '../../text/format'
 import { AttributesColumn } from '../../ui/attributes/AttributesColumn'
+import { DateAddedLine } from '../../ui/attributes/DateAddedLine'
 import {
   useAttributeEdit,
   useEnterKey,
@@ -59,7 +60,7 @@ function storedPatch(view: RecordingView): Required<RecordingPatch> {
 /**
  * A recording's attributes, as the column beside practice or as Details' card: each row opens
  * its own editor, which saves on every dismissal but Escape. The location editor opens from its
- * row or from the map under it.
+ * row or from the map under it. The day the recording was added ends them as plain text.
  */
 export function RecordingAttributes({
   ref,
@@ -74,7 +75,7 @@ export function RecordingAttributes({
 }) {
   const write = useRecordingAttributeWrite(view.recording.id)
   const [openId, setOpenId] = useState<string | null>(null)
-  return (
+  const attributes = (
     <AttributesColumn
       ref={ref}
       label={DETAILS}
@@ -107,7 +108,17 @@ export function RecordingAttributes({
       error={write.error}
       openId={openId}
       onOpenIdChange={setOpenId}
+      footer={<DateAddedLine at={view.recording.added_at} className="px-4 pt-6" />}
     />
+  )
+  // The card leaves its footer to the page, so the line follows it here.
+  return layout === 'card' ? (
+    <>
+      {attributes}
+      <DateAddedLine at={view.recording.added_at} className="px-4" />
+    </>
+  ) : (
+    attributes
   )
 }
 
@@ -146,7 +157,6 @@ function RecordingEditorBody({ id, view }: { id: RecordingAttributeId; view: Rec
       return <RecordedBody view={view} edit={edit} />
     case 'notes':
       return <NotesBody view={view} edit={edit} />
-    case 'added':
     case 'location':
       return null
   }

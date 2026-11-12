@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { addedDay, knownRecordedDate } from '../../text/format'
+import { knownRecordedDate } from '../../text/format'
 import type { AttributeColumnRow, AttributeGroup } from '../../ui/attributes/AttributesColumn'
 import {
   LOCATION_LABEL,
@@ -9,10 +9,9 @@ import {
 } from '../recordings/recordingsCopy'
 import type { RecordingView } from '../recordings/useRecordings'
 import { RECORDED_HEADER } from '../stats/copy'
-import { ADDED_LABEL, DETAILS, LINKED_TUNE_LABEL } from './recordingPageCopy'
+import { DETAILS, LINKED_TUNE_LABEL } from './recordingPageCopy'
 
-export type RecordingAttributeId =
-  'name' | 'players' | 'recorded' | 'added' | 'tune' | 'location' | 'notes'
+export type RecordingAttributeId = 'name' | 'players' | 'recorded' | 'tune' | 'location' | 'notes'
 
 export interface RecordingAttributeRow extends AttributeColumnRow {
   id: RecordingAttributeId
@@ -42,13 +41,6 @@ export function recordingRows(
       label: RECORDED_HEADER,
       text: knownRecordedDate(recording),
       group: 'details',
-    },
-    {
-      id: 'added',
-      label: ADDED_LABEL,
-      text: addedDay(recording.added_at),
-      group: 'details',
-      readOnly: true,
     },
     { id: 'tune', label: LINKED_TUNE_LABEL, text: view.tuneTitle, group: 'details' },
     {

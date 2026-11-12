@@ -2,9 +2,6 @@
 export const DETAILS = 'Details'
 export const PRACTICE = 'Practice'
 
-/** The recording page's Added row, which no other screen names. */
-export const ADDED_LABEL = 'Added'
-
 /** The recording page's row for the tune it is filed under. */
 export const LINKED_TUNE_LABEL = 'Linked Tune'
 

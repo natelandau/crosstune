@@ -159,10 +159,9 @@ import Testing
         #expect(sink.calls.isEmpty)
     }
 
-    @Test func addedIsReadOnly() {
-        let shown = RecordingPageRows.rows(rows(recording(label: "Take 1")))
-        #expect(shown.filter(\.isReadOnly).map(\.id) == [.added])
-        #expect(shown.map(\.id) == [.name, .players, .recorded, .added, .tune, .location, .notes])
+    @Test func theDayAddedIsNotARow() {
+        let opened = rows(recording(label: "Take 1"))
+        #expect(RecordingPageRows.rows(opened).map(\.id) == [.name, .players, .recorded, .tune, .location, .notes])
     }
 
     @Test func anEmptyRowReadsNotSet() throws {

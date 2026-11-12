@@ -7,19 +7,11 @@ struct AttributesColumnTests {
     private typealias Entry = AttributeColumnEntry<String>
 
     private static let rows = [
-        Row(id: "name", label: "Name", text: "Morning reel", group: "Details", isReadOnly: false),
-        Row(id: "players", label: "Players", text: nil, group: "Details", isReadOnly: false),
-        Row(id: "added", label: "Added", text: "Today", group: "Details", isReadOnly: true),
-        Row(id: "location", label: "Location", text: "Brooklyn", group: "Place", isReadOnly: false),
+        Row(id: "name", label: "Name", text: "Morning reel", group: "Details"),
+        Row(id: "players", label: "Players", text: nil, group: "Details"),
+        Row(id: "added", label: "Added", text: "Today", group: "Details"),
+        Row(id: "location", label: "Location", text: "Brooklyn", group: "Place"),
     ]
-
-    @Test func aReadOnlyRowIsNotAButton() {
-        let added = Self.rows.first { $0.id == "added" }!
-        let name = Self.rows.first { $0.id == "name" }!
-        #expect(added.control == .text)
-        #expect(name.control == .button)
-        #expect(Entry.entries(groups: ["Details", "Place"], rows: Self.rows).contains(.row(added)))
-    }
 
     @Test func anEmptyRowShowsItsEmptyText() {
         let players = Self.rows.first { $0.id == "players" }!

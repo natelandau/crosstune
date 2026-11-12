@@ -7,13 +7,12 @@ enum RecordingAttributeID: Hashable, Sendable {
     case tune
     case players
     case recorded
-    case added
     case location
     case notes
 }
 
 /// The rows the Details tab and the attributes column show, in order: the recording's own
-/// details, its location, then its notes. Every row opens its editor but Added.
+/// details, its location, then its notes. Every row opens its editor.
 enum RecordingPageRows {
     static let groups = [RecordingPageCopy.detailsGroup, RecordingPageCopy.locationGroup, RecordingPageCopy.notesGroup]
 
@@ -29,10 +28,6 @@ enum RecordingPageRows {
             AttributeColumnRow(id: .name, label: RecordingPageCopy.name, text: recording.label, group: details),
             AttributeColumnRow(id: .players, label: RecordingPageCopy.players, text: recording.players, group: details),
             AttributeColumnRow(id: .recorded, label: RecordingPageCopy.recorded, text: recorded, group: details),
-            AttributeColumnRow(
-                id: .added, label: RecordingPageCopy.added,
-                text: RecordingText.addedDay(recording.addedAt, locale: locale, timeZone: timeZone), group: details,
-                isReadOnly: true),
             AttributeColumnRow(id: .tune, label: RecordingPageCopy.tune, text: rows.tuneTitle, group: details),
             AttributeColumnRow(
                 id: .location, label: RecordingPageCopy.location, text: rows.shownPlace,
