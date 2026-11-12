@@ -1,10 +1,12 @@
 import CrosstuneCommands
 import CrosstuneStore
 import Foundation
+import Observation
 
 /// The search a tune picker runs over the whole catalog A to Z, archived tunes included: the
 /// catalog and the musician's instruments, read on the store's reader, and what a query finds.
 @MainActor
+@Observable
 final class CatalogPickerSearch {
     /// The catalog as read, each entry folded for search once rather than on each keystroke.
     struct Catalog: Sendable {
@@ -26,6 +28,7 @@ final class CatalogPickerSearch {
     private let store: CrosstuneStore
     private let catalog: LiveQuery<Catalog?>
     /// The catalog ``load()`` read, used until the live query publishes its first value.
+    /// Observed, so a picker shown before the read redraws once it lands.
     private var loaded: Catalog?
     private let storedInstruments: LiveQuery<Set<String>?>
 

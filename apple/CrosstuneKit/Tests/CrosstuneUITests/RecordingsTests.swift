@@ -872,14 +872,17 @@ struct RecordingsScreenPartsTests {
         let store = try root.open()
         let (tuneID, _) = try await Commands(store: store).createTune(
             TuneInput(title: "Kitchen Girl"), userTune: UserTuneInput(status: "known"))
-        let model = RecordingTunePickerModel(store: store)
+        var picked: [String] = []
+        let model = RecordingTunePickerModel(store: store, chosenID: nil, onPick: { picked.append($0) })
         try await model.load()
         #expect(model.results?.rows.isEmpty == true)
 
         model.query = "kitchen"
-        let entry = try #require(model.results?.rows.first)
-        #expect(RecordingTunePickerModel.rowName(entry) == "Add to Kitchen Girl")
-        #expect(model.submit() == .pick(tuneID: tuneID))
+        let row = try #require(model.results?.rows.first)
+        #expect(row.name == "Add to Kitchen Girl")
+        #expect(row.state == .open)
+        #expect(await model.submit() == .picked)
+        #expect(picked == [tuneID])
     }
 
     @Test func theTunePickerListsTheCatalogWhenIdle() async throws {
@@ -892,9 +895,10 @@ struct RecordingsScreenPartsTests {
         let archived = try await commands.createTune(
             TuneInput(title: "Big Scioty"), userTune: UserTuneInput(status: "known"))
         try await commands.setArchived(archived.userTuneID, archived: true)
-        let model = RecordingTunePickerModel(store: store)
+        let model = RecordingTunePickerModel(store: store, chosenID: archived.tuneID)
         try await model.load()
-        #expect(model.idleResults?.map(\.tune.title) == ["Ashokan Farewell", "Big Scioty", "Kitchen Girl"])
+        #expect(model.idleResults?.map(\.entry.tune.title) == ["Ashokan Farewell", "Big Scioty", "Kitchen Girl"])
+        #expect(model.idleResults?.map(\.state) == [.open, .chosen, .open], "the filed tune shows as chosen")
         model.query = "kitchen"
         #expect(model.idleResults?.isEmpty == true, "typing hands the rows to the search")
     }
@@ -902,7 +906,7 @@ struct RecordingsScreenPartsTests {
     @Test func readsAnEmptyCatalogWithoutTyping() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
-        let model = RecordingTunePickerModel(store: store)
+        let model = RecordingTunePickerModel(store: store, chosenID: nil)
         try await model.load()
         #expect(model.results != nil)
         #expect(model.idleResults?.isEmpty == true)
@@ -911,11 +915,11 @@ struct RecordingsScreenPartsTests {
     @Test func offersToStartATuneWhenNothingMatches() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
-        let model = RecordingTunePickerModel(store: store)
+        let model = RecordingTunePickerModel(store: store, chosenID: nil)
         try await model.load()
         model.query = "Sally Goodin"
         #expect(model.results?.outcome.addTypedTitleLabel == "Add \"Sally Goodin\"")
-        #expect(model.submit() == .create(title: "Sally Goodin"))
+        #expect(await model.submit() == .create(title: "Sally Goodin"))
     }
 }
 

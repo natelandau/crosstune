@@ -420,7 +420,7 @@ struct PendingMovesTests {
         let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = try await picker(store)
         model.query = "Ashokan"
-        #expect(await model.submit() == .nothing)
+        #expect(await model.submit() == .picked)
         #expect(model.query.isEmpty)
         let titles = try await store.read { db in
             try ListContents.fetch(db, listID: session.id)?.entries.map(\.tune.title)

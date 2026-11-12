@@ -29,8 +29,6 @@ enum RecordingEdit {
     static func name(_ recording: Recording) -> AttributeEditSession<String> { .text(recording.label ?? "") }
     static func players(_ recording: Recording) -> AttributeEditSession<String> { .text(recording.players ?? "") }
     static func notes(_ recording: Recording) -> AttributeEditSession<String> { .text(recording.notes ?? "") }
-    /// The tune the recording is filed under, nil for none.
-    static func tune(_ rows: ScreenRows) -> AttributeEditSession<String?> { AttributeEditSession(stored: rows.tuneID) }
 
     /// `timeZone` reads a recording's day.
     static func recorded(_ recording: Recording, timeZone: TimeZone = .current)
@@ -42,13 +40,13 @@ enum RecordingEdit {
 
 extension View {
     /// Edits one of a recording's fields from its row, saving through `model`: a popover or a
-    /// part-height sheet as the tune page's rows do, and for Location the location editor as a
-    /// sheet. Added has no editor.
+    /// part-height sheet as the tune page's rows do, and for Tune and Location a sheet of their
+    /// own. Added has no editor.
     ///
     /// - Parameters:
     ///   - rows: The recording as stored now, which each opening starts from.
     ///   - onGoToTune: Opens the recording's tune; nil, as for an unfiled recording, leaves Go to
-    ///     tune out of the Tune editor.
+    ///     tune out of the Tune sheet.
     func recordingEditor(
         for id: RecordingAttributeID, rows: ScreenRows, isPresented: Binding<Bool>, label: String,
         model: RecordingAttributeModel, onGoToTune: (() -> Void)?
@@ -75,13 +73,10 @@ private struct RecordingEditing: ViewModifier {
                 content, RecordingEdit.name(recording), commit: { await $0.rename($1) },
                 body: { controls in RecordingNameEditor(controls: controls) })
         case .tune:
-            editing(
-                content, RecordingEdit.tune(rows), commit: { await $0.file($1) },
-                body: { controls in
-                    RecordingTuneEditor(
-                        controls: controls, onGoToTune: onGoToTune,
-                        onCreate: { title in Task { await model.fileUnderNewTune(title) } })
-                })
+            content
+                .sheet(isPresented: $isPresented) {
+                    RecordingTuneSheet(title: label, tuneID: rows.tuneID, model: model, onGoToTune: onGoToTune)
+                }
         case .players:
             editing(
                 content, RecordingEdit.players(recording), commit: { await $0.setPlayers($1) },

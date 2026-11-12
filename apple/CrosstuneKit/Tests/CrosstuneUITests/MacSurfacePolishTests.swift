@@ -31,7 +31,7 @@
         /// key pills line up down the column.
         @Test func takenTuneSaysItIsInTheListAloud() throws {
             let text = SourceScan.withoutComments(
-                try SourceScan.text(at: SourceScan.url(of: "Lists/TunePickerSheet.swift")))
+                try SourceScan.text(at: SourceScan.url(of: "Catalog/TunePicker.swift")))
             #expect(SourceScan.macCompiled(text).contains("Text(TunePickerModel.inThisList)") == false)
         }
 
@@ -67,7 +67,7 @@
             let row = TuneRowText(tune: entry.tune, userTune: entry.userTune, instruments: SampleCatalog.instruments)
                 .accessibilityLabel(position: nil)
             #expect(
-                TunePickerSheet.takenLabel(entry, instruments: SampleCatalog.instruments)
+                TunePickerText.takenLabel(entry, instruments: SampleCatalog.instruments)
                     == "\(row), \(TunePickerModel.inThisList)")
         }
 

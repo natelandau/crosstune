@@ -255,6 +255,9 @@ A role only one platform has is on that platform's page.
   case and accents.
 - A picker never hides an item. One that cannot be picked shows, inert,
   with the reason.
+- Every place that chooses a tune from the catalog draws the one shared
+  tune picker. Only single or multiple selection, and actions on the
+  current choice, differ.
 - Every list filters by every facet of its items. The filter sheet holds
   them all, and the filter row is a shortcut to the same filters.
 - A facet shows only when the list holds values for it. A stored value the

@@ -86,10 +86,6 @@ import Testing
         try await put(opened, in: store)
         let model = RecordingAttributeModel(store: store, recordingID: "r1", analytics: sink.client)
 
-        var filing = RecordingEdit.tune(rows(opened))
-        var picked: [String?] = []
-        filing.end(.picked, picked: tuneID) { picked.append($0) }
-        #expect(picked == [tuneID])
         await model.file(tuneID)
         #expect(try await stored(in: store)?.tuneID == tuneID)
 
