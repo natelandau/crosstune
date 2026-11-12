@@ -89,6 +89,11 @@ private struct TuneFormContent: View {
     @Environment(\.dismiss) private var dismiss
     @FocusState private var titleFocused: Bool
     @FocusState private var lyricsFocused: Bool
+    @FocusState private var composerFocused: Bool
+    @FocusState private var genreFocused: Bool
+    @FocusState private var tuneTypeFocused: Bool
+    @FocusState private var partStructureFocused: Bool
+    @FocusState private var learnedFromFocused: Bool
 
     var body: some View {
         #if os(macOS)
@@ -243,6 +248,7 @@ private struct TuneFormContent: View {
                         prompt: Text(TuneFieldLabels.notesPlaceholder), axis: .vertical
                     )
                     .contentMask()
+                    .textEntry(.prose)
                     .lineLimit(3...)
                     .characterLimit(Vocabulary.Limits.Tune.notes, text: $model.values.notes)
                 }
@@ -252,6 +258,7 @@ private struct TuneFormContent: View {
                         prompt: Text(TuneFieldLabels.lyricsPlaceholder), axis: .vertical
                     )
                     .contentMask()
+                    .textEntry(.prose)
                     .lineLimit(6...)
                     .characterLimit(Vocabulary.Limits.Tune.lyrics, text: $model.values.lyrics)
                     .focused($lyricsFocused)
@@ -265,6 +272,7 @@ private struct TuneFormContent: View {
             Section {
                 TextField(TuneFieldLabels.title, text: titleBinding, prompt: Text(TuneFieldLabels.title))
                     .contentMask()
+                    .textEntry(.name)
                     .characterLimit(Vocabulary.Limits.Tune.title, text: $model.values.title)
                     .focused($titleFocused)
                     .submitLabel(.done)
@@ -295,20 +303,26 @@ private struct TuneFormContent: View {
                 prompt: Text(TuneFieldLabels.notSet)
             )
             .contentMask()
+            .textEntry(.name)
             #if os(macOS)
                 .labelsHidden()
                 .textFieldStyle(.macField)
             #else
                 .multilineTextAlignment(.trailing)
             #endif
+            .returnFocuses($composerFocused)
         }
         SuggestionField(
             TuneFieldLabels.composer, value: $model.values.composer, suggestions: model.composerOptions,
-            maxLength: Vocabulary.Limits.Tune.composer)
+            maxLength: Vocabulary.Limits.Tune.composer, focus: $composerFocused
+        )
+        .returnFocuses($genreFocused)
         ModeRows(values: $model.values)
         SuggestionField(
             TuneFieldLabels.genre, value: $model.values.genre, suggestions: Vocabulary.genres,
-            maxLength: Vocabulary.Limits.Tune.genre)
+            maxLength: Vocabulary.Limits.Tune.genre, focus: $genreFocused
+        )
+        .returnFocuses($tuneTypeFocused)
         SuggestionField(
             TuneFieldLabels.tuneType,
             value: Binding {
@@ -316,7 +330,9 @@ private struct TuneFormContent: View {
             } set: {
                 model.setType($0)
             },
-            suggestions: model.typeOptions, maxLength: Vocabulary.Limits.Tune.tuneType)
+            suggestions: model.typeOptions, maxLength: Vocabulary.Limits.Tune.tuneType, focus: $tuneTypeFocused
+        )
+        .returnFocuses($partStructureFocused)
         SuggestionPicker(
             TuneFieldLabels.timeSignature,
             value: Binding {
@@ -327,14 +343,19 @@ private struct TuneFormContent: View {
             options: Vocabulary.timeSignatures, reportsRepicks: true)
         SuggestionField(
             TuneFieldLabels.partStructure, value: $model.values.partStructure,
-            suggestions: Vocabulary.partStructures, maxLength: Vocabulary.Limits.Tune.partStructure)
+            suggestions: Vocabulary.partStructures, maxLength: Vocabulary.Limits.Tune.partStructure,
+            focus: $partStructureFocused, kind: .capitals
+        )
+        .returnFocuses($learnedFromFocused)
         Toggle(isOn: $model.values.isCrooked) {
             Text(TuneFieldLabels.isCrooked)
             Text(TuneFieldLabels.crookedHelp)
         }
         SuggestionField(
             TuneFieldLabels.learnedFrom, value: $model.values.learnedFrom, suggestions: model.learnedFromOptions,
-            maxLength: Vocabulary.Limits.Tune.learnedFrom)
+            maxLength: Vocabulary.Limits.Tune.learnedFrom, focus: $learnedFromFocused
+        )
+        .submitLabel(.done)
         LearnedOnRow(day: $model.values.learnedOn)
     }
 

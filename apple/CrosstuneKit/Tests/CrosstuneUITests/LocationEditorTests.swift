@@ -99,7 +99,7 @@ private func stored(_ store: CrosstuneStore, _ id: String = "r1", sourceLocation
         // On iPhone and iPad the system search field sits in the navigation bar, above the form.
         let phone = SourceScan.iOSCompiled(text)
         let phonePage = try #require(phone.range(of: "private var page: some View {"))
-        #expect(phone[phonePage.upperBound...].contains(".searchable("))
+        #expect(phone[phonePage.upperBound...].contains(".listSearch("))
         let mac = SourceScan.macCompiled(text)
         let page = try #require(mac.range(of: "private var page: some View {"))
         let body = mac[page.upperBound...]

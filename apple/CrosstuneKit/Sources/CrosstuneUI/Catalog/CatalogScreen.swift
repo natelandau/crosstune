@@ -159,14 +159,9 @@ private struct CatalogContent: View {
                     }
                 }
             #else
-                .searchable(
-                    text: $model.query, placement: .navigationBarDrawer(displayMode: .always),
-                    prompt: CatalogScreen.searchPrompt
-                )
+                .listSearch(text: $model.query, prompt: CatalogScreen.searchPrompt)
                 .searchFocused($searchFocused)
                 .onSubmit(of: .search, submitSearch)
-                .scrollDismissesKeyboard(.immediately)
-                .textInputAutocapitalization(.never)
                 .navigationTitle(title)
                 .toolbar {
                     if !selection.isActive {

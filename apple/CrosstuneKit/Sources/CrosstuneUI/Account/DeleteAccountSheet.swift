@@ -270,8 +270,7 @@ public struct DeleteAccountSheet: View {
                     Section {
                         TextField(Self.confirmLabel, text: $text)
                             .contentMask()
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled()
+                            .textEntry(.verbatim)
                             .disabled(pending)
                         ForEach(Self.appleLines(hasAppleSignIn: session.hasAppleSignIn), id: \.self) { Text($0) }
                     } footer: {

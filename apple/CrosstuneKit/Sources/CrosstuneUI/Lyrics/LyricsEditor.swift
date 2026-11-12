@@ -16,6 +16,7 @@ struct LyricsEditor: View {
                 TuneFieldLabels.lyrics, text: $lyrics, prompt: Text(TuneFieldLabels.lyricsPlaceholder), axis: .vertical
             )
             .contentMask()
+            .textEntry(.prose)
             .labelsHidden()
             .characterLimit(Vocabulary.Limits.Tune.lyrics, text: $lyrics)
             .textFieldStyle(.filledMultiline)
@@ -27,6 +28,7 @@ struct LyricsEditor: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .contentShape(.rect)
                 .onTapGesture { focused = true }
+                .keyboardFieldArea()
                 .accessibilityHidden(true)
         }
         .padding(.horizontal)

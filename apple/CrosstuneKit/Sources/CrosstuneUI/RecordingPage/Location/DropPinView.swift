@@ -105,6 +105,7 @@ struct DropPinView: View {
             @Bindable var model = model
             TextField(NameLocationText.nameLabel, text: $model.savedName, prompt: Text(NameLocationText.nameLabel))
                 .contentMask()
+                .textEntry(.name)
                 #if os(macOS)
                     .labelsHidden()
                     .textFieldStyle(.macField)

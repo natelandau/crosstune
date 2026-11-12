@@ -198,6 +198,7 @@ private struct ListNameForm: View {
     private var field: some View {
         TextField(ListNameSheet.nameLabel, text: nameBinding, prompt: Text(ListNameSheet.placeholder))
             .contentMask()
+            .textEntry(.name)
             #if os(macOS)
                 .labelsHidden()
                 .textFieldStyle(.macField)

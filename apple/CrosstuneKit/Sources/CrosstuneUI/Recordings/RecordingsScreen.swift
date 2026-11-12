@@ -236,14 +236,9 @@ private struct RecordingsContent: View {
             }
             .columnTitled(Destination.recordings.title)
         #else
-            .searchable(
-                text: $model.query, placement: .navigationBarDrawer(displayMode: .always),
-                prompt: RecordingsListText.search
-            )
+            .listSearch(text: $model.query, prompt: RecordingsListText.search)
             .searchFocused($searchFocused)
             .onSubmit(of: .search) { searchFocused = false }
-            .scrollDismissesKeyboard(.immediately)
-            .textInputAutocapitalization(.never)
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Button(RecordingImport.upload, systemImage: "plus") { upload() }

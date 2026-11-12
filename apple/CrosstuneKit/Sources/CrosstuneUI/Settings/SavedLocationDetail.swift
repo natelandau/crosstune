@@ -47,6 +47,7 @@ struct SavedLocationDetail: View {
                     Section {
                         TextField(SavedLocationsText.nameLabel, text: $name, prompt: Text(SavedLocationsText.nameLabel))
                             .contentMask()
+                            .textEntry(.name)
                             .characterLimit(Vocabulary.Limits.Place.name, text: $name)
                             .focused($focused)
                             .submitLabel(.done)

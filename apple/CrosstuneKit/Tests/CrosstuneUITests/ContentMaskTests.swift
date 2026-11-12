@@ -59,7 +59,7 @@ struct ContentMaskTests {
     /// Views the musician types into. Every one is masked, whatever it is bound to.
     static let inputs: Set = ["TextField", "TextEditor", "SecureField"]
 
-    /// The screens with a `.searchable` field, which ship unmasked: the system draws the field in
+    /// The screens with a `.listSearch` field, which ship unmasked: the system draws the field in
     /// the navigation bar, where a mask on the screen never reaches. Replay must stay off while
     /// any is listed.
     static let unmaskedSearchFields: Set = [
@@ -86,13 +86,15 @@ struct ContentMaskTests {
                 index += 1
                 continue
             }
-            let close = matching(chars, from: open)
+            let close = SourceScan.matching(chars, from: open)
             let argument = String(chars[(open + 1)..<max(open + 1, close)])
             index = open + 1
             guard inputs.contains(view) || readsContent(argument, locals: locals) else { continue }
             let line = chars[..<index].count { $0 == "\n" } + 1
             sites.append(
-                Site(line: line, view: view, masked: modifiers(in: chars, after: close).contains("contentMask")))
+                Site(
+                    line: line, view: view,
+                    masked: SourceScan.modifiers(in: chars, after: close).contains("contentMask")))
         }
         return sites
     }
@@ -100,34 +102,13 @@ struct ContentMaskTests {
     /// The view name and the index of its opening parenthesis when a view's initializer starts
     /// at `index`. A member call such as `.Text(` or `MyText(` is not one.
     private static func viewCall(in chars: [Character], at index: Int) -> (String, Int)? {
-        if index > 0, chars[index - 1] == "." || isWordCharacter(chars[index - 1]) { return nil }
+        if index > 0, chars[index - 1] == "." || SourceScan.isWordCharacter(chars[index - 1]) { return nil }
         for view in displays.union(inputs) {
             let end = index + view.count
             guard end < chars.count, chars[end] == "(", String(chars[index..<end]) == view else { continue }
             return (view, end)
         }
         return nil
-    }
-
-    private static func isWordCharacter(_ character: Character) -> Bool {
-        character.isLetter || character.isNumber || character == "_"
-    }
-
-    /// The index of the bracket that closes the one at `open`, or the end of the text.
-    private static func matching(_ chars: [Character], from open: Int) -> Int {
-        var depth = 0
-        var index = open
-        while index < chars.count {
-            switch chars[index] {
-            case "(", "[", "{": depth += 1
-            case ")", "]", "}":
-                depth -= 1
-                if depth == 0 { return index }
-            default: break
-            }
-            index += 1
-        }
-        return chars.count
     }
 
     /// Whether `expression` reads a content property off a value, rather than off a type such as
@@ -169,38 +150,15 @@ struct ContentMaskTests {
         var names: Set<String> = []
         var index = 0
         while index < chars.count {
-            guard isWordCharacter(chars[index]), !chars[index].isNumber else {
+            guard SourceScan.isWordCharacter(chars[index]), !chars[index].isNumber else {
                 index += 1
                 continue
             }
             let start = index
-            while index < chars.count, isWordCharacter(chars[index]) { index += 1 }
+            while index < chars.count, SourceScan.isWordCharacter(chars[index]) { index += 1 }
             if start == 0 || chars[start - 1] != "." { names.insert(String(chars[start..<index])) }
         }
         return names
-    }
-
-    /// The names of the modifiers chained onto the view whose arguments close at `close`.
-    private static func modifiers(
-        in chars: [Character], after close: Int, sourceLocation: SourceLocation = #_sourceLocation
-    ) -> [String] {
-        var names: [String] = []
-        var index = skippingTrailingClosures(in: chars, from: close + 1, sourceLocation: sourceLocation)
-        while true {
-            while index < chars.count, chars[index].isWhitespace { index += 1 }
-            guard index < chars.count, chars[index] == "." else { return names }
-            index += 1
-            let start = index
-            while index < chars.count, isWordCharacter(chars[index]) { index += 1 }
-            names.append(String(chars[start..<index]))
-            // The modifier's arguments, then any trailing closures.
-            while true {
-                var next = index
-                while next < chars.count, chars[next] == " " { next += 1 }
-                guard next < chars.count, chars[next] == "(" || chars[next] == "{" else { break }
-                index = matching(chars, from: next) + 1
-            }
-        }
     }
 
     /// Whether each use of `marker`, a view call up to its opening parenthesis's argument, carries
@@ -213,32 +171,12 @@ struct ContentMaskTests {
         var index = 0
         while index + target.count <= chars.count {
             if Array(chars[index..<(index + target.count)]) == target {
-                let close = matching(chars, from: index + open)
-                found.append(modifiers(in: chars, after: close).contains("contentMask"))
+                let close = SourceScan.matching(chars, from: index + open)
+                found.append(SourceScan.modifiers(in: chars, after: close).contains("contentMask"))
             }
             index += 1
         }
         return found
-    }
-
-    /// The index past any trailing closures, labeled or not, that follow a call ending at `index`.
-    private static func skippingTrailingClosures(
-        in chars: [Character], from index: Int, sourceLocation: SourceLocation = #_sourceLocation
-    ) -> Int {
-        var index = index
-        while true {
-            var next = index
-            while next < chars.count, chars[next].isWhitespace { next += 1 }
-            var label = next
-            while label < chars.count, isWordCharacter(chars[label]) { label += 1 }
-            // `label: {` after the first closure, as in `Button { } label: { }`.
-            if label > next, label < chars.count, chars[label] == ":" {
-                next = label + 1
-                while next < chars.count, chars[next].isWhitespace { next += 1 }
-            }
-            guard next < chars.count, chars[next] == "{" else { return index }
-            index = matching(chars, from: next) + 1
-        }
     }
 
     @Test func everyViewOfUserContentIsMasked() throws {
@@ -453,7 +391,7 @@ struct ContentMaskTests {
         var found: Set<String> = []
         for file in SourceScan.files() where file.path.contains("/CrosstuneUI/") {
             let code = SourceScan.withoutComments(try SourceScan.text(at: file))
-            if code.contains(".searchable(") { found.insert(SourceScan.relative(file)) }
+            if code.contains(".listSearch(") { found.insert(SourceScan.relative(file)) }
         }
         #expect(found == Self.unmaskedSearchFields, "A search field is drawn unmasked: list it here")
     }

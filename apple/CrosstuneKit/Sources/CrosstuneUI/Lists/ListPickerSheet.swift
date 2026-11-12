@@ -153,6 +153,7 @@ private struct ListPickerContent: View {
     private var newListField: some View {
         TextField(ListPickerSheet.newListNameLabel, text: $model.newName, prompt: Text(ListNameSheet.placeholder))
             .contentMask()
+            .textEntry(.name)
             #if os(macOS)
                 .labelsHidden()
                 .textFieldStyle(.macField)

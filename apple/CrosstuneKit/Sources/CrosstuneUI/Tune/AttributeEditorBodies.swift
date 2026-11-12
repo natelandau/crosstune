@@ -183,7 +183,7 @@ private struct AttributeEditing: ViewModifier {
             editing(content, .partStructure(detail)) { controls in
                 SuggestionEditor(
                     label: TuneFieldLabels.partStructure, maxLength: Vocabulary.Limits.Tune.partStructure,
-                    controls: controls, suggestions: .fixed(Vocabulary.partStructures))
+                    controls: controls, suggestions: .fixed(Vocabulary.partStructures), kind: .capitals)
                 CrookedToggle(isCrooked: detail.tune.isCrooked) { write(AttributeEdit.crooked(detail).patch($0)) }
             }
         case .isCrooked:
@@ -371,6 +371,7 @@ struct SuggestionEditor: View {
     let maxLength: Int
     let controls: AttributeEditorControls<String>
     let suggestions: Suggestions
+    var kind: TextEntryKind = .name
 
     @Environment(\.store) private var store
     /// The catalog's suggestions, built once as the catalog arrives rather than on each
@@ -380,7 +381,7 @@ struct SuggestionEditor: View {
     var body: some View {
         SuggestionField(
             label, value: controls.draft, suggestions: shown, maxLength: maxLength, focus: controls.firstField,
-            onPick: { controls.pick($0) }
+            kind: kind, onPick: { controls.pick($0) }
         )
         .onSubmit { controls.done() }
         .task {
@@ -444,6 +445,7 @@ private struct AlternateTitlesEditor: View {
         VStack(alignment: .leading, spacing: 4) {
             TextField(TuneFieldLabels.alternateTitles, text: controls.draft, prompt: Text(TuneFieldLabels.notSet))
                 .contentMask()
+                .textEntry(.name)
                 #if os(macOS)
                     // The editor's title names the field, so it draws only its value.
                     .labelsHidden()

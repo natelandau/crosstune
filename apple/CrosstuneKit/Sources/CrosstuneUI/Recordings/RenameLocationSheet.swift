@@ -31,6 +31,7 @@ struct RenameLocationSheet: View {
             SavedLocationsText.nameLabel, text: $name, prompt: Text(SavedLocationsText.nameLabel)
         )
         .contentMask()
+        .textEntry(.name)
         #if os(macOS)
             .labelsHidden()
             .textFieldStyle(.macField)

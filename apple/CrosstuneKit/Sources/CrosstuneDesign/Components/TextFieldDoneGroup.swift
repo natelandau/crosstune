@@ -44,7 +44,11 @@ package struct TextFieldDoneGroup<Field: View, Line: View>: View {
     package var body: some View {
         let isEditing = TextFieldDoneFocus.isEditing(focus)
         VStack(alignment: .leading, spacing: spacing) {
-            field(isEditing).focused($focus, equals: .field)
+            field(isEditing)
+                .focused($focus, equals: .field)
+                #if os(iOS)
+                    .environment(\.fieldOffersDone, true)
+                #endif
             if isEditing {
                 line(TextFieldDoneButton(title: doneTitle, focus: $focus))
             }

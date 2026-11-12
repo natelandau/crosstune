@@ -492,12 +492,7 @@ private struct LocationEditorPage: View {
                         }
                     }
                 }
-                .searchable(
-                    text: query, placement: .navigationBarDrawer(displayMode: .always),
-                    prompt: Text(PlaceSearchText.findAPlace)
-                )
-                .autocorrectionDisabled()
-                .scrollDismissesKeyboard(.immediately)
+                .listSearch(text: query, prompt: PlaceSearchText.findAPlace)
                 .navigationTitle(RecordingPageCopy.location)
                 .navigationBarTitleDisplayMode(.inline)
                 .navigationDestination(isPresented: $droppingPin) { pinMap }

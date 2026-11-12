@@ -22,6 +22,7 @@ package struct MultilineTextField: View {
         #else
             TextField(title, text: $text, prompt: Text(prompt), axis: .vertical)
                 .contentMask()
+                .textEntry(.prose)
                 .textFieldStyle(.filledMultiline)
         #endif
     }

@@ -706,6 +706,7 @@
                             LabeledContent("Name") {
                                 TextField("Name", text: $text, prompt: Text("Not set"))
                                     .contentMask()
+                                    .textEntry(.name)
                                     .labelsHidden()
                                     .multilineTextAlignment(.trailing)
                             }
@@ -765,8 +766,11 @@
                     .clipShape(RoundedRectangle(cornerRadius: ControlMetrics.containerRadius))
                 }
                 GalleryItem(heading: "Text field: FilledTextFieldStyle") {
-                    TextField("Placeholder", text: $singleLine).contentMask().textFieldStyle(.filled)
-                    TextField("Notes", text: $notes, axis: .vertical).contentMask().textFieldStyle(.filledMultiline)
+                    TextField("Placeholder", text: $singleLine).contentMask().textEntry(.name).textFieldStyle(.filled)
+                    TextField("Notes", text: $notes, axis: .vertical)
+                        .contentMask()
+                        .textEntry(.prose)
+                        .textFieldStyle(.filledMultiline)
                 }
                 GalleryItem(heading: "Multiline field: MultilineTextField") {
                     MultilineTextField("Description", text: $summary, prompt: "Write a description")

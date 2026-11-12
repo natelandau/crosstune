@@ -58,6 +58,20 @@ there where they differ. Regular-width iPad reads this page, then
 - A page clears its failure footers on open, so an old failure never reads
   as new.
 
+## Keyboard
+
+- No screen adds its own gesture to close the keyboard. The window root's
+  `keyboardDismissal()` ends the edit on a tap outside a field, and a
+  second gesture conflicts with it.
+- A view outside a field that focuses the field on a tap carries
+  `keyboardFieldArea()`, or a tap there closes the keyboard.
+- A screen or sheet whose only job is typing opens with the keyboard up. A
+  search over a list opens with it down, so the list stays in view.
+- A form of several text fields: Return moves to the next field through
+  `returnFocuses(_:)`. The last field's Return saves or ends the edit.
+- A field that shows its own Done sits in a `TextFieldDoneGroup`, so the
+  keyboard shows no second Done.
+
 ## Sheets
 
 - A sheet's actions pin to its bottom edge through `sheetActions`.

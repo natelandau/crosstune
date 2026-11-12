@@ -117,16 +117,12 @@ private struct LinkForm: View {
     private var field: some View {
         TextField(LinkSheet.linkHeader, text: urlBinding, prompt: Text(LinkSheet.linkPlaceholder))
             .contentMask()
+            .textEntry(.url)
             #if os(macOS)
                 .labelsHidden()
                 .textFieldStyle(.macField(leadingSymbol: "link"))
             #endif
             .characterLimit(Vocabulary.Limits.Link.url, text: urlBinding)
-            #if os(iOS)
-                .textContentType(.URL)
-                .keyboardType(.URL)
-                .textInputAutocapitalization(.never)
-            #endif
             .autocorrectionDisabled()
             .focused($linkFocused)
             .submitLabel(.done)
