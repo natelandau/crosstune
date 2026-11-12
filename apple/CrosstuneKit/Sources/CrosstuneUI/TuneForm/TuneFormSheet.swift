@@ -89,7 +89,6 @@ private struct TuneFormContent: View {
     @Environment(\.dismiss) private var dismiss
     @FocusState private var titleFocused: Bool
     @FocusState private var lyricsFocused: Bool
-    @FocusState private var alternateTitlesFocused: Bool
     @FocusState private var composerFocused: Bool
     @FocusState private var genreFocused: Bool
     @FocusState private var tuneTypeFocused: Bool
@@ -311,7 +310,6 @@ private struct TuneFormContent: View {
             #else
                 .multilineTextAlignment(.trailing)
             #endif
-            .focused($alternateTitlesFocused)
             .returnFocuses($composerFocused)
         }
         SuggestionField(
@@ -346,7 +344,7 @@ private struct TuneFormContent: View {
         SuggestionField(
             TuneFieldLabels.partStructure, value: $model.values.partStructure,
             suggestions: Vocabulary.partStructures, maxLength: Vocabulary.Limits.Tune.partStructure,
-            focus: $partStructureFocused
+            focus: $partStructureFocused, kind: .capitals
         )
         .returnFocuses($learnedFromFocused)
         Toggle(isOn: $model.values.isCrooked) {

@@ -41,6 +41,7 @@ struct SuggestionField: View {
     private let maxLength: Int?
     private let keep: Keep?
     private let focus: FocusState<Bool>.Binding?
+    private let kind: TextEntryKind
     private let onPick: ((String) -> Void)?
 
     @FocusState private var focused: Bool
@@ -53,12 +54,13 @@ struct SuggestionField: View {
     ///   - rowLabel: The row's visible label, for a row under a header that already carries half
     ///     the name. Defaults to `label`.
     ///   - focus: The field's focus, for a caller that moves it; the field holds its own without.
+    ///   - kind: What the field takes. Defaults to a name.
     ///   - onPick: Runs with a chosen suggestion in place of setting `value`, for a field where a
     ///     pick is itself a decision, such as one that saves and closes an editor.
     init(
         _ label: String, rowLabel: String? = nil, value: Binding<String>, suggestions: [String],
         maxLength: Int? = nil, keep: Keep? = nil, focus: FocusState<Bool>.Binding? = nil,
-        onPick: ((String) -> Void)? = nil
+        kind: TextEntryKind = .name, onPick: ((String) -> Void)? = nil
     ) {
         self.label = label
         self.rowLabel = rowLabel ?? label
@@ -67,6 +69,7 @@ struct SuggestionField: View {
         self.maxLength = maxLength
         self.keep = keep
         self.focus = focus
+        self.kind = kind
         self.onPick = onPick
     }
 
@@ -119,7 +122,7 @@ struct SuggestionField: View {
     private var field: some View {
         TextField(label, text: text, prompt: prompt.map { Text($0) })
             .contentMask()
-            .textEntry(.name)
+            .textEntry(kind)
             #if os(macOS)
                 // The row's own label names the field, so the field draws only its value.
                 .labelsHidden()

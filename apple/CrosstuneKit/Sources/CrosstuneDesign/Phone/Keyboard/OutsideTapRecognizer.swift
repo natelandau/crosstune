@@ -26,8 +26,11 @@
         }
 
         func gestureRecognizer(_ recognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
-            guard let field = TextEntry.editingInput, let view = touch.view,
-                !sequence(first: view, next: \.superview).contains(where: TextEntry.isEditableText)
+            // A field in another window, as in a second iPad scene, keeps its keyboard.
+            guard let field = TextEntry.editingInput, (field as? UIView)?.window === touch.window,
+                let view = touch.view,
+                !sequence(first: view, next: \.superview).contains(where: TextEntry.isEditableText),
+                !FieldAreaView.contains(touch)
             else { return false }
             editing = field
             return true

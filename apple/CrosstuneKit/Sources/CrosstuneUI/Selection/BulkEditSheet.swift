@@ -161,7 +161,7 @@ struct BulkEditSheet: View {
         case .partStructure:
             BulkSuggestionRow(
                 field: field, form: $form, suggestions: Vocabulary.partStructures,
-                maxLength: Vocabulary.Limits.Tune.partStructure)
+                maxLength: Vocabulary.Limits.Tune.partStructure, kind: .capitals)
         case .composer:
             BulkSuggestionRow(
                 field: field, form: $form, suggestions: composers, maxLength: Vocabulary.Limits.Tune.composer)
@@ -277,6 +277,7 @@ private struct BulkSuggestionRow: View {
     /// The row's visible label, where a section header already names half the field.
     var rowLabel: String?
     var maxLength: Int?
+    var kind: TextEntryKind = .name
 
     var body: some View {
         SuggestionField(
@@ -284,7 +285,8 @@ private struct BulkSuggestionRow: View {
             keep: form.summary(field) == .mixed
                 ? SuggestionField.Keep(
                     label: BulkEditForm.mixed, kept: form.isMixed(field), onKeep: { form.touch(field, nil) })
-                : nil)
+                : nil,
+            kind: kind)
     }
 
     private var typed: Binding<String> {

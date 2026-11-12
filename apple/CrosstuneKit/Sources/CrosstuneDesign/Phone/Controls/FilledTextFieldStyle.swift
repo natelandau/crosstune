@@ -55,6 +55,7 @@ extension TextFieldStyle where Self == FilledTextFieldStyle {
                 .phoneAnimation(Motion.state, value: isFocused)
                 .contentShape(shape)
                 .onTapGesture { isFocused = true }
+                .keyboardFieldArea()
         }
     }
 #endif

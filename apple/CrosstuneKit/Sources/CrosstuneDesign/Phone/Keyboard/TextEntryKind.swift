@@ -9,6 +9,8 @@ public enum TextEntryKind: Sendable {
     /// Each word starts with a capital. No autocorrect, since a tradition's names are rarely in
     /// the system dictionary.
     case name
+    /// A code in capital letters, such as a part structure. No autocorrect.
+    case capitals
     /// Free text of any length: notes, lyrics, pasted text. Return adds a line.
     case prose
     /// A whole number, on the number pad.
@@ -25,7 +27,7 @@ public enum TextEntryKind: Sendable {
         var needsDoneButton: Bool {
             switch self {
             case .prose, .number: true
-            case .name, .url, .search, .verbatim: false
+            case .name, .capitals, .url, .search, .verbatim: false
             }
         }
 
@@ -33,13 +35,14 @@ public enum TextEntryKind: Sendable {
             switch self {
             case .number: .numberPad
             case .url: .URL
-            case .name, .prose, .search, .verbatim: .default
+            case .name, .capitals, .prose, .search, .verbatim: .default
             }
         }
 
         var capitalization: TextInputAutocapitalization {
             switch self {
             case .name: .words
+            case .capitals: .characters
             case .prose: .sentences
             case .number, .url, .search, .verbatim: .never
             }

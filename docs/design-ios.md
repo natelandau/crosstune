@@ -45,8 +45,7 @@ there where they differ. Regular-width iPad reads this page, then
 
 - A row on a page takes a context menu and reorders through a move menu.
 - List reorder: long press and drag.
-- Search: the system search field through `listSearch`, pinned under the
-  title.
+- Search: the system search field, pinned under the title.
 - The filter row is the list's first row and scrolls with it.
 - A row on the page background clears its row background
   (`unselectedRowBackground`). A selected row keeps the system fill.
@@ -61,11 +60,11 @@ there where they differ. Regular-width iPad reads this page, then
 
 ## Keyboard
 
-The window root's `keyboardDismissal()` closes the keyboard on every
-screen, sheet, and popover. Each field's `.textEntry(_:)` sets its keyboard.
-
-- No screen adds its own gesture to close the keyboard. The window ends the
-  edit on a tap outside a field, and a second gesture conflicts with it.
+- No screen adds its own gesture to close the keyboard. The window root's
+  `keyboardDismissal()` ends the edit on a tap outside a field, and a
+  second gesture conflicts with it.
+- A view outside a field that focuses the field on a tap carries
+  `keyboardFieldArea()`, or a tap there closes the keyboard.
 - A screen or sheet whose only job is typing opens with the keyboard up. A
   search over a list opens with it down, so the list stays in view.
 - A form of several text fields: Return moves to the next field through

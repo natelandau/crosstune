@@ -28,6 +28,7 @@ struct LyricsEditor: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .contentShape(.rect)
                 .onTapGesture { focused = true }
+                .keyboardFieldArea()
                 .accessibilityHidden(true)
         }
         .padding(.horizontal)
