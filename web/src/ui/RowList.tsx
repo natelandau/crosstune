@@ -32,13 +32,9 @@ const DRAG_SLOP_PX = 4
 // A row's height before any is measured, which sizes the scrollbar of a virtualized list.
 const FIRST_ESTIMATE_PX = 48
 
-const VIRTUAL_FRAME = {
-  none: '',
-  own: 'max-h-[60dvh] overflow-y-auto',
-  // The virtualizer stops pointer events on its rows while anything scrolls, and the page
-  // scrolls far more than a list's own box: a tap just after a scroll would do nothing.
-  page: '[&>[role=presentation]]:pointer-events-auto!',
-}
+// The virtualizer stops pointer events on its rows while anything scrolls, and what scrolls is
+// always a box around the list: a tap just after a scroll would do nothing.
+const VIRTUAL_POINTER = '[&>[role=presentation]]:pointer-events-auto!'
 
 /**
  * Lays rows out again only when the list's width changes. A page-height list is as tall as its
@@ -358,14 +354,24 @@ export function RowList({
       }
       // Positioned and isolated, so a removed row's last frame is placed within the list and
       // fades beneath the rows that slide over it.
-      className={`relative isolate ${virtualized ? '' : 'flex flex-col'} ${bleed ? '-mx-3' : virtualized === 'page' ? '' : 'px-2'} ${arriving ? 'arrive' : ''} ${VIRTUAL_FRAME[virtualized ?? 'none']}`}
+      className={`relative isolate ${virtualized ? '' : 'flex flex-col'} ${bleed && virtualized !== 'own' ? '-mx-3' : virtualized ? '' : 'px-2'} ${arriving ? 'arrive' : ''} ${virtualized ? VIRTUAL_POINTER : ''}`}
     >
       {children}
     </GridList>
   )
-  // The virtualizer sizes its rows to the list's full width, padding included, so a list with
-  // no scroll area of its own takes its inset from a wrapper or it would overhang its edge.
-  const placed = virtualized === 'page' && !bleed ? <div className="px-2">{grid}</div> : grid
+  // The virtualizer sizes its rows to the list's full width, padding included, so a virtualized
+  // list takes its inset from a wrapper or it would overhang its edge. A list never scrolls its
+  // own box: the box moves with its rows, so a row's place in it is the same before and after
+  // a scroll. A bleeding list's box bleeds in its place, since a box that scrolls clips a row
+  // that overhangs it.
+  const placed =
+    virtualized === 'own' ? (
+      <div className={`max-h-[60dvh] overflow-y-auto ${bleed ? '-mx-3' : 'px-2'}`}>{grid}</div>
+    ) : virtualized === 'page' && !bleed ? (
+      <div className="px-2">{grid}</div>
+    ) : (
+      grid
+    )
   return (
     <SwipeGroup gate={gate}>
       <ReorderContext value={reorderable ? reorder : null}>

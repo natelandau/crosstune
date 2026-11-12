@@ -17,11 +17,7 @@ afterAll(async () => {
 const GROUPS = [{ id: 'main', heading: 'Main' }]
 const WIDE = { width: 1280, height: 800, density: 'pointer' } as const
 
-function renderColumn(
-  rows: AttributeColumnRow[],
-  sheetFor?: (row: AttributeColumnRow) => boolean,
-  layout: 'column' | 'card' = 'column',
-) {
+function renderColumn(rows: AttributeColumnRow[], layout: 'column' | 'card' = 'column') {
   return renderWithProviders(
     <AttributesColumn
       label="Details"
@@ -32,7 +28,6 @@ function renderColumn(
       stored={{}}
       onCommit={() => {}}
       editorFor={(row) => <p>{`Editing ${row.label}`}</p>}
-      sheetFor={sheetFor}
     />,
     { density: WIDE.density },
   )
@@ -43,7 +38,6 @@ const LAYOUTS = ['column', 'card'] as const
 it.each(LAYOUTS)("renders a row's below content under it in the %s", async (layout) => {
   renderColumn(
     [{ id: 'where', label: 'Location', text: 'Barn', group: 'main', below: <p>map</p> }],
-    undefined,
     layout,
   )
   const row = page.getByRole('button', { name: 'Location, Barn' })
@@ -55,16 +49,7 @@ it.each(LAYOUTS)("renders a row's below content under it in the %s", async (layo
   ).toBeTruthy()
 })
 
-it('opens a forced sheet on a wide frame', async () => {
-  await page.viewport(WIDE.width, WIDE.height)
-  renderColumn([{ id: 'where', label: 'Location', text: null, group: 'main' }], () => true)
-  await page.getByRole('button', { name: 'Location, Not set' }).click()
-  await expect.element(page.getByRole('dialog', { name: 'Location' })).toBeVisible()
-  // Only the sheet has a Done button; the popover has none.
-  await expect.element(page.getByRole('button', { name: DONE })).toBeVisible()
-})
-
-it('opens a popover on a wide frame when no sheet is asked for', async () => {
+it('opens a popover on a wide frame', async () => {
   await page.viewport(WIDE.width, WIDE.height)
   renderColumn([{ id: 'where', label: 'Location', text: null, group: 'main' }])
   await page.getByRole('button', { name: 'Location, Not set' }).click()
@@ -259,7 +244,6 @@ function SheetEditorsColumn() {
       stored={{}}
       onCommit={() => {}}
       editorFor={(row) => <p>{`Editing ${row.label}`}</p>}
-      sheetFor={() => true}
     />
   )
 }

@@ -22,11 +22,7 @@ export interface TunePicker {
   create: (title: string) => void
   /** The last rejection of a pick, while the visit that made it is still open. */
   error: string | null
-  /** Set by Done; the sheet closes itself and reports once, when dismissal ends. */
-  closing: boolean
-  /** Done. */
-  done: () => void
-  /** The sheet's onClose. */
+  /** The sheet closed, by Done or a dismissal; reports the visit once its adds end. */
   dismissed: () => void
 }
 
@@ -61,7 +57,6 @@ export function useTunePicker(
   const createTune = useCreateTune()
   const { error, run, clear } = useAction()
   const [query, setQuery] = useState('')
-  const [closing, setClosing] = useState(false)
   // Tunes whose add is in flight. A ref, because two taps in one tick both read the same state.
   const adding = useRef(new Set<string>())
   // A create in flight, so a second press or Enter cannot make the tune twice.
@@ -76,7 +71,6 @@ export function useTunePicker(
   useResetOnChange(open, () => {
     if (open) {
       setQuery('')
-      setClosing(false)
       clear()
     }
   })
@@ -158,8 +152,6 @@ export function useTunePicker(
     pick,
     create,
     error,
-    closing,
-    done: () => setClosing(true),
     dismissed,
   }
 }

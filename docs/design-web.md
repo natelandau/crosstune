@@ -10,6 +10,11 @@ differ.
 - A button gets its working and done states by receiving its work: the
   press returns the promise, or hands it to `track` once the musician
   confirms. Never fire work and forget it.
+- Every icon is a `lucide-react` named import, sized with a `size-*`
+  class, and `aria-hidden` inside a control that has an accessible name.
+  No text character as an icon, no second icon set. A hand-drawn glyph
+  only for the brand mark, or for a control's shape that animates between
+  states, which a static icon cannot.
 
 ## Principles
 

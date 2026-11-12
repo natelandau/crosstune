@@ -58,7 +58,7 @@ describe('useTunePicker', () => {
     await expect.poll(() => result.current.matches.entries?.length).toBe(2)
   })
 
-  it('adds a picked tune, clears the search, and stays open', async () => {
+  it('adds a picked tune and clears the search', async () => {
     const { result } = setup()
     act(() => result.current.setQuery('cluck'))
     await expect.poll(() => result.current.matches.matches.length).toBe(1)
@@ -66,7 +66,6 @@ describe('useTunePicker', () => {
     expect(result.current.query).toBe('')
     await expect.poll(async () => (await itemsIn()).map((i) => i.user_tune_id)).toEqual([hen])
     await expect.poll(() => result.current.taken.has(hen)).toBe(true)
-    expect(result.current.closing).toBe(false)
   })
 
   it('reports the visit once, with every tune added, when the picker closes', async () => {
@@ -139,7 +138,7 @@ describe('useTunePicker', () => {
       .toEqual({ kind: 'create', title: 'Kesh Jig', another: false })
   })
 
-  it('creates a tune by the typed title into the list, keeping the search and staying open', async () => {
+  it('creates a tune by the typed title into the list, keeping the search', async () => {
     const { result, analytics } = setup()
     act(() => result.current.setQuery('Kesh Jig'))
     act(() => result.current.create('Kesh Jig'))
@@ -151,7 +150,6 @@ describe('useTunePicker', () => {
       .toEqual([userTune!.id])
     await expect.poll(() => result.current.taken.has(userTune!.id)).toBe(true)
     expect(result.current.query).toBe('Kesh Jig')
-    expect(result.current.closing).toBe(false)
     expect(analytics.sends()).toEqual([
       {
         name: 'tune_created',
@@ -166,7 +164,6 @@ describe('useTunePicker', () => {
     act(() => result.current.create('Kesh Jig'))
     await expect.poll(() => result.current.error).toBe('Disk full')
     expect(await db.tunes.where('title').equals('Kesh Jig').count()).toBe(1)
-    expect(result.current.closing).toBe(false)
   })
 
   it('toasts a failed create that outlives its visit', async () => {

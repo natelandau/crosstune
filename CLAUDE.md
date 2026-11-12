@@ -1,234 +1,156 @@
 # Crosstune
 
+Rules for every session in this repository. Procedures for one kind of
+task live in the pages under "Read by task".
+
+## Read by task
+
+| Task                                                                                 | Read                                                           |
+| ------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
+| Any design or implementation work                                                    | `docs/product.md`                                              |
+| The stack, the API, the client's data layers, sync, sign-in, links, or recordings    | `docs/architecture.md`                                         |
+| A screen, row, form, gesture, or label, on any platform                              | `docs/design.md`                                               |
+| A Mac screen, row, control, or window                                                | `docs/design.md`, then `docs/design-macos.md`                  |
+| An iPhone screen, or an iPad screen in a compact window                              | `docs/design.md`, then `docs/design-ios.md`                    |
+| An iPad screen at regular width                                                      | `docs/design.md`, `docs/design-ios.md`, `docs/design-ipad.md`  |
+| A web screen, row, control, or sheet                                                 | `docs/design.md`, then `docs/design-web.md`                    |
+| A new or changed design rule                                                         | `docs/design.md`, "Writing these pages": which page it goes in |
+| Setup, worktrees, recipes, Apple builds, a running app, tests, releases, deploys, CI | `docs/operations.md`                                           |
+| Analytics events                                                                     | `docs/analytics.md`                                            |
+| The site, `site/`                                                                    | `site/CLAUDE.md`                                               |
+
+## Public repository
+
+Everything committed is public: code, docs, comments, commit messages,
+and pull requests. Never commit:
+
+- Feature specs, plans, or design records.
+- Host settings, credentials, or account details.
+- A command an operator runs against production, such as a grant of a
+  comp or a trial.
+- Anything else that is not for the public.
+
 ## Documentation
 
-Docs exist for a future session that has none of today's context. The
-code is the source of truth. A doc holds only what the code cannot say and
-that session needs.
+Docs are for a future session with none of this session's context. The
+code is the source of truth. A doc holds only what the code cannot say.
 
-- Keep: guardrails, constraints, boundaries, sources of truth, and patterns
-  every screen or module follows. "Every list filters by every facet of its
-  items", not "the catalog filters by key".
-- Less is more. Record a rule only when breaking it is likely and costly.
-  Leave the rest to the agent's judgment.
-- A rule is a behavior every screen shares, so the app stays consistent
-  for its users: "every control comes from the shared library", "a
-  button that starts work shows a spinner, then a check". A decision made
-  for one feature or screen is documentation dressed as a rule. Cut it,
-  and let each screen decide its own case.
-- Never: a log of decisions or changes, what was tried, what a screen or
-  module does, anything about one release (that goes in the pull
-  request), a value such as a size, width, or duration, or a line that
-  restates what code, a token, a test, or a lint already enforces. Where
-  platforms differ, the code is the answer.
-- Gate every line before it stays: does it bind screens not built yet,
-  could a future change break it, and does nothing else enforce it? Any
-  "no" cuts the line. Framework gotchas are the one exception, in their
-  own section.
-- State what holds now. Why it changed belongs in the commit message.
-- Written for agents, not people: fragments, bullets, and tables in plain
-  words. A reason only when it stops a future change from undoing the rule.
-- When a change makes a line false, fix the line in the same change.
-- `docs/README.md` says what each page holds and never holds. Check it
+- `docs/README.md` says what each page holds and never holds. Read it
   before you write to a page.
-
-Read, by task:
-
-- Design or implementation work: `docs/product.md`.
-- The stack, the API, the client's data layers, sync, sign-in, links, or
-  recordings:
-  `docs/architecture.md`.
-- A screen, row, form, gesture, or label: `docs/design.md`.
-- A Mac screen, row, control, or window: `docs/design.md`, then
-  `docs/design-macos.md`.
-- An iPhone screen, or an iPad in a compact window: `docs/design.md`, then
-  `docs/design-ios.md`.
-- An iPad screen at regular width: `docs/design.md`, `docs/design-ios.md`,
-  then `docs/design-ipad.md`.
-- A web screen, row, control, or sheet: `docs/design.md`, then
-  `docs/design-web.md`.
-- Before you add or change a design rule: "Writing these pages" in
-  `docs/design.md` says which page it goes in.
-- Setup, tests, releases, deployment, or CI: `docs/operations.md`.
-- Analytics events: `docs/analytics.md`.
-
-The repository is public, and so is everything committed: docs, comments,
-commit messages, and pull requests. Feature specs, plans, design records,
-host settings, credentials, account details, and anything else that should
-not be public never go in it. Neither do the commands an operator runs
-against production, such as granting a comp or a trial.
+- A doc holds guardrails, constraints, boundaries, sources of truth, and
+  rules every screen or module obeys. "Every list filters by every facet
+  of its items", not "the catalog filters by key".
+- A rule is a behavior every screen shares, so the app is consistent for
+  its users. A decision for one feature or screen is not a rule: cut it.
+- A line stays only if all three are true. Framework gotchas are the one
+  exception, in a section of their own.
+  1. It binds screens or modules not built yet.
+  2. A future change can break it.
+  3. No code, token, test, or lint enforces it.
+- Record a rule only when breaking it is likely and costly.
+- Never in a doc:
+  - A log of decisions or changes, or what was tried.
+  - What a screen or module does.
+  - Anything about one release. That goes in the pull request.
+  - A value: a size, a width, a duration.
+  - How the platforms differ in behavior. The code holds that.
+- What holds now, in the present tense. Why it changed goes in the commit
+  message.
+- Written for agents: fragments, bullets, and tables in plain words. A
+  reason only when it stops a future change from undoing the rule.
+- A change that makes a line false fixes the line in the same change.
 
 ## Naming
 
-- `violin`, never `fiddle`, and tune, never song, in the schema, the API,
-  and every label. The glossary in `docs/product.md` has the reasons.
-- Self-documenting names. Every name in code and docs says what the thing
-  is, in the standard term a developer new to the project already knows:
-  a button is a button, a toolbar is a toolbar. No metaphor, and no coined
-  term that needs a glossary. The glossary's terms are the only project
-  vocabulary.
+- `violin`, never `fiddle`. Tune, never song. In the schema, the API, and
+  every label. The reasons: the glossary in `docs/product.md`.
+- Every name in code and docs is the standard term that a developer new
+  to the project knows: a button is a button, a toolbar is a toolbar. No
+  coined term. The glossary's terms are the only project vocabulary.
 - No metaphor, colloquialism, idiom, or slang in code, comments, docs, or
-  user-facing copy unless explicitly asked for: "is disabled", not "stands
-  down"; "recording", not "take". Plain words survive translation and a
-  reader new to the project.
+  user-facing copy, unless the owner asks for it. "Is disabled", not
+  "stands down". "Recording", not "take".
+
+## Worktrees
+
+- All work in a worktree, never in the main checkout.
+- Create: `just worktree <branch>`. Never `git worktree add`.
+- Remove: `just worktree-remove <branch>`. Never `git worktree remove`.
+  It refuses a worktree with uncommitted changes. Never pass `--force` to
+  git instead.
+- Never `just dev-setup` in a worktree. It points the git hooks that every
+  checkout shares at that worktree's venv, and removing the worktree
+  breaks them.
+- What the recipes do, and a worktree made another way:
+  `docs/operations.md`, Worktrees.
 
 ## Task runner
 
-- [just](https://just.systems), root plus modules. From the root:
-  `just api::test`, `just web::lint`. Inside `api/`, `web/`, `site/`, or `apple/`,
-  `just test` resolves to that module. `just --list` shows everything.
-  The `apple` module needs Xcode. Xcode 27 has no Simulator.app; its
-  simulators run in DeviceHub (`open -a DeviceHub`).
-- Run the Mac app only with `just apple::run [app args]`, started as a
-  background command, and always end with `just apple::done`, even after a
-  failed check. Every worktree shares one installed copy, so the keychain
-  trusts it once; `run` waits while another worktree holds it, and
-  `just apple::status` shows who. Never launch a build from DerivedData.
-- Build the Apple app with the `apple` recipes. An `xcodebuild` no recipe
-  covers runs from `apple/` as `scripts/xcodebuild.sh`, which shares the
-  Swift packages, with `-derivedDataPath .build/DerivedData`, never a
-  folder of its own: nothing deletes a one-off folder, and each holds
-  gigabytes. `just apple::prune-builds` deletes the builds of every
-  checkout no build tool is using, for when the disk runs low. A script
-  that uses a build after `xcodebuild` exits sources
-  `scripts/in-use.sh`, or a prune can delete the build under it.
-- To see or drive a running app, use Peekaboo for the Mac app and
-  Maestro for the iOS simulators. Run `peekaboo learn` and
-  `maestro --help` for their commands. Peekaboo (v4): target the app with
-  `--pid` (from `pgrep -f "Crosstune Dev.app"`), read it with
-  `peekaboo see --pid <pid>` (`--tree` for the accessibility tree), act
-  with `action`, `set-value`, or `menu` and
-  `--input-strategy actionOnly`, and wait with `verify`. Never pass
-  `--foreground`, and never use `peekaboo agent`. Maestro: always pass
-  `--udid` (from `xcrun simctl list devices booted`), since several
-  simulators run at once.
-- `run` opens the app in the background. Capture it with
-  `peekaboo see --pid <pid> --no-elements --path <file>`, which works
-  behind other windows. Never bring the app forward or send synthetic
-  mouse or keyboard events: the developer is working on the same Mac.
+[just](https://just.systems), a root justfile plus one module per folder.
+
+- From the root: `just api::test`, `just web::lint`. Inside `api/`,
+  `web/`, `site/`, or `apple/`: `just test` runs that module's recipe.
+  `just --list` shows every recipe.
+- No other task runner. No tool through `uvx`.
+- Spell check: `just typos [paths]`.
+- A lint or test recipe skips a gate that passed on the same tree. Run the
+  recipe again. Never decide yourself that it can be skipped.
+- Web code, while you iterate: from `web/`, `pnpm exec eslint <files>`
+  and `pnpm exec prettier --check <files>` on the changed files. Before a
+  commit: `just web::lint` once.
+- A new recipe, script, or developer tool: `docs/operations.md`, Recipes
+  and tooling.
+
+## Dev server and end-to-end tests
+
 - `just dev` runs Postgres, migrations, the API, the web client, and the
-  site together. Every checkout and worktree shares one Postgres container,
-  but each worktree gets its own database and bucket, copied from main's by
-  `just api::worktree-db`, so one branch's migrations never reach another.
-  `just api::worktree-db-reset` takes a fresh copy.
-- Do all work in a worktree, never in the main checkout.
-- Create a worktree with `just worktree <branch>`, never `git worktree add`.
-  It adds `.worktrees/<branch>`, copies every module's `.env`,
-  `apple/Config/Secrets.xcconfig`, and `apple/Config/Local.xcconfig` from
-  the main checkout, runs
-  `just setup` so `just e2e` works there, and makes the worktree's
-  database and bucket. In a worktree made any other way, run
-  `just worktree-env`, then `just setup`; `just dev` makes the database
-  and bucket. Never run
-  `just dev-setup` in a worktree: it points the git hooks every checkout
-  shares at that worktree's venv, and removing the worktree breaks them.
-- Remove a worktree with `just worktree-remove <branch>`, never
-  `git worktree remove`. It also deletes the branch once main or
-  origin/main holds its work, squash merges included, and the
-  worktree's database, bucket, and builds. It refuses a
-  worktree with uncommitted changes; never pass `--force` to git instead.
-- `just test` never runs Playwright. `just e2e` does. It starts Postgres,
-  its own API on :8001, and its own preview server against its own
-  `crosstune_e2e` database. It does not need `just dev`, and it can run
-  while `just dev` is running. It signs in against the shared
-  Clerk development instance and spends its usage limits, and needs the
-  Clerk keys in `web/.env`.
-- A renamed label, heading, or group name needs `web/e2e/` checked. Those
-  specs query by accessible name and only `just e2e` catches a rename.
-- The site draws the app's screens as HTML demos in `site/src/demos/`.
-  The demos do not follow the app, so an app change never needs a demo
-  redrawn. Read `site/CLAUDE.md` before changing the site.
-- New recipes go in a module's justfile, tagged with a `[group(...)]`
-  that matches their neighbors. A root aggregate calls every module.
-- A recipe's description is one comment line that keeps its `just --list`
-  line within 80 columns. Detail goes in `[arg(NAME, help=...)]` on every
-  parameter, which `just --usage <recipe>` prints. `just scripts::test`
-  enforces both.
-- Operator commands that read or change accounts go in the `ops` module
-  (`api/ops.just`), never in `api`.
-- A recipe body is a few lines. Anything longer is a script the recipe
-  calls. A decision worth a test, such as parsing, choosing, or
-  comparing, is Python in `scripts/` or `apple/scripts/`, tested in
-  their `tests/` folders, with no dependency outside the root tooling
-  project; `just scripts::lint` and `just scripts::test` cover both.
-  A bash script runs commands in order, with waits, retries, and
-  cleanup.
-- Developer tools (linters, hooks, release commands, and what the
-  tooling scripts import) go in the root `pyproject.toml`, run with
-  `uv run` from the root or `uv run --project ..` from a module.
-  `api/pyproject.toml` holds only what the API runs and its tests need,
-  so the API image and its lockfile never carry tooling.
-- Lint and test recipes skip a gate that already passed on the same
-  tree. Run the recipe again rather than judging whether it needs to run.
-  A pass on uncommitted work also covers its commit. `just gate status`
-  lists what passed and failed on the tree without running,
-  `GATE_CACHE_DISABLE=1 just <recipe>` forces a run, and `just gate clear`
-  follows a change to an input no gate is keyed on.
-- A new lint or test recipe runs through `{{ gate }}` under a name no other
-  gate uses, following "Gate cache" in `docs/operations.md`.
-- While iterating on web code, run `pnpm exec eslint <files>` and
-  `pnpm exec prettier --check <files>` from `web/` on the files you
-  changed. `just web::lint` checks the whole module, so run it once before
-  you commit.
-- Spell check with `just typos [paths]`. Never run typos or any other tool
-  through `uvx`. Do not add another task runner.
+  site. Each worktree has its own database and bucket.
+- `just test` never runs Playwright. `just e2e` does. It needs no
+  `just dev` and can run beside it. It spends the usage limits of the
+  shared Clerk development instance, and needs the Clerk keys in
+  `web/.env`.
+- A renamed label, heading, or group name: check `web/e2e/`. Those specs
+  find elements by accessible name, and only `just e2e` catches a rename.
+
+## Apple app
+
+- The `apple` module needs Xcode. Xcode 27 has no Simulator.app. Its
+  simulators run in DeviceHub: `open -a DeviceHub`.
+- Build only with the `apple` recipes. An `xcodebuild` that no recipe
+  covers: `docs/operations.md`, Apple builds.
+- Run the Mac app only with `just apple::run [app args]`, as a background
+  command. Always end with `just apple::done`, also after a failed check.
+  Never launch a build from DerivedData.
+- Drive a running app with Peekaboo (Mac) or Maestro (iOS simulators).
+  Commands: `docs/operations.md`, Drive a running app.
+- The developer works on the same Mac:
+  - Never bring the app forward.
+  - Never send synthetic mouse or keyboard events.
+  - Never pass `--foreground` to Peekaboo. Never use `peekaboo agent`.
+- Maestro: always pass `--udid`. Several simulators run at once.
 
 ## Conventions
 
-- Every icon is a `lucide-react` named import, sized with a Tailwind
-  `size-*` class and `aria-hidden` inside a control that has an accessible
-  name. No text characters as icons, no second icon set. A hand-drawn
-  glyph is only for the brand mark (`web/src/ui/Mark.tsx`) or for a
-  control's shape that animates between states, which a static icon
-  cannot: the checkbox mark and the status ring are inline SVG strokes,
-  and play, pause, and stop are one CSS shape that morphs
-  (`TransportMark`). A row's action slot draws its circle as a CSS ring
-  around a lucide icon (`web/src/ui/rowGlyphs.tsx`).
-  The site uses the same icons from `lucide`; `site/CLAUDE.md` says how.
-- Every color is a role from the token files, chosen by "Color" in
-  `docs/design.md`. A new role, a changed value, a new allowlist entry
-  on a color test, or a lower contrast threshold needs the owner's
-  approval first.
-- Outbound HTTP in the API uses `httpx2`, never `httpx`.
+- A new color role, a changed color value, a new allowlist entry on a
+  color test, or a lower contrast threshold needs the owner's approval
+  first.
 - A ref that mirrors the latest render's value is `useLatest` from
-  `web/src/ui/useLatest.ts`, named `…Ref`, never a hand-written ref plus
+  `web/src/ui/useLatest.ts`, named `…Ref`. Never a hand-written ref plus
   effect.
-- A user-facing string that more than one file needs, tests included, is an
-  exported constant beside the component that shows it. Every other file
-  imports it, so a wording change is one edit.
-- Every sheet, dialog, alert, and file picker in
-  `apple/CrosstuneKit/Sources/CrosstuneUI` claims the shell while it shows:
-  a sheet's root view carries `.shellSheet()` or `.partHeightSheet()`; a
-  dialog, alert, or file picker has no root view of its own, so the view
-  presenting it carries `.coversShell(_:)` on the line before; a view that
-  asks for a sheet ahead of its showing holds the menus with
-  `.coversShellMenus(_:)`. A test in
-  `CrosstuneUITests` enforces each, so the record control and the shell's
-  menu commands are disabled behind every presentation.
-- Every view in `CrosstuneUI` or `CrosstuneDesign` that shows user
-  content carries `.contentMask()`, so replay could never show it if it is
-  ever enabled. A test in `CrosstuneUITests` enforces it; a view handed
-  its text is masked by hand and listed in that test.
-- A new analytics event goes in `analytics/tracking-plan.json` before code
-  sends it, following `docs/analytics.md`. A model receives the
-  `AnalyticsClient` as an init parameter, a view reads it from the
-  environment. On the web, a component reads the client with
-  `useAnalytics()`, code outside React takes it as an argument, and nothing
-  in `web/src/commands/` sends.
-- A change to what the Apple app collects, or a new SDK in it, updates
-  `PrivacyInfo.xcprivacy` in the same change, so it and the App Store
-  label stay in step.
+- A user-facing string that more than one file needs, tests included, is
+  an exported constant beside the component that shows it. Every other
+  file imports it, so a wording change is one edit.
 - A commit to internal tooling, such as the screenshot captures, the
-  marketing shell, or a recipe, is `build`, never `feat`, so the
-  changelog lists only what users see.
+  marketing shell, or a recipe, is `build`, never `feat`. The changelog
+  lists only what users see.
 
 ## Tests
 
-Every module follows these rules: `api/`, `web/`, `site/`, and `apple/`.
-A test earns its place when it catches a bug no other test catches, at the
-cheapest layer that can see that bug.
+Every module: `api/`, `web/`, `site/`, and `apple/`. A test earns its
+place when it catches a bug that no other test catches, at the cheapest
+layer that can see that bug.
 
-| The bug lives in                                                    | Test it with                                     |
+| The bug is in                                                       | Test it with                                     |
 | ------------------------------------------------------------------- | ------------------------------------------------ |
 | Logic: parsing, sorting, filtering, formatting, a rule over data    | A unit test of the function                      |
 | Wiring: logic reaching a screen or route, real input, focus, layout | One integration, browser, or UI test per feature |
@@ -240,52 +162,60 @@ cheapest layer that can see that bug.
   same rule and add a case to it.
 - Variants of one rule are one table: `it.each`,
   `@pytest.mark.parametrize`, `@Test(arguments:)`.
-- A test asserts behavior and contracts: what a person sees and can do,
-  what is stored or sent, accessibility (touch targets, focus, contrast,
-  reduced motion, text size), and the token and shared-control rules.
-- Never a value a designer picks: a color, radius, size, weight, spacing,
-  duration, or class name. Screenshots and review check how things look.
+- A test asserts behavior and contracts:
+  - What a person sees and can do.
+  - What is stored or sent.
+  - Accessibility: touch targets, focus, contrast, reduced motion, text
+    size.
+  - The token and shared-control rules.
+- Never a test of a value a designer picks: a color, radius, size,
+  weight, spacing, duration, or class name. Screenshots and review check
+  how things look.
 - Never a test that restates code: a constant's value, a copy string, a
-  call order a mock records when the order is not the behavior, or what
-  the type checker already rejects.
+  call order that a mock records when the order is not the behavior, or
+  what the type checker already rejects.
 - A refactor that changes no behavior changes no test. A test that fails
-  on one checks the implementation: rewrite it against the public surface.
+  on a refactor checks the implementation: rewrite it against the public
+  surface.
 - A change that removes a behavior removes its tests.
 - A cleanup deletes a test only when another test checks the same rule,
-  or when the test pins a design value. Mutation testing or per-test
-  coverage is the evidence. A smaller count is never the goal.
+  or when the test checks a design value. The evidence: mutation testing
+  or per-test coverage. A smaller test count is never the goal.
 
 ## Web tests
 
-Browser tests share a slow CI runner, so a race a fast Mac never loses
-fails there at random. Every web test follows these rules:
+Browser tests share a slow CI runner. A race that a fast Mac never loses
+fails there at random.
 
-- An assertion on anything still settling retries: `expect.element(locator)`
-  or `expect.poll(() => value)`. That covers focus, DOM order, visibility,
-  engine and store state, and mock call counts. A plain `expect` reads only
-  a value that can no longer change, such as a pure function's result or a
-  mock call's arguments once a poll has seen the call.
-- `expect.poll` gives up after 1 s by default. To wait for an element to
-  appear, use `expect.element`, which waits the full test timeout.
-- Under fake timers, a poll advances the clock by its interval on each
-  miss, so it can fire a timer the test means to hold. There, poll with
-  `pollStill` and `elementStill` from `web/src/test/stillPoll.ts`.
-- A browser action such as `fill` or `click` advances fake timers while
-  it runs. Under fake timers, type with `fillStill` from the same file.
-  Another action that must not move the clock gets a still helper there.
+- An assertion on anything still settling retries:
+  `expect.element(locator)` or `expect.poll(() => value)`. This covers
+  focus, DOM order, visibility, engine and store state, and mock call
+  counts.
+- A plain `expect` only for a value that cannot change any more: a pure
+  function's result, or a mock call's arguments after a poll saw the call.
+- `expect.poll` stops after 1 s by default. To wait for an element to
+  appear: `expect.element`, which waits for the full test timeout.
+- Under fake timers:
+  - A poll advances the clock by its interval on each miss, so it can
+    fire a timer the test holds. Poll with `pollStill` and `elementStill`
+    from `web/src/test/stillPoll.ts`.
+  - A browser action such as `fill` or `click` advances the clock while it
+    runs. Type with `fillStill` from the same file. Another action that
+    must not move the clock gets a still helper there.
 - Behavior driven by elapsed time or animation frames takes its clock or
   frame source as an input, or the test uses fake timers. No assertion
-  depends on how many frames a runner renders.
-- A test passes alone and in any order. It awaits every write it starts and
-  leaves no timer, listener, overlay, or module-level state for the next
-  test. A test database comes from `openTestDb()`, which deletes it after
-  the tree unmounts; never delete it in an `afterEach`, which runs while
-  the tree is still mounted.
+  depends on how many frames a runner draws.
+- A test passes alone and in any order.
+  - It awaits every write it starts.
+  - It leaves no timer, listener, overlay, or module-level state.
+  - A test database comes from `openTestDb()`, which deletes it after the
+    tree unmounts. Never delete it in an `afterEach`, which runs while the
+    tree is still mounted.
 - A stress recipe, such as `just web::stress`, runs only to reproduce or
-  fix a flaky test. Never as a routine step: not per commit, per task, or
+  fix a flaky test. Never as a routine step: not per commit, task, or
   branch, and not before a pull request. `just web::stress 5 <files>`
-  shuffles those files five times. With no files, it takes every test file
+  shuffles those files five times. With no files: every test file that
   the branch added or changed since `main`.
-- Never raise a timeout or add a retry to make a test pass. CI retries a
-  failed browser test so one race doesn't fail the run, and the job summary
-  lists every test that needed a retry. A listed test is a bug to fix.
+- Never raise a timeout or add a retry to make a test pass. CI reruns a
+  failed browser test, and the job summary lists every test that needed a
+  rerun. A listed test is a bug to fix.
