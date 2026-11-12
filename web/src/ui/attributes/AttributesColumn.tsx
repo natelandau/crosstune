@@ -46,8 +46,8 @@ export const COLUMN_HEADER = 't-heading text-primary px-4 pb-1'
 
 /**
  * The attributes of one page: a sticky column of headed groups beside wide content, or a card
- * that folds all but a few rows behind "More details". A row opens an editor in a popover, or in
- * a sheet where `sheetFor` says so.
+ * that folds all but a few rows behind "More details". A row opens an editor in a popover, or its
+ * own editor.
  */
 export function AttributesColumn<R extends AttributeColumnRow, P extends object>({
   ref,
@@ -59,7 +59,6 @@ export function AttributesColumn<R extends AttributeColumnRow, P extends object>
   stored,
   onCommit,
   editorFor,
-  sheetFor,
   fold,
   footer,
   error,
@@ -80,8 +79,6 @@ export function AttributesColumn<R extends AttributeColumnRow, P extends object>
   onCommit: (patch: P) => void
   /** The body of the editor a row opens. */
   editorFor: (row: R) => ReactNode
-  /** True for a row whose editor opens as a sheet on every frame. */
-  sheetFor?: (row: R) => boolean
   /** Splits the card's rows into those shown up front and those behind "More details". */
   fold?: (rows: R[]) => { shown: R[]; more: R[] }
   /** Set under the last group of the column; the card leaves it to the page. */
@@ -146,7 +143,6 @@ export function AttributesColumn<R extends AttributeColumnRow, P extends object>
                 setSavedGroup(row.group)
                 onCommit(patch)
               },
-              forceSheet: sheetFor?.(row),
             }}
           >
             {editorFor(row)}

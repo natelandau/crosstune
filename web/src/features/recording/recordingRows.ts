@@ -23,14 +23,16 @@ export const RECORDING_GROUPS: AttributeGroup[] = [
   { id: 'notes' },
 ]
 
+type OwnEditor = NonNullable<AttributeColumnRow['ownEditor']>
+
 /**
  * A recording's attribute rows, in the order every layout shows them: its details, its
  * location with `location.below`, such as a map, set under the row, then its notes. The
- * location row opens `location.editor`.
+ * tune row opens `tune` and the location row `location.editor`.
  */
 export function recordingRows(
   view: RecordingView,
-  location: { below: ReactNode; editor: NonNullable<AttributeColumnRow['ownEditor']> },
+  { tune, location }: { tune: OwnEditor; location: { below: ReactNode; editor: OwnEditor } },
 ): RecordingAttributeRow[] {
   const { recording } = view
   return [
@@ -42,7 +44,13 @@ export function recordingRows(
       text: knownRecordedDate(recording),
       group: 'details',
     },
-    { id: 'tune', label: LINKED_TUNE_LABEL, text: view.tuneTitle, group: 'details' },
+    {
+      id: 'tune',
+      label: LINKED_TUNE_LABEL,
+      text: view.tuneTitle,
+      group: 'details',
+      ownEditor: tune,
+    },
     {
       id: 'location',
       label: LOCATION_LABEL,

@@ -50,7 +50,7 @@ import { ListPlayRow } from './ListPlayRow'
 import { ListTuneRow } from './ListTuneRow'
 import { usePlayer } from '../player/usePlayer'
 import { useListRowSources } from './useListRowSource'
-import { TunePickerSheet } from './TunePickerSheet'
+import { AddTunesSheet } from './AddTunesSheet'
 import { useHadContent } from '../../ui/useHadContent'
 
 const LISTS = destination('lists')
@@ -207,7 +207,7 @@ export function ListPage({ listId }: { listId: string }) {
               />
             </div>
           )}
-          <TunePickerSheet
+          <AddTunesSheet
             listId={list.id}
             taken={screen.taken}
             isOpen={screen.picking}

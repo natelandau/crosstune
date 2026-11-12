@@ -11,14 +11,13 @@ import {
   type AttributeEdit,
 } from '../../ui/attributes/AttributeEditor'
 import { NOT_SET } from '../../ui/fieldCopy'
-import { ButtonRow } from '../../ui/form/ButtonRow'
 import { Group } from '../../ui/form/Group'
 import { PartialDateField } from '../../ui/form/PartialDateField'
 import { SuggestField } from '../../ui/form/SuggestField'
 import { TextField } from '../../ui/form/TextField'
 import { LocationMap } from '../../ui/LocationMap'
 import type { DateParts } from '../../ui/partialDate'
-import { SEARCH_TUNES } from '../catalog/catalogCopy'
+import { TunePickerSheet } from '../catalog/TunePickerSheet'
 import { recordingPlayers } from '../recordings/place'
 import { dateDraft, datePatch, keptExactTime, partsOf } from '../recordings/recordedDateParts'
 import { RECORDING_NAME_LABEL, recordedAtNote } from '../recordings/recordingCopy'
@@ -29,7 +28,6 @@ import {
   RECORDING_NAME_PLACEHOLDER,
   RECORDING_NOTES_PLACEHOLDER,
 } from '../recordings/recordingsCopy'
-import { TuneSearchList } from '../recordings/TuneSearchList'
 import { useAllRecordings } from '../recordings/useAllRecordings'
 import { useFileRecording } from '../recordings/useFileRecording'
 import type { RecordingView } from '../recordings/useRecordings'
@@ -41,13 +39,11 @@ import type { RecordingLocation } from './useRecordingPageView'
 
 type Edit = AttributeEdit<RecordingPatch>
 
-/** The values each row's editor compares its draft with. */
-function storedPatch(view: RecordingView): Required<RecordingPatch> {
+/** The values each built-in row editor compares its draft with. The tune row has its own. */
+function storedPatch(view: RecordingView): Required<Omit<RecordingPatch, 'tune_id'>> {
   const { recording } = view
   return {
     label: recording.label ?? null,
-    // The tune the row shows, so a recording under a tune deleted elsewhere files from it.
-    tune_id: view.tuneId,
     players: recording.players ?? null,
     notes: recording.notes ?? null,
     recorded_at: recording.recorded_at,
@@ -82,29 +78,42 @@ export function RecordingAttributes({
       layout={layout}
       groups={RECORDING_GROUPS}
       rows={recordingRows(view, {
-        below: location && (
-          <LocationBelow location={location} onPress={() => setOpenId('location')} />
-        ),
-        editor: ({ isOpen, onClose, onClosed, onWrite }) => (
-          <LocationEditor
+        tune: ({ isOpen, onClose, onClosed, onWrite }) => (
+          <RecordingTuneSheet
             view={view}
             isOpen={isOpen}
-            onOpenChange={(open) => {
-              if (!open) onClose()
-            }}
+            onClose={onClose}
             onClosed={onClosed}
-            run={(save) => {
+            onFile={(tuneId) => {
               onWrite()
-              void write.run(save)
+              void write.write({ tune_id: tuneId })
             }}
           />
         ),
+        location: {
+          below: location && (
+            <LocationBelow location={location} onPress={() => setOpenId('location')} />
+          ),
+          editor: ({ isOpen, onClose, onClosed, onWrite }) => (
+            <LocationEditor
+              view={view}
+              isOpen={isOpen}
+              onOpenChange={(open) => {
+                if (!open) onClose()
+              }}
+              onClosed={onClosed}
+              run={(save) => {
+                onWrite()
+                void write.run(save)
+              }}
+            />
+          ),
+        },
       })}
       emptyText={NOT_SET}
       stored={storedPatch(view)}
       onCommit={(patch) => void write.write(patch)}
       editorFor={(row) => <RecordingEditorBody id={row.id} view={view} />}
-      sheetFor={(row) => row.id === 'tune'}
       error={write.error}
       openId={openId}
       onOpenIdChange={setOpenId}
@@ -149,14 +158,13 @@ function RecordingEditorBody({ id, view }: { id: RecordingAttributeId; view: Rec
   switch (id) {
     case 'name':
       return <NameBody view={view} edit={edit} />
-    case 'tune':
-      return <TuneBody view={view} edit={edit} />
     case 'players':
       return <PlayersBody view={view} edit={edit} />
     case 'recorded':
       return <RecordedBody view={view} edit={edit} />
     case 'notes':
       return <NotesBody view={view} edit={edit} />
+    case 'tune':
     case 'location':
       return null
   }
@@ -189,36 +197,43 @@ function NameBody({ view, edit }: BodyProps) {
   )
 }
 
-function TuneBody({ view, edit }: BodyProps) {
-  // Enter in the search picks or creates through the list, never as a dismissal.
+/**
+ * The tune a recording is filed under: a pick or a new tune files it and closes, and the row
+ * above the search unfiles it.
+ */
+function RecordingTuneSheet({
+  view,
+  isOpen,
+  onClose,
+  onClosed,
+  onFile,
+}: {
+  view: RecordingView
+  isOpen: boolean
+  onClose: () => void
+  onClosed: () => void
+  onFile: (tuneId: string | null) => void
+}) {
   const file = useFileRecording(view.recording.id, 'recording_screen')
   return (
-    <>
-      {view.tuneId && (
-        <Group>
-          <ButtonRow
-            title={LINKED_TUNE_LABEL}
-            button={{
-              label: REMOVE_FROM_TUNE,
-              variant: 'destructive',
-              onPress: () => edit.done({ tune_id: null }),
-            }}
-          />
-        </Group>
-      )}
-      <TuneSearchList
-        label={SEARCH_TUNES}
-        query={file.query}
-        onQuery={file.setQuery}
-        matches={file.matches}
-        onPick={(entry) => edit.done({ tune_id: entry.tune.id })}
-        onCreate={(title) => {
-          edit.done()
-          file.create(title)
-        }}
-        rowName={addToTuneName}
-      />
-    </>
+    <TunePickerSheet
+      title={LINKED_TUNE_LABEL}
+      isOpen={isOpen}
+      onOpenChange={(open) => {
+        if (!open) onClose()
+      }}
+      onClosed={onClosed}
+      selection={{
+        mode: 'single',
+        clear: view.tuneId ? { label: REMOVE_FROM_TUNE, onPress: () => onFile(null) } : undefined,
+      }}
+      search={file}
+      onPick={(entry) => {
+        if (entry.tune.id !== view.tuneId) onFile(entry.tune.id)
+      }}
+      onCreate={file.create}
+      rowName={addToTuneName}
+    />
   )
 }
 
