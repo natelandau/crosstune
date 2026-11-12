@@ -79,7 +79,11 @@ two audiences.
 2. Run `just analytics::check`. It rejects a bad name, an unknown enum or
    bucket, an answer that names no question, and a property that breaks
    the content rule.
-3. Add the code to each client that sends the event.
+3. Add the code to each client that sends the event. On Apple, a model
+   receives the `AnalyticsClient` as an init parameter, and a view reads
+   it from the environment. On the web, a component reads the client
+   with `useAnalytics()`, code outside React takes it as an argument, and
+   nothing in `web/src/commands/` sends.
 4. Run the contract test of each client. The test fails if the client and
    the plan differ in either direction. CI reruns each one when the plan
    changes, so a new client's workflow lists
