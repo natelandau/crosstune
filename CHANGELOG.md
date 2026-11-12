@@ -1,3 +1,16 @@
+## v1.5.0 (2026-11-12)
+
+### Feat
+
+- **apple**: add shared iOS keyboard handling (#307)
+- **apple**: share one tune picker for lists and recordings (#305)
+- **apple**: share row actions and add Delete to catalog menus (#304)
+
+### Fix
+
+- **web**: correct tune picker scrolling and share one picker sheet (#306)
+- **details**: show date added as a footnote on recordings and tunes (#303)
+
 ## v1.4.1 (2026-11-11)
 
 ### Fix
