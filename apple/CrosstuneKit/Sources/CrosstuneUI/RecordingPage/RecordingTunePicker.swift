@@ -63,15 +63,10 @@ final class RecordingTunePickerModel: TunePickerSource {
         try await search.load()
     }
 
-    /// A result row's spoken name. Pickers search archived tunes on purpose, so the name says
-    /// which ones they are.
-    nonisolated static func rowName(_ entry: CatalogEntry) -> String {
-        let add = "Add to \(entry.tune.title)"
-        return entry.isArchived ? "\(add), archived" : add
-    }
-
     private func row(_ entry: CatalogEntry) -> TunePickerRow {
-        TunePickerRow(entry: entry, state: entry.tune.id == chosenID ? .chosen : .open, name: Self.rowName(entry))
+        TunePickerRow(
+            entry: entry, state: entry.tune.id == chosenID ? .chosen : .open, action: "Add to",
+            instruments: instruments)
     }
 
     func pick(_ entry: CatalogEntry) async {

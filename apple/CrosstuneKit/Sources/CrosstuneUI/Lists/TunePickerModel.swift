@@ -70,7 +70,7 @@ public final class TunePickerModel: TunePickerSource {
         guard let members = members.value, let found = search.find(query) else { return nil }
         let matches = found.matches
         return Results(
-            rows: matches.prefix(Self.maxResults).map { Self.row($0.entry, members: members) },
+            rows: matches.prefix(Self.maxResults).map { row($0.entry, members: members) },
             matches: matches.map(\.entry), outcome: found.outcome)
     }
 
@@ -80,16 +80,14 @@ public final class TunePickerModel: TunePickerSource {
     public var idleResults: [Row]? {
         guard let entries = search.entries, let members = members.value else { return nil }
         guard isIdle else { return [] }
-        return entries.map { Self.row($0, members: members) }
+        return entries.map { row($0, members: members) }
     }
 
-    /// A tune in the list shows, marked and inert, so the picker never hides a tune. An open
-    /// row's spoken name says when the tune is archived, since pickers search archived tunes.
-    private static func row(_ entry: CatalogEntry, members: Set<String>) -> Row {
-        let add = "Add \(entry.tune.title)"
-        return Row(
-            entry: entry, state: members.contains(entry.id) ? .taken : .open,
-            name: entry.isArchived ? "\(add), archived" : add)
+    /// A tune in the list shows, marked and inert, so the picker never hides a tune.
+    private func row(_ entry: CatalogEntry, members: Set<String>) -> Row {
+        Row(
+            entry: entry, state: members.contains(entry.id) ? .taken : .open, action: "Add",
+            instruments: instruments)
     }
 
     /// Whether the idle picker has nothing to list, so its sheet says what it is for.

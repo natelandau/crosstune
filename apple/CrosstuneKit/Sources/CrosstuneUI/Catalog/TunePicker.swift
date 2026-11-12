@@ -16,10 +16,14 @@ public struct TunePickerRow: Identifiable, Equatable {
 
     public let entry: CatalogEntry
     public let state: State
-    /// The row's spoken name when it can be picked.
-    public let name: String
+    /// What a pick does, said before the row, such as "Add".
+    let action: String
+    let instruments: Set<String>
 
     public var id: String { entry.id }
+    /// The row's spoken name when it can be picked. Built when read, so a long idle catalog
+    /// spells out only the rows on screen.
+    public var name: String { TunePickerText.openLabel(action, entry, instruments: instruments) }
     public var isTaken: Bool { state == .taken }
 }
 
@@ -122,6 +126,13 @@ extension TunePicker where Header == EmptyView {
 enum TunePickerText {
     static let hint = "Search the catalog to add tunes."
     static let done = "Done"
+
+    /// A row that can be picked, as VoiceOver reads it: the action, then the whole row, so two
+    /// tunes with one title still sound apart.
+    static func openLabel(_ action: String, _ entry: CatalogEntry, instruments: Set<String>) -> String {
+        let row = TuneRowText(tune: entry.tune, userTune: entry.userTune, instruments: instruments)
+        return "\(action) \(row.accessibilityLabel(position: nil))"
+    }
 
     /// A tune already taken, as VoiceOver reads it: the whole row, then that it is taken.
     @MainActor static func takenLabel(_ entry: CatalogEntry, instruments: Set<String>) -> String {

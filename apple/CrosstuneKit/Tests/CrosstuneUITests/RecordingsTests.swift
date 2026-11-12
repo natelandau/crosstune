@@ -879,7 +879,7 @@ struct RecordingsScreenPartsTests {
 
         model.query = "kitchen"
         let row = try #require(model.results?.rows.first)
-        #expect(row.name == "Add to Kitchen Girl")
+        #expect(row.name.hasPrefix("Add to Kitchen Girl, "), "the action, then the whole row")
         #expect(row.state == .open)
         #expect(await model.submit() == .picked)
         #expect(picked == [tuneID])
