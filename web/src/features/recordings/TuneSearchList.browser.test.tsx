@@ -3,6 +3,7 @@ import { expect, it } from 'vitest'
 import { openTestDb } from '../../test/db'
 import { dataProviders } from '../../test/providers'
 import { renderWithProviders } from '../../test/render'
+import { scrollerOf } from '../../test/scroller'
 import { tuneRow, userTuneRow } from '../../test/rows'
 import { pickRowName, SEARCH_TUNES } from '../catalog/catalogCopy'
 import { ADD_TUNES, addTuneName, IN_THIS_LIST, PICKER_HINT } from '../lists/listsCopy'
@@ -103,9 +104,8 @@ it('scrolls the windowed list', async () => {
   await expect.element(grid.getByRole('row').first()).toBeVisible()
   await expect
     .poll(() => {
-      const element = grid.element()
-      return element.scrollHeight > element.clientHeight
+      const scroller = scrollerOf(grid.element())
+      return scroller !== null && scroller.scrollHeight > scroller.clientHeight
     })
     .toBe(true)
-  expect(getComputedStyle(grid.element()).overflowY).toMatch(/auto|scroll/)
 })

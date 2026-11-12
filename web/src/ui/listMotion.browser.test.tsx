@@ -3,6 +3,7 @@ import { flushSync } from 'react-dom'
 import { page } from 'vitest/browser'
 import { expect, it } from 'vitest'
 import { renderWithProviders } from '../test/render'
+import { scrollerOf } from '../test/scroller'
 import { Row } from './Row'
 import { RowList } from './RowList'
 
@@ -78,13 +79,21 @@ it('moves nothing on first paint', async () => {
 
 const MANY = Array.from({ length: 80 }, (_, i) => `Tune ${String(i).padStart(2, '0')}`)
 
-function ManyTunes({ onEdit }: { onEdit: (edit: Edit) => void }) {
+type Virtualized = 'own' | 'page'
+
+function ManyTunes({
+  onEdit,
+  virtualized,
+}: {
+  onEdit: (edit: Edit) => void
+  virtualized: Virtualized
+}) {
   const [titles, setTitles] = useState(MANY)
   useEffect(() => onEdit(setTitles), [onEdit])
   return (
     // A scroller of its own, as a pane is.
-    <div data-scroller style={{ height: 600, overflowY: 'auto' }}>
-      <RowList label="Tunes" virtualized="page">
+    <div style={{ height: 600, overflowY: 'auto' }}>
+      <RowList label="Tunes" virtualized={virtualized}>
         {titles.map((title) => (
           <Row key={title} id={title} textValue={title} title={title} />
         ))}
@@ -93,9 +102,11 @@ function ManyTunes({ onEdit }: { onEdit: (edit: Edit) => void }) {
   )
 }
 
-async function mountedMany(): Promise<Edit> {
+async function mountedMany(virtualized: Virtualized = 'page'): Promise<Edit> {
   let edit: Edit | null = null
-  renderWithProviders(<ManyTunes onEdit={(next) => (edit = next)} />, { density: 'pointer' })
+  renderWithProviders(<ManyTunes onEdit={(next) => (edit = next)} virtualized={virtualized} />, {
+    density: 'pointer',
+  })
   await expect.element(page.getByRole('row', { name: 'Tune 00' })).toBeVisible()
   await expect.poll(() => edit).not.toBeNull()
   return edit!
@@ -117,28 +128,36 @@ it('fades a new row in to a virtualized list', async () => {
   await expect.poll(() => moving('Tune 00a')).toBe(true)
 })
 
-it('moves no row as a virtualized list scrolls rows in and out', async () => {
-  await mountedMany()
-  const frames: boolean[] = []
-  let running = true
-  const tick = () => {
-    if (!running) return
-    frames.push(anyMoving())
-    requestAnimationFrame(tick)
-  }
-  tick()
-  const scroller = document.querySelector<HTMLElement>('[data-scroller]')!
-  try {
-    // Tune 40 at the top.
-    const rowHeight = page
-      .getByRole('row', { name: 'Tune 00' })
-      .element()
-      .getBoundingClientRect().height
-    scroller.scrollTop = 40 * rowHeight
-    await expect.element(page.getByRole('row', { name: 'Tune 40' })).toBeInTheDocument()
-    await expect.element(page.getByRole('row', { name: 'Tune 00' })).not.toBeInTheDocument()
-  } finally {
-    running = false
-  }
-  expect(frames.filter(Boolean)).toEqual([])
-})
+// `own` scrolls a box of its own around the list, `page` the pane around it.
+it.each<Virtualized>(['page', 'own'])(
+  'moves no row as a virtualized list scrolls rows in and out, scrolled by %s',
+  async (virtualized) => {
+    await mountedMany(virtualized)
+    const frames: boolean[] = []
+    let running = true
+    const tick = () => {
+      if (!running) return
+      frames.push(anyMoving())
+      requestAnimationFrame(tick)
+    }
+    tick()
+    const scroller = scrollerOf(page.getByRole('grid').element())!
+    try {
+      // Tune 40 at the top.
+      const rowHeight = page
+        .getByRole('row', { name: 'Tune 00' })
+        .element()
+        .getBoundingClientRect().height
+      // A few rows a frame, as a wheel or a fling scrolls, so each frame keeps some rows.
+      for (let row = 4; row <= 40; row += 4) {
+        scroller.scrollTop = row * rowHeight
+        await new Promise(requestAnimationFrame)
+      }
+      await expect.element(page.getByRole('row', { name: 'Tune 40' })).toBeInTheDocument()
+      await expect.element(page.getByRole('row', { name: 'Tune 00' })).not.toBeInTheDocument()
+    } finally {
+      running = false
+    }
+    expect(frames.filter(Boolean)).toEqual([])
+  },
+)
