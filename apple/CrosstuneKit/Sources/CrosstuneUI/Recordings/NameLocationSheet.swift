@@ -82,6 +82,7 @@ struct NameLocationSheet: View {
     private var field: some View {
         TextField(NameLocationText.nameLabel, text: $name, prompt: Text(NameLocationText.nameLabel))
             .contentMask()
+            .textEntry(.name)
             #if os(macOS)
                 .labelsHidden()
                 .textFieldStyle(.macField)

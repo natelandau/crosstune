@@ -15,10 +15,17 @@ package enum TextEntry {
             // Selectable text that is not editable is an `NSText` too, and leaves the keys free.
             (NSApp.keyWindow?.firstResponder as? NSText)?.isEditable == true
         #else
-            guard let input = FirstResponder.current as? UITextInput else { return false }
-            return (input as? UITextView)?.isEditable ?? true
+            editingInput != nil
         #endif
     }
+
+    #if os(iOS)
+        /// The text field or editable text view that holds the keyboard, if any.
+        package static var editingInput: UIResponder? {
+            guard let input = FirstResponder.current, input is UITextInput else { return nil }
+            return (input as? UITextView)?.isEditable == false ? nil : input
+        }
+    #endif
 }
 
 #if os(iOS)

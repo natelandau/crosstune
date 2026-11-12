@@ -706,6 +706,7 @@
                             LabeledContent("Name") {
                                 TextField("Name", text: $text, prompt: Text("Not set"))
                                     .contentMask()
+                                    .textEntry(.name)
                                     .labelsHidden()
                                     .multilineTextAlignment(.trailing)
                             }
@@ -765,8 +766,11 @@
                     .clipShape(RoundedRectangle(cornerRadius: ControlMetrics.containerRadius))
                 }
                 GalleryItem(heading: "Text field: FilledTextFieldStyle") {
-                    TextField("Placeholder", text: $singleLine).contentMask().textFieldStyle(.filled)
-                    TextField("Notes", text: $notes, axis: .vertical).contentMask().textFieldStyle(.filledMultiline)
+                    TextField("Placeholder", text: $singleLine).contentMask().textEntry(.name).textFieldStyle(.filled)
+                    TextField("Notes", text: $notes, axis: .vertical)
+                        .contentMask()
+                        .textEntry(.prose)
+                        .textFieldStyle(.filledMultiline)
                 }
                 GalleryItem(heading: "Multiline field: MultilineTextField") {
                     MultilineTextField("Description", text: $summary, prompt: "Write a description")
@@ -1085,6 +1089,7 @@
                         MacStates(states: [.rest, .focus, .disabled]) {
                             TextField("Placeholder", text: $field)
                                 .contentMask()
+                                .textEntry(.name)
                                 .textFieldStyle(.macField)
                                 .frame(width: 180)
                         }
@@ -1092,6 +1097,7 @@
                             VStack(alignment: .leading, spacing: 4) {
                                 TextField("Name", text: $filled)
                                     .contentMask()
+                                    .textEntry(.name)
                                     .textFieldStyle(.macField(isInvalid: true))
                                 Text("That name is already in use.")
                                     .font(MacStyle.secondary)
@@ -1099,6 +1105,7 @@
                             }
                             TextField("Link", text: $field)
                                 .contentMask()
+                                .textEntry(.url)
                                 .textFieldStyle(.macField(leadingSymbol: "link"))
                         }
                         .frame(maxWidth: 400)
@@ -1107,12 +1114,14 @@
                         MacStates(states: [.rest, .focus, .disabled]) {
                             TextField("Untitled", text: $title)
                                 .contentMask()
+                                .textEntry(.name)
                                 .textFieldStyle(.macTitleField)
                                 .frame(width: 180)
                         }
                         MacStates(states: [.rest, .focus]) {
                             TextField("Untitled", text: $title)
                                 .contentMask()
+                                .textEntry(.name)
                                 .textFieldStyle(.macTitleField(.page))
                                 .frame(width: 320)
                         }

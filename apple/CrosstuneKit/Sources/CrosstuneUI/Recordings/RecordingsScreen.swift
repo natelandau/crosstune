@@ -243,7 +243,7 @@ private struct RecordingsContent: View {
             .searchFocused($searchFocused)
             .onSubmit(of: .search) { searchFocused = false }
             .scrollDismissesKeyboard(.immediately)
-            .textInputAutocapitalization(.never)
+            .textEntry(.search)
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Button(RecordingImport.upload, systemImage: "plus") { upload() }

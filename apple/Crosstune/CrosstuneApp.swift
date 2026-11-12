@@ -98,6 +98,7 @@ struct CrosstuneApp: App {
                 .environment(\.locationAccess, locationAccess)
                 .environment(\.locationProvider, deviceLocation)
                 .followsDisplaySettings()
+                .keyboardDismissal()
                 .tint(appTint)
         }
         .commands {

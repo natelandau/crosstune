@@ -217,6 +217,7 @@ public struct DeleteAccountSheet: View {
                 // The label above names the field, so it shows no prompt of its own.
                 TextField(Self.confirmLabel, text: $text, prompt: Text(verbatim: ""))
                     .contentMask()
+                    .textEntry(.verbatim)
                     .labelsHidden()
                     .textFieldStyle(.macField)
                     .autocorrectionDisabled()
@@ -270,8 +271,7 @@ public struct DeleteAccountSheet: View {
                     Section {
                         TextField(Self.confirmLabel, text: $text)
                             .contentMask()
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled()
+                            .textEntry(.verbatim)
                             .disabled(pending)
                         ForEach(Self.appleLines(hasAppleSignIn: session.hasAppleSignIn), id: \.self) { Text($0) }
                     } footer: {

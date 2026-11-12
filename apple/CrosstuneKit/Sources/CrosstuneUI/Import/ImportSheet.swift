@@ -247,6 +247,7 @@ private struct ImportContent: View {
             Section(ImportCopy.pasteLabel) {
                 TextEditor(text: $model.text)
                     .contentMask()
+                    .textEntry(.prose)
                     .frame(minHeight: 200)
                     .accessibilityLabel(ImportCopy.pasteLabel)
                     .overlay(alignment: .topLeading) {
@@ -328,6 +329,7 @@ private struct ImportContent: View {
         if model.listKey == .new {
             TextField(ImportCopy.listNameLabel, text: $model.listName, prompt: Text(ImportCopy.listNameLabel))
                 .contentMask()
+                .textEntry(.name)
                 #if os(macOS)
                     // The prompt names the field, which a grouped form would name again.
                     .labelsHidden()
@@ -436,6 +438,7 @@ private struct ImportReviewRow: View {
                     prompt: Text(TuneFieldLabels.title)
                 )
                 .contentMask()
+                .textEntry(.name)
                 .labelsHidden()
                 #if os(macOS)
                     .textFieldStyle(.macField)

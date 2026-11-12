@@ -360,7 +360,7 @@ private struct FindRecordingsForm: View {
                 text: queryBinding, placement: .navigationBarDrawer(displayMode: .always),
                 prompt: Text(FindRecordingsSheet.searchFor)
             )
-            .autocorrectionDisabled()
+            .textEntry(.search)
             .onSubmit(of: .search) { Task { await model.submit() } }
             .scrollDismissesKeyboard(.immediately)
             .toolbar {

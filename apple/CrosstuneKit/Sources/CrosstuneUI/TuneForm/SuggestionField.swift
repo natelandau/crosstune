@@ -119,6 +119,7 @@ struct SuggestionField: View {
     private var field: some View {
         TextField(label, text: text, prompt: prompt.map { Text($0) })
             .contentMask()
+            .textEntry(.name)
             #if os(macOS)
                 // The row's own label names the field, so the field draws only its value.
                 .labelsHidden()

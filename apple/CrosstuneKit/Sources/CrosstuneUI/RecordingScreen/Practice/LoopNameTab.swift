@@ -85,6 +85,7 @@ struct LoopNameField: View {
     var body: some View {
         TextField(PracticeText.loopName, text: $text)
             .contentMask()
+            .textEntry(.name)
             #if os(macOS)
                 .textFieldStyle(.macTitleField)
             #else

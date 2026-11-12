@@ -166,7 +166,7 @@ private struct CatalogContent: View {
                 .searchFocused($searchFocused)
                 .onSubmit(of: .search, submitSearch)
                 .scrollDismissesKeyboard(.immediately)
-                .textInputAutocapitalization(.never)
+                .textEntry(.search)
                 .navigationTitle(title)
                 .toolbar {
                     if !selection.isActive {

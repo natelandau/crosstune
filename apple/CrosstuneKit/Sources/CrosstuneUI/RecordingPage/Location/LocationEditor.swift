@@ -496,7 +496,7 @@ private struct LocationEditorPage: View {
                     text: query, placement: .navigationBarDrawer(displayMode: .always),
                     prompt: Text(PlaceSearchText.findAPlace)
                 )
-                .autocorrectionDisabled()
+                .textEntry(.search)
                 .scrollDismissesKeyboard(.immediately)
                 .navigationTitle(RecordingPageCopy.location)
                 .navigationBarTitleDisplayMode(.inline)

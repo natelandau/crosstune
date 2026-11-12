@@ -114,7 +114,7 @@ struct ContentMaskTests {
     }
 
     /// The index of the bracket that closes the one at `open`, or the end of the text.
-    private static func matching(_ chars: [Character], from open: Int) -> Int {
+    static func matching(_ chars: [Character], from open: Int) -> Int {
         var depth = 0
         var index = open
         while index < chars.count {
@@ -181,7 +181,7 @@ struct ContentMaskTests {
     }
 
     /// The names of the modifiers chained onto the view whose arguments close at `close`.
-    private static func modifiers(
+    static func modifiers(
         in chars: [Character], after close: Int, sourceLocation: SourceLocation = #_sourceLocation
     ) -> [String] {
         var names: [String] = []

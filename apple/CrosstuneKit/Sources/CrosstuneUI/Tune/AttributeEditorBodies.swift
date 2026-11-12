@@ -444,6 +444,7 @@ private struct AlternateTitlesEditor: View {
         VStack(alignment: .leading, spacing: 4) {
             TextField(TuneFieldLabels.alternateTitles, text: controls.draft, prompt: Text(TuneFieldLabels.notSet))
                 .contentMask()
+                .textEntry(.name)
                 #if os(macOS)
                     // The editor's title names the field, so it draws only its value.
                     .labelsHidden()

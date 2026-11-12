@@ -350,6 +350,7 @@ struct HeaderTitleField: View {
         // Vertical, so a long title wraps as the heading it covers does.
         TextField(TuneFieldLabels.title, text: oneLine, axis: .vertical)
             .contentMask()
+            .textEntry(.name)
             #if os(macOS)
                 .textFieldStyle(.macTitleField(.page))
             #else

@@ -122,6 +122,7 @@ private struct RecordingNameEditor: View {
     var body: some View {
         TextField(RecordingEditorText.nameLabel, text: controls.draft, prompt: Text(RecordingEditorText.placeholder))
             .contentMask()
+            .textEntry(.name)
             #if os(macOS)
                 // The editor's title names the field, so it draws only its value.
                 .labelsHidden()
@@ -151,6 +152,7 @@ private struct RecordingNotesEditor: View {
                 axis: .vertical
             )
             .contentMask()
+            .textEntry(.prose)
             .characterLimit(Vocabulary.Limits.Recording.notes, text: controls.draft)
             .lineLimit(3...8)
             .focused(controls.firstField)
@@ -229,6 +231,7 @@ struct RecordingDateEditor: View {
         return LabeledContent(RecordingEditorText.year) {
             TextField(RecordingEditorText.year, text: year, prompt: Text(TuneFieldLabels.notSet))
                 .contentMask()
+                .textEntry(.number)
                 #if os(macOS)
                     .labelsHidden()
                     .textFieldStyle(.macField)
@@ -236,7 +239,6 @@ struct RecordingDateEditor: View {
                     .frame(width: 80)
                 #else
                     .multilineTextAlignment(.trailing)
-                    .keyboardType(.numberPad)
                 #endif
                 .focused(controls.firstField)
                 .submitLabel(.done)

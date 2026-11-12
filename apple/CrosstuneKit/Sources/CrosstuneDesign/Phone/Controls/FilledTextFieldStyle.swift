@@ -63,8 +63,11 @@ extension TextFieldStyle where Self == FilledTextFieldStyle {
     @Previewable @State var name = ""
     @Previewable @State var notes = ""
     VStack {
-        TextField("Name", text: $name).contentMask().textFieldStyle(.filled)
-        TextField("Notes", text: $notes, axis: .vertical).contentMask().textFieldStyle(.filledMultiline)
+        TextField("Name", text: $name).contentMask().textEntry(.name).textFieldStyle(.filled)
+        TextField("Notes", text: $notes, axis: .vertical)
+            .contentMask()
+            .textEntry(.prose)
+            .textFieldStyle(.filledMultiline)
     }
     .padding()
 }

@@ -297,7 +297,7 @@ private struct TunePickerContent<Model: TunePickerSource, Header: View>: View {
                 text: $model.query, placement: .navigationBarDrawer(displayMode: .always),
                 prompt: CatalogScreen.searchPrompt
             )
-            .autocorrectionDisabled()
+            .textEntry(.search)
             .searchFocused($searchFocused)
             .onSubmit(of: .search, submitSearch)
             .scrollDismissesKeyboard(.immediately)
