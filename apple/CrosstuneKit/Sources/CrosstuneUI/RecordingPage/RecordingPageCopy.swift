@@ -14,7 +14,6 @@ public enum RecordingPageCopy {
     public static let tune = "Linked Tune"
     public static let players = "Players"
     public static let recorded = "Recorded"
-    public static let added = "Added"
     public static let location = "Location"
     public static let notes = "Notes"
 
@@ -22,6 +21,9 @@ public enum RecordingPageCopy {
     public static let detailsGroup = details
     public static let locationGroup = location
     public static let notesGroup = notes
+
+    /// "Date added: Oct 3, 2026", the footnote under the attributes.
+    public static func dateAdded(_ day: String) -> String { "Date added: \(day)" }
 
     /// What a row with no value reads.
     public static let notSet = TuneFieldLabels.notSet

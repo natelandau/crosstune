@@ -6,12 +6,7 @@ import { ErrorLine } from '../ErrorLine'
 import { Group } from '../form/Group'
 import { COLUMN_TOP } from './attributesLayout'
 import { MORE_DETAILS } from './attributesCopy'
-import {
-  AttributeRowButton,
-  AttributeRowEditor,
-  ReadOnlyRow,
-  ROW_SHAPE,
-} from './AttributeRowEditor'
+import { AttributeRowButton, AttributeRowEditor, ROW_SHAPE } from './AttributeRowEditor'
 
 export interface AttributeColumnRow {
   id: string
@@ -20,8 +15,6 @@ export interface AttributeColumnRow {
   text: string | null
   /** The `id` of the group the row sits under. */
   group: string
-  /** Shown as text, with no editor to open. */
-  readOnly?: boolean
   /**
    * The editor the row opens, in place of one from `editorFor`, for one that saves outside
    * `onCommit`. It shows while `isOpen`, asks to close with `onClose`, and calls `onWrite` as it
@@ -118,9 +111,7 @@ export function AttributesColumn<R extends AttributeColumnRow, P extends object>
     const { ownEditor } = row
     return (
       <Fragment key={row.id}>
-        {row.readOnly ? (
-          <ReadOnlyRow {...face} />
-        ) : ownEditor ? (
+        {ownEditor ? (
           <>
             <AttributeRowButton {...face} onPress={() => setOpenId(row.id)} />
             {ownEditors.mounts

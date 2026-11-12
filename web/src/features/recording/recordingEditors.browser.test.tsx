@@ -21,6 +21,7 @@ import { DONE } from '../../ui/confirmCopy'
 import { NOT_SET } from '../../ui/fieldCopy'
 import { MONTH_LABEL, MONTH_LABELS, YEAR_LABEL } from '../../ui/partialDate'
 import { AnalyticsProvider } from '../../usage/AnalyticsProvider'
+import { addedDay } from '../../text/format'
 import { recordingAnalytics } from '../../usage/testing'
 import { addTypedTitleLabel, SEARCH_TUNES } from '../catalog/catalogCopy'
 import { RECORDING_NAME_LABEL } from '../recordings/recordingCopy'
@@ -36,7 +37,7 @@ import {
 } from '../recordings/recordingsCopy'
 import { RECORDED_HEADER } from '../stats/copy'
 import { FIND_A_PLACE } from './location/locationEditorCopy'
-import { ADDED_LABEL, DETAILS, LINKED_TUNE_LABEL, REMOVE_FROM_TUNE } from './recordingPageCopy'
+import { DATE_ADDED, DETAILS, LINKED_TUNE_LABEL, REMOVE_FROM_TUNE } from './recordingPageCopy'
 
 const TUNE_PATH = '/catalog/t1'
 const FAST = 'Fast version'
@@ -243,16 +244,15 @@ it('offers the players named on other recordings, and saves a pick at once', asy
   await expect.poll(async () => (await db.recordings.get('rA'))?.players).toBe('Tommy Jarrell')
 })
 
-it('Added is read only', async () => {
-  await mount()
-  await expect
-    .element(attributes().getByRole('group', { name: new RegExp(`^${ADDED_LABEL}, `) }))
-    .toBeVisible()
-  expect(
-    attributes()
-      .getByRole('button', { name: new RegExp(`^${ADDED_LABEL},`) })
-      .query(),
-  ).toBeNull()
+it.each([
+  ['column', WIDE],
+  ['card', PHONE],
+] as const)('ends the %s with the day added as text, not a row', async (_layout, frame) => {
+  const { db } = await mount(frame)
+  if (frame === PHONE) await page.getByRole('tab', { name: DETAILS, exact: true }).click()
+  const shown = DATE_ADDED(addedDay((await db.recordings.get('rA'))!.added_at))
+  await expect.element(page.getByText(shown, { exact: true })).toBeVisible()
+  expect(page.getByRole('button', { name: /^Added/ }).query()).toBeNull()
 })
 
 it("shows the place, and a saved location's address under it", async () => {

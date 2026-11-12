@@ -2,8 +2,8 @@
 export const DETAILS = 'Details'
 export const PRACTICE = 'Practice'
 
-/** The recording page's Added row, which no other screen names. */
-export const ADDED_LABEL = 'Added'
+/** The footnote under a recording's attributes: the day it was added, which nothing edits. */
+export const DATE_ADDED = (day: string) => `Date added: ${day}`
 
 /** The recording page's row for the tune it is filed under. */
 export const LINKED_TUNE_LABEL = 'Linked Tune'

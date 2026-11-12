@@ -2,7 +2,7 @@ import { useId, useMemo, useState, type Ref } from 'react'
 import { RECORDING_LIMITS } from '../../api/vocabulary'
 import { isRecordingPrecision } from '../../db/types'
 import { blankToNull } from '../../text/blank'
-import { recordedTime } from '../../text/format'
+import { addedDay, recordedTime } from '../../text/format'
 import { AttributesColumn } from '../../ui/attributes/AttributesColumn'
 import {
   useAttributeEdit,
@@ -33,7 +33,7 @@ import { useAllRecordings } from '../recordings/useAllRecordings'
 import { useFileRecording } from '../recordings/useFileRecording'
 import type { RecordingView } from '../recordings/useRecordings'
 import { LocationEditor } from './location/LocationEditor'
-import { DETAILS, LINKED_TUNE_LABEL, REMOVE_FROM_TUNE } from './recordingPageCopy'
+import { DATE_ADDED, DETAILS, LINKED_TUNE_LABEL, REMOVE_FROM_TUNE } from './recordingPageCopy'
 import { RECORDING_GROUPS, recordingRows, type RecordingAttributeId } from './recordingRows'
 import { useRecordingAttributeWrite, type RecordingPatch } from './useRecordingAttributeWrite'
 import type { RecordingLocation } from './useRecordingPageView'
@@ -59,7 +59,7 @@ function storedPatch(view: RecordingView): Required<RecordingPatch> {
 /**
  * A recording's attributes, as the column beside practice or as Details' card: each row opens
  * its own editor, which saves on every dismissal but Escape. The location editor opens from its
- * row or from the map under it.
+ * row or from the map under it. The day the recording was added ends them as plain text.
  */
 export function RecordingAttributes({
   ref,
@@ -74,7 +74,8 @@ export function RecordingAttributes({
 }) {
   const write = useRecordingAttributeWrite(view.recording.id)
   const [openId, setOpenId] = useState<string | null>(null)
-  return (
+  const dateAdded = DATE_ADDED(addedDay(view.recording.added_at))
+  const attributes = (
     <AttributesColumn
       ref={ref}
       label={DETAILS}
@@ -107,8 +108,22 @@ export function RecordingAttributes({
       error={write.error}
       openId={openId}
       onOpenIdChange={setOpenId}
+      footer={<DateAddedLine text={dateAdded} className="px-4 pt-6" />}
     />
   )
+  // The card leaves its footer to the page, so the line follows it here.
+  return layout === 'card' ? (
+    <>
+      {attributes}
+      <DateAddedLine text={dateAdded} className="px-4" />
+    </>
+  ) : (
+    attributes
+  )
+}
+
+function DateAddedLine({ text, className }: { text: string; className: string }) {
+  return <p className={`t-caption text-secondary font-normal ${className}`}>{text}</p>
 }
 
 /**
@@ -146,7 +161,6 @@ function RecordingEditorBody({ id, view }: { id: RecordingAttributeId; view: Rec
       return <RecordedBody view={view} edit={edit} />
     case 'notes':
       return <NotesBody view={view} edit={edit} />
-    case 'added':
     case 'location':
       return null
   }

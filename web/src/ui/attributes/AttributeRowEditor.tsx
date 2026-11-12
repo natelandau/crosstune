@@ -43,19 +43,6 @@ function RowText({ label, text, emptyText, column }: RowFace) {
   )
 }
 
-/** A row that cannot be edited: its label and value as text, with no press or disclosure. */
-export function ReadOnlyRow(face: RowFace) {
-  return (
-    <div
-      role="group"
-      aria-label={`${face.label}, ${face.text ?? face.emptyText}`}
-      className={face.column ? COLUMN_ROW_LAYOUT : ROW_LAYOUT}
-    >
-      <RowText {...face} />
-    </div>
-  )
-}
-
 /** A row that opens an editor on press: its label and value, named as one. */
 export function AttributeRowButton({
   ref,
