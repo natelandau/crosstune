@@ -93,8 +93,8 @@ public final class TunePickerModel: TunePickerSource {
     /// Whether the idle picker has nothing to list, so its sheet says what it is for.
     public var showsHint: Bool { isIdle && members.value != nil && search.entries?.isEmpty == true }
 
-    /// Adds a tune to the list and clears the search for the next. A tune already in the list,
-    /// or one whose add is running, is left alone.
+    /// Adds a tune to the list. The search stays as typed, so the next tune can be picked from
+    /// the same results. A tune already in the list, or one whose add is running, is left alone.
     public func pick(_ entry: CatalogEntry) async {
         let userTuneID = entry.userTune.id
         guard members.value?.contains(userTuneID) == false, adding.insert(userTuneID).inserted else { return }
@@ -102,7 +102,6 @@ public final class TunePickerModel: TunePickerSource {
             adding.remove(userTuneID)
             reportIfDone()
         }
-        query = ""
         failure = nil
         let listID = listID
         do {

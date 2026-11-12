@@ -374,17 +374,16 @@ struct PendingMovesTests {
         #expect(row.name.hasSuffix(TuneRowText.archived))
     }
 
-    @Test func addsAPickedTuneAndClearsTheSearchForTheNext() async throws {
+    @Test func addsAPickedTuneAndKeepsTheSearch() async throws {
         let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = try await picker(store)
         model.query = "butterfly"
         await model.pick(catalogEntry("The Butterfly"))
-        #expect(model.query.isEmpty)
+        #expect(model.query == "butterfly", "the search stays until the musician clears it")
         let members = try await store.read { db in
             try ListContents.fetch(db, listID: session.id)?.entries.map(\.tune.title)
         }
         #expect(members?.last == "The Butterfly")
-        model.query = "butterfly"
         try await eventually { model.results?.rows.first?.isTaken == true }
     }
 
@@ -425,7 +424,7 @@ struct PendingMovesTests {
         let model = try await picker(store)
         model.query = "Ashokan"
         #expect(await model.submit() == .picked)
-        #expect(model.query.isEmpty)
+        #expect(model.query == "Ashokan")
         let titles = try await store.read { db in
             try ListContents.fetch(db, listID: session.id)?.entries.map(\.tune.title)
         }
