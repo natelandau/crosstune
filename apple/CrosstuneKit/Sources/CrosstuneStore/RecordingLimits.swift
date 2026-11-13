@@ -96,10 +96,11 @@ public enum RecordingLimits {
         waitingParentIDs(in: try splitPieces(db), excluding: excludingPieceIDs)
     }
 
-    /// The recordings a tune delete keeps, unfiled, among `recordings`, the rows filed under the
-    /// tunes it deletes: each parent whose waiting piece plays from its audio, unless that piece
-    /// goes with the same delete. `pieces` are the rows ``splitPieces(_:)`` reads.
-    public static func keptByTuneDelete(_ recordings: [Recording], pieces: [Recording]) -> Set<String> {
+    /// The recordings a delete of all of `recordings` keeps: each parent whose waiting piece
+    /// plays from its audio, unless that piece goes with the same delete. A tune delete passes
+    /// the rows filed under its tunes, which it keeps unfiled. `pieces` are the rows
+    /// ``splitPieces(_:)`` reads.
+    public static func keptByDelete(_ recordings: [Recording], pieces: [Recording]) -> Set<String> {
         let waiting = waitingParentIDs(in: pieces, excluding: Set(recordings.map(\.id)))
         return Set(
             recordings.filter { $0.deletedAt == nil && holdsSplitAudio($0, waitingParentIDs: waiting) }.map(\.id))
@@ -108,7 +109,7 @@ public enum RecordingLimits {
     /// The recordings filed under `tuneIDs` that a delete of those tunes keeps, unfiled.
     public static func keptByTuneDelete(_ db: Database, tuneIDs: some Collection<String>) throws -> Set<String> {
         let recordings = try Recording.filter(tuneIDs.contains(Recording.CodingKeys.tuneID)).fetchAll(db)
-        return keptByTuneDelete(recordings, pieces: try splitPieces(db))
+        return keptByDelete(recordings, pieces: try splitPieces(db))
     }
 
     public static func pieceLabel(_ parentLabel: String?, number: Int) -> String {

@@ -18,7 +18,7 @@ import { TRIM } from '../practice/trimCopy'
 import type { Player } from '../player/usePlayer'
 import { PLAY_FIRST_IN_LISTS } from '../tune/playSourceText'
 import { openOn } from './recordingCopy'
-import { downloadName, GO_TO_TUNE, playName } from './recordingNames'
+import { DOWNLOAD, downloadName, GO_TO_TUNE, playName } from './recordingNames'
 
 const RECORDINGS = destination('recordings')
 const TUNE_PATH = '/catalog/t1'
@@ -190,7 +190,7 @@ it("a row's only swipe and menu action is Delete", async () => {
     .toEqual([DELETE])
 })
 
-it('the page menu holds Pin, Go to tune, Trim, Split, and Delete, and pins the recording', async () => {
+it('the page menu holds Pin, Go to tune, Trim, Split, Download, and Delete, and pins the recording', async () => {
   const { db } = await mount(`${TUNE_PATH}/recordings/rA`, { frame: PHONE })
   await page.getByRole('main').getByRole('button', { name: MORE_ACTIONS }).click()
   await expect.element(page.getByRole('menuitem', { name: DELETE })).toBeVisible()
@@ -201,7 +201,7 @@ it('the page menu holds Pin, Go to tune, Trim, Split, and Delete, and pins the r
         .elements()
         .map((item) => item.textContent),
     )
-    .toEqual([PLAY_FIRST_IN_LISTS, GO_TO_TUNE, TRIM, SPLIT, DELETE])
+    .toEqual([PLAY_FIRST_IN_LISTS, GO_TO_TUNE, TRIM, SPLIT, DOWNLOAD, DELETE])
   await page.getByRole('menuitem', { name: PLAY_FIRST_IN_LISTS }).click()
   await expect.poll(async () => (await db.user_tunes.get('u-t1'))?.play_recording_id).toBe('rA')
 })

@@ -145,7 +145,7 @@ public struct TuneDetail: Hashable, Sendable {
         let fileByID = Dictionary(files.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         let pieces = try RecordingLimits.splitPieces(db)
         let waiting = RecordingLimits.waitingParentIDs(in: pieces)
-        let kept = RecordingLimits.keptByTuneDelete(recordings, pieces: pieces)
+        let kept = RecordingLimits.keptByDelete(recordings, pieces: pieces)
         let items = try ListItem.filter(ListItem.CodingKeys.userTuneID == userTune.id)
             .filter(ListItem.CodingKeys.deletedAt == nil).fetchAll(db)
         let itemByList = Dictionary(items.map { ($0.listID, $0.id) }, uniquingKeysWith: { first, _ in first })

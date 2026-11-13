@@ -15,7 +15,14 @@ import { providerLabel } from '../links/display'
 import type { RecordingSort } from './arrangeRecordings'
 import { LOCAL_UNTIL_SUBSCRIBED } from './recordingCopy'
 import { recordingLabel } from './recordingMatch'
-import { ALL_RECORDINGS, MY_RECORDINGS } from './recordingsCopy'
+import {
+  ALL_RECORDINGS,
+  DELETE_RECORDINGS_SYNCED_NOTE,
+  DELETE_RECORDINGS_UNSYNCED_NOTE,
+  deleteRecordingsTitle,
+  heldRecordingsLine,
+  MY_RECORDINGS,
+} from './recordingsCopy'
 import type { RecordingView } from './useRecordings'
 import type { OriginChoice } from './useRecordingsOrigin'
 
@@ -24,9 +31,34 @@ export const DELETE_SYNCED_NOTE = 'It is removed from every device.'
 
 /** What a delete costs: a recording the server has never seen is only ever on this device. */
 export function deleteRecordingMessage(view: RecordingView): string {
+  return isOnlyOnThisDevice(view) ? DELETE_UNSYNCED_NOTE : DELETE_SYNCED_NOTE
+}
+
+function isOnlyOnThisDevice(view: RecordingView): boolean {
   return view.recording.state === 'pending_upload' && isNotUploaded(view.file)
-    ? DELETE_UNSYNCED_NOTE
-    : DELETE_SYNCED_NOTE
+}
+
+/**
+ * The bulk delete's question: its cost, then the `held` split parents the delete leaves. One
+ * recording reads as the single delete does.
+ */
+export function bulkDeleteQuestion(
+  views: readonly RecordingView[],
+  held: number,
+): {
+  title: string
+  message: string
+} {
+  const note =
+    views.length === 1
+      ? deleteRecordingMessage(views[0]!)
+      : views.some(isOnlyOnThisDevice)
+        ? DELETE_RECORDINGS_UNSYNCED_NOTE
+        : DELETE_RECORDINGS_SYNCED_NOTE
+  return {
+    title: deleteRecordingsTitle(views.length),
+    message: held > 0 ? `${note} ${heldRecordingsLine(held)}` : note,
+  }
 }
 
 /**

@@ -14,6 +14,9 @@ import {
 } from '../../text/format'
 import type { RecordingView } from './useRecordings'
 import {
+  bulkDeleteQuestion,
+  DELETE_SYNCED_NOTE,
+  DELETE_UNSYNCED_NOTE,
   isWebUrl,
   originLabel,
   originLink,
@@ -24,6 +27,12 @@ import {
   titleIsDate,
 } from './recordingRow'
 import { LOCAL_UNTIL_SUBSCRIBED } from './recordingCopy'
+import {
+  DELETE_RECORDINGS_SYNCED_NOTE,
+  DELETE_RECORDINGS_UNSYNCED_NOTE,
+  deleteRecordingsTitle,
+  heldRecordingsLine,
+} from './recordingsCopy'
 
 function view(
   overrides: {
@@ -465,5 +474,52 @@ describe('retryKind', () => {
         }),
       ),
     ).toBeNull()
+  })
+})
+
+describe('bulkDeleteQuestion', () => {
+  const synced = () => view()
+  const unsynced = () =>
+    view({
+      recording: { state: 'pending_upload' },
+      file: recordingFile('r1', { local_state: 'captured' }),
+    })
+
+  it.each([
+    { name: 'one synced', views: [synced()], note: DELETE_SYNCED_NOTE, held: 0 },
+    { name: 'one not uploaded', views: [unsynced()], note: DELETE_UNSYNCED_NOTE, held: 0 },
+    {
+      name: 'several synced',
+      views: [synced(), synced()],
+      note: DELETE_RECORDINGS_SYNCED_NOTE,
+      held: 0,
+    },
+    {
+      name: 'one not uploaded among several',
+      views: [synced(), unsynced()],
+      note: DELETE_RECORDINGS_UNSYNCED_NOTE,
+      held: 0,
+    },
+    { name: 'one held', views: [synced(), synced()], note: DELETE_RECORDINGS_SYNCED_NOTE, held: 1 },
+    {
+      name: 'several held and one not uploaded',
+      views: [unsynced(), synced(), synced()],
+      note: DELETE_RECORDINGS_UNSYNCED_NOTE,
+      held: 2,
+    },
+  ])('words the question for $name', ({ views, note, held }) => {
+    expect(bulkDeleteQuestion(views, held)).toEqual({
+      title: deleteRecordingsTitle(views.length),
+      message: held > 0 ? `${note} ${heldRecordingsLine(held)}` : note,
+    })
+  })
+
+  it.each([
+    { n: 1, singular: true },
+    { n: 3, singular: false },
+  ])('counts $n in the title and held line as one or several', ({ n, singular }) => {
+    expect(/\b1 recording\?/.test(deleteRecordingsTitle(n))).toBe(singular)
+    expect(heldRecordingsLine(n).startsWith('1 is ')).toBe(singular)
+    expect(heldRecordingsLine(n).startsWith(`${n} are `)).toBe(!singular)
   })
 })

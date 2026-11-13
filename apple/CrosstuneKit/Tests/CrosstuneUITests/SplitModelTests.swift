@@ -974,7 +974,8 @@ private final class SplitHolds {
     @Test func theMenuOffersSplitAfterTrimAndDisablesDeleteDuringASplit() {
         let items = RecordingMenuItem.items(
             pinned: nil, goesToTune: false, trimDisabledReason: nil, splitDisabledReason: RecordingScreenText.splitBusy,
-            deleteDisabledReason: RecordingScreenText.deleteWhileSplitting)
+            deleteDisabledReason: RecordingScreenText.deleteWhileSplitting, exportDisabledReason: nil
+        ).filter { !$0.sharesOrExports }
         #expect(
             items == [
                 .trim(disabledReason: nil), .split(disabledReason: RecordingScreenText.splitBusy),

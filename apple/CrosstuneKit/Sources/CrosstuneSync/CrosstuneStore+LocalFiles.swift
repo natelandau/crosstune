@@ -16,6 +16,13 @@ extension CrosstuneStore {
         return FileManager.default.fileExists(atPath: url.path(percentEncoded: false)) ? url : nil
     }
 
+    /// ``localAudio(_:)`` when it matches `recording`'s current playback file. Nil for a copy a
+    /// trim has left stale, which must be fetched again.
+    public func currentLocalAudio(_ recording: Recording, file: RecordingFile?) -> URL? {
+        guard let file, !isStale(recording, file) else { return nil }
+        return localAudio(file)
+    }
+
     /// The recording's audio on this device, without fetching it: what plays with no sync engine.
     public func localAudio(recordingID: String) async -> URL? {
         let file = try? await read { db in try RecordingFile.fetchOne(db, key: recordingID) }

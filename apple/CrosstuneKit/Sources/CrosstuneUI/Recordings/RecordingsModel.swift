@@ -244,8 +244,12 @@ public final class RecordingsModel {
 
     /// What a delete costs: a recording the server has never seen exists only on this device.
     nonisolated public static func deleteMessage(_ view: RecordingView) -> String {
-        let notUploaded = view.file?.localState.isNotUploaded ?? false
-        return view.recording.state == "pending_upload" && notUploaded ? deleteUnsyncedNote : deleteSyncedNote
+        existsOnlyHere(view) ? deleteUnsyncedNote : deleteSyncedNote
+    }
+
+    /// Whether the server has never seen the recording, so a delete cannot be undone.
+    nonisolated static func existsOnlyHere(_ view: RecordingView) -> Bool {
+        view.recording.state == "pending_upload" && (view.file?.localState.isNotUploaded ?? false)
     }
 
     nonisolated static func fetch(_ db: Database) throws -> RecordingsSnapshot {

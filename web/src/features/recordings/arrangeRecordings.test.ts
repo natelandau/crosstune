@@ -3,8 +3,9 @@ import { recordingRow } from '../../test/rows'
 import {
   type FiledArrangement,
   type RecordingSort,
+  type SortChoice,
   DEFAULT_SORT,
-  arrangedCount,
+  arrangedViews,
   arrangeRecordings,
   nextSort,
   recordingCountLabel,
@@ -326,10 +327,12 @@ describe('the list header count', () => {
     view('f2', { tuneId: 's', tuneTitle: 'S', minutes: 3 }),
   ]
 
-  it('counts both lists whether the filed one is flat or grouped by tune', () => {
-    expect(arrangedCount(arrangeRecordings(views, DEFAULT_SORT, ''))).toBe(3)
-    expect(arrangedCount(arrangeRecordings(views, choice('tune', false), ''))).toBe(3)
-    expect(arrangedCount(arrangeRecordings(views, DEFAULT_SORT, 'zzz'))).toBe(0)
+  it('lists the unfiled, then the filed in the order they show', () => {
+    const ids = (sort: SortChoice) =>
+      arrangedViews(arrangeRecordings(views, sort, '')).map((v) => v.recording.id)
+    expect(ids(DEFAULT_SORT)).toEqual(['u1', 'f2', 'f1'])
+    expect(ids(choice('tune', false))).toEqual(['u1', 'f2', 'f1'])
+    expect(ids(choice('tune', true))).toEqual(['u1', 'f1', 'f2'])
   })
 
   it('names the whole, or the part of it shown', () => {

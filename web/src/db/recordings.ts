@@ -93,6 +93,11 @@ export interface RecordingFile {
   upload_attempts: number
 }
 
+/** A file whose bytes are all here: a capture in progress or a download without a blob is not. */
+export function isComplete(file: RecordingFile): file is RecordingFile & { blob: Blob } {
+  return file.blob instanceof Blob && file.local_state !== 'capturing'
+}
+
 export interface RecordingChunk {
   recording_id: string
   idx: number

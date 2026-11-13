@@ -6,6 +6,7 @@ import { settingsId } from '../../commands/settings'
 import type { CrosstuneDb } from '../../db/schema'
 import { storedInstruments } from '../../db/types'
 import { useSyncEngine } from '../../sync/SyncProvider'
+import { localTimeZone } from '../../text/localDate'
 import { localDate } from './calendar'
 import { computeStats } from './computeStats'
 import type { Stats } from './types'
@@ -35,7 +36,7 @@ export function useStats(
   const engine = useSyncEngine()
   // The day the page opened on: a page left open past midnight keeps its date until reopened.
   const [{ today, timeZone }] = useState(() => {
-    const zone = Intl.DateTimeFormat().resolvedOptions().timeZone
+    const zone = localTimeZone()
     return { today: localDate(now.toISOString(), zone), timeZone: zone }
   })
 

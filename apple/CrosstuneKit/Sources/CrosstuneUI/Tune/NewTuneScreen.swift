@@ -424,7 +424,7 @@ struct NewTuneCommand: ViewModifier {
     extension View {
         /// Runs `action` as this view's window closes.
         func onWindowClose(_ action: @escaping @MainActor () -> Void) -> some View {
-            background(WindowCloseWatch(onClose: action))
+            background { WindowCloseWatch(onClose: action) }
         }
     }
 

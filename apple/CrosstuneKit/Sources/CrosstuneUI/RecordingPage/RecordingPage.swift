@@ -3,6 +3,8 @@ import CrosstuneAudio
 import CrosstuneAuth
 import CrosstuneCommands
 import CrosstuneDesign
+import CrosstuneDiagnostics
+import CrosstuneExport
 import CrosstuneStore
 import CrosstuneSync
 import Observation
@@ -75,6 +77,8 @@ private struct RecordingPageBody: View {
 
     @Environment(\.store) private var store
     @Environment(\.commands) private var commands
+    @Environment(\.analytics) private var analytics
+    @Environment(\.diagnostics) private var diagnostics
     @Environment(\.plan) private var plan
     @Environment(\.premium) private var premium
     @Environment(\.inPadSplit) private var inPadSplit
@@ -87,6 +91,11 @@ private struct RecordingPageBody: View {
     @State private var tab = RecordingPageTab.practice
     @State private var width: CGFloat?
     @State private var practice: PracticeModel?
+    /// The share or export the menu started, while its sheet shows.
+    @State private var exporting: RecordingExportRequest?
+    /// What exporting the recording needs, read again only when its inputs change, since it
+    /// looks for the file on disk.
+    @State private var exportReadiness: ExportReadiness?
 
     private struct PeaksKey: Equatable {
         let fileName: String?
@@ -346,11 +355,29 @@ private struct RecordingPageBody: View {
             rows.recording, file: rows.file, audio: audio, offline: session?.isOffline == true)
     }
 
+    private struct ExportReadinessKey: Equatable {
+        let view: RecordingView
+        let store: ObjectIdentifier?
+        let engine: ObjectIdentifier?
+        let isOffline: Bool?
+    }
+
+    private var exportReadinessKey: ExportReadinessKey {
+        ExportReadinessKey(
+            view: rows.view, store: store.map(ObjectIdentifier.init), engine: engine.map(ObjectIdentifier.init),
+            isOffline: session?.isOffline)
+    }
+
+    private var readiness: ExportReadiness {
+        exportReadiness ?? ExportReadiness(rows.view, store: store, engine: engine, session: session)
+    }
+
     /// The page's menu, which also asks before deleting the recording, so the question points at it.
     private var menu: some View {
         RecordingPageMenu(
             rows: rows, goesToTune: goToTune != nil, trimDisabledReason: trimDisabledReason,
-            splitDisabledReason: splitDisabledReason, recordingsPlay: recordingsPlay
+            splitDisabledReason: splitDisabledReason,
+            exportDisabledReason: RecordingExportText.disabledReason(readiness), recordingsPlay: recordingsPlay
         ) { item in
             model.trimNotice = nil
             choose(item)
@@ -364,6 +391,12 @@ private struct RecordingPageBody: View {
             }
         } message: { view in
             Text(RecordingsModel.deleteMessage(view))
+        }
+        .sheet(item: $exporting) { request in
+            RecordingExportSheet(request: request, engine: engine, analytics: analytics, diagnostics: diagnostics)
+        }
+        .onChange(of: exportReadinessKey, initial: true) {
+            exportReadiness = ExportReadiness(rows.view, store: store, engine: engine, session: session)
         }
     }
 
@@ -389,8 +422,17 @@ private struct RecordingPageBody: View {
         case .goToTune: goToTune?()
         // The menu opens the origin itself, as only it reads `openURL`.
         case .openOrigin: break
+        case .share: startExport(.share)
+        case .export: startExport(.saveFile)
         case .delete: model.deleting = rows.view
         }
+    }
+
+    private func startExport(_ delivery: RecordingExportRequest.Delivery) {
+        let readiness = readiness
+        guard !readiness.isBlocked else { return }
+        exporting = RecordingExportRequest(
+            items: [RecordingExportItem(rows.view, readiness: readiness)], delivery: delivery, title: title)
     }
 }
 

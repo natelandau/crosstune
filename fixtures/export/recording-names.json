@@ -1,0 +1,168 @@
+{
+  "time_zone": "America/Chicago",
+  "single": [
+    {
+      "case": "tune title, day",
+      "title": "Cluck Old Hen",
+      "title_is_date": false,
+      "recorded_at": "2026-09-14T00:00:00Z",
+      "recorded_precision": "day",
+      "content_type": "audio/mp4",
+      "extension": "m4a",
+      "expected": "Cluck Old Hen 2026-09-14.m4a"
+    },
+    {
+      "case": "label, day",
+      "title": "Jam at Ray's",
+      "title_is_date": false,
+      "recorded_at": "2026-09-14T00:00:00Z",
+      "recorded_precision": "day",
+      "content_type": "audio/mp4",
+      "extension": "m4a",
+      "expected": "Jam at Ray's 2026-09-14.m4a"
+    },
+    {
+      "case": "month precision",
+      "title": "Cluck Old Hen",
+      "title_is_date": false,
+      "recorded_at": "2026-09-01T00:00:00Z",
+      "recorded_precision": "month",
+      "content_type": "audio/mp4",
+      "extension": "m4a",
+      "expected": "Cluck Old Hen 2026-09.m4a"
+    },
+    {
+      "case": "year precision",
+      "title": "Cluck Old Hen",
+      "title_is_date": false,
+      "recorded_at": "2026-01-01T00:00:00Z",
+      "recorded_precision": "year",
+      "content_type": "audio/mp4",
+      "extension": "m4a",
+      "expected": "Cluck Old Hen 2026.m4a"
+    },
+    {
+      "case": "time precision takes the local day",
+      "title": "Cluck Old Hen",
+      "title_is_date": false,
+      "recorded_at": "2026-09-15T03:30:00Z",
+      "recorded_precision": "time",
+      "content_type": "audio/mp4",
+      "extension": "m4a",
+      "expected": "Cluck Old Hen 2026-09-14.m4a"
+    },
+    {
+      "case": "title already shows the date",
+      "title": "Recording, Sep 14, 2026",
+      "title_is_date": true,
+      "recorded_at": "2026-09-14T00:00:00Z",
+      "recorded_precision": "day",
+      "content_type": "audio/mp4",
+      "extension": "m4a",
+      "expected": "Recording, Sep 14, 2026.m4a"
+    },
+    {
+      "case": "no recorded date",
+      "title": "Cluck Old Hen",
+      "title_is_date": false,
+      "recorded_at": null,
+      "recorded_precision": null,
+      "content_type": "audio/mp4",
+      "extension": "m4a",
+      "expected": "Cluck Old Hen.m4a"
+    },
+    {
+      "case": "unsafe characters",
+      "title": "AC/DC: \"Reel\"?",
+      "title_is_date": false,
+      "recorded_at": "2026-09-14T00:00:00Z",
+      "recorded_precision": "day",
+      "content_type": "audio/mp4",
+      "extension": "m4a",
+      "expected": "AC DC Reel 2026-09-14.m4a"
+    },
+    {
+      "case": "a long name is cut to 100 characters, date included",
+      "title": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "title_is_date": false,
+      "recorded_at": "2026-09-14T00:00:00Z",
+      "recorded_precision": "day",
+      "content_type": "audio/mp4",
+      "extension": "m4a",
+      "expected": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.m4a"
+    },
+    {
+      "case": "webm keeps its extension",
+      "title": "Cluck Old Hen",
+      "title_is_date": false,
+      "recorded_at": "2026-09-14T00:00:00Z",
+      "recorded_precision": "day",
+      "content_type": "audio/webm",
+      "extension": "webm",
+      "expected": "Cluck Old Hen 2026-09-14.webm"
+    },
+    {
+      "case": "unknown type",
+      "title": "Cluck Old Hen",
+      "title_is_date": false,
+      "recorded_at": "2026-09-14T00:00:00Z",
+      "recorded_precision": "day",
+      "content_type": "application/octet-stream",
+      "extension": "audio",
+      "expected": "Cluck Old Hen 2026-09-14.audio"
+    }
+  ],
+  "batches": [
+    {
+      "case": "same title and date",
+      "items": [
+        {
+          "case": "a",
+          "title": "Cluck Old Hen",
+          "title_is_date": false,
+          "recorded_at": "2026-09-14T00:00:00Z",
+          "recorded_precision": "day",
+          "content_type": "audio/mp4",
+          "extension": "m4a"
+        },
+        {
+          "case": "b",
+          "title": "Cluck Old Hen",
+          "title_is_date": false,
+          "recorded_at": "2026-09-14T00:00:00Z",
+          "recorded_precision": "day",
+          "content_type": "audio/mp4",
+          "extension": "m4a"
+        }
+      ],
+      "expected": [
+        "Cluck Old Hen 2026-09-14.m4a",
+        "Cluck Old Hen 2026-09-14 (2).m4a"
+      ]
+    },
+    {
+      "case": "names that differ only in case collide",
+      "items": [
+        {
+          "case": "a",
+          "title": "reel",
+          "title_is_date": false,
+          "recorded_at": null,
+          "recorded_precision": null,
+          "content_type": "audio/mp4",
+          "extension": "m4a"
+        },
+        {
+          "case": "b",
+          "title": "Reel",
+          "title_is_date": false,
+          "recorded_at": null,
+          "recorded_precision": null,
+          "content_type": "audio/mp4",
+          "extension": "m4a"
+        }
+      ],
+      "expected": ["reel.m4a", "Reel (2).m4a"]
+    }
+  ]
+}

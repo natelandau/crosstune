@@ -24,6 +24,17 @@ private func activeRecordings(tuneID: String, db: Database) throws -> [Recording
     activeByPosition(try Recording.filter(Column("tune_id") == tuneID).fetchAll(db))
 }
 
+/// The recordings among `ids` a delete of all of them keeps: each split parent whose waiting
+/// piece plays from its audio, unless that piece goes with the same delete.
+func recordingsHeldByDelete(_ ids: [String], in db: Database) throws -> Set<String> {
+    try recordingsHeldByDelete(Recording.fetchAll(db, keys: ids), in: db)
+}
+
+/// ``recordingsHeldByDelete(_:in:)`` over rows already read.
+private func recordingsHeldByDelete(_ rows: [Recording], in db: Database) throws -> Set<String> {
+    RecordingLimits.keptByDelete(rows, pieces: try RecordingLimits.splitPieces(db))
+}
+
 /// The type every finished capture is stored as.
 public let capturedContentType = "audio/mp4"
 
@@ -272,6 +283,56 @@ extension StoreWriter {
         }
     }
 
+    /// Files every live recording among `ids` under `tuneID`, moving one filed under another
+    /// tune, as the recording page's Tune row does. Returns the tune each moved recording was
+    /// under before, nil for unfiled; a recording already under `tuneID` or gone is left out.
+    public func linkRecordings(_ ids: [String], to tuneID: String, at time: Timestamp = .now) throws
+        -> [String: String?]
+    {
+        guard let tune = try Tune.fetchOne(db, key: tuneID), tune.deletedAt == nil else {
+            throw CommandError.tuneNotFound
+        }
+        var rows = try Self.byID(Recording.fetchAll(db, keys: ids))
+        var earlier: [String: String?] = [:]
+        for id in ids {
+            // Taken out as it is read, so an id listed twice moves once.
+            guard let row = rows.removeValue(forKey: id), row.deletedAt == nil, row.tuneID != tuneID else { continue }
+            earlier[id] = row.tuneID
+            try updateRecording(id, tuneID: .value(tuneID), at: time)
+        }
+        return earlier
+    }
+
+    /// Puts each recording back under the tune it was under before, or unfiled for nil: the
+    /// undo of ``linkRecordings(_:to:at:)``. A recording gone since is skipped, and one whose
+    /// earlier tune is gone, tombstoned or with no row at all, goes unfiled.
+    public func restoreRecordingTunes(_ earlier: [String: String?], at time: Timestamp = .now) throws {
+        let liveTunes = Set(
+            try Tune.fetchAll(db, keys: Set(earlier.values.compactMap { $0 })).filter { $0.deletedAt == nil }.map(\.id))
+        for (id, tuneID) in earlier {
+            guard let row = try Recording.fetchOne(db, key: id), row.deletedAt == nil else { continue }
+            let live = tuneID.flatMap { liveTunes.contains($0) ? $0 : nil }
+            try updateRecording(id, tuneID: .value(live), at: time)
+        }
+    }
+
+    /// Deletes every live recording among `ids` but a split parent whose piece still plays from
+    /// its audio, which stays: ``recordingsHeldByDelete(_:in:)``, read once before any delete.
+    /// Returns the ids it deleted, in the order given.
+    public func deleteRecordings(_ ids: [String], at time: Timestamp = .now) throws -> [String] {
+        let fetched = try Recording.fetchAll(db, keys: ids)
+        let kept = try recordingsHeldByDelete(fetched, in: db)
+        var rows = Self.byID(fetched)
+        var deleted: [String] = []
+        for id in ids {
+            // Taken out as it is read, so an id listed twice is deleted once.
+            guard let row = rows.removeValue(forKey: id), row.deletedAt == nil, !kept.contains(id) else { continue }
+            try dropRecording(id, at: time)
+            deleted.append(id)
+        }
+        return deleted
+    }
+
     /// Tombstones a recording and drops its local audio file entry, refused while a piece split
     /// from it still plays from its audio.
     public func deleteRecording(_ recordingID: String, at time: Timestamp = .now) throws {
@@ -280,6 +341,15 @@ extension StoreWriter {
         {
             throw SplitError.openSplit
         }
+        try dropRecording(recordingID, at: time)
+    }
+
+    private static func byID(_ rows: [Recording]) -> [String: Recording] {
+        Dictionary(rows.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+    }
+
+    /// Tombstones the recording and its loops and forgets its local file.
+    private func dropRecording(_ recordingID: String, at time: Timestamp) throws {
         try tombstone(Recording.self, id: recordingID, at: time)
         try tombstoneLoops(recordingID: recordingID, at: time, enqueueDelete: false)
         try RecordingFile.deleteOne(db, key: recordingID)
@@ -380,6 +450,28 @@ extension Commands {
     /// played.
     public func clearDownloadedAudio(at time: Timestamp = .now) async throws {
         try await store.writeDroppingFiles { writer in try writer.clearDownloadedAudio(at: time) }
+    }
+
+    /// Files the recordings under `tuneID`. Returns each moved recording's earlier tune, for undo.
+    public func linkRecordings(_ ids: [String], to tuneID: String, at time: Timestamp = .now) async throws
+        -> [String: String?]
+    {
+        try await store.write { writer in try writer.linkRecordings(ids, to: tuneID, at: time) }
+    }
+
+    public func restoreRecordingTunes(_ earlier: [String: String?], at time: Timestamp = .now) async throws {
+        try await store.write { writer in try writer.restoreRecordingTunes(earlier, at: time) }
+    }
+
+    /// The recordings among `ids` a delete of all of them keeps, for the question asked first.
+    public func recordingsHeldByDelete(_ ids: [String]) async throws -> Set<String> {
+        try await store.read { db in try CrosstuneCommands.recordingsHeldByDelete(ids, in: db) }
+    }
+
+    /// Deletes the recordings, their local file rows, and their audio on this device, keeping
+    /// each split parent a waiting piece still plays from.
+    public func deleteRecordings(_ ids: [String], at time: Timestamp = .now) async throws -> [String] {
+        try await store.writeDroppingFiles { writer in try writer.deleteRecordings(ids, at: time) }
     }
 
     /// Deletes a recording, its local file row, and its audio on this device.

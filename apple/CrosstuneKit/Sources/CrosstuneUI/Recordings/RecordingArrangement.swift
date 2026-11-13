@@ -57,7 +57,65 @@ public enum RecordingsListText {
     /// The list header's count: "24 recordings", or "3 of 24 recordings" when narrowed.
     public static func countLabel(visible: Int, total: Int) -> String {
         if visible != total { return "\(visible) of \(total) recordings" }
-        return total == 1 ? "1 recording" : "\(total) recordings"
+        return recordings(total)
+    }
+
+    // MARK: Selection
+
+    public static let linkToTune = "Link to tune"
+    /// The View menu's way into the recordings' selection.
+    public static let selectRecordings = "Select recordings"
+    nonisolated public static let deleteSyncedNoteMany = "They are removed from every device."
+    nonisolated public static let deleteUnsyncedNoteMany = "Some have not been uploaded, so this cannot be undone."
+
+    /// "1 recording" or "3 recordings": the selection's title, and the count in its words.
+    nonisolated public static func recordings(_ count: Int) -> String {
+        count == 1 ? "1 recording" : "\(count) recordings"
+    }
+
+    /// The undo banner after a link: "Linked 3 recordings to Kitchen Girl".
+    nonisolated public static func linked(_ count: Int, to tune: String) -> String {
+        "Linked \(recordings(count)) to \(tune)"
+    }
+
+    /// The Mac Actions menu's delete: "Delete 3 recordings".
+    nonisolated public static func delete(_ count: Int) -> String {
+        "Delete \(recordings(count))"
+    }
+
+    /// The bulk delete question: "Delete 3 recordings?".
+    nonisolated public static func deleteTitle(_ count: Int) -> String {
+        "\(delete(count))?"
+    }
+
+    /// How many selected recordings a delete keeps, since a piece split from each still plays
+    /// from its audio.
+    nonisolated public static func held(_ count: Int) -> String {
+        count == 1 ? "1 is still splitting and will stay." : "\(count) are still splitting and will stay."
+    }
+
+    /// What deleting the selected `views` costs. One recording that the delete takes is asked
+    /// about in the single delete's words; otherwise ``deleteMessage(deleting:notUploaded:held:)``.
+    nonisolated public static func deleteMessage(_ views: [RecordingView], held: Set<String>) -> String {
+        if views.count == 1, held.isEmpty { return RecordingsModel.deleteMessage(views[0]) }
+        let deleting = RecordingBulkDeleteQuestion.deleting(views, held: held)
+        return deleteMessage(
+            deleting: deleting.count, notUploaded: deleting.contains(where: RecordingsModel.existsOnlyHere),
+            held: held.count)
+    }
+
+    /// What a bulk delete costs, as the single delete says it: removed from every device, or,
+    /// when one of the `deleting` recordings was never uploaded, that it cannot be undone. Then
+    /// how many `held` recordings stay.
+    nonisolated public static func deleteMessage(deleting: Int, notUploaded: Bool, held: Int) -> String {
+        var lines: [String] = []
+        if deleting == 1 {
+            lines.append(notUploaded ? RecordingsModel.deleteUnsyncedNote : RecordingsModel.deleteSyncedNote)
+        } else if deleting > 1 {
+            lines.append(notUploaded ? deleteUnsyncedNoteMany : deleteSyncedNoteMany)
+        }
+        if held > 0 { lines.append(Self.held(held)) }
+        return lines.joined(separator: " ")
     }
 }
 
@@ -75,6 +133,25 @@ public enum RecordingsSection: Equatable, Sendable {
 public struct RecordingArrangement: Equatable, Sendable {
     public let unfiled: [RecordingView]
     public let filed: FiledRecordings
+    /// Every recording both sections show, in screen order: the selection's rows.
+    public let views: [RecordingView]
+    /// The ids of ``views``, in the same order.
+    public let ids: [String]
+
+    init(unfiled: [RecordingView], filed: FiledRecordings) {
+        self.unfiled = unfiled
+        self.filed = filed
+        switch filed {
+        case .flat(let views): self.views = unfiled + views
+        case .byTune(let tunes): self.views = unfiled + tunes.flatMap(\.views)
+        }
+        ids = views.map(\.id)
+    }
+
+    /// ``views`` and ``ids`` follow from the two sections, so only the sections are compared.
+    public static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.unfiled == rhs.unfiled && lhs.filed == rhs.filed
+    }
 
     /// True when neither section has a recording.
     public var isEmpty: Bool {
@@ -86,12 +163,7 @@ public struct RecordingArrangement: Equatable, Sendable {
     }
 
     /// How many recordings both sections show.
-    public var count: Int {
-        switch filed {
-        case .flat(let views): unfiled.count + views.count
-        case .byTune(let tunes): unfiled.count + tunes.reduce(0) { $0 + $1.views.count }
-        }
-    }
+    public var count: Int { views.count }
 
     /// The sections the iPhone list shows, in order: absent ones left out, storage last. While
     /// an empty state shows over the list, the storage row hides so it never sits under

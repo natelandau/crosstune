@@ -873,7 +873,7 @@ struct RecordingsScreenPartsTests {
         let (tuneID, _) = try await Commands(store: store).createTune(
             TuneInput(title: "Kitchen Girl"), userTune: UserTuneInput(status: "known"))
         var picked: [String] = []
-        let model = RecordingTunePickerModel(store: store, chosenID: nil, onPick: { picked.append($0) })
+        let model = RecordingTunePickerModel(store: store, chosenID: nil, onPick: { picked.append($0.tune.id) })
         try await model.load()
         #expect(model.results?.rows.isEmpty == true)
 
@@ -1899,25 +1899,30 @@ struct RecordingRowPremiumTests {
     @MainActor
     @Test func aFreePlanSpeaksNoActionLabelAndNamesPremium() {
         let title = RecordingText.title(recording, tuneTitle: nil)
-        for file in [held, nil] {
-            let row = RecordingRowContent(
-                recording: recording, file: file, uploadLimits: nil, tuneTitle: nil, recordingsPlay: false)
-            #expect(row.actionLabel == nil)
-            #expect(row.spokenNotice == RecordingText.subscribeToPlay)
-            // The row opens the page; the slot speaks what it offers.
-            let names = MediaRow(recording: row, open: {}, perform: { _ in }, onRetry: { _ in }).controlNames
-            #expect(names == ["\(title), \(row.meta)", "\(title), \(RecordingText.subscribeToPlay)"])
-        }
+        let row = RecordingRowContent(
+            recording: recording, file: held, uploadLimits: nil, tuneTitle: nil, recordingsPlay: false)
+        #expect(row.actionLabel == nil)
+        #expect(row.spokenNotice == RecordingText.subscribeToPlay)
+        // The row opens the page; the slot speaks what it offers.
+        let names = MediaRow(recording: row, open: {}, perform: { _ in }, onRetry: { _ in }).controlNames
+        #expect(names == ["\(title), \(row.meta)", "\(title), \(RecordingText.subscribeToPlay)"])
         let plays = RecordingRowContent(
             recording: recording, file: held, uploadLimits: nil, tuneTitle: nil, recordingsPlay: true)
         #expect(plays.actionLabel == MediaText.play && plays.spokenNotice == nil)
     }
 
-    @Test func aFreePlanNeverDownloadsFromATap() {
+    @Test func aFreePlanStillDownloadsFromATap() {
         let row = RecordingRowContent(
             recording: recording, file: nil, uploadLimits: nil, tuneTitle: nil, recordingsPlay: false)
-        #expect(row.isDimmed)
-        #expect(row.tap == .premium)
+        #expect(row.isDimmed == false)
+        #expect(row.tap == .download)
+        #expect(row.actionLabel == RecordingRowContent.download)
+        #expect(row.spokenNotice == nil)
+        let busy = RecordingRowContent(
+            recording: recording, file: nil, uploadLimits: nil, tuneTitle: nil, downloading: true,
+            recordingsPlay: false)
+        #expect(busy.glyph == .downloading)
+        #expect(busy.isDimmed == false)
     }
 
     @Test func aStuckUploadStillRetriesOnAFreePlan() {

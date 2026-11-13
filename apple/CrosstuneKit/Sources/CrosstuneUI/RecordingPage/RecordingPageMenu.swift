@@ -1,12 +1,14 @@
 import SwiftUI
 
-/// The page's More actions menu: trim, split, the pin, Go to tune, the recording's origin, and
-/// Delete, each disabled with its reason when it cannot be used now.
+/// The page's More actions menu: trim, split, the pin, Go to tune, the recording's origin, Share,
+/// Export… on the Mac, and Delete, each disabled with its reason when it cannot be used now.
 struct RecordingPageMenu: View {
     let rows: ScreenRows
     let goesToTune: Bool
     let trimDisabledReason: String?
     let splitDisabledReason: String?
+    /// Why the recording cannot be shared or exported now. The plan never stops it.
+    let exportDisabledReason: String?
     let recordingsPlay: Bool
     let onChoose: (RecordingMenuItem) -> Void
 
@@ -22,6 +24,7 @@ struct RecordingPageMenu: View {
                     trimDisabledReason: trimDisabledReason,
                     splitDisabledReason: splitDisabledReason,
                     deleteDisabledReason: RecordingScreenText.deleteDisabledReason(rows.view),
+                    exportDisabledReason: exportDisabledReason,
                     openOrigin: RecordingMenuItem.openOrigin(for: rows.recording), trims: recordingsPlay),
                 id: \.self
             ) { item in

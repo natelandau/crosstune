@@ -22,6 +22,7 @@ import {
   cancelCapture,
   clearDownloadedBlobs,
   deleteRecording,
+  deleteRecordings,
   fillCapturedPlace,
   finishCapture,
   localAudioBytes,
@@ -29,6 +30,7 @@ import {
   setFileState,
   storeDownloadedBlob,
   defaultRecordingLabel,
+  linkRecordings,
   updateRecording,
 } from './recordings'
 import { deleteTunes } from './bulk'
@@ -905,5 +907,85 @@ describe('addRecordingFromLink', () => {
     const linkId = await addLink(db, tuneId, link)
     await removeLink(db, linkId)
     await expect(addRecordingFromLink(db, linkId)).rejects.toThrow(LINK_NOT_FOUND)
+  })
+})
+
+describe('bulk link and delete', () => {
+  it('links every recording to one tune, moving one filed elsewhere, and undo puts each back', async () => {
+    const a = await createTune(db, { title: 'A' }, { status: 'known' })
+    const b = await createTune(db, { title: 'B' }, { status: 'known' })
+    const onA = await captured(a.tuneId)
+    const unfiled = await captured()
+    const { undo } = await linkRecordings(db, [onA, unfiled], b.tuneId)
+    expect((await db.recordings.get(onA))?.tune_id).toBe(b.tuneId)
+    expect((await db.recordings.get(unfiled))?.tune_id).toBe(b.tuneId)
+    expect((await pendingFor(db, 'recordings', unfiled))?.op).toBe('upsert')
+    await undo()
+    expect((await db.recordings.get(onA))?.tune_id).toBe(a.tuneId)
+    expect((await db.recordings.get(unfiled))?.tune_id).toBeNull()
+  })
+
+  it('leaves a recording already on the tune untouched and out of the undo', async () => {
+    const a = await createTune(db, { title: 'A' }, { status: 'known' })
+    const there = await captured(a.tuneId)
+    const unfiled = await captured()
+    const stamp = '2020-01-01T00:00:00.000Z'
+    await db.recordings.update(there, { updated_at: stamp })
+    const { moved, undo } = await linkRecordings(db, [there, unfiled], a.tuneId)
+    expect((await db.recordings.get(there))?.updated_at).toBe(stamp)
+    expect(moved.map((row) => row.id)).toEqual([unfiled])
+    await undo()
+    expect((await db.recordings.get(there))?.tune_id).toBe(a.tuneId)
+    expect((await db.recordings.get(unfiled))?.tune_id).toBeNull()
+  })
+
+  it('skips a recording deleted or missing since it was selected', async () => {
+    const a = await createTune(db, { title: 'A' }, { status: 'known' })
+    const gone = await captured()
+    await deleteRecordings(db, [gone])
+    const unfiled = await captured()
+    const { moved } = await linkRecordings(db, [gone, 'missing', unfiled], a.tuneId)
+    expect(moved.map((row) => row.id)).toEqual([unfiled])
+    expect((await db.recordings.get(unfiled))?.tune_id).toBe(a.tuneId)
+    expect((await db.recordings.get(gone))?.tune_id).toBeNull()
+  })
+
+  it('undoes onto unfiled when the earlier tune is gone', async () => {
+    const a = await createTune(db, { title: 'A' }, { status: 'known' })
+    const b = await createTune(db, { title: 'B' }, { status: 'known' })
+    const onA = await captured(a.tuneId)
+    const { undo } = await linkRecordings(db, [onA], b.tuneId)
+    await deleteTune(db, a.tuneId)
+    await undo()
+    expect((await db.recordings.get(onA))?.tune_id).toBeNull()
+  })
+
+  it('links nothing when the tune is gone', async () => {
+    const { tuneId } = await createTune(db, { title: 'X' }, { status: 'known' })
+    await deleteTune(db, tuneId)
+    const id = await captured()
+    await expect(linkRecordings(db, [id], tuneId)).rejects.toThrow(TUNE_NOT_FOUND)
+    expect((await db.recordings.get(id))?.tune_id).toBeNull()
+  })
+
+  it('deletes every recording but a split parent whose piece waits, which it holds', async () => {
+    const plain = await captured()
+    const parent = await captured()
+    const [pieceId] = await splitRecording(db, parent, [5_000])
+    const result = await deleteRecordings(db, [plain, parent])
+    expect(result).toEqual({ deleted: [plain], held: [parent] })
+    expect((await db.recordings.get(plain))?.deleted_at).not.toBeNull()
+    expect((await pendingFor(db, 'recordings', plain))?.op).toBe('delete')
+    expect((await db.recordings.get(parent))?.deleted_at).toBeNull()
+    expect((await db.recordings.get(pieceId!))?.deleted_at).toBeNull()
+  })
+
+  it('deletes a split parent along with its waiting piece', async () => {
+    const parent = await captured()
+    const [pieceId] = await splitRecording(db, parent, [5_000])
+    const result = await deleteRecordings(db, [parent, pieceId!])
+    expect(result.held).toEqual([])
+    expect((await db.recordings.get(parent))?.deleted_at).not.toBeNull()
+    expect((await db.recordings.get(pieceId!))?.deleted_at).not.toBeNull()
   })
 })

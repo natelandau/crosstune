@@ -336,6 +336,17 @@ struct RecordingArrangementCountTests {
         #expect(RecordingArrangement.arrange(views, choice: .default, query: "zzz").count == 0)
     }
 
+    /// The selection's rows span the Unfiled section and every tune's.
+    @Test func listsEveryRowUnfiledFirstWhetherFiledIsFlatOrGroupedByTune() {
+        #expect(
+            RecordingArrangement.arrange(views, choice: choice(.tune, false), query: "").views.map(\.id) == [
+                "u1", "f2", "f1",
+            ])
+        let flat = RecordingArrangement.arrange(views, choice: .default, query: "").views.map(\.id)
+        #expect(flat.first == "u1")
+        #expect(Set(flat) == ["u1", "f1", "f2"])
+    }
+
     @Test func namesTheWholeOrThePartOfItShown() {
         #expect(RecordingsListText.countLabel(visible: 24, total: 24) == "24 recordings")
         #expect(RecordingsListText.countLabel(visible: 1, total: 1) == "1 recording")

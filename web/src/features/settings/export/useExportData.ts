@@ -6,6 +6,7 @@ import { useAuthSession } from '../../../auth/AuthContext'
 import { useDb } from '../../../db/DbProvider'
 import { useOnline, useSyncEngine } from '../../../sync/SyncProvider'
 import { useAction } from '../../../ui/useAction'
+import { localTimeZone } from '../../../text/localDate'
 import { useResetOnChange } from '../../../ui/useResetOnChange'
 import { EXPORT_COMPLETE_NOTE, exportNeedsConnection, exportProgress } from './exportCopy'
 import { createExport, downloadBlob, exportCounts } from './runExport'
@@ -73,7 +74,7 @@ export function useExportData(open: boolean): ExportData {
         try {
           const { fileName, blob } = await createExport(db, userId, {
             now: new Date(),
-            timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            timeZone: localTimeZone(),
             fetchMissing: engine.fetchFile,
             signal: abort.signal,
             onProgress: (done, total) => {
