@@ -191,6 +191,13 @@ public enum ExportFormat: String, CaseIterable, Sendable {
     case zip
 }
 
+/// How recordings left the app: a share sheet, a save panel, or a browser download.
+public enum RecordingExportMethod: String, CaseIterable, Sendable {
+    case share
+    case save
+    case download
+}
+
 /// The container of an imported audio file.
 public enum AudioFormat: String, CaseIterable, Sendable {
     case m4a

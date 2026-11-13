@@ -82,6 +82,7 @@ export const FILTERS = [
 ] as const
 export const AUDIO_FORMATS = ['m4a', 'mp3', 'wav', 'aiff', 'flac', 'other'] as const
 const EXPORT_FORMATS = ['zip'] as const
+const RECORDING_EXPORT_METHODS = ['share', 'save', 'download'] as const
 const ARCHIVE_SOURCES = ['slippery_hill'] as const
 export const AUDIO_QUALITIES = ['low', 'standard', 'high', 'highest'] as const
 export const PLAY_FIRSTS = ['recordings', 'apple_music'] as const
@@ -183,6 +184,7 @@ export const ENUMS = {
   filter: FILTERS,
   audio_format: AUDIO_FORMATS,
   export_format: EXPORT_FORMATS,
+  recording_export_method: RECORDING_EXPORT_METHODS,
   archive_source: ARCHIVE_SOURCES,
   audio_quality: AUDIO_QUALITIES,
   play_first: PLAY_FIRSTS,
@@ -220,6 +222,7 @@ export type TuneField = (typeof TUNE_FIELDS)[number]
 export type Filter = (typeof FILTERS)[number]
 export type AudioFormat = (typeof AUDIO_FORMATS)[number]
 export type ExportFormat = (typeof EXPORT_FORMATS)[number]
+export type RecordingExportMethod = (typeof RECORDING_EXPORT_METHODS)[number]
 export type ArchiveSource = (typeof ARCHIVE_SOURCES)[number]
 export type AudioQuality = (typeof AUDIO_QUALITIES)[number]
 export type PlayFirst = (typeof PLAY_FIRSTS)[number]
@@ -397,6 +400,12 @@ export interface EventProps {
   sync_failed: { failure_reason: FailureReason }
   export_completed: { format: ExportFormat }
   export_failed: { format: ExportFormat; failure_reason: FailureReason }
+  recording_exported: {
+    method: RecordingExportMethod
+    count_bucket: CountBucket
+    fetched_bucket: CountBucket
+    skipped_bucket: CountBucket
+  }
   microphone_denied: { source: Source }
 }
 

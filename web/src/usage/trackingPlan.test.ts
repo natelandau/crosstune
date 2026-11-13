@@ -192,6 +192,12 @@ const SAMPLES: { [N in EventName]: EventProps[N] } = {
   sync_failed: { failure_reason: 'server_error' },
   export_completed: { format: 'zip' },
   export_failed: { format: 'zip', failure_reason: 'network' },
+  recording_exported: {
+    method: 'download',
+    count_bucket: '1-9',
+    fetched_bucket: '0',
+    skipped_bucket: '0',
+  },
   microphone_denied: { source: 'tune' },
 }
 

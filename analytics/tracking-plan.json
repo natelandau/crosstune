@@ -209,6 +209,11 @@
     "export_format": [
       "zip"
     ],
+    "recording_export_method": [
+      "share",
+      "save",
+      "download"
+    ],
     "archive_source": [
       "slippery_hill"
     ],
@@ -2131,6 +2136,38 @@
         "failure_reason": {
           "type": "string",
           "enum": "failure_reason",
+          "required": true
+        }
+      }
+    },
+    "recording_exported": {
+      "description": "One or more recordings were exported from a recording's page or a selection on the Recordings screen.",
+      "clients": [
+        "apple",
+        "web"
+      ],
+      "answers": [
+        "feature_usage"
+      ],
+      "properties": {
+        "method": {
+          "type": "string",
+          "enum": "recording_export_method",
+          "required": true
+        },
+        "count_bucket": {
+          "type": "string",
+          "bucket": "count",
+          "required": true
+        },
+        "fetched_bucket": {
+          "type": "string",
+          "bucket": "count",
+          "required": true
+        },
+        "skipped_bucket": {
+          "type": "string",
+          "bucket": "count",
           "required": true
         }
       }
