@@ -1,10 +1,11 @@
 import { renderHook } from '@testing-library/react'
 import type { ReactNode } from 'react'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { usePlanOrUnknown } from '../../billing/usePlan'
 import { keepLocalUntilSubscribed } from '../../db/meta'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
+import { fakeEngine } from '../../test/fakeSync'
 import { dataProviders, fakePlayer } from '../../test/providers'
 import { entitlementRow, recordingFile, recordingRow } from '../../test/rows'
 import { PlayerContext } from '../player/usePlayer'
@@ -69,15 +70,43 @@ describe('useRecordingRow local-only line', () => {
 })
 
 describe('useRecordingRow on a free plan', () => {
-  it('dims a recording the server holds and answers its slot without playing or fetching', async () => {
+  it('dims a recording held on this device and answers its play slot without playing', async () => {
     await db.entitlements.put(entitlementRow())
     const player = fakePlayer()
-    const { result } = renderRow(recordingRow('r1', { state: 'ready' }), player)
+    const { result } = renderRow(
+      recordingRow('r1', { state: 'ready' }),
+      player,
+      recordingFile('r1', { local_state: 'uploaded', blob: new Blob(['audio']) }),
+    )
     await expect.poll(() => result.current.disabled).toBe(true)
     expect(result.current.control).toBe('play')
     expect(result.current.offlineDownload).toBe(false)
     result.current.slot?.()
     expect(player.play).not.toHaveBeenCalled()
+  })
+
+  it('offers a server-held recording that is not on this device a download that fetches it', async () => {
+    await db.entitlements.put(entitlementRow())
+    const download = vi.fn(async () => null)
+    const view: RecordingView = {
+      recording: recordingRow('r1', { state: 'ready' }),
+      file: undefined,
+      tuneId: null,
+      tuneTitle: null,
+      holdsSplitAudio: false,
+    }
+    const Data = dataProviders({ db, engine: { ...fakeEngine(), download } })
+    const { result } = renderHook(() => useRecordingRow(view), {
+      wrapper: ({ children }: { children: ReactNode }) => (
+        <Data>
+          <PlayerContext.Provider value={fakePlayer()}>{children}</PlayerContext.Provider>
+        </Data>
+      ),
+    })
+    await expect.poll(() => result.current.control).toBe('download')
+    expect(result.current.disabled).toBe(false)
+    result.current.slot?.()
+    await expect.poll(() => download.mock.calls).toEqual([['r1']])
   })
 
   it('leaves a recording undimmed on a Premium plan', async () => {

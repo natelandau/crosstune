@@ -93,9 +93,9 @@ export function useRecordingRow(
     loaded,
     downloading: fetch === 'fetching' || file?.local_state === 'downloading',
   })
-  // A disabled row's slot keeps the play glyph and never offers a download. One
-  // with nothing to play yet stays without a control.
-  const control = free && shownControl !== 'none' ? 'play' : shownControl
+  // A disabled row's slot keeps the play glyph; a download is never gated by the plan.
+  const control =
+    free && (shownControl === 'play' || shownControl === 'close') ? 'play' : shownControl
   const offlineDownload = control === 'download' && !online
   // A download control is only ever offered for a ready recording that is not local-only, so the
   // ordinary meta parts (tries, storage) never apply here; Offline takes the status word's place, the
@@ -110,14 +110,13 @@ export function useRecordingRow(
         localOnly,
       })
 
-  const slot = free
-    ? control === 'play'
-      ? () => premium.open('recordings', premiumFrom)
-      : undefined
-    : control === 'close'
+  const slot =
+    control === 'close'
       ? () => player.close()
       : control === 'play'
-        ? () => player.play(item, { origin: playOrigin })
+        ? free
+          ? () => premium.open('recordings', premiumFrom)
+          : () => player.play(item, { origin: playOrigin })
         : control === 'download'
           ? // Refused rather than disabled while offline, so the control keeps its press and
             // its name; Offline in the meta line says why.
@@ -132,7 +131,7 @@ export function useRecordingRow(
     control,
     loaded,
     offlineDownload,
-    disabled: free && slot !== undefined,
+    disabled: free && control === 'play',
     slot,
     retry: retryKind(view, { uploads: !free }),
     error: error ?? (fetch === 'failed' ? DOWNLOAD_FAILED : null),

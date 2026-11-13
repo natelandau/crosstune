@@ -80,9 +80,10 @@ fast. No feature assumes that the musician is at a jam.
   Store.
 - Every new account starts with a 30-day Premium trial, with 100 MB of
   storage.
-- A lapsed account cannot play its recordings or open its scans, but keeps
-  every file until it goes a year without syncing. It then loses its
-  recordings and scans, after two warning emails.
+- A lapsed account cannot play its recordings or open its scans. It can
+  still download and export every recording, and keeps every file until it
+  goes a year without syncing. It then loses its recordings and scans,
+  after two warning emails.
 
 ## Designed for, not built
 

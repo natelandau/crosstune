@@ -521,7 +521,6 @@ export async function downloadPass(
   fetchPeaksFor: (id: string) => Promise<Uint8Array | null> = (id) => fetchPeaks(db, api, id),
 ): Promise<void> {
   if (!(await getKeepOffline(db))) return
-  if (!recordingsPlayable(await readPlan(db, new Date()))) return
   const rows = await db.recordings.filter((r) => !r.deleted_at && r.state === 'ready').toArray()
   const files = await db.recording_files.bulkGet(rows.map((r) => r.id))
   for (const [i, row] of rows.entries()) {

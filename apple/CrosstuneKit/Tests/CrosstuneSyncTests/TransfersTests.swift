@@ -586,15 +586,15 @@ import Testing
         #expect(sink.captures.isEmpty)
     }
 
-    @Test func keepOfflineDownloadsNoRecordingWhileFree() async throws {
+    @Test func keepOfflineDownloadsWhileFree() async throws {
         try await storeEntitlement(store, source: nil)
         try await store.setMeta(.keepOffline, to: true)
         try await ready("d1")
 
         await engine().transfer()
 
-        #expect(api.transfers.isEmpty)
-        #expect(try await file("d1") == nil)
+        #expect(api.transfers == ["url d1", "get d1"])
+        #expect(try await file("d1")?.localState == .downloaded)
     }
 
     // MARK: Download
@@ -890,6 +890,19 @@ import Testing
 
         #expect(url == audio)
         #expect(api.transfers.isEmpty)
+    }
+
+    /// What an export takes as the recording's audio on disk: never a copy a trim left stale.
+    @Test(arguments: [("new", true), ("old", false)])
+    func currentLocalAudioSkipsAStaleCopy(blobRev: String, isCurrent: Bool) async throws {
+        try await ready(
+            "d1", file: RecordingFile(id: "d1", localState: .downloaded, fileName: "d1.m4a", blobRev: blobRev),
+            playbackRev: "new")
+        let url = store.audioFolder.appending(path: "d1.m4a")
+        try Data("audio".utf8).write(to: url)
+        let row = try #require(try await recording("d1"))
+
+        #expect(store.currentLocalAudio(row, file: try await file("d1")) == (isCurrent ? url : nil))
     }
 
     @Test func aStaleFileIsRefetchedAndStoresTheSignedRevisionEvenWhenTheRowSaysAnother() async throws {

@@ -674,14 +674,14 @@ describe('transfers under the plan', () => {
     expect(await (await db.recording_files.get('r1'))?.blob?.text()).toBe('xyz')
   })
 
-  it('downloads no recording for Keep offline while the plan is free', async () => {
+  it('downloads recordings for Keep offline while the plan is free', async () => {
     await db.entitlements.put(entitlementRow())
     await readyOnServer('r1')
     await setKeepOffline(db, true)
     const spy = vi.spyOn(fake.api, 'downloadUrl')
     await downloadPass(db, fake.api)
-    expect(spy).not.toHaveBeenCalled()
-    expect(await db.recording_files.get('r1')).toBeUndefined()
+    expect(spy).toHaveBeenCalled()
+    expect((await db.recording_files.get('r1'))?.blob).toBeDefined()
   })
 })
 

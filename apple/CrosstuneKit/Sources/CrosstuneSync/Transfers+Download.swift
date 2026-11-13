@@ -5,17 +5,15 @@ import GRDB
 import os
 
 extension Transfers {
-    /// When this device keeps recordings offline and the plan plays them, fetches the audio and
-    /// waveform of every ready recording whose copy is missing or stale, as after a trim, up to
-    /// ``downloadConcurrency`` recordings at a time. `fetch` and `fetchPeaksFor` share one
+    /// When this device keeps recordings offline, fetches the audio and waveform of every ready
+    /// recording whose copy is missing or stale, as after a trim, up to ``downloadConcurrency``
+    /// recordings at a time. `fetch` and `fetchPeaksFor` share one
     /// attempt per recording with a play or another caller that asks for it.
     func downloadPass(
         fetch: @escaping @MainActor (String) async throws -> URL?,
         fetchPeaksFor: @escaping @MainActor (String) async throws -> Data?
     ) async throws {
-        guard try await store.meta(.keepOffline, as: Bool.self) == true,
-            try await store.plan(at: now()).recordingsPlay
-        else { return }
+        guard try await store.meta(.keepOffline, as: Bool.self) == true else { return }
         let (rows, files) = try await store.read { db -> ([Recording], [String: RecordingFile]) in
             let rows = try Recording.fetchAll(db, sql: Self.needingDownloadSQL)
             let files = Dictionary(
