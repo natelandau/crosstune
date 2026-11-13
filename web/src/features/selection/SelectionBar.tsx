@@ -1,17 +1,22 @@
-import { Ellipsis, ListChecks, ListPlus, SquarePen, Tag, type LucideIcon } from 'lucide-react'
+import { ListChecks } from 'lucide-react'
 import { animate, motion } from 'motion/react'
-import { useContext, useEffect, useLayoutEffect, useRef, type ReactElement } from 'react'
+import {
+  Fragment,
+  useContext,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  type ReactElement,
+} from 'react'
 import { createPortal } from 'react-dom'
 // eslint-disable-next-line no-restricted-imports -- Phone bar cell with an icon over a caption, like a tab
 import { Button as AriaButton, Toolbar } from 'react-aria-components'
-import type { Instrument } from '../../api/vocabulary'
-import { ADD_TO_LIST, addTunesToListTitle } from '../lists/listPickerCopy'
-import { EDIT_SELECTED, SET_STATUS, SELECTION_ACTIONS } from './selectionCopy'
-import type { BulkActionsState, SelectionContext } from './useBulkActionsWith'
+import type { SelectionButton } from './selectionButton'
+import { SELECTION_ACTIONS } from './selectionCopy'
 import type { SelectionMode } from './useSelectionMode'
 import { useSelectionTitle } from './useSelectionTitle'
 import { DONE } from '../../ui/confirmCopy'
-import { MORE_ACTIONS } from '../../ui/menuCopy'
 import { useLatest } from '../../ui/useLatest'
 import { useFrame } from '../../platform/frame'
 import { PaneBar } from '../../layout/PaneBar'
@@ -19,43 +24,39 @@ import { SelectionSlot } from '../../layout/selectionSlot'
 import { Button } from '../../ui/Button'
 import { IconButton } from '../../ui/IconButton'
 import { ErrorLine } from '../../ui/ErrorLine'
+import { ControlDescription, descriptionProps } from '../../ui/ControlDescription'
 import { Menu, type MenuTriggerProps } from '../../ui/Menu'
 import { menuEntries } from '../../ui/sharedActions'
-import { BulkEditSheet } from './BulkEditSheet'
-import { ListPickerSheet } from './ListPickerSheet'
 import { PRESS, TINT_HOVER } from '../../ui/press'
+import { UNFILLED_OFF } from '../../ui/buttonTone'
 import { DURATION, EASE } from '../../theme/motion'
-import type { CatalogEntry } from '../../db/types'
-
-/** The More cell's caption on the phone's bar; its name stays `MORE_ACTIONS`. */
-export const MORE_CAPTION = 'More'
-
-interface BarButton {
-  icon: LucideIcon
-  label: string
-  /** The phone's caption, when shorter than the label it must start the label with. */
-  caption?: string
-}
 
 /** One cell of the phone's bar, drawn like a tab: the icon over its caption. */
 function Cell({
   icon: Icon,
   label,
   caption = label,
+  description,
   isDisabled,
+  off,
   onPress,
   ...trigger
-}: BarButton & MenuTriggerProps & { isDisabled: boolean }) {
+}: Pick<SelectionButton, 'icon' | 'label' | 'caption' | 'onPress'> &
+  MenuTriggerProps & { description?: string; isDisabled: boolean; off: boolean }) {
+  const descriptionId = useId()
   return (
     <AriaButton
       {...trigger}
+      {...descriptionProps(descriptionId, description)}
       aria-label={caption === label ? undefined : label}
+      aria-disabled={off || undefined}
       isDisabled={isDisabled}
       onPress={onPress}
-      className={`t-caption text-primary flex min-h-14 w-full flex-col items-center justify-center gap-0.5 rounded-(--radius) disabled:opacity-40 ${PRESS} ${TINT_HOVER}`}
+      className={`t-caption text-primary flex min-h-14 w-full flex-col items-center justify-center gap-0.5 rounded-(--radius) ${UNFILLED_OFF} ${PRESS} ${TINT_HOVER}`}
     >
       <Icon className="size-6" aria-hidden />
       {caption}
+      <ControlDescription id={descriptionId} text={description} />
     </AriaButton>
   )
 }
@@ -78,27 +79,33 @@ function fadeInBar(pane: Element | null) {
 
 /**
  * The pane bar a screen wears while it selects: Select all leading, the count as the title, and
- * Done trailing. In a phone root bar it takes the title row's place. On pointer frames the bulk
- * actions sit beside Done; on the phone they take the tab bar's place: Set status, Edit, Add to
- * list, then More, whose destructive items go last. Leaving by Done drops focus with the bar, so
- * `restoreFocus` puts it back where selecting began.
+ * Done trailing. In a phone root bar it takes the title row's place. On pointer frames the
+ * screen's `buttons` sit beside Done; on the phone they take the tab bar's place, in the same
+ * order. Leaving by Done drops focus with the bar, so `restoreFocus` puts it back where
+ * selecting began.
  */
 export function SelectionBar({
   selection,
-  actions,
+  noun,
+  buttons,
+  error = null,
   restoreFocus,
   inRootBar = false,
 }: {
   selection: SelectionMode
-  actions: BulkActionsState
+  /** Counts what the rows are, such as "3 tunes", for the count read aloud. */
+  noun: (n: number) => string
+  buttons: readonly SelectionButton[]
+  /** A failed action, shown under the bar. */
+  error?: string | null
   restoreFocus: () => void
   /** Draws the controls as a bare row, in place of a phone root bar's title row. */
   inRootBar?: boolean
 }) {
   const phone = useFrame() === 'phone'
   const slot = useContext(SelectionSlot)
-  const { count, total, toggleAll } = selection.selection
-  const words = useSelectionTitle(count, total ?? 0)
+  const { count, toggleAll } = selection.selection
+  const words = useSelectionTitle(selection, noun)
   const none = count === 0
   const lead = useRef<HTMLSpanElement>(null)
   const restoreFocusRef = useLatest(restoreFocus)
@@ -127,27 +134,44 @@ export function SelectionBar({
     [restoreFocusRef],
   )
 
-  const control = (button: BarButton, onPress?: () => void): ReactElement<MenuTriggerProps> =>
-    phone ? (
-      <Cell {...button} isDisabled={none} onPress={onPress} />
+  // A button with a reason is aria-disabled rather than disabled, so it keeps focus and its
+  // tooltip, and the reason stays reachable. A menu's trigger takes its press from the menu.
+  const control = (button: SelectionButton): ReactElement<MenuTriggerProps> => {
+    const off = button.disabled !== undefined
+    const onPress = button.menu || off ? undefined : button.onPress
+    return phone ? (
+      <Cell
+        icon={button.icon}
+        label={button.label}
+        caption={button.caption}
+        description={button.disabled}
+        isDisabled={none}
+        off={off}
+        onPress={onPress}
+      />
     ) : (
-      <IconButton icon={button.icon} label={button.label} isDisabled={none} onPress={onPress} />
+      <IconButton
+        icon={button.icon}
+        label={button.label}
+        description={button.disabled}
+        isDisabled={none}
+        aria-disabled={off || undefined}
+        onPress={onPress}
+      />
     )
-  const buttons = (
-    <>
+  }
+  // A disabled menu goes unwrapped, since the menu would give its trigger a press that opens it.
+  const controls = buttons.map((button) =>
+    button.menu && button.disabled === undefined ? (
       <Menu
-        label={SET_STATUS}
-        trigger={control({ icon: Tag, label: SET_STATUS })}
-        items={menuEntries(actions.statusItems)}
+        key={button.id}
+        label={button.label}
+        trigger={control(button)}
+        items={menuEntries(button.menu)}
       />
-      {control({ icon: SquarePen, label: EDIT_SELECTED }, () => actions.setSheet('edit'))}
-      {control({ icon: ListPlus, label: ADD_TO_LIST }, () => actions.setSheet('list'))}
-      <Menu
-        label={MORE_ACTIONS}
-        trigger={control({ icon: Ellipsis, label: MORE_ACTIONS, caption: MORE_CAPTION })}
-        items={menuEntries(actions.more)}
-      />
-    </>
+    ) : (
+      <Fragment key={button.id}>{control(button)}</Fragment>
+    ),
   )
   return (
     <>
@@ -169,7 +193,7 @@ export function SelectionBar({
         }
         trailing={
           <>
-            {!phone && buttons}
+            {!phone && controls}
             <Button label={DONE} onPress={selection.exit} />
           </>
         }
@@ -178,7 +202,7 @@ export function SelectionBar({
         {/* The region stays and its text is replaced, which is what a reader announces. */}
         <span key={count}>{words.spoken}</span>
       </p>
-      <ErrorLine error={actions.error} place="bar" />
+      <ErrorLine error={error} place="bar" />
       {phone &&
         slot &&
         createPortal(
@@ -187,55 +211,19 @@ export function SelectionBar({
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }}>
               <Toolbar
                 aria-label={SELECTION_ACTIONS}
-                className="bg-page border-default grid grid-cols-4 items-center border-t pb-[env(safe-area-inset-bottom)]"
+                className="bg-page border-default grid items-center border-t pb-[env(safe-area-inset-bottom)]"
+                style={
+                  buttons.length > 0
+                    ? { gridTemplateColumns: `repeat(${buttons.length}, minmax(0, 1fr))` }
+                    : undefined
+                }
               >
-                {buttons}
+                {controls}
               </Toolbar>
             </motion.div>
           </div>,
           slot,
         )}
-    </>
-  )
-}
-
-/**
- * The sheets a selection's actions open, mounted whether or not the screen is selecting so
- * each closes in its own time after the action that ends the mode.
- */
-export function BulkSheets({
-  actions,
-  entries,
-  context,
-  instruments,
-}: {
-  actions: BulkActionsState
-  /** The selected tunes, in screen order. */
-  entries: readonly CatalogEntry[]
-  context: SelectionContext
-  instruments: ReadonlySet<Instrument>
-}) {
-  return (
-    <>
-      <BulkEditSheet
-        isOpen={actions.sheet === 'edit'}
-        entries={entries}
-        instruments={instruments}
-        error={actions.edit.error}
-        pending={actions.edit.pending}
-        onCancel={() => actions.closeSheet('edit')}
-        onApply={actions.edit.apply}
-      />
-      <ListPickerSheet
-        isOpen={actions.sheet === 'list'}
-        onOpenChange={(open) => {
-          if (!open) actions.closeSheet('list')
-        }}
-        userTuneIds={actions.ids}
-        excludeListId={context.kind === 'list' ? context.listId : undefined}
-        title={addTunesToListTitle(actions.ids.length)}
-        onAdded={actions.listAdded}
-      />
     </>
   )
 }

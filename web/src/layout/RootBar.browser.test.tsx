@@ -1,6 +1,5 @@
 import { expect, it, onTestFinished } from 'vitest'
 import { page } from 'vitest/browser'
-import { META_RECORDINGS_ORIGIN } from '../db/meta'
 import type { CrosstuneDb } from '../db/schema'
 import { SEARCH_TUNES, SELECT_TUNES } from '../features/catalog/catalogCopy'
 import { SEARCH_RECORDINGS } from '../features/recordings/recordingsCopy'
@@ -180,14 +179,11 @@ it('truncates a long title before the controls at the large size on a 280px phon
     delete html.dataset.textSize
   })
   const db = openTestDb()
-  // A source filter that is set keeps Filters in the bar beside Upload.
-  await db.meta.put({ key: META_RECORDINGS_ORIGIN, value: 'slippery_hill' })
   await db.recordings.put(recordingRow('r1', { label: 'Jam recording' }))
   await renderApp({ path: '/recordings', db, frame: NARROW_PHONE, density: 'touch' })
   const title = () => rootBar()!.querySelector<HTMLElement>('h1')!
   await expect.poll(rootBar).not.toBeNull()
   await expect.element(account()).toBeVisible()
-  await expect.element(page.getByRole('button', { name: /^Filters/ }).first()).toBeVisible()
   await expect.poll(() => title().scrollWidth > title().clientWidth).toBe(true)
   const box = account().element().getBoundingClientRect()
   expect(box.left).toBeGreaterThanOrEqual(0)

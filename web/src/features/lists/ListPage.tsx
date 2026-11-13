@@ -28,9 +28,11 @@ import { useScreenCommand } from '../../app/screenCommands'
 import { destination } from '../../layout/destinations'
 
 import { useFrame } from '../../platform/frame'
+import { countTunes } from '../../text/format'
 import { useRowScanViewer } from '../scans/useRowScanViewer'
 import { applySelection } from '../selection/applySelection'
-import { BulkSheets, SelectionBar } from '../selection/SelectionBar'
+import { BulkSheets } from '../selection/BulkSheets'
+import { SelectionBar } from '../selection/SelectionBar'
 import { useSelectionReturn, useSelectionShell } from '../selection/useScreenSelection'
 import { ColumnTitle } from '../../layout/ColumnTitle'
 import { BackLink, PaneBar } from '../../layout/PaneBar'
@@ -127,7 +129,13 @@ export function ListPage({ listId }: { listId: string }) {
   return (
     <>
       {mode.active ? (
-        <SelectionBar selection={mode} actions={selecting.bulk} restoreFocus={restore} />
+        <SelectionBar
+          selection={mode}
+          noun={countTunes}
+          buttons={selecting.bulk.buttons}
+          error={selecting.bulk.error}
+          restoreFocus={restore}
+        />
       ) : (
         <PaneBar
           title={title}

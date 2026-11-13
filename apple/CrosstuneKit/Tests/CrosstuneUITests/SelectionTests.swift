@@ -4,6 +4,7 @@ import CrosstuneTestSupport
 import CrosstuneVocabulary
 import Foundation
 import GRDB
+import SwiftUI
 import Testing
 
 @testable import CrosstuneUI
@@ -287,6 +288,38 @@ struct TuneSelectionTests {
         #expect(detail == "b", "the detail column keeps its tune")
     }
 
+    /// A list's selection binding: the selection while the mode is on, the detail column's row
+    /// while it is off, and none where no detail column shows.
+    @MainActor @Test func bindsTheListToTheSelectionOrTheDetailRow() throws {
+        var selection = TuneSelection()
+        var detail: String? = "a"
+        let selectionBinding = Binding {
+            selection
+        } set: {
+            selection = $0
+        }
+        let detailBinding = Binding {
+            detail
+        } set: {
+            detail = $0
+        }
+        let rows = visible
+
+        #expect(TuneSelection.listBinding(selectionBinding, visible: { rows }, detail: nil) == nil)
+        let off = try #require(TuneSelection.listBinding(selectionBinding, visible: { rows }, detail: detailBinding))
+        #expect(off.wrappedValue == ["a"])
+        off.wrappedValue = ["b"]
+        #expect(detail == "b")
+        off.wrappedValue = ["b", "c"]
+        #expect(selection.isActive)
+        #expect(selection.ids == ["b", "c"])
+
+        let on = try #require(TuneSelection.listBinding(selectionBinding, visible: { rows }, detail: detailBinding))
+        on.wrappedValue = ["a", "z"]
+        #expect(selection.ids == ["a"], "only a visible row is selected")
+        #expect(detail == "b", "the detail column keeps its row")
+    }
+
     @Test func countsTheSelectionInTheTitle() {
         #expect(TuneSelection.title(1) == "1 tune")
         #expect(TuneSelection.title(3) == "3 tunes")
@@ -302,6 +335,26 @@ struct TuneSelectionTests {
         #expect(selection.ids == ["c"])
         selection.setSelected("z", true, visible: visible)
         #expect(selection.ids == ["c"], "a row that is not visible is never selected")
+    }
+
+    @Test func aRowClickTogglesThatRowAndAShiftClickSelectsARange() {
+        var selection = TuneSelection()
+        selection.enter(with: "a")
+        selection.click("c", extending: false, visible: visible)
+        #expect(selection.ids == ["a", "c"], "a click adds the row and keeps the others")
+        selection.click("e", extending: true, visible: visible)
+        #expect(selection.ids == ["a", "c", "d", "e"], "a Shift-click selects from the last row clicked")
+        selection.click("a", extending: false, visible: visible)
+        #expect(selection.ids == ["c", "d", "e"], "a click on a selected row takes it out")
+        selection.setSelected("b", true, visible: visible)
+        selection.click("a", extending: true, visible: visible)
+        #expect(selection.ids == ["a", "b", "c", "d", "e"], "a checkbox moves the anchor too")
+
+        var chosen = TuneSelection()
+        var detail: String? = "b"
+        chosen.choose(["b", "c"], detail: &detail)
+        chosen.click("e", extending: true, visible: visible)
+        #expect(chosen.ids == ["b", "c", "d", "e"], "a Shift-click extends from the row open before the mode")
     }
 }
 
@@ -356,13 +409,18 @@ struct TuneSelectionTests {
                 let bar = try Self.paneBar(in: text)
                 // A list's pane bar reaches its More menu through `listActions`.
                 #expect(bar.contains("moreMenu") || bar.contains("listActions"), "\(name)'s pane bar has a More menu")
+                let mac = SourceScan.macOSRegions(of: text)
                 #expect(
-                    SourceScan.macOSRegions(of: text).contains("selectTunesAction"),
+                    mac.contains("selectAction") && mac.contains("MenuCommand.selectTunes"),
                     "\(name) publishes View > Select tunes")
             }
-            let commands = try Self.appCommands()
-            #expect(commands.contains("@FocusedValue(\\.selectTunesAction)"))
-            #expect(commands.contains("MenuCommand.selectTunes"))
+            let recordings = try Self.source("RecordingsScreen.swift")
+            #expect(try Self.paneBar(in: recordings).contains("moreMenu"), "the recordings' pane bar has a More menu")
+            let mac = SourceScan.macOSRegions(of: recordings)
+            #expect(
+                mac.contains("selectAction") && mac.contains("MenuCommand.selectRecordings"),
+                "the recordings publish View > Select recordings")
+            #expect(try Self.appCommands().contains("@FocusedValue(\\.selectAction)"))
         }
     }
 #endif

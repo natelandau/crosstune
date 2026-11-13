@@ -76,7 +76,10 @@ export interface SelectionReturn {
   fromMore: () => void
   /** Opens the mode from a row's menu, with that row selected. */
   fromRow: (id: string) => void
-  /** Puts focus back where the mode was opened from, or on More. */
+  /**
+   * Puts focus back where the mode was opened from: the list that now holds the row it was
+   * opened on, else the first list, else More.
+   */
   restore: () => void
 }
 
@@ -84,23 +87,29 @@ export interface SelectionReturn {
 export function useSelectionReturn(mode: SelectionMode): SelectionReturn {
   const moreRef = useRef<HTMLButtonElement>(null)
   const rowsRef = useRef<HTMLDivElement>(null)
-  const from = useRef<'more' | 'row'>('more')
+  // The row id when the mode was opened from a row's menu, null when from More.
+  const fromId = useRef<string | null>(null)
   return {
     moreRef,
     rowsRef,
     fromMore: () => {
-      from.current = 'more'
+      fromId.current = null
       mode.enter()
     },
     fromRow: (id) => {
-      from.current = 'row'
+      fromId.current = id
       mode.enter(id)
     },
     restore: () => {
+      const rows = rowsRef.current
+      const id = fromId.current
       const grid =
-        from.current === 'row'
-          ? rowsRef.current?.querySelector<HTMLElement>('[role="grid"]')
-          : undefined
+        id === null || !rows
+          ? undefined
+          : (rows
+              .querySelector(`[role="row"][data-key="${CSS.escape(id)}"]`)
+              ?.closest<HTMLElement>('[role="grid"]') ??
+            rows.querySelector<HTMLElement>('[role="grid"]'))
       ;(grid ?? moreRef.current)?.focus()
     },
   }

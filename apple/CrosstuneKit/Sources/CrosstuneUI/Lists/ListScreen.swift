@@ -177,11 +177,11 @@ private struct ListTunes: View {
                 }
                 .columnTitled(macTitle)
                 .focusedSceneValue(
-                    \.selectTunesAction,
-                    MenuCommandAvailability.select(
-                        isShown: true, sheetsOpen: openSheets?.isCovered == true, selecting: selection.isActive,
-                        hasRows: !rows.isEmpty)
-                        ? MenuAction(id: selectActionID) { selection.enter() } : nil
+                    \.selectAction,
+                    SelectMenuAction.column(
+                        MenuCommand.selectTunes, isShown: true, sheetsOpen: openSheets?.isCovered == true,
+                        selecting: selection.isActive, hasRows: !rows.isEmpty,
+                        action: MenuAction(id: selectActionID) { selection.enter() })
                 )
             #endif
             .selectionMode(
@@ -214,7 +214,8 @@ private struct ListTunes: View {
         // The rows wait for the archived setting, so an archived tune never flashes in or out.
         // Reordering stops while selecting.
         let reorder: ((IndexSet, Int) -> Void)? = selection.isActive ? nil : { move($0, $1) }
-        let chosen = TuneSelection.listBinding($selection, visible: rows.map(\.tune.id), detailTune: detailTune)
+        let chosen = TuneSelection.listBinding(
+            $selection, visible: { rows.map(\.tune.id) }, detail: detailTune?.binding)
         if model.showArchived != nil {
             List(selection: chosen) {
                 #if os(macOS)
@@ -366,7 +367,7 @@ private struct ListTunes: View {
 
     @ViewBuilder private func moreItems(_ rows: [ListEntry], showArchived: Bool) -> some View {
         if !rows.isEmpty {
-            Button(TuneRowActions.select, systemImage: "checkmark.circle") { selection.enter() }
+            SelectButton { selection.enter() }
         }
         Button(ListScreen.rename, systemImage: "pencil") {
             listSheets?.name(.rename(listID: list.id, name: list.name))
@@ -409,9 +410,7 @@ private struct ListTunes: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .modifier(MoveActions(reorderable: reorderable) { moveButtons(entry, moves) })
                     #if os(macOS)
-                        .selectionCheckbox(
-                            selection.isActive, title: entry.tune.title,
-                            isOn: TuneSelection.checkbox($selection, row: entry.tune.id) { model.rows.map(\.tune.id) })
+                        .selectionRow($selection, row: entry.tune.id, title: entry.tune.title)
                     #endif
             } else {
                 Button {
@@ -445,7 +444,7 @@ private struct ListTunes: View {
             if reorderable { moveItems(entry, moves) }
             RowMenuButton(.removeFromList, perform: remove)
             Divider()
-            Button(TuneRowActions.select, systemImage: "checkmark.circle") { selection.enter(with: entry.tune.id) }
+            SelectButton { selection.enter(with: entry.tune.id) }
         } preview: {
             TunePreview(entry: entry.catalogEntry, instruments: model.instruments)
         }
@@ -504,27 +503,6 @@ private struct ListTunes: View {
                 Button(ListScreen.showArchived) { Task { await model.setShowArchived(true) } }
                     .buttonStyle(.filled)
             }
-        }
-    }
-}
-
-extension View {
-    /// A list row's swipe actions and context menu, or neither while the row is selecting. The
-    /// condition sits inside each builder, since an empty menu shows nothing and the row keeps
-    /// one shape either way.
-    fileprivate func selectableRowActions(
-        isSelecting: Bool, @ViewBuilder swipe: () -> some View, @ViewBuilder menu: () -> some View,
-        @ViewBuilder preview: () -> some View
-    ) -> some View {
-        let swipeItems = swipe()
-        let menuItems = menu()
-        return swipeActions(edge: .trailing, allowsFullSwipe: false) {
-            if !isSelecting { swipeItems }
-        }
-        .contextMenu {
-            if !isSelecting { menuItems }
-        } preview: {
-            preview()
         }
     }
 }

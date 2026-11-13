@@ -114,15 +114,11 @@ private struct SelectionMode: ViewModifier {
     let list: SelectionList?
     let focusedRow: AccessibilityFocusState<String?>.Binding
 
-    @Environment(\.store) private var store
-    @Environment(\.analytics) private var analytics
     @Environment(\.listSheets) private var listSheets
-    @Environment(\.undoManager) private var undoManager
     /// Set in the split view, whose columns report a compact width even on a wide iPad.
     @Environment(\.detailTune) private var detailTune
-    @Environment(\.spacing) private var spacing
     @State private var bulk: BulkActions?
-    @State private var editing: [CatalogEntry]?
+    @State private var editing: SelectedRows<CatalogEntry>?
     @State private var deleting: BulkDeleteQuestion?
 
     private var visibleIDs: [String] { rows.map(\.tune.id) }
@@ -130,68 +126,25 @@ private struct SelectionMode: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            #if os(iOS)
-                .toolbar {
-                    if selection.isActive, let bulk { toolbar(bulk) }
-                }
-            #else
-                // The screen's list shows the bar in place of its filter row.
-                .environment(\.selectionBar, selection.isActive ? bulk.map { AnyView(selectionBar($0)) } : nil)
-                .background {
-                    // Escape ends the mode even with the bar and its Done scrolled out of the list.
-                    if selection.isActive {
-                        Button(TuneSelection.done) { selection.exit() }
-                        .keyboardShortcut(.cancelAction)
-                        .hidden()
-                        .frame(width: 0, height: 0)
-                        .accessibilityHidden(true)
-                    }
-                }
-            #endif
-            #if os(iOS)
-                .environment(\.editMode, .constant(selection.isActive ? .active : .inactive))
-                .toolbarVisibility(selection.isActive ? .hidden : .automatic, for: .tabBar)
-                // A screen wearing the selection toolbar shows no back button.
-                .navigationBarBackButtonHidden(selection.isActive)
-            #endif
-            .safeAreaInset(edge: .top, spacing: 0) {
-                if let failure = bulk?.failure {
-                    Text(failure)
-                        .font(.platform(.footnote))
-                        .foregroundStyle(Palette.danger)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, spacing.stackGap)
-                }
-            }
-            // The selection's bottom toolbar takes the tab bar's place, record slot and all.
-            .claimsSelection(selection.isActive)
-            .onChange(of: selection.isActive) { _, active in
-                modeChanged(active)
-            }
-            .onChange(of: visibleIDs) { _, visible in
-                selection.prune(visible: visible)
-            }
-            // Leaving the screen ends the mode.
-            .onDisappear {
-                selection.exit()
-            }
-            .sheet(item: editingSheet) { sheet in
+            .selectionFrame(
+                $selection, visibleIDs: visibleIDs, title: TuneSelection.title, runner: $bulk, focusedRow: focusedRow,
+                actions: actions
+            )
+            .sheet(item: $editing) { sheet in
                 if let bulk {
-                    BulkEditSheet(entries: sheet.entries, instruments: instruments, bulk: bulk) {
+                    BulkEditSheet(entries: sheet.rows, instruments: instruments, bulk: bulk) {
                         selection.exit()
                     }
                 }
             }
             #if os(macOS)
-                .modifier(confirmsBulkDelete)
+                .confirmsSelectionDelete($deleting, button: DeleteTuneMessage.delete, delete: delete)
             #endif
-            .undoBanner(undoBannerItem)
             #if DEBUG
                 .opensForSample(.bulkEdit, when: bulk != nil && rows.count >= 3) {
                     let picked = Array(rows.prefix(3))
                     selection.enter(selecting: Set(picked.map(\.tune.id)))
-                    editing = picked
+                    editing = SelectedRows(rows: picked)
                 }
                 .opensForSample(.listSelecting, when: bulk != nil && list != nil && rows.count >= 3) {
                     selection.enter(selecting: [rows[0].tune.id, rows[2].tune.id])
@@ -200,78 +153,39 @@ private struct SelectionMode: ViewModifier {
                     bulk?.undoBannerItem = UndoBannerItem(message: BulkActionText.statusSet("known", count: 3)) {}
                 }
             #endif
-            .task(id: store.map(ObjectIdentifier.init)) {
-                guard let store else { return }
-                bulk = BulkActions(store: store, analytics: analytics)
-                bulk?.undoManager = undoManager
-            }
-            .onChange(of: undoManager) { bulk?.undoManager = undoManager }
     }
 
     #if os(iOS)
-        @ToolbarContentBuilder private func toolbar(_ bulk: BulkActions) -> some ToolbarContent {
-            let count = selected.count
-            ToolbarItem(placement: .topBarLeading) {
-                let allSelected = selection.allSelected(visible: visibleIDs)
-                Button(allSelected ? TuneSelection.deselectAll : TuneSelection.selectAll) {
-                    toggleAll()
-                }
-                // Command-A selects all and never clears, so it leaves with Deselect All.
-                .keyboardShortcut(allSelected ? nil : KeyboardShortcut("a"))
-            }
-            ConfirmToolbarItem { doneButton }
-            // A split view's column is too narrow for four worded actions, so there they show
-            // as glyphs, still named in words.
-            let worded = detailTune == nil
-            ToolbarItem(placement: .bottomBar) {
-                statusMenu(bulk) { actionLabel(BulkActionText.status, "tag", worded: worded) }
-                    .disabled(count == 0)
-            }
-            ToolbarSpacer(.flexible, placement: .bottomBar)
-            ToolbarItem(placement: .bottomBar) {
-                Button {
-                    edit()
-                } label: {
-                    actionLabel(BulkActionText.edit, TuneRowActions.editSystemImage, worded: worded)
-                }
+        @ViewBuilder private func actions(_ bulk: BulkActions) -> some View {
+            let count = selection.ids.count
+            statusMenu(bulk) { SelectionActionLabel(BulkActionText.status, systemImage: "tag") }
                 .disabled(count == 0)
+            Button {
+                edit()
+            } label: {
+                SelectionActionLabel(BulkActionText.edit, systemImage: TuneRowActions.editSystemImage)
             }
-            ToolbarSpacer(.flexible, placement: .bottomBar)
-            ToolbarItem(placement: .bottomBar) {
-                Button {
-                    addToList(bulk)
-                } label: {
-                    actionLabel(BulkActionText.addToList, "text.badge.plus", worded: worded)
-                }
-                .disabled(count == 0 || listSheets == nil)
+            .buttonStyle(.selectionAction)
+            .disabled(count == 0)
+            Button {
+                addToList(bulk)
+            } label: {
+                SelectionActionLabel(BulkActionText.addToList, systemImage: "text.badge.plus")
             }
-            ToolbarSpacer(.flexible, placement: .bottomBar)
-            ToolbarItem(placement: .bottomBar) {
-                moreMenu(bulk) { actionLabel(BulkActionText.more, "ellipsis", worded: worded) }
-                    .disabled(count == 0)
-                    // On More, which offers Delete, so the question points at it.
-                    .modifier(confirmsBulkDelete)
-            }
-        }
-
-        /// A bottom bar action's label: its word, or its glyph named by the word.
-        @ViewBuilder private func actionLabel(_ title: String, _ systemImage: String, worded: Bool) -> some View {
-            if worded {
-                Text(title)
-            } else {
-                Label(title, systemImage: systemImage)
-                    .labelStyle(.iconOnly)
-            }
+            .buttonStyle(.selectionAction)
+            .disabled(count == 0 || listSheets == nil)
+            moreMenu(bulk) { SelectionActionLabel(BulkActionText.more, systemImage: "ellipsis") }
+                .disabled(count == 0)
+                // On More, which offers Delete, so the question points at it.
+                .confirmsSelectionDelete($deleting, button: DeleteTuneMessage.delete, delete: delete)
         }
     #endif
 
     #if os(macOS)
-        private func selectionBar(_ bulk: BulkActions) -> some View {
-            MacSelectionBar(
-                count: selected.count, allSelected: selection.allSelected(visible: visibleIDs),
-                canSelectAll: !visibleIDs.isEmpty, onSelectAll: toggleAll,
-                actions: SelectionAction.menu(for: selected, list: list), canAddToList: listSheets != nil,
-                isPending: bulk.isPending, onAction: { perform($0, bulk) }, onDone: { selection.exit() })
+        private func actions(_ bulk: BulkActions) -> [MacSelectionMenuItem] {
+            SelectionAction.menuItems(
+                SelectionAction.menu(for: selected, list: list), canAddToList: listSheets != nil
+            ) { perform($0, bulk) }
         }
 
         /// Runs a bulk action through the same calls, questions, and undo as the iPhone's toolbar.
@@ -293,12 +207,6 @@ private struct SelectionMode: ViewModifier {
     #endif
 
     #if os(iOS)
-        private var doneButton: some View {
-            Button(TuneSelection.done) { selection.exit() }
-                // Escape leaves the mode.
-                .keyboardShortcut(.cancelAction)
-        }
-
         private func statusMenu(_ bulk: BulkActions, @ViewBuilder label: () -> some View) -> some View {
             Menu {
                 Section(BulkActionText.setStatus) {
@@ -364,7 +272,7 @@ private struct SelectionMode: ViewModifier {
     }
 
     private func edit() {
-        editing = selected
+        editing = SelectedRows(rows: selected)
     }
 
     private func addToList(_ bulk: BulkActions) {
@@ -377,80 +285,12 @@ private struct SelectionMode: ViewModifier {
             })
     }
 
-    private func modeChanged(_ active: Bool) {
-        if active {
-            focusedRow.wrappedValue = selection.origin ?? visibleIDs.first
-            // A row entry is heard through the focus move and the row's selected trait; one from
-            // the toolbar has no row to speak for it.
-            if selection.origin == nil { announceCount() }
-        } else {
-            // VoiceOver returns to the row the mode was entered from, when it still shows.
-            if let origin = selection.origin, visibleIDs.contains(origin) { focusedRow.wrappedValue = origin }
+    /// Deletes the tunes `question` named, then lets the detail column go of a tune that is gone.
+    private func delete(_ question: BulkDeleteQuestion) async {
+        guard await bulk?.delete(question) == true else { return }
+        selection.exit()
+        if let detailTune, let tuneID = detailTune.value, question.tuneIDs.contains(tuneID) {
+            detailTune.value = nil
         }
     }
-
-    /// Select all and Deselect all change rows the musician is not on, so the count is said.
-    private func toggleAll() {
-        selection.toggleAll(visible: visibleIDs)
-        announceCount()
-    }
-
-    private func announceCount() {
-        AccessibilityNotification.Announcement(TuneSelection.title(selection.ids.count)).post()
-    }
-
-    private var editingSheet: Binding<EditingSheet?> {
-        Binding {
-            editing.map(EditingSheet.init)
-        } set: {
-            if $0 == nil { editing = nil }
-        }
-    }
-
-    private var confirmsBulkDelete: ConfirmsBulkDelete {
-        ConfirmsBulkDelete(question: $deleting, bulk: bulk) { question in
-            selection.exit()
-            // The detail column lets go of a tune that is gone.
-            if let detailTune, let tuneID = detailTune.value, question.tuneIDs.contains(tuneID) {
-                detailTune.value = nil
-            }
-        }
-    }
-
-    private var undoBannerItem: Binding<UndoBannerItem?> {
-        Binding {
-            bulk?.undoBannerItem
-        } set: {
-            bulk?.undoBannerItem = $0
-        }
-    }
-}
-
-/// Asks before deleting the selected tunes, then deletes them and runs `onDeleted`.
-private struct ConfirmsBulkDelete: ViewModifier {
-    @Binding var question: BulkDeleteQuestion?
-    let bulk: BulkActions?
-    let onDeleted: (BulkDeleteQuestion) -> Void
-
-    func body(content: Content) -> some View {
-        content
-            .coversShell(question != nil)
-            .confirmationDialog(
-                question?.title ?? "", item: $question, titleVisibility: .visible
-            ) { question in
-                Button(DeleteTuneMessage.delete, role: .destructive) {
-                    Task {
-                        if await bulk?.delete(question) == true { onDeleted(question) }
-                    }
-                }
-            } message: { question in
-                Text(question.message)
-            }
-    }
-}
-
-/// The tunes an open edit sheet works over, fixed as it opens.
-private struct EditingSheet: Identifiable {
-    let entries: [CatalogEntry]
-    var id: [String] { entries.map(\.id) }
 }

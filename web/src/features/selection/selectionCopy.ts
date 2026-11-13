@@ -42,3 +42,6 @@ export const addedToListToast = (n: number, listName: string) =>
 
 /** The name of the phone's bar of bulk actions. */
 export const SELECTION_ACTIONS = 'Selection actions'
+
+/** The More cell's caption on the phone's bar; its name stays `MORE_ACTIONS`. */
+export const MORE_CAPTION = 'More'

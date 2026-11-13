@@ -4,19 +4,35 @@ import CrosstuneDesign
     import CrosstuneVocabulary
     import SwiftUI
 
+    /// One item of the Mac selection bar's Actions menu: an action, or a submenu of them.
+    struct MacSelectionMenuItem: Identifiable {
+        /// The app's own words for the item, never the musician's.
+        let label: String
+        var systemImage: String?
+        var isDestructive = false
+        var isDisabled = false
+        /// Why the item cannot be used now, shown under its word. The item is disabled with it.
+        var disabledReason: String?
+        /// Sets the item apart from the one before.
+        var startsGroup = false
+        /// A submenu's items; empty for an item that acts.
+        var submenu: [MacSelectionMenuItem] = []
+        var action: () -> Void = {}
+
+        var id: String { label }
+    }
+
     /// The row that replaces a column's filter row while selecting: Select all, one Actions
-    /// menu of every bulk action, and Done. The column title above it carries the count.
+    /// menu of every bulk action, and Done. The column title above it carries the count. The
+    /// screen supplies the menu's items.
     struct MacSelectionBar: View {
         let count: Int
-        /// Whether every visible tune is selected, which turns Select all into Deselect all.
+        /// Whether every visible row is selected, which turns Select all into Deselect all.
         let allSelected: Bool
         let canSelectAll: Bool
         let onSelectAll: () -> Void
-        let actions: [SelectionAction]
-        /// Whether Add to list has a picker to open.
-        let canAddToList: Bool
+        let items: [MacSelectionMenuItem]
         let isPending: Bool
-        let onAction: (SelectionAction) -> Void
         let onDone: () -> Void
 
         var body: some View {
@@ -34,28 +50,14 @@ import CrosstuneDesign
 
         private var actionsMenu: some View {
             MacPullDown(TuneSelection.actions, value: TuneSelection.actions, size: .regular) {
-                let statuses = actions.compactMap { action -> String? in
-                    if case .status(let status) = action { status } else { nil }
-                }
-                if !statuses.isEmpty {
-                    Menu(BulkActionText.setStatus, systemImage: "tag") {
-                        ForEach(statuses, id: \.self) { status in
-                            Button(StatusStyle.label(status)) { onAction(.status(status)) }
+                ForEach(items) { item in
+                    if item.startsGroup { Divider() }
+                    if item.submenu.isEmpty {
+                        button(item)
+                    } else {
+                        Menu(item.label, systemImage: item.systemImage ?? "") {
+                            ForEach(item.submenu) { button($0) }
                         }
-                    }
-                }
-                // The tunes' own changes, then what leaves the column, then the delete apart.
-                ForEach(SelectionAction.Group.allCases.filter { $0 != .status }, id: \.self) { group in
-                    let items = actions.filter { $0.group == group }
-                    if group != .change, !items.isEmpty { Divider() }
-                    ForEach(items, id: \.self) { action in
-                        Button(
-                            action.menuTitle, systemImage: action.systemImage,
-                            role: action.isDestructive ? .destructive : nil
-                        ) {
-                            onAction(action)
-                        }
-                        .disabled(action == .addToList && !canAddToList)
                     }
                 }
             }
@@ -63,6 +65,74 @@ import CrosstuneDesign
             .labeledContentStyle(MacControlOnlyStyle())
             .fixedSize()
             .disabled(count == 0 || isPending)
+        }
+
+        private func button(_ item: MacSelectionMenuItem) -> some View {
+            Button(role: item.isDestructive ? .destructive : nil, action: item.action) {
+                if let systemImage = item.systemImage {
+                    Label {
+                        itemText(item)
+                    } icon: {
+                        Image(systemName: systemImage)
+                    }
+                } else {
+                    itemText(item)
+                }
+            }
+            .disabled(item.isDisabled || item.disabledReason != nil)
+        }
+
+        /// The item's word, and under it why it cannot be used now.
+        @ViewBuilder private func itemText(_ item: MacSelectionMenuItem) -> some View {
+            Text(item.label)
+            if let reason = item.disabledReason { Text(reason) }
+        }
+    }
+
+    extension MacSelectionBar {
+        /// The bar for a selection of tunes, whose menu lists `actions`.
+        init(
+            count: Int, allSelected: Bool, canSelectAll: Bool, onSelectAll: @escaping () -> Void,
+            actions: [SelectionAction], canAddToList: Bool, isPending: Bool,
+            onAction: @escaping (SelectionAction) -> Void, onDone: @escaping () -> Void
+        ) {
+            self.init(
+                count: count, allSelected: allSelected, canSelectAll: canSelectAll, onSelectAll: onSelectAll,
+                items: SelectionAction.menuItems(actions, canAddToList: canAddToList, onAction: onAction),
+                isPending: isPending, onDone: onDone)
+        }
+    }
+
+    extension SelectionAction {
+        /// The Actions menu for a selection of tunes: Set status as a submenu, then the tunes' own
+        /// changes, then what leaves the column, then the delete apart.
+        @MainActor static func menuItems(
+            _ actions: [SelectionAction], canAddToList: Bool, onAction: @escaping (SelectionAction) -> Void
+        ) -> [MacSelectionMenuItem] {
+            var items: [MacSelectionMenuItem] = []
+            let statuses = actions.compactMap { action -> String? in
+                if case .status(let status) = action { status } else { nil }
+            }
+            if !statuses.isEmpty {
+                items.append(
+                    MacSelectionMenuItem(
+                        label: BulkActionText.setStatus, systemImage: "tag",
+                        submenu: statuses.map { status in
+                            MacSelectionMenuItem(label: StatusStyle.label(status)) { onAction(.status(status)) }
+                        }))
+            }
+            for group in SelectionAction.Group.allCases where group != .status {
+                for (index, action) in actions.filter({ $0.group == group }).enumerated() {
+                    items.append(
+                        MacSelectionMenuItem(
+                            label: action.menuTitle, systemImage: action.systemImage,
+                            isDestructive: action.isDestructive,
+                            isDisabled: action == .addToList && !canAddToList,
+                            startsGroup: index == 0 && group != .change
+                        ) { onAction(action) })
+                }
+            }
+            return items
         }
     }
 

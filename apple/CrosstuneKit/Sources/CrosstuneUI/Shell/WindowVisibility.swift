@@ -7,7 +7,7 @@
         /// windows, and not minimized. Whether the window is key does not count, so a window
         /// beside the one in use still reads as visible.
         func windowVisibility(_ onChange: @escaping @MainActor (Bool) -> Void) -> some View {
-            background(WindowVisibilityWatch(onChange: onChange))
+            background { WindowVisibilityWatch(onChange: onChange) }
         }
     }
 

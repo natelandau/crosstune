@@ -51,35 +51,27 @@ extension View {
     /// menu items, and Delete in the menu alone, after a separator, the menu with a preview of
     /// the tune. `onScans` adds Scans to both, for a tune with scans. `onSelect` adds Select to
     /// the menu, which enters selection with this row.
-    /// A row that is selecting has none of them. The condition sits inside each builder, since
-    /// an empty menu shows nothing and the row keeps one shape either way.
+    /// A row that is selecting has none of them.
     func catalogRowActions(
         _ entry: CatalogEntry, instruments: Set<String>, isSelecting: Bool = false, onEdit: @escaping () -> Void,
         onArchive: @escaping () -> Void, onDelete: @escaping () -> Void, onScans: (@MainActor () -> Void)? = nil,
         onSelect: (() -> Void)? = nil
     ) -> some View {
         let archived = entry.isArchived
-        // A long swipe only reveals the actions: SwiftUI's full swipe would run the edge action,
-        // and no swipe acts on its own.
-        return swipeActions(edge: .trailing, allowsFullSwipe: false) {
-            if !isSelecting {
-                // The first action sits at the trailing edge, so Edit reads first from the left.
-                SwipeActionButton(.archive(archived: archived), perform: onArchive)
-                SwipeActionButton(.edit, perform: onEdit)
-                if let onScans { SwipeActionButton(.scans, perform: onScans) }
-            }
-        }
-        .contextMenu {
-            if !isSelecting {
-                if let onScans { RowMenuButton(.scans, perform: onScans) }
-                RowMenuButton(.edit, perform: onEdit)
-                RowMenuButton(.archive(archived: archived), perform: onArchive)
+        return selectableRowActions(isSelecting: isSelecting) {
+            // The first action sits at the trailing edge, so Edit reads first from the left.
+            SwipeActionButton(.archive(archived: archived), perform: onArchive)
+            SwipeActionButton(.edit, perform: onEdit)
+            if let onScans { SwipeActionButton(.scans, perform: onScans) }
+        } menu: {
+            if let onScans { RowMenuButton(.scans, perform: onScans) }
+            RowMenuButton(.edit, perform: onEdit)
+            RowMenuButton(.archive(archived: archived), perform: onArchive)
+            Divider()
+            RowMenuButton(.delete, perform: onDelete)
+            if let onSelect {
                 Divider()
-                RowMenuButton(.delete, perform: onDelete)
-                if let onSelect {
-                    Divider()
-                    Button(TuneRowActions.select, systemImage: "checkmark.circle", action: onSelect)
-                }
+                SelectButton(action: onSelect)
             }
         } preview: {
             TunePreview(entry: entry, instruments: instruments)

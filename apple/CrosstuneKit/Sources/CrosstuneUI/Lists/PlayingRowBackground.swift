@@ -10,6 +10,7 @@ extension View {
             listRowBackground(isPlaying ? PlayingRowTint() : nil)
         #else
             listRowBackground(isSelected && !isPlaying ? nil : PlayingRowTint(isPlaying: isPlaying))
+                .selectedRowProminence(isSelected: isSelected && !isPlaying)
         #endif
     }
 }

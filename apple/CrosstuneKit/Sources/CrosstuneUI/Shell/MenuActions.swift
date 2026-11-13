@@ -66,8 +66,32 @@ public enum MenuCommand {
     public static let sortBy = "Sort By"
     /// The View menu's way into the showing column's selection.
     public static let selectTunes = "Select tunes"
+    public static let selectRecordings = RecordingsListText.selectRecordings
     public static let skipBack = RecordingPlayerText.skipBack(AudioPlayer.skipInterval)
     public static let skipForward = RecordingPlayerText.skipForward(AudioPlayer.skipInterval)
+}
+
+/// The View menu's way into the showing column's selection: the item's words, which name what
+/// the column selects, and its action, nil while the column cannot enter a selection.
+public struct SelectMenuAction: Equatable {
+    public let title: String
+    public let action: MenuAction?
+
+    public init(title: String, action: MenuAction?) {
+        self.title = title
+        self.action = action
+    }
+
+    /// The item a column publishes: named for what it selects while it shows, also while the
+    /// item is disabled, so it never names another column's rows. Nil while it is not shown.
+    static func column(
+        _ title: String, isShown: Bool, sheetsOpen: Bool, selecting: Bool, hasRows: Bool, action: MenuAction
+    ) -> SelectMenuAction? {
+        guard isShown else { return nil }
+        let canSelect = MenuCommandAvailability.select(
+            isShown: true, sheetsOpen: sheetsOpen, selecting: selecting, hasRows: hasRows)
+        return SelectMenuAction(title: title, action: canSelect ? action : nil)
+    }
 }
 
 extension FocusedValues {
@@ -105,9 +129,10 @@ extension FocusedValues {
     @Entry public var showRecordingsAction: MenuAction?
     /// How the recordings are sorted. Published by the recordings screen while it shows.
     @Entry public var recordingsSort: Binding<RecordingSortChoice>?
-    /// Enters the showing column's selection. Published on the Mac by the catalog and a list
-    /// while they have tunes to select.
-    @Entry public var selectTunesAction: MenuAction?
+    /// Enters the showing column's selection, under the item's name for what it selects.
+    /// Published on the Mac by the catalog, a list, and the recordings while they have rows to
+    /// select.
+    @Entry public var selectAction: SelectMenuAction?
     /// How the catalog is sorted. Published by the catalog screen while it shows.
     @Entry public var catalogSort: Binding<CatalogSortChoice>?
 }

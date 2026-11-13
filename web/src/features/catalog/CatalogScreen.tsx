@@ -27,9 +27,11 @@ import { destination } from '../../layout/destinations'
 import { sortCommand, useScreenCommand } from '../../app/screenCommands'
 import { usePageShown } from '../../app/usePageShown'
 import { useFrame } from '../../platform/frame'
+import { countTunes } from '../../text/format'
 import { useRowScanViewer } from '../scans/useRowScanViewer'
 import { applySelection } from '../selection/applySelection'
-import { BulkSheets, SelectionBar } from '../selection/SelectionBar'
+import { BulkSheets } from '../selection/BulkSheets'
+import { SelectionBar } from '../selection/SelectionBar'
 import { useScreenSelection, useSelectionReturn } from '../selection/useScreenSelection'
 import { RootBar } from '../../layout/RootBar'
 import { useCrowdedRootTitle } from '../../layout/useCrowdedRootTitle'
@@ -251,7 +253,9 @@ export function CatalogScreen() {
           selecting ? (
             <SelectionBar
               selection={selection}
-              actions={bulk}
+              noun={countTunes}
+              buttons={bulk.buttons}
+              error={bulk.error}
               restoreFocus={restore}
               inRootBar={phone}
             />

@@ -518,6 +518,24 @@ struct MenuCommandAvailabilityTests {
         #expect(MenuCommandAvailability.newTune(sheetsOpen: false, selecting: true) == false)
     }
 
+    /// A showing column names the item for its own rows, also while it cannot select; a hidden
+    /// column publishes nothing.
+    @MainActor @Test func selectItemKeepsTheShowingColumnsWordsWhileDisabled() {
+        let action = MenuAction(id: "select") {}
+        func item(isShown: Bool = true, sheetsOpen: Bool = false, selecting: Bool = false, hasRows: Bool = true)
+            -> SelectMenuAction?
+        {
+            SelectMenuAction.column(
+                MenuCommand.selectRecordings, isShown: isShown, sheetsOpen: sheetsOpen, selecting: selecting,
+                hasRows: hasRows, action: action)
+        }
+        #expect(item() == SelectMenuAction(title: MenuCommand.selectRecordings, action: action))
+        for disabled in [item(sheetsOpen: true), item(selecting: true), item(hasRows: false)] {
+            #expect(disabled == SelectMenuAction(title: MenuCommand.selectRecordings, action: nil))
+        }
+        #expect(item(isShown: false) == nil)
+    }
+
     @Test func newListIsDisabledUnderASheet() {
         #expect(MenuCommandAvailability.newList(sheetsOpen: false))
         #expect(MenuCommandAvailability.newList(sheetsOpen: true) == false)

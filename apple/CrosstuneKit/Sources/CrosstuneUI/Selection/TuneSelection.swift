@@ -18,6 +18,8 @@ public struct TuneSelection: Equatable, Sendable {
     /// The row the mode was last entered from, which VoiceOver returns to when it ends. Kept
     /// after the mode ends, for that return.
     public private(set) var origin: String?
+    /// The row a Shift-click selects from: the last row a click or a checkbox changed.
+    public private(set) var anchor: String?
 
     public init() {}
 
@@ -36,6 +38,7 @@ public struct TuneSelection: Equatable, Sendable {
         isActive = true
         ids = row.map { [$0] } ?? []
         origin = row
+        anchor = row
     }
 
     /// Turns the mode on with several rows already chosen, as a Mac's Command- or Shift-click
@@ -44,12 +47,14 @@ public struct TuneSelection: Equatable, Sendable {
         isActive = true
         ids = rows
         origin = nil
+        anchor = nil
     }
 
     /// Ends the mode and forgets the selection.
     public mutating func exit() {
         isActive = false
         ids = []
+        anchor = nil
     }
 
     /// Replaces the selected rows, keeping only visible ones.
@@ -63,6 +68,25 @@ public struct TuneSelection: Equatable, Sendable {
         var rows = ids
         if isSelected { rows.insert(row) } else { rows.remove(row) }
         set(rows, visible: visible)
+        anchor = row
+    }
+
+    /// Whether `row` is selected, for its checkbox, which adds or takes out that row alone.
+    public subscript(isSelected row: String, visible visible: [String]) -> Bool {
+        get { ids.contains(row) }
+        set { setSelected(row, newValue, visible: visible) }
+    }
+
+    /// A click on a row while the mode is on: adds or takes out that row, as its checkbox does.
+    /// With `extending`, as a Shift-click, also selects every visible row from the anchor to it.
+    public mutating func click(_ row: String, extending: Bool, visible: [String]) {
+        if extending, let anchor, let from = visible.firstIndex(of: anchor),
+            let to = visible.firstIndex(of: row)
+        {
+            set(ids.union(visible[min(from, to)...max(from, to)]), visible: visible)
+        } else {
+            setSelected(row, !ids.contains(row), visible: visible)
+        }
     }
 
     /// Drops rows that are no longer visible, such as ones a search or a filter hides.
@@ -95,7 +119,10 @@ public struct TuneSelection: Equatable, Sendable {
     /// Choosing several, as a Mac's Command- or Shift-click does, enters the mode with them.
     public mutating func choose(_ rows: Set<String>, detail: inout String?) {
         if rows.count > 1 {
+            let open = detail
             enter(selecting: rows)
+            // The open row is the list's anchor for that click, so a later Shift-click extends from it.
+            anchor = open.flatMap { rows.contains($0) ? $0 : nil }
         } else {
             detail = rows.first
         }
@@ -103,18 +130,6 @@ public struct TuneSelection: Equatable, Sendable {
 }
 
 extension TuneSelection {
-    /// Whether `row` is selected, for its checkbox, which adds or takes out that row alone.
-    /// `visible` is read only on a click, so a long list builds its rows without it.
-    @MainActor static func checkbox(
-        _ selection: Binding<TuneSelection>, row: String, visible: @escaping () -> [String]
-    ) -> Binding<Bool> {
-        Binding {
-            selection.wrappedValue.ids.contains(row)
-        } set: { isOn in
-            selection.wrappedValue.setSelected(row, isOn, visible: visible())
-        }
-    }
-
     /// Whether `id`'s row draws as the list's selection: one of the selection while it lasts,
     /// else the detail column's tune.
     @MainActor static func rowIsSelected(
@@ -123,28 +138,28 @@ extension TuneSelection {
         selection.isActive ? selection.ids.contains(id) : detailTune?.value == id
     }
 
-    /// The selection binding for a screen's list of rows: the selection while the mode is on; the
-    /// detail column's tune while it is off, where there is one; and none on a phone, whose rows
-    /// push their tune instead.
+    /// The selection binding for a screen's list of rows: the selection while the mode is on;
+    /// the row the detail column shows while it is off, where there is one; and none on a phone,
+    /// whose rows push their page instead. `visible` is read only when the list sets the binding.
     @MainActor static func listBinding(
-        _ selection: Binding<TuneSelection>, visible: [String], detailTune: ShellValue<String?>?
+        _ selection: Binding<TuneSelection>, visible: @escaping () -> [String], detail: Binding<String?>?
     ) -> Binding<Set<String>>? {
         if selection.wrappedValue.isActive {
             return Binding {
                 selection.wrappedValue.ids
             } set: { rows in
-                selection.wrappedValue.set(rows, visible: visible)
+                selection.wrappedValue.set(rows, visible: visible())
             }
         }
-        guard let detailTune else { return nil }
-        // Read here, so the screen building the binding redraws when the detail column's tune changes.
-        _ = detailTune.value
+        guard let detail else { return nil }
+        // Read here, so the screen building the binding redraws when the detail column's row changes.
+        _ = detail.wrappedValue
         return Binding {
-            detailTune.value.map { [$0] } ?? []
+            detail.wrappedValue.map { [$0] } ?? []
         } set: { rows in
-            var detail = detailTune.value
-            selection.wrappedValue.choose(rows, detail: &detail)
-            if detail != detailTune.value { detailTune.value = detail }
+            var chosen = detail.wrappedValue
+            selection.wrappedValue.choose(rows, detail: &chosen)
+            if chosen != detail.wrappedValue { detail.wrappedValue = chosen }
         }
     }
 }
