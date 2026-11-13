@@ -11,7 +11,6 @@ export const IMPORT_TUNES = 'Import tunes'
 export const PASTE_LABEL = 'Your tunes'
 export const PASTE_PLACEHOLDER = 'Paste your tunes, one per line'
 export const OPEN_FILE = 'Open a file…'
-export const CONTINUE = 'Continue'
 export const TEXT_FILES_ONLY = 'Crosstune can open .txt files only.'
 
 export const IMPORT_STATUS_LABEL = STATUS_HEADER

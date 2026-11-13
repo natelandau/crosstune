@@ -10,13 +10,13 @@ import {
 } from './helpers'
 import { TUNE_LIST } from '../src/features/catalog/catalogCopy'
 import {
-  CONTINUE,
   IMPORT_HELP_URL,
   IMPORT_TUNES,
   PASTE_LABEL,
   WHAT_CAN_I_PASTE,
   addTunesLabel,
 } from '../src/features/import/importCopy'
+import { CONTINUE } from '../src/ui/confirmCopy'
 
 test('imports pasted tunes from an empty catalog', async ({ page }) => {
   // A new user, because the offer only shows while the catalog has no tunes.

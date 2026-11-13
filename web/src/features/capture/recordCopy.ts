@@ -15,4 +15,3 @@ export const FILING_UNDER = 'Filing under'
 export const LOCATION_NOTE_TITLE = 'Save where you record'
 export const LOCATION_NOTE_BODY =
   'Crosstune adds the location to each recording, so you can find it later.'
-export const CONTINUE = 'Continue'

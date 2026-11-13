@@ -14,7 +14,6 @@ import { formatDuration } from '../../text/format'
 import { LiveWaveform } from './LiveWaveform'
 import { savedRecordingPath } from './savedRecordingPath'
 import {
-  CONTINUE,
   DONE,
   FILING_UNDER,
   INTERRUPTED_MESSAGE,
@@ -30,6 +29,7 @@ import { Button } from '../../ui/Button'
 import { useLatest } from '../../ui/useLatest'
 import { useConfirm } from '../../ui/Confirm'
 import { ErrorLine } from '../../ui/ErrorLine'
+import { CONTINUE } from '../../ui/confirmCopy'
 import { Sheet } from '../../ui/Sheet'
 import { useToast } from '../../ui/Toast'
 import { PRESS } from '../../ui/press'

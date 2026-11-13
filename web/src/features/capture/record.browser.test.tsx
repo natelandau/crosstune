@@ -7,7 +7,6 @@ import { RECORD_LABEL, RECORD_TEXT, TAB_BAR } from '../../layout/tabs'
 import { createTune } from '../../commands/tunes'
 import type { CrosstuneDb } from '../../db/schema'
 import {
-  CONTINUE,
   DISCARD_TITLE,
   FILING_UNDER,
   LOCATION_NOTE_BODY,
@@ -24,7 +23,7 @@ import {
   fakeLocationPermissionForTest,
   type FakeLocationPermission,
 } from '../../test/fakeLocationPermission'
-import { CANCEL } from '../../ui/confirmCopy'
+import { CANCEL, CONTINUE } from '../../ui/confirmCopy'
 import { dragDown } from '../../test/gestures'
 
 import { renderApp } from '../../test/renderApp'

@@ -11,10 +11,9 @@ import { renderWithProviders } from '../../test/render'
 import { tuneRow, userTuneRow } from '../../test/rows'
 import { LIST_NAME_LABEL } from '../lists/listsCopy'
 import { TITLE_FIELD } from '../tune/tuneFormCopy'
-import { BACK } from '../../ui/confirmCopy'
+import { BACK, CONTINUE } from '../../ui/confirmCopy'
 import {
   ALREADY_IN_CATALOG,
-  CONTINUE,
   IMPORT_HELP_URL,
   IMPORT_LIST_LABEL,
   IMPORT_STATUS_LABEL,
