@@ -39,8 +39,8 @@ export interface RecordingActions {
   actionsFor: (view: RecordingView) => RowAction[]
   /**
    * The recording page's menu: trim it, split it, pin it, go to its tune, open it on the site
-   * it came from, delete it. Split is also the way a recording that must be split to upload
-   * gets there.
+   * it came from, export it, delete it. Split is also the way a recording that must be split
+   * to upload gets there.
    */
   pageMenuFor: (view: RecordingView) => MenuItem[]
 }
@@ -62,12 +62,14 @@ export interface RecordingActionsOptions {
   onOpenTune?: (view: RecordingView) => void
   /** Left out where nothing offers pinning, such as an unfiled recording's page. */
   pin?: { userTuneId: string; recordingId: string | null }
+  /** Left out where nothing offers export; only the recording page's menu does. */
+  exportItems?: (view: RecordingView) => MenuItem[]
 }
 
 /**
  * What every list of recordings, and the recording page, does to a recording: delete it and
- * unstick it, and on the page trim, split, pin it, and go to its tune. The caller supplies the
- * confirmation.
+ * unstick it, and on the page trim, split, pin, and export it, and go to its tune. The caller
+ * supplies the confirmation.
  */
 export function useRecordingActionsWith({
   confirm,
@@ -78,6 +80,7 @@ export function useRecordingActionsWith({
   splitBlocked,
   onOpenTune,
   pin,
+  exportItems,
 }: RecordingActionsOptions & {
   confirm: (question: ConfirmQuestion) => Promise<boolean>
 }): RecordingActions {
@@ -205,6 +208,7 @@ export function useRecordingActionsWith({
             },
           ]
         : []),
+      ...(exportItems?.(view) ?? []),
       deleteAction(view),
     ]
   }

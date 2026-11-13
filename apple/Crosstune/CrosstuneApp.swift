@@ -61,8 +61,8 @@ struct CrosstuneApp: App {
         purchases = configuration.revenueCatAPIKey.map { RevenueCatPurchases(apiKey: $0, diagnostics: diagnostics) }
         stripePortalURL = configuration.stripePortalURL
         appStoreURL = UpdatePromptText.appStoreURL(id: configuration.appStoreID)
-        // Before any window can start an export, so only zips a past run left behind go.
-        ExportArchive.removeLeftovers()
+        // Before any window can start an export, so only files a past run left behind go.
+        ExportWorkFolder.removeLeftovers()
         let player = PlayerModel.device(analytics: analytics, diagnostics: diagnostics)
         _player = State(initialValue: player)
         _listPlayback = State(initialValue: ListPlayback.device(player: player, analytics: analytics))

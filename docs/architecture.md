@@ -234,6 +234,8 @@ each question, and the invariants that both clients and the API hold.
     loses a renewal it has not pulled.
 - A one-time notice is a timestamp that the server sets once, never a
   settings field, so an older device cannot reset it.
+- No plan check on a recording's download or export, on the server or a
+  client. Only playback and uploads check the plan.
 - Only additions are refused. Edits and deletes always go through. A
   refused new row (`premium required`) stays on the client, with its file
   and outbox entry, and pushes again once the account is Premium.

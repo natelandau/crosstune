@@ -224,11 +224,11 @@ private struct CatalogContent: View {
             )
             #if os(macOS)
                 .focusedSceneValue(
-                    \.selectTunesAction,
-                    MenuCommandAvailability.select(
-                        isShown: isShown, sheetsOpen: openSheets?.isCovered == true, selecting: selection.isActive,
-                        hasRows: results?.visible.isEmpty == false)
-                        ? MenuAction(id: selectActionID) { selection.enter() } : nil
+                    \.selectAction,
+                    SelectMenuAction.column(
+                        MenuCommand.selectTunes, isShown: isShown, sheetsOpen: openSheets?.isCovered == true,
+                        selecting: selection.isActive, hasRows: results?.visible.isEmpty == false,
+                        action: MenuAction(id: selectActionID) { selection.enter() })
                 )
             #endif
             .focusedSceneValue(
@@ -307,15 +307,11 @@ private struct CatalogContent: View {
         Button(CatalogScreen.addTune, systemImage: "plus", action: newTune)
     }
 
-    private var selectButton: some View {
-        Button(TuneRowActions.select, systemImage: "checkmark.circle") { selection.enter() }
-    }
-
     /// The screen's More menu, an explicit menu like every other screen's, so its items keep
     /// their order and roles.
     private var moreMenu: some View {
         Menu {
-            selectButton
+            SelectButton { selection.enter() }
                 .disabled(model.results?.visible.isEmpty != false)
         } label: {
             Label(TuneScreen.moreActions, systemImage: "ellipsis")
@@ -332,7 +328,7 @@ private struct CatalogContent: View {
     private func list(_ results: CatalogResults?) -> some View {
         List(
             selection: TuneSelection.listBinding(
-                $selection, visible: results?.visible.map(\.tune.id) ?? [], detailTune: detailTune)
+                $selection, visible: { results?.visible.map(\.tune.id) ?? [] }, detail: detailTune?.binding)
         ) {
             #if os(macOS)
                 ColumnTitle(macTitle)
@@ -408,11 +404,7 @@ private struct CatalogContent: View {
                 // The list's selection drives the detail column, or is the selection.
                 tuneRow
                     #if os(macOS)
-                        .selectionCheckbox(
-                            selection.isActive, title: entry.tune.title,
-                            isOn: TuneSelection.checkbox($selection, row: entry.tune.id) {
-                                model.results?.visible.map(\.tune.id) ?? []
-                            })
+                        .selectionRow($selection, row: entry.tune.id, title: entry.tune.title)
                     #endif
             } else {
                 Button {

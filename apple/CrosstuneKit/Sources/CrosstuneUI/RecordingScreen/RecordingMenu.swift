@@ -15,21 +15,34 @@ enum RecordingMenuItem: Hashable {
     case split(disabledReason: String?)
     /// Opens an imported recording's page on the site it came from.
     case openOrigin(site: String, page: URL)
+    /// Hands the recording's file to the system share sheet or share picker, disabled with the
+    /// reason it cannot be exported now.
+    case share(disabledReason: String?)
+    /// Saves the recording's file through a save panel, on the Mac, disabled as Share is.
+    case export(disabledReason: String?)
     /// Deletes the recording; disabled with `disabledReason` while it cannot go.
     case delete(disabledReason: String?)
 
     /// The menu in order: the pin while `pinned` is set, Go to tune when `goesToTune`, Open on
-    /// when the recording has a page to open, Trim, Split, then Delete. `pinned` nil leaves
-    /// the pin out, for a recording with no tune. `trims` false leaves Trim and Split out, as
-    /// on a free plan.
+    /// when the recording has a page to open, Trim, Split, Share, Export… on the Mac, then
+    /// Delete. `pinned` nil leaves the pin out, for a recording with no tune. `trims` false leaves
+    /// Trim and Split out, as on a free plan; Share and Export… stay on every plan.
     static func items(
         pinned: Bool?, goesToTune: Bool, trimDisabledReason: String?, splitDisabledReason: String? = nil,
-        deleteDisabledReason: String? = nil, openOrigin: RecordingMenuItem? = nil, trims: Bool = true
+        deleteDisabledReason: String? = nil, exportDisabledReason: String?, openOrigin: RecordingMenuItem? = nil,
+        trims: Bool = true
     ) -> [RecordingMenuItem] {
         let pin: [RecordingMenuItem] = pinned.map { [.pin(pinned: $0)] } ?? []
         let tools: [RecordingMenuItem] =
             trims ? [.trim(disabledReason: trimDisabledReason), .split(disabledReason: splitDisabledReason)] : []
-        return pin + (goesToTune ? [.goToTune] : []) + (openOrigin.map { [$0] } ?? []) + tools
+        #if os(macOS)
+            let exports: [RecordingMenuItem] = [
+                .share(disabledReason: exportDisabledReason), .export(disabledReason: exportDisabledReason),
+            ]
+        #else
+            let exports: [RecordingMenuItem] = [.share(disabledReason: exportDisabledReason)]
+        #endif
+        return pin + (goesToTune ? [.goToTune] : []) + (openOrigin.map { [$0] } ?? []) + tools + exports
             + [.delete(disabledReason: deleteDisabledReason)]
     }
 
@@ -51,7 +64,9 @@ enum RecordingMenuItem: Hashable {
     /// Why the item cannot be used now, shown under its label; nil when it can.
     var disabledReason: String? {
         switch self {
-        case .trim(let disabledReason), .split(let disabledReason), .delete(let disabledReason): disabledReason
+        case .trim(let disabledReason), .split(let disabledReason), .share(let disabledReason),
+            .export(let disabledReason), .delete(let disabledReason):
+            disabledReason
         case .pin, .goToTune, .openOrigin: nil
         }
     }
@@ -63,6 +78,8 @@ enum RecordingMenuItem: Hashable {
         case .trim: RecordingScreenText.trim
         case .split: RecordingScreenText.split
         case .openOrigin(let site, _): RecordingRowActions.openOn(site)
+        case .share: RecordingExportText.share
+        case .export: RecordingExportText.export
         case .delete: RecordingRowActions.delete
         }
     }
@@ -74,6 +91,8 @@ enum RecordingMenuItem: Hashable {
         case .trim: "scissors"
         case .split: "rectangle.split.3x1"
         case .openOrigin: "arrow.up.right.square"
+        case .share: "square.and.arrow.up"
+        case .export: "square.and.arrow.down"
         case .delete: "trash"
         }
     }

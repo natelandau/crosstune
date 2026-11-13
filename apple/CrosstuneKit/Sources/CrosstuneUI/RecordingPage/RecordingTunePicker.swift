@@ -15,15 +15,15 @@ final class RecordingTunePickerModel: TunePickerSource {
     let chosenID: String?
 
     private let search: CatalogPickerSearch
-    @ObservationIgnored private let onPick: @MainActor (_ tuneID: String) async -> Void
+    @ObservationIgnored private let onPick: @MainActor (_ tune: CatalogEntry) async -> Void
     @ObservationIgnored private let onCreate: @MainActor (_ title: String) async -> Void
 
     /// - Parameters:
-    ///   - onPick: Files the recording under the picked tune.
+    ///   - onPick: Files the recording under the picked tune, handed its catalog entry.
     ///   - onCreate: Starts a tune by the typed title and files the recording under it.
     init(
         store: CrosstuneStore, chosenID: String?,
-        onPick: @escaping @MainActor (_ tuneID: String) async -> Void = { _ in },
+        onPick: @escaping @MainActor (_ tune: CatalogEntry) async -> Void = { _ in },
         onCreate: @escaping @MainActor (_ title: String) async -> Void = { _ in }
     ) {
         self.chosenID = chosenID
@@ -70,7 +70,7 @@ final class RecordingTunePickerModel: TunePickerSource {
     }
 
     func pick(_ entry: CatalogEntry) async {
-        await onPick(entry.tune.id)
+        await onPick(entry)
     }
 
     func create(_ title: String) async {
@@ -82,7 +82,8 @@ final class RecordingTunePickerModel: TunePickerSource {
         guard let results else { return .nothing }
         switch SearchSubmit(query: query, visible: results.matches, outcome: results.outcome) {
         case .open(let tuneID):
-            await onPick(tuneID)
+            guard let entry = results.matches.first(where: { $0.tune.id == tuneID }) else { return .nothing }
+            await onPick(entry)
             return .picked
         case .create(let title): return .create(title: title)
         case .dismiss: return .dismissKeyboard
@@ -129,7 +130,7 @@ struct RecordingTuneSheet: View {
         let model = model
         let opened = RecordingTunePickerModel(
             store: store, chosenID: tuneID,
-            onPick: { await model.file($0) },
+            onPick: { await model.file($0.tune.id) },
             onCreate: { await model.fileUnderNewTune($0) })
         // Shown before the read, so the search field is in place as the sheet opens.
         picker = opened

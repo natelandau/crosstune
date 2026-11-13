@@ -1,16 +1,16 @@
 import { act, renderHook } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import { useTuneSelection } from './useTuneSelection'
+import { useRowSelection } from './useRowSelection'
 
 const IDS = ['a', 'b', 'c', 'd', 'e']
 
 function setup(initial: { ids?: readonly string[]; active?: boolean } = {}) {
-  return renderHook(({ ids, active }) => useTuneSelection(ids, active), {
+  return renderHook(({ ids, active }) => useRowSelection(ids, active), {
     initialProps: { ids: initial.ids ?? IDS, active: initial.active ?? true },
   })
 }
 
-describe('useTuneSelection', () => {
+describe('useRowSelection', () => {
   it('toggles a tune on and off', () => {
     const { result } = setup()
     act(() => result.current.toggle('b'))

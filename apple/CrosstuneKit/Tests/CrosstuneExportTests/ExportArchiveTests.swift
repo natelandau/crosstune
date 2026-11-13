@@ -303,7 +303,7 @@ private func setImmutable(_ immutable: Bool, inFolder folder: URL) throws {
     try FileManager.default.createDirectory(
         at: work.appending(path: UUID().uuidString), withIntermediateDirectories: true)
 
-    ExportArchive.removeLeftovers(root: work)
+    ExportWorkFolder.removeLeftovers(root: work)
 
     #expect(FileManager.default.fileExists(atPath: work.path(percentEncoded: false)) == false)
 }

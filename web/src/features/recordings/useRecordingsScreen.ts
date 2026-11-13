@@ -3,7 +3,7 @@ import type { ConfirmQuestion } from '../../ui/confirmQuestion'
 import type { RowAction } from '../../ui/rowTypes'
 import { readSearchQuery, writeSearchQuery } from '../../ui/searchSession'
 import {
-  arrangedCount,
+  arrangedViews,
   arrangeRecordings,
   recordingCountLabel,
   type FiledArrangement,
@@ -32,6 +32,8 @@ export interface RecordingsScreen {
   countLabel: string
   unfiled: RecordingView[]
   filed: FiledArrangement
+  /** Every listed recording in screen order: the unfiled, then the filed. */
+  listedViews: RecordingView[]
   sort: SortChoice
   setSort: (choice: SortChoice) => void
   query: string
@@ -95,7 +97,8 @@ export function useRecordingsScreen({ confirm }: RecordingsScreenOptions): Recor
     writeSearchQuery('recordings', value)
   }
   const arrangement = useMemo(() => arrangeRecordings(shown, sort, query), [shown, sort, query])
-  const listed = arrangedCount(arrangement)
+  const listedViews = useMemo(() => arrangedViews(arrangement), [arrangement])
+  const listed = listedViews.length
 
   const importFiles = useAudioImport(null, setUploadError)
 
@@ -106,6 +109,7 @@ export function useRecordingsScreen({ confirm }: RecordingsScreenOptions): Recor
     countLabel: recordingCountLabel(listed, views.length),
     unfiled: arrangement.unfiled,
     filed: arrangement.filed,
+    listedViews,
     sort,
     setSort: setRecordingsSort,
     query,

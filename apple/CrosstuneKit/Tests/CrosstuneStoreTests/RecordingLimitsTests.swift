@@ -116,12 +116,12 @@ struct RecordingLimitsTests {
     @Test func aTuneDeleteKeepsAHeldParentUnlessItsWaitingPieceGoesToo() {
         let parent = Recording(id: "p", tuneID: "t", source: "m", state: "ready")
         let elsewhere = piece("x", of: "p")
-        #expect(RecordingLimits.keptByTuneDelete([parent], pieces: [elsewhere]) == ["p"])
+        #expect(RecordingLimits.keptByDelete([parent], pieces: [elsewhere]) == ["p"])
         var filed = elsewhere
         filed.tuneID = "t"
-        #expect(RecordingLimits.keptByTuneDelete([parent, filed], pieces: [filed]).isEmpty)
+        #expect(RecordingLimits.keptByDelete([parent, filed], pieces: [filed]).isEmpty)
         var failed = parent
         failed.state = "failed"
-        #expect(RecordingLimits.keptByTuneDelete([failed], pieces: [elsewhere]).isEmpty)
+        #expect(RecordingLimits.keptByDelete([failed], pieces: [elsewhere]).isEmpty)
     }
 }

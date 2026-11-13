@@ -82,6 +82,15 @@ public final class ShellValue<Value> {
         get { read() }
         set { write(newValue) }
     }
+
+    /// ``value`` as a binding.
+    var binding: Binding<Value> {
+        Binding {
+            self.value
+        } set: {
+            self.value = $0
+        }
+    }
 }
 
 /// Opens a tune or a list by its id, through the shell. Two openers are equal when they share

@@ -1,3 +1,4 @@
+import { Ellipsis, ListPlus, SquarePen, Tag } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useAnalytics } from '../../usage/AnalyticsProvider'
 import { countBucket } from '../../usage/buckets'
@@ -14,9 +15,11 @@ import {
 import { STATUS_LABELS } from '../../constants'
 import { useDb } from '../../db/DbProvider'
 import { DELETE } from '../../ui/confirmCopy'
+import { MORE_ACTIONS } from '../../ui/menuCopy'
 import type { ConfirmQuestion } from '../../ui/confirmQuestion'
 import type { MenuItem } from '../../ui/menuTypes'
 import { useAction, type Action } from '../../ui/useAction'
+import { ADD_TO_LIST } from '../lists/listPickerCopy'
 import type { ListAddition } from '../lists/useListPicker'
 import { deleteTunesQuestion } from '../tune/deleteTuneQuestion'
 import {
@@ -25,11 +28,15 @@ import {
   archiveLabel,
   createdListToast,
   deleteTunesLabel,
+  EDIT_SELECTED,
   editedToast,
+  MORE_CAPTION,
   removedFromListToast,
   removeFromListLabel,
+  SET_STATUS,
   setStatusLabel,
 } from './selectionCopy'
+import type { SelectionButton } from './selectionButton'
 import type { CatalogEntry } from '../../db/types'
 
 /** Where the selection is being made, since a list offers one action the catalog cannot. */
@@ -57,6 +64,8 @@ export interface BulkActionsOptions {
 export interface BulkActionsState {
   /** The selected tunes' user tune ids, in screen order, for the list picker. */
   ids: readonly string[]
+  /** The selection bar's buttons: Set status, Edit, Add to list, then More. */
+  buttons: SelectionButton[]
   /** One item per status, for the Set status menu. */
   statusItems: MenuItem[]
   /** Archive, Unarchive, Remove from list on a list, and Delete last. */
@@ -215,8 +224,16 @@ export function useBulkActionsWith({
   const closeSheet = (which: Exclude<BulkSheet, null>) =>
     setOpenSheet((current) => (current === which ? null : current))
 
+  const buttons: SelectionButton[] = [
+    { id: 'status', label: SET_STATUS, icon: Tag, menu: statusItems },
+    { id: 'edit', label: EDIT_SELECTED, icon: SquarePen, onPress: () => setSheet('edit') },
+    { id: 'list', label: ADD_TO_LIST, icon: ListPlus, onPress: () => setSheet('list') },
+    { id: 'more', label: MORE_ACTIONS, caption: MORE_CAPTION, icon: Ellipsis, menu: more },
+  ]
+
   return {
     ids,
+    buttons,
     statusItems,
     more,
     error: bar.error,

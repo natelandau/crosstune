@@ -7,6 +7,7 @@ import {
 import type { LocalFileState, RecordingFile } from '../db/recordings'
 import type { CrosstuneDb } from '../db/schema'
 import type { LocalRecording } from '../db/types'
+import type { Undo } from './bulk'
 import { holdsSplitAudio, waitsForCut } from '../domain/recordingLimits'
 import { localIsoDate, localIsoTime } from '../text/localDate'
 import {
@@ -353,6 +354,44 @@ export async function updateRecording(
   })
 }
 
+/**
+ * Files every recording in `ids` under `tuneId`, moving any filed under another tune, with
+ * `updateRecording`'s checks. One deleted or missing since it was selected is skipped. `moved`
+ * holds each recording the link changed, as it was before. The undo puts each back on its
+ * earlier tune and place in it, or unfiled when that tune is gone or there was none.
+ */
+export async function linkRecordings(
+  db: CrosstuneDb,
+  ids: readonly string[],
+  tuneId: string,
+): Promise<{ moved: LocalRecording[]; undo: Undo }> {
+  const moved: LocalRecording[] = []
+  await recordingTx(db, async () => {
+    for (const row of await db.recordings.bulkGet([...new Set(ids)])) {
+      // One already filed here keeps its row as it is, so the link pushes no empty edit.
+      if (!row || row.deleted_at || row.tune_id === tuneId) continue
+      moved.push(row)
+      await updateRecording(db, row.id, { tune_id: tuneId })
+    }
+  })
+  const undo = () =>
+    recordingTx(db, async () => {
+      const at = now()
+      for (const { id, tune_id, position } of moved) {
+        const row = await db.recordings.get(id)
+        if (!row || row.deleted_at) continue
+        const earlier = tune_id ? await db.tunes.get(tune_id) : undefined
+        const restore =
+          !tune_id || (earlier && !earlier.deleted_at)
+            ? { tune_id, position }
+            : { tune_id: null, position: row.position }
+        await putRow(db, 'recordings', { ...row, ...restore, updated_at: at })
+        await requeueFailedUpload(db, id)
+      }
+    })
+  return { moved, undo }
+}
+
 /** An edit re-pushes the row, so a failed upload gets a fresh attempt along with it. Call
  * inside recordingTx. */
 export async function requeueFailedUpload(db: CrosstuneDb, id: string): Promise<void> {
@@ -434,6 +473,33 @@ export async function deleteRecording(db: CrosstuneDb, id: string): Promise<void
     }
     await tombstoneRecording(db, id, now(), { enqueueDelete: true })
   })
+}
+
+/**
+ * Deletes every recording in `ids` it can. A split parent whose piece waits for its cut stays
+ * and comes back in `held`, unless the same delete takes that piece.
+ */
+export async function deleteRecordings(
+  db: CrosstuneDb,
+  ids: readonly string[],
+): Promise<{ deleted: string[]; held: string[] }> {
+  const deleted: string[] = []
+  const held: string[] = []
+  await recordingTx(db, async () => {
+    const unique = [...new Set(ids)]
+    const waiting = await waitingParentIds(db, new Set(unique))
+    const at = now()
+    for (const row of await db.recordings.bulkGet(unique)) {
+      if (!row || row.deleted_at) continue
+      if (holdsSplitAudio(row, waiting)) {
+        held.push(row.id)
+        continue
+      }
+      await tombstoneRecording(db, row.id, at, { enqueueDelete: true })
+      deleted.push(row.id)
+    }
+  })
+  return { deleted, held }
 }
 
 /**

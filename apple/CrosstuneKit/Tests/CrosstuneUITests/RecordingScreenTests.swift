@@ -1,6 +1,7 @@
 import CrosstuneAudio
 import CrosstuneCommands
 import CrosstuneDesign
+import CrosstuneExport
 import CrosstuneStore
 import CrosstuneTestSupport
 import CrosstuneVocabulary
@@ -485,21 +486,57 @@ private final class Writes {
         #expect(audio.calls.suffix(2) == ["setRate(60)", "setPitch(200)"])
     }
 
-    @Test func theMoreMenuOffersTrimAndSplitBeforeDelete() {
+    /// The platform's share and export items, each disabled with `reason`: Share everywhere, and
+    /// Export… on the Mac.
+    private func exportItems(_ reason: String? = nil) -> [RecordingMenuItem] {
+        #if os(macOS)
+            [.share(disabledReason: reason), .export(disabledReason: reason)]
+        #else
+            [.share(disabledReason: reason)]
+        #endif
+    }
+
+    @Test func theMoreMenuOffersTrimSplitAndExportBeforeDelete() {
         #expect(
             RecordingMenuItem.items(
-                pinned: true, goesToTune: true, trimDisabledReason: RecordingScreenText.trimBusy) == [
+                pinned: true, goesToTune: true, trimDisabledReason: RecordingScreenText.trimBusy,
+                exportDisabledReason: nil) == [
                     .pin(pinned: true), .goToTune, .trim(disabledReason: RecordingScreenText.trimBusy),
-                    .split(disabledReason: nil), .delete(disabledReason: nil),
-                ])
+                    .split(disabledReason: nil),
+                ] + exportItems() + [.delete(disabledReason: nil)])
         #expect(RecordingMenuItem.delete(disabledReason: nil).label == RecordingRowActions.delete)
     }
 
-    @Test func theMoreMenuLeavesTrimAndSplitOutWhenTheRecordingCannotTrim() {
+    /// A plan that stops recordings playing, and so trimming, still exports them.
+    @Test func theMoreMenuLeavesTrimAndSplitOutWhenTheRecordingCannotTrimButKeepsExport() {
         #expect(
-            RecordingMenuItem.items(pinned: false, goesToTune: true, trimDisabledReason: nil, trims: false) == [
-                .pin(pinned: false), .goToTune, .delete(disabledReason: nil),
-            ])
+            RecordingMenuItem.items(
+                pinned: false, goesToTune: true, trimDisabledReason: nil, exportDisabledReason: nil, trims: false)
+                == [.pin(pinned: false), .goToTune] + exportItems() + [.delete(disabledReason: nil)])
+    }
+
+    @Test func theExportItemsShowWhyTheyCannotRunNow() {
+        let items = RecordingMenuItem.items(
+            pinned: nil, goesToTune: false, trimDisabledReason: nil,
+            exportDisabledReason: RecordingExportText.capturing)
+        let exports = items.filter(\.sharesOrExports)
+        #expect(exports == exportItems(RecordingExportText.capturing))
+        #expect(exports.allSatisfy { $0.disabledReason == RecordingExportText.capturing })
+        #expect(RecordingMenuItem.share(disabledReason: nil).label == RecordingExportText.share)
+        #if os(macOS)
+            #expect(RecordingMenuItem.export(disabledReason: nil).label == RecordingExportText.export)
+        #endif
+    }
+
+    @Test(arguments: [
+        (ExportReadiness.blocked(.capturing), Optional(RecordingExportText.capturing)),
+        (.blocked(.notReady), RecordingExportText.notReady),
+        (.blocked(.offline), RecordingExportText.offline),
+        (.fetch, nil),
+        (.local(audioURL), nil),
+    ])
+    func theExportItemsReasonFollowsReadiness(readiness: ExportReadiness, reason: String?) {
+        #expect(RecordingExportText.disabledReason(readiness) == reason)
     }
 
     @Test func theMoreMenuOpensAnImportedRecordingOnItsSiteBeforeTrim() throws {
@@ -511,10 +548,10 @@ private final class Writes {
         #expect(open == .openOrigin(site: "Slippery-Hill", page: try #require(URL(string: page))))
         #expect(open.label == RecordingRowActions.openOn("Slippery-Hill"))
         #expect(
-            RecordingMenuItem.items(pinned: true, goesToTune: true, trimDisabledReason: nil, openOrigin: open) == [
-                .pin(pinned: true), .goToTune, open, .trim(disabledReason: nil), .split(disabledReason: nil),
-                .delete(disabledReason: nil),
-            ])
+            RecordingMenuItem.items(
+                pinned: true, goesToTune: true, trimDisabledReason: nil, exportDisabledReason: nil, openOrigin: open)
+                == [.pin(pinned: true), .goToTune, open, .trim(disabledReason: nil), .split(disabledReason: nil)]
+                + exportItems() + [.delete(disabledReason: nil)])
         #expect(RecordingMenuItem.openOrigin(for: imported("javascript:alert(1)")) == nil)
         #expect(RecordingMenuItem.openOrigin(for: imported(nil, origin: "own")) == nil)
     }
@@ -723,5 +760,15 @@ struct ShownPeaksGridTests {
         #expect(shown.gridLevel(barMs: 10, index: 3) == CGFloat(51) / 199)
         #expect(shown.gridLevel(barMs: 50, index: -1) == nil)
         #expect(shown.gridLevel(barMs: 50, index: 40) == nil)
+    }
+}
+
+extension RecordingMenuItem {
+    /// Whether the item shares or exports the recording.
+    var sharesOrExports: Bool {
+        switch self {
+        case .share, .export: true
+        default: false
+        }
     }
 }

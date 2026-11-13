@@ -1,6 +1,6 @@
-import { ArrowUpRight, ExternalLink } from 'lucide-react'
+import { ArrowUpRight, ExternalLink, ListChecks } from 'lucide-react'
 import { createContext, useContext, useLayoutEffect, useState, type ReactNode } from 'react'
-import type { Key } from 'react-aria-components'
+import type { Key, Selection } from 'react-aria-components'
 import { closeLinkName, linkOutText, openOnProviderName } from '../links/linkNames'
 import { useLinkRow } from '../links/useLinkRow'
 import { openOn, SUBSCRIBE_TO_PLAY } from '../recordings/recordingCopy'
@@ -13,6 +13,9 @@ import {
   slotName,
 } from '../recordings/recordingNames'
 import { useRecordingRow } from '../recordings/useRecordingRow'
+import { applySelection } from '../selection/applySelection'
+import { SELECT } from '../selection/selectionCopy'
+import type { SelectionMode } from '../selection/useSelectionMode'
 import type { PlayOrigin } from '../player/playLog'
 import type { PremiumEntry } from '../plan/PremiumSheetProvider'
 import type { LinkMediaRow, RecordingMediaRow } from './useTuneMedia'
@@ -30,7 +33,7 @@ import type { Source } from '../../usage/events'
 import { useLatest } from '../../ui/useLatest'
 import { useNewRecording } from '../capture/useNewRecording'
 import { Button } from '../../ui/Button'
-import { Row } from '../../ui/Row'
+import { Row, type RowAction } from '../../ui/Row'
 import { RowList } from '../../ui/RowList'
 import { rowActions } from '../../ui/sharedActions'
 import { PressableRow } from '../../ui/PressableRow'
@@ -51,15 +54,47 @@ const LINE = 't-secondary inline-flex min-h-6 max-w-full items-center gap-1'
 // The list hears a row's tap, so it looks the row's own action up by key.
 const MediaOpens = createContext<Map<Key, () => void> | null>(null)
 
-/** The rows of recordings and links, each of which answers its own tap. */
-export function MediaList({ label, children }: { label: string; children: ReactNode }) {
+/**
+ * The rows of recordings and links, each of which answers its own tap. While the screen
+ * selects, a tap toggles the row's selection instead.
+ */
+export function MediaList({
+  label,
+  children,
+  selection,
+}: {
+  label: string
+  children: ReactNode
+  /** The screen's selection, which the rows join while it is on. */
+  selection?: SelectionMode
+}) {
   const [opens] = useState(() => new Map<Key, () => void>())
   return (
     <MediaOpens value={opens}>
-      <RowList label={label} bleed onAction={(key) => opens.get(key)?.()}>
+      <RowList
+        label={label}
+        bleed
+        {...(selection?.active
+          ? {
+              selectionMode: 'multiple',
+              selectionBehavior: 'toggle',
+              selectedKeys: new Set(selection.selected),
+              onSelectionChange: (keys: Selection) => applySelection(selection, keys),
+            }
+          : { onAction: (key: Key) => opens.get(key)?.() })}
+      >
         {children}
       </RowList>
     </MediaOpens>
+  )
+}
+
+/** A detail line as plain text. */
+function PlainLine({ children }: { children: string }) {
+  return (
+    <span className={`${LINE} min-h-(--target)`}>
+      <span className="truncate">{children}</span>
+    </span>
   )
 }
 
@@ -78,6 +113,7 @@ function MediaRow({
   description,
   action,
   actions,
+  menu,
   dimmed,
   fresh,
   onOpen,
@@ -96,7 +132,9 @@ function MediaRow({
   description?: string
   /** A control that takes the glyph's slot, such as a recording's play or a stuck one's Retry. */
   action?: ReactNode
-  actions: Parameters<typeof rowActions>[0]
+  actions: RowAction[]
+  /** The row's menu, when it holds more than `actions`. */
+  menu?: RowAction[]
   dimmed?: boolean
   fresh?: boolean
   onOpen?: () => void
@@ -123,7 +161,8 @@ function MediaRow({
           </ActionSlot>
         )
       }
-      actions={rowActions(actions)}
+      actions={actions}
+      menu={menu}
       dimmed={dimmed}
       fresh={fresh}
       playing={loaded}
@@ -145,6 +184,8 @@ export function RecordingRow({
   pageSource = 'tune',
   premiumFrom,
   storage,
+  selecting = false,
+  onSelect,
 }: {
   row: RecordingMediaRow
   onRetry: (kind: 'upload' | 'transcode') => void
@@ -162,6 +203,10 @@ export function RecordingRow({
   premiumFrom?: PremiumEntry
   /** The server's storage report, read once by the list rather than by each row. */
   storage: StorageUsage | null
+  /** The screen is selecting, and acts on its rows from its own bar, so the row offers nothing. */
+  selecting?: boolean
+  /** Opens selection with this row selected, from the row's menu. */
+  onSelect?: () => void
 }) {
   const data = useRecordingRow(view, {
     tuneNamedAbove,
@@ -176,6 +221,7 @@ export function RecordingRow({
   const { title, control, slot, retry, origin } = data
   const meta = data.meta.join(' · ')
   const glyph = <RecordingControlGlyph control={control} offline={data.offlineDownload} />
+  const rowMenu = selecting ? [] : rowActions(actions)
   return (
     <MediaRow
       id={view.recording.id}
@@ -189,7 +235,10 @@ export function RecordingRow({
       details={
         <>
           {meta && <span className="t-num block truncate">{meta}</span>}
-          {origin && (
+          {/* While selecting a tap anywhere on the row toggles it, so the lines show as text. */}
+          {origin && selecting ? (
+            <PlainLine>{origin.site}</PlainLine>
+          ) : origin ? (
             <a
               {...keepPress}
               href={origin.url}
@@ -201,8 +250,10 @@ export function RecordingRow({
               <span className="truncate">{origin.site}</span>
               <ExternalLink className="size-4 shrink-0" aria-hidden />
             </a>
-          )}
-          {onOpenTune && view.tuneTitle && (
+          ) : null}
+          {onOpenTune && view.tuneTitle && selecting ? (
+            <PlainLine>{view.tuneTitle}</PlainLine>
+          ) : onOpenTune && view.tuneTitle ? (
             <span {...keepPress} className="block">
               <PressableRow
                 variant="line"
@@ -213,12 +264,14 @@ export function RecordingRow({
                 <span className="truncate">{view.tuneTitle}</span>
               </PressableRow>
             </span>
-          )}
+          ) : null}
           {data.error && <span className="text-danger block">{data.error}</span>}
         </>
       }
       action={
-        retry ? (
+        selecting ? (
+          <ActionSlot data-media-glyph>{control === 'none' ? null : glyph}</ActionSlot>
+        ) : retry ? (
           <ActionSlot {...keepPress} worded>
             <Button label={RETRY} name={retryName(retry, title)} onPress={() => onRetry(retry)} />
           </ActionSlot>
@@ -236,7 +289,15 @@ export function RecordingRow({
           <ActionSlot />
         )
       }
-      actions={actions}
+      actions={rowMenu}
+      menu={
+        selecting
+          ? []
+          : onSelect && [
+              { id: 'select', label: SELECT, icon: ListChecks, onAction: onSelect },
+              ...rowMenu,
+            ]
+      }
       onOpen={
         openPage
           ? () => openPage(view.recording.id, { tuneId: view.tuneId, source: pageSource })
@@ -280,7 +341,7 @@ export function LinkRow({ row: { link, pinned, actions } }: { row: LinkMediaRow 
           <span className={LINE}>{provider}</span>
         )
       }
-      actions={actions}
+      actions={rowActions(actions)}
       onOpen={open?.onOpen}
     />
   )

@@ -310,8 +310,14 @@ private let utcDay: DateText = DateText(timeZone: TimeZone(identifier: "UTC")!)
 /// When a recording was played, to the precision known: a year, a month, a day.
 private func recordedOn(_ recording: Recording, dateText: DateText) -> String {
     guard let (at, precision) = recording.knownRecordedDate else { return "" }
+    return recordedDateText(at.date, precision: precision, local: dateText)
+}
+
+/// A recorded date as the export writes it, in its CSV and its file names: `yyyy`, `yyyy-MM`, or
+/// `yyyy-MM-dd`. A `time` precision date is the day `local` shows; the others are the stored UTC date.
+func recordedDateText(_ at: Date, precision: RecordingPrecision, local: DateText) -> String {
     switch precision {
-    case .time: return dateText(at)
+    case .time: return local(at)
     case .day: return utcDay(at)
     case .month: return String(utcDay(at).prefix(7))
     case .year: return String(utcDay(at).prefix(4))

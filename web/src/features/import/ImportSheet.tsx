@@ -5,7 +5,7 @@ import { LIST_LIMITS, TUNE_LIMITS } from '../../api/vocabulary'
 import { GENRES } from '../../constants'
 import { useStampedDensity } from '../../platform/density'
 import { Button } from '../../ui/Button'
-import { BACK } from '../../ui/confirmCopy'
+import { BACK, CONTINUE } from '../../ui/confirmCopy'
 import { ErrorLine } from '../../ui/ErrorLine'
 import { Checkbox } from '../../ui/form/Checkbox'
 import { Group } from '../../ui/form/Group'
@@ -21,7 +21,6 @@ import { TITLE_FIELD } from '../tune/tuneFormCopy'
 import { ImportHelp } from './ImportHelp'
 import {
   ALREADY_IN_CATALOG,
-  CONTINUE,
   IMPORT_GENRE_LABEL,
   IMPORT_LIST_LABEL,
   IMPORT_STATUS_LABEL,

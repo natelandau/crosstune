@@ -47,3 +47,17 @@ export const NAME_LOCATION_HELP = 'Recordings made here show this name.'
 /** The name of a row that picks a location: the action label, then the row's lines. */
 export const pickLocationName = (name: string, detail?: string | null) =>
   detail ? `Use ${name}, ${detail}` : `Use ${name}`
+
+/** The More menu item, and the Quick Find command, that opens selection. */
+export const SELECT_RECORDINGS = 'Select recordings'
+export const LINK_TO_TUNE = 'Link to tune'
+export const countRecordings = (n: number) => (n === 1 ? '1 recording' : `${n} recordings`)
+export const linkedRecordingsToast = (n: number, tune: string) =>
+  `Linked ${countRecordings(n)} to ${tune}`
+export const deleteRecordingsTitle = (n: number) => `Delete ${countRecordings(n)}?`
+export const DELETE_RECORDINGS_SYNCED_NOTE = 'They are removed from every device.'
+export const DELETE_RECORDINGS_UNSYNCED_NOTE =
+  'Some have not been uploaded, so this cannot be undone.'
+/** After the bulk delete's note, for the split parents the delete leaves. */
+export const heldRecordingsLine = (k: number) =>
+  k === 1 ? '1 is still splitting and will stay.' : `${k} are still splitting and will stay.`

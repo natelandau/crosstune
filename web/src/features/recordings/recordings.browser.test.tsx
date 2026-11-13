@@ -6,7 +6,7 @@ import type { CrosstuneDb } from '../../db/schema'
 import { providerLabel } from '../links/display'
 import { NOT_AUDIO_ERROR } from './addAudioFiles'
 import { recordingCountLabel } from './arrangeRecordings'
-import { openTuneName, playName } from './recordingNames'
+import { downloadName, openTuneName, playName } from './recordingNames'
 import {
   FILED_HEADER,
   MY_RECORDINGS,
@@ -472,6 +472,9 @@ it('drops the storage summary once the plan lapses to free, which has no quota',
     }),
   )
   await db.recordings.put(recordingRow('r1', { label: 'Jam recording', state: 'ready' }))
+  await db.recording_files.put(
+    recordingFile('r1', { local_state: 'uploaded', blob: new Blob(['audio']) }),
+  )
   await show()
   await expect.element(column().getByRole('progressbar', { name: STORAGE_USED })).toBeVisible()
   await db.entitlements.put(entitlementRow())
@@ -485,6 +488,11 @@ it('dims every recording on a free plan, filed and unfiled, and answers its play
   await db.user_tunes.put(userTuneRow('u-hen', 'hen'))
   await db.recordings.put(recordingRow('r1', { label: 'Jam recording', state: 'ready' }))
   await db.recordings.put(recordingRow('r2', { label: 'Hen take', tune_id: 'hen', state: 'ready' }))
+  for (const id of ['r1', 'r2']) {
+    await db.recording_files.put(
+      recordingFile(id, { local_state: 'uploaded', blob: new Blob(['audio']) }),
+    )
+  }
   const analytics = recordingAnalytics()
   listRole = 'region'
   await renderApp({
@@ -513,5 +521,17 @@ it('dims every recording on a free plan, filed and unfiled, and answers its play
     .toEqual([
       { name: 'premium_sheet_shown', props: { reason: 'recordings', from: 'recording_row' } },
     ])
-  expect(await db.recording_files.get('r2')).toBeUndefined()
+})
+
+it('offers a download for a recording the server holds on a free plan, and a tap fetches it', async () => {
+  await db.entitlements.put(entitlementRow())
+  await db.recordings.put(recordingRow('r1', { label: 'Jam recording', state: 'ready' }))
+  const download = vi.fn(async () => null)
+  listRole = 'region'
+  await renderApp({ path: RECORDINGS.root, db, frame: WIDE, sync: { download } })
+  await expect.element(row('Jam recording')).not.toHaveAttribute('data-dimmed')
+  await row('Jam recording')
+    .getByRole('button', { name: downloadName('Jam recording'), exact: true })
+    .click()
+  await expect.poll(() => download.mock.calls).toEqual([['r1']])
 })

@@ -147,13 +147,10 @@ export function nextSort(current: SortChoice, picked: RecordingSort): SortChoice
   return nextChoice(current, picked, isDateSort)
 }
 
-/** How many recordings an arrangement shows, across both lists. */
-export function arrangedCount({ unfiled, filed }: Arrangement): number {
-  const filedCount =
-    filed.kind === 'flat'
-      ? filed.views.length
-      : filed.groups.reduce((sum, group) => sum + group.views.length, 0)
-  return unfiled.length + filedCount
+/** Every arranged recording in the order the list shows them. */
+export function arrangedViews({ unfiled, filed }: Arrangement): RecordingView[] {
+  const filedViews = filed.kind === 'flat' ? filed.views : filed.groups.flatMap((g) => g.views)
+  return [...unfiled, ...filedViews]
 }
 
 /** The Recordings list header's count: "24 recordings", or "3 of 24 recordings" when narrowed. */

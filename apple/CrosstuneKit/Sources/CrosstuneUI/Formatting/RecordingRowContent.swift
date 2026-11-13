@@ -77,7 +77,6 @@ public struct RecordingRowContent: Hashable, Sendable {
             timeZone: timeZone
         ).joined(separator: " · ")
         let blockedPlay = playBlocked && Self.blocksPlay(control)
-        isDimmed = offlineDownload || blockedPlay || !recordingsPlay
         notice = blockedPlay ? MediaText.stopRecordingToPlay : nil
         retry = RecordingText.retry(recording, file: file)
         let retryActionLabel: String? =
@@ -108,10 +107,11 @@ public struct RecordingRowContent: Hashable, Sendable {
         }
         let gated: Bool
         switch shown {
-        case .play?, .close?, .download?: gated = !recordingsPlay
-        case .retry?, .premium?, nil: gated = false
+        case .play?, .close?: gated = !recordingsPlay
+        case .download?, .retry?, .premium?, nil: gated = false
         }
         // A gated press opens the Plan sheet, so the slot offers a subscription rather than the play.
+        isDimmed = offlineDownload || blockedPlay || gated
         tap = gated ? .premium : shown
         actionLabel = gated ? nil : shownActionLabel
         spokenNotice = gated ? RecordingText.subscribeToPlay : nil

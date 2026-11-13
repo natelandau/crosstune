@@ -182,6 +182,7 @@ private let samples: [AnalyticsEvent] = [
     .syncFailed(reason: .network),
     .exportCompleted(format: .zip),
     .exportFailed(format: .zip, reason: .storageFull),
+    .recordingExported(method: .share, count: 2, fetched: 1, skipped: 0),
 ]
 
 /// Names every case with no default, so a case added to `AnalyticsEvent` fails to compile here
@@ -206,7 +207,7 @@ private func hasASample(_ event: AnalyticsEvent) {
         .scanAdded,
         .scanViewed, .scanDeleted, .scansReordered, .settingChanged, .usageSharingDisabled, .storageLimitReached,
         .premiumSheetShown, .noticeShown, .purchaseStarted, .purchaseCompleted, .purchaseFailed, .purchaseRestored,
-        .uploadFailed, .syncFailed, .exportCompleted, .exportFailed:
+        .uploadFailed, .syncFailed, .exportCompleted, .exportFailed, .recordingExported:
         break
     }
 }
@@ -296,6 +297,7 @@ private let pairedEnums: [(name: String, rawValues: [String])] = [
     ("screen", Screen.allCases.map(\.rawValue)),
     ("audio_format", AudioFormat.allCases.map(\.rawValue)),
     ("export_format", ExportFormat.allCases.map(\.rawValue)),
+    ("recording_export_method", RecordingExportMethod.allCases.map(\.rawValue)),
     ("place_method", PlaceMethod.allCases.map(\.rawValue)),
     ("recording_page_layout", RecordingPageLayout.allCases.map(\.rawValue)),
     ("saved_location_method", SavedLocationMethod.allCases.map(\.rawValue)),

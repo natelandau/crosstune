@@ -131,13 +131,41 @@ import CrosstuneDesign
     }
 
     extension View {
-        /// Leads this row with its selection checkbox while `isSelecting`. The row stays in one
-        /// stack either way, so entering selection keeps its state.
-        func selectionCheckbox(_ isSelecting: Bool, title: String, isOn: Binding<Bool>) -> some View {
+        /// A row while its screen selects: led by its checkbox, and a click anywhere on it does
+        /// what the checkbox does, while a Shift-click selects every row from the last one
+        /// clicked. The row takes the click itself: a click the list took would draw that row
+        /// alone as selected for a moment. The row stays in one stack either way, so entering
+        /// selection keeps its state.
+        func selectionRow(_ selection: Binding<TuneSelection>, row: String, title: String) -> some View {
+            modifier(SelectionRow(selection: selection, row: row, title: title))
+        }
+    }
+
+    private struct SelectionRow: ViewModifier {
+        @Binding var selection: TuneSelection
+        let row: String
+        let title: String
+
+        @Environment(\.selectionVisibleIDs) private var visibleIDs
+
+        func body(content: Content) -> some View {
             HStack(spacing: 8) {
-                if isSelecting { MacSelectionCheckbox(title: title, isOn: isOn) }
-                self
+                if selection.isActive {
+                    MacSelectionCheckbox(title: title, isOn: $selection[isSelected: row, visible: visibleIDs])
+                }
+                content
             }
+            // The whole row takes clicks only while selecting. Otherwise its empty space belongs to
+            // what lies behind it, such as a recording row's open button.
+            .background {
+                if selection.isActive { Color.clear.contentShape(.rect) }
+            }
+            .gesture(
+                TapGesture().onEnded {
+                    selection.click(row, extending: NSEvent.modifierFlags.contains(.shift), visible: visibleIDs)
+                },
+                including: selection.isActive ? .all : .subviews
+            )
         }
     }
 #endif

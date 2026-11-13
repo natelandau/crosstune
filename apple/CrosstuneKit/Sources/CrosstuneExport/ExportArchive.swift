@@ -46,11 +46,7 @@ public typealias FetchMissing = @Sendable (_ file: ExportFile, _ destination: UR
 /// files this device holds, with every other ready recording and scan fetched alongside them.
 /// A fetched file lives only in the export's temporary folder, never in the store's.
 public enum ExportArchive {
-    public static let workFolderName = "crosstune-export"
-
-    static var defaultRoot: URL {
-        FileManager.default.temporaryDirectory.appending(path: workFolderName, directoryHint: .isDirectory)
-    }
+    static var defaultRoot: URL { ExportWorkFolder.data.url }
 
     /// The counts now, then again after every write that changes them, until the caller stops
     /// listening.
@@ -216,15 +212,6 @@ public enum ExportArchive {
         }
     }
 
-    /// Deletes every export a past run left in the temporary folder.
-    public static func removeLeftovers() {
-        removeLeftovers(root: defaultRoot)
-    }
-
-    static func removeLeftovers(root: URL) {
-        try? FileManager.default.removeItem(at: root)
-    }
-
     /// The export plan, a pinned copy of the audio file for each recording it exports and of the
     /// image file for each scan, and the ready files to fetch because no copy is here.
     ///
@@ -289,7 +276,7 @@ public enum ExportArchive {
 
     /// Links `source` at `destination`, or clones it where a link cannot be made. Returns false
     /// when `source` does not exist.
-    private static func pin(_ source: URL, at destination: URL) throws -> Bool {
+    static func pin(_ source: URL, at destination: URL) throws -> Bool {
         let files = FileManager.default
         func gone() -> Bool { !files.fileExists(atPath: source.path(percentEncoded: false)) }
         do {

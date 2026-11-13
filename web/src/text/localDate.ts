@@ -21,3 +21,8 @@ export function localIsoDate(date: Date): string {
 export function localIsoTime(date: Date): string {
   return `${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
+
+/** The IANA time zone this device's clock is set to. */
+export function localTimeZone(): string {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone
+}

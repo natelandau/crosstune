@@ -4,7 +4,6 @@ import CrosstuneExport
 import CrosstuneStore
 import CrosstuneSync
 import Foundation
-import OSLog
 import Observation
 
 /// What the export sheet reads and builds, apart from the store so a test can replace it.
@@ -52,28 +51,13 @@ struct ExportFetchFailed: LocalizedError {
 @MainActor
 @Observable
 final class ExportDataModel {
-    struct Progress: Equatable, Sendable {
-        var done: Int
-        var total: Int
-    }
-
-    private static let logger = Logger(subsystem: "app.crosstune.Crosstune", category: "export")
-
     private let exporter: Exporter?
     private let isOffline: @MainActor () -> Bool
     private let analytics: AnalyticsClient
-    private let diagnostics: DiagnosticsClient
+    private let run: ExportRun<URL>
 
     private(set) var counts: ExportCounts?
-    private(set) var progress: Progress?
     private(set) var failure: String?
-    /// The finished zip, while the share sheet or save panel has it.
-    private(set) var exported: URL?
-    private(set) var isRunning = false
-
-    private var run: Task<Void, Never>?
-    /// Bumped by every start and cancel, so a run that finishes late can tell it was abandoned.
-    private var generation = 0
 
     init(
         exporter: Exporter?, isOffline: @escaping @MainActor () -> Bool = { false }, analytics: AnalyticsClient = .noop,
@@ -82,14 +66,13 @@ final class ExportDataModel {
         self.exporter = exporter
         self.isOffline = isOffline
         self.analytics = analytics
-        self.diagnostics = diagnostics
+        run = ExportRun(diagnostics: diagnostics, discard: Self.discard)
     }
 
-    /// The share sheet and save panel hold the model until they finish, so a zip still here
-    /// once the sheet is gone has no one left to hand it to.
-    isolated deinit {
-        if let exported { Self.discard(exported) }
-    }
+    var progress: ExportProgress? { run.progress }
+    /// The finished zip, while the share sheet or save panel has it.
+    var exported: URL? { run.output }
+    var isRunning: Bool { run.isRunning }
 
     /// The needs-connection copy while offline with files to fetch, so the sheet follows
     /// connectivity and the refused tap needs no message of its own.
@@ -112,7 +95,7 @@ final class ExportDataModel {
     }
 
     var canStart: Bool {
-        isReady && !isRunning && exported == nil
+        isReady && run.canStart
     }
 
     /// Keeps the counts current until the caller is cancelled, so what an export must fetch
@@ -122,7 +105,7 @@ final class ExportDataModel {
         do {
             for try await update in exporter.counts() { counts = update }
         } catch {
-            Self.logger.error("Could not count files to export: \(error, privacy: .public)")
+            exportLogger.error("Could not count files to export: \(error, privacy: .public)")
             failure = failureMessage(error)
         }
     }
@@ -133,68 +116,33 @@ final class ExportDataModel {
     func start() -> Task<Void, Never>? {
         guard canStart, let exporter, let counts else { return nil }
         if counts.missing > 0, isOffline() { return nil }
-        generation += 1
-        let mine = generation
         failure = nil
-        progress = nil
-        isRunning = true
-        let (updates, continuation) = AsyncStream.makeStream(of: Progress.self, bufferingPolicy: .bufferingNewest(1))
-        let task = Task {
-            let watcher = Task {
-                for await update in updates where mine == generation { progress = update }
-            }
-            defer {
-                continuation.finish()
-                watcher.cancel()
-            }
-            do {
-                let url = try await exporter.make { done, total in
-                    continuation.yield(Progress(done: done, total: total))
-                }
-                guard mine == generation else { return Self.discard(url) }
-                exported = url
+        return run.start(
+            { progress in try await exporter.make(progress) },
+            accept: { [analytics] _ in
                 analytics.send(.exportCompleted(format: .zip))
-            } catch {
-                guard mine == generation else { return }
-                Self.logger.error("Could not export: \(error, privacy: .public)")
-                failure = failureMessage(error)
-                let cause = (error as? ExportFetchFailed)?.underlying ?? error
-                let reason = FailureReason(cause)
-                analytics.send(.exportFailed(format: .zip, reason: reason))
-                // Offline, an expired session, a full disk, and cancellation are expected, not defects.
-                let expected =
-                    reason == .network || reason == .storageFull || cause is CancellationError
-                    || !isReportableFailure(cause)
-                if !expected { diagnostics.report(cause, area: .export) }
-            }
-            isRunning = false
-            run = nil
-        }
-        run = task
-        return task
+                return true
+            },
+            failed: { [weak self] error, reason in
+                self?.failure = failureMessage(error)
+                self?.analytics.send(.exportFailed(format: .zip, reason: reason))
+            })
     }
 
     /// Abandons a running export and deletes a zip not yet handed off.
     func cancel() {
-        abandonRun()
-        if let exported { Self.discard(exported) }
-        exported = nil
+        run.cancel()
     }
 
     /// Abandons a running export but leaves a finished zip to the share sheet or save panel
     /// that has it.
     func abandonRun() {
-        generation += 1
-        run?.cancel()
-        run = nil
-        isRunning = false
-        progress = nil
+        run.abandon()
     }
 
     /// The share sheet or save panel closed, done or not, so the zip is no longer needed.
     func finishHandOff() {
-        if let exported { Self.discard(exported) }
-        exported = nil
+        run.discardOutput()
     }
 
     /// Deletes the zip's own folder, which holds nothing else.

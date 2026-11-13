@@ -24,7 +24,7 @@ enum SavedLocationsText {
     static let deleteMac = "Delete…"
 
     static func recordingsCount(_ count: Int) -> String {
-        count == 1 ? "1 recording" : "\(count) recordings"
+        RecordingsListText.recordings(count)
     }
 
     /// `Delete "Town Hall"?`

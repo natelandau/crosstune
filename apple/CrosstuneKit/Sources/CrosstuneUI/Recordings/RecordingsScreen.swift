@@ -110,6 +110,12 @@ private struct RecordingsContent: View {
     @State private var showsFilters = false
     @State private var deleting: RecordingView?
     @State private var discarding: RecordingFile?
+    @State private var selection = TuneSelection()
+    #if os(macOS)
+        /// This screen's own Select recordings, never taken for another window's.
+        @State private var selectActionID = UUID()
+    #endif
+    @AccessibilityFocusState private var focusedRow: String?
     @Namespace private var zoom
 
     /// Whether the empty state for an account with no recordings shows over the list.
@@ -120,15 +126,23 @@ private struct RecordingsContent: View {
     var body: some View {
         let arrangement = model.arrangement(sort)
         let sheetsOpen = openSheets?.isCovered == true
-        List(selection: openRecording) {
+        let rows = arrangement?.views ?? []
+        let ids = arrangement?.ids ?? []
+        List(
+            selection: TuneSelection.listBinding($selection, visible: { ids }, detail: openRecording)
+        ) {
             #if os(macOS)
                 // Title, then the set source, then one header line, then the groups, as the
                 // catalog's column runs; the storage meter sits in a bar at the column's foot.
-                ColumnTitle(Destination.recordings.title)
+                ColumnTitle(macTitle)
                     .columnTitleBaseline(.insetList)
                     .listRowInsets(MacStyle.columnRowInsets())
                     .plainListRow()
-                if model.filterCount > 0 {
+                if selection.isActive {
+                    SelectionBarSlot()
+                        .listRowInsets(MacStyle.columnBarInsets)
+                        .plainListRow()
+                } else if model.filterCount > 0 {
                     RecordingsFilterBar(choice: model.choice) {
                         Task { await model.resetSource() }
                     }
@@ -136,7 +150,7 @@ private struct RecordingsContent: View {
                     .plainListRow()
                 }
                 if let arrangement, !model.hasNoRecordings {
-                    ListHeader(count: model.countLabel(arrangement), choice: arrangement.isEmpty ? nil : $sort)
+                    ListHeader(count: model.countLabel(arrangement), choice: arrangement.isEmpty ? nil : sortChoice)
                         .listRowInsets(MacStyle.columnRowInsets())
                         .plainListRow()
                 }
@@ -229,29 +243,42 @@ private struct RecordingsContent: View {
             // A row says Stop recording to play once, under its group's heading.
             .environment(\.mediaNoticeInHeading, true)
             // The screen's own actions share its search's bar, as the catalog's do.
-            .paneBar(slot: PaneBarLayout.slotWidth(icons: 1)) {
+            .paneBar(slot: PaneBarLayout.slotWidth(icons: 2)) {
                 searchField
             } _: {
-                uploadButton.labelStyle(.iconOnly)
+                Group {
+                    uploadButton.labelStyle(.iconOnly)
+                    moreMenu(hasRows: !rows.isEmpty).help(TuneScreen.moreActions)
+                }
+                .disabled(selection.isActive)
             }
-            .columnTitled(Destination.recordings.title)
+            .columnTitled(macTitle)
         #else
             .listSearch(text: $model.query, prompt: RecordingsListText.search)
             .searchFocused($searchFocused)
             .onSubmit(of: .search) { searchFocused = false }
+            .navigationTitle(
+                selection.isActive ? RecordingsListText.recordings(selection.ids.count) : Destination.recordings.title
+            )
             .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    Button(RecordingImport.upload, systemImage: "plus") { upload() }
-                    .accessibilityLabel(RecordingImport.uploadAudio)
-                }
-                if model.showsFilters {
+                if !selection.isActive {
                     ToolbarItem(placement: .primaryAction) {
-                        FiltersButton(setCount: model.filterCount, iconOnly: true) { showsFilters = true }
+                        Button(RecordingImport.upload, systemImage: "plus", action: upload)
+                        .accessibilityLabel(RecordingImport.uploadAudio)
+                    }
+                    if model.showsFilters {
+                        ToolbarItem(placement: .primaryAction) {
+                            FiltersButton(setCount: model.filterCount, iconOnly: true) { showsFilters = true }
+                        }
+                    }
+                    if !rows.isEmpty {
+                        ToolbarItem(placement: .primaryAction) { moreMenu(hasRows: true) }
                     }
                 }
                 AccountToolbarItem()
             }
         #endif
+        .recordingSelectionMode($selection, rows: rows, visibleIDs: ids, focusedRow: $focusedRow)
         .coversShell(importing)
         .fileImporter(isPresented: $importing, allowedContentTypes: [.audio], allowsMultipleSelection: true) {
             result in
@@ -290,13 +317,47 @@ private struct RecordingsContent: View {
         }
         // A tab the musician is not looking at stays alive, so it must not answer the menu.
         .focusedSceneValue(
-            \.recordingsSort, MenuCommandAvailability.sort(isShown: isShown, sheetsOpen: sheetsOpen) ? $sort : nil
+            \.recordingsSort,
+            MenuCommandAvailability.sort(isShown: isShown, sheetsOpen: sheetsOpen, selecting: selection.isActive)
+                ? $sort : nil
         )
         .focusedSceneValue(
             \.findAction,
             MenuCommandAvailability.find(isShown: isShown, sheetsOpen: sheetsOpen)
                 ? MenuAction { searchFocused = true } : nil
         )
+        #if os(macOS)
+            .focusedSceneValue(
+                \.selectAction,
+                SelectMenuAction.column(
+                    MenuCommand.selectRecordings, isShown: isShown, sheetsOpen: sheetsOpen,
+                    selecting: selection.isActive, hasRows: !rows.isEmpty,
+                    action: MenuAction(id: selectActionID) { selection.enter() })
+            )
+        #endif
+    }
+
+    #if os(macOS)
+        /// The column title, which counts the selection in its place.
+        private var macTitle: String {
+            selection.isActive ? TuneSelection.selectedTitle(selection.ids.count) : Destination.recordings.title
+        }
+    #endif
+
+    /// The sort the list header offers, none while selecting, as the catalog's.
+    private var sortChoice: Binding<RecordingSortChoice>? {
+        selection.isActive ? nil : $sort
+    }
+
+    /// The screen's More menu, which holds Select, disabled with no recording to select.
+    private func moreMenu(hasRows: Bool) -> some View {
+        Menu {
+            SelectButton { selection.enter() }
+                .disabled(!hasRows)
+        } label: {
+            Label(TuneScreen.moreActions, systemImage: "ellipsis")
+                .labelStyle(.iconOnly)
+        }
     }
 
     /// How many tune groups or flat filed rows the filed section shows.
@@ -402,7 +463,7 @@ private struct RecordingsContent: View {
     ) -> some View {
         if let arrangement {
             VStack(alignment: .leading, spacing: 0) {
-                ListHeader(count: model.countLabel(arrangement), choice: $sort)
+                ListHeader(count: model.countLabel(arrangement), choice: sortChoice)
                     .textCase(nil)
                 RecordingsGroupHeading(title: title)
             }
@@ -460,7 +521,7 @@ private struct RecordingsContent: View {
         }
 
         private var uploadButton: some View {
-            Button(RecordingImport.upload, systemImage: "square.and.arrow.down") { upload() }
+            Button(RecordingImport.upload, systemImage: "square.and.arrow.down", action: upload)
                 .help(RecordingImport.uploadAudio)
                 .accessibilityLabel(RecordingImport.uploadAudio)
         }
@@ -500,9 +561,11 @@ private struct RecordingsContent: View {
     /// otherwise sits under a line naming it; either way its title never falls back to the tune.
     private func row(_ view: RecordingView, opensTune: Bool = false) -> some View {
         let open = view.tuneID.map { tuneID in { openTune(tuneID) } }
+        let isSelected = TuneSelection.rowIsSelected(view.id, selection: selection, detailTune: detailRecording)
         return RecordingItem(
             view: view, source: .recordingsList, tuneNamedAbove: view.tuneID != nil, storage: model.storage(plan: plan),
-            uploadLimits: model.uploadLimits, sort: sort.sort, onOpenTune: opensTune ? open : nil
+            uploadLimits: model.uploadLimits, sort: sort.sort, onOpenTune: opensTune ? open : nil,
+            isSelecting: selection.isActive
         ) { kind in
             retry(view.id, kind)
         }
@@ -512,28 +575,37 @@ private struct RecordingsContent: View {
             // the list's row insets, so a click anywhere on the row but its slot opens the page,
             // and the list's selection never has to.
             .padding(.vertical, Self.macRowInset)
+            .selectionRow(
+                $selection, row: view.id,
+                title: RecordingText.title(
+                    view.recording, tuneTitle: view.tuneTitle, tuneNamedAbove: view.tuneID != nil)
+            )
             .background {
-                Button {
-                    openRecordingPage?(view.id, source: .recordingsList)
-                } label: {
-                    Color.clear.contentShape(.rect)
+                if !selection.isActive {
+                    Button {
+                        openRecordingPage?(view.id, source: .recordingsList)
+                    } label: {
+                        Color.clear.contentShape(.rect)
+                    }
+                    .buttonStyle(.labelOnly)
+                    .accessibilityHidden(true)
+                    // The row's own button takes the same press, so keyboard focus stops there alone.
+                    .leavesFocusOnPress()
                 }
-                .buttonStyle(.labelOnly)
-                .accessibilityHidden(true)
-                // The row's own button takes the same press, so keyboard focus stops there alone.
-                .leavesFocusOnPress()
             }
             .listItemRow()
         #else
             .listItemRow(macVerticalInset: Self.macRowInset)
         #endif
-        .unselectedRowBackground(isSelected: openRecording?.wrappedValue == view.id)
+        .unselectedRowBackground(isSelected: isSelected)
         #if os(macOS)
-            .macRowSelected(openRecording?.wrappedValue == view.id)
+            .macRowSelected(isSelected)
         #endif
+        .accessibilityFocused($focusedRow, equals: view.id)
         .tag(view.id)
         .recordingRowActions(
-            onDelete: { deleting = view }, deleteDisabledReason: RecordingScreenText.deleteDisabledReason(view)
+            onDelete: { deleting = view }, deleteDisabledReason: RecordingScreenText.deleteDisabledReason(view),
+            isSelecting: selection.isActive, onSelect: { selection.enter(with: view.id) }
         )
         .confirmsRecordingDelete($deleting.matching(view.id), delete: delete)
     }
@@ -558,6 +630,8 @@ private struct RecordingsContent: View {
             .contentShape(.rect)
         }
         .buttonStyle(.labelOnly)
+        // Leaving for the tune would end the selection.
+        .disabled(selection.isActive)
         .matchedTransitionSource(id: tune.tuneID, in: zoom)
         .accessibilityAddTraits(.isHeader)
         .selectionDisabled()
@@ -577,18 +651,22 @@ private struct RecordingsContent: View {
         }
     }
 
+    /// A capture never saved as a recording. It cannot be selected, and while the list selects
+    /// it offers nothing, as the tune headings do.
     private func unfinishedRow(_ capture: RecordingFile) -> some View {
         let row = UnfinishedCaptureRowContent(capture: capture)
+        let isSelecting = selection.isActive
         return MediaRow(
             glyph: .attention, title: row.title, secondLine: .text(UnfinishedCaptureRowContent.note),
-            actionLabel: row.actionLabel, action: { discarding = capture }
+            actionLabel: row.actionLabel, action: isSelecting ? nil : { discarding = capture }
         )
         .listItemRow(macVerticalInset: Self.macRowInset)
         .unselectedRowBackground(isSelected: false)
-        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+        .selectableRowActions(isSelecting: isSelecting) {
             SwipeActionButton(.delete) { discarding = capture }
+        } menu: {
+            RowMenuButton(.delete) { discarding = capture }
         }
-        .contextMenu { RowMenuButton(.delete) { discarding = capture } }
         .coversShell(discarding?.id == capture.id)
         .confirmationDialog(
             RecordingsModel.deleteTitle, item: $discarding.matching(capture.id), titleVisibility: .visible

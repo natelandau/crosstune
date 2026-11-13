@@ -64,7 +64,12 @@ public struct NameAllocator: Sendable {
     }
 
     public mutating func take(_ raw: String, ext: String? = nil) -> String {
-        let base = safeName(raw)
+        take(safe: safeName(raw), ext: ext)
+    }
+
+    /// Takes `base` as it is, for a name already made safe, which may run past the length
+    /// `safeName` cuts to once it carries a number.
+    mutating func take(safe base: String, ext: String?) -> String {
         let suffix = ext.flatMap { $0.isEmpty ? nil : ".\($0)" } ?? ""
         var candidate = base + suffix
         var n = 2

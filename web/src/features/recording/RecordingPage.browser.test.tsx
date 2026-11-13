@@ -344,7 +344,7 @@ it("a lapsed account's page edits but does not play", async () => {
 it('offline, with no audio on this device, edits but shows why it cannot play', async () => {
   vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
   const { db } = await mount(recordingPath(TUNE_PATH, 'rA'), PHONE, {
-    before: (db) => db.recording_files.update('rA', { blob: undefined }),
+    before: (db) => db.recording_files.update('rA', { blob: null }),
   })
   await showDetails()
   const details = page.getByRole('tabpanel', { name: DETAILS })

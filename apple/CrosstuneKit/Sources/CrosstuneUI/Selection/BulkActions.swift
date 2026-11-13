@@ -83,12 +83,12 @@ public struct BulkDeleteQuestion: Identifiable, Sendable {
 /// selection, so the action can be tried again.
 @MainActor
 @Observable
-public final class BulkActions {
+public final class BulkActions: BulkActionRunner {
     /// The last failed action outside the edit sheet, cleared by the next.
-    public private(set) var failure: String?
+    public internal(set) var failure: String?
     /// The last failed save of the edit sheet, which stays open with it.
     public private(set) var editFailure: String?
-    public private(set) var isPending = false
+    public internal(set) var isPending = false
     /// Whether the open edit sheet's edit has saved.
     public private(set) var isEditSaved = false
     /// The last action's undo, for the banner.
@@ -97,7 +97,7 @@ public final class BulkActions {
     /// and shake.
     @ObservationIgnored public weak var undoManager: UndoManager?
 
-    private let store: CrosstuneStore
+    let store: CrosstuneStore
     private let analytics: AnalyticsClient
     static let logger = Logger(subsystem: "app.crosstune.Crosstune", category: "bulk")
 
@@ -113,7 +113,7 @@ public final class BulkActions {
         return await run { commands in
             let snapshots = try await commands.updateTunes(ids, patch: patch)
             analytics.send(.bulkEditApplied(action: .status, count: ids.count, fieldsChanged: patch.fields))
-            return Undoable(
+            return BulkUndoable(
                 message: BulkActionText.statusSet(status, count: ids.count), actionName: BulkActionText.setStatus
             ) {
                 try await $0.restoreFields(snapshots)
@@ -130,7 +130,7 @@ public final class BulkActions {
         return await run { commands in
             let snapshots = try await commands.setArchivedMany(ids, archived: archived)
             analytics.send(.bulkEditApplied(action: .archive, count: ids.count, fieldsChanged: nil))
-            return Undoable(
+            return BulkUndoable(
                 message: BulkActionText.archived(archived, count: ids.count),
                 actionName: BulkActionText.archive(archived, count: ids.count)
             ) {
@@ -147,7 +147,7 @@ public final class BulkActions {
         return await run { commands in
             let removed = try await commands.removeTunesFromList(itemIDs)
             analytics.send(.tunesRemovedFromList(listID: listID, count: removed.count))
-            return Undoable(
+            return BulkUndoable(
                 message: BulkActionText.removed(removed.count, from: listName),
                 actionName: BulkActionText.remove(removed.count)
             ) {
@@ -166,7 +166,7 @@ public final class BulkActions {
         return await run(failure: \.editFailure) { commands in
             let snapshots = try await commands.updateTunes(ids, patch: patch)
             analytics.send(.bulkEditApplied(action: .edit, count: ids.count, fieldsChanged: patch.fields))
-            return Undoable(
+            return BulkUndoable(
                 message: BulkActionText.edited(ids.count), actionName: BulkActionText.editTitle(ids.count)
             ) {
                 try await $0.restoreFields(snapshots)
@@ -220,7 +220,7 @@ public final class BulkActions {
         failure = nil
         let current = LatestAddition(addition)
         showUndo(
-            Undoable(message: BulkActionText.added(addition), actionName: BulkActionText.addToList) {
+            BulkUndoable(message: BulkActionText.added(addition), actionName: BulkActionText.addToList) {
                 try await current.value.undo(with: $0)
             } redo: {
                 current.value = try await current.value.redo(with: $0)
@@ -268,19 +268,27 @@ public final class BulkActions {
         let byID = Dictionary(files.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         return recordings.map { byID[$0.id] }
     }
+}
 
-    /// An action that landed: what the banner says, the undo menu's name for it, its undo, and
-    /// the redo that makes it again.
-    private struct Undoable {
-        let message: String
-        let actionName: String
-        let undo: @MainActor (Commands) async throws -> Void
-        let redo: @MainActor (Commands) async throws -> Void
-    }
+/// A selection's actions: one write at a time, the reason the last one failed, and the undo of
+/// the last one that landed.
+@MainActor
+protocol BulkActionRunner: AnyObject {
+    var store: CrosstuneStore { get }
+    var isPending: Bool { get set }
+    var failure: String? { get set }
+    var undoBannerItem: UndoBannerItem? { get set }
+    var undoManager: UndoManager? { get set }
 
-    private func run(
-        failure keyPath: ReferenceWritableKeyPath<BulkActions, String?> = \.failure,
-        _ write: (Commands) async throws -> Undoable?
+    init(store: CrosstuneStore, analytics: AnalyticsClient)
+}
+
+extension BulkActionRunner {
+    /// Runs `write` unless another is under way, then offers its undo. A failure's reason lands
+    /// in `keyPath`, and the selection stays so it can be tried again.
+    func run(
+        failure keyPath: ReferenceWritableKeyPath<Self, String?> = \.failure,
+        _ write: (Commands) async throws -> BulkUndoable?
     ) async -> Bool {
         guard !isPending else { return false }
         isPending = true
@@ -290,52 +298,64 @@ public final class BulkActions {
             if let undoable = try await write(Commands(store: store)) { showUndo(undoable) }
             return true
         } catch {
-            Self.logger.warning("A bulk action failed: \(error)")
+            BulkActions.logger.warning("A bulk action failed: \(error)")
             self[keyPath: keyPath] = failureMessage(error)
             return false
         }
     }
 
     /// Shows the banner and registers the same undo with the undo manager. Whichever is used
-    /// first withdraws the other, so one action is never undone twice. The undo and redo writes
-    /// hold only the store, so they still run after the screen that made this model has gone.
-    private func showUndo(_ undoable: Undoable) {
+    /// first withdraws the other, so one action is never undone twice: the banner withdraws the
+    /// registered undo, and the undo manager's run takes the banner down. The undo and redo
+    /// writes hold only the store, so they still run after the screen that made the action has
+    /// gone.
+    func showUndo(_ undoable: BulkUndoable) {
         let chain = UndoChain()
-        let manager = undoManager
         let store = store
-        let failed: @MainActor (String) -> Void = { [weak self] message in self?.failure = message }
+        let manager = undoManager
+        let onFailure: @MainActor (String) -> Void = { [weak self] message in self?.failure = message }
         let shown = UndoBannerItem(message: undoable.message) {
             manager?.removeAllActions(withTarget: chain)
-            chain.run(undoable.undo, store: store, onFailure: failed)
+            chain.run(undoable.undo, store: store, onFailure: onFailure)
         }
-        Self.registerUndo(undoable, chain: chain, manager: manager, store: store, onFailure: failed) {
-            [weak self] in
-            if self?.undoBannerItem?.id == shown.id { self?.undoBannerItem = nil }
+        let shownID = shown.id
+        registerUndo(undoable, chain: chain, manager: manager, store: store, onFailure: onFailure) { [weak self] in
+            if self?.undoBannerItem?.id == shownID { self?.undoBannerItem = nil }
         }
         undoBannerItem = shown
     }
+}
 
-    /// Registers the undo, which registers the redo as it runs, which registers the undo again,
-    /// so the menu steps back and forth through the action.
-    private static func registerUndo(
-        _ undoable: Undoable, chain: UndoChain, manager: UndoManager?, store: CrosstuneStore,
-        onFailure: @escaping @MainActor (String) -> Void, onUndo: @escaping @MainActor () -> Void = {}
-    ) {
-        manager?.registerUndo(withTarget: chain) { [weak manager] _ in
-            MainActor.assumeIsolated {
-                onUndo()
-                chain.run(undoable.undo, store: store, onFailure: onFailure)
-                manager?.registerUndo(withTarget: chain) { [weak manager] _ in
-                    MainActor.assumeIsolated {
-                        chain.run(undoable.redo, store: store, onFailure: onFailure)
-                        registerUndo(undoable, chain: chain, manager: manager, store: store, onFailure: onFailure)
-                    }
+/// An action that landed: what the banner says, the undo menu's name for it, its undo, and the
+/// redo that makes it again.
+struct BulkUndoable {
+    let message: String
+    let actionName: String
+    let undo: @MainActor (Commands) async throws -> Void
+    let redo: @MainActor (Commands) async throws -> Void
+}
+
+/// Registers the undo, which registers the redo as it runs, which registers the undo again, so
+/// the menu steps back and forth through the action.
+@MainActor
+private func registerUndo(
+    _ undoable: BulkUndoable, chain: UndoChain, manager: UndoManager?, store: CrosstuneStore,
+    onFailure: @escaping @MainActor (String) -> Void, onUndo: @escaping @MainActor () -> Void = {}
+) {
+    manager?.registerUndo(withTarget: chain) { [weak manager] _ in
+        MainActor.assumeIsolated {
+            onUndo()
+            chain.run(undoable.undo, store: store, onFailure: onFailure)
+            manager?.registerUndo(withTarget: chain) { [weak manager] _ in
+                MainActor.assumeIsolated {
+                    chain.run(undoable.redo, store: store, onFailure: onFailure)
+                    registerUndo(undoable, chain: chain, manager: manager, store: store, onFailure: onFailure)
                 }
-                manager?.setActionName(undoable.actionName)
             }
+            manager?.setActionName(undoable.actionName)
         }
-        manager?.setActionName(undoable.actionName)
     }
+    manager?.setActionName(undoable.actionName)
 }
 
 /// Runs one action's undos and redos one after another, in the order they were asked for, so a

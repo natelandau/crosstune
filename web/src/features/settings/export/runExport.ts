@@ -1,5 +1,5 @@
 import { settingsId } from '../../../commands/settings'
-import type { RecordingFile } from '../../../db/recordings'
+import { isComplete, type RecordingFile } from '../../../db/recordings'
 import type { ScanFile } from '../../../db/scans'
 import type { CrosstuneDb } from '../../../db/schema'
 import { storedInstruments, type LocalRecording, type LocalScan } from '../../../db/types'
@@ -18,11 +18,6 @@ export interface ExportCounts {
   total: number
   /** Files the export fetches from the server, which needs a connection. */
   missing: number
-}
-
-/** A file whose bytes are all here: a capture in progress or a download without a blob is not. */
-function isComplete(file: RecordingFile): file is RecordingFile & { blob: Blob } {
-  return file.blob !== null && file.local_state !== 'capturing'
 }
 
 interface ExportSnapshot {

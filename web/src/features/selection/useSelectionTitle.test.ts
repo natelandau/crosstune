@@ -1,10 +1,11 @@
 import { renderHook } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
+import { countTunes } from '../../text/format'
 import { DESELECT_ALL, SELECT_ALL } from './selectionCopy'
 import { useSelectionTitle } from './useSelectionTitle'
 
 const title = (count: number, total: number) =>
-  renderHook(() => useSelectionTitle(count, total)).result.current
+  renderHook(() => useSelectionTitle({ selection: { count, total } }, countTunes)).result.current
 
 describe('useSelectionTitle', () => {
   it('counts what is selected and names the tunes aloud', () => {

@@ -1,21 +1,37 @@
-import { AudioLines, ChevronRight, SlidersHorizontal, Upload, X } from 'lucide-react'
-import { useId, useRef, useState, type MouseEvent, type ReactNode } from 'react'
+import {
+  AudioLines,
+  ChevronRight,
+  Ellipsis,
+  ListChecks,
+  SlidersHorizontal,
+  Upload,
+  X,
+} from 'lucide-react'
+import { useId, useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { useStorage } from '../../db/useStorage'
 import { NOTHING_MATCHES } from '../catalog/catalogCopy'
 import type { SortChoice } from './arrangeRecordings'
 import { retryKind, sourceLabel } from './recordingRow'
 import {
+  countRecordings,
   FILED_HEADER,
   NO_RECORDINGS_HINT,
   NO_RECORDINGS_TITLE,
   SEARCH_RECORDINGS,
+  SELECT_RECORDINGS,
   UNFILED_HEADER,
   UPLOAD_AUDIO,
 } from './recordingsCopy'
 import { RECORDING_SORT_OPTIONS } from './sortCopy'
 import type { RecordingView } from './useRecordings'
 import { useRecordingsScreen } from './useRecordingsScreen'
+import { useRecordingBulkActions } from './useRecordingBulkActions'
+import { LinkToTuneSheet } from './LinkToTuneSheet'
+import { RecordingExportSheet } from './export/RecordingExportSheet'
+import { SelectionBar } from '../selection/SelectionBar'
+import { useScreenSelection, useSelectionReturn } from '../selection/useScreenSelection'
+import type { SelectionMode } from '../selection/useSelectionMode'
 import { RECORDINGS_ROW_ORIGIN } from '../player/playLog'
 import { FILTERS, filtersLabel, removeFilterLabel } from '../../ui/filterCopy'
 import { SORT, sortControlName, sortMenuChoices } from '../../ui/sortCopy'
@@ -26,6 +42,7 @@ import { sortCommand, useScreenCommand } from '../../app/screenCommands'
 import { useStampedDensity } from '../../platform/density'
 import { useFrame } from '../../platform/frame'
 import { RootBar } from '../../layout/RootBar'
+import { useCrowdedRootTitle } from '../../layout/useCrowdedRootTitle'
 import { MediaList, RecordingRow } from '../tune/MediaRow'
 import { tunePick } from '../tune/tunePick'
 import { IconButton } from '../../ui/IconButton'
@@ -36,7 +53,9 @@ import { EmptyState } from '../../ui/EmptyState'
 import { ErrorLine } from '../../ui/ErrorLine'
 import { FilterRow } from '../../ui/FilterRow'
 import { ListHeader } from '../../ui/ListHeader'
-import { Menu } from '../../ui/Menu'
+import { Menu, type MenuEntry } from '../../ui/Menu'
+import { MORE_ACTIONS } from '../../ui/menuCopy'
+import { useToast } from '../../ui/Toast'
 import { SearchField } from '../../ui/SearchField'
 import { useSearchTarget } from '../keyboard/searchTarget'
 import { DropOverlay } from './DropOverlay'
@@ -71,8 +90,10 @@ export function RecordingsScreen() {
       state: tunePick(),
     })
   }
-  const screen = useRecordingsScreen({ confirm: useConfirm() })
-  const { ready, unfiled, filed, sort, actionsFor, retry, error } = screen
+  const confirm = useConfirm()
+  const toast = useToast()
+  const screen = useRecordingsScreen({ confirm })
+  const { ready, unfiled, filed, listedViews, sort, actionsFor, retry, error } = screen
   const hadRecordings = useHadContent(ready && screen.listed > 0)
   const hadNoRecordings = useHadContent(ready && screen.listed === 0)
   const [filtersOpen, setFiltersOpen] = useState(false)
@@ -84,15 +105,53 @@ export function RecordingsScreen() {
     trigger: screen.showsFilters,
     sheetOpen: filtersOpen,
   })
-  // Off wide a tune page covers the list, so its Sort by goes with it.
+  // One selection over both sections, so a selection can span the unfiled and the filed.
+  const visibleIds = useMemo(() => listedViews.map((view) => view.recording.id), [listedViews])
+  const selection = useScreenSelection(visibleIds)
+  const { moreRef, rowsRef, fromMore, fromRow, restore } = useSelectionReturn(selection)
+  const selecting = selection.active
+  const { isSelected } = selection.selection
+  const selectedViews = useMemo(
+    () => listedViews.filter((view) => isSelected(view.recording.id)),
+    [listedViews, isSelected],
+  )
+  const bulk = useRecordingBulkActions({
+    active: selecting,
+    views: selectedViews,
+    onExit: selection.exit,
+    confirm,
+    toast: toast.show,
+  })
+
+  // Off wide a tune page covers the list, so its commands go with it.
   const frame = useFrame()
   const phone = frame === 'phone'
   const setCount = screen.filterSet ? 1 : 0
   const listShown = frame === 'wide' || openTuneId === undefined
   useScreenCommand(
-    sortCommand(RECORDING_SORT_OPTIONS, sort, screen.setSort),
-    listShown && ready && screen.listed > 0,
+    { id: 'selectRecordings', label: SELECT_RECORDINGS, run: fromMore },
+    listShown && !selecting && ready && screen.listed > 0,
   )
+  useScreenCommand(
+    sortCommand(RECORDING_SORT_OPTIONS, sort, screen.setSort),
+    listShown && !selecting && ready && screen.listed > 0,
+  )
+  // A narrow phone keeps the title whole by moving Filters into More.
+  const filtersShown = phone && screen.showsFilters
+  const filtersInMore = useCrowdedRootTitle(titleRef, filtersShown && !selecting)
+  const more: MenuEntry[] = [
+    ...(filtersInMore
+      ? [
+          {
+            id: 'filters',
+            label: filtersLabel(setCount),
+            icon: SlidersHorizontal,
+            onAction: () => setFiltersOpen(true),
+          },
+        ]
+      : []),
+    { id: 'select', label: SELECT_RECORDINGS, icon: ListChecks, onAction: fromMore },
+  ]
   const premium = usePremiumSheet()
   // On a free plan Upload and a drop stay in place and answer with the Plan sheet.
   const uploads = useRecordingsPlayable()
@@ -112,6 +171,8 @@ export function RecordingsScreen() {
       }}
       tuneNamedAbove={grouped}
       sort={sort.sort}
+      selecting={selecting}
+      onSelect={() => fromRow(view.recording.id)}
       onOpenTune={!grouped && view.tuneId ? () => openTune(view.tuneId!) : undefined}
       onRetry={(kind) => retry(view, kind)}
       playOrigin={RECORDINGS_ROW_ORIGIN}
@@ -125,12 +186,29 @@ export function RecordingsScreen() {
       <RootBar
         title={RECORDINGS.label}
         titleRef={titleRef}
+        selection={
+          selecting ? (
+            <SelectionBar
+              selection={selection}
+              noun={countRecordings}
+              buttons={bulk.buttons}
+              error={bulk.error}
+              restoreFocus={restore}
+              inRootBar={phone}
+            />
+          ) : undefined
+        }
         actions={
           <>
             <UploadControl onFiles={importFiles} onHeld={held} />
-            {phone && screen.showsFilters && (
+            {filtersShown && !filtersInMore && (
               <FiltersBarButton count={setCount} onPress={() => setFiltersOpen(true)} />
             )}
+            <Menu
+              label={MORE_ACTIONS}
+              trigger={<IconButton ref={moreRef} icon={Ellipsis} label={MORE_ACTIONS} />}
+              items={more}
+            />
           </>
         }
         search={
@@ -189,15 +267,15 @@ export function RecordingsScreen() {
           ) : screen.listed === 0 ? (
             <EmptyState arriving={hadRecordings} icon={AudioLines} title={NOTHING_MATCHES} />
           ) : (
-            <div className={`px-4 ${hadNoRecordings ? 'arrive' : ''}`}>
+            <div ref={rowsRef} className={`px-4 ${hadNoRecordings ? 'arrive' : ''}`}>
               {unfiled.length > 0 && (
-                <Group title={UNFILED_HEADER}>
+                <Group title={UNFILED_HEADER} selection={selection}>
                   {unfiled.map((view) => row(view, { grouped: false }))}
                 </Group>
               )}
               {filed.kind === 'flat'
                 ? filed.views.length > 0 && (
-                    <Group title={FILED_HEADER}>
+                    <Group title={FILED_HEADER} selection={selection}>
                       {filed.views.map((view) => row(view, { grouped: false }))}
                     </Group>
                   )
@@ -205,6 +283,7 @@ export function RecordingsScreen() {
                     <Group
                       key={group.tuneId}
                       title={group.tuneTitle}
+                      selection={selection}
                       heading={
                         <TuneHeading
                           tuneId={group.tuneId}
@@ -229,6 +308,13 @@ export function RecordingsScreen() {
           />
         </>
       )}
+      <LinkToTuneSheet
+        isOpen={bulk.linkOpen}
+        onClose={bulk.closeLink}
+        onPick={bulk.link}
+        onCreate={bulk.linkNew}
+      />
+      <RecordingExportSheet {...bulk.exporting} />
     </div>
   )
 }
@@ -259,11 +345,14 @@ function sortControl(sort: SortChoice, setSort: (choice: SortChoice) => void) {
 function Group({
   title,
   heading,
+  selection,
   children,
 }: {
   title: string
   /** Replaces the plain title, such as a tune's name that opens the tune. */
   heading?: ReactNode
+  /** The screen's one selection, which every group's rows join while it is on. */
+  selection: SelectionMode
   children: ReactNode
 }) {
   const id = useId()
@@ -274,7 +363,9 @@ function Group({
           {heading ?? title}
         </h2>
       </div>
-      <MediaList label={title}>{children}</MediaList>
+      <MediaList label={title} selection={selection}>
+        {children}
+      </MediaList>
     </section>
   )
 }

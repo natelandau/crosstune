@@ -102,6 +102,7 @@ extension View {
             self
         #else
             listRowBackground(isSelected ? nil : Color.clear)
+                .selectedRowProminence(isSelected: isSelected)
         #endif
     }
 }

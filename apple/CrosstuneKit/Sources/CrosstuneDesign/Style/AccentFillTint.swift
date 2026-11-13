@@ -7,7 +7,7 @@ extension View {
         #if os(macOS)
             self
         #else
-            tint(Palette.accentSelection)
+            modifier(AccentSelection())
         #endif
     }
 
@@ -64,4 +64,44 @@ extension View {
             toggleStyle(.accentSwitch)
         #endif
     }
+}
+
+#if !os(macOS)
+    private struct AccentSelection: ViewModifier {
+        @FocusState private var isFocused: Bool
+
+        func body(content: Content) -> some View {
+            content
+                .tint(Palette.accentSelection)
+                .focused($isFocused)
+                .environment(\.listSelectionEmphasized, isFocused)
+        }
+    }
+
+    extension View {
+        /// Marks a selected row prominent while its list has the keyboard focus, when the list
+        /// fills every selected row with the tint, so the row's secondary text and glyphs read on
+        /// the fill.
+        package func selectedRowProminence(isSelected: Bool) -> some View {
+            modifier(SelectedRowProminence(isSelected: isSelected))
+        }
+    }
+
+    private struct SelectedRowProminence: ViewModifier {
+        let isSelected: Bool
+
+        @Environment(\.listSelectionEmphasized) private var emphasized
+
+        func body(content: Content) -> some View {
+            content.transformEnvironment(\.backgroundProminence) { prominence in
+                if isSelected && emphasized { prominence = .increased }
+            }
+        }
+    }
+#endif
+
+extension EnvironmentValues {
+    /// Whether the list around this row has the keyboard focus, which is when it fills its
+    /// selection with the tint.
+    @Entry package var listSelectionEmphasized = false
 }

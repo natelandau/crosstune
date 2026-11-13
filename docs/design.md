@@ -277,9 +277,12 @@ A role only one platform has is on that platform's page.
   Escape, leaving the screen, or finishing an action.
 - Holds only visible items. An item hidden by search or a filter leaves
   the selection.
+- A click or tap anywhere on a row toggles it, as its checkbox does.
+  Shift-click selects every row from the last one clicked.
 - Every bulk action applies at once, ends the mode, and toasts with Undo.
-  No confirmation, because it gets clicked through. Exception: a delete
-  that cannot come back confirms instead.
+  No confirmation, because it gets clicked through. Exceptions: a delete
+  that cannot come back confirms instead, and an export runs in its own
+  sheet and ends the mode when the platform takes the file.
 - Bulk edit is the item's form over many items. Each field shows the
   shared value or `Mixed`, and only touched fields write.
 

@@ -54,14 +54,21 @@ public struct SyncBadge: View {
 extension View {
     /// Adds the sync badge to this screen's toolbar, reading the session and engine from the
     /// environment. Nothing is added while sync needs no attention. `leading` puts it at the
-    /// bar's leading edge on iPhone, for a screen whose two buttons fill the trailing edge. A
-    /// leading badge hides while the screen is selecting, whose Select All takes that edge.
+    /// bar's leading edge on iPhone, for a screen whose two buttons fill the trailing edge.
     /// `isShown` false leaves the badge out, as where another place shows it.
+    ///
+    /// On iPhone and iPad the badge hides while the screen is selecting, at either edge: Select
+    /// All, the count, and Done need the whole bar, or the count truncates. The Mac's selection
+    /// bar sits in the list, so its window toolbar keeps the badge.
     func syncBadgeToolbar(leading: Bool = false, isShown: Bool = true) -> some View {
         toolbar {
             if isShown {
                 ToolbarItem(placement: Self.badgePlacement(leading: leading)) {
-                    SyncBadgeItem(hidesWhileSelecting: leading)
+                    #if os(macOS)
+                        SyncBadgeItem(hidesWhileSelecting: false)
+                    #else
+                        SyncBadgeItem(hidesWhileSelecting: true)
+                    #endif
                 }
                 .sharedBackgroundVisibility(.hidden)
             }

@@ -301,6 +301,19 @@
                         .accessibilityLabel("Account")
                     }
                 }
+                #if os(iOS)
+                    GalleryItem(heading: "Selection action: SelectionActionButtonStyle") {
+                        HStack(spacing: 16) {
+                            Button("Action") {}
+                                .buttonStyle(.selectionAction)
+                            Button("Disabled") {}
+                                .buttonStyle(.selectionAction)
+                                .disabled(true)
+                            Button("Delete", role: .destructive) {}
+                                .buttonStyle(.selectionAction)
+                        }
+                    }
+                #endif
             }
         }
     }

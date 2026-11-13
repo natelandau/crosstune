@@ -115,6 +115,7 @@ public enum AnalyticsEvent: Sendable, Equatable {
 
     case exportCompleted(format: ExportFormat)
     case exportFailed(format: ExportFormat, reason: FailureReason)
+    case recordingExported(method: RecordingExportMethod, count: Int, fetched: Int, skipped: Int)
 
     public var name: String {
         switch self {
@@ -194,6 +195,7 @@ public enum AnalyticsEvent: Sendable, Equatable {
         case .syncFailed: "sync_failed"
         case .exportCompleted: "export_completed"
         case .exportFailed: "export_failed"
+        case .recordingExported: "recording_exported"
         }
     }
 
@@ -342,6 +344,11 @@ public enum AnalyticsEvent: Sendable, Equatable {
             ["format": .string(format.rawValue)]
         case .exportFailed(let format, let reason):
             ["format": .string(format.rawValue), "failure_reason": .string(reason.rawValue)]
+        case .recordingExported(let method, let count, let fetched, let skipped):
+            [
+                "method": .string(method.rawValue), "count_bucket": .count(count),
+                "fetched_bucket": .count(fetched), "skipped_bucket": .count(skipped),
+            ]
         }
     }
 

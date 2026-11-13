@@ -50,9 +50,8 @@ SwiftUI and iPadOS behavior that a new screen runs into.
   content column over the detail behind a scrim, and the tab view's
   sidebar is the one sidebar. Columns are a fixed pair splitting the width
   evenly, the content column never under `PadStyle.contentColumnMinWidth`.
-- Selecting: the column's bottom toolbar holds bulk actions as glyphs named in
-  words. Never the top bar: a 360pt column has no room, and iPadOS then
-  drops Done.
+- Selecting: bulk actions never go in the top bar. A 360pt column has no
+  room, and iPadOS then drops Done.
 - Nothing zooms out of the bottom bar: a cover or sheet cannot grow from an
   overlay capsule, and the system accessory, which can, crashes on iPadOS
   26.5.

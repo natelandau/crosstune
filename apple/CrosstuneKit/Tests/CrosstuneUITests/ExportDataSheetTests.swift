@@ -3,6 +3,7 @@ import CrosstuneStore
 import CrosstuneTestSupport
 import Foundation
 import Testing
+import UniformTypeIdentifiers
 
 @testable import CrosstuneUI
 
@@ -315,12 +316,17 @@ private func countsOnce(_ onDevice: Int, _ total: Int, missing: Int = 0)
     }
 }
 
-struct ExportZipTests {
-    @Test func suggestsTheZipsName() {
-        let zip = URL(filePath: "/tmp/crosstune-export-2026-10-16.zip")
+struct ExportedFileTests {
+    /// The save panel names the file as it is and offers only the file's own type.
+    @Test(arguments: [
+        (URL(filePath: "/tmp/crosstune-export-2026-10-16.zip"), UTType.zip),
+        (URL(filePath: "/tmp/Cluck Old Hen 2026-09-14.webm"), UTType.audiovisualContent),
+    ])
+    func offersTheFileUnderItsNameAndType(url: URL, type: UTType) {
         let provider = NSItemProvider()
-        provider.register(ExportZip(url: zip))
-        #expect(provider.suggestedName == zip.lastPathComponent)
+        provider.register(ExportedFile(url: url, type: type))
+        #expect(provider.suggestedName == url.lastPathComponent)
+        #expect(provider.registeredContentTypes == [type])
     }
 }
 

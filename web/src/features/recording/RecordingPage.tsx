@@ -11,6 +11,7 @@ import {
 import { createPortal } from 'react-dom'
 import { Dialog } from 'react-aria-components'
 import { useLocation, useNavigate } from 'react-router'
+import { useOnline } from '../../sync/SyncProvider'
 import { useRecordingsPlayable } from '../../billing/usePlan'
 import { useLeaveTo, useLeaveWhenMissing } from '../../layout/backHistory'
 import { destination } from '../../layout/destinations'
@@ -55,6 +56,9 @@ import { inPractice, type PracticeKeyScope } from '../practice/usePracticeKeys'
 import { usePracticeLog } from '../practice/usePracticeLog'
 import { useTrimHold } from '../practice/useTrimHold'
 import { SUBSCRIBE_TO_PLAY } from '../recordings/recordingCopy'
+import { RecordingExportSheet } from '../recordings/export/RecordingExportSheet'
+import { exportMenuItems } from '../recordings/export/useRecordingExport'
+import { useRecordingExportSheet } from '../recordings/export/useRecordingExportSheet'
 import { useRecordingActionsWith } from '../recordings/useRecordingActionsWith'
 import type { RecordingView } from '../recordings/useRecordings'
 import { useUploadLimits } from '../recordings/useUploadLimits'
@@ -161,6 +165,8 @@ export function RecordingPage({
   const confirm = useConfirm()
   const uploadLimits = useUploadLimits()
   const userTune = useUserTune(view?.tuneId ?? null)
+  const online = useOnline()
+  const recordingExport = useRecordingExportSheet()
   const actions = useRecordingActionsWith({
     confirm,
     pin: userTune
@@ -178,6 +184,7 @@ export function RecordingPage({
     onOpenTune: (opened) => {
       if (opened.tuneId) openTune(opened.tuneId)
     },
+    exportItems: (exported) => exportMenuItems(exported, online, recordingExport.exportOne),
   })
 
   // Leaving trim or split puts focus back on More, once whatever it stacked, such as Save's
@@ -198,7 +205,7 @@ export function RecordingPage({
   // on a window too short for it, so the whole page scrolls rather than only its controls.
   const fills = (practiceShown || editing) && paneHeight > 0
   const fillHeight = `calc(${paneHeight}px - var(--float-clearance))`
-  const error = actions.error ?? state.error
+  const error = actions.error ?? recordingExport.error ?? state.error
   // Why practice cannot play the recording yet, a plan that plays none first.
   const blocked = view
     ? practiceDisabledReason(view.recording, view.file, state.audio, recordingsPlay)
@@ -293,6 +300,7 @@ export function RecordingPage({
           />,
           practiceHost,
         )}
+      <RecordingExportSheet {...recordingExport.sheet} />
     </div>
   )
 }

@@ -431,3 +431,29 @@ async def test_free_stale_trim_change_reports_stale(
 
     assert result["status"] == "stale"
     assert result["row"]["trim_end_ms"] == 5000
+
+
+async def test_free_account_downloads_its_recordings(
+    client, auth_headers, verify_session, settings
+) -> None:
+    headers = auth_headers("user_a")
+    rec = uid()
+    await push(client, headers, recording(rec))
+    await verify_session.execute(
+        update(Recording)
+        .where(Recording.id == uuid.UUID(rec))
+        .values(
+            state="ready",
+            playback_key=f"u/{rec}/playback.m4a",
+            playback_bytes=1,
+            playback_rev="abc12345",
+            playback_start_ms=0,
+        )
+    )
+    await verify_session.commit()
+    await _end_trial(client, headers, verify_session, settings)
+
+    response = await client.get(f"/v1/recordings/{rec}/download", headers=headers)
+
+    assert response.status_code == 200, response.text
+    assert response.json()["url"]

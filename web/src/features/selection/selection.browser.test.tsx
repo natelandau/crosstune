@@ -24,6 +24,7 @@ import {
   SET_STATUS,
   setStatusLabel,
   SELECTION_ACTIONS,
+  MORE_CAPTION,
 } from './selectionCopy'
 import { DETAIL_LABELS } from '../tune/detailFields'
 import { ADD_TO_LIST_TITLE } from '../tune/tuneScreenCopy'
@@ -41,7 +42,6 @@ import { longPress, tap } from '../../test/gestures'
 import { renderApp } from '../../test/renderApp'
 import { TUNE } from '../tune/tunePageCopy'
 import { UNDO } from '../../ui/Toast'
-import { MORE_CAPTION } from './SelectionBar'
 import { TUNE_LIST, SELECT_TUNES } from '../catalog/catalogCopy'
 
 const PHONE = { width: 390, height: 844 }

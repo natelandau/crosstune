@@ -47,6 +47,9 @@ code is the source of truth. A doc holds only what the code cannot say.
   1. It binds screens or modules not built yet.
   2. A future change can break it.
   3. No code, token, test, or lint enforces it.
+- A line that says what a shared component or helper does fails test 3:
+  the component enforces it. Name a shared control only to say that a
+  screen must use it.
 - Record a rule only when breaking it is likely and costly.
 - Never in a doc:
   - A log of decisions or changes, or what was tried.

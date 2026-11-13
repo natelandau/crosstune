@@ -24,6 +24,9 @@ struct RecordingItem: View {
     var onOpenTune: (() -> Void)?
     /// Where a free plan's press on the slot is reported as coming from.
     var premiumEntry: PremiumEntry = .recordingRow
+    /// True while the list selects rows, when a press on the row selects it and does nothing
+    /// else.
+    var isSelecting = false
     /// Retries a stuck upload or transcode; the slot's press and its Retry both land here.
     let onRetry: (RecordingText.Retry) -> Void
 
@@ -56,7 +59,10 @@ struct RecordingItem: View {
                     tap, player: player, offline: offline, download: { await transfers?.download($0) },
                     premium: premium)
             },
-            onRetry: onRetry)
+            onRetry: onRetry
+        )
+        .allowsHitTesting(!isSelecting)
+        .modifier(SelectingRowAccessibility(isSelecting: isSelecting, name: row.title, details: [row.meta]))
     }
 
     /// Opens the recording's page, whatever the player holds and whether or not the recording
@@ -91,6 +97,24 @@ struct RecordingItem: View {
     }
 }
 
+/// While the list selects rows, a row is one element that names the recording, with none of its
+/// controls, so VoiceOver's press selects it as a tap does.
+private struct SelectingRowAccessibility: ViewModifier {
+    let isSelecting: Bool
+    let name: String
+    let details: [String]
+
+    // The media row is already a containing element, so this modifies that element rather than
+    // wrapping it, and the row keeps its identity as the mode turns on and off.
+    func body(content: Content) -> some View {
+        content
+            .accessibilityElement(children: isSelecting ? .ignore : .contain)
+            .accessibilityLabel(
+                Text(verbatim: MediaRow.accessibilityName(actionLabel: nil, title: name, details: details)),
+                isEnabled: isSelecting)
+    }
+}
+
 /// Words the recording row actions and the recording page's menu show.
 public enum RecordingRowActions {
     public static let removeFromTune = "Remove from tune"
@@ -119,17 +143,22 @@ extension MediaRow.SourceLine {
 }
 
 extension View {
-    /// Swipe actions and a context menu for a recording row, which hold Delete alone. Delete
-    /// shows disabled with `deleteDisabledReason` while it cannot be used.
-    func recordingRowActions(onDelete: @escaping () -> Void, deleteDisabledReason: String? = nil) -> some View {
-        self
-            // A long swipe only reveals the actions; no swipe acts on its own.
-            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                SwipeActionButton(.delete, disabledReason: deleteDisabledReason, perform: onDelete)
+    /// Swipe actions and a context menu for a recording row, which hold Delete alone, and none
+    /// while the row is selecting. Delete shows disabled with `deleteDisabledReason` while it
+    /// cannot be used.
+    func recordingRowActions(
+        onDelete: @escaping () -> Void, deleteDisabledReason: String? = nil, isSelecting: Bool = false,
+        onSelect: (() -> Void)? = nil
+    ) -> some View {
+        selectableRowActions(isSelecting: isSelecting) {
+            SwipeActionButton(.delete, disabledReason: deleteDisabledReason, perform: onDelete)
+        } menu: {
+            RowMenuButton(.delete, disabledReason: deleteDisabledReason, perform: onDelete)
+            if let onSelect {
+                Divider()
+                SelectButton(action: onSelect)
             }
-            .contextMenu {
-                RowMenuButton(.delete, disabledReason: deleteDisabledReason, perform: onDelete)
-            }
+        }
     }
 
     /// Asks before deleting the recording `deleting` holds, then runs `delete`. Put it on the

@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react'
 import { isTextEntry } from '../../ui/keyTarget'
 import { useLatest } from '../../ui/useLatest'
-import { useTuneSelection, type TuneSelection } from './useTuneSelection'
+import { useRowSelection, type RowSelection } from './useRowSelection'
 
 /** The parts of a key event the mode reads; a DOM event and a React one both carry them. */
 export type SelectionKey = Pick<
@@ -27,7 +27,7 @@ export interface SelectionMode {
    */
   onKeyDown: (event: SelectionKey) => void
   /** The same selection, with the counts a toolbar reads. */
-  selection: TuneSelection
+  selection: RowSelection
 }
 
 /**
@@ -42,7 +42,7 @@ export function useSelectionMode(
   options: { onEnter?: () => void } = {},
 ): SelectionMode {
   const [active, setActive] = useState(false)
-  const selection = useTuneSelection(visibleIds, active)
+  const selection = useRowSelection(visibleIds, active)
   const onEnterRef = useLatest(options.onEnter)
   const { selected, add, toggle, toggleRange, selectAll, clear } = selection
 
