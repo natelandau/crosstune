@@ -25,7 +25,7 @@ from crosstune.models import Entitlement, Grant, User
 from crosstune.ratelimit import RateLimiter
 from crosstune.vocabulary import GrantEnvironment, GrantKind, GrantPeriod, GrantSource
 from tests.fakes import FakeRevenueCat, FakeStripe
-from tests.helpers import pull
+from tests.helpers import premium_ended, pull
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -120,7 +120,7 @@ async def test_withdraw_refunds_cancels_and_ends_premium(
     row = _entitlement(await pull(client, headers))
     assert row["withdraw_until"] is None
     assert row["withdrawal_used"] is True
-    assert row["premium_source"] != "stripe"
+    assert premium_ended(row["premium_expires_at"])
     ((message, key),) = _withdrawal_mail(app)
     assert message.to == EMAIL
     assert key == notice_key("withdrawal", "sub_1", None)
@@ -300,7 +300,7 @@ async def test_the_pass_completes_a_stuck_withdrawal_once(
     assert stripe.cancelled == ["si_sub_1"]
     assert (await _grant(verify_session)).withdrawn_at is not None
     assert len(_withdrawal_mail(app)) == 1
-    assert _entitlement(await pull(client, headers))["premium_source"] != "stripe"
+    assert premium_ended(_entitlement(await pull(client, headers))["premium_expires_at"])
 
 
 async def test_the_pass_leaves_a_still_failing_cancel_stuck_and_logs_an_error(
@@ -495,7 +495,7 @@ async def test_a_webhook_still_reporting_the_subscription_active_keeps_premium_e
     assert grant.expires_at == withdrawn.withdrawn_at
     assert grant.auto_renews is False
     row = _entitlement(await pull(client, headers))
-    assert row["premium_source"] != "stripe"
+    assert premium_ended(row["premium_expires_at"])
     assert row["withdraw_until"] is None
     entitlement = (await verify_session.scalars(select(Entitlement))).one()
     assert all(g["source"] != "stripe" for g in entitlement.paid_grants)

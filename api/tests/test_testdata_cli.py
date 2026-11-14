@@ -432,7 +432,7 @@ async def test_run_state_only_leaves_data(
 
     after, source, _ = await _state(db)
     assert after == before
-    assert source is None
+    assert source == "trial"
     assert len(no_transcode) == 1
     assert cli.SIGN_OUT_WARNING not in capsys.readouterr().out
 

@@ -21,6 +21,7 @@ from crosstune.ops import billing
 from crosstune.users.service import get_or_create_user
 from crosstune.vocabulary import GrantEnvironment, GrantKind, GrantPeriod, GrantSource
 from tests.fakes import FakeMailer, FakeRevenueCat, FakeStripe
+from tests.helpers import premium_ended
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -154,7 +155,8 @@ async def test_revoke_ends_the_comp(session: AsyncSession, settings: Settings) -
     await _run(session, settings, "comp", FREE_USER, "--reason", "friend")
     await _run(session, settings, "comp", FREE_USER, "--revoke")
     row = await _entitlement(session, user)
-    assert row.premium_source != "comp"
+    assert row.premium_source == "comp"
+    assert premium_ended(row.premium_expires_at)
 
 
 async def test_addon_adds_storage(session: AsyncSession, settings: Settings) -> None:
@@ -288,7 +290,7 @@ async def test_trial_ended_makes_the_account_free(
 ) -> None:
     user = await _user(session, settings)
     await _run(session, settings, "trial", FREE_USER, "--ended")
-    assert (await _entitlement(session, user)).premium_source is None
+    assert premium_ended((await _entitlement(session, user)).premium_expires_at)
 
 
 async def test_unknown_account_is_an_error(session: AsyncSession, settings: Settings) -> None:
@@ -417,7 +419,7 @@ async def test_main_with_the_e2e_flag_ends_a_trial_on_the_e2e_database(
     code = await anyio.to_thread.run_sync(billing.main, ["trial", "user_main", "--ended", "--e2e"])
 
     assert code == 0
-    assert (await _entitlement(verify_session, user)).premium_source is None
+    assert premium_ended((await _entitlement(verify_session, user)).premium_expires_at)
 
 
 async def test_main_refuses_the_e2e_flag_on_another_database(
@@ -552,7 +554,7 @@ async def test_trial_ends_in_the_past_is_allowed(session: AsyncSession, settings
     user = await _user(session, settings)
     await _run(session, settings, "trial", FREE_USER, "--ends", "2001-01-01")
     row = await _entitlement(session, user)
-    assert row.premium_source is None
+    assert premium_ended(row.premium_expires_at)
     assert row.trial_ends_at == datetime(2001, 1, 1, tzinfo=UTC)
 
 

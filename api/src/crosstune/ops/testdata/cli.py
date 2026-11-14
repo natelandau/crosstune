@@ -336,10 +336,16 @@ async def _report(session: AsyncSession, user_id: uuid.UUID) -> None:
             select(func.count()).select_from(spec.model).where(spec.owned_by(user_id))
         )
         print(f"  {table}: {count}")
-    source = await session.scalar(
-        select(Entitlement.premium_source).where(Entitlement.user_id == user_id)
-    )
+    # A free account still names the grant it lost last, so the expiry tells it from a live one.
+    source, expires_at = (
+        await session.execute(
+            select(Entitlement.premium_source, Entitlement.premium_expires_at).where(
+                Entitlement.user_id == user_id
+            )
+        )
+    ).one_or_none() or (None, None)
     print(f"premium_source {source}")
+    print(f"premium_expires_at {expires_at.isoformat() if expires_at else None}")
 
 
 async def _find(clerk: ClerkBackendUsers, account: str) -> ClerkUser:

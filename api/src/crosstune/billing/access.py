@@ -150,10 +150,15 @@ def resolve(
     trial_ends_at = trial.expires_at if trial else None
 
     if not premium:
+        # The grant lost last stays on the row, so a client can tell an ended paid plan from an
+        # ended trial. Its past expiry keeps the account free.
+        lost = max(
+            (g for g in grants if g.kind == GrantKind.PREMIUM), key=_lasts_longest, default=None
+        )
         return Resolution(
             access=Access(premium=False, quota_bytes=0),
-            premium_source=None,
-            premium_expires_at=None,
+            premium_source=GrantSource(lost.source) if lost else None,
+            premium_expires_at=lost.expires_at if lost else None,
             auto_renews=False,
             trial_starts_at=trial_starts_at,
             trial_ends_at=trial_ends_at,

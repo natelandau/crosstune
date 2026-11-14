@@ -218,9 +218,32 @@ def test_an_expired_trial_alone_is_free(settings: Settings) -> None:
 
     assert result.access.premium is False
     assert result.access.quota_bytes == 0
-    assert result.premium_source is None
-    assert result.premium_expires_at is None
     assert result.trial_ends_at == ended
+
+
+@pytest.mark.parametrize(
+    ("grants", "source", "ended_days_ago"),
+    [
+        ([(GrantSource.TRIAL, 1)], GrantSource.TRIAL, 1),
+        ([(GrantSource.TRIAL, 40), (GrantSource.STRIPE, 2)], GrantSource.STRIPE, 2),
+        ([(GrantSource.APPLE, 1), (GrantSource.TRIAL, 30)], GrantSource.APPLE, 1),
+        ([(GrantSource.TRIAL, 1), (GrantSource.COMP, 5)], GrantSource.TRIAL, 1),
+    ],
+)
+def test_a_free_account_reports_the_premium_grant_it_lost_last(
+    settings: Settings,
+    grants: list[tuple[GrantSource, int]],
+    source: GrantSource,
+    ended_days_ago: int,
+) -> None:
+    held = [_premium(held, NOW - timedelta(days=days)) for held, days in grants]
+    result = resolve(held, NOW, settings)
+
+    assert result.access.premium is False
+    assert result.premium_source == source
+    assert result.premium_expires_at == NOW - timedelta(days=ended_days_ago)
+    assert result.auto_renews is False
+    assert result.paid_grants == ()
 
 
 async def _user(session) -> uuid.UUID:

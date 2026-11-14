@@ -39,7 +39,8 @@ class Entitlement(SyncColumns, Base):
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
-    # Null when no premium grant is active.
+    # The active premium grant's source, or the one lost last once none is active. Null only for
+    # an account that never held premium. `premium_expires_at` says which.
     premium_source: Mapped[str | None] = mapped_column(String(20), nullable=True)
     premium_expires_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True

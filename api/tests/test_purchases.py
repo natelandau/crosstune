@@ -19,7 +19,7 @@ from crosstune.ratelimit import RateLimiter
 from crosstune.users.service import get_or_create_user
 from crosstune.vocabulary import GrantEnvironment, GrantKind, GrantSource
 from tests.fakes import FakeRevenueCat
-from tests.helpers import pull
+from tests.helpers import premium_ended, pull
 
 if TYPE_CHECKING:
     import httpx2
@@ -479,4 +479,4 @@ async def test_a_dropped_sandbox_stripe_subscription_ends_its_grant(
     assert (await client.post(REFRESH, headers=headers)).status_code == 204
 
     assert await _active_grants(verify_session) == []
-    assert _entitlement(await pull(client, headers))["premium_source"] != "stripe"
+    assert premium_ended(_entitlement(await pull(client, headers))["premium_expires_at"])
