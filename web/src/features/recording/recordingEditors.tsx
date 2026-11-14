@@ -225,6 +225,7 @@ function RecordingTuneSheet({
       onClosed={onClosed}
       selection={{
         mode: 'single',
+        chosenTuneId: view.tuneId,
         clear: view.tuneId ? { label: REMOVE_FROM_TUNE, onPress: () => onFile(null) } : undefined,
       }}
       search={file}

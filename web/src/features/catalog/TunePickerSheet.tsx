@@ -8,6 +8,7 @@ import { Group } from '../../ui/form/Group'
 import { RowList } from '../../ui/RowList'
 import { SearchField } from '../../ui/SearchField'
 import { Sheet } from '../../ui/Sheet'
+import { ChosenMark } from '../../ui/ChosenMark'
 import { PickGlyph } from '../../ui/PickGlyph'
 import { useInstruments } from '../settings/useInstruments'
 import { AddTypedTitle } from './AddTypedTitle'
@@ -25,6 +26,8 @@ export type TunePickerSelection =
   | {
       /** A pick or a new tune closes the sheet. */
       mode: 'single'
+      /** The tune id of the current choice, whose row shows the chosen mark. */
+      chosenTuneId?: string | null
       /**
        * Above the search while a tune is chosen: a row under the sheet's title whose button
        * clears the choice and closes.
@@ -86,6 +89,7 @@ export function TunePickerSheet({
   const multiple = selection.mode === 'multiple'
   const taken = multiple ? selection.taken : undefined
   const clear = multiple ? undefined : selection.clear
+  const chosenTuneId = multiple ? undefined : selection.chosenTuneId
   // A blank query lists the whole catalog; a typed one, every match. Either can run long, so the
   // rows are windowed.
   const shown = useMemo(
@@ -177,7 +181,13 @@ export function TunePickerSheet({
                 id={entry.userTune.id}
                 entry={entry}
                 instruments={instruments}
-                end={<PickGlyph added={inList} />}
+                end={
+                  multiple ? (
+                    <PickGlyph added={inList} />
+                  ) : entry.tune.id === chosenTuneId ? (
+                    <ChosenMark />
+                  ) : null
+                }
                 showsStatus={!multiple}
                 name={pickRowName(
                   rowName(entry.tune.title, inList),
