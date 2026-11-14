@@ -60,6 +60,8 @@ jobs:
         with:
           module: site
       - uses: astral-sh/setup-uv@v10.3.3
+        with:
+          save-cache: ${{ github.ref == 'refs/heads/main' }}
       - run: just lint
       - run: just test
       - run: just build

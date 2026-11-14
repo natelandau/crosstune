@@ -59,6 +59,8 @@ jobs:
         with:
           persist-credentials: false
       - uses: astral-sh/setup-uv@v10.3.3
+        with:
+          save-cache: ${{ github.ref == 'refs/heads/main' }}
       - uses: extractions/setup-just@v4
       - run: xcodebuild -version
       # A build from another Swift compiler cannot be reused, so the compiler is in the

@@ -74,6 +74,7 @@ jobs:
       - uses: astral-sh/setup-uv@v10.3.3
         with:
           enable-cache: true
+          save-cache: ${{ github.ref == 'refs/heads/main' }}
       - uses: extractions/setup-just@v4
       - run: uv sync --all-groups
       - run: just lint
@@ -94,6 +95,7 @@ jobs:
       - uses: astral-sh/setup-uv@v10.3.3
         with:
           enable-cache: true
+          save-cache: ${{ github.ref == 'refs/heads/main' }}
       - uses: extractions/setup-just@v4
       - run: uv sync --all-groups
       # The RustFS compatibility tests fail rather than skip when CI is set.
@@ -138,6 +140,7 @@ jobs:
       - uses: astral-sh/setup-uv@v10.3.3
         with:
           enable-cache: true
+          save-cache: ${{ github.ref == 'refs/heads/main' }}
       - uses: extractions/setup-just@v4
       - run: uv sync --all-groups
       - run: just contract
