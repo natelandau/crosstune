@@ -18,6 +18,7 @@ export const RENAME_LIST_TITLE = 'Rename list'
 export const IN_THIS_LIST = 'In this list'
 /** Names a tune picker row by what a press on it does. */
 export const addTuneName = (title: string) => `Add ${title}`
+export const removeTuneName = (title: string) => `Remove ${title}`
 export const ADD_TUNES = 'Add tunes'
 /** Says what the picker is for while the catalog holds no tune to list. */
 export const PICKER_HINT = 'Search the catalog to add tunes.'

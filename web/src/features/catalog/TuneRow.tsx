@@ -111,10 +111,10 @@ export function TuneRowView({
   actions,
   menu,
   lead,
-  note,
   notice,
   name,
   end,
+  showsStatus = true,
   playing = false,
   opening = false,
 }: {
@@ -126,14 +126,14 @@ export function TuneRowView({
   menu?: RowAction[]
   /** Sits before the status glyph, such as a list position. */
   lead?: ReactNode
-  /** Secondary words before the key, such as why the row cannot be picked; the name says them. */
-  note?: string
   /** A last part of the secondary line, such as why the tune cannot play. */
   notice?: string
   /** The row's accessible name, when a press on it does something the default name hides. */
   name?: string
   /** Trails the key, such as the row's own play control. */
   end?: ReactNode
+  /** False drops the status glyph, for a row whose press does not depend on it. */
+  showsStatus?: boolean
   /** Marks the row of the item the player has loaded. */
   playing?: boolean
   /** True for the row whose page is opening, so its title morphs into the page title. */
@@ -152,16 +152,17 @@ export function TuneRowView({
       id={id}
       textValue={
         name ??
-        spokenRow(tune.title, key?.spoken ?? null, STATUS_LABELS[effectiveStatus(userTune)], [
-          ...detail,
-          ...(note ? [note] : []),
-        ])
+        spokenRow(tune.title, key?.spoken ?? null, STATUS_LABELS[effectiveStatus(userTune)], detail)
       }
       leading={
         <>
           {lead}
-          <StatusGlyph status={userTune.status} />
-          <Pause />
+          {showsStatus && (
+            <>
+              <StatusGlyph status={userTune.status} />
+              <Pause />
+            </>
+          )}
         </>
       }
       title={tune.title}
@@ -185,14 +186,8 @@ export function TuneRowView({
         )
       }
       trailing={
-        (key || note || end) && (
+        (key || end) && (
           <span className="inline-flex shrink-0 items-center gap-3">
-            {note && (
-              <span className="t-secondary text-secondary whitespace-nowrap">
-                <Pause />
-                {note}
-              </span>
-            )}
             {key && (
               <span className="inline-flex shrink-0 items-center">
                 <span className="sr-only">, Key {key.spoken}</span>

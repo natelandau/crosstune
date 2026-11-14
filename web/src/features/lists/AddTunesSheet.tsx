@@ -1,12 +1,11 @@
 import { TunePickerSheet } from '../catalog/TunePickerSheet'
-import { ADD_TUNES, addTuneName, IN_THIS_LIST, PICKER_HINT } from './listsCopy'
+import { ADD_TUNES, addTuneName, PICKER_HINT, removeTuneName } from './listsCopy'
 import { useTunePicker } from './useTunePicker'
 import { useToast } from '../../ui/Toast'
 
 /**
- * Adds tunes to one list, several in one visit. A tune already in the list says so and cannot
- * be picked; a title nothing matches offers a new tune, which joins the list at once and shows
- * there as taken.
+ * Adds tunes to one list, several in one visit. A press on a tune already in the list takes it
+ * back out; a title nothing matches offers a new tune, which joins the list at once.
  */
 export function AddTunesSheet({
   listId,
@@ -32,11 +31,11 @@ export function AddTunesSheet({
         picker.dismissed()
         onOpenChange(false)
       }}
-      selection={{ mode: 'multiple', taken: picker.taken, takenNote: IN_THIS_LIST }}
+      selection={{ mode: 'multiple', taken: picker.taken }}
       search={picker}
       onPick={(entry) => picker.pick(entry.userTune.id)}
       onCreate={picker.create}
-      rowName={addTuneName}
+      rowName={(title, taken) => (taken ? removeTuneName(title) : addTuneName(title))}
       emptyHint={PICKER_HINT}
       error={picker.error}
     />

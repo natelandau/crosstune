@@ -9,6 +9,7 @@ import {
   deleteList,
   moveItem,
   removeFromList,
+  setTuneInList,
   renameList,
 } from './lists'
 import { LIST_NAME_REQUIRED, LIST_NOT_FOUND } from './messages'
@@ -47,6 +48,18 @@ describe('lists', () => {
     expect((await activeItems(db, listId)).map((i) => i.id)).toEqual([itemA, itemB])
     await removeFromList(db, itemA)
     expect((await activeItems(db, listId)).map((i) => i.id)).toEqual([itemB])
+    expect((await pendingFor(db, 'list_items', itemA))?.op).toBe('delete')
+  })
+
+  it('puts a tune in a list or takes it out, saying whether the list changed', async () => {
+    const [a, b] = await threeTunes()
+    const listId = await createList(db, 'L')
+    const itemA = await addToList(db, listId, a)
+    expect(await setTuneInList(db, listId, a, true)).toBe(false)
+    expect(await setTuneInList(db, listId, b, false)).toBe(false)
+    expect(await setTuneInList(db, listId, b, true)).toBe(true)
+    expect(await setTuneInList(db, listId, a, false)).toBe(true)
+    expect((await activeItems(db, listId)).map((i) => i.user_tune_id)).toEqual([b])
     expect((await pendingFor(db, 'list_items', itemA))?.op).toBe('delete')
   })
 

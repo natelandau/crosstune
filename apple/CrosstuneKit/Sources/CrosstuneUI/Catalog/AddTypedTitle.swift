@@ -9,11 +9,14 @@ struct AddTypedTitleRow: View {
 
     var body: some View {
         Button(action: action) {
-            Label(label, systemImage: "plus")
-                .contentMask()
-                .foregroundStyle(Palette.accent)
-                .frame(maxWidth: .infinity, minHeight: minimumTapTarget, alignment: .leading)
-                .contentShape(.rect)
+            Label {
+                Text(label).contentMask()
+            } icon: {
+                PickGlyph()
+            }
+            .foregroundStyle(Palette.accent)
+            .frame(maxWidth: .infinity, minHeight: minimumTapTarget, alignment: .leading)
+            .contentShape(.rect)
         }
         .buttonStyle(.labelOnly)
     }

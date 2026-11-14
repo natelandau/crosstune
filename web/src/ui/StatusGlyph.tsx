@@ -1,17 +1,10 @@
 import { Check } from 'lucide-react'
-import {
-  useLayoutEffect,
-  useRef,
-  type ComponentProps,
-  type CSSProperties,
-  type RefObject,
-} from 'react'
-import { useReducedMotionConfig } from 'motion/react'
-import { DURATION, springEasing } from '../theme/motion'
+import { useRef, type ComponentProps, type CSSProperties, type RefObject } from 'react'
 import { mergeProps, useFocusable } from 'react-aria'
 import { STATUS_LABELS } from '../constants'
 import { useStampedDensity } from '../platform/density'
 import { Tip, TipTrigger } from './Tip'
+import { usePopOnChange } from './usePopOnChange'
 
 type Known = keyof typeof STATUS_LABELS
 
@@ -42,20 +35,8 @@ export function StatusGlyph({ status, labelled = false }: { status: string; labe
   const label = STATUS_LABELS[key]
   const style = { '--glyph': density === 'touch' ? '18px' : '14px' } as CSSProperties
   const ref = useRef<HTMLSpanElement>(null)
-  const shown = useRef(key)
-  const reduceMotion = useReducedMotionConfig()
-  // A new status pops in on the spring, so a change made elsewhere, such as from the tune's
-  // status control, shows here too. The status a glyph first shows never moves. Before paint,
-  // so no frame shows the new status at full size.
-  useLayoutEffect(() => {
-    if (shown.current === key) return
-    shown.current = key
-    if (reduceMotion) return
-    ref.current?.animate(
-      { transform: ['scale(0.6)', 'scale(1)'] },
-      { duration: DURATION.long * 1000, easing: springEasing() },
-    )
-  }, [key, reduceMotion])
+  // A change made elsewhere, such as from the tune's status control, shows here too.
+  usePopOnChange(ref, key)
   const tip = !labelled && density !== 'touch'
   const shape = (
     <Shape

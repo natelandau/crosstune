@@ -10,13 +10,15 @@ import CrosstuneDesign
     public struct MacTuneRow: View {
         private let text: TuneRowText
         private let position: Int?
+        private let showsStatus: Bool
 
         @Environment(\.backgroundProminence) private var prominence
         @Environment(\.macRowSelected) private var rowSelected
 
-        public init(text: TuneRowText, position: Int?) {
+        public init(text: TuneRowText, position: Int?, showsStatus: Bool = true) {
             self.text = text
             self.position = position
+            self.showsStatus = showsStatus
         }
 
         /// The tunings' text color: secondary at rest, white on a key window's selection,
@@ -51,7 +53,7 @@ import CrosstuneDesign
         public var body: some View {
             HStack(spacing: 8) {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    StatusGlyph(text.status)
+                    if showsStatus { StatusGlyph(text.status) }
                     Text(text.title)
                         .contentMask()
                         .font(MacStyle.body)

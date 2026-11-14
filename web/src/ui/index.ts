@@ -75,6 +75,8 @@ export const NOT_LIBRARY_CONTROLS: Readonly<Record<string, string>> = {
   RowSwipe: 'list row gesture, outside the control library',
   SwipeGroup: 'list row gesture, outside the control library',
   StatusGlyph: 'list rows are outside the control library',
+  PickGlyph: 'drawn glyph of a picker row',
+  ChosenMark: "drawn glyph of a single-choice list's chosen row",
   ActionSlot: 'list row slot, outside the control library',
   SlotButton: 'list row slot, outside the control library',
   TransportMark: 'drawn glyph of a row slot',

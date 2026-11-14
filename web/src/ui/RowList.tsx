@@ -115,7 +115,7 @@ export function RowList({
   selectedKeys?: Selection
   onSelectionChange?: (keys: Selection) => void
   onAction?: (key: Key) => void
-  /** Rows that show but answer nothing, such as a pick already taken. */
+  /** Rows that show but answer nothing. */
   disabledKeys?: Iterable<Key>
   /**
    * Sets the rows' content on the surrounding text's edge, so only the row highlight reaches

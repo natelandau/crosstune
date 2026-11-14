@@ -2,7 +2,7 @@ import { renderHook } from '@testing-library/react'
 import { act } from 'react'
 import { recordingAnalytics } from '../../usage/testing'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { addToList, createList } from '../../commands/lists'
+import { addToList, createList, setTuneInList } from '../../commands/lists'
 import * as tunes from '../../commands/tunes'
 import { createTune } from '../../commands/tunes'
 import type { CrosstuneDb } from '../../db/schema'
@@ -58,14 +58,17 @@ describe('useTunePicker', () => {
     await expect.poll(() => result.current.matches.entries?.length).toBe(2)
   })
 
-  it('adds a picked tune and clears the search', async () => {
+  it('adds a picked tune keeping the search, and a second pick takes it out', async () => {
     const { result } = setup()
     act(() => result.current.setQuery('cluck'))
     await expect.poll(() => result.current.matches.matches.length).toBe(1)
     act(() => result.current.pick(hen))
-    expect(result.current.query).toBe('')
     await expect.poll(async () => (await itemsIn()).map((i) => i.user_tune_id)).toEqual([hen])
     await expect.poll(() => result.current.taken.has(hen)).toBe(true)
+    expect(result.current.query).toBe('cluck')
+    act(() => result.current.pick(hen))
+    await expect.poll(async () => (await itemsIn()).length).toBe(0)
+    expect(result.current.query).toBe('cluck')
   })
 
   it('reports the visit once, with every tune added, when the picker closes', async () => {
@@ -84,10 +87,10 @@ describe('useTunePicker', () => {
   it('waits for an add still running at dismissal, and reports nothing for a failed one', async () => {
     const { result, analytics, toast } = setup()
     let settle = () => {}
-    vi.mocked(addToList).mockImplementationOnce(
+    vi.mocked(setTuneInList).mockImplementationOnce(
       () =>
-        new Promise<string>((resolve) => {
-          settle = () => resolve('item')
+        new Promise<boolean>((resolve) => {
+          settle = () => resolve(true)
         }),
     )
     act(() => result.current.pick(joy))
@@ -96,7 +99,7 @@ describe('useTunePicker', () => {
     settle()
     await expect.poll(() => analytics.sends().length).toBe(1)
 
-    vi.mocked(addToList).mockRejectedValueOnce(new Error('Disk full'))
+    vi.mocked(setTuneInList).mockRejectedValueOnce(new Error('Disk full'))
     act(() => result.current.pick(hen))
     act(() => void result.current.dismissed())
     // The rejection is toasted in the same turn that releases the add and runs the report check.
@@ -107,10 +110,10 @@ describe('useTunePicker', () => {
   it('reports an add that finishes after a reopen with its own visit', async () => {
     const { result, rerender, analytics } = setup()
     let settle = () => {}
-    vi.mocked(addToList).mockImplementationOnce(
+    vi.mocked(setTuneInList).mockImplementationOnce(
       () =>
-        new Promise<string>((resolve) => {
-          settle = () => resolve('item')
+        new Promise<boolean>((resolve) => {
+          settle = () => resolve(true)
         }),
     )
     act(() => result.current.pick(joy))
@@ -179,7 +182,7 @@ describe('useTunePicker', () => {
 
   it('toasts a failed add that outlives its visit', async () => {
     const { result, rerender, toast } = setup()
-    vi.mocked(addToList).mockRejectedValueOnce(new Error('Disk full'))
+    vi.mocked(setTuneInList).mockRejectedValueOnce(new Error('Disk full'))
     act(() => result.current.pick(joy))
     act(() => void result.current.dismissed())
     rerender({ open: false })

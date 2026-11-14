@@ -7,8 +7,7 @@ import SwiftUI
 public struct TunePickerRow: Identifiable, Equatable {
     public enum State: Equatable {
         case open
-        /// Already where the picker puts tunes: shown, marked, and inert, so the picker never
-        /// hides a tune.
+        /// Already where the picker puts tunes: shown with a check, and a pick takes it back out.
         case taken
         /// A single picker's current choice.
         case chosen
@@ -16,13 +15,13 @@ public struct TunePickerRow: Identifiable, Equatable {
 
     public let entry: CatalogEntry
     public let state: State
-    /// What a pick does, said before the row, such as "Add".
+    /// What a pick does, said before the row, such as "Add" or "Remove".
     let action: String
     let instruments: Set<String>
 
     public var id: String { entry.id }
-    /// The row's spoken name when it can be picked. Built when read, so a long idle catalog
-    /// spells out only the rows on screen.
+    /// The row's spoken name. Built when read, so a long idle catalog spells out only the rows on
+    /// screen.
     public var name: String { TunePickerText.openLabel(action, entry, instruments: instruments) }
     public var isTaken: Bool { state == .taken }
 }
@@ -30,13 +29,13 @@ public struct TunePickerRow: Identifiable, Equatable {
 /// What a tune picker's search shows for the current query.
 public struct TunePickerResults: Equatable {
     public let rows: [TunePickerRow]
-    /// Every match, beyond the rows shown.
-    public let matches: [CatalogEntry]
     public let outcome: SearchOutcome
+
+    public var matches: [CatalogEntry] { rows.map(\.entry) }
 
     /// `No tune called "query"`, when nothing carries the typed title.
     public var noTuneCalled: String? {
-        guard matches.isEmpty, case .create(let title, false, _) = outcome else { return nil }
+        guard rows.isEmpty, case .create(let title, false, _) = outcome else { return nil }
         return CatalogScreen.noTuneCalled(title)
     }
 }
@@ -127,17 +126,11 @@ enum TunePickerText {
     static let hint = "Search the catalog to add tunes."
     static let done = "Done"
 
-    /// A row that can be picked, as VoiceOver reads it: the action, then the whole row, so two
-    /// tunes with one title still sound apart.
+    /// A row as VoiceOver reads it: the action, then the whole row, so two tunes with one title
+    /// still sound apart.
     static func openLabel(_ action: String, _ entry: CatalogEntry, instruments: Set<String>) -> String {
         let row = TuneRowText(tune: entry.tune, userTune: entry.userTune, instruments: instruments)
         return "\(action) \(row.accessibilityLabel(position: nil))"
-    }
-
-    /// A tune already taken, as VoiceOver reads it: the whole row, then that it is taken.
-    @MainActor static func takenLabel(_ entry: CatalogEntry, instruments: Set<String>) -> String {
-        let row = TuneRowText(tune: entry.tune, userTune: entry.userTune, instruments: instruments)
-        return "\(row.accessibilityLabel(position: nil)), \(TunePickerModel.inThisList)"
     }
 }
 
@@ -147,9 +140,18 @@ private struct TunePickerContent<Model: TunePickerSource, Header: View>: View {
     @Bindable var model: Model
     let header: Header
 
+    /// A picker that adds several tunes leaves out each row's status, so its +/check is the
+    /// row's only glyph.
+    private var showsStatus: Bool { selection == .one }
+
     @Environment(\.dismiss) private var dismiss
     @Environment(\.spacing) private var spacing
     @FocusState private var searchFocused: Bool
+    #if !os(macOS)
+        /// Counts presses that add or remove, so each one plays its haptic as the finger lands
+        /// rather than when the write does.
+        @State private var toggles = 0
+    #endif
 
     #if os(macOS)
         /// The search over a listing of the catalog A to Z, which the search narrows once typed.
@@ -221,37 +223,22 @@ private struct TunePickerContent<Model: TunePickerSource, Header: View>: View {
         }
 
         private func macRow(_ row: TunePickerRow) -> some View {
-            // A stack around the branches, so every row has one shape and the stack identifies
-            // rows by id.
-            VStack(spacing: 0) { macRowContent(row) }
-        }
-
-        @ViewBuilder private func macRowContent(_ row: TunePickerRow) -> some View {
-            if row.isTaken {
-                // The check says the tune is taken, so every row's key pill keeps the same
-                // trailing slot; VoiceOver hears it in words.
+            Button {
+                pick(row)
+            } label: {
                 HStack(spacing: 8) {
-                    MacPickGlyph(kind: .done)
-                    TuneRow(tune: row.entry.tune, userTune: row.entry.userTune, instruments: model.instruments)
+                    TuneRow(
+                        tune: row.entry.tune, userTune: row.entry.userTune, instruments: model.instruments,
+                        showsStatus: showsStatus
+                    )
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    MacPickGlyph(kind: macGlyph(row))
                 }
-                .padding(.horizontal, MacRowStyle.labelInset)
-                .frame(maxWidth: .infinity, minHeight: MacControl.rowMinHeight, alignment: .leading)
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel(TunePickerText.takenLabel(row.entry, instruments: model.instruments))
-            } else {
-                Button {
-                    pick(row)
-                } label: {
-                    HStack(spacing: 8) {
-                        MacPickGlyph(kind: macGlyph(row))
-                        TuneRow(tune: row.entry.tune, userTune: row.entry.userTune, instruments: model.instruments)
-                    }
-                }
-                .buttonStyle(.macRow)
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel(row.name)
-                .accessibilityAddTraits(row.state == .chosen ? [.isButton, .isSelected] : .isButton)
             }
+            .buttonStyle(.macRow)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(row.name)
+            .accessibilityAddTraits(row.state == .open ? .isButton : [.isButton, .isSelected])
         }
 
         private func macGlyph(_ row: TunePickerRow) -> MacPickGlyph.Kind {
@@ -292,6 +279,7 @@ private struct TunePickerContent<Model: TunePickerSource, Header: View>: View {
                 }
             }
             .listStyle(.plain)
+            .sensoryFeedback(.impact(weight: .light), trigger: toggles)
             .pageBackground()
             .listSearch(text: $model.query, prompt: CatalogScreen.searchPrompt)
             .searchFocused($searchFocused)
@@ -306,30 +294,19 @@ private struct TunePickerContent<Model: TunePickerSource, Header: View>: View {
         }
 
         private func pickerRow(_ row: TunePickerRow) -> some View {
-            // A stack, not a Group, so every row has one shape and the list identifies rows by id.
-            VStack(alignment: .leading, spacing: 0) {
-                if row.isTaken {
-                    taken(row)
-                } else {
-                    offered(row)
-                }
-            }
-            .scaledRowInsets()
-        }
-
-        private func offered(_ row: TunePickerRow) -> some View {
             Button {
                 pick(row)
             } label: {
                 HStack(spacing: spacing(12)) {
-                    if selection == .many {
-                        addGlyph
-                    }
-                    TuneRow(tune: row.entry.tune, userTune: row.entry.userTune, instruments: model.instruments)
-                        .foregroundStyle(.textPrimary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    if selection == .one {
-                        SelectionMark(.single(isChosen: row.state == .chosen))
+                    TuneRow(
+                        tune: row.entry.tune, userTune: row.entry.userTune, instruments: model.instruments,
+                        showsStatus: showsStatus
+                    )
+                    .foregroundStyle(.textPrimary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    switch selection {
+                    case .many: PickGlyph(isAdded: row.isTaken)
+                    case .one: SelectionMark(.single(isChosen: row.state == .chosen))
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -339,27 +316,8 @@ private struct TunePickerContent<Model: TunePickerSource, Header: View>: View {
             .buttonStyle(.automatic)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(row.name)
-            .accessibilityAddTraits(row.state == .chosen ? [.isButton, .isSelected] : .isButton)
-        }
-
-        private func taken(_ row: TunePickerRow) -> some View {
-            HStack(spacing: spacing(12)) {
-                // Holds the add glyph's width, so every title in the results starts on one line.
-                addGlyph.hidden()
-                TuneRow(tune: row.entry.tune, userTune: row.entry.userTune, instruments: model.instruments)
-                Spacer(minLength: 0)
-                Text(TunePickerModel.inThisList)
-                    .font(.platform(.footnote))
-                    .foregroundStyle(.textSecondary)
-                    .fixedSize()
-            }
-            .accessibilityElement(children: .combine)
-        }
-
-        private var addGlyph: some View {
-            Image(systemName: "plus.circle.fill")
-                .font(.platform(.title3))
-                .foregroundStyle(Palette.accent)
+            .accessibilityAddTraits(row.state == .open ? .isButton : [.isButton, .isSelected])
+            .scaledRowInsets()
         }
     #endif
 
@@ -369,6 +327,8 @@ private struct TunePickerContent<Model: TunePickerSource, Header: View>: View {
             #if os(macOS)
                 // The field keeps focus, so the next tune can be typed straight away.
                 searchFocused = true
+            #else
+                toggles += 1
             #endif
         case .one:
             dismiss()
@@ -381,7 +341,14 @@ private struct TunePickerContent<Model: TunePickerSource, Header: View>: View {
             switch await model.submit() {
             case .nothing: searchFocused = true
             case .picked:
-                if selection == .one { dismiss() } else { searchFocused = true }
+                if selection == .one {
+                    dismiss()
+                } else {
+                    searchFocused = true
+                    #if !os(macOS)
+                        toggles += 1
+                    #endif
+                }
             case .create(let title):
                 searchFocused = true
                 create(title)

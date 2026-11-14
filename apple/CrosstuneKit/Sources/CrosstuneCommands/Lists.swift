@@ -60,6 +60,21 @@ extension StoreWriter {
         try tombstone(ListItem.self, id: itemID, at: time)
     }
 
+    /// Puts a tune in a list or takes it out. True when that changed the list; false when the
+    /// tune was already where it was asked to be.
+    public func setTuneInList(
+        _ listID: String, userTuneID: String, inList: Bool, at time: Timestamp = .now
+    ) throws -> Bool {
+        let existing = try activeItems(listID: listID).first { $0.userTuneID == userTuneID }
+        if inList == (existing != nil) { return false }
+        if let existing {
+            try removeFromList(existing.id, at: time)
+        } else {
+            try addToList(listID, userTuneID: userTuneID, at: time)
+        }
+        return true
+    }
+
     /// Moves an item just past the target; see ``moveBeside(_:id:itemID:targetID:)``.
     public func moveItem(listID: String, itemID: String, targetID: String, at time: Timestamp = .now) throws {
         let items = try activeItems(listID: listID)
@@ -88,6 +103,14 @@ extension Commands {
 
     public func removeFromList(_ itemID: String, at time: Timestamp = .now) async throws {
         try await store.write { writer in try writer.removeFromList(itemID, at: time) }
+    }
+
+    public func setTuneInList(
+        _ listID: String, userTuneID: String, inList: Bool, at time: Timestamp = .now
+    ) async throws -> Bool {
+        try await store.write { writer in
+            try writer.setTuneInList(listID, userTuneID: userTuneID, inList: inList, at: time)
+        }
     }
 
     public func moveItem(listID: String, itemID: String, targetID: String, at time: Timestamp = .now) async throws {

@@ -455,6 +455,7 @@
         @State private var isOff = false
         @State private var place = 0
         @State private var items: Set<Int> = [0]
+        @State private var added: Set<Int> = [1]
         @State private var yearly = true
 
         var body: some View {
@@ -535,6 +536,24 @@
                                     SelectionMark(.multiple(isOn: items.contains(index)))
                                     Text(["First item", "Second item"][index])
                                     Spacer(minLength: 0)
+                                }
+                                .galleryRow()
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .galleryGroup()
+                }
+                GalleryItem(heading: "Pick glyph: PickGlyph") {
+                    VStack(spacing: 0) {
+                        ForEach(0..<3, id: \.self) { index in
+                            Button {
+                                if added.contains(index) { added.remove(index) } else { added.insert(index) }
+                            } label: {
+                                HStack(spacing: 12) {
+                                    Text(["Forked Deer", "Soldier's Joy", "Tam Lin"][index])
+                                    Spacer(minLength: 8)
+                                    PickGlyph(isAdded: added.contains(index))
                                 }
                                 .galleryRow()
                             }

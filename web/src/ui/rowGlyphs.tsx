@@ -4,7 +4,7 @@ import { Button as AriaButton } from 'react-aria-components'
 import { TAP_AREA } from './tapArea'
 
 // Every glyph in the slot takes this box, so a row's state change never moves its layout.
-const GLYPH_BOX = 'size-6 shrink-0 in-[html[data-density=pointer]]:size-5'
+export const GLYPH_BOX = 'size-6 shrink-0 in-[html[data-density=pointer]]:size-5'
 // A bare triangle at a row's edge reads as a disclosure arrow, so a row's glyph sits in a ring.
 const RING = `grid ${GLYPH_BOX} place-items-center rounded-full border-[1.5px] border-current`
 // Strokes that ignore the icon's scale, so an icon draws the ring's 1.5px line at any size.

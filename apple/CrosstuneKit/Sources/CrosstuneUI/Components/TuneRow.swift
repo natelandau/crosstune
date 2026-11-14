@@ -12,6 +12,7 @@ public struct TuneRow: View {
     private let text: TuneRowText
     private let position: Int?
     private let stacked: Bool
+    private let showsStatus: Bool
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.spacing) private var spacing
@@ -25,11 +26,12 @@ public struct TuneRow: View {
     /// rendered on a Mac. `note` ends the second line, as ``TuneRowText/note`` says.
     init(
         tune: Tune, userTune: UserTune, instruments: Set<String>, position: Int? = nil, stacked: Bool = false,
-        note: String? = nil
+        note: String? = nil, showsStatus: Bool = true
     ) {
         text = TuneRowText(tune: tune, userTune: userTune, instruments: instruments, note: note)
         self.position = position
         self.stacked = stacked
+        self.showsStatus = showsStatus
     }
 
     public var body: some View {
@@ -37,7 +39,7 @@ public struct TuneRow: View {
             if stacked {
                 phoneRow
             } else {
-                MacTuneRow(text: text, position: position)
+                MacTuneRow(text: text, position: position, showsStatus: showsStatus)
             }
         #else
             phoneRow
@@ -65,7 +67,7 @@ public struct TuneRow: View {
 
     private var titleLine: some View {
         HStack(alignment: .firstTextBaseline, spacing: spacing(8)) {
-            StatusGlyph(text.status)
+            if showsStatus { StatusGlyph(text.status) }
             VStack(alignment: .leading, spacing: spacing.rowLineGap) {
                 Text(text.title)
                     .contentMask()

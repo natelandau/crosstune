@@ -30,6 +30,22 @@ private func threeTunes(_ commands: Commands) async throws -> (a: String, b: Str
         #expect(queued.op == .upsert)
     }
 
+    @Test func putsATuneInAListOrTakesItOutSayingWhetherTheListChanged() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let commands = Commands(store: store)
+        let (a, b, _) = try await threeTunes(commands)
+        let listID = try await commands.createList("L")
+        try await commands.addToList(listID, userTuneID: a)
+
+        #expect(try await commands.setTuneInList(listID, userTuneID: a, inList: true) == false)
+        #expect(try await commands.setTuneInList(listID, userTuneID: b, inList: false) == false)
+        #expect(try await commands.setTuneInList(listID, userTuneID: b, inList: true))
+        #expect(try await commands.setTuneInList(listID, userTuneID: a, inList: false))
+        let active = try await store.read { db in try ListItem.filter(Column("list_id") == listID).fetchAll(db) }
+        #expect(activeByPosition(active).map(\.userTuneID) == [b])
+    }
+
     @Test func addsItemsOnceInOrderAndRemovesThem() async throws {
         let root = TemporaryRoot()
         let store = try root.open()

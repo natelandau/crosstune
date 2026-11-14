@@ -1,4 +1,5 @@
-import { ArrowUpRight, Check, ChevronRight } from 'lucide-react'
+import { ArrowUpRight, ChevronRight } from 'lucide-react'
+import { ChosenMark } from './ChosenMark'
 import type { AnchorHTMLAttributes, ReactNode } from 'react'
 import {
   Button as AriaButton,
@@ -63,7 +64,7 @@ export function PressableRow(props: PressableRowProps) {
   const trailing = (
     <>
       {chevron && <ChevronRight className={CHEVRON[variant]} aria-hidden />}
-      {selected && <Check className="text-accent size-5 shrink-0" aria-hidden />}
+      {selected && <ChosenMark />}
     </>
   )
   if (props.to !== undefined) {
@@ -157,7 +158,7 @@ export function PressableOption({
       {({ isSelected }) => (
         <>
           {children}
-          {isSelected && <Check className="text-accent size-5 shrink-0" aria-hidden />}
+          {isSelected && <ChosenMark />}
         </>
       )}
     </ListBoxItem>

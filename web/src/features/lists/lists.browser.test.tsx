@@ -14,13 +14,13 @@ import {
   CREATE_LIST,
   DELETE_LIST,
   EMPTY_LIST_TITLE,
-  IN_THIS_LIST,
   LIST_GONE,
   LIST_NAME_LABEL,
   NEW_LIST_TITLE,
   NOT_PLAYABLE,
   REMOVE,
   RENAME,
+  removeTuneName,
   RENAME_LIST_TITLE,
   SAVE_LIST_NAME,
 } from './listsCopy'
@@ -413,24 +413,22 @@ it('offers Select tunes in More, which starts selecting', async () => {
   await expect.element(page.getByText(selectedTitle(0), { exact: true })).toBeVisible()
 })
 
-it('adds tunes from the picker, marking those already in the list', async () => {
+it('adds tunes from the picker, and takes one in the list back out', async () => {
   const { db } = await mount('/lists/l1', WIDE)
   await page.getByRole('button', { name: ADD_TUNES }).click()
   const dialog = page.getByRole('dialog', { name: ADD_TUNES })
   const search = dialog.getByRole('searchbox', { name: SEARCH_TUNES })
   await search.fill('o')
   expect(dialog.getByRole('button', { name: CANCEL }).elements()).toHaveLength(0)
-  const taken = dialog.getByRole('row', { name: /Cluck Old Hen/ })
-  await expect.element(taken).toHaveAccessibleName(new RegExp(`${IN_THIS_LIST}$`))
-  await expect.element(taken).toHaveAttribute('aria-disabled', 'true')
+  await dialog.getByRole('row', { name: removeTuneName('Cluck Old Hen'), exact: true }).click()
+  await expect.poll(async () => (await activeItems(db, 'l1')).length).toBe(2)
   await search.fill('Big')
-  const offered = dialog.getByRole('row', { name: addTuneName('Big Sciota'), exact: true })
-  await expect.element(offered).not.toHaveAttribute('aria-disabled')
-  await offered.click()
-  await expect.poll(async () => (await activeItems(db, 'l1')).length).toBe(4)
+  await dialog.getByRole('row', { name: addTuneName('Big Sciota'), exact: true }).click()
+  await expect.poll(async () => (await activeItems(db, 'l1')).length).toBe(3)
   await dialog.getByRole('button', { name: DONE }).click()
   await expect.element(dialog).not.toBeInTheDocument()
   await expect.poll(rowTitles).toContain('Big Sciota')
+  await expect.poll(rowTitles).not.toContain('Cluck Old Hen')
 })
 
 it('the list picker adds a new tune and stays open', async () => {
@@ -443,8 +441,9 @@ it('the list picker adds a new tune and stays open', async () => {
       name: addTypedTitleLabel({ kind: 'create', title: 'Sally Goodin', another: false }),
     })
     .click()
-  const added = dialog.getByRole('row', { name: /Sally Goodin/ })
-  await expect.element(added).toHaveAccessibleName(new RegExp(`${IN_THIS_LIST}$`))
+  await expect
+    .element(dialog.getByRole('row', { name: removeTuneName('Sally Goodin'), exact: true }))
+    .toBeVisible()
   await expect.element(dialog).toBeVisible()
   await expect
     .element(dialog.getByRole('searchbox', { name: SEARCH_TUNES }))
