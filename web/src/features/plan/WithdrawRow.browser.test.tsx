@@ -13,6 +13,7 @@ import { elementStill } from '../../test/stillPoll'
 import { PlanSheet } from './PlanSheet'
 import {
   ON_PREMIUM,
+  planContext,
   WITHDRAW_CONFIRM_BODY,
   WITHDRAW_CONFIRM_TITLE,
   WITHDRAW_DONE,
@@ -26,6 +27,8 @@ import {
 } from './planCopy'
 
 vi.mock('@clerk/react', () => import('../../fixture/clerkStub'))
+
+const PLAN = planContext({ reason: 'plan', lapse: null, recordingCount: 0, subject: null })
 
 const DAY = 86_400_000
 const NOW = Date.parse('2026-10-10T12:00:00.000Z')
@@ -49,11 +52,12 @@ async function showPlan(row: Partial<LocalEntitlement>, engine: SyncEngine = fak
       <FixedNow value={NOW}>
         <PlanSheet
           open
-          reason="plan"
+          context={PLAN}
           settled={false}
           onClose={() => {}}
           onClosed={() => {}}
           onSubscribe={() => {}}
+          onAction={() => {}}
         />
       </FixedNow>
     </Data>,
@@ -119,11 +123,12 @@ it('hides the row once the clock passes the end of the window', async () => {
       <FixedNow value={now}>
         <PlanSheet
           open
-          reason="plan"
+          context={PLAN}
           settled={false}
           onClose={() => {}}
           onClosed={() => {}}
           onSubscribe={() => {}}
+          onAction={() => {}}
         />
       </FixedNow>
     </Data>
@@ -153,11 +158,12 @@ it('hides the row at the end of the window on the real clock, before the next mi
     <Data>
       <PlanSheet
         open
-        reason="plan"
+        context={PLAN}
         settled={false}
         onClose={() => {}}
         onClosed={() => {}}
         onSubscribe={() => {}}
+        onAction={() => {}}
       />
     </Data>,
   )

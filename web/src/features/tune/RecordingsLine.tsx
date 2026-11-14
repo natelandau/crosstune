@@ -2,7 +2,7 @@ import { ChevronDown } from 'lucide-react'
 // eslint-disable-next-line no-restricted-imports -- Disclosure heading that shows or hides the list
 import { Button as AriaButton } from 'react-aria-components'
 import { ROW_PRESS } from '../../ui/press'
-import { recordingsLine } from './tuneScreenCopy'
+import { countRecordings } from '../recordings/recordingsCopy'
 
 /**
  * A free plan's recordings on a tune page, folded into one line that expands in place to the
@@ -29,7 +29,7 @@ export function RecordingsLine({
           aria-hidden
         />
       </span>
-      <span className="min-w-0 flex-1 truncate">{recordingsLine(count)}</span>
+      <span className="min-w-0 flex-1 truncate">{countRecordings(count)}</span>
     </AriaButton>
   )
 }

@@ -3,7 +3,7 @@ import { createContext, useContext, useLayoutEffect, useState, type ReactNode } 
 import type { Key, Selection } from 'react-aria-components'
 import { closeLinkName, linkOutText, openOnProviderName } from '../links/linkNames'
 import { useLinkRow } from '../links/useLinkRow'
-import { openOn, SUBSCRIBE_TO_PLAY } from '../recordings/recordingCopy'
+import { openOn } from '../recordings/recordingCopy'
 import type { RecordingSort } from '../recordings/arrangeRecordings'
 import {
   downloadingName,
@@ -28,7 +28,6 @@ import {
   RING_ROW_HOVER,
   SlotButton,
 } from '../../ui/rowGlyphs'
-import { useOpenRecordingPage } from '../player/recordingPageOpener'
 import type { Source } from '../../usage/events'
 import { useLatest } from '../../ui/useLatest'
 import { useNewRecording } from '../capture/useNewRecording'
@@ -110,7 +109,6 @@ function MediaRow({
   title,
   pinned,
   details,
-  description,
   action,
   actions,
   menu,
@@ -128,8 +126,6 @@ function MediaRow({
   title: string
   pinned: boolean
   details: ReactNode
-  /** Heard after the row's name. */
-  description?: string
   /** A control that takes the glyph's slot, such as a recording's play or a stuck one's Retry. */
   action?: ReactNode
   actions: RowAction[]
@@ -153,7 +149,6 @@ function MediaRow({
       title={title}
       titleEnd={pinned ? <PinnedMark /> : undefined}
       detail={details}
-      description={description}
       trailing={
         action ?? (
           <ActionSlot data-media-glyph className={RING_ROW_HOVER}>
@@ -171,8 +166,8 @@ function MediaRow({
 }
 
 /**
- * A recording: its tap opens the recording's page, and its slot plays what this device holds
- * and fetches what it does not.
+ * A recording: its tap opens the recording's page, or on a free plan the Plan sheet for it, and
+ * its slot plays what this device holds and fetches what it does not.
  */
 export function RecordingRow({
   row: { view, pinned, actions, error },
@@ -199,7 +194,7 @@ export function RecordingRow({
   playOrigin?: PlayOrigin
   /** Where the recording's page counts as opened from; a tune's page by default. */
   pageSource?: Source
-  /** Where a press on a disabled row's slot counts as opening the Plan sheet from. */
+  /** Where a free plan's press on the row or its play counts as opening the Plan sheet from. */
   premiumFrom?: PremiumEntry
   /** The server's storage report, read once by the list rather than by each row. */
   storage: StorageUsage | null
@@ -214,10 +209,10 @@ export function RecordingRow({
     error,
     origin: playOrigin,
     premiumFrom,
+    pageSource,
     storage,
   })
   const fresh = useNewRecording(view.recording.id)
-  const openPage = useOpenRecordingPage()
   const { title, control, slot, retry, origin } = data
   const meta = data.meta.join(' · ')
   const glyph = <RecordingControlGlyph control={control} offline={data.offlineDownload} />
@@ -230,7 +225,6 @@ export function RecordingRow({
       title={title}
       pinned={pinned}
       dimmed={data.offlineDownload || data.disabled}
-      description={data.disabled ? SUBSCRIBE_TO_PLAY : undefined}
       fresh={fresh}
       details={
         <>
@@ -298,11 +292,7 @@ export function RecordingRow({
               ...rowMenu,
             ]
       }
-      onOpen={
-        openPage
-          ? () => openPage(view.recording.id, { tuneId: view.tuneId, source: pageSource })
-          : undefined
-      }
+      onOpen={data.open}
     />
   )
 }

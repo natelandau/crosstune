@@ -25,7 +25,8 @@ import { useDockItem, type DockShown } from '../player/useDockItem'
 import { useRecordingTransport } from '../player/useRecordingTransport'
 import { seedLoop } from '../../test/recordings'
 import { PlayerContext, startOf, usePlayer, type Player } from '../player/usePlayer'
-import { PREMIUM_RECORDINGS_TITLE } from '../plan/planCopy'
+import { OFFLINE } from '../../sync/labels'
+import type { PracticeBlock } from './practiceAvailability'
 import { MODES_LABEL, WAVEFORM_LABEL } from './practiceCopy'
 import { ARROW_LARGE_STEP_MS } from './PracticeWaveform'
 import { PracticeView, type SavedFocus } from './PracticeView'
@@ -64,7 +65,7 @@ async function seed(db: CrosstuneDb, practicedLengthMs: number | null) {
   }
 }
 
-function Practice({ id, blocked }: { id: string; blocked?: string }) {
+function Practice({ id, blocked }: { id: string; blocked?: PracticeBlock }) {
   // Stands in for the recording's page, which owns what its Play loads.
   useShowsRecordingPage(id)
   const state = useRecordingPageView(id)
@@ -123,7 +124,7 @@ function PlayerProbe({ onItem }: { onItem: (item: PlayerItem | null) => void }) 
 
 interface MountOptions {
   /** Why the page says B cannot play, as it passes practice. */
-  blocked?: string
+  blocked?: PracticeBlock
   /** B's loops, put before practice reads them. */
   seedLoops?: (db: CrosstuneDb) => Promise<unknown>
   practicedLengthMs?: number | null
@@ -251,8 +252,8 @@ it('play loads the recording at the playhead', async () => {
 })
 
 it('shows the reason when the recording cannot play', async () => {
-  const { player, play } = await mount({ blocked: PREMIUM_RECORDINGS_TITLE })
-  await expect.element(page.getByText(PREMIUM_RECORDINGS_TITLE, { exact: true })).toBeVisible()
+  const { player, play } = await mount({ blocked: OFFLINE })
+  await expect.element(page.getByText(OFFLINE, { exact: true })).toBeVisible()
   await expect.element(play).toHaveAttribute('aria-disabled', 'true')
   await play.click({ force: true })
   await expect.poll(() => player.play).not.toHaveBeenCalled()

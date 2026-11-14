@@ -7,8 +7,10 @@ import { OFFLINE } from '../../sync/labels'
 import { useOnline } from '../../sync/SyncProvider'
 import { usePremiumSheet, type PremiumEntry } from '../plan/PremiumSheetProvider'
 import { TUNE_ROW_ORIGIN, type PlayOrigin } from '../player/playLog'
+import { useOpenRecordingPage } from '../player/recordingPageOpener'
 import { isPlaying, usePlayer } from '../player/usePlayer'
 import { DOWNLOAD_FAILED, formatDuration } from '../../text/format'
+import type { Source } from '../../usage/events'
 import type { RecordingSort } from './arrangeRecordings'
 import {
   originLink,
@@ -31,11 +33,12 @@ export interface RecordingRowData {
   loaded: boolean
   /** A download offered while offline: the slot keeps its press and dims, and says Offline. */
   offlineDownload: boolean
-  /** A recording the plan does not play that has something to play: the row dims and its
-   * slot opens the Plan sheet. */
+  /** A recording the plan does not play that has something to play: the row dims. */
   disabled: boolean
   /** What a press on the row's action slot does; undefined when the slot holds no control. */
   slot: (() => void) | undefined
+  /** The row's own tap: the recording's page, or on a free plan the Plan sheet for it. */
+  open: () => void
   retry: 'upload' | 'transcode' | null
   /** A failed download, unless the caller's own error line speaks first. */
   error: string | null
@@ -55,6 +58,7 @@ export function useRecordingRow(
     error,
     origin: playOrigin = TUNE_ROW_ORIGIN,
     premiumFrom = 'recording_row',
+    pageSource = 'tune',
     storage = null,
   }: {
     tuneNamedAbove?: boolean
@@ -63,8 +67,10 @@ export function useRecordingRow(
     error?: string | null
     /** Where a play from this row counts as asked for. */
     origin?: PlayOrigin
-    /** Where a press on a disabled row's slot counts as opening the Plan sheet from. */
+    /** Where a free plan's press on the row or its play counts as opening the Plan sheet from. */
     premiumFrom?: PremiumEntry
+    /** Where the recording's page counts as opened from. */
+    pageSource?: Source
     /** The server's storage report, which the meta line reads for a file not yet uploaded. */
     storage?: StorageUsage | null
   } = {},
@@ -74,6 +80,7 @@ export function useRecordingRow(
   const player = usePlayer()
   const premium = usePremiumSheet()
   const online = useOnline()
+  const openPage = useOpenRecordingPage()
   const { fetch, download } = useDownload(recording.id)
   const title = recordingTitle(view, { tuneNamedAbove })
   const item = { kind: 'recording' as const, id: recording.id }
@@ -110,12 +117,17 @@ export function useRecordingRow(
         localOnly,
       })
 
+  const subject = { recordingId: recording.id }
+  const open = free
+    ? () => premium.open('recordings', premiumFrom, subject)
+    : () => openPage?.(recording.id, { tuneId: view.tuneId, source: pageSource })
+
   const slot =
     control === 'close'
       ? () => player.close()
       : control === 'play'
         ? free
-          ? () => premium.open('recordings', premiumFrom)
+          ? open
           : () => player.play(item, { origin: playOrigin })
         : control === 'download'
           ? // Refused rather than disabled while offline, so the control keeps its press and
@@ -133,6 +145,7 @@ export function useRecordingRow(
     offlineDownload,
     disabled: free && control === 'play',
     slot,
+    open,
     retry: retryKind(view, { uploads: !free }),
     error: error ?? (fetch === 'failed' ? DOWNLOAD_FAILED : null),
     origin: originLink(recording),

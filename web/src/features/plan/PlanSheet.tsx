@@ -1,35 +1,29 @@
-import { useEffect, useId, useState } from 'react'
-import { canSubscribe, planMode, type Plan } from '../../billing/plan'
+import { useEffect, useId } from 'react'
+import { planMode, type Plan } from '../../billing/plan'
 import { storeConfig } from '../../billing/storeConfig'
-import { useStore } from '../../billing/StoreProvider'
 import { usePlanOrUnknown } from '../../billing/usePlan'
-import { useOnline } from '../../sync/SyncProvider'
-import type { PremiumReason, PurchasePeriod } from '../../usage/events'
+import type { PurchasePeriod } from '../../usage/events'
 import { useAlert } from '../../ui/Confirm'
 import { Mark } from '../../ui/Mark'
-import { Sheet, type SheetPrimary } from '../../ui/Sheet'
+import { HeadingLevelContext, useSubheadingLevel } from '../../ui/headingLevel'
+import { Sheet } from '../../ui/Sheet'
 import { useNow } from '../../ui/useNow'
-import { useResetOnChange } from '../../ui/useResetOnChange'
 import { IncludedList } from './IncludedList'
 import { manage, membership } from './membership'
 import { MembershipCard } from './MembershipCard'
-import { PeriodTiles } from './PeriodTiles'
-import { PlanComparison } from './PlanComparison'
+import { renderOfferChoice } from './renderOfferChoice'
+import { PlanExport, PlanPanel } from './PlanPanel'
 import {
   ON_PREMIUM,
-  premiumCopy,
-  SUBSCRIBE,
-  SUBSCRIBE_OFFLINE,
   SUBSCRIBE_UNAVAILABLE_MESSAGE,
   SUBSCRIBE_UNAVAILABLE_TITLE,
-  SUBSCRIBED,
   THANKS,
+  type PlanAction,
+  type PlanContext,
 } from './planCopy'
 import { RenewalTerms } from './RenewalTerms'
-import { TrialCard } from './TrialCard'
+import { usePlanOffer } from './usePlanOffer'
 import { useWithdrawUntil } from './useWithdrawUntil'
-import { useOffers } from './useOffers'
-import { chosenPeriod, purchaseOptionsFor, type PurchaseOptions } from './planSheetModel'
 
 /**
  * The account's plan: what Free and Premium each hold, purchasable by a free or trial account,
@@ -38,65 +32,34 @@ import { chosenPeriod, purchaseOptionsFor, type PurchaseOptions } from './planSh
  */
 export function PlanSheet({
   open,
-  reason,
+  context,
   settled,
   onClose,
   onClosed,
   onSubscribe,
+  onAction,
 }: {
   open: boolean
   /** Kept until the sheet has left, so it does not change as it closes; null once it has. */
-  reason: PremiumReason | null
+  context: PlanContext | null
   /** A purchase went through this session, so no purchase options show until the plan follows. */
   settled: boolean
   onClose: () => void
   onClosed: () => void
   onSubscribe: (period: PurchasePeriod) => void
+  onAction: (action: PlanAction) => void
 }) {
   const bodyId = useId()
   const headlineId = useId()
-  const store = useStore()
   const plan = usePlanOrUnknown()
-  const online = useOnline()
   const mode = planMode(plan)
-  const offers = useOffers(store !== null && canSubscribe(plan) ? store : null, open)
-  const [period, setPeriod] = useState<PurchasePeriod>('annual')
-  useResetOnChange(open, () => {
-    if (open) setPeriod('annual')
-  })
-  const copy = reason ? premiumCopy(reason) : null
-  const body = copy?.body ?? null
-  const options =
-    mode === 'purchasable'
-      ? purchaseOptionsFor({ hasStore: store !== null, plan, online, offers, settled })
-      : ({ kind: 'notPurchasable' } as const)
-  const choice = options.kind === 'choice' ? options.offers : null
-  // Annual by default, or the one period the store sells when it sells only one.
-  const chosen = choice ? chosenPeriod(choice, period) : undefined
-  const chosenPrice = choice?.find((offer) => offer.period === chosen)?.price
-  const line =
-    options.kind === 'subscribed'
-      ? SUBSCRIBED
-      : options.kind === 'offline'
-        ? SUBSCRIBE_OFFLINE
-        : null
-  const alert = useAlert()
-  const unavailable = open && reason !== null && options.kind === 'unavailable'
-  useEffect(() => {
-    if (!unavailable) return
-    // The sheet closing, or the store answering, takes the alert away with it.
-    const shown = new AbortController()
-    void alert({
-      title: SUBSCRIBE_UNAVAILABLE_TITLE,
-      message: SUBSCRIBE_UNAVAILABLE_MESSAGE,
-      signal: shown.signal,
-    })
-    return () => shown.abort()
-  }, [unavailable, alert])
-  const primary = subscribeAction(options, () => onSubscribe(chosen ?? period))
+  const shown = open && context !== null
+  const offer = usePlanOffer(shown, settled, onSubscribe)
+  const { chosen, price } = offer
+  useUnavailableAlert(shown && offer.unavailable)
   return (
     <Sheet
-      isOpen={open && reason !== null}
+      isOpen={shown}
       onOpenChange={(next) => {
         if (!next) onClose()
       }}
@@ -105,62 +68,60 @@ export function PlanSheet({
       closeButton
       primaryLarge
       inlineActions
-      describedBy={mode === 'purchasable' && body ? bodyId : undefined}
-      primary={primary}
+      describedBy={mode === 'purchasable' && context?.body ? bodyId : undefined}
+      primary={offer.primary}
       cancel={null}
-      accessory={
-        choice ? (
-          <PeriodTiles offers={choice} period={chosen ?? period} onChange={setPeriod} />
-        ) : line ? (
-          <p className={`t-secondary ${options.kind === 'offline' ? 'text-secondary' : ''}`}>
-            {line}
-          </p>
-        ) : undefined
-      }
+      accessory={renderOfferChoice(offer)}
       footnote={
-        chosen && chosenPrice ? <RenewalTerms price={chosenPrice} period={chosen} /> : undefined
+        mode === 'purchasable' && (context?.action || (chosen && price)) ? (
+          <>
+            <PlanExport context={context} onAction={onAction} />
+            {chosen && price && <RenewalTerms price={price} period={chosen} />}
+          </>
+        ) : undefined
       }
       onClosed={onClosed}
     >
-      {mode === 'purchasable' ? (
-        <div className="flex flex-col gap-4 pt-2">
-          <div className="flex flex-col items-center gap-1 text-center">
-            <Mark className="mb-3 h-10" />
-            <h4 id={headlineId} className="t-screen-title break-words">
-              {copy?.title ?? ''}
-            </h4>
-            {body && (
-              <p id={bodyId} className="t-body text-secondary">
-                {body}
-              </p>
-            )}
-          </div>
-          {plan.kind === 'premium' && plan.source === 'trial' && (
-            <TrialCard
-              startsAt={plan.trialStartsAt}
-              endsAt={plan.trialEndsAt ?? plan.premiumEndsAt}
-            />
-          )}
-          <PlanComparison />
-        </div>
-      ) : (
-        <Member plan={plan} headlineId={headlineId} />
-      )}
+      {/* The headline stands as the sheet's title, since the sheet has none of its own. */}
+      <HeadingLevelContext value={1}>
+        {mode === 'purchasable' ? (
+          <PlanPanel context={context} headlineId={headlineId} bodyId={bodyId} />
+        ) : (
+          <Member plan={plan} headlineId={headlineId} />
+        )}
+      </HeadingLevelContext>
     </Sheet>
   )
+}
+
+/** Raises the alert that the store cannot answer while `raised`; it leaves when that ends. */
+function useUnavailableAlert(raised: boolean) {
+  const alert = useAlert()
+  useEffect(() => {
+    if (!raised) return
+    const shown = new AbortController()
+    void alert({
+      title: SUBSCRIBE_UNAVAILABLE_TITLE,
+      message: SUBSCRIBE_UNAVAILABLE_MESSAGE,
+      signal: shown.signal,
+    })
+    return () => shown.abort()
+  }, [raised, alert])
 }
 
 /** A Premium account's plan: the mark and thanks, the membership, and what Premium includes. */
 function Member({ plan, headlineId }: { plan: Plan; headlineId: string }) {
   const now = useNow()
   const withdrawUntil = useWithdrawUntil()
+  const level = useSubheadingLevel()
+  const Headline = `h${level}` as const
   return (
     <div className="flex flex-col gap-4 pt-2">
       <div className="flex flex-col items-center gap-1 text-center">
         <Mark className="mb-3 h-10" />
-        <h4 id={headlineId} className="t-screen-title">
+        <Headline id={headlineId} className="t-screen-title">
           {ON_PREMIUM}
-        </h4>
+        </Headline>
         <p className="t-body text-secondary">{THANKS}</p>
       </div>
       <MembershipCard
@@ -168,26 +129,9 @@ function Member({ plan, headlineId }: { plan: Plan; headlineId: string }) {
         manage={manage(plan, storeConfig().portalUrl)}
         withdrawUntil={withdrawUntil}
       />
-      <IncludedList />
+      <HeadingLevelContext value={level}>
+        <IncludedList />
+      </HeadingLevelContext>
     </div>
   )
-}
-
-/** The Subscribe action. The header's close button is the one way out through every answer. */
-function subscribeAction(
-  options: PurchaseOptions,
-  subscribe: () => void,
-): SheetPrimary | undefined {
-  switch (options.kind) {
-    case 'pending':
-      return { label: SUBSCRIBE, onPress: () => {}, isDisabled: true }
-    case 'choice':
-      return { label: SUBSCRIBE, onPress: subscribe }
-    case 'notPurchasable':
-    case 'empty':
-    case 'offline':
-    case 'unavailable':
-    case 'subscribed':
-      return undefined
-  }
 }

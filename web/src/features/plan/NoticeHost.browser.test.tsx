@@ -257,7 +257,12 @@ it('tells a lapsed trial it has ended and, with no store, offers only Compare pl
   await expect.element(notice).not.toBeInTheDocument()
   await expect
     .poll(() => sheetShown(analytics))
-    .toEqual([{ name: 'premium_sheet_shown', props: { reason: 'plan', from: 'trial_ended' } }])
+    .toEqual([
+      {
+        name: 'premium_sheet_shown',
+        props: { reason: 'plan', from: 'trial_ended', presentation: 'sheet' },
+      },
+    ])
   await expect.poll(async () => [...(await seenNotices(db))]).toEqual(['trial_ended'])
   await expect
     .poll(() => shown(analytics))
@@ -485,7 +490,12 @@ it('opens the Plan sheet from Compare plans', async () => {
   await expect.element(planSheet()).toBeVisible()
   await expect
     .poll(() => sheetShown(analytics))
-    .toEqual([{ name: 'premium_sheet_shown', props: { reason: 'plan', from: 'trial_reminder' } }])
+    .toEqual([
+      {
+        name: 'premium_sheet_shown',
+        props: { reason: 'plan', from: 'trial_reminder', presentation: 'sheet' },
+      },
+    ])
   await expect.poll(async () => [...(await seenNotices(db))]).toEqual(['trial_reminder'])
   expect(store.purchase).not.toHaveBeenCalled()
 })

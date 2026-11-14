@@ -320,6 +320,7 @@ A role only one platform has is on that platform's page.
 - Apple: system undo (Cmd-Z, or shake on iPhone) plus a short banner with
   Undo replaces the toast.
 - A gated control stays in place and answers a tap with the Plan sheet.
+  A menu item the plan blocks is hidden.
 
 ## Pages
 

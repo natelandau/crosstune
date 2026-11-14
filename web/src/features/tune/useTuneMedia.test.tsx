@@ -306,7 +306,7 @@ describe('useTuneMedia', () => {
       .toEqual([
         {
           name: 'premium_sheet_shown',
-          props: { reason: 'recordings', from: 'add_to_recordings' },
+          props: { reason: 'recordings', from: 'add_to_recordings', presentation: 'sheet' },
         },
       ])
     expect(await db.recordings.count()).toBe(0)

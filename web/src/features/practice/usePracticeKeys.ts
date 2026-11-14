@@ -37,8 +37,8 @@ export interface PracticeKeyActions {
   scope: PracticeKeyScope
   /** True while no overlay sits over practice, the only time the keys reach it. */
   isTop: () => boolean
-  /** Why practice is paused, which turns every key off. */
-  blocked?: string
+  /** Whether practice is paused, which turns every key off. */
+  blocked?: boolean
   /** False while the audio is not loaded, which turns N, L, `[`, and `]` off. */
   canEdit: boolean
   trimStartMs: number

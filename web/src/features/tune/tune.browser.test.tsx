@@ -29,7 +29,6 @@ import {
   NOTES_SECTION,
   OPEN_LYRICS,
   RECORDINGS_SECTION,
-  recordingsLine,
   WRITE_A_NOTE,
 } from './tuneScreenCopy'
 import {
@@ -56,7 +55,7 @@ import {
 } from '../../test/rows'
 import { fakePlayer } from '../../test/providers'
 import { PREMIUM_RECORDINGS_TITLE } from '../plan/planCopy'
-import { SUBSCRIBE_TO_PLAY } from '../recordings/recordingCopy'
+import { countRecordings } from '../recordings/recordingsCopy'
 import { AnalyticsProvider } from '../../usage/AnalyticsProvider'
 import { recordingAnalytics } from '../../usage/testing'
 import { MORE_ACTIONS } from '../../ui/menuCopy'
@@ -804,7 +803,7 @@ it("folds a free plan's recordings into one line that opens to dimmed rows", asy
     wrap: (app) => <AnalyticsProvider client={analytics}>{app}</AnalyticsProvider>,
   })
   const section = tunePage().getByRole('region', { name: RECORDINGS_SECTION })
-  const line = section.getByRole('button', { name: recordingsLine(3) })
+  const line = section.getByRole('button', { name: countRecordings(3), exact: true })
   await expect.element(line).toHaveAttribute('aria-expanded', 'false')
   const recordingRows = section.getByRole('row', { name: /Take \d/ })
   await expect.element(section.getByRole('row', { name: /Henry Reed/ })).toBeVisible()
@@ -818,7 +817,6 @@ it("folds a free plan's recordings into one line that opens to dimmed rows", asy
   }
 
   const gatedRow = section.getByRole('row', { name: /^Take 1/ })
-  await expect.element(gatedRow).toHaveAccessibleDescription(SUBSCRIBE_TO_PLAY)
   await gatedRow.click({ button: 'right' })
   await expect.element(page.getByRole('menuitem', { name: DELETE })).toBeVisible()
   await userEvent.keyboard('{Escape}')
@@ -836,7 +834,10 @@ it("folds a free plan's recordings into one line that opens to dimmed rows", asy
   await expect
     .poll(() => analytics.sends().filter((send) => send.name === 'premium_sheet_shown'))
     .toEqual([
-      { name: 'premium_sheet_shown', props: { reason: 'recordings', from: 'recordings_line' } },
+      {
+        name: 'premium_sheet_shown',
+        props: { reason: 'recordings', from: 'recordings_line', presentation: 'sheet' },
+      },
     ])
   await userEvent.keyboard('{Escape}')
   await expect

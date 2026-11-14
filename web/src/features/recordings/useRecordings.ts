@@ -30,6 +30,31 @@ export interface RecordingView {
 
 const isImported = (view: RecordingView) => view.recording.origin !== 'own'
 
+/** `tune` is the recording's tune only while it is live. */
+function buildRecordingView(
+  recording: LocalRecording,
+  {
+    file,
+    tune,
+    waiting,
+    places,
+  }: {
+    file: RecordingFile | undefined
+    tune: LocalTune | undefined
+    waiting: ReadonlySet<string>
+    places: ReadonlyMap<string, LocalPlace>
+  },
+): RecordingView {
+  return {
+    recording,
+    file,
+    tuneId: tune?.id ?? null,
+    tuneTitle: tune?.title ?? null,
+    holdsSplitAudio: holdsSplitAudio(recording, waiting),
+    shownPlace: shownPlaceName(recording, places),
+  }
+}
+
 /** Live recordings with their local file: a tune's own recordings before its imported ones,
  * each in position order; every recording unordered for the caller to arrange. A caller that
  * needs no file data passes `withFiles: false`, so a live query skips `recording_files` and
@@ -55,20 +80,43 @@ export async function readRecordingsWithFiles(
   const liveTunes = new Map(
     tunes.filter((s): s is LocalTune => !!s && !s.deleted_at).map((s) => [s.id, s] as const),
   )
-  const views = live.map((recording, i) => {
-    const tune = recording.tune_id ? liveTunes.get(recording.tune_id) : undefined
-    return {
-      recording,
+  const views = live.map((recording, i) =>
+    buildRecordingView(recording, {
       file: files[i],
-      tuneId: tune?.id ?? null,
-      tuneTitle: tune?.title ?? null,
-      holdsSplitAudio: holdsSplitAudio(recording, waiting),
-      shownPlace: shownPlaceName(recording, places),
-    }
-  })
+      tune: recording.tune_id ? liveTunes.get(recording.tune_id) : undefined,
+      waiting,
+      places,
+    }),
+  )
   // Array.sort is stable, so each group keeps its position order.
   if (tuneId) return views.sort((a, b) => Number(isImported(a)) - Number(isImported(b)))
   return views
+}
+
+/**
+ * One recording with its local file, as `readRecordingsWithFiles` reads each. Null once it is
+ * gone.
+ */
+export async function readRecordingView(
+  db: CrosstuneDb,
+  id: string,
+): Promise<RecordingView | null> {
+  const [recording, file, waiting] = await Promise.all([
+    db.recordings.get(id),
+    db.recording_files.get(id),
+    waitingParentIds(db),
+  ])
+  if (!recording || recording.deleted_at) return null
+  const [tune, place] = await Promise.all([
+    recording.tune_id ? db.tunes.get(recording.tune_id) : undefined,
+    recording.place_id ? db.places.get(recording.place_id) : undefined,
+  ])
+  return buildRecordingView(recording, {
+    file,
+    tune: tune && !tune.deleted_at ? tune : undefined,
+    waiting,
+    places: new Map(place ? [[place.id, place]] : []),
+  })
 }
 
 /** `readRecordingsWithFiles`, kept live. */

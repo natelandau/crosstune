@@ -21,7 +21,6 @@ import { tuneHomePath } from '../../layout/tuneHome'
 import { useFrame } from '../../platform/frame'
 import { useWakeLock } from '../../platform/wakeLock'
 import { attributesLayout } from '../../ui/attributes/attributesLayout'
-import { Button } from '../../ui/Button'
 import { IconButton } from '../../ui/IconButton'
 import { useConfirm } from '../../ui/Confirm'
 import { ErrorLine } from '../../ui/ErrorLine'
@@ -37,11 +36,12 @@ import { springEasing } from '../../theme/motion'
 import { useAnalytics } from '../../usage/AnalyticsProvider'
 import type { RecordingPageLayout, Source } from '../../usage/events'
 import { isMonoFromRow, isolateFromRow } from '../player/isolate/isolateSetting'
-import { usePremiumSheet } from '../plan/PremiumSheetProvider'
+import { LapsedGate } from '../plan/LapsedGate'
 import {
-  practiceDisabledReason,
+  practiceBlock,
   splitDisabledReason,
   trimDisabledReason,
+  type PracticeBlock,
 } from '../practice/practiceAvailability'
 import { usePracticeHolds } from '../practice/practiceHolds'
 import { PlaybackEngineContext } from '../player/PlaybackEngineProvider'
@@ -55,7 +55,6 @@ import { TrimPanel } from '../practice/TrimPanel'
 import { inPractice, type PracticeKeyScope } from '../practice/usePracticeKeys'
 import { usePracticeLog } from '../practice/usePracticeLog'
 import { useTrimHold } from '../practice/useTrimHold'
-import { SUBSCRIBE_TO_PLAY } from '../recordings/recordingCopy'
 import { RecordingExportSheet } from '../recordings/export/RecordingExportSheet'
 import { exportMenuItems } from '../recordings/export/useRecordingExport'
 import { useRecordingExportSheet } from '../recordings/export/useRecordingExportSheet'
@@ -155,7 +154,7 @@ export function RecordingPage({
   // One engine for Details, practice, and the editors, so a scrub or loop in one holds in the next.
   const recordingEngine = useRecordingEngine(view)
   // A recording practiced with the device propped up with the hands on the violin, must not dim.
-  useWakeLock(practiceShown || editing)
+  useWakeLock(recordingsPlay && (practiceShown || editing))
 
   const leaveTo = useLeaveTo()
   const openTune = (tuneId: string) => {
@@ -172,14 +171,13 @@ export function RecordingPage({
     pin: userTune
       ? { userTuneId: userTune.id, recordingId: userTune.play_recording_id ?? null }
       : undefined,
-    // A control with nothing to act on is absent, so a free plan's menu has no Trim.
-    onTrim: recordingsPlay ? () => state.openEditor('trim') : undefined,
+    onTrim: () => state.openEditor('trim'),
     trimBlocked: view
-      ? trimDisabledReason(view.recording, view.file, uploadLimits, state.audio, recordingsPlay)
+      ? trimDisabledReason(view.recording, view.file, uploadLimits, state.audio)
       : undefined,
-    onSplit: recordingsPlay ? () => state.openEditor('split') : undefined,
+    onSplit: () => state.openEditor('split'),
     splitBlocked: view
-      ? splitDisabledReason(view.recording, view.file, uploadLimits, state.audio, recordingsPlay)
+      ? splitDisabledReason(view.recording, view.file, uploadLimits, state.audio)
       : undefined,
     onOpenTune: (opened) => {
       if (opened.tuneId) openTune(opened.tuneId)
@@ -200,6 +198,13 @@ export function RecordingPage({
     }
   }, [editing, overlayOpen])
 
+  // A plan that turns free mid-edit leaves the editor, so the Plan sheet covers the page, nothing
+  // saves a trim or split the plan no longer allows, and a later purchase never reopens it.
+  const leaveEditorRef = useLatest(state.leaveEditor)
+  useEffect(() => {
+    if (editing && !recordingsPlay) leaveEditorRef.current()
+  }, [editing, recordingsPlay, leaveEditorRef])
+
   const paneHeight = usePaneHeight()
   // Practice and the editors fill the pane. An editor keeps that height; practice grows past it
   // on a window too short for it, so the whole page scrolls rather than only its controls.
@@ -208,8 +213,10 @@ export function RecordingPage({
   const error = actions.error ?? recordingExport.error ?? state.error
   // Why practice cannot play the recording yet, a plan that plays none first.
   const blocked = view
-    ? practiceDisabledReason(view.recording, view.file, state.audio, recordingsPlay)
+    ? practiceBlock(view.recording, view.file, state.audio, recordingsPlay)
     : undefined
+  // The body's own layout, which the gate's wrappers pass through.
+  const bodyClass = fills ? 'flex min-h-0 flex-1 flex-col' : ''
 
   return (
     <div
@@ -241,65 +248,81 @@ export function RecordingPage({
               />
             }
           />
-          {view &&
-            (wide ? (
-              <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_clamp(var(--container-attributes),100%_-_var(--container-page)_-_var(--attributes-gap),var(--container-attributes-max))] gap-x-(--attributes-gap)">
-                <PracticeSlot host={practiceHost} />
-                <RecordingAttributes
-                  ref={attributes}
-                  view={view}
-                  location={state.location}
-                  layout="column"
-                />
-              </div>
-            ) : (
-              <Tabs
-                label={state.title}
-                tabs={[
-                  { id: 'practice', label: PRACTICE, icon: Play },
-                  { id: 'details', label: DETAILS, icon: Info },
-                ]}
-                selected={tab}
-                onChange={chooseTab}
-                container="page"
-                className={fills ? 'flex min-h-0 flex-1 flex-col' : undefined}
-                panelClassName={(id) =>
-                  id === 'details'
-                    ? 'flex flex-col gap-6 px-4 pb-12'
-                    : 'flex min-h-0 flex-1 flex-col'
-                }
-              >
-                {(id) =>
-                  id === 'details' ? (
-                    <>
-                      <ErrorLine error={error} place="inline" />
-                      <RecordingAttributes view={view} location={state.location} layout="card" />
-                    </>
-                  ) : (
-                    <PracticeSlot host={practiceHost} />
-                  )
-                }
-              </Tabs>
-            ))}
-        </>
-      )}
-      {measured &&
-        !editing &&
-        view &&
-        createPortal(
-          <PracticeArea
-            state={state}
+          <LapsedGate
             view={view}
             error={error}
-            engine={recordingEngine}
-            blocked={blocked}
-            recordingsPlay={recordingsPlay}
-            keyScope={keyScope}
-            modeLayout={wide ? 'toolbar' : 'tabs'}
-            shownRef={practiceShownRef}
-          />,
-          practiceHost,
-        )}
+            // A page's Plan offers only its own recording's export.
+            onAction={() => {
+              if (view) recordingExport.downloadOne(view)
+            }}
+            from="recording_page"
+            className={bodyClass}
+          >
+            {(bodyError) =>
+              view && (
+                <>
+                  {wide ? (
+                    <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_clamp(var(--container-attributes),100%_-_var(--container-page)_-_var(--attributes-gap),var(--container-attributes-max))] gap-x-(--attributes-gap)">
+                      <PracticeSlot host={practiceHost} />
+                      <RecordingAttributes
+                        ref={attributes}
+                        view={view}
+                        location={state.location}
+                        layout="column"
+                      />
+                    </div>
+                  ) : (
+                    <Tabs
+                      label={state.title}
+                      tabs={[
+                        { id: 'practice', label: PRACTICE, icon: Play },
+                        { id: 'details', label: DETAILS, icon: Info },
+                      ]}
+                      selected={tab}
+                      onChange={chooseTab}
+                      container="page"
+                      className={bodyClass}
+                      panelClassName={(id) =>
+                        id === 'details'
+                          ? 'flex flex-col gap-6 px-4 pb-12'
+                          : 'flex min-h-0 flex-1 flex-col'
+                      }
+                    >
+                      {(id) =>
+                        id === 'details' ? (
+                          <>
+                            <ErrorLine error={bodyError} place="inline" />
+                            <RecordingAttributes
+                              view={view}
+                              location={state.location}
+                              layout="card"
+                            />
+                          </>
+                        ) : (
+                          <PracticeSlot host={practiceHost} />
+                        )
+                      }
+                    </Tabs>
+                  )}
+                  {createPortal(
+                    <PracticeArea
+                      state={state}
+                      view={view}
+                      error={bodyError}
+                      engine={recordingEngine}
+                      blocked={blocked}
+                      keyScope={keyScope}
+                      modeLayout={wide ? 'toolbar' : 'tabs'}
+                      shownRef={practiceShownRef}
+                    />,
+                    practiceHost,
+                  )}
+                </>
+              )
+            }
+          </LapsedGate>
+        </>
+      )}
       <RecordingExportSheet {...recordingExport.sheet} />
     </div>
   )
@@ -361,7 +384,6 @@ function PracticeArea({
   error,
   engine,
   blocked,
-  recordingsPlay,
   keyScope,
   modeLayout,
   shownRef,
@@ -375,11 +397,8 @@ function PracticeArea({
   /** Whether practice shows now; hidden behind Details it hears no keys. */
   shownRef: RefObject<boolean>
   /** Why practice cannot play the recording yet. */
-  blocked: string | undefined
-  /** Whether the plan plays recordings. */
-  recordingsPlay: boolean
+  blocked: PracticeBlock | undefined
 }) {
-  const premium = usePremiumSheet()
   // Escape steps out of what practice holds, such as a rename or the selected loop.
   const escapeRef = useRef<(() => boolean) | null>(null)
   const isTop = () => shownRef.current && !isOverlayOpen()
@@ -395,12 +414,6 @@ function PracticeArea({
         <p role="status" className="t-secondary m-0 text-center">
           {state.trimNotice}
         </p>
-      )}
-      {!recordingsPlay && (
-        <Button
-          label={SUBSCRIBE_TO_PLAY}
-          onPress={() => premium.open('recordings', 'recording_page')}
-        />
       )}
       <PracticeView
         view={view}

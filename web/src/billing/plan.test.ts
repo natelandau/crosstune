@@ -21,6 +21,28 @@ const iso = (ms: number) => new Date(ms).toISOString()
 const at = (offsetMs: number) => iso(NOW.getTime() + offsetMs)
 
 describe('planFrom', () => {
+  it.each([
+    ['stripe', -1000, 'paid'],
+    ['apple', -1000, 'paid'],
+    ['comp', -1000, 'paid'],
+    ['trial', -1000, 'trial'],
+    ['stripe', DAY, null],
+    ['apple', DAY, null],
+    ['comp', DAY, null],
+    ['trial', DAY, null],
+  ] as const)(
+    'names the grant a free account lost: %s ending %i ms from now',
+    (source, offset, lapse) => {
+      const row = entitlementRow({ premium_source: source, premium_expires_at: at(offset) })
+      expect(planFrom(row, NOW).lapse).toBe(lapse)
+    },
+  )
+
+  it('has no lapse without a grant or a row', () => {
+    expect(planFrom(entitlementRow({ premium_source: null }), NOW).lapse).toBeNull()
+    expect(planFrom(null, NOW).lapse).toBeNull()
+  })
+
   it('carries autoRenews for a premium row only', () => {
     const grant = { premium_source: 'apple', premium_expires_at: at(DAY), auto_renews: true }
     expect(planFrom(entitlementRow(grant), NOW).autoRenews).toBe(true)

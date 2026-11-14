@@ -1,5 +1,6 @@
 import type { AnalyticsClient } from '../../usage/client'
 import { ApiError } from '../../api/client'
+import { countLiveRecordings } from '../../db/recordings'
 import type { CrosstuneDb } from '../../db/schema'
 import { isAccountDeleted } from '../../sync/errors'
 import type { SyncEngine } from '../../sync/types'
@@ -30,7 +31,7 @@ export async function countAccountData(
   const [tunes, lists, recordings] = await Promise.all([
     db.user_tunes.filter((row) => !row.deleted_at).count(),
     db.lists.filter((row) => !row.deleted_at).count(),
-    db.recordings.filter((row) => !row.deleted_at).count(),
+    countLiveRecordings(db),
   ])
   return { tunes, lists, recordings }
 }

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useOnline } from '../../../sync/SyncProvider'
 import { blockedCount, exportSheetContent } from './exportState'
 import { exportReadiness } from './readiness'
+import type { RecordingView } from '../useRecordings'
 import type { RecordingExportSheetProps } from './RecordingExportSheet'
 import type { ExportItem } from './runRecordingExport'
 import {
@@ -16,6 +17,16 @@ export interface RecordingExportWithSheet extends RecordingExport {
    * none is blocked, and otherwise waits for Continue.
    */
   download(items: readonly ExportItem[]): void
+  /**
+   * Opens the download sheet on `items` to show the failed export that already ran on them,
+   * without starting another.
+   */
+  reveal(items: readonly ExportItem[]): void
+  /**
+   * Downloads one recording, through the sheet when this device cannot hand it over at once, so
+   * the sheet fetches it or says why it cannot.
+   */
+  downloadOne(view: RecordingView): void
   /** A failure the sheet does not show, such as a share's. */
   error: string | null
   sheet: RecordingExportSheetProps
@@ -47,6 +58,8 @@ export function useRecordingExportSheet({
     if (blockedCount(items) === 0) recordingExport.exportItems(items, 'download')
   }
 
+  const reveal = (items: readonly ExportItem[]) => setOpened(items)
+
   const exportOne: RecordingExport['exportOne'] = (view, how) => {
     if (how !== 'download') {
       recordingExport.exportOne(view, how)
@@ -62,10 +75,18 @@ export function useRecordingExportSheet({
     recordingExport.exportOne(view, how)
   }
 
+  const downloadOne = (view: RecordingView) => {
+    const readiness = exportReadiness(view, online)
+    if (readiness.kind === 'local') exportOne(view, 'download')
+    else download([{ view, readiness }])
+  }
+
   return {
     ...recordingExport,
     exportOne,
     download,
+    reveal,
+    downloadOne,
     error: open ? null : recordingExport.error,
     sheet: {
       open,

@@ -17,7 +17,8 @@ import {
 } from '../src/features/settings/export/exportCopy'
 import { IMPORT_AND_EXPORT } from '../src/features/settings/settingsCopy'
 import { RECORD } from '../src/features/tune/tuneMediaCopy'
-import { RECORDINGS_SECTION, recordingsLine } from '../src/features/tune/tuneScreenCopy'
+import { RECORDINGS_SECTION } from '../src/features/tune/tuneScreenCopy'
+import { countRecordings } from '../src/features/recordings/recordingsCopy'
 import { CLOSE } from '../src/ui/confirmCopy'
 import {
   addTune,
@@ -174,7 +175,7 @@ test('an account whose trial has ended exports every recording and scan', async 
       await signInAs(page2, emailAddress)
       await dismissNotice(page2, TRIAL_ENDED_TITLE, CLOSE)
       await page2.goto(firstUrl)
-      await expect(tunePage(page2).getByText(recordingsLine(1), { exact: true })).toBeVisible()
+      await expect(tunePage(page2).getByText(countRecordings(1), { exact: true })).toBeVisible()
       // Both scan rows have arrived and neither the audio nor any image is here, so the
       // export can only get them by fetching.
       await expect

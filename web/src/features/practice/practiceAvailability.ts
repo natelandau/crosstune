@@ -5,7 +5,6 @@ import { useOnline } from '../../sync/SyncProvider'
 import { useCurrentAudio } from '../player/useCurrentAudio'
 import { useRecordingDownload } from '../player/useRecordingDownload'
 import { DOWNLOAD_FAILED, fileStateLabel, NOT_AVAILABLE } from '../../text/format'
-import { PREMIUM_RECORDINGS_TITLE } from '../plan/planCopy'
 import { splitIncomplete, waitsForCut, type UploadLimits } from '../../domain/recordingLimits'
 import { trimmedLengthMs, trimPending } from './recordingRange'
 import { SPLIT_BUSY } from './splitCopy'
@@ -25,15 +24,13 @@ function capturing(
 }
 
 /** Why Trim cannot be used right now, or undefined when it can. `limits` are the server's upload
- * caps, or null when unknown. `recordingsPlay` is false while the plan plays no recording. */
+ * caps, or null when unknown. */
 export function trimDisabledReason(
   recording: LocalRecording,
   file: RecordingFile | undefined,
   limits: UploadLimits | null,
   audio: AudioFetch,
-  recordingsPlay: boolean,
 ): string | undefined {
-  if (!recordingsPlay) return PREMIUM_RECORDINGS_TITLE
   if (capturing(recording, file)) return TRIM_WHILE_RECORDING
   if (audio === 'unavailable') return fileStateLabel(recording, file, limits) || NOT_AVAILABLE
   if (audio === 'offline') return OFFLINE
@@ -53,24 +50,27 @@ export function splitDisabledReason(
   file: RecordingFile | undefined,
   limits: UploadLimits | null,
   audio: AudioFetch,
-  recordingsPlay: boolean,
 ): string | undefined {
-  const trimBlocked = trimDisabledReason(recording, file, limits, audio, recordingsPlay)
+  const trimBlocked = trimDisabledReason(recording, file, limits, audio)
   if (trimBlocked !== undefined) return trimBlocked
   if (splitIncomplete(recording)) return SPLIT_BUSY
   if (waitsForCut(recording)) return SPLIT_BUSY
   return undefined
 }
 
+/** Why the waveform, transport, and modes cannot be used: the reason practice shows, or null
+ * where the Plan sheet covers practice and says why itself. */
+export type PracticeBlock = string | null
+
 /** Why the waveform, transport, and modes cannot be used right now, or undefined when they can.
  * `recordingsPlay` is false while the plan plays no recording. */
-export function practiceDisabledReason(
+export function practiceBlock(
   recording: Pick<LocalRecording, 'id'>,
   file: RecordingFile | undefined,
   audio: AudioFetch,
   recordingsPlay: boolean,
-): string | undefined {
-  if (!recordingsPlay) return PREMIUM_RECORDINGS_TITLE
+): PracticeBlock | undefined {
+  if (!recordingsPlay) return null
   if (capturing(recording, file)) return TRIM_WHILE_RECORDING
   if (audio === 'offline') return OFFLINE
   if (audio === 'downloading') return TRIM_WHILE_DOWNLOADING
@@ -80,15 +80,18 @@ export function practiceDisabledReason(
 /**
  * The state of this device's copy of the audio. Asking the sync engine joins any download the
  * dock already started, so the two never fetch the same file twice. A recording still being
- * read (null) has nothing to fetch yet.
+ * read (null) has nothing to fetch yet, and nothing is fetched unless `fetches`, such as while
+ * the plan plays no recording.
  */
 export function useAudioFetch(
   recording: LocalRecording | null,
   file: RecordingFile | undefined,
+  fetches: boolean,
 ): AudioFetch {
   const online = useOnline()
-  useCurrentAudio(recording, file)
-  const { blob, failed } = useRecordingDownload(recording, file)
+  const fetched = fetches ? recording : null
+  useCurrentAudio(fetched, file)
+  const { blob, failed } = useRecordingDownload(fetched, file)
   if (!recording || (!file?.blob && recording.state !== 'ready')) return 'unavailable'
   if (blob) return 'held'
   if (!online) return 'offline'

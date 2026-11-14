@@ -1,5 +1,6 @@
 import { ArrowRight, ExternalLink, Scissors, SquareSplitHorizontal, Trash2 } from 'lucide-react'
 import { useState } from 'react'
+import { useRecordingsPlayable } from '../../billing/usePlan'
 import { useAnalytics } from '../../usage/AnalyticsProvider'
 import { recordingOrigin } from '../../usage/origin'
 import { deleteRecording, retryUpload } from '../../commands/recordings'
@@ -68,22 +69,26 @@ export interface RecordingActionsOptions {
 
 /**
  * What every list of recordings, and the recording page, does to a recording: delete it and
- * unstick it, and on the page trim, split, pin, and export it, and go to its tune. The caller
- * supplies the confirmation.
+ * unstick it, and on the page trim, split, pin, and export it, and go to its tune. A plan that
+ * plays no recordings offers no Pin, Trim, or Split. The caller supplies the confirmation.
  */
 export function useRecordingActionsWith({
   confirm,
   subject,
-  onTrim,
+  onTrim: offeredTrim,
   trimBlocked,
-  onSplit,
+  onSplit: offeredSplit,
   splitBlocked,
   onOpenTune,
-  pin,
+  pin: offeredPin,
   exportItems,
 }: RecordingActionsOptions & {
   confirm: (question: ConfirmQuestion) => Promise<boolean>
 }): RecordingActions {
+  const plays = useRecordingsPlayable()
+  const onTrim = plays ? offeredTrim : undefined
+  const onSplit = plays ? offeredSplit : undefined
+  const pin = plays ? offeredPin : undefined
   const db = useDb()
   const analytics = useAnalytics()
   const engine = useSyncEngine()
