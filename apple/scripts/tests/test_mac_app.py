@@ -1,5 +1,6 @@
 """Tests for the Mac app lease that every worktree shares."""
 
+import subprocess
 from collections.abc import Callable
 from pathlib import Path
 
@@ -196,3 +197,29 @@ def test_done_by_the_holder_releases_the_lease(tmp_path, monkeypatch, capsys):
     assert quits == [True]
     assert not lease.lease.exists()
     assert "released the Mac app" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    ("platform", "running", "awake"),
+    [
+        ("darwin", "4321\n", [["caffeinate", "-u", "-d", "-w", "4321"]]),
+        ("darwin", "", []),
+        ("linux", "4321\n", []),
+    ],
+)
+def test_the_display_stays_awake_while_the_app_runs_on_macos(
+    tmp_path, monkeypatch, platform, running, awake
+):
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    app = MacApp(me=str(tmp_path / "wt-a"), lease=make_lease(tmp_path, tmp_path / "wt-a"))
+    monkeypatch.setattr("mac_app.sys.platform", platform)
+    monkeypatch.setattr(
+        "mac_app.subprocess.run",
+        lambda *_args, **_kwargs: subprocess.CompletedProcess([], 0 if running else 1, running, ""),
+    )
+    started: list[list[str]] = []
+    monkeypatch.setattr(
+        "mac_app.subprocess.Popen", lambda args, **_kwargs: started.append(list(args))
+    )
+    app.keep_display_awake()
+    assert started == awake
