@@ -171,8 +171,9 @@ layer that can see that bug.
   - Accessibility: touch targets, focus, contrast, reduced motion, text
     size.
   - The token and shared-control rules.
-- Never a test of a value a designer picks: a color, radius, size,
-  weight, spacing, duration, or class name. Screenshots and review check
+- Never a test of a UI or UX choice: a font, color, radius, size,
+  weight, spacing, duration, class name, label, or where a haptic plays.
+  The UI must change with no test failing. Screenshots and review check
   how things look.
 - Never a test that restates code: a constant's value, a copy string, a
   call order that a mock records when the order is not the behavior, or
