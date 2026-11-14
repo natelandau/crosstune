@@ -1,12 +1,15 @@
 import { containsText, foldText } from '../../text/fold'
 import { tabLabel } from '../../layout/tabs'
 import { GO_TO, type ShortcutId } from '../keyboard/keymap'
-import { matchTunes, MAX_RESULTS } from '../catalog/tuneMatches'
+import { matchTunes } from '../catalog/tuneMatches'
 import { recordingLabel, recordingMatches } from '../recordings/recordingMatch'
 import { recordingTitle } from '../recordings/recordingRow'
 import type { RecordingView } from '../recordings/useRecordings'
 import { compareNames } from '../../text/collate'
 import type { CatalogEntry } from '../../db/types'
+
+/** How many items each section of Quick Find lists. */
+export const MAX_RESULTS = 8
 
 export const QUICK_FIND_PLACEHOLDER = 'Find tunes, lists, and recordings'
 export const NO_MATCHES = 'No matches'

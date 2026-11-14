@@ -1,8 +1,8 @@
 #if os(macOS)
     import SwiftUI
 
-    /// A picker row's leading glyph: + for a choice that adds, an accent check for one already
-    /// made, or an empty slot of the same width.
+    /// A picker row's glyph: + for a choice that adds, an accent check for one already made, or
+    /// an empty slot of the same width.
     package struct MacPickGlyph: View {
         package enum Kind {
             case add
@@ -22,28 +22,23 @@
         }
 
         @Environment(\.macRowHighlighted) private var highlighted
+        @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
         package nonisolated static func shows(_ kind: Kind, highlighted: Bool) -> Bool {
-            kind != .addOnHighlight || highlighted
+            kind != .none && (kind != .addOnHighlight || highlighted)
         }
 
         package var body: some View {
-            Group {
-                switch kind {
-                case .add, .addOnHighlight:
-                    Image(systemName: "plus")
-                        .foregroundStyle(Palette.textSecondary)
-                        .opacity(Self.shows(kind, highlighted: highlighted) ? 1 : 0)
-                case .done:
-                    Image(systemName: "checkmark")
-                        .foregroundStyle(Palette.accent)
-                case .none:
-                    Color.clear
-                }
-            }
-            .font(.system(size: 12, weight: .semibold))
-            .frame(width: Self.width)
-            .accessibilityHidden(true)
+            // One image whose symbol changes, so a + that becomes a check animates between them.
+            Image(systemName: kind == .done ? "checkmark" : "plus")
+                .foregroundStyle(kind == .done ? Palette.accent : Palette.textSecondary)
+                .opacity(Self.shows(kind, highlighted: highlighted) ? 1 : 0)
+                .contentTransition(reduceMotion ? .identity : .symbolEffect(.replace))
+                // A content transition plays only inside an animated change.
+                .macAnimation(.default, value: kind == .done)
+                .font(.system(size: 12, weight: .semibold))
+                .frame(width: Self.width)
+                .accessibilityHidden(true)
         }
     }
 #endif

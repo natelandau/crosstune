@@ -68,6 +68,7 @@ public struct ListPickerRequest: Identifiable {
 @MainActor
 @Observable
 public final class ListPickerModel {
+    public static let inThisList = "In this list"
     public static let allAlreadyIn = "All already in this list"
 
     /// One list on offer.
@@ -135,7 +136,7 @@ public final class ListPickerModel {
     /// One tune is only ever in the list or not, so it never reads as a count.
     public static func note(inList: Int, total: Int) -> String? {
         if inList == 0 { return nil }
-        if total > 0 && inList >= total { return total == 1 ? TunePickerModel.inThisList : allAlreadyIn }
+        if total > 0 && inList >= total { return total == 1 ? inThisList : allAlreadyIn }
         return someAlreadyIn(inList, of: total)
     }
 

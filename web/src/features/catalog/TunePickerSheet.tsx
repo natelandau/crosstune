@@ -1,4 +1,3 @@
-import { Plus } from 'lucide-react'
 import { useMemo, useRef } from 'react'
 import type { Instrument } from '../../api/vocabulary'
 import type { CatalogEntry } from '../../db/types'
@@ -9,11 +8,12 @@ import { Group } from '../../ui/form/Group'
 import { RowList } from '../../ui/RowList'
 import { SearchField } from '../../ui/SearchField'
 import { Sheet } from '../../ui/Sheet'
+import { PickGlyph } from '../../ui/PickGlyph'
 import { useInstruments } from '../settings/useInstruments'
 import { AddTypedTitle } from './AddTypedTitle'
 import { pickRowName, SEARCH_TUNES, TUNE_LIST } from './catalogCopy'
 import { enterAction } from './searchIntent'
-import { listCatalog, MAX_RESULTS } from './tuneMatches'
+import { listCatalog } from './tuneMatches'
 import { TuneRowView } from './TuneRow'
 import type { TuneMatches } from './useTuneMatches'
 
@@ -34,18 +34,16 @@ export type TunePickerSelection =
   | {
       /**
        * The sheet stays open and the search keeps focus, so several go in one visit. A taken
-       * tune stays in the results, marked and inert, so the picker never hides a tune.
+       * tune stays in the results with a check; what a press on it does is the caller's.
        */
       mode: 'multiple'
       /** The user tune ids already taken. */
       taken: ReadonlySet<string>
-      /** What a taken row says, such as "In this list". */
-      takenNote: string
     }
 
 /**
  * The one sheet that searches the catalog for a tune: the field, the whole catalog A to Z until
- * something is typed, then up to a screenful of matches, and the row that adds the typed title
+ * something is typed, then every match, and the row that adds the typed title
  * as a tune. Picks apply at once, so Done alone closes it.
  */
 export function TunePickerSheet({
@@ -68,14 +66,14 @@ export function TunePickerSheet({
   onClosed?: () => void
   selection: TunePickerSelection
   /**
-   * The caller's query and its reading of it, so the caller can clear the query after a pick
-   * and pause the catalog read while the sheet is closed.
+   * The caller's query and its reading of it, so the caller can reset the query and pause the
+   * catalog read while the sheet is closed.
    */
   search: { query: string; setQuery: (query: string) => void; matches: TuneMatches }
   onPick: (entry: CatalogEntry) => void
   onCreate: (title: string) => void
-  /** The name of a row that can be picked, such as "Add Forked Deer". */
-  rowName: (title: string) => string
+  /** The name of a row by what a press does, such as "Add Forked Deer" or "Remove Forked Deer". */
+  rowName: (title: string, taken: boolean) => string
   /** Shown in place of the list while the query is blank and the catalog holds no tune. */
   emptyHint?: string
   error?: string | null
@@ -87,17 +85,16 @@ export function TunePickerSheet({
   const idle = !query.trim()
   const multiple = selection.mode === 'multiple'
   const taken = multiple ? selection.taken : undefined
-  const takenNote = multiple ? selection.takenNote : undefined
   const clear = multiple ? undefined : selection.clear
-  // A blank query lists the whole catalog, so its rows are windowed; a typed one shows a screenful.
+  // A blank query lists the whole catalog; a typed one, every match. Either can run long, so the
+  // rows are windowed.
   const shown = useMemo(
-    () => (idle ? (entries ? listCatalog(entries) : []) : matches.slice(0, MAX_RESULTS)),
+    () => (idle ? (entries ? listCatalog(entries) : []) : matches),
     [idle, entries, matches],
   )
   const isTaken = (entry: CatalogEntry) => taken?.has(entry.userTune.id) ?? false
 
   const pick = (entry: CatalogEntry) => {
-    if (isTaken(entry)) return
     onPick(entry)
     if (multiple) searchRef.current?.focus()
     else onOpenChange(false)
@@ -114,8 +111,9 @@ export function TunePickerSheet({
     // already exists.
     const action = enterAction(query, matches, outcome)
     if (action.kind === 'open') {
+      // Enter only picks: a lone taken match stays taken.
       const entry = matches.find((match) => match.tune.id === action.tuneId)
-      if (entry) pick(entry)
+      if (entry && !isTaken(entry)) pick(entry)
     } else if (action.kind === 'create') create(action.title)
     else searchRef.current?.blur()
   }
@@ -161,35 +159,30 @@ export function TunePickerSheet({
       )}
       {shown.length > 0 && (
         <RowList
+          // The catalog and a search's matches each get their own list, so typing never carries the
+          // catalog's scroll position or row measurements into the matches.
+          key={idle ? 'catalog' : 'matches'}
           label={TUNE_LIST}
-          virtualized={idle ? 'own' : undefined}
+          virtualized="own"
           onAction={(key) => {
             const entry = shown.find((match) => match.userTune.id === key)
             if (entry) pick(entry)
           }}
-          disabledKeys={shown.filter(isTaken).map((entry) => entry.userTune.id)}
         >
           {shown.map((entry) => {
-            const inert = isTaken(entry)
+            const inList = isTaken(entry)
             return (
               <TuneRowView
                 key={entry.userTune.id}
                 id={entry.userTune.id}
                 entry={entry}
                 instruments={instruments}
-                lead={
-                  // The taken rows hold the same width, so every title starts on one line.
-                  <Plus
-                    aria-hidden
-                    className={`size-5 shrink-0 ${inert ? 'invisible' : 'text-primary'}`}
-                  />
-                }
-                note={inert ? takenNote : undefined}
-                name={
-                  inert
-                    ? undefined
-                    : pickRowName(rowName(entry.tune.title), entry.userTune.archived_at !== null)
-                }
+                end={<PickGlyph added={inList} />}
+                showsStatus={!multiple}
+                name={pickRowName(
+                  rowName(entry.tune.title, inList),
+                  entry.userTune.archived_at !== null,
+                )}
               />
             )
           })}

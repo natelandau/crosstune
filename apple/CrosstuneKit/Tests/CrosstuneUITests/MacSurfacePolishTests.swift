@@ -27,14 +27,6 @@
             #expect(MacForm.labelColumn([]) == low)
         }
 
-        /// A tune already in the list says so to VoiceOver; on screen its check says it, so the
-        /// key pills line up down the column.
-        @Test func takenTuneSaysItIsInTheListAloud() throws {
-            let text = SourceScan.withoutComments(
-                try SourceScan.text(at: SourceScan.url(of: "Catalog/TunePicker.swift")))
-            #expect(SourceScan.macCompiled(text).contains("Text(TunePickerModel.inThisList)") == false)
-        }
-
         /// A list's head is one height whether its play controls or the selection bar sit under
         /// its title, so entering selection never moves the rows, and it holds the controls'
         /// room until it reads what can play.
@@ -57,18 +49,6 @@
             #expect(height(play: offer, selecting: true) == height(play: offer, selecting: false))
             #expect(height(play: nil, selecting: true) == height(play: nil, selecting: false))
             #expect(height(play: nil, selecting: false, waits: true) == height(play: offer, selecting: false))
-        }
-
-        /// A taken row in the tune picker reads everything an open row does, then that it is in
-        /// the list.
-        @Test func takenRowReadsTheWholeRow() {
-            let sample = SampleCatalog.entries[0]
-            let entry = CatalogEntry(tune: sample.tune, userTune: sample.userTune)
-            let row = TuneRowText(tune: entry.tune, userTune: entry.userTune, instruments: SampleCatalog.instruments)
-                .accessibilityLabel(position: nil)
-            #expect(
-                TunePickerText.takenLabel(entry, instruments: SampleCatalog.instruments)
-                    == "\(row), \(TunePickerModel.inThisList)")
         }
 
         /// Whether `view`, drawn `width` wide with nothing over it, paints anything in its last

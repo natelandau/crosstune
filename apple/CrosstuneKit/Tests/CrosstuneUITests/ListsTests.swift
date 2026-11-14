@@ -350,15 +350,34 @@ struct PendingMovesTests {
         #expect(await model.submit() == .nothing)
     }
 
-    @Test func marksATuneAlreadyInTheListAndKeepsItInert() async throws {
+    /// A tune in the list is named for its removal, and a pick on it takes it out of the list.
+    @Test func picksATuneAlreadyInTheListToTakeItOut() async throws {
         let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = try await picker(store)
         model.query = "soldier"
         let row = try #require(model.results?.rows.first)
         #expect(row.entry.tune.title == "Soldier's Joy")
         #expect(row.isTaken)
+        let spoken = TuneRowText(tune: row.entry.tune, userTune: row.entry.userTune, instruments: model.instruments)
+        #expect(row.name == "\(TunePickerModel.removeAction) \(spoken.accessibilityLabel(position: nil))")
         await model.pick(row.entry)
-        #expect(model.query == "soldier", "an inert row changes nothing")
+        #expect(model.query == "soldier", "the search stays until the musician clears it")
+        let members = try await store.read { db in
+            try ListContents.fetch(db, listID: session.id)?.entries.map(\.tune.title)
+        }
+        #expect(members?.contains("Soldier's Joy") == false)
+        try await eventually { model.results?.rows.first?.isTaken == false }
+    }
+
+    @Test func returnOnALoneTuneInTheListLeavesItIn() async throws {
+        let store = try await SampleCatalog.copiedStore(root: root.url)
+        let model = try await picker(store)
+        model.query = "Soldier's Joy"
+        #expect(await model.submit() == .nothing)
+        let members = try await store.read { db in
+            try ListContents.fetch(db, listID: session.id)?.entries.map(\.tune.title)
+        }
+        #expect(members?.contains("Soldier's Joy") == true)
     }
 
     /// A row names its action, then reads the whole row, so an archived tune says so and two
@@ -370,7 +389,7 @@ struct PendingMovesTests {
         #expect(row.entry.tune.title == "Say Old Man")
         #expect(row.isTaken == false)
         let spoken = TuneRowText(tune: row.entry.tune, userTune: row.entry.userTune, instruments: model.instruments)
-        #expect(row.name == "Add \(spoken.accessibilityLabel(position: nil))")
+        #expect(row.name == "\(TunePickerModel.addAction) \(spoken.accessibilityLabel(position: nil))")
         #expect(row.name.hasSuffix(TuneRowText.archived))
     }
 
@@ -441,7 +460,7 @@ struct PendingMovesTests {
         #expect(await model.submit() == .dismissKeyboard)
     }
 
-    @Test func showsAtMostEightResults() async throws {
+    @Test func showsEveryMatch() async throws {
         let store = try await SampleCatalog.copiedStore(root: root.url)
         let commands = Commands(store: store)
         for index in 0..<10 {
@@ -450,8 +469,7 @@ struct PendingMovesTests {
         }
         let model = try await picker(store)
         model.query = "Reel "
-        #expect(model.results?.rows.count == TunePickerModel.maxResults)
-        #expect(model.results?.matches.count == 10)
+        #expect(model.results?.rows.count == 10)
     }
 
     @Test func reportsAFailureAfterTheSheetClosesToTheScreen() async throws {
@@ -491,7 +509,7 @@ struct PendingMovesTests {
 
     @Test func readsHowMuchOfTheSelectionEachListHolds() {
         #expect(ListPickerModel.note(inList: 0, total: 1) == nil)
-        #expect(ListPickerModel.note(inList: 1, total: 1) == TunePickerModel.inThisList)
+        #expect(ListPickerModel.note(inList: 1, total: 1) == ListPickerModel.inThisList)
         #expect(ListPickerModel.note(inList: 0, total: 2) == nil)
         #expect(ListPickerModel.note(inList: 1, total: 2) == ListPickerModel.someAlreadyIn(1, of: 2))
         #expect(ListPickerModel.note(inList: 2, total: 2) == ListPickerModel.allAlreadyIn)
@@ -515,7 +533,7 @@ struct PendingMovesTests {
         let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = try await picker(store, titles: ["Soldier's Joy"])
         #expect(model.rows.map(\.name) == ["Tuesday session", "Waltzes"])
-        #expect(model.rows.map(\.note) == [TunePickerModel.inThisList, nil])
+        #expect(model.rows.map(\.note) == [ListPickerModel.inThisList, nil])
         #expect(model.rows.map(\.isOffered) == [false, true])
         #expect(await model.add(to: model.rows[0]) == nil)
     }

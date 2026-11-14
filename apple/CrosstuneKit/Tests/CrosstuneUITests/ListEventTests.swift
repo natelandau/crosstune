@@ -199,6 +199,26 @@ import Testing
             ])
     }
 
+    @Test func reportsTheTunesPickedOutOfAListOnceThePickerCloses() async throws {
+        let store = try await SampleCatalog.copiedStore(root: root.url)
+        let listID = SampleCatalog.lists[1].id
+        let model = TunePickerModel(store: store, listID: listID, analytics: sink.client)
+        try await eventually { model.results != nil }
+        await model.pick(entry("Tam Lin"))
+        model.query = "Tam Lin"
+        try await eventually { model.results?.rows.first?.isTaken == true }
+
+        await model.pick(entry("Tam Lin"))
+        model.close()
+
+        let bucket: [String: AnalyticsValue] = ["list_id": .string(listID), "count_bucket": .string("1-9")]
+        #expect(
+            sink.captures == [
+                .init(name: "tunes_added_to_list", properties: bucket),
+                .init(name: "tunes_removed_from_list", properties: bucket),
+            ])
+    }
+
     @Test func reportsNothingForATunePickerClosedEmpty() async throws {
         let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = TunePickerModel(store: store, listID: SampleCatalog.lists[1].id, analytics: sink.client)

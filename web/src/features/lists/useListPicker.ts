@@ -98,7 +98,7 @@ export function useListPicker(
     const loaded = counts !== undefined
     const inList = counts?.get(list.id) ?? 0
     const full = loaded && total > 0 && inList >= total
-    // One tune reads as the tune picker's word; several say how many are there already.
+    // One tune is in the list or not; several say how many are there already.
     const note =
       !loaded || inList === 0
         ? null

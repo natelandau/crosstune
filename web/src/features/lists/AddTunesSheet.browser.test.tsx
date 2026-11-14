@@ -1,4 +1,4 @@
-import { page } from 'vitest/browser'
+import { page, userEvent } from 'vitest/browser'
 import { expect, it } from 'vitest'
 import { openTestDb } from '../../test/db'
 import { dataProviders } from '../../test/providers'
@@ -6,10 +6,10 @@ import { renderWithProviders } from '../../test/render'
 import { scrollerOf } from '../../test/scroller'
 import { tuneRow, userTuneRow } from '../../test/rows'
 import { pickRowName, SEARCH_TUNES } from '../catalog/catalogCopy'
-import { ADD_TUNES, addTuneName, IN_THIS_LIST, PICKER_HINT } from './listsCopy'
+import { ADD_TUNES, addTuneName, PICKER_HINT, removeTuneName } from './listsCopy'
 import { AddTunesSheet } from './AddTunesSheet'
 import { TuneFormProvider } from '../tune/TuneFormProvider'
-import { createList } from '../../commands/lists'
+import { activeItems, addToList, createList } from '../../commands/lists'
 import { DONE } from '../../ui/confirmCopy'
 import { recordingAnalytics } from '../../usage/testing'
 
@@ -83,17 +83,43 @@ it('adds a pick, keeps the search focused for the next, and reports the visit on
     .toEqual([{ name: 'tunes_added_to_list', props: { list_id: listId, count_bucket: '1-9' } }])
 })
 
-it('marks a tune already in the list and keeps it inert', async () => {
-  const { dialog } = await mountPicker(
+it('names a tune in the list for its removal, and Enter on it leaves it in', async () => {
+  const { dialog, db, listId } = await mountPicker(
     [{ title: 'Banjo Rag' }, { title: 'Cluck Old Hen' }],
     ['Banjo Rag'],
   )
-  const row = dialog.getByRole('row', { name: /Banjo Rag/ })
-  await expect.element(row).toHaveTextContent(IN_THIS_LIST)
-  await expect.element(row).toHaveAttribute('aria-disabled', 'true')
+  await addToList(db, listId, 'u0')
   await expect
-    .element(dialog.getByRole('row', { name: /Cluck Old Hen/ }))
-    .not.toHaveTextContent(IN_THIS_LIST)
+    .element(dialog.getByRole('row', { name: removeTuneName('Banjo Rag'), exact: true }))
+    .toBeVisible()
+  await expect
+    .element(dialog.getByRole('row', { name: addTuneName('Cluck Old Hen'), exact: true }))
+    .toBeVisible()
+  const search = dialog.getByRole('searchbox', { name: SEARCH_TUNES })
+  await search.fill('Banjo Rag')
+  await userEvent.keyboard('{Enter}')
+  // Enter on a lone open match adds it, so once that lands, an earlier Enter has acted too.
+  await search.fill('Cluck Old Hen')
+  await userEvent.keyboard('{Enter}')
+  await expect
+    .poll(async () => (await activeItems(db, listId)).map((item) => item.user_tune_id))
+    .toEqual(['u0', 'u1'])
+})
+
+it('takes a tune in the list back out, and reports the removal on Done', async () => {
+  const { dialog, db, listId, analytics } = await mountPicker(
+    [{ title: 'Banjo Rag' }],
+    ['Banjo Rag'],
+  )
+  await addToList(db, listId, 'u0')
+  await dialog
+    .getByRole('row', { name: pickRowName(removeTuneName('Banjo Rag'), false), exact: true })
+    .click()
+  await expect.poll(async () => (await activeItems(db, listId)).length).toBe(0)
+  await dialog.getByRole('button', { name: DONE }).click()
+  await expect
+    .poll(() => analytics.sends().filter((send) => send.name.startsWith('tunes_')))
+    .toEqual([{ name: 'tunes_removed_from_list', props: { list_id: listId, count_bucket: '1-9' } }])
 })
 
 it('includes archived tunes', async () => {
@@ -132,4 +158,18 @@ it('scrolls the windowed list', async () => {
       return scroller !== null && scroller.scrollHeight > scroller.clientHeight
     })
     .toBe(true)
+})
+
+it('lists every match of a search, down to the last', async () => {
+  const { dialog } = await mountPicker(
+    Array.from({ length: 300 }, (_, i) => ({ title: `Tune ${String(i).padStart(4, '0')}` })),
+  )
+  await dialog.getByRole('searchbox', { name: SEARCH_TUNES }).fill('Tune 01')
+  const grid = dialog.getByRole('grid')
+  await expect.element(grid.getByRole('row').first()).toBeVisible()
+  const scroller = scrollerOf(grid.element())!
+  scroller.scrollTop = scroller.scrollHeight
+  await expect
+    .element(grid.getByRole('row', { name: addTuneName('Tune 0199'), exact: true }))
+    .toBeInTheDocument()
 })

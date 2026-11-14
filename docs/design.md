@@ -253,8 +253,6 @@ A role only one platform has is on that platform's page.
   repeats it.
 - Search matches stored names, never text composed for display. Ignores
   case and accents.
-- A picker never hides an item. One that cannot be picked shows, inert,
-  with the reason.
 - Every place that chooses a tune from the catalog draws the one shared
   tune picker. Only single or multiple selection, and actions on the
   current choice, differ.

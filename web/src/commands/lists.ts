@@ -62,25 +62,35 @@ export async function addToList(
   userTuneId: string,
 ): Promise<string> {
   const at = now()
-  const id = newId()
   return writeTx(db, async () => {
-    const list = await db.lists.get(listId)
-    if (!list || list.deleted_at) throw new Error(LIST_NOT_FOUND)
     const items = await activeItems(db, listId)
     const existing = items.find((item) => item.user_tune_id === userTuneId)
-    if (existing) return existing.id
-    await putRow(db, 'list_items', {
-      id,
-      created_at: at,
-      updated_at: at,
-      deleted_at: null,
-      server_seq: 0,
-      list_id: listId,
-      user_tune_id: userTuneId,
-      position: nextPosition(items),
-    })
-    return id
+    return existing ? existing.id : appendItem(db, listId, userTuneId, items, at)
   })
+}
+
+/** Puts a new item for the tune past the list's other items. Runs inside a write. */
+async function appendItem(
+  db: CrosstuneDb,
+  listId: string,
+  userTuneId: string,
+  items: LocalListItem[],
+  at: string,
+): Promise<string> {
+  const list = await db.lists.get(listId)
+  if (!list || list.deleted_at) throw new Error(LIST_NOT_FOUND)
+  const id = newId()
+  await putRow(db, 'list_items', {
+    id,
+    created_at: at,
+    updated_at: at,
+    deleted_at: null,
+    server_seq: 0,
+    list_id: listId,
+    user_tune_id: userTuneId,
+    position: nextPosition(items),
+  })
+  return id
 }
 
 /** Takes the item out of its list, returning what puts it back. */
@@ -90,6 +100,27 @@ export async function removeFromList(
 ): Promise<() => Promise<void>> {
   await writeTx(db, () => tombstone(db, 'list_items', itemId, now()))
   return () => restoreListItems(db, [itemId])
+}
+
+/**
+ * Puts a tune in a list or takes it out, by its user tune id. True when that changed the list;
+ * false when the tune was already where it was asked to be.
+ */
+export async function setTuneInList(
+  db: CrosstuneDb,
+  listId: string,
+  userTuneId: string,
+  inList: boolean,
+): Promise<boolean> {
+  const at = now()
+  return writeTx(db, async () => {
+    const items = await activeItems(db, listId)
+    const item = items.find((candidate) => candidate.user_tune_id === userTuneId)
+    if (inList === (item !== undefined)) return false
+    if (item) await tombstone(db, 'list_items', item.id, at)
+    else await appendItem(db, listId, userTuneId, items, at)
+    return true
+  })
 }
 
 /**

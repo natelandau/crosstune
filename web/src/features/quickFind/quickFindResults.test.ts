@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { recordingRow, tuneRow, userTuneRow } from '../../test/rows'
 import { catalogEntries } from '../catalog/filters'
-import { MAX_RESULTS } from '../catalog/tuneMatches'
 import type { RecordingView } from '../recordings/useRecordings'
-import { rankResults, type QuickFindCommand, type QuickFindItem } from './quickFindResults'
+import {
+  MAX_RESULTS,
+  rankResults,
+  type QuickFindCommand,
+  type QuickFindItem,
+} from './quickFindResults'
 
 const tunes = catalogEntries(
   [

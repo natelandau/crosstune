@@ -7,14 +7,14 @@ import Observation
 import os
 
 /// The tune picker's state: a search over the whole catalog, archived tunes included, that adds
-/// each picked tune to one list, several in one visit, and offers to create a tune by the typed
-/// title.
+/// each picked tune to one list, several in one visit, takes a picked tune already in the list
+/// back out, and offers to create a tune by the typed title.
 @MainActor
 @Observable
 public final class TunePickerModel: TunePickerSource {
-    public static let inThisList = "In this list"
-    /// How many results show at once; a longer query narrows them.
-    public static let maxResults = 8
+    /// What a pick on a tune does, said before its row.
+    public static let addAction = "Add"
+    public static let removeAction = "Remove"
 
     public typealias Row = TunePickerRow
     public typealias Results = TunePickerResults
@@ -28,16 +28,18 @@ public final class TunePickerModel: TunePickerSource {
     private let store: CrosstuneStore
     private let search: CatalogPickerSearch
     private let members: LiveQuery<Set<String>?>
-    private var adding: Set<String> = []
+    /// User tunes whose add or removal is running.
+    private var changing: Set<String> = []
     /// True from a create until it lands or fails, so a second press or Return makes no second tune.
     @ObservationIgnored private var isCreating = false
     @ObservationIgnored private var isClosed = false
     /// Takes a failure that lands after the sheet has closed, which has no line of its own left.
     @ObservationIgnored private let onLateFailure: @MainActor (String) -> Void
     private let analytics: AnalyticsClient
-    /// Tunes this visit added, reported together once the picker has closed and every add has
-    /// landed.
+    /// Tunes this visit added and removed, reported together once the picker has closed and every
+    /// change has landed.
     @ObservationIgnored private var added = 0
+    @ObservationIgnored private var removed = 0
     private static let logger = Logger(subsystem: "app.crosstune.Crosstune", category: "tune-picker")
 
     public init(
@@ -68,10 +70,7 @@ public final class TunePickerModel: TunePickerSource {
     /// such tune, and would offer to create a tune that is already there.
     public var results: Results? {
         guard let members = members.value, let found = search.find(query) else { return nil }
-        let matches = found.matches
-        return Results(
-            rows: matches.prefix(Self.maxResults).map { row($0.entry, members: members) },
-            matches: matches.map(\.entry), outcome: found.outcome)
+        return Results(rows: found.matches.map { row($0.entry, members: members) }, outcome: found.outcome)
     }
 
     /// The whole catalog A to Z while the search field is empty, archived tunes included; empty
@@ -83,30 +82,34 @@ public final class TunePickerModel: TunePickerSource {
         return entries.map { row($0, members: members) }
     }
 
-    /// A tune in the list shows, marked and inert, so the picker never hides a tune.
     private func row(_ entry: CatalogEntry, members: Set<String>) -> Row {
-        Row(
-            entry: entry, state: members.contains(entry.id) ? .taken : .open, action: "Add",
+        let inList = members.contains(entry.id)
+        return Row(
+            entry: entry, state: inList ? .taken : .open, action: inList ? Self.removeAction : Self.addAction,
             instruments: instruments)
     }
 
     /// Whether the idle picker has nothing to list, so its sheet says what it is for.
     public var showsHint: Bool { isIdle && members.value != nil && search.entries?.isEmpty == true }
 
-    /// Adds a tune to the list. The search stays as typed, so the next tune can be picked from
-    /// the same results. A tune already in the list, or one whose add is running, is left alone.
+    /// Adds a tune to the list, or takes it out when it is already there. The search stays as
+    /// typed, so the next tune can be picked from the same results. A tune whose add or removal
+    /// is running is left alone.
     public func pick(_ entry: CatalogEntry) async {
         let userTuneID = entry.userTune.id
-        guard members.value?.contains(userTuneID) == false, adding.insert(userTuneID).inserted else { return }
+        guard let members = members.value, changing.insert(userTuneID).inserted else { return }
         defer {
-            adding.remove(userTuneID)
+            changing.remove(userTuneID)
             reportIfDone()
         }
         failure = nil
         let listID = listID
         do {
-            try await Commands(store: store).addToList(listID, userTuneID: userTuneID)
-            added += 1
+            // The pick asks for the state the row showed; a list that already had it counts nothing.
+            let adds = !members.contains(userTuneID)
+            if try await Commands(store: store).setTuneInList(listID, userTuneID: userTuneID, inList: adds) {
+                if adds { added += 1 } else { removed += 1 }
+            }
         } catch {
             Self.logger.warning("A tune pick failed: \(error)")
             if isClosed {
@@ -141,7 +144,7 @@ public final class TunePickerModel: TunePickerSource {
 
     /// Return adds the only match, or creates when nothing matches. Every match counts, the
     /// taken ones included, so Return never creates a title that exists; a lone taken match
-    /// does nothing.
+    /// stays in the list.
     public func submit() async -> Submit {
         guard let results else { return .nothing }
         switch SearchSubmit(query: query, visible: results.matches, outcome: results.outcome) {
@@ -165,8 +168,10 @@ public final class TunePickerModel: TunePickerSource {
     }
 
     private func reportIfDone() {
-        guard isClosed, adding.isEmpty, added > 0 else { return }
-        analytics.send(.tunesAddedToList(listID: listID, count: added))
+        guard isClosed, changing.isEmpty else { return }
+        if added > 0 { analytics.send(.tunesAddedToList(listID: listID, count: added)) }
+        if removed > 0 { analytics.send(.tunesRemovedFromList(listID: listID, count: removed)) }
         added = 0
+        removed = 0
     }
 }

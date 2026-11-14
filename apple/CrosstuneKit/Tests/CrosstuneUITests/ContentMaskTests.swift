@@ -273,7 +273,7 @@ struct ContentMaskTests {
         ("Components/UndoBanner.swift", "Text(message)"),
         // The account's initials, read from its name.
         ("Shell/AccountButton.swift", "Text(letters)"),
-        ("Catalog/AddTypedTitle.swift", "Label(label"),
+        ("Catalog/AddTypedTitle.swift", "Text(label"),
         ("Catalog/AddTypedTitle.swift", "Text(match.note)"),
         // The system picker shows a typed value as its own choice and as the row's selection.
         ("TuneForm/SuggestionPicker.swift", "Picker(selection: selection)"),

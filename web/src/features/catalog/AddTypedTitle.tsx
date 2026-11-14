@@ -1,8 +1,8 @@
-import { Plus } from 'lucide-react'
 import { Link } from 'react-router'
 import { OPEN, addTypedTitleLabel, hiddenMatchText, openTuneName } from './catalogCopy'
 import type { SearchOutcome } from './searchIntent'
 import { destination } from '../../layout/destinations'
+import { PickGlyph } from '../../ui/PickGlyph'
 import { PressableRow } from '../../ui/PressableRow'
 
 const CATALOG = destination('catalog')
@@ -19,7 +19,7 @@ export function AddTypedTitle({
   return (
     <div className="px-2">
       <PressableRow variant="list" onPress={() => onCreate(outcome.title)}>
-        <Plus className="size-5 shrink-0" aria-hidden />
+        <PickGlyph />
         <span className="min-w-0 truncate">{addTypedTitleLabel(outcome)}</span>
       </PressableRow>
     </div>

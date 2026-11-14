@@ -45,9 +45,8 @@ final class RecordingTunePickerModel: TunePickerSource {
     /// Nil until the catalog is read, as ``CatalogPickerSearch/find(_:)`` is.
     var results: TunePickerResults? {
         guard let found = search.find(query) else { return nil }
-        let matches = found.matches.map(\.entry)
         return TunePickerResults(
-            rows: matches.prefix(TunePickerModel.maxResults).map(row), matches: matches, outcome: found.outcome)
+            rows: found.matches.map { row($0.entry) }, outcome: found.outcome)
     }
 
     /// The whole catalog A to Z while the search field is empty; empty once something is typed,
