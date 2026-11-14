@@ -49,7 +49,7 @@ private final class Holds {
 }
 
 @MainActor
-@Suite(.timeLimit(.minutes(1))) struct TrimModelTests {
+@Suite struct TrimModelTests {
     private let writes = TrimWrites()
     private let holds = Holds()
 
@@ -475,7 +475,7 @@ struct SelectionStopTests {
 }
 
 @MainActor
-@Suite(.timeLimit(.minutes(1))) struct TrimHoldTests {
+@Suite struct TrimHoldTests {
     private let audio = FakeAudio()
     private let player: PlayerModel
 

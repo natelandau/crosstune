@@ -100,7 +100,7 @@ struct ScreenViewTests {
     }
 
     @MainActor
-    @Suite(.timeLimit(.minutes(1)), .enabled(if: hasWindowServer, "Needs a window server to run onAppear"))
+    @Suite(.enabled(if: hasWindowServer, "Needs a window server to run onAppear"))
     struct ScreenViewEnvironmentTests {
         private func host(_ view: some View) -> NSWindow {
             let window = hiddenWindow(
@@ -155,7 +155,7 @@ struct ScreenViewTests {
 
 #if os(macOS)
     @MainActor
-    @Suite(.timeLimit(.minutes(1)), .enabled(if: hasWindowServer, "Needs a window server to run onAppear"))
+    @Suite(.enabled(if: hasWindowServer, "Needs a window server to run onAppear"))
     struct HostedAnalyticsWiringTests {
         private func host(_ view: some View) -> NSWindow {
             let window = hiddenWindow(

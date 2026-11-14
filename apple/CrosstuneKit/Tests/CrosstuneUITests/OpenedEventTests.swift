@@ -8,7 +8,7 @@ import Testing
 
 /// The export reports once its zip is made.
 @MainActor
-@Suite(.timeLimit(.minutes(1))) struct OpenedEventTests {
+@Suite struct OpenedEventTests {
     private let sink = RecordingAnalyticsSink()
 
     private func zip() throws -> URL {

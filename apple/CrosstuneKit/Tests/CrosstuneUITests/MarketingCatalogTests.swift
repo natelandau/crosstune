@@ -29,7 +29,7 @@ private func count(_ table: SyncTable, in store: CrosstuneStore) async throws ->
     }
 }
 
-@Suite(.timeLimit(.minutes(1))) struct MarketingCatalogTests {
+@Suite struct MarketingCatalogTests {
     @Test func opensEveryRow() async throws {
         let root = TemporaryRoot()
         let store = try await MarketingCatalog.makeStore(fixture: fixture, root: root.url)

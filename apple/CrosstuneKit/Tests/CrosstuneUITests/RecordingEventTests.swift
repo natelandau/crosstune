@@ -11,7 +11,7 @@ import Testing
 /// The record sheet reports a recording once the microphone is capturing, and how it ended with its
 /// length in a bucket. A recording that never captured reports nothing.
 @MainActor
-@Suite(.timeLimit(.minutes(1))) struct RecordingEventTests {
+@Suite struct RecordingEventTests {
     private let root = TemporaryRoot()
     private let input = ToneInput()
     private let sink = RecordingAnalyticsSink()

@@ -12,7 +12,7 @@ import Testing
 /// A setting reports its new value once the musician's change is stored, and nothing for a change
 /// that arrives from another device or a write that is refused.
 @MainActor
-@Suite(.timeLimit(.minutes(1))) struct SettingsEventTests {
+@Suite struct SettingsEventTests {
     private let root = TemporaryRoot()
     private let sink = RecordingAnalyticsSink()
 

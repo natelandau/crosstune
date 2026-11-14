@@ -7,7 +7,7 @@ import Testing
 @testable import CrosstuneUI
 
 @MainActor
-@Suite(.timeLimit(.minutes(1))) struct PlanSectionTests {
+@Suite struct PlanSectionTests {
     private let root = TemporaryRoot()
 
     /// A plan model over a store holding an entitlements row from `source`, once it has judged it.

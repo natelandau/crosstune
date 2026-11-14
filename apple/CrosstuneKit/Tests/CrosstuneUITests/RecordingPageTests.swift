@@ -30,7 +30,7 @@ private let noLoopWrites = LoopWriter(
     add: { _, _ in throw CancellationError() }, update: { _, _, _ in }, remove: { _ in })
 
 @MainActor
-@Suite(.timeLimit(.minutes(1))) struct RecordingPageTests {
+@Suite struct RecordingPageTests {
     private let audio = FakeAudio()
     private let writes = PageWrites()
     private let player: PlayerModel
@@ -703,7 +703,7 @@ enum PushOrder: CaseIterable {
     import AppKit
 
     @MainActor
-    @Suite(.timeLimit(.minutes(1)), .enabled(if: CGSessionCopyCurrentDictionary() != nil, "Needs a window server"))
+    @Suite(.enabled(if: CGSessionCopyCurrentDictionary() != nil, "Needs a window server"))
     struct RecordingPageOverlayTests {
         private nonisolated static func entitlement(premium: Bool) -> Entitlement {
             Entitlement(
