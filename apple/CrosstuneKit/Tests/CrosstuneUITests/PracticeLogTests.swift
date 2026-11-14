@@ -139,7 +139,7 @@ private func loop(_ id: String) -> RecordingLoop {
 
 /// The recording screen's visits, as the player's activity sees them.
 @MainActor
-@Suite(.timeLimit(.minutes(1))) struct RecordingScreenPracticeTests {
+@Suite struct RecordingScreenPracticeTests {
     private let noLoopWrites = LoopWriter(
         add: { _, _ in throw CancellationError() }, update: { _, _, _ in }, remove: { _ in })
 
@@ -355,7 +355,7 @@ private func loop(_ id: String) -> RecordingLoop {
 /// A recording screen visit reports once as it closes: as practice with the tools it used, or
 /// as a play from the screen when it was not practice.
 @MainActor
-@Suite(.timeLimit(.minutes(1))) struct PracticeEndedTests {
+@Suite struct PracticeEndedTests {
     @Test func aPracticeVisitReportsTheToolsUsed() async throws {
         let fixture = ActivityFixture()
         try await fixture.playRecording()

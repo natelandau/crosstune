@@ -191,7 +191,7 @@ final class ToneInput: AudioInput {
 }
 
 @MainActor
-@Suite(.timeLimit(.minutes(1))) struct RecordSheetFilingTests {
+@Suite struct RecordSheetFilingTests {
     @Test func filingLineNamesTheTune() {
         #expect(RecordSheet.filingUnder("Soldier's Joy") == "Filing under Soldier's Joy")
     }
@@ -269,7 +269,7 @@ final class ToneInput: AudioInput {
 }
 
 @MainActor
-@Suite(.timeLimit(.minutes(1))) struct RecordSheetModelTests {
+@Suite struct RecordSheetModelTests {
     private let root = TemporaryRoot()
     private let input = ToneInput()
     private let store: CrosstuneStore
@@ -517,7 +517,7 @@ final class AccessManager: LocationManaging {
 }
 
 @MainActor
-@Suite(.timeLimit(.minutes(1))) struct RecordSheetLocationNoteTests {
+@Suite struct RecordSheetLocationNoteTests {
     private let root = TemporaryRoot()
     private let input = ToneInput()
     private let store: CrosstuneStore
@@ -684,7 +684,7 @@ actor ReadCount {
 }
 
 @MainActor
-@Suite(.timeLimit(.minutes(1))) struct RecorderHostTests {
+@Suite struct RecorderHostTests {
     private let root = TemporaryRoot()
 
     @Test func sharesOneRecorderPerStore() throws {

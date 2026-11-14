@@ -82,6 +82,7 @@ jobs:
       - uses: astral-sh/setup-uv@v10.3.3
         with:
           enable-cache: true
+          save-cache: ${{ github.ref == 'refs/heads/main' }}
       - uses: ./.github/actions/setup-node
         with:
           module: web

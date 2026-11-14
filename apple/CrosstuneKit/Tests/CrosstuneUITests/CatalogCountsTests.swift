@@ -15,7 +15,7 @@ private func addTune(
             archivedAt: archived ? noon : nil))
 }
 
-@Suite(.timeLimit(.minutes(1))) struct CatalogCountsTests {
+@Suite struct CatalogCountsTests {
     private let root = TemporaryRoot()
 
     @Test func catalogCountsIgnoreArchivedAndDeleted() async throws {

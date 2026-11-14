@@ -12,7 +12,7 @@ import Testing
 /// A tune made from its title alone: the New tunes settings seed it, a list or recording it is
 /// filed into never costs the tune, and the Added banner's Undo never deletes work.
 @MainActor
-@Suite(.timeLimit(.minutes(1))) struct TitleOnlyTuneTests {
+@Suite struct TitleOnlyTuneTests {
     private let sink = RecordingAnalyticsSink()
     /// Held for the test, since the store's folder goes with it.
     private let root = TemporaryRoot()

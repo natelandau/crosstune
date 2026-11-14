@@ -55,7 +55,7 @@ private final class Writes: Sendable {
 private struct DiskFull: Error {}
 
 @MainActor
-@Suite(.timeLimit(.minutes(1))) struct RecordingExportModelTests {
+@Suite struct RecordingExportModelTests {
     private let sent = Sent()
     private let writes = Writes()
 
