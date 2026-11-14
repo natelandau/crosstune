@@ -34,6 +34,7 @@ private struct RecordingSelectionMode: ViewModifier {
     @Environment(PlayerModel.self) private var player: PlayerModel?
     @Environment(SyncEngine.self) private var engine: SyncEngine?
     @Environment(AccountSession.self) private var session: AccountSession?
+    @Environment(\.premium) private var premium
     @State private var bulk: RecordingBulkActions?
     @State private var exporting: RecordingExportRequest?
     @State private var linking: SelectedRows<RecordingView>?
@@ -130,9 +131,7 @@ private struct RecordingSelectionMode: ViewModifier {
     }
 
     private func link() {
-        let views = selected
-        guard !views.isEmpty else { return }
-        linking = SelectedRows(rows: views)
+        linking = RecordingBulkActions.linking(selected, premium: premium)
     }
 
     private func delete(_ question: RecordingBulkDeleteQuestion) async {
@@ -140,6 +139,15 @@ private struct RecordingSelectionMode: ViewModifier {
         // The player lets go of the audio before its file goes.
         if question.deleting.contains(where: { player?.holds(.recording, id: $0.id) == true }) { player?.close() }
         if await bulk.delete(question) { selection.exit() }
+    }
+}
+
+extension RecordingBulkActions {
+    /// The recordings the tune picker links, or nil when none are selected or the plan holds
+    /// linking back, which shows the Plan sheet instead.
+    static func linking(_ views: [RecordingView], premium: PremiumPresenter?) -> SelectedRows<RecordingView>? {
+        guard !views.isEmpty, premium?.gate(.recordings, from: .linkRecordings) ?? true else { return nil }
+        return SelectedRows(rows: views)
     }
 }
 

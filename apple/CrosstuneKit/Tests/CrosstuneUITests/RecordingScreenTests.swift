@@ -507,12 +507,12 @@ private final class Writes {
         #expect(RecordingMenuItem.delete(disabledReason: nil).label == RecordingRowActions.delete)
     }
 
-    /// A plan that stops recordings playing, and so trimming, still exports them.
-    @Test func theMoreMenuLeavesTrimAndSplitOutWhenTheRecordingCannotTrimButKeepsExport() {
+    /// A plan that stops recordings playing leaves out every editing item, and still exports.
+    @Test func aFreePlansMoreMenuHoldsNoEditingItemButKeepsExportAndDelete() {
         #expect(
             RecordingMenuItem.items(
-                pinned: false, goesToTune: true, trimDisabledReason: nil, exportDisabledReason: nil, trims: false)
-                == [.pin(pinned: false), .goToTune] + exportItems() + [.delete(disabledReason: nil)])
+                pinned: false, goesToTune: true, trimDisabledReason: nil, exportDisabledReason: nil, edits: false)
+                == [.goToTune] + exportItems() + [.delete(disabledReason: nil)])
     }
 
     @Test func theExportItemsShowWhyTheyCannotRunNow() {

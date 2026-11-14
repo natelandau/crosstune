@@ -27,6 +27,12 @@ public enum PlanSource: String, Sendable {
     public static let paid: [PlanSource] = [.apple, .stripe]
 }
 
+/// Which grant a free account lost.
+public enum PlanLapse: Sendable, Equatable {
+    case paid
+    case trial
+}
+
 /// What the account may use at one instant, judged on the device from the stored entitlements
 /// row and the device clock, so an offline device still turns free on time.
 public struct Plan: Sendable, Equatable {
@@ -45,6 +51,8 @@ public struct Plan: Sendable, Equatable {
     /// Every store still billing the account, the reported grant's included; empty unless
     /// Premium. A comp that outlasts a subscription is reported over it.
     public var paidSources: [PlanSource]
+    /// The grant a free account lost; nil unless free with a grant history.
+    public var lapse: PlanLapse?
 
     /// Whether the account is on a Premium trial.
     public var isTrial: Bool { kind == .premium && source == .trial }
@@ -66,7 +74,7 @@ public struct Plan: Sendable, Equatable {
     public init(
         kind: PlanKind, source: PlanSource? = nil, premiumEndsAt: Date? = nil, trialStartsAt: Date? = nil,
         trialEndsAt: Date? = nil, quotaBytes: Int64? = nil, autoRenews: Bool = false,
-        paidSources: [PlanSource] = []
+        paidSources: [PlanSource] = [], lapse: PlanLapse? = nil
     ) {
         self.kind = kind
         self.source = source
@@ -75,6 +83,7 @@ public struct Plan: Sendable, Equatable {
         self.trialEndsAt = trialEndsAt
         self.quotaBytes = quotaBytes
         self.autoRenews = autoRenews
+        self.lapse = kind == .free ? lapse : nil
         let billed = Set(paidSources + [source].compactMap { $0 })
         self.paidSources = kind == .premium ? PlanSource.paid.filter(billed.contains) : []
     }
@@ -85,6 +94,8 @@ public struct Plan: Sendable, Equatable {
         guard let row else { return .unknown }
         let premium = PlanRules.isPremium(row, now: now)
         let source = row.premiumSource
+        // The server keeps premium_source after a grant lapses, so a free row that names one lost it.
+        let lapse: PlanLapse? = premium ? nil : source.map { $0 == PlanSource.trial.rawValue ? .trial : .paid }
         return Plan(
             kind: premium ? .premium : .free,
             source: premium ? source.flatMap(PlanSource.init(rawValue:)) : nil,
@@ -93,7 +104,8 @@ public struct Plan: Sendable, Equatable {
             trialEndsAt: row.trialEndsAt?.date,
             quotaBytes: premium ? row.premiumQuotaBytes : nil,
             autoRenews: premium && row.autoRenews,
-            paidSources: premium ? PlanRules.livePaidSources(row, now: now) : [])
+            paidSources: premium ? PlanRules.livePaidSources(row, now: now) : [],
+            lapse: lapse)
     }
 }
 

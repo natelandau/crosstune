@@ -163,10 +163,6 @@ import CrosstuneDesign
             }
         }
 
-        static var markHeight: CGFloat { 32 }
-        /// Room above the body for a focus ring, which the body's scroll view would clip.
-        private static var ringRoom: CGFloat { 4 }
-
         let title: String
         let subtitle: String?
         let size: MacSheetSize
@@ -208,15 +204,11 @@ import CrosstuneDesign
 
         var body: some View {
             let fittedHeight = size.maxHeight.flatMap(fitted.height(max:))
-            VStack(spacing: 0) {
-                header
-                    .onGeometryChange(for: CGFloat.self, of: \.size.height) { fitted.header = $0 }
-                bodyArea
-                if hasFooter {
-                    footer
-                        .onGeometryChange(for: CGFloat.self, of: \.size.height) { fitted.footer = $0 }
-                }
-            }
+            MacSheetChrome(
+                title: title, subtitle: subtitle, style: style, cancel: cancel, secondary: secondary, primary: primary,
+                escape: escape, fitted: size.isFitted ? $fitted : nil, leading: leading, accessory: accessory,
+                content: content
+            )
             // A fitted sheet's window keeps the height it opened at, so content that arrives
             // later, such as the store's offers, sets both the frame and the window's height, or it
             // would clip top and bottom.
@@ -227,6 +219,47 @@ import CrosstuneDesign
                 }
             }
             .background(Palette.pageBackground)
+            .macOpensUnfocused(openingFocus == .anchor)
+            .resetsSurfaceEnvironment()
+            .macSheetFrame(size)
+        }
+    }
+
+    /// A ``MacSheet``'s title, body, footer, and Escape, apart from the window: a host that draws
+    /// it elsewhere, such as over part of a page, sets its size, background, and focus.
+    struct MacSheetChrome<Content: View, Leading: View, Accessory: View>: View {
+        typealias Action = MacSheetAction
+        typealias Style = MacSheet<Content, Leading, Accessory>.Style
+
+        static var markHeight: CGFloat { 32 }
+        /// Room above the body for a focus ring, which the body's scroll view would clip.
+        private static var ringRoom: CGFloat { 4 }
+
+        let title: String
+        let subtitle: String?
+        let style: Style
+        let cancel: Action?
+        let secondary: Action?
+        let primary: Action?
+        /// What Escape does in place of Cancel.
+        let escape: (@MainActor () -> Void)?
+        /// Where a fitted frame's parts are measured, so its host sizes the frame to them. Nil for
+        /// a body that fills the frame edge to edge.
+        let fitted: Binding<MacSheetFittedParts>?
+        let leading: Leading
+        let accessory: Accessory
+        let content: Content
+
+        var body: some View {
+            VStack(spacing: 0) {
+                header
+                    .onGeometryChange(for: CGFloat.self, of: \.size.height) { fitted?.wrappedValue.header = $0 }
+                bodyArea
+                if hasFooter {
+                    footer
+                        .onGeometryChange(for: CGFloat.self, of: \.size.height) { fitted?.wrappedValue.footer = $0 }
+                }
+            }
             .background {
                 if let escape {
                     Button("", action: escape)
@@ -235,9 +268,6 @@ import CrosstuneDesign
                         .accessibilityHidden(true)
                 }
             }
-            .macOpensUnfocused(openingFocus == .anchor)
-            .resetsSurfaceEnvironment()
-            .macSheetFrame(size)
         }
 
         private var header: some View {
@@ -262,10 +292,12 @@ import CrosstuneDesign
                             .alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] + capMiddle }
                     }
                 }
+                // A subtitle can name the musician's own content, such as a recording.
                 if let subtitle {
                     Text(subtitle)
                         .font(MacStyle.body)
                         .foregroundStyle(Palette.textSecondary)
+                        .contentMask()
                 }
             }
             .fixedSize(horizontal: false, vertical: true)
@@ -300,13 +332,13 @@ import CrosstuneDesign
         }
 
         @ViewBuilder private var bodyArea: some View {
-            if size.isFitted {
+            if let fitted {
                 ScrollView {
                     content
                         .padding([.horizontal, .bottom], MacStyle.sheetMargin)
                         .padding(.top, Self.ringRoom)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .onGeometryChange(for: CGFloat.self, of: \.size.height) { fitted.body = $0 }
+                        .onGeometryChange(for: CGFloat.self, of: \.size.height) { fitted.wrappedValue.body = $0 }
                 }
                 .scrollBounceBehavior(.basedOnSize)
             } else {

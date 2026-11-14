@@ -250,7 +250,7 @@ private func wire(_ json: String) throws -> JSONObject {
               "id": "recording-1", "created_at": "2026-09-20T18:04:11Z", "updated_at": "2026-09-21T02:15:40Z",
               "deleted_at": null, "server_seq": 6, "user_id": "owner-1",
               "tune_id": "tune-1", "source": "import", "added_at": "2026-09-20T18:04:11Z",
-              "label": "Take 1", "position": 0, "state": "ready", "duration_ms": 5000,
+              "label": "Recording 1", "position": 0, "state": "ready", "duration_ms": 5000,
               "playback_mime": "audio/mp4", "playback_bytes": 2048, "error": null,
               "origin": "slippery_hill", "origin_url": "https://www.slippery-hill.com/recordings/1"
             }

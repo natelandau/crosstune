@@ -15,8 +15,7 @@ public struct RecordingRowContent: Hashable, Sendable {
         case download
         /// A stuck row with nothing to play retries.
         case retry(RecordingText.Retry)
-        /// The plan holds recordings back, so the slot offers Premium in place of a play or a
-        /// download.
+        /// The plan holds recordings back, so the slot's play shows the Plan sheet.
         case premium
     }
 
@@ -35,15 +34,11 @@ public struct RecordingRowContent: Hashable, Sendable {
     /// The red third line: why a stuck upload was refused, or that the last download this row
     /// asked for fetched nothing.
     public let error: String?
-    /// Reads dimmed: a download that cannot start offline or a play while a recording is recorded,
-    /// each of which keeps its name and slot, and any recording the plan holds back, whose slot
-    /// offers Premium.
+    /// Reads dimmed: a download that cannot start offline, a play while a recording is recorded,
+    /// or a play the plan holds back, each of which keeps its name and slot.
     public let isDimmed: Bool
     /// Why a dimmed play does nothing, under the second line.
     public let notice: String?
-    /// What the slot offers in place of its own action, spoken with the slot and never shown:
-    /// Premium, for a recording the plan holds back.
-    public let spokenNotice: String?
 
     /// Whether a row offering `control` is disabled while a recording is under way: only a play does.
     nonisolated static func blocksPlay(_ control: RecordingText.Control) -> Bool {
@@ -91,11 +86,14 @@ public struct RecordingRowContent: Hashable, Sendable {
         error =
             (retry == .upload ? file?.error : nil)
             ?? (downloadFailed && control == .download ? RecordingText.downloadFailed : nil)
+        // A held-back recording cannot be loaded from this row, so its slot is a play that shows
+        // the Plan sheet.
+        let gated = !recordingsPlay && (control == .play || control == .close)
         let shownActionLabel: String?
         let shown: Tap?
         switch control {
         case .play: (glyph, shownActionLabel, shown) = (.play, MediaText.play, .play)
-        case .close: (glyph, shownActionLabel, shown) = (.stop, MediaText.closePlayer, .close)
+        case .close: (glyph, shownActionLabel, shown) = (gated ? .play : .stop, MediaText.closePlayer, .close)
         case .download: (glyph, shownActionLabel, shown) = (.download, Self.download, .download)
         case .downloading: (glyph, shownActionLabel, shown) = (.downloading, RecordingText.downloading, nil)
         case .none:
@@ -105,15 +103,8 @@ public struct RecordingRowContent: Hashable, Sendable {
                 (glyph, shownActionLabel, shown) = (.waiting, nil, nil)
             }
         }
-        let gated: Bool
-        switch shown {
-        case .play?, .close?: gated = !recordingsPlay
-        case .download?, .retry?, .premium?, nil: gated = false
-        }
-        // A gated press opens the Plan sheet, so the slot offers a subscription rather than the play.
         isDimmed = offlineDownload || blockedPlay || gated
         tap = gated ? .premium : shown
-        actionLabel = gated ? nil : shownActionLabel
-        spokenNotice = gated ? RecordingText.subscribeToPlay : nil
+        actionLabel = gated ? MediaText.play : shownActionLabel
     }
 }

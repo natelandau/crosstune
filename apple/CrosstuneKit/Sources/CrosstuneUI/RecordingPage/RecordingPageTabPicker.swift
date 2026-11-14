@@ -1,26 +1,16 @@
 import CrosstuneDesign
 import SwiftUI
 
-/// Practice | Details. Practice, while the plan holds recordings back, offers the plan instead.
+/// Practice | Details. While the plan holds recordings back, the page shows Details.
 struct RecordingPageTabPicker: View {
-    /// The tab shown, which the picker sets only to a tab that can be used now.
     @Binding var tab: RecordingPageTab
     let recordingsPlay: Bool
-    let onBlocked: () -> Void
-
-    private var shown: RecordingPageTab {
-        RecordingPageArrangement.isEnabled(tab, recordingsPlay: recordingsPlay) ? tab : .details
-    }
 
     var body: some View {
         let selection = Binding {
-            shown
-        } set: { chosen in
-            if let accepted = RecordingPageArrangement.pick(chosen, recordingsPlay: recordingsPlay) {
-                tab = accepted
-            } else {
-                onBlocked()
-            }
+            recordingsPlay ? tab : .details
+        } set: {
+            tab = $0
         }
         return tabs(selection)
             .controlsColumn()

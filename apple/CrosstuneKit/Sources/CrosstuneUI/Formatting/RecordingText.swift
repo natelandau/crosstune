@@ -19,16 +19,9 @@ public enum RecordingText {
     /// A recording the server refused as Premium only, which waits here until the account subscribes.
     public static let isLocalUntilSubscribed = "On this device only. Syncs when you subscribe."
 
-    /// What a recording row the plan holds back says instead of its play.
-    nonisolated public static let subscribeToPlay = "Subscribe to play"
     /// Whether a tune page's recordings line shows the rows below it, spoken as its value.
     nonisolated public static let recordingsLineExpanded = "Expanded"
     nonisolated public static let recordingsLineCollapsed = "Collapsed"
-
-    /// The line a tune page shows on a free plan in place of its recordings.
-    public static func recordingsLine(count: Int) -> String {
-        count == 1 ? "1 recording, subscribe to play" : "\(count) recordings, subscribe to play"
-    }
 
     /// What the row's leading control does.
     public enum Control: Equatable, Sendable {

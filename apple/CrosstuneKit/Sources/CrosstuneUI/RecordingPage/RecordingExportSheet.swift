@@ -1,7 +1,9 @@
 import CrosstuneAnalytics
+import CrosstuneAuth
 import CrosstuneDesign
 import CrosstuneDiagnostics
 import CrosstuneExport
+import CrosstuneStore
 import CrosstuneSync
 import SwiftUI
 import UniformTypeIdentifiers
@@ -219,3 +221,50 @@ struct RecordingExportSheet: View {
         }
     }
 #endif
+
+/// The export sheet a screen shows: some of the musician's recordings, or everything the
+/// account holds.
+enum ExportSheetItem: Identifiable {
+    case recordings(RecordingExportRequest)
+    case everything
+
+    var id: String {
+        switch self {
+        case .recordings(let request): request.id.uuidString
+        case .everything: "everything"
+        }
+    }
+}
+
+extension View {
+    /// Shows `item`'s export sheet over the view, exporting through the environment's store,
+    /// sync engine, and session.
+    func exportSheet(_ item: Binding<ExportSheetItem?>) -> some View {
+        modifier(ExportSheets(item: item))
+    }
+}
+
+private struct ExportSheets: ViewModifier {
+    @Binding var item: ExportSheetItem?
+
+    @Environment(\.store) private var store
+    @Environment(\.analytics) private var analytics
+    @Environment(\.diagnostics) private var diagnostics
+    @Environment(SyncEngine.self) private var engine: SyncEngine?
+    @Environment(AccountSession.self) private var session: AccountSession?
+
+    func body(content: Content) -> some View {
+        content
+            .sheet(item: $item) { shown in
+                switch shown {
+                case .recordings(let request):
+                    RecordingExportSheet(
+                        request: request, engine: engine, analytics: analytics, diagnostics: diagnostics)
+                case .everything:
+                    ExportDataSheet(
+                        store: store, engine: engine, isOffline: { [session] in session?.isOffline ?? true },
+                        analytics: analytics, diagnostics: diagnostics)
+                }
+            }
+    }
+}

@@ -1,7 +1,10 @@
 import CrosstuneAnalytics
+import CrosstuneAuth
 import CrosstuneBilling
 import CrosstuneDesign
+import CrosstuneExport
 import CrosstuneStore
+import CrosstuneSync
 import SwiftUI
 
 /// The account's plan: what Free and Premium each hold, purchasable for a free or trial account,
@@ -11,24 +14,31 @@ struct PlanSheet: View {
     let reason: PremiumReason
     /// Where the sheet was opened from, which a purchase reports.
     let entry: PremiumEntry
+    /// The recording the sheet was opened from, if one was.
+    let subject: PremiumSubject?
     /// Nil in a build that offers no purchase.
     let purchase: PurchaseModel?
     /// The instant the trial card counts from, nil to follow the clock.
     let now: Date?
+    /// The context's export action. The host closes the sheet before it acts.
+    let onAction: (PlanContextAction) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.plan) private var plan
     @Environment(\.purchases) private var purchases
     @Environment(\.stripePortalURL) private var portalURL
     @State private var storefront: StorefrontRead = .unread
-    /// Whether OK has closed the alert for the store's failure to answer, until the sheet asks again.
-    @State private var unavailableDismissed = false
 
-    init(reason: PremiumReason, entry: PremiumEntry, purchase: PurchaseModel?, now: Date? = nil) {
+    init(
+        reason: PremiumReason, entry: PremiumEntry, subject: PremiumSubject? = nil, purchase: PurchaseModel?,
+        now: Date? = nil, onAction: @escaping (PlanContextAction) -> Void
+    ) {
         self.reason = reason
         self.entry = entry
+        self.subject = subject
         self.purchase = purchase
         self.now = now
+        self.onAction = onAction
     }
 
     /// Whether the sheet shows purchase options or confirms the plan.
@@ -50,7 +60,8 @@ struct PlanSheet: View {
         case loading
         /// As `notPurchasable`, saying the device is offline.
         case offline
-        /// As `notPurchasable`, with an alert saying the store could not answer.
+        /// As `notPurchasable`, saying the store could not answer: in an alert, or in the
+        /// outcome line where the host raises no alert.
         case unavailable
         /// Annual or Monthly, at the store's prices, and Subscribe.
         case choice([PurchaseOffer])
@@ -68,16 +79,6 @@ struct PlanSheet: View {
         Disclosure(label: PlanText.termsOfUse, url: URL(string: PlanText.termsURL)!),
         Disclosure(label: PlanText.privacyPolicy, url: URL(string: PlanText.privacyURL)!),
     ]
-
-    /// The sheet's opening title and line: the product and its pitch from the plan, or what was
-    /// tapped from a locked control.
-    nonisolated static func headline(_ reason: PremiumReason) -> (title: String, body: String) {
-        switch reason {
-        case .plan: (PlanText.premiumPlanTitle, PlanText.premiumPitch)
-        case .recordings: (PlanText.premiumRecordingsTitle, PlanText.premiumRecordingsBody)
-        case .scans: (PlanText.premiumScansTitle, PlanText.premiumScansBody)
-        }
-    }
 
     /// Purchasable only for an account that can subscribe, once the store has answered with a price.
     /// `offers` is nil without a purchase model.
@@ -148,22 +149,28 @@ struct PlanSheet: View {
     }
 
     /// The line by the actions: the settled line once subscribed, otherwise the outcome of a
-    /// try in this sheet, and failing that the offline line while the device is offline.
-    nonisolated static func outcomeLine(_ sale: Sale, line: PurchaseModel.Line?) -> String? {
+    /// try in this sheet, and failing that the offline line while the device is offline, or,
+    /// where `alertsUnavailable` is false, the unavailable line while the store cannot answer.
+    nonisolated static func outcomeLine(
+        _ sale: Sale, line: PurchaseModel.Line?, alertsUnavailable: Bool = true
+    ) -> String? {
         switch sale {
-        case .choice, .loading, .notPurchasable, .unavailable: line.flatMap(PlanText.line)
+        case .choice, .loading, .notPurchasable: line.flatMap(PlanText.line)
+        case .unavailable:
+            line.flatMap(PlanText.line) ?? (alertsUnavailable ? nil : PlanText.subscribeUnavailableTitle)
         case .subscribed: settledLine(line)
         case .offline: line.flatMap(PlanText.line) ?? PlanText.subscribeOffline
         }
     }
 
     /// The alert over the sheet: a failed try in it, otherwise the store's failure to answer
-    /// until it is dismissed.
-    nonisolated static func storeAlert(_ sale: Sale, line: PurchaseModel.Line?, unavailableDismissed: Bool)
-        -> StoreAlert?
-    {
+    /// until it is dismissed. `alertsUnavailable` false leaves the failure to answer to the
+    /// outcome line.
+    nonisolated static func storeAlert(
+        _ sale: Sale, line: PurchaseModel.Line?, unavailableDismissed: Bool, alertsUnavailable: Bool = true
+    ) -> StoreAlert? {
         if let failure = StoreAlert.failure(line) { return failure }
-        return sale == .unavailable && !unavailableDismissed ? .unavailable : nil
+        return sale == .unavailable && !unavailableDismissed && alertsUnavailable ? .unavailable : nil
     }
 
     /// Whether the sheet asks the store for offers: only where the plan is purchasable.
@@ -233,33 +240,28 @@ struct PlanSheet: View {
     var body: some View {
         let currentPlan = plan?.plan ?? .unknown
         let mode = Self.mode(currentPlan)
-        let sale = Self.sale(plan: currentPlan, offers: purchase?.offers, line: purchase?.line)
-        Group {
+        PlanContextReader(reason: reason, subject: subject) { context in
             #if os(macOS)
-                macSheet(currentPlan, mode: mode, sale: sale)
+                macSheet(currentPlan, mode: mode, context: context)
             #else
                 NavigationStack {
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 16) {
-                            switch mode {
-                            case .purchasable:
-                                purchasable(currentPlan)
-                                inlineActions(sale)
-                            case .member:
-                                member(currentPlan)
+                    Group {
+                        switch mode {
+                        case .purchasable:
+                            PlanPanel(
+                                context: context, purchase: purchase, entry: entry, now: now, onAction: onAction,
+                                host: .sheet(onClose: { dismiss() }))
+                        case .member:
+                            ScrollView {
+                                VStack(alignment: .leading, spacing: 16) {
+                                    member(currentPlan)
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding()
                             }
+                            .planBackground()
+                            .memberAlert(purchase)
                         }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding()
-                    }
-                    .planBackground()
-                    .sheetActions(
-                        line: Self.outcomeLine(sale, line: purchase?.line),
-                        isShown: mode == .purchasable && Self.pinsAction(sale, hasPurchase: purchase != nil)
-                    ) {
-                        barAction(sale)
-                    } secondary: {
-                        EmptyView()
                     }
                     #if os(iOS)
                         .navigationBarTitleDisplayMode(.inline)
@@ -272,53 +274,15 @@ struct PlanSheet: View {
                 }
             #endif
         }
-        .storeAlert(
-            Self.storeAlert(sale, line: purchase?.line, unavailableDismissed: unavailableDismissed)
-        ) {
-            if StoreAlert.failure(purchase?.line) != nil {
-                purchase?.clearLine()
-            } else {
-                unavailableDismissed = true
-            }
-        }
         .task(id: currentPlan.paidSources) {
             storefront = .unread
             storefront = .read(await Self.storefront(for: currentPlan, client: purchases))
-        }
-        // Asks only where the plan is purchasable, and again when the connection comes back.
-        .task(id: OfferAsk(sells: Self.asksForOffers(currentPlan), offline: purchase?.isOffline)) {
-            guard Self.asksForOffers(currentPlan) else { return }
-            unavailableDismissed = false
-            await purchase?.loadOffers()
         }
         .presentationDetents(Self.detents)
         .shellSheet()
     }
 
     #if !os(macOS)
-        /// The mark over the headline, a trial's card, and the comparison.
-        @ViewBuilder
-        private func purchasable(_ plan: Plan) -> some View {
-            let (title, message) = Self.headline(reason)
-            VStack(spacing: 6) {
-                PlanMark()
-                    .padding(.bottom, 6)
-                Text(title)
-                    .font(.platform(.title2).bold())
-                    .accessibilityAddTraits(.isHeader)
-                    .fixedSize(horizontal: false, vertical: true)
-                Text(message)
-                    .foregroundStyle(.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .multilineTextAlignment(.center)
-            .frame(maxWidth: .infinity)
-            if plan.isTrial {
-                TrialCard(startsAt: plan.trialStartsAt, endsAt: plan.trialEndsAt ?? plan.premiumEndsAt, now: now)
-            }
-            PlanComparison()
-        }
-
         /// A Premium account's plan: the mark and thanks, the membership, what Premium includes,
         /// and Restore purchases.
         @ViewBuilder
@@ -343,7 +307,7 @@ struct PlanSheet: View {
             IncludedList()
             if let purchase {
                 VStack(spacing: 4) {
-                    restoreButton(purchase)
+                    RestorePurchasesButton(purchase: purchase)
                     if let line = Self.restoreLine(purchase) {
                         Text(line)
                             .foregroundStyle(.textSecondary)
@@ -356,194 +320,52 @@ struct PlanSheet: View {
             }
         }
     #endif
-
-    private func tiles(_ offers: [PurchaseOffer], purchase: PurchaseModel) -> some View {
-        PeriodTiles(
-            options: Self.options(offers),
-            period: Binding {
-                Self.chosen(purchase.period, in: offers)
-            } set: {
-                purchase.period = $0
-            })
-    }
-
-    #if !os(macOS)
-        /// The choice and its terms at the end of the sheet's scrolling page, and, where nothing is
-        /// for sale, why with Restore purchases. Only Subscribe or Close and the outcome pin to the
-        /// sheet's bottom edge in its action bar, so the terms and links scroll at any text size.
-        private func inlineActions(_ sale: Sale) -> some View {
-            VStack(alignment: .center, spacing: 16) {
-                switch (sale, purchase) {
-                case (.choice(let offers), let purchase?):
-                    tiles(offers, purchase: purchase)
-                    terms(sale, purchase: purchase)
-                case (.loading, let purchase?):
-                    terms(sale, purchase: purchase)
-                case (.loading, nil), (.subscribed, _), (.choice, nil):
-                    EmptyView()
-                case (.offline, _), (.unavailable, _), (.notPurchasable, _):
-                    if let line = Self.outcomeLine(sale, line: purchase?.line) {
-                        paragraph(line).foregroundStyle(.textSecondary)
-                    }
-                    if let purchase {
-                        terms(sale, purchase: purchase)
-                    }
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: Alignment(horizontal: .center, vertical: .center))
-            .padding(.top, 16)
-        }
-
-        /// The bar's button for `sale`.
-        @ViewBuilder
-        private func barAction(_ sale: Sale) -> some View {
-            switch (sale, purchase) {
-            case (.choice, let purchase?):
-                subscribeButton(purchase)
-            case (.loading, _?):
-                WaitingSubscribeButton()
-            case (.subscribed, _):
-                // The phone's glass xmark is easy to miss, so Close also reads as a button.
-                Button(SheetCloseButton.close) { dismiss() }
-            default:
-                EmptyView()
-            }
-        }
-
-        private func paragraph(_ text: String) -> some View {
-            Text(text)
-                .font(.footnote)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-
-        private func subscribeButton(_ purchase: PurchaseModel) -> some View {
-            Button(PlanText.subscribe) {
-                Task { await Self.subscribe(purchase, from: entry) }
-            }
-            .disabled(purchase.isWorking)
-        }
-
-        /// The terms a sale shows, with Restore purchases beside the legal links; Restore alone
-        /// while nothing is purchasable, and nothing once a purchase settles.
-        @ViewBuilder
-        private func terms(_ sale: Sale, purchase: PurchaseModel) -> some View {
-            if case .choice(let offers) = sale {
-                if let offer = Self.chosenOffer(purchase.period, in: offers) {
-                    RenewalTerms(price: offer.price, period: offer.period) { restoreButton(purchase) }
-                }
-            } else if Self.offersRestore(sale) {
-                restoreButton(purchase).font(.platform(.footnote))
-            }
-        }
-    #endif
-
-    private func restoreButton(_ purchase: PurchaseModel) -> some View {
-        Button(PlanText.restorePurchases) {
-            Task { await purchase.restore() }
-        }
-        .disabled(purchase.isWorking)
-        .buttonStyle(.text)
-    }
 }
 
 #if os(macOS)
     extension PlanSheet {
-        /// Close, then Subscribe trailing while the plan is purchasable, which never takes Return, since
-        /// a locked tap opens the sheet unasked. Subscribe holds its place, disabled, while the
-        /// store answers, while a purchase runs, and while the store cannot be reached, when the
-        /// subtitle says why.
-        nonisolated static func macFooter(
-            _ sale: Sale, isWorking: Bool, close: @escaping @MainActor () -> Void,
-            subscribe: @escaping @MainActor () -> Void
-        ) -> MacSheetFooter {
-            var footer = MacSheetFooter(cancel: .cancel(SheetCloseButton.close, action: close))
-            switch sale {
-            case .choice:
-                footer.primary = .subscribe(title: PlanText.subscribe, isEnabled: !isWorking, action: subscribe)
-            case .loading, .offline, .unavailable:
-                footer.primary = .subscribe(title: PlanText.subscribe, isEnabled: false, action: subscribe)
-            case .notPurchasable, .subscribed:
-                break
-            }
-            return footer
-        }
-
         /// A member's footer: nothing to buy, so Close is the one primary, on Return and Escape.
         nonisolated static func macMemberFooter(close: @escaping @MainActor () -> Void) -> MacSheetFooter {
             MacSheetFooter(primary: .init(SheetCloseButton.close, action: close), escape: close)
         }
 
-        /// The Mac sheet's subtitle: the offline line while the device is offline, which says more
-        /// than the pitch then, or the pitch.
-        nonisolated static func macSubtitle(_ sale: Sale, line: PurchaseModel.Line?, pitch: String) -> String {
-            line == nil && sale == .offline ? PlanText.subscribeOffline : pitch
-        }
-
-        /// ``outcomeLine(_:line:)`` less the offline line, which the Mac sheet's subtitle carries.
-        nonisolated static func macOutcomeLine(_ sale: Sale, line: PurchaseModel.Line?) -> String? {
-            line == nil && sale == .offline ? nil : outcomeLine(sale, line: line)
-        }
-
-        /// The mark, title, and line over a trial's card and the comparison while purchasable, or the
-        /// membership and what Premium includes for a member, with Restore purchases leading
-        /// the footer.
-        func macSheet(_ plan: Plan, mode: Mode, sale: Sale) -> some View {
-            let (title, pitch) = mode == .member ? (PlanText.onPremium, PlanText.thanks) : Self.headline(reason)
-            let subtitle = mode == .member ? pitch : Self.macSubtitle(sale, line: purchase?.line, pitch: pitch)
-            let footer =
-                mode == .member
-                ? Self.macMemberFooter { dismiss() }
-                : Self.macFooter(
-                    sale, isWorking: purchase?.isWorking ?? false, close: { dismiss() }, subscribe: macSubscribe)
-            return MacSheet(
-                title: title, subtitle: subtitle, style: .notice, size: .fitted(.tall), cancel: footer.cancel,
-                primary: footer.primary, escape: footer.escape
-            ) {
-                if let purchase, mode == .member || Self.offersRestore(sale) {
-                    restoreButton(purchase)
+        /// The plan panel in the frame it names while purchasable, or the membership and what
+        /// Premium includes for a member, with Restore purchases leading the footer.
+        @ViewBuilder
+        func macSheet(_ plan: Plan, mode: Mode, context: PlanContext) -> some View {
+            switch mode {
+            case .purchasable:
+                let chrome = PlanPanel.macChrome(
+                    plan: plan, context: context, purchase: purchase, entry: entry, close: { dismiss() })
+                MacSheet(
+                    title: chrome.title, subtitle: chrome.subtitle, style: .notice, size: .fitted(.tall),
+                    cancel: chrome.footer.cancel, primary: chrome.footer.primary, escape: chrome.footer.escape
+                ) {
+                    if let purchase, chrome.offersRestore {
+                        RestorePurchasesButton(purchase: purchase)
+                    }
+                } content: {
+                    PlanPanel(
+                        context: context, purchase: purchase, entry: entry, now: now, onAction: onAction,
+                        host: .sheet(onClose: nil))
                 }
-            } content: {
-                VStack(alignment: .leading, spacing: 16) {
-                    switch mode {
-                    case .purchasable:
-                        if plan.isTrial {
-                            TrialCard(
-                                startsAt: plan.trialStartsAt, endsAt: plan.trialEndsAt ?? plan.premiumEndsAt, now: now)
-                        }
-                        PlanComparison()
-                        macSale(sale)
-                    case .member:
+            case .member:
+                let footer = Self.macMemberFooter { dismiss() }
+                MacSheet(
+                    title: PlanText.onPremium, subtitle: PlanText.thanks, style: .notice, size: .fitted(.tall),
+                    cancel: footer.cancel, primary: footer.primary, escape: footer.escape
+                ) {
+                    if let purchase {
+                        RestorePurchasesButton(purchase: purchase)
+                    }
+                } content: {
+                    VStack(alignment: .leading, spacing: 16) {
                         macMember(plan)
                     }
+                    .font(MacStyle.body)
+                    .foregroundStyle(Palette.textPrimary)
+                    .memberAlert(purchase)
                 }
-                .font(MacStyle.body)
-                .foregroundStyle(Palette.textPrimary)
-            }
-        }
-
-        private func macSubscribe() {
-            guard let purchase else { return }
-            Task { await Self.subscribe(purchase, from: entry) }
-        }
-
-        /// The period choice and its terms, then the outcome of a try or why nothing is purchasable.
-        @ViewBuilder
-        private func macSale(_ sale: Sale) -> some View {
-            if case .choice(let offers) = sale, let purchase {
-                tiles(offers, purchase: purchase)
-            }
-            if let line = Self.macOutcomeLine(sale, line: purchase?.line) {
-                Text(line)
-                    .foregroundStyle(
-                        sale == .offline || sale == .notPurchasable ? Palette.textSecondary : Palette.textPrimary
-                    )
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            if case .choice(let offers) = sale, let purchase,
-                let offer = Self.chosenOffer(purchase.period, in: offers)
-            {
-                RenewalTerms(price: offer.price, period: offer.period)
             }
         }
 
@@ -579,8 +401,15 @@ struct PlanSheet: View {
     }
 #endif
 
+extension View {
+    /// A member's sheet shows only a failed restore's alert, since nothing is for sale.
+    fileprivate func memberAlert(_ purchase: PurchaseModel?) -> some View {
+        storeAlert(StoreAlert.failure(purchase?.line)) { purchase?.clearLine() }
+    }
+}
+
 /// The CT mark heading the sheet: a slate C on light, a white C on dark, and the brand-colored T on both.
-private struct PlanMark: View {
+struct PlanMark: View {
     @ScaledMetric(relativeTo: .title) private var height: CGFloat = 40
 
     var body: some View {
@@ -591,34 +420,61 @@ private struct PlanMark: View {
     }
 }
 
-/// Presents the Plan sheet whenever the presenter asks for it.
+/// Presents the Plan sheet whenever the presenter asks for it, and the export its context asks
+/// for once the sheet has closed, so the two sheets never stack.
 struct PlanSheets: ViewModifier {
     let presenter: PremiumPresenter?
     /// Nil in a build that offers no purchase.
     let purchase: PurchaseModel?
 
-    /// One showing of the sheet, for `sheet(item:)`.
-    private struct Showing: Identifiable {
-        let reason: PremiumReason
-        let entry: PremiumEntry
-        var id: PremiumReason { reason }
-    }
+    @Environment(\.store) private var store
+    @Environment(SyncEngine.self) private var engine: SyncEngine?
+    @Environment(AccountSession.self) private var session: AccountSession?
+    /// The action chosen in the sheet, run once the sheet has gone.
+    @State private var pending: PlanContextAction?
+    @State private var exporting: ExportSheetItem?
 
     func body(content: Content) -> some View {
         content
-            .sheet(item: shown) { showing in
-                PlanSheet(reason: showing.reason, entry: showing.entry, purchase: purchase)
+            .sheet(item: shown, onDismiss: runPending) { showing in
+                PlanSheet(
+                    reason: showing.reason, entry: showing.entry, subject: showing.subject, purchase: purchase
+                ) { action in
+                    pending = action
+                    presenter?.presentation = nil
+                }
             }
+            .exportSheet($exporting)
     }
 
-    private var shown: Binding<Showing?> {
+    private var shown: Binding<PremiumPresenter.Presentation?> {
         Binding {
-            guard let presenter, let reason = presenter.presented, let entry = presenter.presentedFrom else {
-                return nil
-            }
-            return Showing(reason: reason, entry: entry)
+            presenter?.presentation
         } set: {
-            presenter?.presented = $0?.reason
+            presenter?.presentation = $0
+        }
+    }
+
+    private func runPending() {
+        guard let action = pending else { return }
+        pending = nil
+        switch action {
+        case .exportAll:
+            exporting = .everything
+        case .exportRecording(let id):
+            guard let store else {
+                exporting = .everything
+                return
+            }
+            Task {
+                // Deleted since the sheet closed: the account's other recordings are still there.
+                guard let rows = try? await store.read({ db in try ScreenRows.fetch(db, id: id) }) else {
+                    exporting = .everything
+                    return
+                }
+                let readiness = ExportReadiness(rows.view, store: store, engine: engine, session: session)
+                exporting = .recordings(RecordingExportRequest(rows, readiness: readiness, delivery: .oneRecording))
+            }
         }
     }
 }

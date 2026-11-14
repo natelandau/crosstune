@@ -67,7 +67,6 @@ public struct MediaRow: View {
     private let tuneLine: TuneLine?
     private let error: String?
     private let notice: String?
-    private let spokenNotice: String?
     private let retry: Retry?
     /// How far a row that cannot act fades. Scans the plan does not open fade the same.
     static let dimmedOpacity = 0.6
@@ -81,12 +80,12 @@ public struct MediaRow: View {
     /// `actionLabel` names what the row does or would do, "Play" or "Downloading"; with no `action`
     /// the row is inert. `open`, when set, is the row's own press, and `action` moves to the glyph
     /// in the action slot. `dimmed` marks a row whose control cannot act right now, such as a
-    /// download offline. `spokenNotice` is spoken with the action and never shown.
+    /// download offline.
     public init(
         glyph: MediaGlyph, title: String, secondLine: SecondLine?, actionLabel: String? = nil,
         action: (() -> Void)? = nil, open: (() -> Void)? = nil, sourceLine: SourceLine? = nil,
-        tuneLine: TuneLine? = nil, error: String? = nil, notice: String? = nil, spokenNotice: String? = nil,
-        retry: Retry? = nil, dimmed: Bool = false
+        tuneLine: TuneLine? = nil, error: String? = nil, notice: String? = nil, retry: Retry? = nil,
+        dimmed: Bool = false
     ) {
         self.glyph = glyph
         self.title = title
@@ -98,7 +97,6 @@ public struct MediaRow: View {
         self.tuneLine = tuneLine
         self.error = error
         self.notice = notice
-        self.spokenNotice = spokenNotice
         self.retry = retry
         isDimmed = dimmed
     }
@@ -339,7 +337,6 @@ public struct MediaRow: View {
         if let notice { details.append(notice) }
         if let error { details.append(error) }
         guard open == nil else { return Self.accessibilityName(actionLabel: nil, title: title, details: details) }
-        if let spokenNotice { details.append(spokenNotice) }
         return Self.accessibilityName(actionLabel: actionLabel, title: title, details: details)
     }
 
@@ -352,9 +349,8 @@ public struct MediaRow: View {
     /// The action slot's spoken name in a row that opens a page, "Play Jam", or nil for a slot
     /// with nothing to say.
     private var slotName: String? {
-        guard actionLabel != nil || spokenNotice != nil else { return nil }
-        return Self.accessibilityName(
-            actionLabel: actionLabel, title: title, details: spokenNotice.map { [$0] } ?? [])
+        guard let actionLabel else { return nil }
+        return Self.accessibilityName(actionLabel: actionLabel, title: title, details: [])
     }
 
     #if os(macOS)
@@ -456,7 +452,7 @@ extension MediaRow {
         self.init(
             glyph: row.glyph, title: row.title, secondLine: .text(row.meta), actionLabel: row.actionLabel,
             action: row.tap.map { tap in { perform(tap) } }, open: open, sourceLine: sourceLine, tuneLine: tuneLine,
-            error: row.error, notice: row.notice, spokenNotice: row.spokenNotice,
+            error: row.error, notice: row.notice,
             retry: row.retry.flatMap { retry in row.retryName.map { Retry(name: $0) { onRetry(retry) } } },
             dimmed: row.isDimmed)
     }

@@ -344,10 +344,10 @@ private struct V4Fixture {
         try db.execute(
             sql: """
                 INSERT INTO outbox (table_name, row_id, op, updated_at, data) VALUES
-                    ('recordings', 'r-1', 'upsert', ?, '{"label":"Take 1"}'),
-                    ('recordings', 'r-2', 'upsert', ?, '{"label":"Take 2"}'),
+                    ('recordings', 'r-1', 'upsert', ?, '{"label":"Recording 1"}'),
+                    ('recordings', 'r-2', 'upsert', ?, '{"label":"Recording 2"}'),
                     ('recordings', 'r-3', 'delete', ?, NULL),
-                    ('recordings', 'r-4', 'upsert', ?, '{"label":"Take 4"}'),
+                    ('recordings', 'r-4', 'upsert', ?, '{"label":"Recording 4"}'),
                     ('tunes', 't-1', 'upsert', ?, '{"title":"Jam"}')
                 """,
             arguments: [time, time, time, time, time])
@@ -364,11 +364,11 @@ private struct V4Fixture {
         let data = try String?.fetchAll(db, sql: "SELECT data FROM outbox ORDER BY seq")
         #expect(
             data == [
-                #"{"label":"Take 1","origin":"own","origin_url":null}"#,
-                #"{"label":"Take 2","origin":"slippery_hill","origin_url":"https://www.slippery-hill.com/recordings/1"}"#,
+                #"{"label":"Recording 1","origin":"own","origin_url":null}"#,
+                #"{"label":"Recording 2","origin":"slippery_hill","origin_url":"https://www.slippery-hill.com/recordings/1"}"#,
                 nil,
                 // No row to read, so the queued change takes the default.
-                #"{"label":"Take 4","origin":"own","origin_url":null}"#,
+                #"{"label":"Recording 4","origin":"own","origin_url":null}"#,
                 #"{"title":"Jam"}"#,
             ])
     }
@@ -393,8 +393,8 @@ private struct V4Fixture {
         try db.execute(
             sql: """
                 INSERT INTO outbox (table_name, row_id, op, updated_at, data) VALUES
-                    ('recordings', 'r-1', 'upsert', ?, '{"label":"Take 1","notes":"Kept"}'),
-                    ('recordings', 'r-2', 'upsert', ?, '{"label":"Take 2"}'),
+                    ('recordings', 'r-1', 'upsert', ?, '{"label":"Recording 1","notes":"Kept"}'),
+                    ('recordings', 'r-2', 'upsert', ?, '{"label":"Recording 2"}'),
                     ('recordings', 'r-3', 'delete', ?, NULL),
                     ('tunes', 't-1', 'upsert', ?, '{"title":"Jam"}')
                 """,
@@ -421,8 +421,8 @@ private struct V4Fixture {
         let data = try String?.fetchAll(db, sql: "SELECT data FROM outbox ORDER BY seq")
         #expect(
             data == [
-                #"{"label":"Take 1","notes":"Kept","players":null,"place_name":null,"place_lat":null,"place_lon":null,"place_accuracy_m":null}"#,
-                #"{"label":"Take 2","notes":"Cold hands","players":"Ann, Bo","place_name":"Denver, CO","place_lat":39.7392,"place_lon":-104.9903,"place_accuracy_m":12}"#,
+                #"{"label":"Recording 1","notes":"Kept","players":null,"place_name":null,"place_lat":null,"place_lon":null,"place_accuracy_m":null}"#,
+                #"{"label":"Recording 2","notes":"Cold hands","players":"Ann, Bo","place_name":"Denver, CO","place_lat":39.7392,"place_lon":-104.9903,"place_accuracy_m":12}"#,
                 nil,
                 #"{"title":"Jam"}"#,
             ])
@@ -485,7 +485,7 @@ private struct V4Fixture {
         try db.execute(
             sql: """
                 INSERT INTO outbox (table_name, row_id, op, updated_at, data) VALUES
-                    ('recordings', 'r-2', 'upsert', ?, '{"label":"Take 2"}'),
+                    ('recordings', 'r-2', 'upsert', ?, '{"label":"Recording 2"}'),
                     ('recordings', 'r-3', 'delete', ?, NULL)
                 """,
             arguments: [time, time])
@@ -508,7 +508,7 @@ private struct V4Fixture {
         #expect(rows.map { $0["place_origin"] as String? } == [nil, "device", "file", "picked"])
         #expect(rows.map { $0["extra"] as String } == ["{}", "{}", "{}", #"{"theme":"dark"}"#])
         let data = try String?.fetchAll(db, sql: "SELECT data FROM outbox ORDER BY seq")
-        #expect(data == [#"{"label":"Take 2","place_id":null,"place_origin":"device"}"#, nil])
+        #expect(data == [#"{"label":"Recording 2","place_id":null,"place_origin":"device"}"#, nil])
     }
 }
 
@@ -535,8 +535,8 @@ private struct V4Fixture {
         try db.execute(
             sql: """
                 INSERT INTO outbox (table_name, row_id, op, updated_at, data) VALUES
-                    ('recordings', 'r-1', 'upsert', ?, '{"label":"Take 1","recorded_at":"\(played)","source":"microphone"}'),
-                    ('recordings', 'r-2', 'upsert', ?, '{"label":"Take 2","recorded_at":"\(played)","source":"upload"}'),
+                    ('recordings', 'r-1', 'upsert', ?, '{"label":"Recording 1","recorded_at":"\(played)","source":"microphone"}'),
+                    ('recordings', 'r-2', 'upsert', ?, '{"label":"Recording 2","recorded_at":"\(played)","source":"upload"}'),
                     ('recordings', 'r-3', 'delete', ?, NULL),
                     ('recordings', 'r-4', 'upsert', ?,
                         '{"added_at":"2026-09-24T09:00:00.000Z","recorded_at":"1937-01-01T00:00:00.000Z","recorded_precision":"year","source":"import"}'),
@@ -558,8 +558,8 @@ private struct V4Fixture {
         let data = try String?.fetchAll(db, sql: "SELECT data FROM outbox ORDER BY seq")
         #expect(
             data == [
-                #"{"label":"Take 1","recorded_at":"\#(played)","source":"microphone","added_at":"\#(played)","recorded_precision":"time"}"#,
-                #"{"label":"Take 2","recorded_at":null,"source":"upload","added_at":"\#(played)","recorded_precision":null}"#,
+                #"{"label":"Recording 1","recorded_at":"\#(played)","source":"microphone","added_at":"\#(played)","recorded_precision":"time"}"#,
+                #"{"label":"Recording 2","recorded_at":null,"source":"upload","added_at":"\#(played)","recorded_precision":null}"#,
                 nil,
                 // Already in the new shape, so left as queued.
                 #"{"added_at":"2026-09-24T09:00:00.000Z","recorded_at":"1937-01-01T00:00:00.000Z","recorded_precision":"year","source":"import"}"#,

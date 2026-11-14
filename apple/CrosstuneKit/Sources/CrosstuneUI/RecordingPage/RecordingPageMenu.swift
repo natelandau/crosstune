@@ -1,7 +1,8 @@
 import SwiftUI
 
 /// The page's More actions menu: trim, split, the pin, Go to tune, the recording's origin, Share,
-/// Export… on the Mac, and Delete, each disabled with its reason when it cannot be used now.
+/// Export… on the Mac, and Delete, each disabled with its reason when it cannot be used now. A
+/// plan that stops recordings playing leaves out trim, split, and the pin.
 struct RecordingPageMenu: View {
     let rows: ScreenRows
     let goesToTune: Bool
@@ -25,7 +26,7 @@ struct RecordingPageMenu: View {
                     splitDisabledReason: splitDisabledReason,
                     deleteDisabledReason: RecordingScreenText.deleteDisabledReason(rows.view),
                     exportDisabledReason: exportDisabledReason,
-                    openOrigin: RecordingMenuItem.openOrigin(for: rows.recording), trims: recordingsPlay),
+                    openOrigin: RecordingMenuItem.openOrigin(for: rows.recording), edits: recordingsPlay),
                 id: \.self
             ) { item in
                 if case .delete = item { Divider() }

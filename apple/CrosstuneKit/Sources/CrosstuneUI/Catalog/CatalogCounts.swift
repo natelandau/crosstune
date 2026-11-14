@@ -36,6 +36,6 @@ public struct CatalogCounts: Equatable, Sendable {
         }
         return CatalogCounts(
             catalog: byStatus.values.reduce(0, +), byStatus: byStatus,
-            recordings: try Recording.filter(Recording.CodingKeys.deletedAt == nil).fetchCount(db))
+            recordings: try Recording.liveCount(db))
     }
 }

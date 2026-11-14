@@ -10,7 +10,7 @@ import Testing
 
 private struct DiskFull: Error {
     // periphery:ignore - the text the failure event must not carry
-    let text = "Disk full at /Users/someone/Music/Take 1.m4a"
+    let text = "Disk full at /Users/someone/Music/Recording 1.m4a"
 }
 
 /// A failed export reports its kind of reason and never the error's text, and the delete account

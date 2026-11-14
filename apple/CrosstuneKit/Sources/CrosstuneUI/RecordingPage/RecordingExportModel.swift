@@ -42,6 +42,27 @@ struct RecordingExportRequest: Identifiable {
     var canContinue: Bool { blocked < items.count }
 }
 
+extension RecordingExportRequest {
+    /// `rows`' recording alone, titled as its page titles it.
+    init(_ rows: ScreenRows, readiness: ExportReadiness, delivery: Delivery) {
+        self.init(
+            items: [RecordingExportItem(rows.view, readiness: readiness)], delivery: delivery,
+            title: RecordingText.title(rows.recording, tuneTitle: rows.tuneTitle))
+    }
+}
+
+extension RecordingExportRequest.Delivery {
+    /// One recording's export where nothing asks for Share: a save panel on the Mac, and the
+    /// share sheet elsewhere.
+    static var oneRecording: Self {
+        #if os(macOS)
+            .saveFile
+        #else
+            .share
+        #endif
+    }
+}
+
 /// Exports recordings: says first which it leaves out, then names, fetches, and tags the rest into
 /// a temporary folder, and holds the files while the platform's hand-off has them. Cancel abandons
 /// a run at any point, and a result that arrives after it is thrown away with its folder.

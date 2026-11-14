@@ -6,7 +6,8 @@ import SwiftUI
 
 /// The one row every list of recordings shows: a press on it opens the recording's page, and its
 /// action slot plays what this device holds, fetches what it does not, and asks the musician to
-/// retry whichever of an upload or a transcode has stuck it.
+/// retry whichever of an upload or a transcode has stuck it. While the plan holds recordings
+/// back, the press and the play show the Plan sheet for the recording instead.
 struct RecordingItem: View {
     let view: RecordingView
     /// The screen the row is on, which its plays and page opens are reported as started from.
@@ -22,7 +23,7 @@ struct RecordingItem: View {
     var sort: RecordingSort?
     /// Opens the recording's tune from a tune line under the row's meta. Nil leaves the line out.
     var onOpenTune: (() -> Void)?
-    /// Where a free plan's press on the slot is reported as coming from.
+    /// Where a free plan's press on the row or its slot is reported as coming from.
     var premiumEntry: PremiumEntry = .recordingRow
     /// True while the list selects rows, when a press on the row selects it and does nothing
     /// else.
@@ -53,7 +54,7 @@ struct RecordingItem: View {
             recording: row,
             sourceLine: MediaRow.SourceLine(recording: view.recording),
             tuneLine: onOpenTune.flatMap { open in view.tuneTitle.map { MediaRow.TuneLine(title: $0, action: open) } },
-            open: { openPage(openRecordingPage) },
+            open: { openPage(openRecordingPage, premium: premium) },
             perform: { tap in
                 press(
                     tap, player: player, offline: offline, download: { await transfers?.download($0) },
@@ -65,9 +66,11 @@ struct RecordingItem: View {
         .modifier(SelectingRowAccessibility(isSelecting: isSelecting, name: row.title, details: [row.meta]))
     }
 
-    /// Opens the recording's page, whatever the player holds and whether or not the recording
-    /// can play, and leaves playback as it is.
-    func openPage(_ open: RecordingPageOpener?) {
+    /// Opens the recording's page, whatever the player holds and whether or not this device can
+    /// play it, and leaves playback as it is. While the plan holds recordings back, shows the Plan
+    /// sheet instead.
+    func openPage(_ open: RecordingPageOpener?, premium: PremiumPresenter?) {
+        guard premium?.gate(.recordings, from: premiumEntry, subject: subject) ?? true else { return }
         open?(view.id, source: source)
     }
 
@@ -93,7 +96,11 @@ struct RecordingItem: View {
 
     /// Shows the Plan sheet for a press the plan holds back.
     func offerPremium(_ premium: PremiumPresenter?) {
-        _ = premium?.gate(.recordings, from: premiumEntry)
+        _ = premium?.gate(.recordings, from: premiumEntry, subject: subject)
+    }
+
+    private var subject: PremiumSubject {
+        PremiumSubject(recordingID: view.recording.id)
     }
 }
 

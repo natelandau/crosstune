@@ -103,6 +103,8 @@ package enum PageStyle {
         package static let loopSwitcherAlignment = Alignment.center
     #endif
 
+    /// The widest a card that floats over a page's body grows.
+    package static let overlayCardMaxWidth: CGFloat = 480
     /// The tune page's attributes column at its narrowest, its hairline included, beside the
     /// content once the detail column has room for both.
     package static let attributesColumnWidth: CGFloat = 236

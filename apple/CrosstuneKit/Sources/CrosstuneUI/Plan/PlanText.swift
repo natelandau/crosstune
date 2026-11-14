@@ -12,10 +12,11 @@ public enum PlanText {
         "Free includes your catalog, lists, links, sync, and export. Recordings and scans are part of Premium."
     nonisolated public static let premiumRecordingsTitle = "Recordings are part of Premium"
     nonisolated public static let premiumScansTitle = "Scans are part of Premium"
-    nonisolated public static let premiumRecordingsBody =
-        "Premium keeps your recordings on our servers, so they play on every device. Every recording you already have stays: you can rename, file, delete, and export it on any plan."
+    nonisolated public static let recordingsCost =
+        "We wish all of Crosstune could be free, but transcoding recordings and syncing them between devices has real costs."
+    nonisolated public static let subscribeOrExport = "Subscribe to keep playing them, or export them anytime."
     nonisolated public static let premiumScansBody =
-        "Premium keeps your scans on our servers, so they open on every device. Every scan you already have stays: you can delete and export it on any plan."
+        "We wish all of Crosstune could be free, but storing scans and syncing them between devices has real costs. You can always export or delete the scans you have."
     nonisolated public static let seePlan = "See your plan"
     nonisolated public static let premiumPlanTitle = "Crosstune Premium"
     nonisolated public static let subscribe = "Subscribe"
@@ -45,7 +46,7 @@ public enum PlanText {
     nonisolated public static let termsURL = "https://crosstune.app/terms"
     nonisolated public static let privacyURL = "https://crosstune.app/privacy"
     nonisolated public static let premiumPitch =
-        "Your recordings live on our servers, so they play on every device. Premium pays for that."
+        "Premium pays for the real costs of transcoding your recordings and syncing them between devices."
     nonisolated public static let trialStorage = "100 MB of storage during the trial."
     nonisolated public static let trialKeeps = "Everything you make stays and exports after."
     nonisolated public static let trialEndsToday = "Ends today"
@@ -74,6 +75,17 @@ public enum PlanText {
     nonisolated public static let includedScans = "Scans"
     nonisolated public static let includedScansDetail = "Up to 20 pages a tune"
     nonisolated public static let comparePlans = "Compare plans"
+    nonisolated public static let lapsedPremiumTitle = "Your Premium has ended"
+    nonisolated public static let lapsedTrialTitle = "Your trial has ended"
+    nonisolated public static let exportThisRecording = "Export this recording"
+    nonisolated public static let exportEverything = "Export everything"
+
+    nonisolated public static func lapsedTitle(_ lapse: PlanLapse) -> String {
+        switch lapse {
+        case .paid: lapsedPremiumTitle
+        case .trial: lapsedTrialTitle
+        }
+    }
 
     nonisolated public static func save(_ percent: Int) -> String { "Save \(percent)%" }
 

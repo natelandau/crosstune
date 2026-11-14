@@ -153,7 +153,7 @@ struct RecordingsFilterTests {
         #expect(model.hasNoRecordings == false)
         #expect(model.unfinished.map(\.id) == ["stuck"])
         // The header counts every live recording, whatever the source or search narrows it to.
-        #expect(model.countLabel(arrangement) == "3 recordings")
+        #expect(model.countLabel(arrangement) == RecordingsListText.recordings(3))
         #expect(model.storage?.usedBytes == 5)
     }
 
@@ -412,8 +412,8 @@ struct RecordingsFilterTests {
     @Test func keepsTheQueryAcrossStoreWrites() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
-        try await putRecording(store, "jig", label: "Jig take", minutes: 1)
-        try await putRecording(store, "reel", label: "Reel take", minutes: 2)
+        try await putRecording(store, "jig", label: "Jig recording", minutes: 1)
+        try await putRecording(store, "reel", label: "Reel recording", minutes: 2)
         let model = RecordingsModel(store: store)
         try await eventually { model.arrangement(.default)?.unfiled.count == 2 }
 
@@ -484,23 +484,23 @@ struct RecordingsScreenPartsTests {
 
     @Test func aTuneLineIsAControlOfItsOwnBesideTheRow() {
         let row = MediaRow(
-            glyph: .play, title: "Take 1", secondLine: .text("1:02"), actionLabel: "Play", action: {},
+            glyph: .play, title: "Recording 1", secondLine: .text("1:02"), actionLabel: "Play", action: {},
             tuneLine: MediaRow.TuneLine(title: "Soldier's Joy", action: {}))
-        #expect(row.controlNames == ["Play Take 1, 1:02", "Open Soldier's Joy"])
+        #expect(row.controlNames == ["Play Recording 1, 1:02", "Open Soldier's Joy"])
 
         let unfiled = MediaRow(
-            glyph: .play, title: "Take 1", secondLine: .text("1:02"), actionLabel: "Play", action: {})
-        #expect(unfiled.controlNames == ["Play Take 1, 1:02"])
+            glyph: .play, title: "Recording 1", secondLine: .text("1:02"), actionLabel: "Play", action: {})
+        #expect(unfiled.controlNames == ["Play Recording 1, 1:02"])
     }
 
     @Test func aStuckRowShowsRetryInPlaceOfItsGlyph() {
         let stuck = MediaRow(
-            glyph: .attention, title: "Take 1", secondLine: .text("1:02"),
-            retry: MediaRow.Retry(name: "Retry Take 1", action: {}))
-        #expect(stuck.controlNames == ["Take 1, 1:02", "Retry Take 1"])
+            glyph: .attention, title: "Recording 1", secondLine: .text("1:02"),
+            retry: MediaRow.Retry(name: "Retry Recording 1", action: {}))
+        #expect(stuck.controlNames == ["Recording 1, 1:02", "Retry Recording 1"])
         let plain = MediaRow(
-            glyph: .play, title: "Take 1", secondLine: .text("1:02"), actionLabel: "Play", action: {})
-        #expect(plain.controlNames == ["Play Take 1, 1:02"])
+            glyph: .play, title: "Recording 1", secondLine: .text("1:02"), actionLabel: "Play", action: {})
+        #expect(plain.controlNames == ["Play Recording 1, 1:02"])
     }
 
     @Test func mediaGlyphsAreCircles() {
@@ -511,32 +511,32 @@ struct RecordingsScreenPartsTests {
 
     @Test func drawsItsInnerControlsInReadingOrderWithRetryAtTheTrailingEdge() {
         let row = MediaRow(
-            glyph: .play, title: "Take 1", secondLine: .text("1:02"), actionLabel: "Play", action: {},
+            glyph: .play, title: "Recording 1", secondLine: .text("1:02"), actionLabel: "Play", action: {},
             tuneLine: MediaRow.TuneLine(title: "Soldier's Joy", action: {}),
-            retry: MediaRow.Retry(name: "Retry Take 1", action: {}))
-        #expect(row.innerControls.map(\.name) == ["Open Soldier's Joy", "Retry Take 1"])
-        #expect(row.controlNames == ["Play Take 1, 1:02", "Open Soldier's Joy", "Retry Take 1"])
+            retry: MediaRow.Retry(name: "Retry Recording 1", action: {}))
+        #expect(row.innerControls.map(\.name) == ["Open Soldier's Joy", "Retry Recording 1"])
+        #expect(row.controlNames == ["Play Recording 1, 1:02", "Open Soldier's Joy", "Retry Recording 1"])
     }
 
     @Test func anImportsSourceLineComesBeforeTheTuneLine() throws {
         let page = try #require(URL(string: "https://www.slippery-hill.com/content/bear-creek-sally-goodin"))
         let row = MediaRow(
-            glyph: .play, title: "Take 1", secondLine: .text("1:02"), actionLabel: "Play", action: {},
+            glyph: .play, title: "Recording 1", secondLine: .text("1:02"), actionLabel: "Play", action: {},
             sourceLine: MediaRow.SourceLine(title: "Slippery-Hill", url: page),
             tuneLine: MediaRow.TuneLine(title: "Soldier's Joy", action: {}),
-            retry: MediaRow.Retry(name: "Retry Take 1", action: {}))
+            retry: MediaRow.Retry(name: "Retry Recording 1", action: {}))
         #expect(
             row.controlNames == [
-                "Play Take 1, 1:02", "Open on Slippery-Hill", "Open Soldier's Joy", "Retry Take 1",
+                "Play Recording 1, 1:02", "Open on Slippery-Hill", "Open Soldier's Joy", "Retry Recording 1",
             ])
         #expect(row.stacksLineControls, "two padded line targets would overlap")
         let sourceOnly = MediaRow(
-            glyph: .play, title: "Take 1", secondLine: .text("1:02"), actionLabel: "Play", action: {},
+            glyph: .play, title: "Recording 1", secondLine: .text("1:02"), actionLabel: "Play", action: {},
             sourceLine: MediaRow.SourceLine(title: "Slippery-Hill", url: page),
-            retry: MediaRow.Retry(name: "Retry Take 1", action: {}))
+            retry: MediaRow.Retry(name: "Retry Recording 1", action: {}))
         #expect(sourceOnly.stacksLineControls == false, "one line reaches into the row's space without growing it")
         let tuneOnly = MediaRow(
-            glyph: .play, title: "Take 1", secondLine: .text("1:02"), actionLabel: "Play", action: {},
+            glyph: .play, title: "Recording 1", secondLine: .text("1:02"), actionLabel: "Play", action: {},
             tuneLine: MediaRow.TuneLine(title: "Soldier's Joy", action: {}))
         #expect(tuneOnly.stacksLineControls == false)
         #expect(
@@ -551,9 +551,9 @@ struct RecordingsScreenPartsTests {
         let store = try root.open()
         try await putRecording(store, "r1")
         let fields = RecordingAttributeModel(store: store, recordingID: "r1", analytics: .noop)
-        await fields.rename("  Take 2  ")
+        await fields.rename("  Recording 2  ")
         let label = try await store.read { db in try Recording.fetchOne(db, key: "r1")?.label }
-        #expect(label == "Take 2")
+        #expect(label == "Recording 2")
 
         await fields.rename("   ")
         let cleared = try await store.read { db in try Recording.fetchOne(db, key: "r1") }
@@ -599,7 +599,7 @@ struct RecordingsScreenPartsTests {
         let root = TemporaryRoot()
         let store = try root.open()
         let opened = Recording(
-            id: "r1", tuneID: nil, source: "microphone", addedAt: noon, label: "Take 1", state: "ready",
+            id: "r1", tuneID: nil, source: "microphone", addedAt: noon, label: "Recording 1", state: "ready",
             notes: "Old notes", players: "Tommy Jarrell")
         try await store.write { writer in try writer.put(opened, at: noon) }
         let edit = RecordingLocationEdit(store: store, recording: opened)
@@ -1891,24 +1891,18 @@ struct RecordingRowPremiumTests {
         #expect(row.tap == .premium)
     }
 
-    @Test func theGatedRowsWordsMatchTheWeb() throws {
-        try expectMatchesWeb(
-            "web/src/features/recordings/recordingCopy.ts", [("SUBSCRIBE_TO_PLAY", RecordingText.subscribeToPlay)])
-    }
-
+    /// A gated slot is still the row's play, so the row speaks and shows no Premium words.
     @MainActor
-    @Test func aFreePlanSpeaksNoActionLabelAndNamesPremium() {
-        let title = RecordingText.title(recording, tuneTitle: nil)
-        let row = RecordingRowContent(
+    @Test func aFreePlanRowSpeaksAsAPlanThatPlays() {
+        let free = RecordingRowContent(
             recording: recording, file: held, uploadLimits: nil, tuneTitle: nil, recordingsPlay: false)
-        #expect(row.actionLabel == nil)
-        #expect(row.spokenNotice == RecordingText.subscribeToPlay)
-        // The row opens the page; the slot speaks what it offers.
-        let names = MediaRow(recording: row, open: {}, perform: { _ in }, onRetry: { _ in }).controlNames
-        #expect(names == ["\(title), \(row.meta)", "\(title), \(RecordingText.subscribeToPlay)"])
         let plays = RecordingRowContent(
             recording: recording, file: held, uploadLimits: nil, tuneTitle: nil, recordingsPlay: true)
-        #expect(plays.actionLabel == MediaText.play && plays.spokenNotice == nil)
+        let names = { (row: RecordingRowContent) in
+            MediaRow(recording: row, open: {}, perform: { _ in }, onRetry: { _ in }).controlNames
+        }
+        #expect(names(free) == names(plays))
+        #expect(free.notice == nil)
     }
 
     @Test func aFreePlanStillDownloadsFromATap() {
@@ -1917,7 +1911,6 @@ struct RecordingRowPremiumTests {
         #expect(row.isDimmed == false)
         #expect(row.tap == .download)
         #expect(row.actionLabel == RecordingRowContent.download)
-        #expect(row.spokenNotice == nil)
         let busy = RecordingRowContent(
             recording: recording, file: nil, uploadLimits: nil, tuneTitle: nil, downloading: true,
             recordingsPlay: false)
@@ -1938,11 +1931,6 @@ struct RecordingRowPremiumTests {
             recording: recording, file: held, uploadLimits: nil, tuneTitle: nil, recordingsPlay: true)
         #expect(row.isDimmed == false)
         #expect(row.tap == .play)
-    }
-
-    @Test func theRecordingsLineCountsTheRecordings() {
-        #expect(RecordingText.recordingsLine(count: 1) == "1 recording, subscribe to play")
-        #expect(RecordingText.recordingsLine(count: 3) == "3 recordings, subscribe to play")
     }
 }
 
