@@ -664,14 +664,16 @@ it('reaches rows past the window from the keyboard, scrolling the pane to them',
   await seedMany(db, MANY)
   await mount(db)
   await expect.element(row('Tune 000')).toBeVisible()
-  row('Tune 000').element().focus()
-  await expect.element(row('Tune 000')).toHaveFocus()
-  for (let step = 1; step <= 40; step += 1) {
-    await userEvent.keyboard('{ArrowDown}')
-    await expect.element(row(`Tune ${String(step).padStart(3, '0')}`)).toHaveFocus()
-  }
-  await expect.element(row('Tune 040')).toBeInViewport()
-  await expect.element(row('Tune 000')).not.toBeInTheDocument()
+  await settled()
+  const mounted = tunes().getByRole('row').elements()
+  const last = Number(mounted.at(-1)!.getAttribute('aria-rowindex')) - 1
+  const next = `Tune ${String(last + 1).padStart(3, '0')}`
+  await expect.element(row(next)).not.toBeInTheDocument()
+  // The window stays where it is, so the next row is one the list has not mounted yet.
+  mounted.at(-1)!.focus({ preventScroll: true })
+  await userEvent.keyboard('{ArrowDown}')
+  await expect.element(row(next)).toHaveFocus()
+  await expect.element(row(next)).toBeInViewport()
   await userEvent.keyboard('{End}')
   await expect.element(row(`Tune ${MANY - 1}`)).toHaveFocus()
   await expect.element(row(`Tune ${MANY - 1}`)).toBeInViewport()
