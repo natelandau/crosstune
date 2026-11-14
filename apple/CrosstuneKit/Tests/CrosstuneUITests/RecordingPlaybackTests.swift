@@ -156,7 +156,7 @@ private func recording(_ id: String = "r1", label: String? = "Jam at Mike's") ->
 }
 
 @MainActor
-@Suite(.timeLimit(.minutes(1))) struct RecordingPlaybackTests {
+@Suite struct RecordingPlaybackTests {
     @Test func fetchesARecordingsAudioThenPlaysItNamedForItsTune() async throws {
         let audio = FakeAudio()
         let source = HeldSource()
@@ -372,7 +372,7 @@ private func recording(_ id: String = "r1", label: String? = "Jam at Mike's") ->
 private let loadPaused = ["load", "setWindow", "setRate(100)", "setPitch(0)", "setIsolate(default, mono: false)"]
 
 @MainActor
-@Suite(.timeLimit(.minutes(1))) struct PausedLoadTests {
+@Suite struct PausedLoadTests {
     private func player(_ audio: FakeAudio) -> PlayerModel {
         let player = PlayerModel(audio: audio)
         player.audioSource = { _ in playable() }

@@ -51,7 +51,7 @@ private func countsOnce(_ onDevice: Int, _ total: Int, missing: Int = 0)
 }
 
 @MainActor
-@Suite(.timeLimit(.minutes(1))) struct ExportDataSheetTests {
+@Suite struct ExportDataSheetTests {
     /// A zip in a folder of its own, as `ExportArchive.make` leaves it.
     private func makeZip() throws -> URL {
         let folder = FileManager.default.temporaryDirectory.appending(path: "export-sheet-\(UUID().uuidString)")

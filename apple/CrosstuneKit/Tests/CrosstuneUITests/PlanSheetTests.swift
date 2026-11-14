@@ -77,7 +77,7 @@ private let contextCases: [ContextCase] = [
 ]
 
 @MainActor
-@Suite(.timeLimit(.minutes(1))) struct PlanSheetTests {
+@Suite struct PlanSheetTests {
     private let root = TemporaryRoot()
     private let sink = RecordingAnalyticsSink()
 

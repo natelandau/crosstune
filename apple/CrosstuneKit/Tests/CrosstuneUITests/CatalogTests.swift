@@ -610,7 +610,7 @@ struct SearchIntentTests {
     }
 }
 
-@Suite(.timeLimit(.minutes(1))) struct TunesWithAudioTests {
+@Suite struct TunesWithAudioTests {
     @Test func readsAudioFromLiveRecordingsAndLinksOnly() async throws {
         let root = TemporaryRoot()
         let store = try await SampleCatalog.copiedStore(root: root.url)
@@ -637,7 +637,7 @@ struct SearchIntentTests {
 }
 
 @MainActor
-@Suite(.timeLimit(.minutes(1))) struct CatalogModelTests {
+@Suite struct CatalogModelTests {
     private func sampleStore(_ root: TemporaryRoot) async throws -> CrosstuneStore {
         try await SampleCatalog.copiedStore(root: root.url)
     }

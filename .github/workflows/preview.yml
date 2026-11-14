@@ -114,6 +114,7 @@ jobs:
       - uses: astral-sh/setup-uv@v10.3.3
         with:
           enable-cache: true
+          save-cache: ${{ github.ref == 'refs/heads/main' }}
 
       # The reset leaves development's schema, and Railway's pre-deploy migration runs only
       # when it deploys, which waits for CI. A push that fails CI would otherwise leave the
@@ -214,6 +215,7 @@ jobs:
       - uses: astral-sh/setup-uv@v10.3.3
         with:
           enable-cache: true
+          save-cache: ${{ github.ref == 'refs/heads/main' }}
 
       # After the environment is gone, so no runner writes behind the delete. A failure
       # fails the job once the other cleanups have run, because a leak here is silent

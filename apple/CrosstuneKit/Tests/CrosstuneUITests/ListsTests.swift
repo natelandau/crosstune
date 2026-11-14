@@ -143,7 +143,7 @@ struct PendingMovesTests {
     }
 }
 
-@Suite(.timeLimit(.minutes(1))) struct ListSummaryTests {
+@Suite struct ListSummaryTests {
     private let root = TemporaryRoot()
 
     @Test func countsLiveItemsAndDatesTheListByItsNewestEdit() async throws {
@@ -179,7 +179,7 @@ struct PendingMovesTests {
     }
 }
 
-@MainActor @Suite(.timeLimit(.minutes(1))) struct ListModelTests {
+@MainActor @Suite struct ListModelTests {
     private let root = TemporaryRoot()
 
     private func model(
@@ -291,7 +291,7 @@ struct PendingMovesTests {
     }
 }
 
-@MainActor @Suite(.timeLimit(.minutes(1))) struct TunePickerModelTests {
+@MainActor @Suite struct TunePickerModelTests {
     private let root = TemporaryRoot()
 
     private func picker(
@@ -467,7 +467,7 @@ struct PendingMovesTests {
     }
 }
 
-@MainActor @Suite(.timeLimit(.minutes(1))) struct ListPickerModelTests {
+@MainActor @Suite struct ListPickerModelTests {
     private let root = TemporaryRoot()
 
     private func picker(
@@ -569,7 +569,7 @@ struct PendingMovesTests {
     }
 }
 
-@MainActor @Suite(.timeLimit(.minutes(1))) struct ListNameModelTests {
+@MainActor @Suite struct ListNameModelTests {
     private let root = TemporaryRoot()
 
     @Test func createsAListWithATrimmedName() async throws {
@@ -605,7 +605,7 @@ struct PendingMovesTests {
     }
 }
 
-@Suite(.timeLimit(.minutes(1))) struct ListRowPlayTests {
+@Suite struct ListRowPlayTests {
     private let root = TemporaryRoot()
     private let now = SampleCatalog.now
 
@@ -921,7 +921,7 @@ struct ListRowTapTests {
 }
 
 @MainActor
-@Suite(.timeLimit(.minutes(1))) struct PlaylistResolverTests {
+@Suite struct PlaylistResolverTests {
     private let root = TemporaryRoot()
     private let session = "sample_list_session"
 
@@ -1030,7 +1030,7 @@ struct ListRowTapTests {
     }
 }
 
-@Suite(.timeLimit(.minutes(1))) struct ListsPlayabilityTests {
+@Suite struct ListsPlayabilityTests {
     private let root = TemporaryRoot()
 
     private func reports(

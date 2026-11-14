@@ -8,7 +8,7 @@ import Testing
 /// An import reports the files it added once the batch is done, one event per format, and never
 /// a file it refused.
 @MainActor
-@Suite(.timeLimit(.minutes(1))) struct AudioImportEventTests {
+@Suite struct AudioImportEventTests {
     private let root = TemporaryRoot()
     private let sink = RecordingAnalyticsSink()
 

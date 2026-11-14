@@ -61,6 +61,8 @@ jobs:
         with:
           module: web
       - uses: astral-sh/setup-uv@v10.3.3
+        with:
+          save-cache: ${{ github.ref == 'refs/heads/main' }}
       - run: just lint
       # A DSN and a key bundle Sentry and PostHog, as the hosted build does, so a chunk too
       # large to precache fails here and not only on deploy. Both are placeholders and report

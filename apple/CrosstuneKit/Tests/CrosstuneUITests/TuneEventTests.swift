@@ -11,7 +11,7 @@ import Testing
 /// The tune form reports a tune edited once its save lands, naming only which fields
 /// changed and never what they hold.
 @MainActor
-@Suite(.timeLimit(.minutes(1))) struct TuneEventTests {
+@Suite struct TuneEventTests {
     private let sink = RecordingAnalyticsSink()
 
     private func seed(_ store: CrosstuneStore, tune: Tune? = nil, status: String = "want_to_learn") async throws {

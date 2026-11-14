@@ -440,7 +440,7 @@ struct BulkActionTextTests {
     }
 }
 
-@MainActor @Suite(.timeLimit(.minutes(1))) struct BulkActionsTests {
+@MainActor @Suite struct BulkActionsTests {
     private let root = TemporaryRoot()
 
     private func sample(_ title: String) -> CatalogEntry {

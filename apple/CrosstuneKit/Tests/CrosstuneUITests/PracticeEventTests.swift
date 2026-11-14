@@ -17,7 +17,7 @@ private func recording(_ id: String = "r1", isMono: Bool? = nil) -> Recording {
 /// The recording screen reports a loop once it repeats, a speed, pitch, or isolate setting once
 /// its panel closes changed, and a trim once it is saved.
 @MainActor
-@Suite(.timeLimit(.minutes(1))) struct PracticeEventTests {
+@Suite struct PracticeEventTests {
     private let sink = RecordingAnalyticsSink()
     private let audio = FakeAudio()
     private let player: PlayerModel

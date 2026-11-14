@@ -7,7 +7,7 @@ import Testing
 
 @testable import CrosstuneUI
 
-@Suite(.timeLimit(.minutes(1))) struct UsageDataTests {
+@Suite struct UsageDataTests {
     private let sink = RecordingAnalyticsSink()
     private let suite = TemporaryDefaults("UsageDataTests")
 

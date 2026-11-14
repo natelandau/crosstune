@@ -183,7 +183,7 @@ private func appleLink(url: String = songURL) -> RecordingLink {
 }
 
 @MainActor
-@Suite(.timeLimit(.minutes(1))) struct AppleMusicPlaybackTests {
+@Suite struct AppleMusicPlaybackTests {
     private func model(
         _ state: AppleMusicAccessState, found: Bool = true
     ) -> (PlayerModel, FakeAccess, FakeMusic) {

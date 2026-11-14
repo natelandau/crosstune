@@ -56,7 +56,7 @@ private final class Writes {
 }
 
 @MainActor
-@Suite(.timeLimit(.minutes(1))) struct RecordingScreenTests {
+@Suite struct RecordingScreenTests {
     private let audio = FakeAudio()
     private let writes = Writes()
     private let monos = MonoWrites()

@@ -75,16 +75,20 @@ _deadcode: build
 fix:
     just _sources | xargs swift format --in-place
 
+# The package tests build through xcodebuild rather than SwiftPM for the compilation cache,
+# which CI restores into a fresh checkout. Code coverage stays off: it crashes the compiler.
+package_test := "cd CrosstuneKit && ../" + xcodebuild + " -scheme CrosstuneKit-Package -destination platform=macOS,arch=arm64 -derivedDataPath .build/DerivedData -enableCodeCoverage NO COMPILATION_CACHE_ENABLE_CACHING=YES COMPILATION_CACHE_LIMIT_SIZE=4G"
+
 # Build the package tests without running them
 [group('test')]
 build-tests:
-    {{ swift }} build --package-path CrosstuneKit --build-tests
+    {{ package_test }} build-for-testing -quiet
 
 # Run the package tests on the Mac
 [group('test')]
-[arg("args", help="Arguments for swift test")]
+[arg("args", help="Arguments for xcodebuild, such as -only-testing:CrosstuneStoreTests")]
 test *args:
-    {{ gate }} apple-test --argc "$#" --tool 'swift --version' {{ swift }} test --package-path CrosstuneKit "$@"
+    {{ gate }} apple-test --argc "$#" --tool 'swift --version' bash -c '{{ package_test }} test "$@"' _ "$@"
 
 # The compilation cache is keyed on content rather than file dates, so CI restores it into a
 # fresh checkout and still hits. Xcode's own limit is half the free disk, which a CI runner never

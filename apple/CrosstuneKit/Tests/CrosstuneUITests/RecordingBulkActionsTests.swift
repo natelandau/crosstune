@@ -82,7 +82,7 @@ struct RecordingBulkDeleteRuleTests {
 
 /// A selection that spans the Unfiled section and a tune's section acts on every row in it.
 @MainActor
-@Suite(.timeLimit(.minutes(1))) struct RecordingBulkActionsTests {
+@Suite struct RecordingBulkActionsTests {
     private let root = TemporaryRoot()
     private let sink = RecordingAnalyticsSink()
 

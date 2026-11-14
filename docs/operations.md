@@ -110,6 +110,8 @@ When to use each recipe: `CLAUDE.md`, Worktrees.
   Nothing deletes a one-off folder, and each holds gigabytes.
 - `just apple::prune-builds` deletes the builds of every checkout that no
   build tool uses. Run it when the disk is low.
+- Every `xcodebuild` test build turns off code coverage. With it on, the
+  Swift compiler crashes on the tuner's `isolated deinit`.
 - A script that uses a build after `xcodebuild` exits sources
   `scripts/in-use.sh`. Without it, a prune can delete the build under the
   script.
@@ -441,5 +443,3 @@ fixture, `apple/Marketing/catalog.json`. The site uses no captures.
 - The capture simulators are never signed in to an Apple Account, so no
   system alert covers a capture. Location is refused, so a recording
   never opens on the location note.
-- The `Marketing` test plan turns off code coverage. With it on, the
-  Swift compiler crashes on the tuner's `isolated deinit`.

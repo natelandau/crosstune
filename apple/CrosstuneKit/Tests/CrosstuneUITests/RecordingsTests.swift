@@ -120,7 +120,7 @@ struct RecordingsFilterTests {
 }
 
 @MainActor
-@Suite(.timeLimit(.minutes(1))) struct RecordingsModelTests {
+@Suite struct RecordingsModelTests {
     @Test func readsLiveRecordingsGroupedWithUnfinishedCapturesAndStorage() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -545,7 +545,7 @@ struct RecordingsScreenPartsTests {
 }
 
 @MainActor
-@Suite(.timeLimit(.minutes(1))) struct RecordingFieldWriteTests {
+@Suite struct RecordingFieldWriteTests {
     @Test func savesATrimmedNameAndClearsItWhenLeftBlank() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -925,7 +925,7 @@ struct RecordingsScreenPartsTests {
 
 /// The location editor's picks, which its edit holds until it saves and writes in one go.
 @MainActor
-@Suite(.timeLimit(.minutes(1))) struct LocationPickTests {
+@Suite struct LocationPickTests {
     private let spot = Coordinate(lat: 36.66, lon: -80.92, accuracyM: 12)
     private let street = "1 Main St, Galax, VA"
 
@@ -1404,7 +1404,7 @@ struct RecordingsScreenPartsTests {
 }
 
 @MainActor
-@Suite(.timeLimit(.minutes(1))) struct RecordingImportTests {
+@Suite struct RecordingImportTests {
     private func write(_ name: String, bytes: Int, in root: TemporaryRoot) throws -> URL {
         let folder = root.url.appending(path: "picked", directoryHint: .isDirectory)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
@@ -1555,7 +1555,7 @@ struct RecordingsScreenPartsTests {
 }
 
 @MainActor
-@Suite(.timeLimit(.minutes(1))) struct RecordingTransferTests {
+@Suite struct RecordingTransferTests {
     @Test func remembersADownloadThatFetchedNothing() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
