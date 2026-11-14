@@ -22,7 +22,7 @@ from crosstune.db.engine import make_engine, make_sessionmaker
 from crosstune.db.locks import lock_user
 from crosstune.http import public_only_client
 from crosstune.models import Recording
-from crosstune.ops.billing import BillingCommandError, check_target, load_settings
+from crosstune.ops.billing import BillingCommandError, check_target, load_settings, settings_error
 from crosstune.places.maps import MapsBusyError, MapsError, configured_maps
 from crosstune.vocabulary import PlaceOrigin
 
@@ -235,8 +235,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         asyncio.run(run(load_settings(), args))
     except ValidationError as exc:
-        problems = "; ".join(str(error["msg"]) for error in exc.errors())
-        print(f"unusable settings: {problems}", file=sys.stderr)
+        print(settings_error(exc), file=sys.stderr)
         return 1
     except BillingCommandError as exc:
         print(exc, file=sys.stderr)

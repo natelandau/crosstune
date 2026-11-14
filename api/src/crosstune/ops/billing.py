@@ -85,6 +85,12 @@ def load_settings() -> Settings:
     return Settings()
 
 
+def settings_error(error: ValidationError) -> str:
+    """Describe settings that failed to load, one problem after another on one line."""
+    problems = "; ".join(str(problem["msg"]) for problem in error.errors())
+    return f"unusable settings: {problems}"
+
+
 def check_target(settings: Settings, *, yes: bool, e2e: bool = False) -> None:
     """Print where the command will write, and refuse a database the flags do not name.
 
@@ -422,8 +428,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         asyncio.run(run(load_settings(), args))
     except ValidationError as exc:
-        problems = "; ".join(str(error["msg"]) for error in exc.errors())
-        print(f"unusable settings: {problems}", file=sys.stderr)
+        print(settings_error(exc), file=sys.stderr)
         return 1
     except BillingCommandError as exc:
         print(exc, file=sys.stderr)

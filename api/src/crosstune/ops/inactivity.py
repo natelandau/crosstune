@@ -30,7 +30,13 @@ from crosstune.inactivity.rules import (
     deletion_due,
 )
 from crosstune.inactivity.sweep import Account, read_account, run_inactivity
-from crosstune.ops.billing import BillingCommandError, check_target, find_user, load_settings
+from crosstune.ops.billing import (
+    BillingCommandError,
+    check_target,
+    find_user,
+    load_settings,
+    settings_error,
+)
 from crosstune.users.clerk import ClerkBackendUsers, ClerkUnavailableError
 
 if TYPE_CHECKING:
@@ -295,8 +301,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         asyncio.run(run(load_settings(), args))
     except ValidationError as exc:
-        problems = "; ".join(str(error["msg"]) for error in exc.errors())
-        print(f"unusable settings: {problems}", file=sys.stderr)
+        print(settings_error(exc), file=sys.stderr)
         return 1
     except BillingCommandError as exc:
         print(exc, file=sys.stderr)

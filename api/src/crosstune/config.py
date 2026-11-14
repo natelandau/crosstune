@@ -113,6 +113,7 @@ class Settings(BaseSettings):
     geoip_path: Path = Path("/app/geo/dbip-country-lite.mmdb")
     debug: bool = False
     testdata_enabled: bool = False
+    testdata_email_domain: str = ""
     # Hidden from repr because the URL carries the password; it stays a plain str since
     # the engine, migrations, and the e2e guard all read it as one.
     database_url: str = Field(

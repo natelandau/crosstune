@@ -21,7 +21,7 @@ from crosstune.client_version import ClientVersion, is_blocked, parse_version
 from crosstune.db.base import utc_now
 from crosstune.db.engine import make_engine, make_sessionmaker
 from crosstune.models import AccountClientVersion, Entitlement, Grant, User
-from crosstune.ops.billing import BillingCommandError, check_target, load_settings
+from crosstune.ops.billing import BillingCommandError, check_target, load_settings, settings_error
 from crosstune.vocabulary import CONSENT_COUNTRIES
 
 if TYPE_CHECKING:
@@ -234,8 +234,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         asyncio.run(run(load_settings(), args))
     except ValidationError as exc:
-        problems = "; ".join(str(error["msg"]) for error in exc.errors())
-        print(f"unusable settings: {problems}", file=sys.stderr)
+        print(settings_error(exc), file=sys.stderr)
         return 1
     except BillingCommandError as exc:
         print(exc, file=sys.stderr)

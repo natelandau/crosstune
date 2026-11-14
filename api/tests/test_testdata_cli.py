@@ -15,13 +15,13 @@ from crosstune.config import Settings
 from crosstune.db.base import utc_now
 from crosstune.db.engine import make_engine, make_sessionmaker
 from crosstune.models import Entitlement, Grant, List, PendingComp, Tune, User
-from crosstune.ops.testdata import cli
+from crosstune.ops.testdata import accounts, cli
 from crosstune.ops.testdata.errors import DataCommandError
 from crosstune.ops.testdata.fixture import DEFAULT_FIXTURES_DIR, FixtureError, load_fixture
 from crosstune.ops.testdata.seed import SEED_REASON
 from crosstune.storage.store import user_prefix
 from crosstune.sync.tables import TABLE_ORDER, TABLES
-from crosstune.users.clerk import ClerkBackendUsers, ClerkUser
+from crosstune.users.clerk import ClerkBackendUsers, ClerkUnavailableError, ClerkUser
 from crosstune.vocabulary import GrantKind, GrantSource, RecordingState
 from tests.fakes import FakeObjectStore
 
@@ -280,10 +280,12 @@ async def _run(settings: Settings, *argv: str) -> None:
     await cli.run(settings, cli.parse_args([EMAIL, *argv]))
 
 
-async def _state(engine: AsyncEngine) -> tuple[dict[str, int], str | None, list[str]]:
+async def _state(
+    engine: AsyncEngine, clerk_id: str = CLERK_ID
+) -> tuple[dict[str, int], str | None, list[str]]:
     """Row counts per table, the premium source, and the live tune titles of the account."""
     async with engine.connect() as conn:
-        user_id = await conn.scalar(select(User.id).where(User.clerk_user_id == CLERK_ID))
+        user_id = await conn.scalar(select(User.id).where(User.clerk_user_id == clerk_id))
         counts = {}
         for table in TABLE_ORDER:
             spec = TABLES[table]
@@ -786,3 +788,103 @@ async def test_run_clear_of_a_new_account_keeps_its_pending_comp(
 
     _, source, _ = await _state(db)
     assert source == "comp"
+
+
+def _dev_id(email: str) -> str:
+    return f"user_dev_{email.split('+', maxsplit=1)[0]}"
+
+
+@pytest.fixture
+def dev_clerk(clerk: dict[str, ClerkUser], monkeypatch: pytest.MonkeyPatch) -> dict[str, ClerkUser]:
+    """The `clerk` fixture, empty, where `create_user` adds a user."""
+    clerk.clear()
+
+    async def create_user(_self: object, email: str) -> ClerkUser:
+        clerk[email] = ClerkUser(id=_dev_id(email), email=email)
+        return clerk[email]
+
+    monkeypatch.setattr(ClerkBackendUsers, "create_user", create_user)
+    return clerk
+
+
+@pytest.fixture
+def accounts_settings(cli_settings: Settings) -> Settings:
+    return cli_settings.model_copy(update={"testdata_email_domain": "example.com"})
+
+
+async def _account(engine: AsyncEngine, email: str) -> tuple[int, str | None]:
+    """The tune count and the premium source of one development account."""
+    counts, source, _ = await _state(engine, _dev_id(email))
+    return counts["tunes"], source
+
+
+def test_dev_accounts_needs_the_domain(cli_settings: Settings) -> None:
+    with pytest.raises(DataCommandError, match="CROSSTUNE_TESTDATA_EMAIL_DOMAIN"):
+        accounts.dev_accounts(cli_settings)
+
+
+@pytest.mark.usefixtures("store", "no_transcode")
+async def test_accounts_create_and_seed_missing_accounts(
+    accounts_settings: Settings, db: AsyncEngine, dev_clerk: dict[str, ClerkUser]
+) -> None:
+    assert await accounts.run(accounts_settings) == []
+
+    sources = {"trial": "trial", "premium": "comp", "lapsed": "trial"}
+    for account in accounts.dev_accounts(accounts_settings):
+        assert account.email in dev_clerk
+        assert await _account(db, account.email) == (
+            STANDARD.tunes.count,
+            sources[account.state.value],
+        )
+
+
+@pytest.mark.usefixtures("store", "no_transcode")
+async def test_accounts_keep_the_data_of_existing_accounts(
+    accounts_settings: Settings, db: AsyncEngine, dev_clerk: dict[str, ClerkUser]
+) -> None:
+    lapsed = "lapsed+clerk_test@example.com"
+    dev_clerk[lapsed] = ClerkUser(id=_dev_id(lapsed), email=lapsed)
+    await cli.run(accounts_settings, cli.parse_args([lapsed, "--tunes", "2", "--state", "premium"]))
+
+    assert await accounts.run(accounts_settings) == []
+
+    assert await _account(db, lapsed) == (2, "trial")
+
+
+@pytest.mark.usefixtures("store", "no_transcode", "dev_clerk")
+async def test_accounts_go_on_past_a_failed_account(
+    accounts_settings: Settings, db: AsyncEngine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    create_user = ClerkBackendUsers.create_user
+
+    async def refuse_premium(self: ClerkBackendUsers, email: str) -> ClerkUser:
+        if email.startswith("premium+"):
+            msg = "Clerk answered 422 to POST /v1/users"
+            raise ClerkUnavailableError(msg)
+        return await create_user(self, email)
+
+    monkeypatch.setattr(ClerkBackendUsers, "create_user", refuse_premium)
+
+    failures = await accounts.run(accounts_settings)
+
+    assert len(failures) == 1
+    assert failures[0].startswith("premium+clerk_test@example.com: ")
+    assert (await _account(db, "lapsed+clerk_test@example.com"))[1] == "trial"
+
+
+@pytest.mark.usefixtures("store", "no_transcode")
+async def test_accounts_use_a_user_another_run_created(
+    accounts_settings: Settings,
+    db: AsyncEngine,
+    dev_clerk: dict[str, ClerkUser],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def taken(_self: object, email: str) -> ClerkUser:
+        dev_clerk[email] = ClerkUser(id=_dev_id(email), email=email)
+        msg = "Clerk answered 422 to POST /v1/users"
+        raise ClerkUnavailableError(msg)
+
+    monkeypatch.setattr(ClerkBackendUsers, "create_user", taken)
+
+    assert await accounts.run(accounts_settings) == []
+    assert await _account(db, "trial+clerk_test@example.com") == (STANDARD.tunes.count, "trial")

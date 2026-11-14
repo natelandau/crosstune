@@ -34,7 +34,7 @@ from crosstune.email.resend import (
 )
 from crosstune.http import public_only_client
 from crosstune.models import AccountNotice, User
-from crosstune.ops.billing import BillingCommandError, check_target, load_settings
+from crosstune.ops.billing import BillingCommandError, check_target, load_settings, settings_error
 
 if TYPE_CHECKING:
     import uuid
@@ -214,8 +214,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         return asyncio.run(run(load_settings(), args))
     except ValidationError as exc:
-        problems = "; ".join(str(error["msg"]) for error in exc.errors())
-        print(f"unusable settings: {problems}", file=sys.stderr)
+        print(settings_error(exc), file=sys.stderr)
         return 1
     except (BillingCommandError, OSError) as exc:
         print(exc, file=sys.stderr)

@@ -136,6 +136,7 @@ worktree-db: (_worktree-db "")
 # Recopy main's database for this worktree
 [group('db')]
 worktree-db-reset: (_worktree-db "--reset")
+    just testdata-accounts || echo "the development accounts were not reset; fix the error above, then run just api::testdata-accounts" >&2
 
 [script]
 _worktree-db flag:
@@ -175,7 +176,13 @@ e2e-trial *args:
 [arg("args", help="An email or Clerk user ID, then options; --help lists them")]
 testdata *args:
     {{ compose }} up -d --wait postgres rustfs
-    uv run python -m crosstune.ops.testdata "$@"
+    {{ media_path }} uv run python -m crosstune.ops.testdata "$@"
+
+# Reset the shared dev accounts
+[group('testdata')]
+testdata-accounts:
+    {{ compose }} up -d --wait postgres rustfs
+    {{ media_path }} uv run python -m crosstune.ops.testdata.accounts
 
 # Seed or set a Railway dev account
 [group('testdata')]

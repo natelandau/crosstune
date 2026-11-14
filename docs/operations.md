@@ -55,13 +55,15 @@ When to use each recipe: `CLAUDE.md`, Worktrees.
   - Copies every module's `.env`, `apple/Config/Secrets.xcconfig`, and
     `apple/Config/Local.xcconfig` from the main checkout.
   - Runs `just setup`, so `just e2e` works there.
-  - Makes the worktree's database and bucket.
+  - Makes the worktree's database and bucket, then runs
+    `just api::testdata-accounts` on them.
 - A worktree made another way: run `just worktree-env`, then
   `just setup`. `just dev` makes its database and bucket.
 - One Postgres container for every checkout. Each worktree has its own
   database and bucket, copied from main's by `just api::worktree-db`, so
   one branch's migrations never reach another.
-  `just api::worktree-db-reset` takes a fresh copy.
+  `just api::worktree-db-reset` takes a fresh copy and resets the dev
+  accounts on it.
 - `just worktree-remove <branch>` deletes the worktree's database,
   bucket, and builds. It deletes the branch once `main` or `origin/main`
   holds its work, squash merges included.
@@ -72,6 +74,9 @@ When to use each recipe: `CLAUDE.md`, Worktrees.
   answers `{"status":"ok"}` at `localhost:8000/healthz`.
 - `just api::testdata <account>` seeds a local account and sets its
   billing state. Needs `CROSSTUNE_TESTDATA_ENABLED=true` in `api/.env`.
+- `just api::testdata-accounts` resets the shared dev accounts. Also needs
+  `CROSSTUNE_TESTDATA_EMAIL_DOMAIN`. A device shows an account's one-time
+  notices again only after it signs out.
 - Browsers reach RustFS through the dev server's `/storage` proxy. The
   RustFS console: `localhost:9001`, `crosstune` / `crosstune-local-secret`.
 - The API's recipes, `just dev` included, put `scripts/media-tools.sh`
