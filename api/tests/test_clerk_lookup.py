@@ -1,13 +1,17 @@
-"""Looking up a Clerk user by email or ID, which never creates one."""
+"""Looking up a Clerk user by email or ID, which never creates one, and creating one."""
 
 from __future__ import annotations
 
-from typing import Any
+import json
+from typing import TYPE_CHECKING, Any
 
 import httpx2
 import pytest
 
 from crosstune.users.clerk import ClerkBackendUsers, ClerkUnavailableError, ClerkUser
+
+if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
 
 pytestmark = pytest.mark.anyio
 
@@ -25,8 +29,16 @@ def _user(user_id: str = "user_1", email: str = EMAIL) -> dict[str, Any]:
     }
 
 
-async def _find(account: str, handler: Any) -> tuple[ClerkUser | None, list[httpx2.Request]]:
-    calls: list[httpx2.Request] = []
+async def _call[T](
+    op: Callable[[ClerkBackendUsers], Awaitable[T]],
+    handler: Any,
+    calls: list[httpx2.Request] | None = None,
+) -> tuple[T, list[httpx2.Request]]:
+    """Run `op` on a client whose requests `handler` answers, recording each in `calls`.
+
+    Pass `calls` to read the requests when `op` raises.
+    """
+    calls = [] if calls is None else calls
 
     def record(request: httpx2.Request) -> httpx2.Response:
         calls.append(request)
@@ -35,9 +47,13 @@ async def _find(account: str, handler: Any) -> tuple[ClerkUser | None, list[http
     client = httpx2.AsyncClient(transport=httpx2.MockTransport(record))
     try:
         users = ClerkBackendUsers(client, "sk_test_secret")  # gitleaks:allow -- fixture
-        return await users.find_user(account), calls
+        return await op(users), calls
     finally:
         await client.aclose()
+
+
+async def _find(account: str, handler: Any) -> tuple[ClerkUser | None, list[httpx2.Request]]:
+    return await _call(lambda users: users.find_user(account), handler)
 
 
 async def test_find_user_by_email_returns_id_and_email() -> None:
@@ -106,22 +122,7 @@ async def test_find_user_by_email_non_list_raises_clerk_unavailable() -> None:
 async def _apple_ids(
     clerk_user_id: str, handler: Any, calls: list[httpx2.Request] | None = None
 ) -> tuple[frozenset[str], list[httpx2.Request]]:
-    """Run `apple_user_ids` against `handler`, recording each request in `calls`.
-
-    Pass `calls` to read the requests when the lookup raises.
-    """
-    calls = [] if calls is None else calls
-
-    def record(request: httpx2.Request) -> httpx2.Response:
-        calls.append(request)
-        return handler(request)
-
-    client = httpx2.AsyncClient(transport=httpx2.MockTransport(record))
-    try:
-        users = ClerkBackendUsers(client, "sk_test_secret")  # gitleaks:allow -- fixture
-        return await users.apple_user_ids(clerk_user_id), calls
-    finally:
-        await client.aclose()
+    return await _call(lambda users: users.apple_user_ids(clerk_user_id), handler, calls)
 
 
 def _with_accounts(*accounts: Any) -> dict[str, Any]:
@@ -209,3 +210,21 @@ async def test_apple_user_ids_rejects_a_malformed_id_without_a_request() -> None
         await _apple_ids("user_a/../x", lambda _r: httpx2.Response(200, json={}), calls)
 
     assert calls == []
+
+
+async def test_create_user_posts_a_passwordless_verified_email() -> None:
+    created, calls = await _call(
+        lambda users: users.create_user(EMAIL),
+        lambda _r: httpx2.Response(200, json=_user("user_new")),
+    )
+
+    assert created == ClerkUser("user_new", EMAIL)
+    assert [(c.method, c.url.path) for c in calls] == [("POST", "/v1/users")]
+    body = json.loads(calls[0].content)
+    assert body["email_address"] == [EMAIL]
+    assert body["skip_password_requirement"] is True
+
+
+async def test_create_user_refusal_raises() -> None:
+    with pytest.raises(ClerkUnavailableError, match="422"):
+        await _call(lambda users: users.create_user(EMAIL), lambda _r: httpx2.Response(422))

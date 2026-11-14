@@ -272,6 +272,17 @@ async def revoke_comp(session: AsyncSession, user_id: uuid.UUID, now: datetime) 
     return await _expire_comps(session, user_id, now)
 
 
+async def delete_comps(session: AsyncSession, user_id: uuid.UUID) -> None:
+    """Remove the user's comp grants outright, leaving no comp for `resolve` to report.
+
+    For test accounts only: an operator ends a comp with `revoke_comp`, which keeps it on
+    record.
+    """
+    await session.execute(
+        delete(Grant).where(Grant.user_id == user_id, Grant.source == GrantSource.COMP.value)
+    )
+
+
 async def set_trial_end(
     session: AsyncSession,
     user_id: uuid.UUID,

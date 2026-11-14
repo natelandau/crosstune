@@ -1,4 +1,4 @@
-"""Clerk Backend API client, for deleting the Clerk half of an account and looking up a user."""
+"""Clerk Backend API client: delete the Clerk half of an account, and look up or create a user."""
 
 from __future__ import annotations
 
@@ -110,6 +110,31 @@ class ClerkBackendUsers:
         msg = f"{account} is neither a Clerk user ID (user_...) nor an email"
         raise ValueError(msg)
 
+    async def create_user(self, email: str) -> ClerkUser:
+        """Create a user with a verified email and no password, for a development account.
+
+        The Backend API skips the bot check that blocks a scripted sign-up in the app.
+
+        Args:
+            email: The new user's primary email address.
+
+        Returns:
+            ClerkUser: The user Clerk created.
+
+        Raises:
+            ClerkUnavailableError: Clerk answered with anything but 2xx, the request itself
+                failed, or the answer is not a user.
+        """
+        user = await self._send(
+            "POST",
+            json={
+                "email_address": [email],
+                "skip_password_requirement": True,
+                "skip_legal_checks": True,
+            },
+        )
+        return _clerk_user(user)
+
     async def apple_user_ids(self, clerk_user_id: str) -> frozenset[str]:
         """Read the Sign in with Apple user IDs linked to a Clerk user.
 
@@ -155,6 +180,7 @@ class ClerkBackendUsers:
         *,
         allow_not_found: bool = False,
         params: dict[str, str] | None = None,
+        json: object = None,
     ) -> Any:
         path = f"/v1/users{suffix}"
         response = await send_bearer(
@@ -165,6 +191,7 @@ class ClerkBackendUsers:
             timeout=self._timeout,
             unavailable=ClerkUnavailableError,
             params=params,
+            json=json,
         )
         if allow_not_found and response.status_code == NOT_FOUND_STATUS:
             return None

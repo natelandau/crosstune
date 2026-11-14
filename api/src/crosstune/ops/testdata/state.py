@@ -10,7 +10,13 @@ from typing import TYPE_CHECKING
 from sqlalchemy import or_, select
 
 from crosstune.billing.access import refresh_entitlement
-from crosstune.billing.grants import grant_comp, revoke_comp, set_trial_end, start_trial
+from crosstune.billing.grants import (
+    delete_comps,
+    grant_comp,
+    revoke_comp,
+    set_trial_end,
+    start_trial,
+)
 from crosstune.db.base import bump_server_seq
 from crosstune.db.locks import lock_user
 from crosstune.models import Entitlement, Grant
@@ -127,8 +133,10 @@ async def apply_state(
                 now=now,
             )
         case AccountState.LAPSED:
-            await revoke_comp(session, user_id, now)
-            # An account with no trial grant is already lapsed once its comp ends.
+            # Deleted, not expired: a comp and a trial that end at the same instant resolve
+            # to the comp, and clients show the trial-end screen only after a trial.
+            await delete_comps(session, user_id)
+            # An account with no trial grant has no Premium grant left, so it is free.
             with suppress(LookupError):
                 await set_trial_end(session, user_id, now)
 

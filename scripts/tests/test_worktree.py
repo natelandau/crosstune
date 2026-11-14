@@ -30,15 +30,16 @@ def has_branch(main: Path, branch: str) -> bool:
 
 
 class FakeJust:
-    """Record each just call, and fail every one when asked to."""
+    """Record each just call, and fail every one, or the one recipe named, when asked to."""
 
-    def __init__(self, *, fail: bool = False) -> None:
+    def __init__(self, *, fail: bool = False, fail_recipe: str | None = None) -> None:
         self.calls: list[tuple[tuple[str, ...], Path]] = []
         self.fail = fail
+        self.fail_recipe = fail_recipe
 
     def __call__(self, *args: str, cwd: Path) -> None:
         self.calls.append((args, cwd))
-        if self.fail:
+        if self.fail or self.fail_recipe in args:
             raise subprocess.CalledProcessError(returncode=3, cmd=["just", *args])
 
 
@@ -253,9 +254,20 @@ def test_create_adds_the_worktree_and_sets_it_up(main, capfd):
     assert just.calls == [
         (worktree.SETUP_RECIPES, path),
         (("api::worktree-db",), path),
+        (("api::testdata-accounts",), path),
         (("--justfile", str(justfile), "api::prune-worktree-dbs"), path),
         (("--justfile", str(justfile), "apple::prune"), path),
     ]
+
+
+def test_create_goes_on_when_the_account_reset_fails(main, capfd):
+    just = FakeJust(fail_recipe="api::testdata-accounts")
+
+    status = worktree.create(branch="feat", cwd=main, just=just)
+
+    assert status == 0
+    assert just.calls[-1][0][-1] == "apple::prune"
+    assert "run just api::testdata-accounts" in capfd.readouterr().err
 
 
 def test_create_says_how_to_finish_when_setup_fails(main, capfd):

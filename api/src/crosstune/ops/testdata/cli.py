@@ -13,6 +13,8 @@ import asyncio
 import logging
 import sys
 import time
+from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 from urllib.parse import urlsplit
 
@@ -28,7 +30,7 @@ from crosstune.jobs.media import hide_from_media_tools
 from crosstune.jobs.runner import JobRunner
 from crosstune.main import make_object_store
 from crosstune.models import Entitlement, List, Recording, Tune, User
-from crosstune.ops.billing import load_settings
+from crosstune.ops.billing import load_settings, settings_error
 from crosstune.ops.testdata.clear import clear_account
 from crosstune.ops.testdata.errors import DataCommandError
 from crosstune.ops.testdata.fixture import (
@@ -54,8 +56,9 @@ from crosstune.vocabulary import RecordingState
 
 if TYPE_CHECKING:
     import uuid
-    from collections.abc import Awaitable, Callable
+    from collections.abc import AsyncGenerator, Awaitable, Callable
 
+    import httpx2
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
     from crosstune.config import Settings
@@ -68,6 +71,8 @@ logger = logging.getLogger(__name__)
 # Clerk prefixes development instance secret keys with this; a live key starts `sk_live_`.
 DEVELOPMENT_KEY_PREFIX = "sk_test_"
 READY_POLL_SECONDS = 1.0
+# The failures a run reports as a message, without a traceback.
+COMMAND_ERRORS = (DataCommandError, FixtureError, ClerkUnavailableError)
 SIGN_OUT_WARNING = (
     "Sign out of this account on every device first: "
     "a device still holding the old data can push it back."
@@ -397,6 +402,41 @@ async def _restore(
         await restore_server_grants(session, user_id, snapshot, settings, utc_now())
 
 
+@dataclass(frozen=True)
+class Connections:
+    """The clients one command run shares across every account it works on."""
+
+    store: ObjectStore
+    http_client: httpx2.AsyncClient
+    sessionmaker: async_sessionmaker[AsyncSession]
+    clerk: ClerkBackendUsers
+
+
+@asynccontextmanager
+async def open_connections(settings: Settings) -> AsyncGenerator[Connections]:
+    """Open the bucket, Clerk, and database clients, and close them on exit.
+
+    Raises:
+        DataCommandError: Storage is not configured.
+    """
+    store = make_object_store(settings)
+    if store is None:
+        msg = "storage is not configured; run `just api::setup`"
+        raise DataCommandError(msg)
+    engine = make_engine(settings.database_url)
+    http_client = public_only_client(settings.link_resolve_timeout_seconds)
+    try:
+        yield Connections(
+            store=store,
+            http_client=http_client,
+            sessionmaker=make_sessionmaker(engine),
+            clerk=ClerkBackendUsers(http_client, settings.clerk_secret_key.get_secret_value()),
+        )
+    finally:
+        await engine.dispose()
+        await http_client.aclose()
+
+
 async def run(settings: Settings, args: argparse.Namespace) -> None:
     """Find the Clerk user, then clear, seed, or set the billing state of its account.
 
@@ -405,72 +445,90 @@ async def run(settings: Settings, args: argparse.Namespace) -> None:
             account is not an email or Clerk user ID that Clerk knows.
     """
     check_target(settings)
-    store = make_object_store(settings)
-    if store is None:
-        msg = "storage is not configured; run `just api::setup`"
-        raise DataCommandError(msg)
-    seeding = not (args.clear or args.state_only)
-    fixture = load_fixture(resolve_fixture(args.fixture)) if seeding else None
-    if fixture is not None:
-        # Refuse impossible counts before anything is cleared. The seed plans again
-        # with the account's own titles and list positions.
-        build_plan(fixture, _counts(args), now=utc_now())
+    fixture = checked_fixture(args)
+    async with open_connections(settings) as connections:
+        found = await _find(connections.clerk, args.account)
+        await run_account(connections, found, settings, args, fixture)
 
-    http_client = public_only_client(settings.link_resolve_timeout_seconds)
-    engine = make_engine(settings.database_url)
+
+def checked_fixture(args: argparse.Namespace) -> Fixture | None:
+    """Load the fixture a seed needs and refuse impossible counts, before any account changes.
+
+    Returns:
+        Fixture | None: The fixture, or None when the arguments seed nothing.
+    """
+    if args.clear or args.state_only:
+        return None
+    fixture = load_fixture(resolve_fixture(args.fixture))
+    # The seed plans again with the account's own titles and list positions.
+    build_plan(fixture, _counts(args), now=utc_now())
+    return fixture
+
+
+async def run_account(
+    connections: Connections,
+    found: ClerkUser,
+    settings: Settings,
+    args: argparse.Namespace,
+    fixture: Fixture | None,
+) -> None:
+    """Clear, seed, or set the billing state of the account of a Clerk user already found.
+
+    The caller has already run `check_target`, and passes `checked_fixture(args)`.
+    """
+    store = connections.store
+    sessionmaker = connections.sessionmaker
+    print(f"Clerk user {found.id} <{found.email}>")
+    if not (args.add or args.state_only):
+        print(SIGN_OUT_WARNING)
+
+    async with sessionmaker() as session, session.begin():
+        user_id, old_user_id = await _prepare(session, found, settings, args)
+    if old_user_id is not None:
+        await store.delete_prefix(user_prefix(old_user_id))
+
+    snapshot: GrantSnapshot | None = None
     try:
-        clerk = ClerkBackendUsers(http_client, settings.clerk_secret_key.get_secret_value())
-        found = await _find(clerk, args.account)
-        print(f"Clerk user {found.id} <{found.email}>")
-        if not (args.add or args.state_only):
-            print(SIGN_OUT_WARNING)
+        if fixture is not None:
+            snapshot, recordings = await _seed(
+                sessionmaker, store, user_id, fixture, settings, args
+            )
+            # The dev API's runner sleeps until a request of its own wakes it, so a job
+            # queued from this process could wait out its idle timer. Draining here
+            # makes the command self-contained; a concurrent runner only claims jobs
+            # this one has not.
+            hide_from_media_tools()
+            runner = JobRunner(
+                sessionmaker,
+                store,
+                orphan_sweep_seconds=None,
+                http_client=connections.http_client,
+                settings=settings,
+            )
+            await _wait_until_ready(
+                sessionmaker,
+                recordings,
+                within=ready_timeout(len(recordings)),
+                drain=lambda: _drain(runner),
+            )
+            print("every recording is ready")
+    except BaseException as error:
+        if snapshot is not None:
+            try:
+                await _settle(sessionmaker, user_id, snapshot, args.state, settings)
+            except Exception as settle_error:  # noqa: BLE001 -- reported with the first error
+                error.add_note(f"then settling the billing state failed: {settle_error}")
+        raise
+    if snapshot is not None or args.state is not None:
+        await _settle(sessionmaker, user_id, snapshot, args.state, settings)
 
-        sessionmaker = make_sessionmaker(engine)
-        async with sessionmaker() as session, session.begin():
-            user_id, old_user_id = await _prepare(session, found, settings, args)
-        if old_user_id is not None:
-            await store.delete_prefix(user_prefix(old_user_id))
+    async with sessionmaker() as session:
+        await _report(session, user_id)
 
-        snapshot: GrantSnapshot | None = None
-        try:
-            if fixture is not None:
-                snapshot, recordings = await _seed(
-                    sessionmaker, store, user_id, fixture, settings, args
-                )
-                # The dev API's runner sleeps until a request of its own wakes it, so a job
-                # queued from this process could wait out its idle timer. Draining here
-                # makes the command self-contained; a concurrent runner only claims jobs
-                # this one has not.
-                hide_from_media_tools()
-                runner = JobRunner(
-                    sessionmaker,
-                    store,
-                    orphan_sweep_seconds=None,
-                    http_client=http_client,
-                    settings=settings,
-                )
-                await _wait_until_ready(
-                    sessionmaker,
-                    recordings,
-                    within=ready_timeout(len(recordings)),
-                    drain=lambda: _drain(runner),
-                )
-                print("every recording is ready")
-        except BaseException as error:
-            if snapshot is not None:
-                try:
-                    await _settle(sessionmaker, user_id, snapshot, args.state, settings)
-                except Exception as settle_error:  # noqa: BLE001 -- reported with the first error
-                    error.add_note(f"then settling the billing state failed: {settle_error}")
-            raise
-        if snapshot is not None or args.state is not None:
-            await _settle(sessionmaker, user_id, snapshot, args.state, settings)
 
-        async with sessionmaker() as session:
-            await _report(session, user_id)
-    finally:
-        await engine.dispose()
-        await http_client.aclose()
+def describe_error(error: BaseException) -> str:
+    """The error's message followed by each note added to it, one per line."""
+    return "\n".join([str(error), *getattr(error, "__notes__", ())])
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -479,10 +537,9 @@ def main(argv: list[str] | None = None) -> int:
     try:
         asyncio.run(run(load_settings(), args))
     except ValidationError as exc:
-        problems = "; ".join(str(error["msg"]) for error in exc.errors())
-        print(f"unusable settings: {problems}", file=sys.stderr)
+        print(settings_error(exc), file=sys.stderr)
         return 1
-    except (DataCommandError, FixtureError, ClerkUnavailableError) as exc:
-        print(exc, *getattr(exc, "__notes__", ()), sep="\n", file=sys.stderr)
+    except COMMAND_ERRORS as exc:
+        print(describe_error(exc), file=sys.stderr)
         return 1
     return 0

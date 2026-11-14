@@ -157,6 +157,21 @@ def copy_env(*, cwd: Path) -> int:
     return 0
 
 
+def _reset_dev_accounts(*, path: Path, just: JustRunner) -> None:
+    """Put the copied database's development accounts back in their billing states.
+
+    A failure only warns: the worktree is usable without it, and the command says why.
+    """
+    try:
+        just("api::testdata-accounts", cwd=path)
+    except subprocess.CalledProcessError:
+        print(
+            "the development accounts were not reset; fix the error above, then run "
+            "just api::testdata-accounts",
+            file=sys.stderr,
+        )
+
+
 def create(
     *,
     branch: str,
@@ -165,6 +180,8 @@ def create(
     just: JustRunner = run_just,
 ) -> int:
     """Create `.worktrees/<branch>` with its local files, dependencies, database, and bucket.
+
+    The database is a copy of main's, with the development accounts reset to their states.
 
     The branch starts from the main checkout's HEAD, wherever this runs from.
 
@@ -186,6 +203,7 @@ def create(
         if status == 0:
             just(*SETUP_RECIPES, cwd=path)
             just("api::worktree-db", cwd=path)
+            _reset_dev_accounts(path=path, just=just)
             just("--justfile", str(justfile), "api::prune-worktree-dbs", cwd=path)
             just("--justfile", str(justfile), "apple::prune", cwd=path)
     except subprocess.CalledProcessError as error:

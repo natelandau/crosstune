@@ -129,6 +129,8 @@ async def test_lapsed_has_no_premium(session: AsyncSession, settings: Settings) 
     trial = await _trial(session, user)
     assert trial is not None
     assert trial.expires_at == now
+    # Clients show the trial-end screen only to an account whose lost grant is the trial.
+    assert (await _entitlement(session, user)).premium_source == "trial"
 
 
 @pytest.mark.parametrize("state", list(AccountState))
