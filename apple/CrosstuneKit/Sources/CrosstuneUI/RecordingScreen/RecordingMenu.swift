@@ -25,16 +25,17 @@ enum RecordingMenuItem: Hashable {
 
     /// The menu in order: the pin while `pinned` is set, Go to tune when `goesToTune`, Open on
     /// when the recording has a page to open, Trim, Split, Share, Export… on the Mac, then
-    /// Delete. `pinned` nil leaves the pin out, for a recording with no tune. `trims` false leaves
-    /// Trim and Split out, as on a free plan; Share and Export… stay on every plan.
+    /// Delete. `pinned` nil leaves the pin out, for a recording with no tune. `edits` false leaves
+    /// out the pin, Trim, and Split, as on a free plan; Share and Export… stay on every plan.
     static func items(
         pinned: Bool?, goesToTune: Bool, trimDisabledReason: String?, splitDisabledReason: String? = nil,
         deleteDisabledReason: String? = nil, exportDisabledReason: String?, openOrigin: RecordingMenuItem? = nil,
-        trims: Bool = true
+        edits: Bool = true
     ) -> [RecordingMenuItem] {
         let pin: [RecordingMenuItem] = pinned.map { [.pin(pinned: $0)] } ?? []
-        let tools: [RecordingMenuItem] =
-            trims ? [.trim(disabledReason: trimDisabledReason), .split(disabledReason: splitDisabledReason)] : []
+        let tools: [RecordingMenuItem] = [
+            .trim(disabledReason: trimDisabledReason), .split(disabledReason: splitDisabledReason),
+        ]
         #if os(macOS)
             let exports: [RecordingMenuItem] = [
                 .share(disabledReason: exportDisabledReason), .export(disabledReason: exportDisabledReason),
@@ -42,8 +43,18 @@ enum RecordingMenuItem: Hashable {
         #else
             let exports: [RecordingMenuItem] = [.share(disabledReason: exportDisabledReason)]
         #endif
-        return pin + (goesToTune ? [.goToTune] : []) + (openOrigin.map { [$0] } ?? []) + tools + exports
+        let all =
+            pin + (goesToTune ? [.goToTune] : []) + (openOrigin.map { [$0] } ?? []) + tools + exports
             + [.delete(disabledReason: deleteDisabledReason)]
+        return all.filter { edits || !$0.isEdit }
+    }
+
+    /// Whether the item changes the recording or how it plays, which a free plan leaves out.
+    private var isEdit: Bool {
+        switch self {
+        case .pin, .trim, .split: true
+        case .goToTune, .openOrigin, .share, .export, .delete: false
+        }
     }
 
     /// What the pin item writes as its tune's play source: nothing while `pinned`, which unpins,

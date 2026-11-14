@@ -9,14 +9,7 @@ import { fakeMapKit, type FakeMapKitOptions } from '../../test/fakeMapKit'
 import { PHONE, WIDE } from '../../test/practice'
 import { fakePlaybackEngine } from '../../test/providers'
 import { renderApp } from '../../test/renderApp'
-import {
-  entitlementRow,
-  placeRow,
-  recordingFile,
-  recordingRow,
-  tuneRow,
-  userTuneRow,
-} from '../../test/rows'
+import { placeRow, recordingFile, recordingRow, tuneRow, userTuneRow } from '../../test/rows'
 import { DONE } from '../../ui/confirmCopy'
 import { NOT_SET } from '../../ui/fieldCopy'
 import { MONTH_LABEL, MONTH_LABELS, YEAR_LABEL } from '../../ui/partialDate'
@@ -67,11 +60,9 @@ const title = () => page.getByRole('heading', { level: 1, name: FAST, exact: tru
 async function mount(
   frame = WIDE,
   {
-    lapsed = false,
     before,
     mapkit,
   }: {
-    lapsed?: boolean
     before?: (db: CrosstuneDb) => Promise<unknown>
     /** MapKit's fake; left out, MapKit never loads. */
     mapkit?: FakeMapKitOptions
@@ -80,7 +71,6 @@ async function mount(
   const db = openTestDb()
   await seed(db)
   await before?.(db)
-  if (lapsed) await db.entitlements.put(entitlementRow())
   const analytics = recordingAnalytics()
   await renderApp({
     path: recordingPath(TUNE_PATH, 'rA'),
@@ -365,14 +355,4 @@ it('Notes keeps line breaks', async () => {
   await expect
     .poll(async () => (await db.recordings.get('rA'))?.notes)
     .toBe('Tune the A down\nWatch the B part')
-})
-
-it("a lapsed account's page rows still open their editors", async () => {
-  await mount(PHONE, { lapsed: true })
-  await page.getByRole('tab', { name: DETAILS, exact: true }).click()
-  const details = page.getByRole('tabpanel', { name: DETAILS })
-  await details.getByRole('button', { name: `${NAME}, ${FAST}`, exact: true }).click()
-  await expect
-    .element(editor(NAME).getByRole('textbox', { name: RECORDING_NAME_LABEL }))
-    .toBeVisible()
 })

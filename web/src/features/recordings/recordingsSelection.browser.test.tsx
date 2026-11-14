@@ -5,7 +5,8 @@ import type { CrosstuneDb } from '../../db/schema'
 import { destination } from '../../layout/destinations'
 import { openTestDb } from '../../test/db'
 import { renderApp } from '../../test/renderApp'
-import { recordingRow } from '../../test/rows'
+import { planSheet } from '../../test/planSheet'
+import { entitlementRow, recordingRow } from '../../test/rows'
 import { DELETE } from '../../ui/confirmCopy'
 import { MORE_ACTIONS } from '../../ui/menuCopy'
 import { UNDO } from '../../ui/Toast'
@@ -88,6 +89,28 @@ it('links an unfiled and a filed recording to one tune with Undo', async () => {
   await page.getByRole('button', { name: UNDO }).click()
   await expect.poll(() => tuneOf('loose')).toBeNull()
   await expect.poll(() => tuneOf('filed')).toBe(a.tuneId)
+})
+
+it("answers a lapsed account's Link to tune with the Plan sheet, not the tune picker", async () => {
+  await db.entitlements.put(
+    entitlementRow({ premium_source: 'stripe', premium_expires_at: '2026-01-01T00:00:00.000Z' }),
+  )
+  await db.recordings.bulkPut([
+    recordingRow('a', { label: 'First take' }),
+    recordingRow('b', { label: 'Second take' }),
+  ])
+  await show()
+  await expect.element(row('First take')).toBeVisible()
+  await startSelecting()
+  await row('First take').click()
+  await row('Second take').click()
+  await expect.element(title(2)).toBeVisible()
+  await page.getByRole('button', { name: LINK_TO_TUNE, exact: true }).click()
+  await expect.element(planSheet()).toBeVisible()
+  await expect.element(page.getByRole('dialog', { name: LINK_TO_TUNE })).not.toBeInTheDocument()
+  await expect
+    .poll(() => sent('premium_sheet_shown').map((send) => send.props))
+    .toEqual([{ reason: 'recordings', from: 'link_recordings', presentation: 'sheet' }])
 })
 
 it('asks before a delete, names the split parent that stays, and keeps it', async () => {

@@ -12,6 +12,9 @@ export const TRIAL_REMINDER_MS = 259_200_000
 export type PlanKind = 'unknown' | 'premium' | 'free'
 export type PaidSource = 'apple' | 'stripe'
 
+/** The grant a free account lost: a trial, or any paid or comped grant; null when none. */
+export type Lapse = 'paid' | 'trial' | null
+
 export interface Plan {
   kind: PlanKind
   /** The grant that makes the plan premium; null when the plan is free or unknown. */
@@ -27,6 +30,8 @@ export interface Plan {
   /** Every store still billing the account, the reported grant's included; empty unless
    * premium. A comp that outlasts a subscription is reported over it. */
   paidSources: PaidSource[]
+  /** Which grant a free plan lost; null unless free after a grant. */
+  lapse: Lapse
 }
 
 const PAID_SOURCES: readonly PaidSource[] = ['apple', 'stripe']
@@ -99,9 +104,11 @@ export function planOf(
       quotaBytes: null,
       autoRenews: false,
       paidSources: [],
+      lapse: null,
     }
   }
   const source = row.premium_source
+  // The server keeps premium_source after a grant lapses, so a free row with a source lost it.
   return {
     kind: premium ? 'premium' : 'free',
     source: premium && source !== null && isGrantSource(source) ? source : null,
@@ -111,7 +118,14 @@ export function planOf(
     quotaBytes: premium ? row.premium_quota_bytes : null,
     autoRenews: premium && row.auto_renews,
     paidSources: premium ? paidSources : [],
+    lapse: lapseOf(source, premium),
   }
+}
+
+/** The grant a free row lost, from the source it kept. */
+function lapseOf(source: LocalEntitlement['premium_source'], premium: boolean): Lapse {
+  if (premium || source === null) return null
+  return source === 'trial' ? 'trial' : 'paid'
 }
 
 /** Only an account with no paid grant can buy one: free, or a trial. */

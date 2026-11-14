@@ -320,7 +320,12 @@
       "add_scan",
       "plan_group",
       "trial_reminder",
-      "trial_ended"
+      "trial_ended",
+      "link_recordings"
+    ],
+    "premium_presentation": [
+      "sheet",
+      "overlay"
     ],
     "purchase_period": [
       "annual",
@@ -1946,7 +1951,7 @@
       }
     },
     "premium_sheet_shown": {
-      "description": "The Plan sheet opened: for a locked tap, from the plan row in Settings, or from Compare plans on a trial notice",
+      "description": "The Plan sheet opened: for a locked tap, from the plan row in Settings, from Compare plans on a trial notice, or over a page that needs Premium",
       "clients": [
         "apple",
         "web"
@@ -1964,6 +1969,11 @@
         "from": {
           "type": "string",
           "enum": "premium_entry",
+          "required": true
+        },
+        "presentation": {
+          "type": "string",
+          "enum": "premium_presentation",
           "required": true
         }
       }

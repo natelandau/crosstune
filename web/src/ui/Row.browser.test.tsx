@@ -156,16 +156,6 @@ it.each(['light', 'dark'] as const)(
   },
 )
 
-it('describes the row after its name', async () => {
-  renderWithProviders(
-    <RowList label="Tunes">
-      <Row id="1" textValue="Old Joe" title="Old Joe" description="Archived" />
-    </RowList>,
-  )
-  const row = page.getByRole('row', { name: 'Old Joe' })
-  await expect.element(row).toHaveAccessibleDescription('Archived')
-})
-
 it.each([
   ['pointer', 24],
   ['touch', 44],

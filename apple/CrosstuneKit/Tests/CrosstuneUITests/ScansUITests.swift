@@ -556,7 +556,9 @@ private struct ScannedTunes {
         #expect(presenter.presented == .scans)
         #expect(
             sink.captures == [
-                .init(name: "premium_sheet_shown", properties: ["reason": .string("scans"), "from": .string("scan")])
+                .init(
+                    name: "premium_sheet_shown",
+                    properties: ["reason": .string("scans"), "from": .string("scan"), "presentation": .string("sheet")])
             ])
 
         let ungated = try #require(
@@ -603,7 +605,9 @@ private struct ScannedTunes {
         #expect(presenter.presented == .scans)
         #expect(
             sink.captures == [
-                .init(name: "premium_sheet_shown", properties: ["reason": .string("scans"), "from": .string("scan")])
+                .init(
+                    name: "premium_sheet_shown",
+                    properties: ["reason": .string("scans"), "from": .string("scan"), "presentation": .string("sheet")])
             ])
 
         ScansSection.tap(opens: true, tuneID: fixture.tuneA, index: 1, actions: actions, premium: presenter)
@@ -623,7 +627,10 @@ private struct ScannedTunes {
         #expect(
             sink.captures == [
                 .init(
-                    name: "premium_sheet_shown", properties: ["reason": .string("scans"), "from": .string("add_scan")])
+                    name: "premium_sheet_shown",
+                    properties: [
+                        "reason": .string("scans"), "from": .string("add_scan"), "presentation": .string("sheet"),
+                    ])
             ])
     }
 

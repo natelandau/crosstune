@@ -22,7 +22,7 @@ import Testing
                 results: (0..<count).map {
                     SearchResult(
                         url: "https://tidal.com/track/\($0)", provider: "tidal", providerRef: "\($0)",
-                        title: "Take \($0)")
+                        title: "Recording \($0)")
                 },
                 searchURL: "https://tidal.com/search")
         ])

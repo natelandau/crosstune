@@ -102,7 +102,9 @@ export const PREMIUM_ENTRIES = [
   'plan_group',
   'trial_reminder',
   'trial_ended',
+  'link_recordings',
 ] as const
+export const PREMIUM_PRESENTATIONS = ['sheet', 'overlay'] as const
 export const PURCHASE_PERIODS = ['annual', 'monthly'] as const
 const PURCHASE_FAILURES = ['cancelled', 'error', 'pending'] as const
 export const PLAN_NOTICES = [
@@ -194,6 +196,7 @@ export const ENUMS = {
   import_list: IMPORT_LISTS,
   premium_reason: PREMIUM_REASONS,
   premium_entry: PREMIUM_ENTRIES,
+  premium_presentation: PREMIUM_PRESENTATIONS,
   purchase_period: PURCHASE_PERIODS,
   purchase_failure: PURCHASE_FAILURES,
   plan_notice: PLAN_NOTICES,
@@ -231,6 +234,7 @@ export type ImportReader = (typeof IMPORT_READERS)[number]
 export type ImportList = (typeof IMPORT_LISTS)[number]
 export type PremiumReason = (typeof PREMIUM_REASONS)[number]
 export type PremiumEntry = (typeof PREMIUM_ENTRIES)[number]
+export type PremiumPresentation = (typeof PREMIUM_PRESENTATIONS)[number]
 export type PurchasePeriod = (typeof PURCHASE_PERIODS)[number]
 export type PurchaseFailure = (typeof PURCHASE_FAILURES)[number]
 export type PlanNotice = Notice
@@ -391,7 +395,11 @@ export interface EventProps {
   setting_changed: SettingChange
   usage_sharing_disabled: Empty
   storage_limit_reached: { storage_used: BytesBucket }
-  premium_sheet_shown: { reason: PremiumReason; from: PremiumEntry }
+  premium_sheet_shown: {
+    reason: PremiumReason
+    from: PremiumEntry
+    presentation: PremiumPresentation
+  }
   notice_shown: { notice: PlanNotice }
   purchase_started: { period: PurchasePeriod; from: PremiumEntry }
   purchase_completed: { period: PurchasePeriod }

@@ -145,7 +145,7 @@ struct DefaultRecordingLabelTests {
         try await store.write { writer in
             try writer.put(
                 Recording(
-                    id: "r1", tuneID: nil, source: "microphone", addedAt: .now, label: "Take", trimStartMs: 500,
+                    id: "r1", tuneID: nil, source: "microphone", addedAt: .now, label: "Recording", trimStartMs: 500,
                     speedPercent: 80, placeName: "Denver, CO", placeLat: 1.5, placeLon: 2.5, placeAccuracyM: 9))
         }
 
@@ -154,7 +154,7 @@ struct DefaultRecordingLabelTests {
         let row = try #require(try await store.read { db in try Recording.fetchOne(db, key: "r1") })
         #expect(row.notes == "Slow set")
         #expect(row.players == "Ann, Bo")
-        #expect(row.label == "Take")
+        #expect(row.label == "Recording")
         #expect(row.trimStartMs == 500)
         #expect(row.speedPercent == 80)
         #expect(row.placeName == "Denver, CO")
@@ -548,11 +548,11 @@ struct DefaultRecordingLabelTests {
         let store = try root.open()
 
         let id = try await Commands(store: store).addUploadedFile(
-            fileName: "recording.wav", contentType: nil, bytes: 99, tuneID: nil, label: "Take", at: noon)
+            fileName: "recording.wav", contentType: nil, bytes: 99, tuneID: nil, label: "Recording", at: noon)
 
         let row = try #require(try await store.read { db in try Recording.fetchOne(db, key: id) })
         #expect(row.source == "upload")
-        #expect(row.label == "Take")
+        #expect(row.label == "Recording")
         #expect(row.addedAt == noon)
         #expect(row.recordedAt == nil)
         #expect(row.recordedPrecision == nil)

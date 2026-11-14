@@ -19,7 +19,7 @@ const RULER_PX = 20
 /** The waveform slot's one height, its ruler included. */
 export const WAVEFORM_SLOT_PX = 160
 
-const offClass = (blocked?: string) => (blocked ? 'pointer-events-none opacity-50' : '')
+const offClass = (blocked?: boolean) => (blocked ? 'pointer-events-none opacity-50' : '')
 
 /** The whole recording with the view's window on it, or a plain bar until there is a length. */
 export function PracticeOverview({
@@ -31,10 +31,10 @@ export function PracticeOverview({
   timeline: PracticeTimeline
   loops: PracticeLoops
   shown: ShownPeaks | null
-  blocked?: string
+  blocked?: boolean
 }) {
   return (
-    <div inert={!!blocked} className={offClass(blocked)}>
+    <div inert={blocked} className={offClass(blocked)}>
       {timeline.halfSpanMs !== null ? (
         <OverviewStrip
           shown={shown}
@@ -73,14 +73,14 @@ export function PracticeWaveformSlot({
 }: Pick<PracticeCore, 'timeline' | 'loops' | 'size' | 'pinch' | 'pinches'> & {
   slotRef: PracticeCore['slot']
   shown: ShownPeaks | null
-  blocked?: string
+  blocked?: boolean
   children?: ReactNode
 }) {
   return (
     <div className="relative shrink-0" style={{ height: WAVEFORM_SLOT_PX }}>
       <div
         ref={slotRef}
-        inert={!!blocked}
+        inert={blocked}
         className={`absolute inset-0 ${offClass(blocked)}`}
         style={
           {

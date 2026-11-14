@@ -7,6 +7,7 @@ import {
 } from '../player/PlaybackEngineProvider'
 import type { PlaybackEngine } from '../player/playbackEngine'
 import { isMonoFromRow } from '../player/isolate/isolateSetting'
+import type { PracticeBlock } from './practiceAvailability'
 import { FIT, LOCKED_LOOPS_NOTICE } from './practiceCopy'
 import {
   PracticeLoopSwitcher,
@@ -51,7 +52,7 @@ interface PracticeViewProps {
   /** The peaks for the recording's current trim range. */
   shown: ShownPeaks | null
   /** Why the waveform, transport, and modes cannot be used yet, such as a recording under way. */
-  blocked?: string
+  blocked?: PracticeBlock
   /** Set to what Escape does here; true when it did something. */
   escapeRef: RefObject<(() => boolean) | null>
   /**
@@ -132,8 +133,14 @@ function PracticeBody({
     if (next === 'isolate') engine.prime()
   }
 
+  const isBlocked = blocked !== undefined
   const ownScope = useMemo(() => ({ root: content }), [content])
-  usePracticeKeys(escapeRef, { ...loops.keyActions, scope: keyScope ?? ownScope, isTop, blocked })
+  usePracticeKeys(escapeRef, {
+    ...loops.keyActions,
+    scope: keyScope ?? ownScope,
+    isTop,
+    blocked: isBlocked,
+  })
 
   // A list moving on remounts this view, Play and Next tune included, so focus follows the
   // control it was on into the new one within the same commit. The saved focus is spent on mount
@@ -150,8 +157,8 @@ function PracticeBody({
     }
   }, [content, savedFocus])
 
-  const off = blocked ? 'pointer-events-none opacity-50' : ''
-  const unusable = !timeline.loaded || !!blocked
+  const off = isBlocked ? 'pointer-events-none opacity-50' : ''
+  const unusable = !timeline.loaded || isBlocked
 
   const phone = useFrame() === 'phone'
   const clock = blocked ?? <PlayheadTime timeline={timeline} />
@@ -161,15 +168,15 @@ function PracticeBody({
         size="large44"
         icon={ZoomOut}
         label={ZOOM_OUT}
-        isDisabled={!timeline.canZoomOut || !!blocked}
+        isDisabled={!timeline.canZoomOut || isBlocked}
         onPress={() => timeline.zoom(1 / ZOOM_STEP)}
       />
-      <Button label={FIT} isDisabled={!timeline.pxPerS || !!blocked} onPress={loops.fit} />
+      <Button label={FIT} isDisabled={!timeline.pxPerS || isBlocked} onPress={loops.fit} />
       <IconButton
         size="large44"
         icon={ZoomIn}
         label={ZOOM_IN}
-        isDisabled={!timeline.canZoomIn || !!blocked}
+        isDisabled={!timeline.canZoomIn || isBlocked}
         onPress={() => timeline.zoom(ZOOM_STEP)}
       />
     </div>
@@ -177,9 +184,9 @@ function PracticeBody({
 
   return (
     <div ref={content} className="flex min-h-0 flex-1 flex-col gap-3">
-      <PracticeOverview timeline={timeline} loops={loops} shown={shown} blocked={blocked} />
+      <PracticeOverview timeline={timeline} loops={loops} shown={shown} blocked={isBlocked} />
       <div data-waveform-slot className="relative">
-        <PracticeWaveformSlot {...slotProps(core)} shown={shown} blocked={blocked} />
+        <PracticeWaveformSlot {...slotProps(core)} shown={shown} blocked={isBlocked} />
         {/* On a phone the zoom rides over the waveform's corner, as on iOS, so the clock takes a
             row of its own. */}
         {phone && (
@@ -206,7 +213,7 @@ function PracticeBody({
             playing={timeline.playing}
             repeatName={loops.repeatName}
             // Play on a recording the player has not loaded loads it, its length known or not.
-            disabled={loaded ? unusable : !!blocked}
+            disabled={loaded ? unusable : isBlocked}
             onTogglePlay={timeline.togglePlay}
             onSkip={timeline.skip}
             recordingId={recording.id}
@@ -218,10 +225,10 @@ function PracticeBody({
             disabled={unusable}
           />
         </div>
-        <div inert={!!blocked} className={`${CAPPED} ${off}`}>
+        <div inert={isBlocked} className={`${CAPPED} ${off}`}>
           <ModePanel
             layout={modeLayout}
-            disabled={!!blocked}
+            disabled={isBlocked}
             loopCount={loops.rows.length}
             mode={mode}
             onMode={chooseMode}

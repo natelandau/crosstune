@@ -560,8 +560,54 @@ private struct RecordingsContent: View {
     /// A recording's row. A filed one names its tune in a tune line when `opensTune`, and
     /// otherwise sits under a line naming it; either way its title never falls back to the tune.
     private func row(_ view: RecordingView, opensTune: Bool = false) -> some View {
-        let open = view.tuneID.map { tuneID in { openTune(tuneID) } }
         let isSelected = TuneSelection.rowIsSelected(view.id, selection: selection, detailTune: detailRecording)
+        let rowItem = item(view, opensTune: opensTune)
+        return
+            rowItem
+            .newRecordingHighlight(view.id)
+            #if os(macOS)
+                // The space above and below the row is inside the row's open button rather than in
+                // the list's row insets, so a click anywhere on the row but its slot opens the page,
+                // and the list's selection never has to.
+                .padding(.vertical, Self.macRowInset)
+                .selectionRow(
+                    $selection, row: view.id,
+                    title: RecordingText.title(
+                        view.recording, tuneTitle: view.tuneTitle, tuneNamedAbove: view.tuneID != nil)
+                )
+                .background {
+                    if !selection.isActive {
+                        Button {
+                            rowItem.openPage(openRecordingPage, premium: premium)
+                        } label: {
+                            Color.clear.contentShape(.rect)
+                        }
+                        .buttonStyle(.labelOnly)
+                        .accessibilityHidden(true)
+                        // The row's own button takes the same press, so keyboard focus stops there alone.
+                        .leavesFocusOnPress()
+                    }
+                }
+                .listItemRow()
+            #else
+                .listItemRow(macVerticalInset: Self.macRowInset)
+            #endif
+            .unselectedRowBackground(isSelected: isSelected)
+            #if os(macOS)
+                .macRowSelected(isSelected)
+            #endif
+            .accessibilityFocused($focusedRow, equals: view.id)
+            .tag(view.id)
+            .recordingRowActions(
+                onDelete: { deleting = view }, deleteDisabledReason: RecordingScreenText.deleteDisabledReason(view),
+                isSelecting: selection.isActive, onSelect: { selection.enter(with: view.id) }
+            )
+            .confirmsRecordingDelete($deleting.matching(view.id), delete: delete)
+    }
+
+    /// The row itself, whose open the Mac inset around it shares, so both presses gate alike.
+    private func item(_ view: RecordingView, opensTune: Bool) -> RecordingItem {
+        let open = view.tuneID.map { tuneID in { openTune(tuneID) } }
         return RecordingItem(
             view: view, source: .recordingsList, tuneNamedAbove: view.tuneID != nil, storage: model.storage(plan: plan),
             uploadLimits: model.uploadLimits, sort: sort.sort, onOpenTune: opensTune ? open : nil,
@@ -569,45 +615,6 @@ private struct RecordingsContent: View {
         ) { kind in
             retry(view.id, kind)
         }
-        .newRecordingHighlight(view.id)
-        #if os(macOS)
-            // The space above and below the row is inside the row's open button rather than in
-            // the list's row insets, so a click anywhere on the row but its slot opens the page,
-            // and the list's selection never has to.
-            .padding(.vertical, Self.macRowInset)
-            .selectionRow(
-                $selection, row: view.id,
-                title: RecordingText.title(
-                    view.recording, tuneTitle: view.tuneTitle, tuneNamedAbove: view.tuneID != nil)
-            )
-            .background {
-                if !selection.isActive {
-                    Button {
-                        openRecordingPage?(view.id, source: .recordingsList)
-                    } label: {
-                        Color.clear.contentShape(.rect)
-                    }
-                    .buttonStyle(.labelOnly)
-                    .accessibilityHidden(true)
-                    // The row's own button takes the same press, so keyboard focus stops there alone.
-                    .leavesFocusOnPress()
-                }
-            }
-            .listItemRow()
-        #else
-            .listItemRow(macVerticalInset: Self.macRowInset)
-        #endif
-        .unselectedRowBackground(isSelected: isSelected)
-        #if os(macOS)
-            .macRowSelected(isSelected)
-        #endif
-        .accessibilityFocused($focusedRow, equals: view.id)
-        .tag(view.id)
-        .recordingRowActions(
-            onDelete: { deleting = view }, deleteDisabledReason: RecordingScreenText.deleteDisabledReason(view),
-            isSelecting: selection.isActive, onSelect: { selection.enter(with: view.id) }
-        )
-        .confirmsRecordingDelete($deleting.matching(view.id), delete: delete)
     }
 
     /// The line over one tune's recordings under Tune sort. The whole line opens the tune.

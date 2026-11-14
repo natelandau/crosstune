@@ -36,15 +36,15 @@ struct SafeNameTests {
     @Test func suffixesCaseInsensitiveCollisionsBeforeTheExtension() {
         var names = NameAllocator(reserving: ["Unfiled"])
         #expect(names.take("unfiled") == "unfiled (2)")
-        #expect(names.take("Take", ext: "m4a") == "Take.m4a")
-        #expect(names.take("take", ext: "m4a") == "take (2).m4a")
+        #expect(names.take("Recording", ext: "m4a") == "Recording.m4a")
+        #expect(names.take("recording", ext: "m4a") == "recording (2).m4a")
     }
 
     @Test func doesNotCollideAcrossExtensionsAndCountsUpward() {
         var names = NameAllocator()
-        #expect(names.take("take", ext: "m4a") == "take.m4a")
-        #expect(names.take("take", ext: "aac") == "take.aac")
-        #expect(names.take("take", ext: "m4a") == "take (2).m4a")
-        #expect(names.take("take", ext: "m4a") == "take (3).m4a")
+        #expect(names.take("recording", ext: "m4a") == "recording.m4a")
+        #expect(names.take("recording", ext: "aac") == "recording.aac")
+        #expect(names.take("recording", ext: "m4a") == "recording (2).m4a")
+        #expect(names.take("recording", ext: "m4a") == "recording (3).m4a")
     }
 }

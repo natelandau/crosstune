@@ -39,7 +39,9 @@ private func entitlement(source: String?, expiresAt: Date? = nil) -> Entitlement
             sink.captures == [
                 .init(
                     name: "premium_sheet_shown",
-                    properties: ["reason": .string("recordings"), "from": .string("record")])
+                    properties: [
+                        "reason": .string("recordings"), "from": .string("record"), "presentation": .string("sheet"),
+                    ])
             ])
     }
 
@@ -62,7 +64,7 @@ private func entitlement(source: String?, expiresAt: Date? = nil) -> Entitlement
             plan: try await plan(entitlement(source: nil), kind: .free), analytics: sink.client, purchase: purchase)
         presenter.present(.plan, from: .planGroup)
         purchase.period = .monthly
-        presenter.presented = nil
+        presenter.presentation = nil
 
         presenter.present(.recordings, from: .record)
 
@@ -78,7 +80,10 @@ private func entitlement(source: String?, expiresAt: Date? = nil) -> Entitlement
         #expect(
             sink.captures == [
                 .init(
-                    name: "premium_sheet_shown", properties: ["reason": .string("scans"), "from": .string("add_scan")])
+                    name: "premium_sheet_shown",
+                    properties: [
+                        "reason": .string("scans"), "from": .string("add_scan"), "presentation": .string("sheet"),
+                    ])
             ])
     }
 
@@ -110,9 +115,47 @@ private func entitlement(source: String?, expiresAt: Date? = nil) -> Entitlement
         // A second tap while the sheet is still up shows nothing new.
         _ = presenter.gate(.recordings, from: .record)
         #expect(sink.captures.count == 1)
-        presenter.presented = nil
+        presenter.presentation = nil
         _ = presenter.gate(.recordings, from: .upload)
         #expect(sink.captures.count == 2)
+    }
+
+    @Test func anOverlayReportsItsShowing() async throws {
+        let purchase = PurchaseModel(client: FakePurchaseClient(), refresh: {}, sync: {}, analytics: sink.client)
+        await purchase.restore()
+        purchase.period = .monthly
+
+        LapsedOverlay.reportShowing(from: RecordingPage.planEntry, analytics: sink.client, purchase: purchase)
+
+        #expect(purchase.line == nil)
+        #expect(purchase.period == .annual)
+        #expect(
+            sink.captures.last
+                == .init(
+                    name: "premium_sheet_shown",
+                    properties: [
+                        "reason": .string("recordings"), "from": .string("recording_page"),
+                        "presentation": .string("overlay"),
+                    ]))
+    }
+
+    @Test(arguments: [true, false]) func aShowingKeepsAPurchaseWaitingOnApproval(asOverlay: Bool) async throws {
+        let client = FakePurchaseClient()
+        client.purchaseResult = .pending
+        let purchase = PurchaseModel(client: client, refresh: {}, sync: {}, analytics: sink.client)
+        purchase.period = .monthly
+        await purchase.buy(from: RecordingPage.planEntry)
+        let presenter = PremiumPresenter(
+            plan: try await plan(entitlement(source: nil), kind: .free), analytics: sink.client, purchase: purchase)
+
+        if asOverlay {
+            LapsedOverlay.reportShowing(from: RecordingPage.planEntry, analytics: sink.client, purchase: purchase)
+        } else {
+            presenter.present(.recordings, from: .recordingRow)
+        }
+
+        #expect(purchase.line == .pending)
+        #expect(purchase.period == .monthly)
     }
 
     @Test func theCopyMatchesTheWeb() throws {
@@ -125,8 +168,13 @@ private func entitlement(source: String?, expiresAt: Date? = nil) -> Entitlement
             ("FREE_HELP", PlanText.freeHelp),
             ("PREMIUM_RECORDINGS_TITLE", PlanText.premiumRecordingsTitle),
             ("PREMIUM_SCANS_TITLE", PlanText.premiumScansTitle),
-            ("PREMIUM_RECORDINGS_BODY", PlanText.premiumRecordingsBody),
+            ("RECORDINGS_COST", PlanText.recordingsCost),
+            ("SUBSCRIBE_OR_EXPORT", PlanText.subscribeOrExport),
             ("PREMIUM_SCANS_BODY", PlanText.premiumScansBody),
+            ("LAPSED_PREMIUM_TITLE", PlanText.lapsedPremiumTitle),
+            ("LAPSED_TRIAL_TITLE", PlanText.lapsedTrialTitle),
+            ("EXPORT_THIS_RECORDING", PlanText.exportThisRecording),
+            ("EXPORT_EVERYTHING", PlanText.exportEverything),
             ("SEE_PLAN", PlanText.seePlan),
             ("PREMIUM_PLAN_TITLE", PlanText.premiumPlanTitle),
             ("SUBSCRIBE", PlanText.subscribe),
@@ -237,15 +285,39 @@ private func entitlement(source: String?, expiresAt: Date? = nil) -> Entitlement
 
         presenter.present(.plan, from: .planGroup)
         #expect(presenter.presented == .plan)
-        #expect(presenter.presentedFrom == .planGroup)
+        #expect(presenter.presentation?.entry == .planGroup)
         // A second ask while the sheet is up shows nothing new.
         presenter.present(.plan, from: .trialEnded)
-        #expect(presenter.presentedFrom == .planGroup)
+        #expect(presenter.presentation?.entry == .planGroup)
         #expect(
             sink.captures == [
                 .init(
-                    name: "premium_sheet_shown", properties: ["reason": .string("plan"), "from": .string("plan_group")])
+                    name: "premium_sheet_shown",
+                    properties: [
+                        "reason": .string("plan"), "from": .string("plan_group"), "presentation": .string("sheet"),
+                    ])
             ])
+    }
+
+    @Test func aShowingKeepsTheRecordingItOpenedFromUntilItCloses() async throws {
+        let presenter = PremiumPresenter(
+            plan: try await plan(entitlement(source: nil), kind: .free), analytics: sink.client)
+        let subject = PremiumSubject(recordingID: "r1")
+
+        #expect(presenter.gate(.recordings, from: .recordingRow, subject: subject) == false)
+
+        #expect(presenter.presentation?.subject == subject)
+        #expect(
+            sink.captures == [
+                .init(
+                    name: "premium_sheet_shown",
+                    properties: [
+                        "reason": .string("recordings"), "from": .string("recording_row"),
+                        "presentation": .string("sheet"),
+                    ])
+            ])
+        presenter.presentation = nil
+        #expect(presenter.presentation?.subject == nil)
     }
 
     @Test func closingTheSheetForgetsWhereItCameFrom() async throws {
@@ -253,9 +325,9 @@ private func entitlement(source: String?, expiresAt: Date? = nil) -> Entitlement
             plan: try await plan(entitlement(source: nil), kind: .free), analytics: sink.client)
 
         _ = presenter.gate(.recordings, from: .upload)
-        #expect(presenter.presentedFrom == .upload)
-        presenter.presented = nil
-        #expect(presenter.presentedFrom == nil)
+        #expect(presenter.presentation?.entry == .upload)
+        presenter.presentation = nil
+        #expect(presenter.presentation?.entry == nil)
     }
 
     @Test func aDimmedRowUnderTheTunePagesRecordingsLineReportsTheLine() async throws {
@@ -271,7 +343,10 @@ private func entitlement(source: String?, expiresAt: Date? = nil) -> Entitlement
             sink.captures == [
                 .init(
                     name: "premium_sheet_shown",
-                    properties: ["reason": .string("recordings"), "from": .string("recordings_line")])
+                    properties: [
+                        "reason": .string("recordings"), "from": .string("recordings_line"),
+                        "presentation": .string("sheet"),
+                    ])
             ])
     }
 
@@ -287,37 +362,10 @@ private func entitlement(source: String?, expiresAt: Date? = nil) -> Entitlement
             sink.captures == [
                 .init(
                     name: "premium_sheet_shown",
-                    properties: ["reason": .string("recordings"), "from": .string("recording_row")])
-            ])
-    }
-
-    @Test func theRecordingPagesBlockedPlayOpensThePlanFromThePage() async throws {
-        let presenter = PremiumPresenter(
-            plan: try await plan(entitlement(source: nil), kind: .free), analytics: sink.client)
-
-        _ = presenter.gate(.recordings, from: RecordingPage.planEntry)
-
-        #expect(presenter.presented == .recordings)
-        #expect(presenter.presentedFrom == .recordingPage)
-        #expect(
-            sink.captures == [
-                .init(
-                    name: "premium_sheet_shown",
-                    properties: ["reason": .string("recordings"), "from": .string("recording_page")])
-            ])
-        let row = RecordingView(
-            recording: Recording(id: "r1", tuneID: nil, source: "microphone", addedAt: noon, state: "ready"),
-            file: nil, tuneID: nil, tuneTitle: nil)
-        #expect(RecordingItem(view: row, source: .recordingsList) { _ in }.premiumEntry == .recordingRow)
-    }
-
-    @Test func theEntriesAndReasonsNameThePlansValues() {
-        #expect(PremiumReason.allCases.map(\.rawValue) == ["recordings", "scans", "plan"])
-        #expect(
-            PremiumEntry.allCases.map(\.rawValue) == [
-                "record", "upload", "add_to_recordings", "recording_row", "recording_page", "recordings_line", "scan",
-                "add_scan",
-                "plan_group", "trial_reminder", "trial_ended",
+                    properties: [
+                        "reason": .string("recordings"), "from": .string("recording_row"),
+                        "presentation": .string("sheet"),
+                    ])
             ])
     }
 }

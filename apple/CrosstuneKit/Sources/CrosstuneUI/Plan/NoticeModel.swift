@@ -17,7 +17,7 @@ struct NoticeInputs: Sendable, Equatable {
         NoticeInputs(
             row: try Entitlement.current(db),
             seen: try StoreWriter.seenNotices(in: db),
-            holdsRecordings: try Recording.filter(Recording.CodingKeys.deletedAt == nil).fetchCount(db) > 0)
+            holdsRecordings: try Recording.liveCount(db) > 0)
     }
 }
 

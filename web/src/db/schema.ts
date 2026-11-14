@@ -150,8 +150,8 @@ export class CrosstuneDb extends Dexie {
 
   constructor(name: string) {
     super(name)
-    // Only keys used in where() clauses are indexed. Null is not indexable, so
-    // deleted_at and archived_at are filtered in memory.
+    // Only keys used in where() clauses are indexed. Null is not indexable, so an index on
+    // deleted_at holds only tombstones, and archived_at is filtered in memory.
     this.version(5)
       .stores({
         tunes: 'id, title',
@@ -423,6 +423,9 @@ export class CrosstuneDb extends Dexie {
             if (entry.data) fill(entry.data)
           })
       })
+
+    // Indexes recordings by deletion, so counting live ones reads the index, not every row.
+    this.version(25).stores({ recordings: 'id, tune_id, state, split_from_id, deleted_at' })
   }
 
   // Dexie's auto-open on the first query calls this method too.

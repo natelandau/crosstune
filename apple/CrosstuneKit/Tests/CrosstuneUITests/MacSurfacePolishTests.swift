@@ -105,7 +105,7 @@
         /// A row with no glyph keeps its slot, so its text ends on the same edge as its neighbors'.
         @Test func mediaRowWithNoGlyphKeepsItsSlot() {
             func idealWidth(_ glyph: MediaGlyph) -> CGFloat {
-                hostedSize(MediaRow(glyph: glyph, title: "Take 1", secondLine: .text("1:02"))).width
+                hostedSize(MediaRow(glyph: glyph, title: "Recording 1", secondLine: .text("1:02"))).width
             }
             #expect(idealWidth(.none) == idealWidth(.play))
         }
@@ -114,7 +114,7 @@
         /// the whole row, as on the web.
         @Test func mediaRowGlyphCentersOnTheRow() throws {
             let row = MediaRow(
-                glyph: .play, title: "Take 1", secondLine: .text("1:02"), actionLabel: "Play", action: {})
+                glyph: .play, title: "Recording 1", secondLine: .text("1:02"), actionLabel: "Play", action: {})
             let ink = try #require(try trailingInk(row, width: 320, trailing: RowSlotMetrics.baseWidth))
             let drawn = ink.bottom - ink.top + 1
             #expect(drawn >= Int(PageStyle.mediaRowGlyphSize) - 2)
@@ -150,10 +150,10 @@
         func mediaRowGlyphShowsWithNothingOverIt(glyph: MediaGlyph) throws {
             let slot = RowSlotMetrics.baseWidth
             let row = MediaRow(
-                glyph: glyph, title: "Take 1", secondLine: .text("1:02"), actionLabel: "Play", action: {})
+                glyph: glyph, title: "Recording 1", secondLine: .text("1:02"), actionLabel: "Play", action: {})
             #expect(try drawsInTrailingEdge(row, width: 320, trailing: slot))
             let bare = MediaRow(
-                glyph: .none, title: "Take 1", secondLine: .text("1:02"), actionLabel: "Play", action: {})
+                glyph: .none, title: "Recording 1", secondLine: .text("1:02"), actionLabel: "Play", action: {})
             #expect(try drawsInTrailingEdge(bare, width: 320, trailing: slot) == false)
         }
     }

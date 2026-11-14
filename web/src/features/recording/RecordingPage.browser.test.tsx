@@ -5,7 +5,6 @@ import type { CrosstuneDb } from '../../db/schema'
 import { destination } from '../../layout/destinations'
 import { recordingPath } from '../../layout/tuneHome'
 import { openTestDb } from '../../test/db'
-import { planSheet } from '../../test/planSheet'
 import { fakePlaybackEngine } from '../../test/providers'
 import { entitlementRow, recordingFile, recordingRow, tuneRow, userTuneRow } from '../../test/rows'
 import { renderApp } from '../../test/renderApp'
@@ -18,7 +17,21 @@ import { CLOSE_PLAYER, OPEN_RECORDING, PAUSE, PLAY, REPEAT_LOOP } from '../playe
 import { loopName } from '../../domain/loopModel'
 import { LOOPS_LABEL, MODES_LABEL, WAVEFORM_LABEL } from '../practice/practiceCopy'
 import { WAVEFORM_SLOT_PX } from '../practice/PracticeSurface'
-import { SUBSCRIBE_TO_PLAY } from '../recordings/recordingCopy'
+import { DOWNLOAD, GO_TO_TUNE } from '../recordings/recordingNames'
+import { SHARE } from '../recordings/export/exportCopy'
+import {
+  EXPORT_EVERYTHING,
+  EXPORT_THIS_RECORDING,
+  LAPSED_PREMIUM_TITLE,
+  PREMIUM_RECORDINGS_TITLE,
+  SUBSCRIBE_UNAVAILABLE_TITLE,
+} from '../plan/planCopy'
+import type { Store } from '../../billing/store'
+import type { SyncEngine } from '../../sync/types'
+import { fakeStore } from '../../test/fakeStore'
+import { SPLIT } from '../practice/splitCopy'
+import { DELETE } from '../../ui/confirmCopy'
+import { DONT_PLAY_FIRST, PLAY_FIRST_IN_LISTS } from '../tune/playSourceText'
 import { playName } from '../recordings/recordingNames'
 import { TUNE } from '../tune/tunePageCopy'
 import { liveLoops } from '../../test/recordings'
@@ -36,6 +49,7 @@ import { PLAYERS_LABEL } from '../recordings/recordingsCopy'
 
 const TUNE_PATH = '/catalog/t1'
 const RECORDINGS = destination('recordings')
+const CATALOG = destination('catalog')
 const FAST = 'Fast version'
 const SLOW = 'Slow version'
 
@@ -72,9 +86,13 @@ async function mount(
     lapsed = false,
     analytics = recordingAnalytics(),
     before,
+    store,
+    sync,
   }: {
     lapsed?: boolean
     analytics?: ReturnType<typeof recordingAnalytics>
+    store?: Store
+    sync?: Partial<SyncEngine>
     /** Changes the seeded rows before the app renders. */
     before?: (db: CrosstuneDb) => Promise<unknown>
   } = {},
@@ -82,13 +100,18 @@ async function mount(
   const db = openTestDb()
   await seed(db)
   await before?.(db)
-  if (lapsed) await db.entitlements.put(entitlementRow())
+  if (lapsed)
+    await db.entitlements.put(
+      entitlementRow({ premium_source: 'stripe', premium_expires_at: '2026-01-01T00:00:00.000Z' }),
+    )
   const engine = fakePlaybackEngine()
   const { router } = await renderApp({
     path,
     db,
     frame,
     playbackEngine: engine,
+    store,
+    sync,
     wrap: (app) => <AnalyticsProvider client={analytics}>{app}</AnalyticsProvider>,
   })
   return { db, engine, router, analytics }
@@ -141,9 +164,9 @@ const rowPlay = (label: string) =>
     .getByRole('button', { name: playName(label), exact: true })
 const planSheetShown = (analytics: ReturnType<typeof recordingAnalytics>) =>
   analytics.sends().filter((send) => send.name === 'premium_sheet_shown')
-const PAGE_PLAN_SHEET = {
+const PAGE_PLAN_OVERLAY = {
   name: 'premium_sheet_shown',
-  props: { reason: 'recordings', from: 'recording_page' },
+  props: { reason: 'recordings', from: 'recording_page', presentation: 'overlay' },
 }
 
 /** Plays `label` from its row's play control on the tune page. */
@@ -329,16 +352,6 @@ it('leaves when the recording is deleted', async () => {
   await expect.element(heading(FAST)).toBeVisible()
   await db.recordings.update('rA', { deleted_at: '2026-02-01T00:00:00.000Z' })
   await expect.poll(() => router.state.location.pathname).toBe(RECORDINGS.root)
-})
-
-it("a lapsed account's page edits but does not play", async () => {
-  const { analytics } = await mount(recordingPath(TUNE_PATH, 'rA'), PHONE, { lapsed: true })
-  await expect
-    .element(practicePanel().getByRole('button', { name: PLAY, exact: true }))
-    .toHaveAttribute('aria-disabled', 'true')
-  await practicePanel().getByRole('button', { name: SUBSCRIBE_TO_PLAY }).click()
-  await expect.element(planSheet()).toBeVisible()
-  await expect.poll(() => planSheetShown(analytics)).toEqual([PAGE_PLAN_SHEET])
 })
 
 it('offline, with no audio on this device, edits but shows why it cannot play', async () => {
@@ -593,35 +606,178 @@ it("hears practice's keys after a press on the Practice tab", async () => {
   expect(router.state.location.pathname).toBe(recordingPath(TUNE_PATH, 'rA'))
 })
 
-it('compact: holds no play control on Details, and the way to subscribe on Practice', async () => {
-  await mount(recordingPath(TUNE_PATH, 'rA'), PHONE, { lapsed: true })
-  await expect.element(tab(PRACTICE)).toHaveAttribute('aria-selected', 'true')
-  await expect.element(tab(PRACTICE)).not.toHaveAttribute('aria-disabled', 'true')
-  await expect
-    .element(practicePanel().getByRole('button', { name: SUBSCRIBE_TO_PLAY }))
-    .toBeVisible()
-  await showDetails()
-  const details = page.getByRole('tabpanel', { name: DETAILS })
-  await expect
-    .element(details.getByRole('button', { name: new RegExp(`^${PLAYERS_LABEL}, `) }))
-    .toBeVisible()
-  await expect
-    .element(details.getByRole('button', { name: PLAY, exact: true }))
-    .not.toBeInTheDocument()
-  await expect
-    .element(details.getByRole('button', { name: SUBSCRIBE_TO_PLAY }))
-    .not.toBeInTheDocument()
+const LAYOUTS = [
+  ['wide', WIDE],
+  ['tabbed', PHONE],
+] as const
+const overlayHeading = () => page.getByRole('heading', { level: 2, name: LAPSED_PREMIUM_TITLE })
+const pagePlay = () => page.getByRole('main').getByRole('button', { name: PLAY, exact: true })
+const menuItem = (name: string) => page.getByRole('menuitem', { name, exact: true })
+const isVisible = (element: Element) => element.checkVisibility()
+/** Whether focus can land on `element`, which it cannot inside an inert subtree. */
+function takesFocus(element: Element): boolean {
+  ;(element as HTMLElement).focus()
+  return document.activeElement === element
+}
+
+it.each(LAYOUTS)(
+  "covers a lapsed account's recording with the Plan sheet (%s)",
+  async (_, frame) => {
+    const { analytics } = await mount(recordingPath(TUNE_PATH, 'rA'), frame, { lapsed: true })
+    await expect.element(overlayHeading()).toBeVisible()
+    // The overlay says why; the covered page says nothing about Premium.
+    await expect
+      .poll(() => page.getByText(PREMIUM_RECORDINGS_TITLE).elements().some(isVisible))
+      .toBe(false)
+    await expect.element(pagePlay()).toHaveAttribute('aria-disabled', 'true')
+    await expect.poll(() => takesFocus(pagePlay().element())).toBe(false)
+    await expect.poll(() => planSheetShown(analytics)).toEqual([PAGE_PLAN_OVERLAY])
+  },
+)
+
+it.each([
+  { plan: 'premium', lapsed: false },
+  { plan: 'lapsed', lapsed: true },
+])('fetches audio held only on the server on a plan that plays it ($plan)', async ({ lapsed }) => {
+  const download = vi.fn(async (_id: string) => null)
+  const peaks = vi.fn(async (_id: string) => null)
+  const { router } = await mount(recordingPath(TUNE_PATH, 'rB'), PHONE, {
+    lapsed,
+    sync: { download, peaks },
+    before: (db) => db.recording_files.update('rA', { blob: null }),
+  })
+  // The plan has read before the page under test mounts.
+  await expect.element(lapsed ? overlayHeading() : heading(SLOW)).toBeVisible()
+  await act(() => router.navigate(recordingPath(TUNE_PATH, 'rA')))
+
+  // Peaks are asked for in the same commit that would start the download.
+  await expect.poll(() => peaks.mock.calls.some(([id]) => id === 'rA')).toBe(true)
+  await expect.poll(() => download.mock.calls.some(([id]) => id === 'rA')).toBe(!lapsed)
 })
 
-it("says Subscribe to play once on a lapsed account's wide page", async () => {
-  const { analytics } = await mount(recordingPath(TUNE_PATH, 'rA'), WIDE, { lapsed: true })
-  const main = page.getByRole('main')
-  await expect.element(main.getByRole('button', { name: SUBSCRIBE_TO_PLAY })).toBeVisible()
-  await expect.poll(() => main.getByText(SUBSCRIBE_TO_PLAY).elements()).toHaveLength(1)
-  await main.getByRole('button', { name: SUBSCRIBE_TO_PLAY }).click()
-  await expect.element(planSheet()).toBeVisible()
-  await expect.poll(() => planSheetShown(analytics)).toEqual([PAGE_PLAN_SHEET])
+it.each(LAYOUTS)('keeps the header live (%s)', async (layout, frame) => {
+  // Share shows only where the browser can share files.
+  Object.defineProperty(navigator, 'canShare', { value: () => true, configurable: true })
+  onTestFinished(() => void delete (navigator as { canShare?: unknown }).canShare)
+  const { router } = await mount(recordingPath(RECORDINGS.root, 'rA'), frame, { lapsed: true })
+  await expect.element(overlayHeading()).toBeVisible()
+  await expect.element(more()).toBeEnabled()
+  await more().click()
+  for (const name of [GO_TO_TUNE, SHARE, DOWNLOAD, DELETE])
+    await expect.element(menuItem(name)).toBeVisible()
+  for (const name of [PLAY_FIRST_IN_LISTS, DONT_PLAY_FIRST, TRIM, SPLIT])
+    await expect.element(menuItem(name)).not.toBeInTheDocument()
+  await userEvent.keyboard('{Escape}')
+  await expect.element(menuItem(DOWNLOAD)).not.toBeInTheDocument()
+  // Wide has no Back: the list stays beside the page.
+  if (layout === 'tabbed') {
+    await page.getByRole('main').getByRole('link', { name: RECORDINGS.label }).click()
+    await expect.poll(() => router.state.location.pathname).toBe(RECORDINGS.root)
+    await act(() => router.navigate(recordingPath(RECORDINGS.root, 'rA')))
+    await expect.element(overlayHeading()).toBeVisible()
+  }
+  await page.getByRole('link', { name: CATALOG.label, exact: true }).click()
+  await expect.poll(() => router.state.location.pathname).toBe(CATALOG.root)
 })
+
+it.each(LAYOUTS)("the overlay's export opens the Download sheet (%s)", async (_, frame) => {
+  await mount(recordingPath(TUNE_PATH, 'rA'), frame, {
+    lapsed: true,
+    // Audio on the server only, so the export fetches it in its sheet.
+    before: (db) => db.recording_files.update('rA', { blob: null }),
+  })
+  // A page's Plan sheet offers its own recording, never everything.
+  await expect
+    .element(page.getByRole('button', { name: EXPORT_EVERYTHING }))
+    .not.toBeInTheDocument()
+  await page.getByRole('button', { name: EXPORT_THIS_RECORDING }).click()
+  await expect.element(page.getByRole('dialog', { name: DOWNLOAD })).toBeVisible()
+  await expect.element(overlayHeading()).toBeVisible()
+})
+
+it.each(LAYOUTS)('a store that cannot answer says so on the overlay (%s)', async (_, frame) => {
+  await mount(recordingPath(TUNE_PATH, 'rA'), frame, {
+    lapsed: true,
+    store: fakeStore({ offers: () => Promise.reject(new Error('unreachable')) }),
+  })
+  await expect.element(page.getByText(SUBSCRIBE_UNAVAILABLE_TITLE)).toBeVisible()
+  await expect.element(page.getByRole('alertdialog')).not.toBeInTheDocument()
+})
+
+it.each(LAYOUTS)('a failed delete shows its error over the overlay (%s)', async (_, frame) => {
+  const { db } = await mount(recordingPath(TUNE_PATH, 'rA'), frame, { lapsed: true })
+  await expect.element(overlayHeading()).toBeVisible()
+  // Only a delete removes audio, so no background read or write can take this failure.
+  vi.spyOn(db.recording_files, 'delete').mockRejectedValueOnce(new Error('Disk full'))
+  await more().click()
+  await menuItem(DELETE).click()
+  await page.getByRole('alertdialog').getByRole('button', { name: DELETE }).click()
+  const shown = page.getByRole('alert').filter({ hasText: 'Disk full' })
+  await expect.element(shown).toBeVisible()
+  // The closing question leaves the page inert for a moment; the covered body stays inert.
+  await expect.element(shown).toSatisfy((alert) => alert?.closest('[inert]') === null)
+})
+
+it.each(LAYOUTS)(
+  'a plan that turns free mid-trim leaves the editor for the overlay (%s)',
+  async (_, frame) => {
+    const { db } = await mount(recordingPath(TUNE_PATH, 'rA'), frame)
+    await more().click()
+    await menuItem(TRIM).click()
+    await expect.element(page.getByRole('slider', { name: START_HANDLE })).toBeVisible()
+    await db.entitlements.put(
+      entitlementRow({ premium_source: 'stripe', premium_expires_at: '2026-01-01T00:00:00.000Z' }),
+    )
+    await expect.element(overlayHeading()).toBeVisible()
+    await expect.element(page.getByRole('slider', { name: START_HANDLE })).not.toBeInTheDocument()
+  },
+)
+
+it.each(LAYOUTS)('Escape leaves the overlay up (%s)', async (_, frame) => {
+  const { router } = await mount(recordingPath(TUNE_PATH, 'rA'), frame, { lapsed: true })
+  await expect.element(overlayHeading()).toBeVisible()
+  await userEvent.keyboard('{Escape}')
+  await userEvent.keyboard('{Escape}')
+  await expect.element(overlayHeading()).toBeVisible()
+  expect(router.state.location.pathname).toBe(recordingPath(TUNE_PATH, 'rA'))
+})
+
+it.each(LAYOUTS)('a purchase that lands removes the overlay (%s)', async (_, frame) => {
+  const { db } = await mount(recordingPath(TUNE_PATH, 'rA'), frame, { lapsed: true })
+  await expect.element(overlayHeading()).toBeVisible()
+  await db.entitlements.put(
+    entitlementRow({ premium_source: 'stripe', premium_expires_at: '2999-01-01T00:00:00.000Z' }),
+  )
+  await expect.element(overlayHeading()).not.toBeInTheDocument()
+  await expect.element(pagePlay()).not.toHaveAttribute('aria-disabled', 'true')
+  await expect.poll(() => takesFocus(pagePlay().element())).toBe(true)
+})
+
+it.each(LAYOUTS)('an unknown plan shows no overlay (%s)', async (_, frame) => {
+  await mount(recordingPath(TUNE_PATH, 'rA'), frame)
+  await expect.element(heading(FAST)).toBeVisible()
+  await expect.element(pagePlay()).not.toHaveAttribute('aria-disabled', 'true')
+  await expect.element(overlayHeading()).not.toBeInTheDocument()
+})
+
+it.each(LAYOUTS)(
+  "More's Download opens over the overlay and focus returns to More (%s)",
+  async (_, frame) => {
+    await mount(recordingPath(TUNE_PATH, 'rA'), frame, {
+      lapsed: true,
+      // Audio on the server only, so Download fetches it in its sheet.
+      before: (db) => db.recording_files.update('rA', { blob: null }),
+    })
+    await expect.element(overlayHeading()).toBeVisible()
+    await more().click()
+    await menuItem(DOWNLOAD).click()
+    await expect.element(page.getByRole('dialog', { name: DOWNLOAD })).toBeVisible()
+    await userEvent.keyboard('{Escape}')
+    await expect.element(page.getByRole('dialog', { name: DOWNLOAD })).not.toBeInTheDocument()
+    await expect.element(more()).toHaveFocus()
+    await expect.element(overlayHeading()).toBeVisible()
+  },
+)
 
 it('opens wide straight into its layout, never drawing the tabs first', async () => {
   let tabsDrawn = false

@@ -40,30 +40,14 @@ enum RecordingPageArrangement {
         width: CGFloat, allowsWide: Bool, tab: RecordingPageTab, recordingsPlay: Bool
     ) -> RecordingPageLayout {
         if allowsWide, width >= foldWidth { return .wide }
-        return isEnabled(tab, recordingsPlay: recordingsPlay) && tab == .practice ? .practice : .details
+        return recordingsPlay && tab == .practice ? .practice : .details
     }
 
     static func showsTabs(_ layout: RecordingPageLayout) -> Bool {
         layout != .wide
     }
 
-    /// Whether `tab` can be chosen: Practice only while the plan lets recordings play.
-    static func isEnabled(_ tab: RecordingPageTab, recordingsPlay: Bool) -> Bool {
-        tab == .details || recordingsPlay
-    }
-
     /// Whether the Details tab carries the list controls: while the page's recording is the
     /// loaded one. The row draws only while a list plays.
     static func showsListControls(isCurrent: Bool) -> Bool { isCurrent }
-
-    /// The tab a pick selects, or nil when the plan refuses it, so a refused pick never writes.
-    static func pick(_ chosen: RecordingPageTab, recordingsPlay: Bool) -> RecordingPageTab? {
-        isEnabled(chosen, recordingsPlay: recordingsPlay) ? chosen : nil
-    }
-
-    /// Why the Practice tab and the practice area are disabled, or nil while they
-    /// can be used.
-    static func playBlockedReason(recordingsPlay: Bool) -> String? {
-        recordingsPlay ? nil : RecordingText.subscribeToPlay
-    }
 }

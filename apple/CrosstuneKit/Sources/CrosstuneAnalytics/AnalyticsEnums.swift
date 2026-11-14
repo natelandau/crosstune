@@ -287,6 +287,13 @@ public enum PremiumEntry: String, CaseIterable, Sendable {
     case planGroup = "plan_group"
     case trialReminder = "trial_reminder"
     case trialEnded = "trial_ended"
+    case linkRecordings = "link_recordings"
+}
+
+/// How the Plan sheet showed: a sheet that closes, or an overlay on a page that needs Premium.
+public enum PremiumPresentation: String, CaseIterable, Sendable {
+    case sheet
+    case overlay
 }
 
 /// A one-time plan notice, named as the API names it.

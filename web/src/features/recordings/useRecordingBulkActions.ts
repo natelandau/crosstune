@@ -1,5 +1,6 @@
 import { Download, Link, Share, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
+import { useRecordingsPlayable } from '../../billing/usePlan'
 import { deleteRecordings, linkRecordings, waitingParentIds } from '../../commands/recordings'
 import { holdsSplitAudio } from '../../domain/recordingLimits'
 import { useDb } from '../../db/DbProvider'
@@ -11,6 +12,7 @@ import { useAction } from '../../ui/useAction'
 import { useLatest } from '../../ui/useLatest'
 import { useAnalytics } from '../../usage/AnalyticsProvider'
 import { recordingOrigin } from '../../usage/origin'
+import { usePremiumSheet } from '../plan/PremiumSheetProvider'
 import { isPlaying, usePlayer } from '../player/usePlayer'
 import { DELETE_WHILE_SPLITTING } from '../practice/splitCopy'
 import type { SelectionButton } from '../selection/selectionButton'
@@ -53,10 +55,11 @@ export interface RecordingBulkActions {
 
 /**
  * The Recordings screen's bulk actions. A write applies to the whole selection and ends the
- * mode, while a failure keeps both so it can be tried again. Link to tune toasts with Undo;
- * Delete asks first, since no undo brings a recording back, and leaves a split parent whose
- * piece still plays from its audio. Download first says which recordings it must leave out;
- * an export ends the mode once delivered, and a cancel keeps it.
+ * mode, while a failure keeps both so it can be tried again. Link to tune toasts with Undo,
+ * and on a free plan opens the Plan sheet instead. Delete asks first, since no undo brings a
+ * recording back, and leaves a split parent whose piece still plays from its audio. Download
+ * first says which recordings it must leave out; an export ends the mode once delivered, and a
+ * cancel keeps it.
  */
 export function useRecordingBulkActions({
   active,
@@ -69,6 +72,8 @@ export function useRecordingBulkActions({
   const analytics = useAnalytics()
   const player = usePlayer()
   const createTune = useCreateTune()
+  const premium = usePremiumSheet()
+  const playable = useRecordingsPlayable()
   const bar = useAction()
   const [linkOpen, setLinkOpen] = useState(false)
   const ids = useMemo(() => views.map((view) => view.recording.id), [views])
@@ -129,7 +134,14 @@ export function useRecordingBulkActions({
 
   const allHeld = views.length > 0 && views.every((view) => view.holdsSplitAudio)
   const buttons: SelectionButton[] = [
-    { id: 'link', label: LINK_TO_TUNE, icon: Link, onPress: () => setLinkOpen(true) },
+    {
+      id: 'link',
+      label: LINK_TO_TUNE,
+      icon: Link,
+      onPress: playable
+        ? () => setLinkOpen(true)
+        : () => premium.open('recordings', 'link_recordings'),
+    },
     {
       id: 'download',
       label: DOWNLOAD,

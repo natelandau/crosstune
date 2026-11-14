@@ -32,11 +32,14 @@ import Testing
         PlanSection.open(presenter)
 
         #expect(presenter.presented == .plan)
-        #expect(presenter.presentedFrom == .planGroup)
+        #expect(presenter.presentation?.entry == .planGroup)
         #expect(
             sink.captures == [
                 .init(
-                    name: "premium_sheet_shown", properties: ["reason": .string("plan"), "from": .string("plan_group")])
+                    name: "premium_sheet_shown",
+                    properties: [
+                        "reason": .string("plan"), "from": .string("plan_group"), "presentation": .string("sheet"),
+                    ])
             ])
     }
 

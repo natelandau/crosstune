@@ -340,16 +340,16 @@ private func recording(_ id: String = "r1", label: String? = "Jam at Mike's") ->
         try await eventually { player.recordingAudio == .loaded }
 
         player.recordingChanged(
-            id: "r1", to: recording(label: "Take 2"), audioFile: playable(), tuneTitle: "Kitchen Girl")
-        #expect(player.title == "Take 2")
-        #expect(audio.nowPlaying == NowPlaying(title: "Take 2", tuneTitle: "Kitchen Girl"))
+            id: "r1", to: recording(label: "Recording 2"), audioFile: playable(), tuneTitle: "Kitchen Girl")
+        #expect(player.title == "Recording 2")
+        #expect(audio.nowPlaying == NowPlaying(title: "Recording 2", tuneTitle: "Kitchen Girl"))
         #expect(audio.isPlaying)
 
         // Another recording changing leaves the loaded one alone.
         player.recordingChanged(id: "r2", to: nil, audioFile: nil, tuneTitle: nil)
         #expect(player.isLoaded)
 
-        var deleted = recording(label: "Take 2")
+        var deleted = recording(label: "Recording 2")
         deleted.deletedAt = .now
         player.recordingChanged(id: "r1", to: deleted, audioFile: nil, tuneTitle: nil)
         #expect(player.isLoaded == false)

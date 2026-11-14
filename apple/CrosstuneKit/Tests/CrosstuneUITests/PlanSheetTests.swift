@@ -4,6 +4,7 @@ import CrosstuneDesign
 import CrosstuneStore
 import CrosstuneTestSupport
 import Foundation
+import SwiftUI
 import Testing
 
 @testable import CrosstuneUI
@@ -16,6 +17,64 @@ private let offers = [
 private let day: TimeInterval = 86_400
 private let instant = noon.date
 private let portal = URL(string: "https://billing.example.com/portal")!
+
+struct ContextCase: Sendable, CustomTestStringConvertible {
+    let reason: PremiumReason
+    let lapse: PlanLapse?
+    let count: Int
+    let subject: PremiumSubject?
+    let title: String
+    let body: String
+    let action: PlanContextAction?
+
+    var testDescription: String {
+        "\(reason) \(String(describing: lapse)) \(count) \(subject?.recordingID ?? "no subject")"
+    }
+}
+
+private let band = PremiumSubject(recordingID: "rec-1")
+
+/// The recordings line asks to subscribe or export only when the sheet offers an export.
+private let asksToSubscribeOrExport = "\(PlanText.recordingsCost) \(PlanText.subscribeOrExport)"
+
+private let contextCases: [ContextCase] = [
+    ContextCase(
+        reason: .recordings, lapse: .paid, count: 12, subject: nil, title: PlanText.lapsedPremiumTitle,
+        body: asksToSubscribeOrExport, action: .exportAll),
+    ContextCase(
+        reason: .recordings, lapse: .trial, count: 1, subject: nil, title: PlanText.lapsedTrialTitle,
+        body: asksToSubscribeOrExport, action: .exportAll),
+    ContextCase(
+        reason: .recordings, lapse: .paid, count: 12, subject: band, title: PlanText.lapsedPremiumTitle,
+        body: asksToSubscribeOrExport, action: .exportRecording(id: band.recordingID)),
+    ContextCase(
+        reason: .recordings, lapse: .trial, count: 0, subject: nil, title: PlanText.lapsedTrialTitle,
+        body: PlanText.recordingsCost, action: nil),
+    ContextCase(
+        reason: .recordings, lapse: .paid, count: 0, subject: nil, title: PlanText.lapsedPremiumTitle,
+        body: PlanText.recordingsCost, action: nil),
+    ContextCase(
+        reason: .recordings, lapse: nil, count: 0, subject: nil, title: PlanText.premiumRecordingsTitle,
+        body: PlanText.recordingsCost, action: nil),
+    ContextCase(
+        reason: .recordings, lapse: nil, count: 3, subject: nil, title: PlanText.premiumRecordingsTitle,
+        body: asksToSubscribeOrExport, action: .exportAll),
+    ContextCase(
+        reason: .recordings, lapse: nil, count: 3, subject: band, title: PlanText.premiumRecordingsTitle,
+        body: asksToSubscribeOrExport, action: .exportRecording(id: band.recordingID)),
+    ContextCase(
+        reason: .scans, lapse: .paid, count: 5, subject: nil, title: PlanText.lapsedPremiumTitle,
+        body: PlanText.premiumScansBody, action: nil),
+    ContextCase(
+        reason: .scans, lapse: .trial, count: 5, subject: nil, title: PlanText.lapsedTrialTitle,
+        body: PlanText.premiumScansBody, action: nil),
+    ContextCase(
+        reason: .scans, lapse: nil, count: 5, subject: nil, title: PlanText.premiumScansTitle,
+        body: PlanText.premiumScansBody, action: nil),
+    ContextCase(
+        reason: .plan, lapse: .paid, count: 5, subject: nil, title: PlanText.premiumPlanTitle,
+        body: PlanText.premiumPitch, action: nil),
+]
 
 @MainActor
 @Suite(.timeLimit(.minutes(1))) struct PlanSheetTests {
@@ -33,19 +92,56 @@ private let portal = URL(string: "https://billing.example.com/portal")!
         #expect(PlanSheet.sale(plan: .unknown, offers: .ready(offers), line: nil) == .notPurchasable)
     }
 
-    @Test func thePlanReasonLeadsWithThePitch() {
-        let headline = PlanSheet.headline(.plan)
-        #expect(headline.title == PlanText.premiumPlanTitle)
-        #expect(headline.body == PlanText.premiumPitch)
+    @Test(arguments: contextCases) func theContextFollowsTheReasonAndTheAccountsHistory(_ row: ContextCase) {
+        let context = PlanContext.make(
+            reason: row.reason, lapse: row.lapse,
+            inputs: PlanContextInputs(recordingCount: row.count, subject: row.subject))
+        #expect(context.title == row.title)
+        #expect(context.body == row.body)
+        #expect(context.action == row.action)
     }
 
-    @Test func aLockedTapLeadsWithWhatWasTapped() {
-        let recordings = PlanSheet.headline(.recordings)
-        #expect(recordings.title == PlanText.premiumRecordingsTitle)
-        #expect(recordings.body == PlanText.premiumRecordingsBody)
-        let scans = PlanSheet.headline(.scans)
-        #expect(scans.title == PlanText.premiumScansTitle)
-        #expect(scans.body == PlanText.premiumScansBody)
+    /// A sheet with no subject never opens on the no-recordings text while the count is read.
+    @Test(
+        arguments: [
+            (reading: true, subject: nil, read: nil, failed: false, waits: true),
+            (reading: true, subject: band, read: nil, failed: false, waits: false),
+            (
+                reading: true, subject: nil, read: PlanContextInputs(recordingCount: 5, subject: nil), failed: false,
+                waits: false
+            ),
+            (reading: true, subject: nil, read: nil, failed: true, waits: false),
+            (reading: false, subject: nil, read: nil, failed: false, waits: false),
+        ] as [(reading: Bool, subject: PremiumSubject?, read: PlanContextInputs?, failed: Bool, waits: Bool)])
+    func aSheetWithNoSubjectWaitsForTheFirstCount(
+        _ row: (reading: Bool, subject: PremiumSubject?, read: PlanContextInputs?, failed: Bool, waits: Bool)
+    ) {
+        #expect(
+            PlanContextReader<EmptyView>.waitsForCount(
+                reading: row.reading, subject: row.subject, read: row.read, failed: row.failed) == row.waits)
+    }
+
+    @Test func theContextFollowsTheSubjectWhileTheSheetShows() async throws {
+        let store = try root.open()
+        try await store.write { writer in
+            for id in ["r1", "r2"] {
+                try writer.put(
+                    Recording(id: id, createdAt: noon, tuneID: nil, source: "microphone", addedAt: noon, label: id),
+                    at: noon)
+            }
+        }
+        let query = PlanContextInputs.live(store, subject: PremiumSubject(recordingID: "r1"))
+        func context() throws -> PlanContext {
+            PlanContext.make(reason: .recordings, lapse: .paid, inputs: try #require(query.value))
+        }
+        try await eventually { query.value != nil }
+        #expect(try context().action == .exportRecording(id: "r1"))
+
+        // Deleted while the sheet shows: the action falls back to everything the account holds.
+        try await store.write { writer in try writer.tombstone(Recording.self, id: "r1", at: noon) }
+        try await eventually { query.value?.subject == nil }
+        let deleted = try context()
+        #expect(deleted.action == .exportAll)
     }
 
     @Test func theComparisonListsTheSpecsRowsInOrder() {
@@ -192,6 +288,30 @@ private let portal = URL(string: "https://billing.example.com/portal")!
         #expect(StoreAlert.unavailable.message == PlanText.subscribeUnavailableMessage)
     }
 
+    /// A host that shows itself unasked, such as a page's overlay, raises no alert for a store
+    /// that cannot answer, but still for a try that failed in it.
+    @Test func aHostShownUnaskedAlertsOnlyForAFailedTry() {
+        #expect(
+            PlanSheet.storeAlert(.unavailable, line: nil, unavailableDismissed: false, alertsUnavailable: false) == nil)
+        #expect(
+            PlanSheet.storeAlert(.unavailable, line: .failed, unavailableDismissed: false, alertsUnavailable: false)
+                == .subscribeFailed)
+    }
+
+    /// With no alert to say it, the overlay says the store cannot answer where the choice goes,
+    /// and a sheet leaves it to its alert.
+    @Test func anOverlaySaysTheStoreCannotAnswerInPlaceOfTheChoice() {
+        let overlay = PlanPanel.Host.overlay.alertsUnavailable
+        #expect(
+            PlanSheet.outcomeLine(.unavailable, line: nil, alertsUnavailable: overlay)
+                == PlanText.subscribeUnavailableTitle)
+        #expect(
+            PlanSheet.outcomeLine(.unavailable, line: .nothingToRestore, alertsUnavailable: overlay)
+                == PlanText.nothingToRestore)
+        let sheet = PlanPanel.Host.sheet(onClose: nil).alertsUnavailable
+        #expect(PlanSheet.outcomeLine(.unavailable, line: nil, alertsUnavailable: sheet) == nil)
+    }
+
     @Test func aRestoreSettlesTheSheetAsAPurchaseDoes() {
         // Until the sync turns the plan Premium, the sheet must not show purchase options under the restored line.
         let free = Plan(kind: .free)
@@ -334,7 +454,7 @@ private let portal = URL(string: "https://billing.example.com/portal")!
         await model.loadOffers()
 
         _ = presenter.gate(.recordings, from: .record)
-        await PlanSheet.subscribe(model, from: try #require(presenter.presentedFrom))
+        await PlanSheet.subscribe(model, from: try #require(presenter.presentation?.entry))
 
         #expect(
             sink.captures.contains(
@@ -522,7 +642,7 @@ private let portal = URL(string: "https://billing.example.com/portal")!
     @MainActor
     struct MacPlanFooterTests {
         @Test func subscribeTrailsCloseAndIsNeverDefault() {
-            let footer = PlanSheet.macFooter(.choice(offers), isWorking: false, close: {}, subscribe: {})
+            let footer = PlanPanel.macFooter(.choice(offers), isWorking: false, close: {}, subscribe: {})
             #expect(footer.cancel?.title == SheetCloseButton.close)
             #expect(footer.primary?.title == PlanText.subscribe)
             #expect(footer.primary?.role == .primary)
@@ -531,10 +651,10 @@ private let portal = URL(string: "https://billing.example.com/portal")!
         }
 
         @Test func subscribeHoldsItsPlaceWhileTheStoreAnswersOrAPurchaseRuns() {
-            let loading = PlanSheet.macFooter(.loading, isWorking: false, close: {}, subscribe: {})
+            let loading = PlanPanel.macFooter(.loading, isWorking: false, close: {}, subscribe: {})
             #expect(loading.primary?.title == PlanText.subscribe)
             #expect(loading.primary?.isEnabled == false)
-            let working = PlanSheet.macFooter(.choice(offers), isWorking: true, close: {}, subscribe: {})
+            let working = PlanPanel.macFooter(.choice(offers), isWorking: true, close: {}, subscribe: {})
             #expect(working.primary?.isEnabled == false)
         }
 
@@ -542,7 +662,7 @@ private let portal = URL(string: "https://billing.example.com/portal")!
         /// the subtitle says why it cannot be pressed.
         @Test(arguments: [PlanSheet.Sale.offline, .unavailable])
         func unreachableShowsSubscribeDisabled(sale: PlanSheet.Sale) {
-            let footer = PlanSheet.macFooter(sale, isWorking: false, close: {}, subscribe: {})
+            let footer = PlanPanel.macFooter(sale, isWorking: false, close: {}, subscribe: {})
             #expect(footer.cancel?.title == SheetCloseButton.close)
             #expect(footer.primary?.title == PlanText.subscribe)
             #expect(footer.primary?.isEnabled == false)
@@ -561,22 +681,31 @@ private let portal = URL(string: "https://billing.example.com/portal")!
 
         @Test(arguments: [PlanSheet.Sale.notPurchasable, .subscribed])
         func nothingToBuyLeavesCloseAlone(sale: PlanSheet.Sale) {
-            let footer = PlanSheet.macFooter(sale, isWorking: false, close: {}, subscribe: {})
+            let footer = PlanPanel.macFooter(sale, isWorking: false, close: {}, subscribe: {})
             #expect(footer.cancel?.title == SheetCloseButton.close)
             #expect(footer.primary == nil)
         }
 
-        /// Offline, the Mac sheet says why nothing is purchasable in its subtitle, never in a line floating
-        /// under the cards; an outcome tried offline still reads in the body.
-        @Test func offlineReasonIsTheMacSubtitle() {
-            #expect(PlanSheet.macSubtitle(.offline, line: nil, pitch: "Pitch") == PlanText.subscribeOffline)
-            #expect(PlanSheet.macOutcomeLine(.offline, line: nil) == nil)
-            #expect(PlanSheet.macSubtitle(.offline, line: .nothingToRestore, pitch: "Pitch") == "Pitch")
-            #expect(PlanSheet.macOutcomeLine(.offline, line: .nothingToRestore) == PlanText.nothingToRestore)
-            #expect(PlanSheet.macSubtitle(.unavailable, line: nil, pitch: "Pitch") == "Pitch")
-            #expect(PlanSheet.macOutcomeLine(.unavailable, line: nil) == nil)
-            #expect(PlanSheet.macSubtitle(.loading, line: nil, pitch: "Pitch") == "Pitch")
-            #expect(PlanSheet.macOutcomeLine(.subscribed, line: .subscribed) == PlanText.subscribed)
+        /// A host that cannot be closed, such as the recording page's panel, keeps Subscribe alone.
+        @Test func noCloseLeavesSubscribeAlone() {
+            let footer = PlanPanel.macFooter(.choice(offers), isWorking: false, close: nil, subscribe: {})
+            #expect(footer.cancel == nil)
+            #expect(footer.primary?.title == PlanText.subscribe)
+        }
+
+        /// Offline, the frame keeps the context's line; the panel's outcome line says why nothing
+        /// can be bought, as on the phone.
+        @Test func offlineKeepsTheContextLine() {
+            let context = PlanContext.make(
+                reason: .recordings, lapse: .trial, inputs: PlanContextInputs(recordingCount: 3, subject: nil))
+            let purchase = PurchaseModel(
+                client: FakePurchaseClient(), refresh: {}, sync: {}, isOffline: { true },
+                analytics: RecordingAnalyticsSink().client)
+            let chrome = PlanPanel.macChrome(
+                plan: Plan(kind: .free, lapse: .trial), context: context, purchase: purchase, entry: .recordingRow,
+                close: nil)
+            #expect(chrome.title == context.title)
+            #expect(chrome.subtitle == context.body)
         }
     }
 #endif

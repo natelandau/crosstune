@@ -34,7 +34,6 @@ import { renderApp } from '../../test/renderApp'
 import { TUNE } from '../tune/tunePageCopy'
 import { DROP_TO_IMPORT } from './DropOverlay'
 import { RECORDINGS_FILTER_ROW } from './RecordingsScreen'
-import { SUBSCRIBE_TO_PLAY } from './recordingCopy'
 
 const PHONE = { width: 390, height: 844 }
 const WIDE = { width: 1280, height: 800 }
@@ -478,7 +477,7 @@ it('drops the storage summary once the plan lapses to free, which has no quota',
   await show()
   await expect.element(column().getByRole('progressbar', { name: STORAGE_USED })).toBeVisible()
   await db.entitlements.put(entitlementRow())
-  await expect.element(row('Jam recording')).toHaveAccessibleDescription(SUBSCRIBE_TO_PLAY)
+  await expect.element(row('Jam recording')).toHaveAttribute('data-dimmed')
   await expect.element(column().getByText(/ used$/)).not.toBeInTheDocument()
 })
 
@@ -503,7 +502,6 @@ it('dims every recording on a free plan, filed and unfiled, and answers its play
   })
   for (const name of ['Jam recording', 'Hen take']) {
     await expect.element(column().getByRole('row', { name: new RegExp(`^${name}`) })).toBeVisible()
-    await expect.element(row(name)).toHaveAccessibleDescription(SUBSCRIBE_TO_PLAY)
     await expect.element(row(name)).toHaveAttribute('data-dimmed')
   }
   await row('Hen take')
@@ -519,7 +517,10 @@ it('dims every recording on a free plan, filed and unfiled, and answers its play
   await expect
     .poll(() => analytics.sends().filter((send) => send.name === 'premium_sheet_shown'))
     .toEqual([
-      { name: 'premium_sheet_shown', props: { reason: 'recordings', from: 'recording_row' } },
+      {
+        name: 'premium_sheet_shown',
+        props: { reason: 'recordings', from: 'recording_row', presentation: 'sheet' },
+      },
     ])
 })
 

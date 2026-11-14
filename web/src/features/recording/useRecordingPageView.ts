@@ -1,6 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useMemo, useState } from 'react'
 import { waitingParentIds } from '../../commands/recordings'
+import { useRecordingsPlayable } from '../../billing/usePlan'
 import { useDb } from '../../db/DbProvider'
 import { holdsSplitAudio } from '../../domain/recordingLimits'
 import { liveTune } from '../../db/tunes'
@@ -106,7 +107,7 @@ export function useRecordingPageView(id: string): RecordingPageView {
   const [trimNotice, setTrimNotice] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [shows, setShows] = useState<RecordingPageShows>('main')
-  const audio = useAudioFetch(recording, file)
+  const audio = useAudioFetch(recording, file, useRecordingsPlayable())
 
   const read = recording !== null
   const peaksRev = recording?.peaks_rev ?? null

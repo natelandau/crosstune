@@ -40,18 +40,18 @@ import Testing
 
     @Test func renameSavesOnDismissal() async throws {
         let store = try root.open()
-        let opened = recording(label: "Take 1")
+        let opened = recording(label: "Recording 1")
         try await put(opened, in: store)
         let model = RecordingAttributeModel(store: store, recordingID: "r1", analytics: sink.client)
 
         var session = RecordingEdit.name(opened)
-        session.draft = "  Take 2  "
+        session.draft = "  Recording 2  "
         var committed: [String] = []
         session.end(.dismissed) { committed.append($0) }
-        #expect(committed == ["Take 2"])
+        #expect(committed == ["Recording 2"])
         for name in committed { await model.rename(name) }
 
-        #expect(try await stored(in: store)?.label == "Take 2")
+        #expect(try await stored(in: store)?.label == "Recording 2")
         #expect(
             sink.captures == [
                 .init(
@@ -62,20 +62,20 @@ import Testing
 
     @Test func escapeWritesNothing() async throws {
         let store = try root.open()
-        let opened = recording(label: "Take 1")
+        let opened = recording(label: "Recording 1")
         try await put(opened, in: store)
         let model = RecordingAttributeModel(store: store, recordingID: "r1", analytics: sink.client)
 
         var session = RecordingEdit.name(opened)
-        session.draft = "Take 2"
+        session.draft = "Recording 2"
         var committed: [String] = []
         session.end(.escaped) { committed.append($0) }
         session.end(.leaving(stillPresented: false, asSheet: true)) { committed.append($0) }
         #expect(committed.isEmpty)
 
         // A save of the name it already has writes nothing and reports nothing.
-        await model.rename("Take 1")
-        #expect(try await stored(in: store)?.label == "Take 1")
+        await model.rename("Recording 1")
+        #expect(try await stored(in: store)?.label == "Recording 1")
         #expect(sink.calls.isEmpty)
     }
 
@@ -129,7 +129,7 @@ import Testing
 
     @Test func anEditAfterTheRecordingIsDeletedWritesNothing() async throws {
         let store = try root.open()
-        let opened = recording(label: "Take 1")
+        let opened = recording(label: "Recording 1")
         try await put(opened, in: store)
         let model = RecordingAttributeModel(store: store, recordingID: "r1", analytics: sink.client)
         let edit = RecordingLocationEdit(store: store, recording: opened, analytics: sink.client)
@@ -141,14 +141,14 @@ import Testing
 
         try await store.write { writer in try writer.deleteRecording("r1", at: noon) }
 
-        await model.rename("Take 2")
+        await model.rename("Recording 2")
         await model.setPlayers("Ada")
         #expect(model.failure == nil)
         #expect(await editor.leave() == nil)
         #expect(edit.failure == nil)
 
         let gone = try #require(try await stored(in: store))
-        #expect(gone.label == "Take 1")
+        #expect(gone.label == "Recording 1")
         #expect(gone.players == nil)
         #expect(gone.placeName == nil)
         #expect(gone.placeLat == nil)
@@ -156,7 +156,7 @@ import Testing
     }
 
     @Test func theDayAddedIsNotARow() {
-        let opened = rows(recording(label: "Take 1"))
+        let opened = rows(recording(label: "Recording 1"))
         #expect(RecordingPageRows.rows(opened).map(\.id) == [.name, .players, .recorded, .tune, .location, .notes])
     }
 

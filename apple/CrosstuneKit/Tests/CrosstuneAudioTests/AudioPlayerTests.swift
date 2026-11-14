@@ -74,7 +74,7 @@ struct OutputPortTests {
 
         player.skipsByInterval = false
         player.load(
-            root.url.appending(path: "tone.aac"), nowPlaying: NowPlaying(title: "Take", tuneTitle: nil))
+            root.url.appending(path: "tone.aac"), nowPlaying: NowPlaying(title: "Recording", tuneTitle: nil))
         #expect(center.skipForwardCommand.isEnabled == false)
         #expect(center.skipBackwardCommand.isEnabled == false)
 
@@ -134,7 +134,7 @@ struct OutputPortTests {
         let url = root.url.appending(path: "tone.aac")
         try writeTone(to: url, seconds: 4, channels: channels)
         let player = AudioPlayer(isCapturing: { false }, rendersOffline: true)
-        player.load(url, nowPlaying: NowPlaying(title: "Take", tuneTitle: nil))
+        player.load(url, nowPlaying: NowPlaying(title: "Recording", tuneTitle: nil))
         return player
     }
 
@@ -341,7 +341,7 @@ struct OutputPortTests {
         player.setWindow(PlaybackWindow(from: 1, to: 2))
         player.setRate(75)
         player.setPitch(cents: -300)
-        player.load(root.url.appending(path: "tone.aac"), nowPlaying: NowPlaying(title: "Take", tuneTitle: nil))
+        player.load(root.url.appending(path: "tone.aac"), nowPlaying: NowPlaying(title: "Recording", tuneTitle: nil))
         #expect(abs((player.duration ?? 0) - 4) < 0.2)
         #expect(player.timePitch.rate == 1)
         #expect(player.timePitch.pitch == 0)
@@ -493,7 +493,7 @@ struct OutputPortTests {
         let url = root.url.appending(path: "tone.aac")
         player.setLoop(PlaybackWindow(from: 1, to: 1.5))
         player.setRepeat(true)
-        player.load(url, nowPlaying: NowPlaying(title: "Take", tuneTitle: nil))
+        player.load(url, nowPlaying: NowPlaying(title: "Recording", tuneTitle: nil))
         #expect(player.isRepeating == false)
         player.play()
         try await renderInSteps(player, seconds: 2)
@@ -502,7 +502,7 @@ struct OutputPortTests {
         // Kept: Repeat stays on, but the old range waits for a new one before it wraps.
         player.setLoop(PlaybackWindow(from: 1, to: 1.5))
         player.setRepeat(true)
-        player.load(url, nowPlaying: NowPlaying(title: "Take", tuneTitle: nil), keepLoop: true)
+        player.load(url, nowPlaying: NowPlaying(title: "Recording", tuneTitle: nil), keepLoop: true)
         #expect(player.isRepeating)
         #expect(player.elapsed == 0)
         player.play()
@@ -537,7 +537,7 @@ struct OutputPortTests {
         let url = root.url.appending(path: "tone.aac")
         try writeTone(to: url, seconds: 1)
         let player = AudioPlayer(isCapturing: { true })
-        player.load(url, nowPlaying: NowPlaying(title: "Take", tuneTitle: nil))
+        player.load(url, nowPlaying: NowPlaying(title: "Recording", tuneTitle: nil))
         player.play()
         #expect(player.isPlaying == false)
         player.unload()
@@ -552,7 +552,7 @@ struct OutputPortTests {
         let player = AudioPlayer(isCapturing: { capturing.withLock { $0 } }, rendersOffline: true)
         var published: [PublishedPlayback] = []
         player.publishes = { published.append($0) }
-        player.load(url, nowPlaying: NowPlaying(title: "Take", tuneTitle: nil))
+        player.load(url, nowPlaying: NowPlaying(title: "Recording", tuneTitle: nil))
 
         // Refused while a recording is recorded.
         published = []
@@ -571,7 +571,7 @@ struct OutputPortTests {
         #expect(published.map(\.isPlaying) == [false])
 
         // A play that starts publishes once too, as playing.
-        player.load(url, nowPlaying: NowPlaying(title: "Take", tuneTitle: nil))
+        player.load(url, nowPlaying: NowPlaying(title: "Recording", tuneTitle: nil))
         published = []
         player.play()
         #expect(player.isPlaying)
@@ -617,7 +617,7 @@ struct OutputPortTests {
         let root = TemporaryRoot()
         let player = try offlinePlayer(root)
         player.setIsolate(highBand, isMono: true)
-        player.load(root.url.appending(path: "tone.aac"), nowPlaying: NowPlaying(title: "Take", tuneTitle: nil))
+        player.load(root.url.appending(path: "tone.aac"), nowPlaying: NowPlaying(title: "Recording", tuneTitle: nil))
         let isolate = try #require(player.isolate)
         #expect(isolate.setting == .standard)
         #expect(isolate.isMono == false)
@@ -674,7 +674,7 @@ struct OutputPortTests {
         try writeTone(to: url, seconds: 4, channels: 2, frequency: 4_400)
         #expect(CaptureWriter.sampleRate == 48_000)
         let player = AudioPlayer(isCapturing: { false }, rendersOffline: true)
-        player.load(url, nowPlaying: NowPlaying(title: "Take", tuneTitle: nil))
+        player.load(url, nowPlaying: NowPlaying(title: "Recording", tuneTitle: nil))
         player.play()
         let dry = rms(try player.render(seconds: 0.5).suffix(11_025))
         player.setIsolate(
@@ -690,7 +690,7 @@ struct OutputPortTests {
         let url = root.url.appending(path: "noise.aac")
         try writeNoise(to: url, seconds: 4)
         let player = AudioPlayer(isCapturing: { false }, rendersOffline: true)
-        player.load(url, nowPlaying: NowPlaying(title: "Take", tuneTitle: nil))
+        player.load(url, nowPlaying: NowPlaying(title: "Recording", tuneTitle: nil))
         player.play()
         let dry = rms(try player.render(seconds: 0.5).suffix(11_025))
 
@@ -715,7 +715,7 @@ struct OutputPortTests {
         let url = root.url.appending(path: "noise.aac")
         try writeNoise(to: url, seconds: 4)
         let player = AudioPlayer(isCapturing: { false }, rendersOffline: true)
-        player.load(url, nowPlaying: NowPlaying(title: "Take", tuneTitle: nil))
+        player.load(url, nowPlaying: NowPlaying(title: "Recording", tuneTitle: nil))
         player.setIsolateOutlineWanted(!engaging)
         player.play()
         let dry = rms(try player.render(seconds: 0.5).suffix(11_025))
@@ -743,7 +743,7 @@ struct OutputPortTests {
         for step in 0..<40 { try writer.write(sineBuffer(seconds: 0.1, amplitude: step < 20 ? 0.5 : 0)) }
         writer.close()
         let player = AudioPlayer(isCapturing: { false }, rendersOffline: true)
-        player.load(url, nowPlaying: NowPlaying(title: "Take", tuneTitle: nil))
+        player.load(url, nowPlaying: NowPlaying(title: "Recording", tuneTitle: nil))
         player.setIsolateOutlineWanted(true)
         player.play()
         let tone = try player.render(seconds: 1)

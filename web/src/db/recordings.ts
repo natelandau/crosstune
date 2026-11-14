@@ -1,4 +1,5 @@
 import { AUDIO_QUALITIES, type AudioQuality } from '../api/vocabulary'
+import type { CrosstuneDb } from './schema'
 
 function isAudioQuality(value: unknown): value is AudioQuality {
   return typeof value === 'string' && (AUDIO_QUALITIES as readonly string[]).includes(value)
@@ -102,4 +103,18 @@ export interface RecordingChunk {
   recording_id: string
   idx: number
   blob: Blob
+}
+
+/**
+ * How many recordings the account keeps. The deleted_at index holds only tombstones, since null
+ * is not indexable, so this reads two counts and no rows.
+ */
+export function countLiveRecordings(db: CrosstuneDb): Promise<number> {
+  return db.transaction('r', db.recordings, async () => {
+    const [all, deleted] = await Promise.all([
+      db.recordings.count(),
+      db.recordings.orderBy('deleted_at').count(),
+    ])
+    return all - deleted
+  })
 }

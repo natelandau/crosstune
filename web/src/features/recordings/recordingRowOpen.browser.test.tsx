@@ -17,6 +17,7 @@ import { SPLIT } from '../practice/splitCopy'
 import { TRIM } from '../practice/trimCopy'
 import type { Player } from '../player/usePlayer'
 import { PLAY_FIRST_IN_LISTS } from '../tune/playSourceText'
+import { EXPORT_THIS_RECORDING, LAPSED_PREMIUM_TITLE } from '../plan/planCopy'
 import { openOn } from './recordingCopy'
 import { DOWNLOAD, downloadName, GO_TO_TUNE, playName } from './recordingNames'
 
@@ -81,7 +82,10 @@ async function mount(
   const db = openTestDb()
   await seed(db)
   await before?.(db)
-  if (lapsed) await db.entitlements.put(entitlementRow())
+  if (lapsed)
+    await db.entitlements.put(
+      entitlementRow({ premium_source: 'stripe', premium_expires_at: '2026-01-01T00:00:00.000Z' }),
+    )
   const analytics = recordingAnalytics()
   const download = vi.fn(async () => null)
   const app = await renderApp({
@@ -95,6 +99,8 @@ async function mount(
   })
   return { ...app, db, analytics, download }
 }
+
+type Mounted = Awaited<ReturnType<typeof mount>>
 
 const row = (title: string) => page.getByRole('row', { name: new RegExp(`^${title}`) })
 // On the title, since in a narrow column the row's hover actions reach its middle.
@@ -219,18 +225,59 @@ it('the page menu offers Open on the site an import came from', async () => {
   await expect.element(page.getByRole('menuitem', { name: openOn('Slippery-Hill') })).toBeVisible()
 })
 
-it("a lapsed account's row slot opens the Plan sheet and the row opens the page", async () => {
-  const player = fakePlayer()
-  // The Recordings list, since a lapsed tune page folds its recordings away.
-  const { router } = await mount(RECORDINGS.root, { player, lapsed: true })
-  await row(HELD)
-    .getByRole('button', { name: playName(HELD), exact: true })
-    .click()
-  await expect.element(planSheet()).toBeVisible()
-  expect(player.play).not.toHaveBeenCalled()
-  expect(router.state.location.pathname).toBe(RECORDINGS.root)
-  await userEvent.keyboard('{Escape}')
+it.each([
+  [
+    'its play glyph',
+    (title: string) =>
+      row(title)
+        .getByRole('button', { name: playName(title), exact: true })
+        .click(),
+  ],
+  ['a tap on the row', tapRow],
+] as const)(
+  "a lapsed account's row opens the Plan sheet from %s, not the page",
+  async (_, press) => {
+    const player = fakePlayer()
+    // The Recordings list, since a lapsed tune page folds its recordings away.
+    const { router } = await mount(RECORDINGS.root, { player, lapsed: true })
+    await expect.element(row(HELD)).toHaveAttribute('data-dimmed')
+    await expect.element(row(HELD)).not.toHaveAccessibleDescription()
+    await press(HELD)
+    await expect
+      .element(planSheet().getByRole('heading', { name: LAPSED_PREMIUM_TITLE }))
+      .toBeVisible()
+    await expect
+      .element(planSheet().getByRole('button', { name: EXPORT_THIS_RECORDING }))
+      .toBeVisible()
+    expect(player.play).not.toHaveBeenCalled()
+    expect(router.state.location.pathname).toBe(RECORDINGS.root)
+  },
+)
+
+it.each([
+  [
+    'Download',
+    async () => {
+      await row(REMOTE)
+        .getByRole('button', { name: downloadName(REMOTE), exact: true })
+        .click()
+    },
+    ({ download }: Mounted) => expect.poll(() => download.mock.calls).toEqual([['rB']]),
+  ],
+  [
+    'Delete',
+    async () => {
+      await row(HELD).click({ button: 'right' })
+      await page.getByRole('menuitem', { name: DELETE }).click()
+      await page.getByRole('alertdialog').getByRole('button', { name: DELETE }).click()
+    },
+    ({ db }: Mounted) =>
+      expect.poll(async () => (await db.recordings.get('rA'))?.deleted_at).toBeTruthy(),
+  ],
+] as const)("a lapsed account's row %s runs with no Plan sheet", async (_, act, done) => {
+  const mounted = await mount(RECORDINGS.root, { lapsed: true })
+  await expect.element(row(HELD)).toBeVisible()
+  await act()
+  await done(mounted)
   await expect.element(planSheet()).not.toBeInTheDocument()
-  await tapRow(HELD)
-  await expect.poll(() => router.state.location.pathname).toBe(`${RECORDINGS.root}/recording/rA`)
 })

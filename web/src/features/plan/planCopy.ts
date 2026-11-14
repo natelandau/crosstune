@@ -1,3 +1,4 @@
+import type { Lapse } from '../../billing/plan'
 import { addedDay, recordedTime } from '../../text/format'
 import { localDaysBetween } from '../../text/localDate'
 import type { PremiumReason, PurchasePeriod } from '../../usage/events'
@@ -11,10 +12,15 @@ export const FREE_HELP =
 export const TRIAL_ENDS_TODAY = 'Ends today'
 export const PREMIUM_RECORDINGS_TITLE = 'Recordings are part of Premium'
 export const PREMIUM_SCANS_TITLE = 'Scans are part of Premium'
-export const PREMIUM_RECORDINGS_BODY =
-  'Premium keeps your recordings on our servers, so they play on every device. Every recording you already have stays: you can rename, file, delete, and export it on any plan.'
+export const RECORDINGS_COST =
+  'We wish all of Crosstune could be free, but transcoding recordings and syncing them between devices has real costs.'
+export const SUBSCRIBE_OR_EXPORT = 'Subscribe to keep playing them, or export them anytime.'
 export const PREMIUM_SCANS_BODY =
-  'Premium keeps your scans on our servers, so they open on every device. Every scan you already have stays: you can delete and export it on any plan.'
+  'We wish all of Crosstune could be free, but storing scans and syncing them between devices has real costs. You can always export or delete the scans you have.'
+export const LAPSED_PREMIUM_TITLE = 'Your Premium has ended'
+export const LAPSED_TRIAL_TITLE = 'Your trial has ended'
+export const EXPORT_THIS_RECORDING = 'Export this recording'
+export const EXPORT_EVERYTHING = 'Export everything'
 export const SEE_PLAN = 'See your plan'
 export const PREMIUM_PLAN_TITLE = 'Crosstune Premium'
 export const SUBSCRIBE = 'Subscribe'
@@ -44,7 +50,7 @@ export const PRIVACY_POLICY = 'Privacy Policy'
 export const TERMS_URL = 'https://crosstune.app/terms'
 export const PRIVACY_URL = 'https://crosstune.app/privacy'
 export const PREMIUM_PITCH =
-  'Your recordings live on our servers, so they play on every device. Premium pays for that.'
+  'Premium pays for the real costs of transcoding your recordings and syncing them between devices.'
 export const TRIAL_STORAGE = '100 MB of storage during the trial.'
 export const TRIAL_KEEPS = 'Everything you make stays and exports after.'
 export const COMPARE_FREE = 'Free'
@@ -142,15 +148,66 @@ export function trialLeft(endsAt: Date, now: Date): string {
   return `${trialEnds(endsAt)}, ${trialDaysLeft(endsAt, now)}`
 }
 
-/** The Plan sheet's headline and the line under it, leading with what opened the sheet. */
-export function premiumCopy(reason: PremiumReason): { title: string; body: string } {
+/** The recording a Plan sheet opened from, whose export it offers. */
+export interface PremiumSubject {
+  recordingId: string
+}
+/** The export a Plan context offers. */
+export type PlanAction = 'export_recording' | 'export_all'
+export interface PlanContext {
+  title: string
+  body: string
+  action: PlanAction | null
+}
+
+/** A lapsed account's title, after the grant it lost. */
+function lapsedTitle(lapse: Lapse): string {
+  return lapse === 'trial' ? LAPSED_TRIAL_TITLE : LAPSED_PREMIUM_TITLE
+}
+
+/** The recordings line, which asks to subscribe or export only when there is something to export. */
+function recordingsBody(action: PlanAction | null): string {
+  return action ? `${RECORDINGS_COST} ${SUBSCRIBE_OR_EXPORT}` : RECORDINGS_COST
+}
+
+/** The export a recordings context offers: its subject's, else the account's, if it holds any. */
+function recordingsAction(
+  lapse: Lapse,
+  subject: PremiumSubject | null,
+  recordingCount: number,
+): PlanAction | null {
+  if (subject && (lapse !== null || recordingCount > 0)) return 'export_recording'
+  return recordingCount > 0 ? 'export_all' : null
+}
+
+/**
+ * The Plan sheet's headline, the line under it, and the export it offers. A lapsed account's
+ * title follows the grant it lost; a subject is honored only for a recordings context.
+ */
+export function planContext(input: {
+  reason: PremiumReason
+  lapse: Lapse
+  recordingCount: number
+  subject: PremiumSubject | null
+}): PlanContext {
+  const { reason, lapse, recordingCount, subject } = input
   switch (reason) {
-    case 'recordings':
-      return { title: PREMIUM_RECORDINGS_TITLE, body: PREMIUM_RECORDINGS_BODY }
+    case 'recordings': {
+      const action = recordingsAction(lapse, subject, recordingCount)
+      return {
+        title: lapse === null ? PREMIUM_RECORDINGS_TITLE : lapsedTitle(lapse),
+        body: recordingsBody(action),
+        action,
+      }
+    }
     case 'scans':
-      return { title: PREMIUM_SCANS_TITLE, body: PREMIUM_SCANS_BODY }
+      return {
+        title: lapse === null ? PREMIUM_SCANS_TITLE : lapsedTitle(lapse),
+        body: PREMIUM_SCANS_BODY,
+        action: null,
+      }
     case 'plan':
-      return { title: PREMIUM_PLAN_TITLE, body: PREMIUM_PITCH }
+      return { title: PREMIUM_PLAN_TITLE, body: PREMIUM_PITCH, action: null }
   }
 }
 

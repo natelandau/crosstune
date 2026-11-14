@@ -12,7 +12,7 @@ import Testing
 
 private func pageRecording(_ id: String, speedPercent: Int = 100) -> Recording {
     Recording(
-        id: id, tuneID: nil, source: "microphone", addedAt: noon, label: "Take \(id)", state: "ready",
+        id: id, tuneID: nil, source: "microphone", addedAt: noon, label: "Recording \(id)", state: "ready",
         sourceDurationMs: 60_000, speedPercent: speedPercent, pitchCents: 0)
 }
 
@@ -234,27 +234,19 @@ private let noLoopWrites = LoopWriter(
         #expect(player.isLoaded == false)
     }
 
-    /// A page whose practice is still being made shows neither the controls nor the plan's
-    /// lock, so a paying musician never sees Subscribe to play while the page opens.
-    @Test func aPageWaitingForItsPracticeShowsNoLock() {
-        #expect(RecordingPracticeArea.shown(hasPractice: false, blockedReason: nil) == .waiting)
-        #expect(RecordingPracticeArea.shown(hasPractice: true, blockedReason: nil) == .controls)
-        let reason = RecordingText.subscribeToPlay
-        #expect(RecordingPracticeArea.shown(hasPractice: false, blockedReason: reason) == .blocked(reason))
-        #expect(RecordingPracticeArea.shown(hasPractice: true, blockedReason: reason) == .blocked(reason))
-    }
-
-    @Test func aRefusedPracticePickSelectsNothing() {
-        #expect(RecordingPageArrangement.pick(.practice, recordingsPlay: false) == nil)
-        #expect(RecordingPageArrangement.pick(.details, recordingsPlay: false) == .details)
-        #expect(RecordingPageArrangement.pick(.practice, recordingsPlay: true) == .practice)
+    /// A lapsed account's page offers to export the page's own recording.
+    @Test(arguments: [PlanLapse.paid, .trial])
+    func aLapsedPagesOverlayExportsThePagesRecording(lapse: PlanLapse) {
+        let rows = ScreenRows(
+            recording: Recording(id: "r1", tuneID: nil, source: "microphone", addedAt: noon, state: "ready"),
+            file: nil, tuneID: nil, tuneTitle: nil, partStructure: nil, shownPlace: nil)
+        let subject = PremiumSubject(recordingID: rows.recording.id)
+        let context = PlanContext.make(
+            reason: .recordings, lapse: lapse, inputs: PlanContextInputs(presuming: subject))
+        #expect(context.action == .exportRecording(id: "r1"))
     }
 
     @Test func aLapsedAccountsPageDisablesPlayAndPractice() {
-        #expect(RecordingPageArrangement.playBlockedReason(recordingsPlay: false) == RecordingText.subscribeToPlay)
-        #expect(RecordingPageArrangement.playBlockedReason(recordingsPlay: true) == nil)
-        #expect(RecordingPageArrangement.isEnabled(.practice, recordingsPlay: false) == false)
-        #expect(RecordingPageArrangement.isEnabled(.details, recordingsPlay: false))
         // A remembered Practice opens on Details while it cannot be used.
         #expect(
             RecordingPageArrangement.layout(width: 390, allowsWide: false, tab: .practice, recordingsPlay: false)
@@ -706,3 +698,115 @@ enum PushOrder: CaseIterable {
     case pageHiddenFirst
     case editorShownFirst
 }
+
+#if os(macOS)
+    import AppKit
+
+    @MainActor
+    @Suite(.timeLimit(.minutes(1)), .enabled(if: CGSessionCopyCurrentDictionary() != nil, "Needs a window server"))
+    struct RecordingPageOverlayTests {
+        private nonisolated static func entitlement(premium: Bool) -> Entitlement {
+            Entitlement(
+                id: "entitlement-1", createdAt: noon, premiumSource: premium ? "stripe" : nil,
+                premiumExpiresAt: premium ? Timestamp(noon.date.addingTimeInterval(200 * 86_400)) : nil,
+                autoRenews: premium, premiumQuotaBytes: 10_000)
+        }
+
+        /// The page on a recording, which records each plan kind it has drawn with.
+        private struct PageHost: View {
+            let recordingID: String
+            let plan: PlanModel
+            let drawn: @MainActor (PlanKind) -> Void
+
+            var body: some View {
+                RecordingPage(recordingID: recordingID, parent: RecordingPageParent(showsClose: false, leave: {}))
+                    // Runs after the update that redraws the page for the plan, so the page has
+                    // dropped or added its overlay by then.
+                    .onChange(of: plan.plan.kind, initial: true) { _, kind in drawn(kind) }
+            }
+        }
+
+        @MainActor private struct Hosted {
+            let root: TemporaryRoot
+            let store: CrosstuneStore
+            let plan: PlanModel
+            let sink: RecordingAnalyticsSink
+            let presenter: PremiumPresenter
+            let player: PlayerModel
+            let hosting: NSHostingView<AnyView>
+            let window: NSWindow
+            let drawn: DrawnKinds
+
+            var overlayShowings: Int {
+                sink.captures.count { $0.properties["presentation"] == .string("overlay") }
+            }
+
+            func show(_ recordingID: String) {
+                hosting.rootView = AnyView(
+                    PageHost(recordingID: recordingID, plan: plan) { [drawn] in drawn.kinds.append($0) }
+                        .environment(\.store, store)
+                        .environment(\.plan, plan)
+                        .environment(\.premium, presenter)
+                        .environment(\.analytics, sink.client)
+                        .environment(player))
+            }
+        }
+
+        @MainActor private final class DrawnKinds {
+            var kinds: [PlanKind] = []
+        }
+
+        /// Hosts a lapsed account's page on `r1`, with `r2` also in the store.
+        private func host() async throws -> Hosted {
+            let root = TemporaryRoot()
+            let store = try root.open()
+            try await store.write { writer in
+                for id in ["r1", "r2"] {
+                    try Recording(id: id, tuneID: nil, source: "microphone", recordedAt: noon).insert(writer.db)
+                }
+                try Self.entitlement(premium: false).upsert(writer.db)
+            }
+            let plan = PlanModel(store: store, now: { noon.date })
+            try await eventually { plan.isLoaded && plan.plan.kind == .free }
+            let window = hiddenWindow(
+                size: CGSize(width: 1000, height: 800), styleMask: [.borderless], appearance: .aqua)
+            let hosting = NSHostingView(rootView: AnyView(EmptyView()))
+            window.contentView = hosting
+            window.orderFrontRegardless()
+            let sink = RecordingAnalyticsSink()
+            let hosted = Hosted(
+                root: root, store: store, plan: plan, sink: sink,
+                presenter: PremiumPresenter(plan: plan, analytics: sink.client),
+                player: PlayerModel(audio: FakeAudio()), hosting: hosting, window: window, drawn: DrawnKinds())
+            hosted.show("r1")
+            return hosted
+        }
+
+        /// A purchase takes the overlay off the page and a lapse puts it back, with no reload. The
+        /// overlay that comes back is a new showing.
+        @Test func thePlanPutsTheOverlayOnThePageAndTakesItOff() async throws {
+            let hosted = try await host()
+            defer { hosted.window.close() }
+            try await eventually { hosted.overlayShowings == 1 }
+
+            try await hosted.store.write { writer in try Self.entitlement(premium: true).upsert(writer.db) }
+            try await eventually { hosted.drawn.kinds.last == .premium }
+
+            try await hosted.store.write { writer in try Self.entitlement(premium: false).upsert(writer.db) }
+            try await eventually { hosted.overlayShowings == 2 }
+        }
+
+        /// A live page moved to another recording shows that recording's overlay as a new showing.
+        @Test func aLivePageReportsEachRecordingItShows() async throws {
+            let hosted = try await host()
+            defer { hosted.window.close() }
+            try await eventually { hosted.overlayShowings == 1 }
+
+            hosted.show("r2")
+            try await eventually { hosted.overlayShowings == 2 }
+
+            hosted.show("r1")
+            try await eventually { hosted.overlayShowings == 3 }
+        }
+    }
+#endif

@@ -14,7 +14,7 @@ struct RecordingsLine: View {
             withAnimation(Motion.stateChange(phone: .default, reduceMotion: reduceMotion)) { isExpanded.toggle() }
         } label: {
             HStack(spacing: 6) {
-                Text(RecordingText.recordingsLine(count: count))
+                Text(RecordingsListText.recordings(count))
                 Image(systemName: "chevron.right")
                     .imageScale(.small)
                     .rotationEffect(.degrees(isExpanded ? 90 : 0))

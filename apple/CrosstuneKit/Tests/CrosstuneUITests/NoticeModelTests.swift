@@ -342,14 +342,16 @@ private let day: TimeInterval = 86_400
             capturing: false)
 
         #expect(presenter.presented == .plan)
-        #expect(presenter.presentedFrom == .trialReminder)
+        #expect(presenter.presentation?.entry == .trialReminder)
         #expect(
             sink.captures.contains(
                 .init(
                     name: "premium_sheet_shown",
-                    properties: ["reason": .string("plan"), "from": .string("trial_reminder")])))
+                    properties: [
+                        "reason": .string("plan"), "from": .string("trial_reminder"), "presentation": .string("sheet"),
+                    ])))
         #expect(model.showing == nil)
-        presenter.presented = nil
+        presenter.presentation = nil
         model.coverChanged(
             covered: AppShell.noticeCovered(shellCovered: false, premiumRequested: false, phase: .active),
             capturing: false)

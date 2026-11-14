@@ -512,7 +512,7 @@ private func loadedSummary(_ store: CrosstuneStore, sourceLocation: SourceLocati
                 try writer.put(
                     Recording(
                         id: "r\(index)", tuneID: index.isMultiple(of: 2) ? "t1" : nil, source: "recorded",
-                        addedAt: at, label: "Take \(index)", durationMs: Int64(60_000 * (index + 1)),
+                        addedAt: at, label: "Recording \(index)", durationMs: Int64(60_000 * (index + 1)),
                         trimStartMs: 1_000))
                 try writer.record(
                     PlayEvent(context: "tune", startedAt: at, listenedMs: Int64(30_000 * (index + 1)), tuneID: "t1"))

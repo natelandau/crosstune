@@ -1,3 +1,4 @@
+import Dexie from 'dexie'
 import { useContext, useEffect, useState, type ReactElement, type ReactNode } from 'react'
 import { expect, it, onTestFinished, vi } from 'vitest'
 import { page } from 'vitest/browser'
@@ -10,7 +11,7 @@ import { useEntitlement, usePlan } from '../../billing/usePlan'
 import { createTune } from '../../commands/tunes'
 import { DbContext } from '../../db/DbProvider'
 import type { CrosstuneDb } from '../../db/schema'
-import type { LocalEntitlement } from '../../db/types'
+import type { LocalEntitlement, LocalRecording } from '../../db/types'
 import { openTestDb } from '../../test/db'
 import { planSheet } from '../../test/planSheet'
 import { fakeMediaForTest } from '../../test/fakeMedia'
@@ -19,7 +20,7 @@ import { renderApp } from '../../test/renderApp'
 import { dataProviders, fakeEngine } from '../../test/providers'
 import { contrastRatio, glyphColor, paintedBackground } from '../../test/contrast'
 import { renderWithProviders } from '../../test/render'
-import { entitlementRow } from '../../test/rows'
+import { entitlementRow, recordingFile, recordingRow } from '../../test/rows'
 import type { SyncEngine } from '../../sync/types'
 import { Button } from '../../ui/Button'
 import { CANCEL, CLOSE, OK } from '../../ui/confirmCopy'
@@ -29,6 +30,9 @@ import type { PremiumEntry, PremiumReason } from '../../usage/events'
 import { recordingAnalytics } from '../../usage/testing'
 import { addedDay } from '../../text/format'
 import { NEW_RECORDING } from '../capture/recordCopy'
+import { EXPORT_BLOCK_REASONS, TRY_AGAIN } from '../recordings/export/exportCopy'
+import { DOWNLOAD } from '../recordings/recordingNames'
+import { EXPORT_TITLE } from '../settings/export/exportCopy'
 import { SEARCH_RECORDINGS, UPLOAD_AUDIO } from '../recordings/recordingsCopy'
 import { RECORD as CARD_RECORD } from '../tune/tuneMediaCopy'
 import { TUNE } from '../tune/tunePageCopy'
@@ -41,7 +45,12 @@ import {
   COMPARE_FREE,
   COMPARE_PREMIUM,
   ENDS,
+  EXPORT_EVERYTHING,
+  EXPORT_THIS_RECORDING,
+  RECORDINGS_COST,
+  SUBSCRIBE_OR_EXPORT,
   INCLUDED,
+  LAPSED_PREMIUM_TITLE,
   MANAGE_APP_STORE,
   MANAGE_SUBSCRIPTION,
   monthlyPrice,
@@ -50,12 +59,12 @@ import {
   PERIOD_MONTHLY,
   PLAN_TRIAL,
   PREMIUM_PLAN_TITLE,
-  PREMIUM_RECORDINGS_BODY,
   PREMIUM_RECORDINGS_TITLE,
   PREMIUM_SCANS_BODY,
   PREMIUM_SCANS_TITLE,
   PRIVACY_POLICY,
   PRIVACY_URL,
+  type PremiumSubject,
   RENEWS,
   renewalTerms,
   RENEWS_UNTIL_CANCELLED,
@@ -98,7 +107,7 @@ const DAY = 86_400_000
 const FREE: Partial<LocalEntitlement> = {}
 
 const recordSheet = () => page.getByRole('dialog', { name: NEW_RECORDING })
-const headline = (name: string) => planSheet().getByRole('heading', { name, exact: true })
+const headline = (name: string) => planSheet().getByRole('heading', { level: 2, name, exact: true })
 
 /** Shows the plan the app reads, so a test acts only once the stored row is judged. */
 function PlanProbe() {
@@ -129,12 +138,17 @@ it('answers Record on a free plan with the Plan sheet, not the recorder', async 
   await page.getByRole('button', { name: RECORD_LABEL }).click()
 
   await expect.element(headline(PREMIUM_RECORDINGS_TITLE)).toBeVisible()
-  await expect.element(planSheet().getByText(PREMIUM_RECORDINGS_BODY)).toBeVisible()
+  await expect.element(planSheet().getByText(RECORDINGS_COST)).toBeVisible()
   await expect.element(recordSheet()).not.toBeInTheDocument()
   expect(planSheet().getByRole('button', { name: SEE_PLAN }).query()).toBeNull()
   await expect
     .poll(() => analytics.sends())
-    .toEqual([{ name: 'premium_sheet_shown', props: { reason: 'recordings', from: 'record' } }])
+    .toEqual([
+      {
+        name: 'premium_sheet_shown',
+        props: { reason: 'recordings', from: 'record', presentation: 'sheet' },
+      },
+    ])
 })
 
 it("answers Record on a tune's start card with the Plan sheet on a free plan", async () => {
@@ -151,7 +165,12 @@ it("answers Record on a tune's start card with the Plan sheet on a free plan", a
   await expect.element(recordSheet()).not.toBeInTheDocument()
   await expect
     .poll(() => shown(analytics))
-    .toEqual([{ name: 'premium_sheet_shown', props: { reason: 'recordings', from: 'record' } }])
+    .toEqual([
+      {
+        name: 'premium_sheet_shown',
+        props: { reason: 'recordings', from: 'record', presentation: 'sheet' },
+      },
+    ])
 })
 
 /** Fires a file drop on the Recordings column, as a drag from the desktop would. */
@@ -173,7 +192,12 @@ it('answers a dropped audio file on a free plan with the Plan sheet, adding noth
   await expect.element(planSheet()).toBeVisible()
   await expect
     .poll(() => shown(analytics))
-    .toEqual([{ name: 'premium_sheet_shown', props: { reason: 'recordings', from: 'upload' } }])
+    .toEqual([
+      {
+        name: 'premium_sheet_shown',
+        props: { reason: 'recordings', from: 'upload', presentation: 'sheet' },
+      },
+    ])
   expect(await db.recordings.count()).toBe(0)
   expect(analytics.sends().filter((send) => send.name === 'audio_imported')).toEqual([])
 })
@@ -185,7 +209,12 @@ it('answers Upload on a free plan with the Plan sheet', async () => {
   await expect.element(planSheet()).toBeVisible()
   await expect
     .poll(() => shown(analytics))
-    .toEqual([{ name: 'premium_sheet_shown', props: { reason: 'recordings', from: 'upload' } }])
+    .toEqual([
+      {
+        name: 'premium_sheet_shown',
+        props: { reason: 'recordings', from: 'upload', presentation: 'sheet' },
+      },
+    ])
 })
 
 it('opens the recorder from Record while the entitlements read fails', async () => {
@@ -232,7 +261,10 @@ it('opens the scans sheet already describing why scans are held', async () => {
   await expect.element(headline(PREMIUM_SCANS_TITLE)).toBeVisible()
   expect(descriptions).not.toContain(null)
   expect(analytics.sends()).toEqual([
-    { name: 'premium_sheet_shown', props: { reason: 'scans', from: 'scan' } },
+    {
+      name: 'premium_sheet_shown',
+      props: { reason: 'scans', from: 'scan', presentation: 'sheet' },
+    },
   ])
 })
 
@@ -244,9 +276,17 @@ const PAYWALL_TRIAL: Partial<LocalEntitlement> = {
   trial_ends_at: new Date(NOW + 10 * DAY).toISOString(),
 }
 
-function Opener({ reason, from }: { reason: PremiumReason; from: PremiumEntry }) {
+function Opener({
+  reason,
+  from,
+  subject,
+}: {
+  reason: PremiumReason
+  from: PremiumEntry
+  subject?: PremiumSubject
+}) {
   const premium = usePremiumSheet()
-  return <Button label="Open Premium" onPress={() => premium.open(reason, from)} />
+  return <Button label="Open Premium" onPress={() => premium.open(reason, from, subject)} />
 }
 
 /** Hands out the sheet's launcher, so a test can open the sheet at a moment no tap could. */
@@ -263,6 +303,9 @@ async function openPaywall({
   engine = fakeEngine(),
   reason = 'recordings',
   from = 'record',
+  subject,
+  seed,
+  plan = row.premium_source ? 'premium' : 'free',
   density = 'pointer',
   scheme = 'light',
   wrap = (children) => children,
@@ -272,6 +315,11 @@ async function openPaywall({
   engine?: SyncEngine
   reason?: PremiumReason
   from?: PremiumEntry
+  subject?: PremiumSubject
+  /** Writes rows before the sheet mounts. */
+  seed?: (db: CrosstuneDb) => Promise<void>
+  /** The plan the row reads as, which a lapsed row's source does not say. */
+  plan?: 'premium' | 'free'
   density?: 'pointer' | 'touch'
   scheme?: 'light' | 'dark'
   /** Wraps the sheet's provider, inside the store. */
@@ -279,6 +327,7 @@ async function openPaywall({
 } = {}) {
   const db = openTestDb()
   await db.entitlements.put(entitlementRow(row))
+  await seed?.(db)
   const analytics = recordingAnalytics()
   const Data = dataProviders({ db, analytics, engine })
   const holder: { launcher?: PremiumSheetLauncher } = {}
@@ -288,7 +337,7 @@ async function openPaywall({
         <StoreProvider store={store}>
           {wrap(
             <PremiumSheetProvider>
-              <Opener reason={reason} from={from} />
+              <Opener reason={reason} from={from} subject={subject} />
               <HoldLauncher
                 onLauncher={(launcher) => {
                   holder.launcher = launcher
@@ -302,12 +351,206 @@ async function openPaywall({
     </Data>,
     { density, scheme },
   )
-  await expect
-    .element(page.getByTestId('plan'))
-    .toHaveTextContent(row.premium_source ? 'premium' : 'free')
+  await expect.element(page.getByTestId('plan')).toHaveTextContent(plan)
   await page.getByRole('button', { name: 'Open Premium' }).click()
   return { db, analytics, launcher: () => holder.launcher! }
 }
+
+const LAPSED_PAID: Partial<LocalEntitlement> = {
+  premium_source: 'stripe',
+  premium_expires_at: new Date(NOW - DAY).toISOString(),
+}
+const SUBJECT: PremiumSubject = { recordingId: 'r1' }
+
+/** Seeds `count` recordings, r1 onward, each on the server only. */
+const recordings = (count: number) => async (db: CrosstuneDb) => {
+  await db.recordings.bulkPut(
+    Array.from({ length: count }, (_, i) => recordingRow(`r${i + 1}`, { position: i })),
+  )
+}
+
+const lapsed = (options: Parameters<typeof openPaywall>[0] = {}) =>
+  openPaywall({ row: LAPSED_PAID, plan: 'free', ...options })
+
+/** An engine whose file fetches never answer, and a check that only the subject was fetched. */
+function heldFetch() {
+  const fetchFile = vi.fn(
+    (_kind: string, _id: string, signal?: AbortSignal) =>
+      new Promise<Blob>((_resolve, reject) => {
+        signal?.addEventListener('abort', () => reject(signal.reason))
+      }),
+  )
+  return {
+    engine: fakeEngine({ fetchFile }),
+    exportedSubject: () =>
+      expect
+        .poll(() => fetchFile.mock.calls.map(([kind, id]) => [kind, id]))
+        .toEqual([['recording', SUBJECT.recordingId]]),
+  }
+}
+
+it('leads with the lapse and asks to subscribe or export', async () => {
+  await lapsed({ seed: recordings(12) })
+
+  await expect.element(headline(LAPSED_PREMIUM_TITLE)).toBeVisible()
+  await expect.element(planSheet().getByText(SUBSCRIBE_OR_EXPORT, { exact: false })).toBeVisible()
+  await expect.element(planSheet().getByRole('button', { name: EXPORT_EVERYTHING })).toBeVisible()
+})
+
+it.each([
+  { opened: 'anywhere', subject: undefined, action: EXPORT_EVERYTHING },
+  { opened: 'one recording', subject: SUBJECT, action: EXPORT_THIS_RECORDING },
+])(
+  'offers an export to a free account that never had Premium, opened from $opened',
+  async ({ subject, action }) => {
+    await openPaywall({ seed: recordings(3), subject })
+
+    await expect.element(headline(PREMIUM_RECORDINGS_TITLE)).toBeVisible()
+    await expect.element(planSheet().getByRole('button', { name: action })).toBeVisible()
+  },
+)
+
+it('exports the recording it opened from', async () => {
+  const { engine, exportedSubject } = heldFetch()
+  await lapsed({ seed: recordings(2), subject: SUBJECT, engine })
+  await planSheet().getByRole('button', { name: EXPORT_THIS_RECORDING }).click()
+
+  await expect.element(planSheet()).not.toBeInTheDocument()
+  await expect.element(page.getByRole('dialog', { name: DOWNLOAD })).toBeVisible()
+  await exportedSubject()
+})
+
+it.each([
+  {
+    action: EXPORT_EVERYTHING,
+    subject: undefined,
+    sheet: EXPORT_TITLE,
+    says: null,
+  },
+  {
+    action: EXPORT_THIS_RECORDING,
+    subject: SUBJECT,
+    sheet: DOWNLOAD,
+    says: EXPORT_BLOCK_REASONS.not_ready,
+  },
+])(
+  '$action opens its export once the Plan sheet leaves',
+  async ({ action, subject, sheet, says }) => {
+    await lapsed({
+      seed: async (db) => {
+        await recordings(2)(db)
+        await db.recordings.update(SUBJECT.recordingId, { state: 'pending_upload' })
+      },
+      subject,
+    })
+    await planSheet().getByRole('button', { name: action }).click()
+
+    await expect.element(planSheet()).not.toBeInTheDocument()
+    const opened = page.getByRole('dialog', { name: sheet })
+    await expect.element(opened).toBeVisible()
+    if (says) await expect.element(opened.getByText(says)).toBeVisible()
+  },
+)
+
+it('shows a failed download of a recording held here in the download sheet', async () => {
+  vi.spyOn(URL, 'createObjectURL').mockImplementation(() => {
+    throw new Error('blocked')
+  })
+  await lapsed({
+    seed: async (db) => {
+      await recordings(2)(db)
+      await db.recording_files.put(
+        recordingFile(SUBJECT.recordingId, { blob: new Blob(['audio'], { type: 'audio/mp4' }) }),
+      )
+    },
+    subject: SUBJECT,
+  })
+  await planSheet().getByRole('button', { name: EXPORT_THIS_RECORDING }).click()
+
+  await expect.element(planSheet()).not.toBeInTheDocument()
+  const download = page.getByRole('dialog', { name: DOWNLOAD })
+  await expect.element(download.getByRole('button', { name: TRY_AGAIN })).toBeVisible()
+})
+
+it('downloads a recording held here with no download sheet', async () => {
+  const createObjectURL = vi.spyOn(URL, 'createObjectURL')
+  await lapsed({
+    seed: async (db) => {
+      await recordings(2)(db)
+      await db.recording_files.put(
+        recordingFile(SUBJECT.recordingId, { blob: new Blob(['audio'], { type: 'audio/mp4' }) }),
+      )
+    },
+    subject: SUBJECT,
+  })
+  await planSheet().getByRole('button', { name: EXPORT_THIS_RECORDING }).click()
+
+  await expect.poll(() => createObjectURL.mock.calls.length).toBeGreaterThan(0)
+  await expect.element(page.getByRole('dialog', { name: DOWNLOAD })).not.toBeInTheDocument()
+})
+
+it.each([
+  { read: 'reads', settle: (count: ReturnType<typeof held<number>>) => count.resolve(12) },
+  {
+    read: 'fails',
+    settle: (count: ReturnType<typeof held<number>>) => count.reject(new Error('read failed')),
+  },
+])('holds the sheet until the recording count $read, then opens it', async ({ read, settle }) => {
+  const count = held<number>()
+  await lapsed({
+    seed: async (db) => {
+      // The count runs inside a transaction, which commits while it awaits a promise that is not
+      // an IndexedDB request. Dexie.waitFor keeps the transaction open for the held promise.
+      vi.spyOn(db.recordings, 'count').mockImplementation(
+        () => Dexie.waitFor(count.promise) as ReturnType<typeof db.recordings.count>,
+      )
+    },
+  })
+  await expect.element(planSheet()).not.toBeInTheDocument()
+
+  settle(count)
+  await expect.element(headline(LAPSED_PREMIUM_TITLE)).toBeVisible()
+  if (read === 'reads') {
+    await expect.element(planSheet().getByRole('button', { name: EXPORT_EVERYTHING })).toBeVisible()
+  } else {
+    expect(planSheet().getByRole('button', { name: EXPORT_EVERYTHING }).query()).toBeNull()
+  }
+})
+
+it('keeps the sheet open when Export this recording is pressed before the recording reads', async () => {
+  const { engine, exportedSubject } = heldFetch()
+  const row = held<LocalRecording | undefined>()
+  let read: ReturnType<typeof vi.spyOn> | undefined
+  await lapsed({
+    seed: async (db) => {
+      await recordings(2)(db)
+      read = vi
+        .spyOn(db.recordings, 'get')
+        .mockReturnValue(row.promise as unknown as ReturnType<typeof db.recordings.get>)
+    },
+    subject: SUBJECT,
+    engine,
+  })
+  await planSheet().getByRole('button', { name: EXPORT_THIS_RECORDING }).click()
+
+  row.resolve(recordingRow(SUBJECT.recordingId))
+  await expect.poll(() => read?.mock.settledResults.length ?? 0).toBeGreaterThan(0)
+  await expect.element(planSheet()).toBeVisible()
+  await planSheet().getByRole('button', { name: EXPORT_THIS_RECORDING }).click()
+  await expect.element(page.getByRole('dialog', { name: DOWNLOAD })).toBeVisible()
+  await exportedSubject()
+})
+
+it('offers everything when the subject is gone', async () => {
+  const { db } = await lapsed({ seed: recordings(2), subject: SUBJECT })
+  await expect
+    .element(planSheet().getByRole('button', { name: EXPORT_THIS_RECORDING }))
+    .toBeVisible()
+
+  await db.recordings.update(SUBJECT.recordingId, { deleted_at: new Date(NOW).toISOString() })
+  await expect.element(planSheet().getByRole('button', { name: EXPORT_EVERYTHING })).toBeVisible()
+  expect(planSheet().getByRole('button', { name: EXPORT_THIS_RECORDING }).query()).toBeNull()
+})
 
 const purchaseSends = (analytics: ReturnType<typeof recordingAnalytics>) =>
   analytics.sends().filter((send) => send.name.startsWith('purchase_'))
@@ -818,7 +1061,7 @@ async function expectMemberView() {
   await expect.element(headline(ON_PREMIUM)).toBeVisible()
   await expect.element(planSheet().getByText(THANKS)).toBeVisible()
   await expect
-    .element(planSheet().getByRole('heading', { name: INCLUDED, exact: true }))
+    .element(planSheet().getByRole('heading', { level: 3, name: INCLUDED, exact: true }))
     .toBeVisible()
   for (const feature of INCLUDED_FEATURES) {
     await expect.element(planSheet().getByText(feature.title, { exact: true })).toBeVisible()

@@ -179,7 +179,12 @@ describe('PlanGroup', () => {
       await planRow.click()
       await expect
         .poll(() => analytics.sends().filter((send) => send.name === 'premium_sheet_shown'))
-        .toEqual([{ name: 'premium_sheet_shown', props: { reason: 'plan', from: 'plan_group' } }])
+        .toEqual([
+          {
+            name: 'premium_sheet_shown',
+            props: { reason: 'plan', from: 'plan_group', presentation: 'sheet' },
+          },
+        ])
       await expect.element(planSheet()).toBeVisible()
     },
   )
@@ -189,7 +194,12 @@ describe('PlanGroup', () => {
     await row(PLAN_FREE).click()
     await expect
       .poll(() => analytics.sends().filter((send) => send.name === 'premium_sheet_shown'))
-      .toEqual([{ name: 'premium_sheet_shown', props: { reason: 'plan', from: 'plan_group' } }])
+      .toEqual([
+        {
+          name: 'premium_sheet_shown',
+          props: { reason: 'plan', from: 'plan_group', presentation: 'sheet' },
+        },
+      ])
     await expect.element(planSheet()).toBeVisible()
   })
 

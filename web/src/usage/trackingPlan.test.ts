@@ -183,7 +183,7 @@ const SAMPLES: { [N in EventName]: EventProps[N] } = {
   setting_changed: { setting: 'appearance', value: 'dark' },
   usage_sharing_disabled: {},
   storage_limit_reached: { storage_used: '500MB+' },
-  premium_sheet_shown: { reason: 'recordings', from: 'record' },
+  premium_sheet_shown: { reason: 'recordings', from: 'record', presentation: 'sheet' },
   notice_shown: { notice: 'first_recording' },
   purchase_started: { period: 'annual', from: 'plan_group' },
   purchase_completed: { period: 'monthly' },

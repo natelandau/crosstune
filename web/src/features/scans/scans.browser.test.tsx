@@ -493,7 +493,12 @@ describe('on a free plan, no scans open', () => {
     expect(otherViewer().elements()).toHaveLength(0)
     await expect
       .poll(() => sheetsShown(analytics))
-      .toEqual([{ name: 'premium_sheet_shown', props: { reason: 'scans', from: 'scan' } }])
+      .toEqual([
+        {
+          name: 'premium_sheet_shown',
+          props: { reason: 'scans', from: 'scan', presentation: 'sheet' },
+        },
+      ])
     await userEvent.keyboard('{Escape}')
     await expect.element(premium()).not.toBeInTheDocument()
 
@@ -503,7 +508,10 @@ describe('on a free plan, no scans open', () => {
     await expect.element(premium()).toBeVisible()
     await expect
       .poll(() => sheetsShown(analytics).at(-1))
-      .toEqual({ name: 'premium_sheet_shown', props: { reason: 'scans', from: 'add_scan' } })
+      .toEqual({
+        name: 'premium_sheet_shown',
+        props: { reason: 'scans', from: 'add_scan', presentation: 'sheet' },
+      })
     expect(picked).not.toHaveBeenCalled()
   })
 
@@ -565,7 +573,12 @@ describe('on a free plan, no scans open', () => {
       .toBeVisible()
     await expect
       .poll(() => sheetsShown(analytics))
-      .toEqual([{ name: 'premium_sheet_shown', props: { reason: 'scans', from: 'scan' } }])
+      .toEqual([
+        {
+          name: 'premium_sheet_shown',
+          props: { reason: 'scans', from: 'scan', presentation: 'sheet' },
+        },
+      ])
     expect(otherViewer().elements()).toHaveLength(0)
   })
 })

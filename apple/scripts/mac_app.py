@@ -268,8 +268,32 @@ class MacApp:
             check=True,
         )
         subprocess.run(["open", "-g", "-n", str(self.dest), "--args", *app_args], check=True)
+        self.keep_display_awake()
         print(f"running {self.dest} for {self.me}; finish with: just apple::done")
         return 0
+
+    def keep_display_awake(self) -> None:
+        """Wake the display and hold it on until the launched app exits.
+
+        macOS delivers no input to an app and draws nothing to capture while the display
+        sleeps, so a check that drives the app fails with no error of its own.
+        """
+        if sys.platform != "darwin":
+            return
+        found = subprocess.run(
+            ["pgrep", "-n", "-f", f"^{self.dest}/Contents/MacOS/"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if found.returncode:
+            return
+        subprocess.Popen(
+            ["caffeinate", "-u", "-d", "-w", found.stdout.strip()],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
 
     def quit(self) -> None:
         """Quit the installed app, and kill it when it does not quit in 10 seconds."""

@@ -41,6 +41,17 @@ OEMBED = {
 }
 
 
+def premium_ended(expires_at: datetime | str | None) -> bool:
+    """Whether an entitlements row's reported grant has ended, so the account is free.
+
+    A free account still names the grant it lost last, so its source alone says nothing.
+    """
+    if expires_at is None:
+        return False
+    ended = datetime.fromisoformat(expires_at) if isinstance(expires_at, str) else expires_at
+    return ended <= datetime.now(UTC)
+
+
 def uid() -> str:
     return str(uuid.uuid4())
 

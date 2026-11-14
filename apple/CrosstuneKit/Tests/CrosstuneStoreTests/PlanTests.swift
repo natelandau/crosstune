@@ -32,6 +32,23 @@ struct PlanFromTests {
         #expect(Plan.from(nil, now: now).autoRenews == false)
     }
 
+    @Test(arguments: [
+        ("stripe", PlanLapse?.some(.paid)), ("apple", .paid), ("comp", .paid), ("trial", .trial),
+    ])
+    func keepsWhichGrantALapsedAccountLost(source: String, lapse: PlanLapse?) {
+        #expect(Plan.from(row(source: source, expiresAt: at(-day)), now: now).lapse == lapse)
+    }
+
+    @Test(arguments: ["stripe", "apple", "comp", "trial"])
+    func hasNoLapseWhileAGrantIsLive(source: String) {
+        #expect(Plan.from(row(source: source, expiresAt: at(day)), now: now).lapse == nil)
+    }
+
+    @Test func hasNoLapseWithoutAGrantHistoryOrARow() {
+        #expect(Plan.from(row(), now: now).lapse == nil)
+        #expect(Plan.from(nil, now: now).lapse == nil)
+    }
+
     @Test func isUnknownWithNoRowAndGatesNothing() {
         let plan = Plan.from(nil, now: now)
         #expect(plan.kind == .unknown)

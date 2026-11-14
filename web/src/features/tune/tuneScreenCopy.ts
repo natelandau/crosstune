@@ -33,11 +33,6 @@ export const EDIT_TITLE = 'Rename'
 /** The key tile of a tune with no key. */
 export const KEY_TILE_EMPTY = 'Add key'
 
-/** A free plan's recordings on a tune page, folded into one line. */
-export function recordingsLine(count: number): string {
-  return count === 1 ? '1 recording, subscribe to play' : `${count} recordings, subscribe to play`
-}
-
 /** The toast after a tune is created from the catalog search, which offers Undo. */
 export function addedMessage(title: string): string {
   return `Added ${title}`

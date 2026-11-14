@@ -104,7 +104,7 @@ public enum AnalyticsEvent: Sendable, Equatable {
     case usageSharingDisabled
 
     case storageLimitReached(bytesUsed: Int64)
-    case premiumSheetShown(reason: PremiumReason, from: PremiumEntry)
+    case premiumSheetShown(reason: PremiumReason, from: PremiumEntry, presentation: PremiumPresentation)
     case noticeShown(notice: NoticeKind)
     case purchaseStarted(period: PurchasePeriod, from: PremiumEntry)
     case purchaseCompleted(period: PurchasePeriod)
@@ -324,8 +324,11 @@ public enum AnalyticsEvent: Sendable, Equatable {
             ["setting": .string(change.name), "value": change.value]
         case .storageLimitReached(let bytesUsed):
             ["storage_used": .string(Bucket.bytes(bytesUsed))]
-        case .premiumSheetShown(let reason, let from):
-            ["reason": .string(reason.rawValue), "from": .string(from.rawValue)]
+        case .premiumSheetShown(let reason, let from, let presentation):
+            [
+                "reason": .string(reason.rawValue), "from": .string(from.rawValue),
+                "presentation": .string(presentation.rawValue),
+            ]
         case .noticeShown(let notice):
             ["notice": .string(notice.rawValue)]
         case .purchaseStarted(let period, let from):

@@ -22,8 +22,15 @@ extension CrosstuneStore {
             AccountCounts(
                 tunes: try UserTune.filter(UserTune.CodingKeys.deletedAt == nil).fetchCount(db),
                 lists: try TuneList.filter(TuneList.CodingKeys.deletedAt == nil).fetchCount(db),
-                recordings: try Recording.filter(Recording.CodingKeys.deletedAt == nil).fetchCount(db)
+                recordings: try Recording.liveCount(db)
             )
         }
+    }
+}
+
+extension Recording {
+    /// How many recordings the account holds, leaving out soft-deleted rows.
+    public static func liveCount(_ db: Database) throws -> Int {
+        try filter(CodingKeys.deletedAt == nil).fetchCount(db)
     }
 }

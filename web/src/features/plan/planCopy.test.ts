@@ -3,14 +3,17 @@ import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { addedDay } from '../../text/format'
 import {
+  RECORDINGS_COST,
+  SUBSCRIBE_OR_EXPORT,
+  LAPSED_PREMIUM_TITLE,
+  LAPSED_TRIAL_TITLE,
   MANAGE_SUBSCRIPTION,
   PREMIUM_PITCH,
   PREMIUM_PLAN_TITLE,
-  PREMIUM_RECORDINGS_BODY,
   PREMIUM_RECORDINGS_TITLE,
   PREMIUM_SCANS_BODY,
   PREMIUM_SCANS_TITLE,
-  premiumCopy,
+  planContext,
   renewalTerms,
   save,
   saving,
@@ -80,15 +83,38 @@ describe('trialEndsLine', () => {
   })
 })
 
-describe('premiumCopy', () => {
-  it('leads with what opened the sheet', () => {
-    expect(premiumCopy('recordings')).toEqual({
-      title: PREMIUM_RECORDINGS_TITLE,
-      body: PREMIUM_RECORDINGS_BODY,
-    })
-    expect(premiumCopy('scans')).toEqual({ title: PREMIUM_SCANS_TITLE, body: PREMIUM_SCANS_BODY })
-    expect(premiumCopy('plan')).toEqual({ title: PREMIUM_PLAN_TITLE, body: PREMIUM_PITCH })
-  })
+describe('planContext', () => {
+  const band = { recordingId: 'r1' }
+  // The line asks to subscribe or export only when the sheet offers an export.
+  const asks = `${RECORDINGS_COST} ${SUBSCRIBE_OR_EXPORT}`
+
+  it.each([
+    ['recordings', 'paid', 12, null, LAPSED_PREMIUM_TITLE, asks, 'export_all'],
+    ['recordings', 'trial', 1, null, LAPSED_TRIAL_TITLE, asks, 'export_all'],
+    ['recordings', 'paid', 12, band, LAPSED_PREMIUM_TITLE, asks, 'export_recording'],
+    ['recordings', 'trial', 0, band, LAPSED_TRIAL_TITLE, asks, 'export_recording'],
+    ['recordings', 'trial', 0, null, LAPSED_TRIAL_TITLE, RECORDINGS_COST, null],
+    ['recordings', 'paid', 0, null, LAPSED_PREMIUM_TITLE, RECORDINGS_COST, null],
+    ['recordings', null, 0, null, PREMIUM_RECORDINGS_TITLE, RECORDINGS_COST, null],
+    ['recordings', null, 5, null, PREMIUM_RECORDINGS_TITLE, asks, 'export_all'],
+    ['recordings', null, 5, band, PREMIUM_RECORDINGS_TITLE, asks, 'export_recording'],
+    ['recordings', null, 0, band, PREMIUM_RECORDINGS_TITLE, RECORDINGS_COST, null],
+    ['scans', 'paid', 3, null, LAPSED_PREMIUM_TITLE, PREMIUM_SCANS_BODY, null],
+    ['scans', 'trial', 3, null, LAPSED_TRIAL_TITLE, PREMIUM_SCANS_BODY, null],
+    ['scans', null, 3, null, PREMIUM_SCANS_TITLE, PREMIUM_SCANS_BODY, null],
+    ['plan', null, 0, null, PREMIUM_PLAN_TITLE, PREMIUM_PITCH, null],
+    ['plan', 'paid', 12, null, PREMIUM_PLAN_TITLE, PREMIUM_PITCH, null],
+    ['plan', 'trial', 0, null, PREMIUM_PLAN_TITLE, PREMIUM_PITCH, null],
+  ] as const)(
+    '%s, lapse %s, %s recordings, subject %j',
+    (reason, lapse, count, subject, title, body, action) => {
+      expect(planContext({ reason, lapse, recordingCount: count, subject })).toEqual({
+        title,
+        body,
+        action,
+      })
+    },
+  )
 })
 
 describe('saving', () => {

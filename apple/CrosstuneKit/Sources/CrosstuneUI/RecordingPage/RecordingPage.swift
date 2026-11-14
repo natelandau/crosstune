@@ -3,7 +3,6 @@ import CrosstuneAudio
 import CrosstuneAuth
 import CrosstuneCommands
 import CrosstuneDesign
-import CrosstuneDiagnostics
 import CrosstuneExport
 import CrosstuneStore
 import CrosstuneSync
@@ -30,7 +29,8 @@ struct RecordingPage: View {
     let recordingID: String
     let parent: RecordingPageParent
 
-    /// Where the Plan sheet reports it was opened from, for every blocked play on the page.
+    /// Where the Plan sheet reports it was opened from, for the page's overlay and every blocked
+    /// play on it.
     static let planEntry = PremiumEntry.recordingPage
 
     var body: some View {
@@ -77,10 +77,7 @@ private struct RecordingPageBody: View {
 
     @Environment(\.store) private var store
     @Environment(\.commands) private var commands
-    @Environment(\.analytics) private var analytics
-    @Environment(\.diagnostics) private var diagnostics
     @Environment(\.plan) private var plan
-    @Environment(\.premium) private var premium
     @Environment(\.inPadSplit) private var inPadSplit
     @Environment(\.openTune) private var openTune
     @Environment(\.openRecordingPage) private var openRecordingPage
@@ -91,8 +88,8 @@ private struct RecordingPageBody: View {
     @State private var tab = RecordingPageTab.practice
     @State private var width: CGFloat?
     @State private var practice: PracticeModel?
-    /// The share or export the menu started, while its sheet shows.
-    @State private var exporting: RecordingExportRequest?
+    /// The share or export the menu or the plan's overlay started, while its sheet shows.
+    @State private var exporting: ExportSheetItem?
     /// What exporting the recording needs, read again only when its inputs change, since it
     /// looks for the file on disk.
     @State private var exportReadiness: ExportReadiness?
@@ -104,8 +101,6 @@ private struct RecordingPageBody: View {
     }
 
     private var recordingsPlay: Bool { plan.recordingsPlay }
-
-    private var blockedReason: String? { RecordingPageArrangement.playBlockedReason(recordingsPlay: recordingsPlay) }
 
     private var allowsWide: Bool {
         #if os(macOS)
@@ -233,13 +228,30 @@ private struct RecordingPageBody: View {
             #endif
     }
 
-    @ViewBuilder private func arranged(_ layout: RecordingPageLayout) -> some View {
+    private func arranged(_ layout: RecordingPageLayout) -> some View {
         VStack(spacing: 0) {
             #if os(macOS)
                 RecordingPageHeader(title: title, subtitle: model.subtitle)
             #endif
+            let lapsed = !recordingsPlay
+            pageBody(layout)
+                .dimmedWhenDisabled(lapsed)
+                .allowsHitTesting(!lapsed)
+                .accessibilityHidden(lapsed)
+                .overlay {
+                    if lapsed {
+                        LapsedOverlay(
+                            subject: PremiumSubject(recordingID: rows.recording.id),
+                            entry: RecordingPage.planEntry, onAction: runPlanAction)
+                    }
+                }
+        }
+    }
+
+    private func pageBody(_ layout: RecordingPageLayout) -> some View {
+        VStack(spacing: 0) {
             if RecordingPageArrangement.showsTabs(layout) {
-                RecordingPageTabPicker(tab: $tab, recordingsPlay: recordingsPlay, onBlocked: offerPlan)
+                RecordingPageTabPicker(tab: $tab, recordingsPlay: recordingsPlay)
                 if layout == .practice {
                     practiceArea
                 } else {
@@ -266,8 +278,7 @@ private struct RecordingPageBody: View {
     private var practiceArea: some View {
         RecordingPracticeArea(
             practice: practice, rows: rows, peaks: shownPeaks, notice: model.pageNotice,
-            blockedReason: blockedReason, unavailableReason: unavailableReason, onBlocked: offerPlan,
-            onClose: { if model.parent.showsClose { model.parent.leave() } })
+            unavailableReason: unavailableReason, onClose: { if model.parent.showsClose { model.parent.leave() } })
     }
 
     @ViewBuilder private func attributes(_ layout: AttributesLayout) -> some View {
@@ -298,10 +309,6 @@ private struct RecordingPageBody: View {
     }
 
     private var shownPeaks: ShownPeaks? { model.shownPeaks(rows.recording) }
-
-    private func offerPlan() {
-        _ = premium?.gate(.recordings, from: RecordingPage.planEntry)
-    }
 
     /// Under tabs the mode's controls always show; the Mac's tool popovers start closed.
     #if os(macOS)
@@ -392,9 +399,7 @@ private struct RecordingPageBody: View {
         } message: { view in
             Text(RecordingsModel.deleteMessage(view))
         }
-        .sheet(item: $exporting) { request in
-            RecordingExportSheet(request: request, engine: engine, analytics: analytics, diagnostics: diagnostics)
-        }
+        .exportSheet($exporting)
         .onChange(of: exportReadinessKey, initial: true) {
             exportReadiness = ExportReadiness(rows.view, store: store, engine: engine, session: session)
         }
@@ -429,10 +434,21 @@ private struct RecordingPageBody: View {
     }
 
     private func startExport(_ delivery: RecordingExportRequest.Delivery) {
-        let readiness = readiness
         guard !readiness.isBlocked else { return }
-        exporting = RecordingExportRequest(
-            items: [RecordingExportItem(rows.view, readiness: readiness)], delivery: delivery, title: title)
+        export(delivery)
+    }
+
+    private func export(_ delivery: RecordingExportRequest.Delivery) {
+        exporting = .recordings(RecordingExportRequest(rows, readiness: readiness, delivery: delivery))
+    }
+
+    /// The overlay's export opens even while the recording cannot be exported, since its sheet
+    /// says why and the overlay's button cannot.
+    private func runPlanAction(_ action: PlanContextAction) {
+        switch action {
+        case .exportRecording: export(.oneRecording)
+        case .exportAll: exporting = .everything
+        }
     }
 }
 
