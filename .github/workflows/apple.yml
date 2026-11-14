@@ -69,20 +69,21 @@ jobs:
         id: swift
         run: printf 'version=%s\n' "$(swift --version 2>&1 | shasum | cut -c1-12)" >> "$GITHUB_OUTPUT"
       - run: just lint
-      # Only the package checkouts and binary artifacts: SwiftPM rebuilds every module in a fresh
-      # checkout whatever build products are restored beside it, so caching those would only slow
-      # the restore. The artifacts travel with workspace-state.json, which records them as
-      # downloaded and so stops SwiftPM fetching them again.
+      # A cache of its own: the test build's compiler flags differ from the app's, so it shares
+      # few entries with the build jobs' caches.
+      - name: name the Xcode cache
+        id: xcode-key
+        run: |
+          sources="$(git ls-files -s . | shasum | cut -c1-12)"
+          printf 'key=apple-xcode-tests-%s-%s\n' "$SWIFT" "$sources" >> "$GITHUB_OUTPUT"
+        env:
+          SWIFT: ${{ steps.swift.outputs.version }}
       - uses: actions/cache/restore@v6
-        id: kit-restore
+        id: xcode-restore
         with:
-          path: |
-            apple/CrosstuneKit/.build/checkouts
-            apple/CrosstuneKit/.build/repositories
-            apple/CrosstuneKit/.build/artifacts
-            apple/CrosstuneKit/.build/workspace-state.json
-          key: apple-kit-packages-${{ steps.swift.outputs.version }}-${{ hashFiles('apple/CrosstuneKit/Package.resolved') }}
-          restore-keys: apple-kit-packages-${{ steps.swift.outputs.version }}-
+          path: apple/CrosstuneKit/.build/DerivedData/CompilationCache.noindex
+          key: ${{ steps.xcode-key.outputs.key }}
+          restore-keys: apple-xcode-tests-${{ steps.swift.outputs.version }}-
       # Built in its own step so a slow compile and a slow test run each have their own limit;
       # `just test` then reuses the build.
       - run: just build-tests
@@ -90,14 +91,10 @@ jobs:
       - run: just test
         timeout-minutes: 10
       - uses: actions/cache/save@v6
-        if: ${{ github.ref == 'refs/heads/main' && steps.kit-restore.outputs.cache-hit != 'true' }}
+        if: ${{ github.ref == 'refs/heads/main' && steps.xcode-restore.outputs.cache-hit != 'true' }}
         with:
-          path: |
-            apple/CrosstuneKit/.build/checkouts
-            apple/CrosstuneKit/.build/repositories
-            apple/CrosstuneKit/.build/artifacts
-            apple/CrosstuneKit/.build/workspace-state.json
-          key: ${{ steps.kit-restore.outputs.cache-primary-key }}
+          path: apple/CrosstuneKit/.build/DerivedData/CompilationCache.noindex
+          key: ${{ steps.xcode-key.outputs.key }}
 
   build:
     if: ${{ !inputs.skip_build && (github.ref_type == 'tag' || !startsWith(github.event.head_commit.message, 'bump(release):')) }}
@@ -187,10 +184,10 @@ jobs:
           key: ${{ steps.tools-restore.outputs.cache-primary-key }}
 
   # Each Xcode cache is close to a gigabyte against the repository's 10 GB, and a run reads only
-  # its platform's newest, so that one replaces the rest. This job runs no repository code,
-  # which keeps the token that can delete caches away from the build.
+  # the newest of its kind (iOS, macOS, or tests), so that one replaces the rest. This job runs
+  # no repository code, which keeps the token that can delete caches away from the build.
   prune-xcode-cache:
-    needs: build
+    needs: [test, build]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     name: Prune the Xcode caches
     runs-on: ubuntu-latest
@@ -198,7 +195,7 @@ jobs:
     permissions:
       actions: write
     steps:
-      - name: delete every Xcode cache but each platform's newest
+      - name: delete every Xcode cache but the newest of each kind
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -207,7 +204,7 @@ jobs:
           while read -r key; do
             platform="${key#apple-xcode-}"
             platform="${platform%%-*}"
-            if [[ "$platform" == ios || "$platform" == macos ]] && [[ -z "${kept[$platform]:-}" ]]; then
+            if [[ "$platform" =~ ^(ios|macos|tests)$ ]] && [[ -z "${kept[$platform]:-}" ]]; then
               kept[$platform]="$key"
               continue
             fi
