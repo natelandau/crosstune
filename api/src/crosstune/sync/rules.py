@@ -35,7 +35,11 @@ from crosstune.recordings.loops import (
     reclamp_recording_loops,
 )
 from crosstune.recordings.service import ensure_place_job, ensure_trim_job, start_import
-from crosstune.recordings.split_rules import latest_split_pieces, split_first_cut
+from crosstune.recordings.split_rules import (
+    latest_split_pieces,
+    split_first_cut,
+    unfinished_pieces,
+)
 from crosstune.recordings.trim_rules import clamp_trim, original_range
 from crosstune.vocabulary import (
     MAX_LOOPS_PER_RECORDING,
@@ -342,15 +346,21 @@ class RecordingRules(RowRules):
         if parent.split_id is not None and created_by != parent.split_id:
             return SPLIT_MISMATCH
         # The parent's split when it has one, which the check above makes the same.
-        held = await self.session.scalar(
-            select(func.count())
-            .select_from(Recording)
-            .where(latest_split_pieces(parent.id, created_by))
-        )
-        # A piece may arrive before its parent's split does; it stays processing until the
-        # split lands, held meanwhile to the most pieces any split makes.
-        size = parent.split_size if parent.split_id is not None else MAX_SPLIT_PIECES
-        if size is not None and (held or 0) >= size - 1:
+        held, unfinished = (
+            await self.session.execute(
+                select(
+                    func.count().filter(latest_split_pieces(parent.id, created_by)),
+                    func.count().filter(unfinished_pieces(parent.id)),
+                ).where(Recording.split_from_id == parent.id)
+            )
+        ).one()
+        size = parent.split_size if parent.split_id is not None else None
+        if size is not None and held >= size - 1:
+            return SPLIT_FULL
+        # Every piece is cut from the parent's original, so the parent's unfinished pieces,
+        # of every split, are held to one split's worth. This also holds a piece that
+        # arrives before its parent's split.
+        if unfinished >= MAX_SPLIT_PIECES - 1:
             return SPLIT_FULL
         self.parent = parent
         return parent

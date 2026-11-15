@@ -16,6 +16,7 @@ import pytest
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from crosstune.billing.grants import grant_comp
 from crosstune.db.base import new_uuid7, utc_now
 from crosstune.db.engine import make_sessionmaker
 from crosstune.files.quota import slot_for_recording
@@ -94,6 +95,19 @@ async def make_user(session) -> User:
     session.add(user)
     await session.flush()
     return user
+
+
+async def grant_premium(session, user_id: uuid.UUID) -> None:
+    """Give the user an open-ended comp, for a test of work only Premium may do."""
+    await grant_comp(
+        session,
+        user_id,
+        expires_at=None,
+        storage_addon=False,
+        granted_by="test",
+        reason="test",
+        now=utc_now(),
+    )
 
 
 async def add_recording(session, user: User, state: str, **fields) -> Recording:

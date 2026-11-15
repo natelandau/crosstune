@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 
 from crosstune.billing.access import access_for
 from crosstune.db.base import bump_server_seq
-from crosstune.files.quota import used_bytes
+from crosstune.files.quota import OVER_QUOTA, used_bytes
 from crosstune.jobs.attempt import (
     attempt_timeout,
     fail_recording,
@@ -22,7 +22,6 @@ from crosstune.jobs.attempt import (
 )
 from crosstune.jobs.importer import (
     IMPORT_MIME,
-    OVER_QUOTA,
     PREMIUM_REQUIRED_IMPORT,
     ImportRefused,
     fetch_import,
@@ -116,7 +115,7 @@ async def _fetch_within_room(
     """
     async with session.begin():
         access = await access_for(session, recording.user_id, ctx.settings)
-        used = await used_bytes(session, recording.user_id, exclude=recording.id)
+        used = await used_bytes(session, recording.user_id, exclude=(recording.id,))
     if not access.premium:
         raise ImportRefused(PREMIUM_REQUIRED_IMPORT)
     room = access.quota_bytes - used
@@ -161,7 +160,7 @@ async def _commit(
         access = await access_for(session, recording.user_id, ctx.settings)
         if not access.premium:
             raise ImportRefused(PREMIUM_REQUIRED_IMPORT)
-        used = await used_bytes(session, recording.user_id, exclude=recording.id)
+        used = await used_bytes(session, recording.user_id, exclude=(recording.id,))
         if used + fetched.size > access.quota_bytes:
             raise ImportRefused(OVER_QUOTA)
         if fetched.year is not None and recording.recorded_at is None:

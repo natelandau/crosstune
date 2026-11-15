@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import func, select
 
+from crosstune.billing.access import access_for
 from crosstune.db.base import utc_now
 from crosstune.errors import ConflictError, QuotaExceededError
 from crosstune.files.urls import UPLOAD_SIZE_TOLERANCE, UPLOAD_URL_TTL_SECONDS, file_too_large
@@ -15,15 +16,20 @@ from crosstune.storage.store import staged_scan_key, staged_upload_key
 
 if TYPE_CHECKING:
     import uuid
+    from collections.abc import Collection
     from datetime import datetime
 
     from sqlalchemy import ColumnElement
     from sqlalchemy.ext.asyncio import AsyncSession
     from sqlalchemy.orm import InstrumentedAttribute
 
+    from crosstune.config import Settings
     from crosstune.storage.store import ObjectInfo, ObjectStore
 
 type SlotOwner = Recording | Scan
+
+OVER_QUOTA = "Storage quota exceeded"
+"""The error a recording shows when the server refused to store its file past the quota."""
 
 
 async def used_bytes(
@@ -31,7 +37,7 @@ async def used_bytes(
     user_id: uuid.UUID,
     now: datetime | None = None,
     *,
-    exclude: uuid.UUID | None = None,
+    exclude: Collection[uuid.UUID] = (),
 ) -> int:
     """The bytes that count against a user's quota.
 
@@ -44,7 +50,7 @@ async def used_bytes(
         session: The session to query through.
         user_id: Whose storage to sum.
         now: The moment that decides whether a slot is still open. Defaults to the clock.
-        exclude: A recording or scan to leave out, for a caller sizing that file's own upload.
+        exclude: Recordings or scans to leave out, for a caller sizing those files' own bytes.
 
     Returns:
         int: The bytes that count against the user's quota.
@@ -64,6 +70,31 @@ async def used_bytes(
     return int(total or 0)
 
 
+async def room_bytes(
+    session: AsyncSession,
+    user_id: uuid.UUID,
+    settings: Settings,
+    *,
+    exclude: Collection[uuid.UUID] = (),
+) -> int:
+    """The bytes a user may still store before a file the server writes takes them past quota.
+
+    For a server job that creates a file outside any upload slot, so it is held to the same
+    quota as an upload.
+
+    Args:
+        session: The session to query through.
+        user_id: Whose storage to check.
+        settings: The settings that decide the user's quota.
+        exclude: Recordings or scans to leave out, passed to `used_bytes`.
+
+    Returns:
+        int: The quota left, zero or below when the user has no room.
+    """
+    access = await access_for(session, user_id, settings)
+    return access.quota_bytes - await used_bytes(session, user_id, exclude=exclude)
+
+
 def _usage(
     model: type[Recording | Scan],
     stored_column: InstrumentedAttribute[int | None],
@@ -71,13 +102,13 @@ def _usage(
     *,
     user_id: uuid.UUID,
     now: datetime,
-    exclude: uuid.UUID | None,
+    exclude: Collection[uuid.UUID],
 ) -> ColumnElement[int]:
     """One file type's share of `used_bytes`, as a SQL expression."""
     open_slots = UploadSlot.user_id == user_id, UploadSlot.expires_at > now
     live = [model.user_id == user_id, model.deleted_at.is_(None)]
-    if exclude is not None:
-        live.append(model.id != exclude)
+    if exclude:
+        live.append(model.id.not_in(exclude))
     has_open_slot = select(owner_column).where(*open_slots, owner_column.is_not(None))
     stored = (
         select(func.coalesce(func.sum(stored_column), 0))
@@ -93,11 +124,11 @@ def _usage(
     return stored + reserved
 
 
-def _originals(*, user_id: uuid.UUID, exclude: uuid.UUID | None) -> ColumnElement[int]:
+def _originals(*, user_id: uuid.UUID, exclude: Collection[uuid.UUID]) -> ColumnElement[int]:
     """The live recordings' kept originals, which outlast every upload and transcode."""
     live = [Recording.user_id == user_id, Recording.deleted_at.is_(None)]
-    if exclude is not None:
-        live.append(Recording.id != exclude)
+    if exclude:
+        live.append(Recording.id.not_in(exclude))
     return (
         select(func.coalesce(func.sum(Recording.original_bytes), 0)).where(*live).scalar_subquery()
     )
@@ -151,7 +182,7 @@ async def reserve_slot(
     now = utc_now()
     existing = await _slot_for(session, owner)
     # The owner's own slot or stored file is what the new PUT replaces.
-    used = await used_bytes(session, owner.user_id, now, exclude=owner.id)
+    used = await used_bytes(session, owner.user_id, now, exclude=(owner.id,))
     if used + declared_bytes > quota_bytes:
         msg = f"{used} of {quota_bytes} bytes used"
         raise QuotaExceededError(msg)

@@ -317,7 +317,7 @@ SPLIT_MISMATCH: Final = (
 SPLIT_UNNAMED: Final = "a piece with split_from_id needs created_by_split_id"
 """The push reason for a new piece that does not say which split created it."""
 SPLIT_FULL: Final = "the split already holds all of its pieces"
-"""The push reason for a new piece beyond its split's size."""
+"""The push reason for a new piece beyond its split's size or its parent's unfinished pieces."""
 SPLIT_FAILED: Final = "The piece could not be split."
 """The error a piece shows once the split job gives up on cutting it."""
 

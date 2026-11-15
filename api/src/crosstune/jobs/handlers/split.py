@@ -68,7 +68,7 @@ async def run(ctx: JobContext, job: Job) -> None:
                         await back_up_parent(session, ctx.store, parent)
                         await session.commit()
                     while (piece := await _next_waiting(session, parent)) is not None:
-                        await cut_piece(session, files, parent, piece)
+                        await cut_piece(session, files, parent, piece, settings=ctx.settings)
                         pending = Orphans(
                             (piece.original_key, piece.playback_key, piece.peaks_key), piece.id
                         )

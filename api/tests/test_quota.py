@@ -61,7 +61,7 @@ async def test_used_bytes_counts_kept_originals_of_live_recordings(
     )
     await verify_session.commit()
     assert await used_bytes(verify_session, user_id) == 3300
-    assert await used_bytes(verify_session, user_id, exclude=rec) == 300
+    assert await used_bytes(verify_session, user_id, exclude=(rec,)) == 300
 
     await verify_session.execute(
         update(Recording).where(Recording.id == rec).values(deleted_at=utc_now())
@@ -146,8 +146,8 @@ async def test_deleted_scan_does_not_count(client, auth_headers, verify_session)
 
 async def test_exclude_leaves_out_one_scan(client, auth_headers, verify_session) -> None:
     user_id, rec, scan = await _seed(client, auth_headers, verify_session)
-    assert await used_bytes(verify_session, user_id, exclude=scan) == 1000
-    assert await used_bytes(verify_session, user_id, exclude=rec) == 300
+    assert await used_bytes(verify_session, user_id, exclude=(scan,)) == 1000
+    assert await used_bytes(verify_session, user_id, exclude=(rec,)) == 300
 
 
 async def test_slot_needs_exactly_one_owner(client, auth_headers, verify_session) -> None:

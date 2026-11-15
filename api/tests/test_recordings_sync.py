@@ -1244,30 +1244,55 @@ async def test_piece_before_its_parents_split_waits_then_queues_the_split(
     assert await _job_kinds(verify_session, parent) == ["split"]
 
 
-async def test_piece_before_its_parents_split_is_held_to_the_most_pieces(
-    client, auth_headers, verify_session, monkeypatch
+async def _push_piece(client, headers, parent: str, split: str) -> str:
+    [result] = await push(
+        client, headers, recording(uid(), T1, split_from_id=parent, created_by_split_id=split)
+    )
+    return result["reason"] if result["status"] == "invalid" else result["status"]
+
+
+@pytest.mark.parametrize(
+    ("one_split", "parent_has_split"),
+    [
+        pytest.param(True, True, id="one-split"),
+        pytest.param(True, False, id="before-its-split"),
+        pytest.param(False, False, id="unknown-splits"),
+        pytest.param(False, True, id="replaced-splits"),
+    ],
+)
+async def test_a_parent_holds_at_most_one_split_of_unfinished_pieces(
+    client, auth_headers, verify_session, monkeypatch, one_split, parent_has_split
 ) -> None:
     monkeypatch.setattr(rules, "MAX_SPLIT_PIECES", 3)
     parent, split = uid(), uid()
     headers = auth_headers("user_a")
     await _ready_parent(client, headers, verify_session, parent)
-    results = [
-        (
-            await push(
-                client,
-                headers,
-                recording(uid(), T1, split_from_id=parent, created_by_split_id=split),
-            )
-        )[0]
-        for _ in range(3)
-    ]
-    assert [r["status"] for r in results] == ["applied", "applied", "invalid"]
-    assert results[2]["reason"] == SPLIT_FULL
-    # Another split's pieces count on their own.
-    [other] = await push(
-        client, headers, recording(uid(), T1, split_from_id=parent, created_by_split_id=uid())
+    reasons = []
+    for n in range(3):
+        if not one_split:
+            split = uid()
+        if parent_has_split:
+            # A split of three, so only the ceiling across splits refuses the third piece.
+            at = T1 + timedelta(seconds=n)
+            await push(client, headers, recording(parent, at, split_id=split, split_size=3))
+        reasons.append(await _push_piece(client, headers, parent, split))
+    assert reasons == ["applied", "applied", SPLIT_FULL]
+
+
+async def test_cut_pieces_leave_room_for_another_split(
+    client, auth_headers, verify_session, monkeypatch
+) -> None:
+    monkeypatch.setattr(rules, "MAX_SPLIT_PIECES", 3)
+    parent = uid()
+    headers = auth_headers("user_a")
+    await _ready_parent(client, headers, verify_session, parent)
+    for _ in range(2):
+        await _push_piece(client, headers, parent, uid())
+    await verify_session.execute(
+        update(Recording).where(Recording.split_from_id == parent).values(state="ready")
     )
-    assert other["status"] == "applied"
+    await verify_session.commit()
+    assert await _push_piece(client, headers, parent, uid()) == "applied"
 
 
 async def test_deleting_a_failed_piece_lets_the_sweep_queue_the_parent_split_job(

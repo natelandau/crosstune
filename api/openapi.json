@@ -5791,7 +5791,7 @@
     },
     "/v1/recordings/{recording_id}/retry": {
       "post": {
-        "description": "Process a failed recording again: transcode its file, or fetch an import again.\n\nAn import whose file never arrived is fetched again, or fails at once when its\naddress is not one the server imports from. Any other recording whose uploaded\nobject is gone is uploaded again through a new slot; this route only re-runs the\ntranscode. Fetching an import again needs Premium; a transcode does not. Repeating\nthe call changes nothing.",
+        "description": "Process a failed recording again: transcode its file, cut a piece, or fetch an import.\n\nA piece of a split that was never cut goes back to its parent's split job, or is a\nconflict once the parent no longer holds its audio. An import whose file never\narrived is fetched again, or fails at once when its address is not one the server\nimports from. Any other recording whose uploaded object is gone is uploaded again\nthrough a new slot; this route only re-runs the transcode. Fetching an import again\nneeds Premium; a transcode does not. Repeating the call changes nothing.",
         "operationId": "retry_v1_recordings__recording_id__retry_post",
         "parameters": [
           {

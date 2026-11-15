@@ -10,9 +10,8 @@ from sqlalchemy.dialects.postgresql import insert
 from crosstune.db.base import bump_server_seq, utc_now
 from crosstune.db.session import request_runner_wake
 from crosstune.errors import ConflictError, NotFoundError
-from crosstune.files.quota import used_bytes
+from crosstune.files.quota import OVER_QUOTA, used_bytes
 from crosstune.jobs.attempt import held_after_failure
-from crosstune.jobs.importer import OVER_QUOTA
 from crosstune.links.detect import detect_provider
 from crosstune.models import Job, Recording
 from crosstune.recordings.split_rules import split_holds_original, split_ready_to_complete
@@ -138,7 +137,7 @@ async def start_import(session: AsyncSession, recording: Recording, access: Acce
     failed for its address is left untouched.
     """
     if importable(recording):
-        used = await used_bytes(session, recording.user_id, exclude=recording.id)
+        used = await used_bytes(session, recording.user_id, exclude=(recording.id,))
         if used < access.quota_bytes:
             recording.state = "processing"
             recording.error = None

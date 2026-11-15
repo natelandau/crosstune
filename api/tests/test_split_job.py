@@ -15,6 +15,7 @@ from sqlalchemy import select
 
 from crosstune.db.base import utc_now
 from crosstune.db.engine import make_sessionmaker
+from crosstune.files.quota import OVER_QUOTA, used_bytes
 from crosstune.jobs import split as split_module
 from crosstune.jobs import transcode as transcode_module
 from crosstune.jobs.attempt import MAX_ATTEMPTS, PROCESSING_FAILED, JobContext
@@ -35,6 +36,7 @@ from tests.fakes import FakeObjectStore
 from tests.helpers import GAPPED_STALL_MS, make_tone
 from tests.test_jobs import (
     add_recording,
+    grant_premium,
     make_uploaded,
     make_user,
     probe_key,
@@ -81,10 +83,14 @@ class _OrderedStore(FakeObjectStore):
         await super().delete(*keys)
 
 
-@pytest.fixture
-def split_runner(engine, tmp_path, settings: Settings) -> tuple[JobRunner, _OrderedStore]:
+def _runner(engine, tmp_path, settings: Settings) -> tuple[JobRunner, _OrderedStore]:
     store = _OrderedStore()
     return JobRunner(make_sessionmaker(engine), store, work_root=tmp_path, settings=settings), store
+
+
+@pytest.fixture
+def split_runner(engine, tmp_path, settings: Settings) -> tuple[JobRunner, _OrderedStore]:
+    return _runner(engine, tmp_path, settings)
 
 
 @pytest.fixture(scope="module")
@@ -99,8 +105,17 @@ def tones(tmp_path_factory: pytest.TempPathFactory) -> dict[int, Path]:
     return paths
 
 
+async def _seed_ready(verify_session, store, path: Path, content_type: str, tmp_path) -> Recording:
+    parent = await seed_ready(verify_session, store, path, content_type, tmp_path)
+    # A split's pieces count against the quota, which only Premium has.
+    await grant_premium(verify_session, parent.user_id)
+    await verify_session.commit()
+    await verify_session.refresh(parent)
+    return parent
+
+
 async def _seed(verify_session, store: _OrderedStore, path: Path, tmp_path) -> Recording:
-    parent = await seed_ready(verify_session, store, path, "audio/mp4", tmp_path)
+    parent = await _seed_ready(verify_session, store, path, "audio/mp4", tmp_path)
     store.writes.clear()
     store.deletes.clear()
     return parent
@@ -789,6 +804,7 @@ async def _seed_uploaded_parent(
 ) -> Recording:
     """An uploaded parent with its transcode queued, as a client's push leaves it."""
     user = await make_user(verify_session)
+    await grant_premium(verify_session, user.id)
     parent = await make_uploaded(verify_session, store, user, path, "audio/mp4")
     parent.split_id = uuid.uuid4() if split_size else None
     parent.split_size = split_size
@@ -956,7 +972,7 @@ async def test_split_of_a_reencoded_original_cuts_each_piece_once(
 ) -> None:
     job_runner, store = split_runner
     # Opus in WebM has no stream-copy container, so each slice is re-encoded.
-    parent = await seed_ready(verify_session, store, plain_webm, "audio/webm", tmp_path)
+    parent = await _seed_ready(verify_session, store, plain_webm, "audio/webm", tmp_path)
     store.writes.clear()
     _, pieces = await _split(verify_session, parent, [1_825, 3_781])
     real_rewrite = split_module.rewrite_playback
@@ -982,7 +998,7 @@ async def test_split_of_a_webm_with_a_timestamp_gap_leaves_no_gap_between_pieces
     split_runner, verify_session, gapped_webm, tmp_path
 ) -> None:
     job_runner, store = split_runner
-    parent = await seed_ready(verify_session, store, gapped_webm, "audio/webm", tmp_path)
+    parent = await _seed_ready(verify_session, store, gapped_webm, "audio/webm", tmp_path)
     store.writes.clear()
     _, pieces = await _split(verify_session, parent, [1_843, 3_781])
 
@@ -1000,7 +1016,7 @@ async def test_split_reads_the_parent_original_once_per_attempt(
     split_runner, verify_session, gapped_webm, tmp_path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     job_runner, store = split_runner
-    parent = await seed_ready(verify_session, store, gapped_webm, "audio/webm", tmp_path)
+    parent = await _seed_ready(verify_session, store, gapped_webm, "audio/webm", tmp_path)
     await _split(verify_session, parent, [1_843, 3_781])
     scanned: list[Path] = []
     real_scan = split_module.scan_stalls
@@ -1022,7 +1038,7 @@ async def test_split_with_a_cut_inside_a_stall_leaves_contiguous_pieces(
     split_runner, verify_session, gapped_webm, tmp_path
 ) -> None:
     job_runner, store = split_runner
-    parent = await seed_ready(verify_session, store, gapped_webm, "audio/webm", tmp_path)
+    parent = await _seed_ready(verify_session, store, gapped_webm, "audio/webm", tmp_path)
     store.writes.clear()
     _, pieces = await _split(verify_session, parent, [1_050, 3_781])
 
@@ -1038,7 +1054,7 @@ async def test_split_at_a_stall_end_leaves_contiguous_pieces_of_their_length(
     split_runner, verify_session, gapped_webm, tmp_path
 ) -> None:
     job_runner, store = split_runner
-    parent = await seed_ready(verify_session, store, gapped_webm, "audio/webm", tmp_path)
+    parent = await _seed_ready(verify_session, store, gapped_webm, "audio/webm", tmp_path)
     store.writes.clear()
     bounds, pieces = await _split(verify_session, parent, [GAPPED_STALL_MS[1], 3_781])
 
@@ -1159,3 +1175,74 @@ async def test_split_piece_of_an_unmeasured_parent_is_measured(
     await _refresh(verify_session, piece)
     assert piece.is_mono is True
     assert await _jobs(verify_session, piece, JobKind.MONO) == []
+
+
+# A 10 s tone's split, with each piece's original slice and playback file counted, ends
+# under this quota, while the parent's full files and its pieces together go over it.
+SPLIT_QUOTA = 240_000
+
+
+@pytest.fixture
+def quota_runner(engine, tmp_path, settings: Settings) -> tuple[JobRunner, _OrderedStore]:
+    return _runner(
+        engine, tmp_path, settings.model_copy(update={"premium_quota_bytes": SPLIT_QUOTA})
+    )
+
+
+async def test_a_split_that_divides_the_parent_fits_a_quota_it_briefly_exceeds(
+    quota_runner, verify_session, tones, tmp_path
+) -> None:
+    job_runner, store = quota_runner
+    parent = await _seed(verify_session, store, tones[10], tmp_path)
+    _, pieces = await _split(verify_session, parent, [3_000, 6_000])
+
+    await _run_all(job_runner, verify_session)
+    await _refresh(verify_session, parent, *pieces)
+    assert [piece.state for piece in pieces] == ["ready", "ready"]
+    assert parent.split_completed_id == parent.split_id
+    assert await used_bytes(verify_session, parent.user_id) <= SPLIT_QUOTA
+
+
+@pytest.mark.parametrize("filler_bytes", [0, SPLIT_QUOTA], ids=["some-room", "no-room"])
+async def test_a_piece_past_the_quota_fails_and_leaves_no_files(
+    quota_runner, verify_session, tones, tmp_path, filler_bytes: int
+) -> None:
+    job_runner, store = quota_runner
+    parent = await _seed(verify_session, store, tones[10], tmp_path)
+    user = await verify_session.get(User, parent.user_id)
+    if filler_bytes:
+        await add_recording(verify_session, user, "ready", playback_bytes=filler_bytes)
+    parent.split_id = uuid.uuid4()
+    parent.split_size = 4
+    # Pieces that each repeat the whole parent rather than divide it.
+    pieces = [
+        await add_recording(
+            verify_session,
+            user,
+            "processing",
+            split_from_id=parent.id,
+            created_by_split_id=parent.split_id,
+            trim_start_ms=0,
+            trim_end_ms=10_000,
+        )
+        for _ in range(3)
+    ]
+    await ensure_split_job(verify_session, parent)
+    await verify_session.commit()
+
+    await _run_all(job_runner, verify_session)
+    await _refresh(verify_session, parent, *pieces)
+    failed = [piece for piece in pieces if piece.state == "failed"]
+    assert len(failed) == (3 if filler_bytes else 2)
+    assert {piece.error for piece in failed} == {OVER_QUOTA}
+    for piece in failed:
+        prefix = recording_prefix(user.id, piece.id)
+        assert not [key for key in set(store.keys()) if key.startswith(prefix)]
+        written = [key for key in store.writes if key.startswith(prefix)]
+        if filler_bytes:
+            # An account with no room left fails the piece without cutting it.
+            assert written == []
+        else:
+            assert written != []
+    # The parent's own files are what its pieces are cut from, so only they may exceed it.
+    assert await used_bytes(verify_session, user.id, exclude=(parent.id,)) <= SPLIT_QUOTA

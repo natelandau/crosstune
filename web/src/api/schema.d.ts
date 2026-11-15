@@ -280,13 +280,14 @@ export interface paths {
         put?: never;
         /**
          * Retry
-         * @description Process a failed recording again: transcode its file, or fetch an import again.
+         * @description Process a failed recording again: transcode its file, cut a piece, or fetch an import.
          *
-         *     An import whose file never arrived is fetched again, or fails at once when its
-         *     address is not one the server imports from. Any other recording whose uploaded
-         *     object is gone is uploaded again through a new slot; this route only re-runs the
-         *     transcode. Fetching an import again needs Premium; a transcode does not. Repeating
-         *     the call changes nothing.
+         *     A piece of a split that was never cut goes back to its parent's split job, or is a
+         *     conflict once the parent no longer holds its audio. An import whose file never
+         *     arrived is fetched again, or fails at once when its address is not one the server
+         *     imports from. Any other recording whose uploaded object is gone is uploaded again
+         *     through a new slot; this route only re-runs the transcode. Fetching an import again
+         *     needs Premium; a transcode does not. Repeating the call changes nothing.
          */
         post: operations["retry_v1_recordings__recording_id__retry_post"];
         delete?: never;

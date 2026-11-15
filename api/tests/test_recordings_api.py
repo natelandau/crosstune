@@ -557,6 +557,55 @@ async def test_retry_refuses_past_the_account_s_limit_and_counts_only_queued_wor
     assert 0 < int(refused.headers["retry-after"]) <= 60
 
 
+@pytest.mark.parametrize(
+    ("completed", "status", "state", "parent_jobs"),
+    [
+        pytest.param(False, 204, "processing", ["split"], id="open-split"),
+        pytest.param(True, 409, "failed", [], id="completed-split"),
+    ],
+)
+async def test_retry_of_a_failed_piece_sends_it_back_to_its_split(
+    client, auth_headers, verify_session, completed, status, state, parent_jobs
+) -> None:
+    parent, piece, split = uid(), uid(), uid()
+    headers = auth_headers("user_a")
+    # An imported parent, so its piece would otherwise read as an import that never arrived.
+    imported = {"source": "import", "origin": "slippery_hill", "origin_url": TUNE_PAGE}
+    await push(client, headers, recording(parent, **imported))
+    await push(
+        client,
+        headers,
+        recording(piece, T1, split_from_id=parent, created_by_split_id=split, **imported),
+    )
+    await verify_session.execute(delete(Job))
+    await verify_session.execute(
+        update(Recording)
+        .where(Recording.id == parent)
+        .values(
+            state="ready",
+            split_id=split,
+            split_size=2,
+            split_completed_id=split if completed else None,
+        )
+    )
+    await verify_session.execute(
+        update(Recording)
+        .where(Recording.id == piece)
+        .values(state="failed", error="Storage quota exceeded")
+    )
+    await verify_session.commit()
+
+    response = await client.post(f"/v1/recordings/{piece}/retry", headers=headers)
+    assert response.status_code == status, response.text
+    verify_session.expire_all()
+    stored = await verify_session.get(Recording, uuid.UUID(piece))
+    assert stored.state == state
+    jobs = await verify_session.scalars(select(Job))
+    assert [(str(job.recording_id), job.kind) for job in jobs] == [
+        (parent, kind) for kind in parent_jobs
+    ]
+
+
 TUNE_PAGE = "https://www.slippery-hill.com/content/bear-creek-sally-goodin"
 
 
