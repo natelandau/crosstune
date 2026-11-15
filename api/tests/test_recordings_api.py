@@ -9,9 +9,10 @@ from typing import TYPE_CHECKING
 import pytest
 from sqlalchemy import delete, select, update
 
-from crosstune.models import Job, Recording, UploadSlot
+from crosstune.files.quota import OVER_QUOTA
+from crosstune.models import Job, Recording, Scan, UploadSlot
 from crosstune.storage.store import upload_key
-from tests.helpers import T1, change, push, recording, uid
+from tests.helpers import T0, T1, T2, change, push, recording, uid
 
 if TYPE_CHECKING:
     from crosstune.storage.store import ObjectInfo
@@ -230,6 +231,96 @@ async def test_a_soft_deleted_recordings_slot_no_longer_counts_toward_quota(
     assert (await slot(client, auth_headers("user_a"), first, bytes_=1000)).status_code == 200
     await push(client, auth_headers("user_a"), change("recordings", first, T1, op="delete"))
     assert (await slot(client, auth_headers("user_a"), second, bytes_=1000)).status_code == 200
+
+
+async def test_a_deleted_split_parent_never_holds_storage_past_the_quota(
+    client, app, auth_headers, object_store
+) -> None:
+    """A piece no split will cut must not let a deleted parent keep files outside the quota."""
+    app.state.settings.trial_quota_bytes = 1000
+    headers = auth_headers("user_a")
+    parent, other, piece = uid(), uid(), uid()
+    await push(client, headers, recording(parent), recording(other))
+    assert (await slot(client, headers, parent, bytes_=800)).status_code == 200
+    object_store.put_bytes(object_store.presigned[-1][1], b"x" * 800, "audio/mp4")
+    assert (await uploaded(client, headers, parent)).status_code == 204
+    assert (await slot(client, headers, other, bytes_=800)).status_code == 413
+
+    await push(
+        client, headers, recording(piece, T1, split_from_id=parent, created_by_split_id=uid())
+    )
+    await push(client, headers, change("recordings", parent, T1, op="delete"))
+    other_slot = await slot(client, headers, other, bytes_=800)
+    [revive] = await push(client, headers, recording(parent, T2))
+
+    assert other_slot.status_code == 413 or (revive["status"], revive["reason"]) == (
+        "invalid",
+        OVER_QUOTA,
+    )
+    storage = (await client.get("/v1/me", headers=headers)).json()["storage"]
+    assert storage["used_bytes"] <= storage["quota_bytes"]
+
+
+@pytest.mark.parametrize(
+    ("kind", "quota", "status"),
+    [
+        ("recording", 2000, "applied"),
+        ("recording", 1000, "invalid"),
+        # Its files already count, so the revive adds nothing.
+        ("held recording", 1000, "applied"),
+        ("scan", 1000, "invalid"),
+    ],
+)
+async def test_revive_of_a_deleted_file_must_fit_the_quota(
+    client, app, auth_headers, verify_session, kind, quota, status
+) -> None:
+    app.state.settings.trial_quota_bytes = quota
+    headers = auth_headers("user_a")
+    deleted, other, piece, split_id, tune = uid(), uid(), uid(), uid(), uid()
+    await push(client, headers, recording(other))
+    await verify_session.execute(
+        update(Recording).where(Recording.id == other).values(state="ready", playback_bytes=300)
+    )
+    if kind == "scan":
+        scan = {"tune_id": tune, "position": 0, "width": 10, "height": 10}
+        await push(
+            client,
+            headers,
+            change("tunes", tune, T0, title="X"),
+            change("scans", deleted, T0, **scan),
+        )
+        await verify_session.execute(
+            update(Scan)
+            .where(Scan.id == deleted)
+            .values(state="ready", file_key="k", file_bytes=800, deleted_at=datetime.now(UTC))
+        )
+        revive = change("scans", deleted, T1, **scan)
+    else:
+        await push(client, headers, recording(deleted))
+        if kind == "held recording":
+            await push(
+                client,
+                headers,
+                recording(piece, split_from_id=deleted, created_by_split_id=split_id),
+            )
+        await verify_session.execute(
+            update(Recording)
+            .where(Recording.id == deleted)
+            .values(
+                state="ready",
+                playback_bytes=800,
+                split_id=split_id,
+                split_size=2,
+                deleted_at=datetime.now(UTC),
+            )
+        )
+        revive = recording(deleted, T1)
+    await verify_session.commit()
+
+    [result] = await push(client, headers, revive)
+    assert result["status"] == status
+    if status == "invalid":
+        assert result["reason"] == OVER_QUOTA
 
 
 async def uploaded(client, headers, rec: str):

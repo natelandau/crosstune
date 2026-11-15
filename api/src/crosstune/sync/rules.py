@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 from sqlalchemy import func, select
 
 from crosstune.db.base import bump_server_seq, next_server_seq
+from crosstune.files.quota import OVER_QUOTA, revive_exceeds_quota
 from crosstune.links.detect import detect_provider, normalize_url, valid_slippery_hill_ref
 from crosstune.links.resolve import unresolved_link
 from crosstune.models import (
@@ -37,6 +38,7 @@ from crosstune.recordings.loops import (
 )
 from crosstune.recordings.service import ensure_place_job, ensure_trim_job, start_import
 from crosstune.recordings.split_rules import (
+    fail_stranded_pieces,
     latest_split_pieces,
     split_first_cut,
     unfinished_pieces,
@@ -299,7 +301,7 @@ class RecordingRules(RowRules):
     stored_place: tuple[float | None, float | None, str | None] | None = None
 
     async def prepare(self, data: dict[str, Any]) -> str | None:
-        """Refuse a free plan's new recording, then settle the pushed trim in place.
+        """Refuse a free plan's new recording or an over-quota revive, then settle the pushed trim.
 
         A free plan keeps the stored trim: a pushed trim that differs is replaced with it,
         and the rest of the change still applies. A server job can rewrite the stored trim
@@ -316,6 +318,8 @@ class RecordingRules(RowRules):
                 self.stored.place_lon,
                 self.stored.place_name,
             )
+        if await self._revive_over_quota():
+            return OVER_QUOTA
         await self._settle_place(data)
         if not self.access.premium:
             if self.stored is None:
@@ -349,6 +353,13 @@ class RecordingRules(RowRules):
             end = None
         data["trim_start_ms"], data["trim_end_ms"] = start, end
         return None
+
+    async def _revive_over_quota(self) -> bool:
+        """Whether the upsert would revive a deleted recording past the account's quota."""
+        stored = self.stored
+        if stored is None or stored.deleted_at is None or not self._upsert_writes(stored):
+            return False
+        return await revive_exceeds_quota(self.session, stored, self.access.quota_bytes)
 
     async def _hold_split_parent(
         self, data: dict[str, Any], start: int, end: int | None
@@ -545,6 +556,13 @@ class RecordingRules(RowRules):
             await self.session.flush()
             await self.session.refresh(row)
 
+    async def deleted(self, row: Recording) -> None:
+        """Fail the waiting pieces the deleted recording's split will never cut.
+
+        Each would hold the recording's original, and keep its files from the purge.
+        """
+        await fail_stranded_pieces(self.session, row)
+
 
 class RecordingLoopRules(RowRules):
     """Keep a pushed loop inside its recording's trim, off its other loops, and under the cap."""
@@ -637,13 +655,15 @@ class ScanRules(RowRules):
     """Keep a scan on its tune and under the tune's limit, and refuse a free plan's new scan."""
 
     async def prepare(self, data: dict[str, Any]) -> str | None:
-        """Refuse a scan that moves tune, passes the tune's limit, or is added without Premium."""
+        """Refuse a scan that moves tune, passes the tune's limit or quota, or lacks Premium."""
         stored = await self.session.get(Scan, self.change.id)
         if stored is not None and stored.user_id == self.user_id:
             if stored.tune_id != data["tune_id"]:
                 return "tune_id is fixed"
             if stored.updated_at >= self.change.updated_at or stored.deleted_at is None:
                 return None
+            if await revive_exceeds_quota(self.session, stored, self.access.quota_bytes):
+                return OVER_QUOTA
         if not self.access.premium:
             return PREMIUM_REQUIRED
         if await self.live_siblings(Scan.tune_id, data["tune_id"]) >= MAX_SCANS_PER_TUNE:

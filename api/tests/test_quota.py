@@ -70,6 +70,32 @@ async def test_used_bytes_counts_kept_originals_of_live_recordings(
     assert await used_bytes(verify_session, user_id) == 300
 
 
+async def test_deleted_recording_counts_while_a_waiting_piece_holds_its_files(
+    client, auth_headers, verify_session
+) -> None:
+    user_id, rec, _ = await _seed(client, auth_headers, verify_session)
+    piece, split_id = uid(), uid()
+    await push(
+        client,
+        auth_headers("user_a"),
+        recording(piece, split_from_id=str(rec), created_by_split_id=split_id),
+    )
+    await verify_session.execute(
+        update(Recording)
+        .where(Recording.id == rec)
+        .values(original_bytes=2000, split_id=split_id, split_size=2, deleted_at=utc_now())
+    )
+    await verify_session.commit()
+    assert await used_bytes(verify_session, user_id) == 3300
+
+    # Cut, so the purge may remove the parent's files.
+    await verify_session.execute(
+        update(Recording).where(Recording.id == piece).values(state="ready")
+    )
+    await verify_session.commit()
+    assert await used_bytes(verify_session, user_id) == 300
+
+
 async def test_open_scan_slot_replaces_its_stored_bytes(
     client, auth_headers, verify_session
 ) -> None:

@@ -4,17 +4,23 @@ from __future__ import annotations
 
 import asyncio
 import uuid
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import ARRAY, Uuid, and_, any_, delete, exists, literal, not_, or_, select
+from sqlalchemy import ARRAY, Uuid, and_, any_, delete, exists, func, literal, not_, or_, select
 from sqlalchemy.orm import aliased
 
 from crosstune.db.base import bump_server_seq, utc_now
 from crosstune.db.locks import advisory_lock_key, lock_user
 from crosstune.models import Job, Recording, Scan, UploadSlot, User
 from crosstune.recordings.service import ensure_split_job
-from crosstune.recordings.split_rules import holds_original, ready_to_complete, waiting_pieces
+from crosstune.recordings.split_rules import (
+    fail_pieces,
+    keeps_files,
+    ready_to_complete,
+    stranded_pieces,
+    waiting_pieces,
+)
 from crosstune.storage.store import (
     LEGACY_SCAN_SEGMENT,
     SCAN_SEGMENT,
@@ -27,7 +33,7 @@ from crosstune.storage.store import (
     scan_prefixes,
     upload_key,
 )
-from crosstune.vocabulary import JobKind, ScanState
+from crosstune.vocabulary import SPLIT_FAILED, JobKind, ScanState
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -360,6 +366,58 @@ async def queue_ready_splits(sessionmaker: async_sessionmaker[AsyncSession]) -> 
         return len(parents)
 
 
+async def fail_overdue_pieces(
+    sessionmaker: async_sessionmaker[AsyncSession], *, grace: timedelta
+) -> int:
+    """Fail the pieces that have waited past `grace` for a cut their parent's split will never make.
+
+    A piece can reach the server before its parent's split, so each gets `grace` for the
+    split to arrive. A parent's delete fails the pieces it strands at once; this catches
+    the ones that arrive after the delete, and the ones whose split never arrives. Each
+    failure releases the parent's original for the purge.
+
+    Args:
+        sessionmaker: Opens the session the sweep reads and writes through.
+        grace: How long after the server stored a piece its split may still arrive.
+
+    Returns:
+        int: How many pieces were failed.
+    """
+    overdue = Recording.received_at < utc_now() - grace
+    async with sessionmaker() as session:
+        async with session.begin():
+            candidates = list(
+                await session.scalars(stranded_pieces().where(overdue).limit(PURGE_BATCH))
+            )
+        if not candidates:
+            return 0
+        async with session.begin():
+            await _lock_users(session, candidates)
+            # Re-read under the locks, so a split that arrived meanwhile keeps its pieces.
+            return await fail_pieces(
+                session,
+                stranded_pieces()
+                .where(Recording.id.in_([piece.id for piece in candidates]), overdue)
+                .execution_options(populate_existing=True),
+                SPLIT_FAILED,
+            )
+
+
+async def next_overdue_piece(session: AsyncSession, *, grace: timedelta) -> datetime | None:
+    """When the next stranded piece passes `grace`, so an idle runner wakes for its failure.
+
+    Args:
+        session: The session to query through.
+        grace: How long after the server stored a piece its split may still arrive.
+
+    Returns:
+        datetime | None: The earliest due time, or None when no piece is stranded.
+    """
+    stranded = stranded_pieces().subquery()
+    oldest = await session.scalar(select(func.min(stranded.c.received_at)))
+    return oldest + grace if oldest is not None else None
+
+
 async def purge_deleted(sessionmaker: async_sessionmaker[AsyncSession], store: ObjectStore) -> int:
     """Remove the files of soft-deleted recordings and leave their rows ready to upload again.
 
@@ -378,9 +436,7 @@ async def purge_deleted(sessionmaker: async_sessionmaker[AsyncSession], store: O
         UploadSlot.recording_id == Recording.id, UploadSlot.expires_at < cutoff
     )
     purgeable = (
-        Recording.deleted_at.is_not(None),
-        # The split job still cuts a waiting piece from this original.
-        not_(holds_original()),
+        not_(keeps_files()),
         or_(
             Recording.playback_key.is_not(None),
             Recording.original_key.is_not(None),
