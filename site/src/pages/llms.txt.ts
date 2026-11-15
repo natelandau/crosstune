@@ -1,6 +1,6 @@
 // /llms.txt: the home page's facts as plain Markdown for AI assistants and agents, built from the
 // same copy the page shows so the two never disagree.
-import { APP_URL, NATE_EMAIL, SITE_URL, SUPPORT_EMAIL } from '../components/actions'
+import { APP_STORE_URL, APP_URL, NATE_EMAIL, SITE_URL, SUPPORT_EMAIL } from '../components/actions'
 import { FAQ } from '../components/faq'
 import { FEATURES, PLATFORMS, PLATFORMS_BODY } from '../components/features'
 import { HERO_LEDE, HERO_LEDE_LEAD, HERO_TITLE } from '../components/hero'
@@ -41,6 +41,7 @@ function llmsText(): string {
       list([
         `[Home](${SITE_URL}/): features, pricing, and sign-up`,
         `[Sign in](${APP_URL}): the web app`,
+        `[Crosstune on the App Store](${APP_STORE_URL}): the iPhone and iPad app`,
         `[Import your tunes](${SITE_URL}/help/import): bring a tune list from Notes, a document, or a file`,
         `[Use the tuner](${SITE_URL}/help/tuner): read the tuner and tune an upright bass`,
         `[Support](${SITE_URL}/support): help and contact, ${SUPPORT_EMAIL}`,

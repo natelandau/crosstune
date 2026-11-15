@@ -1,4 +1,5 @@
 // The feature sections, in the order a player's day goes, and the platforms section after them.
+import { APP_STORE_URL } from './actions'
 
 /**
  * Where a section's demo panel sits: `right` and `left` bleed to that edge of the page, and
@@ -110,9 +111,9 @@ export const FEATURES: readonly Feature[] = [
 export const PLATFORMS_TITLE = 'On your phone, your laptop, and the web'
 export const PLATFORMS_BODY =
   "Crosstune runs as an app for iPhone, iPad, and Mac, and in any browser, including Android phones, where you can install it to your home screen. Sign in once and your tunes, recordings, and lists are on every device, even when you're offline."
-export const PLATFORMS = [
-  { name: 'iPhone', detail: 'From the App Store' },
-  { name: 'iPad', detail: 'From the App Store' },
-  { name: 'Mac', detail: 'A native app, made for the keyboard' },
+export const PLATFORMS: readonly { name: string; detail: string; href?: string }[] = [
+  { name: 'iPhone', detail: 'From the App Store', href: APP_STORE_URL },
+  { name: 'iPad', detail: 'From the App Store', href: APP_STORE_URL },
+  { name: 'Mac', detail: 'Coming soon' },
   { name: 'Any browser', detail: 'Install it to an Android home screen' },
-] as const
+]

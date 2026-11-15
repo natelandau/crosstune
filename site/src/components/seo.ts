@@ -1,7 +1,7 @@
 // The home page's search title, description, and schema.org description of the site, its
 // plans, and its questions.
 // Search copy says fiddle, the word players type.
-import { APP_URL, NATE_EMAIL, SITE_URL, SUPPORT_EMAIL } from './actions'
+import { APP_STORE_URL, APP_URL, NATE_EMAIL, SITE_URL, SUPPORT_EMAIL } from './actions'
 import { FAQ } from './faq'
 import { HERO_TITLE } from './hero'
 import { MAKER_BAND } from './maker'
@@ -33,6 +33,23 @@ const premium = (price: string, unitCode: 'MON' | 'ANN') => ({
 /** JSON for an inline `<script>`, with `<` escaped so no string in it can close the tag. */
 export const scriptJson = (value: unknown) => JSON.stringify(value).replace(/</g, '\\u003c')
 
+// What the web app and the App Store app share.
+const APP = {
+  name: 'Crosstune',
+  applicationCategory: 'MusicApplication',
+  description: HOME_DESCRIPTION,
+  offers: [
+    { '@type': 'Offer', name: PLAN_FREE.name, price: '0', priceCurrency: 'USD' },
+    premium(PRICES.monthly, 'MON'),
+    premium(PRICES.yearly, 'ANN'),
+  ],
+  publisher: { '@id': `${SITE}#organization` },
+  audience: {
+    '@type': 'Audience',
+    audienceType: 'Old-time, bluegrass, Irish, and folk musicians who learn by ear',
+  },
+}
+
 export const STRUCTURED_DATA = {
   '@context': 'https://schema.org',
   '@graph': [
@@ -56,21 +73,16 @@ export const STRUCTURED_DATA = {
     },
     {
       '@type': 'WebApplication',
-      name: 'Crosstune',
       url: APP_URL,
-      applicationCategory: 'MusicApplication',
       operatingSystem: 'iOS, iPadOS, macOS, Android, any web browser',
-      description: HOME_DESCRIPTION,
-      offers: [
-        { '@type': 'Offer', name: PLAN_FREE.name, price: '0', priceCurrency: 'USD' },
-        premium(PRICES.monthly, 'MON'),
-        premium(PRICES.yearly, 'ANN'),
-      ],
-      publisher: { '@id': `${SITE}#organization` },
-      audience: {
-        '@type': 'Audience',
-        audienceType: 'Old-time, bluegrass, Irish, and folk musicians who learn by ear',
-      },
+      ...APP,
+    },
+    {
+      '@type': 'MobileApplication',
+      url: APP_STORE_URL,
+      installUrl: APP_STORE_URL,
+      operatingSystem: 'iOS, iPadOS',
+      ...APP,
     },
     {
       '@type': 'FAQPage',

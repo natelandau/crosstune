@@ -1,6 +1,6 @@
 ---
 import Lockup from './Lockup.astro'
-import { APP_URL, SIGN_IN } from './actions'
+import { APP_STORE, APP_STORE_URL, APP_URL, SIGN_IN } from './actions'
 ---
 
 <footer class="footer">
@@ -9,6 +9,9 @@ import { APP_URL, SIGN_IN } from './actions'
     <span>Made in New York for people who learn by ear.</span>
     <nav aria-label="Footer">
       <a href={APP_URL}>{SIGN_IN}</a>
+      <a href={APP_STORE_URL} data-app-store="footer">
+        {APP_STORE}
+      </a>
       <a href="/support">Support</a>
       <a href="/privacy">Privacy</a>
       <a href="/terms">Terms</a>

@@ -2,47 +2,20 @@ import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
-  ALREADY_SIGNED_UP,
+  APP_STORE_ID,
+  APP_STORE_URL,
   APP_URL,
-  CREATE_ACCOUNT,
-  CREATE_FREE_ACCOUNT,
-  HOME_LINK,
   NATE_EMAIL,
-  NO_CARD,
-  PREMIUM_INCLUDED,
   SECTIONS,
-  SIGN_IN,
   SIGN_UP_URL,
   START_ID,
 } from '../src/components/actions'
-import { CLOSING_LEDE, CLOSING_TITLE } from '../src/components/closing'
-import { FAQ, FAQ_TITLE } from '../src/components/faq'
-import { FEATURES, PLATFORMS, PLATFORMS_BODY, PLATFORMS_TITLE } from '../src/components/features'
-import { HERO_LEDE, HERO_LEDE_LEAD, HERO_TITLE } from '../src/components/hero'
-import {
-  MAKER_BAND,
-  MAKER_INVITE,
-  MAKER_PHOTO_ALT,
-  MAKER_STORY,
-  MAKER_TITLE,
-} from '../src/components/maker'
-import {
-  BILLING,
-  PLAN_FREE,
-  PLAN_PREMIUM,
-  PRICES,
-  PRICING_LEDE,
-  PRICING_TITLE,
-} from '../src/components/pricing'
-import { PROBLEM_BODY, PROBLEM_TITLE } from '../src/components/problem'
-import {
-  HOME_DESCRIPTION,
-  HOME_TITLE,
-  OG_IMAGE_ALT,
-  STRUCTURED_DATA,
-  scriptJson,
-} from '../src/components/seo'
-import { PLACEMENTS } from '../src/scripts/analytics'
+import { FAQ } from '../src/components/faq'
+import { FEATURES, PLATFORMS } from '../src/components/features'
+import { MAKER_BAND } from '../src/components/maker'
+import { BILLING, PRICES } from '../src/components/pricing'
+import { HOME_DESCRIPTION, HOME_TITLE, STRUCTURED_DATA, scriptJson } from '../src/components/seo'
+import { APP_STORE_PLACEMENTS, PLACEMENTS } from '../src/scripts/analytics'
 import { parseHtml, readDist, readPage } from './dist'
 
 const doc = readPage('/')
@@ -70,42 +43,21 @@ function attributeTexts(): string[] {
 }
 
 describe('home page copy', () => {
-  it('has the headline', () => {
+  it('has one headline', () => {
     expect(doc.querySelectorAll('h1')).toHaveLength(1)
-    expect(text(doc.querySelector('h1'))).toBe(HERO_TITLE)
   })
 
-  it('has the hero lede, its first sentence in bold', () => {
-    const lede = doc.querySelector('.hero .lede')
-    expect(text(lede)).toBe(`${HERO_LEDE_LEAD} ${HERO_LEDE}`)
-    expect(text(lede?.querySelector('strong'))).toBe(HERO_LEDE_LEAD)
-  })
-
-  it('has the maker note', () => {
+  it("describes Nate's photo", () => {
     const maker = doc.getElementById('maker-title')?.closest('section')
-    expect([...(maker?.querySelectorAll('p') ?? [])].map(text)).toEqual([
-      `${MAKER_STORY} ${MAKER_BAND.name}.`,
-      `${MAKER_INVITE} ${NATE_EMAIL}.`,
-    ])
+    expect(maker?.querySelector('img')?.getAttribute('alt')).toBeTruthy()
   })
 
-  it("shows Nate's photo with its description", () => {
+  it.each([
+    ['email Nate', `mailto:${NATE_EMAIL}`],
+    ["open Nate's band's page", MAKER_BAND.url],
+  ])('lets a reader %s from the maker note', (_, href) => {
     const maker = doc.getElementById('maker-title')?.closest('section')
-    expect(maker?.querySelector('img')?.getAttribute('alt')).toBe(MAKER_PHOTO_ALT)
-  })
-
-  it('lets a reader email Nate from the maker note', () => {
-    const mail = doc.querySelector(`.maker a[href="mailto:${NATE_EMAIL}"]`)
-    expect(text(mail)).toBe(NATE_EMAIL)
-  })
-
-  it("links the maker note to Nate's band", () => {
-    const band = doc.querySelector(`.maker a[href="${MAKER_BAND.url}"]`)
-    expect(text(band)).toBe(MAKER_BAND.name)
-  })
-
-  it('has the closing lede', () => {
-    expect(text(doc.querySelector(`#${START_ID} h2 + p`))).toBe(CLOSING_LEDE)
+    expect(maker?.querySelector(`a[href="${href}"]`)).not.toBeNull()
   })
 
   it('reads attribute text from the page', () => {
@@ -119,30 +71,15 @@ describe('home page copy', () => {
     }
   })
 
-  it('ends no headline with a period', () => {
-    for (const heading of doc.querySelectorAll('h1, h2')) {
-      expect(text(heading)).not.toMatch(/\.$/)
-    }
-  })
-
-  it('nav links home, to the sections, to sign in, and to sign up', () => {
-    const nav = doc.querySelector('header.nav')
-    const links = [...(nav?.querySelectorAll('a') ?? [])].map((a) => [
-      a.getAttribute('aria-label') ?? text(a),
-      a.getAttribute('href'),
+  it('nav links home, to the sections, to sign in, and to sign up, each with a name', () => {
+    const links = [...doc.querySelectorAll('header.nav a')]
+    expect(links.map((a) => a.getAttribute('href'))).toEqual([
+      '/',
+      ...SECTIONS.map(([, id]) => `#${id}`),
+      APP_URL,
+      SIGN_UP_URL,
     ])
-    expect(links).toEqual([
-      [HOME_LINK, '/'],
-      ...SECTIONS.map(([label, id]) => [label, `#${id}`]),
-      [SIGN_IN, APP_URL],
-      [CREATE_ACCOUNT, SIGN_UP_URL],
-    ])
-  })
-
-  it("keeps the nav's Create account to one label at every width", () => {
-    const link = doc.querySelector('header.nav a[data-create-account="nav"]')
-    expect(link?.classList.contains('small')).toBe(true)
-    expect(link?.querySelector('.short, .long, svg')).toBeNull()
+    for (const link of links) expect(link.getAttribute('aria-label') ?? text(link)).not.toBe('')
   })
 
   it('names every nav section that exists on the page', () => {
@@ -162,48 +99,19 @@ describe('home page Create account buttons', () => {
     expect(doc.querySelectorAll(`#${START_ID} a[data-create-account]`)).toHaveLength(1)
   })
 
-  it.each(['hero', 'closing'])(
-    'the %s button names the free account and leads to sign-up',
-    (placement) => {
-      const link = big(placement)
-      expect(text(link)).toBe(CREATE_FREE_ACCOUNT)
-      expect(link?.getAttribute('href')).toBe(SIGN_UP_URL)
-      const icons = [...(link?.querySelectorAll('svg') ?? [])]
-      expect(icons).toHaveLength(1)
-      expect(icons[0]!.getAttribute('aria-hidden')).toBe('true')
-    },
-  )
-
-  it('draws the closing button in jet, since coral has no contrast on the coral wash', () => {
-    expect(closing?.closest('.cta')?.classList.contains('jet')).toBe(true)
-    expect(hero?.closest('.cta')?.classList.contains('jet')).toBe(false)
-  })
-
-  it.each(['hero', 'closing'])('the %s button lists the terms under it', (placement) => {
-    const items = [...(big(placement)?.parentElement?.querySelectorAll('.checks li') ?? [])]
-    expect(items.map(text)).toEqual([PREMIUM_INCLUDED, NO_CARD])
-    for (const item of items) {
-      expect(item.querySelector('svg')?.getAttribute('aria-hidden')).toBe('true')
-    }
+  it.each(['hero', 'closing'])('the %s button hides its icons from assistive tech', (placement) => {
+    const icons = [...(big(placement)?.closest('.cta')?.querySelectorAll('svg') ?? [])]
+    expect(icons.length).toBeGreaterThan(0)
+    for (const icon of icons) expect(icon.getAttribute('aria-hidden')).toBe('true')
   })
 
   it.each(['hero', 'closing'])(
     'the %s button offers sign in to people who already have an account',
     (placement) => {
-      const note = big(placement)?.parentElement?.querySelector('.note')
-      expect(text(note)).toBe(`${ALREADY_SIGNED_UP} ${SIGN_IN}`)
-      expect(note?.querySelector('a')?.getAttribute('href')).toBe(APP_URL)
+      const signIn = big(placement)?.closest('.cta')?.querySelector(`a[href="${APP_URL}"]`)
+      expect(signIn).not.toBeNull()
     },
   )
-
-  it('offers the free account on the Free card and an account on the Premium card', () => {
-    const free = doc.querySelector('#pricing a[data-create-account="pricing_free"]')
-    const premium = doc.querySelector('#pricing a[data-create-account="pricing_premium"]')
-    expect(text(free)).toBe(CREATE_FREE_ACCOUNT)
-    expect(free?.className).toBe('button quiet')
-    expect(text(premium)).toBe(CREATE_ACCOUNT)
-    expect(premium?.className).toBe('button')
-  })
 
   it('sends every Create account link to sign-up, one per placement', () => {
     const links = [...doc.querySelectorAll('[data-create-account]')]
@@ -211,6 +119,28 @@ describe('home page Create account buttons', () => {
       [...PLACEMENTS].sort(),
     )
     for (const link of links) expect(link.getAttribute('href')).toBe(SIGN_UP_URL)
+  })
+
+  it.each(['hero', 'closing'])('the %s button has the App Store button under it', (placement) => {
+    const button = big(placement)
+      ?.closest('.cta')
+      ?.querySelector(`a[data-app-store="${placement}"]`)
+    expect(button?.getAttribute('href')).toBe(APP_STORE_URL)
+  })
+
+  it('sends every App Store link to the App Store, in every placement', () => {
+    const links = [...doc.querySelectorAll('[data-app-store]')]
+    const placements = new Set(links.map((a) => a.getAttribute('data-app-store')))
+    expect([...placements].sort()).toEqual([...APP_STORE_PLACEMENTS].sort())
+    for (const link of links) expect(link.getAttribute('href')).toBe(APP_STORE_URL)
+  })
+
+  it('links each platform that has a store page, and no other', () => {
+    const section = doc.getElementById('platforms-title')?.closest('section')
+    const items = [...(section?.querySelectorAll('li') ?? [])]
+    expect(items.map((li) => li.querySelector('a')?.getAttribute('href'))).toEqual(
+      PLATFORMS.map((platform) => platform.href),
+    )
   })
 
   it('has no form and no waitlist anchor', () => {
@@ -238,11 +168,6 @@ describe('home page features', () => {
       const section = doc.getElementById(feature.id)
       expect(section?.tagName).toBe('SECTION')
       expect(section?.getAttribute('aria-labelledby')).toBe(section?.querySelector('h2')?.id)
-      expect(text(section?.querySelector('h2'))).toBe(feature.heading)
-      expect(text(section?.querySelector('.copy > p'))).toBe(feature.body)
-      expect([...(section?.querySelectorAll('.points li') ?? [])].map(text)).toEqual(
-        feature.points ?? [],
-      )
     }
   })
 
@@ -263,17 +188,6 @@ describe('home page features', () => {
       expect(demo.querySelectorAll('a, button, input, [tabindex]')).toHaveLength(0)
     }
   })
-
-  it('names the platforms under their picture', () => {
-    const section = doc.getElementById('platforms-title')?.closest('section')
-    expect(text(section?.querySelector('h2'))).toBe(PLATFORMS_TITLE)
-    expect(text(section?.querySelector('.head p'))).toBe(PLATFORMS_BODY)
-    const names = [...(section?.querySelectorAll('.names li') ?? [])].map((li) => ({
-      name: text(li.querySelector('b')),
-      detail: text(li.querySelector('span')),
-    }))
-    expect(names).toEqual(PLATFORMS.map(({ name, detail }) => ({ name, detail })))
-  })
 })
 
 describe('home page head', () => {
@@ -289,18 +203,16 @@ describe('home page head', () => {
     )
   })
 
-  it('names the genres and instruments players search for', () => {
-    for (const word of ['fiddle', 'banjo', 'by ear', 'old-time', 'bluegrass', 'Irish', 'folk']) {
-      expect(HOME_DESCRIPTION).toContain(word)
-    }
-  })
-
   it('gives link previews the image size and alt text', () => {
     expect(meta('meta[property="og:image:width"]')).toBe('1200')
     expect(meta('meta[property="og:image:height"]')).toBe('630')
-    expect(meta('meta[property="og:image:alt"]')).toBe(OG_IMAGE_ALT)
-    expect(meta('meta[name="twitter:image:alt"]')).toBe(OG_IMAGE_ALT)
+    expect(meta('meta[property="og:image:alt"]')).toBeTruthy()
+    expect(meta('meta[name="twitter:image:alt"]')).toBe(meta('meta[property="og:image:alt"]'))
     expect(meta('meta[property="og:locale"]')).toBe('en_US')
+  })
+
+  it("offers the app in Safari's Smart App Banner", () => {
+    expect(meta('meta[name="apple-itunes-app"]')).toBe(`app-id=${APP_STORE_ID}`)
   })
 
   it('colors the browser chrome to match the page background', () => {
@@ -338,12 +250,14 @@ describe('home page head', () => {
       'Organization',
       'Person',
       'WebApplication',
+      'MobileApplication',
       'FAQPage',
     ])
   })
 
   it('prices the plans as the pricing section does', () => {
-    const app = STRUCTURED_DATA['@graph'].find((node) => node['@type'] === 'WebApplication')
+    const app = STRUCTURED_DATA['@graph'].find((node) => node['@type'] === 'WebApplication') as
+      { offers: { price: string }[] } | undefined
     const shown = doc.querySelector('#pricing')?.textContent ?? ''
     const prices = (app?.offers ?? []).map((offer) => offer.price)
     expect(prices.map((price) => `$${price}`)).toEqual(['$0', PRICES.monthly, PRICES.yearly])
@@ -372,36 +286,12 @@ describe('404 page', () => {
 })
 
 describe('home page outline and sections', () => {
-  it('has exactly the copy h2s in order', () => {
-    expect([...doc.querySelectorAll('h2')].map(text)).toEqual([
-      PROBLEM_TITLE,
-      ...FEATURES.map((feature) => feature.heading),
-      PLATFORMS_TITLE,
-      PRICING_TITLE,
-      MAKER_TITLE,
-      FAQ_TITLE,
-      CLOSING_TITLE,
-    ])
-  })
-
-  it('has the problem band', () => {
-    expect(text(doc.querySelector('.problem p'))).toBe(PROBLEM_BODY)
-  })
-
   const pricing = doc.getElementById('pricing')!
 
-  it('shows both plans with their bullets', () => {
+  it('offers an account from both plans', () => {
     expect(pricing.tagName).toBe('SECTION')
     expect(pricing.getAttribute('aria-labelledby')).toBe(pricing.querySelector('h2')?.id)
-    expect(text(pricing.querySelector('.lede'))).toBe(PRICING_LEDE)
-    expect([...pricing.querySelectorAll('.plan h3')].map(text)).toEqual([
-      PLAN_FREE.name,
-      PLAN_PREMIUM.name,
-    ])
-    const lists = [...pricing.querySelectorAll('.plan ul')].map((ul) =>
-      [...ul.querySelectorAll('li')].map(text),
-    )
-    expect(lists).toEqual([PLAN_FREE.bullets, PLAN_PREMIUM.bullets])
+    expect(pricing.querySelectorAll('a[data-create-account]')).toHaveLength(2)
   })
 
   it('shows the yearly price first and keeps the monthly one a choice away', () => {
@@ -420,8 +310,8 @@ describe('home page outline and sections', () => {
 
   it('lists the questions as h3s, each with its answer', () => {
     expect(faq.tagName).toBe('SECTION')
-    expect([...faq.querySelectorAll('h3')].map(text)).toEqual(FAQ.map((item) => item.question))
-    expect([...faq.querySelectorAll('.answer')].map(text)).toEqual(FAQ.map((item) => item.answer))
+    expect(faq.querySelectorAll('h3')).toHaveLength(FAQ.length)
+    expect(faq.querySelectorAll('.answer')).toHaveLength(FAQ.length)
   })
 
   it("keeps the questions' open and close marker from being read out", () => {

@@ -10,7 +10,7 @@ import { CLOSING_LEDE, CLOSING_TITLE } from './closing'
       <h2 id="start-title">{CLOSING_TITLE}</h2>
       <p>{CLOSING_LEDE}</p>
     </div>
-    <CreateAccount tone="jet" placement="closing" />
+    <CreateAccount onWash placement="closing" />
   </div>
 </section>
 
@@ -24,7 +24,7 @@ import { CLOSING_LEDE, CLOSING_TITLE } from './closing'
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 460px);
     gap: 40px;
-    align-items: end;
+    align-items: center;
     padding: clamp(40px, 6vw, 80px);
     border-radius: 32px;
     background: var(--coral-wash);

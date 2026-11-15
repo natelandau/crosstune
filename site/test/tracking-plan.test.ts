@@ -1,6 +1,11 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { PLACEMENTS, SITE_POSTHOG_CONFIG, SITE_SUPER_PROPERTIES } from '../src/scripts/analytics'
+import {
+  APP_STORE_PLACEMENTS,
+  PLACEMENTS,
+  SITE_POSTHOG_CONFIG,
+  SITE_SUPER_PROPERTIES,
+} from '../src/scripts/analytics'
 
 interface Plan {
   enums: Record<string, string[]>
@@ -46,7 +51,7 @@ describe('tracking plan', () => {
     const listed = Object.entries(plan.events)
       .filter(([, event]) => !event.builtin && event.clients.includes('site'))
       .map(([name]) => name)
-    expect(listed).toEqual(['create_account_clicked'])
+    expect(listed.sort()).toEqual(['app_store_clicked', 'create_account_clicked'])
   })
 
   it('turns on exactly the builtins the plan lists for the site', () => {
@@ -59,9 +64,12 @@ describe('tracking plan', () => {
     }
   })
 
-  it('create_account_clicked takes its placement from the plan', () => {
-    const placement = plan.events.create_account_clicked!.properties.placement!
+  it.each([
+    ['create_account_clicked', PLACEMENTS],
+    ['app_store_clicked', APP_STORE_PLACEMENTS],
+  ] as const)('%s takes its placement from the plan', (event, placements) => {
+    const placement = plan.events[event]!.properties.placement!
     expect(placement.required).toBe(true)
-    expect(plan.enums[placement.enum!]).toEqual([...PLACEMENTS])
+    expect(plan.enums[placement.enum!]).toEqual([...placements])
   })
 })

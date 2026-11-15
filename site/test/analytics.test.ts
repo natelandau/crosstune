@@ -105,8 +105,9 @@ describe('trackCreateAccount', () => {
   })
 })
 
-describe('trackCreateAccountClicks', () => {
-  // A fake document: the listener reads only the click target's nearest placement.
+describe('trackLinkClicks', () => {
+  // A fake document: the listener reads only the click target's nearest tracked link.
+  type Link = { createAccount: string } | { appStore: string } | null
   function page() {
     type Listener = (event: { target: unknown; button: number }) => void
     const listeners: Record<string, Listener> = {}
@@ -115,47 +116,48 @@ describe('trackCreateAccountClicks', () => {
         listeners[type] = fn
       }),
     }
-    const click = (placement: string | null, type = 'click', button = 0) =>
+    const click = (link: Link, type = 'click', button = 0) =>
       listeners[type]!({
         button,
         target: {
-          closest: () => (placement === null ? null : { dataset: { createAccount: placement } }),
+          closest: () => (link === null ? null : { dataset: link }),
         },
       })
     return { root, click }
   }
 
-  it('sends the placement of a clicked Create account link', async () => {
-    const { startAnalytics, trackCreateAccountClicks } = await import('../src/scripts/analytics')
+  it.each([
+    [{ createAccount: 'pricing_premium' }, 'create_account_clicked', 'pricing_premium'],
+    [{ appStore: 'platforms' }, 'app_store_clicked', 'platforms'],
+  ] as const)('sends the placement of a clicked link (%j)', async (link, event, placement) => {
+    const { startAnalytics, trackLinkClicks } = await import('../src/scripts/analytics')
     await startAnalytics('phc_x')
     const { root, click } = page()
-    trackCreateAccountClicks(root as unknown as Document)
-    click('pricing_premium')
-    expect(posthog.capture).toHaveBeenCalledWith(
-      'create_account_clicked',
-      { placement: 'pricing_premium' },
-      BEACON,
-    )
+    trackLinkClicks(root as unknown as Document)
+    click(link)
+    expect(posthog.capture).toHaveBeenCalledTimes(1)
+    expect(posthog.capture).toHaveBeenCalledWith(event, { placement }, BEACON)
   })
 
   it('ignores other clicks and placements the plan does not list', async () => {
-    const { startAnalytics, trackCreateAccountClicks } = await import('../src/scripts/analytics')
+    const { startAnalytics, trackLinkClicks } = await import('../src/scripts/analytics')
     await startAnalytics('phc_x')
     const { root, click } = page()
-    trackCreateAccountClicks(root as unknown as Document)
+    trackLinkClicks(root as unknown as Document)
     click(null)
-    click('footer')
+    click({ createAccount: 'footer' })
+    click({ appStore: 'nav' })
     expect(posthog.capture).not.toHaveBeenCalled()
   })
 
   it('counts a middle-click open, but no other auxiliary button', async () => {
-    const { startAnalytics, trackCreateAccountClicks } = await import('../src/scripts/analytics')
+    const { startAnalytics, trackLinkClicks } = await import('../src/scripts/analytics')
     await startAnalytics('phc_x')
     const { root, click } = page()
-    trackCreateAccountClicks(root as unknown as Document)
-    click('hero', 'auxclick', 2)
+    trackLinkClicks(root as unknown as Document)
+    click({ createAccount: 'hero' }, 'auxclick', 2)
     expect(posthog.capture).not.toHaveBeenCalled()
-    click('hero', 'auxclick', 1)
+    click({ createAccount: 'hero' }, 'auxclick', 1)
     expect(posthog.capture).toHaveBeenCalledTimes(1)
     expect(posthog.capture).toHaveBeenCalledWith(
       'create_account_clicked',

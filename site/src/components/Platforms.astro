@@ -13,7 +13,13 @@ import { PLATFORMS, PLATFORMS_BODY, PLATFORMS_TITLE } from './features'
     {PLATFORMS.map((platform) => (
       <li>
         <b>{platform.name}</b>
-        <span>{platform.detail}</span>
+        {platform.href ? (
+          <a href={platform.href} data-app-store="platforms">
+            {platform.detail}
+          </a>
+        ) : (
+          <span>{platform.detail}</span>
+        )}
       </li>
     ))}
   </ul>
@@ -60,7 +66,8 @@ import { PLATFORMS, PLATFORMS_BODY, PLATFORMS_TITLE } from './features'
     font-size: 18px;
   }
 
-  .names span {
+  .names span,
+  .names a {
     color: var(--ink-2);
     font-size: var(--small);
   }

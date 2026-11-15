@@ -1,11 +1,12 @@
 ---
-// The big Create account button, the terms under it, and the sign-in line. The hero and the
-// closing band each hold one.
+// The big Create account button with the App Store button under it, then the terms and the
+// sign-in line. The hero and the closing band each hold one.
 import type { Placement } from '../scripts/analytics'
+import AppStoreButton from './AppStoreButton.astro'
 import {
   ALREADY_SIGNED_UP,
   APP_URL,
-  CREATE_FREE_ACCOUNT,
+  CONTINUE_ON_WEB,
   NO_CARD,
   PREMIUM_INCLUDED,
   SIGN_IN,
@@ -13,21 +14,24 @@ import {
 } from './actions'
 
 interface Props {
-  /** Jet on the closing band's coral wash, where a coral button has no contrast. */
-  tone: 'coral' | 'jet'
+  /** On the closing band's coral wash, where coral check marks have no contrast. */
+  onWash?: boolean
   placement: Extract<Placement, 'hero' | 'closing'>
 }
 
-const { tone, placement } = Astro.props
+const { onWash = false, placement } = Astro.props
 ---
 
-<div class:list={['cta', tone]}>
-  <a class="create" href={SIGN_UP_URL} data-create-account={placement}>
-    {CREATE_FREE_ACCOUNT}
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <use href="#i-arrow" />
-    </svg>
-  </a>
+<div class:list={['cta', { wash: onWash }]}>
+  <div class="buttons">
+    <a class="create" href={SIGN_UP_URL} data-create-account={placement}>
+      {CONTINUE_ON_WEB}
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <use href="#i-arrow" />
+      </svg>
+    </a>
+    <AppStoreButton placement={placement} />
+  </div>
   <ul class="checks">
     {[PREMIUM_INCLUDED, NO_CARD].map((item) => (
       <li>
@@ -50,9 +54,19 @@ const { tone, placement } = Astro.props
     justify-items: start;
   }
 
+  /* Both buttons stretch to the wider one's width. */
+  .buttons {
+    display: grid;
+    gap: 12px;
+    width: max-content;
+    max-width: 100%;
+    margin-bottom: 4px;
+  }
+
   .create {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 10px;
     min-height: 58px;
     padding: 0 26px 0 30px;
@@ -91,16 +105,6 @@ const { tone, placement } = Astro.props
     transform: translateX(3px);
   }
 
-  .cta.jet .create {
-    background: var(--jet);
-    color: var(--white);
-    box-shadow: 0 6px 18px -6px color-mix(in srgb, var(--jet) 55%, transparent);
-  }
-
-  .cta.jet .create:hover {
-    background: var(--jet-hover);
-  }
-
   .checks {
     display: flex;
     flex-wrap: wrap;
@@ -125,7 +129,7 @@ const { tone, placement } = Astro.props
     color: var(--coral);
   }
 
-  .cta.jet .checks svg {
+  .cta.wash .checks svg {
     color: var(--coral-deep);
   }
 

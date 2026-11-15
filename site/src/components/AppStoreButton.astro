@@ -1,0 +1,48 @@
+---
+// The App Store button under Create account, drawn in the page's own shape so the two buttons
+// match, in black with Apple's logo like Apple's badge.
+import type { AppStorePlacement } from '../scripts/analytics'
+import { APP_STORE_URL, DOWNLOAD_ON_APP_STORE } from './actions'
+
+interface Props {
+  placement: Extract<AppStorePlacement, 'hero' | 'closing'>
+}
+
+const { placement } = Astro.props
+---
+
+<a class="app-store" href={APP_STORE_URL} data-app-store={placement}>
+  <svg viewBox="0 0 24 24" aria-hidden="true">
+    <use href="#i-apple" />
+  </svg>
+  {DOWNLOAD_ON_APP_STORE}
+</a>
+
+<style>
+  .app-store {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    min-height: 58px;
+    padding: 0 28px;
+    border-radius: 999px;
+    background: var(--jet);
+    color: var(--white);
+    font: 700 18px/1 var(--font);
+    letter-spacing: -0.01em;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: background 0.15s;
+  }
+
+  .app-store:hover {
+    background: var(--jet-hover);
+  }
+
+  .app-store svg {
+    flex: none;
+    width: 20px;
+    height: 24px;
+  }
+</style>
