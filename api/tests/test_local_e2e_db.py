@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from crosstune.ops import local_worktree
 from crosstune.ops.local_e2e_db import owned, prepare
 from crosstune.ops.local_worktree import Server, database_of, with_database
 from tests.conftest import POSTGRES_ADMIN_URL, TEST_DATABASE_PREFIX, _run_pid
@@ -41,6 +42,15 @@ async def e2e_url(admin: asyncpg.Connection) -> AsyncIterator[str]:
 def test_every_command_refuses_a_database_the_suite_does_not_own() -> None:
     with pytest.raises(SystemExit):
         owned("crosstune")
+
+
+async def test_every_command_refuses_a_remote_server(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def connect(*_args: object, **_kwargs: object) -> None:
+        pytest.fail("connected to a remote server")
+
+    monkeypatch.setattr(local_worktree.asyncpg, "connect", connect)
+    with pytest.raises(SystemExit):
+        await prepare("postgresql://u@db.example/crosstune_e2e", "drop")
 
 
 def test_a_quote_in_the_name_is_doubled() -> None:

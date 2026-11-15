@@ -4,16 +4,18 @@ Run as `just ops::notify-accounts --subject S --key K --body PATH|-`. The body i
 prose: blank lines separate paragraphs and bare https URLs become links. Without `--yes` it
 only prints how many accounts it would email, in every environment. With `--yes` it sends in
 batches of 100 and records each account it emailed under `--key`, so a rerun, after a Resend
-rate limit or any other stop, emails only the accounts it missed.
+rate limit or any other stop, emails only the accounts it missed. A batch Resend refuses is
+sent one email at a time, so an address Resend will not take holds back only itself.
 """
 
 from __future__ import annotations
 
 import argparse
 import asyncio
+import hashlib
 import re
 import sys
-from dataclasses import replace
+from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING
 
 from pydantic import ValidationError
@@ -97,16 +99,70 @@ async def _unnoticed_users(session: AsyncSession, key: str) -> list[tuple[uuid.U
     return [(user_id, email) for user_id, email in rows.all() if email]
 
 
+def _batch_key(key: str, batch: list[tuple[uuid.UUID, str]]) -> str:
+    # Resend refuses a reused key whose payload differs, so the key names the exact members.
+    members = hashlib.sha256(",".join(str(user_id) for user_id, _ in batch).encode())
+    return f"{key}:batch:{members.hexdigest()[:32]}"
+
+
+async def _record(session: AsyncSession, key: str, user_ids: list[uuid.UUID]) -> None:
+    if not user_ids:
+        return
+    now = utc_now()
+    await session.execute(
+        insert(AccountNotice)
+        .values([{"user_id": user_id, "notice_key": key, "sent_at": now} for user_id in user_ids])
+        .on_conflict_do_nothing()
+    )
+    await session.commit()
+
+
+@dataclass
+class _SingleSends:
+    sent: int = 0
+    refused: list[tuple[uuid.UUID, str, str]] = field(default_factory=list)
+    rate_limited: bool = False
+
+
+async def _send_one_by_one(
+    session: AsyncSession,
+    mailer: Mailer,
+    key: str,
+    batch: list[tuple[uuid.UUID, str]],
+    template: EmailMessage,
+) -> _SingleSends:
+    """Send a refused batch one email at a time, recording each account Resend accepts."""
+    outcome = _SingleSends()
+    accepted: list[uuid.UUID] = []
+    try:
+        for user_id, email in batch:
+            try:
+                await mailer.send(replace(template, to=email), idempotency_key=f"{key}:{user_id}")
+            except MailerRateLimitedError:
+                outcome.rate_limited = True
+                break
+            except MailerUnavailableError as exc:
+                outcome.refused.append((user_id, email, str(exc)))
+            else:
+                accepted.append(user_id)
+    finally:
+        await _record(session, key, accepted)
+    outcome.sent = len(accepted)
+    return outcome
+
+
 async def execute(
     session: AsyncSession, mailer: Mailer | None, args: argparse.Namespace, body: str
 ) -> int:
     """Count the accounts due the email, and with `--yes` send it to them in batches.
 
     Each batch's notices commit right after Resend accepts it, so a stop never forgets
-    what was sent or marks what was not.
+    what was sent or marks what was not. A refused batch is sent one email at a time, and
+    the run continues past the addresses Resend refuses unless it refuses every one.
 
     Returns:
-        The exit code: 0 when done or a dry run, 1 when Resend stopped the run.
+        The exit code: 0 when every account was emailed or a dry run, 1 when Resend
+        stopped the run or refused an address.
 
     Raises:
         BillingCommandError: The body is empty, or `--yes` was given without mail configured.
@@ -123,38 +179,44 @@ async def execute(
         msg = "cannot send: mail is not configured"
         raise BillingCommandError(msg)
     sent = 0
+    refused: list[tuple[uuid.UUID, str, str]] = []
     for start in range(0, len(pending), MAX_BATCH_SIZE):
         batch = pending[start : start + MAX_BATCH_SIZE]
         messages = [replace(template, to=email) for _, email in batch]
-        # An unrecorded batch keeps its members and first ID on a rerun, so the same key
-        # lets Resend drop it if it was in fact accepted.
         try:
-            await mailer.send_batch(messages, idempotency_key=f"{args.key}:{batch[0][0]}")
+            await mailer.send_batch(messages, idempotency_key=_batch_key(args.key, batch))
         except MailerRateLimitedError:
-            print(
-                f"sent {sent}, {len(pending) - sent} remain; run again later or move Resend to Pro"
-            )
-            return 1
+            return _stop_for_rate_limit(refused, sent, len(pending) - sent)
         except MailerUnavailableError as exc:
-            ids = ", ".join(str(user_id) for user_id, _ in batch)
-            print(f"sent {sent}, {len(pending) - sent} remain; Resend refused a batch: {exc}")
-            print(f"the refused batch was for accounts {ids}")
-            return 1
-        now = utc_now()
-        await session.execute(
-            insert(AccountNotice)
-            .values(
-                [
-                    {"user_id": user_id, "notice_key": args.key, "sent_at": now}
-                    for user_id, _ in batch
-                ]
-            )
-            .on_conflict_do_nothing()
-        )
-        await session.commit()
+            outcome = await _send_one_by_one(session, mailer, args.key, batch, template)
+            sent += outcome.sent
+            if not outcome.sent and not outcome.rate_limited:
+                # Resend refusing every address on its own too is an outage, not bad addresses.
+                _print_refused(refused)
+                ids = ", ".join(str(user_id) for user_id, _ in batch)
+                print(f"sent {sent}, {len(pending) - sent} remain; Resend refused a batch: {exc}")
+                print(f"the refused batch was for accounts {ids}")
+                return 1
+            refused.extend(outcome.refused)
+            if outcome.rate_limited:
+                return _stop_for_rate_limit(refused, sent, len(pending) - sent)
+            continue
+        await _record(session, args.key, [user_id for user_id, _ in batch])
         sent += len(batch)
+    _print_refused(refused)
     print(f"sent {sent} emails")
-    return 0
+    return 1 if refused else 0
+
+
+def _print_refused(refused: list[tuple[uuid.UUID, str, str]]) -> None:
+    for user_id, email, reason in refused:
+        print(f"Resend refused {email} (account {user_id}): {reason}")
+
+
+def _stop_for_rate_limit(refused: list[tuple[uuid.UUID, str, str]], sent: int, remain: int) -> int:
+    _print_refused(refused)
+    print(f"sent {sent}, {remain} remain; run again later or move Resend to Pro")
+    return 1
 
 
 def build_parser() -> argparse.ArgumentParser:

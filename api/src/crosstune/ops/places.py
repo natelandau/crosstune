@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import math
 import sys
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol
@@ -37,6 +38,8 @@ if TYPE_CHECKING:
     from crosstune.config import Settings
 
 DEFAULT_PER_SECOND = 2.0
+# Every lookup spends the Apple Maps quota that users' own place lookups share.
+MAX_PER_SECOND = 10.0
 # A busy Maps key is waited out this many times for one recording before it counts as failed.
 _BUSY_ATTEMPTS = 3
 _MAX_BUSY_WAIT_SECONDS = 300.0
@@ -205,13 +208,24 @@ async def rename_automatic(  # noqa: PLR0913 -- every option after the client is
     return counts
 
 
+def _rate(value: str) -> float:
+    try:
+        rate = float(value)
+    except ValueError:
+        rate = math.nan
+    if not math.isfinite(rate) or not 0 < rate <= MAX_PER_SECOND:
+        msg = f"must be a number above 0 and at most {MAX_PER_SECOND:g}"
+        raise argparse.ArgumentTypeError(msg)
+    return rate
+
+
 def build_parser() -> argparse.ArgumentParser:
     """The `rename-automatic` subcommand."""
     parser = argparse.ArgumentParser(prog="crosstune.ops.places", description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
     rename = commands.add_parser("rename-automatic", help="re-name recordings the server named")
     rename.add_argument(
-        "--per-second", type=float, default=DEFAULT_PER_SECOND, help="lookups a second (default 2)"
+        "--per-second", type=_rate, default=DEFAULT_PER_SECOND, help="lookups a second (default 2)"
     )
     rename.add_argument("--dry-run", action="store_true", help="look up and count, write nothing")
     rename.add_argument("--yes", action="store_true", help="allow writing to production")
@@ -224,9 +238,6 @@ async def run(settings, args: argparse.Namespace) -> None:  # noqa: ANN001
     # A dry run writes no recording, only the Maps usage its lookups spend, so production needs
     # no --yes for it.
     check_target(settings, yes=args.yes or args.dry_run, e2e=args.e2e)
-    if args.per_second <= 0:
-        msg = "--per-second must be above zero"
-        raise BillingCommandError(msg)
     maps = configured_maps(settings)
     if maps is None:
         msg = "Apple Maps is not configured: set the CROSSTUNE_APPLE_MAPS_* settings"

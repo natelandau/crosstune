@@ -2,8 +2,8 @@
 
 Run as `just ops::billing comp`, `just ops::billing trial`, and `just ops::billing
 withdraw`. Each prints the environment and database it will write to, refuses production
-without `--yes`, and refuses the e2e database unless `--e2e` names it, as only the e2e
-suite's own recipe does.
+or a database on another machine without `--yes`, and refuses the e2e database unless
+`--e2e` names it, as only the e2e suite's own recipe does.
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ from crosstune.billing.access import refresh_entitlement
 from crosstune.billing.clients import make_mailer, make_revenuecat, make_stripe
 from crosstune.billing.grants import grant_comp, revoke_comp, set_trial_end
 from crosstune.billing.withdrawal import withdraw
-from crosstune.config import Settings
+from crosstune.config import LOCAL_DATABASE_HOSTS, Settings
 from crosstune.db.base import utc_now
 from crosstune.db.engine import make_engine, make_sessionmaker
 from crosstune.db.locks import lock_user
@@ -97,7 +97,7 @@ def check_target(settings: Settings, *, yes: bool, e2e: bool = False) -> None:
     Raises:
         BillingCommandError: The database is the e2e one and `--e2e` was not given,
             `--e2e` was given for any other database, or the environment is production
-            and `--yes` was not given.
+            or the database is not on this machine, and `--yes` was not given.
     """
     host = urlsplit(settings.database_url).hostname
     print(f"environment {settings.environment}, database {settings.database_name} on {host}")
@@ -109,6 +109,9 @@ def check_target(settings: Settings, *, yes: bool, e2e: bool = False) -> None:
         raise BillingCommandError(msg)
     if settings.environment == "production" and not yes:
         msg = "this is production: pass --yes to write"
+        raise BillingCommandError(msg)
+    if host not in LOCAL_DATABASE_HOSTS and not yes:
+        msg = f"{host} is not a local database: pass --yes to write"
         raise BillingCommandError(msg)
 
 

@@ -238,3 +238,28 @@ def test_main_prints_the_environment_line_first(monkeypatch, capsys, settings) -
     out = capsys.readouterr()
     assert out.out.startswith("environment ")
     assert "Apple Maps" in out.err
+
+
+@pytest.mark.parametrize(
+    ("rate", "accepted"),
+    [
+        ("0.5", True),
+        ("10", True),
+        ("0", False),
+        ("-1", False),
+        ("11", False),
+        ("inf", False),
+        ("nan", False),
+        ("fast", False),
+    ],
+)
+def test_per_second_must_be_a_finite_rate_within_the_cap(
+    rate: str,
+    accepted: bool,  # noqa: FBT001 -- parametrized value
+) -> None:
+    parse = ops_places.build_parser().parse_args
+    if accepted:
+        assert parse(["rename-automatic", "--per-second", rate]).per_second == float(rate)
+    else:
+        with pytest.raises(SystemExit):
+            parse(["rename-automatic", "--per-second", rate])

@@ -309,14 +309,32 @@ async def test_an_email_matching_two_accounts_lists_their_ids(
         await _run(session, settings, "trial", "dup@example.com", "--ended")
 
 
-def test_production_needs_yes(capsys: pytest.CaptureFixture[str]) -> None:
+@pytest.mark.parametrize(
+    ("environment", "host", "needs_yes"),
+    [
+        ("production", "db.example", True),
+        ("production", "localhost", True),
+        ("development", "db.example", True),
+        ("development", "localhost", False),
+        ("development", "127.0.0.1", False),
+    ],
+)
+def test_production_or_a_remote_host_needs_yes(
+    capsys: pytest.CaptureFixture[str],
+    environment: str,
+    host: str,
+    needs_yes: bool,  # noqa: FBT001 -- parametrized value
+) -> None:
     settings = Settings.model_construct(
-        environment="production", database_url="postgresql+asyncpg://u@db.example/crosstune"
+        environment=environment, database_url=f"postgresql+asyncpg://u@{host}/crosstune"
     )
-    with pytest.raises(billing.BillingCommandError, match="--yes"):
+    if needs_yes:
+        with pytest.raises(billing.BillingCommandError, match="--yes"):
+            billing.check_target(settings, yes=False)
+    else:
         billing.check_target(settings, yes=False)
     billing.check_target(settings, yes=True)
-    assert "db.example" in capsys.readouterr().out
+    assert host in capsys.readouterr().out
 
 
 def test_main_refuses_production_without_yes(

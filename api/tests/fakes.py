@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from crosstune.email.resend import MailerRateLimitedError
+from crosstune.email.resend import MailerRateLimitedError, MailerUnavailableError
 from crosstune.storage.store import ListedObject, ObjectInfo
 from crosstune.users.clerk import ClerkUser
 
@@ -86,24 +86,40 @@ class FakeAppleSignIn:
 class FakeMailer:
     """A fake Mailer. While `error` is set, every send and batch raises it.
 
-    `sent_batches` records each accepted batch. When `rate_limit_after_batches` is set,
-    the batch after that many accepted ones raises `MailerRateLimitedError`.
+    `sent_batches` records each accepted batch, and `batch_keys` the key of every batch
+    offered, refused ones included. An address in `rejected` is refused on its own and
+    fails any batch that holds it, as Resend validates a whole batch first. When
+    `rate_limit_after_batches` or `rate_limit_after_sends` is set, the batch or single
+    send after that many accepted ones raises `MailerRateLimitedError`.
     """
 
     def __init__(self) -> None:
         self.sent: list[tuple[EmailMessage, str]] = []
         self.sent_batches: list[tuple[list[EmailMessage], str]] = []
+        self.batch_keys: list[str] = []
         self.error: Exception | None = None
+        self.rejected: set[str] = set()
         self.rate_limit_after_batches: int | None = None
+        self.rate_limit_after_sends: int | None = None
 
     async def send(self, message: EmailMessage, *, idempotency_key: str) -> None:
         """Record the message and its key, or raise the configured error instead."""
         if self.error is not None:
             raise self.error
+        if (
+            self.rate_limit_after_sends is not None
+            and len(self.sent) >= self.rate_limit_after_sends
+        ):
+            msg = "Resend answered 429 on /emails"
+            raise MailerRateLimitedError(msg)
+        if message.to in self.rejected:
+            msg = "Resend answered 422 on /emails"
+            raise MailerUnavailableError(msg)
         self.sent.append((message, idempotency_key))
 
     async def send_batch(self, messages: list[EmailMessage], *, idempotency_key: str) -> None:
         """Record the batch and its key, or raise the configured error instead."""
+        self.batch_keys.append(idempotency_key)
         if self.error is not None:
             raise self.error
         if (
@@ -112,6 +128,9 @@ class FakeMailer:
         ):
             msg = "Resend answered 429 on /emails/batch"
             raise MailerRateLimitedError(msg)
+        if any(message.to in self.rejected for message in messages):
+            msg = "Resend answered 422 on /emails/batch"
+            raise MailerUnavailableError(msg)
         self.sent_batches.append((list(messages), idempotency_key))
 
 

@@ -133,6 +133,27 @@ async def scratch() -> AsyncIterator[Scratch]:
     await conn.close()
 
 
+@pytest.mark.parametrize(
+    ("url", "accepted"),
+    [
+        ("postgresql://u@localhost:5432/postgres", True),
+        ("postgresql://u@127.0.0.1:5432/postgres", True),
+        ("postgresql://u@db.example:5432/postgres", False),
+        ("postgresql://u@localhost.example/postgres", False),
+        ("postgresql:///postgres", False),
+    ],
+)
+def test_the_server_must_be_on_this_machine(
+    url: str,
+    accepted: bool,  # noqa: FBT001 -- parametrized value
+) -> None:
+    if accepted:
+        Server(url)
+    else:
+        with pytest.raises(SystemExit):
+            Server(url)
+
+
 async def test_create_list_and_drop_worktree_databases(scratch: Scratch) -> None:
     name = scratch.name()
     await Server.create(scratch.conn, name)

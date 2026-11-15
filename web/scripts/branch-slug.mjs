@@ -16,10 +16,10 @@ function slugify(branch) {
     .replace(/^-+|-+$/g, '')
   // A DNS label must start with a letter for the name to be a valid hostname prefix.
   if (!/^[a-z]/.test(slug)) slug = `b-${slug}`
-  if (slug.length <= MAX_LENGTH) return slug
+  if (slug === branch && slug.length <= MAX_LENGTH) return slug
   // The name keys the KV entry that points a preview at its own API, so two
-  // branches cut to the same slug would share one preview and one API origin.
-  // A hash of the whole branch name keeps a cut slug unique.
+  // branches that normalize or cut to the same slug would share one preview and
+  // one API origin. A hash of the exact branch name keeps every slug unique.
   const hash = createHash('sha256').update(branch).digest('hex').slice(0, HASH_LENGTH)
   const head = slug.slice(0, MAX_LENGTH - HASH_LENGTH - 1).replace(/-+$/, '')
   return `${head}-${hash}`
