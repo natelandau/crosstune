@@ -1,12 +1,18 @@
 #!/usr/bin/env bash
-# Usage: archive.sh BUILD_NUMBER
-# Archives the signed Release build for iOS and macOS into .build/archives, ready for
-# `just apple::upload`. Reads ASC_KEY_PATH, ASC_KEY_ID, and ASC_ISSUER_ID from the
+# Usage: archive.sh BUILD_NUMBER [all|ios|macos]
+# Archives the signed Release build for iOS, macOS, or both (the default) into .build/archives,
+# ready for `just apple::upload`. Reads ASC_KEY_PATH, ASC_KEY_ID, and ASC_ISSUER_ID from the
 # environment: an App Store Connect API key with the Admin role, which cloud signing needs.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
-build_number="${1:?usage: archive.sh BUILD_NUMBER}"
+build_number="${1:?usage: archive.sh BUILD_NUMBER [all|ios|macos]}"
+case "${2:-all}" in
+  all) platforms=(iOS macOS) ;;
+  ios) platforms=(iOS) ;;
+  macos) platforms=(macOS) ;;
+  *) echo "usage: archive.sh BUILD_NUMBER [all|ios|macos]" >&2; exit 2 ;;
+esac
 : "${ASC_KEY_PATH:?the path of the .p8 key file}" "${ASC_KEY_ID:?the key ID}" "${ASC_ISSUER_ID:?the issuer ID}"
 # A dotenv file does not expand `~`.
 ASC_KEY_PATH="${ASC_KEY_PATH/#\~/$HOME}"
@@ -25,8 +31,8 @@ if ! grep -qE '^ *SENTRY_DSN = https://' <<< "$settings"; then
   echo "SENTRY_DSN is empty; set it in Config/Secrets.xcconfig" >&2
   exit 1
 fi
-rm -rf "$archives"
-for platform in iOS macOS; do
+for platform in "${platforms[@]}"; do
+  rm -rf "$archives/$platform.xcarchive"
   "$xcodebuild" archive -quiet -project Crosstune.xcodeproj -scheme Crosstune \
     -configuration Release -destination "generic/platform=$platform" \
     -derivedDataPath .build/DerivedData -archivePath "$archives/$platform.xcarchive" \

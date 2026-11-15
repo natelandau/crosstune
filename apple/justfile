@@ -156,9 +156,10 @@ store-preview:
 
 # Archive the signed Release build for upload
 [group('release')]
-[arg("build_number", pattern="[0-9]+(\\.[0-9]+)*", help="The build number App Store Connect records")]
-archive build_number:
-    scripts/archive.sh '{{ build_number }}'
+[arg("build", pattern="[0-9]+(\\.[0-9]+)*", help="The build number App Store Connect records")]
+[arg("platform", pattern="all|ios|macos", help="all, ios, or macos")]
+archive build platform:
+    scripts/archive.sh '{{ build }}' '{{ platform }}'
 
 # Upload the archives to App Store Connect
 [group('release')]
@@ -175,16 +176,24 @@ upload:
 
 # Upload the archives' dSYMs to Sentry
 [group('release')]
+[arg("platform", pattern="all|ios|macos", help="all, ios, or macos")]
 [script]
-upload-symbols:
+upload-symbols platform:
     : "${SENTRY_AUTH_TOKEN:?the Sentry auth token}" "${SENTRY_ORG:?the Sentry organization slug}" \
         "${SENTRY_PROJECT:?the Sentry project slug}"
-    sentry-cli debug-files upload --wait {{ archives }}/iOS.xcarchive/dSYMs {{ archives }}/macOS.xcarchive/dSYMs
+    case "{{ platform }}" in
+        all) platforms=(iOS macOS) ;;
+        ios) platforms=(iOS) ;;
+        macos) platforms=(macOS) ;;
+    esac
+    symbols=()
+    for platform in "${platforms[@]}"; do symbols+=("{{ archives }}/$platform.xcarchive/dSYMs"); done
+    sentry-cli debug-files upload --wait "${symbols[@]}"
 
 # Archive and upload a build to TestFlight
 [group('release')]
 [arg("build_number", pattern="[0-9]+(\\.[0-9]+)*", help="The build number App Store Connect records")]
-testflight build_number: (archive build_number) upload-symbols upload
+testflight build_number: (archive build_number "all") (upload-symbols "all") upload
 
 # Fail when Xcode left a development certificate
 [group('release')]
