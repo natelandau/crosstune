@@ -35,8 +35,10 @@ from crosstune.files.quota import (
     slot_for_recording,
 )
 from crosstune.files.urls import UPLOAD_URL_TTL_SECONDS, SignedUrl, presign_get, require_store
+from crosstune.models import Recording
 from crosstune.recordings.service import (
     enqueue_transcode,
+    ensure_split_job,
     max_upload_bytes,
     owned_recording,
     require_state,
@@ -45,7 +47,7 @@ from crosstune.recordings.service import (
 from crosstune.storage.store import delete_best_effort, upload_key
 
 if TYPE_CHECKING:
-    from crosstune.models import Recording
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 log = logging.getLogger(__name__)
 
@@ -195,13 +197,14 @@ async def retry(
     user: CurrentUser,
     session: DbSession,
 ) -> Response:
-    """Process a failed recording again: transcode its file, or fetch an import again.
+    """Process a failed recording again: transcode its file, cut a piece, or fetch an import.
 
-    An import whose file never arrived is fetched again, or fails at once when its
-    address is not one the server imports from. Any other recording whose uploaded
-    object is gone is uploaded again through a new slot; this route only re-runs the
-    transcode. Fetching an import again needs Premium; a transcode does not. Repeating
-    the call changes nothing.
+    A piece of a split that was never cut goes back to its parent's split job, or is a
+    conflict once the parent no longer holds its audio. An import whose file never
+    arrived is fetched again, or fails at once when its address is not one the server
+    imports from. Any other recording whose uploaded object is gone is uploaded again
+    through a new slot; this route only re-runs the transcode. Fetching an import again
+    needs Premium; a transcode does not. Repeating the call changes nothing.
     """
     # Without a store there is no runner either, so a queued job would never be claimed.
     require_store(request)
@@ -216,7 +219,9 @@ async def retry(
     wait = request.app.state.recording_retry_limiter.hit(user.id)
     if wait is not None:
         raise TooManyRequestsError(wait)
-    if _never_arrived(recording):
+    if recording.split_from_id is not None and recording.original_key is None:
+        await _requeue_cut(session, recording)
+    elif _never_arrived(recording):
         access = await access_for(session, user.id, settings)
         if not access.premium:
             raise PremiumRequiredError
@@ -230,6 +235,29 @@ async def retry(
         await enqueue_transcode(session, recording)
     await session.flush()
     return Response(status_code=204)
+
+
+async def _requeue_cut(session: AsyncSession, piece: Recording) -> None:
+    """Send a failed piece that was never cut back to its parent's split job.
+
+    A piece has no upload or import of its own: its audio is cut from the parent's full
+    original, which still covers it only while the piece's split is the parent's latest
+    and is not completed.
+    """
+    parent = await session.get(Recording, piece.split_from_id)
+    if (
+        parent is None
+        or parent.state == "failed"
+        or parent.split_id != piece.created_by_split_id
+        or parent.split_completed_id == parent.split_id
+    ):
+        msg = "The piece's parent no longer holds the audio to cut it from"
+        raise ConflictError(msg)
+    piece.state = "processing"
+    piece.error = None
+    bump_server_seq(piece)
+    await session.flush()
+    await ensure_split_job(session, parent)
 
 
 def _never_arrived(recording: Recording) -> bool:
