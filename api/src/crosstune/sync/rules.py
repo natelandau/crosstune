@@ -311,7 +311,7 @@ class RecordingRules(RowRules):
         values, so a stale push, which the upsert's timestamp check rejects, never has its
         rewritten trim mistaken for what was actually written.
         """
-        self.stored = await self.session.get(Recording, self.change.id)
+        self.stored = await self._owned(self.change.id)
         if self.stored is not None:
             self.stored_place = (
                 self.stored.place_lat,
@@ -354,6 +354,11 @@ class RecordingRules(RowRules):
         data["trim_start_ms"], data["trim_end_ms"] = start, end
         return None
 
+    async def _owned(self, recording_id: uuid.UUID) -> Recording | None:
+        """The caller's recording with this id, or None for an unknown or foreign id."""
+        recording = await self.session.get(Recording, recording_id)
+        return recording if recording is not None and recording.user_id == self.user_id else None
+
     async def _revive_over_quota(self) -> bool:
         """Whether the upsert would revive a deleted recording past the account's quota."""
         stored = self.stored
@@ -392,7 +397,7 @@ class RecordingRules(RowRules):
         created_by = data.get("created_by_split_id")
         if created_by is None:
             return SPLIT_UNNAMED
-        parent = await self.session.get(Recording, data["split_from_id"])
+        parent = await self._owned(data["split_from_id"])
         if parent is None:
             return None
         if parent.split_id is not None and created_by != parent.split_id:
@@ -431,7 +436,7 @@ class RecordingRules(RowRules):
         name even before, or without, an Apple Maps lookup.
         """
         # Locals stay scrubbable by name or non-sensitive: error reports keep frame locals.
-        stored = self.stored if self.stored and self.stored.user_id == self.user_id else None
+        stored = self.stored
         same_point = stored is not None and (data["place_lat"], data["place_lon"]) == (
             stored.place_lat,
             stored.place_lon,
@@ -511,8 +516,8 @@ class RecordingRules(RowRules):
         )
 
     def _upsert_writes(self, stored: Recording) -> bool:
-        """Whether the upsert would write over `stored`, rather than report stale or not yours."""
-        return stored.user_id == self.user_id and stored.updated_at < self.change.updated_at
+        """Whether the upsert would write over the caller's `stored`, rather than report stale."""
+        return stored.updated_at < self.change.updated_at
 
     def _place_may_need_name(self, row: Recording) -> bool:
         """Whether this push could have left the row with coordinates to name.
