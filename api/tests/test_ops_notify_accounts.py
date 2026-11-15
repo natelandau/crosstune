@@ -83,7 +83,6 @@ async def test_send_batches_of_100_and_records_notices(session: AsyncSession) ->
     assert recipients == {user.email for user in users if user.email}
     keys = [key for _, key in mailer.sent_batches]
     assert len(set(keys)) == 3
-    assert keys[0] == f"{KEY}:{min(user.id for user in users if user.email)}"
     assert await _noticed(session) == 250
 
 
@@ -164,7 +163,66 @@ async def test_a_failed_batch_is_retried_with_the_same_key(
 
     ((batch, key),) = retry.sent_batches
     assert len(batch) == 3
-    assert key == f"{KEY}:{min(user.id for user in users)}"
+    assert failing.batch_keys == [key]
+
+
+async def test_a_batch_whose_members_change_gets_a_new_key(session: AsyncSession) -> None:
+    await _users(session, 3)
+    failing = FakeMailer()
+    failing.error = MailerUnavailableError("down")
+    await notify_accounts.execute(session, failing, _args("--body", "-", "--yes"), BODY)
+    await _users(session, 1)
+    retry = FakeMailer()
+
+    await notify_accounts.execute(session, retry, _args("--body", "-", "--yes"), BODY)
+
+    ((batch, key),) = retry.sent_batches
+    assert len(batch) == 4
+    assert key not in failing.batch_keys
+
+
+async def test_a_rejected_address_holds_back_only_itself(
+    session: AsyncSession, capsys: pytest.CaptureFixture[str]
+) -> None:
+    users = await _users(session, 250)
+    bad = users[5]
+    mailer = FakeMailer()
+    mailer.rejected = {bad.email}
+
+    code = await notify_accounts.execute(session, mailer, _args("--body", "-", "--yes"), BODY)
+
+    assert code == 1
+    assert len(mailer.sent) == 99
+    assert len({key for _, key in mailer.sent}) == 99
+    assert [len(batch) for batch, _ in mailer.sent_batches] == [100, 50]
+    recipients = {message.to for message, _ in mailer.sent} | {
+        message.to for batch, _ in mailer.sent_batches for message in batch
+    }
+    assert recipients == {user.email for user in users} - {bad.email}
+    assert await _noticed(session) == 249
+    out = capsys.readouterr().out
+    assert bad.email in out
+    assert str(bad.id) in out
+
+    rerun = FakeMailer()
+    await notify_accounts.execute(session, rerun, _args("--body", "-", "--yes"), BODY)
+    assert [[message.to for message in batch] for batch, _ in rerun.sent_batches] == [[bad.email]]
+
+
+async def test_a_rate_limit_while_sending_one_at_a_time_keeps_what_was_sent(
+    session: AsyncSession, capsys: pytest.CaptureFixture[str]
+) -> None:
+    users = await _users(session, 5)
+    mailer = FakeMailer()
+    mailer.rejected = {users[0].email}
+    mailer.rate_limit_after_sends = 2
+
+    code = await notify_accounts.execute(session, mailer, _args("--body", "-", "--yes"), BODY)
+
+    assert code == 1
+    assert len(mailer.sent) == 2
+    assert await _noticed(session) == 2
+    assert "run again later" in capsys.readouterr().out
 
 
 async def test_message_has_text_and_linked_html(session: AsyncSession) -> None:
