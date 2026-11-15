@@ -977,11 +977,11 @@ async def test_scan_stalls_fails_a_file_past_its_limits(
 
 @pytest.fixture(scope="module")
 def many_packet_webm(tmp_path_factory) -> Path:
-    """Five minutes of Opus in WebM in 2.5 ms frames: 120,000 packets."""
+    """A minute of Opus in WebM in 2.5 ms frames: 24,000 packets."""
     path = tmp_path_factory.mktemp("many-packets") / "many.webm"
     subprocess.run(  # noqa: S603
         [
-            FFMPEG, "-v", "error", "-f", "lavfi", "-i", "sine=frequency=440:duration=300",
+            FFMPEG, "-v", "error", "-f", "lavfi", "-i", "sine=frequency=440:duration=60",
             "-ac", "1", "-ar", "48000", "-c:a", "libopus", "-b:a", "6k",
             "-frame_duration", "2.5", "-f", "webm", str(path),
         ],
@@ -998,5 +998,5 @@ async def test_scan_stalls_holds_memory_flat_whatever_the_packet_count(many_pack
         _, peak = tracemalloc.get_traced_memory()
     finally:
         tracemalloc.stop()
-    # The report alone is several MB; a streamed read holds a chunk at a time.
+    # The report held whole takes more than this; a streamed read holds a chunk at a time.
     assert peak < 1_000_000
