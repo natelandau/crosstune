@@ -9,7 +9,6 @@ from sqlalchemy.orm import aliased
 
 from crosstune.db.base import bump_server_seq
 from crosstune.models import Recording
-from crosstune.vocabulary import SPLIT_FAILED
 
 if TYPE_CHECKING:
     import uuid
@@ -280,23 +279,6 @@ async def fail_waiting_pieces(session: AsyncSession, parent_id: uuid.UUID, error
         int: How many pieces were failed.
     """
     return await fail_pieces(session, select(Recording).where(waiting_pieces(parent_id)), error)
-
-
-async def fail_stranded_pieces(session: AsyncSession, parent: Recording) -> int:
-    """Fail the parent's waiting pieces that its split job will never cut.
-
-    The pieces of the parent's latest split still wait, so a parent deleted mid-split
-    still has them cut. Called under the user's lock, in the caller's transaction.
-
-    Args:
-        session: The session to write through.
-        parent: The recording the pieces were split from.
-
-    Returns:
-        int: How many pieces were failed.
-    """
-    stranded = stranded_pieces().where(Recording.split_from_id == parent.id)
-    return await fail_pieces(session, stranded, SPLIT_FAILED)
 
 
 async def fail_parent_split(session: AsyncSession, parent: Recording) -> None:

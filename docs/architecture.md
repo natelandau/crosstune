@@ -397,8 +397,9 @@ each question, and the invariants that both clients and the API hold.
   has not pulled the split pushes the parent without it.
 - A piece can arrive before its parent's `split_id`. It stays
   `processing` and is cut once the parent's split lands. A piece that no
-  split of its parent will cut fails: at once when the parent is deleted,
-  otherwise after `split_piece_grace_seconds`.
+  split of its parent will cut fails after `split_piece_grace_seconds`,
+  also when the parent is deleted, since a newer push can undelete the
+  parent with its split.
 - A parent's live pieces that are not `ready`, of every split and every
   `created_by_split_id`, are held to one split's worth
   (`MAX_SPLIT_PIECES`).
