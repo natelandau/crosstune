@@ -24,40 +24,52 @@ _OUTBOUND_URL_INDEX = 1
 _DRIVER_VALUE = re.compile(
     r"(invalid input for query argument \$\d+[^:\n]*): .*?( \([^()\n]*\))?$", re.MULTILINE
 )
+# Pydantic prints the repr of the rejected input before the input's type:
+# `[type=string_type, input_value='text...', input_type=int]`. The match runs to the last
+# input_type before the next error's input_value, so a repr that spans lines or contains
+# that text is still covered.
+_VALIDATION_INPUT = re.compile(
+    r"(input_value=)(?:(?!input_value=).)*(, input_type=\w+\])", re.DOTALL
+)
+# FastAPI's validation errors print each error as a dict on its own line, input last but
+# for an optional ctx: `{'type': 'int_parsing', 'loc': (...), 'msg': '...', 'input': 'text'}`.
+_ERROR_DICT_INPUT = re.compile(r"('input': ).*(\})$", re.MULTILINE)
 
 
 _ExcInfo = tuple[type[BaseException], BaseException, TracebackType | None] | tuple[None, None, None]
 
 
-def redact_driver_values(text: str) -> str:
-    """Replace each value a database driver quoted in an error with a placeholder.
+def redact_error_values(text: str) -> str:
+    """Replace each input value that a database driver, pydantic, or FastAPI quoted in an error.
 
     Args:
         text: An error message or a formatted traceback.
 
     Returns:
-        str: The text with the user's content gone and the argument and reason kept.
+        str: The text with the user's content gone and the argument, type, and reason kept.
     """
-    return _DRIVER_VALUE.sub(r"\1: <value redacted>\2", text)
+    text = _DRIVER_VALUE.sub(r"\1: <value redacted>\2", text)
+    text = _VALIDATION_INPUT.sub(r"\1<value redacted>\2", text)
+    return _ERROR_DICT_INPUT.sub(r"\1<value redacted>\2", text)
 
 
 class _RedactingFormatter(logging.Formatter):
-    """A plain formatter whose tracebacks carry no value a driver quoted."""
+    """A plain formatter whose tracebacks carry no quoted input value."""
 
     def formatException(self, ei: _ExcInfo) -> str:  # noqa: N802 -- overrides logging's name
         """Format the traceback, then redact it."""
-        return redact_driver_values(super().formatException(ei))
+        return redact_error_values(super().formatException(ei))
 
 
 class _RedactingJsonFormatter(JsonFormatter):
-    """A JSON formatter whose tracebacks carry no value a driver quoted."""
+    """A JSON formatter whose tracebacks carry no quoted input value."""
 
     def formatException(self, ei: _ExcInfo) -> str | list[str]:  # noqa: N802 -- overrides logging's name
         """Format the traceback, then redact it."""
         formatted = super().formatException(ei)
         if isinstance(formatted, str):
-            return redact_driver_values(formatted)
-        return [redact_driver_values(line) for line in formatted]
+            return redact_error_values(formatted)
+        return [redact_error_values(line) for line in formatted]
 
 
 class StripQueryFilter(logging.Filter):

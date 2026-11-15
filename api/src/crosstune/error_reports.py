@@ -14,7 +14,7 @@ from sentry_sdk.utils import iter_event_frames
 from sqlalchemy.engine import Row
 
 from crosstune.jobs.media import Probe
-from crosstune.logging import redact_driver_values
+from crosstune.logging import redact_error_values
 from crosstune.places.maps import PlaceHit
 from crosstune.schemas import rows
 
@@ -113,10 +113,11 @@ def redacted_repr(value: object) -> str | None:
 
 
 def before_send(event: Event, _hint: Hint) -> Event:
-    """Drop the request's query string, library frames' locals, and values a driver quoted.
+    """Drop the request's query string, library frames' locals, and quoted input values.
 
     Framework and driver frames hold the raw request body and bound statement values under
-    names no denylist can predict.
+    names no denylist can predict, and a driver or pydantic error message quotes the input
+    it rejected.
     """
     request = event.get("request")
     if request:
@@ -130,5 +131,5 @@ def before_send(event: Event, _hint: Hint) -> Event:
     for exception in (event.get("exception") or {}).get("values") or []:
         value = exception.get("value")
         if isinstance(value, str):
-            exception["value"] = redact_driver_values(value)
+            exception["value"] = redact_error_values(value)
     return event

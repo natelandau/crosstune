@@ -97,15 +97,46 @@ _DRIVER_ERROR = (
 )
 
 
+_VALIDATION_ERROR = (
+    "1 validation error for SearchResult\ntitle\n  Input should be a valid string "
+    "[type=string_type, input_value={'note': 'Learned in Joe (the barn)'}, input_type=dict]"
+)
+_MULTILINE_INPUT_ERROR = (
+    "1 validation error for int\n  Input should be a valid integer "
+    "[type=int_type, input_value=Note(\n  'Learned from Joe'\n), input_type=Note]"
+)
+_RESPONSE_VALIDATION_ERROR = (
+    "1 validation error:\n  {'type': 'string_type', 'loc': ('response', 'title'), "
+    "'msg': 'Input should be a valid string', 'input': {'note': 'Learned from Joe'}}"
+)
+
+
 @pytest.mark.parametrize("debug", [False, True])
-def test_logged_tracebacks_drop_the_value_a_driver_quoted(fresh_logging, *, debug: bool) -> None:
+@pytest.mark.parametrize(
+    ("error", "kept"),
+    [
+        (
+            _DRIVER_ERROR,
+            "invalid input for query argument $3: <value redacted> (expected str, got int)",
+        ),
+        (_VALIDATION_ERROR, "[type=string_type, input_value=<value redacted>, input_type=dict]"),
+        (_MULTILINE_INPUT_ERROR, "[type=int_type, input_value=<value redacted>, input_type=Note]"),
+        (
+            _RESPONSE_VALIDATION_ERROR,
+            "'msg': 'Input should be a valid string', 'input': <value redacted>}",
+        ),
+    ],
+)
+def test_logged_tracebacks_drop_the_quoted_input(
+    fresh_logging, *, debug: bool, error: str, kept: str
+) -> None:
     root, _ = fresh_logging
     configure_logging(debug=debug)
     stream = io.StringIO()
     root.handlers[0].stream = stream
 
     def write() -> None:
-        raise ValueError(_DRIVER_ERROR)
+        raise ValueError(error)
 
     try:
         write()
@@ -114,7 +145,7 @@ def test_logged_tracebacks_drop_the_value_a_driver_quoted(fresh_logging, *, debu
 
     logged = stream.getvalue()
     assert "Joe" not in logged
-    assert "invalid input for query argument $3: <value redacted> (expected str, got int)" in logged
+    assert kept in logged
 
 
 @pytest.mark.anyio
