@@ -10,6 +10,7 @@ from sqlalchemy import select
 
 from crosstune.models import Recording, User
 from crosstune.recordings.split_rules import (
+    keeps_files,
     latest_split_pieces,
     split_holds_original,
     split_ready_to_complete,
@@ -166,3 +167,32 @@ async def test_a_failed_parent_holds_nothing(session) -> None:
     await session.flush()
     await _piece(session, parent, state="processing")
     assert not await split_holds_original(session, parent)
+
+
+@pytest.mark.parametrize(
+    ("state", "deleted", "holds"),
+    [
+        ("ready", False, True),
+        ("ready", True, True),
+        ("pending_upload", False, True),
+        # It never gets the file its pieces would be cut from.
+        ("pending_upload", True, False),
+    ],
+)
+async def test_the_hold_and_the_kept_files_agree(session, state, deleted, holds) -> None:
+    user_id = await _user_id(session)
+    parent = _recording(
+        user_id,
+        state=state,
+        split_id=uuid.UUID(uid()),
+        split_size=2,
+        deleted_at=T0 if deleted else None,
+    )
+    session.add(parent)
+    await session.flush()
+    await _piece(session, parent, state="processing")
+    kept = await session.scalar(
+        select(Recording.id).where(Recording.id == parent.id, keeps_files())
+    )
+    assert await split_holds_original(session, parent) is holds
+    assert (kept is not None) is (holds or not deleted)
