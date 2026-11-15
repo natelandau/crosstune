@@ -4298,16 +4298,16 @@ async def test_tunes_refuse_alternate_titles_past_the_cap(session: AsyncSession)
         )
 
 
-async def test_0062_job_turns_shape_and_cascade(
+async def test_0062_job_last_claims_shape_and_cascade(
     engine, database_url: str, truncate_all: None
 ) -> None:
     config = Config("alembic.ini")
     config.set_main_option("sqlalchemy.url", database_url)
     columns = text(
         "select column_name, data_type, is_nullable from information_schema.columns "
-        "where table_name = 'job_turns' order by column_name"
+        "where table_name = 'job_last_claims' order by column_name"
     )
-    sequence = text("select count(*) from pg_class where relname = 'job_turn_seq'")
+    sequence = text("select count(*) from pg_class where relname = 'job_claim_seq'")
     try:
         await anyio.to_thread.run_sync(command.downgrade, config, "0061")
         async with engine.connect() as conn:
@@ -4320,23 +4320,23 @@ async def test_0062_job_turns_shape_and_cascade(
         await conn.execute(
             text(
                 "insert into users (id, clerk_user_id, created_at, updated_at) "
-                "values (:id, 'user_turns', now(), now())"
+                "values (:id, 'user_last_claims', now(), now())"
             ),
             {"id": user},
         )
         await conn.execute(
             text(
-                "insert into job_turns (user_id, background, last_turn) "
-                "values (:id, false, nextval('job_turn_seq')), (:id, true, nextval('job_turn_seq'))"
+                "insert into job_last_claims (user_id, background, claim_seq) "
+                "values (:id, false, nextval('job_claim_seq')), (:id, true, nextval('job_claim_seq'))"
             ),
             {"id": user},
         )
         await conn.execute(text("delete from users where id = :id"), {"id": user})
-        left = (await conn.execute(text("select count(*) from job_turns"))).scalar()
+        left = (await conn.execute(text("select count(*) from job_last_claims"))).scalar()
     assert dropped == ([], 0)
     assert shape == [
         ("background", "boolean", "NO"),
-        ("last_turn", "bigint", "NO"),
+        ("claim_seq", "bigint", "NO"),
         ("user_id", "uuid", "NO"),
     ]
     assert left == 0

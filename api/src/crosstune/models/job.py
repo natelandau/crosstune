@@ -93,24 +93,24 @@ class Job(Base):
     )
 
 
-# Numbers each claim, so the account whose last claim is oldest takes the next turn. A
-# counter, not a time, so claims in one instant and runners with drifting clocks still order.
-job_turn_seq = Sequence("job_turn_seq", start=1)
+# Numbers each claim, so the account whose last claim is oldest claims next. A counter,
+# not a time, so claims in one instant and runners with drifting clocks still order.
+job_claim_seq = Sequence("job_claim_seq", start=1)
 
 
-class JobTurn(Base):
+class JobLastClaim(Base):
     """The last claim one account's foreground or background jobs got from the runner.
 
     Outlives the jobs it counts, which are deleted as they finish. Not synced.
     """
 
-    __tablename__ = "job_turns"
+    __tablename__ = "job_last_claims"
 
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
     )
     background: Mapped[bool] = mapped_column(Boolean, primary_key=True)
-    last_turn: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    claim_seq: Mapped[int] = mapped_column(BigInteger, nullable=False)
 
 
 class UploadSlot(Base):

@@ -46,8 +46,8 @@ from crosstune.jobs.sweep import (
     release_abandoned_slots,
 )
 from crosstune.jobs.sweep import sweep_orphans as sweep_orphan_prefixes
-from crosstune.models import Job, JobTurn, Recording, Scan, UploadSlot, User
-from crosstune.models.job import job_turn_seq
+from crosstune.models import Job, JobLastClaim, Recording, Scan, UploadSlot, User
+from crosstune.models.job import job_claim_seq
 from crosstune.places.maps import configured_maps
 from crosstune.ratelimit import RateLimiter
 from crosstune.vocabulary import JobKind
@@ -438,14 +438,14 @@ class JobRunner:
         return purged + await purge_deleted_scans(self._sessionmaker, self._store)
 
     async def _claim(self) -> Job | None:
-        """Claim the next job in turn, holding back each place job its account has no pace left for."""
+        """Claim the next job in round-robin order, holding back each place job its account has no pace left for."""
         while True:
             claimed, job = await self._claim_next()
             if claimed:
                 return job
 
     async def _claim_next(self) -> tuple[bool, Job | None]:
-        """Claim the next job in turn, or hold it back when its account is past its place pace.
+        """Claim the next job in round-robin order, or hold it back when its account is past its place pace.
 
         Returns:
             tuple[bool, Job | None]: True with the claimed job, or None when nothing is
@@ -456,13 +456,15 @@ class JobRunner:
         # The account whose last claim is oldest goes next, and one never claimed goes
         # first, so one account's burst of jobs waits behind every other account's. A
         # count of the account's queued jobs cannot rank it: each finished job is deleted.
-        turn = and_(JobTurn.user_id == Job.user_id, JobTurn.background == is_background)
+        last_claim = and_(
+            JobLastClaim.user_id == Job.user_id, JobLastClaim.background == is_background
+        )
         async with self._sessionmaker() as session, session.begin():
             stmt = (
                 select(Job)
-                .outerjoin(JobTurn, turn)
+                .outerjoin(JobLastClaim, last_claim)
                 .where(_claimable(now))
-                .order_by(is_background, JobTurn.last_turn.asc().nulls_first(), Job.created_at)
+                .order_by(is_background, JobLastClaim.claim_seq.asc().nulls_first(), Job.created_at)
                 .limit(1)
                 .with_for_update(of=Job, skip_locked=True)
             )
@@ -491,7 +493,7 @@ class JobRunner:
                     .execution_options(synchronize_session=False)
                 )
                 return False, None
-            await session.execute(_take_turn(job))
+            await session.execute(_record_claim(job))
             job.locked_until = now + timedelta(seconds=LOCK_SECONDS)
             job.attempts += 1
             # An error now marks only a job waiting out a failure; see held_after_failure.
@@ -556,26 +558,26 @@ class JobRunner:
             log.warning("could not release a cancelled job", extra={"job": str(job.id)})
 
 
-def _take_turn(job: Job) -> Insert:
-    """Record a claim as the latest turn of the job's account, foreground or background.
+def _record_claim(job: Job) -> Insert:
+    """Record a claim as the latest of the job's account, foreground or background.
 
     Two runners claiming one account's jobs at once wait on its row only until the
     first commits; claims for other accounts never touch it. An account being deleted
-    records no turn: its user row is skipped, not waited on, since the delete's cascade
+    records no claim: its user row is skipped, not waited on, since the delete's cascade
     waits on the job row this claim holds. The key-share lock leaves the row's ordinary
-    updates alone, so only a delete skips the turn.
+    updates alone, so only a delete skips the record.
     """
     account = (
-        select(User.id, literal(job.kind in _BACKGROUND_KINDS), job_turn_seq.next_value())
+        select(User.id, literal(job.kind in _BACKGROUND_KINDS), job_claim_seq.next_value())
         .where(User.id == job.user_id)
         .with_for_update(read=True, key_share=True, skip_locked=True)
     )
-    stmt = insert(JobTurn).from_select(
-        [JobTurn.user_id, JobTurn.background, JobTurn.last_turn], account
+    stmt = insert(JobLastClaim).from_select(
+        [JobLastClaim.user_id, JobLastClaim.background, JobLastClaim.claim_seq], account
     )
     return stmt.on_conflict_do_update(
-        index_elements=[JobTurn.user_id, JobTurn.background],
-        set_={"last_turn": stmt.excluded.last_turn},
+        index_elements=[JobLastClaim.user_id, JobLastClaim.background],
+        set_={"claim_seq": stmt.excluded.claim_seq},
     )
 
 

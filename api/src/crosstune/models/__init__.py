@@ -8,7 +8,7 @@ from crosstune.models.deleted_account import DeletedAccount
 from crosstune.models.entitlement import Entitlement
 from crosstune.models.grant import Grant
 from crosstune.models.inactivity import InactivityNotice, ScheduledRun
-from crosstune.models.job import Job, JobTurn, UploadSlot
+from crosstune.models.job import Job, JobLastClaim, UploadSlot
 from crosstune.models.list import List, ListItem
 from crosstune.models.pending_comp import PendingComp
 from crosstune.models.place import Place
@@ -35,7 +35,7 @@ __all__ = [
     "Grant",
     "InactivityNotice",
     "Job",
-    "JobTurn",
+    "JobLastClaim",
     "List",
     "ListItem",
     "PendingComp",

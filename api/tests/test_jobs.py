@@ -48,7 +48,7 @@ from crosstune.jobs.transcode import transcode
 from crosstune.jobs.trim import trim
 from crosstune.models import (
     Job,
-    JobTurn,
+    JobLastClaim,
     Recording,
     RecordingLoop,
     ScheduledRun,
@@ -3074,7 +3074,7 @@ _ROTATION = ("a0", "b0", "c0", "a1", "a2", "a3", "a4", "a5")
                 ],
                 ("a0", "c0", "a1", "b0", "a2", "a3"),
             ),
-            id="a-late-account-takes-the-next-turn",
+            id="a-late-account-claims-next",
         ),
         pytest.param(
             _ClaimCase(
@@ -3098,7 +3098,7 @@ _ROTATION = ("a0", "b0", "c0", "a1", "a2", "a3", "a4", "a5")
         ),
     ],
 )
-async def test_claim_takes_each_user_s_oldest_job_in_turn(
+async def test_claim_round_robins_across_users(
     engine, tmp_path, settings: Settings, verify_session, case: _ClaimCase
 ) -> None:
     job_runner = _paced_runner(engine, tmp_path, settings, case.place_lookups_per_minute)
@@ -3210,14 +3210,14 @@ async def test_holding_an_account_s_place_jobs_skips_one_another_runner_holds(
 
 
 @pytest.mark.parametrize(
-    ("user_lock", "turns_recorded"),
+    ("user_lock", "claims_recorded"),
     [
         pytest.param({}, 0, id="account-being-deleted"),
         pytest.param({"key_share": True}, 1, id="account-row-being-updated"),
     ],
 )
 async def test_a_claim_never_waits_on_its_account_s_row(
-    runner, verify_session, user_lock: dict[str, bool], turns_recorded: int
+    runner, verify_session, user_lock: dict[str, bool], claims_recorded: int
 ) -> None:
     job_runner, _ = runner
     user = await make_user(verify_session)
@@ -3228,8 +3228,10 @@ async def test_a_claim_never_waits_on_its_account_s_row(
             claimed = await job_runner._claim()
     assert claimed is not None
     assert claimed.id == job.id
-    turns = await verify_session.scalars(select(JobTurn).where(JobTurn.user_id == user.id))
-    assert len(turns.all()) == turns_recorded
+    recorded = await verify_session.scalars(
+        select(JobLastClaim).where(JobLastClaim.user_id == user.id)
+    )
+    assert len(recorded.all()) == claims_recorded
 
 
 async def test_an_account_past_its_place_pace_has_its_backlog_held_in_one_pass(

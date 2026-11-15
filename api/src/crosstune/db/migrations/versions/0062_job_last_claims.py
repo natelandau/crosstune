@@ -1,4 +1,4 @@
-"""job turns, the last claim each account's jobs got, so claims rotate across accounts
+"""job last claims, the last claim each account's jobs got, for round-robin claims
 
 Revision ID: 0062
 Revises: 0061
@@ -17,9 +17,9 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.execute(sa.schema.CreateSequence(sa.Sequence("job_turn_seq", start=1)))
+    op.execute(sa.schema.CreateSequence(sa.Sequence("job_claim_seq", start=1)))
     op.create_table(
-        "job_turns",
+        "job_last_claims",
         sa.Column(
             "user_id",
             postgresql.UUID(as_uuid=True),
@@ -27,10 +27,10 @@ def upgrade() -> None:
             primary_key=True,
         ),
         sa.Column("background", sa.Boolean(), primary_key=True),
-        sa.Column("last_turn", sa.BigInteger(), nullable=False),
+        sa.Column("claim_seq", sa.BigInteger(), nullable=False),
     )
 
 
 def downgrade() -> None:
-    op.drop_table("job_turns")
-    op.execute(sa.schema.DropSequence(sa.Sequence("job_turn_seq")))
+    op.drop_table("job_last_claims")
+    op.execute(sa.schema.DropSequence(sa.Sequence("job_claim_seq")))
