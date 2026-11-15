@@ -31,7 +31,9 @@ async def run(ctx: JobContext, job: Job) -> None:
         with ctx.work_dir() as folder:
             try:
                 async with attempt_timeout():
-                    replacement = await reencode(session, ctx.store, recording, Path(folder))
+                    replacement = await reencode(
+                        session, ctx.store, recording, Path(folder), settings=ctx.settings
+                    )
                 await session.delete(stored_job)
                 await session.commit()
             except Exception as exc:  # noqa: BLE001 -- any re-encode failure is a job failure, not a crash

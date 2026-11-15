@@ -2999,6 +2999,24 @@ async def test_reencode_discards_a_cut_that_is_no_better(
     assert await reencode_jobs(verify_session, rec) == []
 
 
+async def test_reencode_past_the_quota_keeps_the_current_file(
+    engine, tmp_path, settings, verify_session, media_fixtures
+) -> None:
+    store = _WriteTrackingStore()
+    rec = await seed_ready(verify_session, store, media_fixtures["m4a_high"], "audio/mp4", tmp_path)
+    await degrade_playback(store, verify_session, rec, tmp_path)
+    used = await used_bytes(verify_session, rec.user_id)
+    old = (rec.playback_key, rec.playback_rev, rec.playback_bytes, rec.server_seq)
+    await queue_reencode(verify_session, rec)
+    job_runner = _quota_runner(engine, tmp_path, settings, store, used)
+    assert await job_runner.run_once() == 1
+    await verify_session.refresh(rec)
+    assert (rec.playback_key, rec.playback_rev, rec.playback_bytes, rec.server_seq) == old
+    assert [key for key in store.written if key in set(store.keys())] == []
+    assert await used_bytes(verify_session, rec.user_id) == used
+    assert await reencode_jobs(verify_session, rec) == []
+
+
 async def test_reencode_never_targets_more_than_the_original_has(
     trim_runner, verify_session, fake_media, tmp_path
 ) -> None:
