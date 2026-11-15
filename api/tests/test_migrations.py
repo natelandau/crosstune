@@ -4296,3 +4296,47 @@ async def test_tunes_refuse_alternate_titles_past_the_cap(session: AsyncSession)
                 "titles": ["T"] * (MAX_ALTERNATE_TITLES + 1),
             },
         )
+
+
+async def test_0062_job_turns_shape_and_cascade(
+    engine, database_url: str, truncate_all: None
+) -> None:
+    config = Config("alembic.ini")
+    config.set_main_option("sqlalchemy.url", database_url)
+    columns = text(
+        "select column_name, data_type, is_nullable from information_schema.columns "
+        "where table_name = 'job_turns' order by column_name"
+    )
+    sequence = text("select count(*) from pg_class where relname = 'job_turn_seq'")
+    try:
+        await anyio.to_thread.run_sync(command.downgrade, config, "0061")
+        async with engine.connect() as conn:
+            dropped = ((await conn.execute(columns)).all(), (await conn.execute(sequence)).scalar())
+    finally:
+        await anyio.to_thread.run_sync(command.upgrade, config, "head")
+    user = "018f0000-0000-7000-8000-000000000062"
+    async with engine.begin() as conn:
+        shape = [tuple(row) for row in (await conn.execute(columns)).all()]
+        await conn.execute(
+            text(
+                "insert into users (id, clerk_user_id, created_at, updated_at) "
+                "values (:id, 'user_turns', now(), now())"
+            ),
+            {"id": user},
+        )
+        await conn.execute(
+            text(
+                "insert into job_turns (user_id, background, last_turn) "
+                "values (:id, false, nextval('job_turn_seq')), (:id, true, nextval('job_turn_seq'))"
+            ),
+            {"id": user},
+        )
+        await conn.execute(text("delete from users where id = :id"), {"id": user})
+        left = (await conn.execute(text("select count(*) from job_turns"))).scalar()
+    assert dropped == ([], 0)
+    assert shape == [
+        ("background", "boolean", "NO"),
+        ("last_turn", "bigint", "NO"),
+        ("user_id", "uuid", "NO"),
+    ]
+    assert left == 0

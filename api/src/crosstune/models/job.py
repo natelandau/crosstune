@@ -1,4 +1,4 @@
-"""Server-owned bookkeeping for uploads and transcodes. Neither table is synced."""
+"""Server-owned bookkeeping for uploads, transcodes, and job claims. None of it is synced."""
 
 from __future__ import annotations
 
@@ -7,11 +7,13 @@ from datetime import datetime
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     CheckConstraint,
     DateTime,
     ForeignKey,
     Index,
     Integer,
+    Sequence,
     String,
     UniqueConstraint,
     text,
@@ -89,6 +91,26 @@ class Job(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=utc_now
     )
+
+
+# Numbers each claim, so the account whose last claim is oldest takes the next turn. A
+# counter, not a time, so claims in one instant and runners with drifting clocks still order.
+job_turn_seq = Sequence("job_turn_seq", start=1)
+
+
+class JobTurn(Base):
+    """The last claim one account's foreground or background jobs got from the runner.
+
+    Outlives the jobs it counts, which are deleted as they finish. Not synced.
+    """
+
+    __tablename__ = "job_turns"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    background: Mapped[bool] = mapped_column(Boolean, primary_key=True)
+    last_turn: Mapped[int] = mapped_column(BigInteger, nullable=False)
 
 
 class UploadSlot(Base):

@@ -46,7 +46,15 @@ from crosstune.jobs.runner import JobRunner
 from crosstune.jobs.sweep import ABANDONED_SLOT_GRACE
 from crosstune.jobs.transcode import transcode
 from crosstune.jobs.trim import trim
-from crosstune.models import Job, Recording, RecordingLoop, ScheduledRun, UploadSlot, User
+from crosstune.models import (
+    Job,
+    JobTurn,
+    Recording,
+    RecordingLoop,
+    ScheduledRun,
+    UploadSlot,
+    User,
+)
 from crosstune.recordings.service import attach_playback, enqueue_job, ensure_trim_job
 from crosstune.recordings.split_rules import latest_split_pieces, split_ready_to_complete
 from crosstune.storage.prefixed import PrefixedStore
@@ -2974,32 +2982,170 @@ async def _queue(verify_session, user, kind: JobKind, minutes_ago: int) -> Job:
     return job
 
 
-@pytest.mark.parametrize("kind", [JobKind.TRANSCODE, JobKind.REENCODE])
+@dataclasses.dataclass(frozen=True)
+class _Queued:
+    """One job of a claim-order case, named by its account and its place in that account's line."""
+
+    account: str
+    index: int
+    kind: JobKind
+    minutes_ago: int
+    # Queued once this many claims have run, for an account that arrives mid-burst.
+    after_claims: int = 0
+
+    @property
+    def name(self) -> str:
+        return f"{self.account}{self.index}"
+
+
+def _burst(account: str, kind: JobKind, *minutes_ago: int) -> list[_Queued]:
+    return [_Queued(account, i, kind, ago) for i, ago in enumerate(minutes_ago)]
+
+
+def _paced_runner(
+    engine, tmp_path, settings: Settings, place_lookups_per_minute: int | None
+) -> JobRunner:
+    if place_lookups_per_minute is not None:
+        settings = settings.model_copy(
+            update={"place_lookups_per_minute": place_lookups_per_minute}
+        )
+    return JobRunner(
+        make_sessionmaker(engine), FakeObjectStore(), work_root=tmp_path, settings=settings
+    )
+
+
+async def _queue_uploaded(
+    verify_session, store: FakeObjectStore, user: User, source: Path, minutes_ago: int
+) -> Recording:
+    """Queue a transcode of an uploaded file, for a test that runs the real handler."""
+    rec = await make_uploaded(verify_session, store, user, source, "audio/mp4")
+    verify_session.add(
+        Job(
+            recording_id=rec.id,
+            user_id=user.id,
+            created_at=utc_now() - timedelta(minutes=minutes_ago),
+        )
+    )
+    await verify_session.commit()
+    return rec
+
+
+@dataclasses.dataclass(frozen=True)
+class _ClaimCase:
+    queued: list[_Queued]
+    # The claimed names in order; None where nothing was claimable.
+    expected: tuple[str | None, ...]
+    # Delete each claimed job before the next claim, as a handler does when it succeeds.
+    finish_each: bool = True
+    place_lookups_per_minute: int | None = None
+
+
+_T, _R, _P = JobKind.TRANSCODE, JobKind.REENCODE, JobKind.PLACE
+_THREE_ACCOUNTS = [
+    *_burst("a", _T, 60, 50, 40, 30, 20, 10),
+    _Queued("b", 0, _T, 5),
+    _Queued("c", 0, _T, 1),
+]
+_ROTATION = ("a0", "b0", "c0", "a1", "a2", "a3", "a4", "a5")
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        pytest.param(
+            _ClaimCase(_THREE_ACCOUNTS, _ROTATION, finish_each=False),
+            id="claimed-jobs-still-queued",
+        ),
+        pytest.param(
+            _ClaimCase(_THREE_ACCOUNTS, _ROTATION), id="each-job-finishes-before-the-next-claim"
+        ),
+        pytest.param(
+            _ClaimCase(
+                [*_burst("a", _R, 30, 20, 10), _Queued("b", 0, _R, 0)], ("a0", "b0", "a1", "a2")
+            ),
+            id="background-jobs-rotate-too",
+        ),
+        pytest.param(
+            _ClaimCase(
+                [
+                    *_burst("a", _T, 40, 30, 20, 10),
+                    _Queued("c", 0, _T, 5),
+                    _Queued("b", 0, _T, 0, after_claims=3),
+                ],
+                ("a0", "c0", "a1", "b0", "a2", "a3"),
+            ),
+            id="a-late-account-takes-the-next-turn",
+        ),
+        pytest.param(
+            _ClaimCase(
+                [
+                    *_burst("a", _R, 30, 20),
+                    _Queued("b", 1, _R, 10),
+                    _Queued("a", 2, _T, 5),
+                    _Queued("b", 2, _T, 0),
+                ],
+                ("a2", "b2", "a0", "b1", "a1"),
+            ),
+            id="foreground-before-background",
+        ),
+        pytest.param(
+            _ClaimCase(
+                [*_burst("a", _P, 30, 20), _Queued("a", 2, _R, 10), _Queued("b", 0, _R, 5)],
+                ("a0", "b0", "a2", None),
+                place_lookups_per_minute=1,
+            ),
+            id="held-place-jobs-block-no-other-job",
+        ),
+    ],
+)
 async def test_claim_takes_each_user_s_oldest_job_in_turn(
-    runner, verify_session, kind: JobKind
+    engine, tmp_path, settings: Settings, verify_session, case: _ClaimCase
 ) -> None:
-    job_runner, _ = runner
+    job_runner = _paced_runner(engine, tmp_path, settings, case.place_lookups_per_minute)
+    accounts = dict.fromkeys(spec.account for spec in case.queued)
+    users = {account: await make_user(verify_session) for account in accounts}
+    names: dict[uuid.UUID, str] = {}
+    claimed: list[str | None] = []
+    for claims in range(len(case.expected)):
+        for spec in case.queued:
+            if spec.after_claims == claims:
+                job = await _queue(verify_session, users[spec.account], spec.kind, spec.minutes_ago)
+                names[job.id] = spec.name
+        job = await job_runner._claim()
+        claimed.append(names[job.id] if job else None)
+        if job is not None and case.finish_each:
+            await verify_session.execute(delete(Job).where(Job.id == job.id))
+            await verify_session.commit()
+    assert claimed == list(case.expected)
+
+
+async def test_another_account_s_job_runs_before_a_burst_finishes(
+    runner, verify_session, fake_media
+) -> None:
+    job_runner, store = runner
     busy, other = await make_user(verify_session), await make_user(verify_session)
-    burst = [await _queue(verify_session, busy, kind, minutes_ago) for minutes_ago in (30, 20, 10)]
-    late = await _queue(verify_session, other, kind, 0)
-    claimed = [await job_runner._claim() for _ in range(4)]
-    assert [job.id if job else None for job in claimed] == [
-        burst[0].id,
-        late.id,
-        burst[1].id,
-        burst[2].id,
+    source = fake_media["m4a"]
+    burst = [
+        await _queue_uploaded(verify_session, store, busy, source, minutes_ago)
+        for minutes_ago in (30, 20, 10)
     ]
+    late = await _queue_uploaded(verify_session, store, other, source, 0)
+    finished: list[uuid.UUID] = []
+    for _ in range(4):
+        assert await job_runner.run_once() == 1
+        ready = await verify_session.scalars(
+            select(Recording.id)
+            .where(Recording.state == "ready")
+            .execution_options(populate_existing=True)
+        )
+        finished += [rec_id for rec_id in ready if rec_id not in finished]
+    assert finished == [burst[0].id, late.id, burst[1].id, burst[2].id]
 
 
 async def test_claim_holds_back_place_lookups_past_the_user_s_pace(
     engine, tmp_path, settings: Settings, verify_session
 ) -> None:
-    job_runner = JobRunner(
-        make_sessionmaker(engine),
-        FakeObjectStore(),
-        work_root=tmp_path,
-        settings=settings.model_copy(update={"place_lookups_per_minute": 2}),
-    )
+    job_runner = _paced_runner(engine, tmp_path, settings, 2)
     busy, other = await make_user(verify_session), await make_user(verify_session)
     burst = [
         await _queue(verify_session, busy, JobKind.PLACE, minutes_ago)
@@ -3020,15 +3166,76 @@ async def test_claim_holds_back_place_lookups_past_the_user_s_pace(
     assert held.attempts == 0
 
 
+async def test_runners_claiming_at_once_never_share_a_job(
+    engine, tmp_path, settings: Settings, verify_session
+) -> None:
+    sessionmaker = make_sessionmaker(engine)
+    runners = [
+        JobRunner(sessionmaker, FakeObjectStore(), work_root=tmp_path, settings=settings)
+        for _ in range(4)
+    ]
+    users = [await make_user(verify_session) for _ in range(3)]
+    queued = {
+        (await _queue(verify_session, user, JobKind.TRANSCODE, minutes_ago)).id
+        for user in users
+        for minutes_ago in range(4)
+    }
+    claimed = [
+        job.id
+        for _ in range(3)
+        for job in await asyncio.gather(*(runner._claim() for runner in runners))
+        if job is not None
+    ]
+    assert sorted(claimed) == sorted(queued)
+
+
+async def test_holding_an_account_s_place_jobs_skips_one_another_runner_holds(
+    engine, tmp_path, settings: Settings, verify_session
+) -> None:
+    job_runner = _paced_runner(engine, tmp_path, settings, 1)
+    busy = await make_user(verify_session)
+    first = await _queue(verify_session, busy, JobKind.PLACE, 20)
+    taken = await _queue(verify_session, busy, JobKind.PLACE, 10)
+    job_runner._place_pace.hit(busy.id)
+    async with AsyncSession(bind=engine) as other_runner, other_runner.begin():
+        await other_runner.execute(select(Job).where(Job.id == taken.id).with_for_update())
+        async with asyncio.timeout(10):
+            assert await job_runner._claim_next() == (False, None)
+    held = await verify_session.get(Job, first.id, populate_existing=True)
+    assert held is not None
+    assert held.locked_until is not None
+    untouched = await verify_session.get(Job, taken.id, populate_existing=True)
+    assert untouched is not None
+    assert untouched.locked_until is None
+
+
+@pytest.mark.parametrize(
+    ("user_lock", "turns_recorded"),
+    [
+        pytest.param({}, 0, id="account-being-deleted"),
+        pytest.param({"key_share": True}, 1, id="account-row-being-updated"),
+    ],
+)
+async def test_a_claim_never_waits_on_its_account_s_row(
+    runner, verify_session, user_lock: dict[str, bool], turns_recorded: int
+) -> None:
+    job_runner, _ = runner
+    user = await make_user(verify_session)
+    job = await _queue(verify_session, user, JobKind.TRANSCODE, 0)
+    async with AsyncSession(bind=verify_session.bind) as holder, holder.begin():
+        await holder.execute(select(User).where(User.id == user.id).with_for_update(**user_lock))
+        async with asyncio.timeout(10):
+            claimed = await job_runner._claim()
+    assert claimed is not None
+    assert claimed.id == job.id
+    turns = await verify_session.scalars(select(JobTurn).where(JobTurn.user_id == user.id))
+    assert len(turns.all()) == turns_recorded
+
+
 async def test_an_account_past_its_place_pace_has_its_backlog_held_in_one_pass(
     engine, tmp_path, settings: Settings, verify_session, monkeypatch
 ) -> None:
-    job_runner = JobRunner(
-        make_sessionmaker(engine),
-        FakeObjectStore(),
-        work_root=tmp_path,
-        settings=settings.model_copy(update={"place_lookups_per_minute": 1}),
-    )
+    job_runner = _paced_runner(engine, tmp_path, settings, 1)
     busy = await make_user(verify_session)
     backlog = [
         await _queue(verify_session, busy, JobKind.PLACE, minutes_ago)

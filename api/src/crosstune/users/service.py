@@ -142,7 +142,8 @@ async def touch_last_synced(
                 User.last_synced_at < now - LAST_SYNCED_GRANULARITY,
             ),
         )
-        .with_for_update(skip_locked=True)
+        # No key update: a job claim's key-share lock on the row never skips its turn.
+        .with_for_update(key_share=True, skip_locked=True)
     )
     await session.execute(
         update(User)
