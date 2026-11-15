@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { TunePickerSheet } from '../catalog/TunePickerSheet'
 import { useTuneMatches } from '../catalog/useTuneMatches'
-import { addToTuneName, LINK_TO_TUNE } from './recordingsCopy'
+import { linkToTuneName, LINK_TO_TUNE } from './recordingsCopy'
 
 /** The tune picker that files the selected recordings: a pick or a new tune links them all. */
 export function LinkToTuneSheet({
@@ -29,7 +29,7 @@ export function LinkToTuneSheet({
       search={{ query, setQuery, matches }}
       onPick={(entry) => onPick({ id: entry.tune.id, title: entry.tune.title })}
       onCreate={onCreate}
-      rowName={addToTuneName}
+      rowName={linkToTuneName}
     />
   )
 }

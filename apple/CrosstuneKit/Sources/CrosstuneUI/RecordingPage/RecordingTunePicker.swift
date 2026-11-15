@@ -64,7 +64,7 @@ final class RecordingTunePickerModel: TunePickerSource {
 
     private func row(_ entry: CatalogEntry) -> TunePickerRow {
         TunePickerRow(
-            entry: entry, state: entry.tune.id == chosenID ? .chosen : .open, action: "Add to",
+            entry: entry, state: entry.tune.id == chosenID ? .chosen : .open, action: RecordingsListText.linkTo,
             instruments: instruments)
     }
 

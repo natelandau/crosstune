@@ -20,7 +20,7 @@ import { recordingAnalytics } from '../../usage/testing'
 import { addTypedTitleLabel, SEARCH_TUNES } from '../catalog/catalogCopy'
 import { RECORDING_NAME_LABEL } from '../recordings/recordingCopy'
 import {
-  addToTuneName,
+  linkToTuneName,
   CLEAR_LOCATION,
   LOCATION_LABEL,
   LOCATION_NAME_LABEL,
@@ -146,7 +146,7 @@ it('files under a tune from the Linked Tune row', async () => {
   await row(LINKED_TUNE_LABEL, 'Old Joe Clark').click()
   const picker = editor(LINKED_TUNE_LABEL)
   await picker.getByRole('searchbox', { name: SEARCH_TUNES }).fill('cluck')
-  await picker.getByRole('row', { name: addToTuneName('Cluck Old Hen'), exact: true }).click()
+  await picker.getByRole('row', { name: linkToTuneName('Cluck Old Hen'), exact: true }).click()
   await expect.element(picker).not.toBeInTheDocument()
   await expect.poll(async () => (await db.recordings.get('rA'))?.tune_id).toBe(tuneId)
   await expect.element(row(LINKED_TUNE_LABEL, 'Cluck Old Hen')).toBeVisible()

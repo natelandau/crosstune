@@ -17,7 +17,7 @@ import { openTuneName } from './recordingNames'
 import { DELETE_WHILE_SPLITTING } from '../practice/splitCopy'
 import { SELECT, SELECT_ALL, selectedTitle } from '../selection/selectionCopy'
 import {
-  addToTuneName,
+  linkToTuneName,
   deleteRecordingsTitle,
   heldRecordingsLine,
   LINK_TO_TUNE,
@@ -74,7 +74,7 @@ it('links an unfiled and a filed recording to one tune with Undo', async () => {
   await page.getByRole('button', { name: LINK_TO_TUNE, exact: true }).click()
   const picker = page.getByRole('dialog', { name: LINK_TO_TUNE })
   await picker.getByRole('searchbox', { name: SEARCH_TUNES }).fill('forked')
-  await picker.getByRole('row', { name: addToTuneName('Forked Deer'), exact: true }).click()
+  await picker.getByRole('row', { name: linkToTuneName('Forked Deer'), exact: true }).click()
   await expect.poll(() => tuneOf('loose')).toBe(b.tuneId)
   await expect.poll(() => tuneOf('filed')).toBe(b.tuneId)
   await expect.element(page.getByText(linkedRecordingsToast(2, 'Forked Deer'))).toBeVisible()

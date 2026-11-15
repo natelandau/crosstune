@@ -36,7 +36,7 @@ import {
 } from '../src/features/practice/trimViewCopy'
 import { PLAYER_REGION, SKIP_FORWARD } from '../src/features/player/playerCopy'
 import {
-  addToTuneName,
+  linkToTuneName,
   FILED_HEADER,
   UNFILED_HEADER,
 } from '../src/features/recordings/recordingsCopy'
@@ -53,13 +53,13 @@ test.use({ reducedMotion: 'reduce' })
  * File an unfiled row under `title` from the Linked Tune row of its page, and return its row
  * in Filed, back on Recordings.
  */
-async function addToTune(page: Page, row: Locator, title: string): Promise<Locator> {
+async function linkToTune(page: Page, row: Locator, title: string): Promise<Locator> {
   await openRecordingPage(row)
   await showDetails(page)
   await recordingAttribute(page, LINKED_TUNE_LABEL).click()
   const picker = page.getByRole('dialog', { name: LINKED_TUNE_LABEL, exact: true })
   await picker.getByRole('searchbox', { name: SEARCH_TUNES }).fill(title)
-  await picker.getByRole('row', { name: addToTuneName(title), exact: true }).click()
+  await picker.getByRole('row', { name: linkToTuneName(title), exact: true }).click()
   await expect(picker).toHaveCount(0)
   await expect(recordingAttribute(page, LINKED_TUNE_LABEL, title)).toBeVisible()
   await openTab(page, 'recordings')
@@ -74,13 +74,13 @@ async function addToTune(page: Page, row: Locator, title: string): Promise<Locat
   return filed
 }
 
-test('record, add the recording to a tune, and play it back on the device', async ({ page }) => {
+test('record, link the recording to a tune, and play it back on the device', async ({ page }) => {
   await signIn(page)
   const title = unique('Cluck Old Hen')
   await addTune(page, title, 'A')
 
   const unfiled = await recordUnfiled(page, 6)
-  const row = await addToTune(page, unfiled, title)
+  const row = await linkToTune(page, unfiled, title)
   await playRecording(row)
   const player = page.getByRole('region', { name: PLAYER_REGION })
   // Every recording reaches the now-playing bar from a Play tap, so it starts playing on its own.
@@ -104,7 +104,7 @@ test('uploads a recording, transcodes it, and plays it back from a second device
   const tuneUrl = page.url()
 
   const unfiled = await recordUnfiled(page, 3)
-  await addToTune(page, unfiled, title)
+  await linkToTune(page, unfiled, title)
   await page.goto(tuneUrl)
   await expect(tunePage(page).getByRole('heading', { name: title })).toBeVisible()
   const row = tunePage(page)
