@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import logging
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
+
+from sqlalchemy import or_, select, update
 
 from crosstune.db.base import bump_server_seq, utc_now
 from crosstune.jobs.attempt import (
@@ -18,12 +20,15 @@ from crosstune.jobs.attempt import (
     still_claimed,
 )
 from crosstune.models import Job, Recording
+from crosstune.places.budget import SpentBy, charge, daily_limits
 from crosstune.places.maps import MapsBusyError, MapsError
 from crosstune.places.matching import matching_place_id
 from crosstune.recordings.service import ensure_place_job
-from crosstune.vocabulary import PlaceOrigin
+from crosstune.vocabulary import JobKind, MapsUsageKind, PlaceOrigin
 
 if TYPE_CHECKING:
+    import uuid
+
     from sqlalchemy.ext.asyncio import AsyncSession
 
     from crosstune.jobs.attempt import JobContext
@@ -51,7 +56,8 @@ async def run(ctx: JobContext, job: Job) -> None:
 
     The lookup runs with no transaction open and no lock held, so the user's pushes
     never wait on Apple Maps. An Apple Maps failure, a timeout, or a server with no Maps
-    key spends no attempt and holds the job back until NAMING_GIVE_UP_AFTER.
+    key spends no attempt and holds the job back until NAMING_GIVE_UP_AFTER. A spent daily
+    Maps budget holds it until the next UTC day, also without spending an attempt.
     """
     async with ctx.sessionmaker() as session:
         async with session.begin():
@@ -66,6 +72,8 @@ async def run(ctx: JobContext, job: Job) -> None:
                 return
             if ctx.maps is None or ctx.http_client is None:
                 await _wait_for_maps(session, stored_job, "Apple Maps is not configured")
+                return
+            if await _past_daily_budget(session, ctx, stored_job):
                 return
         try:
             async with attempt_timeout():
@@ -91,6 +99,58 @@ async def run(ctx: JobContext, job: Job) -> None:
                 await ensure_place_job(session, current)
             else:
                 await _settle(session, current, name)
+
+
+async def _past_daily_budget(session: AsyncSession, ctx: JobContext, job: Job) -> bool:
+    """Charge the lookup to the daily budgets, or hold the job until they reset.
+
+    Returns:
+        bool: Whether a spent budget held the job, with every other place job it covers: the
+        account's when the account's budget is spent, everyone's when the team's is.
+    """
+    now = utc_now()
+    spent = await charge(
+        session,
+        user_id=job.user_id,
+        kind=MapsUsageKind.SERVICE_CALL,
+        limits=daily_limits(ctx.settings, kind=MapsUsageKind.SERVICE_CALL),
+        now=now,
+    )
+    if spent is None:
+        return False
+    # Held, not attempted, so a recording named tomorrow has lost nothing.
+    job.attempts -= 1
+    job.locked_until = spent.resets_at
+    await hold_place_jobs(
+        session,
+        now=now,
+        until=spent.resets_at,
+        user_id=job.user_id if spent.by is SpentBy.ACCOUNT else None,
+    )
+    return True
+
+
+async def hold_place_jobs(
+    session: AsyncSession, *, now: datetime, until: datetime, user_id: uuid.UUID | None
+) -> None:
+    """Hold back every claimable place job of one account, or of all accounts, until `until`.
+
+    Held, not attempted: no attempt is spent and no error is recorded. Holding the whole
+    backlog at once costs one pass per hold rather than one per job. Skips jobs another
+    runner holds, which waiting on would deadlock with it.
+    """
+    backlog = select(Job.id).where(
+        Job.kind == JobKind.PLACE.value,
+        or_(Job.locked_until.is_(None), Job.locked_until < now),
+    )
+    if user_id is not None:
+        backlog = backlog.where(Job.user_id == user_id)
+    await session.execute(
+        update(Job)
+        .where(Job.id.in_(backlog.with_for_update(skip_locked=True).scalar_subquery()))
+        .values(locked_until=until)
+        .execution_options(synchronize_session=False)
+    )
 
 
 async def _settle(session: AsyncSession, current: Recording, name: str | None) -> None:

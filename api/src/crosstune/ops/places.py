@@ -1,9 +1,9 @@
 """Operator command that renames existing recordings with the street-address naming rules.
 
 Run as `just ops::places rename-automatic`. It re-looks-up every live recording whose
-coordinates came from a device fix or a file and whose name the server wrote, at a paced rate that
-stays well inside Apple Maps' daily quota. A name the musician picked is never touched.
-Prints the environment and database first and refuses production without `--yes`.
+coordinates came from a device fix or a file and whose name the server wrote, at a paced rate,
+and stops once the team has spent half its daily Maps budget. A name the musician picked is
+never touched. Prints the environment and database first and refuses production without `--yes`.
 """
 
 from __future__ import annotations
@@ -17,14 +17,15 @@ from typing import TYPE_CHECKING, Protocol
 from pydantic import ValidationError
 from sqlalchemy import select
 
-from crosstune.db.base import bump_server_seq
+from crosstune.db.base import bump_server_seq, utc_now
 from crosstune.db.engine import make_engine, make_sessionmaker
 from crosstune.db.locks import lock_user
 from crosstune.http import public_only_client
 from crosstune.models import Recording
 from crosstune.ops.billing import BillingCommandError, check_target, load_settings, settings_error
+from crosstune.places.budget import DailyLimits, charge, daily_limits
 from crosstune.places.maps import MapsBusyError, MapsError, configured_maps
-from crosstune.vocabulary import PlaceOrigin
+from crosstune.vocabulary import MapsUsageKind, PlaceOrigin
 
 if TYPE_CHECKING:
     import uuid
@@ -33,11 +34,16 @@ if TYPE_CHECKING:
     import httpx2
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+    from crosstune.config import Settings
+
 DEFAULT_PER_SECOND = 2.0
 # A busy Maps key is waited out this many times for one recording before it counts as failed.
 _BUSY_ATTEMPTS = 3
 _MAX_BUSY_WAIT_SECONDS = 300.0
 _OUTAGE_WAIT_SECONDS = 5.0
+# A run stops once the team has spent this share of its daily service calls, users' calls
+# included, so a long run never leaves the users none for the rest of the day.
+_TEAM_SHARE = 0.5
 
 
 class _Namer(Protocol):
@@ -60,6 +66,8 @@ class RenameCounts:
     unchanged: int = 0
     skipped: int = 0
     failed: int = 0
+    # Left unlooked-up because the team's daily Maps budget ran out; a later run finishes them.
+    left: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -146,7 +154,7 @@ async def _write(
         return True
 
 
-async def rename_automatic(
+async def rename_automatic(  # noqa: PLR0913 -- every option after the client is keyword-only
     sessionmaker: async_sessionmaker[AsyncSession],
     maps: _Namer,
     client: httpx2.AsyncClient,
@@ -154,18 +162,32 @@ async def rename_automatic(
     timeout: float,  # noqa: ASYNC109
     per_second: float,
     dry_run: bool,
+    limits: DailyLimits,
     sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
 ) -> RenameCounts:
     """Re-name device-fix recordings at `per_second` lookups a second, one recording at a time.
 
     A Maps outage or rate limit backs off and moves on to the next recording, so one bad stretch
-    never aborts the run.
+    never aborts the run. Each lookup is charged to the team's daily Maps budget, which every
+    user's lookups share, and the run stops when `limits` refuses one.
 
     Returns:
         RenameCounts: How many recordings were renamed, left alone, skipped, and failed.
     """
     counts = RenameCounts()
-    for item in await _candidates(sessionmaker):
+    candidates = await _candidates(sessionmaker)
+    for index, item in enumerate(candidates):
+        async with sessionmaker() as session, session.begin():
+            spent = await charge(
+                session,
+                user_id=None,
+                kind=MapsUsageKind.SERVICE_CALL,
+                limits=limits,
+                now=utc_now(),
+            )
+        if spent is not None:
+            counts.left = len(candidates) - index
+            break
         try:
             name = await _lookup(maps, client, item, timeout=timeout, sleep=sleep)
         except MapsError:
@@ -199,7 +221,8 @@ def build_parser() -> argparse.ArgumentParser:
 
 async def run(settings, args: argparse.Namespace) -> None:  # noqa: ANN001
     """Check the target, then rename and print the counts."""
-    # A dry run only reads, so production needs no --yes for it.
+    # A dry run writes no recording, only the Maps usage its lookups spend, so production needs
+    # no --yes for it.
     check_target(settings, yes=args.yes or args.dry_run, e2e=args.e2e)
     if args.per_second <= 0:
         msg = "--per-second must be above zero"
@@ -218,6 +241,7 @@ async def run(settings, args: argparse.Namespace) -> None:  # noqa: ANN001
             timeout=settings.link_resolve_timeout_seconds,
             per_second=args.per_second,
             dry_run=args.dry_run,
+            limits=_run_limits(settings),
         )
     finally:
         await client.aclose()
@@ -225,8 +249,15 @@ async def run(settings, args: argparse.Namespace) -> None:  # noqa: ANN001
     verb = "would rename" if args.dry_run else "renamed"
     print(
         f"{verb} {counts.renamed}, unchanged {counts.unchanged}, "
-        f"skipped {counts.skipped}, failed {counts.failed}"
+        f"skipped {counts.skipped}, failed {counts.failed}, "
+        f"left for the next day's Maps budget {counts.left}"
     )
+
+
+def _run_limits(settings: Settings) -> DailyLimits:
+    """The team's daily service-call budget, cut to the share a rename run may spend."""
+    limits = daily_limits(settings, kind=MapsUsageKind.SERVICE_CALL)
+    return DailyLimits(per_account=limits.per_account, team=max(1, int(limits.team * _TEAM_SHARE)))
 
 
 def main(argv: list[str] | None = None) -> int:

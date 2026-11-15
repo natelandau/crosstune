@@ -4,14 +4,12 @@ from __future__ import annotations
 
 import logging
 import uuid
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, time, timedelta
 from typing import TYPE_CHECKING
 
 import anyio
 import httpx2
 import pytest
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric import ec
 from sqlalchemy import select
 
 from crosstune.db.base import new_uuid7, utc_now
@@ -19,12 +17,12 @@ from crosstune.db.engine import make_sessionmaker
 from crosstune.jobs.attempt import MAX_ATTEMPTS, RETRY_BACKOFF_SECONDS
 from crosstune.jobs.handlers.place import NAMING_BACKOFF_CAP, NAMING_GIVE_UP_AFTER
 from crosstune.jobs.runner import JobRunner
-from crosstune.models import Job, Place, Recording
+from crosstune.models import Job, MapsUsage, Place, Recording
 from crosstune.places.maps import MAPS_URL, AppleMaps
-from crosstune.vocabulary import JobKind
+from crosstune.vocabulary import JobKind, MapsUsageKind
 from tests.conftest import MockHttp
 from tests.fakes import FakeObjectStore
-from tests.helpers import T1, push, recording, uid
+from tests.helpers import T1, ec_pem, push, recording, uid
 from tests.test_jobs import add_recording, make_user
 
 if TYPE_CHECKING:
@@ -45,21 +43,9 @@ LAT, LON = 36.661234567, -80.923912345
 UPDATED_AT = datetime(2026, 1, 2, 3, 4, 5, tzinfo=UTC)
 
 
-def _pem() -> str:
-    return (
-        ec.generate_private_key(ec.SECP256R1())
-        .private_bytes(
-            serialization.Encoding.PEM,
-            serialization.PrivateFormat.PKCS8,
-            serialization.NoEncryption(),
-        )
-        .decode()
-    )
-
-
 @pytest.fixture
 def maps() -> AppleMaps:
-    return AppleMaps(team_id="TEAM123456", key_id="KEY1234567", private_key=_pem())
+    return AppleMaps(team_id="TEAM123456", key_id="KEY1234567", private_key=ec_pem())
 
 
 @pytest.fixture
@@ -681,3 +667,58 @@ async def test_job_names_with_the_recordings_accuracy(
     await namer.run_once()
 
     assert seen == [120]
+
+
+# Where a place job reads the time: its claim, and the charge of its lookup.
+CLOCKS = ("crosstune.jobs.runner.utc_now", "crosstune.jobs.handlers.place.utc_now")
+
+
+@pytest.mark.parametrize(
+    ("account_row", "setting"),
+    [
+        pytest.param(True, "place_service_calls_per_user_per_day", id="account"),
+        pytest.param(False, "place_service_calls_per_day", id="team"),
+    ],
+)
+async def test_a_place_job_past_a_daily_budget_is_held_until_the_next_day(
+    namer: JobRunner,
+    verify_session,
+    http,
+    settings: Settings,
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    account_row: bool,
+    setting: str,
+) -> None:
+    rec, job = await seed_place(verify_session)
+    now = utc_now()
+    for clock in CLOCKS:
+        monkeypatch.setattr(clock, lambda: now)
+    today = now.date()
+    verify_session.add(
+        MapsUsage(
+            user_id=job.user_id if account_row else None,
+            kind=MapsUsageKind.SERVICE_CALL.value,
+            day=today,
+            count=getattr(settings, setting),
+        )
+    )
+    await verify_session.commit()
+
+    await namer.run_once()
+
+    [held] = await _place_jobs(verify_session, rec.id)
+    await verify_session.refresh(rec)
+    assert rec.place_name is None
+    assert (held.attempts, held.last_error) == (0, None)
+    assert held.locked_until == datetime.combine(today + timedelta(days=1), time(), tzinfo=UTC)
+    assert not [call for call in http.calls if str(call.url).startswith(REVERSE_URL)]
+
+    tomorrow = held.locked_until + timedelta(seconds=1)
+    for clock in CLOCKS:
+        monkeypatch.setattr(clock, lambda: tomorrow)
+    assert await namer.run_once() >= 1
+
+    await verify_session.refresh(rec)
+    assert rec.place_name == "Galax, VA"
+    assert await _place_jobs(verify_session, rec.id) == []

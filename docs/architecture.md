@@ -179,8 +179,10 @@ each question, and the invariants that both clients and the API hold.
   jobs, so oldest-first across everyone lets one account delay all others.
   - Each account's last claim is stored in its own table, never derived
     from the queued rows. A job row is deleted when it finishes.
-- Location lookups spend paid Apple Maps calls. They also run at most
-  `place_lookups_per_minute` per account. The rest are held, not dropped.
+- Location lookups spend the shared Apple Maps quota. They run at most
+  `place_lookups_per_minute` per account, and within the daily budgets
+  (Location). The rest are held until the pace or the next UTC day allows
+  them, not dropped and not counted as attempts.
 
 ### Local database
 
@@ -443,6 +445,11 @@ each question, and the invariants that both clients and the API hold.
 ## Location
 
 - A recording gets the device's location only when the user allows it.
+- Apple's daily Maps quota is shared by every user. Every route, job, or
+  operator command that spends it (a service call, a MapKit JS token, a
+  signed snapshot) charges the daily budgets in `places/budget.py` first,
+  per account and for the team. The budgets live in Postgres: the
+  per-minute limiters are in memory and reset when the API sleeps.
 - The Maps key never reaches the browser. The API signs the MapKit JS
   token for the requesting origin when that origin can sign in (the web
   origin, or a Clerk authorized party), and otherwise for the web origin.

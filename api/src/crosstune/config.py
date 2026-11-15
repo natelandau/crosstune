@@ -9,7 +9,14 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from cryptography.exceptions import UnsupportedAlgorithm
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.serialization import load_pem_private_key
-from pydantic import Field, SecretStr, ValidationInfo, field_validator, model_validator
+from pydantic import (
+    Field,
+    PositiveInt,
+    SecretStr,
+    ValidationInfo,
+    field_validator,
+    model_validator,
+)
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from crosstune.client_version import Version, parse_version
@@ -154,6 +161,15 @@ class Settings(BaseSettings):
     recording_retries_per_minute: int = 10
     # Reverse geocodes the job runner makes for one account; the rest wait their turn.
     place_lookups_per_minute: int = 30
+    # Apple's free daily quota is shared by every user and the per-minute limits reset when
+    # the process sleeps, so each kind of Maps use also has a daily budget, kept in Postgres,
+    # per account and for the whole team. The team budgets stay below Apple's daily limits.
+    place_service_calls_per_user_per_day: PositiveInt = 300
+    place_service_calls_per_day: PositiveInt = 20_000
+    mapkit_tokens_per_user_per_day: PositiveInt = 60
+    mapkit_tokens_per_day: PositiveInt = 3_000
+    place_snapshots_per_user_per_day: PositiveInt = 300
+    place_snapshots_per_day: PositiveInt = 20_000
     billing_refreshes_per_minute: int = 10
     # How long a request waits on its account's lock before answering 429, and how many
     # requests that wait on that lock one account may have in flight at once.

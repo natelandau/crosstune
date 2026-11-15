@@ -10,6 +10,7 @@ from crosstune.models.grant import Grant
 from crosstune.models.inactivity import InactivityNotice, ScheduledRun
 from crosstune.models.job import Job, JobLastClaim, UploadSlot
 from crosstune.models.list import List, ListItem
+from crosstune.models.maps_usage import MapsUsage
 from crosstune.models.pending_comp import PendingComp
 from crosstune.models.place import Place
 from crosstune.models.play_event import PlayEvent
@@ -38,6 +39,7 @@ __all__ = [
     "JobLastClaim",
     "List",
     "ListItem",
+    "MapsUsage",
     "PendingComp",
     "Place",
     "PlayEvent",
