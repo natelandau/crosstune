@@ -22,6 +22,7 @@ if TYPE_CHECKING:
 
 SNAPSHOT_HOST = "https://snapshot.apple-mapkit.com"
 SNAPSHOT_PATH = "/api/v1/snapshot"
+# MapKit JS asks for a new token on its own timer, so a shorter lifetime multiplies token requests.
 TOKEN_LIFETIME_SECONDS = 1_800
 # Issued-at is backdated so a server clock slightly ahead of Apple's does not get a fresh token refused.
 CLOCK_SKEW_SECONDS = 5
