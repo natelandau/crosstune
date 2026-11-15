@@ -4340,3 +4340,37 @@ async def test_0062_job_last_claims_shape_and_cascade(
         ("user_id", "uuid", "NO"),
     ]
     assert left == 0
+
+
+async def test_0064_maps_usage_cascades_with_the_user_and_keeps_the_team_row(
+    engine, database_url: str, truncate_all: None
+) -> None:
+    config = Config("alembic.ini")
+    config.set_main_option("sqlalchemy.url", database_url)
+    exists = text("select count(*) from pg_class where relname = 'maps_usage'")
+    try:
+        await anyio.to_thread.run_sync(command.downgrade, config, "0063")
+        async with engine.connect() as conn:
+            dropped = (await conn.execute(exists)).scalar()
+    finally:
+        await anyio.to_thread.run_sync(command.upgrade, config, "head")
+    user = "018f0000-0000-7000-8000-000000000064"
+    async with engine.begin() as conn:
+        await conn.execute(
+            text(
+                "insert into users (id, clerk_user_id, created_at, updated_at) "
+                "values (:id, 'user_maps_usage', now(), now())"
+            ),
+            {"id": user},
+        )
+        await conn.execute(
+            text(
+                "insert into maps_usage (user_id, kind, day, count) values "
+                "(:id, 'snapshot', current_date, 1), (null, 'snapshot', current_date, 1)"
+            ),
+            {"id": user},
+        )
+        await conn.execute(text("delete from users where id = :id"), {"id": user})
+        left = (await conn.execute(text("select user_id from maps_usage"))).all()
+    assert dropped == 0
+    assert left == [(None,)]

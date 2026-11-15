@@ -11,13 +11,14 @@ from urllib.parse import parse_qsl, urlsplit
 import httpx2
 import jwt
 import pytest
-from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.asymmetric.utils import encode_dss_signature
 from sqlalchemy import update
 
 from crosstune.models.user import User
 from crosstune.places.maps import MAPS_URL, AppleMaps
+from tests.helpers import ec_pem
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
@@ -47,21 +48,9 @@ GALAX = {
 }
 
 
-def _pem() -> str:
-    return (
-        ec.generate_private_key(ec.SECP256R1())
-        .private_bytes(
-            serialization.Encoding.PEM,
-            serialization.PrivateFormat.PKCS8,
-            serialization.NoEncryption(),
-        )
-        .decode()
-    )
-
-
 @pytest.fixture
 def maps(app: FastAPI, mock_http: MockHttp) -> AppleMaps:
-    maps = AppleMaps(team_id="TEAM123456", key_id="KEY1234567", private_key=_pem())
+    maps = AppleMaps(team_id="TEAM123456", key_id="KEY1234567", private_key=ec_pem())
     app.state.maps = maps
     mock_http.add(
         TOKEN_URL,
@@ -310,11 +299,7 @@ SNAPSHOT_HOST = "https://snapshot.apple-mapkit.com"
 
 def _keyed_maps(app: FastAPI, clock=None) -> AppleMaps:
     key = ec.generate_private_key(ec.SECP256R1())
-    pem = key.private_bytes(
-        serialization.Encoding.PEM,
-        serialization.PrivateFormat.PKCS8,
-        serialization.NoEncryption(),
-    ).decode()
+    pem = ec_pem(key)
     maps = AppleMaps(
         team_id="TEAM123456",
         key_id="KEY1234567",
@@ -775,3 +760,79 @@ async def test_reverse_leaves_the_account_country_out_of_the_address(
     response = await client.get(REVERSE, params=POINT, headers=auth_headers("user_123"))
 
     assert response.json()["address"] == "Hauptstrasse 5, Berlin"
+
+
+# --- daily budgets ---
+
+# Search and reverse answer unavailable, since a wait until the next day is no wait to retry.
+# A token or snapshot says how long to wait, which no client shows.
+_DAILY_ROUTES = [
+    pytest.param(URL, {"q": "galax"}, "place_service_calls_per_user_per_day", 503, id="search"),
+    pytest.param(REVERSE, POINT, "place_service_calls_per_user_per_day", 503, id="reverse"),
+    pytest.param(TOKEN_ROUTE, None, "mapkit_tokens_per_user_per_day", 429, id="mapkit-token"),
+    pytest.param(
+        SNAPSHOT_ROUTE, SNAPSHOT_PARAMS, "place_snapshots_per_user_per_day", 429, id="snapshot"
+    ),
+]
+
+
+def _daily(app: FastAPI, **limits: int) -> None:
+    app.state.settings = app.state.settings.model_copy(update=limits)
+
+
+def _apple_lookups(mock_http: MockHttp) -> int:
+    return sum(
+        1
+        for call in mock_http.calls
+        if str(call.url).startswith(MAPS_URL) and not str(call.url).startswith(TOKEN_URL)
+    )
+
+
+@pytest.mark.usefixtures("maps")
+@pytest.mark.parametrize(("route", "params", "setting", "refusal"), _DAILY_ROUTES)
+async def test_an_account_past_its_daily_budget_is_refused_until_midnight(  # noqa: PLR0913, PLR0917
+    app,
+    client,
+    auth_headers,
+    mock_http,
+    route: str,
+    params: dict | None,
+    setting: str,
+    refusal: int,
+) -> None:
+    mock_http.add(REVERSE_URL, httpx2.Response(200, json={"results": [E_23RD]}))
+    _daily(app, **{setting: 2})
+    headers = auth_headers("user_123")
+
+    codes = [(await client.get(route, params=params, headers=headers)).status_code for _ in "ab"]
+    lookups = _apple_lookups(mock_http)
+    refused = await client.get(route, params=params, headers=headers)
+    other = await client.get(route, params=params, headers=auth_headers("user_456"))
+
+    assert codes == [200, 200]
+    assert refused.status_code == refusal
+    assert refused.headers["content-type"] == "application/problem+json"
+    if refusal == 429:
+        # The wait runs to the next UTC midnight, never past it.
+        assert 0 < int(refused.headers["retry-after"]) <= 86_400
+    assert other.status_code == 200
+    # The refused request made no Apple call; the other account's made its own.
+    assert _apple_lookups(mock_http) == lookups + (1 if route in {URL, REVERSE} else 0)
+
+
+@pytest.mark.usefixtures("maps")
+async def test_the_team_s_daily_budget_refuses_every_account(
+    app, client, auth_headers, mock_http
+) -> None:
+    _daily(app, place_service_calls_per_day=2)
+
+    first = await client.get(URL, params={"q": "galax"}, headers=auth_headers("user_1"))
+    second = await client.get(URL, params={"q": "galax"}, headers=auth_headers("user_2"))
+    refused = [
+        await client.get(URL, params={"q": "galax"}, headers=auth_headers(user))
+        for user in ("user_1", "user_3")
+    ]
+
+    assert (first.status_code, second.status_code) == (200, 200)
+    assert [response.status_code for response in refused] == [503, 503]
+    assert len(_searches(mock_http)) == 2

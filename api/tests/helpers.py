@@ -12,6 +12,8 @@ from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import ec
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from crosstune.db.locks import lock_user
@@ -22,6 +24,17 @@ if TYPE_CHECKING:
 
     import httpx2
     from sqlalchemy.ext.asyncio import AsyncEngine
+
+
+def ec_pem(key: ec.EllipticCurvePrivateKey | None = None) -> str:
+    """Encode `key`, or a new P-256 key, as the PKCS8 PEM an Apple signing key setting holds."""
+    key = key if key is not None else ec.generate_private_key(ec.SECP256R1())
+    return key.private_bytes(
+        serialization.Encoding.PEM,
+        serialization.PrivateFormat.PKCS8,
+        serialization.NoEncryption(),
+    ).decode()
+
 
 GAPPED_WEBM_GAP_MS = 59
 GAPPED_WEBM_GAP_AT_S = 1.0

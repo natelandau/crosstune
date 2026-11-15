@@ -11,6 +11,7 @@ from sqlalchemy import select
 from crosstune.db.engine import make_sessionmaker
 from crosstune.models import Recording
 from crosstune.ops import places as ops_places
+from crosstune.places.budget import DailyLimits
 from crosstune.places.maps import MapsBusyError, MapsError
 from tests.test_jobs import add_recording, make_user
 
@@ -64,6 +65,7 @@ async def _run(engine, maps, sleeps=None, **options) -> ops_places.RenameCounts:
         timeout=5,
         per_second=options.pop("per_second", 2),
         dry_run=options.pop("dry_run", False),
+        limits=options.pop("limits", DailyLimits(per_account=1, team=100)),
         sleep=sleep,
     )
 
@@ -208,6 +210,24 @@ async def test_rename_automatic_backs_off_and_continues_through_an_outage(
     assert (await _fresh(verify_session, fine)).place_name == "Fine, VA"
     assert (await _fresh(verify_session, busy)).place_name == "Galax, VA"
     assert (await _fresh(verify_session, down)).place_name == "Galax, VA"
+
+
+async def test_rename_automatic_stops_when_the_team_s_daily_budget_is_spent(
+    engine, verify_session
+) -> None:
+    user = await make_user(verify_session)
+    recordings = [
+        await _named_recording(verify_session, user, place_lat=LAT + offset) for offset in range(3)
+    ]
+    await verify_session.commit()
+    maps = FakeMaps({f"{LAT + offset}": "Renamed, VA" for offset in range(3)})
+
+    counts = await _run(engine, maps, per_second=1000, limits=DailyLimits(per_account=1, team=2))
+
+    assert (counts.renamed, counts.left) == (2, 1)
+    assert len(maps.calls) == 2
+    names = [(await _fresh(verify_session, rec)).place_name for rec in recordings]
+    assert sorted(names) == ["Galax, VA", "Renamed, VA", "Renamed, VA"]
 
 
 def test_main_prints_the_environment_line_first(monkeypatch, capsys, settings) -> None:

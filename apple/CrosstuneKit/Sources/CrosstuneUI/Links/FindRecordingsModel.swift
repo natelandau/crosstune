@@ -119,10 +119,22 @@ public final class FindRecordingsModel {
 
     public nonisolated static func searchesInApp(_ provider: String) -> Bool { inlineSearch.contains(provider) }
 
-    /// A wait under a second still reads as one, since "0 seconds" invites an instant retry.
     public static func tooManySearches(_ seconds: Int) -> String {
+        "Too many searches. Try again in \(waitLabel(seconds))."
+    }
+
+    /// A wait in the largest whole unit that fits, rounded up so a retry never comes early. A
+    /// wait under a second reads as one, since "0 seconds" invites an instant retry.
+    static func waitLabel(_ seconds: Int) -> String {
         let wait = max(1, seconds)
-        return "Too many searches. Try again in \(wait) \(wait == 1 ? "second" : "seconds")."
+        let minutes = (wait + 59) / 60
+        let (count, unit) =
+            wait < 60
+            ? (wait, "second")
+            : minutes < 60
+                ? (minutes, "minute")
+                : ((wait + 3_599) / 3_600, "hour")
+        return "\(count) \(unit)\(count == 1 ? "" : "s")"
     }
 
     /// Why a search showed nothing, or nil when it answered.

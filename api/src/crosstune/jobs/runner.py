@@ -36,6 +36,7 @@ from crosstune.jobs.attempt import (
     still_claimed,
 )
 from crosstune.jobs.handlers import HANDLERS
+from crosstune.jobs.handlers.place import hold_place_jobs
 from crosstune.jobs.sweep import (
     ABANDONED_SLOT_GRACE,
     fail_overdue_pieces,
@@ -50,6 +51,7 @@ from crosstune.jobs.sweep import (
 from crosstune.jobs.sweep import sweep_orphans as sweep_orphan_prefixes
 from crosstune.models import Job, JobLastClaim, Recording, Scan, UploadSlot, User
 from crosstune.models.job import job_claim_seq
+from crosstune.places.budget import prune as prune_maps_usage
 from crosstune.places.maps import configured_maps
 from crosstune.ratelimit import RateLimiter
 from crosstune.vocabulary import JobKind
@@ -331,6 +333,9 @@ class JobRunner:
         # Last, so a bucket listing that fails cannot starve the transcodes and purges.
         if self._orphan_sweep_seconds is not None and utc_now() >= self._next_orphan_sweep:
             self._next_orphan_sweep = utc_now() + timedelta(seconds=self._orphan_sweep_seconds)
+            # Before the sweep, so a bucket listing that fails cannot keep old counts forever.
+            async with self._sessionmaker() as session, session.begin():
+                await prune_maps_usage(session, now=utc_now())
             done += await self.sweep_orphans()
         return done
 
@@ -485,24 +490,8 @@ class JobRunner:
                 return True, None
             wait = self._place_pace.hit(job.user_id) if job.kind == JobKind.PLACE.value else None
             if wait is not None:
-                # Held, not attempted: the lock lifts when the account's pace allows another.
-                # Every claimable place job of the account is held at once, so a backlog of
-                # them costs one pass per pace window rather than one per job.
-                # Skips jobs another runner holds, which waiting on would deadlock with it.
-                backlog = (
-                    select(Job.id)
-                    .where(
-                        Job.user_id == job.user_id,
-                        Job.kind == JobKind.PLACE.value,
-                        _claimable(now),
-                    )
-                    .with_for_update(skip_locked=True)
-                )
-                await session.execute(
-                    update(Job)
-                    .where(Job.id.in_(backlog.scalar_subquery()))
-                    .values(locked_until=now + timedelta(seconds=wait))
-                    .execution_options(synchronize_session=False)
+                await hold_place_jobs(
+                    session, now=now, until=now + timedelta(seconds=wait), user_id=job.user_id
                 )
                 return False, None
             await session.execute(_record_claim(job))

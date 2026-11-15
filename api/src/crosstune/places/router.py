@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated
 from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Query, Request
@@ -13,6 +13,7 @@ from crosstune.auth.deps import (
     CurrentUser,  # noqa: TC001 -- FastAPI resolves this annotation at route registration
 )
 from crosstune.auth.tokens import party_allowed
+from crosstune.db.base import utc_now
 from crosstune.db.session import (
     DbSession,  # noqa: TC001 -- FastAPI resolves this annotation at route registration
 )
@@ -24,8 +25,15 @@ from crosstune.errors import (
     problem_responses,
 )
 from crosstune.places import mapkit
+from crosstune.places.budget import charge, daily_limits
 from crosstune.places.maps import MapsBusyError, MapsError
 from crosstune.places.names import PlaceKind
+from crosstune.vocabulary import MapsUsageKind
+
+if TYPE_CHECKING:
+    import uuid
+
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 _UNAVAILABLE = "Place search is not available"
 
@@ -34,6 +42,29 @@ _MAP_UNAVAILABLE = "Maps are not available"
 _NO_PLACE = "No place at that point"
 
 router = APIRouter(prefix="/v1/places", tags=["places"])
+
+
+async def _charge_daily(
+    request: Request, *, session: AsyncSession, user_id: uuid.UUID, kind: MapsUsageKind
+) -> float | None:
+    """Count one use against the account's and the team's daily budgets, then commit.
+
+    The commit ends the transaction that resolving the caller opened, so the Apple call
+    that follows holds nothing from the pool and the count is kept even if that call fails.
+
+    Returns:
+        float | None: None when the use is counted, else the seconds until the budgets reset.
+    """
+    now = utc_now()
+    spent = await charge(
+        session,
+        user_id=user_id,
+        kind=kind,
+        limits=daily_limits(request.app.state.settings, kind=kind),
+        now=now,
+    )
+    await session.commit()
+    return None if spent is None else spent.retry_after_seconds(now)
 
 
 class PlaceResult(BaseModel):
@@ -87,9 +118,14 @@ async def search_places(
         raise TooManyRequestsError(wait)
     # Read before the commit, which expires the loaded user.
     country = user.country
-    # Resolving the caller opened a transaction on a pooled connection. Commit it so the
-    # lookup, which can wait out its whole timeout, holds nothing from the pool.
-    await session.commit()
+    # Unavailable rather than busy: a wait until the next UTC day is no wait to retry.
+    if (
+        await _charge_daily(
+            request, session=session, user_id=user.id, kind=MapsUsageKind.SERVICE_CALL
+        )
+        is not None
+    ):
+        raise ServiceUnavailableError(_UNAVAILABLE)
     try:
         hits = await state.maps.search(
             state.http_client,
@@ -146,9 +182,14 @@ async def reverse_place(
         raise TooManyRequestsError(wait)
     # Read before the commit, which expires the loaded user.
     country = user.country
-    # Resolving the caller opened a transaction on a pooled connection. Commit it so the
-    # lookup, which can wait out its whole timeout, holds nothing from the pool.
-    await session.commit()
+    # Unavailable rather than busy: a wait until the next UTC day is no wait to retry.
+    if (
+        await _charge_daily(
+            request, session=session, user_id=user.id, kind=MapsUsageKind.SERVICE_CALL
+        )
+        is not None
+    ):
+        raise ServiceUnavailableError(_UNAVAILABLE)
     try:
         place = await state.maps.reverse_place(
             state.http_client,
@@ -219,6 +260,7 @@ def _token_origin(request: Request, requested: str | None) -> str:
 async def mapkit_token(
     request: Request,
     user: CurrentUser,
+    session: DbSession,
     origin: Annotated[str | None, Query(max_length=200)] = None,
 ) -> MapKitTokenResponse:
     """Issue a short-lived MapKit JS token restricted to the web client's origin.
@@ -234,6 +276,11 @@ async def mapkit_token(
     wait = state.mapkit_token_limiter.hit(user.id)
     if wait is not None:
         raise TooManyRequestsError(wait)
+    wait = await _charge_daily(
+        request, session=session, user_id=user.id, kind=MapsUsageKind.MAPKIT_TOKEN
+    )
+    if wait is not None:
+        raise TooManyRequestsError(wait)
     try:
         issued = mapkit.issue_token(state.maps, origin=_token_origin(request, origin))
     except MapsError:
@@ -245,6 +292,7 @@ async def mapkit_token(
 async def snapshot(  # noqa: PLR0913
     request: Request,
     user: CurrentUser,
+    session: DbSession,
     *,
     lat: Annotated[float, Query(ge=-90, le=90)],
     lon: Annotated[float, Query(ge=-180, le=180)],
@@ -259,6 +307,11 @@ async def snapshot(  # noqa: PLR0913
         raise ServiceUnavailableError(_MAP_UNAVAILABLE)
     # Each signed URL renders under the operator's snapshot quota, for anyone who holds it.
     wait = request.app.state.place_snapshot_limiter.hit(user.id)
+    if wait is not None:
+        raise TooManyRequestsError(wait)
+    wait = await _charge_daily(
+        request, session=session, user_id=user.id, kind=MapsUsageKind.SNAPSHOT
+    )
     if wait is not None:
         raise TooManyRequestsError(wait)
     try:

@@ -90,6 +90,26 @@ export function formatBytes(bytes: number): string {
   return `${value} ${unit}`
 }
 
+const MINUTE_SECONDS = 60
+const HOUR_SECONDS = 3_600
+
+/**
+ * A wait in the largest whole unit that fits, rounded up so a retry never comes early: "45
+ * seconds", "3 minutes", "11 hours". A wait under a second reads as one, since "0 seconds"
+ * invites an instant retry.
+ */
+export function waitLabel(seconds: number): string {
+  const wait = Math.max(1, Math.ceil(seconds))
+  const minutes = Math.ceil(wait / MINUTE_SECONDS)
+  const [count, unit] =
+    wait < MINUTE_SECONDS
+      ? [wait, 'second']
+      : minutes < 60
+        ? [minutes, 'minute']
+        : [Math.ceil(wait / HOUR_SECONDS), 'hour']
+  return `${count} ${unit}${count === 1 ? '' : 's'}`
+}
+
 /** How many uploads of a waiting recording have failed so far. */
 export function failedTriesLabel(count: number): string {
   return `${count} failed ${count === 1 ? 'try' : 'tries'}`

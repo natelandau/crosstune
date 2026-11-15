@@ -211,6 +211,17 @@ class JobKind(StrEnum):
     MONO = "mono"
 
 
+class MapsUsageKind(StrEnum):
+    """A kind of Apple Maps use that counts against the operator's daily quota."""
+
+    # A Maps Server API request: place search, reverse lookup, or a place job's lookup.
+    SERVICE_CALL = "service_call"
+    # A MapKit JS token, which spends calls the API cannot count while it lasts.
+    MAPKIT_TOKEN = "mapkit_token"  # noqa: S105 -- a usage kind, not a credential
+    # A signed snapshot URL, counted when issued since the API never sees it fetched.
+    SNAPSHOT = "snapshot"
+
+
 class GrantKind(StrEnum):
     """What a grant entitles its user to."""
 

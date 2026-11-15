@@ -355,7 +355,10 @@ private let otherAppleTrack = result("https://music.apple.com/us/album/soldiers-
 
     @Test(arguments: [
         (RecordingSearchOutcome.offline, "Search needs a connection"),
-        (.rateLimited(retryAfter: 60), "Too many searches. Try again in 60 seconds."),
+        (.rateLimited(retryAfter: 41_234), "Too many searches. Try again in 12 hours."),
+        (.rateLimited(retryAfter: 3_599), "Too many searches. Try again in 1 hour."),
+        (.rateLimited(retryAfter: 61), "Too many searches. Try again in 2 minutes."),
+        (.rateLimited(retryAfter: 60), "Too many searches. Try again in 1 minute."),
         (.rateLimited(retryAfter: 7), "Too many searches. Try again in 7 seconds."),
         (.rateLimited(retryAfter: 1), "Too many searches. Try again in 1 second."),
         (.rateLimited(retryAfter: 0), "Too many searches. Try again in 1 second."),

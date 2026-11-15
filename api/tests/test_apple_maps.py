@@ -2,8 +2,6 @@
 
 import httpx2
 import pytest
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric import ec
 
 from crosstune.places.maps import (
     MAPS_URL,
@@ -16,6 +14,7 @@ from crosstune.places.maps import (
 )
 from crosstune.vocabulary import LIMITS
 from tests.conftest import MockHttp
+from tests.helpers import ec_pem
 
 pytestmark = pytest.mark.anyio
 
@@ -87,18 +86,6 @@ class Clock:
         return self.now
 
 
-def _pem() -> str:
-    return (
-        ec.generate_private_key(ec.SECP256R1())
-        .private_bytes(
-            serialization.Encoding.PEM,
-            serialization.PrivateFormat.PKCS8,
-            serialization.NoEncryption(),
-        )
-        .decode()
-    )
-
-
 @pytest.fixture
 def clock() -> Clock:
     return Clock()
@@ -106,7 +93,7 @@ def clock() -> Clock:
 
 @pytest.fixture
 def maps(clock: Clock) -> AppleMaps:
-    return AppleMaps(team_id="TEAM123456", key_id="KEY1234567", private_key=_pem(), clock=clock)
+    return AppleMaps(team_id="TEAM123456", key_id="KEY1234567", private_key=ec_pem(), clock=clock)
 
 
 @pytest.fixture

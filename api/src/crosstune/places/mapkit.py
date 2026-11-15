@@ -34,6 +34,9 @@ _LAT_LIMIT = 89.9999
 _LON_LIMIT = 179.9999
 _OVERLAY_COLOR = "0a84ff"
 _COORDINATE_BYTES = 32
+# A snapshot URL expires at the end of the hour after the one it was signed in, so one place's
+# URL stays the same, and cached, for an hour, and a copied URL stops rendering within two.
+_SNAPSHOT_EXPIRY_STEP_SECONDS = 3_600
 
 Scheme = Literal["light", "dark"]
 
@@ -101,7 +104,7 @@ def snapshot_url(
     height: int,
     scheme: Scheme,
 ) -> str:
-    """Build a signed snapshot URL: a pin for a precise point, else a circle of the fix's radius.
+    """Build a signed, expiring snapshot URL: a pin for a precise point, else a circle of the fix's radius.
 
     Returns:
         str: The URL, with `signature` as its last parameter.
@@ -129,6 +132,9 @@ def snapshot_url(
                 }
             ]
         )
+    params["expires"] = str(
+        (int(maps.clock()) // _SNAPSHOT_EXPIRY_STEP_SECONDS + 2) * _SNAPSHOT_EXPIRY_STEP_SECONDS
+    )
     params["teamId"] = maps.team_id
     params["keyId"] = maps.key_id
     query = "&".join(f"{name}={quote(value, safe=',')}" for name, value in params.items())
