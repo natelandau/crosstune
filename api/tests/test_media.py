@@ -852,12 +852,15 @@ async def test_a_clean_webm_gets_no_gap_filter(plain_webm) -> None:
     assert await _fill_gap_args(plain_webm, await probe(plain_webm)) == ()
 
 
+def _stalls(count: int) -> StallMap:
+    step = 0.9 / count
+    return StallMap(tuple(_Stall(i * step, i * step, i * step + 0.03) for i in range(count)))
+
+
 async def test_cut_fills_as_many_stalls_as_a_range_may_hold(plain_webm, tmp_path) -> None:
-    step = 0.9 / MAX_RANGE_STALLS
-    stalls = StallMap(
-        tuple(_Stall(i * step, i * step, i * step + 0.03) for i in range(MAX_RANGE_STALLS))
-    )
-    await cut(plain_webm, tmp_path / "cut.m4a", 0, 1000, stalls=stalls)
+    await cut(plain_webm, tmp_path / "cut.m4a", 0, 1000, stalls=_stalls(MAX_RANGE_STALLS))
+    with pytest.raises(MediaError, match="timestamp stalls"):
+        await cut(plain_webm, tmp_path / "cut.m4a", 0, 1000, stalls=_stalls(MAX_RANGE_STALLS + 1))
 
 
 STALL_START, STALL_END = GAPPED_STALL_MS

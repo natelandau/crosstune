@@ -574,9 +574,9 @@ _GAP_FORMATS = frozenset({"matroska", "webm"})
 # shorter frames; more is a malformed file.
 MIN_OPUS_FRAME_MS = 2.5
 MAX_SCANNED_PACKETS = 2 * int(MAX_SPLIT_SOURCE_MS / MIN_OPUS_FRAME_MS)
-# The stall filter sums one term per stall, and ffmpeg refuses that sum past 96 terms: it
-# nests one level per term, and ffmpeg limits how deep an expression nests.
-MAX_RANGE_STALLS = 96
+# The stall filter holds one term of about 50 bytes per stall, all in one argument, and
+# Linux refuses an argument longer than 128 KiB.
+MAX_RANGE_STALLS = 1024
 MAX_SCANNED_STALLS = MAX_RANGE_STALLS * MAX_SPLIT_PIECES
 # ffprobe's packet lines are two numbers; a longer one is not a report line.
 _MAX_REPORT_LINE_BYTES = 256
@@ -752,6 +752,18 @@ def _end_silence(next_pts: float, previous_end: float | None, low: float, high: 
     return high - stall_start if stalled > MIN_TIMESTAMP_GAP_SECONDS and stall_start < high else 0.0
 
 
+def _balanced_sum(terms: list[str]) -> str:
+    """Join ffmpeg expression terms into a sum nested as a balanced tree.
+
+    ffmpeg refuses an expression nested more than about 96 deep, and a flat `a+b+c` sum
+    nests one level per term.
+    """
+    if len(terms) <= 1:
+        return terms[0] if terms else ""
+    middle = len(terms) // 2
+    return f"({_balanced_sum(terms[:middle])})+({_balanced_sum(terms[middle:])})"
+
+
 async def _fill_gap_args(
     source: Path,
     info: Probe,
@@ -787,7 +799,12 @@ async def _fill_gap_args(
     if not found.gaps and not end_silence:
         return ()
     shift = from_ms / 1000
-    stalled = "+".join(f"if(gte(PTS*TB,{at - shift:.6f}),{gap:.6f},0)" for at, gap in found.gaps)
+    if len(found.gaps) > MAX_RANGE_STALLS:
+        msg = f"{source.name} has more than {MAX_RANGE_STALLS} timestamp stalls in one range"
+        raise MediaError(msg)
+    stalled = _balanced_sum(
+        [f"if(gte(PTS*TB,{at - shift:.6f}),{gap:.6f},0)" for at, gap in found.gaps]
+    )
     # The first frame's stamp already holds the part of a stall the range starts inside.
     origin = "" if found.starts_in_stall else "STARTPTS+"
     filters = [f"asetpts='{origin}N/SR/TB+({stalled or 0})/TB'"]
