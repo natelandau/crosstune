@@ -338,5 +338,11 @@ def install_error_handlers(app: FastAPI) -> None:
     async def _unhandled(_: Request, _exc: Exception) -> JSONResponse:
         # ServerErrorMiddleware sends this response, then re-raises the original
         # exception so Sentry's ASGI integration still captures it. No exception
-        # detail is exposed to the caller.
-        return _problem(500, "Internal Server Error", "An unexpected error occurred")
+        # detail is exposed to the caller. ServerErrorMiddleware sits outside NoStore, so
+        # this response sets its own Cache-Control.
+        return _problem(
+            500,
+            "Internal Server Error",
+            "An unexpected error occurred",
+            headers={"Cache-Control": "no-store"},
+        )

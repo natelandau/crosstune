@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import httpx2
 import pytest
 
+from crosstune.config import Settings
+from crosstune.main import create_app
 from tests.helpers import uid
 
 pytestmark = pytest.mark.anyio
@@ -26,4 +29,20 @@ async def test_api_responses_are_never_stored(
     headers = auth_headers("user_a") if signed_in else {}
     response = await client.request(method, path, headers=headers, content=body)
     assert response.status_code == status
+    assert "no-store" in response.headers["cache-control"]
+
+
+async def test_an_unhandled_exception_is_never_stored() -> None:
+    app = create_app(Settings())
+
+    @app.get("/v1/__boom__")
+    async def boom() -> None:
+        msg = "kaboom"
+        raise RuntimeError(msg)
+
+    transport = httpx2.ASGITransport(app=app, raise_app_exceptions=False)
+    async with httpx2.AsyncClient(transport=transport, base_url="http://testclient") as client:
+        response = await client.get("/v1/__boom__")
+
+    assert response.status_code == 500
     assert "no-store" in response.headers["cache-control"]

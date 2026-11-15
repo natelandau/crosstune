@@ -193,7 +193,8 @@ def _add_middleware(app: FastAPI) -> None:
     app.add_middleware(RequestBodyLimit)
     # Outside RequestBodyLimit: a blocked request is answered before its body is checked.
     app.add_middleware(VersionGate)
-    # Outermost, so the problems VersionGate and RequestBodyLimit answer with carry it too.
+    # Outermost of these, so the problems VersionGate and RequestBodyLimit answer with carry
+    # it too. Starlette's ServerErrorMiddleware still wraps it.
     app.add_middleware(NoStore)
 
 
