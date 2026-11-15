@@ -8,7 +8,7 @@ from sqlalchemy import select, tuple_
 
 from crosstune.billing.access import refresh_entitlement
 from crosstune.billing.grants import sync_paid_grants
-from crosstune.db.locks import lock_user
+from crosstune.db.locks import lock_subscriptions, lock_user
 from crosstune.models import Grant, User
 from crosstune.vocabulary import GrantEnvironment, GrantSource
 
@@ -76,6 +76,8 @@ async def refresh_purchases(
 
     Raises:
         RevenueCatUnavailableError: RevenueCat did not answer; nothing was written.
+        UserBusyError: A subscription's or an account's lock wait ran out; nothing was
+            written.
     """
     await refresh_many_purchases(
         session, [user], revenuecat, settings, now, lock_wait_seconds=lock_wait_seconds
@@ -97,6 +99,7 @@ async def refresh_many_purchases(
 
     Raises:
         RevenueCatUnavailableError: RevenueCat did not answer for a user; nothing was written.
+        UserBusyError: As `refresh_purchases` says.
     """
     # Locks last to the end of the transaction, so every network call comes before the first.
     fetched = [
@@ -104,6 +107,13 @@ async def refresh_many_purchases(
         for user in users
     ]
     refreshed = {user.id for user in users}
+    # Only a refresh moves a subscription, and it holds the subscription's lock while it
+    # does, so the holders read under these locks stay the holders until this commits.
+    await lock_subscriptions(
+        session,
+        (f"{sub.source.value}:{sub.subscription_id}" for _, subs in fetched for sub in subs),
+        wait_seconds=lock_wait_seconds,
+    )
     # A subscription moving away leaves its old account's entitlement stale, so that account is
     # locked and refreshed too. A stable order keeps concurrent calls from deadlocking.
     for user_id in sorted(refreshed | await _holders(session, fetched)):

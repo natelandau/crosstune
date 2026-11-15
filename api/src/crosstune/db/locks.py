@@ -15,7 +15,7 @@ from crosstune.errors import UserBusyError
 
 if TYPE_CHECKING:
     import uuid
-    from collections.abc import AsyncGenerator
+    from collections.abc import AsyncGenerator, Iterable
 
     from sqlalchemy.engine import Result
     from sqlalchemy.ext.asyncio import AsyncConnection, AsyncSession
@@ -112,6 +112,28 @@ async def lock_clerk_user(
 # First keys of the two-key form, apart from the `0` that `lock_clerk_user` uses.
 _NOTICE_LOCK_NAMESPACE = 1
 _BILLING_LOCK_NAMESPACE = 2
+_SUBSCRIPTION_LOCK_NAMESPACE = 3
+
+
+async def lock_subscriptions(
+    session: AsyncSession, subscriptions: Iterable[str], *, wait_seconds: float | None = None
+) -> None:
+    """Serialize the writes to each named paid subscription for the rest of the transaction.
+
+    Taken in a stable order, and before any user lock, so two callers never wait on each other.
+
+    Args:
+        session: The transaction that takes the locks.
+        subscriptions: A key for each subscription, unique across providers.
+        wait_seconds: Seconds each wait may last before refusing with UserBusyError, or None
+            to wait as long as the holder keeps the lock.
+    """
+    for key in sorted(set(subscriptions)):
+        await _take(
+            session,
+            func.pg_advisory_xact_lock(_SUBSCRIPTION_LOCK_NAMESPACE, func.hashtext(key)),
+            wait_seconds,
+        )
 
 
 async def try_notice_lock(connection: AsyncConnection, notice_key: str) -> bool:

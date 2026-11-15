@@ -57,7 +57,7 @@ from tests.fakes import (
     FakeRevenueCat,
     FakeStripe,
 )
-from tests.helpers import T0, change, push, sign, uid, wait_for_finished
+from tests.helpers import T0, change, push, sign, uid, until_waiting_or_done, wait_for_finished
 from tests.helpers import recording as recording_change
 
 pytestmark = pytest.mark.anyio
@@ -1246,20 +1246,6 @@ def _pause_after_the_refund_commit(monkeypatch) -> _Gap:
     return gap
 
 
-async def _until_waiting_or_done(engine, task: asyncio.Task) -> None:
-    """Return once some request waits on an advisory lock, or `task` has finished."""
-    # pg_locks spans the cluster, and other workers' databases share it.
-    query = text(
-        "select count(*) from pg_locks where locktype = 'advisory' and not granted"
-        " and database = (select oid from pg_database where datname = current_database())"
-    )
-    while not task.done():
-        async with engine.connect() as conn:
-            if await conn.scalar(query):
-                return
-        await asyncio.sleep(0.01)
-
-
 def _deletion_email(app) -> str:
     ((message, key),) = app.state.mailer.sent
     assert key == notice_key("withdrawal", "sub_si_123", None)
@@ -1274,7 +1260,7 @@ async def test_a_second_delete_waits_for_the_first_to_finish_its_billing(
     first = asyncio.create_task(client.delete("/v1/me", headers=auth_headers("user_a")))
     await gap.entered.wait()
     second = asyncio.create_task(client.delete("/v1/me", headers=auth_headers("user_a")))
-    await _until_waiting_or_done(engine, second)
+    await until_waiting_or_done(engine, second)
     gap.release.set()
 
     responses = await asyncio.gather(first, second)
@@ -1317,7 +1303,7 @@ async def test_a_withdrawal_waits_for_a_deletion_that_is_refunding(
     withdrawal = asyncio.create_task(
         client.post("/v1/me/billing/withdraw", headers=auth_headers("user_a"))
     )
-    await _until_waiting_or_done(engine, withdrawal)
+    await until_waiting_or_done(engine, withdrawal)
     gap.release.set()
 
     deleted, withdrew = await asyncio.gather(deletion, withdrawal)
