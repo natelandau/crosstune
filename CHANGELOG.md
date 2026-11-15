@@ -1,3 +1,31 @@
+## v1.6.0 (2026-11-15)
+
+### Feat
+
+- **lists**: toggle tunes in and out of a list from the tune picker (#312)
+- **recordings**: explain lapsed recordings in the Plan sheet (#309)
+- **recordings**: share and export recordings (#308)
+
+### Fix
+
+- **apple**: isolate the embed player and pin purchases to the buyer (#327)
+- **web,api**: tighten sign-out, embeds, quota, and split pieces (#326)
+- **api**: harden outbound requests, error reports, and rate limits (#325)
+- **api**: tighten settings, deletion, withdrawal, and sync checks (#324)
+- **links**: budget outbound search requests per provider (#323)
+- **places**: cap daily apple maps use per account and per team (#322)
+- **api**: extend the per-account request cap beyond sync (#321)
+- **media**: cap memory per upload (#320)
+- **mac**: keep private api responses out of disk caches (#319)
+- **recordings**: bound and count storage held for split pieces (#318)
+- **api**: keep tracebacks out of error responses in debug mode (#315)
+- **recordings**: count split pieces against the storage quota (#314)
+- **jobs**: order job claims by each account's last claim (#313)
+
+### Perf
+
+- **places**: relink recordings once per sync push (#316)
+
 ## v1.5.0 (2026-11-12)
 
 ### Feat
