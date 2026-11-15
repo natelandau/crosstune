@@ -27,9 +27,14 @@ from crosstune.errors import (
     TooManyRequestsError,
     problem_responses,
 )
-from crosstune.files.quota import accept_upload, head_slot, reserve_slot, slot_for_recording
+from crosstune.files.quota import (
+    OVER_QUOTA,
+    accept_upload,
+    head_slot,
+    reserve_slot,
+    slot_for_recording,
+)
 from crosstune.files.urls import UPLOAD_URL_TTL_SECONDS, SignedUrl, presign_get, require_store
-from crosstune.jobs.importer import OVER_QUOTA
 from crosstune.recordings.service import (
     enqueue_transcode,
     max_upload_bytes,

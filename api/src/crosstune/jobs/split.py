@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 
 from crosstune.db.base import bump_server_seq, utc_now
 from crosstune.db.locks import lock_user
+from crosstune.files.quota import OVER_QUOTA, room_bytes
 from crosstune.jobs.audio_rewrite import rewrite_playback
 from crosstune.jobs.media import copy_slice, probe, scan_stalls, slice_content_type
 from crosstune.jobs.peaks import range_peaks
@@ -22,7 +23,11 @@ from crosstune.recordings.service import (
     enqueue_job,
     ensure_trim_job,
 )
-from crosstune.recordings.split_rules import split_pieces_start, split_ready_to_complete
+from crosstune.recordings.split_rules import (
+    fail_piece,
+    split_pieces_start,
+    split_ready_to_complete,
+)
 from crosstune.recordings.trim_rules import (
     clamp_stored_trim,
     clamp_trim,
@@ -46,6 +51,7 @@ if TYPE_CHECKING:
 
     from sqlalchemy.ext.asyncio import AsyncSession
 
+    from crosstune.config import Settings
     from crosstune.jobs.media import Probe, Slice, StallMap
     from crosstune.models import Recording
     from crosstune.storage.store import ObjectStore, Revision
@@ -328,8 +334,26 @@ def _piece_range(piece: Recording, *, low: int, high: int) -> tuple[int, int]:
     return start_ms, high if end_ms is None else end_ms
 
 
+async def _room_for_piece(
+    session: AsyncSession, parent: Recording, piece: Recording, settings: Settings
+) -> int:
+    """The bytes the account may still store for the piece, zero or below when it has none.
+
+    The parent's own files are left out: until its split completes they hold the audio the
+    pieces are cut from, so a split that only divides the parent is refused only when the
+    account's other files already fill its quota. Pieces that repeat the parent's audio
+    can take the account past its quota by at most the parent's own files.
+    """
+    return await room_bytes(session, piece.user_id, settings, exclude=(piece.id, parent.id))
+
+
 async def cut_piece(
-    session: AsyncSession, files: ParentFiles, parent: Recording, piece: Recording
+    session: AsyncSession,
+    files: ParentFiles,
+    parent: Recording,
+    piece: Recording,
+    *,
+    settings: Settings,
 ) -> None:
     """Give one waiting piece its own original slice, playback file, and peaks.
 
@@ -337,21 +361,29 @@ async def cut_piece(
     so the piece's original is bit-exact audio, and starts where the slice decodes from
     on the parent's source timeline. If the piece was deleted while the cut ran, or its
     trim widened past the cut, its uploads are deleted and the row is left as it was:
-    a widened piece stays processing for the next cut.
+    a widened piece stays processing for the next cut. A piece whose original and
+    playback file would take the account past its quota fails instead, and an account
+    with no room left fails it without a cut.
 
     Args:
-        session: The session the piece is attached to. The caller commits.
+        session: The session the piece is attached to, with no transaction open. The
+            caller commits.
         files: The parent's files this attempt reads.
         parent: The ready parent whose original covers the piece.
         piece: A live piece of the parent's split, still processing.
+        settings: The settings that decide the account's quota.
     """
     _, low, high = _parent_original(parent)
     start_ms, end_ms = _piece_range(piece, low=low, high=high)
     uploaded: list[str] = []
     try:
-        cut = await _cut_and_upload(
-            files, parent, piece, kept=(start_ms, end_ms), uploaded=uploaded
-        )
+        async with session.begin():
+            room = await _room_for_piece(session, parent, piece, settings)
+        cut: _PieceCut | None = None
+        if room > 0:
+            cut = await _cut_and_upload(
+                files, parent, piece, kept=(start_ms, end_ms), uploaded=uploaded
+            )
         # The lock keeps this seq in commit order with the user's pushes. The refresh
         # drops the offset set for the cut, so a skipped piece keeps its stored row.
         with session.no_autoflush:
@@ -380,6 +412,14 @@ async def cut_piece(
             await delete_best_effort(
                 files.store, uploaded, log=log, message="could not delete a skipped piece's cut"
             )
+            return
+        room = await _room_for_piece(session, parent, piece, settings)
+        if cut is None or cut.original.size + cut.playback.size > room:
+            await delete_best_effort(
+                files.store, uploaded, log=log, message="could not delete an over-quota piece cut"
+            )
+            fail_piece(piece, OVER_QUOTA)
+            await session.flush()
             return
         await _attach_cut(session, piece, cut, parent_is_mono=parent.is_mono)
         await session.flush()

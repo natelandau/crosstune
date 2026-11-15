@@ -12,7 +12,6 @@ import httpx2
 import pytest
 from sqlalchemy import func, select
 
-from crosstune.billing.grants import grant_comp
 from crosstune.db.base import new_uuid7, utc_now
 from crosstune.db.engine import make_sessionmaker
 from crosstune.db.locks import advisory_lock_key
@@ -24,7 +23,7 @@ from crosstune.models import Job, Recording, User
 from crosstune.storage.store import upload_key
 from crosstune.vocabulary import LIMITS, JobKind
 from tests.fakes import FakeObjectStore
-from tests.test_jobs import add_recording, make_user
+from tests.test_jobs import add_recording, grant_premium, make_user
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -62,15 +61,7 @@ def importer(
 async def make_premium_user(session: AsyncSession) -> User:
     """A user with an open-ended comp, since only Premium imports."""
     user = await make_user(session)
-    await grant_comp(
-        session,
-        user.id,
-        expires_at=None,
-        storage_addon=False,
-        granted_by="test",
-        reason="test",
-        now=utc_now(),
-    )
+    await grant_premium(session, user.id)
     return user
 
 

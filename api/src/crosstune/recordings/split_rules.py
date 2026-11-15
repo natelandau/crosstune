@@ -33,6 +33,10 @@ def latest_split_pieces(
     return and_(piece.split_from_id == parent_id, piece.created_by_split_id == split_id)
 
 
+def _live_pieces(parent_id: Any, piece: Any) -> ColumnElement[bool]:
+    return and_(piece.split_from_id == parent_id, piece.deleted_at.is_(None))
+
+
 def waiting_pieces(parent_id: Any, *, piece: Any = Recording) -> ColumnElement[bool]:
     """A filter on `piece` matching live pieces of any split of the parent still waiting for their cut.
 
@@ -40,11 +44,21 @@ def waiting_pieces(parent_id: Any, *, piece: Any = Recording) -> ColumnElement[b
         parent_id: The recording the pieces were split from, a value or an outer column.
         piece: The entity the filter reads, `Recording` or an alias of it.
     """
-    return and_(
-        piece.split_from_id == parent_id,
-        piece.deleted_at.is_(None),
-        piece.state == "processing",
-    )
+    return and_(_live_pieces(parent_id, piece), piece.state == "processing")
+
+
+def unfinished_pieces(parent_id: Any, *, piece: Any = Recording) -> ColumnElement[bool]:
+    """A filter on `piece` matching live pieces of any split of the parent not yet ready.
+
+    Waiting pieces and failed ones alike, whichever split created them, so neither a new
+    `created_by_split_id` nor a replaced `split_id` makes room for more. A client never
+    splits a row while a piece of its latest split is not ready.
+
+    Args:
+        parent_id: The recording the pieces were split from, a value or an outer column.
+        piece: The entity the filter reads, `Recording` or an alias of it.
+    """
+    return and_(_live_pieces(parent_id, piece), piece.state != "ready")
 
 
 async def split_pieces_start(session: AsyncSession, parent: Recording) -> int | None:
@@ -175,6 +189,18 @@ async def split_ready_to_complete(session: AsyncSession, parent: Recording) -> b
     return ready is not None
 
 
+def fail_piece(piece: Recording, error: str) -> None:
+    """Fail a piece that will never be cut, with the phrase a client shows on it.
+
+    Args:
+        piece: The piece to fail.
+        error: The phrase a client shows on the failed piece.
+    """
+    piece.state = "failed"
+    piece.error = error
+    bump_server_seq(piece)
+
+
 async def fail_waiting_pieces(session: AsyncSession, parent_id: uuid.UUID, error: str) -> int:
     """Fail every live piece split from the parent that is still waiting for its cut.
 
@@ -192,9 +218,7 @@ async def fail_waiting_pieces(session: AsyncSession, parent_id: uuid.UUID, error
     """
     failed = 0
     for piece in await session.scalars(select(Recording).where(waiting_pieces(parent_id))):
-        piece.state = "failed"
-        piece.error = error
-        bump_server_seq(piece)
+        fail_piece(piece, error)
         failed += 1
     return failed
 
