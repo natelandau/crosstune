@@ -117,7 +117,12 @@ struct ControlLibraryTests {
     }
 
     /// Every screen file under `CrosstuneUI` the iOS build compiles, with what it violates.
-    static func screenViolations() throws -> [String: Set<Violation>] {
+    static func screenViolations() throws -> [String: Set<Violation>] { try screenViolationsResult.get() }
+
+    // Several tests read the same scan, so it runs once per test process.
+    private static let screenViolationsResult = Result { try scanScreenViolations() }
+
+    private static func scanScreenViolations() throws -> [String: Set<Violation>] {
         var result: [String: Set<Violation>] = [:]
         var screens: [ButtonStyleScan.File] = []
         var library: [ButtonStyleScan.File] = []
@@ -612,7 +617,12 @@ struct ControlLibraryTests {
     }
 
     /// Every file the Mac pass checks, with what its Mac-compiled code violates.
-    static func macScreenViolations() throws -> [String: Set<Violation>] {
+    static func macScreenViolations() throws -> [String: Set<Violation>] { try macScreenViolationsResult.get() }
+
+    // Several tests read the same scan, so it runs once per test process.
+    private static let macScreenViolationsResult = Result { try scanMacScreenViolations() }
+
+    private static func scanMacScreenViolations() throws -> [String: Set<Violation>] {
         var result: [String: Set<Violation>] = [:]
         var screens: [ButtonStyleScan.File] = []
         var library: [ButtonStyleScan.File] = []

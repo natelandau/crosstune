@@ -27,7 +27,10 @@
         }
 
         static func violations(in text: String) -> [String] {
+            // Swift Regex is slow, and both patterns end in one of these words, so a plain search
+            // first skips almost every line.
             SourceScan.withoutComments(text).split(separator: "\n")
+                .filter { line in ["secondary", "tertiary", "quaternary"].contains { line.contains($0) } }
                 .filter { $0.contains(foreground) || $0.contains(handedOn) }
                 .map { $0.trimmingCharacters(in: .whitespaces) }
         }

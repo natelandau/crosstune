@@ -41,24 +41,6 @@
 
     @MainActor
     struct MacSheetTests {
-        /// The sheets drawn on ``MacSheet`` on the Mac, by path under its module's folder. A
-        /// sheet joins this list in the change that moves it onto the scaffold.
-        static let migratedSheets = [
-            "Links/LinkSheet.swift", "TuneForm/TuneFormSheet.swift", "Selection/BulkEditSheet.swift",
-            "Catalog/CatalogFilterSheet.swift", "Lists/ListNameSheet.swift", "Lists/ListPickerSheet.swift",
-            "Catalog/TunePicker.swift", "Import/ImportSheet.swift",
-            "Recordings/RecordingsFilterSheet.swift", "RecordingPage/Location/LocationEditor.swift",
-            "Recording/RecordSheet.swift",
-            "Links/FindRecordingsSheet.swift", "Lyrics/LyricsReader.swift", "Scans/ScanViewer.swift",
-            "Stats/StatsSheet.swift", "Account/ExportDataSheet.swift", "Account/DeleteAccountSheet.swift",
-            "Settings/MusicServicesSheet.swift", "Account/AccountSections.swift", "Plan/PlanSheet.swift",
-            "Plan/NoticeSheet.swift", "Shell/UpdatePrompt.swift", "Recordings/NameLocationSheet.swift",
-            "Settings/SavedLocationDetail.swift",
-        ]
-
-        /// Sheets that push a screen (trim), which keep their navigation on the Mac.
-        static let pushingSheets = ["RecordingScreen/RecordingScreen.swift"]
-
         @Test func macSheetMapsCancelAndDefaultKeys() {
             let cancel = MacSheetAction.cancel("Cancel") {}
             let save = MacSheetAction("Save") {}
@@ -136,6 +118,126 @@
             #expect(quiet.answersReturn == false)
         }
 
+        /// A fitted sheet whose content arrives after it shows, such as lists that load, grows to
+        /// hold it: the sheet's frame can no longer be squeezed under its content, and the sheet's
+        /// window takes the new height rather than keep the one it opened at.
+        @Test func fittedSheetGrowsWhenItsContentArrivesLate() throws {
+            let model = LateLines()
+            let sheet = MacSheet(
+                title: "Title", size: .fitted(max: 600), cancel: .cancel("Cancel") {}, primary: .init("Save") {}
+            ) {
+                LateLinesView(model: model)
+            }
+            let host = NSHostingController(rootView: sheet)
+            // A presented sheet's window keeps its opening size; the hosting controller would
+            // otherwise resize this window itself.
+            host.sizingOptions = []
+            let window = hiddenWindow(size: CGSize(width: 480, height: 300), styleMask: [], appearance: .aqua)
+            defer { window.close() }
+            window.contentViewController = host
+            let squeezed = { host.sizeThatFits(in: CGSize(width: MacSheetSize.formWidth, height: 0)).height }
+            let settle = {
+                for _ in 0..<10 {
+                    host.view.layoutSubtreeIfNeeded()
+                    RunLoop.main.run(until: .now)
+                }
+            }
+            settle()
+            let opened = squeezed()
+            model.lines = 6
+            settle()
+            #expect(squeezed() - opened == 120)
+            #expect(window.contentLayoutRect.height == squeezed())
+            model.lines = 100
+            settle()
+            #expect(squeezed() == 600)
+        }
+
+        @Test func cancelFactoryIsSecondaryAndNeverDefault() {
+            let cancel = MacSheetAction.cancel("Cancel", isEnabled: false) {}
+            #expect(cancel.role == .secondary)
+            #expect(cancel.isDefault == false)
+            #expect(cancel.isEnabled == false)
+        }
+
+        /// The sheet's height at its ideal, which a fitted presentation proposes.
+        private func fittedHeight(lines: Int, max: CGFloat) -> CGFloat {
+            let sheet = MacSheet(
+                title: "Title", size: .fitted(max: max), cancel: .cancel("Cancel") {}, primary: .init("Save") {}
+            ) {
+                VStack(spacing: 0) {
+                    ForEach(0..<lines, id: \.self) { _ in Color.clear.frame(height: 20) }
+                }
+            }
+            let host = NSHostingController(rootView: sheet.fixedSize(horizontal: false, vertical: true))
+            return host.sizeThatFits(in: CGSize(width: 10_000, height: 10_000)).height
+        }
+
+        @Test func fittedSheetGrowsWithItsContentUpToItsMax() {
+            let short = fittedHeight(lines: 2, max: 600)
+            let longer = fittedHeight(lines: 6, max: 600)
+            #expect(short < 600)
+            #expect(longer - short == 80)
+            #expect(fittedHeight(lines: 100, max: 600) == 600)
+        }
+
+        /// A sheet takes its presenter's environment, so one opened from a card would read the
+        /// card's surface. The scaffold and every sheet root reset it to the page background; the footer keeps
+        /// its own surface.
+        @Test func sheetsDrawTheirBodyForThePageBackgroundWhateverPresentsThem() throws {
+            let box = SeenContainers()
+            let sheet = MacSheet(
+                title: "Title", size: .fitted(max: 600), cancel: nil, primary: .init("Save") {},
+                leading: { ContainerProbe(name: "footer", box: box) },
+                content: { ContainerProbe(name: "body", box: box) })
+            let root = VStack {
+                sheet
+                ContainerProbe(name: "root", box: box).shellSheet()
+            }
+            .macSurfaceContainer()
+            let host = NSHostingView(rootView: root)
+            let window = hiddenWindow(size: CGSize(width: 600, height: 600), styleMask: [], appearance: .aqua)
+            defer { window.close() }
+            window.contentView = host
+            for _ in 0..<5 {
+                host.layoutSubtreeIfNeeded()
+                RunLoop.main.run(until: .now)
+            }
+            #expect(box.seen["body"] == .pageBackground)
+            #expect(box.seen["root"] == .pageBackground)
+            #expect(box.seen["footer"] == .surface)
+        }
+
+        @Test func fittedSheetTakesTheFormWidth() {
+            let sheet = MacSheet(title: "Title", size: .fitted(max: 600), cancel: nil, primary: nil) {
+                Text("Body")
+            }
+            let host = NSHostingController(rootView: sheet)
+            #expect(host.sizeThatFits(in: CGSize(width: 10_000, height: 10_000)).width == MacSheetSize.formWidth)
+        }
+    }
+
+    /// The Mac sheet conventions the compiler cannot check, read from the source. Each scan runs
+    /// for seconds, so this suite stays off the main actor that the sheet tests above await.
+    struct MacSheetSourceTests {
+        /// The sheets drawn on ``MacSheet`` on the Mac, by path under its module's folder. A
+        /// sheet joins this list in the change that moves it onto the scaffold.
+        static let migratedSheets = [
+            "Links/LinkSheet.swift", "TuneForm/TuneFormSheet.swift", "Selection/BulkEditSheet.swift",
+            "Catalog/CatalogFilterSheet.swift", "Lists/ListNameSheet.swift", "Lists/ListPickerSheet.swift",
+            "Catalog/TunePicker.swift", "Import/ImportSheet.swift",
+            "Recordings/RecordingsFilterSheet.swift", "RecordingPage/Location/LocationEditor.swift",
+            "Recording/RecordSheet.swift",
+            "Links/FindRecordingsSheet.swift", "Lyrics/LyricsReader.swift", "Scans/ScanViewer.swift",
+            "Stats/StatsSheet.swift", "Account/ExportDataSheet.swift", "Account/DeleteAccountSheet.swift",
+            "Settings/MusicServicesSheet.swift", "Account/AccountSections.swift", "Plan/PlanSheet.swift",
+            "Plan/NoticeSheet.swift", "Shell/UpdatePrompt.swift", "Recordings/NameLocationSheet.swift",
+            "Settings/SavedLocationDetail.swift",
+        ]
+
+        /// Sheets that push a screen (trim), which keep their navigation on the Mac.
+        static let pushingSheets = ["RecordingScreen/RecordingScreen.swift"]
+
         /// What marks a text field the musician types into in Mac drawing.
         private static let fieldMarkers = [
             "TextField(", "TextEditor(", "FilterSearchField(", "MacTextArea(", ".macField", ".macTitleField",
@@ -206,41 +308,6 @@
             #expect(scaffold.contains(".focused(") == false)
         }
 
-        /// A fitted sheet whose content arrives after it shows, such as lists that load, grows to
-        /// hold it: the sheet's frame can no longer be squeezed under its content, and the sheet's
-        /// window takes the new height rather than keep the one it opened at.
-        @Test func fittedSheetGrowsWhenItsContentArrivesLate() throws {
-            let model = LateLines()
-            let sheet = MacSheet(
-                title: "Title", size: .fitted(max: 600), cancel: .cancel("Cancel") {}, primary: .init("Save") {}
-            ) {
-                LateLinesView(model: model)
-            }
-            let host = NSHostingController(rootView: sheet)
-            // A presented sheet's window keeps its opening size; the hosting controller would
-            // otherwise resize this window itself.
-            host.sizingOptions = []
-            let window = hiddenWindow(size: CGSize(width: 480, height: 300), styleMask: [], appearance: .aqua)
-            defer { window.close() }
-            window.contentViewController = host
-            let squeezed = { host.sizeThatFits(in: CGSize(width: MacSheetSize.formWidth, height: 0)).height }
-            let settle = {
-                for _ in 0..<10 {
-                    host.view.layoutSubtreeIfNeeded()
-                    RunLoop.main.run(until: .now)
-                }
-            }
-            settle()
-            let opened = squeezed()
-            model.lines = 6
-            settle()
-            #expect(squeezed() - opened == 120)
-            #expect(window.contentLayoutRect.height == squeezed())
-            model.lines = 100
-            settle()
-            #expect(squeezed() == 600)
-        }
-
         /// The titles a purchase button wears.
         private static let purchaseTitles = ["PlanText.subscribe", "NoticeText.subscribeAnnual"]
 
@@ -264,11 +331,14 @@
 
         /// What a call that may build a footer action starts with: the type's name, or `.init`
         /// handed to a footer slot.
-        private static let actionBuilder =
+        private static var actionBuilder: Regex<Substring> {
             /(?:\bMacSheetAction|\bMacSheet\.Action|\bAction|(?:primary|secondary|cancel):\s*\.init|=\s*\.init)\(/
+        }
 
         /// A call into a purchase: subscribing, buying, or purchasing, under any name that says so.
-        private static let purchaseCall = /\w*(?:[Ss]ubscribe|[Bb]uy|[Pp]urchase)\w*\s*\(|action:\s*\w*[Ss]ubscribe/
+        private static var purchaseCall: Regex<Substring> {
+            /\w*(?:[Ss]ubscribe|[Bb]uy|[Pp]urchase)\w*\s*\(|action:\s*\w*[Ss]ubscribe/
+        }
 
         /// The footer actions in `text` built some way other than `.subscribe(title:)` whose title
         /// or closure reaches a purchase.
@@ -303,7 +373,7 @@
         }
 
         /// What a sheet size is spelled as when it fits its content.
-        private static let fittedSize = /\.fitted\(|fittedOverSettings/
+        private static var fittedSize: Regex<Substring> { /\.fitted\(|fittedOverSettings/ }
 
         /// The bodies of the fitted ``MacSheet``s in `text`, a size named by a static in the same
         /// text included.
@@ -352,13 +422,6 @@
             }
         }
 
-        @Test func cancelFactoryIsSecondaryAndNeverDefault() {
-            let cancel = MacSheetAction.cancel("Cancel", isEnabled: false) {}
-            #expect(cancel.role == .secondary)
-            #expect(cancel.isDefault == false)
-            #expect(cancel.isEnabled == false)
-        }
-
         @Test func macSheetsLeaveNoNavigationStackOnTheMac() throws {
             for path in Self.migratedSheets {
                 let file = SourceScan.url(of: path)
@@ -379,62 +442,6 @@
                 let file = SourceScan.url(of: path)
                 #expect(FileManager.default.fileExists(atPath: file.path), "\(path) does not exist")
             }
-        }
-
-        /// The sheet's height at its ideal, which a fitted presentation proposes.
-        private func fittedHeight(lines: Int, max: CGFloat) -> CGFloat {
-            let sheet = MacSheet(
-                title: "Title", size: .fitted(max: max), cancel: .cancel("Cancel") {}, primary: .init("Save") {}
-            ) {
-                VStack(spacing: 0) {
-                    ForEach(0..<lines, id: \.self) { _ in Color.clear.frame(height: 20) }
-                }
-            }
-            let host = NSHostingController(rootView: sheet.fixedSize(horizontal: false, vertical: true))
-            return host.sizeThatFits(in: CGSize(width: 10_000, height: 10_000)).height
-        }
-
-        @Test func fittedSheetGrowsWithItsContentUpToItsMax() {
-            let short = fittedHeight(lines: 2, max: 600)
-            let longer = fittedHeight(lines: 6, max: 600)
-            #expect(short < 600)
-            #expect(longer - short == 80)
-            #expect(fittedHeight(lines: 100, max: 600) == 600)
-        }
-
-        /// A sheet takes its presenter's environment, so one opened from a card would read the
-        /// card's surface. The scaffold and every sheet root reset it to the page background; the footer keeps
-        /// its own surface.
-        @Test func sheetsDrawTheirBodyForThePageBackgroundWhateverPresentsThem() throws {
-            let box = SeenContainers()
-            let sheet = MacSheet(
-                title: "Title", size: .fitted(max: 600), cancel: nil, primary: .init("Save") {},
-                leading: { ContainerProbe(name: "footer", box: box) },
-                content: { ContainerProbe(name: "body", box: box) })
-            let root = VStack {
-                sheet
-                ContainerProbe(name: "root", box: box).shellSheet()
-            }
-            .macSurfaceContainer()
-            let host = NSHostingView(rootView: root)
-            let window = hiddenWindow(size: CGSize(width: 600, height: 600), styleMask: [], appearance: .aqua)
-            defer { window.close() }
-            window.contentView = host
-            for _ in 0..<5 {
-                host.layoutSubtreeIfNeeded()
-                RunLoop.main.run(until: .now)
-            }
-            #expect(box.seen["body"] == .pageBackground)
-            #expect(box.seen["root"] == .pageBackground)
-            #expect(box.seen["footer"] == .surface)
-        }
-
-        @Test func fittedSheetTakesTheFormWidth() {
-            let sheet = MacSheet(title: "Title", size: .fitted(max: 600), cancel: nil, primary: nil) {
-                Text("Body")
-            }
-            let host = NSHostingController(rootView: sheet)
-            #expect(host.sizeThatFits(in: CGSize(width: 10_000, height: 10_000)).width == MacSheetSize.formWidth)
         }
     }
 #endif

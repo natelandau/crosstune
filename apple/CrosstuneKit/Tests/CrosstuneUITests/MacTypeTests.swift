@@ -44,7 +44,10 @@
         }
 
         private static func violations(in text: String) -> [String] {
+            // Swift Regex is slow, and every spelling holds `font` or `Font`, so a plain search
+            // first skips almost every line.
             SourceScan.withoutComments(text).split(separator: "\n")
+                .filter { $0.contains("font") || $0.contains("Font") }
                 .filter { $0.contains(textStyle) }
                 .map { $0.trimmingCharacters(in: .whitespaces) }
         }

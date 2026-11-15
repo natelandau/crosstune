@@ -52,11 +52,18 @@ enum SourceScan {
         var inBlock = false
         return text.split(separator: "\n", omittingEmptySubsequences: false)
             .map { line in
-                let chars = Array(line)
+                // Every mark this looks for is ASCII, so it walks UTF-8 bytes, which is far faster
+                // than walking Characters, and a cut before an ASCII byte is a valid boundary.
+                let bytes = Array(line.utf8)
+                let quote = UInt8(ascii: "\"")
+                let slash = UInt8(ascii: "/")
+                let backslash = UInt8(ascii: "\\")
                 var inString = false
                 var index = 0
-                while index < chars.count {
-                    if chars[index...].starts(with: "\"\"\"") {
+                while index < bytes.count {
+                    if index + 2 < bytes.count && bytes[index] == quote && bytes[index + 1] == quote
+                        && bytes[index + 2] == quote
+                    {
                         inBlock.toggle()
                         index += 3
                         continue
@@ -65,15 +72,15 @@ enum SourceScan {
                         index += 1
                         continue
                     }
-                    switch chars[index] {
-                    case "\\" where inString:
+                    switch bytes[index] {
+                    case backslash where inString:
                         // Skips the escaped character, so an escaped quote never ends the string.
                         index += 2
                         continue
-                    case "\"":
+                    case quote:
                         inString.toggle()
-                    case "/" where !inString && index + 1 < chars.count && chars[index + 1] == "/":
-                        return String(chars[..<index])
+                    case slash where !inString && index + 1 < bytes.count && bytes[index + 1] == slash:
+                        return String(decoding: bytes[..<index], as: UTF8.self)
                     default:
                         break
                     }
