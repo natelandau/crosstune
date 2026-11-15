@@ -268,6 +268,8 @@ async def test_a_deleted_split_parent_never_holds_storage_past_the_quota(
         ("recording", 1000, "invalid"),
         # Its files already count, so the revive adds nothing.
         ("held recording", 1000, "applied"),
+        # Its open slot counts once it is live again.
+        ("recording with an open slot", 1000, "invalid"),
         ("scan", 1000, "invalid"),
     ],
 )
@@ -295,6 +297,13 @@ async def test_revive_of_a_deleted_file_must_fit_the_quota(
             .values(state="ready", file_key="k", file_bytes=800, deleted_at=datetime.now(UTC))
         )
         revive = change("scans", deleted, T1, **scan)
+    elif kind == "recording with an open slot":
+        await push(client, headers, recording(deleted))
+        assert (await slot(client, headers, deleted, bytes_=800)).status_code == 200
+        await verify_session.execute(
+            update(Recording).where(Recording.id == deleted).values(deleted_at=datetime.now(UTC))
+        )
+        revive = recording(deleted, T1)
     else:
         await push(client, headers, recording(deleted))
         if kind == "held recording":
