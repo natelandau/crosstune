@@ -153,6 +153,12 @@ jobs:
           echo "$SENTRY_CLI_SHA256  $RUNNER_TEMP/sentry-cli" | shasum -a 256 -c -
           chmod +x "$RUNNER_TEMP/sentry-cli"
           echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+      # The Swift packages and their binary artifacts, keyed on the pins. A miss fetches them,
+      # which takes minutes.
+      - uses: actions/cache/restore@v6
+        with:
+          path: ~/Library/Caches/crosstune/source-packages
+          key: apple-packages-${{ hashFiles('apple/CrosstuneKit/Package.resolved') }}
       # The run number only rises, and a re-run raises the attempt, so no two
       # uploads share a build number. The archive fixes the number, so a new
       # upload needs this job re-run, not only the upload.
