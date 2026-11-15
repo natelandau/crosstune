@@ -164,9 +164,11 @@ each question, and the invariants that both clients and the API hold.
   - A sync route also counts against the account's requests in flight.
   - Only jobs, ops commands, and webhooks, which no user can send at will,
     wait with no bound.
-- The job runner claims jobs in turns across accounts: each account's
-  oldest job, then each one's next. A sync push can queue hundreds of
+- The job runner claims jobs round-robin across accounts: the account
+  whose last claim is oldest claims next. A sync push can queue hundreds of
   jobs, so oldest-first across everyone lets one account delay all others.
+  - Each account's last claim is stored in its own table, never derived
+    from the queued rows. A job row is deleted when it finishes.
 - Location lookups spend paid Apple Maps calls. They also run at most
   `place_lookups_per_minute` per account. The rest are held, not dropped.
 

@@ -9,7 +9,8 @@ from datetime import UTC, datetime, timedelta
 from enum import Enum, auto
 from typing import TYPE_CHECKING
 
-from sqlalchemy import and_, case, func, or_, select, update
+from sqlalchemy import and_, func, literal, or_, select, update
+from sqlalchemy.dialects.postgresql import Insert, insert
 
 from crosstune.billing.notices import RUN_EVERY as BILLING_NOTICES_EVERY
 from crosstune.billing.notices import (
@@ -45,7 +46,8 @@ from crosstune.jobs.sweep import (
     release_abandoned_slots,
 )
 from crosstune.jobs.sweep import sweep_orphans as sweep_orphan_prefixes
-from crosstune.models import Job, Recording, Scan, UploadSlot
+from crosstune.models import Job, JobLastClaim, Recording, Scan, UploadSlot, User
+from crosstune.models.job import job_claim_seq
 from crosstune.places.maps import configured_maps
 from crosstune.ratelimit import RateLimiter
 from crosstune.vocabulary import JobKind
@@ -436,42 +438,33 @@ class JobRunner:
         return purged + await purge_deleted_scans(self._sessionmaker, self._store)
 
     async def _claim(self) -> Job | None:
-        """Claim the next job in turn, holding back each place job its account has no pace left for."""
+        """Claim the next job in round-robin order, holding back each place job its account has no pace left for."""
         while True:
             claimed, job = await self._claim_next()
             if claimed:
                 return job
 
     async def _claim_next(self) -> tuple[bool, Job | None]:
-        """Claim the next job in turn, or hold it back when its account is past its place pace.
+        """Claim the next job in round-robin order, or hold it back when its account is past its place pace.
 
         Returns:
             tuple[bool, Job | None]: True with the claimed job, or None when nothing is
             claimable; False when the job found was held back and another may be claimed.
         """
         now = utc_now()
-        background = case((Job.kind.in_(_BACKGROUND_KINDS), 1), else_=0)
-        # Each user's oldest job takes the first turn, their next oldest the second, and so on,
-        # so one account's burst of jobs waits behind every other account's. Jobs already
-        # claimed keep their turns, or a user's next job would move up as each one is claimed.
-        ranked = (
-            select(
-                Job.id,
-                background.label("background"),
-                func.row_number()
-                .over(partition_by=(Job.user_id, background), order_by=Job.created_at)
-                .label("turn"),
-                Job.created_at,
-            )
-            .where(_dispatchable())
-            .subquery()
+        is_background = Job.kind.in_(_BACKGROUND_KINDS)
+        # The account whose last claim is oldest goes next, and one never claimed goes
+        # first, so one account's burst of jobs waits behind every other account's. A
+        # count of the account's queued jobs cannot rank it: each finished job is deleted.
+        last_claim = and_(
+            JobLastClaim.user_id == Job.user_id, JobLastClaim.background == is_background
         )
         async with self._sessionmaker() as session, session.begin():
             stmt = (
                 select(Job)
-                .join(ranked, Job.id == ranked.c.id)
+                .outerjoin(JobLastClaim, last_claim)
                 .where(_claimable(now))
-                .order_by(ranked.c.background, ranked.c.turn, ranked.c.created_at)
+                .order_by(is_background, JobLastClaim.claim_seq.asc().nulls_first(), Job.created_at)
                 .limit(1)
                 .with_for_update(of=Job, skip_locked=True)
             )
@@ -483,17 +476,24 @@ class JobRunner:
                 # Held, not attempted: the lock lifts when the account's pace allows another.
                 # Every claimable place job of the account is held at once, so a backlog of
                 # them costs one pass per pace window rather than one per job.
-                await session.execute(
-                    update(Job)
+                # Skips jobs another runner holds, which waiting on would deadlock with it.
+                backlog = (
+                    select(Job.id)
                     .where(
                         Job.user_id == job.user_id,
                         Job.kind == JobKind.PLACE.value,
                         _claimable(now),
                     )
+                    .with_for_update(skip_locked=True)
+                )
+                await session.execute(
+                    update(Job)
+                    .where(Job.id.in_(backlog.scalar_subquery()))
                     .values(locked_until=now + timedelta(seconds=wait))
                     .execution_options(synchronize_session=False)
                 )
                 return False, None
+            await session.execute(_record_claim(job))
             job.locked_until = now + timedelta(seconds=LOCK_SECONDS)
             job.attempts += 1
             # An error now marks only a job waiting out a failure; see held_after_failure.
@@ -556,6 +556,29 @@ class JobRunner:
                 )
         except Exception:  # noqa: BLE001 -- the lock expiry still frees the job
             log.warning("could not release a cancelled job", extra={"job": str(job.id)})
+
+
+def _record_claim(job: Job) -> Insert:
+    """Record a claim as the latest of the job's account, foreground or background.
+
+    Two runners claiming one account's jobs at once wait on its row only until the
+    first commits; claims for other accounts never touch it. An account being deleted
+    records no claim: its user row is skipped, not waited on, since the delete's cascade
+    waits on the job row this claim holds. The key-share lock leaves the row's ordinary
+    updates alone, so only a delete skips the record.
+    """
+    account = (
+        select(User.id, literal(job.kind in _BACKGROUND_KINDS), job_claim_seq.next_value())
+        .where(User.id == job.user_id)
+        .with_for_update(read=True, key_share=True, skip_locked=True)
+    )
+    stmt = insert(JobLastClaim).from_select(
+        [JobLastClaim.user_id, JobLastClaim.background, JobLastClaim.claim_seq], account
+    )
+    return stmt.on_conflict_do_update(
+        index_elements=[JobLastClaim.user_id, JobLastClaim.background],
+        set_={"claim_seq": stmt.excluded.claim_seq},
+    )
 
 
 async def _finish_by(task: asyncio.Task[None], deadline: float) -> None:
