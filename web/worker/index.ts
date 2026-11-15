@@ -44,7 +44,10 @@ export async function handleRequest(
     // Every /v1 response the client sees must be one shape, including one the Worker never sent upstream.
     return new Response(
       JSON.stringify({ status: 502, title: 'Bad Gateway', detail: 'The API did not answer.' }),
-      { status: 502, headers: { 'content-type': 'application/problem+json' } },
+      {
+        status: 502,
+        headers: { 'content-type': 'application/problem+json', 'cache-control': 'no-store' },
+      },
     )
   }
 }
