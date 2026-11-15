@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 import pytest
 from sqlalchemy import text
 
+from crosstune.config import Settings
 from crosstune.db.engine import IdlePoolCloser, make_engine
 
 if TYPE_CHECKING:
@@ -31,7 +32,7 @@ class FakeClock:
 @pytest.fixture
 async def own_engine(database_url: str) -> AsyncIterator[AsyncEngine]:
     """An engine of its own, since these tests dispose its pool."""
-    engine = make_engine(database_url)
+    engine = make_engine(Settings(database_url=database_url))
     yield engine
     await engine.dispose()
 

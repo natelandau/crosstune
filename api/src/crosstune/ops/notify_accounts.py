@@ -240,7 +240,7 @@ async def run(settings: Settings, args: argparse.Namespace) -> int:
     # The dry run is the default everywhere, so production needs no separate `--yes` gate.
     check_target(settings, yes=True, e2e=args.e2e)
     body = read_body(args.body)
-    engine = make_engine(settings.database_url)
+    engine = make_engine(settings)
     http_client = public_only_client(settings.link_resolve_timeout_seconds)
     try:
         if not args.yes:

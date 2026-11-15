@@ -10,6 +10,7 @@ import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from sqlalchemy import text
+from sqlalchemy.exc import TimeoutError as PoolTimeoutError
 
 from crosstune.config import Settings
 from crosstune.db.engine import make_sessionmaker
@@ -236,3 +237,21 @@ async def test_lifespan_leaves_apple_unbuilt_and_says_so_without_settings(
     ]
     assert len(records) == 1
     assert records[0].levelno == logging.INFO
+
+
+async def test_lifespan_builds_its_engine_with_the_configured_pool(database_url: str) -> None:
+    settings = Settings(
+        database_url=database_url,
+        db_pool_size=2,
+        db_max_overflow=0,
+        db_pool_timeout_seconds=0.1,
+        concurrent_locking_requests_per_user=1,
+    )
+    app = create_app(settings)
+    async with app.router.lifespan_context(app):
+        engine = app.state.engine
+        async with engine.connect(), engine.connect():
+            # Every connection is checked out, so another checkout gives up at once.
+            with pytest.raises(PoolTimeoutError):
+                async with engine.connect():
+                    pass

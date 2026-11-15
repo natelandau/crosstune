@@ -362,7 +362,13 @@ BURST_PROMPT = 3.0
 async def small_pool(app: FastAPI, settings) -> AsyncIterator[None]:
     """Serve the app from a pool as small as SMALL_POOL, with no overflow."""
     engine = make_engine(
-        settings.database_url, pool_size=SMALL_POOL, max_overflow=0, pool_timeout=POOL_TIMEOUT
+        settings.model_copy(
+            update={
+                "db_pool_size": SMALL_POOL,
+                "db_max_overflow": 0,
+                "db_pool_timeout_seconds": POOL_TIMEOUT,
+            }
+        )
     )
     app.state.engine = engine
     app.state.sessionmaker = make_sessionmaker(engine)

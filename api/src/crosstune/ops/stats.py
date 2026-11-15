@@ -205,7 +205,7 @@ def build_parser() -> argparse.ArgumentParser:
 async def run(settings: Settings, args: argparse.Namespace) -> None:
     """Check the target, count, and print the chosen table."""
     check_target(settings, yes=True, e2e=args.e2e)
-    engine = make_engine(settings.database_url)
+    engine = make_engine(settings)
     try:
         async with make_sessionmaker(engine)() as session:
             if args.command == "versions":
