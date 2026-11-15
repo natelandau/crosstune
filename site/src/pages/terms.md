@@ -191,6 +191,10 @@ If you got a Crosstune app from the App Store, these terms also apply:
 - You must follow the terms of any third-party service that you use with the app, such as your mobile carrier.
 - Apple and its subsidiaries are third-party beneficiaries of these terms. Once you accept them, Apple can enforce them against you.
 
+## Trademarks
+
+Apple, the Apple logo, iPhone, iPad, and Mac are trademarks of Apple Inc., registered in the U.S. and other countries and regions. App Store is a service mark of Apple Inc.
+
 Our name, address, phone number, and email address are at the top of these terms.
 
 ## Changes to these terms
