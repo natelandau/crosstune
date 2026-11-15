@@ -1,5 +1,8 @@
 """Settings accept the connection string a Postgres host prints and hand asyncpg what it needs."""
 
+import re
+from pathlib import Path
+
 import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec, rsa
@@ -570,3 +573,11 @@ def test_apple_min_is_none_when_unset() -> None:
 def test_apple_min_rejects_a_malformed_floor() -> None:
     with pytest.raises(ValidationError):
         Settings(apple_min_version="1.2.x")
+
+
+def test_every_setting_is_in_the_env_example() -> None:
+    example = (Path(__file__).parents[1] / ".env.example").read_text()
+    listed = set(re.findall(r"CROSSTUNE_[A-Z0-9_]+", example))
+    prefix = Settings.model_config["env_prefix"]
+    names = {f"{prefix}{field}".upper() for field in Settings.model_fields}
+    assert names - listed == set()
