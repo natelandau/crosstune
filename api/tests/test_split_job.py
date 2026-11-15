@@ -18,10 +18,10 @@ from crosstune.db.engine import make_sessionmaker
 from crosstune.files.quota import OVER_QUOTA, used_bytes
 from crosstune.jobs import split as split_module
 from crosstune.jobs import transcode as transcode_module
-from crosstune.jobs.attempt import MAX_ATTEMPTS, PROCESSING_FAILED, JobContext
+from crosstune.jobs.attempt import MAX_ATTEMPTS, PROCESSING_FAILED, JobContext, client_message
 from crosstune.jobs.handlers import split as split_handler
 from crosstune.jobs.handlers import transcode as transcode_handler
-from crosstune.jobs.media import MediaError
+from crosstune.jobs.media import MAX_SLICE_OVERRUN_MS, MediaError
 from crosstune.jobs.peaks import decode_peaks
 from crosstune.jobs.runner import JobRunner
 from crosstune.jobs.transcode import RECORDING_TOO_LONG
@@ -49,7 +49,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from crosstune.config import Settings
-    from crosstune.jobs.media import Probe
+    from crosstune.jobs.media import Probe, Slice
     from crosstune.storage.store import Revision
 
 pytestmark = pytest.mark.anyio
@@ -358,6 +358,31 @@ async def test_piece_deleted_mid_cut_is_skipped_and_uploads_deleted(
     assert not [key for key in set(store.keys()) if key.startswith(prefix)]
     # A deleted piece counts toward completion, so the parent's original was narrowed.
     assert REVISIONED_ORIGINAL.search(parent.original_key)
+
+
+async def test_piece_whose_slice_decodes_past_its_range_fails_alone(
+    split_runner, verify_session, tones, tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    job_runner, store = split_runner
+    parent = await _seed(verify_session, store, tones[60], tmp_path)
+    _, (long_piece, piece) = await _split(verify_session, parent, [20_000, 40_000])
+    real_copy_slice = split_module.copy_slice
+
+    async def copy_slice_running_long(source, target, start_ms, end_ms, **kwargs) -> Slice:
+        sliced = await real_copy_slice(source, target, start_ms, end_ms, **kwargs)
+        if start_ms != long_piece.trim_start_ms:
+            return sliced
+        overrun = end_ms - start_ms + MAX_SLICE_OVERRUN_MS + 1
+        return sliced._replace(info=dataclasses.replace(sliced.info, duration_ms=overrun))
+
+    monkeypatch.setattr(split_module, "copy_slice", copy_slice_running_long)
+    assert await job_runner.run_once() == 1
+    await _refresh(verify_session, long_piece, piece)
+    assert (long_piece.state, long_piece.error) == ("failed", client_message(MediaError()))
+    prefix = recording_prefix(long_piece.user_id, long_piece.id)
+    assert not [key for key in store.writes if key.startswith(prefix)]
+    assert piece.state == "ready"
+    assert await _jobs(verify_session, parent, JobKind.SPLIT) == []
 
 
 async def _failing_split(
