@@ -61,9 +61,15 @@
             ]
         }
 
+        /// Text that every pattern in `oneOffs` needs, so a line holding none of it cannot match.
+        private static let oneOffMarkers =
+            ["Color", ".fill.", ".opacity(", "\"#", "Primitive."] + systemStyles.split(separator: "|").map(String.init)
+
         static func violations(in text: String) -> [String] {
             let patterns = oneOffs
+            // Swift Regex is slow, so a plain search first skips almost every line.
             return SourceScan.withoutComments(text).split(separator: "\n")
+                .filter { line in oneOffMarkers.contains { line.contains($0) } }
                 .filter { line in patterns.contains { line.contains($0) } }
                 .map { $0.trimmingCharacters(in: .whitespaces) }
         }

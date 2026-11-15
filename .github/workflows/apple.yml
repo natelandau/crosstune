@@ -84,10 +84,23 @@ jobs:
           path: apple/CrosstuneKit/.build/DerivedData/CompilationCache.noindex
           key: ${{ steps.xcode-key.outputs.key }}
           restore-keys: apple-xcode-tests-${{ steps.swift.outputs.version }}-
+      # The Swift packages and their binary artifacts, keyed on the pins. A miss fetches them,
+      # which takes minutes.
+      - uses: actions/cache/restore@v6
+        id: packages-restore
+        with:
+          path: ~/Library/Caches/crosstune/source-packages
+          key: apple-packages-${{ hashFiles('apple/CrosstuneKit/Package.resolved') }}
       # Built in its own step so a slow compile and a slow test run each have their own limit;
       # `just test` then reuses the build.
       - run: just build-tests
         timeout-minutes: 20
+      # Saved before the tests run, so a failing test still keeps the fetch for the next run.
+      - uses: actions/cache/save@v6
+        if: ${{ github.ref == 'refs/heads/main' && steps.packages-restore.outputs.cache-hit != 'true' }}
+        with:
+          path: ~/Library/Caches/crosstune/source-packages
+          key: apple-packages-${{ hashFiles('apple/CrosstuneKit/Package.resolved') }}
       - run: just test
         timeout-minutes: 10
       - uses: actions/cache/save@v6
@@ -134,6 +147,12 @@ jobs:
           path: apple/.build/DerivedData/CompilationCache.noindex
           key: ${{ steps.xcode-key.outputs.key }}
           restore-keys: apple-xcode-${{ matrix.platform }}-${{ steps.swift.outputs.version }}-
+      # The Swift packages and their binary artifacts, keyed on the pins. A miss fetches them,
+      # which takes minutes.
+      - uses: actions/cache/restore@v6
+        with:
+          path: ~/Library/Caches/crosstune/source-packages
+          key: apple-packages-${{ hashFiles('apple/CrosstuneKit/Package.resolved') }}
       - run: just build "$PLATFORM"
         env:
           PLATFORM: ${{ matrix.platform }}
@@ -195,7 +214,7 @@ jobs:
     permissions:
       actions: write
     steps:
-      - name: delete every Xcode cache but the newest of each kind
+      - name: delete every Xcode and package cache but the newest of each kind
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -212,3 +231,8 @@ jobs:
             gh cache delete "$key" || echo "::warning::could not delete cache $key"
           done < <(gh cache list --key apple-xcode- --ref refs/heads/main --sort created_at --order desc \
             --limit 100 --json key --jq '.[].key')
+          # A changed `Package.resolved` saves a new package cache, which replaces the older ones.
+          gh cache list --key apple-packages- --ref refs/heads/main --sort created_at --order desc \
+            --limit 100 --json key --jq '.[1:][].key' | while read -r key; do
+            gh cache delete "$key" || echo "::warning::could not delete cache $key"
+          done

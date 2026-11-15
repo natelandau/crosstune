@@ -46,30 +46,32 @@ struct ControlLibraryTests {
         "ButtonStyle|PrimitiveButtonStyle|ToggleStyle|LabelStyle|PickerStyle|TextFieldStyle"
 
     /// Rules matched by pattern over a whole file, so a call split across lines still matches.
-    nonisolated(unsafe) private static let patterns: [(rule: String, regex: Regex<AnyRegexOutput>)] = [
-        (
-            "style conformance",
-            #"(?:struct|class|enum|extension)\s+[\w.]+(?:<[^>{}]*>)?\s*:(?:(?!\bwhere\b)[^{}])*?\b(?:\#(styleProtocols))\b"#
-        ),
-        (
-            "system button style",
-            #"\.buttonStyle\(\s*\.(?:bordered|borderedProminent|glassProminent|glass|borderless|plain)\b"#
-        ),
-        (
-            "system button style",
-            #"\b(?:PlainButtonStyle|BorderlessButtonStyle|BorderedButtonStyle|BorderedProminentButtonStyle)\(\)"#
-        ),
-        ("button toggle style", #"\.toggleStyle\(\s*\.button\b"#),
-        ("rounded border text field", #"\.textFieldStyle\(\s*\.roundedBorder\b"#),
-        ("own press state", #"configuration\.isPressed"#),
-        ("own hover state", #"(?:^|\W)(?:hoverEffect|onHover)\b"#),
-        ("own animation", #"withAnimation\(\s*\."#),
-        ("own animation", #"\.animation\(\s*\.(?:\#(curves))\b"#),
-        ("own animation", #"\.spring\((?:duration|response)"#),
-        ("own animation", #"\bAnimation\.(?:\#(curves))\b"#),
-        ("capsule background", #"in:\s*(?:\.capsule\b|Capsule\(\))"#),
-        ("system stepper or slider", #"\b(?:Stepper|Slider)\("#),
-    ].map { ($0.0, try! Regex($0.1)) }
+    /// Each names text that every match holds, so a file without it skips the slow regex.
+    nonisolated(unsafe) private static let patterns: [(rule: String, markers: [String], regex: Regex<AnyRegexOutput>)] =
+        [
+            (
+                "style conformance", ["Style"],
+                #"(?:struct|class|enum|extension)\s+[\w.]+(?:<[^>{}]*>)?\s*:(?:(?!\bwhere\b)[^{}])*?\b(?:\#(styleProtocols))\b"#
+            ),
+            (
+                "system button style", [".buttonStyle("],
+                #"\.buttonStyle\(\s*\.(?:bordered|borderedProminent|glassProminent|glass|borderless|plain)\b"#
+            ),
+            (
+                "system button style", ["ButtonStyle()"],
+                #"\b(?:PlainButtonStyle|BorderlessButtonStyle|BorderedButtonStyle|BorderedProminentButtonStyle)\(\)"#
+            ),
+            ("button toggle style", [".toggleStyle("], #"\.toggleStyle\(\s*\.button\b"#),
+            ("rounded border text field", [".textFieldStyle("], #"\.textFieldStyle\(\s*\.roundedBorder\b"#),
+            ("own press state", ["configuration.isPressed"], #"configuration\.isPressed"#),
+            ("own hover state", ["hoverEffect", "onHover"], #"(?:^|\W)(?:hoverEffect|onHover)\b"#),
+            ("own animation", ["withAnimation("], #"withAnimation\(\s*\."#),
+            ("own animation", [".animation("], #"\.animation\(\s*\.(?:\#(curves))\b"#),
+            ("own animation", [".spring("], #"\.spring\((?:duration|response)"#),
+            ("own animation", ["Animation."], #"\bAnimation\.(?:\#(curves))\b"#),
+            ("capsule background", ["in:"], #"in:\s*(?:\.capsule\b|Capsule\(\))"#),
+            ("system stepper or slider", ["Stepper(", "Slider("], #"\b(?:Stepper|Slider)\("#),
+        ].map { ($0.0, $0.1, try! Regex($0.2)) }
 
     nonisolated(unsafe) private static let buttonStart = /\bButton\b\s*([({])/
     nonisolated(unsafe) private static let hitShape = /\.contentShape\((?:[^()]|\([^()]*\))*\)/
@@ -99,7 +101,8 @@ struct ControlLibraryTests {
 
     static func violations(in code: String) -> Set<Violation> {
         var found = Set<Violation>()
-        for (rule, regex) in patterns {
+        for (rule, markers, regex) in patterns
+        where markers.contains(where: { code.contains($0) }) {
             for match in code.matches(of: regex) {
                 found.insert(Violation(rule: rule, line: line(of: match.range, in: code)))
             }
@@ -117,7 +120,12 @@ struct ControlLibraryTests {
     }
 
     /// Every screen file under `CrosstuneUI` the iOS build compiles, with what it violates.
-    static func screenViolations() throws -> [String: Set<Violation>] {
+    static func screenViolations() throws -> [String: Set<Violation>] { try screenViolationsResult.get() }
+
+    // Several tests read the same scan, so it runs once per test process.
+    private static let screenViolationsResult = Result { try scanScreenViolations() }
+
+    private static func scanScreenViolations() throws -> [String: Set<Violation>] {
         var result: [String: Set<Violation>] = [:]
         var screens: [ButtonStyleScan.File] = []
         var library: [ButtonStyleScan.File] = []
@@ -496,20 +504,36 @@ struct ControlLibraryTests {
     // MARK: - The Mac pass
 
     /// Rules only the Mac build can break, matched like ``patterns``.
-    nonisolated(unsafe) private static let macPatterns: [(rule: String, regex: Regex<AnyRegexOutput>)] = [
-        ("checkbox toggle style", #"\.toggleStyle\(\s*\.checkbox\b|\bCheckboxToggleStyle\(\)"#),
-        ("radio group picker style", #"\.pickerStyle\(\s*\.radioGroup\b|\bRadioGroupPickerStyle\(\)"#),
-        ("segmented picker style", #"\.pickerStyle\(\s*\.segmented\b|\bSegmentedPickerStyle\(\)"#),
-        // A system picker draws AppKit's pop-up; the library's draws the Mac one.
-        ("system picker", #"(?:^|[^\w.])Picker\s*[({]"#),
-        ("system button style", #"\.buttonStyle\(\s*\.link\b|\bLinkButtonStyle\(\)"#),
-        ("own focus handling", #"(?:^|\W)(?:focusable|defaultFocus|focusEffectDisabled)\("#),
-        // A curve picked by a condition, such as Reduce Motion's nil or the curve, or stored.
-        ("own animation", #"\s\?\s*(?:nil\s*:\s*)?\.(?:\#(curves))\b"#),
-        ("own animation", #"(?::|=)\s*\.(?:\#(curves))\("#),
-        // A color that is the accent only while focused: a ring, an outline, or an underline.
-        ("own focus ring", #"[Ff]ocus\w*[^?\n]*\?\s*(?:Palette\.color\(\s*)?(?:Palette)?\.accent(?!\w)"#),
-    ].map { ($0.0, try! Regex($0.1)) }
+    nonisolated(unsafe) private static let macPatterns:
+        [(rule: String, markers: [String], regex: Regex<AnyRegexOutput>)] = [
+            (
+                "checkbox toggle style", [".toggleStyle(", "CheckboxToggleStyle()"],
+                #"\.toggleStyle\(\s*\.checkbox\b|\bCheckboxToggleStyle\(\)"#
+            ),
+            (
+                "radio group picker style", [".pickerStyle(", "RadioGroupPickerStyle()"],
+                #"\.pickerStyle\(\s*\.radioGroup\b|\bRadioGroupPickerStyle\(\)"#
+            ),
+            (
+                "segmented picker style", [".pickerStyle(", "SegmentedPickerStyle()"],
+                #"\.pickerStyle\(\s*\.segmented\b|\bSegmentedPickerStyle\(\)"#
+            ),
+            // A system picker draws AppKit's pop-up; the library's draws the Mac one.
+            ("system picker", ["Picker"], #"(?:^|[^\w.])Picker\s*[({]"#),
+            (
+                "system button style", [".buttonStyle(", "LinkButtonStyle()"],
+                #"\.buttonStyle\(\s*\.link\b|\bLinkButtonStyle\(\)"#
+            ),
+            (
+                "own focus handling", ["focusable(", "defaultFocus(", "focusEffectDisabled("],
+                #"(?:^|\W)(?:focusable|defaultFocus|focusEffectDisabled)\("#
+            ),
+            // A curve picked by a condition, such as Reduce Motion's nil or the curve, or stored.
+            ("own animation", ["?"], #"\s\?\s*(?:nil\s*:\s*)?\.(?:\#(curves))\b"#),
+            ("own animation", curves.split(separator: "|").map { "." + $0 + "(" }, #"(?::|=)\s*\.(?:\#(curves))\("#),
+            // A color that is the accent only while focused: a ring, an outline, or an underline.
+            ("own focus ring", ["ocus"], #"[Ff]ocus\w*[^?\n]*\?\s*(?:Palette\.color\(\s*)?(?:Palette)?\.accent(?!\w)"#),
+        ].map { ($0.0, $0.1, try! Regex($0.2)) }
 
     nonisolated(unsafe) private static let focusCondition = /\bif\b[^{\n]*[Ff]ocus[^{\n]*\{/
     nonisolated(unsafe) private static let accentStroke =
@@ -526,7 +550,8 @@ struct ControlLibraryTests {
 
     static func macViolations(in code: String, sourceLocation: SourceLocation = #_sourceLocation) -> Set<Violation> {
         var found = violations(in: code)
-        for (rule, regex) in macPatterns {
+        for (rule, markers, regex) in macPatterns
+        where markers.contains(where: { code.contains($0) }) {
             for match in code.matches(of: regex) {
                 found.insert(Violation(rule: rule, line: line(of: match.range, in: code)))
             }
@@ -612,7 +637,12 @@ struct ControlLibraryTests {
     }
 
     /// Every file the Mac pass checks, with what its Mac-compiled code violates.
-    static func macScreenViolations() throws -> [String: Set<Violation>] {
+    static func macScreenViolations() throws -> [String: Set<Violation>] { try macScreenViolationsResult.get() }
+
+    // Several tests read the same scan, so it runs once per test process.
+    private static let macScreenViolationsResult = Result { try scanMacScreenViolations() }
+
+    private static func scanMacScreenViolations() throws -> [String: Set<Violation>] {
         var result: [String: Set<Violation>] = [:]
         var screens: [ButtonStyleScan.File] = []
         var library: [ButtonStyleScan.File] = []

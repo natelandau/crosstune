@@ -37,14 +37,16 @@
 
         /// A SwiftUI text style used as a font: `.font(.footnote)`, `Font.title3`, `font: .body`,
         /// `: Font = .caption`, or a style in a ternary inside `.font(`.
-        private static var textStyle: Regex<(Substring, Substring, Substring)> {
+        nonisolated(unsafe) private static let textStyle =
             /(\.font\(\s*\.|\.font\((?!\.platform)[^\n]*[?:]\s*\.|\bFont\.|font:\s*\.|:\s*Font\s*=\s*\.)(largeTitle|title3|title2|title|headline|subheadline|footnote|caption2|caption|callout|body)\b/
-                // Simple boundaries, so a style followed by `.weight(` still ends at its dot.
-                .wordBoundaryKind(.simple)
-        }
+            // Simple boundaries, so a style followed by `.weight(` still ends at its dot.
+            .wordBoundaryKind(.simple)
 
         private static func violations(in text: String) -> [String] {
+            // Swift Regex is slow, and every spelling holds `font` or `Font`, so a plain search
+            // first skips almost every line.
             SourceScan.withoutComments(text).split(separator: "\n")
+                .filter { $0.contains("font") || $0.contains("Font") }
                 .filter { $0.contains(textStyle) }
                 .map { $0.trimmingCharacters(in: .whitespaces) }
         }

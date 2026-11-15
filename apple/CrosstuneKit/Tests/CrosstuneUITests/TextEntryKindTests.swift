@@ -8,14 +8,15 @@ import Testing
 struct TextEntryKindTests {
     /// The line of each input in `code` whose modifier chain names no kind.
     static func untypedInputs(in code: String) -> [String] {
+        // Only the inputs the file names at all, each spelled once as the characters of its call.
+        let calls = ContentMaskTests.inputs.filter { code.contains($0 + "(") }.map { ($0, Array($0 + "(")) }
+        if calls.isEmpty { return [] }
         let chars = Array(code)
         var untyped: [String] = []
         for index in chars.indices {
             // A member call or a longer name, such as `MultilineTextField(`, is not an input.
             if index > 0, chars[index - 1] == "." || SourceScan.isWordCharacter(chars[index - 1]) { continue }
-            guard
-                let input = ContentMaskTests.inputs.first(where: { chars[index...].starts(with: $0 + "(") })
-            else { continue }
+            guard let input = calls.first(where: { chars[index...].starts(with: $0.1) })?.0 else { continue }
             let close = SourceScan.matching(chars, from: index + input.count)
             if !SourceScan.modifiers(in: chars, after: close).contains("textEntry") {
                 let lineEnd = chars[index...].firstIndex(of: "\n") ?? chars.endIndex

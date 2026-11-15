@@ -345,13 +345,13 @@ git push --follow-tags origin main
   squash merge never lands, and the workflow refuses it.
 - The tag push runs `API`, `Web`, and `Apple` on the tagged commit, then
   force-pushes `production`. A failing `Apple` check or **Archive the Apple
-  apps** job stops the whole release.
+  app** job, one per platform, stops the whole release.
 - After `production` moves, **Upload to TestFlight** uploads the archives,
   built as `<run number>.<attempt>`.
 - A failed upload does not undo production.
-  - Run **Archive the Apple apps** again, which raises the attempt. A
-    second run of the upload alone sends the same build number, and App
-    Store Connect refuses it.
+  - Run both **Archive the Apple app** jobs again, which raises the
+    attempt. A second run of the upload alone sends the same build number,
+    and App Store Connect refuses it.
   - From a Mac: `just apple::testflight <build number>`, higher than every
     uploaded build. Needs the Sentry variables in `apple/.env`, the
     PostHog token and `SENTRY_DSN` in `apple/Config/Secrets.xcconfig`, and

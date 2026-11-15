@@ -86,13 +86,17 @@ jobs:
       - run: git push --force origin "HEAD:refs/heads/production"
 
   # Runs beside the checks, so a release build that fails to compile holds
-  # promote. The environment admits `v*` tags only.
+  # promote. The environment admits `v*` tags only. Each platform archives on its
+  # own runner, so the slower one sets the time rather than the two added together.
   archive:
-    name: Archive the Apple apps
+    name: Archive the Apple app (${{ matrix.platform }})
     needs: guard
     runs-on: xcode-27
     environment: app-store
     timeout-minutes: 40
+    strategy:
+      matrix:
+        platform: [ios, macos]
     permissions:
       contents: read
     defaults:
@@ -149,6 +153,12 @@ jobs:
           echo "$SENTRY_CLI_SHA256  $RUNNER_TEMP/sentry-cli" | shasum -a 256 -c -
           chmod +x "$RUNNER_TEMP/sentry-cli"
           echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+      # The Swift packages and their binary artifacts, keyed on the pins. A miss fetches them,
+      # which takes minutes.
+      - uses: actions/cache/restore@v6
+        with:
+          path: ~/Library/Caches/crosstune/source-packages
+          key: apple-packages-${{ hashFiles('apple/CrosstuneKit/Package.resolved') }}
       # The run number only rises, and a re-run raises the attempt, so no two
       # uploads share a build number. The archive fixes the number, so a new
       # upload needs this job re-run, not only the upload.
@@ -158,21 +168,25 @@ jobs:
           ASC_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_API_KEY_ISSUER_ID }}
           BUILD_NUMBER: ${{ github.run_number }}.${{ github.run_attempt }}
-        run: just archive "$BUILD_NUMBER"
+          PLATFORM: ${{ matrix.platform }}
+        run: just archive "$BUILD_NUMBER" "$PLATFORM"
       - name: upload the symbols
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN_APPLE }}
           SENTRY_ORG: ${{ vars.SENTRY_ORG }}
           SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT_APPLE }}
-        run: just upload-symbols
+          PLATFORM: ${{ matrix.platform }}
+        run: just upload-symbols "$PLATFORM"
       # An artifact keeps neither symlinks nor the executable bit, and an app
-      # bundle needs both, so the archives travel as a tarball.
-      - name: pack the archives
-        run: tar -cf "$RUNNER_TEMP/archives.tar" -C .build archives
+      # bundle needs both, so each archive travels as a tarball.
+      - name: pack the archive
+        env:
+          PLATFORM: ${{ matrix.platform }}
+        run: tar -cf "$RUNNER_TEMP/archive-$PLATFORM.tar" -C .build archives
       - uses: actions/upload-artifact@v7
         with:
-          name: apple-archives
-          path: ${{ runner.temp }}/archives.tar
+          name: apple-archive-${{ matrix.platform }}
+          path: ${{ runner.temp }}/archive-${{ matrix.platform }}.tar
           if-no-files-found: error
           # The repository is public. A retried upload re-runs the archive job, which makes a
           # new artifact, so nothing reads this one after the run.
@@ -206,10 +220,13 @@ jobs:
       - uses: extractions/setup-just@v4
       - uses: actions/download-artifact@v8
         with:
-          name: apple-archives
-          path: ${{ runner.temp }}
+          pattern: apple-archive-*
+          merge-multiple: true
+          path: ${{ runner.temp }}/archives
       - name: unpack the archives
-        run: mkdir -p .build && tar -xf "$RUNNER_TEMP/archives.tar" -C .build
+        run: |
+          mkdir -p .build
+          for tarball in "$RUNNER_TEMP"/archives/*.tar; do tar -xf "$tarball" -C .build; done
       - name: write the App Store Connect key
         env:
           ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
