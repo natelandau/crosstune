@@ -172,6 +172,9 @@ public final class EmbedStage {
 
     private func makeWebView() -> WKWebView {
         let configuration = WKWebViewConfiguration()
+        // Providers' cookies and storage last only as long as this web view, which sign-out
+        // tears down, so none carries over to the next account on a shared device.
+        configuration.websiteDataStore = .nonPersistent()
         configuration.mediaTypesRequiringUserActionForPlayback = []
         #if os(iOS)
             configuration.allowsInlineMediaPlayback = true
