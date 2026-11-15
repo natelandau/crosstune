@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import uuid
+from dataclasses import replace
 from datetime import timedelta
 from typing import TYPE_CHECKING
 
@@ -140,6 +141,25 @@ async def test_withdraw_on_day_15_is_refused_as_window_closed(
     assert body["reason"] == "window_closed"
     assert app.state.stripe.refunds == []
     assert (await _grant(verify_session)).withdrawn_at is None
+
+
+async def test_a_newer_subscription_inside_the_window_withdraws_beside_an_older_one(
+    client, app, make_token, verify_session
+) -> None:
+    headers = _headers(make_token)
+    older = replace(
+        _sub(started=timedelta(days=40), subscription_id="sub_old"),
+        expires_at=utc_now() + timedelta(days=300),
+        period=GrantPeriod.YEAR,
+    )
+    app.state.revenuecat = FakeRevenueCat({USER: [older, _sub(subscription_id="sub_new")]})
+    assert (await client.post(REFRESH, headers=headers)).status_code == 204
+
+    response = await client.post(WITHDRAW, headers=headers)
+
+    assert response.status_code == 204
+    assert app.state.stripe.refunds == [("pi_fake", "withdraw:sub_new")]
+    assert app.state.stripe.cancelled == ["si_sub_new"]
 
 
 async def test_a_second_withdrawal_is_refused_and_refunds_nothing(client, app, make_token) -> None:
