@@ -1,6 +1,6 @@
 import { noopAnalytics } from '../../usage/client'
 import Dexie from 'dexie'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vitest'
 import { rememberedUser, rememberUser } from '../../auth/session'
 import { recordEvent } from '../../commands/events'
 import { addScans } from '../../commands/scans'
@@ -33,6 +33,13 @@ describe('signOutAndForget', () => {
     const signOut = vi.fn(async () => {
       expect(await Dexie.exists(databaseName(userId))).toBe(true)
     })
+    const otherTab = openDatabase(userId)
+    await otherTab.open()
+    let rememberedAtDelete: string | null | undefined
+    otherTab.on('versionchange', () => {
+      rememberedAtDelete = rememberedUser()
+    })
+    onTestFinished(() => otherTab.close())
     await signOutAndForget({
       db,
       userId,
@@ -44,6 +51,7 @@ describe('signOutAndForget', () => {
     expect(stop.mock.invocationCallOrder[0]).toBeLessThan(signOut.mock.invocationCallOrder[0]!)
     expect(await Dexie.exists(databaseName(userId))).toBe(false)
     expect(rememberedUser()).toBeNull()
+    expect(rememberedAtDelete).toBeNull()
     expect(readSearchQuery('catalog')).toBe('')
     expect(readSearchQuery('recordings')).toBe('')
   })

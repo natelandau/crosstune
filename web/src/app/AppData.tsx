@@ -2,6 +2,7 @@ import { useAuth } from '@clerk/react'
 import { AnalyticsIdentity } from '../usage/AnalyticsIdentity'
 import { useAuthSession } from '../auth/AuthContext'
 import { DbProvider } from '../db/DbProvider'
+import { useCloseOnSignOutElsewhere } from '../features/settings/useCloseOnSignOutElsewhere'
 import { useForgetAccountDeletedElsewhere } from '../features/settings/useForgetAccountDeletedElsewhere'
 import { SyncProvider } from '../sync/SyncProvider'
 import { App } from './App'
@@ -14,6 +15,7 @@ export function AppData({ router }: { router: AppRouter }) {
       <AnalyticsIdentity />
       <SyncProvider>
         <ForgetAccountDeletedElsewhere />
+        <CloseOnSignOutElsewhere />
         <App router={router} />
       </SyncProvider>
     </DbProvider>
@@ -22,5 +24,10 @@ export function AppData({ router }: { router: AppRouter }) {
 
 function ForgetAccountDeletedElsewhere() {
   useForgetAccountDeletedElsewhere(useAuth().signOut)
+  return null
+}
+
+function CloseOnSignOutElsewhere() {
+  useCloseOnSignOutElsewhere()
   return null
 }

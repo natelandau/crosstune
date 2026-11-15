@@ -1,4 +1,4 @@
-import { readStored, writeStored } from '../platform/storage'
+import { onOtherTabWrite, readStored, writeStored } from '../platform/storage'
 
 const KEY = 'crosstune.lastUserId'
 
@@ -13,6 +13,18 @@ export function rememberedUser(): string | null {
 
 export function forgetUser(): void {
   writeStored(KEY, null)
+}
+
+/** True once this device stops remembering `userId`, as every sign-out on it makes it. */
+export function isForgotten(userId: string): boolean {
+  return rememberedUser() !== userId
+}
+
+/** Runs `onForget` when another tab stops remembering `userId`. Returns the teardown. */
+export function onForgottenElsewhere(userId: string, onForget: () => void): () => void {
+  return onOtherTabWrite([KEY], () => {
+    if (isForgotten(userId)) onForget()
+  })
 }
 
 const ACCOUNT_DELETED_KEY = 'crosstune.accountDeleted'
