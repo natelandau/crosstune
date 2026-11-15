@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Request, Response
+from fastapi import APIRouter, Request
 from pydantic import BaseModel
 
 from crosstune.geo import request_country
@@ -19,9 +19,8 @@ class RegionResponse(BaseModel):
 
 
 @router.get("")
-async def get_region(request: Request, response: Response) -> RegionResponse:
+async def get_region(request: Request) -> RegionResponse:
     """The caller's country and whether analytics must start off there."""
-    response.headers["Cache-Control"] = "no-store"
     country = request_country(request)
     if country is None:
         return RegionResponse(country=None, consent_required=None)

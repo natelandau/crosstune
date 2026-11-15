@@ -31,6 +31,7 @@ from crosstune.links.search.backoff import Backoff
 from crosstune.links.search.registry import SearchTokens
 from crosstune.links.search.registry import adapters as search_adapters
 from crosstune.logging import configure_logging
+from crosstune.no_store import NoStore
 from crosstune.places.maps import configured_maps
 from crosstune.places.router import router as places_router
 from crosstune.ratelimit import ConcurrencyLimiter, RateLimiter
@@ -175,6 +176,16 @@ def _publish_push_data_schemas(app: FastAPI) -> None:
     app.openapi = openapi
 
 
+def _add_middleware(app: FastAPI) -> None:
+    """Add the middleware stack. The last one added runs first."""
+    app.add_middleware(AccountCreatedHeader)
+    app.add_middleware(RequestBodyLimit)
+    # Outside RequestBodyLimit: a blocked request is answered before its body is checked.
+    app.add_middleware(VersionGate)
+    # Outermost, so the problems VersionGate and RequestBodyLimit answer with carry it too.
+    app.add_middleware(NoStore)
+
+
 @asynccontextmanager
 async def _lifespan(app: FastAPI) -> AsyncGenerator[None]:
     settings: Settings = app.state.settings
@@ -313,10 +324,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
 
     install_error_handlers(app)
-    app.add_middleware(AccountCreatedHeader)
-    app.add_middleware(RequestBodyLimit)
-    # Added last so it runs first: a blocked request is answered before its body is checked.
-    app.add_middleware(VersionGate)
+    _add_middleware(app)
     app.include_router(users_router)
     app.include_router(billing_router)
     app.include_router(sync_router)

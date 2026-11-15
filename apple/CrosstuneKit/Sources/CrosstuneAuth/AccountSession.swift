@@ -136,7 +136,7 @@ public final class AccountSession {
         tokens: any TokenProvider,
         clientVersion: String,
         analytics: AnalyticsClient,
-        transport: any ClientTransport = URLSessionTransport(),
+        transport: any ClientTransport = URLSessionTransport.crosstune,
         onUnauthorized: @escaping @Sendable () async -> Void,
         onAccountDeleted: @escaping @Sendable () async -> Void,
         onUpdateRequired: @escaping @Sendable () async -> Void
@@ -644,9 +644,9 @@ public final class AccountSession {
         }
     }
 
-    /// Ends the session, then deletes the user's folder. The catalog is private data on a
-    /// possibly shared device, so it goes with the session; if ending the session fails, it
-    /// stays.
+    /// Ends the session, then empties the shared URL cache and deletes the user's folder. The
+    /// catalog is private data on a possibly shared device, so it goes with the session; if
+    /// ending the session fails, it stays.
     ///
     /// `settle` first finishes the writes the app holds back, so none lands after the store
     /// closes. It then syncs and refuses while any edit is still only on this device, since the
@@ -682,6 +682,7 @@ public final class AccountSession {
         var keepsFolder = false
         if let store { keepsFolder = (try? await store.lockWritesUnlessUnsent()) != true }
         try? store?.close()
+        URLCache.shared.removeAllCachedResponses()
         if !keepsFolder { try CrosstuneStore.delete(userID: userID, root: root) }
     }
 
@@ -732,6 +733,7 @@ public final class AccountSession {
         analytics.reset()
         analytics.send(.accountDeleted)
         try? store?.close()
+        URLCache.shared.removeAllCachedResponses()
         try? CrosstuneStore.delete(userID: userID, root: root)
     }
 

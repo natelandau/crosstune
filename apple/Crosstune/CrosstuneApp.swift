@@ -63,6 +63,9 @@ struct CrosstuneApp: App {
         appStoreURL = UpdatePromptText.appStoreURL(id: configuration.appStoreID)
         // Before any window can start an export, so only files a past run left behind go.
         ExportWorkFolder.removeLeftovers()
+        // A private response can reach the shared URL cache outside the API's own session, so
+        // each launch starts with it empty.
+        URLCache.shared.removeAllCachedResponses()
         let player = PlayerModel.device(analytics: analytics, diagnostics: diagnostics)
         _player = State(initialValue: player)
         _listPlayback = State(initialValue: ListPlayback.device(player: player, analytics: analytics))
