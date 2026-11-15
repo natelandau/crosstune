@@ -68,6 +68,9 @@ async def refresh_billing(
     settings = request.app.state.settings
     try:
         with account_slot(request, user.id):
+            # Ends the transaction resolving the user opened, so the RevenueCat calls hold no
+            # pooled connection.
+            await session.commit()
             await refresh_purchases(
                 session,
                 user,
@@ -160,6 +163,8 @@ async def revenuecat_webhook(
     if not ids:
         return Response(status_code=200)
     users = (await session.scalars(select(User).where(User.clerk_user_id.in_(ids)))).all()
+    # The RevenueCat calls come next, and must hold no pooled connection while they wait.
+    await session.commit()
     now = utc_now()
     try:
         await refresh_many_purchases(

@@ -385,6 +385,39 @@ async def test_a_refresh_that_takes_a_subscription_another_is_adding_refreshes_b
     assert _entitlement(await pull(client, auth_headers("user_b")))["premium_source"] != "stripe"
 
 
+@pytest.mark.parametrize("route", ["refresh", "webhook"])
+async def test_a_refresh_holds_no_connection_while_it_reads_revenuecat(
+    client, webhook_app, auth_headers, engine, route: str
+) -> None:
+    await _sign_up(client, auth_headers, "user_a")
+    fake = FakeRevenueCat({"user_a": [_stripe_sub()]})
+    reading = asyncio.Event()
+    release = asyncio.Event()
+    original = fake.subscriptions
+
+    async def slow(customer_id: str, *, now=None) -> list[PaidSubscription]:
+        reading.set()
+        await release.wait()
+        return await original(customer_id, now=now)
+
+    fake.subscriptions = slow
+    webhook_app.state.revenuecat = fake
+    baseline = engine.pool.checkedout()
+    if route == "refresh":
+        sent = client.post(REFRESH, headers=auth_headers("user_a"))
+    else:
+        sent = client.post(WEBHOOK, json=_event(app_user_id="user_a"), headers=_auth())
+    task = asyncio.create_task(sent)
+    try:
+        await asyncio.wait_for(reading.wait(), timeout=10)
+        held = engine.pool.checkedout() - baseline
+    finally:
+        release.set()
+    response = await asyncio.wait_for(task, timeout=10)
+    assert held == 0
+    assert response.status_code in (200, 204), response.text
+
+
 async def test_refresh_many_locks_users_in_ascending_id_order(
     session: AsyncSession, settings: Settings, monkeypatch
 ) -> None:
