@@ -190,6 +190,9 @@ class Settings(BaseSettings):
     # Each sweep wakes the database and lists the whole bucket, so an idle app pays
     # for it; orphans are garbage, so a late sweep costs nothing.
     orphan_sweep_seconds: float = 43_200.0
+    # How long a split piece may wait on the server for its parent's split to arrive before
+    # the runner fails it: as long as a device offline mid-sync may take to push the rest.
+    split_piece_grace_seconds: float = 604_800.0
     # Apple builds below this `major.minor.patch` get 426; empty blocks nothing.
     apple_min_version: str = ""
 

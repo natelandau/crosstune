@@ -17,6 +17,7 @@ from sqlalchemy import (
     SmallInteger,
     String,
     Text,
+    func,
     text,
 )
 from sqlalchemy.dialects.postgresql import UUID
@@ -140,6 +141,12 @@ class Recording(SyncColumns, Base):
         Index("ix_recordings_user_id_server_seq", "user_id", "server_seq"),
         # The purge sweep reads tombstones on every runner pass, across every user.
         Index("ix_recordings_tombstones", "id", postgresql_where=text("deleted_at is not null")),
+        # The stranded piece sweep reads waiting pieces on every runner pass, across every user.
+        Index(
+            "ix_recordings_waiting_pieces",
+            "received_at",
+            postgresql_where=text("state = 'processing' and split_from_id is not null"),
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
@@ -237,6 +244,11 @@ class Recording(SyncColumns, Base):
         index=True,
     )
     created_by_split_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    # Server-owned and never synced: when the server first stored the row. created_at is the
+    # client's clock, so no server deadline is measured from it.
+    received_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
     # Set on a parent recording only: the latest split it is the parent of, how many
     # recordings that split made, itself included, and, server-owned, the split whose
     # pieces have all been cut.

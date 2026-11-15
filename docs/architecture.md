@@ -371,7 +371,9 @@ each question, and the invariants that both clients and the API hold.
 - Both of these are rewritten in place, never refused, since a device that
   has not pulled the split pushes the parent without it.
 - A piece can arrive before its parent's `split_id`. It stays
-  `processing` and is cut once the parent's split lands.
+  `processing` and is cut once the parent's split lands. A piece that no
+  split of its parent will cut fails: at once when the parent is deleted,
+  otherwise after `split_piece_grace_seconds`.
 - A parent's live pieces that are not `ready`, of every split and every
   `created_by_split_id`, are held to one split's worth
   (`MAX_SPLIT_PIECES`).
@@ -395,7 +397,8 @@ each question, and the invariants that both clients and the API hold.
   refusal.
 - A parent recording holds its full original while a live piece split
   from it is `processing`, unless the parent is `failed`. The purge sweep
-  and the parent's trim job wait for that hold. A failed parent fails its
+  and the parent's trim job wait for that hold. A held deleted parent
+  counts against the quota until the purge. A failed parent fails its
   waiting pieces and completes its split.
 
 ### Local deletes

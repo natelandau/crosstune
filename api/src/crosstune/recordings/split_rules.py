@@ -4,16 +4,17 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import and_, exists, func, select
+from sqlalchemy import and_, exists, func, or_, select
 from sqlalchemy.orm import aliased
 
 from crosstune.db.base import bump_server_seq
 from crosstune.models import Recording
+from crosstune.vocabulary import SPLIT_FAILED
 
 if TYPE_CHECKING:
     import uuid
 
-    from sqlalchemy import ColumnElement
+    from sqlalchemy import ColumnElement, Select
     from sqlalchemy.ext.asyncio import AsyncSession
 
 
@@ -127,6 +128,53 @@ def holds_original() -> ColumnElement[bool]:
     )
 
 
+def keeps_files() -> ColumnElement[bool]:
+    """A filter on `Recording` matching a recording whose files the server keeps.
+
+    A live recording, or a deleted one whose original a waiting piece still needs. The
+    purge removes the files of every other deleted recording, and the quota counts the
+    files of exactly these, so the two never disagree about which bytes the account holds.
+    A deleted recording waiting for its upload holds nothing: its pieces are never cut.
+    That also keeps the hold's subquery off the purged rows, which wait for an upload.
+    """
+    return or_(
+        Recording.deleted_at.is_(None),
+        and_(Recording.state != "pending_upload", holds_original()),
+    )
+
+
+def _never_cut(parent: Any) -> ColumnElement[bool]:
+    """A filter matching a waiting piece its parent's split job will never cut.
+
+    The job runs only for a parent that carries a split, and a deleted parent still
+    waiting for its upload never gets the file to cut from. A waiting piece of another
+    split than the parent's latest is not one a client makes: a client splits a row only
+    once every piece of its latest split is ready, and the push refuses such a piece once
+    the parent carries a split.
+    """
+    return or_(
+        parent.split_id.is_(None),
+        Recording.created_by_split_id.is_distinct_from(parent.split_id),
+        and_(parent.deleted_at.is_not(None), parent.state == "pending_upload"),
+    )
+
+
+def stranded_pieces() -> Select[Recording]:
+    """Select every user's live pieces waiting for a cut their parent's split job will never make.
+
+    Each holds the parent's original until it fails, so a parent deleted with one would
+    keep its files forever.
+    """
+    parent = aliased(Recording)
+    return (
+        select(Recording)
+        .join(parent, parent.id == Recording.split_from_id)
+        # Stated, not only implied by the join, so the planner matches the partial index.
+        .where(Recording.split_from_id.is_not(None))
+        .where(waiting_pieces(parent.id), _never_cut(parent))
+    )
+
+
 async def split_holds_original(session: AsyncSession, parent: Recording) -> bool:
     """Whether a live piece split from the parent still waits for its cut from the original.
 
@@ -201,6 +249,24 @@ def fail_piece(piece: Recording, error: str) -> None:
     bump_server_seq(piece)
 
 
+async def fail_pieces(session: AsyncSession, pieces: Select[Recording], error: str) -> int:
+    """Fail every piece the statement selects, under the user's lock, in the caller's transaction.
+
+    Args:
+        session: The session to write through.
+        pieces: The pieces to fail.
+        error: The phrase a client shows on each failed piece.
+
+    Returns:
+        int: How many pieces were failed.
+    """
+    failed = 0
+    for piece in await session.scalars(pieces):
+        fail_piece(piece, error)
+        failed += 1
+    return failed
+
+
 async def fail_waiting_pieces(session: AsyncSession, parent_id: uuid.UUID, error: str) -> int:
     """Fail every live piece split from the parent that is still waiting for its cut.
 
@@ -216,11 +282,24 @@ async def fail_waiting_pieces(session: AsyncSession, parent_id: uuid.UUID, error
     Returns:
         int: How many pieces were failed.
     """
-    failed = 0
-    for piece in await session.scalars(select(Recording).where(waiting_pieces(parent_id))):
-        fail_piece(piece, error)
-        failed += 1
-    return failed
+    return await fail_pieces(session, select(Recording).where(waiting_pieces(parent_id)), error)
+
+
+async def fail_stranded_pieces(session: AsyncSession, parent: Recording) -> int:
+    """Fail the parent's waiting pieces that its split job will never cut.
+
+    The pieces of the parent's latest split still wait, so a parent deleted mid-split
+    still has them cut. Called under the user's lock, in the caller's transaction.
+
+    Args:
+        session: The session to write through.
+        parent: The recording the pieces were split from.
+
+    Returns:
+        int: How many pieces were failed.
+    """
+    stranded = stranded_pieces().where(Recording.split_from_id == parent.id)
+    return await fail_pieces(session, stranded, SPLIT_FAILED)
 
 
 async def fail_parent_split(session: AsyncSession, parent: Recording) -> None:

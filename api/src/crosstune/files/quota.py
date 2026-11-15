@@ -12,6 +12,7 @@ from crosstune.db.base import utc_now
 from crosstune.errors import ConflictError, QuotaExceededError
 from crosstune.files.urls import UPLOAD_SIZE_TOLERANCE, UPLOAD_URL_TTL_SECONDS, file_too_large
 from crosstune.models import Recording, Scan, UploadSlot
+from crosstune.recordings.split_rules import keeps_files
 from crosstune.storage.store import staged_scan_key, staged_upload_key
 
 if TYPE_CHECKING:
@@ -44,7 +45,8 @@ async def used_bytes(
     A live recording or scan counts its open upload slot's declared size when it has
     one, otherwise its stored bytes. The slot replaces, never adds to, the stored
     file: confirming the upload replaces that file, and once the slot expires unused the
-    file is still there and counts again. A recording's kept original counts as well.
+    file is still there and counts again. A recording's kept original counts as well. A
+    deleted recording counts while its files are kept for a waiting piece, until the purge.
 
     Args:
         session: The session to query through.
@@ -106,7 +108,7 @@ def _usage(
 ) -> ColumnElement[int]:
     """One file type's share of `used_bytes`, as a SQL expression."""
     open_slots = UploadSlot.user_id == user_id, UploadSlot.expires_at > now
-    live = [model.user_id == user_id, model.deleted_at.is_(None)]
+    live = [model.user_id == user_id, _counted(model)]
     if exclude:
         live.append(model.id.not_in(exclude))
     has_open_slot = select(owner_column).where(*open_slots, owner_column.is_not(None))
@@ -125,13 +127,47 @@ def _usage(
 
 
 def _originals(*, user_id: uuid.UUID, exclude: Collection[uuid.UUID]) -> ColumnElement[int]:
-    """The live recordings' kept originals, which outlast every upload and transcode."""
-    live = [Recording.user_id == user_id, Recording.deleted_at.is_(None)]
+    """The kept originals of the counted recordings, which outlast every upload and transcode."""
+    live = [Recording.user_id == user_id, keeps_files()]
     if exclude:
         live.append(Recording.id.not_in(exclude))
     return (
         select(func.coalesce(func.sum(Recording.original_bytes), 0)).where(*live).scalar_subquery()
     )
+
+
+def _counted(model: type[Recording | Scan]) -> ColumnElement[bool]:
+    """A filter on `model` matching the rows whose files count against the quota."""
+    return keeps_files() if model is Recording else Scan.deleted_at.is_(None)
+
+
+async def revive_exceeds_quota(session: AsyncSession, row: SlotOwner, quota_bytes: int) -> bool:
+    """Whether bringing a deleted recording or scan back would take its owner past the quota.
+
+    A deleted row's files stay in the bucket until the purge, uncounted unless a waiting
+    piece holds them, so a revive before the purge brings them back into the count. A
+    revive that adds nothing to the count is never refused.
+
+    Args:
+        session: The session to query through.
+        row: The deleted recording or scan a push would revive.
+        quota_bytes: The owner's storage quota.
+
+    Returns:
+        bool: True when the revive must be refused.
+    """
+    if isinstance(row, Recording):
+        files = (row.playback_bytes or 0) + (row.original_bytes or 0)
+        counted = files > 0 and (
+            await session.scalar(select(Recording.id).where(Recording.id == row.id, keeps_files()))
+            is not None
+        )
+    else:
+        # A deleted scan never counts.
+        files, counted = row.file_bytes or 0, False
+    if files == 0 or counted:
+        return False
+    return await used_bytes(session, row.user_id) + files > quota_bytes
 
 
 async def slot_for_recording(session: AsyncSession, recording_id: uuid.UUID) -> UploadSlot | None:

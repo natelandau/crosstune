@@ -38,8 +38,10 @@ from crosstune.jobs.attempt import (
 from crosstune.jobs.handlers import HANDLERS
 from crosstune.jobs.sweep import (
     ABANDONED_SLOT_GRACE,
+    fail_overdue_pieces,
     live_pending_scan_slot,
     live_pending_slot,
+    next_overdue_piece,
     purge_deleted,
     purge_deleted_scans,
     queue_ready_splits,
@@ -248,12 +250,17 @@ class JobRunner:
                 return None
         return None
 
+    @property
+    def _piece_grace(self) -> timedelta:
+        return timedelta(seconds=self._settings.split_piece_grace_seconds)
+
     async def next_due(self) -> datetime:
         """The earliest time a pass could find work that no wake announces.
 
         That is a backed-off or expired job or analytics deletion lock, an upload slot of a
-        pending or deleted row passing its abandonment grace, the daily inactivity and billing
-        passes, or the next orphan sweep, which bounds the sleep to `orphan_sweep_seconds`.
+        pending or deleted row passing its abandonment grace, a stranded split piece passing
+        its grace, the daily inactivity and billing passes, or the next orphan sweep, which
+        bounds the sleep to `orphan_sweep_seconds`.
         Other purges have no due time; the delete that makes one wakes the runner.
 
         Returns:
@@ -278,6 +285,7 @@ class JobRunner:
             deletion_due = (
                 await analytics.next_due(session) if self._analytics_persons is not None else None
             )
+            piece_due = await next_overdue_piece(session, grace=self._piece_grace)
         # A running pass wakes the loop when it ends, so it sets no due time of its own.
         inactivity_due = (
             await self._inactivity_due_at(utc_now())
@@ -291,7 +299,9 @@ class JobRunner:
         )
         candidates = [self._next_orphan_sweep]
         candidates += [
-            due for due in (job_due, deletion_due, inactivity_due, billing_due) if due is not None
+            due
+            for due in (job_due, deletion_due, piece_due, inactivity_due, billing_due)
+            if due is not None
         ]
         candidates += [
             expiry + ABANDONED_SLOT_GRACE for expiry in slot_expiries if expiry is not None
@@ -310,6 +320,8 @@ class JobRunner:
         if job is not None:
             await self._run_job(job)
             done += 1
+        # Before the purge, so a parent a failed piece releases is purged in the same pass.
+        done += await fail_overdue_pieces(self._sessionmaker, grace=self._piece_grace)
         done += await self._purge()
         if self._analytics_persons is not None:
             done += await analytics.delete_due_person(self._sessionmaker, self._analytics_persons)

@@ -70,7 +70,7 @@ from crosstune.storage.store import (
     upload_key,
     upload_revision,
 )
-from crosstune.vocabulary import JobKind
+from crosstune.vocabulary import SPLIT_FAILED, JobKind
 from tests.fake_media import FAKE_SOURCES, probe, read_fake
 from tests.fakes import FakeClerkUsers, FakeMailer, FakeObjectStore
 
@@ -1083,14 +1083,14 @@ async def _deleted_split_parent(verify_session, store, state: str = "ready") -> 
     return rec
 
 
-async def _add_waiting_piece(verify_session, parent: Recording) -> Recording:
+async def _add_waiting_piece(verify_session, parent: Recording, **fields) -> Recording:
     user = await verify_session.get(User, parent.user_id)
     piece = await add_recording(
         verify_session,
         user,
         "processing",
         split_from_id=parent.id,
-        created_by_split_id=parent.split_id,
+        **{"created_by_split_id": parent.split_id, **fields},
     )
     await verify_session.commit()
     return piece
@@ -1124,6 +1124,41 @@ async def test_purge_deletes_failed_parent_with_a_waiting_piece(runner, verify_s
     await _add_waiting_piece(verify_session, rec)
     assert await sweep_module.purge_deleted(job_runner._sessionmaker, store) == 1
     assert store.keys() == []
+
+
+@pytest.mark.parametrize(
+    ("own_split", "waited", "fails"),
+    [
+        # A piece of no split the parent carries, past the grace.
+        (False, timedelta(hours=2), True),
+        # Its split may still arrive.
+        (False, timedelta(minutes=10), False),
+        # The parent's own split cuts it, however long it waits.
+        (True, timedelta(hours=2), False),
+    ],
+)
+async def test_a_piece_no_split_will_cut_fails_after_the_grace_and_releases_its_parent(
+    runner, verify_session, own_split, waited, fails
+) -> None:
+    job_runner, store = runner
+    rec = await _deleted_split_parent(verify_session, store)
+    piece = await _add_waiting_piece(
+        verify_session,
+        rec,
+        created_by_split_id=rec.split_id if own_split else uuid.uuid4(),
+        received_at=utc_now() - waited,
+    )
+
+    failed = await sweep_module.fail_overdue_pieces(
+        job_runner._sessionmaker, grace=timedelta(hours=1)
+    )
+    assert failed == int(fails)
+    await verify_session.refresh(piece)
+    assert (piece.state, piece.error) == (
+        ("failed", SPLIT_FAILED) if fails else ("processing", None)
+    )
+    assert await sweep_module.purge_deleted(job_runner._sessionmaker, store) == int(fails)
+    assert (store.keys() == []) is fails
 
 
 async def test_purge_rechecks_the_split_hold_under_the_lock(
@@ -1626,6 +1661,22 @@ async def test_next_due_is_a_deleted_rows_slot_past_grace(runner, verify_session
     await verify_session.commit()
     slot = await slot_for_recording(verify_session, deleted.id)
     assert await job_runner.next_due() == slot.expires_at + ABANDONED_SLOT_GRACE
+
+
+async def test_next_due_is_a_stranded_piece_past_grace(runner, verify_session) -> None:
+    """A piece its parent's split will cut never comes due, however long it waits."""
+    job_runner, store = runner
+    await job_runner.run_once()
+    grace = timedelta(seconds=job_runner._settings.split_piece_grace_seconds)
+    rec = await _deleted_split_parent(verify_session, store)
+    await _add_waiting_piece(verify_session, rec, received_at=utc_now() - 2 * grace)
+    stranded = await _add_waiting_piece(
+        verify_session,
+        rec,
+        created_by_split_id=uuid.uuid4(),
+        received_at=utc_now() - grace + timedelta(hours=1),
+    )
+    assert await job_runner.next_due() == stranded.received_at + grace
 
 
 async def test_wake_runs_work_that_arrived_while_idle(runner, verify_session) -> None:
