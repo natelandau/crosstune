@@ -27,7 +27,7 @@ from crosstune.config import Settings
 from crosstune.db.base import Base
 from crosstune.db.engine import make_engine, make_sessionmaker
 from crosstune.geo import NoCountryReader
-from crosstune.http import PublicOnlyTransport
+from crosstune.http import public_only_client
 from crosstune.main import create_app
 from crosstune.ops import local_storage
 from tests import fake_media as fake_media_module
@@ -587,10 +587,7 @@ class GuardedHttp:
             except KeyError:
                 raise OSError(host) from None
 
-        return httpx2.AsyncClient(
-            transport=PublicOnlyTransport(httpx2.MockTransport(self.handler), resolve=resolve),
-            follow_redirects=True,
-        )
+        return public_only_client(5.0, inner=httpx2.MockTransport(self.handler), resolve=resolve)
 
 
 @pytest.fixture

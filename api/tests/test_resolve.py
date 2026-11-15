@@ -503,6 +503,35 @@ async def test_a_link_that_redirects_to_a_private_address_resolves_untitled(guar
     assert [str(call.url) for call in guarded_http.calls] == ["https://93.184.216.34/"]
 
 
+async def test_a_cookie_one_resolve_receives_is_not_sent_on_the_next(guarded_http) -> None:
+    guarded_http.add(
+        "https://public.example/",
+        httpx2.Response(200, headers={"Set-Cookie": "visitor=one"}, text=og_html("Title")),
+    )
+    async with guarded_http.client({"public.example": ["93.184.216.34"]}) as client:
+        await resolve_link("https://public.example/a", client, timeout=5.0)
+        await resolve_link("https://public.example/b", client, timeout=5.0)
+    assert [call.headers.get("Cookie") for call in guarded_http.calls] == [None, None]
+
+
+async def test_a_cookie_set_on_a_redirect_is_sent_on_the_next_hop_only(guarded_http) -> None:
+    guarded_http.add("https://public.example/check", httpx2.Response(200, text=og_html("Title")))
+    guarded_http.add(
+        "https://public.example/",
+        httpx2.Response(302, headers={"Set-Cookie": "visitor=one", "Location": "/check"}),
+    )
+    async with guarded_http.client({"public.example": ["93.184.216.34"]}) as client:
+        first = await resolve_link("https://public.example/a", client, timeout=5.0)
+        await resolve_link("https://public.example/b", client, timeout=5.0)
+    assert first.title == "Title"
+    assert [call.headers.get("Cookie") for call in guarded_http.calls] == [
+        None,
+        "visitor=one",
+        None,
+        "visitor=one",
+    ]
+
+
 def _pool_watching_client(engine, mock_http, seen: list[int]) -> httpx2.AsyncClient:
     """An outbound client that notes how many pooled connections are out at each provider call."""
 
