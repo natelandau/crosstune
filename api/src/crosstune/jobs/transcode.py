@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 
 from crosstune.db.base import bump_server_seq, utc_now
 from crosstune.db.locks import lock_user
+from crosstune.files.quota import OVER_QUOTA, rewrite_exceeds_quota
 from crosstune.jobs.attempt import RecordingRefused
 from crosstune.jobs.media import cut, encode, needs_encode, probe, remux
 from crosstune.jobs.peaks import build_peaks
@@ -44,6 +45,7 @@ if TYPE_CHECKING:
 
     from sqlalchemy.ext.asyncio import AsyncSession
 
+    from crosstune.config import Settings
     from crosstune.jobs.media import Probe
     from crosstune.models import Recording
     from crosstune.storage.store import ObjectStore
@@ -196,7 +198,12 @@ async def _adopt_upload_tags(session: AsyncSession, recording: Recording, info: 
 
 
 async def transcode(
-    session: AsyncSession, store: ObjectStore, recording: Recording, work_dir: Path
+    session: AsyncSession,
+    store: ObjectStore,
+    recording: Recording,
+    work_dir: Path,
+    *,
+    settings: Settings,
 ) -> None:
     """Produce the playback file for one uploaded recording and mark it ready.
 
@@ -216,10 +223,12 @@ async def transcode(
         store: Where the uploaded object lives and the results go.
         recording: A recording in the uploaded or processing state.
         work_dir: A directory for temp files, cleaned by the caller.
+        settings: The settings that decide the owner's quota.
 
     Raises:
-        RecordingRefused: When the file claims more than `allowed_source_ms`, or its
-            playback turns out to decode to more than MAX_RECORDING_MS.
+        RecordingRefused: When the file claims more than `allowed_source_ms`, its
+            playback turns out to decode to more than MAX_RECORDING_MS, or its playback
+            file and original would take the owner past the quota.
     """
     source = work_dir / "upload"
     target = work_dir / "playback.m4a"
@@ -273,6 +282,9 @@ async def transcode(
     # The lock is what keeps this seq in commit order with the user's pushes; the
     # caller's commit releases it.
     await lock_user(session, recording.user_id)
+    # Held to the whole room left, as the upload it replaces was.
+    if await rewrite_exceeds_quota(session, recording, settings, previous_bytes=0):
+        raise RecordingRefused(OVER_QUOTA)
     await _reclamp_trim(session, recording)
     await _adopt_upload_tags(session, recording, info)
     await _queue_mono(session, recording)

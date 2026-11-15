@@ -6,10 +6,11 @@ import asyncio
 import logging
 from dataclasses import dataclass
 from functools import partial
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NoReturn
 
 from crosstune.db.base import bump_server_seq, utc_now
 from crosstune.db.locks import lock_user
+from crosstune.files.quota import counted_bytes, rewrite_exceeds_quota
 from crosstune.jobs.audio_rewrite import rewrite_playback
 from crosstune.jobs.peaks import range_peaks
 from crosstune.recordings.loops import reclamp_recording_loops
@@ -29,6 +30,7 @@ if TYPE_CHECKING:
 
     from sqlalchemy.ext.asyncio import AsyncSession
 
+    from crosstune.config import Settings
     from crosstune.models import Recording
     from crosstune.storage.store import ObjectStore, Revision
 
@@ -200,8 +202,21 @@ def _write_clamped_trim(recording: Recording, start_ms: int, end_ms: int) -> Non
         recording.trim_end_ms = stored_end
 
 
+def _refuse_past_quota(recording: Recording) -> NoReturn:
+    msg = (
+        f"recording {recording.id} would store {counted_bytes(recording)} bytes, "
+        "past its owner's quota"
+    )
+    raise TrimError(msg)
+
+
 async def trim(
-    session: AsyncSession, store: ObjectStore, recording: Recording, work_dir: Path
+    session: AsyncSession,
+    store: ObjectStore,
+    recording: Recording,
+    work_dir: Path,
+    *,
+    settings: Settings,
 ) -> list[str]:
     """Rewrite the playback file and peaks of a ready recording to its saved trim.
 
@@ -215,18 +230,27 @@ async def trim(
     taken, the cut is stale: its uploads are deleted and the row keeps its current
     files, so the caller's `ensure_trim_job` queues the newest trim instead.
 
+    A new playback file or backup that would take the owner past the quota is refused
+    like any failure: the row keeps its current files and the caller recovers.
+
     Args:
         session: The session the recording is attached to. The caller commits.
         store: Where the recording's files live and the new ones go.
         recording: A ready recording whose trim differs from its playback range.
         work_dir: A directory for temp files, cleaned by the caller.
+        settings: The settings that decide the owner's quota.
 
     Returns:
         list[str]: The superseded playback and peaks keys, to delete only after
         the caller's commit.
+
+    Raises:
+        TrimError: The row has no complete range to cut against, or the new files would
+            take the owner past the quota.
     """
     requested = (recording.trim_start_ms, recording.trim_end_ms)
     peaks_key_used = recording.peaks_key
+    counted_before = counted_bytes(recording)
     files = current_files(recording)
     start_ms, end_ms = clamp_trim(
         recording.trim_start_ms,
@@ -290,6 +314,9 @@ async def trim(
             await reclamp_recording_loops(session, recording, utc_now())
             if result is not None:
                 superseded = _apply(recording, result, start_ms, end_ms)
+        # A stale cut can still keep its backup, which the quota counts as well.
+        if await rewrite_exceeds_quota(session, recording, settings, previous_bytes=counted_before):
+            _refuse_past_quota(recording)
         bump_server_seq(recording)
         await session.flush()
     except BaseException:

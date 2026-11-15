@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from crosstune.billing.grants import grant_comp
 from crosstune.db.base import new_uuid7, utc_now
 from crosstune.db.engine import make_sessionmaker
-from crosstune.files.quota import slot_for_recording
+from crosstune.files.quota import OVER_QUOTA, slot_for_recording, used_bytes
 from crosstune.inactivity.sweep import (
     INACTIVITY_RUN,
     RUN_EVERY,
@@ -73,6 +73,7 @@ from crosstune.storage.store import (
 from crosstune.vocabulary import SPLIT_FAILED, JobKind
 from tests.fake_media import FAKE_SOURCES, probe, read_fake
 from tests.fakes import FakeClerkUsers, FakeMailer, FakeObjectStore
+from tests.helpers import JOB_SETTINGS
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
@@ -129,6 +130,8 @@ async def add_recording(session, user: User, state: str, **fields) -> Recording:
 async def make_uploaded(
     session, store: FakeObjectStore, user: User, path, content_type: str
 ) -> Recording:
+    # An upload needs room in the quota, which only Premium has.
+    await grant_premium(session, user.id)
     rec = await add_recording(session, user, "uploaded", playback_bytes=path.stat().st_size)
     store.put_bytes(upload_key(user.id, rec.id), path.read_bytes(), content_type)
     return rec
@@ -145,7 +148,7 @@ async def test_transcode_passes_an_aac_upload_through(session, media_fixtures, t
     store = FakeObjectStore()
     user = await make_user(session)
     rec = await make_uploaded(session, store, user, media_fixtures["m4a"], "audio/mp4")
-    await transcode(session, store, rec, tmp_path)
+    await transcode(session, store, rec, tmp_path, settings=JOB_SETTINGS)
     assert rec.state == "ready"
     assert rec.playback_key == playback_key(user.id, rec.id, rec.playback_rev)
     assert rec.playback_mime == "audio/mp4"
@@ -162,7 +165,7 @@ async def test_transcode_writes_revisioned_playback(session, fake_media, tmp_pat
     store = FakeObjectStore()
     user = await make_user(session)
     rec = await make_uploaded(session, store, user, fake_media["m4a"], "audio/mp4")
-    await transcode(session, store, rec, tmp_path)
+    await transcode(session, store, rec, tmp_path, settings=JOB_SETTINGS)
     assert re.fullmatch(r"[0-9a-f]{8}", rec.playback_rev)
     assert rec.playback_key == playback_key(user.id, rec.id, rec.playback_rev)
     assert store.get_bytes(rec.playback_key)
@@ -172,7 +175,7 @@ async def test_transcode_sets_ranges_and_peaks(session, media_fixtures, tmp_path
     store = FakeObjectStore()
     user = await make_user(session)
     rec = await make_uploaded(session, store, user, media_fixtures["m4a"], "audio/mp4")
-    await transcode(session, store, rec, tmp_path)
+    await transcode(session, store, rec, tmp_path, settings=JOB_SETTINGS)
     assert rec.playback_start_ms == 0
     assert rec.playback_end_ms == rec.source_duration_ms
     assert re.fullmatch(r"[0-9a-f]{8}", rec.peaks_rev)
@@ -185,7 +188,7 @@ async def test_transcode_queues_a_mono_measurement(session, fake_media, tmp_path
     store = FakeObjectStore()
     user = await make_user(session)
     rec = await make_uploaded(session, store, user, fake_media["m4a"], "audio/mp4")
-    await transcode(session, store, rec, tmp_path)
+    await transcode(session, store, rec, tmp_path, settings=JOB_SETTINGS)
     assert (rec.state, rec.is_mono) == ("ready", None)
     jobs = await session.scalars(
         select(Job).where(Job.recording_id == rec.id, Job.kind == JobKind.MONO.value)
@@ -199,7 +202,7 @@ async def test_transcode_keeps_a_stored_mono_flag(session, fake_media, tmp_path)
     rec = await make_uploaded(session, store, user, fake_media["m4a"], "audio/mp4")
     rec.is_mono = False
     await session.flush()
-    await transcode(session, store, rec, tmp_path)
+    await transcode(session, store, rec, tmp_path, settings=JOB_SETTINGS)
     assert rec.is_mono is False
     jobs = await session.scalars(
         select(Job).where(Job.recording_id == rec.id, Job.kind == JobKind.MONO.value)
@@ -216,7 +219,7 @@ async def test_transcode_applies_trim_saved_before_upload(
     rec = await make_uploaded(session, store, user, media_fixtures["wav"], "audio/wav")
     rec.trim_start_ms = 500
     rec.trim_end_ms = 1500
-    await transcode(session, store, rec, tmp_path)
+    await transcode(session, store, rec, tmp_path, settings=JOB_SETTINGS)
     assert 970 <= rec.duration_ms <= 1030
     assert (rec.playback_start_ms, rec.playback_end_ms) == (500, 1500)
 
@@ -229,7 +232,7 @@ async def test_transcode_passthrough_trim_keeps_full_original(
     rec = await make_uploaded(session, store, user, media_fixtures["m4a"], "audio/mp4")
     rec.trim_start_ms = 500
     rec.trim_end_ms = 1500
-    await transcode(session, store, rec, tmp_path)
+    await transcode(session, store, rec, tmp_path, settings=JOB_SETTINGS)
     assert rec.original_key is not None
     original_path = tmp_path / "original_check"
     original_path.write_bytes(store.get_bytes(rec.original_key))
@@ -249,7 +252,7 @@ async def test_transcode_keeps_an_existing_original_on_a_no_cut_retry(
     store.put_bytes(existing, b"a prior full backup", "audio/mp4")
     rec.original_key = existing
     rec.original_bytes = 20
-    await transcode(session, store, rec, tmp_path)
+    await transcode(session, store, rec, tmp_path, settings=JOB_SETTINGS)
     assert rec.original_key == existing
     assert rec.original_bytes == 20
     assert store.get_bytes(existing) == b"a prior full backup"
@@ -270,7 +273,7 @@ async def test_peaks_job_backfills(session, media_fixtures, tmp_path) -> None:
     store = FakeObjectStore()
     user = await make_user(session)
     rec = await make_uploaded(session, store, user, media_fixtures["m4a"], "audio/mp4")
-    await transcode(session, store, rec, tmp_path)
+    await transcode(session, store, rec, tmp_path, settings=JOB_SETTINGS)
     await session.refresh(rec)
     seq_before = rec.server_seq
     rec.peaks_key = None
@@ -292,7 +295,7 @@ async def test_peaks_job_measures_a_recording_with_no_length(session, fake_media
     store = FakeObjectStore()
     user = await make_user(session)
     rec = await make_uploaded(session, store, user, fake_media["m4a"], "audio/mp4")
-    await transcode(session, store, rec, tmp_path)
+    await transcode(session, store, rec, tmp_path, settings=JOB_SETTINGS)
     await session.refresh(rec)
     rec.duration_ms = None
     rec.source_duration_ms = None
@@ -316,7 +319,7 @@ async def test_peaks_job_keeps_a_known_length(
     store = FakeObjectStore()
     user = await make_user(session)
     rec = await make_uploaded(session, store, user, fake_media["m4a"], "audio/mp4")
-    await transcode(session, store, rec, tmp_path)
+    await transcode(session, store, rec, tmp_path, settings=JOB_SETTINGS)
     await session.refresh(rec)
     known = (rec.duration_ms, rec.source_duration_ms, rec.playback_start_ms, rec.playback_end_ms)
 
@@ -349,7 +352,7 @@ async def test_transcode_encodes_and_keeps_the_original(
     store = FakeObjectStore()
     user = await make_user(session)
     rec = await make_uploaded(session, store, user, media_fixtures[fixture], content_type)
-    await transcode(session, store, rec, tmp_path)
+    await transcode(session, store, rec, tmp_path, settings=JOB_SETTINGS)
     assert rec.state == "ready"
     assert rec.original_key == original_key(user.id, rec.id, content_type)
     assert rec.original_key.endswith(f".{extension}")
@@ -366,7 +369,7 @@ async def test_transcode_raises_on_junk_and_leaves_the_upload(session, tmp_path)
     junk.write_bytes(b"nope")
     rec = await make_uploaded(session, store, user, junk, "audio/mp4")
     with pytest.raises(Exception, match=r"ffprobe|audio"):
-        await transcode(session, store, rec, tmp_path)
+        await transcode(session, store, rec, tmp_path, settings=JOB_SETTINGS)
     assert store.keys() == [upload_key(user.id, rec.id)]
 
 
@@ -410,6 +413,49 @@ async def test_run_once_transcodes_one_job_and_removes_it(
     assert rec.is_mono is True
     assert await verify_session.scalar(select(Job).where(Job.recording_id == rec.id)) is None
     assert await job_runner.run_once() == 0
+
+
+def _quota_runner(
+    engine, tmp_path, settings: Settings, store: FakeObjectStore, quota: int
+) -> JobRunner:
+    """A runner whose Premium quota is `quota` bytes."""
+    return JobRunner(
+        make_sessionmaker(engine),
+        store,
+        work_root=tmp_path,
+        settings=settings.model_copy(update={"premium_quota_bytes": quota}),
+    )
+
+
+@pytest.mark.parametrize(
+    "upload",
+    [("webm", "audio/webm", None), ("m4a", "audio/mp4", (500, 1500))],
+    ids=["encode", "passthrough-cut"],
+)
+async def test_a_transcode_past_the_quota_fails_and_leaves_no_files(
+    engine,
+    tmp_path,
+    settings,
+    verify_session,
+    media_fixtures,
+    upload: tuple[str, str, tuple[int, int] | None],
+) -> None:
+    """The playback file and original of a low-rate upload outgrow the room the upload had."""
+    fixture, content_type, trim_ms = upload
+    store = FakeObjectStore()
+    rec = await seed(verify_session, store, media_fixtures[fixture], content_type)
+    if trim_ms is not None:
+        rec.trim_start_ms, rec.trim_end_ms = trim_ms
+        await verify_session.commit()
+    quota = await used_bytes(verify_session, rec.user_id) + 1000
+    job_runner = _quota_runner(engine, tmp_path, settings, store, quota)
+    assert await job_runner.run_once() == 1
+    await verify_session.refresh(rec)
+    assert (rec.state, rec.error) == ("failed", OVER_QUOTA)
+    assert (rec.playback_key, rec.original_key) == (None, None)
+    assert await used_bytes(verify_session, rec.user_id) <= quota
+    assert store.keys() == [upload_key(rec.user_id, rec.id)]
+    assert await verify_session.scalar(select(Job).where(Job.recording_id == rec.id)) is None
 
 
 async def test_a_recording_past_the_length_limit_fails_on_its_first_attempt(
@@ -593,7 +639,7 @@ async def seed_ready_for_peaks(
     """A ready recording, already transcoded, with its peaks columns cleared and a job queued."""
     user = await make_user(verify_session)
     rec = await make_uploaded(verify_session, store, user, sources["m4a"], "audio/mp4")
-    await transcode(verify_session, store, rec, tmp_path)
+    await transcode(verify_session, store, rec, tmp_path, settings=JOB_SETTINGS)
     await drop_mono_job(verify_session, rec)
     rec.peaks_key = None
     rec.peaks_rev = None
@@ -734,7 +780,7 @@ async def test_peaks_job_aborts_when_playback_changes_during_the_job(
     store = FakeObjectStore()
     user = await make_user(session)
     rec = await make_uploaded(session, store, user, fake_media["m4a"], "audio/mp4")
-    await transcode(session, store, rec, tmp_path)
+    await transcode(session, store, rec, tmp_path, settings=JOB_SETTINGS)
     rec.peaks_key = None
     rec.peaks_rev = None
     rec.peaks_bytes = None
@@ -1417,7 +1463,7 @@ async def test_a_job_cancelled_at_shutdown_goes_back_uncounted_and_cleans_up(
     uploaded = playback_key(rec.user_id, rec.id, "cut")
     started = asyncio.Event()
 
-    async def upload_then_hang(_session, _store, recording, _work_dir) -> None:
+    async def upload_then_hang(_session, _store, recording, _work_dir, **_kwargs) -> None:
         store.put_bytes(uploaded, b"a", "audio/mp4")
         recording.playback_key = uploaded
         started.set()
@@ -1442,7 +1488,7 @@ async def test_an_attempt_past_its_time_limit_fails_and_backs_off(
     job_runner, store = runner
     monkeypatch.setattr(attempt_module, "ATTEMPT_TIMEOUT_SECONDS", 0.1)
 
-    async def hang(*_args: object) -> None:
+    async def hang(*_args: object, **_kwargs: object) -> None:
         await asyncio.sleep(60)
 
     monkeypatch.setattr(transcode_handler, "transcode", hang)
@@ -2104,7 +2150,7 @@ async def seed_ready(verify_session, store: FakeObjectStore, path, content_type,
     rec = await make_uploaded(verify_session, store, user, path, content_type)
     work = tmp_path / f"seed-{rec.id}"
     work.mkdir()
-    await transcode(verify_session, store, rec, work)
+    await transcode(verify_session, store, rec, work, settings=JOB_SETTINGS)
     await drop_mono_job(verify_session, rec)
     await store.delete(upload_key(user.id, rec.id))
     await verify_session.commit()
@@ -2245,6 +2291,42 @@ async def test_trim_start_only_with_null_end(
     assert rec.trim_end_ms is None
     assert abs(rec.duration_ms - (rec.source_duration_ms - 500)) <= 30
     assert await trim_jobs(verify_session, rec) == []
+
+
+async def test_a_trim_past_the_quota_keeps_the_recording_as_it_was(
+    engine, tmp_path, settings, verify_session, media_fixtures
+) -> None:
+    """A trim of an upload with no original must keep a backup the full account has no room for."""
+    store = _WriteTrackingStore()
+    rec = await seed_ready(verify_session, store, media_fixtures["m4a"], "audio/mp4", tmp_path)
+    assert rec.original_key is None
+    used = await used_bytes(verify_session, rec.user_id)
+    keys = set(store.keys())
+    playback = rec.playback_key
+    await save_trim(verify_session, rec, 1, None)
+    job_runner = _quota_runner(engine, tmp_path, settings, store, used)
+    assert await job_runner.run_once() == 1
+    await verify_session.refresh(rec)
+    assert rec.state == "ready"
+    assert (rec.playback_key, rec.original_key) == (playback, None)
+    assert await used_bytes(verify_session, rec.user_id) == used
+    assert set(store.keys()) == keys
+
+
+async def test_a_trim_that_stores_less_runs_past_the_quota(
+    engine, tmp_path, settings, verify_session, media_fixtures
+) -> None:
+    store = _WriteTrackingStore()
+    rec = await seed_ready(verify_session, store, media_fixtures["wav"], "audio/wav", tmp_path)
+    assert rec.original_key is not None
+    used = await used_bytes(verify_session, rec.user_id)
+    await save_trim(verify_session, rec, 500, 1500)
+    # Far past the quota, as a lapsed account's is: even the original alone is over it.
+    job_runner = _quota_runner(engine, tmp_path, settings, store, 1)
+    assert await job_runner.run_once() == 1
+    await verify_session.refresh(rec)
+    assert (rec.playback_start_ms, rec.playback_end_ms) == (500, 1500)
+    assert await used_bytes(verify_session, rec.user_id) < used
 
 
 async def test_trim_keeps_an_existing_original(
@@ -2611,7 +2693,7 @@ async def test_trim_without_a_cut_writes_nothing(verify_session, fake_media, tmp
     keys_before = set(store.keys())
     work = tmp_path / "no-cut"
     work.mkdir()
-    assert await trim(verify_session, store, rec, work) == []
+    assert await trim(verify_session, store, rec, work, settings=JOB_SETTINGS) == []
     assert store.written == []
     assert set(store.keys()) == keys_before
     assert rec.original_key is None
@@ -2748,7 +2830,7 @@ async def test_transcode_reclamps_loops_to_the_measured_length(
         await add_loop(session, rec, 500, 30_000),
         await add_loop(session, rec, 30_000, 40_000),
     )
-    await transcode(session, store, rec, tmp_path)
+    await transcode(session, store, rec, tmp_path, settings=JOB_SETTINGS)
     await session.refresh(long)
     await session.refresh(outside)
     assert (long.start_ms, long.end_ms) == (500, rec.source_duration_ms)
@@ -2762,7 +2844,7 @@ async def test_peaks_job_reclamps_loops_to_the_measured_length(
     store = FakeObjectStore()
     user = await make_user(session)
     rec = await make_uploaded(session, store, user, fake_media["m4a"], "audio/mp4")
-    await transcode(session, store, rec, tmp_path)
+    await transcode(session, store, rec, tmp_path, settings=JOB_SETTINGS)
     await session.refresh(rec)
     rec.duration_ms = None
     rec.source_duration_ms = None

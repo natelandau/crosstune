@@ -47,11 +47,14 @@ async def run(ctx: JobContext, job: Job) -> None:
         source_key = upload_key(recording.user_id, recording.id)
         previous_playback_key = recording.playback_key
         previous_peaks_key = recording.peaks_key
+        previous_original_key = recording.original_key
         committing = False
         with ctx.work_dir() as folder:
             try:
                 async with attempt_timeout():
-                    await transcode(session, ctx.store, recording, Path(folder))
+                    await transcode(
+                        session, ctx.store, recording, Path(folder), settings=ctx.settings
+                    )
                 await session.delete(stored_job)
                 await ensure_trim_job(session, recording)
                 await ensure_place_job(session, recording)
@@ -72,16 +75,25 @@ async def run(ctx: JobContext, job: Job) -> None:
                 # orphan once the rollback below discards the row's write.
                 orphaned_playback_key = changed(recording.playback_key, previous_playback_key)
                 orphaned_peaks_key = changed(recording.peaks_key, previous_peaks_key)
+                orphaned_original_key = changed(recording.original_key, previous_original_key)
                 # Roll back whatever transcode() flushed before failing, then
                 # reload so the failure state is written on top of clean data.
                 await session.rollback()
                 reloaded = await reload(session, Recording, job.recording_id)
                 stored = await reload(session, Job, job.id)
-                if reloaded is not None and still_claimed(stored, job):
+                claimed = still_claimed(stored, job)
+                if reloaded is not None and claimed:
                     await fail_recording(session, stored, reloaded, exc)
                 await session.commit()
+                # The original's key carries no revision, so only an attempt that still
+                # held the job deletes it: a pass that reclaimed the job writes the same key.
                 await ctx.delete_stale(
-                    *unnamed(reloaded, orphaned_playback_key, orphaned_peaks_key)
+                    *unnamed(
+                        reloaded,
+                        orphaned_playback_key,
+                        orphaned_peaks_key,
+                        orphaned_original_key if claimed else None,
+                    )
                 )
                 return
         stale_playback_key = changed(previous_playback_key, recording.playback_key)

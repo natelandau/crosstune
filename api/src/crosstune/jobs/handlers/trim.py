@@ -37,7 +37,9 @@ async def run(ctx: JobContext, job: Job) -> None:
         with ctx.work_dir() as folder:
             try:
                 async with attempt_timeout():
-                    superseded = await trim(session, ctx.store, recording, Path(folder))
+                    superseded = await trim(
+                        session, ctx.store, recording, Path(folder), settings=ctx.settings
+                    )
                 await session.delete(stored_job)
                 # trim() read the trim columns fresh under the lock, so a trim saved
                 # while it ran, which found this job holding the one trim slot, is
