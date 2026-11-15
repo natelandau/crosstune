@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import math
 from bisect import bisect_left, bisect_right
+from collections import defaultdict
 from dataclasses import dataclass
 from operator import attrgetter
 from typing import TYPE_CHECKING
 
-from sqlalchemy import and_, case, literal, or_, select, union_all, update
+from sqlalchemy import and_, case, func, literal, or_, select, union_all, update
 
 from crosstune.db.base import bump_server_seq, next_server_seq
 from crosstune.models import Place, Recording
@@ -16,7 +17,7 @@ from crosstune.vocabulary import PlaceOrigin
 
 if TYPE_CHECKING:
     import uuid
-    from collections.abc import Iterable, Sequence
+    from collections.abc import Iterable, Iterator, Sequence
 
     from sqlalchemy import ColumnElement
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -27,6 +28,9 @@ MATCH_MAX_ACCURACY_M = 50
 # The most live places one changed point's neighborhood may hold before the server stops
 # linking recordings there on its own. Bounds the work of a push over a dense cluster.
 MAX_PLACES_PER_AREA = 32
+# The most unlinked recordings one changed point's neighborhood may hold before the server
+# stops linking them there on its own. Bounds the rows a push reads and plans per point.
+MAX_RECORDINGS_PER_AREA = 2_000
 # asyncpg takes at most 32,767 bind parameters per statement, and each link takes three.
 _LINKS_PER_UPDATE = 5_000
 
@@ -35,6 +39,12 @@ EARTH_RADIUS_M = 6_371_000
 _M_PER_DEGREE = 110_000
 _POLE = 90.0
 _LON_MAX = 180
+# Degrees of latitude the match box reaches each side of a point.
+_MATCH_DLAT = MATCH_RADIUS_M / _M_PER_DEGREE
+_EVERY_LONGITUDE = ((-math.inf, math.inf),)
+# Postgres allows at most 1,664 columns in a select list.
+_COUNTS_PER_SELECT = 1_000
+_lon = attrgetter("lon")
 
 
 def distance_m(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -54,16 +64,38 @@ def is_precise(accuracy_m: int | None) -> bool:
     return accuracy_m is None or accuracy_m <= MATCH_MAX_ACCURACY_M
 
 
-def _longitude_filter(
-    lon_column: InstrumentedAttribute[float | None], lon: float, dlon: float
-) -> ColumnElement[bool] | None:
-    if dlon >= _LON_MAX:  # the box spans every longitude
-        return None
+def _longitude_spans(lat: float, lon: float, dlat: float) -> tuple[tuple[float, float], ...]:
+    """The longitude spans of a box reaching `dlat` degrees each side of a point.
+
+    The box holds every point as near as its latitude edge. A box that crosses the
+    antimeridian is two spans, each open at the edge it crosses.
+
+    Returns:
+        tuple[tuple[float, float], ...]: Each span's low and high longitude, `_EVERY_LONGITUDE`
+            for a box that spans them all.
+    """
+    poleward = abs(lat) + dlat
+    # Meridians converge at the pole, so a box that reaches it spans every longitude.
+    if poleward >= _POLE:
+        return _EVERY_LONGITUDE
+    dlon = dlat / math.cos(math.radians(poleward))
+    if dlon >= _LON_MAX:
+        return _EVERY_LONGITUDE
     low, high = lon - dlon, lon + dlon
     if low < -_LON_MAX:
-        return or_(lon_column >= low + 2 * _LON_MAX, lon_column <= high)
+        return ((low + 2 * _LON_MAX, math.inf), (-math.inf, high))
     if high > _LON_MAX:
-        return or_(lon_column >= low, lon_column <= high - 2 * _LON_MAX)
+        return ((low, math.inf), (-math.inf, high - 2 * _LON_MAX))
+    return ((low, high),)
+
+
+def _span_clause(
+    lon_column: InstrumentedAttribute[float | None], low: float, high: float
+) -> ColumnElement[bool]:
+    if low == -math.inf:
+        return lon_column <= high
+    if high == math.inf:
+        return lon_column >= low
     return and_(lon_column >= low, lon_column <= high)
 
 
@@ -77,12 +109,9 @@ def _box_clauses(
     """Clauses for a box that holds every point within `radius_m` of a point."""
     dlat = radius_m / _M_PER_DEGREE
     clauses = [lat_column.between(lat - dlat, lat + dlat)]
-    poleward = abs(lat) + dlat
-    # Meridians converge at the pole, so a box that reaches it spans every longitude.
-    if poleward < _POLE:
-        lon_clause = _longitude_filter(lon_column, lon, dlat / math.cos(math.radians(poleward)))
-        if lon_clause is not None:
-            clauses.append(lon_clause)
+    spans = _longitude_spans(lat, lon, dlat)
+    if spans != _EVERY_LONGITUDE:
+        clauses.append(or_(*(_span_clause(lon_column, low, high) for low, high in spans)))
     return clauses
 
 
@@ -92,8 +121,9 @@ async def matching_place_id(
     """Find the one live saved place within the match radius of a point.
 
     Returns:
-        uuid.UUID | None: The place's id, or None when the fix is too loose or no place
-            or more than one place lies within the radius.
+        uuid.UUID | None: The place's id, or None when the fix is too loose, when no place
+            or more than one place lies within the radius, or when the match box holds more
+            than `MAX_PLACES_PER_AREA` places.
     """
     if not is_precise(accuracy_m):
         return None
@@ -102,7 +132,14 @@ async def matching_place_id(
         Place.deleted_at.is_(None),
         *_box_clauses(Place.lat, Place.lon, lat, lon),
     ]
-    rows = await session.execute(select(Place.id, Place.lat, Place.lon).where(*clauses))
+    rows = (
+        await session.execute(
+            select(Place.id, Place.lat, Place.lon).where(*clauses).limit(MAX_PLACES_PER_AREA + 1)
+        )
+    ).all()
+    # A full box cannot tell a match from an ambiguity, the same as a full area.
+    if len(rows) > MAX_PLACES_PER_AREA:
+        return None
     return _sole_place_id(
         lat=lat, lon=lon, places=(Spot(id=pid, lat=plat, lon=plon) for pid, plat, plon in rows)
     )
@@ -127,6 +164,37 @@ def _sole_place_id(lat: float, lon: float, places: Iterable[Spot]) -> uuid.UUID 
                 return None
             near = place.id
     return near
+
+
+def _grid_row(lat: float) -> int:
+    return math.floor(lat / _MATCH_DLAT)
+
+
+def _location_grid(locations: Iterable[Spot]) -> dict[int, list[Spot]]:
+    """Saved locations in rows one match box tall, each row sorted by longitude.
+
+    Lets `_near` find the locations in a point's match box without scanning every location
+    at its latitude, so a crowded latitude costs no more than a crowded box.
+    """
+    grid: dict[int, list[Spot]] = defaultdict(list)
+    for location in locations:
+        grid[_grid_row(location.lat)].append(location)
+    for row in grid.values():
+        row.sort(key=_lon)
+    return grid
+
+
+def _near(grid: dict[int, list[Spot]], lat: float, lon: float) -> Iterator[Spot]:
+    """Yield every saved location of a `_location_grid` in the match box of a point, each once."""
+    spans = _longitude_spans(lat, lon, _MATCH_DLAT)
+    middle = _grid_row(lat)
+    # A row is as tall as the box reaches each side, so the box lies in these three rows.
+    for key in (middle - 1, middle, middle + 1):
+        row = grid.get(key, [])
+        for low, high in spans:
+            for index in range(bisect_left(row, low, key=_lon), bisect_right(row, high, key=_lon)):
+                if abs(row[index].lat - lat) <= _MATCH_DLAT:
+                    yield row[index]
 
 
 @dataclass(frozen=True, slots=True, repr=False)
@@ -163,8 +231,8 @@ def plan_links(
         areas: The points a push changed.
         places_by_area: For each area, the live places within its `place_radius_m` box, cut
             off past `MAX_PLACES_PER_AREA`.
-        recordings: The unlinked recordings with a precise fix within any area's
-            `recording_radius_m`.
+        recordings: The unlinked recordings with a precise fix within the `recording_radius_m`
+            of any area that is not full.
 
     Returns:
         dict[uuid.UUID, uuid.UUID]: Each recording to link, mapped to its place.
@@ -186,14 +254,12 @@ def plan_links(
                 for place in near
                 if distance_m(area.lat, area.lon, place.lat, place.lon) <= 2 * MATCH_RADIUS_M
             )
-    lat = attrgetter("lat")
-    by_lat = sorted(places.values(), key=lat)
-    dlat = MATCH_RADIUS_M / _M_PER_DEGREE
+    grid = _location_grid(places.values())
     links: dict[uuid.UUID, uuid.UUID] = {}
     for recording in recordings:
-        low = bisect_left(by_lat, recording.lat - dlat, key=lat)
-        high = bisect_right(by_lat, recording.lat + dlat, key=lat)
-        place_id = _sole_place_id(lat=recording.lat, lon=recording.lon, places=by_lat[low:high])
+        place_id = _sole_place_id(
+            lat=recording.lat, lon=recording.lon, places=_near(grid, recording.lat, recording.lon)
+        )
         if place_id is not None and place_id in candidates:
             links[recording.id] = place_id
     return links
@@ -204,8 +270,10 @@ async def link_earlier_recordings(
 ) -> int:
     """Link the user's unlinked device and file recordings that now match one place near an area.
 
-    Runs a fixed number of queries for any number of areas, plus one update per
-    `_LINKS_PER_UPDATE` links. Takes the same server_seq bump as any server write and leaves
+    Runs a fixed number of queries, plus one count per `_COUNTS_PER_SELECT` areas and one
+    update per `_LINKS_PER_UPDATE` links. Skips an area that holds more than
+    `MAX_PLACES_PER_AREA` places or more than `MAX_RECORDINGS_PER_AREA` unlinked recordings
+    with a precise fix. Takes the same server_seq bump as any server write and leaves
     `updated_at` alone.
 
     Returns:
@@ -233,44 +301,69 @@ async def link_earlier_recordings(
     places_by_area: list[list[Spot]] = [[] for _ in unique]
     for index, place_id, lat, lon in place_rows:
         places_by_area[index].append(Spot(id=place_id, lat=lat, lon=lon))
-    # plan_links skips a full area, so no recording only it reaches can link.
+    # Every saved location within one radius of a recording lies in the box of each area that
+    # reaches it, so leaving out a full area's places never turns an ambiguity into a match.
     open_areas = [
-        area
+        (area, near)
         for area, near in zip(unique, places_by_area, strict=True)
         if len(near) <= MAX_PLACES_PER_AREA
     ]
     if not open_areas:
         return 0
-    rows = await session.execute(
-        select(
-            Recording.id, Recording.place_lat, Recording.place_lon, Recording.place_accuracy_m
-        ).where(
-            Recording.user_id == user_id,
-            Recording.deleted_at.is_(None),
-            Recording.place_id.is_(None),
-            Recording.place_origin.in_((PlaceOrigin.DEVICE.value, PlaceOrigin.FILE.value)),
-            or_(
-                *(
-                    and_(
-                        *_box_clauses(
-                            Recording.place_lat,
-                            Recording.place_lon,
-                            area.lat,
-                            area.lon,
-                            radius_m=area.recording_radius_m,
-                        )
+    unlinked = (
+        Recording.user_id == user_id,
+        Recording.deleted_at.is_(None),
+        Recording.place_id.is_(None),
+        Recording.place_origin.in_((PlaceOrigin.DEVICE.value, PlaceOrigin.FILE.value)),
+        # Matches is_precise, so a loose fix that can never link does not fill an area.
+        or_(
+            Recording.place_accuracy_m.is_(None),
+            Recording.place_accuracy_m <= MATCH_MAX_ACCURACY_M,
+        ),
+    )
+    boxes = [
+        and_(
+            *_box_clauses(
+                Recording.place_lat,
+                Recording.place_lon,
+                area.lat,
+                area.lon,
+                radius_m=area.recording_radius_m,
+            )
+        )
+        for area, _ in open_areas
+    ]
+    counts: list[int] = []
+    for start in range(0, len(boxes), _COUNTS_PER_SELECT):
+        chunk = boxes[start : start + _COUNTS_PER_SELECT]
+        counts.extend(
+            (
+                await session.execute(
+                    select(*(func.count().filter(box) for box in chunk)).where(
+                        *unlinked, or_(*chunk)
                     )
-                    for area in open_areas
                 )
-            ),
+            ).one()
+        )
+    kept = [
+        (area, near, box)
+        for (area, near), box, count in zip(open_areas, boxes, counts, strict=True)
+        if count <= MAX_RECORDINGS_PER_AREA
+    ]
+    if not kept:
+        return 0
+    kept_areas, kept_places, kept_boxes = zip(*kept, strict=True)
+    rows = await session.execute(
+        select(Recording.id, Recording.place_lat, Recording.place_lon).where(
+            *unlinked, or_(*kept_boxes)
         )
     )
     recordings = [
         Spot(id=recording_id, lat=lat, lon=lon)
-        for recording_id, lat, lon, accuracy_m in rows
-        if lat is not None and lon is not None and is_precise(accuracy_m)
+        for recording_id, lat, lon in rows
+        if lat is not None and lon is not None
     ]
-    links = plan_links(areas=unique, places_by_area=places_by_area, recordings=recordings)
+    links = plan_links(areas=kept_areas, places_by_area=kept_places, recordings=recordings)
     pending = list(links.items())
     for start in range(0, len(pending), _LINKS_PER_UPDATE):
         chunk = dict(pending[start : start + _LINKS_PER_UPDATE])

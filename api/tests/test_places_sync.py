@@ -5,7 +5,12 @@ from __future__ import annotations
 import pytest
 from sqlalchemy import event
 
+from crosstune.db.base import new_uuid7, utc_now
+from crosstune.models import Place
+from crosstune.places.matching import MAX_PLACES_PER_AREA, distance_m
 from tests.helpers import T0, T1, T2, change, pull, push, recording, uid
+from tests.test_enforcement import _end_trial, _user_id
+from tests.test_place_matching import east
 
 pytestmark = pytest.mark.anyio
 
@@ -647,3 +652,71 @@ async def test_a_push_over_a_place_cluster_runs_statements_linear_in_its_changes
     small = await _cluster_push_statements(client, auth_headers("user_a"), engine, 8, op)
     large = await _cluster_push_statements(client, auth_headers("user_b"), engine, 32, op)
     assert large <= 4 * small, (small, large)
+
+
+async def _crowd_box_corner(client, headers, verify_session, settings, plan: str) -> None:
+    """Store 1,500 saved locations in a corner of the Galax point's match box, beyond its radius."""
+    if plan == "free":
+        user_id = await _end_trial(client, headers, verify_session, settings)
+    else:
+        user_id = await _user_id(client, headers)
+    now = utc_now()
+    verify_session.add_all(
+        Place(
+            id=new_uuid7(),
+            user_id=user_id,
+            name="Corner",
+            lat=GALAX["lat"] + 29 * M_LAT,
+            lon=east(GALAX["lat"], GALAX["lon"], 29),
+            created_at=now,
+            updated_at=now,
+        )
+        for _ in range(1_500)
+    )
+    await verify_session.commit()
+
+
+@pytest.mark.parametrize(
+    ("plan", "status", "max_calls"),
+    [
+        pytest.param("trial", "applied", 500 * (MAX_PLACES_PER_AREA + 1), id="trial"),
+        pytest.param("free", "invalid", 0, id="free"),
+    ],
+)
+async def test_a_recording_push_beside_a_crowded_box_corner_bounds_its_matching(  # noqa: PLR0913, PLR0917
+    client, auth_headers, verify_session, settings, mocker, plan: str, status: str, max_calls: int
+) -> None:
+    headers = auth_headers("user_a")
+    await _crowd_box_corner(client, headers, verify_session, settings, plan)
+    distance = mocker.patch("crosstune.places.matching.distance_m", wraps=distance_m)
+
+    results = await push(client, headers, *(recording_near_galax(uid()) for _ in range(500)))
+
+    assert {r["status"] for r in results} == {status}
+    assert distance.call_count <= max_calls
+
+
+@pytest.mark.parametrize(
+    ("third_accuracy_m", "links"),
+    [
+        pytest.param(10, False, id="precise fixes past the cap link none"),
+        pytest.param(80, True, id="a loose fix does not count toward the cap"),
+    ],
+)
+async def test_an_area_over_the_recording_cap_links_none(
+    client, auth_headers, mocker, *, third_accuracy_m: int, links: bool
+) -> None:
+    mocker.patch("crosstune.places.matching.MAX_RECORDINGS_PER_AREA", 2)
+    first, second, third, pid = uid(), uid(), uid(), uid()
+    headers = auth_headers("user_a")
+    await push(
+        client,
+        headers,
+        recording_near_galax(first),
+        recording_near_galax(second, north_m=1),
+        recording_near_galax(third, north_m=2, place_accuracy_m=third_accuracy_m),
+    )
+    await push(client, headers, place(pid, T1))
+    for rec in (first, second):
+        linked = (await recording_row(client, headers, rec))["place_id"]
+        assert linked == (pid if links else None)

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import uuid
 from typing import TYPE_CHECKING
 
@@ -154,6 +155,17 @@ async def test_a_match_near_the_box_edge_at_lat_80(session) -> None:
     assert await match(session, user, 80, 0) == place.id
 
 
+async def test_a_full_match_box_matches_nothing(session, mocker) -> None:
+    mocker.patch("crosstune.places.matching.MAX_PLACES_PER_AREA", 2)
+    user = await make_user(session)
+    await add_place(session, user, LAT + 10 * M_LAT, LON)
+    # Inside the box's corner, beyond the radius.
+    for _ in range(2):
+        await add_place(session, user, LAT - 29 * M_LAT, east(LAT, LON, 29))
+
+    assert await match(session, user) is None
+
+
 def _id(name: str) -> uuid.UUID:
     return uuid.uuid5(uuid.NAMESPACE_OID, name)
 
@@ -235,3 +247,50 @@ def test_plan_links(
     links: dict[str, str],
 ) -> None:
     assert _plan(places, fixes, placed, vacated) == links
+
+
+def east(lat: float, lon: float, meters: float) -> float:
+    """The longitude some meters east of a point, wrapped into [-180, 180)."""
+    return (lon + meters * M_LAT / math.cos(math.radians(lat)) + 180) % 360 - 180
+
+
+@pytest.mark.parametrize(
+    ("lat", "lon"),
+    [
+        pytest.param(LAT, LON, id="mid latitude"),
+        pytest.param(0.0, 179.99995, id="across the antimeridian"),
+        pytest.param(89.9995, 0.0, id="near the pole"),
+    ],
+)
+def test_plan_links_matches_within_the_radius_anywhere_on_earth(lat: float, lon: float) -> None:
+    location, near, far = _id("l"), _id("near"), _id("far")
+    spots = [Spot(location, lat, lon)]
+
+    links = plan_links(
+        [Area(lat, lon, location)],
+        [spots],
+        [Spot(near, lat, east(lat, lon, 20)), Spot(far, lat, east(lat, lon, -40))],
+    )
+
+    assert links == {near: location}
+
+
+def test_plan_links_checks_only_the_locations_in_each_match_box(mocker) -> None:
+    """Saved locations along one latitude cost each recording only its own match box."""
+    distance = mocker.patch("crosstune.places.matching.distance_m", wraps=distance_m)
+    locations = [Spot(_id(f"l{i}"), LAT, east(LAT, LON, i * 100)) for i in range(500)]
+    # Inside each location's latitude band, beyond its radius and its neighbors'.
+    recordings = [
+        Spot(_id(f"r{i}-{meters}"), LAT, east(LAT, location.lon, meters))
+        for i, location in enumerate(locations)
+        for meters in (31, 35, 40, 45, 50, 55)
+    ]
+
+    links = plan_links(
+        [Area(spot.lat, spot.lon, spot.id) for spot in locations],
+        [[spot] for spot in locations],
+        recordings,
+    )
+
+    assert links == {}
+    assert distance.call_count <= len(recordings) * MAX_PLACES_PER_AREA
