@@ -22,7 +22,7 @@ import { recordingPlayers } from '../recordings/place'
 import { dateDraft, datePatch, keptExactTime, partsOf } from '../recordings/recordedDateParts'
 import { RECORDING_NAME_LABEL, recordedAtNote } from '../recordings/recordingCopy'
 import {
-  addToTuneName,
+  linkToTuneName,
   NOTES_LABEL,
   PLAYERS_LABEL,
   RECORDING_NAME_PLACEHOLDER,
@@ -233,7 +233,7 @@ function RecordingTuneSheet({
         if (entry.tune.id !== view.tuneId) onFile(entry.tune.id)
       }}
       onCreate={file.create}
-      rowName={addToTuneName}
+      rowName={linkToTuneName}
     />
   )
 }

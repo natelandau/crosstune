@@ -93,14 +93,19 @@ export function PitchPanel({
       <div className="flex items-center justify-end">
         <ResetButton atDefault={value === 0} onReset={() => onChange(0)} />
       </div>
-      {/* Hidden rather than absent, so the panel's height never changes with the engine. */}
-      <p
-        role="status"
-        aria-hidden={unavailable ? undefined : 'true'}
-        className={`t-secondary ${unavailable ? '' : 'invisible'}`}
-      >
-        {PITCH_UNAVAILABLE}
-      </p>
+      {/* A hidden placeholder holds the panel's height while the engine works. The keys make the
+          notice a new node, since a live region announces inserted content, not an attribute change. */}
+      <div role="status">
+        {unavailable ? (
+          <p key="notice" className="t-secondary">
+            {PITCH_UNAVAILABLE}
+          </p>
+        ) : (
+          <p key="placeholder" aria-hidden="true" className="t-secondary invisible">
+            {PITCH_UNAVAILABLE}
+          </p>
+        )}
+      </div>
       {lockNotice ? <p className="t-secondary">{PITCH_PAUSES_ON_LOCK}</p> : null}
     </div>
   )

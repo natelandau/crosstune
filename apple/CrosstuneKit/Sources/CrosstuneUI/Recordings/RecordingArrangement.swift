@@ -63,6 +63,8 @@ public enum RecordingsListText {
     // MARK: Selection
 
     public static let linkToTune = "Link to tune"
+    /// The action VoiceOver reads before each tune picker row: "Link to Kitchen Girl, …".
+    public static let linkTo = "Link to"
     /// The View menu's way into the recordings' selection.
     public static let selectRecordings = "Select recordings"
     nonisolated public static let deleteSyncedNoteMany = "They are removed from every device."

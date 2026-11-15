@@ -123,6 +123,7 @@ def withdrawal_email(*, to: str, web_origin: str, account_deleted: bool = False)
         web_origin: The web app the catalog stays in.
         account_deleted: The refund came with an account deletion, so no catalog is left.
     """
+    # Says Premium has ended even when a second web subscription keeps it active, a rare case.
     paragraphs = [
         "Your first payment was refunded in full, and Premium has ended.",
         "The refund reaches your card in 5 to 10 business days.",

@@ -13,7 +13,7 @@ export const NAME_LABEL = 'Name'
 export const UPLOAD_AUDIO = 'Upload audio files'
 export const STORAGE_USED = 'Storage used'
 /** The name of a tune search row that files the recording under that tune. */
-export const addToTuneName = (title: string) => `Add to ${title}`
+export const linkToTuneName = (title: string) => `Link to ${title}`
 export const PLAYERS_LABEL = 'Players'
 export const LOCATION_LABEL = 'Location'
 export const NOTES_LABEL = 'Notes'
