@@ -343,6 +343,10 @@ each question, and the invariants that both clients and the API hold.
 - ffprobe and ffmpeg read uploads only as local files, through the
   demuxers of the allowed types, with no environment but `PATH`, and
   under `prlimit` on Linux. The API process is non-dumpable.
+- Every ffmpeg or ffprobe run goes through `run_media_tool` or
+  `stream_media_tool`. Output that grows with the upload is streamed and
+  never held whole: the API process serves every request from the same
+  memory.
 - A recording longer than `MAX_RECORDING_MS` fails, unless it is a split
   parent (Splits). It fails before any encode when its metadata says so.
   Otherwise it fails when a whole-file write, which stops just past the
