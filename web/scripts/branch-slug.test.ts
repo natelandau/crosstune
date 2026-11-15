@@ -15,26 +15,32 @@ function run(args: string[], env: Record<string, string> = {}) {
 }
 
 describe('branch-slug', () => {
-  it('turns a slash into a dash', () => {
-    expect(run(['feat/instrument-tunings'])).toMatchObject({
-      status: 0,
-      stdout: 'feat-instrument-tunings\n',
-    })
+  it.each(['fix-thing', 'feat-instrument-tunings', 'a'.repeat(40)])(
+    'keeps the clean name %s as it is',
+    (branch) => {
+      expect(run([branch])).toMatchObject({ status: 0, stdout: `${branch}\n` })
+    },
+  )
+
+  it.each([
+    ['feat/instrument-tunings', /^feat-instrument-tunings-[0-9a-f]{6}$/],
+    ['Feature_Branch__Two', /^feature-branch-two-[0-9a-f]{6}$/],
+    ['123-fix', /^b-123-fix-[0-9a-f]{6}$/],
+    ['/feat/tunings/', /^feat-tunings-[0-9a-f]{6}$/],
+  ])('normalizes %s and adds a hash of the exact name', (branch, expected) => {
+    const result = run([branch])
+    expect(result.status).toBe(0)
+    expect(result.stdout.trim()).toMatch(expected)
   })
 
-  it('folds uppercase and underscores', () => {
-    expect(run(['Feature_Branch__Two'])).toMatchObject({
-      status: 0,
-      stdout: 'feature-branch-two\n',
-    })
-  })
-
-  it('prefixes a slug that does not start with a letter', () => {
-    expect(run(['123-fix'])).toMatchObject({ status: 0, stdout: 'b-123-fix\n' })
-  })
-
-  it('trims leading and trailing separators', () => {
-    expect(run(['/feat/tunings/'])).toMatchObject({ status: 0, stdout: 'feat-tunings\n' })
+  it.each([
+    ['a_b', 'a-b'],
+    ['A-b', 'a-b'],
+    ['a/b', 'a_b'],
+    ['a--b', 'a-b'],
+    [`${'a'.repeat(45)}-one`, `${'a'.repeat(45)}-two`],
+  ])('gives %s and %s different slugs', (first, second) => {
+    expect(run([first]).stdout).not.toBe(run([second]).stdout)
   })
 
   it('cuts a long branch to 40 characters without a trailing dash', () => {
@@ -45,40 +51,26 @@ describe('branch-slug', () => {
     expect(slug).toMatch(/^a{33}-[0-9a-f]{6}$/)
   })
 
-  it('keeps two branches sharing the first 40 characters apart', () => {
-    const shared = 'a'.repeat(45)
-    const first = run([`${shared}-one`]).stdout
-    const second = run([`${shared}-two`]).stdout
-    expect(first).not.toBe(second)
-    expect(first.trim()).toHaveLength(40)
-    expect(second.trim()).toHaveLength(40)
-  })
-
   it('gives a branch the same slug on every run', () => {
     const branch = `feat/${'long-name-'.repeat(6)}end`
     expect(run([branch]).stdout).toBe(run([branch]).stdout)
   })
 
-  it('leaves a branch of exactly 40 characters unhashed', () => {
-    const branch = 'a'.repeat(40)
-    expect(run([branch])).toMatchObject({ status: 0, stdout: `${branch}\n` })
-  })
-
   it('reads WORKERS_CI_BRANCH before GITHUB_HEAD_REF', () => {
     expect(
-      run([], { WORKERS_CI_BRANCH: 'from/workers', GITHUB_HEAD_REF: 'from/github' }),
+      run([], { WORKERS_CI_BRANCH: 'from-workers', GITHUB_HEAD_REF: 'from-github' }),
     ).toMatchObject({ status: 0, stdout: 'from-workers\n' })
   })
 
   it('reads GITHUB_HEAD_REF when nothing else is set', () => {
-    expect(run([], { GITHUB_HEAD_REF: 'from/github' })).toMatchObject({
+    expect(run([], { GITHUB_HEAD_REF: 'from-github' })).toMatchObject({
       status: 0,
       stdout: 'from-github\n',
     })
   })
 
   it('prefers the argument over the environment', () => {
-    expect(run(['from/arg'], { WORKERS_CI_BRANCH: 'from/workers' })).toMatchObject({
+    expect(run(['from-arg'], { WORKERS_CI_BRANCH: 'from-workers' })).toMatchObject({
       status: 0,
       stdout: 'from-arg\n',
     })
