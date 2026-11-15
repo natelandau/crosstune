@@ -26,8 +26,9 @@ logger = logging.getLogger(__name__)
 class VersionGate:
     """Answer an Apple build below the floor with 426, recording the version it reported.
 
-    Plain ASGI and outermost, so a blocked request is answered before its body is
-    checked or read and before any route or dependency runs. An accepted request's
+    Plain ASGI and outside every middleware that reads the request, so a blocked
+    request is answered before its body is checked or read and before any route or
+    dependency runs. An accepted request's
     version is recorded after the app returns, once its own session has closed, so the
     write never holds a second pooled connection beside it.
     """
