@@ -2,6 +2,7 @@
 
 import ipaddress
 import re
+from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 from typing import Self
@@ -27,8 +28,12 @@ PRODUCTION_BUCKET = "crosstune-recordings"
 PREVIEW_BUCKET = "crosstune-recordings-preview"
 DEV_BUCKET = "crosstune-recordings-dev"
 LOCAL_BUCKET = "crosstune-local"
-# Where compose.yml publishes Postgres. Any other host may hold someone's real data.
-LOCAL_DATABASE_HOSTS = frozenset({"localhost", "127.0.0.1"})
+# asyncpg applies these query keys over the URL's host, port, and path, so a guard that
+# reads the netloc would check one server and connect to another. A service file entry
+# fills any of them the URL leaves out.
+_TARGET_QUERY_KEYS = frozenset(
+    {"host", "hostaddr", "port", "dbname", "database", "service", "servicefile"}
+)
 E2E_BUCKET = "crosstune-e2e"
 # A git worktree's own database and bucket, `just api::worktree-db` names both from one slug.
 WORKTREE_DATABASE_PREFIX = "crosstune_wt_"
@@ -43,20 +48,86 @@ def worktree_bucket(database: str) -> str:
     )
 
 
+def is_local_database_host(host: str | None) -> bool:
+    """Decide whether a database host is the Postgres compose.yml publishes on this machine.
+
+    Any other host may hold someone's real data. No host is not local: asyncpg then reads
+    PGHOST, which may name any server.
+    """
+    if not host:
+        return False
+    if host.lower() == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
+
+
 def normalize_database_url(url: str) -> str:
     """Rewrite a libpq-style Postgres URL, as hosts print it, into one asyncpg accepts.
 
     asyncpg spells the TLS mode `ssl` where libpq spells it `sslmode`, and it rejects
     libpq-only options such as `channel_binding` outright.
+
+    Raises:
+        ValueError: The query names the server or the database, which must come only from
+            the host and path that the guards read, or the path names no database, which
+            asyncpg then takes from PGDATABASE.
     """
     parts = urlsplit(url)
+    if not parts.path.strip("/"):
+        msg = "the database URL must name a database in its path"
+        raise ValueError(msg)
     scheme = "postgresql+asyncpg" if parts.scheme in _LIBPQ_SCHEMES else parts.scheme
+    pairs = parse_qsl(parts.query, keep_blank_values=True)
+    overrides = sorted({key for key, _ in pairs if key.lower() in _TARGET_QUERY_KEYS})
+    if overrides:
+        msg = (
+            f"the database URL may not set {', '.join(overrides)} in its query;"
+            " name the server and database in the host and path"
+        )
+        raise ValueError(msg)
     query = [
         ("ssl" if key == "sslmode" else key, value)
-        for key, value in parse_qsl(parts.query, keep_blank_values=True)
+        for key, value in pairs
         if key != "channel_binding"
     ]
     return urlunsplit((scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
+
+
+@dataclass(frozen=True)
+class DatabaseTarget:
+    """The server and database a connection string reaches."""
+
+    host: str | None
+    name: str
+
+
+@lru_cache
+def database_target(url: str) -> DatabaseTarget:
+    """Read the server and database the engine connects to, for a guard to check.
+
+    The engine's own parser decides, so a guard sees the decoded path and never a netloc
+    that the query overrides.
+
+    Raises:
+        ValueError: The query names the server or the database, or the engine cannot
+            parse the URL.
+    """
+    # Deferred so the ops commands that never read the target skip loading SQLAlchemy.
+    from sqlalchemy.dialects.postgresql.asyncpg import dialect  # noqa: PLC0415
+    from sqlalchemy.engine import make_url  # noqa: PLC0415
+    from sqlalchemy.exc import ArgumentError  # noqa: PLC0415
+
+    try:
+        parsed = make_url(normalize_database_url(url))
+    except ArgumentError:
+        msg = "the database URL does not parse"
+        raise ValueError(msg) from None
+    _, kwargs = dialect().create_connect_args(parsed)
+    host = kwargs.get("host")
+    return DatabaseTarget(host=str(host) if host else None, name=str(kwargs.get("database") or ""))
 
 
 def _missing_member(members: dict[str, str]) -> str | None:
@@ -229,9 +300,14 @@ class Settings(BaseSettings):
     apple_min_version: str = ""
 
     @property
+    def database_host(self) -> str | None:
+        """The server the engine connects to, or None when the URL names no host."""
+        return database_target(self.database_url).host
+
+    @property
     def database_name(self) -> str:
-        """The database at the end of the connection string."""
-        return urlsplit(self.database_url).path.lstrip("/")
+        """The database the engine connects to."""
+        return database_target(self.database_url).name
 
     @property
     def e2e_database(self) -> bool:
@@ -250,17 +326,7 @@ class Settings(BaseSettings):
     @property
     def local_database(self) -> bool:
         """Whether the database runs on this machine, as every local checkout's does."""
-        parts = urlsplit(self.database_url)
-        host = dict(parse_qsl(parts.query)).get("host") or parts.hostname or ""
-        # No host, or a socket directory, connects through a Unix socket on this machine.
-        if not host or host.startswith("/"):
-            return True
-        if host == "localhost" or host.endswith(".localhost"):
-            return True
-        try:
-            return ipaddress.ip_address(host).is_loopback
-        except ValueError:
-            return False
+        return is_local_database_host(self.database_host)
 
     @property
     def storage_endpoint(self) -> str:
@@ -556,8 +622,13 @@ class Settings(BaseSettings):
             return f"only pr-<number> environments may use {PREVIEW_BUCKET}"
         if env.startswith("pr-") and bucket != PREVIEW_BUCKET:
             return f"{env} must use {PREVIEW_BUCKET}"
+        # A URL with no host reaches whatever PGHOST names, often this machine, so only a
+        # named remote host counts as hosted.
         hosted_development = (
-            env == "development" and not self.local_storage_endpoint_url and not self.local_database
+            env == "development"
+            and not self.local_storage_endpoint_url
+            and self.database_host is not None
+            and not self.local_database
         )
         if bucket == DEV_BUCKET and not hosted_development:
             return f"only hosted development may use {DEV_BUCKET}"

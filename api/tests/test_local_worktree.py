@@ -7,6 +7,7 @@ import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
+from urllib.parse import urlsplit
 
 import pytest
 
@@ -141,6 +142,8 @@ async def scratch() -> AsyncIterator[Scratch]:
         ("postgresql://u@db.example:5432/postgres", False),
         ("postgresql://u@localhost.example/postgres", False),
         ("postgresql:///postgres", False),
+        ("postgresql://u@localhost:5432/postgres?host=db.example", False),
+        ("postgresql://u@local%68ost:5432/postgres", False),
     ],
 )
 def test_the_server_must_be_on_this_machine(
@@ -152,6 +155,11 @@ def test_the_server_must_be_on_this_machine(
     else:
         with pytest.raises(SystemExit):
             Server(url)
+
+
+def test_the_server_connects_to_the_host_it_checked() -> None:
+    server = Server("postgresql://db.example:5432/@localhost/crosstune")
+    assert urlsplit(server.admin_url).hostname == "localhost"
 
 
 async def test_create_list_and_drop_worktree_databases(scratch: Scratch) -> None:

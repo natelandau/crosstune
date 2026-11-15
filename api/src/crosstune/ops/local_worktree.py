@@ -22,13 +22,17 @@ from urllib.parse import urlsplit, urlunsplit
 import asyncpg
 from botocore.exceptions import ClientError
 from dotenv import dotenv_values
+from sqlalchemy.engine import make_url
 
 from crosstune.config import (
     LOCAL_BUCKET,
-    LOCAL_DATABASE_HOSTS,
     WORKTREE_BUCKET_PREFIX,
     WORKTREE_DATABASE_PREFIX,
+    DatabaseTarget,
     Settings,
+    database_target,
+    is_local_database_host,
+    normalize_database_url,
     worktree_bucket,
 )
 from crosstune.ops import local_storage
@@ -143,32 +147,41 @@ def with_database(url: str, database: str) -> str:
     return urlunsplit((parts.scheme, parts.netloc, f"/{database}", parts.query, parts.fragment))
 
 
+def _target(url: str) -> DatabaseTarget:
+    try:
+        return database_target(url)
+    except ValueError as error:
+        sys.exit(f"refusing the database URL: {error}")
+
+
 def database_of(url: str) -> str:
-    """The database at the end of a connection string."""
-    return urlsplit(url).path.lstrip("/")
+    """The database a connection string reaches, as the engine reads it."""
+    return _target(url).name
 
 
 class Server:
     """The local Postgres server, reached as an administrator through its `postgres` database."""
 
     def __init__(self, url: str) -> None:
-        parts = urlsplit(url)
-        if parts.hostname not in LOCAL_DATABASE_HOSTS:
+        self.host = _target(url).host
+        if not is_local_database_host(self.host):
             sys.exit(
-                f"refusing {parts.hostname or url}: these commands act only on the Postgres"
+                f"refusing {self.host or url}: these commands act only on the Postgres"
                 " server compose.yml starts on this machine"
             )
-        self.netloc = parts.netloc
-        self.user = parts.username or "postgres"
+        # Rendered from the parse the check above read, so the connection reaches that host.
+        admin = make_url(normalize_database_url(url)).set(
+            drivername="postgresql", database="postgres", query={}
+        )
+        self.admin_url = admin.render_as_string(hide_password=False)
+        self.user = admin.username or "postgres"
 
     async def connect(self) -> asyncpg.Connection:
         """Connect to the server's `postgres` database, or exit with how to start the server."""
-        admin_url = urlunsplit(("postgresql", self.netloc, "/postgres", "", ""))
         try:
-            return await asyncpg.connect(admin_url)
+            return await asyncpg.connect(self.admin_url)
         except OSError as exc:
-            host = self.netloc.rsplit("@", 1)[-1]
-            sys.exit(f"no Postgres at {host}: {exc}. Start it with `docker compose up -d`")
+            sys.exit(f"no Postgres at {self.host}: {exc}. Start it with `docker compose up -d`")
 
     @staticmethod
     async def exists(conn: asyncpg.Connection, name: str) -> bool:

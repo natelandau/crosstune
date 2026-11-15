@@ -16,7 +16,6 @@ import time
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
-from urllib.parse import urlsplit
 
 from pydantic import ValidationError
 from sqlalchemy import func, select
@@ -87,7 +86,7 @@ def check_target(settings: Settings) -> None:
             environment or the end-to-end database, or carry no Clerk secret key or one
             for a live instance.
     """
-    host = urlsplit(settings.database_url).hostname
+    host = settings.database_host
     print(f"environment {settings.environment}, database {settings.database_name} on {host}")
     if not settings.testdata_enabled:
         msg = "refusing to seed: CROSSTUNE_TESTDATA_ENABLED is not true here"
