@@ -25,7 +25,7 @@ concurrency:
   cancel-in-progress: ${{ github.event.action == 'synchronize' }}
 
 # Secrets are set on the steps that use them, never here, so a step sees only its own.
-# The pinned neonctl and web's locked wrangler do run with the Neon and Cloudflare tokens.
+# web's locked neonctl and wrangler do run with the Neon and Cloudflare tokens.
 env:
   # Fail when uv.lock disagrees with pyproject.toml instead of relocking.
   UV_LOCKED: "1"
@@ -101,15 +101,21 @@ jobs:
           role: ${{ vars.NEON_DATABASE_ROLE }}
           api_key: ${{ secrets.NEON_API_KEY }}
 
+      - uses: ./.github/actions/setup-node
+        with:
+          module: web
+
       # A reset keeps the branch's endpoint, so the connection string stored in
       # Railway at creation stays valid and every push migrates a clean copy.
-      # neonctl runs directly because the reset action needs an unsupported Node runtime.
+      # neonctl runs from web's lockfile because the reset action needs an unsupported
+      # Node runtime.
       - name: reset the Neon branch to its parent
         if: github.event.action == 'synchronize'
+        working-directory: web
         env:
           NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
           NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
-        run: npx --yes neonctl@2.22.0 branches reset "$PR_NAME" --project-id "$NEON_PROJECT_ID" --parent
+        run: pnpm exec neonctl branches reset "$PR_NAME" --project-id "$NEON_PROJECT_ID" --parent
 
       - uses: astral-sh/setup-uv@v10.3.3
         with:
@@ -153,10 +159,6 @@ jobs:
         env:
           RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
         run: scripts/preview-railway.sh hostname
-
-      - uses: ./.github/actions/setup-node
-        with:
-          module: web
 
       - name: point the preview at its API
         working-directory: web
