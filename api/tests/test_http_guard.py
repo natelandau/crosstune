@@ -66,6 +66,10 @@ def guarded(
         "2002:7f00:0001::1",
         "64:ff9b::7f00:1",
         "64:ff9b:1::a00:1",
+        "::127.0.0.1",
+        "::ffff:0:7f00:1",
+        "224.0.0.1",
+        "ff0e::1",
     ],
 )
 def test_non_public_addresses_are_refused(address: str) -> None:

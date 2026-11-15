@@ -24,6 +24,11 @@ NAT64_WELL_KNOWN = ipaddress.IPv6Network("64:ff9b::/96")
 # RFC 8215 leaves the translation length in this prefix to the operator, so the embedded
 # address cannot be located reliably. Nothing public is reachable through it either way.
 NAT64_LOCAL_USE = ipaddress.IPv6Network("64:ff9b:1::/48")
+# The deprecated IPv4-compatible range (RFC 4291) and the SIIT IPv4-translated range
+# (RFC 2765) also carry an IPv4 address in the low 32 bits that `is_global` ignores.
+IPV4_COMPATIBLE = ipaddress.IPv6Network("::/96")
+IPV4_TRANSLATED = ipaddress.IPv6Network("::ffff:0:0:0/96")
+EMBEDS_IPV4 = (NAT64_WELL_KNOWN, IPV4_COMPATIBLE, IPV4_TRANSLATED)
 
 type Resolver = Callable[[str], Awaitable[list[str]]]
 
@@ -39,17 +44,19 @@ def is_public_address(address: str) -> bool:
         address: An IPv4 or IPv6 address in its usual text form.
 
     Returns:
-        False for loopback, private, link-local, carrier-grade NAT, reserved, and
-        unparsable addresses, and for any IPv6 form that carries one of those inside it.
+        False for loopback, private, link-local, carrier-grade NAT, multicast, reserved,
+        and unparsable addresses, and for any IPv6 form that carries one of those inside it.
     """
     try:
         ip = ipaddress.ip_address(address)
     except ValueError:
         return False
+    if ip.is_multicast:
+        return False
     if isinstance(ip, ipaddress.IPv6Address):
         if ip in NAT64_LOCAL_USE:
             return False
-        if ip in NAT64_WELL_KNOWN:
+        if any(ip in network for network in EMBEDS_IPV4):
             return is_public_address(str(ipaddress.IPv4Address(int(ip) & 0xFFFFFFFF)))
     return ip.is_global
 
