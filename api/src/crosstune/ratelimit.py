@@ -34,10 +34,15 @@ class RateLimiter:
         self._window = window_seconds
         self._clock = clock
         self._hits: dict[Hashable, deque[float]] = {}
+        self._last_sweep = clock()
 
     @property
     def tracked(self) -> int:
-        """How many keys have a hit still inside the window."""
+        """How many keys the limiter holds hits for.
+
+        A key idle for a window is dropped at the first sweep after that, and a sweep runs on
+        the first hit a window or more after the one before it.
+        """
         return len(self._hits)
 
     def hit(self, key: Hashable, cost: int = 1) -> float | None:
@@ -54,24 +59,31 @@ class RateLimiter:
         """
         cost = min(cost, self._limit)
         now = self._clock()
-        self._forget(now)
+        cutoff = now - self._window
+        # Sweeping once per window rather than per hit keeps a hit's cost independent of
+        # how many keys are active, while memory stays bounded by two windows of callers.
+        if now - self._last_sweep >= self._window:
+            self._sweep(cutoff)
+            self._last_sweep = now
         hits = self._hits.setdefault(key, deque())
+        _prune(hits, cutoff)
         over = len(hits) + cost - self._limit
         if over > 0:
             return hits[over - 1] + self._window - now
         hits.extend([now] * cost)
         return None
 
-    def _forget(self, now: float) -> None:
-        # Pruning every key on every hit keeps memory bounded by active callers, and the
-        # key count is small enough that the sweep costs nothing next to the route itself.
-        cutoff = now - self._window
+    def _sweep(self, cutoff: float) -> None:
         for key in list(self._hits):
             hits = self._hits[key]
-            while hits and hits[0] <= cutoff:
-                hits.popleft()
+            _prune(hits, cutoff)
             if not hits:
                 del self._hits[key]
+
+
+def _prune(hits: deque[float], cutoff: float) -> None:
+    while hits and hits[0] <= cutoff:
+        hits.popleft()
 
 
 class ConcurrencyLimiter:
