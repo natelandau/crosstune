@@ -3,6 +3,7 @@ import Footer from '../components/Footer.astro'
 import Lockup from '../components/Lockup.astro'
 import { OG_IMAGE_ALT } from '../components/seo'
 import {
+  APP_STORE_ID,
   APP_URL,
   CREATE_ACCOUNT,
   SECTIONS,
@@ -44,6 +45,7 @@ const imageAlt = OG_IMAGE_ALT
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon-180x180.png" />
     <meta name="theme-color" content="#ffffff" />
+    <meta name="apple-itunes-app" content={`app-id=${APP_STORE_ID}`} />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Crosstune" />
     <meta property="og:title" content={title} />
@@ -87,10 +89,10 @@ const imageAlt = OG_IMAGE_ALT
     <slot />
     <Footer />
     <script>
-      import { startAnalytics, trackCreateAccountClicks } from '../scripts/analytics'
+      import { startAnalytics, trackLinkClicks } from '../scripts/analytics'
 
       startAnalytics(import.meta.env.PUBLIC_POSTHOG_TOKEN)
-      trackCreateAccountClicks(document)
+      trackLinkClicks(document)
 
       const nav = document.querySelector<HTMLElement>('[data-nav]')
       if (nav) {

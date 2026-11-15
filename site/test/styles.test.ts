@@ -5,7 +5,10 @@ import { describe, expect, it } from 'vitest'
 const read = (file: string) => readFileSync(resolve(import.meta.dirname, '../src', file), 'utf8')
 const base = read('styles/base.css')
 const tokens = read('styles/tokens.css')
-const createAccount = /<style>([\s\S]*)<\/style>/.exec(read('components/CreateAccount.astro'))![1]
+const componentStyle = (file: string) =>
+  /<style>([\s\S]*)<\/style>/.exec(read(`components/${file}`))![1]!
+const createAccount = componentStyle('CreateAccount.astro')
+const appStoreButton = componentStyle('AppStoreButton.astro')
 
 /** The body of the first `@media` block whose query is `query`, braces matched. */
 function mediaBody(css: string, query: string): string {
@@ -87,24 +90,19 @@ describe('button colors', () => {
 })
 
 describe('Create account button', () => {
-  it('keeps the coral label at 4.5:1 or more, at rest and on hover', () => {
-    const label = color(declared(createAccount, '.create', 'color')[0])
-    for (const selector of ['.create', '.create:hover']) {
-      const background = declared(createAccount, selector, 'background')[0]
-      expect(contrast(color(background), label), selector).toBeGreaterThanOrEqual(4.5)
-    }
-  })
-
-  it('keeps the jet label at 4.5:1 or more, at rest and on hover', () => {
-    const label = color(declared(createAccount, '.cta.jet .create', 'color')[0])
-    for (const selector of ['.cta.jet .create', '.cta.jet .create:hover']) {
-      const background = declared(createAccount, selector, 'background')[0]
+  it.each([
+    ['Create account', createAccount, '.create'],
+    ['App Store', appStoreButton, '.app-store'],
+  ])('keeps the %s label at 4.5:1 or more, at rest and on hover', (_, css, button) => {
+    const label = color(declared(css, button, 'color')[0])
+    for (const selector of [button, `${button}:hover`]) {
+      const background = declared(css, selector, 'background')[0]
       expect(contrast(color(background), label), selector).toBeGreaterThanOrEqual(4.5)
     }
   })
 
   it('keeps the check marks on the coral wash at 3:1 or more', () => {
-    const check = color(declared(createAccount, '.cta.jet .checks svg', 'color')[0])
+    const check = color(declared(createAccount, '.cta.wash .checks svg', 'color')[0])
     expect(contrast(check, color('var(--coral-wash)'))).toBeGreaterThanOrEqual(3)
   })
 

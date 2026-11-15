@@ -48,9 +48,9 @@ two audiences.
 - **Setting values.** The `value` of `setting_changed` takes its type
   from the `settings` section, by the setting it names.
 - **Free format.** `$referrer`, `$referring_domain`, and the `utm_*`
-  properties on the site's `create_account_clicked` are free text, the one
-  exception to the content rule. PostHog reads them from the page the
-  visitor clicked on.
+  properties on the site's `create_account_clicked` and
+  `app_store_clicked` are free text, the one exception to the content
+  rule. PostHog reads them from the page the visitor clicked on.
 - **Buckets.** A count, duration, or size travels as a fixed range. The
   `buckets` section of the plan defines each range once. Never send the
   raw number.

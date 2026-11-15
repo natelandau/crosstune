@@ -48,6 +48,12 @@
       "pricing_free",
       "pricing_premium"
     ],
+    "app_store_placement": [
+      "hero",
+      "closing",
+      "platforms",
+      "footer"
+    ],
     "product": [
       "site",
       "app"
@@ -598,6 +604,7 @@
     "retention": "Do people come back, week over week, on each platform?",
     "site_traffic": "How many visitors does the site get, and what do they read and click?",
     "signup_sources": "Which referrers and campaigns lead to a Create account click?",
+    "app_store_sources": "Which placements, referrers, and campaigns lead to an App Store click?",
     "activation": "Do new people go from signing in to a tune, its audio, and practice?",
     "feature_usage": "Which features are used most and least?",
     "playback_source": "Where does playback start?",
@@ -2254,6 +2261,57 @@
         "placement": {
           "type": "string",
           "enum": "placement",
+          "required": true
+        },
+        "$referrer": {
+          "type": "string",
+          "format": "free",
+          "required": false
+        },
+        "$referring_domain": {
+          "type": "string",
+          "format": "free",
+          "required": false
+        },
+        "utm_source": {
+          "type": "string",
+          "format": "free",
+          "required": false
+        },
+        "utm_medium": {
+          "type": "string",
+          "format": "free",
+          "required": false
+        },
+        "utm_campaign": {
+          "type": "string",
+          "format": "free",
+          "required": false
+        },
+        "utm_term": {
+          "type": "string",
+          "format": "free",
+          "required": false
+        },
+        "utm_content": {
+          "type": "string",
+          "format": "free",
+          "required": false
+        }
+      }
+    },
+    "app_store_clicked": {
+      "description": "A visitor clicked an App Store link on the site, on the way to the app's App Store page.",
+      "clients": [
+        "site"
+      ],
+      "answers": [
+        "app_store_sources"
+      ],
+      "properties": {
+        "placement": {
+          "type": "string",
+          "enum": "app_store_placement",
           "required": true
         },
         "$referrer": {

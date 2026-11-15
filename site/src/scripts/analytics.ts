@@ -3,14 +3,25 @@ import type { PostHog, PostHogConfig } from 'posthog-js'
 // First-party proxy host, so blockers keyed on PostHog's own domains do not drop events.
 export const ANALYTICS_HOST = 'https://relay.crosstune.app'
 
-// A Create account click navigates away at once, and only a beacon sent at once outlives it.
-const CREATE_ACCOUNT_CAPTURE_OPTIONS = { send_instantly: true, transport: 'sendBeacon' } as const
+// A tracked click navigates away at once, and only a beacon sent at once outlives it.
+const OUTBOUND_CAPTURE_OPTIONS = { send_instantly: true, transport: 'sendBeacon' } as const
 
 /** Where a Create account link sits, carried on each link as `data-create-account`. */
 export const PLACEMENTS = ['nav', 'hero', 'closing', 'pricing_free', 'pricing_premium'] as const
 export type Placement = (typeof PLACEMENTS)[number]
 
-const isPlacement = (value: unknown): value is Placement => PLACEMENTS.includes(value as Placement)
+/** Where an App Store link sits, carried on each link as `data-app-store`. */
+export const APP_STORE_PLACEMENTS = ['hero', 'closing', 'platforms', 'footer'] as const
+export type AppStorePlacement = (typeof APP_STORE_PLACEMENTS)[number]
+
+// Each tracked link's data attribute, as `dataset` names it, with its event and placements.
+const TRACKED_LINKS = [
+  { key: 'createAccount', event: 'create_account_clicked', placements: PLACEMENTS },
+  { key: 'appStore', event: 'app_store_clicked', placements: APP_STORE_PLACEMENTS },
+] as const
+const TRACKED_SELECTOR = TRACKED_LINKS.map(
+  ({ key }) => `[data-${key.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}]`,
+).join(', ')
 
 // Registered on every event, so the site's events split from the apps' in one PostHog project.
 export const SITE_SUPER_PROPERTIES = { product: 'site', platform: 'site' } as const
@@ -68,20 +79,28 @@ async function load(token: string): Promise<void> {
 
 // PostHog adds the referrer and the landing URL's campaign tags itself, so only the placement is
 // passed. A click before analytics has loaded goes unrecorded, since the page is already leaving.
-export function trackCreateAccount(placement: Placement): void {
+function captureOutbound(event: string, placement: string): void {
   try {
-    client?.capture('create_account_clicked', { placement }, CREATE_ACCOUNT_CAPTURE_OPTIONS)
+    client?.capture(event, { placement }, OUTBOUND_CAPTURE_OPTIONS)
   } catch {
-    // The visitor is on the way to sign-up; a tracking failure must not stop them.
+    // The visitor is on the way out; a tracking failure must not stop them.
   }
 }
 
-/** Sends a Create account click from anywhere in `root`, by the link's placement. */
-export function trackCreateAccountClicks(root: Document): void {
+export function trackCreateAccount(placement: Placement): void {
+  captureOutbound('create_account_clicked', placement)
+}
+
+/** Sends a Create account or App Store click from anywhere in `root`, by the link's placement. */
+export function trackLinkClicks(root: Document): void {
   const track = (event: MouseEvent) => {
-    const link = (event.target as Element | null)?.closest?.<HTMLElement>('[data-create-account]')
-    const placement = link?.dataset.createAccount
-    if (isPlacement(placement)) trackCreateAccount(placement)
+    const link = (event.target as Element | null)?.closest?.<HTMLElement>(TRACKED_SELECTOR)
+    for (const { key, event: name, placements } of TRACKED_LINKS) {
+      const placement = link?.dataset[key]
+      if (placement && (placements as readonly string[]).includes(placement)) {
+        return captureOutbound(name, placement)
+      }
+    }
   }
   root.addEventListener('click', track)
   // A middle-click opens the link in a new tab and fires only auxclick.

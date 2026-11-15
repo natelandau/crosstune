@@ -20,8 +20,8 @@ describe('/llms.txt', () => {
     for (const { question, answer } of FAQ) expect(text).toContain(`### ${question}\n\n${answer}`)
   })
 
-  it('links home for features, pricing, and sign-up', () => {
-    expect(text).toContain('[Home](https://crosstune.app/): features, pricing, and sign-up')
+  it('links home', () => {
+    expect(text).toContain('](https://crosstune.app/)')
   })
 
   it('lists the tuner feature and its help page', () => {

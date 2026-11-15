@@ -12,6 +12,8 @@ export const HOME_LINK = 'Crosstune home'
 /** The web app's sign-up screen, where every Create account link goes. */
 export const SIGN_UP_URL = `${APP_URL}/sign-up`
 export const CREATE_FREE_ACCOUNT = 'Create free account'
+/** The hero's and the closing band's sign-up button, beside the App Store button. */
+export const CONTINUE_ON_WEB = 'Continue on web'
 /** Where "free" does not fit or reads oddly: the nav and the Premium card. */
 export const CREATE_ACCOUNT = 'Create account'
 export const PREMIUM_INCLUDED = '30 days of Premium included'
@@ -28,3 +30,8 @@ export const SECTIONS = [
   ['FAQ', 'questions'],
 ] as const
 export const NATE_EMAIL = 'nate@crosstune.app'
+export const APP_STORE_ID = '6817756289'
+// No storefront segment, so Apple opens the visitor's own country's store.
+export const APP_STORE_URL = `https://apps.apple.com/app/id${APP_STORE_ID}`
+export const DOWNLOAD_ON_APP_STORE = 'Download on the App Store'
+export const APP_STORE = 'App Store'
