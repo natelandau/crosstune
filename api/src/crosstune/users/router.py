@@ -255,6 +255,8 @@ async def delete_me(
                     await clerk_users.delete_user(user.clerk_user_id)
                 except ClerkUnavailableError as exc:
                     raise AccountDeletionFailedError from exc
+                # The user.deleted webhook also queues this, but a webhook can be lost.
+                _schedule_analytics_deletion(request, session, user.clerk_user_id)
     # A missing row means a concurrent delete already committed, and both delete paths
     # commit only once Clerk's copy is gone, so this request's code still revokes.
     # After the response, so Apple's latency never holds the user lock or the transaction.
@@ -340,20 +342,32 @@ async def clerk_webhook(
                 # deletion; the runner's orphan sweep removes whatever it misses.
                 background.add_task(_purge_user_files, store, user_prefix(user_id))
             # Events can exist without a local row, so this runs even when nothing was purged.
-            # The runner owns the deletes, so PostHog failing never delays or rolls back this.
-            if request.app.state.analytics_persons is not None:
-                settings = request.app.state.settings
-                schedule_person_deletion(
-                    session,
-                    clerk_user_id,
-                    later_passes_after=[
-                        timedelta(seconds=seconds)
-                        for seconds in (
-                            settings.posthog_second_delete_seconds,
-                            settings.posthog_third_delete_seconds,
-                            settings.posthog_fourth_delete_seconds,
-                        )
-                    ],
-                )
-                request_runner_wake(session)
+            _schedule_analytics_deletion(request, session, clerk_user_id)
     return Response(status_code=204)
+
+
+def _schedule_analytics_deletion(
+    request: Request, session: AsyncSession, clerk_user_id: str
+) -> None:
+    """Queue the PostHog person's deletion in the caller's transaction.
+
+    The runner owns the deletes, so PostHog failing never delays or rolls back the
+    account deletion. Queuing twice for one person is harmless: a person PostHog no
+    longer holds counts as deleted.
+    """
+    if request.app.state.analytics_persons is None:
+        return
+    settings = request.app.state.settings
+    schedule_person_deletion(
+        session,
+        clerk_user_id,
+        later_passes_after=[
+            timedelta(seconds=seconds)
+            for seconds in (
+                settings.posthog_second_delete_seconds,
+                settings.posthog_third_delete_seconds,
+                settings.posthog_fourth_delete_seconds,
+            )
+        ],
+    )
+    request_runner_wake(session)

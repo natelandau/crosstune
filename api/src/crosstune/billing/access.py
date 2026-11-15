@@ -89,7 +89,8 @@ def _lasts_longest(grant: Grant) -> tuple[int, float, int]:
 def live_stripe_grant(grants: Sequence[Grant], now: datetime) -> Grant | None:
     """The active web Premium grant with a known start, the one a withdrawal refunds.
 
-    When several are active, the one that lasts longest, as `paid_grants` reports it.
+    When several are active, the one that started last: the window runs from each
+    subscription's first payment, so it is the one most likely still inside it.
     """
     return max(
         (
@@ -100,7 +101,7 @@ def live_stripe_grant(grants: Sequence[Grant], now: datetime) -> Grant | None:
             and g.started_at is not None
             and _active(g, now)
         ),
-        key=_lasts_longest,
+        key=lambda g: (g.started_at, _lasts_longest(g)),
         default=None,
     )
 

@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 import pytest
 from sqlalchemy import Integer, event, func, literal, select, text
 
-from crosstune.models import ListItem, RecordingLink, Tune, UserTune
+from crosstune.models import ListItem, Recording, RecordingLink, Tune, UserTune
 from crosstune.schemas.common import Change
 from crosstune.sync.push import _write
 from tests.helpers import T0, T1, T2, change, pull, push, recording, uid
@@ -153,18 +153,38 @@ async def test_cannot_reference_another_users_tune(client, auth_headers) -> None
     assert results[0]["status"] == "invalid"
 
 
+@pytest.mark.parametrize(
+    ("model", "mine", "stolen", "column"),
+    [
+        (
+            Tune,
+            lambda id_, at: change("tunes", id_, at, title="Mine"),
+            lambda id_, at: change("tunes", id_, at, title="Stolen"),
+            "title",
+        ),
+        (
+            Recording,
+            lambda id_, at: recording(id_, at, trim_start_ms=0),
+            lambda id_, at: recording(id_, at, trim_start_ms=500, split_id=uid(), split_size=2),
+            "trim_start_ms",
+        ),
+    ],
+    ids=["tune", "recording"],
+)
 async def test_cannot_overwrite_another_users_row_by_id(
-    client, auth_headers, verify_session: AsyncSession
+    client, auth_headers, verify_session: AsyncSession, model, mine, stolen, column
 ) -> None:
-    tune_id = uid()
-    await push(client, auth_headers("user_a"), change("tunes", tune_id, T0, title="Mine"))
-    results = await push(
-        client, auth_headers("user_b"), change("tunes", tune_id, T2, title="Stolen")
-    )
+    row_id = uid()
+    await push(client, auth_headers("user_a"), mine(row_id, T0))
+    stored = await verify_session.get(model, uuid.UUID(row_id))
+    before = (getattr(stored, column), stored.updated_at, stored.server_seq)
+    results = await push(client, auth_headers("user_b"), stolen(row_id, T2))
     assert results[0]["status"] == "invalid"
+    assert results[0]["reason"] == "id is not yours"
     assert results[0]["row"] is None
-    tune = await verify_session.get(Tune, uuid.UUID(tune_id))
-    assert tune.title == "Mine"
+    verify_session.expire_all()
+    stored = await verify_session.get(model, uuid.UUID(row_id))
+    assert (getattr(stored, column), stored.updated_at, stored.server_seq) == before
 
 
 async def test_cannot_overwrite_another_users_list_item_by_id(

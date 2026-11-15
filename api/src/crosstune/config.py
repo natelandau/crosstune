@@ -1,5 +1,6 @@
 """Application settings, read from the environment with the CROSSTUNE_ prefix."""
 
+import ipaddress
 import re
 from functools import lru_cache
 from pathlib import Path
@@ -24,6 +25,7 @@ from crosstune.client_version import Version, parse_version
 _LIBPQ_SCHEMES = {"postgres", "postgresql"}
 PRODUCTION_BUCKET = "crosstune-recordings"
 PREVIEW_BUCKET = "crosstune-recordings-preview"
+DEV_BUCKET = "crosstune-recordings-dev"
 LOCAL_BUCKET = "crosstune-local"
 E2E_BUCKET = "crosstune-e2e"
 # A git worktree's own database and bucket, `just api::worktree-db` names both from one slug.
@@ -244,6 +246,21 @@ class Settings(BaseSettings):
         return self.database_name.startswith(WORKTREE_DATABASE_PREFIX)
 
     @property
+    def local_database(self) -> bool:
+        """Whether the database runs on this machine, as every local checkout's does."""
+        parts = urlsplit(self.database_url)
+        host = dict(parse_qsl(parts.query)).get("host") or parts.hostname or ""
+        # No host, or a socket directory, connects through a Unix socket on this machine.
+        if not host or host.startswith("/"):
+            return True
+        if host == "localhost" or host.endswith(".localhost"):
+            return True
+        try:
+            return ipaddress.ip_address(host).is_loopback
+        except ValueError:
+            return False
+
+    @property
     def storage_endpoint(self) -> str:
         """The S3 endpoint: the configured one, or the R2 endpoint of the account."""
         return (
@@ -355,7 +372,9 @@ class Settings(BaseSettings):
         """Refuse a hosted environment that would accept tokens without checking them fully.
 
         With no issuer every token is refused, and with no authorized party a token
-        issued to any site on the Clerk instance is accepted. Local work is exempt.
+        issued to any site on the Clerk instance is accepted. With no webhook secret
+        every Clerk webhook is refused, so an account deleted in Clerk is never purged
+        here. Local work is exempt.
         """
         if self.environment != "production" and not self.environment.startswith("pr-"):
             return self
@@ -364,6 +383,9 @@ class Settings(BaseSettings):
             raise ValueError(msg)
         if not self.clerk_secret_key.get_secret_value():
             msg = f"{self.environment} needs CROSSTUNE_CLERK_SECRET_KEY"
+            raise ValueError(msg)
+        if not self.clerk_webhook_secret.get_secret_value():
+            msg = f"{self.environment} needs CROSSTUNE_CLERK_WEBHOOK_SECRET"
             raise ValueError(msg)
         if not (self.clerk_authorized_parties or self.clerk_authorized_party_regex):
             msg = (
@@ -532,6 +554,11 @@ class Settings(BaseSettings):
             return f"only pr-<number> environments may use {PREVIEW_BUCKET}"
         if env.startswith("pr-") and bucket != PREVIEW_BUCKET:
             return f"{env} must use {PREVIEW_BUCKET}"
+        hosted_development = (
+            env == "development" and not self.local_storage_endpoint_url and not self.local_database
+        )
+        if bucket == DEV_BUCKET and not hosted_development:
+            return f"only hosted development may use {DEV_BUCKET}"
         return None
 
     def _e2e_problem(self) -> str | None:
