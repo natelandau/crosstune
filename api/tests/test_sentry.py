@@ -5,7 +5,7 @@ import sys
 
 import pytest
 import sentry_sdk
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 from sentry_sdk.envelope import Envelope
 from sentry_sdk.transport import Transport
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,12 +14,22 @@ from crosstune.config import Settings
 from crosstune.db.engine import make_engine
 from crosstune.error_reports import before_send
 from crosstune.jobs.media import MediaError, Probe, run_media_tool
+from crosstune.links.router import SearchResult
 from crosstune.main import create_app
 from crosstune.places.maps import PlaceHit
 from crosstune.sync.rules import RecordingRules
 from tests.helpers import T1, change, push, recording, uid
 
 DSN = "https://key@o1.ingest.sentry.io/1"
+# Kept out of the test body, whose source lines a report carries as context.
+_UNKNOWN_PROVIDER_HIT = {
+    "url": "https://youtu.be/dQw4w9WgXcQ",
+    "provider": "Sally Ann from Kyle Creed",
+    "provider_ref": None,
+    "title": "Sally Ann",
+    "subtitle": None,
+    "artwork_url": None,
+}
 
 
 def test_sentry_is_tagged_with_the_environment(mocker) -> None:
@@ -330,6 +340,21 @@ def test_sentry_drops_the_value_from_a_driver_encode_error() -> None:
     assert "Joe" not in value
     assert "invalid input for query argument $3: <value redacted> (expected str, got int)" in value
     assert "[SQL: INSERT INTO recordings]" in value
+
+
+def test_sentry_drops_the_input_from_a_validation_error_message(live_sentry) -> None:
+    def fail() -> None:
+        SearchResult(**_UNKNOWN_PROVIDER_HIT)
+
+    try:
+        fail()
+    except ValidationError:
+        sentry_sdk.capture_exception()
+    sentry_sdk.flush()
+
+    [exception] = _events(live_sentry)[0]["exception"]["values"]
+    assert "input_value=<value redacted>, input_type=str]" in exception["value"]
+    assert _UNKNOWN_PROVIDER_HIT["provider"] not in _sent_event(live_sentry)
 
 
 def test_sentry_scrubs_apple_maps_place_fields_from_frames(mocker) -> None:

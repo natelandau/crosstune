@@ -17,7 +17,7 @@ from crosstune.db.base import bump_server_seq, utc_now
 from crosstune.db.locks import lock_user
 from crosstune.http import BlockedAddressError
 from crosstune.jobs.media import SUBPROCESS_TIMEOUT_SECONDS, MediaError
-from crosstune.logging import redact_driver_values
+from crosstune.logging import redact_error_values
 from crosstune.models import Job, Recording
 from crosstune.recordings.split_rules import fail_parent_split
 from crosstune.storage.store import delete_best_effort
@@ -218,7 +218,7 @@ async def retry_or_drop(session: AsyncSession, job: Job, exc: Exception) -> bool
     Returns:
         bool: Whether the job was dropped.
     """
-    raw = redact_driver_values(str(exc))
+    raw = redact_error_values(str(exc))
     extra = {"recording": str(job.recording_id), "kind": job.kind, "attempt": job.attempts}
     if job.attempts >= MAX_ATTEMPTS:
         log.error("%s gave up", job.kind, exc_info=exc, extra=extra)
