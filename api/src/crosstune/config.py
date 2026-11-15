@@ -27,6 +27,8 @@ PRODUCTION_BUCKET = "crosstune-recordings"
 PREVIEW_BUCKET = "crosstune-recordings-preview"
 DEV_BUCKET = "crosstune-recordings-dev"
 LOCAL_BUCKET = "crosstune-local"
+# Where compose.yml publishes Postgres. Any other host may hold someone's real data.
+LOCAL_DATABASE_HOSTS = frozenset({"localhost", "127.0.0.1"})
 E2E_BUCKET = "crosstune-e2e"
 # A git worktree's own database and bucket, `just api::worktree-db` names both from one slug.
 WORKTREE_DATABASE_PREFIX = "crosstune_wt_"

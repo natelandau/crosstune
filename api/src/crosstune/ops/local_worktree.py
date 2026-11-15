@@ -25,6 +25,7 @@ from dotenv import dotenv_values
 
 from crosstune.config import (
     LOCAL_BUCKET,
+    LOCAL_DATABASE_HOSTS,
     WORKTREE_BUCKET_PREFIX,
     WORKTREE_DATABASE_PREFIX,
     Settings,
@@ -152,6 +153,11 @@ class Server:
 
     def __init__(self, url: str) -> None:
         parts = urlsplit(url)
+        if parts.hostname not in LOCAL_DATABASE_HOSTS:
+            sys.exit(
+                f"refusing {parts.hostname or url}: these commands act only on the Postgres"
+                " server compose.yml starts on this machine"
+            )
         self.netloc = parts.netloc
         self.user = parts.username or "postgres"
 
