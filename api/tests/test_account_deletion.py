@@ -593,6 +593,8 @@ async def test_webhook_after_delete_is_a_no_op(
     assert response.status_code == 204
     # The webhook's own purge_account call finds no row, so it schedules no second wipe.
     assert len(app.state.object_store.deleted_prefixes) == 1
+    # The deletion's analytics passes are still queued, so the webhook adds none.
+    assert await verify_session.scalar(select(func.count()).select_from(AnalyticsDeletion)) == 4
     assert await verify_session.scalar(select(func.count()).select_from(User)) == user_count
     assert (
         await verify_session.scalar(select(func.count()).select_from(DeletedAccount))

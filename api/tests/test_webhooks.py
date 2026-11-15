@@ -297,6 +297,17 @@ async def test_user_deleted_queues_the_analytics_person_deletion_four_times(
         assert before + delay <= row.locked_until <= utc_now() + delay
 
 
+async def test_a_repeated_user_deleted_queues_the_analytics_deletion_once(
+    client, auth_headers, verify_session: AsyncSession
+) -> None:
+    await client.get("/v1/me", headers=auth_headers("user_abc"))
+    for _ in range(3):
+        response = await _post_user_deleted(client, "user_abc")
+        assert response.status_code == 204
+    queued = await _queued_deletions(verify_session)
+    assert queued == [("user_abc", False)] + [("user_abc", True)] * 3
+
+
 async def test_user_deleted_for_unknown_user_still_queues_the_analytics_deletion(
     client, verify_session: AsyncSession
 ) -> None:

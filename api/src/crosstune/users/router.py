@@ -258,7 +258,7 @@ async def delete_me(
                 except ClerkUnavailableError as exc:
                     raise AccountDeletionFailedError from exc
                 # The user.deleted webhook also queues this, but a webhook can be lost.
-                _schedule_analytics_deletion(request, session, user.clerk_user_id)
+                await _schedule_analytics_deletion(request, session, user.clerk_user_id)
     # A missing row means a concurrent delete already committed, and both delete paths
     # commit only once Clerk's copy is gone, so this request's code still revokes.
     # After the response, so Apple's latency never holds the user lock or the transaction.
@@ -296,7 +296,11 @@ async def _end_billing_for_webhook(
             request.app.state.mailer,
         )
     except (AccountDeletionUnavailableError, AccountDeletionFailedError):
-        # Svix retries a 503; the purge has not run, so the retry starts clean.
+        # Svix retries a 503; the purge has not run, so the retry starts clean. Nothing
+        # purges the account once Svix stops retrying, so each failure reaches Sentry.
+        log.error(  # noqa: TRY400 -- keeps the provider error out of Sentry
+            "could not end billing for a deleted Clerk user", extra={"user": str(user.id)}
+        )
         msg = "Could not end billing for the deleted account"
         raise BillingUnavailableError(msg) from None
 
@@ -334,7 +338,7 @@ async def clerk_webhook(
                     refund_notice = await _end_billing_for_webhook(request, session, existing)
                 user_id = await purge_account(session, clerk_user_id)
                 # Events can exist without a local row, so this runs even when nothing was purged.
-                _schedule_analytics_deletion(request, session, clerk_user_id)
+                await _schedule_analytics_deletion(request, session, clerk_user_id)
             if user_id is not None and refund_notice is not None:
                 background.add_task(
                     _send_refund_notice, request.app.state.sessionmaker, refund_notice
@@ -348,19 +352,18 @@ async def clerk_webhook(
     return Response(status_code=204)
 
 
-def _schedule_analytics_deletion(
+async def _schedule_analytics_deletion(
     request: Request, session: AsyncSession, clerk_user_id: str
 ) -> None:
     """Queue the PostHog person's deletion in the caller's transaction.
 
     The runner owns the deletes, so PostHog failing never delays or rolls back the
-    account deletion. Queuing twice for one person is harmless: a person PostHog no
-    longer holds counts as deleted.
+    account deletion.
     """
     if request.app.state.analytics_persons is None:
         return
     settings = request.app.state.settings
-    schedule_person_deletion(
+    await schedule_person_deletion(
         session,
         clerk_user_id,
         later_passes_after=[

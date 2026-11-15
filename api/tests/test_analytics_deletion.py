@@ -53,7 +53,7 @@ async def _rows(verify_session: AsyncSession) -> list[AnalyticsDeletion]:
 
 
 async def _schedule(verify_session: AsyncSession, distinct_id: str = "user_gone") -> None:
-    analytics_module.schedule_person_deletion(
+    await analytics_module.schedule_person_deletion(
         verify_session, distinct_id, later_passes_after=LATER_PASSES
     )
     await verify_session.commit()
