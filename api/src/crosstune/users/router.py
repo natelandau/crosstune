@@ -39,6 +39,7 @@ from crosstune.files.quota import used_bytes
 from crosstune.jobs.analytics import schedule_person_deletion
 from crosstune.models import User
 from crosstune.places.countries import country as country_named
+from crosstune.ratelimit import account_slot
 from crosstune.storage.store import user_prefix
 from crosstune.users.apple import AppleClient, AppleRevokeError
 from crosstune.users.clerk import ClerkUnavailableError
@@ -135,15 +136,16 @@ async def record_notice(
     The first time is the one kept; a repeat changes nothing.
     """
     settings = request.app.state.settings
-    # The row takes a new server_seq, which must commit in the order pull relies on.
-    await lock_user(session, user.id, wait_seconds=settings.request_lock_timeout_seconds)
-    row = await refresh_entitlement(session, user.id, settings)
-    column = NOTICE_COLUMNS[body.notice]
-    if getattr(row, column) is None:
-        now = utc_now()
-        setattr(row, column, now)
-        row.updated_at = now
-        bump_server_seq(row)
+    with account_slot(request, user.id):
+        # The row takes a new server_seq, which must commit in the order pull relies on.
+        await lock_user(session, user.id, wait_seconds=settings.request_lock_timeout_seconds)
+        row = await refresh_entitlement(session, user.id, settings)
+        column = NOTICE_COLUMNS[body.notice]
+        if getattr(row, column) is None:
+            now = utc_now()
+            setattr(row, column, now)
+            row.updated_at = now
+            bump_server_seq(row)
     return Response(status_code=204)
 
 
@@ -235,23 +237,24 @@ async def delete_me(
     # The billing lock keeps a withdrawal, the withdrawal pass, and a second deletion out
     # from the first billing step until the purge is written.
     wait_seconds = request.app.state.settings.request_lock_timeout_seconds
-    async with billing_lock(session, user.id, wait_seconds=wait_seconds):
-        await lock_user(session, user.id, wait_seconds=wait_seconds)
-        refund_notice = await end_billing(
-            session,
-            user,
-            request.app.state.stripe,
-            request.app.state.revenuecat,
-            request.app.state.settings,
-            utc_now(),
-            request.app.state.mailer,
-        )
-        user_id = await purge_account(session, user.clerk_user_id)
-        if user_id is not None:
-            try:
-                await clerk_users.delete_user(user.clerk_user_id)
-            except ClerkUnavailableError as exc:
-                raise AccountDeletionFailedError from exc
+    with account_slot(request, user.id):
+        async with billing_lock(session, user.id, wait_seconds=wait_seconds):
+            await lock_user(session, user.id, wait_seconds=wait_seconds)
+            refund_notice = await end_billing(
+                session,
+                user,
+                request.app.state.stripe,
+                request.app.state.revenuecat,
+                request.app.state.settings,
+                utc_now(),
+                request.app.state.mailer,
+            )
+            user_id = await purge_account(session, user.clerk_user_id)
+            if user_id is not None:
+                try:
+                    await clerk_users.delete_user(user.clerk_user_id)
+                except ClerkUnavailableError as exc:
+                    raise AccountDeletionFailedError from exc
     # A missing row means a concurrent delete already committed, and both delete paths
     # commit only once Clerk's copy is gone, so this request's code still revokes.
     # After the response, so Apple's latency never holds the user lock or the transaction.

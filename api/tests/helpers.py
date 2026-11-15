@@ -8,13 +8,20 @@ import hmac
 import subprocess
 import time
 import uuid
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from crosstune.db.locks import lock_user
+
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
     from pathlib import Path
 
     import httpx2
+    from sqlalchemy.ext.asyncio import AsyncEngine
 
 GAPPED_WEBM_GAP_MS = 59
 GAPPED_WEBM_GAP_AT_S = 1.0
@@ -79,6 +86,17 @@ async def push(client: httpx2.AsyncClient, headers: dict, *changes: dict) -> lis
     response = await client.post("/v1/sync/push", json={"changes": list(changes)}, headers=headers)
     assert response.status_code == 200, response.text
     return response.json()["results"]
+
+
+@asynccontextmanager
+async def hold_account_lock(engine: AsyncEngine, user_id: uuid.UUID) -> AsyncIterator[None]:
+    """Hold the account's user lock from a session of its own until the block ends."""
+    async with AsyncSession(bind=engine) as holder:
+        await lock_user(holder, user_id)
+        try:
+            yield
+        finally:
+            await holder.rollback()
 
 
 async def pull(client: httpx2.AsyncClient, headers: dict, since: int = 0) -> dict:

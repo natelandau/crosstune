@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import replace
 from datetime import timedelta
 from typing import TYPE_CHECKING
@@ -19,7 +20,7 @@ from crosstune.ratelimit import RateLimiter
 from crosstune.users.service import get_or_create_user
 from crosstune.vocabulary import GrantEnvironment, GrantKind, GrantSource
 from tests.fakes import FakeRevenueCat
-from tests.helpers import premium_ended, pull
+from tests.helpers import hold_account_lock, premium_ended, pull
 
 if TYPE_CHECKING:
     import httpx2
@@ -261,6 +262,24 @@ async def test_webhook_revenuecat_down_is_503(client, webhook_app, auth_headers)
 
     response = await client.post(WEBHOOK, json=_event(app_user_id="user_a"), headers=_auth())
 
+    assert response.status_code == 503
+
+
+async def test_webhook_behind_a_held_account_lock_is_503(
+    client, webhook_app, auth_headers, engine, verify_session
+) -> None:
+    await _sign_up(client, auth_headers, "user_a")
+    webhook_app.state.revenuecat = FakeRevenueCat({"user_a": [_stripe_sub()]})
+    webhook_app.state.settings = webhook_app.state.settings.model_copy(
+        update={"request_lock_timeout_seconds": 0.2}
+    )
+    user_id = await verify_session.scalar(select(User.id).where(User.clerk_user_id == "user_a"))
+    async with hold_account_lock(engine, user_id):
+        response = await asyncio.wait_for(
+            client.post(WEBHOOK, json=_event(app_user_id="user_a"), headers=_auth()), timeout=5
+        )
+
+    # RevenueCat retries any delivery that does not answer 200.
     assert response.status_code == 503
 
 

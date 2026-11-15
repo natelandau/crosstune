@@ -164,9 +164,16 @@ each question, and the invariants that both clients and the API hold.
   - A request route passes `wait_seconds` to `lock_user`, and answers 429
     when the wait ends. A route that takes the billing lock bounds that
     wait too.
-  - A sync route also counts against the account's requests in flight.
-  - Only jobs, ops commands, and webhooks, which no user can send at will,
-    wait with no bound.
+  - A request route that waits on either lock counts against the
+    account's requests in flight, one budget shared by every such route.
+    It checks that the caller owns the row named in the URL before the
+    wait.
+  - Only jobs, ops commands, and the Clerk webhook, which no user can send
+    at will, wait with no bound. One exception: a route that commits a
+    money step takes the user lock again with no bound, inside the
+    account's slot, so a timeout never leaves a refund without its cancel.
+  - A webhook that gives up on a lock answers 503, never 429 or 200, so
+    the sender delivers the event again.
 - The job runner claims jobs round-robin across accounts: the account
   whose last claim is oldest claims next. A sync push can queue hundreds of
   jobs, so oldest-first across everyone lets one account delay all others.

@@ -26,9 +26,11 @@ from crosstune.errors import (
     BillingUnavailableError,
     TooManyRequestsError,
     UnauthorizedError,
+    UserBusyError,
     problem_responses,
 )
 from crosstune.models import User
+from crosstune.ratelimit import account_slot
 
 if TYPE_CHECKING:
     import uuid
@@ -65,14 +67,15 @@ async def refresh_billing(
     now = utc_now()
     settings = request.app.state.settings
     try:
-        await refresh_purchases(
-            session,
-            user,
-            revenuecat,
-            settings,
-            now,
-            lock_wait_seconds=settings.request_lock_timeout_seconds,
-        )
+        with account_slot(request, user.id):
+            await refresh_purchases(
+                session,
+                user,
+                revenuecat,
+                settings,
+                now,
+                lock_wait_seconds=settings.request_lock_timeout_seconds,
+            )
     except RevenueCatUnavailableError as exc:
         raise BillingFailedError from exc
     _confirm_after_commit(request, background, [user.id], now)
@@ -95,16 +98,17 @@ async def withdraw_billing(request: Request, user: CurrentUser, session: DbSessi
     wait = state.billing_refresh_limiter.hit(user.id)
     if wait is not None:
         raise TooManyRequestsError(wait)
-    await withdraw(
-        session,
-        user,
-        state.stripe,
-        state.revenuecat,
-        state.mailer,
-        state.settings,
-        utc_now(),
-        lock_wait_seconds=state.settings.request_lock_timeout_seconds,
-    )
+    with account_slot(request, user.id):
+        await withdraw(
+            session,
+            user,
+            state.stripe,
+            state.revenuecat,
+            state.mailer,
+            state.settings,
+            utc_now(),
+            lock_wait_seconds=state.settings.request_lock_timeout_seconds,
+        )
     return Response(status_code=204)
 
 
@@ -154,8 +158,17 @@ async def revenuecat_webhook(
     users = (await session.scalars(select(User).where(User.clerk_user_id.in_(ids)))).all()
     now = utc_now()
     try:
-        await refresh_many_purchases(session, users, revenuecat, settings, now)
-    except RevenueCatUnavailableError as exc:
+        await refresh_many_purchases(
+            session,
+            users,
+            revenuecat,
+            settings,
+            now,
+            lock_wait_seconds=settings.request_lock_timeout_seconds,
+        )
+    except (RevenueCatUnavailableError, UserBusyError) as exc:
+        # RevenueCat delivers the event again after a 503, and the retry rereads every
+        # account from RevenueCat, so a busy account costs a delay and no data.
         raise BillingUnavailableError from exc
     _confirm_after_commit(request, background, [u.id for u in users], now)
     return Response(status_code=200)
