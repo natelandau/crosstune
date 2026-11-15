@@ -15,7 +15,6 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from crosstune.billing.emails import notice_key
-from crosstune.billing.grants import PaidSubscription
 from crosstune.billing.revenuecat import RevenueCatUnavailableError
 from crosstune.billing.stripe import StripeUnavailableError
 from crosstune.billing.withdrawal import complete_pending_withdrawals, withdraw
@@ -24,9 +23,9 @@ from crosstune.db.locks import lock_user
 from crosstune.email.resend import MailerUnavailableError
 from crosstune.models import Entitlement, Grant, User
 from crosstune.ratelimit import RateLimiter
-from crosstune.vocabulary import GrantEnvironment, GrantKind, GrantPeriod, GrantSource
+from crosstune.vocabulary import GrantKind, GrantPeriod, GrantSource
 from tests.fakes import FakeRevenueCat, FakeStripe
-from tests.helpers import premium_ended, pull
+from tests.helpers import premium_ended, pull, web_subscription
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -34,6 +33,7 @@ if TYPE_CHECKING:
     import httpx2
     from fastapi import FastAPI
 
+    from crosstune.billing.grants import PaidSubscription
     from crosstune.email.resend import EmailMessage
 
 pytestmark = pytest.mark.anyio
@@ -44,26 +44,6 @@ WEBHOOK = "/v1/webhooks/revenuecat"
 SECRET = "rc-webhook-secret"  # gitleaks:allow -- fixture, not a credential
 USER = "user_w"
 EMAIL = "w@example.com"
-
-
-def _sub(
-    *,
-    started: timedelta = timedelta(days=3),
-    source: GrantSource = GrantSource.STRIPE,
-    subscription_id: str = "sub_1",
-) -> PaidSubscription:
-    now = utc_now()
-    return PaidSubscription(
-        subscription_id=subscription_id,
-        store_id=f"si_{subscription_id}",
-        source=source,
-        kind=GrantKind.PREMIUM,
-        environment=GrantEnvironment.PRODUCTION,
-        expires_at=now - started + timedelta(days=30),
-        auto_renews=True,
-        started_at=now - started,
-        period=GrantPeriod.MONTH,
-    )
 
 
 def _headers(make_token, email: str | None = EMAIL) -> dict[str, str]:
@@ -102,7 +82,7 @@ async def test_withdraw_refunds_cancels_and_ends_premium(
     client, app, make_token, verify_session
 ) -> None:
     headers = _headers(make_token)
-    await _subscribe(client, app, headers, _sub())
+    await _subscribe(client, app, headers, web_subscription())
     before = _entitlement(await pull(client, headers))
     assert before["withdraw_until"] is not None
     assert before["withdrawal_used"] is False
@@ -131,7 +111,7 @@ async def test_withdraw_on_day_15_is_refused_as_window_closed(
     client, app, make_token, verify_session
 ) -> None:
     headers = _headers(make_token)
-    await _subscribe(client, app, headers, _sub(started=timedelta(days=15)))
+    await _subscribe(client, app, headers, web_subscription(started=timedelta(days=15)))
 
     response = await client.post(WITHDRAW, headers=headers)
 
@@ -148,11 +128,13 @@ async def test_a_newer_subscription_inside_the_window_withdraws_beside_an_older_
 ) -> None:
     headers = _headers(make_token)
     older = replace(
-        _sub(started=timedelta(days=40), subscription_id="sub_old"),
+        web_subscription(started=timedelta(days=40), subscription_id="sub_old"),
         expires_at=utc_now() + timedelta(days=300),
         period=GrantPeriod.YEAR,
     )
-    app.state.revenuecat = FakeRevenueCat({USER: [older, _sub(subscription_id="sub_new")]})
+    app.state.revenuecat = FakeRevenueCat(
+        {USER: [older, web_subscription(subscription_id="sub_new")]}
+    )
     assert (await client.post(REFRESH, headers=headers)).status_code == 204
 
     response = await client.post(WITHDRAW, headers=headers)
@@ -164,7 +146,7 @@ async def test_a_newer_subscription_inside_the_window_withdraws_beside_an_older_
 
 async def test_a_second_withdrawal_is_refused_and_refunds_nothing(client, app, make_token) -> None:
     headers = _headers(make_token)
-    await _subscribe(client, app, headers, _sub())
+    await _subscribe(client, app, headers, web_subscription())
     assert (await client.post(WITHDRAW, headers=headers)).status_code == 204
 
     response = await client.post(WITHDRAW, headers=headers)
@@ -179,9 +161,9 @@ async def test_a_new_subscription_after_a_withdrawal_is_still_refused(
     client, app, make_token
 ) -> None:
     headers = _headers(make_token)
-    await _subscribe(client, app, headers, _sub())
+    await _subscribe(client, app, headers, web_subscription())
     assert (await client.post(WITHDRAW, headers=headers)).status_code == 204
-    await _subscribe(client, app, headers, _sub(subscription_id="sub_2"))
+    await _subscribe(client, app, headers, web_subscription(subscription_id="sub_2"))
 
     response = await client.post(WITHDRAW, headers=headers)
 
@@ -194,7 +176,7 @@ async def test_an_apple_subscription_is_refused_as_no_web_subscription(
     client, app, make_token
 ) -> None:
     headers = _headers(make_token)
-    await _subscribe(client, app, headers, _sub(source=GrantSource.APPLE))
+    await _subscribe(client, app, headers, web_subscription(source=GrantSource.APPLE))
 
     response = await client.post(WITHDRAW, headers=headers)
 
@@ -214,7 +196,7 @@ async def test_a_stripe_failure_on_refund_is_503_and_leaves_the_grant_live(
     client, app, make_token, verify_session
 ) -> None:
     headers = _headers(make_token)
-    await _subscribe(client, app, headers, _sub())
+    await _subscribe(client, app, headers, web_subscription())
     app.state.stripe = FakeStripe(error=StripeUnavailableError("down"))
 
     response = await client.post(WITHDRAW, headers=headers)
@@ -233,7 +215,7 @@ async def _stuck_after_refund(
     client: httpx2.AsyncClient, app: FastAPI, headers: dict[str, str], monkeypatch
 ) -> None:
     """Withdraw with a cancel that fails, leaving the refund recorded and the grant pending."""
-    await _subscribe(client, app, headers, _sub())
+    await _subscribe(client, app, headers, web_subscription())
 
     async def failing_cancel(store_id: str) -> None:
         raise StripeUnavailableError(store_id)
@@ -412,7 +394,7 @@ async def test_the_pass_leaves_a_grant_with_no_item_to_cancel_pending(
 
 async def test_revenuecat_down_is_503_and_refunds_nothing(client, app, make_token) -> None:
     headers = _headers(make_token)
-    await _subscribe(client, app, headers, _sub())
+    await _subscribe(client, app, headers, web_subscription())
     app.state.revenuecat = FakeRevenueCat(error=RevenueCatUnavailableError("down"))
 
     response = await client.post(WITHDRAW, headers=headers)
@@ -423,7 +405,7 @@ async def test_revenuecat_down_is_503_and_refunds_nothing(client, app, make_toke
 
 async def test_a_grant_revenuecat_no_longer_lists_is_503(client, app, make_token) -> None:
     headers = _headers(make_token)
-    await _subscribe(client, app, headers, _sub())
+    await _subscribe(client, app, headers, web_subscription())
     app.state.revenuecat = FakeRevenueCat({USER: []})
 
     response = await client.post(WITHDRAW, headers=headers)
@@ -444,7 +426,7 @@ async def test_unconfigured_billing_is_503(client, app, make_token, missing: str
 
 async def test_withdraw_refuses_past_the_limit(client, app, make_token) -> None:
     headers = _headers(make_token)
-    await _subscribe(client, app, headers, _sub(started=timedelta(days=15)))
+    await _subscribe(client, app, headers, web_subscription(started=timedelta(days=15)))
     app.state.billing_refresh_limiter = RateLimiter(limit=1, window_seconds=60.0)
     assert (await client.post(WITHDRAW, headers=headers)).status_code == 409
 
@@ -459,7 +441,7 @@ async def test_concurrent_withdrawals_refund_once(
 ) -> None:
     """Both calls queue on lock_user, which is held through the refund's commit."""
     headers = _headers(make_token)
-    await _subscribe(client, app, headers, _sub())
+    await _subscribe(client, app, headers, web_subscription())
     user_id = await verify_session.scalar(select(User.id).where(User.clerk_user_id == USER))
     assert isinstance(user_id, uuid.UUID)
 
@@ -496,7 +478,7 @@ async def test_a_webhook_still_reporting_the_subscription_active_keeps_premium_e
 ) -> None:
     app.state.settings = settings.model_copy(update={"revenuecat_webhook_auth": SecretStr(SECRET)})
     headers = _headers(make_token)
-    sub = _sub()
+    sub = web_subscription()
     await _subscribe(client, app, headers, sub)
     assert (await client.post(WITHDRAW, headers=headers)).status_code == 204
     withdrawn = await _grant(verify_session)
@@ -525,7 +507,7 @@ async def test_no_email_address_still_withdraws_and_sends_nothing(
     client, app, make_token, verify_session
 ) -> None:
     headers = _headers(make_token, email=None)
-    await _subscribe(client, app, headers, _sub())
+    await _subscribe(client, app, headers, web_subscription())
 
     response = await client.post(WITHDRAW, headers=headers)
 
@@ -537,7 +519,7 @@ async def test_no_email_address_still_withdraws_and_sends_nothing(
 
 async def test_no_mailer_still_withdraws(client, app, make_token, verify_session) -> None:
     headers = _headers(make_token)
-    await _subscribe(client, app, headers, _sub())
+    await _subscribe(client, app, headers, web_subscription())
     app.state.mailer = None
 
     assert (await client.post(WITHDRAW, headers=headers)).status_code == 204
@@ -549,7 +531,7 @@ async def test_a_failed_email_logs_and_still_withdraws(
     client, app, make_token, verify_session, caplog
 ) -> None:
     headers = _headers(make_token)
-    await _subscribe(client, app, headers, _sub())
+    await _subscribe(client, app, headers, web_subscription())
     app.state.mailer.error = MailerUnavailableError("down")
 
     with caplog.at_level(logging.WARNING, logger="crosstune.billing.withdrawal"):
@@ -564,9 +546,9 @@ async def test_allow_repeat_withdraws_a_second_subscription(
     client, app, make_token, verify_session
 ) -> None:
     headers = _headers(make_token)
-    await _subscribe(client, app, headers, _sub())
+    await _subscribe(client, app, headers, web_subscription())
     assert (await client.post(WITHDRAW, headers=headers)).status_code == 204
-    await _subscribe(client, app, headers, _sub(subscription_id="sub_2"))
+    await _subscribe(client, app, headers, web_subscription(subscription_id="sub_2"))
 
     async with app.state.sessionmaker() as session:
         user = (await session.scalars(select(User).where(User.clerk_user_id == USER))).one()

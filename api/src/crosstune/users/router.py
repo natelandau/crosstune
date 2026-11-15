@@ -331,6 +331,8 @@ async def clerk_webhook(
                     await lock_user(session, existing.id)
                     refund_notice = await _end_billing_for_webhook(request, session, existing)
                 user_id = await purge_account(session, clerk_user_id)
+                # Events can exist without a local row, so this runs even when nothing was purged.
+                _schedule_analytics_deletion(request, session, clerk_user_id)
             if user_id is not None and refund_notice is not None:
                 background.add_task(
                     _send_refund_notice, request.app.state.sessionmaker, refund_notice
@@ -341,8 +343,6 @@ async def clerk_webhook(
                 # response so a slow or failing store never delays or rolls back the
                 # deletion; the runner's orphan sweep removes whatever it misses.
                 background.add_task(_purge_user_files, store, user_prefix(user_id))
-            # Events can exist without a local row, so this runs even when nothing was purged.
-            _schedule_analytics_deletion(request, session, clerk_user_id)
     return Response(status_code=204)
 
 

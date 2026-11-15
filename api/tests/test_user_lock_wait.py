@@ -9,13 +9,16 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from crosstune.db.engine import make_engine, make_sessionmaker
 from crosstune.db.locks import billing_lock
 from crosstune.models.user import User
-from tests.helpers import hold_account_lock, push, recording, uid
+from tests.fakes import FakeRevenueCat
+from tests.helpers import hold_account_lock, push, recording, uid, web_subscription
 from tests.test_scans_api import make_scan, put_object
 
 if TYPE_CHECKING:
     import uuid
+    from collections.abc import AsyncIterator
 
     import httpx2
     from fastapi import FastAPI
@@ -45,11 +48,10 @@ SCAN_SLOT = Call(
     "POST", "/v1/scans/{id}/upload-slot", {"bytes": 1000, "content_type": "image/jpeg"}
 )
 SCAN_UPLOADED = Call("POST", "/v1/scans/{id}/uploaded")
+WITHDRAW = Call("POST", "/v1/me/billing/withdraw")
+DELETE_ME = Call("DELETE", "/v1/me")
 # Both take the account's billing lock before its user lock.
-BILLING_LOCK_CALLS = [
-    Call("POST", "/v1/me/billing/withdraw"),
-    Call("DELETE", "/v1/me"),
-]
+BILLING_LOCK_CALLS = [WITHDRAW, DELETE_ME]
 
 LOCKING_CALLS = [
     Call("POST", "/v1/sync/push", {"changes": []}),
@@ -70,6 +72,7 @@ UPLOAD_SLOT_CALLS = [RECORDING_SLOT, SCAN_SLOT]
 
 async def _target_id(
     call: Call,
+    app: FastAPI,
     client: httpx2.AsyncClient,
     auth_headers,
     object_store: FakeObjectStore,
@@ -78,9 +81,12 @@ async def _target_id(
     """The id a call names: a row the caller owns where the route checks it before locking.
 
     The two upload confirmations also read the bucket before they lock, so their row
-    carries a real upload.
+    carries a real upload. A withdrawal refuses an account with nothing to withdraw before
+    it locks, so the account gets a subscription.
     """
     headers = auth_headers("user_a")
+    if call == WITHDRAW:
+        await _subscribe(app, client, auth_headers, ["user_a"])
     if call in (RECORDING_SLOT, RECORDING_UPLOADED, RETRY):
         rec = uid()
         await push(client, headers, recording(rec))
@@ -107,6 +113,18 @@ async def _target_id(
     return uid()
 
 
+async def _subscribe(
+    app: FastAPI, client: httpx2.AsyncClient, auth_headers, clerk_user_ids: list[str]
+) -> None:
+    """Give each account a web subscription inside its withdrawal window."""
+    app.state.revenuecat = FakeRevenueCat(
+        {cid: [web_subscription(subscription_id=f"sub_{cid}")] for cid in clerk_user_ids}
+    )
+    for clerk_user_id in clerk_user_ids:
+        response = await client.post("/v1/me/billing/refresh", headers=auth_headers(clerk_user_id))
+        assert response.status_code == 204, response.text
+
+
 async def _user_id(
     client: httpx2.AsyncClient, headers: dict, verify_session: AsyncSession
 ) -> uuid.UUID:
@@ -130,7 +148,7 @@ async def test_a_request_behind_a_held_account_lock_answers_429(
     app.state.settings = app.state.settings.model_copy(update={"request_lock_timeout_seconds": 0.2})
     headers = auth_headers("user_a")
     user_id = await _user_id(client, headers, verify_session)
-    target = await _target_id(call, client, auth_headers, object_store, verify_session)
+    target = await _target_id(call, app, client, auth_headers, object_store, verify_session)
     async with hold_account_lock(engine, user_id):
         # Without a bound the request would wait for the holder for as long as it holds.
         response = await asyncio.wait_for(
@@ -166,12 +184,9 @@ async def test_requests_past_the_account_s_concurrent_limit_answer_429_at_once(
         update={"request_lock_timeout_seconds": LONG_LOCK_TIMEOUT}
     )
     cap = app.state.settings.concurrent_locking_requests_per_user
-    # While one request holds the billing lock and waits on the user lock, it holds that
-    # lock's connection and its session's.
-    allowed = cap + 1 if call in BILLING_LOCK_CALLS else cap
     headers = auth_headers("user_a")
     user_id = await _user_id(client, headers, verify_session)
-    target = await _target_id(call, client, auth_headers, object_store, verify_session)
+    target = await _target_id(call, app, client, auth_headers, object_store, verify_session)
     path = call.path.format(id=target)
     async with hold_account_lock(engine, user_id):
         baseline = engine.pool.checkedout()
@@ -200,7 +215,7 @@ async def test_requests_past_the_account_s_concurrent_limit_answer_429_at_once(
         response = task.result()
         assert response.status_code == 429, response.text
         assert int(response.headers["Retry-After"]) >= 1
-    assert checked_out <= allowed
+    assert checked_out <= cap
     assert other.status_code == 200, other.text
     assert app.state.locking_request_limiter.tracked == 0
 
@@ -233,7 +248,7 @@ async def test_a_finished_request_frees_its_place_under_the_limit(
 ) -> None:
     headers = auth_headers("user_a")
     call = finished.call
-    target = await _target_id(call, client, auth_headers, object_store, verify_session)
+    target = await _target_id(call, app, client, auth_headers, object_store, verify_session)
     for _ in range(app.state.settings.concurrent_locking_requests_per_user + 2):
         response = await client.request(
             call.method, call.path.format(id=target), json=call.body, headers=headers
@@ -272,15 +287,76 @@ async def test_a_request_behind_a_held_billing_lock_answers_429(
     client: httpx2.AsyncClient,
     auth_headers,
     engine: AsyncEngine,
+    object_store: FakeObjectStore,
     verify_session: AsyncSession,
     call: Call,
 ) -> None:
     app.state.settings = app.state.settings.model_copy(update={"request_lock_timeout_seconds": 0.2})
     headers = auth_headers("user_a")
     user_id = await _user_id(client, headers, verify_session)
+    await _target_id(call, app, client, auth_headers, object_store, verify_session)
     async with AsyncSession(bind=engine) as holder, billing_lock(holder, user_id):
         response = await asyncio.wait_for(
             client.request(call.method, call.path, json=call.body, headers=headers), timeout=5
         )
     assert response.status_code == 429, response.text
     assert int(response.headers["Retry-After"]) >= 1
+
+
+SMALL_POOL = 3
+# Above BURST_PROMPT, so a request that waits out a checkout fails the test.
+POOL_TIMEOUT = 6.0
+BURST_PROMPT = 3.0
+
+
+@pytest.fixture
+async def small_pool(app: FastAPI, settings) -> AsyncIterator[None]:
+    """Serve the app from a pool as small as SMALL_POOL, with no overflow."""
+    engine = make_engine(
+        settings.database_url, pool_size=SMALL_POOL, max_overflow=0, pool_timeout=POOL_TIMEOUT
+    )
+    app.state.engine = engine
+    app.state.sessionmaker = make_sessionmaker(engine)
+    yield
+    await engine.dispose()
+
+
+class Burst(NamedTuple):
+    """A call that accounts send all at once, and the status each one answers."""
+
+    call: Call
+    subscribed: bool
+    status: int
+
+
+BURSTS = [
+    # Refused before any lock.
+    Burst(WITHDRAW, subscribed=False, status=409),
+    Burst(WITHDRAW, subscribed=True, status=204),
+    Burst(DELETE_ME, subscribed=False, status=204),
+]
+
+
+@pytest.mark.parametrize("burst", BURSTS, ids=lambda b: f"{b.call.method} {b.call.path} {b.status}")
+@pytest.mark.usefixtures("small_pool")
+async def test_billing_lock_requests_from_as_many_accounts_as_the_pool_holds_answer_at_once(
+    app: FastAPI, client: httpx2.AsyncClient, auth_headers, burst: Burst
+) -> None:
+    accounts = [f"user_{n}" for n in range(SMALL_POOL)]
+    for clerk_user_id in [*accounts, "user_bystander"]:
+        response = await client.get("/v1/me", headers=auth_headers(clerk_user_id))
+        assert response.status_code == 200, response.text
+    if burst.subscribed:
+        await _subscribe(app, client, auth_headers, accounts)
+
+    calls = [
+        client.request(burst.call.method, burst.call.path, headers=auth_headers(clerk_user_id))
+        for clerk_user_id in accounts
+    ]
+    bystander = client.get("/v1/me", headers=auth_headers("user_bystander"))
+    *responses, other = await asyncio.wait_for(
+        asyncio.gather(*calls, bystander), timeout=BURST_PROMPT
+    )
+
+    assert [r.status_code for r in responses] == [burst.status] * SMALL_POOL
+    assert other.status_code == 200, other.text

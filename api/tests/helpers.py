@@ -17,9 +17,12 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from crosstune.billing.grants import PaidSubscription
 from crosstune.config import Settings
+from crosstune.db.base import utc_now
 from crosstune.db.locks import lock_user
 from crosstune.main import create_app
+from crosstune.vocabulary import GrantEnvironment, GrantKind, GrantPeriod, GrantSource
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -111,6 +114,27 @@ async def push(client: httpx2.AsyncClient, headers: dict, *changes: dict) -> lis
     response = await client.post("/v1/sync/push", json={"changes": list(changes)}, headers=headers)
     assert response.status_code == 200, response.text
     return response.json()["results"]
+
+
+def web_subscription(
+    *,
+    started: timedelta = timedelta(days=3),
+    source: GrantSource = GrantSource.STRIPE,
+    subscription_id: str = "sub_1",
+) -> PaidSubscription:
+    """A monthly Premium subscription as RevenueCat reports it, started `started` ago."""
+    now = utc_now()
+    return PaidSubscription(
+        subscription_id=subscription_id,
+        store_id=f"si_{subscription_id}",
+        source=source,
+        kind=GrantKind.PREMIUM,
+        environment=GrantEnvironment.PRODUCTION,
+        expires_at=now - started + timedelta(days=30),
+        auto_renews=True,
+        started_at=now - started,
+        period=GrantPeriod.MONTH,
+    )
 
 
 @asynccontextmanager

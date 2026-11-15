@@ -11,7 +11,7 @@ import pytest
 from sqlalchemy import select, text
 
 from crosstune.billing.access import refresh_entitlement
-from crosstune.billing.grants import PaidSubscription, grant_comp, set_trial_end, sync_paid_grants
+from crosstune.billing.grants import grant_comp, set_trial_end, sync_paid_grants
 from crosstune.config import Settings
 from crosstune.db.base import utc_now
 from crosstune.db.locks import advisory_lock_key
@@ -19,9 +19,9 @@ from crosstune.errors import BillingUnavailableError, WithdrawalRefusedError
 from crosstune.models import Entitlement, Grant, PendingComp
 from crosstune.ops import billing
 from crosstune.users.service import get_or_create_user
-from crosstune.vocabulary import GrantEnvironment, GrantKind, GrantPeriod, GrantSource
+from crosstune.vocabulary import GrantSource
 from tests.fakes import FakeMailer, FakeRevenueCat, FakeStripe
-from tests.helpers import premium_ended
+from tests.helpers import premium_ended, web_subscription
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -714,27 +714,17 @@ async def test_withdraw_reports_an_unavailable_provider(
 
 
 async def test_withdraw_refunds_through_the_real_path(
-    session: AsyncSession, settings: Settings
+    verify_session: AsyncSession, settings: Settings
 ) -> None:
-    user = await _user(session, settings)
-    now = utc_now()
-    sub = PaidSubscription(
-        subscription_id="sub_1",
-        store_id="si_sub_1",
-        source=GrantSource.STRIPE,
-        kind=GrantKind.PREMIUM,
-        environment=GrantEnvironment.PRODUCTION,
-        expires_at=now + timedelta(days=27),
-        auto_renews=True,
-        started_at=now - timedelta(days=3),
-        period=GrantPeriod.MONTH,
-    )
+    """The billing lock needs a session bound to an engine, so the rows are committed."""
+    user = await _user(verify_session, settings)
+    sub = web_subscription()
     revenuecat = FakeRevenueCat({FREE_USER: [sub]})
     stripe = FakeStripe()
     mailer = FakeMailer()
-    await sync_paid_grants(session, user.id, [sub], utc_now())
+    await sync_paid_grants(verify_session, user.id, [sub], utc_now())
     message = await _withdraw_command(
-        session,
+        verify_session,
         settings,
         FREE_USER,
         "--by",
