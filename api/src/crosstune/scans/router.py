@@ -21,7 +21,8 @@ from crosstune.db.session import (
 from crosstune.errors import ConflictError, PremiumRequiredError, problem_responses
 from crosstune.files.quota import accept_upload, head_slot, reserve_slot, slot_for_scan
 from crosstune.files.urls import UPLOAD_URL_TTL_SECONDS, SignedUrl, presign_get, require_store
-from crosstune.scans.service import owned_scan, require_live, require_state
+from crosstune.ratelimit import account_slot
+from crosstune.scans.service import owned_scan, require_state, reread_live, scan_of
 from crosstune.storage.store import delete_best_effort, legacy_scan_key, scan_key
 from crosstune.vocabulary import ScanState
 
@@ -48,21 +49,25 @@ async def upload_slot(
     """A presigned PUT for one scan's image, once the file cap, the plan, and its quota allow it."""
     store = require_store(request)
     settings = request.app.state.settings
-    await lock_user(session, user.id, wait_seconds=settings.request_lock_timeout_seconds)
-    scan = await owned_scan(session, user.id, scan_id)
-    require_state(scan, ScanState.PENDING_UPLOAD)
-    access = await access_for(session, user.id, settings)
-    if not access.premium:
-        raise PremiumRequiredError
-    slot = await reserve_slot(
-        session,
-        scan,
-        declared_bytes=body.bytes,
-        content_type=body.content_type,
-        max_file_bytes=settings.scan_max_file_bytes,
-        quota_bytes=access.quota_bytes,
-    )
-    await session.flush()
+    # Ownership first, so an id that is not the caller's never waits on the lock.
+    scan = await scan_of(session, user.id, scan_id)
+    with account_slot(request, user.id):
+        await lock_user(session, user.id, wait_seconds=settings.request_lock_timeout_seconds)
+        # Another request may have changed or deleted the scan, or deleted its tune, meanwhile.
+        await reread_live(session, scan)
+        require_state(scan, ScanState.PENDING_UPLOAD)
+        access = await access_for(session, user.id, settings)
+        if not access.premium:
+            raise PremiumRequiredError
+        slot = await reserve_slot(
+            session,
+            scan,
+            declared_bytes=body.bytes,
+            content_type=body.content_type,
+            max_file_bytes=settings.scan_max_file_bytes,
+            quota_bytes=access.quota_bytes,
+        )
+        await session.flush()
     url = store.presign_put(slot.object_key, body.content_type, body.bytes, UPLOAD_URL_TTL_SECONDS)
     return SignedUrl(url=url, expires_at=slot.expires_at)
 
@@ -81,31 +86,31 @@ async def upload_finished(
     store = require_store(request)
     settings = request.app.state.settings
     key = scan_key(user.id, scan_id)
-    scan = await owned_scan(session, user.id, scan_id)
+    scan = await scan_of(session, user.id, scan_id)
     # The bucket round trip happens before the lock so it never holds up the caller's other writes.
     info = await head_slot(store, await slot_for_scan(session, scan.id))
-    await lock_user(session, user.id, wait_seconds=settings.request_lock_timeout_seconds)
-    # Re-read under the lock: another request may have confirmed or deleted this scan,
-    # or deleted its tune, meanwhile.
-    await session.refresh(scan)
-    await require_live(session, scan)
-    slot = await slot_for_scan(session, scan.id)
-    if scan.state == ScanState.READY and slot is None:
-        # A retried call after a lost response: the first one consumed the slot.
-        return Response(status_code=204)
-    require_state(scan, ScanState.PENDING_UPLOAD)
-    size = await accept_upload(
-        session, store, slot, info, target=key, max_file_bytes=settings.scan_max_file_bytes
-    )
-    # A slot whose key is the served key holds the confirmed image, so only a staged key is deleted.
-    staged = slot.object_key if slot is not None and slot.object_key != key else None
+    with account_slot(request, user.id):
+        await lock_user(session, user.id, wait_seconds=settings.request_lock_timeout_seconds)
+        # Another request may have confirmed or deleted this scan, or deleted its tune, meanwhile.
+        await reread_live(session, scan)
+        slot = await slot_for_scan(session, scan.id)
+        if scan.state == ScanState.READY and slot is None:
+            # A retried call after a lost response: the first one consumed the slot.
+            return Response(status_code=204)
+        require_state(scan, ScanState.PENDING_UPLOAD)
+        size = await accept_upload(
+            session, store, slot, info, target=key, max_file_bytes=settings.scan_max_file_bytes
+        )
+        # A slot whose key is the served key holds the confirmed image, so only a staged key
+        # is deleted.
+        staged = slot.object_key if slot is not None and slot.object_key != key else None
 
-    scan.state = ScanState.READY.value
-    scan.file_key = key
-    scan.file_bytes = size
-    bump_server_seq(scan)
-    await session.delete(slot)
-    await session.flush()
+        scan.state = ScanState.READY.value
+        scan.file_key = key
+        scan.file_bytes = size
+        bump_server_seq(scan)
+        await session.delete(slot)
+        await session.flush()
     # No row names an object a legacy-key PUT left, so no sweep removes it; delete it here.
     # After the commit, so the bucket call never holds the user's lock; a staged image
     # left over is a stray the sweep removes.

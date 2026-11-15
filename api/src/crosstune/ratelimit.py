@@ -4,10 +4,16 @@ from __future__ import annotations
 
 import time
 from collections import deque
+from contextlib import contextmanager
 from typing import TYPE_CHECKING
 
+from crosstune.errors import UserBusyError
+
 if TYPE_CHECKING:
-    from collections.abc import Callable, Hashable
+    import uuid
+    from collections.abc import Callable, Generator, Hashable
+
+    from fastapi import Request
 
 
 class RateLimiter:
@@ -95,3 +101,22 @@ class ConcurrencyLimiter:
             self._held[key] = held
         else:
             self._held.pop(key, None)
+
+
+@contextmanager
+def account_slot(request: Request, user_id: uuid.UUID) -> Generator[None]:
+    """Count a request against its account's share of requests in flight.
+
+    Every route a signed-in user calls that waits on the account's user or billing lock
+    runs that wait inside this, so all of them draw on one budget per account.
+
+    Raises:
+        UserBusyError: When the account already has as many requests in flight as it may.
+    """
+    limiter = request.app.state.locking_request_limiter
+    if not limiter.try_acquire(user_id):
+        raise UserBusyError
+    try:
+        yield
+    finally:
+        limiter.release(user_id)

@@ -313,8 +313,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.billing_refresh_limiter = RateLimiter(
         limit=settings.billing_refreshes_per_minute, window_seconds=60.0
     )
-    app.state.sync_request_limiter = ConcurrencyLimiter(
-        limit=settings.concurrent_sync_requests_per_user
+    app.state.locking_request_limiter = ConcurrencyLimiter(
+        limit=settings.concurrent_locking_requests_per_user
     )
     app.state.recorded_client_versions = RecordedClientVersions()
     app.state.search_tokens = SearchTokens.from_settings(settings)

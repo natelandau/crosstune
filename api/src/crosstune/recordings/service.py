@@ -53,6 +53,18 @@ async def owned_recording(
     return row
 
 
+async def reread_live(session: AsyncSession, recording: Recording) -> None:
+    """Re-read a recording under the user's lock, and 404 if a delete committed meanwhile.
+
+    Args:
+        session: The transaction that holds the lock.
+        recording: The row read before the lock.
+    """
+    await session.refresh(recording)
+    if recording.deleted_at is not None:
+        raise NotFoundError
+
+
 # Kinds a recording holds at most one of, each deduplicated against its partial unique index.
 _SINGLE_KINDS = frozenset({JobKind.TRIM, JobKind.PLACE, JobKind.SPLIT, JobKind.MONO})
 

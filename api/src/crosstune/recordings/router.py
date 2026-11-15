@@ -21,7 +21,6 @@ from crosstune.db.session import (
 )
 from crosstune.errors import (
     ConflictError,
-    NotFoundError,
     PremiumRequiredError,
     QuotaExceededError,
     TooManyRequestsError,
@@ -36,12 +35,14 @@ from crosstune.files.quota import (
 )
 from crosstune.files.urls import UPLOAD_URL_TTL_SECONDS, SignedUrl, presign_get, require_store
 from crosstune.models import Recording
+from crosstune.ratelimit import account_slot
 from crosstune.recordings.service import (
     enqueue_transcode,
     ensure_split_job,
     max_upload_bytes,
     owned_recording,
     require_state,
+    reread_live,
     start_import,
 )
 from crosstune.storage.store import delete_best_effort, upload_key
@@ -104,27 +105,30 @@ async def upload_slot(
     """
     store = require_store(request)
     settings = request.app.state.settings
-    await lock_user(session, user.id, wait_seconds=settings.request_lock_timeout_seconds)
+    # Ownership first, so an id that is not the caller's never waits on the lock.
     recording = await owned_recording(session, user.id, recording_id)
-    require_state(recording, *SLOT_STATES)
-    access = await access_for(session, user.id, settings)
-    if not access.premium:
-        raise PremiumRequiredError
-    slot = await reserve_slot(
-        session,
-        recording,
-        declared_bytes=body.bytes,
-        content_type=body.content_type,
-        max_file_bytes=max_upload_bytes(recording, settings),
-        quota_bytes=access.quota_bytes,
-    )
-    if recording.state == "failed":
-        # playback_bytes stays: it is the object still at the upload key, which counts
-        # again if this slot expires unused and is replaced once the new PUT is confirmed.
-        recording.state = "pending_upload"
-        recording.error = None
-        bump_server_seq(recording)
-    await session.flush()
+    with account_slot(request, user.id):
+        await lock_user(session, user.id, wait_seconds=settings.request_lock_timeout_seconds)
+        await reread_live(session, recording)
+        require_state(recording, *SLOT_STATES)
+        access = await access_for(session, user.id, settings)
+        if not access.premium:
+            raise PremiumRequiredError
+        slot = await reserve_slot(
+            session,
+            recording,
+            declared_bytes=body.bytes,
+            content_type=body.content_type,
+            max_file_bytes=max_upload_bytes(recording, settings),
+            quota_bytes=access.quota_bytes,
+        )
+        if recording.state == "failed":
+            # playback_bytes stays: it is the object still at the upload key, which counts
+            # again if this slot expires unused and is replaced once the new PUT is confirmed.
+            recording.state = "pending_upload"
+            recording.error = None
+            bump_server_seq(recording)
+        await session.flush()
     url = store.presign_put(slot.object_key, body.content_type, body.bytes, UPLOAD_URL_TTL_SECONDS)
     return SignedUrl(url=url, expires_at=slot.expires_at)
 
@@ -147,37 +151,36 @@ async def upload_finished(
     recording = await owned_recording(session, user.id, recording_id)
     # The bucket round trip happens before the lock so it never holds up the caller's other writes.
     info = await head_slot(store, await slot_for_recording(session, recording.id))
-    await lock_user(session, user.id, wait_seconds=settings.request_lock_timeout_seconds)
-    # Re-read under the lock: another request may have confirmed, failed, or deleted this
-    # recording meanwhile.
-    await session.refresh(recording)
-    if recording.deleted_at is not None:
-        raise NotFoundError
-    slot = await slot_for_recording(session, recording.id)
-    if recording.state in CONFIRMED_STATES and slot is None:
-        # A retried call after a lost response: the first one consumed the slot
-        # and queued the job.
-        return Response(status_code=204)
-    require_state(recording, "pending_upload")
-    target = upload_key(user.id, recording.id)
-    size = await accept_upload(
-        session,
-        store,
-        slot,
-        info,
-        target=target,
-        max_file_bytes=max_upload_bytes(recording, settings),
-    )
-    # A slot whose key is the target holds the confirmed file, so only a staged key is deleted.
-    staged = slot.object_key if slot is not None and slot.object_key != target else None
+    with account_slot(request, user.id):
+        await lock_user(session, user.id, wait_seconds=settings.request_lock_timeout_seconds)
+        # Another request may have confirmed, failed, or deleted this recording meanwhile.
+        await reread_live(session, recording)
+        slot = await slot_for_recording(session, recording.id)
+        if recording.state in CONFIRMED_STATES and slot is None:
+            # A retried call after a lost response: the first one consumed the slot
+            # and queued the job.
+            return Response(status_code=204)
+        require_state(recording, "pending_upload")
+        target = upload_key(user.id, recording.id)
+        size = await accept_upload(
+            session,
+            store,
+            slot,
+            info,
+            target=target,
+            max_file_bytes=max_upload_bytes(recording, settings),
+        )
+        # A slot whose key is the target holds the confirmed file, so only a staged key is
+        # deleted.
+        staged = slot.object_key if slot is not None and slot.object_key != target else None
 
-    recording.state = "uploaded"
-    # The upload counts against quota from this moment; the transcoder replaces the figure.
-    recording.playback_bytes = size
-    await session.delete(slot)
-    bump_server_seq(recording)
-    await enqueue_transcode(session, recording)
-    await session.flush()
+        recording.state = "uploaded"
+        # The upload counts against quota from this moment; the transcoder replaces the figure.
+        recording.playback_bytes = size
+        await session.delete(slot)
+        bump_server_seq(recording)
+        await enqueue_transcode(session, recording)
+        await session.flush()
     # After the commit, so the bucket call never holds the user's lock; a leftover is a
     # stray the orphan sweep removes.
     background.add_task(
@@ -209,31 +212,33 @@ async def retry(
     # Without a store there is no runner either, so a queued job would never be claimed.
     require_store(request)
     settings = request.app.state.settings
-    await lock_user(session, user.id, wait_seconds=settings.request_lock_timeout_seconds)
     recording = await owned_recording(session, user.id, recording_id)
-    if recording.state in CONFIRMED_STATES:
-        # A retried call after a lost response: the first one already queued the job.
-        return Response(status_code=204)
-    require_state(recording, "failed")
-    # Each retry that gets this far re-runs a whole transcode or import on the shared runner.
-    wait = request.app.state.recording_retry_limiter.hit(user.id)
-    if wait is not None:
-        raise TooManyRequestsError(wait)
-    if recording.split_from_id is not None and recording.original_key is None:
-        await _requeue_cut(session, recording)
-    elif _never_arrived(recording):
-        access = await access_for(session, user.id, settings)
-        if not access.premium:
-            raise PremiumRequiredError
-        await start_import(session, recording, access)
-        if recording.error == OVER_QUOTA:
-            raise QuotaExceededError
-    else:
-        recording.state = "uploaded"
-        recording.error = None
-        bump_server_seq(recording)
-        await enqueue_transcode(session, recording)
-    await session.flush()
+    with account_slot(request, user.id):
+        await lock_user(session, user.id, wait_seconds=settings.request_lock_timeout_seconds)
+        await reread_live(session, recording)
+        if recording.state in CONFIRMED_STATES:
+            # A retried call after a lost response: the first one already queued the job.
+            return Response(status_code=204)
+        require_state(recording, "failed")
+        # Each retry that gets this far re-runs a whole transcode or import on the shared runner.
+        wait = request.app.state.recording_retry_limiter.hit(user.id)
+        if wait is not None:
+            raise TooManyRequestsError(wait)
+        if recording.split_from_id is not None and recording.original_key is None:
+            await _requeue_cut(session, recording)
+        elif _never_arrived(recording):
+            access = await access_for(session, user.id, settings)
+            if not access.premium:
+                raise PremiumRequiredError
+            await start_import(session, recording, access)
+            if recording.error == OVER_QUOTA:
+                raise QuotaExceededError
+        else:
+            recording.state = "uploaded"
+            recording.error = None
+            bump_server_seq(recording)
+            await enqueue_transcode(session, recording)
+        await session.flush()
     return Response(status_code=204)
 
 

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from contextlib import contextmanager
 from typing import TYPE_CHECKING, Annotated
 
 from fastapi import APIRouter, Query, Request
@@ -16,17 +15,17 @@ from crosstune.db.base import utc_now
 from crosstune.db.session import (
     DbSession,  # noqa: TC001 -- FastAPI resolves this annotation at route registration
 )
-from crosstune.errors import UserBusyError, problem_responses
+from crosstune.errors import problem_responses
 from crosstune.geo import request_country
 from crosstune.links.resolve import ResolvedLink, resolve_link, unresolved_link
+from crosstune.ratelimit import account_slot
 from crosstune.schemas.common import EventsResponse, PullResponse, PushRequest, PushResponse
 from crosstune.sync.pull import events_since, pull_since
 from crosstune.sync.push import apply_push
 from crosstune.users.service import touch_last_synced
 
 if TYPE_CHECKING:
-    import uuid
-    from collections.abc import Callable, Generator
+    from collections.abc import Callable
 
     import httpx2
 
@@ -100,23 +99,6 @@ async def _resolve_untitled_links(
     return resolved
 
 
-@contextmanager
-def _sync_slot(request: Request, user_id: uuid.UUID) -> Generator[None]:
-    """Count a sync request against its account's share of requests in flight.
-
-    Raises:
-        UserBusyError: When the account already has as many sync requests in flight as
-            it may.
-    """
-    limiter = request.app.state.sync_request_limiter
-    if not limiter.try_acquire(user_id):
-        raise UserBusyError
-    try:
-        yield
-    finally:
-        limiter.release(user_id)
-
-
 @router.post("/push", responses=problem_responses(429))
 async def push(
     body: PushRequest,
@@ -126,7 +108,7 @@ async def push(
 ) -> PushResponse:
     """Apply a batch of client changes. One result per change, in order."""
     settings = request.app.state.settings
-    with _sync_slot(request, user.id):
+    with account_slot(request, user.id):
         # Resolving the user opened a transaction, and with it a pooled connection. Commit it
         # so the resolution pass, which can wait on the network for its whole budget, holds
         # no connection out of the pool while it does.
@@ -161,7 +143,7 @@ async def pull(
 ) -> PullResponse:
     """Every one of the caller's rows changed after `since`, oldest first."""
     settings = request.app.state.settings
-    with _sync_slot(request, user.id):
+    with account_slot(request, user.id):
         rows, next_since, has_more = await pull_since(
             session,
             user.id,
@@ -182,7 +164,7 @@ async def events(
 ) -> EventsResponse:
     """The caller's plays, practice sessions and status changes after `since`, oldest first."""
     settings = request.app.state.settings
-    with _sync_slot(request, user.id):
+    with account_slot(request, user.id):
         rows, next_since, has_more = await events_since(
             session,
             user.id,
