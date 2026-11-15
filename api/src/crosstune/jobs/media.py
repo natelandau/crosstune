@@ -199,7 +199,9 @@ async def _media_process(argv: tuple[str, ...]) -> AsyncGenerator[asyncio.subpro
     finally:
         if process.returncode is None:
             process.kill()
-            await process.wait()
+        # A pipe left unread past its buffer stays open after the tool exits. Reading both
+        # to their end closes them, and holds at most what the dead tool left in them.
+        await process.communicate()
 
 
 def _limited(*argv: str) -> tuple[str, ...]:
@@ -400,6 +402,8 @@ async def stream_media_tool(*argv: str, on_stdout: Callable[[bytes], None]) -> N
             raise MediaError(msg) from None
         finally:
             stderr_read.cancel()
+            # Finished before `_media_process` reads the same pipe to its end.
+            await asyncio.wait([stderr_read])
     _check_exit(argv, process.returncode, stderr)
 
 
