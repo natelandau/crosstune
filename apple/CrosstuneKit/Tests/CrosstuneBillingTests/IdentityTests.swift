@@ -1,3 +1,4 @@
+import CrosstuneAnalytics
 import Testing
 
 @testable import CrosstuneBilling
@@ -8,12 +9,18 @@ import Testing
     enum Call: Equatable {
         case configure(apiKey: String, appUserID: String)
         case logIn(String)
+        /// The user a restore attached the device's purchases to.
+        case restore(as: String?)
+        /// The user a purchase landed on.
+        case purchase(as: String?)
     }
 
     var appUserID: String?
     /// Whether `logIn` switches the user, or fails and leaves it in place.
     var logInSucceeds = true
     private(set) var calls: [Call] = []
+    /// Holds a restore or purchase open until `finishStoreCall`.
+    private var storeCall: CheckedContinuation<Void, Never>?
 
     init(appUserID: String? = nil) {
         self.appUserID = appUserID
@@ -29,6 +36,29 @@ import Testing
     func logIn(_ appUserID: String) async {
         calls.append(.logIn(appUserID))
         if logInSucceeds { self.appUserID = appUserID }
+    }
+
+    var isInStoreCall: Bool { storeCall != nil }
+
+    func restorePurchases() async throws -> Set<String> {
+        await withCheckedContinuation { storeCall = $0 }
+        calls.append(.restore(as: appUserID))
+        return ["premium"]
+    }
+
+    func package(for period: PurchasePeriod) async throws -> (any StorePackage)? {
+        FakePackage()
+    }
+
+    func purchase(_ package: any StorePackage) async throws -> Bool {
+        await withCheckedContinuation { storeCall = $0 }
+        calls.append(.purchase(as: appUserID))
+        return true
+    }
+
+    func finishStoreCall() {
+        storeCall?.resume()
+        storeCall = nil
     }
 }
 
@@ -95,4 +125,25 @@ func aBlankIDAfterARealOneLeavesNoAccountToSellTo(_ blank: String) async {
     #expect(await client.purchase(.annual) == .failed)
     #expect(await client.restore() == .failed)
     #expect(identity.appUserID == "user_a")
+}
+
+private struct FakePackage: StorePackage {}
+
+@MainActor @Test(arguments: [FakeIdentity.Call.restore(as: "user_a"), .purchase(as: "user_a")])
+private func aStoreCallLandsOnTheAccountThatStartedItThroughAnAccountSwitch(_ call: FakeIdentity.Call) async {
+    let identity = FakeIdentity()
+    let client = RevenueCatPurchases(apiKey: "key", identity: identity)
+    await client.identify(userID: "user_a")
+    let storeCall = Task {
+        if case .restore = call { _ = await client.restore() } else { _ = await client.purchase(.annual) }
+    }
+    while !identity.isInStoreCall { await Task.yield() }
+
+    let signIn = Task { await client.identify(userID: "user_b") }
+    for _ in 0..<20 { await Task.yield() }
+    identity.finishStoreCall()
+
+    await storeCall.value
+    await signIn.value
+    #expect(identity.calls == [.configure(apiKey: "key", appUserID: "user_a"), call, .logIn("user_b")])
 }

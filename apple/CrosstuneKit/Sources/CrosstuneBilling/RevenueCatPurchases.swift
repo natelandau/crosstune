@@ -23,6 +23,9 @@ import StoreKit
     private let identity: any PurchasesIdentity
     private let diagnostics: DiagnosticsClient
     private var userID: String?
+    /// Purchases and restores in flight, each holding the logged-in account until it ends.
+    private var accountHolds = 0
+    private var holdWaiters: [CheckedContinuation<Void, Never>] = []
 
     public convenience init(apiKey: String, diagnostics: DiagnosticsClient = .noop) {
         self.init(apiKey: apiKey, identity: RevenueCatIdentity(), diagnostics: diagnostics)
@@ -62,13 +65,13 @@ import StoreKit
 
     public func purchase(_ period: PurchasePeriod) async -> PurchaseResult {
         guard let buyer = userID, await signedIn() else { return .failed }
+        holdAccount()
+        defer { releaseAccount() }
         do {
-            let offering = try await Purchases.shared.offerings().current
-            guard let package = period == .annual ? offering?.annual : offering?.monthly else { return .failed }
+            guard let package = try await identity.package(for: period) else { return .failed }
             // A sign-in can switch accounts while the offerings load.
             guard userID == buyer, identity.appUserID == buyer else { return .failed }
-            let result = try await Purchases.shared.purchase(package: package)
-            return result.userCancelled ? .cancelled : .completed
+            return try await identity.purchase(package) ? .completed : .cancelled
         } catch {
             return failedPurchase(error, diagnostics: diagnostics)
         }
@@ -76,9 +79,11 @@ import StoreKit
 
     public func restore() async -> RestoreResult {
         guard await signedIn() else { return .failed }
+        holdAccount()
+        defer { releaseAccount() }
         do {
-            let customer = try await Purchases.shared.restorePurchases()
-            return customer.entitlements.active[Self.premiumEntitlement] == nil ? .nothing : .restored
+            let active = try await identity.restorePurchases()
+            return active.contains(Self.premiumEntitlement) ? .restored : .nothing
         } catch {
             return failedRestore(error, diagnostics: diagnostics)
         }
@@ -111,13 +116,31 @@ import StoreKit
             identity.configure(apiKey: apiKey, appUserID: userID)
             return true
         }
+        // A purchase or restore lands on whoever is logged in when it reaches RevenueCat, so
+        // another account waits for every one in flight to finish.
+        while identity.appUserID != userID, accountHolds > 0 {
+            await withCheckedContinuation { holdWaiters.append($0) }
+        }
+        guard self.userID == userID else { return false }
         if identity.appUserID == userID { return true }
         await identity.logIn(userID)
         return self.userID == userID && identity.appUserID == userID
     }
+
+    private func holdAccount() {
+        accountHolds += 1
+    }
+
+    private func releaseAccount() {
+        accountHolds -= 1
+        guard accountHolds == 0 else { return }
+        let waiters = holdWaiters
+        holdWaiters.removeAll()
+        for waiter in waiters { waiter.resume() }
+    }
 }
 
-/// The parts of RevenueCat that decide which account a purchase lands on.
+/// The parts of RevenueCat that decide which account a purchase or restore lands on.
 @MainActor protocol PurchasesIdentity {
     var isConfigured: Bool { get }
     /// Nil until configured.
@@ -125,7 +148,19 @@ import StoreKit
     func configure(apiKey: String, appUserID: String)
     /// Leaves the current user in place when it fails.
     func logIn(_ appUserID: String) async
+    /// Attaches the device's purchases to the current user, returning the IDs of the entitlements
+    /// active afterward.
+    func restorePurchases() async throws -> Set<String>
+    /// The current offering's package for `period`, or nil when it has none.
+    func package(for period: PurchasePeriod) async throws -> (any StorePackage)?
+    /// Buys `package` as the current user, returning false when the buyer cancels.
+    func purchase(_ package: any StorePackage) async throws -> Bool
 }
+
+/// A package from `PurchasesIdentity.package(for:)`, bought with `PurchasesIdentity.purchase(_:)`.
+protocol StorePackage: Sendable {}
+
+extension Package: StorePackage {}
 
 private struct RevenueCatIdentity: PurchasesIdentity {
     var isConfigured: Bool { Purchases.isConfigured }
@@ -139,6 +174,20 @@ private struct RevenueCatIdentity: PurchasesIdentity {
 
     func logIn(_ appUserID: String) async {
         _ = try? await Purchases.shared.logIn(appUserID)
+    }
+
+    func restorePurchases() async throws -> Set<String> {
+        Set(try await Purchases.shared.restorePurchases().entitlements.active.keys)
+    }
+
+    func package(for period: PurchasePeriod) async throws -> (any StorePackage)? {
+        let offering = try await Purchases.shared.offerings().current
+        return period == .annual ? offering?.annual : offering?.monthly
+    }
+
+    func purchase(_ package: any StorePackage) async throws -> Bool {
+        guard let package = package as? Package else { throw StoreUnavailable() }
+        return try await !Purchases.shared.purchase(package: package).userCancelled
     }
 }
 

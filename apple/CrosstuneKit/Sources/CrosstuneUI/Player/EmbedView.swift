@@ -172,6 +172,9 @@ public final class EmbedStage {
 
     private func makeWebView() -> WKWebView {
         let configuration = WKWebViewConfiguration()
+        // Providers' cookies and storage last only as long as this web view, which sign-out
+        // tears down, so none carries over to the next account on a shared device.
+        configuration.websiteDataStore = .nonPersistent()
         configuration.mediaTypesRequiringUserActionForPlayback = []
         #if os(iOS)
             configuration.allowsInlineMediaPlayback = true
@@ -198,7 +201,7 @@ public final class EmbedStage {
 /// Keeps the player's page to the player: anything that would replace the page or open a
 /// window, such as a provider's "Watch on YouTube", opens in the system browser instead.
 @MainActor
-private final class EmbedDelegate: NSObject, WKNavigationDelegate, WKUIDelegate {
+final class EmbedDelegate: NSObject, WKNavigationDelegate, WKUIDelegate {
     let origin: URL
     let open: @MainActor (URL) -> Void
 
@@ -210,19 +213,43 @@ private final class EmbedDelegate: NSObject, WKNavigationDelegate, WKUIDelegate 
     func webView(
         _ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction
     ) async -> WKNavigationActionPolicy {
-        // The frame's own loads are the player's; only the page itself must stay put.
-        guard navigationAction.targetFrame?.isMainFrame ?? true, let url = navigationAction.request.url,
-            url.scheme == "http" || url.scheme == "https", url.host() != origin.host()
-        else { return .allow }
-        open(url)
-        return .cancel
+        let route = Self.route(
+            navigationAction.request.url, mainFrame: navigationAction.targetFrame?.isMainFrame ?? true,
+            origin: origin)
+        switch route {
+        case .allow:
+            return .allow
+        case .cancel:
+            return .cancel
+        case .openExternally(let url):
+            open(url)
+            return .cancel
+        }
+    }
+
+    enum Route: Equatable {
+        case allow
+        case cancel
+        case openExternally(URL)
+    }
+
+    /// Where a navigation to `url` goes. The frame's own loads are the player's; the page itself
+    /// stays the player, which loads as `origin`, the base URL of its HTML string.
+    nonisolated static func route(_ url: URL?, mainFrame: Bool, origin: URL) -> Route {
+        guard mainFrame else { return .allow }
+        guard let url, isWeb(url) else { return .cancel }
+        return url.host() == origin.host() ? .allow : .openExternally(url)
+    }
+
+    nonisolated static func isWeb(_ url: URL) -> Bool {
+        url.scheme == "http" || url.scheme == "https"
     }
 
     func webView(
         _ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration,
         for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures
     ) -> WKWebView? {
-        if let url = navigationAction.request.url, url.scheme == "http" || url.scheme == "https" {
+        if let url = navigationAction.request.url, Self.isWeb(url) {
             open(url)
         }
         return nil
