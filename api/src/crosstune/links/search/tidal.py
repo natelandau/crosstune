@@ -69,8 +69,10 @@ def adapter(token: TidalToken, backoff: Backoff, budget: OutboundBudget = UNLIMI
     ) -> AdapterAnswer:
         deadline = asyncio.get_running_loop().time() + timeout * _ARTIST_BUDGET
         with auth_errors(token):
-            access = await token.get(client, timeout)
-            headers = {"Authorization": f"Bearer {access}", "Accept": _JSON_API}
+            headers = {
+                "Authorization": f"Bearer {await token.get(client, timeout)}",
+                "Accept": _JSON_API,
+            }
 
             async def fetch(country_code: str) -> object:
                 budget.spend(Provider.TIDAL)

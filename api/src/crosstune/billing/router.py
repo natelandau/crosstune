@@ -125,6 +125,13 @@ def _customer_ids(event: dict[str, Any]) -> list[str]:
     return list(ids)
 
 
+def _webhook_authorized(request: Request, secret: str) -> bool:
+    # A separate frame, so the header and the expected value are gone from the locals an
+    # error report records for the rest of the webhook.
+    authorization = request.headers.get("authorization", "").encode()
+    return bool(secret) and hmac.compare_digest(authorization, f"Bearer {secret}".encode())
+
+
 @router.post("/webhooks/revenuecat", include_in_schema=False)
 async def revenuecat_webhook(
     request: Request, session: DbSession, background: BackgroundTasks
@@ -135,10 +142,7 @@ async def revenuecat_webhook(
     RevenueCat again, never from the event's own fields.
     """
     settings = request.app.state.settings
-    secret = settings.revenuecat_webhook_auth.get_secret_value()
-    expected = f"Bearer {secret}".encode()
-    given = request.headers.get("authorization", "").encode()
-    if not secret or not hmac.compare_digest(given, expected):
+    if not _webhook_authorized(request, settings.revenuecat_webhook_auth.get_secret_value()):
         msg = "Invalid webhook authorization"
         raise UnauthorizedError(msg)
     revenuecat = request.app.state.revenuecat

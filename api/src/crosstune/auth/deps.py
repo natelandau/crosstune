@@ -35,8 +35,8 @@ async def verify_bearer(request: Request) -> dict:
     Raises:
         UnauthorizedError: The header is missing, or the token is not valid for this API.
     """
-    header = request.headers.get("Authorization", "")
-    scheme, _, token = header.partition(" ")
+    authorization = request.headers.get("Authorization", "")
+    scheme, _, token = authorization.partition(" ")
     if scheme.lower() != "bearer" or not token:
         raise UnauthorizedError
     settings = request.app.state.settings
