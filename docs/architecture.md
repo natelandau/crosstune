@@ -310,6 +310,12 @@ each question, and the invariants that both clients and the API hold.
   and no client.
 - All users share one credential per service. A 429 holds that service
   until its `Retry-After`.
+- Every catalog request to a search service spends that service's
+  process-wide budget first, retries and second lookups included. A
+  search that the budget cannot cover reports the service unavailable
+  and does not call it.
+- The per-account search limit counts outbound requests, not searches,
+  so one account cannot spend a service's shared budget alone.
 - A result is linked only on a tap, through the paste path. Never an
   automatic match: traditional tunes sit inside sets.
 - Full Apple Music tracks play only on Apple, through MusicKit's

@@ -11,6 +11,7 @@ import httpx2
 
 from crosstune.http import BlockedAddressError
 from crosstune.links.fetch import get_json
+from crosstune.links.search.budget import UNLIMITED, OverBudgetError
 from crosstune.links.search.types import (
     AdapterAnswer,
     SearchHit,
@@ -26,6 +27,7 @@ from crosstune.vocabulary import Provider
 
 if TYPE_CHECKING:
     from crosstune.links.search.backoff import Backoff
+    from crosstune.links.search.budget import OutboundBudget
     from crosstune.links.search.tokens import TidalToken
     from crosstune.links.search.types import Adapter
 
@@ -42,7 +44,7 @@ _ARTIST_BUDGET = 0.9
 _JSON_API = "application/vnd.api+json"
 
 
-def adapter(token: TidalToken, backoff: Backoff) -> Adapter:
+def adapter(token: TidalToken, backoff: Backoff, budget: OutboundBudget = UNLIMITED) -> Adapter:
     """Bind the access token so the registry can call every adapter the same way.
 
     The search's tracks relationship cannot include artists, so a second request fetches
@@ -52,6 +54,8 @@ def adapter(token: TidalToken, backoff: Backoff) -> Adapter:
     Args:
         token: The client-credentials token TIDAL requires on every catalog request.
         backoff: The shared rate-limit holds; a 429 on the artist lookup holds TIDAL here.
+        budget: The shared outbound budget each request spends, unlimited by default. An
+            artist lookup the budget cannot cover is skipped.
 
     Returns:
         Adapter: The TIDAL search.
@@ -69,6 +73,7 @@ def adapter(token: TidalToken, backoff: Backoff) -> Adapter:
             headers = {"Authorization": f"Bearer {access}", "Accept": _JSON_API}
 
             async def fetch(country_code: str) -> object:
+                budget.spend(Provider.TIDAL)
                 return await get_json(
                     client,
                     SEARCH_URL,
@@ -99,7 +104,7 @@ def adapter(token: TidalToken, backoff: Backoff) -> Adapter:
             and track_id in tracks
         ]
         artists = await _artist_names(
-            ids[:_MAX_ARTIST_LOOKUP], served, client, headers, deadline, backoff
+            ids[:_MAX_ARTIST_LOOKUP], served, client, headers, deadline, backoff, budget
         )
         hits = collect(_hit(track_id, tracks, artists.get(track_id)) for track_id in ids)
         return AdapterAnswer(hits, served)
@@ -114,9 +119,15 @@ async def _artist_names(
     headers: dict[str, str],
     deadline: float,
     backoff: Backoff,
+    budget: OutboundBudget,
 ) -> dict[str, str]:
     """Return each track's artist names by track id, or none when the lookup fails."""
     if not track_ids:
+        return {}
+    try:
+        budget.spend(Provider.TIDAL)
+    except OverBudgetError:
+        log.info("TIDAL artist lookup skipped over budget")
         return {}
     try:
         async with asyncio.timeout_at(deadline):

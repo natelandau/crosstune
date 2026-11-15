@@ -153,7 +153,19 @@ class Settings(BaseSettings):
     posthog_fourth_delete_seconds: float = 604_800.0
     link_resolve_timeout_seconds: float = 5.0
     link_resolves_per_minute: int = 30
+    # Counted in the outbound requests one account's searches cause, not in searches:
+    # a TIDAL search costs two, and a search that calls no service costs one.
     link_searches_per_minute: int = 20
+    # A token bucket per music service, shared by every account's searches, since each
+    # service limits the app's credential. TIDAL answers 429 past about 7 requests in 1.5 s,
+    # and a bucket allows at most burst + rate * 1.5 requests in any 1.5 s. Apple Music and
+    # Internet Archive publish no limit; theirs let one account spend its whole minute at once.
+    tidal_search_burst: int = 4
+    tidal_search_requests_per_second: float = 1.5
+    apple_music_search_burst: int = 20
+    apple_music_search_requests_per_second: float = 5.0
+    internet_archive_search_burst: int = 20
+    internet_archive_search_requests_per_second: float = 5.0
     place_searches_per_minute: int = 60
     # Each MapKit JS token or signed snapshot spends the operator's Apple Maps quota.
     mapkit_tokens_per_minute: int = 10

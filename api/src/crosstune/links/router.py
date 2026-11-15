@@ -17,6 +17,7 @@ from crosstune.db.session import (
 from crosstune.errors import TooManyRequestsError, problem_responses
 from crosstune.links.resolve import resolve_link
 from crosstune.links.search import service
+from crosstune.links.search.budget import search_cost
 from crosstune.vocabulary import SEARCHABLE_PROVIDERS, Provider, SearchStatus
 
 if TYPE_CHECKING:
@@ -84,10 +85,10 @@ class SearchResponse(BaseModel):
     groups: list[SearchGroup]
 
 
-def _charge(limiter: RateLimiter, user: User) -> None:
+def _charge(limiter: RateLimiter, user: User, cost: int = 1) -> None:
     # Called in the handler rather than as a dependency, which FastAPI runs before validating
     # the request, so a malformed request never spends the caller's limit.
-    wait = limiter.hit(user.id)
+    wait = limiter.hit(user.id, cost)
     if wait is not None:
         raise TooManyRequestsError(wait)
 
@@ -121,8 +122,13 @@ async def search(
 ) -> SearchResponse:
     """Recordings matching the text on each requested service, grouped by service."""
     state = request.app.state
-    # Each search fans out to other services.
-    _charge(state.link_search_limiter, user)
+    # Charged in outbound requests, so one account's share of each service's shared budget
+    # is bounded by its limit rather than by how many services each search names.
+    _charge(
+        state.link_search_limiter,
+        user,
+        search_cost(body.providers, state.search_adapters),
+    )
     # Resolving the caller opened a transaction on a pooled connection. Commit it so the
     # fan-out, which can wait out its whole timeout, holds nothing from the pool.
     await session.commit()

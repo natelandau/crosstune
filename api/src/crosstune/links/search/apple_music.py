@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from crosstune.links.fetch import get_json
+from crosstune.links.search.budget import UNLIMITED
 from crosstune.links.search.types import (
     MAX_HITS,
     AdapterAnswer,
@@ -17,10 +18,12 @@ from crosstune.links.search.types import (
     text,
     with_region_fallback,
 )
+from crosstune.vocabulary import Provider
 
 if TYPE_CHECKING:
     import httpx2
 
+    from crosstune.links.search.budget import OutboundBudget
     from crosstune.links.search.tokens import AppleMusicToken
     from crosstune.links.search.types import Adapter
 
@@ -28,11 +31,12 @@ SEARCH_URL = "https://api.music.apple.com/v1/catalog/{storefront}/search"
 ARTWORK_SIZE = "300x300"
 
 
-def adapter(token: AppleMusicToken) -> Adapter:
+def adapter(token: AppleMusicToken, budget: OutboundBudget = UNLIMITED) -> Adapter:
     """Bind the developer token so the registry can call every adapter the same way.
 
     Args:
         token: The signed developer token Apple requires on every catalog request.
+        budget: The shared outbound budget each request spends, unlimited by default.
 
     Returns:
         Adapter: The Apple Music search.
@@ -45,6 +49,7 @@ def adapter(token: AppleMusicToken) -> Adapter:
         timeout: float,  # noqa: ASYNC109 -- forwarded to httpx2's per-request timeout, not asyncio cancellation
     ) -> AdapterAnswer:
         async def fetch(storefront: str) -> object:
+            budget.spend(Provider.APPLE_MUSIC)
             return await get_json(
                 client,
                 SEARCH_URL.format(storefront=storefront.lower()),

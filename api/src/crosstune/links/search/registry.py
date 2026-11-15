@@ -7,12 +7,14 @@ from typing import TYPE_CHECKING
 from urllib.parse import quote
 
 from crosstune.links.search import apple_music, internet_archive, tidal
+from crosstune.links.search.budget import UNLIMITED
 from crosstune.links.search.tokens import AppleMusicToken, TidalToken
 from crosstune.vocabulary import Provider
 
 if TYPE_CHECKING:
     from crosstune.config import Settings
     from crosstune.links.search.backoff import Backoff
+    from crosstune.links.search.budget import OutboundBudget
     from crosstune.links.search.types import Adapter
 
 _SEARCH_URLS: dict[Provider, str] = {
@@ -81,7 +83,12 @@ def search_url(provider: Provider, query: str, country: str) -> str:
     return _SEARCH_URLS[provider].format(q=quote(query, safe=""), country=country.lower())
 
 
-def adapters(settings: Settings, tokens: SearchTokens, backoff: Backoff) -> dict[Provider, Adapter]:
+def adapters(
+    settings: Settings,
+    tokens: SearchTokens,
+    backoff: Backoff,
+    budget: OutboundBudget = UNLIMITED,
+) -> dict[Provider, Adapter]:
     """Return the inline search for each service that can answer one, in group order.
 
     A service with no adapter, or whose credentials are unset, is absent and answers with
@@ -91,14 +98,15 @@ def adapters(settings: Settings, tokens: SearchTokens, backoff: Backoff) -> dict
         settings: The API settings.
         tokens: The cached credentials built from the same settings.
         backoff: The shared rate-limit holds, for adapters that make more than one request.
+        budget: The shared outbound budget every request spends, unlimited by default.
 
     Returns:
         dict[Provider, Adapter]: The configured adapters.
     """
     found: dict[Provider, Adapter] = {}
     if settings.apple_music_configured and tokens.apple_music is not None:
-        found[Provider.APPLE_MUSIC] = apple_music.adapter(tokens.apple_music)
+        found[Provider.APPLE_MUSIC] = apple_music.adapter(tokens.apple_music, budget)
     if settings.tidal_configured and tokens.tidal is not None:
-        found[Provider.TIDAL] = tidal.adapter(tokens.tidal, backoff)
-    found[Provider.INTERNET_ARCHIVE] = internet_archive.search
+        found[Provider.TIDAL] = tidal.adapter(tokens.tidal, backoff, budget)
+    found[Provider.INTERNET_ARCHIVE] = internet_archive.adapter(budget)
     return found

@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import re
+from functools import partial
 from typing import TYPE_CHECKING
 
 from crosstune.links.fetch import get_json
+from crosstune.links.search.budget import UNLIMITED
 from crosstune.links.search.types import (
     MAX_HITS,
     AdapterAnswer,
@@ -16,9 +18,13 @@ from crosstune.links.search.types import (
     items,
     text,
 )
+from crosstune.vocabulary import Provider
 
 if TYPE_CHECKING:
     import httpx2
+
+    from crosstune.links.search.budget import OutboundBudget
+    from crosstune.links.search.types import Adapter
 
 SEARCH_URL = "https://archive.org/advancedsearch.php"
 DETAILS_URL = "https://archive.org/details/{identifier}"
@@ -30,6 +36,8 @@ async def search(
     country: str,
     client: httpx2.AsyncClient,
     timeout: float,  # noqa: ASYNC109 -- forwarded to httpx2's per-request timeout, not asyncio cancellation
+    *,
+    budget: OutboundBudget = UNLIMITED,
 ) -> AdapterAnswer:
     """Search audio items by the words of the query.
 
@@ -38,6 +46,7 @@ async def search(
         country: Passed through as the served country; Internet Archive has no storefronts.
         client: The outbound client.
         timeout: The per-request timeout in seconds.
+        budget: The shared outbound budget the request spends, unlimited by default.
 
     Returns:
         AdapterAnswer: Up to MAX_HITS items, each linking to its details page.
@@ -48,6 +57,7 @@ async def search(
     words = _WORD.findall(query.lower())
     if not words:
         return AdapterAnswer([], country)
+    budget.spend(Provider.INTERNET_ARCHIVE)
     body = await get_json(
         client,
         SEARCH_URL,
@@ -61,6 +71,18 @@ async def search(
     )
     hits = collect(_hit(doc) for doc in items(field(field(body, "response"), "docs")))
     return AdapterAnswer(hits, country)
+
+
+def adapter(budget: OutboundBudget) -> Adapter:
+    """Bind the outbound budget so the registry can call every adapter the same way.
+
+    Args:
+        budget: The shared outbound budget each request spends.
+
+    Returns:
+        Adapter: The Internet Archive search.
+    """
+    return partial(search, budget=budget)
 
 
 def _first(value: object) -> str | None:

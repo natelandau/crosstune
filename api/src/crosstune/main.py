@@ -28,6 +28,7 @@ from crosstune.jobs.media import hide_from_media_tools
 from crosstune.jobs.runner import JobRunner
 from crosstune.links.router import router as links_router
 from crosstune.links.search.backoff import Backoff
+from crosstune.links.search.budget import OutboundBudget
 from crosstune.links.search.registry import SearchTokens
 from crosstune.links.search.registry import adapters as search_adapters
 from crosstune.logging import configure_logging
@@ -143,6 +144,16 @@ def _build_geo(app: FastAPI, settings: Settings) -> None:
     """Set app.state.geo from the configured database when nothing built it yet."""
     if app.state.geo is None:
         app.state.geo = load_reader(settings.geoip_path)
+
+
+def _install_search(app: FastAPI, settings: Settings) -> None:
+    """Build the music search state every request shares: credentials, holds, and budget."""
+    app.state.search_tokens = SearchTokens.from_settings(settings)
+    app.state.search_backoff = Backoff()
+    app.state.search_budget = OutboundBudget.from_settings(settings)
+    app.state.search_adapters = search_adapters(
+        settings, app.state.search_tokens, app.state.search_backoff, app.state.search_budget
+    )
 
 
 def _publish_push_data_schemas(app: FastAPI) -> None:
@@ -317,11 +328,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         limit=settings.concurrent_locking_requests_per_user
     )
     app.state.recorded_client_versions = RecordedClientVersions()
-    app.state.search_tokens = SearchTokens.from_settings(settings)
-    app.state.search_backoff = Backoff()
-    app.state.search_adapters = search_adapters(
-        settings, app.state.search_tokens, app.state.search_backoff
-    )
+    _install_search(app, settings)
 
     install_error_handlers(app)
     _add_middleware(app)
