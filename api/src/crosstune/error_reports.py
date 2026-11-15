@@ -64,6 +64,9 @@ SCRUBBED_KEYS = sorted(
         "loc",
         "location",
         "com.apple.quicktime.location.iso6709",
+        # A media tool's output, which holds the upload's tags, its location among them.
+        "stdout",
+        "chunk",
         "place_lat",
         "place_lon",
         "place_accuracy_m",

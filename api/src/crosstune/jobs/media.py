@@ -7,6 +7,7 @@ import asyncio
 import contextlib
 import ctypes
 import json
+import math
 import os
 import re
 import sys
@@ -15,6 +16,7 @@ from datetime import UTC, date, datetime
 from typing import TYPE_CHECKING, NamedTuple
 
 from crosstune.storage.store import PLAYBACK_MIME
+from crosstune.vocabulary import MAX_SPLIT_PIECES, MAX_SPLIT_SOURCE_MS
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, Callable, Mapping
@@ -29,6 +31,12 @@ WIDE_BAND_BITRATE_PER_CHANNEL = 128_000
 LOWPASS_HZ = 20_000
 SUBPROCESS_TIMEOUT_SECONDS = 300.0
 STREAM_CHUNK_BYTES = 64 * 1024
+# A decoder can log a line per rejected packet and still exit 0, so stderr grows with the
+# upload. Only its end is kept, for the error message.
+STDERR_TAIL_BYTES = 4096
+# A real probe report is a few KB; tags such as lyrics or a long comment reach tens of KB.
+# More is a file built to inflate the report.
+REPORT_MAX_BYTES = 1 << 20
 # Every file these tools open is an upload someone else chose. Reading only local files,
 # and only through the demuxers of the audio types an upload may declare, keeps a
 # playlist or concat list from pulling in any other file or URL.
@@ -182,6 +190,8 @@ async def _media_process(argv: tuple[str, ...]) -> AsyncGenerator[asyncio.subpro
         *argv,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
+        # ffmpeg reads commands from stdin, and would otherwise share the API's.
+        stdin=asyncio.subprocess.DEVNULL,
         env={"PATH": os.environ.get("PATH", ""), "MALLOC_ARENA_MAX": "2"},
     )
     try:
@@ -189,7 +199,9 @@ async def _media_process(argv: tuple[str, ...]) -> AsyncGenerator[asyncio.subpro
     finally:
         if process.returncode is None:
             process.kill()
-            await process.wait()
+        # A pipe left unread past its buffer stays open after the tool exits. Reading both
+        # to their end closes them, and holds at most what the dead tool left in them.
+        await process.communicate()
 
 
 def _limited(*argv: str) -> tuple[str, ...]:
@@ -224,7 +236,12 @@ def ffmpeg(*args: str) -> tuple[str, ...]:
 
 
 def decode_to_pcm(
-    source: Path, *, channels: int, rate: int, max_seconds: int | None = None
+    source: Path,
+    *,
+    channels: int,
+    rate: int,
+    max_seconds: float | None = None,
+    seek_args: tuple[str, ...] = (),
 ) -> tuple[str, ...]:
     """Build the ffmpeg command line that streams `source` to stdout as raw PCM.
 
@@ -234,8 +251,8 @@ def decode_to_pcm(
         source: A local audio file.
         channels: How many interleaved channels to mix the audio down or up to.
         rate: The sample rate in Hz.
-        max_seconds: Decode only this many seconds from the start, or the whole file
-            when None.
+        max_seconds: Decode only this many seconds, or the rest of the file when None.
+        seek_args: Input options that move the start, such as `_seek_args` returns.
 
     Returns:
         tuple[str, ...]: The full command line for `stream_media_tool`, which writes
@@ -246,6 +263,7 @@ def decode_to_pcm(
         "-v",
         "error",
         *INPUT_GUARD,
+        *seek_args,
         "-i",
         str(source),
         *limit,
@@ -320,31 +338,47 @@ def _check_exit(argv: tuple[str, ...], returncode: int | None, stderr: bytes) ->
         raise MediaError(msg)
 
 
-async def run_media_tool(*argv: str) -> bytes:
+async def _stderr_tail(pipe: asyncio.StreamReader) -> bytes:
+    """Read a pipe to its end, keeping only its last `STDERR_TAIL_BYTES`."""
+    tail = bytearray()
+    while chunk := await pipe.read(STREAM_CHUNK_BYTES):
+        tail += chunk
+        del tail[:-STDERR_TAIL_BYTES]
+    return bytes(tail)
+
+
+async def run_media_tool(*argv: str, max_bytes: int = REPORT_MAX_BYTES) -> bytes:
     """Run an ffmpeg-family binary and return its stdout.
+
+    For output held whole. Output that grows with the file goes to `stream_media_tool`.
 
     Args:
         argv: The full command line, including the binary name.
+        max_bytes: The most stdout kept.
 
     Returns:
         bytes: The process's stdout.
+
+    Raises:
+        MediaError: The tool wrote more than `max_bytes`.
     """
-    async with _media_process(argv) as process:
-        try:
-            async with asyncio.timeout(SUBPROCESS_TIMEOUT_SECONDS):
-                stdout, stderr = await process.communicate()
-        except TimeoutError:
-            msg = f"{_tool(argv)} timed out"
-            raise MediaError(msg) from None
-    _check_exit(argv, process.returncode, stderr)
-    return stdout
+    stdout = bytearray()
+
+    def keep(chunk: bytes) -> None:
+        stdout.extend(chunk)
+        if len(stdout) > max_bytes:
+            msg = f"{_tool(argv)} wrote more than {max_bytes} bytes"
+            raise MediaError(msg)
+
+    await stream_media_tool(*argv, on_stdout=keep)
+    return bytes(stdout)
 
 
 async def stream_media_tool(*argv: str, on_stdout: Callable[[bytes], None]) -> None:
     """Run an ffmpeg-family binary, handing its stdout to `on_stdout` chunk by chunk.
 
     For output too large to hold whole, such as an hour of decoded PCM: only one
-    chunk is in memory at a time.
+    chunk is in memory at a time. An exception from `on_stdout` stops the tool.
 
     Args:
         argv: The full command line, including the binary name.
@@ -356,7 +390,7 @@ async def stream_media_tool(*argv: str, on_stdout: Callable[[bytes], None]) -> N
             msg = f"{_tool(argv)} started without its output pipes"
             raise MediaError(msg)
         # Drained alongside stdout, or a tool that fills the stderr pipe blocks forever.
-        stderr_read = asyncio.create_task(stderr_pipe.read())
+        stderr_read = asyncio.create_task(_stderr_tail(stderr_pipe))
         try:
             async with asyncio.timeout(SUBPROCESS_TIMEOUT_SECONDS):
                 while chunk := await stdout.read(STREAM_CHUNK_BYTES):
@@ -368,6 +402,8 @@ async def stream_media_tool(*argv: str, on_stdout: Callable[[bytes], None]) -> N
             raise MediaError(msg) from None
         finally:
             stderr_read.cancel()
+            # Finished before `_media_process` reads the same pipe to its end.
+            await asyncio.wait([stderr_read])
     _check_exit(argv, process.returncode, stderr)
 
 
@@ -537,6 +573,17 @@ MIN_TIMESTAMP_GAP_SECONDS = 0.020
 # rounding error, and a packet stamped at the range's end falls outside `-to`.
 _TIMESTAMP_TOLERANCE_SECONDS = 1e-6
 _GAP_FORMATS = frozenset({"matroska", "webm"})
+# Opus, the codec browsers write to WebM, has no frame shorter than 2.5 ms. Twice that
+# many packets over the longest source the API accepts leaves room for a codec with
+# shorter frames; more is a malformed file.
+MIN_OPUS_FRAME_MS = 2.5
+MAX_SCANNED_PACKETS = 2 * int(MAX_SPLIT_SOURCE_MS / MIN_OPUS_FRAME_MS)
+# The stall filter holds one term of about 50 bytes per stall, all in one argument, and
+# Linux refuses an argument longer than 128 KiB.
+MAX_RANGE_STALLS = 1024
+MAX_SCANNED_STALLS = MAX_RANGE_STALLS * MAX_SPLIT_PIECES
+# ffprobe's packet lines are two numbers; a longer one is not a report line.
+_MAX_REPORT_LINE_BYTES = 256
 
 
 @dataclass(frozen=True)
@@ -578,6 +625,64 @@ def _has_stalls(info: Probe) -> bool:
     return bool(info.format_names & _GAP_FORMATS) and bool(info.sample_rate)
 
 
+class _StallScanner:
+    """Find stalls in ffprobe's per-packet CSV report as it arrives, holding one line at a time."""
+
+    def __init__(self, start_time: float) -> None:
+        self._start_time = start_time
+        self._rest = b""
+        self._packets = 0
+        self._stalls: list[_Stall] = []
+        self._earlier_max_pts = float("-inf")
+        self._previous_end: float | None = None
+
+    def feed(self, chunk: bytes) -> None:
+        """Read the complete lines in `chunk`, keeping a partial last line for the next one.
+
+        Raises:
+            MediaError: The report has more packets or stalls than any recording the API
+                accepts can have.
+        """
+        end = chunk.rfind(b"\n")
+        if end == -1:
+            self._rest += chunk
+        else:
+            self._read_lines((self._rest + chunk[:end]).split(b"\n"))
+            self._rest = chunk[end + 1 :]
+        if len(self._rest) > _MAX_REPORT_LINE_BYTES:
+            msg = "ffprobe wrote a packet line with no end"
+            raise MediaError(msg)
+
+    def finish(self) -> StallMap:
+        """Read a last line with no newline after it, and return the stalls found."""
+        self._read_lines([self._rest])
+        return StallMap(tuple(self._stalls))
+
+    def _read_lines(self, lines: list[bytes]) -> None:
+        # Tens of millions of lines run through this loop on the event loop, so its state
+        # lives in locals and the limits are checked per batch.
+        self._packets += len(lines)
+        if self._packets > MAX_SCANNED_PACKETS:
+            msg = f"ffprobe reported more than {MAX_SCANNED_PACKETS} packets"
+            raise MediaError(msg)
+        start_time, stalls = self._start_time, self._stalls
+        earlier_max_pts, previous_end = self._earlier_max_pts, self._previous_end
+        for line in lines:
+            fields = line.split(b",")
+            try:
+                pts, duration = float(fields[0]) - start_time, float(fields[1])
+            except (ValueError, IndexError):
+                continue
+            if pts - (previous_end or 0) > MIN_TIMESTAMP_GAP_SECONDS:
+                stalls.append(_Stall(earlier_max_pts, previous_end, pts))
+            earlier_max_pts = max(earlier_max_pts, pts)
+            previous_end = pts + duration
+        self._earlier_max_pts, self._previous_end = earlier_max_pts, previous_end
+        if len(stalls) > MAX_SCANNED_STALLS:
+            msg = f"ffprobe reported more than {MAX_SCANNED_STALLS} timestamp stalls"
+            raise MediaError(msg)
+
+
 async def scan_stalls(source: Path, info: Probe) -> StallMap:
     """Find every stall in a WebM's packet timestamps, reading the whole file once.
 
@@ -590,7 +695,8 @@ async def scan_stalls(source: Path, info: Probe) -> StallMap:
     """
     if not _has_stalls(info):
         return StallMap()
-    report = await run_media_tool(
+    scanner = _StallScanner(info.start_time)
+    await stream_media_tool(
         *ffprobe(
             "-v",
             "error",
@@ -602,22 +708,10 @@ async def scan_stalls(source: Path, info: Probe) -> StallMap:
             "csv=p=0",
             *INPUT_GUARD,
             str(source),
-        )
+        ),
+        on_stdout=scanner.feed,
     )
-    stalls: list[_Stall] = []
-    earlier_max_pts = float("-inf")
-    previous_end: float | None = None
-    for line in report.decode(errors="replace").splitlines():
-        fields = line.split(",")
-        try:
-            pts, duration = float(fields[0]) - info.start_time, float(fields[1])
-        except (ValueError, IndexError):
-            continue
-        if pts - (previous_end or 0) > MIN_TIMESTAMP_GAP_SECONDS:
-            stalls.append(_Stall(earlier_max_pts, previous_end, pts))
-        earlier_max_pts = max(earlier_max_pts, pts)
-        previous_end = pts + duration
-    return StallMap(tuple(stalls))
+    return scanner.finish()
 
 
 def _range_stalls(stall_map: StallMap, from_ms: int, to_ms: int | None) -> _Stalls:
@@ -662,6 +756,18 @@ def _end_silence(next_pts: float, previous_end: float | None, low: float, high: 
     return high - stall_start if stalled > MIN_TIMESTAMP_GAP_SECONDS and stall_start < high else 0.0
 
 
+def _balanced_sum(terms: list[str]) -> str:
+    """Join ffmpeg expression terms into a sum nested as a balanced tree.
+
+    ffmpeg refuses an expression nested more than about 96 deep, and a flat `a+b+c` sum
+    nests one level per term.
+    """
+    if len(terms) <= 1:
+        return terms[0] if terms else ""
+    middle = len(terms) // 2
+    return f"({_balanced_sum(terms[:middle])})+({_balanced_sum(terms[middle:])})"
+
+
 async def _fill_gap_args(
     source: Path,
     info: Probe,
@@ -697,7 +803,12 @@ async def _fill_gap_args(
     if not found.gaps and not end_silence:
         return ()
     shift = from_ms / 1000
-    stalled = "+".join(f"if(gte(PTS*TB,{at - shift:.6f}),{gap:.6f},0)" for at, gap in found.gaps)
+    if len(found.gaps) > MAX_RANGE_STALLS:
+        msg = f"{source.name} has more than {MAX_RANGE_STALLS} timestamp stalls in one range"
+        raise MediaError(msg)
+    stalled = _balanced_sum(
+        [f"if(gte(PTS*TB,{at - shift:.6f}),{gap:.6f},0)" for at, gap in found.gaps]
+    )
     # The first frame's stamp already holds the part of a stall the range starts inside.
     origin = "" if found.starts_in_stall else "STARTPTS+"
     filters = [f"asetpts='{origin}N/SR/TB+({stalled or 0})/TB'"]
@@ -915,24 +1026,12 @@ def slice_content_type(info: Probe) -> str:
     return PLAYBACK_MIME if target is None else target.content_type
 
 
-async def _decode_pcm(path: Path, rate: int, *args: str) -> bytes:
+async def _decode_pcm(path: Path, rate: int, seconds: float, *seek_args: str) -> bytes:
+    """Decode `seconds` of `path` to mono 16-bit PCM at `rate`, from `seek_args` or the start."""
     return await run_media_tool(
-        *ffmpeg(
-            "-v",
-            "error",
-            *INPUT_GUARD,
-            *args,
-            "-i",
-            str(path),
-            "-vn",
-            "-ac",
-            "1",
-            "-ar",
-            str(rate),
-            "-f",
-            "s16le",
-            "-",
-        )
+        *decode_to_pcm(path, channels=1, rate=rate, max_seconds=seconds, seek_args=seek_args),
+        # A second more than asked for leaves room for the resampler's last samples.
+        max_bytes=2 * rate * (math.ceil(seconds) + 1),
     )
 
 
@@ -971,11 +1070,10 @@ async def _mp3_decoded_start_ms(
     original = await _decode_pcm(
         source,
         rate,
+        _MATCH_SPAN_SECONDS + 2 * _MATCH_LEAD_SECONDS,
         *_seek_args(info, round(window_from * 1000)),
-        "-t",
-        f"{_MATCH_SPAN_SECONDS + 2 * _MATCH_LEAD_SECONDS}",
     )
-    sliced = await _decode_pcm(slice_path, rate, "-t", f"{_MATCH_SPAN_SECONDS}")
+    sliced = await _decode_pcm(slice_path, rate, _MATCH_SPAN_SECONDS)
     step = rate * _MATCH_STEP_MS // 1000
     for at in range(rate * _MATCH_SKIP_MS // 1000, len(sliced) // 2 - _MATCH_SAMPLES, step):
         needle = sliced[2 * at : 2 * (at + _MATCH_SAMPLES)]

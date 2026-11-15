@@ -10,16 +10,20 @@ import shutil
 import subprocess
 import sys
 import time
+import tracemalloc
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 import pytest
 
 from crosstune.jobs.media import (
+    MAX_RANGE_STALLS,
     MP3_LEAD_MS,
     MediaError,
     Probe,
+    StallMap,
     _fill_gap_args,
+    _Stall,
     copy_slice,
     cut,
     encode,
@@ -32,6 +36,7 @@ from crosstune.jobs.media import (
     probe,
     remux,
     run_media_tool,
+    scan_stalls,
     stream_media_tool,
 )
 from tests.helpers import (
@@ -244,6 +249,43 @@ async def test_stream_raises_with_stderr_on_failure() -> None:
         await stream_media_tool("ls", "/no/such/path", on_stdout=lambda _chunk: None)
 
 
+# Writes 40 MB to stderr, then a marker, then exits with the code it is given.
+NOISY_STDERR = (
+    "import sys; write = sys.stderr.buffer.write\n"
+    "for _ in range(640): write(b'x' * 65536)\n"
+    "write(b'the-end'); sys.exit(int(sys.argv[1]))"
+)
+
+
+async def _run_noisy(runner: str, code: int) -> None:
+    argv = (sys.executable, "-c", NOISY_STDERR, str(code))
+    if runner == "run":
+        await run_media_tool(*argv)
+    else:
+        await stream_media_tool(*argv, on_stdout=lambda _chunk: None)
+
+
+@pytest.mark.parametrize("runner", ["run", "stream"])
+@pytest.mark.parametrize("code", [0, 3])
+async def test_tools_keep_only_the_end_of_a_large_stderr(runner, code) -> None:
+    tracemalloc.start()
+    try:
+        if code == 0:
+            await _run_noisy(runner, code)
+        else:
+            with pytest.raises(MediaError, match=r"the-end$"):
+                await _run_noisy(runner, code)
+        _, peak = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
+    assert peak < 2_000_000
+
+
+async def test_run_fails_output_past_its_byte_limit() -> None:
+    with pytest.raises(MediaError, match="more than 1000 bytes"):
+        await run_media_tool("head", "-c", "200000", "/dev/zero", max_bytes=1000)
+
+
 async def test_stream_times_out_and_reaps_the_process(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("crosstune.jobs.media.SUBPROCESS_TIMEOUT_SECONDS", 0.2)
     with pytest.raises(MediaError, match="timed out"):
@@ -253,7 +295,7 @@ async def test_stream_times_out_and_reaps_the_process(monkeypatch: pytest.Monkey
 async def test_probe_rejects_output_that_is_not_json(
     monkeypatch: pytest.MonkeyPatch, tmp_path
 ) -> None:
-    async def fake_run(*_argv: str) -> bytes:
+    async def fake_run(*_argv: str, **_kwargs: object) -> bytes:
         return b"not json"
 
     monkeypatch.setattr("crosstune.jobs.media.run_media_tool", fake_run)
@@ -264,7 +306,7 @@ async def test_probe_rejects_output_that_is_not_json(
 async def test_probe_rejects_a_report_with_no_audio_stream(
     monkeypatch: pytest.MonkeyPatch, tmp_path
 ) -> None:
-    async def fake_run(*_argv: str) -> bytes:
+    async def fake_run(*_argv: str, **_kwargs: object) -> bytes:
         report = {"streams": [{"codec_type": "video", "codec_name": "mjpeg"}], "format": {}}
         return json.dumps(report).encode()
 
@@ -276,7 +318,7 @@ async def test_probe_rejects_a_report_with_no_audio_stream(
 async def test_probe_rejects_a_report_with_no_duration(
     monkeypatch: pytest.MonkeyPatch, tmp_path
 ) -> None:
-    async def fake_run(*_argv: str) -> bytes:
+    async def fake_run(*_argv: str, **_kwargs: object) -> bytes:
         report = {
             "streams": [{"codec_type": "audio", "codec_name": "aac"}],
             "format": {"format_name": "mp4"},
@@ -810,6 +852,17 @@ async def test_a_clean_webm_gets_no_gap_filter(plain_webm) -> None:
     assert await _fill_gap_args(plain_webm, await probe(plain_webm)) == ()
 
 
+def _stalls(count: int) -> StallMap:
+    step = 0.9 / count
+    return StallMap(tuple(_Stall(i * step, i * step, i * step + 0.03) for i in range(count)))
+
+
+async def test_cut_fills_as_many_stalls_as_a_range_may_hold(plain_webm, tmp_path) -> None:
+    await cut(plain_webm, tmp_path / "cut.m4a", 0, 1000, stalls=_stalls(MAX_RANGE_STALLS))
+    with pytest.raises(MediaError, match="timestamp stalls"):
+        await cut(plain_webm, tmp_path / "cut.m4a", 0, 1000, stalls=_stalls(MAX_RANGE_STALLS + 1))
+
+
 STALL_START, STALL_END = GAPPED_STALL_MS
 
 
@@ -893,3 +946,57 @@ async def test_cut_wholly_inside_a_stall_is_silence_of_its_length(
     # encoder smears at a low level across its frame, so this measures level, not peaks.
     edge = 2 * CUT_RATE // 1000
     assert rms(decode_low_rate(target)[edge:]) < rms(decode_low_rate(source)) / 50
+
+
+@pytest.mark.parametrize(
+    ("webm", "stall_ms"),
+    [("gapped_webm", GAPPED_STALL_MS), ("long_stalled_webm", LONG_STALL_MS), ("plain_webm", None)],
+)
+async def test_scan_stalls_finds_each_stall(request, webm, stall_ms) -> None:
+    source = request.getfixturevalue(webm)
+    stalls = (await scan_stalls(source, await probe(source))).stalls
+    if stall_ms is None:
+        assert stalls == ()
+        return
+    [stall] = stalls
+    assert stall.previous_end is not None
+    assert (round(stall.previous_end * 1000), round(stall.pts * 1000)) == stall_ms
+
+
+@pytest.mark.parametrize(
+    ("limit", "value", "message"),
+    [("MAX_SCANNED_PACKETS", 100, "packets"), ("MAX_SCANNED_STALLS", 0, "stalls")],
+)
+async def test_scan_stalls_fails_a_file_past_its_limits(
+    gapped_webm, monkeypatch: pytest.MonkeyPatch, limit, value, message
+) -> None:
+    monkeypatch.setattr(f"crosstune.jobs.media.{limit}", value)
+    with pytest.raises(MediaError, match=message):
+        await scan_stalls(gapped_webm, await probe(gapped_webm))
+
+
+@pytest.fixture(scope="module")
+def many_packet_webm(tmp_path_factory) -> Path:
+    """A minute of Opus in WebM in 2.5 ms frames: 24,000 packets."""
+    path = tmp_path_factory.mktemp("many-packets") / "many.webm"
+    subprocess.run(  # noqa: S603
+        [
+            FFMPEG, "-v", "error", "-f", "lavfi", "-i", "sine=frequency=440:duration=60",
+            "-ac", "1", "-ar", "48000", "-c:a", "libopus", "-b:a", "6k",
+            "-frame_duration", "2.5", "-f", "webm", str(path),
+        ],
+        check=True,
+    )  # fmt: skip
+    return path
+
+
+async def test_scan_stalls_holds_memory_flat_whatever_the_packet_count(many_packet_webm) -> None:
+    info = await probe(many_packet_webm)
+    tracemalloc.start()
+    try:
+        assert (await scan_stalls(many_packet_webm, info)).stalls == ()
+        _, peak = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
+    # The report held whole takes more than this; a streamed read holds a chunk at a time.
+    assert peak < 1_000_000
