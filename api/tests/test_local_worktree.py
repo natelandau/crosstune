@@ -11,7 +11,7 @@ from urllib.parse import urlsplit
 
 import pytest
 
-from crosstune.config import Settings
+from crosstune.config import WORKTREE_SLUG, Settings
 from crosstune.ops import local_storage, local_worktree
 from crosstune.ops.local_worktree import Server, names_for, slug, stale
 from tests.conftest import POSTGRES_ADMIN_URL
@@ -31,26 +31,31 @@ MAIN = Path("/repo/crosstune")
     ("key", "expected"),
     [
         ("worktree-db", "worktree_db"),
-        ("feat/Link-Search", "feat_link_search"),
-        ("--odd..name--", "odd_name"),
+        ("harden-operator-guards", "harden_operator_guards"),
+        ("fix2", "fix2"),
     ],
 )
-def test_slug_keeps_letters_and_digits_joined_by_underscores(key: str, expected: str) -> None:
+def test_a_lowercase_hyphenated_key_keeps_its_plain_slug(key: str, expected: str) -> None:
     assert slug(key) == expected
 
 
-def test_a_long_slug_fits_postgres_and_stays_distinct() -> None:
-    first, second = slug("x" * 80 + "-one"), slug("x" * 80 + "-two")
-    assert first != second
-    assert len(first) == len(second) == 50
-
-
-def test_a_key_with_no_letters_or_digits_still_gets_a_name() -> None:
-    assert len(slug("---")) == 8
+@pytest.mark.parametrize(
+    "keys",
+    [
+        ["feat-x", "feat/x", "feat_x", "Feat-X", "feat--x", "feat.x"],
+        ["--odd..name--", "odd-name"],
+        ["---", "-", "cb3f91d5"],
+        ["x" * 80 + "-one", "x" * 80 + "-two", "x" * 40],
+    ],
+)
+def test_distinct_keys_get_distinct_slugs_the_settings_guard_accepts(keys: list[str]) -> None:
+    slugs = [slug(key) for key in keys]
+    assert len(set(slugs)) == len(keys)
+    assert all(WORKTREE_SLUG.fullmatch(name) for name in slugs)
 
 
 def test_names_pair_the_database_with_its_bucket() -> None:
-    names = names_for(MAIN / ".worktrees" / "feat" / "x", MAIN)
+    names = names_for(MAIN / ".worktrees" / "feat-x", MAIN)
     assert (names.database, names.bucket) == ("crosstune_wt_feat_x", "crosstune-wt-feat-x")
 
 
@@ -68,12 +73,24 @@ def test_names_fit_both_limits_and_satisfy_the_settings_guard() -> None:
 
 
 def test_a_worktree_outside_worktrees_is_named_from_its_whole_path() -> None:
-    assert names_for(Path("/elsewhere/feat"), MAIN).database == "crosstune_wt_elsewhere_feat"
+    outside = names_for(Path("/elsewhere/feat"), MAIN).database
+    assert outside.startswith("crosstune_wt_elsewhere_feat__")
+    assert outside != names_for(MAIN / ".worktrees" / "elsewhere-feat", MAIN).database
 
 
 def test_stale_picks_only_owned_names_without_a_worktree() -> None:
     present = ["crosstune", "crosstune_e2e", "crosstune_wt_gone", "crosstune_wt_here"]
     assert stale(present, {"crosstune_wt_here"}, "crosstune_wt_") == ["crosstune_wt_gone"]
+
+
+def test_in_use_reads_the_names_a_worktree_env_points_at(tmp_path: Path) -> None:
+    (tmp_path / "api").mkdir()
+    (tmp_path / "api" / ".env").write_text(
+        "CROSSTUNE_DATABASE_URL=postgresql://u@localhost/crosstune_wt_old\n"
+        "CROSSTUNE_STORAGE_BUCKET=crosstune-wt-old\n"
+    )
+    assert local_worktree.in_use(tmp_path) == {"crosstune_wt_old", "crosstune-wt-old"}
+    assert local_worktree.in_use(tmp_path / "missing") == set()
 
 
 def test_rewrite_env_replaces_values_in_place_and_keeps_the_rest(tmp_path: Path) -> None:
