@@ -13,6 +13,7 @@ from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.serialization import load_pem_private_key
 from pydantic import (
     Field,
+    PositiveFloat,
     PositiveInt,
     SecretStr,
     ValidationInfo,
@@ -265,6 +266,9 @@ class Settings(BaseSettings):
     # requests that wait on that lock one account may have in flight at once.
     request_lock_timeout_seconds: float = 2.0
     concurrent_locking_requests_per_user: int = 4
+    # How long one statement of a sync push may run, its row lock waits included, before
+    # the push answers 429. The slowest statement of a full push stays far below it.
+    push_statement_timeout_seconds: PositiveFloat = 10.0
     apple_team_id: str = ""
     apple_music_key_id: str = ""
     apple_music_private_key: SecretStr = SecretStr("")

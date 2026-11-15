@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from contextlib import asynccontextmanager
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 import asyncpg
 from sqlalchemy import func, select, text
@@ -76,19 +76,49 @@ async def _take(
     """
     if wait_seconds is None:
         return await executor.execute(select(lock))
-    # A lock_timeout of 0 means no timeout at all, so the shortest wait is 1 ms.
-    timeout_ms = max(1, round(wait_seconds * 1000))
-    await executor.execute(text(f"set local lock_timeout = '{timeout_ms}ms'"))
-    try:
+    await _set_timeout(executor, "lock_timeout", wait_seconds)
+    async with _busy_on(asyncpg.exceptions.LockNotAvailableError):
         result = await executor.execute(select(lock))
-    except DBAPIError as exc:
-        cause = exc.orig.__cause__ if exc.orig is not None else None
-        if isinstance(cause, asyncpg.exceptions.LockNotAvailableError):
-            raise UserBusyError from exc
-        raise
     # Only this wait is bounded; the row locks the rest of the transaction takes are not.
     await executor.execute(text("set local lock_timeout to default"))
     return result
+
+
+async def _set_timeout(
+    executor: AsyncSession | AsyncConnection,
+    setting: Literal["lock_timeout", "statement_timeout"],
+    seconds: float,
+) -> None:
+    # A timeout of 0 means none at all, so the shortest bound is 1 ms.
+    timeout_ms = max(1, round(seconds * 1000))
+    await executor.execute(text(f"set local {setting} = '{timeout_ms}ms'"))
+
+
+@asynccontextmanager
+async def _busy_on(cause: type[Exception]) -> AsyncGenerator[None]:
+    """Refuse with UserBusyError when a statement in the block fails with the driver's `cause`."""
+    try:
+        yield
+    except DBAPIError as exc:
+        if isinstance(exc.orig.__cause__ if exc.orig is not None else None, cause):
+            raise UserBusyError from exc
+        raise
+
+
+@asynccontextmanager
+async def statement_timeout(session: AsyncSession, seconds: float) -> AsyncGenerator[None]:
+    """Bound each statement for the rest of the transaction, and refuse when one runs past it.
+
+    A statement's wait on a row lock counts toward the bound, so a transaction that holds
+    the user lock cannot hold it and its connection for as long as another holder keeps a
+    row.
+
+    Raises:
+        UserBusyError: When a statement in the block runs past `seconds`.
+    """
+    await _set_timeout(session, "statement_timeout", seconds)
+    async with _busy_on(asyncpg.exceptions.QueryCanceledError):
+        yield
 
 
 async def lock_clerk_user(

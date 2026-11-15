@@ -12,6 +12,7 @@ from crosstune.auth.deps import (
     CurrentUser,  # noqa: TC001 -- FastAPI resolves this annotation at route registration
 )
 from crosstune.db.base import utc_now
+from crosstune.db.locks import statement_timeout
 from crosstune.db.session import (
     DbSession,  # noqa: TC001 -- FastAPI resolves this annotation at route registration
 )
@@ -122,15 +123,16 @@ async def push(
             settings.link_resolve_timeout_seconds,
             allow_fetch=lambda: limiter.hit(user.id) is None,
         )
-        results = await apply_push(
-            session,
-            user.id,
-            body.changes,
-            settings,
-            resolved_links=resolved,
-            lock_wait_seconds=settings.request_lock_timeout_seconds,
-        )
-        await touch_last_synced(session, user.id, utc_now(), request_country(request))
+        async with statement_timeout(session, settings.push_statement_timeout_seconds):
+            results = await apply_push(
+                session,
+                user.id,
+                body.changes,
+                settings,
+                resolved_links=resolved,
+                lock_wait_seconds=settings.request_lock_timeout_seconds,
+            )
+            await touch_last_synced(session, user.id, utc_now(), request_country(request))
     return PushResponse(results=results)
 
 

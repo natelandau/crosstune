@@ -11,9 +11,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from crosstune.db.engine import make_engine, make_sessionmaker
 from crosstune.db.locks import billing_lock, lock_clerk_user
+from crosstune.models import Tune
 from crosstune.models.user import User
 from tests.fakes import FakeRevenueCat
 from tests.helpers import (
+    T0,
+    T1,
+    change,
     hold_account_lock,
     push,
     recording,
@@ -427,3 +431,32 @@ async def test_a_new_account_s_first_request_behind_its_clerk_lock_answers_429(
     assert int(response.headers["Retry-After"]) >= 1
     created = await verify_session.scalar(select(User.id).where(User.clerk_user_id == "user_new"))
     assert created is None
+
+
+async def test_a_push_statement_behind_a_held_row_lock_answers_429(
+    app: FastAPI,
+    client: httpx2.AsyncClient,
+    auth_headers,
+    engine: AsyncEngine,
+) -> None:
+    app.state.settings = app.state.settings.model_copy(
+        update={"push_statement_timeout_seconds": 0.2}
+    )
+    headers = auth_headers("user_a")
+    tune_id = uid()
+    await push(client, headers, change("tunes", tune_id, T0, title="Sally Ann"))
+    async with AsyncSession(bind=engine) as holder:
+        await holder.execute(select(Tune).where(Tune.id == tune_id).with_for_update())
+        try:
+            response = await asyncio.wait_for(
+                client.post(
+                    "/v1/sync/push",
+                    json={"changes": [change("tunes", tune_id, T1, title="Sally Gal")]},
+                    headers=headers,
+                ),
+                timeout=PROMPT,
+            )
+        finally:
+            await holder.rollback()
+    assert response.status_code == 429, response.text
+    assert int(response.headers["Retry-After"]) >= 1
