@@ -291,6 +291,16 @@ class PlaceRules(RowRules):
         )
 
 
+# Splitting is Premium, and a split's size raises the recording's upload and duration caps.
+_PREMIUM_RECORDING_COLUMNS = ("trim_start_ms", "trim_end_ms", "split_id", "split_size")
+
+
+def _keep_premium_edits(data: dict[str, Any], stored: Recording) -> None:
+    """Replace a free plan's pushed trim and split with the stored ones, in place."""
+    for column in _PREMIUM_RECORDING_COLUMNS:
+        data[column] = getattr(stored, column)
+
+
 class RecordingRules(RowRules):
     """Hold a free plan's trims, keep a trim inside the playback file, and start work."""
 
@@ -303,13 +313,13 @@ class RecordingRules(RowRules):
     async def prepare(self, data: dict[str, Any]) -> str | None:
         """Refuse a free plan's new recording or an over-quota revive, then settle the pushed trim.
 
-        A free plan keeps the stored trim: a pushed trim that differs is replaced with it,
-        and the rest of the change still applies. A server job can rewrite the stored trim
-        without touching `updated_at`, so a device's edit may carry an older trim, and an
-        edit is never refused for it. Otherwise the trim is clamped to the stored row's
-        playback range. Uses the row already in the database rather than the pushed
-        values, so a stale push, which the upsert's timestamp check rejects, never has its
-        rewritten trim mistaken for what was actually written.
+        A free plan keeps the stored trim and split: a pushed value that differs is replaced
+        with the stored one, and the rest of the change still applies. A server job can
+        rewrite the stored trim without touching `updated_at`, so a device's edit may carry
+        an older trim, and an edit is never refused for it. Otherwise the trim is clamped
+        to the stored row's playback range. Uses the row already in the database rather
+        than the pushed values, so a stale push, which the upsert's timestamp check
+        rejects, never has its rewritten trim mistaken for what was actually written.
         """
         self.stored = await self._owned(self.change.id)
         if self.stored is not None:
@@ -325,8 +335,7 @@ class RecordingRules(RowRules):
             if self.stored is None:
                 return PREMIUM_REQUIRED
             if self._upsert_writes(self.stored):
-                data["trim_start_ms"] = self.stored.trim_start_ms
-                data["trim_end_ms"] = self.stored.trim_end_ms
+                _keep_premium_edits(data, self.stored)
                 return None
         low = (
             max(self.stored.source_offset_ms, self.stored.playback_start_ms or 0)

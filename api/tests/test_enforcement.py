@@ -97,12 +97,24 @@ async def test_free_rename_sending_the_stored_trim_applies(
     assert result["row"]["label"] == "Renamed"
 
 
-async def test_free_trim_change_keeps_the_stored_trim(
-    client, auth_headers, verify_session, settings
+SPLIT = uid()
+
+
+@pytest.mark.parametrize(
+    "pushed",
+    [
+        pytest.param({"trim_end_ms": 4000}, id="trim"),
+        pytest.param({"split_size": 50}, id="split-size"),
+        pytest.param({"split_id": uid(), "split_size": 3}, id="split"),
+    ],
+)
+async def test_free_change_keeps_the_stored_trim_and_split(
+    client, auth_headers, verify_session, settings, pushed: dict[str, object]
 ) -> None:
     headers = auth_headers("user_a")
     rec = uid()
-    await push(client, headers, recording(rec, trim_start_ms=1000, trim_end_ms=5000))
+    kept = {"trim_start_ms": 1000, "trim_end_ms": 5000, "split_id": SPLIT, "split_size": 2}
+    await push(client, headers, recording(rec, **kept))
     # A ready file cut to the stored trim, so a changed trim would otherwise queue a trim job.
     await verify_session.execute(
         update(Recording)
@@ -117,18 +129,17 @@ async def test_free_trim_change_keeps_the_stored_trim(
     await verify_session.commit()
     await _end_trial(client, headers, verify_session, settings)
 
-    (result,) = await push(
-        client,
-        headers,
-        recording(rec, T1, label="Renamed", trim_start_ms=1000, trim_end_ms=4000),
-    )
+    (result,) = await push(client, headers, recording(rec, T1, label="Renamed", **kept | pushed))
 
     assert result["status"] == "applied", result
     assert result["row"]["label"] == "Renamed"
-    assert (result["row"]["trim_start_ms"], result["row"]["trim_end_ms"]) == (1000, 5000)
+    assert {column: result["row"][column] for column in kept} == kept
     stored = await verify_session.get(Recording, uuid.UUID(rec))
     await verify_session.refresh(stored)
-    assert (stored.trim_start_ms, stored.trim_end_ms) == (1000, 5000)
+    assert {column: getattr(stored, column) for column in kept} == {
+        **kept,
+        "split_id": uuid.UUID(SPLIT),
+    }
     jobs = await verify_session.scalars(select(Job.kind).where(Job.recording_id == uuid.UUID(rec)))
     assert "trim" not in list(jobs)
 
