@@ -16,7 +16,7 @@ extension Client {
         onAccountDeleted: @escaping @Sendable () async -> Void,
         onAccountCreated: @escaping @Sendable (Bool) async -> Void = { _ in },
         onUpdateRequired: @escaping @Sendable () async -> Void = {},
-        transport: any ClientTransport = URLSessionTransport()
+        transport: any ClientTransport = URLSessionTransport.crosstune
     ) -> Client {
         crosstune(
             origin: origin, tokens: tokens, clientVersion: clientVersion, onUnauthorized: onUnauthorized,

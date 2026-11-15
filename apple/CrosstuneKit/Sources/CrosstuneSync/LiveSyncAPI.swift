@@ -18,7 +18,7 @@ public struct LiveSyncAPI: SyncAPI {
     ///   - storageOrigin: Where a signed URL that names only a path resolves, as a browser
     ///     resolves it against the page. A local API signs storage URLs as `/storage/...` for
     ///     the web dev server's proxy; a hosted API signs absolute URLs and needs none.
-    public init(client: Client, session: URLSession = .shared, storageOrigin: URL? = nil) {
+    public init(client: Client, session: URLSession = .crosstune, storageOrigin: URL? = nil) {
         self.client = client
         self.session = session
         self.storageOrigin = storageOrigin

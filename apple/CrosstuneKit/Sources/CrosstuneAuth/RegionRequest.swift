@@ -10,7 +10,7 @@ extension Region {
     /// it runs before anyone signs in, so it uses a client without ``AuthMiddleware``.
     /// `transport` replaces URLSession in tests.
     public static func fetch(
-        origin: URL, transport: any ClientTransport = URLSessionTransport()
+        origin: URL, transport: any ClientTransport = URLSessionTransport.crosstune
     ) async throws -> Region {
         let client = CrosstuneAPI.Client(
             serverURL: origin, configuration: .crosstune, transport: transport,
