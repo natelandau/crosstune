@@ -3,16 +3,20 @@
 from __future__ import annotations
 
 import math
+from bisect import bisect_left, bisect_right
+from dataclasses import dataclass
+from operator import attrgetter
 from typing import TYPE_CHECKING
 
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, case, literal, or_, select, union_all, update
 
-from crosstune.db.base import bump_server_seq
+from crosstune.db.base import bump_server_seq, next_server_seq
 from crosstune.models import Place, Recording
 from crosstune.vocabulary import PlaceOrigin
 
 if TYPE_CHECKING:
     import uuid
+    from collections.abc import Iterable, Sequence
 
     from sqlalchemy import ColumnElement
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,6 +24,11 @@ if TYPE_CHECKING:
 
 MATCH_RADIUS_M = 30
 MATCH_MAX_ACCURACY_M = 50
+# The most live places one changed point's neighborhood may hold before the server stops
+# linking recordings there on its own. Bounds the work of a push over a dense cluster.
+MAX_PLACES_PER_AREA = 32
+# asyncpg takes at most 32,767 bind parameters per statement, and each link takes three.
+_LINKS_PER_UPDATE = 5_000
 
 EARTH_RADIUS_M = 6_371_000
 # Meters per degree of latitude, rounded down so the prefilter box is never too small.
@@ -94,98 +103,206 @@ async def matching_place_id(
         *_box_clauses(Place.lat, Place.lon, lat, lon),
     ]
     rows = await session.execute(select(Place.id, Place.lat, Place.lon).where(*clauses))
-    near = [
-        place_id
-        for place_id, place_lat, place_lon in rows
-        if distance_m(lat, lon, place_lat, place_lon) <= MATCH_RADIUS_M
-    ]
-    return near[0] if len(near) == 1 else None
+    return _sole_place_id(
+        lat=lat, lon=lon, places=(Spot(id=pid, lat=plat, lon=plon) for pid, plat, plon in rows)
+    )
 
 
-async def link_earlier_recordings(session: AsyncSession, place: Place) -> int:
-    """Link the user's unlinked device and file recordings whose only saved place is this one.
+# The point types below have no repr, so an error report never prints a point.
+@dataclass(frozen=True, slots=True, repr=False)
+class Spot:
+    """A saved place's or a recording's id and point."""
 
-    Takes the same server_seq bump as any server write and leaves `updated_at` alone.
+    id: uuid.UUID
+    lat: float
+    lon: float
+
+
+def _sole_place_id(lat: float, lon: float, places: Iterable[Spot]) -> uuid.UUID | None:
+    """The one place within the match radius of a point, or None when none or several are."""
+    near: uuid.UUID | None = None
+    for place in places:
+        if distance_m(lat, lon, place.lat, place.lon) <= MATCH_RADIUS_M:
+            if near is not None:
+                return None
+            near = place.id
+    return near
+
+
+@dataclass(frozen=True, slots=True, repr=False)
+class Area:
+    """A point a push changed: where a live place now stands, or where a place stood before.
+
+    A recording near a place that now stands here may now match it. A recording that matched
+    both a departed place and a neighbor matched neither, so the neighbors within two radii
+    of a point a place left are the places such a recording may now match.
+    """
+
+    lat: float
+    lon: float
+    # The live place that stands here now, or None for a point a place left.
+    place_id: uuid.UUID | None = None
+
+    @property
+    def place_radius_m(self) -> float:
+        """The reach that holds every place within one radius of any recording this area links."""
+        return (2 if self.place_id is not None else 4) * MATCH_RADIUS_M
+
+    @property
+    def recording_radius_m(self) -> float:
+        """The reach that holds every recording this area can link."""
+        return (1 if self.place_id is not None else 3) * MATCH_RADIUS_M
+
+
+def plan_links(
+    areas: Sequence[Area], places_by_area: Sequence[Sequence[Spot]], recordings: Iterable[Spot]
+) -> dict[uuid.UUID, uuid.UUID]:
+    """Decide which unlinked recordings now match exactly one live place near a changed point.
+
+    Args:
+        areas: The points a push changed.
+        places_by_area: For each area, the live places within its `place_radius_m` box, cut
+            off past `MAX_PLACES_PER_AREA`.
+        recordings: The unlinked recordings with a precise fix within any area's
+            `recording_radius_m`.
+
+    Returns:
+        dict[uuid.UUID, uuid.UUID]: Each recording to link, mapped to its place.
+    """
+    candidates: set[uuid.UUID] = set()
+    places: dict[uuid.UUID, Spot] = {}
+    for area, near in zip(areas, places_by_area, strict=True):
+        # Every place within one radius of a recording that a candidate here matches lies in
+        # this area's box, so a full area cannot tell a match from an ambiguity.
+        if len(near) > MAX_PLACES_PER_AREA:
+            continue
+        places.update((place.id, place) for place in near)
+        if area.place_id is not None:
+            if any(place.id == area.place_id for place in near):
+                candidates.add(area.place_id)
+        else:
+            candidates.update(
+                place.id
+                for place in near
+                if distance_m(area.lat, area.lon, place.lat, place.lon) <= 2 * MATCH_RADIUS_M
+            )
+    lat = attrgetter("lat")
+    by_lat = sorted(places.values(), key=lat)
+    dlat = MATCH_RADIUS_M / _M_PER_DEGREE
+    links: dict[uuid.UUID, uuid.UUID] = {}
+    for recording in recordings:
+        low = bisect_left(by_lat, recording.lat - dlat, key=lat)
+        high = bisect_right(by_lat, recording.lat + dlat, key=lat)
+        place_id = _sole_place_id(lat=recording.lat, lon=recording.lon, places=by_lat[low:high])
+        if place_id is not None and place_id in candidates:
+            links[recording.id] = place_id
+    return links
+
+
+async def link_earlier_recordings(
+    session: AsyncSession, *, user_id: uuid.UUID, areas: Iterable[Area]
+) -> int:
+    """Link the user's unlinked device and file recordings that now match one place near an area.
+
+    Runs a fixed number of queries for any number of areas, plus one update per
+    `_LINKS_PER_UPDATE` links. Takes the same server_seq bump as any server write and leaves
+    `updated_at` alone.
 
     Returns:
         int: How many recordings were linked.
     """
-    rows = await session.scalars(
-        select(Recording).where(
-            Recording.user_id == place.user_id,
+    unique = list(dict.fromkeys(areas))
+    if not unique:
+        return 0
+    place_rows = await session.execute(
+        union_all(
+            *(
+                select(literal(index).label("area"), Place.id, Place.lat, Place.lon)
+                .where(
+                    Place.user_id == user_id,
+                    Place.deleted_at.is_(None),
+                    *_box_clauses(
+                        Place.lat, Place.lon, area.lat, area.lon, radius_m=area.place_radius_m
+                    ),
+                )
+                .limit(MAX_PLACES_PER_AREA + 1)
+                for index, area in enumerate(unique)
+            )
+        )
+    )
+    places_by_area: list[list[Spot]] = [[] for _ in unique]
+    for index, place_id, lat, lon in place_rows:
+        places_by_area[index].append(Spot(id=place_id, lat=lat, lon=lon))
+    # plan_links skips a full area, so no recording only it reaches can link.
+    open_areas = [
+        area
+        for area, near in zip(unique, places_by_area, strict=True)
+        if len(near) <= MAX_PLACES_PER_AREA
+    ]
+    if not open_areas:
+        return 0
+    rows = await session.execute(
+        select(
+            Recording.id, Recording.place_lat, Recording.place_lon, Recording.place_accuracy_m
+        ).where(
+            Recording.user_id == user_id,
             Recording.deleted_at.is_(None),
             Recording.place_id.is_(None),
             Recording.place_origin.in_((PlaceOrigin.DEVICE.value, PlaceOrigin.FILE.value)),
-            *_box_clauses(Recording.place_lat, Recording.place_lon, place.lat, place.lon),
+            or_(
+                *(
+                    and_(
+                        *_box_clauses(
+                            Recording.place_lat,
+                            Recording.place_lon,
+                            area.lat,
+                            area.lon,
+                            radius_m=area.recording_radius_m,
+                        )
+                    )
+                    for area in open_areas
+                )
+            ),
         )
     )
-    recordings = rows.all()
-    if not recordings:
-        return 0
-    # A recording this place matches lies within one radius of it, so every other place that
-    # recording matches lies within two, and one read of them serves every recording.
-    neighbors = (
+    recordings = [
+        Spot(id=recording_id, lat=lat, lon=lon)
+        for recording_id, lat, lon, accuracy_m in rows
+        if lat is not None and lon is not None and is_precise(accuracy_m)
+    ]
+    links = plan_links(areas=unique, places_by_area=places_by_area, recordings=recordings)
+    pending = list(links.items())
+    for start in range(0, len(pending), _LINKS_PER_UPDATE):
+        chunk = dict(pending[start : start + _LINKS_PER_UPDATE])
         await session.execute(
-            select(Place.id, Place.lat, Place.lon).where(
-                Place.user_id == place.user_id,
-                Place.deleted_at.is_(None),
-                *_box_clauses(
-                    Place.lat, Place.lon, place.lat, place.lon, radius_m=2 * MATCH_RADIUS_M
+            update(Recording)
+            .where(Recording.id.in_(list(chunk)), Recording.user_id == user_id)
+            .values(
+                place_id=case(
+                    {
+                        recording_id: literal(place_id, Recording.place_id.type)
+                        for recording_id, place_id in chunk.items()
+                    },
+                    value=Recording.id,
                 ),
+                server_seq=next_server_seq(),
             )
+            .returning(Recording),
+            # populate_existing, so a copy of the row already in the session takes the write.
+            execution_options={"populate_existing": True},
         )
-    ).all()
-    linked = 0
-    for recording in recordings:
-        lat, lon = recording.place_lat, recording.place_lon
-        if lat is None or lon is None or not is_precise(recording.place_accuracy_m):
-            continue
-        near = [
-            place_id
-            for place_id, place_lat, place_lon in neighbors
-            if distance_m(lat, lon, place_lat, place_lon) <= MATCH_RADIUS_M
-        ]
-        if near == [place.id]:
-            recording.place_id = place.id
-            bump_server_seq(recording)
-            linked += 1
-    await session.flush()
-    return linked
+    return len(links)
 
 
-async def rematch_neighbor_places(
-    session: AsyncSession, *, user_id: uuid.UUID, lat: float, lon: float
-) -> int:
-    """Link earlier recordings to each live place that shares them with a point's match radius.
-
-    A recording matches no place while two lie within its radius, so removing a place at this
-    point can leave a neighbor as some recording's only match. Such a neighbor lies within two
-    match radii of the point.
-
-    Returns:
-        int: How many recordings were linked.
-    """
-    rows = await session.scalars(
-        select(Place).where(
-            Place.user_id == user_id,
-            Place.deleted_at.is_(None),
-            *_box_clauses(Place.lat, Place.lon, lat, lon, radius_m=2 * MATCH_RADIUS_M),
-        )
-    )
-    linked = 0
-    for place in rows.all():
-        if distance_m(lat, lon, place.lat, place.lon) <= 2 * MATCH_RADIUS_M:
-            linked += await link_earlier_recordings(session, place)
-    return linked
-
-
-async def unlink_place(session: AsyncSession, place_id: uuid.UUID) -> int:
-    """Clear the link of every recording filed under a place, keeping their own names.
+async def unlink_place(session: AsyncSession, *, user_id: uuid.UUID, place_id: uuid.UUID) -> int:
+    """Clear the link of every recording of the user filed under a place, keeping their own names.
 
     Returns:
         int: How many recordings were unlinked.
     """
-    rows = await session.scalars(select(Recording).where(Recording.place_id == place_id))
+    rows = await session.scalars(
+        select(Recording).where(Recording.user_id == user_id, Recording.place_id == place_id)
+    )
     unlinked = rows.all()
     for recording in unlinked:
         recording.place_id = None
