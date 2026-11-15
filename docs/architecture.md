@@ -347,6 +347,9 @@ each question, and the invariants that both clients and the API hold.
   `stream_media_tool`. Output that grows with the upload is streamed and
   never held whole: the API process serves every request from the same
   memory.
+- A media tool's output holds the upload's tags, its location among them.
+  A variable that holds it takes a name on the Sentry scrub list in
+  `error_reports.py`.
 - A recording longer than `MAX_RECORDING_MS` fails, unless it is a split
   parent (Splits). It fails before any encode when its metadata says so.
   Otherwise it fails when a whole-file write, which stops just past the

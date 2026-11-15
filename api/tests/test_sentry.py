@@ -1,6 +1,7 @@
 """Sentry is initialized only with a DSN and always tagged with the environment."""
 
 import json
+import sys
 
 import pytest
 import sentry_sdk
@@ -12,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from crosstune.config import Settings
 from crosstune.db.engine import make_engine
 from crosstune.error_reports import before_send
-from crosstune.jobs.media import Probe
+from crosstune.jobs.media import MediaError, Probe, run_media_tool
 from crosstune.main import create_app
 from crosstune.places.maps import PlaceHit
 from crosstune.sync.rules import RecordingRules
@@ -180,6 +181,26 @@ def test_sentry_reports_keep_coordinates_and_content_out_of_frame_locals(live_se
     assert "<Probe redacted>" in sent
     for text in ("36.66", "80.92", "Galax", "Tommy", "Kyle"):
         assert text not in sent
+
+
+@pytest.mark.anyio
+async def test_a_media_tool_over_its_output_cap_keeps_the_report_out_of_sentry(
+    live_sentry,
+) -> None:
+    # Hex keeps the coordinates out of the command line, so only the output holds them.
+    tag = b"+36.6612-080.9239/".hex()
+    script = f"print(bytes.fromhex('{tag}').decode() * 1000)"
+    try:
+        await run_media_tool(sys.executable, "-c", script, max_bytes=100)
+    except MediaError:
+        sentry_sdk.capture_exception()
+    sentry_sdk.flush()
+
+    (envelope,) = live_sentry.envelopes
+    event = envelope.get_event()
+    assert event is not None
+    frames = event["exception"]["values"][0]["stacktrace"]["frames"]
+    assert "36.66" not in json.dumps([frame.get("vars") for frame in frames])
 
 
 # Recording content a push carries; none of it may reach an error report.
