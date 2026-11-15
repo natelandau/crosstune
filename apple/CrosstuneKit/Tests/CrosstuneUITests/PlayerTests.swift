@@ -428,6 +428,25 @@ struct PlayerItemLinkTests {
     }
 }
 
+@Test(arguments: [
+    ("https://app.crosstune.crosstune", true, EmbedDelegate.Route.allow),
+    (
+        "https://www.youtube.com/watch?v=dQw4w9WgXcQ", true,
+        .openExternally(URL(string: "https://www.youtube.com/watch?v=dQw4w9WgXcQ")!)
+    ),
+    ("http://example.com/", true, .openExternally(URL(string: "http://example.com/")!)),
+    ("about:blank", true, .cancel),
+    ("file:///etc/hosts", true, .cancel),
+    ("javascript:alert(1)", true, .cancel),
+    ("spotify:track:4uLU6hMCjMI75M1A2tKUQC", true, .cancel),
+    ("about:blank", false, .allow),
+    ("https://www.youtube.com/embed/dQw4w9WgXcQ", false, .allow),
+])
+func theEmbedPageStaysThePlayer(url: String, mainFrame: Bool, route: EmbedDelegate.Route) throws {
+    let origin = Embed.documentOrigin(bundleID: "app.crosstune.Crosstune")
+    #expect(EmbedDelegate.route(try #require(URL(string: url)), mainFrame: mainFrame, origin: origin) == route)
+}
+
 #if os(macOS)
     @MainActor
     @Suite struct EmbedStageTests {
