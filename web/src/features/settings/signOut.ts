@@ -23,11 +23,12 @@ export async function forgetLocalData({
   userId: string
   analytics: AnalyticsClient
 }): Promise<void> {
-  // First, so the person is forgotten even when deleting the database fails.
+  // First, so the person is forgotten even when deleting the database fails. Forgetting the
+  // user is also what tells this user's other tabs to close the database before it is deleted.
   analytics.reset()
+  forgetUser()
   db.close()
   await deleteDatabase(userId)
-  forgetUser()
   clearSearchQueries()
 }
 

@@ -16,10 +16,10 @@ from crosstune.sync import rules
 from crosstune.vocabulary import (
     LIMITS,
     PLACE_ACCURACY_M_MAX,
-    SPLIT_FAILED,
     SPLIT_FULL,
     SPLIT_MISMATCH,
     SPLIT_UNNAMED,
+    JobKind,
 )
 from tests.helpers import T0, T1, T2, change, pull, push, recording, uid
 
@@ -878,39 +878,28 @@ async def test_piece_of_a_soft_deleted_parent_is_accepted(client, auth_headers) 
     assert result["status"] == "applied"
 
 
-@pytest.mark.parametrize(
-    ("parent_state", "own_state"),
-    [
-        # The split job still cuts the pieces of the parent's split.
-        ("uploaded", ("processing", None)),
-        # A deleted parent can never upload the file its pieces are cut from.
-        ("pending_upload", ("failed", SPLIT_FAILED)),
-    ],
-)
-async def test_deleting_a_parent_fails_the_pieces_no_split_will_cut(
-    client, auth_headers, verify_session, parent_state, own_state
+async def test_a_parent_undeleted_with_its_split_still_has_its_waiting_pieces_cut(
+    client, auth_headers, verify_session
 ) -> None:
-    """A piece of no split the parent carries always fails."""
-    parent, stray, own, split_id = uid(), uid(), uid(), uid()
+    """A delete leaves a waiting piece to the grace, since a newer push can bring the split."""
+    parent, piece, split_id = uid(), uid(), uid()
     headers = auth_headers("user_a")
-    await _ready_parent(client, headers, verify_session, parent, state=parent_state)
+    await _ready_parent(client, headers, verify_session, parent)
     await push(
-        client, headers, recording(stray, T1, split_from_id=parent, created_by_split_id=uid())
-    )
-    await push(
-        client,
-        headers,
-        recording(parent, T1, split_id=split_id, split_size=3),
-        recording(own, T1, split_from_id=parent, created_by_split_id=split_id),
+        client, headers, recording(piece, T1, split_from_id=parent, created_by_split_id=split_id)
     )
     await push(client, headers, change("recordings", parent, T2, op="delete"))
-    rows = await verify_session.execute(
-        select(Recording.id, Recording.state, Recording.error).where(Recording.id.in_([stray, own]))
+    [revive] = await push(
+        client,
+        headers,
+        recording(parent, T2 + timedelta(seconds=10), split_id=split_id, split_size=2),
     )
-    assert {str(row.id): (row.state, row.error) for row in rows} == {
-        stray: ("failed", SPLIT_FAILED),
-        own: own_state,
-    }
+
+    assert revive["status"] == "applied"
+    assert await _piece_state(verify_session, piece) == "processing"
+    assert await verify_session.scalar(
+        select(Job.id).where(Job.recording_id == parent, Job.kind == JobKind.SPLIT)
+    )
 
 
 async def test_recording_of_a_soft_deleted_tune_is_still_refused(client, auth_headers) -> None:

@@ -190,6 +190,10 @@ describe('embedFor', () => {
     ['spotify without a ref', link('spotify', null)],
     ['apple music on another host', link('apple_music', '1', 'https://example.com/album/1')],
     ['apple music with an unparsable url', link('apple_music', '1', 'not a url')],
+    [
+      'apple music under a non-web scheme',
+      link('apple_music', '1', 'javascript://music.apple.com/us/album/x/1?i=2'),
+    ],
     ['tidal without a ref', link('tidal', null)],
     ['tidal artist ref', link('tidal', 'artist:1')],
     ['soundcloud on another host', link('soundcloud', null, 'https://example.com/a/b')],

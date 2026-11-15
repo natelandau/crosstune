@@ -145,8 +145,9 @@ async def revive_exceeds_quota(session: AsyncSession, row: SlotOwner, quota_byte
     """Whether bringing a deleted recording or scan back would take its owner past the quota.
 
     A deleted row's files stay in the bucket until the purge, uncounted unless a waiting
-    piece holds them, so a revive before the purge brings them back into the count. A
-    revive that adds nothing to the count is never refused.
+    piece holds them, so a revive before the purge brings them back into the count. The row
+    is sized as `used_bytes` will count it once live: an open upload slot's declared size in
+    place of its stored file. A revive that adds nothing to the count is never refused.
 
     Args:
         session: The session to query through.
@@ -156,18 +157,22 @@ async def revive_exceeds_quota(session: AsyncSession, row: SlotOwner, quota_byte
     Returns:
         bool: True when the revive must be refused.
     """
+    now = utc_now()
+    slot = await _slot_for(session, row)
+    open_slot = slot.declared_bytes if slot is not None and slot.expires_at > now else None
     if isinstance(row, Recording):
-        files = (row.playback_bytes or 0) + (row.original_bytes or 0)
+        stored = row.playback_bytes if open_slot is None else open_slot
+        files = (stored or 0) + (row.original_bytes or 0)
         counted = files > 0 and (
             await session.scalar(select(Recording.id).where(Recording.id == row.id, keeps_files()))
             is not None
         )
     else:
         # A deleted scan never counts.
-        files, counted = row.file_bytes or 0, False
+        files, counted = (row.file_bytes if open_slot is None else open_slot) or 0, False
     if files == 0 or counted:
         return False
-    return await used_bytes(session, row.user_id) + files > quota_bytes
+    return await used_bytes(session, row.user_id, now) + files > quota_bytes
 
 
 async def slot_for_recording(session: AsyncSession, recording_id: uuid.UUID) -> UploadSlot | None:

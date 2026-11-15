@@ -372,9 +372,8 @@ async def fail_overdue_pieces(
     """Fail the pieces that have waited past `grace` for a cut their parent's split will never make.
 
     A piece can reach the server before its parent's split, so each gets `grace` for the
-    split to arrive. A parent's delete fails the pieces it strands at once; this catches
-    the ones that arrive after the delete, and the ones whose split never arrives. Each
-    failure releases the parent's original for the purge.
+    split to arrive, even when the parent is deleted: a newer push can undelete the parent
+    and bring its split. Each failure releases the parent's original for the purge.
 
     Args:
         sessionmaker: Opens the session the sweep reads and writes through.

@@ -16,7 +16,7 @@ export function displayTitle(link: { title?: string | null; url: string }): stri
   }
 }
 
-const WEB_PROTOCOLS = new Set(['http:', 'https:'])
+export const WEB_PROTOCOLS: ReadonlySet<string> = new Set(['http:', 'https:'])
 // A scheme as the URL parser reads it, after dropping C0 controls and spaces at either end
 // and tabs and newlines anywhere. The API refuses a link on this same reading.
 const URL_SCHEME = /^([A-Za-z][A-Za-z0-9+.-]*):/

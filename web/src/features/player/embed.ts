@@ -1,5 +1,6 @@
 import type { LocalRecordingLink } from '../../db/types'
 import { SLIPPERY_HILL_ORIGIN, validSlipperyHillRef, youtubeId } from '../links/detect'
+import { WEB_PROTOCOLS } from '../links/display'
 
 export interface Embed {
   /** A provider page in an iframe, or a plain audio element for a direct file. */
@@ -67,12 +68,12 @@ export function embedFor(link: EmbeddableLink, options?: { autoplay?: boolean })
     }
     case 'apple_music': {
       const url = parseUrl(link.url)
-      if (!url || url.hostname !== 'music.apple.com') return null
-      url.protocol = 'https:'
-      url.hostname = 'embed.music.apple.com'
+      if (!url || !WEB_PROTOCOLS.has(url.protocol) || url.hostname !== 'music.apple.com') {
+        return null
+      }
       return {
         kind: 'frame',
-        src: url.toString(),
+        src: `https://embed.music.apple.com${url.pathname}${url.search}`,
         height: 175,
         allow: APPLE_ALLOW,
         sandbox: APPLE_SANDBOX,

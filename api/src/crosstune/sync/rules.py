@@ -38,7 +38,6 @@ from crosstune.recordings.loops import (
 )
 from crosstune.recordings.service import ensure_place_job, ensure_trim_job, start_import
 from crosstune.recordings.split_rules import (
-    fail_stranded_pieces,
     latest_split_pieces,
     split_first_cut,
     unfinished_pieces,
@@ -569,13 +568,6 @@ class RecordingRules(RowRules):
             # The result is serialized from this row, and server_seq is still a SQL expression.
             await self.session.flush()
             await self.session.refresh(row)
-
-    async def deleted(self, row: Recording) -> None:
-        """Fail the waiting pieces the deleted recording's split will never cut.
-
-        Each would hold the recording's original, and keep its files from the purge.
-        """
-        await fail_stranded_pieces(self.session, row)
 
 
 class RecordingLoopRules(RowRules):
