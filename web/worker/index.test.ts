@@ -115,6 +115,7 @@ describe('handleRequest', () => {
     )
     expect(response.status).toBe(502)
     expect(response.headers.get('content-type')).toBe('application/problem+json')
+    expect(response.headers.get('cache-control')).toBe('no-store')
     const body = await response.json()
     expect(body).toMatchObject({ status: 502 })
   })
