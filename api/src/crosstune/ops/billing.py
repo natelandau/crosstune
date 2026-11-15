@@ -16,7 +16,6 @@ import re
 import sys
 from datetime import UTC, date, datetime, timedelta
 from typing import TYPE_CHECKING
-from urllib.parse import urlsplit
 
 from pydantic import ValidationError
 from sqlalchemy import delete, func, or_, select
@@ -26,7 +25,7 @@ from crosstune.billing.access import refresh_entitlement
 from crosstune.billing.clients import make_mailer, make_revenuecat, make_stripe
 from crosstune.billing.grants import grant_comp, revoke_comp, set_trial_end
 from crosstune.billing.withdrawal import withdraw
-from crosstune.config import LOCAL_DATABASE_HOSTS, Settings
+from crosstune.config import Settings
 from crosstune.db.base import utc_now
 from crosstune.db.engine import make_engine, make_sessionmaker
 from crosstune.db.locks import lock_user
@@ -99,7 +98,7 @@ def check_target(settings: Settings, *, yes: bool, e2e: bool = False) -> None:
             `--e2e` was given for any other database, or the environment is production
             or the database is not on this machine, and `--yes` was not given.
     """
-    host = urlsplit(settings.database_url).hostname
+    host = settings.database_host
     print(f"environment {settings.environment}, database {settings.database_name} on {host}")
     if settings.e2e_database and not e2e:
         msg = f"refusing {settings.database_name}: the e2e suite owns and resets it"
@@ -110,8 +109,8 @@ def check_target(settings: Settings, *, yes: bool, e2e: bool = False) -> None:
     if settings.environment == "production" and not yes:
         msg = "this is production: pass --yes to write"
         raise BillingCommandError(msg)
-    if host not in LOCAL_DATABASE_HOSTS and not yes:
-        msg = f"{host} is not a local database: pass --yes to write"
+    if not settings.local_database and not yes:
+        msg = f"{host or 'a URL with no host'} is not a local database: pass --yes to write"
         raise BillingCommandError(msg)
 
 

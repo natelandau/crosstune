@@ -10,7 +10,7 @@ from pydantic import ValidationError
 from sqlalchemy.dialects.postgresql.asyncpg import dialect as asyncpg_dialect
 from sqlalchemy.engine import make_url
 
-from crosstune.config import Settings, normalize_database_url
+from crosstune.config import Settings, is_local_database_host, normalize_database_url
 
 NEON = (
     "postgresql://alex:AbC123dEf@ep-cool-darkness-a1b2c3d4.us-east-2.aws.neon.tech/neondb"
@@ -44,6 +44,57 @@ def test_normalized_url_reaches_asyncpg_as_ssl() -> None:
     assert kwargs["ssl"] == "require"
     assert "sslmode" not in kwargs
     assert "channel_binding" not in kwargs
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "host=db.example",
+        "HOST=db.example",
+        "hostaddr=10.0.0.1",
+        "port=6000",
+        "dbname=other",
+        "database=other",
+        "sslmode=require&host=/var/run/postgresql",
+        "service=prod",
+    ],
+)
+def test_a_query_that_names_the_server_or_database_is_refused(query: str) -> None:
+    url = f"postgresql://u:p@localhost/crosstune?{query}"
+    with pytest.raises(ValueError, match="may not set"):
+        normalize_database_url(url)
+
+
+@pytest.mark.parametrize("url", ["postgresql://u:p@localhost", "postgresql://u:p@localhost/"])
+def test_a_url_that_names_no_database_is_refused(url: str) -> None:
+    with pytest.raises(ValueError, match="must name a database"):
+        normalize_database_url(url)
+
+
+def test_guards_read_the_database_the_engine_connects_to() -> None:
+    settings = Settings(database_url="postgresql://u:p@[::1]/crosstune%5Fe2e")
+    assert (settings.database_host, settings.database_name) == ("::1", "crosstune_e2e")
+    assert settings.e2e_database
+
+
+@pytest.mark.parametrize(
+    ("host", "local"),
+    [
+        ("localhost", True),
+        ("LOCALHOST", True),
+        ("127.0.0.1", True),
+        ("127.0.0.2", True),
+        ("::1", True),
+        (None, False),
+        ("", False),
+        ("/var/run/postgresql", False),
+        ("db.localhost", False),
+        ("localhost.example", False),
+        ("10.0.0.1", False),
+    ],
+)
+def test_only_a_loopback_host_is_local(host: str | None, local: bool) -> None:  # noqa: FBT001 -- parametrized value
+    assert is_local_database_host(host) is local
 
 
 def test_settings_normalize_the_database_url() -> None:
@@ -234,8 +285,8 @@ def test_storage_scope_accepts(overrides: dict[str, str]) -> None:
             id="dev-bucket-from-a-loopback-database",
         ),
         pytest.param(
-            {"environment": "development", **R2, "database_url": "postgresql://u:p@/x?host=/tmp"},
-            id="dev-bucket-from-a-socket-database",
+            {"environment": "development", **R2, "database_url": "postgresql://u:p@/x"},
+            id="dev-bucket-from-a-database-with-no-host",
         ),
         pytest.param(
             {
