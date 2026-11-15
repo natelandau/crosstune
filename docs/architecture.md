@@ -164,11 +164,12 @@ each question, and the invariants that both clients and the API hold.
   only if the row is unchanged.
 - A waiting request holds a pooled connection, so an unbounded wait lets
   one account hold them all:
-  - A request route passes `wait_seconds` to `lock_user`, and answers 429
-    when the wait ends. A route that takes the billing lock bounds that
-    wait too.
-  - A request route that waits on either lock counts against the
-    account's requests in flight, one budget shared by every such route.
+  - A request bounds every lock wait it makes, and answers 429 when the
+    wait ends: `lock_user`, the billing lock, and the Clerk ID lock that
+    creating a new account takes.
+  - A request route that waits on `lock_user` or the billing lock counts
+    against the account's requests in flight, one budget shared by every
+    such route.
     It checks that the caller owns the row named in the URL before the
     wait, and refuses before the wait whatever it can refuse without the
     lock. A call to an outside service that it makes before the wait

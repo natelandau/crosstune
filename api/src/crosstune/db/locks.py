@@ -91,14 +91,22 @@ async def _take(
     return result
 
 
-async def lock_clerk_user(session: AsyncSession, clerk_user_id: str) -> None:
+async def lock_clerk_user(
+    session: AsyncSession, clerk_user_id: str, *, wait_seconds: float | None = None
+) -> None:
     """Serialize account creation and purge for one Clerk id; released with the transaction.
 
     Uses the two-key form of the advisory lock. Postgres tags it with a different
     objsubid than the single-bigint form lock_user uses, so this key space can never
     collide with a numeric user id lock.
+
+    Args:
+        session: The transaction that takes the lock.
+        clerk_user_id: The Clerk subject whose creation and purge are serialized.
+        wait_seconds: Seconds to wait before refusing with UserBusyError, or None to wait as
+            long as the holder keeps the lock.
     """
-    await session.execute(select(func.pg_advisory_xact_lock(0, func.hashtext(clerk_user_id))))
+    await _take(session, func.pg_advisory_xact_lock(0, func.hashtext(clerk_user_id)), wait_seconds)
 
 
 # First keys of the two-key form, apart from the `0` that `lock_clerk_user` uses.

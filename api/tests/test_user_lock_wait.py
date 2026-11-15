@@ -10,7 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from crosstune.db.engine import make_engine, make_sessionmaker
-from crosstune.db.locks import billing_lock
+from crosstune.db.locks import billing_lock, lock_clerk_user
 from crosstune.models.user import User
 from tests.fakes import FakeRevenueCat
 from tests.helpers import (
@@ -405,3 +405,25 @@ async def test_billing_lock_requests_from_as_many_accounts_as_the_pool_holds_ans
 
     assert [r.status_code for r in responses] == [burst.status] * SMALL_POOL
     assert other.status_code == 200, other.text
+
+
+async def test_a_new_account_s_first_request_behind_its_clerk_lock_answers_429(
+    app: FastAPI,
+    client: httpx2.AsyncClient,
+    auth_headers,
+    engine: AsyncEngine,
+    verify_session: AsyncSession,
+) -> None:
+    app.state.settings = app.state.settings.model_copy(update={"request_lock_timeout_seconds": 0.2})
+    async with AsyncSession(bind=engine) as holder:
+        await lock_clerk_user(holder, "user_new")
+        try:
+            response = await asyncio.wait_for(
+                client.get("/v1/me", headers=auth_headers("user_new")), timeout=5
+            )
+        finally:
+            await holder.rollback()
+    assert response.status_code == 429, response.text
+    assert int(response.headers["Retry-After"]) >= 1
+    created = await verify_session.scalar(select(User.id).where(User.clerk_user_id == "user_new"))
+    assert created is None
