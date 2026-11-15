@@ -86,18 +86,20 @@ async def apply_push(
             continue
         # Held for the group: the identity map keeps rows only while something refers to them.
         _held = await _prefetch(session, spec, [change for _, change in entries])
-        if RULES.get(table, RowRules).defers_overlaps:
+        rules = RULES.get(table, RowRules)
+        if rules.defers_overlaps:
             await _apply_deferring_overlaps(session, spec, user_id, entries, results, access)
-            continue
-        for index, change in entries:
-            if spec.append_only:
-                results[index] = await _insert(session, spec, user_id, change)
-            elif change.op == "upsert":
-                results[index] = await _upsert(
-                    session, spec, user_id, change, resolved_links, access
-                )
-            else:
-                results[index] = await _delete(session, spec, user_id, change, access)
+        else:
+            for index, change in entries:
+                if spec.append_only:
+                    results[index] = await _insert(session, spec, user_id, change)
+                elif change.op == "upsert":
+                    results[index] = await _upsert(
+                        session, spec, user_id, change, resolved_links, access
+                    )
+                else:
+                    results[index] = await _delete(session, spec, user_id, change, access)
+        await rules.settle(session, user_id)
     ordered = [results[i] for i in range(len(changes))]
     await ensure_split_jobs(session, _split_parents(changes, ordered))
     return ordered

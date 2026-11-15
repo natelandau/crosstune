@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pytest
+from sqlalchemy import event
 
 from tests.helpers import T0, T1, T2, change, pull, push, recording, uid
 
@@ -270,6 +271,18 @@ async def test_new_place_links_earlier_recordings_within_30_m(client, auth_heade
     await push(client, headers, place(pid, T1))
     assert (await recording_row(client, headers, near))["place_id"] == pid
     assert (await recording_row(client, headers, far))["place_id"] is None
+
+
+async def test_new_place_links_more_recordings_than_one_update_holds(
+    client, auth_headers, mocker
+) -> None:
+    mocker.patch("crosstune.places.matching._LINKS_PER_UPDATE", 2)
+    recs, pid = [uid() for _ in range(5)], uid()
+    headers = auth_headers("user_a")
+    await push(client, headers, *(recording_near_galax(r, north_m=i) for i, r in enumerate(recs)))
+    await push(client, headers, place(pid, T1))
+    for rec in recs:
+        assert (await recording_row(client, headers, rec))["place_id"] == pid
 
 
 async def test_new_place_links_earlier_file_recordings_and_skips_loose_ones(
@@ -595,3 +608,42 @@ async def test_moving_a_place_links_recordings_it_shared_with_a_nearby_place(
     assert (await recording_row(client, headers, rec))["place_id"] is None
     await push(client, headers, place(first, T1, name="One", lat=40.0, lon=-75.0))
     assert (await recording_row(client, headers, rec))["place_id"] == second
+
+
+async def _cluster_push_statements(client, headers, engine, size: int, op: str) -> int:
+    """Statements one push runs to move or delete every place of a stacked cluster."""
+    places = [uid() for _ in range(size)]
+    await push(
+        client,
+        headers,
+        *(place(p, name=f"P{i}") for i, p in enumerate(places)),
+        *(recording_near_galax(uid(), north_m=i) for i in range(8)),
+    )
+    if op == "move":
+        changes = [
+            place(p, T1, name=f"P{i}", lon=GALAX["lon"] + 0.01) for i, p in enumerate(places)
+        ]
+    else:
+        changes = [change("places", p, T1, op="delete") for p in places]
+    statements = 0
+
+    def count(*_args) -> None:
+        nonlocal statements
+        statements += 1
+
+    event.listen(engine.sync_engine, "before_cursor_execute", count)
+    try:
+        results = await push(client, headers, *changes)
+    finally:
+        event.remove(engine.sync_engine, "before_cursor_execute", count)
+    assert {r["status"] for r in results} == {"applied"}
+    return statements
+
+
+@pytest.mark.parametrize("op", ["move", "delete"])
+async def test_a_push_over_a_place_cluster_runs_statements_linear_in_its_changes(
+    client, auth_headers, engine, op: str
+) -> None:
+    small = await _cluster_push_statements(client, auth_headers("user_a"), engine, 8, op)
+    large = await _cluster_push_statements(client, auth_headers("user_b"), engine, 32, op)
+    assert large <= 4 * small, (small, large)

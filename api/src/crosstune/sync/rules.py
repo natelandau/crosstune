@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from sqlalchemy import func, select
@@ -21,10 +22,10 @@ from crosstune.models import (
 )
 from crosstune.places.matching import (
     MATCH_RADIUS_M,
+    Area,
     distance_m,
     link_earlier_recordings,
     matching_place_id,
-    rematch_neighbor_places,
     unlink_place,
 )
 from crosstune.recordings.loops import (
@@ -143,6 +144,11 @@ class RowRules:
         """Act on a row a delete change left deleted, written now or before."""
         return
 
+    @classmethod
+    async def settle(cls, session: AsyncSession, user_id: uuid.UUID) -> None:  # noqa: ARG003 -- a hook the subclasses fill in
+        """Finish work the table's changes in one push queued, once all of them have applied."""
+        return
+
 
 class RecordingLinkRules(RowRules):
     """Store a pushed link in the shape the online paste path stores."""
@@ -202,11 +208,29 @@ def _settle_repick(data: dict[str, Any], stored: Recording | None, *, same_point
             data["place_id"] = None
 
 
+# Where a push's place rules gather the areas its changes touched, until the places group ends.
+_PLACE_AREAS = "crosstune.place_areas"
+
+
+@dataclass(repr=False)
+class _PlaceAreas:
+    # Each place a change created or moved, read for its final state once the group ends.
+    placed: dict[uuid.UUID, Place] = field(default_factory=dict)
+    vacated: list[Area] = field(default_factory=list)
+
+
 class PlaceRules(RowRules):
-    """Link earlier recordings to a created or moved place, and unlink them from a deleted one."""
+    """Link earlier recordings to a created or moved place, and unlink them from a deleted one.
+
+    Linking waits until every place change in the push has applied, then runs once for all of
+    them, so its cost grows with the push and not with how many places stand close together.
+    """
 
     # The stored point as it was before the upsert, which refreshes the stored row in place.
     stored_point: tuple[float, float] | None = None
+
+    def _areas(self) -> _PlaceAreas:
+        return self.session.info.setdefault(_PLACE_AREAS, _PlaceAreas())
 
     async def prepare(self, data: dict[str, Any]) -> str | None:  # noqa: ARG002 -- the hook's signature
         """Remember the stored point to tell a move from a replay."""
@@ -216,17 +240,18 @@ class PlaceRules(RowRules):
         return None
 
     async def applied(self, row: Place) -> None:
-        """Link earlier recordings to a new or moved place, and to the neighbors of its old point.
+        """Queue a new or moved place, and the point it left, for linking.
 
         Runs for a replayed or stale push too, which leaves the point as it was and so
         links nothing a second time.
         """
         if row.deleted_at is None and self.stored_point != (row.lat, row.lon):
-            await link_earlier_recordings(self.session, row)
+            areas = self._areas()
+            areas.placed[row.id] = row
             # Moving away can leave a neighbor of the old point as some recording's only match.
             if self.stored_point is not None:
                 lat, lon = self.stored_point
-                await rematch_neighbor_places(self.session, user_id=self.user_id, lat=lat, lon=lon)
+                areas.vacated.append(Area(lat=lat, lon=lon))
 
     # The point of a place this delete removes, read before the delete scrubs it.
     deleted_point: tuple[float, float] | None = None
@@ -236,16 +261,32 @@ class PlaceRules(RowRules):
         self.deleted_point = (row.lat, row.lon)
 
     async def deleted(self, row: Place) -> None:
-        """Unlink the recordings filed under a deleted place, then rematch its neighbors.
+        """Unlink the recordings filed under a deleted place, then queue its point for linking.
 
-        The unlinked recordings keep their own names. A recording that matched both this place and
-        a neighbor matched neither, so each live place near the deleted one links its earlier
-        recordings again.
+        The unlinked recordings keep their own names. A recording that matched both this place
+        and a neighbor matched neither, so each live place near the deleted one may now match it.
         """
-        await unlink_place(self.session, row.id)
+        await unlink_place(self.session, user_id=self.user_id, place_id=row.id)
         if self.deleted_point is not None:
             lat, lon = self.deleted_point
-            await rematch_neighbor_places(self.session, user_id=self.user_id, lat=lat, lon=lon)
+            self._areas().vacated.append(Area(lat=lat, lon=lon))
+
+    @classmethod
+    async def settle(cls, session: AsyncSession, user_id: uuid.UUID) -> None:
+        """Link earlier recordings around every point the push's place changes touched."""
+        areas: _PlaceAreas | None = session.info.pop(_PLACE_AREAS, None)
+        if areas is None:
+            return
+        await link_earlier_recordings(
+            session,
+            user_id=user_id,
+            areas=[
+                Area(lat=row.lat, lon=row.lon, place_id=row.id)
+                for row in areas.placed.values()
+                if row.deleted_at is None
+            ]
+            + areas.vacated,
+        )
 
 
 class RecordingRules(RowRules):
