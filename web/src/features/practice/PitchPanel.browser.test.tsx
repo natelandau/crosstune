@@ -102,9 +102,17 @@ describe('PitchPanel', () => {
     expect(onChange).toHaveBeenLastCalledWith(0)
   })
 
-  it('says when pitch shift is unavailable', () => {
-    render(<PitchPanel value={200} onChange={vi.fn()} unavailable />)
-    expect(screen.getByText(PITCH_UNAVAILABLE)).toBeInTheDocument()
+  it('announces that pitch shift is unavailable only once it is', () => {
+    const { rerender } = render(<PitchPanel value={200} onChange={vi.fn()} />)
+    const placeholder = screen.getByText(PITCH_UNAVAILABLE)
+    expect(placeholder).not.toBeVisible()
+    rerender(<PitchPanel value={200} onChange={vi.fn()} unavailable />)
+    const notice = screen.getByText(PITCH_UNAVAILABLE)
+    expect(notice).toBeVisible()
+    expect(notice).not.toHaveAttribute('aria-hidden')
+    expect(notice.closest('[role="status"]')).not.toBeNull()
+    // Screen readers announce a node added to a live region, not an unhidden one.
+    expect(notice).not.toBe(placeholder)
   })
 
   it('warns that pitch-shifted playback pauses on lock only when asked to', () => {
