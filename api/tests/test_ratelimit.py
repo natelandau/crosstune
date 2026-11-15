@@ -53,12 +53,22 @@ def test_counts_each_key_apart() -> None:
     assert limiter.hit("a") is not None
 
 
-def test_forgets_a_key_whose_hits_have_all_left_the_window() -> None:
+@pytest.mark.parametrize(
+    "steps",
+    [
+        [(0, "a"), (61, "b")],
+        # "b" goes idle between two sweeps and is still dropped within the next window.
+        [(0, "a"), (30, "b"), (31, "c"), (60, "c")],
+    ],
+)
+def test_forgets_a_key_whose_hits_have_all_left_the_window(
+    steps: list[tuple[float, str]],
+) -> None:
     clock = Clock()
     limiter = RateLimiter(limit=1, window_seconds=60.0, clock=clock)
-    limiter.hit("a")
-    clock.now += 61
-    limiter.hit("b")
+    for seconds, key in steps:
+        clock.now += seconds
+        limiter.hit(key)
     assert limiter.tracked == 1
 
 

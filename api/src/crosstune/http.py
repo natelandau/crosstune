@@ -10,7 +10,8 @@ from __future__ import annotations
 import asyncio
 import ipaddress
 import socket
-from typing import TYPE_CHECKING
+from contextvars import ContextVar
+from typing import TYPE_CHECKING, Any
 
 import httpx2
 
@@ -24,6 +25,11 @@ NAT64_WELL_KNOWN = ipaddress.IPv6Network("64:ff9b::/96")
 # RFC 8215 leaves the translation length in this prefix to the operator, so the embedded
 # address cannot be located reliably. Nothing public is reachable through it either way.
 NAT64_LOCAL_USE = ipaddress.IPv6Network("64:ff9b:1::/48")
+# The deprecated IPv4-compatible range (RFC 4291) and the SIIT IPv4-translated range
+# (RFC 2765) also carry an IPv4 address in the low 32 bits that `is_global` ignores.
+IPV4_COMPATIBLE = ipaddress.IPv6Network("::/96")
+IPV4_TRANSLATED = ipaddress.IPv6Network("::ffff:0:0:0/96")
+EMBEDS_IPV4 = (NAT64_WELL_KNOWN, IPV4_COMPATIBLE, IPV4_TRANSLATED)
 
 type Resolver = Callable[[str], Awaitable[list[str]]]
 
@@ -39,17 +45,19 @@ def is_public_address(address: str) -> bool:
         address: An IPv4 or IPv6 address in its usual text form.
 
     Returns:
-        False for loopback, private, link-local, carrier-grade NAT, reserved, and
-        unparsable addresses, and for any IPv6 form that carries one of those inside it.
+        False for loopback, private, link-local, carrier-grade NAT, multicast, reserved,
+        and unparsable addresses, and for any IPv6 form that carries one of those inside it.
     """
     try:
         ip = ipaddress.ip_address(address)
     except ValueError:
         return False
+    if ip.is_multicast:
+        return False
     if isinstance(ip, ipaddress.IPv6Address):
         if ip in NAT64_LOCAL_USE:
             return False
-        if ip in NAT64_WELL_KNOWN:
+        if any(ip in network for network in EMBEDS_IPV4):
             return is_public_address(str(ipaddress.IPv4Address(int(ip) & 0xFFFFFFFF)))
     return ip.is_global
 
@@ -129,7 +137,44 @@ class PublicOnlyTransport(httpx2.AsyncBaseTransport):
             raise BlockedAddressError(msg) from exc
 
 
-def public_only_client(timeout: float) -> httpx2.AsyncClient:
+# The cookies of the redirect chain the current task is sending, if any.
+_chain_cookies: ContextVar[httpx2.Cookies | None] = ContextVar("chain_cookies", default=None)
+
+
+class ChainCookiesClient(httpx2.AsyncClient):
+    """A client that keeps a cookie only for the redirect chain whose response set it.
+
+    One client serves every user, so a cookie kept on the client would be sent on another
+    user's request to the same site. A site that sets a cookie and redirects to check for
+    it still sees the cookie on the next hop.
+    """
+
+    @property
+    def cookies(self) -> httpx2.Cookies:
+        """The current redirect chain's cookies, or an empty set outside of one."""
+        cookies = _chain_cookies.get()
+        return httpx2.Cookies() if cookies is None else cookies
+
+    @cookies.setter
+    def cookies(self, _cookies: object) -> None:
+        msg = "This client keeps no cookies between requests"
+        raise AttributeError(msg)
+
+    async def send(self, request: httpx2.Request, **kwargs: Any) -> httpx2.Response:
+        """Send a request, with a cookie jar that lasts for its redirect chain alone."""
+        reset = _chain_cookies.set(httpx2.Cookies())
+        try:
+            return await super().send(request, **kwargs)
+        finally:
+            _chain_cookies.reset(reset)
+
+
+def public_only_client(
+    timeout: float,
+    *,
+    inner: httpx2.AsyncBaseTransport | None = None,
+    resolve: Resolver | None = None,
+) -> httpx2.AsyncClient:
     """Build the client for every outbound request this API makes.
 
     Redirects are followed, because the policy sits under the redirect machinery and sees
@@ -137,9 +182,11 @@ def public_only_client(timeout: float) -> httpx2.AsyncClient:
 
     Args:
         timeout: Seconds any single request may take.
+        inner: The transport that sends a checked request; a pinned transport by default.
+        resolve: Looks up a host's addresses; the system resolver by default.
     """
-    return httpx2.AsyncClient(
-        transport=PublicOnlyTransport(pinned_transport()),
+    return ChainCookiesClient(
+        transport=PublicOnlyTransport(inner or pinned_transport(), resolve=resolve),
         timeout=timeout,
         follow_redirects=True,
     )
