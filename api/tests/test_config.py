@@ -325,6 +325,10 @@ def test_storage_scope_accepts(overrides: dict[str, str]) -> None:
             id="worktree-on-hosted-r2",
         ),
         pytest.param(
+            {**WORKTREE_STORE, "environment": "development", "database_url": WORKTREE_DB + "-y"},
+            id="worktree-database-name-with-a-hyphen",
+        ),
+        pytest.param(
             {"environment": "development", **LOCAL_STORE, "storage_bucket": "crosstune-wt-feat-x"},
             id="worktree-bucket-without-a-worktree-database",
         ),

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import contextlib
 import hashlib
 import re
 import subprocess
@@ -43,6 +44,7 @@ if TYPE_CHECKING:
 # Postgres truncates names at 63 bytes. The bucket prefix is as long as the database
 # prefix, so one slug fits both, and S3's 63-character limit with it.
 _MAX_SLUG = 63 - len(WORKTREE_DATABASE_PREFIX)
+_CANONICAL_KEY = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 _DEFAULT_DATABASE_URL: str = Settings.model_fields["database_url"].default
 
 
@@ -55,23 +57,25 @@ class WorktreeNames:
 
 
 def slug(key: str) -> str:
-    """Turn a worktree's path into a name Postgres and S3 both accept.
+    """Turn a worktree's path into a name Postgres and S3 both accept, unique to that path.
 
-    A key too long for the limit keeps a readable head plus a hash of the whole key, so two
-    long branch names that share a head still get different names.
+    A lowercase hyphenated key, as `just worktree` makes from most branch names, keeps a
+    readable slug with nothing added. Any other key, or one too long for the limit, keeps a
+    readable head plus `__` and a hash of the whole key. A plain slug never holds `__`, so
+    keys that differ only in case or punctuation never share a database or a bucket.
 
     Args:
         key: The worktree's path below `.worktrees/`, or its absolute path when outside it.
 
     Returns:
-        str: Lowercase letters and digits joined by underscores, at most 50 characters.
+        str: Lowercase letters, digits, and underscores, at most 50 characters.
     """
-    joined = "_".join(re.findall(r"[a-z0-9]+", key.lower()))
-    if joined and len(joined) <= _MAX_SLUG:
-        return joined
+    if _CANONICAL_KEY.fullmatch(key) and len(key) <= _MAX_SLUG:
+        return key.replace("-", "_")
     digest = hashlib.sha256(key.encode()).hexdigest()[:8]
-    head = joined[: _MAX_SLUG - len(digest) - 1].rstrip("_")
-    return f"{head}_{digest}" if head else digest
+    joined = "_".join(re.findall(r"[a-z0-9]+", key.lower()))
+    head = joined[: _MAX_SLUG - len(digest) - 2].rstrip("_")
+    return f"{head}__{digest}"
 
 
 def names_for(worktree: Path, main: Path) -> WorktreeNames:
@@ -359,16 +363,28 @@ async def _prune_databases(
         await conn.close()
 
 
+def in_use(worktree: Path) -> set[str]:
+    """The database and bucket a worktree's api/.env points at, which may differ from names_for."""
+    env_file = worktree / "api" / ".env"
+    names = {env_value(env_file, "CROSSTUNE_STORAGE_BUCKET", "")}
+    with contextlib.suppress(ValueError):
+        names.add(database_target(env_value(env_file, "CROSSTUNE_DATABASE_URL", "")).name)
+    return names - {""}
+
+
 def prune(cwd: Path) -> None:
     """Drop the database and delete the bucket of every worktree that no longer exists."""
     main, worktrees = checkouts(cwd)
-    owned = [names_for(path, main) for path in worktrees]
+    keep: set[str] = set()
+    for path in worktrees:
+        names = names_for(path, main)
+        keep |= {names.database, names.bucket, *in_use(path)}
     url = env_value(toplevel(cwd) / "api" / ".env", "CROSSTUNE_DATABASE_URL", _DEFAULT_DATABASE_URL)
-    asyncio.run(_prune_databases(Server(url), {names.database for names in owned}))
+    asyncio.run(_prune_databases(Server(url), keep))
     client = local_storage.client()
     local_storage.wait_until_ready(client)
     present = [bucket["Name"] for bucket in client.list_buckets().get("Buckets", [])]
-    for bucket in stale(present, {names.bucket for names in owned}, WORKTREE_BUCKET_PREFIX):
+    for bucket in stale(present, keep, WORKTREE_BUCKET_PREFIX):
         local_storage.delete_bucket(client, bucket)
         print(f"deleted {bucket}")
 

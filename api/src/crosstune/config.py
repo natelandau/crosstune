@@ -38,6 +38,9 @@ E2E_BUCKET = "crosstune-e2e"
 # A git worktree's own database and bucket, `just api::worktree-db` names both from one slug.
 WORKTREE_DATABASE_PREFIX = "crosstune_wt_"
 WORKTREE_BUCKET_PREFIX = "crosstune-wt-"
+# Underscores only: `worktree_bucket` maps `_` and `-` alike, so a hyphen would let two
+# databases share one bucket.
+WORKTREE_SLUG = re.compile(r"[a-z0-9_]+")
 _HOSTED_WITHOUT_PREFIX = {"development", "production"}
 
 
@@ -648,6 +651,10 @@ class Settings(BaseSettings):
     def _worktree_problem(self) -> str | None:
         bucket = self.storage_bucket
         if self.worktree_database:
+            if not WORKTREE_SLUG.fullmatch(
+                self.database_name.removeprefix(WORKTREE_DATABASE_PREFIX)
+            ):
+                return f"a worktree database name has only a-z, 0-9, and _ after {WORKTREE_DATABASE_PREFIX}"
             if not self.local_storage_endpoint_url:
                 return "a worktree database may only use local storage (CROSSTUNE_LOCAL_STORAGE_ENDPOINT_URL)"
             expected = worktree_bucket(self.database_name)
