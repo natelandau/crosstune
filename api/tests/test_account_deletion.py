@@ -25,6 +25,7 @@ from crosstune.email.resend import MailerUnavailableError
 from crosstune.errors import ACCOUNT_DELETED_PROBLEM, PROBLEM_JSON
 from crosstune.models import (
     AccountNotice,
+    AnalyticsDeletion,
     DeletedAccount,
     Grant,
     InactivityNotice,
@@ -189,6 +190,9 @@ async def test_delete_me_removes_everything_and_the_clerk_user(
         assert await verify_session.scalar(select(func.count()).select_from(model)) == 0, model
     assert await verify_session.get(DeletedAccount, "user_a") is not None
     assert app.state.object_store.deleted_prefixes == [f"{user_id}/"]
+    # Queued with no user.deleted webhook delivered: now, and three later passes.
+    queued = (await verify_session.scalars(select(AnalyticsDeletion.distinct_id))).all()
+    assert queued == ["user_a"] * 4
 
 
 class _CommitCheckingStore(FakeObjectStore):

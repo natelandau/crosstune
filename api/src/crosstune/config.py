@@ -372,7 +372,9 @@ class Settings(BaseSettings):
         """Refuse a hosted environment that would accept tokens without checking them fully.
 
         With no issuer every token is refused, and with no authorized party a token
-        issued to any site on the Clerk instance is accepted. Local work is exempt.
+        issued to any site on the Clerk instance is accepted. With no webhook secret
+        every Clerk webhook is refused, so an account deleted in Clerk is never purged
+        here. Local work is exempt.
         """
         if self.environment != "production" and not self.environment.startswith("pr-"):
             return self
@@ -381,6 +383,9 @@ class Settings(BaseSettings):
             raise ValueError(msg)
         if not self.clerk_secret_key.get_secret_value():
             msg = f"{self.environment} needs CROSSTUNE_CLERK_SECRET_KEY"
+            raise ValueError(msg)
+        if not self.clerk_webhook_secret.get_secret_value():
+            msg = f"{self.environment} needs CROSSTUNE_CLERK_WEBHOOK_SECRET"
             raise ValueError(msg)
         if not (self.clerk_authorized_parties or self.clerk_authorized_party_regex):
             msg = (

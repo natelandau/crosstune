@@ -288,6 +288,7 @@ CLERK = {
     "clerk_issuer": "https://clerk.example.test",
     "clerk_authorized_parties": ["https://example.test"],
     "clerk_secret_key": "sk_test_fixture",  # gitleaks:allow -- fixture, not a credential
+    "clerk_webhook_secret": "whsec_fixture",  # gitleaks:allow -- fixture, not a credential
 }
 
 
@@ -298,6 +299,7 @@ CLERK = {
         ({"clerk_issuer": ""}, "CROSSTUNE_CLERK_ISSUER"),
         ({"clerk_authorized_parties": []}, "CROSSTUNE_CLERK_AUTHORIZED_PARTIES"),
         ({"clerk_secret_key": ""}, "CROSSTUNE_CLERK_SECRET_KEY"),
+        ({"clerk_webhook_secret": ""}, "CROSSTUNE_CLERK_WEBHOOK_SECRET"),
     ],
 )
 def test_a_hosted_environment_refuses_to_start_without_clerk_checks(
@@ -315,6 +317,7 @@ def test_a_hosted_environment_refuses_to_start_without_clerk_checks(
             "clerk_issuer": CLERK["clerk_issuer"],
             "clerk_authorized_party_regex": "^https://x$",
             "clerk_secret_key": CLERK["clerk_secret_key"],
+            "clerk_webhook_secret": CLERK["clerk_webhook_secret"],
         },
     ],
     ids=["parties", "regex"],
