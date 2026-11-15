@@ -130,7 +130,7 @@ WORKTREE_STORE = {
             {"environment": "production", **R2, "storage_bucket": "crosstune-recordings"},
             id="production",
         ),
-        pytest.param({"environment": "development", **R2}, id="hosted-dev"),
+        pytest.param({"environment": "development", **R2, "database_url": NEON}, id="hosted-dev"),
         pytest.param(
             {
                 "environment": "pr-44",
@@ -228,6 +228,23 @@ def test_storage_scope_accepts(overrides: dict[str, str]) -> None:
             {"environment": "pr-44", **R2, "storage_prefix": "pr-44/"}, id="pr-on-dev-bucket"
         ),
         pytest.param({"environment": "production", **R2}, id="production-on-dev-bucket"),
+        pytest.param({"environment": "development", **R2}, id="dev-bucket-from-a-local-database"),
+        pytest.param(
+            {"environment": "development", **R2, "database_url": "postgresql://u:p@127.0.0.1/x"},
+            id="dev-bucket-from-a-loopback-database",
+        ),
+        pytest.param(
+            {"environment": "development", **R2, "database_url": "postgresql://u:p@/x?host=/tmp"},
+            id="dev-bucket-from-a-socket-database",
+        ),
+        pytest.param(
+            {
+                **LOCAL_STORE,
+                "environment": "development",
+                "storage_bucket": "crosstune-recordings-dev",
+            },
+            id="dev-bucket-through-a-local-endpoint",
+        ),
         pytest.param(
             {"environment": "development", **R2, "local_storage_browser_endpoint_url": "/storage"},
             id="browser-endpoint-without-a-local-endpoint",

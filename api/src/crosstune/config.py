@@ -1,5 +1,6 @@
 """Application settings, read from the environment with the CROSSTUNE_ prefix."""
 
+import ipaddress
 import re
 from functools import lru_cache
 from pathlib import Path
@@ -24,6 +25,7 @@ from crosstune.client_version import Version, parse_version
 _LIBPQ_SCHEMES = {"postgres", "postgresql"}
 PRODUCTION_BUCKET = "crosstune-recordings"
 PREVIEW_BUCKET = "crosstune-recordings-preview"
+DEV_BUCKET = "crosstune-recordings-dev"
 LOCAL_BUCKET = "crosstune-local"
 E2E_BUCKET = "crosstune-e2e"
 # A git worktree's own database and bucket, `just api::worktree-db` names both from one slug.
@@ -242,6 +244,21 @@ class Settings(BaseSettings):
     def worktree_database(self) -> bool:
         """Whether this API is bound to the database of one git worktree, not the main checkout's."""
         return self.database_name.startswith(WORKTREE_DATABASE_PREFIX)
+
+    @property
+    def local_database(self) -> bool:
+        """Whether the database runs on this machine, as every local checkout's does."""
+        parts = urlsplit(self.database_url)
+        host = dict(parse_qsl(parts.query)).get("host") or parts.hostname or ""
+        # No host, or a socket directory, connects through a Unix socket on this machine.
+        if not host or host.startswith("/"):
+            return True
+        if host == "localhost" or host.endswith(".localhost"):
+            return True
+        try:
+            return ipaddress.ip_address(host).is_loopback
+        except ValueError:
+            return False
 
     @property
     def storage_endpoint(self) -> str:
@@ -532,6 +549,11 @@ class Settings(BaseSettings):
             return f"only pr-<number> environments may use {PREVIEW_BUCKET}"
         if env.startswith("pr-") and bucket != PREVIEW_BUCKET:
             return f"{env} must use {PREVIEW_BUCKET}"
+        hosted_development = (
+            env == "development" and not self.local_storage_endpoint_url and not self.local_database
+        )
+        if bucket == DEV_BUCKET and not hosted_development:
+            return f"only hosted development may use {DEV_BUCKET}"
         return None
 
     def _e2e_problem(self) -> str | None:

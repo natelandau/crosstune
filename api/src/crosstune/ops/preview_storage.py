@@ -15,7 +15,7 @@ import re
 import sys
 from typing import TYPE_CHECKING
 
-from crosstune.config import PREVIEW_BUCKET
+from crosstune.config import DEV_BUCKET, PREVIEW_BUCKET
 from crosstune.storage.r2 import R2Store, s3_client
 from crosstune.storage.store import DEFAULT_CONTENT_TYPE
 
@@ -28,7 +28,6 @@ if TYPE_CHECKING:
 
 __all__ = ["DEV_BUCKET", "PREVIEW_BUCKET", "main", "pr_prefix", "seed", "teardown"]
 
-DEV_BUCKET = "crosstune-recordings-dev"
 _PR_PREFIX = re.compile(r"pr-[0-9]+/")
 
 
