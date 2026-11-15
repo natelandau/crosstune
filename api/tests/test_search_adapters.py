@@ -16,6 +16,7 @@ from crosstune.http import BlockedAddressError
 from crosstune.links.detect import detect_provider, normalize_url
 from crosstune.links.search import apple_music, internet_archive, tidal
 from crosstune.links.search.backoff import Backoff
+from crosstune.links.search.budget import OutboundBudget, OverBudgetError, TokenBucket
 from crosstune.links.search.registry import SearchTokens, adapters, search_url
 from crosstune.links.search.tokens import TIDAL_TOKEN_URL, AppleMusicToken, TidalToken
 from crosstune.links.search.types import SearchAuthError, SearchHit
@@ -282,6 +283,47 @@ async def test_tidal_retries_an_unserved_country_as_us(
     assert [c.url.params["countryCode"] for c in _sent(mock_http, TIDAL_SEARCH)] == ["XX", "US"]
     [lookup] = _sent(mock_http, TIDAL_TRACKS)
     assert lookup.url.params["countryCode"] == "US"
+
+
+@pytest.mark.parametrize(
+    ("burst", "searches_sent", "answered", "artists_found"),
+    [
+        # Search, US fallback, and artist lookup: one token each.
+        (3, 2, True, True),
+        (2, 2, True, False),
+        (1, 1, False, False),
+    ],
+)
+async def test_every_tidal_request_spends_a_token(
+    mock_http: MockHttp,
+    tidal_token: TidalToken,
+    burst: int,
+    searches_sent: int,
+    answered: bool,  # noqa: FBT001 -- parametrized value
+    artists_found: bool,  # noqa: FBT001 -- parametrized value
+) -> None:
+    search = f"{TIDAL_SEARCH}?filter%5Bquery%5D=silver+spear&countryCode="
+    mock_http.add(f"{search}XX", httpx2.Response(404))
+    mock_http.add(f"{search}US", httpx2.Response(200, json=_fixture("tidal")))
+    mock_http.add(TIDAL_TRACKS, httpx2.Response(200, json=_fixture("tidal_tracks")))
+    budget = OutboundBudget(
+        {Provider.TIDAL: TokenBucket(burst=burst, per_second=1.0, clock=lambda: 0.0)}
+    )
+    search_tidal = tidal.adapter(tidal_token, Backoff(), budget)
+    async with mock_http.client() as client:
+        try:
+            answer = await search_tidal("silver spear", "XX", client, TIMEOUT)
+        except OverBudgetError:
+            answer = None
+
+    # A spent search answers nothing; a spent artist lookup leaves the hits title only.
+    assert (answer is not None) is answered
+    assert answer is None or (answer.hits[0].subtitle is not None) is artists_found
+
+    assert len(_sent(mock_http, TIDAL_SEARCH)) == searches_sent
+    assert len(_sent(mock_http, TIDAL_TRACKS)) == int(artists_found)
+    with pytest.raises(OverBudgetError):
+        budget.spend(Provider.TIDAL)
 
 
 async def test_a_us_search_that_fails_is_not_retried(

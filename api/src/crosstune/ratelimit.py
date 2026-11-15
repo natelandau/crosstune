@@ -40,22 +40,26 @@ class RateLimiter:
         """How many keys have a hit still inside the window."""
         return len(self._hits)
 
-    def hit(self, key: Hashable) -> float | None:
-        """Count a hit for `key` if it is under the limit.
+    def hit(self, key: Hashable, cost: int = 1) -> float | None:
+        """Count `cost` hits for `key` if they all fit under the limit.
 
         Args:
             key: Who is hitting, such as a user id.
+            cost: How many hits one request counts as, for a request whose price varies.
+                A cost above the limit counts as the whole limit.
 
         Returns:
-            float | None: None when the hit is allowed and counted, otherwise the seconds
-            until the oldest counted hit leaves the window and one more is allowed.
+            float | None: None when the hits are allowed and counted, otherwise the seconds
+            until enough counted hits leave the window for this cost to fit.
         """
+        cost = min(cost, self._limit)
         now = self._clock()
         self._forget(now)
         hits = self._hits.setdefault(key, deque())
-        if len(hits) >= self._limit:
-            return hits[0] + self._window - now
-        hits.append(now)
+        over = len(hits) + cost - self._limit
+        if over > 0:
+            return hits[over - 1] + self._window - now
+        hits.extend([now] * cost)
         return None
 
     def _forget(self, now: float) -> None:

@@ -14,12 +14,16 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec, rsa
 from pydantic import SecretStr
 
+from crosstune.links.search import apple_music, internet_archive, tidal
 from crosstune.links.search.backoff import Backoff
+from crosstune.links.search.budget import OutboundBudget
 from crosstune.links.search.registry import SearchTokens, adapters
 from crosstune.links.search.tokens import TIDAL_TOKEN_URL
 from crosstune.links.search.types import AdapterAnswer, SearchHit
+from crosstune.main import create_app
 from crosstune.ratelimit import RateLimiter
 from crosstune.vocabulary import Provider
+from tests.helpers import Clock
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
@@ -32,7 +36,9 @@ pytestmark = pytest.mark.anyio
 
 FIXTURES = Path(__file__).parent / "fixtures" / "search"
 APPLE_SEARCH = "https://api.music.apple.com/v1/catalog/"
+TIDAL_API = "https://openapi.tidal.com/"
 TIDAL_SEARCH = "https://openapi.tidal.com/v2/searchResults"
+TIDAL_TRACKS = "https://openapi.tidal.com/v2/tracks"
 ARCHIVE_SEARCH = "https://archive.org/advancedsearch.php"
 URL = "/v1/links/search"
 
@@ -416,19 +422,11 @@ async def test_requires_sign_in(client) -> None:
     assert response.status_code == 401
 
 
-class _Clock:
-    def __init__(self) -> None:
-        self.now = 1000.0
-
-    def __call__(self) -> float:
-        return self.now
-
-
 @pytest.mark.parametrize(("retry_after", "held_for"), [("30", 30.0), (None, 60.0)])
 async def test_a_rate_limited_service_is_left_alone_until_it_may_be_called(
     app, client, auth_headers, mock_http, credentialed, retry_after, held_for
 ) -> None:
-    clock = _Clock()
+    clock = Clock()
     app.state.search_backoff = Backoff(clock=clock)
     headers = {"Retry-After": retry_after} if retry_after else {}
     mock_http.add(TIDAL_SEARCH, httpx2.Response(429, headers=headers))
@@ -453,7 +451,7 @@ async def test_a_rate_limited_service_is_left_alone_until_it_may_be_called(
 async def test_a_rate_limit_holds_only_that_service(
     app, client, auth_headers, mock_http, credentialed
 ) -> None:
-    app.state.search_backoff = Backoff(clock=_Clock())
+    app.state.search_backoff = Backoff(clock=Clock())
     mock_http.add(TIDAL_SEARCH, httpx2.Response(429, headers={"Retry-After": "30"}))
     mock_http.add(APPLE_SEARCH, httpx2.Response(200, json=_fixture("apple_music")))
     await client.post(URL, json=_body("tidal"), headers=auth_headers("user_123"))
@@ -466,3 +464,125 @@ async def test_a_rate_limit_holds_only_that_service(
         ("apple_music", "results"),
         ("tidal", "unavailable"),
     ]
+
+
+@pytest.fixture
+def budget_clock(app: FastAPI, credentialed: SearchTokens) -> Clock:
+    """Give every adapter the app's default budget, on a clock the test moves by hand."""
+    clock = Clock()
+    budget = OutboundBudget.from_settings(app.state.settings, clock=clock)
+    assert credentialed.apple_music is not None
+    assert credentialed.tidal is not None
+    app.state.search_budget = budget
+    app.state.search_adapters = {
+        Provider.APPLE_MUSIC: apple_music.adapter(credentialed.apple_music, budget),
+        Provider.TIDAL: tidal.adapter(credentialed.tidal, app.state.search_backoff, budget),
+        Provider.INTERNET_ARCHIVE: internet_archive.adapter(budget),
+    }
+    return clock
+
+
+def _tidal_calls(mock_http: MockHttp) -> int:
+    return len([c for c in _outbound(mock_http) if str(c.url).startswith(TIDAL_API)])
+
+
+async def _tidal_group(client, headers: dict[str, str]) -> dict:
+    response = await client.post(URL, json=_body("tidal"), headers=headers)
+    [group] = response.json()["groups"]
+    return group
+
+
+@pytest.fixture
+def tidal_answers(mock_http: MockHttp) -> None:
+    mock_http.add(TIDAL_SEARCH, httpx2.Response(200, json=_fixture("tidal")))
+    mock_http.add(TIDAL_TRACKS, httpx2.Response(200, json=_fixture("tidal_tracks")))
+
+
+async def test_one_accounts_burst_never_sends_tidal_more_than_the_budget(
+    app, client, auth_headers, mock_http, budget_clock, tidal_answers
+) -> None:
+    headers = auth_headers("user_123")
+    statuses = [(await _tidal_group(client, headers))["status"] for _ in range(10)]
+
+    burst = app.state.settings.tidal_search_burst
+    assert _tidal_calls(mock_http) == burst
+    # Each search spends two requests, so the bucket covers half as many searches.
+    assert statuses == ["results"] * (burst // 2) + ["unavailable"] * (10 - burst // 2)
+
+
+async def test_a_spent_service_is_unavailable_without_a_call_while_others_answer(
+    app, client, auth_headers, mock_http, budget_clock, tidal_answers
+) -> None:
+    mock_http.add(APPLE_SEARCH, httpx2.Response(200, json=_fixture("apple_music")))
+    for _ in range(app.state.settings.tidal_search_burst):
+        app.state.search_budget.spend(Provider.TIDAL)
+
+    response = await client.post(
+        URL,
+        json=_body("apple_music", "tidal", "internet_archive"),
+        headers=auth_headers("user_123"),
+    )
+
+    assert [(g["provider"], g["status"]) for g in response.json()["groups"]] == [
+        ("apple_music", "results"),
+        ("tidal", "unavailable"),
+        ("internet_archive", "results"),
+    ]
+    assert _tidal_calls(mock_http) == 0
+
+
+async def test_another_account_gets_tidal_once_the_budget_refills(
+    client, auth_headers, mock_http, budget_clock, tidal_answers
+) -> None:
+    first = auth_headers("user_123")
+    for _ in range(10):
+        await _tidal_group(client, first)
+    second = auth_headers("user_456")
+
+    assert (await _tidal_group(client, second))["status"] == "unavailable"
+    budget_clock.now += 2
+    group = await _tidal_group(client, second)
+    assert group["status"] == "results"
+    # The artist lookup had a token too.
+    assert group["results"][0]["subtitle"]
+
+
+@pytest.mark.parametrize(
+    ("providers", "allowed"),
+    [
+        (("tidal",), 10),
+        (("apple_music", "tidal", "internet_archive"), 5),
+    ],
+)
+async def test_the_search_limit_counts_outbound_requests(
+    client, auth_headers, mock_http, credentialed, tidal_answers, providers, allowed
+) -> None:
+    mock_http.add(APPLE_SEARCH, httpx2.Response(200, json=_fixture("apple_music")))
+    headers = auth_headers("user_123")
+
+    codes = [
+        (await client.post(URL, json=_body(*providers), headers=headers)).status_code
+        for _ in range(allowed + 1)
+    ]
+
+    assert codes == [200] * allowed + [429]
+
+
+async def test_the_app_gives_its_adapters_the_budget(
+    app, client, auth_headers, mock_http, settings: Settings
+) -> None:
+    # No refill, so the real clock cannot add a token before the search runs.
+    built = create_app(
+        settings.model_copy(update={"internet_archive_search_requests_per_second": 0.0})
+    )
+    app.state.search_budget = built.state.search_budget
+    app.state.search_adapters = built.state.search_adapters
+    for _ in range(settings.internet_archive_search_burst):
+        app.state.search_budget.spend(Provider.INTERNET_ARCHIVE)
+
+    response = await client.post(
+        URL, json=_body("internet_archive"), headers=auth_headers("user_123")
+    )
+
+    assert response.json()["groups"][0]["status"] == "unavailable"
+    assert _outbound(mock_http) == []

@@ -6,17 +6,7 @@ import httpx2
 import pytest
 
 from crosstune.ratelimit import ConcurrencyLimiter, RateLimiter
-from tests.helpers import OEMBED, T0, change, og_html, push, uid
-
-
-class Clock:
-    """A clock the test moves by hand."""
-
-    def __init__(self) -> None:
-        self.now = 1000.0
-
-    def __call__(self) -> float:
-        return self.now
+from tests.helpers import OEMBED, T0, Clock, change, og_html, push, uid
 
 
 def test_allows_the_limit_then_refuses_with_the_wait() -> None:
@@ -38,6 +28,22 @@ def test_a_refused_hit_does_not_count() -> None:
     assert limiter.hit("a") is not None
     clock.now += 30
     assert limiter.hit("a") is None
+
+
+def test_a_costly_hit_counts_as_many_and_waits_for_room() -> None:
+    clock = Clock()
+    limiter = RateLimiter(limit=4, window_seconds=60.0, clock=clock)
+    assert limiter.hit("a", cost=2) is None
+    clock.now += 10
+    assert limiter.hit("a") is None
+    clock.now += 5
+    # Three of four are spent, so a cost of two waits for the first hit to leave.
+    assert limiter.hit("a", cost=2) == pytest.approx(45.0)
+    assert limiter.hit("a") is None
+    # A cost above the limit counts as the whole limit, so it is never refused forever.
+    clock.now += 60
+    assert limiter.hit("a", cost=10) is None
+    assert limiter.hit("a") is not None
 
 
 def test_counts_each_key_apart() -> None:

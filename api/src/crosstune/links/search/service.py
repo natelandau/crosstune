@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 
 import httpx2
 
+from crosstune.links.search.budget import OverBudgetError
 from crosstune.links.search.registry import search_url
 from crosstune.links.search.types import SearchAuthError
 from crosstune.vocabulary import SEARCHABLE_PROVIDERS, Provider, SearchStatus
@@ -48,10 +49,14 @@ async def _run(
         seconds = backoff.hold_if_limited(provider, error)
         if seconds is None:
             log.warning("music search failed", extra={"provider": provider.value}, exc_info=True)
-            return None
-        log.warning(
-            "music search rate limited", extra={"provider": provider.value, "seconds": seconds}
-        )
+        else:
+            log.warning(
+                "music search rate limited", extra={"provider": provider.value, "seconds": seconds}
+            )
+        return None
+    except OverBudgetError:
+        # The service was not called, so this is the budget working, not a failure.
+        log.info("music search over budget", extra={"provider": provider.value})
         return None
     except SearchAuthError as error:
         # ERROR because no user retry can fix the API's own credentials. No exc_info: the
@@ -82,7 +87,8 @@ async def search(
     requested one when a catalog fell back. A service with no adapter answers `search_only`. An adapter that raises or exceeds the
     timeout answers `unavailable`. A rejected credential is dropped by the adapter itself.
     A service that answers 429 is held for its Retry-After, and answers `unavailable`
-    without being called until then.
+    without being called until then. A service whose outbound budget is spent also
+    answers `unavailable` without being called.
 
     Args:
         query: The search text.

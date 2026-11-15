@@ -61,6 +61,16 @@ OEMBED = {
 }
 
 
+class Clock:
+    """A monotonic clock the test moves by hand."""
+
+    def __init__(self) -> None:
+        self.now = 1000.0
+
+    def __call__(self) -> float:
+        return self.now
+
+
 def premium_ended(expires_at: datetime | str | None) -> bool:
     """Whether an entitlements row's reported grant has ended, so the account is free.
 
