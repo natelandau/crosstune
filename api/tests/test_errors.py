@@ -12,10 +12,9 @@ from crosstune.main import create_app
 pytestmark = pytest.mark.anyio
 
 
-async def test_unhandled_exception_renders_as_problem_details() -> None:
-    # debug=False so ServerErrorMiddleware uses the registered handler instead
-    # of the debug traceback page.
-    app = create_app(Settings(debug=False))
+@pytest.mark.parametrize("debug", [True, False])
+async def test_unhandled_exception_renders_as_problem_details(debug: bool) -> None:  # noqa: FBT001
+    app = create_app(Settings(debug=debug))
 
     @app.get("/__boom__")
     async def boom() -> None:
@@ -47,7 +46,7 @@ async def test_unhandled_exception_renders_as_problem_details() -> None:
 async def test_app_error_subclasses_render_their_status_and_type(
     error: type[Exception], status: int, type_: str
 ) -> None:
-    app = create_app(Settings(debug=False))
+    app = create_app(Settings())
 
     @app.get("/__boom__")
     async def boom() -> None:

@@ -260,7 +260,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app = FastAPI(
         title="Crosstune API",
         version=__version__,
-        debug=settings.debug,
         lifespan=_lifespan,
         docs_url="/docs" if docs else None,
         redoc_url="/redoc" if docs else None,
