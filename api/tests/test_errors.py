@@ -8,22 +8,14 @@ import pytest
 from crosstune.config import Settings
 from crosstune.errors import PROBLEM_JSON, ConflictError, FileTooLargeError, QuotaExceededError
 from crosstune.main import create_app
+from tests.helpers import unhandled_error_response
 
 pytestmark = pytest.mark.anyio
 
 
 @pytest.mark.parametrize("debug", [True, False])
 async def test_unhandled_exception_renders_as_problem_details(debug: bool) -> None:  # noqa: FBT001
-    app = create_app(Settings(debug=debug))
-
-    @app.get("/__boom__")
-    async def boom() -> None:
-        msg = "kaboom"
-        raise RuntimeError(msg)
-
-    transport = httpx2.ASGITransport(app=app, raise_app_exceptions=False)
-    async with httpx2.AsyncClient(transport=transport, base_url="http://testclient") as client:
-        response = await client.get("/__boom__")
+    response = await unhandled_error_response("/__boom__", debug=debug)
 
     assert response.status_code == 500
     assert response.headers["content-type"] == PROBLEM_JSON

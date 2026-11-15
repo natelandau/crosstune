@@ -12,17 +12,19 @@ from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
+import httpx2
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from crosstune.config import Settings
 from crosstune.db.locks import lock_user
+from crosstune.main import create_app
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
     from pathlib import Path
 
-    import httpx2
     from sqlalchemy.ext.asyncio import AsyncEngine
 
 
@@ -162,3 +164,20 @@ def make_tone(path: Path, seconds: int) -> None:
         ],
         check=True,
     )
+
+
+async def unhandled_error_response(path: str, *, debug: bool = False) -> httpx2.Response:
+    """Answer a request whose route raises, as a client of the deployed API would see it.
+
+    The `client` fixture re-raises app exceptions, so it never sees the 500 the API sends.
+    """
+    app = create_app(Settings(debug=debug))
+
+    @app.get(path)
+    async def boom() -> None:
+        msg = "kaboom"
+        raise RuntimeError(msg)
+
+    transport = httpx2.ASGITransport(app=app, raise_app_exceptions=False)
+    async with httpx2.AsyncClient(transport=transport, base_url="http://testclient") as client:
+        return await client.get(path)
