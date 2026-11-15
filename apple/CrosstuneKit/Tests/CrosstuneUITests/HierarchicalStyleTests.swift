@@ -14,17 +14,15 @@
         /// ternary, a canvas `.style(.tertiary)`, `Color.secondary`, or `.foregroundColor(.tertiary)`.
         /// AppKit resolves these as a translucent gray that falls under 4.5:1 on the Mac's surface
         /// and field fills, and UIKit's falls under it on the page background.
-        private static var foreground: Regex<(Substring, Substring, Substring)> {
+        nonisolated(unsafe) private static let foreground =
             /(\.(?:foreground(?:Style|Color)|style)\((?:[^\n]*[^A-Za-z0-9_])?\.|\bColor\.)(secondary|tertiary|quaternary)\b/
-                .wordBoundaryKind(.simple)
-        }
+            .wordBoundaryKind(.simple)
 
         /// A secondary or tertiary style handed on as a value: `AnyShapeStyle(.secondary)`, a
         /// switch case or `default:` that yields one, or `return .tertiary`.
-        private static var handedOn: Regex<(Substring, Substring)> {
+        nonisolated(unsafe) private static let handedOn =
             /(?:\bAnyShapeStyle\(|\b(?:case\b[^\n]*|default):\s*|\breturn\s+)\.(secondary|tertiary)\b/
-                .wordBoundaryKind(.simple)
-        }
+            .wordBoundaryKind(.simple)
 
         static func violations(in text: String) -> [String] {
             // Swift Regex is slow, and both patterns end in one of these words, so a plain search

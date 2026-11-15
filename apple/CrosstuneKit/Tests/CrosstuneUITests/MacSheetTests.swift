@@ -331,19 +331,19 @@
 
         /// What a call that may build a footer action starts with: the type's name, or `.init`
         /// handed to a footer slot.
-        private static var actionBuilder: Regex<Substring> {
+        nonisolated(unsafe) private static let actionBuilder =
             /(?:\bMacSheetAction|\bMacSheet\.Action|\bAction|(?:primary|secondary|cancel):\s*\.init|=\s*\.init)\(/
-        }
 
         /// A call into a purchase: subscribing, buying, or purchasing, under any name that says so.
-        private static var purchaseCall: Regex<Substring> {
+        nonisolated(unsafe) private static let purchaseCall =
             /\w*(?:[Ss]ubscribe|[Bb]uy|[Pp]urchase)\w*\s*\(|action:\s*\w*[Ss]ubscribe/
-        }
 
         /// The footer actions in `text` built some way other than `.subscribe(title:)` whose title
         /// or closure reaches a purchase.
         static func purchasesOutsideSubscribe(in text: String) -> [String] {
-            text.matches(of: actionBuilder).compactMap { match in
+            // Every builder spelling holds one of these, and Swift Regex is slow over a whole file.
+            guard text.contains("Action(") || text.contains(".init(") else { return [] }
+            return text.matches(of: actionBuilder).compactMap { match in
                 let open = text.index(before: match.range.upperBound)
                 let call = SourceScan.call(in: text, opening: open)
                 return call.contains(purchaseCall) ? String(text[match.range.lowerBound..<call.endIndex]) : nil
@@ -373,7 +373,7 @@
         }
 
         /// What a sheet size is spelled as when it fits its content.
-        private static var fittedSize: Regex<Substring> { /\.fitted\(|fittedOverSettings/ }
+        nonisolated(unsafe) private static let fittedSize = /\.fitted\(|fittedOverSettings/
 
         /// The bodies of the fitted ``MacSheet``s in `text`, a size named by a static in the same
         /// text included.

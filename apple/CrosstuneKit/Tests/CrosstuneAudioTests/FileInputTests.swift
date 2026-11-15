@@ -26,15 +26,20 @@
         }
 
         /// A mono 44.1 kHz second-long tone, so the writer has to resample it.
-        private func makeSource(seconds: Double = 1) throws -> URL {
+        private func makeSource(seconds: Double = 1) async throws -> URL {
             let url = root.appending(path: "source.m4a")
+            try await Self.writeTone(to: url, seconds: seconds)
+            return url
+        }
+
+        // Encoding takes long enough that on the main actor it would stall the other suites' tests.
+        @concurrent private static func writeTone(to url: URL, seconds: Double) async throws {
             let file = try AVAudioFile(
                 forWriting: url,
                 settings: [
                     AVFormatIDKey: kAudioFormatMPEG4AAC, AVSampleRateKey: 44_100.0, AVNumberOfChannelsKey: 1,
                 ], commonFormat: .pcmFormatFloat32, interleaved: false)
             try file.write(from: sineBuffer(seconds: seconds, sampleRate: 44_100, channels: 1))
-            return url
         }
 
         private func makeWriter() throws -> CaptureWriter {
@@ -42,17 +47,17 @@
         }
 
         @Test func permissionIsGranted() async throws {
-            let input = FileInput(url: try makeSource())
+            let input = FileInput(url: try await makeSource())
             #expect(await input.requestPermission())
         }
 
         @Test func prepareReportsTheFilesChannels() async throws {
-            let input = FileInput(url: try makeSource())
+            let input = FileInput(url: try await makeSource())
             #expect(try await input.prepare(preferring: .stereo) == 1)
         }
 
         @Test func writesTheFileFrames() async throws {
-            let input = FileInput(url: try makeSource())
+            let input = FileInput(url: try await makeSource())
             let writer = try makeWriter()
             _ = try await input.prepare(preferring: .mono)
             try await input.start(writer: writer, onLevels: { _ in }, onEvent: { _ in })
@@ -63,7 +68,7 @@
         }
 
         @Test func keepsWritingWhileTheMainActorIsBusy() async throws {
-            let input = FileInput(url: try makeSource())
+            let input = FileInput(url: try await makeSource())
             let writer = try makeWriter()
             _ = try await input.prepare(preferring: .mono)
             try await input.start(writer: writer, onLevels: { _ in }, onEvent: { _ in })
@@ -79,7 +84,7 @@
         }
 
         @Test func resumesAfterAFailedRead() async throws {
-            let source = try makeSource(seconds: 60)
+            let source = try await makeSource(seconds: 60)
             let input = FileInput(url: source)
             let writer = try makeWriter()
             let events = Events()
@@ -97,7 +102,7 @@
         }
 
         @Test func reportsLevels() async throws {
-            let input = FileInput(url: try makeSource())
+            let input = FileInput(url: try await makeSource())
             let writer = try makeWriter()
             let levels = Levels()
             _ = try await input.prepare(preferring: .mono)
@@ -110,7 +115,7 @@
         }
 
         @Test func loopsWhenARecordingRunsLongerThanTheFile() async throws {
-            let input = FileInput(url: try makeSource(seconds: 0.3))
+            let input = FileInput(url: try await makeSource(seconds: 0.3))
             let writer = try makeWriter()
             _ = try await input.prepare(preferring: .mono)
             try await input.start(writer: writer, onLevels: { _ in }, onEvent: { _ in })

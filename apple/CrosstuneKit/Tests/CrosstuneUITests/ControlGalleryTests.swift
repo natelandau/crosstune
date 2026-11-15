@@ -37,10 +37,17 @@ struct ControlGalleryTests {
 
     /// The shorthands a style declares for itself, such as `filled` for `LibraryButtonStyle`:
     /// each `static var` or `static func` in an extension `where Self ==` the style.
+    // Every control's lookup reads the same files, so they are read once per test process.
+    private static let designCode = Result {
+        try SourceScan.files().filter { $0.path.contains("/CrosstuneDesign/") }.map { file in
+            SourceScan.withoutComments(try SourceScan.text(at: file))
+        }
+    }
+
     static func shorthands(of style: String, sourceLocation: SourceLocation = #_sourceLocation) throws -> [String] {
         let member = /static\s+(?:var|func)\s+(\w+)/
-        return try SourceScan.files().filter { $0.path.contains("/CrosstuneDesign/") }.flatMap { file in
-            try SourceScan.withoutComments(SourceScan.text(at: file))
+        return try designCode.get().flatMap { code in
+            code
                 .components(separatedBy: "extension ")
                 .filter { $0.prefix(while: { $0 != "{" }).contains("where Self == \(style)") }
                 .flatMap { $0.matches(of: member).map { String($0.1) } }
@@ -51,14 +58,17 @@ struct ControlGalleryTests {
     /// its shorthands, as in `.buttonStyle(.filled)`. The name must start a word, so `ChipLabel(`
     /// never counts as `Chip(`.
     static func uses(_ name: String, in code: String, shorthands: [String] = []) -> Bool {
-        let built = try! Regex("(?:^|[^A-Za-z0-9_.])\(name)(?:<[^>]*>)?\\(")
-        if code.contains(built) { return true }
+        // Building and running a Swift Regex is slow, so code without the name skips both.
+        if code.contains(name), code.contains(try! Regex("(?:^|[^A-Za-z0-9_.])\(name)(?:<[^>]*>)?\\(")) {
+            return true
+        }
         return shorthands.contains { appliesShorthand($0, in: code) }
     }
 
     /// Whether `code` applies a style by its shorthand, as in `.buttonStyle(.filled)`.
     static func appliesShorthand(_ shorthand: String, in code: String) -> Bool {
-        code.contains(try! Regex("\\.(?:buttonStyle|textFieldStyle)\\(\\.\(shorthand)\\b"))
+        code.contains("." + shorthand)
+            && code.contains(try! Regex("\\.(?:buttonStyle|textFieldStyle)\\(\\.\(shorthand)\\b"))
     }
 
     @Test func galleryShowsEveryControl() throws {

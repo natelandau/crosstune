@@ -81,6 +81,8 @@ struct ContentMaskTests {
         let chars = Array(stripped)
         var sites: [Site] = []
         var index = 0
+        var counted = 0
+        var newlines = 0
         while index < chars.count {
             guard let (view, open) = viewCall(in: chars, at: index) else {
                 index += 1
@@ -90,7 +92,9 @@ struct ContentMaskTests {
             let argument = String(chars[(open + 1)..<max(open + 1, close)])
             index = open + 1
             guard inputs.contains(view) || readsContent(argument, locals: locals) else { continue }
-            let line = chars[..<index].count { $0 == "\n" } + 1
+            newlines += chars[counted..<index].count { $0 == "\n" }
+            counted = index
+            let line = newlines + 1
             sites.append(
                 Site(
                     line: line, view: view,
@@ -113,8 +117,12 @@ struct ContentMaskTests {
 
     /// Whether `expression` reads a content property off a value, rather than off a type such as
     /// `Self` or `TuneFieldLabels`, calls a content method, or names one of `locals`.
+    // A regex literal is parsed again each time it is evaluated, and this runs once per binding
+    // on every pass of `contentLocals`, so the regex is built once.
+    nonisolated(unsafe) private static let memberRead = /([A-Za-z_]\w*)((?:\.[A-Za-z_]\w*)*)\.([A-Za-z_]\w*)\b(\s*\()?/
+
     static func readsContent(_ expression: String, locals: Set<String> = []) -> Bool {
-        let reads = expression.matches(of: /([A-Za-z_]\w*)((?:\.[A-Za-z_]\w*)*)\.([A-Za-z_]\w*)\b(\s*\()?/)
+        let reads = expression.matches(of: memberRead)
         let readsMember = reads.contains { match in
             let root = String(match.1)
             let member = String(match.3)
