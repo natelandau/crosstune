@@ -1,3 +1,5 @@
+import { waitLabel } from '../../text/format'
+
 export const NO_RECORDINGS_TITLE = 'No recordings yet'
 export const NO_RECORDINGS_HINT = 'Use the record button to make one, or upload an audio file.'
 export const SEARCH_RECORDINGS = 'Search recordings'
@@ -24,11 +26,8 @@ export const LOCATION_SEARCH_OFFLINE = 'Location search needs a connection.'
 /** Under the location field and on the recording settings while the browser denies location. */
 export const LOCATION_ACCESS_OFF =
   'Location access is off, so new recordings don’t save where they were made. Allow location for this site in your browser’s settings.'
-/** A wait under a second still reads as one, since "0 seconds" invites an instant retry. */
-export const locationSearchBusy = (seconds: number) => {
-  const wait = Math.max(1, Math.ceil(seconds))
-  return `Location search is busy. Try again in ${wait} ${wait === 1 ? 'second' : 'seconds'}.`
-}
+export const locationSearchBusy = (seconds: number) =>
+  `Location search is busy. Try again in ${waitLabel(seconds)}.`
 
 /** The location editor's sections and actions. */
 export const CURRENT_LOCATION = 'Current'

@@ -12,6 +12,7 @@ import {
   STORAGE_FULL,
   UPLOAD_FAILED,
   WAITING_TO_UPLOAD,
+  waitLabel,
 } from './format'
 
 describe('format', () => {
@@ -129,5 +130,24 @@ describe('recordingDateLabel', () => {
     expect(recordingDateLabel({ added_at, recorded_at: null, recorded_precision: null })).toBe(
       'Added Oct 4, 2026',
     )
+  })
+})
+
+describe('waitLabel', () => {
+  it.each([
+    [7, '7 seconds'],
+    [1, '1 second'],
+    [0, '1 second'],
+    [-3, '1 second'],
+    [0.2, '1 second'],
+    [59.5, '1 minute'],
+    [60, '1 minute'],
+    [61, '2 minutes'],
+    [3_540, '59 minutes'],
+    [3_599, '1 hour'],
+    [3_600, '1 hour'],
+    [41_234, '12 hours'],
+  ])('words a wait of %s seconds', (seconds, label) => {
+    expect(waitLabel(seconds)).toBe(label)
   })
 })
