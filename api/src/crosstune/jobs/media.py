@@ -599,6 +599,9 @@ _GAP_FORMATS = frozenset({"matroska", "webm"})
 # shorter frames; more is a malformed file.
 MIN_OPUS_FRAME_MS = 2.5
 MAX_SCANNED_PACKETS = 2 * int(MAX_SPLIT_SOURCE_MS / MIN_OPUS_FRAME_MS)
+# Added to the probed duration before the packet count is derived from it, for a container
+# whose stated duration falls a little short of its last packet.
+PACKET_SCAN_MARGIN_MS = 10_000
 # The stall filter holds one term of about 50 bytes per stall, all in one argument, and
 # Linux refuses an argument longer than 128 KiB.
 MAX_RANGE_STALLS = 1024
@@ -650,8 +653,9 @@ def _has_stalls(info: Probe) -> bool:
 class _StallScanner:
     """Find stalls in ffprobe's per-packet CSV report as it arrives, holding one line at a time."""
 
-    def __init__(self, start_time: float) -> None:
+    def __init__(self, start_time: float, max_packets: int) -> None:
         self._start_time = start_time
+        self._max_packets = max_packets
         self._rest = b""
         self._packets = 0
         self._stalls: list[_Stall] = []
@@ -684,8 +688,8 @@ class _StallScanner:
         # Tens of millions of lines run through this loop on the event loop, so its state
         # lives in locals and the limits are checked per batch.
         self._packets += len(lines)
-        if self._packets > MAX_SCANNED_PACKETS:
-            msg = f"ffprobe reported more than {MAX_SCANNED_PACKETS} packets"
+        if self._packets > self._max_packets:
+            msg = f"ffprobe reported more than {self._max_packets} packets"
             raise MediaError(msg)
         start_time, stalls = self._start_time, self._stalls
         earlier_max_pts, earlier_end = self._earlier_max_pts, self._earlier_end
@@ -707,6 +711,23 @@ class _StallScanner:
             raise MediaError(msg)
 
 
+def max_scanned_packets(info: Probe) -> int:
+    """Return the most packets a file of the probed length can hold.
+
+    Bounds the per-packet scan by the file's own length, so a short file that reports
+    millions of packets fails at once instead of holding the event loop for seconds.
+
+    Args:
+        info: The probe of the scanned file.
+
+    Returns:
+        int: Twice the shortest Opus frames over the duration plus a margin, never more
+            than `MAX_SCANNED_PACKETS`.
+    """
+    length_ms = info.duration_ms + PACKET_SCAN_MARGIN_MS
+    return min(MAX_SCANNED_PACKETS, 2 * math.ceil(length_ms / MIN_OPUS_FRAME_MS))
+
+
 async def scan_stalls(source: Path, info: Probe) -> StallMap:
     """Find every stall in a WebM's packet timestamps, reading the whole file once.
 
@@ -719,7 +740,7 @@ async def scan_stalls(source: Path, info: Probe) -> StallMap:
     """
     if not _has_stalls(info):
         return StallMap()
-    scanner = _StallScanner(info.start_time)
+    scanner = _StallScanner(info.start_time, max_scanned_packets(info))
     await stream_media_tool(
         *ffprobe(
             "-v",

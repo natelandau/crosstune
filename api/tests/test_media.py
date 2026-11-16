@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import array
 import asyncio
+import dataclasses
 import json
 import math
 import os
@@ -1125,6 +1126,14 @@ def many_packet_webm(tmp_path_factory) -> Path:
         check=True,
     )  # fmt: skip
     return path
+
+
+async def test_scan_stalls_fails_a_file_with_more_packets_than_its_length_holds(
+    many_packet_webm,
+) -> None:
+    info = dataclasses.replace(await probe(many_packet_webm), duration_ms=1_000)
+    with pytest.raises(MediaError, match="packets"):
+        await scan_stalls(many_packet_webm, info)
 
 
 async def test_scan_stalls_holds_memory_flat_whatever_the_packet_count(many_packet_webm) -> None:
