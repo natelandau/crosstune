@@ -48,6 +48,15 @@ describe('handleRequest', () => {
     expect(sentRequest(upstream).headers.get('x-crosstune-country')).toBeNull()
   })
 
+  it.each(['x-forwarded-for', 'x-real-ip'])('drops a client-sent %s header', async (header) => {
+    const upstream = vi.fn(async () => new Response('ok'))
+    const request = new Request('https://example.com/v1/me', {
+      headers: { [header]: '203.0.113.7' },
+    })
+    await handleRequest(request, makeEnv(), upstream)
+    expect(sentRequest(upstream).headers.get(header)).toBeNull()
+  })
+
   it('proxies /v1 on the custom domain to the production API', async () => {
     const upstream = vi.fn(async () => new Response('ok'))
     const request = new Request('https://example.com/v1/sync/pull?since=3', {

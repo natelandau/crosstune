@@ -512,7 +512,7 @@ each question, and the invariants that both clients and the API hold.
 ## Delivery
 
 - The Worker's code runs only for `/v1/*`, and proxies it without the
-  site's cookie. Every other path is a static asset, with `index.html` for
+  site's cookie or any client-sent country or IP header. Every other path is a static asset, with `index.html` for
   an unknown path. The Worker picks the API by hostname: production, a
   pull request's API through KV, or else development.
 - A service worker precaches the shell, so an offline reload needs
