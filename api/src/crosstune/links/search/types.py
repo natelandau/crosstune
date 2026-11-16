@@ -14,8 +14,6 @@ from crosstune.links.detect import detect_provider, normalize_url
 MAX_HITS = 10
 FALLBACK_COUNTRY = "US"
 _AUTH_STATUSES = frozenset({401, 403})
-# A 403 refuses the request, not the token (RFC 6750), so a new token would not help.
-_EXPIRED_TOKEN_STATUS = 401
 # How a catalog answers a country or storefront it does not serve.
 _REGION_STATUSES = frozenset({400, 404})
 
@@ -72,7 +70,8 @@ def auth_errors(token: _Token) -> Generator[None]:
         status = error.response.status_code
         if status not in _AUTH_STATUSES:
             raise
-        if status == _EXPIRED_TOKEN_STATUS:
+        # A 403 refuses the request, not the token (RFC 6750), so a new token would not help.
+        if status == httpx2.codes.UNAUTHORIZED:
             token.invalidate()
         msg = f"{error.request.url.host} refused the credentials with {status}"
         raise SearchAuthError(msg) from error

@@ -334,10 +334,10 @@ class JobRunner:
         done += await self._start_billing_notices()
         # Not counted as work, and not a due time of its own: it rides on passes that run
         # anyway, so it never wakes a sleeping host.
-        if utc_now() >= self._next_maps_usage_prune:
-            self._next_maps_usage_prune = utc_now() + MAPS_USAGE_PRUNE_INTERVAL
+        if (now := utc_now()) >= self._next_maps_usage_prune:
+            self._next_maps_usage_prune = now + MAPS_USAGE_PRUNE_INTERVAL
             async with self._sessionmaker() as session, session.begin():
-                await prune_maps_usage(session, now=utc_now())
+                await prune_maps_usage(session, now=now)
         # Last, so a bucket listing that fails cannot starve the transcodes and purges.
         if self._orphan_sweep_seconds is not None and utc_now() >= self._next_orphan_sweep:
             self._next_orphan_sweep = utc_now() + timedelta(seconds=self._orphan_sweep_seconds)

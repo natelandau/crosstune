@@ -502,16 +502,13 @@ async def test_refused_credentials_hold_the_service(
     mock_http.add(TIDAL_TOKEN_URL, httpx2.Response(401, json={"error": "invalid_client"}))
     headers = auth_headers("user_123")
 
-    def token_requests() -> int:
-        return len([c for c in mock_http.calls if str(c.url) == TIDAL_TOKEN_URL])
-
     assert (await _tidal_group(client, headers))["status"] == "unavailable"
     assert (await _tidal_group(client, headers))["status"] == "unavailable"
-    assert token_requests() == 1
+    assert _calls_to(mock_http, TIDAL_TOKEN_URL) == 1
 
     clock.now += AUTH_HOLD_SECONDS
     await _tidal_group(client, headers)
-    assert token_requests() == 2
+    assert _calls_to(mock_http, TIDAL_TOKEN_URL) == 2
 
 
 @pytest.fixture

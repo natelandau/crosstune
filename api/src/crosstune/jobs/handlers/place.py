@@ -194,13 +194,14 @@ async def _lookup_failed(session: AsyncSession, job: Job, exc: Exception) -> Non
     log.warning(
         "place lookup failed", extra={"recording": str(job.recording_id), "error": str(exc)}
     )
-    if await _wait_for_maps(session, stored, str(exc) or type(exc).__name__):
-        _wait_out_busy(stored, exc)
     now = utc_now()
-    until = now + OUTAGE_HOLD
-    if isinstance(exc, MapsBusyError):
-        until = max(until, now + timedelta(seconds=exc.retry_after_seconds))
-    await hold_place_jobs(session, now=now, until=until, user_id=None)
+    # A rate-limited lookup waits at least as long as Apple Maps asked.
+    asked = now + timedelta(
+        seconds=exc.retry_after_seconds if isinstance(exc, MapsBusyError) else 0
+    )
+    if await _wait_for_maps(session, stored, str(exc) or type(exc).__name__):
+        stored.locked_until = max(stored.locked_until or asked, asked)
+    await hold_place_jobs(session, now=now, until=max(now + OUTAGE_HOLD, asked), user_id=None)
 
 
 async def _wait_for_maps(session: AsyncSession, job: Job, reason: str) -> bool:
@@ -219,12 +220,3 @@ async def _wait_for_maps(session: AsyncSession, job: Job, reason: str) -> bool:
     delay = min(max(waited, timedelta(seconds=RETRY_BACKOFF_SECONDS)), NAMING_BACKOFF_CAP)
     job.locked_until = utc_now() + delay
     return True
-
-
-def _wait_out_busy(job: Job, exc: Exception) -> None:
-    """Hold a rate-limited job back at least as long as Apple Maps asked."""
-    if not isinstance(exc, MapsBusyError):
-        return
-    asked = utc_now() + timedelta(seconds=exc.retry_after_seconds)
-    if job.locked_until is None or job.locked_until < asked:
-        job.locked_until = asked

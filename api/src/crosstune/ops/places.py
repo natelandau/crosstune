@@ -123,7 +123,7 @@ async def _lookup(
     *,
     timeout: float,  # noqa: ASYNC109
     sleep: Callable[[float], Awaitable[None]],
-    spend: Callable[[], Awaitable[bool]],
+    spend: Callable[[], Awaitable[None]],
 ) -> str | None:
     """Name one recording, waiting out a busy key; raises MapsError when Maps stays unavailable.
 
@@ -131,8 +131,7 @@ async def _lookup(
     that a refused call is free of its quota.
     """
     for attempt in range(_BUSY_ATTEMPTS):
-        if not await spend():
-            raise _BudgetSpentError
+        await spend()
         try:
             return await maps.reverse_name(
                 client, item.lat, item.lon, accuracy_m=item.accuracy_m, timeout=timeout
@@ -191,7 +190,7 @@ async def rename_automatic(  # noqa: PLR0913 -- every option after the client is
     counts = RenameCounts()
     candidates = await _candidates(sessionmaker)
 
-    async def spend() -> bool:
+    async def spend() -> None:
         async with sessionmaker() as session, session.begin():
             spent = await charge(
                 session,
@@ -200,7 +199,8 @@ async def rename_automatic(  # noqa: PLR0913 -- every option after the client is
                 limits=limits,
                 now=utc_now(),
             )
-        return spent is None
+        if spent is not None:
+            raise _BudgetSpentError
 
     for index, item in enumerate(candidates):
         try:
