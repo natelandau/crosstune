@@ -2560,6 +2560,9 @@ async def test_trim_commits_nothing_when_deleted_during_job(
     cut = [key for key in store.written if "/playback-" in key or "/peaks-" in key]
     assert len(cut) == 2
     assert not set(cut) & set(store.keys())
+    # The backup the cut copied is released too, never named on the deleted row.
+    assert rec.original_key is None
+    assert original_key(rec.user_id, rec.id, "audio/mp4") not in set(store.keys())
     assert await trim_jobs(verify_session, rec) == []
 
     del job_runner._purge
@@ -2567,6 +2570,41 @@ async def test_trim_commits_nothing_when_deleted_during_job(
     assert [
         obj.key for obj in await store.list_objects(recording_prefix(rec.user_id, rec.id))
     ] == []
+
+
+async def test_trim_keeps_its_backup_on_a_deleted_row_a_waiting_piece_holds(
+    trim_runner, verify_session, engine, fake_media, tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A row deleted mid-cut keeps the backup when a piece still waits to be cut from it."""
+    job_runner, store = trim_runner
+    rec = await seed_ready(verify_session, store, fake_media["m4a"], "audio/mp4", tmp_path)
+    await save_trim(verify_session, rec, 500, 1500)
+    real_upload = store.upload
+
+    async def split_and_delete_after_the_cut_uploads(path, key: str, content_type: str) -> int:
+        size = await real_upload(path, key, content_type)
+        if "/peaks-" in key:
+            async with make_sessionmaker(engine)() as pusher:
+                row = await pusher.get(Recording, rec.id)
+                row.split_id, row.split_size, row.deleted_at = uuid.uuid4(), 2, utc_now()
+                user = await pusher.get(User, rec.user_id)
+                await add_recording(
+                    pusher,
+                    user,
+                    "processing",
+                    split_from_id=rec.id,
+                    created_by_split_id=row.split_id,
+                )
+                await pusher.commit()
+        return size
+
+    monkeypatch.setattr(store, "upload", split_and_delete_after_the_cut_uploads)
+    job_runner._purge = AsyncMock(return_value=0)
+    assert await job_runner.run_once() == 1
+    await verify_session.refresh(rec)
+    backup = original_key(rec.user_id, rec.id, "audio/mp4")
+    assert rec.original_key == backup
+    assert backup in set(store.keys())
 
 
 async def test_a_superseded_trim_failure_leaves_the_new_claim_alone(
