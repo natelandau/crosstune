@@ -171,7 +171,9 @@ each question, and the invariants that both clients and the API hold.
     account's requests in flight, one budget shared by every such route.
     It checks that the caller owns the row named in the URL before the
     wait, and refuses before the wait whatever it can refuse without the
-    lock.
+    lock. A call to an outside service that it makes before the wait
+    runs inside the slot too, so a busy account is refused before the
+    call.
   - A request holds at most one pooled connection. A lock that needs a
     connection of its own runs the request's session on that connection,
     so requests from many accounts can never each hold one connection and
@@ -322,7 +324,10 @@ each question, and the invariants that both clients and the API hold.
   search that the budget cannot cover reports the service unavailable
   and does not call it.
 - The per-account search limit counts outbound requests, not searches,
-  so one account cannot spend a service's shared budget alone.
+  so one account cannot spend a service's shared budget alone. A
+  request that the first charge does not cover, such as a region
+  fallback, is charged before it is sent, and is not sent when the limit
+  has no room.
 - A result is linked only on a tap, through the paste path. Never an
   automatic match: traditional tunes sit inside sets.
 - Full Apple Music tracks play only on Apple, through MusicKit's
