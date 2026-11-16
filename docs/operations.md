@@ -283,11 +283,13 @@ passes, in every worktree. Off when `CI` is set.
 
 ## Delivery
 
-- A merge to `main` deploys development: Railway when `api/` changed,
-  Workers Builds when `web/` changed. A development deploy waits for CI.
+- A merge to `main` deploys development: Railway when `api/` changed, and
+  the `main` Worker Preview of the web client when `web/` changed. The
+  Railway deploy waits for CI.
 - A merge to `main` that changes `site/` deploys the site to production.
-  The site has no development deploy and no part in a release. Copy about
-  an unreleased feature waits until that release ships.
+  A pull request that changes `site/` gets its own site Worker Preview.
+  The site has no part in a release. Copy about an unreleased feature
+  waits until that release ships.
 - A version tag deploys the API and the web client to production. The
   `Release` workflow moves the `production` branch to the tag, and both
   hosts deploy from it. Nothing else writes to `production`. The workflow
