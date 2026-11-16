@@ -11,7 +11,7 @@ from crosstune.db.locks import lock_user
 from crosstune.files.quota import counted_bytes, rewrite_exceeds_quota
 from crosstune.jobs.audio_rewrite import rewrite_playback
 from crosstune.jobs.media import playback_bitrate, probe
-from crosstune.recordings.service import PLAYBACK_COLUMNS, attach_playback
+from crosstune.recordings.service import attach_playback
 from crosstune.storage.store import delete_best_effort
 
 if TYPE_CHECKING:
@@ -173,22 +173,21 @@ async def reencode(
             )
             _log_outcome(recording.id, "stale", **rates, cut_bps=cut)
             return None
-        attach_playback(
-            recording, playback, duration_ms=cut_info.duration_ms, start_ms=start_ms, end_ms=end_ms
-        )
-        # Without autoflush, so the stored row keeps its current file until the check passes.
-        with session.no_autoflush:
-            over_quota = await rewrite_exceeds_quota(
-                session, recording, settings, previous_bytes=counted_before
-            )
-            if over_quota:
-                await session.refresh(recording, attribute_names=list(PLAYBACK_COLUMNS))
-        if over_quota:
+        if await rewrite_exceeds_quota(
+            session,
+            recording,
+            settings,
+            previous_bytes=counted_before,
+            stored_bytes=playback.size + (recording.original_bytes or 0),
+        ):
             await delete_best_effort(
                 store, uploaded, log=log, message="could not delete an over-quota playback file"
             )
             _log_outcome(recording.id, "over_quota", **rates, cut_bps=cut)
             return None
+        attach_playback(
+            recording, playback, duration_ms=cut_info.duration_ms, start_ms=start_ms, end_ms=end_ms
+        )
         bump_server_seq(recording)
         await session.flush()
     except BaseException:

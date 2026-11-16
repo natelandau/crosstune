@@ -103,7 +103,12 @@ def counted_bytes(recording: Recording) -> int:
 
 
 async def rewrite_exceeds_quota(
-    session: AsyncSession, recording: Recording, settings: Settings, *, previous_bytes: int
+    session: AsyncSession,
+    recording: Recording,
+    settings: Settings,
+    *,
+    previous_bytes: int,
+    stored_bytes: int | None = None,
 ) -> bool:
     """Whether a job that rewrites a recording's files would take its owner past the quota.
 
@@ -116,11 +121,13 @@ async def rewrite_exceeds_quota(
         recording: The recording with the files the job is about to commit set on it.
         settings: The settings that decide the owner's quota.
         previous_bytes: The `counted_bytes` of the recording before the job.
+        stored_bytes: The bytes the job is about to commit, for a job that checks before
+            it sets its files on the row. Defaults to the row's `counted_bytes`.
 
     Returns:
         bool: True when the job must not commit its files.
     """
-    stored = counted_bytes(recording)
+    stored = counted_bytes(recording) if stored_bytes is None else stored_bytes
     if stored <= previous_bytes:
         return False
     room = await room_bytes(session, recording.user_id, settings, exclude=(recording.id,))

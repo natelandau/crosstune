@@ -212,18 +212,6 @@ async def ensure_place_job(session: AsyncSession, recording: Recording) -> None:
         await enqueue_job(session, recording, JobKind.PLACE)
 
 
-# The columns `attach_playback` writes.
-PLAYBACK_COLUMNS = (
-    "playback_key",
-    "playback_rev",
-    "playback_bytes",
-    "playback_mime",
-    "duration_ms",
-    "playback_start_ms",
-    "playback_end_ms",
-)
-
-
 def attach_playback(
     recording: Recording, playback: Revision, *, duration_ms: int, start_ms: int, end_ms: int
 ) -> None:
