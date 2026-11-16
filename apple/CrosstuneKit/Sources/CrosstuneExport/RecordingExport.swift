@@ -62,7 +62,7 @@ public enum RecordingExport {
         _ items: [RecordingExportItem], timeZone: TimeZone, root: URL, fetch: @escaping FetchRecording,
         progress: @Sendable (Int, Int) -> Void
     ) async throws -> RecordingExportResult {
-        let job = root.appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        let job = ExportWorkFolder.newJob(in: root)
         let sources = job.appending(path: "source", directoryHint: .isDirectory)
         do {
             try FileManager.default.createDirectory(at: sources, withIntermediateDirectories: true)
@@ -89,11 +89,11 @@ public enum RecordingExport {
                 progress(index + 1, exportable.count)
             }
             try Task.checkCancellation()
-            // Every file is in place, so a source that will not go is left for removeLeftovers.
+            // Every file is in place, so a source that will not go is left for discard.
             try? FileManager.default.removeItem(at: sources)
             return result
         } catch {
-            try? FileManager.default.removeItem(at: job)
+            ExportWorkFolder.discard(job)
             throw error
         }
     }
@@ -176,6 +176,6 @@ public enum RecordingExport {
 
     /// Deletes the job folder once the platform is done with its files.
     public static func discard(_ result: RecordingExportResult) {
-        try? FileManager.default.removeItem(at: result.folder)
+        ExportWorkFolder.discard(result.folder)
     }
 }

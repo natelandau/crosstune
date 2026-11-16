@@ -308,6 +308,25 @@ private func setImmutable(_ immutable: Bool, inFolder folder: URL) throws {
     #expect(FileManager.default.fileExists(atPath: work.path(percentEncoded: false)) == false)
 }
 
+@Test func removeLeftoversKeepsAJobInUseUntilItIsDiscarded() throws {
+    let work = workFolder()
+    defer { try? FileManager.default.removeItem(at: work) }
+    let manager = FileManager.default
+    let job = ExportWorkFolder.newJob(in: work)
+    let leftover = work.appending(path: UUID().uuidString)
+    for folder in [job, leftover] { try manager.createDirectory(at: folder, withIntermediateDirectories: true) }
+
+    ExportWorkFolder.removeLeftovers(root: work)
+
+    #expect(contents(work) == [job.lastPathComponent])
+
+    ExportWorkFolder.discard(job)
+    try manager.createDirectory(at: job, withIntermediateDirectories: true)
+    ExportWorkFolder.removeLeftovers(root: work)
+
+    #expect(manager.fileExists(atPath: work.path(percentEncoded: false)) == false)
+}
+
 #if os(macOS)
     @Test func theZipHoldsTheCSVsAndTheLocalAudioAtItsRoot() async throws {
         let root = TemporaryRoot()

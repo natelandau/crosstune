@@ -311,6 +311,8 @@ func aDeletionReportedWhileSignedInLeavesThatUser(confirmed: Bool) {
 @MainActor
 final class LeaveLog: LeavingSync {
     var steps: [String] = []
+    /// Whether leaving deleted the export files.
+    var removedExports = false
     /// Runs as the sync, as the engine would push the outbox.
     var onSync: () async throws -> Void = {}
     /// Runs while sync stops, as a write the musician makes in that wait would.
@@ -349,11 +351,13 @@ struct ClerkFailed: Error {}
     func leave(endSession: () async throws -> Void = {}, settle: () async -> Void = {}) async throws {
         let log = log
         try await AccountSession.leave(
-            userID: "user_a", store: store, root: root.url, sync: log, analytics: sink.client, settle: settle
-        ) {
-            log.steps.append("end session")
-            try await endSession()
-        }
+            userID: "user_a", store: store, root: root.url, sync: log, analytics: sink.client, settle: settle,
+            removeExports: { log.removedExports = true },
+            endSession: {
+                log.steps.append("end session")
+                try await endSession()
+            }
+        )
     }
 
     func queueChange() async throws {
@@ -368,6 +372,7 @@ struct ClerkFailed: Error {}
         try await leave()
 
         #expect(log.steps == ["sync", "stop", "stopped", "end session"])
+        #expect(log.removedExports)
         #expect(folderExists == false)
     }
 
@@ -402,6 +407,7 @@ struct ClerkFailed: Error {}
         }
 
         #expect(log.steps == ["sync", "stop", "stopped", "resume"])
+        #expect(log.removedExports == false)
         #expect(folderExists)
     }
 
@@ -524,6 +530,7 @@ struct ClerkFailed: Error {}
                 log.steps.append("deleteRemote")
                 try await deleteRemote()
             },
+            removeExports: { log.removedExports = true },
             endSession: {
                 log.steps.append("end session")
                 try await endSession()
@@ -535,6 +542,7 @@ struct ClerkFailed: Error {}
         try await deleteAndLeave()
 
         #expect(log.steps == ["stop", "stopped", "deleteRemote", "end session"])
+        #expect(log.removedExports)
         #expect(folderExists == false)
     }
 
@@ -544,6 +552,7 @@ struct ClerkFailed: Error {}
         }
 
         #expect(log.steps == ["stop", "stopped", "deleteRemote", "resume"])
+        #expect(log.removedExports == false)
         #expect(folderExists)
     }
 
@@ -569,7 +578,7 @@ struct ClerkFailed: Error {}
         // filesystem, forcing the failure this test needs without a store folder to break.
         try await AccountSession.deleteAndLeave(
             userID: "not a valid id", store: store, root: root.url, sync: log, analytics: sink.client,
-            deleteRemote: {}, endSession: {}
+            deleteRemote: {}, removeExports: {}, endSession: {}
         )
 
         #expect(folderExists)
@@ -578,11 +587,13 @@ struct ClerkFailed: Error {}
     func forgetDeleted(endSession: () async throws -> Void = {}) async {
         let log = log
         await AccountSession.forgetDeleted(
-            userID: "user_a", store: store, root: root.url, sync: log, analytics: sink.client
-        ) {
-            log.steps.append("end session")
-            try await endSession()
-        }
+            userID: "user_a", store: store, root: root.url, sync: log, analytics: sink.client,
+            removeExports: { log.removedExports = true },
+            endSession: {
+                log.steps.append("end session")
+                try await endSession()
+            }
+        )
     }
 
     @Test func anAccountDeletedElsewhereStopsSyncThenEndsTheSessionThenDeletesTheFolder() async throws {
@@ -591,6 +602,7 @@ struct ClerkFailed: Error {}
         await forgetDeleted()
 
         #expect(log.steps == ["stop", "stopped", "end session"])
+        #expect(log.removedExports)
         #expect(folderExists == false)
     }
 
