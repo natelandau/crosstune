@@ -137,12 +137,17 @@ async def billing_lock(
 
     Account deletion, a withdrawal, and the pass that finishes withdrawals each run their
     Stripe steps under it, so none of them starts between another's refund and its cancel.
-    It is a session-level lock on a connection of its own, since those steps commit and so
-    end any transaction-level lock. `session` is committed first, so no row lock it holds
-    can wait on a lock holder that is itself waiting on this lock.
+    It is a session-level lock, since those steps commit and so end any transaction-level
+    lock. `session` is committed first, so no row lock it holds can wait on a lock holder
+    that is itself waiting on this lock.
+
+    For the block, `session` runs on the lock's connection. A holder then needs no second
+    pooled connection, so holders from many accounts at once can never take every
+    connection while each waits for another.
 
     Args:
-        session: The caller's session; its engine supplies the lock's connection.
+        session: The caller's session, bound to an engine. It is committed on entry, and
+            on leaving the block it is committed, or rolled back when the block raises.
         user_id: The account whose billing steps are serialized.
         wait: Wait for the lock, or yield False at once when another holder has it.
         wait_seconds: How long a wait may last before refusing with UserBusyError, or None
@@ -154,12 +159,11 @@ async def billing_lock(
     Raises:
         UserBusyError: When `wait_seconds` runs out before the lock is free.
     """
+    engine = session.bind
+    if not isinstance(engine, AsyncEngine):
+        msg = "A billing lock needs a session bound to an engine"
+        raise TypeError(msg)
     await session.commit()
-    bind = session.bind
-    if bind is None:
-        msg = "A billing lock needs a session bound to an engine or a connection"
-        raise RuntimeError(msg)
-    engine = bind if isinstance(bind, AsyncEngine) else bind.engine
     key = (_BILLING_LOCK_NAMESPACE, func.hashtext(str(user_id)))
     async with engine.connect() as connection:
         take = func.pg_advisory_lock if wait else func.pg_try_advisory_lock
@@ -167,13 +171,32 @@ async def billing_lock(
         held = True if wait else bool(result.scalar_one())
         # The lock outlives the transaction, so the connection does not sit idle in one.
         await connection.commit()
+        session.bind = connection
         try:
             yield held
+            await session.commit()
+        except BaseException:
+            try:
+                await session.rollback()
+            except SQLAlchemyError:
+                # The block's own error is the one the caller handles.
+                log.exception("could not roll back under a billing lock")
+            raise
         finally:
+            session.bind = engine
             if held:
-                try:
-                    await connection.execute(select(func.pg_advisory_unlock(*key)))
-                    await connection.commit()
-                except SQLAlchemyError:
-                    # Closing the connection releases the lock anyway.
-                    log.warning("could not release a billing lock", extra={"user": str(user_id)})
+                await _release_billing_lock(connection, key, user_id)
+
+
+async def _release_billing_lock(
+    connection: AsyncConnection, key: tuple[int, Function], user_id: uuid.UUID
+) -> None:
+    try:
+        await connection.execute(select(func.pg_advisory_unlock(*key)))
+        await connection.commit()
+    except BaseException as exc:
+        # A session-level lock survives a return to the pool, so the connection is closed.
+        log.warning("could not release a billing lock", extra={"user": str(user_id)})
+        await connection.invalidate()
+        if not isinstance(exc, SQLAlchemyError):
+            raise

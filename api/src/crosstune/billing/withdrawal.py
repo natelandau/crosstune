@@ -83,11 +83,12 @@ async def withdraw(  # noqa: PLR0913 -- each client is injected so callers and t
         WithdrawalRefusedError: Already withdrawn, no live web subscription, or the window closed.
         BillingUnavailableError: Stripe or RevenueCat did not confirm.
     """
+    # Refused before the locks too, so an account with nothing to withdraw never waits on them.
+    if await _pending_grant_id(session, user.id) is None:
+        await withdrawable_grant(session, user.id, now, allow_repeat=allow_repeat)
     async with billing_lock(session, user.id, wait_seconds=lock_wait_seconds):
         await lock_user(session, user.id, wait_seconds=lock_wait_seconds)
-        pending = await session.scalar(
-            select(Grant.id).where(Grant.user_id == user.id, *PENDING).limit(1)
-        )
+        pending = await _pending_grant_id(session, user.id)
         grant_id = pending or await _refund(
             session, user, stripe=stripe, revenuecat=revenuecat, now=now, allow_repeat=allow_repeat
         )
@@ -171,21 +172,9 @@ async def _refund(
         WithdrawalRefusedError: Already withdrawn, no live web subscription, or the window closed.
         BillingUnavailableError: RevenueCat or Stripe did not confirm; nothing was written.
     """
-    withdrew_at = await session.scalar(select(User.withdrew_at).where(User.id == user.id))
-    if withdrew_at is not None and not allow_repeat:
-        raise WithdrawalRefusedError(reason="already_withdrawn")
-    grants = (
-        await session.scalars(
-            select(Grant).where(Grant.user_id == user.id).execution_options(populate_existing=True)
-        )
-    ).all()
-    grant = live_stripe_grant(grants, now)
-    if grant is None or grant.started_at is None or grant.external_id is None:
-        raise WithdrawalRefusedError(reason="no_web_subscription")
-    if not withdrawal_window_open(grant, now):
-        raise WithdrawalRefusedError(reason="window_closed")
-
-    subscription_id = grant.external_id
+    grant, subscription_id = await withdrawable_grant(
+        session, user.id, now, allow_repeat=allow_repeat
+    )
     store_id: str | None = None
     try:
         store_id = await _listed_store_id(revenuecat, user.clerk_user_id, subscription_id, now)
@@ -210,6 +199,37 @@ async def _refund(
     grant_id = grant.id
     await session.commit()
     return grant_id
+
+
+async def _pending_grant_id(session: AsyncSession, user_id: uuid.UUID) -> uuid.UUID | None:
+    """A grant of the user's whose refund went through but whose cancel has not, if any."""
+    return await session.scalar(select(Grant.id).where(Grant.user_id == user_id, *PENDING).limit(1))
+
+
+async def withdrawable_grant(
+    session: AsyncSession, user_id: uuid.UUID, now: datetime, *, allow_repeat: bool
+) -> tuple[Grant, str]:
+    """The live web subscription grant the user may withdraw now, and its subscription id.
+
+    Read it under the user lock wherever the answer decides a refund.
+
+    Raises:
+        WithdrawalRefusedError: Already withdrawn, no live web subscription, or the window closed.
+    """
+    withdrew_at = await session.scalar(select(User.withdrew_at).where(User.id == user_id))
+    if withdrew_at is not None and not allow_repeat:
+        raise WithdrawalRefusedError(reason="already_withdrawn")
+    grants = (
+        await session.scalars(
+            select(Grant).where(Grant.user_id == user_id).execution_options(populate_existing=True)
+        )
+    ).all()
+    grant = live_stripe_grant(grants, now)
+    if grant is None or grant.started_at is None or grant.external_id is None:
+        raise WithdrawalRefusedError(reason="no_web_subscription")
+    if not withdrawal_window_open(grant, now):
+        raise WithdrawalRefusedError(reason="window_closed")
+    return grant, grant.external_id
 
 
 async def _finish(  # noqa: PLR0913 -- each client is injected

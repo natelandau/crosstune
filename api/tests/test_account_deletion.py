@@ -1205,7 +1205,11 @@ def _pause_after_the_refund_commit(monkeypatch) -> _Gap:
 
 async def _until_waiting_or_done(engine, task: asyncio.Task) -> None:
     """Return once some request waits on an advisory lock, or `task` has finished."""
-    query = text("select count(*) from pg_locks where locktype = 'advisory' and not granted")
+    # pg_locks spans the cluster, and other workers' databases share it.
+    query = text(
+        "select count(*) from pg_locks where locktype = 'advisory' and not granted"
+        " and database = (select oid from pg_database where datname = current_database())"
+    )
     while not task.done():
         async with engine.connect() as conn:
             if await conn.scalar(query):

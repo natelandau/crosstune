@@ -7,13 +7,22 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import or_, select
 
-from crosstune.billing.access import live_stripe_grant, withdrawal_window_open
 from crosstune.billing.purchases import accepted
 from crosstune.billing.revenuecat import RevenueCatUnavailableError
 from crosstune.billing.stripe import StripeUnavailableError
-from crosstune.billing.withdrawal import PENDING, mark_withdrawn, refund_key, send_confirmation
+from crosstune.billing.withdrawal import (
+    PENDING,
+    mark_withdrawn,
+    refund_key,
+    send_confirmation,
+    withdrawable_grant,
+)
 from crosstune.db.locks import lock_user
-from crosstune.errors import AccountDeletionFailedError, AccountDeletionUnavailableError
+from crosstune.errors import (
+    AccountDeletionFailedError,
+    AccountDeletionUnavailableError,
+    WithdrawalRefusedError,
+)
 from crosstune.models import Grant, User
 from crosstune.vocabulary import GrantSource
 
@@ -236,22 +245,11 @@ async def _refundable(session: AsyncSession, user: User, now: datetime) -> Grant
 
     `withdrew_at` is read here, under the caller's user lock.
     """
-    if await session.scalar(select(User.withdrew_at).where(User.id == user.id)) is not None:
+    try:
+        grant, _ = await withdrawable_grant(session, user.id, now, allow_repeat=False)
+    except WithdrawalRefusedError:
         return None
-    grants = (
-        await session.scalars(
-            select(Grant).where(Grant.user_id == user.id).execution_options(populate_existing=True)
-        )
-    ).all()
-    grant = live_stripe_grant(grants, now)
-    if (
-        grant is None
-        or grant.external_id is None
-        or grant.refunded_at is not None
-        or not withdrawal_window_open(grant, now)
-    ):
-        return None
-    return grant
+    return None if grant.refunded_at is not None else grant
 
 
 async def _live_from_revenuecat(

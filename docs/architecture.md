@@ -167,7 +167,12 @@ each question, and the invariants that both clients and the API hold.
   - A request route that waits on either lock counts against the
     account's requests in flight, one budget shared by every such route.
     It checks that the caller owns the row named in the URL before the
-    wait.
+    wait, and refuses before the wait whatever it can refuse without the
+    lock.
+  - A request holds at most one pooled connection. A lock that needs a
+    connection of its own runs the request's session on that connection,
+    so requests from many accounts can never each hold one connection and
+    wait for another.
   - Only jobs, ops commands, and the Clerk webhook, which no user can send
     at will, wait with no bound. One exception: a route that commits a
     money step takes the user lock again with no bound, inside the
@@ -237,8 +242,7 @@ each question, and the invariants that both clients and the API hold.
   made there never reaches the account.
 - A step that moves money commits before the next step runs, so a retry
   never pays or refunds twice. Money steps run under a per-user billing
-  lock (a session-level advisory lock on its own connection), held across
-  those commits.
+  lock (a session-level advisory lock), held across those commits.
 - The entitlements row is the grants' resolved copy: server-written,
   read-only to clients.
   - It changes only when a grant is written, never when one expires or a
