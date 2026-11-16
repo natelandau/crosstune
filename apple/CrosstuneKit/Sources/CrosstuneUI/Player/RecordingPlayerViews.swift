@@ -8,7 +8,6 @@ import SwiftUI
 public enum RecordingPlayerText {
     public static let play = MediaText.play
     public static let pause = MediaText.pause
-    public static let position = PlaybackScrubber.defaultName
     public static let playFailed = "Couldn't play"
 
     public static func skipBack(_ seconds: TimeInterval) -> String { "Back \(Int(seconds)) seconds" }

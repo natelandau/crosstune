@@ -9,8 +9,6 @@ public enum ScanCopy {
     public static let scans = "Scans"
     /// The section header's add control, a glyph named in words.
     public static let addScans = "Add scans"
-    public static let emptyTitle = "No scans yet"
-    public static let emptyHint = "Add a photo of written music, lyrics, or notes."
     public static let limitNote = "A tune holds up to \(maxScansPerTune) scans."
     public static let invert = "Invert"
     public static let zoom = "Zoom"

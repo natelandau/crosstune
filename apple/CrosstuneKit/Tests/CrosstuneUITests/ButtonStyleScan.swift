@@ -282,23 +282,21 @@ struct ButtonStyleScan {
                 }
             guard !uses.isEmpty else { return false }
             return uses.allSatisfy {
-                isPlacedInSystem(
-                    in: declaration.file, from: $0.range.lowerBound,
-                    to: Self.endOfCall($0.range.upperBound, in: declaration.file), within: scope, depth: depth + 1)
+                isPlacedInSystem(in: declaration.file, from: $0.range.lowerBound, within: scope, depth: depth + 1)
             }
         }
     }
 
     /// Whether a use inside `scope` sits where the system styles buttons. A style alone does not
     /// count here: the question is where the closure goes, not how a caller styles it.
-    private func isPlacedInSystem(in file: File, from start: Int, to end: Int, within scope: Range<Int>, depth: Int)
+    private func isPlacedInSystem(in file: File, from start: Int, within scope: Range<Int>, depth: Int)
         -> Bool
     {
         guard depth < Self.maxDepth else { return false }
         if let uses = Self.localUses(after: start, before: scope.upperBound, in: file) {
             return !uses.isEmpty
                 && uses.allSatisfy {
-                    isPlacedInSystem(in: file, from: $0.start, to: $0.end, within: scope, depth: depth + 1)
+                    isPlacedInSystem(in: file, from: $0.start, within: scope, depth: depth + 1)
                 }
         }
         return Self.enclosingOpeners(of: start, in: file, above: scope.lowerBound).contains {

@@ -1,4 +1,3 @@
-import CrosstuneRecording
 import CrosstuneStore
 
 @testable import CrosstuneUI
@@ -15,17 +14,12 @@ import CrosstuneStore
     /// The places the full search finds, by query; a query missing here finds none, as a failed
     /// search does.
     var local: [String: [LocalPlaceResult]] = [:]
-    /// The point the search ranks results near, as it was made.
-    let near: Coordinate?
-
     private(set) var queries: [String] = []
     private(set) var resolves: [String] = []
     private(set) var localQueries: [String] = []
     private var waiting: [String: CheckedContinuation<Void, Never>] = [:]
 
-    init(near: Coordinate? = nil) {
-        self.near = near
-    }
+    init(near _: Coordinate? = nil) {}
 
     func completions(for query: String) async -> [PlaceCompletion] {
         queries.append(query)

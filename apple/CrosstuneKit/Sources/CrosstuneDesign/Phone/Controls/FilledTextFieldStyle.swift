@@ -13,6 +13,7 @@ import SwiftUI
         self.isMultiline = isMultiline
     }
 
+    // periphery:ignore - the TextFieldStyle requirement, which the index does not link
     package func _body(configuration: TextField<Self._Label>) -> some View {
         #if os(macOS)
             configuration.textFieldStyle(MacFieldStyle(isMultiline: isMultiline))

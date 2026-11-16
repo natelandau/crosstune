@@ -4,6 +4,12 @@ index_store_path:
   - .build/out
   - ../.build/DerivedData/Index.noindex/DataStore
 skip_build: true
+# Setting this replaces Periphery's defaults, so the first two stay. Dependency checkouts live in
+# a shared cache outside the package (scripts/source_packages.py).
+index_exclude:
+  - "**/*?.build/**/*"
+  - "**/SourcePackages/checkouts/**"
+  - "**/source-packages/**"
 # `just contract` writes these from the API's schema.
 report_exclude:
   - "**/Generated/**"

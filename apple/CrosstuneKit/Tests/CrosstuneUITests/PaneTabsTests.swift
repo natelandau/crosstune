@@ -4,7 +4,7 @@ import Testing
 @testable import CrosstuneDesign
 
 struct PaneTabsTests {
-    private enum Mode: CaseIterable { case speed, pitch, isolate, loops }
+    private enum Mode: CaseIterable { case speed, pitch, loops }
 
     @Test func slidesTowardTheChosenSide() {
         let order = Mode.allCases

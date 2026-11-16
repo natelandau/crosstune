@@ -5,7 +5,6 @@ import SwiftUI
 /// is the loaded one.
 struct RecordingDetailsTab<Attributes: View>: View {
     let practice: PracticeModel?
-    let rows: ScreenRows
     let player: PlayerModel
     /// Why the page's last write did not land, or why the trim editor gave way.
     let notice: String?

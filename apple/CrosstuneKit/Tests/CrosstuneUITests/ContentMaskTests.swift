@@ -137,7 +137,7 @@ struct ContentMaskTests {
     /// Names bound with `let` or `var`, or later assigned, to an expression that reads content,
     /// followed through locals bound from those. The whole file is one scope, so a name reused for
     /// the app's own words is treated as content too.
-    static func contentLocals(in text: String, sourceLocation: SourceLocation = #_sourceLocation) -> Set<String> {
+    static func contentLocals(in text: String) -> Set<String> {
         let declared = text.matches(of: /\b(?:let|var)\s+([A-Za-z_]\w*)\s*=\s*([^\n]*)/)
             .map { (name: String($0.1), expression: String($0.2)) }
         // An assignment starts a line or follows a brace; `==` and `!=` are comparisons.

@@ -44,7 +44,7 @@ struct ControlGalleryTests {
         }
     }
 
-    static func shorthands(of style: String, sourceLocation: SourceLocation = #_sourceLocation) throws -> [String] {
+    static func shorthands(of style: String) throws -> [String] {
         let member = /static\s+(?:var|func)\s+(\w+)/
         return try designCode.get().flatMap { code in
             code

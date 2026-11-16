@@ -53,7 +53,7 @@ private struct SelectionFrame<Runner: BulkActionRunner, Actions: SelectionAction
         content
             #if os(iOS)
                 .toolbar {
-                    if selection.isActive, let runner { toolbar(runner) }
+                    if selection.isActive, runner != nil { toolbar }
                 }
             #else
                 // The screen's list shows the bar in place of its filter row.
@@ -122,7 +122,7 @@ private struct SelectionFrame<Runner: BulkActionRunner, Actions: SelectionAction
     }
 
     #if os(iOS)
-        @ToolbarContentBuilder private func toolbar(_ runner: Runner) -> some ToolbarContent {
+        @ToolbarContentBuilder private var toolbar: some ToolbarContent {
             ToolbarItem(placement: .topBarLeading) {
                 let allSelected = selection.allSelected(visible: visibleIDs)
                 Button(allSelected ? TuneSelection.deselectAll : TuneSelection.selectAll) {

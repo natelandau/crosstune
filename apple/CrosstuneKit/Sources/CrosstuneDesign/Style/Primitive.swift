@@ -15,8 +15,6 @@ package enum Primitive {
     package static let gray250 = "#BAC0CA"
     package static let gray300 = "#9CA2AB"
     package static let gray400 = "#8A909A"
-    /// The system's gray fill hue.
-    package static let gray470 = "#767680"
     package static let gray500 = "#737983"
     package static let gray600 = "#61676F"
     package static let gray650 = "#555B66"

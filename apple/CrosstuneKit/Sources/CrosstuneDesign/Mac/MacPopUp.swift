@@ -258,9 +258,6 @@
 
     extension ButtonStyle where Self == MacInlinePopUpStyle {
         package static var macInlinePopUp: Self { MacInlinePopUpStyle() }
-
-        /// The inline pop-up with `symbol` after its words, such as a sort's direction.
-        package static func macInlinePopUp(symbol: String) -> Self { MacInlinePopUpStyle(symbol: symbol) }
     }
 
     private struct MacInlinePopUpBody: View {

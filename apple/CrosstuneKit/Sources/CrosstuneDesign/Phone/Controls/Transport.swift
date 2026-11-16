@@ -219,6 +219,7 @@ private struct SkipTurn: ViewModifier {
     private struct MacTransport: View {
         let transport: Transport
 
+        // periphery:ignore - read only as a $ binding
         @State private var turns = SkipTurns()
 
         var body: some View {

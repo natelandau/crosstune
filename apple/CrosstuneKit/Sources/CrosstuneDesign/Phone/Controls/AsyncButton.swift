@@ -143,21 +143,6 @@ package struct WorkingLabel<Label: View>: View {
     }
 }
 
-extension AsyncButton where Label == SwiftUI.Label<Text, Image> {
-    package init(
-        _ title: LocalizedStringKey,
-        systemImage: String,
-        role: ButtonRole? = nil,
-        closesOnSuccess: Bool = false,
-        action: @escaping () async throws -> Void,
-        onFailure: @escaping (any Error) -> Void
-    ) {
-        self.init(role: role, closesOnSuccess: closesOnSuccess, action: action, onFailure: onFailure) {
-            Label(title, systemImage: systemImage)
-        }
-    }
-}
-
 extension AsyncButton where Label == Text {
     package init(
         _ title: LocalizedStringKey,

@@ -727,6 +727,7 @@ enum PushOrder: CaseIterable {
         }
 
         @MainActor private struct Hosted {
+            // periphery:ignore - holds the folder, which its deinit removes, while the page runs
             let root: TemporaryRoot
             let store: CrosstuneStore
             let plan: PlanModel
