@@ -149,6 +149,8 @@ OVERLONG_REF = "a" * 197 + ".mp3"
         (f"{SH}/system/files/../x.mp3", None, f"{SH}/system/files/../x.mp3"),
         (f"{SH}/system/files/a/%2E%2e/x.mp3", None, f"{SH}/system/files/a/%2E%2e/x.mp3"),
         (f"{SH}/system/files/a/./x.mp3", None, f"{SH}/system/files/a/./x.mp3"),
+        (f"{SH}/system/files/a%2F..%2Fb.mp3", None, f"{SH}/system/files/a%2F..%2Fb.mp3"),
+        (f"{SH}/system/files/a%2fb.mp3", None, f"{SH}/system/files/a%2fb.mp3"),
         (f"{SH}/system/files/a:b.mp3", None, f"{SH}/system/files/a:b.mp3"),
         (f"{SH}/system/files/a@b/x.mp3", None, f"{SH}/system/files/a@b/x.mp3"),
         (f"{SH}/system/files/\u00e9.mp3", None, f"{SH}/system/files/\u00e9.mp3"),

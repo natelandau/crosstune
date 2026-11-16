@@ -69,9 +69,10 @@ def valid_slippery_hill_ref(ref: str) -> bool:
     """Report whether `ref` is a safe file path under Slippery-Hill's `/system/files/`."""
     if not SLIPPERY_HILL_REF.fullmatch(ref):
         return False
-    # Clients append the ref to the origin, so a dot segment, however it is spelled, could
-    # climb out of the files tree.
-    return "%2e" not in ref.lower() and not {".", ".."} & set(ref.split("/"))
+    # Clients append the ref to the origin, so a dot segment or a slash, however it is
+    # spelled, could climb out of the files tree.
+    lowered = ref.lower()
+    return "%2e" not in lowered and "%2f" not in lowered and not {".", ".."} & set(ref.split("/"))
 
 
 def slippery_hill_ref(path: str) -> str | None:
