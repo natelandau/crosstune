@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 
 from crosstune.billing.access import (
+    invoiced_in_window,
     live_stripe_grant,
     refresh_entitlement,
     withdrawal_window_open,
@@ -169,7 +170,8 @@ async def _refund(
         The refunded grant's id.
 
     Raises:
-        WithdrawalRefusedError: Already withdrawn, no live web subscription, or the window closed.
+        WithdrawalRefusedError: Already withdrawn, no live web subscription, or the window
+            closed, or Stripe's first charged invoice falls outside the window.
         BillingUnavailableError: RevenueCat or Stripe did not confirm; nothing was written.
     """
     grant, subscription_id = await withdrawable_grant(
@@ -179,7 +181,13 @@ async def _refund(
     try:
         store_id = await _listed_store_id(revenuecat, user.clerk_user_id, subscription_id, now)
         if store_id is not None:
-            payment_intent = await stripe.first_payment_intent(store_id)
+            payment_intent = await refundable_payment(stripe, grant, store_id)
+            if payment_intent is None:
+                log.warning(
+                    "the first Stripe invoice falls outside the withdrawal window; refused",
+                    extra={"user": str(user.id), "subscription": subscription_id},
+                )
+                raise WithdrawalRefusedError(reason="window_closed")
             await stripe.refund(payment_intent, idempotency_key=refund_key(subscription_id))
     except (StripeUnavailableError, RevenueCatUnavailableError) as exc:
         log.warning(
@@ -301,6 +309,24 @@ async def mark_withdrawn(
     user.withdrew_at = now
     await session.flush()
     await refresh_entitlement(session, user.id, settings, now)
+
+
+async def refundable_payment(
+    stripe: StripeSubscriptions, grant: Grant, store_id: str
+) -> str | None:
+    """The payment intent a withdrawal of `grant` refunds, or None when none may be refunded.
+
+    The window runs from RevenueCat's start, while the refund goes to Stripe's oldest charged
+    invoice. An invoice outside the window means the two disagree on which payment opened the
+    subscription, so no payment is refunded.
+
+    Raises:
+        StripeUnavailableError: Stripe failed or no paid payment was found.
+    """
+    payment = await stripe.first_payment(store_id)
+    if not invoiced_in_window(grant, payment.invoiced_at):
+        return None
+    return payment.payment_intent
 
 
 def refund_key(subscription_id: str) -> str:

@@ -123,6 +123,27 @@ async def test_withdraw_on_day_15_is_refused_as_window_closed(
     assert (await _grant(verify_session)).withdrawn_at is None
 
 
+@pytest.mark.parametrize("invoiced", [timedelta(days=-2), timedelta(days=15)])
+async def test_a_first_invoice_outside_the_window_is_refused_and_refunds_nothing(
+    client, app, make_token, verify_session, invoiced: timedelta
+) -> None:
+    headers = _headers(make_token)
+    sub = web_subscription()
+    await _subscribe(client, app, headers, sub)
+    assert sub.started_at is not None
+    app.state.stripe.invoiced_at = sub.started_at + invoiced
+
+    response = await client.post(WITHDRAW, headers=headers)
+
+    assert response.status_code == 409
+    assert response.json()["reason"] == "window_closed"
+    assert app.state.stripe.refunds == []
+    assert app.state.stripe.cancelled == []
+    grant = await _grant(verify_session)
+    assert grant.refunded_at is None
+    assert await _withdrew_at(verify_session) is None
+
+
 async def test_a_newer_subscription_inside_the_window_withdraws_beside_an_older_one(
     client, app, make_token, verify_session
 ) -> None:

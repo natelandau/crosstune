@@ -951,7 +951,7 @@ async def test_delete_inside_the_window_refunds_then_cancels_and_emails(
     response = await client.delete("/v1/me", headers=auth_headers("user_a"))
     assert response.status_code == 204
     assert app.state.stripe.refunds == [("pi_fake", "withdraw:sub_si_123")]
-    assert app.state.stripe.calls == ["first_payment_intent", "refund", "cancel"]
+    assert app.state.stripe.calls == ["first_payment", "refund", "cancel"]
     assert app.state.stripe.cancelled == ["si_123"]
     ((message, key),) = app.state.mailer.sent
     assert message.to == EMAIL
@@ -959,6 +959,18 @@ async def test_delete_inside_the_window_refunds_then_cancels_and_emails(
     body = " ".join(message.text.split())
     assert "Your Crosstune account and its data were deleted." in body
     assert "catalog" not in body
+
+
+async def test_delete_with_a_first_invoice_outside_the_window_only_cancels(
+    client: httpx2.AsyncClient, app, auth_headers, verify_session: AsyncSession
+) -> None:
+    await _web_subscription(client, app, auth_headers, verify_session, age=timedelta(days=10))
+    app.state.stripe.invoiced_at = utc_now() - timedelta(days=40)
+    response = await client.delete("/v1/me", headers=auth_headers("user_a"))
+    assert response.status_code == 204
+    assert app.state.stripe.refunds == []
+    assert app.state.stripe.cancelled == ["si_123"]
+    assert app.state.mailer.sent == []
 
 
 async def test_delete_after_the_window_only_cancels(
@@ -1213,7 +1225,7 @@ async def test_the_clerk_webhook_inside_the_window_refunds_and_emails_once(
     response = await client.post("/v1/webhooks/clerk", content=body, headers=sign(body))
     assert response.status_code == 204
     assert app.state.stripe.refunds == [("pi_fake", "withdraw:sub_si_123")]
-    assert app.state.stripe.calls == ["first_payment_intent", "refund", "cancel"]
+    assert app.state.stripe.calls == ["first_payment", "refund", "cancel"]
     assert len(app.state.mailer.sent) == 1
 
     again = await client.post("/v1/webhooks/clerk", content=body, headers=sign(body))

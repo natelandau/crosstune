@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, Protocol
 from urllib.parse import quote
 
@@ -24,6 +26,14 @@ class StripeUnavailableError(Exception):
     """Stripe did not confirm the request: a transport failure, an unexpected status, or no data."""
 
 
+@dataclass(frozen=True)
+class FirstPayment:
+    """The payment that paid a subscription's oldest charged invoice, and when that invoice was made."""
+
+    payment_intent: str
+    invoiced_at: datetime
+
+
 class StripeSubscriptions(Protocol):
     """What account deletion and withdrawal need from Stripe, held on `app.state` so tests can fake it."""
 
@@ -31,8 +41,8 @@ class StripeSubscriptions(Protocol):
         """Cancel the subscription now, without refund. One already ended counts as cancelled."""
         ...
 
-    async def first_payment_intent(self, store_id: str) -> str:
-        """The payment intent that paid the subscription's oldest invoice.
+    async def first_payment(self, store_id: str) -> FirstPayment:
+        """The payment that paid the subscription's oldest charged invoice.
 
         Raises:
             StripeUnavailableError: Stripe failed or no paid payment was found.
@@ -95,8 +105,8 @@ class StripeRest:
         msg = f"Stripe answered {response.status_code} cancelling {subscription_id}"
         raise StripeUnavailableError(msg)
 
-    async def first_payment_intent(self, store_id: str) -> str:
-        """Find the payment intent that paid the subscription's oldest invoice that charged.
+    async def first_payment(self, store_id: str) -> FirstPayment:
+        """Find the payment that paid the subscription's oldest invoice that charged.
 
         An invoice for nothing, as a free trial or a full discount opens with, is passed over,
         since it has no payment to refund.
@@ -130,7 +140,10 @@ class StripeRest:
                 continue
             intent = payment.get("payment_intent")
             if isinstance(intent, str) and intent:
-                return intent
+                return FirstPayment(
+                    payment_intent=intent,
+                    invoiced_at=datetime.fromtimestamp(oldest["created"], UTC),
+                )
         msg = f"Stripe shows no paid payment on invoice {oldest['id']}"
         raise StripeUnavailableError(msg)
 
