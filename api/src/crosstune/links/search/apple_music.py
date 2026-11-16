@@ -15,8 +15,8 @@ from crosstune.links.search.types import (
     collect,
     field,
     items,
+    region_errors,
     text,
-    with_region_fallback,
 )
 from crosstune.vocabulary import Provider
 
@@ -48,21 +48,18 @@ def adapter(token: AppleMusicToken, budget: OutboundBudget = UNLIMITED) -> Adapt
         client: httpx2.AsyncClient,
         timeout: float,  # noqa: ASYNC109 -- forwarded to httpx2's per-request timeout, not asyncio cancellation
     ) -> AdapterAnswer:
-        async def fetch(storefront: str) -> object:
-            budget.spend(Provider.APPLE_MUSIC)
-            return await get_json(
+        budget.spend(Provider.APPLE_MUSIC)
+        with auth_errors(token), region_errors(country):
+            body = await get_json(
                 client,
-                SEARCH_URL.format(storefront=storefront.lower()),
+                SEARCH_URL.format(storefront=country.lower()),
                 params={"term": query, "types": "songs", "limit": str(MAX_HITS)},
                 headers={"Authorization": f"Bearer {token.get()}"},
                 timeout=timeout,
             )
-
-        with auth_errors(token):
-            body, served = await with_region_fallback(country, fetch)
         # "songs" is Apple's name for the catalog type, not ours.
         tracks = field(field(field(body, "results"), "songs"), "data")
-        return AdapterAnswer(collect(_hit(track) for track in items(tracks)), served)
+        return AdapterAnswer(collect(_hit(track) for track in items(tracks)), country)
 
     return search
 

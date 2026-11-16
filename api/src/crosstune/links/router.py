@@ -123,12 +123,10 @@ async def search(
     """Recordings matching the text on each requested service, grouped by service."""
     state = request.app.state
     # Charged in outbound requests, so one account's share of each service's shared budget
-    # is bounded by its limit rather than by how many services each search names.
-    _charge(
-        state.link_search_limiter,
-        user,
-        search_cost(body.providers, state.search_adapters),
-    )
+    # is bounded by its limit rather than by how many services each search names. A region
+    # fallback is one more request, charged by `charge_fallback` before it is sent.
+    limiter = state.link_search_limiter
+    _charge(limiter, user, search_cost(body.providers, state.search_adapters))
     # Resolving the caller opened a transaction on a pooled connection. Commit it so the
     # fan-out, which can wait out its whole timeout, holds nothing from the pool.
     await session.commit()
@@ -140,6 +138,7 @@ async def search(
         client=state.http_client,
         timeout=state.settings.link_resolve_timeout_seconds,
         backoff=state.search_backoff,
+        charge_fallback=lambda: limiter.hit(user.id) is None,
     )
     return SearchResponse(
         groups=[

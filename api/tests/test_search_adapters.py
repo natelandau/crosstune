@@ -19,7 +19,7 @@ from crosstune.links.search.backoff import Backoff
 from crosstune.links.search.budget import OutboundBudget, OverBudgetError, TokenBucket
 from crosstune.links.search.registry import SearchTokens, adapters, search_url
 from crosstune.links.search.tokens import TIDAL_TOKEN_URL, AppleMusicToken, TidalToken
-from crosstune.links.search.types import SearchAuthError, SearchHit
+from crosstune.links.search.types import RegionNotServedError, SearchAuthError, SearchHit
 from crosstune.vocabulary import SEARCHABLE_PROVIDERS, Provider
 
 if TYPE_CHECKING:
@@ -251,47 +251,39 @@ async def test_tidal_with_no_tracks_skips_the_artist_lookup(
 
 
 @pytest.mark.parametrize("status", [400, 404])
-async def test_apple_music_retries_an_unserved_storefront_as_us(
+async def test_apple_music_reports_an_unserved_storefront(
     mock_http: MockHttp, apple_token: AppleMusicToken, status: int
 ) -> None:
     mock_http.add(f"{APPLE_SEARCH}xx/", httpx2.Response(status))
-    mock_http.add(f"{APPLE_SEARCH}us/", httpx2.Response(200, json=_fixture("apple_music")))
     async with mock_http.client() as client:
-        hits = (await apple_music.adapter(apple_token)("silver spear", "XX", client, TIMEOUT)).hits
+        with pytest.raises(RegionNotServedError):
+            await apple_music.adapter(apple_token)("silver spear", "XX", client, TIMEOUT)
 
-    assert len(hits) == 3
-    assert [c.url.path for c in _sent(mock_http, APPLE_SEARCH)] == [
-        "/v1/catalog/xx/search",
-        "/v1/catalog/us/search",
-    ]
+    assert len(_sent(mock_http, APPLE_SEARCH)) == 1
 
 
 @pytest.mark.parametrize("status", [400, 404])
-async def test_tidal_retries_an_unserved_country_as_us(
+async def test_tidal_reports_an_unserved_country(
     mock_http: MockHttp, tidal_token: TidalToken, status: int
 ) -> None:
-    search = f"{TIDAL_SEARCH}?filter%5Bquery%5D=silver+spear&countryCode="
-    mock_http.add(f"{search}XX", httpx2.Response(status))
-    mock_http.add(f"{search}US", httpx2.Response(200, json=_fixture("tidal")))
-    mock_http.add(TIDAL_TRACKS, httpx2.Response(200, json=_fixture("tidal_tracks")))
+    mock_http.add(
+        f"{TIDAL_SEARCH}?filter%5Bquery%5D=silver+spear&countryCode=XX", httpx2.Response(status)
+    )
     async with mock_http.client() as client:
-        hits = (
+        with pytest.raises(RegionNotServedError):
             await tidal.adapter(tidal_token, Backoff())("silver spear", "XX", client, TIMEOUT)
-        ).hits
 
-    assert hits[0].subtitle == "Kevin Burke"
-    assert [c.url.params["countryCode"] for c in _sent(mock_http, TIDAL_SEARCH)] == ["XX", "US"]
-    [lookup] = _sent(mock_http, TIDAL_TRACKS)
-    assert lookup.url.params["countryCode"] == "US"
+    assert len(_sent(mock_http, TIDAL_SEARCH)) == 1
+    assert _sent(mock_http, TIDAL_TRACKS) == []
 
 
 @pytest.mark.parametrize(
     ("burst", "searches_sent", "answered", "artists_found"),
     [
-        # Search, US fallback, and artist lookup: one token each.
-        (3, 2, True, True),
-        (2, 2, True, False),
-        (1, 1, False, False),
+        # Search and artist lookup: one token each.
+        (2, 1, True, True),
+        (1, 1, True, False),
+        (0, 0, False, False),
     ],
 )
 async def test_every_tidal_request_spends_a_token(
@@ -302,9 +294,7 @@ async def test_every_tidal_request_spends_a_token(
     answered: bool,  # noqa: FBT001 -- parametrized value
     artists_found: bool,  # noqa: FBT001 -- parametrized value
 ) -> None:
-    search = f"{TIDAL_SEARCH}?filter%5Bquery%5D=silver+spear&countryCode="
-    mock_http.add(f"{search}XX", httpx2.Response(404))
-    mock_http.add(f"{search}US", httpx2.Response(200, json=_fixture("tidal")))
+    mock_http.add(TIDAL_SEARCH, httpx2.Response(200, json=_fixture("tidal")))
     mock_http.add(TIDAL_TRACKS, httpx2.Response(200, json=_fixture("tidal_tracks")))
     budget = OutboundBudget(
         {Provider.TIDAL: TokenBucket(burst=burst, per_second=1.0, clock=lambda: 0.0)}
@@ -312,7 +302,7 @@ async def test_every_tidal_request_spends_a_token(
     search_tidal = tidal.adapter(tidal_token, Backoff(), budget)
     async with mock_http.client() as client:
         try:
-            answer = await search_tidal("silver spear", "XX", client, TIMEOUT)
+            answer = await search_tidal("silver spear", "US", client, TIMEOUT)
         except OverBudgetError:
             answer = None
 
@@ -326,7 +316,7 @@ async def test_every_tidal_request_spends_a_token(
         budget.spend(Provider.TIDAL)
 
 
-async def test_a_us_search_that_fails_is_not_retried(
+async def test_a_us_refusal_stays_an_http_error(
     mock_http: MockHttp, apple_token: AppleMusicToken
 ) -> None:
     mock_http.add(APPLE_SEARCH, httpx2.Response(404))
