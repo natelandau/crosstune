@@ -206,6 +206,15 @@ async def test_version_counts_never_block_web_or_without_a_floor(session: AsyncS
     assert not any(r.blocked for r in without_floor)
 
 
+async def test_version_counts_merge_equal_versions_in_any_form(session: AsyncSession) -> None:
+    await _add_client_version(session, "ios", "1.2")
+    await _add_client_version(session, "ios", "1.2.0")
+
+    rows = await stats.version_counts(session, NOW, 30, None)
+
+    assert [(r.platform, r.version, r.accounts) for r in rows] == [("ios", "1.2.0", 2)]
+
+
 async def test_version_counts_put_unparsable_versions_last(session: AsyncSession) -> None:
     await _add_client_version(session, "ios", "garbage")
     await _add_client_version(session, "ios", "1.2.0")

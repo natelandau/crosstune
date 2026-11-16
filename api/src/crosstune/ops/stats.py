@@ -17,7 +17,7 @@ from pydantic import ValidationError
 from sqlalchemy import case, func, or_, select
 
 from crosstune.billing.withdrawal import PENDING
-from crosstune.client_version import ClientVersion, is_blocked, parse_version
+from crosstune.client_version import ClientVersion, format_version, is_blocked, parse_version
 from crosstune.db.base import utc_now
 from crosstune.db.engine import make_engine, make_sessionmaker
 from crosstune.models import AccountClientVersion, Entitlement, Grant, User
@@ -139,9 +139,15 @@ async def version_counts(
         .where(AccountClientVersion.last_seen_at >= now - timedelta(days=active_days))
         .group_by(AccountClientVersion.platform, AccountClientVersion.version)
     )
+    # A stored version may read `1.2` or `1.2.0`; equal versions count as one row.
+    counts: dict[tuple[str, str], int] = {}
+    for platform, version, accounts in (await session.execute(stmt)).all():
+        parsed = parse_version(version)
+        key = (platform, format_version(parsed) if parsed else version)
+        counts[key] = counts.get(key, 0) + accounts
     rows: list[tuple[str, str, int, Version | None]] = [
         (platform, version, accounts, parse_version(version))
-        for platform, version, accounts in (await session.execute(stmt)).all()
+        for (platform, version), accounts in counts.items()
     ]
     # Numeric order needs the parsed tuple; unparsable text falls back to a lexical tie-break.
     rows.sort(key=lambda r: (r[0], r[3] is None, tuple(-n for n in r[3] or ()), r[1]))
@@ -151,7 +157,7 @@ async def version_counts(
             version,
             accounts,
             blocked=parsed is not None
-            and is_blocked(ClientVersion(platform, version, parsed), apple_min),
+            and is_blocked(ClientVersion(platform=platform, version=parsed), apple_min),
         )
         for platform, version, accounts, parsed in rows
     ]
@@ -159,7 +165,7 @@ async def version_counts(
 
 def format_versions(rows: list[VersionRow], active_days: int, apple_min: Version | None) -> str:
     """The floor, the rows as a fixed-width table, then one total line per platform."""
-    floor = ".".join(map(str, apple_min)) if apple_min else "none"
+    floor = format_version(apple_min) if apple_min else "none"
     header = ("platform", "version", f"active {active_days}d", "blocked")
     body = [(r.platform, r.version, str(r.accounts), "yes" if r.blocked else "") for r in rows]
     totals: dict[str, int] = {}

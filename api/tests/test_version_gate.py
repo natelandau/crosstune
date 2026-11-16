@@ -187,7 +187,7 @@ async def test_failed_route_still_records(
         headers=auth_headers("u1") | _client("macos", "2.0"),
     )
     assert r.status_code == 404
-    assert await _client_versions(verify_session) == [("macos", "2.0")]
+    assert await _client_versions(verify_session) == [("macos", "2.0.0")]
 
 
 async def test_webhooks_and_healthz_are_never_gated(client) -> None:
