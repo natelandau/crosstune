@@ -208,6 +208,8 @@ class ClerkBackendUsers:
 def _clerk_user(user: Any) -> ClerkUser:
     """Build a `ClerkUser` from a Clerk user object, preferring the primary address.
 
+    Only a verified address names the user, since the address can claim a pending comp.
+
     Raises:
         ClerkUnavailableError: The object has no string id.
     """
@@ -217,7 +219,10 @@ def _clerk_user(user: Any) -> ClerkUser:
     entries = [
         entry
         for entry in user.get("email_addresses") or []
-        if isinstance(entry, dict) and isinstance(entry.get("email_address"), str)
+        if isinstance(entry, dict)
+        and isinstance(entry.get("email_address"), str)
+        and isinstance(entry.get("verification"), dict)
+        and entry["verification"].get("status") == "verified"
     ]
     primary_id = user.get("primary_email_address_id")
     chosen = next((e for e in entries if e.get("id") == primary_id), None)

@@ -18,13 +18,17 @@ pytestmark = pytest.mark.anyio
 EMAIL = "a+clerk_test@example.com"
 
 
+VERIFIED = {"status": "verified"}
+UNVERIFIED = {"status": "unverified"}
+
+
 def _user(user_id: str = "user_1", email: str = EMAIL) -> dict[str, Any]:
     return {
         "id": user_id,
         "primary_email_address_id": "idn_2",
         "email_addresses": [
-            {"id": "idn_1", "email_address": "other@example.com"},
-            {"id": "idn_2", "email_address": email},
+            {"id": "idn_1", "email_address": "other@example.com", "verification": VERIFIED},
+            {"id": "idn_2", "email_address": email, "verification": VERIFIED},
         ],
     }
 
@@ -79,12 +83,29 @@ async def test_find_user_by_id_returns_user() -> None:
     assert [(c.method, c.url.path) for c in calls] == [("GET", "/v1/users/user_1")]
 
 
-async def test_find_user_by_id_without_addresses_has_no_email() -> None:
-    found, _ = await _find(
-        "user_1", lambda _r: httpx2.Response(200, json={"id": "user_1", "email_addresses": []})
-    )
+@pytest.mark.parametrize(
+    ("addresses", "expected"),
+    [
+        ([], None),
+        ([{"id": "idn_2", "email_address": EMAIL, "verification": UNVERIFIED}], None),
+        ([{"id": "idn_2", "email_address": EMAIL}], None),
+        (
+            [
+                {"id": "idn_2", "email_address": EMAIL, "verification": UNVERIFIED},
+                {"id": "idn_3", "email_address": "b@example.com", "verification": VERIFIED},
+            ],
+            "b@example.com",
+        ),
+    ],
+    ids=["none", "unverified", "no-verification", "unverified-primary"],
+)
+async def test_find_user_by_id_names_only_a_verified_email(
+    addresses: list[dict[str, Any]], expected: str | None
+) -> None:
+    user = {"id": "user_1", "primary_email_address_id": "idn_2", "email_addresses": addresses}
+    found, _ = await _find("user_1", lambda _r: httpx2.Response(200, json=user))
 
-    assert found == ClerkUser("user_1", None)
+    assert found == ClerkUser("user_1", expected)
 
 
 async def test_find_user_by_id_404_returns_none() -> None:
