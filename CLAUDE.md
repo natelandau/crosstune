@@ -146,6 +146,9 @@ code is the source of truth. A doc holds only what the code cannot say.
 - A commit to internal tooling, such as the screenshot captures, the
   marketing shell, or a recipe, is `build`, never `feat`. The changelog
   lists only what users see.
+- A commit subject or pull request title names the fix or the feature,
+  never the mechanism: "use one database connection per billing lock",
+  not "run billing lock work on the lock's own connection".
 
 ## Tests
 
