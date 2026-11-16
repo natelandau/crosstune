@@ -16,7 +16,7 @@ from crosstune.models import AccountClientVersion
 
 logger = logging.getLogger(__name__)
 
-# How stale a recorded version may grow before it is written again, so most requests write nothing.
+# How long a recorded account and platform wait before the next write, so most requests write nothing.
 RECORD_GRANULARITY = timedelta(hours=1)
 _MAX_REMEMBERED = 10_000
 # Where `current_user` leaves the account it resolved, for `VersionGate` to record.
@@ -24,25 +24,25 @@ CLIENT_VERSION_USER_STATE_KEY = "client_version_user_id"
 
 
 class RecordedClientVersions:
-    """What this process last recorded for each account and platform.
+    """When this process last recorded each account and platform.
 
     It lives in process memory, so a restart or another replica merely writes once more;
     the row's own guard keeps that write harmless.
     """
 
     def __init__(self) -> None:
-        self._seen: OrderedDict[tuple[uuid.UUID, str], tuple[str, datetime]] = OrderedDict()
+        self._seen: OrderedDict[tuple[uuid.UUID, str], datetime] = OrderedDict()
         self._accounts: OrderedDict[str, uuid.UUID] = OrderedDict()
 
-    def due(self, user_id: uuid.UUID, client: ClientVersion, now: datetime) -> bool:
-        """Whether the pair is unknown, changed version, or was last seen over an hour ago."""
-        last = self._seen.get((user_id, client.platform))
-        return last is None or last[0] != client.text or now - last[1] > RECORD_GRANULARITY
+    def due(self, user_id: uuid.UUID, platform: str, now: datetime) -> bool:
+        """Whether the pair is unknown or was last recorded over an hour ago."""
+        last = self._seen.get((user_id, platform))
+        return last is None or now - last > RECORD_GRANULARITY
 
-    def seen(self, user_id: uuid.UUID, client: ClientVersion, now: datetime) -> None:
+    def seen(self, user_id: uuid.UUID, platform: str, now: datetime) -> None:
         """Remember the pair as recorded, evicting the oldest beyond the cap."""
-        key = (user_id, client.platform)
-        self._seen[key] = (client.text, now)
+        key = (user_id, platform)
+        self._seen[key] = now
         self._seen.move_to_end(key)
         while len(self._seen) > _MAX_REMEMBERED:
             self._seen.popitem(last=False)
@@ -79,10 +79,13 @@ async def record_client_version(
         client: The calling client.
         now: The time to record.
     """
-    if not recorded.due(user_id, client, now):
+    if not recorded.due(user_id, client.platform, now):
         return
     insert_stmt = insert(AccountClientVersion).values(
-        user_id=user_id, platform=client.platform, version=client.text, last_seen_at=now
+        user_id=user_id,
+        platform=client.platform,
+        version=client.text,
+        last_seen_at=now,
     )
     upsert = insert_stmt.on_conflict_do_update(
         index_elements=["user_id", "platform"],
@@ -90,11 +93,8 @@ async def record_client_version(
             "version": insert_stmt.excluded.version,
             "last_seen_at": insert_stmt.excluded.last_seen_at,
         },
-        where=(AccountClientVersion.version != insert_stmt.excluded.version)
-        | (
-            AccountClientVersion.last_seen_at
-            < insert_stmt.excluded.last_seen_at - RECORD_GRANULARITY
-        ),
+        where=AccountClientVersion.last_seen_at
+        < insert_stmt.excluded.last_seen_at - RECORD_GRANULARITY,
     )
     try:
         async with sessionmaker() as session:
@@ -113,4 +113,4 @@ async def record_client_version(
     except SQLAlchemyError:
         logger.warning("could not record the client version", exc_info=True)
         return
-    recorded.seen(user_id, client, now)
+    recorded.seen(user_id, client.platform, now)

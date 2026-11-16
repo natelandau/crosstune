@@ -21,11 +21,15 @@ _VERSION = re.compile(r"[0-9]{1,9}(\.[0-9]{1,9}){0,2}")
 @reportable
 @dataclass(frozen=True)
 class ClientVersion:
-    """A client's platform and version, as it reported them."""
+    """A client's platform and version."""
 
     platform: str
-    text: str
     version: Version
+
+    @property
+    def text(self) -> str:
+        """The version as `major.minor.patch`, so equal versions always record the same text."""
+        return format_version(self.version)
 
 
 def parse_version(text: str | None) -> Version | None:
@@ -43,6 +47,11 @@ def parse_version(text: str | None) -> Version | None:
     return (major, minor, patch)
 
 
+def format_version(version: Version) -> str:
+    """Write a version as `major.minor.patch`, the one text form every equal version shares."""
+    return ".".join(map(str, version))
+
+
 def client_version(headers: Mapping[str, str]) -> ClientVersion | None:
     """Read the calling client from the request headers.
 
@@ -57,7 +66,7 @@ def client_version(headers: Mapping[str, str]) -> ClientVersion | None:
     version = parse_version(text)
     if platform not in KNOWN_PLATFORMS or version is None:
         return None
-    return ClientVersion(platform, text, version)
+    return ClientVersion(platform=platform, version=version)
 
 
 def is_blocked(client: ClientVersion | None, apple_min: Version | None) -> bool:

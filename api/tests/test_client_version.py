@@ -28,14 +28,14 @@ def test_client_version_needs_a_known_platform() -> None:
     assert client_version({"X-Client-Version": "1.2.0", "X-Client-Platform": "android"}) is None
     assert client_version({"X-Client-Version": "bad", "X-Client-Platform": "ios"}) is None
     assert client_version({"X-Client-Version": "1.2.0", "X-Client-Platform": "ios"}) == (
-        ClientVersion("ios", "1.2.0", (1, 2, 0))
+        ClientVersion(platform="ios", version=(1, 2, 0))
     )
 
 
 def test_is_blocked_only_below_the_apple_floor() -> None:
     floor = (1, 2, 4)
-    assert is_blocked(ClientVersion("macos", "1.2.3", (1, 2, 3)), floor)
-    assert not is_blocked(ClientVersion("ios", "1.2.4", (1, 2, 4)), floor)
-    assert not is_blocked(ClientVersion("web", "0.1.0", (0, 1, 0)), floor)
-    assert not is_blocked(ClientVersion("ios", "0.1.0", (0, 1, 0)), None)
+    assert is_blocked(ClientVersion(platform="macos", version=(1, 2, 3)), floor)
+    assert not is_blocked(ClientVersion(platform="ios", version=(1, 2, 4)), floor)
+    assert not is_blocked(ClientVersion(platform="web", version=(0, 1, 0)), floor)
+    assert not is_blocked(ClientVersion(platform="ios", version=(0, 1, 0)), None)
     assert not is_blocked(None, floor)
