@@ -87,9 +87,10 @@ async def upload_finished(
     settings = request.app.state.settings
     key = scan_key(user.id, scan_id)
     scan = await scan_of(session, user.id, scan_id)
-    # The bucket round trip happens before the lock so it never holds up the caller's other writes.
-    info = await head_slot(store, await slot_for_scan(session, scan.id))
     with account_slot(request, user.id):
+        # The bucket round trip happens before the lock so it never holds up the caller's
+        # other writes, and inside the slot so a busy account is refused before it.
+        info = await head_slot(store, await slot_for_scan(session, scan.id))
         await lock_user(session, user.id, wait_seconds=settings.request_lock_timeout_seconds)
         # Another request may have confirmed or deleted this scan, or deleted its tune, meanwhile.
         await reread_live(session, scan)
