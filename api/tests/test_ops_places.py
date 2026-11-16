@@ -263,3 +263,17 @@ def test_per_second_must_be_a_finite_rate_within_the_cap(
     else:
         with pytest.raises(SystemExit):
             parse(["rename-automatic", "--per-second", rate])
+
+
+async def test_rename_automatic_charges_each_retry_of_a_busy_key(engine, verify_session) -> None:
+    user = await make_user(verify_session)
+    busy = await _named_recording(verify_session, user, place_lat=LAT)
+    await verify_session.commit()
+    maps = FakeMaps({f"{LAT}": MapsBusyError(30)})
+
+    counts = await _run(engine, maps, per_second=1000, limits=DailyLimits(per_account=1, team=2))
+
+    # The budget covers two calls, so the third try is never sent.
+    assert len(maps.calls) == 2
+    assert (counts.failed, counts.left) == (0, 1)
+    assert (await _fresh(verify_session, busy)).place_name == "Galax, VA"

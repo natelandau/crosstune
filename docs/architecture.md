@@ -318,9 +318,9 @@ each question, and the invariants that both clients and the API hold.
   in the app. A service that gains or loses an API changes one adapter
   and no client.
 - All users share one credential per service. A 429 holds that service
-  until its `Retry-After`.
-- Every catalog request to a search service spends that service's
-  process-wide budget first, retries and second lookups included. A
+  until its `Retry-After`. A refused credential holds it too.
+- Every request to a search service spends that service's process-wide
+  budget first, retries, second lookups, and token requests included. A
   search that the budget cannot cover reports the service unavailable
   and does not call it.
 - The per-account search limit counts outbound requests, not searches,

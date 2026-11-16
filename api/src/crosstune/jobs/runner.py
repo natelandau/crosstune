@@ -80,6 +80,7 @@ STRAY_REVISION_AGE = timedelta(seconds=LOCK_SECONDS + 300)
 STOP_TIMEOUT_SECONDS = 10.0
 # How long to wait after a pass or a due-time read fails, unless a wake comes first.
 ERROR_RETRY_SECONDS = 60.0
+MAPS_USAGE_PRUNE_INTERVAL = timedelta(days=1)
 
 _BACKGROUND_KINDS = [kind.value for kind, handler in HANDLERS.items() if handler.background]
 
@@ -161,6 +162,7 @@ class JobRunner:
         self._next_orphan_sweep = (
             utc_now() if orphan_sweep_seconds is not None else datetime.max.replace(tzinfo=UTC)
         )
+        self._next_maps_usage_prune = utc_now()
         self._stopping = asyncio.Event()
         self._wake = asyncio.Event()
         self.task: asyncio.Task[None] | None = None
@@ -330,12 +332,15 @@ class JobRunner:
         done += await release_abandoned_slots(self._sessionmaker, self._store)
         done += await self._start_inactivity()
         done += await self._start_billing_notices()
+        # Not counted as work, and not a due time of its own: it rides on passes that run
+        # anyway, so it never wakes a sleeping host.
+        if (now := utc_now()) >= self._next_maps_usage_prune:
+            self._next_maps_usage_prune = now + MAPS_USAGE_PRUNE_INTERVAL
+            async with self._sessionmaker() as session, session.begin():
+                await prune_maps_usage(session, now=now)
         # Last, so a bucket listing that fails cannot starve the transcodes and purges.
         if self._orphan_sweep_seconds is not None and utc_now() >= self._next_orphan_sweep:
             self._next_orphan_sweep = utc_now() + timedelta(seconds=self._orphan_sweep_seconds)
-            # Before the sweep, so a bucket listing that fails cannot keep old counts forever.
-            async with self._sessionmaker() as session, session.begin():
-                await prune_maps_usage(session, now=utc_now())
             done += await self.sweep_orphans()
         return done
 

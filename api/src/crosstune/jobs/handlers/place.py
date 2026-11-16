@@ -40,6 +40,9 @@ log = logging.getLogger(__name__)
 # job has waited so far, so the waits double, up to the cap.
 NAMING_BACKOFF_CAP = timedelta(hours=6)
 NAMING_GIVE_UP_AFTER = timedelta(days=7)
+# Every lookup is charged before it is sent, and an outage fails them all, so a failed lookup
+# holds every account's backlog: an outage spends a few calls an hour, not one per job.
+OUTAGE_HOLD = timedelta(minutes=5)
 
 
 def _nothing_to_name(recording: Recording) -> bool:
@@ -56,8 +59,9 @@ async def run(ctx: JobContext, job: Job) -> None:
 
     The lookup runs with no transaction open and no lock held, so the user's pushes
     never wait on Apple Maps. An Apple Maps failure, a timeout, or a server with no Maps
-    key spends no attempt and holds the job back until NAMING_GIVE_UP_AFTER. A spent daily
-    Maps budget holds it until the next UTC day, also without spending an attempt.
+    key spends no attempt and holds the job back until NAMING_GIVE_UP_AFTER, and a failed
+    lookup holds every other place job for OUTAGE_HOLD. A spent daily Maps budget holds it
+    until the next UTC day, also without spending an attempt.
     """
     async with ctx.sessionmaker() as session:
         async with session.begin():
@@ -190,8 +194,16 @@ async def _lookup_failed(session: AsyncSession, job: Job, exc: Exception) -> Non
     log.warning(
         "place lookup failed", extra={"recording": str(job.recording_id), "error": str(exc)}
     )
+    now = utc_now()
+    # The failed job waits out the hold it puts on the rest, and a rate-limited lookup
+    # waits at least as long as Apple Maps asked.
+    wait = OUTAGE_HOLD
+    if isinstance(exc, MapsBusyError):
+        wait = max(wait, timedelta(seconds=exc.retry_after_seconds))
+    until = now + wait
     if await _wait_for_maps(session, stored, str(exc) or type(exc).__name__):
-        _wait_out_busy(stored, exc)
+        stored.locked_until = max(stored.locked_until or until, until)
+    await hold_place_jobs(session, now=now, until=until, user_id=None)
 
 
 async def _wait_for_maps(session: AsyncSession, job: Job, reason: str) -> bool:
@@ -210,12 +222,3 @@ async def _wait_for_maps(session: AsyncSession, job: Job, reason: str) -> bool:
     delay = min(max(waited, timedelta(seconds=RETRY_BACKOFF_SECONDS)), NAMING_BACKOFF_CAP)
     job.locked_until = utc_now() + delay
     return True
-
-
-def _wait_out_busy(job: Job, exc: Exception) -> None:
-    """Hold a rate-limited job back at least as long as Apple Maps asked."""
-    if not isinstance(exc, MapsBusyError):
-        return
-    asked = utc_now() + timedelta(seconds=exc.retry_after_seconds)
-    if job.locked_until is None or job.locked_until < asked:
-        job.locked_until = asked

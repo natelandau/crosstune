@@ -278,18 +278,20 @@ async def test_tidal_reports_an_unserved_country(
 
 
 @pytest.mark.parametrize(
-    ("burst", "searches_sent", "answered", "artists_found"),
+    ("burst", "tokens_sent", "searches_sent", "answered", "artists_found"),
     [
-        # Search and artist lookup: one token each.
-        (2, 1, True, True),
-        (1, 1, True, False),
-        (0, 0, False, False),
+        # Access token, search, and artist lookup: one budget token each.
+        (3, 1, 1, True, True),
+        (2, 1, 1, True, False),
+        (1, 1, 0, False, False),
+        (0, 0, 0, False, False),
     ],
 )
 async def test_every_tidal_request_spends_a_token(
     mock_http: MockHttp,
     tidal_token: TidalToken,
     burst: int,
+    tokens_sent: int,
     searches_sent: int,
     answered: bool,  # noqa: FBT001 -- parametrized value
     artists_found: bool,  # noqa: FBT001 -- parametrized value
@@ -310,6 +312,7 @@ async def test_every_tidal_request_spends_a_token(
     assert (answer is not None) is answered
     assert answer is None or (answer.hits[0].subtitle is not None) is artists_found
 
+    assert len(_sent(mock_http, TIDAL_TOKEN_URL)) == tokens_sent
     assert len(_sent(mock_http, TIDAL_SEARCH)) == searches_sent
     assert len(_sent(mock_http, TIDAL_TRACKS)) == int(artists_found)
     with pytest.raises(OverBudgetError):
@@ -441,17 +444,19 @@ async def test_tidal_rejected_credentials_raise_search_auth_error(mock_http: Moc
             )
 
 
-async def test_auth_failure_drops_the_cached_token(
-    mock_http: MockHttp, tidal_token: TidalToken
+# A 403 refuses the request, not the token, so only a 401 sends for a new one.
+@pytest.mark.parametrize(("status", "token_requests"), [(401, 2), (403, 1)])
+async def test_an_expired_token_is_dropped(
+    mock_http: MockHttp, tidal_token: TidalToken, status: int, token_requests: int
 ) -> None:
-    mock_http.add(TIDAL_SEARCH, httpx2.Response(401))
+    mock_http.add(TIDAL_SEARCH, httpx2.Response(status))
     async with mock_http.client() as client:
         with pytest.raises(SearchAuthError):
             await tidal.adapter(tidal_token, Backoff())("silver spear", "US", client, TIMEOUT)
         await tidal_token.get(client, TIMEOUT)
 
     token_calls = [call for call in mock_http.calls if str(call.url) == TIDAL_TOKEN_URL]
-    assert len(token_calls) == 2
+    assert len(token_calls) == token_requests
 
 
 async def test_server_error_is_not_an_auth_error(

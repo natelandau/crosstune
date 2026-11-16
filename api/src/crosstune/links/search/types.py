@@ -56,7 +56,7 @@ class _Token(Protocol):
 
 @contextmanager
 def auth_errors(token: _Token) -> Generator[None]:
-    """Turn a 401 or 403 into SearchAuthError and drop the token the service refused.
+    """Turn a 401 or 403 into SearchAuthError, and drop the token on a 401.
 
     Args:
         token: The cached credential the request carried.
@@ -70,7 +70,9 @@ def auth_errors(token: _Token) -> Generator[None]:
         status = error.response.status_code
         if status not in _AUTH_STATUSES:
             raise
-        token.invalidate()
+        # A 403 refuses the request, not the token (RFC 6750), so a new token would not help.
+        if status == httpx2.codes.UNAUTHORIZED:
+            token.invalidate()
         msg = f"{error.request.url.host} refused the credentials with {status}"
         raise SearchAuthError(msg) from error
 

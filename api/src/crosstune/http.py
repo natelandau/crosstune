@@ -45,8 +45,8 @@ def is_public_address(address: str) -> bool:
         address: An IPv4 or IPv6 address in its usual text form.
 
     Returns:
-        False for loopback, private, link-local, carrier-grade NAT, multicast, reserved,
-        and unparsable addresses, and for any IPv6 form that carries one of those inside it.
+        False for loopback, private, link-local, site-local, carrier-grade NAT, multicast,
+        reserved, and unparsable addresses, and for any IPv6 form that carries one of those inside it.
     """
     try:
         ip = ipaddress.ip_address(address)
@@ -55,7 +55,8 @@ def is_public_address(address: str) -> bool:
     if ip.is_multicast:
         return False
     if isinstance(ip, ipaddress.IPv6Address):
-        if ip in NAT64_LOCAL_USE:
+        # `is_global` still counts the deprecated site-local range (RFC 3879) as public.
+        if ip in NAT64_LOCAL_USE or ip.is_site_local:
             return False
         if any(ip in network for network in EMBEDS_IPV4):
             return is_public_address(str(ipaddress.IPv4Address(int(ip) & 0xFFFFFFFF)))

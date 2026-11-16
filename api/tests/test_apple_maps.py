@@ -434,8 +434,11 @@ async def test_malformed_token_body_raises_maps_error(
             await maps.search(client, "galax", country="US", timeout=5)
 
 
-async def test_non_json_lookup_body_raises_maps_error(maps: AppleMaps, http: MockHttp) -> None:
-    http.add(SEARCH_URL, httpx2.Response(200, text="<html>"))
+@pytest.mark.parametrize("text", ["<html>", "[" * 100_000], ids=["not-json", "nested-too-deep"])
+async def test_unreadable_lookup_body_raises_maps_error(
+    maps: AppleMaps, http: MockHttp, text: str
+) -> None:
+    http.add(SEARCH_URL, httpx2.Response(200, text=text))
     async with http.client() as client:
         with pytest.raises(MapsError):
             await maps.search(client, "galax", country="US", timeout=5)

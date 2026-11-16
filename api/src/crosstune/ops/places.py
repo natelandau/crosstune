@@ -112,6 +112,10 @@ async def _candidates(sessionmaker: async_sessionmaker[AsyncSession]) -> list[_C
         ]
 
 
+class _BudgetSpentError(Exception):
+    """The team's daily Maps budget refused the next call."""
+
+
 async def _lookup(
     maps: _Namer,
     client: httpx2.AsyncClient,
@@ -119,9 +123,15 @@ async def _lookup(
     *,
     timeout: float,  # noqa: ASYNC109
     sleep: Callable[[float], Awaitable[None]],
+    spend: Callable[[], Awaitable[None]],
 ) -> str | None:
-    """Name one recording, waiting out a busy key; raises MapsError when Maps stays unavailable."""
+    """Name one recording, waiting out a busy key; raises MapsError when Maps stays unavailable.
+
+    Each call, a retry after a 429 included, spends the budget first: Apple does not say
+    that a refused call is free of its quota.
+    """
     for attempt in range(_BUSY_ATTEMPTS):
+        await spend()
         try:
             return await maps.reverse_name(
                 client, item.lat, item.lon, accuracy_m=item.accuracy_m, timeout=timeout
@@ -171,15 +181,16 @@ async def rename_automatic(  # noqa: PLR0913 -- every option after the client is
     """Re-name device-fix recordings at `per_second` lookups a second, one recording at a time.
 
     A Maps outage or rate limit backs off and moves on to the next recording, so one bad stretch
-    never aborts the run. Each lookup is charged to the team's daily Maps budget, which every
-    user's lookups share, and the run stops when `limits` refuses one.
+    never aborts the run. Each call to Maps, retries included, is charged to the team's daily
+    Maps budget, which every user's lookups share, and the run stops when `limits` refuses one.
 
     Returns:
         RenameCounts: How many recordings were renamed, left alone, skipped, and failed.
     """
     counts = RenameCounts()
     candidates = await _candidates(sessionmaker)
-    for index, item in enumerate(candidates):
+
+    async def spend() -> None:
         async with sessionmaker() as session, session.begin():
             spent = await charge(
                 session,
@@ -189,10 +200,14 @@ async def rename_automatic(  # noqa: PLR0913 -- every option after the client is
                 now=utc_now(),
             )
         if spent is not None:
+            raise _BudgetSpentError
+
+    for index, item in enumerate(candidates):
+        try:
+            name = await _lookup(maps, client, item, timeout=timeout, sleep=sleep, spend=spend)
+        except _BudgetSpentError:
             counts.left = len(candidates) - index
             break
-        try:
-            name = await _lookup(maps, client, item, timeout=timeout, sleep=sleep)
         except MapsError:
             counts.failed += 1
         else:
