@@ -181,7 +181,7 @@ repos:
         language: system
         pass_filenames: false
         stages: [pre-push]
-        files: ^(site/|brand/|analytics/tracking-plan\.json$|scripts/(gate-cache\.sh|settings\.just)$)
+        files: ^(site/|brand/|analytics/tracking-plan\.json$|web/src/features/plan/planCopy\.ts$|scripts/(gate-cache\.sh|settings\.just)$)
 
       - id: apple-swift-format
         name: swift format
@@ -228,4 +228,4 @@ repos:
         language: system
         pass_filenames: false
         stages: [pre-push]
-        files: ^(apple/(?!scripts/)|apple/scripts/(scrub-env\.sh|xcodebuild\.sh|source_packages\.py)$|fixtures/|api/openapi\.json$|analytics/tracking-plan\.json$|scripts/(gate-cache\.sh|settings\.just)$)
+        files: ^(apple/(?!scripts/)|apple/scripts/(scrub-env\.sh|xcodebuild\.sh|source_packages\.py)$|fixtures/|api/openapi\.json$|analytics/tracking-plan\.json$|web/src/(.*/)?[^/]*Copy\.ts$|web/src/sync/labels\.ts$|scripts/(gate-cache\.sh|settings\.just)$)

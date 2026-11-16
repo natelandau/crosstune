@@ -231,8 +231,8 @@ passes, in every worktree. Off when `CI` is set.
 - `Repo` runs the repo-wide hooks (`just lint-repo`) on every PR, with no
   filter.
 - Not required checks:
-  - `Apple`: runs only when `apple/`, the contract, or the tracking plan
-    changes.
+  - `Apple`: runs only when `apple/`, the contract, the tracking plan, or
+    the web copy files its UI tests compare against change.
   - `E2E`: a Clerk outage never blocks an unrelated merge.
 - A workflow from a fork runs only after you approve it on the PR.
 - A job that holds deploy or signing secrets, and every action it calls:
