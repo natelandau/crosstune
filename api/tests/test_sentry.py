@@ -3,22 +3,29 @@
 import json
 import sys
 
+import httpx2
 import pytest
 import sentry_sdk
 from pydantic import BaseModel, ValidationError
 from sentry_sdk.envelope import Envelope
 from sentry_sdk.transport import Transport
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from crosstune.billing import withdrawal
+from crosstune.billing.emails import withdrawal_email
 from crosstune.config import Settings
 from crosstune.db.engine import make_engine
-from crosstune.error_reports import before_send
+from crosstune.error_reports import before_send, redacted_repr
 from crosstune.jobs.media import MediaError, Probe, run_media_tool
+from crosstune.links.resolve import ResolvedLink
 from crosstune.links.router import SearchResult
 from crosstune.main import create_app
+from crosstune.places.budget import DailyLimits
 from crosstune.places.maps import PlaceHit
 from crosstune.sync.rules import RecordingRules
-from tests.helpers import T1, change, push, recording, uid
+from tests.fakes import FakeMailer
+from tests.helpers import OEMBED, T1, change, push, recording, uid
 
 DSN = "https://key@o1.ingest.sentry.io/1"
 # Kept out of the test body, whose source lines a report carries as context.
@@ -225,11 +232,11 @@ _CONTENT = {
 _CONTENT_TEXT = ("Joe's kitchen", "Kevin and Ed", "Galax", "36.66", "80.92")
 
 
-async def _push_failing(client, auth_headers) -> None:
+async def _push_failing(client, auth_headers, *changes: dict) -> None:
     with pytest.raises(RuntimeError):
         await client.post(
             "/v1/sync/push",
-            json={"changes": [recording(uid(), **_CONTENT)]},
+            json={"changes": list(changes) or [recording(uid(), **_CONTENT)]},
             headers=auth_headers("user_a"),
         )
     sentry_sdk.flush()
@@ -267,6 +274,11 @@ def _frames(transport: _Captured) -> list[dict]:
     ]
 
 
+def _frame(transport: _Captured, function: str) -> dict:
+    [frame] = [f for f in _frames(transport) if f["function"] == function]
+    return frame
+
+
 @pytest.mark.anyio
 async def test_an_unhandled_push_error_keeps_recording_content_out_of_sentry(
     live_sentry, client, auth_headers, mocker
@@ -288,8 +300,7 @@ async def test_an_error_in_a_push_write_keeps_recording_content_out_of_sentry(
     for text in _CONTENT_TEXT:
         assert text not in sent
     # The API's own frames keep their locals, redacted where they hold content.
-    [write] = [frame for frame in _frames(live_sentry) if frame["function"] == "_write"]
-    assert write["vars"]["change"] == "<Change redacted>"
+    assert _frame(live_sentry, "_write")["vars"]["change"] == "<Change redacted>"
 
 
 def test_database_errors_leave_out_the_statement_values() -> None:
@@ -308,8 +319,7 @@ def test_sentry_keeps_harmless_locals_of_the_apis_own_frames(live_sentry) -> Non
         sentry_sdk.capture_exception()
     sentry_sdk.flush()
 
-    [frame] = [f for f in _frames(live_sentry) if f["function"] == "fail"]
-    assert frame["vars"]["attempts"] == "3"
+    assert _frame(live_sentry, "fail")["vars"]["attempts"] == "3"
 
 
 @pytest.mark.anyio
@@ -402,8 +412,7 @@ async def test_an_error_while_settling_a_pushed_place_keeps_coordinates_out_of_s
 ) -> None:
     mocker.patch("crosstune.sync.rules.matching_place_id", side_effect=RuntimeError("boom"))
     await _push_failing(client, auth_headers)
-    [settling] = [f for f in _frames(live_sentry) if f["function"] == "_settle_place"]
-    assert settling["vars"]
+    assert _frame(live_sentry, "_settle_place")["vars"]
     sent = _sent_event(live_sentry)
     for text in _CONTENT_TEXT:
         assert text not in sent
@@ -425,8 +434,69 @@ async def test_an_error_while_reaching_back_keeps_place_coordinates_out_of_sentr
             headers=headers,
         )
     sentry_sdk.flush()
-    [linking] = [f for f in _frames(live_sentry) if f["function"] == "link_earlier_recordings"]
-    assert linking["vars"]
+    assert _frame(live_sentry, "link_earlier_recordings")["vars"]
     sent = _sent_event(live_sentry)
     for text in _CONTENT_TEXT:
         assert text not in sent
+
+
+@pytest.mark.anyio
+async def test_an_error_in_a_push_write_keeps_pasted_links_out_of_sentry(
+    live_sentry, client, auth_headers, mock_http, mocker
+) -> None:
+    mock_http.add("https://www.youtube.com/oembed", httpx2.Response(200, json=OEMBED))
+    mocker.patch.object(AsyncSession, "begin_nested", side_effect=RuntimeError("boom"))
+    tune = uid()
+    await _push_failing(
+        client,
+        auth_headers,
+        change("tunes", tune, T1, title="X"),
+        change(
+            "recording_links",
+            uid(),
+            T1,
+            tune_id=tune,
+            url="https://youtu.be/dQw4w9WgXcQ",
+            provider="youtube",
+        ),
+    )
+    assert _frame(live_sentry, "apply_push")["vars"]
+    sent = _sent_event(live_sentry)
+    for text in ("dQw4w9WgXcQ", OEMBED["title"]):
+        assert text not in sent
+
+
+@pytest.mark.anyio
+async def test_an_unrecorded_withdrawal_email_keeps_the_address_and_body_out_of_sentry(
+    live_sentry, mocker
+) -> None:
+    address = "kyle.creed@example.com"
+    settings = Settings()
+    message = withdrawal_email(to=address, web_origin=settings.web_origin)
+    mocker.patch.object(withdrawal, "notice_recorded", mocker.AsyncMock(return_value=False))
+    mocker.patch.object(
+        withdrawal,
+        "record_notice",
+        mocker.AsyncMock(
+            side_effect=OperationalError("INSERT", params=None, orig=Exception("down"))
+        ),
+    )
+    await withdrawal.send_confirmation(mocker.Mock(), FakeMailer(), address, "sub_1", settings)
+    sentry_sdk.flush()
+    assert _frame(live_sentry, "send_confirmation")["vars"]
+    sent = _sent_event(live_sentry)
+    for text in ("kyle.creed", message.subject, *filter(None, message.text.splitlines())):
+        assert text not in sent
+
+
+@pytest.mark.parametrize(
+    ("value", "redacted"),
+    [
+        (ResolvedLink("https://youtu.be/x", "youtube", "x", "Angeline", None), True),
+        (DailyLimits(per_account=1, team=2), False),
+    ],
+)
+def test_the_apis_dataclasses_are_redacted_unless_marked_reportable(
+    value: object, *, redacted: bool
+) -> None:
+    assert (redacted_repr(value) is not None) is redacted

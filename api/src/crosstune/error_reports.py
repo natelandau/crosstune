@@ -6,6 +6,7 @@ user's content, search text, coordinates, or a secret is dropped, scrubbed, or r
 
 from __future__ import annotations
 
+from dataclasses import is_dataclass
 from typing import TYPE_CHECKING, Any, get_args
 
 from pydantic import BaseModel
@@ -13,9 +14,8 @@ from sentry_sdk.scrubber import DEFAULT_DENYLIST
 from sentry_sdk.utils import iter_event_frames
 from sqlalchemy.engine import Row
 
-from crosstune.jobs.media import Probe
 from crosstune.logging import redact_error_values
-from crosstune.places.maps import PlaceHit
+from crosstune.reportable import REPORTABLE_ATTRIBUTE
 from crosstune.schemas import rows
 
 if TYPE_CHECKING:
@@ -94,20 +94,41 @@ SCRUBBED_KEYS = sorted(
         # A pushed row's fields, as push validates and writes them.
         "data",
         "values",
+        # A pasted link: the URLs a push's resolved links are keyed by, and the provider's
+        # ref and artwork address that resolving it finds.
+        "resolved",
+        "resolved_links",
+        "urls",
+        "ref",
+        "artwork",
         # Outbound request breadcrumbs keep their query here.
         "http.query",
         "http.fragment",
     }
 )
 # Request and response bodies, synced rows, and settings are all pydantic models, and their
-# fields hold user content or secrets; Probe, PlaceHit, and a selected row hold coordinates. A
-# repr would print those fields where no key scrubber can reach them.
-_REDACTED_TYPES = (BaseModel, Probe, PlaceHit, Row)
+# fields hold user content or secrets; a selected row holds whatever its columns do. A repr
+# would print those fields where no key scrubber can reach them.
+_REDACTED_TYPES = (BaseModel, Row)
+
+
+def _is_redacted(value: object) -> bool:
+    if isinstance(value, _REDACTED_TYPES):
+        return True
+    # The API's own dataclasses are redacted unless marked `reportable`, so a new one that
+    # carries an address, a link, or a place stays out of reports by default. The mark is
+    # read off the class itself, so a subclass must carry its own.
+    kind = type(value)
+    return (
+        is_dataclass(kind)
+        and kind.__module__.startswith(f"{IN_APP_PACKAGE}.")
+        and not vars(kind).get(REPORTABLE_ATTRIBUTE, False)
+    )
 
 
 def redacted_repr(value: object) -> str | None:
     """Name a redacted object by its type alone, and leave every other value to Sentry."""
-    if isinstance(value, _REDACTED_TYPES):
+    if _is_redacted(value):
         return f"<{type(value).__name__} redacted>"
     return None
 
