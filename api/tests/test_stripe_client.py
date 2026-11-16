@@ -8,6 +8,7 @@ import pytest
 from crosstune.billing.stripe import (
     STRIPE_API_VERSION,
     FirstPayment,
+    StripeNoPaymentError,
     StripeRest,
     StripeUnavailableError,
 )
@@ -264,20 +265,24 @@ async def test_first_payment_resolves_an_item_first(mock_http) -> None:
 
 
 @pytest.mark.parametrize(
-    ("invoices", "payments"),
+    ("invoices", "payments", "error"),
     [
-        ({"data": []}, None),
-        ({"data": [{"id": "in_1", "created": 1}]}, {"data": []}),
-        ({"data": [{"id": "in_1", "created": 1}]}, {"data": [{"payment": {"type": "charge"}}]}),
+        ({"data": []}, None, StripeNoPaymentError),
+        ({"data": [{"id": "in_1", "created": 1}]}, {"data": []}, StripeUnavailableError),
+        (
+            {"data": [{"id": "in_1", "created": 1}]},
+            {"data": [{"payment": {"type": "charge"}}]},
+            StripeUnavailableError,
+        ),
     ],
 )
 async def test_first_payment_raises_when_nothing_was_paid(
-    mock_http, invoices: dict, payments: dict | None
+    mock_http, invoices: dict, payments: dict | None, error: type[Exception]
 ) -> None:
     mock_http.add(f"{BASE}/invoices", httpx2.Response(200, json=invoices))
     mock_http.add(f"{BASE}/invoice_payments", httpx2.Response(200, json=payments or {}))
 
-    with pytest.raises(StripeUnavailableError):
+    with pytest.raises(error):
         await StripeRest(mock_http.client(), KEY, base_url=BASE).first_payment("sub_1")
 
 

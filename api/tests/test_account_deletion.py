@@ -17,7 +17,7 @@ from crosstune.billing import closing
 from crosstune.billing.emails import notice_key
 from crosstune.billing.grants import PaidSubscription
 from crosstune.billing.revenuecat import RevenueCatUnavailableError
-from crosstune.billing.stripe import StripeUnavailableError
+from crosstune.billing.stripe import StripeNoPaymentError, StripeUnavailableError
 from crosstune.billing.withdrawal import complete_pending_withdrawals
 from crosstune.db.base import utc_now
 from crosstune.db.locks import lock_user
@@ -961,11 +961,16 @@ async def test_delete_inside_the_window_refunds_then_cancels_and_emails(
     assert "catalog" not in body
 
 
-async def test_delete_with_a_first_invoice_outside_the_window_only_cancels(
-    client: httpx2.AsyncClient, app, auth_headers, verify_session: AsyncSession
+@pytest.mark.parametrize("payment", ["outside the window", "none charged"])
+async def test_delete_without_a_payment_in_the_window_only_cancels(
+    client: httpx2.AsyncClient, app, auth_headers, verify_session: AsyncSession, payment: str
 ) -> None:
     await _web_subscription(client, app, auth_headers, verify_session, age=timedelta(days=10))
-    app.state.stripe.invoiced_at = utc_now() - timedelta(days=40)
+    if payment == "none charged":
+        app.state.stripe.error = StripeNoPaymentError("nothing charged")
+        app.state.stripe.fail_only = "first_payment"
+    else:
+        app.state.stripe.invoiced_at = utc_now() - timedelta(days=40)
     response = await client.delete("/v1/me", headers=auth_headers("user_a"))
     assert response.status_code == 204
     assert app.state.stripe.refunds == []

@@ -26,6 +26,10 @@ class StripeUnavailableError(Exception):
     """Stripe did not confirm the request: a transport failure, an unexpected status, or no data."""
 
 
+class StripeNoPaymentError(StripeUnavailableError):
+    """Stripe lists no invoice that charged the subscription, so it has no payment to refund."""
+
+
 @dataclass(frozen=True)
 class FirstPayment:
     """The payment that paid a subscription's oldest charged invoice, and when that invoice was made."""
@@ -45,6 +49,7 @@ class StripeSubscriptions(Protocol):
         """The payment that paid the subscription's oldest charged invoice.
 
         Raises:
+            StripeNoPaymentError: No invoice charged the subscription.
             StripeUnavailableError: Stripe failed or no paid payment was found.
         """
         ...
@@ -112,6 +117,7 @@ class StripeRest:
         since it has no payment to refund.
 
         Raises:
+            StripeNoPaymentError: No dated invoice charged the subscription.
             StripeUnavailableError: A transport failure, a refusal (Stripe's message is kept, as
                 it names a missing key permission), or no paid payment on the oldest invoice.
         """
@@ -129,7 +135,7 @@ class StripeRest:
         ]
         if not datable:
             msg = f"Stripe lists no dated invoice that charged for {subscription_id}"
-            raise StripeUnavailableError(msg)
+            raise StripeNoPaymentError(msg)
         oldest = min(datable, key=lambda i: i["created"])
         payments = await self._list(
             f"{self._base_url}/invoice_payments?invoice={quote(oldest['id'], safe='')}&status=paid"
