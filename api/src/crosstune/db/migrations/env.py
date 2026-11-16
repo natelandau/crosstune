@@ -10,7 +10,7 @@ from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from crosstune import models  # noqa: F401  -- registers every table on Base.metadata
-from crosstune.config import get_settings
+from crosstune.config import DatabaseSettings
 from crosstune.db.base import Base
 
 config = context.config
@@ -22,7 +22,7 @@ if config.config_file_name is not None:
 if not config.get_main_option("sqlalchemy.url"):
     # ConfigParser treats % as interpolation syntax; escape it so a percent-encoded
     # password doesn't abort every migration.
-    config.set_main_option("sqlalchemy.url", get_settings().database_url.replace("%", "%%"))
+    config.set_main_option("sqlalchemy.url", DatabaseSettings().database_url.replace("%", "%%"))
 
 target_metadata = Base.metadata
 

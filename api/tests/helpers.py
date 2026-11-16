@@ -72,6 +72,13 @@ OEMBED = {
 }
 
 
+# A Neon connection string as the dashboard prints it: a database off this machine.
+NEON = (
+    "postgresql://alex:AbC123dEf@ep-cool-darkness-a1b2c3d4.us-east-2.aws.neon.tech/neondb"
+    "?sslmode=require&channel_binding=require"
+)
+
+
 class Clock:
     """A monotonic clock the test moves by hand."""
 
