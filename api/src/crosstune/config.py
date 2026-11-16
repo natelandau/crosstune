@@ -211,6 +211,8 @@ class Settings(BaseSettings):
     clerk_authorized_party_regex: str = ""
     clerk_webhook_secret: SecretStr = SecretStr("")
     clerk_secret_key: SecretStr = SecretStr("")
+    # Turn on once every trusted Clerk instance's session token carries `email_verified`.
+    clerk_require_email_verified: bool = False
     resend_api_key: SecretStr = SecretStr("")
     email_from: str = "Crosstune <no-reply@mail.crosstune.app>"
     web_origin: str = "https://my.crosstune.app"

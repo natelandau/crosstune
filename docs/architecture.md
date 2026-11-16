@@ -281,6 +281,10 @@ each question, and the invariants that both clients and the API hold.
   Only session tokens pass.
 - A failed JWKS fetch for an uncached key is a 503, never a 401, so a
   Clerk outage never signs anyone out.
+- Only an email Clerk has verified claims a pending comp, replaces a
+  stored email, or names an account to a command. A token's email goes
+  through `verified_email` in `auth/deps.py`, never straight from the
+  claims.
 - A browser token must carry an allowed `azp`. Native tokens carry none.
   The API reads only the `Authorization` header, never a cookie.
 - Offline, or when Clerk does not load within the load grace

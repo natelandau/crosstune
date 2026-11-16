@@ -49,6 +49,27 @@ async def verify_bearer(request: Request) -> dict:
     )
 
 
+def verified_email(claims: dict, *, require_claim: bool) -> str | None:
+    """Return the token's email only when Clerk vouches that the address is verified.
+
+    The address claims a pending comp and names the account to operator commands, so an
+    unverified one must never reach either.
+
+    Args:
+        claims: The verified token's claims.
+        require_claim: Whether a token with no `email_verified` claim counts as unverified.
+            Off, such a token's email is trusted, for a session-token template that
+            carries `email` but not yet `email_verified`.
+
+    Returns:
+        str | None: The email, or None when the token has none or it is not verified.
+    """
+    email = claims.get("email")
+    if not isinstance(email, str):
+        return None
+    return email if claims.get("email_verified", not require_claim) is True else None
+
+
 async def current_user(request: Request, session: DbSession) -> User:
     """Verify the bearer token and return the local user, creating it on first sight.
 
@@ -56,13 +77,12 @@ async def current_user(request: Request, session: DbSession) -> User:
     request's own transaction has ended.
     """
     claims = getattr(request.state, CLAIMS_STATE_KEY, None) or await verify_bearer(request)
-    email = claims.get("email")
     settings = request.app.state.settings
     # Bounded, since a new account has no id yet to count against its requests in flight.
     user, started = await provision_user(
         session,
         claims["sub"],
-        email=email if isinstance(email, str) else None,
+        email=verified_email(claims, require_claim=settings.clerk_require_email_verified),
         settings=settings,
         lock_wait_seconds=settings.request_lock_timeout_seconds,
     )

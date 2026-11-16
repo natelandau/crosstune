@@ -54,7 +54,7 @@ async def provision_user(
     Args:
         session: The session to write through.
         clerk_user_id: The Clerk subject the token was issued for.
-        email: The address the token carried, or None. A known address is never
+        email: The verified address the token carried, or None. A known address is never
             overwritten with nothing, since not every token carries the claim.
         settings: The plan sizes for the entitlements row. A user this call inserts gets
             a pending comp for their email or else a trial.

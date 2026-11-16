@@ -59,6 +59,20 @@ async def test_pending_comp_replaces_the_trial(
     assert entitlement.premium_source == GrantSource.COMP
 
 
+async def test_an_unverified_email_gets_a_trial_and_is_not_stored(
+    client, make_token, verify_session
+) -> None:
+    verify_session.add(PendingComp(email="friend@example.com"))
+    await verify_session.commit()
+    token = make_token("user_a", email="friend@example.com", email_verified=False)
+
+    await client.get("/v1/me", headers={"Authorization": f"Bearer {token}"})
+
+    (grant,) = await _grants(verify_session)
+    assert grant.source == GrantSource.TRIAL
+    assert (await verify_session.scalar(select(User))).email is None
+
+
 async def test_an_expired_pending_comp_is_dropped_and_the_trial_starts(
     client, make_token, verify_session
 ) -> None:

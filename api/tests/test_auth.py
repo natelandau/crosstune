@@ -8,6 +8,7 @@ import httpx2
 import pytest
 
 from crosstune.auth import jwks as jwks_module
+from crosstune.auth.deps import verified_email
 from crosstune.auth.jwks import JwksCache
 from crosstune.auth.tokens import party_allowed, verify_clerk_token
 from crosstune.db.engine import make_sessionmaker
@@ -100,6 +101,27 @@ PREVIEW_REGEX = r"^https://[a-z0-9-]+-crosstune-web\.example\.workers\.dev$"
 def test_party_allowed_rejects_a_non_string_party() -> None:
     assert party_allowed(None, [], PREVIEW_REGEX) is False
     assert party_allowed(42, ["http://testclient"], "") is False
+
+
+@pytest.mark.parametrize(
+    ("claims", "require_claim", "expected"),
+    [
+        ({"email": "a@example.com", "email_verified": True}, True, "a@example.com"),
+        ({"email": "a@example.com", "email_verified": True}, False, "a@example.com"),
+        ({"email": "a@example.com", "email_verified": False}, False, None),
+        ({"email": "a@example.com", "email_verified": "true"}, False, None),
+        ({"email": "a@example.com"}, False, "a@example.com"),
+        ({"email": "a@example.com"}, True, None),
+        ({"email_verified": True}, True, None),
+        ({"email": 42, "email_verified": True}, True, None),
+    ],
+)
+def test_verified_email_passes_only_an_address_clerk_verified(
+    claims: dict,
+    require_claim: bool,  # noqa: FBT001 -- parametrized value
+    expected: str | None,
+) -> None:
+    assert verified_email(claims, require_claim=require_claim) == expected
 
 
 async def test_party_matching_the_regex_is_200(
