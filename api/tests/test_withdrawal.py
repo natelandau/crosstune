@@ -124,7 +124,7 @@ async def test_withdraw_on_day_15_is_refused_as_window_closed(
 
 
 @pytest.mark.parametrize("invoiced", [timedelta(days=-2), timedelta(days=15)])
-async def test_a_first_invoice_outside_the_window_is_refused_and_refunds_nothing(
+async def test_a_first_invoice_outside_the_window_is_refused_and_closes_the_window(
     client, app, make_token, verify_session, invoiced: timedelta
 ) -> None:
     headers = _headers(make_token)
@@ -142,6 +142,11 @@ async def test_a_first_invoice_outside_the_window_is_refused_and_refunds_nothing
     grant = await _grant(verify_session)
     assert grant.refunded_at is None
     assert await _withdrew_at(verify_session) is None
+    assert _entitlement(await pull(client, headers))["withdraw_until"] is None
+    stripe_calls = len(app.state.stripe.calls)
+    again = await client.post(WITHDRAW, headers=headers)
+    assert again.json()["reason"] == "window_closed"
+    assert len(app.state.stripe.calls) == stripe_calls
 
 
 async def test_a_newer_subscription_inside_the_window_withdraws_beside_an_older_one(

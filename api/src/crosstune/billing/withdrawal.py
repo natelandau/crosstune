@@ -91,7 +91,13 @@ async def withdraw(  # noqa: PLR0913 -- each client is injected so callers and t
         await lock_user(session, user.id, wait_seconds=lock_wait_seconds)
         pending = await _pending_grant_id(session, user.id)
         grant_id = pending or await _refund(
-            session, user, stripe=stripe, revenuecat=revenuecat, now=now, allow_repeat=allow_repeat
+            session,
+            user,
+            stripe=stripe,
+            revenuecat=revenuecat,
+            settings=settings,
+            now=now,
+            allow_repeat=allow_repeat,
         )
         await _finish(
             session,
@@ -161,6 +167,7 @@ async def _refund(
     *,
     stripe: StripeSubscriptions,
     revenuecat: RevenueCat,
+    settings: Settings,
     now: datetime,
     allow_repeat: bool,
 ) -> uuid.UUID:
@@ -168,6 +175,9 @@ async def _refund(
 
     Returns:
         The refunded grant's id.
+
+    A first charged invoice outside the window is recorded on the grant and committed before
+    the refusal, so the window reads as closed from then on.
 
     Raises:
         WithdrawalRefusedError: Already withdrawn, no live web subscription, or the window
@@ -178,17 +188,13 @@ async def _refund(
         session, user.id, now, allow_repeat=allow_repeat
     )
     store_id: str | None = None
+    payment_intent: str | None = None
     try:
         store_id = await _listed_store_id(revenuecat, user.clerk_user_id, subscription_id, now)
         if store_id is not None:
             payment_intent = await refundable_payment(stripe, grant, store_id)
-            if payment_intent is None:
-                log.warning(
-                    "the first Stripe invoice falls outside the withdrawal window; refused",
-                    extra={"user": str(user.id), "subscription": subscription_id},
-                )
-                raise WithdrawalRefusedError(reason="window_closed")
-            await stripe.refund(payment_intent, idempotency_key=refund_key(subscription_id))
+            if payment_intent is not None:
+                await stripe.refund(payment_intent, idempotency_key=refund_key(subscription_id))
     except (StripeUnavailableError, RevenueCatUnavailableError) as exc:
         log.warning(
             "could not refund a withdrawal; nothing was recorded",
@@ -201,6 +207,16 @@ async def _refund(
             extra={"user": str(user.id), "subscription": subscription_id},
         )
         raise BillingUnavailableError(_CANNOT_WITHDRAW)
+    if payment_intent is None:
+        log.error(
+            "the first Stripe invoice falls outside the withdrawal window; refused",
+            extra={"user": str(user.id), "subscription": subscription_id},
+        )
+        grant.refund_refused_at = now
+        await session.flush()
+        await refresh_entitlement(session, user.id, settings, now)
+        await session.commit()
+        raise WithdrawalRefusedError(reason="window_closed")
 
     grant.refunded_at = now
     grant.store_id = store_id

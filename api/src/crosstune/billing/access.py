@@ -115,8 +115,15 @@ def live_stripe_grant(grants: Sequence[Grant], now: datetime) -> Grant | None:
 
 
 def withdrawal_window_open(grant: Grant, now: datetime) -> bool:
-    """Whether `now` falls inside the withdrawal window of `grant`'s subscription."""
-    return grant.started_at is not None and grant.started_at + WITHDRAWAL_WINDOW > now
+    """Whether `now` falls inside the withdrawal window of `grant`'s subscription.
+
+    A grant whose refund was refused has no window left.
+    """
+    return (
+        grant.refund_refused_at is None
+        and grant.started_at is not None
+        and grant.started_at + WITHDRAWAL_WINDOW > now
+    )
 
 
 def invoiced_in_window(grant: Grant, invoiced_at: datetime) -> bool:
