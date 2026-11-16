@@ -19,7 +19,7 @@ inputs:
 runs:
   using: composite
   steps:
-    - uses: pnpm/action-setup@v6
+    - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115  # v6.1.1
       with:
         package_json_file: ${{ inputs.module }}/package.json
     - uses: actions/setup-node@v7
@@ -27,7 +27,7 @@ runs:
         node-version-file: ${{ inputs.module }}/.node-version
         cache: pnpm
         cache-dependency-path: ${{ inputs.module }}/pnpm-lock.yaml
-    - uses: extractions/setup-just@v4
+    - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3  # v4.0.0
     - shell: bash
       working-directory: ${{ inputs.module }}
       env:
