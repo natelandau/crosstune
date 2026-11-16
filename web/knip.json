@@ -6,7 +6,7 @@
     "src/features/scans/fixtures/generate.ts"
   ],
   "ignoreBinaries": ["just", "sips"],
-  "ignoreDependencies": ["neonctl"],
+  "ignoreDependencies": ["neonctl", "wrangler"],
   "ignoreExportsUsedInFile": true,
   "ignoreIssues": {
     "src/api/vocabulary.ts": ["exports", "types"]

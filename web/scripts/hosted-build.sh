@@ -7,6 +7,14 @@ set -euo pipefail
 
 branch="${WORKERS_CI_BRANCH:?WORKERS_CI_BRANCH is not set; this script runs under Workers Builds}"
 
+# Workers Builds builds every branch and has no way to exclude one. A dependency update
+# must not run its code with the build token, so a Dependabot branch builds nothing and
+# scripts/deploy-preview.sh uploads nothing.
+if [[ "$branch" == dependabot/* ]]; then
+  printf '%s\n' "skipping the Dependabot branch $branch" >&2
+  exit 0
+fi
+
 if [[ "$branch" == "production" ]]; then
   export VITE_CLERK_PUBLISHABLE_KEY="${CLERK_PUBLISHABLE_KEY_PRODUCTION:?CLERK_PUBLISHABLE_KEY_PRODUCTION is not set}"
   export VITE_SENTRY_ENVIRONMENT=production

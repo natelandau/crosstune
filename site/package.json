@@ -10,7 +10,7 @@
     "dev": "astro dev",
     "build": "astro build",
     "build:hosted": "bash scripts/hosted-build.sh",
-    "deploy:preview": "wrangler preview"
+    "deploy:preview": "bash scripts/deploy-preview.sh"
   },
   "dependencies": {
     "@astrojs/sitemap": "^3.7.4",
