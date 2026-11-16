@@ -32,7 +32,7 @@ describe('signOutAndForget', () => {
       await db.outbox.clear()
     })
     const stop = vi.fn()
-    let markedAtSignOut: string | null = null
+    let markedAtSignOut: string[] = []
     const signOut = vi.fn(async () => {
       expect(await Dexie.exists(databaseName(userId))).toBe(true)
       markedAtSignOut = markedForDeletion()
@@ -56,8 +56,8 @@ describe('signOutAndForget', () => {
     expect(await Dexie.exists(databaseName(userId))).toBe(false)
     expect(rememberedUser()).toBeNull()
     expect(rememberedAtDelete).toBeNull()
-    expect(markedAtSignOut).toBe(userId)
-    expect(markedForDeletion()).toBeNull()
+    expect(markedAtSignOut).toEqual([userId])
+    expect(markedForDeletion()).toEqual([])
     expect(readSearchQuery('catalog')).toBe('')
     expect(readSearchQuery('recordings')).toBe('')
   })
@@ -215,7 +215,7 @@ describe('signOutAndForget', () => {
     expect(resume).toHaveBeenCalledOnce()
     expect(await db.tunes.count()).toBe(1)
     expect(rememberedUser()).toBe(userId)
-    expect(markedForDeletion()).toBeNull()
+    expect(markedForDeletion()).toEqual([])
     await db.delete()
   })
 })

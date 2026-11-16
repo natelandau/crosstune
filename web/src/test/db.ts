@@ -1,6 +1,5 @@
-import Dexie from 'dexie'
 import { onTestFinished } from 'vitest'
-import { CrosstuneDb, databaseName, openDatabase } from '../db/schema'
+import { CrosstuneDb, deleteDatabase, openDatabase } from '../db/schema'
 
 /**
  * A fresh database the current test owns, deleted once the test finishes. The delete waits for
@@ -17,7 +16,7 @@ export function openTestDb(): CrosstuneDb {
 export async function createUserDb(
   userId: string = `user_${crypto.randomUUID()}`,
 ): Promise<string> {
-  onTestFinished(() => Dexie.delete(databaseName(userId)))
+  onTestFinished(() => deleteDatabase(userId))
   const db = openDatabase(userId)
   await db.open()
   db.close()

@@ -168,7 +168,7 @@ describe('useAuthGate', () => {
     markForDeletion('user_1')
     renderHook(() => useAuthGate(fakeClock().clock))
     await expect.poll(() => Dexie.exists(databaseName('user_1'))).toBe(false)
-    expect(markedForDeletion()).toBeNull()
+    expect(markedForDeletion()).toEqual([])
   })
 
   it('signs in and remembers the user once Clerk has loaded', () => {

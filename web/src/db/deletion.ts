@@ -1,7 +1,7 @@
 import { readStored, writeStored } from '../platform/storage'
 import { deleteDatabase } from './schema'
 
-const KEY = 'crosstune.databaseToDelete'
+const KEY = 'crosstune.databasesToDelete'
 
 /**
  * Records that `userId`'s database is to be deleted, before Clerk's sign-out. A page closed
@@ -9,16 +9,27 @@ const KEY = 'crosstune.databaseToDelete'
  * is not admitted offline until then.
  */
 export function markForDeletion(userId: string): void {
-  writeStored(KEY, userId)
+  const marked = markedForDeletion()
+  if (!marked.includes(userId)) writeMarked([...marked, userId])
 }
 
-export function markedForDeletion(): string | null {
-  return readStored(KEY)
+/** Every user whose database still waits for its delete. */
+export function markedForDeletion(): string[] {
+  try {
+    const parsed: unknown = JSON.parse(readStored(KEY) ?? '[]')
+    return Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === 'string') : []
+  } catch {
+    return []
+  }
 }
 
 /** Drops the mark for `userId`, as when the sign-out that set it fails. */
 export function unmarkForDeletion(userId: string): void {
-  if (markedForDeletion() === userId) writeStored(KEY, null)
+  writeMarked(markedForDeletion().filter((id) => id !== userId))
+}
+
+function writeMarked(ids: string[]): void {
+  writeStored(KEY, ids.length > 0 ? JSON.stringify(ids) : null)
 }
 
 const deleting = new Map<string, Promise<void>>()
@@ -35,12 +46,13 @@ export function deleteMarkedDatabase(userId: string): Promise<void> {
 }
 
 /**
- * Finishes a delete that a closed page left undone, once Clerk has loaded. A user Clerk still
+ * Finishes the deletes that a closed page left undone, once Clerk has loaded. A user Clerk still
  * holds never finished signing out, so that database stays.
  */
 export async function settleMarkedDeletion(signedInUser: string | null): Promise<void> {
-  const userId = markedForDeletion()
-  if (userId === null) return
-  if (userId === signedInUser) unmarkForDeletion(userId)
-  else await deleteMarkedDatabase(userId)
+  await Promise.all(
+    markedForDeletion().map((userId) =>
+      userId === signedInUser ? unmarkForDeletion(userId) : deleteMarkedDatabase(userId),
+    ),
+  )
 }

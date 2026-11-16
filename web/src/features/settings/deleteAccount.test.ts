@@ -43,7 +43,7 @@ describe('deleteAccountAndForget', () => {
     await createTune(db, { title: 'X' }, { status: 'known' })
     const stop = vi.fn()
     const deleteAccount = vi.fn(async () => {})
-    let markedAtSignOut: string | null = null
+    let markedAtSignOut: string[] = []
     const signOut = vi.fn(async () => {
       markedAtSignOut = markedForDeletion()
     })
@@ -61,8 +61,8 @@ describe('deleteAccountAndForget', () => {
       signOut.mock.invocationCallOrder[0]!,
     )
     expect(await Dexie.exists(databaseName(userId))).toBe(false)
-    expect(markedAtSignOut).toBe(userId)
-    expect(markedForDeletion()).toBeNull()
+    expect(markedAtSignOut).toEqual([userId])
+    expect(markedForDeletion()).toEqual([])
     expect(hasAccountDeletedNotice()).toBe(true)
     expect(deleteAccount).toHaveBeenCalledWith({})
   })

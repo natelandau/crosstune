@@ -1,4 +1,5 @@
 import { useAuth } from '@clerk/react'
+import * as Sentry from '@sentry/react'
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { markedForDeletion, settleMarkedDeletion } from '../db/deletion'
 import { clearSearchQueries } from '../ui/searchSession'
@@ -48,6 +49,7 @@ export function useAuthGate(clock: GateClock = REAL_CLOCK): AuthGateResult {
   const staleSession = isLoaded && !signedIn && !!isSignedIn && userId === signedOutUser
   // Read through a ref so a caller passing a fresh object each render cannot restart the timer.
   const clockRef = useLatest(clock)
+  const deletionSettled = useRef(false)
 
   useEffect(() => {
     if (isLoaded) return
@@ -67,7 +69,14 @@ export function useAuthGate(clock: GateClock = REAL_CLOCK): AuthGateResult {
       forgetUser()
       clearSearchQueries()
     }
-    void settleMarkedDeletion(signedIn ? userId : null)
+    // Once per load: a sign-out in this page finishes its own delete, and a delete started here
+    // mid sign-out would let the still-open connection reopen the database.
+    if (!deletionSettled.current) {
+      deletionSettled.current = true
+      settleMarkedDeletion(signedIn ? userId : null).catch((error: unknown) =>
+        Sentry.captureException(error),
+      )
+    }
   }, [isLoaded, isSignedIn, userId, signedOutUser, signedIn])
 
   // Clerk's form redirects instead of rendering while a session is active, so a stale session
@@ -106,7 +115,7 @@ export function useAuthGate(clock: GateClock = REAL_CLOCK): AuthGateResult {
 
   const remembered = rememberedUser()
   // A user marked for deletion may have finished signing out: only Clerk can tell.
-  if (remembered && remembered !== markedForDeletion() && (!navigator.onLine || graceOver)) {
+  if (remembered && !markedForDeletion().includes(remembered) && (!navigator.onLine || graceOver)) {
     return { state: 'offline', userId: remembered, getToken: stableGetToken, staleSession }
   }
   return { state: 'splash', userId: null, getToken: stableGetToken, staleSession }

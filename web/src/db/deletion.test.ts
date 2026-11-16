@@ -14,7 +14,18 @@ describe('settleMarkedDeletion', () => {
     markForDeletion(userId)
     await settleMarkedDeletion(signedIn === 'marked' ? userId : signedIn)
     expect(await Dexie.exists(databaseName(userId))).toBe(kept)
-    expect(markedForDeletion()).toBeNull()
+    expect(markedForDeletion()).toEqual([])
+  })
+
+  it('deletes every marked database, not only the latest', async () => {
+    const first = await createUserDb()
+    const second = await createUserDb()
+    markForDeletion(first)
+    markForDeletion(second)
+    await settleMarkedDeletion(null)
+    expect(await Dexie.exists(databaseName(first))).toBe(false)
+    expect(await Dexie.exists(databaseName(second))).toBe(false)
+    expect(markedForDeletion()).toEqual([])
   })
 
   it('deletes nothing without a mark', async () => {
