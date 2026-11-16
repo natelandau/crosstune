@@ -57,7 +57,7 @@ async def get_json(
         Any: The parsed body.
 
     Raises:
-        ValueError: If the body is over MAX_JSON_BYTES.
+        ValueError: If the body is over MAX_JSON_BYTES, is not JSON, or nests too deep to parse.
     """
     # Streamed and capped like a page, but a JSON body cut short cannot parse, so one over
     # the cap is refused outright.
@@ -73,4 +73,8 @@ async def get_json(
                 msg = f"response over {MAX_JSON_BYTES} bytes"
                 raise ValueError(msg)
             chunks.append(chunk)
-    return json.loads(b"".join(chunks))
+    try:
+        return json.loads(b"".join(chunks))
+    except RecursionError:
+        msg = "response nested too deep to parse"
+        raise ValueError(msg) from None
