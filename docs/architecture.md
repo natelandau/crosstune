@@ -405,7 +405,8 @@ each question, and the invariants that both clients and the API hold.
   slice: from its trim start to its first piece's start, or to its trim
   end if that is later. A trim saved after the split never removes audio
   from the original. A soft-deleted parent keeps the full original until
-  the purge.
+  the purge. A completion that fails on every attempt records the split
+  completed and keeps the full original, so no pass retries it forever.
 - A push never clears a stored `split_id` or `split_size`. Only a new
   `split_id` replaces them.
 - A push never widens a split parent's trim past its stored start or its
@@ -417,6 +418,10 @@ each question, and the invariants that both clients and the API hold.
   split of its parent will cut fails after `split_piece_grace_seconds`,
   also when the parent is deleted, since a newer push can undelete the
   parent with its split.
+- A completed split cuts no more pieces. Completing it fails its deleted
+  pieces still waiting for their cut, so one revived later never gets
+  audio from a narrowed original. A failed piece is retried only while
+  its parent is live and its split is the parent's latest and open.
 - A parent's live pieces that are not `ready`, of every split and every
   `created_by_split_id`, are held to one split's worth
   (`MAX_SPLIT_PIECES`).

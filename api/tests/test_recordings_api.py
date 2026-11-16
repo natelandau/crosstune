@@ -658,14 +658,15 @@ async def test_retry_refuses_past_the_account_s_limit_and_counts_only_queued_wor
 
 
 @pytest.mark.parametrize(
-    ("completed", "status", "state", "parent_jobs"),
+    ("parent_is", "status", "state", "parent_jobs"),
     [
-        pytest.param(False, 204, "processing", ["split"], id="open-split"),
-        pytest.param(True, 409, "failed", [], id="completed-split"),
+        pytest.param("open", 204, "processing", ["split"], id="open-split"),
+        pytest.param("completed", 409, "failed", [], id="completed-split"),
+        pytest.param("deleted", 409, "failed", [], id="deleted-parent"),
     ],
 )
 async def test_retry_of_a_failed_piece_sends_it_back_to_its_split(
-    client, auth_headers, verify_session, completed, status, state, parent_jobs
+    client, auth_headers, verify_session, parent_is, status, state, parent_jobs
 ) -> None:
     parent, piece, split = uid(), uid(), uid()
     headers = auth_headers("user_a")
@@ -685,7 +686,8 @@ async def test_retry_of_a_failed_piece_sends_it_back_to_its_split(
             state="ready",
             split_id=split,
             split_size=2,
-            split_completed_id=split if completed else None,
+            split_completed_id=split if parent_is == "completed" else None,
+            deleted_at=datetime.now(UTC) if parent_is == "deleted" else None,
         )
     )
     await verify_session.execute(

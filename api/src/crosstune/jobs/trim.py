@@ -16,6 +16,7 @@ from crosstune.jobs.audio_rewrite import rewrite_playback
 from crosstune.jobs.peaks import range_peaks
 from crosstune.recordings.loops import reclamp_recording_loops
 from crosstune.recordings.service import attach_peaks, attach_playback
+from crosstune.recordings.split_rules import split_holds_original
 from crosstune.recordings.trim_rules import clamp_trim, effective_end
 from crosstune.storage.store import (
     PEAKS_MIME,
@@ -207,6 +208,30 @@ def _refuse_past_quota() -> NoReturn:
     raise RecordingRefused(OVER_QUOTA)
 
 
+async def _release_stale_cut(
+    session: AsyncSession,
+    store: ObjectStore,
+    recording: Recording,
+    uploaded: list[str],
+    backup_key: str | None,
+) -> None:
+    """Delete a stale cut's uploads, and its backup when the row was deleted meanwhile.
+
+    The purge owns a deleted row's files, so the row never names a new original, unless
+    a waiting piece still needs it to be cut from.
+    """
+    released = list(uploaded)
+    if (
+        backup_key is not None
+        and recording.deleted_at is not None
+        and not await split_holds_original(session, recording)
+    ):
+        recording.original_key = None
+        recording.original_bytes = None
+        released.append(backup_key)
+    await delete_best_effort(store, released, log=log, message="could not delete a stale trim cut")
+
+
 async def trim(
     session: AsyncSession,
     store: ObjectStore,
@@ -303,9 +328,7 @@ async def trim(
         )
         superseded: list[str] = []
         if stale:
-            await delete_best_effort(
-                store, uploaded, log=log, message="could not delete a stale trim cut"
-            )
+            await _release_stale_cut(session, store, recording, uploaded, backup_key)
         else:
             _write_clamped_trim(recording, start_ms, end_ms)
             await reclamp_recording_loops(session, recording, utc_now())

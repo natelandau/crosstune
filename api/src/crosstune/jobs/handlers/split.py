@@ -27,7 +27,7 @@ from crosstune.jobs.split import (
 from crosstune.models import Job, Recording
 from crosstune.recordings.service import ensure_split_job, ensure_trim_job
 from crosstune.recordings.split_rules import (
-    fail_waiting_pieces,
+    give_up_split,
     split_ready_to_complete,
     waiting_pieces,
 )
@@ -88,8 +88,9 @@ async def run(ctx: JobContext, job: Job) -> None:
                 await release_cancelled(ctx, session, job, pending)
                 raise
             except Exception as exc:  # noqa: BLE001 -- any split failure is a job failure, not a crash
-                # On the last attempt every waiting piece fails. The parent keeps its full
-                # original and its files, so no audio is lost.
+                # On the last attempt every waiting piece fails, and a split that could
+                # complete is closed. The parent keeps its full original and its files, so
+                # no audio is lost.
                 await recover_failed_audio_rewrite(
                     ctx,
                     session,
@@ -97,7 +98,7 @@ async def run(ctx: JobContext, job: Job) -> None:
                     exc,
                     orphaned=pending or Orphans(),
                     release_backup=True,
-                    on_final_failure=_fail_waiting,
+                    on_final_failure=_give_up,
                 )
                 return
     await delete_best_effort(
@@ -190,15 +191,15 @@ async def _end(session: AsyncSession, parent: Recording, stored_job: Job) -> Non
     await ensure_trim_job(session, parent)
 
 
-async def _fail_waiting(session: AsyncSession, parent: Recording) -> None:
-    await fail_waiting_pieces(session, parent.id, SPLIT_FAILED)
+async def _give_up(session: AsyncSession, parent: Recording) -> None:
+    await give_up_split(session, parent, SPLIT_FAILED)
 
 
 async def abandon(ctx: JobContext, session: AsyncSession, job: Job) -> None:
-    """Fail the waiting pieces of a split whose attempts all ended without an outcome."""
+    """Give up the split of a job whose attempts all ended without an outcome."""
     parent = await release_backup_copy(ctx, session, job)
     if parent is not None:
-        failed = await fail_waiting_pieces(session, parent.id, SPLIT_FAILED)
+        failed = await give_up_split(session, parent, SPLIT_FAILED)
         log.error(
             "split gave up after attempts that never finished",
             extra={"recording": str(parent.id), "failed_pieces": failed},

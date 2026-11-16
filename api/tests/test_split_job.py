@@ -422,6 +422,34 @@ async def test_split_gives_up_after_max_attempts_and_fails_waiting_pieces(
     assert await _jobs(verify_session, parent, JobKind.SPLIT) == []
 
 
+@pytest.mark.parametrize("attempts", [MAX_ATTEMPTS - 1, MAX_ATTEMPTS], ids=["failed", "abandoned"])
+async def test_a_completion_that_fails_every_attempt_closes_the_split(
+    split_runner, verify_session, tones, tmp_path, monkeypatch: pytest.MonkeyPatch, attempts
+) -> None:
+    job_runner, store = split_runner
+    parent = await _seed(verify_session, store, tones[10], tmp_path)
+    _, (piece,) = await _split(verify_session, parent, [5_000])
+    (job,) = await _jobs(verify_session, parent, JobKind.SPLIT)
+    job.attempts = attempts
+    piece.state, piece.original_key = "ready", f"{recording_prefix(piece.user_id, piece.id)}x"
+    await verify_session.commit()
+
+    async def broken_completion(*_args, **_kwargs) -> None:
+        msg = "could not complete"
+        raise MediaError(msg)
+
+    monkeypatch.setattr(split_handler, "complete_split", broken_completion)
+    playback = parent.playback_key
+    assert await job_runner.run_once() >= 1
+    await verify_session.refresh(parent)
+    assert parent.split_completed_id == parent.split_id
+    assert parent.playback_key == playback
+    assert playback in set(store.keys())
+    # No later pass queues the split again.
+    await job_runner.run_once()
+    assert await _jobs(verify_session, parent, JobKind.SPLIT) == []
+
+
 async def test_split_retries_before_its_last_attempt(
     split_runner, verify_session, tones, tmp_path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -453,6 +481,29 @@ async def test_split_abandoned_fails_waiting_pieces(
     assert parent.original_key is None
     assert parent.playback_key == playback
     assert playback in set(store.keys())
+    assert await _jobs(verify_session, parent, JobKind.SPLIT) == []
+
+
+async def test_a_piece_revived_after_its_split_completed_fails_instead_of_being_cut(
+    engine, settings: Settings, verify_session, tones, tmp_path
+) -> None:
+    store = _OrderedStore()
+    ctx = JobContext(make_sessionmaker(engine), store, settings, work_root=tmp_path)
+    parent = await _seed(verify_session, store, tones[10], tmp_path)
+    _, (piece,) = await _split(verify_session, parent, [5_000])
+    piece.deleted_at = utc_now()
+    await verify_session.commit()
+    (job,) = await _jobs(verify_session, parent, JobKind.SPLIT)
+    await split_handler.run(ctx, job)
+    await verify_session.refresh(parent)
+    assert parent.split_completed_id == parent.split_id
+
+    # A newer push brings the piece back before the purge resets it.
+    piece.deleted_at = None
+    await ensure_split_job(verify_session, parent)
+    await verify_session.commit()
+    await verify_session.refresh(piece)
+    assert (piece.state, piece.error, piece.original_key) == ("failed", SPLIT_FAILED, None)
     assert await _jobs(verify_session, parent, JobKind.SPLIT) == []
 
 

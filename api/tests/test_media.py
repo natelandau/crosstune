@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import array
 import asyncio
+import dataclasses
 import json
 import math
 import os
@@ -12,6 +13,7 @@ import shutil
 import struct
 import subprocess
 import sys
+import time
 import tracemalloc
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
@@ -26,6 +28,7 @@ from crosstune.jobs.media import (
     StallMap,
     _fill_gap_args,
     _Stall,
+    _unique_match,
     copy_slice,
     cut,
     encode,
@@ -238,6 +241,31 @@ async def test_run_kills_and_reaps_the_process_when_cancelled(tmp_path) -> None:
     # A reaped child's pid no longer exists; one left running or unreaped still does.
     with pytest.raises(ProcessLookupError):
         os.kill(int(pid_file.read_text()), 0)
+
+
+async def test_stream_stops_a_tools_child_that_still_writes_to_its_pipe() -> None:
+    def stop(_chunk: bytes) -> None:
+        msg = "stop"
+        raise MediaError(msg)
+
+    # The background loop holds stdout after the tool itself is killed.
+    script = "while :; do echo x; done & exec sleep 30"
+    async with asyncio.timeout(10):
+        with pytest.raises(MediaError, match="stop"):
+            await stream_media_tool("sh", "-c", script, on_stdout=stop)
+
+
+async def test_stream_stops_a_child_that_outlives_its_tool_and_holds_its_pipe() -> None:
+    def stop(_chunk: bytes) -> None:
+        # Long enough for the tool itself to exit before the cleanup runs.
+        time.sleep(0.3)
+        msg = "stop"
+        raise MediaError(msg)
+
+    script = "while :; do echo x; done & exit 0"
+    async with asyncio.timeout(10):
+        with pytest.raises(MediaError, match="stop"):
+            await stream_media_tool("sh", "-c", script, on_stdout=stop)
 
 
 async def test_stream_hands_over_all_of_stdout() -> None:
@@ -614,6 +642,14 @@ async def test_copy_slice_decodes_like_the_original_from_the_returned_start(
     assert found != -1
     assert abs((found // 2 - probe_at) * 1000 / SLICE_RATE - returned) <= 1
     assert returned + len(sliced) / 2 / SLICE_RATE * 1000 >= end_ms - 1
+
+
+def test_mp3_alignment_treats_a_needle_with_many_byte_offset_hits_as_no_match() -> None:
+    needle = b"ab" * 64
+    # A thousand hits at odd byte offsets, then the needle once on a sample boundary.
+    original = b"x" + b"ab" * 1000 + b"y" + needle
+    assert _unique_match(original, needle) is None
+    assert _unique_match(b"xy" + needle, needle) == 1
 
 
 def _aligned_at(original: bytes, sliced: bytes, probe_at: int) -> float:
@@ -1090,6 +1126,14 @@ def many_packet_webm(tmp_path_factory) -> Path:
         check=True,
     )  # fmt: skip
     return path
+
+
+async def test_scan_stalls_fails_a_file_with_more_packets_than_its_length_holds(
+    many_packet_webm,
+) -> None:
+    info = dataclasses.replace(await probe(many_packet_webm), duration_ms=1_000)
+    with pytest.raises(MediaError, match="packets"):
+        await scan_stalls(many_packet_webm, info)
 
 
 async def test_scan_stalls_holds_memory_flat_whatever_the_packet_count(many_packet_webm) -> None:

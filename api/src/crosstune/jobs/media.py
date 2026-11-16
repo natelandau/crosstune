@@ -10,6 +10,7 @@ import json
 import math
 import os
 import re
+import signal
 import sys
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
@@ -193,15 +194,35 @@ async def _media_process(argv: tuple[str, ...]) -> AsyncGenerator[asyncio.subpro
         # ffmpeg reads commands from stdin, and would otherwise share the API's.
         stdin=asyncio.subprocess.DEVNULL,
         env={"PATH": os.environ.get("PATH", ""), "MALLOC_ARENA_MAX": "2"},
+        # Its own process group, so the kill reaches anything it started that holds a pipe,
+        # and the drain below ends.
+        start_new_session=True,
     )
     try:
         yield process
     finally:
-        if process.returncode is None:
-            process.kill()
+        # A tool that exited can leave a child holding a pipe, which the drain would wait on.
+        if process.returncode is None or not _at_eof(process):
+            _kill_group(process)
         # A pipe left unread past its buffer stays open after the tool exits. Reading both
-        # to their end closes them, and holds at most what the dead tool left in them.
+        # to their end closes them, and holds at most what the dead group left in them.
         await process.communicate()
+
+
+def _at_eof(process: asyncio.subprocess.Process) -> bool:
+    return all(pipe is None or pipe.at_eof() for pipe in (process.stdout, process.stderr))
+
+
+def _kill_group(process: asyncio.subprocess.Process) -> None:
+    """Kill a tool started by `_media_process` and every process in its group."""
+    try:
+        os.killpg(process.pid, signal.SIGKILL)
+    except ProcessLookupError:
+        pass
+    except PermissionError:
+        # macOS refuses a group whose only member has exited and is not yet reaped.
+        with contextlib.suppress(ProcessLookupError):
+            process.kill()
 
 
 def _limited(*argv: str) -> tuple[str, ...]:
@@ -578,6 +599,9 @@ _GAP_FORMATS = frozenset({"matroska", "webm"})
 # shorter frames; more is a malformed file.
 MIN_OPUS_FRAME_MS = 2.5
 MAX_SCANNED_PACKETS = 2 * int(MAX_SPLIT_SOURCE_MS / MIN_OPUS_FRAME_MS)
+# Added to the probed duration before the packet count is derived from it, for a container
+# whose stated duration falls a little short of its last packet.
+PACKET_SCAN_MARGIN_MS = 10_000
 # The stall filter holds one term of about 50 bytes per stall, all in one argument, and
 # Linux refuses an argument longer than 128 KiB.
 MAX_RANGE_STALLS = 1024
@@ -629,8 +653,9 @@ def _has_stalls(info: Probe) -> bool:
 class _StallScanner:
     """Find stalls in ffprobe's per-packet CSV report as it arrives, holding one line at a time."""
 
-    def __init__(self, start_time: float) -> None:
+    def __init__(self, start_time: float, max_packets: int) -> None:
         self._start_time = start_time
+        self._max_packets = max_packets
         self._rest = b""
         self._packets = 0
         self._stalls: list[_Stall] = []
@@ -663,8 +688,8 @@ class _StallScanner:
         # Tens of millions of lines run through this loop on the event loop, so its state
         # lives in locals and the limits are checked per batch.
         self._packets += len(lines)
-        if self._packets > MAX_SCANNED_PACKETS:
-            msg = f"ffprobe reported more than {MAX_SCANNED_PACKETS} packets"
+        if self._packets > self._max_packets:
+            msg = f"ffprobe reported more than {self._max_packets} packets"
             raise MediaError(msg)
         start_time, stalls = self._start_time, self._stalls
         earlier_max_pts, earlier_end = self._earlier_max_pts, self._earlier_end
@@ -686,6 +711,23 @@ class _StallScanner:
             raise MediaError(msg)
 
 
+def max_scanned_packets(info: Probe) -> int:
+    """Return the most packets a file of the probed length can hold.
+
+    Bounds the per-packet scan by the file's own length, so a short file that reports
+    millions of packets fails at once instead of holding the event loop for seconds.
+
+    Args:
+        info: The probe of the scanned file.
+
+    Returns:
+        int: Twice the shortest Opus frames over the duration plus a margin, never more
+            than `MAX_SCANNED_PACKETS`.
+    """
+    length_ms = info.duration_ms + PACKET_SCAN_MARGIN_MS
+    return min(MAX_SCANNED_PACKETS, 2 * math.ceil(length_ms / MIN_OPUS_FRAME_MS))
+
+
 async def scan_stalls(source: Path, info: Probe) -> StallMap:
     """Find every stall in a WebM's packet timestamps, reading the whole file once.
 
@@ -698,7 +740,7 @@ async def scan_stalls(source: Path, info: Probe) -> StallMap:
     """
     if not _has_stalls(info):
         return StallMap()
-    scanner = _StallScanner(info.start_time)
+    scanner = _StallScanner(info.start_time, max_scanned_packets(info))
     await stream_media_tool(
         *ffprobe(
             "-v",
@@ -1015,6 +1057,8 @@ _MATCH_SAMPLES = 64
 _MATCH_STEP_MS = 50
 _MATCH_SPAN_SECONDS = 10.0
 _MATCH_LEAD_SECONDS = 1.0
+# Real audio repeats a 64-sample run at a handful of byte offsets at most.
+_MATCH_MAX_HITS = 32
 
 
 def _copy_target(info: Probe) -> _CopyTarget | None:
@@ -1045,10 +1089,18 @@ async def _decode_pcm(path: Path, rate: int, seconds: float, *seek_args: str) ->
 
 
 def _unique_match(original: bytes, needle: bytes) -> int | None:
-    """The one sample position `needle` decodes at in `original`, or None if not exactly one."""
+    """The one sample position `needle` decodes at in `original`, or None if not exactly one.
+
+    A needle found more than `_MATCH_MAX_HITS` times, at sample or byte offsets, counts as
+    matching many places: each hit costs a step on the event loop.
+    """
     found: int | None = None
+    hits = 0
     at = original.find(needle)
     while at != -1:
+        hits += 1
+        if hits > _MATCH_MAX_HITS:
+            return None
         if at % 2 == 0:
             if found is not None:
                 return None
