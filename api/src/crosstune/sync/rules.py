@@ -329,13 +329,14 @@ class RecordingRules(RowRules):
             )
         if await self._revive_over_quota():
             return OVER_QUOTA
+        free = not self.access.premium
+        # Refused before the saved location match, so a refused change does no matching work.
+        if free and self.stored is None:
+            return PREMIUM_REQUIRED
         await self._settle_place(data)
-        if not self.access.premium:
-            if self.stored is None:
-                return PREMIUM_REQUIRED
-            if self._upsert_writes(self.stored):
-                _keep_premium_edits(data, self.stored)
-                return None
+        if free and self.stored is not None and self._upsert_writes(self.stored):
+            _keep_premium_edits(data, self.stored)
+            return None
         low = (
             max(self.stored.source_offset_ms, self.stored.playback_start_ms or 0)
             if self.stored
