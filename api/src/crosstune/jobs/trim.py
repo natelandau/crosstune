@@ -10,7 +10,8 @@ from typing import TYPE_CHECKING, NoReturn
 
 from crosstune.db.base import bump_server_seq, utc_now
 from crosstune.db.locks import lock_user
-from crosstune.files.quota import counted_bytes, rewrite_exceeds_quota
+from crosstune.files.quota import OVER_QUOTA, counted_bytes, rewrite_exceeds_quota
+from crosstune.jobs.attempt import RecordingRefused
 from crosstune.jobs.audio_rewrite import rewrite_playback
 from crosstune.jobs.peaks import range_peaks
 from crosstune.recordings.loops import reclamp_recording_loops
@@ -202,12 +203,8 @@ def _write_clamped_trim(recording: Recording, start_ms: int, end_ms: int) -> Non
         recording.trim_end_ms = stored_end
 
 
-def _refuse_past_quota(recording: Recording) -> NoReturn:
-    msg = (
-        f"recording {recording.id} would store {counted_bytes(recording)} bytes, "
-        "past its owner's quota"
-    )
-    raise TrimError(msg)
+def _refuse_past_quota() -> NoReturn:
+    raise RecordingRefused(OVER_QUOTA)
 
 
 async def trim(
@@ -231,7 +228,7 @@ async def trim(
     files, so the caller's `ensure_trim_job` queues the newest trim instead.
 
     A new playback file or backup that would take the owner past the quota is refused
-    like any failure: the row keeps its current files and the caller recovers.
+    with no retry: the row keeps its current files and the caller recovers.
 
     Args:
         session: The session the recording is attached to. The caller commits.
@@ -245,8 +242,8 @@ async def trim(
         the caller's commit.
 
     Raises:
-        TrimError: The row has no complete range to cut against, or the new files would
-            take the owner past the quota.
+        TrimError: The row has no complete range to cut against.
+        RecordingRefused: The new files would take the owner past the quota.
     """
     requested = (recording.trim_start_ms, recording.trim_end_ms)
     peaks_key_used = recording.peaks_key
@@ -314,9 +311,15 @@ async def trim(
             await reclamp_recording_loops(session, recording, utc_now())
             if result is not None:
                 superseded = _apply(recording, result, start_ms, end_ms)
-        # A stale cut can still keep its backup, which the quota counts as well.
         if await rewrite_exceeds_quota(session, recording, settings, previous_bytes=counted_before):
-            _refuse_past_quota(recording)
+            if not stale:
+                _refuse_past_quota()
+            # A stale cut keeps nothing but its backup, so it lets the backup go instead
+            # and still commits, which lets the caller queue the trim saved meanwhile.
+            recording.original_key = recording.original_bytes = None
+            await delete_best_effort(
+                store, [backup_key], log=log, message="could not delete an over-quota backup"
+            )
         bump_server_seq(recording)
         await session.flush()
     except BaseException:

@@ -2311,6 +2311,7 @@ async def test_a_trim_past_the_quota_keeps_the_recording_as_it_was(
     assert (rec.playback_key, rec.original_key) == (playback, None)
     assert await used_bytes(verify_session, rec.user_id) == used
     assert set(store.keys()) == keys
+    assert await trim_jobs(verify_session, rec) == []
 
 
 async def test_a_trim_that_stores_less_runs_past_the_quota(
@@ -2503,6 +2504,33 @@ async def test_trim_requeues_when_changed_during_job(
     await verify_session.refresh(rec)
     assert (rec.playback_start_ms, rec.playback_end_ms) == (500, 1500)
     assert await trim_jobs(verify_session, rec) == []
+
+
+async def test_a_stale_trim_past_the_quota_lets_its_backup_go_and_requeues(
+    engine, tmp_path, settings, verify_session, fake_media, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store = _WriteTrackingStore()
+    rec = await seed_ready(verify_session, store, fake_media["m4a"], "audio/mp4", tmp_path)
+    used = await used_bytes(verify_session, rec.user_id)
+    keys = set(store.keys())
+    await save_trim(verify_session, rec, 200, 1800)
+    real_cut = audio_rewrite_module.cut
+
+    async def push_trim_then_cut(source, target, start_ms, end_ms, *, info=None) -> None:
+        async with make_sessionmaker(engine)() as pusher:
+            pushed = await pusher.get(Recording, rec.id)
+            pushed.trim_start_ms, pushed.trim_end_ms = 500, 1500
+            await pusher.commit()
+        await real_cut(source, target, start_ms, end_ms, info=info)
+
+    monkeypatch.setattr(audio_rewrite_module, "cut", push_trim_then_cut)
+    job_runner = _quota_runner(engine, tmp_path, settings, store, used)
+    assert await job_runner.run_once() == 1
+    await verify_session.refresh(rec)
+    assert (rec.state, rec.original_key) == ("ready", None)
+    assert await used_bytes(verify_session, rec.user_id) == used
+    assert set(store.keys()) == keys
+    assert len(await trim_jobs(verify_session, rec)) == 1
 
 
 async def test_trim_commits_nothing_when_deleted_during_job(

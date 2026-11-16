@@ -350,9 +350,10 @@ each question, and the invariants that both clients and the API hold.
   where nothing reads.
 - A job that stores a recording file outside an upload slot (transcode,
   trim, re-encode, split) checks the file against the quota with
-  `room_bytes`, under the user's lock, before its commit. A file past the quota is never
-  committed, and the job deletes what it uploaded. A rewrite that stores
-  no more bytes than the recording counted is never refused.
+  `room_bytes`, under the user's lock, before its commit. A file past the
+  quota is never committed, and the job deletes what it uploaded. A
+  rewrite that stores no more bytes than the recording counted is never
+  refused.
 - A new file version gets a new revisioned key. The old object is deleted
   only after the commit that stops pointing at it.
 - A signed download URL carries the revision it covers. A client records
