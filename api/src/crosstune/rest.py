@@ -1,12 +1,72 @@
-"""What the API's clients for other services' REST APIs share: status, timeout, and transport."""
+"""What the API's REST clients for other services share: status, timeout, transport, waits."""
 
 from __future__ import annotations
 
+import time
+from typing import TYPE_CHECKING
+
 import httpx2
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 DEFAULT_TIMEOUT_SECONDS = 10.0
 SUCCESS_STATUSES = range(200, 300)
 NOT_FOUND_STATUS = 404
+
+# A service that limits us without saying for how long is left alone for a minute.
+DEFAULT_WAIT_SECONDS = 60.0
+# A longer wait than this is most likely a misreported header, not a real ban.
+MAX_WAIT_SECONDS = 300.0
+
+
+def wait_seconds(retry_after: str | None) -> float:
+    """Read a Retry-After header as seconds, kept within the default and the cap.
+
+    Args:
+        retry_after: The header's value, if any. Only the seconds form is read.
+
+    Returns:
+        float: Seconds to leave the service alone.
+    """
+    value = (retry_after or "").strip()
+    # isdigit alone passes digits such as "²" that float() refuses.
+    if not (value.isascii() and value.isdigit()):
+        return DEFAULT_WAIT_SECONDS
+    return min(max(float(value), 1.0), MAX_WAIT_SECONDS)
+
+
+class RateLimitHold:
+    """When a service that rate-limited a shared credential may be called again.
+
+    Every user shares the credential, so one 429 holds the service for everyone in this
+    process. Calling it again before then only extends the limit.
+    """
+
+    def __init__(self, *, clock: Callable[[], float] = time.monotonic) -> None:
+        self._clock = clock
+        self._until = 0.0
+
+    def hold(self, seconds: float) -> None:
+        """Leave the service alone for the given number of seconds from now."""
+        self._until = max(self._until, self._clock() + seconds)
+
+    def hold_if_limited(self, response: httpx2.Response) -> float | None:
+        """Hold the service for the response's Retry-After when it is a 429.
+
+        Returns:
+            float | None: The seconds held, or None when the response is not a rate limit.
+        """
+        if response.status_code != httpx2.codes.TOO_MANY_REQUESTS:
+            return None
+        seconds = wait_seconds(response.headers.get("Retry-After"))
+        self.hold(seconds)
+        return seconds
+
+    @property
+    def held(self) -> bool:
+        """Whether the service is still waiting out a limit."""
+        return self._clock() < self._until
 
 
 async def send_bearer(  # noqa: PLR0913 -- one keyword per request part a client may send

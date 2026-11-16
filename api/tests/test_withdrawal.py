@@ -46,8 +46,8 @@ USER = "user_w"
 EMAIL = "w@example.com"
 
 
-def _headers(make_token, email: str | None = EMAIL) -> dict[str, str]:
-    return {"Authorization": f"Bearer {make_token(USER, email=email)}"}
+def _headers(make_token, email: str | None = EMAIL, user: str = USER) -> dict[str, str]:
+    return {"Authorization": f"Bearer {make_token(user, email=email)}"}
 
 
 async def _subscribe(
@@ -74,8 +74,8 @@ def _withdrawal_mail(app: FastAPI) -> list[tuple[EmailMessage, str]]:
     return [(m, key) for m, key in app.state.mailer.sent if key.startswith("billing/withdrawal/")]
 
 
-async def _withdrew_at(verify_session: AsyncSession) -> datetime | None:
-    return await verify_session.scalar(select(User.withdrew_at).where(User.clerk_user_id == USER))
+async def _withdrew_at(verify_session: AsyncSession, user: str = USER) -> datetime | None:
+    return await verify_session.scalar(select(User.withdrew_at).where(User.clerk_user_id == user))
 
 
 async def test_withdraw_refunds_cancels_and_ends_premium(
@@ -121,6 +121,32 @@ async def test_withdraw_on_day_15_is_refused_as_window_closed(
     assert body["reason"] == "window_closed"
     assert app.state.stripe.refunds == []
     assert (await _grant(verify_session)).withdrawn_at is None
+
+
+@pytest.mark.parametrize("invoiced", [timedelta(days=-2), timedelta(days=15)])
+async def test_a_first_invoice_outside_the_window_is_refused_and_closes_the_window(
+    client, app, make_token, verify_session, invoiced: timedelta
+) -> None:
+    headers = _headers(make_token)
+    sub = web_subscription()
+    await _subscribe(client, app, headers, sub)
+    assert sub.started_at is not None
+    app.state.stripe.invoiced_at = sub.started_at + invoiced
+
+    response = await client.post(WITHDRAW, headers=headers)
+
+    assert response.status_code == 409
+    assert response.json()["reason"] == "window_closed"
+    assert app.state.stripe.refunds == []
+    assert app.state.stripe.cancelled == []
+    grant = await _grant(verify_session)
+    assert grant.refunded_at is None
+    assert await _withdrew_at(verify_session) is None
+    assert _entitlement(await pull(client, headers))["withdraw_until"] is None
+    stripe_calls = len(app.state.stripe.calls)
+    again = await client.post(WITHDRAW, headers=headers)
+    assert again.json()["reason"] == "window_closed"
+    assert len(app.state.stripe.calls) == stripe_calls
 
 
 async def test_a_newer_subscription_inside_the_window_withdraws_beside_an_older_one(
@@ -303,6 +329,27 @@ async def test_the_pass_completes_a_stuck_withdrawal_once(
     assert (await _grant(verify_session)).withdrawn_at is not None
     assert len(_withdrawal_mail(app)) == 1
     assert premium_ended(_entitlement(await pull(client, headers))["premium_expires_at"])
+
+
+async def test_a_refunded_grant_stays_with_the_refunded_account_through_a_transfer(
+    client, app, make_token, verify_session, monkeypatch
+) -> None:
+    headers = _headers(make_token)
+    other = "user_other"
+    other_headers = _headers(make_token, "o@example.com", user=other)
+    await _stuck_after_refund(client, app, headers, monkeypatch)
+    # RevenueCat transfers the subscription to another account before the cancel goes through.
+    app.state.revenuecat = FakeRevenueCat({other: [web_subscription()]})
+    assert (await client.post(REFRESH, headers=other_headers)).status_code == 204
+
+    assert await _complete(app) == 1
+
+    grant = await _grant(verify_session)
+    owner = await verify_session.scalar(select(User).where(User.id == grant.user_id))
+    assert owner is not None
+    assert owner.clerk_user_id == USER
+    assert await _withdrew_at(verify_session) is not None
+    assert await _withdrew_at(verify_session, other) is None
 
 
 async def test_the_pass_leaves_a_still_failing_cancel_stuck_and_logs_an_error(

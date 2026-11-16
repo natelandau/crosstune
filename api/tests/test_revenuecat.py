@@ -9,7 +9,9 @@ import pytest
 
 from crosstune.billing.grants import PaidSubscription
 from crosstune.billing.revenuecat import RevenueCatRest, RevenueCatUnavailableError
+from crosstune.rest import RateLimitHold
 from crosstune.vocabulary import GrantEnvironment, GrantKind, GrantPeriod, GrantSource
+from tests.helpers import Clock
 
 FIXTURES = Path(__file__).parent / "fixtures" / "revenuecat"
 BASE = "https://rc.example.test/v2"
@@ -252,6 +254,26 @@ async def test_server_error_raises_unavailable(mock_http, status: int) -> None:
 
     with pytest.raises(RevenueCatUnavailableError):
         await _client(mock_http).subscriptions("cust_1")
+
+
+@pytest.mark.parametrize("call", ["subscriptions", "delete_customer"])
+async def test_a_429_holds_every_request_until_retry_after_passes(mock_http, call: str) -> None:
+    clock = Clock()
+    hold = RateLimitHold(clock=clock)
+    client = RevenueCatRest(mock_http.client(), "proj_1", KEY, base_url=BASE, hold=hold)
+    mock_http.add(CUSTOMER_URL, httpx2.Response(429, headers={"Retry-After": "30"}))
+
+    with pytest.raises(RevenueCatUnavailableError):
+        await client.subscriptions("cust_1")
+    mock_http.add(CUSTOMER_URL, httpx2.Response(404))
+    clock.now += 29.9
+    with pytest.raises(RevenueCatUnavailableError):
+        await getattr(client, call)("cust_1")
+    assert len(mock_http.calls) == 1
+
+    clock.now += 0.1
+    await getattr(client, call)("cust_1")
+    assert len(mock_http.calls) == 2
 
 
 async def test_transport_error_raises_unavailable() -> None:

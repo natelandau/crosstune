@@ -5,6 +5,8 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
+from crosstune.billing.stripe import FirstPayment
+from crosstune.db.base import utc_now
 from crosstune.email.resend import MailerRateLimitedError, MailerUnavailableError
 from crosstune.storage.store import ListedObject, ObjectInfo
 from crosstune.users.clerk import ClerkUser
@@ -179,6 +181,8 @@ class FakeStripe:
         self.error = error
         self.fail_only = fail_only
         self.payment_intent = "pi_fake"
+        # None invoices the first payment at the moment it is read.
+        self.invoiced_at: datetime | None = None
         self.refunds: list[tuple[str, str]] = []
         self.calls: list[str] = []
 
@@ -192,10 +196,12 @@ class FakeStripe:
         self._check("cancel")
         self.cancelled.append(store_id)
 
-    async def first_payment_intent(self, store_id: str) -> str:
-        """The configured intent, or raise the configured error."""
-        self._check("first_payment_intent")
-        return self.payment_intent
+    async def first_payment(self, store_id: str) -> FirstPayment:
+        """The configured payment, or raise the configured error."""
+        self._check("first_payment")
+        return FirstPayment(
+            payment_intent=self.payment_intent, invoiced_at=self.invoiced_at or utc_now()
+        )
 
     async def refund(self, payment_intent: str, *, idempotency_key: str) -> None:
         """Record the intent and key, or raise the configured error instead of refunding."""

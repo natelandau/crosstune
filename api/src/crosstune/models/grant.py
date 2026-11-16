@@ -74,6 +74,11 @@ class Grant(Base):
     # Set once a withdrawal's refund went through. With no `withdrawn_at`, the subscription
     # still needs cancelling, through `store_id`, the Stripe item that was refunded.
     refunded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Set when Stripe's first charged invoice fell outside the withdrawal window. The window
+    # then reads as closed, since no payment it covers can be refunded.
+    refund_refused_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     store_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     granted_by: Mapped[str | None] = mapped_column(String(100), nullable=True)
     reason: Mapped[str | None] = mapped_column(String(500), nullable=True)

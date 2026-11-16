@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import timedelta
 from typing import TYPE_CHECKING
 
 from sqlalchemy import select
@@ -77,6 +78,10 @@ class Resolution:
 
 _PAID_SOURCES = (GrantSource.APPLE, GrantSource.STRIPE)
 
+# Stripe dates an invoice to the second and RevenueCat's start may differ from it by moments,
+# so a first invoice dated just before the start still opens the window.
+INVOICE_START_TOLERANCE = timedelta(hours=1)
+
 
 def _active(grant: Grant, now: datetime) -> bool:
     return grant.expires_at is None or grant.expires_at > now
@@ -110,8 +115,23 @@ def live_stripe_grant(grants: Sequence[Grant], now: datetime) -> Grant | None:
 
 
 def withdrawal_window_open(grant: Grant, now: datetime) -> bool:
-    """Whether `now` falls inside the withdrawal window of `grant`'s subscription."""
-    return grant.started_at is not None and grant.started_at + WITHDRAWAL_WINDOW > now
+    """Whether `now` falls inside the withdrawal window of `grant`'s subscription.
+
+    A grant whose refund was refused has no window left.
+    """
+    return (
+        grant.refund_refused_at is None
+        and grant.started_at is not None
+        and grant.started_at + WITHDRAWAL_WINDOW > now
+    )
+
+
+def invoiced_in_window(grant: Grant, invoiced_at: datetime) -> bool:
+    """Whether a payment invoiced at `invoiced_at` falls inside `grant`'s withdrawal window."""
+    if grant.started_at is None:
+        return False
+    opens = grant.started_at - INVOICE_START_TOLERANCE
+    return opens <= invoiced_at < grant.started_at + WITHDRAWAL_WINDOW
 
 
 def _withdraw_until(

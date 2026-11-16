@@ -7,7 +7,13 @@ from typing import TYPE_CHECKING, Any, Protocol
 from urllib.parse import parse_qs, quote, urlsplit
 
 from crosstune.billing.grants import PaidSubscription
-from crosstune.rest import DEFAULT_TIMEOUT_SECONDS, NOT_FOUND_STATUS, SUCCESS_STATUSES, send_bearer
+from crosstune.rest import (
+    DEFAULT_TIMEOUT_SECONDS,
+    NOT_FOUND_STATUS,
+    SUCCESS_STATUSES,
+    RateLimitHold,
+    send_bearer,
+)
 from crosstune.vocabulary import (
     YEARLY_PERIOD_THRESHOLD,
     GrantEnvironment,
@@ -49,7 +55,11 @@ class RevenueCat(Protocol):
 
 
 class RevenueCatRest:
-    """Reads subscriptions and deletes customers through RevenueCat's REST API v2."""
+    """Reads subscriptions and deletes customers through RevenueCat's REST API v2.
+
+    Every account shares one secret key, so a 429 holds this client for everyone until its
+    Retry-After passes. A request sent before then only extends the limit, so none is sent.
+    """
 
     def __init__(
         self,
@@ -59,10 +69,12 @@ class RevenueCatRest:
         *,
         base_url: str = DEFAULT_BASE_URL,
         timeout: float = DEFAULT_TIMEOUT_SECONDS,
+        hold: RateLimitHold | None = None,
     ) -> None:
         self._client = client
         self._secret_key = secret_key
         self._timeout = timeout
+        self._hold = hold or RateLimitHold()
         self._customers_url = f"{base_url}/projects/{quote(project_id, safe='')}/customers"
 
     async def subscriptions(
@@ -126,7 +138,15 @@ class RevenueCatRest:
         *,
         missing_ok: bool = False,
     ) -> httpx2.Response:
-        """Send one request, raising on any status but 2xx, or a 404 when `missing_ok`."""
+        """Send one request, raising on any status but 2xx, or a 404 when `missing_ok`.
+
+        Raises:
+            RevenueCatUnavailableError: The answer was refused, or RevenueCat's Retry-After
+                has not passed yet, in which case nothing is sent.
+        """
+        if self._hold.held:
+            msg = f"RevenueCat is rate limiting; {method} {urlsplit(url).path} was not sent"
+            raise RevenueCatUnavailableError(msg)
         response = await send_bearer(
             self._client,
             method,
@@ -136,6 +156,7 @@ class RevenueCatRest:
             unavailable=RevenueCatUnavailableError,
             params=params,
         )
+        self._hold.hold_if_limited(response)
         if response.status_code not in SUCCESS_STATUSES and not (
             missing_ok and response.status_code == NOT_FOUND_STATUS
         ):

@@ -1,9 +1,17 @@
 """Stripe REST client: subscription cancellation, first payment lookup, and refunds."""
 
+from datetime import UTC, datetime
+
 import httpx2
 import pytest
 
-from crosstune.billing.stripe import STRIPE_API_VERSION, StripeRest, StripeUnavailableError
+from crosstune.billing.stripe import (
+    STRIPE_API_VERSION,
+    FirstPayment,
+    StripeNoPaymentError,
+    StripeRest,
+    StripeUnavailableError,
+)
 
 BASE = "https://stripe.example.test/v1"
 KEY = "sk_test_fixture"  # gitleaks:allow -- fixture, not a credential
@@ -196,7 +204,7 @@ def _payments(intent: str | None) -> httpx2.Response:
     return httpx2.Response(200, json={"object": "list", "data": data})
 
 
-async def test_first_payment_intent_picks_the_oldest_invoice(mock_http) -> None:
+async def test_first_payment_picks_the_oldest_invoice(mock_http) -> None:
     mock_http.add(
         f"{BASE}/invoices",
         httpx2.Response(
@@ -212,16 +220,18 @@ async def test_first_payment_intent_picks_the_oldest_invoice(mock_http) -> None:
     )
     mock_http.add(f"{BASE}/invoice_payments?invoice=in_old&status=paid", _payments("pi_1"))
 
-    intent = await StripeRest(mock_http.client(), KEY, base_url=BASE).first_payment_intent("sub_1")
+    payment = await StripeRest(mock_http.client(), KEY, base_url=BASE).first_payment("sub_1")
 
-    assert intent == "pi_1"
+    assert payment == FirstPayment(
+        payment_intent="pi_1", invoiced_at=datetime.fromtimestamp(100, UTC)
+    )
     assert [(c.method, str(c.url)) for c in mock_http.calls] == [
         ("GET", INVOICES_URL),
         ("GET", f"{BASE}/invoice_payments?invoice=in_old&status=paid"),
     ]
 
 
-async def test_first_payment_intent_passes_over_an_invoice_for_nothing(mock_http) -> None:
+async def test_first_payment_passes_over_an_invoice_for_nothing(mock_http) -> None:
     mock_http.add(
         f"{BASE}/invoices",
         httpx2.Response(
@@ -236,43 +246,47 @@ async def test_first_payment_intent_passes_over_an_invoice_for_nothing(mock_http
     )
     mock_http.add(f"{BASE}/invoice_payments?invoice=in_paid&status=paid", _payments("pi_2"))
 
-    intent = await StripeRest(mock_http.client(), KEY, base_url=BASE).first_payment_intent("sub_1")
+    payment = await StripeRest(mock_http.client(), KEY, base_url=BASE).first_payment("sub_1")
 
-    assert intent == "pi_2"
+    assert payment.payment_intent == "pi_2"
 
 
-async def test_first_payment_intent_resolves_an_item_first(mock_http) -> None:
+async def test_first_payment_resolves_an_item_first(mock_http) -> None:
     mock_http.add(ITEM_URL, httpx2.Response(200, json={"id": "si_1", "subscription": "sub_1"}))
     mock_http.add(
         f"{BASE}/invoices", httpx2.Response(200, json={"data": [{"id": "in_1", "created": 1}]})
     )
     mock_http.add(f"{BASE}/invoice_payments", _payments("pi_9"))
 
-    intent = await StripeRest(mock_http.client(), KEY, base_url=BASE).first_payment_intent("si_1")
+    payment = await StripeRest(mock_http.client(), KEY, base_url=BASE).first_payment("si_1")
 
-    assert intent == "pi_9"
+    assert payment.payment_intent == "pi_9"
     assert str(mock_http.calls[0].url) == ITEM_URL
 
 
 @pytest.mark.parametrize(
-    ("invoices", "payments"),
+    ("invoices", "payments", "error"),
     [
-        ({"data": []}, None),
-        ({"data": [{"id": "in_1", "created": 1}]}, {"data": []}),
-        ({"data": [{"id": "in_1", "created": 1}]}, {"data": [{"payment": {"type": "charge"}}]}),
+        ({"data": []}, None, StripeNoPaymentError),
+        ({"data": [{"id": "in_1", "created": 1}]}, {"data": []}, StripeUnavailableError),
+        (
+            {"data": [{"id": "in_1", "created": 1}]},
+            {"data": [{"payment": {"type": "charge"}}]},
+            StripeUnavailableError,
+        ),
     ],
 )
-async def test_first_payment_intent_raises_when_nothing_was_paid(
-    mock_http, invoices: dict, payments: dict | None
+async def test_first_payment_raises_when_nothing_was_paid(
+    mock_http, invoices: dict, payments: dict | None, error: type[Exception]
 ) -> None:
     mock_http.add(f"{BASE}/invoices", httpx2.Response(200, json=invoices))
     mock_http.add(f"{BASE}/invoice_payments", httpx2.Response(200, json=payments or {}))
 
-    with pytest.raises(StripeUnavailableError):
-        await StripeRest(mock_http.client(), KEY, base_url=BASE).first_payment_intent("sub_1")
+    with pytest.raises(error):
+        await StripeRest(mock_http.client(), KEY, base_url=BASE).first_payment("sub_1")
 
 
-async def test_first_payment_intent_keeps_stripes_message_on_a_refusal(mock_http) -> None:
+async def test_first_payment_keeps_stripes_message_on_a_refusal(mock_http) -> None:
     message = "The provided key does not have the required permissions: rak_invoice_read"
     mock_http.add(
         f"{BASE}/invoices",
@@ -280,7 +294,7 @@ async def test_first_payment_intent_keeps_stripes_message_on_a_refusal(mock_http
     )
 
     with pytest.raises(StripeUnavailableError, match="rak_invoice_read"):
-        await StripeRest(mock_http.client(), KEY, base_url=BASE).first_payment_intent("sub_1")
+        await StripeRest(mock_http.client(), KEY, base_url=BASE).first_payment("sub_1")
 
 
 async def test_refund_sends_the_intent_reason_and_idempotency_key(mock_http) -> None:
@@ -331,7 +345,7 @@ async def test_every_call_pins_the_api_version(mock_http) -> None:
     stripe = StripeRest(mock_http.client(), KEY, base_url=BASE)
 
     await stripe.cancel("si_1")
-    await stripe.first_payment_intent("sub_1")
+    await stripe.first_payment("sub_1")
     await stripe.refund("pi_1", idempotency_key="key-1")
 
     assert len(mock_http.calls) == 5
@@ -339,20 +353,20 @@ async def test_every_call_pins_the_api_version(mock_http) -> None:
     assert STRIPE_API_VERSION == "2025-03-31.basil"
 
 
-async def test_first_payment_intent_raises_when_invoices_span_pages(mock_http) -> None:
+async def test_first_payment_raises_when_invoices_span_pages(mock_http) -> None:
     mock_http.add(
         f"{BASE}/invoices",
         httpx2.Response(200, json={"has_more": True, "data": [{"id": "in_1", "created": 1}]}),
     )
 
     with pytest.raises(StripeUnavailableError):
-        await StripeRest(mock_http.client(), KEY, base_url=BASE).first_payment_intent("sub_1")
+        await StripeRest(mock_http.client(), KEY, base_url=BASE).first_payment("sub_1")
 
     assert len(mock_http.calls) == 1
 
 
 @pytest.mark.parametrize("created", [None, "100", True, 1.5])
-async def test_first_payment_intent_ignores_invoices_without_an_integer_date(
+async def test_first_payment_ignores_invoices_without_an_integer_date(
     mock_http, created: object
 ) -> None:
     mock_http.add(
@@ -361,32 +375,30 @@ async def test_first_payment_intent_ignores_invoices_without_an_integer_date(
     )
 
     with pytest.raises(StripeUnavailableError):
-        await StripeRest(mock_http.client(), KEY, base_url=BASE).first_payment_intent("sub_1")
+        await StripeRest(mock_http.client(), KEY, base_url=BASE).first_payment("sub_1")
 
 
-async def test_first_payment_intent_skips_an_undated_invoice_for_a_dated_one(mock_http) -> None:
+async def test_first_payment_skips_an_undated_invoice_for_a_dated_one(mock_http) -> None:
     mock_http.add(
         f"{BASE}/invoices",
         httpx2.Response(200, json={"data": [{"id": "in_x"}, {"id": "in_1", "created": 5}]}),
     )
     mock_http.add(f"{BASE}/invoice_payments?invoice=in_1", _payments("pi_1"))
 
-    intent = await StripeRest(mock_http.client(), KEY, base_url=BASE).first_payment_intent("sub_1")
+    payment = await StripeRest(mock_http.client(), KEY, base_url=BASE).first_payment("sub_1")
 
-    assert intent == "pi_1"
+    assert payment.payment_intent == "pi_1"
 
 
-async def test_first_payment_intent_raises_when_invoices_are_not_json(mock_http) -> None:
+async def test_first_payment_raises_when_invoices_are_not_json(mock_http) -> None:
     mock_http.add(f"{BASE}/invoices", httpx2.Response(200, text="<html>"))
 
     with pytest.raises(StripeUnavailableError):
-        await StripeRest(mock_http.client(), KEY, base_url=BASE).first_payment_intent("sub_1")
+        await StripeRest(mock_http.client(), KEY, base_url=BASE).first_payment("sub_1")
 
 
 @pytest.mark.parametrize("status", [403, 500])
-async def test_first_payment_intent_raises_when_payments_are_refused(
-    mock_http, status: int
-) -> None:
+async def test_first_payment_raises_when_payments_are_refused(mock_http, status: int) -> None:
     mock_http.add(
         f"{BASE}/invoices", httpx2.Response(200, json={"data": [{"id": "in_1", "created": 1}]})
     )
@@ -395,7 +407,7 @@ async def test_first_payment_intent_raises_when_payments_are_refused(
     )
 
     with pytest.raises(StripeUnavailableError):
-        await StripeRest(mock_http.client(), KEY, base_url=BASE).first_payment_intent("sub_1")
+        await StripeRest(mock_http.client(), KEY, base_url=BASE).first_payment("sub_1")
 
 
 @pytest.mark.parametrize("status", ["failed", "canceled"])

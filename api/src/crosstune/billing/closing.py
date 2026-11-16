@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from functools import partial
 from typing import TYPE_CHECKING
 
@@ -9,11 +10,12 @@ from sqlalchemy import or_, select
 
 from crosstune.billing.purchases import accepted
 from crosstune.billing.revenuecat import RevenueCatUnavailableError
-from crosstune.billing.stripe import StripeUnavailableError
+from crosstune.billing.stripe import StripeNoPaymentError, StripeUnavailableError
 from crosstune.billing.withdrawal import (
     PENDING,
     mark_withdrawn,
     refund_key,
+    refundable_payment,
     send_confirmation,
     withdrawable_grant,
 )
@@ -36,6 +38,8 @@ if TYPE_CHECKING:
     from crosstune.billing.stripe import StripeSubscriptions
     from crosstune.config import Settings
     from crosstune.email.resend import Mailer
+
+log = logging.getLogger(__name__)
 
 _CANNOT_END_BILLING = "Could not end billing for the account"
 
@@ -154,6 +158,9 @@ async def _cancel_all(
 ) -> list[str]:
     """Finish pending withdrawals, refund then cancel the one in its window, cancel the rest.
 
+    A subscription with no charged invoice, or whose first one falls outside its window, is
+    cancelled without a refund and logged at ERROR, since no payment the window covers exists.
+
     Returns:
         The subscriptions whose withdrawal this call refunded or completed.
 
@@ -180,18 +187,27 @@ async def _cancel_all(
     grant = await _refundable(session, user, now)
     if grant is not None and grant.external_id in listed:
         subscription_id = grant.external_id
-        store_id = listed.pop(subscription_id)
-        await stripe.refund(
-            await stripe.first_payment_intent(store_id),
-            idempotency_key=refund_key(subscription_id),
-        )
-        grant.refunded_at = now
-        grant.store_id = store_id
-        await _commit(session, user)
-        grant = await _reread(session, user, grant)
-        await stripe.cancel(store_id)
-        await _withdrawn(session, user, grant, settings, now)
-        handled.append(subscription_id)
+        store_id = listed[subscription_id]
+        try:
+            payment_intent = await refundable_payment(stripe, grant, store_id)
+        except StripeNoPaymentError:
+            payment_intent = None
+        if payment_intent is not None:
+            del listed[subscription_id]
+            await stripe.refund(payment_intent, idempotency_key=refund_key(subscription_id))
+            grant.refunded_at = now
+            grant.store_id = store_id
+            await _commit(session, user)
+            grant = await _reread(session, user, grant)
+            await stripe.cancel(store_id)
+            await _withdrawn(session, user, grant, settings, now)
+            handled.append(subscription_id)
+        else:
+            # The deletion goes ahead, and the loop below cancels it without a refund.
+            log.error(
+                "no charged Stripe invoice inside the withdrawal window; not refunded",
+                extra={"user": str(user.id), "subscription": subscription_id},
+            )
 
     for store_id in listed.values():
         await stripe.cancel(store_id)
