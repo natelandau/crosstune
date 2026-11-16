@@ -40,6 +40,9 @@ log = logging.getLogger(__name__)
 # job has waited so far, so the waits double, up to the cap.
 NAMING_BACKOFF_CAP = timedelta(hours=6)
 NAMING_GIVE_UP_AFTER = timedelta(days=7)
+# Every lookup is charged before it is sent, and an outage fails them all, so a failed lookup
+# holds every account's backlog: an outage spends a few calls an hour, not one per job.
+OUTAGE_HOLD = timedelta(minutes=5)
 
 
 def _nothing_to_name(recording: Recording) -> bool:
@@ -56,8 +59,9 @@ async def run(ctx: JobContext, job: Job) -> None:
 
     The lookup runs with no transaction open and no lock held, so the user's pushes
     never wait on Apple Maps. An Apple Maps failure, a timeout, or a server with no Maps
-    key spends no attempt and holds the job back until NAMING_GIVE_UP_AFTER. A spent daily
-    Maps budget holds it until the next UTC day, also without spending an attempt.
+    key spends no attempt and holds the job back until NAMING_GIVE_UP_AFTER, and a failed
+    lookup holds every other place job for OUTAGE_HOLD. A spent daily Maps budget holds it
+    until the next UTC day, also without spending an attempt.
     """
     async with ctx.sessionmaker() as session:
         async with session.begin():
@@ -192,6 +196,11 @@ async def _lookup_failed(session: AsyncSession, job: Job, exc: Exception) -> Non
     )
     if await _wait_for_maps(session, stored, str(exc) or type(exc).__name__):
         _wait_out_busy(stored, exc)
+    now = utc_now()
+    until = now + OUTAGE_HOLD
+    if isinstance(exc, MapsBusyError):
+        until = max(until, now + timedelta(seconds=exc.retry_after_seconds))
+    await hold_place_jobs(session, now=now, until=until, user_id=None)
 
 
 async def _wait_for_maps(session: AsyncSession, job: Job, reason: str) -> bool:

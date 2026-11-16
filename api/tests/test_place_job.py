@@ -15,7 +15,7 @@ from sqlalchemy import select
 from crosstune.db.base import new_uuid7, utc_now
 from crosstune.db.engine import make_sessionmaker
 from crosstune.jobs.attempt import MAX_ATTEMPTS, RETRY_BACKOFF_SECONDS
-from crosstune.jobs.handlers.place import NAMING_BACKOFF_CAP, NAMING_GIVE_UP_AFTER
+from crosstune.jobs.handlers.place import NAMING_BACKOFF_CAP, NAMING_GIVE_UP_AFTER, OUTAGE_HOLD
 from crosstune.jobs.runner import JobRunner
 from crosstune.models import Job, MapsUsage, Place, Recording
 from crosstune.places.maps import MAPS_URL, AppleMaps
@@ -289,6 +289,36 @@ async def test_a_failing_lookup_keeps_retrying_past_the_attempt_limit(
     assert held.last_error == "Apple Maps answered 500"
     assert held.locked_until is not None
     assert held.locked_until > utc_now()
+
+
+@pytest.mark.parametrize(
+    ("response", "held_for"),
+    [
+        (httpx2.Response(503), OUTAGE_HOLD),
+        (httpx2.Response(429, headers={"Retry-After": "3600"}), timedelta(hours=1)),
+    ],
+)
+async def test_a_failing_lookup_holds_every_accounts_place_jobs(
+    namer: JobRunner, verify_session, http, response: httpx2.Response, held_for: timedelta
+) -> None:
+    http.add(REVERSE_URL, response)
+    first, _ = await seed_place(verify_session)
+    second, _ = await seed_place(verify_session)
+
+    before = utc_now()
+    await namer.run_once()
+    await namer.run_once()
+
+    # One call, one charge: the other account's job waits out the outage untried.
+    assert len([c for c in http.calls if str(c.url).startswith(REVERSE_URL)]) == 1
+    usage = await verify_session.scalars(select(MapsUsage.count).where(MapsUsage.user_id.is_(None)))
+    assert list(usage) == [1]
+    jobs = [job for rec in (first, second) for job in await _place_jobs(verify_session, rec.id)]
+    held = [job for job in jobs if job.last_error is None]
+    assert len(held) == 1
+    assert held[0].attempts == 0
+    assert held[0].locked_until is not None
+    assert held[0].locked_until >= before + held_for
 
 
 @pytest.mark.parametrize(
