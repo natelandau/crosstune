@@ -3,6 +3,7 @@ import ClerkKit
 import CrosstuneAPI
 import CrosstuneAnalytics
 import CrosstuneDiagnostics
+import CrosstuneExport
 import CrosstuneStore
 import CrosstuneSync
 import Foundation
@@ -644,9 +645,9 @@ public final class AccountSession {
         }
     }
 
-    /// Ends the session, then empties the shared URL cache and deletes the user's folder. The
-    /// catalog is private data on a possibly shared device, so it goes with the session; if
-    /// ending the session fails, it stays.
+    /// Ends the session, then empties the shared URL cache, deletes export files no hand-off
+    /// still reads, and deletes the user's folder. The catalog is private data on a possibly
+    /// shared device, so it goes with the session; if ending the session fails, it stays.
     ///
     /// `settle` first finishes the writes the app holds back, so none lands after the store
     /// closes. It then syncs and refuses while any edit is still only on this device, since the
@@ -658,7 +659,8 @@ public final class AccountSession {
     /// the same account to sync on its next sign-in.
     static func leave(
         userID: String, store: CrosstuneStore?, root: URL, sync: (any LeavingSync)?, analytics: AnalyticsClient,
-        settle: () async -> Void = {}, endSession: () async throws -> Void
+        settle: () async -> Void = {}, removeExports: () -> Void = ExportWorkFolder.removeLeftovers,
+        endSession: () async throws -> Void
     ) async throws {
         await settle()
         if let store {
@@ -683,6 +685,7 @@ public final class AccountSession {
         if let store { keepsFolder = (try? await store.lockWritesUnlessUnsent()) != true }
         try? store?.close()
         URLCache.shared.removeAllCachedResponses()
+        removeExports()
         if !keepsFolder { try CrosstuneStore.delete(userID: userID, root: root) }
     }
 
@@ -699,7 +702,8 @@ public final class AccountSession {
     /// ``deleteOtherFolders(keeping:)``.
     static func deleteAndLeave(
         userID: String, store: CrosstuneStore?, root: URL, sync: (any LeavingSync)?, analytics: AnalyticsClient,
-        deleteRemote: () async throws -> Void, endSession: () async throws -> Void
+        deleteRemote: () async throws -> Void, removeExports: () -> Void = ExportWorkFolder.removeLeftovers,
+        endSession: () async throws -> Void
     ) async throws {
         await sync?.stop()
         // Starts uploading the user's queued events before the request without waiting for it.
@@ -711,21 +715,25 @@ public final class AccountSession {
             sync?.resume()
             throw error
         }
-        await dropDeleted(userID: userID, store: store, root: root, analytics: analytics, endSession: endSession)
+        await dropDeleted(
+            userID: userID, store: store, root: root, analytics: analytics, removeExports: removeExports,
+            endSession: endSession)
     }
 
     /// Stops syncing, then drops this device's copy of an account another device deleted. It
     /// never throws: the account is already gone, so nothing here can leave it in place.
     static func forgetDeleted(
         userID: String, store: CrosstuneStore?, root: URL, sync: (any LeavingSync)?, analytics: AnalyticsClient,
-        endSession: () async throws -> Void
+        removeExports: () -> Void = ExportWorkFolder.removeLeftovers, endSession: () async throws -> Void
     ) async {
         await sync?.stop()
-        await dropDeleted(userID: userID, store: store, root: root, analytics: analytics, endSession: endSession)
+        await dropDeleted(
+            userID: userID, store: store, root: root, analytics: analytics, removeExports: removeExports,
+            endSession: endSession)
     }
 
     private static func dropDeleted(
-        userID: String, store: CrosstuneStore?, root: URL, analytics: AnalyticsClient,
+        userID: String, store: CrosstuneStore?, root: URL, analytics: AnalyticsClient, removeExports: () -> Void,
         endSession: () async throws -> Void
     ) async {
         try? await endSession()
@@ -734,6 +742,7 @@ public final class AccountSession {
         analytics.send(.accountDeleted)
         try? store?.close()
         URLCache.shared.removeAllCachedResponses()
+        removeExports()
         try? CrosstuneStore.delete(userID: userID, root: root)
     }
 

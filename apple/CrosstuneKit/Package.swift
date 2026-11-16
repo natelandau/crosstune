@@ -58,6 +58,7 @@ let package = Package(
                 "CrosstuneAnalytics",
                 "CrosstuneAPI",
                 "CrosstuneDiagnostics",
+                "CrosstuneExport",
                 "CrosstuneStore",
                 "CrosstuneSync",
                 .product(name: "ClerkKit", package: "clerk-ios"),

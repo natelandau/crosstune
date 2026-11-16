@@ -125,7 +125,7 @@ public enum ExportArchive {
         fetchMissing: @escaping FetchMissing = { _, _ in throw URLError(.notConnectedToInternet) },
         progress: @Sendable (Int, Int) -> Void, beforeWriting: @Sendable () throws -> Void = {}
     ) async throws -> URL {
-        let job = root.appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        let job = ExportWorkFolder.newJob(in: root)
         let pinned = job.appending(path: "audio", directoryHint: .isDirectory)
         let name = "crosstune-export-\(DateText(timeZone: timeZone)(now))"
         let zip = job.appending(path: "\(name).zip")
@@ -168,13 +168,19 @@ public enum ExportArchive {
             try writeStoredZip(documents + files, to: zip, modified: now, timeZone: timeZone) { written in
                 if written > documents.count { progress(fetches.count + written - documents.count, steps) }
             }
-            // The zip is complete, so a pin that will not go is left for removeLeftovers.
+            // The zip is complete, so a pin that will not go is left for discard.
             try? FileManager.default.removeItem(at: pinned)
             return zip
         } catch {
-            try? FileManager.default.removeItem(at: job)
+            ExportWorkFolder.discard(job)
             throw error
         }
+    }
+
+    /// Deletes the job folder of a zip that ``make(store:now:timeZone:fetchMissing:progress:)``
+    /// returned, once the platform is done with it.
+    public static func discard(_ zip: URL) {
+        ExportWorkFolder.discard(zip.deletingLastPathComponent())
     }
 
     /// How many missing files an export fetches at once.

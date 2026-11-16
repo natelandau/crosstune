@@ -66,7 +66,7 @@ final class ExportDataModel {
         self.exporter = exporter
         self.isOffline = isOffline
         self.analytics = analytics
-        run = ExportRun(diagnostics: diagnostics, discard: Self.discard)
+        run = ExportRun(diagnostics: diagnostics, discard: ExportArchive.discard)
     }
 
     var progress: ExportProgress? { run.progress }
@@ -143,10 +143,5 @@ final class ExportDataModel {
     /// The share sheet or save panel closed, done or not, so the zip is no longer needed.
     func finishHandOff() {
         run.discardOutput()
-    }
-
-    /// Deletes the zip's own folder, which holds nothing else.
-    private static func discard(_ zip: URL) {
-        try? FileManager.default.removeItem(at: zip.deletingLastPathComponent())
     }
 }
