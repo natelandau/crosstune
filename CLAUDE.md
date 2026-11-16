@@ -96,8 +96,16 @@ code is the source of truth. A doc holds only what the code cannot say.
   `just --list` shows every recipe.
 - No other task runner. No tool through `uvx`.
 - Spell check: `just typos [paths]`.
-- A lint or test recipe skips a gate that passed on the same tree. Run the
-  recipe again. Never decide yourself that it can be skipped.
+- A lint or test recipe skips a gate that passed on the same files. Run
+  the recipe again. Never decide yourself that it can be skipped.
+- Each gate names the tracked paths its command reads with `--path`, in
+  its module's justfile. It skips when nothing under those paths changed,
+  so a missing path hides a real failure.
+  - A change that makes a gate read a new tracked file or folder outside
+    its paths, such as a config file, a fixture folder, or a shared
+    schema, adds the path in the same change.
+  - A moved or renamed path: update every list that names it.
+  - Not sure whether a gate reads a file: add the path.
 - Web code, while you iterate: from `web/`, `pnpm exec eslint <files>`
   and `pnpm exec prettier --check <files>` on the changed files. Before a
   commit: `just web::lint` once.

@@ -12,6 +12,11 @@ xcodebuild := "scripts/xcodebuild.sh"
 swift := "scripts/scrub-env.sh swift"
 # Runs a lint or test gate through gate-cache when it is installed
 gate := "../scripts/gate-cache.sh"
+# The tracked files every gate here reads, as gate-cache paths: the module, its gate script,
+# and the shared settings. Each gate adds the other paths it reads.
+paths := "--path apple/ --path scripts/gate-cache.sh --path scripts/settings.just"
+# The web copy files the UI tests compare their labels against
+web_copy_paths := "--path ':(glob)web/src/**/*Copy.ts' --path web/src/sync/labels.ts"
 # Marketing captures land here: each simulator pass's result bundle and exported attachments,
 # and the Mac window still. `capture-test` clears it, so it only ever holds the latest run.
 capture := ".build/capture"
@@ -31,17 +36,17 @@ _sources:
 # Check formatting and lint rules with swift format
 [group('lint')]
 format:
-    {{ gate }} apple-swift-format --tool 'swift --version' bash -c 'just _sources | xargs swift format lint --strict'
+    {{ gate }} apple-swift-format {{ paths }} --tool 'swift --version' bash -c 'just _sources | xargs swift format lint --strict'
 
 # Spell check the Apple client
 [group('lint')]
 typos:
-    {{ gate }} apple-typos uv run --project .. --only-group typos typos --config ../.typos.toml .
+    {{ gate }} apple-typos {{ paths }} --path pyproject.toml --path uv.lock --path .python-version --path .typos.toml --path .gitignore uv run --project .. --only-group typos typos --config ../.typos.toml .
 
 # Fail when the Swift client is stale
 [group('lint')]
 contract-check:
-    {{ gate }} apple-contract-check --tool 'swift --version' just _contract-check
+    {{ gate }} apple-contract-check {{ paths }} --path api/openapi.json --tool 'swift --version' just _contract-check
 
 [script]
 _contract-check:
@@ -64,7 +69,7 @@ lint: format typos contract-check
 [doc("Find unused Swift code; builds the app first")]
 [group('lint')]
 deadcode:
-    {{ gate }} apple-deadcode --tool 'periphery version' --tool 'swift --version' just _deadcode
+    {{ gate }} apple-deadcode {{ paths }} --tool 'periphery version' --tool 'swift --version' just _deadcode
 
 _deadcode: build
     {{ swift }} build --build-tests --quiet --package-path CrosstuneKit
@@ -88,7 +93,7 @@ build-tests:
 [group('test')]
 [arg("args", help="Arguments for xcodebuild, such as -only-testing:CrosstuneStoreTests")]
 test *args:
-    {{ gate }} apple-test --argc "$#" --tool 'swift --version' bash -c '{{ package_test }} test "$@"' _ "$@"
+    {{ gate }} apple-test {{ paths }} --path fixtures/ --path api/openapi.json --path analytics/tracking-plan.json {{ web_copy_paths }} --argc "$#" --tool 'swift --version' bash -c '{{ package_test }} test "$@"' _ "$@"
 
 # The compilation cache is keyed on content rather than file dates, so CI restores it into a
 # fresh checkout and still hits. Xcode's own limit is half the free disk, which a CI runner never

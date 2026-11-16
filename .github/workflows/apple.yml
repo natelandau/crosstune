@@ -13,6 +13,8 @@ on:
       - "fixtures/**"
       - "api/openapi.json"
       - "analytics/tracking-plan.json"
+      - "web/src/**/*Copy.ts"
+      - "web/src/sync/labels.ts"
       - "scripts/gate-cache.sh"
       - "scripts/settings.just"
       - ".github/workflows/apple.yml"

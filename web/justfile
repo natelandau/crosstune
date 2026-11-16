@@ -9,6 +9,14 @@ e2e_api := "http://localhost:" + trim(read("../api/e2e-port"))
 
 # Runs a lint or test gate through gate-cache when it is installed
 gate := "../scripts/gate-cache.sh"
+# The tracked files every gate here reads, as gate-cache paths: the module, its gate script,
+# and the shared settings. Each gate adds the other paths it reads.
+paths := "--path web/ --path scripts/gate-cache.sh --path scripts/settings.just"
+# The root tooling environment that `uv run --project ..` runs ruff, ty, and typos from
+uv_paths := "--path pyproject.toml --path uv.lock --path .python-version"
+# What the tests import or read from elsewhere in the repository: the API contract, the fixtures
+# every client shares, and the sources that parity tests compare against
+test_paths := "--path api/openapi.json --path fixtures/ --path analytics/tracking-plan.json --path brand/ --path apple/CrosstuneKit/Sources/CrosstuneDesign/Style/ --path api/src/crosstune/billing/emails.py"
 
 [default]
 _default:
@@ -17,32 +25,32 @@ _default:
 # Lint with eslint
 [group('lint')]
 eslint:
-    {{ gate }} web-eslint pnpm eslint --max-warnings 0 .
+    {{ gate }} web-eslint {{ paths }} --path api/openapi.json --path fixtures/ pnpm eslint --max-warnings 0 .
 
 # Check formatting with prettier
 [group('lint')]
 format:
-    {{ gate }} web-prettier pnpm prettier --check .
+    {{ gate }} web-prettier {{ paths }} pnpm prettier --check .
 
 # Type check with tsc
 [group('lint')]
 tsc:
-    {{ gate }} web-tsc pnpm tsc --noEmit
+    {{ gate }} web-tsc {{ paths }} --path api/openapi.json --path fixtures/ pnpm tsc --noEmit
 
 # Spell check the client and its brand sources
 [group('lint')]
 typos:
-    {{ gate }} web-typos uv run --project .. --only-group typos typos --config ../.typos.toml . ../brand
+    {{ gate }} web-typos {{ paths }} {{ uv_paths }} --path brand/ --path .typos.toml --path .gitignore uv run --project .. --only-group typos typos --config ../.typos.toml . ../brand
 
 # Find unused files, exports, and dependencies with knip
 [group('lint')]
 deadcode:
-    {{ gate }} web-knip pnpm knip --no-progress
+    {{ gate }} web-knip {{ paths }} --path api/openapi.json --path fixtures/ --path .gitignore pnpm knip --no-progress
 
 # Fail when the typed client is stale
 [group('lint')]
 contract-check:
-    {{ gate }} web-contract-check just _contract-check
+    {{ gate }} web-contract-check {{ paths }} --path api/openapi.json just _contract-check
 
 [script]
 _contract-check:
@@ -60,7 +68,7 @@ _contract-check:
 # Fail when CI's Playwright image drifts
 [group('lint')]
 playwright-image:
-    {{ gate }} web-playwright-image just _playwright-image
+    {{ gate }} web-playwright-image {{ paths }} --path .github/workflows/web.yml just _playwright-image
 
 [script]
 _playwright-image:
@@ -85,7 +93,7 @@ fix:
 [group('test')]
 [arg("args", help="Arguments for vitest; any drops coverage")]
 test *args:
-    {{ gate }} web-test --argc "$#" --file .env --tool 'node --version' just _test "$@"
+    {{ gate }} web-test {{ paths }} {{ test_paths }} --argc "$#" --file .env --tool 'node --version' just _test "$@"
 
 # V8 coverage reads Chromium's profiler, which WebKit lacks, so WebKit runs on its own.
 # macOS delivers WebKit's clicks and hovers through the window server, which drops them while
@@ -97,13 +105,13 @@ _test *args:
 [group('test')]
 [arg("args", help="Arguments for vitest")]
 test-unit *args:
-    {{ gate }} web-test-unit --argc "$#" --file .env --tool 'node --version' pnpm vitest run --project unit "$@"
+    {{ gate }} web-test-unit {{ paths }} {{ test_paths }} --argc "$#" --file .env --tool 'node --version' pnpm vitest run --project unit "$@"
 
 # Run only the browser projects: Chromium and WebKit
 [group('test')]
 [arg("args", help="Arguments for vitest")]
 test-browser *args:
-    {{ gate }} web-test-browser --argc "$#" --file .env --tool 'node --version' pnpm vitest run --project browser --project browser-webkit "$@"
+    {{ gate }} web-test-browser {{ paths }} {{ test_paths }} --argc "$#" --file .env --tool 'node --version' pnpm vitest run --project browser --project browser-webkit "$@"
 
 # Compare the component library with its screenshots
 [group('test')]
