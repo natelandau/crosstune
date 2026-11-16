@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 from typing import TYPE_CHECKING
-from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
+from urllib.parse import parse_qs, unquote, urlencode, urlparse, urlunparse
 
 from crosstune.vocabulary import LIMITS
 
@@ -69,10 +69,18 @@ def valid_slippery_hill_ref(ref: str) -> bool:
     """Report whether `ref` is a safe file path under Slippery-Hill's `/system/files/`."""
     if not SLIPPERY_HILL_REF.fullmatch(ref):
         return False
-    # Clients append the ref to the origin, so a dot segment or a slash, however it is
-    # spelled, could climb out of the files tree.
-    lowered = ref.lower()
-    return "%2e" not in lowered and "%2f" not in lowered and not {".", ".."} & set(ref.split("/"))
+    # Clients append the ref to the origin, so a dot segment or a separator, however it is
+    # spelled, could climb out of the files tree. Checked once decoded, as the server reads
+    # it: an encoded separator changes the segments, and a "%" left over is double encoding.
+    decoded = unquote(ref)
+    segments = decoded.split("/")
+    return (
+        "%2e" not in ref.lower()
+        and "%" not in decoded
+        and "\\" not in decoded
+        and len(segments) == ref.count("/") + 1
+        and not {".", ".."} & set(segments)
+    )
 
 
 def slippery_hill_ref(path: str) -> str | None:
