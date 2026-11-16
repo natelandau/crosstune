@@ -14,7 +14,7 @@ from sqlalchemy import select
 
 from crosstune.db.base import new_uuid7, utc_now
 from crosstune.db.engine import make_sessionmaker
-from crosstune.jobs.attempt import MAX_ATTEMPTS, RETRY_BACKOFF_SECONDS
+from crosstune.jobs.attempt import MAX_ATTEMPTS
 from crosstune.jobs.handlers.place import NAMING_BACKOFF_CAP, NAMING_GIVE_UP_AFTER, OUTAGE_HOLD
 from crosstune.jobs.runner import JobRunner
 from crosstune.models import Job, MapsUsage, Place, Recording
@@ -324,7 +324,8 @@ async def test_a_failing_lookup_holds_every_accounts_place_jobs(
 @pytest.mark.parametrize(
     ("age", "expected"),
     [
-        (timedelta(0), timedelta(seconds=RETRY_BACKOFF_SECONDS)),
+        # A new job waits at least as long as the outage hold on every other job.
+        (timedelta(0), OUTAGE_HOLD),
         (timedelta(minutes=10), timedelta(minutes=10)),
         (timedelta(days=2), NAMING_BACKOFF_CAP),
     ],
