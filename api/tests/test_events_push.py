@@ -263,10 +263,15 @@ async def test_practice_session_delete_is_invalid(client, auth_headers) -> None:
     assert results[0]["reason"] == "practice_sessions are insert-only"
 
 
-async def test_practice_session_with_too_many_loops_is_invalid(client, auth_headers) -> None:
+# Past the database driver's limit on query parameters, so an id list over the cap must
+# never reach a query.
+@pytest.mark.parametrize("count", [MAX_LOOPS_PER_RECORDING + 1, 40_000])
+async def test_practice_session_with_too_many_loops_is_invalid(
+    client, auth_headers, count: int
+) -> None:
     headers = auth_headers("user_a")
     recording_id = await _recording(client, headers)
-    loop_ids = [uid() for _ in range(MAX_LOOPS_PER_RECORDING + 1)]
+    loop_ids = [uid() for _ in range(count)]
     results = await push(client, headers, practice(uid(), recording_id, loop_ids=loop_ids))
     assert results[0]["status"] == "invalid"
     assert results[0]["reason"] == "invalid fields: loop_ids"

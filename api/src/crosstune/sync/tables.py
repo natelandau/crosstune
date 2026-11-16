@@ -91,12 +91,16 @@ class TableSpec:
 
     owner_column names the column that must equal the calling user, or is None for a table
     owned through a parent.
-    parents lists (foreign key column, parent table) pairs whose target must be owned by the caller.
+    parents lists (column, parent table) pairs whose target must be owned by the caller. A
+    column holds one id or a list of them.
     insert_only names client fields a push writes when it creates the row and never changes after.
     sticky names client fields a push may replace but never clear: a push that leaves one
     null keeps the stored value, so a device that has not pulled it never wipes it.
     deleted_parents names the foreign key columns whose soft-deleted parent still counts as
     owned, for rows a device can write after another device deleted the parent.
+    absent_parents names the columns that may name a row the server does not hold, such as a
+    recording kept on the device until the user subscribes. Code that reads one checks that
+    the row exists and is the caller's, since another account may store that id later.
     append_only marks an event table: a row is written once and never edited or deleted.
     pulled is False for a table the main pull leaves out.
     children lists (child table, foreign key column on the child) pairs a delete of this
@@ -117,6 +121,7 @@ class TableSpec:
     insert_only: frozenset[str] = frozenset()
     sticky: frozenset[str] = frozenset()
     deleted_parents: frozenset[str] = frozenset()
+    absent_parents: frozenset[str] = frozenset()
     append_only: bool = False
     pulled: bool = True
     children: tuple[tuple[TableName, str], ...] = ()
@@ -195,7 +200,13 @@ TABLES: dict[TableName, TableSpec] = {
         UserTuneData,
         UserTuneRow,
         "user_id",
-        (("tune_id", "tunes"),),
+        (
+            ("tune_id", "tunes"),
+            ("play_recording_id", "recordings"),
+            ("play_link_id", "recording_links"),
+        ),
+        deleted_parents=frozenset({"play_recording_id", "play_link_id"}),
+        absent_parents=frozenset({"play_recording_id", "play_link_id"}),
         children=(("list_items", "user_tune_id"),),
         scrub={"learned_from": None, "notes": None},
     ),
@@ -321,8 +332,13 @@ TABLES: dict[TableName, TableSpec] = {
         PracticeSessionData,
         PracticeSessionRow,
         "user_id",
-        (("recording_id", "recordings"), ("tune_id", "tunes")),
-        deleted_parents=frozenset({"recording_id", "tune_id"}),
+        (
+            ("recording_id", "recordings"),
+            ("tune_id", "tunes"),
+            ("loop_ids", "recording_loops"),
+        ),
+        deleted_parents=frozenset({"recording_id", "tune_id", "loop_ids"}),
+        absent_parents=frozenset({"loop_ids"}),
         append_only=True,
         pulled=False,
     ),
@@ -350,7 +366,8 @@ TABLES: dict[TableName, TableSpec] = {
 
 assert set(TABLES) == set(DATA_SCHEMAS) == set(ROW_SCHEMAS)  # noqa: S101
 assert all(  # noqa: S101
-    spec.deleted_parents <= {column for column, _ in spec.parents} for spec in TABLES.values()
+    spec.deleted_parents | spec.absent_parents <= {column for column, _ in spec.parents}
+    for spec in TABLES.values()
 )
 
 

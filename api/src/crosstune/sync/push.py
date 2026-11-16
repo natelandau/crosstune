@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import uuid
 from collections import defaultdict
 from typing import TYPE_CHECKING, Any, cast
 
@@ -11,6 +10,7 @@ from pydantic import ValidationError
 from sqlalchemy import case, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import DBAPIError, IntegrityError
+from sqlalchemy.orm.util import identity_key
 
 from crosstune.billing.access import access_for
 from crosstune.db.base import next_server_seq
@@ -32,6 +32,7 @@ from crosstune.sync.tables import (
 from crosstune.vocabulary import SERVER_WRITTEN
 
 if TYPE_CHECKING:
+    import uuid
     from collections.abc import Iterable, Mapping
     from datetime import datetime
 
@@ -121,16 +122,19 @@ async def _prefetch(session: AsyncSession, spec: TableSpec, changes: list[Change
     The ownership checks and table rules read rows one id at a time through `session.get`,
     which the identity map then answers without a round trip each. Earlier groups have
     already written, so a parent this push created or changed loads in its current state.
+    Parents come from the validated fields, the same ids `_parents_owned` checks, so a list
+    over its schema cap never reaches the query.
     """
     if not changes:
         return []
     wanted: dict[TableName, set[uuid.UUID]] = defaultdict(set)
     wanted[spec.name].update(change.id for change in changes)
     for change in changes:
+        data, rejection = _validated(spec, change)
+        if rejection:
+            continue
         for column, parent_table in spec.parents:
-            parent_id = _as_uuid((change.data or {}).get(column))
-            if parent_id is not None:
-                wanted[parent_table].add(parent_id)
+            wanted[parent_table].update(_parent_ids(data.get(column)))
     loaded: list[object] = []
     for table, ids in wanted.items():
         model: Any = TABLES[table].model
@@ -138,14 +142,11 @@ async def _prefetch(session: AsyncSession, spec: TableSpec, changes: list[Change
     return loaded
 
 
-def _as_uuid(value: object) -> uuid.UUID | None:
-    """The value as a UUID, or None when it is not one; validation reports it later."""
-    if isinstance(value, uuid.UUID):
-        return value
-    try:
-        return uuid.UUID(str(value)) if value is not None else None
-    except ValueError:
-        return None
+def _parent_ids(value: uuid.UUID | list[uuid.UUID] | None) -> list[uuid.UUID]:
+    """The ids a validated parent column holds, which is none, one id, or a list of them."""
+    if value is None:
+        return []
+    return value if isinstance(value, list) else [value]
 
 
 async def _apply_deferring_overlaps(
@@ -242,14 +243,22 @@ async def _parents_owned(
     A deleted parent still counts as owned in a column that accepts one: a loop is stored
     deleted instead, so a device that made it before learning of the delete gets a
     tombstone back, and an event is history a device can push after an offline delete.
+
+    An absent parent passes in a column that accepts one. The group's prefetch already
+    loaded every parent the server holds, so the identity map answers without a query.
     """
     for column, parent_table in spec.parents:
-        if data.get(column) is None:
-            # An unfiled recording has no tune yet; nothing to own.
-            continue
-        parent = await _fetch_owned(session, TABLES[parent_table], data[column], user_id)
-        if parent is None or (parent.deleted_at is not None and column not in spec.deleted_parents):
-            return f"{column} does not reference one of your {parent_table}"
+        target = TABLES[parent_table]
+        # A null column, such as an unfiled recording's tune, names nothing to own.
+        for parent_id in _parent_ids(data.get(column)):
+            key = identity_key(target.model, parent_id)
+            if column in spec.absent_parents and key not in session.identity_map:
+                continue
+            parent = await _fetch_owned(session, target, parent_id, user_id)
+            if parent is None or (
+                parent.deleted_at is not None and column not in spec.deleted_parents
+            ):
+                return f"{column} does not reference one of your {parent_table}"
     return None
 
 

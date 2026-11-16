@@ -8,7 +8,14 @@ from typing import TYPE_CHECKING
 import pytest
 from sqlalchemy import Integer, event, func, literal, select, text
 
-from crosstune.models import ListItem, Recording, RecordingLink, Tune, UserTune
+from crosstune.models import (
+    ListItem,
+    PracticeSession,
+    Recording,
+    RecordingLink,
+    Tune,
+    UserTune,
+)
 from crosstune.schemas.common import Change
 from crosstune.sync.push import _write
 from tests.helpers import T0, T1, T2, change, pull, push, recording, uid
@@ -493,6 +500,80 @@ async def test_push_creates_a_recording_and_pins_it_in_one_batch(client, auth_he
         recording(rec_id, tune_id=tune_id),
     )
     assert [r["status"] for r in results] == ["applied"] * 3
+
+
+@pytest.mark.parametrize(
+    ("table", "column", "target", "target_table"),
+    [
+        ("user_tunes", "play_recording_id", "recording", "recordings"),
+        ("user_tunes", "play_link_id", "link", "recording_links"),
+        ("practice_sessions", "loop_ids", "loop", "recording_loops"),
+    ],
+)
+async def test_a_reference_to_another_users_row_is_invalid(
+    client,
+    auth_headers,
+    verify_session: AsyncSession,
+    table: str,
+    column: str,
+    target: str,
+    target_table: str,
+) -> None:
+    theirs = {"tune": uid(), "recording": uid(), "link": uid(), "loop": uid()}
+    await push(
+        client,
+        auth_headers("user_b"),
+        change("tunes", theirs["tune"], T0, title="Theirs"),
+        recording(theirs["recording"], tune_id=theirs["tune"]),
+        change(
+            "recording_links",
+            theirs["link"],
+            T0,
+            tune_id=theirs["tune"],
+            url="https://youtu.be/x",
+            provider="youtube",
+            title="Theirs",
+        ),
+        change(
+            "recording_loops",
+            theirs["loop"],
+            T0,
+            recording_id=theirs["recording"],
+            start_ms=1000,
+            end_ms=5000,
+            color=2,
+        ),
+    )
+    headers = auth_headers("user_a")
+    tune_id, rec_id, row_id = uid(), uid(), uid()
+    await push(
+        client,
+        headers,
+        change("tunes", tune_id, T0, title="Mine"),
+        recording(rec_id, tune_id=tune_id),
+    )
+    if table == "user_tunes":
+        pushed = change(
+            table, row_id, T0, tune_id=tune_id, status="known", **{column: theirs[target]}
+        )
+    else:
+        # The device's own loop the server has not stored is kept beside the foreign one.
+        pushed = change(
+            table,
+            row_id,
+            T0,
+            recording_id=rec_id,
+            started_at=T0.isoformat(),
+            duration_ms=60_000,
+            speed_percent=100,
+            pitch_cents=0,
+            loop_ids=[uid(), theirs["loop"]],
+        )
+    [result] = await push(client, headers, pushed)
+    assert result["status"] == "invalid"
+    assert result["reason"] == f"{column} does not reference one of your {target_table}"
+    model = UserTune if table == "user_tunes" else PracticeSession
+    assert await verify_session.get(model, uuid.UUID(row_id)) is None
 
 
 async def test_user_settings_newer_write_wins(client, auth_headers) -> None:
