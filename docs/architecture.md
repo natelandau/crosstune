@@ -81,6 +81,9 @@ each question, and the invariants that both clients and the API hold.
   proxy locally, through the Worker when hosted.
 - Errors are problem-details documents (RFC 9457). An unhandled exception
   is a 500 with no detail, and a Sentry report.
+- A Sentry report redacts every API dataclass unless the class is marked
+  `@reportable`. Mark a class only when every field is safe to report: no
+  address, link, place, or user text.
 - The Apple app sends every API request and recording file through
   `URLSession.crosstune`, never `URLSession.shared`. A response in the
   shared URL cache stays on disk after sign-out.
