@@ -349,9 +349,8 @@ each question, and the invariants that both clients and the API hold.
   copies the object to where the server reads it, so a reused URL writes
   where nothing reads.
 - A job that stores a recording file outside an upload slot (transcode,
-  trim, re-encode, split) checks the file against the quota with
-  `room_bytes`, under the user's lock, before its commit. A file past the
-  quota is never committed, and the job deletes what it uploaded. A
+  trim, re-encode, split) checks it against the quota under the user's
+  lock, before its commit, and never commits a file past the quota. A
   rewrite that stores no more bytes than the recording counted is never
   refused.
 - A new file version gets a new revisioned key. The old object is deleted
@@ -418,7 +417,7 @@ each question, and the invariants that both clients and the API hold.
   (`MAX_SPLIT_PIECES`).
 - The parent's own files do not count against its pieces, so a split
   that only divides the parent is refused only when the account's other
-  files already fill the quota. A piece past the quota fails.
+  files already fill the quota.
 - A recording longer than `MAX_RECORDING_MS` is accepted only as the
   parent of a split whose trim range is at most `MAX_RECORDING_MS`, up to
   `MAX_SPLIT_SOURCE_MS`. Its source is never decoded whole.
