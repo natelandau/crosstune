@@ -32,6 +32,7 @@ from crosstune.recordings.service import (
     ensure_trim_job,
 )
 from crosstune.recordings.split_rules import (
+    close_split,
     fail_piece,
     split_pieces_start,
     split_ready_to_complete,
@@ -566,8 +567,7 @@ async def complete_split(
                 files.store, uploaded, log=log, message="could not delete an unused slice"
             )
             return None
-        parent.split_completed_id = parent.split_id
-        bump_server_seq(parent)
+        close_split(parent)
         if cut is not None:
             parent.original_key = cut.original.key
             parent.original_bytes = cut.original.size

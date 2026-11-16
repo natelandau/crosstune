@@ -281,6 +281,20 @@ async def fail_waiting_pieces(session: AsyncSession, parent_id: uuid.UUID, error
     return await fail_pieces(session, select(Recording).where(waiting_pieces(parent_id)), error)
 
 
+def close_split(parent: Recording) -> None:
+    """Record the parent's latest split as completed, so no pass works on it again.
+
+    A completed split may have narrowed the parent's original, or kept it whole when the
+    split could not finish. Either way no waiting piece of it is cut afterwards. Called
+    under the user's lock, in the caller's transaction.
+
+    Args:
+        parent: The recording the pieces were split from.
+    """
+    parent.split_completed_id = parent.split_id
+    bump_server_seq(parent)
+
+
 async def fail_parent_split(session: AsyncSession, parent: Recording) -> None:
     """Fail the waiting pieces of a parent that just failed, and complete its split.
 
@@ -294,5 +308,25 @@ async def fail_parent_split(session: AsyncSession, parent: Recording) -> None:
     """
     await fail_waiting_pieces(session, parent.id, parent.error or "")
     if parent.split_id is not None and parent.split_completed_id != parent.split_id:
-        parent.split_completed_id = parent.split_id
-        bump_server_seq(parent)
+        close_split(parent)
+
+
+async def give_up_split(session: AsyncSession, parent: Recording, error: str) -> int:
+    """Fail the parent's waiting pieces, and close a split whose completion keeps failing.
+
+    For a split job out of attempts. A split ready to complete is recorded as completed
+    with the parent's full original kept, so no pass queues it again. Called under the
+    user's lock, in the caller's transaction.
+
+    Args:
+        session: The session to write through.
+        parent: The recording the pieces were split from.
+        error: The phrase a client shows on each failed piece.
+
+    Returns:
+        int: How many pieces were failed.
+    """
+    failed = await fail_waiting_pieces(session, parent.id, error)
+    if await split_ready_to_complete(session, parent):
+        close_split(parent)
+    return failed

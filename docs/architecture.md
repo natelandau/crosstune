@@ -405,7 +405,8 @@ each question, and the invariants that both clients and the API hold.
   slice: from its trim start to its first piece's start, or to its trim
   end if that is later. A trim saved after the split never removes audio
   from the original. A soft-deleted parent keeps the full original until
-  the purge.
+  the purge. A completion that fails on every attempt records the split
+  completed and keeps the full original, so no pass retries it forever.
 - A push never clears a stored `split_id` or `split_size`. Only a new
   `split_id` replaces them.
 - A push never widens a split parent's trim past its stored start or its

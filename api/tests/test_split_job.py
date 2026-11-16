@@ -422,6 +422,34 @@ async def test_split_gives_up_after_max_attempts_and_fails_waiting_pieces(
     assert await _jobs(verify_session, parent, JobKind.SPLIT) == []
 
 
+@pytest.mark.parametrize("attempts", [MAX_ATTEMPTS - 1, MAX_ATTEMPTS], ids=["failed", "abandoned"])
+async def test_a_completion_that_fails_every_attempt_closes_the_split(
+    split_runner, verify_session, tones, tmp_path, monkeypatch: pytest.MonkeyPatch, attempts
+) -> None:
+    job_runner, store = split_runner
+    parent = await _seed(verify_session, store, tones[10], tmp_path)
+    _, (piece,) = await _split(verify_session, parent, [5_000])
+    (job,) = await _jobs(verify_session, parent, JobKind.SPLIT)
+    job.attempts = attempts
+    piece.state, piece.original_key = "ready", f"{recording_prefix(piece.user_id, piece.id)}x"
+    await verify_session.commit()
+
+    async def broken_completion(*_args, **_kwargs) -> None:
+        msg = "could not complete"
+        raise MediaError(msg)
+
+    monkeypatch.setattr(split_handler, "complete_split", broken_completion)
+    playback = parent.playback_key
+    assert await job_runner.run_once() >= 1
+    await verify_session.refresh(parent)
+    assert parent.split_completed_id == parent.split_id
+    assert parent.playback_key == playback
+    assert playback in set(store.keys())
+    # No later pass queues the split again.
+    await job_runner.run_once()
+    assert await _jobs(verify_session, parent, JobKind.SPLIT) == []
+
+
 async def test_split_retries_before_its_last_attempt(
     split_runner, verify_session, tones, tmp_path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
