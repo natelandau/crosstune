@@ -54,8 +54,9 @@ def adapter(token: TidalToken, backoff: Backoff, budget: OutboundBudget = UNLIMI
     Args:
         token: The client-credentials token TIDAL requires on every catalog request.
         backoff: The shared rate-limit holds; a 429 on the artist lookup holds TIDAL here.
-        budget: The shared outbound budget each request spends, unlimited by default. An
-            artist lookup the budget cannot cover is skipped.
+        budget: The shared outbound budget each request spends, the token request
+            included, unlimited by default. An artist lookup the budget cannot cover is
+            skipped.
 
     Returns:
         Adapter: The TIDAL search.
@@ -70,7 +71,7 @@ def adapter(token: TidalToken, backoff: Backoff, budget: OutboundBudget = UNLIMI
         deadline = asyncio.get_running_loop().time() + timeout * _ARTIST_BUDGET
         with auth_errors(token):
             headers = {
-                "Authorization": f"Bearer {await token.get(client, timeout)}",
+                "Authorization": f"Bearer {await token.get(client, timeout, budget)}",
                 "Accept": _JSON_API,
             }
             budget.spend(Provider.TIDAL)

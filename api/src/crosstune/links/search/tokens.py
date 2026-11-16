@@ -8,7 +8,9 @@ import httpx2
 import jwt
 
 from crosstune.config import load_apple_p256_key
+from crosstune.links.search.budget import UNLIMITED, OutboundBudget
 from crosstune.links.search.types import SearchAuthError
+from crosstune.vocabulary import Provider
 
 TIDAL_TOKEN_URL = "https://auth.tidal.com/v1/oauth2/token"  # noqa: S105 -- endpoint, not a secret
 
@@ -79,13 +81,29 @@ class TidalToken:
         # rate-limited token endpoint at once.
         self._lock = asyncio.Lock()
 
-    async def get(self, client: httpx2.AsyncClient, timeout: float) -> str:  # noqa: ASYNC109
-        """Return the cached token, requesting a new one shortly before it expires."""
+    async def get(
+        self,
+        client: httpx2.AsyncClient,
+        timeout: float,  # noqa: ASYNC109
+        budget: OutboundBudget = UNLIMITED,
+    ) -> str:
+        """Return the cached token, requesting a new one shortly before it expires.
+
+        Args:
+            client: The outbound HTTP client.
+            timeout: Seconds the token request may take.
+            budget: The shared outbound budget a token request spends, since TIDAL limits
+                its token endpoint as it limits the catalog.
+
+        Returns:
+            str: The access token.
+        """
         if self._fresh():
             return self._token
         async with self._lock:
             if self._fresh():
                 return self._token
+            budget.spend(Provider.TIDAL)
             return await self._request(client, timeout)
 
     def _fresh(self) -> bool:

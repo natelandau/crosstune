@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import math
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -18,6 +19,7 @@ from crosstune.links.search import apple_music, internet_archive, tidal
 from crosstune.links.search.backoff import Backoff
 from crosstune.links.search.budget import OutboundBudget
 from crosstune.links.search.registry import SearchTokens, adapters
+from crosstune.links.search.service import AUTH_HOLD_SECONDS
 from crosstune.links.search.tokens import TIDAL_TOKEN_URL
 from crosstune.links.search.types import AdapterAnswer, RegionNotServedError, SearchHit
 from crosstune.main import create_app
@@ -492,6 +494,26 @@ async def test_a_rate_limit_holds_only_that_service(
     ]
 
 
+async def test_refused_credentials_hold_the_service(
+    app, client, auth_headers, mock_http, credentialed
+) -> None:
+    clock = Clock()
+    app.state.search_backoff = Backoff(clock=clock)
+    mock_http.add(TIDAL_TOKEN_URL, httpx2.Response(401, json={"error": "invalid_client"}))
+    headers = auth_headers("user_123")
+
+    def token_requests() -> int:
+        return len([c for c in mock_http.calls if str(c.url) == TIDAL_TOKEN_URL])
+
+    assert (await _tidal_group(client, headers))["status"] == "unavailable"
+    assert (await _tidal_group(client, headers))["status"] == "unavailable"
+    assert token_requests() == 1
+
+    clock.now += AUTH_HOLD_SECONDS
+    await _tidal_group(client, headers)
+    assert token_requests() == 2
+
+
 @pytest.fixture
 def budget_clock(app: FastAPI, credentialed: SearchTokens) -> Clock:
     """Give every adapter the app's default budget, on a clock the test moves by hand."""
@@ -508,7 +530,7 @@ def budget_clock(app: FastAPI, credentialed: SearchTokens) -> Clock:
     return clock
 
 
-def _calls_to(mock_http: MockHttp, prefix: str) -> int:
+def _calls_to(mock_http: MockHttp, prefix: str | tuple[str, ...]) -> int:
     return len([c for c in _outbound(mock_http) if str(c.url).startswith(prefix)])
 
 
@@ -531,9 +553,11 @@ async def test_one_accounts_burst_never_sends_tidal_more_than_the_budget(
     statuses = [(await _tidal_group(client, headers))["status"] for _ in range(10)]
 
     burst = app.state.settings.tidal_search_burst
-    assert _calls_to(mock_http, TIDAL_API) == burst
-    # Each search spends two requests, so the bucket covers half as many searches.
-    assert statuses == ["results"] * (burst // 2) + ["unavailable"] * (10 - burst // 2)
+    assert _calls_to(mock_http, (TIDAL_API, TIDAL_TOKEN_URL)) == burst
+    # The token request spends one, then each search spends two, and the last search the
+    # budget reaches answers without its artist lookup.
+    answered = math.ceil((burst - 1) / 2)
+    assert statuses == ["results"] * answered + ["unavailable"] * (10 - answered)
 
 
 async def test_a_spent_service_is_unavailable_without_a_call_while_others_answer(

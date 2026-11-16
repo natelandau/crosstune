@@ -14,6 +14,8 @@ from crosstune.links.detect import detect_provider, normalize_url
 MAX_HITS = 10
 FALLBACK_COUNTRY = "US"
 _AUTH_STATUSES = frozenset({401, 403})
+# A 403 refuses the request, not the token (RFC 6750), so a new token would not help.
+_EXPIRED_TOKEN_STATUS = 401
 # How a catalog answers a country or storefront it does not serve.
 _REGION_STATUSES = frozenset({400, 404})
 
@@ -56,7 +58,7 @@ class _Token(Protocol):
 
 @contextmanager
 def auth_errors(token: _Token) -> Generator[None]:
-    """Turn a 401 or 403 into SearchAuthError and drop the token the service refused.
+    """Turn a 401 or 403 into SearchAuthError, and drop the token on a 401.
 
     Args:
         token: The cached credential the request carried.
@@ -70,7 +72,8 @@ def auth_errors(token: _Token) -> Generator[None]:
         status = error.response.status_code
         if status not in _AUTH_STATUSES:
             raise
-        token.invalidate()
+        if status == _EXPIRED_TOKEN_STATUS:
+            token.invalidate()
         msg = f"{error.request.url.host} refused the credentials with {status}"
         raise SearchAuthError(msg) from error
 

@@ -22,6 +22,10 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
+# A refused credential is refused for every user, and each retry spends the service's
+# rate limit on a request, a token request included, that cannot succeed.
+AUTH_HOLD_SECONDS = 60.0
+
 
 @dataclass
 class GroupAnswer:
@@ -90,6 +94,7 @@ async def _run(  # noqa: PLR0913 -- every option after the country is keyword-on
         log.info("music search over budget", extra={"provider": provider.value})
         return None
     except SearchAuthError as error:
+        backoff.hold(provider, AUTH_HOLD_SECONDS)
         # ERROR because no user retry can fix the API's own credentials. No exc_info: the
         # chained request's frames hold the bearer token, and Sentry records frame locals.
         log.error(  # noqa: TRY400
@@ -119,8 +124,9 @@ async def search(  # noqa: PLR0913 -- every option after the country is keyword-
     once `charge_fallback` has counted that request against the caller's limit; with no
     room left there, it answers `unavailable`. The group's search page uses the country
     that answered. A service with no adapter answers `search_only`. An adapter that
-    raises or exceeds the timeout answers `unavailable`. A rejected credential is dropped by the adapter itself.
-    A service that answers 429 is held for its Retry-After, and answers `unavailable`
+    raises or exceeds the timeout answers `unavailable`. A rejected credential is dropped
+    by the adapter itself. A service that answers 429 is held for its Retry-After, and
+    one that refuses the credentials is held for a minute; either answers `unavailable`
     without being called until then. A service whose outbound budget is spent also
     answers `unavailable` without being called.
 
