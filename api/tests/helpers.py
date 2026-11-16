@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import hashlib
 import hmac
@@ -149,6 +150,22 @@ async def hold_account_lock(engine: AsyncEngine, user_id: uuid.UUID) -> AsyncIte
             yield
         finally:
             await holder.rollback()
+
+
+async def wait_for_finished[T](
+    tasks: set[asyncio.Task[T]], count: int
+) -> tuple[set[asyncio.Task[T]], set[asyncio.Task[T]]]:
+    """Wait until at least `count` of the tasks finish, for a test that holds the rest open.
+
+    Returns:
+        tuple[set[asyncio.Task[T]], set[asyncio.Task[T]]]: The finished tasks, then the rest.
+    """
+    done: set[asyncio.Task[T]] = set()
+    pending = set(tasks)
+    while len(done) < count:
+        finished, pending = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
+        done |= finished
+    return done, pending
 
 
 async def pull(client: httpx2.AsyncClient, headers: dict, since: int = 0) -> dict:

@@ -13,7 +13,14 @@ from crosstune.db.engine import make_engine, make_sessionmaker
 from crosstune.db.locks import billing_lock
 from crosstune.models.user import User
 from tests.fakes import FakeRevenueCat
-from tests.helpers import hold_account_lock, push, recording, uid, web_subscription
+from tests.helpers import (
+    hold_account_lock,
+    push,
+    recording,
+    uid,
+    wait_for_finished,
+    web_subscription,
+)
 from tests.test_scans_api import make_scan, put_object
 
 if TYPE_CHECKING:
@@ -24,6 +31,7 @@ if TYPE_CHECKING:
     from fastapi import FastAPI
     from sqlalchemy.ext.asyncio import AsyncEngine
 
+    from crosstune.storage.store import ObjectInfo
     from tests.fakes import FakeObjectStore
 
 pytestmark = pytest.mark.anyio
@@ -194,14 +202,9 @@ async def test_requests_past_the_account_s_concurrent_limit_answer_429_at_once(
             asyncio.create_task(client.request(call.method, path, json=call.body, headers=headers))
             for _ in range(CONCURRENT_REQUESTS)
         }
-        done: set[asyncio.Task] = set()
         try:
             async with asyncio.timeout(PROMPT):
-                while len(done) < CONCURRENT_REQUESTS - cap:
-                    finished, pending = await asyncio.wait(
-                        pending, return_when=asyncio.FIRST_COMPLETED
-                    )
-                    done |= finished
+                done, pending = await wait_for_finished(pending, CONCURRENT_REQUESTS - cap)
             checked_out = engine.pool.checkedout() - baseline
             other = await asyncio.wait_for(
                 client.get("/v1/me", headers=auth_headers("user_b")), timeout=PROMPT
@@ -218,6 +221,48 @@ async def test_requests_past_the_account_s_concurrent_limit_answer_429_at_once(
     assert checked_out <= cap
     assert other.status_code == 200, other.text
     assert app.state.locking_request_limiter.tracked == 0
+
+
+@pytest.mark.parametrize(
+    "call", [RECORDING_UPLOADED, SCAN_UPLOADED], ids=lambda call: f"{call.method} {call.path}"
+)
+async def test_a_busy_account_is_refused_before_the_bucket_read(
+    app: FastAPI,
+    client: httpx2.AsyncClient,
+    auth_headers,
+    object_store: FakeObjectStore,
+    verify_session: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+    call: Call,
+) -> None:
+    cap = app.state.settings.concurrent_locking_requests_per_user
+    headers = auth_headers("user_a")
+    await _user_id(client, headers, verify_session)
+    path = call.path.format(
+        id=await _target_id(call, app, client, auth_headers, object_store, verify_session)
+    )
+    release = asyncio.Event()
+    heads: list[str] = []
+    read = object_store.head
+
+    async def held_head(key: str) -> ObjectInfo | None:
+        heads.append(key)
+        await release.wait()
+        return await read(key)
+
+    monkeypatch.setattr(object_store, "head", held_head)
+    pending = {
+        asyncio.create_task(client.request(call.method, path, headers=headers))
+        for _ in range(CONCURRENT_REQUESTS)
+    }
+    try:
+        async with asyncio.timeout(PROMPT):
+            done, pending = await wait_for_finished(pending, CONCURRENT_REQUESTS - cap)
+        assert {task.result().status_code for task in done} == {429}
+        assert len(heads) == cap
+    finally:
+        release.set()
+        await asyncio.gather(*pending, return_exceptions=True)
 
 
 class Finished(NamedTuple):

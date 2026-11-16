@@ -229,15 +229,17 @@ async def delete_me(
     # Kept as a SecretStr so the code never sits in a plain local that Sentry could capture.
     code = body.apple_authorization_code if body is not None else None
     apple_client: AppleClient = body.apple_client if body is not None else "app"
-    apple_ids = (
-        await _apple_ids_to_revoke(clerk_users, apple_sign_in, user.clerk_user_id)
-        if code is not None
-        else frozenset()
-    )
     # The billing lock keeps a withdrawal, the withdrawal pass, and a second deletion out
     # from the first billing step until the purge is written.
     wait_seconds = request.app.state.settings.request_lock_timeout_seconds
+    # The Clerk lookup runs inside the slot so a busy account is refused before any call,
+    # and each lookup, which holds a pooled connection, counts against the account's cap.
     with account_slot(request, user.id):
+        apple_ids = (
+            await _apple_ids_to_revoke(clerk_users, apple_sign_in, user.clerk_user_id)
+            if code is not None
+            else frozenset()
+        )
         async with billing_lock(session, user.id, wait_seconds=wait_seconds):
             await lock_user(session, user.id, wait_seconds=wait_seconds)
             refund_notice = await end_billing(

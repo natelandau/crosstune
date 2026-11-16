@@ -19,7 +19,7 @@ from crosstune.links.search.backoff import Backoff
 from crosstune.links.search.budget import OutboundBudget
 from crosstune.links.search.registry import SearchTokens, adapters
 from crosstune.links.search.tokens import TIDAL_TOKEN_URL
-from crosstune.links.search.types import AdapterAnswer, SearchHit
+from crosstune.links.search.types import AdapterAnswer, RegionNotServedError, SearchHit
 from crosstune.main import create_app
 from crosstune.ratelimit import RateLimiter
 from crosstune.vocabulary import Provider
@@ -375,6 +375,32 @@ async def test_country_is_passed_uppercased(app, client, auth_headers) -> None:
     assert seen == ["IE"]
 
 
+async def test_the_region_fallback_gets_what_is_left_of_the_timeout(
+    app, client, auth_headers
+) -> None:
+    timeouts: list[float] = []
+
+    async def adapter(
+        _query: str,
+        country: str,
+        _client: object,
+        timeout: float,  # noqa: ASYNC109 -- the adapter signature
+    ) -> AdapterAnswer:
+        timeouts.append(timeout)
+        if country != "US":
+            await asyncio.sleep(0.01)
+            raise RegionNotServedError(country)
+        return AdapterAnswer([], country)
+
+    app.state.search_adapters = {Provider.INTERNET_ARCHIVE: adapter}
+    await client.post(
+        URL, json=_body("internet_archive", country="ZZ"), headers=auth_headers("user_123")
+    )
+
+    assert len(timeouts) == 2
+    assert timeouts[1] < timeouts[0]
+
+
 async def test_search_rate_limit(app, client, auth_headers) -> None:
     resolve_limiter = app.state.link_resolve_limiter
     headers = auth_headers("user_123")
@@ -482,8 +508,8 @@ def budget_clock(app: FastAPI, credentialed: SearchTokens) -> Clock:
     return clock
 
 
-def _tidal_calls(mock_http: MockHttp) -> int:
-    return len([c for c in _outbound(mock_http) if str(c.url).startswith(TIDAL_API)])
+def _calls_to(mock_http: MockHttp, prefix: str) -> int:
+    return len([c for c in _outbound(mock_http) if str(c.url).startswith(prefix)])
 
 
 async def _tidal_group(client, headers: dict[str, str]) -> dict:
@@ -505,7 +531,7 @@ async def test_one_accounts_burst_never_sends_tidal_more_than_the_budget(
     statuses = [(await _tidal_group(client, headers))["status"] for _ in range(10)]
 
     burst = app.state.settings.tidal_search_burst
-    assert _tidal_calls(mock_http) == burst
+    assert _calls_to(mock_http, TIDAL_API) == burst
     # Each search spends two requests, so the bucket covers half as many searches.
     assert statuses == ["results"] * (burst // 2) + ["unavailable"] * (10 - burst // 2)
 
@@ -528,7 +554,7 @@ async def test_a_spent_service_is_unavailable_without_a_call_while_others_answer
         ("tidal", "unavailable"),
         ("internet_archive", "results"),
     ]
-    assert _tidal_calls(mock_http) == 0
+    assert _calls_to(mock_http, TIDAL_API) == 0
 
 
 async def test_another_account_gets_tidal_once_the_budget_refills(
@@ -566,6 +592,34 @@ async def test_the_search_limit_counts_outbound_requests(
     ]
 
     assert codes == [200] * allowed + [429]
+
+
+_TIDAL_QUERY = f"{TIDAL_SEARCH}?filter%5Bquery%5D=silver+spear&countryCode="
+# Per service: the ZZ request it refuses, the US request it answers, and its host prefix.
+_REGION_URLS = {
+    "apple_music": (f"{APPLE_SEARCH}zz/", f"{APPLE_SEARCH}us/", APPLE_SEARCH),
+    "tidal": (f"{_TIDAL_QUERY}ZZ", f"{_TIDAL_QUERY}US", TIDAL_API),
+}
+
+
+@pytest.mark.parametrize("provider", list(_REGION_URLS))
+async def test_the_search_limit_counts_the_region_fallback(
+    app, client, auth_headers, mock_http, credentialed, provider
+) -> None:
+    refused, answered, outbound = _REGION_URLS[provider]
+    mock_http.add(refused, httpx2.Response(404))
+    mock_http.add(answered, httpx2.Response(200, json=_fixture(provider)))
+    mock_http.add(TIDAL_TRACKS, httpx2.Response(200, json=_fixture("tidal_tracks")))
+    headers = auth_headers("user_123")
+    limit = app.state.settings.link_searches_per_minute
+
+    statuses = [
+        (await client.post(URL, json=_body(provider, country="ZZ"), headers=headers)).status_code
+        for _ in range(limit)
+    ]
+
+    assert statuses[-1] == 429
+    assert _calls_to(mock_http, outbound) <= limit
 
 
 async def test_the_app_gives_its_adapters_the_budget(

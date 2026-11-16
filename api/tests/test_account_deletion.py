@@ -57,7 +57,7 @@ from tests.fakes import (
     FakeRevenueCat,
     FakeStripe,
 )
-from tests.helpers import T0, change, push, sign, uid
+from tests.helpers import T0, change, push, sign, uid, wait_for_finished
 from tests.helpers import recording as recording_change
 
 pytestmark = pytest.mark.anyio
@@ -464,6 +464,47 @@ async def test_a_delete_that_finds_the_row_gone_still_revokes(
     assert response.status_code == 204
     assert app.state.clerk_users.deleted == []
     assert app.state.apple_sign_in.calls == [("c1", frozenset({"001.abc"}), "app")]
+
+
+class _BlockingAppleLookup(FakeClerkUsers):
+    """Holds every Apple ID lookup open until released, counting the lookups."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.release = asyncio.Event()
+        self.lookups = 0
+
+    async def apple_user_ids(self, clerk_user_id: str) -> frozenset[str]:
+        self.lookups += 1
+        await self.release.wait()
+        return await super().apple_user_ids(clerk_user_id)
+
+
+async def test_a_busy_account_is_refused_before_the_apple_lookup(
+    client: httpx2.AsyncClient, app, auth_headers
+) -> None:
+    clerk = _BlockingAppleLookup()
+    app.state.clerk_users = clerk
+    headers = auth_headers("user_a")
+    await client.get("/v1/me", headers=headers)
+    slots = app.state.settings.concurrent_locking_requests_per_user
+    requests = [
+        asyncio.create_task(client.request("DELETE", "/v1/me", headers=headers, json=CODE_BODY))
+        for _ in range(slots * 2)
+    ]
+    try:
+        async with asyncio.timeout(5):
+            done, _ = await wait_for_finished(set(requests), slots)
+        refused = [task.result().status_code for task in done]
+        assert refused == [429] * slots
+        assert clerk.lookups == slots
+    finally:
+        clerk.release.set()
+        responses = await asyncio.wait_for(asyncio.gather(*requests), timeout=5)
+
+    assert clerk.lookups == slots
+    assert {r.status_code for r in responses} <= {204, 401, 429}
+    assert clerk.deleted == ["user_a"]
 
 
 async def test_without_apple_settings_a_code_is_ignored(

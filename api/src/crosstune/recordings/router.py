@@ -149,9 +149,10 @@ async def upload_finished(
     store = require_store(request)
     settings = request.app.state.settings
     recording = await owned_recording(session, user.id, recording_id)
-    # The bucket round trip happens before the lock so it never holds up the caller's other writes.
-    info = await head_slot(store, await slot_for_recording(session, recording.id))
     with account_slot(request, user.id):
+        # The bucket round trip happens before the lock so it never holds up the caller's
+        # other writes, and inside the slot so a busy account is refused before it.
+        info = await head_slot(store, await slot_for_recording(session, recording.id))
         await lock_user(session, user.id, wait_seconds=settings.request_lock_timeout_seconds)
         # Another request may have confirmed, failed, or deleted this recording meanwhile.
         await reread_live(session, recording)

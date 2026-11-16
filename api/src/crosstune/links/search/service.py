@@ -11,10 +11,12 @@ import httpx2
 
 from crosstune.links.search.budget import OverBudgetError
 from crosstune.links.search.registry import search_url
-from crosstune.links.search.types import SearchAuthError
+from crosstune.links.search.types import FALLBACK_COUNTRY, RegionNotServedError, SearchAuthError
 from crosstune.vocabulary import SEARCHABLE_PROVIDERS, Provider, SearchStatus
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from crosstune.links.search.backoff import Backoff
     from crosstune.links.search.types import Adapter, AdapterAnswer, SearchHit
 
@@ -31,20 +33,49 @@ class GroupAnswer:
     results: list[SearchHit] = field(default_factory=list)
 
 
-async def _run(
+async def _with_region_fallback(
     adapter: Adapter,
     provider: Provider,
     query: str,
     country: str,
     client: httpx2.AsyncClient,
+    timeout: float,  # noqa: ASYNC109 -- forwarded to the adapter's per-request timeout
+    charge_fallback: Callable[[], bool],
+) -> AdapterAnswer | None:
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + timeout
+    try:
+        return await adapter(query, country, client, timeout)
+    except RegionNotServedError:
+        if not charge_fallback():
+            log.info(
+                "music search region fallback over the caller's limit",
+                extra={"provider": provider.value},
+            )
+            return None
+    # Only what is left of the timeout, so a deadline the adapter derives from it, such
+    # as TIDAL's artist lookup, still ends inside the caller's timeout.
+    return await adapter(query, FALLBACK_COUNTRY, client, max(deadline - loop.time(), 0.0))
+
+
+async def _run(  # noqa: PLR0913 -- every option after the country is keyword-only
+    adapter: Adapter,
+    provider: Provider,
+    query: str,
+    country: str,
+    *,
+    client: httpx2.AsyncClient,
     timeout: float,  # noqa: ASYNC109 -- bounds the adapter, not a caller's deadline
     backoff: Backoff,
+    charge_fallback: Callable[[], bool],
 ) -> AdapterAnswer | None:
     if backoff.held(provider):
         return None
     try:
         async with asyncio.timeout(timeout):
-            return await adapter(query, country, client, timeout)
+            return await _with_region_fallback(
+                adapter, provider, query, country, client, timeout, charge_fallback
+            )
     except httpx2.HTTPStatusError as error:
         seconds = backoff.hold_if_limited(provider, error)
         if seconds is None:
@@ -71,7 +102,7 @@ async def _run(
         return None
 
 
-async def search(
+async def search(  # noqa: PLR0913 -- every option after the country is keyword-only
     query: str,
     providers: list[Provider],
     country: str,
@@ -80,12 +111,15 @@ async def search(
     client: httpx2.AsyncClient,
     timeout: float,  # noqa: ASYNC109 -- bounds each adapter, not a caller's deadline
     backoff: Backoff,
+    charge_fallback: Callable[[], bool],
 ) -> list[GroupAnswer]:
     """Search the requested services at once and return one group per service.
 
-    The group's search page uses the country that answered, which differs from the
-    requested one when a catalog fell back. A service with no adapter answers `search_only`. An adapter that raises or exceeds the
-    timeout answers `unavailable`. A rejected credential is dropped by the adapter itself.
+    A catalog that does not serve the requested country is searched again for the US,
+    once `charge_fallback` has counted that request against the caller's limit; with no
+    room left there, it answers `unavailable`. The group's search page uses the country
+    that answered. A service with no adapter answers `search_only`. An adapter that
+    raises or exceeds the timeout answers `unavailable`. A rejected credential is dropped by the adapter itself.
     A service that answers 429 is held for its Retry-After, and answers `unavailable`
     without being called until then. A service whose outbound budget is spent also
     answers `unavailable` without being called.
@@ -98,6 +132,8 @@ async def search(
         client: The outbound HTTP client.
         timeout: Seconds each adapter may take.
         backoff: The services waiting out a rate limit.
+        charge_fallback: Counts one more outbound request against the caller's limit,
+            returning False when the limit has no room for it.
 
     Returns:
         list[GroupAnswer]: One group per distinct requested service, in the fixed group order.
@@ -109,7 +145,19 @@ async def search(
         zip(
             inline,
             await asyncio.gather(
-                *(_run(adapters[p], p, query, country, client, timeout, backoff) for p in inline)
+                *(
+                    _run(
+                        adapters[p],
+                        p,
+                        query,
+                        country,
+                        client=client,
+                        timeout=timeout,
+                        backoff=backoff,
+                        charge_fallback=charge_fallback,
+                    )
+                    for p in inline
+                )
             ),
             strict=True,
         )

@@ -46,6 +46,10 @@ class SearchAuthError(Exception):
     """The service rejected the API's own credentials, so no retry by a user can succeed."""
 
 
+class RegionNotServedError(Exception):
+    """The service does not serve the requested country, so a US search may answer instead."""
+
+
 class _Token(Protocol):
     def invalidate(self) -> None: ...
 
@@ -71,28 +75,27 @@ def auth_errors(token: _Token) -> Generator[None]:
         raise SearchAuthError(msg) from error
 
 
-async def with_region_fallback[T](
-    country: str, fetch: Callable[[str], Awaitable[T]]
-) -> tuple[T, str]:
-    """Fetch for the country, and once more for the US when the service does not serve it.
+@contextmanager
+def region_errors(country: str) -> Generator[None]:
+    """Turn a catalog's refusal of a country it does not serve into RegionNotServedError.
+
+    A refusal of the US itself stays an HTTP error, since no catalog serves a narrower
+    fallback.
 
     Args:
-        country: The uppercase two-letter country code the caller asked for.
-        fetch: The request, called with a country code.
-
-    Returns:
-        tuple[T, str]: The answer and the country that produced it.
+        country: The uppercase two-letter country code the request carried.
 
     Raises:
-        httpx2.HTTPStatusError: If the request fails for any other reason, or the US
-            request fails too.
+        RegionNotServedError: If the service answered 400 or 404 for a country other than
+            the US.
     """
     try:
-        return await fetch(country), country
+        yield
     except httpx2.HTTPStatusError as error:
         if country == FALLBACK_COUNTRY or error.response.status_code not in _REGION_STATUSES:
             raise
-    return await fetch(FALLBACK_COUNTRY), FALLBACK_COUNTRY
+        msg = f"{error.request.url.host} does not serve {country}"
+        raise RegionNotServedError(msg) from error
 
 
 def text(value: object) -> str | None:

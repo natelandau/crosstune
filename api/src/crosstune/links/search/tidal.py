@@ -20,8 +20,8 @@ from crosstune.links.search.types import (
     collect,
     field,
     items,
+    region_errors,
     text,
-    with_region_fallback,
 )
 from crosstune.vocabulary import Provider
 
@@ -73,22 +73,15 @@ def adapter(token: TidalToken, backoff: Backoff, budget: OutboundBudget = UNLIMI
                 "Authorization": f"Bearer {await token.get(client, timeout)}",
                 "Accept": _JSON_API,
             }
-
-            async def fetch(country_code: str) -> object:
-                budget.spend(Provider.TIDAL)
-                return await get_json(
+            budget.spend(Provider.TIDAL)
+            with region_errors(country):
+                body = await get_json(
                     client,
                     SEARCH_URL,
-                    params={
-                        "filter[query]": query,
-                        "countryCode": country_code,
-                        "include": "tracks",
-                    },
+                    params={"filter[query]": query, "countryCode": country, "include": "tracks"},
                     headers=headers,
                     timeout=timeout,
                 )
-
-            body, served = await with_region_fallback(country, fetch)
         tracks = {
             text(field(resource, "id")): field(resource, "attributes")
             for resource in items(field(body, "included"))
@@ -106,10 +99,10 @@ def adapter(token: TidalToken, backoff: Backoff, budget: OutboundBudget = UNLIMI
             and track_id in tracks
         ]
         artists = await _artist_names(
-            ids[:_MAX_ARTIST_LOOKUP], served, client, headers, deadline, backoff, budget
+            ids[:_MAX_ARTIST_LOOKUP], country, client, headers, deadline, backoff, budget
         )
         hits = collect(_hit(track_id, tracks, artists.get(track_id)) for track_id in ids)
-        return AdapterAnswer(hits, served)
+        return AdapterAnswer(hits, country)
 
     return search
 
