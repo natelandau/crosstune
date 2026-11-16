@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock
 
 import pytest
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from crosstune.billing.grants import grant_comp
@@ -50,12 +50,14 @@ from crosstune.jobs.trim import trim
 from crosstune.models import (
     Job,
     JobLastClaim,
+    MapsUsage,
     Recording,
     RecordingLoop,
     ScheduledRun,
     UploadSlot,
     User,
 )
+from crosstune.places.budget import KEPT_DAYS
 from crosstune.recordings.service import attach_playback, enqueue_job, ensure_trim_job
 from crosstune.recordings.split_rules import latest_split_pieces, split_ready_to_complete
 from crosstune.storage.prefixed import PrefixedStore
@@ -70,7 +72,7 @@ from crosstune.storage.store import (
     upload_key,
     upload_revision,
 )
-from crosstune.vocabulary import SPLIT_FAILED, JobKind
+from crosstune.vocabulary import SPLIT_FAILED, JobKind, MapsUsageKind
 from tests.fake_media import FAKE_SOURCES, probe, read_fake
 from tests.fakes import FakeClerkUsers, FakeMailer, FakeObjectStore
 from tests.helpers import JOB_SETTINGS
@@ -1359,6 +1361,21 @@ async def test_run_once_skips_orphan_sweeps_when_off(engine, settings: Settings)
     assert await runner.run_once() == 0
     assert len(store.keys()) == 1
     assert await runner.next_due() > utc_now() + timedelta(days=365)
+
+
+async def test_run_once_prunes_maps_usage_with_orphan_sweeps_off(
+    engine, verify_session, settings: Settings
+) -> None:
+    runner = JobRunner(
+        make_sessionmaker(engine), FakeObjectStore(), orphan_sweep_seconds=None, settings=settings
+    )
+    old = utc_now().date() - timedelta(days=KEPT_DAYS + 1)
+    verify_session.add(MapsUsage(user_id=None, kind=MapsUsageKind.SNAPSHOT.value, day=old, count=1))
+    await verify_session.commit()
+
+    await runner.run_once()
+
+    assert await verify_session.scalar(select(func.count()).select_from(MapsUsage)) == 0
 
 
 async def test_sweep_removes_recording_prefixes_with_no_row(runner, verify_session) -> None:
