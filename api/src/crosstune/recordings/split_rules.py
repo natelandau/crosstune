@@ -9,6 +9,7 @@ from sqlalchemy.orm import aliased
 
 from crosstune.db.base import bump_server_seq
 from crosstune.models import Recording
+from crosstune.vocabulary import SPLIT_FAILED
 
 if TYPE_CHECKING:
     import uuid
@@ -281,16 +282,26 @@ async def fail_waiting_pieces(session: AsyncSession, parent_id: uuid.UUID, error
     return await fail_pieces(session, select(Recording).where(waiting_pieces(parent_id)), error)
 
 
-def close_split(parent: Recording) -> None:
+async def close_split(session: AsyncSession, parent: Recording, error: str = SPLIT_FAILED) -> None:
     """Record the parent's latest split as completed, so no pass works on it again.
 
     A completed split may have narrowed the parent's original, or kept it whole when the
-    split could not finish. Either way no waiting piece of it is cut afterwards. Called
-    under the user's lock, in the caller's transaction.
+    split could not finish. Either way no piece is cut from it afterwards, so a deleted
+    piece still waiting for its cut fails now: a newer push that revives it would
+    otherwise have it cut from an original that may no longer cover it. Called under the
+    user's lock, in the caller's transaction.
 
     Args:
+        session: The session to write through.
         parent: The recording the pieces were split from.
+        error: The phrase a client shows on each failed piece.
     """
+    deleted_waiting = and_(
+        Recording.split_from_id == parent.id,
+        Recording.deleted_at.is_not(None),
+        Recording.state == "processing",
+    )
+    await fail_pieces(session, select(Recording).where(deleted_waiting), error)
     parent.split_completed_id = parent.split_id
     bump_server_seq(parent)
 
@@ -306,9 +317,10 @@ async def fail_parent_split(session: AsyncSession, parent: Recording) -> None:
         session: The session to write through.
         parent: The failed recording the pieces were split from.
     """
-    await fail_waiting_pieces(session, parent.id, parent.error or "")
+    error = parent.error or ""
+    await fail_waiting_pieces(session, parent.id, error)
     if parent.split_id is not None and parent.split_completed_id != parent.split_id:
-        close_split(parent)
+        await close_split(session, parent, error)
 
 
 async def give_up_split(session: AsyncSession, parent: Recording, error: str) -> int:
@@ -328,5 +340,5 @@ async def give_up_split(session: AsyncSession, parent: Recording, error: str) ->
     """
     failed = await fail_waiting_pieces(session, parent.id, error)
     if await split_ready_to_complete(session, parent):
-        close_split(parent)
+        await close_split(session, parent, error)
     return failed

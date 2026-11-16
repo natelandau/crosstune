@@ -567,7 +567,7 @@ async def complete_split(
                 files.store, uploaded, log=log, message="could not delete an unused slice"
             )
             return None
-        close_split(parent)
+        await close_split(session, parent)
         if cut is not None:
             parent.original_key = cut.original.key
             parent.original_bytes = cut.original.size

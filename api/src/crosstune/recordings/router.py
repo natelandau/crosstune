@@ -248,11 +248,13 @@ async def _requeue_cut(session: AsyncSession, piece: Recording) -> None:
 
     A piece has no upload or import of its own: its audio is cut from the parent's full
     original, which still covers it only while the piece's split is the parent's latest
-    and is not completed.
+    and is not completed. A deleted parent's original belongs to the purge, which a
+    piece no longer holds back once it has failed.
     """
     parent = await session.get(Recording, piece.split_from_id)
     if (
         parent is None
+        or parent.deleted_at is not None
         or parent.state == "failed"
         or parent.split_id != piece.created_by_split_id
         or parent.split_completed_id == parent.split_id

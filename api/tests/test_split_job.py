@@ -484,6 +484,29 @@ async def test_split_abandoned_fails_waiting_pieces(
     assert await _jobs(verify_session, parent, JobKind.SPLIT) == []
 
 
+async def test_a_piece_revived_after_its_split_completed_fails_instead_of_being_cut(
+    engine, settings: Settings, verify_session, tones, tmp_path
+) -> None:
+    store = _OrderedStore()
+    ctx = JobContext(make_sessionmaker(engine), store, settings, work_root=tmp_path)
+    parent = await _seed(verify_session, store, tones[10], tmp_path)
+    _, (piece,) = await _split(verify_session, parent, [5_000])
+    piece.deleted_at = utc_now()
+    await verify_session.commit()
+    (job,) = await _jobs(verify_session, parent, JobKind.SPLIT)
+    await split_handler.run(ctx, job)
+    await verify_session.refresh(parent)
+    assert parent.split_completed_id == parent.split_id
+
+    # A newer push brings the piece back before the purge resets it.
+    piece.deleted_at = None
+    await ensure_split_job(verify_session, parent)
+    await verify_session.commit()
+    await verify_session.refresh(piece)
+    assert (piece.state, piece.error, piece.original_key) == ("failed", SPLIT_FAILED, None)
+    assert await _jobs(verify_session, parent, JobKind.SPLIT) == []
+
+
 async def test_parent_trim_runs_after_split_completes(
     split_runner, verify_session, tones, tmp_path
 ) -> None:

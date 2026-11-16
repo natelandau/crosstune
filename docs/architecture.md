@@ -418,6 +418,10 @@ each question, and the invariants that both clients and the API hold.
   split of its parent will cut fails after `split_piece_grace_seconds`,
   also when the parent is deleted, since a newer push can undelete the
   parent with its split.
+- A completed split cuts no more pieces. Completing it fails its deleted
+  pieces still waiting for their cut, so one revived later never gets
+  audio from a narrowed original. A failed piece is retried only while
+  its parent is live and its split is the parent's latest and open.
 - A parent's live pieces that are not `ready`, of every split and every
   `created_by_split_id`, are held to one split's worth
   (`MAX_SPLIT_PIECES`).
