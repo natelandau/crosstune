@@ -11,10 +11,11 @@ import logging
 from datetime import timedelta
 from typing import TYPE_CHECKING
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import exists, func, or_, select
 
 from crosstune.analytics.posthog import AnalyticsUnavailableError
 from crosstune.db.base import utc_now
+from crosstune.db.locks import lock_clerk_user
 from crosstune.models import AnalyticsDeletion
 
 if TYPE_CHECKING:
@@ -36,14 +37,19 @@ RETRY_BACKOFF_SECONDS = 300
 LAST_ERROR_CHARS = 500
 
 
-def schedule_person_deletion(
+async def schedule_person_deletion(
     session: AsyncSession, distinct_id: str, *, later_passes_after: Sequence[timedelta]
 ) -> None:
     """Queue a delete of the person now and another after each of `later_passes_after`.
 
     Added to the caller's transaction, so the deletes commit with the account deletion
-    and a rolled-back deletion queues nothing.
+    and a rolled-back deletion queues nothing. Queues nothing while passes for the person
+    are still queued, so a repeated deletion never adds a second set.
     """
+    # The distinct id is the Clerk user id, so two deletions cannot both find none queued.
+    await lock_clerk_user(session, distinct_id)
+    if await session.scalar(select(exists().where(AnalyticsDeletion.distinct_id == distinct_id))):
+        return
     now = utc_now()
     session.add(AnalyticsDeletion(distinct_id=distinct_id, attempts=0, created_at=now))
     session.add_all(

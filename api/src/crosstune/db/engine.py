@@ -19,6 +19,8 @@ from sqlalchemy.ext.asyncio import (
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from crosstune.config import Settings
+
 log = logging.getLogger(__name__)
 
 # Well under Railway's 5 minutes without outbound packets, after which a service sleeps.
@@ -26,17 +28,20 @@ IDLE_POOL_SECONDS = 120.0
 IDLE_CHECK_SECONDS = 30.0
 
 
-def make_engine(url: str, **pool_options: float) -> AsyncEngine:
+def make_engine(settings: Settings) -> AsyncEngine:
     """Async engine with pre-ping so a suspended Neon compute reconnects cleanly.
 
     Statement values stay out of error messages, which reach logs and Sentry and would
     otherwise quote a user's content.
-
-    Args:
-        url: The database URL.
-        **pool_options: Pool settings such as `pool_size`, in place of SQLAlchemy's defaults.
     """
-    return create_async_engine(url, pool_pre_ping=True, hide_parameters=True, **pool_options)
+    return create_async_engine(
+        settings.database_url,
+        pool_pre_ping=True,
+        hide_parameters=True,
+        pool_size=settings.db_pool_size,
+        max_overflow=settings.db_max_overflow,
+        pool_timeout=settings.db_pool_timeout_seconds,
+    )
 
 
 def make_sessionmaker(engine: AsyncEngine) -> async_sessionmaker[AsyncSession]:

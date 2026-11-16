@@ -492,7 +492,7 @@ def settings(database_url: str) -> Settings:
 
 @pytest.fixture
 async def engine(settings: Settings):
-    engine = make_engine(settings.database_url)
+    engine = make_engine(settings)
     yield engine
     await engine.dispose()
 

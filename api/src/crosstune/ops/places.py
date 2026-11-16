@@ -257,7 +257,7 @@ async def run(settings, args: argparse.Namespace) -> None:  # noqa: ANN001
     if maps is None:
         msg = "Apple Maps is not configured: set the CROSSTUNE_APPLE_MAPS_* settings"
         raise BillingCommandError(msg)
-    engine = make_engine(settings.database_url)
+    engine = make_engine(settings)
     client = public_only_client(settings.link_resolve_timeout_seconds)
     try:
         counts = await rename_automatic(

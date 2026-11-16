@@ -377,7 +377,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 async def _run_withdraw(settings: Settings, args: argparse.Namespace) -> None:
     """Run `withdraw` on its own session, as it commits at each step it takes."""
-    engine = make_engine(settings.database_url)
+    engine = make_engine(settings)
     http_client = public_only_client(settings.link_resolve_timeout_seconds)
     try:
         stripe = make_stripe(http_client, settings)
@@ -406,7 +406,7 @@ async def run(settings: Settings, args: argparse.Namespace) -> None:
         await _run_withdraw(settings, args)
         return
     command = comp if args.command == "comp" else trial
-    engine = make_engine(settings.database_url)
+    engine = make_engine(settings)
     try:
         sessionmaker = make_sessionmaker(engine)
         async with sessionmaker() as session, session.begin():

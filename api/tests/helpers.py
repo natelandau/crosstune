@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING
 import httpx2
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from crosstune.billing.grants import PaidSubscription
@@ -166,6 +167,20 @@ async def wait_for_finished[T](
         finished, pending = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
         done |= finished
     return done, pending
+
+
+async def until_waiting_or_done(engine: AsyncEngine, task: asyncio.Task) -> None:
+    """Return once some request waits on an advisory lock, or `task` has finished."""
+    # pg_locks spans the cluster, and other workers' databases share it.
+    query = text(
+        "select count(*) from pg_locks where locktype = 'advisory' and not granted"
+        " and database = (select oid from pg_database where datname = current_database())"
+    )
+    while not task.done():
+        async with engine.connect() as conn:
+            if await conn.scalar(query):
+                return
+        await asyncio.sleep(0.01)
 
 
 async def pull(client: httpx2.AsyncClient, headers: dict, since: int = 0) -> dict:

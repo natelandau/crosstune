@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 from dataclasses import replace
 from datetime import timedelta
 from typing import TYPE_CHECKING
@@ -20,7 +21,7 @@ from crosstune.ratelimit import RateLimiter
 from crosstune.users.service import get_or_create_user
 from crosstune.vocabulary import GrantEnvironment, GrantKind, GrantSource
 from tests.fakes import FakeRevenueCat
-from tests.helpers import hold_account_lock, premium_ended, pull
+from tests.helpers import hold_account_lock, premium_ended, pull, until_waiting_or_done
 
 if TYPE_CHECKING:
     import httpx2
@@ -348,6 +349,73 @@ async def test_webhook_refreshes_only_the_known_user(client, webhook_app, auth_h
     assert response.status_code == 200
     assert calls == ["user_a"]
     assert _entitlement(await pull(client, auth_headers("user_a")))["premium_source"] == "stripe"
+
+
+async def test_a_refresh_that_takes_a_subscription_another_is_adding_refreshes_both(
+    client, app, auth_headers, engine, monkeypatch
+) -> None:
+    await _sign_up(client, auth_headers, "user_a", "user_b")
+    # RevenueCat reports the subscription for both while it moves from b to a.
+    app.state.revenuecat = FakeRevenueCat({"user_a": [_stripe_sub()], "user_b": [_stripe_sub()]})
+    writing = asyncio.Event()
+    release = asyncio.Event()
+    refresh_entitlement = purchases.refresh_entitlement
+
+    async def paused(session, user_id, settings, now) -> None:
+        if not writing.is_set():
+            # b's refresh has written the grant and not committed it.
+            writing.set()
+            await release.wait()
+        await refresh_entitlement(session, user_id, settings, now)
+
+    monkeypatch.setattr(purchases, "refresh_entitlement", paused)
+    first = asyncio.create_task(client.post(REFRESH, headers=auth_headers("user_b")))
+    await asyncio.wait_for(writing.wait(), timeout=10)
+    second = asyncio.create_task(client.post(REFRESH, headers=auth_headers("user_a")))
+    try:
+        # a waits on the subscription's lock; without it, a waits on b's row instead.
+        with contextlib.suppress(TimeoutError):
+            await asyncio.wait_for(until_waiting_or_done(engine, second), timeout=2)
+    finally:
+        release.set()
+    responses = await asyncio.wait_for(asyncio.gather(first, second), timeout=10)
+
+    assert [r.status_code for r in responses] == [204, 204]
+    assert _entitlement(await pull(client, auth_headers("user_a")))["premium_source"] == "stripe"
+    assert _entitlement(await pull(client, auth_headers("user_b")))["premium_source"] != "stripe"
+
+
+@pytest.mark.parametrize("route", ["refresh", "webhook"])
+async def test_a_refresh_holds_no_connection_while_it_reads_revenuecat(
+    client, webhook_app, auth_headers, engine, route: str
+) -> None:
+    await _sign_up(client, auth_headers, "user_a")
+    fake = FakeRevenueCat({"user_a": [_stripe_sub()]})
+    reading = asyncio.Event()
+    release = asyncio.Event()
+    original = fake.subscriptions
+
+    async def slow(customer_id: str, *, now=None) -> list[PaidSubscription]:
+        reading.set()
+        await release.wait()
+        return await original(customer_id, now=now)
+
+    fake.subscriptions = slow
+    webhook_app.state.revenuecat = fake
+    baseline = engine.pool.checkedout()
+    if route == "refresh":
+        sent = client.post(REFRESH, headers=auth_headers("user_a"))
+    else:
+        sent = client.post(WEBHOOK, json=_event(app_user_id="user_a"), headers=_auth())
+    task = asyncio.create_task(sent)
+    try:
+        await asyncio.wait_for(reading.wait(), timeout=10)
+        held = engine.pool.checkedout() - baseline
+    finally:
+        release.set()
+    response = await asyncio.wait_for(task, timeout=10)
+    assert held == 0
+    assert response.status_code in (200, 204), response.text
 
 
 async def test_refresh_many_locks_users_in_ascending_id_order(

@@ -46,6 +46,8 @@ async def provision_user(
     clerk_user_id: str,
     email: str | None,
     settings: Settings,
+    *,
+    lock_wait_seconds: float | None = None,
 ) -> tuple[User, Literal["trial", "comp"] | None]:
     """Insert-if-absent, safe under concurrent first requests from one new user.
 
@@ -56,6 +58,8 @@ async def provision_user(
             overwritten with nothing, since not every token carries the claim.
         settings: The plan sizes for the entitlements row. A user this call inserts gets
             a pending comp for their email or else a trial.
+        lock_wait_seconds: How long a new user's creation waits on its Clerk id's lock
+            before refusing with UserBusyError, or None to wait as long as the holder keeps it.
 
     Returns:
         tuple: The stored row for this Clerk user, and how this call started the
@@ -64,6 +68,7 @@ async def provision_user(
     Raises:
         AccountDeletedError: The Clerk id belongs to a purged account, which must
             never be re-provisioned.
+        UserBusyError: The Clerk id's lock is still held once `lock_wait_seconds` runs out.
     """
     now = utc_now()
     existing = await session.scalar(select(User).where(User.clerk_user_id == clerk_user_id))
@@ -75,7 +80,7 @@ async def provision_user(
 
     # Serializes against a concurrent purge_account for this id, so a purge that commits
     # its denylist row between this select and the check below can never be missed.
-    await lock_clerk_user(session, clerk_user_id)
+    await lock_clerk_user(session, clerk_user_id, wait_seconds=lock_wait_seconds)
 
     denylisted = await session.scalar(
         select(DeletedAccount).where(DeletedAccount.clerk_user_id == clerk_user_id)

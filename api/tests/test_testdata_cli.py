@@ -235,7 +235,7 @@ def cli_settings(database_url: str) -> Settings:
 @pytest.fixture
 async def db(cli_settings: Settings, truncate_all: None) -> AsyncIterator[AsyncEngine]:
     """The run commits, so every committed row is truncated after the test."""
-    engine = make_engine(cli_settings.database_url)
+    engine = make_engine(cli_settings)
     yield engine
     await engine.dispose()
 

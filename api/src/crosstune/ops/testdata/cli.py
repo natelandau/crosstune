@@ -422,7 +422,7 @@ async def open_connections(settings: Settings) -> AsyncGenerator[Connections]:
     if store is None:
         msg = "storage is not configured; run `just api::setup`"
         raise DataCommandError(msg)
-    engine = make_engine(settings.database_url)
+    engine = make_engine(settings)
     http_client = public_only_client(settings.link_resolve_timeout_seconds)
     try:
         yield Connections(

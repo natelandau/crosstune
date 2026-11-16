@@ -13,6 +13,8 @@ from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.serialization import load_pem_private_key
 from pydantic import (
     Field,
+    NonNegativeInt,
+    PositiveFloat,
     PositiveInt,
     SecretStr,
     ValidationInfo,
@@ -265,6 +267,13 @@ class Settings(BaseSettings):
     # requests that wait on that lock one account may have in flight at once.
     request_lock_timeout_seconds: float = 2.0
     concurrent_locking_requests_per_user: int = 4
+    # The API's database pool. A request that waits on a lock holds a connection.
+    db_pool_size: PositiveInt = 5
+    db_max_overflow: NonNegativeInt = 10
+    db_pool_timeout_seconds: PositiveFloat = 30.0
+    # How long one statement of a sync push may run, its row lock waits included, before
+    # the push answers 429. The slowest statement of a full push stays far below it.
+    push_statement_timeout_seconds: PositiveFloat = 10.0
     apple_team_id: str = ""
     apple_music_key_id: str = ""
     apple_music_private_key: SecretStr = SecretStr("")
@@ -462,6 +471,17 @@ class Settings(BaseSettings):
             msg = (
                 f"{self.environment} needs CROSSTUNE_CLERK_AUTHORIZED_PARTIES "
                 "or CROSSTUNE_CLERK_AUTHORIZED_PARTY_REGEX"
+            )
+            raise ValueError(msg)
+        return self
+
+    @model_validator(mode="after")
+    def _leave_connections_for_other_accounts(self) -> Self:
+        """Refuse a pool that one account's requests in flight could fill on their own."""
+        if self.db_pool_size + self.db_max_overflow <= self.concurrent_locking_requests_per_user:
+            msg = (
+                "CROSSTUNE_DB_POOL_SIZE plus CROSSTUNE_DB_MAX_OVERFLOW must exceed "
+                "CROSSTUNE_CONCURRENT_LOCKING_REQUESTS_PER_USER"
             )
             raise ValueError(msg)
         return self

@@ -304,7 +304,7 @@ async def test_an_error_in_a_push_write_keeps_recording_content_out_of_sentry(
 
 
 def test_database_errors_leave_out_the_statement_values() -> None:
-    engine = make_engine("postgresql+asyncpg://user@localhost/crosstune")
+    engine = make_engine(Settings(database_url="postgresql+asyncpg://user@localhost/crosstune"))
     assert engine.sync_engine.hide_parameters is True
 
 

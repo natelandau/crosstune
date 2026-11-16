@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from contextlib import asynccontextmanager
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 import asyncpg
 from sqlalchemy import func, select, text
@@ -15,7 +15,7 @@ from crosstune.errors import UserBusyError
 
 if TYPE_CHECKING:
     import uuid
-    from collections.abc import AsyncGenerator
+    from collections.abc import AsyncGenerator, Iterable
 
     from sqlalchemy.engine import Result
     from sqlalchemy.ext.asyncio import AsyncConnection, AsyncSession
@@ -76,34 +76,94 @@ async def _take(
     """
     if wait_seconds is None:
         return await executor.execute(select(lock))
-    # A lock_timeout of 0 means no timeout at all, so the shortest wait is 1 ms.
-    timeout_ms = max(1, round(wait_seconds * 1000))
-    await executor.execute(text(f"set local lock_timeout = '{timeout_ms}ms'"))
-    try:
+    await _set_timeout(executor, "lock_timeout", wait_seconds)
+    async with _busy_on(asyncpg.exceptions.LockNotAvailableError):
         result = await executor.execute(select(lock))
-    except DBAPIError as exc:
-        cause = exc.orig.__cause__ if exc.orig is not None else None
-        if isinstance(cause, asyncpg.exceptions.LockNotAvailableError):
-            raise UserBusyError from exc
-        raise
     # Only this wait is bounded; the row locks the rest of the transaction takes are not.
     await executor.execute(text("set local lock_timeout to default"))
     return result
 
 
-async def lock_clerk_user(session: AsyncSession, clerk_user_id: str) -> None:
+async def _set_timeout(
+    executor: AsyncSession | AsyncConnection,
+    setting: Literal["lock_timeout", "statement_timeout"],
+    seconds: float,
+) -> None:
+    # A timeout of 0 means none at all, so the shortest bound is 1 ms.
+    timeout_ms = max(1, round(seconds * 1000))
+    await executor.execute(text(f"set local {setting} = '{timeout_ms}ms'"))
+
+
+@asynccontextmanager
+async def _busy_on(cause: type[Exception]) -> AsyncGenerator[None]:
+    """Refuse with UserBusyError when a statement in the block fails with the driver's `cause`."""
+    try:
+        yield
+    except DBAPIError as exc:
+        if isinstance(exc.orig.__cause__ if exc.orig is not None else None, cause):
+            raise UserBusyError from exc
+        raise
+
+
+@asynccontextmanager
+async def statement_timeout(session: AsyncSession, seconds: float) -> AsyncGenerator[None]:
+    """Bound each statement for the rest of the transaction, and refuse when one runs past it.
+
+    A statement's wait on a row lock counts toward the bound, so a transaction that holds
+    the user lock cannot hold it and its connection for as long as another holder keeps a
+    row.
+
+    Raises:
+        UserBusyError: When a statement in the block runs past `seconds`.
+    """
+    await _set_timeout(session, "statement_timeout", seconds)
+    async with _busy_on(asyncpg.exceptions.QueryCanceledError):
+        yield
+
+
+async def lock_clerk_user(
+    session: AsyncSession, clerk_user_id: str, *, wait_seconds: float | None = None
+) -> None:
     """Serialize account creation and purge for one Clerk id; released with the transaction.
 
     Uses the two-key form of the advisory lock. Postgres tags it with a different
     objsubid than the single-bigint form lock_user uses, so this key space can never
     collide with a numeric user id lock.
+
+    Args:
+        session: The transaction that takes the lock.
+        clerk_user_id: The Clerk subject whose creation and purge are serialized.
+        wait_seconds: Seconds to wait before refusing with UserBusyError, or None to wait as
+            long as the holder keeps the lock.
     """
-    await session.execute(select(func.pg_advisory_xact_lock(0, func.hashtext(clerk_user_id))))
+    await _take(session, func.pg_advisory_xact_lock(0, func.hashtext(clerk_user_id)), wait_seconds)
 
 
 # First keys of the two-key form, apart from the `0` that `lock_clerk_user` uses.
 _NOTICE_LOCK_NAMESPACE = 1
 _BILLING_LOCK_NAMESPACE = 2
+_SUBSCRIPTION_LOCK_NAMESPACE = 3
+
+
+async def lock_subscriptions(
+    session: AsyncSession, subscriptions: Iterable[str], *, wait_seconds: float | None = None
+) -> None:
+    """Serialize the writes to each named paid subscription for the rest of the transaction.
+
+    Taken in a stable order, and before any user lock, so two callers never wait on each other.
+
+    Args:
+        session: The transaction that takes the locks.
+        subscriptions: A key for each subscription, unique across providers.
+        wait_seconds: Seconds each wait may last before refusing with UserBusyError, or None
+            to wait as long as the holder keeps the lock.
+    """
+    for key in sorted(set(subscriptions)):
+        await _take(
+            session,
+            func.pg_advisory_xact_lock(_SUBSCRIPTION_LOCK_NAMESPACE, func.hashtext(key)),
+            wait_seconds,
+        )
 
 
 async def try_notice_lock(connection: AsyncConnection, notice_key: str) -> bool:

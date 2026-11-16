@@ -57,11 +57,14 @@ async def current_user(request: Request, session: DbSession) -> User:
     """
     claims = getattr(request.state, CLAIMS_STATE_KEY, None) or await verify_bearer(request)
     email = claims.get("email")
+    settings = request.app.state.settings
+    # Bounded, since a new account has no id yet to count against its requests in flight.
     user, started = await provision_user(
         session,
         claims["sub"],
         email=email if isinstance(email, str) else None,
-        settings=request.app.state.settings,
+        settings=settings,
+        lock_wait_seconds=settings.request_lock_timeout_seconds,
     )
     if started is not None:
         setattr(request.state, ACCOUNT_CREATED_STATE_KEY, started)

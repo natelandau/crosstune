@@ -205,7 +205,7 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None]:
     # so an injected resource outlives the lifespan under whoever owns it.
     built_engine = app.state.engine is None
     if built_engine:
-        app.state.engine = make_engine(settings.database_url)
+        app.state.engine = make_engine(settings)
         app.state.sessionmaker = make_sessionmaker(app.state.engine)
         app.state.pool_closer = IdlePoolCloser(app.state.engine)
     built_http_client = app.state.http_client is None

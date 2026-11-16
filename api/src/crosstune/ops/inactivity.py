@@ -260,7 +260,7 @@ async def run(settings: Settings, args: argparse.Namespace) -> None:
     if not previewing:
         require_clients(settings)
     now = utc_now()
-    engine = make_engine(settings.database_url)
+    engine = make_engine(settings)
     try:
         sessionmaker = make_sessionmaker(engine)
         if previewing:

@@ -594,6 +594,26 @@ def test_posthog_configured_needs_project_and_key() -> None:
     )
 
 
+@pytest.mark.parametrize(
+    ("pool_size", "max_overflow", "starts"), [(3, 1, False), (4, 1, True), (2, 0, False)]
+)
+def test_a_pool_one_account_could_fill_refuses_to_start(
+    pool_size: int, max_overflow: int, *, starts: bool
+) -> None:
+    def build() -> Settings:
+        return Settings(
+            db_pool_size=pool_size,
+            db_max_overflow=max_overflow,
+            concurrent_locking_requests_per_user=4,
+        )
+
+    if starts:
+        build()
+    else:
+        with pytest.raises(ValidationError, match="CROSSTUNE_DB_POOL_SIZE"):
+            build()
+
+
 def test_posthog_settings_without_storage_refuse_to_start() -> None:
     # The job runner that deletes a deleted account's analytics data runs only with storage.
     with pytest.raises(ValidationError, match="PostHog settings need storage"):
