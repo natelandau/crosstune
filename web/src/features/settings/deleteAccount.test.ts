@@ -1,6 +1,6 @@
 import { noopAnalytics } from '../../usage/client'
 import Dexie from 'dexie'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import {
   clearAccountDeletedNotice,
   clearLocalSignOut,
@@ -28,6 +28,7 @@ import { DELETE_CONFIRMATION_TEXT } from './deleteAccountCopy'
 function freshUser() {
   const userId = `user_${crypto.randomUUID()}`
   rememberUser(userId)
+  onTestFinished(() => Dexie.delete(databaseName(userId)))
   return { userId, db: openDatabase(userId) }
 }
 

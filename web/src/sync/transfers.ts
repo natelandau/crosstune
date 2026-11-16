@@ -336,7 +336,7 @@ export async function uploadPass(
   const nowMs = Date.now()
   let firstError: unknown = null
   for (const [i, file] of waiting.entries()) {
-    if (isStopped()) break
+    if (isStopped()) return null
     // A pass is the only place a blocked row is reconsidered, so re-check storage usage
     // rather than hammering the server with a slot request that will fail again.
     if (
@@ -518,10 +518,17 @@ export function createDownloadRetries(now: () => number = Date.now): DownloadRet
 export async function downloadPass(
   db: CrosstuneDb,
   api: SyncApi,
-  fetch: (id: string) => Promise<Blob | null> = (id) => downloadOne(db, api, id),
-  retries: DownloadRetries = createDownloadRetries(),
-  fetchPeaksFor: (id: string) => Promise<Uint8Array | null> = (id) => fetchPeaks(db, api, id),
-  isStopped: () => boolean = () => false,
+  {
+    fetch = (id) => downloadOne(db, api, id),
+    retries = createDownloadRetries(),
+    fetchPeaksFor = (id) => fetchPeaks(db, api, id),
+    isStopped = () => false,
+  }: {
+    fetch?: (id: string) => Promise<Blob | null>
+    retries?: DownloadRetries
+    fetchPeaksFor?: (id: string) => Promise<Uint8Array | null>
+    isStopped?: () => boolean
+  } = {},
 ): Promise<void> {
   if (!(await getKeepOffline(db))) return
   const rows = await db.recordings.filter((r) => !r.deleted_at && r.state === 'ready').toArray()

@@ -137,7 +137,7 @@ export async function scanUploadPass(
   const nowMs = Date.now()
   let firstError: unknown = null
   for (const file of waiting) {
-    if (isStopped()) break
+    if (isStopped()) return null
     // Only the storage usage a sync refreshes frees a refused scan; asking for a slot
     // before it shows room would draw the same refusal.
     if (

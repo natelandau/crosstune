@@ -59,8 +59,9 @@ const GATEWAY_STATUSES: ReadonlySet<number> = new Set([502, 504])
 export interface ApiClientOptions {
   baseUrl: string
   getToken: () => Promise<string | null>
-  /** The account this client acts for. A token whose subject is any other user is never sent. */
-  userId?: string
+  /** The account this client acts for, or null for one that never holds a token. A token whose
+   * subject is any other user is never sent. */
+  userId: string | null
   clientVersion: string
   fetch?: (request: Request) => Promise<Response>
   /** Override the PUT timeout formula (bytes in, ms out). Tests only. */
@@ -104,7 +105,7 @@ export function createApiClient(options: ApiClientOptions): SyncApi {
       if (!token) throw new NoTokenError()
       // The token source follows whoever is signed in now, which can be another account
       // than the one whose database this client syncs.
-      if (options.userId !== undefined && tokenSubject(token) !== options.userId) {
+      if (tokenSubject(token) !== options.userId) {
         throw new NoTokenError()
       }
       request.headers.set('Authorization', `Bearer ${token}`)

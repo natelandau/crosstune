@@ -21,9 +21,17 @@ export function unmarkForDeletion(userId: string): void {
   if (markedForDeletion() === userId) writeStored(KEY, null)
 }
 
-export async function deleteMarkedDatabase(userId: string): Promise<void> {
-  await deleteDatabase(userId)
-  unmarkForDeletion(userId)
+const deleting = new Map<string, Promise<void>>()
+
+/** Sign-out and the gate both finish a delete; a second caller shares the first one's. */
+export function deleteMarkedDatabase(userId: string): Promise<void> {
+  const inFlight = deleting.get(userId)
+  if (inFlight) return inFlight
+  const attempt = deleteDatabase(userId)
+    .then(() => unmarkForDeletion(userId))
+    .finally(() => deleting.delete(userId))
+  deleting.set(userId, attempt)
+  return attempt
 }
 
 /**

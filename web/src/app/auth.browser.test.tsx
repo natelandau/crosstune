@@ -24,7 +24,8 @@ import {
   rememberUser,
 } from '../auth/session'
 import { markedForDeletion, markForDeletion } from '../db/deletion'
-import { databaseName, openDatabase } from '../db/schema'
+import { databaseName } from '../db/schema'
+import { createUserDb } from '../test/db'
 import { readSearchQuery, writeSearchQuery } from '../ui/searchSession'
 import { CLERK_LOAD_GRACE_MS, useAuthGate, type GateClock } from '../auth/useAuthGate'
 import { renderWithProviders } from '../test/render'
@@ -163,9 +164,7 @@ describe('useAuthGate', () => {
   })
 
   it('deletes a database marked for deletion once Clerk shows that user signed out', async () => {
-    await openDatabase('user_1')
-      .open()
-      .then((db) => db.close())
+    await createUserDb('user_1')
     markForDeletion('user_1')
     renderHook(() => useAuthGate(fakeClock().clock))
     await expect.poll(() => Dexie.exists(databaseName('user_1'))).toBe(false)

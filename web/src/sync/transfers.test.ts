@@ -649,8 +649,7 @@ describe('a stopped pass', () => {
         await setKeepOffline(db, true)
         return vi.spyOn(fake.api, 'downloadUrl')
       },
-      run: (isStopped: () => boolean) =>
-        downloadPass(db, fake.api, undefined, undefined, undefined, isStopped),
+      run: (isStopped: () => boolean) => downloadPass(db, fake.api, { isStopped }),
     },
   ])('$pass sends nothing for the rows after a stop', async ({ setup, run }) => {
     const requests = await setup()
@@ -839,12 +838,12 @@ describe('downloads', () => {
     const retries = createDownloadRetries(() => now)
     const spy = vi.spyOn(fake.api, 'downloadUrl').mockRejectedValueOnce(new Error('boom'))
 
-    await downloadPass(db, fake.api, undefined, retries)
-    await downloadPass(db, fake.api, undefined, retries)
+    await downloadPass(db, fake.api, { retries })
+    await downloadPass(db, fake.api, { retries })
     expect(spy).toHaveBeenCalledTimes(1)
 
     now += retryDelayMs(0)
-    await downloadPass(db, fake.api, undefined, retries)
+    await downloadPass(db, fake.api, { retries })
     expect(spy).toHaveBeenCalledTimes(2)
     expect(await (await db.recording_files.get('r1'))?.blob?.text()).toBe('xyz')
   })

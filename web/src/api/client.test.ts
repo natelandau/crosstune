@@ -30,7 +30,8 @@ function problemResponse(status: number, detail = 'x', type = 'about:blank') {
 function makeClient(fetch: FetchMock, overrides: Partial<ApiClientOptions> = {}) {
   return createApiClient({
     baseUrl: 'http://api.test',
-    getToken: async () => 'tok',
+    getToken: async () => sessionToken('user_a'),
+    userId: 'user_a',
     clientVersion: '1',
     fetch,
     ...overrides,
@@ -110,7 +111,7 @@ describe('createApiClient', () => {
     await makeClient(fetchMock, { clientVersion: '1.2.3' }).push([])
     const request = fetchMock.mock.calls[0]![0]
     expect(request.url).toBe('http://api.test/v1/sync/push')
-    expect(request.headers.get('authorization')).toBe('Bearer tok')
+    expect(request.headers.get('authorization')).toBe(`Bearer ${sessionToken('user_a')}`)
     expect(request.headers.get('x-client-version')).toBe('1.2.3')
     expect(request.headers.get('x-client-platform')).toBe('web')
   })

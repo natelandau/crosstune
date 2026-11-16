@@ -230,29 +230,35 @@ export function createSyncEngine({
     }
   }
 
-  async function pull(): Promise<void> {
-    let since = await getPullCursor(db)
+  /** Pages from the stored cursor until caught up. A page that lands after a stop is dropped. */
+  async function pullPages<P extends { next_since: number; has_more: boolean }>(
+    cursor: (db: CrosstuneDb) => Promise<number>,
+    fetchPage: (since: number) => Promise<P>,
+    applyPage: (page: P) => Promise<void>,
+  ): Promise<void> {
+    let since = await cursor(db)
     for (;;) {
       if (stopped) return
-      const page = await api.pull(since)
+      const page = await fetchPage(since)
       if (stopped) return
-      await applyPullPage(db, page.rows, page.next_since)
+      await applyPage(page)
       since = page.next_since
       if (!page.has_more) return
     }
   }
 
-  async function pullEvents(): Promise<void> {
-    let since = await getEventsCursor(db)
-    for (;;) {
-      if (stopped) return
-      const page = await api.events(since)
-      if (stopped) return
-      await applyEventsPage(db, page.rows, page.next_since)
-      since = page.next_since
-      if (!page.has_more) return
-    }
-  }
+  const pull = () =>
+    pullPages(
+      getPullCursor,
+      (since) => api.pull(since),
+      (page) => applyPullPage(db, page.rows, page.next_since),
+    )
+  const pullEvents = () =>
+    pullPages(
+      getEventsCursor,
+      (since) => api.events(since),
+      (page) => applyEventsPage(db, page.rows, page.next_since),
+    )
 
   // The sync run and the events pull take turns, so an events page never lands mid-push.
   let turn: Promise<unknown> = Promise.resolve()
@@ -302,19 +308,23 @@ export function createSyncEngine({
         // later passes still run; the first is rethrown below once they have. Scans go
         // first: they are small, and the reading view needs them more than any one recording.
         const scanUploadError = await scanUploadPass(db, api, isStopped)
-        const scanDownloadError = stopped
-          ? null
-          : await scanDownloadPass(db, api, scanRetries, isStopped).then(
-              () => null,
-              (error: unknown) => {
-                if (isAuthFailure(error)) throw error
-                return error
-              },
-            )
-        const uploadError = stopped ? null : await uploadPass(db, api, uploadReports, isStopped)
-        if (!stopped) {
-          await downloadPass(db, api, fetchOne, downloadRetries, fetchPeaksOnce, isStopped)
-        }
+        if (stopped) return
+        const scanDownloadError = await scanDownloadPass(db, api, scanRetries, isStopped).then(
+          () => null,
+          (error: unknown) => {
+            if (isAuthFailure(error)) throw error
+            return error
+          },
+        )
+        if (stopped) return
+        const uploadError = await uploadPass(db, api, uploadReports, isStopped)
+        if (stopped) return
+        await downloadPass(db, api, {
+          fetch: fetchOne,
+          retries: downloadRetries,
+          fetchPeaksFor: fetchPeaksOnce,
+          isStopped,
+        })
         if (stopped) return
         const held = scanUploadError ?? scanDownloadError ?? uploadError
         if (held) throw held

@@ -1111,40 +1111,31 @@ describe('an engine bound to one account', () => {
       { headers: { 'content-type': 'application/json' } },
     )
 
-  /** An engine for user_a whose first pull waits for `answerFirstPull`, under a token source
-   * that follows whoever is signed in, as Clerk's does. */
-  function boundEngine() {
-    const session = { signedIn: 'user_a' as string | null }
+  it('sends nothing and writes nothing once stopped mid-pull, whoever signs in next', async () => {
+    // Clerk's token source follows whoever is signed in, not the engine's account.
+    let signedIn: string | null = 'user_a'
     const sent: Request[] = []
+    let pulls = 0
     let answerFirstPull: (response: Response) => void = () => {}
     const firstPull = new Promise<Response>((resolve) => (answerFirstPull = resolve))
     const api = createApiClient({
       baseUrl: 'http://api.test',
-      getToken: async () => (session.signedIn ? sessionToken(session.signedIn) : null),
+      getToken: async () => (signedIn ? sessionToken(signedIn) : null),
       userId: 'user_a',
       clientVersion: '1',
       gatewayRetryDelaysMs: [],
       fetch: async (request) => {
         sent.push(request)
-        const isPull = new URL(request.url).pathname === '/v1/sync/pull'
-        if (isPull && sent.filter((r) => r.url.includes('/v1/sync/pull')).length === 1) {
-          return firstPull
-        }
+        if (new URL(request.url).pathname === '/v1/sync/pull' && ++pulls === 1) return firstPull
         return pullPage(false)
       },
     })
     const engine = createSyncEngine({ analytics: noopAnalytics, db, api, isOnline: () => true })
-    const pulls = () => sent.filter((r) => new URL(r.url).pathname === '/v1/sync/pull').length
-    return { engine, session, sent, pulls, answerFirstPull: (r: Response) => answerFirstPull(r) }
-  }
-
-  it('sends nothing and writes nothing once stopped mid-pull, whoever signs in next', async () => {
-    const { engine, session, sent, pulls, answerFirstPull } = boundEngine()
     const run = engine.sync()
-    await expect.poll(pulls).toBe(1)
-    session.signedIn = null
+    await expect.poll(() => pulls).toBe(1)
+    signedIn = null
     engine.stop()
-    session.signedIn = 'user_b'
+    signedIn = 'user_b'
     const sentBeforeStop = sent.length
     answerFirstPull(pullPage(true))
     await run

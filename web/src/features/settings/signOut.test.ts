@@ -18,6 +18,7 @@ import { signOutAndForget, UNSYNCED_SCANS_ERROR, UNSYNCED_RECORDINGS_ERROR } fro
 function freshUser() {
   const userId = `user_${crypto.randomUUID()}`
   rememberUser(userId)
+  onTestFinished(() => Dexie.delete(databaseName(userId)))
   return { userId, db: openDatabase(userId) }
 }
 
