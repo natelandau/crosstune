@@ -153,6 +153,10 @@ each question, and the invariants that both clients and the API hold.
   when a push omits it: `tuner_a4_hz`, `place_id`, `place_origin`.
 - History rows are accepted against a soft-deleted parent, so a device
   that played something another device deleted still lands its history.
+- A column that may name a row only the device holds goes in
+  `TableSpec.absent_parents`, never in `parents` alone. Server code that
+  reads one checks that the row exists and is the caller's: another
+  account may store that ID later.
 - How to release a shape change: `operations.md`.
 
 ### Server writes and locks
