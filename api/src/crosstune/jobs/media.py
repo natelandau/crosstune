@@ -592,8 +592,9 @@ class _Stall:
 
     # The latest stamp of any packet before the one after the stall.
     earlier_max_pts: float
-    # Where the packet before the stall ends, or None when the stall opens the file.
-    previous_end: float | None
+    # The furthest end of any packet before the stall, or None when the stall opens the
+    # file. A step back and forward again within audio already seen is not a stall.
+    earlier_end: float | None
     # The stamp of the packet after the stall.
     pts: float
 
@@ -634,7 +635,7 @@ class _StallScanner:
         self._packets = 0
         self._stalls: list[_Stall] = []
         self._earlier_max_pts = float("-inf")
-        self._previous_end: float | None = None
+        self._earlier_end: float | None = None
 
     def feed(self, chunk: bytes) -> None:
         """Read the complete lines in `chunk`, keeping a partial last line for the next one.
@@ -666,18 +667,20 @@ class _StallScanner:
             msg = f"ffprobe reported more than {MAX_SCANNED_PACKETS} packets"
             raise MediaError(msg)
         start_time, stalls = self._start_time, self._stalls
-        earlier_max_pts, previous_end = self._earlier_max_pts, self._previous_end
+        earlier_max_pts, earlier_end = self._earlier_max_pts, self._earlier_end
         for line in lines:
             fields = line.split(b",")
             try:
                 pts, duration = float(fields[0]) - start_time, float(fields[1])
             except (ValueError, IndexError):
                 continue
-            if pts - (previous_end or 0) > MIN_TIMESTAMP_GAP_SECONDS:
-                stalls.append(_Stall(earlier_max_pts, previous_end, pts))
+            if pts - (earlier_end or 0) > MIN_TIMESTAMP_GAP_SECONDS:
+                stalls.append(_Stall(earlier_max_pts, earlier_end, pts))
             earlier_max_pts = max(earlier_max_pts, pts)
-            previous_end = pts + duration
-        self._earlier_max_pts, self._previous_end = earlier_max_pts, previous_end
+            end = pts + duration
+            if earlier_end is None or end > earlier_end:
+                earlier_end = end
+        self._earlier_max_pts, self._earlier_end = earlier_max_pts, earlier_end
         if len(stalls) > MAX_SCANNED_STALLS:
             msg = f"ffprobe reported more than {MAX_SCANNED_STALLS} timestamp stalls"
             raise MediaError(msg)
@@ -739,20 +742,20 @@ def _range_stalls(stall_map: StallMap, from_ms: int, to_ms: int | None) -> _Stal
             if stall.earlier_max_pts >= edge:
                 break
             if stall.pts >= edge:
-                end_silence = _end_silence(stall.pts, stall.previous_end, low, high)
+                end_silence = _end_silence(stall.pts, stall.earlier_end, low, high)
                 return _Stalls(gaps, starts_in_stall, end_silence)
-        if stall.pts > low and stall.previous_end is not None:
-            stalled = stall.pts - max(stall.previous_end, low)
+        if stall.pts > low and stall.earlier_end is not None:
+            stalled = stall.pts - max(stall.earlier_end, low)
             if stalled > MIN_TIMESTAMP_GAP_SECONDS:
                 gaps.append((stall.pts, stalled))
-                starts_in_stall = starts_in_stall or stall.previous_end <= low
+                starts_in_stall = starts_in_stall or stall.earlier_end <= low
     return _Stalls(gaps, starts_in_stall)
 
 
-def _end_silence(next_pts: float, previous_end: float | None, low: float, high: float) -> float:
+def _end_silence(next_pts: float, earlier_end: float | None, low: float, high: float) -> float:
     """Measure the part of a range that falls in the stall before the packet after it."""
-    stall_start = max(previous_end or 0, low)
-    stalled = next_pts - (previous_end or 0)
+    stall_start = max(earlier_end or 0, low)
+    stalled = next_pts - (earlier_end or 0)
     return high - stall_start if stalled > MIN_TIMESTAMP_GAP_SECONDS and stall_start < high else 0.0
 
 
@@ -960,6 +963,9 @@ async def cut(
         *fill,
         *_playback_codec_args(info),
         pre_input_args=_seek_args(info, start_ms, end_ms),
+        # Packets whose stamps step back inside the range would otherwise each add
+        # their samples again past its end.
+        max_ms=end_ms - start_ms,
     )
 
 
@@ -978,6 +984,9 @@ class _CopyTarget:
 # first samples on delay. Starting the copy this far before the cut keeps that point at
 # or before the cut, and the slice that much longer keeps it covering the end.
 MP3_LEAD_MS = 50
+# How far a slice may decode past its range: the MP3 lead at each end, plus a codec frame
+# at the lowest sample rates.
+MAX_SLICE_OVERRUN_MS = 2 * MP3_LEAD_MS + 200
 _MP3 = _CopyTarget(
     accepts=lambda info: info.codec == "mp3" and "mp3" in info.format_names,
     output_args=("-f", "mp3"),

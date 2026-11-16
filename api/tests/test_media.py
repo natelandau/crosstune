@@ -5,9 +5,11 @@ from __future__ import annotations
 import array
 import asyncio
 import json
+import math
 import os
 import resource
 import shutil
+import struct
 import subprocess
 import sys
 import tracemalloc
@@ -958,19 +960,109 @@ async def test_cut_wholly_inside_a_stall_is_silence_of_its_length(
     assert rms(decode_low_rate(target)[edge:]) < rms(decode_low_rate(source)) / 50
 
 
+PCM_PACKET_MS = 100
+
+
+def _ebml(element_id: int, payload: bytes) -> bytes:
+    """One EBML element, its size always written in eight bytes."""
+    id_bytes = element_id.to_bytes((element_id.bit_length() + 7) // 8, "big")
+    return id_bytes + (1 << 56 | len(payload)).to_bytes(8, "big") + payload
+
+
+def _ebml_uint(element_id: int, value: int) -> bytes:
+    return _ebml(element_id, value.to_bytes(8, "big"))
+
+
+def _pcm_mkv(path: Path, stamps_ms: list[int]) -> Path:
+    """Write a mono 8 kHz tone as PCM in Matroska, one 100 ms packet at each stamp in order."""
+    samples = CUT_RATE * PCM_PACKET_MS // 1000
+    tone = array.array(
+        "h", (round(8000 * math.sin(2 * math.pi * 440 * i / CUT_RATE)) for i in range(samples))
+    )
+    if sys.byteorder == "big":
+        tone.byteswap()
+    audio = _ebml(0xE1, _ebml(0xB5, struct.pack(">d", CUT_RATE)) + _ebml_uint(0x9F, 1))
+    track = _ebml(
+        0xAE,
+        _ebml_uint(0xD7, 1)
+        + _ebml_uint(0x73C5, 1)
+        + _ebml_uint(0x83, 2)
+        + _ebml(0x86, b"A_PCM/INT/LIT")
+        + _ebml_uint(0x23E383, PCM_PACKET_MS * 1_000_000)
+        + audio
+        + _ebml_uint(0x6264, 16),
+    )
+    length_ms = max(stamps_ms) + PCM_PACKET_MS
+    info = _ebml(
+        0x1549A966, _ebml_uint(0x2AD7B1, 1_000_000) + _ebml(0x4489, struct.pack(">d", length_ms))
+    )
+    blocks = b"".join(
+        _ebml(0xA3, b"\x81" + struct.pack(">hB", at, 0x80) + tone.tobytes()) for at in stamps_ms
+    )
+    segment = info + _ebml(0x1654AE6B, track) + _ebml(0x1F43B675, _ebml_uint(0xE7, 0) + blocks)
+    path.write_bytes(_ebml(0x1A45DFA3, _ebml(0x4282, b"matroska")) + _ebml(0x18538067, segment))
+    return path
+
+
+REPLAYED_STALL_MS = (100, 500)
+HOLED_STALL_MS = (500, 5500)
+
+
+@pytest.fixture(scope="module")
+def replayed_mkv(tmp_path_factory) -> Path:
+    """Matroska whose stamps alternate between 0 and 500 ms, after one real 400 ms stall."""
+    return _pcm_mkv(tmp_path_factory.mktemp("replayed") / "replayed.mkv", [0, 500] * 20)
+
+
+@pytest.fixture(scope="module")
+def holed_mkv(tmp_path_factory) -> Path:
+    """Matroska with half a second of audio, a 5 s stall, then another half second."""
+    stamps = [*range(0, 500, PCM_PACKET_MS), *range(5500, 6000, PCM_PACKET_MS)]
+    return _pcm_mkv(tmp_path_factory.mktemp("holed") / "holed.mkv", stamps)
+
+
+@pytest.mark.parametrize("slicer", [cut, copy_slice])
+@pytest.mark.parametrize(("mkv", "end_ms"), [("replayed_mkv", 1000), ("holed_mkv", 6000)])
+async def test_cut_and_slice_of_a_matroska_cover_exactly_their_range(
+    request, tmp_path, slicer, mkv, end_ms
+) -> None:
+    source = request.getfixturevalue(mkv)
+    target = tmp_path / "cut.m4a"
+    await slicer(source, target, 0, end_ms)
+    assert abs(decoded_ms(target) - end_ms) <= 1
+
+
+async def test_cut_of_a_matroska_fills_its_stall_with_silence(holed_mkv, tmp_path) -> None:
+    target = tmp_path / "cut.m4a"
+    await cut(holed_mkv, target, 0, 6000)
+    ms = CUT_RATE // 1000
+    stall_start, stall_end = HOLED_STALL_MS
+    audio = decode_low_rate(target)
+    heard = audio[100 * ms : (stall_start - 50) * ms]
+    assert rms(audio[(stall_start + 50) * ms : (stall_end - 50) * ms]) < rms(heard) / 50
+    assert rms(audio[(stall_end + 50) * ms : (stall_end + 400) * ms]) > rms(heard) / 2
+
+
 @pytest.mark.parametrize(
-    ("webm", "stall_ms"),
-    [("gapped_webm", GAPPED_STALL_MS), ("long_stalled_webm", LONG_STALL_MS), ("plain_webm", None)],
+    ("fixture", "stall_ms"),
+    [
+        ("gapped_webm", GAPPED_STALL_MS),
+        ("long_stalled_webm", LONG_STALL_MS),
+        ("plain_webm", None),
+        ("holed_mkv", HOLED_STALL_MS),
+        # Stamps that step back and forward again over audio already read are no stall.
+        ("replayed_mkv", REPLAYED_STALL_MS),
+    ],
 )
-async def test_scan_stalls_finds_each_stall(request, webm, stall_ms) -> None:
-    source = request.getfixturevalue(webm)
+async def test_scan_stalls_finds_each_stall(request, fixture, stall_ms) -> None:
+    source = request.getfixturevalue(fixture)
     stalls = (await scan_stalls(source, await probe(source))).stalls
     if stall_ms is None:
         assert stalls == ()
         return
     [stall] = stalls
-    assert stall.previous_end is not None
-    assert (round(stall.previous_end * 1000), round(stall.pts * 1000)) == stall_ms
+    assert stall.earlier_end is not None
+    assert (round(stall.earlier_end * 1000), round(stall.pts * 1000)) == stall_ms
 
 
 @pytest.mark.parametrize(

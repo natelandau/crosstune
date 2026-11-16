@@ -12,8 +12,16 @@ from typing import TYPE_CHECKING
 from crosstune.db.base import bump_server_seq, utc_now
 from crosstune.db.locks import lock_user
 from crosstune.files.quota import OVER_QUOTA, room_bytes
+from crosstune.jobs.attempt import client_message
 from crosstune.jobs.audio_rewrite import rewrite_playback
-from crosstune.jobs.media import copy_slice, probe, scan_stalls, slice_content_type
+from crosstune.jobs.media import (
+    MAX_SLICE_OVERRUN_MS,
+    MediaError,
+    copy_slice,
+    probe,
+    scan_stalls,
+    slice_content_type,
+)
 from crosstune.jobs.peaks import range_peaks
 from crosstune.jobs.trim import back_up_playback, current_files, require_backup
 from crosstune.recordings.loops import reclamp_recording_loops
@@ -61,6 +69,10 @@ log = logging.getLogger(__name__)
 
 class SplitError(Exception):
     """The parent's files are not in a shape a split can safely cut from."""
+
+
+class _SliceTooLongError(MediaError):
+    """A piece's slice decodes to more audio than its range holds."""
 
 
 @dataclass(frozen=True)
@@ -236,6 +248,12 @@ async def _cut_and_upload(
         info=source.info,
         stalls=source.stalls,
     )
+    if sliced.info.duration_ms > end_ms - start_ms + MAX_SLICE_OVERRUN_MS:
+        msg = (
+            f"the slice of piece {piece.id} decodes to {sliced.info.duration_ms} ms, "
+            f"more than its {end_ms - start_ms} ms range"
+        )
+        raise _SliceTooLongError(msg)
     offset = low + sliced.start_ms
     original_end = offset + sliced.info.duration_ms
     kept_start, clamped_end = clamp_trim(start_ms, end_ms, low=offset, high=original_end)
@@ -363,7 +381,8 @@ async def cut_piece(
     trim widened past the cut, its uploads are deleted and the row is left as it was:
     a widened piece stays processing for the next cut. A piece whose original and
     playback file would take the account past its quota fails instead, and an account
-    with no room left fails it without a cut.
+    with no room left fails it without a cut. A piece whose slice decodes to much more
+    than its range fails before any upload.
 
     Args:
         session: The session the piece is attached to, with no transaction open. The
@@ -380,10 +399,16 @@ async def cut_piece(
         async with session.begin():
             room = await _room_for_piece(session, parent, piece, settings)
         cut: _PieceCut | None = None
+        failure: str | None = None
         if room > 0:
-            cut = await _cut_and_upload(
-                files, parent, piece, kept=(start_ms, end_ms), uploaded=uploaded
-            )
+            try:
+                cut = await _cut_and_upload(
+                    files, parent, piece, kept=(start_ms, end_ms), uploaded=uploaded
+                )
+            except _SliceTooLongError as exc:
+                # The same slice comes out on every attempt, so only this piece fails.
+                log.warning("split piece slice is too long", exc_info=exc)
+                failure = client_message(exc)
         # The lock keeps this seq in commit order with the user's pushes. The refresh
         # drops the offset set for the cut, so a skipped piece keeps its stored row.
         with session.no_autoflush:
@@ -412,6 +437,10 @@ async def cut_piece(
             await delete_best_effort(
                 files.store, uploaded, log=log, message="could not delete a skipped piece's cut"
             )
+            return
+        if failure is not None:
+            fail_piece(piece, failure)
+            await session.flush()
             return
         room = await _room_for_piece(session, parent, piece, settings)
         if cut is None or cut.original.size + cut.playback.size > room:
