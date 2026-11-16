@@ -5,6 +5,11 @@ import '../scripts/settings.just'
 
 # Runs a lint or test gate through gate-cache when it is installed
 gate := "../scripts/gate-cache.sh"
+# The tracked files every gate here reads, as gate-cache paths: the module, its gate script,
+# and the shared settings. Each gate adds the other paths it reads.
+paths := "--path site/ --path scripts/gate-cache.sh --path scripts/settings.just"
+# The root tooling environment that `uv run --project ..` runs ruff, ty, and typos from
+uv_paths := "--path pyproject.toml --path uv.lock --path .python-version"
 
 [default]
 _default:
@@ -13,27 +18,27 @@ _default:
 # Lint with eslint
 [group('lint')]
 eslint:
-    {{ gate }} site-eslint pnpm eslint --max-warnings 0 .
+    {{ gate }} site-eslint {{ paths }} pnpm eslint --max-warnings 0 .
 
 # Check formatting with prettier
 [group('lint')]
 format:
-    {{ gate }} site-prettier pnpm prettier --check .
+    {{ gate }} site-prettier {{ paths }} pnpm prettier --check .
 
 # Type check with astro check
 [group('lint')]
 tsc:
-    {{ gate }} site-tsc pnpm astro check
+    {{ gate }} site-tsc {{ paths }} pnpm astro check
 
 # Spell check the site and the brand sources it is built from
 [group('lint')]
 typos:
-    {{ gate }} site-typos uv run --project .. --only-group typos typos --config ../.typos.toml . ../brand
+    {{ gate }} site-typos {{ paths }} {{ uv_paths }} --path brand/ --path .typos.toml --path .gitignore uv run --project .. --only-group typos typos --config ../.typos.toml . ../brand
 
 # Find unused files, exports, and dependencies with knip
 [group('lint')]
 deadcode:
-    {{ gate }} site-knip pnpm knip
+    {{ gate }} site-knip {{ paths }} --path .gitignore pnpm knip
 
 # Run all linters
 [group('lint')]
@@ -49,7 +54,7 @@ fix:
 [group('test')]
 [arg("args", help="Arguments for vitest")]
 test *args:
-    {{ gate }} site-test --argc "$#" --file .env --tool 'node --version' just _test "$@"
+    {{ gate }} site-test {{ paths }} --path brand/ --path analytics/tracking-plan.json --path web/src/features/plan/planCopy.ts --argc "$#" --file .env --tool 'node --version' just _test "$@"
 
 _test *args:
     pnpm astro build

@@ -165,13 +165,14 @@ differ to `.cache/shots/review/`.
 
 Every lint and test recipe runs through
 [gate-cache](https://github.com/natelandau/gate-cache). It records a pass
-against the git tree of every file git does not ignore, committed or not.
-A second run on the same tree skips. Hooks, people, and agents share the
-passes, in every worktree. Off when `CI` is set.
+against the files under the gate's paths, or the whole tree for a gate
+with none, committed or not, ignored files left out. A second run on the
+same content skips.
+Hooks, people, and agents share the passes, in every worktree. Off when
+`CI` is set.
 
 - A pass on uncommitted work also covers its commit.
-- `just gate status`: what passed and failed on the tree, with no run.
-  `just gate status --name <gate>`: whether one gate would skip.
+- `just gate status`: what passed and failed, with no run.
 - `GATE_CACHE_DISABLE=1 just <recipe>` forces a run. After a change to an
   input that no gate is keyed on: `just gate clear`.
 - A recipe run with arguments always runs and records nothing. A recipe
@@ -179,6 +180,13 @@ passes, in every worktree. Off when `CI` is set.
   appends them to the command, so the command is written once.
 - A new lint or test recipe runs through `{{ gate }}` under a name that no
   other gate uses.
+- A gate names each tracked path it reads with `--path`, a git pathspec
+  from the repository root: its module, `scripts/gate-cache.sh`,
+  `scripts/settings.just`, and every config, lockfile, fixture, or
+  contract it reads elsewhere. No `--path` only for a gate whose command
+  reads every file, such as `typos` and `scripts-test`.
+- A path that matches no file makes the gate run uncached, and gate-cache
+  prints the path. A typo or a stale path.
 - A gate that reads an ignored file, such as a module's `.env`, names it
   with `--file`. A gate that depends on a tool no lockfile pins, such as
   Node, ffmpeg, or Xcode's Swift, names its version command with

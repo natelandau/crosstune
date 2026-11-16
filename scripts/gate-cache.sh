@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Usage: gate-cache.sh NAME [--argc N] [--file PATH]... [--tool COMMAND]... COMMAND [ARGS...]
+# Usage: gate-cache.sh NAME [--argc N] [--path PATHSPEC]... [--file PATH]... [--tool COMMAND]...
+#        COMMAND [ARGS...]
 # Runs a lint or test gate through gate-cache, which skips it when the same gate already
 # passed on the same files git does not ignore, and runs it uncached when CI is set. A
 # checkout whose root tooling environment lacks gate-cache, such as one `just setup` has not
@@ -11,6 +12,10 @@
 # ignored file names it with --file, and one whose result depends on a tool no lockfile
 # pins names the command that prints its version with --tool. Their hash joins the gate
 # name, so a change to either runs the gate again.
+#
+# A gate that reads only part of the repository names each tracked path it reads with --path,
+# a git pathspec from the repository root. Its pass then holds while files outside those paths
+# change. A missing path lets the gate skip when it must run, so a path it may read stays in.
 set -euo pipefail
 
 name="$1"
@@ -20,12 +25,15 @@ gate_cache="$root/.venv/bin/gate-cache"
 
 argc=0
 inputs=()
+scope=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --argc | --file | --tool)
+    --argc | --path | --file | --tool)
       [[ $# -ge 2 ]] || { printf '%s\n' "gate-cache.sh: $1 needs a value" >&2; exit 2; }
       if [[ "$1" == --argc ]]; then
         argc="$2"
+      elif [[ "$1" == --path ]]; then
+        scope+=(--path "$2")
       else
         inputs+=("$1" "$2")
       fi
@@ -37,6 +45,17 @@ done
 
 if [[ "$argc" -ne 0 || ! -x "$gate_cache" ]]; then
   exec "$@"
+fi
+
+# --path needs gate-cache 0.7.0. A checkout that has pulled the lockfile but not synced its
+# environment still runs the gate, uncached, rather than failing on an unknown option.
+if [[ ${#scope[@]} -gt 0 ]]; then
+  version="$("$gate_cache" --version 2> /dev/null || printf '0')"
+  version="${version##* }"
+  if [[ "$(printf '%s\n' 0.7.0 "$version" | sort -V | head -1)" != 0.7.0 ]]; then
+    printf '%s\n' "gate-cache.sh: gate-cache $version is older than 0.7.0, running uncached; run uv sync" >&2
+    exec "$@"
+  fi
 fi
 
 if [[ ${#inputs[@]} -gt 0 ]]; then
@@ -53,4 +72,4 @@ if [[ ${#inputs[@]} -gt 0 ]]; then
   # A hash, not the values, so a secret in an ignored file never reaches a marker.
   name+="@$(printf '%s' "$keys" | shasum -a 256 | cut -c1-12)"
 fi
-exec "$gate_cache" --name "$name" -- "$@"
+exec "$gate_cache" --name "$name" ${scope[@]+"${scope[@]}"} -- "$@"
