@@ -4,6 +4,8 @@ import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 
+from crosstune.reportable import reportable
+
 CLIENT_VERSION_HEADER = "X-Client-Version"
 CLIENT_PLATFORM_HEADER = "X-Client-Platform"
 APPLE_PLATFORMS: frozenset[str] = frozenset({"macos", "ios"})
@@ -16,6 +18,7 @@ type Version = tuple[int, int, int]
 _VERSION = re.compile(r"[0-9]{1,9}(\.[0-9]{1,9}){0,2}")
 
 
+@reportable
 @dataclass(frozen=True)
 class ClientVersion:
     """A client's platform and version, as it reported them."""

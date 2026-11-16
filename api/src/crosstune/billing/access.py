@@ -9,6 +9,7 @@ from sqlalchemy import select
 
 from crosstune.db.base import bump_server_seq, utc_now
 from crosstune.models import Entitlement, Grant, User
+from crosstune.reportable import reportable
 from crosstune.vocabulary import WITHDRAWAL_WINDOW, GrantKind, GrantSource
 
 if TYPE_CHECKING:
@@ -29,6 +30,7 @@ _SOURCE_RANK: dict[str, int] = {
 }
 
 
+@reportable
 @dataclass(frozen=True)
 class Access:
     """What a plan allows right now."""
@@ -37,6 +39,7 @@ class Access:
     quota_bytes: int
 
 
+@reportable
 @dataclass(frozen=True)
 class PaidGrant:
     """One store's subscription as clients see it, so each judges its expiry as for the reported grant."""

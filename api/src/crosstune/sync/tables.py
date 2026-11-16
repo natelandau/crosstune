@@ -24,6 +24,7 @@ from crosstune.models import (
     UserSettings,
     UserTune,
 )
+from crosstune.reportable import reportable
 from crosstune.schemas.rows import (
     DATA_SCHEMAS,
     ROW_SCHEMAS,
@@ -83,6 +84,7 @@ class SyncedRow(Protocol):
     server_seq: int
 
 
+@reportable
 @dataclass(frozen=True)
 class TableSpec:
     """One synced table.

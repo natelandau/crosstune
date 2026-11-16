@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import delete, text
 
 from crosstune.models import MapsUsage
+from crosstune.reportable import reportable
 from crosstune.vocabulary import MapsUsageKind
 
 if TYPE_CHECKING:
@@ -35,6 +36,7 @@ class SpentBy(Enum):
     TEAM = auto()
 
 
+@reportable
 @dataclass(frozen=True, slots=True)
 class DailyLimits:
     """How many uses of one kind one account, and the whole team, may make in a UTC day."""
@@ -43,6 +45,7 @@ class DailyLimits:
     team: int
 
 
+@reportable
 @dataclass(frozen=True, slots=True)
 class BudgetSpent:
     """A refused charge: whose budget is spent, and when the next day's budget opens."""
