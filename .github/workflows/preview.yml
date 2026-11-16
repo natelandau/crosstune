@@ -25,7 +25,8 @@ concurrency:
   cancel-in-progress: ${{ github.event.action == 'synchronize' }}
 
 # Secrets are set on the steps that use them, never here, so a step sees only its own.
-# web's locked neonctl and wrangler do run with the Neon and Cloudflare tokens.
+# web's locked neonctl and wrangler do run with the Neon and Cloudflare tokens, from an
+# install that runs no lifecycle scripts.
 env:
   # Fail when uv.lock disagrees with pyproject.toml instead of relocking.
   UV_LOCKED: "1"
@@ -104,6 +105,7 @@ jobs:
       - uses: ./.github/actions/setup-node
         with:
           module: web
+          ignore-scripts: "true"
 
       # A reset keeps the branch's endpoint, so the connection string stored in
       # Railway at creation stays valid and every push migrates a clean copy.
@@ -247,6 +249,7 @@ jobs:
       - uses: ./.github/actions/setup-node
         with:
           module: web
+          ignore-scripts: "true"
 
       - name: delete the preview's API entry
         working-directory: web
