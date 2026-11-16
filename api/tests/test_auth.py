@@ -8,11 +8,13 @@ import httpx2
 import pytest
 
 from crosstune.auth import jwks as jwks_module
-from crosstune.auth.jwks import JwksCache
+from crosstune.auth.deps import verified_email
+from crosstune.auth.jwks import JwksCache, SigningKeysUnavailableError
 from crosstune.auth.tokens import party_allowed, verify_clerk_token
 from crosstune.db.engine import make_sessionmaker
 from crosstune.errors import UnauthorizedError
 from crosstune.main import create_app
+from tests.helpers import Clock
 
 pytestmark = pytest.mark.anyio
 
@@ -94,12 +96,71 @@ async def test_concurrent_lookups_fetch_the_jwks_once_and_both_see_the_key(
     assert len(mock_http.calls) == 1
 
 
+async def _cache_past_its_maximum_age(
+    settings, mock_http, monkeypatch, http: httpx2.AsyncClient, refetched: httpx2.Response
+) -> JwksCache:
+    """A cache whose keys verified once and are now past their maximum age."""
+    clock = Clock()
+    monkeypatch.setattr(jwks_module, "time", types.SimpleNamespace(monotonic=clock))
+    cache = JwksCache(settings.clerk_jwks_url, http)
+    assert await cache.get_key("test-kid") is not None
+    mock_http.add(settings.clerk_jwks_url, refetched)
+    clock.now += jwks_module.MAX_KEY_AGE_SECONDS
+    assert await cache.get_key("test-kid") is not None
+    clock.now += 1
+    return cache
+
+
+async def test_a_key_withdrawn_from_the_jwks_stops_verifying_after_the_maximum_age(
+    settings, mock_http, monkeypatch
+) -> None:
+    async with mock_http.client() as http:
+        cache = await _cache_past_its_maximum_age(
+            settings, mock_http, monkeypatch, http, httpx2.Response(200, json={"keys": []})
+        )
+        assert await cache.get_key("test-kid") is None
+    assert len(mock_http.calls) == 2
+
+
+async def test_keys_past_the_maximum_age_never_verify_when_the_refetch_fails(
+    settings, mock_http, monkeypatch
+) -> None:
+    async with mock_http.client() as http:
+        cache = await _cache_past_its_maximum_age(
+            settings, mock_http, monkeypatch, http, httpx2.Response(500)
+        )
+        with pytest.raises(SigningKeysUnavailableError):
+            await cache.get_key("test-kid")
+    assert len(mock_http.calls) == 2
+
+
 PREVIEW_REGEX = r"^https://[a-z0-9-]+-crosstune-web\.example\.workers\.dev$"
 
 
 def test_party_allowed_rejects_a_non_string_party() -> None:
     assert party_allowed(None, [], PREVIEW_REGEX) is False
     assert party_allowed(42, ["http://testclient"], "") is False
+
+
+@pytest.mark.parametrize(
+    ("claims", "require_claim", "expected"),
+    [
+        ({"email": "a@example.com", "email_verified": True}, True, "a@example.com"),
+        ({"email": "a@example.com", "email_verified": True}, False, "a@example.com"),
+        ({"email": "a@example.com", "email_verified": False}, False, None),
+        ({"email": "a@example.com", "email_verified": "true"}, False, None),
+        ({"email": "a@example.com"}, False, "a@example.com"),
+        ({"email": "a@example.com"}, True, None),
+        ({"email_verified": True}, True, None),
+        ({"email": 42, "email_verified": True}, True, None),
+    ],
+)
+def test_verified_email_passes_only_an_address_clerk_verified(
+    claims: dict,
+    require_claim: bool,  # noqa: FBT001 -- parametrized value
+    expected: str | None,
+) -> None:
+    assert verified_email(claims, require_claim=require_claim) == expected
 
 
 async def test_party_matching_the_regex_is_200(

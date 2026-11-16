@@ -184,8 +184,12 @@ def _check_apple_key(env_name: str, key: SecretStr) -> None:
         raise ValueError(msg) from None
 
 
-class Settings(BaseSettings):
-    """Environment settings that refuse to build when hosted auth or storage config is unsafe."""
+class DatabaseSettings(BaseSettings):
+    """The database URL alone, for a tool such as the migrations that serves no request.
+
+    A migration step runs with the database URL and none of the API's other settings, so it
+    must not meet the checks that refuse a hosted API without them.
+    """
 
     model_config = SettingsConfigDict(
         env_prefix="CROSSTUNE_",
@@ -196,21 +200,34 @@ class Settings(BaseSettings):
         hide_input_in_errors=True,
     )
 
-    environment: str = "development"
-    geoip_path: Path = Path("/app/geo/dbip-country-lite.mmdb")
-    debug: bool = False
-    testdata_enabled: bool = False
-    testdata_email_domain: str = ""
     # Hidden from repr because the URL carries the password; it stays a plain str since
     # the engine, migrations, and the e2e guard all read it as one.
     database_url: str = Field(
         default="postgresql+asyncpg://crosstune:crosstune@localhost:5432/crosstune", repr=False
     )
+
+    @field_validator("database_url")
+    @classmethod
+    def _normalize_database_url(cls, value: str) -> str:
+        """Hand asyncpg the URL shape it accepts, whatever shape the host printed."""
+        return normalize_database_url(value)
+
+
+class Settings(DatabaseSettings):
+    """Environment settings that refuse to build when hosted auth or storage config is unsafe."""
+
+    environment: str = "development"
+    geoip_path: Path = Path("/app/geo/dbip-country-lite.mmdb")
+    debug: bool = False
+    testdata_enabled: bool = False
+    testdata_email_domain: str = ""
     clerk_issuer: str = ""
     clerk_authorized_parties: list[str] = []
     clerk_authorized_party_regex: str = ""
     clerk_webhook_secret: SecretStr = SecretStr("")
     clerk_secret_key: SecretStr = SecretStr("")
+    # Turn on once every trusted Clerk instance's session token carries `email_verified`.
+    clerk_require_email_verified: bool = False
     resend_api_key: SecretStr = SecretStr("")
     email_from: str = "Crosstune <no-reply@mail.crosstune.app>"
     web_origin: str = "https://my.crosstune.app"
@@ -341,6 +358,16 @@ class Settings(BaseSettings):
         return is_local_database_host(self.database_host)
 
     @property
+    def hosted(self) -> bool:
+        """Whether this API may serve someone other than the developer at this machine.
+
+        A production or pull request environment is hosted wherever its database runs,
+        and any environment is hosted on a database off this machine.
+        """
+        named = self.environment == "production" or self.environment.startswith("pr-")
+        return named or not self.local_database
+
+    @property
     def storage_endpoint(self) -> str:
         """The S3 endpoint: the configured one, or the R2 endpoint of the account."""
         return (
@@ -410,12 +437,6 @@ class Settings(BaseSettings):
         """Whether the Stripe key that cancels subscriptions is set."""
         return bool(self.stripe_cancel_key.get_secret_value())
 
-    @field_validator("database_url")
-    @classmethod
-    def _normalize_database_url(cls, value: str) -> str:
-        """Hand asyncpg the URL shape it accepts, whatever shape the host printed."""
-        return normalize_database_url(value)
-
     @field_validator("clerk_authorized_party_regex")
     @classmethod
     def _validate_regex(cls, value: str, info: ValidationInfo) -> str:
@@ -454,22 +475,27 @@ class Settings(BaseSettings):
         With no issuer every token is refused, and with no authorized party a token
         issued to any site on the Clerk instance is accepted. With no webhook secret
         every Clerk webhook is refused, so an account deleted in Clerk is never purged
-        here. Local work is exempt.
+        here. Only work that is not hosted is exempt.
         """
-        if self.environment != "production" and not self.environment.startswith("pr-"):
+        if not self.hosted:
             return self
+        where = (
+            self.environment
+            if self.local_database
+            else f"{self.environment} on the database at {self.database_host or 'PGHOST'}"
+        )
         if not self.clerk_issuer:
-            msg = f"{self.environment} needs CROSSTUNE_CLERK_ISSUER"
+            msg = f"{where} needs CROSSTUNE_CLERK_ISSUER"
             raise ValueError(msg)
         if not self.clerk_secret_key.get_secret_value():
-            msg = f"{self.environment} needs CROSSTUNE_CLERK_SECRET_KEY"
+            msg = f"{where} needs CROSSTUNE_CLERK_SECRET_KEY"
             raise ValueError(msg)
         if not self.clerk_webhook_secret.get_secret_value():
-            msg = f"{self.environment} needs CROSSTUNE_CLERK_WEBHOOK_SECRET"
+            msg = f"{where} needs CROSSTUNE_CLERK_WEBHOOK_SECRET"
             raise ValueError(msg)
         if not (self.clerk_authorized_parties or self.clerk_authorized_party_regex):
             msg = (
-                f"{self.environment} needs CROSSTUNE_CLERK_AUTHORIZED_PARTIES "
+                f"{where} needs CROSSTUNE_CLERK_AUTHORIZED_PARTIES "
                 "or CROSSTUNE_CLERK_AUTHORIZED_PARTY_REGEX"
             )
             raise ValueError(msg)
@@ -645,8 +671,8 @@ class Settings(BaseSettings):
             return f"only pr-<number> environments may use {PREVIEW_BUCKET}"
         if env.startswith("pr-") and bucket != PREVIEW_BUCKET:
             return f"{env} must use {PREVIEW_BUCKET}"
-        # A URL with no host reaches whatever PGHOST names, often this machine, so only a
-        # named remote host counts as hosted.
+        # Narrower than `hosted`: a URL with no host reaches whatever PGHOST names, often
+        # this machine, so only a named remote host may use the development bucket.
         hosted_development = (
             env == "development"
             and not self.local_storage_endpoint_url

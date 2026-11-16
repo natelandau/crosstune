@@ -70,6 +70,10 @@ async def test_email_claim_is_recorded_and_kept(
     second = await client.get("/v1/me", headers={"Authorization": f"Bearer {without_email}"})
     assert second.json()["email"] == "e@example.com"
 
+    unverified = make_token("user_e", email="other@example.com", email_verified=False)
+    third = await client.get("/v1/me", headers={"Authorization": f"Bearer {unverified}"})
+    assert third.json()["email"] == "e@example.com"
+
     stored = await verify_session.scalar(select(User).where(User.clerk_user_id == "user_e"))
     assert stored.email == "e@example.com"
 

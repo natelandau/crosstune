@@ -11,12 +11,15 @@ from sqlalchemy.dialects.postgresql.asyncpg import dialect as asyncpg_dialect
 from sqlalchemy.engine import make_url
 
 from crosstune.config import Settings, is_local_database_host, normalize_database_url
+from tests.helpers import NEON
 
-NEON = (
-    "postgresql://alex:AbC123dEf@ep-cool-darkness-a1b2c3d4.us-east-2.aws.neon.tech/neondb"
-    "?sslmode=require&channel_binding=require"
-)
 LOCAL = "postgresql+asyncpg://crosstune:crosstune@localhost:5432/crosstune"
+CLERK = {
+    "clerk_issuer": "https://clerk.example.test",
+    "clerk_authorized_parties": ["https://example.test"],
+    "clerk_secret_key": "sk_test_fixture",  # gitleaks:allow -- fixture, not a credential
+    "clerk_webhook_secret": "whsec_fixture",  # gitleaks:allow -- fixture, not a credential
+}
 
 
 def test_neon_connection_string_becomes_an_asyncpg_url() -> None:
@@ -339,15 +342,16 @@ def test_storage_scope_refuses(overrides: dict[str, str]) -> None:
         Settings(**overrides)
 
 
-CLERK = {
-    "clerk_issuer": "https://clerk.example.test",
-    "clerk_authorized_parties": ["https://example.test"],
-    "clerk_secret_key": "sk_test_fixture",  # gitleaks:allow -- fixture, not a credential
-    "clerk_webhook_secret": "whsec_fixture",  # gitleaks:allow -- fixture, not a credential
-}
-
-
-@pytest.mark.parametrize("environment", ["production", "pr-44"])
+@pytest.mark.parametrize(
+    "hosted",
+    [
+        {"environment": "production"},
+        {"environment": "pr-44"},
+        {"environment": "development", "database_url": NEON},
+        {"environment": "development", "database_url": "postgresql://u:p@/x"},
+    ],
+    ids=["production", "pr", "development-on-a-remote-database", "database-with-no-host"],
+)
 @pytest.mark.parametrize(
     ("missing", "named"),
     [
@@ -358,10 +362,10 @@ CLERK = {
     ],
 )
 def test_a_hosted_environment_refuses_to_start_without_clerk_checks(
-    environment: str, missing: dict[str, object], named: str
+    hosted: dict[str, str], missing: dict[str, object], named: str
 ) -> None:
     with pytest.raises(ValidationError, match=named):
-        Settings(environment=environment, **{**CLERK, **missing})
+        Settings(**hosted, **{**CLERK, **missing})
 
 
 @pytest.mark.parametrize(
@@ -383,8 +387,16 @@ def test_a_hosted_environment_starts_with_an_issuer_and_a_party_rule(
     Settings(environment="production", **clerk)
 
 
-def test_development_starts_without_clerk_checks() -> None:
-    Settings(environment="development", clerk_issuer="", clerk_authorized_parties=[])
+@pytest.mark.parametrize("database_url", [LOCAL, E2E_DB, WORKTREE_DB])
+def test_a_local_database_starts_without_clerk_checks(database_url: str) -> None:
+    Settings(
+        environment="development",
+        database_url=database_url,
+        clerk_issuer="",
+        clerk_authorized_parties=[],
+        clerk_secret_key="",
+        clerk_webhook_secret="",
+    )
 
 
 def test_settings_repr_hides_every_secret() -> None:

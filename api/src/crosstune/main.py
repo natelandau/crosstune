@@ -279,7 +279,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         )
 
     # The committed contract is generated from app.openapi(), which needs none of these routes.
-    docs = settings.environment == "development"
+    docs = not settings.hosted
     app = FastAPI(
         title="Crosstune API",
         version=__version__,
