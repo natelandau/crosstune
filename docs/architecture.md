@@ -279,8 +279,9 @@ each question, and the invariants that both clients and the API hold.
 
 - The API verifies Clerk tokens offline against the issuer's cached JWKS.
   Only session tokens pass.
-- A failed JWKS fetch for an uncached key is a 503, never a 401, so a
-  Clerk outage never signs anyone out.
+- A failed JWKS fetch for an uncached key, or for cached keys past their
+  maximum age, is a 503, never a 401, so a Clerk outage never signs anyone
+  out.
 - Only an email Clerk has verified claims a pending comp, replaces a
   stored email, or names an account to a command. A token's email goes
   through `verified_email` in `auth/deps.py`, never straight from the

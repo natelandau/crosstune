@@ -15,6 +15,9 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 REFRESH_COOLDOWN_SECONDS = 60
+# How long fetched keys stay trusted, so a key the issuer withdraws stops verifying
+# tokens without a restart.
+MAX_KEY_AGE_SECONDS = 3600
 
 
 class SigningKeysUnavailableError(Exception):
@@ -45,7 +48,11 @@ def _usable_keys(entries: list[object]) -> dict[str, jwt.PyJWK]:
 
 
 class JwksCache:
-    """Holds Clerk's signing keys. Refetches at most once a minute when a kid is unknown."""
+    """Holds Clerk's signing keys for at most an hour.
+
+    Refetches when a kid is unknown or the keys are older than `MAX_KEY_AGE_SECONDS`, at
+    most once a minute.
+    """
 
     def __init__(self, url: str, client: httpx2.AsyncClient) -> None:
         self._url = url
@@ -56,13 +63,17 @@ class JwksCache:
         # would otherwise read as a fetch inside the cooldown.
         self._last_fetch = float("-inf")
         self._last_fetch_failed = False
+        self._fetched_at = float("-inf")
 
     async def get_key(self, kid: str) -> jwt.PyJWK | None:
         """Return the cached key for `kid`, refreshing from the JWKS endpoint if needed.
 
         Raises:
-            SigningKeysUnavailableError: When `kid` is not cached and the latest fetch failed.
+            SigningKeysUnavailableError: When `kid` is not cached, or the keys are older
+                than `MAX_KEY_AGE_SECONDS`, and the latest fetch failed.
         """
+        if time.monotonic() - self._fetched_at > MAX_KEY_AGE_SECONDS:
+            self._keys = {}
         key = self._keys.get(kid)
         if key is None and time.monotonic() - self._last_fetch > REFRESH_COOLDOWN_SECONDS:
             await self._refresh()
@@ -86,6 +97,7 @@ class JwksCache:
                 log.warning("could not fetch the signing keys", exc_info=True)
             else:
                 self._last_fetch_failed = False
+                self._fetched_at = time.monotonic()
             finally:
                 # Recorded even for a failed attempt, so a broken endpoint is not hammered.
                 self._last_fetch = time.monotonic()

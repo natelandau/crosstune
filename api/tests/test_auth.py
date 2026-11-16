@@ -9,11 +9,12 @@ import pytest
 
 from crosstune.auth import jwks as jwks_module
 from crosstune.auth.deps import verified_email
-from crosstune.auth.jwks import JwksCache
+from crosstune.auth.jwks import JwksCache, SigningKeysUnavailableError
 from crosstune.auth.tokens import party_allowed, verify_clerk_token
 from crosstune.db.engine import make_sessionmaker
 from crosstune.errors import UnauthorizedError
 from crosstune.main import create_app
+from tests.helpers import Clock
 
 pytestmark = pytest.mark.anyio
 
@@ -93,6 +94,44 @@ async def test_concurrent_lookups_fetch_the_jwks_once_and_both_see_the_key(
 
     assert all(key is not None for key in keys)
     assert len(mock_http.calls) == 1
+
+
+async def _cache_past_its_maximum_age(
+    settings, mock_http, monkeypatch, http: httpx2.AsyncClient, refetched: httpx2.Response
+) -> JwksCache:
+    """A cache whose keys verified once and are now past their maximum age."""
+    clock = Clock()
+    monkeypatch.setattr(jwks_module, "time", types.SimpleNamespace(monotonic=clock))
+    cache = JwksCache(settings.clerk_jwks_url, http)
+    assert await cache.get_key("test-kid") is not None
+    mock_http.add(settings.clerk_jwks_url, refetched)
+    clock.now += jwks_module.MAX_KEY_AGE_SECONDS
+    assert await cache.get_key("test-kid") is not None
+    clock.now += 1
+    return cache
+
+
+async def test_a_key_withdrawn_from_the_jwks_stops_verifying_after_the_maximum_age(
+    settings, mock_http, monkeypatch
+) -> None:
+    async with mock_http.client() as http:
+        cache = await _cache_past_its_maximum_age(
+            settings, mock_http, monkeypatch, http, httpx2.Response(200, json={"keys": []})
+        )
+        assert await cache.get_key("test-kid") is None
+    assert len(mock_http.calls) == 2
+
+
+async def test_keys_past_the_maximum_age_never_verify_when_the_refetch_fails(
+    settings, mock_http, monkeypatch
+) -> None:
+    async with mock_http.client() as http:
+        cache = await _cache_past_its_maximum_age(
+            settings, mock_http, monkeypatch, http, httpx2.Response(500)
+        )
+        with pytest.raises(SigningKeysUnavailableError):
+            await cache.get_key("test-kid")
+    assert len(mock_http.calls) == 2
 
 
 PREVIEW_REGEX = r"^https://[a-z0-9-]+-crosstune-web\.example\.workers\.dev$"
