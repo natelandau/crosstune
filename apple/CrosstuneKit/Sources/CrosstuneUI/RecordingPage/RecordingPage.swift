@@ -256,7 +256,7 @@ private struct RecordingPageBody: View {
                     practiceArea
                 } else {
                     RecordingDetailsTab(
-                        practice: practice, rows: rows, player: player, notice: model.pageNotice
+                        practice: practice, player: player, notice: model.pageNotice
                     ) {
                         attributes(.card)
                     }

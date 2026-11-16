@@ -19,8 +19,6 @@ public enum PracticeText {
     public static let waveform = "Waveform"
     public static let loopStart = "Loop start"
     public static let loopEnd = "Loop end"
-    public static let laterBySecond = RangeHandles.laterBySecond
-    public static let earlierBySecond = RangeHandles.earlierBySecond
     public static let loopNotSaved = "The loop could not be saved."
 
     /// The default name of an unlabeled loop, from its offset into the trim as `m:ss`.

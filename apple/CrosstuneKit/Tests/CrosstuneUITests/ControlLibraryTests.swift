@@ -396,9 +396,7 @@ struct ControlLibraryTests {
     /// library's primitive styles, so a menu given one draws the system's look. The library's
     /// `…MenuAppearance()` modifiers give a menu its look. Flags a primitive style in a `Menu`'s
     /// chain, or after a `.menuStyle` in any chain.
-    static func menusGivenIgnoredStyles(
-        in files: [ButtonStyleScan.File], sourceLocation: SourceLocation = #_sourceLocation
-    ) -> [String] {
+    static func menusGivenIgnoredStyles(in files: [ButtonStyleScan.File]) -> [String] {
         var primitive = Set<String>()
         for file in files {
             for match in nsMatches(#"\bstruct\s+(\w+)\s*:\s*PrimitiveButtonStyle\b"#, in: file.code) {
@@ -548,7 +546,7 @@ struct ControlLibraryTests {
         SourceScan.withoutStrings(SourceScan.macCompiled(try uncommented(file)))
     }
 
-    static func macViolations(in code: String, sourceLocation: SourceLocation = #_sourceLocation) -> Set<Violation> {
+    static func macViolations(in code: String) -> Set<Violation> {
         var found = violations(in: code)
         for (rule, markers, regex) in macPatterns
         where markers.contains(where: { code.contains($0) }) {

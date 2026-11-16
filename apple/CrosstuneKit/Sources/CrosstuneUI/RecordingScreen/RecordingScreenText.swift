@@ -55,8 +55,6 @@ public enum RecordingScreenText {
     public static let save = "Save"
     public static let playSelection = "Play selection"
     public static let previewEnd = "Preview end"
-    public static let zoomIn = ZoomControl.zoomIn
-    public static let zoomOut = ZoomControl.zoomOut
     public static let startHandle = RangeHandles.startName
     public static let endHandle = RangeHandles.endName
     public static let length = "Length"

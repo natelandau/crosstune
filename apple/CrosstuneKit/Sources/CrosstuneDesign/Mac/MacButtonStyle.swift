@@ -226,8 +226,6 @@
         package static var macPrimary: Self { MacButtonStyle(.primary) }
         package static var macSecondary: Self { MacButtonStyle(.secondary) }
         package static var macPlain: Self { MacButtonStyle(.plain) }
-        package static var macIcon: Self { MacButtonStyle(.icon) }
-        package static var macDestructive: Self { MacButtonStyle(.destructive) }
 
         package static func mac(
             _ role: MacButtonStyle.Role, size: MacButtonStyle.Size = .regular, isOn: Bool? = nil

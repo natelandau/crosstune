@@ -1,9 +1,6 @@
 import CrosstuneAudio
-import CrosstuneStore
 import CrosstuneTestSupport
 import Foundation
-
-@testable import CrosstuneRecording
 
 /// A microphone that records a tone on demand, in place of the engine in tests.
 @MainActor

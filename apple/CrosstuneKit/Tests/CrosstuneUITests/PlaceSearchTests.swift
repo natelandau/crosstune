@@ -1,5 +1,3 @@
-import CrosstuneAnalytics
-import CrosstuneCommands
 import CrosstuneStore
 import CrosstuneTestSupport
 import CrosstuneVocabulary

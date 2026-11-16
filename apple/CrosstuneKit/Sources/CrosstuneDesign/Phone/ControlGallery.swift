@@ -392,10 +392,15 @@
     }
 
     private struct NavigationSection: View {
+        // periphery:ignore - read only as a $ binding
         @State private var mode = Mode.speed
+        // periphery:ignore - read only as a $ binding
         @State private var tool = Mode.speed
+        // periphery:ignore - read only as a $ binding
         @State private var place = Place.saved
+        // periphery:ignore - read only as a $ binding
         @State private var solo = 0
+        // periphery:ignore - read only as a $ binding
         @State private var channel = 1
 
         var body: some View {
@@ -451,7 +456,9 @@
         @State private var share = "75%"
         @State private var times: Set<String> = ["0:48"]
         @State private var hasFilter = true
+        // periphery:ignore - read only as a $ binding
         @State private var isOn = true
+        // periphery:ignore - read only as a $ binding
         @State private var isOff = false
         @State private var place = 0
         @State private var items: Set<Int> = [0]
@@ -601,9 +608,13 @@
     // MARK: - Values
 
     private struct ValuesSection: View {
+        // periphery:ignore - read only as a $ binding
         @State private var semitones = 2
+        // periphery:ignore - read only as a $ binding
         @State private var count = 12
+        // periphery:ignore - read only as a $ binding
         @State private var speed = 75
+        // periphery:ignore - read only as a $ binding
         @State private var cents = 0
         @State private var position = 42.0
         @State private var zoomed = false
@@ -720,11 +731,17 @@
 
     private struct FormsSection: View {
         @ScaledMetric(relativeTo: .body) private var formHeight: CGFloat = 520
+        // periphery:ignore - read only as a $ binding
         @State private var text = ""
+        // periphery:ignore - read only as a $ binding
         @State private var choice = 0
+        // periphery:ignore - read only as a $ binding
         @State private var setting = true
+        // periphery:ignore - read only as a $ binding
         @State private var singleLine = ""
+        // periphery:ignore - read only as a $ binding
         @State private var notes = ""
+        // periphery:ignore - read only as a $ binding
         @State private var summary = ""
         @State private var meter = "4/4"
         @State private var page: String? = "Chosen page"
@@ -1055,19 +1072,28 @@
         }
 
         private struct MacOnlyControls: View {
+            // periphery:ignore - read only as a $ binding
             @State private var level = "Medium"
             @State private var filter = "Any"
             @State private var sort = "Name"
+            // periphery:ignore - read only as a $ binding
             @State private var field = ""
+            // periphery:ignore - read only as a $ binding
             @State private var filled = "Value"
+            // periphery:ignore - read only as a $ binding
             @State private var title = ""
+            // periphery:ignore - read only as a $ binding
             @State private var notes = ""
+            // periphery:ignore - read only as a $ binding
             @State private var firstItem = false
+            // periphery:ignore - read only as a $ binding
             @State private var secondItem = true
             @State private var off = false
             @State private var on = true
+            // periphery:ignore - read only as a $ binding
             @State private var cents = 12.0
             @State private var count = 4
+            // periphery:ignore - read only as a $ binding
             @State private var segment = 1
             @State private var openTool: Int?
 
@@ -1268,7 +1294,9 @@
         /// A form card's rows: values at their ends, rows that open more, and a disabled one, so
         /// a hovered row's fill and its hidden hairlines show against its neighbors.
         private struct MacFormRows: View {
+            // periphery:ignore - read only as a $ binding
             @State private var isOn = true
+            // periphery:ignore - read only as a $ binding
             @State private var choice = "Medium"
             @State private var count = 2
 
