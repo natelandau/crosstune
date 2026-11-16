@@ -235,6 +235,11 @@ passes, in every worktree. Off when `CI` is set.
     changes.
   - `E2E`: a Clerk outage never blocks an unrelated merge.
 - A workflow from a fork runs only after you approve it on the PR.
+- A job that holds deploy or signing secrets, and every action it calls:
+  - Pins each third-party action by commit hash, with the version in a
+    comment. zizmor does not require it, so nothing catches a tag.
+  - Installs packages with `ignore-scripts`, so no dependency's install
+    script runs beside the secrets.
 - A failed Playwright test runs once more. A test that passed only on the
   second run leaves the job green and uploads `playwright-report`.
 - The `Web` workflow's browser tests run up to twice more. Its job summary
@@ -298,6 +303,8 @@ passes, in every worktree. Off when `CI` is set.
   API (Railway `pr-<n>`), database (Neon branch), and recording prefix,
   through the `Preview` workflow.
   - Any other PR's preview uses the development API.
+  - A `pr-<n>` API has no mail, analytics, or billing keys, so those
+    features are off. Test them on development.
   - A fork or Dependabot PR gets no preview: its run has no Actions
     secrets.
   - Every push to the PR resets its Neon branch, and preview data is lost.
