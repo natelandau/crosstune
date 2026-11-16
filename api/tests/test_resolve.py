@@ -62,11 +62,17 @@ def test_parse_open_graph_falls_back_to_title_tag() -> None:
         ("{&quot;item_type&quot;:&quot;a&quot;,&quot;item_id&quot;:&quot;x&quot;}", None),
         ("{&quot;item_type&quot;:&quot;a&quot;,&quot;item_id&quot;:true}", None),
         ("not json", None),
+        ("[" * 100_000, None),
     ],
 )
 def test_parse_open_graph_reads_the_bandcamp_item(content: str, ref: str | None) -> None:
-    html = f'<html><head><meta name="bc-page-properties" content="{content}"></head></html>'
-    assert parse_open_graph(html).bandcamp_ref == ref
+    html = (
+        '<html><head><meta property="og:title" content="Tune">'
+        f'<meta name="bc-page-properties" content="{content}"></head></html>'
+    )
+    meta = parse_open_graph(html)
+    assert meta.bandcamp_ref == ref
+    assert meta.title == "Tune"
 
 
 async def test_youtube_uses_oembed(mock_http) -> None:

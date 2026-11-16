@@ -21,7 +21,7 @@ class PageMeta:
 def _bandcamp_ref(content: str) -> str | None:
     try:
         props = json.loads(content)
-    except ValueError:
+    except (ValueError, RecursionError):
         return None
     if not isinstance(props, dict):
         return None
