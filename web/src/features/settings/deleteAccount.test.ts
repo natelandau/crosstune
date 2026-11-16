@@ -1,6 +1,6 @@
 import { noopAnalytics } from '../../usage/client'
 import Dexie from 'dexie'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import {
   clearAccountDeletedNotice,
   clearLocalSignOut,
@@ -13,6 +13,7 @@ import { ACCOUNT_DELETED_PROBLEM } from '../../sync/errors'
 import { addUploadedFile, deleteRecording } from '../../commands/recordings'
 import { createList, deleteList } from '../../commands/lists'
 import { createTune, deleteTune } from '../../commands/tunes'
+import { markedForDeletion } from '../../db/deletion'
 import { databaseName, openDatabase } from '../../db/schema'
 import { fakeEngine } from '../../test/providers'
 import {
@@ -27,6 +28,7 @@ import { DELETE_CONFIRMATION_TEXT } from './deleteAccountCopy'
 function freshUser() {
   const userId = `user_${crypto.randomUUID()}`
   rememberUser(userId)
+  onTestFinished(() => Dexie.delete(databaseName(userId)))
   return { userId, db: openDatabase(userId) }
 }
 
@@ -41,7 +43,10 @@ describe('deleteAccountAndForget', () => {
     await createTune(db, { title: 'X' }, { status: 'known' })
     const stop = vi.fn()
     const deleteAccount = vi.fn(async () => {})
-    const signOut = vi.fn(async () => {})
+    let markedAtSignOut: string[] = []
+    const signOut = vi.fn(async () => {
+      markedAtSignOut = markedForDeletion()
+    })
     await deleteAccountAndForget({
       db,
       userId,
@@ -56,6 +61,8 @@ describe('deleteAccountAndForget', () => {
       signOut.mock.invocationCallOrder[0]!,
     )
     expect(await Dexie.exists(databaseName(userId))).toBe(false)
+    expect(markedAtSignOut).toEqual([userId])
+    expect(markedForDeletion()).toEqual([])
     expect(hasAccountDeletedNotice()).toBe(true)
     expect(deleteAccount).toHaveBeenCalledWith({})
   })

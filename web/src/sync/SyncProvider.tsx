@@ -32,6 +32,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         api: createApiClient({
           baseUrl: API_ORIGIN,
           getToken,
+          userId,
           clientVersion: APP_VERSION,
           onAccountCreated: (trial) =>
             analytics.whenIdentified(userId, () => analytics.send('account_created', { trial })),

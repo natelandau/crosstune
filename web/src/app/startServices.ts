@@ -17,6 +17,7 @@ export function startServices(): AnalyticsClient {
   const api = createApiClient({
     baseUrl: API_ORIGIN,
     getToken: () => Promise.resolve(null),
+    userId: null,
     clientVersion: APP_VERSION,
   })
   const analytics = startAnalytics({ key, fetchRegion: () => api.region() })

@@ -216,9 +216,12 @@ each question, and the invariants that both clients and the API hold.
   it and pulls from zero.
 - A pulled row that is in the outbox with a newer local timestamp keeps the
   local row. The next push settles it.
-- The Apple app's sync loops check before every request that they have
-  not been stopped, so an engine stopped during sign-out never sends one
-  account's request with the next account's token.
+- Every sync loop, file transfers included, checks before each request
+  that its engine has not been stopped, so an engine stopped during
+  sign-out never sends one account's request with the next account's
+  token.
+- An engine sends only its own account's token. Clerk's token source
+  follows whoever is signed in now, not the engine's account.
 
 ## Supported client versions
 
@@ -509,9 +512,10 @@ each question, and the invariants that both clients and the API hold.
 ## Delivery
 
 - The Worker's code runs only for `/v1/*`, and proxies it without the
-  site's cookie. Every other path is a static asset, with `index.html` for
-  an unknown path. The Worker picks the API by hostname: production, a
-  pull request's API through KV, or else development.
+  site's cookie or any client-sent country or IP header. Every other path
+  is a static asset, with `index.html` for an unknown path. The Worker
+  picks the API by hostname: production, a pull request's API through KV,
+  or else development.
 - A service worker precaches the shell, so an offline reload needs
   nothing more. API responses are never cached. The service worker and
   the manifest are `no-cache`, so a new build reaches an installed app on

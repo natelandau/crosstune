@@ -59,6 +59,9 @@ const GATEWAY_STATUSES: ReadonlySet<number> = new Set([502, 504])
 export interface ApiClientOptions {
   baseUrl: string
   getToken: () => Promise<string | null>
+  /** The account this client acts for, or null for one that never holds a token. A token whose
+   * subject is any other user is never sent. */
+  userId: string | null
   clientVersion: string
   fetch?: (request: Request) => Promise<Response>
   /** Override the PUT timeout formula (bytes in, ms out). Tests only. */
@@ -71,6 +74,20 @@ export interface ApiClientOptions {
   gatewayRetryDelaysMs?: readonly number[]
   /** Called when a response says its request created the account; `trial` is false for a claimed comp. */
   onAccountCreated?: (trial: boolean) => void
+}
+
+/** The `sub` claim of a JWT, or null when the token is not one. Unverified: only the server trusts it. */
+export function tokenSubject(token: string): string | null {
+  const payload = token.split('.')[1]
+  if (!payload) return null
+  try {
+    const base64 = payload.replace(/-/g, '+').replace(/_/g, '/')
+    const claims: unknown = JSON.parse(atob(base64.padEnd(Math.ceil(base64.length / 4) * 4, '=')))
+    const sub = (claims as { sub?: unknown } | null)?.sub
+    return typeof sub === 'string' ? sub : null
+  } catch {
+    return null
+  }
 }
 
 export function createApiClient(options: ApiClientOptions): SyncApi {
@@ -86,6 +103,11 @@ export function createApiClient(options: ApiClientOptions): SyncApi {
       if (new URL(request.url).pathname === REGION_PATH) return request
       const token = await options.getToken()
       if (!token) throw new NoTokenError()
+      // The token source follows whoever is signed in now, which can be another account
+      // than the one whose database this client syncs.
+      if (tokenSubject(token) !== options.userId) {
+        throw new NoTokenError()
+      }
       request.headers.set('Authorization', `Bearer ${token}`)
       request.headers.set('X-Client-Version', options.clientVersion)
       request.headers.set('X-Client-Platform', 'web')

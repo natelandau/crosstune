@@ -7,6 +7,8 @@ export interface Env extends OriginEnv {
 export type Upstream = (request: Request) => Promise<Response>
 
 const COUNTRY_HEADER = 'x-crosstune-country'
+// The API falls back to these for the caller's country.
+const CLIENT_IP_HEADERS = ['x-forwarded-for', 'x-real-ip']
 const BODYLESS_METHODS = new Set(['GET', 'HEAD'])
 
 /**
@@ -26,8 +28,9 @@ export async function handleRequest(
   const headers = new Headers(request.headers)
   // Clerk's session cookie belongs to the site origin, not the API.
   headers.delete('cookie')
-  // Only the edge's value counts: a client must not choose its own country.
+  // Only the edge's values count: a client must not choose its own country or address.
   headers.delete(COUNTRY_HEADER)
+  for (const header of CLIENT_IP_HEADERS) headers.delete(header)
   const country = request.cf?.country
   if (country) headers.set(COUNTRY_HEADER, country)
   // A streamed body needs duplex on Node, and the Workers runtime accepts it.

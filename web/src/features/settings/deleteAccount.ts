@@ -6,6 +6,7 @@ import { isAccountDeleted } from '../../sync/errors'
 import type { SyncEngine } from '../../sync/types'
 import * as Sentry from '@sentry/react'
 import { markAccountDeleted, markSignedOutLocally } from '../../auth/session'
+import { markForDeletion } from '../../db/deletion'
 import { DELETE_CONFIRMATION_TEXT } from './deleteAccountCopy'
 import { forgetLocalData } from './signOut'
 
@@ -84,6 +85,7 @@ export async function forgetDeletedAccount({
 }): Promise<void> {
   engine.stop()
   markAccountDeleted()
+  markForDeletion(userId)
   // Clerk's copy of the user is already gone server-side, so a failed sign-out changes
   // nothing that matters; the local sign-out below covers the session it leaves behind.
   await signOut().catch(() => {})
