@@ -12,11 +12,14 @@ inputs:
   browsers:
     description: The Playwright browsers to install when chromium is 'true'
     default: chromium
+  ignore-scripts:
+    description: "'true' to install with no dependency lifecycle scripts, for a job that holds deploy secrets"
+    default: "false"
 
 runs:
   using: composite
   steps:
-    - uses: pnpm/action-setup@v6
+    - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115  # v6.1.1
       with:
         package_json_file: ${{ inputs.module }}/package.json
     - uses: actions/setup-node@v7
@@ -24,10 +27,15 @@ runs:
         node-version-file: ${{ inputs.module }}/.node-version
         cache: pnpm
         cache-dependency-path: ${{ inputs.module }}/pnpm-lock.yaml
-    - uses: extractions/setup-just@v4
+    - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3  # v4.0.0
     - shell: bash
       working-directory: ${{ inputs.module }}
-      run: pnpm install --frozen-lockfile
+      env:
+        IGNORE_SCRIPTS: ${{ inputs.ignore-scripts }}
+      run: |
+        args=(--frozen-lockfile)
+        if [[ "$IGNORE_SCRIPTS" == "true" ]]; then args+=(--ignore-scripts); fi
+        pnpm install "${args[@]}"
     - id: playwright
       if: inputs.chromium == 'true'
       shell: bash

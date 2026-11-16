@@ -25,7 +25,8 @@ concurrency:
   cancel-in-progress: ${{ github.event.action == 'synchronize' }}
 
 # Secrets are set on the steps that use them, never here, so a step sees only its own.
-# web's locked neonctl and wrangler do run with the Neon and Cloudflare tokens.
+# web's locked neonctl and wrangler do run with the Neon and Cloudflare tokens, from an
+# install that runs no lifecycle scripts.
 env:
   # Fail when uv.lock disagrees with pyproject.toml instead of relocking.
   UV_LOCKED: "1"
@@ -104,6 +105,7 @@ jobs:
       - uses: ./.github/actions/setup-node
         with:
           module: web
+          ignore-scripts: "true"
 
       # A reset keeps the branch's endpoint, so the connection string stored in
       # Railway at creation stays valid and every push migrates a clean copy.
@@ -117,7 +119,7 @@ jobs:
           NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
         run: pnpm exec neonctl branches reset "$PR_NAME" --project-id "$NEON_PROJECT_ID" --parent
 
-      - uses: astral-sh/setup-uv@v10.3.3
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
         with:
           enable-cache: true
           save-cache: ${{ github.ref == 'refs/heads/main' }}
@@ -214,7 +216,7 @@ jobs:
           RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
         run: scripts/preview-railway.sh down
 
-      - uses: astral-sh/setup-uv@v10.3.3
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
         with:
           enable-cache: true
           save-cache: ${{ github.ref == 'refs/heads/main' }}
@@ -247,6 +249,7 @@ jobs:
       - uses: ./.github/actions/setup-node
         with:
           module: web
+          ignore-scripts: "true"
 
       - name: delete the preview's API entry
         working-directory: web

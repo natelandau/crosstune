@@ -23,10 +23,10 @@ describe('branch-slug', () => {
   )
 
   it.each([
-    ['feat/instrument-tunings', /^feat-instrument-tunings-[0-9a-f]{6}$/],
-    ['Feature_Branch__Two', /^feature-branch-two-[0-9a-f]{6}$/],
-    ['123-fix', /^b-123-fix-[0-9a-f]{6}$/],
-    ['/feat/tunings/', /^feat-tunings-[0-9a-f]{6}$/],
+    ['feat/instrument-tunings', /^feat-instrument-tunings-[0-9a-f]{16}$/],
+    ['Feature_Branch__Two', /^feature-branch-two-[0-9a-f]{16}$/],
+    ['123-fix', /^b-123-fix-[0-9a-f]{16}$/],
+    ['/feat/tunings/', /^feat-tunings-[0-9a-f]{16}$/],
   ])('normalizes %s and adds a hash of the exact name', (branch, expected) => {
     const result = run([branch])
     expect(result.status).toBe(0)
@@ -43,12 +43,18 @@ describe('branch-slug', () => {
     expect(run([first]).stdout).not.toBe(run([second]).stdout)
   })
 
+  it('never gives a branch the hashed slug of another branch', () => {
+    const hashed = run(['feat/x']).stdout.trim()
+    expect(hashed).toMatch(/^feat-x-[0-9a-f]{16}$/)
+    expect(run([hashed]).stdout.trim()).not.toBe(hashed)
+  })
+
   it('cuts a long branch to 40 characters without a trailing dash', () => {
     const branch = `${'a'.repeat(39)}-${'b'.repeat(20)}`
     expect(branch).toHaveLength(60)
     const slug = run([branch]).stdout.trim()
     expect(slug).toHaveLength(40)
-    expect(slug).toMatch(/^a{33}-[0-9a-f]{6}$/)
+    expect(slug).toMatch(/^a{23}-[0-9a-f]{16}$/)
   })
 
   it('gives a branch the same slug on every run', () => {

@@ -53,6 +53,13 @@ describe('hosted-build', () => {
     },
   )
 
+  it('builds nothing on a Dependabot branch', () => {
+    expect(run({ WORKERS_CI_BRANCH: 'dependabot/npm_and_yarn/web/vite-7.1.0' })).toMatchObject({
+      status: 0,
+      stdout: '',
+    })
+  })
+
   it('fails when the branch is unknown', () => {
     const result = run({})
     expect(result.status).not.toBe(0)

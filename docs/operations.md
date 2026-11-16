@@ -235,6 +235,11 @@ passes, in every worktree. Off when `CI` is set.
     changes.
   - `E2E`: a Clerk outage never blocks an unrelated merge.
 - A workflow from a fork runs only after you approve it on the PR.
+- A job that holds deploy or signing secrets, and every action it calls:
+  - Pins each third-party action by commit hash, with the version in a
+    comment. zizmor does not require it, so nothing catches a tag.
+  - Installs packages with `ignore-scripts`, so no dependency's install
+    script runs beside the secrets.
 - A failed Playwright test runs once more. A test that passed only on the
   second run leaves the job green and uploads `playwright-report`.
 - The `Web` workflow's browser tests run up to twice more. Its job summary
@@ -283,11 +288,13 @@ passes, in every worktree. Off when `CI` is set.
 
 ## Delivery
 
-- A merge to `main` deploys development: Railway when `api/` changed,
-  Workers Builds when `web/` changed. A development deploy waits for CI.
+- A merge to `main` deploys development: Railway when `api/` changed, and
+  the `main` Worker Preview of the web client when `web/` changed. The
+  Railway deploy waits for CI.
 - A merge to `main` that changes `site/` deploys the site to production.
-  The site has no development deploy and no part in a release. Copy about
-  an unreleased feature waits until that release ships.
+  A pull request that changes `site/` gets its own site Worker Preview.
+  The site has no part in a release. Copy about an unreleased feature
+  waits until that release ships.
 - A version tag deploys the API and the web client to production. The
   `Release` workflow moves the `production` branch to the tag, and both
   hosts deploy from it. Nothing else writes to `production`. The workflow
@@ -296,6 +303,8 @@ passes, in every worktree. Off when `CI` is set.
   API (Railway `pr-<n>`), database (Neon branch), and recording prefix,
   through the `Preview` workflow.
   - Any other PR's preview uses the development API.
+  - A `pr-<n>` API has no mail, analytics, or billing keys, so those
+    features are off. Test them on development.
   - A fork or Dependabot PR gets no preview: its run has no Actions
     secrets.
   - Every push to the PR resets its Neon branch, and preview data is lost.
