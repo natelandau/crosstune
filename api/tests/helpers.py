@@ -41,6 +41,9 @@ def ec_pem(key: ec.EllipticCurvePrivateKey | None = None) -> str:
     ).decode()
 
 
+# For a job a test calls directly, outside a runner: only its quota sizes are read.
+JOB_SETTINGS = Settings(database_url="postgresql+asyncpg://localhost/unused")
+
 GAPPED_WEBM_GAP_MS = 59
 GAPPED_WEBM_GAP_AT_S = 1.0
 STEPPED_BACK_MS = 10

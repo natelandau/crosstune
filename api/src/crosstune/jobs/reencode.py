@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 
 from crosstune.db.base import bump_server_seq
 from crosstune.db.locks import lock_user
+from crosstune.files.quota import counted_bytes, rewrite_exceeds_quota
 from crosstune.jobs.audio_rewrite import rewrite_playback
 from crosstune.jobs.media import playback_bitrate, probe
 from crosstune.recordings.service import attach_playback
@@ -19,6 +20,7 @@ if TYPE_CHECKING:
 
     from sqlalchemy.ext.asyncio import AsyncSession
 
+    from crosstune.config import Settings
     from crosstune.models import Recording
     from crosstune.storage.store import ObjectStore
 
@@ -64,7 +66,12 @@ def _row_bit_rate(recording: Recording) -> int | None:
 
 
 async def reencode(
-    session: AsyncSession, store: ObjectStore, recording: Recording, work_dir: Path
+    session: AsyncSession,
+    store: ObjectStore,
+    recording: Recording,
+    work_dir: Path,
+    *,
+    settings: Settings,
 ) -> Replacement | None:
     """Rewrite the playback file of a ready recording from its original over the same range.
 
@@ -76,13 +83,15 @@ async def reencode(
 
     A trim, a delete, or a new playback file can land while the cut runs with no lock
     held. If any did by the time the lock is taken, the cut is stale: its upload is
-    deleted and the row keeps its current files.
+    deleted and the row keeps its current files. A cut that would take the owner past
+    the quota is discarded the same way.
 
     Args:
         session: The session the recording is attached to. The caller commits.
         store: Where the recording's files live and the new one goes.
         recording: A ready recording with an original.
         work_dir: A directory for temp files, cleaned by the caller.
+        settings: The settings that decide the owner's quota.
 
     Returns:
         Replacement | None: The pending replacement, whose superseded key the caller
@@ -103,6 +112,7 @@ async def reencode(
         raise ReencodeError(msg)
     requested_trim = (recording.trim_start_ms, recording.trim_end_ms)
     state = recording.state
+    counted_before = counted_bytes(recording)
     current = _row_bit_rate(recording)
     if current is None:
         _log_outcome(recording.id, "unmeasured")
@@ -162,6 +172,18 @@ async def reencode(
                 store, uploaded, log=log, message="could not delete a stale rewritten playback file"
             )
             _log_outcome(recording.id, "stale", **rates, cut_bps=cut)
+            return None
+        if await rewrite_exceeds_quota(
+            session,
+            recording,
+            settings,
+            previous_bytes=counted_before,
+            stored_bytes=playback.size + (recording.original_bytes or 0),
+        ):
+            await delete_best_effort(
+                store, uploaded, log=log, message="could not delete an over-quota playback file"
+            )
+            _log_outcome(recording.id, "over_quota", **rates, cut_bps=cut)
             return None
         attach_playback(
             recording, playback, duration_ms=cut_info.duration_ms, start_ms=start_ms, end_ms=end_ms

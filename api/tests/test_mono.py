@@ -17,6 +17,7 @@ from crosstune.models import Job, Recording
 from crosstune.storage.store import upload_key
 from crosstune.vocabulary import JobKind
 from tests.fakes import FakeObjectStore
+from tests.helpers import JOB_SETTINGS
 from tests.test_jobs import add_recording, make_uploaded, make_user
 
 if TYPE_CHECKING:
@@ -130,7 +131,7 @@ async def _ready_with_mono_job(
     """A transcoded recording holding `is_mono`, with the mono job its transcode queued."""
     user = await make_user(verify_session)
     rec = await make_uploaded(verify_session, store, user, media_fixtures["m4a"], "audio/mp4")
-    await transcode(verify_session, store, rec, work_dir)
+    await transcode(verify_session, store, rec, work_dir, settings=JOB_SETTINGS)
     await store.delete(upload_key(user.id, rec.id))
     rec.is_mono = is_mono
     await verify_session.commit()

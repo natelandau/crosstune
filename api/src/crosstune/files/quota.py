@@ -97,6 +97,43 @@ async def room_bytes(
     return access.quota_bytes - await used_bytes(session, user_id, exclude=exclude)
 
 
+def counted_bytes(recording: Recording) -> int:
+    """The bytes a recording's stored files count against the quota, peaks left out."""
+    return (recording.playback_bytes or 0) + (recording.original_bytes or 0)
+
+
+async def rewrite_exceeds_quota(
+    session: AsyncSession,
+    recording: Recording,
+    settings: Settings,
+    *,
+    previous_bytes: int,
+    stored_bytes: int | None = None,
+) -> bool:
+    """Whether a job that rewrites a recording's files would take its owner past the quota.
+
+    The caller holds the user's lock, so no push or other job changes the count before
+    its commit. A rewrite that stores no more than the recording already counted is never
+    refused, so an account over its quota can still shrink a recording.
+
+    Args:
+        session: The session to query through.
+        recording: The recording with the files the job is about to commit set on it.
+        settings: The settings that decide the owner's quota.
+        previous_bytes: The `counted_bytes` of the recording before the job.
+        stored_bytes: The bytes the job is about to commit, for a job that checks before
+            it sets its files on the row. Defaults to the row's `counted_bytes`.
+
+    Returns:
+        bool: True when the job must not commit its files.
+    """
+    stored = counted_bytes(recording) if stored_bytes is None else stored_bytes
+    if stored <= previous_bytes:
+        return False
+    room = await room_bytes(session, recording.user_id, settings, exclude=(recording.id,))
+    return stored > room
+
+
 def _usage(
     model: type[Recording | Scan],
     stored_column: InstrumentedAttribute[int | None],

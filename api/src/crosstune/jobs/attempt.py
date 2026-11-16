@@ -81,8 +81,9 @@ class JobContext:
     async def delete_stale(self, *keys: str | None) -> None:
         """Best-effort delete of objects a job's own write superseded or orphaned.
 
-        Never called with an original a row names, or one a job may still name: only
-        a split retires an original, and only after the commit that stops naming it.
+        Never called with an original a row names, or one another attempt may still name:
+        only a split retires an original, and only after the commit that stops naming it.
+        A failed transcode deletes only the original its own rolled-back write named.
         """
         await delete_best_effort(
             self.store, keys, log=log, message="could not delete a superseded object"
@@ -205,7 +206,7 @@ def client_message(exc: Exception) -> str:
 
 
 async def retry_or_drop(session: AsyncSession, job: Job, exc: Exception) -> bool:
-    """Drop the job on its last attempt, else hold it back for a retry.
+    """Drop the job on its last attempt or a refusal, else hold it back for a retry.
 
     The give-up is logged with its traceback, since a code error and a bad file look
     the same from the job row alone.
@@ -220,6 +221,10 @@ async def retry_or_drop(session: AsyncSession, job: Job, exc: Exception) -> bool
     """
     raw = redact_error_values(str(exc))
     extra = {"recording": str(job.recording_id), "kind": job.kind, "attempt": job.attempts}
+    if isinstance(exc, RecordingRefused):
+        log.info("%s refused", job.kind, extra={**extra, "error": raw})
+        await session.delete(job)
+        return True
     if job.attempts >= MAX_ATTEMPTS:
         log.error("%s gave up", job.kind, exc_info=exc, extra=extra)
         await session.delete(job)
@@ -250,15 +255,10 @@ async def fail_recording(
         retry_state: The recording's state while it waits for the retry.
     """
     await lock_user(session, recording.user_id)
-    if isinstance(exc, RecordingRefused):
-        log.info("recording refused", extra={"recording": str(recording.id), "error": str(exc)})
-        await session.delete(job)
-        recording.state = "failed"
-        recording.error = str(exc)
-    elif await retry_or_drop(session, job, exc):
+    if await retry_or_drop(session, job, exc):
         recording.state = "failed"
         # Clients read this column, so it carries a mapped phrase, never ffmpeg output.
-        recording.error = client_message(exc)
+        recording.error = str(exc) if isinstance(exc, RecordingRefused) else client_message(exc)
     else:
         recording.state = retry_state
     bump_server_seq(recording)

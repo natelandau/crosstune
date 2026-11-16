@@ -348,6 +348,11 @@ each question, and the invariants that both clients and the API hold.
   confirm. Each slot signs its own key and its declared size. Confirm
   copies the object to where the server reads it, so a reused URL writes
   where nothing reads.
+- A job that stores a recording file outside an upload slot (transcode,
+  trim, re-encode, split) checks it against the quota under the user's
+  lock, before its commit, and never commits a file past the quota. A
+  rewrite that stores no more bytes than the recording counted is never
+  refused.
 - A new file version gets a new revisioned key. The old object is deleted
   only after the commit that stops pointing at it.
 - A signed download URL carries the revision it covers. A client records
@@ -410,11 +415,9 @@ each question, and the invariants that both clients and the API hold.
 - A parent's live pieces that are not `ready`, of every split and every
   `created_by_split_id`, are held to one split's worth
   (`MAX_SPLIT_PIECES`).
-- A piece is quota-checked when the split job stores its files, since it
-  goes through no upload slot. The parent's own files do not count against
-  its pieces, so a split that only divides the parent is refused only when
-  the account's other files already fill the quota. A piece past the quota
-  fails and its uploads are deleted.
+- The parent's own files do not count against its pieces, so a split
+  that only divides the parent is refused only when the account's other
+  files already fill the quota.
 - A recording longer than `MAX_RECORDING_MS` is accepted only as the
   parent of a split whose trim range is at most `MAX_RECORDING_MS`, up to
   `MAX_SPLIT_SOURCE_MS`. Its source is never decoded whole.
