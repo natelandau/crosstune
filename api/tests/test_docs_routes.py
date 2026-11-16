@@ -1,4 +1,4 @@
-"""The interactive docs and the schema are served only to local and development work."""
+"""The interactive docs and the schema are served only to development work on a local database."""
 
 from __future__ import annotations
 
@@ -7,6 +7,7 @@ import pytest
 
 from crosstune.config import Settings
 from crosstune.main import create_app
+from tests.helpers import NEON
 
 pytestmark = pytest.mark.anyio
 
@@ -21,9 +22,17 @@ async def _statuses(settings: Settings) -> list[int]:
         return [(await client.get(path)).status_code for path in DOC_PATHS]
 
 
-@pytest.mark.parametrize("environment", ["production", "pr-6"])
-async def test_a_hosted_environment_serves_no_docs(environment: str) -> None:
-    assert await _statuses(Settings(environment=environment)) == [404, 404, 404]
+@pytest.mark.parametrize(
+    "hosted",
+    [
+        {"environment": "production"},
+        {"environment": "pr-6"},
+        {"environment": "development", "database_url": NEON},
+    ],
+    ids=["production", "pr", "development-on-a-remote-database"],
+)
+async def test_a_hosted_environment_serves_no_docs(hosted: dict[str, str]) -> None:
+    assert await _statuses(Settings(**hosted)) == [404, 404, 404]
 
 
 async def test_development_serves_the_docs() -> None:
