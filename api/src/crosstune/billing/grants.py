@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 
-from sqlalchemy import case, delete, false, func, select, text, tuple_, update
+from sqlalchemy import case, delete, false, func, or_, select, text, tuple_, update
 from sqlalchemy.dialects.postgresql import insert
 
 from crosstune.models import Grant, PendingComp
@@ -135,8 +135,10 @@ async def sync_paid_grants(
 ) -> set[uuid.UUID]:
     """Make the user's Apple and Stripe grants match the provider's subscriptions.
 
-    A subscription held by another account moves to this user. A grant whose
-    subscription is gone ends now. An active paid Premium grant ends a running trial.
+    A subscription held by another account moves to this user, unless its grant was
+    refunded: that grant stays with the account whose withdrawal refunded it, so finishing
+    the withdrawal spends that account's withdrawal. A grant whose subscription is gone
+    ends now. An active paid Premium grant ends a running trial.
     A withdrawn grant never runs past its withdrawal or renews, whatever the provider
     still reports.
 
@@ -153,6 +155,7 @@ async def sync_paid_grants(
                             [(sub.source.value, sub.subscription_id) for sub in subscriptions]
                         ),
                         Grant.user_id != user_id,
+                        Grant.refunded_at.is_(None),
                     )
                 )
             ).all()
@@ -175,6 +178,7 @@ async def sync_paid_grants(
             stmt.on_conflict_do_update(
                 index_elements=[Grant.source, Grant.external_id],
                 index_where=_PAID_SOURCES,
+                where=or_(Grant.refunded_at.is_(None), Grant.user_id == user_id),
                 set_={
                     **values,
                     # least() skips a null, so a never-lapsing report still ends at the withdrawal.
