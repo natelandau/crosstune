@@ -10,6 +10,7 @@ import json
 import math
 import os
 import re
+import signal
 import sys
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
@@ -193,15 +194,35 @@ async def _media_process(argv: tuple[str, ...]) -> AsyncGenerator[asyncio.subpro
         # ffmpeg reads commands from stdin, and would otherwise share the API's.
         stdin=asyncio.subprocess.DEVNULL,
         env={"PATH": os.environ.get("PATH", ""), "MALLOC_ARENA_MAX": "2"},
+        # Its own process group, so the kill reaches anything it started that holds a pipe,
+        # and the drain below ends.
+        start_new_session=True,
     )
     try:
         yield process
     finally:
-        if process.returncode is None:
-            process.kill()
+        # A tool that exited can leave a child holding a pipe, which the drain would wait on.
+        if process.returncode is None or not _at_eof(process):
+            _kill_group(process)
         # A pipe left unread past its buffer stays open after the tool exits. Reading both
-        # to their end closes them, and holds at most what the dead tool left in them.
+        # to their end closes them, and holds at most what the dead group left in them.
         await process.communicate()
+
+
+def _at_eof(process: asyncio.subprocess.Process) -> bool:
+    return all(pipe is None or pipe.at_eof() for pipe in (process.stdout, process.stderr))
+
+
+def _kill_group(process: asyncio.subprocess.Process) -> None:
+    """Kill a tool started by `_media_process` and every process in its group."""
+    try:
+        os.killpg(process.pid, signal.SIGKILL)
+    except ProcessLookupError:
+        pass
+    except PermissionError:
+        # macOS refuses a group whose only member has exited and is not yet reaped.
+        with contextlib.suppress(ProcessLookupError):
+            process.kill()
 
 
 def _limited(*argv: str) -> tuple[str, ...]:

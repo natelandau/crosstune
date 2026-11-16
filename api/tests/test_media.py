@@ -12,6 +12,7 @@ import shutil
 import struct
 import subprocess
 import sys
+import time
 import tracemalloc
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
@@ -238,6 +239,31 @@ async def test_run_kills_and_reaps_the_process_when_cancelled(tmp_path) -> None:
     # A reaped child's pid no longer exists; one left running or unreaped still does.
     with pytest.raises(ProcessLookupError):
         os.kill(int(pid_file.read_text()), 0)
+
+
+async def test_stream_stops_a_tools_child_that_still_writes_to_its_pipe() -> None:
+    def stop(_chunk: bytes) -> None:
+        msg = "stop"
+        raise MediaError(msg)
+
+    # The background loop holds stdout after the tool itself is killed.
+    script = "while :; do echo x; done & exec sleep 30"
+    async with asyncio.timeout(10):
+        with pytest.raises(MediaError, match="stop"):
+            await stream_media_tool("sh", "-c", script, on_stdout=stop)
+
+
+async def test_stream_stops_a_child_that_outlives_its_tool_and_holds_its_pipe() -> None:
+    def stop(_chunk: bytes) -> None:
+        # Long enough for the tool itself to exit before the cleanup runs.
+        time.sleep(0.3)
+        msg = "stop"
+        raise MediaError(msg)
+
+    script = "while :; do echo x; done & exit 0"
+    async with asyncio.timeout(10):
+        with pytest.raises(MediaError, match="stop"):
+            await stream_media_tool("sh", "-c", script, on_stdout=stop)
 
 
 async def test_stream_hands_over_all_of_stdout() -> None:
