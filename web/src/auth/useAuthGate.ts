@@ -1,5 +1,6 @@
 import { useAuth } from '@clerk/react'
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { markedForDeletion, settleMarkedDeletion } from '../db/deletion'
 import { clearSearchQueries } from '../ui/searchSession'
 import { useLatest } from '../ui/useLatest'
 import {
@@ -66,6 +67,7 @@ export function useAuthGate(clock: GateClock = REAL_CLOCK): AuthGateResult {
       forgetUser()
       clearSearchQueries()
     }
+    void settleMarkedDeletion(signedIn ? userId : null)
   }, [isLoaded, isSignedIn, userId, signedOutUser, signedIn])
 
   // Clerk's form redirects instead of rendering while a session is active, so a stale session
@@ -103,7 +105,8 @@ export function useAuthGate(clock: GateClock = REAL_CLOCK): AuthGateResult {
   if (isLoaded) return { state: 'signIn', userId: null, getToken: stableGetToken, staleSession }
 
   const remembered = rememberedUser()
-  if (remembered && (!navigator.onLine || graceOver)) {
+  // A user marked for deletion may have finished signing out: only Clerk can tell.
+  if (remembered && remembered !== markedForDeletion() && (!navigator.onLine || graceOver)) {
     return { state: 'offline', userId: remembered, getToken: stableGetToken, staleSession }
   }
   return { state: 'splash', userId: null, getToken: stableGetToken, staleSession }

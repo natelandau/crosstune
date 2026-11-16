@@ -1,4 +1,5 @@
 import { act, renderHook, screen } from '@testing-library/react'
+import Dexie from 'dexie'
 import { page } from 'vitest/browser'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAuthSession } from '../auth/AuthContext'
@@ -22,6 +23,8 @@ import {
   rememberedUser,
   rememberUser,
 } from '../auth/session'
+import { markedForDeletion, markForDeletion } from '../db/deletion'
+import { databaseName, openDatabase } from '../db/schema'
 import { readSearchQuery, writeSearchQuery } from '../ui/searchSession'
 import { CLERK_LOAD_GRACE_MS, useAuthGate, type GateClock } from '../auth/useAuthGate'
 import { renderWithProviders } from '../test/render'
@@ -141,12 +144,32 @@ describe('useAuthGate', () => {
     expect(result.current.state).toBe('offline')
   })
 
-  it('never admits an unremembered user without Clerk', () => {
+  it.each([
+    ['an unremembered user', () => {}],
+    [
+      'a remembered user marked for deletion',
+      () => {
+        rememberUser('user_1')
+        markForDeletion('user_1')
+      },
+    ],
+  ])('never admits %s without Clerk', (_case, arrange) => {
     clerk.isLoaded = false
+    arrange()
     const { clock, fire } = fakeClock()
     const { result } = renderHook(() => useAuthGate(clock))
     fire()
     expect(result.current.state).toBe('splash')
+  })
+
+  it('deletes a database marked for deletion once Clerk shows that user signed out', async () => {
+    await openDatabase('user_1')
+      .open()
+      .then((db) => db.close())
+    markForDeletion('user_1')
+    renderHook(() => useAuthGate(fakeClock().clock))
+    await expect.poll(() => Dexie.exists(databaseName('user_1'))).toBe(false)
+    expect(markedForDeletion()).toBeNull()
   })
 
   it('signs in and remembers the user once Clerk has loaded', () => {

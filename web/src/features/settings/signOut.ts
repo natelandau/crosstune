@@ -4,7 +4,8 @@ import { clearSearchQueries } from '../../ui/searchSession'
 import { scansLive } from '../../db/scans'
 import { countUnsentChanges } from '../../db/outbox'
 import { NOT_UPLOADED_STATES } from '../../db/recordings'
-import { deleteDatabase, type CrosstuneDb } from '../../db/schema'
+import { deleteMarkedDatabase, markForDeletion, unmarkForDeletion } from '../../db/deletion'
+import type { CrosstuneDb } from '../../db/schema'
 import type { SyncEngine } from '../../sync/types'
 
 export const UNSYNCED_RECORDINGS_ERROR =
@@ -28,7 +29,7 @@ export async function forgetLocalData({
   analytics.reset()
   forgetUser()
   db.close()
-  await deleteDatabase(userId)
+  await deleteMarkedDatabase(userId)
   clearSearchQueries()
 }
 
@@ -68,9 +69,11 @@ export async function signOutAndForget({
   if (await hasUnuploadedScan(db)) throw new Error(UNSYNCED_SCANS_ERROR)
   // A stopped engine ignores the triggers, so no sync can reopen the database being deleted.
   engine.stop()
+  markForDeletion(userId)
   try {
     await signOut()
   } catch (error) {
+    unmarkForDeletion(userId)
     engine.resume()
     throw error
   }

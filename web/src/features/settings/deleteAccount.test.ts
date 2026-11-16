@@ -13,6 +13,7 @@ import { ACCOUNT_DELETED_PROBLEM } from '../../sync/errors'
 import { addUploadedFile, deleteRecording } from '../../commands/recordings'
 import { createList, deleteList } from '../../commands/lists'
 import { createTune, deleteTune } from '../../commands/tunes'
+import { markedForDeletion } from '../../db/deletion'
 import { databaseName, openDatabase } from '../../db/schema'
 import { fakeEngine } from '../../test/providers'
 import {
@@ -41,7 +42,10 @@ describe('deleteAccountAndForget', () => {
     await createTune(db, { title: 'X' }, { status: 'known' })
     const stop = vi.fn()
     const deleteAccount = vi.fn(async () => {})
-    const signOut = vi.fn(async () => {})
+    let markedAtSignOut: string | null = null
+    const signOut = vi.fn(async () => {
+      markedAtSignOut = markedForDeletion()
+    })
     await deleteAccountAndForget({
       db,
       userId,
@@ -56,6 +60,8 @@ describe('deleteAccountAndForget', () => {
       signOut.mock.invocationCallOrder[0]!,
     )
     expect(await Dexie.exists(databaseName(userId))).toBe(false)
+    expect(markedAtSignOut).toBe(userId)
+    expect(markedForDeletion()).toBeNull()
     expect(hasAccountDeletedNotice()).toBe(true)
     expect(deleteAccount).toHaveBeenCalledWith({})
   })
