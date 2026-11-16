@@ -27,6 +27,7 @@ from crosstune.jobs.media import (
     StallMap,
     _fill_gap_args,
     _Stall,
+    _unique_match,
     copy_slice,
     cut,
     encode,
@@ -640,6 +641,14 @@ async def test_copy_slice_decodes_like_the_original_from_the_returned_start(
     assert found != -1
     assert abs((found // 2 - probe_at) * 1000 / SLICE_RATE - returned) <= 1
     assert returned + len(sliced) / 2 / SLICE_RATE * 1000 >= end_ms - 1
+
+
+def test_mp3_alignment_treats_a_needle_with_many_byte_offset_hits_as_no_match() -> None:
+    needle = b"ab" * 64
+    # A thousand hits at odd byte offsets, then the needle once on a sample boundary.
+    original = b"x" + b"ab" * 1000 + b"y" + needle
+    assert _unique_match(original, needle) is None
+    assert _unique_match(b"xy" + needle, needle) == 1
 
 
 def _aligned_at(original: bytes, sliced: bytes, probe_at: int) -> float:

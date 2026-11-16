@@ -1036,6 +1036,8 @@ _MATCH_SAMPLES = 64
 _MATCH_STEP_MS = 50
 _MATCH_SPAN_SECONDS = 10.0
 _MATCH_LEAD_SECONDS = 1.0
+# Real audio repeats a 64-sample run at a handful of byte offsets at most.
+_MATCH_MAX_HITS = 32
 
 
 def _copy_target(info: Probe) -> _CopyTarget | None:
@@ -1066,10 +1068,18 @@ async def _decode_pcm(path: Path, rate: int, seconds: float, *seek_args: str) ->
 
 
 def _unique_match(original: bytes, needle: bytes) -> int | None:
-    """The one sample position `needle` decodes at in `original`, or None if not exactly one."""
+    """The one sample position `needle` decodes at in `original`, or None if not exactly one.
+
+    A needle found more than `_MATCH_MAX_HITS` times, at sample or byte offsets, counts as
+    matching many places: each hit costs a step on the event loop.
+    """
     found: int | None = None
+    hits = 0
     at = original.find(needle)
     while at != -1:
+        hits += 1
+        if hits > _MATCH_MAX_HITS:
+            return None
         if at % 2 == 0:
             if found is not None:
                 return None
