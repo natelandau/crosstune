@@ -1,4 +1,4 @@
-import { act, render, renderHook } from '@testing-library/react'
+import { act, render, renderHook, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { AuthProvider } from '../auth/AuthContext'
 import { DbContext } from '../db/DbProvider'
@@ -6,7 +6,8 @@ import { openTestDb } from '../test/db'
 import { testSession } from '../test/providers'
 import { AnalyticsProvider } from '../usage/AnalyticsProvider'
 import { recordingAnalytics } from '../usage/testing'
-import { SyncProvider, useOnline } from './SyncProvider'
+import { sessionToken } from '../test/sessionToken'
+import { SyncProvider, useOnline, useSyncStatus } from './SyncProvider'
 
 describe('useOnline', () => {
   it('follows the browser online and offline events', () => {
@@ -55,5 +56,25 @@ describe('SyncProvider', () => {
       .toEqual([{ type: 'send', name: 'account_created', props: { trial: true } }])
     const types = analytics.calls.map((call) => call.type)
     expect(types.lastIndexOf('identify')).toBeLessThan(types.lastIndexOf('send'))
+  })
+
+  it("never sends a request with a token for another account than the session's", async () => {
+    const fetch = vi.spyOn(globalThis, 'fetch')
+    function Status() {
+      return <span>{useSyncStatus()}</span>
+    }
+    render(
+      <AnalyticsProvider client={recordingAnalytics()}>
+        <AuthProvider value={{ ...testSession, getToken: async () => sessionToken('user_2') }}>
+          <DbContext.Provider value={openTestDb()}>
+            <SyncProvider>
+              <Status />
+            </SyncProvider>
+          </DbContext.Provider>
+        </AuthProvider>
+      </AnalyticsProvider>,
+    )
+    await expect.poll(() => screen.queryByText('offline')).not.toBeNull()
+    expect(fetch).not.toHaveBeenCalled()
   })
 })

@@ -628,6 +628,37 @@ describe('uploadPass', () => {
   })
 })
 
+describe('a stopped pass', () => {
+  it.each([
+    {
+      pass: 'uploadPass',
+      setup: async () => {
+        const ids = [await captured(), await captured()]
+        for (const id of ids) await pushed(id)
+        for (const id of ids) await db.recording_files.update(id, { local_state: 'captured' })
+        return vi.spyOn(fake.api, 'requestUploadSlot')
+      },
+      run: (isStopped: () => boolean) =>
+        uploadPass(db, fake.api, createUploadReports(noopAnalytics), isStopped),
+    },
+    {
+      pass: 'downloadPass',
+      setup: async () => {
+        await readyOnServer('r1')
+        await readyOnServer('r2')
+        await setKeepOffline(db, true)
+        return vi.spyOn(fake.api, 'downloadUrl')
+      },
+      run: (isStopped: () => boolean) =>
+        downloadPass(db, fake.api, undefined, undefined, undefined, isStopped),
+    },
+  ])('$pass sends nothing for the rows after a stop', async ({ setup, run }) => {
+    const requests = await setup()
+    await run(() => requests.mock.calls.length > 0)
+    expect(requests).toHaveBeenCalledTimes(1)
+  })
+})
+
 describe('transfers under the plan', () => {
   const premiumRequired = () =>
     new ApiError(403, { type: PREMIUM_REQUIRED_PROBLEM, title: 't', status: 403, detail: 'd' })

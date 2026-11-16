@@ -8,6 +8,7 @@ import {
   TransferError,
 } from './client'
 import type { Change } from './types'
+import { sessionToken } from '../test/sessionToken'
 
 type FetchMock = (input: Request) => Promise<Response>
 
@@ -128,6 +129,20 @@ describe('createApiClient', () => {
     const api = makeClient(fetchMock, { baseUrl: '', getToken: async () => null })
     await expect(api.pull(0)).rejects.toBeInstanceOf(NoTokenError)
     expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['its own user', sessionToken('user_a'), true],
+    ['another user', sessionToken('user_b'), false],
+    ['no subject', 'opaque-token', false],
+  ])('bound to one user, sends a token for %s only', async (_case, token, sends) => {
+    const fetchMock = vi.fn<FetchMock>(async () =>
+      jsonResponse({ rows: [], next_since: 0, has_more: false }),
+    )
+    const api = makeClient(fetchMock, { userId: 'user_a', getToken: async () => token })
+    if (sends) await expect(api.pull(0)).resolves.toBeDefined()
+    else await expect(api.pull(0)).rejects.toBeInstanceOf(NoTokenError)
+    expect(fetchMock).toHaveBeenCalledTimes(sends ? 1 : 0)
   })
 
   it('wraps a failed fetch in NetworkError and leaves other throws alone', async () => {

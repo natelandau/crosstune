@@ -1,6 +1,7 @@
 import { STUB_USER_NAME } from '../fixture/clerkStub'
 import type { AuthSession } from '../auth/AuthContext'
 import type { SyncEngine } from '../sync/types'
+import { sessionToken } from './sessionToken'
 
 // Free of Vitest, so a dev-only fixture page can mount the app with the same fakes.
 
@@ -39,7 +40,7 @@ export function fakeEngine(overrides: Partial<SyncEngine> = {}): SyncEngine {
 /** A signed-in, online session for tests that do not care who is signed in. */
 export const testSession: AuthSession = {
   userId: 'user_1',
-  getToken: async () => 't',
+  getToken: async () => sessionToken('user_1'),
   offline: false,
   name: STUB_USER_NAME,
 }

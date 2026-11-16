@@ -320,6 +320,7 @@ export async function uploadPass(
   db: CrosstuneDb,
   api: SyncApi,
   reports: UploadReports,
+  isStopped: () => boolean = () => false,
 ): Promise<unknown> {
   // Run before the quota skip below, so a blocked row whose recording was deleted
   // elsewhere is cleaned up instead of being skipped forever by the storage usage check.
@@ -335,6 +336,7 @@ export async function uploadPass(
   const nowMs = Date.now()
   let firstError: unknown = null
   for (const [i, file] of waiting.entries()) {
+    if (isStopped()) break
     // A pass is the only place a blocked row is reconsidered, so re-check storage usage
     // rather than hammering the server with a slot request that will fail again.
     if (
@@ -519,11 +521,13 @@ export async function downloadPass(
   fetch: (id: string) => Promise<Blob | null> = (id) => downloadOne(db, api, id),
   retries: DownloadRetries = createDownloadRetries(),
   fetchPeaksFor: (id: string) => Promise<Uint8Array | null> = (id) => fetchPeaks(db, api, id),
+  isStopped: () => boolean = () => false,
 ): Promise<void> {
   if (!(await getKeepOffline(db))) return
   const rows = await db.recordings.filter((r) => !r.deleted_at && r.state === 'ready').toArray()
   const files = await db.recording_files.bulkGet(rows.map((r) => r.id))
   for (const [i, row] of rows.entries()) {
+    if (isStopped()) return
     let file = files[i]
     if ((!file?.blob || isStale(row, file)) && !retries.isWaiting(row.id)) {
       try {

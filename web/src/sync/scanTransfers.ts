@@ -124,7 +124,11 @@ export async function dropTombstonedScanFiles(db: CrosstuneDb): Promise<void> {
  * when every row settled) so the caller can still fail the transfer run. Only an auth failure is
  * thrown.
  */
-export async function scanUploadPass(db: CrosstuneDb, api: SyncApi): Promise<unknown> {
+export async function scanUploadPass(
+  db: CrosstuneDb,
+  api: SyncApi,
+  isStopped: () => boolean = () => false,
+): Promise<unknown> {
   await dropTombstonedScanFiles(db)
   if (!scansOpen(await readPlan(db, new Date()))) return null
 
@@ -133,6 +137,7 @@ export async function scanUploadPass(db: CrosstuneDb, api: SyncApi): Promise<unk
   const nowMs = Date.now()
   let firstError: unknown = null
   for (const file of waiting) {
+    if (isStopped()) break
     // Only the storage usage a sync refreshes frees a refused scan; asking for a slot
     // before it shows room would draw the same refusal.
     if (
@@ -187,6 +192,7 @@ export async function scanDownloadPass(
   db: CrosstuneDb,
   api: SyncApi,
   retries: DownloadRetries,
+  isStopped: () => boolean = () => false,
 ): Promise<void> {
   if (!scansOpen(await readPlan(db, new Date()))) return
   const readyScans = await db.scans.where('state').equals('ready').toArray()
@@ -195,6 +201,7 @@ export async function scanDownloadPass(
   const ready = readyScans.filter((_, i) => live[i]).map((scan) => scan.id)
   const held = new Set(await db.scan_files.where(':id').anyOf(ready).primaryKeys())
   for (const id of ready) {
+    if (isStopped()) return
     if (held.has(id) || retries.isWaiting(id)) continue
     try {
       const signed = await api.scanDownloadUrl(id)

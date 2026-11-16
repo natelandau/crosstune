@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 
 import { noopAnalytics } from '../usage/client'
 import { recordingAnalytics } from '../usage/testing'
 import type { Problem } from '../api/types'
-import { ApiError, NetworkError, NoTokenError, TransferError } from '../api/client'
+import { ApiError, createApiClient, NetworkError, NoTokenError, TransferError } from '../api/client'
 import { recordEvent } from '../commands/events'
 import { createTune, deleteTune, setPlaySource, updateTune } from '../commands/tunes'
 import { addLoop } from '../commands/loops'
@@ -19,6 +19,7 @@ import {
 import { pendingBatch, pendingFor } from '../db/outbox'
 import type { CrosstuneDb } from '../db/schema'
 import { openTestDb } from '../test/db'
+import { sessionToken } from '../test/sessionToken'
 import { createFakeApi, serverTune } from '../test/fakeApi'
 import { captureRecording } from '../test/recordings'
 import { entitlementRow, playEventRow, scanViewRow } from '../test/rows'
@@ -1098,6 +1099,60 @@ function pulledStatusChange(id: string, serverSeq: number): EventRow {
     },
   }
 }
+
+describe('an engine bound to one account', () => {
+  const pullPage = (has_more: boolean) =>
+    new Response(
+      JSON.stringify({
+        rows: [{ table: 'tunes', row: serverTune({ id: 'a', server_seq: 10 }) }],
+        next_since: 10,
+        has_more,
+      }),
+      { headers: { 'content-type': 'application/json' } },
+    )
+
+  /** An engine for user_a whose first pull waits for `answerFirstPull`, under a token source
+   * that follows whoever is signed in, as Clerk's does. */
+  function boundEngine() {
+    const session = { signedIn: 'user_a' as string | null }
+    const sent: Request[] = []
+    let answerFirstPull: (response: Response) => void = () => {}
+    const firstPull = new Promise<Response>((resolve) => (answerFirstPull = resolve))
+    const api = createApiClient({
+      baseUrl: 'http://api.test',
+      getToken: async () => (session.signedIn ? sessionToken(session.signedIn) : null),
+      userId: 'user_a',
+      clientVersion: '1',
+      gatewayRetryDelaysMs: [],
+      fetch: async (request) => {
+        sent.push(request)
+        const isPull = new URL(request.url).pathname === '/v1/sync/pull'
+        if (isPull && sent.filter((r) => r.url.includes('/v1/sync/pull')).length === 1) {
+          return firstPull
+        }
+        return pullPage(false)
+      },
+    })
+    const engine = createSyncEngine({ analytics: noopAnalytics, db, api, isOnline: () => true })
+    const pulls = () => sent.filter((r) => new URL(r.url).pathname === '/v1/sync/pull').length
+    return { engine, session, sent, pulls, answerFirstPull: (r: Response) => answerFirstPull(r) }
+  }
+
+  it('sends nothing and writes nothing once stopped mid-pull, whoever signs in next', async () => {
+    const { engine, session, sent, pulls, answerFirstPull } = boundEngine()
+    const run = engine.sync()
+    await expect.poll(pulls).toBe(1)
+    session.signedIn = null
+    engine.stop()
+    session.signedIn = 'user_b'
+    const sentBeforeStop = sent.length
+    answerFirstPull(pullPage(true))
+    await run
+    expect(sent).toHaveLength(sentBeforeStop)
+    expect(await db.tunes.count()).toBe(0)
+    expect(await getPullCursor(db)).toBe(0)
+  })
+})
 
 describe('events', () => {
   it('pullEvents pages until caught up and stores the cursor', async () => {

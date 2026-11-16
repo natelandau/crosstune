@@ -285,6 +285,35 @@ describe('scanUploadPass', () => {
   })
 })
 
+describe('a stopped scan pass', () => {
+  it.each([
+    {
+      pass: 'scanUploadPass',
+      setup: async () => {
+        await capturedScan()
+        await capturedScan()
+        await pushedEverything()
+        return vi.spyOn(fake.api, 'requestScanUploadSlot')
+      },
+      run: (isStopped: () => boolean) => scanUploadPass(db, fake.api, isStopped),
+    },
+    {
+      pass: 'scanDownloadPass',
+      setup: async () => {
+        await readyOnServer('p1')
+        await readyOnServer('p2')
+        return vi.spyOn(fake.api, 'scanDownloadUrl')
+      },
+      run: (isStopped: () => boolean) =>
+        scanDownloadPass(db, fake.api, createDownloadRetries(), isStopped),
+    },
+  ])('$pass sends nothing for the scans after a stop', async ({ setup, run }) => {
+    const requests = await setup()
+    await run(() => requests.mock.calls.length > 0)
+    expect(requests).toHaveBeenCalledTimes(1)
+  })
+})
+
 describe('scan transfers under the plan', () => {
   const premiumRequired = () =>
     new ApiError(403, { type: PREMIUM_REQUIRED_PROBLEM, title: 't', status: 403, detail: 'd' })
