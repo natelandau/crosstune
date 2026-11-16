@@ -18,6 +18,7 @@ from crosstune.models import (
     RecordingLoop,
     Scan,
     StatusChange,
+    User,
     UserSettings,
     UserTune,
 )
@@ -710,15 +711,32 @@ class UserTuneRules(RowRules):
         )
 
 
+SETTINGS_NAMESPACE = uuid.UUID("5d1c0b8a-3e7f-4a92-9c64-2b8e1f0a7d33")
+"""The namespace every client derives a settings row id from. It must match the clients'."""
+
+
+def settings_id(clerk_user_id: str) -> uuid.UUID:
+    """The id of a Clerk user's one settings row, as every client derives it."""
+    return uuid.uuid5(SETTINGS_NAMESPACE, clerk_user_id)
+
+
 class UserSettingsRules(RowRules):
-    """Keeps a stored reference pitch that a push leaves out."""
+    """Holds a settings row to its account's derived id and keeps a stored reference pitch."""
 
     async def prepare(self, data: dict[str, Any]) -> str | None:
-        """Keep the stored `tuner_a4_hz` when the change omits it.
+        """Refuse any id but the account's derived one, and keep a stored omitted `tuner_a4_hz`.
+
+        The id is derivable from a public namespace and a Clerk user id, so without the check
+        another account could store a row under it first and own it for good.
 
         A client that predates the tuner sends every other setting and no reference pitch,
         which would otherwise write the default over the one another device set.
         """
+        clerk_user_id = (
+            await self.session.execute(select(User.clerk_user_id).where(User.id == self.user_id))
+        ).scalar_one()
+        if self.change.id != settings_id(clerk_user_id):
+            return "id is not this account's settings id"
         if "tuner_a4_hz" in (self.change.data or {}):
             return None
         stored = await self.session.scalar(

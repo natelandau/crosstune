@@ -21,7 +21,7 @@ from crosstune.vocabulary import (
     SPLIT_UNNAMED,
     JobKind,
 )
-from tests.helpers import T0, T1, T2, change, pull, push, recording, uid
+from tests.helpers import T0, T1, T2, USER_A_SETTINGS, change, pull, push, recording, uid
 
 pytestmark = pytest.mark.anyio
 
@@ -312,7 +312,7 @@ async def test_deleting_a_recording_wakes_the_runner(client, auth_headers, fake_
 
 
 async def test_user_settings_carry_audio_quality(client, auth_headers) -> None:
-    settings = uid()
+    settings = USER_A_SETTINGS
     [result] = await push(
         client,
         auth_headers("user_a"),
