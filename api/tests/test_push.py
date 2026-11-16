@@ -18,7 +18,8 @@ from crosstune.models import (
 )
 from crosstune.schemas.common import Change
 from crosstune.sync.push import _write
-from tests.helpers import T0, T1, T2, change, pull, push, recording, uid
+from crosstune.sync.rules import settings_id
+from tests.helpers import T0, T1, T2, USER_A_SETTINGS, change, pull, push, recording, uid
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -364,30 +365,45 @@ async def test_push_requires_auth(client) -> None:
     assert response.status_code == 401
 
 
-async def test_user_settings_upsert_applies_and_a_second_row_is_invalid(
-    client, auth_headers
-) -> None:
-    first, second = uid(), uid()
-    results = await push(
+@pytest.mark.parametrize(
+    ("clerk_user_id", "expected"),
+    [
+        ("user_1", "a1e77df3-556d-5fd2-a1ca-b5e4928735b5"),
+        ("user_2", "809838a4-3b2c-54a3-9adf-a4500d2ad180"),
+    ],
+)
+def test_settings_id_matches_the_clients_derivation(clerk_user_id: str, expected: str) -> None:
+    # Golden values from the web client's `uuid` v5, which the Apple tests pin too. A drift
+    # here refuses every settings push.
+    assert str(settings_id(clerk_user_id)) == expected
+
+
+async def test_user_settings_take_only_the_account_derived_id(client, auth_headers) -> None:
+    owner, other = auth_headers("user_a"), auth_headers("user_b")
+    for headers, id_ in ((owner, uid()), (other, USER_A_SETTINGS)):
+        [result] = await push(
+            client, headers, change("user_settings", id_, T0, instruments=["violin"])
+        )
+        assert result["status"] == "invalid"
+        assert result["reason"] == "id is not this account's settings id"
+    [result] = await push(
         client,
-        auth_headers("user_a"),
-        change("user_settings", first, T0, instruments=["violin", "five_string_banjo"]),
+        owner,
+        change("user_settings", USER_A_SETTINGS, T1, instruments=["five_string_banjo"]),
     )
-    assert results[0]["status"] == "applied"
-    assert results[0]["row"]["instruments"] == ["violin", "five_string_banjo"]
-    results = await push(
-        client,
-        auth_headers("user_a"),
-        change("user_settings", second, T1, instruments=["five_string_banjo"]),
-    )
-    assert results[0]["status"] == "invalid"
-    assert "constraint violation" in results[0]["reason"]
+    assert result["status"] == "applied"
+    rows = (await pull(client, owner))["rows"]
+    assert [
+        (r["row"]["id"], r["row"]["instruments"]) for r in rows if r["table"] == "user_settings"
+    ] == [(USER_A_SETTINGS, ["five_string_banjo"])]
 
 
 async def test_push_user_settings_with_search_providers_round_trips(client, auth_headers) -> None:
     headers = auth_headers("user_a")
     results = await push(
-        client, headers, change("user_settings", uid(), T0, search_providers=["tidal"])
+        client,
+        headers,
+        change("user_settings", USER_A_SETTINGS, T0, search_providers=["tidal"]),
     )
     assert results[0]["status"] == "applied"
     assert results[0]["row"]["search_providers"] == ["tidal"]
@@ -400,7 +416,9 @@ async def test_push_user_settings_with_search_providers_round_trips(client, auth
 async def test_push_user_settings_play_first_round_trips(client, auth_headers) -> None:
     headers = auth_headers("user_a")
     results = await push(
-        client, headers, change("user_settings", uid(), T0, play_first="apple_music")
+        client,
+        headers,
+        change("user_settings", USER_A_SETTINGS, T0, play_first="apple_music"),
     )
     assert results[0]["status"] == "applied"
     assert results[0]["row"]["play_first"] == "apple_music"
@@ -415,7 +433,13 @@ async def test_push_user_settings_new_tune_defaults_round_trip(client, auth_head
     results = await push(
         client,
         headers,
-        change("user_settings", uid(), T0, new_tune_genre="Old-time", new_tune_status="known"),
+        change(
+            "user_settings",
+            USER_A_SETTINGS,
+            T0,
+            new_tune_genre="Old-time",
+            new_tune_status="known",
+        ),
     )
     assert results[0]["status"] == "applied"
     rows = (await pull(client, headers))["rows"]
@@ -425,7 +449,9 @@ async def test_push_user_settings_new_tune_defaults_round_trip(client, auth_head
 
 async def test_push_user_settings_tuner_a4_hz_round_trip(client, auth_headers) -> None:
     headers = auth_headers("user_a")
-    results = await push(client, headers, change("user_settings", uid(), T0, tuner_a4_hz=442))
+    results = await push(
+        client, headers, change("user_settings", USER_A_SETTINGS, T0, tuner_a4_hz=442)
+    )
     assert results[0]["status"] == "applied"
     rows = (await pull(client, headers))["rows"]
     stored = [r["row"] for r in rows if r["table"] == "user_settings"]
@@ -437,7 +463,7 @@ async def test_push_user_settings_without_tuner_a4_hz_keeps_the_stored_value(
 ) -> None:
     # A client older than the tuner sends every other field and no reference pitch.
     headers = auth_headers("user_a")
-    id_ = uid()
+    id_ = USER_A_SETTINGS
     await push(client, headers, change("user_settings", id_, T0, tuner_a4_hz=442))
     results = await push(client, headers, change("user_settings", id_, T1, audio_quality="high"))
     assert results[0]["status"] == "applied"
@@ -577,7 +603,7 @@ async def test_a_reference_to_another_users_row_is_invalid(
 
 
 async def test_user_settings_newer_write_wins(client, auth_headers) -> None:
-    settings_id = uid()
+    settings_id = USER_A_SETTINGS
     await push(
         client,
         auth_headers("user_a"),
@@ -594,7 +620,9 @@ async def test_user_settings_newer_write_wins(client, auth_headers) -> None:
 
 async def test_user_settings_rejects_an_unknown_instrument(client, auth_headers) -> None:
     results = await push(
-        client, auth_headers("user_a"), change("user_settings", uid(), T0, instruments=["kazoo"])
+        client,
+        auth_headers("user_a"),
+        change("user_settings", USER_A_SETTINGS, T0, instruments=["kazoo"]),
     )
     assert results[0]["status"] == "invalid"
     assert "instruments" in results[0]["reason"]
@@ -655,7 +683,9 @@ async def test_a_legacy_tuning_push_is_invalid(
 
 async def test_a_settings_push_holding_banjo_is_invalid(client, auth_headers) -> None:
     results = await push(
-        client, auth_headers("user_a"), change("user_settings", uid(), T0, instruments=["banjo"])
+        client,
+        auth_headers("user_a"),
+        change("user_settings", USER_A_SETTINGS, T0, instruments=["banjo"]),
     )
     assert results[0]["status"] == "invalid"
     assert "instruments" in results[0]["reason"]

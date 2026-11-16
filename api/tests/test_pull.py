@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from crosstune.db.locks import lock_user
 from crosstune.sync.pull import events_since, pull_since
-from tests.helpers import T0, T1, change, pull, push, recording, uid
+from tests.helpers import T0, T1, USER_A_SETTINGS, change, pull, push, recording, uid
 
 pytestmark = pytest.mark.anyio
 
@@ -200,7 +200,7 @@ async def test_pull_scopes_every_table_to_the_caller(client, auth_headers) -> No
 
 
 async def test_pull_includes_user_settings(client, auth_headers) -> None:
-    settings_id = uid()
+    settings_id = USER_A_SETTINGS
     await push(
         client,
         auth_headers("user_a"),

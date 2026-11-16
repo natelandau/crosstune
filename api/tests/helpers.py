@@ -24,6 +24,7 @@ from crosstune.config import Settings
 from crosstune.db.base import utc_now
 from crosstune.db.locks import lock_user
 from crosstune.main import create_app
+from crosstune.sync.rules import settings_id
 from crosstune.vocabulary import GrantEnvironment, GrantKind, GrantPeriod, GrantSource
 
 if TYPE_CHECKING:
@@ -94,6 +95,13 @@ def premium_ended(expires_at: datetime | str | None) -> bool:
 
 def uid() -> str:
     return str(uuid.uuid4())
+
+
+def settings_uid(clerk_user_id: str) -> str:
+    return str(settings_id(clerk_user_id))
+
+
+USER_A_SETTINGS = settings_uid("user_a")
 
 
 def change(table: str, id_: str, updated_at: datetime, op: str = "upsert", **data) -> dict:

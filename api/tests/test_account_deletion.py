@@ -57,7 +57,16 @@ from tests.fakes import (
     FakeRevenueCat,
     FakeStripe,
 )
-from tests.helpers import T0, change, push, sign, uid, until_waiting_or_done, wait_for_finished
+from tests.helpers import (
+    T0,
+    change,
+    push,
+    settings_uid,
+    sign,
+    uid,
+    until_waiting_or_done,
+    wait_for_finished,
+)
 from tests.helpers import recording as recording_change
 
 pytestmark = pytest.mark.anyio
@@ -88,7 +97,7 @@ async def _seed(
             provider="other",
             title="A recording",
         ),
-        change("user_settings", uid(), T0, instruments=["violin"]),
+        change("user_settings", settings_uid(clerk_user_id), T0, instruments=["violin"]),
         change("places", uid(), T0, name="Porch", lat=36.66, lon=-80.92),
         recording_change(rec),
         change(
