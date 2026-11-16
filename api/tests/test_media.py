@@ -6,10 +6,10 @@ import array
 import asyncio
 import json
 import os
+import resource
 import shutil
 import subprocess
 import sys
-import time
 import tracemalloc
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
@@ -689,10 +689,20 @@ async def test_copy_slice_of_an_mp4_with_a_video_stream_copies_the_audio(
     assert abs(_aligned_at(decode_pcm(source), decode_pcm(target), 20_000) - returned) <= 1
 
 
+# A seek costs the media tools a fraction of a CPU second; decoding an hour-long file from its
+# start costs several. CPU time, unlike elapsed time, stays the same on a loaded machine.
+SEEK_CPU_BUDGET_SECONDS = 1
+
+
+def children_cpu_seconds() -> float:
+    usage = resource.getrusage(resource.RUSAGE_CHILDREN)
+    return usage.ru_utime + usage.ru_stime
+
+
 async def test_copy_slice_of_long_m4a_is_fast(long_m4a, tmp_path) -> None:
-    began = time.monotonic()
+    began = children_cpu_seconds()
     start = (await copy_slice(long_m4a, tmp_path / "slice.m4a", 1_800_000, 2_400_000)).start_ms
-    assert time.monotonic() - began < 5
+    assert children_cpu_seconds() - began < SEEK_CPU_BUDGET_SECONDS
     assert 1_800_000 - 100 < start <= 1_800_000
     assert (await probe(tmp_path / "slice.m4a")).duration_ms >= 2_400_000 - start - 30
 
@@ -765,9 +775,9 @@ async def test_cut_lands_on_the_decoded_timeline(noise_sources, tmp_path, name, 
 
 
 async def test_cut_deep_in_a_long_file_is_fast(long_m4a, tmp_path) -> None:
-    began = time.monotonic()
+    began = children_cpu_seconds()
     await cut(long_m4a, tmp_path / "cut.m4a", 3_500_000, 3_510_000)
-    assert time.monotonic() - began < 5
+    assert children_cpu_seconds() - began < SEEK_CPU_BUDGET_SECONDS
     assert 9_900 <= (await probe(tmp_path / "cut.m4a")).duration_ms <= 10_100
 
 
