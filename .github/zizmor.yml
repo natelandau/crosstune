@@ -2,6 +2,8 @@
 rules:
   # Actions and the tools they install stay on version tags or their latest release,
   # which Dependabot and the actions move; hash and version pins are not required.
+  # A job that holds the Apple signing keys pins each third-party action by commit hash,
+  # by hand: the policy is per action, and these actions also run in other jobs.
   unpinned-uses:
     config:
       policies:
