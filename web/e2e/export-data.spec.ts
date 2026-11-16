@@ -32,6 +32,7 @@ import {
   signInAs,
   tunePage,
   unique,
+  syncNow,
   waitForReady,
 } from './helpers'
 
@@ -58,38 +59,50 @@ interface DeviceFiles {
   scans: { tuneId: string; onDevice: boolean }[]
 }
 
-/** What the signed-in user's local database holds, read straight from IndexedDB. */
-function deviceFiles(page: Page): Promise<DeviceFiles> {
-  return page.evaluate(async () => {
+/** The rows of each of `stores` in the signed-in user's local database, read from IndexedDB. */
+function readStores(page: Page, stores: string[]): Promise<Record<string, unknown[]>> {
+  return page.evaluate(async (names) => {
     const [info] = (await indexedDB.databases()).filter((db) => db.name?.startsWith('crosstune-'))
     const db = await new Promise<IDBDatabase>((resolve, reject) => {
       const open = indexedDB.open(info!.name!)
       open.onsuccess = () => resolve(open.result)
       open.onerror = () => reject(open.error)
     })
-    const all = <T>(store: string) =>
-      new Promise<T[]>((resolve, reject) => {
+    const all = (store: string) =>
+      new Promise<unknown[]>((resolve, reject) => {
         const request = db.transaction(store).objectStore(store).getAll()
-        request.onsuccess = () => resolve(request.result as T[])
+        request.onsuccess = () => resolve(request.result)
         request.onerror = () => reject(request.error)
       })
-    const [recordings, files, scans, scanFiles] = await Promise.all([
-      all<{ deleted_at: string | null }>('recordings'),
-      all<{ blob: Blob | null }>('recording_files'),
-      all<{ id: string; tune_id: string; deleted_at: string | null }>('scans'),
-      all<{ id: string }>('scan_files'),
-    ])
+    const rows = await Promise.all(names.map(all))
     db.close()
-    const held = new Set(scanFiles.map((file) => file.id))
-    return {
-      recordings: recordings.filter((row) => !row.deleted_at).length,
-      audioOnDevice: files.filter((file) => file.blob).length,
-      scans: scans
-        .filter((scan) => !scan.deleted_at)
-        .map((scan) => ({ tuneId: scan.tune_id, onDevice: held.has(scan.id) }))
-        .sort((a, b) => Number(b.onDevice) - Number(a.onDevice)),
-    }
-  })
+    return Object.fromEntries(names.map((name, index) => [name, rows[index]!]))
+  }, stores)
+}
+
+/** What the signed-in user's local database holds. */
+async function deviceFiles(page: Page): Promise<DeviceFiles> {
+  const stores = await readStores(page, ['recordings', 'recording_files', 'scans', 'scan_files'])
+  const recordings = stores.recordings as { deleted_at: string | null }[]
+  const files = stores.recording_files as { blob: Blob | null }[]
+  const scans = stores.scans as { id: string; tune_id: string; deleted_at: string | null }[]
+  const held = new Set((stores.scan_files as { id: string }[]).map((file) => file.id))
+  return {
+    recordings: recordings.filter((row) => !row.deleted_at).length,
+    audioOnDevice: files.filter((file) => file.blob).length,
+    scans: scans
+      .filter((scan) => !scan.deleted_at)
+      .map((scan) => ({ tuneId: scan.tune_id, onDevice: held.has(scan.id) }))
+      .sort((a, b) => Number(b.onDevice) - Number(a.onDevice)),
+  }
+}
+
+/** The server state of each live recording, as the device last pulled it. */
+async function recordingStates(page: Page): Promise<string[]> {
+  const { recordings } = await readStores(page, ['recordings'])
+  return (recordings as { state: string; deleted_at: string | null }[])
+    .filter((row) => !row.deleted_at)
+    .map((row) => row.state)
 }
 
 /** Close a plan notice, which opens on its own once nothing else is on screen, with the action
@@ -167,6 +180,18 @@ test('an account whose trial has ended exports every recording and scan', async 
       },
     })
 
+    // A row with no busy label can still be mid-transcode on the server, and a transcode that
+    // finishes after the trial ends is refused for the free plan's quota.
+    await expect
+      .poll(
+        async () => {
+          const states = await recordingStates(page)
+          if (states.some((state) => state !== 'ready')) await syncNow(page)
+          return states
+        },
+        { timeout: 60_000, intervals: [3_000] },
+      )
+      .toEqual(['ready'])
     endTrial(id)
 
     const freshDevice = await browser.newContext({ ...devices['Pixel 7'] })

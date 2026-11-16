@@ -433,7 +433,7 @@ export async function recordUnfiled(page: Page, seconds: number): Promise<Locato
 }
 
 /** Nudge the sync loop from the Sync and storage page. The page is left there. */
-async function syncNow(page: Page): Promise<void> {
+export async function syncNow(page: Page): Promise<void> {
   await openSetting(page, SYNC_AND_STORAGE)
   await page.getByRole('button', { name: SYNC_NOW, exact: true }).click()
 }
