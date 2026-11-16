@@ -47,6 +47,18 @@ environment_exists() {
   esac
 }
 
+# The API service's variables in pr-*, as one JSON object. Anything else fails the run,
+# because a misread listing would skip the deletes in `up`.
+api_variables() {
+  local listed
+  listed="$(railway variable list --service "$RAILWAY_API_SERVICE_ID" --environment "$PR_NAME" --json)"
+  if ! jq -e 'type == "object"' <<<"$listed" >/dev/null; then
+    printf '%s\n' "::error::could not read the variables of $PR_NAME; rerun this workflow" >&2
+    exit 1
+  fi
+  printf '%s\n' "$listed"
+}
+
 # Railway's built-in PR environments copy the base environment's variables and would
 # reuse the development database; the CLI accepts the branch's connection string at
 # creation. The existence check, rather than the event type, decides whether to create:
@@ -67,12 +79,24 @@ up() {
     "CROSSTUNE_STORAGE_SECRET_ACCESS_KEY=$STORAGE_SECRET_ACCESS_KEY_PREVIEW"
     "CROSSTUNE_STORAGE_PREFIX=$PR_NAME/"
   )
-  local pair
+  # Pull request code must not hold mail, analytics, or billing keys, so any that the copy
+  # brings are deleted. Unset, each feature is off. Clerk stays, because a pr-* API
+  # refuses to start without it.
+  local dropped_vars=(
+    CROSSTUNE_RESEND_API_KEY
+    CROSSTUNE_POSTHOG_PROJECT_ID
+    CROSSTUNE_POSTHOG_PERSON_DELETE_KEY
+    CROSSTUNE_REVENUECAT_PROJECT_ID
+    CROSSTUNE_REVENUECAT_SECRET_KEY
+    CROSSTUNE_REVENUECAT_WEBHOOK_AUTH
+    CROSSTUNE_STRIPE_CANCEL_KEY
+  )
+  local pair key current
   if environment_exists; then
     printf '%s\n' "Railway environment $PR_NAME already exists"
     # Set only what differs, because every set redeploys the service.
-    local current changes=()
-    current="$(railway variable list --service "$RAILWAY_API_SERVICE_ID" --environment "$PR_NAME" --json)"
+    local changes=()
+    current="$(api_variables)"
     for pair in "${api_vars[@]}"; do
       if [[ "$(jq -r --arg k "${pair%%=*}" '.[$k] // ""' <<<"$current")" != "${pair#*=}" ]]; then
         changes+=("$pair")
@@ -90,7 +114,12 @@ up() {
       "${var_flags[@]}" \
       --service-config "$RAILWAY_API_SERVICE_ID" source.branch "$HEAD_REF" \
       --service-config "$RAILWAY_API_SERVICE_ID" deploy.sleepApplication true
+    current="$(api_variables)"
   fi
+  # Every run checks, so a failed delete heals on the next push.
+  while read -r key; do
+    railway variable delete "$key" --service "$RAILWAY_API_SERVICE_ID" --environment "$PR_NAME"
+  done < <(jq -r '. as $vars | $ARGS.positional[] | select(in($vars))' --args "${dropped_vars[@]}" <<<"$current")
 }
 
 read_hostname() {

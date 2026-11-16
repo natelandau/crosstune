@@ -237,7 +237,6 @@ class Settings(DatabaseSettings):
     posthog_person_delete_key: SecretStr = SecretStr("")
     revenuecat_project_id: str = ""
     revenuecat_secret_key: SecretStr = SecretStr("")
-    # Independent of the other RevenueCat settings: a pr environment copies development's.
     revenuecat_webhook_auth: SecretStr = SecretStr("")
     stripe_cancel_key: SecretStr = SecretStr("")
     # Off in production, so a purchase made with Stripe test money never grants Premium there.
