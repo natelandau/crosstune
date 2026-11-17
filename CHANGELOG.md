@@ -1,3 +1,39 @@
+## v1.7.0 (2026-11-17)
+
+### Feat
+
+- **site**: offer the iPhone and iPad app from the App Store (#331)
+
+### Fix
+
+- **api**: harden sign-in identity and hosted environment checks (#348)
+- **sync**: bind the settings row id to its account (#347)
+- **billing**: harden withdrawal refunds and RevenueCat rate limits
+- **api**: record client versions at most once an hour per platform
+- **sync**: refuse play sources and loops that name another account's row
+- **apple**: delete leftover export files on sign-out (#344)
+- **web**: isolate accounts at sign-out and strip client IP headers (#343)
+- **api**: bound how long requests hold locks and connections (#342)
+- **api**: harden outbound requests and provider budgets (#341)
+- **api**: bound media tool work and fix split and trim edge cases
+- **media**: stop backward timestamps from lengthening cuts (#337)
+- **api**: hold outside calls and search fallbacks to account limits (#336)
+- **jobs**: hold job output to the storage quota (#335)
+- **api**: keep pasted links and emails out of error reports (#334)
+- **api**: use one database connection per billing lock
+- **api**: redact pydantic input values from error text
+- **web**: mark the Worker's 502 problem no-store
+- **api**: mark unhandled-exception responses no-store
+- correct screen reader output for pitch shift and tune links (#330)
+
+### Refactor
+
+- **apple**: restore the unused-code scan and remove dead code (#351)
+
+### Perf
+
+- **locations**: bound saved location matching during a push (#338)
+
 ## v1.6.0 (2026-11-15)
 
 ### Feat
