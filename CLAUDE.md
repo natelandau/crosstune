@@ -44,19 +44,19 @@ code is the source of truth. A doc holds only what the code cannot say.
   its users. A decision for one feature or screen is not a rule: cut it.
 - A line stays only if all three are true. Framework gotchas are the one
   exception, in a section of their own.
-  1. It binds screens or modules not built yet.
-  2. A future change can break it.
-  3. No code, token, test, or lint enforces it.
+    1. It binds screens or modules not built yet.
+    2. A future change can break it.
+    3. No code, token, test, or lint enforces it.
 - A line that says what a shared component or helper does fails test 3:
   the component enforces it. Name a shared control only to say that a
   screen must use it.
 - Record a rule only when breaking it is likely and costly.
 - Never in a doc:
-  - A log of decisions or changes, or what was tried.
-  - What a screen or module does.
-  - Anything about one release. That goes in the pull request.
-  - A value: a size, a width, a duration.
-  - How the platforms differ in behavior. The code holds that.
+    - A log of decisions or changes, or what was tried.
+    - What a screen or module does.
+    - Anything about one release. That goes in the pull request.
+    - A value: a size, a width, a duration.
+    - How the platforms differ in behavior. The code holds that.
 - What holds now, in the present tense. Why it changed goes in the commit
   message.
 - Written for agents: fragments, bullets, and tables in plain words. A
@@ -98,14 +98,16 @@ code is the source of truth. A doc holds only what the code cannot say.
 - Spell check: `just typos [paths]`.
 - A lint or test recipe skips a gate that passed on the same files. Run
   the recipe again. Never decide yourself that it can be skipped.
+- A gate that skips passed. Never run its tool another way to confirm it.
+- Before you add or change a gate: read `just gate --skill`.
 - Each gate names the tracked paths its command reads with `--path`, in
   its module's justfile. It skips when nothing under those paths changed,
   so a missing path hides a real failure.
-  - A change that makes a gate read a new tracked file or folder outside
-    its paths, such as a config file, a fixture folder, or a shared
-    schema, adds the path in the same change.
-  - A moved or renamed path: update every list that names it.
-  - Not sure whether a gate reads a file: add the path.
+    - A change that makes a gate read a new tracked file or folder outside
+      its paths, such as a config file, a fixture folder, or a shared
+      schema, adds the path in the same change.
+    - A moved or renamed path: update every list that names it.
+    - Not sure whether a gate reads a file: add the path.
 - Web code, while you iterate: from `web/`, `pnpm exec eslint <files>`
   and `pnpm exec prettier --check <files>` on the changed files. Before a
   commit: `just web::lint` once.
@@ -135,9 +137,9 @@ code is the source of truth. A doc holds only what the code cannot say.
 - Drive a running app with Peekaboo (Mac) or Maestro (iOS simulators).
   Commands: `docs/operations.md`, Drive a running app.
 - The developer works on the same Mac:
-  - Never bring the app forward.
-  - Never send synthetic mouse or keyboard events.
-  - Never pass `--foreground` to Peekaboo. Never use `peekaboo agent`.
+    - Never bring the app forward.
+    - Never send synthetic mouse or keyboard events.
+    - Never pass `--foreground` to Peekaboo. Never use `peekaboo agent`.
 - Maestro: always pass `--udid`. Several simulators run at once.
 
 ## Conventions
@@ -148,54 +150,9 @@ code is the source of truth. A doc holds only what the code cannot say.
 - A ref that mirrors the latest render's value is `useLatest` from
   `web/src/ui/useLatest.ts`, named `…Ref`. Never a hand-written ref plus
   effect.
-- A user-facing string that more than one file needs, tests included, is
-  an exported constant beside the component that shows it. Every other
-  file imports it, so a wording change is one edit.
 - A commit to internal tooling, such as the screenshot captures, the
   marketing shell, or a recipe, is `build`, never `feat`. The changelog
   lists only what users see.
-- A commit subject or pull request title names the fix or the feature,
-  never the mechanism: "use one database connection per billing lock",
-  not "run billing lock work on the lock's own connection".
-
-## Tests
-
-Every module: `api/`, `web/`, `site/`, and `apple/`. A test earns its
-place when it catches a bug that no other test catches, at the cheapest
-layer that can see that bug.
-
-| The bug is in                                                       | Test it with                                     |
-| ------------------------------------------------------------------- | ------------------------------------------------ |
-| Logic: parsing, sorting, filtering, formatting, a rule over data    | A unit test of the function                      |
-| Wiring: logic reaching a screen or route, real input, focus, layout | One integration, browser, or UI test per feature |
-| A flow across the API boundary                                      | An end-to-end test                               |
-
-- Logic that only a UI test reaches moves into a function with its own
-  unit test. The UI test keeps one case that shows the screen uses it.
-- One rule, one test. Before you add a test, search for a test of the
-  same rule and add a case to it.
-- Variants of one rule are one table: `it.each`,
-  `@pytest.mark.parametrize`, `@Test(arguments:)`.
-- A test asserts behavior and contracts:
-  - What a person sees and can do.
-  - What is stored or sent.
-  - Accessibility: touch targets, focus, contrast, reduced motion, text
-    size.
-  - The token and shared-control rules.
-- Never a test of a UI or UX choice: a font, color, radius, size,
-  weight, spacing, duration, class name, label, or where a haptic plays.
-  The UI must change with no test failing. Screenshots and review check
-  how things look.
-- Never a test that restates code: a constant's value, a copy string, a
-  call order that a mock records when the order is not the behavior, or
-  what the type checker already rejects.
-- A refactor that changes no behavior changes no test. A test that fails
-  on a refactor checks the implementation: rewrite it against the public
-  surface.
-- A change that removes a behavior removes its tests.
-- A cleanup deletes a test only when another test checks the same rule,
-  or when the test checks a design value. The evidence: mutation testing
-  or per-test coverage. A smaller test count is never the goal.
 
 ## Web tests
 
@@ -211,21 +168,21 @@ fails there at random.
 - `expect.poll` stops after 1 s by default. To wait for an element to
   appear: `expect.element`, which waits for the full test timeout.
 - Under fake timers:
-  - A poll advances the clock by its interval on each miss, so it can
-    fire a timer the test holds. Poll with `pollStill` and `elementStill`
-    from `web/src/test/stillPoll.ts`.
-  - A browser action such as `fill` or `click` advances the clock while it
-    runs. Type with `fillStill` from the same file. Another action that
-    must not move the clock gets a still helper there.
+    - A poll advances the clock by its interval on each miss, so it can
+      fire a timer the test holds. Poll with `pollStill` and `elementStill`
+      from `web/src/test/stillPoll.ts`.
+    - A browser action such as `fill` or `click` advances the clock while it
+      runs. Type with `fillStill` from the same file. Another action that
+      must not move the clock gets a still helper there.
 - Behavior driven by elapsed time or animation frames takes its clock or
   frame source as an input, or the test uses fake timers. No assertion
   depends on how many frames a runner draws.
 - A test passes alone and in any order.
-  - It awaits every write it starts.
-  - It leaves no timer, listener, overlay, or module-level state.
-  - A test database comes from `openTestDb()`, which deletes it after the
-    tree unmounts. Never delete it in an `afterEach`, which runs while the
-    tree is still mounted.
+    - It awaits every write it starts.
+    - It leaves no timer, listener, overlay, or module-level state.
+    - A test database comes from `openTestDb()`, which deletes it after the
+      tree unmounts. Never delete it in an `afterEach`, which runs while the
+      tree is still mounted.
 - A stress recipe, such as `just web::stress`, runs only to reproduce or
   fix a flaky test. Never as a routine step: not per commit, task, or
   branch, and not before a pull request. `just web::stress 5 <files>`

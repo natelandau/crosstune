@@ -47,4 +47,4 @@ fix:
 [group('test')]
 [arg("args", help="Arguments for pytest; any narrows the run")]
 test *args:
-    {{ gate }} scripts-test --argc "$#" uv run --project .. pytest -c pytest.ini "$@"
+    {{ gate }} scripts-test --argc "$#" --junit .cache/junit/scripts-test uv run --project .. pytest -c pytest.ini --junitxml=.cache/junit/scripts-test/pytest.xml "$@"

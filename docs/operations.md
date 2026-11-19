@@ -173,8 +173,10 @@ Hooks, people, and agents share the passes, in every worktree. Off when
 
 - A pass on uncommitted work also covers its commit.
 - `just gate status`: what passed and failed, with no run.
-- `GATE_CACHE_DISABLE=1 just <recipe>` forces a run. After a change to an
-  input that no gate is keyed on: `just gate clear`.
+- `GATE_CACHE_DISABLE=1 just <recipe>` forces a run. Use it after a
+  change to an input that no gate is keyed on.
+- Never `just gate clear` unless the owner asks. It deletes every pass in
+  every worktree.
 - A recipe run with arguments always runs and records nothing. A recipe
   that forwards arguments passes their count with `--argc "$#"` and
   appends them to the command, so the command is written once.
@@ -191,6 +193,9 @@ Hooks, people, and agents share the passes, in every worktree. Off when
   with `--file`. A gate that depends on a tool no lockfile pins, such as
   Node, ffmpeg, or Xcode's Swift, names its version command with
   `--tool`. A hash of both joins the gate name.
+- A test gate whose runner writes JUnit XML names a folder under its
+  module's `.cache/junit/` with `--junit`, and its command writes the
+  report there. The run record then names each slow or flaky test.
 - A gate never reads a service: gate-cache cannot see a service change.
   The one exception is `api-test`. Each run creates and migrates its own
   databases from the tree and drops them after.

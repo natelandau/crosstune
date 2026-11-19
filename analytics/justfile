@@ -24,7 +24,7 @@ check:
 [group('test')]
 [arg("args", help="Arguments for pytest")]
 test *args:
-    {{ gate }} analytics-test {{ paths }} {{ uv_paths }} --argc "$#" uv run --project .. python -m pytest test_plan.py -q "$@"
+    {{ gate }} analytics-test {{ paths }} {{ uv_paths }} --argc "$#" --junit .cache/junit/analytics-test uv run --project .. python -m pytest test_plan.py -q --junitxml=.cache/junit/analytics-test/pytest.xml "$@"
 
 # Push the plan's event descriptions to PostHog
 [group('analytics')]

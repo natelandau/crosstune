@@ -93,25 +93,26 @@ fix:
 [group('test')]
 [arg("args", help="Arguments for vitest; any drops coverage")]
 test *args:
-    {{ gate }} web-test {{ paths }} {{ test_paths }} --argc "$#" --file .env --tool 'node --version' just _test "$@"
+    {{ gate }} web-test {{ paths }} {{ test_paths }} --argc "$#" --file .env --tool 'node --version' --junit .cache/junit/web-test just _test "$@"
 
 # V8 coverage reads Chromium's profiler, which WebKit lacks, so WebKit runs on its own.
 # macOS delivers WebKit's clicks and hovers through the window server, which drops them while
 # the display sleeps, so caffeinate wakes the display and holds it on for the run.
 _test *args:
-    if [ "$#" -gt 0 ]; then exec pnpm vitest run "$@"; fi; awake=""; if [ "$(uname)" = Darwin ]; then awake="caffeinate -u -d"; fi; pnpm vitest run --coverage --project unit --project browser && $awake pnpm vitest run --project browser-webkit
+    if [ "$#" -gt 0 ]; then exec pnpm vitest run "$@"; fi; awake=""; if [ "$(uname)" = Darwin ]; then awake="caffeinate -u -d"; fi; JUNIT_REPORT=.cache/junit/web-test/chromium.xml pnpm vitest run --coverage --project unit --project browser \
+        && JUNIT_REPORT=.cache/junit/web-test/webkit.xml $awake pnpm vitest run --project browser-webkit
 
 # Run only the jsdom unit project
 [group('test')]
 [arg("args", help="Arguments for vitest")]
 test-unit *args:
-    {{ gate }} web-test-unit {{ paths }} {{ test_paths }} --argc "$#" --file .env --tool 'node --version' pnpm vitest run --project unit "$@"
+    {{ gate }} web-test-unit {{ paths }} {{ test_paths }} --argc "$#" --file .env --tool 'node --version' --junit .cache/junit/web-test-unit env JUNIT_REPORT=.cache/junit/web-test-unit/vitest.xml pnpm vitest run --project unit "$@"
 
 # Run only the browser projects: Chromium and WebKit
 [group('test')]
 [arg("args", help="Arguments for vitest")]
 test-browser *args:
-    {{ gate }} web-test-browser {{ paths }} {{ test_paths }} --argc "$#" --file .env --tool 'node --version' pnpm vitest run --project browser --project browser-webkit "$@"
+    {{ gate }} web-test-browser {{ paths }} {{ test_paths }} --argc "$#" --file .env --tool 'node --version' --junit .cache/junit/web-test-browser env JUNIT_REPORT=.cache/junit/web-test-browser/vitest.xml pnpm vitest run --project browser --project browser-webkit "$@"
 
 # Compare the component library with its screenshots
 [group('test')]

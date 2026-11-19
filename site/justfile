@@ -54,11 +54,11 @@ fix:
 [group('test')]
 [arg("args", help="Arguments for vitest")]
 test *args:
-    {{ gate }} site-test {{ paths }} --path brand/ --path analytics/tracking-plan.json --path web/src/features/plan/planCopy.ts --argc "$#" --file .env --tool 'node --version' just _test "$@"
+    {{ gate }} site-test {{ paths }} --path brand/ --path analytics/tracking-plan.json --path web/src/features/plan/planCopy.ts --argc "$#" --file .env --tool 'node --version' --junit .cache/junit/site-test just _test "$@"
 
 _test *args:
     pnpm astro build
-    pnpm vitest run "$@"
+    JUNIT_REPORT=.cache/junit/site-test/vitest.xml pnpm vitest run "$@"
 
 # Run the dev server
 [group('run')]

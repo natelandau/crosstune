@@ -60,12 +60,12 @@ lint: ruff format ty typos contract-check
 [group('test')]
 [arg("args", help="Arguments for pytest; any narrows the run and drops coverage")]
 test *args:
-    {{ media_path }} {{ gate }} api-test {{ paths }} --path .python-version --path compose.yml --path scripts/media-tools.sh --argc "$#" --tool 'ffmpeg -version' just _test "$@"
+    {{ media_path }} {{ gate }} api-test {{ paths }} --path .python-version --path compose.yml --path scripts/media-tools.sh --argc "$#" --tool 'ffmpeg -version' --junit .cache/junit/api-test just _test "$@"
 
 _test *args:
     docker info > /dev/null 2>&1 || { echo "Docker is not running" >&2; exit 1; }
     {{ compose }} up -d --wait postgres-test
-    if [ "$#" -eq 0 ]; then set -- tests/ --cov --cov-config=pyproject.toml --cov-report=xml --cov-report=term; fi; uv run pytest -c pyproject.toml --color=yes "$@"
+    if [ "$#" -eq 0 ]; then set -- tests/ --cov --cov-config=pyproject.toml --cov-report=xml --cov-report=term --junitxml=.cache/junit/api-test/pytest.xml; fi; uv run pytest -c pyproject.toml --color=yes "$@"
 
 # Run the API with reload
 [group('run')]

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Usage: gate-cache.sh NAME [--argc N] [--path PATHSPEC]... [--file PATH]... [--tool COMMAND]...
-#        COMMAND [ARGS...]
+#        [--junit DIR]... COMMAND [ARGS...]
 # Runs a lint or test gate through gate-cache, which skips it when the same gate already
 # passed on the same files git does not ignore, and runs it uncached when CI is set. A
 # checkout whose root tooling environment lacks gate-cache, such as one `just setup` has not
@@ -16,6 +16,10 @@
 # A gate that reads only part of the repository names each tracked path it reads with --path,
 # a git pathspec from the repository root. Its pass then holds while files outside those paths
 # change. A missing path lets the gate skip when it must run, so a path it may read stays in.
+#
+# A test gate names the folder its JUnit reports go to with --junit, relative to the directory
+# the gate runs in, so gate-cache's run record names each slow or flaky test. gate-cache reads
+# only the reports that the run wrote, so a stale report never counts.
 set -euo pipefail
 
 name="$1"
@@ -26,14 +30,17 @@ gate_cache="$root/.venv/bin/gate-cache"
 argc=0
 inputs=()
 scope=()
+junit=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --argc | --path | --file | --tool)
+    --argc | --path | --file | --tool | --junit)
       [[ $# -ge 2 ]] || { printf '%s\n' "gate-cache.sh: $1 needs a value" >&2; exit 2; }
       if [[ "$1" == --argc ]]; then
         argc="$2"
       elif [[ "$1" == --path ]]; then
         scope+=(--path "$2")
+      elif [[ "$1" == --junit ]]; then
+        junit+=(--junit "$2")
       else
         inputs+=("$1" "$2")
       fi
@@ -47,13 +54,20 @@ if [[ "$argc" -ne 0 || ! -x "$gate_cache" ]]; then
   exec "$@"
 fi
 
-# --path needs gate-cache 0.7.0. A checkout that has pulled the lockfile but not synced its
-# environment still runs the gate, uncached, rather than failing on an unknown option.
-if [[ ${#scope[@]} -gt 0 ]]; then
+# --path needs gate-cache 0.7.0 and --junit 0.11.0. A checkout that has pulled the lockfile but
+# not synced its environment still runs the gate, uncached, rather than failing on an unknown
+# option.
+minimum=""
+if [[ ${#junit[@]} -gt 0 ]]; then
+  minimum=0.11.0
+elif [[ ${#scope[@]} -gt 0 ]]; then
+  minimum=0.7.0
+fi
+if [[ -n "$minimum" ]]; then
   version="$("$gate_cache" --version 2> /dev/null || printf '0')"
   version="${version##* }"
-  if [[ "$(printf '%s\n' 0.7.0 "$version" | sort -V | head -1)" != 0.7.0 ]]; then
-    printf '%s\n' "gate-cache.sh: gate-cache $version is older than 0.7.0, running uncached; run uv sync" >&2
+  if [[ "$(printf '%s\n' "$minimum" "$version" | sort -V | head -1)" != "$minimum" ]]; then
+    printf '%s\n' "gate-cache.sh: gate-cache $version is older than $minimum, running uncached; run uv sync" >&2
     exec "$@"
   fi
 fi
@@ -72,4 +86,4 @@ if [[ ${#inputs[@]} -gt 0 ]]; then
   # A hash, not the values, so a secret in an ignored file never reaches a marker.
   name+="@$(printf '%s' "$keys" | shasum -a 256 | cut -c1-12)"
 fi
-exec "$gate_cache" --name "$name" ${scope[@]+"${scope[@]}"} -- "$@"
+exec "$gate_cache" --name "$name" ${scope[@]+"${scope[@]}"} ${junit[@]+"${junit[@]}"} -- "$@"

@@ -1,7 +1,7 @@
 import { playwright } from '@vitest/browser-playwright'
 import { fileURLToPath } from 'node:url'
 import { searchForWorkspaceRoot } from 'vite'
-import { defineConfig, mergeConfig } from 'vitest/config'
+import { configDefaults, defineConfig, mergeConfig } from 'vitest/config'
 import type { BrowserCommand } from 'vitest/node'
 import viteConfig from './vite.config.ts'
 
@@ -10,6 +10,10 @@ import viteConfig from './vite.config.ts'
 // github-actions reporter lists every test that needed one in the job summary, so each stays
 // visible until it is fixed. Locally a failure is never retried.
 const browserRetry = process.env.CI ? 2 : 0
+
+// The test recipes name a JUnit report file so gate-cache can record each test's result. The
+// defaults stay first, since Vitest picks them for the environment, such as GitHub Actions.
+const junitReport = process.env.JUNIT_REPORT
 
 // Answer the requests matching a URL pattern with an empty 204 for as long as a test holds the
 // stub, and count the requests answered, so a test can use a third-party URL, such as an
@@ -75,6 +79,8 @@ export default defineConfig((env) =>
         },
       },
       test: {
+        reporters: junitReport ? [...configDefaults.reporters, 'junit'] : configDefaults.reporters,
+        outputFile: junitReport ? { junit: junitReport } : undefined,
         restoreMocks: true,
         mockReset: true,
         // Node re-reads TZ per Date/Intl call, so this makes a test that formats a date
