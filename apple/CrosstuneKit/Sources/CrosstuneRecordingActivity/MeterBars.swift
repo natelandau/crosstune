@@ -2,6 +2,9 @@
 public enum MeterBars {
     public static let count = 10
     public static let steps: UInt8 = 8
+    /// Speech and a violin at arm's length sit well under full scale, so levels are lifted to
+    /// fill the height. The in-app waveform uses the same gain, so both meters read alike.
+    public static let gain: Float = 2.5
 
     /// Reduces levels from 0 to 1, oldest first, to `count` bars with the newest at the end. Each
     /// bar is the peak of its slice of the levels.
@@ -18,7 +21,7 @@ public enum MeterBars {
     /// Rounds up so any sound shows as at least one step.
     private static func bar(_ level: Float) -> UInt8 {
         guard !level.isNaN else { return 0 }
-        let clamped = min(max(level, 0), 1)
+        let clamped = min(max(level * gain, 0), 1)
         return min(steps, UInt8((clamped * Float(steps)).rounded(.up)))
     }
 }

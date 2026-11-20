@@ -10,20 +10,6 @@
 	<string>$(APP_STORE_ID)</string>
 	<key>CrosstuneStorageOrigin</key>
 	<string>$(CROSSTUNE_STORAGE_ORIGIN)</string>
-	<key>ITSAppUsesNonExemptEncryption</key>
-	<false/>
-	<key>NSAppleMusicUsageDescription</key>
-	<string>Crosstune plays your Apple Music recordings in full.</string>
-	<key>NSCameraUsageDescription</key>
-	<string>Crosstune scans written music for your tunes.</string>
-	<key>NSLocationUsageDescription</key>
-	<string>Crosstune saves the location where you make a recording, so you can later find recordings by where you made them.</string>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Crosstune saves the location where you make a recording, so you can later find recordings by where you made them.</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>Crosstune records and tunes what you play.</string>
-	<key>NSSupportsLiveActivities</key>
-	<true/>
 	<key>PostHogHost</key>
 	<string>$(POSTHOG_HOST)</string>
 	<key>PostHogProjectToken</key>

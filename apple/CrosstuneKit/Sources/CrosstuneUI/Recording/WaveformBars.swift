@@ -1,4 +1,5 @@
 import CrosstuneDesign
+import CrosstuneRecordingActivity
 import SwiftUI
 
 /// The levels behind the live waveform and where each bar goes. Scrolling keeps the newest
@@ -16,9 +17,7 @@ struct WaveformBars: Equatable, Sendable {
     /// A silent bar still shows, so the waveform reads as listening rather than empty. No shorter
     /// than a bar is wide, the least a round-capped line can draw.
     static let minimumBar: CGFloat = barWidth
-    /// Speech and a violin at arm's length sit well under full scale, so levels are lifted to
-    /// fill the height.
-    static let gain: CGFloat = 2.5
+    static let gain = CGFloat(MeterBars.gain)
 
     let mode: Mode
     private(set) var levels: [Float] = []
