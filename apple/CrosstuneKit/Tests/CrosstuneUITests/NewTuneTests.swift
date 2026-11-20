@@ -26,7 +26,7 @@ import Testing
                     id: settingsID(clerkUserID: store.userID), createdAt: noon, audioQuality: "standard",
                     instruments: ["violin"]), at: noon)
         }
-        return (store, AddedTuneUndo(store: store, analytics: sink.client))
+        return (store, AddedTuneUndo.held(store: store, analytics: sink.client))
     }
 
     private func draft(_ added: AddedTuneUndo, source: ActionSource = .catalog) -> NewTuneDraft {
