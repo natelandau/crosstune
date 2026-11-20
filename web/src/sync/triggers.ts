@@ -1,6 +1,7 @@
 import { liveQuery } from 'dexie'
 import { countUnsentChanges } from '../db/outbox'
 import type { CrosstuneDb } from '../db/schema'
+import { persistStorage } from '../platform/storage'
 import type { SyncEngine } from './types'
 
 // Long enough to fold a burst of edits into one push, short enough to feel immediate.
@@ -16,13 +17,20 @@ export interface TriggerOptions {
   target?: Window
   doc?: Document
   debounceMs?: number
+  persist?: () => void
 }
 
 export function startSyncTriggers(
   engine: SyncEngine,
   db: CrosstuneDb,
-  { target = window, doc = document, debounceMs = WRITE_DEBOUNCE_MS }: TriggerOptions = {},
+  {
+    target = window,
+    doc = document,
+    debounceMs = WRITE_DEBOUNCE_MS,
+    persist = persistStorage,
+  }: TriggerOptions = {},
 ): () => void {
+  let askedToPersist = false
   let processing = false
   let pollTimer: ReturnType<typeof setInterval> | null = null
 
@@ -49,6 +57,11 @@ export function startSyncTriggers(
   const subscription = liveQuery(() => countUnsentChanges(db)).subscribe({
     next(count) {
       if (count === 0) return
+      // Unsent edits exist only on this device, so eviction would lose them.
+      if (!askedToPersist) {
+        askedToPersist = true
+        persist()
+      }
       if (timer) clearTimeout(timer)
       timer = setTimeout(() => {
         timer = null
