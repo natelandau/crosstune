@@ -2,6 +2,7 @@ import {
   appendChunk,
   beginCapture,
   cancelCapture,
+  clearDownloadedBlobs,
   fillCapturedPlace,
   finishCapture,
   type RecordingPlace,
@@ -13,6 +14,7 @@ import { getStorage } from '../../db/meta'
 import { CHUNK_MS, pickMimeType, storedAudioQuality } from '../../db/recordings'
 import type { CrosstuneDb } from '../../db/schema'
 import { setAudioSessionType } from '../../platform/audioSession'
+import { isQuotaError } from '../../platform/storage'
 import { encodePeaks, fitPeaks, peakByte } from '../waveform/peaks'
 import { createCapture, type Capture, type RecorderLike, type TrackLike } from './capture'
 
@@ -102,6 +104,8 @@ const SAVE_FAILED =
 export const PARTIAL_SAVE = 'Part of this recording could not be saved.'
 const DISCARD_FAILED = 'The recording could not be discarded.'
 export const SIZE_LIMIT = 'This recording reached the size limit and was saved.'
+export const OUT_OF_STORAGE =
+  'This device is out of storage, so the recording stopped and was saved.'
 
 // Stopping short of the server's per-file cap leaves room for the chunk the recorder
 // flushes on stop, so the finished recording can still upload.
@@ -145,6 +149,7 @@ export function createRecordingSession<S extends MediaStreamLike>(
   let recordedAt = ''
   let bytesWritten = 0
   let sizeLimited = false
+  let outOfStorage = false
   let interrupted = false
   // Set only if the fix settles before the recording ends; a later one is written to the saved
   // recording instead, or dropped.
@@ -169,6 +174,35 @@ export function createRecordingSession<S extends MediaStreamLike>(
     if (ending) return
     sizeLimited = true
     void finishRecording()
+  }
+
+  /** What a saved recording says about how it ended, most important first. */
+  const savedNotice = (writeFailed: boolean): string | null => {
+    if (outOfStorage) return OUT_OF_STORAGE
+    if (writeFailed) return PARTIAL_SAVE
+    if (sizeLimited) return SIZE_LIMIT
+    return null
+  }
+
+  /** Stores a chunk. A full device first gives up audio the server can send again; when even
+   * that leaves no room, the recording stops so the user does not keep playing into nothing. */
+  const storeChunk = async (idx: number, blob: Blob) => {
+    try {
+      await appendChunk(db, recordingId, idx, blob)
+    } catch (error) {
+      if (!isQuotaError(error)) throw error
+      // A device this full can refuse the clear too; the retry below still decides the stop.
+      await clearDownloadedBlobs(db).catch(() => {})
+      try {
+        await appendChunk(db, recordingId, idx, blob)
+      } catch (retryError) {
+        if (isQuotaError(retryError) && !ending) {
+          outOfStorage = true
+          void finishRecording()
+        }
+        throw retryError
+      }
+    }
   }
 
   const pauseClock = () => {
@@ -243,7 +277,7 @@ export function createRecordingSession<S extends MediaStreamLike>(
       } finally {
         unlock()
       }
-      emit({ phase: 'saved', error: writeFailed ? PARTIAL_SAVE : sizeLimited ? SIZE_LIMIT : null })
+      emit({ phase: 'saved', error: savedNotice(writeFailed) })
     })
     return ending
   }
@@ -389,7 +423,7 @@ export function createRecordingSession<S extends MediaStreamLike>(
         if ((sizeCap !== null && bytesWritten >= sizeCap) || elapsed() >= CAPTURE_STOP_MS) {
           stopAtLimit()
         }
-        return appendChunk(db, recordingId, idx, blob)
+        return storeChunk(idx, blob)
       },
       onState: (state) => {
         if (ending) return

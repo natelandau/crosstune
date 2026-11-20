@@ -1,4 +1,4 @@
-import type { RecordingFile } from '../../db/recordings'
+import { type RecordingFile, withLocalAudioAll } from '../../db/recordings'
 import type { CrosstuneDb } from '../../db/schema'
 import type { LocalRecording } from '../../db/types'
 import { waitsForCut } from '../../domain/recordingLimits'
@@ -56,9 +56,12 @@ export async function loadAudioFile(
   row: Pick<LocalRecording, 'id' | 'split_from_id' | 'deleted_at' | 'state'> | null,
 ): Promise<RecordingFile | undefined> {
   if (row === null) return undefined
-  const [own, parent] = await Promise.all([
-    db.recording_files.get(row.id),
-    row.split_from_id ? db.recording_files.get(row.split_from_id) : undefined,
-  ])
+  const [own, parent] = await withLocalAudioAll(
+    db,
+    await Promise.all([
+      db.recording_files.get(row.id),
+      row.split_from_id ? db.recording_files.get(row.split_from_id) : undefined,
+    ]),
+  )
   return audioFileFor(row, own, parent)
 }

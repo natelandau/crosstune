@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from 'react'
 import { useAnalytics } from '../usage/AnalyticsProvider'
+import { reportDeviceStorage } from '../usage/deviceStorage'
 import { createApiClient } from '../api/client'
 import { useAuthSession } from '../auth/AuthContext'
 import { API_ORIGIN } from '../config'
@@ -52,6 +53,14 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       engine.stop()
     }
   }, [engine, db])
+  const reportedStorage = useRef(false)
+  useEffect(() => {
+    if (reportedStorage.current) return
+    reportedStorage.current = true
+    reportDeviceStorage(db, analytics).catch((error: unknown) => {
+      console.warn('analytics: storage check failed', error)
+    })
+  }, [db, analytics])
   // A session admitted without Clerk has no token, so every run until Clerk loads fails as
   // offline and the engine sits in its backoff, which can hold the first real sync for a minute.
   const wasOffline = useRef(offline)

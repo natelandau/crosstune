@@ -22,6 +22,8 @@ export const rejectedChanges = (count: number) =>
     : `${count} changes were rejected by the server and are only on this device.`
 export const SYNC_NOW = 'Sync now'
 export const audioOnDevice = (bytes: number) => `${formatBytes(bytes)} of audio on this device`
+export const DOWNLOADS_HELD_FOR_SPACE =
+  'Some recordings were not downloaded because this device is low on storage.'
 export const KEEP_OFFLINE_HELP =
   'Your recordings are always saved to your account and show up on every device you sign in on. A recording is kept on this device once you play it here. Turn this on to download every recording ahead of time, so all of them play even with no signal.'
 

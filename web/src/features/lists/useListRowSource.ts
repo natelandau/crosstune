@@ -3,6 +3,7 @@ import type { PlayFirst } from '../../api/vocabulary'
 import { useRecordingsPlayable } from '../../billing/usePlan'
 import { waitingParentIds } from '../../commands/recordings'
 import { useDb } from '../../db/DbProvider'
+import { withLocalAudioAll } from '../../db/recordings'
 import { holdsSplitAudio } from '../../domain/recordingLimits'
 import type { CrosstuneDb } from '../../db/schema'
 import type { LocalRecordingLink } from '../../db/types'
@@ -29,7 +30,9 @@ export async function readTuneMedia(
   const sources = await readTuneSources(db, tuneIds)
   const recordings = [...sources.recordings.values()].flat()
   const [files, tunes, waiting] = await Promise.all([
-    db.recording_files.bulkGet(recordings.map((recording) => recording.id)),
+    db.recording_files
+      .bulkGet(recordings.map((recording) => recording.id))
+      .then((files) => withLocalAudioAll(db, files)),
     db.tunes.bulkGet([...tuneIds]),
     waitingParentIds(db),
   ])

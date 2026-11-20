@@ -4,11 +4,19 @@ import {
   RECORDING_RANGES,
   type RecordingPrecision,
 } from '../api/vocabulary'
-import type { LocalFileState, RecordingFile } from '../db/recordings'
+import {
+  deleteChunks,
+  hasLocalAudio,
+  holdsChunkedAudio,
+  joinChunks,
+  type LocalFileState,
+  type RecordingFile,
+} from '../db/recordings'
 import type { CrosstuneDb } from '../db/schema'
 import type { LocalRecording } from '../db/types'
 import type { Undo } from './bulk'
 import { holdsSplitAudio, waitsForCut } from '../domain/recordingLimits'
+import { isQuotaError } from '../platform/storage'
 import { localIsoDate, localIsoTime } from '../text/localDate'
 import {
   LINK_NOT_FOUND,
@@ -189,21 +197,24 @@ export async function finishCapture(
     const file = await db.recording_files.get(id)
     // A repeat finish, or one after cancelCapture, has nothing left to assemble.
     if (!file || file.local_state !== 'capturing') return null
-    const chunks = await db.recording_chunks.where('recording_id').equals(id).sortBy('idx')
-    const blob = new Blob(
-      chunks.map((c) => c.blob),
-      { type: fields.mime },
-    )
+    let bytes = 0
+    await db.recording_chunks
+      .where('recording_id')
+      .equals(id)
+      .each((chunk) => {
+        bytes += chunk.blob.size
+      })
+    // The chunks stay as the stored audio: joining them here would need room for a second
+    // copy, and a full device would then fail the save. joinCapturedChunks joins them later.
     await db.recording_files.put(
       emptyFile(id, {
-        blob,
         mime: fields.mime,
-        bytes: blob.size,
+        bytes,
+        chunked: true,
         local_duration_ms: fields.durationMs,
         peaks: fields.peaks,
       }),
     )
-    await db.recording_chunks.where('recording_id').equals(id).delete()
     return putRecordingRow(db, id, {
       tuneId: fields.tuneId,
       source: 'microphone',
@@ -242,13 +253,33 @@ export async function fillCapturedPlace(
   })
 }
 
+/**
+ * Replaces a finished capture's chunks with one stored blob, which reads faster. The write
+ * needs room for a second copy of the audio until it commits, so a quota error leaves the
+ * chunks as they are.
+ */
+export async function joinCapturedChunks(db: CrosstuneDb, id: string): Promise<void> {
+  try {
+    await db.transaction('rw', db.recording_files, db.recording_chunks, async () => {
+      const file = await db.recording_files.get(id)
+      if (!holdsChunkedAudio(file)) return
+      const blob = await joinChunks(db.recording_files, db.recording_chunks, file)
+      // A modify, not a put, so a state change that lands first is kept.
+      await db.recording_files.update(id, { blob, bytes: blob.size, chunked: false })
+      await deleteChunks(db, id)
+    })
+  } catch (error) {
+    if (!isQuotaError(error)) throw error
+  }
+}
+
 export async function cancelCapture(db: CrosstuneDb, id: string): Promise<void> {
   await recordingTx(db, async () => {
     const file = await db.recording_files.get(id)
     // A file that already finished (or was already cancelled) owns nothing here;
     // deleting it now would orphan the recordings row finishCapture just created.
     if (file && file.local_state !== 'capturing') return
-    await db.recording_chunks.where('recording_id').equals(id).delete()
+    await deleteChunks(db, id)
     if (file) await db.recording_files.delete(id)
   })
 }
@@ -462,7 +493,7 @@ async function tombstoneRecording(
   await tombstone(db, 'recordings', id, at, options)
   await tombstoneWhere(db, 'recording_loops', 'recording_id', id, at)
   await db.recording_files.delete(id)
-  await db.recording_chunks.where('recording_id').equals(id).delete()
+  await deleteChunks(db, id)
 }
 
 /** Delete a recording, refused while a piece split from it still plays from its audio. */
@@ -587,11 +618,14 @@ export async function storeDownloadedBlob(
   rev: string,
   startMs: number,
 ): Promise<void> {
-  await db.transaction('rw', db.recording_files, async () => {
+  await db.transaction('rw', db.recording_files, db.recording_chunks, async () => {
     const file = (await db.recording_files.get(id)) ?? emptyFile(id)
+    // The download replaces a captured original the server already holds.
+    await deleteChunks(db, id)
     await db.recording_files.put({
       ...file,
       blob,
+      chunked: false,
       mime,
       bytes: blob.size,
       local_state: 'downloaded',
@@ -619,7 +653,7 @@ export async function storePeaks(
  * actually serve back (its recording is `ready`) exists anywhere else; a recording
  * still queued, blocked, failed, or not yet transcoded is the only copy. */
 export async function clearDownloadedBlobs(db: CrosstuneDb): Promise<void> {
-  await db.transaction('rw', db.recording_files, db.recordings, async () => {
+  await db.transaction('rw', db.recording_files, db.recording_chunks, db.recordings, async () => {
     // Keys only, so the blobs being dropped are never read.
     const ids = await db.recording_files
       .where('local_state')
@@ -629,7 +663,8 @@ export async function clearDownloadedBlobs(db: CrosstuneDb): Promise<void> {
     for (const [i, id] of ids.entries()) {
       const row = rows[i]
       if (!row || row.deleted_at || row.state !== 'ready') continue
-      await db.recording_files.update(id, { blob: null, bytes: 0 })
+      await db.recording_files.update(id, { blob: null, bytes: 0, chunked: false })
+      await deleteChunks(db, id)
     }
   })
 }
@@ -639,10 +674,8 @@ export async function localAudioBytes(db: CrosstuneDb): Promise<number> {
   // A cursor over the blob-bearing rows only, rather than materializing the whole table:
   // there is no index for "has a blob", so this still visits every row, but never holds
   // more than one in memory at a time.
-  await db.recording_files
-    .filter((f) => f.blob !== null)
-    .each((f) => {
-      bytes += f.bytes
-    })
+  await db.recording_files.filter(hasLocalAudio).each((f) => {
+    bytes += f.bytes
+  })
   return bytes
 }

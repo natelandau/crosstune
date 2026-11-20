@@ -115,6 +115,10 @@ export interface RecordingFile {
   /** The upload left for the service worker, or null when the page sends its own. A row
    * stored before hand-offs existed has no field, which also means none. */
   handoff?: UploadHandoff | null
+  /** The audio is still the capture's chunks, with `blob` null. Joining them into one stored
+   * blob copies every byte, so a capture keeps its chunks until that copy fits. A row stored
+   * before this field existed has none, which also means not chunked. */
+  chunked?: boolean
 }
 
 /** A file whose upload is left for the service worker. */
@@ -135,9 +139,74 @@ export function modifyWhileHeld(
     .modify(change)
 }
 
-/** A file whose bytes are all here: a capture in progress or a download without a blob is not. */
+/** A file whose bytes are all here: a capture in progress or a download without a blob is not.
+ * A chunked file counts only once `withLocalAudio` has joined its chunks into `blob`. */
 export function isComplete(file: RecordingFile): file is RecordingFile & { blob: Blob } {
   return file.blob instanceof Blob && file.local_state !== 'capturing'
+}
+
+/** A finished capture whose audio is still its chunks, with no joined blob stored. */
+export function holdsChunkedAudio(file: RecordingFile | null | undefined): file is RecordingFile {
+  return !!file && !!file.chunked && file.blob === null && file.local_state !== 'capturing'
+}
+
+/** Whether this device holds the file's audio, as one blob or as a finished capture's chunks. */
+export function hasLocalAudio(file: RecordingFile | null | undefined): file is RecordingFile {
+  return !!file && (file.blob !== null || holdsChunkedAudio(file))
+}
+
+/** A chunked file's chunks joined into one blob, in order. The join holds references to the
+ * stored chunks, so it copies nothing. */
+export async function joinChunks(
+  files: Table<RecordingFile, string>,
+  chunks: Table<RecordingChunk, [string, number]>,
+  file: RecordingFile,
+): Promise<Blob> {
+  const rows = await chunks.where('recording_id').equals(file.id).sortBy('idx')
+  // A stored join that committed after `file` was read moved the audio into the row's blob.
+  if (rows.length === 0 && file.bytes > 0) {
+    const current = await files.get(file.id)
+    if (current?.blob) return current.blob
+  }
+  return new Blob(
+    rows.map((row) => row.blob),
+    { type: file.mime ?? rows[0]?.blob.type ?? '' },
+  )
+}
+
+/** Deletes a recording's chunks. Call inside a transaction that holds `recording_chunks`. */
+export async function deleteChunks(db: CrosstuneDb, id: string): Promise<void> {
+  await db.recording_chunks.where('recording_id').equals(id).delete()
+}
+
+/**
+ * The file with a chunked capture's chunks joined into `blob`, for code that reads the audio.
+ * A joined row is a view: writing it back would store the copy that chunking avoids.
+ */
+export async function withLocalAudio<T extends RecordingFile | undefined>(
+  db: CrosstuneDb,
+  file: T,
+): Promise<T> {
+  return holdsChunkedAudio(file)
+    ? ({ ...file, blob: await joinChunks(db.recording_files, db.recording_chunks, file) } as T)
+    : file
+}
+
+/** `withLocalAudio` for each of `files`. */
+export function withLocalAudioAll<T extends RecordingFile | undefined>(
+  db: CrosstuneDb,
+  files: readonly T[],
+): Promise<T[]> {
+  return Promise.all(files.map((file) => withLocalAudio(db, file)))
+}
+
+/** The file's audio as one blob, or null when this device holds none. */
+export async function readLocalAudio(
+  db: CrosstuneDb,
+  file: RecordingFile | null | undefined,
+): Promise<Blob | null> {
+  if (!hasLocalAudio(file)) return null
+  return file.blob ?? joinChunks(db.recording_files, db.recording_chunks, file)
 }
 
 export interface RecordingChunk {

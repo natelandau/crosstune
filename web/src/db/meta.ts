@@ -8,6 +8,8 @@ const META_STORAGE = 'storage'
 /** A point inside the account's country, from the API. */
 const META_COUNTRY_CENTER = 'country_center'
 export const META_KEEP_OFFLINE = 'keep_offline'
+/** Whether the last Keep offline pass left recordings out to keep room for new recordings. */
+const META_DOWNLOADS_HELD_FOR_SPACE = 'downloads_held_for_space'
 /** Which recordings the Recordings tab lists: 'all', 'own', or an import source. */
 export const META_RECORDINGS_ORIGIN = 'recordings_origin'
 export const META_SCAN_INVERT = 'scan_invert'
@@ -89,6 +91,17 @@ export function getKeepOffline(db: CrosstuneDb): Promise<boolean> {
 
 export function setKeepOffline(db: CrosstuneDb, on: boolean): Promise<void> {
   return setMeta(db, META_KEEP_OFFLINE, on)
+}
+
+export function getDownloadsHeldForSpace(db: CrosstuneDb): Promise<boolean> {
+  return getMeta(db, META_DOWNLOADS_HELD_FOR_SPACE, false)
+}
+
+export async function setDownloadsHeldForSpace(db: CrosstuneDb, held: boolean): Promise<void> {
+  // Only a change is written, so a pass that ends as it began wakes no live query.
+  if ((await getDownloadsHeldForSpace(db)) !== held) {
+    await setMeta(db, META_DOWNLOADS_HELD_FOR_SPACE, held)
+  }
 }
 
 /** Whether this device shows scans as light ink on dark paper. */

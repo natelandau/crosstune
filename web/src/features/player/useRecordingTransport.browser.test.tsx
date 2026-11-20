@@ -1,7 +1,7 @@
 import { renderHook } from '@testing-library/react'
 import { act, type ReactNode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { storeDownloadedBlob, updateRecording } from '../../commands/recordings'
+import { joinCapturedChunks, storeDownloadedBlob, updateRecording } from '../../commands/recordings'
 import { createTune } from '../../commands/tunes'
 import { newId } from '../../commands/write'
 import type { RecordingFile } from '../../db/recordings'
@@ -24,6 +24,7 @@ import type { EngineClock, PlaybackEngine } from './playbackEngine'
 import { PlaybackEngineContext } from './PlaybackEngineProvider'
 import { SPEED_BADGE } from './transportCopy'
 import { useRecordingTransport } from './useRecordingTransport'
+import { loadAudioFile } from './playbackWindow'
 import type { PlayStart } from './usePlayer'
 import { DEFAULT_ISOLATE, isolateToPatch } from './isolate/isolateSetting'
 
@@ -41,10 +42,8 @@ interface Props {
 }
 
 async function read(id: string): Promise<Props> {
-  return {
-    recording: (await db.recordings.get(id))!,
-    file: (await db.recording_files.get(id)) ?? null,
-  }
+  const recording = (await db.recordings.get(id))!
+  return { recording, file: (await loadAudioFile(db, recording)) ?? null }
 }
 
 /** A recording the server holds and this device does not, so playing it must download it. */
@@ -130,6 +129,20 @@ describe('useRecordingTransport', () => {
     rerender(await read(id))
     await expect.poll(() => load.mock.calls.length).toBe(2)
     expect(load.mock.calls[1]![4]).toEqual({ keepLoop: true })
+    await expect.poll(() => playback.getState()).toMatchObject({ playing: true, positionMs: 1500 })
+  })
+
+  it('loads the joined blob, in place, when a join replaces the chunks it plays from', async () => {
+    const id = await captureRecording(db, { tuneId, durationMs: 3000, label: 'Jam' })
+    const playback = fakePlaybackEngine()
+    const load = vi.spyOn(playback, 'load')
+    const { result, rerender } = await setup(id, { playback })
+    await expect.poll(() => result.current.state.playing).toBe(true)
+    act(() => playback.seek(1500))
+
+    await joinCapturedChunks(db, id)
+    rerender(await read(id))
+    await expect.poll(() => load.mock.calls.length).toBe(2)
     await expect.poll(() => playback.getState()).toMatchObject({ playing: true, positionMs: 1500 })
   })
 

@@ -406,6 +406,11 @@ export interface EventProps {
   purchase_failed: { period: PurchasePeriod; reason: PurchaseFailure }
   upload_failed: { failure_reason: FailureReason; origin: Origin }
   sync_failed: { failure_reason: FailureReason }
+  device_storage_checked: {
+    storage_persisted: boolean
+    recordings_waiting: CountBucket
+    storage_free: BytesBucket
+  }
   export_completed: { format: ExportFormat }
   export_failed: { format: ExportFormat; failure_reason: FailureReason }
   recording_exported: {

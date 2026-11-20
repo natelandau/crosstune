@@ -117,7 +117,9 @@ export function useRecordingTransport({
       URL.revokeObjectURL(url)
       setSrc(null)
     }
-  }, [recording.id, hasBlob, file?.blob_rev, file?.blob_start_ms, blobRef])
+    // A join replaces a capture's chunks with one stored blob and deletes the chunks the
+    // current url reads, so `chunked` is part of the identity.
+  }, [recording.id, hasBlob, file?.blob_rev, file?.blob_start_ms, file?.chunked, blobRef])
 
   // The exact fields playbackWindow reads, named here so adding one it reads without adding
   // it here is a visible omission rather than a silently missed dependency.
@@ -148,7 +150,7 @@ export function useRecordingTransport({
   // effect has had a chance to load it. Comparing the two tells the effects below whether the
   // recording they would adjust is the one actually loaded, or one already superseded and
   // about to be replaced by the load this same render also triggers.
-  const blobIdentity = `${recording.id}:${hasBlob}:${file?.blob_rev ?? ''}:${blobStartMs}`
+  const blobIdentity = `${recording.id}:${hasBlob}:${file?.blob_rev ?? ''}:${blobStartMs}:${file?.chunked ?? false}`
   const loadedBlobIdentity = useRef<string | null>(null)
 
   // Every recording reaches the player from a Play tap, so its first url loads and plays it.

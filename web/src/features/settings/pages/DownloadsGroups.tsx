@@ -1,6 +1,7 @@
 import { KEEP_OFFLINE_LABEL } from '../recordingCopy'
 import {
   DOWNLOADS,
+  DOWNLOADS_HELD_FOR_SPACE,
   KEEP_OFFLINE_HELP,
   REMOVE_DOWNLOADS,
   REMOVE_DOWNLOADS_HELP,
@@ -14,7 +15,12 @@ import { Switch } from '../../../ui/form/Switch'
 export function DownloadsGroups({ audio }: { audio: RecordingSettings }) {
   return (
     <>
-      <Group header={DOWNLOADS} help={KEEP_OFFLINE_HELP} error={audio.keepError ?? undefined}>
+      <Group
+        header={DOWNLOADS}
+        help={KEEP_OFFLINE_HELP}
+        footer={audio.downloadsHeldForSpace ? DOWNLOADS_HELD_FOR_SPACE : undefined}
+        error={audio.keepError ?? undefined}
+      >
         <Switch
           label={KEEP_OFFLINE_LABEL}
           isSelected={audio.keepOffline}

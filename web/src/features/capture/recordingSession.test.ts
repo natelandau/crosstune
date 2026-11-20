@@ -9,18 +9,22 @@ import {
 } from '../../domain/recordingLimits'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
+import { recordingFile, recordingRow } from '../../test/rows'
 import { FakeRecorder, FakeTrack, fakeStream, LAST_CHUNK } from '../../test/fakeMedia'
 import { parsePeaks } from '../waveform/peaks'
 import {
   captureBitrate,
   createRecordingSession,
   LATE_FIX_MS,
+  OUT_OF_STORAGE,
   PARTIAL_SAVE,
   SIZE_LIMIT,
   type MediaStreamLike,
   type RecordingSessionDeps,
   type RecordingSnapshot,
 } from './recordingSession'
+
+const full = () => new DOMException('No room', 'QuotaExceededError')
 
 /** A clock whose `every` timers fire in order as `advance` steps its own notion of `now`. */
 function fakeTimerClock(startAt: number) {
@@ -260,6 +264,46 @@ describe('createRecordingSession finish and cancel', () => {
     expect(track.stop).toHaveBeenCalled()
     expect(releaseLock).toHaveBeenCalledTimes(1)
     expect(releaseWakeLock).toHaveBeenCalledTimes(1)
+  })
+
+  it('frees downloaded audio and goes on recording when a chunk does not fit', async () => {
+    await db.recordings.put(recordingRow('downloaded', { state: 'ready' }))
+    await db.recording_files.put(
+      recordingFile('downloaded', { blob: new Blob(['xyz']), bytes: 3, local_state: 'downloaded' }),
+    )
+    const { session, recorders } = setup()
+    await session.start()
+    vi.spyOn(db.recording_chunks, 'put').mockRejectedValueOnce(full())
+    recorders[0]!.emit('early')
+    await vi.waitFor(async () => expect(await db.recording_chunks.count()).toBe(1))
+    expect(session.snapshot().phase).toBe('recording')
+    expect((await db.recording_files.get('downloaded'))?.blob).toBeNull()
+    await session.finish()
+    expect(session.snapshot()).toMatchObject({ phase: 'saved', error: null })
+  })
+
+  it.each([
+    ['freeing downloads still leaves no room', false],
+    ['the device refuses even the freeing', true],
+  ])('stops and keeps the recording when %s', async (_, clearFails) => {
+    const { session, recorders, releaseLock } = setup()
+    await session.start()
+    recorders[0]!.emit('early')
+    await vi.waitFor(async () => expect(await db.recording_chunks.count()).toBe(1))
+    vi.spyOn(db.recording_chunks, 'put').mockRejectedValue(full())
+    if (clearFails)
+      vi.spyOn(db.recording_files, 'where').mockImplementation(() => {
+        throw full()
+      })
+    recorders[0]!.emit('late')
+    await vi.waitFor(() => expect(session.snapshot().phase).toBe('saved'))
+    expect(session.snapshot().error).toBe(OUT_OF_STORAGE)
+    expect(recorders[0]?.state).toBe('inactive')
+    expect(releaseLock).toHaveBeenCalledTimes(1)
+    expect(await db.recording_files.get('rec_1')).toMatchObject({
+      local_state: 'captured',
+      bytes: 'early'.length,
+    })
   })
 
   it('discards the recording on cancel and releases everything once', async () => {

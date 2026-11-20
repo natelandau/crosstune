@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { RECORDING_LIMITS } from '../api/vocabulary'
 import { pendingFor } from '../db/outbox'
 import { getKeepOffline, setKeepOffline } from '../db/meta'
+import { hasLocalAudio, readLocalAudio } from '../db/recordings'
 import type { CrosstuneDb } from '../db/schema'
 import { openTestDb } from '../test/db'
 import { loopRow } from '../test/rows'
@@ -25,6 +26,7 @@ import {
   deleteRecordings,
   fillCapturedPlace,
   finishCapture,
+  joinCapturedChunks,
   localAudioBytes,
   retryUpload,
   setFileState,
@@ -72,16 +74,17 @@ describe('defaultRecordingLabel', () => {
 })
 
 describe('capture', () => {
-  it('assembles chunks into one blob and queues the synced row', async () => {
+  it('keeps the chunks as the stored audio and queues the synced row', async () => {
     const id = await captured()
     const file = await db.recording_files.get(id)
     expect(file).toMatchObject({
       local_state: 'captured',
       bytes: 4,
       mime: 'audio/mp4',
+      chunked: true,
+      blob: null,
     })
-    expect(await file?.blob?.text()).toBe('abcd')
-    expect(await db.recording_chunks.where('recording_id').equals(id).count()).toBe(0)
+    expect(await (await readLocalAudio(db, file))?.text()).toBe('abcd')
     const row = await db.recordings.get(id)
     expect(row).toMatchObject({
       tune_id: null,
@@ -285,9 +288,33 @@ describe('capture', () => {
       peaks: null,
     })
     const file = await db.recording_files.get(id)
-    expect(await file?.blob?.text()).toBe('abcd')
+    expect(await (await readLocalAudio(db, file))?.text()).toBe('abcd')
     expect(file?.bytes).toBe(4)
     expect((await db.recordings.get(id))?.position).toBe(position)
+  })
+
+  it('joins a finished capture into one blob, and keeps the chunks when the copy does not fit', async () => {
+    const id = await captured()
+    const full = vi
+      .spyOn(db.recording_files, 'update')
+      .mockRejectedValueOnce(new DOMException('No room', 'QuotaExceededError'))
+    await joinCapturedChunks(db, id)
+    full.mockRestore()
+    expect(await db.recording_files.get(id)).toMatchObject({ chunked: true, blob: null })
+    expect(await db.recording_chunks.where('recording_id').equals(id).count()).toBe(2)
+
+    await joinCapturedChunks(db, id)
+    const file = await db.recording_files.get(id)
+    expect(file).toMatchObject({ chunked: false, bytes: 4 })
+    expect(await file?.blob?.text()).toBe('abcd')
+    expect(await db.recording_chunks.where('recording_id').equals(id).count()).toBe(0)
+  })
+
+  it('reads the joined audio for a file read before a join that removed its chunks', async () => {
+    const id = await captured()
+    const before = await db.recording_files.get(id)
+    await joinCapturedChunks(db, id)
+    expect(await (await readLocalAudio(db, before))?.text()).toBe('abcd')
   })
 
   it('leaves a finished recording alone when cancelCapture races it', async () => {
@@ -323,7 +350,7 @@ describe('capture', () => {
   it('writes nothing for a chunk that arrives once the capture has finished', async () => {
     const id = await captured()
     await appendChunk(db, id, 5, new Blob(['x'], { type: 'audio/mp4' }))
-    expect(await db.recording_chunks.where('recording_id').equals(id).count()).toBe(0)
+    expect(await db.recording_chunks.get([id, 5])).toBeUndefined()
     expect((await db.recording_files.get(id))?.last_chunk_at).toBeNull()
   })
 })
@@ -657,7 +684,7 @@ describe('uploads and edits', () => {
     const parent = await db.recordings.get(id)
     expect(parent?.deleted_at).toBeNull()
     expect(parent?.tune_id).toBeNull()
-    expect((await db.recording_files.get(id))?.blob).toBeTruthy()
+    expect(hasLocalAudio(await db.recording_files.get(id))).toBe(true)
     expect((await db.recordings.get(pieceId!))?.deleted_at).toBeNull()
     expect((await pendingFor(db, 'recordings', id))?.op).toBe('upsert')
   })
@@ -784,10 +811,20 @@ describe('keep offline and local audio', () => {
     })
     expect(await localAudioBytes(db)).toBe(4 + 4 + 5)
     await clearDownloadedBlobs(db)
-    expect((await db.recording_files.get(kept))?.blob).not.toBeNull()
-    expect((await db.recording_files.get(dropped))?.blob).toBeNull()
-    expect((await db.recording_files.get('other'))?.blob).toBeNull()
+    expect(hasLocalAudio(await db.recording_files.get(kept))).toBe(true)
+    expect(hasLocalAudio(await db.recording_files.get(dropped))).toBe(false)
+    expect(await db.recording_chunks.where('recording_id').equals(dropped).count()).toBe(0)
+    expect(hasLocalAudio(await db.recording_files.get('other'))).toBe(false)
     expect(await localAudioBytes(db)).toBe(4)
+  })
+
+  it("a download replaces a captured file's chunks", async () => {
+    const id = await captured()
+    await storeDownloadedBlob(db, id, new Blob(['xyz']), 'audio/mp4', 'rev-1', 0)
+    const file = await db.recording_files.get(id)
+    expect(file).toMatchObject({ chunked: false, bytes: 3 })
+    expect(await (await readLocalAudio(db, file))?.text()).toBe('xyz')
+    expect(await db.recording_chunks.where('recording_id').equals(id).count()).toBe(0)
   })
 
   it('keeps blobs stuck in a blocked or failed upload state', async () => {
@@ -796,8 +833,8 @@ describe('keep offline and local audio', () => {
     await setFileState(db, blocked, 'blocked_quota')
     await setFileState(db, failed, 'failed_upload')
     await clearDownloadedBlobs(db)
-    expect((await db.recording_files.get(blocked))?.blob).not.toBeNull()
-    expect((await db.recording_files.get(failed))?.blob).not.toBeNull()
+    expect(hasLocalAudio(await db.recording_files.get(blocked))).toBe(true)
+    expect(hasLocalAudio(await db.recording_files.get(failed))).toBe(true)
   })
 
   it('only clears an uploaded blob once its recording is ready to play', async () => {
@@ -811,9 +848,9 @@ describe('keep offline and local audio', () => {
     await db.recordings.update(processing, { state: 'processing' })
     await db.recordings.update(failed, { state: 'failed' })
     await clearDownloadedBlobs(db)
-    expect((await db.recording_files.get(ready))?.blob).toBeNull()
-    expect((await db.recording_files.get(processing))?.blob).not.toBeNull()
-    expect((await db.recording_files.get(failed))?.blob).not.toBeNull()
+    expect(hasLocalAudio(await db.recording_files.get(ready))).toBe(false)
+    expect(hasLocalAudio(await db.recording_files.get(processing))).toBe(true)
+    expect(hasLocalAudio(await db.recording_files.get(failed))).toBe(true)
   })
 })
 

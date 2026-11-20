@@ -24,6 +24,7 @@ import {
 import { CONFIRM_LABEL, DELETE_ACCOUNT, DELETE_CONFIRMATION_TEXT } from './deleteAccountCopy'
 import { NEW_TUNE_GENRE_LABEL, NEW_TUNE_STATUS_LABEL, NEW_TUNES_HELP } from './newTunes'
 import { PLAY_FIRST_LABEL } from './playFirst'
+import { setDownloadsHeldForSpace, setKeepOffline } from '../../db/meta'
 import { KEEP_OFFLINE_LABEL } from './recordingCopy'
 import { MUSIC_SERVICES, SEARCHABLE_PROVIDERS } from './searchProviders'
 import {
@@ -38,6 +39,7 @@ import {
   APPEARANCE,
   TUNER_SETTINGS_TITLE,
   DOWNLOADS,
+  DOWNLOADS_HELD_FOR_SPACE,
   EXPORT_HEADER,
   EXPORT_HELP,
   IMPORT_AND_EXPORT,
@@ -234,6 +236,19 @@ it('Recordings shows quality, saved locations, and downloads', async () => {
     .toBeVisible()
   await expect.element(detail.getByRole('button', { name: REMOVE_DOWNLOADS })).toBeVisible()
   await expect.poll(groupHeadings(detail)).toEqual([RECORDING, SAVED_LOCATIONS, DOWNLOADS])
+})
+
+it('says when Keep offline left recordings out for lack of space', async () => {
+  await mount(settingsPagePath('recordings'), WIDE, {
+    before: async (db) => {
+      await setKeepOffline(db, true)
+      await setDownloadsHeldForSpace(db, true)
+    },
+  })
+  const downloads = page
+    .getByRole('main', { name: RECORDINGS_SETTINGS })
+    .getByRole('region', { name: DOWNLOADS })
+  await expect.element(downloads.getByText(DOWNLOADS_HELD_FOR_SPACE)).toBeVisible()
 })
 
 const SHORT_PHONE = { width: 390, height: 500 }

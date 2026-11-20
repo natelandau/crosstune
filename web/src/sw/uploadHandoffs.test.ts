@@ -78,6 +78,22 @@ describe('runUploadHandoffs', () => {
     })
   })
 
+  it("puts a capture's chunks, in order, when they are its stored audio", async () => {
+    const db = openTestDb()
+    await db.recording_files.put(handedOff('rec-1', { blob: null, chunked: true }))
+    await db.recording_chunks.bulkPut([
+      { recording_id: 'rec-1', idx: 1, blob: new Blob(['c']) },
+      { recording_id: 'rec-1', idx: 0, blob: new Blob(['ab']) },
+    ])
+    const fetch = fakeFetch()
+
+    await runUploadHandoffs(deps(db, fetch))
+
+    const [, putInit] = fetch.mock.calls[0]!
+    expect(new TextDecoder().decode(putInit?.body as ArrayBuffer)).toBe('abc')
+    expect((await db.recording_files.get('rec-1'))?.local_state).toBe('uploaded')
+  })
+
   it.each([
     ['a PUT network error', new TypeError('Failed to fetch'), 204],
     ['a PUT 500', 500, 204],

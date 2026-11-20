@@ -496,6 +496,19 @@ each question, and the invariants that both clients and the API hold.
     removes every such piece.
   - A pulled tombstone keeps the file until a later pass.
 
+### Local audio on the web
+
+- A finished capture keeps its chunks as its audio (`chunked`) until one
+  joined blob fits beside them. The join copies every byte, so a full
+  device would otherwise lose the save.
+- Code that reads a file's audio uses `withLocalAudio` or
+  `readLocalAudio`. Code that asks whether the device holds it uses
+  `hasLocalAudio`. Never `file.blob` alone.
+- A file from `withLocalAudio` is a view. Never written back: it stores
+  the copy that the chunks avoid.
+- Under low storage, audio the server can send again is removed first. A
+  local write refused for space clears it before a recording stops.
+
 ### Isolate and mono
 
 - Isolate plays recordings only, never streaming links. `is_mono` decides

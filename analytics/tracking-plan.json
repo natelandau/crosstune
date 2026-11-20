@@ -624,7 +624,8 @@
     "facet_retention": "Does using more tune fields go with better retention?",
     "hands_free_control": "Do people control playback without touching the app?",
     "signup_persuasion": "Do the welcome carousel and the account explanation lead people to sign up, and with which method?",
-    "accessibility_reach": "How many people use assistive technology, and do they stay?"
+    "accessibility_reach": "How many people use assistive technology, and do they stay?",
+    "browser_storage_kept": "Does the browser keep the web app's data on devices that hold recordings not yet uploaded?"
   },
   "events": {
     "signed_in": {
@@ -2114,6 +2115,31 @@
         "failure_reason": {
           "type": "string",
           "enum": "failure_reason",
+          "required": true
+        }
+      }
+    },
+    "device_storage_checked": {
+      "description": "The web app checked whether the browser keeps its stored data and how much room is left. Sent once per app start.",
+      "clients": [
+        "web"
+      ],
+      "answers": [
+        "browser_storage_kept"
+      ],
+      "properties": {
+        "storage_persisted": {
+          "type": "bool",
+          "required": true
+        },
+        "recordings_waiting": {
+          "type": "string",
+          "bucket": "count",
+          "required": true
+        },
+        "storage_free": {
+          "type": "string",
+          "bucket": "bytes",
           "required": true
         }
       }

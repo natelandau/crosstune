@@ -3,8 +3,10 @@ import { API_ORIGIN } from '../config'
 import { DATABASE_NAME_PREFIX } from '../db/names'
 import {
   HANDOFF_TAKE_BACK_ATTEMPTS,
+  joinChunks,
   modifyWhileHeld,
   type HandedOffFile,
+  type RecordingChunk,
   type RecordingFile,
 } from '../db/recordings'
 import { isRetryableStatus } from '../sync/retryableStatus'
@@ -17,6 +19,7 @@ export interface HandoffDeps {
 }
 
 type Files = Table<RecordingFile, string>
+type Chunks = Table<RecordingChunk, [string, number]>
 
 /** How one hand-off ended: settled for good, or failed and worth another run. */
 type Outcome = 'settled' | 'retry'
@@ -62,12 +65,15 @@ async function runDatabase(name: string, deps: HandoffDeps): Promise<Outcome> {
   try {
     if (!db.tables.some((table) => table.name === 'recording_files')) return 'settled'
     const files: Files = db.table('recording_files')
+    const chunks: Chunks | null = db.tables.some((table) => table.name === 'recording_chunks')
+      ? db.table('recording_chunks')
+      : null
     const handedOff = (await files.where('local_state').equals('uploading').toArray()).filter(
       (file): file is HandedOffFile => file.handoff != null,
     )
     let outcome: Outcome = 'settled'
     for (const file of handedOff) {
-      if ((await runHandoff(files, file, deps)) === 'retry') outcome = 'retry'
+      if ((await runHandoff(files, chunks, file, deps)) === 'retry') outcome = 'retry'
     }
     return outcome
   } finally {
@@ -75,7 +81,12 @@ async function runDatabase(name: string, deps: HandoffDeps): Promise<Outcome> {
   }
 }
 
-async function runHandoff(files: Files, file: HandedOffFile, deps: HandoffDeps): Promise<Outcome> {
+async function runHandoff(
+  files: Files,
+  chunks: Chunks | null,
+  file: HandedOffFile,
+  deps: HandoffDeps,
+): Promise<Outcome> {
   const { handoff } = file
   const write = (change: (row: RecordingFile) => void) =>
     modifyWhileHeld(files, file.id, handoff, change)
@@ -86,7 +97,8 @@ async function runHandoff(files: Files, file: HandedOffFile, deps: HandoffDeps):
     })
     return 'retry'
   }
-  if (handoff.expires_at <= deps.now() || !file.blob) {
+  const blob = file.blob ?? (file.chunked && chunks ? await joinChunks(files, chunks, file) : null)
+  if (handoff.expires_at <= deps.now() || !blob) {
     // Nothing here can be sent, so the page's next pass starts the file over with a new slot.
     await write((row) => {
       row.local_state = 'captured'
@@ -100,7 +112,7 @@ async function runHandoff(files: Files, file: HandedOffFile, deps: HandoffDeps):
   try {
     // A blob read back from IndexedDB is file-backed on iOS, which the network layer cannot
     // send, so the bytes go from memory.
-    const body = await file.blob.arrayBuffer()
+    const body = await blob.arrayBuffer()
     const put = await deps.fetch(handoff.url, {
       method: 'PUT',
       body,
