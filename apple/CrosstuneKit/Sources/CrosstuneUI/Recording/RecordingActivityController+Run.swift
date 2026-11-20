@@ -16,7 +16,9 @@ extension RecordingActivityController {
                 keepingAlive = nil
             } else if keepingAlive == nil {
                 keepingAlive = Task {
-                    while (try? await Task.sleep(for: Self.keepAliveInterval)) != nil {
+                    // Checks twice per interval, so a check that lands a moment before the
+                    // interval is due never doubles the time between updates.
+                    while (try? await Task.sleep(for: Self.keepAliveInterval / 2)) != nil {
                         keepAlive(now: .now)
                     }
                 }

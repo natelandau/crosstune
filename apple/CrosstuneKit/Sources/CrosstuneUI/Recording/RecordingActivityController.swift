@@ -24,7 +24,7 @@ public final class RecordingActivityController {
     /// recording, which covers the system ending the app with no chance to end the activity.
     static let staleWindow: Duration = .seconds(15)
     /// The longest a recording goes without an update, so its stale date stays ahead while the
-    /// app runs. Also how often ``keepAlive(now:)`` should run while recording.
+    /// app runs.
     public static let keepAliveInterval: Duration = .seconds(5)
 
     private let client: any RecordingActivityClient

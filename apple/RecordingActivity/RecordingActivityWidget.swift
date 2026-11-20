@@ -14,10 +14,12 @@ struct RecordingActivityWidget: Widget {
             let state = context.shownState
             return DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
+                    // The center, or the failure's message below, says the status.
                     RecordingStatusIcon(status: state.status)
+                        .accessibilityHidden(true)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
-                    RecordingElapsedTime(state: state, sizingText: "00:00")
+                    RecordingElapsedTime(state: state, sizingText: "000:00")
                         .font(.title2.weight(.semibold))
                 }
                 DynamicIslandExpandedRegion(.center) {
@@ -105,6 +107,7 @@ private struct RecordingStatusCapsule: View {
         .background(status == .recording ? Palette.record : Palette.neutralFill, in: .capsule)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(status.label)
+        .accessibilityHidden(status == .failed)
     }
 }
 
