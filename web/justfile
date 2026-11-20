@@ -16,7 +16,7 @@ paths := "--path web/ --path scripts/gate-cache.sh --path scripts/settings.just"
 uv_paths := "--path pyproject.toml --path uv.lock --path .python-version"
 # What the tests import or read from elsewhere in the repository: the API contract, the fixtures
 # every client shares, and the sources that parity tests compare against
-test_paths := "--path api/openapi.json --path fixtures/ --path analytics/tracking-plan.json --path brand/ --path apple/CrosstuneKit/Sources/CrosstuneDesign/Style/ --path api/src/crosstune/billing/emails.py"
+test_paths := "--path api/openapi.json --path fixtures/ --path analytics/tracking-plan.json --path brand/ --path apple/CrosstuneKit/Sources/CrosstuneDesign/Style/ --path apple/CrosstuneKit/Sources/CrosstunePalette/ --path api/src/crosstune/billing/emails.py"
 
 [default]
 _default:

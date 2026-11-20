@@ -53,6 +53,7 @@ AREAS = {
         paths=(
             "web/**",
             "apple/CrosstuneKit/Sources/CrosstuneDesign/Style/**",
+            "apple/CrosstuneKit/Sources/CrosstunePalette/**",
             "brand/**",
             "fixtures/**",
             "analytics/tracking-plan.json",

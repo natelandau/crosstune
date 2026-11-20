@@ -47,13 +47,16 @@ const webRoles = [...rootBlock.matchAll(/\n {2}--([\w-]+):/g)]
   .map((match) => match[1]!)
   .filter((name) => !PRIMITIVE.test(name) && !DATA.test(name))
 
-const styleDir = new URL(
-  '../../../apple/CrosstuneKit/Sources/CrosstuneDesign/Style/',
-  import.meta.url,
-)
-const swift = readdirSync(styleDir)
-  .filter((name) => name.endsWith('.swift'))
-  .map((name) => readFileSync(new URL(name, styleDir), 'utf8'))
+const swiftDirs = [
+  new URL('../../../apple/CrosstuneKit/Sources/CrosstuneDesign/Style/', import.meta.url),
+  new URL('../../../apple/CrosstuneKit/Sources/CrosstunePalette/', import.meta.url),
+]
+const swift = swiftDirs
+  .flatMap((dir) =>
+    readdirSync(dir)
+      .filter((name) => name.endsWith('.swift'))
+      .map((name) => readFileSync(new URL(name, dir), 'utf8')),
+  )
   .join('\n')
 const appleDeclared = new Set(
   [...swift.matchAll(/static (?:let|var|func) (\w+)/g)].map((m) => m[1]!),

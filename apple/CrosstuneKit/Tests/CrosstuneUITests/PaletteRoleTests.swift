@@ -4,8 +4,9 @@
 
     @testable import CrosstuneUI
 
-    /// Every color outside `Style/` is a `Palette` role, so a retheme changes `Style/` and nothing
-    /// else, and a contrast test there covers every color a view draws.
+    /// Every color outside `CrosstunePalette` and `Style/` is a `Palette` role, so a retheme
+    /// changes those two and nothing else, and a contrast test there covers every color a view
+    /// draws.
     struct PaletteRoleTests {
         /// Files that draw their own colors on purpose, with the reason.
         static let exemptFiles: [String: String] = [
@@ -50,13 +51,13 @@
                 try! Regex(#"[?:]\s*\.(\#(systemColors))\b|\breturn\s+\.(\#(systemColors))\b"#),
                 // A system fill style.
                 try! Regex(#"\.fill\.(primary|secondary|tertiary|quaternary|quinary)\b"#),
-                // A color made translucent where it is drawn, not in `Style/`.
+                // A color made translucent where it is drawn, not in the palette module or `Style/`.
                 try! Regex(
                     #"(\bPalette\.\w+(\([^()]*\))?|\bColor\.\w+|\b[a-z]\w*Color|\bcolor|\btint)\.opacity\("#
                         + #"|(?:^|[^\w.])\.(white|black|tint|primary|secondary)\.opacity\("#),
                 // A hex value.
                 try! Regex(##""#[0-9A-Fa-f]{6}""##),
-                // A primitive, which only the roles in `Style/` name.
+                // A primitive, which only the palette module and `Style/` name.
                 try! Regex(#"\bPrimitive\."#),
             ]
         }
