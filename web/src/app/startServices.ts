@@ -4,10 +4,12 @@ import { API_ORIGIN } from '../config'
 import { APP_VERSION } from '../version'
 import { startAnalytics, type AnalyticsClient } from '../usage/client'
 import { startErrorReporting } from '../errorReporting'
+import { startInstallOffer } from '../platform/installOffer'
 
 /**
- * Starts what runs beside the app for the life of the page: error reporting, analytics, and
- * the service worker. Returns the analytics client for the app to provide.
+ * Starts what runs beside the app for the life of the page: error reporting, analytics, the
+ * service worker, and the install prompt listener. Returns the analytics client for the app to
+ * provide.
  */
 export function startServices(): AnalyticsClient {
   startErrorReporting()
@@ -22,5 +24,6 @@ export function startServices(): AnalyticsClient {
   })
   const analytics = startAnalytics({ key, fetchRegion: () => api.region() })
   registerSW({ immediate: true })
+  startInstallOffer()
   return analytics
 }
