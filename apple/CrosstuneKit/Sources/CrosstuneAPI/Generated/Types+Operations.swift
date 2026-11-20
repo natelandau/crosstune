@@ -4524,7 +4524,8 @@ public enum Operations {
     /// A presigned PUT for one recording's file, once the plan and its quota allow it.
     ///
     /// A failed recording is issued a slot too, and returns to pending_upload: it is
-    /// the only way back for one whose uploaded object is no longer in the bucket.
+    /// the only way back for one whose uploaded object is no longer in the bucket. Each
+    /// issue carries a new confirm token for `uploaded-with-token`; only its hash is stored.
     ///
     /// - Remark: HTTP `POST /v1/recordings/{recording_id}/upload-slot`.
     /// - Remark: Generated from `#/paths//v1/recordings/{recording_id}/upload-slot/post(upload_slot_v1_recordings__recording_id__upload_slot_post)`.
@@ -4583,12 +4584,12 @@ public enum Operations {
                 /// - Remark: Generated from `#/paths/v1/recordings/{recording_id}/upload-slot/POST/responses/200/content`.
                 @frozen public enum Body: Sendable, Hashable {
                     /// - Remark: Generated from `#/paths/v1/recordings/{recording_id}/upload-slot/POST/responses/200/content/application\/json`.
-                    case json(Components.Schemas.SignedUrl)
+                    case json(Components.Schemas.UploadSlotGrant)
                     /// The associated value of the enum case if `self` is `.json`.
                     ///
                     /// - Throws: An error if `self` is not `.json`.
                     /// - SeeAlso: `.json`.
-                    public var json: Components.Schemas.SignedUrl {
+                    public var json: Components.Schemas.UploadSlotGrant {
                         get throws {
                             switch self {
                             case let .json(body):
@@ -5443,6 +5444,460 @@ public enum Operations {
             /// - Throws: An error if `self` is not `.serviceUnavailable`.
             /// - SeeAlso: `.serviceUnavailable`.
             public var serviceUnavailable: Operations.UploadFinishedV1RecordingsRecordingIdUploadedPost.Output.ServiceUnavailable {
+                get throws {
+                    switch self {
+                    case let .serviceUnavailable(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "serviceUnavailable",
+                            response: self
+                        )
+                    }
+                }
+            }
+            /// Undocumented response.
+            ///
+            /// A response with a code that is not documented in the OpenAPI document.
+            case undocumented(statusCode: Swift.Int, OpenAPIRuntime.UndocumentedPayload)
+        }
+        @frozen public enum AcceptableContentType: AcceptableProtocol {
+            case applicationProblemJson
+            case other(Swift.String)
+            public init?(rawValue: Swift.String) {
+                switch rawValue.lowercased() {
+                case "application/problem+json":
+                    self = .applicationProblemJson
+                default:
+                    self = .other(rawValue)
+                }
+            }
+            public var rawValue: Swift.String {
+                switch self {
+                case let .other(string):
+                    return string
+                case .applicationProblemJson:
+                    return "application/problem+json"
+                }
+            }
+            public static var allCases: [Self] {
+                [
+                    .applicationProblemJson
+                ]
+            }
+        }
+    }
+    /// Uploaded With Token
+    ///
+    /// Confirm an upload with the slot's confirm token in place of a bearer token.
+    ///
+    /// Besides the webhooks, the one `/v1` route that takes no bearer token: the web app's
+    /// service worker finishes an upload after its tab closes, and the worker cannot sign
+    /// in. The token is good for one recording's open slot, and the route does only what
+    /// `uploaded` does, as the slot's owner. Every token or recording problem is the same
+    /// 404, so the route never reveals whether a recording exists.
+    ///
+    /// - Remark: HTTP `POST /v1/recordings/{recording_id}/uploaded-with-token`.
+    /// - Remark: Generated from `#/paths//v1/recordings/{recording_id}/uploaded-with-token/post(uploaded_with_token_v1_recordings__recording_id__uploaded_with_token_post)`.
+    public enum UploadedWithTokenV1RecordingsRecordingIdUploadedWithTokenPost {
+        public static let id: Swift.String = "uploaded_with_token_v1_recordings__recording_id__uploaded_with_token_post"
+        public struct Input: Sendable, Hashable {
+            /// - Remark: Generated from `#/paths/v1/recordings/{recording_id}/uploaded-with-token/POST/path`.
+            public struct Path: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/recordings/{recording_id}/uploaded-with-token/POST/path/recording_id`.
+                public var recordingId: Swift.String
+                /// Creates a new `Path`.
+                ///
+                /// - Parameters:
+                ///   - recordingId:
+                public init(recordingId: Swift.String) {
+                    self.recordingId = recordingId
+                }
+            }
+            public var path: Operations.UploadedWithTokenV1RecordingsRecordingIdUploadedWithTokenPost.Input.Path
+            /// - Remark: Generated from `#/paths/v1/recordings/{recording_id}/uploaded-with-token/POST/header`.
+            public struct Headers: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/recordings/{recording_id}/uploaded-with-token/POST/header/x-upload-token`.
+                public var xUploadToken: Swift.String?
+                public var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.UploadedWithTokenV1RecordingsRecordingIdUploadedWithTokenPost.AcceptableContentType>]
+                /// Creates a new `Headers`.
+                ///
+                /// - Parameters:
+                ///   - xUploadToken:
+                ///   - accept:
+                public init(
+                    xUploadToken: Swift.String? = nil,
+                    accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.UploadedWithTokenV1RecordingsRecordingIdUploadedWithTokenPost.AcceptableContentType>] = .defaultValues()
+                ) {
+                    self.xUploadToken = xUploadToken
+                    self.accept = accept
+                }
+            }
+            public var headers: Operations.UploadedWithTokenV1RecordingsRecordingIdUploadedWithTokenPost.Input.Headers
+            /// Creates a new `Input`.
+            ///
+            /// - Parameters:
+            ///   - path:
+            ///   - headers:
+            public init(
+                path: Operations.UploadedWithTokenV1RecordingsRecordingIdUploadedWithTokenPost.Input.Path,
+                headers: Operations.UploadedWithTokenV1RecordingsRecordingIdUploadedWithTokenPost.Input.Headers = .init()
+            ) {
+                self.path = path
+                self.headers = headers
+            }
+        }
+        @frozen public enum Output: Sendable, Hashable {
+            public struct NoContent: Sendable, Hashable {
+                /// Creates a new `NoContent`.
+                public init() {}
+            }
+            /// Successful Response
+            ///
+            /// - Remark: Generated from `#/paths//v1/recordings/{recording_id}/uploaded-with-token/post(uploaded_with_token_v1_recordings__recording_id__uploaded_with_token_post)/responses/204`.
+            ///
+            /// HTTP response code: `204 noContent`.
+            case noContent(Operations.UploadedWithTokenV1RecordingsRecordingIdUploadedWithTokenPost.Output.NoContent)
+            /// Successful Response
+            ///
+            /// - Remark: Generated from `#/paths//v1/recordings/{recording_id}/uploaded-with-token/post(uploaded_with_token_v1_recordings__recording_id__uploaded_with_token_post)/responses/204`.
+            ///
+            /// HTTP response code: `204 noContent`.
+            public static var noContent: Self {
+                .noContent(.init())
+            }
+            /// The associated value of the enum case if `self` is `.noContent`.
+            ///
+            /// - Throws: An error if `self` is not `.noContent`.
+            /// - SeeAlso: `.noContent`.
+            public var noContent: Operations.UploadedWithTokenV1RecordingsRecordingIdUploadedWithTokenPost.Output.NoContent {
+                get throws {
+                    switch self {
+                    case let .noContent(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "noContent",
+                            response: self
+                        )
+                    }
+                }
+            }
+            public struct NotFound: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/recordings/{recording_id}/uploaded-with-token/POST/responses/404/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/recordings/{recording_id}/uploaded-with-token/POST/responses/404/content/application\/problem+json`.
+                    case applicationProblemJson(Components.Schemas.Problem)
+                    /// The associated value of the enum case if `self` is `.applicationProblemJson`.
+                    ///
+                    /// - Throws: An error if `self` is not `.applicationProblemJson`.
+                    /// - SeeAlso: `.applicationProblemJson`.
+                    public var applicationProblemJson: Components.Schemas.Problem {
+                        get throws {
+                            switch self {
+                            case let .applicationProblemJson(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.UploadedWithTokenV1RecordingsRecordingIdUploadedWithTokenPost.Output.NotFound.Body
+                /// Creates a new `NotFound`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                public init(body: Operations.UploadedWithTokenV1RecordingsRecordingIdUploadedWithTokenPost.Output.NotFound.Body) {
+                    self.body = body
+                }
+            }
+            /// Not Found
+            ///
+            /// - Remark: Generated from `#/paths//v1/recordings/{recording_id}/uploaded-with-token/post(uploaded_with_token_v1_recordings__recording_id__uploaded_with_token_post)/responses/404`.
+            ///
+            /// HTTP response code: `404 notFound`.
+            case notFound(Operations.UploadedWithTokenV1RecordingsRecordingIdUploadedWithTokenPost.Output.NotFound)
+            /// The associated value of the enum case if `self` is `.notFound`.
+            ///
+            /// - Throws: An error if `self` is not `.notFound`.
+            /// - SeeAlso: `.notFound`.
+            public var notFound: Operations.UploadedWithTokenV1RecordingsRecordingIdUploadedWithTokenPost.Output.NotFound {
+                get throws {
+                    switch self {
+                    case let .notFound(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "notFound",
+                            response: self
+                        )
+                    }
+                }
+            }
+            public struct Conflict: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/recordings/{recording_id}/uploaded-with-token/POST/responses/409/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/recordings/{recording_id}/uploaded-with-token/POST/responses/409/content/application\/problem+json`.
+                    case applicationProblemJson(Components.Schemas.Problem)
+                    /// The associated value of the enum case if `self` is `.applicationProblemJson`.
+                    ///
+                    /// - Throws: An error if `self` is not `.applicationProblemJson`.
+                    /// - SeeAlso: `.applicationProblemJson`.
+                    public var applicationProblemJson: Components.Schemas.Problem {
+                        get throws {
+                            switch self {
+                            case let .applicationProblemJson(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.UploadedWithTokenV1RecordingsRecordingIdUploadedWithTokenPost.Output.Conflict.Body
+                /// Creates a new `Conflict`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                public init(body: Operations.UploadedWithTokenV1RecordingsRecordingIdUploadedWithTokenPost.Output.Conflict.Body) {
+                    self.body = body
+                }
+            }
+            /// Conflict
+            ///
+            /// - Remark: Generated from `#/paths//v1/recordings/{recording_id}/uploaded-with-token/post(uploaded_with_token_v1_recordings__recording_id__uploaded_with_token_post)/responses/409`.
+            ///
+            /// HTTP response code: `409 conflict`.
+            case conflict(Operations.UploadedWithTokenV1RecordingsRecordingIdUploadedWithTokenPost.Output.Conflict)
+            /// The associated value of the enum case if `self` is `.conflict`.
+            ///
+            /// - Throws: An error if `self` is not `.conflict`.
+            /// - SeeAlso: `.conflict`.
+            public var conflict: Operations.UploadedWithTokenV1RecordingsRecordingIdUploadedWithTokenPost.Output.Conflict {
+                get throws {
+                    switch self {
+                    case let .conflict(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "conflict",
+                            response: self
+                        )
+                    }
+                }
+            }
+            public struct ContentTooLarge: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/recordings/{recording_id}/uploaded-with-token/POST/responses/413/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/recordings/{recording_id}/uploaded-with-token/POST/responses/413/content/application\/problem+json`.
+                    case applicationProblemJson(Components.Schemas.Problem)
+                    /// The associated value of the enum case if `self` is `.applicationProblemJson`.
+                    ///
+                    /// - Throws: An error if `self` is not `.applicationProblemJson`.
+                    /// - SeeAlso: `.applicationProblemJson`.
+                    public var applicationProblemJson: Components.Schemas.Problem {
+                        get throws {
+                            switch self {
+                            case let .applicationProblemJson(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.UploadedWithTokenV1RecordingsRecordingIdUploadedWithTokenPost.Output.ContentTooLarge.Body
+                /// Creates a new `ContentTooLarge`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                public init(body: Operations.UploadedWithTokenV1RecordingsRecordingIdUploadedWithTokenPost.Output.ContentTooLarge.Body) {
+                    self.body = body
+                }
+            }
+            /// Content Too Large
+            ///
+            /// - Remark: Generated from `#/paths//v1/recordings/{recording_id}/uploaded-with-token/post(uploaded_with_token_v1_recordings__recording_id__uploaded_with_token_post)/responses/413`.
+            ///
+            /// HTTP response code: `413 contentTooLarge`.
+            case contentTooLarge(Operations.UploadedWithTokenV1RecordingsRecordingIdUploadedWithTokenPost.Output.ContentTooLarge)
+            /// The associated value of the enum case if `self` is `.contentTooLarge`.
+            ///
+            /// - Throws: An error if `self` is not `.contentTooLarge`.
+            /// - SeeAlso: `.contentTooLarge`.
+            public var contentTooLarge: Operations.UploadedWithTokenV1RecordingsRecordingIdUploadedWithTokenPost.Output.ContentTooLarge {
+                get throws {
+                    switch self {
+                    case let .contentTooLarge(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "contentTooLarge",
+                            response: self
+                        )
+                    }
+                }
+            }
+            public struct UnprocessableContent: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/recordings/{recording_id}/uploaded-with-token/POST/responses/422/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/recordings/{recording_id}/uploaded-with-token/POST/responses/422/content/application\/problem+json`.
+                    case applicationProblemJson(Components.Schemas.Problem)
+                    /// The associated value of the enum case if `self` is `.applicationProblemJson`.
+                    ///
+                    /// - Throws: An error if `self` is not `.applicationProblemJson`.
+                    /// - SeeAlso: `.applicationProblemJson`.
+                    public var applicationProblemJson: Components.Schemas.Problem {
+                        get throws {
+                            switch self {
+                            case let .applicationProblemJson(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.UploadedWithTokenV1RecordingsRecordingIdUploadedWithTokenPost.Output.UnprocessableContent.Body
+                /// Creates a new `UnprocessableContent`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                public init(body: Operations.UploadedWithTokenV1RecordingsRecordingIdUploadedWithTokenPost.Output.UnprocessableContent.Body) {
+                    self.body = body
+                }
+            }
+            /// Validation Error
+            ///
+            /// - Remark: Generated from `#/paths//v1/recordings/{recording_id}/uploaded-with-token/post(uploaded_with_token_v1_recordings__recording_id__uploaded_with_token_post)/responses/422`.
+            ///
+            /// HTTP response code: `422 unprocessableContent`.
+            case unprocessableContent(Operations.UploadedWithTokenV1RecordingsRecordingIdUploadedWithTokenPost.Output.UnprocessableContent)
+            /// The associated value of the enum case if `self` is `.unprocessableContent`.
+            ///
+            /// - Throws: An error if `self` is not `.unprocessableContent`.
+            /// - SeeAlso: `.unprocessableContent`.
+            public var unprocessableContent: Operations.UploadedWithTokenV1RecordingsRecordingIdUploadedWithTokenPost.Output.UnprocessableContent {
+                get throws {
+                    switch self {
+                    case let .unprocessableContent(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "unprocessableContent",
+                            response: self
+                        )
+                    }
+                }
+            }
+            public struct TooManyRequests: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/recordings/{recording_id}/uploaded-with-token/POST/responses/429/headers`.
+                public struct Headers: Sendable, Hashable {
+                    /// Whole seconds to wait before trying again.
+                    ///
+                    /// - Remark: Generated from `#/paths/v1/recordings/{recording_id}/uploaded-with-token/POST/responses/429/headers/Retry-After`.
+                    public var retryAfter: Swift.String?
+                    /// Creates a new `Headers`.
+                    ///
+                    /// - Parameters:
+                    ///   - retryAfter: Whole seconds to wait before trying again.
+                    public init(retryAfter: Swift.String? = nil) {
+                        self.retryAfter = retryAfter
+                    }
+                }
+                /// Received HTTP response headers
+                public var headers: Operations.UploadedWithTokenV1RecordingsRecordingIdUploadedWithTokenPost.Output.TooManyRequests.Headers
+                /// - Remark: Generated from `#/paths/v1/recordings/{recording_id}/uploaded-with-token/POST/responses/429/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/recordings/{recording_id}/uploaded-with-token/POST/responses/429/content/application\/problem+json`.
+                    case applicationProblemJson(Components.Schemas.Problem)
+                    /// The associated value of the enum case if `self` is `.applicationProblemJson`.
+                    ///
+                    /// - Throws: An error if `self` is not `.applicationProblemJson`.
+                    /// - SeeAlso: `.applicationProblemJson`.
+                    public var applicationProblemJson: Components.Schemas.Problem {
+                        get throws {
+                            switch self {
+                            case let .applicationProblemJson(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.UploadedWithTokenV1RecordingsRecordingIdUploadedWithTokenPost.Output.TooManyRequests.Body
+                /// Creates a new `TooManyRequests`.
+                ///
+                /// - Parameters:
+                ///   - headers: Received HTTP response headers
+                ///   - body: Received HTTP response body
+                public init(
+                    headers: Operations.UploadedWithTokenV1RecordingsRecordingIdUploadedWithTokenPost.Output.TooManyRequests.Headers = .init(),
+                    body: Operations.UploadedWithTokenV1RecordingsRecordingIdUploadedWithTokenPost.Output.TooManyRequests.Body
+                ) {
+                    self.headers = headers
+                    self.body = body
+                }
+            }
+            /// Too Many Requests
+            ///
+            /// - Remark: Generated from `#/paths//v1/recordings/{recording_id}/uploaded-with-token/post(uploaded_with_token_v1_recordings__recording_id__uploaded_with_token_post)/responses/429`.
+            ///
+            /// HTTP response code: `429 tooManyRequests`.
+            case tooManyRequests(Operations.UploadedWithTokenV1RecordingsRecordingIdUploadedWithTokenPost.Output.TooManyRequests)
+            /// The associated value of the enum case if `self` is `.tooManyRequests`.
+            ///
+            /// - Throws: An error if `self` is not `.tooManyRequests`.
+            /// - SeeAlso: `.tooManyRequests`.
+            public var tooManyRequests: Operations.UploadedWithTokenV1RecordingsRecordingIdUploadedWithTokenPost.Output.TooManyRequests {
+                get throws {
+                    switch self {
+                    case let .tooManyRequests(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "tooManyRequests",
+                            response: self
+                        )
+                    }
+                }
+            }
+            public struct ServiceUnavailable: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/recordings/{recording_id}/uploaded-with-token/POST/responses/503/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/recordings/{recording_id}/uploaded-with-token/POST/responses/503/content/application\/problem+json`.
+                    case applicationProblemJson(Components.Schemas.Problem)
+                    /// The associated value of the enum case if `self` is `.applicationProblemJson`.
+                    ///
+                    /// - Throws: An error if `self` is not `.applicationProblemJson`.
+                    /// - SeeAlso: `.applicationProblemJson`.
+                    public var applicationProblemJson: Components.Schemas.Problem {
+                        get throws {
+                            switch self {
+                            case let .applicationProblemJson(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.UploadedWithTokenV1RecordingsRecordingIdUploadedWithTokenPost.Output.ServiceUnavailable.Body
+                /// Creates a new `ServiceUnavailable`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                public init(body: Operations.UploadedWithTokenV1RecordingsRecordingIdUploadedWithTokenPost.Output.ServiceUnavailable.Body) {
+                    self.body = body
+                }
+            }
+            /// Service Unavailable
+            ///
+            /// - Remark: Generated from `#/paths//v1/recordings/{recording_id}/uploaded-with-token/post(uploaded_with_token_v1_recordings__recording_id__uploaded_with_token_post)/responses/503`.
+            ///
+            /// HTTP response code: `503 serviceUnavailable`.
+            case serviceUnavailable(Operations.UploadedWithTokenV1RecordingsRecordingIdUploadedWithTokenPost.Output.ServiceUnavailable)
+            /// The associated value of the enum case if `self` is `.serviceUnavailable`.
+            ///
+            /// - Throws: An error if `self` is not `.serviceUnavailable`.
+            /// - SeeAlso: `.serviceUnavailable`.
+            public var serviceUnavailable: Operations.UploadedWithTokenV1RecordingsRecordingIdUploadedWithTokenPost.Output.ServiceUnavailable {
                 get throws {
                     switch self {
                     case let .serviceUnavailable(response):

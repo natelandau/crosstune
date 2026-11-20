@@ -375,7 +375,10 @@ private func json(_ data: Data?, sourceLocation: SourceLocation = #_sourceLocati
 
     @Test func requestsAnUploadSlot() async throws {
         let transport = RecordingTransport(
-            body: #"{"url": "https://bucket.test/put/r1?sig=x", "expires_at": "2026-09-25T13:00:00Z"}"#)
+            body: #"""
+                {"url": "https://bucket.test/put/r1?sig=x", "expires_at": "2026-09-25T13:00:00Z",
+                 "confirm_token": "t"}
+                """#)
 
         let url = try await api(transport).requestUploadSlot(recordingID: "r1", bytes: 42, contentType: "audio/mp4")
 
@@ -512,7 +515,7 @@ private func json(_ data: Data?, sourceLocation: SourceLocation = #_sourceLocati
         let transport = RecordingTransport(
             body: #"""
                 {"url": "/storage/crosstune-local/r1?sig=z", "expires_at": "2026-09-25T13:00:00Z",
-                 "playback_rev": "abc12345", "playback_start_ms": 0}
+                 "confirm_token": "t", "playback_rev": "abc12345", "playback_start_ms": 0}
                 """#)
         let origin = URL(string: "http://localhost:5173")!
 

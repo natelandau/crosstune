@@ -2130,7 +2130,8 @@ public struct Client: APIProtocol {
     /// A presigned PUT for one recording's file, once the plan and its quota allow it.
     ///
     /// A failed recording is issued a slot too, and returns to pending_upload: it is
-    /// the only way back for one whose uploaded object is no longer in the bucket.
+    /// the only way back for one whose uploaded object is no longer in the bucket. Each
+    /// issue carries a new confirm token for `uploaded-with-token`; only its hash is stored.
     ///
     /// - Remark: HTTP `POST /v1/recordings/{recording_id}/upload-slot`.
     /// - Remark: Generated from `#/paths//v1/recordings/{recording_id}/upload-slot/post(upload_slot_v1_recordings__recording_id__upload_slot_post)`.
@@ -2179,7 +2180,7 @@ public struct Client: APIProtocol {
                     switch chosenContentType {
                     case "application/json":
                         body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.SignedUrl.self,
+                            Components.Schemas.UploadSlotGrant.self,
                             from: responseBody,
                             transforming: { value in
                                 .json(value)
@@ -2516,6 +2517,201 @@ public struct Client: APIProtocol {
                 case 503:
                     let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
                     let body: Operations.UploadFinishedV1RecordingsRecordingIdUploadedPost.Output.ServiceUnavailable.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/problem+json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/problem+json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.Problem.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .applicationProblemJson(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .serviceUnavailable(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
+    /// Uploaded With Token
+    ///
+    /// Confirm an upload with the slot's confirm token in place of a bearer token.
+    ///
+    /// Besides the webhooks, the one `/v1` route that takes no bearer token: the web app's
+    /// service worker finishes an upload after its tab closes, and the worker cannot sign
+    /// in. The token is good for one recording's open slot, and the route does only what
+    /// `uploaded` does, as the slot's owner. Every token or recording problem is the same
+    /// 404, so the route never reveals whether a recording exists.
+    ///
+    /// - Remark: HTTP `POST /v1/recordings/{recording_id}/uploaded-with-token`.
+    /// - Remark: Generated from `#/paths//v1/recordings/{recording_id}/uploaded-with-token/post(uploaded_with_token_v1_recordings__recording_id__uploaded_with_token_post)`.
+    public func uploadedWithTokenV1RecordingsRecordingIdUploadedWithTokenPost(_ input: Operations.UploadedWithTokenV1RecordingsRecordingIdUploadedWithTokenPost.Input) async throws -> Operations.UploadedWithTokenV1RecordingsRecordingIdUploadedWithTokenPost.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.UploadedWithTokenV1RecordingsRecordingIdUploadedWithTokenPost.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/v1/recordings/{}/uploaded-with-token",
+                    parameters: [
+                        input.path.recordingId
+                    ]
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .post
+                )
+                suppressMutabilityWarning(&request)
+                try converter.setHeaderFieldAsURI(
+                    in: &request.headerFields,
+                    name: "x-upload-token",
+                    value: input.headers.xUploadToken
+                )
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                return (request, nil)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 204:
+                    return .noContent(.init())
+                case 404:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.UploadedWithTokenV1RecordingsRecordingIdUploadedWithTokenPost.Output.NotFound.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/problem+json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/problem+json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.Problem.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .applicationProblemJson(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .notFound(.init(body: body))
+                case 409:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.UploadedWithTokenV1RecordingsRecordingIdUploadedWithTokenPost.Output.Conflict.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/problem+json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/problem+json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.Problem.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .applicationProblemJson(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .conflict(.init(body: body))
+                case 413:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.UploadedWithTokenV1RecordingsRecordingIdUploadedWithTokenPost.Output.ContentTooLarge.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/problem+json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/problem+json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.Problem.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .applicationProblemJson(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .contentTooLarge(.init(body: body))
+                case 422:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.UploadedWithTokenV1RecordingsRecordingIdUploadedWithTokenPost.Output.UnprocessableContent.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/problem+json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/problem+json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.Problem.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .applicationProblemJson(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unprocessableContent(.init(body: body))
+                case 429:
+                    let headers: Operations.UploadedWithTokenV1RecordingsRecordingIdUploadedWithTokenPost.Output.TooManyRequests.Headers = .init(retryAfter: try converter.getOptionalHeaderFieldAsURI(
+                        in: response.headerFields,
+                        name: "Retry-After",
+                        as: Swift.String.self
+                    ))
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.UploadedWithTokenV1RecordingsRecordingIdUploadedWithTokenPost.Output.TooManyRequests.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/problem+json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/problem+json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.Problem.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .applicationProblemJson(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .tooManyRequests(.init(
+                        headers: headers,
+                        body: body
+                    ))
+                case 503:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.UploadedWithTokenV1RecordingsRecordingIdUploadedWithTokenPost.Output.ServiceUnavailable.Body
                     let chosenContentType = try converter.bestContentType(
                         received: contentType,
                         options: [
