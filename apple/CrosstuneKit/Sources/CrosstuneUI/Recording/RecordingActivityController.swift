@@ -1,4 +1,3 @@
-import CrosstuneAudio
 import CrosstuneRecording
 import CrosstuneRecordingActivity
 import Foundation
@@ -19,15 +18,14 @@ public protocol RecordingActivityClient: AnyObject {
 /// Turns the recorder's state into the recording Live Activity.
 @MainActor
 public final class RecordingActivityController {
-    /// How often ``publishMeter(now:)`` should run while recording.
-    public static let meterInterval: Duration = .seconds(1)
     static let savedDismissal: Duration = .seconds(4)
     static let failedDismissal: Duration = .seconds(10)
     /// How long a recording update stays current. Past it, the activity shows that nothing is
     /// recording, which covers the system ending the app with no chance to end the activity.
     static let staleWindow: Duration = .seconds(15)
-    /// The longest a recording goes without an update, so its stale date stays ahead while the app runs.
-    static let keepAliveInterval: Duration = .seconds(5)
+    /// The longest a recording goes without an update, so its stale date stays ahead while the
+    /// app runs. Also how often ``keepAlive(now:)`` should run while recording.
+    public static let keepAliveInterval: Duration = .seconds(5)
 
     private let client: any RecordingActivityClient
     private var lastState: Recorder.State = .idle
@@ -37,9 +35,6 @@ public final class RecordingActivityController {
     private var sentAt: Date?
     /// Whether this recording has asked for an activity, so a refusal is not asked again.
     private var askedToStart = false
-    private var newLevels = NewLevels()
-    private var levelCount = 0
-    private var pendingLevels: [Float] = []
 
     public init(client: any RecordingActivityClient) {
         self.client = client
@@ -51,7 +46,6 @@ public final class RecordingActivityController {
     }
 
     public func observe(_ snapshot: RecorderSnapshot, now: Date) {
-        defer { takeLevels(from: snapshot) }
         let previous = lastState
         lastState = snapshot.state
 
@@ -80,17 +74,12 @@ public final class RecordingActivityController {
         }
     }
 
-    /// Whether the live activity shows a recording under way, the only time the meter changes.
+    /// Whether the live activity shows a recording under way, the only status that goes stale.
     var isShowingRecording: Bool { shown?.status == .recording }
 
-    /// Sends the levels measured since the last call as meter bars, while recording. Also sends
-    /// an unchanged state once ``keepAliveInterval`` has passed, to move its stale date ahead.
-    public func publishMeter(now: Date) {
-        defer { pendingLevels = [] }
-        guard let current = shown, current.status == .recording else { return }
-        var state = current
-        state.bars = MeterBars.reduce(pendingLevels)
-        guard state != current || isKeepAliveDue(now: now) else { return }
+    /// Sends the recording again once ``keepAliveInterval`` has passed, to move its stale date ahead.
+    public func keepAlive(now: Date) {
+        guard var state = shown, state.status == .recording, isKeepAliveDue(now: now) else { return }
         // A stale activity holds `elapsed`, so it keeps up with the timer.
         if let timerStart = state.timerStart {
             state.elapsed = now.timeIntervalSince(timerStart) - Self.timerLead
@@ -103,15 +92,6 @@ public final class RecordingActivityController {
         return now.timeIntervalSince(sentAt) >= Self.keepAliveInterval / .seconds(1)
     }
 
-    private func takeLevels(from snapshot: RecorderSnapshot) {
-        // A smaller count is a new recording, so levels held from the old one are dropped.
-        if snapshot.levelCount < levelCount { pendingLevels = [] }
-        levelCount = snapshot.levelCount
-        let fresh = newLevels.take(snapshot.levels, total: snapshot.levelCount)
-        // Levels from an interruption or a save would show on the meter after a resume.
-        if isShowingRecording { pendingLevels += fresh }
-    }
-
     /// The time runs on its own only while recording, and holds still at `snapshot.elapsed` otherwise.
     private func activityState(
         _ status: RecordingActivityState.Status, _ snapshot: RecorderSnapshot, now: Date
@@ -120,8 +100,7 @@ public final class RecordingActivityController {
             status: status,
             timerStart: status == .recording ? Self.timerStart(elapsed: snapshot.elapsed, now: now) : nil,
             elapsed: snapshot.elapsed,
-            canResume: status == .interrupted && snapshot.resumeAvailable,
-            bars: RecordingActivityState.flatBars
+            canResume: status == .interrupted && snapshot.resumeAvailable
         )
     }
 

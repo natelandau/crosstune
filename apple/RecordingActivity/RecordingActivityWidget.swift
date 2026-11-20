@@ -8,13 +8,13 @@ import WidgetKit
 struct RecordingActivityWidget: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: RecordingActivityAttributes.self) { context in
-            RecordingActivityContent(state: context.shownState, meterHeight: 32)
+            RecordingActivityContent(state: context.shownState)
                 .padding()
         } dynamicIsland: { context in
             let state = context.shownState
             return DynamicIsland {
                 DynamicIslandExpandedRegion(.bottom) {
-                    RecordingActivityContent(state: state, meterHeight: 20)
+                    RecordingActivityContent(state: state)
                 }
             } compactLeading: {
                 RecordingStatusSymbol(status: state.status)
@@ -30,11 +30,10 @@ struct RecordingActivityWidget: Widget {
     }
 }
 
-/// The status, the time, the meter, and the buttons, which the lock screen and the expanded
+/// The status, the time, and the buttons, which the lock screen and the expanded
 /// Dynamic Island share.
 private struct RecordingActivityContent: View {
     let state: RecordingActivityState
-    let meterHeight: CGFloat
 
     var body: some View {
         if state.status == .failed {
@@ -55,8 +54,6 @@ private struct RecordingActivityContent: View {
                         .font(.title2.weight(.semibold))
                 }
                 .accessibilityElement(children: .combine)
-                RecordingMeterView(bars: state.bars)
-                    .frame(height: meterHeight)
                 RecordingActivityButtons(state: state)
             }
         }
@@ -154,16 +151,15 @@ extension ActivityViewContext<RecordingActivityAttributes> {
 
 extension RecordingActivityState {
     fileprivate static let previewRecording = RecordingActivityState(
-        status: .recording, timerStart: .now.addingTimeInterval(-42), elapsed: 42, canResume: false,
-        bars: [0, 1, 3, 5, 8, 6, 4, 2, 5, 7])
+        status: .recording, timerStart: .now.addingTimeInterval(-42), elapsed: 42, canResume: false)
     fileprivate static let previewInterrupted = RecordingActivityState(
-        status: .interrupted, timerStart: nil, elapsed: 42, canResume: true, bars: flatBars)
+        status: .interrupted, timerStart: nil, elapsed: 42, canResume: true)
     fileprivate static let previewSaving = RecordingActivityState(
-        status: .saving, timerStart: nil, elapsed: 42, canResume: false, bars: flatBars)
+        status: .saving, timerStart: nil, elapsed: 42, canResume: false)
     fileprivate static let previewSaved = RecordingActivityState(
-        status: .saved, timerStart: nil, elapsed: 42, canResume: false, bars: flatBars)
+        status: .saved, timerStart: nil, elapsed: 42, canResume: false)
     fileprivate static let previewFailed = RecordingActivityState(
-        status: .failed, timerStart: nil, elapsed: 42, canResume: false, bars: flatBars)
+        status: .failed, timerStart: nil, elapsed: 42, canResume: false)
     fileprivate static let previewNotRecording = previewRecording.stale
 }
 

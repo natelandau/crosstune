@@ -8,28 +8,23 @@ public struct RecorderSnapshot: Equatable, Sendable {
     public var resumeAvailable: Bool
     public var savedRecordingID: String?
     public var errorMessage: String?
-    public var levels: [Float]
-    public var levelCount: Int
 
     public init(
         state: Recorder.State, elapsed: TimeInterval, resumeAvailable: Bool, savedRecordingID: String?,
-        errorMessage: String?, levels: [Float], levelCount: Int
+        errorMessage: String?
     ) {
         self.state = state
         self.elapsed = elapsed
         self.resumeAvailable = resumeAvailable
         self.savedRecordingID = savedRecordingID
         self.errorMessage = errorMessage
-        self.levels = levels
-        self.levelCount = levelCount
     }
 
     @MainActor
     public init(_ recorder: Recorder) {
         self.init(
             state: recorder.state, elapsed: recorder.elapsed, resumeAvailable: recorder.resumeAvailable,
-            savedRecordingID: recorder.savedRecordingID, errorMessage: recorder.errorMessage,
-            levels: recorder.levels, levelCount: recorder.levelCount
+            savedRecordingID: recorder.savedRecordingID, errorMessage: recorder.errorMessage
         )
     }
 }
