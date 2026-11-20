@@ -129,6 +129,26 @@ describe('startSyncTriggers', () => {
     stop()
   })
 
+  it('asks the browser to keep its storage once, after the first unsent edit', async () => {
+    const persist = vi.fn()
+    const stop = startSyncTriggers(fakeEngine(), db, { persist })
+    // Subscribed after the trigger, so when it sees a write the trigger has seen it too.
+    const seen: number[] = []
+    const watch = liveQuery(() => countUnsentChanges(db)).subscribe((count) => seen.push(count))
+    try {
+      await recordEvent(db, 'play_events', playEventRow('play-1'))
+      await createTune(db, { title: 'A' }, { status: 'known' })
+      await expect.poll(() => persist.mock.calls.length).toBe(1)
+      const afterFirst = await countUnsentChanges(db)
+      await createTune(db, { title: 'B' }, { status: 'known' })
+      await expect.poll(() => seen.at(-1)).toBeGreaterThan(afterFirst)
+      expect(persist).toHaveBeenCalledOnce()
+    } finally {
+      watch.unsubscribe()
+      stop()
+    }
+  })
+
   it('cancels a pending debounce when it stops', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
     const engine = fakeEngine()
