@@ -24,7 +24,9 @@ USAGE_EXIT = 2
 
 WEB_UI = re.compile(r"^web/(src/|index\.html|public/)")
 WEB_TEST = re.compile(r"\.test\.tsx?$")
-APPLE_UI = re.compile(r"^apple/(Crosstune/|CrosstuneKit/Sources/(CrosstuneUI|CrosstuneDesign)/)")
+APPLE_UI = re.compile(
+    r"^apple/(Crosstune/|CrosstuneKit/Sources/(CrosstuneUI|CrosstuneDesign|CrosstunePalette|CrosstuneRecordingActivity)/)"
+)
 SCREEN_CASE = re.compile(r" *case ([a-zA-Z]+)( = \"([a-z-]+)\")?")
 
 

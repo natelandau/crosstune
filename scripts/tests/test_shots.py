@@ -57,10 +57,12 @@ def test_web_tests_and_tooling_touch_nothing():
 
 def test_apple_ui_touches_mac_and_ios():
     assert touched_platforms(["apple/Crosstune/App.swift"]) == ["mac", "ios"]
-    assert touched_platforms(["apple/CrosstuneKit/Sources/CrosstuneDesign/Color.swift"]) == [
-        "mac",
-        "ios",
-    ]
+    for path in [
+        "apple/CrosstuneKit/Sources/CrosstuneDesign/Color.swift",
+        "apple/CrosstuneKit/Sources/CrosstunePalette/Palette.swift",
+        "apple/CrosstuneKit/Sources/CrosstuneRecordingActivity/RecordingActivityText.swift",
+    ]:
+        assert touched_platforms([path]) == ["mac", "ios"]
 
 
 def test_apple_non_ui_touches_nothing():
