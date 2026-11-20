@@ -6,7 +6,8 @@ import type { CrosstuneDb } from '../db/schema'
 import type { LocalRecording } from '../db/types'
 import { countUnsentChanges } from '../db/outbox'
 import { openTestDb } from '../test/db'
-import { playEventRow, scanViewRow } from '../test/rows'
+import { playEventRow, recordingFile, scanViewRow } from '../test/rows'
+import { pollStill } from '../test/stillPoll'
 import { PROCESSING_POLL_MS, startSyncTriggers, WRITE_DEBOUNCE_MS } from './triggers'
 import type { SyncEngine } from './types'
 import { DEFAULT_ISOLATE, isolateToPatch } from '../features/player/isolate/isolateSetting'
@@ -236,5 +237,40 @@ describe('startSyncTriggers', () => {
     await vi.advanceTimersByTimeAsync(PROCESSING_POLL_MS * 2)
     expect(engine.calls).toBe(1)
     stop()
+  })
+
+  it('syncs at once for a newly captured recording, before the debounce elapses', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    const engine = fakeEngine()
+    const stop = startSyncTriggers(engine, db, { debounceMs: WRITE_DEBOUNCE_MS })
+    try {
+      await db.recording_files.put(recordingFile('f1', { local_state: 'captured' }))
+      await pollStill(() => engine.calls).toBe(2)
+    } finally {
+      stop()
+    }
+  })
+
+  it('does not sync at once for a backed-off retry', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    const engine = fakeEngine()
+    const stop = startSyncTriggers(engine, db, { debounceMs: WRITE_DEBOUNCE_MS })
+    // Same query as the trigger's, subscribed after it, so seeing the row means it saw it too.
+    const seen: number[] = []
+    const watch = liveQuery(() => db.recording_files.count()).subscribe((n) => seen.push(n))
+    try {
+      await db.recording_files.put(
+        recordingFile('f1', {
+          local_state: 'captured',
+          upload_attempts: 1,
+          next_attempt_at: Date.now() + 60_000,
+        }),
+      )
+      await pollStill(() => seen.at(-1)).toBe(1)
+      expect(engine.calls).toBe(1)
+    } finally {
+      watch.unsubscribe()
+      stop()
+    }
   })
 })

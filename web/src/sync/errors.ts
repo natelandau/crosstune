@@ -1,4 +1,5 @@
 import { ApiError, NoTokenError } from '../api/client'
+import { isRetryableStatus } from './retryableStatus'
 
 export const QUOTA_PROBLEM = 'urn:crosstune:quota-exceeded'
 
@@ -42,14 +43,8 @@ export function isAccountDeleted(error: unknown): boolean {
   )
 }
 
-/** A refusal that a later attempt can turn around: the server's own fault, an auth failure, a
- * timeout, or a rate limit. Any other 4xx refuses the request itself and will not succeed as-is. */
+/** A refusal that a later attempt can turn around, by `isRetryableStatus`. A plan refusal is a
+ * 403 that signing in again never changes. */
 export function isRetryableRefusal(error: ApiError): boolean {
-  if (isPlanRefusal(error)) return false
-  return (
-    error.status < 400 ||
-    error.status >= 500 ||
-    isAuthFailure(error) ||
-    [408, 429].includes(error.status)
-  )
+  return !isPlanRefusal(error) && isRetryableStatus(error.status)
 }

@@ -339,6 +339,21 @@ async def test_an_unhandled_request_error_keeps_the_token_and_query_out_of_sentr
         assert text not in sent
 
 
+@pytest.mark.anyio
+async def test_an_unhandled_token_confirm_error_keeps_the_upload_token_out_of_sentry(
+    live_sentry, client, mocker
+) -> None:
+    mocker.patch("crosstune.recordings.router.slot_for_recording", side_effect=RuntimeError("boom"))
+    with pytest.raises(RuntimeError):
+        await client.post(
+            f"/v1/recordings/{uid()}/uploaded-with-token",
+            headers={"X-Upload-Token": "upload-token-sentinel"},
+        )
+    sentry_sdk.flush()
+
+    assert "upload-token-sentinel" not in _sent_event(live_sentry)
+
+
 def test_sentry_drops_the_value_from_a_driver_encode_error() -> None:
     message = (
         "(sqlalchemy.dialects.postgresql.asyncpg.Error) <class 'asyncpg.exceptions.DataError'>: "

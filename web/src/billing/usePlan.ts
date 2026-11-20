@@ -3,7 +3,7 @@ import { useDb } from '../db/DbProvider'
 import { createSharedLiveQuery, type Shared, type Snapshot } from '../db/sharedLiveQuery'
 import type { CrosstuneDb } from '../db/schema'
 import type { LocalEntitlement } from '../db/types'
-import { clamp } from '../math'
+import { clamp, MAX_TIMER_MS } from '../math'
 import { useFixedNow } from '../ui/useNow'
 import { liveEntitlement } from './entitlement'
 import {
@@ -16,8 +16,6 @@ import {
   type Plan,
 } from './plan'
 
-// setTimeout fires at once for a delay past a signed 32-bit integer.
-const MAX_TIMER_MS = 2_147_483_647
 // Timers pause while a device sleeps and run late in a background tab, so a slow check backs
 // up the precise one.
 const RECHECK_MS = 60_000

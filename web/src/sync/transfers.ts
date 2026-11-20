@@ -20,16 +20,32 @@ import { now, putRow, recordingTx } from '../commands/write'
 import {
   baseContentType,
   CHUNK_MS,
+  HANDOFF_TAKE_BACK_ATTEMPTS,
   isNotUploaded,
+  modifyWhileHeld,
+  type HandedOffFile,
   type LocalFileState,
   type RecordingFile,
+  type UploadHandoff,
 } from '../db/recordings'
-import { getKeepOffline, getStorage, setCountryCenter, setStorage } from '../db/meta'
+import {
+  getKeepOffline,
+  getStorage,
+  setCountryCenter,
+  setStorage,
+  type StorageUsage,
+} from '../db/meta'
 import { pendingFor } from '../db/outbox'
 import type { CrosstuneDb } from '../db/schema'
 import { liveTune } from '../db/tunes'
 import type { LocalRecording } from '../db/types'
-import { holdsSplitAudio, mustSplitToUpload } from '../domain/recordingLimits'
+import {
+  holdsSplitAudio,
+  MAX_RECORDING_MS,
+  mustSplitToUpload,
+  type UploadLimits,
+} from '../domain/recordingLimits'
+import { BACKGROUND_UPLOAD_MAX_BYTES, type BackgroundUploads } from '../platform/backgroundSync'
 import { defaultLocks, heldCaptureIds } from './captureLock'
 import { isAuthFailure, isPlanRefusal, isRetryableRefusal, QUOTA_PROBLEM } from './errors'
 
@@ -171,14 +187,85 @@ async function settleUpload(
   reports.ended(id)
 }
 
+/** Whether the service worker may send this file: small enough to read into memory there,
+ * and not a split parent, whose upload the server holds to the larger split cap. */
+function workerMaySend(row: LocalRecording, file: RecordingFile): boolean {
+  return (
+    file.bytes <= BACKGROUND_UPLOAD_MAX_BYTES &&
+    row.split_id == null &&
+    (file.local_duration_ms ?? 0) <= MAX_RECORDING_MS
+  )
+}
+
+/** A hand-off the worker may still finish: its slot has not expired, the server has not
+ * refused its confirm, and its runs have not failed too often. */
+export function isLiveHandoff(
+  file: RecordingFile | undefined,
+  nowMs: number,
+): file is HandedOffFile {
+  const handoff = file?.handoff
+  return (
+    handoff != null &&
+    !handoff.refused &&
+    handoff.expires_at > nowMs &&
+    handoff.attempts < HANDOFF_TAKE_BACK_ATTEMPTS
+  )
+}
+
+/** Whether the page sends this file itself, under a plan with recordings: no live hand-off
+ * leaves it to the worker, and it is not held for a split. */
+export function pageWouldUpload(
+  row: LocalRecording | undefined,
+  file: RecordingFile,
+  storage: UploadLimits | null,
+  nowMs: number,
+): boolean {
+  return !isLiveHandoff(file, nowMs) && !(row && mustSplitToUpload(row, file, storage))
+}
+
+/** The files in `states` with their rows and the account's storage usage, or null under a
+ * plan whose recordings the page does not upload. */
+export async function readUploadQueue(
+  db: CrosstuneDb,
+  states: LocalFileState[],
+): Promise<{
+  files: RecordingFile[]
+  rows: (LocalRecording | undefined)[]
+  storage: StorageUsage | null
+} | null> {
+  if (!recordingsPlayable(await readPlan(db, new Date()))) return null
+  const files = await db.recording_files.where('local_state').anyOf(states).toArray()
+  const rows = await db.recordings.bulkGet(files.map((file) => file.id))
+  return { files, rows, storage: await getStorage(db) }
+}
+
+/** Clear a hand-off only while the row still holds it, so a worker run that settled it first
+ * keeps its result. False when the row no longer holds it. */
+async function takeBackHandoff(
+  db: CrosstuneDb,
+  id: string,
+  handoff: UploadHandoff,
+  change: Partial<RecordingFile> = {},
+): Promise<boolean> {
+  const changed = await modifyWhileHeld(db.recording_files, id, handoff, (row) => {
+    Object.assign(row, change, { handoff: null })
+  })
+  return changed > 0
+}
+
+/** Resolves to the hand-off when the file was left for the service worker to send.
+ * `background` is set only when the worker may take this file. */
 async function uploadOne(
   db: CrosstuneDb,
   api: SyncApi,
   reports: UploadReports,
   id: string,
-): Promise<void> {
+  background?: BackgroundUploads,
+): Promise<UploadHandoff | undefined> {
   const file = await db.recording_files.get(id)
   if (!file?.blob) return
+  // Another tab's pass may have handed it off since this pass read the queue.
+  if (isLiveHandoff(file, Date.now())) return
   const row = await db.recordings.get(id)
   // A tombstone that lands mid-pass is settled by the next pass's dropTombstonedFiles.
   if (!row || row.deleted_at) return
@@ -228,6 +315,26 @@ async function uploadOne(
     await scheduleRetry(db, id, error)
     reports.failed(row, error)
     throw error
+  }
+
+  if (background && workerMaySend(row, file)) {
+    const handoff: UploadHandoff = {
+      url: slot.url,
+      confirm_token: slot.confirm_token,
+      content_type: contentType,
+      expires_at: Date.parse(slot.expires_at),
+      attempts: 0,
+    }
+    // The worker owns the upload now, so earlier page failures no longer describe it.
+    await db.recording_files.update(id, {
+      local_state: 'uploading',
+      handoff,
+      error: null,
+      upload_attempts: 0,
+      next_attempt_at: null,
+    })
+    reports.ended(id)
+    return handoff
   }
 
   try {
@@ -289,7 +396,8 @@ async function dropTombstonedFiles(db: CrosstuneDb, reports: UploadReports): Pro
           tune_id: null,
           updated_at: now(),
         })
-        await db.recording_files.update(id, { local_state: 'captured', error: null })
+        // A hand-off on a captured file is one the worker never reads and the page never sends.
+        await db.recording_files.update(id, { local_state: 'captured', error: null, handoff: null })
         continue
       }
       // A piece waiting for its cut plays from this audio; a later pass drops it.
@@ -311,29 +419,58 @@ async function dropTombstonedFiles(db: CrosstuneDb, reports: UploadReports): Pro
   })
 }
 
+/** The hand-off urls each page's background uploads already registered the sync for. Each
+ * registration runs the worker at once, past the browser's retry backoff, so registering on
+ * every pass would spend a hand-off's attempts in seconds during a short outage. A new page load
+ * starts empty, so a hand-off whose tab closed before it registered still gets one. */
+const requestedHandoffs = new WeakMap<BackgroundUploads, Set<string>>()
+
 /**
  * Upload every captured blob whose row has reached the server. Blocked and stalled ones
  * are retried too. A row's own transient failure does not stop the rest of the pass; the
  * first one is returned (null when every row settled) so the caller can still fail the sync.
+ * With `background` available, a file the service worker may send is reserved and left to it.
  */
 export async function uploadPass(
   db: CrosstuneDb,
   api: SyncApi,
   reports: UploadReports,
   isStopped: () => boolean = () => false,
+  background?: BackgroundUploads,
 ): Promise<unknown> {
   // Run before the quota skip below, so a blocked row whose recording was deleted
   // elsewhere is cleaned up instead of being skipped forever by the storage usage check.
   await dropTombstonedFiles(db, reports)
-  if (!recordingsPlayable(await readPlan(db, new Date()))) return null
-
-  const waiting = await db.recording_files
-    .where('local_state')
-    .anyOf(['captured', 'blocked_quota', 'uploading'])
-    .toArray()
-  const rows = await db.recordings.bulkGet(waiting.map((file) => file.id))
-  const storage = await getStorage(db)
+  const queue = await readUploadQueue(db, ['captured', 'blocked_quota', 'uploading'])
+  if (!queue) return null
+  const { files: waiting, rows, storage } = queue
   const nowMs = Date.now()
+  // Set once the browser refuses a sync request in this pass. The browser's own availability
+  // turns false too, but cannot tell a refusal from a browser that never had a worker.
+  let refused = false
+  const handedOff: [string, UploadHandoff][] = []
+  /** Leaves a hand-off to the worker and registers the sync once for it, so the worker can run
+   * it as soon as it is written. Once the browser refuses, no worker run will come, so the page
+   * takes back every hand-off this pass met and sends the rest of the queue itself. */
+  const leaveToWorker = async (id: string, handoff: UploadHandoff): Promise<void> => {
+    if (!background || !(refused || background.available())) return
+    handedOff.push([id, handoff])
+    let requested = requestedHandoffs.get(background)
+    if (!requested) requestedHandoffs.set(background, (requested = new Set()))
+    if (!refused && (requested.has(handoff.url) || (await background.request()))) {
+      requested.add(handoff.url)
+      return
+    }
+    refused = true
+    try {
+      for (const [heldId, held] of handedOff.splice(0)) {
+        await takeBackHandoff(db, heldId, held, { local_state: 'captured' })
+      }
+    } catch (error) {
+      // Thrown from here it would replace the pass's own failure, such as an auth failure.
+      Sentry.captureException(error)
+    }
+  }
   let firstError: unknown = null
   for (const [i, file] of waiting.entries()) {
     if (isStopped()) return null
@@ -346,11 +483,23 @@ export async function uploadPass(
     ) {
       continue
     }
+    // Takes no new slot and no backoff while the worker may still finish it.
+    let takenBack = false
+    if (isLiveHandoff(file, nowMs)) {
+      await leaveToWorker(file.id, file.handoff)
+      continue
+    }
+    if (file.handoff) {
+      if (!(await takeBackHandoff(db, file.id, file.handoff))) continue
+      // The page sends a file the server refused or the worker kept failing for this attempt.
+      takenBack = !!file.handoff.refused || file.handoff.attempts >= HANDOFF_TAKE_BACK_ATTEMPTS
+    }
     if (file.next_attempt_at !== null && file.next_attempt_at > nowMs) continue
-    const row = rows[i]
-    if (row && mustSplitToUpload(row, file, storage ?? null)) continue
+    if (!pageWouldUpload(rows[i], file, storage, nowMs)) continue
     try {
-      await uploadOne(db, api, reports, file.id)
+      const worker = !takenBack && !refused && background?.available() ? background : undefined
+      const handoff = await uploadOne(db, api, reports, file.id, worker)
+      if (handoff) await leaveToWorker(file.id, handoff)
     } catch (error) {
       // The server's plan refuses every recording alike, so the rest wait for the next pass
       // without failing this one.

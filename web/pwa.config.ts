@@ -1,6 +1,9 @@
 import type { VitePWAOptions } from 'vite-plugin-pwa'
 
 export const pwaOptions: Partial<VitePWAOptions> = {
+  strategies: 'injectManifest',
+  srcDir: 'src/sw',
+  filename: 'sw.ts',
   registerType: 'autoUpdate',
   manifest: {
     name: 'Crosstune',
@@ -24,12 +27,7 @@ export const pwaOptions: Partial<VitePWAOptions> = {
       },
     ],
   },
-  workbox: {
+  injectManifest: {
     globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-    navigateFallback: 'index.html',
-    // The API is never served from cache and never falls back to the shell.
-    navigateFallbackDenylist: [/^\/v1\//],
-    runtimeCaching: [],
-    cleanupOutdatedCaches: true,
   },
 }

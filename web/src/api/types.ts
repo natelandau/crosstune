@@ -41,6 +41,7 @@ export type ScanViewRow = Schemas['ScanViewRow']
 export type StatusChangeRow = Schemas['StatusChangeRow']
 export type MeResponse = Schemas['MeResponse']
 export type SignedUrl = Schemas['SignedUrl']
+export type UploadSlotGrant = Schemas['UploadSlotGrant']
 export type DownloadUrl = Schemas['DownloadUrl']
 export type PeaksUrl = Schemas['PeaksUrl']
 export type UploadSlotRequest = Schemas['UploadSlotRequest']
@@ -85,7 +86,7 @@ export interface SyncApi {
   /** Refunds the first web payment and ends the web subscription. Rejects with a 409 `ApiError`
    * whose `problem.reason` says why a withdrawal was refused. */
   withdraw(): Promise<void>
-  requestUploadSlot(recordingId: string, body: UploadSlotRequest): Promise<SignedUrl>
+  requestUploadSlot(recordingId: string, body: UploadSlotRequest): Promise<UploadSlotGrant>
   uploadFinished(recordingId: string): Promise<void>
   retryRecording(recordingId: string): Promise<void>
   /** The revision and start it carries are what the server signed the URL for, which can

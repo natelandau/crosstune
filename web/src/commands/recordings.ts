@@ -50,6 +50,7 @@ function emptyFile(id: string, overrides: Partial<RecordingFile> = {}): Recordin
     recorded_at: null,
     next_attempt_at: null,
     upload_attempts: 0,
+    handoff: null,
     ...overrides,
   }
 }

@@ -267,6 +267,8 @@ class Settings(DatabaseSettings):
     mapkit_tokens_per_minute: int = 10
     place_snapshots_per_minute: int = 120
     recording_retries_per_minute: int = 10
+    # Per recording, for the upload confirm that takes a slot's token in place of sign-in.
+    upload_token_confirms_per_minute: int = 30
     # Reverse geocodes the job runner makes for one account; the rest wait their turn.
     place_lookups_per_minute: int = 30
     # Apple's free daily quota is shared by every user and the per-minute limits reset when

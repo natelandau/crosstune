@@ -5241,6 +5241,37 @@ extension Components {
                 case violin
             }
         }
+        /// A presigned PUT, and the token that confirms it without sign-in until the URL expires.
+        ///
+        /// - Remark: Generated from `#/components/schemas/UploadSlotGrant`.
+        public struct UploadSlotGrant: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/UploadSlotGrant/confirm_token`.
+            public var confirmToken: Swift.String
+            /// - Remark: Generated from `#/components/schemas/UploadSlotGrant/expires_at`.
+            public var expiresAt: Foundation.Date
+            /// - Remark: Generated from `#/components/schemas/UploadSlotGrant/url`.
+            public var url: Swift.String
+            /// Creates a new `UploadSlotGrant`.
+            ///
+            /// - Parameters:
+            ///   - confirmToken:
+            ///   - expiresAt:
+            ///   - url:
+            public init(
+                confirmToken: Swift.String,
+                expiresAt: Foundation.Date,
+                url: Swift.String
+            ) {
+                self.confirmToken = confirmToken
+                self.expiresAt = expiresAt
+                self.url = url
+            }
+            public enum CodingKeys: String, CodingKey {
+                case confirmToken = "confirm_token"
+                case expiresAt = "expires_at"
+                case url
+            }
+        }
         /// What the client is about to upload.
         ///
         /// - Remark: Generated from `#/components/schemas/UploadSlotRequest`.

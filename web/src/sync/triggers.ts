@@ -53,6 +53,11 @@ export function startSyncTriggers(
   doc.addEventListener('visibilitychange', onVisibility)
 
   let timer: ReturnType<typeof setTimeout> | null = null
+  const syncNow = () => {
+    if (timer) clearTimeout(timer)
+    timer = null
+    void engine.sync()
+  }
   // Events wait for a sync something else starts, so listening alone never wakes the server.
   const subscription = liveQuery(() => countUnsentChanges(db)).subscribe({
     next(count) {
@@ -63,13 +68,30 @@ export function startSyncTriggers(
         persist()
       }
       if (timer) clearTimeout(timer)
-      timer = setTimeout(() => {
-        timer = null
-        void engine.sync()
-      }, debounceMs)
+      timer = setTimeout(syncNow, debounceMs)
     },
     error(error) {
       console.warn('sync: outbox watch failed', error)
+    },
+  })
+
+  // A background upload needs the server row and an upload slot, so a freshly saved recording
+  // syncs now instead of after the debounce. A backed-off retry has attempts above 0 and waits.
+  let freshCaptures = 0
+  const capturedSubscription = liveQuery(() =>
+    db.recording_files
+      .where('local_state')
+      .equals('captured')
+      .filter((f) => f.upload_attempts === 0)
+      .count(),
+  ).subscribe({
+    next(count) {
+      const rose = count > freshCaptures
+      freshCaptures = count
+      if (rose) syncNow()
+    },
+    error(error) {
+      console.warn('sync: captured recordings watch failed', error)
     },
   })
 
@@ -97,6 +119,7 @@ export function startSyncTriggers(
     doc.removeEventListener('visibilitychange', onVisibility)
     subscription.unsubscribe()
     processingSubscription.unsubscribe()
+    capturedSubscription.unsubscribe()
     if (timer) clearTimeout(timer)
     if (pollTimer) clearInterval(pollTimer)
   }

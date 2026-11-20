@@ -2,47 +2,34 @@ import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { minimatch } from 'minimatch'
 import { describe, expect, it } from 'vitest'
-import { ANALYTICS_HOST } from './src/usage/config'
 import assetsConfig from './pwa-assets.config'
 import { pwaOptions } from './pwa.config'
+import { APP_SHELL, NAVIGATION_DENYLIST } from './src/sw/navigation'
 import { parseBrand, readBrand } from './src/test/brand'
 
 describe('pwaOptions', () => {
-  it('never caches the API', () => {
-    const denylist = pwaOptions.workbox?.navigateFallbackDenylist ?? []
-    expect(denylist.some((re) => re.test('/v1/tunes'))).toBe(true)
-    expect(denylist.some((re) => re.test('/v1/'))).toBe(true)
-    expect(pwaOptions.workbox?.runtimeCaching).toEqual([])
-  })
-
-  it('never caches the analytics relay', () => {
-    const rules = pwaOptions.workbox?.runtimeCaching ?? []
-    const relay = `${ANALYTICS_HOST}/e/`
-    const matches = rules.filter((rule) => {
-      const { urlPattern } = rule
-      if (urlPattern instanceof RegExp) return urlPattern.test(relay)
-      return typeof urlPattern === 'string' && relay.includes(urlPattern)
-    })
-    expect(matches).toEqual([])
+  it('never falls back to the shell for the API', () => {
+    expect(NAVIGATION_DENYLIST.some((re) => re.test('/v1/tunes'))).toBe(true)
+    expect(NAVIGATION_DENYLIST.some((re) => re.test('/v1/'))).toBe(true)
+    expect(NAVIGATION_DENYLIST.some((re) => re.test('/tunes/abc'))).toBe(false)
   })
 
   // Config only: whether the built chunk is actually precached is for the task that mounts
   // the engine and can run a real build against it.
   it('config would precache lazily loaded .js chunks like the audio stage, and nothing excludes them', () => {
     const sampleChunks = ['assets/audioStage-abc123.js', 'assets/SignalsmithStretch-abc123.js']
-    const patterns = pwaOptions.workbox?.globPatterns ?? []
-    const ignores = pwaOptions.workbox?.globIgnores ?? []
+    const patterns = pwaOptions.injectManifest?.globPatterns ?? []
+    const ignores = pwaOptions.injectManifest?.globIgnores ?? []
     for (const chunk of sampleChunks) {
       expect(patterns.some((pattern) => minimatch(chunk, pattern))).toBe(true)
       expect(ignores.some((pattern) => minimatch(chunk, pattern))).toBe(false)
     }
   })
 
-  it('precaches the app entry and falls back to it for every route', () => {
-    const workbox = pwaOptions.workbox
-    expect((workbox?.globPatterns ?? []).some((glob) => minimatch('index.html', glob))).toBe(true)
-    expect((workbox?.globIgnores ?? []).some((glob) => minimatch('index.html', glob))).toBe(false)
-    expect(workbox?.navigateFallback).toBe('index.html')
+  it('precaches the app shell', () => {
+    const manifest = pwaOptions.injectManifest
+    expect((manifest?.globPatterns ?? []).some((glob) => minimatch(APP_SHELL, glob))).toBe(true)
+    expect((manifest?.globIgnores ?? []).some((glob) => minimatch(APP_SHELL, glob))).toBe(false)
   })
 
   it('updates the shell in place and stays enabled', () => {

@@ -149,6 +149,7 @@ export function recordingFile(id: string, extra: Partial<RecordingFile> = {}): R
     recorded_at: null,
     next_attempt_at: null,
     upload_attempts: 0,
+    handoff: null,
     ...extra,
   }
 }

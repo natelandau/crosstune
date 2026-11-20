@@ -46,6 +46,10 @@ SCRUBBED_KEYS = sorted(
         *_synced_text_fields(),
         "email",
         "apple_authorization_code",
+        # An upload slot's confirm token: the header, the route's parameter, and the grant.
+        "x-upload-token",
+        "x_upload_token",
+        "confirm_token",
         # A Starlette request and the ASGI scope serialize as mappings whose headers carry
         # the bearer token and whose query string carries search text.
         "scope",

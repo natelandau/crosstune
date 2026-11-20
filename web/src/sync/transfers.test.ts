@@ -14,7 +14,14 @@ import {
 import { addLink } from '../commands/links'
 import { splitRecording } from '../commands/split'
 import { createTune, deleteTune } from '../commands/tunes'
-import { CHUNK_MS } from '../db/recordings'
+import {
+  CHUNK_MS,
+  HANDOFF_TAKE_BACK_ATTEMPTS,
+  type RecordingFile,
+  type UploadHandoff,
+} from '../db/recordings'
+import { MAX_RECORDING_MS, MAX_SPLIT_SOURCE_MS } from '../domain/recordingLimits'
+import { BACKGROUND_UPLOAD_MAX_BYTES } from '../platform/backgroundSync'
 import { getCountryCenter, getStorage, setKeepOffline, setStorage } from '../db/meta'
 import { pendingFor } from '../db/outbox'
 import type { CrosstuneDb } from '../db/schema'
@@ -22,11 +29,12 @@ import { newId } from '../commands/write'
 import { openTestDb } from '../test/db'
 import { transfersSettled } from '../test/transfers'
 import { createFakeApi, serverRecording, serverTune } from '../test/fakeApi'
-import { entitlementRow } from '../test/rows'
+import { entitlementRow, recordingFile, recordingRow } from '../test/rows'
 import { applyPullPage } from './apply'
 import { FakeLockManager } from '../test/fakeLocks'
 import { acquireCaptureLock } from './captureLock'
 import { createSyncEngine } from './engine'
+import { runUploadHandoffs } from '../sw/uploadHandoffs'
 import { PREMIUM_REQUIRED_PROBLEM } from './errors'
 import type { SyncEngine } from './types'
 import {
@@ -37,6 +45,7 @@ import {
   downloadPass,
   fetchPeaks,
   isStale,
+  pageWouldUpload,
   QUOTA_PROBLEM,
   recoverInterruptedCaptures,
   retryDelayMs,
@@ -549,6 +558,26 @@ describe('uploadPass', () => {
     expect((await pendingFor(db, 'recordings', id))?.op).toBe('upsert')
   })
 
+  it('drops the hand-off of a handed-off row whose recording is tombstoned', async () => {
+    const id = await captured()
+    await db.recording_files.update(id, {
+      local_state: 'uploading',
+      handoff: {
+        url: 'https://r2.example/put',
+        confirm_token: 'token',
+        content_type: 'audio/mp4',
+        expires_at: Date.now() + 60_000,
+        attempts: 0,
+      },
+    })
+    await db.recordings.update(id, { deleted_at: AT })
+    await uploadPass(db, fake.api, createUploadReports(noopAnalytics))
+    expect(await db.recording_files.get(id)).toMatchObject({
+      local_state: 'captured',
+      handoff: null,
+    })
+  })
+
   it('drops a file whose recording row was never stored here', async () => {
     const id = await captured()
     await db.recordings.delete(id)
@@ -625,6 +654,317 @@ describe('uploadPass', () => {
     await uploadPass(db, fake.api, createUploadReports(noopAnalytics))
     expect(await db.recording_chunks.where('recording_id').equals('ghost').count()).toBe(0)
     expect(await db.recording_chunks.where('recording_id').equals(id).count()).toBe(0)
+  })
+})
+
+describe('uploadPass with background uploads', () => {
+  const SLOT_EXPIRES = '2999-01-01T00:00:00Z'
+
+  function fakeBackground(available = true, registers = true) {
+    return { available: () => available, request: vi.fn(async () => registers) }
+  }
+
+  /** Runs `between` once, at the pass's first slot request: after it read the queue. */
+  function onFirstSlot(between: (recordingId: string) => Promise<unknown>) {
+    const request = fake.api.requestUploadSlot.bind(fake.api)
+    let ran = false
+    return vi.spyOn(fake.api, 'requestUploadSlot').mockImplementation(async (...args) => {
+      if (!ran) {
+        ran = true
+        await between(args[0])
+      }
+      return request(...args)
+    })
+  }
+
+  /** A captured recording whose row the server already holds, so its upload can start. */
+  async function onServer(): Promise<string> {
+    const id = await captured()
+    await db.outbox.clear()
+    return id
+  }
+
+  function handoff(overrides: Partial<UploadHandoff> = {}): UploadHandoff {
+    return {
+      url: 'https://fake.r2/old/upload',
+      confirm_token: 'old-token',
+      content_type: 'audio/mp4',
+      expires_at: Date.now() + 60_000,
+      attempts: 0,
+      ...overrides,
+    }
+  }
+
+  it('hands a small file to the worker instead of putting it', async () => {
+    const id = await onServer()
+    await db.recording_files.update(id, { error: 'earlier failure', upload_attempts: 2 })
+    const analytics = recordingAnalytics()
+    const reports = createUploadReports(analytics, () => true)
+    const row = (await db.recordings.get(id))!
+    const pageFailure = new NetworkError(new TypeError('Failed to fetch'))
+    reports.failed(row, pageFailure)
+    const put = vi.spyOn(fake.api, 'putObject')
+    const background = fakeBackground()
+    await uploadPass(db, fake.api, reports, undefined, background)
+    expect(put).not.toHaveBeenCalled()
+    expect(await db.recording_files.get(id)).toMatchObject({
+      local_state: 'uploading',
+      handoff: {
+        url: `https://fake.r2/${id}/upload?ct=audio/mp4`,
+        confirm_token: `token-${id}`,
+        content_type: 'audio/mp4',
+        expires_at: Date.parse(SLOT_EXPIRES),
+        attempts: 0,
+      },
+      error: null,
+      upload_attempts: 0,
+      next_attempt_at: null,
+    })
+    expect(background.request).toHaveBeenCalledTimes(1)
+    // A later page failure starts a new run of failures, so it is reported.
+    reports.failed(row, pageFailure)
+    expect(analytics.sends()).toHaveLength(2)
+  })
+
+  it('registers the sync for a hand-off before the page puts a large file', async () => {
+    const [small, large] = [await onServer(), await onServer()].sort()
+    await db.recording_files.update(large!, { bytes: BACKGROUND_UPLOAD_MAX_BYTES + 1 })
+    const background = fakeBackground()
+    let registeredBeforePut = false
+    const putObject = fake.api.putObject.bind(fake.api)
+    vi.spyOn(fake.api, 'putObject').mockImplementation(async (...args) => {
+      registeredBeforePut = background.request.mock.calls.length > 0
+      return putObject(...args)
+    })
+    await uploadPass(db, fake.api, createUploadReports(noopAnalytics), undefined, background)
+    expect((await db.recording_files.get(small!))?.handoff).not.toBeNull()
+    expect(registeredBeforePut).toBe(true)
+  })
+
+  it('takes back a hand-off whose confirm the server refused and backs off on its own refusal', async () => {
+    const id = await onServer()
+    await db.recording_files.update(id, { local_state: 'uploading', handoff: handoff() })
+    await runUploadHandoffs({
+      fetch: async (_input, init) =>
+        new Response(null, { status: init?.method === 'PUT' ? 200 : 409 }),
+      now: () => Date.now(),
+      databaseNames: async () => [db.name],
+    })
+    expect((await db.recording_files.get(id))?.handoff?.refused).toBe(true)
+
+    fake.failConfirm(new ApiError(409, null))
+    const slot = vi.spyOn(fake.api, 'requestUploadSlot')
+    const put = vi.spyOn(fake.api, 'putObject')
+    const background = fakeBackground()
+    await uploadPass(db, fake.api, createUploadReports(noopAnalytics), undefined, background)
+    expect(slot).toHaveBeenCalledTimes(1)
+    expect(put).toHaveBeenCalledTimes(1)
+    const file = await db.recording_files.get(id)
+    expect(file).toMatchObject({ local_state: 'captured', handoff: null })
+    expect(file?.next_attempt_at).toBeGreaterThan(Date.now())
+    expect(background.request).not.toHaveBeenCalled()
+  })
+
+  it('returns handed-off files to the queue when the browser refuses the sync', async () => {
+    const id = await onServer()
+    const earlier = await onServer()
+    await db.recording_files.update(earlier, { local_state: 'uploading', handoff: handoff() })
+    const background = fakeBackground(true, false)
+    await uploadPass(db, fake.api, createUploadReports(noopAnalytics), undefined, background)
+    expect(background.request).toHaveBeenCalledTimes(1)
+    for (const file of [id, earlier]) {
+      expect(await db.recording_files.get(file)).toMatchObject({
+        local_state: 'captured',
+        handoff: null,
+        next_attempt_at: null,
+      })
+    }
+  })
+
+  it('leaves a file another pass handed off after this pass read the queue', async () => {
+    const first = await onServer()
+    const second = await onServer()
+    // Whichever file the pass reaches first, another tab hands off the other one.
+    const slot = onFirstSlot((id) =>
+      db.recording_files.update(id === first ? second : first, {
+        local_state: 'uploading',
+        handoff: handoff(),
+      }),
+    )
+    const put = vi.spyOn(fake.api, 'putObject')
+    await uploadPass(db, fake.api, createUploadReports(noopAnalytics))
+    expect(slot).toHaveBeenCalledTimes(1)
+    expect(put).toHaveBeenCalledTimes(1)
+  })
+
+  it('leaves an expired hand-off the worker settled after this pass read the queue', async () => {
+    // The pass reads captured files before uploading ones, so this one's slot comes first.
+    await onServer()
+    const settled = await onServer()
+    await db.recording_files.update(settled, {
+      local_state: 'uploading',
+      handoff: handoff({ expires_at: Date.now() - 1 }),
+    })
+    const slot = onFirstSlot(() =>
+      db.recording_files.update(settled, { local_state: 'uploaded', handoff: null }),
+    )
+    await uploadPass(db, fake.api, createUploadReports(noopAnalytics), undefined, fakeBackground())
+    expect(slot).toHaveBeenCalledTimes(1)
+    expect(await db.recording_files.get(settled)).toMatchObject({
+      local_state: 'uploaded',
+      handoff: null,
+    })
+  })
+
+  it.each([
+    {
+      name: 'a file over the background limit',
+      stage: (id: string) =>
+        db.recording_files.update(id, { bytes: BACKGROUND_UPLOAD_MAX_BYTES + 1 }),
+    },
+    {
+      // Past even the split cap, so it is not held for a split and its upload goes ahead.
+      name: 'a recording over the length limit',
+      stage: (id: string) =>
+        db.recording_files.update(id, { local_duration_ms: MAX_SPLIT_SOURCE_MS + 1 }),
+    },
+    {
+      name: 'a split parent',
+      stage: (id: string) => db.recordings.update(id, { split_id: newId(), split_size: 2 }),
+    },
+  ])('keeps the page upload for $name', async ({ stage }) => {
+    const id = await onServer()
+    await stage(id)
+    const put = vi.spyOn(fake.api, 'putObject')
+    await uploadPass(db, fake.api, createUploadReports(noopAnalytics), undefined, fakeBackground())
+    expect(put).toHaveBeenCalledTimes(1)
+    expect(await db.recording_files.get(id)).toMatchObject({
+      local_state: 'uploaded',
+      handoff: null,
+    })
+  })
+
+  it('keeps the page upload when background sync is not available', async () => {
+    const id = await onServer()
+    const put = vi.spyOn(fake.api, 'putObject')
+    const background = fakeBackground(false)
+    await uploadPass(db, fake.api, createUploadReports(noopAnalytics), undefined, background)
+    expect(put).toHaveBeenCalledTimes(1)
+    expect(await db.recording_files.get(id)).toMatchObject({
+      local_state: 'uploaded',
+      handoff: null,
+    })
+    expect(background.request).not.toHaveBeenCalled()
+  })
+
+  it('leaves a live hand-off alone', async () => {
+    const id = await onServer()
+    const live = handoff({ attempts: HANDOFF_TAKE_BACK_ATTEMPTS - 1 })
+    await db.recording_files.update(id, {
+      local_state: 'uploading',
+      handoff: live,
+      upload_attempts: 2,
+      next_attempt_at: null,
+    })
+    const slot = vi.spyOn(fake.api, 'requestUploadSlot')
+    const put = vi.spyOn(fake.api, 'putObject')
+    const analytics = recordingAnalytics()
+    const background = fakeBackground()
+    await uploadPass(
+      db,
+      fake.api,
+      createUploadReports(analytics, () => true),
+      undefined,
+      background,
+    )
+    expect(slot).not.toHaveBeenCalled()
+    expect(put).not.toHaveBeenCalled()
+    expect(await db.recording_files.get(id)).toMatchObject({
+      local_state: 'uploading',
+      handoff: live,
+      upload_attempts: 2,
+      next_attempt_at: null,
+    })
+    expect(analytics.sends()).toEqual([])
+    expect(background.request).toHaveBeenCalledTimes(1)
+  })
+
+  it('registers the sync once per hand-off across passes', async () => {
+    const id = await onServer()
+    await db.recording_files.update(id, { local_state: 'uploading', handoff: handoff() })
+    const background = fakeBackground()
+    const pass = () =>
+      uploadPass(db, fake.api, createUploadReports(noopAnalytics), undefined, background)
+    await pass()
+    await pass()
+    expect(background.request).toHaveBeenCalledTimes(1)
+
+    await db.recording_files.update(id, {
+      handoff: handoff({ url: 'https://fake.r2/new/upload' }),
+    })
+    await pass()
+    expect(background.request).toHaveBeenCalledTimes(2)
+  })
+
+  it('takes back a hand-off the worker failed too often', async () => {
+    const id = await onServer()
+    await db.recording_files.update(id, {
+      local_state: 'uploading',
+      handoff: handoff({ attempts: HANDOFF_TAKE_BACK_ATTEMPTS }),
+    })
+    const slot = vi.spyOn(fake.api, 'requestUploadSlot')
+    const put = vi.spyOn(fake.api, 'putObject')
+    await uploadPass(db, fake.api, createUploadReports(noopAnalytics), undefined, fakeBackground())
+    expect(slot).toHaveBeenCalledTimes(1)
+    expect(put).toHaveBeenCalledTimes(1)
+    expect(await db.recording_files.get(id)).toMatchObject({
+      local_state: 'uploaded',
+      handoff: null,
+    })
+  })
+
+  it('takes back an expired hand-off', async () => {
+    const id = await onServer()
+    await db.recording_files.update(id, {
+      local_state: 'uploading',
+      handoff: handoff({ expires_at: Date.now() - 1 }),
+    })
+    const slot = vi.spyOn(fake.api, 'requestUploadSlot')
+    const put = vi.spyOn(fake.api, 'putObject')
+    await uploadPass(db, fake.api, createUploadReports(noopAnalytics), undefined, fakeBackground())
+    expect(slot).toHaveBeenCalledTimes(1)
+    expect(put).not.toHaveBeenCalled()
+    expect(await db.recording_files.get(id)).toMatchObject({
+      local_state: 'uploading',
+      handoff: { url: `https://fake.r2/${id}/upload?ct=audio/mp4`, attempts: 0 },
+    })
+  })
+})
+
+describe('pageWouldUpload', () => {
+  const nowMs = 1_800_000_000_000
+  const live: UploadHandoff = {
+    url: 'https://fake.r2/r1/upload',
+    confirm_token: 'token',
+    content_type: 'audio/mp4',
+    expires_at: nowMs + 60_000,
+    attempts: 0,
+  }
+
+  it.each<[string, Partial<RecordingFile>, boolean]>([
+    ['a file with no hand-off', {}, true],
+    ['a live hand-off', { handoff: live }, false],
+    ['an expired hand-off', { handoff: { ...live, expires_at: nowMs } }, true],
+    [
+      'a hand-off the worker failed too often',
+      { handoff: { ...live, attempts: HANDOFF_TAKE_BACK_ATTEMPTS } },
+      true,
+    ],
+    ['a hand-off whose confirm the server refused', { handoff: { ...live, refused: true } }, true],
+    ['a file that must be split', { local_duration_ms: MAX_RECORDING_MS + 1 }, false],
+  ])('%s', (_name, extra, expected) => {
+    const file = recordingFile('r1', { local_state: 'uploading', ...extra })
+    expect(pageWouldUpload(recordingRow('r1'), file, null, nowMs)).toBe(expected)
   })
 })
 

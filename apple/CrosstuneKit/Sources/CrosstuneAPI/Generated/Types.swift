@@ -140,7 +140,8 @@ public protocol APIProtocol: Sendable {
     /// A presigned PUT for one recording's file, once the plan and its quota allow it.
     ///
     /// A failed recording is issued a slot too, and returns to pending_upload: it is
-    /// the only way back for one whose uploaded object is no longer in the bucket.
+    /// the only way back for one whose uploaded object is no longer in the bucket. Each
+    /// issue carries a new confirm token for `uploaded-with-token`; only its hash is stored.
     ///
     /// - Remark: HTTP `POST /v1/recordings/{recording_id}/upload-slot`.
     /// - Remark: Generated from `#/paths//v1/recordings/{recording_id}/upload-slot/post(upload_slot_v1_recordings__recording_id__upload_slot_post)`.
@@ -152,6 +153,19 @@ public protocol APIProtocol: Sendable {
     /// - Remark: HTTP `POST /v1/recordings/{recording_id}/uploaded`.
     /// - Remark: Generated from `#/paths//v1/recordings/{recording_id}/uploaded/post(upload_finished_v1_recordings__recording_id__uploaded_post)`.
     func uploadFinishedV1RecordingsRecordingIdUploadedPost(_ input: Operations.UploadFinishedV1RecordingsRecordingIdUploadedPost.Input) async throws -> Operations.UploadFinishedV1RecordingsRecordingIdUploadedPost.Output
+    /// Uploaded With Token
+    ///
+    /// Confirm an upload with the slot's confirm token in place of a bearer token.
+    ///
+    /// Besides the webhooks, the one `/v1` route that takes no bearer token: the web app's
+    /// service worker finishes an upload after its tab closes, and the worker cannot sign
+    /// in. The token is good for one recording's open slot, and the route does only what
+    /// `uploaded` does, as the slot's owner. Every token or recording problem is the same
+    /// 404, so the route never reveals whether a recording exists.
+    ///
+    /// - Remark: HTTP `POST /v1/recordings/{recording_id}/uploaded-with-token`.
+    /// - Remark: Generated from `#/paths//v1/recordings/{recording_id}/uploaded-with-token/post(uploaded_with_token_v1_recordings__recording_id__uploaded_with_token_post)`.
+    func uploadedWithTokenV1RecordingsRecordingIdUploadedWithTokenPost(_ input: Operations.UploadedWithTokenV1RecordingsRecordingIdUploadedWithTokenPost.Input) async throws -> Operations.UploadedWithTokenV1RecordingsRecordingIdUploadedWithTokenPost.Output
     /// Get Region
     ///
     /// The caller's country and whether analytics must start off there.
@@ -430,7 +444,8 @@ extension APIProtocol {
     /// A presigned PUT for one recording's file, once the plan and its quota allow it.
     ///
     /// A failed recording is issued a slot too, and returns to pending_upload: it is
-    /// the only way back for one whose uploaded object is no longer in the bucket.
+    /// the only way back for one whose uploaded object is no longer in the bucket. Each
+    /// issue carries a new confirm token for `uploaded-with-token`; only its hash is stored.
     ///
     /// - Remark: HTTP `POST /v1/recordings/{recording_id}/upload-slot`.
     /// - Remark: Generated from `#/paths//v1/recordings/{recording_id}/upload-slot/post(upload_slot_v1_recordings__recording_id__upload_slot_post)`.
@@ -456,6 +471,27 @@ extension APIProtocol {
         headers: Operations.UploadFinishedV1RecordingsRecordingIdUploadedPost.Input.Headers = .init()
     ) async throws -> Operations.UploadFinishedV1RecordingsRecordingIdUploadedPost.Output {
         try await uploadFinishedV1RecordingsRecordingIdUploadedPost(Operations.UploadFinishedV1RecordingsRecordingIdUploadedPost.Input(
+            path: path,
+            headers: headers
+        ))
+    }
+    /// Uploaded With Token
+    ///
+    /// Confirm an upload with the slot's confirm token in place of a bearer token.
+    ///
+    /// Besides the webhooks, the one `/v1` route that takes no bearer token: the web app's
+    /// service worker finishes an upload after its tab closes, and the worker cannot sign
+    /// in. The token is good for one recording's open slot, and the route does only what
+    /// `uploaded` does, as the slot's owner. Every token or recording problem is the same
+    /// 404, so the route never reveals whether a recording exists.
+    ///
+    /// - Remark: HTTP `POST /v1/recordings/{recording_id}/uploaded-with-token`.
+    /// - Remark: Generated from `#/paths//v1/recordings/{recording_id}/uploaded-with-token/post(uploaded_with_token_v1_recordings__recording_id__uploaded_with_token_post)`.
+    public func uploadedWithTokenV1RecordingsRecordingIdUploadedWithTokenPost(
+        path: Operations.UploadedWithTokenV1RecordingsRecordingIdUploadedWithTokenPost.Input.Path,
+        headers: Operations.UploadedWithTokenV1RecordingsRecordingIdUploadedWithTokenPost.Input.Headers = .init()
+    ) async throws -> Operations.UploadedWithTokenV1RecordingsRecordingIdUploadedWithTokenPost.Output {
+        try await uploadedWithTokenV1RecordingsRecordingIdUploadedWithTokenPost(Operations.UploadedWithTokenV1RecordingsRecordingIdUploadedWithTokenPost.Input(
             path: path,
             headers: headers
         ))

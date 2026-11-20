@@ -1,9 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useEntitlement, usePlanOrUnknown } from '../../billing/usePlan'
+import { MAX_TIMER_MS } from '../../math'
 import { useFixedNow, useNow } from '../../ui/useNow'
-
-// setTimeout fires at once for a delay past a signed 32-bit integer.
-const MAX_TIMER_MS = 2_147_483_647
 
 /**
  * The instant the account's withdrawal window closes, or null when it cannot withdraw: no window,

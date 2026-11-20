@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 from datetime import timedelta
 from typing import TYPE_CHECKING
 
@@ -228,6 +230,20 @@ async def _slot_for(session: AsyncSession, owner: SlotOwner) -> UploadSlot | Non
     return await slot_for_scan(session, owner.id)
 
 
+def confirm_token_hash(token: str) -> str:
+    """The SHA-256 hex of a slot's confirm token, the only form of it the server stores."""
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
+def token_matches(slot: UploadSlot | None, presented_hash: str) -> bool:
+    """Whether the slot is open to a confirm by token and `presented_hash` is its token's hash."""
+    return (
+        slot is not None
+        and slot.confirm_token_hash is not None
+        and hmac.compare_digest(slot.confirm_token_hash, presented_hash)
+    )
+
+
 async def reserve_slot(
     session: AsyncSession,
     owner: SlotOwner,
@@ -236,6 +252,7 @@ async def reserve_slot(
     content_type: str,
     max_file_bytes: int,
     quota_bytes: int,
+    token_hash: str | None = None,
 ) -> UploadSlot:
     """Open or renew the owner's upload slot once the file cap and the quota allow it.
 
@@ -251,6 +268,8 @@ async def reserve_slot(
         content_type: The content type the signed PUT will carry.
         max_file_bytes: The per-file cap for this kind of file.
         quota_bytes: The user's storage quota.
+        token_hash: The hash of the token that confirms this issue without sign-in,
+            or None for a slot that only a signed-in call confirms.
 
     Returns:
         UploadSlot: The open slot, with the key to sign and when the URL expires.
@@ -281,6 +300,7 @@ async def reserve_slot(
             content_type=content_type,
             expires_at=expires_at,
             object_key=object_key,
+            confirm_token_hash=token_hash,
         )
         session.add(existing)
     else:
@@ -288,6 +308,7 @@ async def reserve_slot(
         existing.content_type = content_type
         existing.expires_at = expires_at
         existing.object_key = object_key
+        existing.confirm_token_hash = token_hash
     return existing
 
 

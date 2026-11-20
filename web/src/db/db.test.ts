@@ -19,6 +19,7 @@ import {
 } from '../test/rows'
 import { transfersSettled } from '../test/transfers'
 import { createSyncEngine } from '../sync/engine'
+import { isLiveHandoff } from '../sync/transfers'
 import {
   getKeepOffline,
   getMeta,
@@ -120,7 +121,7 @@ describe('schema', () => {
     expect(db.tables.map((t) => t.name)).toEqual(
       expect.arrayContaining(['recordings', 'recording_files', 'recording_chunks']),
     )
-    expect(db.verno).toBe(25)
+    expect(db.verno).toBe(26)
   })
 
   const CURRENT_STORES = [
@@ -192,7 +193,7 @@ describe('schema', () => {
     const upgraded = new CrosstuneDb(name)
     try {
       await upgraded.open()
-      expect(upgraded.verno).toBe(25)
+      expect(upgraded.verno).toBe(26)
       expect(Array.from(upgraded.backendDB().objectStoreNames).sort()).toEqual(CURRENT_STORES)
       for (const table of upgraded.tables) {
         if (table.name !== 'meta') expect(await table.count(), table.name).toBe(0)
@@ -294,7 +295,7 @@ describe('schema', () => {
       ])
       expect(await getPullCursor(opened)).toBe(0)
       expect(await opened.recording_loops.count()).toBe(0)
-      expect(opened.verno).toBe(25)
+      expect(opened.verno).toBe(26)
     } finally {
       await opened.delete()
     }
@@ -873,6 +874,54 @@ describe('schema', () => {
     }
   })
 
+  it('a recording file stored before version 26 reads as no hand-off', async () => {
+    const name = `crosstune-test-${crypto.randomUUID()}`
+    const v25 = new Dexie(name)
+    v25.version(25).stores({
+      tunes: 'id, title',
+      user_tunes: 'id, tune_id',
+      recording_links: 'id, tune_id',
+      lists: 'id',
+      list_items: 'id, list_id, user_tune_id',
+      user_settings: 'id',
+      recordings: 'id, tune_id, state, split_from_id, deleted_at',
+      recording_loops: 'id, recording_id',
+      scans: 'id, tune_id, state',
+      scan_files: 'id, origin, error',
+      recording_files: 'id, local_state',
+      recording_chunks: '[recording_id+idx], recording_id',
+      play_events: 'id, started_at',
+      practice_sessions: 'id, started_at',
+      status_changes: 'id, changed_at',
+      scan_views: 'id, started_at',
+      entitlements: 'id',
+      places: 'id',
+      outbox: '++seq, &[table+row_id]',
+      meta: 'key',
+    })
+    const stored = recordingFile('rec-1', {
+      local_state: 'uploading',
+      bytes: 3,
+      mime: 'audio/mp4',
+      upload_attempts: 2,
+      next_attempt_at: 1000,
+    })
+    const legacy: Record<string, unknown> = { ...stored }
+    delete legacy.handoff
+    await v25.table('recording_files').put(legacy)
+    v25.close()
+
+    const opened = new CrosstuneDb(name)
+    try {
+      await opened.open()
+      const file = await opened.recording_files.get('rec-1')
+      expect(file).toEqual(legacy)
+      expect(isLiveHandoff(file, 0)).toBe(false)
+    } finally {
+      await opened.delete()
+    }
+  })
+
   it('migrates the places table', async () => {
     const name = `crosstune-test-${crypto.randomUUID()}`
     const v21 = new Dexie(name)
@@ -1444,7 +1493,7 @@ describe('schema', () => {
   it('deletes a database a newer client wrote and opens it fresh', async () => {
     const name = `crosstune-test-${crypto.randomUUID()}`
     const newer = new Dexie(name)
-    newer.version(26).stores({ tunes: 'id, title', pieces: 'id', meta: 'key' })
+    newer.version(27).stores({ tunes: 'id, title', pieces: 'id', meta: 'key' })
     await newer.table('tunes').put({ id: tune.id, title: tune.title })
     await newer.table('meta').put({ key: META_PULL_CURSOR, value: 42 })
     newer.close()
@@ -1453,7 +1502,7 @@ describe('schema', () => {
     try {
       // A query auto-opens, the path the app takes.
       expect(await older.tunes.count()).toBe(0)
-      expect(older.backendDB().version).toBe(250)
+      expect(older.backendDB().version).toBe(260)
       expect(Array.from(older.backendDB().objectStoreNames).sort()).toEqual(CURRENT_STORES)
       expect(await getPullCursor(older)).toBe(0)
     } finally {

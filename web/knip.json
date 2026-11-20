@@ -2,6 +2,7 @@
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "entry": [
     "e2e/global.setup.ts",
+    "src/sw/sw.ts",
     "scripts/gallery-shots.ts",
     "src/features/scans/fixtures/generate.ts"
   ],
