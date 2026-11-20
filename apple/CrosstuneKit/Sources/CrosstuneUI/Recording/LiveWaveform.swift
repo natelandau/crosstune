@@ -14,7 +14,7 @@ final class WaveformFeed {
 
     private(set) var bars: WaveformBars
     private var queue: [Float] = []
-    private var seen = 0
+    private var newLevels = NewLevels()
     /// The moment the bars are drawn up to; nil until the first frame.
     private var drawnTo: TimeInterval?
 
@@ -25,10 +25,7 @@ final class WaveformFeed {
     /// Takes the levels a recorder has measured since the last call. `levels` is its recent
     /// window, newest last, and `total` how many it has measured in all.
     func receive(_ levels: [Float], total: Int) {
-        // A smaller total is a new recording, whose levels are all new.
-        let fresh = total < seen ? total : total - seen
-        seen = total
-        queue.append(contentsOf: levels.suffix(min(fresh, levels.count)))
+        queue.append(contentsOf: newLevels.take(levels, total: total))
     }
 
     /// Draws the levels due by `time` onto `capacity` bars.
