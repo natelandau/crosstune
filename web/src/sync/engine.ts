@@ -7,6 +7,7 @@ import { readPlan } from '../billing/entitlement'
 import { postSeenNotices } from '../billing/notices'
 import { countInvalidChanges, getEventsCursor, getPullCursor, pruneLocalOnlyRows } from '../db/meta'
 import { PUSH_BATCH_SIZE, pendingBatch } from '../db/outbox'
+import { readLocalAudio } from '../db/recordings'
 import type { CrosstuneDb } from '../db/schema'
 import { type BackgroundUploads, browserBackgroundUploads } from '../platform/backgroundSync'
 import { applyEventsPage, applyPullPage, applyPushResults, type InvalidChange } from './apply'
@@ -16,6 +17,7 @@ import {
   createUploadReports,
   downloadOne,
   downloadPass,
+  joinChunkedCaptures,
   fetchUnstored,
   fetchPeaks,
   recoverInterruptedCaptures,
@@ -323,6 +325,8 @@ export function createSyncEngine({
         if (stopped) return
         const uploadError = await uploadPass(db, api, uploadReports, isStopped, background)
         if (stopped) return
+        await joinChunkedCaptures(db)
+        if (stopped) return
         await downloadPass(db, api, {
           fetch: fetchOne,
           retries: downloadRetries,
@@ -476,8 +480,7 @@ export function createSyncEngine({
     },
     async download(recordingId: string): Promise<Blob | null> {
       if (!isOnline()) {
-        const file = await db.recording_files.get(recordingId)
-        return file?.blob ?? null
+        return readLocalAudio(db, await db.recording_files.get(recordingId))
       }
       try {
         return await fetchOne(recordingId)

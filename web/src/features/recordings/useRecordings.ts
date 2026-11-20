@@ -6,7 +6,7 @@ import {
 } from '../../commands/recordings'
 import { useDb } from '../../db/DbProvider'
 import { holdsSplitAudio } from '../../domain/recordingLimits'
-import type { RecordingFile } from '../../db/recordings'
+import { type RecordingFile, withLocalAudio, withLocalAudioAll } from '../../db/recordings'
 import type { CrosstuneDb } from '../../db/schema'
 import type { LocalPlace, LocalRecording, LocalTune } from '../../db/types'
 import { shownPlaceName } from './place'
@@ -73,7 +73,9 @@ export async function readRecordingsWithFiles(
     live = all.filter((r) => !r.deleted_at)
     waiting = waitingParentIdsIn(all)
   }
-  const files = withFiles ? await db.recording_files.bulkGet(live.map((r) => r.id)) : []
+  const files = withFiles
+    ? await withLocalAudioAll(db, await db.recording_files.bulkGet(live.map((r) => r.id)))
+    : []
   const wantedTuneIds = [...new Set(live.map((r) => r.tune_id).filter((s): s is string => !!s))]
   const places = new Map<string, LocalPlace>((await db.places.toArray()).map((p) => [p.id, p]))
   const tunes = await db.tunes.bulkGet(wantedTuneIds)
@@ -103,7 +105,7 @@ export async function readRecordingView(
 ): Promise<RecordingView | null> {
   const [recording, file, waiting] = await Promise.all([
     db.recordings.get(id),
-    db.recording_files.get(id),
+    db.recording_files.get(id).then((file) => withLocalAudio(db, file)),
     waitingParentIds(db),
   ])
   if (!recording || recording.deleted_at) return null

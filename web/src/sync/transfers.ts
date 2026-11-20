@@ -7,11 +7,13 @@ import { failureReason } from '../usage/failure'
 import { recordingOrigin } from '../usage/origin'
 import { ApiError, NetworkError, NoTokenError, TransferError } from '../api/client'
 import type { SyncApi } from '../api/types'
+import { AUDIO_BITRATES } from '../constants'
 import {
   cancelCapture,
   finishCapture,
   requeueFile,
   setFileState,
+  joinCapturedChunks,
   storeDownloadedBlob,
   storePeaks,
   waitingParentIds,
@@ -21,8 +23,12 @@ import {
   baseContentType,
   CHUNK_MS,
   HANDOFF_TAKE_BACK_ATTEMPTS,
+  deleteChunks,
+  hasLocalAudio,
+  holdsChunkedAudio,
   isNotUploaded,
   modifyWhileHeld,
+  readLocalAudio,
   type HandedOffFile,
   type LocalFileState,
   type RecordingFile,
@@ -31,6 +37,7 @@ import {
 import {
   getKeepOffline,
   getStorage,
+  setDownloadsHeldForSpace,
   setCountryCenter,
   setStorage,
   type StorageUsage,
@@ -46,6 +53,7 @@ import {
   type UploadLimits,
 } from '../domain/recordingLimits'
 import { BACKGROUND_UPLOAD_MAX_BYTES, type BackgroundUploads } from '../platform/backgroundSync'
+import { storageHeadroom } from '../platform/storage'
 import { defaultLocks, heldCaptureIds } from './captureLock'
 import { isAuthFailure, isPlanRefusal, isRetryableRefusal, QUOTA_PROBLEM } from './errors'
 
@@ -263,7 +271,7 @@ async function uploadOne(
   background?: BackgroundUploads,
 ): Promise<UploadHandoff | undefined> {
   const file = await db.recording_files.get(id)
-  if (!file?.blob) return
+  if (!hasLocalAudio(file)) return
   // Another tab's pass may have handed it off since this pass read the queue.
   if (isLiveHandoff(file, Date.now())) return
   const row = await db.recordings.get(id)
@@ -275,12 +283,13 @@ async function uploadOne(
     await settleUpload(db, reports, id, 'uploaded')
     return
   }
+  const blob = (await readLocalAudio(db, file))!
   await setFileState(db, id, 'uploading')
-  const contentType = baseContentType(file.mime ?? file.blob.type)
+  const contentType = baseContentType(file.mime ?? blob.type)
 
   let slot
   try {
-    slot = await api.requestUploadSlot(id, { bytes: file.blob.size, content_type: contentType })
+    slot = await api.requestUploadSlot(id, { bytes: blob.size, content_type: contentType })
   } catch (error) {
     if (isPlanRefusal(error)) {
       await db.recording_files.update(id, { local_state: file.local_state, error: file.error })
@@ -338,7 +347,7 @@ async function uploadOne(
   }
 
   try {
-    await api.putObject(slot.url, file.blob, contentType)
+    await api.putObject(slot.url, blob, contentType)
     await api.uploadFinished(id)
     await settleUpload(db, reports, id, 'uploaded')
   } catch (error) {
@@ -372,7 +381,7 @@ async function requeueRecording(db: CrosstuneDb, id: string): Promise<void> {
 }
 
 /** Remove a file row (and its chunks) whose recording was tombstoned elsewhere, and any
- * chunk left with no file row or one that has moved past capturing. A capture still in
+ * chunk left with no file row or one whose file holds no chunked audio. A capture still in
  * progress is left alone: it has no server row to check against yet, and still needs its chunks.
  * A tombstoned recording that never uploaded is restored as unfiled instead: the server takes a
  * newer upsert over its tombstone, and this blob is the only copy of the audio. */
@@ -389,7 +398,7 @@ async function dropTombstonedFiles(db: CrosstuneDb, reports: UploadReports): Pro
     const waiting = orphans.length > 0 ? await waitingParentIds(db) : new Set<string>()
     for (const [i, { id, row }] of orphans.entries()) {
       const file = files[i]
-      if (row && file?.blob && isNotUploaded(file)) {
+      if (row && hasLocalAudio(file) && isNotUploaded(file)) {
         await putRow(db, 'recordings', {
           ...row,
           deleted_at: null,
@@ -403,7 +412,7 @@ async function dropTombstonedFiles(db: CrosstuneDb, reports: UploadReports): Pro
       // A piece waiting for its cut plays from this audio; a later pass drops it.
       if (row && holdsSplitAudio(row, waiting)) continue
       await db.recording_files.delete(id)
-      await db.recording_chunks.where('recording_id').equals(id).delete()
+      await deleteChunks(db, id)
       reports.ended(id)
     }
 
@@ -413,8 +422,9 @@ async function dropTombstonedFiles(db: CrosstuneDb, reports: UploadReports): Pro
     const chunkOwners = [...new Set(chunkKeys.map(([recordingId]) => recordingId))]
     const owners = await db.recording_files.bulkGet(chunkOwners)
     for (const [i, recordingId] of chunkOwners.entries()) {
-      if (owners[i]?.local_state === 'capturing') continue
-      await db.recording_chunks.where('recording_id').equals(recordingId).delete()
+      const owner = owners[i]
+      if (owner?.local_state === 'capturing' || owner?.chunked) continue
+      await deleteChunks(db, recordingId)
     }
   })
 }
@@ -534,7 +544,7 @@ async function whileLive(
   id: string,
   store: () => Promise<void>,
 ): Promise<boolean> {
-  return db.transaction('rw', db.recordings, db.recording_files, async () => {
+  return db.transaction('rw', db.recordings, db.recording_files, db.recording_chunks, async () => {
     const row = await db.recordings.get(id)
     if (!row || row.deleted_at) return false
     await store()
@@ -545,7 +555,7 @@ async function whileLive(
 export async function downloadOne(db: CrosstuneDb, api: SyncApi, id: string): Promise<Blob | null> {
   const file = await db.recording_files.get(id)
   const row = await db.recordings.get(id)
-  if (file?.blob && !(row && isStale(row, file))) return file.blob
+  if (hasLocalAudio(file) && !(row && isStale(row, file))) return readLocalAudio(db, file)
   if (!row || row.deleted_at || row.state !== 'ready') return null
   const previousState = file ? restingState(file.local_state) : null
   await setFileState(db, id, 'downloading')
@@ -672,20 +682,30 @@ export async function downloadPass(
     retries = createDownloadRetries(),
     fetchPeaksFor = (id) => fetchPeaks(db, api, id),
     isStopped = () => false,
+    headroom = storageHeadroom,
   }: {
     fetch?: (id: string) => Promise<Blob | null>
     retries?: DownloadRetries
     fetchPeaksFor?: (id: string) => Promise<Uint8Array | null>
     isStopped?: () => boolean
+    headroom?: () => Promise<number | null>
   } = {},
 ): Promise<void> {
-  if (!(await getKeepOffline(db))) return
+  if (!(await getKeepOffline(db))) {
+    await setDownloadsHeldForSpace(db, false)
+    return
+  }
   const rows = await db.recordings.filter((r) => !r.deleted_at && r.state === 'ready').toArray()
   const files = await db.recording_files.bulkGet(rows.map((r) => r.id))
+  const room = await roomAboveReserve(headroom)
+  let heldForSpace = false
   for (const [i, row] of rows.entries()) {
     if (isStopped()) return
     let file = files[i]
-    if ((!file?.blob || isStale(row, file)) && !retries.isWaiting(row.id)) {
+    const wanted = (!hasLocalAudio(file) || isStale(row, file)) && !retries.isWaiting(row.id)
+    // A download can be fetched again later; a recording cannot be made again.
+    if (wanted && !room.take(row.playback_bytes ?? 0)) heldForSpace = true
+    else if (wanted) {
       try {
         await fetch(row.id)
         // The fetch may have stored the peaks that came with a fresh blob.
@@ -719,6 +739,47 @@ export async function downloadPass(
       }
     }
   }
+  await setDownloadsHeldForSpace(db, heldForSpace)
+}
+
+/** Room kept free for new recordings: an hour of stereo at the highest quality. */
+export const CAPTURE_RESERVE_BYTES = (2 * AUDIO_BITRATES.highest * 3600) / 8
+
+/** The room above the capture reserve, read once and spent as a pass stores files. Unlimited
+ * when the browser does not report its storage, so nothing is held back on a guess. */
+async function roomAboveReserve(headroom: () => Promise<number | null>) {
+  const free = await headroom()
+  let left = free === null ? Infinity : free - CAPTURE_RESERVE_BYTES
+  return {
+    fits: (bytes: number) => bytes <= left,
+    take(bytes: number): boolean {
+      if (bytes > left) return false
+      left -= bytes
+      return true
+    },
+  }
+}
+
+/**
+ * Joins each finished capture's chunks into one stored blob while the copy that needs still
+ * leaves the capture reserve free. A file that does not fit stays chunked, which loses nothing.
+ */
+export async function joinChunkedCaptures(
+  db: CrosstuneDb,
+  { headroom = storageHeadroom }: { headroom?: () => Promise<number | null> } = {},
+): Promise<void> {
+  // Chunk keys first: a pass with nothing chunked reads no file rows.
+  const chunkKeys = await db.recording_chunks.toCollection().primaryKeys()
+  const owners = [...new Set(chunkKeys.map(([recordingId]) => recordingId))]
+  if (owners.length === 0) return
+  // A file the service worker is sending keeps its chunks, which the worker reads.
+  const nowMs = Date.now()
+  const files = (await db.recording_files.bulkGet(owners)).filter(
+    (file): file is RecordingFile => holdsChunkedAudio(file) && !isLiveHandoff(file, nowMs),
+  )
+  const room = await roomAboveReserve(headroom)
+  // A join frees its chunks as it commits, so it needs the room only while it writes.
+  for (const file of files) if (room.fits(file.bytes)) await joinCapturedChunks(db, file.id)
 }
 
 /** Stores the account's storage usage and its country's center from the API. */

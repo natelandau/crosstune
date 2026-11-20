@@ -190,6 +190,11 @@ const SAMPLES: { [N in EventName]: EventProps[N] } = {
   purchase_failed: { period: 'annual', reason: 'cancelled' },
   upload_failed: { failure_reason: 'storage_full', origin: 'recorded' },
   sync_failed: { failure_reason: 'server_error' },
+  device_storage_checked: {
+    storage_persisted: false,
+    recordings_waiting: '1-9',
+    storage_free: '<10MB',
+  },
   export_completed: { format: 'zip' },
   export_failed: { format: 'zip', failure_reason: 'network' },
   recording_exported: {

@@ -3,6 +3,27 @@ export function persistStorage(): void {
   void navigator.storage?.persist?.().catch(() => {})
 }
 
+/** Bytes this origin can still store, or null when the browser does not say. */
+export async function storageHeadroom(): Promise<number | null> {
+  try {
+    const estimate = await navigator.storage?.estimate?.()
+    if (estimate?.quota === undefined || estimate.usage === undefined) return null
+    return Math.max(0, estimate.quota - estimate.usage)
+  } catch {
+    return null
+  }
+}
+
+/** Whether `error` is the browser refusing a write for lack of storage. Dexie reports a quota
+ * failure that aborted its transaction as an AbortError whose `inner` is the quota error. */
+export function isQuotaError(error: unknown): boolean {
+  for (let e = error, depth = 0; e && depth < 4; depth++) {
+    if ((e as { name?: unknown }).name === 'QuotaExceededError') return true
+    e = (e as { inner?: unknown }).inner
+  }
+  return false
+}
+
 export type StorageArea = 'local' | 'session'
 
 // Private mode or blocked storage throws on access, even on touching the area itself.

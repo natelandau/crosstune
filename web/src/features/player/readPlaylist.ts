@@ -1,5 +1,6 @@
 import { activeByPosition } from '../../commands/write'
 import { getMeta } from '../../db/meta'
+import { hasLocalAudio } from '../../db/recordings'
 import type { CrosstuneDb } from '../../db/schema'
 import type { LocalList, LocalRecording, LocalRecordingLink } from '../../db/types'
 import { listShows, META_LIST_SHOW_ARCHIVED } from '../lists/useListShowArchived'
@@ -85,7 +86,7 @@ export async function readPlaylistMedia(
   const recordings = await readTuneRecordings(db, tuneIds)
   const live = [...recordings.values()].flat()
   const files = await db.recording_files.bulkGet(live.map((r) => r.id))
-  const held = new Set(live.filter((_, i) => files[i]?.blob).map((r) => r.id))
+  const held = new Set(live.filter((_, i) => hasLocalAudio(files[i])).map((r) => r.id))
   return { recordings, held }
 }
 

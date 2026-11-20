@@ -6,7 +6,7 @@ import { useAuthSession } from '../../auth/AuthContext'
 import { clearDownloadedBlobs, localAudioBytes } from '../../commands/recordings'
 import { setAudioQuality, settingsId } from '../../commands/settings'
 import { useDb } from '../../db/DbProvider'
-import { getKeepOffline, setKeepOffline } from '../../db/meta'
+import { getDownloadsHeldForSpace, getKeepOffline, setKeepOffline } from '../../db/meta'
 import { DEFAULT_AUDIO_QUALITY, storedAudioQuality } from '../../db/recordings'
 import { persistStorage } from '../../platform/storage'
 import { useSyncEngine } from '../../sync/SyncProvider'
@@ -21,6 +21,8 @@ export interface RecordingSettings {
   keepOffline: boolean
   setKeepOffline: (on: boolean) => void
   keepError: string | null
+  /** Keep offline is on and left recordings out to keep room for new recordings. */
+  downloadsHeldForSpace: boolean
   localBytesLabel: string
   /** Resolves once the downloads are gone, for a button that shows it working. */
   removeDownloads: () => Promise<void>
@@ -63,6 +65,7 @@ export function useRecordingSettings(): RecordingSettings {
   )
 
   const localBytes = useLiveQuery(() => localAudioBytes(db), [db])
+  const heldForSpace = useLiveQuery(() => getDownloadsHeldForSpace(db), [db]) ?? false
 
   return {
     quality: quality?.quality ?? DEFAULT_AUDIO_QUALITY,
@@ -85,6 +88,7 @@ export function useRecordingSettings(): RecordingSettings {
       )
     },
     keepError: keepAction.error,
+    downloadsHeldForSpace: (keep?.on ?? false) && heldForSpace,
     localBytesLabel: audioOnDevice(localBytes ?? 0),
     removeDownloads: () => removeAction.attempt(() => clearDownloadedBlobs(db)),
     removeError: removeAction.error,

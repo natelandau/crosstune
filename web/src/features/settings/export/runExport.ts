@@ -1,5 +1,5 @@
 import { settingsId } from '../../../commands/settings'
-import { isComplete, type RecordingFile } from '../../../db/recordings'
+import { isComplete, type RecordingFile, withLocalAudioAll } from '../../../db/recordings'
 import type { ScanFile } from '../../../db/scans'
 import type { CrosstuneDb } from '../../../db/schema'
 import { storedInstruments, type LocalRecording, type LocalScan } from '../../../db/types'
@@ -78,6 +78,7 @@ export async function readExportInput(
       db.recording_links,
       db.recordings,
       db.recording_files,
+      db.recording_chunks,
       db.scans,
       db.scan_files,
       db.user_settings,
@@ -103,7 +104,7 @@ export async function readExportInput(
         db.list_items.toArray(),
         db.recording_links.toArray(),
         db.recordings.toArray(),
-        db.recording_files.toArray(),
+        db.recording_files.toArray().then((files) => withLocalAudioAll(db, files)),
         db.scans.toArray(),
         db.scan_files.toArray(),
         db.user_settings.get(settingsId(userId)),
@@ -144,13 +145,21 @@ export async function readExportInput(
 export async function exportCounts(db: CrosstuneDb): Promise<ExportCounts> {
   return db.transaction(
     'r',
-    [db.tunes, db.user_tunes, db.recordings, db.recording_files, db.scans, db.scan_files],
+    [
+      db.tunes,
+      db.user_tunes,
+      db.recordings,
+      db.recording_files,
+      db.recording_chunks,
+      db.scans,
+      db.scan_files,
+    ],
     async () => {
       const [tunes, userTunes, recordings, files, scans, scanFiles] = await Promise.all([
         db.tunes.toArray(),
         db.user_tunes.toArray(),
         db.recordings.toArray(),
-        db.recording_files.toArray(),
+        db.recording_files.toArray().then((files) => withLocalAudioAll(db, files)),
         db.scans.toArray(),
         db.scan_files.toArray(),
       ])

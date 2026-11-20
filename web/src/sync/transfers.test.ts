@@ -8,6 +8,7 @@ import {
   beginCapture,
   deleteRecording,
   finishCapture,
+  joinCapturedChunks,
   storeDownloadedBlob,
   storePeaks,
 } from '../commands/recordings'
@@ -17,12 +18,20 @@ import { createTune, deleteTune } from '../commands/tunes'
 import {
   CHUNK_MS,
   HANDOFF_TAKE_BACK_ATTEMPTS,
+  hasLocalAudio,
+  readLocalAudio,
   type RecordingFile,
   type UploadHandoff,
 } from '../db/recordings'
 import { MAX_RECORDING_MS, MAX_SPLIT_SOURCE_MS } from '../domain/recordingLimits'
 import { BACKGROUND_UPLOAD_MAX_BYTES } from '../platform/backgroundSync'
-import { getCountryCenter, getStorage, setKeepOffline, setStorage } from '../db/meta'
+import {
+  getCountryCenter,
+  getDownloadsHeldForSpace,
+  getStorage,
+  setKeepOffline,
+  setStorage,
+} from '../db/meta'
 import { pendingFor } from '../db/outbox'
 import type { CrosstuneDb } from '../db/schema'
 import { newId } from '../commands/write'
@@ -39,6 +48,8 @@ import { PREMIUM_REQUIRED_PROBLEM } from './errors'
 import type { SyncEngine } from './types'
 import {
   CAPTURE_LOCK_GRACE_MS,
+  CAPTURE_RESERVE_BYTES,
+  joinChunkedCaptures,
   createDownloadRetries,
   createUploadReports,
   downloadOne,
@@ -480,7 +491,7 @@ describe('uploadPass', () => {
     await uploadPass(db, fake.api, createUploadReports(noopAnalytics))
     const file = await db.recording_files.get(id)
     expect(file?.local_state).toBe('captured')
-    expect(await file?.blob?.text()).toBe('abc')
+    expect(await (await readLocalAudio(db, file))?.text()).toBe('abc')
     expect(await db.recordings.get(id)).toMatchObject({ deleted_at: null, tune_id: null })
     const queued = await pendingFor(db, 'recordings', id)
     expect(queued).toMatchObject({ op: 'upsert' })
@@ -645,15 +656,19 @@ describe('uploadPass', () => {
     expect(await uploadPass(db, fake.api, createUploadReports(noopAnalytics))).toBeNull()
   })
 
-  it('deletes chunks that have no file row or whose file row has moved past capturing', async () => {
+  it('deletes chunks that have no file row or whose file holds no chunked audio', async () => {
     // A genuinely orphaned chunk: no file row was ever created for it.
     await db.recording_chunks.put({ recording_id: 'ghost', idx: 0, blob: new Blob(['x']) })
-    // A chunk left behind after its capture already finished.
-    const id = await captured()
-    await db.recording_chunks.put({ recording_id: id, idx: 99, blob: new Blob(['y']) })
+    // A chunk left behind after its capture was joined into one blob.
+    const joined = await captured()
+    await joinCapturedChunks(db, joined)
+    await db.recording_chunks.put({ recording_id: joined, idx: 99, blob: new Blob(['y']) })
+    // A finished capture whose chunks are its audio.
+    const chunked = await captured()
     await uploadPass(db, fake.api, createUploadReports(noopAnalytics))
     expect(await db.recording_chunks.where('recording_id').equals('ghost').count()).toBe(0)
-    expect(await db.recording_chunks.where('recording_id').equals(id).count()).toBe(0)
+    expect(await db.recording_chunks.where('recording_id').equals(joined).count()).toBe(0)
+    expect(await db.recording_chunks.where('recording_id').equals(chunked).count()).toBe(1)
   })
 })
 
@@ -1161,6 +1176,33 @@ describe('recoverInterruptedCaptures with a lock manager', () => {
   })
 })
 
+describe('joinChunkedCaptures', () => {
+  it('joins a finished capture only while the copy leaves the room kept for recording', async () => {
+    const id = await captured()
+    await joinChunkedCaptures(db, { headroom: async () => CAPTURE_RESERVE_BYTES + 3 - 1 })
+    expect(await db.recording_files.get(id)).toMatchObject({ chunked: true, blob: null })
+
+    await joinChunkedCaptures(db, { headroom: async () => null })
+    const file = await db.recording_files.get(id)
+    expect(file?.chunked).toBe(false)
+    expect(await file?.blob?.text()).toBe('abc')
+  })
+
+  it('leaves the chunks of a file the service worker is sending', async () => {
+    const id = await captured()
+    const handoff: UploadHandoff = {
+      url: 'https://r2.example/put',
+      confirm_token: 'token',
+      content_type: 'audio/mp4',
+      expires_at: Date.now() + 60_000,
+      attempts: 0,
+    }
+    await db.recording_files.update(id, { local_state: 'uploading', handoff })
+    await joinChunkedCaptures(db, { headroom: async () => null })
+    expect(await db.recording_files.get(id)).toMatchObject({ chunked: true, blob: null })
+  })
+})
+
 describe('downloads', () => {
   it('downloadPass fetches every ready recording without a blob once keep offline is on', async () => {
     await readyOnServer('r1')
@@ -1169,6 +1211,19 @@ describe('downloads', () => {
     await downloadPass(db, fake.api)
     expect(await (await db.recording_files.get('r1'))?.blob?.text()).toBe('xyz')
     expect(await (await db.recording_files.get('r2'))?.blob?.text()).toBe('xyz')
+  })
+
+  it('downloadPass leaves out a download that would use the room kept for recording, and says so', async () => {
+    await readyOnServer('r1')
+    await setKeepOffline(db, true)
+    const short = async () => CAPTURE_RESERVE_BYTES + 3 - 1
+    await downloadPass(db, fake.api, { headroom: short })
+    expect(hasLocalAudio(await db.recording_files.get('r1'))).toBe(false)
+    expect(await getDownloadsHeldForSpace(db)).toBe(true)
+
+    await downloadPass(db, fake.api, { headroom: async () => CAPTURE_RESERVE_BYTES + 3 })
+    expect(hasLocalAudio(await db.recording_files.get('r1'))).toBe(true)
+    expect(await getDownloadsHeldForSpace(db)).toBe(false)
   })
 
   it('downloadPass waits out a failed download backoff before trying it again', async () => {
