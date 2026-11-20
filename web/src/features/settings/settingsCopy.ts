@@ -46,6 +46,15 @@ export const a4Value = (hz: number) => `${hz} Hz`
 export const SYNC = 'Sync'
 export const SYNC_AND_STORAGE = 'Sync and storage'
 export const IMPORT_AND_EXPORT = 'Import and export'
+/** The Settings root's ways to get the app: the App Store and the browser's install prompt. */
+export const GET_THE_APP = 'Get the app'
+export const APP_STORE = 'App Store'
+export const INSTALL_CROSSTUNE = 'Install Crosstune'
+export const DOWNLOAD_ON_APP_STORE = 'Download on the App Store'
+export const CROSSTUNE_FOR_IPHONE = 'Crosstune for iPhone'
+export const GET_THE_APP_LINE = 'Get the app for a better experience.'
+export const SCAN_FOR_IPHONE = "Scan with your iPhone's camera to get the app."
+export const APP_STORE_QR = 'QR code for Crosstune on the App Store'
 
 export const IMPORT_HEADER = 'Import'
 export const IMPORT_HELP =

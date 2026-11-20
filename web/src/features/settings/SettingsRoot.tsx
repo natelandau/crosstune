@@ -1,4 +1,4 @@
-import { Fragment } from 'react'
+import { Fragment, useRef } from 'react'
 import type { Key, Selection } from 'react-aria-components'
 import { Link, useMatch, useNavigate, useParams } from 'react-router'
 import { SETTINGS_STATS_PATH, settingsPagePath } from './settingsPaths'
@@ -12,11 +12,15 @@ import { useInstrumentsSetting } from './useInstrumentsSetting'
 import { useSettingsRow } from './useSettingsRow'
 import { useStatsSummary } from './useStatsSummary'
 import { useSyncSettings } from './useSyncSettings'
+import { InstallGroup } from './InstallGroup'
+import { RowSummary } from './RowSummary'
+import { BLOCK } from './settingsBlock'
+import { useInstallOffer } from '../../platform/installOffer'
+import { useFocusFallback } from '../../ui/useFocusFallback'
 import { SUMMARY_SEPARATOR } from '../stats/copy'
 import { APP_VERSION } from '../../version'
 import { useLeaveTo } from '../../layout/backHistory'
 import { destination, lastTab, lastTabRoot } from '../../layout/destinations'
-import { useStampedDensity } from '../../platform/density'
 import { useFrame } from '../../platform/frame'
 import { ColumnTitle } from '../../layout/ColumnTitle'
 import { BackLink, PaneBar } from '../../layout/PaneBar'
@@ -29,7 +33,6 @@ import { isSettingsPage, SETTINGS_PAGES, type SettingsValues } from './settingsP
 
 const SETTINGS = destination('settings')
 const CATEGORIES = SETTINGS_PAGES.filter((page) => page.id !== 'account')
-const BLOCK = 'bg-surface block rounded-(--radius) px-4 py-3'
 
 /**
  * The Settings root: the account and the catalog as blocks, then a row for each category, and
@@ -42,9 +45,15 @@ export function SettingsRoot() {
   const open = isSettingsPage(page) ? page : onLocation ? 'recordings' : undefined
   const frame = useFrame()
   const wide = frame === 'wide'
-  const touch = useStampedDensity() === 'touch'
   const navigate = useNavigate()
   const values = useSettingsValues()
+  const offer = useInstallOffer()
+  const titleRef = useRef<HTMLHeadingElement>(null)
+  useFocusFallback(titleRef, {
+    controls: { webInstall: offer.webInstall, appStore: offer.appStore !== 'none' },
+    trigger: false,
+    sheetOpen: false,
+  })
   const statsOpen = useMatch(`${SETTINGS_STATS_PATH}/*`) !== null
   const statsTune = useMatch(`${SETTINGS_STATS_PATH}/tunes/:tuneId`) !== null
   // On wide one page replaces the one before, so walking the rows with the arrows leaves no
@@ -68,7 +77,7 @@ export function SettingsRoot() {
           ) : undefined
         }
       />
-      <ColumnTitle title={SETTINGS.label} />
+      <ColumnTitle title={SETTINGS.label} titleRef={titleRef} />
       <div className="flex flex-col gap-4 px-4 pb-4">
         <AccountBlock current={open === 'account'} replace={replace} />
         <StatsBlock current={statsOpen} replace={wide && open !== undefined} fromTune={statsTune} />
@@ -104,21 +113,12 @@ export function SettingsRoot() {
               leading={<Icon className="text-secondary size-5 shrink-0" aria-hidden />}
               title={category.title}
               current={onLocation && wide && category.id === open}
-              trailing={
-                summary ? (
-                  // On pointer the row's trailing slot holds the cap, so a percentage here
-                  // would take half of a width the text itself sets.
-                  <span
-                    className={`t-body text-secondary min-w-0 truncate pe-1 ${touch ? 'max-w-1/2 shrink-0' : ''}`}
-                  >
-                    {summary}
-                  </span>
-                ) : undefined
-              }
+              trailing={summary ? <RowSummary>{summary}</RowSummary> : undefined}
             />
           )
         })}
       </RowList>
+      <InstallGroup offer={offer} />
       <p className="t-secondary text-secondary px-4 pt-6 pb-8">{aboutLine(APP_VERSION)}</p>
     </>
   )

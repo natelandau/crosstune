@@ -25,6 +25,7 @@ import {
   RECORDINGS_SETTINGS,
   SAVED_LOCATIONS_EMPTY_HINT,
   savedLocationRecordings,
+  SETTINGS_CATEGORIES,
 } from './settingsCopy'
 import { savedLocationPath, settingsPagePath } from './settingsPaths'
 import { useSavedLocations } from './useSavedLocations'
@@ -234,7 +235,7 @@ it('returns to the list when its page is chosen again from a location on wide', 
   const { router } = await setup(savedLocationPath('p1'), { places: [TOWN_HALL] })
   await expect.element(nameField()).toBeVisible()
   const category = page
-    .getByRole('grid')
+    .getByRole('grid', { name: SETTINGS_CATEGORIES })
     .getByRole('row', { name: new RegExp(`^${RECORDINGS_SETTINGS}`) })
   // Still shown as the open category while one of its locations is open.
   await expect.element(category).toHaveAttribute('aria-current', 'page')

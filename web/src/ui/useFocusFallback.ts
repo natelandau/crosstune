@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState, type RefObject } from 'react'
 
 /**
- * Moves focus to `target`, the column's title, when a filter control leaves the page while it
- * holds focus: a token's remove or a sheet's Reset can leave nothing to filter, and the filter
- * write may land before or after the sheet closes. `controls` says which controls are on the
- * page now, `trigger` whether the control that opens the sheet is among them. Pass the returned
- * callback as the sheet's `onClosed`.
+ * Moves focus to `target`, the column's title, when a control leaves the page while it holds
+ * focus, such as a filter control after a token's remove or a sheet's Reset leaves nothing to
+ * filter. The filter write may land before or after the sheet closes. `controls` says which
+ * controls are on the page now, `trigger` whether the control that opens the sheet is among
+ * them. Pass the returned callback as the sheet's `onClosed`.
  *
  * This runs as an effect of the commit that removes the control or the sheet, never a frame
  * later: a frame can pass before that commit, and the page stays inert until the sheet's own

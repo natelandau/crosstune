@@ -153,7 +153,11 @@ it('pushes a category on the phone, and Back returns to the categories', async (
 it('opens a page by its address on wide beside the categories', async () => {
   await mount('/settings/sync', WIDE)
   await expect
-    .element(page.getByRole('region', { name: SETTINGS.label }).getByRole('grid'))
+    .element(
+      page.getByRole('region', { name: SETTINGS.label }).getByRole('grid', {
+        name: SETTINGS_CATEGORIES,
+      }),
+    )
     .toBeVisible()
   const detail = page.getByRole('main', { name: SYNC_AND_STORAGE })
   await expect
