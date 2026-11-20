@@ -8,91 +8,144 @@ import WidgetKit
 struct RecordingActivityWidget: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: RecordingActivityAttributes.self) { context in
-            RecordingActivityContent(state: context.shownState)
+            RecordingLockScreen(state: context.shownState)
                 .padding()
         } dynamicIsland: { context in
             let state = context.shownState
             return DynamicIsland {
+                DynamicIslandExpandedRegion(.leading) {
+                    RecordingStatusIcon(status: state.status)
+                }
+                DynamicIslandExpandedRegion(.trailing) {
+                    RecordingElapsedTime(state: state, sizingText: "00:00")
+                        .font(.title2.weight(.semibold))
+                }
+                DynamicIslandExpandedRegion(.center) {
+                    // The failure's message is too long for the center, so it goes below.
+                    if state.status != .failed {
+                        Text(state.status.label)
+                            .font(.headline)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                    }
+                }
                 DynamicIslandExpandedRegion(.bottom) {
-                    RecordingActivityContent(state: state)
+                    if state.status == .failed {
+                        RecordingFailedMessage()
+                    } else {
+                        RecordingActivityButtons(state: state)
+                    }
                 }
             } compactLeading: {
-                RecordingStatusSymbol(status: state.status)
+                RecordingStatusIcon(status: state.status)
             } compactTrailing: {
                 if state.status != .saving && state.status != .failed {
                     // Past 100 minutes this can clip: more room costs island width on every recording.
                     RecordingElapsedTime(state: state, sizingText: "00:00")
                 }
             } minimal: {
-                RecordingStatusSymbol(status: state.status)
+                RecordingStatusIcon(status: state.status)
             }
         }
     }
 }
 
-/// The status, the time, and the buttons, which the lock screen and the expanded
-/// Dynamic Island share.
-private struct RecordingActivityContent: View {
+/// One row: the buttons, the status, and the time. A failure's message wraps below the row.
+private struct RecordingLockScreen: View {
     let state: RecordingActivityState
 
     var body: some View {
-        if state.status == .failed {
-            Label {
-                Text(RecordingActivityText.saveFailed)
-            } icon: {
-                RecordingStatusSymbol(status: .failed)
-                    .accessibilityHidden(true)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        } else {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(alignment: .firstTextBaseline) {
-                    Text(state.status.label)
-                        .font(.headline)
-                    Spacer()
-                    RecordingElapsedTime(state: state, sizingText: "000:00")
-                        .font(.title2.weight(.semibold))
-                }
-                .accessibilityElement(children: .combine)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 12) {
                 RecordingActivityButtons(state: state)
+                RecordingStatusCapsule(status: state.status)
+                Spacer(minLength: 0)
+                RecordingElapsedTime(state: state, sizingText: "00:00")
+                    .font(.largeTitle.weight(.semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+            }
+            if state.status == .failed {
+                RecordingFailedMessage()
             }
         }
     }
 }
 
-/// Stop, and Resume after an interruption that allows it.
+private struct RecordingFailedMessage: View {
+    var body: some View {
+        Text(RecordingActivityText.saveFailed)
+            .font(.subheadline)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+/// The status in a capsule: record red while recording, a neutral fill otherwise.
+private struct RecordingStatusCapsule: View {
+    let status: RecordingActivityState.Status
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: status.systemImage)
+            // The failure's message shows in full below the row.
+            if status != .failed {
+                Text(status.label)
+                    .textCase(.uppercase)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
+        }
+        .font(.caption.weight(.bold))
+        // White text on record is an owner-approved exception to the 4.5:1 rule, for this
+        // capsule only, to match the recording icon. Elsewhere a label on record is `onRecord`.
+        .foregroundStyle(Palette.onAccentFill)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(status == .recording ? Palette.record : Palette.neutralFill, in: .capsule)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(status.label)
+    }
+}
+
+/// Stop, and Resume after an interruption that allows it, as round outlined buttons.
 private struct RecordingActivityButtons: View {
-    static let minHeight: CGFloat = 44
+    static let size: CGFloat = 44
 
     let state: RecordingActivityState
 
     var body: some View {
         if state.status == .recording || state.status == .interrupted {
-            HStack {
+            HStack(spacing: 12) {
                 Button(intent: StopRecordingIntent()) {
-                    Text(RecordingActivityText.stop)
-                        .font(.headline)
-                        .foregroundStyle(Palette.onRecord)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.5)
-                        .frame(maxWidth: .infinity, minHeight: Self.minHeight)
-                        .background(Palette.record, in: .capsule)
+                    RoundButtonLabel(title: RecordingActivityText.stop, systemImage: "stop.fill")
                 }
                 .buttonStyle(.plain)
                 if state.canResume {
                     Button(intent: ResumeRecordingIntent()) {
-                        Label(RecordingActivityText.resume, systemImage: "record.circle")
-                            .font(.headline)
-                            .foregroundStyle(Palette.textPrimary)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.5)
-                            .frame(maxWidth: .infinity, minHeight: Self.minHeight)
-                            .background(Palette.neutralFill, in: .capsule)
+                        RoundButtonLabel(title: RecordingActivityText.resume, systemImage: "play.fill")
                     }
                     .buttonStyle(.plain)
                 }
             }
         }
+    }
+}
+
+private struct RoundButtonLabel: View {
+    let title: String
+    let systemImage: String
+
+    var body: some View {
+        Label(title, systemImage: systemImage)
+            .labelStyle(.iconOnly)
+            .font(.title3)
+            .foregroundStyle(Palette.textPrimary)
+            .frame(width: RecordingActivityButtons.size, height: RecordingActivityButtons.size)
+            .overlay {
+                Circle().strokeBorder(Palette.textPrimary, lineWidth: 2)
+            }
+            .contentShape(.circle)
     }
 }
 
@@ -117,26 +170,38 @@ private struct RecordingElapsedTime: View {
     }
 }
 
-/// The compact and minimal Dynamic Island's symbol for each status.
+/// The recording icon while recording, and the status symbol otherwise.
+private struct RecordingStatusIcon: View {
+    let status: RecordingActivityState.Status
+
+    var body: some View {
+        if status == .recording {
+            RecordingIcon()
+        } else {
+            RecordingStatusSymbol(status: status)
+        }
+    }
+}
+
+/// A symbol for each status other than recording, which shows ``RecordingIcon``.
 private struct RecordingStatusSymbol: View {
     let status: RecordingActivityState.Status
 
     var body: some View {
-        symbol
+        Image(systemName: status.systemImage)
+            .foregroundStyle(status == .saving ? Palette.record : Palette.textPrimary)
             .accessibilityLabel(status.label)
     }
+}
 
-    @ViewBuilder private var symbol: some View {
-        switch status {
-        case .recording, .saving:
-            Image(systemName: "circle.fill")
-                .foregroundStyle(Palette.record)
-        case .interrupted, .notRecording:
-            Image(systemName: "pause.fill")
-        case .saved:
-            Image(systemName: "checkmark")
-        case .failed:
-            Image(systemName: "exclamationmark.triangle")
+extension RecordingActivityState.Status {
+    fileprivate var systemImage: String {
+        switch self {
+        case .recording: "waveform"
+        case .saving: "circle.fill"
+        case .interrupted, .notRecording: "pause.fill"
+        case .saved: "checkmark"
+        case .failed: "exclamationmark.triangle"
         }
     }
 }
@@ -179,6 +244,8 @@ extension RecordingActivityState {
 } contentStates: {
     RecordingActivityState.previewRecording
     RecordingActivityState.previewInterrupted
+    RecordingActivityState.previewSaving
+    RecordingActivityState.previewSaved
     RecordingActivityState.previewFailed
     RecordingActivityState.previewNotRecording
 }
@@ -188,6 +255,8 @@ extension RecordingActivityState {
 } contentStates: {
     RecordingActivityState.previewRecording
     RecordingActivityState.previewInterrupted
+    RecordingActivityState.previewSaving
     RecordingActivityState.previewSaved
+    RecordingActivityState.previewFailed
     RecordingActivityState.previewNotRecording
 }
