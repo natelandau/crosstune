@@ -3,9 +3,9 @@ import SwiftUI
 
 /// The Loops mode: make a loop around the playhead, or delete the selected one. Why New loop is
 /// off is its accessibility hint; on iOS it simply goes disabled, and the Mac also captions it.
-/// While a name field is open, the tune's parts show as suggestions. The panel is the same
-/// height whatever it shows. With no audio to play, whose status the screen shows, the controls
-/// are off, since the playhead has no place yet.
+/// While a name field is open, the tune's parts show as suggestions: in the panel on the Mac,
+/// above the keyboard on iOS. The panel is the same height whatever it shows. With no audio to
+/// play, whose status the screen shows, the controls are off, since the playhead has no place yet.
 struct LoopsPanel: View {
     let model: PracticeModel
     /// Delete loop removed the selected loop, whose button goes disabled with it.
@@ -41,7 +41,9 @@ struct LoopsPanel: View {
                     .frame(maxWidth: .infinity)
                     .reserved(shown: model.loops.isEmpty)
             #endif
-            LoopSuggestions(model: model, id: model.renaming)
+            #if os(macOS)
+                LoopSuggestions(model: model, id: model.renaming)
+            #endif
         }
     }
 

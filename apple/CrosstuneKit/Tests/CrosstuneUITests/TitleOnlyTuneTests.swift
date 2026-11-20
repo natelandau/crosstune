@@ -89,7 +89,7 @@ import Testing
         let limit = Vocabulary.Limits.Tune.title
         // The cap lands just after a space, which the second trim takes off.
         let typed = "  " + String(repeating: "a", count: limit - 1) + " tail"
-        let added = AddedTuneUndo(store: store, analytics: sink.client)
+        let added = AddedTuneUndo.held(store: store, analytics: sink.client)
 
         let tuneID = try #require(await added.add(title: typed, source: .searchOffer))
 
@@ -105,7 +105,7 @@ import Testing
         await #expect(throws: CommandError.tuneTitleRequired) {
             try await Commands(store: store).createTitleOnly(title: "   ", source: .list, analytics: sink.client)
         }
-        let added = AddedTuneUndo(store: store, analytics: sink.client)
+        let added = AddedTuneUndo.held(store: store, analytics: sink.client)
         #expect(await added.add(title: " \n ", source: .searchOffer) == nil)
 
         #expect(try await liveTuneCount(store) == 0)
@@ -181,7 +181,7 @@ import Testing
 
     @Test func undoDeletesATuneWithNothingAddedAndReportsTheDelete() async throws {
         let store = try await seeded()
-        let added = AddedTuneUndo(store: store, analytics: sink.client)
+        let added = AddedTuneUndo.held(store: store, analytics: sink.client)
         let tuneID = try #require(await added.add(title: "Angeline", source: .searchOffer))
         let undo = try #require(added.undoBannerItem?.undo)
 
@@ -200,7 +200,7 @@ import Testing
     @Test(arguments: Work.allCases)
     func undoIsWithdrawnOnceWorkAttaches(_ work: Work) async throws {
         let store = try await seeded()
-        let added = AddedTuneUndo(store: store, analytics: sink.client)
+        let added = AddedTuneUndo.held(store: store, analytics: sink.client)
         let tuneID = try #require(await added.add(title: "Angeline", source: .searchOffer))
         let created = try #require(try await stored(store, tuneID))
 
@@ -220,7 +220,7 @@ import Testing
     @Test(arguments: Work.allCases)
     func undoAfterWorkArrivesFromElsewhereKeepsTheTune(_ work: Work) async throws {
         let store = try await seeded()
-        let added = AddedTuneUndo(store: store, analytics: sink.client)
+        let added = AddedTuneUndo.held(store: store, analytics: sink.client)
         let tuneID = try #require(await added.add(title: "Angeline", source: .searchOffer))
         // The banner holds the offer it drew, Undo and all, whatever the model does after.
         let undo = try #require(added.undoBannerItem?.undo)
@@ -242,7 +242,7 @@ import Testing
 
     @Test func systemUndoCarriesTheSameUndoAndLeavesWithTheBanners() async throws {
         let store = try await seeded()
-        let added = AddedTuneUndo(store: store, analytics: sink.client)
+        let added = AddedTuneUndo.held(store: store, analytics: sink.client)
         let undoManager = UndoManager()
         added.undoManager = undoManager
         let tuneID = try #require(await added.add(title: "Angeline", source: .searchOffer))
@@ -258,7 +258,7 @@ import Testing
 
     @Test func systemUndoIsWithdrawnWithTheBannersOnceWorkAttaches() async throws {
         let store = try await seeded()
-        let added = AddedTuneUndo(store: store, analytics: sink.client)
+        let added = AddedTuneUndo.held(store: store, analytics: sink.client)
         let undoManager = UndoManager()
         added.undoManager = undoManager
         let tuneID = try #require(await added.add(title: "Angeline", source: .searchOffer))
@@ -275,7 +275,7 @@ import Testing
 
     @Test func theBannersUndoTakesTheSystemUndoWithIt() async throws {
         let store = try await seeded()
-        let added = AddedTuneUndo(store: store, analytics: sink.client)
+        let added = AddedTuneUndo.held(store: store, analytics: sink.client)
         let undoManager = UndoManager()
         added.undoManager = undoManager
         let tuneID = try #require(await added.add(title: "Angeline", source: .searchOffer))
@@ -290,7 +290,7 @@ import Testing
 
     @Test func anUndoOnATuneAlreadyDeletedReportsNothingMore() async throws {
         let store = try await seeded()
-        let added = AddedTuneUndo(store: store, analytics: sink.client)
+        let added = AddedTuneUndo.held(store: store, analytics: sink.client)
         let tuneID = try #require(await added.add(title: "Angeline", source: .searchOffer))
 
         await added.undo(tuneID: tuneID, title: "Angeline", pressedAt: added.shownCount)
@@ -302,7 +302,7 @@ import Testing
 
     @Test func aTuneDeletedElsewhereWithdrawsUndoAndItsUndoDoesNothing() async throws {
         let store = try await seeded()
-        let added = AddedTuneUndo(store: store, analytics: sink.client)
+        let added = AddedTuneUndo.held(store: store, analytics: sink.client)
         let undoManager = UndoManager()
         added.undoManager = undoManager
         let tuneID = try #require(await added.add(title: "Angeline", source: .searchOffer))
@@ -337,7 +337,7 @@ import Testing
 
     @Test func aKeptUndoLeavesANewerBannerAndItsUndo() async throws {
         let store = try await seeded()
-        let added = AddedTuneUndo(store: store, analytics: sink.client)
+        let added = AddedTuneUndo.held(store: store, analytics: sink.client)
         let first = try #require(await added.add(title: "Angeline", source: .searchOffer))
         let created = try #require(try await stored(store, first))
         try await Work.notes.attach(
@@ -357,7 +357,7 @@ import Testing
 
     @Test func aSecondAddWhileOneRunsCreatesNothingMore() async throws {
         let store = try await seeded()
-        let added = AddedTuneUndo(store: store, analytics: sink.client)
+        let added = AddedTuneUndo.held(store: store, analytics: sink.client)
 
         async let first = added.add(title: "Angeline", source: .searchOffer)
         async let second = added.add(title: "Angeline", source: .searchOffer)
