@@ -31,6 +31,7 @@ import { TUNE } from '../tune/tunePageCopy'
 import { renderWithProviders } from '../../test/render'
 import { renderApp } from '../../test/renderApp'
 import { Heatmap } from './blocks/Heatmap'
+import { SETTINGS_CATEGORIES } from '../settings/settingsCopy'
 
 vi.mock('@clerk/react', () => import('../../fixture/clerkStub'))
 
@@ -162,7 +163,7 @@ it('sits in the detail beside the settings on wide, and the stats block leaves a
   })
   await block.click()
   await expect.poll(at(router)).toBe(SETTINGS_STATS_PATH)
-  await expect.element(settings.getByRole('grid')).toBeVisible()
+  await expect.element(settings.getByRole('grid', { name: SETTINGS_CATEGORIES })).toBeVisible()
   const detail = page.getByRole('main', { name: STATS_TITLE })
   await expect.element(detail.getByRole('heading', { level: 1, name: STATS_TITLE })).toBeVisible()
   // Wide shows the settings beside the page, so it has no Back.
@@ -175,7 +176,7 @@ it('sits in the detail beside the settings on wide, and the stats block leaves a
       page.getByRole('main', { name: TUNE }).getByRole('heading', { level: 1, name: 'Tune B' }),
     )
     .toBeVisible()
-  await expect.element(settings.getByRole('grid')).toBeVisible()
+  await expect.element(settings.getByRole('grid', { name: SETTINGS_CATEGORIES })).toBeVisible()
   await expect.element(block).toHaveAttribute('aria-current', 'page')
 
   await block.click()
