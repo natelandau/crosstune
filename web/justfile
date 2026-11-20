@@ -35,7 +35,7 @@ format:
 # Type check with tsc
 [group('lint')]
 tsc:
-    {{ gate }} web-tsc {{ paths }} --path api/openapi.json --path fixtures/ pnpm tsc --noEmit
+    {{ gate }} web-tsc {{ paths }} --path api/openapi.json --path fixtures/ sh -c 'pnpm tsc --noEmit && pnpm tsc --noEmit -p tsconfig.sw.json'
 
 # Spell check the client and its brand sources
 [group('lint')]

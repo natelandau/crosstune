@@ -20,5 +20,6 @@
     "checkJs": true,
     "types": ["vite/client", "vite-plugin-pwa/client", "@testing-library/jest-dom", "node"]
   },
-  "include": ["src", "e2e", "worker", "scripts", "*.ts", "*.js"]
+  "include": ["src", "e2e", "worker", "scripts", "*.ts", "*.js"],
+  "exclude": ["src/sw/**"]
 }
