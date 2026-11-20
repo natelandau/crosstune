@@ -1,3 +1,4 @@
+import type { Table } from 'dexie'
 import { AUDIO_QUALITIES, type AudioQuality } from '../api/vocabulary'
 import type { CrosstuneDb } from './schema'
 
@@ -65,6 +66,25 @@ export function isNotUploaded(file: { local_state: LocalFileState } | null | und
   return !!file && NOT_UPLOADED_STATES.includes(file.local_state)
 }
 
+/** The sync tag the page registers for the service worker to upload its hand-offs. */
+export const UPLOAD_SYNC_TAG = 'recording-uploads'
+
+/** Failed worker runs after which the page takes a hand-off back and uploads the file itself. */
+export const HANDOFF_TAKE_BACK_ATTEMPTS = 3
+
+/** An upload the page reserved and left for the service worker to send and confirm. */
+export interface UploadHandoff {
+  url: string
+  confirm_token: string
+  content_type: string
+  /** Epoch ms when the presigned URL and the slot expire. */
+  expires_at: number
+  /** Failed worker runs for this hand-off. */
+  attempts: number
+  /** The server refused the worker's confirm, so the page takes the file back and settles it. */
+  refused?: boolean
+}
+
 export interface RecordingFile {
   id: string
   blob: Blob | null
@@ -92,6 +112,27 @@ export interface RecordingFile {
   next_attempt_at: number | null
   /** Consecutive transient upload failures since the last success, driving the backoff delay. */
   upload_attempts: number
+  /** The upload left for the service worker, or null when the page sends its own. A row
+   * stored before hand-offs existed has no field, which also means none. */
+  handoff?: UploadHandoff | null
+}
+
+/** A file whose upload is left for the service worker. */
+export type HandedOffFile = RecordingFile & { handoff: UploadHandoff }
+
+/** Change a file only while it still holds `handoff`, so whichever of the page and the worker
+ * settles the hand-off first keeps its result. Resolves to the number of rows changed. */
+export function modifyWhileHeld(
+  files: Table<RecordingFile, string>,
+  id: string,
+  handoff: UploadHandoff,
+  change: (row: RecordingFile) => void,
+): Promise<number> {
+  return files
+    .where(':id')
+    .equals(id)
+    .filter((row) => row.handoff?.url === handoff.url)
+    .modify(change)
 }
 
 /** A file whose bytes are all here: a capture in progress or a download without a blob is not. */

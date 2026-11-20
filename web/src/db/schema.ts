@@ -1,4 +1,5 @@
 import Dexie, { type EntityTable, type Table, type Transaction } from 'dexie'
+import { DATABASE_NAME_PREFIX } from './names'
 import { META_PULL_CURSOR, META_SCAN_INVERT } from './meta'
 import type { RecordingChunk, RecordingFile } from './recordings'
 import type { ScanFile } from './scans'
@@ -426,6 +427,10 @@ export class CrosstuneDb extends Dexie {
 
     // Indexes recordings by deletion, so counting live ones reads the index, not every row.
     this.version(25).stores({ recordings: 'id, tune_id, state, split_from_id, deleted_at' })
+
+    // Recording files gain the upload hand-off the service worker sends. No upgrader: a row
+    // without the field has no hand-off, and rewriting every row would copy every blob.
+    this.version(26).stores({})
   }
 
   // Dexie's auto-open on the first query calls this method too.
@@ -469,7 +474,7 @@ function splitRecordingDate(row: Record<string, unknown>) {
 }
 
 export function databaseName(userId: string): string {
-  return `crosstune-${userId}`
+  return `${DATABASE_NAME_PREFIX}${userId}`
 }
 
 export function openDatabase(userId: string): CrosstuneDb {

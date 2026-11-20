@@ -75,6 +75,11 @@ each question, and the invariants that both clients and the API hold.
 - Every `/v1` route except a webhook requires a Clerk bearer token. No user
   ID in a URL or a body. The server sets ownership from the token and
   scopes every query to the caller.
+- One more exception: the recording upload confirm that takes the upload
+  slot's token, for a service worker that cannot sign in. The slot's token
+  is the only key, and it expires with its slot. It grants the confirm of
+  that slot and nothing more: no read, no other slot, no other recording.
+  Every token or recording refusal is the same 404.
 - A request body is read only after its token verifies, and never past a
   size limit.
 - No CORS. Browsers reach the API on the same origin: through the Vite
@@ -209,6 +214,10 @@ each question, and the invariants that both clients and the API hold.
   - Web: a new Dexie version with an upgrader. Apple: a migration
     appended to `Schema.migrator`. Each extends that client's migration
     test.
+  - A web field that only this device fills, whose missing value reads
+    the same as its empty one, takes a version with no upgrader: an
+    upgrader rewrites every row, and a recording file row holds its
+    audio.
   - A migration that adds a field or a table that only the server can
     fill resets the pull cursor. Unsent edits still win.
   - A merged Apple migration is never edited: a store that applied it
@@ -369,6 +378,8 @@ each question, and the invariants that both clients and the API hold.
   confirm. Each slot signs its own key and its declared size. Confirm
   copies the object to where the server reads it, so a reused URL writes
   where nothing reads.
+- The web service worker owns the PUT and the confirm of a file it was
+  handed. The page never uploads a file with a live hand-off.
 - A job that stores a recording file outside an upload slot (transcode,
   trim, re-encode, split) checks it against the quota under the user's
   lock, before its commit, and never commits a file past the quota. A

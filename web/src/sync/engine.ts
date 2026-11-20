@@ -8,6 +8,7 @@ import { postSeenNotices } from '../billing/notices'
 import { countInvalidChanges, getEventsCursor, getPullCursor, pruneLocalOnlyRows } from '../db/meta'
 import { PUSH_BATCH_SIZE, pendingBatch } from '../db/outbox'
 import type { CrosstuneDb } from '../db/schema'
+import { type BackgroundUploads, browserBackgroundUploads } from '../platform/backgroundSync'
 import { applyEventsPage, applyPullPage, applyPushResults, type InvalidChange } from './apply'
 import { scanDownloadPass, scanUploadPass } from './scanTransfers'
 import {
@@ -45,6 +46,8 @@ export interface EngineOptions {
   isOnline?: () => boolean
   batchSize?: number
   onInvalid?: (change: InvalidChange) => void
+  /** Where small recording uploads go once the page has reserved them. */
+  background?: BackgroundUploads
 }
 
 export function classifyFailure(error: unknown, isOnline: () => boolean): SyncStatus {
@@ -193,6 +196,7 @@ export function createSyncEngine({
   isOnline = () => navigator.onLine,
   batchSize = PUSH_BATCH_SIZE,
   onInvalid = reportInvalid,
+  background = browserBackgroundUploads(),
 }: EngineOptions): SyncEngine {
   let stopped = false
   const isStopped = () => stopped
@@ -317,7 +321,7 @@ export function createSyncEngine({
           },
         )
         if (stopped) return
-        const uploadError = await uploadPass(db, api, uploadReports, isStopped)
+        const uploadError = await uploadPass(db, api, uploadReports, isStopped, background)
         if (stopped) return
         await downloadPass(db, api, {
           fetch: fetchOne,
