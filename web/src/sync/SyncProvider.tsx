@@ -14,6 +14,7 @@ import { API_ORIGIN } from '../config'
 import { useDb } from '../db/DbProvider'
 import { APP_VERSION } from '../version'
 import { createSyncEngine } from './engine'
+import { startLeaveGuard } from './leaveGuard'
 import { startSyncTriggers } from './triggers'
 import type { SyncEngine, SyncStatus, TransferStatus } from './types'
 
@@ -44,8 +45,10 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     engine.resume()
     const stopTriggers = startSyncTriggers(engine, db)
+    const stopLeaveGuard = startLeaveGuard(db)
     return () => {
       stopTriggers()
+      stopLeaveGuard()
       engine.stop()
     }
   }, [engine, db])
