@@ -1,10 +1,11 @@
+import CrosstuneRecordingActivity
 import CrosstuneStore
 import CrosstuneSync
 import Foundation
 
 /// How a recording reads in its row: title, metadata, and what its leading control does.
 public enum RecordingText {
-    public static let recording = "Recording"
+    public static let recording = RecordingActivityText.recording
     public static let waitingToUpload = "Waiting to upload"
     public static let uploading = "Uploading"
     public static let storageFull = "Storage full"
@@ -38,21 +39,9 @@ public enum RecordingText {
         case transcode
     }
 
-    /// `duration(of:)`, or nil when the length is unknown.
+    /// `RecordingActivityText.duration(of:)`, or nil when the length is unknown.
     public static func duration(milliseconds: Int64?) -> String? {
-        milliseconds.map(duration(of:))
-    }
-
-    /// `m:ss`, rounded to the nearest second.
-    public static func duration(of milliseconds: Int64) -> String {
-        let total = wholeSeconds(of: milliseconds)
-        let seconds = total % 60
-        return "\(total / 60):\(seconds < 10 ? "0" : "")\(seconds)"
-    }
-
-    /// `milliseconds` rounded to the nearest second, the second ``duration(of:)`` shows.
-    public static func wholeSeconds(of milliseconds: Int64) -> Int64 {
-        Int64((Double(milliseconds) / 1000).rounded())
+        milliseconds.map(RecordingActivityText.duration(of:))
     }
 
     /// How many times in a row an upload has failed, as `2 failed tries`.

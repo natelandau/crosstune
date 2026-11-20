@@ -1,0 +1,3 @@
+// Signing that the app and its extensions share, so every bundle signs with one team.
+DEVELOPMENT_TEAM = N76T49G924
+CODE_SIGN_STYLE = Automatic

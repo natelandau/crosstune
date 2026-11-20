@@ -1,4 +1,5 @@
 import CrosstuneDesign
+import CrosstuneRecordingActivity
 import CrosstuneStore
 import CrosstuneVocabulary
 import Foundation
@@ -8,7 +9,7 @@ extension LoopModel {
     /// timeline when it has none.
     static func name(label: String?, startMs: Int64, trimStartMs: Int64) -> String {
         if let label, !label.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return label }
-        return PracticeText.loopName(RecordingText.duration(of: startMs - trimStartMs))
+        return PracticeText.loopName(RecordingActivityText.duration(of: startMs - trimStartMs))
     }
 
     /// `text` cut to the longest label the server stores, which it counts in code points, so a

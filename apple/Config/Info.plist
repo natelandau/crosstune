@@ -22,6 +22,8 @@
 	<string>Crosstune saves the location where you make a recording, so you can later find recordings by where you made them.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Crosstune records and tunes what you play.</string>
+	<key>NSSupportsLiveActivities</key>
+	<true/>
 	<key>PostHogHost</key>
 	<string>$(POSTHOG_HOST)</string>
 	<key>PostHogProjectToken</key>

@@ -1,5 +1,6 @@
 import CrosstuneAnalytics
 import CrosstuneRecording
+import CrosstuneRecordingActivity
 import CrosstuneStore
 import Foundation
 import Observation
@@ -26,16 +27,16 @@ public enum RecordPhase: Equatable, Sendable {
 public final class RecordSheetModel {
     public static let title = "New recording"
     public static let startingMicrophone = "Starting the microphone"
-    public static let interrupted = "Interrupted"
-    public static let saving = "Saving"
-    public static let saved = "Saved"
-    public static let notRecording = "Not recording"
+    public static let interrupted = RecordingActivityText.interrupted
+    public static let saving = RecordingActivityText.saving
+    public static let saved = RecordingActivityText.saved
+    public static let notRecording = RecordingActivityText.notRecording
     public static let interruptedMessage = """
         Recording interrupted. A call or another app took the microphone. Stop to keep what you \
         have, or resume when it is free.
         """
-    public static let stop = "Stop"
-    public static let resume = "Resume"
+    public static let stop = RecordingActivityText.stop
+    public static let resume = RecordingActivityText.resume
     public static let cancel = "Cancel"
     public static let done = "Done"
     public static let openSettings = "Open Settings"

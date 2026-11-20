@@ -1,5 +1,6 @@
 import CrosstuneAudio
 import CrosstuneRecording
+import CrosstuneRecordingActivity
 import CrosstuneStore
 import Observation
 
@@ -25,6 +26,9 @@ public final class RecorderHost {
         self.makeInput = makeInput
         self.makeLocation = makeLocation
     }
+
+    /// The recorder this host holds, for the store last asked about.
+    public var current: Recorder? { held?.recorder }
 
     /// The recorder for `store`. A different store, as after signing in as someone else, gets a
     /// recorder of its own.
@@ -58,5 +62,15 @@ public final class RecorderHost {
     /// Gives the recorder back once the sheet has gone.
     public func release() {
         isClaimed = false
+    }
+}
+
+extension RecorderHost: RecordingControl {
+    public func stop() async {
+        await current?.stop()
+    }
+
+    public func resume() async {
+        await current?.resume()
     }
 }

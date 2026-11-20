@@ -2,6 +2,7 @@ import CrosstuneAnalytics
 import CrosstuneAudio
 import CrosstuneDesign
 import CrosstuneRecording
+import CrosstuneRecordingActivity
 import SwiftUI
 
 /// Records one recording over whatever screen is open, so finishing returns the musician to where
@@ -379,7 +380,7 @@ private struct RecordTimer: View {
     let model: RecordSheetModel
 
     var body: some View {
-        RecordTimerLabel(second: RecordingText.wholeSeconds(of: model.elapsedMilliseconds))
+        RecordTimerLabel(second: RecordingActivityText.wholeSeconds(of: model.elapsedMilliseconds))
             .equatable()
     }
 }
@@ -396,7 +397,7 @@ private struct RecordTimerLabel: View, Equatable {
     }
 
     var body: some View {
-        Text(RecordingText.duration(of: second * 1000))
+        Text(RecordingActivityText.duration(of: second * 1000))
             #if os(macOS)
                 .font(MacStyle.timer)
                 .tracking(MacStyle.timerTracking)

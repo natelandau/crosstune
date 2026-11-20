@@ -1,3 +1,4 @@
+import CrosstuneRecordingActivity
 import CrosstuneStore
 import CrosstuneSync
 import Foundation
@@ -37,11 +38,12 @@ struct DurationAndSizeTests {
 
     @Test(arguments: [Int64(0), 499, 500, 999, 1000, 1499, 1500, 61_499, 61_500])
     func theWholeSecondChangesExactlyWhenTheShownTimeDoes(milliseconds: Int64) {
-        let second = RecordingText.wholeSeconds(of: milliseconds)
-        #expect(RecordingText.duration(of: second * 1000) == RecordingText.duration(of: milliseconds))
+        let second = RecordingActivityText.wholeSeconds(of: milliseconds)
+        #expect(RecordingActivityText.duration(of: second * 1000) == RecordingActivityText.duration(of: milliseconds))
         #expect(
-            (second == RecordingText.wholeSeconds(of: milliseconds - 1))
-                == (RecordingText.duration(of: milliseconds) == RecordingText.duration(of: milliseconds - 1)))
+            (second == RecordingActivityText.wholeSeconds(of: milliseconds - 1))
+                == (RecordingActivityText.duration(of: milliseconds)
+                    == RecordingActivityText.duration(of: milliseconds - 1)))
     }
 
     @Test func saysNothingForAnUnknownLength() {

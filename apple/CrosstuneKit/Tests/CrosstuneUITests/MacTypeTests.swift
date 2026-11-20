@@ -22,6 +22,7 @@
         /// The lines of `file` the Mac compiles and may draw, previews left out, or nil for a
         /// file only the iPhone and iPad reach.
         static func macDrawn(_ file: URL) throws -> String? {
+            if SourceScan.buildsOnlyForIOS(file) { return nil }
             let name = SourceScan.relative(file)
             if iOSOnly.contains(where: { name.hasPrefix($0) }) { return nil }
             let text = SourceScan.withoutPreviews(try SourceScan.text(at: file))

@@ -1,4 +1,5 @@
 import CrosstuneDesign
+import CrosstuneRecordingActivity
 
 /// Words the recording screen's waveform, modes, and loops show.
 public enum PracticeText {
@@ -39,7 +40,7 @@ public enum PracticeText {
 
     /// `0:42 of 3:10`, the playhead's place on the trimmed timeline.
     static func position(_ ms: Int64, of lengthMs: Int64) -> String {
-        "\(RecordingText.duration(of: ms)) of \(RecordingText.duration(of: lengthMs))"
+        "\(RecordingActivityText.duration(of: ms)) of \(RecordingActivityText.duration(of: lengthMs))"
     }
 
     /// `B part start, 0:58.3`, a handle's place on the trimmed timeline to the tenth of a second.
