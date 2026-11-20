@@ -170,6 +170,7 @@ REFUSING_ROUTES = [
     ("delete", "/v1/me", "429"),
     ("post", "/v1/recordings/{recording_id}/upload-slot", "429"),
     ("post", "/v1/recordings/{recording_id}/uploaded", "429"),
+    ("post", "/v1/recordings/{recording_id}/uploaded-with-token", "429"),
     ("post", "/v1/recordings/{recording_id}/retry", "429"),
     ("post", "/v1/recordings/{recording_id}/retry", "413"),
     ("post", "/v1/scans/{scan_id}/upload-slot", "429"),

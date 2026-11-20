@@ -148,3 +148,6 @@ class UploadSlot(Base):
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     # The key this slot's PUT URL is signed for, new on every issue.
     object_key: Mapped[str] = mapped_column(String(512), nullable=False)
+    # SHA-256 hex of the token that confirms this upload without sign-in, new on every issue.
+    # Null on a scan's slot, which only a signed-in call confirms.
+    confirm_token_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)

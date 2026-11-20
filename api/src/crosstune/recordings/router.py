@@ -3,24 +3,26 @@
 from __future__ import annotations
 
 import logging
+import secrets
 import uuid  # noqa: TC003 -- FastAPI resolves path parameter annotations at runtime
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated
 
-from fastapi import APIRouter, BackgroundTasks, Request, Response
+from fastapi import APIRouter, BackgroundTasks, Header, Request, Response
 from pydantic import BaseModel, Field
 
 from crosstune.auth.deps import (
     CurrentUser,  # noqa: TC001 -- FastAPI resolves this annotation at route registration
 )
 from crosstune.billing.access import access_for
-from crosstune.db.base import bump_server_seq
+from crosstune.db.base import bump_server_seq, utc_now
 from crosstune.db.locks import lock_user
 from crosstune.db.session import (
     DbSession,  # noqa: TC001 -- FastAPI resolves this annotation at route registration
 )
 from crosstune.errors import (
     ConflictError,
+    NotFoundError,
     PremiumRequiredError,
     QuotaExceededError,
     TooManyRequestsError,
@@ -29,9 +31,11 @@ from crosstune.errors import (
 from crosstune.files.quota import (
     OVER_QUOTA,
     accept_upload,
+    confirm_token_hash,
     head_slot,
     reserve_slot,
     slot_for_recording,
+    token_matches,
 )
 from crosstune.files.urls import UPLOAD_URL_TTL_SECONDS, SignedUrl, presign_get, require_store
 from crosstune.models import Recording
@@ -71,6 +75,12 @@ class UploadSlotRequest(BaseModel):
     )
 
 
+class UploadSlotGrant(SignedUrl):
+    """A presigned PUT, and the token that confirms it without sign-in until the URL expires."""
+
+    confirm_token: str
+
+
 class DownloadUrl(BaseModel):
     """A presigned GET for the playback file, tagged with the revision and start it was signed for."""
 
@@ -97,16 +107,18 @@ async def upload_slot(
     request: Request,
     user: CurrentUser,
     session: DbSession,
-) -> SignedUrl:
+) -> UploadSlotGrant:
     """A presigned PUT for one recording's file, once the plan and its quota allow it.
 
     A failed recording is issued a slot too, and returns to pending_upload: it is
-    the only way back for one whose uploaded object is no longer in the bucket.
+    the only way back for one whose uploaded object is no longer in the bucket. Each
+    issue carries a new confirm token for `uploaded-with-token`; only its hash is stored.
     """
     store = require_store(request)
     settings = request.app.state.settings
     # Ownership first, so an id that is not the caller's never waits on the lock.
     recording = await owned_recording(session, user.id, recording_id)
+    token = secrets.token_urlsafe(32)
     with account_slot(request, user.id):
         await lock_user(session, user.id, wait_seconds=settings.request_lock_timeout_seconds)
         await reread_live(session, recording)
@@ -121,6 +133,7 @@ async def upload_slot(
             content_type=body.content_type,
             max_file_bytes=max_upload_bytes(recording, settings),
             quota_bytes=access.quota_bytes,
+            token_hash=confirm_token_hash(token),
         )
         if recording.state == "failed":
             # playback_bytes stays: it is the object still at the upload key, which counts
@@ -130,7 +143,7 @@ async def upload_slot(
             bump_server_seq(recording)
         await session.flush()
     url = store.presign_put(slot.object_key, body.content_type, body.bytes, UPLOAD_URL_TTL_SECONDS)
-    return SignedUrl(url=url, expires_at=slot.expires_at)
+    return UploadSlotGrant(url=url, expires_at=slot.expires_at, confirm_token=token)
 
 
 @router.post(
@@ -146,23 +159,103 @@ async def upload_finished(
     background: BackgroundTasks,
 ) -> Response:
     """Confirm the object landed and queue its transcode. Repeating the call changes nothing."""
+    recording = await owned_recording(session, user.id, recording_id)
+    await confirm_upload(request, session, background, recording, user_id=user.id)
+    return Response(status_code=204)
+
+
+@router.post(
+    "/{recording_id}/uploaded-with-token",
+    status_code=204,
+    responses=problem_responses(404, 409, 413, 429, 503),
+)
+async def uploaded_with_token(
+    recording_id: uuid.UUID,
+    request: Request,
+    session: DbSession,
+    background: BackgroundTasks,
+    x_upload_token: Annotated[str | None, Header()] = None,
+) -> Response:
+    """Confirm an upload with the slot's confirm token in place of a bearer token.
+
+    Besides the webhooks, the one `/v1` route that takes no bearer token: the web app's
+    service worker finishes an upload after its tab closes, and the worker cannot sign
+    in. The token is good for one recording's open slot, and the route does only what
+    `uploaded` does, as the slot's owner. Every token or recording problem is the same
+    404, so the route never reveals whether a recording exists.
+    """
+    # Per recording, since the caller is not signed in and a client address is shared by
+    # every caller behind the Worker and can be forged by a direct one.
+    wait = request.app.state.upload_token_limiter.hit(recording_id)
+    if wait is not None:
+        raise TooManyRequestsError(wait)
+    recording = await session.get(Recording, recording_id)
+    slot = await slot_for_recording(session, recording_id)
+    presented_hash = None if x_upload_token is None else confirm_token_hash(x_upload_token)
+    if (
+        presented_hash is None
+        or recording is None
+        or recording.deleted_at is not None
+        or slot is None
+        or slot.expires_at <= utc_now()
+        or not token_matches(slot, presented_hash)
+    ):
+        raise NotFoundError
+    await confirm_upload(
+        request,
+        session,
+        background,
+        recording,
+        user_id=recording.user_id,
+        expected_token_hash=presented_hash,
+    )
+    return Response(status_code=204)
+
+
+async def confirm_upload(
+    request: Request,
+    session: AsyncSession,
+    background: BackgroundTasks,
+    recording: Recording,
+    *,
+    user_id: uuid.UUID,
+    expected_token_hash: str | None = None,
+) -> None:
+    """Confirm the object landed under the recording's slot and queue its transcode.
+
+    Repeating it after a confirmation changes nothing.
+
+    Args:
+        request: The request, for the store, the settings, and the account's limits.
+        session: The session to write through.
+        background: Where the staged object's delete is queued, to run after the commit.
+        recording: The live recording, already checked to belong to `user_id`.
+        user_id: The recording's owner, whose lock the confirmation holds.
+        expected_token_hash: For a confirm by token, the hash of the slot it was checked
+            against. A slot reissued since then is the same 404 as a wrong token.
+    """
     store = require_store(request)
     settings = request.app.state.settings
-    recording = await owned_recording(session, user.id, recording_id)
-    with account_slot(request, user.id):
+    with account_slot(request, user_id):
         # The bucket round trip happens before the lock so it never holds up the caller's
         # other writes, and inside the slot so a busy account is refused before it.
         info = await head_slot(store, await slot_for_recording(session, recording.id))
-        await lock_user(session, user.id, wait_seconds=settings.request_lock_timeout_seconds)
+        await lock_user(session, user_id, wait_seconds=settings.request_lock_timeout_seconds)
         # Another request may have confirmed, failed, or deleted this recording meanwhile.
         await reread_live(session, recording)
         slot = await slot_for_recording(session, recording.id)
         if recording.state in CONFIRMED_STATES and slot is None:
             # A retried call after a lost response: the first one consumed the slot
             # and queued the job.
-            return Response(status_code=204)
+            return
+        if expected_token_hash is not None:
+            if slot is not None:
+                # The session's identity map holds the slot as read before the lock.
+                await session.refresh(slot)
+            if not token_matches(slot, expected_token_hash):
+                raise NotFoundError
         require_state(recording, "pending_upload")
-        target = upload_key(user.id, recording.id)
+        target = upload_key(user_id, recording.id)
         size = await accept_upload(
             session,
             store,
@@ -187,7 +280,6 @@ async def upload_finished(
     background.add_task(
         delete_best_effort, store, [staged], log=log, message="could not delete a staged upload"
     )
-    return Response(status_code=204)
 
 
 @router.post(

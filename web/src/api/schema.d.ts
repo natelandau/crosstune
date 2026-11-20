@@ -310,7 +310,8 @@ export interface paths {
          * @description A presigned PUT for one recording's file, once the plan and its quota allow it.
          *
          *     A failed recording is issued a slot too, and returns to pending_upload: it is
-         *     the only way back for one whose uploaded object is no longer in the bucket.
+         *     the only way back for one whose uploaded object is no longer in the bucket. Each
+         *     issue carries a new confirm token for `uploaded-with-token`; only its hash is stored.
          */
         post: operations["upload_slot_v1_recordings__recording_id__upload_slot_post"];
         delete?: never;
@@ -333,6 +334,32 @@ export interface paths {
          * @description Confirm the object landed and queue its transcode. Repeating the call changes nothing.
          */
         post: operations["upload_finished_v1_recordings__recording_id__uploaded_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/recordings/{recording_id}/uploaded-with-token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Uploaded With Token
+         * @description Confirm an upload with the slot's confirm token in place of a bearer token.
+         *
+         *     Besides the webhooks, the one `/v1` route that takes no bearer token: the web app's
+         *     service worker finishes an upload after its tab closes, and the worker cannot sign
+         *     in. The token is good for one recording's open slot, and the route does only what
+         *     `uploaded` does, as the slot's owner. Every token or recording problem is the same
+         *     404, so the route never reveals whether a recording exists.
+         */
+        post: operations["uploaded_with_token_v1_recordings__recording_id__uploaded_with_token_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2347,6 +2374,21 @@ export interface components {
             violin?: components["schemas"]["InstrumentTuning"] | null;
         };
         /**
+         * UploadSlotGrant
+         * @description A presigned PUT, and the token that confirms it without sign-in until the URL expires.
+         */
+        UploadSlotGrant: {
+            /** Confirm Token */
+            confirm_token: string;
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** Url */
+            url: string;
+        };
+        /**
          * UploadSlotRequest
          * @description What the client is about to upload.
          */
@@ -3329,7 +3371,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["SignedUrl"];
+                    "application/json": components["schemas"]["UploadSlotGrant"];
                 };
             };
             /** @description Forbidden */
@@ -3403,6 +3445,84 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
+            path: {
+                recording_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Content Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    /** @description Whole seconds to wait before trying again. */
+                    "Retry-After"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    uploaded_with_token_v1_recordings__recording_id__uploaded_with_token_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-upload-token"?: string | null;
+            };
             path: {
                 recording_id: string;
             };

@@ -4373,6 +4373,31 @@
         "title": "Tunings",
         "type": "object"
       },
+      "UploadSlotGrant": {
+        "description": "A presigned PUT, and the token that confirms it without sign-in until the URL expires.",
+        "properties": {
+          "confirm_token": {
+            "title": "Confirm Token",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "expires_at",
+          "confirm_token"
+        ],
+        "title": "UploadSlotGrant",
+        "type": "object"
+      },
       "UploadSlotRequest": {
         "description": "What the client is about to upload.",
         "properties": {
@@ -5897,7 +5922,7 @@
     },
     "/v1/recordings/{recording_id}/upload-slot": {
       "post": {
-        "description": "A presigned PUT for one recording's file, once the plan and its quota allow it.\n\nA failed recording is issued a slot too, and returns to pending_upload: it is\nthe only way back for one whose uploaded object is no longer in the bucket.",
+        "description": "A presigned PUT for one recording's file, once the plan and its quota allow it.\n\nA failed recording is issued a slot too, and returns to pending_upload: it is\nthe only way back for one whose uploaded object is no longer in the bucket. Each\nissue carries a new confirm token for `uploaded-with-token`; only its hash is stored.",
         "operationId": "upload_slot_v1_recordings__recording_id__upload_slot_post",
         "parameters": [
           {
@@ -5926,7 +5951,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SignedUrl"
+                  "$ref": "#/components/schemas/UploadSlotGrant"
                 }
               }
             },
@@ -6109,6 +6134,118 @@
           }
         },
         "summary": "Upload Finished",
+        "tags": [
+          "recordings"
+        ]
+      }
+    },
+    "/v1/recordings/{recording_id}/uploaded-with-token": {
+      "post": {
+        "description": "Confirm an upload with the slot's confirm token in place of a bearer token.\n\nBesides the webhooks, the one `/v1` route that takes no bearer token: the web app's\nservice worker finishes an upload after its tab closes, and the worker cannot sign\nin. The token is good for one recording's open slot, and the route does only what\n`uploaded` does, as the slot's owner. Every token or recording problem is the same\n404, so the route never reveals whether a recording exists.",
+        "operationId": "uploaded_with_token_v1_recordings__recording_id__uploaded_with_token_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "recording_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Recording Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-upload-token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Upload-Token"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "413": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Content Too Large"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Too Many Requests",
+            "headers": {
+              "Retry-After": {
+                "description": "Whole seconds to wait before trying again.",
+                "required": false,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Uploaded With Token",
         "tags": [
           "recordings"
         ]

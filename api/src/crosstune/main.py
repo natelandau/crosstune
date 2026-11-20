@@ -322,6 +322,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.recording_retry_limiter = RateLimiter(
         limit=settings.recording_retries_per_minute, window_seconds=60.0
     )
+    app.state.upload_token_limiter = RateLimiter(
+        limit=settings.upload_token_confirms_per_minute, window_seconds=60.0
+    )
     app.state.billing_refresh_limiter = RateLimiter(
         limit=settings.billing_refreshes_per_minute, window_seconds=60.0
     )

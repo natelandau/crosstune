@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import secrets
 import uuid
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
@@ -9,8 +10,9 @@ from typing import TYPE_CHECKING
 import pytest
 from sqlalchemy import delete, select, update
 
-from crosstune.files.quota import OVER_QUOTA
+from crosstune.files.quota import OVER_QUOTA, confirm_token_hash
 from crosstune.models import Job, Recording, Scan, UploadSlot
+from crosstune.ratelimit import RateLimiter
 from crosstune.storage.store import upload_key
 from tests.helpers import T0, T1, T2, change, push, recording, uid
 
@@ -518,6 +520,167 @@ async def test_uploaded_needs_an_open_slot(client, auth_headers) -> None:
     rec = uid()
     await push(client, auth_headers("user_a"), recording(rec))
     assert (await uploaded(client, auth_headers("user_a"), rec)).status_code == 409
+
+
+async def uploaded_with_token(client, rec: str, token: str | None):
+    headers = {} if token is None else {"X-Upload-Token": token}
+    return await client.post(f"/v1/recordings/{rec}/uploaded-with-token", headers=headers)
+
+
+async def slot_and_put(client, headers: dict[str, str], object_store, rec: str) -> str:
+    """Open a pushed recording's slot, PUT three bytes, and return the slot's token."""
+    response = await slot(client, headers, rec, bytes_=3)
+    object_store.put_bytes(object_store.presigned[-1][1], b"abc", "audio/mp4")
+    return response.json()["confirm_token"]
+
+
+async def put_with_token(client, auth_headers, object_store, rec: str) -> str:
+    """Push a recording, open its slot, PUT three bytes, and return the slot's token."""
+    await push(client, auth_headers("user_a"), recording(rec))
+    return await slot_and_put(client, auth_headers("user_a"), object_store, rec)
+
+
+async def test_slot_returns_a_confirm_token(client, auth_headers) -> None:
+    rec = uid()
+    await push(client, auth_headers("user_a"), recording(rec))
+    first = (await slot(client, auth_headers("user_a"), rec)).json()["confirm_token"]
+    second = (await slot(client, auth_headers("user_a"), rec)).json()["confirm_token"]
+    assert len(first) >= 43
+    assert first != second
+
+
+async def test_uploaded_with_token_confirms_without_sign_in(
+    client, auth_headers, object_store, verify_session
+) -> None:
+    rec = uid()
+    token = await put_with_token(client, auth_headers, object_store, rec)
+    response = await uploaded_with_token(client, rec, token)
+    assert response.status_code == 204, response.text
+    stored = await verify_session.scalar(select(Recording).where(Recording.id == rec))
+    assert stored.state == "uploaded"
+    jobs = (await verify_session.scalars(select(Job).where(Job.recording_id == rec))).all()
+    assert len(jobs) == 1
+    assert (
+        await verify_session.scalar(select(UploadSlot).where(UploadSlot.recording_id == rec))
+        is None
+    )
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        "wrong token",
+        "missing header",
+        "token of a replaced slot",
+        "expired slot",
+        "deleted recording",
+        "another user's recording",
+        "slot issued without a token",
+    ],
+)
+async def test_uploaded_with_token_refuses_bad_tokens(
+    case: str, client, auth_headers, object_store, verify_session
+) -> None:
+    rec = uid()
+    token = await put_with_token(client, auth_headers, object_store, rec)
+    target, sent = rec, token
+    if case == "wrong token":
+        sent = secrets.token_urlsafe(32)
+    elif case == "missing header":
+        sent = None
+    elif case == "token of a replaced slot":
+        await slot_and_put(client, auth_headers("user_a"), object_store, rec)
+    elif case == "expired slot":
+        await verify_session.execute(
+            update(UploadSlot)
+            .where(UploadSlot.recording_id == rec)
+            .values(expires_at=datetime.now(UTC) - timedelta(seconds=1))
+        )
+        await verify_session.commit()
+    elif case == "deleted recording":
+        await verify_session.execute(
+            update(Recording).where(Recording.id == rec).values(deleted_at=datetime.now(UTC))
+        )
+        await verify_session.commit()
+    elif case == "slot issued without a token":
+        await verify_session.execute(
+            update(UploadSlot).where(UploadSlot.recording_id == rec).values(confirm_token_hash=None)
+        )
+        await verify_session.commit()
+    else:
+        target = uid()
+        await push(client, auth_headers("user_b"), recording(target))
+        await slot_and_put(client, auth_headers("user_b"), object_store, target)
+
+    unknown = await uploaded_with_token(client, uid(), token)
+    response = await uploaded_with_token(client, target, sent)
+    assert response.status_code == 404
+    assert response.json() == unknown.json()
+    for row in (rec, target):
+        stored = await verify_session.scalar(select(Recording).where(Recording.id == row))
+        assert stored.state == "pending_upload"
+    assert (
+        await verify_session.scalar(select(Job).where(Job.recording_id.in_((rec, target)))) is None
+    )
+
+
+async def test_uploaded_with_token_twice_is_404_after_the_first_confirm(
+    client, auth_headers, object_store, verify_session
+) -> None:
+    rec = uid()
+    token = await put_with_token(client, auth_headers, object_store, rec)
+    assert (await uploaded_with_token(client, rec, token)).status_code == 204
+    assert (await uploaded_with_token(client, rec, token)).status_code == 404
+    jobs = (await verify_session.scalars(select(Job).where(Job.recording_id == rec))).all()
+    assert len(jobs) == 1
+
+
+async def test_uploaded_with_token_is_rate_limited_per_recording(app, client) -> None:
+    app.state.upload_token_limiter = RateLimiter(limit=2, window_seconds=60.0)
+    rec = uid()
+    for _ in range(2):
+        assert (await uploaded_with_token(client, rec, "guess")).status_code == 404
+    refused = await uploaded_with_token(client, rec, "guess")
+    assert refused.status_code == 429
+    assert 0 < int(refused.headers["retry-after"]) <= 60
+    assert (await uploaded_with_token(client, uid(), "guess")).status_code == 404
+
+
+async def test_uploaded_with_token_is_404_when_the_slot_is_reissued_while_the_bucket_is_checked(
+    client, auth_headers, object_store, verify_session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    rec = uid()
+    token = await put_with_token(client, auth_headers, object_store, rec)
+    head = object_store.head
+
+    async def reissue_then_head(key: str) -> ObjectInfo | None:
+        await verify_session.execute(
+            update(UploadSlot)
+            .where(UploadSlot.recording_id == rec)
+            .values(confirm_token_hash=confirm_token_hash(secrets.token_urlsafe(32)))
+        )
+        await verify_session.commit()
+        return await head(key)
+
+    monkeypatch.setattr(object_store, "head", reissue_then_head)
+    assert (await uploaded_with_token(client, rec, token)).status_code == 404
+    stored = await verify_session.scalar(select(Recording).where(Recording.id == rec))
+    assert stored.state == "pending_upload"
+    assert await verify_session.scalar(select(Job).where(Job.recording_id == rec)) is None
+
+
+async def test_uploaded_with_token_deletes_an_object_over_the_declared_size(
+    client, auth_headers, object_store
+) -> None:
+    rec = uid()
+    await push(client, auth_headers("user_a"), recording(rec))
+    token = (await slot(client, auth_headers("user_a"), rec, bytes_=100)).json()["confirm_token"]
+    key = object_store.presigned[-1][1]
+    object_store.put_bytes(key, b"x" * 200, "audio/mp4")
+    response = await uploaded_with_token(client, rec, token)
+    assert response.status_code == 413
+    assert response.json()["type"] == "urn:crosstune:quota-exceeded"
+    assert await object_store.head(key) is None
 
 
 async def test_download_returns_a_presigned_get_for_a_ready_recording(

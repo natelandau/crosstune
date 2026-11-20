@@ -180,6 +180,7 @@ export function createFakeApi() {
       return {
         url: `https://fake.r2/${recordingId}/upload?ct=${body.content_type}`,
         expires_at: '2999-01-01T00:00:00Z',
+        confirm_token: `token-${recordingId}`,
       }
     },
     async uploadFinished(recordingId) {
