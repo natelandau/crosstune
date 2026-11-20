@@ -17,7 +17,7 @@ there where they differ. Regular-width iPad reads this page, then
 
 | Token set    | Holds                                                                                     |
 | ------------ | ----------------------------------------------------------------------------------------- |
-| `Primitive`  | Raw color values, named by hue and step. Only `Style/` names one                          |
+| `Primitive`  | Raw color values, named by hue and step. Only the palette module and `Style/` name one    |
 | `Palette`    | Every color role every Apple platform shares, and the data colors (`DataPalette.swift`)   |
 | `Elevation`  | Shadows: `.float`, `.control`, matching the web's                                         |
 | `PageStyle`  | What a shared view draws with, resolved per platform: text styles, sizes, drawing choices |

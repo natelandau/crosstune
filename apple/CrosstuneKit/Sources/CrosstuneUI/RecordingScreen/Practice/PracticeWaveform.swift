@@ -1,4 +1,5 @@
 import CrosstuneDesign
+import CrosstuneRecordingActivity
 import CrosstuneStore
 import SwiftUI
 
@@ -204,7 +205,7 @@ struct PracticeWaveform: View {
             let label =
                 step < 1000
                 ? RecordingScreenText.preciseTime(milliseconds: Int64(tick))
-                : RecordingText.duration(of: Int64(tick))
+                : RecordingActivityText.duration(of: Int64(tick))
             #if os(macOS)
                 // A short tick at the ruler's foot with its label centered over it.
                 context.fill(

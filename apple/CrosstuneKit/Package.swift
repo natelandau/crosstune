@@ -14,7 +14,9 @@ let package = Package(
         .library(name: "CrosstuneDesign", targets: ["CrosstuneDesign"]),
         .library(name: "CrosstuneDiagnostics", targets: ["CrosstuneDiagnostics"]),
         .library(name: "CrosstuneExport", targets: ["CrosstuneExport"]),
+        .library(name: "CrosstunePalette", targets: ["CrosstunePalette"]),
         .library(name: "CrosstuneRecording", targets: ["CrosstuneRecording"]),
+        .library(name: "CrosstuneRecordingActivity", targets: ["CrosstuneRecordingActivity"]),
         .library(name: "CrosstuneStore", targets: ["CrosstuneStore"]),
         .library(name: "CrosstuneSync", targets: ["CrosstuneSync"]),
         .library(name: "CrosstuneUI", targets: ["CrosstuneUI"]),
@@ -99,10 +101,11 @@ let package = Package(
         .target(
             name: "CrosstuneRecording",
             dependencies: [
-                "CrosstuneAudio", "CrosstuneCommands", "CrosstuneStore", "CrosstuneVocabulary",
-                .product(name: "GRDB", package: "GRDB.swift"),
+                "CrosstuneAudio", "CrosstuneCommands", "CrosstuneRecordingActivity", "CrosstuneStore",
+                "CrosstuneVocabulary", .product(name: "GRDB", package: "GRDB.swift"),
             ]
         ),
+        .target(name: "CrosstuneRecordingActivity"),
         .target(
             name: "CrosstuneSync",
             dependencies: [
@@ -117,14 +120,15 @@ let package = Package(
         ),
         .target(
             name: "CrosstuneDesign",
-            dependencies: ["CrosstuneAnalytics", "CrosstuneVocabulary"]
+            dependencies: ["CrosstuneAnalytics", "CrosstunePalette", "CrosstuneVocabulary"]
         ),
+        .target(name: "CrosstunePalette"),
         .target(
             name: "CrosstuneUI",
             dependencies: [
                 "CrosstuneAnalytics", "CrosstuneAudio", "CrosstuneAuth", "CrosstuneBilling", "CrosstuneCommands",
-                "CrosstuneDesign", "CrosstuneDiagnostics", "CrosstuneExport", "CrosstuneRecording", "CrosstuneStore",
-                "CrosstuneSync", "CrosstuneVocabulary",
+                "CrosstuneDesign", "CrosstuneDiagnostics", "CrosstuneExport", "CrosstuneRecording",
+                "CrosstuneRecordingActivity", "CrosstuneStore", "CrosstuneSync", "CrosstuneVocabulary",
                 .product(name: "GRDB", package: "GRDB.swift"),
             ],
             resources: [.process("Resources")]
@@ -173,6 +177,10 @@ let package = Package(
             ]
         ),
         .testTarget(
+            name: "CrosstuneRecordingActivityTests",
+            dependencies: ["CrosstuneRecordingActivity"]
+        ),
+        .testTarget(
             name: "CrosstuneAuthTests",
             dependencies: [
                 "CrosstuneAnalytics", "CrosstuneAPI", "CrosstuneAuth", "CrosstuneStore", "CrosstuneTestSupport",
@@ -219,7 +227,7 @@ let package = Package(
             name: "CrosstuneUITests",
             dependencies: [
                 "CrosstuneUI", "CrosstuneAudio", "CrosstuneBilling", "CrosstuneRecording", "CrosstuneCommands",
-                "CrosstuneDesign",
+                "CrosstuneDesign", "CrosstuneRecordingActivity",
                 "CrosstuneDiagnostics",
                 "CrosstuneStore",
                 "CrosstuneSync",

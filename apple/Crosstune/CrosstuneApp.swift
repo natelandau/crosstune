@@ -9,6 +9,11 @@ import CrosstuneRecording
 import CrosstuneUI
 import SwiftUI
 
+#if os(iOS)
+    import AppIntents
+    import CrosstuneRecordingActivity
+#endif
+
 @main
 struct CrosstuneApp: App {
     #if os(macOS)
@@ -37,6 +42,10 @@ struct CrosstuneApp: App {
     private let purchases: (any PurchaseClient)?
     private let stripePortalURL: URL?
     private let appStoreURL: URL?
+    #if os(iOS)
+        /// Keeps the recording Live Activity in step with the recorder for the app's lifetime.
+        private let recordingActivity: Task<Void, Never>
+    #endif
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
@@ -48,6 +57,13 @@ struct CrosstuneApp: App {
         let recorders = RecorderHost(makeLocation: { DeviceLocationProvider() })
         _recorders = State(initialValue: recorders)
         _tuner = State(initialValue: TunerModel(input: TunerInput(), recorders: recorders))
+        #if os(iOS)
+            // Before the first scene, because a Live Activity button can launch the app.
+            AppDependencyManager.shared.add(dependency: recorders as any RecordingControl)
+            let activityController = RecordingActivityController(client: LiveRecordingActivityClient())
+            activityController.launch()
+            recordingActivity = Task { await activityController.run(host: recorders) }
+        #endif
         _reviewPrompt = State(initialValue: reviewPrompt)
         // With a stored choice, the SDK is set up now (or never, when sharing is off). With none,
         // setup waits for the region default and the remembered user is applied then.
@@ -201,6 +217,12 @@ struct CrosstuneApp: App {
             tuner: tuner)
     }
 }
+
+#if os(iOS)
+    struct CrosstuneAppIntents: AppIntentsPackage {
+        static var includedPackages: [any AppIntentsPackage.Type] { [RecordingActivityIntents.self] }
+    }
+#endif
 
 #if os(macOS)
     final class AppDelegate: NSObject, NSApplicationDelegate {

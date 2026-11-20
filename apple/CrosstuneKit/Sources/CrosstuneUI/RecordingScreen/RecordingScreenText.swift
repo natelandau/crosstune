@@ -1,4 +1,5 @@
 import CrosstuneDesign
+import CrosstuneRecordingActivity
 import CrosstuneStore
 import CrosstuneSync
 import Foundation
@@ -76,7 +77,7 @@ public enum RecordingScreenText {
 
     /// `Split at 9:12`, the time the cut lands.
     public static func splitAt(milliseconds: Int64) -> String {
-        "Split at \(RecordingText.duration(of: milliseconds))"
+        "Split at \(RecordingActivityText.duration(of: milliseconds))"
     }
 
     /// `Cut 2`, a cut's handle on the zoomed strip.

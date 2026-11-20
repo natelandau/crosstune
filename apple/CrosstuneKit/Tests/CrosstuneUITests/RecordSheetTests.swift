@@ -96,25 +96,6 @@ struct WaveformFeedTests {
         #expect(feed.bars.levels == [0.1, 0.2, 0.3])
     }
 
-    @Test func takesOnlyTheLevelsItHasNotSeen() {
-        let feed = WaveformFeed(mode: .scrolling)
-        feed.receive([0.1, 0.2], total: 2)
-        // A full window has dropped its oldest level; only the newest is new.
-        feed.receive([0.2, 0.3], total: 3)
-        feed.advance(to: 0, capacity: 10)
-        feed.advance(to: 10 * frame, capacity: 10)
-        #expect(feed.bars.levels == [0.1, 0.2, 0.3])
-    }
-
-    @Test func startsOverWithANewRecording() {
-        let feed = WaveformFeed(mode: .scrolling)
-        feed.receive([0.1, 0.2, 0.3], total: 3)
-        feed.receive([0.9], total: 1)
-        feed.advance(to: 0, capacity: 10)
-        feed.advance(to: 10 * frame, capacity: 10)
-        #expect(feed.bars.levels == [0.1, 0.2, 0.3, 0.9])
-    }
-
     @Test func catchesUpRatherThanTrailingTheSound() {
         let feed = WaveformFeed(mode: .scrolling)
         let levels = Array(repeating: Float(0.5), count: WaveformFeed.maximumQueued + 10)

@@ -152,7 +152,7 @@ repos:
         language: system
         pass_filenames: false
         stages: [pre-push]
-        files: ^(web/|apple/CrosstuneKit/Sources/CrosstuneDesign/Style/|brand/|fixtures/|analytics/tracking-plan\.json$|api/openapi\.json$|scripts/(gate-cache\.sh|settings\.just)$)
+        files: ^(web/|apple/CrosstuneKit/Sources/CrosstuneDesign/Style/|apple/CrosstuneKit/Sources/CrosstunePalette/|brand/|fixtures/|analytics/tracking-plan\.json$|api/openapi\.json$|scripts/(gate-cache\.sh|settings\.just)$)
 
       - id: site-eslint
         name: eslint

@@ -1,5 +1,6 @@
 import CrosstuneAudio
 import CrosstuneDesign
+import CrosstuneRecordingActivity
 import SwiftUI
 
 /// Where the musician splits a recording into one per tune: the whole recording with its
@@ -127,7 +128,7 @@ private struct SplitReadoutText: View {
         HStack(spacing: 12) {
             Text(RecordingScreenText.preciseTime(milliseconds: lineMs - model.bounds.lowerBound))
             Text(RecordingScreenText.pieceOf(index + 1, count: pieces.count))
-            Text(RecordingText.duration(of: pieces[index].lengthMs))
+            Text(RecordingActivityText.duration(of: pieces[index].lengthMs))
         }
         .font(.platform(.footnote))
         .monospacedDigit()

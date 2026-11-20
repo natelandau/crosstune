@@ -16,6 +16,10 @@
 		CA0000000000000000000018 /* CrosstuneUI in Frameworks */ = {isa = PBXBuildFile; productRef = CA0000000000000000000017 /* CrosstuneUI */; };
 		CA000000000000000000008F /* CrosstuneDesign in Frameworks */ = {isa = PBXBuildFile; productRef = CA000000000000000000008E /* CrosstuneDesign */; };
 		CA0000000000000000000091 /* CrosstuneRecording in Frameworks */ = {isa = PBXBuildFile; productRef = CA0000000000000000000090 /* CrosstuneRecording */; };
+		CA00000000000000000000AD /* CrosstuneRecordingActivity in Frameworks */ = {isa = PBXBuildFile; productRef = CA00000000000000000000AB /* CrosstuneRecordingActivity */; };
+		CA00000000000000000000B5 /* CrosstuneRecordingActivity in Frameworks */ = {isa = PBXBuildFile; productRef = CA00000000000000000000B4 /* CrosstuneRecordingActivity */; };
+		CA00000000000000000000AE /* CrosstunePalette in Frameworks */ = {isa = PBXBuildFile; productRef = CA00000000000000000000AC /* CrosstunePalette */; };
+		CA00000000000000000000AF /* RecordingActivity.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = CA00000000000000000000A0 /* RecordingActivity.appex */; platformFilter = ios; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -29,6 +33,9 @@
 		CA0000000000000000000008 /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
 		CA0000000000000000000009 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		CA0000000000000000000010 /* CrosstuneMarketingUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CrosstuneMarketingUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		CA00000000000000000000A0 /* RecordingActivity.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = RecordingActivity.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		CA00000000000000000000A1 /* RecordingActivity.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = RecordingActivity.xcconfig; sourceTree = "<group>"; };
+		CA00000000000000000000B3 /* Signing.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Signing.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXContainerItemProxy section */
@@ -39,7 +46,38 @@
 			remoteGlobalIDString = CA0000000000000000000050;
 			remoteInfo = Crosstune;
 		};
+		CA00000000000000000000B1 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = CA0000000000000000000060 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = CA00000000000000000000A4;
+			remoteInfo = RecordingActivity;
+		};
 /* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		CA00000000000000000000B0 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				CA00000000000000000000AF /* RecordingActivity.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		CA00000000000000000000A3 /* Exceptions for "RecordingActivity" folder in "RecordingActivity" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = CA00000000000000000000A4 /* RecordingActivity */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		CA0000000000000000000020 /* Crosstune */ = {
@@ -50,6 +88,14 @@
 		CA0000000000000000000021 /* CrosstuneMarketingUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = CrosstuneMarketingUITests;
+			sourceTree = "<group>";
+		};
+		CA00000000000000000000A2 /* RecordingActivity */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				CA00000000000000000000A3 /* Exceptions for "RecordingActivity" folder in "RecordingActivity" target */,
+			);
+			path = RecordingActivity;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -68,6 +114,7 @@
 				CA0000000000000000000018 /* CrosstuneUI in Frameworks */,
 				CA000000000000000000008F /* CrosstuneDesign in Frameworks */,
 				CA0000000000000000000091 /* CrosstuneRecording in Frameworks */,
+				CA00000000000000000000B5 /* CrosstuneRecordingActivity in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -75,6 +122,15 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CA00000000000000000000A6 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CA00000000000000000000AD /* CrosstuneRecordingActivity in Frameworks */,
+				CA00000000000000000000AE /* CrosstunePalette in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -86,6 +142,7 @@
 			children = (
 				CA0000000000000000000020 /* Crosstune */,
 				CA0000000000000000000021 /* CrosstuneMarketingUITests */,
+				CA00000000000000000000A2 /* RecordingActivity */,
 				CA0000000000000000000005 /* CrosstuneKit */,
 				CA0000000000000000000041 /* Config */,
 				CA0000000000000000000042 /* Products */,
@@ -97,8 +154,10 @@
 			children = (
 				CA0000000000000000000002 /* Base.xcconfig */,
 				CA0000000000000000000003 /* Version.xcconfig */,
+				CA00000000000000000000B3 /* Signing.xcconfig */,
 				CA0000000000000000000007 /* Debug.xcconfig */,
 				CA0000000000000000000008 /* Release.xcconfig */,
+				CA00000000000000000000A1 /* RecordingActivity.xcconfig */,
 				CA0000000000000000000009 /* Info.plist */,
 				CA0000000000000000000006 /* Crosstune-iOS.entitlements */,
 				CA0000000000000000000004 /* Crosstune-macOS.entitlements */,
@@ -111,6 +170,7 @@
 			children = (
 				CA0000000000000000000001 /* Crosstune.app */,
 				CA0000000000000000000010 /* CrosstuneMarketingUITests.xctest */,
+				CA00000000000000000000A0 /* RecordingActivity.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -125,10 +185,12 @@
 				CA0000000000000000000051 /* Sources */,
 				CA0000000000000000000030 /* Frameworks */,
 				CA0000000000000000000052 /* Resources */,
+				CA00000000000000000000B0 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				CA00000000000000000000B2 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				CA0000000000000000000020 /* Crosstune */,
@@ -144,6 +206,7 @@
 				CA0000000000000000000017 /* CrosstuneUI */,
 				CA000000000000000000008E /* CrosstuneDesign */,
 				CA0000000000000000000090 /* CrosstuneRecording */,
+				CA00000000000000000000B4 /* CrosstuneRecordingActivity */,
 			);
 			productName = Crosstune;
 			productReference = CA0000000000000000000001 /* Crosstune.app */;
@@ -169,6 +232,30 @@
 			productName = CrosstuneMarketingUITests;
 			productReference = CA0000000000000000000010 /* CrosstuneMarketingUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+		CA00000000000000000000A4 /* RecordingActivity */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = CA00000000000000000000A8 /* Build configuration list for PBXNativeTarget "RecordingActivity" */;
+			buildPhases = (
+				CA00000000000000000000A5 /* Sources */,
+				CA00000000000000000000A6 /* Frameworks */,
+				CA00000000000000000000A7 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				CA00000000000000000000A2 /* RecordingActivity */,
+			);
+			name = RecordingActivity;
+			packageProductDependencies = (
+				CA00000000000000000000AB /* CrosstuneRecordingActivity */,
+				CA00000000000000000000AC /* CrosstunePalette */,
+			);
+			productName = RecordingActivity;
+			productReference = CA00000000000000000000A0 /* RecordingActivity.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -204,6 +291,7 @@
 			targets = (
 				CA0000000000000000000050 /* Crosstune */,
 				CA0000000000000000000053 /* CrosstuneMarketingUITests */,
+				CA00000000000000000000A4 /* RecordingActivity */,
 			);
 		};
 /* End PBXProject section */
@@ -217,6 +305,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		CA0000000000000000000056 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CA00000000000000000000A7 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -240,6 +335,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		CA00000000000000000000A5 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -247,6 +349,12 @@
 			isa = PBXTargetDependency;
 			target = CA0000000000000000000050 /* Crosstune */;
 			targetProxy = CA0000000000000000000061 /* PBXContainerItemProxy */;
+		};
+		CA00000000000000000000B2 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			platformFilter = ios;
+			target = CA00000000000000000000A4 /* RecordingActivity */;
+			targetProxy = CA00000000000000000000B1 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -299,8 +407,8 @@
 		};
 		CA0000000000000000000084 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = CA00000000000000000000B3 /* Signing.xcconfig */;
 			buildSettings = {
-				CODE_SIGN_STYLE = Automatic;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.1;
 				PRODUCT_BUNDLE_IDENTIFIER = app.crosstune.CrosstuneMarketingUITests;
@@ -315,8 +423,8 @@
 		};
 		CA0000000000000000000085 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = CA00000000000000000000B3 /* Signing.xcconfig */;
 			buildSettings = {
-				CODE_SIGN_STYLE = Automatic;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.1;
 				PRODUCT_BUNDLE_IDENTIFIER = app.crosstune.CrosstuneMarketingUITests;
@@ -326,6 +434,22 @@
 				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_TARGET_NAME = Crosstune;
+			};
+			name = Release;
+		};
+		CA00000000000000000000A9 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = CA00000000000000000000A1 /* RecordingActivity.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		CA00000000000000000000AA /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = CA00000000000000000000A1 /* RecordingActivity.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
 		};
@@ -355,6 +479,15 @@
 			buildConfigurations = (
 				CA0000000000000000000084 /* Debug */,
 				CA0000000000000000000085 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		CA00000000000000000000A8 /* Build configuration list for PBXNativeTarget "RecordingActivity" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CA00000000000000000000A9 /* Debug */,
+				CA00000000000000000000AA /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -404,6 +537,18 @@
 		CA0000000000000000000090 /* CrosstuneRecording */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = CrosstuneRecording;
+		};
+		CA00000000000000000000AB /* CrosstuneRecordingActivity */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = CrosstuneRecordingActivity;
+		};
+		CA00000000000000000000AC /* CrosstunePalette */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = CrosstunePalette;
+		};
+		CA00000000000000000000B4 /* CrosstuneRecordingActivity */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = CrosstuneRecordingActivity;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

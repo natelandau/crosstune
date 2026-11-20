@@ -1,5 +1,6 @@
 import CrosstuneAudio
 import CrosstuneCommands
+import CrosstuneRecordingActivity
 import CrosstuneStore
 import Foundation
 import Observation
@@ -22,8 +23,7 @@ public final class Recorder {
         "Crosstune needs microphone access. Allow it in Settings and try again."
     nonisolated public static let microphoneFailed = "The microphone could not be started."
     nonisolated public static let startFailed = "The recording could not be started."
-    nonisolated public static let saveFailed =
-        "The recording could not be saved. It will be recovered the next time Crosstune opens."
+    nonisolated public static let saveFailed = RecordingActivityText.saveFailed
     nonisolated public static let partialSave = "Part of this recording could not be saved."
     nonisolated public static let sizeLimit = "This recording reached the size limit and was saved."
     nonisolated public static let nothingRecorded = "Nothing was recorded."

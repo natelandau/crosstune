@@ -1,0 +1,20 @@
+// Settings for every configuration of the widget extension that draws the recording Live
+// Activity. The app embeds it on iPhone and iPad only.
+#include "Version.xcconfig"
+#include "Signing.xcconfig"
+
+PRODUCT_BUNDLE_IDENTIFIER = app.crosstune.Crosstune.RecordingActivity
+
+SUPPORTED_PLATFORMS = iphoneos iphonesimulator
+SDKROOT = iphoneos
+TARGETED_DEVICE_FAMILY = 1,2
+IPHONEOS_DEPLOYMENT_TARGET = 26.1
+
+SWIFT_VERSION = 6.0
+GENERATE_INFOPLIST_FILE = YES
+INFOPLIST_FILE = RecordingActivity/Info.plist
+INFOPLIST_KEY_CFBundleDisplayName = Crosstune
+SKIP_INSTALL = YES
+ENABLE_PREVIEWS = YES
+APPLICATION_EXTENSION_API_ONLY = YES
+LD_RUNPATH_SEARCH_PATHS = $(inherited) @executable_path/Frameworks @executable_path/../../Frameworks
