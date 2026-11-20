@@ -72,21 +72,25 @@ public struct UndoBanner: View {
                     .contentMask()
                     .font(MacStyle.body)
                     .foregroundStyle(Palette.onInverseSurface)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
+                    // A narrow column wraps a long tune name rather than cutting it.
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.vertical, 8)
                 if let onUndo {
                     Button(action: onUndo) {
                         Text(Self.undo)
                             .font(MacStyle.body.weight(.semibold))
                             .foregroundStyle(Palette.inverseAccent)
-                            .frame(maxHeight: .infinity)
+                            // A fixed target, since a flexible one would stretch the banner to
+                            // the full height of the overlay that holds it.
+                            .frame(minHeight: MacStyle.undoBannerHeight)
                             .contentShape(.rect)
                     }
                     .buttonStyle(.plain)
                 }
             }
             .padding(.horizontal, 16)
-            .frame(height: MacStyle.undoBannerHeight)
+            .frame(minHeight: MacStyle.undoBannerHeight)
             .background(Palette.inverseSurface, in: .rect(cornerRadius: 10))
             .elevation(.float)
             .frame(maxWidth: 480)

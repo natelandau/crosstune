@@ -116,43 +116,67 @@ struct LoopNameField: View {
             .onChange(of: focused) { _, isFocused in
                 if !isFocused, model.renaming == id { model.renameLostFocus(text) }
             }
+            #if os(iOS)
+                // The keyboard covers the mode panel, so the suggestions show above the keyboard.
+                .toolbar {
+                    let suggestions = model.suggestions(for: id)
+                    if focused, !suggestions.isEmpty {
+                        ToolbarItem(placement: .keyboard) {
+                            LoopSuggestionChips(model: model, id: id, suggestions: suggestions)
+                            .frame(maxWidth: .infinity)
+                        }
+                    }
+                }
+            #endif
     }
 }
 
-/// The tune's parts as names for the loop being renamed. A chip writes its name once and
-/// closes the field. With no loop being renamed, or no parts to suggest, the row keeps its
-/// height with nothing showing.
-struct LoopSuggestions: View {
+#if os(macOS)
+    /// The tune's parts as names for the loop being renamed. A chip writes its name once and
+    /// closes the field. With no loop being renamed, or no parts to suggest, the row keeps its
+    /// height with nothing showing.
+    struct LoopSuggestions: View {
+        let model: PracticeModel
+        /// The loop being renamed, if any.
+        let id: String?
+
+        var body: some View {
+            if let id, case let suggestions = model.suggestions(for: id), !suggestions.isEmpty {
+                LoopSuggestionChips(model: model, id: id, suggestions: suggestions)
+            } else {
+                Chip(.choice(isChosen: false)) {
+                } label: {
+                    Text(PracticeText.suggestions)
+                }
+                .reserved(shown: false)
+            }
+        }
+    }
+#endif
+
+/// The suggestion chips for the loop `id`, in a row that scrolls sideways.
+struct LoopSuggestionChips: View {
     let model: PracticeModel
-    /// The loop being renamed, if any.
-    let id: String?
+    let id: String
+    let suggestions: [String]
 
     @Environment(\.spacing) private var spacing
 
     var body: some View {
-        let suggestions = id.map(model.suggestions(for:)) ?? []
-        if let id, !suggestions.isEmpty {
-            ScrollView(.horizontal) {
-                HStack(spacing: spacing.chipGap) {
-                    ForEach(suggestions, id: \.self) { label in
-                        Chip(.choice(isChosen: false)) {
-                            model.commitRename(label, for: id)
-                        } label: {
-                            Text(label)
-                        }
-                        // A press keeps the field's focus, so its text is not saved first.
-                        .leavesFocusOnPress()
+        ScrollView(.horizontal) {
+            HStack(spacing: spacing.chipGap) {
+                ForEach(suggestions, id: \.self) { label in
+                    Chip(.choice(isChosen: false)) {
+                        model.commitRename(label, for: id)
+                    } label: {
+                        Text(label)
                     }
+                    // A press keeps the field's focus, so its text is not saved first.
+                    .leavesFocusOnPress()
                 }
             }
-            .scrollIndicators(.never)
-            .accessibilityLabel(PracticeText.suggestions)
-        } else {
-            Chip(.choice(isChosen: false)) {
-            } label: {
-                Text(PracticeText.suggestions)
-            }
-            .reserved(shown: false)
         }
+        .scrollIndicators(.never)
+        .accessibilityLabel(PracticeText.suggestions)
     }
 }

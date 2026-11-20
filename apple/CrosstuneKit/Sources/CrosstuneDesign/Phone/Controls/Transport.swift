@@ -343,12 +343,9 @@ private struct SkipTurn: ViewModifier {
             }
             .dynamicTypeSize(...DynamicTypeSize.large)
             // Arrows skip only while the container itself holds focus; a focused button or field
-            // inside it keeps the system's arrow handling. A placeholder alone with the track
-            // buttons is no focus stop, since nothing in it answers the arrows or play.
-            .libraryFocus(
-                $containerFocused, isFocusable: transport.hasSides || transport.onPlayPause != nil,
-                shape: Capsule()
-            )
+            // inside it keeps the system's arrow handling. Without skip buttons the container
+            // answers no arrows, so it is no focus stop of its own.
+            .libraryFocus($containerFocused, isFocusable: transport.hasSides, shape: Capsule())
             .onKeyPress(.leftArrow) {
                 guard containerFocused, transport.hasSides, transport.canGoBack else { return .ignored }
                 transport.skipBack(&turns, reduceMotion: reduceMotion)

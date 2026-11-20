@@ -98,6 +98,8 @@ struct RecordingScreen: View {
     #if !os(macOS)
         @State private var pageHeight: CGFloat?
         @State private var waveformHeight: CGFloat?
+        /// The notices over the overview and the gap under them, which the waveform never yields to.
+        @State private var noticesHeight: CGFloat = 0
     #endif
     /// Whether the screen itself holds the keyboard, as it does when no control does.
     @FocusState private var screenFocused: Bool
@@ -131,20 +133,35 @@ struct RecordingScreen: View {
 
     private func page(_ practice: PracticeModel) -> some View {
         let disabledReason = blockedReason ?? screenUnavailableReason
+        let failure = (practice.isCurrent ? player.failure : nil) ?? notice ?? practice.failure
+        let status =
+            disabledReason == nil && practice.isCurrent
+            ? RecordingPlayerText.status(
+                player.recordingAudio, hasFailed: player.audio.hasFailed, offline: session?.isOffline == true)
+            : nil
         // One scrolling page, so a window too short for everything scrolls the waveform away with
         // the controls rather than scrolling the controls under a fixed waveform.
         return ScrollView {
             VStack(spacing: spacing.stackGap) {
-                if let message = (practice.isCurrent ? player.failure : nil) ?? notice ?? practice.failure {
-                    PlayerFailureText(message)
-                        .controlsColumn()
-                }
-                if disabledReason == nil, practice.isCurrent,
-                    let status = RecordingPlayerText.status(
-                        player.recordingAudio, hasFailed: player.audio.hasFailed, offline: session?.isOffline == true)
-                {
-                    RecordingPlayerStatus(player: player, message: status)
-                        .controlsColumn()
+                if failure != nil || status != nil {
+                    VStack(spacing: spacing.stackGap) {
+                        if let failure {
+                            PlayerFailureText(failure)
+                        }
+                        if let status {
+                            RecordingPlayerStatus(player: player, message: status)
+                        }
+                    }
+                    .controlsColumn()
+                    #if !os(macOS)
+                        // A notice pushes the page down rather than taking the waveform's height.
+                        .onGeometryChange(for: CGFloat.self) {
+                            $0.size.height
+                        } action: {
+                            noticesHeight = $0 + spacing.stackGap
+                        }
+                        .onDisappear { noticesHeight = 0 }
+                    #endif
                 }
                 if practice.isCurrent {
                     PlaylistControlsRow()
@@ -224,11 +241,12 @@ struct RecordingScreen: View {
     }
 
     #if !os(macOS)
-        /// The height the window has beyond everything on the page but the waveform, less the
-        /// waveform's floor; negative when the page is taller than the window and scrolls.
+        /// The height the window has beyond everything on the page but the waveform and the
+        /// notices, less the waveform's floor; negative when the page is taller than the window
+        /// and scrolls.
         private var practiceSpareHeight: CGFloat? {
             guard let viewportHeight, let pageHeight, let waveformHeight else { return nil }
-            return viewportHeight - (pageHeight - waveformHeight)
+            return viewportHeight - (pageHeight - waveformHeight - noticesHeight)
                 - PracticeLayout.waveformFloor(isCompactHeight: isCompactHeight)
         }
 
