@@ -33,7 +33,11 @@ export function useAudioImport(
       }
       // One report per format, for the files that landed, even when others in the batch were refused.
       for (const [format, count] of added) {
-        analytics.send('audio_imported', { count_bucket: countBucket(count), format })
+        analytics.send('audio_imported', {
+          count_bucket: countBucket(count),
+          format,
+          via: 'picker',
+        })
       }
     },
     [analytics, db, tuneId, onErrorRef],

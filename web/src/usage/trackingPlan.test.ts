@@ -123,7 +123,7 @@ const SAMPLES: { [N in EventName]: EventProps[N] } = {
     tune_id: ID_1,
   },
   recording_discarded: { duration_bucket: '<30s' },
-  audio_imported: { count_bucket: '1-9', format: 'm4a' },
+  audio_imported: { count_bucket: '1-9', format: 'm4a', via: 'picker' },
   archive_recording_saved: {
     source_archive: 'slippery_hill',
     recording_id: ID_2,

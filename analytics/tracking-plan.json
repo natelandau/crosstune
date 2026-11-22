@@ -78,7 +78,8 @@
       "recording_screen",
       "dock",
       "search_offer",
-      "menu"
+      "menu",
+      "share"
     ],
     "origin": [
       "recorded",
@@ -151,7 +152,12 @@
     ],
     "link_via": [
       "paste",
-      "find"
+      "find",
+      "share"
+    ],
+    "audio_import_via": [
+      "picker",
+      "share"
     ],
     "scan_via": [
       "camera",
@@ -327,7 +333,8 @@
       "plan_group",
       "trial_reminder",
       "trial_ended",
-      "link_recordings"
+      "link_recordings",
+      "share"
     ],
     "premium_presentation": [
       "sheet",
@@ -1216,6 +1223,11 @@
         "format": {
           "type": "string",
           "enum": "audio_format",
+          "required": true
+        },
+        "via": {
+          "type": "string",
+          "enum": "audio_import_via",
           "required": true
         }
       }

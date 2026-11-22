@@ -18,6 +18,7 @@ export const SOURCES = [
   'dock',
   'search_offer',
   'menu',
+  'share',
 ] as const
 export const ORIGINS = ['recorded', 'imported', 'slippery_hill'] as const
 export const KINDS = ['recorded', 'imported', 'slippery_hill', 'link'] as const
@@ -46,7 +47,8 @@ export const SERVICES = [
   'slippery_hill',
   'other',
 ] as const
-const LINK_VIAS = ['paste', 'find'] as const
+const LINK_VIAS = ['paste', 'find', 'share'] as const
+const AUDIO_IMPORT_VIAS = ['picker', 'share'] as const
 const SCAN_VIAS = ['camera', 'document_scanner', 'photo_library', 'file'] as const
 export const TUNE_FIELDS = [
   'title',
@@ -103,6 +105,7 @@ export const PREMIUM_ENTRIES = [
   'trial_reminder',
   'trial_ended',
   'link_recordings',
+  'share',
 ] as const
 export const PREMIUM_PRESENTATIONS = ['sheet', 'overlay'] as const
 export const PURCHASE_PERIODS = ['annual', 'monthly'] as const
@@ -181,6 +184,7 @@ export const ENUMS = {
   failure_reason: FAILURE_REASONS,
   service: SERVICES,
   link_via: LINK_VIAS,
+  audio_import_via: AUDIO_IMPORT_VIAS,
   scan_via: SCAN_VIAS,
   tune_field: TUNE_FIELDS,
   filter: FILTERS,
@@ -220,6 +224,7 @@ export type BulkAction = (typeof BULK_ACTIONS)[number]
 export type FailureReason = (typeof FAILURE_REASONS)[number]
 export type Service = (typeof SERVICES)[number]
 export type LinkVia = (typeof LINK_VIAS)[number]
+export type AudioImportVia = (typeof AUDIO_IMPORT_VIAS)[number]
 export type ScanVia = (typeof SCAN_VIAS)[number]
 export type TuneField = (typeof TUNE_FIELDS)[number]
 export type Filter = (typeof FILTERS)[number]
@@ -325,7 +330,7 @@ export interface EventProps {
     tune_id?: string
   }
   recording_discarded: { duration_bucket: DurationBucket }
-  audio_imported: { count_bucket: CountBucket; format: AudioFormat }
+  audio_imported: { count_bucket: CountBucket; format: AudioFormat; via: AudioImportVia }
   archive_recording_saved: {
     source_archive: ArchiveSource
     recording_id: string
