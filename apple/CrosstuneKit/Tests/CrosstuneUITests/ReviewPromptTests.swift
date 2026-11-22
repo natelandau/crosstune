@@ -138,7 +138,7 @@ struct ReviewPromptTests {
         clock.now = clock.now.addingTimeInterval(8 * 86_400)
 
         prompt.note(.importCompleted(reader: .plain, added: 0, skipped: 2, list: .none))
-        prompt.note(.audioImported(fileCount: 1, format: .flac))
+        prompt.note(.audioImported(fileCount: 1, format: .flac, via: .picker))
         prompt.note(practiceEnded)
         #expect(prompt.isDue == false)
 

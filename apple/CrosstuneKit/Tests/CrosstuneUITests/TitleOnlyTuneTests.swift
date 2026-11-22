@@ -71,6 +71,17 @@ import Testing
             ])
     }
 
+    @Test func createsATitleOnlyTuneWithTheGivenID() async throws {
+        let store = try await seeded()
+        let tuneID = newID(at: noon)
+
+        let created = try await Commands(store: store).createTitleOnly(
+            title: "Drowsy Maggie", tuneID: tuneID, at: noon)
+
+        #expect(created.tuneID == tuneID)
+        #expect(try await store.read { db in try isLiveTune(db, tuneID: tuneID) })
+    }
+
     @Test func reportsOnlyTheTitleWhenTheSettingsSeedNothing() async throws {
         let store = try await seeded()
 

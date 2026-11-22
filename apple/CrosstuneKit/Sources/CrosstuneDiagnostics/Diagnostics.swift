@@ -9,6 +9,7 @@ public enum DiagnosticArea: String, Sendable, CaseIterable {
     case export
     case purchase
     case restore
+    case share
 }
 
 /// A moment worth noting before a crash: the app moving between foreground and background, and

@@ -130,7 +130,7 @@ private let samples: [AnalyticsEvent] = [
     .microphoneDenied(source: .tune),
     .recordingSaved(seconds: 95, recordingID: recordingID, tuneID: tuneID),
     .recordingDiscarded(seconds: 4),
-    .audioImported(fileCount: 2, format: .mp3),
+    .audioImported(fileCount: 2, format: .mp3, via: .picker),
     .archiveRecordingSaved(source: .slipperyHill, recordingID: recordingID, tuneID: tuneID),
     .recordingFiled(from: .unfiled, origin: .recorded, recordingID: recordingID, tuneID: tuneID),
     .recordingUnfiled(origin: .imported, recordingID: recordingID),

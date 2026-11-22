@@ -1,7 +1,7 @@
 import Foundation
 
-/// Reads the source of `CrosstuneUI`, `CrosstuneDesign`, and the Live Activity extension, for the
-/// tests that check a convention the compiler cannot. A file's path is relative to its module's
+/// Reads the source of `CrosstuneUI`, `CrosstuneDesign`, and the app's extensions, for the tests
+/// that check a convention the compiler cannot. A file's path is relative to its module's
 /// folder, and no two modules share one, so `Components/PageSection.swift` names one file
 /// wherever it lives.
 enum SourceScan {
@@ -16,14 +16,24 @@ enum SourceScan {
         path: "../../RecordingActivity", directoryHint: .isDirectory
     ).standardizedFileURL
 
+    /// The share extension's folder. Its target builds only for iOS.
+    static let shareExtension = packageSources.appending(
+        path: "../../Share", directoryHint: .isDirectory
+    ).standardizedFileURL
+
     static let roots =
         ["CrosstuneUI", "CrosstuneDesign"].map {
             packageSources.appending(path: $0, directoryHint: .isDirectory)
-        } + [liveActivityExtension]
+        } + [liveActivityExtension, shareExtension]
 
     /// Whether `file` belongs to a target that never builds for the Mac.
     static func buildsOnlyForIOS(_ file: URL) -> Bool {
-        file.path.hasPrefix(liveActivityExtension.path + "/")
+        [liveActivityExtension, shareExtension].contains { file.path.hasPrefix($0.path + "/") }
+    }
+
+    /// Whether `file` belongs to the share extension.
+    static func isInShareExtension(_ file: URL) -> Bool {
+        file.path.hasPrefix(shareExtension.path + "/")
     }
 
     /// Every Swift file in every root.

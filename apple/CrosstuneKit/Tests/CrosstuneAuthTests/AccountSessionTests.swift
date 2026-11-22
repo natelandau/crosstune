@@ -313,6 +313,8 @@ final class LeaveLog: LeavingSync {
     var steps: [String] = []
     /// Whether leaving deleted the export files.
     var removedExports = false
+    /// The user leaving reported as gone, so the app drops what else it holds for them.
+    var leftUserID: String?
     /// Runs as the sync, as the engine would push the outbox.
     var onSync: () async throws -> Void = {}
     /// Runs while sync stops, as a write the musician makes in that wait would.
@@ -353,6 +355,7 @@ struct ClerkFailed: Error {}
         try await AccountSession.leave(
             userID: "user_a", store: store, root: root.url, sync: log, analytics: sink.client, settle: settle,
             removeExports: { log.removedExports = true },
+            userLeft: { log.leftUserID = $0 },
             endSession: {
                 log.steps.append("end session")
                 try await endSession()
@@ -531,6 +534,7 @@ struct ClerkFailed: Error {}
                 try await deleteRemote()
             },
             removeExports: { log.removedExports = true },
+            userLeft: { log.leftUserID = $0 },
             endSession: {
                 log.steps.append("end session")
                 try await endSession()
@@ -589,11 +593,41 @@ struct ClerkFailed: Error {}
         await AccountSession.forgetDeleted(
             userID: "user_a", store: store, root: root.url, sync: log, analytics: sink.client,
             removeExports: { log.removedExports = true },
+            userLeft: { log.leftUserID = $0 },
             endSession: {
                 log.steps.append("end session")
                 try await endSession()
             }
         )
+    }
+
+    enum Leave: CaseIterable {
+        case signOut, delete, deletedElsewhere
+    }
+
+    /// The app drops what it holds outside the store, such as items shared for the user, only
+    /// once the user is gone.
+    @Test(arguments: Leave.allCases)
+    func aFinishedLeaveReportsTheUserWhoLeft(_ leave: Leave) async throws {
+        switch leave {
+        case .signOut: try await self.leave()
+        case .delete: try await deleteAndLeave()
+        case .deletedElsewhere: await forgetDeleted()
+        }
+
+        #expect(log.leftUserID == "user_a")
+    }
+
+    @Test func aSignOutWhoseFolderDeleteFailsStillReportsTheUserWhoLeft() async throws {
+        let log = log
+        // An invalid user ID makes `CrosstuneStore.delete` throw once the session has ended.
+        await #expect(throws: (any Error).self) {
+            try await AccountSession.leave(
+                userID: "not a valid id", store: store, root: root.url, sync: log, analytics: sink.client,
+                removeExports: {}, userLeft: { log.leftUserID = $0 }, endSession: {})
+        }
+
+        #expect(log.leftUserID == "not a valid id")
     }
 
     @Test func anAccountDeletedElsewhereStopsSyncThenEndsTheSessionThenDeletesTheFolder() async throws {
@@ -629,6 +663,7 @@ struct ClerkFailed: Error {}
         }
 
         #expect(sink.calls.isEmpty)
+        #expect(log.leftUserID == nil)
     }
 
     @Test func deletingFlushesThenResetsThenSendsAccountDeletedUnidentified() async throws {

@@ -24,8 +24,8 @@ private let linkID = "9d3a6c1e-2f4b-4b7a-a5c8-7e1f0d2b3c94"
     #expect(AnalyticsEvent.catalogFiltered(filter: .learnedFrom).properties == ["filter": .string("learned_from")])
     #expect(AnalyticsEvent.exportCompleted(format: .zip).properties == ["format": .string("zip")])
     #expect(
-        AnalyticsEvent.audioImported(fileCount: 3, format: .flac).properties == [
-            "count_bucket": .string("1-9"), "format": .string("flac"),
+        AnalyticsEvent.audioImported(fileCount: 3, format: .flac, via: .share).properties == [
+            "count_bucket": .string("1-9"), "format": .string("flac"), "via": .string("share"),
         ])
     #expect(
         AnalyticsEvent.pitchChanged(semitones: -3, recordingID: recordingID).properties == [
@@ -186,7 +186,7 @@ private let linkID = "9d3a6c1e-2f4b-4b7a-a5c8-7e1f0d2b3c94"
 @Test func usesTheSnakeCaseNamesForEveryActionSource() {
     #expect(
         ActionSource.allCases.map(\.rawValue) == [
-            "catalog", "tune", "list", "recordings_list", "recording_screen", "dock", "search_offer", "menu",
+            "catalog", "tune", "list", "recordings_list", "recording_screen", "dock", "search_offer", "menu", "share",
         ])
 }
 

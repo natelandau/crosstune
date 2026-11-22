@@ -62,7 +62,7 @@ public enum AnalyticsEvent: Sendable, Equatable {
     /// A recording saved with a tune is filed.
     case recordingSaved(seconds: Double, recordingID: String, tuneID: String?)
     case recordingDiscarded(seconds: Double)
-    case audioImported(fileCount: Int, format: AudioFormat)
+    case audioImported(fileCount: Int, format: AudioFormat, via: AudioImportVia)
     case archiveRecordingSaved(source: ArchiveSource, recordingID: String, tuneID: String)
     case recordingFiled(from: FiledFrom, origin: RecordingOrigin, recordingID: String, tuneID: String)
     case recordingUnfiled(origin: RecordingOrigin, recordingID: String)
@@ -264,8 +264,11 @@ public enum AnalyticsEvent: Sendable, Equatable {
             .adding("tune_id", tuneID.map(AnalyticsValue.string))
         case .recordingDiscarded(let seconds):
             ["duration_bucket": .string(Bucket.duration(seconds: seconds))]
-        case .audioImported(let fileCount, let format):
-            ["count_bucket": .count(fileCount), "format": .string(format.rawValue)]
+        case .audioImported(let fileCount, let format, let via):
+            [
+                "count_bucket": .count(fileCount), "format": .string(format.rawValue),
+                "via": .string(via.rawValue),
+            ]
         case .archiveRecordingSaved(let source, let recordingID, let tuneID):
             [
                 "source_archive": .string(source.rawValue), "recording_id": .string(recordingID),

@@ -24,6 +24,7 @@ public enum ActionSource: String, CaseIterable, Sendable {
     case dock
     case searchOffer = "search_offer"
     case menu
+    case share
 }
 
 /// Where the tune import was opened.
@@ -176,6 +177,13 @@ public enum LinkService: String, CaseIterable, Sendable {
 public enum LinkVia: String, CaseIterable, Sendable {
     case paste
     case find
+    case share
+}
+
+/// How audio files came in.
+public enum AudioImportVia: String, CaseIterable, Sendable {
+    case picker
+    case share
 }
 
 /// How a scan came in.
@@ -288,6 +296,7 @@ public enum PremiumEntry: String, CaseIterable, Sendable {
     case trialReminder = "trial_reminder"
     case trialEnded = "trial_ended"
     case linkRecordings = "link_recordings"
+    case share
 }
 
 /// How the Plan sheet showed: a sheet that closes, or an overlay on a page that needs Premium.

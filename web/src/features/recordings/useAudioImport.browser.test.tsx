@@ -50,9 +50,9 @@ describe('useAudioImport', () => {
     ])
 
     expect(analytics.sends()).toEqual([
-      { name: 'audio_imported', props: { count_bucket: '1-9', format: 'm4a' } },
-      { name: 'audio_imported', props: { count_bucket: '1-9', format: 'mp3' } },
-      { name: 'audio_imported', props: { count_bucket: '1-9', format: 'other' } },
+      { name: 'audio_imported', props: { count_bucket: '1-9', format: 'm4a', via: 'picker' } },
+      { name: 'audio_imported', props: { count_bucket: '1-9', format: 'mp3', via: 'picker' } },
+      { name: 'audio_imported', props: { count_bucket: '1-9', format: 'other', via: 'picker' } },
     ])
   })
 

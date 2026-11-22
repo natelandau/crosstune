@@ -1,6 +1,7 @@
 import CrosstuneAnalytics
 import CrosstuneAudio
 import CrosstuneCommands
+import CrosstuneShare
 import CrosstuneStore
 import CrosstuneSync
 import CrosstuneVocabulary
@@ -462,7 +463,7 @@ public final class SettingsModel {
 
     /// The audio on this device as `12.4 MB of audio on this device`.
     nonisolated public static func localAudioText(_ bytes: Int64) -> String {
-        "\(RecordingText.bytes(bytes)) of audio on this device"
+        "\(ByteText.bytes(bytes)) of audio on this device"
     }
 
     /// Deletes the downloaded audio of every ready recording. A recording not yet on the server

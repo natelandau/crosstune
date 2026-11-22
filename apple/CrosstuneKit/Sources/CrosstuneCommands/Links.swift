@@ -23,14 +23,16 @@ public struct LinkInput: Sendable {
 }
 
 extension StoreWriter {
-    /// Appends a link to a live tune's list, after its currently active links.
+    /// Appends a link to a live tune's list, after its currently active links, at `id` when given.
     @discardableResult
-    public func addLink(tuneID: String, link: LinkInput, at time: Timestamp = .now) throws -> String {
+    public func addLink(tuneID: String, link: LinkInput, at time: Timestamp = .now, id: String? = nil) throws
+        -> String
+    {
         guard let tune = try Tune.fetchOne(db, key: tuneID), tune.deletedAt == nil else {
             throw CommandError.tuneNotFound
         }
         let active = try RecordingLink.filter(Column("tune_id") == tuneID).fetchAll(db).filter { $0.deletedAt == nil }
-        let id = newID(at: time)
+        let id = id ?? newID(at: time)
         try put(
             RecordingLink(
                 id: id, createdAt: time, updatedAt: time, tuneID: tuneID,
@@ -48,8 +50,10 @@ extension StoreWriter {
 extension Commands {
     /// Appends a link to a tune's list.
     @discardableResult
-    public func addLink(tuneID: String, link: LinkInput, at time: Timestamp = .now) async throws -> String {
-        try await store.write { writer in try writer.addLink(tuneID: tuneID, link: link, at: time) }
+    public func addLink(tuneID: String, link: LinkInput, at time: Timestamp = .now, id: String? = nil) async throws
+        -> String
+    {
+        try await store.write { writer in try writer.addLink(tuneID: tuneID, link: link, at: time, id: id) }
     }
 
     public func removeLink(_ linkID: String, at time: Timestamp = .now) async throws {

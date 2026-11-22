@@ -17,6 +17,7 @@ let package = Package(
         .library(name: "CrosstunePalette", targets: ["CrosstunePalette"]),
         .library(name: "CrosstuneRecording", targets: ["CrosstuneRecording"]),
         .library(name: "CrosstuneRecordingActivity", targets: ["CrosstuneRecordingActivity"]),
+        .library(name: "CrosstuneShare", targets: ["CrosstuneShare"]),
         .library(name: "CrosstuneStore", targets: ["CrosstuneStore"]),
         .library(name: "CrosstuneSync", targets: ["CrosstuneSync"]),
         .library(name: "CrosstuneUI", targets: ["CrosstuneUI"]),
@@ -107,6 +108,10 @@ let package = Package(
         ),
         .target(name: "CrosstuneRecordingActivity"),
         .target(
+            name: "CrosstuneShare",
+            dependencies: ["CrosstuneVocabulary"]
+        ),
+        .target(
             name: "CrosstuneSync",
             dependencies: [
                 "CrosstuneAnalytics",
@@ -128,8 +133,8 @@ let package = Package(
             dependencies: [
                 "CrosstuneAnalytics", "CrosstuneAudio", "CrosstuneAuth", "CrosstuneBilling", "CrosstuneCommands",
                 "CrosstuneDesign", "CrosstuneDiagnostics", "CrosstuneExport", "CrosstuneRecording",
-                "CrosstuneRecordingActivity", "CrosstuneStore", "CrosstuneSync", "CrosstuneVocabulary",
-                .product(name: "GRDB", package: "GRDB.swift"),
+                "CrosstuneRecordingActivity", "CrosstuneShare", "CrosstuneStore", "CrosstuneSync",
+                "CrosstuneVocabulary", .product(name: "GRDB", package: "GRDB.swift"),
             ],
             resources: [.process("Resources")]
         ),
@@ -220,6 +225,10 @@ let package = Package(
             ]
         ),
         .testTarget(
+            name: "CrosstuneShareTests",
+            dependencies: ["CrosstuneShare", "CrosstuneTestSupport", "CrosstuneVocabulary"]
+        ),
+        .testTarget(
             name: "CrosstuneVocabularyTests",
             dependencies: ["CrosstuneVocabulary"]
         ),
@@ -227,7 +236,7 @@ let package = Package(
             name: "CrosstuneUITests",
             dependencies: [
                 "CrosstuneUI", "CrosstuneAudio", "CrosstuneBilling", "CrosstuneRecording", "CrosstuneCommands",
-                "CrosstuneDesign", "CrosstuneRecordingActivity",
+                "CrosstuneDesign", "CrosstuneRecordingActivity", "CrosstuneShare",
                 "CrosstuneDiagnostics",
                 "CrosstuneStore",
                 "CrosstuneSync",

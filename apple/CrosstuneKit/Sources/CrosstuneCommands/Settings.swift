@@ -9,7 +9,7 @@ private let settingsNamespace = UUID(uuidString: "5d1c0b8a-3e7f-4a92-9c64-2b8e1f
 /// The one settings row a Clerk user has. Deriving it from their id, rather than generating one
 /// and syncing it, lets a second device write the same row before it has ever pulled it.
 public func settingsID(clerkUserID: String) -> String {
-    uuidV5(name: clerkUserID, namespace: settingsNamespace).uuidString.lowercased()
+    derivedID(name: clerkUserID, namespace: settingsNamespace)
 }
 
 /// Known instruments in canonical order, then each unrecognized value once, in first-seen order.

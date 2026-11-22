@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>NSExtension</key>
+	<dict>
+		<key>NSExtensionAttributes</key>
+		<dict>
+			<!-- The two limits of 20 count items, and attachments in one item. The sheet refuses
+			     a share of more than 20 audio attachments in all, which a rule cannot count. -->
+			<key>NSExtensionActivationRule</key>
+			<string>SUBQUERY (
+    extensionItems,
+    $extensionItem,
+    SUBQUERY (
+        $extensionItem.attachments,
+        $attachment,
+        ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "public.url"
+        AND NOT (ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "public.file-url")
+    ).@count == 1
+).@count == 1
+OR (
+    SUBQUERY (
+        extensionItems,
+        $extensionItem,
+        SUBQUERY (
+            $extensionItem.attachments,
+            $attachment,
+            ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "public.audio"
+            OR ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "com.apple.quicktime-audio"
+        ).@count &gt; 0
+    ).@count &gt; 0
+    AND SUBQUERY (
+        extensionItems,
+        $extensionItem,
+        SUBQUERY (
+            $extensionItem.attachments,
+            $attachment,
+            ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "public.audio"
+            OR ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "com.apple.quicktime-audio"
+        ).@count &gt; 0
+    ).@count &lt;= 20
+    AND SUBQUERY (
+        extensionItems,
+        $extensionItem,
+        SUBQUERY (
+            $extensionItem.attachments,
+            $attachment,
+            ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "public.audio"
+            OR ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "com.apple.quicktime-audio"
+        ).@count &gt; 20
+    ).@count == 0
+)</string>
+		</dict>
+		<key>NSExtensionPointIdentifier</key>
+		<string>com.apple.share-services</string>
+		<key>NSExtensionPrincipalClass</key>
+		<string>$(PRODUCT_MODULE_NAME).ShareViewController</string>
+	</dict>
+</dict>
+</plist>

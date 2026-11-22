@@ -45,6 +45,7 @@ struct CrosstuneApp: App {
     #if os(iOS)
         /// Keeps the recording Live Activity in step with the recorder for the app's lifetime.
         private let recordingActivity: Task<Void, Never>
+        @State private var shareHost: ShareHost
     #endif
     @Environment(\.scenePhase) private var scenePhase
 
@@ -85,19 +86,26 @@ struct CrosstuneApp: App {
         let player = PlayerModel.device(analytics: analytics, diagnostics: diagnostics)
         _player = State(initialValue: player)
         _listPlayback = State(initialValue: ListPlayback.device(player: player, analytics: analytics))
-        _session = State(
-            initialValue: AccountSession(
-                publishableKey: configuration.clerkPublishableKey,
-                apiOrigin: configuration.apiOrigin,
-                clientVersion: configuration.clientVersion,
-                storageOrigin: configuration.storageOrigin,
-                analytics: analytics,
-                diagnostics: diagnostics,
-                deviceSettings: { DeviceSettings.current() },
-                assistiveTech: { AssistiveTech.current() },
-                // A capture a crash or kill cut short is saved now rather than waiting on the user.
-                storeOpened: { await Recorder.recoverLeftoverCaptures(in: $0) }
-            ))
+        let session = AccountSession(
+            publishableKey: configuration.clerkPublishableKey,
+            apiOrigin: configuration.apiOrigin,
+            clientVersion: configuration.clientVersion,
+            storageOrigin: configuration.storageOrigin,
+            analytics: analytics,
+            diagnostics: diagnostics,
+            deviceSettings: { DeviceSettings.current() },
+            assistiveTech: { AssistiveTech.current() },
+            // A capture a crash or kill cut short is saved now rather than waiting on the user.
+            storeOpened: { await Recorder.recoverLeftoverCaptures(in: $0) }
+        )
+        _session = State(initialValue: session)
+        #if os(iOS)
+            let shareHost = ShareHost.appGroup(
+                resolve: { [session] url in await session.syncEngine?.resolveLink(url) }, analytics: analytics,
+                diagnostics: diagnostics)
+            session.userLeft = { [shareHost] in shareHost.userLeft($0) }
+            _shareHost = State(initialValue: shareHost)
+        #endif
     }
 
     var body: some Scene {
@@ -116,6 +124,9 @@ struct CrosstuneApp: App {
                 .environment(\.nearbySearch, MapKitNearbySearch.self)
                 .environment(\.locationAccess, locationAccess)
                 .environment(\.locationProvider, deviceLocation)
+                #if os(iOS)
+                    .environment(shareHost)
+                #endif
                 .followsDisplaySettings()
                 .keyboardDismissal()
                 .tint(appTint)
@@ -140,13 +151,24 @@ struct CrosstuneApp: App {
                 // A trial may have ended while the app was away.
                 plan?.judgeAgain()
                 reviewPrompt.opened()
+                #if os(iOS)
+                    Task { await shareHost.becameActive() }
+                #endif
             }
         }
         .onChange(of: session.store?.userID, initial: true) {
             let bound = StorePlan.bind(session.store, player: player, purchases: purchases)
             plan = bound.plan
             noticeClaim = bound.noticeClaim
+            #if os(iOS)
+                shareHost.storeChanged(session.store)
+            #endif
         }
+        #if os(iOS)
+            .onChange(of: session.phase, initial: true) {
+                if case .signedIn(let userID, confirmed: true) = session.phase { shareHost.signInConfirmed(userID) }
+            }
+        #endif
 
         #if os(macOS)
             Settings {

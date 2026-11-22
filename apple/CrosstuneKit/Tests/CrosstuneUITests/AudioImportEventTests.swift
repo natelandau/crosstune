@@ -28,8 +28,16 @@ import Testing
 
         #expect(
             sink.captures == [
-                .init(name: "audio_imported", properties: ["count_bucket": .string("1-9"), "format": .string("m4a")]),
-                .init(name: "audio_imported", properties: ["count_bucket": .string("1-9"), "format": .string("wav")]),
+                .init(
+                    name: "audio_imported",
+                    properties: [
+                        "count_bucket": .string("1-9"), "format": .string("m4a"), "via": .string("picker"),
+                    ]),
+                .init(
+                    name: "audio_imported",
+                    properties: [
+                        "count_bucket": .string("1-9"), "format": .string("wav"), "via": .string("picker"),
+                    ]),
             ])
     }
 
