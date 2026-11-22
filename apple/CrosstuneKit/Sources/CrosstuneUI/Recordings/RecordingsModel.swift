@@ -1,6 +1,7 @@
 import CrosstuneAnalytics
 import CrosstuneCommands
 import CrosstuneRecording
+import CrosstuneShare
 import CrosstuneStore
 import CrosstuneSync
 import CrosstuneVocabulary
@@ -316,13 +317,22 @@ public final class RecordingsModel {
                 Self.logger.warning("An audio import failed: \(error)")
                 let message = failureMessage(error)
                 refusal =
-                    refusal ?? (urls.count > 1 ? RecordingImport.refused(url.lastPathComponent, message) : message)
+                    refusal ?? (urls.count > 1 ? AudioFileCheck.refused(url.lastPathComponent, message) : message)
             }
         }
         if let refusal { failure = refusal }
         for format in AudioFormat.allCases {
-            if let count = added[format] { analytics.send(.audioImported(fileCount: count, format: format)) }
+            if let count = added[format] {
+                analytics.send(.audioImported(fileCount: count, format: format, via: .picker))
+            }
         }
+    }
+
+    /// Shows the first of the files shared from other apps that were refused, as an import names
+    /// a refused file.
+    public func sharedFilesRefused(_ refusals: [SharedFileRefusal]) {
+        guard let first = refusals.first else { return }
+        failure = AudioFileCheck.refused(first.fileName, first.message)
     }
 
     /// Drops a failure the musician has left the screen without dismissing, so it is not

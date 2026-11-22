@@ -1,0 +1,21 @@
+// Settings for every configuration of the share extension, which adds shared links and audio
+// files. The app embeds it on iPhone and iPad only.
+#include "Version.xcconfig"
+#include "Signing.xcconfig"
+
+PRODUCT_BUNDLE_IDENTIFIER = app.crosstune.Crosstune.Share
+
+SUPPORTED_PLATFORMS = iphoneos iphonesimulator
+SDKROOT = iphoneos
+TARGETED_DEVICE_FAMILY = 1,2
+IPHONEOS_DEPLOYMENT_TARGET = 26.1
+
+SWIFT_VERSION = 6.0
+GENERATE_INFOPLIST_FILE = YES
+INFOPLIST_FILE = Share/Info.plist
+INFOPLIST_KEY_CFBundleDisplayName = Crosstune
+CODE_SIGN_ENTITLEMENTS = Config/Share-iOS.entitlements
+SKIP_INSTALL = YES
+ENABLE_PREVIEWS = YES
+APPLICATION_EXTENSION_API_ONLY = YES
+LD_RUNPATH_SEARCH_PATHS = $(inherited) @executable_path/Frameworks @executable_path/../../Frameworks

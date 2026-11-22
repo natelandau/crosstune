@@ -96,13 +96,17 @@ each question, and the invariants that both clients and the API hold.
 ### Client modules
 
 - Apple color tokens live in `CrosstunePalette`. It depends on no other
-  module, so the Live Activity extension can link it.
+  module, so the extensions can link it.
 - Apple styles, other tokens, and controls with no feature knowledge live
   in `CrosstuneDesign`. `CrosstuneUI` depends on it, never the reverse, so
   the compiler rejects a style that reaches into a screen. A type that
   needs a feature's type, string, or sample data stays in `CrosstuneUI`.
 - The Live Activity extension imports only `CrosstunePalette` and
   `CrosstuneRecordingActivity`. Never the store, sync, or audio modules.
+- The share extension imports only `CrosstuneShare`, `CrosstunePalette`,
+  and `CrosstuneVocabulary`. Never the store, sync, commands, audio,
+  analytics, or design modules. It never writes the database. It hands
+  items to the app through the shared inbox.
 - ActivityKit and Live Activity intent code compiles only under
   `#if os(iOS)`, since the same modules build for the Mac.
 - An intent that starts a recording starts it on `RecorderHost`'s

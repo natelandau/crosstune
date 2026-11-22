@@ -3,6 +3,7 @@ import CrosstuneAudio
 import CrosstuneCommands
 import CrosstuneDesign
 import CrosstuneRecording
+import CrosstuneShare
 import CrosstuneStore
 import CrosstuneSync
 import CrosstuneTestSupport
@@ -1518,9 +1519,132 @@ struct RecordingsScreenPartsTests {
 
         await model.importAudio(from: urls)
 
-        #expect(model.failure == RecordingImport.refused("notes.txt", RecordingImport.notAudio))
+        #expect(model.failure == AudioFileCheck.refused("notes.txt", AudioFileCheck.notAudio))
         let labels = try await store.read { db in try Recording.fetchAll(db).map(\.label) }
         #expect(Set(labels) == ["Jam", "Reel"])
+    }
+
+    @Test(arguments: ["qta", "mov"])
+    func importsQuickTimeAudioAsM4A(fileExtension: String) async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let (source, quickTime) = try await quickTimeFile(named: "Voice memo.\(fileExtension)", in: root)
+
+        let id = try await RecordingImport.add(quickTime, to: store, tuneID: nil)
+
+        let (recording, file) = try await store.read { db in
+            (try Recording.fetchOne(db, key: id), try RecordingFile.fetchOne(db, key: id))
+        }
+        let name = try #require(file?.fileName)
+        #expect(file?.contentType == "audio/mp4")
+        #expect(name.hasSuffix(".m4a"))
+        let stored = store.audioFolder.appending(path: name)
+        #expect(fileExists(stored))
+        #expect(file?.bytes == Int64(try stored.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? -1))
+        #expect(recording?.label == "Voice memo")
+        let expected = try await duration(of: source)
+        let actual = try await duration(of: stored)
+        #expect(abs(actual - expected) < 0.1)
+    }
+
+    @Test func refusesAQuickTimeMovieWithVideoAndLeavesNothingBehind() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let folder = root.url.appending(path: "picked", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let movie = folder.appending(path: "Clip.mov")
+        try await writeVideoMovie(to: movie)
+
+        await #expect(throws: AudioFileCheck.Reason.notAudio) {
+            try await RecordingImport.add(movie, to: store, tuneID: nil)
+        }
+        let count = try await store.read { db in try Recording.fetchCount(db) }
+        #expect(count == 0)
+        let left = try FileManager.default.contentsOfDirectory(atPath: store.audioFolder.path(percentEncoded: false))
+        #expect(left.isEmpty)
+    }
+
+    /// A conversion stopped short, as when the app leaves the foreground, is not a refusal, so a
+    /// shared file stays for a later try.
+    @Test func aCancelledQuickTimeImportIsNoRefusalAndLeavesNothing() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let (_, quickTime) = try await quickTimeFile(named: "Memo.qta", in: root)
+
+        // A child added to a cancelled group starts cancelled.
+        let thrown = await withTaskGroup(of: (any Error)?.self) { group in
+            group.cancelAll()
+            group.addTask {
+                do {
+                    try await RecordingImport.add(quickTime, to: store, tuneID: nil)
+                    return nil
+                } catch {
+                    return error
+                }
+            }
+            return await group.next()!
+        }
+
+        #expect(thrown is CancellationError)
+        #expect(try await store.read { db in try Recording.fetchCount(db) } == 0)
+        #expect(try FileManager.default.contentsOfDirectory(atPath: store.audioFolder.path()).isEmpty)
+    }
+
+    /// The stored file is the converted M4A, so the limit holds against its size, not the source's.
+    @Test func refusesAQuickTimeFileWhoseConversionIsOverTheLimit() async throws {
+        let root = TemporaryRoot()
+        // A low bitrate source, so the conversion comes out larger.
+        let (_, quickTime) = try await quickTimeFile(named: "Memo.qta", in: root, bitrate: 32_000)
+        let measuring = try root.open("user_measure")
+        let measured = try await RecordingImport.add(quickTime, to: measuring, tuneID: nil)
+        let converted = try #require(
+            try await measuring.read { db in try RecordingFile.fetchOne(db, key: measured) }?.bytes)
+        let sourceBytes = try #require(try quickTime.resourceValues(forKeys: [.fileSizeKey]).fileSize)
+        try #require(converted > Int64(sourceBytes))
+        let store = try root.open()
+        try await store.setMeta(
+            .storage, to: StorageUsage(usedBytes: 0, quotaBytes: 10_000_000, maxFileBytes: sourceBytes))
+
+        await #expect(throws: AudioFileCheck.Reason.tooLarge(maxFileBytes: sourceBytes)) {
+            try await RecordingImport.add(quickTime, to: store, tuneID: nil)
+        }
+        #expect(try await store.read { db in try Recording.fetchCount(db) } == 0)
+        #expect(try FileManager.default.contentsOfDirectory(atPath: store.audioFolder.path()).isEmpty)
+    }
+
+    /// A one-second tone exported as a QuickTime file, returning the source tone and the export.
+    private func quickTimeFile(
+        named name: String, in root: TemporaryRoot, bitrate: Int = 64_000
+    ) async throws -> (URL, URL) {
+        let folder = root.url.appending(path: "picked", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let source = folder.appending(path: "source.m4a")
+        _ = try CrosstuneTestSupport.writeTone(to: source, seconds: 1, bitrate: bitrate)
+        let quickTime = folder.appending(path: name)
+        let session = try #require(
+            AVAssetExportSession(asset: AVURLAsset(url: source), presetName: AVAssetExportPresetPassthrough))
+        try await session.export(to: quickTime, as: .mov)
+        return (source, quickTime)
+    }
+
+    /// A short QuickTime movie with one video track and no audio.
+    private func writeVideoMovie(to url: URL) async throws {
+        let writer = try AVAssetWriter(outputURL: url, fileType: .mov)
+        let input = AVAssetWriterInput(
+            mediaType: .video,
+            outputSettings: [AVVideoCodecKey: AVVideoCodecType.h264, AVVideoWidthKey: 64, AVVideoHeightKey: 64])
+        let adaptor = AVAssetWriterInputPixelBufferAdaptor(assetWriterInput: input, sourcePixelBufferAttributes: nil)
+        writer.add(input)
+        writer.startWriting()
+        writer.startSession(atSourceTime: .zero)
+        for frame in 0..<10 {
+            var buffer: CVPixelBuffer?
+            CVPixelBufferCreate(nil, 64, 64, kCVPixelFormatType_32ARGB, nil, &buffer)
+            while !input.isReadyForMoreMediaData { try await Task.sleep(for: .milliseconds(10)) }
+            adaptor.append(try #require(buffer), withPresentationTime: CMTime(value: Int64(frame), timescale: 10))
+        }
+        input.markAsFinished()
+        await writer.finishWriting()
     }
 
     @Test func aSingleRefusedFileKeepsTheBareMessage() async throws {
@@ -1530,20 +1654,20 @@ struct RecordingsScreenPartsTests {
 
         await model.importAudio(from: [try write("notes.txt", bytes: 10, in: root)])
 
-        #expect(model.failure == RecordingImport.notAudio)
+        #expect(model.failure == AudioFileCheck.notAudio)
     }
 
     @Test func refusesWhatTheServerWouldNeverTake() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
         try await store.setMeta(.storage, to: StorageUsage(usedBytes: 0, quotaBytes: 10_000, maxFileBytes: 2_000_000))
-        let cases: [(URL, String)] = [
-            (try write("notes.txt", bytes: 10, in: root), RecordingImport.notAudio),
-            (try write("empty.mp3", bytes: 0, in: root), RecordingImport.emptyFile),
-            (try write("huge.wav", bytes: 2_000_001, in: root), "Files are limited to 2 MB."),
+        let cases: [(URL, AudioFileCheck.Reason)] = [
+            (try write("notes.txt", bytes: 10, in: root), .notAudio),
+            (try write("empty.mp3", bytes: 0, in: root), .emptyFile),
+            (try write("huge.wav", bytes: 2_000_001, in: root), .tooLarge(maxFileBytes: 2_000_000)),
         ]
-        for (url, message) in cases {
-            await #expect(throws: RecordingImport.Refusal(message: message)) {
+        for (url, reason) in cases {
+            await #expect(throws: reason) {
                 try await RecordingImport.add(url, to: store, tuneID: nil)
             }
         }

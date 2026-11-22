@@ -40,7 +40,9 @@ struct PaletteTests {
     @Test func everyProminentButtonUsesTheAccentStyle() throws {
         let files = SourceScan.files()
         #expect(files.isEmpty == false)
-        let violations = try files.filter { file in
+        // The share extension cannot link CrosstuneDesign, which brings the analytics SDK into a
+        // memory-limited extension.
+        let violations = try files.filter { !SourceScan.isInShareExtension($0) }.filter { file in
             let source = try String(contentsOf: file, encoding: .utf8)
             return source.contains(".borderedProminent") || source.contains(".glassProminent")
         }.map(\.lastPathComponent).filter { $0 != "AccentProminent.swift" }.sorted()

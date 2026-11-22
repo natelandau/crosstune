@@ -476,6 +476,10 @@ public final class AccountSession {
     /// leaving checks what is unsynced and closes the store. Set by the app.
     public var settleBeforeLeaving: (@MainActor () async -> Void)?
 
+    /// Called with the user's ID once they signed out or their account was deleted, so the app
+    /// drops what else it holds for them. Never called when only the session ended. Set by the app.
+    public var userLeft: (@MainActor (_ userID: String) -> Void)?
+
     /// Syncs, then signs out and deletes this device's copy of the user's catalog. Refuses while
     /// any change or recording is still only on this device, since it would go with the catalog.
     public func signOut() async throws {
@@ -488,6 +492,7 @@ public final class AccountSession {
         try await Self.leave(
             userID: userID, store: store, root: storeRoot, sync: sync, analytics: analytics,
             settle: { await self.settleBeforeLeaving?() },
+            userLeft: { self.userLeft?($0) },
             endSession: { try await Clerk.shared.auth.signOut() }
         )
         forget()
@@ -524,6 +529,7 @@ public final class AccountSession {
             try await Self.deleteAndLeave(
                 userID: userID, store: store, root: storeRoot, sync: sync, analytics: analytics,
                 deleteRemote: { try await Self.deleteRemote { try await client.deleteMeV1MeDelete(body: body) } },
+                userLeft: { self.userLeft?($0) },
                 endSession: { try await Clerk.shared.auth.signOut() }
             )
         } catch LeaveError.deleteUnconfirmed {
@@ -588,9 +594,10 @@ public final class AccountSession {
         await opens[userID]?.task.value
         guard isStillSignedIn(userID) else { return }
         await settleBeforeLeaving?()
-        await Self.forgetDeleted(userID: userID, store: store, root: storeRoot, sync: sync, analytics: analytics) {
-            try await Clerk.shared.auth.signOut()
-        }
+        await Self.forgetDeleted(
+            userID: userID, store: store, root: storeRoot, sync: sync, analytics: analytics,
+            userLeft: { self.userLeft?($0) },
+            endSession: { try await Clerk.shared.auth.signOut() })
         finishLeaving(deleted: userID)
     }
 
@@ -660,7 +667,7 @@ public final class AccountSession {
     static func leave(
         userID: String, store: CrosstuneStore?, root: URL, sync: (any LeavingSync)?, analytics: AnalyticsClient,
         settle: () async -> Void = {}, removeExports: () -> Void = ExportWorkFolder.removeLeftovers,
-        endSession: () async throws -> Void
+        userLeft: (String) -> Void = { _ in }, endSession: () async throws -> Void
     ) async throws {
         await settle()
         if let store {
@@ -686,6 +693,8 @@ public final class AccountSession {
         try? store?.close()
         URLCache.shared.removeAllCachedResponses()
         removeExports()
+        // The session has ended, so the user has left even when the folder below fails to go.
+        userLeft(userID)
         if !keepsFolder { try CrosstuneStore.delete(userID: userID, root: root) }
     }
 
@@ -703,7 +712,7 @@ public final class AccountSession {
     static func deleteAndLeave(
         userID: String, store: CrosstuneStore?, root: URL, sync: (any LeavingSync)?, analytics: AnalyticsClient,
         deleteRemote: () async throws -> Void, removeExports: () -> Void = ExportWorkFolder.removeLeftovers,
-        endSession: () async throws -> Void
+        userLeft: (String) -> Void = { _ in }, endSession: () async throws -> Void
     ) async throws {
         await sync?.stop()
         // Starts uploading the user's queued events before the request without waiting for it.
@@ -717,24 +726,25 @@ public final class AccountSession {
         }
         await dropDeleted(
             userID: userID, store: store, root: root, analytics: analytics, removeExports: removeExports,
-            endSession: endSession)
+            userLeft: userLeft, endSession: endSession)
     }
 
     /// Stops syncing, then drops this device's copy of an account another device deleted. It
     /// never throws: the account is already gone, so nothing here can leave it in place.
     static func forgetDeleted(
         userID: String, store: CrosstuneStore?, root: URL, sync: (any LeavingSync)?, analytics: AnalyticsClient,
-        removeExports: () -> Void = ExportWorkFolder.removeLeftovers, endSession: () async throws -> Void
+        removeExports: () -> Void = ExportWorkFolder.removeLeftovers, userLeft: (String) -> Void = { _ in },
+        endSession: () async throws -> Void
     ) async {
         await sync?.stop()
         await dropDeleted(
             userID: userID, store: store, root: root, analytics: analytics, removeExports: removeExports,
-            endSession: endSession)
+            userLeft: userLeft, endSession: endSession)
     }
 
     private static func dropDeleted(
         userID: String, store: CrosstuneStore?, root: URL, analytics: AnalyticsClient, removeExports: () -> Void,
-        endSession: () async throws -> Void
+        userLeft: (String) -> Void, endSession: () async throws -> Void
     ) async {
         try? await endSession()
         // Reset first, so the event goes out unidentified rather than recreating the person.
@@ -744,6 +754,7 @@ public final class AccountSession {
         URLCache.shared.removeAllCachedResponses()
         removeExports()
         try? CrosstuneStore.delete(userID: userID, root: root)
+        userLeft(userID)
     }
 
     private func confirmedUserID() throws -> String {

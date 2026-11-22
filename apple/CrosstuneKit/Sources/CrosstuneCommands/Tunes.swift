@@ -125,14 +125,14 @@ public struct UserTunePatch: Sendable {
 
 extension StoreWriter {
     /// Creates a tune and the caller's own row for it together, so neither exists without the
-    /// other.
+    /// other. A `tuneID` chosen by the caller ahead of time is used as given.
     @discardableResult
     public func createTune(
-        _ tune: TuneInput, userTune: UserTuneInput, at time: Timestamp = .now
+        _ tune: TuneInput, userTune: UserTuneInput, tuneID givenID: String? = nil, at time: Timestamp = .now
     ) throws -> (tuneID: String, userTuneID: String) {
         let title = tune.title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !title.isEmpty else { throw CommandError.tuneTitleRequired }
-        let tuneID = newID(at: time)
+        let tuneID = givenID ?? newID(at: time)
         let userTuneID = newID(at: time)
         try put(
             Tune(

@@ -43,6 +43,9 @@ struct TextEntryKindTests {
 
     @Test func everySystemSearchGoesThroughListSearch() throws {
         let direct = try SourceScan.files()
+            // The share extension cannot link CrosstuneDesign, which brings the analytics SDK into a
+            // memory-limited extension.
+            .filter { !SourceScan.isInShareExtension($0) }
             .filter { try Self.iOSCode($0).contains(".searchable(") }
             .map(SourceScan.relative)
         #expect(direct.isEmpty, "Use .listSearch(text:prompt:) in place of .searchable: \(direct)")

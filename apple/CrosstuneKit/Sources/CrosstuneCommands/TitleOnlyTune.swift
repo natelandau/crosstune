@@ -63,6 +63,15 @@ public func tuneHasWork(_ db: Database, tuneID: String) throws -> Bool {
     return try ListItem.filter(userTunes.map(\.id).contains(Column("user_tune_id")) && live).fetchCount(db) > 0
 }
 
+private let replacementTuneNamespace = UUID(uuidString: "1bfc00ab-3d6c-45ec-aaad-6d7e3104c90c")!
+
+/// The ID of the tune made in place of `tuneID` when it was deleted or cannot be stored. Derived
+/// rather than random, so every later item for that tune, and a retry after a relaunch, reaches
+/// the same replacement.
+public func replacementTuneID(for tuneID: String) -> String {
+    derivedID(name: tuneID, namespace: replacementTuneNamespace)
+}
+
 /// Whether the tune is in the catalog: stored and not deleted.
 public func isLiveTune(_ db: Database, tuneID: String) throws -> Bool {
     try Tune.fetchOne(db, key: tuneID).map { $0.deletedAt == nil } ?? false
@@ -85,12 +94,13 @@ extension StoreWriter {
     /// Creates a tune from its title, with the status and genre the settings row `settingsID`
     /// gives a new tune, read inside this write so they are never still loading.
     public func createTitleOnlyTune(
-        title typed: String, settingsID: String, at time: Timestamp = .now
+        title typed: String, tuneID: String? = nil, settingsID: String, at time: Timestamp = .now
     ) throws -> CreatedTune {
         let defaults = NewTuneDefaults(try UserSettings.fetchOne(db, key: settingsID))
         let title = titleOnlyTitle(typed)
         let ids = try createTune(
-            TuneInput(title: title, genre: defaults.genre), userTune: UserTuneInput(status: defaults.status), at: time)
+            TuneInput(title: title, genre: defaults.genre), userTune: UserTuneInput(status: defaults.status),
+            tuneID: tuneID, at: time)
         return CreatedTune(tuneID: ids.tuneID, userTuneID: ids.userTuneID, title: title, defaults: defaults)
     }
 
@@ -109,11 +119,12 @@ extension Commands {
     /// Each filing is its own write and is tried on its own; a refusal never undoes the tune,
     /// since a retry would create it twice, and the first one is returned in the result.
     public func createTitleOnly(
-        title: String, listID: String? = nil, recordingID: String? = nil, at time: Timestamp = .now
+        title: String, tuneID: String? = nil, listID: String? = nil, recordingID: String? = nil,
+        at time: Timestamp = .now
     ) async throws -> CreatedTune {
         let settingsRow = settingsID(clerkUserID: store.userID)
         let created = try await store.write { writer in
-            try writer.createTitleOnlyTune(title: title, settingsID: settingsRow, at: time)
+            try writer.createTitleOnlyTune(title: title, tuneID: tuneID, settingsID: settingsRow, at: time)
         }
         var filingError: (any Error)?
         var filedRecording: Recording?
