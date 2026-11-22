@@ -1,4 +1,5 @@
 import CrosstuneRecordingActivity
+import CrosstuneShare
 import CrosstuneStore
 import CrosstuneSync
 import Foundation
@@ -47,17 +48,6 @@ public enum RecordingText {
     /// How many times in a row an upload has failed, as `2 failed tries`.
     public static func failedTries(_ count: Int) -> String {
         "\(count) failed \(count == 1 ? "try" : "tries")"
-    }
-
-    /// A size in decimal units. Megabytes and gigabytes truncate to a tenth, so a shown size
-    /// never overstates what is there.
-    public static func bytes(_ bytes: Int64) -> String {
-        if bytes < 1000 { return "\(bytes) B" }
-        if bytes < 1_000_000 { return "\(Int64((Double(bytes) / 1000).rounded())) KB" }
-        let (divisor, unit): (Int64, String) = bytes < 1_000_000_000 ? (1_000_000, "MB") : (1_000_000_000, "GB")
-        let tenths = bytes * 10 / divisor
-        let (whole, fraction) = tenths.quotientAndRemainder(dividingBy: 10)
-        return fraction == 0 ? "\(whole) \(unit)" : "\(whole).\(fraction) \(unit)"
     }
 
     /// When the music was played, worded only as far as its precision knows. A recording reads as a
@@ -185,9 +175,9 @@ public enum RecordingText {
 
     /// The account's storage usage as `48.2 MB of 1 GB used`, or `48.2 MB used` with no quota.
     public static func storageUsed(_ usage: StorageUsage) -> String {
-        let used = bytes(Int64(usage.usedBytes))
+        let used = ByteText.bytes(Int64(usage.usedBytes))
         guard usage.quotaBytes > 0 else { return "\(used) used" }
-        return "\(used) of \(bytes(Int64(usage.quotaBytes))) used"
+        return "\(used) of \(ByteText.bytes(Int64(usage.quotaBytes))) used"
     }
 
     /// The origin of a recording made on a device of the account's own.

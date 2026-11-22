@@ -19,6 +19,11 @@ func uuidV5(name: String, namespace: UUID) -> UUID {
         ))
 }
 
+/// ``uuidV5(name:namespace:)`` as a lowercase ID string.
+func derivedID(name: String, namespace: UUID) -> String {
+    uuidV5(name: name, namespace: namespace).uuidString.lowercased()
+}
+
 /// SHA-1 of `data`. Not for anything security-sensitive: RFC 4122 uses it only as a stable hash
 /// for deriving a name-based id, the one purpose it still serves here.
 private func sha1(_ data: Data) -> [UInt8] {

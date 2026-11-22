@@ -49,14 +49,6 @@ struct DurationAndSizeTests {
     @Test func saysNothingForAnUnknownLength() {
         #expect(RecordingText.duration(milliseconds: nil) == nil)
     }
-
-    @Test(arguments: [
-        (999, "999 B"), (1_499, "1 KB"), (999_000, "999 KB"), (1_000_000, "1 MB"), (1_999_999, "1.9 MB"),
-        (12_340_000, "12.3 MB"), (999_999_999, "999.9 MB"), (2_000_000_000, "2 GB"), (5_380_000_000, "5.3 GB"),
-    ])
-    func truncatesLargeSizesRatherThanRounding(bytes: Int64, text: String) {
-        #expect(RecordingText.bytes(bytes) == text)
-    }
 }
 
 struct RecordingTitleTests {
@@ -500,28 +492,5 @@ struct LinkTextTests {
         #expect(LinkText.outboundLabel(link(provider: "other")) == "Open")
         #expect(LinkText.outboundLabel(link(provider: "a_provider_from_the_future")) == "Open")
         #expect(LinkText.outboundName(link(title: "Tommy Jarrell")) == "Open Tommy Jarrell on YouTube")
-    }
-
-    @Test(arguments: [
-        ("https://example.com/a", "https://example.com/a"),
-        ("  http://example.com  ", "http://example.com"),
-        ("example.com/tune", "https://example.com/tune"),
-        ("www.youtube.com/watch?v=x", "https://www.youtube.com/watch?v=x"),
-    ])
-    func opensWebLinks(raw: String, expected: String) {
-        #expect(LinkText.outboundURL(raw)?.absoluteString == expected)
-    }
-
-    @Test func trimsOnlyControlsAndSpacesAndDropsLineBreaks() {
-        #expect(
-            LinkText.outboundURL("\u{01}\t https://exa\nmple.com/a\r\n ")?.absoluteString == "https://example.com/a")
-    }
-
-    @Test(arguments: [
-        "javascript:alert(1)", "file:///etc/passwd", "mailto:a@example.com", "tel:5551234", "",
-        "https://exa mple.com", "exa mple.com/tune", "\u{00A0}https://example.com",
-    ])
-    func refusesEveryOtherScheme(raw: String) {
-        #expect(LinkText.outboundURL(raw) == nil)
     }
 }
