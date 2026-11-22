@@ -1,25 +1,24 @@
 # Crosstune iOS design rules
 
-iPhone and compact iPad windows. Read `design.md` first. This page wins
-there where they differ. Regular-width iPad reads this page, then
-`design-ipad.md`. The Mac never takes a rule from here.
+iPhone and compact iPad windows. Read `design.md` first. Where they
+differ, this page wins for iPhone and compact iPad. Regular-width iPad:
+this page, then `design-ipad.md`. Mac: never this page.
 
-- Apple's Human Interface Guidelines: native SwiftUI controls, SF Symbols,
-  system materials and fonts, Dynamic Type.
+- Follow Apple's Human Interface Guidelines: native SwiftUI controls, SF
+  Symbols, system materials and fonts, Dynamic Type.
 
 ## Shared components
 
 - The library is `CrosstuneDesign/Phone/Controls/`, reviewed in its
-  gallery (`-SampleScreen controls`). A new kind of control goes into
-  both.
+  gallery (`-SampleScreen controls`).
 
 ## Tokens
 
 | Token set    | Holds                                                                                     |
 | ------------ | ----------------------------------------------------------------------------------------- |
-| `Primitive`  | Raw color values, named by hue and step. Only the palette module and `Style/` name one    |
+| `Primitive`  | Raw color values, named by hue and step                                                   |
 | `Palette`    | Every color role every Apple platform shares, and the data colors (`DataPalette.swift`)   |
-| `Elevation`  | Shadows: `.float`, `.control`, matching the web's                                         |
+| `Elevation`  | Shadows, shared with the web                                                              |
 | `PageStyle`  | What a shared view draws with, resolved per platform: text styles, sizes, drawing choices |
 | `PhoneStyle` | iPhone and iPad waveform, touch sizes, timing                                             |
 
@@ -30,22 +29,17 @@ there where they differ. Regular-width iPad reads this page, then
   white or black. System bars, the tab bar, and the iPad sidebar keep
   their system materials.
 - Glass for controls only. Never content, never behind a text field.
-- Touch density always.
 
 ## Shell
 
 - Each root screen's toolbar ends with `AccountToolbarItem`, so the
   account button is outermost trailing.
-- Filters is an icon-only toolbar item, its glyph filled once any filter
-  is set.
-- A control that cannot sit in a navigation subtitle goes in the toolbar,
-  named for its action.
 
 ## Rows and lists
 
-- A row on a page takes a context menu and reorders through a move menu.
-- List reorder: long press and drag.
-- Search: the system search field, pinned under the title.
+- Reorder: a `List` row by long press and drag. A row in a page section
+  through the Move submenu of its context menu.
+- Search: `.listSearch(text:prompt:)`, never `.searchable`.
 - The filter row is the list's first row and scrolls with it.
 - A row on the page background clears its row background
   (`unselectedRowBackground`). A selected row keeps the system fill.
@@ -55,8 +49,7 @@ there where they differ. Regular-width iPad reads this page, then
 
 - A form keeps the native inset grouped style. A screen that only reads is
   a document page.
-- A page clears its failure footers on open, so an old failure never reads
-  as new.
+- System undo (shake) plus a short banner with Undo replaces the toast.
 
 ## Keyboard
 
@@ -81,15 +74,13 @@ there where they differ. Regular-width iPad reads this page, then
 ## Motion
 
 - A presentation opened from a visible item zooms out of it and back.
-- One gate, `phoneAnimation` and `phoneTransition`, reading
-  `PageStyle.animatesPhoneMotion`. The Mac gets none of it.
-- Reduce Motion: a zoom becomes the plain presentation.
+- Animate only through `phoneAnimation` and `phoneTransition`, never
+  `withAnimation` or `.animation`.
 
 ## Accessibility
 
 - Spacing scales with Dynamic Type. A control out of room wraps, never
-  clips. A fixed-size tile instead caps its type and shows the Large
-  Content Viewer.
+  clips.
 
 ## Framework limits
 
@@ -116,8 +107,7 @@ SwiftUI and UIKit behavior that a new screen runs into.
   `matching(_:)`. A sidebar `Tab` cannot carry a dialog, so a sidebar
   row's question comes from the shell.
 - SwiftUI runs swipe actions only on a `List`'s rows. Rows that swipe
-  inside a page's scroll view sit in `SwipeRows`, a `List` that never
-  scrolls and takes its rows' height.
+  inside a page's scroll view sit in `SwipeRows`.
 - A system picker shows the chosen value inline, so its options carry no
   counts, which would read as part of the value.
 - A system segment shows an image or a word, never both.

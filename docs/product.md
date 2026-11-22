@@ -28,9 +28,6 @@ The tools they have do not fit that:
 - Musicians who learn by ear, in old-time, bluegrass, Irish, klezmer, and
   other folk traditions. They play alone, in small sessions, and at large
   jams.
-- Success is musicians using Crosstune as their one place for tunes,
-  recordings, and practice, in place of paper lists and voice memo apps, and
-  other players asking for an account.
 
 ## Use cases
 
@@ -51,8 +48,8 @@ none of them outranks the others.
   playlist, or any grouping a musician wants.
 
 Jams are one important setting among several. At a jam, a musician filters
-the catalog by key, taps a tune, and hears how it goes. That path stays
-fast. No feature assumes that the musician is at a jam.
+the catalog by key, taps a tune, and hears how it goes. No feature assumes
+that the musician is at a jam.
 
 ## What it promises
 
@@ -75,15 +72,14 @@ fast. No feature assumes that the musician is at a jam.
 
 - Free: the catalog, lists, links, sync, offline, the tuner, import, and
   export.
-- Premium: recordings, scans, and 3 GB of storage for both. One
+- Premium: recordings, scans, and a storage quota for both. One
   subscription for every device, the same price on the web and in the App
   Store.
-- Every new account starts with a 30-day Premium trial, with 100 MB of
-  storage.
+- Every account starts with a Premium trial with a smaller quota.
 - A lapsed account cannot play or edit its recordings, or open its scans.
   It can still download and export every recording, and keeps every file
-  until it goes a year without syncing. It then loses its recordings and scans,
-  after two warning emails.
+  until a period without syncing and two warning emails. It then loses
+  its recordings and scans.
 
 ## Designed for, not built
 
@@ -97,8 +93,7 @@ Each has a place in the data model and no code:
 
 - Phone first. A screen used with an instrument in hand works one-handed
   and in poor light. A recording of any tune plays within two taps of the
-  catalog: the tune, then the play glyph on the recording's row. Play on
-  the recording's page is one tap more.
+  catalog: the tune, then the play glyph on the recording's row.
 - Offline. The catalog is readable and editable with no signal.
 - API first. The backend never depends on a client. The Apple app and the
   web client use the same endpoints.
@@ -116,9 +111,9 @@ adaptive
 
 ## Glossary
 
-Two naming rules hold in the schema, the API, and every label: tune, never
-song, and violin, never fiddle. Each is the word a player of any folk
-tradition, and a non-native English speaker, understands first. Tune is what
+Tune, never song, and violin, never fiddle (`CLAUDE.md`, Naming). Each is
+the word a player of any folk tradition, and a non-native English speaker,
+understands first. Tune is what
 Irish, old-time, bluegrass, klezmer, and jazz players call a piece they play,
 with or without words. Irish, old-time, and bluegrass players say fiddle;
 klezmer, Romani, and classical players say violin, and every player

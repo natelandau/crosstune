@@ -1,36 +1,49 @@
 # Crosstune web design rules
 
-Web only. Read `design.md` first. This page wins on the web where they
-differ.
+Web only. Read `design.md` first.
 
 ## Shared components
 
 - The library is `web/src/ui`, reviewed on `/gallery`. A new kind of
   control goes into both. A lint exception needs the owner's approval.
-- A button gets its working and done states by receiving its work: the
-  press returns the promise, or hands it to `track` once the musician
-  confirms. Never fire work and forget it.
+- A button's `onPress` returns its promise, or, for work that starts
+  after a confirmation, passes it to the `track` argument it receives.
+  Never fire work and forget it.
 - Every icon is a `lucide-react` named import, sized with a `size-*`
   class, and `aria-hidden` inside a control that has an accessible name.
   No text character as an icon, no second icon set. A hand-drawn glyph
   only for the brand mark, or for a control's shape that animates between
   states, which a static icon cannot.
+- Favicon and PWA icons: run `just web::icons`, which builds them from
+  `brand/`. Never hand-edit them.
+- A screen that chooses tunes from the catalog uses `TunePickerSheet`.
 
 ## Principles
 
 - Apple's tokens, rows, zones, and words in the shape a browser gives them.
-  Never Apple's materials.
-- The frame follows the window size. The density follows the pointer.
+  Never Apple's materials (blur, vibrancy, translucent bars).
 
 ## Tokens
 
-- A screen never types a color, text size, radius, or height.
+- A screen never types a text size, radius, or height. It uses the type
+  and shape tokens.
 - Text quieter than secondary is `t-caption` in `text-secondary`, never
   `text-secondary` faded or `text-tertiary`, which fall under 4.5:1.
 - Sizes in rem, so the text size setting scales every role. Page width
-  caps in px, so it scales type, not the column.
-- Signed value: true minus (U+2212) in a fixed slot.
-- 4px spacing grid.
+  caps in px, so the text size setting scales type, not the column.
+
+## Web-only roles
+
+| Role                                                                                                                                                                                                      | Job                                                                          | Never            |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | ---------------- |
+| `surface-raised-hover`, `text-tertiary-hover`, `accent-fill-hover`, `accent-track-hover`, `danger-hover`, `warning-fill-hover`, `record-hover`, `status-known-subtle-hover`, `status-learning-subtle-hover`, `status-unknown-subtle-hover` | A pointer hover on the role it names                                         |                  |
+| `danger-subtle`, `warning-subtle`                                                                                                                                                                         | A faint danger or warning tint, such as a destructive text button's hover    |                  |
+| `status-known-subtle`, `status-learning-subtle`, `status-unknown-subtle`                                                                                                                                  | The status segmented control's fills                                         |                  |
+| `field-border`                                                                                                                                                                                            | A field's edge on a surface: a hairline in light, none in dark               |                  |
+| `waveform-played`, `waveform-unplayed`                                                                                                                                                                    | A recording's waveform: the part played, the part still to play              |                  |
+| `scrim`, `handle`                                                                                                                                                                                         | The layer behind a sheet, and a sheet's grabber                              |                  |
+| `tuner-fill`                                                                                                                                                                                              | A control on the tuner's background                                          | Any other screen |
+| `device-bezel`, `illustration-tuner-background`                                                                                                                                                           | The welcome illustrations: a drawn device's frame and the tuner they show    | Any other screen |
 
 ## Frames
 
@@ -46,7 +59,7 @@ differ.
   lands in the same place on every frame.
 - No overlay is a route. The URL never changes for a sheet or dialog.
 - A phone root screen's title never truncates. Where it would, the screen
-  moves a bar button into More (`useCrowdedRootTitle`).
+  moves a toolbar button into the More menu (`useCrowdedRootTitle`).
 - A scroll container under pinned or floating chrome is a `PaneScroller`,
   so focus never lands under the chrome.
 
@@ -76,8 +89,8 @@ differ.
 
 ## Keyboard
 
-- Single-key shortcuts only on pointer frames. A focused control or row
-  keeps Space.
+- Single-key shortcuts only on pointer frames. Never bind Space as a
+  shortcut: Space belongs to the focused control or row.
 - Never take a combination the browser owns (Cmd-N, Cmd-R).
 - Tab crosses panes in DOM order.
 
@@ -88,17 +101,15 @@ differ.
 - Headings never skip a level. A page's title is h1, a sheet's or section's
   h2. A heading under one takes `useSubheadingLevel` from
   `web/src/ui/headingLevel.ts`.
-- Forced colors: a glyph whose meaning is a fill paints in system colors.
+- In `forced-colors` mode, a glyph that shows meaning only by its fill (a
+  status or key glyph) paints in CSS system colors such as `CanvasText`.
+  This is the one place a system color is allowed.
 
 ## Framework limits
-
-Browser and library behavior that a new screen runs into.
 
 - A role that mixes another (a tint, a hover) is computed where it is
   declared. A scope that redeclares the base redeclares the mix too, or
   the mix keeps the root's value.
-- Inside `bg-surface`, `--field` becomes `--surface-raised`, so a
-  `bg-field` fill there is lighter than the card in light mode.
 - Geist's tabular width changes with weight, so a counting figure keeps
   one weight. Numbers that change or line up take `t-num`.
 - A fixed box for a number is sized in em. Never `ch` or figure spaces,
@@ -112,22 +123,21 @@ Browser and library behavior that a new screen runs into.
   `PlayheadClock` (`features/player/playheadClock.ts`): DOM writes each
   frame, a render only when its text changes. Never subscribe to the whole
   engine state.
-- Opening a sheet costs time in proportion to the page under it, so a long
-  list behind a sheet is virtualized or short.
+- Opening a sheet costs time in proportion to the page under it, so a list
+  that can sit behind a sheet renders through the virtualized `RowList`.
 - A virtualized `RowList` hands a row's element to another row as it
   scrolls. State inside a row's content sits under a `key` of the row's id,
   or it carries over to the next row.
-- A window opened by a third party (a store checkout) opens only after the
-  sheet that asked for it has left, and no notice opens over it: it would
-  sit under the sheet's inert page.
+- Open a third-party window (a store checkout) only after the sheet that
+  asked for it has closed, and show no toast over it. Otherwise the window
+  sits under the sheet's inert page.
 - Browsers block a tab opened after a network wait or after a menu
   dismisses. A page whose address needs a network answer opens a blank tab
   during the tap, then sends it on.
 - Page motion is React's `<ViewTransition>`. Never React Router's
-  `viewTransition` prop, which ignores React's transition names. A shared
-  transition name is unique on the page, so it goes only where the list is
-  hidden (phone and split).
-- Back is a plain swap. A push to the parent route breaks history.
+  `viewTransition` prop, which ignores React's transition names. Set a
+  shared transition name only in the phone and split frames, where the
+  list is hidden. Names must be unique on the page.
 - Neither React nor the browser honors reduced motion, so motion goes
   through Motion (turned off by `AppMotion`) or `shape.css` (which turns
   off view transitions).

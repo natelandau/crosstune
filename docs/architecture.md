@@ -1,8 +1,5 @@
 # Crosstune architecture
 
-The stack and what it rules out, the boundaries, the source of truth for
-each question, and the invariants that both clients and the API hold.
-
 - How one feature works: its code.
 - Deploys and releases: `operations.md`.
 
@@ -21,20 +18,19 @@ each question, and the invariants that both clients and the API hold.
 | Audio and images  | Cloudflare R2, Standard storage. RustFS in Docker locally                                       | A hosted bucket for local work                                                            |
 | Hosts             | API on Railway. Web client and site on Cloudflare Workers                                       |                                                                                           |
 
-- Apple gets a native app and Android does not: the web on iOS cannot
-  receive a shared link, play reliably with the screen locked, keep its
-  local data, or control recording quality.
 - Two UI stacks and two sync engines, TypeScript and Swift, with the same
   behavior. A behavior change to one engine is made in both.
 - Tailwind supplies tokens, spacing, and layout, never components.
 - A change to what the Apple app collects, or a new SDK in it, updates
-  `PrivacyInfo.xcprivacy` in the same change, so it and the App Store
-  privacy label agree.
+  the `PrivacyInfo.xcprivacy` of every target it touches
+  (`apple/Crosstune/`, `apple/Share/`) in the same change, so it and the
+  App Store privacy label agree.
 - The API and its database sleep when idle, in every environment. Nothing
   holds a connection open or runs on a timer that keeps the host awake. A
   job runner never polls on a fixed interval.
 - A null `owner_user_id` and `merged_into_id` on tunes are reserved for a
-  shared catalog (`product.md`, Constraints). Keep them.
+  shared catalog (`product.md`, Constraints for every release). Keep
+  them.
 - The apex domain is a static site that never calls the API or Clerk. The
   app is at `my.<domain>`. Never one URL split by session: the service
   worker serves the app shell at `/` offline.
@@ -45,6 +41,7 @@ each question, and the invariants that both clients and the API hold.
 
 - Screens read only the local copy, through live queries. They never call
   the API.
+- Nothing the tuner hears leaves the device.
 - A user action runs a command. A command writes the row and an outbox
   entry in one transaction.
 - Only the sync engine talks to the network. The one exception: files
@@ -62,13 +59,10 @@ each question, and the invariants that both clients and the API hold.
   `api/src/crosstune/vocabulary.py`. Never a database table of
   vocabularies.
 - Both clients' types, and their copies of every validated value and
-  length, are generated from the contract. CI fails when a committed copy
-  differs.
+  length, are generated from the contract by `just contract`. Run it after
+  any API change. CI fails on a stale copy.
 - Display labels stay in each client, typed against the generated unions,
   so a new server value fails the build until it has a label.
-- The Swift generator reads a normalized copy of the contract, with enums
-  and closed objects loosened, so an installed app decodes rows from a
-  newer API.
 
 ### API requests
 
@@ -105,8 +99,8 @@ each question, and the invariants that both clients and the API hold.
   `CrosstuneRecordingActivity`. Never the store, sync, or audio modules.
 - The share extension imports only `CrosstuneShare`, `CrosstunePalette`,
   and `CrosstuneVocabulary`. Never the store, sync, commands, audio,
-  analytics, or design modules. It never writes the database. It hands
-  items to the app through the shared inbox.
+  analytics, or design modules. It never writes the database. It writes
+  only to the share inbox in `CrosstuneShare`.
 - ActivityKit and Live Activity intent code compiles only under
   `#if os(iOS)`, since the same modules build for the Mac.
 - An intent that starts a recording starts it on `RecorderHost`'s
@@ -125,11 +119,10 @@ each question, and the invariants that both clients and the API hold.
 
 ### Logic written twice
 
-- Nothing the tuner hears leaves the device.
 - The pitch detector and the isolate mask exist on the web and on Apple.
   Both test against one shared fixture in `fixtures/`.
-- The mono rule exists on the server (`jobs/mono.py`) and on Apple
-  (`MonoDetector`). No shared code.
+- The mono rule exists on the server (`api/src/crosstune/jobs/mono.py`)
+  and on Apple (`MonoDetector`). No shared code.
 - A change to a mask constant or a mono threshold lands on every side in
   the same change.
 
@@ -138,11 +131,12 @@ each question, and the invariants that both clients and the API hold.
 | Question                 | Answer                                                                                                                                                                                                         |
 | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Which write wins         | The client's `updated_at`. Last write wins, per row. Never per-field merges.                                                                                                                                   |
-| What to pull next        | `server_seq`, one Postgres sequence. Every writer that bumps it holds the per-user advisory lock (`lock_user`) through commit, so numbers commit in order. A pull holds it shared. A cursor never skips a row. |
+| What to pull next        | `server_seq`, one Postgres sequence. Bumped only under `lock_user` (Server writes and locks). A pull holds it shared. A cursor never skips a row. |
 | Who owns a row           | The token.                                                                                                                                                                                                     |
 | Is a row deleted         | `deleted_at`. Deletes are soft and tombstones are kept forever, so a deletion reaches every device. A delete clears the row's content.                                                                         |
 | History                  | Plays, practice sessions, scan views, and status changes: insert-only, on their own route and cursor (`GET /v1/sync/events`), out of the main pull.                                                            |
 | Which local database     | One per user, so two accounts on one device never share data. Sign-out deletes it, and refuses while unsent changes (other than history) or unuploaded files remain.                                           |
+| Partial date | UTC midnight at the start of its period, always shown in UTC, so a year never moves a day west of UTC. |
 | What an account can add  | Its grants, on the server (Entitlements).                                                                                                                                                                      |
 | Which version is running | Each side's package or bundle version, which is also its Sentry release. Clients send theirs in `X-Client-Version` and `X-Client-Platform`.                                                                    |
 | Host settings            | The host dashboards, never the repository. Configuration says how each deployable reads them.                                                                                                                  |
@@ -155,7 +149,7 @@ each question, and the invariants that both clients and the API hold.
   transaction, parents before children, with one result per change:
   - `applied`: new, or a newer timestamp. An equal timestamp is a no-op
     that reports `applied`, so a replay is safe. The client stamps each
-    write to a row at least 1 ms after the last.
+    write to a row strictly after the last.
   - `stale`: the stored row is newer. The response carries it, and the
     client overwrites its copy.
   - `invalid`: only that change is refused. The client drops it and
@@ -171,10 +165,10 @@ each question, and the invariants that both clients and the API hold.
   when a push omits it: `tuner_a4_hz`, `place_id`, `place_origin`.
 - History rows are accepted against a soft-deleted parent, so a device
   that played something another device deleted still lands its history.
-- A column that may name a row only the device holds goes in
+- A column that can name a row only the device holds goes in
   `TableSpec.absent_parents`, never in `parents` alone. Server code that
   reads one checks that the row exists and is the caller's: another
-  account may store that ID later.
+  account can store that ID later.
 - How to release a shape change: `operations.md`.
 
 ### Server writes and locks
@@ -190,13 +184,12 @@ each question, and the invariants that both clients and the API hold.
     Clerk ID lock that creating a new account takes, and answers 429 when
     the wait ends.
   - A request route that waits on `lock_user` or the billing lock counts
-    against the account's requests in flight, one budget shared by every
-    such route.
-    It checks that the caller owns the row named in the URL before the
-    wait, and refuses before the wait whatever it can refuse without the
-    lock. A call to an outside service that it makes before the wait
-    runs inside the slot too, so a busy account is refused before the
-    call.
+    against the account's in-flight budget, one budget shared by every
+    such route. Before the wait, the route:
+    - Checks that the caller owns the row named in the URL.
+    - Refuses whatever it can refuse without the lock.
+    - Runs any outside-service call inside the in-flight budget, so a
+      busy account is refused before the call.
   - A request holds at most one pooled connection. A lock that needs a
     connection of its own runs the request's session on that connection,
     so requests from many accounts can never each hold one connection and
@@ -204,21 +197,16 @@ each question, and the invariants that both clients and the API hold.
   - Only jobs, ops commands, and the Clerk webhook, which no user can send
     at will, wait with no bound. One exception: a route that commits a
     money step takes the user lock again with no bound, inside the
-    account's slot, so a timeout never leaves a refund without its cancel.
+    account's in-flight budget, so a timeout never leaves a refund
+    without its cancel.
   - A webhook that gives up on a lock answers 503, never 429 or 200, so
     the sender delivers the event again.
 - A write that moves a paid subscription between accounts takes the
   subscription's lock before any user lock, so two such writes never
   deadlock and each sees the subscription's current holder.
-- The job runner claims jobs round-robin across accounts: the account
-  whose last claim is oldest claims next. A sync push can queue hundreds of
-  jobs, so oldest-first across everyone lets one account delay all others.
-  - Each account's last claim is stored in its own table, never derived
-    from the queued rows. A job row is deleted when it finishes.
-- Location lookups spend the shared Apple Maps quota. They run at most
-  `place_lookups_per_minute` per account, and within the daily budgets
-  (Location). The rest are held until the pace or the next UTC day allows
-  them, not dropped and not counted as attempts.
+- The job runner claims round-robin across accounts, oldest last claim
+  first, so one account's queue never delays the rest. Each account's last
+  claim lives in its own table, never derived from queued rows.
 
 ### Local database
 
@@ -252,11 +240,11 @@ each question, and the invariants that both clients and the API hold.
 ## Supported client versions
 
 - `CROSSTUNE_APPLE_MIN_VERSION` is the lowest Apple version the API serves.
-  A request below it gets 426 `urn:crosstune:update-required`, and the app
-  runs as if offline until updated.
+  A request below it gets 426 `urn:crosstune:update-required`.
 - The web is always current and has no lowest version.
-- The API keeps each account's last-seen version per platform. A change to
-  the lowest version is decided from who still runs what.
+- The API keeps each account's last-seen version per platform. Raise
+  `CROSSTUNE_APPLE_MIN_VERSION` only after the last-seen versions show no
+  active account below it.
 - API changes are expand, then contract: add the new shape and keep the
   old one working. Remove the old shape only once
   `CROSSTUNE_APPLE_MIN_VERSION` is past every build that uses it.
@@ -264,9 +252,6 @@ each question, and the invariants that both clients and the API hold.
 ## Entitlements
 
 - Grants are the source of truth and never leave the server.
-  - Kinds: `premium`, `storage_addon`.
-  - Sources: `trial`, `apple`, `stripe`, `comp`.
-  - Premium while any Premium grant has no expiry or expires after now.
 - RevenueCat is the source for paid grants. Every path reads the account
   from RevenueCat again and never trusts a webhook payload.
 - A paid grant is keyed by RevenueCat's subscription ID. Never the store
@@ -285,9 +270,9 @@ each question, and the invariants that both clients and the API hold.
   read-only to clients.
   - It changes only when a grant is written, never when one expires or a
     deadline passes.
-  - A client judges expiry against its own clock, plus 7 days when
-    `auto_renews`, so an offline device neither keeps a trial forever nor
-    loses a renewal it has not pulled.
+  - A client judges expiry against its own clock, plus a grace period
+    when `auto_renews`, so an offline device neither keeps a trial
+    forever nor loses a renewal it has not pulled.
 - A one-time notice is a timestamp that the server sets once, never a
   settings field, so an older device cannot reset it.
 - No plan check on a recording's download, export, or delete, on the
@@ -323,8 +308,8 @@ each question, and the invariants that both clients and the API hold.
   a release that removes its button.
 - Clerk never revokes Sign in with Apple. The API does, from a fresh
   authorization code that the client sends with `DELETE /v1/me`.
-- Deletion queues PostHog deletes, repeated over a week, since PostHog
-  deletes only the events it already has.
+- Deletion queues repeated PostHog deletes, since PostHog deletes only
+  the events it already has.
 - A third-party cleanup failure never blocks a deletion.
 - `users.country` holds a country, never an IP address. No route returns
   it.
@@ -345,13 +330,8 @@ each question, and the invariants that both clients and the API hold.
   downloads. The download stops at the room left, so an account with no
   room cannot make the server fetch a file it will refuse.
 - A failed link resolve gives an untitled link, never an error.
-- In-app search only where the service's API allows it:
-  - In the app: Apple Music, TIDAL, and the Internet Archive, on the app's
-    own credentials.
-  - Search page only: YouTube, Spotify, Bandcamp, SoundCloud, and
-    Slippery-Hill. Their APIs refuse a multi-user app, or they have none.
-  - Never iTunes Search: one per-IP limit for every user.
-  - No matching across services: Odesli closed its keyless API.
+- In-app search only for a service whose API allows a multi-user app on
+  the app's own credentials. Otherwise its search page only.
 - The API builds every search-page URL and decides which services search
   in the app. A service that gains or loses an API changes one adapter
   and no client.
@@ -378,21 +358,17 @@ each question, and the invariants that both clients and the API hold.
 - A list plays only sources that the app's own engine controls. Never an
   embed: it cannot report a track's end, and it stops when an iPhone
   locks.
-- MusicKit answers remote commands, next, and previous itself. The app
-  empties its queue when the player closes or a recording starts. On iOS,
-  it makes the audio session mixable before a song, or MusicKit
-  interrupts it.
 
 ## Files
 
 ### Uploads and storage
 
-- Upload: an upload slot (quota reserved, PUT signed), a PUT to R2, then a
-  confirm. Each slot signs its own key and its declared size. Confirm
-  copies the object to where the server reads it, so a reused URL writes
-  where nothing reads.
+- Upload: an upload slot (quota reserved, PUT signed for its key and
+  declared size), a PUT to R2, then a confirm. The server reads only
+  confirmed copies, so a reused URL writes where nothing reads.
 - The web service worker owns the PUT and the confirm of a file it was
-  handed. The page never uploads a file with a live hand-off.
+  handed. The page never uploads a file whose service-worker hand-off has
+  not expired.
 - A job that stores a recording file outside an upload slot (transcode,
   trim, re-encode, split) checks it against the quota under the user's
   lock, before its commit, and never commits a file past the quota. A
@@ -407,14 +383,10 @@ each question, and the invariants that both clients and the API hold.
   them.
 - Each database owns one storage space and holds credentials for no other.
   The sweep and the purge delete whatever their database does not know.
-  A `pr-<n>` API adds its own prefix. Older scans keep `notation/` keys,
-  so the sweeps look under both prefixes.
+  A `pr-<n>` API adds its own prefix.
 
 ### Media processing
 
-- ffprobe and ffmpeg read uploads only as local files, through the
-  demuxers of the allowed types, with no environment but `PATH`, and
-  under `prlimit` on Linux. The API process is non-dumpable.
 - Every ffmpeg or ffprobe run goes through `run_media_tool` or
   `stream_media_tool`. Output that grows with the upload is streamed and
   never held whole: the API process serves every request from the same
@@ -422,65 +394,28 @@ each question, and the invariants that both clients and the API hold.
 - A media tool's output holds the upload's tags, its location among them.
   A variable that holds it takes a name on the Sentry scrub list in
   `error_reports.py`.
-- A recording longer than `MAX_RECORDING_MS` fails, unless it is a split
-  parent (Splits). It fails before any encode when its metadata says so.
-  Otherwise it fails when a whole-file write, which stops just past the
-  limit, reaches it.
-- Encode time follows decoded length, not file size, and stays inside the
-  ffmpeg time limit.
+- A recording longer than `MAX_RECORDING_MS` fails unless it is a split
+  parent (Splits).
+- Bound an encode by decoded length, never file size, within the ffmpeg
+  time limit.
 - Every position (trim, loops, playback range) is on the source timeline.
   An original covers `source_offset_ms` to `source_duration_ms` of it.
   Both are server-owned.
-- A partial date is stored as UTC midnight at the start of its period and
-  always shown in UTC, so a year never moves a day west of UTC.
 
 ### Splits
 
-- A split makes pieces. The parent recording keeps the range of the first
-  piece. Each later piece is a new recording with `split_from_id`. Each
-  piece keeps its own stream-copied slice of the parent's original.
-- A split writes originals under revisioned keys. A replaced original is
-  deleted only after the commit that stops naming it.
-- When a split completes, a live parent swaps the full original for a
-  slice: from its trim start to its first piece's start, or to its trim
-  end if that is later. A trim saved after the split never removes audio
-  from the original. A soft-deleted parent keeps the full original until
-  the purge. A completion that fails on every attempt records the split
-  completed and keeps the full original, so no pass retries it forever.
+- A split never removes audio that a live piece or a later trim still
+  needs.
 - A push never clears a stored `split_id` or `split_size`. Only a new
-  `split_id` replaces them.
+  `split_id` replaces them. Such a push is rewritten in place, never
+  refused, since a device that has not pulled the split pushes the parent
+  without it.
 - A push never widens a split parent's trim past its stored start or its
-  split's first piece.
-- Both of these are rewritten in place, never refused, since a device that
-  has not pulled the split pushes the parent without it.
-- A piece can arrive before its parent's `split_id`. It stays
-  `processing` and is cut once the parent's split lands. A piece that no
-  split of its parent will cut fails after `split_piece_grace_seconds`,
-  also when the parent is deleted, since a newer push can undelete the
-  parent with its split.
-- A completed split cuts no more pieces. Completing it fails its deleted
-  pieces still waiting for their cut, so one revived later never gets
-  audio from a narrowed original. A failed piece is retried only while
-  its parent is live and its split is the parent's latest and open.
-- A parent's live pieces that are not `ready`, of every split and every
-  `created_by_split_id`, are held to one split's worth
-  (`MAX_SPLIT_PIECES`).
-- The parent's own files do not count against its pieces, so a split
-  that only divides the parent is refused only when the account's other
-  files already fill the quota.
+  split's first piece. Such a push is rewritten in place, never refused.
 - A recording longer than `MAX_RECORDING_MS` is accepted only as the
   parent of a split whose trim range is at most `MAX_RECORDING_MS`, up to
   `MAX_SPLIT_SOURCE_MS`. Its source is never decoded whole.
-- A split parent's upload can be up to `split_parent_max_file_bytes`.
-  Every other upload keeps `max_file_bytes`. Both count against the quota.
-- Capture stops near `split_parent_max_file_bytes` or a minute before
-  `MAX_SPLIT_SOURCE_MS`, whichever comes first, so the saved length stays
-  within both.
-- Clients hold the upload of an unsplit recording longer than
-  `MAX_RECORDING_MS` or larger than `max_file_bytes` until it is split. A
-  file longer than `MAX_SPLIT_SOURCE_MS` or larger than
-  `split_parent_max_file_bytes` is not held: its upload meets the server's
-  refusal.
+- Clients hold an upload the server would refuse until it is split.
 - A parent recording holds its full original while a live piece split
   from it is `processing`, unless the parent is `failed`, or deleted while
   `pending_upload`. The purge sweep and the parent's trim job wait for
@@ -511,12 +446,11 @@ each question, and the invariants that both clients and the API hold.
 - A file from `withLocalAudio` is a view. Never written back: it stores
   the copy that the chunks avoid.
 - Under low storage, audio the server can send again is removed first. A
-  local write refused for space clears it before a recording stops.
+  local write refused for space first removes that audio, then retries,
+  before a recording stops.
 
 ### Isolate and mono
 
-- Isolate plays recordings only, never streaming links. `is_mono` decides
-  whether the stereo range shows.
 - The server sets `is_mono` for every playback file, including recordings
   that predate the field. The Apple app sets it while it is unknown. A
   split piece takes the parent's value. The web client never measures.
@@ -530,28 +464,10 @@ each question, and the invariants that both clients and the API hold.
   signed snapshot) charges the daily budgets in `places/budget.py` first,
   per account and for the team. The budgets live in Postgres: the
   per-minute limiters are in memory and reset when the API sleeps.
-- The Maps key never reaches the browser. The API signs the MapKit JS
-  token for the requesting origin when that origin can sign in (the web
-  origin, or a Clerk authorized party), and otherwise for the web origin.
-- Location search ranks results near one point, the first that exists:
-  1. The recording's location.
-  2. A linked saved location's point.
-  3. The device's location, only while location access is on.
-  4. The latest recording with a location.
-  5. The center of the account's country.
-- A search hint only ranks. It never filters and never sets a location.
-- The center of the account's country comes from `GET /v1/me`, which each
-  client's sync keeps.
-- A linked saved location's point also centers Nearby and the distances.
-- The pin map starts at the first that exists: the recording's point, a
-  linked saved location's point, the device, the typed search's area, the
-  latest placed recording, the center of the account's country, then a
-  world view.
-- Web location search goes through the API, which applies the country
-  center itself. Apple searches on the device with MapKit.
-  `MKLocalSearchCompleter` ignores its region, so a regional
-  `MKLocalSearch` around the point runs beside it, and its results come
-  first.
+- Location lookups: at most `place_lookups_per_minute` per account,
+  within the daily budgets. Over the limit: held until allowed, never
+  dropped or counted as attempts.
+- The Maps key never reaches the browser.
 - A dropped pin is named by the API's reverse lookup on both clients, so
   the same point gets the same name. No client geocodes on its own.
 
@@ -559,9 +475,7 @@ each question, and the invariants that both clients and the API hold.
 
 - The Worker's code runs only for `/v1/*`, and proxies it without the
   site's cookie or any client-sent country or IP header. Every other path
-  is a static asset, with `index.html` for an unknown path. The Worker
-  picks the API by hostname: production, a pull request's API through KV,
-  or else development.
+  is a static asset, with `index.html` for an unknown path.
 - A service worker precaches the shell, so an offline reload needs
   nothing more. API responses are never cached. The service worker and
   the manifest are `no-cache`, so a new build reaches an installed app on
@@ -573,7 +487,7 @@ each question, and the invariants that both clients and the API hold.
 
 | Environment  | API                         | Database                                    | Clerk instance | Web client                               | Recordings                                                                                        |
 | ------------ | --------------------------- | ------------------------------------------- | -------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| Local        | uvicorn on port 8000        | Postgres in Docker, a database per worktree | Development    | Vite dev server, proxies `/v1`           | RustFS bucket `crosstune-local`, `crosstune-wt-<name>` in a worktree                              |
+| Local        | uvicorn                     | Postgres in Docker, a database per worktree | Development    | Vite dev server, proxies `/v1`           | RustFS bucket `crosstune-local`, `crosstune-wt-<name>` in a worktree                              |
 | Development  | Railway, generated hostname | Neon development                            | Development    | Worker Preview at `main-crosstune-web`   | R2 bucket `crosstune-recordings-dev`                                                              |
 | Pull request | Railway `pr-<n>`, generated | Neon branch `pr-<n>`                        | Development    | Worker Preview at `<name>-crosstune-web` | R2 bucket `crosstune-recordings-preview`, prefix `pr-<n>/`, seeded from development on every push |
 | Production   | Railway, `api.<domain>`     | Neon production                             | Production     | Worker on `my.<domain>`                  | R2 bucket `crosstune-recordings`                                                                  |

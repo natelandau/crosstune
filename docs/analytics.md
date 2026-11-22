@@ -7,12 +7,10 @@ buckets. This page never lists them.
 ## Site and app
 
 One PostHog Cloud project, production only, receives the public site and
-the app. No other environment has a token. Two super properties separate
-the two.
+the app. No other environment has a token.
 
-- `product` is `site` or `app`. Every event carries it.
-- `platform` is `site`, `web`, `ios`, `ipados`, or `macos`. Every event
-  carries it.
+- `product` and `platform`, super properties on every event, separate
+  the site from the app.
 - The app sends `$screen` on every platform, the web app included. Only the
   site sends `$pageview`.
 
@@ -54,15 +52,14 @@ two audiences.
 - **Buckets.** A count, duration, or size travels as a fixed range. The
   `buckets` section of the plan defines each range once. Never send the
   raw number.
-- **Web URLs.** The web app scrubs every URL to a route pattern in
-  `before_send`, so no event carries a tune, list, or recording ID in a
-  path or a query string.
+- **Web URLs.** A new web route word that is not an ID goes in
+  `KEPT_SEGMENTS` in `web/src/usage/scrub.ts`, or charts show it as
+  `:id`.
 - **No milestone events.** A device cannot know that an action is the
   first one for a person. Build "first time" in a PostHog funnel. The one
   exception is `account_created`: the API decides it and tells the client in
   the response that created the account, so it is sent at most once per account.
-- **No session replay.** No platform records sessions. Code turns replay
-  off on the web and iOS; the Mac SDK has no replay.
+- **No session replay** on any platform.
 - **Share usage data starts from the region.** Until the user chooses,
   `/v1/region` sets the default: off where consent is required or the
   country is unknown, on elsewhere. A client holds its calls in memory
@@ -74,29 +71,23 @@ two audiences.
 
 1. Edit `analytics/tracking-plan.json`. Give the event a description, the
    clients that send it, its properties, and its `answers`: the keys of
-   the questions it answers, from the `questions` section. An event that
-   answers no question is not added.
-2. Run `just analytics::check`. It rejects a bad name, an unknown enum or
-   bucket, an answer that names no question, and a property that breaks
-   the content rule.
+   the questions it answers, from the `questions` section.
+2. Run `just analytics::check`. It rejects a name that is not
+   snake_case, an unknown enum, bucket, or question, and a string
+   property without an enum, bucket, or format.
 3. Add the code to each client that sends the event. On Apple, a model
    receives the `AnalyticsClient` as an init parameter, and a view reads
    it from the environment. On the web, a component reads the client
    with `useAnalytics()`, code outside React takes it as an argument, and
    nothing in `web/src/commands/` sends.
-4. Run the contract test of each client. The test fails if the client and
-   the plan differ in either direction. CI reruns each one when the plan
-   changes, so a new client's workflow lists
-   `analytics/tracking-plan.json` in its path filters.
-5. Merge. Each push to `main` that starts the `Analytics` workflow runs
-   `just analytics::sync`, which pushes the description and tags of each
-   event to the PostHog event definitions. Every change to the plan starts
-   it. Run the sync by hand to sync before a merge.
+4. Run each client's contract test: `web/src/usage/trackingPlan.test.ts`,
+   `apple/CrosstuneKit/Tests/CrosstuneAnalyticsTests/TrackingPlanTests.swift`,
+   `site/test/tracking-plan.test.ts`. A new client: add
+   `analytics/tracking-plan.json` to its workflow's `paths`.
+5. Merge. CI runs `just analytics::sync` on a push to `main` that changes
+   `analytics/`. To sync before merging: run it by hand.
 
-Run `just analytics::audit` to compare PostHog with the plan. It lists
-the events that PostHog received in the last 30 days but the plan does
-not list. It also lists the events in the plan that PostHog never
-received.
+`just analytics::audit`: compare PostHog with the plan.
 
 `sync` and `audit` read a PostHog key from `analytics/.env`, which Git
 ignores. Run `just analytics::test` to test the checker.

@@ -1,8 +1,5 @@
 # Crosstune operations
 
-Setup, worktrees, recipes and tooling, Apple builds, and the procedures
-and gotchas of testing, releasing, deploying, and rolling back.
-
 - Every recipe: `just --list`. A recipe's arguments:
   `just --usage <recipe>`.
 - How each deployable reads its settings: `architecture.md`,
@@ -10,24 +7,20 @@ and gotchas of testing, releasing, deploying, and rolling back.
 
 ## Prerequisites
 
-| Tool                                                   | Version        | Notes                                                                                              |
-| ------------------------------------------------------ | -------------- | -------------------------------------------------------------------------------------------------- |
-| [uv](https://docs.astral.sh/uv/)                       | any            | Installs Python 3.13, the API's dependencies, and the root tooling with the git hooks.             |
-| [Node.js](https://nodejs.org/)                         | 22.22 or newer | Runs the web toolchain.                                                                            |
-| [pnpm](https://pnpm.io/)                               | 12.11.2        | Pinned in `web/package.json`. `corepack enable` installs it.                                       |
-| [just](https://just.systems)                           | 1.46 or newer  | The task runner. Recipe options and argument help need 1.46.                                       |
-| [Docker](https://docs.docker.com/get-docker/)          | any            | Runs Postgres 18, RustFS, and the API's ffmpeg for development and the API tests. Must be running. |
-| [ffmpeg](https://ffmpeg.org/)                          | any            | Builds the App Store preview. The API never uses it.                                               |
-| [Xcode](https://developer.apple.com/xcode/)            | 27             | Builds and tests the Apple app. Root `lint`, `format`, and `test` need it.                         |
-| [Periphery](https://github.com/peripheryapp/periphery) | 3.8            | Finds unused Swift code for `just apple::deadcode`.                                                |
+| Tool                                                   | Version                                | Notes                                                                                                    |
+| ------------------------------------------------------ | -------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| [uv](https://docs.astral.sh/uv/)                       | any                                    | Installs Python from `.python-version`, the API's dependencies, and the root tooling with the git hooks. |
+| [Node.js](https://nodejs.org/)                         | `engines` in `web/package.json`        | Runs the web toolchain.                                                                                  |
+| [pnpm](https://pnpm.io/)                               | `packageManager` in `web/package.json` | `corepack enable` installs it.                                                                           |
+| [just](https://just.systems)                           | 1.46 or newer                          | The task runner. Recipe options and argument help need 1.46.                                             |
+| [Docker](https://docs.docker.com/get-docker/)          | any                                    | Runs Postgres 18, RustFS, and the API's ffmpeg for development and the API tests. Must be running.       |
+| [ffmpeg](https://ffmpeg.org/)                          | any                                    | Builds the App Store preview. The API never uses it.                                                     |
+| [Xcode](https://developer.apple.com/xcode/)            | 27                                     | Builds and tests the Apple app. Root `lint`, `format`, `test`, and `deadcode` need it.                   |
+| [Periphery](https://github.com/peripheryapp/periphery) | 3.8                                    | Finds unused Swift code for `just apple::deadcode`.                                                      |
 
-Also a free [Clerk](https://clerk.com) development instance:
-
-- Sign-in methods on: email verification code, Apple, and Google. The
-  Apple app's welcome screen calls Apple and Google sign-in directly.
-- From its dashboard: the Frontend API URL
-  (`https://<slug>.clerk.accounts.dev`) and the publishable key
-  (`pk_test_...`).
+Also a free [Clerk](https://clerk.com) development instance. From its
+dashboard: the Frontend API URL (`https://<slug>.clerk.accounts.dev`) and
+the publishable key (`pk_test_...`).
 
 ## Set up once
 
@@ -54,11 +47,13 @@ When to use each recipe: `CLAUDE.md`, Worktrees.
   - Adds `.worktrees/<branch>`.
   - Copies every module's `.env`, `apple/Config/Secrets.xcconfig`, and
     `apple/Config/Local.xcconfig` from the main checkout.
-  - Runs `just setup`, so `just e2e` works there.
-  - Makes the worktree's database and bucket, then runs
+  - Runs each module's `setup`, so `just e2e` works there. Not the root
+    `uv sync`: the first `uv run` in the worktree makes the root `.venv`.
+  - Runs `just api::worktree-db` for its database and bucket, then
     `just api::testdata-accounts` on them.
-- A worktree made another way: run `just worktree-env`, then
-  `just setup`. `just dev` makes its database and bucket.
+  - Prunes the databases and Apple builds of removed worktrees.
+- A worktree made another way: `just worktree-env`, `just setup`, then
+  `just api::worktree-db`.
 - One Postgres container for every checkout. Each worktree has its own
   database and bucket, copied from main's by `just api::worktree-db`, so
   one branch's migrations never reach another.
@@ -82,26 +77,23 @@ When to use each recipe: `CLAUDE.md`, Worktrees.
 - The API's recipes, `just dev` included, put `scripts/media-tools.sh`
   first on `PATH`. It runs ffmpeg and ffprobe inside the API image's
   `media` stage, so local runs, CI, and production use one ffmpeg build.
-- An API restart runs the orphan sweep: it deletes every local file with
-  no user, recording, or scan row.
+- An API start sweeps the local bucket: it deletes every object with no
+  user, recording, or scan row.
 - `just dev-down` keeps the Postgres and RustFS volumes.
   `docker compose down -v` deletes them.
 
 ### Apple app
 
-- The Debug build calls the API on 8000 and signs in against the Clerk
-  development instance.
 - Recordings need `just dev`. The local API signs recording URLs as
   `/storage/...`, which go through the web dev server's proxy on 5173.
 - A device build reaches the Mac through Tailscale Serve:
   1. Run `just dev`, then `tailscale serve 5173`.
   2. In `web/.env`, add `.ts.net` to `LOCAL_ALLOWED_HOSTS`.
-  3. Run `just apple::setup`. It writes the device's origins into
-     `apple/Config/Local.xcconfig`, which git ignores and only Debug
-     builds read. Its settings carry `[sdk=iphoneos*]`, so the Simulator
-     and the Mac keep localhost.
-- `just apple::run` installs one copy that every worktree shares, so the
-  keychain trusts it once. It waits while another worktree holds the copy.
+  3. Delete `apple/Config/Local.xcconfig`, then run `just apple::setup`.
+     It writes the device origins only when the file is missing, and only
+     while Tailscale runs.
+- `just apple::run` installs one copy that every worktree shares. It
+  waits while another worktree holds the copy.
   `just apple::status` names the holder.
 - `just apple::shots` needs the screen unlocked, and Screen Recording and
   Accessibility for the app that hosts Peekaboo's daemon, not the
@@ -115,11 +107,10 @@ When to use each recipe: `CLAUDE.md`, Worktrees.
   Nothing deletes a one-off folder, and each holds gigabytes.
 - `just apple::prune-builds` deletes the builds of every checkout that no
   build tool uses. Run it when the disk is low.
-- Every `xcodebuild` test build turns off code coverage. With it on, the
-  Swift compiler crashes on the tuner's `isolated deinit`.
+- A one-off `xcodebuild` test build passes `-enableCodeCoverage NO`. With
+  coverage on, the Swift compiler crashes on `isolated deinit`.
 - A script that uses a build after `xcodebuild` exits sources
-  `scripts/in-use.sh`. Without it, a prune can delete the build under the
-  script.
+  `apple/scripts/in-use.sh`, so a prune cannot delete the build under it.
 
 ### Drive a running app
 
@@ -140,26 +131,21 @@ developer: `CLAUDE.md`, Apple app.
 
 ## Review shots
 
-`just shots NAME...` captures the branch and its merge base with main on
-each platform that the branch changed. It writes a page of the shots that
-differ to `.cache/shots/review/`.
+`just shots [--platform P] NAME...` captures the branch and its merge
+base with main on each platform that the branch changed, or on
+`--platform`. It writes a page of the shots that differ to
+`.cache/shots/review/`.
 
 - A name is a `SampleScreen` case. A screen with no case cannot be
   captured, so a new Apple screen needs one.
 - The base runs in `.worktrees/shots-base`, a detached checkout that the
   script owns and resets on each run. Never work in it.
-- Base shots are cached by commit in the main checkout's
-  `.cache/shots/base/`. The base's Apple builds are deleted when the run
-  ends, so the first run after main moves builds the base from scratch.
-- Two runs on one commit give the same pixels, or every review shows
-  noise:
-  - A capture writes a shot only once two screenshots in a row match.
-  - Anything that moves on its own, such as a playing recording, stops at
-    a fixed point before the shot.
+- A new `SampleScreen` case or capture stops anything that moves on its
+  own, such as a playing recording or a spinner, at a fixed point before
+  the shot. Two runs on one commit give the same pixels, or every review
+  shows noise.
 
 ## Test
-
-`just test`: every unit and integration suite. `just e2e`: Playwright.
 
 ### Gate cache
 
@@ -173,29 +159,22 @@ Hooks, people, and agents share the passes, in every worktree. Off when
 
 - A pass on uncommitted work also covers its commit.
 - `just gate status`: what passed and failed, with no run.
-- `GATE_CACHE_DISABLE=1 just <recipe>` forces a run. Use it after a
-  change to an input that no gate is keyed on.
+- After a change to an input that no gate is keyed on:
+  `GATE_CACHE_DISABLE=1 just <recipe>` once, then add that input to the
+  gate with `--path`, `--file`, or `--tool`.
 - Never `just gate clear` unless the owner asks. It deletes every pass in
   every worktree.
-- A recipe run with arguments always runs and records nothing. A recipe
-  that forwards arguments passes their count with `--argc "$#"` and
-  appends them to the command, so the command is written once.
+- A recipe run with arguments always runs and records nothing.
+- Adding or changing a gate: `just gate --skill`, then the usage comment
+  in `scripts/gate-cache.sh` (`--argc`, `--path`, `--file`, `--tool`,
+  `--junit`).
 - A new lint or test recipe runs through `{{ gate }}` under a name that no
   other gate uses.
-- A gate names each tracked path it reads with `--path`, a git pathspec
-  from the repository root: its module, `scripts/gate-cache.sh`,
-  `scripts/settings.just`, and every config, lockfile, fixture, or
-  contract it reads elsewhere. No `--path` only for a gate whose command
-  reads every file, such as `typos` and `scripts-test`.
-- A path that matches no file makes the gate run uncached, and gate-cache
-  prints the path. A typo or a stale path.
-- A gate that reads an ignored file, such as a module's `.env`, names it
-  with `--file`. A gate that depends on a tool no lockfile pins, such as
-  Node, ffmpeg, or Xcode's Swift, names its version command with
-  `--tool`. A hash of both joins the gate name.
-- A test gate whose runner writes JUnit XML names a folder under its
-  module's `.cache/junit/` with `--junit`, and its command writes the
-  report there. The run record then names each slow or flaky test.
+- A gate's `--path` list starts from its module's `{{ paths }}` and adds
+  every config, lockfile, fixture, or contract it reads outside it. No
+  `--path` only when the command reads every file, such as `typos` and
+  `scripts-test`. A moved or renamed path: update every list that names
+  it.
 - A gate never reads a service: gate-cache cannot see a service change.
   The one exception is `api-test`. Each run creates and migrates its own
   databases from the tree and drops them after.
@@ -205,6 +184,8 @@ Hooks, people, and agents share the passes, in every worktree. Off when
 - `just e2e` starts Postgres, its own API on :8001, and its own preview
   server against its own `crosstune_e2e` database. It signs in against
   the shared Clerk development instance and spends its usage limits.
+- Needs no `just dev`, and runs beside it: its ports, database, and
+  bucket are its own.
 - Needs `CLERK_SECRET_KEY` and `E2E_CLERK_USER_EMAILS` in `web/.env`, and
   the same development key as `CROSSTUNE_CLERK_SECRET_KEY` in `api/.env`.
 - One worker per address in `E2E_CLERK_USER_EMAILS`, each signed in as its
@@ -228,9 +209,8 @@ Hooks, people, and agents share the passes, in every worktree. Off when
   1. Make the baselines again with `just web::test-visual --update`.
   2. Look at the changed images before you commit them. A failed run puts
      each diff in `web/.vitest/attachments`.
-- A capture waits until no animation runs, so a cross-fade or a spinner
-  never lands in a baseline.
-- `just test` leaves out the `visual` project. CI runs it on one shard.
+- `just test` leaves out the `visual` project: run
+  `just web::test-visual` after a UI change.
 
 ## CI
 
@@ -243,23 +223,15 @@ Hooks, people, and agents share the passes, in every worktree. Off when
   differs from that list.
 - `Repo` runs the repo-wide hooks (`just lint-repo`) on every PR, with no
   filter.
-- Not required checks:
-  - `Apple`: runs only when `apple/`, the contract, the tracking plan, or
-    the web copy files its UI tests compare against change.
-  - `E2E`: a Clerk outage never blocks an unrelated merge.
-- A workflow from a fork runs only after you approve it on the PR.
+- Not required checks: `Apple` and `E2E`.
 - A job that holds deploy or signing secrets, and every action it calls:
   - Pins each third-party action by commit hash, with the version in a
     comment. zizmor does not require it, so nothing catches a tag.
   - Installs packages with `ignore-scripts`, so no dependency's install
     script runs beside the secrets.
-- A failed Playwright test runs once more. A test that passed only on the
-  second run leaves the job green and uploads `playwright-report`.
-- The `Web` workflow's browser tests run up to twice more. Its job summary
-  lists every test that needed another run.
-- The `Web` test shards run in Playwright's container image. Its tag
-  follows the `playwright` version in `web/package.json`. Change both
-  together. `just web::playwright-image` fails when they differ.
+- CI reruns a failed Playwright or browser test. A test that passes only
+  on a rerun leaves the job green: the `Web` job summary and the `E2E`
+  `playwright-report` artifact name it.
 - An API test that uses RustFS skips locally when RustFS is down. In CI it
   always runs, and fails without RustFS.
 
@@ -313,8 +285,8 @@ Hooks, people, and agents share the passes, in every worktree. Off when
   hosts deploy from it. Nothing else writes to `production`. The workflow
   is production's only gate.
 - A PR from a branch of this repository that changes `api/` gets its own
-  API (Railway `pr-<n>`), database (Neon branch), and recording prefix,
-  through the `Preview` workflow.
+  preview environment through the `Preview` workflow. What it runs:
+  `architecture.md`, Environments.
   - Any other PR's preview uses the development API.
   - A `pr-<n>` API has no mail, analytics, or billing keys, so those
     features are off. Test them on development.
@@ -324,7 +296,7 @@ Hooks, people, and agents share the passes, in every worktree. Off when
   - Closing the PR deletes its environment. If the cleanup fails, run
     `Preview` from the Actions tab with the PR number. The preview
     bucket's lifecycle rule deletes what remains.
-- An idle Railway environment shows the API as sleeping within 10
+- An idle Railway environment shows the API as sleeping after a few
   minutes. If it never does, something holds outbound traffic open: a
   connection, a timer, or telemetry. `railway logs --network` shows the
   connections.
@@ -335,24 +307,25 @@ Hooks, people, and agents share the passes, in every worktree. Off when
   versions. Only Dependabot PRs move the Docker image tags in
   `api/Dockerfile` and `compose.yml` and the GitHub Actions versions. A
   full update: `just update`, plus those PRs.
-- Dependabot runs monthly and skips a release until it is seven days old.
+- Dependabot's schedule and cooldown: `.github/dependabot.yml`.
   - Decline one update in a grouped PR: comment
     `@dependabot ignore <dependency>`. Closing a grouped PR declines all
     of it.
-  - Run it off schedule: **Insights**, **Dependency graph**,
-    **Dependabot**, then **Check for updates** beside a manifest.
+  - Run it off schedule: "Insights", "Dependency graph", "Dependabot",
+    then "Check for updates" beside a manifest.
   - Build an open PR again against the newest releases:
     `@dependabot recreate`.
   - A change to `.github/dependabot.yml` closes every grouped PR that the
     old config made. Merge the open ones first.
 - A pnpm version change in `web/package.json` or `site/package.json`,
   Dependabot's `packageManager` PRs included, changes `PNPM_VERSION` in
-  that Worker's build variables in the same change. Node is the module's
-  `.node-version`.
+  that Worker's build variables in the same change. The Worker reads Node
+  from the module's `.node-version`.
 
 ## Release
 
-On `main`, with a clean tree:
+Only when the owner asks for a release. In the main checkout, the one
+exception to the worktree rule, on `main` with a clean tree:
 
 ```bash
 git switch main && git pull
@@ -365,25 +338,26 @@ git push --follow-tags origin main
   `v<version>`. `just bump --dry-run` shows the plan.
 - Bump on `main` only. A tag on a PR branch points at a commit that the
   squash merge never lands, and the workflow refuses it.
-- The tag push runs `API`, `Web`, and `Apple` on the tagged commit, then
-  force-pushes `production`. A failing `Apple` check or **Archive the Apple
-  app** job, one per platform, stops the whole release.
-- After `production` moves, **Upload to TestFlight** uploads the archives,
+- The tag push runs `Repo`, `API`, `Web`, and `Apple` on the tagged
+  commit, then force-pushes `production`. A failing `Apple` check or
+  "Archive the Apple app" job, one per platform, stops the whole release.
+- After `production` moves, "Upload to TestFlight" uploads the archives,
   built as `<run number>.<attempt>`.
 - A failed upload does not undo production.
-  - Run both **Archive the Apple app** jobs again, which raises the
+  - Run both "Archive the Apple app" jobs again, which raises the
     attempt. A second run of the upload alone sends the same build number,
     and App Store Connect refuses it.
   - From a Mac: `just apple::testflight <build number>`, higher than every
-    uploaded build. Needs the Sentry variables in `apple/.env`, the
-    PostHog token and `SENTRY_DSN` in `apple/Config/Secrets.xcconfig`, and
-    `sentry-cli`.
+    uploaded build. Needs the App Store Connect key (`ASC_*`) and Sentry
+    variables in `apple/.env`, `POSTHOG_PROJECT_TOKEN` and `SENTRY_DSN` in
+    `apple/Config/Secrets.xcconfig`, and `sentry-cli`.
 - The App Store gets a release only when you submit its TestFlight build
   for review. The App Store version equals the build's
   `MARKETING_VERSION`. An App Store release cannot be rolled back. A fix
   is a new build, after its own review.
 - A home-screen install keeps the icon it was installed with. A release
-  that changes the icon says so.
+  that changes the app icon says in its notes that home-screen installs
+  keep the old icon until reinstalled.
 
 ### A change to a synced row's shape
 
@@ -414,8 +388,8 @@ required field, and that edit is lost. A shape change goes out in stages:
 - One host: deploy an earlier build again from its dashboard.
 - The site: revert on `main`, or roll back on the `crosstune-site`
   Worker's Deployments tab.
-- Both hosts: Actions tab, `Release` workflow, **Run workflow**, the older
-  tag under **Use workflow from**. It also uploads that version to
+- Both hosts: Actions tab, `Release` workflow, "Run workflow", the older
+  tag under "Use workflow from". It also uploads that version to
   TestFlight with a new build number. App Store installs keep their build.
 - Roll forward, never back, past:
   - An API release that accepts a new shape. The API would refuse pushes
@@ -444,7 +418,7 @@ By hand on a phone, for what the script cannot check:
 3. Install the app to the home screen.
 4. Turn on airplane mode and edit the tune.
 5. Turn off airplane mode.
-6. Make sure that the edit synced. Settings shows the last sync time.
+6. Confirm the edit synced: Settings shows the last sync time.
 
 ## App Store captures
 
@@ -453,20 +427,14 @@ fixture, `apple/Marketing/catalog.json`. The site uses no captures.
 
 - A capture name is a test method without its `test` prefix. A run
   replaces every earlier capture, so run all of a set in one call.
-- A name with `ipad` runs on the iPad. `folk` and `store-folk` run under a
-  status bar with no signal.
-- A `duo-` prefix runs a capture on the iPhone Duo: an iPhone capture
-  with the Duo closed, an iPad capture with it open. With no names, every
-  `store-` capture also runs on the Duo.
-- No simctl command folds a simulator. When a run needs the Duo folded
-  the other way, it waits for a person to fold or unfold it in DeviceHub.
-- XCUIScreen sees only the Duo's outer display. The script takes the
-  open Duo's stills with `simctl io`, and the tests wait for each one.
-- Order: `capture-test`, then `capture-mac`, then framing. `capture-test`
-  empties the folder that the Mac stills go in. `capture-mac` needs the
-  screen unlocked.
-- Framing draws HTML in Google Chrome with the site's font, so it needs
-  Chrome and `just setup`. The preview needs ffmpeg.
-- The capture simulators are never signed in to an Apple Account, so no
-  system alert covers a capture. Location is refused, so a recording
-  never opens on the location note.
+- A run that needs the iPhone Duo folded or unfolded waits for a person
+  to do it in DeviceHub.
+- Order: `just apple::capture-test`, then `just apple::capture-mac`, then
+  `just apple::store-frames` and `just apple::store-preview`.
+  `capture-test` empties the folder that the Mac stills go in.
+  `capture-mac` needs the screen unlocked.
+- `store-frames` draws HTML in Google Chrome with the site's font, so it
+  needs Chrome and `just setup`. `store-preview` needs ffmpeg.
+- Never sign a capture simulator in to an Apple Account: a system alert
+  would cover the capture. Location stays refused, so a recording never
+  opens on the location note.

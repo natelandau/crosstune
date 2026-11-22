@@ -11,9 +11,8 @@ page and wins where the two differ:
 
 ## Writing these pages
 
-`CLAUDE.md`, Documentation, sets the gate. Here, only behaviors every
-screen shares. Never how one screen or feature works, never a value, and
-never what a shared component, token, or test already enforces.
+`CLAUDE.md`, Documentation, sets the gate. Here: only behavior two or
+more platforms share.
 
 - A rule two or more platforms share goes here, once. A platform page
   holds only what differs or exists on that platform.
@@ -27,9 +26,7 @@ never what a shared component, token, or test already enforces.
 - Every control and shared pattern comes from the platform's shared
   component library. A screen composes them and never builds or restyles
   its own. A new kind of control joins the library.
-- A button that starts work shows a spinner while the work runs past a
-  moment, then a check when it succeeds. A failure returns the label and
-  shakes the button, and the screen says what went wrong.
+- A failed action says on the screen what went wrong.
 
 ## Principles
 
@@ -37,14 +34,15 @@ Decide any case the rules below do not name.
 
 - One design language, each platform's native form. Same tokens, rows,
   zones, and words everywhere.
-- Each kind of control has one home. A control's job tells the musician
-  where it is.
-- Quiet chrome, musical content. Color comes from the music and one
-  accent.
+- Each kind of control has one place, set by the zone table under Shell
+  and placement.
+- Chrome uses neutral roles. Color comes only from music data (keys,
+  status, loops) and the one accent.
 - An item is a document, not a form. Read on a page, edit one attribute
   in place, edit many in a sheet.
 - Layout follows the width of the column it sits in, never the device.
-- Looks back, never nudges. No streaks, no points, no badges for use.
+- Shows past practice. Never prompts more use: no streaks, points, or
+  badges.
 
 ## Words
 
@@ -58,19 +56,24 @@ Decide any case the rules below do not name.
 - Help text: one or two sentences, with a period. Label: no period.
 - A length or size limit appears only in a warning message, never in a
   hint or help text.
-- Example placeholder: lowercase, ends in an ellipsis. Search placeholder:
-  capitalized imperative, `Search tunes`.
-- Opens more interface: ends in an ellipsis, `New list…`.
+- Example placeholder: lowercase, ends in an ellipsis character
+  (`U+2026`), never three periods. Search placeholder: capitalized
+  imperative, `Search tunes`.
+- Opens more interface: the label ends in an ellipsis character
+  (`U+2026`).
 - Glyph-only control: named in words. Pointer platforms also show the name
   as a tooltip.
-- Control acting on one thing: action plus thing, "Edit Soldier's Joy".
+- Accessible name of a control acting on one item in a list or row:
+  action plus the item's name, "Edit Soldier's Joy".
 - Picker's empty choice named for its effect: "Not set" (field empty),
   "Any" or "All" (widen a filter), "Clear" (erase across items), "Keep"
   (no change). Items that disagree: "Mixed".
 - Relative date carries its verb: "Edited today", "Edited Mar 4". Year only
   when not the current one.
 - Same field, same label on every screen and platform.
-- Sizes truncate, never round. Durations `m:ss`.
+- File sizes truncate, never round. Durations `m:ss`.
+- Signed number: true minus (`U+2212`), with the sign in a fixed-width
+  slot so the digits do not shift.
 - Row title: the most specific name. Drop what the heading above already
   says.
 
@@ -87,16 +90,9 @@ files, never here.
 | Role       | What a component paints with                   | Job: `page-background`, `text-secondary`, `accent` |
 | Data color | Keys, loops, the heatmap, the tuner, waveforms | What it draws, defined from a role or primitive    |
 
-- One set of role names on every platform: kebab-case on the web
-  (`text-primary`), camelCase on Apple (`textPrimary`). Never
-  `foreground` on Apple.
-- Only the token files name a primitive. A component names a role or a
-  data color, never a primitive.
 - No hue in a role name, so a role can point at any hue without a
   rename.
-- No color value in a component: no hex, `rgb()`, mix, opacity on a
-  color, or system color. A hover, a tint, or a mix is its own token in
-  the token files.
+- A hover, a tint, or a mix is its own token in the token files.
 
 ### Choosing a color
 
@@ -104,17 +100,18 @@ files, never here.
 2. Take the role whose job matches, from the table below.
 3. If two roles fit, take the more specific job: `on-tint` over
    `accent` for a label on a tint.
-4. If no role fits, stop and ask the owner. Never add a token for one
-   screen, never type a value, and never put opacity on a role.
+4. If no role fits, stop and ask the owner. Never add a role for one
+   screen.
 
 ### Roles
 
 | Role                                                                          | Job                                                                                                         | Never                                                       |
 | ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
 | `page-background`                                                             | Under content, pages, lists, sheets                                                                         |                                                             |
+| `page-background-translucent`                                                 | A see-through page backing under a label or handle drawn over a waveform                                    |                                                             |
 | `surface`                                                                     | The sidebar, cards, footers                                                                                 |                                                             |
 | `surface-raised`                                                              | A control on a `surface`                                                                                    |                                                             |
-| `field`                                                                       | A control on the page: inputs, chips, secondary controls                                                    | On a `surface`, where it reads gray on gray                 |
+| `field`, `field-hover`                                                        | A control on the page: inputs, chips, secondary controls; its hover                                         | On a `surface`, where it reads gray on gray                 |
 | `border`                                                                      | Every rule and edge                                                                                         |                                                             |
 | `border-strong`                                                               | Dashed outlines, slider tracks                                                                              |                                                             |
 | `hover-overlay`                                                               | A hover over a fill that has no hover role                                                                  |                                                             |
@@ -124,6 +121,7 @@ files, never here.
 | `disabled-border`, `on-disabled`                                              | A disabled filled control: no fill, a ring, a faint label                                                   | A fill, which reads as another filled control               |
 | `accent`                                                                      | A plain button's words, selection and chosen states, focus, switches, set filters                           | Charts, glyphs at rest, decoration, a fill under white text |
 | `accent-fill`, `on-accent-fill`                                               | A primary action's fill and its label                                                                       |                                                             |
+| `accent-track`                                                                | An on switch's track, 3:1 on every background a switch sits on and under its white thumb                    |                                                             |
 | `tint-subtle`                                                                 | A hover on a row or plain control; the playing row                                                          |                                                             |
 | `tint`                                                                        | Selection, the current item, a set filter, a tinted control                                                 |                                                             |
 | `tint-strong`                                                                 | A hover on a tint; the strongest step an accent label can sit on                                            |                                                             |
@@ -138,7 +136,8 @@ files, never here.
 | `warning-fill-strong`, `danger-fill-strong`, `on-status-strong`               | A fill under a white label the platform draws, such as an Apple swipe action                                |                                                             |
 | `status-known`, `status-learning`, `status-unknown`, `status-unknown-on-fill` | A tune's status, the same glyph and color everywhere it shows                                               |                                                             |
 | `record`, `on-record`                                                         | Recording only; its label, dark, since white falls under 4.5:1                                              | A destructive action                                        |
-| `tuner-background`, `on-tuner`, `on-tuner-secondary`, `tuner-fill`            | The tuner, in every appearance                                                                              | Any other screen                                            |
+| `tuner-background`, `on-tuner`, `on-tuner-secondary`                          | The tuner, in every appearance                                                                              | Any other screen                                            |
+| `tuner-close`, `tuner-in-tune`, `tuner-in-tune-background`                    | The tuner's close step, its in-tune color, and its background while in tune                                 | Any other screen                                            |
 
 A role only one platform has is on that platform's page.
 
@@ -155,20 +154,11 @@ A role only one platform has is on that platform's page.
 
 ### Changing the system
 
-- The owner approves every change below before it is made, since each
-  one changes pixels on every screen a role reaches, or weakens a guard:
-  - A new role, a removed role, or two roles merged.
-  - A changed value, a primitive included.
-  - A new entry on a guard test's allowlist.
-  - A lower contrast threshold.
 - A new role ships with all of these in the same change:
-  - A value in both appearances.
-  - The web and Apple definitions under one name, or a reason in the
-    parity test's platform-only list.
-  - Its `tokens.ts` twin on the web.
-  - A contrast test for every pair it carries.
-  - Its row in the table above, or on its platform's page when one
-    platform has it.
+    - A value in both appearances.
+    - A contrast test for every pair it carries.
+    - Its row in the table above, or on its platform's page when one
+      platform has it.
 - A new palette changes primitives. A new pairing points a role at
   another primitive. Neither renames a role.
 - A failing color test means the change is wrong, never the test.
@@ -178,14 +168,6 @@ A role only one platform has is on that platform's page.
 - Tabular numerals wherever a number changes or lines up.
 - Depth only on floating surfaces and bars. No row, card, or section casts
   a shadow.
-
-## Identity
-
-- The mark's C takes `brand-secondary`, never the accent. The T is
-  always `brand`, which never follows `danger`.
-- Lockup: bare mark left of the name, capital height. No app bar lockup,
-  no link home.
-- Icons: generated from `brand/` by `just web::icons`. Never hand-edit.
 
 ## Input
 
@@ -207,18 +189,18 @@ A role only one platform has is on that platform's page.
 | Zone            | Holds                                                 | Never holds            |
 | --------------- | ----------------------------------------------------- | ---------------------- |
 | Title           | What the screen shows                                 | Actions, filters       |
-| Actions bar     | Main action first (Add), then one More menu           | Sort, view options     |
-| Under the title | Action button row, or search field then filter row    | Add, More              |
+| Toolbar         | Main action first (Add), then one More menu           | Sort, view options     |
+| Under the title | Action button row, or search field then filter row    | Add, More menu         |
 | List header     | Count leading, sort trailing, directly above the rows | Anything else          |
 | App-wide        | Tabs, Record, now playing, selection bar              | A screen's own actions |
 
-- At most two buttons in the bar. Select is never a toolbar button.
-- A screen's main actions on its item, such as Play, sit in one action
-  button row directly under its title, as page content. Never in the bar.
+- At most two toolbar buttons. Select is never one.
 - A section's button sits trailing on that section's heading.
-- Screen-wide actions (Edit, Delete) live in More, never in a panel.
+- Screen-wide actions (Edit, Delete) go in the More menu, never on the
+  page.
 - A control sits over the pane it acts on.
-- A column's title is its first line and scrolls with it.
+- A column's title is the first line of its content, below any pinned
+  bar, and scrolls with it.
 - Detail column: always a page or a placeholder, never a list. A
   placeholder names what it waits for and how to get one.
 - A resize, rotation, or frame change keeps selection, scroll, open
@@ -230,11 +212,12 @@ A role only one platform has is on that platform's page.
 
 ## Errors and states
 
-- Error beside its control. Row action: reports under its list. Screen
-  action: above the rows.
+- Error placement: a field's error beside the field; a row action's
+  error under its list; a screen action's error above the rows.
 - A system permission is asked the first time a feature needs it, after an
   inline note saying why, with one button, Continue, that leads to the
-  system prompt. No way past the note but the prompt (App Review 5.1.1).
+  system prompt. The note has no skip or close. Continue is the only way
+  on (App Review 5.1.1).
 - A refused permission is said where its absence shows and on the
   feature's Settings page, with a control opening the system setting
   where the platform has one.
@@ -261,9 +244,8 @@ A role only one platform has is on that platform's page.
 - A facet shows only when the list holds values for it. A stored value the
   list no longer holds still gets an option, so a stale filter never reads
   as Any.
-- Filters persist, so they announce themselves: the Filters control
-  carries the count of set filters, and the header reads "11 of 84
-  tunes" while narrowed.
+- Filters persist. The Filters control shows the count of set filters,
+  and while a filter is set the header reads "11 of 84 tunes".
 - Filter choices apply at once. Reset clears them all.
 - Sort sits trailing in the list header and shows choice and direction.
   Choosing the current choice again reverses it. Dates start newest
@@ -271,8 +253,8 @@ A role only one platform has is on that platform's page.
 
 ## Selection
 
-- Enter from Select in More or a row's menu. Exit by the exit control,
-  Escape, leaving the screen, or finishing an action.
+- Enter from Select in the More menu or a row's menu. Exit by the exit
+  control, Escape, leaving the screen, or finishing an action.
 - Holds only visible items. An item hidden by search or a filter leaves
   the selection.
 - A click or tap anywhere on a row toggles it, as its checkbox does.
@@ -309,14 +291,13 @@ A role only one platform has is on that platform's page.
 
 ## Overlays
 
-- Menu: destructive items last, red, after a separator.
+- Menu: destructive items go in its destructive group.
 - A destructive action confirms through the app's own overlay. The title
   is the question and names the thing. The message lists only the
   consequences and says when data cannot come back.
 - Toast: only for Undo, or for an outcome that arrives after the musician
-  left the screen. One at a time, above the bottom chrome.
-- Apple: system undo (Cmd-Z, or shake on iPhone) plus a short banner with
-  Undo replaces the toast.
+  left the screen. One at a time, above the bottom chrome. A platform
+  page can replace it with system undo.
 - A gated control stays in place and answers a tap with the Plan sheet.
   A menu item the plan blocks is hidden.
 

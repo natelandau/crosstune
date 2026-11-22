@@ -32,33 +32,34 @@ and pull requests. Never commit:
 
 ## Documentation
 
-Docs are for a future session with none of this session's context. The
-code is the source of truth. A doc holds only what the code cannot say.
+Docs are guidance for a future session that builds something new: the
+rules every new screen or module must follow. Never a record of what was
+decided or built. The code is the source of truth. A doc holds only what
+the code cannot say.
 
 - `docs/README.md` says what each page holds and never holds. Read it
   before you write to a page.
 - A doc holds guardrails, constraints, boundaries, sources of truth, and
   rules every screen or module obeys. "Every list filters by every facet
   of its items", not "the catalog filters by key".
-- A rule is a behavior every screen shares, so the app is consistent for
-  its users. A decision for one feature or screen is not a rule: cut it.
-- A line stays only if all three are true. Framework gotchas are the one
+- A line stays only if all four are true. Framework gotchas are the one
   exception, in a section of their own.
-    1. It binds screens or modules not built yet.
+    1. It binds screens or modules not built yet. A decision for one
+       feature or screen fails.
     2. A future change can break it.
     3. No code, token, test, or lint enforces it.
+    4. Breaking it is likely and costly.
 - A line that says what a shared component or helper does fails test 3:
   the component enforces it. Name a shared control only to say that a
   screen must use it.
-- Record a rule only when breaking it is likely and costly.
 - Never in a doc:
-    - A log of decisions or changes, or what was tried.
+    - A log of decisions or changes, or what was tried. Why a line changed
+      goes in the commit message.
     - What a screen or module does.
     - Anything about one release. That goes in the pull request.
     - A value: a size, a width, a duration.
     - How the platforms differ in behavior. The code holds that.
-- What holds now, in the present tense. Why it changed goes in the commit
-  message.
+- What holds now, in the present tense.
 - Written for agents: fragments, bullets, and tables in plain words. A
   reason only when it stops a future change from undoing the rule.
 - A change that makes a line false fixes the line in the same change.
@@ -96,18 +97,14 @@ code is the source of truth. A doc holds only what the code cannot say.
   `just --list` shows every recipe.
 - No other task runner. No tool through `uvx`.
 - Spell check: `just typos [paths]`.
-- A lint or test recipe skips a gate that passed on the same files. Run
-  the recipe again. Never decide yourself that it can be skipped.
-- A gate that skips passed. Never run its tool another way to confirm it.
-- Before you add or change a gate: read `just gate --skill`.
-- Each gate names the tracked paths its command reads with `--path`, in
-  its module's justfile. It skips when nothing under those paths changed,
-  so a missing path hides a real failure.
-    - A change that makes a gate read a new tracked file or folder outside
-      its paths, such as a config file, a fixture folder, or a shared
-      schema, adds the path in the same change.
-    - A moved or renamed path: update every list that names it.
-    - Not sure whether a gate reads a file: add the path.
+- Always run the lint or test recipe, never skip it on your own judgment.
+  The recipe itself skips a gate that passed on the same files. A skipped
+  gate passed: never run its tool another way to confirm it.
+- Before you add or change a gate: run `just gate --skill`.
+- A gate skips when nothing under its `--path` list changed, so a missing
+  path hides a real failure. A change that makes a gate read a tracked
+  path outside that list adds the path in the same change. Not sure: add
+  it. Details: `docs/operations.md`, Gate cache.
 - Web code, while you iterate: from `web/`, `pnpm exec eslint <files>`
   and `pnpm exec prettier --check <files>` on the changed files. Before a
   commit: `just web::lint` once.
@@ -118,10 +115,10 @@ code is the source of truth. A doc holds only what the code cannot say.
 
 - `just dev` runs Postgres, migrations, the API, the web client, and the
   site. Each worktree has its own database and bucket.
-- `just test` never runs Playwright. `just e2e` does. It needs no
-  `just dev` and can run beside it. It spends the usage limits of the
-  shared Clerk development instance, and needs the Clerk keys in
-  `web/.env`.
+- `just test` never runs Playwright. `just e2e` does. It spends the
+  usage limits of the shared Clerk development instance: run it once,
+  when a change to code its specs cover is finished, never while
+  iterating. Setup: `docs/operations.md`, End-to-end suite.
 - A renamed label, heading, or group name: check `web/e2e/`. Those specs
   find elements by accessible name, and only `just e2e` catches a rename.
 
@@ -144,11 +141,11 @@ code is the source of truth. A doc holds only what the code cannot say.
 
 ## Conventions
 
-- A new color role, a changed color value, a new allowlist entry on a
-  color test, or a lower contrast threshold needs the owner's approval
-  first.
+- Before adding, removing, or merging a color role, changing a color
+  value, adding an allowlist entry to a color test, or lowering a
+  contrast threshold: ask the owner.
 - A ref that mirrors the latest render's value is `useLatest` from
-  `web/src/ui/useLatest.ts`, named `…Ref`. Never a hand-written ref plus
+  `web/src/ui/useLatest.ts`, named `<name>Ref`. Never a hand-written ref plus
   effect.
 - A commit to internal tooling, such as the screenshot captures, the
   marketing shell, or a recipe, is `build`, never `feat`. The changelog
@@ -185,9 +182,7 @@ fails there at random.
       tree is still mounted.
 - A stress recipe, such as `just web::stress`, runs only to reproduce or
   fix a flaky test. Never as a routine step: not per commit, task, or
-  branch, and not before a pull request. `just web::stress 5 <files>`
-  shuffles those files five times. With no files: every test file that
-  the branch added or changed since `main`.
+  branch, and not before a pull request. Arguments: `just --usage web::stress`.
 - Never raise a timeout or add a retry to make a test pass. CI reruns a
   failed browser test, and the job summary lists every test that needed a
   rerun. A listed test is a bug to fix.
