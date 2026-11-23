@@ -1,3 +1,4 @@
+import { formatBytes } from '../../../text/format'
 export const EXPORT_DATA = 'Export data'
 export const EXPORT_TITLE = 'Export data'
 export const EXPORT_ACTION = 'Export'
@@ -6,3 +7,6 @@ export const exportNeedsConnection = (missing: number) =>
 export const EXPORT_COMPLETE_NOTE =
   'Exports your tunes, lists, and recording details as spreadsheets, with every recording and scan, in one zip file.'
 export const exportProgress = (done: number, total: number) => `Preparing file ${done} of ${total}`
+
+export const exportNeedsSpace = (bytesShort: number | null) =>
+  `Not enough free space on this device to export. Free up ${bytesShort === null ? 'some space' : `about ${formatBytes(bytesShort, { roundUp: true })}`} and try again.`

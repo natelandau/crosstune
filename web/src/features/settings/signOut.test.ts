@@ -6,14 +6,21 @@ import { recordEvent } from '../../commands/events'
 import { addScans } from '../../commands/scans'
 import { addUploadedFile, setFileState } from '../../commands/recordings'
 import { createTune } from '../../commands/tunes'
-import { markedForDeletion } from '../../db/deletion'
+import { deleteMarkedDatabase, markedForDeletion } from '../../db/deletion'
 import { databaseName, openDatabase } from '../../db/schema'
 import { readSearchQuery, writeSearchQuery } from '../../ui/searchSession'
 import { serverTune } from '../../test/fakeApi'
 import { fakeEngine } from '../../test/providers'
 import { applyPullPage } from '../../sync/apply'
 import { playEventRow, scanViewRow } from '../../test/rows'
-import { signOutAndForget, UNSYNCED_SCANS_ERROR, UNSYNCED_RECORDINGS_ERROR } from './signOut'
+import {
+  forgetLocalData,
+  signOutAndForget,
+  UNSYNCED_SCANS_ERROR,
+  UNSYNCED_RECORDINGS_ERROR,
+} from './signOut'
+
+vi.mock('../../db/deletion', { spy: true })
 
 function freshUser() {
   const userId = `user_${crypto.randomUUID()}`
@@ -217,5 +224,36 @@ describe('signOutAndForget', () => {
     expect(rememberedUser()).toBe(userId)
     expect(markedForDeletion()).toEqual([])
     await db.delete()
+  })
+})
+
+describe('forgetLocalData', () => {
+  it('deletes the staged export files with the database', async () => {
+    const { userId, db } = freshUser()
+    const clearStaging = vi.fn(async () => {})
+    await forgetLocalData({ db, userId, analytics: noopAnalytics, clearStaging })
+    expect(clearStaging).toHaveBeenCalledOnce()
+    expect(await Dexie.exists(databaseName(userId))).toBe(false)
+  })
+
+  it('deletes the staged export files even when the database delete fails', async () => {
+    const { userId, db } = freshUser()
+    vi.mocked(deleteMarkedDatabase).mockRejectedValueOnce(new Error('blocked'))
+    const clearStaging = vi.fn(async () => {})
+    await expect(
+      forgetLocalData({ db, userId, analytics: noopAnalytics, clearStaging }),
+    ).rejects.toThrow('blocked')
+    expect(clearStaging).toHaveBeenCalledOnce()
+  })
+
+  it('still forgets the user when the staged files cannot be deleted', async () => {
+    const { userId, db } = freshUser()
+    const clearStaging = vi.fn(async () => {
+      throw new DOMException('busy', 'NoModificationAllowedError')
+    })
+    await expect(
+      forgetLocalData({ db, userId, analytics: noopAnalytics, clearStaging }),
+    ).resolves.toBeUndefined()
+    expect(rememberedUser()).toBeNull()
   })
 })

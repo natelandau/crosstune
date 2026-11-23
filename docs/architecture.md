@@ -448,6 +448,10 @@
 - Under low storage, audio the server can send again is removed first. A
   local write refused for space first removes that audio, then retries,
   before a recording stops.
+- A file an export fetches streams to disk through the export staging
+  reader (`openExportStaging`), never into memory. Code that wipes a
+  user's local data also calls `clearExportStaging`: staged files hold
+  that user's audio.
 
 ### Isolate and mono
 

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { ApiError, NetworkError, NoTokenError, TransferError } from '../api/client'
+import { InsufficientStorageError } from '../platform/storage'
 import { QUOTA_PROBLEM } from '../sync/errors'
 import { failureReason, syncFailureReason } from './failure'
 
@@ -15,6 +16,7 @@ describe('failureReason', () => {
     ['a network error', new NetworkError(new TypeError('Failed to fetch')), 'network'],
     ['a quota problem', new ApiError(413, problem(413, QUOTA_PROBLEM)), 'storage_full'],
     ['a browser quota error', new DOMException('full', 'QuotaExceededError'), 'storage_full'],
+    ['too little room for an export', new InsufficientStorageError('full'), 'storage_full'],
     ['a 401', new ApiError(401, problem(401)), 'auth_expired'],
     ['a 403', new ApiError(403, problem(403)), 'auth_expired'],
     ['a missing token', new NoTokenError(), 'auth_expired'],

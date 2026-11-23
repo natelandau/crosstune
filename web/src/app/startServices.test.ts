@@ -6,28 +6,32 @@ const registerSW = vi.fn()
 const init = vi.fn()
 const startAnalytics = vi.fn()
 const startInstallOffer = vi.fn()
+const sweepExportStaging = vi.fn(async () => {})
 vi.mock('virtual:pwa-register', () => ({ registerSW }))
 vi.mock('@sentry/react', () => ({ init, breadcrumbsIntegration: vi.fn() }))
 vi.mock('../usage/client', () => ({ startAnalytics }))
 vi.mock('../platform/installOffer', () => ({ startInstallOffer }))
+vi.mock('../features/settings/export/staging', () => ({ sweepExportStaging }))
 
 beforeEach(() => {
   registerSW.mockReset()
   init.mockReset()
   startAnalytics.mockReset()
   startInstallOffer.mockReset()
+  sweepExportStaging.mockReset()
 })
 
 afterEach(() => {
   vi.unstubAllEnvs()
 })
 
-it('registers the service worker at once, listens for the install prompt, and starts error reporting when a DSN is set', async () => {
+it('registers the service worker at once, listens for the install prompt, clears staged exports from closed pages, and starts error reporting when a DSN is set', async () => {
   vi.stubEnv('VITE_SENTRY_DSN', 'https://key@o1.ingest.sentry.io/1')
   const { startServices } = await import('./startServices')
   startServices()
   expect(registerSW).toHaveBeenCalledWith({ immediate: true })
   expect(startInstallOffer).toHaveBeenCalledOnce()
+  expect(sweepExportStaging).toHaveBeenCalledOnce()
   expect(init).toHaveBeenCalledOnce()
 })
 

@@ -1,5 +1,8 @@
 import { formatDate } from '../../settings/export/buildExport'
 import { downloadBlob } from '../../settings/export/runExport'
+import type { ReadBody } from '../../../api/types'
+import { InsufficientStorageError } from '../../../platform/storage'
+import { withExportStaging, type ExportStaging } from '../../settings/export/staging'
 import { buildZip } from '../../settings/export/zip'
 import type { RecordingView } from '../useRecordings'
 import { fileNames, nameInput } from './exportName'
@@ -44,11 +47,16 @@ function named(gathered: readonly Gathered[], timeZone: string): ExportResult['f
 }
 
 interface GatherOptions {
-  fetchFile: (id: string, signal?: AbortSignal) => Promise<Blob>
+  fetchFile: (id: string, signal?: AbortSignal, readBody?: ReadBody) => Promise<Blob>
   timeZone: string
   signal?: AbortSignal
   /** Recordings prepared out of those not blocked. */
   onProgress?: (done: number, total: number) => void
+  /** Where fetched files are written; null reads them into memory. */
+  openStaging?: (plannedBytes: number) => Promise<ExportStaging | null>
+  /** Hands the gathered files on while their staged copies still exist, so a delivery that fails
+   * or is abandoned discards them with the rest of the export. */
+  deliver?: (result: ExportResult) => Promise<void>
 }
 
 /**
@@ -57,38 +65,53 @@ interface GatherOptions {
  */
 export async function gatherRecordings(
   items: readonly ExportItem[],
-  { fetchFile, timeZone, signal, onProgress }: GatherOptions,
+  { fetchFile, timeZone, signal, onProgress, openStaging, deliver }: GatherOptions,
 ): Promise<ExportResult> {
-  const total = items.filter(({ readiness }) => readiness.kind !== 'blocked').length
-  const gathered: Gathered[] = []
-  const failed: unknown[] = []
-  let fetched = 0
-  let skipped = 0
-  let done = 0
-  onProgress?.(done, total)
-  for (const { view, readiness } of items) {
-    if (readiness.kind === 'blocked') {
-      skipped++
-      continue
+  const fetchedSizes = items
+    .filter(({ readiness }) => readiness.kind === 'fetch')
+    .map(({ view }) => view.recording.playback_bytes)
+  return withExportStaging(fetchedSizes, (readBody) => gatherInto(readBody), openStaging)
+
+  async function gatherInto(readBody?: ReadBody): Promise<ExportResult> {
+    const total = items.filter(({ readiness }) => readiness.kind !== 'blocked').length
+    const gathered: Gathered[] = []
+    const failed: unknown[] = []
+    let fetched = 0
+    let skipped = 0
+    let done = 0
+    onProgress?.(done, total)
+    for (const { view, readiness } of items) {
+      if (readiness.kind === 'blocked') {
+        skipped++
+        continue
+      }
+      signal?.throwIfAborted()
+      if (readiness.kind === 'local') {
+        gathered.push(fromLocal(view, readiness.blob))
+      } else {
+        try {
+          const blob = await fetchFile(view.recording.id, signal, readBody)
+          fetched++
+          gathered.push({
+            view,
+            blob,
+            contentType: contentType(blob, view.recording.playback_mime),
+          })
+        } catch (cause) {
+          signal?.throwIfAborted()
+          // Every later fetch needs room too, so running out ends the export instead of skipping.
+          if (cause instanceof InsufficientStorageError) throw cause
+          skipped++
+          failed.push(cause)
+        }
+      }
+      onProgress?.(++done, total)
     }
     signal?.throwIfAborted()
-    if (readiness.kind === 'local') {
-      gathered.push(fromLocal(view, readiness.blob))
-    } else {
-      try {
-        const blob = await fetchFile(view.recording.id, signal)
-        fetched++
-        gathered.push({ view, blob, contentType: contentType(blob, view.recording.playback_mime) })
-      } catch (cause) {
-        signal?.throwIfAborted()
-        skipped++
-        failed.push(cause)
-      }
-    }
-    onProgress?.(++done, total)
+    const result = { files: named(gathered, timeZone), fetched, skipped, failed }
+    await deliver?.(result)
+    return result
   }
-  signal?.throwIfAborted()
-  return { files: named(gathered, timeZone), fetched, skipped, failed }
 }
 
 /** One file downloads as itself; several download as one zip with each at its root. */

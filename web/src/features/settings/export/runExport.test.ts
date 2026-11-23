@@ -11,6 +11,7 @@ import {
   tuneRow,
   userTuneRow,
 } from '../../../test/rows'
+import { fakeStaging } from '../../../test/fakeStaging'
 import { createExport, downloadBlob, exportCounts, readExportInput } from './runExport'
 
 const USER = 'user_1'
@@ -299,4 +300,86 @@ test('downloadBlob clicks a detached download link and revokes the URL afterward
   click.mockRestore()
   vi.unstubAllGlobals()
   vi.useRealTimers()
+})
+
+async function seedAway(db: CrosstuneDb) {
+  await db.tunes.put(tuneRow('t1', 'Cluck Old Hen'))
+  await db.user_tunes.put(userTuneRow('u1', 't1'))
+  await db.recordings.bulkPut([
+    recordingRow('r-here', { tune_id: 't1', playback_bytes: 1000 }),
+    recordingRow('r-away1', { tune_id: 't1', playback_bytes: 10 }),
+    recordingRow('r-away2', { tune_id: 't1', playback_bytes: 20 }),
+    recordingRow('r-unsized', { tune_id: 't1', playback_bytes: null }),
+  ])
+  await db.recording_files.put(
+    recordingFile('r-here', { blob: audio([1]), local_state: 'uploaded' }),
+  )
+  await db.scans.put(scanRow('p-away', 't1', { file_bytes: 5 }))
+}
+
+test('hands each fetched file the staging reader, planning the bytes it fetches', async () => {
+  const db = openTestDb()
+  await seedAway(db)
+  const { staging, openStaging } = fakeStaging()
+  await createExport(db, USER, options({ openStaging }))
+  expect(openStaging).toHaveBeenCalledExactlyOnceWith(35)
+  expect(fetchMissing.mock.calls.map((call) => [call[1], (call as unknown[])[3]])).toEqual([
+    ['r-away1', staging.stage],
+    ['r-away2', staging.stage],
+    ['r-unsized', staging.stage],
+    ['p-away', staging.stage],
+  ])
+})
+
+test('opens no staging when every file is on the device', async () => {
+  const db = openTestDb()
+  await seed(db)
+  await db.recordings.delete('r-downloading')
+  const { openStaging } = fakeStaging()
+  await createExport(db, USER, options({ openStaging }))
+  expect(openStaging).not.toHaveBeenCalled()
+})
+
+test.each([
+  ['a fetch fails', () => ({ fetchMissing: () => Promise.reject(new Error('offline')) })],
+  [
+    'the export is cancelled',
+    () => {
+      const controller = new AbortController()
+      return {
+        fetchMissing: async () => {
+          controller.abort(new Error('offline'))
+          return new Promise<Blob>(() => {})
+        },
+        signal: controller.signal,
+      }
+    },
+  ],
+  [
+    'the export is cancelled as the zip finishes',
+    () => {
+      const controller = new AbortController()
+      return {
+        onProgress: (done: number, total: number) => {
+          if (total > 0 && done === total) controller.abort(new Error('offline'))
+        },
+        signal: controller.signal,
+      }
+    },
+  ],
+])('discards its staging when %s', async (_name, extra) => {
+  const db = openTestDb()
+  await seedAway(db)
+  const { staging, openStaging } = fakeStaging()
+  await expect(createExport(db, USER, options({ openStaging, ...extra() }))).rejects.toThrow(
+    'offline',
+  )
+  expect(staging.discard).toHaveBeenCalledOnce()
+})
+
+test('reads fetched files into memory when staging is unavailable', async () => {
+  const db = openTestDb()
+  await seedAway(db)
+  await createExport(db, USER, options({ openStaging: async () => null }))
+  expect(fetchMissing.mock.calls.every((call) => (call as unknown[])[3] === undefined)).toBe(true)
 })

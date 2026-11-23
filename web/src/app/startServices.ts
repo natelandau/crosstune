@@ -5,10 +5,12 @@ import { APP_VERSION } from '../version'
 import { startAnalytics, type AnalyticsClient } from '../usage/client'
 import { startErrorReporting } from '../errorReporting'
 import { startInstallOffer } from '../platform/installOffer'
+import { sweepExportStaging } from '../features/settings/export/staging'
 
 /**
  * Starts what runs beside the app for the life of the page: error reporting, analytics, the
- * service worker, and the install prompt listener. Returns the analytics client for the app to
+ * service worker, and the install prompt listener. Also frees the files that exports in closed
+ * pages staged on disk. Returns the analytics client for the app to
  * provide.
  */
 export function startServices(): AnalyticsClient {
@@ -25,5 +27,6 @@ export function startServices(): AnalyticsClient {
   const analytics = startAnalytics({ key, fetchRegion: () => api.region() })
   registerSW({ immediate: true })
   startInstallOffer()
+  void sweepExportStaging()
   return analytics
 }

@@ -1,4 +1,5 @@
-import { beforeEach, expect, it, onTestFinished, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, onTestFinished, vi } from 'vitest'
+import { clearExportStaging } from '../settings/export/staging'
 import { page } from 'vitest/browser'
 import type { RecordingFile } from '../../db/recordings'
 import { destination } from '../../layout/destinations'
@@ -22,6 +23,11 @@ const FETCHED = new Blob(['fetched'], { type: 'audio/mp4' })
 
 beforeEach(() => {
   vi.mocked(downloadBlob).mockImplementation(() => {})
+})
+
+// An export staged on disk would otherwise outlive the test.
+afterEach(async () => {
+  await clearExportStaging()
 })
 
 /** Replaces the browser's file sharing for one test. */
@@ -90,7 +96,12 @@ it('downloads a recording this device does not hold on a free plan, with progres
   held.pending[0]!.resolve(FETCHED)
   await expect.poll(() => vi.mocked(downloadBlob).mock.calls.length).toBe(1)
   await expect.element(sheet()).not.toBeInTheDocument()
-  expect(fetchFile).toHaveBeenCalledWith('recording', 'rA', expect.any(AbortSignal))
+  expect(fetchFile).toHaveBeenCalledWith(
+    'recording',
+    'rA',
+    expect.any(AbortSignal),
+    expect.any(Function),
+  )
   expect(vi.mocked(downloadBlob).mock.calls[0]![0]).toBe(FETCHED)
   await expect
     .poll(() => exported(analytics))
