@@ -25,7 +25,12 @@ import Testing
         let publisher = WidgetPublisher(
             container: container, pageStore: nil,
             reload: { _ in reloads.summaries.append(WidgetSummaryFile.read(userID: userID, in: container)) })
-        let task = Task { await publisher.run(store: store, recorders: RecorderHost(), listPlayback: nil, plan: nil) }
+        // At the app's priority: the app starts the run from the main thread, outside any task,
+        // so it runs user-initiated. At a test's default priority, its reads and writes off the
+        // main actor queue behind every other test in the bundle.
+        let task = Task(priority: .userInitiated) {
+            await publisher.run(store: store, recorders: RecorderHost(), listPlayback: nil, plan: nil)
+        }
         defer { task.cancel() }
         try await body()
         task.cancel()
