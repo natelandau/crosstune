@@ -28,11 +28,6 @@ public final class WidgetPublisher {
     nonisolated static let catalogDelay: Duration = .milliseconds(300)
 
     private let container: ShareContainer
-    /// Temporary CI timing diagnostics. Names the run in each `WPDIAG` line.
-    var diagnosticTag = ""
-    nonisolated static func diagnose(_ tag: String, _ stage: String) {
-        FileHandle.standardError.write(Data("WPDIAG \(Date().timeIntervalSince1970) \(tag) \(stage)\n".utf8))
-    }
     private let pageStore: ListWidgetPageStore?
     private let reload: @MainActor (Set<WidgetKind>) -> Void
     nonisolated private static let logger = Logger(subsystem: "app.crosstune.Crosstune", category: "widget-publisher")
@@ -68,16 +63,13 @@ public final class WidgetPublisher {
     public func run(store: CrosstuneStore, recorders: RecorderHost, listPlayback: ListPlayback?, plan: PlanModel?) async
     {
         let userID = store.userID
-        let tag = "\(diagnosticTag) \(userID)"
-        Self.diagnose(tag, "run start")
         var draft = WidgetSummaryDraft(leftover: await Self.read(userID: userID, in: container))
-        Self.diagnose(tag, "leftover read done")
         draft.observe(
             Self.liveInputs(store: store, recorders: recorders, listPlayback: listPlayback, plan: plan), now: .now)
         // A summary an earlier run left can say a recording is under way or a list plays. The
         // recorder's and the list player's real state replaces it before anything else, so a
         // widget never shows either after it ended.
-        await write(&draft, userID: userID, tag: tag)
+        await write(&draft, userID: userID)
         #if os(iOS)
             // A force-quit ends the app with no later write. The app can also sit suspended for
             // any time with a list paused or a recording interrupted, so those states have no
@@ -129,18 +121,7 @@ public final class WidgetPublisher {
             }
         }
         // Ends when the calling task is cancelled, which ends the stream.
-        var (sawRecordings, sawLists) = (false, false)
         for await change in changes {
-            switch change {
-            case .recordings where !sawRecordings:
-                sawRecordings = true
-                Self.diagnose(tag, "first recordings value")
-            case .lists where !sawLists:
-                sawLists = true
-                Self.diagnose(tag, "first lists value")
-            case .catalogSettled: Self.diagnose(tag, "debounce settled")
-            default: break
-            }
             switch change {
             case .recordings(let part):
                 draft.recordings = part
@@ -175,7 +156,7 @@ public final class WidgetPublisher {
                     }
                 }
             }
-            await write(&draft, userID: userID, tag: tag)
+            await write(&draft, userID: userID)
         }
         for task in [recordings, lists, live] + [dismissal, keepingAlive, catalogWrite].compactMap(\.self) {
             task.cancel()
@@ -224,17 +205,14 @@ public final class WidgetPublisher {
 
     /// Writes the draft's summary when it differs from the last one written, then reloads the
     /// widgets that show what changed.
-    private func write(_ draft: inout WidgetSummaryDraft, userID: String, tag: String) async {
+    private func write(_ draft: inout WidgetSummaryDraft, userID: String) async {
         guard let summary = draft.unwritten else { return }
-        Self.diagnose(tag, "write start")
         guard await Self.write(summary, userID: userID, in: container) else { return }
-        Self.diagnose(tag, "write done")
         let kinds = WidgetKind.showingChanges(from: draft.written, to: summary)
         let listIDs = Set(summary.lists.map(\.id))
         // Reads every stored default, so it runs only when a list comes or goes.
         if listIDs != draft.written.map({ Set($0.lists.map(\.id)) }) { pageStore?.keepPages(forLists: listIDs) }
         draft.written = summary
-        Self.diagnose(tag, "reload called")
         reload(kinds)
     }
 
