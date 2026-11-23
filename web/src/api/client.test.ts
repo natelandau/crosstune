@@ -474,6 +474,38 @@ describe('createApiClient', () => {
     await expect(api.getObject('https://r2/get')).rejects.toBeInstanceOf(NetworkError)
   })
 
+  it('getObject hands the response to a body reader and returns what it reads', async () => {
+    const api = makeClient(async () => new Response('xyz', { status: 200 }))
+    const readBody = vi.fn(async (response: Response, _signal?: AbortSignal) => {
+      expect(await response.text()).toBe('xyz')
+      return new Blob(['staged'])
+    })
+    const { signal } = new AbortController()
+    const blob = await api.getObject('https://r2/get', signal, readBody)
+    expect(await blob.text()).toBe('staged')
+    expect(readBody.mock.calls[0]![1]).toBe(signal)
+  })
+
+  it("getObject turns a body reader's dropped connection into a NetworkError", async () => {
+    const api = makeClient(async () => new Response('xyz', { status: 200 }))
+    const readBody = async () => {
+      throw new TypeError('network')
+    }
+    await expect(api.getObject('https://r2/get', undefined, readBody)).rejects.toBeInstanceOf(
+      NetworkError,
+    )
+  })
+
+  it("getObject passes a body reader's other errors through unchanged", async () => {
+    const api = makeClient(async () => new Response('xyz', { status: 200 }))
+    const readBody = async () => {
+      throw new DOMException('full', 'QuotaExceededError')
+    }
+    await expect(api.getObject('https://r2/get', undefined, readBody)).rejects.toSatisfy(
+      (error) => (error as Error).name === 'QuotaExceededError',
+    )
+  })
+
   it('turns a non-2xx object transfer into a TransferError', async () => {
     const api = makeClient(async () => new Response(null, { status: 404 }))
     await expect(api.getObject('https://r2/get')).rejects.toSatisfy(

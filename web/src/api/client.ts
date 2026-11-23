@@ -285,13 +285,13 @@ export function createApiClient(options: ApiClientOptions): SyncApi {
         }),
       )
     },
-    async getObject(url, signal) {
+    async getObject(url, signal, readBody = (r) => r.blob()) {
       const timeout = AbortSignal.timeout(getTimeoutMs)
       const response = await transfer(
         new Request(url, { signal: signal ? AbortSignal.any([timeout, signal]) : timeout }),
       )
       // Reading the body can still time out or drop, so it needs its own wrapper.
-      return withNetworkErrors(() => response.blob())
+      return withNetworkErrors(() => readBody(response, signal))
     },
   }
 }

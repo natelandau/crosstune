@@ -11,19 +11,15 @@ export function captureLockName(id: string): string {
 }
 
 /**
- * Hold a Web Lock for the lifetime of a capture, so any tab or engine can tell a live
- * recorder from an abandoned one regardless of how long it has been since its last chunk.
- * Resolves once the lock is granted, with a function that releases it.
+ * Hold the Web Lock `name` until the returned function releases it or the page closes, so any
+ * tab can tell work in progress from work a closed page left. Resolves once the lock is
+ * granted; rejects when the request is refused before then.
  */
-export function acquireCaptureLock(
-  id: string,
-  locks: LockManager | undefined = defaultLocks(),
-): Promise<() => void> {
-  if (!locks) return Promise.resolve(() => {})
+export function holdLock(name: string, locks: LockManager): Promise<() => void> {
   return new Promise<() => void>((resolveAcquired, rejectAcquired) => {
     let granted = false
     locks
-      .request(captureLockName(id), () => {
+      .request(name, () => {
         granted = true
         return new Promise<void>((release) => resolveAcquired(release))
       })
@@ -36,15 +32,32 @@ export function acquireCaptureLock(
   })
 }
 
+/** The part after `prefix` of every held lock name that starts with it. */
+export async function heldLockSuffixes(prefix: string, locks: LockManager): Promise<Set<string>> {
+  const { held } = await locks.query()
+  const suffixes = new Set<string>()
+  for (const lock of held ?? []) {
+    if (lock.name?.startsWith(prefix)) suffixes.add(lock.name.slice(prefix.length))
+  }
+  return suffixes
+}
+
+/**
+ * Hold a Web Lock for the lifetime of a capture, so any tab or engine can tell a live
+ * recorder from an abandoned one regardless of how long it has been since its last chunk.
+ * Resolves once the lock is granted, with a function that releases it.
+ */
+export function acquireCaptureLock(
+  id: string,
+  locks: LockManager | undefined = defaultLocks(),
+): Promise<() => void> {
+  if (!locks) return Promise.resolve(() => {})
+  return holdLock(captureLockName(id), locks)
+}
+
 /** The recording ids with a held capture lock, or null when there is no lock manager to ask. */
 export async function heldCaptureIds(
   locks: LockManager | undefined = defaultLocks(),
 ): Promise<Set<string> | null> {
-  if (!locks) return null
-  const { held } = await locks.query()
-  const ids = new Set<string>()
-  for (const lock of held ?? []) {
-    if (lock.name?.startsWith(LOCK_PREFIX)) ids.add(lock.name.slice(LOCK_PREFIX.length))
-  }
-  return ids
+  return locks ? heldLockSuffixes(LOCK_PREFIX, locks) : null
 }

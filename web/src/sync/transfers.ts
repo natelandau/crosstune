@@ -6,7 +6,7 @@ import { bytesBucket } from '../usage/buckets'
 import { failureReason } from '../usage/failure'
 import { recordingOrigin } from '../usage/origin'
 import { ApiError, NetworkError, NoTokenError, TransferError } from '../api/client'
-import type { SyncApi } from '../api/types'
+import type { ReadBody, SyncApi } from '../api/types'
 import { AUDIO_BITRATES } from '../constants'
 import {
   cancelCapture,
@@ -603,13 +603,14 @@ export async function fetchUnstored(
   kind: 'recording' | 'scan',
   id: string,
   signal?: AbortSignal,
+  readBody?: ReadBody,
 ): Promise<Blob> {
   const once = async () => {
     const signed =
       kind === 'recording'
         ? await api.downloadUrl(id, signal)
         : await api.scanDownloadUrl(id, signal)
-    return api.getObject(signed.url, signal)
+    return api.getObject(signed.url, signal, readBody)
   }
   try {
     return await once()
@@ -747,11 +748,13 @@ export const CAPTURE_RESERVE_BYTES = (2 * AUDIO_BITRATES.highest * 3600) / 8
 
 /** The room above the capture reserve, read once and spent as a pass stores files. Unlimited
  * when the browser does not report its storage, so nothing is held back on a guess. */
-async function roomAboveReserve(headroom: () => Promise<number | null>) {
+export async function roomAboveReserve(headroom: () => Promise<number | null>) {
   const free = await headroom()
   let left = free === null ? Infinity : free - CAPTURE_RESERVE_BYTES
   return {
     fits: (bytes: number) => bytes <= left,
+    /** How many more bytes `bytes` needs than the room left holds. */
+    shortBy: (bytes: number) => bytes - Math.max(0, left),
     take(bytes: number): boolean {
       if (bytes > left) return false
       left -= bytes
