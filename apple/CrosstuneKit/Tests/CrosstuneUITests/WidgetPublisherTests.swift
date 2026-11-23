@@ -28,10 +28,19 @@ import Testing
         // At the app's priority: the app starts the run from the main thread, outside any task,
         // so it runs user-initiated. At a test's default priority, its reads and writes off the
         // main actor queue behind every other test in the bundle.
+        publisher.diagnosticTag = root.url.lastPathComponent
         let task = Task(priority: .userInitiated) {
             await publisher.run(store: store, recorders: RecorderHost(), listPlayback: nil, plan: nil)
         }
         defer { task.cancel() }
+        WidgetPublisher.diagnose(root.url.lastPathComponent, "body start")
+        let polling = Task { [root] in
+            while !Task.isCancelled {
+                WidgetPublisher.diagnose(root.url.lastPathComponent, "poll count \(reloads.summaries.count)")
+                try? await Task.sleep(for: .seconds(1))
+            }
+        }
+        defer { polling.cancel() }
         try await body()
         task.cancel()
         await task.value
