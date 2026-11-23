@@ -84,12 +84,14 @@ public final class WidgetPublisher {
 
         let (changes, continuation) = AsyncStream.makeStream(of: WidgetSummaryChange.self)
         let (database, settingsRow) = (store.database, settingsID(clerkUserID: userID))
-        let recordings = Task(priority: .utility) {
+        // At the run's priority: the first write waits on both, and the run waits for both to
+        // end, so a lower priority would hold the run behind any busier work.
+        let recordings = Task {
             await Self.follow(database, into: continuation) { db in
                 .recordings(try WidgetSummaryReader.newestRecordings(db))
             }
         }
-        let lists = Task(priority: .utility) {
+        let lists = Task {
             await Self.follow(database, into: continuation) { db in
                 .lists(try WidgetSummaryReader.listsPart(db, settingsRow: settingsRow))
             }
