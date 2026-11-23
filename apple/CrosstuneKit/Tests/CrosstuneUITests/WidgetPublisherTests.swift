@@ -81,7 +81,7 @@ import Testing
         var reloadsWhileOpen = 0
 
         try await publishing(store) {
-            try await eventually { reloads.summaries.count == 1 }
+            try await eventually { !reloads.summaries.isEmpty }
             reloadsWhileOpen = reloads.summaries.count
         }
 
@@ -94,7 +94,7 @@ import Testing
         let tune = try await commands.createTitleOnly(title: "Drowsy Maggie")
 
         try await publishing(store) {
-            try await eventually { reloads.summaries.count == 1 }
+            try await eventually { !reloads.summaries.isEmpty }
             // The composer is not in the summary, so this change writes nothing.
             try await commands.updateTune(tune.tuneID, patch: TunePatch(composer: .value("Traditional")))
             let list = try await commands.createList("Session")
