@@ -187,6 +187,7 @@ private let linkID = "9d3a6c1e-2f4b-4b7a-a5c8-7e1f0d2b3c94"
     #expect(
         ActionSource.allCases.map(\.rawValue) == [
             "catalog", "tune", "list", "recordings_list", "recording_screen", "dock", "search_offer", "menu", "share",
+            "widget",
         ])
 }
 

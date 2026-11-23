@@ -1,3 +1,4 @@
+import CrosstuneAudio
 import CrosstuneCommands
 import CrosstuneDesign
 import CrosstuneStore
@@ -17,8 +18,19 @@ enum ListsPlayability {
             let lists = try activeByPosition(try TuneList.fetchAll(db)).compactMap { list in
                 try ListContents.fetch(db, listID: list.id)
             }
-            // Anything but a stored true reads as off, as the web reads it.
-            let showArchived = (try? MetaKey.listShowArchived.value(in: db, as: Bool.self)) == true
+            return try snapshot(db, lists: lists, settingsID: settingsID)
+        }
+
+        /// List `listID` alone, with no lists when it is gone.
+        nonisolated static func fetch(_ db: Database, listID: String, settingsID: String) throws -> Snapshot {
+            try snapshot(
+                db, lists: [try ListContents.fetch(db, listID: listID)].compactMap(\.self), settingsID: settingsID)
+        }
+
+        nonisolated private static func snapshot(_ db: Database, lists: [ListContents], settingsID: String) throws
+            -> Snapshot
+        {
+            let showArchived = ListContents.showsArchived(in: db)
             let playFirst = CrosstuneCommands.storedPlayFirst(try UserSettings.fetchOne(db, key: settingsID))
             return Snapshot(lists: lists, showArchived: showArchived, playFirst: playFirst)
         }
@@ -34,7 +46,7 @@ enum ListsPlayability {
         guard let snapshot, let fullTracks, canStart else { return [:] }
         var reports: [String: PlaylistReport] = [:]
         for contents in snapshot.lists {
-            let shown = snapshot.showArchived ? contents.entries : contents.entries.filter { !$0.isArchived }
+            let shown = contents.entries.shown(showArchived: snapshot.showArchived)
             let report = playlistReport(
                 entries: shown.map { $0.playlistEntry(online: online) }, playFirst: snapshot.playFirst,
                 fullTracks: fullTracks, online: online, recordingsPlay: recordingsPlay)
@@ -51,5 +63,35 @@ enum ListsPlayability {
     /// "Pause Waltzes", the playing list's row control while it plays.
     static func pauseLabel(listName: String) -> String {
         "\(MediaText.pause) \(listName)"
+    }
+}
+
+/// What a start of a list read from the store found.
+enum ListStartOutcome {
+    case started
+    case listGone
+    /// Nothing in the list can play now, as when every tune needs a network or a plan.
+    case nothingPlays
+}
+
+extension ListPlayback {
+    /// Plays list `listID` as Play and Shuffle on the Lists screen do, from tune `tuneID` when
+    /// the list holds it, else from the top. Use it where the list's playability is not already
+    /// read, as for a widget tap. `recordingsPlay` false plays no recording, as on a free plan.
+    func start(
+        listID: String, from store: CrosstuneStore, online: Bool, appleMusic: AppleMusic?, recordingsPlay: Bool,
+        shuffled: Bool, at tuneID: String?
+    ) async throws -> ListStartOutcome {
+        let settings = settingsID(clerkUserID: store.userID)
+        let snapshot = try await store.read { db in
+            try ListsPlayability.Snapshot.fetch(db, listID: listID, settingsID: settings)
+        }
+        guard let contents = snapshot.lists.first else { return .listGone }
+        let fullTracks = online ? await appleMusic?.access.current() == .fullTracks : false
+        let reports = ListsPlayability.reports(
+            snapshot, canStart: true, fullTracks: fullTracks, online: online, recordingsPlay: recordingsPlay)
+        guard let report = reports[listID] else { return .nothingPlays }
+        start(listID: listID, name: contents.list.name, report: report, shuffled: shuffled, at: tuneID)
+        return .started
     }
 }

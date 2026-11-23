@@ -34,8 +34,24 @@ struct PlaylistOrderTests {
         return played
     }
 
-    @Test func anUnshuffledOrderStartsAtTheFirstTune() {
-        let order = order(ids)
+    @Test(
+        arguments: [
+            ("c", RepeatMode.off, false, "d"), ("e", .off, false, nil), ("e", .list, false, "a"),
+            ("e", .one, false, "a"),
+            ("e", .list, true, nil),
+        ] as [(String, RepeatMode, Bool, String?)])
+    func theUpcomingTuneIsTheOneASkipMovesTo(start: String, mode: RepeatMode, shuffled: Bool, expected: String?) {
+        var order = order(ids, startAt: start)
+        if shuffled {
+            var rng = SplitMix64(seed: 4)
+            order.setShuffled(true, using: &rng)
+        }
+        #expect(order.upcoming(repeat: mode) == expected)
+    }
+
+    @Test(arguments: [nil, "not_in_list"] as [String?])
+    func anUnshuffledOrderStartsAtTheFirstTune(startAt: String?) {
+        let order = order(ids, startAt: startAt)
         #expect(order.current == "a")
         #expect(order.position == 1)
         #expect(order.count == 5)

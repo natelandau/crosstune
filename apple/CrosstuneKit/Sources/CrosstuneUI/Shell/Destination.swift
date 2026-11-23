@@ -1,4 +1,5 @@
 import CrosstuneStore
+import CrosstuneWidgetData
 
 /// A top-level place in the app: a tab on iPhone and iPad, a sidebar row on the Mac.
 public enum Destination: String, CaseIterable, Hashable, Identifiable, Sendable {
@@ -9,9 +10,9 @@ public enum Destination: String, CaseIterable, Hashable, Identifiable, Sendable 
     case settings
 
     public static let catalogTitle = "Catalog"
-    public static let listsTitle = "Lists"
-    public static let recordingsTitle = "Recordings"
-    public static let tunerTitle = "Tuner"
+    public static let listsTitle = ListLabels.title
+    public static let recordingsTitle = RecordingLabels.title
+    public static let tunerTitle = TunerLabels.title
     public static let settingsTitle = "Settings"
 
     public var id: Self { self }
@@ -31,7 +32,7 @@ public enum Destination: String, CaseIterable, Hashable, Identifiable, Sendable 
         case .catalog: "music.note"
         case .lists: "music.note.list"
         case .recordings: "waveform"
-        case .tuner: "gauge.with.needle"
+        case .tuner: TunerLabels.systemImage
         case .settings: "gearshape"
         }
     }

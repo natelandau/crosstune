@@ -22,6 +22,8 @@ let package = Package(
         .library(name: "CrosstuneSync", targets: ["CrosstuneSync"]),
         .library(name: "CrosstuneUI", targets: ["CrosstuneUI"]),
         .library(name: "CrosstuneVocabulary", targets: ["CrosstuneVocabulary"]),
+        .library(name: "CrosstuneWidgetData", targets: ["CrosstuneWidgetData"]),
+        .library(name: "CrosstuneWidgetIntents", targets: ["CrosstuneWidgetIntents"]),
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-openapi-runtime", from: "1.0.0"),
@@ -134,11 +136,20 @@ let package = Package(
                 "CrosstuneAnalytics", "CrosstuneAudio", "CrosstuneAuth", "CrosstuneBilling", "CrosstuneCommands",
                 "CrosstuneDesign", "CrosstuneDiagnostics", "CrosstuneExport", "CrosstuneRecording",
                 "CrosstuneRecordingActivity", "CrosstuneShare", "CrosstuneStore", "CrosstuneSync",
-                "CrosstuneVocabulary", .product(name: "GRDB", package: "GRDB.swift"),
+                "CrosstuneVocabulary", "CrosstuneWidgetData", "CrosstuneWidgetIntents",
+                .product(name: "GRDB", package: "GRDB.swift"),
             ],
             resources: [.process("Resources")]
         ),
         .target(name: "CrosstuneVocabulary"),
+        .target(
+            name: "CrosstuneWidgetData",
+            dependencies: ["CrosstuneRecordingActivity", "CrosstuneShare", "CrosstuneVocabulary"]
+        ),
+        .target(
+            name: "CrosstuneWidgetIntents",
+            dependencies: ["CrosstuneShare", "CrosstuneWidgetData"]
+        ),
         .target(
             name: "CrosstuneTestSupport",
             dependencies: [
@@ -233,6 +244,17 @@ let package = Package(
             dependencies: ["CrosstuneVocabulary"]
         ),
         .testTarget(
+            name: "CrosstuneWidgetDataTests",
+            dependencies: [
+                "CrosstuneRecordingActivity", "CrosstuneShare", "CrosstuneTestSupport", "CrosstuneVocabulary",
+                "CrosstuneWidgetData",
+            ]
+        ),
+        .testTarget(
+            name: "CrosstuneWidgetIntentsTests",
+            dependencies: ["CrosstuneShare", "CrosstuneTestSupport", "CrosstuneWidgetData", "CrosstuneWidgetIntents"]
+        ),
+        .testTarget(
             name: "CrosstuneUITests",
             dependencies: [
                 "CrosstuneUI", "CrosstuneAudio", "CrosstuneBilling", "CrosstuneRecording", "CrosstuneCommands",
@@ -240,8 +262,8 @@ let package = Package(
                 "CrosstuneDiagnostics",
                 "CrosstuneStore",
                 "CrosstuneSync",
-                "CrosstuneVocabulary", "CrosstuneTestSupport", .product(name: "GRDB", package: "GRDB.swift"),
-                .product(name: "ClerkKitUI", package: "clerk-ios"),
+                "CrosstuneVocabulary", "CrosstuneTestSupport", "CrosstuneWidgetData", "CrosstuneWidgetIntents",
+                .product(name: "GRDB", package: "GRDB.swift"), .product(name: "ClerkKitUI", package: "clerk-ios"),
             ]
         ),
         .testTarget(

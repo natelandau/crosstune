@@ -448,12 +448,6 @@ public struct RecordingLoop: SyncedRecord, Hashable {
     }
 }
 
-/// How much of a recording's recorded date is known. A partial date is stored as UTC midnight
-/// at the start of its year, month, or day.
-public enum RecordingPrecision: String, CaseIterable, Codable, Sendable {
-    case year, month, day, time
-}
-
 /// A location the user saved: a name for a point, which recordings can link to. A recording keeps its own
 /// coordinates, so a saved place's point moving never moves a recording.
 public struct SavedPlace: SyncedRecord, Hashable {

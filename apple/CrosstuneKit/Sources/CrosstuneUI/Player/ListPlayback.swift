@@ -45,6 +45,14 @@ public final class ListPlayback: PlayerQueue {
     public private(set) var endMessage: String?
 
     public var isActive: Bool { listID != nil }
+    /// The tune a skip moves to, or nil when there is none or a shuffle has not picked it yet.
+    public var nextTuneID: String? { order?.upcoming(repeat: repeatMode) }
+    /// Whether the playlist's tune plays, or is meant to while a tune change is under way. It
+    /// holds through a tune change, so it does not flicker each turn.
+    public var isPlayingOrStarting: Bool {
+        guard player.queue === self else { return false }
+        return isSettled ? player.transport?.isPlaying == true : playIntended
+    }
     /// Whether the player holds the current tune. False while a tune resolves, when the player
     /// still holds the one being left.
     public var isSettled: Bool { loadedGeneration == generation }
@@ -59,10 +67,15 @@ public final class ListPlayback: PlayerQueue {
     private let defaults: UserDefaults
     private let analytics: AnalyticsClient
     @ObservationIgnored private var rng: any RandomNumberGenerator
-    @ObservationIgnored private var order: PlaylistOrder?
+    /// Observed, so ``nextTuneID`` follows a reshuffle that leaves the position as it was.
+    private var order: PlaylistOrder?
     /// Bumped by every turn and every change of course, so an answer that arrives after the
     /// playlist has moved on is dropped.
     private var generation = 0
+    /// Whether the musician means the playlist to play: set by each turn, which plays its tune,
+    /// and by pause and resume. Read while a tune change leaves the player's state unknown, and
+    /// by the turn's load, so a pause during the change holds.
+    private var playIntended = false
     /// The generation whose item the player holds. The player's reports count only while it is
     /// the current one, since until a new turn loads, they are about the tune being left.
     private var loadedGeneration: Int?
@@ -88,11 +101,14 @@ public final class ListPlayback: PlayerQueue {
         player.onPlayedOutsideQueue = { [weak self] in self?.endMessage = nil }
     }
 
-    /// Plays the tunes `report` says will play, so the bar counts the same tunes as the list.
-    /// Whatever was loaded stops at once rather than playing on while the first tune resolves.
-    public func start(listID: String, name: String, report: PlaylistReport, shuffled: Bool) {
+    /// Plays the tunes `report` says will play, so the bar counts the same tunes as the list, from
+    /// `tuneID` when it is one of them. Whatever was loaded stops at once rather than playing on
+    /// while the first tune resolves.
+    public func start(
+        listID: String, name: String, report: PlaylistReport, shuffled: Bool, at tuneID: String? = nil
+    ) {
         player.close()
-        start(listID: listID, name: name, tuneIDs: report.playable, shuffled: shuffled)
+        start(listID: listID, name: name, tuneIDs: report.playable, shuffled: shuffled, at: tuneID)
     }
 
     /// Plays `tuneIDs` from `tuneID`, or from the start or a random tune when nil, in place of
@@ -121,9 +137,12 @@ public final class ListPlayback: PlayerQueue {
         guard let listID, var probe = order, probe.jump(to: tuneID) else { return false }
         let settled = isSettled
         let turn = advanceGeneration()
+        playIntended = true
         guard let resolved = await resolve(listID, tuneID) else {
             // The tune already playing still reports, unless something else moved meanwhile.
             if settled, turn == generation { loadedGeneration = turn }
+            // A turn this jump replaced will not play, so the intent follows what the player does.
+            if turn == generation { playIntended = player.transport?.isPlaying == true }
             return false
         }
         // Something else took over while the tune resolved, and that wins.
@@ -188,6 +207,25 @@ public final class ListPlayback: PlayerQueue {
         finish(message: nil)
     }
 
+    // MARK: Widget controls
+
+    /// Pauses the playlist's tune as the Now Playing pause command does. Does nothing while the
+    /// player holds something else.
+    public func pauseList() async {
+        guard player.queue === self else { return }
+        playIntended = false
+        player.transport?.pause()
+    }
+
+    /// Resumes the playlist's tune as the Now Playing play command does. Does nothing while the
+    /// player holds something else. During a tune change, the next tune plays once it loads,
+    /// rather than the one being left.
+    public func resumeList() async {
+        guard player.queue === self else { return }
+        playIntended = true
+        if isSettled { player.transport?.play() }
+    }
+
     // MARK: PlayerQueue
 
     public func playerTrackEnded(_ end: TrackEnd) {
@@ -237,6 +275,7 @@ public final class ListPlayback: PlayerQueue {
             return
         }
         self.trigger = trigger
+        playIntended = true
         showCurrent()
         let turn = advanceGeneration()
         Task { [weak self] in
@@ -251,6 +290,7 @@ public final class ListPlayback: PlayerQueue {
         }
     }
 
+    /// Loads paused when the musician paused while the tune resolved.
     private func load(_ resolved: Turn, turn: Int) {
         loadedGeneration = turn
         title = resolved.title
@@ -260,7 +300,10 @@ public final class ListPlayback: PlayerQueue {
         // which the playlist gives way to.
         let origin = listID.map { PlayOrigin.list(id: $0) } ?? .dock
         let nowPlaying = NowPlaying(title: resolved.title, tuneTitle: listName)
-        guard player.playQueued(resolved.item, nowPlaying: nowPlaying, origin: origin, trigger: trigger) else {
+        guard
+            player.playQueued(
+                resolved.item, nowPlaying: nowPlaying, autoplay: playIntended, origin: origin, trigger: trigger)
+        else {
             end()
             return
         }
@@ -278,7 +321,10 @@ public final class ListPlayback: PlayerQueue {
             finish(message: ListPlaybackText.nothingLeft)
             return
         }
+        // A skip continues the turn the musician started, so a pause made during it holds.
+        let intended = playIntended
         playCurrent(trigger)
+        playIntended = intended
     }
 
     private func showCurrent() {
@@ -314,6 +360,7 @@ public final class ListPlayback: PlayerQueue {
         listID = nil
         listName = nil
         currentTuneID = nil
+        playIntended = false
         title = nil
         position = 0
         count = 0

@@ -61,7 +61,7 @@ public struct ShareContainer: Sendable {
 }
 
 /// Reads and writes the small files in the shared folder.
-enum ShareFile {
+package enum ShareFile {
     /// Another process can replace a shared file at any moment, so a read goes through a file
     /// handle, never a mapped `Data`.
     static func read(_ url: URL) throws -> Data {
@@ -95,14 +95,16 @@ enum ShareFile {
     }
 
     /// Writes `value` to the file `name` in `userID`'s folder.
-    static func writeJSON(_ value: some Encodable, named name: String, userID: String, in container: ShareContainer)
+    package static func writeJSON(
+        _ value: some Encodable, named name: String, userID: String, in container: ShareContainer
+    )
         throws
     {
         try writeJSON(value, to: container.userFolder(userID).appending(path: name))
     }
 
     /// The value in the file `name` in `userID`'s folder, or nil when it is missing or unreadable.
-    static func readJSON<Value: Decodable>(
+    package static func readJSON<Value: Decodable>(
         _ type: Value.Type, named name: String, userID: String, in container: ShareContainer
     ) -> Value? {
         readJSON(type, from: container.userFolder(userID).appending(path: name))

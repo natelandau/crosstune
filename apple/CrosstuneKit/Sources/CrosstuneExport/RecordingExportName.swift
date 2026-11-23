@@ -1,4 +1,5 @@
 import CrosstuneStore
+import CrosstuneVocabulary
 import Foundation
 
 public struct NameInput: Sendable {

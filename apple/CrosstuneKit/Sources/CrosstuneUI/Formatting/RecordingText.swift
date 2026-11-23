@@ -2,6 +2,8 @@ import CrosstuneRecordingActivity
 import CrosstuneShare
 import CrosstuneStore
 import CrosstuneSync
+import CrosstuneVocabulary
+import CrosstuneWidgetData
 import Foundation
 
 /// How a recording reads in its row: title, metadata, and what its leading control does.
@@ -55,22 +57,12 @@ public enum RecordingText {
     public static func recordedDate(
         _ at: Timestamp, precision: RecordingPrecision, locale: Locale = .current, timeZone: TimeZone = .current
     ) -> String {
-        // A partial date is stored as UTC midnight at the start of its period, so it is read in
-        // UTC: read locally west of UTC, 1937 would read as 1936.
-        let partial = Date.FormatStyle(locale: locale, timeZone: .gmt)
-        return switch precision {
-        case .year: at.date.formatted(partial.year())
-        case .month: at.date.formatted(partial.month(.abbreviated).year())
-        case .day: at.date.formatted(Date.FormatStyle(date: .abbreviated, locale: locale, timeZone: .gmt))
-        case .time:
-            at.date.formatted(
-                Date.FormatStyle(date: .abbreviated, time: .shortened, locale: locale, timeZone: timeZone))
-        }
+        RecordingDayText.recordedDate(at.date, precision: precision, locale: locale, timeZone: timeZone)
     }
 
     /// The day a recording was added, in `timeZone` since `addedAt` is an exact instant.
     public static func addedDay(_ at: Timestamp, locale: Locale = .current, timeZone: TimeZone = .current) -> String {
-        at.date.formatted(Date.FormatStyle(date: .abbreviated, locale: locale, timeZone: timeZone))
+        RecordingDayText.addedDay(at.date, locale: locale, timeZone: timeZone)
     }
 
     /// `Added <day>`.

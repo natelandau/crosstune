@@ -83,6 +83,13 @@ public final class ShareHost {
         Task { await becameActive() }
     }
 
+    /// Runs `work` until the open store closes, as the host's own writers do, so a removal of the
+    /// user's folder waits for it to end. Does nothing with no store open.
+    public func publish(alongside work: @escaping @MainActor () async -> Void) {
+        guard store != nil else { return }
+        publishing.append(Task { await work() })
+    }
+
     /// Removes what is held for `userID`, who signed out or deleted the account, including items
     /// not yet added.
     public func userLeft(_ userID: String) {
@@ -219,35 +226,23 @@ public final class ShareHost {
     ) -> Task<Void, Never> {
         let (database, userID) = (store.database, store.userID)
         return Task(priority: .utility) {
-            await follow(database, userID: userID, fetch: fetch, write: write)
-        }
-    }
-
-    @concurrent
-    nonisolated private static func follow<Value: Equatable & Sendable>(
-        _ database: DatabasePool, userID: String,
-        fetch: @escaping @Sendable (Database) throws -> Value,
-        write: @escaping @Sendable (Value, String) throws -> Void
-    ) async {
-        do {
-            for try await value in ValueObservation.tracking(fetch).removeDuplicates().values(in: database) {
+            await StoreObservation.follow(
+                database, logger: logger, follower: "The share extension's files", fetch: fetch
+            ) { value in
                 do {
                     try write(value, userID)
                 } catch {
                     logger.warning("A file for the share extension was not written: \(error)")
                 }
             }
-        } catch is CancellationError {
-        } catch {
-            logger.warning("The share extension's files stopped following the store: \(error)")
         }
     }
 
     nonisolated private static func entry(_ tune: ListedTune) -> ShareTuneEntry {
-        let type = tune.tuneType?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let parts = [type?.isEmpty == false ? type : nil, KeyModeText(key: tune.key, modes: tune.modes)?.shown]
-            .compactMap { $0 }
-        return ShareTuneEntry(
-            id: tune.id, title: tune.title, detail: parts.isEmpty ? nil : parts.joined(separator: " · "))
+        ShareTuneEntry(
+            id: tune.id, title: tune.title,
+            detail: TuneDetailText.joined([
+                TuneDetailText.type(tune.tuneType), KeyModeText(key: tune.key, modes: tune.modes)?.shown,
+            ]))
     }
 }

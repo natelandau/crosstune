@@ -12,6 +12,7 @@ import SwiftUI
 #if os(iOS)
     import AppIntents
     import CrosstuneRecordingActivity
+    import CrosstuneWidgetIntents
 #endif
 
 @main
@@ -46,6 +47,7 @@ struct CrosstuneApp: App {
         /// Keeps the recording Live Activity in step with the recorder for the app's lifetime.
         private let recordingActivity: Task<Void, Never>
         @State private var shareHost: ShareHost
+        private let widgets: WidgetSession
     #endif
     @Environment(\.scenePhase) private var scenePhase
 
@@ -59,8 +61,6 @@ struct CrosstuneApp: App {
         _recorders = State(initialValue: recorders)
         _tuner = State(initialValue: TunerModel(input: TunerInput(), recorders: recorders))
         #if os(iOS)
-            // Before the first scene, because a Live Activity button can launch the app.
-            AppDependencyManager.shared.add(dependency: recorders as any RecordingControl)
             let activityController = RecordingActivityController(client: LiveRecordingActivityClient())
             activityController.launch()
             recordingActivity = Task { await activityController.run(host: recorders) }
@@ -85,7 +85,8 @@ struct CrosstuneApp: App {
         URLCache.shared.removeAllCachedResponses()
         let player = PlayerModel.device(analytics: analytics, diagnostics: diagnostics)
         _player = State(initialValue: player)
-        _listPlayback = State(initialValue: ListPlayback.device(player: player, analytics: analytics))
+        let listPlayback = ListPlayback.device(player: player, analytics: analytics)
+        _listPlayback = State(initialValue: listPlayback)
         let session = AccountSession(
             publishableKey: configuration.clerkPublishableKey,
             apiOrigin: configuration.apiOrigin,
@@ -103,7 +104,16 @@ struct CrosstuneApp: App {
             let shareHost = ShareHost.appGroup(
                 resolve: { [session] url in await session.syncEngine?.resolveLink(url) }, analytics: analytics,
                 diagnostics: diagnostics)
-            session.userLeft = { [shareHost] in shareHost.userLeft($0) }
+            let widgets = WidgetSession.appGroup()
+            self.widgets = widgets
+            // Before the first scene, because a widget or Live Activity button can launch the app.
+            let controls = widgets.controls(listPlayback: listPlayback, recorders: recorders)
+            AppDependencyManager.shared.add(dependency: controls as any RecordingControl)
+            AppDependencyManager.shared.add(dependency: controls as any WidgetPlaybackControl)
+            session.userLeft = { [shareHost, widgets] in
+                shareHost.userLeft($0)
+                widgets.userLeft()
+            }
             _shareHost = State(initialValue: shareHost)
         #endif
     }
@@ -156,12 +166,15 @@ struct CrosstuneApp: App {
                 #endif
             }
         }
-        .onChange(of: session.store?.userID, initial: true) {
+        .onChange(of: session.store?.userID, initial: true) { oldUserID, _ in
             let bound = StorePlan.bind(session.store, player: player, purchases: purchases)
             plan = bound.plan
             noticeClaim = bound.noticeClaim
             #if os(iOS)
                 shareHost.storeChanged(session.store)
+                widgets.storeChanged(
+                    from: oldUserID, to: session.store, shareHost: shareHost, recorders: recorders,
+                    listPlayback: listPlayback, plan: bound.plan)
             #endif
         }
         #if os(iOS)
@@ -242,7 +255,9 @@ struct CrosstuneApp: App {
 
 #if os(iOS)
     struct CrosstuneAppIntents: AppIntentsPackage {
-        static var includedPackages: [any AppIntentsPackage.Type] { [RecordingActivityIntents.self] }
+        static var includedPackages: [any AppIntentsPackage.Type] {
+            [RecordingActivityIntents.self, WidgetIntents.self]
+        }
     }
 #endif
 

@@ -95,14 +95,19 @@
   in `CrosstuneDesign`. `CrosstuneUI` depends on it, never the reverse, so
   the compiler rejects a style that reaches into a screen. A type that
   needs a feature's type, string, or sample data stays in `CrosstuneUI`.
-- The Live Activity extension imports only `CrosstunePalette` and
-  `CrosstuneRecordingActivity`. Never the store, sync, or audio modules.
+- The widget extension imports only `CrosstunePalette`,
+  `CrosstuneRecordingActivity`, `CrosstuneWidgetData`, and
+  `CrosstuneWidgetIntents`. Never the store, sync, or audio modules.
+- Widgets read only the per-user summary file the app writes to the App
+  Group. Never the database or the API.
+- A widget tap that starts something posts a request that the app's shell
+  carries out. The extension never starts playback or recording.
 - The share extension imports only `CrosstuneShare`, `CrosstunePalette`,
   and `CrosstuneVocabulary`. Never the store, sync, commands, audio,
   analytics, or design modules. It never writes the database. It writes
   only to the share inbox in `CrosstuneShare`.
-- ActivityKit and Live Activity intent code compiles only under
-  `#if os(iOS)`, since the same modules build for the Mac.
+- WidgetKit, ActivityKit, and widget and Live Activity intent code compile
+  only under `#if os(iOS)`, since the same modules build for the Mac.
 - An intent that starts a recording starts it on `RecorderHost`'s
   recorder, as the record sheet does. The Live Activity watches only that
   recorder.

@@ -189,7 +189,8 @@ struct ContentMaskTests {
 
     @Test func everyViewOfUserContentIsMasked() throws {
         var unmasked: [String] = []
-        for file in SourceScan.files() {
+        // Session replay records only the app's own process, never an extension's.
+        for file in SourceScan.appProcessFiles() {
             let relative = SourceScan.relative(file)
             let text = try SourceScan.text(at: file)
             for site in Self.sites(in: text) where !site.masked {

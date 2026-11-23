@@ -1,3 +1,5 @@
+import CrosstuneWidgetData
+
 /// What the leading slot of a recording or link row shows: the item's state.
 public enum MediaGlyph: Hashable, Sendable {
     case play
@@ -26,8 +28,8 @@ public enum MediaGlyph: Hashable, Sendable {
 
 /// Words recording and link rows share.
 public enum MediaText {
-    public static let play = "Play"
-    public static let pause = "Pause"
+    public static let play = PlaybackLabels.play
+    public static let pause = PlaybackLabels.pause
     public static let closePlayer = "Close player"
     public static let open = "Open"
     public static let retry = "Retry"

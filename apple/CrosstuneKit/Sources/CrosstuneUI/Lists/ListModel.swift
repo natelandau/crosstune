@@ -73,6 +73,28 @@ public struct ListContents: Hashable, Sendable {
         }
         return ListContents(list: list, entries: entries)
     }
+
+    /// Whether list screens show archived tunes, the setting every list shares. Anything but a
+    /// stored true reads as off, as the web reads it.
+    nonisolated static func showsArchived(in db: Database) -> Bool {
+        do {
+            return try MetaKey.listShowArchived.value(in: db, as: Bool.self) == true
+        } catch {
+            logger.error(
+                "Setting \(MetaKey.listShowArchived.rawValue, privacy: .public) could not be read, so it reads as off: \(error, privacy: .public)"
+            )
+            return false
+        }
+    }
+
+    nonisolated private static let logger = Logger(subsystem: "app.crosstune.Crosstune", category: "list")
+}
+
+extension [ListEntry] {
+    /// The entries a list screen shows: every one when `showArchived`, else the unarchived ones.
+    nonisolated func shown(showArchived: Bool) -> [ListEntry] {
+        showArchived ? self : filter { !$0.isArchived }
+    }
 }
 
 /// The list screen's state: the live list, the Show archived setting every list shares, the
@@ -127,10 +149,7 @@ public final class ListModel {
         self.analytics = analytics
         self.listID = listID
         contents = LiveQuery(store, initial: nil) { db in .some(try ListContents.fetch(db, listID: listID)) }
-        storedShowArchived = LiveQuery(store, initial: nil) { db in
-            // Anything but a stored true reads as off, as the web reads it.
-            (try? MetaKey.listShowArchived.value(in: db, as: Bool.self)) == true
-        }
+        storedShowArchived = LiveQuery(store, initial: nil) { db in ListContents.showsArchived(in: db) }
         let settingsRow = settingsID(clerkUserID: store.userID)
         storedInstruments = LiveQuery(store, initial: nil) { db in
             guard let row = try UserSettings.fetchOne(db, key: settingsRow), row.deletedAt == nil else { return [] }
@@ -187,7 +206,7 @@ public final class ListModel {
 
     /// The tunes the screen shows, in order: every entry, less archived ones unless shown.
     public var rows: [ListEntry] {
-        showArchived == true ? entries : entries.filter { !$0.isArchived }
+        entries.shown(showArchived: showArchived == true)
     }
 
     /// Sends a row where the menu says, among the rows on screen when it is chosen.

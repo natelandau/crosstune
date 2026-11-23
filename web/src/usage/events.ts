@@ -19,6 +19,7 @@ export const SOURCES = [
   'search_offer',
   'menu',
   'share',
+  'widget',
 ] as const
 export const ORIGINS = ['recorded', 'imported', 'slippery_hill'] as const
 export const KINDS = ['recorded', 'imported', 'slippery_hill', 'link'] as const

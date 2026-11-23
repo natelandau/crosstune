@@ -28,7 +28,8 @@ extension RecordingActivityController {
 }
 
 extension RecorderSnapshot {
-    fileprivate static let idle = RecorderSnapshot(
+    /// A recorder that has not recorded, for when no recorder is held.
+    static let idle = RecorderSnapshot(
         state: .idle, elapsed: 0, resumeAvailable: false, savedRecordingID: nil, errorMessage: nil
     )
 }

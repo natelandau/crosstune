@@ -74,6 +74,14 @@ struct PlaylistOrder {
         return current
     }
 
+    /// The tune a skip moves to, without moving. Nil at the end with repeat off, and at the end
+    /// of a shuffled queue, which reshuffles only when it gets there.
+    func upcoming(repeat mode: RepeatMode) -> String? {
+        if index + 1 < queue.count { return queue[index + 1] }
+        guard mode != .off, !shuffled else { return nil }
+        return queue.first
+    }
+
     /// The previous tune, or the first tune again when already there.
     mutating func previous() -> String? {
         index = max(index - 1, 0)

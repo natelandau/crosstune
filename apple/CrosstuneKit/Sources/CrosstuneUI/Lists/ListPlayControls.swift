@@ -1,12 +1,13 @@
 import CrosstuneCommands
 import CrosstuneDesign
+import CrosstuneWidgetData
 import SwiftUI
 
 /// Words the list's play controls show.
 public enum ListPlayText {
     public static let play = MediaText.play
     public static let pause = MediaText.pause
-    public static let shuffle = "Shuffle"
+    public static let shuffle = ListLabels.shuffle
     public static let none = "No tunes in this list can play"
 
     public static func count(playable: Int, total: Int) -> String {

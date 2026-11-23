@@ -2,6 +2,7 @@ import CrosstuneAnalytics
 import CrosstuneCommands
 import CrosstuneStore
 import CrosstuneVocabulary
+import CrosstuneWidgetData
 import Foundation
 
 /// A tune and the musician's own row for it: one entry in the catalog.
@@ -347,7 +348,7 @@ public enum CatalogSearch {
 
     /// "1 tune" or "3 tunes": the one wording for a number of tunes.
     public static func tunes(_ count: Int) -> String {
-        count == 1 ? "1 tune" : "\(count) tunes"
+        ListLabels.tunes(count)
     }
 }
 
