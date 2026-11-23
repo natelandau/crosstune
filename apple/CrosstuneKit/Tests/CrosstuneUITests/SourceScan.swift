@@ -73,6 +73,19 @@ enum SourceScan {
         try String(contentsOf: url, encoding: .utf8)
     }
 
+    /// Whether `text` holds `marker`, byte for byte, for a scan's plain-text check before a
+    /// regex. Foundation's `contains`, the one a call finds wherever Foundation is imported, is
+    /// over twenty times slower, and a scan's CPU time holds the test threads that every other
+    /// test waits on.
+    static func contains(_ marker: String, in text: some StringProtocol) -> Bool {
+        let found = text.utf8.withContiguousStorageIfAvailable { haystack in
+            marker.utf8.withContiguousStorageIfAvailable { needle in
+                memmem(haystack.baseAddress, haystack.count, needle.baseAddress, needle.count) != nil
+            }
+        }
+        return (found ?? nil) ?? text.contains(marker)
+    }
+
     /// `text` with every one-line string literal emptied, so text that names code never counts
     /// as code.
     static func withoutStrings(_ text: String) -> String {

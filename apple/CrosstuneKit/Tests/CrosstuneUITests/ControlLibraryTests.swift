@@ -102,7 +102,7 @@ struct ControlLibraryTests {
     static func violations(in code: String) -> Set<Violation> {
         var found = Set<Violation>()
         for (rule, markers, regex) in patterns
-        where markers.contains(where: { code.contains($0) }) {
+        where markers.contains(where: { SourceScan.contains($0, in: code) }) {
             for match in code.matches(of: regex) {
                 found.insert(Violation(rule: rule, line: line(of: match.range, in: code)))
             }
@@ -549,7 +549,7 @@ struct ControlLibraryTests {
     static func macViolations(in code: String) -> Set<Violation> {
         var found = violations(in: code)
         for (rule, markers, regex) in macPatterns
-        where markers.contains(where: { code.contains($0) }) {
+        where markers.contains(where: { SourceScan.contains($0, in: code) }) {
             for match in code.matches(of: regex) {
                 found.insert(Violation(rule: rule, line: line(of: match.range, in: code)))
             }

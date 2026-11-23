@@ -34,44 +34,42 @@
             "red|orange|yellow|green|mint|teal|cyan|blue|indigo|purple|pink|brown|gray|grey|white|black"
         private static let systemStyles = "primary|secondary|tertiary|quaternary|quinary|separator|" + systemColors
 
-        /// A color written in place rather than named as a role.
-        private static var oneOffs: [Regex<AnyRegexOutput>] {
-            [
-                // A color literal.
-                try! Regex(#"\bColor\((red|white|hue|\.sRGB|\.displayP3|nsColor|uiColor|")"#),
-                // A system color by name.
-                try! Regex(#"\bColor\.(\#(systemStyles)|accentColor)\b"#),
-                try! Regex(#"\b(NSColor|UIColor)\.(?!init\b)[a-z]\w*"#),
-                // A system color or style handed to anything that draws one.
-                try! Regex(
-                    #"\b(foregroundStyle|foregroundColor|fill|stroke|strokeBorder|background|tint|style|shadow|"#
-                        + #"listRowBackground|border|overlay|AnyShapeStyle|color|containerBackground|"#
-                        + #"backgroundStyle|stackBackground|glassEffect)\((?:[^\n]*[^\w.])?\.(\#(systemStyles))\b"#),
-                // A system color handed on as a value: `case .a: .red`, `return .orange`, `on ? .white : x`.
-                try! Regex(#"[?:]\s*\.(\#(systemColors))\b|\breturn\s+\.(\#(systemColors))\b"#),
-                // A system fill style.
-                try! Regex(#"\.fill\.(primary|secondary|tertiary|quaternary|quinary)\b"#),
-                // A color made translucent where it is drawn, not in the palette module or `Style/`.
-                try! Regex(
-                    #"(\bPalette\.\w+(\([^()]*\))?|\bColor\.\w+|\b[a-z]\w*Color|\bcolor|\btint)\.opacity\("#
-                        + #"|(?:^|[^\w.])\.(white|black|tint|primary|secondary)\.opacity\("#),
-                // A hex value.
-                try! Regex(##""#[0-9A-Fa-f]{6}""##),
-                // A primitive, which only the palette module and `Style/` name.
-                try! Regex(#"\bPrimitive\."#),
-            ]
-        }
+        /// A color written in place rather than named as a role. Built once, since building a
+        /// regex costs far more than matching one line.
+        nonisolated(unsafe) private static let oneOffs: [Regex<AnyRegexOutput>] = [
+            // A color literal.
+            try! Regex(#"\bColor\((red|white|hue|\.sRGB|\.displayP3|nsColor|uiColor|")"#),
+            // A system color by name.
+            try! Regex(#"\bColor\.(\#(systemStyles)|accentColor)\b"#),
+            try! Regex(#"\b(NSColor|UIColor)\.(?!init\b)[a-z]\w*"#),
+            // A system color or style handed to anything that draws one.
+            try! Regex(
+                #"\b(foregroundStyle|foregroundColor|fill|stroke|strokeBorder|background|tint|style|shadow|"#
+                    + #"listRowBackground|border|overlay|AnyShapeStyle|color|containerBackground|"#
+                    + #"backgroundStyle|stackBackground|glassEffect)\((?:[^\n]*[^\w.])?\.(\#(systemStyles))\b"#),
+            // A system color handed on as a value: `case .a: .red`, `return .orange`, `on ? .white : x`.
+            try! Regex(#"[?:]\s*\.(\#(systemColors))\b|\breturn\s+\.(\#(systemColors))\b"#),
+            // A system fill style.
+            try! Regex(#"\.fill\.(primary|secondary|tertiary|quaternary|quinary)\b"#),
+            // A color made translucent where it is drawn, not in the palette module or `Style/`.
+            try! Regex(
+                #"(\bPalette\.\w+(\([^()]*\))?|\bColor\.\w+|\b[a-z]\w*Color|\bcolor|\btint)\.opacity\("#
+                    + #"|(?:^|[^\w.])\.(white|black|tint|primary|secondary)\.opacity\("#),
+            // A hex value.
+            try! Regex(##""#[0-9A-Fa-f]{6}""##),
+            // A primitive, which only the palette module and `Style/` name.
+            try! Regex(#"\bPrimitive\."#),
+        ]
 
         /// Text that every pattern in `oneOffs` needs, so a line holding none of it cannot match.
         private static let oneOffMarkers =
             ["Color", ".fill.", ".opacity(", "\"#", "Primitive."] + systemStyles.split(separator: "|").map(String.init)
 
         static func violations(in text: String) -> [String] {
-            let patterns = oneOffs
             // Swift Regex is slow, so a plain search first skips almost every line.
-            return SourceScan.withoutComments(text).split(separator: "\n")
-                .filter { line in oneOffMarkers.contains { line.contains($0) } }
-                .filter { line in patterns.contains { line.contains($0) } }
+            SourceScan.withoutComments(text).split(separator: "\n")
+                .filter { line in oneOffMarkers.contains { SourceScan.contains($0, in: line) } }
+                .filter { line in oneOffs.contains { line.contains($0) } }
                 .map { $0.trimmingCharacters(in: .whitespaces) }
         }
 

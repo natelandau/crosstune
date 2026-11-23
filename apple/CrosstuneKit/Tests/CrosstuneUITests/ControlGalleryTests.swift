@@ -37,21 +37,21 @@ struct ControlGalleryTests {
 
     /// The shorthands a style declares for itself, such as `filled` for `LibraryButtonStyle`:
     /// each `static var` or `static func` in an extension `where Self ==` the style.
-    // Every control's lookup reads the same files, so they are read once per test process.
-    private static let designCode = Result {
-        try SourceScan.files().filter { $0.path.contains("/CrosstuneDesign/") }.map { file in
+    // Every control's lookup reads the same extensions, so they are split out once per test
+    // process: each with its head, the text before its first brace.
+    private static let designExtensions = Result {
+        try SourceScan.files().filter { $0.path.contains("/CrosstuneDesign/") }.flatMap { file in
             SourceScan.withoutComments(try SourceScan.text(at: file))
+                .components(separatedBy: "extension ")
+                .map { (head: String($0.prefix(while: { $0 != "{" })), code: $0) }
         }
     }
 
     static func shorthands(of style: String) throws -> [String] {
         let member = /static\s+(?:var|func)\s+(\w+)/
-        return try designCode.get().flatMap { code in
-            code
-                .components(separatedBy: "extension ")
-                .filter { $0.prefix(while: { $0 != "{" }).contains("where Self == \(style)") }
-                .flatMap { $0.matches(of: member).map { String($0.1) } }
-        }
+        return try designExtensions.get()
+            .filter { SourceScan.contains("where Self == \(style)", in: $0.head) }
+            .flatMap { $0.code.matches(of: member).map { String($0.1) } }
     }
 
     /// Whether `code` uses `name`: a view or style built as `Name(`, or a style applied by one of
