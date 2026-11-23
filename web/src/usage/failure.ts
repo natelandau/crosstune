@@ -1,12 +1,16 @@
 import { ApiError, NetworkError, TransferError } from '../api/client'
-import { isQuotaError } from '../platform/storage'
+import { InsufficientStorageError, isQuotaError } from '../platform/storage'
 import { isAuthFailure, QUOTA_PROBLEM } from '../sync/errors'
 import type { FailureReason } from './events'
 
 /** The plan's reason for a failure, from the error alone. */
 export function failureReason(error: unknown): FailureReason {
   if (error instanceof NetworkError) return 'network'
-  if ((error instanceof ApiError && error.problemType === QUOTA_PROBLEM) || isQuotaError(error)) {
+  if (
+    (error instanceof ApiError && error.problemType === QUOTA_PROBLEM) ||
+    error instanceof InsufficientStorageError ||
+    isQuotaError(error)
+  ) {
     return 'storage_full'
   }
   if (isAuthFailure(error)) return 'auth_expired'

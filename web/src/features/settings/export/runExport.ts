@@ -4,12 +4,19 @@ import type { ScanFile } from '../../../db/scans'
 import type { CrosstuneDb } from '../../../db/schema'
 import { storedInstruments, type LocalRecording, type LocalScan } from '../../../db/types'
 import { buildExport, formatDate, selectExportFiles, type ExportInput } from './buildExport'
+import type { ReadBody } from '../../../api/types'
+import { withExportStaging, type ExportStaging } from './staging'
 import { buildZip, type ZipEntry } from './zip'
 
 export type ExportFileKind = 'recording' | 'scan'
 
 /** Reads one recording's audio or one scan's image from the server, storing nothing. */
-export type FetchMissing = (kind: ExportFileKind, id: string, signal?: AbortSignal) => Promise<Blob>
+export type FetchMissing = (
+  kind: ExportFileKind,
+  id: string,
+  signal?: AbortSignal,
+  readBody?: ReadBody,
+) => Promise<Blob>
 
 export interface ExportCounts {
   /** Recording and scan files the export takes from this device. */
@@ -187,6 +194,8 @@ export interface CreateExportOptions {
   signal?: AbortSignal
   /** Files zipped out of all recording and scan files; the CSVs are not counted. */
   onProgress?: (done: number, total: number) => void
+  /** Where fetched files are written; null reads them into memory. */
+  openStaging?: (plannedBytes: number) => Promise<ExportStaging | null>
 }
 
 /**
@@ -198,38 +207,58 @@ export async function createExport(
   userId: string,
   options: CreateExportOptions,
 ): Promise<{ fileName: string; blob: Blob }> {
-  const { now, timeZone, fetchMissing, signal, onProgress } = options
+  const { now, timeZone, fetchMissing, signal, onProgress, openStaging } = options
   const { input, blobs, scanBlobs } = await readExportInput(db, userId, timeZone)
   const plan = buildExport(input)
 
-  const entries: ZipEntry[] = [
-    { path: 'tunes.csv', data: new Blob([plan.tunesCsv], { type: 'text/csv' }) },
-    { path: 'lists.csv', data: new Blob([plan.listsCsv], { type: 'text/csv' }) },
-    { path: 'recordings.csv', data: new Blob([plan.recordingsCsv], { type: 'text/csv' }) },
+  const awayRecordings = new Set(
+    plan.audio.map((a) => a.recordingId).filter((id) => !blobs.has(id)),
+  )
+  const awayScans = new Set(plan.scans.map((s) => s.scanId).filter((id) => !scanBlobs.has(id)))
+  const fetchedSizes = [
+    ...input.recordings.filter((r) => awayRecordings.has(r.id)).map((r) => r.playback_bytes),
+    ...input.scans.filter((scan) => awayScans.has(scan.id)).map((scan) => scan.file_bytes),
   ]
-  const csvCount = entries.length
-  for (const { recordingId, path } of plan.audio) {
-    entries.push({
-      path,
-      data: blobs.get(recordingId) ?? ((read) => fetchMissing('recording', recordingId, read)),
-    })
-  }
-  for (const { scanId, path } of plan.scans) {
-    entries.push({
-      path,
-      data: scanBlobs.get(scanId) ?? ((read) => fetchMissing('scan', scanId, read)),
-    })
-  }
 
-  const fileTotal = entries.length - csvCount
-  onProgress?.(0, fileTotal)
-  const blob = await buildZip(entries, {
-    modified: now,
-    signal,
-    onEntry: (done) => {
-      if (done > csvCount) onProgress?.(done - csvCount, fileTotal)
+  const blob = await withExportStaging(
+    fetchedSizes,
+    async (readBody) => {
+      const entries: ZipEntry[] = [
+        { path: 'tunes.csv', data: new Blob([plan.tunesCsv], { type: 'text/csv' }) },
+        { path: 'lists.csv', data: new Blob([plan.listsCsv], { type: 'text/csv' }) },
+        { path: 'recordings.csv', data: new Blob([plan.recordingsCsv], { type: 'text/csv' }) },
+      ]
+      const csvCount = entries.length
+      for (const { recordingId, path } of plan.audio) {
+        entries.push({
+          path,
+          data:
+            blobs.get(recordingId) ??
+            ((read) => fetchMissing('recording', recordingId, read, readBody)),
+        })
+      }
+      for (const { scanId, path } of plan.scans) {
+        entries.push({
+          path,
+          data: scanBlobs.get(scanId) ?? ((read) => fetchMissing('scan', scanId, read, readBody)),
+        })
+      }
+
+      const fileTotal = entries.length - csvCount
+      onProgress?.(0, fileTotal)
+      const zip = await buildZip(entries, {
+        modified: now,
+        signal,
+        onEntry: (done) => {
+          if (done > csvCount) onProgress?.(done - csvCount, fileTotal)
+        },
+      })
+      // An export abandoned as the zip finishes is never downloaded, so its staged files go too.
+      signal?.throwIfAborted()
+      return zip
     },
-  })
+    openStaging,
+  )
 
   return { fileName: `crosstune-export-${formatDate(now, timeZone)}.zip`, blob }
 }

@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/react'
 import type { AnalyticsClient } from '../../usage/client'
 import { forgetUser } from '../../auth/session'
 import { clearSearchQueries } from '../../ui/searchSession'
@@ -7,6 +8,7 @@ import { NOT_UPLOADED_STATES } from '../../db/recordings'
 import { deleteMarkedDatabase, markForDeletion, unmarkForDeletion } from '../../db/deletion'
 import type { CrosstuneDb } from '../../db/schema'
 import type { SyncEngine } from '../../sync/types'
+import { clearExportStaging } from './export/staging'
 
 export const UNSYNCED_RECORDINGS_ERROR =
   'Some recordings have not uploaded yet. Delete them in Recordings, or wait until they upload.'
@@ -19,16 +21,22 @@ export async function forgetLocalData({
   db,
   userId,
   analytics,
+  clearStaging = clearExportStaging,
 }: {
   db: CrosstuneDb
   userId: string
   analytics: AnalyticsClient
+  clearStaging?: () => Promise<void>
 }): Promise<void> {
   // First, so the person is forgotten even when deleting the database fails. Forgetting the
   // user is also what tells this user's other tabs to close the database before it is deleted.
   analytics.reset()
   forgetUser()
   db.close()
+  // Staged export files hold this user's audio, so they go even when the database delete fails.
+  // A failure here must not keep the person signed in, and clearing releases this page's locks,
+  // so the next sweep removes whatever is left.
+  await clearStaging().catch((error: unknown) => Sentry.captureException(error))
   await deleteMarkedDatabase(userId)
   clearSearchQueries()
 }

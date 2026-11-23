@@ -499,7 +499,7 @@ export function createSyncEngine({
         return null
       }
     },
-    fetchFile: (kind, id, signal) => fetchUnstored(api, kind, id, signal),
+    fetchFile: (kind, id, signal, readBody) => fetchUnstored(api, kind, id, signal, readBody),
     async retry(recordingId: string): Promise<void> {
       await api.retryRecording(recordingId)
       void syncing.trigger()

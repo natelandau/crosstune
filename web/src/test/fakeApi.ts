@@ -242,10 +242,12 @@ export function createFakeApi() {
       objects.set(key, blob)
       putTypes.set(key, contentType)
     },
-    async getObject(url) {
+    async getObject(url, signal, readBody) {
       const blob = objects.get(new URL(url).pathname.slice(1))
       if (!blob) throw new TransferError(404)
-      return blob
+      if (!readBody) return blob
+      const headers = { 'Content-Length': String(blob.size), 'Content-Type': blob.type }
+      return readBody(new Response(blob, { headers }), signal)
     },
   }
   // Wrapping every method means one added to SyncApi honors fail() without remembering to.

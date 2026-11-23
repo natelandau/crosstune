@@ -14,6 +14,12 @@ export async function storageHeadroom(): Promise<number | null> {
   }
 }
 
+/** Too little room on this device for a write the app plans, found before the browser refuses
+ * it. The message is the text the person sees. */
+export class InsufficientStorageError extends Error {
+  override readonly name = 'InsufficientStorageError'
+}
+
 /** Whether `error` is the browser refusing a write for lack of storage. Dexie reports a quota
  * failure that aborted its transaction as an AbortError whose `inner` is the quota error. */
 export function isQuotaError(error: unknown): boolean {

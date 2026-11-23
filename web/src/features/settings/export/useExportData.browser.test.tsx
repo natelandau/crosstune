@@ -1,5 +1,6 @@
 import { act, renderHook } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { clearExportStaging } from './staging'
 import { recordingAnalytics } from '../../../usage/testing'
 import type { CrosstuneDb } from '../../../db/schema'
 import { openTestDb } from '../../../test/db'
@@ -17,6 +18,11 @@ let db: CrosstuneDb
 beforeEach(() => {
   db = openTestDb()
   vi.mocked(downloadBlob).mockImplementation(() => {})
+})
+
+// An export staged on disk would otherwise outlive the test.
+afterEach(async () => {
+  await clearExportStaging()
 })
 
 const ZIP = { fileName: 'Crosstune export.zip', blob: new Blob(['zip']) }

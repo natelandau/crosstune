@@ -843,6 +843,12 @@ describe('createSyncEngine', () => {
       await engine.fetchFile('recording', 'r1', controller.signal)
       expect(getObject.mock.calls[0]![1]).toBe(controller.signal)
     })
+    it('hands the body reader to the object read on every try', async () => {
+      const { engine, failing } = failingOnce('getObject', new TransferError(503))
+      const readBody = async (response: Response) => response.blob()
+      await engine.fetchFile('recording', 'r1', undefined, readBody)
+      expect(failing.mock.calls.map((call) => (call as unknown[])[2])).toEqual([readBody, readBody])
+    })
   })
 
   describe('searchRecordings', () => {

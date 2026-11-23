@@ -2,6 +2,7 @@ import type {
   DeleteAccountOptions,
   PlaceHint,
   PlaceResult,
+  ReadBody,
   ReversePlaceResponse,
   ResolveResponse,
   SearchGroup,
@@ -79,9 +80,15 @@ export interface SyncEngine {
   /**
    * Read one recording's audio or one scan's image from the server, storing nothing on this
    * device. Tries once more after a dropped connection or a server error, and rejects when it
-   * still cannot be read, offline included, or when `signal` aborts.
+   * still cannot be read, offline included, or when `signal` aborts. `readBody` decides where
+   * the bytes go, as `SyncApi.getObject` describes.
    */
-  fetchFile(kind: 'recording' | 'scan', id: string, signal?: AbortSignal): Promise<Blob>
+  fetchFile(
+    kind: 'recording' | 'scan',
+    id: string,
+    signal?: AbortSignal,
+    readBody?: ReadBody,
+  ): Promise<Blob>
   /** Ask the server to transcode a failed recording again. */
   retry(recordingId: string): Promise<void>
   /** Ask the server to read the account's purchases from the store now. */

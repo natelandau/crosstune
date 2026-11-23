@@ -1,6 +1,8 @@
 import { unzipSync } from 'fflate'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { recordingFile, recordingRow } from '../../../test/rows'
+import { InsufficientStorageError } from '../../../platform/storage'
+import { fakeStaging } from '../../../test/fakeStaging'
 import { downloadBlob } from '../../settings/export/runExport'
 import type { RecordingView } from '../useRecordings'
 import type { ExportReadiness } from './readiness'
@@ -58,7 +60,7 @@ describe('gatherRecordings', () => {
       fetchFile,
       timeZone: ZONE,
     })
-    expect(fetchFile).toHaveBeenCalledExactlyOnceWith('r1', undefined)
+    expect(fetchFile).toHaveBeenCalledExactlyOnceWith('r1', undefined, undefined)
     expect(result).toMatchObject({ fetched: 1, skipped: 0 })
     expect(await result.files[0]!.blob.text()).toBe('fetched r1')
   })
@@ -112,6 +114,64 @@ describe('gatherRecordings', () => {
       }),
     ).rejects.toBe(reason)
     expect(fetchFile).toHaveBeenCalledOnce()
+  })
+})
+
+describe('gatherRecordings with staging', () => {
+  const sized = (id: string, bytes: number | null) => {
+    const made = remote(id, id)
+    made.view.recording = { ...made.view.recording, playback_bytes: bytes }
+    return made
+  }
+
+  it('hands each fetch the staging reader, planning the bytes it fetches', async () => {
+    const { staging, openStaging } = fakeStaging()
+    await gatherRecordings([sized('r1', 10), sized('r2', null), local('r3', 'Reel')], {
+      fetchFile,
+      timeZone: ZONE,
+      openStaging,
+    })
+    expect(openStaging).toHaveBeenCalledExactlyOnceWith(10)
+    expect(fetchFile.mock.calls.map((call) => (call as unknown[])[2])).toEqual([
+      staging.stage,
+      staging.stage,
+    ])
+  })
+
+  it('fails the whole gather when the device runs out of room, and discards its staging', async () => {
+    const { staging, openStaging } = fakeStaging()
+    const full = new InsufficientStorageError('full')
+    fetchFile.mockResolvedValueOnce(audio('one')).mockRejectedValueOnce(full)
+    await expect(
+      gatherRecordings([sized('r1', 1), sized('r2', 1), sized('r3', 1)], {
+        fetchFile,
+        timeZone: ZONE,
+        openStaging,
+      }),
+    ).rejects.toBe(full)
+    expect(fetchFile).toHaveBeenCalledTimes(2)
+    expect(staging.discard).toHaveBeenCalledOnce()
+  })
+
+  it('discards its staging when delivering the gathered files fails', async () => {
+    const { staging, openStaging } = fakeStaging()
+    fetchFile.mockResolvedValue(audio('one'))
+    const failure = new Error('zip failed')
+    await expect(
+      gatherRecordings([sized('r1', 1)], {
+        fetchFile,
+        timeZone: ZONE,
+        openStaging,
+        deliver: () => Promise.reject(failure),
+      }),
+    ).rejects.toBe(failure)
+    expect(staging.discard).toHaveBeenCalledOnce()
+  })
+
+  it('opens no staging when every recording is on the device', async () => {
+    const { openStaging } = fakeStaging()
+    await gatherRecordings([local('r1', 'Jam')], { fetchFile, timeZone: ZONE, openStaging })
+    expect(openStaging).not.toHaveBeenCalled()
   })
 })
 

@@ -105,8 +105,12 @@ export interface SyncApi {
    * GET bytes from a presigned URL. No bearer token: the signature is the credential. An abort
    * of `signal` stops the read like its timeout does.
    */
-  getObject(url: string, signal?: AbortSignal): Promise<Blob>
+  /** Reads the body into memory unless `readBody` takes the response and stores it elsewhere. */
+  getObject(url: string, signal?: AbortSignal, readBody?: ReadBody): Promise<Blob>
 }
+
+/** Turns a successful object response into the Blob a download returns. */
+export type ReadBody = (response: Response, signal?: AbortSignal) => Promise<Blob>
 
 export interface DeleteAccountOptions {
   appleAuthorizationCode?: string

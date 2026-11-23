@@ -1,6 +1,8 @@
-import { beforeEach, expect, it, onTestFinished, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, onTestFinished, vi } from 'vitest'
+import { clearExportStaging } from '../../settings/export/staging'
 import { page, userEvent } from 'vitest/browser'
 import type { CrosstuneDb } from '../../../db/schema'
+import type { ReadBody } from '../../../api/types'
 import type { SyncEngine } from '../../../sync/types'
 import { destination } from '../../../layout/destinations'
 import { openTestDb } from '../../../test/db'
@@ -27,6 +29,11 @@ beforeEach(() => {
   vi.mocked(downloadBlob).mockImplementation(() => {})
 })
 
+// An export staged on disk would otherwise outlive the test.
+afterEach(async () => {
+  await clearExportStaging()
+})
+
 /** Replaces the browser's file sharing for one test. */
 function stubShare(canShare: ((data: ShareData) => boolean) | undefined) {
   const share = vi.fn(async (_data: ShareData) => {})
@@ -43,7 +50,7 @@ function stubShare(canShare: ((data: ShareData) => boolean) | undefined) {
 function heldFetches() {
   const pending: { resolve: (blob: Blob) => void; reject: (cause: unknown) => void }[] = []
   const fetchFile = vi.fn(
-    (_kind: string, _id: string, signal?: AbortSignal) =>
+    (_kind: string, _id: string, signal?: AbortSignal, _readBody?: ReadBody) =>
       new Promise<Blob>((resolve, reject) => {
         pending.push({ resolve, reject })
         signal?.addEventListener('abort', () => reject(signal.reason))
@@ -173,6 +180,8 @@ it('says how many are skipped, exports none on Cancel, and the rest on Continue'
 
   await expect.poll(() => vi.mocked(downloadBlob).mock.calls.length).toBe(1)
   expect(fetchFile.mock.calls.map((call) => call[1]).sort()).toEqual(['a', 'b'])
+  // Each fetch streams to the staging folder instead of memory.
+  expect(fetchFile.mock.calls.every((call) => typeof call[3] === 'function')).toBe(true)
   expect(vi.mocked(downloadBlob).mock.calls[0]![1]).toMatch(
     /^crosstune-recordings-\d{4}-\d{2}-\d{2}\.zip$/,
   )

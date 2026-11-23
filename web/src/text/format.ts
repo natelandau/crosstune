@@ -81,12 +81,19 @@ export function formatPreciseDuration(ms: number): string {
   return `${minutes}:${String(seconds).padStart(2, '0')}.${tenths % 10}`
 }
 
-export function formatBytes(bytes: number): string {
+/** A size in decimal units. `roundUp` is for an amount the person must free, which must never
+ * read as less than is needed. */
+export function formatBytes(bytes: number, { roundUp = false } = {}): string {
   if (bytes < 1000) return `${bytes} B`
-  if (bytes < 1_000_000) return `${Math.round(bytes / 1000)} KB`
-  const [divisor, unit] = bytes < 1_000_000_000 ? [1_000_000, 'MB'] : [1_000_000_000, 'GB']
-  // Truncates rather than rounds so a shown size never overstates what is actually there.
-  const value = (Math.floor((bytes / divisor) * 10) / 10).toFixed(1).replace(/\.0$/, '')
+  const kilobytes = (roundUp ? Math.ceil : Math.round)(bytes / 1000)
+  // Rounding up just under a unit boundary reaches 1000, which reads as the next unit.
+  if (bytes < 1_000_000 && !(roundUp && kilobytes >= 1000)) return `${kilobytes} KB`
+  // Otherwise truncates, so a shown size never overstates what is actually there.
+  const round = roundUp ? Math.ceil : Math.floor
+  const tenths = (divisor: number) => round((bytes / divisor) * 10) / 10
+  const [divisor, unit] =
+    bytes < 1_000_000_000 && tenths(1_000_000) < 1000 ? [1_000_000, 'MB'] : [1_000_000_000, 'GB']
+  const value = tenths(divisor).toFixed(1).replace(/\.0$/, '')
   return `${value} ${unit}`
 }
 

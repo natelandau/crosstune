@@ -38,6 +38,15 @@ describe('format', () => {
     expect(formatBytes(1_073_741_824)).toBe('1 GB')
   })
 
+  it('rounds a size up when asked, so a needed amount is never understated', () => {
+    expect(formatBytes(1500, { roundUp: true })).toBe('2 KB')
+    expect(formatBytes(1_401, { roundUp: true })).toBe('2 KB')
+    expect(formatBytes(2_000_000_001, { roundUp: true })).toBe('2.1 GB')
+    expect(formatBytes(350_400_001, { roundUp: true })).toBe('350.5 MB')
+    expect(formatBytes(999_001, { roundUp: true })).toBe('1 MB')
+    expect(formatBytes(999_950_001, { roundUp: true })).toBe('1 GB')
+  })
+
   it('counts failed tries with the right plural', () => {
     expect(failedTriesLabel(1)).toBe('1 failed try')
     expect(failedTriesLabel(3)).toBe('3 failed tries')

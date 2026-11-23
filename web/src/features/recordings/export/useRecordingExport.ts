@@ -103,11 +103,16 @@ export function useRecordingExport({ onDone }: RecordingExportOptions = {}): Rec
   const download = (items: readonly ExportItem[], timeZone: string) =>
     start(async (signal, current) => {
       const result = await gatherRecordings(items, {
-        fetchFile: (id, fetchSignal) => engine.fetchFile('recording', id, fetchSignal),
+        fetchFile: (id, fetchSignal, readBody) =>
+          engine.fetchFile('recording', id, fetchSignal, readBody),
         timeZone,
         signal,
         onProgress: (done, total) => {
           if (current()) setState({ kind: 'preparing', done, total })
+        },
+        deliver: async (gathered) => {
+          if (settledState(gathered).kind !== 'done') return
+          await deliverDownload(gathered.files, new Date(), timeZone, signal)
         },
       })
       const settled = settledState(result)
@@ -115,7 +120,6 @@ export function useRecordingExport({ onDone }: RecordingExportOptions = {}): Rec
         if (current()) setState(settled)
         return
       }
-      await deliverDownload(result.files, new Date(), timeZone, signal)
       if (current()) finish('download', { ...result, files: result.files.length }, settled.leftOut)
     })
 
