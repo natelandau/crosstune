@@ -113,3 +113,7 @@ SwiftUI and UIKit behavior that a new screen runs into.
 - A system segment shows an image or a word, never both.
 - A tab item cannot be a zoom source, so a sheet opened from the tab bar
   is a standard sheet.
+- A widget whose background is a palette color carries
+  `.containerBackgroundRemovable(false)`. On a dark home screen, iOS
+  swaps a removable background for its own gray, and fills drawn on it
+  lose contrast.
