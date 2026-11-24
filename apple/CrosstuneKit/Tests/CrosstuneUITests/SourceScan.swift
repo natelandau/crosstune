@@ -11,9 +11,9 @@ enum SourceScan {
         .deletingLastPathComponent()  // CrosstuneKit
         .appending(path: "Sources", directoryHint: .isDirectory)
 
-    /// The Live Activity extension's folder. Its target builds only for iOS.
-    static let liveActivityExtension = packageSources.appending(
-        path: "../../RecordingActivity", directoryHint: .isDirectory
+    /// The widget extension's folder. Its target builds only for iOS.
+    static let widgetExtension = packageSources.appending(
+        path: "../../Widgets", directoryHint: .isDirectory
     ).standardizedFileURL
 
     /// The share extension's folder. Its target builds only for iOS.
@@ -21,14 +21,16 @@ enum SourceScan {
         path: "../../Share", directoryHint: .isDirectory
     ).standardizedFileURL
 
-    static let roots =
-        ["CrosstuneUI", "CrosstuneDesign"].map {
-            packageSources.appending(path: $0, directoryHint: .isDirectory)
-        } + [liveActivityExtension, shareExtension]
+    /// The modules the app's own process runs, without the extensions.
+    static let appProcessRoots = ["CrosstuneUI", "CrosstuneDesign"].map {
+        packageSources.appending(path: $0, directoryHint: .isDirectory)
+    }
+
+    static let roots = appProcessRoots + [widgetExtension, shareExtension]
 
     /// Whether `file` belongs to a target that never builds for the Mac.
     static func buildsOnlyForIOS(_ file: URL) -> Bool {
-        [liveActivityExtension, shareExtension].contains { file.path.hasPrefix($0.path + "/") }
+        [widgetExtension, shareExtension].contains { file.path.hasPrefix($0.path + "/") }
     }
 
     /// Whether `file` belongs to the share extension.
@@ -38,6 +40,16 @@ enum SourceScan {
 
     /// Every Swift file in every root.
     static func files() -> [URL] {
+        files(in: roots)
+    }
+
+    /// Every Swift file the app's own process runs, for a check that never applies to an
+    /// extension.
+    static func appProcessFiles() -> [URL] {
+        files(in: appProcessRoots)
+    }
+
+    private static func files(in roots: [URL]) -> [URL] {
         roots.flatMap { root in
             FileManager.default.enumerator(at: root, includingPropertiesForKeys: nil)?
                 .compactMap { $0 as? URL }.filter { $0.pathExtension == "swift" } ?? []
@@ -59,6 +71,19 @@ enum SourceScan {
 
     static func text(at url: URL) throws -> String {
         try String(contentsOf: url, encoding: .utf8)
+    }
+
+    /// Whether `text` holds `marker`, byte for byte, for a scan's plain-text check before a
+    /// regex. Foundation's `contains`, the one a call finds wherever Foundation is imported, is
+    /// over twenty times slower, and a scan's CPU time holds the test threads that every other
+    /// test waits on.
+    static func contains(_ marker: String, in text: some StringProtocol) -> Bool {
+        let found = text.utf8.withContiguousStorageIfAvailable { haystack in
+            marker.utf8.withContiguousStorageIfAvailable { needle in
+                memmem(haystack.baseAddress, haystack.count, needle.baseAddress, needle.count) != nil
+            }
+        }
+        return (found ?? nil) ?? text.contains(marker)
     }
 
     /// `text` with every one-line string literal emptied, so text that names code never counts

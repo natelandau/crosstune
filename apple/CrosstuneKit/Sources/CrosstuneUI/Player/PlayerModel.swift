@@ -405,8 +405,8 @@ public final class PlayerModel {
     /// as it was, since the queue's controls live there. A track that cannot play here, which
     /// never falls back to an embed, closes the item and reaches
     /// ``PlayerQueue/playerCouldNotPlay()``. Refused, returning false, while a recording is being
-    /// recorded, and for a recording while the plan holds recordings back. A song with
-    /// `autoplay` false loads paused at its start. Each load is a new play, logged as asked for
+    /// recorded, and for a recording while the plan holds recordings back. With `autoplay` false,
+    /// the item loads paused at its start. Each load is a new play, logged as asked for
     /// from `origin` and reported as a list's track that `trigger` started.
     @discardableResult
     public func playQueued(
@@ -438,7 +438,7 @@ public final class PlayerModel {
         audio.skipsByInterval = false
         queueHearsTrackEnds = true
         if item.kind == .recording {
-            loadAudio(item)
+            loadAudio(item, playing: autoplay)
         } else {
             startQueuedSong(item, autoplay: autoplay)
         }

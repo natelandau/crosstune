@@ -5,6 +5,7 @@ import CrosstuneCommands
 import CrosstuneRecording
 import CrosstuneStore
 import CrosstuneSync
+import CrosstuneWidgetIntents
 import SwiftUI
 
 /// The frame every screen lives in: a tab bar on iPhone and in compact width on iPad, the iPad
@@ -56,6 +57,8 @@ public struct AppShell: View {
     @State private var notices: NoticeModel?
     /// Used when the app shares no claim across windows, as in previews.
     @State private var ownNoticeClaim = NoticeClaim()
+    /// Why the recording or list a widget tap asked for could not be read.
+    @State private var widgetFailure: String?
     #if os(iOS)
         @Environment(\.horizontalSizeClass) private var sizeClass
         @SceneStorage("shell.tab") private var savedTab: Destination = .catalog
@@ -118,6 +121,11 @@ public struct AppShell: View {
                     model: notices, plan: plan?.plan ?? .unknown, purchase: purchase, onSeePlan: seePlan,
                     onComparePlans: { premium?.present(.plan, from: $0) })
             )
+            .coversShell(widgetFailure != nil)
+            .alert(CatalogModel.actionFailed, item: $widgetFailure) { _ in
+            } message: { failure in
+                Text(failure)
+            }
             .modifier(LyricsScreens())
             .modifier(ScanScreens())
             .modifier(RecordingTransfers(store: store, player: player))
@@ -202,6 +210,10 @@ public struct AppShell: View {
             .onChange(of: scenePhase) {
                 if scenePhase == .background { catalog?.leftForeground() }
             }
+            .modifier(
+                WidgetRequestWatch(
+                    planLoaded: plan?.isLoaded, sceneActive: scenePhase == .active, run: runWidgetRequest)
+            )
             .onChange(of: undoManager.map(ObjectIdentifier.init)) { addedTune?.undoManager = undoManager }
             .onChange(of: voiceOver) { addedTune?.voiceOverRunning = voiceOver }
             #if os(macOS)
@@ -351,6 +363,111 @@ public struct AppShell: View {
                 store: store, player: player, stage: stage, place: place,
                 recordingsShown: recordingsShown, onRecord: record)
         #endif
+    }
+}
+
+extension AppShell: WidgetShellActions {
+    nonisolated public static let widgetRecordingFailed = "The recording could not be opened."
+    nonisolated public static let widgetListFailed = "The list could not be opened."
+
+    private func runWidgetRequest() {
+        guard let plan,
+            let request = WidgetRequestRouter.takeRequest(
+                from: .shared, planLoaded: plan.isLoaded, sceneActive: scenePhase == .active)
+        else { return }
+        // The model judges its plan only after the row lands, so this judges it from the row now.
+        let current = Plan.from(plan.entitlement, now: .now)
+        WidgetRequestRouter.route(request, recordingsPlay: current.recordingsPlay, to: self)
+    }
+
+    func startRecording(source: ActionSource) {
+        startRecording(tuneID: nil, source: source)
+    }
+
+    /// Shows the Recordings screen instead when the recording is gone, since its page would leave
+    /// at once.
+    func openRecordingPage(id: String, source: ActionSource) {
+        player.isExpanded = false
+        Task {
+            do {
+                if try await store.read({ db in try PlayerItem.fetchRecording(db, id: id) }) != nil {
+                    recordingPageOpener(id, source: source)
+                } else {
+                    showRoot(.recordings)
+                }
+            } catch {
+                WidgetRequestRouter.logger.error(
+                    "Recording \(id, privacy: .public) could not be read: \(error, privacy: .public)")
+                widgetFailure = Self.widgetRecordingFailed
+            }
+        }
+    }
+
+    func playRecording(id: String, source: ActionSource) {
+        Task {
+            do {
+                guard let item = try await store.read({ db in try PlayerItem.fetchRecording(db, id: id) }) else {
+                    return
+                }
+                player.play(item, source: source)
+            } catch {
+                WidgetRequestRouter.logger.error(
+                    "Recording \(id, privacy: .public) could not be read: \(error, privacy: .public)")
+                widgetFailure = Self.widgetRecordingFailed
+            }
+        }
+    }
+
+    /// Opens the list instead when nothing in it can play now, so the list shows why.
+    func playList(id: String, shuffled: Bool, fromTune tuneID: String?, recordingsPlay: Bool) {
+        guard let listPlayback, !recorders.isCapturing else {
+            openList(id: id)
+            return
+        }
+        Task {
+            do {
+                let outcome = try await listPlayback.start(
+                    listID: id, from: store, online: session?.hasNetwork ?? true, appleMusic: player.appleMusic,
+                    recordingsPlay: recordingsPlay, shuffled: shuffled, at: tuneID)
+                switch outcome {
+                case .started: break
+                case .listGone: showRoot(.lists)
+                case .nothingPlays: openList(id: id)
+                }
+            } catch {
+                WidgetRequestRouter.logger.error(
+                    "List \(id, privacy: .public) could not be read: \(error, privacy: .public)")
+                widgetFailure = Self.widgetListFailed
+            }
+        }
+    }
+
+    func openList(id: String) {
+        player.isExpanded = false
+        #if os(iOS)
+            place.tabList = id
+            place.tab = .lists
+        #else
+            place.sidebar = .list(id: id)
+        #endif
+    }
+
+    func showTuner() {
+        player.isExpanded = false
+        showRoot(.tuner)
+    }
+
+    private func showRoot(_ destination: Destination) {
+        #if os(iOS)
+            place.showTabRoot(destination)
+        #else
+            place.showSidebarRoot(destination)
+        #endif
+    }
+
+    func showPlan() {
+        player.isExpanded = false
+        seePlan()
     }
 }
 

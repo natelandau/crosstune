@@ -2,6 +2,7 @@ import CrosstuneAnalytics
 import CrosstuneCommands
 import CrosstuneStore
 import CrosstuneTestSupport
+import CrosstuneVocabulary
 import Foundation
 import Testing
 

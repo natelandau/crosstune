@@ -3,6 +3,7 @@ import CrosstuneAudio
 import CrosstuneCommands
 import CrosstuneStore
 import CrosstuneTestSupport
+import CrosstuneWidgetData
 import Foundation
 import Testing
 
@@ -414,6 +415,34 @@ private func songKind(_ tune: String, sourceLocation: SourceLocation = #_sourceL
         #expect(fixture.player.isLoaded == false)
     }
 
+    @Test func aWidgetPausesAndResumesThePlayingList() async throws {
+        let fixture = fixture()
+        start(fixture)
+        try await playing(fixture, "ra")
+        await fixture.playback.pauseList()
+        #expect(fixture.audio.isPlaying == false)
+        #expect(fixture.playback.isActive)
+        await fixture.playback.resumeList()
+        #expect(fixture.audio.isPlaying)
+    }
+
+    /// A widget's Pause and Resume do nothing while the player holds what the list has left.
+    @Test(arguments: [false, true])
+    func aWidgetControlLeavesWhatPlaysOutsideTheList(pause: Bool) async throws {
+        let fixture = fixture()
+        start(fixture)
+        try await playing(fixture, "ra")
+        fixture.playback.end()
+        if pause {
+            await fixture.playback.pauseList()
+            #expect(fixture.audio.isPlaying)
+        } else {
+            fixture.audio.pause()
+            await fixture.playback.resumeList()
+            #expect(fixture.audio.isPlaying == false)
+        }
+    }
+
     @Test func endLeavesTheLoadedTune() async throws {
         let fixture = fixture()
         start(fixture)
@@ -553,6 +582,57 @@ private func songKind(_ tune: String, sourceLocation: SourceLocation = #_sourceL
         fixture.resolver.release("b")
         try await playing(fixture, "rb")
         #expect(fixture.playback.isSettled)
+    }
+
+    /// The widgets show playing through a tune change, so each change does not write and reload
+    /// them twice.
+    @Test func aTuneChangeKeepsTheWidgetsPlayingUntilPaused() async throws {
+        let fixture = fixture()
+        start(fixture)
+        try await playing(fixture, "ra")
+        fixture.resolver.holding = ["b"]
+        fixture.playback.next()
+        try await eventually { fixture.resolver.isHolding("b") }
+        let whileResolving = WidgetListPlayback(fixture.playback)?.isPlaying
+        fixture.resolver.release("b")
+        try await playing(fixture, "rb")
+        await fixture.playback.pauseList()
+
+        #expect(whileResolving == true)
+        try await eventually { WidgetListPlayback(fixture.playback)?.isPlaying == false }
+    }
+
+    /// The widgets offer Pause through a tune change, so a Pause made then holds once the next
+    /// tune loads.
+    @Test func aPauseDuringATuneChangeHolds() async throws {
+        let fixture = fixture()
+        start(fixture)
+        try await playing(fixture, "ra")
+        fixture.resolver.holding = ["b"]
+        fixture.playback.next()
+        try await eventually { fixture.resolver.isHolding("b") }
+
+        await fixture.playback.pauseList()
+        fixture.resolver.release("b")
+
+        try await eventually { fixture.player.item?.id == "rb" && fixture.player.transport != nil }
+        #expect(fixture.audio.isPlaying == false)
+        #expect(WidgetListPlayback(fixture.playback)?.isPlaying == false)
+    }
+
+    /// A jump to a tune with nothing to play replaces the turn that was resolving, so nothing
+    /// will start and the widgets must not keep offering Pause.
+    @Test func aFailedJumpLeavesTheWidgetsOnPlayWhenNothingPlays() async throws {
+        let fixture = fixture(["a": recording("a"), "b": recording("b")])
+        fixture.resolver.holding = ["a"]
+        start(fixture)
+        try await eventually { fixture.resolver.isHolding("a") }
+
+        let jumped = await fixture.playback.jump(to: "c")
+
+        #expect(jumped == false)
+        #expect(WidgetListPlayback(fixture.playback)?.isPlaying == false)
+        fixture.resolver.release("a")
     }
 
     @Test func shuffleOnDuringPlayShufflesOnlyTheTunesAhead() async throws {

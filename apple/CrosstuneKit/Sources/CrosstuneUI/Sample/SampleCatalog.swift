@@ -4,6 +4,7 @@
     import CrosstuneRecording
     import CrosstuneStore
     import CrosstuneSync
+    import CrosstuneVocabulary
     import Foundation
 
     /// A realistic catalog for previews and snapshots: tunes across genres and keys, lists,

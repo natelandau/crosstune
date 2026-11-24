@@ -677,6 +677,17 @@ actor ReadCount {
         #expect(host.recorder(for: second) !== host.recorder(for: first))
     }
 
+    @Test func theHeldRecorderIsOnlyThatStoresAndNoneIsMade() throws {
+        let host = RecorderHost(makeInput: { ToneInput() })
+        let first = try root.open("user_a")
+        let second = try root.open("user_b")
+
+        #expect(host.heldRecorder(for: first) == nil)
+        let recorder = host.recorder(for: first)
+        #expect(host.heldRecorder(for: first) === recorder)
+        #expect(host.heldRecorder(for: second) == nil)
+    }
+
     @Test func isFreeOnlyWhileNoSheetHoldsTheRecorder() throws {
         let host = RecorderHost(makeInput: { ToneInput() })
         let store = try root.open()

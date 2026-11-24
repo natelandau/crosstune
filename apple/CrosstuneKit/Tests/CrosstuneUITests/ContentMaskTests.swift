@@ -59,6 +59,9 @@ struct ContentMaskTests {
     /// Views the musician types into. Every one is masked, whatever it is bound to.
     static let inputs: Set = ["TextField", "TextEditor", "SecureField"]
 
+    // `viewCall` runs at every character of every file, so the union is built once.
+    private static let views = displays.union(inputs)
+
     /// The screens with a `.listSearch` field, which ship unmasked: the system draws the field in
     /// the navigation bar, where a mask on the screen never reaches. Replay must stay off while
     /// any is listed.
@@ -107,7 +110,7 @@ struct ContentMaskTests {
     /// at `index`. A member call such as `.Text(` or `MyText(` is not one.
     private static func viewCall(in chars: [Character], at index: Int) -> (String, Int)? {
         if index > 0, chars[index - 1] == "." || SourceScan.isWordCharacter(chars[index - 1]) { return nil }
-        for view in displays.union(inputs) {
+        for view in views {
             let end = index + view.count
             guard end < chars.count, chars[end] == "(", String(chars[index..<end]) == view else { continue }
             return (view, end)
@@ -189,7 +192,8 @@ struct ContentMaskTests {
 
     @Test func everyViewOfUserContentIsMasked() throws {
         var unmasked: [String] = []
-        for file in SourceScan.files() {
+        // Session replay records only the app's own process, never an extension's.
+        for file in SourceScan.appProcessFiles() {
             let relative = SourceScan.relative(file)
             let text = try SourceScan.text(at: file)
             for site in Self.sites(in: text) where !site.masked {

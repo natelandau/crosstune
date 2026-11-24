@@ -25,6 +25,8 @@ public enum ActionSource: String, CaseIterable, Sendable {
     case searchOffer = "search_offer"
     case menu
     case share
+    /// A Home screen, lock screen, or StandBy widget.
+    case widget
 }
 
 /// Where the tune import was opened.

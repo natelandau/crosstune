@@ -1,5 +1,6 @@
-// Settings for every configuration of the widget extension that draws the recording Live
-// Activity. The app embeds it on iPhone and iPad only.
+// Settings for every configuration of the widget extension, which draws the Home screen, lock
+// screen, and StandBy widgets and the recording Live Activity. The app embeds it on iPhone and
+// iPad only.
 #include "Version.xcconfig"
 #include "Signing.xcconfig"
 
@@ -12,8 +13,9 @@ IPHONEOS_DEPLOYMENT_TARGET = 26.1
 
 SWIFT_VERSION = 6.0
 GENERATE_INFOPLIST_FILE = YES
-INFOPLIST_FILE = RecordingActivity/Info.plist
+INFOPLIST_FILE = Widgets/Info.plist
 INFOPLIST_KEY_CFBundleDisplayName = Crosstune
+CODE_SIGN_ENTITLEMENTS = Config/Widgets-iOS.entitlements
 SKIP_INSTALL = YES
 ENABLE_PREVIEWS = YES
 APPLICATION_EXTENSION_API_ONLY = YES

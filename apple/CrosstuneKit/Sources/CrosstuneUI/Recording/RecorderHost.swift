@@ -30,6 +30,13 @@ public final class RecorderHost {
     /// The recorder this host holds, for the store last asked about.
     public var current: Recorder? { held?.recorder }
 
+    /// The recorder held for `store`, or nil when the one held is another store's or none is.
+    /// Makes no recorder, for a reader that only follows one.
+    public func heldRecorder(for store: CrosstuneStore) -> Recorder? {
+        guard let held, held.store == ObjectIdentifier(store) else { return nil }
+        return held.recorder
+    }
+
     /// The recorder for `store`. A different store, as after signing in as someone else, gets a
     /// recorder of its own.
     public func recorder(for store: CrosstuneStore) -> Recorder {

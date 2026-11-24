@@ -31,7 +31,7 @@ _default:
 
 # Every hand-written Swift file; the generated client is left as the generator wrote it
 _sources:
-    @find Crosstune CrosstuneKit CrosstuneMarketingUITests RecordingActivity Share Tools -name '*.swift' -not -path '*/Generated/*' -not -path '*/.build/*'
+    @find Crosstune CrosstuneKit CrosstuneMarketingUITests Share Tools Widgets -name '*.swift' -not -path '*/Generated/*' -not -path '*/.build/*'
 
 # Check formatting and lint rules with swift format
 [group('lint')]

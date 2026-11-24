@@ -1,5 +1,6 @@
 import CrosstuneAudio
 import CrosstuneStore
+import CrosstuneWidgetData
 import Foundation
 
 /// The Tuner screen's words, the same as the web's `tunerCopy.ts` where they mean the same.
@@ -7,7 +8,7 @@ public enum TunerText {
     /// The hint under the cents when a note sits low or high.
     public static let flat = "Flat"
     public static let sharp = "Sharp"
-    public static let listening = "Play a note"
+    public static let listening = TunerLabels.listening
     public static let micDeniedTitle = "Crosstune can't hear you"
     public static let micDeniedBody = "Turn on the microphone for Crosstune in Settings."
     public static let openSettings = "Open Settings"

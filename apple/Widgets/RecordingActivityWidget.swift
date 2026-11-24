@@ -153,7 +153,8 @@ private struct RoundButtonLabel: View {
 }
 
 /// The time counts up on its own while recording, and holds still otherwise. Always `m:ss`.
-private struct RecordingElapsedTime: View {
+/// The Live Activity and the Recordings widget both show it.
+struct RecordingElapsedTime: View {
     let state: RecordingActivityState
     /// The widest time to make room for. A timer otherwise takes all the width it is offered.
     let sizingText: String
@@ -198,7 +199,8 @@ private struct RecordingStatusSymbol: View {
 }
 
 extension RecordingActivityState.Status {
-    fileprivate var systemImage: String {
+    /// The symbol the Live Activity and the Recordings widget show for this status.
+    var systemImage: String {
         switch self {
         case .recording: "waveform"
         case .saving: "circle.fill"

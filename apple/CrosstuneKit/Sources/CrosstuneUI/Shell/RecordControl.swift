@@ -1,4 +1,5 @@
 import CrosstuneDesign
+import CrosstuneWidgetData
 import SwiftUI
 
 /// The names every record control shares. Recording is an action, not a destination: on
@@ -11,7 +12,7 @@ public enum RecordControl {
     public static let title = "Start recording"
     /// The shortest name, for the Mac sidebar's record button, the iPad's Record tab, and the
     /// iPadOS 26 bottom bar, whose help tag or VoiceOver name gives the full one.
-    public static let shortLabel = "Record"
+    public static let shortLabel = RecordingLabels.record
     public static let systemImage = "record.circle"
 }
 

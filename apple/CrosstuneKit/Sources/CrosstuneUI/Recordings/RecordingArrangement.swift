@@ -1,5 +1,6 @@
 import CrosstuneStore
 import CrosstuneVocabulary
+import CrosstuneWidgetData
 import Foundation
 
 public enum RecordingSort: String, SortKind {
@@ -44,7 +45,7 @@ public enum FiledRecordings: Equatable, Sendable {
 public enum RecordingsListText {
     public static let search = "Search recordings"
     public static let filed = "Filed"
-    public static let unfiled = "Unfiled"
+    public static let unfiled = RecordingLabels.unfiled
     public static let nothingMatches = CatalogScreen.nothingMatches
     public static let goToTune = "Go to tune"
     /// The filter sheet's one section, and its first two choices.
@@ -227,10 +228,13 @@ public struct RecordingArrangement: Equatable, Sendable {
     nonisolated private static func sign<T: Comparable>(_ a: T, _ b: T) -> Int { a < b ? -1 : a > b ? 1 : 0 }
 
     // Equal instants break by id, so the order is stable and reversing it mirrors it exactly.
-    nonisolated private static func newestAddedFirst(_ a: ArrangeableRecording, _ b: ArrangeableRecording) -> Int {
-        let (a, b) = (a.view.recording, b.view.recording)
+    nonisolated private static func newestAddedFirst(_ a: Recording, _ b: Recording) -> Int {
         let byDate = sign(b.addedAt.milliseconds, a.addedAt.milliseconds)
         return byDate != 0 ? byDate : sign(b.id, a.id)
+    }
+
+    nonisolated private static func newestAddedFirst(_ a: ArrangeableRecording, _ b: ArrangeableRecording) -> Int {
+        newestAddedFirst(a.view.recording, b.view.recording)
     }
 
     nonisolated private static func byAdded(_ descending: Bool) -> Order {
@@ -242,20 +246,25 @@ public struct RecordingArrangement: Equatable, Sendable {
         byAdded(!descending)
     }
 
-    // A partial date is stored as the start of its period, so it sorts there with no adjustment.
-    // Unknown dates come last in both directions; equal or unknown dates fall back to date added.
     nonisolated private static func byRecorded(_ descending: Bool) -> Order {
-        let added = byAdded(descending)
-        return { a, b in
-            let x = a.view.recording.knownRecordedDate?.at.milliseconds
-            let y = b.view.recording.knownRecordedDate?.at.milliseconds
-            guard let x, let y else {
-                let unknown = (x == nil ? 1 : 0) - (y == nil ? 1 : 0)
-                return unknown != 0 ? unknown : added(a, b)
-            }
-            let order = descending ? sign(y, x) : sign(x, y)
-            return order != 0 ? order : added(a, b)
+        { a, b in recordedOrder(a.view.recording, b.view.recording, descending: descending) }
+    }
+
+    /// The Date recorded sort, as a comparison: negative when `a` comes first. Use it wherever
+    /// recordings are listed by when they were played, so every list agrees with this screen.
+    ///
+    /// A partial date is stored as the start of its period, so it sorts there with no adjustment.
+    /// Unknown dates come last in both directions; equal or unknown dates fall back to date added.
+    nonisolated static func recordedOrder(_ a: Recording, _ b: Recording, descending: Bool) -> Int {
+        let added = descending ? newestAddedFirst(a, b) : -newestAddedFirst(a, b)
+        let x = a.knownRecordedDate?.at.milliseconds
+        let y = b.knownRecordedDate?.at.milliseconds
+        guard let x, let y else {
+            let unknown = (x == nil ? 1 : 0) - (y == nil ? 1 : 0)
+            return unknown != 0 ? unknown : added
         }
+        let order = descending ? sign(y, x) : sign(x, y)
+        return order != 0 ? order : added
     }
 
     nonisolated private static func compare(_ a: String, _ b: String) -> Int {

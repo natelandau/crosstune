@@ -252,6 +252,14 @@ struct PendingMovesTests {
         #expect(try await store.meta(.listShowArchived, as: Bool.self) == true)
     }
 
+    /// Anything but a stored true reads as off, as the web reads it, a value that does not read
+    /// as a setting included.
+    @Test func anUnreadableShowArchivedSettingReadsAsOff() async throws {
+        let store = try root.open()
+        try await store.setMeta(.listShowArchived, to: "yes")
+        #expect(try await store.read { db in ListContents.showsArchived(in: db) } == false)
+    }
+
     @Test func takesAFailedMoveBackAndSaysWhy() async throws {
         let store = try await SampleCatalog.copiedStore(root: root.url)
         let model = try await model(store)

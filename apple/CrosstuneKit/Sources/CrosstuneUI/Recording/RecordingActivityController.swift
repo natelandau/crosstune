@@ -18,8 +18,8 @@ public protocol RecordingActivityClient: AnyObject {
 /// Turns the recorder's state into the recording Live Activity.
 @MainActor
 public final class RecordingActivityController {
-    static let savedDismissal: Duration = .seconds(4)
-    static let failedDismissal: Duration = .seconds(10)
+    nonisolated static let savedDismissal = RecordingStateFollower.savedDismissal
+    nonisolated static let failedDismissal = RecordingStateFollower.failedDismissal
     /// How long a recording update stays current. Past it, the activity shows that nothing is
     /// recording, which covers the system ending the app with no chance to end the activity.
     static let staleWindow: Duration = .seconds(15)
@@ -29,6 +29,8 @@ public final class RecordingActivityController {
 
     private let client: any RecordingActivityClient
     private var lastState: Recorder.State = .idle
+    /// Decides which ended state follows a recording, as the widgets do.
+    private var follower = RecordingStateFollower()
     /// What the live activity shows. Nil when none is live.
     private var shown: RecordingActivityState?
     /// When `shown` was last sent.
@@ -49,27 +51,46 @@ public final class RecordingActivityController {
         let previous = lastState
         lastState = snapshot.state
 
+        let state = Self.activityState(for: snapshot, now: now)
+        let dismissAfter = follower.observe(state)
         switch snapshot.state {
         case .recording:
-            guard previous != .recording else { return }
-            showOrStart(activityState(.recording, snapshot, now: now), now: now)
+            guard previous != .recording, let state else { return }
+            showOrStart(state, now: now)
         case .paused:
             // Observation can coalesce a start and an interruption, so `.recording` may never be seen.
-            showOrStart(activityState(.interrupted, snapshot, now: now), now: now)
+            if let state { showOrStart(state, now: now) }
         case .finishing:
-            show(activityState(.saving, snapshot, now: now), now: now)
+            if let state { show(state, now: now) }
         case .idle:
             askedToStart = false
             guard let current = shown else { return }
             shown = nil
+            if let ended = follower.shown, let dismissAfter {
+                client.end(ended, dismissAfter: dismissAfter)
+            } else {
+                client.end(current, dismissAfter: nil)
+            }
+        }
+    }
+
+    /// What a recording surface shows for `snapshot`. For an idle recorder, the saved or failed
+    /// state its last recording ended in, or nil when there is neither. Shared by every surface
+    /// that follows the recorder, so they agree on each state.
+    nonisolated static func activityState(for snapshot: RecorderSnapshot, now: Date) -> RecordingActivityState? {
+        switch snapshot.state {
+        case .recording: activityState(.recording, snapshot, now: now)
+        case .paused: activityState(.interrupted, snapshot, now: now)
+        case .finishing: activityState(.saving, snapshot, now: now)
+        case .idle:
             // Decided from the fields alone: observation can coalesce a stop and its save, so
             // `.finishing` may never be seen.
             if snapshot.savedRecordingID != nil {
-                client.end(activityState(.saved, snapshot, now: now), dismissAfter: Self.savedDismissal)
+                activityState(.saved, snapshot, now: now)
             } else if snapshot.errorMessage == RecordingActivityText.saveFailed {
-                client.end(activityState(.failed, snapshot, now: now), dismissAfter: Self.failedDismissal)
+                activityState(.failed, snapshot, now: now)
             } else {
-                client.end(current, dismissAfter: nil)
+                nil
             }
         }
     }
@@ -93,12 +114,12 @@ public final class RecordingActivityController {
     }
 
     /// The time runs on its own only while recording, and holds still at `snapshot.elapsed` otherwise.
-    private func activityState(
+    nonisolated private static func activityState(
         _ status: RecordingActivityState.Status, _ snapshot: RecorderSnapshot, now: Date
     ) -> RecordingActivityState {
         RecordingActivityState(
             status: status,
-            timerStart: status == .recording ? Self.timerStart(elapsed: snapshot.elapsed, now: now) : nil,
+            timerStart: status == .recording ? timerStart(elapsed: snapshot.elapsed, now: now) : nil,
             elapsed: snapshot.elapsed,
             canResume: status == .interrupted && snapshot.resumeAvailable
         )
@@ -106,11 +127,11 @@ public final class RecordingActivityController {
 
     /// A system timer drops the fraction of a second, and a held time rounds it. Starting half a
     /// second early makes the timer round too, so the time never jumps on a pause or a save.
-    static func timerStart(elapsed: TimeInterval, now: Date) -> Date {
+    nonisolated static func timerStart(elapsed: TimeInterval, now: Date) -> Date {
         now.addingTimeInterval(-(elapsed + timerLead))
     }
 
-    private static let timerLead: TimeInterval = 0.5
+    nonisolated private static let timerLead: TimeInterval = 0.5
 
     /// Only a recording goes stale: every other status holds still and needs no update.
     private static func staleDate(for state: RecordingActivityState, now: Date) -> Date? {

@@ -1,6 +1,7 @@
 import CrosstuneAnalytics
 import CrosstuneCommands
 import CrosstuneStore
+import CrosstuneVocabulary
 import Foundation
 import Observation
 import os
