@@ -4,15 +4,12 @@
 
 import 'settings.just'
 
-# Runs a lint or test gate through gate-cache when it is installed
+# Runs the tests through gate-cache when it is installed. Ruff and ty run directly: each finishes
+# faster than a gate check.
 gate := "./gate-cache.sh"
 # Ruff and ty skip what .gitignore lists, so a new folder of scripts is linted without a change here.
 # A bare `api` would also skip every nested folder named api; ty.toml excludes api/ for ty.
 ruff_src := "--extend-exclude ../api .."
-# The tracked files the lint gates read, as gate-cache paths: every Python file outside api/,
-# the root tooling environment, and this module's gate files. The tests read every tracked path,
-# so their gate keeps no paths.
-paths := "--path '*.py' --path ':(exclude)api/' --path pyproject.toml --path uv.lock --path .python-version --path .gitignore --path scripts/justfile --path scripts/gate-cache.sh --path scripts/settings.just"
 
 [default]
 _default:
@@ -21,17 +18,17 @@ _default:
 # Lint with ruff
 [group('lint')]
 ruff:
-    {{ gate }} scripts-ruff {{ paths }} --path ruff.toml uv run --project .. ruff check --no-fix {{ ruff_src }}
+    uv run --project .. ruff check --no-fix {{ ruff_src }}
 
 # Check formatting with ruff
 [group('lint')]
 format:
-    {{ gate }} scripts-ruff-format {{ paths }} --path ruff.toml uv run --project .. ruff format --check {{ ruff_src }}
+    uv run --project .. ruff format --check {{ ruff_src }}
 
 # Type check with ty
 [group('lint')]
 ty:
-    {{ gate }} scripts-ty {{ paths }} --path ty.toml uv run --project .. ty check ..
+    uv run --project .. ty check ..
 
 # Run all linters
 [group('lint')]

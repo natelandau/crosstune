@@ -1,0 +1,45 @@
+---
+name: Actions audit
+
+# zizmor's online audits, which the commit hook and `Repo` skip. The weekly run catches a
+# new advisory against a pinned action when no workflow changed.
+on:
+  pull_request:
+    paths: [".github/**", ".pre-commit-config.yaml"]
+  push:
+    branches: [main]
+    paths: [".github/**", ".pre-commit-config.yaml"]
+  schedule:
+    - cron: "23 7 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: actions-audit-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  UV_LOCKED: "1"
+  CI: "true"
+
+jobs:
+  zizmor:
+    name: zizmor online audits
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
+        with:
+          enable-cache: true
+          save-cache: ${{ github.ref == 'refs/heads/main' }}
+      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3  # v4.0.0
+      - run: uv sync
+      # The token reaches only this step, never the other hooks in `Repo`.
+      - run: just audit-actions
+        env:
+          GH_TOKEN: ${{ github.token }}

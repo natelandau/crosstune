@@ -1,3 +1,7 @@
+// This file loads before every browser test file. Import nothing here that pulls in
+// @sentry/react, src/commands/, or another module a test file mocks: Vitest then fails
+// those files with "Cannot mock ... with an import map because the browser kept its
+// original URL".
 import { cleanup } from '@testing-library/react'
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeAll, vi } from 'vitest'

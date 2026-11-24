@@ -38,6 +38,9 @@ BUILD_FOLDERS = (
 )
 # lsof matches each name as a case-sensitive prefix of the process name: `swift` covers
 # swift-build, swift-test, swift-frontend, and swift-plugin-server.
+# Xcode itself is not listed: an idle Xcode holds no file open under the checkout, so lsof
+# cannot see it, and seeing its open projects needs AppleScript Automation permission. A
+# prune under an open Xcode loses no work; Xcode only indexes and builds again.
 BUILD_TOOLS = (
     "xcodebuild",
     "swift",

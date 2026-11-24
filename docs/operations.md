@@ -122,8 +122,15 @@ developer: `CLAUDE.md`, Apple app.
   `pgrep -f "Crosstune Dev.app"`.
   - Read: `peekaboo see --pid <pid>`. `--tree` gives the accessibility
     tree.
-  - Act: `action`, `set-value`, or `menu`, with
-    `--input-strategy actionOnly`.
+  - The window opens minimized after `just apple::run`, and `see` refuses
+    to capture a minimized window. Read its tree with
+    `peekaboo see --pid <pid> --window-id <id> --tree --no-screenshot`,
+    with `<id>` from `peekaboo window list --pid <pid> --json`.
+  - Act: `set-value`, `menu`, or a state-only `action` such as
+    `AXIncrement`, with `--input-strategy actionOnly`. `AXPress` and
+    `AXShowMenu` need `--foreground`, so no check presses a button. To see
+    another state, start the app in it, such as with a temporary change to
+    a `@State` default, and undo the change after.
   - Wait: `verify`.
   - Screenshot behind other windows:
     `peekaboo see --pid <pid> --no-elements --path <file>`.
@@ -149,7 +156,7 @@ base with main on each platform that the branch changed, or on
 
 ### Gate cache
 
-Every lint and test recipe runs through
+Every lint and test recipe except ruff and ty runs through
 [gate-cache](https://github.com/natelandau/gate-cache). It records a pass
 against the files under the gate's paths, or the whole tree for a gate
 with none, committed or not, ignored files left out. A second run on the
@@ -169,7 +176,8 @@ Hooks, people, and agents share the passes, in every worktree. Off when
   in `scripts/gate-cache.sh` (`--argc`, `--path`, `--file`, `--tool`,
   `--junit`).
 - A new lint or test recipe runs through `{{ gate }}` under a name that no
-  other gate uses.
+  other gate uses. A tool that finishes faster than a gate check, such as
+  ruff or ty, runs directly.
 - A gate's `--path` list starts from its module's `{{ paths }}` and adds
   every config, lockfile, fixture, or contract it reads outside it. No
   `--path` only when the command reads every file, such as `typos` and
@@ -212,6 +220,11 @@ Hooks, people, and agents share the passes, in every worktree. Off when
 - `just test` leaves out the `visual` project: run
   `just web::test-visual` after a UI change.
 
+### Swift tests
+
+- Write `#expect(x == false)`, not `#expect(!x)`. Swift Testing 6.4
+  reports the wrong values when a negated expectation fails.
+
 ## CI
 
 - `API`, `Web`, `Site`, `Analytics`, and `Scripts` start on every PR and
@@ -222,13 +235,19 @@ Hooks, people, and agents share the passes, in every worktree. Off when
   workflow's `paths`, its `changes` regex, or the pre-push test hook
   differs from that list.
 - `Repo` runs the repo-wide hooks (`just lint-repo`) on every PR, with no
-  filter.
-- Not required checks: `Apple` and `E2E`.
-- A job that holds deploy or signing secrets, and every action it calls:
-  - Pins each third-party action by commit hash, with the version in a
-    comment. zizmor does not require it, so nothing catches a tag.
-  - Installs packages with `ignore-scripts`, so no dependency's install
-    script runs beside the secrets.
+  filter. Its zizmor runs offline.
+- `Actions audit` runs zizmor's online audits (`just audit-actions`) on a
+  change under `.github/`, and weekly for advisories.
+- Not required checks: `Apple`, `E2E`, and `Actions audit`.
+- A GitHub token goes only on the step that needs it. Never on
+  `just lint-repo`, which runs every hook.
+- Every third-party action: `owner/action@<commit hash>  # vX.Y.Z`. The
+  version comment comes first so Dependabot updates it. A zizmor ignore
+  goes on another line of the step: zizmor reads one only at the start of
+  a comment.
+- A job that holds deploy or signing secrets, and every action it calls,
+  installs packages with `ignore-scripts`, so no dependency's install
+  script runs beside the secrets.
 - CI reruns a failed Playwright or browser test. A test that passes only
   on a rerun leaves the job green: the `Web` job summary and the `E2E`
   `playwright-report` artifact name it.

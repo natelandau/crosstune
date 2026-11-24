@@ -19,6 +19,8 @@ struct OpensList<Label: View>: View {
             }
             .buttonStyle(.labelOnly)
         } else {
+            // A destination link, not a value: the Lists tab's path holds at most one list, so
+            // pushing a list value there replaces the open list instead of stacking on it.
             NavigationLink {
                 ListScreen(listID: listID)
             } label: {

@@ -333,7 +333,7 @@ private struct DraftPage: View {
 struct HeldDraftPage: View {
     let held: HeldDraft
 
-    // periphery:ignore - read through its binding
+    // periphery:ignore - read only as a $ binding
     @State private var attributesLayout: AttributesLayout?
 
     init(held: HeldDraft) {

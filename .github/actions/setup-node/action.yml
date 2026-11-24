@@ -22,7 +22,7 @@ runs:
     - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115  # v6.1.1
       with:
         package_json_file: ${{ inputs.module }}/package.json
-    - uses: actions/setup-node@v7
+    - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
       with:
         node-version-file: ${{ inputs.module }}/.node-version
         cache: pnpm
@@ -50,7 +50,7 @@ runs:
     # request alone, so each one would store a copy of its own.
     - id: browsers
       if: inputs.chromium == 'true'
-      uses: actions/cache/restore@v6
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
       with:
         path: ~/.cache/ms-playwright
         key: playwright-${{ steps.playwright.outputs.os }}-${{ steps.playwright.outputs.version }}-${{ inputs.browsers }}
@@ -63,7 +63,7 @@ runs:
         BROWSERS: ${{ inputs.browsers }}
       run: pnpm exec playwright install --with-deps $BROWSERS
     - if: inputs.chromium == 'true' && github.ref == 'refs/heads/main' && steps.browsers.outputs.cache-hit != 'true'
-      uses: actions/cache/save@v6
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
       with:
         path: ~/.cache/ms-playwright
         key: playwright-${{ steps.playwright.outputs.os }}-${{ steps.playwright.outputs.version }}-${{ inputs.browsers }}

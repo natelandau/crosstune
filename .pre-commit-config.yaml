@@ -63,9 +63,18 @@ repos:
   - repo: "https://github.com/zizmorcore/zizmor-pre-commit"
     rev: v1.32.0
     hooks:
+      # The config is named outright because discovery from a git worktree stops at the
+      # main checkout.
       - id: zizmor
-        # Named outright because discovery from a git worktree stops at the main checkout.
+        # Offline, so a commit never waits on the network or reads a token from the shell.
+        args: ["--config", ".github/zizmor.yml", "--no-online-audits"]
+      # The audits that query GitHub, such as advisories against a pinned action. Run by
+      # `just audit-actions`.
+      - id: zizmor
+        alias: zizmor-online
+        name: zizmor (online audits)
         args: ["--config", ".github/zizmor.yml"]
+        stages: [manual]
 
   - repo: "https://github.com/shellcheck-py/shellcheck-py"
     rev: v0.11.0.1-1

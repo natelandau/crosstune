@@ -73,7 +73,12 @@ def normalize(code: str | None) -> str | None:
 
 
 def client_ip(request: Request) -> str | None:
-    """The caller's address from the proxy headers, else None."""
+    """The caller's address from the proxy headers, else None.
+
+    Good enough for a country lookup, never a rate-limit key. The web Worker strips both
+    headers, so every web user arrives as the same proxy address, and a direct caller can set
+    them to anything.
+    """
     real = request.headers.get("x-real-ip", "").strip()
     if real:
         return real

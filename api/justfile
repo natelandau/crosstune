@@ -3,7 +3,8 @@
 
 import '../scripts/settings.just'
 
-# Runs a lint or test gate through gate-cache when it is installed
+# Runs a lint or test gate through gate-cache when it is installed. Ruff and ty run directly: each
+# finishes faster than a gate check.
 gate := "../scripts/gate-cache.sh"
 # The tracked files every gate here reads, as gate-cache paths: the module, its gate script,
 # and the shared settings. Each gate adds the other paths it reads.
@@ -35,17 +36,17 @@ _default:
 # Lint with ruff
 [group('lint')]
 ruff:
-    {{ gate }} api-ruff {{ paths }} {{ uv_paths }} --path ruff.toml --path .gitignore uv run --project .. ruff check --no-fix .
+    uv run --project .. ruff check --no-fix .
 
 # Check formatting with ruff
 [group('lint')]
 format:
-    {{ gate }} api-ruff-format {{ paths }} {{ uv_paths }} --path ruff.toml --path .gitignore uv run --project .. ruff format --check .
+    uv run --project .. ruff format --check .
 
 # Type check with ty
 [group('lint')]
 ty:
-    {{ gate }} api-ty {{ paths }} {{ uv_paths }} --path ty.toml --path .gitignore uv run --project .. ty check
+    uv run --project .. ty check
 
 # Spell check with typos
 [group('lint')]

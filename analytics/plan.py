@@ -9,6 +9,8 @@ import json
 import os
 import re
 import sys
+import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
@@ -22,6 +24,8 @@ PROJECT_VAR = "POSTHOG_PROJECT_ID"
 SEEN_EVENTS_QUERY = (
     "SELECT DISTINCT event FROM events WHERE timestamp > now() - INTERVAL 30 DAY LIMIT 10000"
 )
+# The wait before each retry of a request that timed out.
+RETRY_DELAYS_SECONDS = (2.0, 5.0)
 
 CLIENTS = {"site", "apple", "web"}
 # The keys a person property adds to the setting it mirrors.
@@ -354,6 +358,25 @@ def make_client(env: dict[str, str]) -> "Client":
     )
 
 
+def _retry_on_timeout(send: Callable[[], "Response"]) -> "Response":
+    """Send a request that is safe to repeat, retrying it when PostHog is slow to answer.
+
+    Only for requests that change nothing or set the same values again: a timed-out create
+    can still land, so retrying it could create the definition twice.
+
+    Returns:
+        Response: The first response that arrives in time.
+    """
+    import httpx2  # noqa: PLC0415 - keeps `check` on the standard library
+
+    for delay in RETRY_DELAYS_SECONDS:
+        try:
+            return send()
+        except httpx2.TimeoutException:
+            time.sleep(delay)
+    return send()
+
+
 def _tags(event: dict) -> list[str]:
     product = "site" if event["clients"] == ["site"] else "app"
     return [f"product:{product}", *event["clients"]]
@@ -361,7 +384,7 @@ def _tags(event: dict) -> list[str]:
 
 def _find_definition(client: Client, base: str, name: str) -> str | None:
     """Return the ID of the definition named exactly `name`, reading every page of the search."""
-    response = client.get(base, params={"search": name, "limit": 100})
+    response = _retry_on_timeout(lambda: client.get(base, params={"search": name, "limit": 100}))
     while True:
         response.raise_for_status()
         page = response.json()
@@ -370,7 +393,7 @@ def _find_definition(client: Client, base: str, name: str) -> str | None:
                 return definition["id"]
         if not page.get("next"):
             return None
-        response = client.get(page["next"])
+        response = _retry_on_timeout(lambda url=page["next"]: client.get(url))
 
 
 @dataclass
@@ -401,14 +424,8 @@ def _sync_event(client: Client, base: str, name: str, event: dict, result: SyncR
         created = True
     else:
         created = False
-    response = client.patch(
-        f"{base}{definition_id}/",
-        json={
-            "description": event["description"],
-            "tags": _tags(event),
-            "verified": True,
-        },
-    )
+    update = {"description": event["description"], "tags": _tags(event), "verified": True}
+    response = _retry_on_timeout(lambda: client.patch(f"{base}{definition_id}/", json=update))
     response.raise_for_status()
     if created:
         result.created += 1
@@ -448,9 +465,9 @@ def audit(plan: dict, client: Client, *, project_id: str) -> tuple[list[str], li
     Returns:
         tuple[list[str], list[str]]: Seen but unplanned names, then planned but unseen names.
     """
-    response = client.post(
-        f"/api/projects/{project_id}/query/",
-        json={"query": {"kind": "HogQLQuery", "query": SEEN_EVENTS_QUERY}},
+    query = {"query": {"kind": "HogQLQuery", "query": SEEN_EVENTS_QUERY}}
+    response = _retry_on_timeout(
+        lambda: client.post(f"/api/projects/{project_id}/query/", json=query)
     )
     response.raise_for_status()
     seen = {row[0] for row in response.json()["results"]}

@@ -357,6 +357,8 @@ struct StatsDocument: View {
             }
             .buttonStyle(.labelOnly)
         } else if commands != nil {
+            // A destination link, not a value, as in OpensList: the stacks Stats opens in hold
+            // no path for a tune, and the Lists tab's path holds at most one list.
             NavigationLink {
                 TuneScreen(tuneID: rarity.tuneID)
                     .environment(\.stackPath, nil)

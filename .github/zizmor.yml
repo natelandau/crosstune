@@ -1,14 +1,11 @@
 ---
 rules:
-  # Actions and the tools they install stay on version tags or their latest release,
-  # which Dependabot and the actions move; hash and version pins are not required.
-  # The jobs that hold the Apple signing keys or the preview deploy tokens, and the shared
-  # setup-node action, pin third-party actions by commit hash by hand. The policy is per
-  # action, and these actions also run in other jobs.
+  # Every third-party action is pinned by commit hash, with its version in a comment that
+  # Dependabot updates. A tag can be moved to other code; a hash cannot.
   unpinned-uses:
     config:
       policies:
-        "*": ref-pin
+        "*": hash-pin
   unpinned-tools:
     disable: true
   # actionlint cannot parse the `$/` form yet, so local actions keep `./`.

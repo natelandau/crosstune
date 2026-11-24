@@ -38,6 +38,13 @@ lint: api::lint web::lint site::lint apple::lint analytics::check scripts::lint
 lint-repo:
     PREK_SKIP={{ module_hooks }} uv run prek run --all-files --config .pre-commit-config.yaml
 
+# Not a cached gate: a new advisory changes the result with no change to the files.
+
+# Run zizmor's online audits of the workflows
+[group('check')]
+audit-actions:
+    GH_TOKEN="${GH_TOKEN:-$(gh auth token)}" uv run prek run zizmor-online --hook-stage manual --all-files --config .pre-commit-config.yaml
+
 # Check formatting in every module
 [group('check')]
 [parallel]
