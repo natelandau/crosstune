@@ -83,6 +83,10 @@ fix:
 # The package tests build through xcodebuild rather than SwiftPM for the compilation cache,
 # which CI restores into a fresh checkout. Code coverage stays off: it crashes the compiler.
 package_test := "cd CrosstuneKit && ../" + xcodebuild + " -scheme CrosstuneKit-Package -destination platform=macOS,arch=arm64 -derivedDataPath .build/DerivedData -enableCodeCoverage NO COMPILATION_CACHE_ENABLE_CACHING=YES COMPILATION_CACHE_LIMIT_SIZE=4G"
+# Swift Testing runs up to twice as many tests at once as there are cores. Most UI tests share
+# the main actor, so past one per core they only queue behind each other: the run is slower, and
+# a test waiting on the main actor can pass `eventually`'s deadline on a slow runner.
+test_width := "export TEST_RUNNER_SWT_EXPERIMENTAL_MAXIMUM_PARALLELIZATION_WIDTH=$(sysctl -n hw.activecpu);"
 
 # Build the package tests without running them
 [group('test')]
@@ -93,7 +97,7 @@ build-tests:
 [group('test')]
 [arg("args", help="Arguments for xcodebuild, such as -only-testing:CrosstuneStoreTests")]
 test *args:
-    {{ gate }} apple-test {{ paths }} --path fixtures/ --path api/openapi.json --path analytics/tracking-plan.json {{ web_copy_paths }} --argc "$#" --tool 'swift --version' bash -c '{{ package_test }} test "$@"' _ "$@"
+    {{ gate }} apple-test {{ paths }} --path fixtures/ --path api/openapi.json --path analytics/tracking-plan.json {{ web_copy_paths }} --argc "$#" --tool 'swift --version' bash -c '{{ test_width }} {{ package_test }} test "$@"' _ "$@"
 
 # The compilation cache is keyed on content rather than file dates, so CI restores it into a
 # fresh checkout and still hits. Xcode's own limit is half the free disk, which a CI runner never
