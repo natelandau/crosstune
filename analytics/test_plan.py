@@ -371,7 +371,8 @@ class FakePostHog:
     """Answer the PostHog endpoints the sync and audit commands use.
 
     Lookups return `page_size` hits per page, linked by `next`. A name in `fail` answers its
-    PATCH with that status, and `status` answers every request with it.
+    PATCH with that status, and `status` answers every request with it. A method in `timeouts`
+    times out that many times before it answers.
     """
 
     def __init__(
@@ -381,18 +382,24 @@ class FakePostHog:
         page_size: int = 100,
         fail: dict[str, int] | None = None,
         status: int | None = None,
+        timeouts: dict[str, int] | None = None,
     ):
         self.known = known or {}
         self.seen = seen or []
         self.page_size = page_size
         self.fail = fail or {}
         self.status = status
+        self.timeouts = dict(timeouts or {})
         self.calls: list[tuple[str, str, dict]] = []
 
     def __call__(self, request: httpx2.Request) -> httpx2.Response:
         body = json.loads(request.content) if request.content else {}
         self.calls.append((request.method, request.url.raw_path.decode(), body))
         assert request.headers["Authorization"] == "Bearer secret"
+        if self.timeouts.get(request.method, 0) > 0:
+            self.timeouts[request.method] -= 1
+            message = "timed out"
+            raise httpx2.ReadTimeout(message, request=request)
         if self.status is not None:
             return httpx2.Response(self.status, json={"detail": "nope"})
         path = request.url.path
@@ -706,6 +713,40 @@ def test_a_network_error_prints_one_line_without_the_key(tmp_path, monkeypatch, 
     assert len(lines) == 1
     assert "could not reach PostHog" in lines[0]
     assert "secret" not in captured.out + captured.err
+
+
+# tune_created exists in PostHog and list_created does not, so a sync looks up both,
+# updates both, and creates list_created.
+@pytest.mark.parametrize(
+    ("command", "method", "timeouts", "code", "sent"),
+    [
+        ("sync", "GET", 2, 0, 4),
+        ("sync", "PATCH", 2, 0, 4),
+        ("sync", "PATCH", 3, 2, 3),
+        ("audit", "POST", 2, 0, 3),
+        ("sync", "POST", 1, 2, 1),
+    ],
+    ids=[
+        "lookup retried",
+        "update retried",
+        "update gives up",
+        "audit query retried",
+        "create not retried",
+    ],
+)
+def test_a_timeout_retries_only_requests_safe_to_repeat(
+    tmp_path, monkeypatch, command, method, timeouts, code, sent
+):
+    monkeypatch.setattr(plan_module, "RETRY_DELAYS_SECONDS", (0.0, 0.0))
+    fake = FakePostHog(
+        known={"tune_created": "id-1"},
+        seen=["tune_created", "list_created"],
+        timeouts={method: timeouts},
+    )
+    use_fake(monkeypatch, fake)
+
+    assert main([command, "--plan", str(write_plan(tmp_path, sync_plan()))]) == code
+    assert sum(1 for call in fake.calls if call[0] == method) == sent
 
 
 def test_reports_a_person_property_without_clients(tmp_path):
