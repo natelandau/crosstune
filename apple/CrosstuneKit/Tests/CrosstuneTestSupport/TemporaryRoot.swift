@@ -9,8 +9,7 @@ import GRDB
 /// chaining `TemporaryRoot().open()`: with nothing holding the instance, it is released, and its
 /// `deinit` removes the folder, before the store it just opened is done with the files in it.
 public final class TemporaryRoot {
-    public let url =
-        testScratchFolder
+    public let url = FileManager.default.temporaryDirectory
         .appending(path: "crosstune-tests-\(UUID().uuidString)", directoryHint: .isDirectory)
 
     public init() {}
