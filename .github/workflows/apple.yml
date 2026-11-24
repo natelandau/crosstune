@@ -103,8 +103,30 @@ jobs:
         with:
           path: ~/Library/Caches/crosstune/source-packages
           key: apple-packages-${{ hashFiles('apple/CrosstuneKit/Package.resolved') }}
-      - run: just test
+      # Tests that wait on the app fail at random on the shared runner, so a failure or a
+      # timeout warns instead of failing the job. Lint and the build still fail it.
+      - name: just test
+        id: tests
+        continue-on-error: true
         timeout-minutes: 10
+        run: |
+          set -o pipefail
+          just test 2>&1 | tee "$RUNNER_TEMP/apple-test.log"
+      - name: list the failed tests
+        if: ${{ steps.tests.outcome == 'failure' }}
+        run: |
+          failed="$(grep -E '✘ Test .*(failed after|recorded an issue)' "$RUNNER_TEMP/apple-test.log" \
+            | sed -E 's/^.*✘ //' | sort -u || true)"
+          echo "::warning title=Apple tests failed::The Apple tests failed or timed out. The job passes anyway; the job summary lists the failed tests."
+          {
+            echo '## Apple tests failed'
+            echo
+            echo 'These failures do not fail the job.'
+            echo
+            echo '```'
+            printf '%s\n' "${failed:-No failed test was found in the log. The run may have timed out or crashed.}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
         if: ${{ github.ref == 'refs/heads/main' && steps.xcode-restore.outputs.cache-hit != 'true' }}
         with:

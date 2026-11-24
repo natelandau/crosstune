@@ -239,6 +239,9 @@ Hooks, people, and agents share the passes, in every worktree. Off when
 - `Actions audit` runs zizmor's online audits (`just audit-actions`) on a
   change under `.github/`, and weekly for advisories.
 - Not required checks: `Apple`, `E2E`, and `Actions audit`.
+- A failed or timed-out Apple test run leaves the `Apple` job green, on a
+  PR and in a release. The job warns, and its summary lists the failed
+  tests. Apple lint and the build still fail it.
 - A GitHub token goes only on the step that needs it. Never on
   `just lint-repo`, which runs every hook.
 - Every third-party action: `owner/action@<commit hash>  # vX.Y.Z`. The
@@ -358,7 +361,8 @@ git push --follow-tags origin main
 - Bump on `main` only. A tag on a PR branch points at a commit that the
   squash merge never lands, and the workflow refuses it.
 - The tag push runs `Repo`, `API`, `Web`, and `Apple` on the tagged
-  commit, then force-pushes `production`. A failing `Apple` check or
+  commit, then force-pushes `production`. A failing `Apple` check (lint
+  or contract, not the tests) or
   "Archive the Apple app" job, one per platform, stops the whole release.
 - After `production` moves, "Upload to TestFlight" uploads the archives,
   built as `<run number>.<attempt>`.
