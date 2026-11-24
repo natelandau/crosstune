@@ -18,7 +18,9 @@ enum SchedulingProbe {
 
     /// Samples once a second from its own thread, so a busy thread pool cannot delay the samples.
     static func start() {
-        log("probe started activeProcessorCount=\(ProcessInfo.processInfo.activeProcessorCount)")
+        log(
+            "probe started activeProcessorCount=\(ProcessInfo.processInfo.activeProcessorCount) scratch=\(ProcessInfo.processInfo.environment["CROSSTUNE_TEST_SCRATCH"] ?? "default")"
+        )
         Thread.detachNewThread {
             let began = Date()
             while Date().timeIntervalSince(began) < 150 {

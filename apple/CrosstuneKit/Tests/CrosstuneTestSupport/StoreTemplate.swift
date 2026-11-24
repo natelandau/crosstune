@@ -49,7 +49,7 @@ public enum StoreTemplate {
     }
 
     private static func scratchRoot() -> URL {
-        FileManager.default.temporaryDirectory
+        testScratchFolder
             .appending(path: "crosstune-template-\(UUID().uuidString)", directoryHint: .isDirectory)
     }
 

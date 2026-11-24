@@ -103,6 +103,14 @@ jobs:
         with:
           path: ~/Library/Caches/crosstune/source-packages
           key: apple-packages-${{ hashFiles('apple/CrosstuneKit/Package.resolved') }}
+      # Temporary: puts the test databases on a RAM disk, to see whether disk speed is what
+      # stalls the main actor on this runner.
+      - name: Put the test process's temporary folder on a RAM disk
+        run: |
+          device="$(hdiutil attach -nomount ram://4194304 | tr -d ' \t')"
+          diskutil erasevolume APFS TestRAM "$device"
+          mkdir -p /Volumes/TestRAM/tmp
+          echo "TEST_RUNNER_CROSSTUNE_TEST_SCRATCH=/Volumes/TestRAM/tmp" >> "$GITHUB_ENV"
       - run: just test
         timeout-minutes: 10
       - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0

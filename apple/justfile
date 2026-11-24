@@ -93,7 +93,7 @@ build-tests:
 [group('test')]
 [arg("args", help="Arguments for xcodebuild, such as -only-testing:CrosstuneStoreTests")]
 test *args:
-    {{ gate }} apple-test {{ paths }} --path fixtures/ --path api/openapi.json --path analytics/tracking-plan.json {{ web_copy_paths }} --argc "$#" --tool 'swift --version' bash -c '{{ package_test }} test -skip-testing:CrosstuneUITests/IsolatePanelTests -skip-testing:CrosstuneUITests/MacFormRowsTests -skip-testing:CrosstuneUITests/MacMenuFocusTests -skip-testing:CrosstuneUITests/MacSheetTests -skip-testing:CrosstuneUITests/MacSurfacePolishTests -skip-testing:CrosstuneUITests/MacTextEditorTests -skip-testing:CrosstuneUITests/PlayerTests -skip-testing:CrosstuneUITests/RecordingPageTests -skip-testing:CrosstuneUITests/ScreenViewDiagnosticsTests -skip-testing:CrosstuneUITests/ScreenViewTests -skip-testing:CrosstuneUITests/SpeedStepTests -skip-testing:CrosstuneUITests/NoticeModelTests -skip-testing:CrosstuneUITests/ListsTests -skip-testing:CrosstuneUITests/RowActionSlotTests -skip-testing:CrosstuneUITests/PlayLogTests -skip-testing:CrosstuneUITests/MacButtonFocusTests "$@"' _ "$@"
+    {{ gate }} apple-test {{ paths }} --path fixtures/ --path api/openapi.json --path analytics/tracking-plan.json {{ web_copy_paths }} --argc "$#" --tool 'swift --version' bash -c '{{ package_test }} test "$@"' _ "$@"
 
 # The compilation cache is keyed on content rather than file dates, so CI restores it into a
 # fresh checkout and still hits. Xcode's own limit is half the free disk, which a CI runner never
