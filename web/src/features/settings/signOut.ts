@@ -87,5 +87,7 @@ export async function signOutAndForget({
   }
   // Before the reset, which detaches the event from the person.
   analytics.send('signed_out', {})
+  // Only after Clerk confirms the sign-out: a failed sign-out leaves the person signed in, and
+  // their database must still be here.
   await forgetLocalData({ db, userId, analytics })
 }

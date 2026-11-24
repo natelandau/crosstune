@@ -442,6 +442,10 @@ export async function syncNow(page: Page): Promise<void> {
  * Wait until `row` settles out of the upload/transcode pipeline, nudging the sync loop from
  * Settings along the way in case it is between passes or backing off. `restore` returns to
  * wherever `row` is shown after that nudge; the Recordings tab by default.
+ *
+ * It can return while the server is still transcoding: a row with no busy label is not yet a
+ * `ready` recording. A test that changes the plan or quota afterward first polls the
+ * recording's synced `state` until it is `ready`, as the export spec does.
  */
 export async function waitForReady(
   page: Page,

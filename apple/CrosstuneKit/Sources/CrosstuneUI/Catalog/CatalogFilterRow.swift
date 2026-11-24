@@ -211,6 +211,8 @@ struct CatalogFilterRow: View {
                 choosingKey = false
                 onChange { $0[.key] = key }
             }
+            // A popover on iPhone too, not the compact sheet: the key filter is the same pill
+            // popover on every platform.
             .presentationCompactAdaptation(.popover)
         }
         #if DEBUG

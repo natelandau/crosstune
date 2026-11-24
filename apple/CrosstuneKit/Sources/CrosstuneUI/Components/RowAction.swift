@@ -18,6 +18,7 @@ struct RowAction {
     static let delete = RowAction(
         title: RowActionText.delete, systemImage: "trash", swipeFill: .dangerFillStrong, isDestructive: true,
         asksFirst: true)
+    /// Acts without asking: removing a tune from a list loses no data, and adding it back undoes it.
     static let removeFromList = RowAction(
         title: RowActionText.remove, systemImage: "text.badge.xmark", swipeFill: .dangerFillStrong, isDestructive: true)
     static let scans = RowAction(

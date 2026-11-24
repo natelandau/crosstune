@@ -62,7 +62,7 @@ private struct ListContent: View {
     @Environment(\.sidebarSelection) private var sidebarSelection
     /// Whether this visit's screen view is sent, so a list back from a failed delete is not
     /// counted again.
-    // periphery:ignore - read through its binding
+    // periphery:ignore - read only as a $ binding
     @State private var visited = false
 
     var body: some View {

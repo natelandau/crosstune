@@ -82,7 +82,7 @@ struct ScreenViewTests {
 
     private struct SwappingPage: View {
         let page: Page
-        // periphery:ignore - read through its binding
+        // periphery:ignore - read only as a $ binding
         @State private var visit = false
 
         var body: some View {

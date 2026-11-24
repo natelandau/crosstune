@@ -297,7 +297,9 @@ async def _end_billing_for_webhook(
         )
     except (AccountDeletionUnavailableError, AccountDeletionFailedError):
         # Svix retries a 503; the purge has not run, so the retry starts clean. Nothing
-        # purges the account once Svix stops retrying, so each failure reaches Sentry.
+        # purges the account once Svix stops retrying, so each failure reaches Sentry for an
+        # operator. No periodic sweep asks Clerk which users are gone: a Clerk error or a
+        # misconfigured key answering "gone" for live users would purge them, with no undo.
         log.error(  # noqa: TRY400 -- keeps the provider error out of Sentry
             "could not end billing for a deleted Clerk user", extra={"user": str(user.id)}
         )

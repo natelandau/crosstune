@@ -21,7 +21,7 @@ struct TunePage: View {
     /// The bar's height over the scroll view's top edge, where the attributes column pins.
     @State private var barInset: CGFloat = 0
     @State private var columnWidth = PageStyle.attributesColumnWidth
-    // periphery:ignore - read through its binding
+    // periphery:ignore - read only as a $ binding
     @State private var addingScans: ScanAddChoice?
 
     /// Whether the page replaces the new-tune draft its tune was made on.

@@ -19,6 +19,8 @@ disable_redundant_public_analysis: true
 # Synthesized conformances read these properties, which the index does not record.
 retain_codable_properties: true
 retain_equatable_properties: true
+# Periphery reports a `@State` property read only as a `$` binding as unused. Each one carries
+# `// periphery:ignore - read only as a $ binding`.
 relative_results: true
 strict: true
 disable_update_check: true

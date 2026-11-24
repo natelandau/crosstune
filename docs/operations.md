@@ -122,8 +122,15 @@ developer: `CLAUDE.md`, Apple app.
   `pgrep -f "Crosstune Dev.app"`.
   - Read: `peekaboo see --pid <pid>`. `--tree` gives the accessibility
     tree.
-  - Act: `action`, `set-value`, or `menu`, with
-    `--input-strategy actionOnly`.
+  - The window opens minimized after `just apple::run`, and `see` refuses
+    to capture a minimized window. Read its tree with
+    `peekaboo see --pid <pid> --window-id <id> --tree --no-screenshot`,
+    with `<id>` from `peekaboo window list --pid <pid> --json`.
+  - Act: `set-value`, `menu`, or a state-only `action` such as
+    `AXIncrement`, with `--input-strategy actionOnly`. `AXPress` and
+    `AXShowMenu` need `--foreground`, so no check presses a button. To see
+    another state, start the app in it, such as with a temporary change to
+    a `@State` default, and undo the change after.
   - Wait: `verify`.
   - Screenshot behind other windows:
     `peekaboo see --pid <pid> --no-elements --path <file>`.
@@ -211,6 +218,11 @@ Hooks, people, and agents share the passes, in every worktree. Off when
      each diff in `web/.vitest/attachments`.
 - `just test` leaves out the `visual` project: run
   `just web::test-visual` after a UI change.
+
+### Swift tests
+
+- Write `#expect(x == false)`, not `#expect(!x)`. Swift Testing 6.4
+  reports the wrong values when a negated expectation fails.
 
 ## CI
 
