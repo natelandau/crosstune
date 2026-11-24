@@ -222,13 +222,19 @@ Hooks, people, and agents share the passes, in every worktree. Off when
   workflow's `paths`, its `changes` regex, or the pre-push test hook
   differs from that list.
 - `Repo` runs the repo-wide hooks (`just lint-repo`) on every PR, with no
-  filter.
-- Not required checks: `Apple` and `E2E`.
-- A job that holds deploy or signing secrets, and every action it calls:
-  - Pins each third-party action by commit hash, with the version in a
-    comment. zizmor does not require it, so nothing catches a tag.
-  - Installs packages with `ignore-scripts`, so no dependency's install
-    script runs beside the secrets.
+  filter. Its zizmor runs offline.
+- `Actions audit` runs zizmor's online audits (`just audit-actions`) on a
+  change under `.github/`, and weekly for advisories.
+- Not required checks: `Apple`, `E2E`, and `Actions audit`.
+- A GitHub token goes only on the step that needs it. Never on
+  `just lint-repo`, which runs every hook.
+- Every third-party action: `owner/action@<commit hash>  # vX.Y.Z`. The
+  version comment comes first so Dependabot updates it. A zizmor ignore
+  goes on another line of the step: zizmor reads one only at the start of
+  a comment.
+- A job that holds deploy or signing secrets, and every action it calls,
+  installs packages with `ignore-scripts`, so no dependency's install
+  script runs beside the secrets.
 - CI reruns a failed Playwright or browser test. A test that passes only
   on a rerun leaves the job green: the `Web` job summary and the `E2E`
   `playwright-report` artifact name it.
