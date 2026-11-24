@@ -192,8 +192,14 @@ import Testing
     // MARK: Quitting
 
     @Test func aQuitWaitsForATitledDraftToMakeItsTune() async throws {
+        SchedulingProbe.log("quitTest body started")
         let (store, added) = try await opened()
-        let drafts = OpenDrafts()
+        SchedulingProbe.log("quitTest store opened")
+        let drafts = OpenDrafts {
+            SchedulingProbe.log("quitTest deadline sleeping")
+            try? await Task.sleep(for: OpenDrafts.quitLimit)
+            SchedulingProbe.log("quitTest deadline woke")
+        }
         let titled = draft(added, source: .menu)
         titled.title = "Angeline"
         let blank = draft(added)
@@ -201,9 +207,15 @@ import Testing
         drafts.opened(blank)
         var replied = false
 
-        #expect(drafts.holdsQuit { replied = true })
+        #expect(
+            drafts.holdsQuit {
+                replied = true
+                SchedulingProbe.log("quitTest replied")
+            })
 
+        SchedulingProbe.log("quitTest polling")
         try await eventually { replied }
+        SchedulingProbe.log("quitTest poll held")
         #expect(try await liveTitles(store) == ["Angeline"])
         #expect(sink.captures.first?.properties["source"] == .string("menu"))
     }
