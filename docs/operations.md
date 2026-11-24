@@ -156,7 +156,7 @@ base with main on each platform that the branch changed, or on
 
 ### Gate cache
 
-Every lint and test recipe runs through
+Every lint and test recipe except ruff and ty runs through
 [gate-cache](https://github.com/natelandau/gate-cache). It records a pass
 against the files under the gate's paths, or the whole tree for a gate
 with none, committed or not, ignored files left out. A second run on the
@@ -176,7 +176,8 @@ Hooks, people, and agents share the passes, in every worktree. Off when
   in `scripts/gate-cache.sh` (`--argc`, `--path`, `--file`, `--tool`,
   `--junit`).
 - A new lint or test recipe runs through `{{ gate }}` under a name that no
-  other gate uses.
+  other gate uses. A tool that finishes faster than a gate check, such as
+  ruff or ty, runs directly.
 - A gate's `--path` list starts from its module's `{{ paths }}` and adds
   every config, lockfile, fixture, or contract it reads outside it. No
   `--path` only when the command reads every file, such as `typos` and
