@@ -12,6 +12,8 @@ import Foundation
     func screen(_ screen: Screen)
     func identify(_ distinctID: String, set: [String: AnalyticsValue], setOnce: [String: AnalyticsValue])
     func reset()
+    /// Forgets the person as `reset` does, but keeps the events held for the regional default.
+    func anonymize()
     func setEnabled(_ enabled: Bool, rememberedUserID: String?)
     /// Holds events in memory until `setEnabled` decides, because no choice exists yet.
     func deferDecision()
@@ -24,6 +26,7 @@ struct NoopAnalyticsSink: AnalyticsSink {
     func screen(_ screen: Screen) {}
     func identify(_ distinctID: String, set: [String: AnalyticsValue], setOnce: [String: AnalyticsValue]) {}
     func reset() {}
+    func anonymize() {}
     func setEnabled(_ enabled: Bool, rememberedUserID: String?) {}
     func deferDecision() {}
     func flush() {}
@@ -57,6 +60,10 @@ public struct AnalyticsClient: Sendable {
     }
 
     public func screen(_ screen: Screen) {
+        // The welcome screen shows only while nobody is signed in, but the SDK can still hold
+        // the user whose session just ended. An anonymous person instead merges into whoever
+        // signs in next, so a sign-up funnel sees the screen.
+        if screen == .welcome { sink.anonymize() }
         sink.screen(screen)
     }
 

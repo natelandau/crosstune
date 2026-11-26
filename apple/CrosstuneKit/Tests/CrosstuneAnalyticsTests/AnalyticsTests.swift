@@ -78,6 +78,12 @@ struct AnalyticsTests {
             ])
     }
 
+    @Test func theWelcomeScreenStartsAnAnonymousPersonFirst() {
+        sink.client.screen(.welcome)
+
+        #expect(sink.calls == [.anonymize, .screen(.welcome)])
+    }
+
     @Test func identifiesWithTheSignUpDayOnceAndTheBucketsEachTime() {
         sink.client.identify(
             userID: "user_1", signedUpAt: Date(timeIntervalSince1970: 1_791_374_400), catalogSize: 42,

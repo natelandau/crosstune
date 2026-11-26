@@ -312,17 +312,45 @@ struct PostHogSinkTests {
     }
 
     @Test func aResetWhileSharingPutsTheSuperPropertiesBack() {
-        let (sink, backend) = make()
-        sink.setEnabled(true, rememberedUserID: nil)
+        let (sink, backend) = make(stored: "user_a")
+        sink.setEnabled(true, rememberedUserID: "user_a")
 
         sink.reset()
         sink.flush()
 
         #expect(
             backend.calls == [
-                .setup, .register, .optIn, .capture(update, as: "anon-0"), .reset, .register,
+                .setup, .register, .optIn, .capture(update, as: "user_a"), .reset, .register,
                 .flush,
             ])
+    }
+
+    @Test(arguments: [true, false])
+    func forgettingAnAnonymousPersonKeepsItForTheNextIdentify(anonymize: Bool) {
+        let (sink, backend) = make()
+        sink.setEnabled(true, rememberedUserID: nil)
+        sink.capture("account_reason_opened", [:], set: [:])
+
+        if anonymize { sink.anonymize() } else { sink.reset() }
+        sink.identify("user_b", set: [:], setOnce: [:])
+
+        #expect(
+            backend.calls == [
+                .setup, .register, .optIn, .capture(update, as: "anon-0"),
+                .capture("account_reason_opened", as: "anon-0"),
+                .identify("user_b", set: none, setOnce: none),
+            ])
+    }
+
+    @Test func anonymizeWhileTheDefaultLoadsKeepsTheHeldCalls() {
+        let (sink, backend) = make()
+        sink.deferDecision()
+        sink.capture("account_reason_opened", [:], set: [:])
+
+        sink.anonymize()
+        sink.setEnabled(true, rememberedUserID: nil)
+
+        #expect(backend.captures.map(\.name).contains("account_reason_opened"))
     }
 
     // Calls made while the regional default is still loading.
