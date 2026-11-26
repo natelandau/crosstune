@@ -1,3 +1,21 @@
+## v1.8.0 (2026-11-26)
+
+### Feat
+
+- **apple**: add Home screen, lock screen, and StandBy widgets (#360)
+- **web**: stream export downloads to disk instead of memory (#359)
+- **apple**: add a share extension for links and audio files (#358)
+- **web**: keep recordings safe when the device runs low on storage (#357)
+- **web**: offer the native app or a web install from Settings (#356)
+- **apple**: show an active recording on the lock screen (#355)
+- **web**: finish recording uploads after the tab closes (#354)
+
+### Fix
+
+- **analytics**: link sign-up screen views to new accounts (#363)
+- **apple**: fix practice screen and banner layout and keyboard access (#353)
+- **web**: ask the browser to keep storage after the first edit (#352)
+
 ## v1.7.0 (2026-11-17)
 
 ### Feat
