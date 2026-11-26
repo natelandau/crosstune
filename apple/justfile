@@ -43,6 +43,11 @@ format:
 typos:
     {{ gate }} apple-typos {{ paths }} --path pyproject.toml --path uv.lock --path .python-version --path .typos.toml --path .gitignore uv run --project .. --only-group typos typos --config ../.typos.toml .
 
+# Fail when Info.plist lacks a required key
+[group('lint')]
+info-plist:
+    {{ gate }} apple-info-plist {{ paths }} --path pyproject.toml --path uv.lock --path .python-version uv run --project .. python scripts/info_plist.py check Config/Info.plist
+
 # Fail when the Swift client is stale
 [group('lint')]
 contract-check:
@@ -62,7 +67,7 @@ _contract-check:
 
 # Run all linters
 [group('lint')]
-lint: format typos contract-check
+lint: format typos contract-check info-plist
 
 # Fail on unused code in the package, its tests, and the app. Builds both first, so it stays out
 # of `lint` and CI. Settings are in CrosstuneKit/.periphery.yml.

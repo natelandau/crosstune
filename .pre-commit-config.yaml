@@ -199,6 +199,13 @@ repos:
         pass_filenames: false
         files: ^apple/.*\.swift$
 
+      - id: apple-info-plist
+        name: apple info plist
+        entry: just apple::info-plist
+        language: system
+        pass_filenames: false
+        files: ^apple/(Config/Info\.plist|scripts/info_plist\.py)$
+
       - id: analytics-check
         name: tracking plan
         entry: just analytics::check
