@@ -7,6 +7,7 @@ export type AnalyticsCall =
   | { type: 'identify'; userId: string; person: PersonProperties; signedUpAt?: string }
   | { type: 'setPerson'; person: PersonProperties }
   | { type: 'reset' }
+  | { type: 'anonymize' }
   | { type: 'disable' }
   | { type: 'enable' }
 
@@ -60,6 +61,10 @@ export function recordingAnalytics({
       remembered = null
       identified = null
       calls.push({ type: 'reset' })
+    },
+    anonymize: () => {
+      identified = null
+      calls.push({ type: 'anonymize' })
     },
     identifiedUser: () => remembered,
     disableSharing: () => {

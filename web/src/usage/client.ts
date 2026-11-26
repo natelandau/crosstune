@@ -14,6 +14,12 @@ export interface AnalyticsClient {
   identify(userId: string, person: PersonProperties, signedUpAt?: string): void
   setPerson(person: PersonProperties): void
   reset(): void
+  /**
+   * Credits later reports to a new anonymous person and keeps the remembered user. Call it
+   * where nobody is signed in, so a screen there is not credited to whoever signed in last,
+   * and the next sign-in merges it into that account.
+   */
+  anonymize(): void
   /** The user ID last identified, or null after a reset. Read it before `identify`, which replaces it. */
   identifiedUser(): string | null
   /**
@@ -35,6 +41,7 @@ export const noopAnalytics: AnalyticsClient = {
   identify() {},
   setPerson() {},
   reset() {},
+  anonymize() {},
   identifiedUser: () => null,
   whenIdentified() {},
   disableSharing: () => Promise.resolve(),
@@ -66,6 +73,7 @@ export interface PostHogLike {
   identify(userId: string, set?: Record<string, unknown>, setOnce?: Record<string, unknown>): void
   setPersonProperties(set: Record<string, unknown>): void
   reset(): void
+  get_property(name: string): unknown
   opt_in_capturing(options?: { captureEventName?: false }): void
   opt_out_capturing(): void
 }
@@ -178,14 +186,33 @@ export function startAnalytics({
     })
   }
 
-  const applyIdentity = (ph: PostHogLike) => {
-    if (!identity) return
-    const { userId, person, signedUpAt } = identity
+  const applyIdentity = (ph: PostHogLike, applied: RememberedIdentity | null) => {
+    if (!applied) return
+    const { userId, person, signedUpAt } = applied
     ph.identify(
       userId,
       { ...person },
       signedUpAt === undefined ? undefined : { signed_up_at: signedUpAt },
     )
+  }
+
+  // Resetting an SDK that is already anonymous would throw away the anonymous ID that the next
+  // identify merges into the account, and with it every screen seen before signing in.
+  const startAnonymousPerson = () => {
+    // With sharing off and nothing loaded there is no stored identity to clear.
+    if (state !== 'on' && !loading) return
+    void ensure().then((ph) => {
+      if (!ph) return
+      let identified = false
+      safely(() => {
+        identified = ph.get_property('$user_state') === 'identified'
+      })
+      if (!identified) return
+      safely(() => ph.reset())
+      safely(() => registerSuper(ph))
+      // `reset` clears the SDK's stored consent, which would silently opt the person back in.
+      if (state !== 'on') safely(() => ph.opt_out_capturing())
+    })
   }
 
   if (state === 'on') void ensure()
@@ -220,9 +247,11 @@ export function startAnalytics({
       whenSharing((ph) => ph.capture('$screen', { $screen_name: name, screen: name }))
     },
     identify(userId, person, signedUpAt) {
-      identity = { userId, person, ...(signedUpAt === undefined ? {} : { signedUpAt }) }
+      const next = { userId, person, ...(signedUpAt === undefined ? {} : { signedUpAt }) }
+      identity = next
       rememberUser(storage, userId)
-      whenSharing(applyIdentity)
+      // The identity as of this call: a reset queued after it must not cancel it.
+      whenSharing((ph) => applyIdentity(ph, next))
       // Reports queue behind the identify above, so they reach the SDK after it. A waiter for
       // another user is stale once someone else is identified.
       const ready = waiting.filter((waiter) => waiter.userId === userId)
@@ -242,15 +271,11 @@ export function startAnalytics({
       // Work buffered for the signed-out person must never flush under whoever comes next.
       buffered = []
       rememberUser(storage, null)
-      // With sharing off and nothing loaded there is no stored identity to clear.
-      if (state !== 'on' && !loading) return
-      void ensure().then((ph) => {
-        if (!ph) return
-        safely(() => ph.reset())
-        safely(() => registerSuper(ph))
-        // `reset` clears the SDK's stored consent, which would silently opt the person back in.
-        if (state !== 'on') safely(() => ph.opt_out_capturing())
-      })
+      startAnonymousPerson()
+    },
+    anonymize() {
+      identity = null
+      startAnonymousPerson()
     },
     async disableSharing() {
       const wasSharing = state === 'on'
@@ -272,7 +297,7 @@ export function startAnalytics({
       const ph = await ensure()
       if (!ph || wasSharing) return
       safely(() => ph.opt_in_capturing({ captureEventName: false }))
-      safely(() => applyIdentity(ph))
+      safely(() => applyIdentity(ph, identity))
     },
     isSharing: () => state === 'on',
     subscribeSharing(listener) {

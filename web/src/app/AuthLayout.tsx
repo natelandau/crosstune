@@ -21,7 +21,11 @@ export function AuthLayout({
   reason?: string
 }) {
   const analytics = useAnalytics()
-  useEffect(() => analytics.screen('welcome'), [analytics])
+  useEffect(() => {
+    // A session that ended without signing out leaves analytics identified as its user.
+    analytics.anonymize()
+    analytics.screen('welcome')
+  }, [analytics])
   const [whyOpen, setWhyOpen] = useState(false)
   const lockupId = useId()
   return (
