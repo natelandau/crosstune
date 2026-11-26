@@ -31,13 +31,21 @@ function fakePostHog() {
     (method: string) =>
     (...args: unknown[]) =>
       void calls.push([method, ...args])
+  let userState: 'anonymous' | 'identified' = 'anonymous'
   const ph: PostHogLike = {
     init: record('init'),
     register: record('register'),
     capture: record('capture'),
-    identify: record('identify'),
+    identify: (...args) => {
+      userState = 'identified'
+      record('identify')(...args)
+    },
     setPersonProperties: record('setPersonProperties'),
-    reset: record('reset'),
+    reset: () => {
+      userState = 'anonymous'
+      record('reset')()
+    },
+    get_property: (name) => (name === '$user_state' ? userState : undefined),
     opt_in_capturing: record('opt_in_capturing'),
     opt_out_capturing: record('opt_out_capturing'),
   }
@@ -208,6 +216,7 @@ describe('startAnalytics', () => {
   it('registers super properties after init and after reset', async () => {
     const { client, calls } = setup()
     await client.enableSharing()
+    client.identify('u1', {})
     client.reset()
     await client.enableSharing()
     const registers = calls.filter(([method]) => method === 'register')
@@ -345,6 +354,7 @@ describe('startAnalytics', () => {
   it('stays opted out through a reset while sharing is off', async () => {
     const { client, calls } = setup()
     await client.enableSharing()
+    client.identify('u1', {})
     await client.disableSharing()
     calls.length = 0
     client.reset()
@@ -352,6 +362,29 @@ describe('startAnalytics', () => {
       .poll(() => calls.map(([method]) => method))
       .toEqual(['reset', 'register', 'opt_out_capturing'])
   })
+
+  it('anonymize starts a new person before later reports and keeps the remembered user', async () => {
+    const { client, calls, storage } = setup({ [SHARE_USAGE_KEY]: 'true' })
+    client.identify('u1', {})
+    client.anonymize()
+    client.screen('welcome')
+    await expect
+      .poll(() => calls.map(([method]) => method))
+      .toEqual(['init', 'register', 'identify', 'reset', 'register', 'capture'])
+    expect(storage.getItem(USER_KEY)).toBe('u1')
+  })
+
+  it.each(['reset', 'anonymize'] as const)(
+    '%s keeps an anonymous person, so the next identify merges what it saw',
+    async (method) => {
+      const { client, calls } = setup({ [SHARE_USAGE_KEY]: 'true' })
+      client.screen('welcome')
+      client[method]()
+      client.identify('u2', {})
+      await expect.poll(() => calls.map(([name]) => name)).toContain('identify')
+      expect(calls.map(([name]) => name)).not.toContain('reset')
+    },
+  )
 
   it('never lets an SDK failure reach the app', async () => {
     const fake = fakePostHog()

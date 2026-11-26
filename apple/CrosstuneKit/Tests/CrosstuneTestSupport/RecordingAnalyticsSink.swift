@@ -11,6 +11,7 @@ public final class RecordingAnalyticsSink: Sendable {
         case screen(Screen)
         case identify(String, set: [String: AnalyticsValue], setOnce: [String: AnalyticsValue])
         case reset
+        case anonymize
         case setEnabled(Bool, rememberedUserID: String?)
         case flush
         case deferDecision
@@ -69,6 +70,10 @@ private struct Forwarder: AnalyticsSink {
 
     func reset() {
         recorder.record(.reset)
+    }
+
+    func anonymize() {
+        recorder.record(.anonymize)
     }
 
     func setEnabled(_ enabled: Bool, rememberedUserID: String?) {

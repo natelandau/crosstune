@@ -75,6 +75,7 @@ it('turns on when the regional default settles after the row mounted', async () 
       identify: () => {},
       setPersonProperties: () => {},
       reset: () => {},
+      get_property: () => undefined,
       opt_in_capturing: () => {},
       opt_out_capturing: () => {},
     }),

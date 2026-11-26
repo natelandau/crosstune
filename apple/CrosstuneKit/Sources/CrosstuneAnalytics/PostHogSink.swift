@@ -141,15 +141,25 @@ final class PostHogSink: AnalyticsSink {
 
     func reset() {
         state.withLock { state in
-            state.identity = Identity()
             // Events held for the person signing out must never go out once the default lands.
             if state.phase == .pending { state.held = [] }
-            guard state.phase == .sharing else {
-                state.resetPending = true
-                return
-            }
-            resetBackend()
+            forgetPerson(&state)
         }
+    }
+
+    func anonymize() {
+        state.withLock { forgetPerson(&$0) }
+    }
+
+    private func forgetPerson(_ state: inout State) {
+        state.identity = Identity()
+        guard state.phase == .sharing else {
+            state.resetPending = true
+            return
+        }
+        // Resetting an anonymous SDK would discard the anonymous ID that the next identify
+        // merges into the account, and with it every screen seen before signing in.
+        if heldUser(state) != nil { resetBackend() }
     }
 
     func setEnabled(_ enabled: Bool, rememberedUserID: String?) {
