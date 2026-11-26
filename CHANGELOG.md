@@ -1,3 +1,9 @@
+## v1.8.1 (2026-11-26)
+
+### Fix
+
+- **apple**: restore permission and Live Activity keys (#364)
+
 ## v1.8.0 (2026-11-26)
 
 ### Feat
