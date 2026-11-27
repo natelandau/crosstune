@@ -1,0 +1,11 @@
+{
+  "description": "A 429 confirm is retried as a confirm only.",
+  "input": {
+    "check": "attempt",
+    "put": 200,
+    "confirm": 429
+  },
+  "expected": {
+    "result": "retry_confirm"
+  }
+}

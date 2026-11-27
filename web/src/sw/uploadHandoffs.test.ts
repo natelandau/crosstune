@@ -120,6 +120,71 @@ describe('runUploadHandoffs', () => {
     },
   )
 
+  it('sends only the confirm when the PUT already landed', async () => {
+    const db = openTestDb()
+    await db.recording_files.put(
+      handedOff('rec-1', {
+        handoff: handoff({ url: 'https://r2.example/put/rec-1', put_landed: true }),
+      }),
+    )
+    const fetch = fakeFetch()
+
+    await runUploadHandoffs(deps(db, fetch))
+
+    expect(fetch).toHaveBeenCalledTimes(1)
+    const [confirmUrl, confirmInit] = fetch.mock.calls[0]!
+    expect(confirmUrl).toBe('/v1/recordings/rec-1/uploaded-with-token')
+    expect(confirmInit?.method).toBe('POST')
+    expect(await db.recording_files.get('rec-1')).toMatchObject({
+      local_state: 'uploaded',
+      handoff: null,
+    })
+  })
+
+  it('confirms a landed PUT whose audio is gone', async () => {
+    const db = openTestDb()
+    await db.recording_files.put(
+      handedOff('rec-1', {
+        blob: null,
+        chunked: false,
+        handoff: handoff({ url: 'https://r2.example/put/rec-1', put_landed: true }),
+      }),
+    )
+    const fetch = fakeFetch()
+
+    await runUploadHandoffs(deps(db, fetch))
+
+    expect(fetch).toHaveBeenCalledTimes(1)
+    expect(fetch.mock.calls[0]![1]?.method).toBe('POST')
+    expect(await db.recording_files.get('rec-1')).toMatchObject({
+      local_state: 'uploaded',
+      handoff: null,
+    })
+  })
+
+  it('records the landed PUT before a failed confirm', async () => {
+    const db = openTestDb()
+    await db.recording_files.put(handedOff('rec-1'))
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    await expect(runUploadHandoffs(deps(db, fakeFetch(200, 503)))).rejects.toThrow()
+
+    const file = await db.recording_files.get('rec-1')
+    expect(file?.handoff?.put_landed).toBe(true)
+    expect(file?.handoff?.attempts).toBe(1)
+  })
+
+  it('reads a hand-off stored without put_landed as not landed', async () => {
+    const db = openTestDb()
+    await db.recording_files.put(handedOff('rec-1'))
+    const fetch = fakeFetch()
+
+    await runUploadHandoffs(deps(db, fetch))
+
+    expect(fetch).toHaveBeenCalledTimes(2)
+    expect(fetch.mock.calls[0]![1]?.method).toBe('PUT')
+  })
+
   it('drops an expired hand-off back to captured', async () => {
     const db = openTestDb()
     await db.recording_files.put(handedOff('rec-1', { handoff: handoff({ expires_at: NOW - 1 }) }))

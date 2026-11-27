@@ -1,0 +1,11 @@
+{
+  "description": "A confirm that never answers is retried as a confirm only.",
+  "input": {
+    "check": "attempt",
+    "put": 200,
+    "confirm": "network_error"
+  },
+  "expected": {
+    "result": "retry_confirm"
+  }
+}

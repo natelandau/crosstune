@@ -1,0 +1,11 @@
+{
+  "description": "A 503 confirm is retried as a confirm only.",
+  "input": {
+    "check": "attempt",
+    "put": 200,
+    "confirm": 503
+  },
+  "expected": {
+    "result": "retry_confirm"
+  }
+}

@@ -55,6 +55,7 @@ import {
 import { BACKGROUND_UPLOAD_MAX_BYTES, type BackgroundUploads } from '../platform/backgroundSync'
 import { storageHeadroom } from '../platform/storage'
 import { defaultLocks, heldCaptureIds } from './captureLock'
+import { handoffStatus } from './handoffRules'
 import { isAuthFailure, isPlanRefusal, isRetryableRefusal, QUOTA_PROBLEM } from './errors'
 
 export { QUOTA_PROBLEM }
@@ -212,12 +213,7 @@ export function isLiveHandoff(
   nowMs: number,
 ): file is HandedOffFile {
   const handoff = file?.handoff
-  return (
-    handoff != null &&
-    !handoff.refused &&
-    handoff.expires_at > nowMs &&
-    handoff.attempts < HANDOFF_TAKE_BACK_ATTEMPTS
-  )
+  return handoff != null && handoffStatus(handoff, nowMs) === 'live'
 }
 
 /** Whether the page sends this file itself, under a plan with recordings: no live hand-off

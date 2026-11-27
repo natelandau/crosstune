@@ -83,6 +83,9 @@ export interface UploadHandoff {
   attempts: number
   /** The server refused the worker's confirm, so the page takes the file back and settles it. */
   refused?: boolean
+  /** The PUT succeeded, so a retry sends only the confirm. A hand-off stored without the field
+   * has not landed. */
+  put_landed?: boolean
 }
 
 export interface RecordingFile {
