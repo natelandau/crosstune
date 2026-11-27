@@ -1,6 +1,8 @@
+import CrosstuneAPI
 import CrosstuneStore
 import CrosstuneTestSupport
 import Foundation
+import OpenAPIRuntime
 import Testing
 
 @testable import CrosstuneSync
@@ -140,8 +142,12 @@ final class FakeSyncAPI: SyncAPI {
     /// Thrown by a notice post alone while set.
     var noticeFailure: (any Error)?
 
+    /// Called on every notice post, before it is answered.
+    var onNotice: @MainActor () -> Void = {}
+
     func recordNotice(_ notice: PlanNotice) async throws {
         noticeRequests.append(notice)
+        onNotice()
         if let failure { throw failure }
         if let noticeFailure { throw noticeFailure }
     }
@@ -359,4 +365,26 @@ final class TestClock {
 @MainActor
 final class Counter {
     var count = 0
+}
+
+struct FixedTokens: TokenProvider {
+    let value: String?
+
+    func token(refresh: Bool) async throws -> String? { value }
+}
+
+/// A live API whose generated client sends every request through `transport`, signed in with
+/// `token`.
+func liveSyncAPI(
+    _ transport: some ClientTransport, token: String? = "token", session: URLSession = .shared,
+    storageOrigin: URL? = nil
+) -> LiveSyncAPI {
+    LiveSyncAPI(
+        client: Client(
+            serverURL: URL(string: "https://api.example.test")!,
+            configuration: .crosstune,
+            transport: transport,
+            middlewares: [AuthMiddleware(tokens: FixedTokens(value: token), clientVersion: "test")]
+        ),
+        session: session, storageOrigin: storageOrigin)
 }

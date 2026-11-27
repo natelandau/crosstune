@@ -1,0 +1,48 @@
+{
+  "description": "An auto-renewing grant seven days past its reported expiry is free, lost a paid grant, and shows no trial notice.",
+  "input": {
+    "row": {
+      "id": "ent-1",
+      "user_id": "user-1",
+      "created_at": "2026-11-01T10:00:00.000Z",
+      "updated_at": "2026-11-01T10:00:00.000Z",
+      "deleted_at": null,
+      "server_seq": 4,
+      "premium_source": "apple",
+      "premium_expires_at": "2026-11-18T10:00:00.000Z",
+      "auto_renews": true,
+      "trial_starts_at": "2026-10-01T10:00:00.000Z",
+      "trial_ends_at": "2026-10-15T10:00:00.000Z",
+      "premium_quota_bytes": 10737418240,
+      "paid_grants": [
+        {
+          "source": "apple",
+          "expires_at": "2026-11-18T10:00:00.000Z",
+          "auto_renews": true
+        }
+      ],
+      "withdraw_until": null,
+      "withdrawal_used": false,
+      "recording_notice_seen_at": null,
+      "trial_reminder_seen_at": null,
+      "trial_end_seen_at": null
+    },
+    "now": "2026-11-25T10:00:00.000Z",
+    "holds_recordings": true
+  },
+  "expected": {
+    "plan": {
+      "kind": "free",
+      "source": null,
+      "premium_ends_at": "2026-11-18T10:00:00.000Z",
+      "trial_starts_at": "2026-10-01T10:00:00.000Z",
+      "trial_ends_at": "2026-10-15T10:00:00.000Z",
+      "quota_bytes": null,
+      "auto_renews": false,
+      "paid_sources": [],
+      "lapse": "paid"
+    },
+    "due_notice": null,
+    "next_change": null
+  }
+}

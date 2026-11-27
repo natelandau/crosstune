@@ -1,0 +1,37 @@
+{
+  "description": "A pulled recording that supersedes a queued upsert kept local until subscribed removes the entry and releases the hold, since the server already has the row.",
+  "input": {
+    "local": {
+      "rows": {
+        "recordings": [
+          {"id": "rec-1", "created_at": "2026-11-01T10:00:00.000Z", "updated_at": "2026-11-02T12:00:00.000Z", "deleted_at": null, "server_seq": 0, "tune_id": null, "source": "microphone", "added_at": "2026-11-01T10:00:00.000Z", "state": "pending_upload", "label": "Local edit"}
+        ]
+      },
+      "outbox": [
+        {"table": "recordings", "row_id": "rec-1", "op": "upsert", "updated_at": "2026-11-02T12:00:00.000Z", "data": {"created_at": "2026-11-01T10:00:00.000Z", "tune_id": null, "source": "microphone", "added_at": "2026-11-01T10:00:00.000Z", "label": "Local edit"}}
+      ],
+      "pull_cursor": 4,
+      "events_cursor": 0,
+      "local_only": ["rec-1"]
+    },
+    "page": {
+      "rows": [
+        {"table": "recordings", "row": {"id": "rec-1", "user_id": "user-1", "created_at": "2026-11-01T10:00:00.000Z", "updated_at": "2026-11-02T12:00:00.001Z", "deleted_at": null, "server_seq": 8, "tune_id": null, "source": "microphone", "added_at": "2026-11-01T10:00:00.000Z", "state": "ready", "label": "Server edit"}}
+      ],
+      "next_since": 8
+    }
+  },
+  "expected": {
+    "local": {
+      "rows": {
+        "recordings": [
+          {"id": "rec-1", "created_at": "2026-11-01T10:00:00.000Z", "updated_at": "2026-11-02T12:00:00.001Z", "deleted_at": null, "server_seq": 8, "tune_id": null, "source": "microphone", "added_at": "2026-11-01T10:00:00.000Z", "state": "ready", "label": "Server edit"}
+        ]
+      },
+      "outbox": [],
+      "pull_cursor": 8,
+      "events_cursor": 0,
+      "local_only": []
+    }
+  }
+}

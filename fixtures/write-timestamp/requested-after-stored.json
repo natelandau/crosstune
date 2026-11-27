@@ -1,0 +1,10 @@
+{
+  "description": "A requested time after the stored one is kept.",
+  "input": {
+    "stored": "2026-09-25T12:00:00.000Z",
+    "requested": "2026-09-25T12:00:05.000Z"
+  },
+  "expected": {
+    "stamped": "2026-09-25T12:00:05.000Z"
+  }
+}

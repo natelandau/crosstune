@@ -1,0 +1,58 @@
+{
+  "description": "A pull page that arrives after the engine stops is dropped: no row is stored, the cursor stays, and no further request is sent.",
+  "input": {
+    "local": {
+      "rows": {
+        "lists": []
+      },
+      "outbox": [],
+      "pull_cursor": 3,
+      "events_cursor": 0
+    },
+    "responses": [
+      {
+        "route": "GET /v1/sync/pull?since=3",
+        "status": 200,
+        "body": {
+          "rows": [
+            {
+              "table": "lists",
+              "row": {
+                "id": "list-1",
+                "created_at": "2026-11-01T10:00:00.000Z",
+                "updated_at": "2026-11-02T12:00:00.000Z",
+                "deleted_at": null,
+                "server_seq": 5,
+                "name": "Reels",
+                "position": 0,
+                "user_id": "user-1"
+              }
+            }
+          ],
+          "next_since": 5,
+          "has_more": true
+        }
+      }
+    ],
+    "actions": [
+      "sync",
+      "stop"
+    ]
+  },
+  "expected": {
+    "requests": [
+      {
+        "route": "GET /v1/sync/pull?since=3",
+        "body": null
+      }
+    ],
+    "local": {
+      "rows": {
+        "lists": []
+      },
+      "outbox": [],
+      "pull_cursor": 3,
+      "events_cursor": 0
+    }
+  }
+}

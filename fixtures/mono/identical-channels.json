@@ -1,0 +1,12 @@
+{
+  "description": "Identical channels are mono.",
+  "input": {
+    "left": 1.0,
+    "right": 1.0,
+    "cross": 1.0,
+    "frames": 1000
+  },
+  "expected": {
+    "is_mono": true
+  }
+}

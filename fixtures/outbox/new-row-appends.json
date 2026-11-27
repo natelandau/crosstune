@@ -1,0 +1,49 @@
+{
+  "description": "A write to a row with no queued change adds an entry after the existing ones.",
+  "input": {
+    "outbox": [
+      {
+        "table": "tunes",
+        "row_id": "t2",
+        "op": "upsert",
+        "updated_at": "2026-09-25T12:00:00.000Z",
+        "data": {
+          "title": "Drowsy Maggie"
+        }
+      }
+    ],
+    "enqueue": [
+      {
+        "table": "tunes",
+        "row_id": "t1",
+        "op": "upsert",
+        "updated_at": "2026-09-25T12:00:00.000Z",
+        "data": {
+          "title": "Cooley's"
+        }
+      }
+    ]
+  },
+  "expected": {
+    "outbox": [
+      {
+        "table": "tunes",
+        "row_id": "t2",
+        "op": "upsert",
+        "updated_at": "2026-09-25T12:00:00.000Z",
+        "data": {
+          "title": "Drowsy Maggie"
+        }
+      },
+      {
+        "table": "tunes",
+        "row_id": "t1",
+        "op": "upsert",
+        "updated_at": "2026-09-25T12:00:00.000Z",
+        "data": {
+          "title": "Cooley's"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "description": "A history row from a table this client has no store for is skipped, the rest of the page lands, and the events cursor moves past it.",
+  "input": {
+    "local": {
+      "rows": {"play_events": []},
+      "outbox": [],
+      "pull_cursor": 0,
+      "events_cursor": 0
+    },
+    "page": {
+      "rows": [
+        {"table": "tempo_marks", "row": {"id": "mark-1", "user_id": "user-1", "server_seq": 1, "created_at": "2026-11-01T10:00:00.000Z", "bpm": 112}},
+        {"table": "play_events", "row": {"id": "play-1", "user_id": "user-1", "server_seq": 2, "created_at": "2026-11-01T10:00:00.000Z", "context": "row", "started_at": "2026-11-01T09:59:00.000Z", "listened_ms": 8000, "recording_id": "rec-1", "link_id": null, "list_id": null, "tune_id": null}}
+      ],
+      "next_since": 2
+    }
+  },
+  "expected": {
+    "local": {
+      "rows": {
+        "play_events": [
+          {"id": "play-1", "server_seq": 2, "created_at": "2026-11-01T10:00:00.000Z", "context": "row", "started_at": "2026-11-01T09:59:00.000Z", "listened_ms": 8000, "recording_id": "rec-1", "link_id": null, "list_id": null, "tune_id": null}
+        ]
+      },
+      "outbox": [],
+      "pull_cursor": 0,
+      "events_cursor": 2
+    }
+  }
+}

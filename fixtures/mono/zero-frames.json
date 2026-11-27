@@ -1,0 +1,12 @@
+{
+  "description": "A recording with no frames is mono, whatever the sums say.",
+  "input": {
+    "left": 100.0,
+    "right": 100.0,
+    "cross": 0.0,
+    "frames": 0
+  },
+  "expected": {
+    "is_mono": true
+  }
+}

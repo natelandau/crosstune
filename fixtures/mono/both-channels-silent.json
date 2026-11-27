@@ -1,0 +1,12 @@
+{
+  "description": "Both channels under the silent energy per sample are mono.",
+  "input": {
+    "left": 1e-8,
+    "right": 1e-8,
+    "cross": 0.0,
+    "frames": 1000
+  },
+  "expected": {
+    "is_mono": true
+  }
+}

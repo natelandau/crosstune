@@ -1,0 +1,10 @@
+{
+  "description": "A requested time equal to the stored one moves one millisecond past it.",
+  "input": {
+    "stored": "2026-09-25T12:00:00.000Z",
+    "requested": "2026-09-25T12:00:00.000Z"
+  },
+  "expected": {
+    "stamped": "2026-09-25T12:00:00.001Z"
+  }
+}

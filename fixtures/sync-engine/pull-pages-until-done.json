@@ -1,0 +1,122 @@
+{
+  "description": "The pull asks for the next page from each page's next_since until a page has has_more false, storing every page.",
+  "input": {
+    "local": {
+      "rows": {},
+      "outbox": [],
+      "pull_cursor": 3,
+      "events_cursor": 0
+    },
+    "responses": [
+      {
+        "route": "GET /v1/sync/pull?since=3",
+        "status": 200,
+        "body": {
+          "rows": [
+            {
+              "table": "lists",
+              "row": {
+                "id": "list-1",
+                "created_at": "2026-11-01T10:00:00.000Z",
+                "updated_at": "2026-11-02T12:00:00.000Z",
+                "deleted_at": null,
+                "server_seq": 5,
+                "name": "Reels",
+                "position": 0,
+                "user_id": "user-1"
+              }
+            }
+          ],
+          "next_since": 5,
+          "has_more": true
+        }
+      },
+      {
+        "route": "GET /v1/sync/pull?since=5",
+        "status": 200,
+        "body": {
+          "rows": [
+            {
+              "table": "lists",
+              "row": {
+                "id": "list-2",
+                "created_at": "2026-11-01T10:00:00.000Z",
+                "updated_at": "2026-11-02T12:00:00.000Z",
+                "deleted_at": null,
+                "server_seq": 8,
+                "name": "Jigs",
+                "position": 1,
+                "user_id": "user-1"
+              }
+            }
+          ],
+          "next_since": 8,
+          "has_more": false
+        }
+      },
+      {
+        "route": "GET /v1/me",
+        "status": 200,
+        "body": {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "clerk_user_id": "user_1",
+          "email": null,
+          "created_at": "2026-11-01T10:00:00.000Z",
+          "storage": {
+            "used_bytes": 0,
+            "quota_bytes": 1073741824,
+            "max_file_bytes": 50000000,
+            "split_parent_max_file_bytes": 1800000000
+          },
+          "country_center": null
+        }
+      }
+    ],
+    "actions": [
+      "sync"
+    ]
+  },
+  "expected": {
+    "requests": [
+      {
+        "route": "GET /v1/sync/pull?since=3",
+        "body": null
+      },
+      {
+        "route": "GET /v1/sync/pull?since=5",
+        "body": null
+      },
+      {
+        "route": "GET /v1/me",
+        "body": null
+      }
+    ],
+    "local": {
+      "rows": {
+        "lists": [
+          {
+            "id": "list-1",
+            "created_at": "2026-11-01T10:00:00.000Z",
+            "updated_at": "2026-11-02T12:00:00.000Z",
+            "deleted_at": null,
+            "server_seq": 5,
+            "name": "Reels",
+            "position": 0
+          },
+          {
+            "id": "list-2",
+            "created_at": "2026-11-01T10:00:00.000Z",
+            "updated_at": "2026-11-02T12:00:00.000Z",
+            "deleted_at": null,
+            "server_seq": 8,
+            "name": "Jigs",
+            "position": 1
+          }
+        ]
+      },
+      "outbox": [],
+      "pull_cursor": 8,
+      "events_cursor": 0
+    }
+  }
+}

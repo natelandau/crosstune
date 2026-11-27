@@ -1,0 +1,42 @@
+{
+  "description": "A comp with no expiry is Premium with no paid source, no notice, and nothing scheduled.",
+  "input": {
+    "row": {
+      "id": "ent-1",
+      "user_id": "user-1",
+      "created_at": "2026-11-01T10:00:00.000Z",
+      "updated_at": "2026-11-01T10:00:00.000Z",
+      "deleted_at": null,
+      "server_seq": 4,
+      "premium_source": "comp",
+      "premium_expires_at": null,
+      "auto_renews": false,
+      "trial_starts_at": null,
+      "trial_ends_at": null,
+      "premium_quota_bytes": 10737418240,
+      "paid_grants": [],
+      "withdraw_until": null,
+      "withdrawal_used": false,
+      "recording_notice_seen_at": null,
+      "trial_reminder_seen_at": null,
+      "trial_end_seen_at": null
+    },
+    "now": "2026-11-20T12:00:00.000Z",
+    "holds_recordings": true
+  },
+  "expected": {
+    "plan": {
+      "kind": "premium",
+      "source": "comp",
+      "premium_ends_at": null,
+      "trial_starts_at": null,
+      "trial_ends_at": null,
+      "quota_bytes": 10737418240,
+      "auto_renews": false,
+      "paid_sources": [],
+      "lapse": null
+    },
+    "due_notice": null,
+    "next_change": null
+  }
+}

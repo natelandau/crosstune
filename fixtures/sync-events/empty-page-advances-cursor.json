@@ -1,0 +1,23 @@
+{
+  "description": "A page with no rows still moves the events cursor to next_since, and leaves the pull cursor alone.",
+  "input": {
+    "local": {
+      "rows": {},
+      "outbox": [],
+      "pull_cursor": 12,
+      "events_cursor": 3
+    },
+    "page": {
+      "rows": [],
+      "next_since": 9
+    }
+  },
+  "expected": {
+    "local": {
+      "rows": {},
+      "outbox": [],
+      "pull_cursor": 12,
+      "events_cursor": 9
+    }
+  }
+}

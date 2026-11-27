@@ -1,0 +1,160 @@
+{
+  "description": "A stale result stores the server's row and settles the entry, and the sync goes on to pull.",
+  "input": {
+    "local": {
+      "rows": {
+        "lists": [
+          {
+            "id": "list-1",
+            "created_at": "2026-11-01T10:00:00.000Z",
+            "updated_at": "2026-11-02T12:00:00.000Z",
+            "deleted_at": null,
+            "server_seq": 3,
+            "name": "Local edit",
+            "position": 0
+          }
+        ]
+      },
+      "outbox": [
+        {
+          "table": "lists",
+          "row_id": "list-1",
+          "op": "upsert",
+          "updated_at": "2026-11-02T12:00:00.000Z",
+          "data": {
+            "created_at": "2026-11-01T10:00:00.000Z",
+            "name": "Local edit",
+            "position": 0
+          }
+        }
+      ],
+      "pull_cursor": 3,
+      "events_cursor": 0
+    },
+    "responses": [
+      {
+        "route": "POST /v1/sync/push",
+        "status": 200,
+        "body": {
+          "results": [
+            {
+              "table": "lists",
+              "id": "list-1",
+              "status": "stale",
+              "row": {
+                "id": "list-1",
+                "created_at": "2026-11-01T10:00:00.000Z",
+                "updated_at": "2026-11-02T12:30:00.000Z",
+                "deleted_at": null,
+                "server_seq": 9,
+                "name": "Server edit",
+                "position": 2,
+                "user_id": "user-1"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "route": "GET /v1/sync/pull?since=3",
+        "status": 200,
+        "body": {
+          "rows": [
+            {
+              "table": "lists",
+              "row": {
+                "id": "list-2",
+                "created_at": "2026-11-01T10:00:00.000Z",
+                "updated_at": "2026-11-02T12:00:00.000Z",
+                "deleted_at": null,
+                "server_seq": 10,
+                "name": "Pulled",
+                "position": 1,
+                "user_id": "user-1"
+              }
+            }
+          ],
+          "next_since": 10,
+          "has_more": false
+        }
+      },
+      {
+        "route": "GET /v1/me",
+        "status": 200,
+        "body": {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "clerk_user_id": "user_1",
+          "email": null,
+          "created_at": "2026-11-01T10:00:00.000Z",
+          "storage": {
+            "used_bytes": 0,
+            "quota_bytes": 1073741824,
+            "max_file_bytes": 50000000,
+            "split_parent_max_file_bytes": 1800000000
+          },
+          "country_center": null
+        }
+      }
+    ],
+    "actions": [
+      "sync"
+    ]
+  },
+  "expected": {
+    "requests": [
+      {
+        "route": "POST /v1/sync/push",
+        "body": {
+          "changes": [
+            {
+              "table": "lists",
+              "op": "upsert",
+              "id": "list-1",
+              "updated_at": "2026-11-02T12:00:00.000Z",
+              "data": {
+                "created_at": "2026-11-01T10:00:00.000Z",
+                "name": "Local edit",
+                "position": 0
+              }
+            }
+          ]
+        }
+      },
+      {
+        "route": "GET /v1/sync/pull?since=3",
+        "body": null
+      },
+      {
+        "route": "GET /v1/me",
+        "body": null
+      }
+    ],
+    "local": {
+      "rows": {
+        "lists": [
+          {
+            "id": "list-1",
+            "created_at": "2026-11-01T10:00:00.000Z",
+            "updated_at": "2026-11-02T12:30:00.000Z",
+            "deleted_at": null,
+            "server_seq": 9,
+            "name": "Server edit",
+            "position": 2
+          },
+          {
+            "id": "list-2",
+            "created_at": "2026-11-01T10:00:00.000Z",
+            "updated_at": "2026-11-02T12:00:00.000Z",
+            "deleted_at": null,
+            "server_seq": 10,
+            "name": "Pulled",
+            "position": 1
+          }
+        ]
+      },
+      "outbox": [],
+      "pull_cursor": 10,
+      "events_cursor": 0
+    }
+  }
+}

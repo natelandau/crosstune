@@ -1,0 +1,58 @@
+{
+  "description": "A second write to a queued row replaces its entry and keeps its place in the queue.",
+  "input": {
+    "outbox": [
+      {
+        "table": "tunes",
+        "row_id": "t1",
+        "op": "upsert",
+        "updated_at": "2026-09-25T12:00:00.000Z",
+        "data": {
+          "title": "Cooley's"
+        }
+      },
+      {
+        "table": "tunes",
+        "row_id": "t2",
+        "op": "upsert",
+        "updated_at": "2026-09-25T12:00:00.000Z",
+        "data": {
+          "title": "Drowsy Maggie"
+        }
+      }
+    ],
+    "enqueue": [
+      {
+        "table": "tunes",
+        "row_id": "t1",
+        "op": "upsert",
+        "updated_at": "2026-09-25T12:05:00.000Z",
+        "data": {
+          "title": "Cooley's Reel"
+        }
+      }
+    ]
+  },
+  "expected": {
+    "outbox": [
+      {
+        "table": "tunes",
+        "row_id": "t1",
+        "op": "upsert",
+        "updated_at": "2026-09-25T12:05:00.000Z",
+        "data": {
+          "title": "Cooley's Reel"
+        }
+      },
+      {
+        "table": "tunes",
+        "row_id": "t2",
+        "op": "upsert",
+        "updated_at": "2026-09-25T12:00:00.000Z",
+        "data": {
+          "title": "Drowsy Maggie"
+        }
+      }
+    ]
+  }
+}

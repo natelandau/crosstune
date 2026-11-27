@@ -1,0 +1,10 @@
+{
+  "description": "A write to a row with no stored timestamp keeps the requested one.",
+  "input": {
+    "stored": null,
+    "requested": "2026-09-25T12:00:00.000Z"
+  },
+  "expected": {
+    "stamped": "2026-09-25T12:00:00.000Z"
+  }
+}
