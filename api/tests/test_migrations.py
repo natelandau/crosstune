@@ -3,16 +3,16 @@
 import importlib.util
 import re
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import anyio
 import pytest
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import UniqueConstraint, text
+from sqlalchemy import Row, UniqueConstraint, text
 from sqlalchemy.exc import DBAPIError, IntegrityError
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncConnection, AsyncSession
 
 from crosstune.db.locks import advisory_lock_key
 from crosstune.models import UploadSlot
@@ -4374,3 +4374,64 @@ async def test_0064_maps_usage_cascades_with_the_user_and_keeps_the_team_row(
         left = (await conn.execute(text("select user_id from maps_usage"))).all()
     assert dropped == 0
     assert left == [(None,)]
+
+
+async def _tune_stamps(conn: AsyncConnection) -> dict[str, Row]:
+    rows = await conn.execute(
+        text("select id::text as id, updated_at, deleted_at, server_seq from tunes")
+    )
+    return {row.id: row for row in rows}
+
+
+async def test_0067_caps_future_stamps_and_marks_the_row_for_pull(
+    engine, database_url: str, truncate_all: None
+) -> None:
+    config = Config("alembic.ini")
+    config.set_main_option("sqlalchemy.url", database_url)
+    user = "018f0000-0000-7000-8000-000000000001"
+    ahead = "018f0000-0000-7000-8000-000000000031"
+    deleted_ahead = "018f0000-0000-7000-8000-000000000032"
+    current = "018f0000-0000-7000-8000-000000000033"
+    try:
+        await anyio.to_thread.run_sync(command.downgrade, config, "0066")
+        async with engine.begin() as conn:
+            await conn.execute(
+                text(
+                    "insert into users (id, clerk_user_id, created_at, updated_at) "
+                    "values (:id, 'user_a', now(), now())"
+                ),
+                {"id": user},
+            )
+            now = datetime.now(UTC)
+            next_year = now + timedelta(days=365)
+            for tune_id, updated_at, deleted_at in (
+                (ahead, next_year, None),
+                (deleted_ahead, next_year, next_year),
+                (current, now, None),
+            ):
+                await conn.execute(
+                    text(
+                        "insert into tunes (id, owner_user_id, title, created_at, updated_at, "
+                        "deleted_at) values (:id, :user, 'Tune', now(), :updated_at, :deleted_at)"
+                    ),
+                    {
+                        "id": tune_id,
+                        "user": user,
+                        "updated_at": updated_at,
+                        "deleted_at": deleted_at,
+                    },
+                )
+            before = await _tune_stamps(conn)
+    finally:
+        await anyio.to_thread.run_sync(command.upgrade, config, "head")
+
+    async with engine.connect() as conn:
+        ceiling = (await conn.execute(text("select now() + interval '5 minutes'"))).scalar_one()
+        rows = await _tune_stamps(conn)
+    for tune_id in (ahead, deleted_ahead):
+        assert rows[tune_id].updated_at <= ceiling
+        assert rows[tune_id].server_seq > before[tune_id].server_seq
+    assert rows[ahead].deleted_at is None
+    assert rows[deleted_ahead].deleted_at <= ceiling
+    assert rows[current].updated_at == before[current].updated_at
+    assert rows[current].server_seq == before[current].server_seq

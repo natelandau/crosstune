@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from crosstune.schemas.rows import (
     EntitlementRow,
@@ -41,6 +41,12 @@ class Change(BaseModel):
     id: uuid.UUID
     updated_at: datetime
     data: dict[str, Any] | None = None
+
+    @field_validator("updated_at")
+    @classmethod
+    def _assume_utc(cls, value: datetime) -> datetime:
+        """Read a timestamp without a zone as UTC, so it compares with server time."""
+        return value if value.tzinfo else value.replace(tzinfo=UTC)
 
 
 class _ChangeResult(BaseModel):

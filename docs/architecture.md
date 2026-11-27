@@ -139,18 +139,18 @@
 
 ## Sources of truth
 
-| Question                 | Answer                                                                                                                                                                                                         |
-| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Which write wins         | The client's `updated_at`. Last write wins, per row. Never per-field merges.                                                                                                                                   |
-| What to pull next        | `server_seq`, one Postgres sequence. Bumped only under `lock_user` (Server writes and locks). A pull holds it shared. A cursor never skips a row. |
-| Who owns a row           | The token.                                                                                                                                                                                                     |
-| Is a row deleted         | `deleted_at`. Deletes are soft and tombstones are kept forever, so a deletion reaches every device. A delete clears the row's content.                                                                         |
-| History                  | Plays, practice sessions, scan views, and status changes: insert-only, on their own route and cursor (`GET /v1/sync/events`), out of the main pull.                                                            |
-| Which local database     | One per user, so two accounts on one device never share data. Sign-out deletes it, and refuses while unsent changes (other than history) or unuploaded files remain.                                           |
-| Partial date | UTC midnight at the start of its period, always shown in UTC, so a year never moves a day west of UTC. |
-| What an account can add  | Its grants, on the server (Entitlements).                                                                                                                                                                      |
-| Which version is running | Each side's package or bundle version, which is also its Sentry release. Clients send theirs in `X-Client-Version` and `X-Client-Platform`.                                                                    |
-| Host settings            | The host dashboards, never the repository. Configuration says how each deployable reads them.                                                                                                                  |
+| Question                 | Answer                                                                                                                                                               |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Which write wins         | The client's `updated_at`, capped at server time plus a tolerance on push. Last write wins, per row. Never per-field merges.                                         |
+| What to pull next        | `server_seq`, one Postgres sequence. Bumped only under `lock_user` (Server writes and locks). A pull holds it shared. A cursor never skips a row.                    |
+| Who owns a row           | The token.                                                                                                                                                           |
+| Is a row deleted         | `deleted_at`. Deletes are soft and tombstones are kept forever, so a deletion reaches every device. A delete clears the row's content.                               |
+| History                  | Plays, practice sessions, scan views, and status changes: insert-only, on their own route and cursor (`GET /v1/sync/events`), out of the main pull.                  |
+| Which local database     | One per user, so two accounts on one device never share data. Sign-out deletes it, and refuses while unsent changes (other than history) or unuploaded files remain. |
+| Partial date             | UTC midnight at the start of its period, always shown in UTC, so a year never moves a day west of UTC.                                                               |
+| What an account can add  | Its grants, on the server (Entitlements).                                                                                                                            |
+| Which version is running | Each side's package or bundle version, which is also its Sentry release. Clients send theirs in `X-Client-Version` and `X-Client-Platform`.                          |
+| Host settings            | The host dashboards, never the repository. Configuration says how each deployable reads them.                                                                        |
 
 ## Sync
 
