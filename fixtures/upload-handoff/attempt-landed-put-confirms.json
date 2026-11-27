@@ -1,0 +1,11 @@
+{
+  "description": "A landed upload is not sent again; a 2xx confirm finishes it.",
+  "input": {
+    "check": "attempt",
+    "put": "skipped",
+    "confirm": 204
+  },
+  "expected": {
+    "result": "uploaded"
+  }
+}

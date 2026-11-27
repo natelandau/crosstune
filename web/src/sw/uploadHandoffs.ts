@@ -2,14 +2,13 @@ import Dexie, { type Table } from 'dexie'
 import { API_ORIGIN } from '../config'
 import { DATABASE_NAME_PREFIX } from '../db/names'
 import {
-  HANDOFF_TAKE_BACK_ATTEMPTS,
   joinChunks,
   modifyWhileHeld,
   type HandedOffFile,
   type RecordingChunk,
   type RecordingFile,
 } from '../db/recordings'
-import { isRetryableStatus } from '../sync/retryableStatus'
+import { handoffAttemptResult, handoffStatus, type StepOutcome } from '../sync/handoffRules'
 
 export interface HandoffDeps {
   fetch: typeof fetch
@@ -97,8 +96,12 @@ async function runHandoff(
     })
     return 'retry'
   }
-  const blob = file.blob ?? (file.chunked && chunks ? await joinChunks(files, chunks, file) : null)
-  if (handoff.expires_at <= deps.now() || !blob) {
+  // A confirm-only retry never sends the bytes, so it neither reads them nor needs them.
+  const blob = handoff.put_landed
+    ? null
+    : (file.blob ?? (file.chunked && chunks ? await joinChunks(files, chunks, file) : null))
+  const status = handoffStatus(handoff, deps.now())
+  if (status === 'expired' || (!blob && !handoff.put_landed)) {
     // Nothing here can be sent, so the page's next pass starts the file over with a new slot.
     await write((row) => {
       row.local_state = 'captured'
@@ -108,26 +111,38 @@ async function runHandoff(
   }
   // The page takes these back on its next pass, so sending the bytes again only repeats a
   // refusal or races the page's own upload.
-  if (handoff.refused || handoff.attempts >= HANDOFF_TAKE_BACK_ATTEMPTS) return 'settled'
+  if (status === 'take_back') return 'settled'
   try {
-    // A blob read back from IndexedDB is file-backed on iOS, which the network layer cannot
-    // send, so the bytes go from memory.
-    const body = await blob.arrayBuffer()
-    const put = await deps.fetch(handoff.url, {
-      method: 'PUT',
-      body,
-      headers: { 'Content-Type': handoff.content_type },
-    })
-    if (!put.ok) return await retry(new Error(`Upload answered ${put.status}`))
+    let put: StepOutcome = 'skipped'
+    if (blob) {
+      // A blob read back from IndexedDB is file-backed on iOS, which the network layer cannot
+      // send, so the bytes go from memory.
+      const body = await blob.arrayBuffer()
+      const response = await deps.fetch(handoff.url, {
+        method: 'PUT',
+        body,
+        headers: { 'Content-Type': handoff.content_type },
+      })
+      put = response.status
+      if (response.ok) {
+        await write((row) => {
+          if (row.handoff) row.handoff.put_landed = true
+        })
+      }
+    }
+    if (handoffAttemptResult(put, 'skipped') === 'retry') {
+      return await retry(new Error(`Upload answered ${put}`))
+    }
     // No body: the API checks a bearer token on any request that declares one.
     const confirm = await deps.fetch(
       `${API_ORIGIN}/v1/recordings/${encodeURIComponent(file.id)}/uploaded-with-token`,
       { method: 'POST', headers: { 'X-Upload-Token': handoff.confirm_token } },
     )
-    if (!confirm.ok && isRetryableStatus(confirm.status)) {
+    const result = handoffAttemptResult(put, confirm.status)
+    if (result === 'retry_confirm') {
       return await retry(new Error(`Confirm answered ${confirm.status}`))
     }
-    if (!confirm.ok) {
+    if (result === 'refused') {
       // The page takes the file back on its next pass and applies its own backoff and failure
       // rules to a refused or lost slot.
       await write((row) => {

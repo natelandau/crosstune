@@ -1,0 +1,16 @@
+{
+  "description": "A hand-off whose confirm the server refused is taken back.",
+  "input": {
+    "check": "status",
+    "handoff": {
+      "expires_at": "2026-11-27T12:01:00.000Z",
+      "attempts": 0,
+      "refused": true,
+      "put_landed": false
+    },
+    "now": "2026-11-27T12:00:00.000Z"
+  },
+  "expected": {
+    "status": "take_back"
+  }
+}

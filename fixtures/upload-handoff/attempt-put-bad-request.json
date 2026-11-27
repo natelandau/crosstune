@@ -1,0 +1,11 @@
+{
+  "description": "A 400 upload is retried from the upload.",
+  "input": {
+    "check": "attempt",
+    "put": 400,
+    "confirm": "skipped"
+  },
+  "expected": {
+    "result": "retry"
+  }
+}

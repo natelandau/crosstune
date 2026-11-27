@@ -1,0 +1,11 @@
+{
+  "description": "A 404 confirm is refused for good.",
+  "input": {
+    "check": "attempt",
+    "put": 200,
+    "confirm": 404
+  },
+  "expected": {
+    "result": "refused"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "description": "A 413 confirm is refused for good.",
+  "input": {
+    "check": "attempt",
+    "put": 200,
+    "confirm": 413
+  },
+  "expected": {
+    "result": "refused"
+  }
+}

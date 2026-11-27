@@ -1,0 +1,11 @@
+{
+  "description": "An upload that never answers is retried from the upload.",
+  "input": {
+    "check": "attempt",
+    "put": "network_error",
+    "confirm": "skipped"
+  },
+  "expected": {
+    "result": "retry"
+  }
+}

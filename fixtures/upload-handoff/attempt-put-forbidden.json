@@ -1,0 +1,11 @@
+{
+  "description": "A 403 upload is retried from the upload.",
+  "input": {
+    "check": "attempt",
+    "put": 403,
+    "confirm": "skipped"
+  },
+  "expected": {
+    "result": "retry"
+  }
+}

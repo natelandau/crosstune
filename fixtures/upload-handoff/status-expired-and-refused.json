@@ -1,0 +1,16 @@
+{
+  "description": "Expiry wins over a refusal.",
+  "input": {
+    "check": "status",
+    "handoff": {
+      "expires_at": "2026-11-27T12:00:00.000Z",
+      "attempts": 0,
+      "refused": true,
+      "put_landed": false
+    },
+    "now": "2026-11-27T12:00:00.000Z"
+  },
+  "expected": {
+    "status": "expired"
+  }
+}

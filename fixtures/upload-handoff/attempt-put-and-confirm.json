@@ -1,0 +1,11 @@
+{
+  "description": "A 2xx upload and a 2xx confirm finish the upload.",
+  "input": {
+    "check": "attempt",
+    "put": 200,
+    "confirm": 204
+  },
+  "expected": {
+    "result": "uploaded"
+  }
+}
