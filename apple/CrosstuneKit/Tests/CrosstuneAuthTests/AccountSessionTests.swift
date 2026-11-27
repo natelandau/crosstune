@@ -1262,7 +1262,8 @@ final class Offline {
 
         #expect(api.pushes == 1)
         #expect(api.pulls == 0)
-        #expect(try await store.pendingChangeCount() == 1)
+        // The batch in flight at shutdown is dropped, so both changes stay queued.
+        #expect(try await store.pendingChangeCount() == 2)
     }
 
     @Test func aStoreOpenedOnlineSyncsOnceForTheConnectionItOpenedOn() async throws {

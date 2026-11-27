@@ -12,6 +12,7 @@ import {
   type LocalFileState,
   type RecordingFile,
 } from '../db/recordings'
+import { releaseLocalOnlyRows } from '../db/meta'
 import type { CrosstuneDb } from '../db/schema'
 import type { LocalRecording } from '../db/types'
 import type { Undo } from './bulk'
@@ -599,6 +600,7 @@ export async function tombstoneTuneRecordings(
     .anyOf([...tuneIds])
     .primaryKeys()
   for (const id of ids) await tombstoneRecording(db, id, at, { enqueueDelete: false })
+  await releaseLocalOnlyRows(db, ids)
 }
 
 export async function setFileState(

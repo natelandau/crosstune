@@ -5,7 +5,7 @@ import { ApiError, NetworkError, NoTokenError } from '../api/client'
 import type { Change, DeleteAccountOptions, ResolveResponse } from '../api/types'
 import { readPlan } from '../billing/entitlement'
 import { postSeenNotices } from '../billing/notices'
-import { countInvalidChanges, getEventsCursor, getPullCursor, pruneLocalOnlyRows } from '../db/meta'
+import { countInvalidChanges, getEventsCursor, getPullCursor } from '../db/meta'
 import { PUSH_BATCH_SIZE, pendingBatch } from '../db/outbox'
 import { readLocalAudio } from '../db/recordings'
 import type { CrosstuneDb } from '../db/schema'
@@ -208,7 +208,6 @@ export function createSyncEngine({
   let noticeFailureReported = false
 
   async function push(): Promise<void> {
-    await pruneLocalOnlyRows(db)
     const premium = (await readPlan(db, new Date())).kind !== 'free'
     // Kept local this push: each is sent at most once, so a full batch of them never stops the
     // entries queued behind.
@@ -359,7 +358,7 @@ export function createSyncEngine({
               await push()
               if (stopped) return
               try {
-                await postSeenNotices(db, api)
+                await postSeenNotices(db, api, isStopped)
                 noticeFailureReported = false
               } catch (error) {
                 // A notice that failed to post waits for the next sync; only an auth failure
@@ -374,12 +373,13 @@ export function createSyncEngine({
               await pull()
               if (stopped) return
               try {
-                await refreshAccount(db, api)
+                await refreshAccount(db, api, isStopped)
               } catch (error) {
                 // The account's storage and country are informational; only an auth failure
                 // should fail a sync whose push and pull already landed.
                 if (isAuthFailure(error)) throw error
               }
+              if (stopped) return
               syncedAt = new Date().toISOString()
             }),
       ),

@@ -47,6 +47,19 @@ export interface RecordingRowData {
 }
 
 /**
+ * The recordings and scans held on this device until Premium, read once by a list for its
+ * rows rather than by each row. Only a free plan holds any, so a paid plan skips the read.
+ */
+export function useLocalOnlyRows(): ReadonlySet<string> | undefined {
+  const db = useDb()
+  const free = !useRecordingsPlayable()
+  return useLiveQuery(
+    async () => (free ? await getLocalOnlyRows(db) : new Set<string>()),
+    [db, free],
+  )
+}
+
+/**
  * What one recording row shows and does, for every app's row: its slot plays what this device
  * holds, fetches what it does not, and says which retry a stuck recording needs.
  */
@@ -60,6 +73,7 @@ export function useRecordingRow(
     premiumFrom = 'recording_row',
     pageSource = 'tune',
     storage = null,
+    localOnlyRows,
   }: {
     tuneNamedAbove?: boolean
     sort?: RecordingSort
@@ -73,10 +87,11 @@ export function useRecordingRow(
     pageSource?: Source
     /** The server's storage report, which the meta line reads for a file not yet uploaded. */
     storage?: StorageUsage | null
+    /** `useLocalOnlyRows`, read by the list; a caller that shows no meta line leaves it out. */
+    localOnlyRows?: ReadonlySet<string>
   } = {},
 ): RecordingRowData {
   const { recording, file } = view
-  const db = useDb()
   const player = usePlayer()
   const premium = usePremiumSheet()
   const online = useOnline()
@@ -86,16 +101,13 @@ export function useRecordingRow(
   const item = { kind: 'recording' as const, id: recording.id }
   const loaded = isPlaying(player, item)
   // Only a recording the server has not stored can be local-only, and a local-only recording goes
-  // out as soon as the plan is Premium, so any other row skips the read.
+  // out as soon as the plan is Premium.
   const free = !useRecordingsPlayable()
-  const mayBeLocalOnly = recording.server_seq === 0 && free
-  const localOnlyRow = useLiveQuery(
-    async () => mayBeLocalOnly && (await getLocalOnlyRows(db)).has(recording.id),
-    [db, mayBeLocalOnly, recording.id],
-  )
+  const localOnlyRow =
+    recording.server_seq === 0 && free && (localOnlyRows?.has(recording.id) ?? false)
   // A free plan uploads no audio, so audio not yet uploaded waits for Premium too.
   const localOnlyAudio = free && file?.local_state !== 'capturing' && isNotUploaded(file)
-  const localOnly = (localOnlyRow ?? false) || localOnlyAudio
+  const localOnly = localOnlyRow || localOnlyAudio
   const shownControl = rowControl(view, {
     loaded,
     downloading: fetch === 'fetching' || file?.local_state === 'downloading',

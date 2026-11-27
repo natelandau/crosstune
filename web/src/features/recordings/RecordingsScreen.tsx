@@ -25,6 +25,7 @@ import {
 } from './recordingsCopy'
 import { RECORDING_SORT_OPTIONS } from './sortCopy'
 import type { RecordingView } from './useRecordings'
+import { useLocalOnlyRows } from './useRecordingRow'
 import { useRecordingsScreen } from './useRecordingsScreen'
 import { useRecordingBulkActions } from './useRecordingBulkActions'
 import { LinkToTuneSheet } from './LinkToTuneSheet'
@@ -160,6 +161,7 @@ export function RecordingsScreen() {
   const drop = useFileDrop(pointer ? importFiles : undefined)
 
   const storage = useStorage() ?? null
+  const localOnlyRows = useLocalOnlyRows()
   const row = (view: RecordingView, { grouped }: { grouped: boolean }) => (
     <RecordingRow
       key={view.recording.id}
@@ -178,6 +180,7 @@ export function RecordingsScreen() {
       playOrigin={RECORDINGS_ROW_ORIGIN}
       pageSource="recordings_list"
       storage={storage}
+      localOnlyRows={localOnlyRows}
     />
   )
 

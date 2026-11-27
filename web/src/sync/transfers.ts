@@ -785,9 +785,17 @@ export async function joinChunkedCaptures(
   for (const file of files) if (room.fits(file.bytes)) await joinCapturedChunks(db, file.id)
 }
 
-/** Stores the account's storage usage and its country's center from the API. */
-export async function refreshAccount(db: CrosstuneDb, api: SyncApi): Promise<void> {
+/**
+ * Stores the account's storage usage and its country's center from the API, unless
+ * `isStopped` holds once the answer arrives.
+ */
+export async function refreshAccount(
+  db: CrosstuneDb,
+  api: SyncApi,
+  isStopped: () => boolean,
+): Promise<void> {
   const me = await api.me()
+  if (isStopped()) return
   await setStorage(db, me.storage)
   await setCountryCenter(db, me.country_center)
 }

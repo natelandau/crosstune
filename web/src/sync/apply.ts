@@ -169,6 +169,7 @@ export async function applyPullPage(
     const pending = await pendingByRow(db)
     const stores = new Map<TableName, LocalRow[]>()
     const supersededSeqs: number[] = []
+    const supersededHolds: string[] = []
     for (const pulled of rows) {
       const row = toLocalRow(pulled.row)
       const key = rowKey(pulled.table, row.id)
@@ -179,6 +180,7 @@ export async function applyPullPage(
       stores.set(pulled.table, stored)
       if (entry?.seq !== undefined) {
         supersededSeqs.push(entry.seq)
+        if (isPremiumTable(pulled.table)) supersededHolds.push(row.id)
         pending.delete(key)
       }
     }
@@ -187,6 +189,7 @@ export async function applyPullPage(
       if (isSyncTable(table) || table === 'entitlements') await storeFor(db, table).bulkPut(stored)
     }
     await db.outbox.bulkDelete(supersededSeqs)
+    await releaseLocalOnlyRows(db, supersededHolds)
     await setPullCursor(db, nextSince)
   })
 }

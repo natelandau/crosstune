@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { getMeta, keepLocalUntilSubscribed, META_LOCAL_ONLY_ROWS } from '../db/meta'
 import { pendingBatch, pendingFor } from '../db/outbox'
 import type { CrosstuneDb } from '../db/schema'
 import { openTestDb } from '../test/db'
@@ -191,6 +192,28 @@ describe('deleteTune', () => {
       ['tunes', 'delete'],
       ['lists', 'upsert'],
     ])
+  })
+
+  it('releases the holds on the recordings and scans the delete takes with it', async () => {
+    const { tuneId } = await createTune(db, { title: 'X' }, { status: 'known' })
+    const [scanId] = await addScans(db, tuneId, [
+      { blob: new Blob(['jpeg']), width: 10, height: 20 },
+    ])
+    const recordingId = 'recording-1'
+    await beginCapture(db, recordingId, { tuneId: null, recordedAt: new Date().toISOString() })
+    await appendChunk(db, recordingId, 0, new Blob(['x']))
+    await finishCapture(db, recordingId, {
+      tuneId,
+      mime: 'audio/mp4',
+      durationMs: 1000,
+      recordedAt: '2026-09-11T10:00:00.000Z',
+      peaks: null,
+    })
+    await keepLocalUntilSubscribed(db, [recordingId, scanId!, 'other-recording'])
+
+    await deleteTune(db, tuneId)
+
+    expect(await getMeta<string[]>(db, META_LOCAL_ONLY_ROWS, [])).toEqual(['other-recording'])
   })
 })
 

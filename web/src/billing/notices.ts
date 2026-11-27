@@ -39,9 +39,13 @@ async function refusedNotices(db: CrosstuneDb): Promise<Set<NoticeKind>> {
  * each one the row now carries. A failed post stays for the next sync, unless the server refused
  * the request itself, which a resend would only draw again: that notice stays seen here and is
  * never posted again. Once every notice has had its turn, the first auth failure is rethrown, or
- * else the first failure.
+ * else the first failure. Once `isStopped` holds, nothing more is posted or written.
  */
-export async function postSeenNotices(db: CrosstuneDb, api: SyncApi): Promise<void> {
+export async function postSeenNotices(
+  db: CrosstuneDb,
+  api: SyncApi,
+  isStopped: () => boolean,
+): Promise<void> {
   const seen = await seenNotices(db)
   if (seen.size === 0) return
   const row = await liveEntitlement(db)
@@ -62,9 +66,11 @@ export async function postSeenNotices(db: CrosstuneDb, api: SyncApi): Promise<vo
   let failure: unknown = null
   for (const notice of seen) {
     if (carried.includes(notice) || refused.has(notice)) continue
+    if (isStopped()) return
     try {
       await api.recordNotice(notice)
     } catch (error) {
+      if (isStopped()) return
       if (error instanceof ApiError && !isRetryableRefusal(error)) {
         await db.transaction('rw', db.meta, async () => {
           const current = await refusedNotices(db)

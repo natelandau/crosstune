@@ -11,7 +11,7 @@ import {
   getPullCursor,
   keepLocalUntilSubscribed,
 } from '../db/meta'
-import { pendingBatch, pendingFor } from '../db/outbox'
+import { dropPending, enqueue, pendingBatch, pendingFor } from '../db/outbox'
 import type { CrosstuneDb } from '../db/schema'
 import { openTestDb } from '../test/db'
 import { serverRecording, serverTune, serverUserTune } from '../test/fakeApi'
@@ -268,6 +268,15 @@ describe('applyPushResults under the plan', () => {
     expect(await getInvalidChangeCount(db)).toBe(0)
   })
 
+  it('sends a loop while free when its recording is held with no upsert queued', async () => {
+    const id = await captureRecording(db)
+    const loopId = await addLoop(db, id, { start_ms: 1_000, end_ms: 5_000 })
+    await dropPending(db, 'recordings', id)
+    await keepLocalUntilSubscribed(db, [id])
+    const sent = await pendingBatch(db, undefined, { premium: false })
+    expect(sent.map((entry) => entry.row_id)).toEqual([loopId])
+  })
+
   it('releases a local-only scan once the server applies it', async () => {
     const { tuneId } = await createTune(db, { title: 'Angeline' }, { status: 'known' })
     const [scanId] = await addScans(db, tuneId, [
@@ -317,6 +326,31 @@ describe('applyPullPage', () => {
     expect((await db.tunes.get('other'))?.title).toBe('Other')
     expect(await pendingBatch(db)).toHaveLength(0)
     expect(await getPullCursor(db)).toBe(5)
+  })
+
+  it('releases the hold on a held recording whose queued upsert a pulled row supersedes', async () => {
+    const id = await captureRecording(db)
+    await keepLocalUntilSubscribed(db, [id])
+    await applyPullPage(
+      db,
+      [
+        {
+          table: 'recordings',
+          row: serverRecording({ id, updated_at: '2026-09-11T11:00:00.000Z', server_seq: 9 }),
+        },
+      ],
+      9,
+    )
+    expect(await pendingFor(db, 'recordings', id)).toBeUndefined()
+    // A later edit queues a new upsert, which the server takes since it already has the row.
+    await enqueue(db, {
+      table: 'recordings',
+      row_id: id,
+      op: 'upsert',
+      updated_at: '2026-09-11T12:00:00.000Z',
+      data: { label: 'Edited' },
+    })
+    expect(await getLocalOnlyRows(db)).toEqual(new Set())
   })
 
   it('stores a scrubbed tombstone', async () => {

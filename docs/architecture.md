@@ -19,7 +19,8 @@
 | Hosts             | API on Railway. Web client and site on Cloudflare Workers                                       |                                                                                           |
 
 - Two UI stacks and two sync engines, TypeScript and Swift, with the same
-  behavior. A behavior change to one engine is made in both.
+  behavior. A change to logic written in both follows "Logic written
+  twice".
 - Tailwind supplies tokens, spacing, and layout, never components.
 - A change to what the Apple app collects, or a new SDK in it, updates
   the `PrivacyInfo.xcprivacy` of every target it touches
@@ -124,12 +125,16 @@
 
 ### Logic written twice
 
-- The pitch detector and the isolate mask exist on the web and on Apple.
-  Both test against one shared fixture in `fixtures/`.
-- The mono rule exists on the server (`api/src/crosstune/jobs/mono.py`)
-  and on Apple (`MonoDetector`). No shared code.
-- A change to a mask constant or a mono threshold lands on every side in
-  the same change.
+- Every rule written in more than one place (web, Apple, API) has a
+  folder of shared cases under `fixtures/` and an entry in
+  `fixtures/manifest.json`. Look there for every copy of a rule.
+- A change to a listed source updates the shared cases and every other
+  listed source in the same change.
+- A new copy of a rule, or a new rule written twice, adds its folder and
+  manifest entry in the same change.
+- An intended difference between copies is a `platform_overrides` entry
+  with a reason. Never an adapter that transforms one platform's input or
+  result.
 
 ## Sources of truth
 
@@ -239,6 +244,10 @@
   that its engine has not been stopped, so an engine stopped during
   sign-out never sends one account's request with the next account's
   token.
+- Every response a sync run or events pull receives (push results, pull
+  and events pages, the account, notice results) is dropped once the
+  engine stops, never written, so a stopped engine never writes to a
+  store that sign-out is removing.
 - An engine sends only its own account's token. Clerk's token source
   follows whoever is signed in now, not the engine's account.
 

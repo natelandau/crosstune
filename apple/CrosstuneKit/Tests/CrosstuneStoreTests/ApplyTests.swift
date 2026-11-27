@@ -334,6 +334,32 @@ private func createTune(_ store: CrosstuneStore, title: String, status: String =
         #expect(try await store.pendingChanges(limit: 10).map(\.rowID) == ["r2"])
     }
 
+    @Test func aLoopWaitingOnARecordingAnEarlierPushHeldListsThatRecordingAsKeptLocal() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        try await putRecording(store)
+        try await store.write { writer in
+            try writer.keepLocalUntilSubscribed(["r1"])
+            try writer.put(
+                RecordingLoop(id: "l1", createdAt: noon, recordingID: "r1", startMs: 0, endMs: 1_000, color: 0),
+                at: noon)
+        }
+        let sent = try await store.pendingChanges(limit: 10).filter { $0.tableName == .recordingLoops }
+
+        let result = try await store.write { writer in
+            try writer.applyPushResults(
+                sent: sent,
+                results: [
+                    PushResult(table: .recordingLoops, id: "l1", status: .invalid, reason: missingRecordingReason)
+                ])
+        }
+
+        #expect(result.invalid == [])
+        #expect(result.settled == 0)
+        #expect(result.keptLocal == ["r1"])
+        #expect(try await store.pendingChanges(limit: 10).map(\.rowID) == ["r1", "l1"])
+    }
+
     @Test func aRefusedDeleteOfALocalOnlyRecordingTheServerNeverStoredReleasesIt() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
