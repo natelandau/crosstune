@@ -370,6 +370,7 @@ public final class SyncEngine {
         do {
             try checkStopped()
             let account = try await api.account()
+            try checkStopped()
             try await store.setMeta(.storage, to: account.storage)
             storedUsage = true
             try await store.setMeta(.countryCenter, to: account.countryCenter)
@@ -379,6 +380,8 @@ public final class SyncEngine {
             // Storage usage is informational; only an auth failure fails a run whose push and
             // pull already landed.
         }
+        // An account request that failed after a stop is swallowed above, so check again.
+        try checkStopped()
         let finished = Timestamp.now
         lastSyncedAt = finished.date
         onSynced?(storedUsage)
@@ -406,6 +409,8 @@ public final class SyncEngine {
             if batch.isEmpty { return }
             try checkStopped()
             let results = try await api.push(batch.map(Change.init))
+            // The outbox keeps the batch for the next push.
+            try checkStopped()
             let (invalid, settled, keptLocal) = try await store.write { writer in
                 try writer.applyPushResults(sent: batch, results: results)
             }
@@ -433,6 +438,7 @@ public final class SyncEngine {
             } catch  where endsThePass(error) {
                 throw error
             } catch {
+                try checkStopped()
                 if let refusal = underlying(error) as? APIStatusError, refusesTheRequestItself(refusal) {
                     try await store.write { writer in try writer.markNoticeRefused(notice) }
                 }
@@ -457,6 +463,7 @@ public final class SyncEngine {
 
     /// Fetches pages after the cursor stored under `cursor` until the server has no more,
     /// writing each page, which stores its own next cursor, before asking for the one after it.
+    /// A page that arrives after a stop is dropped.
     private func pullPages<Page: CursorPage>(
         from cursor: MetaKey, fetch: (Int64) async throws -> Page,
         apply: @escaping @Sendable (StoreWriter, Page) throws -> Void
@@ -465,6 +472,7 @@ public final class SyncEngine {
         while true {
             try checkStopped()
             let page = try await fetch(since)
+            try checkStopped()
             try await store.write { writer in try apply(writer, page) }
             since = page.nextSince
             if !page.hasMore { return }

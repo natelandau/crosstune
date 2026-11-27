@@ -110,7 +110,7 @@ extension StoreWriter {
     /// A recording or scan refused as Premium only is neither reported nor settled: its entry
     /// stays and its id is kept local until a later result for it settles. A row refused because its
     /// recording is local-only stays queued the same way, to go out with it. `keptLocal` names
-    /// the recordings and scans this batch kept local.
+    /// the recordings and scans this batch kept local, and each recording such a row waits on.
     @discardableResult
     public func applyPushResults(sent: [OutboxEntry], results: [PushResult]) throws -> (
         invalid: [InvalidChange], settled: Int, keptLocal: [String]
@@ -173,8 +173,15 @@ extension StoreWriter {
         }
 
         let stillLocalOnly = try Self.localOnlyRows(in: db).union(keptLocal).subtracting(released)
-        for orphan in orphans where !stillLocalOnly.contains(orphan.recordingID) {
-            try settle(orphan.entry, orphan.result)
+        // A recording a waiting row is held for is reported too, so the push skips its rows.
+        var reportedKeptLocal = keptLocal
+        var reportedIDs = Set(keptLocal)
+        for orphan in orphans {
+            if stillLocalOnly.contains(orphan.recordingID) {
+                if reportedIDs.insert(orphan.recordingID).inserted { reportedKeptLocal.append(orphan.recordingID) }
+            } else {
+                try settle(orphan.entry, orphan.result)
+            }
         }
 
         try OutboxEntry.deleteAll(db, keys: settledSeqs)
@@ -184,7 +191,7 @@ extension StoreWriter {
             let priorCount = try meta(.invalidChanges, as: Int.self) ?? 0
             try setMeta(.invalidChanges, to: priorCount + invalid.count)
         }
-        return (invalid, settled, keptLocal)
+        return (invalid, settled, reportedKeptLocal)
     }
 
     /// Applies one page of pulled rows: a row with no newer local write pending overwrites the

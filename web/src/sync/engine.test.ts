@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 
 import { noopAnalytics } from '../usage/client'
 import { recordingAnalytics } from '../usage/testing'
 import type { Problem } from '../api/types'
-import { ApiError, createApiClient, NetworkError, NoTokenError, TransferError } from '../api/client'
+import { ApiError, NetworkError, NoTokenError, TransferError } from '../api/client'
 import { recordEvent } from '../commands/events'
 import { createTune, deleteTune, setPlaySource, updateTune } from '../commands/tunes'
 import { addLoop } from '../commands/loops'
@@ -14,12 +14,14 @@ import {
   getInvalidChangeCount,
   getLocalOnlyRows,
   getPullCursor,
+  getStorage,
   keepLocalUntilSubscribed,
 } from '../db/meta'
 import { pendingBatch, pendingFor } from '../db/outbox'
 import type { CrosstuneDb } from '../db/schema'
 import { openTestDb } from '../test/db'
 import { sessionToken } from '../test/sessionToken'
+import { testApiClient } from '../test/testApiClient'
 import { createFakeApi, serverTune } from '../test/fakeApi'
 import { captureRecording } from '../test/recordings'
 import { entitlementRow, playEventRow, scanViewRow } from '../test/rows'
@@ -1124,18 +1126,17 @@ describe('an engine bound to one account', () => {
     let pulls = 0
     let answerFirstPull: (response: Response) => void = () => {}
     const firstPull = new Promise<Response>((resolve) => (answerFirstPull = resolve))
-    const api = createApiClient({
-      baseUrl: 'http://api.test',
-      getToken: async () => (signedIn ? sessionToken(signedIn) : null),
-      userId: 'user_a',
-      clientVersion: '1',
-      gatewayRetryDelaysMs: [],
-      fetch: async (request) => {
+    const api = testApiClient(
+      async (request) => {
         sent.push(request)
         if (new URL(request.url).pathname === '/v1/sync/pull' && ++pulls === 1) return firstPull
         return pullPage(false)
       },
-    })
+      {
+        getToken: async () => (signedIn ? sessionToken(signedIn) : null),
+        gatewayRetryDelaysMs: [],
+      },
+    )
     const engine = createSyncEngine({ analytics: noopAnalytics, db, api, isOnline: () => true })
     const run = engine.sync()
     await expect.poll(() => pulls).toBe(1)
@@ -1148,6 +1149,27 @@ describe('an engine bound to one account', () => {
     expect(sent).toHaveLength(sentBeforeStop)
     expect(await db.tunes.count()).toBe(0)
     expect(await getPullCursor(db)).toBe(0)
+  })
+})
+
+describe('a response that arrives after a stop', () => {
+  it('stores no account details and no sync time', async () => {
+    const engine = createSyncEngine({
+      analytics: noopAnalytics,
+      db,
+      api: fake.api,
+      isOnline: () => true,
+    })
+    const me = fake.api.me
+    vi.spyOn(fake.api, 'me').mockImplementation(async () => {
+      engine.stop()
+      return me()
+    })
+
+    await engine.sync()
+
+    expect(await getStorage(db)).toBeNull()
+    expect(engine.lastSyncedAt()).toBeNull()
   })
 })
 

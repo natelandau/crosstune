@@ -32,9 +32,10 @@ export function writeTx<T>(
   return db.transaction('rw', [...syncTables(db), db.outbox, ...local], fn)
 }
 
-/** A write that touches the local audio tables as well as the synced ones. */
+/** A write that touches the local audio tables and the Premium holds as well as the synced
+ * ones. */
 export function recordingTx<T>(db: CrosstuneDb, fn: () => Promise<T>): Promise<T> {
-  return writeTx(db, fn, [db.recording_files, db.recording_chunks])
+  return writeTx(db, fn, [db.recording_files, db.recording_chunks, db.meta])
 }
 
 /** Rows that have not been tombstoned, in position order. */
@@ -102,14 +103,15 @@ export async function tombstone<T extends SyncTableName>(
 }
 
 /** Soft-delete every row whose `index` equals `value`: the dependents of a cascading parent,
- * so no delete is queued for them. */
+ * so no delete is queued for them. Returns the ids of every row the index matched. */
 export async function tombstoneWhere<T extends SyncTableName>(
   db: CrosstuneDb,
   table: T,
   index: string,
   value: string,
   at: string,
-): Promise<void> {
+): Promise<string[]> {
   const ids = await rowsTable(db, table).where(index).equals(value).primaryKeys()
   for (const id of ids) await tombstone(db, table, id, at, { enqueueDelete: false })
+  return ids
 }

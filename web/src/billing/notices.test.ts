@@ -50,9 +50,47 @@ describe('postSeenNotices', () => {
     const failures = [new ApiError(500, null), new ApiError(401, null)]
     const api = { ...fake.api, recordNotice: async () => Promise.reject(failures.shift()) }
 
-    await expect(postSeenNotices(db, api)).rejects.toSatisfy(
+    await expect(postSeenNotices(db, api, () => false)).rejects.toSatisfy(
       (error) => error instanceof ApiError && error.status === 401,
     )
     expect(await seenNotices(db)).toEqual(new Set(['first_recording', 'trial_reminder']))
+  })
+
+  it('posts no further notice once stopped', async () => {
+    const db = openTestDb()
+    await markNoticeSeen(db, 'first_recording')
+    await markNoticeSeen(db, 'trial_reminder')
+    let stopped = false
+    const posted: string[] = []
+    const api = {
+      ...createFakeApi().api,
+      recordNotice: async (notice: string) => {
+        posted.push(notice)
+        stopped = true
+      },
+    }
+
+    await postSeenNotices(db, api, () => stopped)
+
+    expect(posted).toHaveLength(1)
+  })
+
+  it('stores no refusal that arrives after a stop, so the next sync posts the notice again', async () => {
+    const db = openTestDb()
+    await markNoticeSeen(db, 'first_recording')
+    let stopped = false
+    const fake = createFakeApi()
+    const refusing = {
+      ...fake.api,
+      recordNotice: async () => {
+        stopped = true
+        throw new ApiError(422, null)
+      },
+    }
+
+    await postSeenNotices(db, refusing, () => stopped)
+    await postSeenNotices(db, fake.api, () => false)
+
+    expect(fake.notices).toEqual(['first_recording'])
   })
 })

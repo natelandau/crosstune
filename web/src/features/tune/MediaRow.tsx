@@ -179,6 +179,7 @@ export function RecordingRow({
   pageSource = 'tune',
   premiumFrom,
   storage,
+  localOnlyRows,
   selecting = false,
   onSelect,
 }: {
@@ -198,6 +199,8 @@ export function RecordingRow({
   premiumFrom?: PremiumEntry
   /** The server's storage report, read once by the list rather than by each row. */
   storage: StorageUsage | null
+  /** The recordings held on this device until Premium, read once by the list. */
+  localOnlyRows: ReadonlySet<string> | undefined
   /** The screen is selecting, and acts on its rows from its own bar, so the row offers nothing. */
   selecting?: boolean
   /** Opens selection with this row selected, from the row's menu. */
@@ -211,6 +214,7 @@ export function RecordingRow({
     premiumFrom,
     pageSource,
     storage,
+    localOnlyRows,
   })
   const fresh = useNewRecording(view.recording.id)
   const { title, control, slot, retry, origin } = data

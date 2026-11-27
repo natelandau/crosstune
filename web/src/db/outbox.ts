@@ -53,17 +53,20 @@ export async function pendingBatch(
   limit = PUSH_BATCH_SIZE,
   { premium, skip }: { premium: boolean; skip?: ReadonlySet<string> } = { premium: true },
 ): Promise<OutboxEntry[]> {
-  const left = new Set(skip)
-  if (!premium) for (const id of await getLocalOnlyRows(db)) left.add(id)
-  const entries = db.outbox.orderBy('seq')
-  if (left.size === 0) return entries.limit(limit).toArray()
-  return entries
-    .filter((entry) => {
-      const localOnlyId = isPremiumTable(entry.table) ? entry.row_id : dependentRecordingId(entry)
-      return entry.op === 'delete' || localOnlyId === null || !left.has(localOnlyId)
-    })
-    .limit(limit)
-    .toArray()
+  // One read, so the holds and the queue it filters agree.
+  return db.transaction('r', db.meta, db.outbox, async () => {
+    const left = new Set(skip)
+    if (!premium) for (const id of await getLocalOnlyRows(db)) left.add(id)
+    const entries = db.outbox.orderBy('seq')
+    if (left.size === 0) return entries.limit(limit).toArray()
+    return entries
+      .filter((entry) => {
+        const localOnlyId = isPremiumTable(entry.table) ? entry.row_id : dependentRecordingId(entry)
+        return entry.op === 'delete' || localOnlyId === null || !left.has(localOnlyId)
+      })
+      .limit(limit)
+      .toArray()
+  })
 }
 
 /**

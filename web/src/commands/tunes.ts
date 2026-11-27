@@ -1,4 +1,5 @@
 import type { Mode, TuneStatus, TimeSignature } from '../api/vocabulary'
+import { releaseLocalOnlyRows } from '../db/meta'
 import type { CrosstuneDb } from '../db/schema'
 import type { PlayerItem } from '../domain/playerItem'
 import type { TuningsMap } from '../domain/instruments'
@@ -176,7 +177,8 @@ export async function tombstoneTune(db: CrosstuneDb, tuneId: string, at: string)
     await tombstone(db, 'user_tunes', userTuneId, at, { enqueueDelete: false })
   }
   await tombstoneWhere(db, 'recording_links', 'tune_id', tuneId, at)
-  await tombstoneWhere(db, 'scans', 'tune_id', tuneId, at)
+  const scanIds = await tombstoneWhere(db, 'scans', 'tune_id', tuneId, at)
+  await releaseLocalOnlyRows(db, scanIds)
 }
 
 export async function deleteTune(db: CrosstuneDb, tuneId: string): Promise<void> {

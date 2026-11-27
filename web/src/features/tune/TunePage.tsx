@@ -18,6 +18,7 @@ import { lyricLines } from '../lyrics/lyricLines'
 import { Verses } from '../lyrics/Verses'
 import { NEW_RECORDING } from '../capture/recordCopy'
 import type { RecordingView } from '../recordings/useRecordings'
+import { useLocalOnlyRows } from '../recordings/useRecordingRow'
 import { ADD_RECORDING } from './tuneMediaCopy'
 import {
   ADD_LYRICS,
@@ -428,6 +429,7 @@ function TuneSections({
   const [unfolded, setUnfolded] = useState(false)
   const recordingRows = folded && !unfolded ? [] : media.recordingRows
   const storage = useStorage() ?? null
+  const localOnlyRows = useLocalOnlyRows()
   const addScan = scans.loaded && !scans.has && !scans.adding
   // A first scan has no section to show it until it lands, so the add line says it is coming.
   const addingFirstScan = !scans.has && scans.adding
@@ -472,6 +474,7 @@ function TuneSections({
                     onRetry={(kind) => media.retry(row.view, kind)}
                     premiumFrom={folded ? 'recordings_line' : undefined}
                     storage={storage}
+                    localOnlyRows={localOnlyRows}
                   />
                 ))}
                 {media.linkRows.map((row) => (

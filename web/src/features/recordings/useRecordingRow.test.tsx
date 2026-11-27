@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { usePlanOrUnknown } from '../../billing/usePlan'
 import { keepLocalUntilSubscribed } from '../../db/meta'
+import { enqueue } from '../../db/outbox'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
 import { fakeEngine } from '../../test/fakeSync'
@@ -10,7 +11,7 @@ import { dataProviders, fakePlayer } from '../../test/providers'
 import { entitlementRow, recordingFile, recordingRow } from '../../test/rows'
 import { PlayerContext } from '../player/usePlayer'
 import { LOCAL_UNTIL_SUBSCRIBED } from './recordingCopy'
-import { useRecordingRow } from './useRecordingRow'
+import { useLocalOnlyRows, useRecordingRow } from './useRecordingRow'
 import type { RecordingView } from './useRecordings'
 
 let db: CrosstuneDb
@@ -40,12 +41,21 @@ function renderRow(
     tuneTitle: null,
     holdsSplitAudio: false,
   }
-  return renderHook(() => useRecordingRow(view), { wrapper: wrapperFor(player) })
+  return renderHook(() => useRecordingRow(view, { localOnlyRows: useLocalOnlyRows() }), {
+    wrapper: wrapperFor(player),
+  })
 }
 
 describe('useRecordingRow local-only line', () => {
   it('says a local-only recording waits on this device only while the plan is free', async () => {
     await db.entitlements.put(entitlementRow())
+    await enqueue(db, {
+      table: 'recordings',
+      row_id: 'r1',
+      op: 'upsert',
+      updated_at: '2026-09-11T10:00:00.000Z',
+      data: {},
+    })
     await keepLocalUntilSubscribed(db, ['r1'])
     const { result } = renderRow()
     await expect.poll(() => result.current.meta).toContain(LOCAL_UNTIL_SUBSCRIBED)

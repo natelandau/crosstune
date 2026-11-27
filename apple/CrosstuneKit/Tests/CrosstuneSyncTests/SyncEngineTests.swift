@@ -276,7 +276,8 @@ import Testing
         #expect(stoppedAfterThePush)
         #expect(api.pushes.count == 1)
         #expect(api.pulls.isEmpty)
-        #expect(try await store.pendingChangeCount() == 0)
+        // The answer arrived after the stop, so the tune and its user tune stay queued.
+        #expect(try await store.pendingChangeCount() == 2)
         #expect(engine.status == .idle)
         await run.value
     }
@@ -325,9 +326,55 @@ import Testing
         #expect(api.pushes.count == 1)
         #expect(api.pulls.isEmpty)
         #expect(api.storageCalls == 0)
-        #expect(try await store.pendingChangeCount() == 1)
+        #expect(try await store.pendingChangeCount() == 2)
         #expect(engine.lastSyncedAt == nil)
         #expect(sleeper.requested.isEmpty)
+    }
+
+    @Test(arguments: [false, true])
+    func dropsTheAccountThatArrivesAfterAStop(accountFails: Bool) async throws {
+        let engine = engine()
+        var synced = false
+        engine.onSynced = { _ in synced = true }
+        if accountFails { api.storageFailure = APIStatusError(status: 500) }
+        // The account call comes after the pull; the pull's own request finds no pull yet.
+        api.onRequest = { [unowned api] in if !api.pulls.isEmpty { engine.stop() } }
+
+        await engine.sync()
+
+        #expect(api.storageCalls == 1)
+        #expect(try await store.meta(.storage, as: StorageUsage.self) == nil)
+        #expect(try await store.meta(.lastSyncedAt, as: Timestamp.self) == nil)
+        #expect(engine.lastSyncedAt == nil)
+        #expect(!synced)
+    }
+
+    @Test func dropsAPulledPageThatArrivesAfterAStop() async throws {
+        api.pullQueue = [
+            PullPage(
+                rows: [PulledRow(table: .tunes, row: serverTune(id: "a", serverSeq: 10))], nextSince: 10, hasMore: true)
+        ]
+        let engine = engine()
+        api.onRequest = { engine.stop() }
+
+        await engine.sync()
+
+        #expect(api.pulls == [0])
+        #expect(try await tuneCount() == 0)
+        #expect(try await store.meta(.pullCursor, as: Int64.self) == nil)
+    }
+
+    @Test func dropsAnEventsPageThatArrivesAfterAStop() async throws {
+        let play = PulledEvent(table: "play_events", row: serverPlay(id: "play-1", serverSeq: 4))
+        api.eventsQueue = [.success(EventsPage(rows: [play], nextSince: 4, hasMore: true))]
+        let engine = engine()
+        api.onEvents = { engine.stop() }
+
+        await engine.pullEvents()
+
+        #expect(api.eventPulls == [0])
+        #expect(try await store.read { db in try PlayEvent.fetchCount(db) } == 0)
+        #expect(try await store.meta(.eventsCursor, as: Int64.self) == nil)
     }
 
     @Test func resumeReenablesSyncAfterAStop() async throws {
@@ -900,6 +947,23 @@ import Testing
 
         #expect(api.noticeRequests == [.trialReminder])
         #expect(try await store.seenNotices() == [.trialReminder])
+    }
+
+    @Test func aNoticeRefusalThatArrivesAfterAStopIsNotStored() async throws {
+        try await storeEntitlement(store, source: "trial", expiresAt: later(86_400_000))
+        try await store.write { writer in try writer.markNoticeSeen(.trialReminder) }
+        api.noticeFailure = APIStatusError(status: 422)
+        let engine = engine()
+        api.onNotice = { engine.stop() }
+
+        await engine.sync()
+        #expect(api.pulls.isEmpty)
+
+        api.onNotice = {}
+        api.noticeFailure = nil
+        engine.resume()
+        await engine.sync()
+        #expect(api.noticeRequests == [.trialReminder, .trialReminder])
     }
 
     @Test func aFailedNoticePostLeavesTheSyncCleanAndRetriesOnTheNext() async throws {
