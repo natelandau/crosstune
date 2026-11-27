@@ -168,7 +168,10 @@ public enum PlanRules {
             if let end = grantEnd(row) { candidates.append(end) }
             candidates += row.paidGrants.compactMap { end($0.expiresAt, autoRenews: $0.autoRenews) }
         }
-        if let trialEnd = row.trialEndsAt?.date {
+        // Only a trial, or no grant, has trial instants; dueNotice never shows a comp or purchase any.
+        if let trialEnd = row.trialEndsAt?.date,
+            row.premiumSource == nil || row.premiumSource == PlanSource.trial.rawValue
+        {
             candidates.append(trialEnd)
             candidates.append(trialEnd.addingTimeInterval(-trialReminder))
         }
