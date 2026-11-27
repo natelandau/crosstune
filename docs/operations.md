@@ -180,9 +180,8 @@ Hooks, people, and agents share the passes, in every worktree. Off when
   ruff or ty, runs directly.
 - A gate's `--path` list starts from its module's `{{ paths }}` and adds
   every config, lockfile, fixture, or contract it reads outside it. No
-  `--path` only when the command reads every file, such as `typos` and
-  `scripts-test`. A moved or renamed path: update every list that names
-  it.
+  `--path` only when the command reads every file, such as `typos`. A
+  moved or renamed path: update every list that names it.
 - A gate never reads a service: gate-cache cannot see a service change.
   The one exception is `api-test`. Each run creates and migrates its own
   databases from the tree and drops them after.
@@ -239,9 +238,11 @@ Hooks, people, and agents share the passes, in every worktree. Off when
 - `Actions audit` runs zizmor's online audits (`just audit-actions`) on a
   change under `.github/`, and weekly for advisories.
 - Not required checks: `Apple`, `E2E`, and `Actions audit`.
-- A failed or timed-out Apple test run leaves the `Apple` job green, on a
-  PR and in a release. The job warns, and its summary lists the failed
-  tests. Apple lint and the build still fail it.
+- A failed shared-case suite (the `apple_suites` in
+  `fixtures/manifest.json`) fails the `Apple` job. Any other failed or
+  timed-out Apple test run leaves the job green, on a PR and in a
+  release. The job warns, and its summary lists the failed tests. Apple
+  lint and the build still fail it.
 - A GitHub token goes only on the step that needs it. Never on
   `just lint-repo`, which runs every hook.
 - Every third-party action: `owner/action@<commit hash>  # vX.Y.Z`. The

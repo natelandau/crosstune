@@ -1,0 +1,1 @@
+{"description": "Has platform_overrides that is not an object", "input": {}, "expected": {"rows": []}, "platform_overrides": [1]}

@@ -103,15 +103,23 @@ jobs:
         with:
           path: ~/Library/Caches/crosstune/source-packages
           key: apple-packages-${{ hashFiles('apple/CrosstuneKit/Package.resolved') }}
+      # The shared-case suites use only the store and pure functions, so a failure fails the job.
+      - name: just test-shared
+        timeout-minutes: 10
+        run: just test-shared
       # Tests that wait on the app fail at random on the shared runner, so a failure or a
-      # timeout warns instead of failing the job. Lint and the build still fail it.
+      # timeout warns instead of failing the job. Lint and the build still fail it. The
+      # shared-case suites ran in the step above, so this step skips them.
       - name: just test
         id: tests
         continue-on-error: true
         timeout-minutes: 10
         run: |
           set -o pipefail
-          just test 2>&1 | tee "$RUNNER_TEMP/apple-test.log"
+          skip=()
+          while IFS= read -r suite; do skip+=("-skip-testing:$suite"); done \
+            < <(jq -r '.rules[].apple_suites[]' ../fixtures/manifest.json)
+          just test "${skip[@]}" 2>&1 | tee "$RUNNER_TEMP/apple-test.log"
       - name: list the failed tests
         if: ${{ steps.tests.outcome == 'failure' }}
         run: |

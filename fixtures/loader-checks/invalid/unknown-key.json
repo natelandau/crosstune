@@ -1,0 +1,6 @@
+{
+  "description": "Has a top-level key the format does not allow",
+  "input": {},
+  "expected": {"rows": []},
+  "notes": "not allowed"
+}

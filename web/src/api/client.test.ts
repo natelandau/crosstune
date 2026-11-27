@@ -1,14 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import {
-  type ApiClientOptions,
-  ApiError,
-  createApiClient,
-  NetworkError,
-  NoTokenError,
-  TransferError,
-} from './client'
+import { ApiError, NetworkError, NoTokenError, TransferError } from './client'
 import type { Change } from './types'
 import { sessionToken } from '../test/sessionToken'
+import { testApiClient } from '../test/testApiClient'
 
 type FetchMock = (input: Request) => Promise<Response>
 
@@ -27,23 +21,12 @@ function problemResponse(status: number, detail = 'x', type = 'about:blank') {
   )
 }
 
-function makeClient(fetch: FetchMock, overrides: Partial<ApiClientOptions> = {}) {
-  return createApiClient({
-    baseUrl: 'http://api.test',
-    getToken: async () => sessionToken('user_a'),
-    userId: 'user_a',
-    clientVersion: '1',
-    fetch,
-    ...overrides,
-  })
-}
-
 describe('region', () => {
   it('is fetched without a session token and without an Authorization header', async () => {
     const fetch = vi.fn<FetchMock>(async () =>
       jsonResponse({ country: 'DE', consent_required: true }),
     )
-    const api = makeClient(fetch, { getToken: async () => null })
+    const api = testApiClient(fetch, { getToken: async () => null })
     await expect(api.region()).resolves.toEqual({ country: 'DE', consent_required: true })
     const request = fetch.mock.calls[0]![0]
     expect(new URL(request.url).pathname).toBe('/v1/region')
@@ -54,7 +37,7 @@ describe('region', () => {
 describe('account created header', () => {
   const meWith = (header: string | null, onAccountCreated = vi.fn()) => {
     const headers: Record<string, string> = header === null ? {} : { 'X-Account-Created': header }
-    const api = makeClient(
+    const api = testApiClient(
       vi.fn<FetchMock>(async () => jsonResponse({}, { headers })),
       { onAccountCreated },
     )
@@ -108,7 +91,7 @@ function stalledFetch(input: Request) {
 describe('createApiClient', () => {
   it('attaches the bearer token, the client version, and the platform', async () => {
     const fetchMock = vi.fn<FetchMock>(async () => jsonResponse({ results: [] }))
-    await makeClient(fetchMock, { clientVersion: '1.2.3' }).push([])
+    await testApiClient(fetchMock, { clientVersion: '1.2.3' }).push([])
     const request = fetchMock.mock.calls[0]![0]
     expect(request.url).toBe('http://api.test/v1/sync/push')
     expect(request.headers.get('authorization')).toBe(`Bearer ${sessionToken('user_a')}`)
@@ -120,14 +103,14 @@ describe('createApiClient', () => {
     const fetchMock = vi.fn<FetchMock>(async () =>
       jsonResponse({ rows: [], next_since: 7, has_more: false }),
     )
-    const page = await makeClient(fetchMock).pull(7)
+    const page = await testApiClient(fetchMock).pull(7)
     expect(page.next_since).toBe(7)
     expect(fetchMock.mock.calls[0]![0].url).toBe('http://api.test/v1/sync/pull?since=7')
   })
 
   it('throws NoTokenError without calling fetch when there is no session', async () => {
     const fetchMock = vi.fn<FetchMock>()
-    const api = makeClient(fetchMock, { baseUrl: '', getToken: async () => null })
+    const api = testApiClient(fetchMock, { baseUrl: '', getToken: async () => null })
     await expect(api.pull(0)).rejects.toBeInstanceOf(NoTokenError)
     expect(fetchMock).not.toHaveBeenCalled()
   })
@@ -140,7 +123,7 @@ describe('createApiClient', () => {
     const fetchMock = vi.fn<FetchMock>(async () =>
       jsonResponse({ rows: [], next_since: 0, has_more: false }),
     )
-    const api = makeClient(fetchMock, { userId: 'user_a', getToken: async () => token })
+    const api = testApiClient(fetchMock, { userId: 'user_a', getToken: async () => token })
     if (sends) await expect(api.pull(0)).resolves.toBeDefined()
     else await expect(api.pull(0)).rejects.toBeInstanceOf(NoTokenError)
     expect(fetchMock).toHaveBeenCalledTimes(sends ? 1 : 0)
@@ -148,7 +131,7 @@ describe('createApiClient', () => {
 
   it('wraps a failed fetch in NetworkError and leaves other throws alone', async () => {
     const client = (error: unknown) =>
-      makeClient(async () => {
+      testApiClient(async () => {
         throw error
       })
     await expect(client(new TypeError('Failed to fetch')).pull(0)).rejects.toBeInstanceOf(
@@ -164,11 +147,11 @@ describe('createApiClient', () => {
       vi.spyOn(response, 'json').mockRejectedValue(new TypeError('network read failed'))
       return response
     })
-    await expect(makeClient(fetchMock).pull(0)).rejects.toBeInstanceOf(NetworkError)
+    await expect(testApiClient(fetchMock).pull(0)).rejects.toBeInstanceOf(NetworkError)
   })
 
   it('wraps a token lookup that cannot reach the network in NetworkError', async () => {
-    const api = makeClient(vi.fn<FetchMock>(), {
+    const api = testApiClient(vi.fn<FetchMock>(), {
       getToken: async () => {
         throw new TypeError('Failed to fetch')
       },
@@ -177,12 +160,12 @@ describe('createApiClient', () => {
   })
 
   it('aborts a stalled API request once its timeout elapses and reports it as a network error', async () => {
-    const api = makeClient(vi.fn(stalledFetch), { apiTimeoutMs: 5 })
+    const api = testApiClient(vi.fn(stalledFetch), { apiTimeoutMs: 5 })
     await expect(api.pull(0)).rejects.toBeInstanceOf(NetworkError)
   })
 
   it('turns a problem response into ApiError', async () => {
-    const api = makeClient(async () => problemResponse(401, 'nope'))
+    const api = testApiClient(async () => problemResponse(401, 'nope'))
     await expect(api.resolveLink('https://youtu.be/x')).rejects.toSatisfy(
       (error) =>
         error instanceof ApiError && error.status === 401 && error.problem?.detail === 'nope',
@@ -191,7 +174,7 @@ describe('createApiClient', () => {
 
   it('searches with a JSON body and reads Retry-After from a 429', async () => {
     const sent: { method: string; url: string; body: unknown }[] = []
-    const api = makeClient(async (input) => {
+    const api = testApiClient(async (input) => {
       sent.push({ method: input.method, url: input.url, body: await input.clone().json() })
       return sent.length === 1
         ? Response.json({ groups: [] })
@@ -215,7 +198,7 @@ describe('createApiClient', () => {
 
   it('sends the point a place search leans toward', async () => {
     const urls: string[] = []
-    const api = makeClient(async (input) => {
+    const api = testApiClient(async (input) => {
       urls.push(input.url)
       return Response.json({ results: [] })
     })
@@ -229,7 +212,7 @@ describe('createApiClient', () => {
     const place = { name: 'Galax', address: 'Galax, VA', lat: 36.66, lon: -80.92 }
     const respondWith = (status: number) => {
       const urls: string[] = []
-      const api = makeClient(async (input) => {
+      const api = testApiClient(async (input) => {
         urls.push(input.url)
         return status === 200
           ? Response.json(place)
@@ -263,7 +246,7 @@ describe('createApiClient', () => {
     const results = [
       { name: 'Galax, VA', lat: 36.66, lon: -80.92, title: 'Galax, VA', subtitle: null },
     ]
-    const api = makeClient(async (input) => {
+    const api = testApiClient(async (input) => {
       urls.push(input.url)
       return Response.json({ results })
     })
@@ -275,7 +258,7 @@ describe('createApiClient', () => {
 
   it('fetches a MapKit token and a snapshot url', async () => {
     const urls: string[] = []
-    const api = makeClient(async (input) => {
+    const api = testApiClient(async (input) => {
       urls.push(input.url)
       return input.url.includes('mapkit-token')
         ? Response.json({ token: 'jwt', expires_at: '2026-10-21T00:30:00Z' })
@@ -313,7 +296,7 @@ describe('createApiClient', () => {
       expect(input.url).toBe('http://api.test/v1/me')
       return new Response(null, { status: 204 })
     })
-    await expect(makeClient(fetchMock).deleteAccount()).resolves.toBeUndefined()
+    await expect(testApiClient(fetchMock).deleteAccount()).resolves.toBeUndefined()
   })
 
   it('sends no body with a delete that has no Apple code', async () => {
@@ -321,7 +304,7 @@ describe('createApiClient', () => {
       expect(await input.text()).toBe('')
       return new Response(null, { status: 204 })
     })
-    await makeClient(fetchMock).deleteAccount()
+    await testApiClient(fetchMock).deleteAccount()
     expect(fetchMock).toHaveBeenCalledOnce()
   })
 
@@ -330,7 +313,7 @@ describe('createApiClient', () => {
       expect(await input.json()).toEqual({ apple_authorization_code: 'c1', apple_client: 'web' })
       return new Response(null, { status: 204 })
     })
-    await makeClient(fetchMock).deleteAccount({ appleAuthorizationCode: 'c1' })
+    await testApiClient(fetchMock).deleteAccount({ appleAuthorizationCode: 'c1' })
     expect(fetchMock).toHaveBeenCalledOnce()
   })
 
@@ -341,13 +324,13 @@ describe('createApiClient', () => {
       expect(await input.json()).toEqual({ notice: 'trial_reminder' })
       return new Response(null, { status: 204 })
     })
-    await expect(makeClient(fetchMock).recordNotice('trial_reminder')).resolves.toBeUndefined()
+    await expect(testApiClient(fetchMock).recordNotice('trial_reminder')).resolves.toBeUndefined()
     expect(fetchMock).toHaveBeenCalledOnce()
   })
 
   it('throws ApiError when deleteAccount gets a 502', async () => {
     const fetchMock = vi.fn<FetchMock>(async () => problemResponse(502, 'down'))
-    const api = makeClient(fetchMock, { gatewayRetryDelaysMs: [] })
+    const api = testApiClient(fetchMock, { gatewayRetryDelaysMs: [] })
     await expect(api.deleteAccount()).rejects.toSatisfy(
       (error) => error instanceof ApiError && error.status === 502,
     )
@@ -355,7 +338,7 @@ describe('createApiClient', () => {
   })
 
   it('requests an upload slot and reports the problem type on refusal', async () => {
-    const api = makeClient(async (input) => {
+    const api = testApiClient(async (input) => {
       expect(input.url).toContain('/v1/recordings/r1/upload-slot')
       expect(await input.json()).toEqual({ bytes: 10, content_type: 'audio/mp4' })
       return problemResponse(413, 'full', 'urn:crosstune:quota-exceeded')
@@ -370,7 +353,7 @@ describe('createApiClient', () => {
 
   it('calls the scan slot, confirm, and download routes', async () => {
     const calls: string[] = []
-    const api = makeClient(async (input) => {
+    const api = testApiClient(async (input) => {
       calls.push(`${input.method} ${new URL(input.url).pathname}`)
       if (input.url.endsWith('/upload-slot')) {
         expect(await input.json()).toEqual({ bytes: 10, content_type: 'image/jpeg' })
@@ -400,7 +383,7 @@ describe('createApiClient', () => {
     })
 
     it('puts and gets objects at presigned URLs without the bearer token', async () => {
-      const api = makeClient(async (input) => {
+      const api = testApiClient(async (input) => {
         expect(input.headers.get('Authorization')).toBeNull()
         if (input.method === 'PUT') {
           expect(input.headers.get('Content-Type')).toBe('audio/mp4')
@@ -421,12 +404,12 @@ describe('createApiClient', () => {
         expect(await input.text()).toBe('abc')
         return new Response(null, { status: 200 })
       })
-      await makeClient(fetchMock).putObject('https://r2/put', blob, 'audio/mp4')
+      await testApiClient(fetchMock).putObject('https://r2/put', blob, 'audio/mp4')
       expect(fetchMock).toHaveBeenCalledTimes(1)
     })
 
     it('aborts a stalled PUT once its timeout elapses and reports it as a network error', async () => {
-      const api = makeClient(vi.fn(stalledFetch), { putTimeoutMs: () => 5 })
+      const api = testApiClient(vi.fn(stalledFetch), { putTimeoutMs: () => 5 })
       await expect(
         api.putObject('https://r2/put', new Blob(['abc']), 'audio/mp4'),
       ).rejects.toBeInstanceOf(NetworkError)
@@ -434,7 +417,7 @@ describe('createApiClient', () => {
 
     it('does not retry a presigned transfer', async () => {
       const fetchMock = vi.fn<FetchMock>(async () => new Response(null, { status: 502 }))
-      const api = makeClient(fetchMock, { gatewayRetryDelaysMs: [0, 0, 0, 0, 0] })
+      const api = testApiClient(fetchMock, { gatewayRetryDelaysMs: [0, 0, 0, 0, 0] })
       await expect(
         api.putObject('https://r2/put', new Blob(['abc']), 'audio/mp4'),
       ).rejects.toSatisfy((error) => error instanceof TransferError && error.status === 502)
@@ -448,7 +431,7 @@ describe('createApiClient', () => {
       new TypeError('The object can not be found here.'),
     )
     const fetchMock = vi.fn<FetchMock>()
-    const api = makeClient(fetchMock)
+    const api = testApiClient(fetchMock)
     await expect(api.putObject('https://r2/put', blob, 'audio/mp4')).rejects.toThrow(
       'The object can not be found here.',
     )
@@ -459,14 +442,14 @@ describe('createApiClient', () => {
   })
 
   it('wraps a failed object transfer as a network error', async () => {
-    const api = makeClient(async () => {
+    const api = testApiClient(async () => {
       throw new TypeError('Failed to fetch')
     })
     await expect(api.getObject('https://r2/get')).rejects.toBeInstanceOf(NetworkError)
   })
 
   it('wraps a failed object body read as a network error', async () => {
-    const api = makeClient(async () => {
+    const api = testApiClient(async () => {
       const response = new Response('xyz', { status: 200 })
       vi.spyOn(response, 'blob').mockRejectedValue(new TypeError('network read failed'))
       return response
@@ -475,7 +458,7 @@ describe('createApiClient', () => {
   })
 
   it('getObject hands the response to a body reader and returns what it reads', async () => {
-    const api = makeClient(async () => new Response('xyz', { status: 200 }))
+    const api = testApiClient(async () => new Response('xyz', { status: 200 }))
     const readBody = vi.fn(async (response: Response, _signal?: AbortSignal) => {
       expect(await response.text()).toBe('xyz')
       return new Blob(['staged'])
@@ -487,7 +470,7 @@ describe('createApiClient', () => {
   })
 
   it("getObject turns a body reader's dropped connection into a NetworkError", async () => {
-    const api = makeClient(async () => new Response('xyz', { status: 200 }))
+    const api = testApiClient(async () => new Response('xyz', { status: 200 }))
     const readBody = async () => {
       throw new TypeError('network')
     }
@@ -497,7 +480,7 @@ describe('createApiClient', () => {
   })
 
   it("getObject passes a body reader's other errors through unchanged", async () => {
-    const api = makeClient(async () => new Response('xyz', { status: 200 }))
+    const api = testApiClient(async () => new Response('xyz', { status: 200 }))
     const readBody = async () => {
       throw new DOMException('full', 'QuotaExceededError')
     }
@@ -507,7 +490,7 @@ describe('createApiClient', () => {
   })
 
   it('turns a non-2xx object transfer into a TransferError', async () => {
-    const api = makeClient(async () => new Response(null, { status: 404 }))
+    const api = testApiClient(async () => new Response(null, { status: 404 }))
     await expect(api.getObject('https://r2/get')).rejects.toSatisfy(
       (error) => error instanceof TransferError && error.status === 404,
     )
@@ -515,7 +498,7 @@ describe('createApiClient', () => {
 
   it("stops a GET when its caller's signal aborts", async () => {
     const fetchMock = vi.fn(stalledFetch)
-    const api = makeClient(fetchMock)
+    const api = testApiClient(fetchMock)
     const controller = new AbortController()
     const got = api.getObject('https://r2/get', controller.signal)
     await expect.poll(() => fetchMock.mock.calls.length).toBe(1)
@@ -527,7 +510,7 @@ describe('createApiClient', () => {
     "stops %s when its caller's signal aborts",
     async (method) => {
       const fetchMock = vi.fn(stalledFetch)
-      const api = makeClient(fetchMock)
+      const api = testApiClient(fetchMock)
       const controller = new AbortController()
       const got = api[method]('r1', controller.signal)
       await expect.poll(() => fetchMock.mock.calls.length).toBe(1)
@@ -538,7 +521,7 @@ describe('createApiClient', () => {
 
   it("stops waiting between gateway retries when its caller's signal aborts", async () => {
     const fetchMock = vi.fn<FetchMock>(async () => problemResponse(502))
-    const api = makeClient(fetchMock, { gatewayRetryDelaysMs: [60_000] })
+    const api = testApiClient(fetchMock, { gatewayRetryDelaysMs: [60_000] })
     const controller = new AbortController()
     const got = api.downloadUrl('r1', controller.signal)
     await expect.poll(() => fetchMock.mock.calls.length).toBe(1)
@@ -548,14 +531,14 @@ describe('createApiClient', () => {
   })
 
   it('aborts a stalled GET once its timeout elapses and reports it as a network error', async () => {
-    const api = makeClient(vi.fn(stalledFetch), { getTimeoutMs: 5 })
+    const api = testApiClient(vi.fn(stalledFetch), { getTimeoutMs: 5 })
     await expect(api.getObject('https://r2/get')).rejects.toBeInstanceOf(NetworkError)
   })
 })
 
 describe('gateway retries', () => {
   const clientWith = (fetchMock: FetchMock) =>
-    makeClient(fetchMock, { gatewayRetryDelaysMs: [0, 0, 0, 0, 0] })
+    testApiClient(fetchMock, { gatewayRetryDelaysMs: [0, 0, 0, 0, 0] })
 
   it('retries a 502 and resolves', async () => {
     const fetchMock = vi

@@ -1,0 +1,8 @@
+{
+  "description": "Applies the apple override and leaves other platforms on the shared expectation",
+  "input": {"value": 1},
+  "expected": {"rows": ["shared"], "count": 1},
+  "platform_overrides": {
+    "apple": {"reason": "Exercises the loader override merge", "fields": {"rows": ["apple"]}}
+  }
+}
