@@ -46,6 +46,28 @@ async def measure_mono(source: Path) -> bool:
     return reducer.is_mono()
 
 
+def is_mono_energy(*, left: float, right: float, cross: float, frames: int) -> bool:
+    """Apply the mono rule to summed channel energy, the one decision the Apple client shares.
+
+    Args:
+        left: Sum of squares of the left samples, scaled to -1..1.
+        right: Sum of squares of the right samples, scaled to -1..1.
+        cross: Sum of products of the left and right samples, scaled to -1..1.
+        frames: Number of sample frames summed.
+
+    Returns:
+        bool: Whether the channels carry the same audio.
+    """
+    louder = max(left, right)
+    if frames == 0 or louder / frames < SILENT_ENERGY:
+        return True
+    quieter = min(left, right)
+    if quieter < louder * 10 ** (-QUIET_UNDER_LOUD_DB / 10):
+        return True
+    # Both channels hold energy past the checks above, so the root is never zero.
+    return cross / math.sqrt(left * right) >= MIN_CORRELATION
+
+
 class _EnergyReducer:
     """Sum each channel's energy and their cross term as PCM streams in."""
 
@@ -71,11 +93,10 @@ class _EnergyReducer:
 
     def is_mono(self) -> bool:
         """Apply the mono rule to the energy summed so far."""
-        louder = max(self._left, self._right)
-        if self._frames == 0 or louder / self._frames / _FULL_SCALE**2 < SILENT_ENERGY:
-            return True
-        quieter = min(self._left, self._right)
-        if quieter < louder * 10 ** (-QUIET_UNDER_LOUD_DB / 10):
-            return True
-        # Both channels hold energy past the checks above, so the root is never zero.
-        return self._cross / math.sqrt(self._left * self._right) >= MIN_CORRELATION
+        scale = _FULL_SCALE**2
+        return is_mono_energy(
+            left=self._left / scale,
+            right=self._right / scale,
+            cross=self._cross / scale,
+            frames=self._frames,
+        )
