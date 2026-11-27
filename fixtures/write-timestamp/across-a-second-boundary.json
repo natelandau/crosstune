@@ -1,0 +1,10 @@
+{
+  "description": "One millisecond past a stored time ending in .999 carries into the next second.",
+  "input": {
+    "stored": "2026-09-25T12:00:59.999Z",
+    "requested": "2026-09-25T12:00:59.000Z"
+  },
+  "expected": {
+    "stamped": "2026-09-25T12:01:00.000Z"
+  }
+}

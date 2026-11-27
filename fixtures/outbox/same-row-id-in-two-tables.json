@@ -1,0 +1,48 @@
+{
+  "description": "The same row id in two tables is two entries.",
+  "input": {
+    "outbox": [],
+    "enqueue": [
+      {
+        "table": "tunes",
+        "row_id": "x1",
+        "op": "upsert",
+        "updated_at": "2026-09-25T12:00:00.000Z",
+        "data": {
+          "title": "A"
+        }
+      },
+      {
+        "table": "lists",
+        "row_id": "x1",
+        "op": "upsert",
+        "updated_at": "2026-09-25T12:05:00.000Z",
+        "data": {
+          "name": "B"
+        }
+      }
+    ]
+  },
+  "expected": {
+    "outbox": [
+      {
+        "table": "tunes",
+        "row_id": "x1",
+        "op": "upsert",
+        "updated_at": "2026-09-25T12:00:00.000Z",
+        "data": {
+          "title": "A"
+        }
+      },
+      {
+        "table": "lists",
+        "row_id": "x1",
+        "op": "upsert",
+        "updated_at": "2026-09-25T12:05:00.000Z",
+        "data": {
+          "name": "B"
+        }
+      }
+    ]
+  }
+}

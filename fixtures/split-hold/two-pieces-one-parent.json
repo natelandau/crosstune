@@ -1,0 +1,54 @@
+{
+  "description": "Two waiting pieces of one parent hold it once, and excluding one leaves the other holding it.",
+  "input": {
+    "recordings": [
+      {
+        "id": "parent",
+        "created_at": "2026-11-01T10:00:00.000Z",
+        "updated_at": "2026-11-01T10:00:00.000Z",
+        "deleted_at": null,
+        "server_seq": 1,
+        "tune_id": null,
+        "source": "microphone",
+        "added_at": "2026-11-01T10:00:00.000Z",
+        "state": "ready",
+        "split_from_id": null
+      },
+      {
+        "id": "piece-a",
+        "created_at": "2026-11-01T10:00:00.000Z",
+        "updated_at": "2026-11-01T10:00:00.000Z",
+        "deleted_at": null,
+        "server_seq": 1,
+        "tune_id": null,
+        "source": "microphone",
+        "added_at": "2026-11-01T10:00:00.000Z",
+        "state": "processing",
+        "split_from_id": "parent"
+      },
+      {
+        "id": "piece-b",
+        "created_at": "2026-11-01T10:00:00.000Z",
+        "updated_at": "2026-11-01T10:00:00.000Z",
+        "deleted_at": null,
+        "server_seq": 1,
+        "tune_id": null,
+        "source": "microphone",
+        "added_at": "2026-11-01T10:00:00.000Z",
+        "state": "processing",
+        "split_from_id": "parent"
+      }
+    ],
+    "excluded_piece_ids": [
+      "piece-a"
+    ]
+  },
+  "expected": {
+    "waiting_parent_ids": [
+      "parent"
+    ],
+    "held_parent_ids": [
+      "parent"
+    ]
+  }
+}

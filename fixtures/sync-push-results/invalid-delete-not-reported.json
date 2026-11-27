@@ -1,0 +1,30 @@
+{
+  "description": "An invalid delete settles its entry without a report, since the server refuses a delete only for a row it never stored.",
+  "input": {
+    "local": {
+      "rows": {},
+      "outbox": [
+        {"table": "lists", "row_id": "list-1", "op": "delete", "updated_at": "2026-11-02T12:00:00.000Z", "data": null}
+      ],
+      "pull_cursor": 3,
+      "events_cursor": 0
+    },
+    "sent": [
+      {"table": "lists", "row_id": "list-1", "op": "delete", "updated_at": "2026-11-02T12:00:00.000Z", "data": null}
+    ],
+    "results": [
+      {"table": "lists", "id": "list-1", "status": "invalid", "reason": "not found"}
+    ]
+  },
+  "expected": {
+    "local": {
+      "rows": {},
+      "outbox": [],
+      "pull_cursor": 3,
+      "events_cursor": 0
+    },
+    "invalid": [],
+    "settled": 1,
+    "kept_local": []
+  }
+}

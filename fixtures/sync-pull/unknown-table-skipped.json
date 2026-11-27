@@ -1,0 +1,30 @@
+{
+  "description": "A row from a table this client has no store for is skipped, the rest of the page lands, and the cursor moves past it.",
+  "input": {
+    "local": {
+      "rows": {"lists": []},
+      "outbox": [],
+      "pull_cursor": 0,
+      "events_cursor": 0
+    },
+    "page": {
+      "rows": [
+        {"table": "tempo_marks", "row": {"id": "mark-1", "user_id": "user-1", "created_at": "2026-11-01T10:00:00.000Z", "updated_at": "2026-11-01T10:00:00.000Z", "deleted_at": null, "server_seq": 1, "bpm": 112}},
+        {"table": "lists", "row": {"id": "list-1", "user_id": "user-1", "created_at": "2026-11-01T10:00:00.000Z", "updated_at": "2026-11-01T10:00:00.000Z", "deleted_at": null, "server_seq": 2, "name": "Reels", "position": 0}}
+      ],
+      "next_since": 2
+    }
+  },
+  "expected": {
+    "local": {
+      "rows": {
+        "lists": [
+          {"id": "list-1", "created_at": "2026-11-01T10:00:00.000Z", "updated_at": "2026-11-01T10:00:00.000Z", "deleted_at": null, "server_seq": 2, "name": "Reels", "position": 0}
+        ]
+      },
+      "outbox": [],
+      "pull_cursor": 2,
+      "events_cursor": 0
+    }
+  }
+}

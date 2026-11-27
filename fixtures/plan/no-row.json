@@ -1,0 +1,23 @@
+{
+  "description": "With no entitlements row the plan is unknown, gates nothing, and nothing is scheduled.",
+  "input": {
+    "row": null,
+    "now": "2026-11-20T12:00:00.000Z",
+    "holds_recordings": true
+  },
+  "expected": {
+    "plan": {
+      "kind": "unknown",
+      "source": null,
+      "premium_ends_at": null,
+      "trial_starts_at": null,
+      "trial_ends_at": null,
+      "quota_bytes": null,
+      "auto_renews": false,
+      "paid_sources": [],
+      "lapse": null
+    },
+    "due_notice": null,
+    "next_change": null
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "description": "A trial past its end is free on the device clock, though the row still names the trial, and the trial-ended notice is due.",
+  "input": {
+    "row": {
+      "id": "ent-1",
+      "user_id": "user-1",
+      "created_at": "2026-11-01T10:00:00.000Z",
+      "updated_at": "2026-11-01T10:00:00.000Z",
+      "deleted_at": null,
+      "server_seq": 4,
+      "premium_source": "trial",
+      "premium_expires_at": "2026-11-25T10:00:00.000Z",
+      "auto_renews": false,
+      "trial_starts_at": "2026-11-11T10:00:00.000Z",
+      "trial_ends_at": "2026-11-25T10:00:00.000Z",
+      "premium_quota_bytes": 10737418240,
+      "paid_grants": [],
+      "withdraw_until": null,
+      "withdrawal_used": false,
+      "recording_notice_seen_at": null,
+      "trial_reminder_seen_at": null,
+      "trial_end_seen_at": null
+    },
+    "now": "2026-11-26T12:00:00.000Z",
+    "holds_recordings": true
+  },
+  "expected": {
+    "plan": {
+      "kind": "free",
+      "source": null,
+      "premium_ends_at": "2026-11-25T10:00:00.000Z",
+      "trial_starts_at": "2026-11-11T10:00:00.000Z",
+      "trial_ends_at": "2026-11-25T10:00:00.000Z",
+      "quota_bytes": null,
+      "auto_renews": false,
+      "paid_sources": [],
+      "lapse": "trial"
+    },
+    "due_notice": "trial_ended",
+    "next_change": null
+  }
+}

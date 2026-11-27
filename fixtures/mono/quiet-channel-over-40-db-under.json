@@ -1,0 +1,12 @@
+{
+  "description": "A channel more than 40 dB under the other is mono, though the channels do not correlate.",
+  "input": {
+    "left": 1.0,
+    "right": 5e-5,
+    "cross": 0.0,
+    "frames": 1000
+  },
+  "expected": {
+    "is_mono": true
+  }
+}

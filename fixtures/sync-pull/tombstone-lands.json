@@ -1,0 +1,33 @@
+{
+  "description": "A pulled tombstone replaces the live local row and is kept, with its deleted_at and scrubbed content.",
+  "input": {
+    "local": {
+      "rows": {
+        "lists": [
+          {"id": "list-1", "created_at": "2026-11-01T10:00:00.000Z", "updated_at": "2026-11-01T10:00:00.000Z", "deleted_at": null, "server_seq": 3, "name": "Reels", "position": 0}
+        ]
+      },
+      "outbox": [],
+      "pull_cursor": 3,
+      "events_cursor": 0
+    },
+    "page": {
+      "rows": [
+        {"table": "lists", "row": {"id": "list-1", "user_id": "user-1", "created_at": "2026-11-01T10:00:00.000Z", "updated_at": "2026-11-03T08:00:00.000Z", "deleted_at": "2026-11-03T08:00:00.000Z", "server_seq": 9, "name": "deleted", "position": 0}}
+      ],
+      "next_since": 9
+    }
+  },
+  "expected": {
+    "local": {
+      "rows": {
+        "lists": [
+          {"id": "list-1", "created_at": "2026-11-01T10:00:00.000Z", "updated_at": "2026-11-03T08:00:00.000Z", "deleted_at": "2026-11-03T08:00:00.000Z", "server_seq": 9, "name": "deleted", "position": 0}
+        ]
+      },
+      "outbox": [],
+      "pull_cursor": 9,
+      "events_cursor": 0
+    }
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "description": "Correlation of 0.9989 is stereo.",
+  "input": {
+    "left": 1.0,
+    "right": 1.0,
+    "cross": 0.9989,
+    "frames": 1000
+  },
+  "expected": {
+    "is_mono": false
+  }
+}

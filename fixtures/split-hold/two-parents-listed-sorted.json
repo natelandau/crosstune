@@ -1,0 +1,66 @@
+{
+  "description": "Each parent with a waiting piece is held, in sorted order.",
+  "input": {
+    "recordings": [
+      {
+        "id": "parent-b",
+        "created_at": "2026-11-01T10:00:00.000Z",
+        "updated_at": "2026-11-01T10:00:00.000Z",
+        "deleted_at": null,
+        "server_seq": 1,
+        "tune_id": null,
+        "source": "microphone",
+        "added_at": "2026-11-01T10:00:00.000Z",
+        "state": "ready",
+        "split_from_id": null
+      },
+      {
+        "id": "parent-a",
+        "created_at": "2026-11-01T10:00:00.000Z",
+        "updated_at": "2026-11-01T10:00:00.000Z",
+        "deleted_at": null,
+        "server_seq": 1,
+        "tune_id": null,
+        "source": "microphone",
+        "added_at": "2026-11-01T10:00:00.000Z",
+        "state": "uploaded",
+        "split_from_id": null
+      },
+      {
+        "id": "piece-b",
+        "created_at": "2026-11-01T10:00:00.000Z",
+        "updated_at": "2026-11-01T10:00:00.000Z",
+        "deleted_at": null,
+        "server_seq": 1,
+        "tune_id": null,
+        "source": "microphone",
+        "added_at": "2026-11-01T10:00:00.000Z",
+        "state": "processing",
+        "split_from_id": "parent-b"
+      },
+      {
+        "id": "piece-a",
+        "created_at": "2026-11-01T10:00:00.000Z",
+        "updated_at": "2026-11-01T10:00:00.000Z",
+        "deleted_at": null,
+        "server_seq": 1,
+        "tune_id": null,
+        "source": "microphone",
+        "added_at": "2026-11-01T10:00:00.000Z",
+        "state": "processing",
+        "split_from_id": "parent-a"
+      }
+    ],
+    "excluded_piece_ids": []
+  },
+  "expected": {
+    "waiting_parent_ids": [
+      "parent-a",
+      "parent-b"
+    ],
+    "held_parent_ids": [
+      "parent-a",
+      "parent-b"
+    ]
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "description": "When the results name one row twice, the last result applies.",
+  "input": {
+    "local": {
+      "rows": {
+        "lists": [
+          {"id": "list-1", "created_at": "2026-11-01T10:00:00.000Z", "updated_at": "2026-11-02T12:00:00.000Z", "deleted_at": null, "server_seq": 3, "name": "Reels", "position": 0}
+        ]
+      },
+      "outbox": [
+        {"table": "lists", "row_id": "list-1", "op": "upsert", "updated_at": "2026-11-02T12:00:00.000Z", "data": {"created_at": "2026-11-01T10:00:00.000Z", "name": "Reels", "position": 0}}
+      ],
+      "pull_cursor": 3,
+      "events_cursor": 0
+    },
+    "sent": [
+      {"table": "lists", "row_id": "list-1", "op": "upsert", "updated_at": "2026-11-02T12:00:00.000Z", "data": {"created_at": "2026-11-01T10:00:00.000Z", "name": "Reels", "position": 0}}
+    ],
+    "results": [
+      {"table": "lists", "id": "list-1", "status": "invalid", "reason": "name: field required"},
+      {"table": "lists", "id": "list-1", "status": "applied"}
+    ]
+  },
+  "expected": {
+    "local": {
+      "rows": {
+        "lists": [
+          {"id": "list-1", "created_at": "2026-11-01T10:00:00.000Z", "updated_at": "2026-11-02T12:00:00.000Z", "deleted_at": null, "server_seq": 3, "name": "Reels", "position": 0}
+        ]
+      },
+      "outbox": [],
+      "pull_cursor": 3,
+      "events_cursor": 0
+    },
+    "invalid": [],
+    "settled": 1,
+    "kept_local": []
+  }
+}

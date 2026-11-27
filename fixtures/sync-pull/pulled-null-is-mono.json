@@ -1,0 +1,50 @@
+{
+  "description": "A pulled recording with is_mono null replaces the local row's is_mono on the web, which never measures it.",
+  "input": {
+    "local": {
+      "rows": {
+        "recordings": [
+          {"id": "rec-1", "created_at": "2026-11-01T10:00:00.000Z", "updated_at": "2026-11-01T10:00:00.000Z", "deleted_at": null, "server_seq": 3, "tune_id": null, "source": "microphone", "added_at": "2026-11-01T10:00:00.000Z", "state": "ready", "label": "First pass", "is_mono": true}
+        ]
+      },
+      "outbox": [],
+      "pull_cursor": 3,
+      "events_cursor": 0
+    },
+    "page": {
+      "rows": [
+        {"table": "recordings", "row": {"id": "rec-1", "user_id": "user-1", "created_at": "2026-11-01T10:00:00.000Z", "updated_at": "2026-11-02T10:00:00.000Z", "deleted_at": null, "server_seq": 6, "tune_id": null, "source": "microphone", "added_at": "2026-11-01T10:00:00.000Z", "state": "ready", "label": "Second pass", "is_mono": null}}
+      ],
+      "next_since": 6
+    }
+  },
+  "expected": {
+    "local": {
+      "rows": {
+        "recordings": [
+          {"id": "rec-1", "created_at": "2026-11-01T10:00:00.000Z", "updated_at": "2026-11-02T10:00:00.000Z", "deleted_at": null, "server_seq": 6, "tune_id": null, "source": "microphone", "added_at": "2026-11-01T10:00:00.000Z", "state": "ready", "label": "Second pass", "is_mono": null}
+        ]
+      },
+      "outbox": [],
+      "pull_cursor": 6,
+      "events_cursor": 0
+    }
+  },
+  "platform_overrides": {
+    "apple": {
+      "reason": "Recording.stickyColumns in apple/CrosstuneKit/Sources/CrosstuneStore/Records.swift: a pull never clears is_mono, because the Apple app measures it while it is unknown (docs/architecture.md, Isolate and mono).",
+      "fields": {
+        "local": {
+          "rows": {
+            "recordings": [
+              {"id": "rec-1", "created_at": "2026-11-01T10:00:00.000Z", "updated_at": "2026-11-02T10:00:00.000Z", "deleted_at": null, "server_seq": 6, "tune_id": null, "source": "microphone", "added_at": "2026-11-01T10:00:00.000Z", "state": "ready", "label": "Second pass", "is_mono": true}
+            ]
+          },
+          "outbox": [],
+          "pull_cursor": 6,
+          "events_cursor": 0
+        }
+      }
+    }
+  }
+}

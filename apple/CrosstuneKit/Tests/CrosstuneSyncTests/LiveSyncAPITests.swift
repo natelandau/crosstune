@@ -47,26 +47,6 @@ final class RecordingTransport: ClientTransport {
     }
 }
 
-struct FixedTokens: TokenProvider {
-    let value: String?
-
-    func token(refresh: Bool) async throws -> String? { value }
-}
-
-private func api(
-    _ transport: RecordingTransport, token: String? = "token", session: URLSession = .shared,
-    storageOrigin: URL? = nil
-) -> LiveSyncAPI {
-    LiveSyncAPI(
-        client: Client(
-            serverURL: URL(string: "https://api.example.test")!,
-            configuration: .crosstune,
-            transport: transport,
-            middlewares: [AuthMiddleware(tokens: FixedTokens(value: token), clientVersion: "test")]
-        ),
-        session: session, storageOrigin: storageOrigin)
-}
-
 private func json(_ data: Data?, sourceLocation: SourceLocation = #_sourceLocation) throws -> JSONObject {
     try JSONDecoder().decode(JSONObject.self, from: try #require(data, sourceLocation: sourceLocation))
 }
@@ -86,7 +66,7 @@ private func json(_ data: Data?, sourceLocation: SourceLocation = #_sourceLocati
                 """)
         let updatedAt = try #require(Timestamp(iso: "2026-09-25T12:00:00.007Z"))
 
-        let results = try await api(transport).push([
+        let results = try await liveSyncAPI(transport).push([
             Change(table: .tunes, op: .upsert, id: "t1", updatedAt: updatedAt, data: ["title": .string("Mine")]),
             Change(table: .userTunes, op: .delete, id: "ut1", updatedAt: updatedAt, data: nil),
         ])
@@ -126,7 +106,7 @@ private func json(_ data: Data?, sourceLocation: SourceLocation = #_sourceLocati
                 ], "next_since": 42, "has_more": true}
                 """)
 
-        let page = try await api(transport).pull(since: 7)
+        let page = try await liveSyncAPI(transport).pull(since: 7)
 
         #expect(transport.requests.first?.request.path == "/v1/sync/pull?since=7")
         #expect(page.nextSince == 42)
@@ -153,7 +133,7 @@ private func json(_ data: Data?, sourceLocation: SourceLocation = #_sourceLocati
                 ], "next_since": 52, "has_more": false}
                 """)
 
-        let page = try await api(transport).pull(since: 49)
+        let page = try await liveSyncAPI(transport).pull(since: 49)
 
         #expect(page.rows.map(\.table) == [.entitlements, .lists])
         #expect(page.nextSince == 52)
@@ -173,7 +153,7 @@ private func json(_ data: Data?, sourceLocation: SourceLocation = #_sourceLocati
                 ], "next_since": 9, "has_more": false}
                 """)
 
-        let page = try await api(transport).events(since: 3)
+        let page = try await liveSyncAPI(transport).events(since: 3)
 
         #expect(transport.requests.first?.request.path == "/v1/sync/events?since=3")
         #expect(page.nextSince == 9)
@@ -186,7 +166,7 @@ private func json(_ data: Data?, sourceLocation: SourceLocation = #_sourceLocati
     }
 
     @Test func givesUpOnAStalledEventsRequest() async throws {
-        var api = api(RecordingTransport(stall: true))
+        var api = liveSyncAPI(RecordingTransport(stall: true))
         api.eventsTimeout = .milliseconds(50)
 
         await #expect(throws: URLError(.timedOut)) {
@@ -206,7 +186,7 @@ private func json(_ data: Data?, sourceLocation: SourceLocation = #_sourceLocati
                 ]}
                 """)
 
-        let results = try await api(transport).push([
+        let results = try await liveSyncAPI(transport).push([
             Change(table: .playEvents, op: .upsert, id: "p1", updatedAt: noon, data: ["context": .string("row")])
         ])
 
@@ -223,7 +203,7 @@ private func json(_ data: Data?, sourceLocation: SourceLocation = #_sourceLocati
                  "country_center": {"lat": 51.2, "lon": 10.4}}
                 """)
 
-        let account = try await api(transport).account()
+        let account = try await liveSyncAPI(transport).account()
 
         #expect(
             account.storage
@@ -240,7 +220,7 @@ private func json(_ data: Data?, sourceLocation: SourceLocation = #_sourceLocati
                  "country_center": null}
                 """)
 
-        #expect(try await api(transport).account().countryCenter == nil)
+        #expect(try await liveSyncAPI(transport).account().countryCenter == nil)
     }
 
     @Test func resolvesALink() async throws {
@@ -250,7 +230,7 @@ private func json(_ data: Data?, sourceLocation: SourceLocation = #_sourceLocati
                  "artwork_url": null}
                 """)
 
-        let link = try await api(transport).resolveLink(url: "https://youtu.be/x")
+        let link = try await liveSyncAPI(transport).resolveLink(url: "https://youtu.be/x")
 
         #expect(link == ResolvedLink(provider: "youtube", url: "https://youtu.be/x", providerRef: "x", title: "Tune"))
         #expect(try json(transport.requests.first?.body) == ["url": .string("https://youtu.be/x")])
@@ -263,7 +243,7 @@ private func json(_ data: Data?, sourceLocation: SourceLocation = #_sourceLocati
                  "lat": 36.66, "lon": -80.92}
                 """)
 
-        let place = try await api(transport).reversePlace(lat: 36.66, lon: -80.92)
+        let place = try await liveSyncAPI(transport).reversePlace(lat: 36.66, lon: -80.92)
 
         #expect(place == ReversedPlace(name: "113 E Grayson St, Galax", address: "113 E Grayson St, Galax, VA 24333"))
         let sent = try #require(transport.requests.first)
@@ -277,7 +257,7 @@ private func json(_ data: Data?, sourceLocation: SourceLocation = #_sourceLocati
         let transport = RecordingTransport(
             status: .notFound, body: #"{"type": "about:blank", "title": "x", "status": 404, "detail": "No place"}"#)
 
-        #expect(try await api(transport).reversePlace(lat: 0, lon: 0) == nil)
+        #expect(try await liveSyncAPI(transport).reversePlace(lat: 0, lon: 0) == nil)
     }
 
     @Test func searchesEachServiceAndMapsTheGroups() async throws {
@@ -293,7 +273,7 @@ private func json(_ data: Data?, sourceLocation: SourceLocation = #_sourceLocati
                 ]}
                 """)
 
-        let response = try await api(transport).searchRecordings(
+        let response = try await liveSyncAPI(transport).searchRecordings(
             q: "Soldier's Joy Reel", providers: ["apple_music", "tidal", "spotify"], country: "IE")
 
         let sent = try #require(transport.requests.first)
@@ -331,7 +311,7 @@ private func json(_ data: Data?, sourceLocation: SourceLocation = #_sourceLocati
             headers: headers)
 
         await #expect(throws: APIStatusError(status: 429, retryAfterSeconds: seconds)) {
-            try await api(transport).searchRecordings(q: "x", providers: ["tidal"], country: "US")
+            try await liveSyncAPI(transport).searchRecordings(q: "x", providers: ["tidal"], country: "US")
         }
     }
 
@@ -341,14 +321,14 @@ private func json(_ data: Data?, sourceLocation: SourceLocation = #_sourceLocati
             status: status, body: #"{"type": "about:blank", "title": "x", "status": 422, "detail": "x"}"#)
 
         await #expect(throws: APIStatusError(status: code)) {
-            try await api(transport).pull(since: 0)
+            try await liveSyncAPI(transport).pull(since: 0)
         }
     }
 
     @Test func classifiesAnUnreachableServerAsOffline() async throws {
         let transport = RecordingTransport(failure: URLError(.notConnectedToInternet))
 
-        let error = await #expect(throws: (any Error).self) { try await api(transport).pull(since: 0) }
+        let error = await #expect(throws: (any Error).self) { try await liveSyncAPI(transport).pull(since: 0) }
 
         #expect(classifyFailure(try #require(error), isOffline: false) == .offline)
     }
@@ -356,7 +336,9 @@ private func json(_ data: Data?, sourceLocation: SourceLocation = #_sourceLocati
     @Test func classifiesAMissingSessionTokenAsOffline() async throws {
         let transport = RecordingTransport()
 
-        let error = await #expect(throws: (any Error).self) { try await api(transport, token: nil).pull(since: 0) }
+        let error = await #expect(throws: (any Error).self) {
+            try await liveSyncAPI(transport, token: nil).pull(since: 0)
+        }
 
         #expect(transport.requests.isEmpty)
         #expect(classifyFailure(try #require(error), isOffline: false) == .offline)
@@ -367,7 +349,7 @@ private func json(_ data: Data?, sourceLocation: SourceLocation = #_sourceLocati
         let transport = RecordingTransport(
             status: .unauthorized, body: #"{"type": "about:blank", "title": "x", "status": 422, "detail": "x"}"#)
 
-        let error = await #expect(throws: (any Error).self) { try await api(transport).pull(since: 0) }
+        let error = await #expect(throws: (any Error).self) { try await liveSyncAPI(transport).pull(since: 0) }
 
         #expect(transport.requests.count == 2)
         #expect(classifyFailure(try #require(error), isOffline: false) == .unauthorized)
@@ -380,7 +362,8 @@ private func json(_ data: Data?, sourceLocation: SourceLocation = #_sourceLocati
                  "confirm_token": "t"}
                 """#)
 
-        let url = try await api(transport).requestUploadSlot(recordingID: "r1", bytes: 42, contentType: "audio/mp4")
+        let url = try await liveSyncAPI(transport).requestUploadSlot(
+            recordingID: "r1", bytes: 42, contentType: "audio/mp4")
 
         #expect(url.absoluteString == "https://bucket.test/put/r1?sig=x")
         #expect(transport.requests.first?.request.path == "/v1/recordings/r1/upload-slot")
@@ -400,15 +383,15 @@ private func json(_ data: Data?, sourceLocation: SourceLocation = #_sourceLocati
             throws: APIStatusError(
                 status: 413, problemType: quotaProblem, detail: "This recording would pass your storage quota.")
         ) {
-            try await api(transport).requestUploadSlot(recordingID: "r1", bytes: 42, contentType: "audio/mp4")
+            try await liveSyncAPI(transport).requestUploadSlot(recordingID: "r1", bytes: 42, contentType: "audio/mp4")
         }
     }
 
     @Test func confirmsAnUploadAndRetriesATranscode() async throws {
         let transport = RecordingTransport(status: .noContent, body: "")
 
-        try await api(transport).uploadFinished(recordingID: "r1")
-        try await api(transport).retryRecording(recordingID: "r1")
+        try await liveSyncAPI(transport).uploadFinished(recordingID: "r1")
+        try await liveSyncAPI(transport).retryRecording(recordingID: "r1")
 
         #expect(
             transport.requests.map(\.request.path) == ["/v1/recordings/r1/uploaded", "/v1/recordings/r1/retry"])
@@ -418,7 +401,7 @@ private func json(_ data: Data?, sourceLocation: SourceLocation = #_sourceLocati
     @Test func refreshesBilling() async throws {
         let transport = RecordingTransport(status: .noContent, body: "")
 
-        try await api(transport).refreshBilling()
+        try await liveSyncAPI(transport).refreshBilling()
 
         #expect(transport.requests.map(\.request.path) == ["/v1/me/billing/refresh"])
         #expect(transport.requests.map(\.request.method) == [.post])
@@ -440,7 +423,7 @@ private func json(_ data: Data?, sourceLocation: SourceLocation = #_sourceLocati
             throws: APIStatusError(
                 status: code, problemType: "urn:crosstune:billing-\(code)", detail: "Refused with \(code).")
         ) {
-            try await api(transport).refreshBilling()
+            try await liveSyncAPI(transport).refreshBilling()
         }
     }
 
@@ -452,7 +435,7 @@ private func json(_ data: Data?, sourceLocation: SourceLocation = #_sourceLocati
             body: #"{"type": "about:blank", "title": "x", "status": 429, "detail": "x"}"#, headers: headers)
 
         await #expect(throws: APIStatusError(status: 429, retryAfterSeconds: 7)) {
-            try await api(transport).refreshBilling()
+            try await liveSyncAPI(transport).refreshBilling()
         }
     }
 
@@ -485,7 +468,7 @@ private func json(_ data: Data?, sourceLocation: SourceLocation = #_sourceLocati
             body: #"{"type": "about:blank", "title": "x", "status": 429, "detail": "x"}"#, headers: headers)
 
         await #expect(throws: APIStatusError(status: 429, retryAfterSeconds: 7)) {
-            try await call.send(api(transport))
+            try await call.send(liveSyncAPI(transport))
         }
     }
 
@@ -500,7 +483,7 @@ private func json(_ data: Data?, sourceLocation: SourceLocation = #_sourceLocati
         await #expect(
             throws: APIStatusError(status: 413, problemType: quotaProblem, detail: "Storage quota exceeded")
         ) {
-            try await api(transport).retryRecording(recordingID: "r1")
+            try await liveSyncAPI(transport).retryRecording(recordingID: "r1")
         }
     }
 
@@ -508,7 +491,7 @@ private func json(_ data: Data?, sourceLocation: SourceLocation = #_sourceLocati
         let transport = RecordingTransport(
             status: .internalServerError, body: #"{"type": "about:blank", "title": "x", "status": 500, "detail": "x"}"#)
 
-        await #expect(throws: APIStatusError(status: 500)) { try await api(transport).refreshBilling() }
+        await #expect(throws: APIStatusError(status: 500)) { try await liveSyncAPI(transport).refreshBilling() }
     }
 
     @Test func resolvesARelativeSignedURLAgainstTheStorageOrigin() async throws {
@@ -519,9 +502,9 @@ private func json(_ data: Data?, sourceLocation: SourceLocation = #_sourceLocati
                 """#)
         let origin = URL(string: "http://localhost:5173")!
 
-        let put = try await api(transport, storageOrigin: origin)
+        let put = try await liveSyncAPI(transport, storageOrigin: origin)
             .requestUploadSlot(recordingID: "r1", bytes: 42, contentType: "audio/mp4")
-        let get = try await api(transport, storageOrigin: origin).downloadURL(recordingID: "r1")
+        let get = try await liveSyncAPI(transport, storageOrigin: origin).downloadURL(recordingID: "r1")
 
         #expect(put.absoluteString == "http://localhost:5173/storage/crosstune-local/r1?sig=z")
         #expect(get.url.absoluteString == "http://localhost:5173/storage/crosstune-local/r1?sig=z")
@@ -535,7 +518,7 @@ private func json(_ data: Data?, sourceLocation: SourceLocation = #_sourceLocati
                 """#)
 
         await #expect(throws: LiveSyncAPI.InvalidSignedURL.self) {
-            try await api(transport).downloadURL(recordingID: "r1")
+            try await liveSyncAPI(transport).downloadURL(recordingID: "r1")
         }
     }
 
@@ -546,7 +529,7 @@ private func json(_ data: Data?, sourceLocation: SourceLocation = #_sourceLocati
                  "playback_rev": "abc12345", "playback_start_ms": 250}
                 """#)
 
-        let signed = try await api(transport).downloadURL(recordingID: "r1")
+        let signed = try await liveSyncAPI(transport).downloadURL(recordingID: "r1")
 
         #expect(signed.url.absoluteString == "https://bucket.test/get/r1?sig=y")
         #expect(signed.playbackRev == "abc12345")
@@ -561,7 +544,7 @@ private func json(_ data: Data?, sourceLocation: SourceLocation = #_sourceLocati
                  "peaks_rev": "abc12345"}
                 """#)
 
-        let signed = try await api(transport).peaksURL(recordingID: "r1")
+        let signed = try await liveSyncAPI(transport).peaksURL(recordingID: "r1")
 
         #expect(signed.url.absoluteString == "https://bucket.test/peaks/r1?sig=y")
         #expect(signed.peaksRev == "abc12345")
@@ -639,7 +622,7 @@ struct ObjectTransferTests {
         try Data("audio bytes".utf8).write(to: file)
         let transport = RecordingTransport()
 
-        try await api(transport, session: StubObjectStore.session(host: host)).putObject(
+        try await liveSyncAPI(transport, session: StubObjectStore.session(host: host)).putObject(
             URL(string: "https://\(host)/put/r1?sig=x")!, file: file, contentType: "audio/mp4")
 
         let sent = try #require(StubObjectStore.sent(to: host).first)
@@ -657,8 +640,9 @@ struct ObjectTransferTests {
         try Data("audio bytes".utf8).write(to: file)
 
         await #expect(throws: TransferError(status: 403)) {
-            try await api(RecordingTransport(), session: StubObjectStore.session(host: host, status: 403)).putObject(
-                URL(string: "https://\(host)/put/r1")!, file: file, contentType: "audio/mp4")
+            try await liveSyncAPI(RecordingTransport(), session: StubObjectStore.session(host: host, status: 403))
+                .putObject(
+                    URL(string: "https://\(host)/put/r1")!, file: file, contentType: "audio/mp4")
         }
     }
 
@@ -668,7 +652,7 @@ struct ObjectTransferTests {
         try Data("stale".utf8).write(to: destination)
         let session = StubObjectStore.session(host: host, body: Data("playback audio".utf8))
 
-        try await api(RecordingTransport(), session: session).getObject(
+        try await liveSyncAPI(RecordingTransport(), session: session).getObject(
             URL(string: "https://\(host)/get/d1")!, to: destination)
 
         #expect(try Data(contentsOf: destination) == Data("playback audio".utf8))
@@ -679,8 +663,9 @@ struct ObjectTransferTests {
         let destination = folder.appending(path: "d1.m4a")
 
         await #expect(throws: TransferError(status: 404)) {
-            try await api(RecordingTransport(), session: StubObjectStore.session(host: host, status: 404)).getObject(
-                URL(string: "https://\(host)/get/d1")!, to: destination)
+            try await liveSyncAPI(RecordingTransport(), session: StubObjectStore.session(host: host, status: 404))
+                .getObject(
+                    URL(string: "https://\(host)/get/d1")!, to: destination)
         }
         #expect(FileManager.default.fileExists(atPath: destination.path(percentEncoded: false)) == false)
     }

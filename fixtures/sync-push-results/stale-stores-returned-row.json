@@ -1,0 +1,41 @@
+{
+  "description": "A stale result stores the server's returned row in place of the local one, without its ownership key, and settles the entry.",
+  "input": {
+    "local": {
+      "rows": {
+        "lists": [
+          {"id": "list-1", "created_at": "2026-11-01T10:00:00.000Z", "updated_at": "2026-11-02T12:00:00.000Z", "deleted_at": null, "server_seq": 3, "name": "Local edit", "position": 0}
+        ]
+      },
+      "outbox": [
+        {"table": "lists", "row_id": "list-1", "op": "upsert", "updated_at": "2026-11-02T12:00:00.000Z", "data": {"created_at": "2026-11-01T10:00:00.000Z", "name": "Local edit", "position": 0}}
+      ],
+      "pull_cursor": 3,
+      "events_cursor": 0
+    },
+    "sent": [
+      {"table": "lists", "row_id": "list-1", "op": "upsert", "updated_at": "2026-11-02T12:00:00.000Z", "data": {"created_at": "2026-11-01T10:00:00.000Z", "name": "Local edit", "position": 0}}
+    ],
+    "results": [
+      {"table": "lists", "id": "list-1", "status": "stale", "row": {"id": "list-1", "created_at": "2026-11-01T10:00:00.000Z", "updated_at": "2026-11-02T12:30:00.000Z", "deleted_at": null, "server_seq": 9, "name": "Server edit", "position": 2, "user_id": "user-1"}}
+    ]
+  },
+  "expected": {
+    "local": {
+      "rows": {
+        "lists": [
+          {"id": "list-1", "created_at": "2026-11-01T10:00:00.000Z", "updated_at": "2026-11-02T12:30:00.000Z", "deleted_at": null, "server_seq": 9, "name": "Server edit", "position": 2}
+        ]
+      },
+      "outbox": [],
+      "pull_cursor": 3,
+      "events_cursor": 0,
+      "absent_fields": {
+        "lists": ["user_id"]
+      }
+    },
+    "invalid": [],
+    "settled": 1,
+    "kept_local": []
+  }
+}

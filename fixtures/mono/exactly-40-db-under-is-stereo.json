@@ -1,0 +1,12 @@
+{
+  "description": "A channel exactly 40 dB under the other is not quiet enough, so uncorrelated channels are stereo.",
+  "input": {
+    "left": 1.0,
+    "right": 0.0001,
+    "cross": 0.0,
+    "frames": 1000
+  },
+  "expected": {
+    "is_mono": false
+  }
+}

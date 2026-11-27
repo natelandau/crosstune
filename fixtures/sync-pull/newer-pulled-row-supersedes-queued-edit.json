@@ -1,0 +1,40 @@
+{
+  "description": "A pulled row newer than a queued local edit replaces the local row and removes the queued entry; an entry for another row stays.",
+  "input": {
+    "local": {
+      "rows": {
+        "lists": [
+          {"id": "list-1", "created_at": "2026-11-01T10:00:00.000Z", "updated_at": "2026-11-02T12:00:00.000Z", "deleted_at": null, "server_seq": 3, "name": "Local edit", "position": 0},
+          {"id": "list-2", "created_at": "2026-11-01T10:00:00.000Z", "updated_at": "2026-11-02T12:00:00.000Z", "deleted_at": null, "server_seq": 4, "name": "Hornpipes", "position": 1}
+        ]
+      },
+      "outbox": [
+        {"table": "lists", "row_id": "list-1", "op": "upsert", "updated_at": "2026-11-02T12:00:00.000Z", "data": {"created_at": "2026-11-01T10:00:00.000Z", "name": "Local edit", "position": 0}},
+        {"table": "lists", "row_id": "list-2", "op": "upsert", "updated_at": "2026-11-02T12:00:00.000Z", "data": {"created_at": "2026-11-01T10:00:00.000Z", "name": "Hornpipes", "position": 1}}
+      ],
+      "pull_cursor": 4,
+      "events_cursor": 0
+    },
+    "page": {
+      "rows": [
+        {"table": "lists", "row": {"id": "list-1", "user_id": "user-1", "created_at": "2026-11-01T10:00:00.000Z", "updated_at": "2026-11-02T12:00:00.001Z", "deleted_at": null, "server_seq": 8, "name": "Server edit", "position": 3}}
+      ],
+      "next_since": 8
+    }
+  },
+  "expected": {
+    "local": {
+      "rows": {
+        "lists": [
+          {"id": "list-1", "created_at": "2026-11-01T10:00:00.000Z", "updated_at": "2026-11-02T12:00:00.001Z", "deleted_at": null, "server_seq": 8, "name": "Server edit", "position": 3},
+          {"id": "list-2", "created_at": "2026-11-01T10:00:00.000Z", "updated_at": "2026-11-02T12:00:00.000Z", "deleted_at": null, "server_seq": 4, "name": "Hornpipes", "position": 1}
+        ]
+      },
+      "outbox": [
+        {"table": "lists", "row_id": "list-2", "op": "upsert", "updated_at": "2026-11-02T12:00:00.000Z", "data": {"created_at": "2026-11-01T10:00:00.000Z", "name": "Hornpipes", "position": 1}}
+      ],
+      "pull_cursor": 8,
+      "events_cursor": 0
+    }
+  }
+}

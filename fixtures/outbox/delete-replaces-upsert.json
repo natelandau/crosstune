@@ -1,0 +1,54 @@
+{
+  "description": "A delete of a row with a queued upsert replaces the upsert and keeps its place.",
+  "input": {
+    "outbox": [
+      {
+        "table": "tunes",
+        "row_id": "t1",
+        "op": "upsert",
+        "updated_at": "2026-09-25T12:00:00.000Z",
+        "data": {
+          "title": "Cooley's"
+        }
+      },
+      {
+        "table": "tunes",
+        "row_id": "t2",
+        "op": "upsert",
+        "updated_at": "2026-09-25T12:00:00.000Z",
+        "data": {
+          "title": "Drowsy Maggie"
+        }
+      }
+    ],
+    "enqueue": [
+      {
+        "table": "tunes",
+        "row_id": "t1",
+        "op": "delete",
+        "updated_at": "2026-09-25T12:10:00.000Z",
+        "data": null
+      }
+    ]
+  },
+  "expected": {
+    "outbox": [
+      {
+        "table": "tunes",
+        "row_id": "t1",
+        "op": "delete",
+        "updated_at": "2026-09-25T12:10:00.000Z",
+        "data": null
+      },
+      {
+        "table": "tunes",
+        "row_id": "t2",
+        "op": "upsert",
+        "updated_at": "2026-09-25T12:00:00.000Z",
+        "data": {
+          "title": "Drowsy Maggie"
+        }
+      }
+    ]
+  }
+}

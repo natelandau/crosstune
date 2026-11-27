@@ -1,0 +1,84 @@
+{
+  "description": "The events pull asks for the next page from each page's next_since until a page has has_more false, storing every page.",
+  "input": {
+    "local": {
+      "rows": {},
+      "outbox": [],
+      "pull_cursor": 3,
+      "events_cursor": 3
+    },
+    "responses": [
+      {
+        "route": "GET /v1/sync/events?since=3",
+        "status": 200,
+        "body": {
+          "rows": [
+            {
+              "table": "play_events",
+              "row": {
+                "id": "play-1",
+                "user_id": "user-1",
+                "server_seq": 4,
+                "created_at": "2026-11-01T10:00:00.000Z",
+                "context": "dock",
+                "started_at": "2026-11-01T09:59:00.000Z",
+                "listened_ms": 15000,
+                "recording_id": null,
+                "link_id": "link-1",
+                "list_id": null,
+                "tune_id": "tune-1"
+              }
+            }
+          ],
+          "next_since": 4,
+          "has_more": true
+        }
+      },
+      {
+        "route": "GET /v1/sync/events?since=4",
+        "status": 200,
+        "body": {
+          "rows": [],
+          "next_since": 6,
+          "has_more": false
+        }
+      }
+    ],
+    "actions": [
+      "pull_events"
+    ]
+  },
+  "expected": {
+    "requests": [
+      {
+        "route": "GET /v1/sync/events?since=3",
+        "body": null
+      },
+      {
+        "route": "GET /v1/sync/events?since=4",
+        "body": null
+      }
+    ],
+    "local": {
+      "rows": {
+        "play_events": [
+          {
+            "id": "play-1",
+            "server_seq": 4,
+            "created_at": "2026-11-01T10:00:00.000Z",
+            "context": "dock",
+            "started_at": "2026-11-01T09:59:00.000Z",
+            "listened_ms": 15000,
+            "recording_id": null,
+            "link_id": "link-1",
+            "list_id": null,
+            "tune_id": "tune-1"
+          }
+        ]
+      },
+      "outbox": [],
+      "pull_cursor": 3,
+      "events_cursor": 6
+    }
+  }
+}
