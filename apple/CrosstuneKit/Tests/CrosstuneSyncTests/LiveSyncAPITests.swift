@@ -362,13 +362,42 @@ private func json(_ data: Data?, sourceLocation: SourceLocation = #_sourceLocati
                  "confirm_token": "t"}
                 """#)
 
-        let url = try await liveSyncAPI(transport).requestUploadSlot(
+        let slot = try await liveSyncAPI(transport).requestUploadSlot(
             recordingID: "r1", bytes: 42, contentType: "audio/mp4")
 
-        #expect(url.absoluteString == "https://bucket.test/put/r1?sig=x")
+        #expect(slot.url.absoluteString == "https://bucket.test/put/r1?sig=x")
         #expect(transport.requests.first?.request.path == "/v1/recordings/r1/upload-slot")
         #expect(
             try json(transport.requests.first?.body) == ["bytes": .integer(42), "content_type": .string("audio/mp4")])
+    }
+
+    @Test func theSlotGrantCarriesTheConfirmToken() async throws {
+        let transport = RecordingTransport(
+            body: #"""
+                {"url": "https://bucket.test/put/r1?sig=x", "expires_at": "2026-09-25T13:00:00.250Z",
+                 "confirm_token": "tok"}
+                """#)
+
+        let slot = try await liveSyncAPI(transport).requestUploadSlot(
+            recordingID: "r1", bytes: 42, contentType: "audio/mp4")
+
+        #expect(slot.confirmToken == "tok")
+        #expect(slot.expiresAt == Timestamp(iso: "2026-09-25T13:00:00.250Z"))
+    }
+
+    @Test func theTokenConfirmSendsTheTokenAndNoSessionToken() async throws {
+        let sessionTransport = RecordingTransport()
+        let tokenTransport = RecordingTransport(status: .noContent, body: "")
+
+        try await liveSyncAPI(sessionTransport, tokenTransport: tokenTransport)
+            .confirmUpload(recordingID: "rec-1", token: "tok")
+
+        let request = try #require(tokenTransport.requests.first?.request)
+        #expect(request.path == "/v1/recordings/rec-1/uploaded-with-token")
+        #expect(request.method == .post)
+        #expect(request.headerFields[HTTPField.Name("X-Upload-Token")!] == "tok")
+        #expect(request.headerFields[.authorization] == nil)
+        #expect(sessionTransport.requests.isEmpty)
     }
 
     @Test func readsTheProblemOfARefusedSlot() async throws {
@@ -387,15 +416,13 @@ private func json(_ data: Data?, sourceLocation: SourceLocation = #_sourceLocati
         }
     }
 
-    @Test func confirmsAnUploadAndRetriesATranscode() async throws {
+    @Test func retriesATranscode() async throws {
         let transport = RecordingTransport(status: .noContent, body: "")
 
-        try await liveSyncAPI(transport).uploadFinished(recordingID: "r1")
         try await liveSyncAPI(transport).retryRecording(recordingID: "r1")
 
-        #expect(
-            transport.requests.map(\.request.path) == ["/v1/recordings/r1/uploaded", "/v1/recordings/r1/retry"])
-        #expect(transport.requests.map(\.request.method) == [.post, .post])
+        #expect(transport.requests.map(\.request.path) == ["/v1/recordings/r1/retry"])
+        #expect(transport.requests.map(\.request.method) == [.post])
     }
 
     @Test func refreshesBilling() async throws {
@@ -441,7 +468,7 @@ private func json(_ data: Data?, sourceLocation: SourceLocation = #_sourceLocati
 
     /// Each call the API can refuse because the account is busy or past a limit.
     enum RefusableCall: CaseIterable, Sendable {
-        case push, pull, events, notice, recordingSlot, recordingUploaded, retry, scanSlot, scanUploaded
+        case push, pull, events, notice, recordingSlot, recordingConfirmed, retry, scanSlot, scanUploaded
 
         func send(_ api: LiveSyncAPI) async throws {
             switch self {
@@ -451,7 +478,7 @@ private func json(_ data: Data?, sourceLocation: SourceLocation = #_sourceLocati
             case .notice: try await api.recordNotice(.firstRecording)
             case .recordingSlot:
                 _ = try await api.requestUploadSlot(recordingID: "r1", bytes: 42, contentType: "audio/mp4")
-            case .recordingUploaded: try await api.uploadFinished(recordingID: "r1")
+            case .recordingConfirmed: try await api.confirmUpload(recordingID: "r1", token: "token-r1")
             case .retry: try await api.retryRecording(recordingID: "r1")
             case .scanSlot: _ = try await api.scanUploadSlot(scanID: "s1", bytes: 42)
             case .scanUploaded: try await api.scanUploaded(scanID: "s1")
@@ -506,7 +533,7 @@ private func json(_ data: Data?, sourceLocation: SourceLocation = #_sourceLocati
             .requestUploadSlot(recordingID: "r1", bytes: 42, contentType: "audio/mp4")
         let get = try await liveSyncAPI(transport, storageOrigin: origin).downloadURL(recordingID: "r1")
 
-        #expect(put.absoluteString == "http://localhost:5173/storage/crosstune-local/r1?sig=z")
+        #expect(put.url.absoluteString == "http://localhost:5173/storage/crosstune-local/r1?sig=z")
         #expect(get.url.absoluteString == "http://localhost:5173/storage/crosstune-local/r1?sig=z")
     }
 

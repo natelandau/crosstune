@@ -366,6 +366,21 @@ public struct StoreWriter {
         try file.update(db)
     }
 
+    /// Changes this device's file row only while it is still handed off to the upload at
+    /// `handoff.url`, and returns whether it changed. Call it when a background worker's result
+    /// arrives, so a result for a hand-off the app has since replaced or taken back writes nothing.
+    @discardableResult
+    public func updateFile(
+        _ id: String, whileHolding handoff: UploadHandoff, at time: Timestamp = .now,
+        _ change: (inout RecordingFile) throws -> Void
+    ) throws -> Bool {
+        guard let file = try RecordingFile.fetchOne(db, key: id), file.handoff?.url == handoff.url else {
+            return false
+        }
+        try updateFile(id, at: time, change)
+        return true
+    }
+
     /// Stores an event, such as a play, and queues its insert, stamped with its creation time.
     public func record(_ event: some EventRecord) throws {
         try event.upsert(db)

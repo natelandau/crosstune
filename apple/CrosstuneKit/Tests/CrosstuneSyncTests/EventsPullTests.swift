@@ -19,7 +19,8 @@ import Testing
 
     func engine(isOffline: @escaping @MainActor () -> Bool = { false }) -> SyncEngine {
         SyncEngine(
-            store: store, api: api, isOffline: isOffline, batchSize: SyncEngine.pushBatchSize, sleep: sleeper.sleep,
+            store: store, api: api, uploads: FakeUploadTransport(), isOffline: isOffline,
+            batchSize: SyncEngine.pushBatchSize, sleep: sleeper.sleep,
             transferPass: {})
     }
 

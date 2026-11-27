@@ -24,10 +24,12 @@ public protocol SyncAPI: Sendable {
     /// The street address at a point, named as the server names a recording's place; nil when
     /// there is no place there.
     func reversePlace(lat: Double, lon: Double) async throws -> ReversedPlace?
-    /// A signed URL to PUT one recording's file to, once the quota allows its size.
-    func requestUploadSlot(recordingID: String, bytes: Int64, contentType: String) async throws -> URL
-    /// Confirms the file landed, so the server transcodes it.
-    func uploadFinished(recordingID: String) async throws
+    /// A signed URL to PUT one recording's file to, once the quota allows its size, with the
+    /// token that confirms the upload without a session.
+    func requestUploadSlot(recordingID: String, bytes: Int64, contentType: String) async throws -> UploadSlot
+    /// Confirms the file landed with the slot's token instead of a session, so a background
+    /// wake can finish an upload without reading the session.
+    func confirmUpload(recordingID: String, token: String) async throws
     /// A signed URL to GET a ready recording's playback file from, tagged with the revision and
     /// start the server actually signed it for.
     func downloadURL(recordingID: String) async throws -> DownloadURL
@@ -47,6 +49,20 @@ public protocol SyncAPI: Sendable {
     func putObject(_ url: URL, file: URL, contentType: String) async throws
     /// GETs a signed URL into `destination`, replacing any file there.
     func getObject(_ url: URL, to destination: URL) async throws
+}
+
+/// Where to PUT one recording's file, and the token that confirms it landed.
+public struct UploadSlot: Hashable, Sendable {
+    public let url: URL
+    public let confirmToken: String
+    /// When the slot's signed URL and token stop working.
+    public let expiresAt: Timestamp
+
+    public init(url: URL, confirmToken: String, expiresAt: Timestamp) {
+        self.url = url
+        self.confirmToken = confirmToken
+        self.expiresAt = expiresAt
+    }
 }
 
 /// One pushed change: an outbox entry as the API takes it.

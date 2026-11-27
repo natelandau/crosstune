@@ -18,7 +18,7 @@ import Testing
     }
 
     func engine() -> SyncEngine {
-        SyncEngine(store: store, api: api, isOffline: { false }, sleep: sleeper.sleep)
+        SyncEngine(store: store, api: api, uploads: FakeUploadTransport(), isOffline: { false }, sleep: sleeper.sleep)
     }
 
     /// A scan added on this device: its image in the scans folder under a captured name, its
@@ -173,7 +173,8 @@ import Testing
                 return PushResult(table: change.table, id: change.id, status: .applied, row: row)
             }
         }
-        let engine = SyncEngine(store: migrated, api: api, isOffline: { false }, sleep: sleeper.sleep)
+        let engine = SyncEngine(
+            store: migrated, api: api, uploads: FakeUploadTransport(), isOffline: { false }, sleep: sleeper.sleep)
         await engine.sync()
         #expect(api.pushes.flatMap { $0 }.map(\.table) == [.scans])
         #expect(try await migrated.pendingChangeCount() == 0)
@@ -622,7 +623,8 @@ import Testing
             changes.map { PushResult(table: $0.table, id: $0.id, status: .invalid, reason: premiumRequiredReason) }
         }
         let engine = SyncEngine(
-            store: store, api: api, isOffline: { false }, sleep: sleeper.sleep, now: { noon.date })
+            store: store, api: api, uploads: FakeUploadTransport(), isOffline: { false }, sleep: sleeper.sleep,
+            now: { noon.date })
         func pushesOfP1() -> Int { api.pushes.count(where: { $0.contains { $0.id == "p1" } }) }
 
         await engine.sync()
@@ -685,8 +687,7 @@ import Testing
 
         #expect(
             api.transfers == [
-                "scan-slot p1", "put p1", "scan-confirm p1", "scan-url p2", "get p2", "slot r1", "put r1",
-                "confirm r1",
+                "scan-slot p1", "put p1", "scan-confirm p1", "scan-url p2", "get p2", "slot r1",
             ])
     }
 
@@ -698,8 +699,8 @@ import Testing
 
         await engine.transfer()
 
-        #expect(api.transfers == ["scan-url p1", "slot r1", "put r1", "confirm r1"])
-        #expect(try await store.read { db in try RecordingFile.fetchOne(db, key: "r1") }?.localState == .uploaded)
+        #expect(api.transfers == ["scan-url p1", "slot r1"])
+        #expect(try await store.read { db in try RecordingFile.fetchOne(db, key: "r1") }?.localState == .uploading)
         #expect(engine.transferStatus == .error)
         engine.stop()
     }

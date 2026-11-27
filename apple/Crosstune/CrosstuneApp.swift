@@ -19,6 +19,8 @@ import SwiftUI
 struct CrosstuneApp: App {
     #if os(macOS)
         @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+    #else
+        @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     #endif
     @State private var session: AccountSession
     @State private var player: PlayerModel
@@ -73,6 +75,7 @@ struct CrosstuneApp: App {
             ?? .noop)
             .observing(reviewPrompt.observer)
         let apiOrigin = configuration.apiOrigin
+        DeviceBackgroundUploads.launch(apiOrigin: apiOrigin)
         UsageData.launch(analytics, region: { try await Region.fetch(origin: apiOrigin) })
         self.analytics = analytics
         purchases = configuration.revenueCatAPIKey.map { RevenueCatPurchases(apiKey: $0, diagnostics: diagnostics) }
@@ -96,6 +99,7 @@ struct CrosstuneApp: App {
             diagnostics: diagnostics,
             deviceSettings: { DeviceSettings.current() },
             assistiveTech: { AssistiveTech.current() },
+            holdBackgroundTime: DeviceBackgroundTime.holder,
             // A capture a crash or kill cut short is saved now rather than waiting on the user.
             storeOpened: { await Recorder.recoverLeftoverCaptures(in: $0) }
         )
@@ -268,6 +272,20 @@ struct CrosstuneApp: App {
         func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
             OpenDrafts.shared.holdsQuit { sender.reply(toApplicationShouldTerminate: true) }
                 ? .terminateLater : .terminateNow
+        }
+    }
+#endif
+
+#if os(iOS)
+    final class AppDelegate: NSObject, UIApplicationDelegate {
+        /// Resumes recording uploads the system finished while the app was not running.
+        /// Returns once the uploads are handled, so the system can suspend the app again.
+        func application(
+            _ application: UIApplication, handleEventsForBackgroundURLSession identifier: String
+        ) async {
+            await withCheckedContinuation { continuation in
+                DeviceBackgroundUploads.handleWake(identifier: identifier) { continuation.resume() }
+            }
         }
     }
 #endif

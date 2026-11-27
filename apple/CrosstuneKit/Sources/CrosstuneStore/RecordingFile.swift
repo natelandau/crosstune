@@ -53,6 +53,8 @@ public struct RecordingFile: Codable, Hashable, Identifiable, Sendable, Fetchabl
     public var uploadAttempts: Int
     /// Before this, the upload pass skips the file, set by a transient failure's backoff.
     public var nextAttemptAt: Timestamp?
+    /// The upload a background worker owns, nil while the app uploads the file itself.
+    public var handoff: UploadHandoff?
     public var updatedAt: Timestamp
 
     public enum CodingKeys: String, CodingKey, ColumnExpression {
@@ -71,6 +73,7 @@ public struct RecordingFile: Codable, Hashable, Identifiable, Sendable, Fetchabl
         case recordedAt = "recorded_at"
         case uploadAttempts = "upload_attempts"
         case nextAttemptAt = "next_attempt_at"
+        case handoff
         case updatedAt = "updated_at"
     }
 
@@ -79,7 +82,7 @@ public struct RecordingFile: Codable, Hashable, Identifiable, Sendable, Fetchabl
         bytes: Int64? = nil, localDurationMs: Int64? = nil, blobRev: String? = nil, blobStartMs: Int64 = 0,
         peaksFileName: String? = nil, peaksRev: String? = nil, error: String? = nil, tuneID: String? = nil,
         recordedAt: Timestamp? = nil, uploadAttempts: Int = 0, nextAttemptAt: Timestamp? = nil,
-        updatedAt: Timestamp = .now
+        handoff: UploadHandoff? = nil, updatedAt: Timestamp = .now
     ) {
         self.id = id
         self.localState = localState
@@ -96,6 +99,7 @@ public struct RecordingFile: Codable, Hashable, Identifiable, Sendable, Fetchabl
         self.recordedAt = recordedAt
         self.uploadAttempts = uploadAttempts
         self.nextAttemptAt = nextAttemptAt
+        self.handoff = handoff
         self.updatedAt = updatedAt
     }
 }

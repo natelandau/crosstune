@@ -71,7 +71,8 @@
   ID in a URL or a body. The server sets ownership from the token and
   scopes every query to the caller.
 - One more exception: the recording upload confirm that takes the upload
-  slot's token, for a service worker that cannot sign in. The slot's token
+  slot's token, for a client upload that cannot sign in: the web service
+  worker, an Apple background wake. The slot's token
   is the only key, and it expires with its slot. It grants the confirm of
   that slot and nothing more: no read, no other slot, no other recording.
   Every token or recording refusal is the same 404.
@@ -245,9 +246,13 @@
   sign-out never sends one account's request with the next account's
   token.
 - Every response a sync run or events pull receives (push results, pull
-  and events pages, the account, notice results) is dropped once the
-  engine stops, never written, so a stopped engine never writes to a
-  store that sign-out is removing.
+  and events pages, the account, notice results), and every upload slot
+  grant and confirm answer, is dropped once the engine stops, never
+  written, so a stopped engine never writes to a store that sign-out is
+  removing.
+- Every path that deletes a user's folder (sign-out, account deletion,
+  removing another account's leftover folder) first cancels that user's
+  background upload transfers, which outlive the engine and the app.
 - An engine sends only its own account's token. Clerk's token source
   follows whoever is signed in now, not the engine's account.
 
@@ -380,9 +385,10 @@
 - Upload: an upload slot (quota reserved, PUT signed for its key and
   declared size), a PUT to R2, then a confirm. The server reads only
   confirmed copies, so a reused URL writes where nothing reads.
-- The web service worker owns the PUT and the confirm of a file it was
-  handed. The page never uploads a file whose service-worker hand-off has
-  not expired.
+- A client's background uploader (the web service worker, the Apple
+  background session) owns the PUT and the confirm of a file it was
+  handed. A client's upload pass never takes a new slot for a file whose
+  hand-off is live.
 - A job that stores a recording file outside an upload slot (transcode,
   trim, re-encode, split) checks it against the quota under the user's
   lock, before its commit, and never commits a file past the quota. A

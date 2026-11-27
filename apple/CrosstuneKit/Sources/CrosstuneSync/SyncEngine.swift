@@ -16,6 +16,8 @@ public final class SyncEngine {
     public static let pushBatchSize = 500
     /// How long a rate-limited search waits when the server names no wait of its own.
     public static let defaultRetryAfterSeconds = 60
+    /// The name of the background time a run holds while the app is not active.
+    static let backgroundTimeName = "Upload recordings"
 
     public var status: SyncStatus { syncLoop.status }
     public var transferStatus: TransferStatus { transferLoop.status }
@@ -29,6 +31,7 @@ public final class SyncEngine {
 
     private let store: CrosstuneStore
     private let api: any SyncAPI
+    private let uploads: any RecordingUploadTransport
     private let isOffline: @MainActor () -> Bool
     private let batchSize: Int
     private let analytics: AnalyticsClient
@@ -38,6 +41,7 @@ public final class SyncEngine {
     private let logger = Logger(subsystem: "app.crosstune.Crosstune", category: "sync")
 
     private let sleep: Sleeper
+    private let holdBackgroundTime: BackgroundTimeHolder
     /// Replaces the real upload and download passes in tests that only count runs.
     private let transferPass: (@MainActor () async throws -> Void)?
 
@@ -48,6 +52,17 @@ public final class SyncEngine {
     @ObservationIgnored private(set) var queuedTurns = 0
     @ObservationIgnored private var inFlightDownloads: [String: Task<URL?, any Error>] = [:]
     @ObservationIgnored private var inFlightPeaks: [String: Task<Data?, any Error>] = [:]
+    /// The finished upload task being handled, which a stop waits for before the store closes.
+    @ObservationIgnored private var uploadEventInFlight: Task<Void, Never>?
+    /// This engine's upload event handler, nil while stopped.
+    @ObservationIgnored private var uploadAttachment: UploadHandlerAttachment?
+    /// Nil until the app first reports whether it is in the foreground.
+    @ObservationIgnored private var isActive: Bool?
+    /// How many sync and transfer runs are running or about to start.
+    @ObservationIgnored private var runsInFlight = 0
+    /// Held while a run is in flight and the app is not active, so the system does not suspend
+    /// the app mid-run.
+    @ObservationIgnored private var backgroundHold: (any BackgroundTimeHold)?
     /// How many callers have waited on a download or peaks fetch already in flight.
     @ObservationIgnored private(set) var joinedFetches = 0
 
@@ -57,9 +72,8 @@ public final class SyncEngine {
         isStopped: { [weak self] in self?.stopped ?? true },
         classify: { [weak self] error in classifyFailure(error, isOffline: self?.isOffline() ?? true) },
         // A pushed row can now take its upload, and a pulled one its download.
-        afterRun: { [weak self] in
-            Task { await self?.transferLoop.trigger() }
-        },
+        afterRun: { [weak self] in self?.triggerTransfers() },
+        runningChanged: { [weak self] in self?.runningChanged($0) },
         onFailure: { [weak self] _, error in
             self?.analytics.send(.syncFailed(reason: syncFailureReason(error)))
         },
@@ -72,6 +86,7 @@ public final class SyncEngine {
         name: "transfer", sleep: sleep,
         isStopped: { [weak self] in self?.stopped ?? true },
         classify: { [weak self] error in classifyTransferFailure(error, isOffline: self?.isOffline() ?? true) },
+        runningChanged: { [weak self] in self?.runningChanged($0) },
         now: now,
         isReportable: { _, error in isReportableFailure(error) },
         onPersistentFailure: { [weak self] _, error in self?.diagnostics.report(error, area: .transfer) },
@@ -86,16 +101,20 @@ public final class SyncEngine {
     }
     @ObservationIgnored private lazy var transfers = Transfers(
         store: store, api: api,
-        checkStopped: transferStopCheck, now: now,
+        checkStopped: transferStopCheck, uploads: uploads, now: now,
         downloadRetries: downloadRetries, analytics: analytics, diagnostics: diagnostics)
     @ObservationIgnored private lazy var scans = ScanTransfers(
         store: store, api: api,
         checkStopped: transferStopCheck, now: now)
 
     /// - Parameters:
+    ///   - uploads: Sends recording uploads as tasks that outlive the app, and reports each
+    ///     finished one to this engine.
     ///   - isOffline: Whether the device has no connection. A run while offline ends as
     ///     `offline` without a request.
     ///   - sleep: Waits out a retry's backoff.
+    ///   - holdBackgroundTime: Keeps the app running while a run that is in flight when the app is
+    ///     not active finishes.
     ///   - analytics: Where a sync that fails, and an upload that is refused, are reported.
     ///   - diagnostics: Where a sync or transfer that keeps failing, and an upload that fails for
     ///     good, are reported.
@@ -103,15 +122,18 @@ public final class SyncEngine {
     public convenience init(
         store: CrosstuneStore,
         api: any SyncAPI,
+        uploads: any RecordingUploadTransport,
         isOffline: @escaping @MainActor () -> Bool,
         batchSize: Int = SyncEngine.pushBatchSize,
-        sleep: @escaping Sleeper = { try await Task.sleep(for: $0) },
+        sleep: @escaping Sleeper = liveSleeper,
+        holdBackgroundTime: @escaping BackgroundTimeHolder = NoBackgroundTimeHold.holder,
         analytics: AnalyticsClient = .noop,
         diagnostics: DiagnosticsClient = .noop,
         now: @escaping @MainActor () -> Date = Date.init
     ) {
         self.init(
-            store: store, api: api, isOffline: isOffline, batchSize: batchSize, sleep: sleep, transferPass: nil,
+            store: store, api: api, uploads: uploads, isOffline: isOffline, batchSize: batchSize, sleep: sleep,
+            holdBackgroundTime: holdBackgroundTime, transferPass: nil,
             analytics: analytics, diagnostics: diagnostics, now: now)
     }
 
@@ -120,9 +142,11 @@ public final class SyncEngine {
     init(
         store: CrosstuneStore,
         api: any SyncAPI,
+        uploads: any RecordingUploadTransport,
         isOffline: @escaping @MainActor () -> Bool,
         batchSize: Int,
         sleep: @escaping Sleeper,
+        holdBackgroundTime: @escaping BackgroundTimeHolder = NoBackgroundTimeHold.holder,
         transferPass: (@MainActor () async throws -> Void)?,
         analytics: AnalyticsClient = .noop,
         diagnostics: DiagnosticsClient = .noop,
@@ -133,9 +157,11 @@ public final class SyncEngine {
         self.diagnostics = diagnostics
         self.now = now
         self.api = api
+        self.uploads = uploads
         self.isOffline = isOffline
         self.batchSize = batchSize
         self.sleep = sleep
+        self.holdBackgroundTime = holdBackgroundTime
         self.transferPass = transferPass
 
         Task { [weak self, store] in
@@ -143,6 +169,13 @@ public final class SyncEngine {
             guard let self, lastSyncedAt == nil, let saved else { return }
             lastSyncedAt = saved.date
         }
+        attachUploads()
+    }
+
+    isolated deinit {
+        // An engine released without a stop leaves later completions waiting for the next one.
+        detachUploads()
+        backgroundHold?.end()
     }
 
     /// Pushes, pulls, and refreshes the storage usage now, or once more after the run in
@@ -179,6 +212,9 @@ public final class SyncEngine {
     /// Stops both loops and cancels any pending retry. Triggers do nothing until ``resume()``.
     public func stop() {
         stopped = true
+        // Later completions wait in the session for the next engine, rather than reaching a
+        // store that may be closing.
+        detachUploads()
         syncLoop.cancelRetry()
         transferLoop.cancelRetry()
     }
@@ -190,6 +226,7 @@ public final class SyncEngine {
         await syncLoop.finishRunning()
         await transferLoop.finishRunning()
         await turn?.value
+        await uploadEventInFlight?.value
         // A download or peaks fetch that starts after this snapshot throws at its stop check
         // before its first write, so only these can still touch the store.
         for download in inFlightDownloads.values {
@@ -202,6 +239,83 @@ public final class SyncEngine {
 
     public func resume() {
         stopped = false
+        attachUploads()
+    }
+
+    /// Reports whether the app is in the foreground. A run in flight while it is not holds
+    /// background time until the run ends, so the system does not suspend the app mid-run.
+    public func setActive(_ active: Bool) {
+        isActive = active
+        updateBackgroundHold()
+    }
+
+    private func attachUploads() {
+        detachUploads()
+        uploadAttachment = uploads.attach(userID: store.userID) { [weak self] event in
+            await self?.handleUploadEvent(event)
+        }
+    }
+
+    private func detachUploads() {
+        if let uploadAttachment { uploads.detach(uploadAttachment) }
+        uploadAttachment = nil
+    }
+
+    /// Starts a transfer run without waiting for it. It counts as in flight from this call, so a
+    /// background hold does not lapse before the run's task starts.
+    private func triggerTransfers() {
+        runningChanged(true)
+        Task { [weak self] in
+            await self?.transferLoop.trigger()
+            self?.runningChanged(false)
+        }
+    }
+
+    private func runningChanged(_ running: Bool) {
+        runsInFlight += running ? 1 : -1
+        updateBackgroundHold()
+    }
+
+    /// Holds background time exactly while a run is in flight and the app is not active.
+    private func updateBackgroundHold() {
+        let needsHold = isActive == false && runsInFlight > 0
+        if needsHold, backgroundHold == nil {
+            backgroundHold = holdBackgroundTime(Self.backgroundTimeName)
+        } else if !needsHold, let backgroundHold {
+            backgroundHold.end()
+            self.backgroundHold = nil
+        }
+    }
+
+    /// Handle one finished upload task. The session hands over one at a time, so at most one is
+    /// in flight. It counts as a run in flight, so a direct confirm it sends holds background
+    /// time when the app leaves the foreground.
+    private func handleUploadEvent(_ event: UploadEvent) async {
+        let transfers = transfers
+        let logger = logger
+        runningChanged(true)
+        let handling = Task { [weak self] in
+            do {
+                let result = try await transfers.handle(event)
+                // A file handed back is the pass's to settle, without waiting for the next sync.
+                if let result, result != .uploaded {
+                    self?.triggerTransfers()
+                }
+            } catch is RunStopped {
+                // The next pass after a resume starts again a hand-off whose answer was dropped.
+            } catch {
+                logger.error(
+                    "Upload completion for \(event.tag.recordingID, privacy: .public) failed: \(logDescription(of: error), privacy: .public)"
+                )
+                // The hand-off may have no task left, so the pass starts its step again rather
+                // than leaving it until an unrelated sync.
+                self?.triggerTransfers()
+            }
+        }
+        uploadEventInFlight = handling
+        await handling.value
+        uploadEventInFlight = nil
+        runningChanged(false)
     }
 
     /// The recording's audio on this device, fetched first when it is not here. Only one fetch
@@ -302,11 +416,16 @@ public final class SyncEngine {
         } catch {
             scanDownloadError = error
         }
-        let uploadError = try await transfers.uploadPass()
+        let recordingUploads = try await transfers.uploadPass()
+        // Nothing else may trigger a run when a file's backoff ends, so without this a failed
+        // upload would wait for an unrelated sync.
+        if let next = recordingUploads.nextAttemptAt {
+            transferLoop.runAgain(after: .milliseconds(max(next.milliseconds - Timestamp.now.milliseconds, 0)))
+        }
         try await transfers.downloadPass(
             fetch: { [weak self] id in try await self?.fetchOne(id) },
             fetchPeaksFor: { [weak self] id in try await self?.fetchPeaksOnce(id) })
-        if let held = scanUploadError ?? scanDownloadError ?? uploadError { throw held }
+        if let held = scanUploadError ?? scanDownloadError ?? recordingUploads.firstError { throw held }
     }
 
     private func fetchOne(_ recordingID: String) async throws -> URL? {

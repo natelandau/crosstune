@@ -104,7 +104,8 @@
             .task {
                 do {
                     let opened = try await MarketingCatalog.makeStore(fixture: fixture)
-                    engine = SyncEngine(store: opened, api: OfflineSyncAPI(), isOffline: { true })
+                    engine = SyncEngine(
+                        store: opened, api: OfflineSyncAPI(), uploads: UploadsDisabled(), isOffline: { true })
                     store = opened
                     await openRecording(in: opened)
                 } catch {

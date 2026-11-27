@@ -23,7 +23,8 @@ import Testing
 
     private func engine(isOffline: Bool = false) -> SyncEngine {
         SyncEngine(
-            store: store, api: api, isOffline: { isOffline }, batchSize: SyncEngine.pushBatchSize,
+            store: store, api: api, uploads: FakeUploadTransport(), isOffline: { isOffline },
+            batchSize: SyncEngine.pushBatchSize,
             sleep: sleeper.sleep, transferPass: {}, analytics: sink.client)
     }
 

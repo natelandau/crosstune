@@ -511,6 +511,9 @@ enum Schema {
                     """,
                 arguments: [table])
         }
+        migrator.registerMigration("v25") { db in
+            try db.alter(table: "recording_files") { t in t.add(column: "handoff", .jsonText) }
+        }
         return migrator
     }()
 

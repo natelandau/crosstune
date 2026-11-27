@@ -197,7 +197,7 @@ final class FakeSyncAPI: SyncAPI {
 
     // MARK: Transfers
 
-    /// Every transfer request in order, as `slot r1`, `put r1`, `confirm r1`, `url r1`, `get r1`,
+    /// Every transfer request in order, as `slot r1`, `token-confirm r1 token-r1`, `url r1`, `get r1`,
     /// or `retry r1`.
     var transfers: [String] = []
     /// The size and type each slot request declared, by recording.
@@ -225,14 +225,16 @@ final class FakeSyncAPI: SyncAPI {
 
     private static func recordingID(in url: URL) -> String { url.lastPathComponent }
 
-    func requestUploadSlot(recordingID: String, bytes: Int64, contentType: String) async throws -> URL {
+    func requestUploadSlot(recordingID: String, bytes: Int64, contentType: String) async throws -> UploadSlot {
         slotRequests[recordingID] = (bytes, contentType)
         try await transfer("slot \(recordingID)")
-        return URL(string: "https://bucket.test/put/\(recordingID)")!
+        return UploadSlot(
+            url: URL(string: "https://bucket.test/put/\(recordingID)")!, confirmToken: "token-\(recordingID)",
+            expiresAt: Timestamp(Date().addingTimeInterval(3600)))
     }
 
-    func uploadFinished(recordingID: String) async throws {
-        try await transfer("confirm \(recordingID)")
+    func confirmUpload(recordingID: String, token: String) async throws {
+        try await transfer("token-confirm \(recordingID) \(token)")
     }
 
     func downloadURL(recordingID: String) async throws -> DownloadURL {
@@ -377,7 +379,7 @@ struct FixedTokens: TokenProvider {
 /// `token`.
 func liveSyncAPI(
     _ transport: some ClientTransport, token: String? = "token", session: URLSession = .shared,
-    storageOrigin: URL? = nil
+    storageOrigin: URL? = nil, tokenTransport: (any ClientTransport)? = nil
 ) -> LiveSyncAPI {
     LiveSyncAPI(
         client: Client(
@@ -386,5 +388,128 @@ func liveSyncAPI(
             transport: transport,
             middlewares: [AuthMiddleware(tokens: FixedTokens(value: token), clientVersion: "test")]
         ),
+        tokenClient: .tokenConfirm(
+            origin: URL(string: "https://api.example.test")!, transport: tokenTransport ?? transport),
         session: session, storageOrigin: storageOrigin)
+}
+
+/// An upload transport that records every task it is asked to start and finishes them only when
+/// the test calls ``finish(_:)``.
+@MainActor
+final class FakeUploadTransport: RecordingUploadTransport {
+    struct Put: Hashable {
+        let tag: UploadTaskTag
+        let file: URL
+        let contentType: String
+    }
+
+    struct Confirm: Hashable {
+        let tag: UploadTaskTag
+        let token: String
+    }
+
+    private let router = UploadEventRouter()
+    private(set) var puts: [Put] = []
+    private(set) var confirms: [Confirm] = []
+    /// The tags of the tasks still running, as the session would list them.
+    var running: [UploadTaskTag] = []
+    /// The recording of every task started while another task of the same recording was still
+    /// running, which uploads one file twice at once.
+    private(set) var overlappingStarts: [String] = []
+
+    /// The recording of every PUT started, in order.
+    var startedPuts: [String] { puts.map(\.tag.recordingID) }
+    /// The recording of every confirm started, in order.
+    var startedConfirms: [String] { confirms.map(\.tag.recordingID) }
+
+    func startPut(_ tag: UploadTaskTag, file: URL, contentType: String) {
+        puts.append(Put(tag: tag, file: file, contentType: contentType))
+        start(tag)
+    }
+
+    func startConfirm(_ tag: UploadTaskTag, token: String) {
+        confirms.append(Confirm(tag: tag, token: token))
+        start(tag)
+    }
+
+    private func start(_ tag: UploadTaskTag) {
+        if running.contains(where: { $0.userID == tag.userID && $0.recordingID == tag.recordingID }) {
+            overlappingStarts.append(tag.recordingID)
+        }
+        running.append(tag)
+    }
+
+    func runningRecordingIDs(userID: String) async -> Set<String> {
+        Set(running.filter { $0.userID == userID }.map(\.recordingID))
+            .union(router.unhandledRecordingIDs(userID: userID))
+    }
+
+    func cancel(recordingIDs: Set<String>, userID: String) async {
+        running.removeAll { $0.userID == userID && recordingIDs.contains($0.recordingID) }
+    }
+
+    func cancelAll(userID: String) async {
+        running.removeAll { $0.userID == userID }
+    }
+
+    func cancelAll(exceptUserIDs userIDs: Set<String>) async {
+        running.removeAll { !userIDs.contains($0.userID) }
+    }
+
+    func attach(
+        userID: String, handler: @escaping @MainActor (UploadEvent) async -> Void
+    ) -> UploadHandlerAttachment {
+        router.attach(userID: userID, handler: handler)
+    }
+
+    func detach(_ attachment: UploadHandlerAttachment) {
+        router.detach(attachment)
+    }
+
+    /// Finish the running task with `tag`, routed as the session routes it, and wait until it is
+    /// handled when a handler is attached.
+    func finish(_ tag: UploadTaskTag, _ outcome: StepOutcome) async {
+        if let index = running.firstIndex(of: tag) { running.remove(at: index) }
+        await router.deliver(UploadEvent(tag: tag, outcome: outcome))
+    }
+
+    /// Wait until every event that has a handler is handled, as after a handler attaches.
+    func waitForHandledEvents() async {
+        await router.waitForHandledEvents()
+    }
+}
+
+/// A hand-off to `FakeSyncAPI`'s signed URL and token for `id`, its slot good for an hour from
+/// now unless `expiresAt` says otherwise.
+func liveHandoff(
+    _ id: String, expiresAt: Timestamp = Timestamp(Date().addingTimeInterval(3600)), attempts: Int = 0,
+    refused: Bool = false, refusedStatus: Int? = nil, putLanded: Bool = false,
+    lastFailure: UploadHandoff.AttemptFailure? = nil
+) -> UploadHandoff {
+    UploadHandoff(
+        url: URL(string: "https://bucket.test/put/\(id)")!, confirmToken: "token-\(id)", contentType: "audio/mp4",
+        expiresAt: expiresAt, attempts: attempts, refused: refused, refusedStatus: refusedStatus,
+        putLanded: putLanded, lastFailure: lastFailure)
+}
+
+/// A recording the server has, its audio in the audio folder and its file row uploading under
+/// `handoff`, with nothing queued.
+func insertHandedOffFile(
+    _ store: CrosstuneStore, _ id: String, handoff: UploadHandoff, uploadAttempts: Int = 0,
+    nextAttemptAt: Timestamp? = nil, error: String? = nil
+) async throws {
+    let name = "\(id).m4a"
+    try Data("handed off audio".utf8).write(to: store.audioFolder.appending(path: name))
+    try await store.write { writer in
+        try RecordingFile(
+            id: id, localState: .uploading, fileName: name, contentType: "audio/mp4", bytes: 16,
+            localDurationMs: 4_000, error: error, uploadAttempts: uploadAttempts, nextAttemptAt: nextAttemptAt,
+            handoff: handoff
+        ).insert(writer.db)
+        try writer.put(
+            Recording(
+                id: id, createdAt: noon, tuneID: nil, source: "microphone", addedAt: noon,
+                state: "pending_upload"))
+        try OutboxEntry.deleteAll(writer.db)
+    }
 }

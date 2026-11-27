@@ -70,10 +70,10 @@ private struct RefusingSyncAPI: SyncAPI {
     func reversePlace(lat: Double, lon: Double) async throws -> ReversedPlace? {
         throw URLError(.badURL)
     }
-    func requestUploadSlot(recordingID: String, bytes: Int64, contentType: String) async throws -> URL {
+    func requestUploadSlot(recordingID: String, bytes: Int64, contentType: String) async throws -> UploadSlot {
         throw URLError(.badURL)
     }
-    func uploadFinished(recordingID: String) async throws { throw URLError(.badURL) }
+    func confirmUpload(recordingID: String, token: String) async throws { throw URLError(.badURL) }
     func downloadURL(recordingID: String) async throws -> DownloadURL { throw URLError(.badServerResponse) }
     func peaksURL(recordingID: String) async throws -> PeaksURL { throw URLError(.badServerResponse) }
     func retryRecording(recordingID: String) async throws { throw URLError(.badURL) }
@@ -1685,7 +1685,8 @@ struct RecordingsScreenPartsTests {
         let root = TemporaryRoot()
         let store = try root.open()
         try await putRecording(store, "r1")
-        let engine = SyncEngine(store: store, api: RefusingSyncAPI(), isOffline: { false }, sleep: { _ in })
+        let engine = SyncEngine(
+            store: store, api: RefusingSyncAPI(), uploads: UploadsDisabled(), isOffline: { false }, sleep: { _ in })
         let transfers = RecordingTransferActions(engine: engine, store: store)
 
         await transfers.download("r1")

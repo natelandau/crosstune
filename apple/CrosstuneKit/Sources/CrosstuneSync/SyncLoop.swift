@@ -6,6 +6,9 @@ import os
 /// app; tests pass one they release by hand.
 public typealias Sleeper = @Sendable (Duration) async throws -> Void
 
+/// The sleeper every loop and timer uses in the app.
+public let liveSleeper: Sleeper = { try await Task.sleep(for: $0) }
+
 /// A loop's states: at rest, running, and the one failure that is expected and never logged.
 protocol LoopStatus: Hashable, Sendable {
     static var idle: Self { get }
@@ -23,7 +26,8 @@ let retryBackoff: [Duration] = [1, 2, 4, 8, 16, 32, 60].map { .seconds($0) }
 ///
 /// A trigger while a run is in flight coalesces into one more run after it. A failed run backs
 /// off and retries, and the first of consecutive failures is logged. A persistent failure is handed
-/// to `onPersistentFailure` once.
+/// to `onPersistentFailure` once. A run can also ask, through ``runAgain(after:)``, for one more
+/// run once a wait of its own ends.
 @MainActor @Observable
 final class SyncLoop<Status: LoopStatus> {
     private(set) var status = Status.idle
@@ -33,6 +37,9 @@ final class SyncLoop<Status: LoopStatus> {
     private let classify: @MainActor (any Error) -> Status
     private let isStopped: @MainActor () -> Bool
     private let afterRun: @MainActor () -> Void
+    /// Called with true when the loop starts running and false once it stops, after the last
+    /// `afterRun`, so work that must outlast every run in flight can track it.
+    private let runningChanged: @MainActor (Bool) -> Void
     /// Called when a run fails into a state other than offline that the last reported failure of
     /// these consecutive failures was not in, with that state and the error.
     private let onFailure: @MainActor (Status, any Error) -> Void
@@ -52,6 +59,8 @@ final class SyncLoop<Status: LoopStatus> {
     /// The failed state last reported in the current consecutive failures; a clean run ends them.
     @ObservationIgnored private var reportedFailure: Status?
     @ObservationIgnored private var retry: Task<Void, Never>?
+    /// The shortest wait the run in flight asked for before the next run, nil when it asked none.
+    @ObservationIgnored private var requestedDelay: Duration?
     @ObservationIgnored private var consecutiveFailures = ConsecutiveFailures(persistsFor: persistentFailure)
 
     init(
@@ -60,6 +69,7 @@ final class SyncLoop<Status: LoopStatus> {
         isStopped: @escaping @MainActor () -> Bool,
         classify: @escaping @MainActor (any Error) -> Status,
         afterRun: @escaping @MainActor () -> Void = {},
+        runningChanged: @escaping @MainActor (Bool) -> Void = { _ in },
         onFailure: @escaping @MainActor (Status, any Error) -> Void = { _, _ in },
         now: @escaping @MainActor () -> Date = Date.init,
         isReportable: @escaping @MainActor (Status, any Error) -> Bool = { _, _ in true },
@@ -70,6 +80,7 @@ final class SyncLoop<Status: LoopStatus> {
         self.classify = classify
         self.isStopped = isStopped
         self.afterRun = afterRun
+        self.runningChanged = runningChanged
         self.onFailure = onFailure
         self.now = now
         self.isReportable = isReportable
@@ -90,6 +101,7 @@ final class SyncLoop<Status: LoopStatus> {
         // Cleared here rather than at the top of the task body, which starts only after the
         // callers that coalesced into this run have already set it.
         again = false
+        runningChanged(true)
         let task = Task {
             while true {
                 await runOnce()
@@ -98,6 +110,7 @@ final class SyncLoop<Status: LoopStatus> {
                 again = false
             }
             running = nil
+            runningChanged(false)
         }
         running = task
         await task.value
@@ -108,20 +121,30 @@ final class SyncLoop<Status: LoopStatus> {
         await running?.value
     }
 
+    /// Cancels the pending retry, whether a failure's backoff or a wait a run asked for.
     func cancelRetry() {
         retry?.cancel()
         retry = nil
     }
 
+    /// Ask, from inside a run, for another run once `delay` passes, so work the run left waiting
+    /// on a timer of its own is picked up without an unrelated trigger. A failed run retries at
+    /// the sooner of its backoff and this delay.
+    func runAgain(after delay: Duration) {
+        requestedDelay = min(requestedDelay ?? delay, delay)
+    }
+
     private func runOnce() async {
         let before = status
         status = .busy
+        requestedDelay = nil
         do {
             try await run()
             failures = 0
             reportedFailure = nil
             consecutiveFailures.ended()
             cancelRetry()
+            if let requestedDelay, !isStopped() { scheduleRetry(after: requestedDelay) }
             status = .idle
         } catch is RunStopped {
             // The run neither landed nor failed, so what showed before it still holds.
@@ -143,14 +166,16 @@ final class SyncLoop<Status: LoopStatus> {
             } else if consecutiveFailures.failed(at: now()) {
                 onPersistentFailure(next, error)
             }
-            if !isStopped() { scheduleRetry() }
+            if !isStopped() {
+                let backoff = retryBackoff[min(failures, retryBackoff.count - 1)]
+                failures += 1
+                scheduleRetry(after: min(backoff, requestedDelay ?? backoff))
+            }
         }
     }
 
-    private func scheduleRetry() {
+    private func scheduleRetry(after delay: Duration) {
         cancelRetry()
-        let delay = retryBackoff[min(failures, retryBackoff.count - 1)]
-        failures += 1
         let sleep = self.sleep
         retry = Task { [weak self] in
             do {

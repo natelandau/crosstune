@@ -83,7 +83,13 @@ func nextUploadAttempt(attempts: Int, from now: Timestamp) -> Timestamp {
 /// A refusal of the request itself, such as a bad type or a file too large, which never succeeds
 /// as it is. An auth, timeout, or rate-limit refusal might on a retry.
 func refusesTheRequestItself(_ refusal: APIStatusError) -> Bool {
-    (400..<500).contains(refusal.status) && ![401, 403, 408, 429].contains(refusal.status)
+    !isRetryableStatus(refusal.status)
+}
+
+/// Whether a later attempt can turn `status` around. Every status is retryable except a 4xx
+/// other than an auth, timeout, or rate-limit refusal.
+func isRetryableStatus(_ status: Int) -> Bool {
+    status < 400 || status >= 500 || [401, 403, 408, 429].contains(status)
 }
 
 /// A stop or a refused session: nothing past it can succeed in this run, so a pass ends at once

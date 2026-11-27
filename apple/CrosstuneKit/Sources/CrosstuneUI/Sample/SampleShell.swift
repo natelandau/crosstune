@@ -102,7 +102,8 @@
                         plan = PlanModel(store: opened)
                         player.plan = plan
                     }
-                    engine = SyncEngine(store: opened, api: OfflineSyncAPI(), isOffline: { true })
+                    engine = SyncEngine(
+                        store: opened, api: OfflineSyncAPI(), uploads: UploadsDisabled(), isOffline: { true })
                     store = opened
                 } catch {
                     failure = String(describing: error)
@@ -147,10 +148,10 @@
         func reversePlace(lat: Double, lon: Double) async throws -> ReversedPlace? {
             throw URLError(.notConnectedToInternet)
         }
-        func requestUploadSlot(recordingID: String, bytes: Int64, contentType: String) async throws -> URL {
+        func requestUploadSlot(recordingID: String, bytes: Int64, contentType: String) async throws -> UploadSlot {
             throw URLError(.notConnectedToInternet)
         }
-        func uploadFinished(recordingID: String) async throws { throw URLError(.notConnectedToInternet) }
+        func confirmUpload(recordingID: String, token: String) async throws { throw URLError(.notConnectedToInternet) }
         func downloadURL(recordingID: String) async throws -> DownloadURL { throw URLError(.notConnectedToInternet) }
         func peaksURL(recordingID: String) async throws -> PeaksURL { throw URLError(.notConnectedToInternet) }
         func retryRecording(recordingID: String) async throws { throw URLError(.notConnectedToInternet) }

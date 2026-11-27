@@ -46,7 +46,8 @@ struct EngineCaseExpected: Decodable, Sendable {
         let sleeper = ManualSleeper()
         // The transfer loop moves files only, and a case seeds none.
         let engine = SyncEngine(
-            store: store, api: api, isOffline: { false }, batchSize: input.batchSize ?? SyncEngine.pushBatchSize,
+            store: store, api: api, uploads: FakeUploadTransport(), isOffline: { false },
+            batchSize: input.batchSize ?? SyncEngine.pushBatchSize,
             sleep: sleeper.sleep, transferPass: {})
 
         var runs: [Task<Void, Never>] = []

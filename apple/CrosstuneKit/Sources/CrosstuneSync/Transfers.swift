@@ -7,9 +7,9 @@ import os
 
 private let logger = Logger(subsystem: "app.crosstune.Crosstune", category: "transfers")
 
-/// One run of the transfer loop's work: uploads every captured file whose recording has reached
-/// the server, and downloads what this device keeps offline. Also the single download a play
-/// asks for.
+/// One run of the transfer loop's work: hands every captured file whose recording has reached
+/// the server to the background upload session, and downloads what this device keeps offline.
+/// Also the single download a play asks for.
 ///
 /// Every request is preceded by `checkStopped`, so a pass on an engine that has stopped for a
 /// sign-out never sends the next user's token on the previous user's behalf.
@@ -18,22 +18,37 @@ struct Transfers {
     let store: CrosstuneStore
     let api: any SyncAPI
     let checkStopped: @MainActor () throws -> Void
+    /// Sends each recording's upload and token confirm as tasks that outlive the app.
+    let uploads: any RecordingUploadTransport
     /// The clock the plan is judged by.
     var now: @MainActor () -> Date = Date.init
     var downloadRetries = DownloadRetries()
     var analytics = AnalyticsClient.noop
     var diagnostics = DiagnosticsClient.noop
 
-    /// Uploads every file waiting to go. A file's own transient failure does not stop the rest;
-    /// the first one is returned, nil when every file settled, so the run can still fail. A stop
-    /// or an auth failure ends the pass at once. While the plan is free nothing is sent, and a
-    /// plan refusal ends only this pass's uploads; either way the files keep their state.
-    func uploadPass() async throws -> (any Error)? {
+    /// What one upload pass leaves for the transfer loop.
+    struct UploadPassResult {
+        /// The first transient failure of a file, nil when every file settled, so the run can
+        /// still fail.
+        var firstError: (any Error)?
+        /// The earliest time a file's backoff ends, so the loop runs again then. Nil when no
+        /// file waits out a backoff.
+        var nextAttemptAt: Timestamp?
+    }
+
+    /// Hands every file waiting to go to the upload session, and starts again a hand-off whose
+    /// task has ended. A file's own transient failure does not stop the rest. A stop or an auth
+    /// failure ends the pass at once. While the plan is free nothing is sent, and a plan refusal
+    /// ends only this pass's uploads; either way the files keep their state.
+    func uploadPass() async throws -> UploadPassResult {
         // Before the quota skip below, so a blocked file whose recording was deleted elsewhere is
         // cleaned up instead of being skipped forever by the usage check.
         try await dropTombstonedFiles()
-        guard try await store.plan(at: now()).recordingsPlay else { return nil }
+        guard try await store.plan(at: now()).recordingsPlay else { return UploadPassResult() }
 
+        // Listed before the files are read: a task that finishes in between has written its
+        // result to the row by the time the row is read, or is still in this list.
+        let running = await uploads.runningRecordingIDs(userID: userID)
         let waiting: [LocalFileState] = [.captured, .blockedQuota, .uploading]
         let (files, rows) = try await store.read { db in
             let files = try RecordingFile.filter(waiting.contains(RecordingFile.CodingKeys.localState)).fetchAll(db)
@@ -42,21 +57,37 @@ struct Transfers {
         }
         let storage = try await store.meta(.storage, as: StorageUsage.self)
         let now = Timestamp.now
+        // A cancelled task reports no event, so a new slot's upload never runs beside it.
+        let lapsed = Set(
+            files.filter { file in
+                guard let handoff = file.handoff else { return false }
+                return running.contains(file.id) && handoffStatus(handoff, now: now) != .live
+            }.map(\.id))
+        if !lapsed.isEmpty { await uploads.cancel(recordingIDs: lapsed, userID: userID) }
         var firstError: (any Error)?
         for file in files {
-            // A pass is the only place a blocked file is reconsidered, so the usage is checked
-            // rather than asking for a slot the server will refuse again.
-            if file.localState == .blockedQuota, let storage,
-                Int64(storage.usedBytes) + (file.bytes ?? 0) > Int64(storage.quotaBytes)
-            {
-                continue
-            }
-            if let next = file.nextAttemptAt, next > now { continue }
-            // Held until a split replaces it with pieces the server accepts.
-            if let row = rows[file.id], RecordingLimits.mustSplitToUpload(row, file: file, uploadLimits: storage) {
-                continue
-            }
             do {
+                if let handoff = file.handoff {
+                    let settlement = try await settleHandoff(
+                        file, handoff, running: running, row: rows[file.id], now: now)
+                    if case .waits(let failure) = settlement {
+                        // Not thrown: a recorded failure is one file's, never a reason to end the pass.
+                        firstError = firstError ?? failure
+                        continue
+                    }
+                }
+                // A pass is the only place a blocked file is reconsidered, so the usage is checked
+                // rather than asking for a slot the server will refuse again.
+                if file.localState == .blockedQuota, let storage,
+                    Int64(storage.usedBytes) + (file.bytes ?? 0) > Int64(storage.quotaBytes)
+                {
+                    continue
+                }
+                if let next = file.nextAttemptAt, next > now { continue }
+                // Held until a split replaces it with pieces the server accepts.
+                if let row = rows[file.id], RecordingLimits.mustSplitToUpload(row, file: file, uploadLimits: storage) {
+                    continue
+                }
                 try await uploadOne(file.id)
             } catch is RefusedByPlan {
                 // Every later recording would draw the same refusal.
@@ -66,7 +97,44 @@ struct Transfers {
                 firstError = firstError ?? error
             }
         }
-        return firstError
+        return UploadPassResult(firstError: firstError, nextAttemptAt: try await earliestBackoffEnd(after: now))
+    }
+
+    /// Start again, or take back, a file the pass finds handed off. The pass has already
+    /// cancelled the running task of a hand-off that is no longer live.
+    private func settleHandoff(
+        _ file: RecordingFile, _ handoff: UploadHandoff, running: Set<String>, row: Recording?, now: Timestamp
+    ) async throws -> HandoffSettlement {
+        if handoffStatus(handoff, now: now) == .live {
+            let lastFailure = handoff.lastFailure.map(failureError)
+            // The session may still finish it, so it takes no new slot.
+            if running.contains(file.id) { return .waits(failure: lastFailure) }
+            if let next = file.nextAttemptAt, next > now { return .waits(failure: lastFailure) }
+            switch try await startAgain(file, handoff) {
+            case .started: return .waits(failure: lastFailure)
+            case .settled(let failure): return .waits(failure: failure)
+            case .noAudio: break
+            case .refused:
+                // The refusal is on the row now, so the take-back below reads it from there.
+                let refused = try await store.read { db in try RecordingFile.fetchOne(db, key: file.id) }
+                guard let refused, let refusedHandoff = refused.handoff else { return .waits(failure: nil) }
+                return try await takeBack(refused, refusedHandoff, row: row)
+            }
+        }
+        return try await takeBack(file, handoff, row: row)
+    }
+
+    /// The earliest end of a backoff still to come among the files waiting to upload.
+    private func earliestBackoffEnd(after now: Timestamp) async throws -> Timestamp? {
+        let waiting: [LocalFileState] = [.captured, .uploading]
+        return try await store.read { db in
+            // Stored as ISO 8601 text, which sorts in time order.
+            try RecordingFile
+                .filter(waiting.contains(RecordingFile.CodingKeys.localState))
+                .filter(RecordingFile.CodingKeys.nextAttemptAt > now)
+                .select(min(RecordingFile.CodingKeys.nextAttemptAt), as: Timestamp.self)
+                .fetchOne(db)
+        }
     }
 
     private func uploadOne(_ id: String) async throws {
@@ -100,7 +168,7 @@ struct Transfers {
         try await setFileState(id, .uploading)
         let contentType = baseContentType(file.contentType)
 
-        let slot: URL
+        let slot: UploadSlot
         do {
             let bytes = try fileSize(url)
             try checkStopped()
@@ -141,33 +209,23 @@ struct Transfers {
             throw error
         }
 
-        do {
-            try checkStopped()
-            try await api.putObject(slot, file: url, contentType: contentType)
-            try checkStopped()
-            try await api.uploadFinished(recordingID: id)
-            try await settleUpload(id, .uploaded)
-        } catch let stop as RunStopped {
-            throw stop
-        } catch {
-            if isPlanRefusal(error) {
-                try await restore(file)
-                throw RefusedByPlan()
-            }
-            switch (underlying(error) as? APIStatusError)?.status {
-            case 409:
-                // The slot expired or the file never landed; the next pass asks for a fresh one.
-                try await scheduleRetry(id, after: error)
-            case 413:
-                // The server deleted the file because it did not match the size declared.
-                try await settleUpload(id, .failedUpload, error: transferMessage(error))
-                analytics.send(.uploadFailed(reason: .other, origin: RecordingOrigin(row)))
-                diagnostics.report(error, area: .upload)
-            default:
-                try await scheduleRetry(id, after: error)
-                throw error
+        // The stop rule: a slot granted after a stop is dropped, never saved.
+        try checkStopped()
+        let handoff = UploadHandoff(
+            url: slot.url, confirmToken: slot.confirmToken, contentType: contentType, expiresAt: slot.expiresAt)
+        try await store.write { writer in
+            try writer.updateFile(id) { stored in
+                stored.handoff = handoff
+                stored.localState = .uploading
+                // The try count stays until the upload lands, so a file the server keeps
+                // refusing still backs off further each time.
+                stored.error = nil
+                stored.nextAttemptAt = nil
             }
         }
+        // A stop during the write leaves a hand-off with no task, which the next pass starts.
+        try checkStopped()
+        uploads.startPut(tag(id, .put, handoff), file: url, contentType: contentType)
     }
 
     /// Puts a file back as it was before this attempt, so a refusal the plan lifts costs it no
@@ -202,12 +260,7 @@ struct Transfers {
         let message = transferMessage(error)
         try await store.write { writer in
             let now = Timestamp.now
-            try writer.updateFile(id, at: now) { file in
-                file.localState = .captured
-                file.error = message
-                file.nextAttemptAt = nextUploadAttempt(attempts: file.uploadAttempts, from: now)
-                file.uploadAttempts += 1
-            }
+            try writer.updateFile(id, at: now) { file in file.scheduleRetry(at: now, error: message) }
         }
     }
 

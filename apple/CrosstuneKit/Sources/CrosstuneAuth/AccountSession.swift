@@ -176,6 +176,8 @@ public final class AccountSession {
     @ObservationIgnored private let diagnostics: DiagnosticsClient
     @ObservationIgnored private var identity: AnalyticsIdentity
     @ObservationIgnored private let storeOpened: @MainActor (CrosstuneStore) async -> Void
+    @ObservationIgnored private let uploads: any RecordingUploadTransport
+    @ObservationIgnored private let holdBackgroundTime: BackgroundTimeHolder
 
     /// - Parameters:
     ///   - apiOrigin: Where the API is served.
@@ -187,6 +189,9 @@ public final class AccountSession {
     ///   - deviceSettings: The settings this device keeps outside the store, which the person
     ///     carries beside the synced ones.
     ///   - assistiveTech: The assistive features the device has on, which the person carries.
+    ///   - uploads: Sends recording uploads as tasks that outlive the app.
+    ///   - holdBackgroundTime: Keeps the app running while a sync or upload run that is in flight
+    ///     in the background finishes.
     ///   - storeOpened: Work to start each time a user's store opens. It runs in the background, and
     ///     nothing waits for it.
     public init(
@@ -195,10 +200,14 @@ public final class AccountSession {
         analytics: AnalyticsClient = .noop, diagnostics: DiagnosticsClient = .noop,
         deviceSettings: @escaping @MainActor () -> [SettingChange] = { [] },
         assistiveTech: @escaping @MainActor () -> [AssistiveTechnology]? = { nil },
+        uploads: any RecordingUploadTransport = BackgroundUploadSession.shared,
+        holdBackgroundTime: @escaping BackgroundTimeHolder,
         storeOpened: @escaping @MainActor (CrosstuneStore) async -> Void = { _ in }
     ) {
         self.analytics = analytics
         self.storeOpened = storeOpened
+        self.uploads = uploads
+        self.holdBackgroundTime = holdBackgroundTime
         self.diagnostics = diagnostics
         identity = AnalyticsIdentity(analytics: analytics, deviceSettings: deviceSettings, assistiveTech: assistiveTech)
         self.remembered = remembered
@@ -683,6 +692,7 @@ public final class AccountSession {
             sync?.resume()
             throw error
         }
+        await sync?.cancelUploads()
         // Only an ended session forgets the person, so a refused sign-out keeps sending as them.
         analytics.send(.signedOut)
         analytics.reset()
@@ -725,7 +735,7 @@ public final class AccountSession {
             throw error
         }
         await dropDeleted(
-            userID: userID, store: store, root: root, analytics: analytics, removeExports: removeExports,
+            userID: userID, store: store, root: root, sync: sync, analytics: analytics, removeExports: removeExports,
             userLeft: userLeft, endSession: endSession)
     }
 
@@ -738,15 +748,16 @@ public final class AccountSession {
     ) async {
         await sync?.stop()
         await dropDeleted(
-            userID: userID, store: store, root: root, analytics: analytics, removeExports: removeExports,
+            userID: userID, store: store, root: root, sync: sync, analytics: analytics, removeExports: removeExports,
             userLeft: userLeft, endSession: endSession)
     }
 
     private static func dropDeleted(
-        userID: String, store: CrosstuneStore?, root: URL, analytics: AnalyticsClient, removeExports: () -> Void,
-        userLeft: (String) -> Void, endSession: () async throws -> Void
+        userID: String, store: CrosstuneStore?, root: URL, sync: (any LeavingSync)?, analytics: AnalyticsClient,
+        removeExports: () -> Void, userLeft: (String) -> Void, endSession: () async throws -> Void
     ) async {
         try? await endSession()
+        await sync?.cancelUploads()
         // Reset first, so the event goes out unidentified rather than recreating the person.
         analytics.reset()
         analytics.send(.accountDeleted)
@@ -846,11 +857,16 @@ public final class AccountSession {
     private func adopt(_ opened: CrosstuneStore) {
         store = opened
         let engine = SyncEngine(
-            store: opened, api: LiveSyncAPI(client: client, storageOrigin: storageOrigin),
-            isOffline: { [weak self] in self?.isOffline ?? true }, analytics: analytics, diagnostics: diagnostics)
+            store: opened,
+            api: LiveSyncAPI(
+                client: client, tokenClient: .tokenConfirm(origin: apiOrigin), storageOrigin: storageOrigin),
+            uploads: uploads,
+            isOffline: { [weak self] in self?.isOffline ?? true }, holdBackgroundTime: holdBackgroundTime,
+            analytics: analytics, diagnostics: diagnostics)
         syncedUsageReported = false
         engine.onSynced = { [weak self] in self?.syncLanded(in: opened, storedUsage: $0) }
-        sync = SessionSync(store: opened, engine: engine, isActive: isActive, isOffline: isOffline)
+        sync = SessionSync(
+            store: opened, engine: engine, uploads: uploads, isActive: isActive, isOffline: isOffline)
         Task { [storeOpened] in await storeOpened(opened) }
         identifyWithStorageUsage()
     }
@@ -870,9 +886,31 @@ public final class AccountSession {
     }
 
     private func deleteFoldersNotInUse(keeping userID: String) {
-        let keep = Self.foldersInUse(
-            signedIn: userID, open: store?.userID, opening: opening, closing: Set(closing.keys).union(opens.keys))
-        try? CrosstuneStore.deleteOthers(keeping: keep, root: storeRoot)
+        Task { [weak self, storeRoot, uploads] in
+            do {
+                try await Self.deleteFolders(root: storeRoot, uploads: uploads) { [weak self] in
+                    guard let self, case .signedIn(userID, confirmed: true) = phase else { return nil }
+                    return Self.foldersInUse(
+                        signedIn: userID, open: store?.userID, opening: opening,
+                        closing: Set(closing.keys).union(opens.keys))
+                }
+            } catch {
+                logger.error("Other users' folders were not deleted: \(error, privacy: .private)")
+            }
+        }
+    }
+
+    /// Cancel the upload tasks of every user whose folder goes, then delete those folders, so no
+    /// transfer outlives its user's files. `keep` lists the users whose folders stay, nil once
+    /// the cleanup no longer applies. It is read again after the cancel, since a store may start
+    /// opening meanwhile.
+    static func deleteFolders(
+        root: URL, uploads: any RecordingUploadTransport, keep: @MainActor () -> Set<String>?
+    ) async throws {
+        guard let before = keep() else { return }
+        await uploads.cancelAll(exceptUserIDs: before)
+        guard let after = keep() else { return }
+        try CrosstuneStore.deleteOthers(keeping: before.union(after), root: root)
     }
 
     /// The users whose folders must survive a cleanup: the signed-in user, and any store that is
