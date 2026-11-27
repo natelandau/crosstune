@@ -189,6 +189,12 @@ struct NextChangeTests {
         #expect(PlanRules.nextChange(row(source: "stripe", expiresAt: at(2 * day)), now: now) == at(2 * day).date)
     }
 
+    @Test(arguments: [("comp", nil), ("apple", 20)] as [(String, Double?)])
+    func hasNoTrialInstantForAPaidOrCompedGrant(source: String, expiresInDays: Double?) {
+        let grant = row(source: source, expiresAt: expiresInDays.map { at($0 * day) }, trialEndsAt: at(5 * day))
+        #expect(PlanRules.nextChange(grant, now: now) == expiresInDays.map { at($0 * day).date })
+    }
+
     @Test func isTheReminderStartForATrialMoreThanThreeDaysOut() {
         let trial = row(source: "trial", expiresAt: at(5 * day), trialEndsAt: at(5 * day))
         #expect(PlanRules.nextChange(trial, now: now) == at(2 * day).date)
