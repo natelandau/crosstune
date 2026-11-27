@@ -13,6 +13,7 @@ import Testing
     let root = TemporaryRoot()
     let store: CrosstuneStore
     let api = FakeSyncAPI()
+    let transport = FakeUploadTransport()
     let sleeper = ManualSleeper()
 
     init() throws {
@@ -24,7 +25,8 @@ import Testing
         diagnostics: DiagnosticsClient = .noop
     ) -> SyncEngine {
         SyncEngine(
-            store: store, api: api, isOffline: isOffline, sleep: sleeper.sleep, analytics: analytics,
+            store: store, api: api, uploads: transport, isOffline: isOffline, sleep: sleeper.sleep,
+            analytics: analytics,
             diagnostics: diagnostics)
     }
 
@@ -83,21 +85,251 @@ import Testing
 
     // MARK: Upload
 
-    @Test func requestsASlotPutsTheFileAndConfirms() async throws {
-        try await captured("r1", audio: "twelve bytes")
+    @Test func aPassHandsTheFileOffWithoutWaiting() async throws {
+        let audio = try await captured("r1", audio: "twelve bytes")
         let engine = engine()
 
         await engine.transfer()
 
-        #expect(api.transfers == ["slot r1", "put r1", "confirm r1"])
+        #expect(api.transfers == ["slot r1"])
         #expect(api.slotRequests["r1"]?.bytes == 12)
         #expect(api.slotRequests["r1"]?.contentType == "audio/mp4")
-        #expect(api.putBodies["r1"]?.data == Data("twelve bytes".utf8))
-        #expect(api.putBodies["r1"]?.contentType == "audio/mp4")
+        #expect(transport.startedPuts == ["r1"])
+        let put = try #require(transport.puts.first)
+        #expect(put.file == audio)
+        #expect(put.contentType == "audio/mp4")
+        #expect(put.tag == UploadTaskTag(recordingID: "r1", userID: store.userID, step: .put, url: put.tag.url))
+        let file = try #require(try await file("r1"))
+        #expect(file.localState == .uploading)
+        #expect(file.handoff?.url == put.tag.url)
+        #expect(file.handoff?.confirmToken == "token-r1")
+        #expect(file.handoff?.contentType == "audio/mp4")
+        #expect(engine.transferStatus == .idle)
+        engine.stop()
+    }
+
+    @Test func aRunningHandoffGetsNoNewSlot() async throws {
+        let handoff = liveHandoff("r1")
+        try await insertHandedOffFile(store, "r1", handoff: handoff)
+        transport.running = [UploadTaskTag(recordingID: "r1", userID: store.userID, step: .put, url: handoff.url)]
+
+        await engine().transfer()
+
+        #expect(api.transfers.isEmpty)
+        #expect(transport.startedPuts.isEmpty)
+        #expect(try await file("r1")?.handoff == handoff)
+    }
+
+    @Test func aStoppedHandoffStartsAgain() async throws {
+        let handoff = liveHandoff("r1", attempts: 1)
+        try await insertHandedOffFile(store, "r1", handoff: handoff)
+
+        await engine().transfer()
+
+        #expect(api.transfers.isEmpty)
+        #expect(transport.startedPuts == ["r1"])
+        #expect(transport.puts.first?.tag.url == handoff.url)
+        #expect(try await file("r1")?.handoff == handoff)
+    }
+
+    @Test func aHandoffInItsBackoffWaits() async throws {
+        try await insertHandedOffFile(
+            store, "r1", handoff: liveHandoff("r1", attempts: 1),
+            nextAttemptAt: Timestamp(milliseconds: Timestamp.now.milliseconds + 60_000))
+
+        await engine().transfer()
+
+        #expect(api.transfers.isEmpty)
+        #expect(transport.startedPuts.isEmpty)
+    }
+
+    @Test func aLandedHandoffIsConfirmedDirectly() async throws {
+        try await insertHandedOffFile(store, "r1", handoff: liveHandoff("r1", putLanded: true))
+
+        await engine().transfer()
+
+        #expect(api.transfers == ["token-confirm r1 token-r1"])
+        #expect(transport.startedPuts.isEmpty)
+        #expect(transport.startedConfirms.isEmpty)
         let file = try #require(try await file("r1"))
         #expect(file.localState == .uploaded)
-        #expect(file.fileName == "r1.m4a")
-        #expect(engine.transferStatus == .idle)
+        #expect(file.handoff == nil)
+    }
+
+    @Test func aLandedHandoffWhoseConfirmFailsQueuesABackgroundConfirm() async throws {
+        api.transferFailures["token-confirm r1 token-r1"] = URLError(.networkConnectionLost)
+        try await insertHandedOffFile(store, "r1", handoff: liveHandoff("r1", putLanded: true))
+
+        await engine().transfer()
+
+        #expect(transport.startedPuts.isEmpty)
+        #expect(transport.startedConfirms == ["r1"])
+        #expect(transport.confirms.first?.token == "token-r1")
+        #expect(transport.confirms.first?.tag.step == .confirm)
+        let handoff = try #require(try await file("r1")?.handoff)
+        // The queued confirm's answer counts the try.
+        #expect(handoff.attempts == 0)
+        #expect(handoff.lastFailure == .network)
+    }
+
+    @Test func aConfirmOutageCostsOneAttemptPerPass() async throws {
+        api.transferFailures["token-confirm r1 token-r1"] = URLError(.networkConnectionLost)
+        try await insertHandedOffFile(store, "r1", handoff: liveHandoff("r1", putLanded: true))
+        let transfers = Transfers(store: store, api: api, checkStopped: {}, uploads: transport)
+
+        for pass in 1...2 {
+            _ = try await transfers.uploadPass()
+            let queued = try #require(transport.confirms.last)
+            transport.running = []
+            try await transfers.handle(UploadEvent(tag: queued.tag, outcome: .networkError))
+            #expect(try await file("r1")?.handoff?.attempts == pass)
+            // Ends the backoff, as its timer would.
+            try await store.write { writer in try writer.updateFile("r1") { $0.nextAttemptAt = nil } }
+        }
+
+        #expect(transport.startedConfirms == ["r1", "r1"])
+    }
+
+    @Test(arguments: [
+        (liveHandoff("r1", attempts: 1, lastFailure: .uploadStatus(500)), true),
+        (liveHandoff("r1", attempts: 1, putLanded: true, lastFailure: .confirmStatus(503)), true),
+        (liveHandoff("r1", attempts: 1, lastFailure: .network), false),
+        (liveHandoff("r1", attempts: UploadHandoff.takeBackAttempts, lastFailure: .uploadStatus(500)), true),
+    ])
+    func aHandoffWhoseLastAttemptFailedFailsThePass(handoff: UploadHandoff, reportable: Bool) async throws {
+        try await insertHandedOffFile(
+            store, "r1", handoff: handoff, nextAttemptAt: Timestamp(milliseconds: Timestamp.now.milliseconds + 60_000))
+        let transfers = Transfers(store: store, api: api, checkStopped: {}, uploads: transport)
+
+        let result = try await transfers.uploadPass()
+
+        let error = try #require(result.firstError)
+        // A network failure is one diagnostics never hears of, as when offline.
+        #expect(isReportableFailure(error) == reportable)
+    }
+
+    @Test func aHandoffWhosePutKeepsFailingShowsTheTransfersFailed() async throws {
+        try await captured("r1")
+        let engine = engine()
+        await engine.transfer()
+        let put = try #require(transport.puts.first)
+
+        await transport.finish(put.tag, .status(500))
+        await engine.transfer()
+
+        #expect(engine.transferStatus == .error)
+        engine.stop()
+    }
+
+    @Test func aLandedHandoffWhoseConfirmIsRefusedIsTakenBack() async throws {
+        api.transferFailures["token-confirm r1 token-r1"] = APIStatusError(status: 404, detail: "Not found.")
+        try await insertHandedOffFile(store, "r1", handoff: liveHandoff("r1", putLanded: true))
+
+        await engine().transfer()
+
+        #expect(api.transfers == ["token-confirm r1 token-r1"])
+        #expect(transport.startedConfirms.isEmpty)
+        let file = try #require(try await file("r1"))
+        #expect(file.localState == .captured)
+        #expect(file.handoff == nil)
+        #expect(file.error == "Not found.")
+        #expect(file.nextAttemptAt != nil)
+    }
+
+    @Test func anExpiredHandoffTakesANewSlot() async throws {
+        let expired = liveHandoff("r1", expiresAt: Timestamp(milliseconds: Timestamp.now.milliseconds - 1_000))
+        try await insertHandedOffFile(store, "r1", handoff: expired, uploadAttempts: 2)
+
+        await engine().transfer()
+
+        #expect(api.transfers == ["slot r1"])
+        #expect(transport.startedPuts == ["r1"])
+        let file = try #require(try await file("r1"))
+        #expect(file.localState == .uploading)
+        #expect(file.handoff != nil)
+        #expect(file.handoff != expired)
+        #expect(file.uploadAttempts == 2)
+    }
+
+    @Test func anExpiredHandoffWithARunningTaskStartsNoSecondUpload() async throws {
+        let expired = liveHandoff("r1", expiresAt: Timestamp(milliseconds: Timestamp.now.milliseconds - 1_000))
+        try await insertHandedOffFile(store, "r1", handoff: expired)
+        transport.running = [UploadTaskTag(recordingID: "r1", userID: store.userID, step: .put, url: expired.url)]
+
+        await engine().transfer()
+
+        #expect(transport.startedPuts == ["r1"])
+        #expect(transport.overlappingStarts.isEmpty)
+    }
+
+    @Test(arguments: [
+        liveHandoff("r1", refused: true, refusedStatus: 409), liveHandoff("r1", refused: true, refusedStatus: 404),
+        liveHandoff("r1", attempts: UploadHandoff.takeBackAttempts),
+        liveHandoff("r1", expiresAt: Timestamp(milliseconds: 0), attempts: UploadHandoff.takeBackAttempts),
+        liveHandoff("r1", expiresAt: Timestamp(milliseconds: 0), refused: true, refusedStatus: 409),
+    ])
+    func aHandoffTakenBackBacksOffBeforeANewSlot(handoff: UploadHandoff) async throws {
+        try await insertHandedOffFile(store, "r1", handoff: handoff, uploadAttempts: 2, error: "Refused.")
+        let before = Timestamp.now
+
+        await engine().transfer()
+
+        #expect(api.transfers.isEmpty)
+        #expect(transport.startedPuts.isEmpty)
+        let file = try #require(try await file("r1"))
+        #expect(file.localState == .captured)
+        #expect(file.handoff == nil)
+        #expect(file.uploadAttempts == 3)
+        #expect(file.error == "Refused.")
+        // Two failures before this one: 30 seconds doubled twice.
+        #expect(try #require(file.nextAttemptAt).milliseconds >= before.milliseconds + 120_000)
+    }
+
+    @Test(arguments: [
+        (Timestamp(Date().addingTimeInterval(3600)), "The upload does not match its size."),
+        (Timestamp(milliseconds: 0), "The upload does not match its size."),
+        (Timestamp(Date().addingTimeInterval(3600)), APIStatusError(status: 413).message),
+    ])
+    func aHandoffRefusedForItsSizeFailsTheFile(expiresAt: Timestamp, message: String) async throws {
+        let sink = RecordingAnalyticsSink()
+        try await insertHandedOffFile(
+            store, "r1", handoff: liveHandoff("r1", expiresAt: expiresAt, refused: true, refusedStatus: 413),
+            error: message)
+
+        await engine(analytics: sink.client).transfer()
+
+        #expect(api.transfers.isEmpty)
+        let file = try #require(try await file("r1"))
+        #expect(file.localState == .failedUpload)
+        #expect(file.handoff == nil)
+        #expect(file.error == message)
+        #expect(sink.captures.map(\.name) == ["upload_failed"])
+    }
+
+    @Test func aHandoffWithItsAudioGoneIsTakenBack() async throws {
+        try await insertHandedOffFile(store, "r1", handoff: liveHandoff("r1"))
+        try FileManager.default.removeItem(at: store.audioFolder.appending(path: "r1.m4a"))
+
+        await engine().transfer()
+
+        #expect(transport.startedPuts.isEmpty)
+        let file = try #require(try await file("r1"))
+        #expect(file.localState == .failedUpload)
+        #expect(file.handoff == nil)
+    }
+
+    @Test func aSlotGrantAfterAStopSavesNoHandoff() async throws {
+        try await captured("r1")
+        let engine = engine()
+        api.onTransfer = { entry in
+            if entry == "slot r1" { engine.stop() }
+        }
+
+        await engine.transfer()
+
+        #expect(api.transfers == ["slot r1"])
+        #expect(transport.startedPuts.isEmpty)
+        #expect(try await file("r1")?.handoff == nil)
     }
 
     @Test func holdsARecordingOverThreeHoursUntilItIsSplit() async throws {
@@ -110,7 +342,8 @@ import Testing
 
         await engine.transfer()
 
-        #expect(api.transfers == ["slot r2", "put r2", "confirm r2"])
+        #expect(api.transfers == ["slot r2"])
+        #expect(transport.startedPuts == ["r2"])
         #expect(try await file("r1")?.localState == .captured)
     }
 
@@ -122,7 +355,8 @@ import Testing
 
         await engine.transfer()
 
-        #expect(api.transfers == ["slot r2", "put r2", "confirm r2"])
+        #expect(api.transfers == ["slot r2"])
+        #expect(transport.startedPuts == ["r2"])
         #expect(try await file("r1")?.localState == .captured)
     }
 
@@ -134,7 +368,8 @@ import Testing
 
         await engine().transfer()
 
-        #expect(api.transfers == ["slot r1", "put r1", "confirm r1"])
+        #expect(api.transfers == ["slot r1"])
+        #expect(transport.startedPuts == ["r1"])
     }
 
     @Test func skipsAnImportRecordingThatHasNoFile() async throws {
@@ -199,7 +434,7 @@ import Testing
         #expect(file.localState == .failedUpload)
         #expect(file.error == "The file is too large.")
         #expect(file.uploadAttempts == 0)
-        #expect(try await self.file("r2")?.localState == .uploaded)
+        #expect(try await self.file("r2")?.localState == .uploading)
         #expect(engine.transferStatus == .idle)
     }
 
@@ -262,54 +497,17 @@ import Testing
         #expect(api.transfers.isEmpty)
     }
 
-    @Test func clearsTheBackoffOnceARetriedUploadLands() async throws {
+    @Test func keepsTheTryCountOnceARetriedFileIsHandedOff() async throws {
         try await captured("r1", attempts: 3, nextAttemptAt: Timestamp(milliseconds: 0))
 
         await engine().transfer()
 
         let file = try #require(try await file("r1"))
-        #expect(file.localState == .uploaded)
-        #expect(file.uploadAttempts == 0)
+        #expect(file.localState == .uploading)
+        #expect(file.handoff != nil)
+        #expect(file.uploadAttempts == 3)
         #expect(file.nextAttemptAt == nil)
         #expect(file.error == nil)
-    }
-
-    @Test func asksForAFreshSlotWhenConfirmationFindsNoFile() async throws {
-        try await captured("r1")
-        api.transferFailures["confirm r1"] = APIStatusError(status: 409)
-        let engine = engine()
-
-        await engine.transfer()
-
-        let file = try #require(try await file("r1"))
-        #expect(file.localState == .captured)
-        #expect(file.uploadAttempts == 1)
-        #expect(engine.transferStatus == .idle)
-    }
-
-    @Test func failsAConfirmationTheServerRefusesForItsSize() async throws {
-        try await captured("r1")
-        api.transferFailures["confirm r1"] = APIStatusError(status: 413, detail: "The upload does not match its size.")
-
-        await engine().transfer()
-
-        let file = try #require(try await file("r1"))
-        #expect(file.localState == .failedUpload)
-        #expect(file.error == "The upload does not match its size.")
-    }
-
-    @Test func reportsAFailedPutAsATransferError() async throws {
-        try await captured("r1")
-        api.transferFailures["put r1"] = TransferError(status: 403)
-        let engine = engine()
-
-        await engine.transfer()
-
-        let file = try #require(try await file("r1"))
-        #expect(file.localState == .captured)
-        #expect(file.error == TransferError(status: 403).message)
-        #expect(engine.transferStatus == .error)
-        engine.stop()
     }
 
     @Test func retriesAFileLeftUploading() async throws {
@@ -317,7 +515,8 @@ import Testing
 
         await engine().transfer()
 
-        #expect(api.transfers == ["slot r1", "put r1", "confirm r1"])
+        #expect(api.transfers == ["slot r1"])
+        #expect(transport.startedPuts == ["r1"])
     }
 
     @Test func holdsTheFirstTransientErrorAndStillSendsTheRest() async throws {
@@ -328,7 +527,7 @@ import Testing
 
         await engine.transfer()
 
-        #expect(try await file("r2")?.localState == .uploaded)
+        #expect(try await file("r2")?.localState == .uploading)
         #expect(engine.transferStatus == .error)
         engine.stop()
     }
@@ -356,7 +555,7 @@ import Testing
 
         try await store.setMeta(.storage, to: StorageUsage(usedBytes: 50, quotaBytes: 100, maxFileBytes: 50))
         await engine.transfer()
-        #expect(api.transfers == ["slot r1", "put r1", "confirm r1"])
+        #expect(api.transfers == ["slot r1"])
     }
 
     @Test func aStopMidPassSendsNoFurtherRequest() async throws {
@@ -376,23 +575,11 @@ import Testing
         #expect(states.contains(.uploaded) == false)
     }
 
-    @Test func aStopDuringThePutSendsNoConfirm() async throws {
-        try await captured("r1")
-        let engine = engine()
-        api.onTransfer = { entry in
-            if entry == "put r1" { engine.stop() }
-        }
-
-        await engine.transfer()
-
-        #expect(api.transfers == ["slot r1", "put r1"])
-    }
-
     @Test func aStoppedPassSendsNoSlotOrDownloadRequest() async throws {
         try await captured("r1")
         try await ready("d1")
         try await store.setMeta(.keepOffline, to: true)
-        let stopped = Transfers(store: store, api: api, checkStopped: { throw RunStopped() })
+        let stopped = Transfers(store: store, api: api, checkStopped: { throw RunStopped() }, uploads: transport)
 
         await #expect(throws: RunStopped.self) { _ = try await stopped.uploadPass() }
         await #expect(throws: RunStopped.self) {
@@ -824,7 +1011,7 @@ import Testing
     @Test func aStoppedDownloadWritesNothing() async throws {
         let stamp = later(1)
         try await ready("d1", file: RecordingFile(id: "d1", localState: .uploaded, updatedAt: stamp))
-        let stopped = Transfers(store: store, api: api, checkStopped: { throw RunStopped() })
+        let stopped = Transfers(store: store, api: api, checkStopped: { throw RunStopped() }, uploads: transport)
 
         await #expect(throws: RunStopped.self) { _ = try await stopped.downloadOne("d1") }
 
@@ -842,7 +1029,7 @@ import Testing
             checkStopped: {
                 checks.count += 1
                 if checks.count > 1 { throw RunStopped() }
-            })
+            }, uploads: transport)
 
         await #expect(throws: RunStopped.self) { _ = try await transfers.downloadOne("d1") }
 

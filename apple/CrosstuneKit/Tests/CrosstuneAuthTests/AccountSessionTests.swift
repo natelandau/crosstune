@@ -333,6 +333,8 @@ final class LeaveLog: LeavingSync {
     }
 
     func resume() { steps.append("resume") }
+
+    func cancelUploads() async { steps.append("cancel uploads") }
 }
 
 struct ClerkFailed: Error {}
@@ -374,7 +376,7 @@ struct ClerkFailed: Error {}
     @Test func signOutSyncsThenStopsThenEndsTheSessionThenDeletesTheFolder() async throws {
         try await leave()
 
-        #expect(log.steps == ["sync", "stop", "stopped", "end session"])
+        #expect(log.steps == ["sync", "stop", "stopped", "end session", "cancel uploads"])
         #expect(log.removedExports)
         #expect(folderExists == false)
     }
@@ -417,7 +419,7 @@ struct ClerkFailed: Error {}
     @Test func signOutKeepsTheFolderForAnEditMadeWhileTheSessionEnds() async throws {
         try await leave { try await queueChange() }
 
-        #expect(log.steps == ["sync", "stop", "stopped", "end session"])
+        #expect(log.steps == ["sync", "stop", "stopped", "end session", "cancel uploads"])
         #expect(folderExists)
         #expect(store.isClosed)
     }
@@ -444,7 +446,7 @@ struct ClerkFailed: Error {}
 
         try await leave()
 
-        #expect(log.steps == ["sync", "stop", "stopped", "end session"])
+        #expect(log.steps == ["sync", "stop", "stopped", "end session", "cancel uploads"])
         #expect(folderExists == false)
     }
 
@@ -545,7 +547,7 @@ struct ClerkFailed: Error {}
     @Test func deletingStopsSyncBeforeTheRequest() async throws {
         try await deleteAndLeave()
 
-        #expect(log.steps == ["stop", "stopped", "deleteRemote", "end session"])
+        #expect(log.steps == ["stop", "stopped", "deleteRemote", "end session", "cancel uploads"])
         #expect(log.removedExports)
         #expect(folderExists == false)
     }
@@ -635,7 +637,7 @@ struct ClerkFailed: Error {}
 
         await forgetDeleted()
 
-        #expect(log.steps == ["stop", "stopped", "end session"])
+        #expect(log.steps == ["stop", "stopped", "end session", "cancel uploads"])
         #expect(log.removedExports)
         #expect(folderExists == false)
     }
@@ -1134,6 +1136,57 @@ private let signedUpAt = Date(timeIntervalSince1970: 1_791_374_400)
     #expect(AccountSession.foldersInUse(signedIn: "user_a", open: nil, opening: nil, closing: []) == ["user_a"])
 }
 
+@MainActor
+@Test func folderCleanupCancelsTheUploadsOfEveryUserWhoseFolderGoes() async throws {
+    let root = TemporaryRoot()
+    let folders = try ["user_a", "user_b"].map { userID in
+        let folder = try root.folder().appending(path: userID, directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        return folder
+    }
+    let uploads = CancelRecordingUploads(watching: folders[1])
+
+    try await AccountSession.deleteFolders(root: root.url, uploads: uploads) { ["user_a"] }
+
+    #expect(uploads.keptUserIDs == [["user_a"]])
+    #expect(uploads.watchedFolderExistedAtCancel == true)
+    #expect(folderExists(folders[0]))
+    #expect(folderExists(folders[1]) == false)
+}
+
+private func folderExists(_ folder: URL) -> Bool {
+    FileManager.default.fileExists(atPath: folder.path(percentEncoded: false))
+}
+
+/// Records each cancel of other users' uploads, and whether `watched` still existed then; every
+/// other call does nothing.
+@MainActor
+private final class CancelRecordingUploads: RecordingUploadTransport {
+    private let watched: URL
+    private(set) var keptUserIDs: [Set<String>] = []
+    private(set) var watchedFolderExistedAtCancel: Bool?
+
+    init(watching watched: URL) {
+        self.watched = watched
+    }
+
+    func startPut(_ tag: UploadTaskTag, file: URL, contentType: String) {}
+    func startConfirm(_ tag: UploadTaskTag, token: String) {}
+    func runningRecordingIDs(userID: String) async -> Set<String> { [] }
+    func cancel(recordingIDs: Set<String>, userID: String) async {}
+    func cancelAll(userID: String) async {}
+    func cancelAll(exceptUserIDs userIDs: Set<String>) async {
+        keptUserIDs.append(userIDs)
+        watchedFolderExistedAtCancel = folderExists(watched)
+    }
+    func attach(
+        userID: String, handler: @escaping @MainActor (UploadEvent) async -> Void
+    ) -> UploadHandlerAttachment {
+        UploadHandlerAttachment(userID: userID)
+    }
+    func detach(_ attachment: UploadHandlerAttachment) {}
+}
+
 @Test func aStoreOpenedOnlineDoesNotFireAgainForTheSameConnection() {
     // Opening a store resets the edge to the current state, since the launch sync covers it.
     var edge = ConnectivityEdge(wasOffline: false)
@@ -1183,10 +1236,10 @@ final class CountingSyncAPI: SyncAPI {
     }
     func reversePlace(lat: Double, lon: Double) async throws -> ReversedPlace? { nil }
 
-    func requestUploadSlot(recordingID: String, bytes: Int64, contentType: String) async throws -> URL {
+    func requestUploadSlot(recordingID: String, bytes: Int64, contentType: String) async throws -> UploadSlot {
         throw URLError(.badURL)
     }
-    func uploadFinished(recordingID: String) async throws { throw URLError(.badURL) }
+    func confirmUpload(recordingID: String, token: String) async throws { throw URLError(.badURL) }
     func downloadURL(recordingID: String) async throws -> DownloadURL { throw URLError(.badURL) }
     func peaksURL(recordingID: String) async throws -> PeaksURL { throw URLError(.badURL) }
     func retryRecording(recordingID: String) async throws { throw URLError(.badURL) }
@@ -1227,9 +1280,10 @@ final class Offline {
         let offline = offline
         // Retries wait for good, so every run a test sees comes from a trigger.
         let engine = SyncEngine(
-            store: store, api: api, isOffline: { offline.isOn }, batchSize: batchSize,
+            store: store, api: api, uploads: UploadsDisabled(), isOffline: { offline.isOn }, batchSize: batchSize,
             sleep: { _ in try await Task.sleep(for: .seconds(86_400)) })
-        return SessionSync(store: store, engine: engine, isActive: true, isOffline: offline.isOn)
+        return SessionSync(
+            store: store, engine: engine, uploads: UploadsDisabled(), isActive: true, isOffline: offline.isOn)
     }
 
     @Test func resumingAfterAFailedSignOutDoesNotSyncByItself() async throws {
@@ -1349,7 +1403,11 @@ private final class UpdateRequiredTransport: ClientTransport {
         analytics: .noop, transport: transport, onUnauthorized: {}, onAccountDeleted: {},
         onUpdateRequired: { await MainActor.run { updateRequired.isOn = true } })
     let engine = SyncEngine(
-        store: store, api: LiveSyncAPI(client: client), isOffline: { updateRequired.isOn },
+        store: store,
+        api: LiveSyncAPI(
+            client: client,
+            tokenClient: .tokenConfirm(origin: URL(string: "https://api.example.com")!, transport: transport)),
+        uploads: UploadsDisabled(), isOffline: { updateRequired.isOn },
         sleep: { _ in try await Task.sleep(for: .seconds(86_400)) })
 
     await engine.sync()

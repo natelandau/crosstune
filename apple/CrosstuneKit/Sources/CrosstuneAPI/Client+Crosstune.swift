@@ -52,4 +52,16 @@ extension Client {
             ]
         )
     }
+
+    /// The API client that confirms an upload with the slot's token alone: the API's date format
+    /// and gateway retries while the API wakes from sleep, and no session token, so a background
+    /// wake never reads the signed-in session.
+    /// `transport` replaces URLSession in tests.
+    public static func tokenConfirm(
+        origin: URL, transport: any ClientTransport = URLSessionTransport.crosstune
+    ) -> Client {
+        Client(
+            serverURL: origin, configuration: .crosstune, transport: transport,
+            middlewares: [GatewayRetryMiddleware()])
+    }
 }

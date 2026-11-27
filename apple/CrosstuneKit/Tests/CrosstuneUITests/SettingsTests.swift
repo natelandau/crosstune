@@ -29,10 +29,10 @@ private struct SilentSyncAPI: SyncAPI {
     func reversePlace(lat: Double, lon: Double) async throws -> ReversedPlace? {
         throw URLError(.badURL)
     }
-    func requestUploadSlot(recordingID: String, bytes: Int64, contentType: String) async throws -> URL {
+    func requestUploadSlot(recordingID: String, bytes: Int64, contentType: String) async throws -> UploadSlot {
         throw URLError(.badURL)
     }
-    func uploadFinished(recordingID: String) async throws { throw URLError(.badURL) }
+    func confirmUpload(recordingID: String, token: String) async throws { throw URLError(.badURL) }
     func downloadURL(recordingID: String) async throws -> DownloadURL { throw URLError(.badURL) }
     func peaksURL(recordingID: String) async throws -> PeaksURL { throw URLError(.badURL) }
     func retryRecording(recordingID: String) async throws { throw URLError(.badURL) }
@@ -368,7 +368,7 @@ private func instrumentSummary(_ model: SettingsModel) -> String {
         let store = try root.open()
         let counter = TransferCounter()
         let engine = SyncEngine(
-            store: store, api: SilentSyncAPI(), isOffline: { false }, batchSize: 10,
+            store: store, api: SilentSyncAPI(), uploads: UploadsDisabled(), isOffline: { false }, batchSize: 10,
             sleep: { _ in }, transferPass: { counter.count += 1 })
         let model = try await loadedModel(store, engine: engine)
 
@@ -397,7 +397,8 @@ private func instrumentSummary(_ model: SettingsModel) -> String {
     @Test func syncsOnRequest() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
-        let engine = SyncEngine(store: store, api: SilentSyncAPI(), isOffline: { false }, sleep: { _ in })
+        let engine = SyncEngine(
+            store: store, api: SilentSyncAPI(), uploads: UploadsDisabled(), isOffline: { false }, sleep: { _ in })
         let model = try await loadedModel(store, engine: engine)
         #expect(engine.lastSyncedAt == nil)
         #expect(await model.syncNow())
@@ -409,7 +410,8 @@ private func instrumentSummary(_ model: SettingsModel) -> String {
     @Test func aSyncThatEndsOfflineIsNotClean() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
-        let engine = SyncEngine(store: store, api: SilentSyncAPI(), isOffline: { true }, sleep: { _ in })
+        let engine = SyncEngine(
+            store: store, api: SilentSyncAPI(), uploads: UploadsDisabled(), isOffline: { true }, sleep: { _ in })
         let model = try await loadedModel(store, engine: engine)
         #expect(await model.syncNow() == false)
         #expect(engine.status == .offline)

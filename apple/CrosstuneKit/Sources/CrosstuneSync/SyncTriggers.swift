@@ -40,9 +40,7 @@ public final class SyncTriggers {
     /// - Parameter isActive: Whether the app is in the foreground now, or nil when it has not
     ///   said yet.
     public convenience init(engine: SyncEngine, store: CrosstuneStore, isActive: Bool?) {
-        self.init(store: store, isActive: isActive) { [weak engine] in
-            Task { await engine?.sync() }
-        }
+        self.init(store: store, isActive: isActive, sync: { [weak engine] in Task { await engine?.sync() } })
     }
 
     /// - Parameters:
@@ -51,7 +49,7 @@ public final class SyncTriggers {
     init(
         store: CrosstuneStore,
         isActive: Bool?,
-        sleep: @escaping Sleeper = { try await Task.sleep(for: $0) },
+        sleep: @escaping Sleeper = liveSleeper,
         sync: @escaping @MainActor () -> Void
     ) {
         self.store = store
@@ -101,6 +99,12 @@ public final class SyncTriggers {
         isActive = active
         guard started else { return }
         if returned { sync() }
+        // The app may be suspended before the debounce ends, so a pending edit goes now.
+        if !active, let debounce {
+            debounce.cancel()
+            self.debounce = nil
+            sync()
+        }
         updatePolling()
     }
 
@@ -143,6 +147,12 @@ public final class SyncTriggers {
         outboxCount = count
         guard started, count > 0 else { return }
         debounce?.cancel()
+        debounce = nil
+        // A backgrounded app can be suspended during any wait.
+        if isActive == false {
+            sync()
+            return
+        }
         let sleep = sleep
         debounce = Task { [weak self] in
             do {

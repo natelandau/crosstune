@@ -46,10 +46,10 @@ private struct FailingEventsAPI: SyncAPI {
     func reversePlace(lat: Double, lon: Double) async throws -> ReversedPlace? {
         throw URLError(.badURL)
     }
-    func requestUploadSlot(recordingID: String, bytes: Int64, contentType: String) async throws -> URL {
+    func requestUploadSlot(recordingID: String, bytes: Int64, contentType: String) async throws -> UploadSlot {
         throw URLError(.badURL)
     }
-    func uploadFinished(recordingID: String) async throws { throw URLError(.badURL) }
+    func confirmUpload(recordingID: String, token: String) async throws { throw URLError(.badURL) }
     func downloadURL(recordingID: String) async throws -> DownloadURL { throw URLError(.badURL) }
     func peaksURL(recordingID: String) async throws -> PeaksURL { throw URLError(.badURL) }
     func scanUploadSlot(scanID: String, bytes: Int64) async throws -> SignedURL { throw URLError(.badURL) }
@@ -236,7 +236,8 @@ private func loadedSummary(_ store: CrosstuneStore, sourceLocation: SourceLocati
         let store = try root.open()
         try await store.write { try addTune($0, "t1", "Sally Ann") }
         let api = FailingEventsAPI()
-        let engine = SyncEngine(store: store, api: api, isOffline: { false }, sleep: { _ in })
+        let engine = SyncEngine(
+            store: store, api: api, uploads: UploadsDisabled(), isOffline: { false }, sleep: { _ in })
         let model = try await loaded(store, engine: engine)
         await model.appeared()?.value
         #expect(model.appeared() == nil)

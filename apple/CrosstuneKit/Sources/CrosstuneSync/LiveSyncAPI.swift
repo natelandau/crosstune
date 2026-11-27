@@ -6,6 +6,7 @@ import OpenAPIRuntime
 /// ``SyncAPI`` over the generated API client, with recording files moved by `URLSession`.
 public struct LiveSyncAPI: SyncAPI {
     let client: Client
+    let tokenClient: Client
     let session: URLSession
     let storageOrigin: URL?
     /// How long one events page may take. A sync run waits behind an events pull, so a stalled
@@ -14,12 +15,15 @@ public struct LiveSyncAPI: SyncAPI {
     var eventsTimeout: Duration = .seconds(30)
 
     /// - Parameters:
+    ///   - tokenClient: Sends the token confirm. It carries no session token, so a background
+    ///     wake confirms an upload without reading the signed-in session.
     ///   - session: Moves recording files to and from their signed URLs.
     ///   - storageOrigin: Where a signed URL that names only a path resolves, as a browser
     ///     resolves it against the page. A local API signs storage URLs as `/storage/...` for
     ///     the web dev server's proxy; a hosted API signs absolute URLs and needs none.
-    public init(client: Client, session: URLSession = .crosstune, storageOrigin: URL? = nil) {
+    public init(client: Client, tokenClient: Client, session: URLSession = .crosstune, storageOrigin: URL? = nil) {
         self.client = client
+        self.tokenClient = tokenClient
         self.session = session
         self.storageOrigin = storageOrigin
     }
@@ -152,12 +156,16 @@ public struct LiveSyncAPI: SyncAPI {
         }
     }
 
-    public func requestUploadSlot(recordingID: String, bytes: Int64, contentType: String) async throws -> URL {
+    public func requestUploadSlot(recordingID: String, bytes: Int64, contentType: String) async throws -> UploadSlot {
         let input = Operations.UploadSlotV1RecordingsRecordingIdUploadSlotPost.Input(
             path: .init(recordingId: recordingID),
             body: .json(.init(bytes: Int(bytes), contentType: contentType)))
         switch try await client.uploadSlotV1RecordingsRecordingIdUploadSlotPost(input) {
-        case .ok(let response): return try signedURL(try response.body.json.url)
+        case .ok(let response):
+            let grant = try response.body.json
+            return UploadSlot(
+                url: try signedURL(grant.url), confirmToken: grant.confirmToken,
+                expiresAt: Timestamp(grant.expiresAt))
         case .forbidden(let response): throw Self.refusal(403, try? response.body.applicationProblemJson)
         case .notFound(let response): throw Self.refusal(404, try? response.body.applicationProblemJson)
         case .conflict(let response): throw Self.refusal(409, try? response.body.applicationProblemJson)
@@ -172,10 +180,10 @@ public struct LiveSyncAPI: SyncAPI {
         }
     }
 
-    public func uploadFinished(recordingID: String) async throws {
-        let input = Operations.UploadFinishedV1RecordingsRecordingIdUploadedPost.Input(
-            path: .init(recordingId: recordingID))
-        switch try await client.uploadFinishedV1RecordingsRecordingIdUploadedPost(input) {
+    public func confirmUpload(recordingID: String, token: String) async throws {
+        let input = Operations.UploadedWithTokenV1RecordingsRecordingIdUploadedWithTokenPost.Input(
+            path: .init(recordingId: recordingID), headers: .init(xUploadToken: token))
+        switch try await tokenClient.uploadedWithTokenV1RecordingsRecordingIdUploadedWithTokenPost(input) {
         case .noContent: return
         case .notFound(let response): throw Self.refusal(404, try? response.body.applicationProblemJson)
         case .conflict(let response): throw Self.refusal(409, try? response.body.applicationProblemJson)

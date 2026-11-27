@@ -24,7 +24,8 @@ import Testing
     ) -> SyncEngine {
         // The transfer loop has its own suite; a real pass here would add its own backoff sleeps.
         SyncEngine(
-            store: store, api: api, isOffline: isOffline, batchSize: batchSize, sleep: sleeper.sleep, transferPass: {},
+            store: store, api: api, uploads: FakeUploadTransport(), isOffline: isOffline, batchSize: batchSize,
+            sleep: sleeper.sleep, transferPass: {},
             now: now)
     }
 
@@ -612,7 +613,8 @@ import Testing
     @Test func runsTheTransferLoopOnceAfterEachSync() async throws {
         let transfers = Counter()
         let engine = SyncEngine(
-            store: store, api: api, isOffline: { false }, batchSize: SyncEngine.pushBatchSize, sleep: sleeper.sleep,
+            store: store, api: api, uploads: FakeUploadTransport(), isOffline: { false },
+            batchSize: SyncEngine.pushBatchSize, sleep: sleeper.sleep,
             transferPass: { transfers.count += 1 })
 
         await engine.sync()
@@ -622,6 +624,60 @@ import Testing
 
         #expect(transfers.count == 2)
         #expect(engine.transferStatus == .idle)
+    }
+
+    @Test func aRunWhileTheAppIsNotActiveHoldsBackgroundTimeUntilItsTransfersEnd() async throws {
+        let holds = HoldLog()
+        let heldDuringTransfer = Counter()
+        let engine = SyncEngine(
+            store: store, api: api, uploads: FakeUploadTransport(), isOffline: { false },
+            batchSize: SyncEngine.pushBatchSize, sleep: sleeper.sleep, holdBackgroundTime: { holds.take($0) },
+            transferPass: { heldDuringTransfer.count = holds.held })
+        engine.setActive(false)
+
+        await engine.sync()
+
+        try await eventually { holds.ended == 1 }
+        #expect(heldDuringTransfer.count == 1)
+        #expect(holds.names == [SyncEngine.backgroundTimeName])
+        engine.stop()
+    }
+
+    @Test func aRunWhileTheAppIsActiveHoldsNoBackgroundTime() async throws {
+        let holds = HoldLog()
+        let transfers = Counter()
+        let engine = SyncEngine(
+            store: store, api: api, uploads: FakeUploadTransport(), isOffline: { false },
+            batchSize: SyncEngine.pushBatchSize, sleep: sleeper.sleep, holdBackgroundTime: { holds.take($0) },
+            transferPass: { transfers.count += 1 })
+        engine.setActive(true)
+
+        await engine.sync()
+
+        try await eventually { transfers.count == 1 }
+        #expect(holds.names.isEmpty)
+        engine.stop()
+    }
+
+    @Test func leavingTheForegroundMidRunHoldsBackgroundTimeUntilTheRunEnds() async throws {
+        let holds = HoldLog()
+        let gate = Gate()
+        let engine = SyncEngine(
+            store: store, api: api, uploads: FakeUploadTransport(), isOffline: { false },
+            batchSize: SyncEngine.pushBatchSize, sleep: sleeper.sleep, holdBackgroundTime: { holds.take($0) },
+            transferPass: { await gate.wait() })
+        engine.setActive(true)
+        let transfer = Task { await engine.transfer() }
+        try await eventually { gate.isWaiting }
+
+        engine.setActive(false)
+        #expect(holds.held == 1)
+
+        gate.open()
+        await transfer.value
+        #expect(holds.ended == 1)
+        #expect(holds.names.count == 1)
+        engine.stop()
     }
 
     @Test func keepsARunCleanWhenTheLastSyncTimeCannotBeSaved() async throws {

@@ -25,7 +25,8 @@ import Testing
     private func engine(transferPass: @escaping @MainActor () async throws -> Void = {}) -> SyncEngine {
         let clock = clock
         return SyncEngine(
-            store: store, api: api, isOffline: { false }, batchSize: SyncEngine.pushBatchSize,
+            store: store, api: api, uploads: FakeUploadTransport(), isOffline: { false },
+            batchSize: SyncEngine.pushBatchSize,
             sleep: sleeper.sleep, transferPass: transferPass, diagnostics: sink.client, now: { clock.now })
     }
 
@@ -114,10 +115,12 @@ extension TransfersTests {
         #expect((sink.reports.first?.error as? APIStatusError)?.status == 422)
     }
 
-    @Test func oversizedConfirmationReportsUpload() async throws {
+    @Test(arguments: [Timestamp(Date().addingTimeInterval(3600)), Timestamp(milliseconds: 0)])
+    func oversizedConfirmationReportsUpload(expiresAt: Timestamp) async throws {
         let sink = RecordingDiagnosticsSink()
-        try await captured("r1")
-        api.transferFailures["confirm r1"] = APIStatusError(status: 413, detail: "The upload does not match its size.")
+        try await insertHandedOffFile(
+            store, "r1", handoff: liveHandoff("r1", expiresAt: expiresAt, refused: true, refusedStatus: 413),
+            error: "The upload does not match its size.")
 
         await engine(diagnostics: sink.client).transfer()
 

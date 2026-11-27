@@ -11,19 +11,31 @@ protocol LeavingSync: AnyObject {
     func stop() async
     /// Undoes ``stop()`` when leaving fails.
     func resume()
+    /// Cancels the user's recording uploads still running in the system, so none outlives the
+    /// session that started it.
+    func cancelUploads() async
 }
 
 /// The sync engine for one open store, and the triggers that run it.
 @MainActor
 final class SessionSync: LeavingSync {
     let engine: SyncEngine
+    private let uploads: any RecordingUploadTransport
+    private let userID: String
     private let triggers: SyncTriggers
     private var connectivity: ConnectivityEdge
 
+    /// - Parameter uploads: The transport that holds the user's recording uploads.
     /// - Parameter isOffline: Whether the app is offline now. The launch sync covers the
     ///   current connection, so only a later return to online syncs again.
-    init(store: CrosstuneStore, engine: SyncEngine, isActive: Bool?, isOffline: Bool) {
+    init(
+        store: CrosstuneStore, engine: SyncEngine, uploads: any RecordingUploadTransport, isActive: Bool?,
+        isOffline: Bool
+    ) {
         self.engine = engine
+        self.uploads = uploads
+        userID = store.userID
+        if let isActive { engine.setActive(isActive) }
         triggers = SyncTriggers(engine: engine, store: store, isActive: isActive)
         connectivity = ConnectivityEdge(wasOffline: isOffline)
         triggers.start()
@@ -42,6 +54,10 @@ final class SessionSync: LeavingSync {
         engine.resume()
     }
 
+    func cancelUploads() async {
+        await uploads.cancelAll(userID: userID)
+    }
+
     /// Stops the triggers and the engine for good. A run in flight ends at its next request;
     /// ``finished()`` waits for it.
     func shutDown() {
@@ -55,6 +71,9 @@ final class SessionSync: LeavingSync {
     }
 
     func setActive(_ active: Bool) {
+        // The engine first, so a sync the triggers start on leaving the foreground holds
+        // background time.
+        engine.setActive(active)
         triggers.setActive(active)
     }
 

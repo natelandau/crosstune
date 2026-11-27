@@ -19,7 +19,7 @@ import Testing
 
     func triggers(isActive: Bool? = true) -> SyncTriggers {
         let syncs = syncs
-        return SyncTriggers(store: store, isActive: isActive, sleep: sleeper.sleep) { syncs.count += 1 }
+        return SyncTriggers(store: store, isActive: isActive, sleep: sleeper.sleep, sync: { syncs.count += 1 })
     }
 
     func putRecording(id: String = "r1", state: String) async throws {
@@ -208,5 +208,48 @@ import Testing
         #expect(triggers.isPolling == false)
         try await eventually { sleeper.pendingCount == 0 }
         triggers.stop()
+    }
+
+    @Test func anEditInTheBackgroundSyncsAtOnce() async throws {
+        let triggers = triggers(isActive: false)
+        try await started(triggers)
+        try await createTune(store, title: "A")
+
+        try await eventually { syncs.count == 2 }
+        #expect(sleeper.requested.isEmpty)
+        #expect(!triggers.isDebouncing)
+        triggers.stop()
+    }
+
+    @Test func leavingTheForegroundFlushesAPendingEdit() async throws {
+        let triggers = triggers(isActive: true)
+        try await started(triggers)
+        try await createTune(store, title: "A")
+        try await eventually { triggers.isDebouncing }
+        #expect(syncs.count == 1)
+
+        triggers.setActive(false)
+        #expect(syncs.count == 2)
+        #expect(!triggers.isDebouncing)
+        triggers.stop()
+    }
+}
+
+@MainActor final class HoldLog {
+    private(set) var names: [String] = []
+    private(set) var ended = 0
+
+    /// How many holds are taken and not yet ended.
+    var held: Int { names.count - ended }
+
+    func take(_ name: String) -> any BackgroundTimeHold {
+        names.append(name)
+        return Hold(log: self)
+    }
+
+    private final class Hold: BackgroundTimeHold {
+        let log: HoldLog
+        init(log: HoldLog) { self.log = log }
+        func end() { log.ended += 1 }
     }
 }
