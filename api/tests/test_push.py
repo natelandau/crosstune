@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 
 import pytest
 from sqlalchemy import Integer, event, func, literal, select, text
 
+from crosstune.db.base import utc_now
 from crosstune.models import (
     ListItem,
     PracticeSession,
@@ -17,7 +19,7 @@ from crosstune.models import (
     UserTune,
 )
 from crosstune.schemas.common import Change
-from crosstune.sync.push import _write
+from crosstune.sync.push import CLIENT_CLOCK_TOLERANCE, _write
 from crosstune.sync.rules import settings_id
 from tests.helpers import T0, T1, T2, USER_A_SETTINGS, change, pull, push, recording, uid
 
@@ -84,6 +86,49 @@ async def test_newer_write_is_applied(client, auth_headers, verify_session: Asyn
     assert results[0]["status"] == "applied"
     tune = await verify_session.get(Tune, uuid.UUID(tune_id))
     assert tune.title == "Second"
+
+
+@pytest.mark.parametrize(("op", "deleted"), [("upsert", False), ("delete", True)])
+async def test_a_write_stamped_past_the_tolerance_is_stored_at_the_ceiling(
+    client, auth_headers, verify_session: AsyncSession, *, op: str, deleted: bool
+) -> None:
+    tune_id = uid()
+    await push(client, auth_headers("user_a"), change("tunes", tune_id, T0, title="First"))
+    before = utc_now()
+    results = await push(
+        client,
+        auth_headers("user_a"),
+        change("tunes", tune_id, before + timedelta(days=365), op, title="Ahead"),
+    )
+    after = utc_now()
+    assert results[0]["status"] == "applied"
+    tune = await verify_session.get(Tune, uuid.UUID(tune_id))
+    assert before + CLIENT_CLOCK_TOLERANCE <= tune.updated_at <= after + CLIENT_CLOCK_TOLERANCE
+    assert datetime.fromisoformat(results[0]["row"]["updated_at"]) == tune.updated_at
+    assert tune.deleted_at == (tune.updated_at if deleted else None)
+
+
+async def test_a_correct_clock_beats_a_write_from_a_fast_clock(client, auth_headers) -> None:
+    tune_id = uid()
+    fast_clock = utc_now() + timedelta(days=365)
+    await push(client, auth_headers("user_a"), change("tunes", tune_id, fast_clock, title="Ahead"))
+    results = await push(
+        client,
+        auth_headers("user_a"),
+        change("tunes", tune_id, utc_now() + CLIENT_CLOCK_TOLERANCE, title="Correct clock"),
+    )
+    assert results[0]["status"] == "applied"
+    assert results[0]["row"]["title"] == "Correct clock"
+
+
+async def test_a_timestamp_without_a_zone_is_judged_as_utc(client, auth_headers) -> None:
+    body = change("tunes", uid(), utc_now() + timedelta(days=365), title="No zone")
+    body["updated_at"] = body["updated_at"].removesuffix("+00:00")
+    results = await push(client, auth_headers("user_a"), body)
+    after = utc_now()
+    assert results[0]["status"] == "applied"
+    stored = datetime.fromisoformat(results[0]["row"]["updated_at"])
+    assert stored <= after + CLIENT_CLOCK_TOLERANCE
 
 
 async def test_replay_is_a_no_op(client, auth_headers, verify_session: AsyncSession) -> None:

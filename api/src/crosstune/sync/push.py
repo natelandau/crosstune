@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from datetime import timedelta
 from typing import TYPE_CHECKING, Any, cast
 
 import asyncpg
@@ -13,7 +14,7 @@ from sqlalchemy.exc import DBAPIError, IntegrityError
 from sqlalchemy.orm.util import identity_key
 
 from crosstune.billing.access import access_for
-from crosstune.db.base import next_server_seq
+from crosstune.db.base import next_server_seq, utc_now
 from crosstune.db.locks import lock_user
 from crosstune.db.session import request_runner_wake
 from crosstune.models import List, ListItem, Recording
@@ -30,6 +31,11 @@ from crosstune.sync.tables import (
     scrub_values,
 )
 from crosstune.vocabulary import SERVER_WRITTEN
+
+# How far past server time a client's updated_at may run. A later stamp is cut to this
+# ceiling, so a device whose clock runs fast cannot win every conflict until real time
+# catches up with it.
+CLIENT_CLOCK_TOLERANCE = timedelta(minutes=5)
 
 if TYPE_CHECKING:
     import uuid
@@ -72,6 +78,8 @@ async def apply_push(
     await lock_user(session, user_id, wait_seconds=lock_wait_seconds)
     # Resolved under the lock, so a grant change commits wholly before or after this push.
     access = await access_for(session, user_id, settings)
+    ceiling = utc_now() + CLIENT_CLOCK_TOLERANCE
+    changes = [_capped(change=change, ceiling=ceiling) for change in changes]
 
     grouped: dict[TableName, list[tuple[int, Change]]] = defaultdict(list)
     for index, change in enumerate(changes):
@@ -104,6 +112,13 @@ async def apply_push(
     ordered = [results[i] for i in range(len(changes))]
     await ensure_split_jobs(session, _split_parents(changes, ordered))
     return ordered
+
+
+def _capped(change: Change, ceiling: datetime) -> Change:
+    """Cut a change's updated_at to the ceiling, the latest time a client clock may claim."""
+    if change.updated_at <= ceiling:
+        return change
+    return change.model_copy(update={"updated_at": ceiling})
 
 
 def _split_parents(changes: list[Change], results: list[ChangeResult]) -> set[uuid.UUID | None]:
