@@ -76,12 +76,14 @@ private let fixture: NameFixture = {
 
 private let zone = TimeZone(identifier: fixture.timeZone)!
 
-@Test(arguments: fixture.single)
-private func fileNameMatchesFixture(_ item: SingleCase) {
-    #expect(fileNames([item.item.input], timeZone: zone) == [item.expected])
-}
+@Suite struct RecordingExportNameTests {
+    @Test(arguments: fixture.single)
+    fileprivate func fileNameMatchesFixture(_ item: SingleCase) {
+        #expect(fileNames([item.item.input], timeZone: zone) == [item.expected])
+    }
 
-@Test(arguments: fixture.batches)
-private func batchNamesStayDistinct(_ batch: BatchCase) {
-    #expect(fileNames(batch.items.map(\.input), timeZone: zone) == batch.expected)
+    @Test(arguments: fixture.batches)
+    fileprivate func batchNamesStayDistinct(_ batch: BatchCase) {
+        #expect(fileNames(batch.items.map(\.input), timeZone: zone) == batch.expected)
+    }
 }

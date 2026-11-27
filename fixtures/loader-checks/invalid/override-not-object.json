@@ -1,0 +1,1 @@
+{"description": "Has an override that is not an object", "input": {}, "expected": {"rows": []}, "platform_overrides": {"apple": "x"}}

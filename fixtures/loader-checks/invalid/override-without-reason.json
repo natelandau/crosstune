@@ -1,0 +1,6 @@
+{
+  "description": "Has an override with an empty reason",
+  "input": {},
+  "expected": {"rows": []},
+  "platform_overrides": {"apple": {"reason": "", "fields": {"rows": ["x"]}}}
+}

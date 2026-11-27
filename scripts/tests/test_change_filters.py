@@ -37,6 +37,7 @@ AREAS = {
         paths=(
             "api/**",
             "compose.yml",
+            "fixtures/**",
             "ruff.toml",
             "pyproject.toml",
             "uv.lock",
@@ -120,7 +121,6 @@ AREAS = {
             "scripts/**",
             "apple/scripts/**",
             "**/*.py",
-            "!api/**",
             "ruff.toml",
             "ty.toml",
             "pyproject.toml",
@@ -129,10 +129,16 @@ AREAS = {
             ".pre-commit-config.yaml",
             "**/justfile",
             "**/*.just",
+            # The fixtures manifest test reads every fixture and the files it lists.
+            "fixtures/**",
+            "web/src/**",
+            "apple/CrosstuneKit/Sources/**",
+            "apple/CrosstuneKit/Tests/**",
+            "api/**",
         ),
         # The scripts lint covers every Python file outside api/; the tests
-        # cover only scripts/ and apple/scripts/.
-        ci_only=("**/*.py", "!api/**", "ruff.toml", "ty.toml"),
+        # cover only scripts/ and apple/scripts/, plus the manifest's files.
+        ci_only=("**/*.py", "ruff.toml", "ty.toml"),
     ),
 }
 

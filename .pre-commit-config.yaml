@@ -110,7 +110,7 @@ repos:
         language: system
         pass_filenames: false
         stages: [pre-push]
-        files: ^(api/|compose\.yml$|scripts/((gate-cache|media-tools)\.sh|settings\.just)$)
+        files: ^(api/|compose\.yml$|fixtures/|scripts/((gate-cache|media-tools)\.sh|settings\.just)$)
 
       # committed.toml holds the rules. Commitizen writes and bumps commits but does not check them.
       - id: committed
@@ -235,8 +235,9 @@ repos:
         language: system
         pass_filenames: false
         stages: [pre-push]
-        # The tests also read every justfile, workflow, and hook.
-        files: ^(scripts/|apple/scripts/|pyproject\.toml$|uv\.lock$|\.github/workflows/|\.pre-commit-config\.yaml$)|(^|/)justfile$|\.just$
+        # The tests also read every justfile, workflow, and hook, and every fixture and the
+        # files fixtures/manifest.json lists.
+        files: ^(scripts/|apple/scripts/|pyproject\.toml$|uv\.lock$|\.github/workflows/|\.pre-commit-config\.yaml$|fixtures/|web/src/|apple/CrosstuneKit/(Sources|Tests)/|api/)|(^|/)justfile$|\.just$
 
       - id: apple-swift-test
         name: swift test

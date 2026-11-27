@@ -100,6 +100,29 @@ build-tests:
 test *args:
     {{ gate }} apple-test {{ paths }} --path fixtures/ --path api/openapi.json --path analytics/tracking-plan.json {{ web_copy_paths }} --argc "$#" --tool 'swift --version' bash -c '{{ package_test }} test "$@"' _ "$@"
 
+[doc("Run the shared-case suites; fail when one is empty")]
+[group('test')]
+test-shared:
+    {{ gate }} apple-test-shared {{ paths }} --path fixtures/ --tool 'swift --version' just _test-shared
+
+[script]
+_test-shared manifest='../fixtures/manifest.json':
+    # Runs every apple_suites entry in the manifest. xcodebuild succeeds on an unknown
+    # -only-testing id, so each suite is checked against the result bundle.
+    suites=()
+    while IFS= read -r suite; do suites+=("$suite"); done < <(jq -r '.rules[].apple_suites[]' {{ manifest }})
+    [ "${#suites[@]}" -gt 0 ] || { echo "no apple_suites in {{ manifest }}" >&2; exit 1; }
+    only=()
+    for suite in "${suites[@]}"; do only+=("-only-testing:$suite"); done
+    bundle="$(mktemp -d)/shared.xcresult"
+    trap 'rm -rf "$(dirname "$bundle")"' EXIT
+    {{ package_test }} test -resultBundlePath "$bundle" "${only[@]}"
+    empty="$(xcrun xcresulttool get test-results tests --path "$bundle" | jq -r --args '
+        [.. | objects | select(.nodeType == "Test Case") | .nodeIdentifierURL // ""] as $ran
+        | $ARGS.positional[]
+        | select(("/CrosstuneKit/" + . + "/") as $id | $ran | any(contains($id)) | not)' "${suites[@]}")"
+    [ -z "$empty" ] || { printf 'shared suite %s ran 0 tests; fix its id in {{ manifest }}\n' $empty >&2; exit 1; }
+
 # The compilation cache is keyed on content rather than file dates, so CI restores it into a
 # fresh checkout and still hits. Xcode's own limit is half the free disk, which a CI runner never
 # reaches, so a cache restored and saved on every run would grow without end; this one prunes

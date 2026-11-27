@@ -1,0 +1,6 @@
+{
+  "description": "Has an override naming a field absent from expected",
+  "input": {},
+  "expected": {"rows": []},
+  "platform_overrides": {"apple": {"reason": "Targets a missing field", "fields": {"missing": 1}}}
+}

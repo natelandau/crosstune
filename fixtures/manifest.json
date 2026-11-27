@@ -1,0 +1,276 @@
+{
+  "rules": {
+    "export": {
+      "sources": [
+        "web/src/features/settings/export/buildExport.ts",
+        "web/src/features/settings/export/csv.ts",
+        "web/src/features/recordings/export/exportName.ts",
+        "apple/CrosstuneKit/Sources/CrosstuneExport/BuildExport.swift",
+        "apple/CrosstuneKit/Sources/CrosstuneExport/CSV.swift",
+        "apple/CrosstuneKit/Sources/CrosstuneExport/RecordingExportName.swift"
+      ],
+      "readers": [
+        "web/src/features/settings/export/buildExport.test.ts",
+        "web/src/features/recordings/export/exportName.test.ts",
+        "apple/CrosstuneKit/Tests/CrosstuneExportTests/BuildExportTests.swift",
+        "apple/CrosstuneKit/Tests/CrosstuneExportTests/RecordingExportNameTests.swift"
+      ],
+      "apple_suites": [
+        "CrosstuneExportTests/BuildExportTests",
+        "CrosstuneExportTests/RecordingExportNameTests"
+      ]
+    },
+    "import": {
+      "sources": [
+        "web/src/features/import/plainList.ts",
+        "web/src/features/import/review.ts",
+        "apple/CrosstuneKit/Sources/CrosstuneCommands/Import/PlainListReader.swift",
+        "apple/CrosstuneKit/Sources/CrosstuneCommands/Import/ImportReview.swift"
+      ],
+      "readers": [
+        "web/src/features/import/plainList.test.ts",
+        "web/src/features/import/review.test.ts",
+        "apple/CrosstuneKit/Tests/CrosstuneCommandsTests/PlainListReaderTests.swift",
+        "apple/CrosstuneKit/Tests/CrosstuneCommandsTests/ImportReviewTests.swift"
+      ],
+      "apple_suites": [
+        "CrosstuneCommandsTests/PlainListReaderTests",
+        "CrosstuneCommandsTests/ImportReviewTests"
+      ]
+    },
+    "isolate": {
+      "sources": [
+        "web/src/features/player/isolate/isolateMask.ts",
+        "apple/CrosstuneKit/Sources/CrosstuneAudio/Isolate/IsolateMask.swift"
+      ],
+      "readers": [
+        "web/src/features/player/isolate/isolateMask.test.ts",
+        "apple/CrosstuneKit/Tests/CrosstuneAudioTests/IsolateMaskTests.swift"
+      ],
+      "apple_suites": [
+        "CrosstuneAudioTests/IsolateMaskTests"
+      ]
+    },
+    "stats": {
+      "sources": [
+        "web/src/features/stats/computeStats.ts",
+        "web/src/features/stats/breakdowns.ts",
+        "web/src/features/stats/calendar.ts",
+        "web/src/features/stats/equivalences.ts",
+        "apple/CrosstuneKit/Sources/CrosstuneCommands/Stats/ComputeStats.swift",
+        "apple/CrosstuneKit/Sources/CrosstuneCommands/Stats/Breakdowns.swift",
+        "apple/CrosstuneKit/Sources/CrosstuneCommands/Stats/Calendar.swift",
+        "apple/CrosstuneKit/Sources/CrosstuneCommands/Stats/Equivalences.swift"
+      ],
+      "readers": [
+        "web/src/features/stats/computeStats.test.ts",
+        "apple/CrosstuneKit/Tests/CrosstuneCommandsTests/ComputeStatsTests.swift"
+      ],
+      "apple_suites": [
+        "CrosstuneCommandsTests/ComputeStatsTests"
+      ]
+    },
+    "text": {
+      "sources": [
+        "web/src/text/fold.ts",
+        "apple/CrosstuneKit/Sources/CrosstuneVocabulary/TextFold.swift"
+      ],
+      "readers": [
+        "web/src/text/fold.test.ts",
+        "apple/CrosstuneKit/Tests/CrosstuneVocabularyTests/TextFoldTests.swift"
+      ],
+      "apple_suites": [
+        "CrosstuneVocabularyTests/TextFoldTests"
+      ]
+    },
+    "tuner": {
+      "sources": [
+        "web/src/features/tuner/pitch/nsdf.ts",
+        "web/src/features/tuner/pitch/tracker.ts",
+        "web/src/features/tuner/pitch/notes.ts",
+        "web/src/features/tuner/pitch/constants.ts",
+        "apple/CrosstuneKit/Sources/CrosstuneAudio/Tuner/NSDF.swift",
+        "apple/CrosstuneKit/Sources/CrosstuneAudio/Tuner/PitchTracker.swift",
+        "apple/CrosstuneKit/Sources/CrosstuneAudio/Tuner/Notes.swift"
+      ],
+      "readers": [
+        "web/src/test/tunerClips.ts",
+        "apple/CrosstuneKit/Tests/CrosstuneAudioTests/Tuner/ClipSynth.swift",
+        "web/src/features/tuner/pitch/nsdf.test.ts",
+        "web/src/features/tuner/pitch/tracker.test.ts",
+        "apple/CrosstuneKit/Tests/CrosstuneAudioTests/Tuner/NSDFTests.swift",
+        "apple/CrosstuneKit/Tests/CrosstuneAudioTests/Tuner/PitchTrackerTests.swift"
+      ],
+      "apple_suites": [
+        "CrosstuneAudioTests/Tuner/NSDFTests",
+        "CrosstuneAudioTests/Tuner/PitchTrackerTests"
+      ]
+    },
+    "write-timestamp": {
+      "sources": [
+        "web/src/commands/write.ts",
+        "apple/CrosstuneKit/Sources/CrosstuneStore/Timestamp.swift"
+      ],
+      "readers": [
+        "web/src/commands/writeTimestamp.shared.test.ts",
+        "apple/CrosstuneKit/Tests/CrosstuneStoreTests/SharedWriteTimestampCases.swift"
+      ],
+      "apple_suites": [
+        "CrosstuneStoreTests/SharedWriteTimestampCases"
+      ]
+    },
+    "outbox": {
+      "sources": [
+        "web/src/db/outbox.ts",
+        "apple/CrosstuneKit/Sources/CrosstuneStore/Outbox.swift"
+      ],
+      "readers": [
+        "web/src/db/outbox.shared.test.ts",
+        "apple/CrosstuneKit/Tests/CrosstuneStoreTests/SharedOutboxCases.swift"
+      ],
+      "apple_suites": [
+        "CrosstuneStoreTests/SharedOutboxCases"
+      ]
+    },
+    "loader-checks": {
+      "sources": [
+        "web/src/test/sharedCases.ts",
+        "apple/CrosstuneKit/Tests/CrosstuneTestSupport/SharedCases.swift",
+        "api/tests/shared_cases.py"
+      ],
+      "readers": [
+        "web/src/test/sharedCases.test.ts",
+        "apple/CrosstuneKit/Tests/CrosstuneStoreTests/SharedCasesLoaderTests.swift",
+        "api/tests/test_shared_cases_loader.py"
+      ],
+      "apple_suites": [
+        "CrosstuneStoreTests/SharedCasesLoaderTests"
+      ]
+    },
+    "sync-pull": {
+      "sources": [
+        "web/src/sync/apply.ts",
+        "apple/CrosstuneKit/Sources/CrosstuneStore/Apply.swift",
+        "apple/CrosstuneKit/Sources/CrosstuneSync/LiveSyncAPI.swift",
+        "apple/CrosstuneKit/Sources/CrosstuneStore/Records.swift",
+        "web/src/db/types.ts",
+        "web/src/db/meta.ts",
+        "apple/CrosstuneKit/Sources/CrosstuneStore/Meta.swift"
+      ],
+      "readers": [
+        "web/src/test/syncCases.ts",
+        "web/src/sync/applyPull.shared.test.ts",
+        "apple/CrosstuneKit/Tests/CrosstuneSyncTests/SharedSyncCaseSupport.swift",
+        "apple/CrosstuneKit/Tests/CrosstuneSyncTests/SharedSyncPullCases.swift"
+      ],
+      "apple_suites": [
+        "CrosstuneSyncTests/SharedSyncPullCases"
+      ]
+    },
+    "sync-events": {
+      "sources": [
+        "web/src/sync/apply.ts",
+        "apple/CrosstuneKit/Sources/CrosstuneStore/Apply.swift",
+        "apple/CrosstuneKit/Sources/CrosstuneSync/LiveSyncAPI.swift",
+        "apple/CrosstuneKit/Sources/CrosstuneStore/EventRecords.swift",
+        "web/src/db/types.ts",
+        "web/src/db/meta.ts",
+        "apple/CrosstuneKit/Sources/CrosstuneStore/Meta.swift",
+        "apple/CrosstuneKit/Sources/CrosstuneStore/Records.swift"
+      ],
+      "readers": [
+        "web/src/test/syncCases.ts",
+        "web/src/sync/applyEvents.shared.test.ts",
+        "apple/CrosstuneKit/Tests/CrosstuneSyncTests/SharedSyncCaseSupport.swift",
+        "apple/CrosstuneKit/Tests/CrosstuneSyncTests/SharedSyncEventsCases.swift"
+      ],
+      "apple_suites": [
+        "CrosstuneSyncTests/SharedSyncEventsCases"
+      ]
+    },
+    "sync-push-results": {
+      "sources": [
+        "web/src/sync/apply.ts",
+        "web/src/db/outbox.ts",
+        "web/src/db/meta.ts",
+        "web/src/db/types.ts",
+        "apple/CrosstuneKit/Sources/CrosstuneStore/Apply.swift",
+        "apple/CrosstuneKit/Sources/CrosstuneStore/Meta.swift",
+        "apple/CrosstuneKit/Sources/CrosstuneStore/Records.swift",
+        "apple/CrosstuneKit/Sources/CrosstuneStore/EventRecords.swift",
+        "apple/CrosstuneKit/Sources/CrosstuneSync/LiveSyncAPI.swift"
+      ],
+      "readers": [
+        "web/src/test/syncCases.ts",
+        "web/src/sync/applyPush.shared.test.ts",
+        "apple/CrosstuneKit/Tests/CrosstuneSyncTests/SharedSyncCaseSupport.swift",
+        "apple/CrosstuneKit/Tests/CrosstuneSyncTests/SharedSyncPushResultsCases.swift"
+      ],
+      "apple_suites": [
+        "CrosstuneSyncTests/SharedSyncPushResultsCases"
+      ]
+    },
+    "plan": {
+      "sources": [
+        "web/src/billing/plan.ts",
+        "apple/CrosstuneKit/Sources/CrosstuneStore/Plan.swift",
+        "apple/CrosstuneKit/Sources/CrosstuneStore/Records.swift"
+      ],
+      "readers": [
+        "web/src/billing/plan.shared.test.ts",
+        "apple/CrosstuneKit/Tests/CrosstuneStoreTests/SharedPlanCases.swift"
+      ],
+      "apple_suites": [
+        "CrosstuneStoreTests/SharedPlanCases"
+      ]
+    },
+    "split-hold": {
+      "sources": [
+        "web/src/commands/recordings.ts",
+        "web/src/domain/recordingLimits.ts",
+        "apple/CrosstuneKit/Sources/CrosstuneStore/RecordingLimits.swift"
+      ],
+      "readers": [
+        "web/src/commands/splitHold.shared.test.ts",
+        "apple/CrosstuneKit/Tests/CrosstuneStoreTests/SharedSplitHoldCases.swift"
+      ],
+      "apple_suites": [
+        "CrosstuneStoreTests/SharedSplitHoldCases"
+      ]
+    },
+    "mono": {
+      "sources": [
+        "api/src/crosstune/jobs/mono.py",
+        "apple/CrosstuneKit/Sources/CrosstuneAudio/Isolate/MonoDetector.swift"
+      ],
+      "readers": [
+        "api/tests/test_mono_shared.py",
+        "apple/CrosstuneKit/Tests/CrosstuneAudioTests/SharedMonoCases.swift"
+      ],
+      "apple_suites": [
+        "CrosstuneAudioTests/SharedMonoCases"
+      ]
+    },
+    "sync-engine": {
+      "sources": [
+        "web/src/sync/engine.ts",
+        "web/src/db/outbox.ts",
+        "web/src/api/client.ts",
+        "apple/CrosstuneKit/Sources/CrosstuneSync/SyncEngine.swift",
+        "apple/CrosstuneKit/Sources/CrosstuneStore/CrosstuneStore.swift",
+        "apple/CrosstuneKit/Sources/CrosstuneSync/LiveSyncAPI.swift"
+      ],
+      "readers": [
+        "web/src/test/syncCases.ts",
+        "web/src/test/scriptedFetch.ts",
+        "web/src/sync/engine.shared.test.ts",
+        "apple/CrosstuneKit/Tests/CrosstuneSyncTests/SharedSyncCaseSupport.swift",
+        "apple/CrosstuneKit/Tests/CrosstuneSyncTests/ScriptedTransport.swift",
+        "apple/CrosstuneKit/Tests/CrosstuneSyncTests/SharedSyncEngineCases.swift"
+      ],
+      "apple_suites": [
+        "CrosstuneSyncTests/SharedSyncEngineCases"
+      ]
+    }
+  }
+}
