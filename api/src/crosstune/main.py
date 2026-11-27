@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 
 import sentry_sdk
 from fastapi import FastAPI
+from fastapi.middleware.gzip import GZipMiddleware
 from sentry_sdk.scrubber import EventScrubber
 
 from crosstune import __version__
@@ -193,9 +194,12 @@ def _add_middleware(app: FastAPI) -> None:
     app.add_middleware(RequestBodyLimit)
     # Outside RequestBodyLimit: a blocked request is answered before its body is checked.
     app.add_middleware(VersionGate)
-    # Outermost of these, so the problems VersionGate and RequestBodyLimit answer with carry
-    # it too. Starlette's ServerErrorMiddleware still wraps it.
+    # Outside VersionGate and RequestBodyLimit, so the problems they answer with carry it too.
+    # Starlette's ServerErrorMiddleware still wraps it.
     app.add_middleware(NoStore)
+    # Railway's edge passes the API's bodies through as sent, and a first pull is several
+    # pages of JSON. Level 6 keeps nearly all of level 9's savings for far less CPU.
+    app.add_middleware(GZipMiddleware, compresslevel=6)
 
 
 @asynccontextmanager
